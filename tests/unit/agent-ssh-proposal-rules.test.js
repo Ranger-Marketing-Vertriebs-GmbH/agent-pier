@@ -166,7 +166,7 @@ test("only a turn of the owner's own message may propose", () => {
     { attemptId: null },
     { routine: { binding: { id: "b" } } },
     { hook: { event: { id: "e" } } },
-    { continuation: { attemptId: "x" } },
+    { ownerRun: { conversationId: "c" } },
   ])
     assert.throws(() => owner(inv), ownerOnly, JSON.stringify(inv));
   assert.equal(owner().agent.id, "a");

@@ -53,8 +53,12 @@ test("a refused memory write leaves one quiet chat note per turn and reason", as
   assert.equal(await f.call("MEMORY.md"), true);
   assert.deepEqual(f.notes(), ["forwarded", "lead-request"]);
   f.assistants.ledger.transition(owner.attemptId, "completed");
-  // Scheduled and other automatic turns are named as such.
-  const scheduled = await f.invocation("scheduled", { kind: "reminder" });
+  // Automatic turns of someone else's content are named as such; a reminder of the
+  // owner's chat writes like his turn (AGENTPIER-276).
+  const reminder = await f.invocation("reminder", { kind: "reminder" });
+  assert.equal(await f.call("MEMORY.md"), true);
+  f.assistants.ledger.transition(reminder.attemptId, "completed");
+  const scheduled = await f.invocation("scheduled", { kind: "member-report" });
   assert.equal(await f.call("MEMORY.md"), false);
   assert.deepEqual(f.notes(), ["forwarded", "lead-request", "automatic"]);
   // A refused flush of the conversation's run is noted as such.

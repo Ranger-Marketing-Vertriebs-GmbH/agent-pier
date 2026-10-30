@@ -10,7 +10,7 @@ import { resultTurn } from "./member-result-writes.js";
 import { isUserAgent } from "../users/user-access.js";
 import { directTurn } from "./memory-write-policy.js";
 import { userAgentLocked } from "../users/user-agent-lock.js";
-import { continuedTurn } from "./exec-continuation.js";
+import { ownerTurn } from "./owner-runs.js";
 import { liveAttempt } from "./run-confirmation.js";
 import {
   hookActionAllowed,
@@ -32,20 +32,20 @@ const leadTaskActions = new Set([
 const routineRefused = new Set(["coding_cancel"]);
 
 /**
- * The turn context of a workspace call: the owner's own turn (also from its
- * Telegram chat, not forwarded), a restricted user's own turn on her agent, a temporary member's team turn (team-coding.js)
- * a task the member's lead delegated to it (leadRequestContext) or a lead's follow-up
- * on its member's result (`memberResult`: the lead's own folders and projects, never
- * shares, and coding requests always wait for the owner) or the completion run of a
- * command such a turn started (`execContinuation`, exec-continuation.js: its
- * project folders only) or a hook run (`hook`, agent-hook-workspace.js). Every other
- * turn is refused.
+ * The turn context of a workspace call: any turn of the owner's own chat with his
+ * agent that is not someone else's content (owner-runs.js: his messages, also from
+ * Telegram, check-ins, reminders), a run of that chat without a turn (`ownerRun`),
+ * a restricted user's own turn on her agent, a temporary member's team turn
+ * (team-coding.js), a task the member's lead delegated to it (leadRequestContext), a
+ * lead's follow-up on its member's result (`memberResult`: the lead's own folders and
+ * projects, never shares) or a hook run (`hook`, agent-hook-workspace.js). Every
+ * other turn is refused.
  */
 export function workspaceContext(w, inv, { codingStart = false } = {}) {
   inv.assertCurrent();
   if (!inv.attemptId && inv.hook) return hookContext(w, inv);
   if (!inv.attemptId && inv.routine) return routineContext(w, inv);
-  if (!inv.attemptId && inv.continuation) return continuationContext(w, inv);
+  if (!inv.attemptId && inv.ownerRun) return ownerRunContext(w, inv);
   // The call waited for the admission lock, which a send holds until it is
   // acknowledged or times out: its own run proves a send that timed out meanwhile.
   const attempt = liveAttempt(w.a, inv);
@@ -82,8 +82,14 @@ export function workspaceContext(w, inv, { codingStart = false } = {}) {
     origin.kind === "member-result"
       ? resultTurn(w.a, origin.requestId, attempt.id)
       : null;
-  // A restricted user's own turn counts only on an agent she is a user of.
-  if (!memberResult && !directTurn(origin, agent)) throw assistantProblem("invalid", 403);
+  // A restricted user's own turn counts only on an agent she is a user of; a
+  // member's result only as that proven follow-up.
+  if (
+    !memberResult &&
+    !directTurn(origin, agent) &&
+    (origin.kind === "member-result" || !ownerTurn(agent, chat, origin))
+  )
+    throw assistantProblem("invalid", 403);
   return {
     assistantId: chat.assistantId,
     conversationId: chat.id,
@@ -94,37 +100,28 @@ export function workspaceContext(w, inv, { codingStart = false } = {}) {
 }
 
 /**
- * A command's completion run (TeamBridge.prepare, re-proven on every step): the
- * turn that started it (exec-continuation.js continuedTurn), re-checked live like
- * that turn's own calls. A lead's follow-up on its member's result keeps the lead's
- * own access only, as in that turn.
+ * A run of the owner's chat without a turn (TeamBridge.prepare, re-checked on every
+ * step by owner-runs.js): OpenClaw's follow-up after a background command, a
+ * heartbeat. It works like the owner's turn, on the agent's standing grants.
  */
-function continuationContext(w, inv) {
-  const attempt = w.a.ledger.getAttempt(inv.continuation.attemptId);
-  const req = w.a.ledger.getRequest(attempt.requestId),
-    chat = w.a.store.getConversation(req.conversationId);
-  const origin = w.a.teams.store.context(req.id);
-  const agent = w.access.eligible(chat.assistantId);
-  if (!continuedTurn(w.a, origin, agent, attempt.id))
-    throw assistantProblem("invalid", 403);
+function ownerRunContext(w, inv) {
+  const chat = w.a.store.getConversation(inv.ownerRun.conversationId);
+  w.access.eligible(chat.assistantId);
   return {
     assistantId: chat.assistantId,
     conversationId: chat.id,
-    attemptId: attempt.id,
-    origin,
-    ...(origin.kind === "member-result"
-      ? { memberResult: { requestId: origin.requestId } }
-      : {}),
-    execContinuation: { attemptId: attempt.id },
+    attemptId: null,
+    origin: { kind: "agent-run" },
+    ownerRun: { key: `run:${inv.sessionKey}:${inv.runId || ""}` },
   };
 }
 
 /**
  * A routine's own run (TeamBridge.routineRun: a bound, enabled routine of a
  * personal agent with routines on, re-checked on every step): the agent's own
- * project folders and its lead's standing shares, read always, changed only when
- * the owner marked the routine "May write" (`routineWrites` on its binding, read
- * live here). Coding requests always wait for the owner.
+ * project folders and its lead's standing shares at their levels, read-only only
+ * when the owner switched "May write" off for the routine (`routineWrites: false` on
+ * its binding, read live here).
  */
 function routineContext(w, inv) {
   const agent = w.access.eligible(inv.routine.conversation.assistantId);
@@ -141,7 +138,7 @@ function routineContext(w, inv) {
       bindingId: binding.id,
       name: binding.definition?.name || "",
       // The owner's "May write", or for a lead's routine its autonomous usage.
-      writable: w.a.routines?.writable?.(binding) ?? binding.routineWrites === true,
+      writable: w.a.routines?.writable?.(binding) ?? binding.routineWrites !== false,
       key: `routine:${inv.sessionKey}`,
       sessionKey: inv.sessionKey,
     },
@@ -288,14 +285,6 @@ export async function workspaceCall(w, inv, input) {
       input.id !== ctx.codingStart)
   )
     throw assistantProblem("invalid", 403);
-  // A command's completion reaches the project folders only, never coding requests
-  // or project memory (exec-continuation.js).
-  if (
-    ctx.execContinuation &&
-    !fileActions.has(input.action) &&
-    !["catalog", "browser_upload_stage"].includes(input.action)
-  )
-    throw assistantProblem("invalid", 403);
   // A hook run reaches what its ticks allow, nothing else (agent-hook-workspace.js).
   if (ctx.hook && !hookActionAllowed(ctx, input.action))
     throw assistantProblem("invalid", 403);
@@ -369,12 +358,12 @@ export async function workspaceCall(w, inv, input) {
   )
     throw assistantProblem("invalid");
   inv.assertCurrent();
-  const { leadRequest: task, routine, hook, memberResult, ...stored } = ctx;
+  const { leadRequest: task, routine, hook, memberResult, ownerRun, ...stored } = ctx;
   const action = w.store.reserve({
     ...stored,
     payload,
     accessRevision: approvalRevision(p),
-    key: `${hook?.key || routine?.key || inv.attemptId}:${inv.toolCallId}`,
+    key: `${hook?.key || routine?.key || ownerRun?.key || inv.attemptId}:${inv.toolCallId}`,
     // A member's request, every request on a lead's share and every request in a
     // lead's or sibling's task waits for the owner, whatever the standing permission
     // says. A hook's Coding tick starts its request on the agent's own project.

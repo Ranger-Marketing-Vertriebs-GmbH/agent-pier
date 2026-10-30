@@ -256,14 +256,15 @@ for the implementation and remaining native platform/version qualification.
 
 ## Security boundaries
 
-- **Only owner turns and a routine's own run write natively.** The write guard
-  covers every native file tool (`write`, `edit`, `apply_patch`). It admits the
-  owner's own turn, an owner-proven member task (or one an autonomous lead or a routine
-  the owner marked **May write** started) and, as a deliberate widening of the
-  owner-only rule, the run of a routine the owner configured for that agent
-  (`TeamBridge.routineWrite`, see [workflows](assistant-workflows.md)). A turn that is
-  forwarded, internal, made by a team member without owner proof, or a reminder or
-  check-in run, cannot change files, and no turn but the owner's changes memory
+- **Only runs of the owner's own chat and a routine's own run write natively.** The
+  write guard covers every native file tool (`write`, `edit`, `apply_patch`). It admits
+  every run of the owner's own chat with his agent (his turns, check-ins, reminders
+  and runs without a turn such as a command's follow-up, AGENTPIER-276, see
+  `owner-runs.js`), an owner-proven member task (or one an autonomous lead or a
+  routine with **May write** started) and the run of a routine the owner configured
+  for that agent (`TeamBridge.routineWrite`, see [workflows](assistant-workflows.md)).
+  A turn that is forwarded or made by a team member without owner proof, or a run that
+  follows such content, cannot change files, and no turn but the owner's changes memory
   settings, reminders or routines. Forwarded Telegram text, voice or files are
   quoted data, never authority. Plain-language team requests follow the rule in
   [Visible teams](#visible-teams-operation-and-recovery).
@@ -336,8 +337,8 @@ for the implementation and remaining native platform/version qualification.
   every folder, so another case or the `/System/Volumes/Data` firmlink never reaches
   it, `protected-dirs.js`), changed only with the proven guard and
   audited with path and size ([folder access](assistant-workflows.md#direct-folder-access)).
-  A routine run reads them and changes them only when the owner marked that routine
-  **May write**. A browser upload from them goes through a copy AgentPier stages for
+  A routine run uses them at the agent's level unless the owner switched **May
+  write** off for that routine. A browser upload from them goes through a copy AgentPier stages for
   that agent's browser alone ([browser uploads](#browser-uploads)).
 - **The hook endpoint is a machine path.** `POST /hooks/<hookId>`
   ([agent hooks](assistant-workflows.md#agent-hooks)) is served on AgentPier's own
@@ -1254,8 +1255,8 @@ A lead reaches its own members without the owner relaying anything
   `resultWriteRefused`, the chat history marks that follow-up `goAhead`
   (`conversations.js goAheadMarks`), and the web chat offers **Go ahead** below the
   lead's reply while nothing newer was sent: it sends "Yes, go ahead" as a real owner
-  message. A background command's completion run continues its owner turn in the
-  same way, under stricter proof (see **Command completions** below).
+  message. A background command's follow-up run works like any run of the owner's
+  chat (see **Command completions** below).
 - **Answers.** The member's answer or result is its run's last reply, kept whole
   up to 65,536 characters; the request record keeps its first 2,000 code points
   (`answerTruncated`) and the whole answer has its own `text` row, pruned with the
@@ -1304,13 +1305,13 @@ A lead reaches its own members without the owner relaying anything
   resolves the lead from the routine's chat (members and archived agents never lead),
   and the request is stored with `origin: { kind: "routine", bindingId, name }` and
   `routineRun` (the run session) in place of `parentRequestId`. A routine is not
-  owner text: no quote, mention or yes is read, so its tasks do not write
-  (`writeAllowed: false`, no `ownerProof`, never `autonomous`) at every usage level,
-  unless the owner switched on **May write** for that routine (`routineWrites` on
-  its binding, set through the owner's
+  owner text: no quote, mention or yes is read. Its tasks write while the routine's
+  **May write** is on, which it is by default (AGENTPIER-276); with **May write** off
+  (`routineWrites: false` on its binding, set through the owner's
   `PATCH /api/assistants/:id/routines/:routineId` with `writes`, or by the agent's own
   `agentpier_routine` on the owner's direct request (below), audited as
-  `kind: "routine-writes"`). Its tasks then
+  `kind: "routine-writes"`) they do not write (`writeAllowed: false`, no
+  `ownerProof`, never `autonomous`) at every usage level. Otherwise its tasks
   count as the owner's standing instruction: the context records `writes: true`
   and the request `routineWrites: true` and `writeAllowed: true`, which
   `LeadRequests.mayWrite` accepts like an owner proof (`taskWritable`
@@ -1578,212 +1579,68 @@ was compacted and the plan was gone. Four rules close that gap:
   per readiness, and the turns run read-only. Whether a turn ran read-only is
   decided after its apply: its `AGENTS.md` then says memory is read-only, and the
   chat shows a note.
-- **Command completions (AGENTPIER-185).** An owner turn may start a long
-  background `exec` (a render, a build) and end before it exits. With
-  `tools.exec.notifyOnExit` (OpenClaw's default) the Gateway then runs the same
-  session once more. The pinned OpenClaw 2026.10.7 sends an ordinary event turn
-  (`enqueueSessionEventForHost`, source `exec`), one per process, whose prompt is
-  the bare line `Exec <status> (<id8>, <exit>) :: <output>` behind OpenClaw's usual
-  timestamp envelope; its hooks see `ctx.trigger: "event"`, and its agent events
-  carry no mark (`isHeartbeat: false`). The rollback targets 2026.10.3, 2026.9.9 and
-  2026.9.8 wake the session through their heartbeat runner instead, with a hidden
-  framed prompt `[OpenClaw exec completion]` that may list several processes, and
-  agent events marked `isHeartbeat: true` (`heartbeat-runner-run`,
-  `internal-turn-source`). Both write the completion's user entry with the input
-  provenance `{ kind: "internal_system", sourceTool: "exec" }` and
-  `senderIsOwner: false`. That run has no AgentPier attempt, so every `write` and
-  `edit` used to be refused and the agent asked the owner to type "continue". `exec-continuation.js` lets such a run
-  write and use project-folder file actions with the rights of the turn that
-  started the command, only when AgentPier proves all of this. Sending the owner a
-  file needs none of it (AGENTPIER-274, see
-  [Files agents share](#files-agents-share-2026-10-17)):
-  - The session is a chat of the calling agent, which is not archived and no
-    temporary task member.
-  - The source turn is a completed turn that continues the owner's own work
-    (`continuedTurn`): a direct turn
-    (`directTurn`: the owner, his paired Telegram chat or a restricted user still on
-    the agent, read live, never forwarded; a work-goal continuation is recorded as
-    the owner's), or a lead's follow-up on its member's result (`member-result`,
-    proven by `resultTurn` as for that turn's own writes, on the lead's own grants
-    only; AGENTPIER-237). It started at most two hours ago
-    (`continuationWindowMs`, four times OpenClaw's default exec timeout of 30
-    minutes). The source turn is the chat's latest ledger request (`latestRequest`,
-    one row), or the earlier request whose attempt started every process the
-    completion reports when each request after it completed unreviewed and is
-    either a lead's follow-up on its member's result that `resultTurn` proves or
-    the owner's own direct message (`owner` or `telegram`, never forwarded, never
-    on a user agent) (`sourceRequest`, AGENTPIER-261: such follow-ups arrive on
-    their own while a render runs, and the lead's completion run used to be refused
-    with `PROCESS`; the owner decided that his own newer message does not end the
-    command's follow-up either). The run keeps the source turn's rights, chat and
-    Telegram target, and the window counts from the source turn. Later means later
-    by row (`requestsAfter`), never by time, so a clock step cannot hide newer
-    forwarded content. Any other newer request (forwarded content, a restricted
-    user's message, a reminder, a routine, a lead's task, a hook report, an
-    interrupted turn) ends the continuation, and the completion run is never a
-    ledger turn's own run.
-  - The call names its run: the write hook's `runId`, or for `agentpier_workspace`
-    the run of its tool call (looked up by session and tool call id). A call without
-    a run continues nothing. The run is not that turn's own run, and
-    `CompletionRuns` (cleared on every reconnect and at the run's `lifecycle` end)
-    knows it as a completion run in this session in one of two ways:
-    - **Heartbeat run** (rollback targets): the Gateway's `agent` events mark it
-      heartbeat-driven (`isHeartbeat`). The run is hidden from the Control UI, so
-      these events arrive only through the chat's `sessions.messages.subscribe`.
-    - **Event turn** (2026.10.7): the plugin recorded the run's prompt under
-      `ctx.trigger: "event"`, which only OpenClaw's own session events set (a typed
-      message is `"user"`, and a user turn records nothing), and sends it marked
-      `internal`. Because that trigger is not exec-specific, AgentPier then reads
-      the session's transcript once per run (`sessions.get`, 200 entries, 5 s;
-      concurrent calls of the run share the read). The run's first record (the
-      assistant message holding its tool call, annotated with its run id) must be
-      directly preceded by a user entry without another run's id whose provenance
-      is exactly `{ kind: "internal_system", sourceTool: "exec" }` and whose
-      process lines equal the plugin's. The entry carries no run id or other key
-      that names the run, so this positional match is the link. A Gateway error, a
-      missing, foreign or non-adjacent entry, other provenance or other lines
-      refuse with `NOT_COMPLETION`; a run that ended during the read is not
-      admitted. Only a verified run enters `CompletionRuns`, and the whole proof
-      then runs again.
-  - The run's completion names only processes that this turn started in the
-    background. OpenClaw names a process by an adjective-noun slug that is unique
-    only among live processes, numbered on a clash, and its completion prompt
-    reports only the first eight characters (`Exec <status> (<id>, <exit>)`). Many
-    processes can therefore share what the completion reports. The proof needs the
-    session's every background process with its full id and starting run, and the
-    transcript cannot give that for a long chat. The AgentPier plugin keeps the
-    Gateway's own record instead (`team-plugin/exec-processes.js`, on
-    `globalThis`, so a plugin reload keeps it). `after_tool_call` records each
-    `exec` result with `status: "running"` (`details.sessionId`) and the run that
-    started it. A Code Mode cell is named `exec` too but runs no command itself;
-    only `before_tool_call` names its kind (`toolKind: "code_mode_exec"`), so the
-    plugin recognises its result by the call and never records it (a cell that
-    awaits a nested call reports `status: "waiting"`, which would otherwise leave
-    the session uncertain). Each command a cell starts reports as a nested `exec`
-    call of its own. `llm_input` records the completion run's prompt in one of two
-    shapes: 2026.10.3's framing, where every line between OpenClaw's completion
-    text and "Treat this completion" must be a process line; or 2026.10.7's bare
-    shape, only under the `event` trigger, where after the optional timestamp
-    envelope every non-empty line must be a process line or, once after one,
-    OpenClaw's verbatim timeout guidance. The write hook and the workspace call send
-    the record for the run. Every process whose first eight characters equal a
-    reported id must belong to that turn's run, and at least one must; a shorter id
-    must equal a whole id. A completion that batches an earlier turn's process
-    with this turn's (OpenClaw can deliver one again when an owner message arrives
-    during its run) is therefore refused. A command that a completion run starts
-    is recorded with the run whose processes that completion reports, when they
-    all belong to one run (`creditedRun`, AGENTPIER-274): a render's export and its
-    check, each started by the previous step's completion run, continue the turn
-    that started the render, within its two-hour window.
-  - The record is complete. It must exist before `gateway_start`; one that appears
-    later may have missed processes. A result with a known end status (`completed`,
-    also with a non-zero exit code, `failed`, `denied` and other refusals) left
-    nothing running, although OpenClaw also reports it to the hook as an error.
-    OpenClaw keeps its own "not started" mark private, so any other errored `exec`
-    call counts as having started nothing only when its whole message is one
-    OpenClaw raises before a command can start: argument validation
-    (`Validation failed for tool "exec":`), the exec host checks it marks not
-    started (`exec host not allowed …`, the sandbox requirements), or the process
-    supervisor's checks before it spawns (2026.10.7: a NUL byte in the command,
-    an empty argv, a PTY that needs process-tree cleanup). 2026.10.7 reports an
-    error thrown inside the tool as JSON text whose `details` carry
-    `{ status: "error", tool: "exec", error }`; the plugin reads that `error`. Any
-    other error leaves an unknown process of its run (reported as id `*`), because
-    OpenClaw can report an error after the command already went to the background
-    (an abort after the yield). It could be any reported process, so it refuses
-    other runs' completions in that session (`UNKNOWN_EXEC`), but only until its
-    run ends (`agent_end`), and for 30 minutes at most. Before AGENTPIER-274 such an
-    error marked the whole session uncertain until the Gateway restarted, which
-    refused every later completion of that chat.
-    Each bound fails closed for one session only:
-    - A process leaves the record only when its end is positively observed, never
-      by its pid. OpenClaw's exec session and its completion last until the
-      command's output closes, so a shell that exits while `cmd &` runs on is still
-      live. An end is observed when a completion run lists a prefix that only one
-      recorded process of the session carries, counting ended ones and those just
-      removed. A completion can still be delivered after the process tool showed
-      that end. The end is also observed when the process tool reports the process
-      finished by its whole id (whatever shares its prefix), or when its own bound passed: the call's `timeoutSeconds` above
-      zero plus ten minutes. A process leaves two hours after its end or at its
-      bound. It then stays a candidate under its prefix, with the run that started
-      it, for two more hours, so a late completion is judged against it. A process
-      without a known end or bound stays: a silent success with no timeout that is
-      never polled keeps refusing other runs' completions with its prefix in that
-      session.
-    - A session is uncertain for the Gateway's life after more than 4,096 live
-      processes. An `exec` result that is neither running nor a known end (an
-      approval may still start a command) leaves an unknown process of its run, as
-      does an `exec` call forgotten when more than 1,024 are open across the
-      Gateway. A call that never reports a result keeps the record incomplete until
-      its run ends.
-    - A session with nothing left (no process, no candidate prefix, no unknown
-      process, not uncertain) is removed. Past 4,096 sessions those go first, then the least
-      recently used one without a recorded process, then the least recently used
-      one; a forgotten one is remembered as described next.
-    - Past 4,096 sessions the least recently used one is forgotten. Its key goes
-      into a bit filter, so that session, and the rare one sharing its bits, stays
-      uncertain; every other chat keeps working.
-    - While an `exec` call is still open in the session it is not complete either.
-      A call counts as open only once every other `before_tool_call` hook let it
-      through (the plugin registers it last), and a blocked call's result
-      (`status: "blocked"`) closes it.
-    - Only completion runs' model input is kept, and only until the run ends.
+- **Command completions and other runs of the owner's chat (AGENTPIER-185,
+  AGENTPIER-276).** An owner turn may start a long background `exec` (a render, a
+  build) and end before it exits. With `tools.exec.notifyOnExit` (OpenClaw's
+  default) the Gateway then runs the same session once more. The pinned OpenClaw
+  2026.10.7 sends an ordinary event turn (`enqueueSessionEventForHost`, source
+  `exec`), one per process, whose prompt is the bare line
+  `Exec <status> (<id8>, <exit>) :: <output>` behind OpenClaw's usual timestamp
+  envelope; its agent events carry no mark (`isHeartbeat: false`). The rollback
+  targets 2026.10.3, 2026.9.9 and 2026.9.8 wake the session through their heartbeat
+  runner instead, with agent events marked `isHeartbeat: true`. Both write the
+  completion's user entry with the input provenance
+  `{ kind: "internal_system", sourceTool: "exec" }`. That run has no AgentPier
+  attempt.
 
-  `llm_input` and `agent_end` are conversation hooks: the compiled config grants
-  the plugin `plugins.entries.agentpier-teams.hooks.allowConversationAccess`
-  (`runtime-config.js`). A foreground exec, the command of an earlier forwarded,
-  routine or delegated turn, an approval's command (`Exec finished (gateway id=…)`),
-  a completion without a readable process list (delivery off, only empty
-  successes, a truncated list; OpenClaw's fixed timeout guidance after a process
-  line is read verbatim), a heartbeat poll, a reminder and a completion after
-  a newer request (other than a lead's proven member-result follow-up or the owner's own direct message) stay read-only. So does every completion of a lead-request,
-  team-member, forwarded, routine, team-result, coding-result or memory-result
-  turn, and of any other turn without the owner's own work behind it (a webhook or
-  hook run, a reminder, a check-in). Only a 2026.10.7 event turn makes the proof read the transcript, once per
-  run; the heartbeat path and owner writes never do. A refusal of a completion run
-  (heartbeat-driven, or marked as an event turn) in that session is logged once per
-  session, run and reason, with its time (ISO 8601) and a code such as `PROCESS`,
-  `UNKNOWN_EXEC` or `NOT_COMPLETION`; `UNTRACKED` names why the record is
-  incomplete (`late-start`, `pending`, `too-many` or `forgotten`). It never names a
-  path or the command's output; an ordinary refused write elsewhere logs nothing. Each write keeps the
-  turn's limits (a shared agent's memory note, `USER.md` and instruction files) and
-  is audited as `kind: "native-write"` with `via: "exec-completion"` and
-  `sourceAttemptId`. `agentpier_workspace` follows the same rule for project-folder
-  file actions only. Folder changes are audited the same way. `agentpier_share_file`
-  is not part of this proof: the owner decided that an agent may always send him
-  files, so a completion run shares into the owner's chat like any other run of it
-  (see [Files agents share](#files-agents-share-2026-10-17)). Coding requests,
-  project memory, SSH, team tools, grants and routines are refused, and the
-  command's output never proves an owner request.
+  Until 2.12 AgentPier let such a run write only after proving, from the Gateway's
+  own record of background processes, that the command came from the owner's own
+  turn (`exec-continuation.js`); in practice the proof refused many of the owner's
+  own follow-ups (`ORIGIN`, `UNTRACKED`, `PROCESS`) and the agent lost its notes.
+  The owner decided (AGENTPIER-276) that his own agents are not blocked by the
+  origin of a run. `owner-runs.js` now treats every run of the owner's own chat
+  with one of his agents alike:
+  - **Bound turns** of that chat (his messages, also from Telegram, check-ins,
+    reminders, routine and result follow-ups) write natively, flush memory and use
+    `agentpier_workspace` with the agent's standing grants (`ownerTurn`).
+  - **Runs without a turn** in that chat's session (`ownerRun`: a command's
+    follow-up, a heartbeat) do the same: `write`/`edit` pass the guard and are
+    audited as `kind: "native-write"` with `via: "agent-run"`, OpenClaw's memory
+    flush of such a run saves the day note, and `agentpier_workspace` calls are
+    bound to the chat (`ownerRunBinding`, re-checked on every step) for project
+    folders, the catalog, browser upload staging, project memory and coding
+    requests (which follow the project's standing permission like the owner's turn).
+    Folder changes are audited with `via: "agent-run"`.
+  - What still decides: the chat is the owner's own (`ownerChat`: no restricted
+    user's chat, no user agent, not archived, no task member); the chat's latest
+    turn is not someone else's content (`foreignOrigin`: forwarded messages,
+    members' reports, sibling results, lead tasks, users, SSH and SFTP results), so a
+    run that follows it never acts on it; a turn whose send is still unresolved is never taken over
+    (it proves itself or waits, `TURN_UNCONFIRMED`); and a ledger turn's own run is
+    governed by its turn. The agent's Telegram bot for other people runs in sessions
+    of no owner chat, so its runs get nothing. A memory step keeps its own narrow
+    rules.
+  - Shell, SSH, mail, coding sessions, team tools and owner-only switches keep their
+    own approvals and origin rules; the command's output never proves an owner
+    request.
+
+  The team plugin still records background processes (`team-plugin/exec-processes.js`,
+  for a work goal's wait, `background-commands.js`), but sends no record with its
+  calls any more; AgentPier ignores the `exec` field an older plugin may still send.
+  `CompletionRuns` (`completion-runs.js`) only tracks heartbeat-marked runs, so a
+  goal's nudge waits for them, and Telegram follow-ups check the transcript entry
+  (`completionRun`).
   On 2026.10.7 `chat.history` also returns the completion's user entry, which
   2026.10.3 hid. The chat history (`conversations.js`) never serves a user entry
   whose provenance kind is `internal_system`, whatever its source tool (OpenClaw's
   task, plugin and session events use the same kind), so it never appears as the
   owner's words; the completion run's reply is shown as before.
-  `tests/integration/assistant-exec-continuation-contract.test.js`
-  (`AGENTPIER_SHELL_CONTRACT_RUNTIME`) pins this against the pinned runtime (it
-  also passed on 2026.10.3):
-  - the hooks report each background process with its run, the completion's
-    prefixes and `gateway_start`;
-  - on 2026.10.7, the completion's transcript entry directly precedes its run's
-    first record and carries no run id;
-  - the completion's write continues the owner turn, after an exec call of that
-    turn failed argument validation;
-  - a blocked exec call leaves nothing open, and the next completion is credited;
-  - a backgrounded shell that exits at once while its child keeps the output is
-    still credited when the child ends, although its pid is gone;
-  - an exec error OpenClaw does not mark as before the start (a node host check)
-    leaves an unknown process only until its run ends, so the next completion is
-    credited;
-  - a NUL byte in the command is refused by the supervisor before it spawns, with
-    exactly the details the plugin reads, and the next completion is credited;
-  - the same completion stays refused after a newer forwarded request or past the
-    window;
-  - a forwarded turn's background command that completes after an owner turn's
-    foreground exec is refused;
-  - a completion run's workspace call names its run and is bound;
-  - a completion run's `agentpier_share_file` call is bound to the owner's chat
-    without an exec record and shares the file (AGENTPIER-274).
+  `tests/integration/assistant-owner-run-contract.test.js`
+  (`AGENTPIER_SHELL_CONTRACT_RUNTIME`) pins this against the pinned runtime: the
+  completion runs in the chat's own session under a run id of its own, its
+  transcript entry directly precedes its run's first record, its write passes,
+  its workspace and `agentpier_share_file` calls are bound, and after a newer
+  forwarded request its write is refused.
 
 - **Visible refusals.** A refused write to `MEMORY.md` or `memory/` records one
   chat note per turn and reason (`memory-notes.js`, table `assistant_memory_notes`,
@@ -1796,8 +1653,8 @@ was compacted and the plan was gone. Four rules close that gap:
   Gateway did not report (for example after a runtime change renamed the event) is
   attributed to the agent's single active owner turn, so it never goes unnoticed.
   The chat renders them as quiet lines ("Memory not saved: …"). A run without an
-  attempt (a command completion that does not continue its turn, see above) records
-  no note; the agent receives the guard's refusal.
+  attempt that is refused (one after someone else's content, see above) records no
+  note; the agent receives the guard's refusal.
   A declined, expired or failed project knowledge write (`memory_write`) hands one
   attributed follow-up turn (`memory-result`) to the requesting agent's
   conversation, so the agent can correct an earlier claim
@@ -3083,10 +2940,12 @@ images** (`documents`) with its own permanent members, without the owner
   (in `routineTools`; `TeamBridge` binds it to the routine like SSH and shared
   files, `routineContext` re-reads the binding on every step): the agent's own
   `projectFiles` and its lead's standing shares, never a task's share. Reads always;
-  `file_write` and `file_edit` only with the owner's **May write** on that routine
-  (`routineWrites`), else `ROUTINE_READ_ONLY` (not a failed run; the run's
-  result carries the note `writes_refused`, and folders report `access: "read"`
-  while **May write** is off), and audited with `origin: "routine"` and
+  `file_write` and `file_edit` while the routine's **May write** is on, which it is by
+  default on the owner's own agents (AGENTPIER-276; `routineWrites: false` switches it
+  off, on an agent of restricted users only `true` switches it on), else
+  `ROUTINE_READ_ONLY` (not a failed run; the run's result carries the note
+  `writes_refused`, and folders report `access: "read"` while **May write** is off),
+  and audited with `origin: "routine"` and
   `routineId`. Coding and project-knowledge requests from a
   run always wait for the owner in the agent's main chat (`routineId` on the action,
   never auto-approved); `coding_cancel` is refused.
@@ -3161,7 +3020,7 @@ prompt, trigger and/or `enabled`, with the routine's `revision`) and `remove`.
   only when the owner switched on **May write** for it (`routineWrites`) or the lead's
   team usage is `autonomous`, read live (`LeadRoutines.writeReason`,
   `NativeRoutines.writable`, used by `TeamBridge.routineWrite` and `routineContext`).
-  The owner's own routines keep their rules.
+  The agent's own routines keep their rules (**May write** on by default).
 - **Reporting.** `NativeReminders.complete` records the run in the member's chat as
   for every routine, and `LeadRoutines.report` turns it into a settled lead request
   of `type: "report"` (`lead-routine-reports.js`; origin `{ kind: "member-routine",
@@ -4605,9 +4464,9 @@ turn (ledger request with recorded context) 90 seconds after the goal's chat has
 idle. A follow-up accepted under its client request id (`goal-continuation:<goal>:<n>`
 or `lead-request-result:<request>`) whose bookkeeping a crash lost is sent again with
 the text and context recorded for it, never a context worked out anew, so a retry
-adopts the accepted request instead of conflicting. OpenClaw cron and heartbeat runs have no attempt and no context, so every right
-would need `exec-continuation.js`-style proof; the follow-up turn keeps rights, audit and
-the live feed unchanged. The idle timers are in memory: a restart only restarts the delay.
+adopts the accepted request instead of conflicting. OpenClaw cron and heartbeat runs have no attempt and no context, so they
+would carry none of the goal's marks; the follow-up turn keeps rights, audit and the live
+feed unchanged. The idle timers are in memory: a restart only restarts the delay.
 
 **Context and anchor.** A continuation is recorded as `kind: "owner"` with a `goal` marker
 and has exactly the rights of its anchor, the owner's latest direct turn in the chat (at
@@ -4619,9 +4478,9 @@ like an Autonomous lead's own task at every Use team level, at most 4 per turn a
 the 20-per-hour limit, and only while the goal is still open (a turn running on after Stop
 delegates as it would without a goal); a member named in the anchor does not make it read-only. Trusted
 SSH and SFTP hosts work as in an owner turn (origin `owner`). A background command a goal
-turn starts is continued by its completion run like an owner turn's (see **Command
-completions**): it writes and uses project-folder file actions, and like every run of
-the chat it shares the result with `agentpier_share_file`.
+turn starts is followed by a run of the chat like any other (see **Command
+completions**): it writes, uses project folders and shares the result with
+`agentpier_share_file`.
 
 **Exclusions.** Approval cards still wait for the owner. A goal turn cannot use the
 short-yes consent (**Go ahead**), switch **May write**, create or change reminders or

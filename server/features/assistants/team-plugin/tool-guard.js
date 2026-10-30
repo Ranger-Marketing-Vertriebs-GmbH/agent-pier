@@ -2,7 +2,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { patchPaths } from "./patch-paths.js";
-import { execEvidence } from "./exec-processes.js";
 import { dreamsCall, dreamsTools } from "./dreams-guard.js";
 import { fileSpellings } from "./file-urls.js";
 import { secretsCall, secretsReadTools } from "./secrets-guard.js";
@@ -513,8 +512,6 @@ export function registerToolGuard(api) {
             path: target.path,
             // Pins a memory flush to its own run (memory-flushes.js).
             ...(typeof ctx.runId === "string" ? { runId: ctx.runId } : {}),
-            // A command completion's run proves its owner turn (exec-continuation.js).
-            exec: execEvidence(ctx.sessionKey, ctx.runId),
           },
           ctx.abortSignal,
         ).catch(() => null);

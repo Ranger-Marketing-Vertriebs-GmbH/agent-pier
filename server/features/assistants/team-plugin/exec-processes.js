@@ -1,6 +1,6 @@
 // What the Gateway itself knows about the background commands of each session, for
-// AgentPier's proof that an exec completion run continues an owner turn
-// (exec-continuation.js). OpenClaw (2026.10.3 and 2026.10.7) names a process by an
+// the counts a work goal's nudge waits on (background-commands.js) and the run of a
+// plugin tool call (callRun). OpenClaw (2026.10.3 and 2026.10.7) names a process by an
 // adjective-noun slug that is unique only among live processes, and tells the
 // completion run only its first eight characters (`Exec <status> (<id>, <exit>)`).
 // So AgentPier needs every background process of the session with its full id and
@@ -287,10 +287,11 @@ function gap(record, entry, sessionKey, pending) {
 }
 
 /**
- * What AgentPier's proof reads for a call of `runId` in `sessionKey`: whether the
- * session's record is complete, the run's completion and every background process
- * of the session that the completion's ids could stand for (the same first
- * characters OpenClaw reports), whichever run started it.
+ * A snapshot of the record for a call of `runId` in `sessionKey` (diagnostics and
+ * tests; AgentPier no longer needs it since AGENTPIER-276): whether the session's
+ * record is complete, the run's completion and every background process of the
+ * session that the completion's ids could stand for (the same first characters
+ * OpenClaw reports), whichever run started it.
  */
 export function execEvidence(sessionKey, runId) {
   const record = execRecord();

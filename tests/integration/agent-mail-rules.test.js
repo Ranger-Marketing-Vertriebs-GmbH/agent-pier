@@ -140,7 +140,7 @@ test("a permanent member's lead request turn is refused", async (t) => {
   // The owner's own chat with the permanent member may use its grant.
   const own = await f.call(f.turn(member.conversationId), { action: "accounts" });
   assert.equal(own.accounts[0].accountId, f.account.id);
-  // Forwarded content and a command's completion run never use mail.
+  // Forwarded content and a run of the owner's chat without a turn never use mail.
   f.grant("read");
   assert.equal(
     await code(
@@ -148,11 +148,8 @@ test("a permanent member's lead request turn is refused", async (t) => {
     ),
     "MAIL_ORIGIN_REFUSED",
   );
-  const continuation = { ...f.routineTurn(), routine: null, continuation: { id: "c" } };
-  assert.equal(
-    await code(f.call(continuation, { action: "accounts" })),
-    "MAIL_ORIGIN_REFUSED",
-  );
+  const run = { ...f.routineTurn(), routine: null, ownerRun: { conversationId: "c" } };
+  assert.equal(await code(f.call(run, { action: "accounts" })), "MAIL_ORIGIN_REFUSED");
   // A plain goal continuation passes the gate; one carrying a member's result, and a
   // coding session's wake, are refused.
   const goal = { id: "g1", anchorRequestId: "r1", title: "Inbox zero" };

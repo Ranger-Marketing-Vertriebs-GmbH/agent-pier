@@ -258,18 +258,15 @@ test("a hook run cannot save to the workspace", async (t) => {
   assert.equal(fs.existsSync(f.ws("mail")), false);
 });
 
-test("a follow-up without its turn's context saves to its workspace only", async (t) => {
+// AGENTPIER-276: a mail-result follow-up in the owner's own chat works on the agent's
+// standing grants like any run of that chat.
+test("a mail-result follow-up of the owner's chat saves like his turn", async (t) => {
   const f = await setup(t, { projectFiles: {} });
   const id = f.folderProject.id;
   f.access({ projectFiles: { [id]: "write" } });
   const inv = f.ownTurn({ kind: "mail-result", actionId: "a1" });
-  assert.equal(f.files(inv).ctx.workspaceOnly, true);
-  assert.equal(
-    await code(() => f.save("a.txt", "x", { projectId: id, path: "docs" }, inv)),
-    "MAIL_SAVE_REFUSED",
-  );
+  assert.equal(f.files(inv).ctx.workspaceOnly, undefined);
   assert.deepEqual(await f.save("a.txt", "x", {}, inv), { path: "mail/Private/a.txt" });
-  assert.equal(fs.existsSync(f.proj("docs")), false);
 });
 
 test("malformed save input is invalid", async (t) => {

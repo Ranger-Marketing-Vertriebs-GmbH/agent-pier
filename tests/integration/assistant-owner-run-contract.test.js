@@ -10,7 +10,10 @@ import { AssistantConfig } from "../../server/features/assistants/assistant-conf
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { AgentShares } from "../../server/features/assistants/agent-shares.js";
 import { GatewayEventHub } from "../../server/features/assistants/gateway-event-hub.js";
-import { CompletionRuns } from "../../server/features/assistants/exec-continuation.js";
+import {
+  CompletionRuns,
+  completionRun,
+} from "../../server/features/assistants/completion-runs.js";
 import { completedProcesses } from "../../server/features/assistants/team-plugin/exec-processes.js";
 import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
@@ -20,18 +23,17 @@ import {
   proactivityModel,
 } from "../helpers/assistant-proactivity-model.js";
 
-// AGENTPIER-185 against the pinned Gateway: an owner turn starts a background exec
-// and ends; when the command exits, OpenClaw's completion run in the same session
-// writes with that turn's rights (exec-continuation.js). The same completion after a
-// newer forwarded request, or outside the window, stays refused; its workspace calls
-// are bound to the turn, and its shares reach the owner's chat. This pins what the
-// implementation assumes of OpenClaw: the completion's raw transcript entry
-// (`sessions.get`: provenance, the owner turn's idempotency key, the background
-// exec's `sessionId` and the completion's process list), how its run is marked
-// (2026.10.3: `isHeartbeat` agent events; 2026.10.7: no marked event, the hooks'
-// `trigger: "event"` the plugin sends as `completion.internal`, and the user entry
-// right before the run's first record), the hook's run id and the session it runs
-// in. Run against the pinned runtime and against a rollback target.
+// AGENTPIER-185 and AGENTPIER-276 against the pinned Gateway: an owner turn starts a
+// background exec and ends; when the command exits, OpenClaw's completion run in the
+// same session works like any run of the owner's chat (owner-runs.js): it writes,
+// its workspace calls are bound and its shares reach the owner's chat. After a newer
+// forwarded request it stays refused. This pins what the implementation assumes of
+// OpenClaw: the completion runs in the chat's own session without an attempt, under
+// a run id of its own that the hooks report, how its run is marked (2026.10.3:
+// `isHeartbeat` agent events; 2026.10.7: no marked event) and its raw transcript
+// entry (`sessions.get`: the exec provenance right before the run's first record,
+// which Telegram follow-ups read, completion-runs.js). Run against the pinned
+// runtime and against a rollback target.
 const installed = process.env.AGENTPIER_SHELL_CONTRACT_RUNTIME;
 const openClawVersion = (dir) =>
   JSON.parse(
@@ -60,7 +62,7 @@ const isCompletion = (request) => {
 };
 
 test(
-  "pinned Gateway: an exec completion continues its owner turn's writes",
+  "pinned Gateway: an exec completion works like a run of the owner's chat",
   { skip: !installed, timeout: contractTimeout(300000) },
   async (t) => {
     assert.ok(path.isAbsolute(installed));
@@ -106,30 +108,12 @@ test(
                     arguments: { path: `notes/${note}.md`, content: "AFTER\n" },
                   },
                 };
-      const asked = JSON.stringify(lastUser(request)[0]);
       const steps = lastUser(request).filter((m) => m.role === "tool").length;
-      // "List" runs a foreground command; "foreign" starts another background one.
       // "Render" first makes an exec call that fails argument validation (OpenClaw
-      // refuses it before anything starts) and a foreground one that exits 3;
-      // "NODEHOST" one whose host fails after the call began; "NULBYTE" one whose
-      // command holds a NUL byte (the supervisor refuses it before spawning);
-      // "BLOCKONE" one that a before_tool_call hook blocks; all then background their
-      // command. "DETACH" backgrounds a shell that exits at once while its child keeps
-      // the output.
+      // refuses it before anything starts) and a foreground one that exits 3, then
+      // backgrounds its command.
       const background = { command: "sleep 4; echo RENDERED", background: true };
-      const plan = asked.includes("List")
-        ? [{ command: "echo LISTED" }]
-        : asked.includes("foreign")
-          ? [{ command: "sleep 6; echo FOREIGN", background: true }]
-          : asked.includes("NODEHOST")
-            ? [{ command: "echo HOST", host: "node" }, background]
-            : asked.includes("NULBYTE")
-              ? [{ command: "echo A\u0000B" }, background]
-              : asked.includes("BLOCKONE")
-                ? [{ command: "echo BLOCKED" }, background]
-                : asked.includes("DETACH")
-                  ? [{ command: "(sleep 8; echo LATE) & echo STARTED", background: true }]
-                  : [{}, { command: "echo FAILING; exit 3" }, background];
+      const plan = [{}, { command: "echo FAILING; exit 3" }, background];
       return steps < plan.length
         ? { tool: { name: "exec", arguments: plan[steps] } }
         : { text: "Started." };
@@ -161,13 +145,7 @@ test(
     // Every write decision with the hook's run id.
     const decisions = [];
     const decide = bridge.toolPolicy.bind(bridge);
-    // Armed, the next exec call is blocked by the plugin's own locked-tool hook.
-    let blockExec = false;
     bridge.toolPolicy = (input) => {
-      if (input.toolName === "exec" && blockExec) {
-        blockExec = false;
-        return { allow: false };
-      }
       const settle = (result) => {
         decisions.push({ ...input, allow: result.allow });
         return result;
@@ -175,24 +153,16 @@ test(
       const result = decide(input);
       return result instanceof Promise ? result.then(settle) : settle(result);
     };
-    // Every workspace ticket the completion run asks for, with its outcome.
+    // Every ticket the completion run asks for, with its outcome.
     const prepared = [];
     const prepare = bridge.prepare.bind(bridge);
-    // 2026.10.7's is bound after a transcript read: a promise.
     bridge.prepare = (input) => {
-      const settle = (bound) => prepared.push({ ...input, bound });
       try {
         const ticket = prepare(input);
-        if (!(ticket instanceof Promise)) return (settle(true), ticket);
-        return ticket.then(
-          (value) => (settle(true), value),
-          (error) => {
-            settle(false);
-            throw error;
-          },
-        );
+        prepared.push({ ...input, bound: true });
+        return ticket;
       } catch (error) {
-        settle(false);
+        prepared.push({ ...input, bound: false });
         throw error;
       }
     };
@@ -204,7 +174,7 @@ test(
       directory: plugin.directory,
       connection: await bridge.start(),
       hostMaxConcurrent: 4,
-      native: { token: "exec-continuation-fixture" },
+      native: { token: "owner-run-fixture" },
       profiles: f.store.listAssistants(),
     });
     await runtime.start();
@@ -263,8 +233,7 @@ test(
     };
     // Each step waits until its completion run has ended before the next owner turn:
     // an owner message during a completion run may make OpenClaw deliver that
-    // completion again, batched with the next turn's process, which the proof refuses
-    // as another turn's (see the mixed batch in exec-continuation-processes).
+    // completion again, batched with the next turn's process.
     const ended = (runId) =>
       events.some(
         (e) =>
@@ -282,26 +251,6 @@ test(
       }
       assert.fail("no completion run wrote within a minute");
     };
-    // OpenClaw's slugs are unique only among live processes and a completion names
-    // only the first eight characters, so a new process may share its prefix with an
-    // ended one of an earlier turn: the proof then refuses by design (PROCESS, see
-    // exec-continuation-processes). A step that must be credited retries with a new
-    // turn once that happened.
-    const collided = (exec) =>
-      !!exec?.completion?.ids?.some(
-        (id) =>
-          new Set(
-            exec.processes.filter((p) => p.id.slice(0, 8) === id).map((p) => p.runId),
-          ).size > 1,
-      );
-    const credited = async (step) => {
-      for (let attempt = 1; ; attempt++) {
-        const result = await step();
-        if (attempt === 3 || !collided(result.exec)) return result;
-        t.diagnostic(`prefix collision, retrying=${JSON.stringify(result.exec)}`);
-      }
-    };
-
     // 1. The owner turn starts the command and ends before it exits.
     const owner = await ownerTurn("Render the video in the background.");
     let from = decisions.length;
@@ -323,19 +272,18 @@ test(
     assert.notEqual(write.runId, owner.runId, "a run of its own");
     assert.ok(run.length, "the completion run's agent events reach AgentPier");
     if (eventTurns) {
-      // No agent event marks it; the plugin saw the hooks' `trigger: "event"`.
+      // No agent event marks it.
       assert.ok(
         run.every((e) => e.isHeartbeat === false),
         "no event marks it",
       );
-      assert.equal(write.exec.completion?.internal, true, "the plugin marks it");
     } else {
       assert.ok(
         run.some((e) => e.isHeartbeat === true),
         "its events mark it heartbeat-driven",
       );
-      assert.equal(write.exec.completion?.internal, undefined);
     }
+    assert.equal(write.exec, undefined, "the plugin sends no exec record");
     assert.equal(write.sessionKey, session.key, "it runs in the chat's session");
     assert.ok(run.every((e) => e.sessionKey === session.key));
     // Assumption 1: the raw transcript names the owner turn and the completion.
@@ -372,7 +320,7 @@ test(
     );
     if (eventTurns) {
       // The entry names neither its run nor a key derived from it; it is the entry
-      // right before the run's first record (exec-continuation.js transcriptHolds).
+      // right before the run's first record (completion-runs.js completionRun).
       const first = page.messages.findIndex((m) => m.__openclaw?.runId === write.runId);
       assert.equal(page.messages[first - 1], entry, "the run's user entry");
       assert.equal(entry.__openclaw?.runId, undefined);
@@ -396,8 +344,9 @@ test(
     );
     assert.equal(exited?.details.status, "completed");
     assert.deepEqual(reported, [started.sessionId.slice(0, 8)]);
+    assert.equal(completionRun(page.messages, write.runId), true, "Telegram's check");
     // The write itself.
-    assert.equal(write.allow, true, "the completion continues the owner turn");
+    assert.equal(write.allow, true, "the completion writes like the owner's run");
     assert.equal(
       fs.readFileSync(path.join(workspace, "notes/after.md"), "utf8"),
       "AFTER\n",
@@ -418,64 +367,23 @@ test(
     assert.equal(refused.allow, false, "a newer request ends the continuation");
     assert.equal(fs.existsSync(path.join(workspace, "notes/after-forwarded.md")), false);
 
-    // 3. Past the window (the bridge's clock three hours on): refused.
-    await ownerTurn("Render a third one.");
-    clock = () => Date.now() + 3 * 3600000;
-    note = "after-window";
-    from = decisions.length;
-    const late = await completion(from);
-    assert.equal(late.allow, false, "a completion past the window stays refused");
-    assert.equal(fs.existsSync(path.join(workspace, "notes/after-window.md")), false);
-
-    // 4. A forwarded turn starts a background command, the owner's later turn runs a
-    // foreground one, then the forwarded turn's command completes: refused.
-    clock = undefined;
-    const forwardedTurn = await ownerTurn("Forwarded: start the foreign job.", {
-      kind: "telegram",
-      forwarded: true,
-    });
-    await ownerTurn("List the folder.");
-    note = "after-foreign";
-    from = decisions.length;
-    const foreign = await completion(from);
-    const tail = await runtime.client.call("sessions.get", { key: session.key }, long);
-    const results = tail.messages
-      .filter((m) => m.role === "toolResult" && m.toolName === "exec")
-      .slice(-2)
-      .map((m) => m.details?.status);
-    t.diagnostic(`foreign/owner exec results=${JSON.stringify(results)}`);
-    assert.deepEqual(results, ["running", "completed"], "background, then foreground");
-    assert.equal(foreign.allow, false, "another turn's command never writes");
-    assert.equal(fs.existsSync(path.join(workspace, "notes/after-foreign.md")), false);
-    // The Gateway's record names the reported process with the forwarded turn's run.
-    t.diagnostic(`foreign evidence=${JSON.stringify(foreign.exec)}`);
-    // An earlier turn's process may share the slug prefix (see `collided`): the
-    // evidence then lists it too, and the refusal stands all the more.
-    const [reportedId] = foreign.exec.completion.ids;
-    assert.ok(foreign.exec.processes.every((p) => p.id.slice(0, 8) === reportedId));
-    assert.ok(foreign.exec.processes.some((p) => p.runId === forwardedTurn.runId));
-    if (!collided(foreign.exec)) assert.equal(foreign.exec.processes.length, 1);
-
-    // 5. A completion run's agentpier_workspace call names its run (the plugin maps
-    // the tool call to the run of its before_tool_call) and is bound to the turn.
+    // 3. A completion run's agentpier_workspace call names its run (the plugin maps
+    // the tool call to the run of its before_tool_call) and is bound as an owner run.
     note = "workspace";
-    const fifth = await credited(async () => {
-      prepared.length = 0;
-      const turn = await ownerTurn("Render a fifth one.");
-      const deadline = Date.now() + contractTimeout(60000);
-      while (!(prepared.length && ended(prepared[0].runId)) && Date.now() < deadline)
-        await delay(200);
-      return { ...turn, exec: prepared[0]?.exec };
-    });
+    prepared.length = 0;
+    const fifth = await ownerTurn("Render a fifth one.");
+    const deadline = Date.now() + contractTimeout(60000);
+    while (!(prepared.length && ended(prepared[0].runId)) && Date.now() < deadline)
+      await delay(200);
     t.diagnostic(`workspace prepare=${JSON.stringify(prepared[0])}`);
     assert.equal(prepared[0]?.action, "workspace");
     assert.ok(ended(prepared[0].runId), "the workspace completion run ended");
     assert.equal(typeof prepared[0].runId, "string");
     assert.notEqual(prepared[0].runId, fifth.runId);
-    assert.equal(prepared[0].exec.completion.runId, prepared[0].runId);
+    assert.equal(prepared[0].exec, undefined);
     assert.equal(prepared[0].bound, true, "the completion's workspace call is bound");
 
-    // 5b. Its agentpier_share_file call hands the owner the file in his chat, with no
+    // 4. Its agentpier_share_file call hands the owner the file in his chat, with no
     // proof of the turn (AGENTPIER-274).
     const shares = [];
     f.assistants.audit = { append: (event) => shares.push(event) };
@@ -497,76 +405,5 @@ test(
       shares.filter((e) => e.action === "assistant.sent").map((e) => e.details),
       [{ kind: "share", channel: "tool", via: "agent-run" }],
     );
-
-    // 6. A blocked exec call leaves nothing open: the next completion is credited.
-    note = "after-blocked";
-    const unblocked = await credited(async () => {
-      blockExec = true;
-      await ownerTurn("BLOCKONE render.");
-      assert.equal(blockExec, false, "the exec call was blocked");
-      from = decisions.length;
-      return completion(from);
-    });
-    t.diagnostic(`blocked evidence=${JSON.stringify(unblocked.exec)}`);
-    assert.equal(unblocked.allow, true);
-
-    // 7. A shell that exits at once while its child runs on: its pid is gone, the
-    // exec session lives until the output closes, and its completion is credited.
-    note = "after-detach";
-    let detached;
-    const afterDetach = await credited(async () => {
-      await ownerTurn("DETACH render.");
-      detached = (
-        await runtime.client.call("sessions.get", { key: session.key }, long)
-      ).messages.findLast(
-        (m) => m.toolName === "exec" && m.details?.status === "running",
-      ).details;
-      await delay(1000);
-      assert.throws(() => process.kill(detached.pid, 0), { code: "ESRCH" });
-      from = decisions.length;
-      return completion(from);
-    });
-    t.diagnostic(`detached evidence=${JSON.stringify(afterDetach.exec)}`);
-    assert.equal(afterDetach.exec.completion.ids[0], detached.sessionId.slice(0, 8));
-    assert.equal(afterDetach.allow, true);
-
-    // 8. An exec error OpenClaw does not mark as before the start (a host check that
-    // runs inside the call) leaves an unknown process of its run only until that run
-    // ends: the completion after it is credited.
-    note = "after-node";
-    const node = await credited(async () => {
-      await ownerTurn("Render on NODEHOST.");
-      from = decisions.length;
-      return completion(from);
-    });
-    t.diagnostic(`node evidence=${JSON.stringify(node.exec)}`);
-    assert.equal(node.exec.complete, true);
-    assert.ok(node.exec.processes.every((p) => p.id !== "*"));
-    assert.equal(node.allow, true);
-
-    // 9. A NUL byte in the command: the supervisor's refusal before it spawns, word
-    // for word as exec-processes.js knows it, starts nothing.
-    note = "after-nul";
-    let nulTurn;
-    const nul = await credited(async () => {
-      nulTurn = await ownerTurn("Render NULBYTE.");
-      from = decisions.length;
-      return completion(from);
-    });
-    t.diagnostic(`nul evidence=${JSON.stringify(nul.exec)}`);
-    const nulResults = (
-      await runtime.client.call("sessions.get", { key: session.key }, long)
-    ).messages.filter((m) => m.toolName === "exec" && text(m).includes("NUL"));
-    t.diagnostic(`nul result=${JSON.stringify(nulResults.at(-1))}`);
-    // The tool's thrown error: JSON text, its message in the details.
-    assert.deepEqual(nulResults.at(-1).details, {
-      status: "error",
-      tool: "exec",
-      error:
-        "Execution command and arguments must not contain NUL bytes. Remove them and retry.",
-    });
-    assert.equal(nul.exec.complete, true);
-    assert.ok(nul.exec.processes.every((p) => p.runId === nulTurn.runId));
-    assert.equal(nul.allow, true);
   },
 );

@@ -3,7 +3,7 @@ import { NativeReminders, exact, schedule, updateInput } from "./native-reminder
 import { RoutineEvents } from "./routine-events.js";
 import { routineTools } from "./native-capabilities.js";
 import { assistantProblem, textValue } from "./assistant-validation.js";
-import { isLeadRoutine, LeadRoutines } from "./lead-routines.js";
+import { isLeadRoutine, LeadRoutines, ownRoutineWrites } from "./lead-routines.js";
 import { editRoutine } from "./routine-edits.js";
 import { agentFailure } from "./routine-failures.js";
 import { runWarnings } from "./routine-results.js";
@@ -143,7 +143,7 @@ export class NativeRoutines extends NativeReminders {
         (binding.definition?.trigger.kind === "event" || projected.enabled),
       revision: binding.routineRevision || 1,
       // The owner lets this routine write: project folders and delegated tasks.
-      writes: binding.routineWrites === true,
+      writes: this.routineWrites(binding),
       // Set up by the member's lead (lead-routines.js), named for the owner.
       ...(isLeadRoutine(binding)
         ? {
@@ -170,6 +170,16 @@ export class NativeRoutines extends NativeReminders {
   writable(binding) {
     return !!this.lead.writeReason(binding);
   }
+  /**
+   * "May write" as the owner sees it: on by default for the agent's own routines on
+   * his agents (ownRoutineWrites), off for a lead's routine on its member unless he
+   * switched it on.
+   */
+  routineWrites(binding) {
+    return isLeadRoutine(binding)
+      ? binding.routineWrites === true
+      : ownRoutineWrites(binding, this.lead.agentOf(binding));
+  }
   /** Name, task or schedule in place (routine-edits.js). */
   edit(id, bindingId, input, assertCurrent) {
     return editRoutine(this, id, bindingId, input, assertCurrent);
@@ -181,7 +191,7 @@ export class NativeRoutines extends NativeReminders {
    * reaches it only on the owner's direct request (mayWrite); audited.
    */
   setWrites(binding, input, actor) {
-    if ((binding.routineWrites === true) === input.writes) return;
+    if (this.routineWrites(binding) === input.writes) return;
     this.bindings.patch(binding.id, { routineWrites: input.writes });
     this.auditWrites(binding, input.writes, actor);
   }
@@ -433,7 +443,7 @@ export class NativeRoutines extends NativeReminders {
       },
     );
     const binding = this.bindings.get(routine.id);
-    if (!logged && binding.state === "bound" && binding.routineWrites === true)
+    if (!logged && binding.state === "bound" && input.writes === true)
       this.auditWrites(binding, true, "assistant");
     return routine;
   }

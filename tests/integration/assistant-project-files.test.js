@@ -105,13 +105,22 @@ test("an owner turn reads a granted folder and writes only with read and write",
   assert.doesNotMatch(JSON.stringify(f.audits), /secret plan/);
 });
 
-test("forwarded and scheduled turns never reach project folders", async (t) => {
+test("forwarded and members' content never reach project folders", async (t) => {
   const f = await setup(t);
   f.grant({ [f.folderProject.id]: "write" });
-  for (const origin of [{ kind: "owner", forwarded: true }, { kind: "routine" }])
+  for (const origin of [
+    { kind: "owner", forwarded: true },
+    { kind: "member-report", requestId: "r1" },
+  ])
     await assert.rejects(f.call({ action: "file_read", path: "README.md" }, origin), {
       status: 403,
     });
+  // AGENTPIER-276: a scheduled turn of the owner's own chat works like his turn.
+  const read = await f.call(
+    { action: "file_read", path: "README.md" },
+    { kind: "routine" },
+  );
+  assert.equal(read.access, "write");
 });
 
 test("folder levels follow the granted projects and are validated", async (t) => {

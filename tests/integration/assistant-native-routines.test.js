@@ -227,27 +227,24 @@ test("a coding.completed routine whose native job vanished is skipped permanentl
   );
   assert.equal(f.calls.filter((c) => c.method === "cron.run").length, 0);
 });
-test("only the owner marks a routine as one that may delegate writing tasks", async (t) => {
+test("only the owner switches whether a routine may delegate writing tasks", async (t) => {
   const f = setup(t);
   const audits = [];
   f.assistants.audit = { append: (event) => audits.push(event) };
+  // AGENTPIER-276: on by default for the agent's own routines.
   const routine = await f.routines.create(f.id, f.input);
-  assert.equal(routine.writes, false);
-  const marked = await f.routines.update(f.id, routine.id, {
-    writes: true,
+  assert.equal(routine.writes, true);
+  const off = await f.routines.update(f.id, routine.id, {
+    writes: false,
     revision: routine.revision,
   });
-  assert.equal(marked.writes, true);
-  assert.equal(marked.revision, routine.revision + 1);
-  assert.equal(
-    marked.enabled,
-    routine.enabled,
-    "the switch alone leaves the job as it is",
-  );
+  assert.equal(off.writes, false);
+  assert.equal(off.revision, routine.revision + 1);
+  assert.equal(off.enabled, routine.enabled, "the switch alone leaves the job as it is");
   assert.deepEqual(audits.at(-1).details, {
     kind: "routine-writes",
     routineId: routine.id,
-    writes: true,
+    writes: false,
   });
   await assert.rejects(
     f.routines.update(f.id, routine.id, { writes: "yes", revision: 2 }),
@@ -258,9 +255,9 @@ test("only the owner marks a routine as one that may delegate writing tasks", as
     f.reminders.update(f.id, routine.id, { writes: true, revision: 1 }),
     { status: 400 },
   );
-  const off = await f.routines.update(f.id, routine.id, {
-    writes: false,
-    revision: marked.revision,
+  const on = await f.routines.update(f.id, routine.id, {
+    writes: true,
+    revision: off.revision,
   });
-  assert.equal(off.writes, false);
+  assert.equal(on.writes, true);
 });

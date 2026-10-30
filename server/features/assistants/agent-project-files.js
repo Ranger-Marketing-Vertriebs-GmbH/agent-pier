@@ -217,7 +217,7 @@ export class AgentProjectFiles {
     // authorization, so it writes in every task of that lead, like a task member's
     // grant; the task's permission also governs the member's own workspace
     // (TeamBridge.writeAllowed).
-    // A routine changes files only when the owner marked it "May write".
+    // A routine changes files unless the owner switched its "May write" off.
     if (ctx.routine && !ctx.routine.writable) throw this.routineReadOnly(ctx);
     // Like native writes: only while the running Gateway's tool guard is proven.
     if (!this.w.a.config?.writeGuard?.())
@@ -309,10 +309,8 @@ export class AgentProjectFiles {
           ...(ctx.memberResult
             ? { via: "member-result", leadRequestId: ctx.memberResult.requestId }
             : {}),
-          // A command's completion run names the turn that started it.
-          ...(ctx.execContinuation
-            ? { via: "exec-completion", sourceAttemptId: ctx.execContinuation.attemptId }
-            : {}),
+          // A run of the owner's chat without a turn (owner-runs.js).
+          ...(ctx.ownerRun ? { via: "agent-run" } : {}),
           // A change in a lead's task names the lead, the task and whether the
           // lead's share (lead-shares.js) or the member's own grant allowed it.
           ...(ctx.leadRequest

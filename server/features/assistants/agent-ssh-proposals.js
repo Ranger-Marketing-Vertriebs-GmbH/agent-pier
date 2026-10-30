@@ -94,7 +94,7 @@ export function proposalLimit(actions, attempts, now = Date.now()) {
  * command's completion, forwarded, member or goal content; throws otherwise.
  */
 export function proposalTurn(w, inv) {
-  if (!inv.attemptId || inv.routine || inv.hook || inv.continuation) throw ownerOnly();
+  if (!inv.attemptId || inv.routine || inv.hook || inv.ownerRun) throw ownerOnly();
   const a = w.a,
     attempt = a.ledger.getAttempt(inv.attemptId),
     request = a.ledger.getRequest(attempt.requestId),

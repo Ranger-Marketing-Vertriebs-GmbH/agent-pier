@@ -105,7 +105,7 @@ test("the agent proposes a hook only in a direct owner turn", async (t) => {
   for (const bound of [
     { routine: { binding: { id: "routine" } } },
     { hook: { event: { id: "event" } } },
-    { continuation: { attemptId: "attempt" } },
+    { ownerRun: { conversationId: "c" } },
   ])
     assert.throws(() => invokeHook(f.hooks, { ...run, ...bound }, proposal), refused);
   await assert.rejects(

@@ -7,6 +7,7 @@ import {
 import { inheritsFromLead } from "./native-capabilities.js";
 import { ownMemoryTarget } from "./lead-request-writes.js";
 import { isShared, memberLevel } from "../users/user-access.js";
+import { ownerRun, ownerTurn } from "./owner-runs.js";
 
 /**
  * A person's own turn: the owner's, his paired Telegram chat's or a restricted
@@ -31,10 +32,28 @@ export const memoryStep = (context) => context?.kind === "memory-step";
 export const memoryStepWrite = (context, { agent, root, path }) =>
   memoryStep(context) && !!agent && ownMemoryTarget(root, agent.runtimeAgentId, path);
 /**
- * Whether a native write of this bound turn is admitted: a direct turn, a task
- * member's own memory in any turn it works (never the copy of its lead's memory or
- * anything else, member-memory.js), a memory step's own memory, or a task the owner
- * asked for or approved in exactly its own member turn.
+ * Whether a bound turn works in the owner's own chat with his agent and is not
+ * someone else's content (owner-runs.js ownerTurn): a check-in or reminder counts,
+ * a member's result, a memory step or forwarded content does not.
+ */
+function ownerChatTurn(bridge, attempt, agent, origin) {
+  if (origin?.kind === "member-result" || memoryStep(origin)) return false;
+  try {
+    const { store, ledger } = bridge.assistants;
+    const chat = store.getConversation(
+      ledger.getRequest(attempt.requestId).conversationId,
+    );
+    return ownerTurn(agent, chat, origin);
+  } catch {
+    return false;
+  }
+}
+/**
+ * Whether a native write of this bound turn is admitted: a direct turn, any other
+ * turn of the owner's own chat that is not someone else's content (ownerChatTurn), a
+ * task member's own memory in any turn it works (never the copy of its lead's memory
+ * or anything else, member-memory.js), a memory step's own memory, or a task the
+ * owner asked for or approved in exactly its own member turn.
  */
 export function turnWrite(bridge, { attempt, parent, origin, current }, input) {
   const root = bridge.assistants.runtime?.paths?.workspaces;
@@ -43,6 +62,7 @@ export function turnWrite(bridge, { attempt, parent, origin, current }, input) {
   return (
     current &&
     (directTurn(origin, parent) ||
+      ownerChatTurn(bridge, attempt, parent, origin) ||
       (inheritsFromLead(parent) && ownMemoryTarget(root, input.agentId, input.path)) ||
       memoryStepWrite(origin, { agent: parent, root, path: input.path }) ||
       (origin?.kind === "lead-request" &&
@@ -76,8 +96,12 @@ function sources(bridge, input) {
     if (matches.length > 1) return [{ flush, allow: false }];
     if (!matches.length) {
       const source = { agentId: input.agentId, sessionKey: flush.sessionKey };
-      // A routine's flush writes like the routine itself, on a shared agent too.
-      if (bridge.routineWrite(source))
+      // A routine's flush writes like the routine itself, on a shared agent too, and
+      // the flush of a run of the owner's chat without a turn like his turn.
+      if (
+        bridge.routineWrite(source) ||
+        ownerRun(bridge, { ...source, runId: flush.runId })
+      )
         return [{ flush, source, agent: bridge.agentOf(input.agentId), allow: true }];
       return flush.sessionKey.startsWith(`agent:${input.agentId}:`)
         ? [{ flush, allow: false }]
@@ -95,7 +119,10 @@ function sources(bridge, input) {
           [attempt.id, attempt.runtimeRunId].includes(flush.runId) &&
           // A task member's own memory takes its flush in any of its turns, and a
           // memory step its own agent's (memoryStep).
-          (directTurn(origin, parent) || inheritsFromLead(parent) || memoryStep(origin)),
+          (directTurn(origin, parent) ||
+            ownerChatTurn(bridge, attempt, parent, origin) ||
+            inheritsFromLead(parent) ||
+            memoryStep(origin)),
         step: memoryStep(origin),
       },
     ];
@@ -106,8 +133,9 @@ function sources(bridge, input) {
  * OpenClaw's pre-compaction memory flush runs in its own internal session
  * (memory-flushes.js); its one write is the append-only day note. It writes for
  * the run it interrupts: a direct turn (directOrigin: the owner, his paired Telegram
- * chat or a restricted user on her agent), a memory step or a routine's run, of the
- * same agent, never a forwarded, lead-requested or other turn. The key must name the
+ * chat or a restricted user on her agent), any other run of the owner's own chat
+ * that is not someone else's content (owner-runs.js), a memory step or a routine's
+ * run, of the same agent, never a forwarded, lead-requested or member turn. The key must name the
  * run the hook reports, the note must be today's or yesterday's, and the first flush
  * session that writes owns the flush; anything else, or more than one flush of the
  * agent at a time, is refused. On a shared agent it writes the one shared memory like

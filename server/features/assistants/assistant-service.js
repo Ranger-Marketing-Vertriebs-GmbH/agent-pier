@@ -21,7 +21,7 @@ import {
 } from "./attempt-recovery.js";
 import { GatewayEventHub } from "./gateway-event-hub.js";
 import { MemoryFlushes } from "./memory-flushes.js";
-import { CompletionRuns } from "./exec-continuation.js";
+import { CompletionRuns } from "./completion-runs.js";
 import { MemoryNotes } from "./memory-notes.js";
 import { MemoryStepWrites } from "./memory-step.js";
 import { watchCompactions } from "./compactions.js";
@@ -104,7 +104,7 @@ export class AssistantService {
     // A memory step saved only what the write guard admitted (memory-step.js).
     this.memoryStepWrites = new MemoryStepWrites();
     this.gatewayEvents.on("agent", (payload) => this.memoryFlushes.observe(payload));
-    // A command's completion run may continue its owner turn (exec-continuation.js).
+    // OpenClaw's run after a background command keeps a work goal waiting.
     this.completionRuns = new CompletionRuns({ now });
     this.gatewayEvents.on("agent", (payload) => this.completionRuns.observe(payload));
     // The chat says when a run summarises its conversation (compactions.js).

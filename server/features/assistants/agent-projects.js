@@ -34,7 +34,7 @@ export async function initRepository(cwd) {
  * create projects; throws otherwise. Shaped like agent-ssh-proposals.js proposalTurn.
  */
 export function projectTurn(w, inv) {
-  if (!inv.attemptId || inv.routine || inv.hook || inv.continuation) throw ownerOnly();
+  if (!inv.attemptId || inv.routine || inv.hook || inv.ownerRun) throw ownerOnly();
   const a = w.a,
     attempt = a.ledger.getAttempt(inv.attemptId),
     request = a.ledger.getRequest(attempt.requestId),

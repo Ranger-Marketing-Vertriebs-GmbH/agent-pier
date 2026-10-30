@@ -88,7 +88,7 @@ test("the audit names the turn a file was staged in", () => {
       leadRequestId: "lr1",
     },
   );
-  assert.deepEqual(turnDetails({ execContinuation: { attemptId: "a" } }), {
-    via: "exec-completion",
+  assert.deepEqual(turnDetails({ ownerRun: { key: "run:session:r" } }), {
+    via: "agent-run",
   });
 });

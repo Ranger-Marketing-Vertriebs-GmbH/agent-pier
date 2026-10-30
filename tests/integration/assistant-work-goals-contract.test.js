@@ -10,7 +10,7 @@ import { AssistantConfig } from "../../server/features/assistants/assistant-conf
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { TeamService } from "../../server/features/assistants/team-service.js";
 import { GatewayEventHub } from "../../server/features/assistants/gateway-event-hub.js";
-import { CompletionRuns } from "../../server/features/assistants/exec-continuation.js";
+import { CompletionRuns } from "../../server/features/assistants/completion-runs.js";
 import { backgroundMethod } from "../../server/features/assistants/team-plugin/background-commands.js";
 import { continuationPrompt } from "../../server/features/assistants/goal-turns.js";
 import { nudgeDelayMs } from "../../server/features/assistants/work-goal-nudges.js";

@@ -425,21 +425,14 @@ conversation**. Afterwards a quiet line such as **Earlier messages were summaris
 (about 251k → 18k tokens).** marks the place in the chat. Both appear only in
 AgentPier; nothing is sent to the paired Telegram chat.
 
-Only your own messages (in the chat or the paired Telegram chat) and its routines'
-runs can change an agent's memory, apart from the agent's own nightly dreaming
-(below). Forwarded content, reminders, check-ins and tasks
-from a lead agent cannot. When a background command the agent started for one of your
-messages (a long render, for example) finishes after its reply, the agent's follow-up
-on the result may still change files, memory and granted project folders like that
-message did and [hand you files](#files-from-agents): for up to two hours after that
-message. Your own newer messages in that chat (also from the paired Telegram chat) and a
-lead's follow-ups on its members' results do not end this; the follow-up keeps the
-rights of the message that started the command. Forwarded content, a reminder, a
-hook, a lead's task or another user's message arriving in between ends it. The same
-holds for a command started in a [work goal](#work-until-done) continuation and for one
-a lead agent started while handling its member's result. A command started for
-forwarded content,
-a reminder or a lead's task stays read-only,
+Everything in your own chat with one of your agents works for you (AGENTPIER-276):
+your messages (in the chat or the paired Telegram chat), its reminders and
+check-ins, its routines' runs and the agent's own follow-ups without a message of
+yours, such as the one after a background command (a long render, for example)
+finished. They all change files, memory and granted project folders with the agent's
+own access and can [hand you files](#files-from-agents); the agent's own nightly
+dreaming does too (below). Forwarded content, members' reports and tasks from a lead
+agent cannot, and neither can a follow-up whose chat's latest message was such content,
 and the command's output never counts as your message. When a write is refused, the chat shows a quiet line such as
 **Memory not saved: only your own messages can change memory.** Right after the
 agent service starts, a message waits a few seconds until memory can be written; if
@@ -842,7 +835,7 @@ A lead also talks to its members directly:
   in the message cancel that permission. With **Suggest** or **Autonomous**, a short
   yes to the lead's offer ("yes, go ahead") counts as well; with **Autonomous**, a
   task the lead starts on its own in reply to your message may also write (see
-  below), and so may a task from a routine you marked **May write**.
+  below), and so may a task from a routine with **May write** on.
 - The turn in which the lead handles a member's result may act on it like the lead's
   own work, whatever the task was allowed: it changes files in the lead's own
   workspace and memory and in the project folders you gave the lead with **Read and
@@ -905,7 +898,7 @@ with Learning") and on their own:
   other leads are never reached.
 - **Writing:** questions never write. A colleague's task may change files only when
   the sender's own work may change files: your own message in the sender's chat, a
-  lead task that may write, or a routine marked **May write**. Otherwise it runs
+  lead task that may write, or a routine with **May write** on. Otherwise it runs
   read-only. The receiving member always works with its own tools, never the
   sender's grants or shares. Which folders and coding projects it reaches depends on
   who started the exchange: when the lead did (the sender works on a question or task
@@ -1096,8 +1089,8 @@ done: <title>** with a **Stop** button under the chat header.
   members' workspaces at every **Use team** level (at most 4 per turn, not counted
   against the 20 per hour), unless your message said not to change anything.
   When a member's result arrives during an open goal, the lead's turn handling it has
-  the same rights. A background command started in a continuation keeps them when it
-  finishes: the follow-up on its result can still save files and hand you the result.
+  the same rights. When a background command started in a continuation finishes, the
+  follow-up on its result saves files and hands you the result like any run of your chat.
   A continuation never does what needs you:
   approval cards still wait for you, **Go ahead** does not count, and it cannot switch
   on **May write** for routines, create reminders or routines, grant access or set a
@@ -1143,25 +1136,26 @@ or proposing a team sends an **Agent approval** push notification as well.
   a linked coding run that completed); **Run once** starts one now. A member's lead can
   set routines up for it too ([routines a lead sets up](#routines-a-lead-sets-up-for-its-members)). A routine uses
   the agent's own tools and approvals (memory, its workspace files, web, browser,
-  shell and MCP servers, as far as they are switched on) but cannot schedule. It reads
-  the agent's project folders (its own and those its lead shares with it for good)
-  and changes files there only when you switch on **May write** ("Project folders and
-  delegated tasks") in the routine's details, or ask the agent to switch it on or
-  off when it creates or changes the routine for you ("this routine may write"). The
-  agent does that only on your own message in one of your chats, never from a
-  scheduled run, forwarded or tool-provided content, and never for a user's routine
-  (users cannot switch it). Otherwise a write attempt is refused. The run still ends
-  normally, and its result in the chat says "Changes refused: “May write” is off for
-  this routine". The chat's event area links to **Open routine settings**. The agent
-  can also explain it later in the chat. When the agent creates a routine without
-  **May write**, it is told to ask you to switch it on if the routine should
-  change files. Every change
+  shell and MCP servers, as far as they are switched on) but cannot schedule. It
+  works in the agent's project folders (its own and those its lead shares with it for
+  good) at the agent's level: **May write** ("Project folders and delegated tasks")
+  is on by default for the agent's own routines. Switch it off in the routine's
+  details, or ask the agent to switch it off or on when it creates or changes the
+  routine for you ("this routine may only read"). The agent does that only on your
+  own message in one of your chats, never from a scheduled run, forwarded or
+  tool-provided content, and never for a user's routine (users cannot switch it; on
+  an agent of users it stays off until you switch it on). With **May write** off a
+  write attempt is refused. The run still ends normally, and its result in the chat
+  says "Changes refused: “May write” is off for this routine". The chat's event area
+  links to **Open routine settings**. The agent can also explain it later in the
+  chat. When the agent creates a routine without **May write**, it is told to ask you
+  to switch it on if the routine should change files. Every change
   is recorded in the activity log with the routine. A coding request from a routine
   always waits for your approval in the agent's chat, also when the agent may start
   pipelines without one; a routine cannot cancel coding runs. A lead's routine can ask
-  its members and delegate tasks to permanent ones; such a task runs read-only unless
-  the routine is marked **May write**, and **Team › Teams › Questions and tasks**
-  marks the request "Scheduled · <name>". A marked routine's tasks count as your
+  its members and delegate tasks to permanent ones; such a task runs read-only when
+  the routine's **May write** is off, and **Team › Teams › Questions and tasks**
+  marks the request "Scheduled · <name>". Otherwise the routine's tasks count as your
   standing instruction and may change files like a task you asked for. Its result
   appears in the main chat's **Events** area (see [the event area](#the-event-area))
   as a row with the routine's name and the reply's first line; opening the row shows
@@ -1520,9 +1514,9 @@ signed-in one may be used for images.
   member's name; it reaches Telegram when the lead's turn the member works for came
   from Telegram.
 - Agents share only regular files of at most 25 MB from their own workspace, or from a
-  project folder you granted them (reading it is enough; in your own turns, a team
-  member's team turns, a lead's follow-up on its member's result and the follow-up of
-  a background command one of them started), never through a symbolic or hard link and never from `.git`
+  project folder you granted them (reading it is enough; in every run of your own chat,
+  a team member's team turns and a lead's follow-up on its member's result), never
+  through a symbolic or hard link and never from `.git`
   or AgentPier's own data. AgentPier keeps its own copy outside the workspace, so the
   agent cannot change or remove it.
 - Shared copies have their own storage beside your attachments: 1 GB or 2000 files per

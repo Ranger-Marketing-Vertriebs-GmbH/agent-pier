@@ -1,29 +1,19 @@
 import { isDeepStrictEqual } from "node:util";
 import { assistantProblem } from "./assistant-validation.js";
-import { isUserAgent } from "../users/user-access.js";
+import { ownerChat } from "./owner-runs.js";
 import { mainConversation } from "./routine-targets.js";
 import { routineActions } from "./team-bridge-actions.js";
 import * as hooks from "./agent-hook-bridge.js";
 
 // The owner decided (AGENTPIER-274): an agent may always send files back to him.
 // agentpier_share_file into the owner's own chat therefore depends on no turn: a direct
-// turn, OpenClaw's own run after a background command (exec-continuation.js proves
-// nothing for it), a check-in, a routine or a hook, also after its event settled, all
-// share alike. What a share may read stays guarded (agent-share-source.js,
-// agent-project-files.js shareRoot), and a file for anyone else (a restricted user's
-// chat on a user agent) keeps the rules of the turn that shares it.
+// turn, OpenClaw's own run after a background command, a check-in, a routine or a
+// hook, also after its event settled, all share alike (owner-runs.js). What a share
+// may read stays guarded (agent-share-source.js, agent-project-files.js shareRoot),
+// and a file for anyone else (a restricted user's chat on a user agent) keeps the
+// rules of the turn that shares it.
 
-/** Whether `conversation` is the owner's own chat of an active agent that is no user agent. */
-export function ownerChat(agent, conversation) {
-  return (
-    !!agent &&
-    !agent.archivedAt &&
-    !isUserAgent(agent) &&
-    conversation?.assistantId === agent.id &&
-    !conversation.userId &&
-    !conversation.userReleased
-  );
-}
+export { ownerChat };
 
 /**
  * Where a share of a session without a turn goes when no running hook or routine
@@ -47,8 +37,8 @@ export function ownerShare(bridge, input) {
 }
 
 /**
- * The binding of a call in a session without a turn, apart from a command's
- * completion run (exec-continuation.js): a hook's run serves its own actions while
+ * The binding of a call in a session without a turn, apart from an owner run's
+ * project folders (owner-runs.js): a hook's run serves its own actions while
  * its event runs, a routine's run its routine actions, and every other run of the
  * owner's chat a share for him. `{ hook | routine | owner }`, or null; a hook's
  * session refuses every other action.

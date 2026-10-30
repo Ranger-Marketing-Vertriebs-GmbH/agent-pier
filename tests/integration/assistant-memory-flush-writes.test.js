@@ -114,7 +114,7 @@ test("a flush is admitted only for the source session's current owner run", asyn
   for (const [name, origin] of [
     ["forwarded", telegram(f, true)],
     ["lead-request", { kind: "lead-request", requestId: "r1" }],
-    ["reminder", { kind: "reminder" }],
+    ["member-report", { kind: "member-report" }],
     ["team-member", { kind: "team-member" }],
   ]) {
     const turn = await f.invocation(`${name}-flush`, origin);
@@ -124,11 +124,18 @@ test("a flush is admitted only for the source session's current owner run", asyn
     f.assistants.memoryFlushes.clear();
   }
 
+  // A reminder of the owner's chat keeps its notes (AGENTPIER-276).
+  const reminder = await f.invocation("reminder-flush", { kind: "reminder" });
+  f.report(reminder.attemptId);
+  assert.equal(await f.flush(today), true, "a reminder of the owner's chat");
+  f.assistants.ledger.transition(reminder.attemptId, "completed");
+  f.assistants.memoryFlushes.clear();
+
   const direct = await f.invocation("telegram-flush", telegram(f, false));
   f.report(direct.attemptId);
   assert.equal(await f.flush(today), true, "the paired Telegram chat's own turn");
   f.assistants.ledger.transition(direct.attemptId, "completed");
-  assert.equal(await f.flush(today), false, "no active turn, no routine: no flush");
+  assert.equal(await f.flush(today), false, "the ended turn's own run: no flush");
 });
 
 test("a flush reported for a session without an owner turn is refused", async (t) => {

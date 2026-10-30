@@ -102,7 +102,7 @@ function hookRuns(f) {
       sessionKey: run.sessionKey,
       hook: origin,
       routine: null,
-      continuation: null,
+      ownerRun: null,
       assertCurrent() {
         const now = service.runOrigin(run.agent, run.sessionKey);
         if (now?.event.id !== origin.event.id)

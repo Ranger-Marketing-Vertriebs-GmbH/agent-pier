@@ -115,10 +115,11 @@ test("only the routine binding's own switch reaches a request, never the lead", 
       routine: { binding: binding(flag), conversation: { id: "c1" } },
       sessionKey: "agent:a:cron:j:run:1",
     }).routine.writes;
+  // AGENTPIER-276: on unless the owner switched it off.
   assert.equal(caller(true), true);
   assert.equal(caller(false), false);
-  assert.equal(caller(undefined), false);
-  assert.equal(caller("yes"), false);
+  assert.equal(caller(undefined), true);
+  assert.equal(caller("yes"), true);
 });
 
 test("a routine reaches neither archived nor temporary members for tasks", (t) => {

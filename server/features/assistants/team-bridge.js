@@ -10,7 +10,7 @@ import { flushWrite, memoryStep, noteRefusal, turnWrite } from "./memory-write-p
 import { codeModeControl, memoryStepSession, stepPolicy } from "./memory-step-tools.js";
 import { isMemory } from "./lead-request-writes.js";
 import { auditResultWrite, resultTurn } from "./member-result-writes.js";
-import * as continuation from "./exec-continuation.js";
+import { assertOwnerRun, ownerRunBinding, ownerRunWrite } from "./owner-runs.js";
 import { assertOwnerShare, turnlessBinding } from "./owner-shares.js";
 import { boundTurnLive, confirmFromCall, turnRefusal } from "./run-confirmation.js";
 import { routineRun, routineWrite } from "./routine-run-origin.js";
@@ -125,9 +125,9 @@ export class TeamBridge {
         throw assistantProblem("invalid", 403);
       return record;
     }
-    // A command's completion run continues the turn that started it
-    // (exec-continuation.js); a share goes to the owner's chat from any run.
-    if (record.continuation) return continuation.assertContinuation(this, record);
+    // Any other run of the owner's chat works on his agent's standing grants
+    // (owner-runs.js); a share goes to the owner's chat from any run.
+    if (record.ownerRun) return assertOwnerRun(this, record);
     if (record.owner) return assertOwnerShare(this, record);
     const a = this.assistants.ledger.getAttempt(record.attemptId);
     // A call under way outlives a send whose acknowledgement timed out meanwhile;
@@ -172,7 +172,7 @@ export class TeamBridge {
     )
       throw assistantProblem("invalid");
     for (const k of ["agentId", "sessionKey", "toolCallId"]) textValue(input[k], 512);
-    // A call's run, and a workspace call's Gateway record (team-plugin/exec-processes.js).
+    // A call's run. `exec`, the record a plugin before 2.13 still sends, is ignored.
     if (input.runId !== undefined && input.runId !== null) textValue(input.runId, 512);
     for (const [key, value] of this.tickets)
       if (value.expires < this.now() && (!value.promise || value.settled))
@@ -202,13 +202,9 @@ export class TeamBridge {
       // A hook's or a routine's run, or a share for the owner (owner-shares.js).
       const bound = turnlessBinding(this, input);
       if (bound) return issue({ attemptId: null, ...bound });
-      // A command's completion run; 2026.10.7's is read from the transcript first.
-      const resume = (resumed) => {
-        if (!resumed) throw refuse();
-        return issue({ attemptId: null, continuation: resumed });
-      };
-      const resumed = continuation.continuationBinding(this, input);
-      return resumed instanceof Promise ? resumed.then(resume) : resume(resumed);
+      // Any other run of the owner's chat (owner-runs.js).
+      const ownerRun = ownerRunBinding(this, input);
+      if (ownerRun) return issue({ attemptId: null, ownerRun });
     }
     throw refuse();
   }
@@ -256,13 +252,12 @@ export class TeamBridge {
       writeGuardRuntimes.includes(this.assistants.runtime.status?.().version)
     );
   }
-  // Native write/edit calls are permitted only while the current turn is the owner's
-  // own message (a work-goal continuation counts as one), a lead's follow-up on its
-  // member's result (member-result-writes.js), a routine's run (routineWrite), a hook
-  // run's own memory (agent-hook-bridge.js), a memory step's own memory
-  // (memory-write-policy.js) or the completion run of a command one of the first two
-  // started (exec-continuation.js); forwarded, other scheduled, internal and member
-  // turns never write, apart from an owner-proven task.
+  // Native write/edit calls are permitted in every run of the owner's own chat with
+  // his agent (owner-runs.js: his turns, check-ins, a command's follow-up), a lead's
+  // follow-up on its member's result (member-result-writes.js), a routine's run
+  // (routineWrite), a hook run's own memory (agent-hook-bridge.js), a memory step's
+  // own memory (memory-write-policy.js) and a restricted user's own turn on her agent;
+  // forwarded content and members' turns never write, apart from an owner-proven task.
   toolPolicy(input) {
     if (
       !input ||
@@ -375,13 +370,13 @@ export class TeamBridge {
   writeAllowed(input) {
     if (flushSessionAgent(input.sessionKey)) return flushWrite(this, input);
     const matches = this.bound(input.sessionKey);
-    // A routine's own run session has no attempt: its writes are its own origin. A
-    // command's completion run may continue its owner turn (exec-continuation.js).
+    // A routine's own run session has no attempt: its writes are its own origin. Any
+    // other run of the owner's chat writes like his turn (owner-runs.js).
     if (!matches.length) {
       // A hook session writes only its own memory, never once its event settled.
       if (hooks.hookSession(this, input)) return hooks.hookWrite(this, input);
       const allowed = this.routineWrite(input);
-      if (!allowed) return continuation.continuationWrite(this, input);
+      if (!allowed) return ownerRunWrite(this, input);
       if (isShared(this.agentOf(input.agentId)) && isMemory(input.path)) {
         const conversationId = this.routineRun(input)?.conversation?.id;
         if (conversationId)
@@ -459,7 +454,7 @@ export class TeamBridge {
       assertCurrent: () => this.valid(record, { running: true }),
       routine: record.routine || null,
       hook: record.hook || null,
-      continuation: record.continuation || null,
+      ownerRun: record.ownerRun || null,
       owner: record.owner || null,
       sessionKey: record.sessionKey,
       runId: record.runId || null,

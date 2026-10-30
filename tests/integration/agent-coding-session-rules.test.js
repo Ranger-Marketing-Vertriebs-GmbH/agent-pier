@@ -123,7 +123,7 @@ test("without enabled projects the tool answers SESSIONS_NOT_ENABLED", async (t)
   });
 });
 
-test("forwarded, user and command-completion turns are refused", async (t) => {
+test("forwarded, user and turnless owner-run calls are refused", async (t) => {
   const f = await agentSessionFixture(t);
   for (const origin of [
     { kind: "telegram", forwarded: true },
@@ -139,14 +139,14 @@ test("forwarded, user and command-completion turns are refused", async (t) => {
     assert.equal(error?.status, 403, JSON.stringify(origin));
     assert.equal(toolError(error).code, "FORBIDDEN");
   }
-  const owner = await f.invocation();
-  const continuation = {
+  // A run of the owner's chat without a turn starts no coding session.
+  const run = {
     attemptId: null,
     toolCallId: "c",
-    continuation: { attemptId: owner.attemptId },
+    ownerRun: { conversationId: f.channel.conversationId },
     assertCurrent() {},
   };
-  await assert.rejects(f.call(continuation, { action: "options" }), { status: 403 });
+  await assert.rejects(f.call(run, { action: "options" }), { status: 403 });
 });
 
 test("turn classes: owner, Telegram owner and wake turns", async (t) => {

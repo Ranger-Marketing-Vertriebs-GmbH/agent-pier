@@ -200,26 +200,21 @@ test("sources over 25 MB in total are refused", async (t) => {
   );
 });
 
-test("a mail-result follow-up attaches from its workspace only", async (t) => {
+// AGENTPIER-276: a mail-result follow-up in the owner's own chat works on the agent's
+// standing grants like any run of that chat.
+test("a mail-result follow-up of the owner's chat attaches like his turn", async (t) => {
   const f = await setup(t, { projectFiles: {} });
   f.access({ projectFiles: { [f.folderProject.id]: "read" } });
   const inv = f.ownTurn({ kind: "mail-result", actionId: "a1" });
   const files = f.files(inv);
-  assert.deepEqual(files.ctx, { assistantId: f.id, workspaceOnly: true });
+  assert.equal(files.ctx.workspaceOnly, undefined);
   f.file(f.ws("a.txt"));
   f.file(f.proj("r.pdf"));
   assert.equal((await f.read({ path: "a.txt" }, inv)).source.kind, "workspace");
-  assert.equal(
-    await code(f.read({ path: "r.pdf", projectId: f.folderProject.id }, inv)),
-    "PROJECT_NOT_GRANTED",
-  );
-  assert.equal(await code(f.read({ path: f.proj("r.pdf") }, inv)), "MAIL_SOURCE_REFUSED");
-  assert.deepEqual(storedFiles(files), {
-    context: { assistantId: f.id, workspaceOnly: true },
-    shell: "off",
-  });
+  const read = await f.read({ path: "r.pdf", projectId: f.folderProject.id }, inv);
+  assert.equal(read.source.kind, "project");
   const project = { kind: "project", projectId: f.folderProject.id, path: "r.pdf" };
-  assert.equal(sourceAllowed(f.workflows, f.id, storedFiles(files), project), false);
+  assert.equal(sourceAllowed(f.workflows, f.id, storedFiles(files), project), true);
 });
 
 test("a hook run attaches with the hook's live shell level", async (t) => {
