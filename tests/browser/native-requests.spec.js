@@ -111,6 +111,68 @@ test("mobile permission request preserves native options and unknown outcomes of
     await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
   ).toBe(true);
 });
+test("a permission card offers remembering the program for the session or project", async ({
+  page,
+}) => {
+  const state = await operationsFixture(page);
+  const remember = { tool: "Bash", programs: ["rm", "git push"] };
+  state.requests = [
+    {
+      ...request,
+      kind: "permission",
+      source: "claude",
+      questions: undefined,
+      subject: { tool: "Bash", command: "rm -rf build && git push" },
+      options: [
+        { id: "allow", label: "Einmal erlauben", scope: "once" },
+        { id: "remember-session", label: "x", scope: "session", remember },
+        { id: "remember-project", label: "x", scope: "project", remember },
+        { id: "deny", label: "Ablehnen" },
+      ],
+    },
+  ];
+  await page.goto(baseURL + "/sessions/fixture-session/chat");
+  await expect(
+    page.getByRole("button", { name: "rm, git push in dieser Session immer erlauben" }),
+  ).toBeVisible();
+  await expect(page.getByText("Dieses Projekt", { exact: true })).toBeVisible();
+  await page
+    .getByRole("button", { name: "rm, git push in diesem Projekt immer erlauben" })
+    .click();
+  expect(state.calls.find((call) => call.path.endsWith("/answer")).body).toEqual({
+    expectedRevision: 1,
+    choice: "remember-project",
+  });
+});
+test.describe("English remembered approvals", () => {
+  test.use({ locale: "en-GB" });
+  test("the remember options read in English", async ({ page }) => {
+    const state = await operationsFixture(page);
+    state.requests = [
+      {
+        ...request,
+        kind: "permission",
+        source: "claude",
+        questions: undefined,
+        subject: { tool: "WebFetch" },
+        options: [
+          { id: "allow", label: "Allow once", scope: "once" },
+          {
+            id: "remember-session",
+            label: "x",
+            scope: "session",
+            remember: { tool: "WebFetch" },
+          },
+          { id: "deny", label: "Deny" },
+        ],
+      },
+    ];
+    await page.goto(baseURL + "/sessions/fixture-session/chat");
+    await expect(
+      page.getByRole("button", { name: "Always allow WebFetch in this session" }),
+    ).toBeVisible();
+  });
+});
 test("secret native answers stay masked and a new occurrence resets the draft", async ({
   page,
 }) => {

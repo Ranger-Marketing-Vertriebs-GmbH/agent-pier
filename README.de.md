@@ -33,7 +33,9 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
 - **Eingang:** alle Fragen und Freigaben der CLIs, Pipeline-Gates und Anfragen deiner
   Agenten, die auf dich warten, mit Live-Zähler an einer Stelle beantwortet;
   Claude-Code-Freigaben bieten „Dauerhaft erlauben“ pro Account und zeigen Pläne vor
-  der Freigabe ([Eingang](docs/inbox.md#claude-code-approvals-and-plans)).
+  der Freigabe ([Eingang](docs/inbox.md#claude-code-approvals-and-plans)). Freigaben der
+  CLIs lassen sich für eine Session oder ein Projekt merken, und nur lesende Befehle wie
+  `git status` fragen nie ([gemerkte Freigaben](docs/inbox.md#remembered-and-default-approvals)).
 - **Pipelines mit Review:** wiederverwendbare Profile, isolierte Git-Worktrees,
   parallele Reviewer mit zusammengeführtem Ergebnis, begrenzte Review-Schleifen, Prüfungen, ein Risiko-Gate für heikle Pfade, ein Token-Budget je Lauf, eine Warteschlange je Projekt mit Limit für gleichzeitige Läufe und
   menschliche Freigabe, dazu eine eingebaute Software-Fabrik von der Spezifikation bis zum Pull Request

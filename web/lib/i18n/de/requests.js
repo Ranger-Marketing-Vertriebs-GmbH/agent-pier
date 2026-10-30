@@ -103,6 +103,14 @@ export const requestCopy = {
     once: "Einmal",
     session: "Diese Session",
     persistent: "Dauerhaft",
+    project: "Dieses Projekt",
+  },
+  // "Immer erlauben" für ein Programm oder Werkzeug, von AgentPier gemerkt.
+  // Werkzeuge ohne Programm, die ihren Namen nicht selbst erklären.
+  rememberTools: { "item/fileChange/requestApproval": "Dateiänderungen" },
+  remember: {
+    session: (what) => `${what} in dieser Session immer erlauben`,
+    project: (what) => `${what} in diesem Projekt immer erlauben`,
   },
   loading: "Native Rückfragen werden geladen …",
 };

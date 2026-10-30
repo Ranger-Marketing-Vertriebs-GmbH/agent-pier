@@ -21,7 +21,7 @@ export const subagentPermission = (transcriptPath, overrides = {}) => ({
   agent_id: subagentId,
   agent_type: "general-purpose",
   tool_name: "Bash",
-  tool_input: { command: "npm test", description: "Run the tests" },
+  tool_input: { command: "npm run build", description: "Build the app" },
   ...overrides,
 });
 

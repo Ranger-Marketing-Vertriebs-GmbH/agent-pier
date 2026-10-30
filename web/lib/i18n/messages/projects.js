@@ -10,3 +10,7 @@ export const projectDialogsCopy = localizedCopy(
   de.projectDialogsCopy,
   en.projectDialogsCopy,
 );
+export const projectApprovalsCopy = localizedCopy(
+  de.projectApprovalsCopy,
+  en.projectApprovalsCopy,
+);

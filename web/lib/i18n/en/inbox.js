@@ -82,6 +82,9 @@ export const inboxCopy = {
     review: "Reviewed",
     "allow-once": "Allowed once",
     "allow-always": "Always allowed",
+    "allow-session": "Allowed for this session",
+    "allow-project": "Allowed for this project",
+    "allow-default": "Allowed automatically",
   },
   channels: {
     ui: "In AgentPier",

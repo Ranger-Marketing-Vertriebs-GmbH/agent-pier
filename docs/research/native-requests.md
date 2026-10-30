@@ -188,6 +188,20 @@ stay the same, and no session restart is needed. Hooks of releases before
 process that still caches a command from before the dispatcher shows the
 `/reload-plugins` hint described above.
 
+### Remembered and default approvals (2026-10-30)
+
+The broker answers a new permission request before it becomes a card when the
+default list or a remembered approval covers it (`request-approvals.js`,
+`cli-approval-defaults.js`, `shell-command.js`). It sends the CLI's own "allow once"
+answer (`allow` for Claude Code, `accept` for Codex command and file-change approvals,
+`once` for OpenCode) over the same channel and audits `request.answered` with the
+decision and `auto: true`. A delivery result is handled outside the socket's publish
+queue, because the automatic answer waits for it inside that queue. All three CLIs
+support it: none of them needs its own remembered rules, because AgentPier answers each
+matching call. Codex's `item/permissions/requestApproval` (extra sandbox permissions)
+is never remembered or answered automatically. See
+[remembered approvals](../inbox.md#remembered-and-default-approvals).
+
 A focused terminal view hands pending tool approvals to Claude in the same way
 as questions. The "Answer in terminal" action does the same from chat. A
 handoff never approves anything.

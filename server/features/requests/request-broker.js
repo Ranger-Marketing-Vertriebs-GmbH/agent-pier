@@ -18,6 +18,8 @@ import { nativePushValue } from "./native-push.js";
 import { listenClaudeMod } from "../claude-mod/claude-mod-socket.js";
 import { RequestNotices } from "./request-notices.js";
 import { inboxEntry, sessionEntry } from "./request-views.js";
+import { RequestApprovals } from "./request-approvals.js";
+import { answerDecision, autoAnswer, deliver } from "./request-delivery.js";
 export { terminalNoticeMs } from "./request-notices.js";
 // A prompt already answered, changed or gone; names who claimed it when known.
 const stale = (entry) =>
@@ -63,6 +65,8 @@ export class RequestBroker {
     this.deliveries = new Map();
     this.created = new Set();
     this.claudeReloadRequired = new Set();
+    // Remembered approvals and the default list answer requests without a card.
+    this.approvals = new RequestApprovals({ directory: this.directory });
     // Latest Claude approval per session that left chat for the terminal.
     this.notices = new RequestNotices({ onChange: (id) => this.changed(id) });
     const hash = createHash("sha256")
@@ -240,6 +244,13 @@ export class RequestBroker {
     let owner;
     let queue = Promise.resolve();
     messages(socket, (message) => {
+      // A delivery's result never waits behind a publish: answering a new request
+      // automatically (autoAnswer) waits for it inside that queue.
+      if (message.type === "result" && owner) {
+        const delivery = this.deliveries.get(message.delivery);
+        if (delivery?.socket === socket) delivery.finish(message.status);
+        return;
+      }
       queue = queue.then(async () => {
         if (!owner) {
           if (
@@ -279,11 +290,6 @@ export class RequestBroker {
         }
         const push = nativePushValue(message);
         if (push) return this.push(socket, owner, push);
-        if (message.type === "result") {
-          const delivery = this.deliveries.get(message.delivery);
-          if (delivery?.socket === socket) delivery.finish(message.status);
-          return;
-        }
         if (typeof message.key !== "string" || !message.key || message.key.length > 1000)
           throw Error("Invalid native occurrence");
         const id = createHmac("sha256", owner.token)
@@ -333,6 +339,8 @@ export class RequestBroker {
           [...this.entries.values()].filter((e) => e.sessionId === owner.id).length >= 100
         )
           throw Error("Too many native requests");
+        if (await autoAnswer(this, entry, session)) return;
+        if (socket.destroyed || this.entries.has(id)) return;
         this.entries.set(id, entry);
         this.notices.clear(owner.id);
         this.emit(entry, "request.created");
@@ -449,7 +457,12 @@ export class RequestBroker {
       throw stale(entry?.sessionId === sessionId ? entry : null);
     if (entry.presentation === "claudeLegacyQuestion" && !handoff)
       throw problem(copy.invalid, 400);
-    const answer = handoff ? { handoff: true } : answerValue(entry, input);
+    let answer = handoff ? { handoff: true } : answerValue(entry, input);
+    // "Allow in this session/project" answers the CLI with its own "allow once".
+    const remembered = handoff ? null : this.approvals.remembering(answer.choice);
+    // Only the owner remembers approvals; an agent answers this call alone.
+    if (remembered && by.actor === "agent") throw problem(copy.invalid, 400);
+    if (remembered) answer = { choice: this.approvals.nativeChoice(entry) };
     if (entry.local && entry.presentation !== "codexHookTrust" && handoff)
       return this.list(sessionId);
     const local = {
@@ -487,35 +500,19 @@ export class RequestBroker {
     entry.status = "responding";
     entry.revision++;
     this.changed(sessionId);
-    const status = await new Promise((resolve) => {
-      const delivery = randomUUID();
-      const finish = (value) => {
-        clearTimeout(timer);
-        this.deliveries.delete(delivery);
-        resolve(value);
-      };
-      const timer = setTimeout(() => finish("unknown"), 10000);
-      this.deliveries.set(delivery, { socket: entry.socket, finish });
-      if (!send(entry.socket, { type: "answer", delivery, key: entry.key, answer }))
-        finish("unknown");
-    });
+    const status = await deliver(this, entry.socket, entry.key, answer);
     if (status === "answered") {
       this.entries.delete(id);
       if (handoff) this.terminalNotice(entry);
+      // The call is allowed either way; a rule that cannot be saved asks next time.
+      if (remembered)
+        await this.approvals.remember(entry, remembered, session).catch(() => {});
       this.emit(
         entry,
         handoff ? "request.handed-off" : "request.answered",
         source,
         "success",
-        handoff
-          ? "handoff"
-          : entry.kind === "question"
-            ? answer.decline
-              ? "deny"
-              : "answer"
-            : ["deny", "decline", "reject", "cancel"].includes(input.choice)
-              ? "deny"
-              : "allow",
+        answerDecision(entry, input, answer, { handoff, remembered }),
         by,
       );
     } else if (status === "stale") {

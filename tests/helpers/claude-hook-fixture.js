@@ -23,6 +23,8 @@ export async function fixture(t) {
     accountId: "account",
     status: "running",
     nativeRequests: { enabled: true },
+    // A plain folder is a project of its own (remembered project approvals).
+    cwd: root,
   };
   const events = [];
   const config = {
@@ -43,6 +45,7 @@ export async function fixture(t) {
   });
   return {
     root,
+    session,
     launch,
     events,
     get broker() {
