@@ -388,6 +388,9 @@ accent. Never encode a state by colour alone: add text or an icon.
   a smaller `min-height` in feature CSS (`tests/browser/touch-target-size.spec.js`).
 - Dialogs become bottom sheets on phones (`Modal`, `Sheet` do this already); actions
   stay visible above the home indicator (`--safe-area-inset-bottom`).
+- A row's ⋯ menu may open as a sheet on phones: given `sheet` (title and optional
+  subtitle), `RowMenu` shows the same items in a `Sheet` with Cancel (the Projects page
+  does this for projects and groups).
 - No horizontal page scroll; long values wrap or truncate with the full text available.
 
 ### Accessibility
