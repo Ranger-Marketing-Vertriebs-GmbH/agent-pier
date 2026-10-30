@@ -192,7 +192,7 @@ test("native write tools never let forwarded or scheduled turns rewrite instruct
     false,
   );
   f.assistants.ledger.transition(direct.attemptId, "completed");
-  // AGENTPIER-276: a run of the owner's chat without a turn writes like his turn.
+  // AGENTPIER-276: a run of the owner's chat without a turn writes like their turn.
   assert.equal(await call("MEMORY.md"), true, "a run of the owner's chat");
 
   const forwarded = await f.invocation("forwarded-write", origin(f, true));
@@ -206,7 +206,7 @@ test("native write tools never let forwarded or scheduled turns rewrite instruct
     assert.equal(await call("MEMORY.md"), false, `${context.kind} turns cannot write`);
     f.assistants.ledger.transition(turn.attemptId, "completed");
   }
-  // A reminder of the owner's chat writes like his turn (AGENTPIER-276).
+  // A reminder of the owner's chat writes like their turn (AGENTPIER-276).
   const reminder = await f.invocation("reminder-write", { kind: "reminder" });
   assert.equal(await call("MEMORY.md"), true, "reminder turns of the owner's chat write");
   f.assistants.ledger.transition(reminder.attemptId, "completed");

@@ -125,7 +125,7 @@ export class TeamBridge {
         throw assistantProblem("invalid", 403);
       return record;
     }
-    // Any other run of the owner's chat works on his agent's standing grants
+    // Any other run of the owner's chat works on their agent's standing grants
     // (owner-runs.js); a share goes to the owner's chat from any run.
     if (record.ownerRun) return assertOwnerRun(this, record);
     if (record.owner) return assertOwnerShare(this, record);
@@ -253,10 +253,10 @@ export class TeamBridge {
     );
   }
   // Native write/edit calls are permitted in every run of the owner's own chat with
-  // his agent (owner-runs.js: his turns, check-ins, a command's follow-up), a lead's
+  // their agent (owner-runs.js: their turns, check-ins, a command's follow-up), a lead's
   // follow-up on its member's result (member-result-writes.js), a routine's run
   // (routineWrite), a hook run's own memory (agent-hook-bridge.js), a memory step's
-  // own memory (memory-write-policy.js) and a restricted user's own turn on her agent;
+  // own memory (memory-write-policy.js) and a restricted user's own turn on their agent;
   // forwarded content and members' turns never write, apart from an owner-proven task.
   toolPolicy(input) {
     if (
@@ -371,7 +371,7 @@ export class TeamBridge {
     if (flushSessionAgent(input.sessionKey)) return flushWrite(this, input);
     const matches = this.bound(input.sessionKey);
     // A routine's own run session has no attempt: its writes are its own origin. Any
-    // other run of the owner's chat writes like his turn (owner-runs.js).
+    // other run of the owner's chat writes like their turn (owner-runs.js).
     if (!matches.length) {
       // A hook session writes only its own memory, never once its event settled.
       if (hooks.hookSession(this, input)) return hooks.hookWrite(this, input);

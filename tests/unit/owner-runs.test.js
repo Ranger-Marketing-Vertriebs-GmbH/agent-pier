@@ -8,7 +8,7 @@ import {
 import { flushWrite } from "../../server/features/assistants/memory-write-policy.js";
 import { flushDates } from "../../server/features/assistants/memory-flushes.js";
 
-// AGENTPIER-276: every run of the owner's own chat with his agent works on its
+// AGENTPIER-276: every run of the owner's own chat with their agent works on its
 // standing grants, unless its content came from someone else.
 const agent = { id: "a1", runtimeAgentId: "ap-a1" };
 const chat = { id: "c1", assistantId: "a1" };
@@ -30,7 +30,7 @@ function bridge({ who = agent, conversation = chat, latest = { kind: "owner" } }
 }
 const input = { agentId: "ap-a1", sessionKey: "session" };
 
-test("a run of the owner's chat without a turn works for him after his own turns", () => {
+test("a run of the owner's chat without a turn works for them after their own turns", () => {
   for (const latest of [
     null,
     { kind: "owner" },

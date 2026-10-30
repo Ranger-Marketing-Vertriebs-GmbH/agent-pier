@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { shellService } from "../helpers/assistant-shell-service.js";
 
 // AGENTPIER-276: a new agent of the owner's starts with shell "With approval": every
-// command still asks him, so it needs no confirmation. Full access still does, and
+// command still asks them, so it needs no confirmation. Full access still does, and
 // an agent of users starts without shell.
 const agent = (extra = {}) => ({
   name: "Fresh",

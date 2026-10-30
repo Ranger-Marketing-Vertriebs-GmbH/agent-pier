@@ -258,7 +258,7 @@ for the implementation and remaining native platform/version qualification.
 
 - **Only runs of the owner's own chat and a routine's own run write natively.** The
   write guard covers every native file tool (`write`, `edit`, `apply_patch`). It admits
-  every run of the owner's own chat with his agent (his turns, check-ins, reminders
+  every run of the owner's own chat with their agent (their turns, check-ins, reminders
   and runs without a turn such as a command's follow-up, AGENTPIER-276, see
   `owner-runs.js`), an owner-proven member task (or one an autonomous lead or a
   routine with **May write** started) and the run of a routine the owner configured
@@ -1603,10 +1603,10 @@ was compacted and the plan was gone. Four rules close that gap:
   own record of background processes, that the command came from the owner's own
   turn (`exec-continuation.js`); in practice the proof refused many of the owner's
   own follow-ups (`ORIGIN`, `UNTRACKED`, `PROCESS`) and the agent lost its notes.
-  The owner decided (AGENTPIER-276) that his own agents are not blocked by the
+  The owner decided (AGENTPIER-276) that their own agents are not blocked by the
   origin of a run. `owner-runs.js` now treats every run of the owner's own chat
-  with one of his agents alike:
-  - **Bound turns** of that chat (his messages, also from Telegram, check-ins,
+  with one of their agents alike:
+  - **Bound turns** of that chat (their messages, also from Telegram, check-ins,
     reminders, routine and result follow-ups) write natively, flush memory and use
     `agentpier_workspace` with the agent's standing grants (`ownerTurn`).
   - **Runs without a turn** in that chat's session (`ownerRun`: a command's
@@ -3869,7 +3869,7 @@ its own `tools.allow`, because a global `deny` alone still offers the tool.
   access) answers `409 ASSISTANT_SHELL_CONFIRMATION_REQUIRED` naming the missing
   confirmations, and nothing is stored. Lowering never asks.
 - **New agents.** An agent of the owner's created without a level starts **With
-  approval** (AGENTPIER-276): every command still asks him, so it needs no
+  approval** (AGENTPIER-276): every command still asks them, so it needs no
   confirmation; the creation is audited as a level change from Off. The wizard
   always sends the level its profile shows. An agent of users starts Off.
 - **Live changes.** Every level change applies to the running Gateway with
@@ -4546,7 +4546,7 @@ into the entries of own agents and permanent members with **Allow reminders and
 routines** on (`goalAgent` in `profileTools`). It is locked for user agents and never in
 a routine's or a hook run's `toolsAllow` (`routineTools`, `hookTools`). The owner approves
 every proposal on its card, so `invokeHook` (`agent-hook-proposals.js`) admits any run of
-the owner's chat (AGENTPIER-276, `ownerChatCall` in `owner-runs.js`: his turns, scheduled
+the owner's chat (AGENTPIER-276, `ownerChatCall` in `owner-runs.js`: own turns, scheduled
 and result turns, goal continuations and runs without a turn), never a routine's or a
 hook's own run, forwarded, memory-step or members' content (`FORBIDDEN`); an agent that
 may not hold hooks gets `HOOK_UNAVAILABLE`. `propose` validates name, sender, reason, instruction, rights and

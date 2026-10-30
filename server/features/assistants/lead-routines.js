@@ -26,7 +26,7 @@ const live = (b) => !["removed", "revoked"].includes(b.state);
 /**
  * Whether the agent's own routine may write (AGENTPIER-276): on an agent of the
  * owner's it inherits the agent's project folder levels unless the owner switched
- * "May write" off for it; on an agent of restricted users only when he switched it on.
+ * "May write" off for it; on an agent of restricted users only when they switched it on.
  */
 export const ownRoutineWrites = (binding, agent) =>
   binding?.routineWrites === true ||

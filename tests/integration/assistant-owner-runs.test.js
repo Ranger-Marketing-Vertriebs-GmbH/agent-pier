@@ -8,7 +8,7 @@ import { agentRunFixture } from "../helpers/agent-run-fixture.js";
 import { toolError } from "../../server/features/assistants/tool-errors.js";
 
 // AGENTPIER-276: the owner's own agents are not blocked by the origin of a run. Every
-// run of the owner's chat (his turns, check-ins and reminders, OpenClaw's follow-up
+// run of the owner's chat (their turns, check-ins and reminders, OpenClaw's follow-up
 // after a background command) works on the agent's standing grants for project
 // folders and memory; forwarded content, members' content and user agents keep
 // their limits.
@@ -123,7 +123,7 @@ test("someone else's content and user agents keep their limits", async (t) => {
   await assert.rejects(f.workspace({ action: "catalog" }), { status: 403 });
 });
 
-test("a reminder's turn of the owner's chat works like his own", async (t) => {
+test("a reminder's turn of the owner's chat works like their own", async (t) => {
   const f = await setup(t);
   const inv = await f.invocation(randomUUID(), { kind: "reminder" });
   const result = await f.workflows.invoke(inv, {

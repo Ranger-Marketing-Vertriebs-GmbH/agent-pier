@@ -197,7 +197,7 @@ export class AssistantService {
   }
   /**
    * A new agent of the owner's starts with shell "With approval" (AGENTPIER-276).
-   * `template` ({id, revision}): the Agency agent he started from, fetched again
+   * `template` ({id, revision}): the Agency agent they started from, fetched again
    * before admission and scanned. `userAccess` makes it an agent of users.
    */
   async create(body, { userAccess = null } = {}) {

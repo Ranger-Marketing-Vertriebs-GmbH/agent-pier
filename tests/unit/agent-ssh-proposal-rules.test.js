@@ -120,7 +120,7 @@ function turnOf(origin, agent = { id: "a" }, senders = false) {
   return (inv = {}) => proposalTurn(w, { attemptId: "attempt", ...inv });
 }
 
-// AGENTPIER-276: the owner approves every proposal on its card, so any run of his
+// AGENTPIER-276: the owner approves every proposal on its card, so any run of their
 // chat may propose; forwarded and members' content and other people's runs never.
 test("any run of the owner's chat may propose; someone else's content never", () => {
   const forbidden = { key: "invalid", status: 403 };

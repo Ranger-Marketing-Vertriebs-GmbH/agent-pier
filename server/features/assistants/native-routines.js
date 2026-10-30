@@ -172,7 +172,7 @@ export class NativeRoutines extends NativeReminders {
   }
   /**
    * "May write" as the owner sees it: on by default for the agent's own routines on
-   * his agents (ownRoutineWrites), off for a lead's routine on its member unless he
+   * their agents (ownRoutineWrites), off for a lead's routine on its member unless they
    * switched it on.
    */
   routineWrites(binding) {

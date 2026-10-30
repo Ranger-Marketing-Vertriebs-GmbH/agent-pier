@@ -54,7 +54,7 @@ test("a refused memory write leaves one quiet chat note per turn and reason", as
   assert.deepEqual(f.notes(), ["forwarded", "lead-request"]);
   f.assistants.ledger.transition(owner.attemptId, "completed");
   // Automatic turns of someone else's content are named as such; a reminder of the
-  // owner's chat writes like his turn (AGENTPIER-276).
+  // owner's chat writes like their turn (AGENTPIER-276).
   const reminder = await f.invocation("reminder", { kind: "reminder" });
   assert.equal(await f.call("MEMORY.md"), true);
   f.assistants.ledger.transition(reminder.attemptId, "completed");

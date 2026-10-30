@@ -383,7 +383,7 @@ test(
     assert.equal(prepared[0].exec, undefined);
     assert.equal(prepared[0].bound, true, "the completion's workspace call is bound");
 
-    // 4. Its agentpier_share_file call hands the owner the file in his chat, with no
+    // 4. Its agentpier_share_file call hands the owner the file in their chat, with no
     // proof of the turn (AGENTPIER-274).
     const shares = [];
     f.assistants.audit = { append: (event) => shares.push(event) };

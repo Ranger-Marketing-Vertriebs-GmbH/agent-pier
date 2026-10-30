@@ -87,7 +87,7 @@ async function setup(t) {
   return { ...f, hooks, call, pending, texts, setCaps };
 }
 
-// AGENTPIER-276: the owner approves every hook on its card, so any run of his chat may
+// AGENTPIER-276: the owner approves every hook on its card, so any run of their chat may
 // propose one; forwarded and members' content and other runs never.
 test("the agent proposes a hook in any run of the owner's chat, never for someone else", async (t) => {
   const f = await setup(t);

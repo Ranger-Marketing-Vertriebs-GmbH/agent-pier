@@ -32,10 +32,10 @@ const leadTaskActions = new Set([
 const routineRefused = new Set(["coding_cancel"]);
 
 /**
- * The turn context of a workspace call: any turn of the owner's own chat with his
- * agent that is not someone else's content (owner-runs.js: his messages, also from
+ * The turn context of a workspace call: any turn of the owner's own chat with their
+ * agent that is not someone else's content (owner-runs.js: their messages, also from
  * Telegram, check-ins, reminders), a run of that chat without a turn (`ownerRun`),
- * a restricted user's own turn on her agent, a temporary member's team turn
+ * a restricted user's own turn on their agent, a temporary member's team turn
  * (team-coding.js), a task the member's lead delegated to it (leadRequestContext), a
  * lead's follow-up on its member's result (`memberResult`: the lead's own folders and
  * projects, never shares) or a hook run (`hook`, agent-hook-workspace.js). Every
@@ -82,7 +82,7 @@ export function workspaceContext(w, inv, { codingStart = false } = {}) {
     origin.kind === "member-result"
       ? resultTurn(w.a, origin.requestId, attempt.id)
       : null;
-  // A restricted user's own turn counts only on an agent she is a user of; a
+  // A restricted user's own turn counts only on an agent they are a user of; a
   // member's result only as that proven follow-up.
   if (
     !memberResult &&

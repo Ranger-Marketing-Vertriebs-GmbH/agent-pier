@@ -1,10 +1,10 @@
 import { assistantProblem } from "./assistant-validation.js";
 import { isUserAgent } from "../users/user-access.js";
 
-// The owner decided (AGENTPIER-276, after AGENTPIER-274 for shared files): his own
+// The owner decided (AGENTPIER-276, after AGENTPIER-274 for shared files): their own
 // agents are not blocked from their work by the origin of the run. Every run of the
 // owner's own chat with an agent that serves no restricted users works with the
-// agent's standing grants for its project folders and memory: his own turns,
+// agent's standing grants for its project folders and memory: their own turns,
 // check-ins and reminders, and the runs OpenClaw starts without a turn (its
 // follow-up after a background command, a heartbeat). What came from someone else
 // keeps its limits: forwarded content, members' reports and answers, a restricted
@@ -47,7 +47,7 @@ export const foreignOrigin = (origin) =>
 
 /**
  * Whether a bound turn of `conversation` works for the owner with the agent's
- * standing grants: a turn of his own chat with his own agent or permanent member whose
+ * standing grants: a turn of their chat with their own agent or permanent member whose
  * content is not someone else's. A memory step keeps its own narrow rules
  * (memory-step-tools.js).
  */
@@ -97,7 +97,7 @@ export const ownerRunActions = new Set([
 
 /**
  * The owner's chat behind a call whose effect a card protects or that only changes
- * his own chat (hook and SSH access proposals, the agent's own projects, goals):
+ * their own chat (hook and SSH access proposals, the agent's own projects, goals):
  * any bound turn of that chat that is not someone else's content (ownerTurn), or a
  * run of it without a turn. Never a routine's or a hook's own run. `{ agent,
  * conversation, origin, request }` (request null for a run without a turn), or null.
