@@ -313,14 +313,15 @@ The grants themselves stay stored and take effect again after upgrading.
 ### Proposals from agents
 
 An agent cannot add hosts or keys, but it can **propose** a new SSH access with its
-`agentpier_ssh_access` tool (`agent-ssh-proposals.js`) when you ask for one in your own
-message: a name, host, port, remote user, purpose and optionally a project. Own
-agents and permanent team members have the tool; temporary members, user agents and
-agents with a Telegram bot for other people do not, and forwarded, scheduled,
-routine, hook and member turns are refused (`SSH_PROPOSAL_OWNER_ONLY`). Host, port and
-user pass the same checks as **Add a server**, so nothing the agent writes can reach
-`ssh` or `ssh-keyscan` as an option. At most two proposals of an agent wait at a
-time, and an agent makes at most five per hour, failed host-key scans included.
+`agentpier_ssh_access` tool (`agent-ssh-proposals.js`): a name, host, port, remote
+user, purpose and optionally a project. Own agents and permanent team members have the
+tool; temporary members, user agents and agents with a Telegram bot for other people
+do not. Since you approve every proposal on its card, any run of your chat with the
+agent may propose (AGENTPIER-276); forwarded content, members' content and a routine's
+or hook's own run are refused (`FORBIDDEN`). Host, port and user pass the same checks
+as **Add a server**, so nothing the agent writes can reach `ssh` or `ssh-keyscan` as an
+option. There is no waiting or hourly limit of its own; the agent's loop guard stops a
+runaway loop (`AGENT_LOOP_LIMIT`).
 
 AgentPier reads the host key with `ssh-keyscan` (an unverified observation) and shows
 you an **SSH access proposal** card in the agent's chat, in the Inbox **Agents** tab

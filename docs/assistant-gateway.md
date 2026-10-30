@@ -1223,12 +1223,21 @@ A lead reaches its own members without the owner relaying anything
   workspace and memory limits); forwarded, scheduled and member turns stay
   read-only (a lead's own `member-result` follow-up writes, see delivery below). Shell, SSH, project folders, GitHub and grants are untouched, and team
   proposals keep their rules. A request at that level whose owner message does not
-  name the member is `selfInitiated` (shown as "self-initiated") and counts
-  against `autonomousCaps`: 4 per turn and 20 per lead and hour, refused as
-  `AUTONOMOUS_LIMIT` with a fixed reason beyond.
-- **Limits.** At most 16 open requests per lead, 6 per lead and minute and 8 per
-  owner turn (`RATE_LIMITED` beyond), so a member answer that keeps the lead asking
-  ends quickly.
+  name the member is `selfInitiated` (shown as "self-initiated"). Team usage is
+  `autonomous` by default since AGENTPIER-276 (a policy saved before the level
+  existed reads the same); the owner can lower it to **Suggest** or **On request**.
+- **Limits.** At most 16 open requests per lead. Every request counts toward the
+  lead's loop guard.
+- **Loop guard (AGENTPIER-276).** Nine overlapping rate caps (a lead's requests per
+  minute and turn, its autonomous requests per turn and hour, members' requests to
+  each other and their reports per hour, projects per day, SSH access proposals,
+  routines on members and their interval, members' reminders) never fired in seven
+  weeks and are gone. One loop guard per agent (`agent-loop-guard.js`) counts the
+  actions it starts with these tools (lead asks and tasks, peer asks and tasks,
+  reports, routines on members, members' reminders, projects, SSH access proposals)
+  in a rolling window: 60 in 10 minutes, kept in memory. Beyond it the call is
+  refused with `AGENT_LOOP_LIMIT` (429) and the reason tells the agent to stop and
+  tell the owner. Approvals, the open-task rules and the owner's settings stay.
 - **Delivery.** A request waits until the member is free (no running turn, no
   active team assignment) and then runs as an ordinary turn in the member's chat,
   shown there as the lead's bare text with "from <lead>". The member sees only the
@@ -1358,21 +1367,18 @@ anything (AGENTPIER-197; `peer-requests.js`, `peer-request-rules.js`,
   the lead's main chat at creation, or `null` without one. Reports are records of type
   `report` with `origin: { kind: "member-report", reportKind, routine? }`, stored
   completed and delivered once.
-- **Turns.** A member may start one only in its own work (`peerTurn`): the owner's own
-  message (not forwarded), its team assignment, its lead's request, or its routine.
-  Every other turn is refused (`PEER_TURN`). While it handles a sibling's request or
-  that request's result (`peer-result`), it may only report (`PEER_LOOP`), so there
-  are no chains or ping-pong.
-- **Limits** (`peerCaps`, `reportCaps`):
+- **Turns.** A member may start one in every turn of its own work (`peerTurn`), also
+  while it handles a sibling's request or its result (AGENTPIER-276); forwarded
+  content, a restricted user's turn and a memory step are refused (`PEER_TURN`). The
+  sender's loop guard bounds chains and ping-pong.
+- **Limits** (`peerCaps`, `reportLimits`):
 
-  | Bound                                        | Value | Refusal           |
-  | -------------------------------------------- | ----- | ----------------- |
-  | Open requests per sender and receiver        | 1     | `PEER_OPEN`       |
-  | Open tasks per receiver (also from the lead) | 1     | `PEER_OPEN`       |
-  | Open requests per sending member             | 3     | `PEER_LIMIT`      |
-  | Requests per sending member and rolling hour | 6     | `PEER_LIMIT`      |
-  | Reports per member and rolling hour          | 6     | `REPORT_LIMIT`    |
-  | Characters per report                        | 32768 | `REPORT_TOO_LONG` |
+  | Bound                                         | Value | Refusal            |
+  | --------------------------------------------- | ----- | ------------------ |
+  | Open requests per sender and receiver         | 1     | `PEER_OPEN`        |
+  | Open tasks per receiver (also from the lead)  | 1     | `PEER_OPEN`        |
+  | Requests and reports in the loop guard window | 60    | `AGENT_LOOP_LIMIT` |
+  | Characters per report                         | 32768 | `REPORT_TOO_LONG`  |
 
   Each refusal of a request tells the member to report to its lead instead. A target
   outside the sender's lead, archived, or without a chat is `notFound`; a task to a
@@ -2848,9 +2854,9 @@ with the lead.
   (`team-member` or `lead-request`). The reminder is created on the lead: it is
   listed in the lead's settings, runs as the lead's job and is delivered to the
   lead's paired Telegram chat, so it never fires from an agent that has ended and
-  the owner can pause or remove it there. The members of one team create at most
-  five (`MEMBER_REMINDER_LIMIT`); each creation adds a note to the lead's chat and
-  an audit record (`kind: "member-reminder"`), never the reminder's text.
+  the owner can pause or remove it there. The member's loop guard (see **Loop
+  guard**) bounds how many; each creation adds a note to the lead's chat and an audit
+  record (`kind: "member-reminder"`), never the reminder's text.
 - **Shell and SSH.** The lead's **Team › Team › Team members may use shell and SSH** is off by default. It is recorded with each team when it is proposed and
   also read live: a team proposed while it was off never gets shell or SSH.
   Switching it off latches (`TeamStore.latchShellSsh`): the lead's teams lose the
@@ -2987,24 +2993,22 @@ prompt, trigger and/or `enabled`, with the routine's `revision`) and `remove`.
 - **Who and when.** Only the lead's own permanent members (team record and agent
   both `permanent`, neither archived, routines switched on for the member;
   temporary members get `ROUTINE_MEMBER_NOT_PERMANENT`, a member with routines off
-  `ROUTINE_MEMBER_OFF`, anyone else `NOT_FOUND`). Every action runs only in a turn
-  of the owner's own message (`owner` or `telegram`, not forwarded); routine runs,
-  member-result follow-ups and other internal turns get `ROUTINE_OWNER_TURN`, and
-  `routineActions` in `team-bridge.js` never admits the tool for a routine run.
+  `ROUTINE_MEMBER_OFF`, anyone else `NOT_FOUND`). Every action runs in any turn of the
+  lead's chat (AGENTPIER-276), never for forwarded or members' content
+  (`FORBIDDEN`), and `routineActions` in `team-bridge.js` never admits the tool for a
+  routine run.
 - **Usage levels.** A routine is standing work, never a write by itself, so the
-  levels decide the way they do for asks and tasks: under `onRequest` a `create`
-  needs the owner's own message in this turn to name the member (`namesMember` on
-  `ownerProse`, an `@` mention included), else `ROUTINE_NOT_REQUESTED`; under
-  `suggest` the "Your team" section tells the lead to offer the routine and set it
-  up after the owner's yes; under `autonomous` the lead may set one up on its own and
-  tells the owner. The per-member cap below bounds all levels.
+  levels guide the lead through its "Your team" section: under `onRequest` it sets
+  one up only when the owner asks, under `suggest` it offers the routine and sets it
+  up after the owner's yes, under `autonomous` it may set one up on its own and tells
+  the owner. AgentPier no longer checks the owner's words for a routine
+  (AGENTPIER-276); the lead's loop guard bounds all levels.
 - **Validation and limits.** Name and prompt as for the agent's own routines (100
   and 8,192 characters) and the same `schedule()` checks (one time with an offset,
   or a cron with an IANA time zone); event triggers are refused. A cron must be a
-  five-field expression whose minute and hour fields leave at least 15 minutes
-  between two runs (`cron-gap.js`, also across midnight; anything it cannot read is
-  refused), else `ROUTINE_TOO_FREQUENT`. At most 5 live lead routines per lead and
-  member (`ROUTINE_MEMBER_LIMIT`); a replayed tool call adopts its routine.
+  five-field expression `cron-gap.js` can read. There is no minimum interval and no
+  cap per member any more (AGENTPIER-276); each new routine counts toward the lead's
+  loop guard, and a replayed tool call adopts its routine.
 - **Storage.** The routine is the member's own binding
   (`assistant_reminder_bindings`, `kind: "routine"`) with `createdBy: "lead"`,
   `leadId` and `leadMemberId`, created through `NativeRoutines.create`, so it runs
@@ -4467,12 +4471,14 @@ work goal per chat in `work-goal-store.js`; the owner's `POST
 /api/assistant-conversations/:id/goal/stop` stops it (404 for an unknown chat, 503
 while teams are not wired). It is offered only for the owner's
 own chats with a personal agent or permanent member (not shared or user agents,
-not temporary members). `set` needs the owner's direct turn (context `owner` or
-`telegram`, not forwarded, no `goal` marker), recognised by meaning from the model, never
-from forwarded, quoted, scheduled, tool-provided or member content. `update` works from
-the owner's direct turn or a goal turn of the open goal (a turn of a replaced goal is
-refused with `GOAL_UPDATE_TURN`); `done` and `blocked` work from any attempt-bound
-turn of that agent in the goal chat. None of them widens rights. Every change is a note in the chat and is audited by its
+not temporary members). `set` and `update` work in any run of the owner's chat that is
+not someone else's content (AGENTPIER-276, `foreignOrigin` in `owner-runs.js`: forwarded,
+lead or member content and SSH results answer `FORBIDDEN`), also in a run without a turn
+(`ownerRun`), recognised by meaning from the model. A goal set in a turn that is not the
+owner's direct message is anchored to the open goal's anchor or the chat's latest direct
+owner message, never to the automatic turn, so its rights and proofs stay the owner's. A
+goal turn of a replaced goal cannot update the new one; `done` and `blocked` work from
+any attempt-bound turn of that agent in the goal chat. None of them widens rights. Every change is a note in the chat and is audited by its
 kind only, never with the goal's texts.
 
 **Nudge, not cron or heartbeat.** AgentPier itself sends the continuation as a follow-up
@@ -4490,8 +4496,8 @@ first the one that set the goal; a direct Telegram message counts), and never mo
 read from the anchor's text only, once across the anchor and all its continuations.
 The lead's `member-result` follow-up in the goal chat counts as a goal turn; member
 reports (`member-report`) and peer results do not. In a goal turn a delegated task writes
-like an Autonomous lead's own task at every Use team level, at most 4 per turn and outside
-the 20-per-hour limit, and only while the goal is still open (a turn running on after Stop
+like an Autonomous lead's own task at every Use team level (bounded by the lead's loop
+guard), and only while the goal is still open (a turn running on after Stop
 delegates as it would without a goal); a member named in the anchor does not make it read-only. Trusted
 SSH and SFTP hosts work as in an owner turn (origin `owner`). A background command a goal
 turn starts is followed by a run of the chat like any other (see **Command
@@ -4536,12 +4542,12 @@ saving agent settings between turns.
 `agentpier_hook` (actions `propose` and `list`) is compiled next to `agentpier_routine`
 into the entries of own agents and permanent members with **Allow reminders and
 routines** on (`goalAgent` in `profileTools`). It is locked for user agents and never in
-a routine's or a hook run's `toolsAllow` (`routineTools`, `hookTools`). The bridge
-serves it only in a turn with an active attempt, never in a routine, hook or command
-completion session, and `invokeHook` (`agent-hook-proposals.js`) admits only a direct
-owner turn (`directOwnerTurn`); forwarded, scheduled, member-result, memory-step,
-lead-request and goal continuation turns answer `HOOK_OWNER_ONLY`, an agent that may not hold hooks
-`HOOK_UNAVAILABLE`. `propose` validates name, sender, reason, instruction, rights and
+a routine's or a hook run's `toolsAllow` (`routineTools`, `hookTools`). The owner approves
+every proposal on its card, so `invokeHook` (`agent-hook-proposals.js`) admits any run of
+the owner's chat (AGENTPIER-276, `ownerChatCall` in `owner-runs.js`: his turns, scheduled
+and result turns, goal continuations and runs without a turn), never a routine's or a
+hook's own run, forwarded, memory-step or members' content (`FORBIDDEN`); an agent that
+may not hold hooks gets `HOOK_UNAVAILABLE`. `propose` validates name, sender, reason, instruction, rights and
 hourly limit as the owner's own create does and reserves a `hook_proposal` approval
 action; the hook is created only when the owner approves, without a secret. `list`
 returns each hook's id, name, sender, state, the rights it holds now and its
@@ -4553,9 +4559,10 @@ addresses. The agent never receives a secret or its hash. See
 `agentpier_ssh_access` (actions `propose` and `status`) is compiled for own agents and
 permanent members (`goalAgent` in `profileTools`), locked for user agents and never in a
 routine's or a hook run's `toolsAllow`. `invokeSshAccess` (`agent-ssh-proposals.js`)
-admits only a direct owner turn (`SSH_PROPOSAL_OWNER_ONLY`) of an agent without a
-Telegram bot for other people (`SSH_PROPOSAL_UNAVAILABLE`), validates the endpoint like
-the SSH catalog, limits proposals (`SSH_PROPOSAL_LIMIT`), scans the host key and
+admits any run of the owner's chat like `invokeHook` (AGENTPIER-276; someone else's
+content answers `FORBIDDEN`) of an agent without a Telegram bot for other people
+(`SSH_PROPOSAL_UNAVAILABLE`), validates the endpoint like the SSH catalog, counts the
+proposal toward the agent's loop guard (`AGENT_LOOP_LIMIT`), scans the host key and
 reserves an `ssh_access` approval action. The owner's decision may carry `keyId` and
 `mode` from the browser only (`decisionKeys`); approving registers the host through
 `ssh-verified-host.js` and grants it with `AssistantAccess.grantSsh`. The outcome
@@ -4570,10 +4577,11 @@ native capabilities are ready. It is in `lockedTools` (user agents) and
 `senderLockedTools` (agents with their own Telegram bot for other people), and never in
 `routineTools` or `hookTools`. The bootstrap guidance for eligible agents tells them to
 create a project for new work and share it through `agentpier_team_grant`. The bridge
-serves it only in a turn with an active attempt; `AgentProjects.invoke` admits only a
-direct owner turn (`directOwnerTurn`) of an eligible agent, one change at a time per
-agent, and returns the first result for a retried tool call. `create` validates the name,
-checks the limit (10 per rolling 24 hours, from `agent_created_projects`), creates the
+serves it in any run of the owner's chat (AGENTPIER-276, `ownerChatCall`); forwarded and
+members' content answer `FORBIDDEN`. `AgentProjects.invoke` admits an eligible agent, one
+change at a time per agent, and returns the first result for a retried tool call.
+`create` validates the name, counts toward the agent's loop guard (`AGENT_LOOP_LIMIT`;
+the daily limit of 10 is gone), creates the
 folder in the default folder with `createDirectory`, runs `git init`, registers it with
 `ProjectMemory` (refusing enclosing repositories, home, collection folders and known or
 claimed projects) and records the creator. It writes the grant narrowly
@@ -4584,8 +4592,8 @@ A failure removes the folder, grant, record and registration. Each change settle
 (`project.created`, `assistant.updated`) and is sent to the owner's Telegram chat
 through the channel outbox.
 
-Codes: `PROJECT_NAME_INVALID` (400), `PROJECT_EXISTS` (409), `PROJECT_CREATE_LIMIT`
-(429), `PROJECT_OWNER_ONLY`, `PROJECT_NOT_CREATED_BY_YOU`, `PROJECT_NOT_ELIGIBLE` (403)
+Codes: `PROJECT_NAME_INVALID` (400), `PROJECT_EXISTS` (409), `AGENT_LOOP_LIMIT`
+(429), `PROJECT_NOT_CREATED_BY_YOU`, `PROJECT_NOT_ELIGIBLE` (403)
 and `PROJECT_FOLDER_UNAVAILABLE` (409). Switching coding on also answers the existing
 `PROJECT_NOT_GRANTED` (403) when the agent no longer holds the project or its folder
 with write access. See [projects agents

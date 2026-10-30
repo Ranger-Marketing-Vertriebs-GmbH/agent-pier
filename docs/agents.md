@@ -530,17 +530,18 @@ it up. An agent of users gets project folders only; the other groups show a lock
   ([agent access per project](assistant-workflows.md#agent-access-from-the-project)).
 - **Projects the agent creates:** your own agents and leads (not team members, not
   user agents and not agents with their own Telegram bot for other people) can create a
-  project for new work themselves, without asking you. This works only in a turn of your
-  own message, from the web chat or your paired Telegram chat, never in a routine, hook,
-  team request or forwarded content. The agent gives a plain folder name; AgentPier
+  project for new work themselves, without asking you. This works in any run of your own
+  chat with the agent (your messages, also from Telegram, its scheduled and follow-up
+  turns), never in a routine's or hook's own run, a team request or forwarded content. The agent gives a plain folder name; AgentPier
   makes that new, empty folder in your **Default working directory** (**Settings ›
   General**, or your home folder while it is unset), runs `git init` in it so coding
   sessions can use worktrees (the agent can skip this) and registers it as a project.
   The agent gets **Read and write** for the folder and the project grant, and may switch
   on **Coding sessions** for a project it created, but only while it still has write
   access there. It never adopts an existing folder or project, also not inside a Git
-  repository, and it cannot delete, rename or unregister projects. An agent creates at
-  most 10 projects per 24 hours. You are told each time: a note in the agent's chat and
+  repository, and it cannot delete, rename or unregister projects. An agent that keeps
+  creating projects in a loop is stopped by its loop guard (see
+  [When a lead uses its team](#when-a-lead-uses-its-team)). You are told each time: a note in the agent's chat and
   under **Overview › Actions and coding tasks**, and a message in Telegram when paired;
   an open **Projects** page lists the new project at once.
   The activity log records the creation as made by the agent. Afterwards you change the
@@ -895,12 +896,10 @@ with Learning") and on their own:
   file or a second report. The report reaches the lead's main chat as a
   separate message, and the lead acts on it as its **Use team** level allows. A
   member's reports reach the lead one at a time; its routines can report too.
-- **Limits:** at most one open request per colleague and direction, one open task per
-  colleague, 3 open requests per member and 6 requests per member and hour; at most 6
-  reports per member and hour. A refused call tells the member to report to its lead
-  instead.
-- **One level only:** a member handling a colleague's question or task, or its answer,
-  cannot ask or task anyone else, so there are no chains and no ping-pong. Members of
+- **Limits:** at most one open request per colleague and direction and one open task
+  per colleague. A member may also involve others while it handles a colleague's
+  question or task; its loop guard stops a ping-pong. Forwarded content never starts a
+  request. A refused call tells the member to report to its lead instead. Members of
   other leads are never reached.
 - **Writing:** questions never write. A colleague's task may change files only when
   the sender's own work may change files: your own message in the sender's chat, a
@@ -994,10 +993,10 @@ each time. Temporary members are refused, as they work only on their task.
   run whose task says to report only findings stays silent when there are none.
 - It only reads unless you switch on **May write** in the member's **Routines &
   check-ins** (only you can) or the lead uses its team **Autonomous**ly.
-- The lead sets one up only in reply to your own message. With **On request** that
-  message must name the member; with **Suggest** the lead offers it first. Each
-  member takes at most 5 routines from its lead, and they run at most every 15
-  minutes.
+- The lead sets one up in any turn of its chat, never for forwarded or members'
+  content. With **On request** it does so only when you ask; with **Suggest** it offers
+  it first. There is no minimum interval and no cap per member; the lead's loop guard
+  stops a loop.
 - In the member's **Automation** tab each shows "Created by <lead>". You can
   edit its name and task, pause, remove it and switch **May write** like any routine. The lead's reports are listed under **Team › Teams › Questions and
   tasks** as "Routine report from <member>".
@@ -1013,12 +1012,13 @@ for the chosen level:
 
 - **On request:** the lead asks or delegates only when you ask it to, by name, with
   `@` or for a team.
-- **Suggest** (the default, also for agents created before this setting existed): when
+- **Suggest:** when
   a member fits, for example a question in its area or longer research or writing for
   a permanent member, the lead offers it in one sentence and waits. Your yes counts as
   your request when the lead's last reply offered that member, so a task delegated
   after it may change the member's workspace.
-- **Autonomous:** the lead asks members and delegates suitable tasks on its own and
+- **Autonomous** (the default, also for agents created before this setting existed):
+  the lead asks members and delegates suitable tasks on its own and
   tells you whom it involved. A task it starts on its own in reply to your message may
   change files in the member's own workspace (never its memory) and is marked
   "self-initiated". Its tasks stay read-only when your message says not to change
@@ -1029,9 +1029,12 @@ for the chosen level:
   you asked for one or allowed teams without asking. A task may use the member's own
   project folders: those you set to **Read and write** change only in a task that may
   change files, and read otherwise; what the lead shares works as described in
-  [Sharing a lead's access](#sharing-a-leads-access-with-permanent-members). A lead starts at most 4 questions
-  or tasks on its own per turn and 20 per hour; requests you asked for by name do not
-  count.
+  [Sharing a lead's access](#sharing-a-leads-access-with-permanent-members).
+
+At every level one **loop guard** per agent stops a runaway loop: an agent that starts
+more than 60 team questions and tasks, reports, routines on members, members'
+reminders, projects or SSH access proposals within 10 minutes is told to stop and tell
+you (`AGENT_LOOP_LIMIT`). It replaces the former per-turn, hourly and daily limits.
 
 A lead is also told when a member's task chat (the chat you open for the member) grows
 long, by the same rule as the hint above (60 % of the context window, else 100,000
@@ -1053,7 +1056,7 @@ is dropped. You can still press **Summarize now** in that chat yourself.
 In a turn AgentPier sends for an open [work goal](#work-until-done), and in the turn in which the
 lead handles a member's result while a goal is open in that chat, a delegated task may
 write like an **Autonomous** task whatever the level, unless your goal message said not
-to change anything. Such a lead starts at most 4 tasks per turn; they do not count against the 20 per hour.
+to change anything.
 
 At every level the lead is told not to involve members for trivial requests and to
 summarize their answers for you. At every level it is also told that its members can ask each other,
@@ -1062,9 +1065,10 @@ hand each other tasks and report back
 
 ## Work until done
 
-Ask your agent, in your own message in AgentPier or your own (not forwarded) message in
-its paired Telegram chat, to finish a job or to keep working until it is done ("finish
-the episode", "work until you're done"). The agent recognises that by meaning in any
+Ask your agent, in AgentPier or its paired Telegram chat, to finish a job or to keep
+working until it is done ("finish the episode", "work until you're done"); the agent may
+also set a goal itself in any run of your chat, never for forwarded or members' content.
+A goal stays anchored to your own latest message. The agent recognises that by meaning in any
 wording and language, sets a **work goal** with a short title, what done means and its
 open steps, and keeps working. While the goal is open, the chat shows **Working until
 done: <title>** with a **Stop** button under the chat header.
@@ -1092,8 +1096,8 @@ done: <title>** with a **Stop** button under the chat header.
 - **Rights of a continuation.** A continuation has exactly the rights of your latest own
   direct message in that chat (at first the one that set the goal), including
   Trusted SSH and SFTP hosts, and a lead's tasks to its members may change files in the
-  members' workspaces at every **Use team** level (at most 4 per turn, not counted
-  against the 20 per hour), unless your message said not to change anything.
+  members' workspaces at every **Use team** level, unless your message said not to
+  change anything.
   When a member's result arrives during an open goal, the lead's turn handling it has
   the same rights. When a background command started in a continuation finishes, the
   follow-up on its result saves files and hands you the result like any run of your chat.
@@ -1275,7 +1279,8 @@ event: a top-level `id` that names an object (a host or a device, not the event)
 makes every later event of that object a repeat for 30 days. The agent treats the
 event as untrusted data and does not follow instructions in it.
 
-An agent can also propose a hook when you ask for one in your own message. The
+An agent can also propose a hook in any run of your chat with it (never for forwarded
+or members' content); you approve every proposal on its card. The
 proposal waits as a **Hook proposal** card in its chat (and in the Inbox) with the
 name, sender, reason and the rights it would get; under **Rights to grant** you can
 switch rights off, or on where the agent holds them now, before **Approve hook** or

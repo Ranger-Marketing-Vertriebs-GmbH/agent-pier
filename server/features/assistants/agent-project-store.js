@@ -39,8 +39,4 @@ export class AgentProjectStore {
       )
       .get(assistantId, projectId);
   }
-  /** When the agent created its projects, in ms, for the daily limit. */
-  times(assistantId) {
-    return this.list(assistantId).map((row) => Date.parse(row.createdAt));
-  }
 }

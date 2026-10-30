@@ -80,7 +80,7 @@ test("a lead sets up, lists, edits, pauses and removes a routine on its permanen
   assert.deepEqual(routineAudits(f)[1].details.edited, ["name", "prompt", "trigger"]);
 });
 
-test("only the lead's own permanent members, in the owner's own turn", async (t) => {
+test("only the lead's own permanent members, never for someone else's content", async (t) => {
   const f = await setup(t);
   await assert.rejects(
     f.create({ memberId: f.temporary.id }),
@@ -89,14 +89,19 @@ test("only the lead's own permanent members, in the owner's own turn", async (t)
   await assert.rejects(f.create({ memberId: "someone-else" }), code("NOT_FOUND"));
   for (const context of [
     { kind: "owner", forwarded: true },
-    { kind: "member-result", requestId: "r" },
-    { kind: "routine" },
+    { kind: "member-report", requestId: "r" },
   ])
     await assert.rejects(
       f.create({}, f.turn("Please set up a routine on Member 1", context)),
-      code("ROUTINE_OWNER_TURN"),
+      code("FORBIDDEN"),
       context.kind,
     );
+  // AGENTPIER-276: any other turn of the lead's chat, a result follow-up included.
+  const followUp = await f.create(
+    { name: "From a result" },
+    f.turn("Result", { kind: "member-result", requestId: "r" }),
+  );
+  assert.equal(followUp.member, "Member 1");
   // Another lead never reaches this member or its routines.
   const created = await f.create();
   const other = f.store.createAssistant({
@@ -143,11 +148,11 @@ test("only the lead's own permanent members, in the owner's own turn", async (t)
   await assert.rejects(f.create(), code("ROUTINE_MEMBER_OFF"));
 });
 
-test("schedules are checked like the agent's own routines, with a minimum interval and a cap", async (t) => {
+// AGENTPIER-276: no minimum interval and no cap per member any more; the lead's loop
+// guard bounds a loop.
+test("schedules are checked like the agent's own routines", async (t) => {
   const f = await setup(t);
   for (const [trigger, expected] of [
-    [{ kind: "cron", expr: "*/5 * * * *", tz: "UTC" }, "ROUTINE_TOO_FREQUENT"],
-    [{ kind: "cron", expr: "0,10 9 * * *", tz: "UTC" }, "ROUTINE_TOO_FREQUENT"],
     [{ kind: "cron", expr: "0 9 * * * *", tz: "UTC" }, "INVALID_INPUT"],
     [{ kind: "cron", expr: "0 9 * * *", tz: "Not/AZone" }, "INVALID_INPUT"],
     [{ kind: "at", at: "2030-01-01T09:00" }, "INVALID_TIME"],
@@ -156,22 +161,9 @@ test("schedules are checked like the agent's own routines, with a minimum interv
     await assert.rejects(f.create({ trigger }), code(expected), JSON.stringify(trigger));
   // The lead never sets the owner's "May write".
   await assert.rejects(f.create({ writes: true }), code("INVALID_INPUT"));
-  await f.create({ trigger: { kind: "cron", expr: "*/15 * * * *", tz: "UTC" } });
+  await f.create({ trigger: { kind: "cron", expr: "*/5 * * * *", tz: "UTC" } });
   await f.create({ trigger: { kind: "at", at: "2030-01-01T09:00:00+01:00" } });
-  for (let n = 0; n < 3; n++) await f.create({ name: `Check ${n}` });
-  await assert.rejects(f.create({ name: "One more" }), code("ROUTINE_MEMBER_LIMIT"));
-});
-
-test("at 'On request' the owner's own message must name the member", async (t) => {
-  const f = await setup(t);
-  const policy = f.service.store.policy(f.parent.id);
-  f.service.store.savePolicy(f.parent.id, { usage: "onRequest" }, policy.revision);
-  await assert.rejects(
-    f.create({}, f.turn("Set up a daily inbox check")),
-    code("ROUTINE_NOT_REQUESTED"),
-  );
-  const created = await f.create({}, f.turn("Let Member 1 check the inbox every day"));
-  assert.equal(created.member, "Member 1");
+  for (let n = 0; n < 5; n++) await f.create({ name: `Check ${n}` });
 });
 
 test("a lead routine writes only with the owner's switch or an autonomous lead", async (t) => {

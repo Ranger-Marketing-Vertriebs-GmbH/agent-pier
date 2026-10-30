@@ -7,7 +7,6 @@ import { assistantBootstrap } from "../../server/features/assistants/assistant-b
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
 import { rosterLimit } from "../../server/features/assistants/team-guidance.js";
-import { autonomousCaps } from "../../server/features/assistants/team-policy.js";
 import { leadStoreFixture } from "../helpers/lead-request-fixture.js";
 
 const lead = { id: "a", name: "Lead", instructions: "Help the owner." };
@@ -58,12 +57,8 @@ test("the level decides when the lead involves its members", () => {
   assert.match(autonomous, /delegate suitable tasks on your own/);
   assert.match(autonomous, /self-initiated/);
   assert.match(autonomous, /new team you propose on your own still waits/);
-  assert.match(
-    autonomous,
-    new RegExp(
-      `at most ${autonomousCaps.perTurn} questions or tasks on your own per turn and ${autonomousCaps.perHour} per hour`,
-    ),
-  );
+  // No per-turn or hourly budget any more (AGENTPIER-276, agent-loop-guard.js).
+  assert.doesNotMatch(autonomous, /per hour/);
   // Without members only the way to a team is described.
   const empty = section(prompt("autonomous", []));
   assert.match(empty, /no team members right now/);
@@ -86,10 +81,11 @@ test("only a lead with a roster gets the section", () => {
   assert.ok(prompt("suggest").startsWith("Help the owner.\n\n## AgentPier"));
 });
 
-test("existing team policies read as suggest and keep it when saved", (t) => {
+// AGENTPIER-276: the owner's agents use their team autonomously by default.
+test("existing team policies read as autonomous and keep it when saved", (t) => {
   const f = leadStoreFixture(t);
   const { assistant } = f.lead();
-  assert.equal(f.teams.policy(assistant.id).usage, "suggest", "new agents");
+  assert.equal(f.teams.policy(assistant.id).usage, "autonomous", "new agents");
   // A policy saved before the level existed.
   f.teams.insert({
     id: `policy:${assistant.id}`,
@@ -100,10 +96,10 @@ test("existing team policies read as suggest and keep it when saved", (t) => {
     maxMembers: 3,
     runTimeoutMinutes: 10,
   });
-  assert.equal(f.teams.policy(assistant.id).usage, "suggest");
+  assert.equal(f.teams.policy(assistant.id).usage, "autonomous");
   const saved = f.teams.savePolicy(assistant.id, { maxMembers: 4 }, 2);
-  assert.equal(saved.usage, "suggest");
-  assert.equal(f.teams.find(`policy:${assistant.id}`).usage, "suggest");
+  assert.equal(saved.usage, "autonomous");
+  assert.equal(f.teams.find(`policy:${assistant.id}`).usage, "autonomous");
   const changed = f.teams.savePolicy(
     assistant.id,
     { usage: "autonomous" },

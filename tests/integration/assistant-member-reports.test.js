@@ -4,17 +4,12 @@ import { peers } from "../helpers/peer-request-fixture.js";
 import { ask } from "../helpers/lead-request-service-fixture.js";
 import { TeamService } from "../../server/features/assistants/team-service.js";
 import { resultTurn } from "../../server/features/assistants/member-result-writes.js";
-import { requestCaps } from "../../server/features/assistants/lead-request-store.js";
 import { followUpMaxChars } from "../../server/features/assistants/lead-request-text.js";
 import { memberDefinitions } from "../../server/features/assistants/team-plugin/member-tools.js";
 import { toolError } from "../../server/features/assistants/tool-errors.js";
 import { assistantProblem } from "../../server/features/assistants/assistant-validation.js";
-import {
-  reportCaps,
-  reportLimits,
-} from "../../server/features/assistants/member-reports.js";
+import { reportLimits } from "../../server/features/assistants/member-reports.js";
 
-const hour = 3600000;
 const report = (f, inv, input = {}, now) =>
   f.service.reports.report(inv, { kind: "result", text: "Story agreed", ...input }, now);
 const followUps = (f, r) =>
@@ -152,7 +147,7 @@ test("a second member's report is not held behind the first member's", async (t)
   assert.equal(f.service.reports.held(routineReport), false);
 });
 
-test("a member's routine run may report; a reminder turn may not", async (t) => {
+test("a member's routine run and reminder may report; forwarded content may not", async (t) => {
   const f = await peers(t);
   const run = {
     attemptId: null,
@@ -179,11 +174,17 @@ test("a member's routine run may report; a reminder turn may not", async (t) => 
   await deliver(f);
   const data = JSON.parse(followUps(f, result)[0].text.split("\n").at(-1));
   assert.equal(data.routine, "Morning");
-  for (const context of [{ kind: "reminder" }, { kind: "owner", forwarded: true }])
-    assert.equal(
-      f.code(() => report(f, f.memberTurn(f.permanent, context))),
-      "PEER_TURN",
-    );
+  // AGENTPIER-276: only forwarded content stays refused.
+  assert.equal(
+    f.code(() =>
+      report(f, f.memberTurn(f.permanent, { kind: "owner", forwarded: true })),
+    ),
+    "PEER_TURN",
+  );
+  assert.equal(
+    f.code(() => report(f, f.memberTurn(f.permanent, { kind: "reminder" }))),
+    null,
+  );
 });
 
 test("a report from a routine without a name never quotes an empty name", async (t) => {
@@ -209,31 +210,15 @@ test("a member handling a peer request may still report", async (t) => {
   const f = await peers(t);
   const peer = f.peerAsk(f.memberTurn(f.permanent), f.second);
   const handling = f.memberTurn(f.second, { kind: "lead-request", requestId: peer.id });
+  // It may also ask back (AGENTPIER-276: its loop guard bounds a ping-pong).
+  const asking = f.memberTurn(f.second, { kind: "lead-request", requestId: peer.id });
   assert.equal(
-    f.code(() => f.peerAsk(handling, f.permanent)),
-    "PEER_LOOP",
+    f.code(() => f.peerAsk(asking, f.permanent)),
+    null,
   );
   assert.equal(report(f, handling).status, "queued");
   const result = f.memberTurn(f.permanent, { kind: "peer-result", requestId: peer.id });
   assert.equal(report(f, result).status, "queued");
-});
-
-test("the seventh report within an hour is refused with REPORT_LIMIT", async (t) => {
-  const f = await peers(t);
-  const now = Date.now();
-  assert.equal(reportCaps.perHour, 6);
-  report(f, f.memberTurn(f.permanent), {}, now - 2 * hour);
-  for (let n = 0; n < reportCaps.perHour; n += 1)
-    report(f, f.memberTurn(f.permanent), {}, now - 1000 * n);
-  assert.equal(
-    f.code(() => report(f, f.memberTurn(f.permanent), {}, now)),
-    "REPORT_LIMIT",
-  );
-  // Another member's budget is its own.
-  assert.equal(
-    f.code(() => report(f, f.memberTurn(f.second), {}, now)),
-    null,
-  );
 });
 
 test("text and file lists beyond the limits are invalid", async (t) => {
@@ -316,11 +301,8 @@ test("a report beyond 32,768 characters is refused with the limit and a file hin
 
 test("reports never count against the lead's caps and list under Questions and tasks", async (t) => {
   const f = await peers(t);
-  const saved = requestCaps.perMinute;
-  requestCaps.perMinute = 1;
-  t.after(() => (requestCaps.perMinute = saved));
   const sent = report(f, f.memberTurn(f.permanent), { kind: "problem", files: ["a.md"] });
-  for (let n = 1; n < reportCaps.perHour; n += 1) report(f, f.memberTurn(f.permanent));
+  for (let n = 1; n < 6; n += 1) report(f, f.memberTurn(f.permanent));
   f.service.requests.waitMs = 0;
   const asked = await ask(f, f.temporary, f.turn());
   assert.equal(asked.status, "asked");

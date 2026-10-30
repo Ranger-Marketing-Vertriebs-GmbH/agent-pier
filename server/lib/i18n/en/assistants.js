@@ -372,20 +372,14 @@ export const assistants = {
   memberRequestOpenTask:
     "This member already has an open task. Wait for its result or cancel it first.",
   memberRequestNotFinished: "Only finished temporary members can be archived.",
-  memberRequestRate:
-    "The agent sent too many questions or tasks in a short time. Wait a moment.",
-  peerRequestTurn: "A member can only ask or task other members in its own work.",
-  peerRequestLoop:
-    "A member cannot start another question or task while it handles another member's request.",
+  peerRequestTurn:
+    "A member cannot ask, task or report to other members in a turn of forwarded or member content.",
+  agentLoopLimit:
+    "The agent started too many team, routine, project or SSH proposal actions in a short time and was stopped so that no loop runs away.",
   peerRequestOpen:
     "A request between these members is already open, or the member already works on a task.",
-  peerRequestLimit:
-    "A member may have at most 3 open requests to other members and send 6 per hour.",
-  memberReportLimit: "A member may send its lead agent at most 6 reports per hour.",
   memberReportTooLong:
     "A report to the lead agent may be at most 32,768 characters long.",
-  memberRequestAutonomousLimit:
-    "The agent started the most questions and tasks of its own for now. Ask it by name for more.",
   memberRequestUnavailable: "This member has no chat yet and cannot answer.",
   memberTemplate: (name) => `Template: ${name} (Agency agents)`,
   memberTemplateWarned: (findings) =>
@@ -429,25 +423,12 @@ export const assistants = {
     "A lead agent can share only project folders, Read images, coding projects and MCP servers with a permanent member.",
   teamGrantNotHeld:
     "A lead agent can only give a team member what it holds itself; shell and SSH only with the setting “Team members may use shell and SSH”.",
-  goalOwnerTurn:
-    "A goal can only be set in a reply to your own message, not in a continuation or a forwarded, scheduled or delegated turn.",
   goalOwnerOnly: "This needs your own message; a goal continuation cannot do it.",
   goalUnavailable: "Goals are only available in your own chats with this agent.",
   goalNotOpen: "This chat has no open goal.",
-  goalUpdateTurn:
-    "The goal's steps can only be noted in a reply to your own message or in a continuation of that goal, not in a forwarded, scheduled or delegated turn.",
-  leadRoutineOwnerTurn:
-    "A lead agent sets up or changes routines on its members only in a turn of your own message.",
   leadRoutineNotPermanent:
     "Routines can only be set up on permanent members; temporary members work only on their task.",
   leadRoutineMemberOff: "This member has routines switched off.",
-  leadRoutineInterval: "A routine on a member may run at most every 15 minutes.",
-  leadRoutineNotRequested:
-    "With team usage “On request”, a lead agent sets up a routine on a member only when your message names that member.",
-  leadRoutineLimit:
-    "The lead agent already runs the most routines allowed on this member.",
-  memberReminderLimit:
-    "The members of this team have already created the most reminders a team may set on its lead agent.",
   teamGrantMemberEnded:
     "Tools and access can only be granted to a running task-bound member of the agent's own team.",
   teamMcpServerNotBound:
@@ -481,18 +462,12 @@ export const assistants = {
   turnUnconfirmed: "The start of this reply is not confirmed yet. Try again in a moment.",
   hookRightExceeds:
     "A hook cannot hold more than its agent: the agent does not have this right.",
-  hookOwnerOnly:
-    "Hooks can only be proposed in a turn of your own message to the agent, not from forwarded, scheduled or hook content.",
   hookUnavailable:
     "Hooks are only available for your own agents and permanent team members with “Allow reminders and routines” switched on.",
-  sshProposalOwnerOnly:
-    "SSH accesses can only be proposed in a turn of your own message to the agent, not from forwarded, scheduled or hook content.",
   sshProposalUnavailable:
     "SSH access proposals are only available for your own agents and permanent team members without a Telegram bot for other people.",
   sshProposalInvalid:
     "Give a host name or IP address, a port from 1 to 65535 and a remote user name of letters, digits, _ . and -.",
-  sshProposalLimit:
-    "This agent already has two SSH access proposals waiting, or proposed five in the last hour.",
   sshProposalExists: "This host, port and user are already an SSH access.",
   sshProposalScanFailed: "The host key could not be read from this host.",
   sshProposalProject: "This project does not exist.",

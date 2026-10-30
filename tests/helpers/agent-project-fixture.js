@@ -40,15 +40,6 @@ export async function agentProjectFixture(t) {
       .projectNames()
       .map((p) => p.id)
       .sort();
-  // Rows the creation record would hold, `ago` ms before now.
-  const addRows = (count, ago) => {
-    for (let i = 0; i < count; i++)
-      f.workflows.projects.store.add({
-        projectId: `earlier-${ago}-${i}`,
-        assistantId: f.id,
-        createdAt: new Date(Date.now() - ago).toISOString(),
-      });
-  };
   // Sets one field of the agent's stored definition, bypassing validation.
   const setAgent = (field, value) =>
     f.assistants.store.db
@@ -65,7 +56,6 @@ export async function agentProjectFixture(t) {
     code,
     projectRows,
     projectIds,
-    addRows,
     setAgent,
   };
 }

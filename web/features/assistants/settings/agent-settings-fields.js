@@ -64,7 +64,7 @@ export const folderLevels = ["none", "read", "write"];
 export const sshModes = ["approval", "trusted"];
 // Email levels per account (server agent-mail-grants.js); rules only for "send".
 export const mailLevels = ["read", "send"];
-// The team usage levels the server accepts (team-policy.js); "suggest" is its default.
+// The team usage levels the server accepts (team-policy.js); "autonomous" is its default.
 export const teamUsageLevels = ["onRequest", "suggest", "autonomous"];
 export const teamKeys = [
   "teamUsage",
@@ -370,7 +370,7 @@ export const accessServer = (policy) => ({
 });
 /** The Team tab's share: the lead's team policy. */
 export const teamServer = (team) => ({
-  teamUsage: teamUsageLevels.includes(team?.usage) ? team.usage : "suggest",
+  teamUsage: teamUsageLevels.includes(team?.usage) ? team.usage : "autonomous",
   teamAutonomous: team?.autonomous === true,
   memberShellSsh: team?.memberShellSsh === true,
   maxMembers: team?.maxMembers ?? "",

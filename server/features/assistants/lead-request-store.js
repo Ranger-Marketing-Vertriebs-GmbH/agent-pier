@@ -12,7 +12,8 @@ import {
   parseOwnerText,
   plain,
 } from "./lead-request-proof.js";
-import { autonomousCaps, taskRunTimeoutMinutes } from "./team-policy.js";
+import { taskRunTimeoutMinutes } from "./team-policy.js";
+import { loopGuard } from "./agent-loop-guard.js";
 import { directOwnerTurn, goalTurn, ownerSource } from "./goal-turns.js";
 import { WorkGoalStore } from "./work-goal-store.js";
 export { ownerQuote } from "./lead-request-proof.js";
@@ -22,10 +23,9 @@ export const requestKind = "lead-request";
 export const requestTerminal = new Set(["completed", "failed", "cancelled"]);
 // A member's answer is kept up to the history limit (history-text.js), not here.
 export const requestLimits = { question: 4000, task: 8192 };
-// Bounds an injected lead or a member answer that keeps asking cannot exceed: open
-// requests per lead, requests per lead and minute, requests per owner turn, and the
-// owner-proven tasks of a turn that may write.
-export const requestCaps = { open: 16, perMinute: 6, perTurn: 8, ownerPerTurn: 3 };
+// Open requests per lead and the owner-proven tasks of a turn that may write; a lead
+// that keeps asking meets the agent's loop guard (agent-loop-guard.js).
+export const requestCaps = { open: 16, ownerPerTurn: 3 };
 // Finished requests kept per lead, and for how long.
 // Members' requests to each other and their own reports have their own bound per
 // lead, so a busy team never pushes the lead's own request history out.
@@ -260,20 +260,11 @@ export class LeadRequestStore {
       // its members' requests to each other (peer-request-rules.js) are not the
       // lead's own requests and never count against its caps.
       const mine = this.list(lead.id).filter(
-          (r) => r.type !== "report" && !r.fromMemberId,
-        ),
-        turn = mine.filter((r) =>
-          run ? r.routineRun === run : r.parentRequestId === request.id,
-        ),
-        now = Date.now();
+        (r) => r.type !== "report" && !r.fromMemberId,
+      );
       if (mine.filter((r) => !requestTerminal.has(r.phase)).length >= requestCaps.open)
         throw assistantProblem("active", 409);
-      if (
-        turn.length >= requestCaps.perTurn ||
-        mine.filter((r) => now - Date.parse(r.createdAt) < 60000).length >=
-          requestCaps.perMinute
-      )
-        throw assistantProblem("memberRequestRate", 429);
+      loopGuard(t.store).take(lead.id);
       const context = routine
           ? {
               kind: "routine",
@@ -404,16 +395,6 @@ export class LeadRequestStore {
         ownerTurn &&
         !negated;
       const selfInitiated = (usage === "autonomous" && !proof && !named) || goalTask;
-      if (selfInitiated) {
-        const own = mine.filter((r) => r.selfInitiated);
-        if (
-          own.filter((r) => turn.includes(r)).length >= autonomousCaps.perTurn ||
-          (!goalTask &&
-            own.filter((r) => !r.goalId && now - Date.parse(r.createdAt) < 3600000)
-              .length >= autonomousCaps.perHour)
-        )
-          throw assistantProblem("memberRequestAutonomousLimit", 429);
-      }
       // An autonomous lead's own task in a turn of the owner's own message may change
       // the member's own workspace too, always marked self-initiated and capped. A
       // task for a member the owner named without a valid proof, a negated message

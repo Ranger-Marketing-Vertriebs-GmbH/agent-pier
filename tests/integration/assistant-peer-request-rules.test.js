@@ -3,17 +3,19 @@ import assert from "node:assert/strict";
 import { peers } from "../helpers/peer-request-fixture.js";
 import { quoteFor } from "../helpers/lead-request-service-fixture.js";
 import {
-  peerCaps,
   peerCaller,
   createPeerRequest,
 } from "../../server/features/assistants/peer-request-rules.js";
 import {
   publicRequest,
-  requestCaps,
   taskWritable,
 } from "../../server/features/assistants/lead-request-store.js";
 import { mainConversation } from "../../server/features/assistants/routine-targets.js";
 import { toolError } from "../../server/features/assistants/tool-errors.js";
+import {
+  loopGuard,
+  loopGuardCaps,
+} from "../../server/features/assistants/agent-loop-guard.js";
 
 const hour = 3600000;
 
@@ -135,23 +137,20 @@ test("a temporary sibling takes questions only; an ended one with a chat still a
   );
 });
 
-test("a turn handling a peer request cannot start one (no chain, no ping-pong)", async (t) => {
+// AGENTPIER-276: a member handling a sibling's request may ask and task others; its
+// loop guard (agent-loop-guard.js) bounds a chain or ping-pong instead of PEER_LOOP.
+test("a turn handling a peer request may start one; the loop guard bounds a ping-pong", async (t) => {
   const f = await peers(t);
   const r = f.peerAsk(f.memberTurn(f.permanent), f.second);
   const handling = () =>
     f.memberTurn(f.second, { kind: "lead-request", requestId: r.id });
-  assert.equal(
-    f.code(() => f.peerAsk(handling(), f.temporary)),
-    "PEER_LOOP",
-  );
-  assert.equal(
-    f.code(() => f.peerAsk(handling(), f.permanent)),
-    "PEER_LOOP",
-  );
-  assert.equal(
-    f.code(() => f.peerDelegate(handling(), f.permanent)),
-    "PEER_LOOP",
-  );
+  assert.equal(f.peerAsk(handling(), f.temporary).fromMemberId, f.second.id);
+  const guard = loopGuard(f.service.assistants.store);
+  guard.caps = { actions: 0, windowMs: 600000 };
+  t.after(() => {
+    guard.caps = loopGuardCaps;
+    guard.times.clear();
+  });
   const loop = toolError(
     (() => {
       try {
@@ -161,37 +160,26 @@ test("a turn handling a peer request cannot start one (no chain, no ping-pong)",
       }
     })(),
   );
-  assert.equal(loop.status, 409);
-  assert.match(loop.reason, /agentpier_team_report/);
-  // The lead's own request is the member's own work.
-  f.settle();
-  f.service.requests.waitMs = 0;
-  const { requestId } = await f.service.ask(f.turn(), {
-    memberId: f.second.id,
-    question: "What is the budget?",
-  });
-  const own = f.memberTurn(f.second, { kind: "lead-request", requestId });
-  assert.equal(f.peerAsk(own, f.temporary).fromMemberId, f.second.id);
+  assert.equal(loop.code, "AGENT_LOOP_LIMIT");
+  assert.equal(loop.status, 429);
 });
-
-test("a peer-result turn, a reminder turn and a forwarded message cannot start one", async (t) => {
+test("forwarded content and a memory step cannot start one; other turns may", async (t) => {
   const f = await peers(t);
   const r = f.peerAsk(f.memberTurn(f.permanent), f.second);
-  assert.equal(
-    f.code(() =>
-      f.peerAsk(
-        f.memberTurn(f.permanent, { kind: "peer-result", requestId: r.id }),
-        f.temporary,
-      ),
-    ),
-    "PEER_LOOP",
-  );
   for (const context of [
+    { kind: "peer-result", requestId: r.id },
     { kind: "reminder" },
+    { kind: "unknown" },
+  ])
+    assert.equal(
+      f.code(() => f.finish(f.peerAsk(f.memberTurn(f.permanent, context), f.temporary))),
+      null,
+      context.kind,
+    );
+  for (const context of [
     { kind: "telegram", forwarded: true },
     { kind: "owner", forwarded: true },
     { kind: "memory-step" },
-    { kind: "unknown" },
   ]) {
     const inv = f.memberTurn(f.permanent, context);
     let error;
@@ -203,10 +191,7 @@ test("a peer-result turn, a reminder turn and a forwarded message cannot start o
     const e = toolError(error);
     assert.equal(e.code, "PEER_TURN", context.kind);
     assert.equal(e.status, 403);
-    assert.match(
-      e.reason,
-      /Reports are not possible in this turn either\. Do not retry\./,
-    );
+    assert.match(e.reason, /Do not retry\./);
   }
   // No turn context at all.
   const bare = f.memberTurn(f.permanent);
@@ -240,81 +225,6 @@ test("one open request per pair and direction; the reverse direction is allowed"
   assert.equal(
     f.code(() => f.peerAsk(f.memberTurn(f.permanent), f.second)),
     null,
-  );
-});
-
-test("at most 3 open and 6 per hour per member, then PEER_LIMIT with the report hint", async (t) => {
-  const f = await peers(t, { count: 4 });
-  assert.deepEqual(peerCaps, { openPerPair: 1, openPerMember: 3, perHour: 6 });
-  // A member of the lead's next team is a sibling too.
-  const next = await f.proposal({ count: 1, parent: f.store.getAssistant(f.parent.id) });
-  f.assistants.ledger.transition(next.attempt.id, "completed");
-  await f.service.reconcile();
-  const [newcomer] = f.service.store.members(next.team.id);
-  assert.ok(newcomer.conversationId);
-  const targets = [f.temporary, f.second, ...f.more, newcomer];
-  const now = Date.parse("2026-10-23T08:00:00Z");
-  const sent = targets
-    .slice(0, 3)
-    .map((m) => f.peerAsk(f.memberTurn(f.permanent), m, {}, now));
-  let error;
-  try {
-    f.peerAsk(f.memberTurn(f.permanent), targets[3], {}, now);
-  } catch (e) {
-    error = e;
-  }
-  const limit = toolError(error);
-  assert.equal(limit.code, "PEER_LIMIT");
-  assert.equal(limit.status, 429);
-  assert.match(limit.reason, /agentpier_team_report/);
-  assert.match(limit.reason, /\b3\b/);
-  assert.match(limit.reason, /\b6\b/);
-  // Finished requests still count for the hour.
-  sent.forEach(f.finish);
-  for (const m of targets.slice(0, 3))
-    f.finish(f.peerAsk(f.memberTurn(f.permanent), m, {}, now + 1000));
-  assert.equal(
-    f.code(() => f.peerAsk(f.memberTurn(f.permanent), targets[3], {}, now + 2000)),
-    "PEER_LIMIT",
-  );
-  // An hour after the first ones, the member may ask again.
-  assert.equal(
-    f.code(() => f.peerAsk(f.memberTurn(f.permanent), targets[3], {}, now + hour)),
-    null,
-  );
-  // Another member has its own budget.
-  assert.equal(
-    f.code(() => f.peerAsk(f.memberTurn(f.second), f.permanent, {}, now + 2000)),
-    null,
-  );
-});
-
-test("peer requests never count against the lead's caps", async (t) => {
-  const f = await peers(t);
-  // The shipped value (the fixture raises it for its flows).
-  requestCaps.perMinute = 6;
-  const members = [f.temporary, f.permanent, f.second];
-  for (const from of members)
-    for (const to of members.filter((m) => m !== from)) f.peerAsk(f.memberTurn(from), to);
-  assert.equal(f.requests().length, 6);
-  const lead = f.turn();
-  for (let n = 0; n < 6; n++)
-    f.service.requests.store.create({
-      type: "question",
-      attemptId: lead.attemptId,
-      operationId: `call-${n}`,
-      input: { memberId: members[n % 3].id, question: `Question ${n}` },
-    });
-  assert.equal(f.requests().length, 12);
-  assert.throws(
-    () =>
-      f.service.requests.store.create({
-        type: "question",
-        attemptId: lead.attemptId,
-        operationId: "call-6",
-        input: { memberId: f.second.id, question: "One more" },
-      }),
-    { key: "memberRequestRate" },
   );
 });
 
@@ -512,17 +422,4 @@ test("the same tool call replays; a changed input conflicts", async (t) => {
     }).id,
     routine.id,
   );
-});
-
-test("the owner's limit texts name the numbers of peerCaps", async () => {
-  const catalogs = await Promise.all(
-    ["de", "en"].map((lang) => import(`../../server/lib/i18n/${lang}/assistants.js`)),
-  );
-  for (const catalog of catalogs) {
-    const text = catalog.assistants.peerRequestLimit;
-    assert.deepEqual(text.match(/\d+/g), [
-      String(peerCaps.openPerMember),
-      String(peerCaps.perHour),
-    ]);
-  }
 });

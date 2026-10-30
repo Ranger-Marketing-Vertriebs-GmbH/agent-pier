@@ -9,13 +9,14 @@ import { auditAgentProject } from "./assistant-access-audit.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { AgentProjectStore } from "./agent-project-store.js";
 import { grantCreatedProject, setCreatedProjectCoding } from "./agent-project-grants.js";
-import { projectCreateLimit, projectName } from "./agent-project-rules.js";
+import { projectName } from "./agent-project-rules.js";
+import { loopGuard } from "./agent-loop-guard.js";
+import { ownerChatCall } from "./owner-runs.js";
 import { notifyAgentProject } from "./agent-project-notes.js";
-import { directOwnerTurn, mayCreateProjects } from "./goal-turns.js";
+import { mayCreateProjects } from "./goal-turns.js";
 
 const run = promisify(execFile);
 const openFolder = constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW;
-const ownerOnly = () => assistantProblem("projectOwnerOnly", 403);
 const unavailable = () => assistantProblem("projectFolderUnavailable", 409);
 const optionalBoolean = (value, fallback) => {
   if (value === undefined) return fallback;
@@ -29,19 +30,14 @@ export async function initRepository(cwd) {
 }
 
 /**
- * The owner's own turn behind a tool call (never a routine's or a hook's run, a
- * command's completion, forwarded, member or goal content) of an agent that may
- * create projects; throws otherwise. Shaped like agent-ssh-proposals.js proposalTurn.
+ * Any run of the owner's chat with an agent that may create projects (owner-runs.js
+ * ownerChatCall, AGENTPIER-276), never a routine's or a hook's run, forwarded or
+ * member content; throws otherwise. Shaped like agent-ssh-proposals.js proposalTurn.
  */
 export function projectTurn(w, inv) {
-  if (!inv.attemptId || inv.routine || inv.hook || inv.ownerRun) throw ownerOnly();
-  const a = w.a,
-    attempt = a.ledger.getAttempt(inv.attemptId),
-    request = a.ledger.getRequest(attempt.requestId),
-    conversation = a.store.getConversation(request.conversationId),
-    agent = a.store.getAssistant(conversation.assistantId),
-    origin = a.teams.store.context(request.id);
-  if (!directOwnerTurn(origin)) throw ownerOnly();
+  const turn = ownerChatCall(w.a, inv);
+  if (!turn) throw assistantProblem("invalid", 403);
+  const { agent, conversation, origin } = turn;
   if (!mayCreateProjects(agent, !!w.s.assistantTelegramSenders?.connected(agent.id)))
     throw assistantProblem("projectNotEligible", 403);
   return { agent, conversation, origin };
@@ -109,7 +105,7 @@ export class AgentProjects {
   }
   async create(inv, { agent, conversation }, { name, git, coding }) {
     const w = this.w;
-    projectCreateLimit(this.store.times(agent.id), this.now());
+    loopGuard(w.a.store).take(agent.id);
     const parent = await this.parent();
     let target, made, held;
     try {

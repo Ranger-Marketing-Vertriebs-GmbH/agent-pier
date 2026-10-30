@@ -11,14 +11,14 @@ import { editableMember } from "./member-reach.js";
 import { isLeadRoutine } from "./lead-routines.js";
 import { mainConversation } from "./routine-targets.js";
 import { taskRunTimeoutMinutes } from "./team-policy.js";
+import { loopGuard } from "./agent-loop-guard.js";
 
 // A team member's questions and tasks for a sibling of the same lead. They are
 // `lead-request` records under the lead (parentAssistantId) with `fromMemberId`, so
 // the lead's scheduler runs them; they never count against the lead's own caps.
-// Bounds no chain or burst between members can exceed: one open request per pair
-// and direction, a few open per member, and a rolling hour.
-export const peerCaps = { openPerPair: 1, openPerMember: 3, perHour: 6 };
-const hourMs = 3600000;
+// One open request per pair and direction; a chain or burst between members meets
+// the sending member's loop guard (agent-loop-guard.js, AGENTPIER-276).
+export const peerCaps = { openPerPair: 1 };
 const refused = () => assistantProblem("invalid", 403);
 
 // The member an agent belongs to, with its live lead; anything archived refuses.
@@ -90,24 +90,15 @@ const handled = (service, origin) => {
 };
 
 /**
- * What a member's turn may start: "peer" in its own work (the owner's direct turn,
- * its team assignment, its lead's request, a routine run), "report-only" while it
- * handles a sibling's request or that request's result (no chain, no ping-pong), and
- * null in every other turn (reminders, check-ins, forwarded, continuations).
+ * Whether a member's turn may ask, task or report (AGENTPIER-276): every turn of its
+ * own work, also while it handles a sibling's request, apart from forwarded content,
+ * a restricted user's turn and a memory step. The loop guard bounds chains and ping-pong.
  */
-export function peerTurn(service, caller) {
-  if (caller.routine) return "peer";
-  const origin = caller.origin;
-  if (origin?.kind === "peer-result") return "report-only";
-  if (origin?.kind === "lead-request") {
-    const r = handled(service, origin);
-    return !r ? null : r.fromMemberId ? "report-only" : "peer";
-  }
-  if (origin?.kind === "team-member") return "peer";
-  // The owner's own message (also from his paired Telegram chat), never forwarded.
-  return ["owner", "telegram"].includes(origin?.kind) && !origin.forwarded
-    ? "peer"
-    : null;
+export function peerTurn(_service, caller) {
+  return (
+    !!caller.routine ||
+    (!caller.origin?.forwarded && !["memory-step", "user"].includes(caller.origin?.kind))
+  );
 }
 
 /**
@@ -177,8 +168,8 @@ export function peerTarget(service, lead, sender, memberId, type) {
   return { member: m, assistant };
 }
 
-/** The pair, open and hourly bounds of a member's requests (peerCaps). */
-export function assertPeerLimits(store, sender, target, type, now) {
+/** The pair bound and the receiver's one open task (peerCaps). */
+export function assertPeerLimits(store, sender, target, type) {
   const open = store.open((r) => r.fromMemberId === sender.id);
   if (
     open.filter((r) => r.memberId === target.id).length >= peerCaps.openPerPair ||
@@ -186,13 +177,6 @@ export function assertPeerLimits(store, sender, target, type, now) {
       store.open((r) => r.memberId === target.id && r.type === "task").length)
   )
     throw assistantProblem("peerRequestOpen", 409);
-  const recent = store
-    .list(sender.parentAssistantId)
-    .filter(
-      (r) => r.fromMemberId === sender.id && now - Date.parse(r.createdAt) < hourMs,
-    );
-  if (open.length >= peerCaps.openPerMember || recent.length >= peerCaps.perHour)
-    throw assistantProblem("peerRequestLimit", 429);
 }
 
 /**
@@ -224,12 +208,11 @@ export function createPeerRequest(service, { type, inv, input, now = Date.now() 
       if (existing.fingerprint !== hash) throw assistantProblem("conflict", 409);
       return existing;
     }
-    const turn = peerTurn(service, caller);
-    if (!turn) throw assistantProblem("peerRequestTurn", 403);
-    if (turn === "report-only") throw assistantProblem("peerRequestLoop", 409);
+    if (!peerTurn(service, caller)) throw assistantProblem("peerRequestTurn", 403);
     const { lead, member: sender, assistant: from } = caller;
     const { member, assistant } = peerTarget(service, lead, sender, input.memberId, type);
-    assertPeerLimits(store, sender, member, type, now);
+    assertPeerLimits(store, sender, member, type);
+    loopGuard(service.assistants.store).take(from.id);
     // Questions never write; a task only when the sender's own turn may.
     const peerWrites = type === "task" ? peerWriteOrigin(service, caller) : null;
     return teams.insert(

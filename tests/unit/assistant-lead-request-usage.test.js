@@ -5,7 +5,7 @@ import {
   publicRequest,
   requestCaps,
 } from "../../server/features/assistants/lead-request-store.js";
-import { autonomousCaps } from "../../server/features/assistants/team-policy.js";
+import { loopGuard } from "../../server/features/assistants/agent-loop-guard.js";
 import {
   ownerConsent,
   parseOwnerText,
@@ -15,7 +15,7 @@ import { toolError } from "../../server/features/assistants/tool-errors.js";
 // A lead with a permanent "Scout" and a temporary "Writer", at a team usage level.
 function setup(t, usage) {
   const saved = { ...requestCaps };
-  Object.assign(requestCaps, { perMinute: 1000, perTurn: 1000, open: 1000 });
+  Object.assign(requestCaps, { open: 1000 });
   t.after(() => Object.assign(requestCaps, saved));
   const f = leadStoreFixture(t);
   const own = f.lead("Lead");
@@ -165,10 +165,15 @@ test("consent is a short, unnegated agreement in the owner's own prose", () => {
   assert.equal(yes("Yes, go ahead", "No"), false);
 });
 
-test("an autonomous lead starts only a few requests on its own per turn and hour", (t) => {
+// AGENTPIER-276: the lead's own requests have no turn or hourly budget any more; one
+// loop guard per agent stops a runaway loop across its team tools.
+test("an autonomous lead's own requests run until its loop guard stops a loop", (t) => {
   const f = setup(t, "autonomous");
   const attempt = f.turn(f.own.chat, "What do we know about the market?");
-  for (let n = 0; n < autonomousCaps.perTurn; n++)
+  const guard = loopGuard(f.teams.store);
+  guard.caps = { actions: 6, windowMs: 600000 };
+  t.after(() => guard.times.clear());
+  for (let n = 0; n < 6; n++)
     assert.equal(
       f.request(f.writer, { type: "question", attempt }).selfInitiated,
       true,
@@ -179,42 +184,10 @@ test("an autonomous lead starts only a few requests on its own per turn and hour
     () => f.request(f.writer, { type: "question", attempt }),
     (error) => {
       refusal = error;
-      return error.status === 429 && error.key === "memberRequestAutonomousLimit";
+      return error.status === 429 && error.key === "agentLoopLimit";
     },
   );
   const tool = toolError(refusal);
-  assert.equal(tool.code, "AUTONOMOUS_LIMIT");
-  assert.match(tool.reason, new RegExp(`${autonomousCaps.perTurn} questions or tasks`));
+  assert.equal(tool.code, "AGENT_LOOP_LIMIT");
   assert.match(tool.reason, /Do not retry/);
-  // Requests the owner asked for by name are not the lead's own and still go.
-  const named = f.request(f.writer, {
-    type: "question",
-    text: "Ask Writer about the market",
-  });
-  assert.equal(named.selfInitiated, undefined);
-  // Per hour: new turns, until the hourly budget is used up.
-  let made = autonomousCaps.perTurn;
-  while (made < autonomousCaps.perHour) {
-    f.request(f.writer, { type: "question" });
-    made++;
-  }
-  assert.throws(() => f.request(f.writer, { type: "question" }), {
-    key: "memberRequestAutonomousLimit",
-  });
-  // An hour later the budget is free again.
-  for (const r of f.requests.list(f.own.assistant.id))
-    f.teams.write(f.teams.get(r.id), {
-      createdAt: new Date(Date.now() - 3600001).toISOString(),
-    });
-  assert.equal(f.request(f.writer, { type: "question" }).selfInitiated, true);
-});
-
-test("other levels never count against the autonomous budget", (t) => {
-  const f = setup(t, "suggest");
-  const attempt = f.turn(f.own.chat, "What do we know about the market?");
-  for (let n = 0; n <= autonomousCaps.perTurn; n++)
-    assert.equal(
-      f.request(f.writer, { type: "question", attempt }).selfInitiated,
-      undefined,
-    );
 });

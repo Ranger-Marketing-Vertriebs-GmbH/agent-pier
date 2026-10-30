@@ -2,7 +2,6 @@
 // members, kept compact, and when to involve them at the owner's chosen team usage
 // level (team-policy.js). Agents read English. Busy states are left out: they
 // change often, and agentpier_team_members reports them.
-import { autonomousCaps } from "./team-policy.js";
 
 // Members named in the prompt; the rest are listed by agentpier_team_members.
 export const rosterLimit = 12;
@@ -36,7 +35,7 @@ const peers =
 
 const levels = {
   onRequest: [
-    "- Involve members only when the owner asks you to: by name, by @mention or for a team. Otherwise do the work yourself and do not offer them. Set up a routine on a member only when the owner's own message asks for it and names that member.",
+    "- Involve members only when the owner asks you to: by name, by @mention or for a team. Otherwise do the work yourself and do not offer them. Set up a routine on a member only when the owner asks for it.",
   ],
   suggest: [
     ...shared,
@@ -49,7 +48,6 @@ const levels = {
     "- You may ask members and delegate suitable tasks on your own, without asking the owner first. Tell the owner briefly whom you involved and why.",
     "- A task you start yourself in a turn of the owner's own message may change files in the member's own workspace, unless that message says not to change anything; AgentPier marks it as self-initiated. Shell, SSH, project folders, GitHub and grants beyond the default keep their usual approvals, and a new team you propose on your own still waits for the owner's approval unless the owner asked for one or allowed teams without asking.",
     "- You may set up routines on permanent members on your own when recurring work fits; tell the owner. At this level their runs may change files like your own tasks.",
-    `- You may start at most ${autonomousCaps.perTurn} questions or tasks on your own per turn and ${autonomousCaps.perHour} per hour. When the limit is reached, finish with what you have.`,
   ],
 };
 

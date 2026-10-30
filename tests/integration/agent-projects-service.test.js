@@ -16,7 +16,6 @@ import { initRepository } from "../../server/features/assistants/agent-projects.
 // empty project in the owner's default folder in a direct owner turn, gets it granted
 // narrowly and may switch coding sessions for it, and nothing else.
 
-const hourMs = 3600000;
 const revisionOf = (f) => approvalRevision(f.workflows.access.stored(f.id));
 const entries = (dir) => fs.readdirSync(dir).sort();
 // The agent's own audit records of a coding switch.
@@ -326,19 +325,6 @@ test("an older project row naming the new folder is never rebound into it", asyn
   assert.deepEqual(f.workflows.projects.store.list(f.id), []);
 });
 
-test("the eleventh project within 24 hours is refused", async (t) => {
-  const f = await agentProjectFixture(t);
-  f.addRows(9, hourMs);
-  f.addRows(1, 25 * hourMs);
-  const tenth = await f.call({ action: "create", name: "Tenth" });
-  assert.ok(tenth.projectId);
-  assert.equal(
-    await f.code(f.call({ action: "create", name: "Eleventh" })),
-    "PROJECT_CREATE_LIMIT",
-  );
-  assert.ok(!fs.existsSync(path.join(f.parent, "Eleventh")));
-});
-
 test("parallel creates are serialized per agent", async (t) => {
   const f = await agentProjectFixture(t);
   const same = await Promise.all([
@@ -347,55 +333,51 @@ test("parallel creates are serialized per agent", async (t) => {
   ]);
   assert.deepEqual(same.filter(Boolean), ["PROJECT_EXISTS"]);
   assert.equal(same.filter((c) => c === null).length, 1);
-  // With "Same", nine projects of the last 24 hours exist.
-  f.addRows(8, hourMs);
-  const limited = await Promise.all([
-    f.code(f.call({ action: "create", name: "One" })),
-    f.code(f.call({ action: "create", name: "Two" })),
-  ]);
-  assert.deepEqual(limited.filter(Boolean), ["PROJECT_CREATE_LIMIT"]);
-  assert.equal(
-    ["One", "Two"].filter((n) => fs.existsSync(path.join(f.parent, n))).length,
-    1,
-  );
 });
 
-test("only direct owner turns may use the tool", async (t) => {
+// AGENTPIER-276: any run of the owner's chat may create projects (no daily limit, the
+// agent's loop guard bounds a loop); forwarded and members' content never.
+test("any run of the owner's chat may use the tool, never someone else's content", async (t) => {
   const f = await agentProjectFixture(t);
-  const goal = { id: "g", anchorRequestId: "r", title: "Goal" };
-  for (const origin of [
-    { kind: "routine" },
-    { kind: "owner", forwarded: true },
-    { kind: "member-result" },
-    { kind: "lead-request" },
-    { kind: "owner", goal },
-  ])
+  for (const origin of [{ kind: "owner", forwarded: true }, { kind: "lead-request" }])
     for (const input of [{ action: "create", name: "Shop" }, { action: "list" }])
       assert.equal(
         await f.code(f.call(input, origin)),
-        "PROJECT_OWNER_ONLY",
+        "FORBIDDEN",
         JSON.stringify(origin),
       );
-  for (const field of ["hook", "routine", "ownerRun"]) {
+  for (const field of ["hook", "routine"]) {
     const inv = await f.invocation(randomUUID());
     inv[field] = { id: "x" };
     assert.equal(
       await f.code(f.workflows.projects.invoke(inv, { action: "create", name: "Shop" })),
-      "PROJECT_OWNER_ONLY",
+      "FORBIDDEN",
       field,
     );
   }
   const noAttempt = { ...(await f.invocation(randomUUID())), attemptId: null };
   assert.equal(
     await f.code(f.workflows.projects.invoke(noAttempt, { action: "list" })),
-    "PROJECT_OWNER_ONLY",
+    "FORBIDDEN",
   );
   assert.deepEqual(fs.readdirSync(f.parent), []);
-  const r = await f.call(
-    { action: "create", name: "Shop" },
-    { kind: "telegram", channelId: f.channel.id },
-  );
-  assert.equal(r.path, path.join(f.parent, "Shop"));
+  const goal = { id: "g", anchorRequestId: "r", title: "Goal" };
+  for (const [name, origin] of [
+    ["Shop", { kind: "telegram", channelId: f.channel.id }],
+    ["Routine", { kind: "routine" }],
+    ["Goal", { kind: "owner", goal }],
+    ["Result", { kind: "member-result" }],
+  ]) {
+    const r = await f.call({ action: "create", name }, origin);
+    assert.equal(r.path, path.join(f.parent, name), name);
+  }
+  // A run of the owner's chat without a turn (owner-runs.js).
+  const run = {
+    ...(await f.invocation(randomUUID())),
+    attemptId: null,
+    ownerRun: { conversationId: f.channel.conversationId },
+  };
+  assert.ok((await f.workflows.projects.invoke(run, { action: "list" })).projects);
 });
 
 test("members, user agents and sender-facing agents are not eligible", async (t) => {
@@ -407,7 +389,8 @@ test("members, user agents and sender-facing agents are not eligible", async (t)
   );
   delete f.services.assistantTelegramSenders;
   f.setAgent("userAccess", { mode: "shared", userIds: ["u"] });
-  assert.equal(await f.code(f.call({ action: "list" })), "PROJECT_NOT_ELIGIBLE");
+  // An agent of users gets nothing from the owner's chat rules.
+  assert.equal(await f.code(f.call({ action: "list" })), "FORBIDDEN");
   f.setAgent("userAccess", null);
   f.setAgent("teamMemberId", "member");
   f.setAgent("lifetime", "permanent");

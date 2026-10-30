@@ -9,6 +9,12 @@ import { memoryTarget } from "../../server/features/assistants/lead-request-writ
 
 // Every layer of the write gate on its own: each check below fails when its
 // condition is removed from LeadRequests.mayWrite.
+// At "Suggest" only a proof makes a task writable (the default is "Autonomous").
+function suggest(f) {
+  const policy = f.service.store.policy(f.parent.id);
+  f.service.store.savePolicy(f.parent.id, { usage: "suggest" }, policy.revision);
+}
+
 test("only the proven task's own running attempt writes", async (t) => {
   const f = await writeGate(t);
   const { requestId } = await f.delegate(f.turn());
@@ -144,6 +150,7 @@ test("the lead need not quote the owner's mention", async (t) => {
 
 test("a mention of one member does not let another member's task write", async (t) => {
   const f = await writeGate(t);
+  suggest(f);
   const other = f.store.getAssistant(f.temporary.assistantId).name;
   const { requestId } = await f.delegate(
     f.turn(`@${other} trag den NAS in die Doku ein`),
@@ -230,6 +237,7 @@ test("a task of a routine the owner lets delegate writing tasks writes in its ow
 
 test("a lead's follow-up on a member's result writes like the lead's own work", async (t) => {
   const f = await writeGate(t);
+  suggest(f);
   const audits = [];
   f.assistants.audit = { append: (event) => audits.push(event) };
   // A task without the owner's request: its follow-up writes all the same.

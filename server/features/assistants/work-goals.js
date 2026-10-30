@@ -5,6 +5,7 @@
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { directOwnerTurn, goalChat, goalLimits, goalTurn } from "./goal-turns.js";
 import { WorkGoalStore } from "./work-goal-store.js";
+import { foreignOrigin } from "./owner-runs.js";
 import { tickGoals } from "./work-goal-nudges.js";
 
 // Each action's keys, the required ones first, and how its texts are read.
@@ -64,14 +65,21 @@ export class WorkGoals {
     return this.service.assistants;
   }
   // The chat of the invocation's turn, its request and the request's context; only
-  // the owner's own chats with an eligible agent hold goals.
+  // the owner's own chats with an eligible agent hold goals. A run of that chat
+  // without a turn (owner-runs.js) works as its latest request.
   turn(inv) {
-    if (!inv?.attemptId) throw assistantProblem("goalUnavailable", 409);
+    const ledger = this.teams.ledger;
+    if (!inv?.attemptId && !inv?.ownerRun) throw assistantProblem("goalUnavailable", 409);
     const a = this.assistants,
-      request = this.teams.ledger.getRequest(
-        this.teams.ledger.getAttempt(inv.attemptId).requestId,
+      conversation = a.store.getConversation(
+        inv.attemptId
+          ? ledger.getRequest(ledger.getAttempt(inv.attemptId).requestId).conversationId
+          : inv.ownerRun.conversationId,
       ),
-      conversation = a.store.getConversation(request.conversationId);
+      request = inv.attemptId
+        ? ledger.getRequest(ledger.getAttempt(inv.attemptId).requestId)
+        : ledger.latestRequest(conversation.id);
+    if (!request) throw assistantProblem("goalUnavailable", 409);
     let agent = null;
     try {
       agent = a.store.getAssistant(conversation.assistantId);
@@ -80,19 +88,40 @@ export class WorkGoals {
     }
     if (!agent || !goalChat(agent, conversation))
       throw assistantProblem("goalUnavailable", 409);
-    return { request, conversation, context: this.teams.context(request.id) };
+    const context = inv.attemptId
+      ? this.teams.context(request.id)
+      : { kind: "agent-run" };
+    return { request, conversation, context };
+  }
+  /**
+   * The owner's latest direct message a new goal is anchored to (its rights and
+   * proofs come from that message only, goal-turns.js): the turn's own, the anchor
+   * of the goal turn or open goal, or the chat's latest direct owner message.
+   */
+  anchor(conversationId, request, context) {
+    if (directOwnerTurn(context)) return request.id;
+    const known =
+      goalTurn(context)?.anchorRequestId ??
+      this.store.open(conversationId)?.anchorRequestId;
+    if (known) return known;
+    const ledger = this.teams.ledger;
+    const direct = ledger
+      .requests(conversationId)
+      .findLast((r) => directOwnerTurn(this.teams.context(r.id)));
+    return direct?.id ?? request.id;
   }
   async invoke(inv, input) {
     const { action, values } = goalInput(input);
     const { request, conversation, context } = this.turn(inv);
-    if (action === "set" && !directOwnerTurn(context))
-      throw assistantProblem("goalOwnerTurn", 403);
-    if (action === "update" && !directOwnerTurn(context) && !goalTurn(context))
-      throw assistantProblem("goalUpdateTurn", 403);
+    // Any run of the owner's chat sets and notes goals (AGENTPIER-276); forwarded and
+    // members' content never do. Ending stays open to any turn of the chat.
+    if (["set", "update"].includes(action) && foreignOrigin(context))
+      throw assistantProblem("invalid", 403);
     inv.assertCurrent?.();
     const conversationId = conversation.id;
     if (action === "set") {
-      const changes = [];
+      const changes = [],
+        anchorRequestId = this.anchor(conversationId, request, context);
       const goal = this.teams.transaction(() => {
         const old = this.store.open(conversationId);
         if (old) {
@@ -106,7 +135,7 @@ export class WorkGoals {
           done: values.done,
           steps: values.steps ?? "",
           setRequestId: request.id,
-          anchorRequestId: request.id,
+          anchorRequestId,
           createdAt: this.now(),
         });
       });
@@ -117,12 +146,8 @@ export class WorkGoals {
     const open = this.store.open(conversationId);
     if (!open) throw assistantProblem("goalNotOpen", 409);
     // A goal turn notes the steps of its own goal only, never of one set after it.
-    if (
-      action === "update" &&
-      !directOwnerTurn(context) &&
-      goalTurn(context).id !== open.id
-    )
-      throw assistantProblem("goalUpdateTurn", 403);
+    if (action === "update" && goalTurn(context) && goalTurn(context).id !== open.id)
+      throw assistantProblem("invalid", 403);
     if (action === "update") {
       this.store.write(open, { steps: values.steps });
       this.audit(open, "updated");

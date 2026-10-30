@@ -1,12 +1,9 @@
 import { assistantProblem } from "./assistant-validation.js";
 // How a lead uses its team members on its own (team-guidance.js): only when the
-// owner asks, by offering them first, or autonomously within the request caps.
+// owner asks, by offering them first, or autonomously, the default since
+// AGENTPIER-276 (the agent's loop guard, agent-loop-guard.js, bounds it).
 export const teamUsageLevels = ["onRequest", "suggest", "autonomous"];
-export const defaultTeamUsage = "suggest";
-// Questions and tasks a lead may start on its own under "autonomous", per owner turn
-// and per hour, so a lead and its members cannot keep each other busy
-// (lead-request-store.js); the general request caps apply as well.
-export const autonomousCaps = { perTurn: 4, perHour: 20 };
+export const defaultTeamUsage = "autonomous";
 // A task a lead hands one of its members (lead-requests.js) may run this long,
 // whatever the member time limit below says: a task often coordinates colleagues and
 // writes up their result, which the limit for questions and team work does not leave

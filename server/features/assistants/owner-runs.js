@@ -12,6 +12,9 @@ import { isUserAgent } from "../users/user-access.js";
 // sessions are no owner chat. Shell, SSH, mail, secrets and other people keep their
 // own approvals and origin rules (agent-ssh-origin.js, mail/agent-mail-origin.js).
 
+// A temporary task member works on its lead's grants only (team-coding.js).
+const taskMember = (agent) => !!agent.teamMemberId && agent.lifetime !== "permanent";
+
 /** Whether `conversation` is the owner's own chat of an active agent that is no user agent. */
 export function ownerChat(agent, conversation) {
   return (
@@ -44,13 +47,13 @@ export const foreignOrigin = (origin) =>
 
 /**
  * Whether a bound turn of `conversation` works for the owner with the agent's
- * standing grants: a turn of his own chat with his own agent (no task member) whose
+ * standing grants: a turn of his own chat with his own agent or permanent member whose
  * content is not someone else's. A memory step keeps its own narrow rules
  * (memory-step-tools.js).
  */
 export const ownerTurn = (agent, conversation, origin) =>
   ownerChat(agent, conversation) &&
-  !agent.teamMemberId &&
+  !taskMember(agent) &&
   origin?.kind !== "memory-step" &&
   !foreignOrigin(origin);
 
@@ -65,7 +68,7 @@ export function ownerRun(bridge, { agentId, sessionKey, runId }) {
     const agent = bridge.agentOf(agentId);
     const { store, ledger } = bridge.assistants;
     const conversation = store.conversationOfSession(sessionKey);
-    if (!ownerChat(agent, conversation) || agent.teamMemberId) return null;
+    if (!ownerChat(agent, conversation) || taskMember(agent)) return null;
     // A turn whose send is still unresolved may be this very run: it proves itself
     // (run-confirmation.js), or waits (TURN_UNCONFIRMED).
     if (bridge.bound?.(sessionKey, true).length) return null;
@@ -79,8 +82,45 @@ export function ownerRun(bridge, { agentId, sessionKey, runId }) {
   }
 }
 
-/** What an owner run reaches through the bridge: project folders and its catalog. */
-export const ownerRunActions = new Set(["workspace"]);
+/**
+ * What an owner run reaches through the bridge: project folders and its catalog, and
+ * the proposals and goals an approval card or the owner's chat itself protects
+ * (ownerChatCall).
+ */
+export const ownerRunActions = new Set([
+  "workspace",
+  "hook",
+  "ssh_access",
+  "project",
+  "goal",
+]);
+
+/**
+ * The owner's chat behind a call whose effect a card protects or that only changes
+ * his own chat (hook and SSH access proposals, the agent's own projects, goals):
+ * any bound turn of that chat that is not someone else's content (ownerTurn), or a
+ * run of it without a turn. Never a routine's or a hook's own run. `{ agent,
+ * conversation, origin, request }` (request null for a run without a turn), or null.
+ */
+export function ownerChatCall(a, inv) {
+  if (inv.routine || inv.hook) return null;
+  if (!inv.attemptId) {
+    if (!inv.ownerRun) return null;
+    const conversation = a.store.getConversation(inv.ownerRun.conversationId);
+    const agent = a.store.getAssistant(conversation.assistantId);
+    return ownerChat(agent, conversation)
+      ? { agent, conversation, origin: { kind: "agent-run" }, request: null }
+      : null;
+  }
+  const attempt = a.ledger.getAttempt(inv.attemptId),
+    request = a.ledger.getRequest(attempt.requestId),
+    conversation = a.store.getConversation(request.conversationId),
+    agent = a.store.getAssistant(conversation.assistantId),
+    origin = a.teams.store.context(request.id);
+  return ownerTurn(agent, conversation, origin)
+    ? { agent, conversation, origin, request }
+    : null;
+}
 
 /** A ticket's binding for an owner run (TeamBridge.prepare), or null. */
 export function ownerRunBinding(bridge, input) {

@@ -1,10 +1,12 @@
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { exact } from "./assistant-access.js";
-import { directOwnerTurn, goalAgent } from "./goal-turns.js";
+import { goalAgent } from "./goal-turns.js";
+import { loopGuard } from "./agent-loop-guard.js";
+import { ownerChatCall } from "./owner-runs.js";
 import { notifyAction } from "./assistant-action-notifications.js";
 import { archived, handOver, pairedTelegram } from "./team-coding.js";
 import { sshGrantMode } from "./agent-ssh-origin.js";
-import { followUpText, sshProposalCaps } from "./agent-ssh-proposal-notes.js";
+import { followUpText } from "./agent-ssh-proposal-notes.js";
 import { normalizedEndpoint } from "../ssh/ssh-management-records.js";
 import {
   existingHost,
@@ -23,8 +25,6 @@ import { nameValue } from "../../lib/storage.js";
  * the agent in mode `approval` (or the mode he picks). A host that shows another key
  * by then fails the proposal. Declined and expired proposals leave nothing behind.
  */
-export { sshProposalCaps };
-const hourMs = 3600000;
 // The session grant limit (ssh-sessions.js) also bounds an agent's SSH hosts.
 const maxGrants = 30;
 const proposeKeys = [
@@ -37,7 +37,6 @@ const proposeKeys = [
   "projectId",
 ];
 const terminal = new Set(["completed", "failed", "declined", "expired"]);
-const ownerOnly = () => assistantProblem("sshProposalOwnerOnly", 403);
 // Control characters other than line breaks never reach a card or Telegram; a name
 // is one line.
 const controls = /[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u2028\u2029]/;
@@ -77,31 +76,14 @@ export const mayPropose = (agent, sendersConnected = false) =>
   goalAgent(agent) && !sendersConnected;
 
 /**
- * Throws while `actions` (the agent's proposals) hold `open` waiting ones, or the
- * proposals and failed scans of the last hour (`attempts`, times) reach `perHour`.
- */
-export function proposalLimit(actions, attempts, now = Date.now()) {
-  const open = actions.filter(
-    (a) => a.state === "awaiting_approval" && a.expiresAt >= now,
-  ).length;
-  const recent = attempts.filter((time) => now - time < hourMs).length;
-  if (open >= sshProposalCaps.open || recent >= sshProposalCaps.perHour)
-    throw assistantProblem("sshProposalLimit", 429);
-}
-
-/**
- * The owner's own turn behind a tool call, never a routine's or a hook's run, a
- * command's completion, forwarded, member or goal content; throws otherwise.
+ * Any run of the owner's chat behind a tool call (owner-runs.js ownerChatCall: the
+ * owner approves every proposal on its card, AGENTPIER-276), never a routine's or a
+ * hook's own run, forwarded or member content; throws otherwise.
  */
 export function proposalTurn(w, inv) {
-  if (!inv.attemptId || inv.routine || inv.hook || inv.ownerRun) throw ownerOnly();
-  const a = w.a,
-    attempt = a.ledger.getAttempt(inv.attemptId),
-    request = a.ledger.getRequest(attempt.requestId),
-    conversation = a.store.getConversation(request.conversationId),
-    agent = a.store.getAssistant(conversation.assistantId),
-    origin = a.teams.store.context(request.id);
-  if (!directOwnerTurn(origin)) throw ownerOnly();
+  const turn = ownerChatCall(w.a, inv);
+  if (!turn) throw assistantProblem("invalid", 403);
+  const { agent, conversation, origin } = turn;
   if (!mayPropose(agent, !!w.s.assistantTelegramSenders?.connected(agent.id)))
     throw assistantProblem("sshProposalUnavailable", 403);
   return { agent, conversation, origin };
@@ -163,11 +145,7 @@ export async function invokeSshAccess(w, inv, input) {
   const key = `ssh-access-proposal:${inv.attemptId}:${inv.toolCallId}`;
   const prior = w.store.byKey(key);
   if (prior) return { status: "approval_requested", proposalId: prior.id };
-  const now = Date.now(),
-    failed = (w.sshProposalScans ??= new Map()),
-    scans = (failed.get(agent.id) || []).filter((time) => now - time < hourMs);
-  const proposals = own(w, agent.id);
-  proposalLimit(proposals, [...proposals.map((a) => Date.parse(a.createdAt)), ...scans]);
+  loopGuard(w.a.store).take(agent.id);
   let projectName = null;
   if (fields.projectId) {
     const project = (await management.projects()).projects.find(
@@ -181,7 +159,6 @@ export async function invokeSshAccess(w, inv, input) {
   try {
     scanned = await management.store.scan({ host: fields.host, port: fields.port });
   } catch {
-    failed.set(agent.id, [...scans, now]);
     throw assistantProblem("sshProposalScanFailed", 502);
   }
   inv.assertCurrent();

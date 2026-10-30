@@ -105,16 +105,14 @@ test("goal input takes exactly the keys of its action", async (t) => {
   assert.equal(f.service.goals.view(chat.id).steps, "1. A");
 });
 
-test("no goal from forwarded, delegated, scheduled or continuation turns", async (t) => {
+// AGENTPIER-276: any other run of the owner's chat sets goals (a scheduled turn, a
+// result follow-up, a goal turn, anchored to the owner's latest direct message).
+test("no goal from forwarded, delegated or other people's content", async (t) => {
   for (const context of [
     { kind: "owner", forwarded: true },
     { kind: "telegram", forwarded: true },
     { kind: "lead-request", requestId: "r" },
-    { kind: "member-result", requestId: "r" },
     { kind: "ssh-result", actionId: "a" },
-    { kind: "routine" },
-    { kind: "memory-step" },
-    { kind: "owner", goal: { id: "g", anchorRequestId: "r", title: "T" } },
   ]) {
     const f = teamFixture(t),
       { chat } = setupAgent(f);
@@ -124,10 +122,28 @@ test("no goal from forwarded, delegated, scheduled or continuation turns", async
         title: "T",
         done: "D",
       }),
-      (e) => e.key === "goalOwnerTurn" && e.status === 403,
+      (e) => e.key === "invalid" && e.status === 403,
       context.kind,
     );
     assert.equal(f.service.goals.store.open(chat.id), null);
+  }
+  for (const context of [
+    { kind: "member-result", requestId: "r" },
+    { kind: "routine" },
+    { kind: "owner", goal: { id: "g", anchorRequestId: "r", title: "T" } },
+  ]) {
+    const f = teamFixture(t),
+      { chat } = setupAgent(f);
+    const direct = turn(f, chat, owner, "Finish the episode");
+    const { goal } = await f.service.goal(turn(f, chat, context).inv, {
+      action: "set",
+      title: "T",
+      done: "D",
+    });
+    assert.equal(goal.title, "T", context.kind);
+    // Anchored to the owner's own message, never to the automatic turn.
+    const anchor = f.service.goals.store.open(chat.id).anchorRequestId;
+    assert.equal(anchor, context.goal ? "r" : direct.request.id, context.kind);
   }
 });
 
@@ -217,11 +233,9 @@ test("done, blocked and update need an open goal and end it visibly", async (t) 
 
 test("goal problems reach the model as their codes", () => {
   const codes = {
-    goalOwnerTurn: ["GOAL_OWNER_TURN", 403],
     goalOwnerOnly: ["GOAL_OWNER_ONLY", 403],
     goalUnavailable: ["GOAL_UNAVAILABLE", 409],
     goalNotOpen: ["GOAL_NOT_OPEN", 409],
-    goalUpdateTurn: ["GOAL_UPDATE_TURN", 403],
   };
   for (const [key, [code, status]] of Object.entries(codes)) {
     const result = toolError({ key, status });
@@ -336,7 +350,7 @@ test("a deleted chat takes its goals with it", async (t) => {
   assert.deepEqual(f.service.goals.store.list(chat.id), []);
 });
 
-test("only the owner's direct turn or a goal turn updates the steps", async (t) => {
+test("forwarded and members' content never update the steps", async (t) => {
   const f = teamFixture(t),
     { chat } = setupAgent(f);
   const set = turn(f, chat, owner, "Finish the episode");
@@ -350,12 +364,10 @@ test("only the owner's direct turn or a goal turn updates the steps", async (t) 
   for (const context of [
     { kind: "owner", forwarded: true },
     { kind: "lead-request", requestId: "r", leadAssistantId: "lead" },
-    { kind: "member-result", requestId: "r" },
-    { kind: "routine", bindingId: "b", name: "Daily" },
   ])
     await assert.rejects(
       update(context, "1. Wrong"),
-      (e) => e.key === "goalUpdateTurn" && e.status === 403,
+      (e) => e.key === "invalid" && e.status === 403,
       JSON.stringify(context),
     );
   assert.equal(f.service.goals.view(chat.id).steps, "");

@@ -2,14 +2,13 @@ import { assistantProblem, textValue } from "./assistant-validation.js";
 import { reportedFailure } from "./routine-failures.js";
 import { personalCapabilities, personalEligible } from "./native-capabilities.js";
 import { exact, schedule } from "./reminder-input.js";
-import { namesMember, ownerProse, parseOwnerText } from "./lead-request-proof.js";
 import { minGapMinutes } from "./cron-gap.js";
 import { routineReport } from "./lead-routine-reports.js";
-import { directOwnerTurn } from "./goal-turns.js";
+import { foreignOrigin } from "./owner-runs.js";
+import { loopGuard } from "./agent-loop-guard.js";
 import { isUserAgent } from "../users/user-access.js";
 
 // What a lead may set up on one of its permanent members (AGENTPIER-175).
-export const leadRoutineLimits = { perMember: 5, minIntervalMinutes: 15 };
 export const isLeadRoutine = (binding) => binding?.createdBy === "lead";
 const live = (b) => !["removed", "revoked"].includes(b.state);
 
@@ -115,11 +114,11 @@ export class LeadRoutines {
     if (!inv.attemptId) throw assistantProblem("invalid", 403);
     const { request, lead } = this.assistants.teams.requests.store.lead(inv.attemptId);
     const origin = this.teams.context(request.id);
-    // Standing work for a member: only in a turn of the owner's own message, never
-    // from forwarded, scheduled, member-result, goal or other internal turns.
-    if (!directOwnerTurn(origin)) throw assistantProblem("leadRoutineOwnerTurn", 403);
+    // Standing work for a member from any turn of the lead's chat (AGENTPIER-276),
+    // never from forwarded or members' content.
+    if (foreignOrigin(origin)) throw assistantProblem("invalid", 403);
     if (input.action === "list") return this.list(lead, input.memberId);
-    if (input.action === "create") return this.create(inv, lead, request, origin, input);
+    if (input.action === "create") return this.create(inv, lead, input);
     const binding = this.owned(lead, input.id);
     if (input.action === "update") return this.update(inv, binding, input);
     if (input.action === "remove") {
@@ -195,42 +194,24 @@ export class LeadRoutines {
     }
     return { routines };
   }
-  /** Checks a lead's schedule: one time or a cron, never more often than the minimum. */
+  /** Checks a lead's schedule: one time or a readable cron. */
   trigger(input) {
     if (input?.kind === "event") throw assistantProblem("invalid");
     const trigger = schedule(input);
     if (trigger.kind === "cron") {
       const gap = minGapMinutes(trigger.expr);
       if (gap === null) throw assistantProblem("invalid");
-      if (gap < leadRoutineLimits.minIntervalMinutes)
-        throw assistantProblem("leadRoutineInterval");
     }
     return trigger;
   }
-  async create(inv, lead, request, origin, input) {
+  async create(inv, lead, input) {
     const { record, agent } = this.member(lead, input.memberId);
     textValue(input.name, 100);
     textValue(input.prompt, 8192);
     const trigger = this.trigger(input.trigger);
     const key = `${inv.attemptId}:${inv.toolCallId}`;
-    const mine = this.routines.bindings.list(agent.id);
-    const replay = mine.some((b) => b.key === key);
-    // On request, the owner's own message in this turn names the member.
-    if (!replay && this.teams.policy(lead.id).usage === "onRequest") {
-      const others = this.teams
-        .members()
-        .filter((m) => m.parentAssistantId === lead.id && m.id !== record.id)
-        .map((m) => this.assistants.store.getAssistant(m.assistantId).name);
-      const prose = ownerProse(parseOwnerText(request.text, origin.hidden)) || "";
-      if (!namesMember(prose, agent.name, others))
-        throw assistantProblem("leadRoutineNotRequested", 403);
-    }
-    if (
-      !replay &&
-      mine.filter((b) => isLeadRoutine(b) && b.leadId === lead.id && live(b)).length >=
-        leadRoutineLimits.perMember
-    )
-      throw assistantProblem("leadRoutineLimit", 409);
+    const replay = this.routines.bindings.list(agent.id).some((b) => b.key === key);
+    if (!replay) loopGuard(this.assistants.store).take(lead.id);
     const created = await this.routines.create(
       agent.id,
       { clientRequestId: key, name: input.name, prompt: input.prompt, trigger },
