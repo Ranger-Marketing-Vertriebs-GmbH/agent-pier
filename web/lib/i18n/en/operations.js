@@ -209,7 +209,7 @@ export const operationsCopy = {
   },
   orphanedTitle: (count) => `Orphaned processes (${count})`,
   orphanedHelp:
-    "These processes only run this version's Node, without an AgentPier script, and have no parent process left. They do not block deleting the version; usually they are left-over tests or scripts.",
+    "These processes only run this version's Node, without an AgentPier script, and either have no parent process left or belong to a test session of another temporary data directory. They do not block deleting the version; usually they are left-over tests or scripts.",
   orphanedStop: "Stop processes",
   orphanedConsequence: "Unsaved work in them is lost.",
   orphanedStopped: (count) => `${count} process(es) stopped.`,

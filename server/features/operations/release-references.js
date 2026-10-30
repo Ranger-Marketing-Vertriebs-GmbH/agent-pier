@@ -3,6 +3,9 @@ const launcher = new RegExp(
   `terminal-launcher\\.js'?\\s+'?.*?sessions/(${uuid})\\.launch\\.json'?`,
   "i",
 );
+// Any terminal launcher, also one outside a release (a checkout's test run), and the
+// data directory its launch file names.
+const anyLauncher = /terminal-launcher\.js'?\s+'?(\S+)\/sessions\/[^/\s']+\.launch\.json/;
 const columns = /^\s*(\d+)\s+(\d+)\s+(.*)$/;
 // What the owner sees of an orphaned process: the release's node and its first
 // argument (a script, or a flag such as -e), never the rest: arguments may hold
@@ -32,8 +35,15 @@ const escape = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
  * runs the release's node, with no AgentPier script, and whose parent is gone (it
  * was reparented to launchd or init) is orphaned: typically a test fixture left
  * behind. It never pins the release; the owner may stop it (`orphaned`).
+ * So is such a process in a test session another data directory left behind: its
+ * launcher runs outside the release with a launch file under one of `temporaryRoots`
+ * other than `dataDirs` (one directory, realpath and as given), typically a test run that was killed before its teardown.
  */
-export function releaseSessionReferences(output, releasePaths) {
+export function releaseSessionReferences(
+  output,
+  releasePaths,
+  { temporaryRoots = [], dataDirs = [] } = {},
+) {
   const result = {
     sessionIds: [],
     helpers: 0,
@@ -47,6 +57,9 @@ export function releaseSessionReferences(output, releasePaths) {
   const pattern = new RegExp(`(?:${prefixes.map(escape).join("|")})([^\\s'"\\\\]*)`, "g");
   const parents = new Map();
   const launchers = new Set();
+  const foreign = new Set();
+  const roots = temporaryRoots.map((value) => value.replace(/\/+$/, "") + "/");
+  const own = new Set(dataDirs.map((value) => value.replace(/\/+$/, "")));
   const candidates = [];
   const commands = new Map();
   for (const line of output.split("\n")) {
@@ -66,19 +79,30 @@ export function releaseSessionReferences(output, releasePaths) {
       if (pid !== null) launchers.add(pid);
       continue;
     }
+    const left = anyLauncher.exec(command)?.[1];
+    if (
+      pid !== null &&
+      left &&
+      !own.has(left) &&
+      !left.split("/").includes("..") &&
+      roots.some((root) => left.startsWith(root))
+    )
+      foreign.add(pid);
     candidates.push({ pid, references, command });
   }
-  const descendsFromLauncher = (pid) => {
+  const descendsFrom = (pid, ancestors) => {
     const seen = new Set();
     for (let cursor = pid; cursor !== null && !seen.has(cursor);) {
       seen.add(cursor);
       const parent = parents.get(cursor);
       if (parent === undefined) return false;
-      if (launchers.has(parent)) return true;
+      if (ancestors.has(parent)) return true;
       cursor = parent;
     }
     return false;
   };
+  const descendsFromLauncher = (pid) => descendsFrom(pid, launchers);
+  const leftBehind = (pid) => foreign.has(pid) || descendsFrom(pid, foreign);
   // Reparented to launchd/init, or to a Linux user manager acting as subreaper.
   const orphan = (pid) => {
     const parent = parents.get(pid);
@@ -89,7 +113,7 @@ export function releaseSessionReferences(output, releasePaths) {
     if (pid !== null && descendsFromLauncher(pid)) {
       result.helpers += 1;
       result.helperReferences.push({ reference: rest[0] || "bin/node" });
-    } else if (!rest.length && pid !== null && orphan(pid))
+    } else if (!rest.length && pid !== null && (orphan(pid) || leftBehind(pid)))
       result.orphaned.push({ pid: Number(pid), command: shown(command, prefixes) });
     else if (!rest.length) result.nodeOnly += 1;
     else result.unidentified.push({ reference: rest[0] });
