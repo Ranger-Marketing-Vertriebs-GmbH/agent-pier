@@ -104,7 +104,7 @@ dialog showed. The server then:
 
 A sign-in in progress is never cancelled for an update, although its own cancel
 exists: it is the owner's interactive device-code flow, possibly being completed in
-another tab at that moment, and cancelling it would throw away a code he may be
+another tab at that moment, and cancelling it would throw away a code the owner may be
 entering. The dialog lists it with the hint to finish or cancel it under
 **Connections › Model access**, keeps its confirm button disabled, and the server
 refuses it as above. Once a refused activation names a sign-in, the button itself is

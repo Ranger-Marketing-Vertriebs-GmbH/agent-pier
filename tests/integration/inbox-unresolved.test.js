@@ -107,7 +107,7 @@ test("stale channel inputs, unknown turns and stalled actions appear after a day
   );
 });
 
-test("an action that keeps moving is not stalled, and a user's chat stays hers", async (t) => {
+test("an action that keeps moving is not stalled, and a user's chat stays theirs", async (t) => {
   const { f, clock, unresolved } = await fixture(t);
   const action = f.workflows.store.reserve({
     assistantId: f.id,
@@ -118,15 +118,15 @@ test("an action that keeps moving is not stalled, and a user's chat stays hers",
     state: "running",
     payload: { action: "coding_start", task: "Fix" },
   });
-  // A user's own chat: its unknown turn is hers to review, never the owner's.
+  // A user's own chat: its unknown turn is theirs to review, never the owner's.
   const userChat = f.store.saveConversation({
     assistantId: f.id,
     runtimeSessionKey: "user-session",
     userId: "user-1",
   });
   const { attempt } = await f.assistants.send(userChat.id, {
-    clientRequestId: "hers",
-    text: "hers",
+    clientRequestId: "user-turn",
+    text: "user-turn",
   });
   f.assistants.ledger.transition(attempt.id, "interrupted");
   // The action changed recently, so it moved within the last day.
