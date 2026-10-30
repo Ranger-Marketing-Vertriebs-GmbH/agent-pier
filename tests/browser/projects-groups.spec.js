@@ -1,6 +1,12 @@
 import { test, expect } from "../helpers/browser-test.js";
 import { baseURL as base } from "../helpers/browser.js";
-import { hubFixture, repositoryPath } from "./projects-fixture.js";
+import {
+  groupsFixture,
+  projectList,
+  rowNames,
+  section,
+} from "./projects-groups-fixture.js";
+import { repositoryPath } from "./projects-fixture.js";
 
 // The projects list with project groups (search, views, groups, ⋯ menu), in English.
 test.use({ locale: "en-GB" });
@@ -16,63 +22,6 @@ const manyProjects = Array.from({ length: 30 }, (_, index) => ({
     ? `https://github.com/${owners[index % 3]}/proj-${index}.git`
     : "",
 }));
-
-// A project-groups server in memory: version check, ids for new groups, 409 with the
-// current document. `fail` answers the next PUT with a 400.
-async function groupsFixture(page, { projects, ...controls } = {}) {
-  const server = { document: { version: 0, groups: [], assignments: {} }, puts: [] };
-  let nextId = 1;
-  const calls = await hubFixture(page, {
-    ...controls,
-    async intercept(route, url, method) {
-      if (projects && url.pathname === "/api/memory/projects" && method === "GET") {
-        await route.fulfill({ json: { projects } });
-        return true;
-      }
-      if (url.pathname !== "/api/project-groups") return false;
-      if (method === "GET") {
-        await route.fulfill({ json: server.document });
-        return true;
-      }
-      const body = route.request().postDataJSON();
-      server.puts.push(body);
-      if (server.fail) {
-        server.fail = false;
-        await route.fulfill({
-          status: 400,
-          json: { code: "PROJECT_GROUP_INVALID", error: "Refused by the server." },
-        });
-      } else if (body.version !== server.document.version)
-        await route.fulfill({
-          status: 409,
-          json: {
-            ...server.document,
-            code: "PROJECT_GROUP_CONFLICT",
-            error: "The groups were changed elsewhere in the meantime.",
-          },
-        });
-      else {
-        server.document = {
-          version: server.document.version + 1,
-          groups: body.groups.map((group) =>
-            group.id ? group : { id: `g_${nextId++}`, name: group.name },
-          ),
-          assignments: body.assignments,
-        };
-        await route.fulfill({ json: server.document });
-      }
-      return true;
-    },
-  });
-  return { server, calls };
-}
-
-const projectList = (page) =>
-  page.getByRole("navigation", { name: "Projects", exact: true });
-const section = (page, name) =>
-  projectList(page).getByRole("button", { name: new RegExp(`^${name}\\s*\\d+$`) });
-const rowNames = (page) =>
-  projectList(page).locator(".project-row strong").filter({ visible: true });
 
 test("the list scrolls in its own container while the detail header stays put", async ({
   page,
