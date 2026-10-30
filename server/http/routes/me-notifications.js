@@ -29,6 +29,11 @@ export function meNotificationRoutes({ notifications, audit }) {
     record(req, "notification.subscribed", result.subscription.id);
     res.status(201).json(result);
   });
+  router.post("/me/notifications/renew", async (req, res) => {
+    const result = await notifications.renew(req.body, mine(req));
+    if (result.renewed) record(req, "notification.updated", result.subscription.id);
+    res.json({ subscription: result.subscription });
+  });
   router.delete("/me/notifications/subscriptions/:id", async (req, res) => {
     const result = await notifications.unsubscribe(req.params.id, mine(req));
     record(req, "notification.unsubscribed", req.params.id);

@@ -17,6 +17,7 @@ import SystemStatusTile from "./SystemStatusTile.jsx";
 import AgentsCard from "./AgentsCard.jsx";
 import PipelinesCard from "./PipelinesCard.jsx";
 import ToolRows from "./ToolRows.jsx";
+import PushHealthNotice from "../notifications/PushHealthNotice.jsx";
 import "./start-page.css";
 import "./start-cards.css";
 
@@ -99,6 +100,12 @@ export default function DashboardPage({
         launch={launch}
         navigate={navigate}
         phone={phone}
+      />
+      <PushHealthNotice
+        person="owner"
+        openSettings={() =>
+          navigate({ view: "settings", settingsSection: "notifications" })
+        }
       />
       <NeedsYou
         items={attention.items}

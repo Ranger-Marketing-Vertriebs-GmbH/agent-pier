@@ -127,4 +127,25 @@ export const notificationCopy = {
   },
   labelOfferAccept: "Namen zeigen",
   labelOfferDismiss: "Nicht jetzt",
+  lastAttemptFailed: (time) => `Letzte Zustellung fehlgeschlagen (${time})`,
+  // Der Hinweis auf der Startseite und im Posteingang (PushHealthNotice.jsx).
+  health: {
+    titles: {
+      lost: "Benachrichtigungen erreichen kein Gerät",
+      failing: "Benachrichtigungen kommen nicht an",
+    },
+    lost: "Für deine Benachrichtigungen ist kein Gerät angemeldet. Schalte sie auf deinem Telefon oder Computer wieder ein.",
+    lostRemoved: (name, time, reason) =>
+      `„${name}“ erhält seit ${time} keine Benachrichtigungen mehr, weil ${reason}. Schalte sie auf diesem Gerät wieder ein.`,
+    reasons: {
+      expired: "der Push-Dienst des Browsers es nicht mehr annimmt",
+      "signed-out": "es abgemeldet wurde",
+      "signed-in-elsewhere": "sich dort jemand anderes angemeldet hat",
+      "user-signed-out": "seine Anmeldung beendet wurde",
+    },
+    failing:
+      "Die letzte Benachrichtigung konnte an keines deiner Geräte zugestellt werden.",
+    open: "Benachrichtigungseinstellungen",
+    dismiss: "Ausblenden",
+  },
 };

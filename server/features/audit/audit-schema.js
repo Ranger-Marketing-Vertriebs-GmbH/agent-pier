@@ -20,6 +20,7 @@ import { SCAN_RULES, SCAN_VERDICTS } from "../extensions/skill-scan.js";
 import { resources, verbs } from "./audit-vocabulary.js";
 import { mailAuditDetails } from "./audit-mail-details.js";
 import { agentProjectAuditDetails } from "./audit-agent-project-details.js";
+import { notificationAuditDetails } from "./audit-notification-details.js";
 const memberGrantKeys = new Set([
   "memory",
   "reminders",
@@ -508,6 +509,8 @@ export function auditEvent(input) {
   if (input.resourceType === "mail" || details.kind === "mail-grants")
     mailAuditDetails(details, event, auditId);
   agentProjectAuditDetails(details, event);
+  // A push device removed without the owner (audit-notification-details.js).
+  if (input.resourceType === "notification") notificationAuditDetails(details, event);
   userAuditDetails(input, event, auditId);
   return event;
 }

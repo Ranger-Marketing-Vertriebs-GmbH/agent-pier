@@ -7,6 +7,8 @@ import { notificationCopy as copy } from "../../lib/i18n/messages/notifications.
 import { getWorkerRegistration } from "./register-worker.js";
 import { currentDevice, isLegacyLabel } from "./device-labels.js";
 import { deviceIdentity } from "./device-identity.js";
+import { applicationKey, rememberPushDevice } from "./push-reconcile.js";
+import { pushPerson } from "./usePushHealth.js";
 // The device's IANA time zone: quiet hours count in the device's own time.
 function timeZone() {
   try {
@@ -14,10 +16,6 @@ function timeZone() {
   } catch {
     return undefined;
   }
-}
-function applicationKey(value) {
-  const decoded = atob(value.replace(/-/g, "+").replace(/_/g, "/"));
-  return Uint8Array.from(decoded, (character) => character.charCodeAt(0));
 }
 // `base` is the notification API: the owner's /notifications or a user's
 // /me/notifications (her own devices only).
@@ -98,6 +96,11 @@ export default function useNotifications(base = "/notifications") {
         subscription: current.toJSON(),
         timeZone: timeZone(),
       });
+      // Only this person gets the device back when the server loses it (push-reconcile.js).
+      await rememberPushDevice(
+        pushPerson() || (base === "/notifications" ? "owner" : null),
+        deviceId,
+      );
       if (!known && result.subscription.preferences?.level === "type") setOffer(true);
       updateSubscriptions([
         ...(resource.data.subscriptions || []).filter(
@@ -148,6 +151,7 @@ export default function useNotifications(base = "/notifications") {
           if (current && !(await current.unsubscribe()))
             throw new Error(copy.unsubscribeFailed);
           setSubscription(null);
+          await rememberPushDevice(null);
         } catch {
           throw new Error(copy.unsubscribeFailed);
         }

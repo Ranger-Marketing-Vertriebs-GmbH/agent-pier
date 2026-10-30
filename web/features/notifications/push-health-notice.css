@@ -1,0 +1,14 @@
+/* The start page's and the inbox's warning that notifications reach no device; its box
+   is the shared .system-status-warning (dashboard/system-status.css). */
+.push-health-notice {
+  margin-bottom: 12px;
+}
+.push-health-notice p {
+  margin: 0;
+}
+.push-health-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}

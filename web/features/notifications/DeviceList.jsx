@@ -23,6 +23,24 @@ function deviceTimes(entry) {
     .join(" · ");
 }
 
+// The last attempt's failure with its time; a device from before the delivery log
+// shows its stored error alone. A later success clears it.
+function DeliveryFailure({ entry }) {
+  const attempt = entry.lastDelivery;
+  if (attempt?.status === "sent") return null;
+  const failure = attempt?.failure || entry.lastFailure;
+  if (!failure) return null;
+  return (
+    <span className="notification-device-failure">
+      <span className="dot" aria-hidden="true" />
+      {attempt
+        ? copy.lastAttemptFailed(formatDeviceTime(attempt.at, { locale, date: true }))
+        : copy.lastFailure}
+      : {serverText(failure)}
+    </span>
+  );
+}
+
 function DeviceRow({ entry, name, current, busy, error, onRemove, onSettings }) {
   return (
     <div
@@ -38,12 +56,7 @@ function DeviceRow({ entry, name, current, busy, error, onRemove, onSettings }) 
             {current && <span className="list-row-pill">{copy.thisDevice}</span>}
           </span>
           <span className="list-row-sub">{deviceTimes(entry)}</span>
-          {entry.lastFailure && (
-            <span className="notification-device-failure">
-              <span className="dot" aria-hidden="true" />
-              {copy.lastFailure}: {serverText(entry.lastFailure)}
-            </span>
-          )}
+          <DeliveryFailure entry={entry} />
           <ErrorMessage error={error} className="notification-device-error" />
         </span>
       </div>

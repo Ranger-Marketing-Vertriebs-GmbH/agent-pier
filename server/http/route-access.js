@@ -26,7 +26,7 @@ export const userRoutes = [
     method: "PUT",
     pattern: /^\/api\/me\/notifications\/subscriptions\/[^/]+\/preferences$/,
   },
-  { method: "POST", pattern: /^\/api\/me\/notifications\/(?:presence|test)$/ },
+  { method: "POST", pattern: /^\/api\/me\/notifications\/(?:presence|test|renew)$/ },
   // Her agents and her own chats with them (me-agents.js, me-conversations.js).
   { method: "GET", pattern: /^\/api\/me\/agents$/, topic: meTopic("agents") },
   { method: "POST", pattern: /^\/api\/me\/agents\/[^/]+\/conversation$/ },

@@ -85,7 +85,7 @@ import { createAssistantFeature } from "./assistants.js";
 export async function createServices(config) {
   const mutationBarrier = new MutationBarrier();
   const audit = new AuditStore(config);
-  const notifications = new NotificationService(config);
+  const notifications = new NotificationService({ ...config, audit });
   let requests, agentbus, inbox;
   const providerCatalog = new ProviderCatalog({ dataDir: config.dataDir });
   const providerConnections = new ProviderConnections({

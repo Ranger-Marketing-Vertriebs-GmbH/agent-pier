@@ -132,6 +132,14 @@ export async function notifications(
       ];
       return route.fulfill({ json: { subscription: summary } });
     }
+    // A device the server knows gets its renewed browser subscription (push-reconcile.js).
+    if (method === "POST" && path.endsWith("/renew")) {
+      const existing = state.subscriptions.find(
+        (entry) => entry.deviceId === body.deviceId,
+      );
+      if (!existing) return route.fulfill({ status: 404, json: { error: "Not found" } });
+      return route.fulfill({ json: { subscription: existing } });
+    }
     if (method === "PUT" && path.endsWith("/preferences")) {
       const id = decodeURIComponent(path.split("/").at(-2));
       const entry = state.subscriptions.find((item) => item.id === id);
@@ -156,6 +164,12 @@ export async function notifications(
           ...entry,
           preferences: normalizePreferences(entry.preferences),
         })),
+        // Whether notices still reach a device; a test may set it (PushHealthNotice).
+        health: state.health || {
+          devices: state.subscriptions.length,
+          lost: false,
+          failing: false,
+        },
       },
     });
   });

@@ -125,4 +125,24 @@ export const notificationCopy = {
       "Agent names appear on this device's lock screen. Content stays private.",
   },
   labelOfferDismiss: "Not now",
+  lastAttemptFailed: (time) => `Last delivery failed (${time})`,
+  // The start page's and the inbox's warning (PushHealthNotice.jsx).
+  health: {
+    titles: {
+      lost: "Notifications reach no device",
+      failing: "Notifications are not arriving",
+    },
+    lost: "No device is registered for your notifications. Turn them on again on your phone or computer.",
+    lostRemoved: (name, time, reason) =>
+      `“${name}” stopped receiving notifications on ${time} because ${reason}. Turn them on again on that device.`,
+    reasons: {
+      expired: "the browser's push service no longer accepts it",
+      "signed-out": "it was signed out",
+      "signed-in-elsewhere": "someone else signed in on it",
+      "user-signed-out": "its sign-in was ended",
+    },
+    failing: "The last notification could not be delivered to any of your devices.",
+    open: "Notification settings",
+    dismiss: "Hide",
+  },
 };

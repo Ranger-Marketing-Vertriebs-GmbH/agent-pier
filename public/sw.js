@@ -56,7 +56,71 @@ const notices = self.agentPierNotificationRender;
 // This cache stores a single nonsecret language code, never page or API responses.
 const LANGUAGE_CACHE = "agentpier-language-v1";
 const LANGUAGE_KEY = "/.agentpier-language";
+// The push device to renew when the browser replaces its subscription: the page's
+// device id and its person's notification API, both nonsecret. Signing out clears it.
+const DEVICE_CACHE = "agentpier-device-v1";
+const DEVICE_KEY = "/.agentpier-device";
+const deviceBases = ["/notifications", "/me/notifications"];
+function rememberDevice(data) {
+  const valid =
+    typeof data.deviceId === "string" &&
+    /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/.test(data.deviceId) &&
+    deviceBases.includes(data.base);
+  return caches
+    .open(DEVICE_CACHE)
+    .then((cache) =>
+      valid
+        ? cache.put(
+            DEVICE_KEY,
+            new Response(JSON.stringify({ deviceId: data.deviceId, base: data.base })),
+          )
+        : cache.delete(DEVICE_KEY),
+    );
+}
+async function storedDevice() {
+  try {
+    const cache = await caches.open(DEVICE_CACHE);
+    const device = await (await cache.match(DEVICE_KEY))?.json();
+    return device && deviceBases.includes(device.base) ? device : null;
+  } catch {
+    return null;
+  }
+}
+function serverKey(value) {
+  const decoded = atob(value.replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from(decoded, (character) => character.charCodeAt(0));
+}
+// The browser replaced or dropped the subscription: subscribe again with the server's
+// key and tell the server, signed in by the page's cookie, under the same device.
+async function renewSubscription(event) {
+  const device = await storedDevice();
+  if (!device) return;
+  let subscription = event.newSubscription;
+  if (!subscription) {
+    const status = await (await fetch(`/api${device.base}`)).json();
+    if (typeof status?.publicKey !== "string") return;
+    subscription = await self.registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: serverKey(status.publicKey),
+    });
+  }
+  await fetch(`/api${device.base}/renew`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      deviceId: device.deviceId,
+      subscription: subscription.toJSON(),
+    }),
+  });
+}
+self.addEventListener("pushsubscriptionchange", (event) => {
+  event.waitUntil(renewSubscription(event).catch(() => {}));
+});
 self.addEventListener("message", (event) => {
+  if (event.data?.type === "agentpier-device") {
+    event.waitUntil(rememberDevice(event.data));
+    return;
+  }
   const language = event.data?.language;
   if (event.data?.type !== "agentpier-language" || !["de", "en"].includes(language))
     return;

@@ -166,4 +166,7 @@ screen decide only when none is open (see [architecture](architecture.md)).
 The server side lives in `server/features/inbox/` (sources, items, history) and
 `server/http/routes/inbox.js`; the page lives in `web/features/inbox/`. A push
 notification about a waiting item opens its inbox address, and the installed app's
-badge shows the inbox count; see [notifications](notifications.md).
+badge shows the inbox count; see [notifications](notifications.md). When your
+notifications reach no device, or the last delivery failed on all of them, the inbox
+shows a warning above the list ([keeping devices
+registered](notifications.md#keeping-devices-registered)).

@@ -15,6 +15,12 @@ export function notificationsRoutes({ notifications, audit }) {
     record("notification.subscribed", result.subscription.id);
     res.status(201).json(result);
   });
+  // The browser's renewed subscription for a device already registered (no new device).
+  router.post("/notifications/renew", async (req, res) => {
+    const result = await notifications.renew(req.body);
+    if (result.renewed) record("notification.updated", result.subscription.id);
+    res.json({ subscription: result.subscription });
+  });
   router.delete("/notifications/subscriptions/:id", async (req, res) => {
     const result = await notifications.unsubscribe(req.params.id);
     record("notification.unsubscribed", req.params.id);
