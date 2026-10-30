@@ -4,7 +4,14 @@ import { mailHtmlState } from "../assistants/mail/agent-mail-send-input.js";
 // What waits for the owner, as uniform inbox items. Each item names where it comes
 // from and links back there; answering always goes through that source's own
 // endpoint, so an item carries no more than the source's own card shows.
-export const inboxTypes = ["question", "approval", "gate", "action", "team"];
+export const inboxTypes = [
+  "question",
+  "approval",
+  "gate",
+  "action",
+  "team",
+  "unresolved",
+];
 export const inboxTabs = ["questions", "approvals", "gates", "agents"];
 const tabOf = {
   question: "questions",
@@ -12,6 +19,7 @@ const tabOf = {
   gate: "gates",
   action: "agents",
   team: "agents",
+  unresolved: "agents",
 };
 // An item expiring within this window counts as "about to expire" and comes first.
 export const expiringSoonMs = 15 * 60000;
@@ -111,7 +119,7 @@ export function gateItem(run) {
 }
 
 /** The chat an agent action is decided in: its own, or the agent's open one. */
-function chatLink(assistantId, conversationId, conversations) {
+export function chatLink(assistantId, conversationId, conversations) {
   const own =
     conversations.find(
       (c) => c.id === conversationId && c.assistantId === assistantId && !c.archivedAt,
@@ -194,6 +202,26 @@ export function teamItem(team, agents, conversations) {
     createdAt: team.createdAt,
     expiresAt: null,
     link: chatLink(team.parentAssistantId, team.parentConversationId, conversations),
+  });
+}
+
+/**
+ * Agent work that stopped moving and waits for the owner to resolve it where `link`
+ * points (inbox-sources.js unresolved): a Telegram input still open, a chat turn
+ * whose outcome is unknown, an agent action without progress. Like the others it
+ * leaves once resolved there; `kind` names which, `status` its state.
+ */
+export function unresolvedItem({ kind, id, state, agent, since, link }) {
+  return item("unresolved", {
+    id: `${kind}-${id}`,
+    kind,
+    status: state,
+    revision: null,
+    source: { kind: "agent", id: agent?.id ?? "", name: agent?.name ?? "" },
+    title: "",
+    createdAt: since,
+    expiresAt: null,
+    link,
   });
 }
 

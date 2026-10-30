@@ -561,9 +561,15 @@ export class NativeReminders {
   /**
    * Whether any cron run is in progress: reminders and routines, but also check-ins,
    * a lead's routines and jobs an agent created itself, which AgentPier never bound.
+   * runningJobs() lists them for the update's blocker items.
    */
   async hasRunning() {
-    return (await this.jobs(null)).some((job) => Number.isFinite(job.state?.runningAtMs));
+    return (await this.runningJobs()).length > 0;
+  }
+  async runningJobs() {
+    return (await this.jobs(null)).filter((job) =>
+      Number.isFinite(job.state?.runningAtMs),
+    );
   }
   async disable(id) {
     if (!this.bindings.list(id).some((b) => b.state !== "removed")) return;

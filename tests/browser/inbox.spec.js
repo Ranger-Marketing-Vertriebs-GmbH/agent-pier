@@ -259,3 +259,49 @@ test.describe("the live inbox topic", () => {
     expect(reads()).toBe(before);
   });
 });
+
+// Agent work that has not moved for a day (inbox-sources.js unresolved) says where it
+// is resolved and opens that place; the inbox itself changes nothing.
+for (const [language, texts] of [
+  [
+    "en",
+    {
+      kind: "Telegram input still open",
+      hint: /Acknowledge without resending closes it and sends nothing\./,
+      context: "Open in context",
+    },
+  ],
+  [
+    "de",
+    {
+      kind: "Telegram-Eingang noch offen",
+      hint: /„Ohne erneuten Versand bestätigen“ schließt ihn, ohne etwas zu senden\./,
+      context: "Im Kontext öffnen",
+    },
+  ],
+])
+  test(`unresolved agent work links to where it is resolved (${language})`, async ({
+    page,
+  }) => {
+    const state = await inboxFixture(page, { language });
+    const link = "/agents/helper/settings?tab=channels&page=telegram-activity";
+    state.items.push({
+      type: "unresolved",
+      tab: "agents",
+      id: "channel_input-input-1",
+      kind: "channel_input",
+      status: "model_reviewed",
+      revision: null,
+      source: { kind: "agent", id: "helper", name: "Network Architect" },
+      title: "",
+      createdAt: new Date(Date.now() - 4 * 86400000).toISOString(),
+      expiresAt: null,
+      link,
+    });
+    await page.goto(baseURL + "/inbox/unresolved/channel_input-input-1");
+    const detail = page.getByRole("article", { name: texts.kind });
+    await expect(detail.getByText("Network Architect")).toBeVisible();
+    await expect(detail.getByText(texts.hint)).toBeVisible();
+    await detail.getByRole("button", { name: texts.context }).click();
+    await expect(page).toHaveURL(/\/agents\/helper\/settings\?.*telegram-activity/);
+  });

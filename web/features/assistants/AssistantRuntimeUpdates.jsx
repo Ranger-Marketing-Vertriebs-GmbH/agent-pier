@@ -6,6 +6,12 @@ import { formatBytes } from "../../lib/format-bytes.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import useLiveTopic from "../../lib/live/useLiveTopic.js";
+import {
+  BlockerList,
+  PauseAndUpdate,
+  blocksPause,
+  validBlockerItem,
+} from "./RuntimeUpdateBlockers.jsx";
 
 const endpoint = "/assistant-runtime/updates";
 const byteCount = (value) => Number.isSafeInteger(value) && value >= 0;
@@ -37,6 +43,9 @@ function validStatus(status) {
     !status ||
     !Object.hasOwn(copy.updates.phases, status.phase) ||
     !Array.isArray(status.blockers) ||
+    (status.blockerItems !== undefined &&
+      (!Array.isArray(status.blockerItems) ||
+        !status.blockerItems.every(validBlockerItem))) ||
     ["currentVersion", "targetVersion"].some(
       (key) => status[key] !== null && typeof status[key] !== "string",
     ) ||
@@ -58,7 +67,7 @@ function validStatus(status) {
  * The agent runtime's update status, following the live `runtime.updates` topic: the
  * server pushes every phase, busy change and snapshot progress.
  */
-export default function AssistantRuntimeUpdates({ onChange }) {
+export default function AssistantRuntimeUpdates({ onChange, navigate }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const topic = useLiveTopic("runtime.updates");
@@ -67,6 +76,19 @@ export default function AssistantRuntimeUpdates({ onChange }) {
   const status = valid ? topic.data : null;
   const readError =
     topic.error || (topic.data !== null && !valid ? apiCopy.requestFailed(503) : "");
+  async function refreshAll() {
+    await refresh();
+    await onChange?.();
+  }
+  // After "Pause agents and update": its error, if any, and the status with what remains.
+  async function paused(message) {
+    setError(message);
+    try {
+      await refreshAll();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
   async function operate(action) {
     setBusy(true);
     setError("");
@@ -85,6 +107,9 @@ export default function AssistantRuntimeUpdates({ onChange }) {
     }
   }
   const blocked = busy || status?.busy;
+  const items = status?.blockerItems || [];
+  const activatable =
+    !!status?.candidateReady && !!status.currentVersion && !status.recoveryRequired;
   const upToDate = status?.updateAvailable === false && !status.candidateReady;
   return (
     <section className="assistant-runtime-card">
@@ -113,14 +138,23 @@ export default function AssistantRuntimeUpdates({ onChange }) {
           {!!status.blockers.length && (
             <div role="status">
               <p>{copy.updates.blocked}</p>
-              <ul>
-                {blockerTexts(status.blockers).map((text) => (
-                  <li key={text}>{text}</li>
-                ))}
-              </ul>
+              {items.length ? (
+                <BlockerList items={items} navigate={navigate} />
+              ) : (
+                <ul>
+                  {blockerTexts(status.blockers).map((text) => (
+                    <li key={text}>{text}</li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
           {upToDate && <p role="status">{copy.updates.upToDate}</p>}
+          {activatable && (
+            <p className="assistant-note">
+              {blocksPause(items) ? copy.updates.pauseLoginHint : copy.updates.pauseHint}
+            </p>
+          )}
           {status.diagnostic && (
             <p role="status">{copy.updates.diagnostics[status.diagnostic]}</p>
           )}
@@ -139,16 +173,16 @@ export default function AssistantRuntimeUpdates({ onChange }) {
             </button>
             <button
               className="button primary"
-              disabled={
-                blocked ||
-                !status.candidateReady ||
-                !status.currentVersion ||
-                status.recoveryRequired
-              }
+              disabled={blocked || !activatable}
               onClick={() => operate("activate")}
             >
               {copy.updates.activate}
             </button>
+            <PauseAndUpdate
+              version={status.targetVersion || ""}
+              disabled={blocked || !activatable || blocksPause(items)}
+              onDone={paused}
+            />
             {status.recoveryRequired && (
               <button
                 className="button secondary"

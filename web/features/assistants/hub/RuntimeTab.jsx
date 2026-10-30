@@ -168,7 +168,7 @@ export function RuntimeOn({ frame, feature, section }) {
       <ErrorMessage error={dreamingError} />
       <RuntimeFeatureGroup draft={draft} feature={feature} />
       <RuntimeServiceGroup />
-      <AssistantRuntimeUpdates onChange={refresh} />
+      <AssistantRuntimeUpdates onChange={refresh} navigate={frame.navigate} />
       <section aria-labelledby={teamId}>
         <GroupLabel id={teamId} hint={teamCopy.concurrentHint}>
           {copy.runtime.teams}

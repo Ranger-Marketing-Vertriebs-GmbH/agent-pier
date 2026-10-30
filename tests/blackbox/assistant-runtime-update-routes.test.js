@@ -127,3 +127,71 @@ test("an activation refused before any change names its reason, not a running re
     assert.equal((await response.json()).key, key);
   }
 });
+
+test("pause agents and update takes exactly the confirmed items, and the preview only reads", async (t) => {
+  const app = express();
+  const activations = [];
+  const preview = [{ id: "chat_turn:a", revision: "r1", kind: "chat_turn" }];
+  app.use(express.json());
+  app.use(
+    assistantRuntimeUpdateRoutes({
+      assistants: { maintenance: false },
+      assistantUpdates: {
+        status: () => ({ recoveryRequired: false }),
+        blockerPreview: async () => preview,
+        activate: async (options) => {
+          activations.push(options);
+          return { phase: "complete" };
+        },
+      },
+    }),
+  );
+  app.use((error, _req, res, _next) => res.status(error.status || 500).json({}));
+  const server = app.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(async () => {
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
+  });
+  const url = `http://127.0.0.1:${server.address().port}/assistant-runtime/updates`;
+  const headers = { "content-type": "application/json" };
+  const read = await fetch(`${url}/blockers`);
+  assert.equal(read.status, 200);
+  assert.equal(read.headers.get("cache-control"), "no-store");
+  assert.deepEqual(await read.json(), { items: preview });
+  const item = { id: "chat_turn:a", revision: "r1" };
+  for (const body of [
+    { resolveBlockers: false, items: [item] },
+    { resolveBlockers: true },
+    { resolveBlockers: true, items: [item], extra: 1 },
+    { resolveBlockers: true, items: [{ ...item, more: 1 }] },
+    { resolveBlockers: true, items: [{ id: "", revision: "r1" }] },
+    { resolveBlockers: true, items: [{ id: "x".repeat(301), revision: "r1" }] },
+    { resolveBlockers: true, items: Array(501).fill(item) },
+  ]) {
+    const response = await fetch(`${url}/activate`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    });
+    assert.equal(response.status, 400, JSON.stringify(body).slice(0, 80));
+  }
+  // Only an activation takes a resolution.
+  const staged = await fetch(`${url}/stage`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ resolveBlockers: true, items: [item] }),
+  });
+  assert.equal(staged.status, 400);
+  const response = await fetch(`${url}/activate`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ resolveBlockers: true, items: [item] }),
+  });
+  assert.equal(response.status, 200);
+  assert.equal(
+    (await fetch(`${url}/activate`, { method: "POST", headers, body: "{}" })).status,
+    200,
+  );
+  assert.deepEqual(activations, [{ resolveBlockers: true, items: [item] }, undefined]);
+});

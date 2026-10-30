@@ -70,6 +70,8 @@ export class AssistantAccountLogin {
     const attempt = (this.attempt = {
       id: randomUUID(),
       status: "starting",
+      // Since when it waits, for the runtime update's blocker list.
+      startedAt: new Date().toISOString(),
       client: this.runtime.client,
     });
     this.changed();

@@ -196,7 +196,13 @@ export class AssistantActionStore {
   }
   patch(id, values) {
     const a = this.get(id),
-      next = { ...a, ...values, revision: a.revision + 1 };
+      // When it last moved; the inbox lists one that stopped moving (inbox-sources.js).
+      next = {
+        ...a,
+        ...values,
+        revision: a.revision + 1,
+        updatedAt: new Date().toISOString(),
+      };
     const update = () =>
       this.db
         .prepare("UPDATE assistant_actions SET body=? WHERE id=?")

@@ -14,6 +14,7 @@ import {
   InboxGateDetail,
   InboxRequestDetail,
   InboxTeamDetail,
+  InboxUnresolvedDetail,
 } from "./InboxSourceDetails.jsx";
 import InboxStale from "./InboxStale.jsx";
 
@@ -23,6 +24,7 @@ const details = {
   gate: InboxGateDetail,
   action: InboxActionDetail,
   team: InboxTeamDetail,
+  unresolved: InboxUnresolvedDetail,
 };
 
 /**

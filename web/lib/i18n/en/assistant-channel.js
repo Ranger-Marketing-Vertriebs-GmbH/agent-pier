@@ -108,5 +108,7 @@ export const assistantChannelCopy = {
       "Telegram notifications for a team could not be prepared. Check the team in AgentPier.",
     DELIVERY_UNCERTAIN:
       "Telegram may have received the reply. Check your chat before acknowledging; nothing will be sent again automatically.",
+    RUNTIME_UPDATE_CLOSED:
+      "Closed without sending when you paused the agents for an OpenClaw update.",
   },
 };

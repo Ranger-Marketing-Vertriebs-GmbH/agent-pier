@@ -14,6 +14,7 @@ import {
   verifyUpdateSnapshot,
 } from "./runtime-update-snapshot.js";
 import { ledgerFence } from "./ledger-fence.js";
+import { blockerCodes, publicItem } from "./runtime-update-blockers.js";
 import {
   migrateRuntimeState,
   removeMigrationLeftovers,
@@ -110,6 +111,8 @@ export class RuntimeUpdates {
       affectedAssistants: affected.agents,
       affectedTeamMembers: affected.teamMembers,
       blockers: this.journal.blockers || [],
+      // Each blocker of the last refused activation (runtime-update-blockers.js).
+      blockerItems: this.journal.blockerItems || [],
       diagnostic: this.journal.diagnostic || null,
       diagnosticPath: this.journal.diagnosticPath || null,
       // Bytes copied so far against the pre-check's estimate, while this process copies.
@@ -148,7 +151,12 @@ export class RuntimeUpdates {
       if (!terminal.has(this.journal.phase))
         throw failure("UPDATE_RECOVERY_REQUIRED", 409);
       const before = this.journal.phase;
-      this.persist("staging", { diagnostic: null, diagnosticPath: null, blockers: [] });
+      this.persist("staging", {
+        diagnostic: null,
+        diagnosticPath: null,
+        blockers: [],
+        blockerItems: [],
+      });
       try {
         const candidate = await this.install({ dataDir: this.dataDir });
         if (sameRuntime(candidate, readJSON(this.selection, null))) {
@@ -170,7 +178,12 @@ export class RuntimeUpdates {
       }
     });
   }
-  activate() {
+  /**
+   * `resolveBlockers` ("Pause agents and update"): the blocker items the owner
+   * confirmed (`items`: ids and revisions) are resolved in maintenance before the
+   * activation (AssistantMaintenance.resolve); without it, any blocker refuses.
+   */
+  activate({ resolveBlockers = false, items = [] } = {}) {
     return this.exclusive(async () => {
       if (!terminal.has(this.journal.phase))
         throw failure("UPDATE_RECOVERY_REQUIRED", 409);
@@ -193,14 +206,25 @@ export class RuntimeUpdates {
         wasRunning,
         id,
         blockers: [],
+        blockerItems: [],
       };
       this.persist("draining");
       let stopped = false;
       try {
         await this.maintenance.enter();
-        const blockers = await this.maintenance.blockers();
+        // A maintenance without items (a test double) reports its codes only.
+        const found = !this.maintenance.blockerItems
+          ? null
+          : resolveBlockers
+            ? await this.maintenance.resolve(items)
+            : await this.maintenance.blockerItems();
+        const blockers = found ? blockerCodes(found) : await this.maintenance.blockers();
         if (blockers.length) {
-          this.persist("staged", { blockers, diagnostic: "UPDATE_BLOCKED" });
+          this.persist("staged", {
+            blockers,
+            blockerItems: (found || []).map(publicItem),
+            diagnostic: "UPDATE_BLOCKED",
+          });
           await this.maintenance.leave();
           throw failure("UPDATE_BLOCKED", 409);
         }
@@ -276,7 +300,7 @@ export class RuntimeUpdates {
           // stop says so instead.
           const diagnostic =
             error.code === "CONFIG_BUSY" ? "UPDATE_CONFIG_BUSY" : "UPDATE_PREPARE_FAILED";
-          this.persist("staged", { diagnostic, blockers: [] });
+          this.persist("staged", { diagnostic, blockers: [], blockerItems: [] });
           await this.maintenance.leave();
           throw failure(diagnostic);
         }
@@ -390,6 +414,14 @@ export class RuntimeUpdates {
       } else await this.rollback();
       return this.status();
     });
+  }
+  /**
+   * What would block an activation now, item by item, read without changing anything
+   * (the confirmation of "Pause agents and update"); none while an update runs.
+   */
+  async blockerPreview() {
+    if (this.busy || !this.maintenance.blockerItems) return [];
+    return (await this.maintenance.blockerItems({ settle: false })).map(publicItem);
   }
   /** The update backups with what each may still be needed for (runtime-retention.js). */
   backups() {

@@ -9,6 +9,7 @@ const icons = {
   gate: "check",
   action: "terminal",
   team: "users",
+  unresolved: "history",
 };
 export const itemIcon = (item) => icons[item.type] || "inbox";
 

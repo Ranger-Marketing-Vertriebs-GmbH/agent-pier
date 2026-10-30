@@ -25,6 +25,7 @@ export const inboxCopy = {
     gate: "Pipeline gate",
     action: "Agent request",
     team: "Team proposal",
+    unresolved: "Unresolved work",
   },
   kinds: {
     exec: "Shell command",
@@ -42,6 +43,18 @@ export const inboxCopy = {
     codexHookTrust: "Review Codex hooks",
     claudeStartupPrompt: "Question from Claude",
     claudeLegacyQuestion: "Question in the terminal",
+    channel_input: "Telegram input still open",
+    chat_attempt: "Chat turn with unknown outcome",
+    stalled_action: "Agent action without progress",
+  },
+  unresolved: {
+    channel_input:
+      "This Telegram input has been open for more than a day. Review it in the agent's Channels › Telegram activity; Acknowledge without resending closes it and sends nothing.",
+    chat_attempt:
+      "Nobody has reviewed this chat turn of unknown outcome for more than a day. Open the chat to review it.",
+    stalled_action:
+      "This agent action has not moved for more than a day. Open the chat to check it.",
+    blocks: "Until it is resolved, it blocks OpenClaw updates.",
   },
   waitingSince: (time) => `Waiting since ${time}`,
   expires: (relative) => `Expires ${relative}`,

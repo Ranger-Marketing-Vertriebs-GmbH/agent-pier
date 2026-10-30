@@ -23,7 +23,8 @@
   background: var(--surface-raised);
   color: #a2a3a7;
 }
-.inbox-row-icon.gate {
+.inbox-row-icon.gate,
+.inbox-row-icon.unresolved {
   color: var(--warning);
 }
 .inbox-row-icon.action,
