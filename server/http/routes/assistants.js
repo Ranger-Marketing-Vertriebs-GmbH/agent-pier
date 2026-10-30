@@ -22,6 +22,7 @@ import { assistantSkillRoutes } from "./assistant-skills.js";
 import { agentSkillCatalogRoutes } from "./agent-skill-catalog.js";
 import { userAgentRoutes } from "./user-agents.js";
 import { assistantChatRoutes } from "./assistant-chats.js";
+import { assistantTalkRoutes } from "./assistant-talk.js";
 import { assistantLifecycleRoutes } from "./assistant-lifecycle.js";
 import {
   assistantAttachmentRateLimits,
@@ -128,6 +129,7 @@ function activeAssistantRoutes(services) {
   router.use(assistantAttachmentRoutes(services));
   router.use(userAgentRoutes(services));
   router.use(assistantChatRoutes(services));
+  router.use(assistantTalkRoutes(services));
   router.use(assistantLifecycleRoutes(services));
   router.get("/assistants", (_req, res) => res.json(assistants.list()));
   router.post("/assistants", async (req, res) => {

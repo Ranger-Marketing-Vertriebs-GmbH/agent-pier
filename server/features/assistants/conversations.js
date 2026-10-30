@@ -173,9 +173,9 @@ function hideInternal(messages, requests, contexts, attempts) {
 /**
  * One message of a conversation read on its own with AgentPier's text limit
  * instead of OpenClaw's page default (8000 characters per message); null when
- * the Gateway does not serve it.
+ * the Gateway does not serve it. `role` reads only a message of that role.
  */
-export async function conversationMessage(service, id, messageId) {
+export async function conversationMessage(service, id, messageId, { role } = {}) {
   const conversation = service.store.getConversation(id);
   const client = service.runtime.client;
   const generation = service.runtime.generation;
@@ -194,7 +194,11 @@ export async function conversationMessage(service, id, messageId) {
     maxChars: historyTextLimit,
   });
   if (unsettled()) return null;
-  return publicMessages(page?.messages).find((m) => m.id === messageId)?.text ?? null;
+  return (
+    publicMessages(page?.messages).find(
+      (m) => m.id === messageId && (!role || m.role === role),
+    )?.text ?? null
+  );
 }
 // Cached messages are flat records of primitive fields.
 function sameMessage(a, b) {

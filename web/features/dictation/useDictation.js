@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../../lib/api.js";
 import { useAgentPaths } from "../assistants/agent-paths.js";
-// Served from AgentPier itself: the CSP refuses an inlined data: worklet.
-import workletUrl from "./pcm-capture-worklet.js?url&no-inline";
+import { mediaError, openPcmCapture } from "./pcm-capture.js";
 import {
   applyTranscript,
   dictated,
@@ -43,13 +42,6 @@ export function useDictationStatus() {
   }, [path]);
   return status;
 }
-
-const mediaError = (error) =>
-  error?.name === "NotAllowedError" || error?.name === "SecurityError"
-    ? "denied"
-    : error?.name === "NotFoundError" || error?.name === "OverconstrainedError"
-      ? "noMicrophone"
-      : "failed";
 
 /**
  * One live dictation into a composer: microphone → 16 kHz PCM (audio worklet) →
@@ -117,25 +109,20 @@ export default function useDictation({ text, onText, onFinished }) {
     setNotice({ kind: "status", code: "connecting" });
     const alive = () => current.current === run;
     try {
-      run.media = await navigator.mediaDevices.getUserMedia({
-        audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
+      const capture = await openPcmCapture(run.context, {
+        resumed,
+        alive,
+        onFrame: (data) => run.frame?.(data),
       });
-      if (!alive()) return run.media.getTracks().forEach((track) => track.stop());
-      await resumed;
-      // The worklet resamples whatever rate the device runs at (44.1 or 48 kHz).
-      await run.context.audioWorklet.addModule(workletUrl);
-      if (!alive()) return;
-      run.node = new AudioWorkletNode(run.context, "agentpier-pcm");
-      const silent = run.context.createGain();
-      silent.gain.value = 0;
-      run.context.createMediaStreamSource(run.media).connect(run.node);
-      run.node.connect(silent).connect(run.context.destination);
+      if (!capture) return;
+      run.media = capture.media;
+      run.node = capture.node;
     } catch (error) {
       if (alive()) finish({ kind: "error", code: mediaError(error) });
       return;
     }
     const socket = (run.socket = new WebSocket(dictationAddress()));
-    run.node.port.onmessage = ({ data }) => {
+    run.frame = (data) => {
       setLevel(Math.min(1, data.level * 3));
       if (socket.readyState === WebSocket.OPEN) socket.send(data.buffer);
       // Up to two seconds wait for the socket; the server keeps them until ready.

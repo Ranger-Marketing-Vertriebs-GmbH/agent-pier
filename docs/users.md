@@ -44,7 +44,8 @@ after the session check by `server/http/socket-access.js`:
   **Browser** page says why: the agent has no browser, nobody's turn used it within
   the last ten minutes, or someone else's turn drives it (the owner's own chat
   included) or the owner holds it.
-- `/api/dictation/stream`: dictation through the owner's Deepgram connection.
+- `/api/dictation/stream`: dictation through the owner's Deepgram connection; not as a
+  turn of [talk mode](assistant-gateway.md#talk-mode), which is the owner's alone.
 - `/api/live`: the live channel. Over it she subscribes only her own `me.*` topics,
   which push what her `/api/me` routes answer her: her agents (`me.agents`), her
   account (`me.account`), her approvals (`me.approvals`) and, for each of her agents,

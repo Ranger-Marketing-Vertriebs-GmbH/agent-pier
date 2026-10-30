@@ -542,8 +542,8 @@ export class AssistantService {
     return conversationHistory(this, id, options);
   }
   /** One message read on its own, beyond the history page's 8000 characters. */
-  message(id, messageId) {
-    return conversationMessage(this, id, messageId);
+  message(id, messageId, options) {
+    return conversationMessage(this, id, messageId, options);
   }
   async cancel(id) {
     this.requireReady();

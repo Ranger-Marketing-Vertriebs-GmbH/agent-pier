@@ -1,0 +1,76 @@
+export const talkCopy = Object.freeze({
+  start: "Talk with the agent",
+  stop: "Stop talking",
+  unavailable: "Talk unavailable",
+  bar: "Talk mode",
+  phases: {
+    starting: "Starting …",
+    listening: "Listening",
+    thinking: "Thinking",
+    speaking: "Speaking",
+    paused: "Paused",
+  },
+  pause: "Pause talking",
+  resume: "Resume talking",
+  pausedHint: "Tap to resume",
+  stopButton: "Stop",
+  close: "Close",
+  setup: "Open speech settings",
+  reasons: {
+    agentsOff: "Talk mode uses the agents' speech services. Turn on agents first.",
+    notConfigured:
+      "Talk mode needs speech recognition. Add a Deepgram key under Connections › Services for agents › Speech recognition.",
+    voiceMissing:
+      "Talk mode needs a voice that reads replies aloud. Add an OpenAI or ElevenLabs key under Connections › Services for agents › Speech recognition.",
+    insecure:
+      "Talk mode needs a secure connection for the microphone. Open AgentPier over HTTPS, for example through Tailscale, or on localhost.",
+    unsupported: "This browser cannot record and play audio for talk mode.",
+    unknown: "Talk mode is not available right now.",
+  },
+  errors: {
+    sendFailed: "The spoken message could not be sent. Tap the bar to listen again.",
+    noReply: "The agent finished without a reply to read aloud.",
+    rateLimited:
+      "Talk mode was started too often in a short time. Try again in a few minutes.",
+    notFound: "Talk mode is not available in this chat.",
+    talkEnded: "Talk mode ended.",
+    replaced: "Talk mode continues in another window.",
+    connection: "The connection to AgentPier was lost.",
+    failed: "Talk mode stopped unexpectedly.",
+  },
+  speak: {
+    auth: "The voice provider rejected the key. Check it under Connections › Services for agents › Speech recognition.",
+    quota: "The voice provider account has no credit left.",
+    upstreamBusy: "The voice provider is busy. Try again shortly.",
+    rejected: "The voice provider refused to read this reply.",
+    busy: "Another reply is being read aloud right now.",
+    rateLimited: "Too many replies were read aloud in a short time. Try again shortly.",
+    tooLong: "The reply was too long to read aloud.",
+    decode: "This browser could not play the reply.",
+    failed: "The reply could not be read aloud.",
+  },
+  ended: {
+    limit: (minutes) => `Talk mode ended after ${minutes} minutes.`,
+    stopped: "Talk mode ended.",
+    hidden: "Talk mode ended because the page was hidden.",
+  },
+  voice: {
+    title: "Voice for talk mode",
+    description:
+      "Reads the agent's replies aloud in talk mode. The text of each reply goes to this provider; code blocks and long links are not read.",
+    chatgptNote:
+      "A ChatGPT sign-in cannot read text aloud: OpenAI voices need an OpenAI API key.",
+    provider: "Voice provider",
+    openai: "OpenAI",
+    elevenlabs: "ElevenLabs",
+    openaiKey: "OpenAI API key",
+    elevenlabsKey: "ElevenLabs API key",
+    keySaved: "Key saved",
+    keyMissing: "No key configured",
+    removeKey: "Remove the key when saving",
+    openaiVoice: "Voice",
+    elevenlabsVoice: "Voice ID",
+    elevenlabsVoiceHelp: "The ID of a voice from your ElevenLabs voice library.",
+    save: "Save voice settings",
+  },
+});

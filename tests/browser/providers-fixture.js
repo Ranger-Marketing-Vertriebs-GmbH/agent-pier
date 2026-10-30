@@ -190,6 +190,23 @@ export async function fixture(page, { account, session } = {}) {
       return route.fulfill({
         json: { revision: 0, model: "nova-3", language: "auto", hasSecret: false },
       });
+    // The voice for talk mode, without keys.
+    if (path === "/api/assistant-speech/voice")
+      return route.fulfill({
+        json: {
+          revision: 0,
+          provider: "openai",
+          openaiVoice: "coral",
+          elevenlabsVoice: "JBFqnCBsd6RMkjVDRZzb",
+          hasOpenaiKey: false,
+          hasElevenlabsKey: false,
+        },
+      });
+    // Talk mode is unavailable unless a spec sets it up (talk-mode.spec.js).
+    if (path === "/api/assistant-talk")
+      return route.fulfill({
+        json: { available: false, reason: "voiceMissing", maxMinutes: 30, session: null },
+      });
     // An agent without its own Telegram bot for other people.
     if (method === "GET" && path.startsWith("/api/assistant-telegram-senders/"))
       return route.fulfill({

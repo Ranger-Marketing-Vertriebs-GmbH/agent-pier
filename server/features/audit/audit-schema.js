@@ -185,6 +185,9 @@ export function auditEvent(input) {
       // A deleted agent chat (chat-removal.js); never its title.
       "chat-deleted",
       "dictation",
+      // Talk mode: a talk session's length and each reply read aloud (count = characters).
+      "talk",
+      "speech-output",
       "skill-import",
       // A catalog skill for agents (agent-skill-catalog.js): ids and counts only.
       "catalog-skill",
