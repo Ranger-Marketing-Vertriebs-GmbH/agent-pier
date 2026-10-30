@@ -43,7 +43,7 @@ export default function EndpointModelTable({ draft, setDraft }) {
   return (
     <fieldset className="endpoint-models">
       <legend>{copy.models}</legend>
-      {draft.preset === "custom" && <p className="field-description">{copy.azureHint}</p>}
+      {draft.preset === "azure" && <p className="field-description">{copy.azureHint}</p>}
       {!draft.models.length && <p className="field-description">{copy.noModels}</p>}
       {draft.models.length > 0 && (
         <div className="endpoint-model-scroll">

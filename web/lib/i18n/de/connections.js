@@ -1,13 +1,14 @@
 export const connectionCopy = {
   description:
-    "Einen API-Key pro Provider-Zugang speichern und mit kompatiblen CLIs verwenden. CLI, Modell und Startmodus wählst du für jede Session.",
+    "Einen API-Key pro Provider-Zugang speichern und mit kompatiblen CLIs verwenden: OpenRouter, Z.ai, Azure OpenAI oder lokale Modelle mit Ollama und llama.cpp. CLI, Modell und Startmodus wählst du für jede Session.",
   add: "Provider-Zugang hinzufügen",
   name: "Name des Zugangs",
   key: "API-Key",
   save: "Zugang speichern",
   provider: "API-Anbieter",
   loading: "Anbieter werden geladen …",
-  empty: "Noch keine zentralen Provider-Zugänge.",
+  empty:
+    "Noch keine zentralen Provider-Zugänge. Füge einen für OpenRouter, Z.ai, Azure OpenAI oder lokale Modelle mit Ollama und llama.cpp hinzu.",
   native: "Native CLI-Accounts",
   legacy: "Bestehende Anbieterbindung · nur für diese CLI",
   legacyHelp:
@@ -126,7 +127,14 @@ export const connectionCopy = {
     presets: {
       ollama: "Ollama",
       llamacpp: "llama.cpp",
+      azure: "Azure OpenAI",
       custom: "Benutzerdefiniert (OpenAI/Anthropic-kompatibel)",
+    },
+    presetHelp: {
+      azure:
+        "Ersetze <resource> durch den Namen deiner Azure-OpenAI-Ressource. Modelle sind deine Deployment-Namen; der Key wird im Header api-key gesendet.",
+      custom:
+        "Für LM Studio, vLLM, LiteLLM und jeden anderen OpenAI- oder Anthropic-kompatiblen Server.",
     },
     openaiBaseUrl: "OpenAI-kompatible Basis-URL",
     openaiHelp:

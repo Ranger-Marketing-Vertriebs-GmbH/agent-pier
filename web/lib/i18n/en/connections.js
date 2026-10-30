@@ -1,13 +1,14 @@
 export const connectionCopy = {
   description:
-    "Save one API key per provider connection and use it with compatible CLIs. Choose the CLI, model and launch mode for each session.",
+    "Save one API key per provider connection and use it with compatible CLIs: OpenRouter, Z.ai, Azure OpenAI or local models with Ollama and llama.cpp. Choose the CLI, model and launch mode for each session.",
   add: "Add provider connection",
   name: "Connection name",
   key: "API key",
   save: "Save connection",
   provider: "API provider",
   loading: "Loading providers …",
-  empty: "No shared provider connections yet.",
+  empty:
+    "No shared provider connections yet. Add one for OpenRouter, Z.ai, Azure OpenAI or local models with Ollama and llama.cpp.",
   native: "Native CLI accounts",
   legacy: "Existing provider binding · only for this CLI",
   legacyHelp:
@@ -126,7 +127,14 @@ export const connectionCopy = {
     presets: {
       ollama: "Ollama",
       llamacpp: "llama.cpp",
+      azure: "Azure OpenAI",
       custom: "Custom (OpenAI/Anthropic compatible)",
+    },
+    presetHelp: {
+      azure:
+        "Replace <resource> with the name of your Azure OpenAI resource. Models are your deployment names; the key is sent in the api-key header.",
+      custom:
+        "For LM Studio, vLLM, LiteLLM and any other OpenAI- or Anthropic-compatible server.",
     },
     openaiBaseUrl: "OpenAI-compatible base URL",
     openaiHelp:

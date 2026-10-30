@@ -78,7 +78,8 @@ and agents that work as a team.
   a standing order you gave there. A switch per agent turns it off; agents of users
   never shop. The guard is the agent's instructions, not AgentPier
   ([shopping](docs/shopping.md)).
-- **Connections:** model access (provider connections and ChatGPT for agents),
+- **Connections:** model access (provider connections for OpenRouter, Z.ai, Azure OpenAI,
+  local models with Ollama or llama.cpp and any compatible endpoint, and ChatGPT for agents),
   services for agents, MCP servers, SSH/SFTP accesses, email accounts, secrets and
   GitHub connections in one place, created once and granted where they are used, each with **Used by**
   ([providers](docs/providers.md)). Native CLI accounts, skills, plugins and subagents

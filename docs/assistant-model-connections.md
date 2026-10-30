@@ -6,12 +6,12 @@ enter the exact configured model ID. Each assistant and team member can select i
 own connection and model. Native ChatGPT account selection and OpenRouter remain
 available through their existing paths.
 
-| Connection                 | Central settings                                                                          | Assistant transport        |
-| -------------------------- | ----------------------------------------------------------------------------------------- | -------------------------- |
-| Ollama                     | Ollama preset; normally `http://127.0.0.1:11434/v1`                                       | Chat Completions streaming |
-| llama.cpp                  | llama.cpp preset; normally `http://127.0.0.1:8080/v1`                                     | Chat Completions streaming |
-| Generic compatible service | Custom preset; service's API base URL                                                     | Chat Completions streaming |
-| Azure OpenAI / Foundry v1  | Custom preset; `https://RESOURCE.openai.azure.com/openai/v1`; deployment name as model ID | Chat Completions streaming |
+| Connection                 | Central settings                                                                                | Assistant transport        |
+| -------------------------- | ----------------------------------------------------------------------------------------------- | -------------------------- |
+| Ollama                     | Ollama preset; normally `http://127.0.0.1:11434/v1`                                             | Chat Completions streaming |
+| llama.cpp                  | llama.cpp preset; normally `http://127.0.0.1:8080/v1`                                           | Chat Completions streaming |
+| Generic compatible service | Custom preset; service's API base URL                                                           | Chat Completions streaming |
+| Azure OpenAI / Foundry v1  | Azure OpenAI preset; `https://RESOURCE.openai.azure.com/openai/v1`; deployment name as model ID | Chat Completions streaming |
 
 Enable the connection's Chat Completions protocol and configure each model's context
 window (at least 4,000 tokens, the pinned runtime's hard minimum). The configured
@@ -25,7 +25,7 @@ authentication. The custom `api-key` header sends the raw key there and an empty
 Authorization
 header to suppress the SDK's default Bearer credential. A custom `Authorization`
 header sends the raw configured value, which may include a prefix when required. For Azure,
-set `api-key` as the custom authentication header and save the Azure API key.
+the Azure OpenAI preset sets `api-key` as the custom authentication header; save the Azure API key.
 The v1 URL does not require a dated `api-version` query parameter. Azure's model ID
 is the deployment name, which can differ from the underlying model name.
 See [Microsoft's v1 API documentation](https://learn.microsoft.com/en-us/azure/foundry/openai/api-version-lifecycle).

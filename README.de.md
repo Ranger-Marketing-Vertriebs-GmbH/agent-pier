@@ -89,7 +89,9 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
   schaltet das ab; Agenten von Benutzern kaufen nie ein. Geschützt wird das durch die
   Anweisungen des Agenten, nicht durch AgentPier ([Einkaufen](docs/shopping.md), auf
   Englisch).
-- **Zugänge:** Modell-Zugänge (Provider-Zugänge und ChatGPT für Agenten), Dienste für
+- **Zugänge:** Modell-Zugänge (Provider-Zugänge für OpenRouter, Z.ai, Azure OpenAI,
+  lokale Modelle mit Ollama oder llama.cpp und jeden kompatiblen Endpunkt sowie ChatGPT
+  für Agenten), Dienste für
   Agenten, MCP-Server, SSH/SFTP-Zugänge, E-Mail-Zugänge, Geheimnisse und
   GitHub-Zugänge an einer Stelle, einmal angelegt und dort gewährt, wo sie gebraucht werden, jeweils mit
   **Benutzt von** ([Provider](docs/providers.md)). Native CLI-Accounts, Skills,
