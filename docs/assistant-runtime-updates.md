@@ -235,9 +235,15 @@ the same way: its Doctor migrates each agent database from schema 24 to 25 (and 
 state database of a 2026.9.x installation from 19 to 20), and 2026.10.3, 2026.9.9 and
 2026.9.8 refuse the migrated agent databases. Before commit the snapshot restores the
 previous runtime and its schema-24 data; after commit the update panel offers only
-the pinned 2026.10.7, and retention has removed the previous installation. An older
+the pinned version, and retention has removed the previous installation. An older
 AgentPier (2.6.x or earlier) does not accept 2026.10.7 either: its team plugin
-refuses every OpenClaw version outside its own pin and rollback targets. The installer now also consumes the reviewed dependency lock described below;
+refuses every OpenClaw version outside its own pin and rollback targets.
+
+OpenClaw 2026.10.9 keeps the schemas of 2026.10.7 (state 20, agent databases 25), so
+the update from 2026.10.7 migrates no data and 2026.10.7 still opens what 2026.10.9
+wrote. Activation still runs Doctor, which then has nothing to migrate. After commit
+the update panel offers only the pinned 2026.10.9, as for every update, and AgentPier
+2.7.x – 2.12.x refuses 2026.10.9 through its team plugin. The installer now also consumes the reviewed dependency lock described below;
 all separately downloaded package archives carry integrity checks.
 
 ## Locked dependency installation
@@ -282,7 +288,7 @@ cryptographically attested installed filesystem contents.
 
 The runtime also contains the official OpenClaw web search plugins
 `@openclaw/duckduckgo-plugin`, `@openclaw/perplexity-plugin` and
-`@openclaw/brave-plugin`, each at the OpenClaw version (2026.10.7). They are exact root
+`@openclaw/brave-plugin`, each at the OpenClaw version (2026.10.9). They are exact root
 dependencies in `runtime-lock/package.json`. The manifest pins each one's
 package name, version, plugin id and npm SHA-512 integrity (`searchPlugins`), and
 the lock check refuses a graph whose plugin entry differs from the pin or does not

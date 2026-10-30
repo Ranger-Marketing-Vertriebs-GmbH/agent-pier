@@ -332,7 +332,7 @@ When activating a staged version, the confirmation offers **Move running session
 The assistant service is optional and off initially: until the owner turns on
 **Enable agents** (under **Agents**, or **Agents › Runtime › Function**), nothing is created, downloaded or started. Installations that
 already used agents before this switch existed come back enabled. Enabling it provisions a
-private OpenClaw 2026.10.7 installation and Node 26.12.1 under the data directory's
+private OpenClaw 2026.10.9 installation and Node 26.12.1 under the data directory's
 `assistants/runtimes/` directory. AgentPier itself retains its supported Node range `^22.23.4 || ^24.22.1 || >=26.12.1`.
 Downloads are checked against pinned official Node checksums and npm package
 integrity before activation. Failed staging preserves the previously selected runtime.
@@ -412,10 +412,14 @@ migrates each agent's OpenClaw database from schema 24 to 25, and OpenClaw
 2026.10.3, 2026.9.9 and 2026.9.8 refuse the migrated databases. If activation fails before the update is
 committed, AgentPier rolls back to the snapshot it took beforehand. After commit,
 neither **Agents › Runtime** nor an older AgentPier
-(2.6.x or earlier) can return the agent service to 2026.10.3. Installations on
-AgentPier 1.28.x or 2.0.0 update straight from 2026.9.8 or 2026.9.9 to 2026.10.7.
-Create a host backup under **Settings → Operations → Backups** before you activate
-2026.10.7.
+(2.6.x or earlier) can return the agent service to 2026.10.3. Create a host backup
+under **Settings → Operations → Backups** before you activate 2026.10.7 or a later
+version from an older one.
+
+**OpenClaw 2026.10.9** keeps the database schemas of 2026.10.7, so the update from
+2026.10.7 migrates nothing. Installations on AgentPier 1.28.x, 2.0.0 or 2.1.0 – 2.6.x
+update straight from 2026.9.8, 2026.9.9 or 2026.10.3 to 2026.10.9, with the one-way
+migration described above.
 
 For isolated diagnostics, the same installer is available as
 `node scripts/install-assistant-runtime.mjs --data-dir /absolute/disposable/path`.

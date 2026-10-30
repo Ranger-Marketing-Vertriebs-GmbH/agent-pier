@@ -484,7 +484,7 @@ Sandbox design stays deferred as agreed. Remaining release checks are tracked in
 
 ## Implemented foundation
 
-The foundation now provisions OpenClaw 2026.10.7 with Node 26.12.1 in private
+The foundation now provisions OpenClaw 2026.10.9 with Node 26.12.1 in private
 application data, starts one owned foreground Gateway, and waits for authenticated
 protocol readiness. It is optional: enabling it under Agents › Runtime provisions
 the runtime; enabled installations provision the selected version at startup after
@@ -1020,7 +1020,7 @@ the existing chat recovery action. Neither recovery route replays work.
 
 The bundled `agentpier-teams` plugin is staged privately and verified on fresh
 installation and every existing-runtime provisioning path. Compatibility is pinned
-to OpenClaw 2026.10.7 and its qualified rollback predecessors 2026.10.3, 2026.9.9 and 2026.9.8. Eligible parents receive the eleven managed team tools (propose, status,
+to OpenClaw 2026.10.9 and its qualified rollback predecessors 2026.10.7, 2026.10.3, 2026.9.9 and 2026.9.8. Eligible parents receive the eleven managed team tools (propose, status,
 stop, grant ([team member grants](#team-member-grants-2026-10-17)) and the [member tools](#lead-questions-and-tasks-for-members)) and
 `session_status`; members receive `session_status` and their own four
 [member tools](#member-questions-tasks-and-reports) (`agentpier_team_peers`,
@@ -2204,10 +2204,10 @@ AgentPier's. Each start first removes every allow-listed path from the existing
 configuration and then writes the stored overrides, so a reset override never
 survives in `openclaw.json`. Stored rows that are no longer allowed or valid are
 skipped and logged by path. Overrides apply only to the runtime version the allow
-list was qualified against (`advancedSettingsRuntime`, 2026.10.7); a rolled-back runtime
-starts with OpenClaw's defaults. After the AgentPier update that moved the approval
-from 2026.10.3 to 2026.10.7, stored overrides therefore stay inactive on 2026.10.3
-until the owner activates 2026.10.7, and again after a rollback before commit
+list was qualified against (`advancedSettingsRuntime`, 2026.10.9); a rolled-back runtime
+starts with OpenClaw's defaults. After an AgentPier update that moves the approval
+(2026.10.3 to 2026.10.7, then 2026.10.7 to 2026.10.9), stored overrides therefore stay
+inactive on the previous runtime until the owner activates the new one, and again after a rollback before commit
 (`overridesFor`, `openclaw-config/overrides.js`).
 The owner edits them under **Agents › Runtime › Advanced · for all agents** (the old `/settings/assistants-advanced` opens it)
 (`GET`/`PUT /api/assistant-advanced-settings`, `advanced-config.js`). Labels and help

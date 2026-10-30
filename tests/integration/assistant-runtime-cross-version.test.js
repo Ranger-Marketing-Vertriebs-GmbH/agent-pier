@@ -34,6 +34,8 @@ const agentDatabases = (paths) => {
     .map((id) => path.join(agents, id, "agent", "openclaw-agent.sqlite"))
     .filter((file) => fs.existsSync(file));
 };
+// Runtimes whose agent databases stay at schema 24; every later one migrates to 25.
+const schema24Runtimes = ["2026.9.7", "2026.9.8", "2026.9.9", "2026.10.3"];
 const schemas = (paths) =>
   Object.fromEntries(
     agentDatabases(paths).map((file) => {
@@ -281,10 +283,8 @@ for (const [variant, title] of Object.entries(variants))
         assert.ok(JSON.stringify(history.messages).includes("A useful assistant reply."));
         // OpenClaw 2026.10.6 and later migrate each agent database to schema 25
         // (one-way: 2026.10.3 refuses it), and a committed activation must have done so.
-        if (
-          !rejectCandidate &&
-          (candidate.version === "2026.10.7" || candidate.version === "2026.10.6")
-        ) {
+        // 2026.10.9 keeps schema 25.
+        if (!rejectCandidate && !schema24Runtimes.includes(candidate.version)) {
           const files = agentDatabases(runtime.paths);
           assert.ok(
             files.some((file) =>
