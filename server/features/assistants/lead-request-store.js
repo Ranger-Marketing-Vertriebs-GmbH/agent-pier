@@ -250,12 +250,12 @@ export class LeadRequestStore {
       }
       const { member, assistant } = this.ownMember(lead.id, input.memberId);
       if (!member.conversationId) throw assistantProblem("memberRequestUnavailable", 409);
-      if (type === "task") {
-        if (member.lifetime !== "permanent" || assistant.lifetime !== "permanent")
-          throw assistantProblem("memberRequestNotPermanent", 409);
-        if (this.open((r) => r.memberId === member.id && r.type === "task").length)
-          throw assistantProblem("memberRequestOpenTask", 409);
-      }
+      // Any member takes a task, temporary ones too (AGENTPIER-276); one at a time.
+      if (
+        type === "task" &&
+        this.open((r) => r.memberId === member.id && r.type === "task").length
+      )
+        throw assistantProblem("memberRequestOpenTask", 409);
       // Reports of the lead's routines on members (lead-routine-reports.js) and
       // its members' requests to each other (peer-request-rules.js) are not the
       // lead's own requests and never count against its caps.

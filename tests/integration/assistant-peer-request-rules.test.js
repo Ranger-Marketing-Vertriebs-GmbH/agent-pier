@@ -116,16 +116,14 @@ test("a lead, another lead's member and the member itself are refused as targets
   );
 });
 
-test("a temporary sibling takes questions only; an ended one with a chat still answers", async (t) => {
+test("a temporary sibling takes questions and tasks; an ended one with a chat still answers", async (t) => {
   const f = await peers(t);
   assert.ok(f.temporary.conversationId);
   assert.equal(f.temporary.phase, "completed");
   const asked = f.peerAsk(f.memberTurn(f.permanent), f.temporary);
   assert.equal(asked.memberId, f.temporary.id);
-  assert.equal(
-    f.code(() => f.peerDelegate(f.memberTurn(f.second), f.temporary)),
-    "MEMBER_NOT_PERMANENT",
-  );
+  // AGENTPIER-276: temporary members take tasks too.
+  assert.equal(f.peerDelegate(f.memberTurn(f.second), f.temporary).type, "task");
   // A temporary member asks a permanent one and may hand it a task.
   assert.equal(f.peerAsk(f.memberTurn(f.temporary), f.second).memberId, f.second.id);
   assert.equal(f.peerDelegate(f.memberTurn(f.temporary), f.permanent).type, "task");

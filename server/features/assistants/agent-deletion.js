@@ -1,3 +1,4 @@
+import { sshLockNames } from "../ssh/ssh-execution-lock.js";
 import fs from "node:fs";
 import path from "node:path";
 import { agentProfileName } from "./openclaw-config/browser-profiles.js";
@@ -278,12 +279,13 @@ export async function purgeAgent(services, agent, channelIds = []) {
   if (paths)
     for (const folder of agentFolders(paths, agent))
       fs.rmSync(folder, { recursive: true, force: true });
-  // Its SSH execution lock (agent-ssh.js).
+  // Its SSH execution locks (agent-ssh.js sshLockNames).
   if (dataDir)
-    for (const suffix of ["", "-wal", "-shm"])
-      fs.rmSync(path.join(dataDir, "ssh", "agents", `${agent.id}.lock.sqlite${suffix}`), {
-        force: true,
-      });
+    for (const name of sshLockNames(agent.id))
+      for (const suffix of ["", "-wal", "-shm"])
+        fs.rmSync(path.join(dataDir, "ssh", "agents", `${name}${suffix}`), {
+          force: true,
+        });
   removeRows(assistants.store.db, agent.id);
   assistants.config?.applied?.delete(agent.id);
 }

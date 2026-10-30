@@ -180,19 +180,22 @@ test("a missing ssh program reads as an unavailable host", async (t) => {
   assert.equal(rows(f).length, 0);
 });
 
-test("one command per agent runs at a time", async (t) => {
+// AGENTPIER-276: three commands of an agent run at once; a fourth waits its turn.
+test("up to three commands per agent run at a time", async (t) => {
   const f = await agentSshFixture(t);
   f.grant([
     { accessId: hostId, mode: "trusted" },
     { accessId: otherHostId, mode: "trusted" },
   ]);
-  const slow = f.execute(f.ownTurn(), "setTimeout(() => {}, 1500)");
-  await waitFor(() => f.catalog.connections === 1);
+  const slow = [1, 2, 3].map(() =>
+    f.execute(f.ownTurn(), "setTimeout(() => {}, 1500)", otherHostId),
+  );
+  await waitFor(() => f.catalog.connections === 3);
   assert.equal(
     await code(f.execute(f.ownTurn(), "process.exit(0)", otherHostId)),
     "SSH_BUSY",
   );
-  assert.equal((await slow).status, "completed");
+  for (const run of await Promise.all(slow)) assert.equal(run.status, "completed");
 });
 
 test("exit codes and timeouts are reported as completed runs", async (t) => {

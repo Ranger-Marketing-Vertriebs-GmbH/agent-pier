@@ -177,16 +177,21 @@ test("a paused routine, another session or an archived agent reaches nothing", a
   await assert.rejects(f.call(f.scout, { action: "files_list" }), code("FORBIDDEN"));
 });
 
-test("a routine's coding request always waits for the owner and cannot cancel runs", async (t) => {
+// AGENTPIER-276: a routine's coding request follows the project's "start without
+// approval" like the owner's own turn.
+test("a routine's coding request follows the standing permission and cannot cancel runs", async (t) => {
   const f = await setup(t);
-  // Even with the owner's standing permission to start pipelines.
+  const start = () =>
+    f.call(f.lead, {
+      action: "coding_start",
+      pipelineId: f.pipeline.id,
+      task: "Render nightly",
+    });
+  f.leadAccess({ [f.folderProject.id]: "write" }, { autonomous: false });
+  assert.equal((await start()).state, "awaiting_approval");
   f.leadAccess({ [f.folderProject.id]: "write" }, { autonomous: true });
-  const action = await f.call(f.lead, {
-    action: "coding_start",
-    pipelineId: f.pipeline.id,
-    task: "Render nightly",
-  });
-  assert.equal(action.state, "awaiting_approval");
+  const action = await start();
+  assert.equal(action.state, "approved");
   const stored = f.workflows.store.get(action.id);
   assert.equal(stored.conversationId, f.channel.conversationId, "shown in its chat");
   assert.equal(stored.routineId, f.lead.binding.id);

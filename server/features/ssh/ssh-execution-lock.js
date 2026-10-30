@@ -75,3 +75,14 @@ export async function acquireExecutionLock(file) {
     throw busy();
   }
 }
+
+/**
+ * Up to `sshSlots` SSH commands of one agent run at once (AGENTPIER-276; before, a
+ * second command was refused with SSH_BUSY while the first ran), each under its own
+ * crash-safe lock: `<agent>.lock.sqlite`, then `<agent>.1.lock.sqlite`, ...
+ */
+export const sshSlots = 3;
+export const sshLockNames = (assistantId) =>
+  Array.from({ length: sshSlots }, (_, n) =>
+    n ? `${assistantId}.${n}.lock.sqlite` : `${assistantId}.lock.sqlite`,
+  );

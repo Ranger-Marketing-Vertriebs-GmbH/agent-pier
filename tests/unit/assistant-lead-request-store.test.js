@@ -82,12 +82,10 @@ test("members of an archived team and archived agents cannot be reached", (t) =>
   assert.throws(() => f.ask(f.temporary), { status: 404 });
 });
 
-test("tasks go only to permanent members, one open task at a time", (t) => {
+test("tasks go to any member, one open task at a time", (t) => {
   const f = setup(t);
-  assert.throws(() => f.ask(f.temporary, { type: "task" }), {
-    status: 409,
-    key: "memberRequestNotPermanent",
-  });
+  // AGENTPIER-276: a temporary member takes tasks too.
+  assert.equal(f.ask(f.temporary, { type: "task" }).type, "task");
   const task = f.ask(f.permanent, { type: "task" });
   assert.equal(task.phase, "queued");
   assert.equal(task.writeAllowed, true);

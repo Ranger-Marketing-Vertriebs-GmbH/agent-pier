@@ -384,8 +384,6 @@ export const assistants = {
   projectFileEncoding:
     "Diese Datei ist kein gültiges UTF-8; sie wird nicht geändert, damit keine Zeichen verloren gehen.",
   projectWriteTooLarge: "Ein Schreibvorgang darf höchstens 64 KiB umfassen.",
-  memberRequestNotPermanent:
-    "Aufgaben lassen sich nur an dauerhafte Mitglieder übergeben.",
   memberRequestOpenTask:
     "Dieses Mitglied hat schon eine offene Aufgabe. Warte auf ihr Ergebnis oder brich sie ab.",
   memberRequestNotFinished:

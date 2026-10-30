@@ -366,19 +366,19 @@ export async function workspaceCall(w, inv, input) {
     key: `${hook?.key || routine?.key || ownerRun?.key || inv.attemptId}:${inv.toolCallId}`,
     // A member's request, every request on a lead's share and every request in a
     // lead's or sibling's task waits for the owner, whatever the standing permission
-    // says. A hook's Coding tick starts its request on the agent's own project.
+    // says. A routine's run and a lead's follow-up on its member's result follow the
+    // project's "start without approval" like the owner's turn (AGENTPIER-276). A
+    // hook's Coding tick starts its request on the agent's own project.
     state:
       input.action === "coding_start" &&
       !inherited &&
-      (hook
-        ? hook.coding
-        : p.autonomous && !ctx.requestedBy && !routine && !task && !ctx.memberResult)
+      (hook ? hook.coding : p.autonomous && !ctx.requestedBy && !task)
         ? "approved"
         : "awaiting_approval",
     ...(inherited ? { inherited } : {}),
     ...(routine ? { routineId: routine.bindingId } : {}),
     ...(hook ? { hookId: hook.hookId, hookEventId: hook.eventId } : {}),
-    // Requested in a follow-up on a member's result: always the owner's approval.
+    // Requested in a follow-up on a member's result.
     ...(memberResult ? { via: "member-result", resultOf: memberResult.requestId } : {}),
     // A task's request waits in the lead's chat too (assistant-action-store.js delegated).
     ...(task

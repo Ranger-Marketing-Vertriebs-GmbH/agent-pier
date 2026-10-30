@@ -23,9 +23,9 @@ export class PeerRequests {
     if (input && Object.keys(input).length) throw assistantProblem("invalid");
     inv.assertCurrent();
     const { member: sender, lead } = peerCaller(this.service, inv);
-    const reach = (m, type) => {
+    const reach = (m) => {
       try {
-        return peerTarget(this.service, lead, sender, m.id, type).assistant;
+        return peerTarget(this.service, lead, sender, m.id).assistant;
       } catch {
         return null;
       }
@@ -33,7 +33,7 @@ export class PeerRequests {
     return {
       members: this.teams.members().flatMap((m) => {
         if (m.parentAssistantId !== lead.id) return [];
-        const a = reach(m, "question");
+        const a = reach(m);
         return a
           ? [
               {
@@ -42,7 +42,8 @@ export class PeerRequests {
                 role: m.role,
                 lifetime: m.lifetime,
                 busy: this.teams.activeMember(m),
-                canDelegate: !!reach(m, "task"),
+                // Every reachable sibling takes tasks (AGENTPIER-276).
+                canDelegate: true,
                 phase: m.phase,
               },
             ]

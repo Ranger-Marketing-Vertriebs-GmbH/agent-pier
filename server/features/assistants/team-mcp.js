@@ -19,19 +19,14 @@ export function memberServerNames(value) {
 }
 
 /**
- * Server ids for `names`, each of which must be bound to the lead agent. Any other
- * name (unknown, or another agent's server) rejects the whole proposal.
+ * Server ids for `names`, each of which must be one of the owner's MCP servers
+ * (AGENTPIER-276: no longer only those bound to the lead; shell and SSH keep the
+ * lead's ceiling). An unknown name rejects the whole proposal.
  */
-export function leadServerIds(servers, leadId, names) {
+export function leadServerIds(servers, _leadId, names) {
   if (!names.length) return [];
   if (!servers) throw assistantProblem("teamMcpServerNotBound");
-  const bound = new Set(servers.bindings("agent", leadId));
-  const byName = new Map(
-    servers
-      .list()
-      .filter((s) => bound.has(s.id))
-      .map((s) => [s.name, s.id]),
-  );
+  const byName = new Map(servers.list().map((s) => [s.name, s.id]));
   return names.map((name) => {
     const id = byName.get(name);
     if (!id) throw assistantProblem("teamMcpServerNotBound");
@@ -116,9 +111,10 @@ export class TeamMcpBindings {
         if (!working && !bound[m.assistantId]?.length) continue;
         const a = this.assistants.store.getAssistant(m.assistantId);
         const live = working && !a.archivedAt && !m.archivedAt;
-        // An archived lead holds no servers for its members.
+        // An archived lead's members hold no servers; otherwise any of the owner's
+        // servers that still exists (leadServerIds).
         const lead = new Set(
-          this.leadActive(m.parentAssistantId) ? bound[m.parentAssistantId] || [] : [],
+          this.leadActive(m.parentAssistantId) ? servers.list().map((s) => s.id) : [],
         );
         // A permanent member keeps only what the owner saw in the proposal; servers
         // the lead granted later (grantedMcpServerIds) end with the task.

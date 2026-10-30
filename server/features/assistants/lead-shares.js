@@ -118,12 +118,13 @@ export class LeadShares {
       return null;
     }
   }
-  // Whether the lead is bound to the server now: true, false or null (unreadable).
+  // Whether the shared server still exists (any of the owner's, AGENTPIER-276): true,
+  // false or null (unreadable).
   leadBound(row) {
     try {
       const servers = this.servers;
       if (!servers) return null;
-      if (!servers.bindings("agent", row.leadId).includes(row.serverId)) return false;
+      if (!servers.get(row.serverId)) return false;
       // An agent with its own Telegram bot for other people never runs a host command.
       if (
         this.w.a.mcp?.telegramSenders?.connected(row.memberAssistantId) &&

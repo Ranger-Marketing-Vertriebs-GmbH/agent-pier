@@ -36,8 +36,6 @@ const reasons = {
     "It is unclear whether this was already created. Ask the owner to check the agent settings before retrying.",
   MODEL_UNAVAILABLE:
     "The model connection of this agent is not available. Ask the owner to choose a model connection.",
-  MEMBER_NOT_PERMANENT:
-    "Tasks can only be delegated to permanent members. Ask a temporary member a question instead, or ask the owner to keep it as a permanent agent.",
   TASK_OPEN:
     "This member already has an open task. Wait for its result or cancel it with agentpier_team_cancel.",
   MEMBER_NOT_FINISHED:
@@ -67,7 +65,7 @@ const reasons = {
   SSH_ORIGIN_REFUSED:
     "SSH is not available in this turn: it was not the owner's own request (forwarded, scheduled or member content). Do not retry; tell the owner.",
   SSH_BUSY:
-    "Another SSH command of yours is still running. Wait for its result before you start the next one.",
+    "Three SSH commands of yours are still running. Wait for one of their results before you start the next one.",
   SSH_APPROVAL_LIMIT:
     "Three of your SSH commands already wait for the owner's approval. Wait for decisions before you request more.",
   SSH_REVOKED:
@@ -278,7 +276,6 @@ const byKey = {
   teamGrantMemberEnded: "MEMBER_NOT_RUNNING",
   leadRoutineNotPermanent: "ROUTINE_MEMBER_NOT_PERMANENT",
   leadRoutineMemberOff: "ROUTINE_MEMBER_OFF",
-  memberRequestNotPermanent: "MEMBER_NOT_PERMANENT",
   memberRequestOpenTask: "TASK_OPEN",
   memberRequestNotFinished: "MEMBER_NOT_FINISHED",
   memberRequestUnavailable: "MEMBER_UNAVAILABLE",

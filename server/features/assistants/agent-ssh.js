@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { privateDirectory } from "../../lib/storage.js";
-import { acquireExecutionLock } from "../ssh/ssh-execution-lock.js";
+import { acquireExecutionLock, sshLockNames } from "../ssh/ssh-execution-lock.js";
 import { runSshCommand } from "../ssh/ssh-run.js";
 import { consoleCommand } from "../ssh/ssh-interactive-shell.js";
 import { assistantProblem } from "./assistant-validation.js";
@@ -68,6 +68,15 @@ export function sshInput({ accessId, command, timeoutSeconds = 30 }) {
   )
     throw assistantProblem("invalid");
   return { accessId, command, timeoutSeconds };
+}
+
+// Up to sshSlots commands of one agent run at once (ssh-execution-lock.js).
+async function acquireSlot(dir, assistantId) {
+  for (const name of sshLockNames(assistantId))
+    try {
+      return await acquireExecutionLock(path.join(dir, name));
+    } catch {}
+  throw new Error("busy");
 }
 
 export class AgentSsh {
@@ -332,7 +341,7 @@ export class AgentSsh {
     const dir = privateDirectory(path.join(this.w.s.config.dataDir, "ssh", "agents"));
     let lease;
     try {
-      lease = await acquireExecutionLock(path.join(dir, `${assistantId}.lock.sqlite`));
+      lease = await acquireSlot(dir, assistantId);
     } catch {
       throw this.refuse(caller, cls, input, "sshBusy");
     }

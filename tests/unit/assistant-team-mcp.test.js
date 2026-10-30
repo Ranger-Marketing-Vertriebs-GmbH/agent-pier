@@ -69,9 +69,10 @@ function fixture(t) {
   return { store, servers, teams, lead, github, files, mail, input, member };
 }
 
-test("a member may only name servers bound to the lead; anything else stores nothing", (t) => {
+// AGENTPIER-276: any of the owner's MCP servers, not only those bound to the lead.
+test("a member may name any of the owner's servers; an unknown name stores nothing", (t) => {
   const f = fixture(t);
-  for (const names of [["mail"], ["unknown"], ["github", "GitHub"], ["github", "mail"]])
+  for (const names of [["unknown"], ["github", "GitHub"]])
     assert.throws(
       () => f.teams.propose(f.input([f.member("A", ["github"]), f.member("B", names)])),
       (error) =>
