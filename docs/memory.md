@@ -16,6 +16,12 @@ Running `git init` in a non-Git project root keeps the project. See [Git initial
 
 The project registry persists independently of sessions. Stopping or removing the last session does not delete its project or knowledge. If its registered checkout has been removed or now belongs to another project, registering a valid checkout of the same repository repairs the stored path while preserving entries and revisions. A still-valid registered checkout is retained.
 
+## Projects page
+
+**Menu → Projects** lists the registered projects beside the selected project's detail; the detail header and tabs stay fixed while the list scrolls. The search field filters across all groups. **View** switches between **Groups**, **Origin** and **List** and is remembered per browser.
+
+Projects can be arranged in **project groups**: create one with **New group**, move a project with its ⋯ menu (**Move to group**, **Remove from group**), or on desktop drag it onto a group. A group's ⋯ menu renames, reorders (**Move up**, **Move down**; or drag its header) and deletes it; deleting moves its projects to **No group**. Groups are stored on the server (`project-groups.json`, `GET`/`PUT /api/project-groups`), follow every device live and never touch the file system or a project's folder. On phones the list and the detail are separate pages, **Start session** stays fixed at the bottom of the detail, and the ⋯ menus open as sheets.
+
 ## Agent access
 
 A registered project's **Agents** tab assigns permanent agents to it: whether they may

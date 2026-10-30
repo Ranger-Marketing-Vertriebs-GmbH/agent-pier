@@ -179,6 +179,13 @@ Who a request acts for, derived from its session cookie: `{ role: "owner" }` or
 `{ role: "user", userId }`.
 _Avoid_: Identity (that is the service that resolves it), actor.
 
+### Projects
+
+**Project group**:
+A user-defined, server-stored grouping of projects on the Projects page. It never
+touches the file system.
+_Avoid_: Folder, project folder (that is a directory on disk), category.
+
 ### Profiles
 
 _Profile_ is also ambiguous. Four unrelated things carry the name, so qualify every
