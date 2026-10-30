@@ -59,3 +59,59 @@
   margin: 4px 8px;
   background: var(--divider);
 }
+/* The same items in a bottom sheet on phones (RowMenu `sheet`): 48px rows, the check
+   mark at the end of the current item. */
+.row-menu-sheet-subtitle {
+  margin: -4px 0 12px;
+  font-size: 13px;
+  color: var(--text-meta);
+}
+.row-menu-sheet-items {
+  display: grid;
+  margin: 0 -8px 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--divider);
+}
+.row-menu-sheet-items [role="group"] {
+  display: grid;
+}
+.row-menu-sheet-items button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 12px;
+  border-radius: var(--radius-md);
+  font-size: 15px;
+  text-align: left;
+  color: var(--text);
+}
+.row-menu-sheet-items button[aria-checked="true"] {
+  background: var(--surface-raised);
+}
+.row-menu-sheet-items button:focus-visible {
+  background: var(--nav-selected);
+}
+.row-menu-sheet-items button.danger {
+  color: var(--error-text);
+}
+.row-menu-sheet-items button:disabled {
+  opacity: 0.5;
+}
+.row-menu-sheet-items .row-menu-check {
+  order: 1;
+  margin-left: auto;
+}
+.row-menu-sheet-items .row-menu-heading {
+  padding: 8px 12px 4px;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-group);
+}
+.row-menu-sheet-items .row-menu-separator {
+  height: 1px;
+  margin: 4px 12px;
+  background: var(--divider);
+}

@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Icon from "../../components/Icon.jsx";
+import Sheet from "../../components/Sheet.jsx";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
 import "./row-menu.css";
 
 // ⋯ menus of list rows. List cards clip their rows, so the popover is fixed to the
@@ -78,7 +80,69 @@ function MenuEntry({ item, close, trigger }) {
   );
 }
 
-export function RowMenu({ label, state, items }) {
+// Arrow keys, Home and End move between the items; Escape closes, Tab leaves.
+function menuKeyDown(event, close) {
+  if (event.key === "Escape") {
+    event.preventDefault();
+    event.stopPropagation();
+    close();
+    return;
+  }
+  if (event.key === "Tab") {
+    close(false);
+    return;
+  }
+  const controls = enabledItems(event.currentTarget);
+  const index = controls.indexOf(document.activeElement);
+  const next =
+    event.key === "Home"
+      ? 0
+      : event.key === "End"
+        ? controls.length - 1
+        : event.key === "ArrowDown"
+          ? (index + 1) % controls.length
+          : event.key === "ArrowUp"
+            ? (index - 1 + controls.length) % controls.length
+            : null;
+  if (next !== null) {
+    event.preventDefault();
+    controls[next]?.focus();
+  }
+}
+
+// The same items in a bottom `Sheet` (phones): `sheet` gives its `title` and an
+// optional `subtitle`; Cancel closes it.
+function RowMenuSheet({ label, state, items, sheet }) {
+  const { close, trigger } = state;
+  return (
+    <Sheet open title={sheet.title} onCancel={() => close()} className="row-menu-sheet">
+      {sheet.subtitle && <p className="row-menu-sheet-subtitle">{sheet.subtitle}</p>}
+      <div
+        role="menu"
+        aria-label={label}
+        className="row-menu-sheet-items"
+        onKeyDown={(event) => event.key !== "Tab" && menuKeyDown(event, close)}
+      >
+        {items.map((item) => (
+          <MenuEntry key={item.id} item={item} close={close} trigger={trigger} />
+        ))}
+      </div>
+      <div className="sheet-actions">
+        <button type="button" className="button secondary" onClick={() => close()}>
+          {commonCopy.cancel}
+        </button>
+      </div>
+    </Sheet>
+  );
+}
+
+export function RowMenu({ label, state, items, sheet = null }) {
+  if (sheet && state.open)
+    return <RowMenuSheet label={label} state={state} items={items} sheet={sheet} />;
+  return <RowMenuPopover label={label} state={state} items={items} />;
+}
+
+function RowMenuPopover({ label, state, items }) {
   const menu = useRef(null);
   const { open, close, trigger, position } = state;
   // Near the bottom edge the menu opens above its trigger, never below the viewport.
@@ -121,34 +185,7 @@ export function RowMenu({ label, state, items }) {
       aria-label={label}
       className="row-menu"
       style={{ top: position.top, right: position.right }}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") {
-          event.preventDefault();
-          event.stopPropagation();
-          close();
-          return;
-        }
-        if (event.key === "Tab") {
-          close(false);
-          return;
-        }
-        const controls = enabledItems(event.currentTarget);
-        const index = controls.indexOf(document.activeElement);
-        const next =
-          event.key === "Home"
-            ? 0
-            : event.key === "End"
-              ? controls.length - 1
-              : event.key === "ArrowDown"
-                ? (index + 1) % controls.length
-                : event.key === "ArrowUp"
-                  ? (index - 1 + controls.length) % controls.length
-                  : null;
-        if (next !== null) {
-          event.preventDefault();
-          controls[next]?.focus();
-        }
-      }}
+      onKeyDown={(event) => menuKeyDown(event, close)}
     >
       {items.map((item) => (
         <MenuEntry key={item.id} item={item} close={close} trigger={trigger} />
