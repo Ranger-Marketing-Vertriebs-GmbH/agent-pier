@@ -76,6 +76,7 @@ export class Backup {
         "provider-connections",
         "repositories",
         "preferences",
+        "project-groups",
         "pipeline-definitions",
         "memory",
         "audit",

@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { Preferences } from "../settings/preferences.js";
+import { normalizeProjectPath } from "../projects/project-groups.js";
 import { projectScope } from "../memory/project-scope.js";
 import { atomic, readJson } from "./files.js";
 import { problem } from "../../lib/storage.js";
@@ -133,6 +134,16 @@ export async function mapProjects(directory, projectMap = {}) {
         accounts: { list: () => readJson(path.join(directory, "accounts.json"), []) },
       }).get().defaultAccountIds;
     atomic(preferencesFile, restored);
+  }
+  const groupsFile = path.join(directory, "project-groups.json"),
+    groups = readJson(groupsFile, null);
+  if (groups?.assignments && typeof groups.assignments === "object") {
+    // Groups are kept as saved; only the folders they list move with the mapping.
+    const moved = Object.create(null);
+    for (const [from, id] of Object.entries(groups.assignments))
+      moved[mappings.find((m) => normalizeProjectPath(m.oldCwd) === from)?.cwd || from] =
+        id;
+    atomic(groupsFile, { ...groups, assignments: { ...moved } });
   }
   const repositoriesFile = path.join(directory, "repositories.json"),
     repositories = readJson(repositoriesFile, null);
