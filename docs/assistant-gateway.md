@@ -2182,6 +2182,9 @@ limits:
   window ran into the 20-second browser budget, and without focus emulation such a
   page reports `hidden` and paints no frames at all. A parked window stays normal and visible, and the
   anti-throttling flags keep it rendering at full rate while other windows cover it.
+  A step that fails while a cold launch is still busy (a CDP call over its two-second
+  timeout, a page without its window yet) is tried again a few times on the same
+  connection; whether a window is parked is decided when its first page shows up.
   The keeper records each window's bounds once placed (after a short settle): a
   parked one, a later one such as a login popup (left where it opened), and those of
   a browser that was already running. A window counts as the owner's (busy) only once
