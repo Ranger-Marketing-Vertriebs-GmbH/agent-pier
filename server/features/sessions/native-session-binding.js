@@ -450,9 +450,18 @@ export function hookPush(payload) {
         typeof payload.delta === "string" ? payload.delta.slice(0, maxReplyText) : "",
     };
   }
+  // Claude's StopFailure names a rate limit or an exhausted quota (billing_error).
+  const limited =
+    event === "StopFailure" && ["rate_limit", "billing_error"].includes(payload.error);
+  const detail = [payload.error_details, payload.last_assistant_message].find(
+    (value) => typeof value === "string" && value.trim(),
+  );
   return {
     type: "activity",
     event,
+    ...(limited
+      ? { failure: "usage-limit", ...(detail ? { detail: detail.slice(0, 500) } : {}) }
+      : {}),
     ...(event === "Stop" &&
     !payload.agent_id &&
     typeof payload.last_assistant_message === "string"

@@ -148,3 +148,23 @@ test("the broker hands a CLI's activity push to the session push events", async 
   application.requests.onNative("session-a", { type: "stream-end", runId: "run" });
   assert.deepEqual(seen, [["session-a", "Stop"]]);
 });
+
+test("the broker hands a CLI's usage-limit failure to the session push events", async (t) => {
+  const { applicationFixture } = await import("../helpers/application.js");
+  const { application } = await applicationFixture(t);
+  const seen = [];
+  application.operationsEvents.nativeActivity = (...args) => seen.push(args);
+  application.requests.onNative("session-a", {
+    type: "activity",
+    event: "StopFailure",
+    failure: "usage-limit",
+    detail: "You've hit your limit · resets 4pm",
+  });
+  assert.deepEqual(seen, [
+    [
+      "session-a",
+      "StopFailure",
+      { failure: "usage-limit", detail: "You've hit your limit · resets 4pm" },
+    ],
+  ]);
+});

@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { readStamp } from "../lib/read-stamp.js";
 import { AgentApprovalEvents } from "./agent-approval-events.js";
 import { replyPreview, requestNotice, runNotice, sessionNotice } from "./push-notices.js";
@@ -61,6 +61,8 @@ export class OperationsEvents {
     this.requested = new Map();
     // Each session's current wait: when it began and whether it was handled.
     this.waits = new Map();
+    // Sessions whose CLI reported its usage limit, until a turn succeeds again.
+    this.limits = new Set();
     // Request pushes held while an agent controls their session, by request ID.
     // Held only in memory. The broker announces a request once, even when it returns
     // after a restart or a socket reconnect, so collect() also holds every open
@@ -182,6 +184,38 @@ export class OperationsEvents {
       ...requestNotice(event, session, entry),
     });
   }
+  /**
+   * A CLI reported that its turn failed at its rate limit or usage quota: one push
+   * per occurrence (until a turn succeeds again), with the CLI's own limit message and
+   * its reset time as the preview. A session an agent controls wakes the agent instead.
+   */
+  async limited(sessionId, detail) {
+    if (this.limits.has(sessionId)) return;
+    this.limits.add(sessionId);
+    if (this.limits.size > 1000) this.limits.delete(this.limits.values().next().value);
+    if (this.controlled(sessionId)) return;
+    const session = await Promise.resolve(this.sessions.get?.(sessionId)).catch(
+      () => null,
+    );
+    if (!session) return;
+    const change = this.transition(`limited:${sessionId}`, randomUUID());
+    await this.notifications.notify({
+      kind: "session-limited",
+      eventId: change.eventId,
+      ...sessionNotice(session),
+      ...(typeof detail === "string" ? { preview: detail } : {}),
+    });
+  }
+  /** Auto-resume could not bring a session back: once per interruption. */
+  async resumeFailed(session, interruption) {
+    if (this.closed || !session?.id) return;
+    const at = typeof interruption?.at === "string" ? interruption.at : "";
+    await this.notifications.notify({
+      kind: "session-resume-failed",
+      eventId: `resume-${createHash("sha256").update(`${session.id}:${at}`).digest("hex").slice(0, 40)}`,
+      ...sessionNotice(session),
+    });
+  }
   transition(key, value) {
     const stored = this.notifications.observation(key);
     const previous = stored ? JSON.parse(stored) : null;
@@ -201,8 +235,11 @@ export class OperationsEvents {
    * turn is remembered at once, so a turn that ends before the next poll still
    * notifies as finished, and the push is checked now instead of at the next interval.
    */
-  nativeActivity(sessionId, event) {
+  nativeActivity(sessionId, event, { failure, detail } = {}) {
     if (this.closed || typeof sessionId !== "string") return;
+    if (failure === "usage-limit") this.limited(sessionId, detail).catch(this.onError);
+    // A turn that finished normally ends the limit: the next one notifies again.
+    else if (["Stop", "turn/completed"].includes(event)) this.limits.delete(sessionId);
     try {
       if (turnStarts.has(event) && this.notifications.deviceCount?.() > 0)
         this.transition(`activity:${sessionId}`, "working");
@@ -321,6 +358,11 @@ export class OperationsEvents {
     }
     for (const run of this.pipelines.store.all()) this.pipeline(run);
     await this.agentApprovals.poll();
+    try {
+      await this.releaseFailures?.poll();
+    } catch (error) {
+      this.onError(error);
+    }
   }
   /** A CLI reported that it waits for the owner, outside AgentPier's own requests. */
   async waiting(session, state, source) {

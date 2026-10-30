@@ -24,6 +24,10 @@ export const pushEventDefaults = Object.freeze({
   "agent-checkin": true,
   "agent-routine": true,
   "agent-hook-throttled": true,
+  "session-limited": true,
+  "session-resume-failed": true,
+  "update-available": true,
+  "update-failed": true,
   telegram: false,
 });
 export const pushEvents = Object.keys(pushEventDefaults);

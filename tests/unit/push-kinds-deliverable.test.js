@@ -61,6 +61,10 @@ const events = {
   "telegram-revocation": [{ assistantId: "a1" }, {}],
   "github-token": [{}],
   "disk-space": [{}],
+  "session-limited": [{ sessionId: "s1", preview: "You've hit your limit · resets 4pm" }],
+  "session-resume-failed": [{ sessionId: "s1" }],
+  "update-available": [{ label: "2.13.0" }],
+  "update-failed": [{}],
   test: [{}],
 };
 
@@ -113,4 +117,38 @@ test("agent chat notices collapse by their chat's tag", () => {
   const options = worker.options(payload);
   assert.equal(options.tag, "chat:c1");
   assert.equal(options.data.group, "chat:c1");
+});
+
+test("update notices open the updates and replace each other; session notices their chat", () => {
+  for (const kind of ["update-available", "update-failed"]) {
+    const payload = buildPayload(
+      pushEvent({ kind, eventId: "u1" }),
+      defaultPreferences(),
+    );
+    assert.equal(payload.link, "/settings/updates");
+    assert.equal(payload.tag, "updates");
+  }
+  for (const kind of ["session-limited", "session-resume-failed"]) {
+    const payload = buildPayload(
+      pushEvent({ kind, eventId: "e1", sessionId: "s1" }),
+      defaultPreferences(),
+    );
+    assert.equal(payload.link, "/sessions/s1/chat");
+    assert.equal(payload.tag, "session:s1");
+  }
+  // The limit message (with its reset time) shows only at the preview level.
+  const limited = pushEvent({
+    kind: "session-limited",
+    eventId: "e1",
+    sessionId: "s1",
+    preview: "You've hit your limit · resets 4pm",
+  });
+  assert.equal(
+    buildPayload(limited, { ...defaultPreferences(), level: "label" }).preview,
+    undefined,
+  );
+  assert.equal(
+    buildPayload(limited, { ...defaultPreferences(), level: "preview" }).preview,
+    "You've hit your limit · resets 4pm",
+  );
 });

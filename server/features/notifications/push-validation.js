@@ -75,6 +75,14 @@ export const pushKinds = [
   "github-token",
   // Free space on the data directory's volume fell below 10 %.
   "disk-space",
+  // A session's CLI hit its rate limit or usage quota.
+  "session-limited",
+  // Resuming a session after its tmux server was lost failed.
+  "session-resume-failed",
+  // An update check found a newer release on the owner's channel.
+  "update-available",
+  // Staging, activating or rolling back a release failed.
+  "update-failed",
   "test",
 ];
 export const inboxItemTypes = ["question", "approval", "gate", "action", "team"];
@@ -100,6 +108,15 @@ const agentKinds = [
   "agent-approval",
 ];
 
+// Kinds about no session, run or agent.
+const idlessKinds = [
+  "test",
+  "github-token",
+  "disk-space",
+  "update-available",
+  "update-failed",
+];
+
 /** The identifiers of an event; any other field of the input is dropped. */
 export function pushPayload(input) {
   if (!pushKinds.includes(input?.kind)) throw problem("Invalid notification kind.");
@@ -112,7 +129,7 @@ export function pushPayload(input) {
     // The chat it was written to; the notice opens it.
     if (input.conversationId !== undefined)
       payload.conversationId = pushId(input.conversationId);
-  } else if (!["test", "github-token", "disk-space"].includes(input.kind))
+  } else if (!idlessKinds.includes(input.kind))
     payload.sessionId = pushId(input.sessionId);
   return payload;
 }
@@ -163,7 +180,7 @@ export function pushEvent(input) {
 }
 
 const linkPattern =
-  /^\/(?:|inbox(?:\/(?:question|approval|gate|action|team)\/[A-Za-z0-9_-]{1,120})?|sessions\/[A-Za-z0-9_-]{1,120}\/chat|pipelines\/runs\/[A-Za-z0-9_-]{1,120}|agents(?:\/[A-Za-z0-9_-]{1,120}\/(?:settings|chats\/[A-Za-z0-9_-]{1,120}))?|connections\?section=github|settings\/(?:github|notifications))$/;
+  /^\/(?:|inbox(?:\/(?:question|approval|gate|action|team)\/[A-Za-z0-9_-]{1,120})?|sessions\/[A-Za-z0-9_-]{1,120}\/chat|pipelines\/runs\/[A-Za-z0-9_-]{1,120}|agents(?:\/[A-Za-z0-9_-]{1,120}\/(?:settings|chats\/[A-Za-z0-9_-]{1,120}))?|connections\?section=github|settings\/(?:github|notifications|updates))$/;
 
 const messageKeys = [
   "v",

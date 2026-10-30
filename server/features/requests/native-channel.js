@@ -99,10 +99,17 @@ export class NativeRequestChannel {
     this.pending.set(key, { request, deliver, status: "pending" });
     if (this.connected) send(this.socket, { type: "publish", key, request });
   }
-  /** A hint that the session's history changed; lost while disconnected. */
-  activity(event) {
+  /**
+   * A hint that the session's history changed; lost while disconnected. A turn that
+   * failed at the usage limit says so (`failure`, with the CLI's message as `detail`).
+   */
+  activity(event, { failure, detail } = {}) {
     if (this.connected)
-      send(this.socket, { type: "activity", ...(event ? { event } : {}) });
+      send(this.socket, {
+        type: "activity",
+        ...(event ? { event } : {}),
+        ...(failure ? { failure, ...(detail ? { detail } : {}) } : {}),
+      });
   }
   /** Append reply text to run `runId` ({thread, turn} label it). */
   streamDelta(runId, delta, meta = {}) {

@@ -70,7 +70,12 @@ export const notificationCopy = {
     },
   },
   eventsGroup: "Ereignisse",
-  eventGroups: { waiting: "Wartet auf dich", finished: "Fertig", agents: "Agenten" },
+  eventGroups: {
+    waiting: "Wartet auf dich",
+    finished: "Fertig",
+    agents: "Agenten",
+    problems: "Probleme und Updates",
+  },
   events: {
     question: "Rückfrage einer CLI",
     permission: "Freigabe für eine CLI",
@@ -85,6 +90,10 @@ export const notificationCopy = {
     "agent-checkin": "Agent meldet sich",
     "agent-routine": "Routine- oder Hook-Ergebnis",
     "agent-hook-throttled": "Hook-Limit erreicht",
+    "session-limited": "Session hat ihr Nutzungslimit erreicht",
+    "session-resume-failed": "Session konnte nicht fortgesetzt werden",
+    "update-available": "Update verfügbar",
+    "update-failed": "Update fehlgeschlagen",
     telegram: "Auch was Telegram schon zugestellt hat",
   },
   telegramSub:

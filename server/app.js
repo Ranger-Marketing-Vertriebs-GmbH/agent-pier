@@ -9,6 +9,7 @@ import { SessionMcp } from "./features/mcp/session-integration.js";
 import { SessionReload } from "./features/sessions/session-reload.js";
 import { reloadChanged } from "./features/sessions/live-reload-topic.js";
 import { SessionAutoResume } from "./features/sessions/session-auto-resume.js";
+import { ReleaseFailureEvents } from "./application/release-events.js";
 import { secretsRoutes } from "./http/routes/secrets.js";
 import { mailRoutes } from "./http/routes/mail.js";
 import { sshRoutes } from "./http/routes/ssh.js";
@@ -156,6 +157,8 @@ export async function createApplication(config) {
   services.autoResume = new SessionAutoResume({
     services,
     enabled: () => services.preferences.get().autoResumeInterrupted,
+    onFailed: (session, interruption) =>
+      services.operationsEvents?.resumeFailed(session, interruption),
   });
   Object.assign(services, await createPipelineServices(services));
   services.projectRebind.definitions = services.pipelineDefinitions;
@@ -170,6 +173,11 @@ export async function createApplication(config) {
     ),
   );
   services.operationsEvents = new OperationsEvents(services);
+  // Failed release jobs notify the owner once (release-events.js).
+  services.operationsEvents.releaseFailures = new ReleaseFailureEvents({
+    dataDir: config.dataDir,
+    notifications: services.notifications,
+  });
   services.events.current = services.operationsEvents;
   await services.operationsEvents.poll();
   const instanceId = randomUUID();

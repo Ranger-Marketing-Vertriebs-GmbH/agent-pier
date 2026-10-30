@@ -6,6 +6,7 @@ import { rateLimit } from "express-rate-limit";
 import { pipeline } from "node:stream/promises";
 import { problem } from "../../lib/storage.js";
 import { releaseVersion } from "../../features/operations/release-archive.js";
+import { updateAvailable } from "../../application/release-events.js";
 function fields(body, names) {
   if (
     !body ||
@@ -16,7 +17,7 @@ function fields(body, names) {
     throw problem(serverMessages.operations.invalidOptions);
   return body;
 }
-export function operationsRoutes({ operations, releaseMigration }) {
+export function operationsRoutes({ operations, releaseMigration, notifications }) {
   const router = Router(),
     root = "/operations";
   router.get(`${root}/imported-history/agentbus`, (_req, res) =>
@@ -215,9 +216,12 @@ export function operationsRoutes({ operations, releaseMigration }) {
     releaseMigration.cancel(releaseVersion(req.params.version));
     res.status(204).end();
   });
-  router.post(`${root}/releases/check`, async (_req, res) =>
-    res.json({ plan: await operations.releases.check() }),
-  );
+  router.post(`${root}/releases/check`, async (_req, res) => {
+    const plan = await operations.releases.check();
+    // A newer version notifies the owner's devices once (release-events.js).
+    if (notifications) updateAvailable(notifications, plan).catch(() => {});
+    res.json({ plan });
+  });
   router.post(`${root}/releases/stage`, (req, res) =>
     res.status(202).json({ job: operations.stage(fields(req.body, ["version"])) }),
   );

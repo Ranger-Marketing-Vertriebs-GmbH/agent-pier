@@ -20,6 +20,10 @@ export const eventGroups = [
     ["session-completed", "session-ended", "pipeline-completed", "pipeline-failed"],
   ],
   ["agents", ["agent-checkin", "agent-routine", "agent-hook-throttled", "telegram"]],
+  [
+    "problems",
+    ["session-limited", "session-resume-failed", "update-available", "update-failed"],
+  ],
 ];
 // A restricted user's devices get only her agents' notices (no sessions, pipelines
 // or system notices: push-content.js sends those to the owner alone). Hooks are the

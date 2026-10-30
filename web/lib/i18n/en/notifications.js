@@ -69,7 +69,12 @@ export const notificationCopy = {
     },
   },
   eventsGroup: "Events",
-  eventGroups: { waiting: "Waiting for you", finished: "Finished", agents: "Agents" },
+  eventGroups: {
+    waiting: "Waiting for you",
+    finished: "Finished",
+    agents: "Agents",
+    problems: "Problems and updates",
+  },
   events: {
     question: "Question from a CLI",
     permission: "Approval for a CLI",
@@ -83,6 +88,10 @@ export const notificationCopy = {
     "agent-checkin": "Agent check-in",
     "agent-routine": "Routine or hook result",
     "agent-hook-throttled": "Hook limit reached",
+    "session-limited": "Session reached its usage limit",
+    "session-resume-failed": "Session could not be resumed",
+    "update-available": "Update available",
+    "update-failed": "Update failed",
     telegram: "Also what Telegram delivered",
   },
   telegramSub:

@@ -45,8 +45,15 @@ for (const size of ["desktop", "phone"])
       .click();
     const dialog = page.getByRole("dialog", { name: "Notifications on Office Mac" });
     await expect(dialog).toBeVisible();
-    // New and older devices start at the event type only.
+    // A device stored without preferences keeps the event type only.
     await expect(dialog.getByRole("radio", { name: "Event type only" })).toBeChecked();
+    for (const name of [
+      "Session reached its usage limit",
+      "Session could not be resumed",
+      "Update available",
+      "Update failed",
+    ])
+      await expect(dialog.getByRole("checkbox", { name })).toBeChecked();
     await expect(dialog.getByRole("checkbox", { name: "Pipeline failed" })).toBeChecked();
     await expect(
       dialog.getByRole("checkbox", { name: "Pipeline completed" }),
