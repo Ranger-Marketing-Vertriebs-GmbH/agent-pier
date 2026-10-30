@@ -239,6 +239,36 @@ the code of its last failure); it is never restored and never runs. **Delete
 permanently** there retries it after the name confirmation, and every start of the
 agent service tries again.
 
+### Restart the main chat
+
+**Danger zone › Restart main chat** in **Agent settings › Overview** starts the main
+chat of every person who uses the agent over (you and each user of a shared agent). Only
+the owner sees it, on agents that are not team members and not archived. The
+confirmation lists what goes (the conversation history and summaries of each main
+chat), what stays (memory, files, settings, routines and reminders; routines and
+reminders are not checked), that nothing is saved beforehand, how many temporary members
+end and how many permanent members start fresh, and the work that will be cancelled, as
+counts per kind. Tick **I understand this cannot be undone** to enable **Restart main
+chats and stop work**.
+
+The restart:
+
+- stops all work of the agent and its direct members: running turns in every chat
+  (the other chats stay), temporary members, pending team proposals, open lead and peer
+  requests, approvals (declined with `MAIN_CHAT_RESTARTED`), coding sessions and
+  workflows, and work goals. An SSH, SFTP or mail action that is already executing
+  finishes; its follow-up into the archived chat is dropped;
+- archives each person's current main chat (readable under archived chats; the native
+  session is not deleted) and opens a fresh session as the new main chat with a quiet
+  note that the owner restarted it;
+- gives permanent members a fresh chat the same way, without ending them;
+- moves Telegram, routines (also those a lead set for a member) and check-ins to the
+  new chats. Memory is untouched;
+- records `assistant.main-chat-restarted` in the activity log (counts only, `partial`
+  when a step failed). Concurrent restarts run one after the other.
+
+Over the API: `GET` and `POST /api/assistants/:id/main-chat-restart`, owner only.
+
 ### Message times
 
 ![Agent chat with message times next to the speaker](screenshots/agent-chat-timestamps.png)
@@ -277,7 +307,9 @@ proposed and what waits for your decision, see
 that opens it; **Chat attachments** ([attachments](#attachments)); for a team member
 the member group (where it came from, its history, **Stop member**, **Keep as permanent
 agent**); and **Manage** with **Duplicate**, **Archive** or **Restore** and, once
-archived, **Delete permanently**.
+archived, **Delete permanently**. At the end sits **Danger zone** with **Restart main
+chat** ([below](#restart-the-main-chat)); only you see it, and not on team members or
+archived agents.
 On a phone the agent service summary sits here too.
 
 <a id="profile"></a>
@@ -725,7 +757,9 @@ message** behind **+** in the composer allows one team for one request; **Allow 
 without asking each time** allows them in general. Temporary members get their own
 chat, finish with the task and can be kept with **Keep as permanent agent**.
 Permanent members stay under their lead in the sidebar, sorted into the lead's
-[groups](#groups-of-permanent-members) if it has any.
+[groups](#groups-of-permanent-members) if it has any. When you
+[restart the lead's main chat](#restart-the-main-chat), temporary members end and
+permanent members start fresh chats.
 
 A lead can base a member on an Agency agent: it searches the catalog with its team
 tools and names an entry as the member's template. The member then gets that
@@ -1156,7 +1190,8 @@ done: <title>** with a **Stop** button under the chat header.
 
 All three live in the agent's **Automation** tab and need no Telegram. Their
 results go to the agent's main chat (the first chat in AgentPier, the same one a
-paired Telegram chat writes into, whatever other chats you started) with a push notification that opens it. With a paired
+paired Telegram chat writes into, whatever other chats you started; after
+[Restart main chat](#restart-the-main-chat) they follow the new main chat) with a push notification that opens it. With a paired
 Telegram chat, **Also send to Telegram** sends a reminder, routine or the check-ins
 there too; it is a switch per reminder and routine (also when creating one) and one
 for all check-ins. You can also ask the agent in any of your chats, in AgentPier as
@@ -1358,7 +1393,8 @@ the others newest first, and **Archived chats** at the bottom. **New chat** next
 title starts an empty chat right away; the earlier one stays in the list. The ⋯ of a
 row offers **Rename**, **Archive** and **Delete** (**Delete now** removes the chat and
 its transcript). Your main chat is the one reminders, routines, check-ins and Telegram
-deliver into: it is renamed only. A new chat is first named after your first message;
+deliver into: it is renamed only, and archived and replaced only by
+[Restart main chat](#restart-the-main-chat). A new chat is first named after your first message;
 once the agent has answered it, the agent's own model gives it a short title of three to
 six words in your language. Your own name always wins, and clearing it brings the
 generated title back. A chat stays usable however long it sits idle; only
