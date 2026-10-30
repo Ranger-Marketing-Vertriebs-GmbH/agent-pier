@@ -68,7 +68,7 @@ The day is counted from the input's or turn's arrival and from the action's last
 change. The card says what to do and **Open in context** opens the place; the inbox
 itself changes nothing. The item leaves as soon as it is resolved there, like every
 other item, and its address then shows **No longer waiting**. A user's own chats and
-her Telegram channel stay hers and never appear in the owner's inbox.
+Telegram channel stay with that user and never appear in the owner's inbox.
 
 These items send no push notification. They are reminders of work that already
 waits elsewhere, not new decisions, and several can appear at once after a day; a

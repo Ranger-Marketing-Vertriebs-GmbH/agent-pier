@@ -44,7 +44,7 @@ function agentOf(s, assistantId) {
   const agent = lookup(() => s.assistants.store.getAssistant(assistantId));
   return { id: assistantId, name: typeof agent?.name === "string" ? agent.name : "" };
 }
-// The chat to open: the owner's own chat of the agent; a user's chat is hers alone,
+// The chat to open: the owner's own chat of the agent; a user's chat is theirs alone,
 // so the owner gets the agent's settings instead.
 function chatLink(s, assistantId, conversationId) {
   if (!assistantId) return "/agents";

@@ -35,7 +35,7 @@ const segment = (value) => encodeURIComponent(String(value));
  * Agent work that stopped moving for a day: Telegram inputs still open, chat turns of
  * unknown outcome nobody reviewed and agent actions without progress. They would block
  * an OpenClaw update; listed here they are found before it. A user's own chats and
- * channel are hers alone, never the owner's.
+ * channel belong to that user alone, never the owner.
  */
 function unresolvedSources({ services, assistants, agents, conversations, users, now }) {
   const old = (time) => {
@@ -48,7 +48,7 @@ function unresolvedSources({ services, assistants, agents, conversations, users,
       const c = services.assistantChannels;
       return (
         (c?.store.list() || [])
-          // A user's channel sends to her own chat (owner-privacy.js).
+          // A user's channel sends to that user's own chat (owner-privacy.js).
           .filter((ch) => !users.has(ch.conversationId))
           .flatMap((ch) =>
             c.ledger
