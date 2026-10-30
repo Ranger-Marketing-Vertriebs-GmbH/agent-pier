@@ -78,6 +78,12 @@ export default function ProjectsPage({
     [state.sessions],
   );
   const merging = projects.find((item) => item.id === mergingId);
+  const mergeOlder = merging?.olderDuplicates?.[0];
+  // A live reload may drop the older entry while its dialog is open: the dialog closes
+  // and focus returns to its opener.
+  useEffect(() => {
+    if (dialog === "merge" && !mergeOlder) setDialog(null);
+  }, [dialog, mergeOlder]);
   const ready = !hub.loading;
   const canonical = resolveProjectId(projects, route.projectId);
   const project = projects.find((item) => item.id === canonical);
@@ -180,7 +186,7 @@ export default function ProjectsPage({
       home={home}
       attention={projectAttention(hub.attention, item.memoryId)}
       groups={hub.groups}
-      running={runningPaths.has(item.path)}
+      running={runningPaths.has(normalizePath(item.path))}
       onMerge={(from) => merge(item, from)}
       notices={mobile ? notices : null}
       onBack={() => choose("")}
@@ -208,10 +214,10 @@ export default function ProjectsPage({
           }}
         />
       )}
-      {dialog === "merge" && merging?.olderDuplicates?.[0] && (
+      {dialog === "merge" && mergeOlder && (
         <MergeDuplicateDialog
           project={merging}
-          older={merging.olderDuplicates[0]}
+          older={mergeOlder}
           close={() => setDialog(null)}
           merged={() => {
             setDialog(null);
@@ -308,7 +314,7 @@ export default function ProjectsPage({
               selectedId={selectedId}
               onSelect={choose}
               attentionFor={(item) => projectAttention(hub.attention, item.memoryId)}
-              isRunning={(item) => runningPaths.has(item.path)}
+              isRunning={(item) => runningPaths.has(normalizePath(item.path))}
               onMerge={merge}
             />
           }

@@ -112,6 +112,47 @@ test.describe("phone dialogs", () => {
       await page.keyboard.press("Escape");
       await expect(dialog).toBeHidden();
     }
+    // A row's ⋯ menu opens its items as a sheet on phones; Cancel returns focus.
+    const more = page.getByRole("button", { name: "Actions for Sample" });
+    await more.click();
+    const sheet = page.getByRole("dialog", { name: "Sample" });
+    await expect(sheet.getByText("A sheet on phones, a menu on desktop")).toBeVisible();
+    await sheet.getByRole("menuitemradio", { name: "Option B" }).click();
+    await expect(sheet).toBeHidden();
+    await more.click();
+    await expect(
+      page.getByRole("dialog", { name: "Sample" }).getByRole("menuitemradio", {
+        name: "Option B",
+      }),
+    ).toHaveAttribute("aria-checked", "true");
+    await page
+      .getByRole("dialog", { name: "Sample" })
+      .getByRole("button", { name: "Cancel", exact: true })
+      .click();
+    await expect(more).toBeFocused();
+  });
+});
+
+test.describe("desktop row menu", () => {
+  test.use({ locale: "en-GB" });
+
+  test("the gallery's row menu opens as a popover with radio items", async ({ page }) => {
+    await page.goto("/settings/components");
+    const more = page.getByRole("button", { name: "Actions for Sample" });
+    // The popover closes on scroll; the scroll event of bringing the button into view
+    // arrives a frame later, so it must pass before the menu opens.
+    await more.scrollIntoViewIfNeeded();
+    await page.evaluate(
+      () =>
+        new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))),
+    );
+    await more.click();
+    const menu = page.getByRole("menu", { name: "Actions for Sample" });
+    await expect(menu.getByRole("menuitemradio")).toHaveText(["Option A", "Option B"]);
+    await expect(menu.getByRole("menuitem")).toHaveText(["Edit", "Delete"]);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
   });
 });
 

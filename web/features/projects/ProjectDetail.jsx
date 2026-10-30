@@ -23,7 +23,7 @@ import ProjectKnowledge from "./ProjectKnowledge.jsx";
 import ProjectMenuButton from "./ProjectMenuButton.jsx";
 import ProjectOverview from "./ProjectOverview.jsx";
 import ProjectRuns from "./ProjectRuns.jsx";
-import { groupNameMessage, projectMenuItems } from "./project-menu.js";
+import { groupNameMessage, projectMenuItems, projectMenuSheet } from "./project-menu.js";
 import { projectSessions, remoteDisplay, remoteShort } from "./project-presentation.js";
 import { projectsRoute } from "./routes.js";
 
@@ -212,12 +212,7 @@ export default function ProjectDetail({
       <ProjectMenuButton
         className="project-detail-more"
         label={projectGroupsCopy.projectActions(project.name)}
-        sheet={{
-          title: project.name,
-          subtitle: projectGroupsCopy.currentGroup(
-            group?.name ?? projectGroupsCopy.ungrouped,
-          ),
-        }}
+        sheet={projectMenuSheet(project, group)}
         items={projectMenuItems({
           groups: groups.document.groups,
           current: group,
