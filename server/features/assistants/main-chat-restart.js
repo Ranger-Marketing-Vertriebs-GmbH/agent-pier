@@ -1,7 +1,12 @@
 import { assistantProblem } from "./assistant-validation.js";
 import { mainConversation } from "./routine-targets.js";
-import { restartScope, runningWork, stopWork } from "./restart-work.js";
-import { freshMainChat, freshMemberChat, repointDeliveries } from "./main-chat-swap.js";
+import { cancelTurns, restartScope, runningWork, stopWork } from "./restart-work.js";
+import {
+  freshMainChat,
+  freshMemberChat,
+  moveChannels,
+  resyncDeliveries,
+} from "./main-chat-swap.js";
 
 // Only a lead that is not archived restarts: a team member's chat is its team's.
 function restartable(service, assistantId) {
@@ -42,59 +47,166 @@ export function restartPreview(service, assistantId) {
   };
 }
 
+// The restart of each agent in flight, per service: a second one waits for the first.
+const inFlight = new WeakMap();
+
 /**
  * Restart main chat, the owner's action: every person's main chat of the lead is
  * archived and replaced by a fresh one with its own native session (main-chat-swap.js),
  * and so is the chat of each permanent member, which keeps running (temporary members
- * end). Telegram, routines and check-ins then follow the new chats. All work of the
- * lead and its members stops first (restart-work.js), before and outside the swap's
- * admission: admission is not re-entrant, and the stop steps abort runs and reconcile
- * with the Gateway, which must never hold or wait on it. Each person keeps
- * exactly one unarchived main chat even when a swap fails halfway; deliveries are
- * re-pointed then too, and a second restart swaps again.
+ * end). Telegram, routines and check-ins then follow the new chats. Restarts of one
+ * agent run one after the other.
  */
-export async function restartMainChats(service, assistantId) {
+export function restartMainChats(service, assistantId) {
+  const queue = inFlight.get(service) ?? new Map();
+  inFlight.set(service, queue);
+  const run = (queue.get(assistantId) ?? Promise.resolve()).then(() =>
+    restartOnce(service, assistantId),
+  );
+  const settled = run.then(
+    () => {},
+    () => {},
+  );
+  queue.set(assistantId, settled);
+  settled.then(() => {
+    if (queue.get(assistantId) === settled) queue.delete(assistantId);
+  });
+  return run;
+}
+
+/**
+ * One restart. All work of the lead and its members stops first (restart-work.js),
+ * before and outside admission: admission is not re-entrant, and the stop steps abort
+ * runs and reconcile with the Gateway, which must never hold or wait on it. The swaps
+ * and the channel moves run in one admission; each person keeps exactly one
+ * unarchived main chat even when a swap fails halfway. Once a swap has committed,
+ * turns that slipped into an archived chat are cancelled and routines and check-ins
+ * resync, outside admission. A refused restart touches nothing.
+ */
+async function restartOnce(service, assistantId) {
   restartable(service, assistantId);
   service.requireReady();
   const scope = restartScope(service, assistantId);
   const work = await stopWork(service, assistantId, scope);
-  // A member's chat is restarted only while it has one; one still provisioning has none.
-  const kept = scope.permanent.filter((m) => m.conversationId);
-  let result;
+  // Read after the stop; a member still provisioning has no chat to restart.
+  const kept = restartScope(service, assistantId).permanent.filter(
+    (m) => m.conversationId,
+  );
+  const agents = [assistantId, ...kept.map((m) => m.assistantId)];
+  const done = { restartedAt: null, chats: [], restarted: [], archived: new Set() };
+  let failure;
   try {
-    result = await service.admit(async () => {
+    await service.admit(async () => {
       restartable(service, assistantId);
       service.requireReady();
-      const restartedAt = new Date().toISOString();
-      const chats = [];
-      for (const conversation of mainChats(service, assistantId)) {
-        const next = await freshMainChat(service, conversation);
-        chats.push({
-          userId: conversation.userId ?? null,
-          from: conversation.id,
-          to: next.id,
-        });
+      done.restartedAt = new Date().toISOString();
+      try {
+        await swapAll(service, assistantId, kept, done);
+      } finally {
+        if (done.archived.size) moveAll(service, agents);
       }
-      const restarted = [];
-      for (const member of kept) {
-        await freshMemberChat(service, service.teams.store.member(member.id));
-        restarted.push(member.id);
-      }
-      const ended = scope.temporary.map((m) => m.id);
-      return { restartedAt, chats, members: { ended, restarted }, work };
     });
   } catch (error) {
-    await repoint(service, assistantId, kept).catch(() => {});
-    throw error;
+    failure = error;
   } finally {
     service.changed();
   }
-  await repoint(service, assistantId, kept);
+  if (done.archived.size) await settle(service, agents, done.archived);
+  if (failure) throw failure;
+  const result = {
+    restartedAt: done.restartedAt,
+    chats: done.chats,
+    members: { ended: scope.temporary.map((m) => m.id), restarted: done.restarted },
+    work,
+  };
+  audit(service, assistantId, result);
   return result;
 }
 
-// Deliveries of the lead and of each restarted member follow their new chats.
-async function repoint(service, assistantId, members) {
-  await repointDeliveries(service, assistantId);
-  for (const member of members) await repointDeliveries(service, member.assistantId);
+/**
+ * Swaps each person's main chat, then each kept member's, recording what committed in
+ * `done`. A swap that failed before committing stops the rest; one that committed and
+ * failed after (its subscribe) does not, and its error is thrown at the end.
+ */
+async function swapAll(service, assistantId, kept, done) {
+  let failure;
+  const committed = async (swap) => {
+    try {
+      return await swap();
+    } catch (error) {
+      if (!error?.committed) throw error;
+      failure ??= error;
+      return error.committed;
+    }
+  };
+  for (const conversation of mainChats(service, assistantId)) {
+    const next = await committed(() => freshMainChat(service, conversation));
+    done.archived.add(conversation.id);
+    done.chats.push({
+      userId: conversation.userId ?? null,
+      from: conversation.id,
+      to: next.id,
+    });
+  }
+  for (const { id } of kept) {
+    const member = service.teams.store.member(id);
+    let chat;
+    try {
+      chat = service.store.getConversation(member.conversationId);
+    } catch {
+      continue; // Its chat went away: nothing to restart.
+    }
+    await committed(() => freshMemberChat(service, member));
+    done.archived.add(chat.id);
+    done.restarted.push(id);
+  }
+  if (failure) throw failure;
+}
+
+// Telegram follows the new chats, each agent on its own.
+function moveAll(service, agents) {
+  for (const id of agents)
+    try {
+      moveChannels(service, id);
+    } catch (error) {
+      console.error("Main chat restart: Telegram was not moved:", error?.message);
+    }
+}
+
+/**
+ * After a committed swap: turns that started between the stop and the swap ran on
+ * in the chats just archived and are cancelled as stopWork cancels; routines and
+ * check-ins resync, each agent on its own. Neither fails the restart: the chats are
+ * already swapped, and the Gateway's ready and reconcile repair the jobs.
+ */
+async function settle(service, agents, archived) {
+  await cancelTurns(service, archived).catch((error) =>
+    console.error("Main chat restart: a late turn was not cancelled:", error?.message),
+  );
+  for (const id of agents)
+    await resyncDeliveries(service, id).catch((error) =>
+      console.error("Main chat restart: deliveries did not resync:", error?.message),
+    );
+}
+
+function audit(service, assistantId, result) {
+  try {
+    service.audit?.append({
+      action: "assistant.main_chat_restarted",
+      resourceType: "assistant",
+      resourceId: assistantId,
+      outcome: "success",
+      source: "user",
+      details: {
+        chats: result.chats.length,
+        members: {
+          ended: result.members.ended.length,
+          restarted: result.members.restarted.length,
+        },
+        work: result.work,
+      },
+    });
+  } catch (error) {
+    console.error("Main chat restart audit failed:", error?.message);
+  }
 }
