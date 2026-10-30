@@ -8,7 +8,7 @@ export const projectGroups = Object.freeze({
   unknownGroup: "Diese Gruppe gibt es nicht (mehr).",
   invalidAssignment:
     "Ein Projekt lässt sich nur über seinen absoluten Pfad einer vorhandenen Gruppe zuordnen.",
-  tooMany: "Es sind höchstens 200 Gruppen und 5000 Zuordnungen möglich.",
+  tooMany: "Es sind höchstens 200 Gruppen und 500 Zuordnungen möglich.",
   conflict:
     "Die Gruppen wurden inzwischen an anderer Stelle geändert. Die aktuelle Fassung wird geladen.",
 });

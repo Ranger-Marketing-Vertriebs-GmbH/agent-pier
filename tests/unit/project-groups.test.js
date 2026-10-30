@@ -106,23 +106,22 @@ test("replace creates groups with server ids and bumps the version", async (t) =
   );
 });
 
-test("replace renames, reorders, assigns and normalises paths", (t) => {
-  return store(t).then(({ groups }) => {
-    const { groups: made } = groups.replace({
-      version: 0,
-      groups: [{ name: "A" }, { name: "B" }],
-      assignments: {},
-    });
-    const [a, b] = made;
-    const next = groups.replace({
-      version: 1,
-      groups: [{ id: b.id, name: "B2" }, a],
-      assignments: { "/work/x/": a.id, "/work/y": b.id },
-    });
-    assert.deepEqual(next.groups, [{ id: b.id, name: "B2" }, a]);
-    assert.deepEqual(next.assignments, { "/work/x": a.id, "/work/y": b.id });
-    assert.equal(next.version, 2);
+test("replace renames, reorders, assigns and normalises paths", async (t) => {
+  const { groups } = await store(t);
+  const { groups: made } = groups.replace({
+    version: 0,
+    groups: [{ name: "A" }, { name: "B" }],
+    assignments: {},
   });
+  const [a, b] = made;
+  const next = groups.replace({
+    version: 1,
+    groups: [{ id: b.id, name: "B2" }, a],
+    assignments: { "/work/x/": a.id, "/work/y": b.id },
+  });
+  assert.deepEqual(next.groups, [{ id: b.id, name: "B2" }, a]);
+  assert.deepEqual(next.assignments, { "/work/x": a.id, "/work/y": b.id });
+  assert.equal(next.version, 2);
 });
 
 test("replace refuses invalid names and duplicate names", async (t) => {

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { messageIdentity } from "../../lib/i18n/message-identity.js";
 
 /**
  * The owner's project groups of the projects page. Every answer is the whole current
@@ -17,6 +18,7 @@ export function projectGroupsRoutes({ projectGroups }) {
         ...projectGroups.get(),
         code: error.code,
         error: error.message,
+        ...messageIdentity(error.message),
       });
     }
   });

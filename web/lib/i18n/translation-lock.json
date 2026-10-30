@@ -5476,6 +5476,7 @@
   "operations:backupCopy.descriptions.pipeline-definitions": "de:461f0fda1a62 en:2fbf0f29ef80",
   "operations:backupCopy.descriptions.pipeline-history": "de:b690046b6d76 en:ed22e824a730",
   "operations:backupCopy.descriptions.preferences": "de:f5750a5d7231 en:74a883a037bc",
+  "operations:backupCopy.descriptions.project-groups": "de:566e84be0128 en:8f38accde3aa",
   "operations:backupCopy.descriptions.provider-connections": "de:9bafb0e01f36 en:4d2ea388a5e7",
   "operations:backupCopy.descriptions.repositories": "de:582265ee8ebc en:fa594dad1448",
   "operations:backupCopy.descriptions.sealed-agent-browser-profiles": "de:346ad9c0e86a en:7ef65793f938",

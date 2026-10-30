@@ -8,7 +8,7 @@ export const projectGroups = Object.freeze({
   unknownGroup: "This group does not exist (any more).",
   invalidAssignment:
     "A project can only be assigned to an existing group by its absolute path.",
-  tooMany: "At most 200 groups and 5000 assignments are possible.",
+  tooMany: "At most 200 groups and 500 assignments are possible.",
   conflict:
     "The groups were changed elsewhere in the meantime. The current version is loaded.",
 });

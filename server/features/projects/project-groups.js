@@ -5,7 +5,7 @@ import { readJSON, writePrivate } from "../../lib/storage.js";
 
 export const MAX_GROUP_NAME = 60;
 export const MAX_GROUPS = 200;
-export const MAX_ASSIGNMENTS = 5000;
+export const MAX_ASSIGNMENTS = 500;
 
 const CODES = Object.freeze({
   PROJECT_GROUP_INVALID: ["invalidDocument", 400],

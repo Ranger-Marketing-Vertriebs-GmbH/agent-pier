@@ -317,6 +317,7 @@ export const backupCopy = {
     accounts: "Account profiles",
     repositories: "Registered repositories",
     preferences: "Settings",
+    "project-groups": "Project groups",
     "pipeline-definitions": "Pipeline and profile definitions",
     memory: "Project knowledge",
     "pipeline-history": "Pipeline history (encrypted)",

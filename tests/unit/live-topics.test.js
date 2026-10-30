@@ -144,9 +144,10 @@ test("the operations and artifact topics name their routes at their former polls
     ["signal", null, 30000],
   );
   assert.equal(topicInfo("projects.changed:x"), null);
+  const groupsTopic = topicInfo("project-groups.changed");
   assert.deepEqual(
-    [topicInfo("project-groups.changed").mode, topicInfo("project-groups.changed").path],
-    ["signal", null],
+    [groupsTopic.mode, groupsTopic.path, groupsTopic.interval],
+    ["signal", null, 30000],
   );
 });
 
