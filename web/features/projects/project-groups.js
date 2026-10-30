@@ -1,5 +1,5 @@
 import { remoteShort } from "./project-presentation.js";
-import { normalizePath } from "./useProjectHub.js";
+import { normalizePath } from "./project-paths.js";
 
 export const PROJECT_VIEWS = Object.freeze(["groups", "origin", "list"]);
 

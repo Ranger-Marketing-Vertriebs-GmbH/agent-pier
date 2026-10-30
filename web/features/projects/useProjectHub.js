@@ -13,14 +13,9 @@ import useLiveTopic, {
 } from "../../lib/live/useLiveTopic.js";
 import { AGENTBUS_SAFETY_MS } from "../agentbus/useAgentBusMessages.js";
 import { getCloneOperation, subscribeToClone } from "../repositories/cloneStore.js";
+import { normalizePath } from "./project-paths.js";
 
-// Repositories, project knowledge and AgentBus each keep their own project ids.
-// The hub joins them by folder so one project stands for all three.
-export function normalizePath(value) {
-  const path = String(value || "");
-  const trimmed = path.replace(/\/+$/, "");
-  return trimmed || (path.startsWith("/") ? "/" : "");
-}
+export { normalizePath };
 
 const sortKey = (project) => project.name.toLocaleLowerCase();
 
