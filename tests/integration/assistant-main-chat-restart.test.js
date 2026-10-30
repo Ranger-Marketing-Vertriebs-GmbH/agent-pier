@@ -160,7 +160,7 @@ test("routines and check-ins move to the new session key", async (t) => {
   }
 });
 
-test("retry after a failed create finishes only the remaining people", async (t) => {
+test("a failed create leaves one main chat per person and a retry swaps again", async (t) => {
   const { f, gateway, agent, store } = await shared(t);
   const channels = f.application.assistantChannels.store;
   const ownerMain = [...mains(store, agent.id).get(null)][0];
@@ -210,4 +210,63 @@ test("an archived agent is refused", async (t) => {
   const record = service.store.getAssistant(agent.id);
   service.store.setArchived(agent.id, record.revision, new Date().toISOString());
   assert.equal((await restart(f, agent.id)).status, 409);
+});
+
+test("restart is recorded in the activity log", async (t) => {
+  const { f, agent, service } = await shared(t);
+  const res = await restart(f, agent.id);
+  assert.equal(res.status, 200, await res.clone().text());
+  const { events } = service.audit.list({
+    action: "assistant.main_chat_restarted",
+    resourceId: agent.id,
+  });
+  assert.equal(events.length, 1);
+  const [event] = events;
+  assert.equal(event.resourceType, "assistant");
+  assert.equal(event.outcome, "success");
+  assert.equal(event.source, "user");
+  assert.equal(event.details.chats, 3);
+  assert.deepEqual(event.details.members, { ended: 0, restarted: 0 });
+  assert.deepEqual(event.details.work, {
+    turns: 0,
+    teams: 0,
+    members: 0,
+    requests: 0,
+    coding: 0,
+    goals: 0,
+    approvals: 0,
+  });
+});
+
+test("two restarts in a row both succeed", async (t) => {
+  const { f, gateway, agent, store, service } = await shared(t);
+  // The first restart waits in its resync, outside admission; the second must not
+  // start swapping before the first has finished.
+  let release, reached;
+  const gate = new Promise((resolve) => (release = resolve));
+  const waiting = new Promise((resolve) => (reached = resolve));
+  const resync = service.reminders.heartbeats.resync.bind(service.reminders.heartbeats);
+  let first = true;
+  t.mock.method(service.reminders.heartbeats, "resync", async (id) => {
+    if (first) {
+      first = false;
+      reached();
+      await gate;
+    }
+    return resync(id);
+  });
+  const before = gateway.created.length;
+  const both = Promise.all([restart(f, agent.id), restart(f, agent.id)]);
+  await waiting;
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  assert.equal(gateway.created.length - before, 3);
+  release();
+  const responses = await both;
+  for (const res of responses) assert.equal(res.status, 200, await res.clone().text());
+  const [one, two] = await Promise.all(responses.map((res) => res.json()));
+  assert.deepEqual(
+    two.chats.map((c) => c.from).sort(),
+    one.chats.map((c) => c.to).sort(),
+  );
+  for (const [, ids] of mains(store, agent.id)) assert.equal(ids.length, 1);
 });

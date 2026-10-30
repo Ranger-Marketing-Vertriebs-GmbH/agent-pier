@@ -14,7 +14,8 @@ import { channelPerson, mainConversation } from "./routine-targets.js";
  * Replaces `conversation`, a person's main chat, with a fresh one and returns it. The
  * Gateway session comes first: a failing create leaves both chats as they were. The
  * old chat is archived and the new one saved in one transaction, so the person always
- * has exactly one unarchived main chat. Callers hold admission.
+ * has exactly one unarchived main chat. A subscribe that fails after that throws with
+ * the new chat as `committed`. Callers hold admission.
  */
 export function freshMainChat(service, conversation) {
   return swap(service, conversation, {
@@ -44,7 +45,7 @@ async function swap(service, conversation, owner, linked = () => {}) {
     { agentId: assistant.runtimeAgentId, label: `AgentPier ${assistant.id} main ${id}` },
     service.sessionCreate,
   ).catch((error) => {
-    throw error?.status ? error : assistantProblem("unavailable", 503);
+    throw unavailable(error, "create");
   });
   if (!created?.key) throw assistantProblem("unavailable", 503);
   const { store } = service;
@@ -69,21 +70,33 @@ async function swap(service, conversation, owner, linked = () => {}) {
     throw error;
   }
   service.feeds.end(conversation.id);
-  await client.call("sessions.messages.subscribe", { key: created.key });
+  // The note comes first: the swap has committed, whatever the subscribe does.
   service.memoryNotes.record({
     key: `main-restarted:${id}`,
     conversationId: id,
     reason: "main-restarted",
   });
+  try {
+    await client.call("sessions.messages.subscribe", { key: created.key });
+  } catch (error) {
+    throw Object.assign(unavailable(error, "subscribe"), { committed: next });
+  }
   return next;
+}
+
+// A Gateway failure without a status is unavailable, not a bad request; the
+// original is logged and kept as the cause.
+function unavailable(error, step) {
+  if (error?.status) return error;
+  console.error(`Main chat restart: session ${step} failed:`, error?.message);
+  return Object.assign(assistantProblem("unavailable", 503), { cause: error });
 }
 
 /**
  * Points every Telegram channel of the agent whose chat was archived at its person's
- * main chat, then resyncs routines and check-ins, which bind the main chat's session.
- * Idempotent; runs outside admission (both resyncs take it).
+ * main chat. Idempotent; callers hold admission, right after the swap.
  */
-export async function repointDeliveries(service, assistantId) {
+export function moveChannels(service, assistantId) {
   const channels = service.channels;
   for (const channel of channels?.store.list() || []) {
     if (channel.assistantId !== assistantId) continue;
@@ -99,6 +112,13 @@ export async function repointDeliveries(service, assistantId) {
     const main = mainConversation(service.store, assistantId, person);
     if (main) channels.store.moveConversation(channel.id, main.id);
   }
+}
+
+/**
+ * Resyncs the agent's routines and check-ins, which bind the main chat's session.
+ * Runs outside admission: both resyncs take it.
+ */
+export async function resyncDeliveries(service, assistantId) {
   await service.reminders?.routines?.resync(assistantId);
   await service.reminders?.heartbeats?.resync(assistantId);
 }

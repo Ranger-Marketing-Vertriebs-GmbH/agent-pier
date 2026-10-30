@@ -22,6 +22,7 @@ import { mailAuditDetails } from "./audit-mail-details.js";
 import { agentProjectAuditDetails } from "./audit-agent-project-details.js";
 import { notificationAuditDetails } from "./audit-notification-details.js";
 import { runtimeUpdateAuditDetails } from "./audit-runtime-update-details.js";
+import { restartAuditDetails } from "./audit-restart-details.js";
 const memberGrantKeys = new Set([
   "memory",
   "reminders",
@@ -518,6 +519,7 @@ export function auditEvent(input) {
   runtimeUpdateAuditDetails(details, event);
   // A push device removed without the owner (audit-notification-details.js).
   if (input.resourceType === "notification") notificationAuditDetails(details, event);
+  if (action === "assistant.main_chat_restarted") restartAuditDetails(details, event);
   userAuditDetails(input, event, auditId);
   return event;
 }
