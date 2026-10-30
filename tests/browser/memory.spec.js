@@ -7,6 +7,7 @@ import { runCountsAnswer } from "../helpers/run-counts.js";
 function hubRequest(path) {
   if (path === "/api/repositories") return { credentials: [], projects: [] };
   if (path === "/api/agentbus") return { version: "test", projects: [] };
+  if (path === "/api/project-groups") return { version: 0, groups: [], assignments: {} };
   if (path === "/api/pipeline-runs") return { runs: [], total: 0, page: 1, pageSize: 20 };
   if (path === "/api/pipeline-run-counts") return runCountsAnswer([]);
   return null;
@@ -251,6 +252,8 @@ async function unregisteredFixture(page) {
     else if (url.pathname === "/api/repositories")
       data = { credentials: [], projects: [repository] };
     else if (url.pathname === "/api/agentbus") data = { version: "test", projects: [] };
+    else if (url.pathname === "/api/project-groups")
+      data = { version: 0, groups: [], assignments: {} };
     else if (url.pathname === "/api/pipeline-runs")
       data = { runs: [], total: 0, page: 1, pageSize: 20 };
     else if (url.pathname === "/api/pipeline-run-counts") data = runCountsAnswer([]);

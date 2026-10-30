@@ -127,6 +127,8 @@ export async function fixture(page) {
         access: { mcp: null, remote: null, ssh: null, github: null },
         operations: null,
       };
+    } else if (path === "/api/project-groups" && method === "GET") {
+      result = { version: 0, groups: [], assignments: {} };
     } else if (path === "/api/inbox" && method === "GET") {
       // The start page follows the live `inbox` topic; nothing waits here.
       result = emptyInbox;
