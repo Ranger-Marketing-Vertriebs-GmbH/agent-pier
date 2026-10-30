@@ -7,6 +7,8 @@ import {
 import {
   DEFAULT_ALLOWED,
   defaultCommand,
+  printScript,
+  substitution,
 } from "../../server/features/requests/cli-approval-defaults.js";
 
 const allowed = (command) => {
@@ -105,4 +107,44 @@ test("the default list is one frozen constant", () => {
   assert.equal(Object.isFrozen(DEFAULT_ALLOWED), true);
   assert.deepEqual(DEFAULT_ALLOWED.claudeTools, ["EnterWorktree", "ExitWorktree"]);
   assert.equal(DEFAULT_ALLOWED.gitSubcommands.includes("push"), false);
+});
+
+test("sed scripts from the CLI are checked in linear time", () => {
+  for (const [script, expected] of [
+    ["0".repeat(50000), true],
+    ["$," + "00$,".repeat(20000), false],
+    ["$,+" + "00$,+".repeat(20000), false],
+    ["1p;".repeat(20000), true],
+    ["/" + "\\/".repeat(20000), false],
+    ["s/" + "a".repeat(50000) + "/b/g", true],
+    ["s/" + "\\".repeat(50001), false],
+  ]) {
+    const started = performance.now();
+    const result = printScript(script) || substitution(script);
+    assert.ok(performance.now() - started < 50, `slow for ${script.slice(0, 12)}…`);
+    assert.equal(result, expected, script.slice(0, 12));
+  }
+  // The same scripts as before stay safe or unsafe.
+  for (const script of [
+    "1,80p",
+    " /start/,/end/ p ",
+    "5,$!d",
+    "1p;3p",
+    "$=",
+    "10,+3p",
+    "s/a\\/b/c/2",
+  ])
+    assert.equal(printScript(script) || substitution(script), true, script);
+  for (const script of [
+    "",
+    "w out",
+    "1w out",
+    "s/a/b/e",
+    "s/a/b/w x",
+    "1,",
+    "/open",
+    "p",
+    "e ls",
+  ])
+    assert.equal(printScript(script) || substitution(script), false, script);
 });

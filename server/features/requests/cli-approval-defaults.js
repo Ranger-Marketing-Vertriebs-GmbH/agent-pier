@@ -68,11 +68,73 @@ function readOnlyGit(words) {
 }
 
 // A sed script that only prints or deletes lines, or one plain substitution whose
-// flags neither write a file (`w`) nor run the pattern space (`e`).
-const printScript =
-  /^\s*(?:(?:\d+|\$|\/(?:[^/\\]|\\.)*\/)(?:\s*,\s*(?:\d+|\$|\+\d+|\/(?:[^/\\]|\\.)*\/))?\s*!?\s*[pdq=]?\s*;?\s*)+$/;
-const substitution = /^s\/(?:[^/\\]|\\.)*\/(?:[^/\\]|\\.)*\/[gpI0-9]*$/;
-const safeScript = (script) => printScript.test(script) || substitution.test(script);
+// flags neither write a file (`w`) nor run the pattern space (`e`). The script comes
+// from the CLI, so it is read by a scanner that looks at each character once; a
+// regular expression with nested repetition could backtrack for exponential time.
+const digit = (c) => c >= "0" && c <= "9";
+const space = (c) => c === " " || c === "\t" || c === "\n";
+
+/** The end of a `/…/` regex starting at `i` (escapes kept), or -1. */
+function regexEnd(script, i) {
+  if (script[i] !== "/") return -1;
+  for (let j = i + 1; j < script.length; j++) {
+    if (script[j] === "\\") j++;
+    else if (script[j] === "/") return j + 1;
+  }
+  return -1;
+}
+
+/** The end of an address at `i`: a line number, `$` or `/regex/` (`+N` as the second). */
+function addressEnd(script, i, second) {
+  if (script[i] === "$") return i + 1;
+  if (script[i] === "/") return regexEnd(script, i);
+  let j = second && script[i] === "+" ? i + 1 : i;
+  const from = j;
+  while (j < script.length && digit(script[j])) j++;
+  return j > from ? j : -1;
+}
+
+/** Commands of `address[,address][!][p|d|q|=]`, separated by `;` or nothing. */
+export function printScript(script) {
+  let i = 0;
+  const skip = () => {
+    while (i < script.length && space(script[i])) i++;
+  };
+  skip();
+  if (i >= script.length) return false;
+  while (i < script.length) {
+    i = addressEnd(script, i, false);
+    if (i < 0) return false;
+    skip();
+    if (script[i] === ",") {
+      i++;
+      skip();
+      i = addressEnd(script, i, true);
+      if (i < 0) return false;
+      skip();
+    }
+    if (script[i] === "!") i++;
+    skip();
+    if ("pdq=".includes(script[i] ?? "x")) i++;
+    skip();
+    if (script[i] === ";") i++;
+    skip();
+  }
+  return true;
+}
+
+/** `s/regex/replacement/flags` with flags from `gpI` and digits only. */
+export function substitution(script) {
+  if (script[0] !== "s") return false;
+  const pattern = regexEnd(script, 1);
+  if (pattern < 0) return false;
+  const replacement = regexEnd(script, pattern - 1);
+  if (replacement < 0) return false;
+  for (let j = replacement; j < script.length; j++)
+    if (!("gpI".includes(script[j]) || digit(script[j]))) return false;
+  return true;
+}
+const safeScript = (script) => printScript(script) || substitution(script);
 
 function readOnlySed(words) {
   const scripts = [];
