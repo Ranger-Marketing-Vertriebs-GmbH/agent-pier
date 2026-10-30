@@ -30,7 +30,9 @@ and agents that work as a team.
 - **Inbox:** every CLI question and approval, pipeline gate and agent request that
   waits on you, with live counts, answered in place or in one list; Claude Code
   approvals offer Always allow per account and show plans before you approve them
-  ([inbox](docs/inbox.md#claude-code-approvals-and-plans)).
+  ([inbox](docs/inbox.md#claude-code-approvals-and-plans)). CLI approvals can be
+  remembered for a session or project, and read-only commands such as `git status`
+  never ask ([remembered approvals](docs/inbox.md#remembered-and-default-approvals)).
 - **Pipelines with review:** reusable profiles, isolated Git worktrees, parallel
   reviewers whose verdicts are joined, bounded review loops, checks, a risk gate for sensitive paths, a token budget per run, a run queue per project with a concurrency limit and human approval,
   plus a built-in software factory from spec to pull request

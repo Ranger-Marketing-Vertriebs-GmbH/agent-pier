@@ -230,7 +230,7 @@ test("a Claude permission survives broker restarts and delivers exactly once", a
     {
       hook_event_name: "PermissionRequest",
       tool_name: "Bash",
-      tool_input: { command: "ls" },
+      tool_input: { command: "touch marker" },
     },
     { timeout: 10_000 },
   );
@@ -266,7 +266,7 @@ test("a permission handed to the terminal leaves a notice until the next request
     {
       hook_event_name: "PermissionRequest",
       tool_name: "Bash",
-      tool_input: { command: "ls" },
+      tool_input: { command: "touch marker" },
     },
     { timeout: 10_000 },
   );
@@ -318,11 +318,11 @@ test("Always allow from chat returns Claude's rule for the account's user settin
     {
       hook_event_name: "PermissionRequest",
       tool_name: "Bash",
-      tool_input: { command: "npm test" },
+      tool_input: { command: "npm run build" },
       permission_suggestions: [
         {
           type: "addRules",
-          rules: [{ toolName: "Bash", ruleContent: "npm test:*" }],
+          rules: [{ toolName: "Bash", ruleContent: "npm run build:*" }],
           behavior: "allow",
           destination: "localSettings",
         },
@@ -333,7 +333,7 @@ test("Always allow from chat returns Claude's rule for the account's user settin
   const request = await pending(f);
   assert.equal(
     request.options.find((option) => option.id === "always")?.description,
-    "Bash(npm test:*)",
+    "Bash(npm run build:*)",
   );
   await f.broker.answer("session", request.id, { expectedRevision: 1, choice: "always" });
   await run.done;
@@ -342,7 +342,7 @@ test("Always allow from chat returns Claude's rule for the account's user settin
     updatedPermissions: [
       {
         type: "addRules",
-        rules: [{ toolName: "Bash", ruleContent: "npm test:*" }],
+        rules: [{ toolName: "Bash", ruleContent: "npm run build:*" }],
         behavior: "allow",
         destination: "userSettings",
       },

@@ -1,10 +1,13 @@
-/* The project's Agents section: one block per permanent agent. */
-.project-agents {
+/* The project's Agents section: one block per permanent agent; its Approvals
+   section lays out the same way. */
+.project-agents,
+.project-approvals {
   display: grid;
   gap: 20px;
   min-width: 0;
 }
-.project-agents > section > .group-label:first-child {
+.project-agents > section > .group-label:first-child,
+.project-approvals > section > .group-label:first-child {
   margin-top: 0;
 }
 .project-agent-list {

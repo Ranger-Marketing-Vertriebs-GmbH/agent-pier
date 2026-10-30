@@ -141,7 +141,11 @@ export async function createServices(config) {
   // Declared before the session manager: its stop cleanup discards the session's agent.
   let artifacts, sessionSecrets, sshAgents;
   const sessions = new SessionManager({
-    onRemoving: (session) => artifacts?.retireSession(session.id),
+    onRemoving: (session) => {
+      // Approvals remembered for the session end with it, not with a stop or reload.
+      requests?.approvals.forgetSession(session.id);
+      return artifacts?.retireSession(session.id);
+    },
     dataDir: config.dataDir,
     onStopped: async (session) => {
       revokeSessionMcp(config.dataDir, session.id);

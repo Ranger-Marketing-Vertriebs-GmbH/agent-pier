@@ -29,19 +29,26 @@ export default function NativeRequest({ request, updated, openTerminal }) {
     startupCopy = startup
       ? copy.startup[request.subject?.dialog] || copy.startup.unknown
       : null,
+    // A remembered approval names the programs (`git push`) or the tool it covers.
     optionLabel = (option) =>
-      folderTrust
-        ? option.id === "trust"
-          ? copy.folderTrustAllow
-          : copy.folderTrustExit
-        : hookTrust
+      option.remember && copy.remember[option.scope]
+        ? copy.remember[option.scope](
+            option.remember.programs?.join(", ") ||
+              copy.rememberTools[option.remember.tool] ||
+              option.remember.tool,
+          )
+        : folderTrust
           ? option.id === "trust"
-            ? copy.hookTrustAllow
-            : copy.hookTrustSkip
-          : (startup && copy.startupOptions[request.subject?.dialog]?.[option.id]) ||
-            (claudeApproval &&
-              (plan ? copy.planOptions : copy.claudeOptions)[option.id]) ||
-            option.label,
+            ? copy.folderTrustAllow
+            : copy.folderTrustExit
+          : hookTrust
+            ? option.id === "trust"
+              ? copy.hookTrustAllow
+              : copy.hookTrustSkip
+            : (startup && copy.startupOptions[request.subject?.dialog]?.[option.id]) ||
+              (claudeApproval &&
+                (plan ? copy.planOptions : copy.claudeOptions)[option.id]) ||
+              option.label,
     base = `/sessions/${encodeURIComponent(request.sessionId)}/requests/${encodeURIComponent(request.id)}`;
   const answer = (body) =>
     action.run(async () => {

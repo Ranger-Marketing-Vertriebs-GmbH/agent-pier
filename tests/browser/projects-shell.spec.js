@@ -55,7 +55,7 @@ test("phones show the projects header with the drawer button and an add menu", a
   expect(await noOverflow(page)).toBe(true);
 });
 
-test("a project on a phone has a back header, five tabs and the launch bar", async ({
+test("a project on a phone has a back header, six tabs and the launch bar", async ({
   page,
 }) => {
   await page.setViewportSize(phone);
@@ -72,11 +72,19 @@ test("a project on a phone has a back header, five tabs and the launch bar", asy
     /^AgentBus\s*1/,
     /^Läufe\s*3/,
     /^Agenten/,
+    /^Freigaben/,
   ]);
-  // Five tabs no longer fit 390 px: the row scrolls, and every tab stays reachable.
+  // Six tabs no longer fit 390 px: the row scrolls, and every tab stays reachable.
   await expect(tabs).toHaveClass(/can-scroll-right/);
   const launch = page.getByRole("button", { name: "Session in agent-pier starten" });
-  for (const tab of ["Übersicht", "Wissen", "AgentBus", "Agenten", "Läufe"]) {
+  for (const tab of [
+    "Übersicht",
+    "Wissen",
+    "AgentBus",
+    "Agenten",
+    "Freigaben",
+    "Läufe",
+  ]) {
     await tabs.getByRole("tab", { name: new RegExp(`^${tab}`) }).click();
     await expect(launch).toBeVisible();
     const box = await launch.boundingBox();

@@ -72,6 +72,49 @@ rest of the session; Keep planning stops Claude in plan mode so you can send fee
 in chat. Switching the permission mode outside such a plan approval stays in the
 terminal (Shift+Tab).
 
+## Remembered and default approvals
+
+Every CLI tool approval (Claude Code, Codex and OpenCode) also offers **Always allow
+<what> in this session** and **Always allow <what> in this project**. For a shell
+command, <what> names its programs, with the subcommand for programs such as `git`,
+`npm` or `docker` (`rm`, `git push`); for any other tool it is the tool
+(`WebFetch`, `Edit`, Codex file changes). AgentPier keeps the approval itself, per
+CLI, and answers the next matching request with the CLI's "allow once" without a card:
+a shell command matches when every program in it is remembered or on the default list
+below. A session approval lasts until the session is removed (stopping or reloading it
+keeps it); a project approval applies to every session in a folder of the project,
+worktrees included. The project's **Approvals** tab lists both and removes them, after
+which the CLI asks again. Only you can remember an approval; an agent answering for you
+allows the single call. Plans, questions, startup screens and Codex's requests for more
+sandbox permissions are never remembered.
+
+Some requests need no card at all. The list lives in one constant,
+`DEFAULT_ALLOWED` in `server/features/requests/cli-approval-defaults.js`:
+
+- the Claude Code tools `EnterWorktree` and `ExitWorktree`;
+- read-only git: `git status`, `log`, `diff`, `show`, `rev-parse`, `fetch` and
+  `git branch` when it only lists branches, optionally after `-C <dir>`, without
+  options that write files or run programs (`--output`, `--upload-pack`,
+  `--ext-diff`, `-c`);
+- `grep`, `rg` (without `--pre`), `cat`, `head`, `tail`, `ls`, `wc`, and `sed` without
+  `-i` whose script only prints, deletes lines or substitutes without the `w` and `e`
+  flags;
+- `npm test`, `npm run test*`, `npm run lint` and `npm run check`.
+
+A command qualifies only when every part of a `;`, `&&`, `||` or `|` chain does, and
+it has no command substitution, variables, redirection into or out of a file, background
+job, subshell or leading `NAME=value`. Discarding output (`2>&1`, `>/dev/null`) is
+fine. A command that names a secret or credentials file (`.env`, `.ssh/`, keys,
+`credentials`, tokens, passwords) always asks, as do `rm`, `ssh`, `scp`, `sftp`,
+`git push` and other writing git commands and package installs; you can remember
+these once you approved them.
+
+The audit records how a request was allowed: `allow` once, `allow-session` and
+`allow-project` for remembered approvals (and for the CLI's own session approval),
+`allow-always` for Claude's account rules and `allow-default` for the list above;
+requests AgentPier answered itself carry `auto: true` and create no card or
+notification.
+
 ## Questions an agent escalates
 
 A coding session that an agent started (**Started by agent <name>**) shows its open

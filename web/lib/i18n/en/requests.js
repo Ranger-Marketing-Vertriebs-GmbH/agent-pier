@@ -103,6 +103,14 @@ export const requestCopy = {
     once: "Once",
     session: "This session",
     persistent: "Permanently",
+    project: "This project",
+  },
+  // "Always allow" for one program or tool, remembered by AgentPier.
+  // Tools without a program whose name does not explain itself.
+  rememberTools: { "item/fileChange/requestApproval": "file changes" },
+  remember: {
+    session: (what) => `Always allow ${what} in this session`,
+    project: (what) => `Always allow ${what} in this project`,
   },
   loading: "Loading native requests …",
 };

@@ -61,3 +61,16 @@ export const projectDialogsCopy = {
     "SSH access and the permissions of sessions that used the older entry move to the current folder. This cannot be undone.",
   mergeConfirm: "Merge",
 };
+export const projectApprovalsCopy = {
+  tab: "Approvals",
+  description:
+    "Coding CLIs do these without asking you again. Remove an approval and the CLI asks next time. Some read-only commands, such as git status or npm test, never ask.",
+  empty:
+    'No remembered approvals yet. Choose "Always allow … in this project" or "… in this session" on an approval card.',
+  projectTitle: "This project",
+  sessionTitle: "Single sessions",
+  session: (name) => `Session ${name}`,
+  remove: (what) => `Remove approval for ${what}`,
+  unregistered:
+    "Approvals for a project belong to its folder. Add the folder to see them here.",
+};

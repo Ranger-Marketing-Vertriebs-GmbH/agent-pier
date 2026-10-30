@@ -24,6 +24,10 @@ write**). It edits the same access as each agent's **Access** tab; see
 [agent access from the project](assistant-workflows.md#agent-access-from-the-project).
 An unregistered folder offers to register it first.
 
+The **Approvals** tab lists the CLI approvals remembered for the project and for its
+sessions, and removes them; see
+[remembered approvals](inbox.md#remembered-and-default-approvals).
+
 ## Entries and revisions
 
 Each entry has an ID, project ID, title, content, revision, archive state, creation/update timestamps and provenance. Provenance comes from the server: GUI writes identify the user; native MCP writes identify the authorized session, account and CLI. Tool arguments cannot override project scope or provenance.

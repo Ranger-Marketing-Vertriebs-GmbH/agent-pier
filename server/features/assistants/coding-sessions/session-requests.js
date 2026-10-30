@@ -31,7 +31,8 @@ export async function listPrompts(w, ctx, input) {
     kind: e.kind,
     presentation: e.presentation ?? null,
     revision: e.revision,
-    options: e.options ?? [],
+    // Remembering an approval is the owner's choice alone (request-broker.js).
+    options: (e.options ?? []).filter((option) => !option.remember),
     questions: e.questions ?? [],
     subject: e.subject ?? null,
     escalated: !!w.store.byKey(escalationKey(record.sessionId, e.id)),
