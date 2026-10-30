@@ -17,6 +17,7 @@ import { agentsHubRoute } from "../hub-routes.js";
 import { agentLifecycleCopy as lifecycleCopy } from "../../../lib/i18n/messages/agent-lifecycle.js";
 import ActionHistory from "./ActionHistory.jsx";
 import AttachmentStorageGroup from "./AttachmentStorageGroup.jsx";
+import MainChatRestart from "./MainChatRestart.jsx";
 import MemberGroup from "./MemberGroup.jsx";
 import RuntimeSummary from "./RuntimeSummary.jsx";
 import { manageItems } from "./AgentHeaderActions.jsx";
@@ -105,7 +106,8 @@ function ManageGroup({ assistant, navigate }) {
 /**
  * Überblick (handoff 5.4): what waits for the owner, the agent's actions and coding
  * tasks (`page=actions`), a summary of every tab, chat attachments, the team member
- * card and Verwalten. On narrow screens the agent service sits here, too.
+ * card and Verwalten. On narrow screens the agent service sits here, too. The
+ * Gefahrenbereich with Restart main chat comes last.
  */
 export default function OverviewTab({ assistant, page, go, navigate }) {
   const personal = isPersonal(assistant);
@@ -150,6 +152,7 @@ export default function OverviewTab({ assistant, page, go, navigate }) {
         runtime={runtime}
         navigate={navigate}
       />
+      <MainChatRestart assistant={assistant} />
     </>
   );
 }

@@ -19,6 +19,8 @@ export const memoryNoteCopy = {
     "memory-step":
       "Gedächtnis nicht gespeichert: Vor einer Zusammenfassung darf der Agent nur sein eigenes Gedächtnis ändern.",
     "shared-write": "Gilt für alle, die diesen Agenten nutzen.",
+    "main-restarted":
+      "Der Besitzer hat den Hauptchat neu begonnen. Der vorherige ist unter den archivierten Chats.",
   },
   unknown: "Gedächtnis nicht gespeichert.",
 };

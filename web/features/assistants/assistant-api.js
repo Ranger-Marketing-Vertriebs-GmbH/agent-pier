@@ -256,6 +256,16 @@ export const assistantApi = {
   agentDeletion: (id) => api(`/assistants/${encodeURIComponent(id)}/deletion`),
   deleteAgent: (id, name) =>
     api(`/assistants/${encodeURIComponent(id)}`, "DELETE", { name }),
+  // Restart main chat (main-chat-restart.js): what it affects, then the restart.
+  mainChatRestartPreview: (id, signal) =>
+    api(
+      `/assistants/${encodeURIComponent(id)}/main-chat-restart`,
+      "GET",
+      undefined,
+      signal,
+    ),
+  restartMainChats: (id) =>
+    api(`/assistants/${encodeURIComponent(id)}/main-chat-restart`, "POST", {}),
   browserReset: (id) =>
     api(`/assistants/${encodeURIComponent(id)}/browser/reset`, "POST", {}),
   shellAllowlist: (id) => api(`/assistants/${encodeURIComponent(id)}/shell-allowlist`),
