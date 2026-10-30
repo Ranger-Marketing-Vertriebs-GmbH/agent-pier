@@ -129,3 +129,23 @@ test("an empty group is deleted without a confirmation", async ({ page }) => {
   await expect(page.getByRole("dialog")).toHaveCount(0);
   expect(server.puts.at(-1).groups.map((group) => group.id)).toEqual(["g_1", "g_2"]);
 });
+
+test("deleting the last group moves focus to the No group header", async ({ page }) => {
+  const { server } = await groupsFixture(page);
+  seeded(server);
+  await page.goto(base + "/projects");
+  // Empty path: no confirmation.
+  await actions(page, "Empty").click();
+  await menuItem(page, "Delete group").click();
+  await expect(headers(page)).toHaveText(["Clients", "Games", "No group"]);
+  await expect(section(page, "No group")).toBeFocused();
+  await actions(page, "Games").click();
+  await menuItem(page, "Delete group").click();
+  await expect(section(page, "No group")).toBeFocused();
+  // Populated path: the confirmation, then focus on the header that follows.
+  await actions(page, "Clients").click();
+  await menuItem(page, "Delete group").click();
+  await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
+  await expect(headers(page)).toHaveText(["No group"]);
+  await expect(section(page, "No group")).toBeFocused();
+});
