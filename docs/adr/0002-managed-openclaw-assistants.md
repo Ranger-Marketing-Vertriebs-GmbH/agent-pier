@@ -101,6 +101,7 @@ The integration maintains stable AgentPier IDs and external-runtime mappings:
 | Assistant definition | Durable name, instructions, model reference, service references, routines and behavior preferences     |
 | Team/task identity   | Groups one delegation objective and its members; records creator and authorization provenance          |
 | Team member          | A visible participant created for an assignment, with its own conversation and effective configuration |
+| Member group         | A lead's named, lasting group of permanent members; a member is in at most one                         |
 | Conversation         | Maps a direct chat or channel thread to a runtime session key; owns navigation and delivery routing    |
 | Run                  | One execution attempt with a runtime run ID and terminal outcome                                       |
 | Coding delegation    | Links a team/task to an existing AgentPier pipeline run or coding session                              |
@@ -468,6 +469,16 @@ AGENTPIER-276 made autonomous the default and replaced the caps with one loop gu
 per agent (`agent-loop-guard.js`).
 Accepted risk: an autonomous lead decides itself when a member's workspace changes;
 memory, shell, SSH, project folders, GitHub, grants and new teams keep their rules.
+
+Member groups (2026-10-30, AGENTPIER-283): a lead's permanent members can sit in
+named, lasting groups, managed by the lead (`agentpier_team_groups`) and by the
+owner (the lead's Team tab). A member is in at most one group; moves are one
+transaction and never interrupt a running task. A task to a group fans out into one
+ordinary lead task per member, each with its own write rules and limits, and the
+lead receives all results in one follow-up once every part ended, also after
+failures or deadlines, and summarizes them once. Groups are `member-group` team
+records that older releases ignore. See
+[groups of permanent members](../assistant-gateway.md#groups-of-permanent-members-2026-10-30-agentpier-283).
 
 Related 2.0 additions follow the same ownership rule (AgentPier compiles, OpenClaw
 executes):

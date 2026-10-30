@@ -73,6 +73,33 @@ export const leadRequestCopy = {
   partial: "Partial result",
   report: "Report",
   because: (quote) => `Because you wrote: “${quote}”`,
+  // One member's part of a task to a whole group (each member gets it on its own).
+  groupTask: (name) => `Group ${name}`,
+  // Named groups of a lead's permanent members (Team tab, sidebar).
+  groups: {
+    title: "Groups",
+    hint: "Put permanent members into groups such as “Research” or “Build”. The agent can give a whole group one task: every member works on it in parallel, and the agent sums up the results for you once. A member is in at most one group; moving it never interrupts a running task. The agent can create and change groups itself too.",
+    count: (n) => (n === 1 ? "1 member" : `${n} members`),
+    sidebarLabel: (name, n) => `${name}, ${n === 1 ? "1 member" : `${n} members`}`,
+    ungrouped: "No group",
+    empty: "No members",
+    none: "No groups yet.",
+    newGroup: "New group",
+    newGroupMenu: "New group …",
+    name: "Group name",
+    create: "Create",
+    rename: "Rename …",
+    renameTitle: (name) => `Rename group “${name}”`,
+    save: "Rename",
+    remove: "Delete group",
+    removeTitle: (name) => `Delete group “${name}”?`,
+    removeBody:
+      "Its members stay permanent members without a group. Tasks already given to the group keep running.",
+    groupActions: (name) => `Actions for group ${name}`,
+    memberActions: (name) => `Change the group of ${name}`,
+    moveTo: "Move to group",
+    takeOut: "Remove from group",
+  },
   // The @mention autocomplete in a lead's composer and the chips in its chat.
   mentions: {
     list: "Team members",

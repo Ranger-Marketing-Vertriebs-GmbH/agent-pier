@@ -77,6 +77,33 @@ export const leadRequestCopy = {
   partial: "Teilergebnis",
   report: "Bericht",
   because: (quote) => `Weil du geschrieben hast: „${quote}“`,
+  // Ein Teil einer Aufgabe an eine ganze Gruppe (jedes Mitglied bekommt sie einzeln).
+  groupTask: (name) => `Gruppe ${name}`,
+  // Benannte Gruppen dauerhafter Mitglieder eines leitenden Agenten (Team-Tab, Seitenleiste).
+  groups: {
+    title: "Gruppen",
+    hint: "Ordne dauerhafte Mitglieder in Gruppen wie „Recherche“ oder „Umsetzung“. Der Agent kann einer ganzen Gruppe eine Aufgabe geben: Jedes Mitglied bearbeitet sie parallel, der Agent fasst die Ergebnisse einmal für dich zusammen. Ein Mitglied ist in höchstens einer Gruppe; Verschieben unterbricht keine laufende Aufgabe. Der Agent kann Gruppen auch selbst anlegen und ändern.",
+    count: (n) => (n === 1 ? "1 Mitglied" : `${n} Mitglieder`),
+    sidebarLabel: (name, n) => `${name}, ${n === 1 ? "1 Mitglied" : `${n} Mitglieder`}`,
+    ungrouped: "Ohne Gruppe",
+    empty: "Keine Mitglieder",
+    none: "Noch keine Gruppen.",
+    newGroup: "Neue Gruppe",
+    newGroupMenu: "Neue Gruppe …",
+    name: "Name der Gruppe",
+    create: "Erstellen",
+    rename: "Umbenennen …",
+    renameTitle: (name) => `Gruppe „${name}“ umbenennen`,
+    save: "Umbenennen",
+    remove: "Gruppe löschen",
+    removeTitle: (name) => `Gruppe „${name}“ löschen?`,
+    removeBody:
+      "Ihre Mitglieder bleiben dauerhafte Mitglieder ohne Gruppe. Laufende Aufgaben an die Gruppe laufen weiter.",
+    groupActions: (name) => `Aktionen für Gruppe ${name}`,
+    memberActions: (name) => `Gruppe von ${name} ändern`,
+    moveTo: "In Gruppe verschieben",
+    takeOut: "Aus der Gruppe nehmen",
+  },
   // Die @Erwähnung im Eingabefeld eines leitenden Agenten und die Chips im Chat.
   mentions: {
     list: "Teammitglieder",

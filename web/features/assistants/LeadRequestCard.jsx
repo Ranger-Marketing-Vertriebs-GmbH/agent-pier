@@ -62,6 +62,9 @@ export default function LeadRequestCard({
         {r.fromName && r.resultTo === "lead" && (
           <span className="lead-request-access">{copy.toLead}</span>
         )}
+        {r.groupTask && (
+          <span className="lead-request-access">{copy.groupTask(r.groupTask.name)}</span>
+        )}
         {r.selfInitiated && (
           <span className="lead-request-access">{copy.selfInitiated}</span>
         )}

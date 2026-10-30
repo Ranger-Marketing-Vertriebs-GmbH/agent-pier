@@ -440,7 +440,12 @@ export default function AssistantChat({
               history.messages.findLast((m) => !noteEvents.has(m.event))?.event !==
                 latest.internal && (
                 <p className="assistant-note assistant-event">
-                  {internalTurnText(copy, latest.internal, latest.internalOutcome)}
+                  {internalTurnText(
+                    copy,
+                    latest.internal,
+                    latest.internalOutcome,
+                    latest.internalGroup,
+                  )}
                 </p>
               )}
             {active &&

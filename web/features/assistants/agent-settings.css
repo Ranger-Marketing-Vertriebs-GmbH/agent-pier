@@ -320,3 +320,14 @@
     text-align: left;
   }
 }
+
+/* Team tab: a lead's groups of permanent members, one card per group. */
+.member-group-card + .member-group-card {
+  margin-top: var(--space-3);
+}
+.member-group-head .list-row-label {
+  font-weight: 600;
+}
+.member-group-member .list-row-main {
+  padding-left: var(--space-6);
+}

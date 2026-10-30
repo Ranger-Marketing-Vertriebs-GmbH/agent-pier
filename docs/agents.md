@@ -724,7 +724,8 @@ the proposal in its chat or in Telegram. `/team <task>` or **Allow a team for th
 message** behind **+** in the composer allows one team for one request; **Allow teams
 without asking each time** allows them in general. Temporary members get their own
 chat, finish with the task and can be kept with **Keep as permanent agent**.
-Permanent members stay under their lead in the sidebar.
+Permanent members stay under their lead in the sidebar, sorted into the lead's
+[groups](#groups-of-permanent-members) if it has any.
 
 A lead can base a member on an Agency agent: it searches the catalog with its team
 tools and names an entry as the member's template. The member then gets that
@@ -1004,6 +1005,39 @@ each time. Temporary members are refused, as they work only on their task.
   tasks** as "Routine report from <member>".
 - When the member is archived or no longer the lead's permanent member, or the lead
   is archived, its routines are removed and the activity log records why.
+
+### Groups of permanent members
+
+A lead can sort its permanent members into named, lasting groups such as "Research"
+or "Build" and give a whole group one task. Temporary members are never grouped.
+
+- **Who manages them**: the lead with its team tools (`agentpier_team_groups`), and
+  you in the lead's **Team** tab under **Groups**: **New group** creates one; the
+  group's ⋯ menu renames or deletes it; a member's ⋯ menu moves it into a group, to
+  another group or, with **Remove from group**, back to the members without a group.
+  **New group …** in a member's menu creates a group and moves the member into it.
+  Agents of users never lead teams, so they have no groups.
+- **One group at most**: a member is in at most one group. Moving it to another group
+  takes it out of its old one in the same step. You can move a member at any time,
+  also one created long before the group. A move never interrupts a task the member
+  is working on; it only decides which later group tasks reach it.
+- **Leaving a group**: an archived or deleted member leaves its group for good (a
+  restored member comes back without a group). An empty group stays until it is
+  deleted; deleting a group keeps its members and lets tasks already given to it run
+  on.
+- **Sidebar**: under its lead, each group shows its name and number of members with
+  its members below; members without a group stay under **Permanent**. Empty groups
+  appear only in the Team tab.
+- **Tasks to a group**: the lead gives every member of the group the same task at
+  once (`agentpier_team_group_delegate`). Each member works on it in parallel as an
+  ordinary task, with its own access, the same write rules as a single task, one open
+  task per member and the lead's loop guard. All members get it or none: a task to an
+  empty group, or one with a member that already has an open task, is refused. Once
+  every member's part has ended, also when some failed, were cancelled or ran out of
+  time, the lead receives all results in one message and writes you one summary; the
+  chat shows "Results of the group <name> received". Each member's own result stays
+  under **Team › Teams › Questions and tasks**, marked with the group. If the lead
+  cancels every part itself, no summary follows.
 
 ### When a lead uses its team
 

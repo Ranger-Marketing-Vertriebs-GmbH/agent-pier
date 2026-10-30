@@ -290,6 +290,8 @@ test("managed profiles apply exact parent/member tools without copying native cr
     "agentpier_team_ask",
     "agentpier_team_delegate",
     "agentpier_team_cancel",
+    "agentpier_team_groups",
+    "agentpier_team_group_delegate",
     "agentpier_team_archive",
     "agentpier_team_grant",
     "agentpier_team_member_update",

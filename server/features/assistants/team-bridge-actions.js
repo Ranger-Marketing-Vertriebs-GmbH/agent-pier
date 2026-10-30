@@ -14,6 +14,9 @@ export const actions = new Set([
   "ask",
   "delegate",
   "cancel",
+  // Groups of permanent members and tasks to a whole group (member-group-tasks.js).
+  "groups",
+  "group_delegate",
   "archive",
   "grant",
   "member_update",

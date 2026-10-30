@@ -2,6 +2,7 @@ import { Router } from "express";
 import { assistantProblem } from "../../features/assistants/assistant-validation.js";
 import { followLead } from "../../features/assistants/member-follow.js";
 import { replacedInstructions } from "../../features/assistants/member-edits.js";
+import { groupKind, publicGroup } from "../../features/assistants/member-groups.js";
 export function assistantTeamRoutes({ assistants }) {
   const router = Router();
   const service = () => {
@@ -51,6 +52,46 @@ export function assistantTeamRoutes({ assistants }) {
   router.post("/assistant-lead-requests/:id/cancel", async (req, res) => {
     if (Object.keys(req.body || {}).length) throw assistantProblem("invalid");
     res.json(await service().cancelRequest(req.params.id));
+  });
+  // The owner's changes to a lead's groups of permanent members (member-groups.js).
+  const only = (body, keys) => {
+    if (!body || Object.keys(body).some((k) => !keys.includes(k)))
+      throw assistantProblem("invalid");
+    return body;
+  };
+  const groupOf = (id) => {
+    const record = service().store.find(id);
+    if (record?.kind !== groupKind) throw assistantProblem("memberGroupNotFound", 404);
+    return record;
+  };
+  router.post("/assistants/:id/member-groups", (req, res) =>
+    res.json(
+      publicGroup(
+        service().ownerGroups("create", req.params.id, only(req.body, ["name"]).name),
+      ),
+    ),
+  );
+  router.patch("/assistant-member-groups/:id", (req, res) => {
+    const group = groupOf(req.params.id);
+    const { name } = only(req.body, ["name"]);
+    res.json(
+      publicGroup(
+        service().ownerGroups("rename", group.parentAssistantId, group.id, name),
+      ),
+    );
+  });
+  router.delete("/assistant-member-groups/:id", (req, res) => {
+    const group = groupOf(req.params.id);
+    service().ownerGroups("remove", group.parentAssistantId, group.id);
+    res.json({ deleted: group.id });
+  });
+  // Into a group (`groupId`), or out of its group with null; one atomic move.
+  router.put("/assistant-team-members/:id/group", (req, res) => {
+    const { groupId } = only(req.body, ["groupId"]);
+    if (groupId !== null && typeof groupId !== "string")
+      throw assistantProblem("invalid");
+    const member = service().store.member(req.params.id);
+    res.json(service().ownerGroups("move", member.parentAssistantId, member.id, groupId));
   });
   router.post("/assistant-team-members/:id/recover", async (req, res) =>
     res.json(await service().recoverMember(req.params.id, req.body)),

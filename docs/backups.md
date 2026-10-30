@@ -88,7 +88,8 @@ either copy travel only in the sealed sidecar, exactly as without this split.
 - AgentPier's `assistants.sqlite` and `channels.sqlite` lose their private rows:
   conversations, requests and attempts, cached messages, attachment and share
   indexes, queued messages, routine results and events, memory notes, hidden
-  long-chat hints, action history, team records other than policy and settings, and Telegram inbox, outbox
+  long-chat hints, action history, team records other than policy and settings (teams, members, groups of members,
+  lead requests), and Telegram inbox, outbox
   and unknown senders. `web-search.sqlite`, `pdf-model.sqlite` and `dreaming.sqlite`
   (the dreaming switch, hour and time zone) hold only configuration.
 - OpenClaw's databases below `state/` (the global `state/state/openclaw.sqlite`,

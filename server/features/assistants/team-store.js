@@ -22,6 +22,7 @@ import {
 import { ownerTeamQuote, parseOwnerText } from "./lead-request-proof.js";
 import { draftModel } from "./member-models.js";
 import { directOwnerTurn, ownerSource } from "./goal-turns.js";
+import { leaveGroups } from "./member-groups.js";
 const terminal = new Set(["completed", "failed", "cancelled", "declined"]);
 // The quote must prove a team request, not merely an owner turn: at least three
 // words containing "team" (also in compounds such as "Rechercheteam"), as whole
@@ -54,14 +55,17 @@ export class TeamStore {
     this.ledger = new RequestLedger(this.db);
     migrateTeams(this.db);
     store.memberGrants = (member) => ({
-      // Members reserved before grants existed get the default.
       // Members reserved before grants existed get the default (within the lead).
       grants: this.find(member.teamMemberId)?.grants ?? defaultGrants,
       shellSsh: this.shellSsh(member.teamId, member.parentAssistantId),
     });
   }
+  // Reentrant: a call inside another transaction joins it (a group task creates one
+  // request per member in one transaction, member-group-tasks.js).
   transaction(fn) {
+    if (this.inTransaction) return fn();
     this.db.exec("BEGIN IMMEDIATE");
+    this.inTransaction = true;
     try {
       const value = fn();
       this.db.exec("COMMIT");
@@ -69,6 +73,8 @@ export class TeamStore {
     } catch (error) {
       this.db.exec("ROLLBACK");
       throw error;
+    } finally {
+      this.inTransaction = false;
     }
   }
   rows(kind) {
@@ -495,16 +501,7 @@ export class TeamStore {
       );
   }
   activeMember(m) {
-    return (
-      !terminal.has(m.phase) ||
-      this.ledger
-        .pending()
-        .some(
-          (a) =>
-            this.store.getConversation(this.ledger.getRequest(a.requestId).conversationId)
-              .assistantId === m.assistantId,
-        )
-    );
+    return !terminal.has(m.phase) || this.turnInFlight(m);
   }
   // `turnOnly`: a lead's promotion waits only for a turn in flight, not for the end
   // of the member's task (member-promotion.js).
@@ -590,8 +587,12 @@ export class TeamStore {
   }
   archive(id, revision, check) {
     // A summary its lead asked for after the task goes too (member-summaries.js).
+    // Archived members leave their groups for good (member-groups.js).
     const patch = { archivedAt: new Date().toISOString(), summaryAfterTask: undefined };
-    return this.lifecycle(id, revision, patch, check);
+    return this.lifecycle(id, revision, patch, (value) => {
+      check?.(value);
+      leaveGroups(this, value.kind === "member" ? [value.id] : value.memberIds || []);
+    });
   }
   restore(id, revision) {
     return this.lifecycle(id, revision, { archivedAt: null });

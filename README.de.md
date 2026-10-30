@@ -43,7 +43,9 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
 - **Agenten und Teams:** dauerhafte Agenten, deren Leads ihre Mitglieder fragen und
   ihnen Aufgaben übergeben, auf Anfrage, als Vorschlag oder selbstständig, und ihre
   Projektordner, Coding-Projekte und MCP-Server mit ihnen teilen oder bei ihnen
-  Routinen anlegen, die an sie zurückberichten, Mitglieder, die sich untereinander
+  Routinen anlegen, die an sie zurückberichten, benannte Gruppen dauerhafter
+  Mitglieder, die eine Aufgabe parallel bearbeiten und deren Ergebnisse der Lead einmal
+  zusammenfasst, Mitglieder, die sich untereinander
   abstimmen und ihrem Lead berichten, Agency-Agenten
   als Vorlagen für Agenten und Mitglieder, Arbeitsziele, mit denen ein Agent weiterarbeitet, bis die Aufgabe erledigt ist, nächtliches Träumen (Dreaming) auf Wunsch, das das Gedächtnis jedes Agenten ordnet, Hooks, mit denen Monitoring und andere Systeme einen Agenten wecken, mit @-Erwähnungen, Telegram, Skills (mitgelieferte und ein Skill-Katalog des Eigentümers, jeder Skill wird vor der Installation geprüft), Routinen, Check-ins,
   Dateien in beide Richtungen, über ChatGPT erstellte Bilder, PDFs gelesen mit dem eigenen Modell des Agenten (oder einem optionalen Ersatzmodell), Lese- oder Schreibzugriff auf Projektordner und GitHub

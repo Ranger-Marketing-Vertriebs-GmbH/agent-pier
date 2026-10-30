@@ -36,6 +36,19 @@ const reasons = {
     "It is unclear whether this was already created. Ask the owner to check the agent settings before retrying.",
   MODEL_UNAVAILABLE:
     "The model connection of this agent is not available. Ask the owner to choose a model connection.",
+  GROUP_NOT_FOUND:
+    "No such group of yours. Call agentpier_team_groups with action list for your groups and their groupIds.",
+  GROUP_NAME_INVALID: "Give the group a name of 1 to 60 characters and try again.",
+  GROUP_NAME_TAKEN:
+    "You already have a group of that name (case does not count). Use that group, or pick another name.",
+  GROUP_LIMIT:
+    "You already have 20 groups. Delete or reuse one before you create another.",
+  GROUP_MEMBER_NOT_PERMANENT:
+    "Only your own permanent members that are not archived can be put into groups. Temporary members work only on their task; ask the owner to keep one as a permanent agent first.",
+  GROUP_EMPTY:
+    "This group has no members, so nothing was delegated. Move members into it with agentpier_team_groups first, or delegate to a single member with agentpier_team_delegate.",
+  GROUP_MEMBER_BUSY:
+    "A member of this group already has an open task, so nothing was delegated. Check agentpier_team_members, then wait for its result, cancel it with agentpier_team_cancel, or delegate to the other members one by one.",
   TASK_OPEN:
     "This member already has an open task. Wait for its result or cancel it with agentpier_team_cancel.",
   MEMBER_NOT_FINISHED:
@@ -278,6 +291,13 @@ const byKey = {
   leadRoutineMemberOff: "ROUTINE_MEMBER_OFF",
   memberRequestOpenTask: "TASK_OPEN",
   memberRequestNotFinished: "MEMBER_NOT_FINISHED",
+  memberGroupNotFound: "GROUP_NOT_FOUND",
+  memberGroupName: "GROUP_NAME_INVALID",
+  memberGroupNameTaken: "GROUP_NAME_TAKEN",
+  memberGroupLimit: "GROUP_LIMIT",
+  memberGroupNotPermanent: "GROUP_MEMBER_NOT_PERMANENT",
+  memberGroupEmpty: "GROUP_EMPTY",
+  memberGroupOpenTask: "GROUP_MEMBER_BUSY",
   memberRequestUnavailable: "MEMBER_UNAVAILABLE",
   peerRequestTurn: "PEER_TURN",
   agentLoopLimit: "AGENT_LOOP_LIMIT",

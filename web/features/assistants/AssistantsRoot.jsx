@@ -22,6 +22,7 @@ const toData = (next) => ({
   teams: next.teams || none,
   members: next.members || none,
   requests: next.requests || none,
+  groups: next.groups || none,
   policies: next.policies || nothing,
   teamSettings: next.teamSettings,
   activity: next.activity || nothing,
