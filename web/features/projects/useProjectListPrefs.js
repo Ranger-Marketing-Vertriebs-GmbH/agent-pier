@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { PROJECT_VIEWS } from "./project-groups.js";
 
 const viewKey = "agentpier.projects.view";
@@ -39,6 +39,11 @@ export default function useProjectListPrefs() {
     return PROJECT_VIEWS.includes(saved) ? saved : "groups";
   });
   const [collapsed, setCollapsed] = useState(readCollapsed);
+  // Saved after a change, never on the first render.
+  const loaded = useRef(collapsed);
+  useEffect(() => {
+    if (collapsed !== loaded.current) write(collapsedKey, JSON.stringify([...collapsed]));
+  }, [collapsed]);
   const setView = useCallback((next) => {
     setViewState(next);
     write(viewKey, next);
@@ -53,7 +58,6 @@ export default function useProjectListPrefs() {
         const key = `${view}:${sectionKey}`;
         const next = new Set(current);
         if (!next.delete(key)) next.add(key);
-        write(collapsedKey, JSON.stringify([...next]));
         return next;
       }),
     [view],

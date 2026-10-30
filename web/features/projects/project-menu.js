@@ -17,7 +17,7 @@ export function projectMenuItems({ groups, current, onMove, onNewGroup, onRemove
           checked: group.id === current?.id,
           run: () => group.id !== current?.id && onMove(group.id),
         })),
-        // Focus moves on to the new group's name field.
+        // Focus moves on to the new group's name field, then back to the ⋯ trigger.
         {
           id: "new",
           label: groupsCopy.newGroupMenu,

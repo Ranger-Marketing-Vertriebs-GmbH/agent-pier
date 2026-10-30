@@ -53,6 +53,7 @@ export default function ProjectListItem({
       <button
         type="button"
         className="icon-button project-row-more"
+        data-project-path={item.path}
         aria-label={label}
         aria-haspopup="menu"
         aria-expanded={menu.open}

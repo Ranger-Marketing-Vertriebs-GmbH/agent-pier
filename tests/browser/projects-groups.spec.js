@@ -181,7 +181,10 @@ test("a group is created inline, a project moves into it via ⋯ and out again",
   await expect(page.getByRole("alert")).toHaveText(
     "A group with this name already exists.",
   );
-  await page.getByRole("button", { name: "Cancel" }).click();
+  // Escape cancels from any control of the row, not only the text field.
+  await page.getByRole("button", { name: "Create" }).focus();
+  await page.keyboard.press("Escape");
+  await expect(name).toHaveCount(0);
 
   // Move agent-pier into Clients from its ⋯ menu.
   await page.getByRole("button", { name: "Actions for agent-pier" }).click();
@@ -211,16 +214,24 @@ test("a group is created inline, a project moves into it via ⋯ and out again",
   await expect(groupFact).toHaveText("No group");
   expect(server.puts.at(-1).assignments).toEqual({});
 
-  // "New group …" creates the group, then moves the project into it.
-  await page.getByRole("button", { name: "Actions for notes" }).click();
-  await page
+  // "New group …" creates the group, then moves the project into it; focus returns
+  // to the row's ⋯ after cancelling and after creating.
+  const notesActions = page.getByRole("button", { name: "Actions for notes" });
+  const newFromMenu = page
     .getByRole("menu", { name: "Actions for notes" })
-    .getByRole("menuitem", { name: "New group …" })
-    .click();
+    .getByRole("menuitem", { name: "New group …" });
+  await notesActions.click();
+  await newFromMenu.click();
+  await expect(name).toBeFocused();
+  await name.press("Escape");
+  await expect(notesActions).toBeFocused();
+  await notesActions.click();
+  await newFromMenu.click();
   await expect(name).toBeFocused();
   await name.fill("Archive");
   await name.press("Enter");
   await expect(section(page, "Archive")).toHaveText(/Archive\s*1/);
+  await expect(notesActions).toBeFocused();
   expect(server.puts.slice(-2)).toEqual([
     {
       version: 3,
@@ -268,4 +279,42 @@ test("a refused move rolls back, a conflict adopts the server's groups", async (
   await expect(section(page, "Customers")).toHaveText(/Customers\s*0/);
   expect(server.puts.at(-1).version).toBe(2);
   expect(server.puts).toHaveLength(2);
+  // A newer document clears the error.
+  await page.getByRole("button", { name: "Actions for notes" }).click();
+  await page.getByRole("menuitemradio", { name: "Customers" }).click();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(section(page, "Customers")).toHaveText(/Customers\s*1/);
+});
+
+test("a conflict with a lower version after a restore is adopted, the next save works", async ({
+  page,
+}) => {
+  const { server } = await groupsFixture(page);
+  server.document = {
+    version: 7,
+    groups: [{ id: "g_1", name: "Clients" }],
+    assignments: {},
+  };
+  await page.goto(base + "/projects");
+  await expect(section(page, "Clients")).toBeVisible();
+  // A restore puts back an older document with a lower version.
+  server.document = {
+    version: 2,
+    groups: [{ id: "g_9", name: "Restored" }],
+    assignments: {},
+  };
+  await page.getByRole("button", { name: "Actions for notes" }).click();
+  await page.getByRole("menuitemradio", { name: "Clients" }).click();
+  await expect(page.getByRole("alert")).toContainText("changed elsewhere");
+  await expect(section(page, "Restored")).toHaveText(/Restored\s*0/);
+  await page.getByRole("button", { name: "Actions for notes" }).click();
+  await page.getByRole("menuitemradio", { name: "Restored" }).click();
+  await expect(section(page, "Restored")).toHaveText(/Restored\s*1/);
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  expect(server.puts.map((put) => put.version)).toEqual([7, 2]);
+  expect(server.document).toEqual({
+    version: 3,
+    groups: [{ id: "g_9", name: "Restored" }],
+    assignments: { "/work/notes": "g_9" },
+  });
 });

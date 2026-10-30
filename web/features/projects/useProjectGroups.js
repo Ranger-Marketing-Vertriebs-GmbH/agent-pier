@@ -28,10 +28,13 @@ export default function useProjectGroups() {
   const [error, setError] = useState("");
   const queue = useRef(Promise.resolve());
 
-  // Versions only grow; a late read never replaces a newer saved document.
-  const adopt = useCallback((document) => {
+  // A read never replaces a newer saved document (`trusted` skips the check for the
+  // server's answer to a write, which may carry a lower version after a restore). A
+  // newer document clears the last error, which it may have resolved.
+  const adopt = useCallback((document, trusted = false) => {
     const next = normalizeGroupsDocument(document);
-    if (next.version < saved.current.version) return;
+    if (!trusted && next.version < saved.current.version) return;
+    if (next.version > saved.current.version) setError("");
     saved.current = next;
     setConfirmed(next);
   }, []);
@@ -53,11 +56,11 @@ export default function useProjectGroups() {
           const base = saved.current;
           const next = change(base);
           if (!next || next === base) return base;
-          adopt(await saveProjectGroups({ ...next, version: base.version }));
+          adopt(await saveProjectGroups({ ...next, version: base.version }), true);
           setError("");
           return saved.current;
         } catch (failure) {
-          if (failure.document) adopt(failure.document);
+          if (failure.document) adopt(failure.document, true);
           if (report) setError(failure.message);
           throw failure;
         } finally {

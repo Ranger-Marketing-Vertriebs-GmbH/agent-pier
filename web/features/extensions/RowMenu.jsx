@@ -35,8 +35,9 @@ const enabledItems = (menu) => [
 
 // An item is `{ id, label, run }` (a `checked` boolean makes it a radio item with a
 // check mark), `{ id, kind: "separator" }`, or `{ id, kind: "group", label, items }`:
-// a labelled set of items under a small heading.
-function MenuEntry({ item, close }) {
+// a labelled set of items under a small heading. `run` receives the ⋯ trigger, for an
+// item that hands focus elsewhere (`restoreFocus: false`) and returns it later.
+function MenuEntry({ item, close, trigger }) {
   if (item.kind === "separator")
     return <div role="separator" className="row-menu-separator" />;
   if (item.kind === "group")
@@ -46,7 +47,7 @@ function MenuEntry({ item, close }) {
           {item.label}
         </div>
         {item.items.map((child) => (
-          <MenuEntry key={child.id} item={child} close={close} />
+          <MenuEntry key={child.id} item={child} close={close} trigger={trigger} />
         ))}
       </div>
     );
@@ -64,7 +65,7 @@ function MenuEntry({ item, close }) {
       disabled={item.disabled}
       onClick={() => {
         close(item.restoreFocus !== false);
-        item.run();
+        item.run(trigger.current);
       }}
     >
       {radio && (
@@ -150,7 +151,7 @@ export function RowMenu({ label, state, items }) {
       }}
     >
       {items.map((item) => (
-        <MenuEntry key={item.id} item={item} close={close} />
+        <MenuEntry key={item.id} item={item} close={close} trigger={trigger} />
       ))}
     </div>
   );

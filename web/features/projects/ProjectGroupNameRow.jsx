@@ -33,7 +33,15 @@ export default function ProjectGroupNameRow({
     }
   };
   return (
-    <form className="project-group-name-row" onSubmit={submit}>
+    <form
+      className="project-group-name-row"
+      onSubmit={submit}
+      onKeyDown={(event) => {
+        if (event.key !== "Escape") return;
+        event.preventDefault();
+        onCancel();
+      }}
+    >
       <div className="project-group-name-fields">
         <input
           type="text"
@@ -47,11 +55,6 @@ export default function ProjectGroupNameRow({
           onChange={(event) => {
             setName(event.target.value);
             setError("");
-          }}
-          onKeyDown={(event) => {
-            if (event.key !== "Escape") return;
-            event.preventDefault();
-            onCancel();
           }}
         />
         <button type="submit" className="button primary" disabled={busy}>
