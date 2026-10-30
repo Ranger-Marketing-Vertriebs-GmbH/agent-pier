@@ -113,6 +113,10 @@ export const ownerMetadataRoutes = new Set([
   // The owner archives, restores and deletes any agent, a user's private one too; the
   // delete preview names counts only (agent-lifecycle.js).
   "POST /api/assistants/:id/archive",
+  // The restart preview and its result carry counts only, never chat content; the
+  // owner restarts the main chats of any agent (main-chat-restart.js).
+  "GET /api/assistants/:id/main-chat-restart",
+  "POST /api/assistants/:id/main-chat-restart",
   "POST /api/assistants/:id/restore",
   "GET /api/assistants/:id/deletion",
 ]);

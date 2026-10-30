@@ -66,7 +66,7 @@ always means such a person, never the operating-system user or the owner.
 | Level: also name, picture, instructions, reminders | Personalisieren            | Personalize          |                                                                     |
 | Level: also released capabilities and Telegram     | Erweitert                  | Extended             |                                                                     |
 | The opt-in that lets the owner read a user's chats | Besitzer darf Chats lesen  | Owner may read chats | Counts from its start; always visible to the user.                  |
-| The chat reminders and Telegram deliver into       | Hauptchat                  | Main chat            | Renamed only, never archived or deleted.                            |
+| The chat reminders and Telegram deliver into       | Hauptchat                  | Main chat            | Renamed only; replaced by Restart main chat.                        |
 
 ## Actions
 
