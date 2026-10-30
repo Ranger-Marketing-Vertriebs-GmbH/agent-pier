@@ -101,6 +101,8 @@ export async function handOver(
     return settle({ attemptId: sent.attempt.id });
   } catch (error) {
     if (error.status === 404) return settle({ skipped: "CONVERSATION_MISSING" });
+    // An archived chat (a restarted main chat) never takes the follow-up again.
+    if (error.code === "CHAT_ARCHIVED") return settle({ skipped: "CHAT_ARCHIVED" });
     if (!retryable.has(error.status)) return settle({ skipped: "DELIVERY_FAILED" });
     const count = (a[failures] || 0) + 1;
     w.store.patch(a.id, {
