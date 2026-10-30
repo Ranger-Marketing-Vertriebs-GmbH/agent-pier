@@ -5,9 +5,10 @@
 (() => {
   const id = "[A-Za-z0-9_-]{1,120}";
   const linkPattern = new RegExp(
-    `^/(?:|inbox(?:/(?:question|approval|gate|action|team)/${id})?|sessions/${id}/chat|pipelines/runs/${id}|agents(?:/${id}/(?:settings|chats/${id}))?|settings/(?:github|notifications))$`,
+    `^/(?:|inbox(?:/(?:question|approval|gate|action|team)/${id})?|sessions/${id}/chat|pipelines/runs/${id}|agents(?:/${id}/(?:settings|chats/${id}))?|connections\\?section=github|settings/(?:github|notifications))$`,
   );
-  const tagPattern = new RegExp(`^(?:(?:session|agent|run):)?${id}$`);
+  // The grouping tags of push-content.js pushSource: a session, run, agent chat or agent.
+  const tagPattern = new RegExp(`^(?:(?:session|agent|chat|run):)?${id}$`);
   const validId = (value) =>
     typeof value === "string" && new RegExp(`^${id}$`).test(value);
   const text = (value, limit) =>
@@ -18,7 +19,7 @@
   /** The page a notification opens; an older payload without a link still works. */
   function target(data) {
     if (typeof data?.link === "string" && linkPattern.test(data.link)) return data.link;
-    if (data?.kind === "github-token") return "/settings/github";
+    if (data?.kind === "github-token") return "/connections?section=github";
     if (data?.kind === "disk-space") return "/";
     if (validId(data?.runId)) return `/pipelines/runs/${data.runId}`;
     if (validId(data?.assistantId) && validId(data?.conversationId))

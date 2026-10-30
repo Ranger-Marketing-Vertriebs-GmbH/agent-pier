@@ -250,3 +250,32 @@ test("native requests, waits and runs name their session or pipeline", async (t)
   assert.equal(runs[0].project, "agent-pier");
   assert.equal(runs[1].inbox, undefined);
 });
+
+test("SFTP transfers and emails waiting for approval notify as agent approvals", async () => {
+  const notifications = fakeNotifications();
+  const assistants = fakeAssistants();
+  const events = new AgentApprovalEvents({ services: { assistants }, notifications });
+  await events.poll();
+  assistants.actions.push(
+    {
+      id: "sftp-one",
+      assistantId: "mira",
+      conversationId: "chat-main",
+      payload: { action: "sftp", hostName: "prod" },
+    },
+    {
+      id: "mail-one",
+      assistantId: "mira",
+      conversationId: "chat-main",
+      payload: { action: "mail_send", subject: "Invoice" },
+    },
+  );
+  await events.poll();
+  assert.deepEqual(
+    notifications.sent.map((notice) => [notice.subject, notice.inbox]),
+    [
+      ["sftp", { type: "action", id: "sftp-one" }],
+      ["mail", { type: "action", id: "mail-one" }],
+    ],
+  );
+});

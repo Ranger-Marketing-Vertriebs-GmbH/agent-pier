@@ -130,7 +130,7 @@ the agent's main chat.
 |                 | Approval for a CLI                                 | On      | A session waits for your decision                                                                                                                                                                                                                   |
 |                 | Session waiting in the terminal                    | On      | A session's CLI reports that it waits for you in the terminal, outside AgentPier's approvals and questions, for a few seconds                                                                                                                       |
 |                 | Pipeline waiting at a gate                         | On      | A pipeline waits at a human gate                                                                                                                                                                                                                    |
-|                 | Agent approval (shell, SSH, tasks, team proposals) | On      | An agent waits for approval of a shell or SSH command, a coding task or coding session start, a memory entry, a team member's permission, a hook or an SSH access proposal, or proposes a team                                                      |
+|                 | Agent approval (shell, SSH, tasks, team proposals) | On      | An agent waits for approval of a shell or SSH command, an SFTP transfer, an email to send, a coding task or coding session start, a memory entry, a team member's permission, a hook or an SSH access proposal, or proposes a team                  |
 | Finished        | Response ready                                     | On      | A session finished its reply                                                                                                                                                                                                                        |
 |                 | Session ended                                      | On      | A session stopped                                                                                                                                                                                                                                   |
 |                 | Pipeline completed                                 | Off     | A pipeline run completed                                                                                                                                                                                                                            |
@@ -166,6 +166,13 @@ or the agent archived), held pushes are sent and the session notifies like your 
 
 Telegram keeps its own messages and approval buttons for agents; these settings only
 change push notifications.
+
+**Delivery to a device that is offline:** a notification that waits for you (a
+question, an approval, a session waiting in the terminal or a pipeline gate) is sent
+with high urgency and kept by the push service for up to 24 hours, so a phone that was
+off or out of reach still gets it; opening it after it was answered shows **Already
+done** in the inbox. Every other notification is kept for five minutes at normal
+urgency.
 
 **Grouping and quiet**:
 

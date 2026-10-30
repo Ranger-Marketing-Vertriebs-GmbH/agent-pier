@@ -61,8 +61,8 @@ export const pushKinds = [
   // A run ended: completed, or failed (a cancelled run notifies nobody).
   "pipeline-completed",
   "pipeline-failed",
-  // An agent waits for approval: a shell or SSH command, a coding task, a memory
-  // entry, a member permission or a team proposal.
+  // An agent waits for approval: a shell or SSH command, an SFTP transfer, an email,
+  // a coding task, a memory entry, a member permission or a team proposal.
   "agent-approval",
   "agent-checkin",
   // A routine, reminder or hook result in an agent's main chat.
@@ -88,6 +88,8 @@ export const approvalSubjects = [
   "hook",
   "sshAccess",
   "team",
+  "sftp",
+  "mail",
 ];
 
 // Kinds about one agent; a notice opens its chat when it names one.
@@ -142,7 +144,7 @@ export function pushEvent(input) {
 }
 
 const linkPattern =
-  /^\/(?:|inbox(?:\/(?:question|approval|gate|action|team)\/[A-Za-z0-9_-]{1,120})?|sessions\/[A-Za-z0-9_-]{1,120}\/chat|pipelines\/runs\/[A-Za-z0-9_-]{1,120}|agents(?:\/[A-Za-z0-9_-]{1,120}\/(?:settings|chats\/[A-Za-z0-9_-]{1,120}))?|settings\/(?:github|notifications))$/;
+  /^\/(?:|inbox(?:\/(?:question|approval|gate|action|team)\/[A-Za-z0-9_-]{1,120})?|sessions\/[A-Za-z0-9_-]{1,120}\/chat|pipelines\/runs\/[A-Za-z0-9_-]{1,120}|agents(?:\/[A-Za-z0-9_-]{1,120}\/(?:settings|chats\/[A-Za-z0-9_-]{1,120}))?|connections\?section=github|settings\/(?:github|notifications))$/;
 
 const messageKeys = [
   "v",

@@ -229,7 +229,9 @@ test("real HTTPS encrypted push independently decrypts and verifies VAPID withou
     assert.equal(delivery.method, "POST");
     assert.equal(delivery.url, "/opaque-target");
     assert.equal(delivery.headers["content-encoding"], "aes128gcm");
-    assert.equal(delivery.headers.ttl, "300");
+    // An approval waits for the owner: kept a day and delivered urgently.
+    assert.equal(delivery.headers.ttl, "86400");
+    assert.equal(delivery.headers.urgency, "high");
     assert.equal(Number(delivery.headers["content-length"]), delivery.body.length);
     assert.equal(delivery.body.includes(Buffer.from(payload.eventId)), false);
     assert.deepEqual(decrypt(delivery.body, material.receiver, material.auth), payload);
