@@ -134,7 +134,7 @@ test("every release target executes native relocation, install and update accept
     "utf8",
   );
   for (const [runner, target] of [
-    ["macos-14", "darwin-arm64"],
+    ["macos-15", "darwin-arm64"],
     ["macos-15-intel", "darwin-x64"],
     ["ubuntu-24.04", "linux-x64"],
     ["ubuntu-24.04-arm", "linux-arm64"],
