@@ -12,18 +12,23 @@ or arbitrary version input is exposed.
 does not interrupt work. Activation enters maintenance, checks assistant/channel/
 scheduled work, stops the owned Gateway, and creates a private snapshot before
 switching the selection. Authenticated readiness and read-only reconciliation must
-succeed before admission resumes. Active and uncertain work must be resolved first;
-the updater never cancels or resends requests.
+succeed before admission resumes. Active and uncertain work must be resolved first:
+**Activate update** never cancels or resends anything. **Pause agents and update**
+resolves it for you after a confirmation ([below](#pause-agents-and-update)).
 
 An activation refused before the Gateway stops keeps the old version running and
 leaves maintenance again: the scheduler is restored and channel work resumes. The
 status names the reason:
 
-- `UPDATE_BLOCKED` always lists its blockers, and the panel names each one:
-  `ASSISTANT_WORK` (an agent chat still works or awaits review), `TEAM_WORK`,
-  `CHANNEL_WORK` (a Telegram input or notice still open; acknowledge it in the
-  agent's **Channels › Telegram activity**), `ACCOUNT_LOGIN`, `WORKFLOW_WORK` and
-  `SCHEDULED_WORK`.
+- `UPDATE_BLOCKED` always lists its blockers. The status keeps the codes
+  (`blockers`): `ASSISTANT_WORK` (an agent chat still works or awaits review),
+  `TEAM_WORK`, `CHANNEL_WORK` (a Telegram input or notice still open; acknowledge it
+  in the agent's **Channels › Telegram activity**), `ACCOUNT_LOGIN`, `WORKFLOW_WORK`
+  and `SCHEDULED_WORK`. It also names each blocking item
+  (`blockerItems`), and the panel lists them under **Open work**: what it is, its
+  agent, since when it waits, and a link to where it is resolved (the chat, the
+  agent's **Channels › Telegram activity** or **Automation**, the lead's chat for a
+  team task, **Connections › Model access** for a sign-in).
 - `UPDATE_CONFIG_BUSY`: the Gateway refused the configuration write that pauses the
   scheduler. OpenClaw admits 30 `config.patch` a minute per connection and refuses
   the rest with the wait it asks for (`retryAfterMs`). Every live configuration
@@ -31,6 +36,85 @@ status names the reason:
   minute in all; a wait beyond that fails at once instead of repeating the patch.
   Try again a minute later.
 - `UPDATE_PREPARE_FAILED`: another failure before the stop.
+
+### Blocker items
+
+`server/features/assistants/runtime-update-blockers.js` reads every item without
+changing anything. Each has `id`, `code`, `kind`, `agent` (`{ id, name }` or null),
+`since`, `link`, `resolution` and `revision`; it carries no message, command or
+routine text. `revision` is a digest of everything the resolution depends on (the
+state of a turn, an input or an action, a team's members), so it changes whenever
+the item does.
+
+| `kind`           | Code             | What it is                                              | `resolution`               |
+| ---------------- | ---------------- | ------------------------------------------------------- | -------------------------- |
+| `chat_turn`      | `ASSISTANT_WORK` | a running turn, or one of unknown outcome not reviewed  | `stop`, `review`           |
+| `chat_summary`   | `ASSISTANT_WORK` | a long chat's summary running in the Gateway            | `wait`                     |
+| `team_task`      | `TEAM_WORK`      | a team approved, queued or running, or a member busy    | `cancel`                   |
+| `channel_input`  | `CHANNEL_WORK`   | a Telegram input not yet delivered or reviewed          | `close`                    |
+| `channel_notice` | `CHANNEL_WORK`   | a Telegram notice not yet delivered or reviewed         | `close`                    |
+| `login`          | `ACCOUNT_LOGIN`  | a model account sign-in in progress                     | `none`                     |
+| `workflow`       | `WORKFLOW_WORK`  | an agent action approved, executing, running or unknown | `cancel`, `review`, `wait` |
+| `routine_run`    | `SCHEDULED_WORK` | a cron run (reminder, routine, check-in) running now    | `wait`                     |
+
+`GET /api/assistant-runtime/updates/blockers` returns `{ items }` for the
+confirmation, read only (users' unknown turns are not settled by it).
+
+### Pause agents and update
+
+**Pause agents and update** (German **Agenten anhalten und aktualisieren**) sits
+beside **Activate update** and works whether or not the last activation was blocked.
+It opens a confirmation that reads the current items and says for each what will
+happen. Confirming sends `POST /api/assistant-runtime/updates/activate` with
+`{ "resolveBlockers": true, "items": [{ "id", "revision" }] }`, exactly the items the
+dialog showed. The server then:
+
+1. enters maintenance: admission closes, cron is switched off and channel workers
+   stop, so no new turn, routine run, delivery or action can start until the update
+   ends;
+2. reads the items again. If any is not among the confirmed ones with the same
+   revision (new, or changed since the dialog opened), or a sign-in is in progress,
+   it touches nothing, leaves maintenance and refuses with `UPDATE_BLOCKED` and the
+   current items;
+3. resolves each confirmed item through the path the owner would use by hand:
+   - a team task is stopped like the owner's team stop (`TeamService.stop`: pending
+     member requests withdrawn, queued members cancelled, running ones aborted); once
+     its members' turns ended the team records its end, and its report reaches the
+     lead after the update;
+   - a running chat turn is aborted in its Gateway session like the stop control and
+     recorded as `cancelled` (reconciliation does not run in maintenance); a turn of
+     unknown outcome is aborted and marked reviewed, as a user's own review does;
+   - a Telegram input the review action accepts is closed through it (**Acknowledge
+     without resending**); any other open input or notice (queued, waiting for
+     transcription, a reply waiting to be sent) is closed as reviewed with
+     `RUNTIME_UPDATE_CLOSED`, which **Telegram activity** explains. An input whose
+     turn is still unresolved stays open. Nothing is sent to Telegram or handed to
+     the agent again;
+   - an agent action approved but not started is cancelled, a coding run through its
+     pipeline's cancel, and an unknown outcome is reviewed, as the owner's
+     **Reviewed** decision does. Their follow-ups to the agent run after the update;
+   - a routine run, a chat summary or a command, transfer or email executing right
+     now cannot be stopped from AgentPier: the update waits up to two minutes for it
+     to end while nothing new starts;
+4. reads the blockers again. What remains (a failed abort, a run still going) is
+   reported as `UPDATE_BLOCKED` with exactly those items, and maintenance is left;
+   what was resolved stays resolved;
+5. otherwise runs the usual activation: Gateway stop, snapshot, Doctor, validation
+   and, on failure, rollback.
+
+A sign-in in progress is never cancelled for an update, although its own cancel
+exists: it is the owner's interactive device-code flow, possibly being completed in
+another tab at that moment, and cancelling it would throw away a code he may be
+entering. The dialog lists it with the hint to finish or cancel it under
+**Connections › Model access**, keeps its confirm button disabled, and the server
+refuses it as above. Once a refused activation names a sign-in, the button itself is
+disabled with the same hint.
+
+Every forced resolution is audited on the agent (`assistant.cancelled` for a stopped
+turn, team task or action, `assistant.updated` for a reviewed or closed one) with
+`kind: "runtime-update"`, `via: "runtime-update"`, `item` (the kind above), `result`
+(`cancelled`, `reviewed` or `closed`) and the item's id as `entryId`; one that failed
+is audited with outcome `failure`.
 
 Leaving maintenance re-applies every agent only when the Gateway restarted meanwhile
 (its launch generation changed). A refused activation therefore costs two

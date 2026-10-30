@@ -10,12 +10,12 @@ each card opens its item here (see [start page](system-status.md#start-page)).
 
 ## What it lists
 
-| Tab           | Items                                                                                                                                                                                   |
-| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Questions** | Questions a coding CLI asks in a running session (Codex, Claude Code, OpenCode)                                                                                                         |
-| **Approvals** | Permission requests of a coding CLI in a running session, such as a tool call, a workspace trust, Codex hooks or a Claude startup or auto mode dialog                                   |
-| **Gates**     | Pipeline runs that wait for a human decision at their current stage                                                                                                                     |
-| **Agents**    | Agent requests that wait for approval (shell and SSH commands, coding tasks, memory entries, team member permissions, emails to send, hook and SSH access proposals) and team proposals |
+| Tab           | Items                                                                                                                                                                                                                                    |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Questions** | Questions a coding CLI asks in a running session (Codex, Claude Code, OpenCode)                                                                                                                                                          |
+| **Approvals** | Permission requests of a coding CLI in a running session, such as a tool call, a workspace trust, Codex hooks or a Claude startup or auto mode dialog                                                                                    |
+| **Gates**     | Pipeline runs that wait for a human decision at their current stage                                                                                                                                                                      |
+| **Agents**    | Agent requests that wait for approval (shell and SSH commands, coding tasks, memory entries, team member permissions, emails to send, hook and SSH access proposals), team proposals and [unresolved agent work](#unresolved-agent-work) |
 
 **All** shows everything; every tab shows its count. Items about to expire (within 15
 minutes, such as an agent's shell command) come first, soonest first; everything else
@@ -41,13 +41,41 @@ card.
 
 Answered or expired items leave the list without a reload. Every item has a stable
 address, `/inbox/<type>/<id>`, where the type is `question`, `approval`, `gate`,
-`action` or `team`. An address of an item that no longer waits shows **Already done**
+`action`, `team` or `unresolved`. An address of an item that no longer waits shows **Already done**
 with the decision and its time when the audit log recorded it within the last 24 hours,
 and **No longer waiting** otherwise (for example after the CLI dialog was answered in
 the terminal long ago, or an approval expired). A native request that ended without an
 answer from AgentPier says why: answered in the terminal, the CLI moved on to a later
 step, the CLI stopped asking, the session ended, or it expired and the CLI asks in its
 own terminal dialog now.
+
+## Unresolved agent work
+
+Agent work that has not moved for more than 24 hours shows on the **Agents** tab as
+**Unresolved work**, so you find it before it blocks an OpenClaw update
+([runtime updates](assistant-runtime-updates.md#blocker-items)):
+
+- **Telegram input still open**: an input in an agent's Telegram channel that was
+  neither delivered nor reviewed, such as one stuck in "Outcome reviewed in chat".
+  It links to the agent's **Channels › Telegram activity**, where **Acknowledge
+  without resending** closes it without sending anything.
+- **Chat turn with unknown outcome**: an uncertain or interrupted turn nobody
+  reviewed. It links to the chat.
+- **Agent action without progress**: an action approved, executing, running or of
+  unknown outcome that has not changed for a day. It links to the agent's chat.
+
+The day is counted from the input's or turn's arrival and from the action's last
+change. The card says what to do and **Open in context** opens the place; the inbox
+itself changes nothing. The item leaves as soon as it is resolved there, like every
+other item, and its address then shows **No longer waiting**. A user's own chats and
+her Telegram channel stay hers and never appear in the owner's inbox.
+
+These items send no push notification. They are reminders of work that already
+waits elsewhere, not new decisions, and several can appear at once after a day; a
+push for each would be noise. No existing event fits either: **Agent approval** means
+a new request to decide, and **Problems and updates** are host or session failures
+([notifications](notifications.md#what-notifies-you)). They do count in the inbox
+badge and the installed app's badge.
 
 ## Claude Code approvals and plans
 

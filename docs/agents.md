@@ -695,7 +695,8 @@ The Team tab is hidden for team members and agents of users.
   Telegram"; replies go back to Telegram, a long one in full as several messages
   split between paragraphs or lines (beyond about 64,000 characters or 40 messages
   a closing note says the reply was shortened). **Telegram activity** shows deliveries that
-  need a decision. Voice messages are transcribed when a Deepgram key is set under
+  need a decision; one still open after a day also shows in the
+  [inbox](inbox.md#unresolved-agent-work). Voice messages are transcribed when a Deepgram key is set under
   **Connections › Services for agents › Speech recognition**. Photos, documents and
   videos you send there reach the agent like [attachments](#attachments) (see
   [files from Telegram](#files-from-telegram)). Files the agent shares in

@@ -23,6 +23,40 @@ export const assistantCopy = {
       SCHEDULED_WORK: "Eine Erinnerung oder Routine läuft gerade.",
     },
     unknownBlocker: "Weitere offene Arbeit.",
+    openWork: "Offene Arbeit",
+    itemKinds: {
+      chat_turn: "Chat-Antwort",
+      chat_summary: "Chat-Zusammenfassung",
+      team_task: "Teamauftrag",
+      channel_input: "Telegram-Eingang",
+      channel_notice: "Telegram-Benachrichtigung",
+      workflow: "Agentenaktion",
+      routine_run: "Routine-Lauf",
+      login: "Anmeldung bei einem Modellkonto",
+    },
+    itemLabel: (kind, agent) => (agent ? `${kind} · ${agent}` : kind),
+    since: (time) => `Seit ${time}`,
+    resolutions: {
+      stop: "Die laufende Antwort wird gestoppt.",
+      review: "Wird als geprüft markiert. Es wird nichts erneut gesendet.",
+      cancel: "Wird abgebrochen und als abgebrochen protokolliert.",
+      close: "Wird ohne Versand geschlossen. Es wird nichts erneut gesendet.",
+      wait: "Lässt sich in AgentPier nicht stoppen. Das Update wartet bis zu zwei Minuten auf das Ende; nichts Neues startet.",
+      none: "Wird für das Update nicht abgebrochen. Schließe die Anmeldung zuerst unter Zugänge › Modell-Zugänge ab oder brich sie dort ab.",
+    },
+    pause: "Agenten anhalten und aktualisieren",
+    pauseHint:
+      "Hält die Agenten an, erledigt offene Arbeit wie in der Bestätigung aufgeführt und aktiviert dann das Update.",
+    pauseLoginHint:
+      "Eine Anmeldung bei einem Modellkonto läuft. Schließe sie unter Zugänge › Modell-Zugänge ab oder brich sie ab, dann halte die Agenten an und aktualisiere.",
+    pauseTitle: (version) => `Agenten anhalten und auf ${version} aktualisieren?`,
+    pauseBody:
+      "Kein Agent beginnt neue Arbeit, bis das Update abgeschlossen ist. AgentPier erledigt dann die offene Arbeit unten wie aufgeführt, protokolliert jeden Schritt im Aktivitätsprotokoll, legt eine Sicherung an, aktiviert die neue Version und prüft sie. Schlägt die Prüfung fehl, wird die vorherige Version wiederhergestellt.",
+    pauseNoResume:
+      "Gestoppte Antworten und abgebrochene Aufträge laufen nach dem Update nicht weiter.",
+    pauseNothing: "Gerade läuft keine Arbeit und nichts ist offen.",
+    pauseLoading: "Offene Arbeit wird geprüft …",
+    pauseConfirm: "Anhalten und aktualisieren",
     phases: {
       idle: "Bereit",
       staging: "Wird vorbereitet",

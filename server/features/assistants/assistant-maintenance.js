@@ -6,6 +6,8 @@ import { setTimeout as delay } from "node:timers/promises";
 import { readJSON } from "../../lib/storage.js";
 import { durablePrivate } from "./runtime-update-snapshot.js";
 import { ledgerFence } from "./ledger-fence.js";
+import { blockerCodes, blockerItems } from "./runtime-update-blockers.js";
+import { confirmedAll, resolveItems } from "./runtime-update-resolution.js";
 export function needsAssistantMaintenance(paths) {
   if (fs.existsSync(path.join(paths.root, "runtime-maintenance.json"))) return true;
   try {
@@ -75,44 +77,28 @@ export class AssistantMaintenance {
     );
     await this.s.assistantChannels.queue?.catch(() => {});
   }
+  /** The blocker codes (runtime-update-blockers.js), as before the items. */
   async blockers() {
-    const s = this.s,
-      a = s.assistants,
-      blockers = [];
-    await a.settleUserTurns?.();
-    // A history summarised on request runs in the Gateway too (long-chats.js).
-    if (a.ledger.pending().length || a.longChats?.runningFor())
-      blockers.push("ASSISTANT_WORK");
-    if (
-      s.assistantTeams?.store
-        .members()
-        .some((m) => !["completed", "failed", "cancelled"].includes(m.phase)) ||
-      s.assistantTeams?.store
-        .list()
-        .some((t) => ["approved", "queued", "running", "stopping"].includes(t.phase))
-    )
-      blockers.push("TEAM_WORK");
-    if (
-      s.assistantChannels.store
-        .list()
-        .some(
-          (c) =>
-            s.assistantChannels.ledger.active(c.id).length ||
-            s.assistantChannels.outbox.pending(c.id).length,
-        )
-    )
-      blockers.push("CHANNEL_WORK");
-    if (["starting", "awaiting_user"].includes(s.assistantModelLogin?.attempt?.status))
-      blockers.push("ACCOUNT_LOGIN");
-    if (
-      a.workflows?.store
-        .list()
-        .some((x) => ["approved", "executing", "unknown", "running"].includes(x.state))
-    )
-      blockers.push("WORKFLOW_WORK");
-    if (s.assistantRuntime.client?.ready && (await s.assistantReminders?.hasRunning()))
-      blockers.push("SCHEDULED_WORK");
-    return blockers;
+    return blockerCodes(await this.blockerItems());
+  }
+  /**
+   * What blocks an update, item by item. Users' turns of unknown outcome are settled
+   * first (attempt-recovery.js); `settle: false` only reads, for the owner's preview.
+   */
+  async blockerItems({ settle = true } = {}) {
+    if (settle) await this.s.assistants.settleUserTurns?.();
+    return blockerItems(this.s);
+  }
+  /**
+   * Resolves the blockers the owner confirmed (`confirmed`: their ids and revisions)
+   * while in maintenance and returns what remains. Unless every current item was
+   * confirmed unchanged and none is a sign-in, nothing is touched
+   * (runtime-update-resolution.js).
+   */
+  async resolve(confirmed, options) {
+    const items = await this.blockerItems();
+    if (!items.length || !confirmedAll(items, confirmed)) return items;
+    return resolveItems(this.s, items, () => this.blockerItems(), options);
   }
   async validate() {
     const s = this.s,

@@ -1,6 +1,13 @@
 // The inbox at /inbox, a tab as `?tab=`, and every item at its stable address
 // /inbox/<type>/<id> (the server's item types).
-export const inboxTypes = ["question", "approval", "gate", "action", "team"];
+export const inboxTypes = [
+  "question",
+  "approval",
+  "gate",
+  "action",
+  "team",
+  "unresolved",
+];
 export const inboxTabs = ["all", "questions", "approvals", "gates", "agents"];
 const idPattern = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
 

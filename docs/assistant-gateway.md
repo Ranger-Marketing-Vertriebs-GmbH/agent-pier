@@ -224,7 +224,9 @@ The update workflow extends the current pinned installer:
    normal AgentPier update path, not a developer-only setup command.
 3. Enter maintenance: gate new execution, coordinate Telegram/transcription/delivery
    workers, drain running work and stop the owned Gateway. Pending/uncertain effects
-   must remain recorded; a timeout does not authorize cancellation or replay.
+   must remain recorded; a timeout does not authorize cancellation or replay. Only the
+   owner's explicit **Pause agents and update** resolves blockers, item by item and
+   never by resending ([runtime updates](assistant-runtime-updates.md#pause-agents-and-update)).
 4. Take a consistent private backup of the affected Gateway state and corresponding
    AgentPier assistant/channel ledgers, including database journals and version/schema
    metadata. Preserve host-scoped credentials securely; never expose backup contents

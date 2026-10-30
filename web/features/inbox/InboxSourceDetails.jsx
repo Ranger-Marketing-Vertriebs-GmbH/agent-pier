@@ -193,3 +193,16 @@ export function InboxTeamDetail({ item, done }) {
     </section>
   );
 }
+
+/**
+ * Agent work that stopped moving for a day (inbox-sources.js unresolved). It is
+ * resolved where it lives, which "Open in context" opens; the item leaves once it is.
+ */
+export function InboxUnresolvedDetail({ item }) {
+  return (
+    <section className="inbox-card">
+      <p>{copy.unresolved[item.kind] || copy.types.unresolved}</p>
+      <p className="assistant-note">{copy.unresolved.blocks}</p>
+    </section>
+  );
+}

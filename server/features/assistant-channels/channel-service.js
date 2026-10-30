@@ -5,7 +5,7 @@ import { TelegramFeedback } from "./telegram-feedback.js";
 import { TelegramDelivery } from "./telegram-delivery.js";
 import { TelegramFollowUps } from "./telegram-follow-ups.js";
 import { SpeechService } from "../speech/speech-service.js";
-import { ChannelLedger } from "./channel-ledger.js";
+import { ChannelLedger, reviewStates } from "./channel-ledger.js";
 import { TelegramIngress } from "./telegram-ingress.js";
 import { ChannelStore, channelLanguage } from "./channel-store.js";
 import { TelegramClient } from "./telegram-client.js";
@@ -305,6 +305,63 @@ export class ChannelService {
       } else throw assistantProblem("invalid");
       this.assistants.changed();
       return this.ledger.public(channelId);
+    });
+  }
+  /**
+   * Closes an open input for a runtime update the owner confirmed
+   * (runtime-update-resolution.js); nothing is sent or handed to the agent again. An
+   * input the review action accepts goes through it ("Acknowledge without resending");
+   * any other open input is closed as reviewed with RUNTIME_UPDATE_CLOSED. An input
+   * whose agent turn is still unresolved stays open. Returns whether it closed.
+   */
+  async closeForUpdate(channelId, inputId) {
+    const entry = this.ledger.get(inputId);
+    if (entry.channelId !== channelId) throw assistantProblem("notFound", 404);
+    if (!this.ledger.active(channelId).some((e) => e.id === inputId)) return true;
+    const attempt = entry.attemptId
+      ? this.assistants.ledger.getAttempt(entry.attemptId)
+      : null;
+    const settled =
+      !attempt ||
+      ["completed", "failed", "cancelled"].includes(attempt.state) ||
+      attempt.reviewedAt;
+    if (!settled) return false;
+    if (
+      reviewStates.includes(entry.state) ||
+      (entry.state === "model_uncertain" && attempt?.reviewedAt)
+    ) {
+      await this.recoverInput(channelId, inputId, "review");
+      return true;
+    }
+    return this.serialize(async () => {
+      await this.stopChannel(channelId);
+      const current = this.ledger.get(inputId);
+      if (current.state !== entry.state) return false;
+      this.ledger.patch(inputId, {
+        state: "reviewed",
+        diagnostic: "RUNTIME_UPDATE_CLOSED",
+      });
+      this.assistants.changed({ conversationId: current.conversationId });
+      return true;
+    });
+  }
+  /** Closes a pending notice for a runtime update, like closeForUpdate: never sent. */
+  async closeNoticeForUpdate(channelId, id) {
+    const entry = this.outbox.get(id);
+    if (entry.channelId !== channelId) throw assistantProblem("notFound", 404);
+    if (["delivered", "reviewed"].includes(entry.state)) return true;
+    if (["delivery_uncertain", "delivery_failed"].includes(entry.state)) {
+      await this.recoverNotification(channelId, id, "review");
+      return true;
+    }
+    return this.serialize(async () => {
+      await this.stopChannel(channelId);
+      this.outbox.transition(id, entry.state, {
+        state: "reviewed",
+        diagnostic: "RUNTIME_UPDATE_CLOSED",
+      });
+      this.assistants.changed();
+      return true;
     });
   }
   hasTeamWork(id) {

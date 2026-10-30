@@ -25,6 +25,7 @@ export const inboxCopy = {
     gate: "Pipeline-Gate",
     action: "Agenten-Anfrage",
     team: "Team-Vorschlag",
+    unresolved: "Ungeklärte Arbeit",
   },
   kinds: {
     exec: "Shell-Befehl",
@@ -42,6 +43,18 @@ export const inboxCopy = {
     codexHookTrust: "Codex-Hooks prüfen",
     claudeStartupPrompt: "Rückfrage von Claude",
     claudeLegacyQuestion: "Frage im Terminal",
+    channel_input: "Telegram-Eingang noch offen",
+    chat_attempt: "Chat-Antwort mit ungewissem Ausgang",
+    stalled_action: "Agentenaktion ohne Fortschritt",
+  },
+  unresolved: {
+    channel_input:
+      "Dieser Telegram-Eingang ist seit mehr als einem Tag offen. Prüfe ihn beim Agenten unter Kanäle › Telegram-Aktivität; „Ohne erneuten Versand bestätigen“ schließt ihn, ohne etwas zu senden.",
+    chat_attempt:
+      "Diese Chat-Antwort mit ungewissem Ausgang hat seit mehr als einem Tag niemand geprüft. Öffne den Chat, um sie zu prüfen.",
+    stalled_action:
+      "Diese Agentenaktion hat sich seit mehr als einem Tag nicht bewegt. Öffne den Chat, um sie zu prüfen.",
+    blocks: "Solange sie ungeklärt ist, verhindert sie OpenClaw-Updates.",
   },
   waitingSince: (time) => `Wartet seit ${time}`,
   expires: (relative) => `Läuft ${relative} ab`,
