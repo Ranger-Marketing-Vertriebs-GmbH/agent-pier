@@ -1,7 +1,8 @@
 import { hubFixture } from "./projects-fixture.js";
 
 // A project-groups server in memory: version check, ids for new groups, 409 with the
-// current document. `fail` answers the next PUT with a 400.
+// current document. `fail` answers the next PUT with a 400; reads wait for a
+// promise in `gate`.
 export async function groupsFixture(page, { projects, ...controls } = {}) {
   const server = { document: { version: 0, groups: [], assignments: {} }, puts: [] };
   let nextId = 1;
@@ -14,6 +15,7 @@ export async function groupsFixture(page, { projects, ...controls } = {}) {
       }
       if (url.pathname !== "/api/project-groups") return false;
       if (method === "GET") {
+        await server.gate;
         await route.fulfill({ json: server.document });
         return true;
       }

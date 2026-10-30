@@ -44,6 +44,8 @@ export default function ProjectsPage({
     loading: hub.loading,
   });
   const [dialog, setDialog] = useState(null);
+  // The list's search lives here: phones unmount the list while a project is open.
+  const [query, setQuery] = useState("");
   // The id of the project whose older entry the merge dialog merges.
   const [mergingId, setMergingId] = useState("");
   // A dialog unmounts its native <dialog> without restoring focus; return it to the
@@ -316,6 +318,8 @@ export default function ProjectsPage({
               attentionFor={(item) => projectAttention(hub.attention, item.memoryId)}
               isRunning={(item) => runningPaths.has(normalizePath(item.path))}
               onMerge={merge}
+              query={query}
+              onQueryChange={setQuery}
             />
           }
           detail={project ? detail(project) : missing ? missingCard : loadingStatus}

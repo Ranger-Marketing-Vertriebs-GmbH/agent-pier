@@ -288,3 +288,15 @@ test("no drag in the Origin and List views or while searching", async ({ page })
   await tryDrag(row(page, "agent-pier"));
   expect(server.puts).toHaveLength(0);
 });
+
+test("the phone layout offers no drag, even with a fine pointer", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const { server } = await groupsFixture(page);
+  await open(page, server);
+  await dragTo(page, row(page, "notes"), section(page, "Games"), { release: false });
+  await expect(projectList(page).locator(".project-row.dragging")).toHaveCount(0);
+  await expect(area(page, "group:g_2")).not.toHaveClass(/drop-target/);
+  await page.mouse.up();
+  await expect(section(page, "Clients")).toHaveText(/Clients\s*1/);
+  expect(server.puts).toEqual([]);
+});
