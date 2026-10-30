@@ -6,6 +6,12 @@ import { createAssistantServices } from "../../server/application/assistants.js"
 import { assistantTeamModel } from "./assistant-team-model.js";
 import { ChannelOutbox } from "../../server/features/assistant-channels/channel-outbox.js";
 import { profileTools } from "../../server/features/assistants/native-capabilities.js";
+// OpenClaw offers apply_patch wherever write is allowed (writeAllowsApplyPatch); the
+// plugin guards it like write (team-plugin/tool-guard.js writeTools).
+const offeredTools = (assistant) => {
+  const tools = profileTools(assistant, true, true, true);
+  return (tools.includes("write") ? [...tools, "apply_patch"] : tools).sort();
+};
 export async function qualifyAssistantTeams({ dataDir, log = () => {} }) {
   const model = await assistantTeamModel();
   const services = createAssistantServices({
@@ -96,7 +102,7 @@ export async function qualifyAssistantTeams({ dataDir, log = () => {} }) {
       model.requests[0].tools.map((t) => t.function.name).sort(),
       // The parent's tools come from its compiled profile (team tools plus the always-on
       // workspace tool); deriving them keeps this contract from drifting.
-      profileTools(parent, true, true, true).sort(),
+      offeredTools(parent),
     );
     const childRequests = model.requests.filter((r) =>
       JSON.stringify(
@@ -120,7 +126,7 @@ export async function qualifyAssistantTeams({ dataDir, log = () => {} }) {
       assert.ok(member, "member turn matches a member assignment");
       assert.deepEqual(
         r.tools.map((t) => t.function.name).sort(),
-        profileTools(a.store.getAssistant(member.assistantId), true, true, true).sort(),
+        offeredTools(a.store.getAssistant(member.assistantId)),
       );
     }
     await channels.delivery.process(channel.id, new AbortController().signal);
