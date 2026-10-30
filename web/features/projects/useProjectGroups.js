@@ -7,6 +7,7 @@ import {
   groupForPath,
   normalizeGroupsDocument,
   withAssignment,
+  withGroupAt,
   withGroupMoved,
   withNewGroup,
   withRenamedGroup,
@@ -114,6 +115,12 @@ export default function useProjectGroups() {
       quietly(update((current) => withGroupMoved(current, groupId, offset))),
     [update],
   );
+  // A dragged group lands at an absolute position.
+  const moveGroupTo = useCallback(
+    (groupId, index) =>
+      quietly(update((current) => withGroupAt(current, groupId, index))),
+    [update],
+  );
   const deleteGroup = useCallback(
     (groupId) => quietly(update((current) => withoutGroup(current, groupId))),
     [update],
@@ -130,6 +137,7 @@ export default function useProjectGroups() {
     createGroup,
     renameGroup,
     moveGroup,
+    moveGroupTo,
     deleteGroup,
   };
 }
