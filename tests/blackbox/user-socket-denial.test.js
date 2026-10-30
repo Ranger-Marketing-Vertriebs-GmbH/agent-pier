@@ -234,6 +234,7 @@ test("a user cannot tell an owner topic from an unknown one on the live channel"
     "artifacts.usage",
     "artifacts.changed",
     "projects.changed",
+    "project-groups.changed",
     "system.status",
     "system.status.details",
     "system.cleanup.summary",

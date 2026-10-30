@@ -258,6 +258,13 @@ export const liveTopics = Object.freeze({
   // of each source. useLiveSignal reads nothing without the channel; the page reads
   // them again on a reload, as it did before the topic.
   "projects.changed": Object.freeze({ mode: "signal", path: null, interval: 30000 }),
+  // The projects page's project groups: `changed`, then one read of
+  // GET /api/project-groups.
+  "project-groups.changed": Object.freeze({
+    mode: "signal",
+    path: null,
+    interval: 30000,
+  }),
   // A CLI account's sign-in state, sampled by the server every 30 s while a visible
   // tab watches.
   "account.auth": Object.freeze({

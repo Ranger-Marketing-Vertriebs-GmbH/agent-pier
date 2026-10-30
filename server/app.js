@@ -2,6 +2,7 @@ import { stageToolchainsInBackground } from "./features/mcp-packages/toolchain-p
 import { assistantRoutes } from "./http/routes/assistants.js";
 import { agentText } from "./lib/i18n/agent-text.js";
 import { messageIdentity } from "./lib/i18n/message-identity.js";
+import { projectGroupsRoutes } from "./http/routes/project-groups.js";
 import { artifactsRoutes } from "./http/routes/artifacts.js";
 import { fileTextRoutes } from "./http/routes/file-text.js";
 import { SessionMcp } from "./features/mcp/session-integration.js";
@@ -360,6 +361,7 @@ export async function createApplication(config) {
   mount(artifactsRoutes(services));
   mount(mcpAccessRoutes(services));
   mount(workspaceRoutes(services));
+  mount(projectGroupsRoutes(services));
   mount(fileExplorerRoutes(services));
   mount(fileOperationsRoutes(services));
   mount(fileTransfersRoutes(services));
