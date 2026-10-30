@@ -188,11 +188,15 @@ for (const [name, answer] of [
   ["an unexpected answer", { json: {} }],
   ["a failed request", { status: 500, json: { error: "unavailable" } }],
 ])
-  test(`${name} hides the status row quietly`, async ({ page }) => {
+  test(`${name} keeps the tile and says the status is unavailable`, async ({ page }) => {
     await page.route("**/api/system-status", (route) => route.fulfill(answer));
     await page.goto("/");
     await expect(page.getByRole("heading", { name: "Your tools" })).toBeVisible();
-    await expect(page.getByRole("button", { name: /System status/ })).toHaveCount(0);
+    // The tile keeps its place, quietly: no alert, no skeleton left behind.
+    const tile = page.getByRole("button", { name: /System status/ });
+    await expect(tile).toContainText("System status unavailable");
+    await expect(tile).not.toHaveAttribute("aria-busy", "true");
+    await expect(tile.locator(".skeleton")).toHaveCount(0);
     await expect(page.getByRole("alert")).toHaveCount(0);
   });
 

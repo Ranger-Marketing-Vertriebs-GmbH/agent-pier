@@ -8,6 +8,7 @@ import HistoryChart from "../../components/HistoryChart.jsx";
 import LearnMore from "../../components/LearnMore.jsx";
 import { Pagination, usePagination } from "../../components/Pagination.jsx";
 import ShareBar from "../../components/ShareBar.jsx";
+import Skeleton, { SkeletonLabel } from "../../components/Skeleton.jsx";
 import StatusChip from "../../components/StatusChip.jsx";
 import StatusDot from "../../components/StatusDot.jsx";
 import { galleryCopy as copy } from "../../lib/i18n/messages/gallery.js";
@@ -172,6 +173,21 @@ export default function FeedbackSection() {
             },
           ]}
         />
+      </Specimen>
+      <Specimen label="Skeleton" wide>
+        <div className="gallery-skeleton" aria-busy="true">
+          <SkeletonLabel />
+          <Skeleton shape="circle" width="32px" height="32px" />
+          <span className="gallery-skeleton-lines">
+            <strong>
+              <Skeleton width="40%" />
+            </strong>
+            <small>
+              <Skeleton width="70%" />
+            </small>
+          </span>
+          <Skeleton shape="block" width="88px" height="33px" />
+        </div>
       </Specimen>
       <Specimen label="Pagination" wide>
         <Pagination paging={paging} label={s.pagination} />

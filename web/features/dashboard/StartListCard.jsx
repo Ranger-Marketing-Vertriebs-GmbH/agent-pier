@@ -2,6 +2,7 @@ import React, { useId, useState } from "react";
 import FilterChips from "../../components/FilterChips.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import Icon from "../../components/Icon.jsx";
+import Skeleton, { SkeletonLabel } from "../../components/Skeleton.jsx";
 import { startPageCopy as copy } from "../../lib/i18n/messages/dashboard.js";
 import { filterList, PHONE_LIMIT, shownRows } from "./start-lists.js";
 
@@ -12,8 +13,16 @@ import { filterList, PHONE_LIMIT, shownRows } from "./start-lists.js";
  * the card. Changing the filter or the search folds it again. Phones show
  * `PHONE_LIMIT` rows and a "show all" row (`showAll(count)` → `{ label, onClick }`)
  * instead. `error` (such as a failed open) shows on both layouts.
+ *
+ * While `loading`, the card keeps the shape of `shape` (`{ items, rows }`, what it
+ * showed last time, start-layout.js): the search and chips without counts, and
+ * `placeholder(count)` skeleton rows, "show all" and the footer where they will be.
  */
-export default function StartListCard({
+export default function StartListCard({ loading = false, ...props }) {
+  return loading ? <LoadingCard {...props} /> : <ListCard {...props} />;
+}
+
+function ListCard({
   id,
   title,
   count,
@@ -134,6 +143,82 @@ export default function StartListCard({
               {expanded ? copy.showLess : copy.showMore(hidden)}
             </button>
           )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+// The card while its list loads: frame, title, search and chips as they will be, and
+// skeleton rows in place of the list.
+function LoadingCard({
+  id,
+  title,
+  filters,
+  filterLabels,
+  chipsLabel,
+  searchLabel,
+  limit,
+  footer,
+  phone,
+  className = "",
+  shape = null,
+  placeholder,
+  filterDots = {},
+}) {
+  const items = shape?.items ?? 0;
+  const rows = Math.min(shape?.rows ?? 0, items);
+  const shown = Math.min(rows, phone ? PHONE_LIMIT : limit);
+  const search = (
+    <label className="start-search">
+      <Icon name="search" size={14} />
+      <input type="search" placeholder={searchLabel} aria-label={searchLabel} disabled />
+    </label>
+  );
+  return (
+    <section
+      className={`start-card start-list ${className}`.trim()}
+      aria-labelledby={`${id}-title`}
+      aria-busy="true"
+    >
+      <div className="start-card-head">
+        <h2 id={`${id}-title`}>{title}</h2>
+        {!phone && items > 0 && search}
+      </div>
+      <SkeletonLabel />
+      {phone && items > 0 && search}
+      {items > 0 && (
+        <FilterChips
+          label={chipsLabel}
+          value={Object.keys(filters)[0]}
+          onChange={() => {}}
+          options={Object.keys(filters).map((value) => ({
+            value,
+            label: filterLabels[value],
+            dot: filterDots[value],
+          }))}
+        />
+      )}
+      <div className="start-list-body">
+        {shown === 0 ? (
+          <p className="start-empty">
+            <Skeleton width="60%" />
+          </p>
+        ) : (
+          placeholder(shown)
+        )}
+      </div>
+      {phone && rows > PHONE_LIMIT && (
+        <span className="start-show-all">
+          <Skeleton width="10em" />
+        </span>
+      )}
+      {!phone && (footer || rows > 0) && (
+        <div className="start-card-foot">
+          <p className="start-card-note">
+            <Skeleton width="14em" />
+          </p>
+          {rows > limit && <Skeleton shape="block" width="96px" height="33px" />}
         </div>
       )}
     </section>

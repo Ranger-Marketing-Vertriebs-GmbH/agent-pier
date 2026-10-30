@@ -135,3 +135,22 @@
     min-height: var(--touch-target);
   }
 }
+.gallery-skeleton {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+}
+.gallery-skeleton-lines {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.gallery-skeleton-lines strong {
+  font-size: var(--font-size-md);
+}
+.gallery-skeleton-lines small {
+  font-size: var(--font-size-xs);
+}

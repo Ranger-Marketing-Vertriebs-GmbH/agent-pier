@@ -35,6 +35,7 @@ export const startPageCopy = {
   newAgentShort: "Agent",
   newSessionShort: "Session",
   needsYou: "Braucht dich",
+  attentionClear: "Alles erledigt – nichts wartet auf dich.",
   moreAttention: (count) =>
     count === 1 ? "1 weiterer Hinweis" : `${count} weitere Hinweise`,
   openInbox: "Eingang öffnen",
