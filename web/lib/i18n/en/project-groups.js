@@ -17,5 +17,15 @@ export const projectGroupsCopy = {
   projectActions: (name) => `Actions for ${name}`,
   moveToGroup: "Move to group",
   removeFromGroup: "Remove from group",
+  groupActions: (name) => `Actions for group ${name}`,
+  renameGroup: "Rename",
+  moveGroupUp: "Move up",
+  moveGroupDown: "Move down",
+  deleteGroup: "Delete group",
+  deleteGroupTitle: (name) => `Delete group “${name}”?`,
+  deleteGroupBody: (count) =>
+    count === 1
+      ? "1 project moves to “No group”. No files are changed."
+      : `${count} projects move to “No group”. No files are changed.`,
   factGroup: "Group",
 };

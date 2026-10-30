@@ -156,3 +156,34 @@ export function withAssignment(document, path, groupId) {
   else delete assignments[key];
   return { ...document, assignments };
 }
+
+/** Renames a group; the server validates and trims the name. */
+export function withRenamedGroup(document, groupId, name) {
+  return {
+    ...document,
+    groups: document.groups.map((group) =>
+      group.id === groupId ? { ...group, name: String(name).trim() } : group,
+    ),
+  };
+}
+
+/** Moves a group `offset` places (-1 up, 1 down); the same document at the ends. */
+export function withGroupMoved(document, groupId, offset) {
+  const from = document.groups.findIndex((group) => group.id === groupId);
+  const to = from + offset;
+  if (from < 0 || to < 0 || to >= document.groups.length) return document;
+  const groups = [...document.groups];
+  [groups[from], groups[to]] = [groups[to], groups[from]];
+  return { ...document, groups };
+}
+
+/** Deletes a group and every assignment to it. */
+export function withoutGroup(document, groupId) {
+  return {
+    ...document,
+    groups: document.groups.filter((group) => group.id !== groupId),
+    assignments: Object.fromEntries(
+      Object.entries(document.assignments).filter(([, id]) => id !== groupId),
+    ),
+  };
+}
