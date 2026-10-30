@@ -85,6 +85,13 @@ test("search matches name and owner/repo case-insensitively, hides empty section
   assert.deepEqual(keys(origin), ["origin:beta-org"]);
 });
 
+test("search matching only ungrouped projects hides every group", () => {
+  const s = buildProjectSections({ projects, document: doc, query: "alpha" });
+  assert.deepEqual(keys(s), ["ungrouped"]);
+  assert.deepEqual(names(s[0]), ["alpha"]);
+  assert.equal(s[0].count, 1);
+});
+
 test("search with no match returns no sections in every view", () => {
   for (const view of ["groups", "origin", "list"]) {
     assert.deepEqual(
