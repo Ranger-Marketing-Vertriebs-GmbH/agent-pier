@@ -28,7 +28,10 @@ function fixture({ slowMs = 60000 } = {}) {
       enrich: async (list) => list.map((item) => ({ ...item, activity: null })),
     },
     inbox: { summary: async () => ({ counts: { all: 0 } }) },
-    notifications: { deviceCount: () => 2 },
+    notifications: {
+      deviceCount: () => 2,
+      ownerHealth: () => ({ devices: 2, lost: false, failing: true }),
+    },
     preferences: { get: () => ({ defaultCwd: "/home/owner" }) },
   };
   const state = createWorkspaceState(services, {
@@ -67,6 +70,7 @@ test("the state has the shape of GET /api/state", async () => {
     inbox: { counts: { all: 0 } },
     legacyTmux: { sessions: [] },
     pushDevices: 2,
+    pushHealth: { devices: 2, lost: false, failing: true },
     home: "/home/owner",
     defaultCwd: "/home/owner",
     remoteUrl: null,

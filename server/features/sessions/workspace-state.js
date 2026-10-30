@@ -124,6 +124,9 @@ export function createWorkspaceState(
         // With registered push devices, open pages report what they show (quiet while
         // visible, server/features/notifications/push-presence.js).
         pushDevices: services.notifications?.deviceCount?.() ?? 0,
+        // Whether the owner's notices still reach a device (the start page's and the
+        // inbox's warning), so neither page asks for it separately.
+        pushHealth: services.notifications?.ownerHealth?.() ?? null,
         home: config.home,
         ...preferences.get(),
         remoteUrl: config.remoteUrl || null,

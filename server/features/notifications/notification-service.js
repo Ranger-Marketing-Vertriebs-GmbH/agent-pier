@@ -106,6 +106,15 @@ export class NotificationService {
       health: this.health(subscriptions, userId),
     };
   }
+  /** The owner's push health for the workspace state; null once closed. */
+  ownerHealth() {
+    if (this.closed) return null;
+    const devices = this.devices(null).map((device) => {
+      const lastDelivery = this.deliveries.latest(device.id);
+      return lastDelivery ? { ...device, lastDelivery } : device;
+    });
+    return this.health(devices, null);
+  }
   devices(userId = null) {
     return this.db
       .prepare("SELECT public FROM subscriptions WHERE user_id IS ? ORDER BY rowid")

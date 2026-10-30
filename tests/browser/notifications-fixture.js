@@ -19,7 +19,8 @@ export async function notifications(
     failDelete: false,
     calls: [],
   };
-  await operationsFixture(page);
+  // The workspace state carries the owner's push health (state.operations.pushHealth).
+  state.operations = await operationsFixture(page);
   await page.addInitScript(
     ({ deferInitialRead, device, ownDeviceId }) => {
       const state = {

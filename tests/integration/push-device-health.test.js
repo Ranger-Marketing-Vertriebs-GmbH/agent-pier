@@ -211,3 +211,14 @@ test("a release without the delivery log still writes deliveries after a rollbac
     .run("x", "y");
   assert.equal(f.service.db.prepare("PRAGMA user_version").get().user_version, 2);
 });
+
+test("the workspace state's owner health matches the owner's status", async (t) => {
+  const f = await fixture(t);
+  assert.deepEqual(f.service.ownerHealth(), f.service.status().health);
+  await f.service.subscribe({
+    deviceId: "device-one",
+    label: "Phone",
+    subscription: subscription(),
+  });
+  assert.deepEqual(f.service.ownerHealth(), { devices: 1, lost: false, failing: false });
+});

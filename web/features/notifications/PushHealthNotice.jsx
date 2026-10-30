@@ -29,8 +29,10 @@ export function pushHealthKind(health) {
  * notifications reach no device, with the way to their notification settings. Dismissed
  * for this browser session only; it returns in the next one while the cause remains.
  */
-export default function PushHealthNotice({ person, openSettings }) {
-  const health = usePushHealth(person);
+export default function PushHealthNotice({ person, health: known, openSettings }) {
+  // The owner's pages pass the workspace state's health; a user's app reads theirs.
+  const read = usePushHealth(known === undefined ? person : null);
+  const health = known === undefined ? read : known;
   const [dismissed, setDismissed] = useState(readDismissed);
   const kind = pushHealthKind(health);
   // A plain HTTP page cannot enable notifications, so it never asks for it.
