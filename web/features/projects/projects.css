@@ -89,11 +89,6 @@
 .project-item-text .project-hint.failed {
   color: var(--error-text);
 }
-.project-item-chevron {
-  display: none;
-  flex-shrink: 0;
-  color: #6f7075;
-}
 .project-card {
   min-width: 0;
   display: flex;
@@ -227,15 +222,9 @@
   .project-item-text strong {
     font-size: 15px;
   }
-  .project-item-chevron {
-    display: block;
-  }
+  /* The fixed launch bar (69px plus the inset) never covers the last content. */
   .project-detail-shell .settings-shell-body {
-    padding-bottom: calc(96px + env(safe-area-inset-bottom));
-  }
-  /* The merge button stacks above "Start session" and makes the bar taller. */
-  .project-detail-shell:has(.project-launch-bar .button + .button) .settings-shell-body {
-    padding-bottom: calc(148px + env(safe-area-inset-bottom));
+    padding-bottom: calc(96px + var(--safe-area-inset-bottom));
   }
   .project-launch-bar {
     position: fixed;
@@ -246,9 +235,32 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    padding: 10px 12px calc(14px + env(safe-area-inset-bottom));
+    padding: 10px 12px calc(14px + var(--safe-area-inset-bottom));
     border-top: 1px solid #28292d;
     background: #15161a;
+  }
+  /* Detail header: back, the name (22px), meta and chips, the ⋯ sheet on the right. */
+  .project-detail-shell .settings-shell-heading {
+    align-items: flex-start;
+    height: auto;
+    min-height: 56px;
+    padding-block: 6px 12px;
+  }
+  .project-detail-shell .settings-shell-title {
+    padding-top: 6px;
+  }
+  .project-detail-shell .settings-shell-title h1 {
+    font-size: 22px;
+  }
+  .project-detail-shell .settings-shell-subtitle {
+    margin-top: 2px;
+    font-size: 12px;
+  }
+  .project-detail-more {
+    color: var(--text-row);
+  }
+  .project-detail-shell .project-group-name-row {
+    padding-top: 4px;
   }
   .project-launch-bar .button {
     width: 100%;

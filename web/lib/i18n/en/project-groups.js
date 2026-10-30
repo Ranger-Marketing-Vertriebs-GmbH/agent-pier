@@ -17,6 +17,8 @@ export const projectGroupsCopy = {
   projectActions: (name) => `Actions for ${name}`,
   moveToGroup: "Move to group",
   removeFromGroup: "Remove from group",
+  currentGroup: (name) => `Current: ${name}`,
+  sessionRunning: "Session running",
   groupActions: (name) => `Actions for group ${name}`,
   renameGroup: "Rename",
   moveGroupUp: "Move up",

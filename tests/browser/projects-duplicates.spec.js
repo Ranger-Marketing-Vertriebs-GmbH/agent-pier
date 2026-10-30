@@ -88,6 +88,7 @@ test("an older entry of a folder stays hidden and merges only after confirmation
   ).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
+  await expect(action).toBeFocused();
   expect(posts).toEqual([]);
   await action.click();
   dialog = page.getByRole("dialog", { name: "Merge older entry" });
@@ -115,12 +116,16 @@ test("a project without older entries offers no merge", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Merge older entry" })).toHaveCount(0);
 });
 
-test("the phone launch bar with a merge button leaves the content uncovered", async ({
+test("phones merge from the ⋯ sheet; the launch bar leaves the content uncovered", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await hubFixture(page, {
     async intercept(route, url, method) {
+      if (url.pathname === "/api/memory/projects/m2/merge" && method === "GET") {
+        await route.fulfill({ json: { olderId: "m9", entries: 3, fingerprint: "f1" } });
+        return true;
+      }
       if (url.pathname !== "/api/memory/projects" || method !== "GET") return false;
       const notes = { id: "m2", name: "notes", cwd: "/work/notes", entryCount: 0 };
       await route.fulfill({
@@ -136,7 +141,9 @@ test("the phone launch bar with a merge button leaves the content uncovered", as
   });
   await page.goto(base + "/projects/m2");
   const bar = page.locator(".project-launch-bar");
-  await expect(bar.getByRole("button")).toHaveCount(2);
+  // The merge action moved from the bar into the sheet.
+  await expect(bar.getByRole("button")).toHaveText(["Start session"]);
+  await expect(page.getByRole("button", { name: "Merge older entry" })).toHaveCount(0);
   const { padding, height } = await bar.evaluate((node) => ({
     padding: parseFloat(
       getComputedStyle(
@@ -146,4 +153,15 @@ test("the phone launch bar with a merge button leaves the content uncovered", as
     height: node.getBoundingClientRect().height,
   }));
   expect(padding).toBeGreaterThanOrEqual(height);
+
+  const more = page.getByRole("button", { name: "Actions for notes" });
+  await more.click();
+  const sheet = page.getByRole("dialog", { name: "notes" });
+  await sheet.getByRole("menuitem", { name: "Merge older entry" }).click();
+  await expect(sheet).toHaveCount(0);
+  const dialog = page.getByRole("dialog", { name: "Merge older entry" });
+  await expect(dialog.getByText("Memory entries: 3")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(more).toBeFocused();
 });

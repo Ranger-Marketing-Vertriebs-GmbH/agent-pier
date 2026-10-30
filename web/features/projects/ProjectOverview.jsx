@@ -47,7 +47,7 @@ export default function ProjectOverview({
       <GroupLabel as={mobile ? "h2" : "h3"}>{copy.factsLabel}</GroupLabel>
       <dl className="list-card project-facts" aria-label={copy.factsLabel}>
         {facts.map((fact) => (
-          <div key={fact.label} className="project-fact">
+          <div key={fact.label} className={`project-fact ${fact.half ? "half" : ""}`}>
             <dt>{fact.label}</dt>
             <dd
               className={[fact.mono ? "mono" : "", fact.muted ? "muted" : ""]

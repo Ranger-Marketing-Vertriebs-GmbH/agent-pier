@@ -253,3 +253,45 @@
     background: #1d1915;
   }
 }
+/* Phones: the project's chips under its header (group, "Session running") and the
+   facts stacked, Branch and Token profile side by side. */
+.project-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.project-group-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 11px 4px 9px;
+  border: 1px solid var(--button-secondary-line);
+  border-radius: var(--radius-pill);
+  background: var(--button-secondary-bg);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+.project-group-chip svg {
+  flex: none;
+  color: var(--accent);
+}
+@media (max-width: 700px) {
+  .project-facts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .project-fact {
+    grid-column: 1 / -1;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .project-fact.half {
+    grid-column: auto;
+  }
+  .project-fact dt {
+    width: auto;
+  }
+}

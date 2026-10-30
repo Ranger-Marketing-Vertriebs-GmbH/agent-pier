@@ -1,15 +1,15 @@
 import React from "react";
-import Icon from "../../components/Icon.jsx";
 import StatusDot from "../../components/StatusDot.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { projectGroupsCopy as groupsCopy } from "../../lib/i18n/messages/project-groups.js";
 import { projectsHubCopy as copy } from "../../lib/i18n/messages/projects.js";
-import { RowMenu, useRowMenu } from "../extensions/RowMenu.jsx";
+import ProjectMenuButton from "./ProjectMenuButton.jsx";
 import { hintCount, remoteShort } from "./project-presentation.js";
 
 // A project row: name over `owner/repo` or "Local only", attention hints, "● Running"
-// while a session runs, and the ⋯ menu beside the row's own button. On desktop the
-// row's button also starts a drag (`onPress`, useProjectDrag.js).
+// while a session runs, and the ⋯ menu beside the row's own button (`menuSheet` turns
+// it into a sheet on phones). On desktop the row's button also starts a drag
+// (`onPress`, useProjectDrag.js).
 export default function ProjectListItem({
   item,
   attention,
@@ -19,10 +19,9 @@ export default function ProjectListItem({
   onPress,
   dragging = false,
   menuItems,
+  menuSheet = null,
 }) {
-  const menu = useRowMenu();
   const { decisions, failed } = attention;
-  const label = groupsCopy.projectActions(item.name);
   return (
     <div
       className={`project-row ${selected ? "selected" : ""} ${dragging ? "dragging" : ""}`}
@@ -54,20 +53,14 @@ export default function ProjectListItem({
             {commonCopy.running}
           </span>
         )}
-        <Icon name="chevron" size={16} className="project-item-chevron" />
       </button>
-      <button
-        type="button"
-        className="icon-button project-row-more"
+      <ProjectMenuButton
+        className="project-row-more"
         data-project-path={item.path}
-        aria-label={label}
-        aria-haspopup="menu"
-        aria-expanded={menu.open}
-        onClick={menu.toggle}
-      >
-        <Icon name="more" size={18} />
-      </button>
-      <RowMenu label={label} state={menu} items={menuItems} />
+        label={groupsCopy.projectActions(item.name)}
+        items={menuItems}
+        sheet={menuSheet}
+      />
     </div>
   );
 }
