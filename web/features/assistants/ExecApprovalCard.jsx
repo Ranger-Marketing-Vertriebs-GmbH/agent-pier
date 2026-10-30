@@ -96,7 +96,10 @@ export default function ExecApprovalCard({ action, decide }) {
       )}
       {once && (
         <p id={noteId} className="assistant-note">
-          {copy.alwaysOnce(onceReason(plan))}
+          {/* A remembered exact command (AGENTPIER-276), unless it was shortened. */}
+          {payload.commandHash
+            ? copy.alwaysExact(onceReason(plan))
+            : copy.alwaysOnce(onceReason(plan))}
         </p>
       )}
       {confirming ? (

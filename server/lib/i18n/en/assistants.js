@@ -29,6 +29,8 @@ export const assistants = {
     `In folders you can write to: ${programs}. If one of them is changed or replaced, the agent runs the new version without asking. OpenClaw always denies commands with redirections (> or <) for such programs.`,
   execAllowAlwaysOnce: (reason) =>
     `"Always allow" allows this command only once: ${reason}. The agent will ask again next time.`,
+  execAllowAlwaysExact: (reason) =>
+    `"Always allow" remembers only this exact command: ${reason}. The agent then runs exactly this command again without asking; any other command, also with other arguments, still asks. You can delete it in the agent settings.`,
   execOnceReasons: {
     interpreter: (program) => `${program} is an interpreter, shell or launcher`,
     inline: (program) => `${program} runs an inline script`,
@@ -113,6 +115,8 @@ export const assistants = {
     `Now always allowed for this agent, each with any arguments: ${programs}. Some programs can run other commands through their arguments, such as git hooks or aliases; "Always allow" covers that too. You can delete the entries in the agent settings.`,
   execAllowlistSkipped: (reason) =>
     `The command was allowed once: ${reason}. The agent will ask again next time.`,
+  execAllowlistRemembered: (reason) =>
+    `Now always allowed for this agent, but only this exact command: ${reason}. Any other command still asks. You can delete it in the agent settings.`,
   execAllowlistFailed:
     "The command was allowed once, but AgentPier could not add it to the allowlist. The agent will ask again next time.",
 

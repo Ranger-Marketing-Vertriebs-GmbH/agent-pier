@@ -142,7 +142,12 @@ function execAllowAlwaysNote(p, m) {
   const plan = execPlan(p);
   return plan.kind === "paths"
     ? [programNotes(plan.paths, plan.writable, m.execAllowAlwaysPrograms, m).join(" ")]
-    : [m.execAllowAlwaysOnce(onceReason(m, plan.reason, plan.program))];
+    : // AgentPier remembers exactly this command, unless it was shortened.
+      [
+        (p.commandHash ? m.execAllowAlwaysExact : m.execAllowAlwaysOnce)(
+          onceReason(m, plan.reason, plan.program),
+        ),
+      ];
 }
 // The decision that took effect: a withheld allow-always without an entry ran once.
 function execOutcome(action, m) {
@@ -150,7 +155,9 @@ function execOutcome(action, m) {
     return m.execStates[action.state] || m.execStates.unknown;
   const allowlist = action.result?.allowlist;
   const decision =
-    allowlist && !allowlist.written ? "allow-once" : action.result?.decision;
+    allowlist && !allowlist.written && !allowlist.remembered
+      ? "allow-once"
+      : action.result?.decision;
   return m.execDecided[decision] || m.execDecided["allow-once"];
 }
 function execAllowlistNote(action, m) {
@@ -163,7 +170,11 @@ function execAllowlistNote(action, m) {
     ];
   }
   if (allowlist.skipped)
-    return [m.execAllowlistSkipped(onceReason(m, allowlist.skipped, allowlist.program))];
+    return [
+      (allowlist.remembered ? m.execAllowlistRemembered : m.execAllowlistSkipped)(
+        onceReason(m, allowlist.skipped, allowlist.program),
+      ),
+    ];
   return [m.execAllowlistFailed];
 }
 // The Telegram channel answers only its paired private chat, so the command is

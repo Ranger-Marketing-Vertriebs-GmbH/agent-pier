@@ -1,3 +1,4 @@
+import { rememberedCommands } from "./exec-remembered.js";
 import { randomUUID } from "node:crypto";
 import { assistantProblem } from "./assistant-validation.js";
 import { digest } from "./assistant-access.js";
@@ -37,6 +38,8 @@ export class AssistantActionStore {
     db.exec(
       "CREATE INDEX IF NOT EXISTS assistant_actions_run ON assistant_actions(json_extract(body,'$.runId')) WHERE json_extract(body,'$.runId') IS NOT NULL",
     );
+    // The exact commands the owner always allowed, beside the exec actions.
+    rememberedCommands(db);
     for (const a of this.list())
       if (a.state === "executing") this.patch(a.id, { state: "unknown" });
   }

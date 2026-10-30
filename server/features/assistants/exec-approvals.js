@@ -3,6 +3,8 @@ import { notifyAction } from "./assistant-action-notifications.js";
 import { personalShell } from "./native-capabilities.js";
 import { temporaryMember } from "./team-presentation.js";
 import { allowAlwaysPlan } from "./exec-allowlist-policy.js";
+import { decideExec } from "./exec-decisions.js";
+import { commandHash, rememberedCommands } from "./exec-remembered.js";
 import { pairedChannel, telegramOf, telegramTarget } from "./routine-targets.js";
 import { followUpTelegram } from "./follow-up-target.js";
 
@@ -197,12 +199,16 @@ export class ExecApprovals {
     };
     // What "Always allow" will write, decided once now and shown to the owner;
     // the decision writes exactly this plan.
-    if (!allowed.includes("allow-always"))
-      payload.allowAlwaysPlan =
-        // A shortened command no longer says which programs run.
-        String(request.command).length > payload.command.length
-          ? { kind: "once", reason: "complex" }
-          : this.plan(payload, assistant);
+    if (!allowed.includes("allow-always")) {
+      // A shortened command no longer says which programs run.
+      const shortened = String(request.command).length > payload.command.length;
+      payload.allowAlwaysPlan = shortened
+        ? { kind: "once", reason: "complex" }
+        : this.plan(payload, assistant);
+      // "Always allow" of such a command remembers exactly it (exec-remembered.js).
+      if (!shortened && payload.allowAlwaysPlan.kind === "once")
+        payload.commandHash = commandHash(request.command);
+    }
     return payload;
   }
   // What "Always allow" writes for a request OpenClaw withheld it from.
@@ -258,8 +264,29 @@ export class ExecApprovals {
       return this.deny(id, p.request, "INTERNAL");
     }
     this.w.a.changed?.();
+    // A command the owner always allowed before runs without a card (AGENTPIER-276).
+    if (await this.remembered(action)) return;
     // The tick notifies again, so a failed notice leaves the action intact.
     notifyAction(this.w, action, "approval");
+  }
+  /** Answers a remembered command at once; false leaves the card to the owner. */
+  async remembered(action) {
+    const p = action.payload;
+    if (
+      p.onceOnly ||
+      !p.commandHash ||
+      !rememberedCommands(this.w.store.db).has(action.assistantId, p.commandHash)
+    )
+      return false;
+    try {
+      await decideExec(this.w, action, "allow-always", this.log, { remembered: true });
+      return true;
+    } catch (error) {
+      this.log(
+        `Assistant exec approval ${p.approvalId}: remembered command not answered (${error?.code || error?.status || "ERROR"}).`,
+      );
+      return false;
+    }
   }
   stored(key) {
     try {

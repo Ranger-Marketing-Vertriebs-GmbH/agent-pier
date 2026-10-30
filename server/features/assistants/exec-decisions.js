@@ -2,13 +2,15 @@ import { randomUUID } from "node:crypto";
 import { assistantProblem } from "./assistant-validation.js";
 import { personalShell } from "./native-capabilities.js";
 import { temporaryMember } from "./team-presentation.js";
+import { rememberedCommands } from "./exec-remembered.js";
 
 // The owner's decision on an exec approval goes to the Gateway exactly once, for
 // the approval id the action was created from. OpenClaw withholds allow-always for
 // executables in folders the owner can write to (and for interpreters and inline
 // evaluation). AgentPier still offers it: it resolves allow-once and, where the
-// plan stored with the request allows, writes program-path entries itself. OpenClaw refuses
-// its own exact-command entry for such executables (docs/assistant-shell-
+// plan stored with the request allows, writes program-path entries itself; for any
+// other command it remembers exactly that command (exec-remembered.js). OpenClaw
+// refuses its own exact-command entry for such executables (docs/assistant-shell-
 // qualification.md (a)).
 const allowlistAttempts = 3;
 
@@ -85,9 +87,16 @@ export function execPlan(payload) {
 
 /**
  * Resolves the approval and makes the action final. The caller has checked
- * origin, revision, state and expiry.
+ * origin, revision, state and expiry. `remembered`: AgentPier answers a command the
+ * owner always allowed before (exec-approvals.js), recorded as such.
  */
-export async function decideExec(w, action, decision, log = (l) => console.warn(l)) {
+export async function decideExec(
+  w,
+  action,
+  decision,
+  log = (l) => console.warn(l),
+  { remembered = false } = {},
+) {
   const client = w.a.runtime?.client;
   if (!client?.ready) throw assistantProblem("unavailable", 503);
   // Defence in depth: with shell off nothing may be allowed, whatever is pending.
@@ -146,6 +155,12 @@ export async function decideExec(w, action, decision, log = (l) => console.warn(
           written: false,
           skipped: plan.reason,
           ...(plan.program ? { program: plan.program.slice(0, 300) } : {}),
+          // The exact command, never its program (AGENTPIER-276).
+          remembered: rememberedCommands(w.store.db).remember(action.assistantId, {
+            hash: action.payload.commandHash,
+            command: action.payload.command,
+            cwd: action.payload.cwd,
+          }),
         };
     }
     const next = w.store.patch(action.id, {
@@ -153,6 +168,7 @@ export async function decideExec(w, action, decision, log = (l) => console.warn(
       result: {
         decision,
         ...(fallback ? { resolvedAs: sent, allowlist } : {}),
+        ...(remembered ? { by: "remembered" } : {}),
       },
     });
     w.a.changed?.({ feeds: false });

@@ -70,6 +70,8 @@ export const assistantShellCopy = {
       `In Ordnern, in die du schreiben kannst, liegen: ${programs}. Wird eines davon geändert oder ersetzt, führt der Agent die neue Version ohne Nachfrage aus. Befehle mit Umleitungen (> oder <) lehnt OpenClaw für solche Programme immer ab.`,
     alwaysOnce: (reason) =>
       `„Immer erlauben“ erlaubt diesen Befehl nur einmal: ${reason}. Diese Art Befehl fragt beim nächsten Mal wieder.`,
+    alwaysExact: (reason) =>
+      `„Immer erlauben“ merkt sich nur genau diesen Befehl: ${reason}. Der Agent führt dann genau diesen Befehl ohne Rückfrage erneut aus; jeder andere Befehl, auch mit anderen Argumenten, fragt weiter. Du kannst ihn unter „Immer erlaubte Befehle“ löschen.`,
     confirmAlways: "Diese Programme immer erlauben",
     back: "Zurück",
     onceReasons: {

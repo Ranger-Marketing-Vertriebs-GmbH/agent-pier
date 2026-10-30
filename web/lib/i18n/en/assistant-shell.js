@@ -70,6 +70,8 @@ export const assistantShellCopy = {
       `In folders you can write to: ${programs}. If one of them is changed or replaced, the agent runs the new version without asking. OpenClaw always denies commands with redirections (> or <) for such programs.`,
     alwaysOnce: (reason) =>
       `"Always allow" allows this command only once: ${reason}. This kind of command asks again next time.`,
+    alwaysExact: (reason) =>
+      `"Always allow" remembers only this exact command: ${reason}. The agent then runs exactly this command again without asking; any other command, also with other arguments, still asks. You can delete it under Always allowed commands.`,
     confirmAlways: "Always allow these programs",
     back: "Back",
     onceReasons: {

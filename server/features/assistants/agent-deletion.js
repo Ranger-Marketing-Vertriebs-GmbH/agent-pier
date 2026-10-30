@@ -39,6 +39,7 @@ export const agentTables = [
   "assistant_hooks",
   "assistant_hook_events",
   "assistant_actions",
+  "assistant_exec_commands",
   "assistant_access",
   "assistant_lead_shares",
   "assistant_team_records",
@@ -207,6 +208,8 @@ function removeRows(db, id) {
       id,
       id,
     );
+    // Its remembered shell commands (exec-remembered.js).
+    remove(db, "assistant_exec_commands", "assistant_id=?", id);
     // Grants: projects, SSH, secrets and GitHub.
     remove(db, "assistant_access", "assistant_id=?", id);
     remove(db, "assistant_lead_shares", "member_assistant_id=? OR lead_id=?", id, id);

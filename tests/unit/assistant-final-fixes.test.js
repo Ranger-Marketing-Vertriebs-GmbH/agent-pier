@@ -25,6 +25,8 @@ test("create stores web capabilities as off and keeps memory and reminders", asy
     models: { resolve: async () => ({ release() {} }) },
     store,
     changed() {},
+    // A new agent starts with shell "With approval", which is audited.
+    shellChanges: { audit() {} },
   };
   const record = await AssistantService.prototype.create.call(service, {
     name: "A",
