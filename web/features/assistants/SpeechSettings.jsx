@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import ListCard from "../../components/ListCard.jsx";
 import { SelectRow, ToggleRow } from "../../components/ListRow.jsx";
@@ -11,6 +11,8 @@ import { accountItemTitle } from "../accounts/accounts-items.js";
 import { runSaveChain } from "../../lib/settings/save-chain.js";
 import { assistantApi } from "./assistant-api.js";
 import RestartConfirmation from "./RestartConfirmation.jsx";
+import VoiceFields, { voiceInput, voiceKeys, voiceServerOf } from "./VoiceFields.jsx";
+import { talkCopy } from "../../lib/i18n/messages/talk.js";
 
 const serverOf = (settings) => ({
   apiKey: "",
@@ -19,7 +21,12 @@ const serverOf = (settings) => ({
   dictationSend: settings?.dictationSend === true,
 });
 
-/** The central Deepgram connection for agent voice messages. */
+const speechKeys = ["apiKey", "model", "language", "dictationSend"];
+
+/**
+ * The central Deepgram connection for agent voice messages and dictation, and the
+ * voice that reads replies aloud in talk mode (VoiceFields.jsx): one draft, two steps.
+ */
 export default function SpeechSettings({ entry, usage, agentsEnabled, data, navigate }) {
   const copy = assistantCopy.speech;
   const settings = data.speech;
@@ -28,16 +35,40 @@ export default function SpeechSettings({ entry, usage, agentsEnabled, data, navi
   // The restart question of a key removal (outside the draft's own chain).
   const [removal, setRemoval] = useState(null);
   const { reloadSpeech } = data;
+  const [voice, setVoice] = useState(null);
+  const reloadVoice = useCallback(async () => {
+    const next = await assistantApi.voice();
+    setVoice(next);
+    return next;
+  }, []);
+  useEffect(() => {
+    reloadVoice().catch((e) => setError(e.message));
+  }, [reloadVoice]);
   const server = useMemo(
-    () => serverOf(settings),
-    [settings?.model, settings?.language, settings?.dictationSend], // eslint-disable-line react-hooks/exhaustive-deps
+    () => ({ ...serverOf(settings), ...voiceServerOf(voice) }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      settings?.model,
+      settings?.language,
+      settings?.dictationSend,
+      voice?.provider,
+      voice?.openaiVoice,
+      voice?.elevenlabsVoice,
+    ],
   );
   const form = useAccountDraft({
     server,
-    revisions: settings ? { speech: settings.revision } : {},
+    revisions: settings
+      ? { speech: settings.revision, ...(voice ? { voice: voice.revision } : {}) }
+      : {},
     refresh: async () => {
-      const next = await reloadSpeech();
-      return next && { server: serverOf(next), revisions: { speech: next.revision } };
+      const [next, nextVoice] = await Promise.all([reloadSpeech(), reloadVoice()]);
+      return (
+        next && {
+          server: { ...serverOf(next), ...voiceServerOf(nextVoice) },
+          revisions: { speech: next.revision, voice: nextVoice.revision },
+        }
+      );
     },
     tab: accountItemTitle(entry),
     entry,
@@ -46,6 +77,7 @@ export default function SpeechSettings({ entry, usage, agentsEnabled, data, navi
         id: "speech",
         label: copy.save,
         resource: "speech",
+        keys: speechKeys,
         // Agents' own Telegram bots run with the key: the server asks to restart.
         async run({ values, revision, confirmations }) {
           const next = await assistantApi.saveSpeech({
@@ -57,6 +89,17 @@ export default function SpeechSettings({ entry, usage, agentsEnabled, data, navi
             ...confirmations,
           });
           data.setSpeech(next);
+          return next;
+        },
+      },
+      {
+        id: "voice",
+        label: talkCopy.voice.save,
+        resource: "voice",
+        keys: voiceKeys,
+        async run({ values, revision }) {
+          const next = await assistantApi.saveVoice(voiceInput(values, revision));
+          setVoice(next);
           return next;
         },
       },
@@ -174,6 +217,7 @@ export default function SpeechSettings({ entry, usage, agentsEnabled, data, navi
               onChange={(value) => edit("dictationSend", value)}
             />
           </ListCard>
+          {voice && <VoiceFields voice={voice} values={draft.values} edit={edit} />}
         </form>
       )}
       {restart && (

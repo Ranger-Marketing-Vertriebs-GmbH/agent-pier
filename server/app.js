@@ -92,6 +92,8 @@ import { attachBrowserWebSocket } from "./http/browser-websocket.js";
 import { attachDictationWebSocket } from "./http/dictation-websocket.js";
 import { dictationRoutes } from "./http/routes/dictation.js";
 import { DictationService } from "./features/speech/dictation-service.js";
+import { TalkSessions } from "./features/speech/talk-sessions.js";
+import { SpeechOutput } from "./features/speech/speech-output.js";
 import { workspaceRoutes } from "./http/routes/workspace.js";
 import { accountsRoutes } from "./http/routes/accounts.js";
 import { connectionsRoutes } from "./http/routes/connections.js";
@@ -136,8 +138,18 @@ export async function createApplication(config) {
   // Live dictation uses the agents' central Deepgram connection while it exists.
   services.dictation = new DictationService({
     speech: () => services.assistantSpeech || null,
+    talk: () => services.talk,
     audit: services.audit,
     ...(config.dictationConnect ? { connect: config.dictationConnect } : {}),
+  });
+  // Talk mode: the owner's hands-free turns; a talk session's end stops its dictation.
+  services.talk = new TalkSessions({ audit: services.audit });
+  services.talk.on("ended", (holder) => services.dictation.endTalk(holder));
+  // Agent replies read aloud with the voice of the speech settings.
+  services.speechOutput = new SpeechOutput({
+    voices: () => services.assistantSpeech?.voice || null,
+    audit: services.audit,
+    ...(config.speechFetch ? { fetchImpl: config.speechFetch } : {}),
   });
   services.tools = () =>
     detectTools(

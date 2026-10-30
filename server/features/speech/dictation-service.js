@@ -45,13 +45,14 @@ const defaultConnect = (url, headers) =>
 export class DictationService {
   constructor({
     speech,
+    talk = () => null,
     audit,
     connect = defaultConnect,
     endpoint = liveEndpoint,
     clock = Date,
     limits = {},
   }) {
-    Object.assign(this, { speech, audit, connect, endpoint, clock });
+    Object.assign(this, { speech, talk, audit, connect, endpoint, clock });
     this.limits = { ...dictationLimits, ...limits };
     this.active = new Map();
     this.starts = new Map();
@@ -71,19 +72,22 @@ export class DictationService {
       userId ? session.userId === userId : session.holder === holder,
     );
   }
-  admit(holder, userId) {
+  admit(holder, userId, talk = false) {
     const now = this.clock.now();
     const rateKey = userId ? `user:${userId}` : `owner:${holder}`;
     const recent = (this.starts.get(rateKey) || []).filter(
       (at) => now - at < this.limits.windowMs,
     );
-    if (recent.length >= this.limits.starts) return "rateLimited";
+    // A talk session opens one dictation per spoken turn; the session itself is
+    // limited (one per login, its own start window and length, talk-sessions.js).
+    if (!talk && recent.length >= this.limits.starts) return "rateLimited";
     const replaced = new Set(this.replaced(holder, userId));
     const others = [...this.active.values()].filter(
       (session) => !replaced.has(session) && Boolean(session.userId) === Boolean(userId),
     ).length;
     const cap = userId ? this.limits.userConcurrent : this.limits.concurrent;
     if (others >= cap) return "busy";
+    if (talk) return null;
     recent.push(now);
     this.starts.set(rateKey, recent);
     return null;
@@ -91,9 +95,12 @@ export class DictationService {
   /**
    * Starts one dictation for login session `holder` of `principal` (the owner when
    * absent); `client` receives `{type, ...}` messages and is closed with a
-   * WebSocket close code. A user's newer dictation replaces her older one.
+   * WebSocket close code. A user's newer dictation replaces her older one. `talk`
+   * names the owner's talk session (talk-sessions.js) the dictation is a turn of:
+   * Deepgram then marks the end of each utterance, and the dictation ends with the
+   * session at the latest.
    */
-  start({ holder, principal, client }) {
+  start({ holder, principal, client, talk = null }) {
     const userId = auditActor(principal).actorUserId || null;
     const refusal = (code) => {
       client.send({ type: "error", code });
@@ -102,7 +109,16 @@ export class DictationService {
     };
     const status = this.status();
     if (!status.available) return refusal(status.reason);
-    const admitted = this.admit(holder, userId);
+    let remainingMs = null;
+    if (talk !== null) {
+      // Talk mode is the owner's alone in phase 1.
+      if (userId) return refusal("talkUnavailable");
+      const session = this.talk()?.current(holder);
+      if (!session || session.id !== talk) return refusal("talkEnded");
+      remainingMs = session.expiresAt - this.clock.now();
+      if (remainingMs <= 0) return refusal("talkEnded");
+    }
+    const admitted = this.admit(holder, userId, talk !== null);
     if (admitted) return refusal(admitted);
     for (const session of this.replaced(holder, userId)) session.end("replaced");
     let lease;
@@ -111,9 +127,21 @@ export class DictationService {
     } catch {
       return refusal("notConfigured");
     }
-    const session = new Dictation(this, { holder, userId, client, lease });
+    const session = new Dictation(this, {
+      holder,
+      userId,
+      client,
+      lease,
+      talk,
+      remainingMs,
+    });
     if (session.state !== "ended") this.active.set(holder, session);
     return session;
+  }
+  /** Ends the talk dictation of login session `holder`: its talk session ended. */
+  endTalk(holder) {
+    const session = this.active.get(holder);
+    if (session?.talk) session.end("talkEnded");
   }
   finished(session, { error, seconds }) {
     if (this.active.get(session.holder) === session) this.active.delete(session.holder);
@@ -134,8 +162,11 @@ export class DictationService {
 }
 
 class Dictation {
-  constructor(service, { holder, userId, client, lease }) {
-    Object.assign(this, { service, holder, userId, client });
+  constructor(
+    service,
+    { holder, userId, client, lease, talk = null, remainingMs = null },
+  ) {
+    Object.assign(this, { service, holder, userId, client, talk });
     this.limits = service.limits;
     this.startedAt = service.clock.now();
     this.pending = [];
@@ -143,7 +174,7 @@ class Dictation {
     this.state = "connecting";
     this.error = null;
     const headers = { Authorization: `Token ${lease.apiKey}` };
-    const url = deepgramLiveUrl(lease, service.endpoint);
+    const url = deepgramLiveUrl(lease, service.endpoint, talk !== null);
     try {
       this.upstream = service.connect(url, headers);
     } catch {
@@ -158,7 +189,7 @@ class Dictation {
     this.upstream.on("open", () => this.opened());
     this.upstream.on("message", (data, binary) => {
       if (binary) return;
-      const transcript = parseLiveMessage(data);
+      const transcript = parseLiveMessage(data, { talk: talk !== null });
       if (transcript) this.client.send(transcript);
     });
     this.upstream.on("unexpected-response", (_request, response) => {
@@ -170,7 +201,13 @@ class Dictation {
       if (this.state === "finishing") return this.finish(this.reason || "stopped");
       if (this.state !== "ended") this.fail(code === 1008 ? "rejected" : "failed");
     });
-    this.maxTimer = setTimeout(() => this.stop("limit"), this.limits.maxSeconds * 1000);
+    const maxMs = this.limits.maxSeconds * 1000;
+    // A talk turn also ends with its session; the browser learns why from `ended`.
+    const talkEnds = remainingMs !== null && remainingMs < maxMs;
+    this.maxTimer = setTimeout(
+      () => this.stop(talkEnds ? "talkEnded" : "limit"),
+      talkEnds ? remainingMs : maxMs,
+    );
     this.maxTimer.unref?.();
     this.touch();
   }

@@ -21,6 +21,8 @@ const paths = {
   edit: "m16 3 5 5-12 12-6 1 1-6Z",
   stop: "M6 6h12v12H6Z",
   mic: "M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Zm-7 9a7 7 0 0 0 14 0m-7 7v3",
+  // An audio wave: talk mode in the agent chat.
+  talk: "M3 10v4m4.5-7v10M12 4v16m4.5-13v10M21 10v4",
   trash: "M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7",
   link: "m10 13 4-4M8 16l-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 1 1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0",
   chevron: "m9 5 7 7-7 7",

@@ -1,6 +1,7 @@
 import path from "node:path";
 import { privateDatabase } from "../../lib/private-database.js";
 import { assistantProblem } from "../assistants/assistant-validation.js";
+import { VoiceConnections } from "./voice-connections.js";
 export class SpeechConnections {
   constructor({ dataDir }) {
     this.db = privateDatabase(path.join(dataDir, "speech"), "connections.sqlite");
@@ -13,6 +14,8 @@ export class SpeechConnections {
       "CREATE TABLE IF NOT EXISTS dictation(id INTEGER PRIMARY KEY CHECK(id=1), send INTEGER NOT NULL); INSERT OR IGNORE INTO dictation VALUES (1,0);",
     );
     this.leases = 0;
+    // The voice that reads replies aloud (talk mode), with its own keys.
+    this.voice = new VoiceConnections(this.db);
   }
   get() {
     const { revision, model, language } = this.db

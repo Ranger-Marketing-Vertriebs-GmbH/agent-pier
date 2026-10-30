@@ -103,6 +103,9 @@ export const assistantApi = {
     ),
   speech: (signal) => api("/assistant-speech", "GET", undefined, signal),
   saveSpeech: (input) => api("/assistant-speech", "PUT", input),
+  // The voice that reads replies aloud in talk mode; keys are written, never read.
+  voice: (signal) => api("/assistant-speech/voice", "GET", undefined, signal),
+  saveVoice: (input) => api("/assistant-speech/voice", "PUT", input),
   telegramSenders: (id, signal) =>
     api(
       `/assistant-telegram-senders/${encodeURIComponent(id)}`,

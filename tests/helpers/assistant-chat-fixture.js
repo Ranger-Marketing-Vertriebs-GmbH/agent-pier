@@ -54,6 +54,8 @@ export async function chatFixture(page, options = {}) {
       [
         "/api/assistant-channels",
         "/api/assistant-speech",
+        "/api/assistant-speech/voice",
+        "/api/assistant-talk",
         "/api/assistant-runtime/updates",
       ].includes(p)
     )

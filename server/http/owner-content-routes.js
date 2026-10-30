@@ -36,6 +36,8 @@ export const ownerContentRoutes = {
   "POST /api/assistant-conversations/:id/goal/stop": "conversation",
   "GET /api/assistant-conversations/:id/messages": "conversation",
   "POST /api/assistant-conversations/:id/messages": "conversation",
+  // A reply read aloud (talk mode) carries the chat's text: his own chats only.
+  "POST /api/assistant-conversations/:id/messages/:messageId/speech": "conversation",
   "POST /api/assistant-conversations/:id/queued": "conversation",
   "DELETE /api/assistant-conversations/:id/queued": "conversation",
   "POST /api/assistant-conversations/:id/attachments": "conversation",

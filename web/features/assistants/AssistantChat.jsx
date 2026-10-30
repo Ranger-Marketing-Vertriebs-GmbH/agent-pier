@@ -45,6 +45,9 @@ import {
   ReadOnlyComposer,
 } from "./chats/ChatStates.jsx";
 import { sameTurn } from "./same-turn.js";
+import useTalk, { useTalkStatus } from "../talk/useTalk.js";
+import TalkButton from "../talk/TalkButton.jsx";
+import TalkBar from "../talk/TalkBar.jsx";
 // Streamed deltas re-render the chat on every token; the team approvals do not need to.
 const PendingTeams = memo(TeamApprovals);
 export default function AssistantChat({
@@ -357,6 +360,21 @@ export default function AssistantChat({
     compacting: Boolean(compacting),
     empty: !history.messages.length && !latest,
   });
+  // Talk mode (AGENTPIER-291): the owner's own chats, not a task member's.
+  const talkShown = !readOnly && !member && !assistant.archivedAt;
+  const talkStatus = useTalkStatus(talkShown);
+  const talk = useTalk({
+    conversationId,
+    enabled: talkShown && available,
+    turn: {
+      active: Boolean(active),
+      replyId: lastReply?.id ?? null,
+      attemptId: latest?.attempt?.id ?? null,
+      attemptState: latest?.attempt?.state ?? null,
+    },
+    deliver: (spoken) =>
+      deliver({ clientRequestId: crypto.randomUUID(), text: spoken }, []),
+  });
   return (
     <section className="assistant-detail assistant-chat">
       <AssistantHeader
@@ -368,6 +386,15 @@ export default function AssistantChat({
         attempt={active ? shownAttempt : null}
         member={member}
         compacting={compacting}
+        actions={
+          talkShown && (
+            <TalkButton
+              talk={talk}
+              reason={talkStatus.reason || (!available && "unknown")}
+              loading={!talkStatus.status}
+            />
+          )
+        }
       />
       <OwnerChatBar
         assistant={assistant}
@@ -515,6 +542,7 @@ export default function AssistantChat({
         >
           {announcement}
         </div>
+        <TalkBar talk={talk} />
         {readOnly ? (
           <ReadOnlyComposer userChat={userChat} />
         ) : (

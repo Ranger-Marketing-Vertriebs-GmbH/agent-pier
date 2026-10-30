@@ -845,6 +845,71 @@ access needs HTTPS or localhost, for example through Tailscale Serve) the microp
 stays visible but explains why it is unavailable. An opt-in contract test runs against
 the real endpoint only with a key of its own in `AGENTPIER_DEEPGRAM_TEST_KEY`.
 
+### Talk mode
+
+**Talk** in the agent chat header (AGENTPIER-291) runs the chat hands-free: each
+spoken turn is a live dictation, its words go out as a normal chat turn, and the
+agent's reply is read aloud before the next turn listens. The transcript is the chat
+itself: the spoken turn is the owner's message, the reply the agent's message. The
+browser talks only to AgentPier; the Gateway, Deepgram and the voice provider stay
+behind it.
+
+- **Session.** `POST /api/assistant-talk` with `{ conversationId }` starts the talk
+  session of this login (`talk-sessions.js`): one per login session (a newer one,
+  in another tab too, replaces it), at most 10 starts in ten minutes, and 30 minutes
+  long. `DELETE /api/assistant-talk` with `{ id }` ends it; the browser sends it on
+  **Stop**, when the page is hidden (a locked phone, another app; sent with
+  `keepalive`) and when the chat closes. `GET /api/assistant-talk` says whether talk
+  mode works (`available`, `reason`: `notConfigured`, `voiceMissing`, `agentsOff`),
+  with which provider, and the running session. Only the owner reaches these routes
+  (they are agent routes, never under `/api/me`), only for his own chats: not a
+  user's chat, not one of a user's own agent, not an archived chat; the web app also
+  leaves it out of a task member's chat.
+- **Listening.** Each turn opens `/api/dictation/stream?talk=<id>`, the dictation
+  socket of [live dictation](#live-dictation-in-the-chats) with its limits per turn
+  (five minutes, eight seconds without audio). A talk dictation needs the login's
+  running session and the owner; it does not count toward the 20 dictation starts,
+  since the session has its own window. AgentPier asks Deepgram for the end of each
+  utterance (`endpointing=700`, `utterance_end_ms=1500`, `vad_events=true`):
+  transcripts carry `speechFinal`, and `{ "type": "utteranceEnd" }` follows a pause.
+  The browser sends the words heard so far on the first of the two. A session that
+  ends stops its running dictation with `ended` / `talkEnded`.
+- **Thinking.** The words go out through `POST /api/assistant-conversations/:id/messages`
+  like a typed message. Talk mode waits until the turn is done; a turn that ends
+  without a new reply (failed, stopped) listens again with a note.
+- **Speaking.** `POST /api/assistant-conversations/:id/messages/:messageId/speech`
+  with `{ language: "de" | "en" }` reads one agent reply aloud and answers with MP3
+  (`speech-output.js`). It names the reply by chat and message id and reads its text
+  from the Gateway (`chat.history`, assistant messages only), so it is no free
+  text-to-speech proxy; it is a chat content route under the owner's privacy guard.
+  The text is reduced to what is worth hearing (`speech-text.js`): Markdown marks go,
+  code blocks, tables, long inline code and web addresses longer than 30 characters
+  become "see screen" ("siehe Bildschirm"), at most 4000 characters, cut after a
+  sentence. The browser decodes the audio into the `AudioContext` it created in the
+  Talk tap, which is also what lets iOS play it without another tap. Readings: one at
+  a time per login, four at once, 120 starts per login in ten minutes, 25 MiB each.
+  The same endpoint is meant for reading single replies aloud (AGENTPIER-36).
+- **Voice.** **Connections › Services for agents › Speech recognition › Voice for
+  talk mode** chooses OpenAI (`gpt-4o-mini-tts`, a voice such as `coral` or `nova`) or
+  ElevenLabs (`eleven_multilingual_v2`, a voice ID) and stores one API key per
+  provider beside the Deepgram key in the speech connection's private database
+  (`voice-connections.js`, `GET`/`PUT /api/assistant-speech/voice`). Keys are written,
+  never returned: the settings only say whether one is stored. A ChatGPT sign-in
+  cannot read text aloud: image generation uses it through OpenClaw's Codex
+  Responses route, but OpenClaw 2026.10.9's OpenAI speech provider needs an API key,
+  and the subscription only offers realtime voice calls (phase 2, AGENTPIER-293).
+- **Audit and privacy.** Neither audio nor text reaches logs or the audit:
+  `speech.completed` records `kind: "talk"` with the session's length and
+  `kind: "speech-output"` with the reading's seconds and its length in characters.
+  Upstream errors become stable codes (`auth`, `quota`, `upstreamBusy`, `rejected`,
+  `failed`), never upstream text.
+
+Not in phase 1: speaking over the reply (barge-in), audio in the background or on the
+lock screen, restricted users, Telegram voice replies, the coding session chat, and
+OpenClaw's realtime `talk.*` relay (AGENTPIER-293). Integration tests use stand-ins
+for Deepgram, the Gateway and the voice provider (`tests/integration/talk-mode.test.js`);
+no contract test calls a real voice provider.
+
 ### Telegram feedback
 
 Newly accepted inputs receive one best-effort 👀 reaction. During transcription and

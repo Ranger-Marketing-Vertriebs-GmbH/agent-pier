@@ -17,7 +17,8 @@ export function createShutdown({ services, wss, server }) {
     // exit in server/index.js. It is awaited before the server store closes, because
     // a settling job still writes its package record.
     const packagesClosed = services.mcpPackages?.close();
-    // Dictations end before the speech connection they relay through closes.
+    // Talk sessions and dictations end before the speech connection they use closes.
+    services.talk?.close();
     services.dictation?.close();
     // Closes only the assistant services that the opt-in actually created.
     await services.assistantFeature?.close();

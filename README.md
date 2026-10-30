@@ -43,7 +43,7 @@ and agents that work as a team.
   back, members that agree among themselves and report to their lead, Agency agents
   as templates for
   agents and members, work goals that keep an agent going until the job is done, optional nightly dreaming that tidies each agent's memory, hooks that let monitoring and other systems wake an agent, with @-mentions, Telegram, skills (bundled ones plus an owner-managed skill catalog with a scan before every install), routines, check-ins, files in both
-  directions, images created through ChatGPT, PDFs read with the agent's own model (or an optional fallback), read or read-and-write access to project folders and GitHub through your
+  directions, images created through ChatGPT, hands-free talk mode that sends what you say and reads the reply aloud ([talk mode](docs/assistant-gateway.md#talk-mode)), PDFs read with the agent's own model (or an optional fallback), read or read-and-write access to project folders and GitHub through your
   token profiles, new projects they create themselves, and coding sessions they start and steer themselves in their own worktrees, escalating questions to you ([agents](docs/agents.md), [coding sessions](docs/assistant-workflows.md#coding-sessions)).
 - **Users:** add family members who sign in with their own password and chat
   privately with their own or shared agents, locked away from shell, coding and the

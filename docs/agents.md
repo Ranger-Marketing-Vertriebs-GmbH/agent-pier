@@ -1299,6 +1299,23 @@ unless **Send dictated messages right away** is on under **Connections › Servi
 localhost for microphone access; the coding session chat offers the same microphone.
 Details and limits: [live dictation](assistant-gateway.md#live-dictation-in-the-chats).
 
+## Talk mode
+
+**Talk** (the audio-wave button in the chat header, on the phone too) turns an agent
+chat hands-free: AgentPier listens, sends what you said as a normal message once you
+pause, reads the agent's reply aloud and listens again. A bar above the message field
+shows **Listening**, **Thinking** or **Speaking** with the words heard so far; tap it to
+pause or resume, **Stop** ends talk mode. Code blocks, tables and long links are not
+read; the voice says "see screen" instead. You can interrupt only with Stop, not by
+speaking over the reply.
+
+Talk mode needs the Deepgram key for listening and a voice for speaking: an OpenAI or
+ElevenLabs API key under **Connections › Services for agents › Speech recognition ›
+Voice for talk mode**. Without either, the button explains what is missing. It is for
+the owner's own chats (not users' chats, not a task member's chat), ends when the page
+is hidden, and after 30 minutes. Details and limits:
+[talk mode](assistant-gateway.md#talk-mode).
+
 ## Chats
 
 Each agent holds several chats. The bar under the chat header shows the open chat's

@@ -9,12 +9,20 @@ import { WebSocketServer, WebSocket } from "ws";
  * the login and the origin check like the chat stream. The browser sends binary
  * frames of 16 kHz mono PCM and `{"type":"stop"}`; the server answers with JSON
  * messages: `ready`, `transcript` (interim or final), `ended` and `error` codes.
+ * `?talk=<id>` makes the dictation one spoken turn of the owner's talk session
+ * (talk-sessions.js): transcripts then carry `speechFinal`, and `utteranceEnd` follows
+ * a pause.
  */
 export function attachDictationWebSocket(server, { dictation, login, admit, effective }) {
   // About two seconds of audio per frame at most.
   const wss = new WebSocketServer({ noServer: true, maxPayload: 65536 });
   const upgrade = (req, socket, head) => {
-    if (!dictationPath.test(new URL(req.url, "http://localhost").pathname)) return;
+    const address = new URL(req.url, "http://localhost");
+    if (!dictationPath.test(address.pathname)) return;
+    const talkId = address.searchParams.get("talk");
+    // A malformed id still asks for talk mode, so the service refuses it.
+    const talk =
+      talkId === null ? null : /^[A-Za-z0-9_-]{8,64}$/.test(talkId) ? talkId : "";
     try {
       authorizeRequest(req, effective(), true);
       const token = sessionToken(req);
@@ -27,7 +35,7 @@ export function attachDictationWebSocket(server, { dictation, login, admit, effe
         return;
       }
       wss.handleUpgrade(req, socket, head, (ws) =>
-        wss.emit("connection", ws, { auth, principal, service }),
+        wss.emit("connection", ws, { auth, principal, service, talk }),
       );
     } catch (error) {
       const status = error.status || 403;
@@ -38,7 +46,7 @@ export function attachDictationWebSocket(server, { dictation, login, admit, effe
   };
   server.on("upgrade", upgrade);
   wss.once("close", () => server.off("upgrade", upgrade));
-  wss.on("connection", (ws, { auth, principal, service }) => {
+  wss.on("connection", (ws, { auth, principal, service, talk }) => {
     let session = null;
     const client = {
       send: (message) => {
@@ -68,7 +76,7 @@ export function attachDictationWebSocket(server, { dictation, login, admit, effe
       ws.close(1008);
       session.abort();
     });
-    session = service.start({ holder: auth.hash, principal, client });
+    session = service.start({ holder: auth.hash, principal, client, talk });
   });
   return wss;
 }
