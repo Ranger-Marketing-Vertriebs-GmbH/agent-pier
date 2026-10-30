@@ -13,6 +13,16 @@ export const assistantCopy = {
     phase: "Update-Status",
     blocked:
       "Aktive oder ungeklärte Arbeit verhindert die Aktivierung. Prüfe Chats, Aufträge und Zustellungen.",
+    blockers: {
+      ASSISTANT_WORK: "Ein Agenten-Chat arbeitet noch oder wartet auf deine Prüfung.",
+      TEAM_WORK: "Ein Teamauftrag läuft noch.",
+      CHANNEL_WORK:
+        "Eine Telegram-Nachricht oder -Benachrichtigung ist noch offen. Prüfe sie beim Agenten unter Kanäle › Telegram-Aktivität.",
+      ACCOUNT_LOGIN: "Eine Anmeldung bei einem Modellkonto läuft noch.",
+      WORKFLOW_WORK: "Eine Agentenaktion ist freigegeben oder läuft noch.",
+      SCHEDULED_WORK: "Eine Erinnerung oder Routine läuft gerade.",
+    },
+    unknownBlocker: "Weitere offene Arbeit.",
     phases: {
       idle: "Bereit",
       staging: "Wird vorbereitet",
@@ -34,6 +44,10 @@ export const assistantCopy = {
         "Vorbereitung fehlgeschlagen. Die aktive Version bleibt erhalten.",
       UPDATE_STAGE_INTERRUPTED: "Vorbereitung wurde unterbrochen. Erneut vorbereiten.",
       UPDATE_BLOCKED: "Aktive oder ungeklärte Arbeit blockiert das Update.",
+      UPDATE_CONFIG_BUSY:
+        "Die Laufzeit nimmt gerade keine Konfigurationsänderungen an. Versuche es in einer Minute erneut.",
+      UPDATE_PREPARE_FAILED:
+        "Die Laufzeit konnte nicht für das Update vorbereitet werden. Die aktive Version bleibt erhalten; versuche es gleich erneut.",
       UPDATE_ROLLED_BACK:
         "Aktivierung fehlgeschlagen; vorherige Version wiederhergestellt.",
       UPDATE_MIGRATION_FAILED:

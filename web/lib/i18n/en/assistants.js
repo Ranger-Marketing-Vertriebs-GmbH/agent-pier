@@ -13,6 +13,16 @@ export const assistantCopy = {
     phase: "Update status",
     blocked:
       "Active or unresolved work blocks activation. Review chats, tasks and deliveries.",
+    blockers: {
+      ASSISTANT_WORK: "An agent chat is still working or awaits your review.",
+      TEAM_WORK: "A team task is still running.",
+      CHANNEL_WORK:
+        "A Telegram message or notice is still open. Review it in the agent's Channels › Telegram activity.",
+      ACCOUNT_LOGIN: "A model account sign-in is still in progress.",
+      WORKFLOW_WORK: "An agent action is approved or still running.",
+      SCHEDULED_WORK: "A reminder or routine is running right now.",
+    },
+    unknownBlocker: "Other open work.",
     phases: {
       idle: "Ready",
       staging: "Staging",
@@ -33,6 +43,10 @@ export const assistantCopy = {
       UPDATE_STAGE_FAILED: "Staging failed. The active version is preserved.",
       UPDATE_STAGE_INTERRUPTED: "Staging was interrupted. Stage again.",
       UPDATE_BLOCKED: "Active or unresolved work blocks the update.",
+      UPDATE_CONFIG_BUSY:
+        "The runtime is not accepting configuration changes right now. Try again in a minute.",
+      UPDATE_PREPARE_FAILED:
+        "The runtime could not be prepared for the update. The active version is kept; try again shortly.",
       UPDATE_ROLLED_BACK: "Activation failed; the previous version was restored.",
       UPDATE_MIGRATION_FAILED:
         "Migrating the data to the new version failed; the previous version was restored.",

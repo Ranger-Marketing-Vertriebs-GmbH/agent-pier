@@ -15,6 +15,28 @@ switching the selection. Authenticated readiness and read-only reconciliation mu
 succeed before admission resumes. Active and uncertain work must be resolved first;
 the updater never cancels or resends requests.
 
+An activation refused before the Gateway stops keeps the old version running and
+leaves maintenance again: the scheduler is restored and channel work resumes. The
+status names the reason:
+
+- `UPDATE_BLOCKED` always lists its blockers, and the panel names each one:
+  `ASSISTANT_WORK` (an agent chat still works or awaits review), `TEAM_WORK`,
+  `CHANNEL_WORK` (a Telegram input or notice still open; acknowledge it in the
+  agent's **Channels › Telegram activity**), `ACCOUNT_LOGIN`, `WORKFLOW_WORK` and
+  `SCHEDULED_WORK`.
+- `UPDATE_CONFIG_BUSY`: the Gateway refused the configuration write that pauses the
+  scheduler. OpenClaw admits 30 `config.patch` a minute per connection and refuses
+  the rest with the wait it asks for (`retryAfterMs`). Every live configuration
+  write (`live-patch.js`) waits that long and sends the patch once more, within one
+  minute in all; a wait beyond that fails at once instead of repeating the patch.
+  Try again a minute later.
+- `UPDATE_PREPARE_FAILED`: another failure before the stop.
+
+Leaving maintenance re-applies every agent only when the Gateway restarted meanwhile
+(its launch generation changed). A refused activation therefore costs two
+`config.patch` (pause and restore), not a recompile of every agent that would spend
+the Gateway's write budget for the next attempt.
+
 When the candidate has a different OpenClaw version, activation runs OpenClaw's own
 migration between the snapshot and the candidate's first start, in phase `migrating`
 (shown as "Migrating data"): the candidate's `openclaw doctor --fix --non-interactive`,

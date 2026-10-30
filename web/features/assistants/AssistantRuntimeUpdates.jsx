@@ -21,6 +21,16 @@ function phaseText({ phase, snapshotProgress: progress }) {
     formatBytes(progress.totalBytes, locale),
   );
 }
+// What blocks an activation, once each; a code this build does not know is "other".
+const blockerTexts = (codes) => [
+  ...new Set(
+    codes.map((code) =>
+      Object.hasOwn(copy.updates.blockers, code)
+        ? copy.updates.blockers[code]
+        : copy.updates.unknownBlocker,
+    ),
+  ),
+];
 // Whether `status` is an update status this panel can show.
 function validStatus(status) {
   return !(
@@ -100,7 +110,16 @@ export default function AssistantRuntimeUpdates({ onChange }) {
           <p>
             {copy.updates.affected(status.affectedAssistants, status.affectedTeamMembers)}
           </p>
-          {!!status.blockers.length && <p role="status">{copy.updates.blocked}</p>}
+          {!!status.blockers.length && (
+            <div role="status">
+              <p>{copy.updates.blocked}</p>
+              <ul>
+                {blockerTexts(status.blockers).map((text) => (
+                  <li key={text}>{text}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           {upToDate && <p role="status">{copy.updates.upToDate}</p>}
           {status.diagnostic && (
             <p role="status">{copy.updates.diagnostics[status.diagnostic]}</p>

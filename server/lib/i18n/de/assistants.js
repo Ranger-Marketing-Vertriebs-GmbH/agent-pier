@@ -537,6 +537,12 @@ export const assistants = {
     "Der Hinweis konnte gerade nicht ausgeblendet werden. Versuche es später noch einmal.",
   queuedArchived: "Dieser Agent ist archiviert und nimmt keine Nachrichten mehr an.",
   active: "Es läuft noch eine Anfrage. Warte auf das Ergebnis oder stoppe sie zuerst.",
+  configBusy:
+    "Die Laufzeit nimmt gerade keine Konfigurationsänderungen an. Versuche es in einer Minute erneut.",
+  updateBlocked:
+    "Offene Arbeit blockiert das Update. Die Laufzeit-Seite nennt, was noch offen ist.",
+  updatePrepareFailed:
+    "Die Laufzeit konnte nicht für das Update vorbereitet werden. Die aktive Version bleibt erhalten; versuche es gleich erneut.",
   disabled: "Agenten sind ausgeschaltet. Aktiviere sie unter Agenten › Laufzeit.",
   storageUnsafe:
     "Der Speicherordner der Agenten ist unsicher. Prüfe Eigentümer und Verknüpfungen im Datenverzeichnis.",

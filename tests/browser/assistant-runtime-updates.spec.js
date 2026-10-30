@@ -100,7 +100,7 @@ test("update status makes active work and recovery blockers visible", async ({
   Object.assign(state.status, {
     phase: "staged",
     candidateReady: true,
-    blockers: ["pending-chat"],
+    blockers: ["CHANNEL_WORK", "pending-chat"],
     diagnostic: "UPDATE_BLOCKED",
   });
   await page.goto(baseURL + "/settings/assistants");
@@ -109,6 +109,22 @@ test("update status makes active work and recovery blockers visible", async ({
       "Active or unresolved work blocks activation. Review chats, tasks and deliveries.",
     ),
   ).toBeVisible();
+  // Each blocker is named; a code this build does not know still shows.
+  await expect(
+    page.getByText(
+      "A Telegram message or notice is still open. Review it in the agent's Channels › Telegram activity.",
+    ),
+  ).toBeVisible();
+  await expect(page.getByText("Other open work.")).toBeVisible();
+  // A Gateway refusing configuration writes is reported as such, not as blocked work.
+  Object.assign(state.status, { blockers: [], diagnostic: "UPDATE_CONFIG_BUSY" });
+  await pushed();
+  await expect(
+    page.getByText(
+      "The runtime is not accepting configuration changes right now. Try again in a minute.",
+    ),
+  ).toBeVisible();
+  await expect(page.getByText("Other open work.")).toHaveCount(0);
   state.status.busy = true;
   state.status.phase = "draining";
   await pushed();

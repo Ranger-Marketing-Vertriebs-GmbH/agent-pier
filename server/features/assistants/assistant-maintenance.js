@@ -31,6 +31,8 @@ export class AssistantMaintenance {
       throw assistantProblem("active", 409);
     a.maintenance = true;
     a.maintenanceEpoch = (a.maintenanceEpoch || 0) + 1;
+    // The Gateway launch this maintenance began with (RuntimeSupervisor#generation).
+    this.generation = this.s.assistantRuntime.generation;
     // No half-written video may land in a backup or survive a restore.
     await a.attachments?.videos?.dropAll();
     const paths = this.s.assistantRuntime.paths;
@@ -154,7 +156,13 @@ export class AssistantMaintenance {
     this.s.assistantDreaming?.backups.start();
     // The Gateway restarted from a fresh compile while readiness was absorbed here:
     // nothing an earlier apply recorded (skill lists included) describes it now.
-    this.s.assistants.config?.reset?.();
+    // A Gateway that kept running (an activation refused before its stop) keeps its
+    // compile: applying every agent again would spend its whole config.patch budget
+    // (30 a minute) and refuse the scheduler pause of the next activation.
+    const generation = this.s.assistantRuntime.generation;
+    if (this.generation === undefined || this.generation !== generation)
+      this.s.assistants.config?.reset?.();
+    this.generation = undefined;
     // Events sent while in maintenance were not handled; resync them now.
     this.s.assistants.gatewayEvents?.ready();
     this.s.assistants.reconcile().catch(() => {});

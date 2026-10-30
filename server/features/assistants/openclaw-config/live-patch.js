@@ -1,5 +1,6 @@
 import { assistantProblem } from "../assistant-validation.js";
 import { settledAdmission } from "../agent-admission.js";
+import { setTimeout as delay } from "node:timers/promises";
 
 // Every live OpenClaw configuration write goes through here, so a concurrent change
 // surfaces as a conflict instead of being silently overwritten. OpenClaw 2026.9.8
@@ -24,8 +25,41 @@ export function configWrite(client, write) {
   return run;
 }
 
-export function patchConfig(client, build) {
-  return configWrite(client, () => patchOnce(client, build));
+// OpenClaw 2026.10 admits 30 config.patch a minute per connection and refuses the
+// rest before any write (UNAVAILABLE, retryable, retryAfterMs); a draining Gateway
+// refuses the same way. A refused patch is sent again only after the wait the
+// Gateway asks for, never in a tight loop, within `maxWaitMs` in all. A wait the
+// bound cannot cover fails at once with `configBusy` (code CONFIG_BUSY).
+export const configRetryLimitMs = 60000;
+const refusedForNow = (error) =>
+  error?.answered === true &&
+  error.code === "UNAVAILABLE" &&
+  error.retryable === true &&
+  Number.isFinite(error.retryAfterMs);
+
+export function patchConfig(
+  client,
+  build,
+  { maxWaitMs = configRetryLimitMs, wait = delay, now = Date.now } = {},
+) {
+  return configWrite(client, async () => {
+    const deadline = now() + maxWaitMs;
+    for (;;) {
+      try {
+        return await patchOnce(client, build);
+      } catch (error) {
+        if (!refusedForNow(error)) throw error;
+        // At least a moment, so a zero answer at a window's edge is no busy loop.
+        const pause = Math.max(error.retryAfterMs, 250);
+        if (now() + pause > deadline)
+          throw Object.assign(assistantProblem("configBusy", 503), {
+            code: "CONFIG_BUSY",
+            retryAfterMs: error.retryAfterMs,
+          });
+        await wait(pause);
+      }
+    }
+  });
 }
 
 async function patchOnce(client, build) {

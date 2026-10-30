@@ -270,9 +270,15 @@ export class RuntimeUpdates {
           throw failure("UPDATE_RESUME_REQUIRED");
         }
         if (!stopped) {
-          this.persist("staged", { diagnostic: "UPDATE_BLOCKED" });
+          // Nothing changed yet: the old version keeps running. UPDATE_BLOCKED always
+          // names its blockers (above); a Gateway that refused the scheduler pause
+          // (its config.patch budget, live-patch.js) or another failure before the
+          // stop says so instead.
+          const diagnostic =
+            error.code === "CONFIG_BUSY" ? "UPDATE_CONFIG_BUSY" : "UPDATE_PREPARE_FAILED";
+          this.persist("staged", { diagnostic, blockers: [] });
           await this.maintenance.leave();
-          throw failure("UPDATE_BLOCKED", 409);
+          throw failure(diagnostic);
         }
         await this.rollback();
         if (error.code === "SNAPSHOT_FAILED")
