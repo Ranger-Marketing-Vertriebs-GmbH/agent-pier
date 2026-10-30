@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { as, chatFixture, sharedAgentOfTwo } from "../helpers/user-chats.js";
+import { as, chatFixture, sharedAgentOfTwo, userAgent } from "../helpers/user-chats.js";
 
 // A shared agent of two users plus the owner's chat, one temporary member at work, one
 // permanent member idle and one turn running in a user's extra chat.
@@ -48,7 +48,7 @@ async function seeded(t) {
   });
   const running = service.ledger.accept(extra.id, { clientRequestId: "r1", text: "Hi" });
   service.ledger.recordAttempt(running.id);
-  return { f, agent, anna, scout, keeper, service };
+  return { f, agent, anna, scout, keeper, service, owner };
 }
 
 test("preview counts people, members and running work", async (t) => {
@@ -80,5 +80,71 @@ test("preview refuses users and member agents", async (t) => {
   assert.equal(
     (await f.request(`/api/assistants/${scout.assistantId}/main-chat-restart`)).status,
     400,
+  );
+});
+
+test("preview counts every kind of running work and no other agent's", async (t) => {
+  const { f, agent, anna, service, owner } = await seeded(t);
+  const other = (
+    await userAgent(f, {
+      mode: "shared",
+      members: [{ userId: anna.user.id, level: "chat" }],
+    })
+  ).id;
+  const teams = service.teams.store;
+  const actions = service.workflows.store;
+  const row = (id, kind, parentAssistantId, phase) =>
+    teams.insert({ id, kind, parentAssistantId, phase, revision: 1 });
+  row("team-waiting", "team", agent.id, "awaiting_approval");
+  row("team-other", "team", other, "awaiting_approval");
+  row("request-mine", "lead-request", agent.id, "pending");
+  row("request-other", "lead-request", other, "pending");
+  service.teams.goals.store.insert({ conversationId: owner.id });
+  service.teams.goals.store.insert({ conversationId: "other-chat" });
+  const action = (key, assistantId, state, payload) =>
+    actions.reserve({ assistantId, key, payload, origin: { kind: "owner" }, state });
+  action("run", agent.id, "running", { action: "coding_start" });
+  action("run-other", other, "running", { action: "coding_start" });
+  action("wait", agent.id, "awaiting_approval", { action: "coding_start" });
+  action("wait-other", other, "awaiting_approval", { action: "coding_start" });
+  service.workflows.sessions.store.insert({
+    sessionId: "s1",
+    assistantId: agent.id,
+    ended: false,
+  });
+  service.workflows.sessions.store.insert({
+    sessionId: "s2",
+    assistantId: agent.id,
+    ended: true,
+  });
+  service.workflows.sessions.store.insert({
+    sessionId: "s3",
+    assistantId: other,
+    ended: false,
+  });
+  const body = await (
+    await f.request(`/api/assistants/${agent.id}/main-chat-restart`)
+  ).json();
+  assert.deepEqual(body.work, {
+    turns: 1,
+    teams: 1,
+    members: 1,
+    requests: 1,
+    coding: 2,
+    goals: 1,
+    approvals: 1,
+  });
+});
+
+test("preview refuses an archived agent", async (t) => {
+  const { f, agent, service } = await seeded(t);
+  service.store.setArchived(
+    agent.id,
+    service.store.getAssistant(agent.id).revision,
+    new Date().toISOString(),
+  );
+  assert.equal(
+    (await f.request(`/api/assistants/${agent.id}/main-chat-restart`)).status,
+    409,
   );
 });
