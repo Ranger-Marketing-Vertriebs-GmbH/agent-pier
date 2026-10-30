@@ -9,6 +9,26 @@ import { validateSshProjectBinding } from "./ssh-project-scope.js";
 import { sshProblem } from "./ssh-errors.js";
 
 const client = fileURLToPath(new URL("../../ssh.mjs", import.meta.url));
+
+/**
+ * The manual SSH helper for one granted host of a session, shell-quoted: alone it opens
+ * an SSH shell, with ` -- <remote command>` it runs one command (typed into the
+ * console of an interactive-shell host).
+ */
+export function helperCommand(dataDir, sessionId, accessId) {
+  return [
+    process.execPath,
+    client,
+    "--data-dir",
+    path.resolve(dataDir),
+    "--session",
+    sessionId,
+    "--access",
+    accessId,
+  ]
+    .map(shellQuote)
+    .join(" ");
+}
 function identifier(value) {
   if (typeof value !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(value))
     throw problem(serverMessages.ssh.invalidBinding);
@@ -108,21 +128,7 @@ export class SshSessions {
       // The helper command runs SSH; SFTP hosts are reached through the sftp tools.
       commands: [...new Set([...assignedIds, ...inheritedIds])]
         .filter((id) => ssh.has(id))
-        .map((id) => ({
-          id,
-          command: [
-            process.execPath,
-            client,
-            "--data-dir",
-            this.dataDir,
-            "--session",
-            session.id,
-            "--access",
-            id,
-          ]
-            .map(shellQuote)
-            .join(" "),
-        })),
+        .map((id) => ({ id, command: helperCommand(this.dataDir, session.id, id) })),
     };
   }
   set(session, ids) {

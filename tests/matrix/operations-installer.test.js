@@ -15,7 +15,7 @@ for (const platform of ["darwin", "linux"])
       calls.push([command, args]);
       if (command === "tmux" && !available) throw Error("missing");
       if (args.includes("install")) available = true;
-      return { stdout: "fixture" };
+      return { stdout: "fixture", stderr: "OpenSSH_9.6p1" };
     };
     await assert.rejects(
       ensureDependencies({ platform, run, install: false }),
@@ -97,7 +97,7 @@ for (const healthy of [false, true])
     const result = installRelease(
       { archive, installRoot, dataDir, service: true },
       {
-        run: async () => ({ stdout: "fixture" }),
+        run: async () => ({ stdout: "fixture", stderr: "OpenSSH_9.6p1" }),
         toolchains: async () => ({}),
         releaseOptions: { smoke: async () => {} },
         serviceRunner: async () => {

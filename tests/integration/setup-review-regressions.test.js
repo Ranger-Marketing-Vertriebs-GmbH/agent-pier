@@ -44,7 +44,7 @@ test("repair preserves a release pointer while another process is switching it",
   const installerUrl = new URL("../../scripts/release-install.mjs", import.meta.url).href;
   const installer = `import { installRelease } from ${JSON.stringify(installerUrl)};
     await installRelease(JSON.parse(process.argv[1]), {
-      run: async () => ({ stdout: "fixture" }),
+      run: async () => ({ stdout: "fixture", stderr: "OpenSSH_9.6p1" }),
       toolchains: async () => ({}),
       inspectService: async () => ({ state: "missing", listener: false }),
     });`;

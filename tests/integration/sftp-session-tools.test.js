@@ -80,16 +80,17 @@ test("ssh_list_hosts reports type and remoteRoot", async (t) => {
   assert.equal(hosts[0].accessId, fx.host.id);
   assert.equal(hosts[0].type, "sftp");
   assert.equal(hosts[0].remoteRoot, "/www");
+  // A password host with a folder keeps the sftp_* tools and gets no alias.
+  assert.deepEqual(hosts[0].use, { via: "sftp_tools" });
+  assert.equal(Object.hasOwn(hosts[0], "alias"), false);
   assert.doesNotMatch(JSON.stringify(hosts), new RegExp(PASSWORD));
 });
 
-test("ssh_execute and ssh_test_host on an SFTP host return SSH_HOST_TYPE", async (t) => {
+test("there is no ssh_execute, and ssh_test_host on an SFTP host returns SSH_HOST_TYPE", async (t) => {
   const fx = await fixture(t);
   await assert.rejects(
     fx.tools.call("ssh_execute", { accessId: fx.host.id, command: "true" }),
-    {
-      code: "SSH_HOST_TYPE",
-    },
+    { message: "Unknown SSH tool." },
   );
   await assert.rejects(fx.cli.call("ssh_test_host", { accessId: fx.host.id }), {
     code: "SSH_HOST_TYPE",

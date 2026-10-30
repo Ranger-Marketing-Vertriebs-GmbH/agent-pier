@@ -1464,6 +1464,7 @@
   "releases.noMigration": "de:c675cf97760e en:95b11c00bf90",
   "releases.noNewerVersion": "de:bed7f419a82d en:47550e154f4b",
   "releases.notPublished": "de:4f1aa68e4842 en:d0e9e421f66e",
+  "releases.opensshRequired": "de:020a3556a1ee en:6c8c2c91d399",
   "releases.pointerNotOwned": "de:896eb24061a1 en:d9770d820c0a",
   "releases.pointerOutside": "de:f2b90165549a en:e48131d855d4",
   "releases.previewLimit": "de:69c89c9d992c en:e9aef7bebe52",

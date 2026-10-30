@@ -146,7 +146,7 @@ test("a setup rerun with proxies updates a healthy service; without, it keeps th
     listener: f.state.listener,
     proxy: f.state.proxy,
   });
-  const run = async () => ({ stdout: "fixture" });
+  const run = async () => ({ stdout: "fixture", stderr: "OpenSSH_9.6p1" });
   await f.install({}, { inspectService, env: { ...process.env, ...proxies }, run });
   assert.equal(f.restartCalls.length, 1);
   assert.deepEqual(proxyEnvironment(f.restartCalls[0].env), persisted);

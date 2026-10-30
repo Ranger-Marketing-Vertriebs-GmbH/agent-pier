@@ -22,11 +22,11 @@ function sftpReminder(prefix) {
   ]
     .map((name) => `${prefix}sftp_${name}`)
     .join(", ");
-  return ` SFTP hosts (type "sftp" in ${prefix}ssh_list_hosts) take no commands; use ${tools} and ${prefix}sftp_job for long transfers. Local paths stay inside the session's launch folder; run sync with dryRun first, and delete only what the user asked for.`;
+  return ` SFTP hosts whose "use" in ${prefix}ssh_list_hosts is "sftp_tools" (password sign-in or an allowed remote folder) take only ${tools} and ${prefix}sftp_job for long transfers; SFTP hosts with "use" "sftp" also work with plain sftp and scp <alias>. Local paths stay inside the session's launch folder; run sync with dryRun first, and delete only what the user asked for.`;
 }
 
 function agentReminder(prefix) {
-  return ` Assigned SSH hosts also work with plain OpenSSH through this session's agent: ssh <alias>, scp, sftp, rsync -e ssh and git over SSH, including tunnels (-L, -R, -D). ${prefix}ssh_list_hosts shows each host's alias. If ssh <alias> reports an unknown host, use ssh -F "$AGENTPIER_SSH_CONFIG" <alias>. The key stays in AgentPier; agent forwarding is refused. SFTP and interactive-shell hosts keep their tools.`;
+  return ` Reach assigned SSH hosts with plain OpenSSH through this session's agent: ssh <alias> <command> for remote commands, ssh <alias>, scp, sftp, rsync -e ssh and git over SSH, including tunnels (-L, -R, -D). ${prefix}ssh_list_hosts shows each host's alias. If ssh <alias> reports an unknown host, use ssh -F "$AGENTPIER_SSH_CONFIG" <alias>. The key stays in AgentPier; agent forwarding is refused. Interactive-shell devices ("use" "helper") take the helper command ${prefix}ssh_list_hosts names, with -- <remote command>.`;
 }
 
 // Discovery only: authorization and all ssh access belong to the broker.
@@ -38,7 +38,7 @@ export function sshReminder(
     agent = process.env[SSH_AGENT_HINT_ENV] === "1",
   } = {},
 ) {
-  return `Project SSH tools are available, including projects with no saved hosts. Discover keys with ${prefix}ssh_list_keys and hosts with ${prefix}ssh_list_hosts. Generate a managed key or import an existing local key by sourcePath; retrieve its public key. Bootstrap only through existing authorized SSH access or a provider workflow, preserving existing authorized keys and selecting the intended remote user. Verify host identity through an independent trusted source before ssh_register_host, then ssh_test_host. A scan is unverified; ask for a trusted fingerprint when none is available. Reuse request IDs after uncertain outcomes. Share only public metadata in chat; private-key download is available in the AgentPier UI. Do not automatically provision or connect.${sftp ? sftpReminder(prefix) : ""}${agent ? agentReminder(prefix) : ""}${secretsHint(secretsFile)}`;
+  return `Project SSH tools are available, including projects with no saved hosts. Discover keys with ${prefix}ssh_list_keys and hosts with ${prefix}ssh_list_hosts. Generate a managed key or import an existing local key by sourcePath; retrieve its public key. Bootstrap only through existing authorized SSH access or a provider workflow, preserving existing authorized keys and selecting the intended remote user. Verify host identity through an independent trusted source before ssh_register_host, then ssh_test_host. ${prefix}ssh_list_hosts says per host how to reach it ("use"); there is no remote-command tool. A scan is unverified; ask for a trusted fingerprint when none is available. Reuse request IDs after uncertain outcomes. Share only public metadata in chat; private-key download is available in the AgentPier UI. Do not automatically provision or connect.${sftp ? sftpReminder(prefix) : ""}${agent ? agentReminder(prefix) : ""}${secretsHint(secretsFile)}`;
 }
 
 /** The start hint of this session: SSH discovery, or only the secrets hint. */

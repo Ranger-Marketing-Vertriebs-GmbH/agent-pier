@@ -181,8 +181,8 @@ test.describe("with pushes only from the test", () => {
 
 for (const [reason, text] of [
   ["openssh-too-old", /OpenSSH 8\.9 or newer/],
-  ["no-openssh", /Plain ssh needs OpenSSH on this computer/],
-  ["failed", /could not be started for this session/],
+  ["no-openssh", /finds no ssh on this computer/],
+  ["failed", /could not be started, so plain ssh/],
   ["not-eligible", /not available in this session/],
 ])
   test(`an unavailable agent is explained (${reason})`, async ({ page }) => {

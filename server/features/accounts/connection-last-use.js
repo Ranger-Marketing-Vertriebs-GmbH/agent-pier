@@ -4,9 +4,9 @@
  * sessions (agent-sftp-runs.js, sftp-session-audit.js) and the signatures of a
  * session's or an agent's SSH agent (ssh.connected, ssh-agent-audit.js; an agent's
  * rows carry `details.assistantId`), so plain ssh, scp, rsync and git through either
- * agent count. A coding session's ssh_execute calls through the ssh.mjs
- * helper are not audited, so a host used only that way reads as never used:
- * `sshLastUseCovers` names what the time covers.
+ * agent count. Commands a session runs through the manual helper (ssh.mjs), which
+ * interactive-shell devices use, are not audited, so a host used only that way reads
+ * as never used: `sshLastUseCovers` names what the time covers.
  */
 export const sshUseActions = [
   "ssh.executed",

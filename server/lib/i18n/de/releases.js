@@ -24,6 +24,8 @@ export const releaseCopy = Object.freeze({
   alreadyActive: "Dieses Release ist bereits aktiv.",
   activationPending:
     "Eine andere Release-Aktivierung steht noch aus. Bitte vor einem neuen Versuch prüfen.",
+  opensshRequired:
+    "Dieses Update braucht OpenSSH 8.9 oder neuer auf diesem Computer. Bitte den OpenSSH-Client aktualisieren und das Release erneut aktivieren.",
   healthFailed: "Die Zustandsprüfung des Releases ist fehlgeschlagen.",
   healthFailedSchema:
     "Die Zustandsprüfung des Releases ist nach einer Schemaänderung fehlgeschlagen; ein automatisches Zurücksetzen ist nicht kompatibel, die neuen Daten bleiben erhalten.",

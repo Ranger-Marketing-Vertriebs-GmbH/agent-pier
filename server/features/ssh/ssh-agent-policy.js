@@ -30,9 +30,28 @@ function blobOrNull(line) {
   }
 }
 
-function agentHost(access) {
+/**
+ * An SFTP host that plain `sftp`/`scp` can reach through a session agent: it signs in
+ * with a key and has no allowed remote folder. Password hosts and folder-restricted
+ * hosts stay behind the sftp_* tools, which enforce the folder.
+ */
+export function nativeSftpHost(access) {
+  return Boolean(
+    access?.type === "sftp" &&
+    access.auth === "key" &&
+    !access.remoteRoot &&
+    !access.keyMissing,
+  );
+}
+
+function servedType(access, sftpKeyHosts) {
+  if (access.type === "ssh") return !access.interactiveShell;
+  return sftpKeyHosts && nativeSftpHost(access);
+}
+
+function agentHost(access, sftpKeyHosts) {
   if (!access || typeof access !== "object") return null;
-  if (access.type !== "ssh" || access.interactiveShell || access.keyMissing) return null;
+  if (!servedType(access, sftpKeyHosts) || access.keyMissing) return null;
   if (typeof access.keyId !== "string" || !access.keyId) return null;
   const keyBlob = blobOrNull(access.publicKey);
   const hostKeyBlob = blobOrNull(access.hostKey);
@@ -54,9 +73,10 @@ function agentHost(access) {
 }
 
 // The SSH hosts of `accesses` (SshAccessStore.list() projections) named by
-// `effectiveIds`, in that order. SFTP, interactive-shell, missing-key and unparsable
-// rows are dropped, as are ids without a row.
-export function agentHosts(accesses, effectiveIds) {
+// `effectiveIds`, in that order. Interactive-shell, missing-key and unparsable rows
+// are dropped, as are ids without a row. SFTP rows are dropped unless `sftpKeyHosts`
+// (coding sessions' agents) asks for the key-only, unrestricted ones (nativeSftpHost).
+export function agentHosts(accesses, effectiveIds, { sftpKeyHosts = false } = {}) {
   if (!Array.isArray(accesses) || !Array.isArray(effectiveIds)) return [];
   const byId = new Map();
   for (const access of accesses) {
@@ -68,7 +88,7 @@ export function agentHosts(accesses, effectiveIds) {
   for (const id of effectiveIds) {
     if (seen.has(id)) continue;
     seen.add(id);
-    const host = agentHost(byId.get(id));
+    const host = agentHost(byId.get(id), sftpKeyHosts);
     if (host) hosts.push(host);
   }
   return hosts;

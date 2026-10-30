@@ -54,13 +54,14 @@ export const sshCopy = {
   agentReady:
     "Direktes ssh funktioniert in dieser Session. Nutze den Alias eines Hosts für ssh, scp, sftp, rsync, git und Tunnel.",
   agentTooOld:
-    "Direktes ssh braucht OpenSSH 8.9 oder neuer auf diesem Computer. ssh_execute funktioniert weiter.",
+    "Diese Session erreicht keine SSH-Hosts: AgentPier braucht OpenSSH 8.9 oder neuer auf diesem Computer. Aktualisiere OpenSSH und starte AgentPier neu.",
   agentNoOpenSsh:
-    "Direktes ssh braucht OpenSSH auf diesem Computer. ssh_execute funktioniert weiter.",
+    "Diese Session erreicht keine SSH-Hosts: AgentPier findet kein ssh auf diesem Computer oder im PATH der Session. Installiere OpenSSH 8.9 oder neuer und starte AgentPier neu.",
   agentFailed:
-    "Direktes ssh konnte für diese Session nicht gestartet werden. ssh_execute funktioniert weiter.",
+    "Der SSH-Agent dieser Session konnte nicht starten, direktes ssh funktioniert hier nicht. Nutze „Neu laden & fortsetzen“; hilft das nicht, prüfe das AgentPier-Protokoll.",
   agentNotEligible: "Direktes ssh ist in dieser Session nicht verfügbar.",
   agentAliasLabel: (alias) => `ssh ${alias}`,
+  agentSftpAliasLabel: (alias) => `sftp ${alias}`,
   agentSshConfig: (reason) =>
     `AgentPier hat ~/.ssh/config nicht geändert: ${reason}. Meldet ssh <alias> einen unbekannten Host, nutze ssh -F "$AGENTPIER_SSH_CONFIG" <alias>.`,
   agentSshConfigSession:

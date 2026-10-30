@@ -20,6 +20,8 @@ export const releaseCopy = Object.freeze({
   pointerOutside: "Release pointer is outside its owned layout.",
   alreadyActive: "That release is already active.",
   activationPending: "Another release activation is pending. Inspect it before retrying.",
+  opensshRequired:
+    "This update needs OpenSSH 8.9 or newer on this computer. Update the OpenSSH client, then activate the release again.",
   healthFailed: "Release health verification failed.",
   healthFailedSchema:
     "Release health failed after a schema change; automatic rollback is incompatible and the new data was preserved.",

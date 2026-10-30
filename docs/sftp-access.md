@@ -53,7 +53,9 @@ Sharing follows the SSH rules.
   share hosts with permanent members. Temporary members use the lead's grant only while
   the lead's **Team members may use shell and SSH** is on.
 - **Coding CLIs:** a host granted to the project or session is available to Codex,
-  Claude Code and OpenCode through `sftp_*` tools of the `agentpier_ssh` MCP server. No
+  Claude Code and OpenCode through `sftp_*` tools of the `agentpier_ssh` MCP server,
+  and a key-only host without a folder also through plain `sftp <alias>`
+  ([below](#coding-cli-tools)). No
   AgentPier approval card appears; the CLI's own permission prompt applies. Shell
   sessions cannot use SFTP hosts: they are neither offered in the launch picker nor
   accepted as a grant.
@@ -191,9 +193,17 @@ server's home folder).
 fit the MCP response; what is cut is counted in `more*` fields.
 
 When a coding session starts and a reachable SFTP host exists, the discovery hint
-names the `sftp_*` tools. SFTP hosts get no alias for
-[plain SSH](ssh-access.md#plain-ssh-from-coding-sessions): the `sftp` command in a session
-reaches only SSH hosts, so use these tools for SFTP hosts.
+names the `sftp_*` tools. Which way a host takes depends on how it signs in:
+
+- **Key sign-in and no allowed remote folder:** the host gets an alias for
+  [plain SSH](ssh-access.md#plain-ssh-from-coding-sessions), so `sftp <alias>` and
+  `scp` work through the session's SSH agent (the **SSH accesses** dialog shows
+  `sftp <alias>`). The `sftp_*` tools keep working for it.
+- **Password sign-in or an allowed remote folder:** no alias. Use the `sftp_*` tools;
+  only they enforce the folder, and the password never leaves AgentPier.
+
+`ssh_list_hosts` reports this per host in `use.via`: `sftp` with the alias, or
+`sftp_tools`. Shell sessions get no SFTP aliases.
 
 ## Agent actions and approvals
 

@@ -53,10 +53,10 @@ and agents that work as a team.
   and Frida ([MCP](docs/mcp.md), [managed REA](docs/mcp.md#managed-rea)).
 - **SSH and SFTP:** SSH and SFTP hosts with a pinned host key (SFTP with a password
   or a key) that coding CLIs and agents use, with approvals for changes and deletes,
-  whole-folder transfers, syncs and live activity rows; sessions, and agents with shell
-  access for their trusted hosts, also reach their hosts with plain `ssh <alias>`, `scp`,
-  `rsync`, `git` and tunnels through their own SSH agent, which keeps the key in
-  AgentPier; agents can propose a new SSH access that you confirm
+  whole-folder transfers, syncs and live activity rows; coding sessions reach their
+  hosts only with plain `ssh <alias>`, `scp`, `sftp`, `rsync`, `git` and tunnels through
+  their own SSH agent, which keeps the key in AgentPier, and so do agents with shell
+  access for their trusted hosts; agents can propose a new SSH access that you confirm
   after checking its host key ([SSH](docs/ssh-access.md),
   [plain SSH](docs/ssh-access.md#plain-ssh-from-coding-sessions),
   [plain SSH for agents](docs/ssh-access.md#plain-ssh-from-agents),
@@ -96,7 +96,7 @@ and agents that work as a team.
 ## Requirements
 
 - macOS 14 or later (Apple Silicon or Intel), or Linux on x64 or arm64. Intel Macs are supported, but the full native agent qualification covers Apple Silicon and Linux only.
-- Node.js `^22.23.4 || ^24.22.1 || >=26.12.1` (22.23.4+, 24.22.1+ or 26.12.1+; Node 23 and 25 are not supported; bundled in release packages), Git and tmux.
+- Node.js `^22.23.4 || ^24.22.1 || >=26.12.1` (22.23.4+, 24.22.1+ or 26.12.1+; Node 23 and 25 are not supported; bundled in release packages), Git, tmux and OpenSSH 8.9 or newer.
 - Optional: Tailscale for remote access, and a Chromium-based browser for the agents'
   browser tool (Brave or Chromium for visible agent browser windows; AgentPier can
   install a managed Chrome for Testing for them with one click).

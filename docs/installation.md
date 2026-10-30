@@ -111,7 +111,9 @@ installation and updates verify these runtime components. No manual system
 extension is required. On macOS, strict new-inode operations and ZIP extraction
 run only when the native check confirms that the specific destination uses APFS.
 
-`sh scripts/install.sh` does not require `npm ci` in a clean checkout. Missing tmux and Git packages are installed by default; Node is downloaded temporarily if needed and is included in the release. Missing download tools (`curl`, `tar`, SHA-256 verification) are also installed when needed. On macOS, Homebrew is used and set up through the [official installer](https://brew.sh) if necessary; Linux uses apt. Prompts and an administrator password can be entered in the terminal. Without a terminal, the Homebrew installer runs non-interactively and requires suitable administrator privileges. On other Linux distributions, install missing packages with the distribution's package manager.
+`sh scripts/install.sh` does not require `npm ci` in a clean checkout. Missing tmux, Git and OpenSSH client packages are installed by default; Node is downloaded temporarily if needed and is included in the release. Missing download tools (`curl`, `tar`, SHA-256 verification) are also installed when needed. On macOS, Homebrew is used and set up through the [official installer](https://brew.sh) if necessary; Linux uses apt. Prompts and an administrator password can be entered in the terminal. Without a terminal, the Homebrew installer runs non-interactively and requires suitable administrator privileges. On other Linux distributions, install missing packages with the distribution's package manager.
+
+The installer also checks `ssh -V` and refuses to continue when the OpenSSH client is older than 8.9 or `ssh` is not OpenSSH: coding sessions reach SSH hosts only through their own SSH agent, which needs OpenSSH 8.9 ([SSH accesses](ssh-access.md#plain-ssh-from-coding-sessions)). An old client is never replaced automatically; update it (for example Ubuntu 22.04 or Debian 12 and newer ship 8.9 or later), then rerun the installer. Activating a newer release under **Settings → Operations → Updates** refuses the same way; a rollback does not.
 
 `--skip-dependencies` checks prerequisites without installing host packages. `--install-dependencies` remains available for compatibility. `--service` configures the user web service and waits for its version health check; it also saves the usual Homebrew and system paths. The data directory must not be inside a release directory.
 
@@ -127,6 +129,7 @@ Then restart the AgentPier web service. If `tmux -V` works but the service still
 
 - macOS with a regular user account that will also run the CLI sessions.
 - Node.js `^22.23.4 || ^24.22.1 || >=26.12.1` (22.23.4+, 24.22.1+ or 26.12.1+; Node 23 and 25 are not supported) with npm, tmux and Git.
+- OpenSSH 8.9 or newer (`ssh -V`). macOS ships a recent enough client.
 - Codex, Claude Code and OpenCode may already be installed or can be installed later under **Your tools → Install CLI**.
 - Optional: Tailscale, signed in to your own tailnet on both the Mac mini and mobile device.
 
@@ -143,6 +146,7 @@ node --version
 npm --version
 tmux -V
 git --version
+ssh -V
 ```
 
 ## 2. Set up the project and test locally first

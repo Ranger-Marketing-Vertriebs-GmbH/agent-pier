@@ -417,6 +417,24 @@ test("agentHosts drops sftp, interactive-shell and missing-key rows", () => {
   );
 });
 
+test("coding sessions' agents also serve key-only SFTP hosts without a folder", () => {
+  const keySftp = access("sftp-key", { type: "sftp", auth: "key", remoteRoot: null });
+  const password = access("sftp-pw", { type: "sftp", auth: "password" });
+  const rooted = access("sftp-root", { type: "sftp", auth: "key", remoteRoot: "/www" });
+  const gone = access("sftp-gone", { type: "sftp", auth: "key", keyMissing: true });
+  const rows = [ssh, keySftp, password, rooted, gone, consoleHost];
+  const order = rows.map((row) => row.id);
+  assert.deepEqual(
+    agentHosts(rows, order, { sftpKeyHosts: true }).map((h) => h.accessId),
+    ["access-a", "sftp-key"],
+  );
+  // Without the option (agents' own SSH agents) SFTP hosts stay out.
+  assert.deepEqual(
+    agentHosts(rows, order).map((h) => h.accessId),
+    ["access-a"],
+  );
+});
+
 test("agentHosts keeps the effective id order and drops ungranted and bad rows", () => {
   const broken = access("broken-1", { publicKey: "ssh-ed25519 AAAA" });
   const badHostKey = access("broken-2", { hostKey: "ssh-dss AAAAB3NzaC1kc3M=" });

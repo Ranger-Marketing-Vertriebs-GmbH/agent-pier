@@ -183,6 +183,31 @@ test("sync writes aliases for granted hosts and drops a revoked one", async (t) 
   assert.deepEqual(f.logs, []);
 });
 
+test("a key-only SFTP host without a folder gets an alias, password and folder hosts do not", async (t) => {
+  const f = fixture(t);
+  const sftp = { type: "sftp", interactiveShell: false };
+  const files = host("sftp-key", "Files", { ...sftp, auth: "key", remoteRoot: null });
+  const password = host("sftp-pw", "Password", { ...sftp, auth: "password" });
+  const rooted = host("sftp-root", "Rooted", {
+    ...sftp,
+    auth: "key",
+    remoteRoot: "/www",
+  });
+  f.accesses.push(files, password, rooted);
+  const { id, record } = await launch(f);
+  await f.grants.set(record, [files.id, password.id, rooted.id]);
+  assert.equal(await f.agents.sync(record), "written");
+  assert.deepEqual(f.agents.status(record).aliases, { [files.id]: "files" });
+  const config = fs.readFileSync(f.agents.launchDetails(id).configPath, "utf8");
+  assert.match(config, /^Host files$/m);
+  assert.doesNotMatch(config, /password|rooted/);
+  // A shell session neither lists nor inherits SFTP hosts: no alias there.
+  const shell = await launch(f, { tool: "shell", sshTools: { enabled: false, project } });
+  await f.grants.set(shell.record, [files.id]);
+  await f.agents.sync(shell.record);
+  assert.deepEqual(f.agents.status(shell.record).aliases, {});
+});
+
 test("hosts that cannot be rendered are logged by id only", async (t) => {
   const f = fixture(t);
   f.accesses.push(host("access-nouser", "No user", { username: "" }));

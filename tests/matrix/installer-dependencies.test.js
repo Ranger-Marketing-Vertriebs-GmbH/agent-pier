@@ -13,7 +13,7 @@ function fixture({ unavailable = ["tmux"], noManager = false, broken = false } =
       if (missing.has(command) || (noManager && ["brew", "apt-get"].includes(command)))
         throw Object.assign(Error("missing"), { code: "ENOENT" });
       if (args.includes("install") && !broken) missing.clear();
-      return { stdout: "fixture" };
+      return { stdout: "fixture", stderr: "OpenSSH_9.6p1" };
     },
   };
 }
@@ -42,7 +42,7 @@ test("available prerequisites require no package manager and do not leak environ
   });
   assert.deepEqual(
     ctx.calls.map((c) => c.command),
-    ["tmux", "git"],
+    ["tmux", "git", "ssh"],
   );
   assert.deepEqual(result, { installedDependencies: [] });
 });
@@ -97,6 +97,7 @@ test("macOS bootstraps Homebrew before installing missing tmux and Git", async (
         brew = true;
       }
       if (command === "brew" && args[0] === "install") installed = true;
+      return { stdout: "", stderr: "OpenSSH_9.9p2, LibreSSL 3.3.6" };
     },
   });
   assert.ok(installed);
@@ -109,7 +110,52 @@ test("check-only does not bootstrap Homebrew", async () => {
     ensureDependencies({ platform: "darwin", run: ctx.run, install: false }),
     /Missing tmux/,
   );
-  assert.ok(ctx.calls.every((c) => ["tmux", "git"].includes(c.command)));
+  assert.ok(ctx.calls.every((c) => ["tmux", "git", "ssh"].includes(c.command)));
+});
+
+for (const [stderr, found] of [
+  ["OpenSSH_8.2p1 Ubuntu-4ubuntu0.11, OpenSSL 1.1.1f  31 Mar 2020", /OpenSSH 8\.2/],
+  ["OpenSSH_7.4p1, OpenSSL 1.0.2k-fips", /OpenSSH 7\.4/],
+  ["Sun_SSH_2.4, SSH protocols 1.5/2.0", /does not report an OpenSSH version/],
+])
+  test(`installation refuses ${stderr.split(",")[0]} before installing anything`, async () => {
+    for (const install of [true, false]) {
+      const calls = [];
+      const run = async (command, args) => {
+        calls.push([command, args]);
+        if (command === "tmux") throw Error("missing");
+        return command === "ssh" ? { stdout: "", stderr } : { stdout: "fixture" };
+      };
+      await assert.rejects(ensureDependencies({ run, platform: "linux", install }), {
+        message: new RegExp(`OpenSSH 8\\.9 or newer[^]*${found.source}`),
+      });
+      assert.ok(calls.every(([, args]) => !args.includes("install")));
+    }
+  });
+
+test("OpenSSH 8.9 and newer pass; a missing ssh is installed as the OpenSSH client", async () => {
+  for (const version of ["OpenSSH_8.9p1", "OpenSSH_9.6p1", "OpenSSH_10.0p2"]) {
+    const run = async () => ({ stdout: "", stderr: `${version}, OpenSSL 3` });
+    assert.deepEqual(
+      (await ensureDependencies({ run, platform: "linux" })).installed,
+      [],
+    );
+  }
+  for (const [platform, name] of [
+    ["linux", "openssh-client"],
+    ["darwin", "openssh"],
+  ]) {
+    const ctx = fixture({ unavailable: ["ssh"] });
+    const result = await ensureDependencies({ run: ctx.run, platform, uid: 0 });
+    assert.deepEqual(result.installed, ["ssh"]);
+    const install = ctx.calls.find((c) => c.args.includes("install"));
+    assert.equal(install.args.at(-1), name);
+  }
+  const ctx = fixture({ unavailable: ["ssh"] });
+  await assert.rejects(
+    ensureDependencies({ run: ctx.run, install: false }),
+    /Missing ssh/,
+  );
 });
 
 test("utility detection reports nono alongside gh", () => {
