@@ -231,38 +231,6 @@
   margin-right: 8px;
 }
 
-.row-menu-anchor {
-  position: relative;
-}
-.row-menu {
-  position: fixed;
-  z-index: 80;
-  display: grid;
-  min-width: 200px;
-  padding: 4px;
-  border: 1px solid #303137;
-  border-radius: 10px;
-  background: #1b1c20;
-  box-shadow: 0 14px 34px rgb(0 0 0 / 36%);
-}
-.row-menu > button {
-  min-height: 40px;
-  padding: 0 12px;
-  border-radius: 7px;
-  font-size: 13px;
-  text-align: left;
-  color: #e8e8ec;
-}
-.row-menu > button:hover:not(:disabled),
-.row-menu > button:focus-visible {
-  background: #26272b;
-}
-.row-menu > button.danger {
-  color: var(--error-text);
-}
-.row-menu > button:disabled {
-  opacity: 0.5;
-}
 /* Desktop opens plugin actions from ⋯; the chevron is the phone affordance. */
 .plugin-row .list-row-chevron {
   display: none;

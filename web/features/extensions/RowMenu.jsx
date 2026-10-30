@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import Icon from "../../components/Icon.jsx";
+import "./row-menu.css";
 
 // ⋯ menus of list rows. List cards clip their rows, so the popover is fixed to the
 // viewport under its trigger (above it when there is no room below); it closes on
@@ -26,8 +28,54 @@ export function useRowMenu() {
 }
 
 const enabledItems = (menu) => [
-  ...menu.querySelectorAll("[role='menuitem']:not(:disabled)"),
+  ...menu.querySelectorAll(
+    "[role='menuitem']:not(:disabled), [role='menuitemradio']:not(:disabled)",
+  ),
 ];
+
+// An item is `{ id, label, run }` (a `checked` boolean makes it a radio item with a
+// check mark), `{ id, kind: "separator" }`, or `{ id, kind: "group", label, items }`:
+// a labelled set of items under a small heading.
+function MenuEntry({ item, close }) {
+  if (item.kind === "separator")
+    return <div role="separator" className="row-menu-separator" />;
+  if (item.kind === "group")
+    return (
+      <div role="group" aria-label={item.label}>
+        <div className="row-menu-heading" aria-hidden="true">
+          {item.label}
+        </div>
+        {item.items.map((child) => (
+          <MenuEntry key={child.id} item={child} close={close} />
+        ))}
+      </div>
+    );
+  const radio = typeof item.checked === "boolean";
+  return (
+    <button
+      type="button"
+      role={radio ? "menuitemradio" : "menuitem"}
+      aria-checked={radio ? item.checked : undefined}
+      aria-label={item.ariaLabel}
+      className={
+        [item.danger ? "danger" : "", radio ? "radio" : ""].filter(Boolean).join(" ") ||
+        undefined
+      }
+      disabled={item.disabled}
+      onClick={() => {
+        close(item.restoreFocus !== false);
+        item.run();
+      }}
+    >
+      {radio && (
+        <span className="row-menu-check" aria-hidden="true">
+          {item.checked && <Icon name="check" size={14} />}
+        </span>
+      )}
+      {item.label}
+    </button>
+  );
+}
 
 export function RowMenu({ label, state, items }) {
   const menu = useRef(null);
@@ -102,20 +150,7 @@ export function RowMenu({ label, state, items }) {
       }}
     >
       {items.map((item) => (
-        <button
-          key={item.id}
-          type="button"
-          role="menuitem"
-          aria-label={item.ariaLabel}
-          className={item.danger ? "danger" : undefined}
-          disabled={item.disabled}
-          onClick={() => {
-            close(item.restoreFocus !== false);
-            item.run();
-          }}
-        >
-          {item.label}
-        </button>
+        <MenuEntry key={item.id} item={item} close={close} />
       ))}
     </div>
   );
