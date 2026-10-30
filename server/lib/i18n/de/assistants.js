@@ -386,6 +386,15 @@ export const assistants = {
   projectWriteTooLarge: "Ein Schreibvorgang darf höchstens 64 KiB umfassen.",
   memberRequestOpenTask:
     "Dieses Mitglied hat schon eine offene Aufgabe. Warte auf ihr Ergebnis oder brich sie ab.",
+  memberGroupNotFound: "Diese Gruppe gibt es nicht (mehr).",
+  memberGroupName: "Gib der Gruppe einen Namen mit höchstens 60 Zeichen.",
+  memberGroupNameTaken: "Eine Gruppe dieses leitenden Agenten heißt schon so.",
+  memberGroupLimit: "Ein leitender Agent kann höchstens 20 Gruppen haben.",
+  memberGroupNotPermanent: "Nur dauerhafte Mitglieder lassen sich in Gruppen ordnen.",
+  memberGroupEmpty:
+    "Diese Gruppe hat keine Mitglieder. Ordne erst Mitglieder zu oder gib die Aufgabe einem einzelnen Mitglied.",
+  memberGroupOpenTask:
+    "Ein Mitglied dieser Gruppe hat schon eine offene Aufgabe. Warte auf ihr Ergebnis oder brich sie ab.",
   memberRequestNotFinished:
     "Nur abgeschlossene temporäre Mitglieder lassen sich archivieren.",
   peerRequestTurn:

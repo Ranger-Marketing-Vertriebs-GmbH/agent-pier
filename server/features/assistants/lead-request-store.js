@@ -201,7 +201,17 @@ export class LeadRequestStore {
   // must name the member for the owner's yes to count. `routine` ({ bindingId,
   // name, conversationId, sessionKey }) stands for the attempt when a routine's run
   // calls: its own origin, never owner text, so its tasks always run read-only.
-  create({ type, attemptId = null, routine = null, operationId, input, offer = null }) {
+  // `groupTask` ({ id, groupId, name, size, anchor }): one member's part of a task to
+  // a whole group (member-group-tasks.js).
+  create({
+    type,
+    attemptId = null,
+    routine = null,
+    operationId,
+    input,
+    offer = null,
+    groupTask = null,
+  }) {
     const field = type === "task" ? "task" : "question";
     exact(
       input,
@@ -421,6 +431,7 @@ export class LeadRequestStore {
           memberAssistantId: member.assistantId,
           memberName: assistant.name,
           text,
+          ...(groupTask ? { groupTask } : {}),
           origin: context,
           ownerProof: proof,
           writeAllowed: !!proof || autonomous || routineWrites || goalTask,
@@ -537,6 +548,10 @@ export function publicRequest(r, { full = false } = {}) {
     ...(r.delivery ? { delivery: r.delivery } : {}),
     ...(r.resultDiagnostic ? { resultDiagnostic: r.resultDiagnostic } : {}),
     ...(r.ownerProof ? { ownerRequestQuote: r.ownerProof.quote } : {}),
+    // One member's part of a task to a whole group (member-group-tasks.js).
+    ...(r.groupTask
+      ? { groupTask: { id: r.groupTask.id, name: textOr(r.groupTask.name) } }
+      : {}),
     // A member's request to a sibling (peer-request-rules.js).
     ...(r.fromMemberId
       ? {

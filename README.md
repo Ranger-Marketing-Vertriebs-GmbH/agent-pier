@@ -40,7 +40,9 @@ and agents that work as a team.
 - **Agents and teams:** persistent agents whose leads ask and delegate to their
   members on request, by suggestion or on their own and share their project folders,
   coding projects and MCP servers with them or set up routines on them that report
-  back, members that agree among themselves and report to their lead, Agency agents
+  back, named groups of permanent members that take one task in parallel and whose
+  results the lead sums up once, members that agree among themselves and report to
+  their lead, Agency agents
   as templates for
   agents and members, work goals that keep an agent going until the job is done, optional nightly dreaming that tidies each agent's memory, hooks that let monitoring and other systems wake an agent, with @-mentions, Telegram, skills (bundled ones plus an owner-managed skill catalog with a scan before every install), routines, check-ins, files in both
   directions, images created through ChatGPT, PDFs read with the agent's own model (or an optional fallback), read or read-and-write access to project folders and GitHub through your

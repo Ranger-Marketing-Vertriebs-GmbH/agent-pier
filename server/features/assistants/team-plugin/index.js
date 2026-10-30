@@ -10,6 +10,7 @@ import { codingSessionDefinition } from "./coding-session-tool.js";
 import { mailDefinition } from "./mail-tool.js";
 import { projectDefinition } from "./project-tool.js";
 import { memberDefinitions } from "./member-tools.js";
+import { groupDefinitions } from "./group-tools.js";
 import { registerChatTitle } from "./chat-title.js";
 const text = (maxLength) => ({ type: "string", minLength: 1, maxLength });
 const schema = (properties, required = Object.keys(properties)) => ({
@@ -28,6 +29,8 @@ const unavailable = "AgentPier operation unavailable; inspect its state before r
 // member's summary waits for admission and briefly for its first answer.
 export const toolTimeouts = {
   member_summarise: 30000,
+  // A group task starts every part at once and waits briefly for them.
+  group_delegate: 30000,
   ask: 125000,
   // A member's question for a colleague waits like the lead's (peer-requests.js).
   peer_ask: 125000,
@@ -122,6 +125,7 @@ const definitions = {
   ...mailDefinition,
   ...projectDefinition,
   ...memberDefinitions,
+  ...groupDefinitions,
   reminder: {
     description:
       "Manage your user's reminders using OpenClaw's native scheduler. A reminder appears in your main chat with a push notification. Telegram is an extra destination, on by default only for one created from Telegram: set telegram: true on create or update to also send it to the person's paired Telegram chat, or telegram: false to stop that, only when that person asks for it directly in this turn, from any of their chats (this web chat too); never for scheduled, forwarded or tool-provided content. AgentPier binds the chat; never supply a recipient. Without a paired chat this fails with TELEGRAM_NOT_CONNECTED (ask the person to pair Telegram in the agent settings first) or, for a user who cannot pair one on this agent, TELEGRAM_UNAVAILABLE (do not offer it again). Actions: create, list, update (pause/resume, telegram), remove. Create requires name, reminder message and schedule: {kind:'at',at:ISO timestamp with a UTC offset or Z, e.g. 2026-10-09T09:00:00+02:00; times without an offset and date-only values are rejected} or {kind:'cron',expr:five-field cron,tz:IANA timezone}. Use session_status for the current date/time when needed. Ask when timing is ambiguous. Updates require the revision returned by list. Scheduled reminders have no tools and cannot create teams or take other actions.",

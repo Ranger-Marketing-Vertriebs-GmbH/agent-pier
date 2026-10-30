@@ -1,4 +1,6 @@
 import { requestTerminal } from "./lead-request-store.js";
+import { groupTarget, holdForGroup } from "./member-group-tasks.js";
+import { latestOwnerTurn } from "./work-goal-nudges.js";
 
 const ended = new Set(["completed", "failed", "cancelled"]);
 // Follow-up delivery: retries back off and end after a few.
@@ -24,7 +26,9 @@ export async function deliverRequest(requests, id) {
       requests.teams.write(r, { resultState: state, settled: finalResult.has(state) });
     return;
   }
-  if (r.phase === "cancelled" && r.cancelledBy === "lead")
+  // A group task's parts reach the lead once, together (member-group-tasks.js).
+  if (r.groupTask && holdForGroup(requests, r)) return;
+  if (r.phase === "cancelled" && r.cancelledBy === "lead" && !r.groupTask)
     return settle({ delivery: "skipped" });
   if (a.store.getAssistant(r.parentAssistantId).archivedAt)
     return settle({ delivery: "skipped", resultDiagnostic: "PARENT_ARCHIVED" });
@@ -35,7 +39,7 @@ export async function deliverRequest(requests, id) {
   if (requests.reports?.held(r)) return;
   try {
     // Inside the try: a target that cannot be worked out ends as a failed delivery.
-    const target = requests.deliveryTarget(r);
+    const target = r.groupTask ? groupTarget(requests, r) : requests.deliveryTarget(r);
     // No chat to deliver to yet (a lead without a main chat): wait for one.
     if (!target.conversationId) return;
     if (
@@ -84,4 +88,23 @@ export async function deliverRequest(requests, id) {
       });
     a.changed();
   }
+}
+
+/**
+ * The owner's ruling: while a goal is open in the chat, the lead's follow-up on
+ * its own request there is a goal turn with the anchor's rights (goal-turns.js),
+ * decided when it is sent. Its member-result-only paths then do not apply.
+ */
+export function goalResult(requests, conversationId, result) {
+  const goal = conversationId ? requests.service.goals?.store.open(conversationId) : null;
+  const anchor = goal ? latestOwnerTurn(requests.service, conversationId) : null;
+  if (!anchor) return {};
+  return {
+    context: {
+      kind: "owner",
+      goal: { id: goal.id, anchorRequestId: anchor.id, title: goal.title },
+      result,
+    },
+    teamAllowed: requests.teams.context(anchor.id).teamAllowed === true,
+  };
 }

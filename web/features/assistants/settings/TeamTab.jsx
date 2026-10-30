@@ -23,6 +23,7 @@ import useAgentDraftGuard from "./useAgentDraftGuard.js";
 import ConflictNotice from "./ConflictNotice.jsx";
 import LeadSharesGroup from "./LeadSharesGroup.jsx";
 import TeamsGroup from "./TeamsGroup.jsx";
+import MemberGroupsGroup from "./MemberGroupsGroup.jsx";
 
 const teamCopy = assistantCopy.team;
 const conflictLabels = {
@@ -136,6 +137,7 @@ export default function TeamTab({ assistant, navigate, focusTeamId }) {
           ))}
         </ListCard>
       </section>
+      <MemberGroupsGroup assistant={assistant} />
       <LeadSharesGroup assistant={assistant} lead />
       <TeamsGroup assistant={assistant} focusTeamId={focusTeamId} navigate={navigate} />
       <ReferenceRow

@@ -90,6 +90,10 @@ export const assistantTeamCopy = {
     "goal-continuation": "AgentPier asked the agent to continue its goal.",
     "coding-session": "A coding session changed. The agent continues.",
   },
+  // All results of a task to a group, in one turn (instead of
+  // internalTurns["member-result"]).
+  groupResults: (group) =>
+    `Results of the group ${group} received. The agent is summarizing them.`,
   // A member's question or task that ended without a result (instead of
   // internalTurns["member-result"]).
   memberOutcomes: {

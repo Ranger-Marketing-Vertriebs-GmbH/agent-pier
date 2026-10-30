@@ -15,6 +15,7 @@ import { activityTone } from "../../components/status-tones.js";
 import { activityFor, activityDot, sidebarSubline } from "./assistant-status.js";
 import SidebarChats from "./chats/SidebarChats.jsx";
 import { usersCopy } from "../../lib/i18n/messages/users.js";
+import { groupedMembers } from "./member-group-view.js";
 
 // Agents whose team members the owner unfolded stay unfolded across reloads (per
 // browser, like the sidebar groups). Storage may be unavailable; folding still works.
@@ -41,6 +42,7 @@ export default function AssistantSidebar({ navigate, route }) {
     conversations,
     members = [],
     teams = [],
+    groups: memberGroups = [],
     models = [],
     runtime,
     activity = {},
@@ -281,6 +283,10 @@ export default function AssistantSidebar({ navigate, route }) {
             groups.get(id).push(child);
           }
           const permanent = permanentOf(parent);
+          // Permanent members under their lead's named groups (name and count), the
+          // rest under "Permanent"; empty groups are managed in the Team tab only.
+          const grouped = groupedMembers(parent.id, permanent, members, memberGroups);
+          const shownGroups = grouped.groups.filter(({ children }) => children.length);
           const temporaryCount = [...groups.values()].reduce((n, c) => n + c.length, 0);
           const memberCount = temporaryCount + permanent.length;
           const hidden = folded(parent);
@@ -321,13 +327,32 @@ export default function AssistantSidebar({ navigate, route }) {
                   <div className="assistant-sidebar-section" aria-hidden="true">
                     {leadRequestCopy.permanentSection}
                   </div>
-                  <div
-                    className="assistant-sidebar-team assistant-sidebar-permanent"
-                    role="group"
-                    aria-label={leadRequestCopy.permanentSection}
-                  >
-                    {permanent.map((child) => item(child, true))}
-                  </div>
+                  {shownGroups.map(({ group, children }) => (
+                    <div
+                      className="assistant-sidebar-team assistant-sidebar-group"
+                      role="group"
+                      aria-label={leadRequestCopy.groups.sidebarLabel(
+                        group.name,
+                        children.length,
+                      )}
+                      key={group.id}
+                    >
+                      <div className="assistant-sidebar-assignment" aria-hidden="true">
+                        <strong title={group.name}>{group.name}</strong>
+                        <small>{leadRequestCopy.groups.count(children.length)}</small>
+                      </div>
+                      {children.map((child) => item(child, true))}
+                    </div>
+                  ))}
+                  {grouped.ungrouped.length > 0 && (
+                    <div
+                      className="assistant-sidebar-team assistant-sidebar-permanent"
+                      role="group"
+                      aria-label={leadRequestCopy.permanentSection}
+                    >
+                      {grouped.ungrouped.map((child) => item(child, true))}
+                    </div>
+                  )}
                 </>
               )}
               {!hidden && temporaryCount > 0 && (

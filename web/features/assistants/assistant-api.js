@@ -76,6 +76,17 @@ export const assistantApi = {
       "POST",
       revision === undefined ? {} : { revision },
     ),
+  // A lead's named groups of permanent members (server member-groups.js).
+  createMemberGroup: (leadId, name) =>
+    api(`/assistants/${encodeURIComponent(leadId)}/member-groups`, "POST", { name }),
+  renameMemberGroup: (id, name) =>
+    api(`/assistant-member-groups/${encodeURIComponent(id)}`, "PATCH", { name }),
+  deleteMemberGroup: (id) =>
+    api(`/assistant-member-groups/${encodeURIComponent(id)}`, "DELETE"),
+  moveMemberToGroup: (memberId, groupId) =>
+    api(`/assistant-team-members/${encodeURIComponent(memberId)}/group`, "PUT", {
+      groupId,
+    }),
   teamPolicy: (id, input) =>
     api(`/assistants/${encodeURIComponent(id)}/team-policy`, "PUT", input),
   saveWork: (id, input) =>

@@ -19,9 +19,8 @@ import { ownerTelegram } from "./team-coding.js";
 import { defaultTeamPolicy } from "./team-policy.js";
 import { runReply } from "./history-text.js";
 import { answerFields } from "./team-texts.js";
-import { deliverRequest } from "./lead-request-delivery.js";
+import { deliverRequest, goalResult } from "./lead-request-delivery.js";
 import { applyTaskShare, taskShare } from "./lead-share-input.js";
-import { latestOwnerTurn } from "./work-goal-nudges.js";
 import { recordedTurn } from "./goal-turns.js";
 // How long the ask tool holds the lead's turn for an answer. AgentPier runs agents
 // on OpenClaw's embedded harness, where a plugin tool call has no own timeout; its
@@ -84,7 +83,16 @@ export class LeadRequests {
         name: a.name,
         role: m.role,
         lifetime: m.lifetime,
+        ...this.groupOf(leadId)(m.id),
       })),
+    };
+  }
+  /** `{ group: name }` for a member in one of the lead's groups (member-groups.js). */
+  groupOf(leadId) {
+    const groups = this.service.memberGroups?.list(leadId) ?? [];
+    return (id) => {
+      const g = groups.find((x) => x.memberIds.includes(id));
+      return g ? { group: g.name } : {};
     };
   }
   // --- lead tools -------------------------------------------------------------
@@ -92,13 +100,15 @@ export class LeadRequests {
     if (input && Object.keys(input).length) throw assistantProblem("invalid");
     inv.assertCurrent();
     const { lead } = this.store.caller(callerOf(inv));
-    const requests = this.store.list(lead.id);
+    const requests = this.store.list(lead.id),
+      group = this.groupOf(lead.id);
     return {
       members: this.reachable(lead.id).map(({ m, a }) => ({
         memberId: m.id,
         name: a.name,
         role: m.role,
         lifetime: m.lifetime,
+        ...group(m.id),
         phase: m.phase,
         busy: this.teams.activeMember(m),
         canDelegate: m.lifetime === "permanent",
@@ -567,26 +577,8 @@ export class LeadRequests {
       ...(lost
         ? { context: lost.context, teamAllowed: lost.teamAllowed }
         : !r.fromMemberId && !report
-          ? this.goalResult(conversationId, result)
+          ? goalResult(this, conversationId, result)
           : {}),
-    };
-  }
-  /**
-   * The owner's ruling: while a goal is open in the chat, the lead's follow-up on
-   * its own request there is a goal turn with the anchor's rights (goal-turns.js),
-   * decided when it is sent. Its member-result-only paths then do not apply.
-   */
-  goalResult(conversationId, result) {
-    const goal = conversationId ? this.service.goals?.store.open(conversationId) : null;
-    const anchor = goal ? latestOwnerTurn(this.service, conversationId) : null;
-    if (!anchor) return {};
-    return {
-      context: {
-        kind: "owner",
-        goal: { id: goal.id, anchorRequestId: anchor.id, title: goal.title },
-        result,
-      },
-      teamAllowed: this.teams.context(anchor.id).teamAllowed === true,
     };
   }
   async close() {

@@ -99,6 +99,8 @@ export const ownerMetadataRoutes = new Set([
   "GET /api/assistants/:id/access",
   "PUT /api/assistants/:id/access",
   "PUT /api/assistants/:id/team-policy",
+  // A lead's groups of permanent members: names only (member-groups.js).
+  "POST /api/assistants/:id/member-groups",
   "PUT /api/assistants/:id/work",
   "GET /api/assistants/:id/shell-allowlist",
   "DELETE /api/assistants/:id/shell-allowlist/:entry",

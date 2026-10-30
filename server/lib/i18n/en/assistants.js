@@ -370,6 +370,15 @@ export const assistants = {
   projectWriteTooLarge: "One write may hold at most 64 KiB.",
   memberRequestOpenTask:
     "This member already has an open task. Wait for its result or cancel it first.",
+  memberGroupNotFound: "This group does not exist (any more).",
+  memberGroupName: "Give the group a name of at most 60 characters.",
+  memberGroupNameTaken: "This lead agent already has a group of that name.",
+  memberGroupLimit: "A lead agent can have at most 20 groups.",
+  memberGroupNotPermanent: "Only permanent members can be put into groups.",
+  memberGroupEmpty:
+    "This group has no members. Put members into it first or give the task to a single member.",
+  memberGroupOpenTask:
+    "A member of this group already has an open task. Wait for its result or cancel it first.",
   memberRequestNotFinished: "Only finished temporary members can be archived.",
   peerRequestTurn:
     "A member cannot ask, task or report to other members in a turn of forwarded or member content.",

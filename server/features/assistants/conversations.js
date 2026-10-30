@@ -124,9 +124,12 @@ function hideInternal(messages, requests, contexts, attempts) {
   const outcomeOf = (id) => {
     const context = contexts.get(id);
     const result = results.has(context?.kind) ? context : context?.result;
-    return results.has(result?.kind) && typeof result.outcome === "string"
-      ? { internalOutcome: result.outcome }
-      : {};
+    if (!results.has(result?.kind)) return {};
+    return {
+      ...(typeof result.outcome === "string" ? { internalOutcome: result.outcome } : {}),
+      // All results of a task to a group (member-group-tasks.js), in one turn.
+      ...(typeof result.group === "string" ? { internalGroup: result.group } : {}),
+    };
   };
   const internal = requests
     .map((r) => [r, kindFor(r.id)])

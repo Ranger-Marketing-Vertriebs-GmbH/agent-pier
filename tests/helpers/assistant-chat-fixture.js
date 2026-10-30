@@ -26,6 +26,7 @@ export async function chatFixture(page, options = {}) {
     members: [],
     teams: [],
     requests: [],
+    groups: [],
     activity: {},
     actions: [],
     runtime: { availability: "ready", sync: "current" },
@@ -68,6 +69,7 @@ export async function chatFixture(page, options = {}) {
         members: state.members,
         teams: state.teams,
         requests: state.requests,
+        groups: state.groups,
         activity: state.activity,
       };
     else if (p === "/api/assistant-runtime") body = state.runtime;

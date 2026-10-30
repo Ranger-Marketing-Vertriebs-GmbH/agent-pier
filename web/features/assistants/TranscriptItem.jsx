@@ -88,7 +88,7 @@ export default function TranscriptItem({
     </p>
   ) : m.role === "event" ? (
     <p className="assistant-note assistant-event">
-      {internalTurnText(copy, m.event, m.internalOutcome)}
+      {internalTurnText(copy, m.event, m.internalOutcome, m.internalGroup)}
     </p>
   ) : (
     <AssistantMessage

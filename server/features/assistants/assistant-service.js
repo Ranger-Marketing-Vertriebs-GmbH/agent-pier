@@ -174,7 +174,7 @@ export class AssistantService {
     });
     return {
       ...(teamData && {
-        ...pick(teamData, ["teams", "members", "requests", "policies"]),
+        ...pick(teamData, ["teams", "members", "requests", "groups", "policies"]),
         teamSettings: teamData.settings,
       }),
       assistants,

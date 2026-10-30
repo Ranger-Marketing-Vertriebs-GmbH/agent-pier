@@ -1,4 +1,8 @@
 import { teamStatus, memberOverrides } from "./team-presentation.js";
+import { publicTeam } from "./team-public.js";
+import { MemberGroups } from "./member-groups.js";
+import { groupDelegate, groupTool } from "./member-group-tasks.js";
+export { publicTeam };
 import { refuseUserAgent } from "../users/user-agent-lock.js";
 import { TeamStore } from "./team-store.js";
 import { TeamScheduler } from "./team-scheduler.js";
@@ -34,82 +38,6 @@ function exact(input, keys) {
   )
     throw assistantProblem("invalid");
 }
-// Drafts show their MCP servers by name with the stdio marker, never their ids. A
-// list that cannot be read is marked unavailable instead of shown short.
-const servers = (ids, describe) => {
-  if (!ids?.length) return {};
-  const list = describe(ids);
-  return list ? { mcpServers: list } : { mcpServersUnavailable: true };
-};
-const publicDraft = (
-  { mcpServerIds, templateInstructions: _instructions, ...draft },
-  describe,
-) => ({
-  ...draft,
-  ...servers(mcpServerIds, describe),
-});
-export function publicTeam(record, describe = () => []) {
-  const keys =
-    record.kind === "member"
-      ? [
-          "id",
-          "kind",
-          "revision",
-          "teamId",
-          "parentAssistantId",
-          "assistantId",
-          "name",
-          "role",
-          "assignment",
-          "lifetime",
-          "phase",
-          "conversationId",
-          "attemptId",
-          "archivedAt",
-          "diagnostic",
-          // What the lead granted, and its later changes (member-grant-requests.js).
-          "grants",
-          "grantLog",
-          // The Agency template it came from, without its text.
-          "template",
-        ]
-      : [
-          "id",
-          "kind",
-          "revision",
-          "parentAssistantId",
-          "parentConversationId",
-          "objective",
-          "members",
-          "memberIds",
-          "phase",
-          "lifetime",
-          "archivedAt",
-          "createdAt",
-          "startedAt",
-          "finishedAt",
-          "resultState",
-          "resultDiagnostic",
-          "resultBatch",
-        ];
-  return {
-    ...Object.fromEntries(keys.filter((k) => k in record).map((k) => [k, record[k]])),
-    ...(record.kind === "member"
-      ? servers(record.mcpServerIds, describe)
-      : Array.isArray(record.members)
-        ? { members: record.members.map((m) => publicDraft(m, describe)) }
-        : {}),
-    inheritedRevision: record.snapshot?.parentRevision,
-    // Task members of this team may use the lead's shell and SSH (Work tab setting).
-    ...(record.kind === "team"
-      ? { memberShellSsh: record.policy?.memberShellSsh === true }
-      : {}),
-    // The owner's own words that started this team, shown beside it.
-    ...(record.authorization?.source === "ownerRequest"
-      ? { ownerRequestQuote: record.authorization.ownerRequestQuote }
-      : {}),
-  };
-}
 export class TeamService {
   constructor({
     assistants,
@@ -126,6 +54,8 @@ export class TeamService {
   }) {
     Object.assign(this, { assistants, store, audit });
     this.mcp = new TeamMcpBindings({ teams: store, assistants });
+    // Named groups of a lead's permanent members (member-groups.js).
+    this.memberGroups = new MemberGroups(store);
     this.scheduler = new TeamScheduler({ teams: store, assistants, now, mcp: this.mcp });
     this.requests = new LeadRequests({ teams: store, service: this });
     // Members' requests to their siblings run on the lead's scheduler (peer-requests.js).
@@ -217,6 +147,7 @@ export class TeamService {
       teams: this.store.list().map((r) => this.project(r)),
       members: this.store.members().map((r) => this.project(r)),
       requests: this.requests.list(),
+      groups: this.memberGroups.all(),
       settings: this.store.settings(),
       policies: Object.fromEntries(
         this.assistants.store
@@ -460,6 +391,22 @@ export class TeamService {
   }
   cancel(inv, input) {
     return this.requests.cancel(inv, input);
+  }
+  // A lead's groups of its permanent members and tasks to a whole group
+  // (member-group-tasks.js).
+  groups(inv, input) {
+    assertWired(this);
+    return groupTool(this, inv, input);
+  }
+  group_delegate(inv, input) {
+    assertWired(this);
+    return groupDelegate(this, inv, input);
+  }
+  // The owner's changes to a lead's groups (routes/assistant-teams.js).
+  ownerGroups(action, ...args) {
+    const result = this.memberGroups[action](...args);
+    this.assistants.changed();
+    return result;
   }
   // A lead keeps its own task member as a permanent agent (member-promotion.js).
   // Under admission like the owner's promotion: no turn's apply mirrors the lead's

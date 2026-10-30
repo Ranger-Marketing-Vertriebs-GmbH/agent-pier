@@ -7,7 +7,10 @@ const outcomeLines = { "member-result": "memberOutcomes", "peer-result": "peerOu
  * of "a member's answer arrived" (`outcome`, server lead-requests.js deliveryTarget
  * and peer-requests.js target), in the lead's and in the asking member's chat.
  */
-export function internalTurnText(copy, kind, outcome) {
+export function internalTurnText(copy, kind, outcome, group) {
+  // All results of a task to a group arrive in one turn (server member-group-tasks.js).
+  if (kind === "member-result" && typeof group === "string")
+    return copy.team.groupResults(group);
   const lines = copy.team[outcomeLines[kind]];
   if (lines && outcome) return lines[outcome] ?? lines.failed;
   return copy.team.internalTurns[kind];

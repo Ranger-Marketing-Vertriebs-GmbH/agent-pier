@@ -99,6 +99,10 @@ export const assistantTeamCopy = {
       "AgentPier hat den Agenten gebeten, an seinem Ziel weiterzuarbeiten.",
     "coding-session": "Eine Coding-Session hat sich geändert. Der Agent macht weiter.",
   },
+  // Alle Ergebnisse einer Aufgabe an eine Gruppe, in einem Zug (statt
+  // internalTurns["member-result"]).
+  groupResults: (group) =>
+    `Ergebnisse der Gruppe ${group} eingegangen. Der Agent fasst sie zusammen.`,
   // Eine Frage oder Aufgabe eines Mitglieds, die ohne Ergebnis endete (statt
   // internalTurns["member-result"]).
   memberOutcomes: {

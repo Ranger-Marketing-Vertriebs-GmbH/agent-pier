@@ -1087,7 +1087,9 @@ A lead reaches its own members without the owner relaying anything
   edits a temporary or permanent member, `agentpier_team_models` lists the models it
   can give its members (see below), `agentpier_team_promote` keeps one as a permanent
   agent and `agentpier_team_member_routine` sets up routines on permanent members
-  that report back (see below). `agentpier_team_templates` searches the Agency catalog
+  that report back (see below); `agentpier_team_groups` and
+  `agentpier_team_group_delegate` group permanent members and give a whole group one
+  task ([Groups of permanent members](#groups-of-permanent-members-2026-10-30-agentpier-283)). `agentpier_team_templates` searches the Agency catalog
   (ids, names, categories; `team-templates.js`), and a proposed member may name one
   as `template`: `TeamService.propose` fetches it at the catalog's current revision,
   scans it (`skill-scan.js`), refuses a blocked one (`TEMPLATE_BLOCKED`) and stores
@@ -3058,6 +3060,61 @@ bindingId, name }`, the result kept like an answer, idempotent per run). The
   unless **May write** is on or the lead uses its team autonomously; the owner
   edits name and task, pauses, removes and switches **May write** like for any
   routine.
+
+## Groups of permanent members (2026-10-30, AGENTPIER-283)
+
+A lead sorts its permanent members into named, lasting groups and gives a whole
+group one task (`member-groups.js`, `member-group-tasks.js`).
+
+- **Records.** Each group is a `member-group` record in `assistant_team_records`
+  (`parent_id` = the lead, body `{ name, memberIds, createdAt }`), so it goes with the
+  lead's other team records when the lead is deleted (`agent-deletion.js`) and travels
+  with the full backup; the public configuration copy drops it like member records
+  (`private-tables.js` keeps only policy and settings). Names are 1–60 characters,
+  unique per lead regardless of case; at most 20 groups per lead.
+- **One group per member.** `MemberGroups.move` takes a permanent member out of every
+  other group of its lead and into the target in one transaction, so no reader ever
+  sees it in two groups or in none; `ungroup` (or the owner's `groupId: null`) takes it
+  out. Reads list only members that are still the lead's permanent, unarchived members;
+  `TeamStore.archive` removes archived members from their groups in the archiving
+  transaction, and a restored member stays ungrouped. Moves never touch running
+  requests.
+- **Lead tool.** `agentpier_team_groups` (`list`, `create`, `rename`, `delete`, `move`,
+  `ungroup`) answers every call with the groups, their members and the ungrouped
+  permanent members. A retried `create` with the same tool call returns the same
+  group. Mutations count against the lead's loop guard. Codes: `GROUP_NOT_FOUND`,
+  `GROUP_NAME_INVALID`, `GROUP_NAME_TAKEN`, `GROUP_LIMIT`,
+  `GROUP_MEMBER_NOT_PERMANENT`. `agentpier_team_members` and the lead's "Your team"
+  roster name each member's group.
+- **Group tasks.** `agentpier_team_group_delegate` (`groupId`, `task`, optional
+  `ownerRequested` and `ownerRequestQuote`) creates one ordinary lead task per member
+  of the group in one transaction (`LeadRequestStore.create`, with the reentrant
+  `TeamStore.transaction`): every part has its own write proof, the one-open-task
+  rule, the open-request cap and the loop guard. All or none: an empty group is
+  `GROUP_EMPTY`, a member with an open task `GROUP_MEMBER_BUSY`. Each part carries
+  `groupTask { id, groupId, name, size }`; the first is the anchor. All parts are
+  dispatched at once.
+- **One follow-up.** `deliverRequest` holds a group's parts (`holdForGroup`): the
+  others are marked `delivery: "group"` and settle with the anchor; the anchor waits
+  until every part ended (completed, failed, cancelled, stopped at its deadline) and
+  then sends one `member-result` turn under its own delivery key
+  (`lead-request-result:<anchor>`) with `groupFollowUp` (every member's result or how
+  its part ended, the longest result shortened first) and `groupTaskId` and `group` in
+  its context. That turn has the rights of any `member-result` turn
+  (`member-result-writes.js`); the chat shows "Results of the group <name> received".
+  If the lead cancelled every part, nothing is sent. A member moved or archived meanwhile
+  keeps its part, and its result reaches the original group's follow-up.
+- **Owner routes.** `POST /api/assistants/:id/member-groups` (`{ name }`),
+  `PATCH /api/assistant-member-groups/:id` (`{ name }`),
+  `DELETE /api/assistant-member-groups/:id` and
+  `PUT /api/assistant-team-members/:id/group` (`{ groupId }`, null to ungroup); the
+  agent list carries `groups`. Owner only (`route-access.js`); a user's agent is
+  refused with `USER_AGENT_LOCKED`, and the group tools are locked for user agents.
+- **Rollback.** Older releases read team records by kind (`rows("team")`,
+  `rows("member")`, `lead-request` queries), so `member-group` records are ignored and
+  stay for a later upgrade. A group task still open during a downgrade loses only its
+  bundling: older code delivers each finished part as its own follow-up, as for a
+  single task.
 
 ## MCP servers for agents (2026-10-11)
 
