@@ -10,8 +10,9 @@ passphrase on stdin) leaves out all histories and private content.
 
 Always, as public (unencrypted) members:
 
-- Accounts, provider connections, repositories, preferences, pipeline definitions,
-  the port from `config.json`.
+- Accounts, provider connections, repositories, preferences, the project groups of the
+  projects page (`project-groups.json`; a restore with a project mapping moves their
+  folder paths along), pipeline definitions, the port from `config.json`.
 - Project memory as a consistent SQLite snapshot (without capabilities), the audit
   log, pinned artifacts (with a tombstone for every other record, and no publish
   receipt of an unpinned one), the sanitized MCP server store.

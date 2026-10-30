@@ -191,6 +191,7 @@ export function capture({
     addJson("provider-connections.json");
     addJson("repositories.json");
     addJson("preferences.json");
+    addJson("project-groups.json");
     addJson("pipelines/definitions.json");
     addJson("config.json", (value) => ({ port: value.port }));
     // Users without their password hashes; those go only into the capsule.
