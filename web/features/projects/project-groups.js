@@ -177,6 +177,16 @@ export function withGroupMoved(document, groupId, offset) {
   return { ...document, groups };
 }
 
+/** Moves a group to position `index`; the same document if nothing changes. */
+export function withGroupAt(document, groupId, index) {
+  const from = document.groups.findIndex((group) => group.id === groupId);
+  const to = Math.min(Math.max(index, 0), document.groups.length - 1);
+  if (from < 0 || to === from) return document;
+  const groups = [...document.groups];
+  groups.splice(to, 0, ...groups.splice(from, 1));
+  return { ...document, groups };
+}
+
 /** Deletes a group and every assignment to it. */
 export function withoutGroup(document, groupId) {
   return {
