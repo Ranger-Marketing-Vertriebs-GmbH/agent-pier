@@ -58,9 +58,11 @@ export function fakeGateway(f) {
         hasMore: false,
       };
     if (method === "cron.add") {
+      // Ids never repeat, also after a removal.
+      gateway.jobsAdded = (gateway.jobsAdded || 0) + 1;
       const job = {
         ...params,
-        id: `job-${gateway.jobs.size + 1}`,
+        id: `job-${gateway.jobsAdded}`,
         updatedAtMs: 1,
         state: {},
       };

@@ -2,7 +2,8 @@
  * Where reminders, routines and check-ins deliver (AGENTPIER-141). Their target is
  * always the agent's main chat: the AgentPier conversation marked `main`, the one
  * `openConversation` returns and a Telegram pairing also writes into, whatever other
- * chats the person started (agent-chats.js). A push notice
+ * chats the person started (agent-chats.js). Only Restart main chat archives it; its
+ * deliveries then move to the fresh main chat (main-chat-restart.js). A push notice
  * goes with every result. Telegram is an optional extra destination per binding.
  */
 
