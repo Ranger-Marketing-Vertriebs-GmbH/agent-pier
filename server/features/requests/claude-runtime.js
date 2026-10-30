@@ -1,9 +1,9 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { fileURLToPath } from "node:url";
 import { shellQuote } from "../../lib/launch-serialization.js";
 import { validSession } from "./request-validation.js";
+import { hookScript } from "./claude-hook-handover.js";
 
 export const claudeHookVersion = 2;
 export const claudeHookTimeoutSeconds = 24 * 60 * 60;
@@ -50,12 +50,7 @@ export async function writeClaudeHooks(directory, id) {
 
 /** Called only after the broker has checked exclusive ownership of its socket. */
 export async function refreshClaudeRuntime(directory) {
-  const command = [
-    process.execPath,
-    fileURLToPath(new URL("./claude-hook.js", import.meta.url)),
-  ]
-    .map(shellQuote)
-    .join(" ");
+  const command = [process.execPath, hookScript].map(shellQuote).join(" ");
   await atomic(
     path.join(directory, "claude-hook.sh"),
     `#!/bin/sh\nexec ${command} "$@"\n`,

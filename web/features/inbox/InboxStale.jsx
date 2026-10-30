@@ -55,6 +55,7 @@ export default function InboxStale({ type, id }) {
       </h2>
       <p>
         {(status.decision && copy.decisions[status.decision]) ||
+          (status.outcome === "closed" && copy.done.causes[status.cause]) ||
           copy.done[status.outcome] ||
           copy.done.answered}
       </p>

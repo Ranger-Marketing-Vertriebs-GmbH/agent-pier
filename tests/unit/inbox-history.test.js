@@ -102,11 +102,11 @@ test("a gate counts as done only by the owner's decision, not by entering the wa
     resourceId: "closed-request",
     source: "system",
     outcome: "success",
+    details: { kind: "question", cause: "native" },
   });
-  assert.equal(
-    itemHistory(audit, "question", "closed-request", clock.time).outcome,
-    "closed",
-  );
+  const closed = itemHistory(audit, "question", "closed-request", clock.time);
+  assert.equal(closed.outcome, "closed");
+  assert.equal(closed.cause, "native", "the inbox says why it ended");
 });
 
 test("an unreadable audit log still answers that the item no longer waits", () => {

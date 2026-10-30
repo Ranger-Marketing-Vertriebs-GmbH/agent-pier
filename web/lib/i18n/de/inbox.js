@@ -62,6 +62,14 @@ export const inboxCopy = {
     closed:
       "Außerhalb des Eingangs beendet, zum Beispiel im Terminal, durch Ablauf oder weil die Session endete.",
     cancelled: "Abgebrochen",
+    causes: {
+      timeout: "Abgelaufen. Die CLI fragt jetzt in ihrem eigenen Terminal-Dialog.",
+      native: "Im Terminal beantwortet.",
+      stale: "Geschlossen, weil die CLI schon zum nächsten Schritt übergegangen ist.",
+      socket: "Geschlossen, weil die CLI nicht mehr fragt.",
+      discard: "Geschlossen, weil die Session endete.",
+      startup: "Der Startbildschirm wurde im Terminal geschlossen.",
+    },
     at: (time) => `Am ${time}`,
   },
   decisions: {

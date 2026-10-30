@@ -225,7 +225,14 @@ export async function inboxFixture(page, { language, agents = true } = {}) {
       const decision = state.done[`${type}:${id}`];
       result = decision
         ? { state: "done", outcome: "answered", at: new Date().toISOString(), decision }
-        : { state: "gone" };
+        : id === "closed-natively"
+          ? {
+              state: "done",
+              outcome: "closed",
+              at: new Date().toISOString(),
+              cause: "native",
+            }
+          : { state: "gone" };
     } else if (/^\/sessions\/(alpha|beta)\/requests$/.test(path))
       result = { requests: requests[path.split("/")[2]] };
     else if (/\/requests\/[^/]+\/answer$/.test(path)) {

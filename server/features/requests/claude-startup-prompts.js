@@ -6,6 +6,7 @@ import path from "node:path";
 import { folderId, folderTrustScreen, startupState } from "./claude-folder-trust.js";
 import { requestCopy as copy } from "../../lib/i18n/de/requests.js";
 import { problem } from "../../lib/storage.js";
+import { startupPresentations } from "./request-endings.js";
 
 const TRUST_OPTIONS = [
   { id: "trust", label: "Yes, I trust this folder", scope: "persistent" },
@@ -206,7 +207,7 @@ export function startupScreen(raw, cwd, { started = true, sessionOnly = false } 
   );
 }
 
-const PRESENTATIONS = ["claudeFolderTrust", "claudeStartupPrompt"];
+const PRESENTATIONS = startupPresentations;
 // Unknown menus share one id per launch: their card is identical, so a second
 // unrecognized menu in the same launch keeps the existing request instead.
 const promptId = (current, dialog) =>
@@ -219,7 +220,7 @@ const expire = (broker, entry) => {
   // A poll queued behind an answer must not expire the request that answer removed.
   if (!entry || broker.entries.get(entry.id) !== entry) return;
   broker.entries.delete(entry.id);
-  broker.emit(entry, "request.expired");
+  broker.expired(entry, "startup");
 };
 const localEntry = (broker, id) =>
   [...broker.entries.values()].find(
