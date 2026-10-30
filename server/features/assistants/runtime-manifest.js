@@ -9,7 +9,12 @@ export const runtimeManifest = {
   nodeVersion: "26.12.1",
   npmVersion: "11.20.0",
   dependencyLockSha256:
-    "aba8ef1b9a94524657f1e27e462e4fe126bd1c70912852dd87dbe4f1c5c224ad",
+    "2787f9f8ee00d059ce9e1db47b6ea4988fdee8d990e46e27104d14b221a6ad88",
+  // Security fixes for transitive packages OpenClaw pins exactly (it ships undici
+  // 8.11.2 and zod 4.6.5, both with published advisories). npm `overrides` in the
+  // locked package.json; the lock must resolve every copy to these versions. Remove
+  // an entry once the pinned OpenClaw ships the fixed version itself.
+  dependencyOverrides: { undici: "8.12.3", zod: "4.6.7" },
   packageUrl: "https://registry.npmjs.org/openclaw/-/openclaw-2026.10.7.tgz",
   packageIntegrity:
     "iiZO+kFFBgQvxm17wn3Sc/MSC/GQu01PubAFVNA2Nn736HOHUbR0ra7a9NeW9wpjq3kDkSJ1RB7dTP+qVJFXig==",

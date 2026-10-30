@@ -290,6 +290,8 @@ async function install({
       packageIntegrity: manifest.packageIntegrity,
       nodeChecksum: manifest.nodeChecksums[target],
       searchPlugins: manifest.searchPlugins || {},
+      // A runtime installed before overrides existed has none in its receipt.
+      dependencyOverrides: manifest.dependencyOverrides || {},
     });
     fs.renameSync(stage, directory);
     result.searchPlugins = installedSearchPlugins(manifest, path.join(directory, "app"));

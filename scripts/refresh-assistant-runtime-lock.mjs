@@ -10,6 +10,7 @@ import { runtimeManifest } from "../server/features/assistants/runtime-manifest.
 import {
   dependencyLockDigest,
   lockedDependencies,
+  lockedOverrides,
   readRuntimeLock,
   runtimeLockDirectory,
 } from "../server/features/assistants/runtime-lock.js";
@@ -29,6 +30,7 @@ export async function refreshAssistantRuntimeLock({
 }) {
   if (!path.isAbsolute(runtimeDirectory) || !path.isAbsolute(outputDirectory))
     throw Error("Absolute runtime and output directories are required.");
+  const overrides = lockedOverrides(manifest);
   const node = path.join(runtimeDirectory, "node/bin/node");
   const npm = path.join(runtimeDirectory, "node/lib/node_modules/npm/bin/npm-cli.js");
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-lock-refresh-"));
@@ -64,6 +66,8 @@ export async function refreshAssistantRuntimeLock({
           // OpenClaw's verified archive plus the exact search plugin versions; the
           // lock check below requires their registry integrity to match the pins.
           dependencies: lockedDependencies(manifest),
+          // Exact security versions for transitive packages OpenClaw pins.
+          ...(Object.keys(overrides).length ? { overrides } : {}),
         },
         null,
         2,
