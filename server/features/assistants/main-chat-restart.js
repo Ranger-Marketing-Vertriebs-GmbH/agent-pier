@@ -111,54 +111,64 @@ async function restartOnce(service, assistantId) {
   } finally {
     service.changed();
   }
-  if (done.archived.size) await settle(service, agents, done.archived);
-  if (failure) throw failure;
   const result = {
     restartedAt: done.restartedAt,
     chats: done.chats,
     members: { ended: scope.temporary.map((m) => m.id), restarted: done.restarted },
     work,
   };
-  audit(service, assistantId, result);
+  if (done.archived.size) await settle(service, agents, done.archived);
+  // A restart that failed after some swaps committed is recorded too, as partial.
+  if (!failure || done.archived.size)
+    audit(service, assistantId, result, Boolean(failure));
+  if (failure) throw failure;
   return result;
 }
 
 /**
- * Swaps each person's main chat, then each kept member's, recording what committed in
- * `done`. A swap that failed before committing stops the rest; one that committed and
- * failed after (its subscribe) does not, and its error is thrown at the end.
+ * Swaps each person's main chat, then each kept member's, recording each swap in
+ * `done` the moment it commits. A swap that failed before committing stops the rest;
+ * one that committed and failed after (its note or subscribe) does not, and its error
+ * is thrown at the end.
  */
 async function swapAll(service, assistantId, kept, done) {
   let failure;
-  const committed = async (swap) => {
+  const swapped = async (swap) => {
+    let landed = false;
     try {
-      return await swap();
+      await swap(() => (landed = true));
     } catch (error) {
-      if (!error?.committed) throw error;
+      if (!landed) throw error;
       failure ??= error;
-      return error.committed;
     }
   };
-  for (const conversation of mainChats(service, assistantId)) {
-    const next = await committed(() => freshMainChat(service, conversation));
-    done.archived.add(conversation.id);
-    done.chats.push({
-      userId: conversation.userId ?? null,
-      from: conversation.id,
-      to: next.id,
-    });
-  }
+  for (const conversation of mainChats(service, assistantId))
+    await swapped((landed) =>
+      freshMainChat(service, conversation, (next) => {
+        landed();
+        done.archived.add(conversation.id);
+        done.chats.push({
+          userId: conversation.userId ?? null,
+          from: conversation.id,
+          to: next.id,
+        });
+      }),
+    );
   for (const { id } of kept) {
-    const member = service.teams.store.member(id);
-    let chat;
+    let member, chat;
     try {
+      member = service.teams.store.member(id);
       chat = service.store.getConversation(member.conversationId);
     } catch {
-      continue; // Its chat went away: nothing to restart.
+      continue; // Its row or its chat went away: nothing to restart.
     }
-    await committed(() => freshMemberChat(service, member));
-    done.archived.add(chat.id);
-    done.restarted.push(id);
+    await swapped((landed) =>
+      freshMemberChat(service, member, () => {
+        landed();
+        done.archived.add(chat.id);
+        done.restarted.push(id);
+      }),
+    );
   }
   if (failure) throw failure;
 }
@@ -189,10 +199,10 @@ async function settle(service, agents, archived) {
     );
 }
 
-function audit(service, assistantId, result) {
+function audit(service, assistantId, result, partial) {
   try {
     service.audit?.append({
-      action: "assistant.main_chat_restarted",
+      action: "assistant.main-chat-restarted",
       resourceType: "assistant",
       resourceId: assistantId,
       outcome: "success",
@@ -204,6 +214,7 @@ function audit(service, assistantId, result) {
           restarted: result.members.restarted.length,
         },
         work: result.work,
+        ...(partial && { partial: true }),
       },
     });
   } catch (error) {

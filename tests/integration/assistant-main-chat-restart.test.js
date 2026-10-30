@@ -217,7 +217,7 @@ test("restart is recorded in the activity log", async (t) => {
   const res = await restart(f, agent.id);
   assert.equal(res.status, 200, await res.clone().text());
   const { events } = service.audit.list({
-    action: "assistant.main_chat_restarted",
+    action: "assistant.main-chat-restarted",
     resourceId: agent.id,
   });
   assert.equal(events.length, 1);

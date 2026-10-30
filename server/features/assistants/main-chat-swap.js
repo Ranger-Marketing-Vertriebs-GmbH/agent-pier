@@ -14,13 +14,17 @@ import { channelPerson, mainConversation } from "./routine-targets.js";
  * Replaces `conversation`, a person's main chat, with a fresh one and returns it. The
  * Gateway session comes first: a failing create leaves both chats as they were. The
  * old chat is archived and the new one saved in one transaction, so the person always
- * has exactly one unarchived main chat. A subscribe that fails after that throws with
- * the new chat as `committed`. Callers hold admission.
+ * has exactly one unarchived main chat. `onCommit(next)` runs as soon as that
+ * transaction commits; whatever fails after it (the note, the subscribe) is 503 unless
+ * it carries a status. Callers hold admission.
  */
-export function freshMainChat(service, conversation) {
-  return swap(service, conversation, {
-    ...(typeof conversation.userId === "string" && { userId: conversation.userId }),
-  });
+export function freshMainChat(service, conversation, onCommit) {
+  return swap(
+    service,
+    conversation,
+    { ...(typeof conversation.userId === "string" && { userId: conversation.userId }) },
+    onCommit,
+  );
 }
 
 /**
@@ -28,14 +32,24 @@ export function freshMainChat(service, conversation) {
  * one its lead's requests go to: the member row points at the fresh chat in the same
  * transaction. The member itself keeps running. Callers hold admission.
  */
-export function freshMemberChat(service, member) {
+export function freshMemberChat(service, member, onCommit) {
   const teams = service.teams.store;
-  return swap(service, service.store.getConversation(member.conversationId), {}, (id) =>
-    teams.write(teams.member(member.id), { conversationId: id }),
+  return swap(
+    service,
+    service.store.getConversation(member.conversationId),
+    {},
+    onCommit,
+    (id) => teams.write(teams.member(member.id), { conversationId: id }),
   );
 }
 
-async function swap(service, conversation, owner, linked = () => {}) {
+async function swap(
+  service,
+  conversation,
+  owner,
+  onCommit = () => {},
+  linked = () => {},
+) {
   const assistant = service.store.getAssistant(conversation.assistantId);
   const id = randomUUID();
   const client = service.runtime.client;
@@ -45,7 +59,7 @@ async function swap(service, conversation, owner, linked = () => {}) {
     { agentId: assistant.runtimeAgentId, label: `AgentPier ${assistant.id} main ${id}` },
     service.sessionCreate,
   ).catch((error) => {
-    throw unavailable(error, "create");
+    throw unavailable(error, "session create");
   });
   if (!created?.key) throw assistantProblem("unavailable", 503);
   const { store } = service;
@@ -69,26 +83,27 @@ async function swap(service, conversation, owner, linked = () => {}) {
     store.db.exec("ROLLBACK");
     throw error;
   }
-  service.feeds.end(conversation.id);
-  // The note comes first: the swap has committed, whatever the subscribe does.
-  service.memoryNotes.record({
-    key: `main-restarted:${id}`,
-    conversationId: id,
-    reason: "main-restarted",
-  });
+  onCommit(next);
   try {
+    service.feeds.end(conversation.id);
+    // The note comes first: the swap has committed, whatever the subscribe does.
+    service.memoryNotes.record({
+      key: `main-restarted:${id}`,
+      conversationId: id,
+      reason: "main-restarted",
+    });
     await client.call("sessions.messages.subscribe", { key: created.key });
   } catch (error) {
-    throw Object.assign(unavailable(error, "subscribe"), { committed: next });
+    throw unavailable(error, "finishing the swap");
   }
   return next;
 }
 
-// A Gateway failure without a status is unavailable, not a bad request; the
-// original is logged and kept as the cause.
+// A failure without a status is unavailable, not a bad request; the original is
+// logged and kept as the cause.
 function unavailable(error, step) {
   if (error?.status) return error;
-  console.error(`Main chat restart: session ${step} failed:`, error?.message);
+  console.error(`Main chat restart: ${step} failed:`, error?.message);
   return Object.assign(assistantProblem("unavailable", 503), { cause: error });
 }
 

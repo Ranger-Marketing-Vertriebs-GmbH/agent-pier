@@ -19,4 +19,6 @@ export function restartAuditDetails(details, event) {
   const work = details.work || {};
   if (workKinds.every((kind) => count(work[kind])))
     event.details.work = Object.fromEntries(workKinds.map((kind) => [kind, work[kind]]));
+  // A restart that failed after some of its swaps committed.
+  if (details.partial === true) event.details.partial = true;
 }

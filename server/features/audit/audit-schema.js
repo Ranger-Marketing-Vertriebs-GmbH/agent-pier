@@ -519,7 +519,7 @@ export function auditEvent(input) {
   runtimeUpdateAuditDetails(details, event);
   // A push device removed without the owner (audit-notification-details.js).
   if (input.resourceType === "notification") notificationAuditDetails(details, event);
-  if (action === "assistant.main_chat_restarted") restartAuditDetails(details, event);
+  if (action === "assistant.main-chat-restarted") restartAuditDetails(details, event);
   userAuditDetails(input, event, auditId);
   return event;
 }

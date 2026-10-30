@@ -79,5 +79,5 @@ export const verbs = new Set([
   // A session's SSH agent signed a login to a granted host (ssh-agent-audit.js).
   "connected",
   // The owner's Restart main chat (main-chat-restart.js, audit-restart-details.js).
-  "main_chat_restarted",
+  "main-chat-restarted",
 ]);
