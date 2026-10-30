@@ -68,6 +68,9 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 13px;
 }
+.project-fact dd.muted {
+  color: var(--text-meta);
+}
 .project-sessions .list-row-main {
   min-height: 52px;
 }

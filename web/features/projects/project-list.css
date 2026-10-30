@@ -1,0 +1,242 @@
+/* Projects list column (ProjectList.jsx): search and view switch on top, then the
+   sections in their own scroll container. On desktop and tablet the page body fills
+   the viewport: the list and the detail's tab content scroll, the rest stays put. */
+.project-list .list-detail-list {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.project-list-tools {
+  display: grid;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--divider);
+}
+.project-search {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text-meta);
+}
+.project-search:focus-within {
+  border-color: var(--accent);
+}
+.project-search input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: none;
+  font-size: 14px;
+  color: var(--text);
+}
+.project-view-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.project-view-label {
+  flex: none;
+  font-size: 12px;
+  color: var(--text-meta);
+}
+.project-view-row .segment {
+  flex: 1;
+}
+.project-new-group {
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.project-list-scroller {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px 0 12px;
+}
+.project-group-name-row {
+  display: grid;
+  gap: 6px;
+  padding: 0 0 10px;
+}
+.project-group-name-fields {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.project-group-name-fields input {
+  flex: 1;
+  height: 38px;
+}
+.project-group-name-fields .button {
+  height: 38px;
+  flex: none;
+}
+.project-group-name-error {
+  font-size: 12px;
+  color: var(--error-text);
+}
+.project-section-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-page);
+}
+.project-section-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 38px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  color: var(--text);
+}
+.project-section-toggle:hover {
+  background: var(--button-secondary-bg);
+}
+.project-section-chevron,
+.project-section-icon {
+  flex: none;
+  color: var(--text-meta);
+}
+.project-section-chevron {
+  transition: transform 0.15s ease;
+}
+.project-section-toggle[aria-expanded="true"] .project-section-chevron {
+  transform: rotate(90deg);
+}
+.project-section.group .project-section-icon {
+  color: var(--accent);
+}
+.project-section-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.project-section-count {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-meta);
+}
+.project-section-rows {
+  display: grid;
+  gap: 2px;
+}
+.project-section .project-section-rows {
+  padding: 2px 0 10px 18px;
+}
+.project-section-rows[hidden] {
+  display: none;
+}
+.project-section-empty {
+  margin: 2px 0;
+  padding: 10px 14px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--text-meta);
+}
+.project-no-matches {
+  padding: 12px 8px;
+  font-size: 13px;
+  color: var(--text-meta);
+}
+.project-row {
+  display: flex;
+  align-items: center;
+  border-radius: 8px;
+}
+.project-row:hover {
+  background: var(--button-secondary-bg);
+}
+.project-row.selected {
+  background: var(--nav-selected);
+}
+.project-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 5px 4px 5px 12px;
+  border-radius: 8px;
+  text-align: left;
+  color: var(--text);
+}
+.project-row-main .project-item-text {
+  gap: 1px;
+}
+.project-row-main .project-item-text strong,
+.project-row-main .project-item-text small:not(.project-hint) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.project-row.selected .project-item-text strong {
+  color: var(--accent-text);
+}
+.project-row-status {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--status-ok);
+}
+.project-row-more {
+  margin-right: 4px;
+  color: var(--text-row);
+}
+@media (min-width: 701px) {
+  .projects-hub {
+    height: 100dvh;
+  }
+  .app.sidebar-collapsed .projects-hub {
+    height: calc(100dvh - 52px);
+  }
+  .projects-hub .settings-shell-body {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .projects-hub .settings-shell-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .project-list.list-detail {
+    flex: 1;
+    grid-template-columns: 340px minmax(0, 1fr);
+  }
+  .project-list .list-detail-detail {
+    display: flex;
+    flex-direction: column;
+  }
+  .project-list .project-card {
+    flex: 1;
+    min-height: 0;
+  }
+  .project-list .project-tabpanel {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+  }
+}

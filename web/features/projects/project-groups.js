@@ -96,3 +96,63 @@ export function buildProjectSections({
   if (ungrouped.length) result.push(section("ungrouped", "ungrouped", ungrouped));
   return result;
 }
+
+// --- The project-group document: reading it and the edits the page sends. ---
+
+export const emptyGroupsDocument = Object.freeze({
+  version: 0,
+  groups: Object.freeze([]),
+  assignments: Object.freeze({}),
+});
+
+/** The server's answer as `{ version, groups, assignments }`, extra keys dropped. */
+export function normalizeGroupsDocument(data) {
+  const groups = Array.isArray(data?.groups)
+    ? data.groups
+        .filter((group) => group && typeof group.name === "string")
+        .map(({ id, name }) => (id ? { id, name } : { name }))
+    : [];
+  const assignments = {};
+  if (data?.assignments && typeof data.assignments === "object")
+    for (const [path, groupId] of Object.entries(data.assignments))
+      if (typeof groupId === "string") assignments[normalizePath(path)] = groupId;
+  return {
+    version: Number.isInteger(data?.version) ? data.version : 0,
+    groups,
+    assignments,
+  };
+}
+
+/** The group a project's folder is assigned to, or null (stale ids count as none). */
+export function groupForPath(document, path) {
+  const groupId = document?.assignments?.[normalizePath(path)];
+  return (groupId && document.groups.find((group) => group.id === groupId)) || null;
+}
+
+// Matches the server, which compares trimmed names in lower case.
+const sameName = (a, b) => a.trim().toLocaleLowerCase() === b.trim().toLocaleLowerCase();
+
+export function findGroupByName(document, name) {
+  return document?.groups.find((group) => sameName(group.name, name)) || null;
+}
+
+/** "required" for an empty name, "taken" for a duplicate (ignoring case), else "". */
+export function groupNameProblem(document, name, exceptId = "") {
+  if (!String(name || "").trim()) return "required";
+  const match = findGroupByName(document, name);
+  return match && match.id !== exceptId ? "taken" : "";
+}
+
+/** Appends a new group; the server gives it its id. */
+export function withNewGroup(document, name) {
+  return { ...document, groups: [...document.groups, { name: String(name).trim() }] };
+}
+
+/** Puts the folder into `groupId`, or takes it out of every group with null. */
+export function withAssignment(document, path, groupId) {
+  const key = normalizePath(path);
+  const assignments = { ...document.assignments };
+  if (groupId) assignments[key] = groupId;
+  else delete assignments[key];
+  return { ...document, assignments };
+}

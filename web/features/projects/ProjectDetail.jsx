@@ -17,6 +17,7 @@ import ProjectAgentBus from "./ProjectAgentBus.jsx";
 import ProjectAgents from "./ProjectAgents.jsx";
 import ProjectApprovals from "./ProjectApprovals.jsx";
 import { projectAgentsCopy } from "../../lib/i18n/messages/project-agents.js";
+import { projectGroupsCopy } from "../../lib/i18n/messages/project-groups.js";
 import ProjectKnowledge from "./ProjectKnowledge.jsx";
 import ProjectOverview from "./ProjectOverview.jsx";
 import ProjectRuns from "./ProjectRuns.jsx";
@@ -46,6 +47,7 @@ export default function ProjectDetail({
   busError,
   home,
   attention,
+  group,
   notices,
   onBack,
 }) {
@@ -72,6 +74,11 @@ export default function ProjectDetail({
     { label: overviewCopy.branch, value: branch || "—", mono: Boolean(branch) },
     { label: overviewCopy.tokenProfile, value: credential?.name || overviewCopy.noToken },
     { label: overviewCopy.folder, value: project.path, mono: true },
+    {
+      label: projectGroupsCopy.factGroup,
+      value: group?.name || projectGroupsCopy.ungrouped,
+      muted: !group,
+    },
   ];
   const tabs = [
     { id: "overview", label: copy.tabOverview },

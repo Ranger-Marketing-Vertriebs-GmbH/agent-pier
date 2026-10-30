@@ -56,7 +56,7 @@
     "web/features/pipelines/verification.css": 16,
     "web/features/projects/project-dialogs.css": 1,
     "web/features/projects/project-tabs.css": 22,
-    "web/features/projects/projects.css": 32,
+    "web/features/projects/projects.css": 21,
     "web/features/provider-connections/connections.css": 4,
     "web/features/repositories/repositories.css": 12,
     "web/features/requests/requests.css": 3,

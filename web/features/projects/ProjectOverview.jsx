@@ -49,7 +49,13 @@ export default function ProjectOverview({
         {facts.map((fact) => (
           <div key={fact.label} className="project-fact">
             <dt>{fact.label}</dt>
-            <dd className={fact.mono ? "mono" : ""}>{fact.value}</dd>
+            <dd
+              className={[fact.mono ? "mono" : "", fact.muted ? "muted" : ""]
+                .join(" ")
+                .trim()}
+            >
+              {fact.value}
+            </dd>
           </div>
         ))}
       </dl>

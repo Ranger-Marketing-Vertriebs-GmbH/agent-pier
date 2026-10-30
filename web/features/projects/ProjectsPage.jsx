@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import Icon from "../../components/Icon.jsx";
 import ListDetail from "../../components/ListDetail.jsx";
@@ -12,8 +12,9 @@ import AddFolderDialog from "./AddFolderDialog.jsx";
 import CloneDialog, { useCloneDraft } from "./CloneDialog.jsx";
 import ProjectAddMenu from "./ProjectAddMenu.jsx";
 import ProjectDetail from "./ProjectDetail.jsx";
-import ProjectListItem from "./ProjectListItem.jsx";
+import ProjectList from "./ProjectList.jsx";
 import { projectAttention } from "./project-presentation.js";
+import { normalizePath } from "./project-paths.js";
 import { projectsRoute, projectsRoutePath } from "./routes.js";
 import useProjectHub, { resolveProjectId } from "./useProjectHub.js";
 import useSettledReplace from "../../lib/useSettledReplace.js";
@@ -55,6 +56,18 @@ export default function ProjectsPage({
     if (element?.isConnected) element.focus();
   }, [dialog]);
   const mobile = useMobileLayout();
+  // Folders with a running session, the way the overview marks a session "Running".
+  const runningPaths = useMemo(
+    () =>
+      new Set(
+        (state.sessions || [])
+          .filter(
+            (session) => session.purpose !== "login" && session.status === "running",
+          )
+          .map((session) => normalizePath(session.cwd)),
+      ),
+    [state.sessions],
+  );
   const ready = !hub.loading;
   const canonical = resolveProjectId(projects, route.projectId);
   const project = projects.find((item) => item.id === canonical);
@@ -112,6 +125,7 @@ export default function ProjectsPage({
         </p>
       )}
       {!dialog && <ErrorMessage error={operation.error} />}
+      <ErrorMessage error={hub.groups.error} />
       {hub.error && (
         <div className="repository-load-error project-load-error">
           <p>{copy.partialError}</p>
@@ -155,6 +169,7 @@ export default function ProjectsPage({
       busError={hub.errors.agentbus}
       home={home}
       attention={projectAttention(hub.attention, item.memoryId)}
+      group={hub.groups.groupOf(item.path)}
       notices={mobile ? notices : null}
       onBack={() => choose("")}
     />
@@ -204,6 +219,7 @@ export default function ProjectsPage({
         {dialogs}
       </>
     );
+  const selectedId = route.projectId ? canonical || route.projectId : "";
   const count =
     (hub.loading || hub.error) && !projects.length
       ? unknownValue
@@ -261,16 +277,17 @@ export default function ProjectsPage({
         <ListDetail
           className="project-list"
           listLabel={copy.listLabel}
-          count={projects.length}
-          items={projects}
-          selectedId={route.projectId ? canonical || route.projectId : ""}
-          onSelect={choose}
-          renderItem={(item) => (
-            <ProjectListItem
-              item={item}
-              attention={projectAttention(hub.attention, item.memoryId)}
+          selectedId={selectedId}
+          list={
+            <ProjectList
+              projects={projects}
+              groups={hub.groups}
+              selectedId={selectedId}
+              onSelect={choose}
+              attentionFor={(item) => projectAttention(hub.attention, item.memoryId)}
+              isRunning={(item) => runningPaths.has(item.path)}
             />
-          )}
+          }
           detail={project ? detail(project) : missing ? missingCard : loadingStatus}
         />
       )}

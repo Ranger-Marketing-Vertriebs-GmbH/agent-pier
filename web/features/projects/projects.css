@@ -53,39 +53,6 @@
 .project-add-popover [role="menuitem"]:focus-visible {
   background: #232428;
 }
-.project-list .list-detail-caps {
-  padding: 0 12px;
-}
-.project-list .list-detail-items {
-  gap: 3px;
-}
-.project-list .list-detail-items > button {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: #e8e8ec;
-}
-.project-list .list-detail-items > button:hover {
-  background: #222327;
-}
-.project-list .list-detail-items > button.selected {
-  background: #26272b;
-}
-.project-item-icon {
-  width: 30px;
-  height: 30px;
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid #303137;
-  border-radius: 8px;
-  background: #232428;
-  color: #a2a3a7;
-}
-.project-list .selected .project-item-icon {
-  color: #ffc99d;
-}
 .project-item-text {
   min-width: 0;
   flex: 1;
@@ -97,9 +64,6 @@
   font-size: 14px;
   font-weight: 500;
   overflow-wrap: anywhere;
-}
-.project-list .selected .project-item-text strong {
-  color: #ffc99d;
 }
 .project-item-text small {
   font-size: 12px;
@@ -257,22 +221,8 @@
   body:has(.projects-hub):has(.mobile-header) .update-notice {
     top: calc(env(safe-area-inset-top) + 8px);
   }
-  .project-list .list-detail-caps {
-    display: none;
-  }
-  .project-list .list-detail-items {
-    gap: 1px;
-    overflow: hidden;
-    border: 1px solid #28292d;
-    border-radius: 12px;
-    background: #232428;
-  }
-  .project-list .list-detail-items > button,
-  .project-list .list-detail-items > button.selected {
-    min-height: 60px;
-    padding: 10px 12px 10px 14px;
-    border-radius: 0;
-    background: #16171b;
+  .project-row-main {
+    min-height: 56px;
   }
   .project-item-text strong {
     font-size: 15px;
