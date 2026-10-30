@@ -98,6 +98,7 @@ test("project groups: a stale version is a 409 with the current document", async
   assert.equal(stale.status, 409);
   const body = await stale.json();
   assert.equal(body.code, "PROJECT_GROUP_CONFLICT");
+  assert.equal(body.messageKey, "projectGroups.conflict");
   assert.equal(typeof body.error, "string");
   const { code: _code, error: _error, messageKey: _key, ...document } = body;
   assert.deepEqual(document, first);
