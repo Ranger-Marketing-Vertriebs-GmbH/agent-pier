@@ -196,17 +196,17 @@ export class AssistantService {
     };
   }
   /**
-   * A new agent with shell needs the same confirmations as raising it later.
-   * `template` ({id, revision}) records the Agency agent the owner started from:
-   * fetched again at that revision and scanned, never its model or tools. The fetch
-   * runs before admission: a slow GitHub never holds the shared admission lock.
-   * `userAccess` (validated, users/user-agents.js) makes it an agent of users.
+   * A new agent of the owner's starts with shell "With approval" (AGENTPIER-276).
+   * `template` ({id, revision}): the Agency agent he started from, fetched again
+   * before admission and scanned. `userAccess` makes it an agent of users.
    */
   async create(body, { userAccess = null } = {}) {
     const { confirmShell, confirmFull, template, ...input } = body || {};
     const origin = template === undefined ? null : await this.templateOrigin(template);
     return this.admit(async () => {
-      const shell = shellChange({ shell: "off" }, input, { confirmShell, confirmFull });
+      const base = userAccess ? "off" : "approval",
+        level = input.shell ?? base;
+      shellChange({ shell: base }, input, { confirmShell, confirmFull });
       // Skills are assigned once the agent exists (agent-skills.js).
       if (input.skills?.length) throw assistantProblem("invalid");
       const lease = await this.models.resolve(input.model || {});
@@ -218,6 +218,7 @@ export class AssistantService {
       const record = this.store.createAssistant(
         {
           ...input,
+          shell: level,
           capabilities,
           ...(heartbeat && { heartbeat }),
         },
@@ -227,7 +228,8 @@ export class AssistantService {
         },
       );
       // The Gateway gets the agent, and its level, at its first apply.
-      if (shell) this.shellChanges.audit(record.id, shell, {});
+      if (level !== "off")
+        this.shellChanges.audit(record.id, { from: "off", to: level }, {});
       auditProactivity(this.audit, record.id, proactivityChange({}, record));
       this.changed();
       return record;

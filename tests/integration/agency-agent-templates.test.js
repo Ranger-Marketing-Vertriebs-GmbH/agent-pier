@@ -65,8 +65,9 @@ test("the owner creates an agent from an Agency entry with its origin recorded",
     license: "MIT",
     verdict: "ok",
   });
-  // Safe defaults: no shell, no upstream model or tools.
-  assert.equal(agent.shell, undefined);
+  // Safe defaults: shell asks before every command (AGENTPIER-276), no upstream
+  // model or tools.
+  assert.equal(agent.shell, "approval");
   assert.equal(agent.model.modelId, "openai/gpt-4.1-mini");
   // A blocked entry, a changed revision and a malformed template are refused.
   const blocked = await create({ id: "design__ui-designer", revision: agencyRevision });

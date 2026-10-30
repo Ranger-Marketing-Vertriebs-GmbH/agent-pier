@@ -358,7 +358,9 @@ its own, also shows whether its model changed since it took it over from the lea
   asking you, so a page could try to talk it into uploading a file it may read: switch
   on the browser only for agents whose folders you would share that way. See
   [browser uploads from folders](assistant-workflows.md#browser-uploads-from-folders).
-- **Shell access:** **Off**, **With approval** or **Full access**. With approval, the
+- **Shell access:** **Off**, **With approval** or **Full access** (an agent created
+  without a level, for example through the API, starts **With approval**; the wizard
+  uses the level its profile shows). With approval, the
   agent asks before every command that is not always allowed; the request appears in
   the chat and in the paired Telegram chat with **Allow once**, **Always allow** and
   **Deny**. A permanent team member asks in its own chat; when its lead asked or
@@ -368,8 +370,12 @@ its own, also shows whether its model changed since it took it over from the lea
   example after a background command finished) asks in the paired Telegram chat
   when your latest message to the agent came from Telegram, and its answer arrives
   there too. Every request waiting for approval, and every team
-  proposal, also appears under **Agents** in the [inbox](inbox.md). **Always allowed commands** lists what you allowed
-  permanently; delete an entry and the agent asks again. For the agent's own `ssh`,
+  proposal, also appears under **Agents** in the [inbox](inbox.md). For a command
+  AgentPier cannot allow program-wide (an interpreter such as `python3` or `node`,
+  an inline script, shell syntax), **Always allow** remembers exactly that command:
+  the identical command then runs without asking, any other one still asks. **Always
+  allowed commands** lists what you allowed permanently, remembered commands as
+  **Exact command**; delete an entry and the agent asks again. For the agent's own `ssh`,
   `scp` and `sftp` ([plain ssh](ssh-access.md#plain-ssh-from-agents)), **Always allow**
   accepts any arguments, including options that run local programs and sftp `!`
   commands. Temporary team members get

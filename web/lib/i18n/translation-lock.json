@@ -1604,6 +1604,7 @@
   "assistant-shell:assistantShellCopy.exec.agent": "de:11b39c93777e en:11b39c93777e",
   "assistant-shell:assistantShellCopy.exec.allowAlways": "de:edfad6272dab en:977618bd8bc7",
   "assistant-shell:assistantShellCopy.exec.allowOnce": "de:90153ce2e469 en:168511d24d9e",
+  "assistant-shell:assistantShellCopy.exec.alwaysExact": "de:1b903affa755 en:3ff48c662703",
   "assistant-shell:assistantShellCopy.exec.alwaysOnce": "de:3190478dd4ce en:7a36f351c60f",
   "assistant-shell:assistantShellCopy.exec.alwaysPrograms": "de:f0985710d0d5 en:96a0fd029776",
   "assistant-shell:assistantShellCopy.exec.back": "de:548611ce58f7 en:76900f1bfd16",

@@ -3859,9 +3859,13 @@ its own `tools.allow`, because a global `deny` alone still offers the tool.
   have none.
 - **Confirmation.** Raising the level needs the owner's confirmation of the
   warning (`confirmShell`); raising it to Full access needs a second one
-  (`confirmFull`). Without them the update (and the creation of an agent with
-  shell) answers `409 ASSISTANT_SHELL_CONFIRMATION_REQUIRED` naming the missing
+  (`confirmFull`). Without them the update (and the creation of an agent with full
+  access) answers `409 ASSISTANT_SHELL_CONFIRMATION_REQUIRED` naming the missing
   confirmations, and nothing is stored. Lowering never asks.
+- **New agents.** An agent of the owner's created without a level starts **With
+  approval** (AGENTPIER-276): every command still asks him, so it needs no
+  confirmation; the creation is audited as a level change from Off. The wizard
+  always sends the level its profile shows. An agent of users starts Off.
 - **Live changes.** Every level change applies to the running Gateway with
   `config.patch`, without a restart. Lowering applies even while a turn of the agent
   runs; a settings form that also sends its unchanged fields counts as a lowering
@@ -4006,20 +4010,29 @@ allow** and **Deny**.
   confirms, and written unchanged. The card warns that programs whose arguments can
   run other commands (git hooks, aliases) are covered too, and names the
   owner-writable programs: if one is replaced, the new version runs without asking.
-- **Never an entry** (the command is allowed once and asks again next time):
+- **Never a program entry, but the exact command is remembered** (AGENTPIER-276):
   interpreters, shells, launchers and wrappers, package managers and build drivers
   (a superset of OpenClaw's own lists, checked against the installed runtime by a
   contract); inline scripts; commands with substitutions, subshells, control
   structures, background jobs, environment assignments or variables; programs that
-  cannot be resolved to a real path. OpenClaw itself always denies commands with
+  cannot be resolved to a real path. Always allow resolves such a request with
+  allow-once and AgentPier remembers exactly that command for the agent, by the
+  SHA-256 of its full text (`exec-remembered.js`, table `assistant_exec_commands`;
+  the request carries the hash as `payload.commandHash`). When the identical command
+  is requested again, AgentPier answers allow-once itself without a card (the action
+  ends `completed` with `result.by: "remembered"`); any other command, also the same
+  program with other arguments or other whitespace, asks as before. A hook's
+  once-only card, a task member and a command AgentPier had to shorten (over 32,768
+  characters, no hash) are never remembered. Until 2.12 such an Always allow was
+  silently a single allow-once. OpenClaw itself always denies commands with
   redirections (`>` or `<`) for owner-writable programs, with or without an entry.
 - **"Unresolved" is expected, not an error.** AgentPier computes the plan when the
   request arrives, from its own view of the file system: it resolves each program
   through the agent's `pathPrepend` and the system directories and compares the
   first one with OpenClaw's `resolvedPath`. When they differ (for example when a
   tool exists in two `PATH` folders and OpenClaw picks the other one), or a program
-  cannot be found, the plan is `unresolved`: Always allow then allows the command
-  once and asks again next time.
+  cannot be found, the plan is `unresolved`: Always allow then remembers the exact
+  command as above.
 
 ### Allowlist management
 
@@ -4027,10 +4040,13 @@ The agent settings list **Always allowed commands** (`GET
 /api/assistants/:id/shell-allowlist`): the program or command, whether it allows any
 arguments or only the approved ones, who added it (AgentPier, OpenClaw, elsewhere),
 the command it was approved for where AgentPier knows it, and the last use.
-OpenClaw's command companions are folded into their program entry. **Delete**
+OpenClaw's command companions are folded into their program entry. Commands
+AgentPier remembers exactly are listed as **Exact command** entries added by
+AgentPier (id `cmd-<32 hex>`). **Delete**
 (`DELETE /api/assistants/:id/shell-allowlist/:entry`) removes the entry with its
-companions through `exec.approvals.set` with the current base hash; the next
-matching command asks again. Deletes are audited.
+companions through `exec.approvals.set` with the current base hash, or forgets a
+remembered command; the next matching command asks again. Deletes are audited. An
+agent's remembered commands go with it when it is deleted.
 
 ### Backups and stored levels
 

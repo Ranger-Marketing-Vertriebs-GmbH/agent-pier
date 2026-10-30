@@ -29,6 +29,8 @@ export const assistants = {
     `In Ordnern, in die du schreiben kannst, liegen: ${programs}. Wird eines davon geändert oder ersetzt, führt der Agent die neue Version ohne Nachfrage aus. Befehle mit Umleitungen (> oder <) lehnt OpenClaw für solche Programme immer ab.`,
   execAllowAlwaysOnce: (reason) =>
     `„Immer erlauben“ erlaubt diesen Befehl nur einmal: ${reason}. Beim nächsten Mal fragt der Agent erneut.`,
+  execAllowAlwaysExact: (reason) =>
+    `„Immer erlauben“ merkt sich nur genau diesen Befehl: ${reason}. Der Agent führt dann genau diesen Befehl ohne Rückfrage erneut aus; jeder andere Befehl, auch mit anderen Argumenten, fragt weiter. Du kannst ihn in den Agent-Einstellungen löschen.`,
   execOnceReasons: {
     interpreter: (program) =>
       `${program} ist ein Interpreter, eine Shell oder ein Starter`,
@@ -115,6 +117,8 @@ export const assistants = {
     `Für diesen Agenten jetzt immer erlaubt, jeweils mit beliebigen Argumenten: ${programs}. Manche Programme können über ihre Argumente andere Befehle ausführen, etwa git über Hooks oder Aliase; „Immer erlauben“ deckt auch das ab. Du kannst die Einträge in den Agent-Einstellungen löschen.`,
   execAllowlistSkipped: (reason) =>
     `Der Befehl wurde einmal erlaubt: ${reason}. Beim nächsten Mal fragt der Agent erneut.`,
+  execAllowlistRemembered: (reason) =>
+    `Für diesen Agenten jetzt immer erlaubt, aber nur genau dieser Befehl: ${reason}. Jeder andere Befehl fragt weiter. Du kannst ihn in den Agent-Einstellungen löschen.`,
   execAllowlistFailed:
     "Der Befehl wurde einmal erlaubt, aber AgentPier konnte ihn nicht in die Liste erlaubter Befehle eintragen. Beim nächsten Mal fragt der Agent erneut.",
 

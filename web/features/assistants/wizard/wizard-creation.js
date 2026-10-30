@@ -50,7 +50,9 @@ export function createBody(d) {
       ...body,
       userAccess: { mode: d.kind, members: [{ userId: d.owner, level: "chat" }] },
     };
-  return d.shell !== "off" ? { ...body, shell: d.shell } : body;
+  // Always explicit: without a level the server starts the owner's agent "With
+  // approval" (AGENTPIER-276), whatever the wizard showed.
+  return { ...body, shell: d.shell };
 }
 
 const workAccess = (d, revision) =>

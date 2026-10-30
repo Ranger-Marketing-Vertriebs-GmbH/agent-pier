@@ -2,6 +2,7 @@ import { assistantProblem } from "./assistant-validation.js";
 import { staleHash } from "./exec-decisions.js";
 import { allowAlwaysGroup, groupOf } from "./exec-allowlist-links.js";
 import { personalEligible } from "./native-capabilities.js";
+import { isRememberedId, rememberedCommands } from "./exec-remembered.js";
 
 const record = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 const text = (value, max) =>
@@ -128,10 +129,14 @@ export class ExecAllowlist {
         ),
       );
   }
+  // The exact commands AgentPier remembers for the agent (exec-remembered.js).
+  remembered(id) {
+    return rememberedCommands(this.a.store.db).entries(id);
+  }
   async list(id) {
     const profile = this.profile(id);
     const current = await this.read(this.client());
-    return { entries: this.entries(profile, current?.file) };
+    return { entries: [...this.entries(profile, current?.file), ...this.remembered(id)] };
   }
   /**
    * Deletes one entry, and with a path entry its OpenClaw companions: reads,
@@ -142,6 +147,19 @@ export class ExecAllowlist {
     return this.a.admit(async () => {
       const profile = this.profile(id);
       const client = this.client();
+      // A remembered command lives in AgentPier, not in the Gateway.
+      if (isRememberedId(entryId)) {
+        if (!rememberedCommands(this.a.store.db).remove(id, entryId))
+          throw assistantProblem("allowlistEntryNotFound", 404);
+        this.audit(id, entryId, 0);
+        this.a.changed();
+        const current = await this.read(client);
+        return {
+          removed: entryId,
+          companions: [],
+          entries: [...this.entries(profile, current?.file), ...this.remembered(id)],
+        };
+      }
       for (let attempt = 0; attempt < removeAttempts; attempt++) {
         const current = await this.read(client);
         const file = record(current?.file) ? current.file : {};
@@ -178,7 +196,11 @@ export class ExecAllowlist {
         }
         this.audit(id, entryId, companions.length);
         this.a.changed();
-        return { removed: entryId, companions, entries: this.entries(profile, next) };
+        return {
+          removed: entryId,
+          companions,
+          entries: [...this.entries(profile, next), ...this.remembered(id)],
+        };
       }
       throw assistantProblem("conflict", 409);
     });

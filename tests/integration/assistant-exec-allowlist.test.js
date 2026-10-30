@@ -4,7 +4,9 @@ import fs from "node:fs";
 import { execFixture } from "../helpers/assistant-exec-fixture.js";
 import { serverCatalogs } from "../../server/lib/i18n/catalogs.js";
 
-test("an interpreter, inline script or unpinnable command is allowed once, without an entry", async (t) => {
+// AGENTPIER-276: such a command is remembered exactly (exec-remembered.js), never
+// allowed program-wide; assistant-exec-remembered.test.js covers its next run.
+test("an interpreter, inline script or unpinnable command is remembered exactly, without an entry", async (t) => {
   const f = await execFixture(t);
   const tool = f.program("tool");
   const de = serverCatalogs.de.assistants;
@@ -39,6 +41,7 @@ test("an interpreter, inline script or unpinnable command is allowed once, witho
       written: false,
       skipped: expected.reason,
       ...(expected.program ? { program: expected.program } : {}),
+      remembered: true,
     });
   }
   assert.equal(
@@ -55,14 +58,14 @@ test("an interpreter, inline script or unpinnable command is allowed once, witho
   const results = f.service.outbox.all().filter((e) => e.kind === "action-result");
   assert.equal(results.length, cases.length);
   for (const text of [
-    de.execAllowlistSkipped(de.execOnceReasons.interpreter("`node`")),
-    de.execAllowlistSkipped(de.execOnceCommandReasons.inline),
-    de.execAllowlistSkipped(de.execOnceCommandReasons.complex),
-    de.execAllowlistSkipped(de.execOnceReasons.unresolved("`no-such-tool-here`")),
+    de.execAllowlistRemembered(de.execOnceReasons.interpreter("`node`")),
+    de.execAllowlistRemembered(de.execOnceCommandReasons.inline),
+    de.execAllowlistRemembered(de.execOnceCommandReasons.complex),
+    de.execAllowlistRemembered(de.execOnceReasons.unresolved("`no-such-tool-here`")),
   ]) {
     const notice = results.find((e) => e.text.includes(text));
     assert.ok(notice, text);
-    assert.ok(notice.text.startsWith(de.execDecided["allow-once"]));
+    assert.ok(notice.text.startsWith(de.execDecided["allow-always"]));
   }
 });
 
