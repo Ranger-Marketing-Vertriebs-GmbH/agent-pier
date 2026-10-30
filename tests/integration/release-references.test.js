@@ -182,3 +182,33 @@ test("an orphan shows the release's node and first argument behind a truncated m
   ]);
   assert.ok(!JSON.stringify(orphaned).includes("SECRET"));
 });
+
+test("a test session left behind in another temporary data directory is orphaned", () => {
+  const temporary = "/var/folders/xy/T";
+  const fixture = `${temporary}/agentpier-blackbox-AbC123/data`;
+  const own = `${temporary}/agentpier-own/data`;
+  const script =
+    "/Users/me/Projects/agent-pier/.worktrees/demo/server/terminal-launcher.js";
+  const node = `${release}/bin/node ${release}/bin/node`;
+  const output = [
+    proc(10, 1, "tmux"),
+    proc(11, 10, `${node} ${script} ${fixture}/sessions/http-codex.launch.json`),
+    proc(12, 11, `${node} ${fixture}/recorder.mjs --token SECRET`),
+    proc(20, 1, "tmux"),
+    proc(21, 20, `${node} ${script} ${own}/sessions/http-codex.launch.json`),
+    proc(30, 1, "tmux"),
+    proc(31, 30, `${node} ${script} ${data}/sessions/${id}.launch.json`),
+  ].join("\n");
+  const references = releaseSessionReferences(output, [release], {
+    temporaryRoots: [temporary],
+    dataDirs: [own],
+  });
+  assert.deepEqual(references.orphaned, [
+    { pid: 11, command: `${release}/bin/node ${script}` },
+    { pid: 12, command: `${release}/bin/node ${fixture}/recorder.mjs` },
+  ]);
+  // The own data directory and one outside the temporary roots keep the release.
+  assert.equal(references.nodeOnly, 2);
+  // Without temporary roots nothing changes.
+  assert.deepEqual(releaseSessionReferences(output, [release]).orphaned, []);
+});

@@ -7,6 +7,8 @@ import { promisify } from "node:util";
 import { createApplication } from "../../server/app.js";
 import { tmuxSocketPaths } from "../../server/features/sessions/tmux-naming.js";
 import { writeAssistantFeature } from "../../server/features/assistants/assistant-feature.js";
+// Also when a file runs without the test runner: its tmux servers never outlive it.
+import "./tmux-reaper.js";
 
 const execute = promisify(execFile);
 const authenticatedOrigins = new Map();

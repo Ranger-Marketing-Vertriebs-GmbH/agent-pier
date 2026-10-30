@@ -216,7 +216,7 @@ export const operationsCopy = {
   },
   orphanedTitle: (count) => `Verwaiste Prozesse (${count})`,
   orphanedHelp:
-    "Diese Prozesse führen nur das Node dieser Version aus, ohne AgentPier-Skript, und haben keinen Elternprozess mehr. Sie blockieren das Löschen der Version nicht; meist sind es übrig gebliebene Tests oder Skripte.",
+    "Diese Prozesse führen nur das Node dieser Version aus, ohne AgentPier-Skript, und haben entweder keinen Elternprozess mehr oder gehören zu einer Test-Session eines anderen temporären Datenverzeichnisses. Sie blockieren das Löschen der Version nicht; meist sind es übrig gebliebene Tests oder Skripte.",
   orphanedStop: "Prozesse beenden",
   orphanedConsequence: "Ungespeicherte Arbeit darin geht verloren.",
   orphanedStopped: (count) => `${count} Prozess(e) beendet.`,

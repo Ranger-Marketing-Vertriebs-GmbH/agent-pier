@@ -1,5 +1,6 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -12,6 +13,13 @@ import { processExecutable } from "../../lib/process-identity.js";
 
 const cleanupError = (code, message, status = 409) =>
   Object.assign(problem(message, status), { code });
+const realAndGiven = (value) => {
+  try {
+    return [value, fs.realpathSync(value)];
+  } catch {
+    return [value];
+  }
+};
 
 export function releaseProcessReferences(output, executableFor = () => null) {
   return output
@@ -117,6 +125,8 @@ export function cleanupState({
       return blocked;
     }
     const receipts = stagedReceipts(dataDir);
+    // Test sessions of other data directories under these roots never pin a release.
+    const temporaryRoots = [...new Set([os.tmpdir(), "/tmp"].flatMap(realAndGiven))];
     const versions = fs.readdirSync(directory).flatMap((version) => {
       try {
         releaseVersion(version);
@@ -130,7 +140,10 @@ export function cleanupState({
         manifestValid = readJson(path.join(target, "release.json")).version === version;
       } catch {}
       const targets = [target, path.join(installRoot, "releases", version)];
-      const references = releaseSessionReferences(commands, targets);
+      const references = releaseSessionReferences(commands, targets, {
+        temporaryRoots,
+        dataDirs: [dataDir, data],
+      });
       // Every process that references the release holds it, except orphaned ones
       // that only run its node (release-references.js).
       const orphans = new Set(references.orphaned.map((item) => String(item.pid)));

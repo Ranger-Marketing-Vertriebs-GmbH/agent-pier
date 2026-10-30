@@ -384,6 +384,32 @@ test("an orphaned process that only runs a version's node never pins it", async 
   );
 });
 
+test("a test session another temporary data directory left behind never pins a version", async (t) => {
+  const r = await fixture(t);
+  const old = `${r.installRoot}/releases/1.0.0`;
+  const script = "/Users/me/agent-pier/.worktrees/demo/server/terminal-launcher.js";
+  const session = (pid, ppid, dataDir) =>
+    `${pid} ${ppid} node ${old}/bin/node ${script} ${dataDir}/sessions/http-codex.launch.json`;
+  const leftover = path.join(os.tmpdir(), "agentpier-blackbox-AbC123/data");
+  r.processes = () =>
+    [
+      "  600     1 tmux",
+      session(601, 600, leftover),
+      `  602   601 node ${old}/bin/node ${leftover}/recorder.mjs`,
+    ].join("\n");
+  const free = r.cleanupStatus().versions.find((v) => v.version === "1.0.0");
+  assert.equal(free.canDelete, true);
+  assert.deepEqual(
+    free.orphanedProcesses.map((p) => p.pid),
+    [601, 602],
+  );
+  // The own data directory's sessions, even under a temporary root, keep it.
+  r.processes = () => ["  600     1 tmux", session(601, 600, r.dataDir)].join("\n");
+  const own = r.cleanupStatus().versions.find((v) => v.version === "1.0.0");
+  assert.equal(own.deleteReason, "inUse");
+  assert.deepEqual(own.orphanedProcesses, []);
+});
+
 test("the owner stops a version's orphaned processes, and only those", async (t) => {
   const { spawn } = await import("node:child_process");
   const { releaseProcesses } =
