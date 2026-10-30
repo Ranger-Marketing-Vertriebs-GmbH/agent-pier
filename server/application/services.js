@@ -40,7 +40,7 @@ import { operationJobChanged } from "../features/operations/live-topics.js";
 import { reaJobChanged, toolJobsChanged } from "../features/tools/live-topics.js";
 import { watchPackageJobs } from "../features/mcp-packages/live-topics.js";
 import { pluginJobChanged } from "../features/plugins/live-topics.js";
-import { sshToolsChanged } from "../features/ssh/live-topics.js";
+import { sshToolsChanged, watchSshCatalog } from "../features/ssh/live-topics.js";
 import {
   SshUserConfig,
   sshUserConfigEnabled,
@@ -521,6 +521,9 @@ export async function createServices(config) {
   watchPackageJobs(services, mcpPackages);
   plugins.onChange = () => pluginJobChanged(services.live);
   sshSessions.onChange = (sessionId) => sshToolsChanged(services.live, sessionId);
+  // Host and key writes, also those of a session's MCP server through the management
+  // socket, change every session's host list.
+  watchSshCatalog(sshManagement.catalog, () => services.live);
   sshAgentRegistry.listen("session", (sessionId) =>
     sshToolsChanged(services.live, sessionId),
   );
