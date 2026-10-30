@@ -168,8 +168,9 @@ for (const [label, viewport] of Object.entries(viewports))
         name: "Frontend Developer",
         template: { id: "engineering__frontend-developer", revision },
       });
-      // Safe defaults: no shell is sent.
-      expect(state.created.shell).toBeUndefined();
+      // The wizard sends the level it shows; without one the server would start the
+      // agent "With approval" (AGENTPIER-276).
+      expect(state.created.shell).toBe("off");
     });
 
     test("an Agency entry's address opens the form filled in", async ({ page }) => {

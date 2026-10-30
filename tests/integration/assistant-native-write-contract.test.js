@@ -249,7 +249,11 @@ test(
     assert.ok(
       !(await turn("WRITE MEMORY.md forwardedfact", forwarded)).includes("write"),
     );
-    assert.ok(!(await turn("WRITE memory/x.md scheduled", { kind: "reminder" })).length);
+    // AGENTPIER-276: a reminder of the owner's own chat writes like the owner's turn;
+    // forwarded content (above) and instruction files stay blocked.
+    assert.ok(
+      (await turn("WRITE memory/x.md scheduled", { kind: "reminder" })).includes("write"),
+    );
     assert.equal(fs.readFileSync(path.join(workspace, "MEMORY.md"), "utf8"), "ownerfact");
     assert.ok(
       fs
@@ -263,6 +267,9 @@ test(
     assert.equal(fs.existsSync(path.join(workspace, "skills")), false);
     const managed = (await runtime.client.call("config.get", {})).config;
     assert.deepEqual(managed.agents.defaults.skills, []);
-    assert.equal(fs.existsSync(path.join(workspace, "memory", "x.md")), false);
+    assert.equal(
+      fs.readFileSync(path.join(workspace, "memory", "x.md"), "utf8"),
+      "scheduled",
+    );
   },
 );
