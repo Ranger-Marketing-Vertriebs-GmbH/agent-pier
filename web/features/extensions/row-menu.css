@@ -1,0 +1,61 @@
+/* ⋯ menus of list rows (RowMenu.jsx), fixed to the viewport under their trigger. */
+.row-menu-anchor {
+  position: relative;
+}
+.row-menu {
+  position: fixed;
+  z-index: 80;
+  display: grid;
+  min-width: 200px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--popover-bg);
+  box-shadow: 0 14px 34px rgb(0 0 0 / 36%);
+}
+.row-menu button {
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 7px;
+  font-size: 13px;
+  text-align: left;
+  color: var(--text);
+}
+.row-menu button:hover:not(:disabled),
+.row-menu button:focus-visible {
+  background: var(--nav-selected);
+}
+.row-menu button.danger {
+  color: var(--error-text);
+}
+.row-menu button:disabled {
+  opacity: 0.5;
+}
+.row-menu button.radio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 8px;
+}
+.row-menu-check {
+  display: inline-flex;
+  flex: none;
+  width: 16px;
+  color: var(--accent);
+}
+.row-menu [role="group"] {
+  display: grid;
+}
+.row-menu-heading {
+  padding: 8px 12px 4px;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-group);
+}
+.row-menu-separator {
+  height: 1px;
+  margin: 4px 8px;
+  background: var(--divider);
+}

@@ -30,7 +30,7 @@
     "web/features/chat/tool-groups.css": 1,
     "web/features/chat/tool-output.css": 15,
     "web/features/dashboard/dashboard.css": 23,
-    "web/features/extensions/extensions-hub.css": 22,
+    "web/features/extensions/extensions-hub.css": 18,
     "web/features/extensions/extensions.css": 9,
     "web/features/files/file-actions.css": 4,
     "web/features/files/file-editor.css": 7,
