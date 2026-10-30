@@ -238,3 +238,64 @@ test("a turn started between the stop and the swap is cancelled", async (t) => {
     ),
   );
 });
+
+test("a swap that fails after its commit still moves Telegram and goes on", async (t) => {
+  const { f, service, agent, main, keeper, chat } = await keptMember(t);
+  const channels = f.application.assistantChannels.store;
+  const bot = channels.create({
+    assistantId: agent.id,
+    conversationId: main.id,
+    botId: 9004,
+    username: "bot_9004",
+    token: "9004:lead-bot-secret-token",
+  });
+  const record = service.memoryNotes.record.bind(service.memoryNotes);
+  let notes = 0;
+  t.mock.method(service.memoryNotes, "record", (note) => {
+    if (++notes === 1) throw new Error("note store gone");
+    return record(note);
+  });
+  const res = await restart(f, agent.id);
+  assert.ok(res.status >= 500, `status ${res.status} ${await res.clone().text()}`);
+  assert.ok(service.store.getConversation(main.id).archivedAt);
+  const moved = service.store.getConversation(channels.get(bot.id).conversationId);
+  assert.equal(moved.archivedAt, null);
+  assert.equal(moved.main, true);
+  assert.notEqual(service.teams.store.member(keeper.id).conversationId, chat.id);
+});
+
+test("a partly failed restart is recorded in the activity log", async (t) => {
+  const { f, gateway, service, agent } = await keptMember(t);
+  t.mock.method(console, "error", () => {});
+  const call = gateway.client.call;
+  let creates = 0;
+  gateway.client.call = async (method, params, options) => {
+    if (method === "sessions.create" && ++creates === 2) throw new Error("gateway gone");
+    return call(method, params, options);
+  };
+  const res = await restart(f, agent.id);
+  assert.equal(res.status, 503, await res.clone().text());
+  const { events } = service.audit.list({
+    action: "assistant.main-chat-restarted",
+    resourceId: agent.id,
+  });
+  assert.equal(events.length, 1);
+  assert.equal(events[0].details.partial, true);
+  assert.equal(events[0].details.chats, 1);
+  assert.deepEqual(events[0].details.members, { ended: 0, restarted: 0 });
+});
+
+test("a permanent member whose row is gone is skipped", async (t) => {
+  const { f, service, agent, keeper, main } = await keptMember(t);
+  const teams = service.teams.store;
+  const member = teams.member.bind(teams);
+  t.mock.method(teams, "member", (id) => {
+    if (id === keeper.id) throw Object.assign(new Error("gone"), { status: 404 });
+    return member(id);
+  });
+  const res = await restart(f, agent.id);
+  assert.equal(res.status, 200, await res.clone().text());
+  const body = await res.json();
+  assert.deepEqual(body.members.restarted, []);
+  assert.equal(body.chats[0].from, main.id);
+});

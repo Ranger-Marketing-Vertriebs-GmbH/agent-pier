@@ -13,7 +13,7 @@ const work = {
 };
 const restarted = (details) =>
   auditEvent({
-    action: "assistant.main_chat_restarted",
+    action: "assistant.main-chat-restarted",
     resourceType: "assistant",
     resourceId: "agent-1",
     outcome: "success",
@@ -38,4 +38,15 @@ test("a main chat restart drops ids, text and malformed counts", () => {
     conversationId: "chat-1",
   });
   assert.deepEqual(event.details, {});
+});
+
+test("a partly failed restart is marked partial", () => {
+  const event = restarted({
+    chats: 1,
+    members: { ended: 0, restarted: 0 },
+    work,
+    partial: true,
+  });
+  assert.equal(event.details.partial, true);
+  assert.equal(restarted({ chats: 1, partial: "yes" }).details.partial, undefined);
 });
