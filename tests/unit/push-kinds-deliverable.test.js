@@ -27,7 +27,15 @@ const names = { label: "api-refactor", tool: "claude", project: "shop", stage: "
 // One event per kind, as its emitter sends it: with and without an inbox item and a
 // chat, so every link pushLink builds is covered.
 const events = {
-  permission: [{ sessionId: "s1", inbox: { type: "approval", id: "r1" } }],
+  permission: [
+    {
+      sessionId: "s1",
+      inbox: { type: "approval", id: "r1" },
+      toolName: "Bash",
+      decide: "both",
+      revision: 2,
+    },
+  ],
   question: [{ sessionId: "s1", inbox: { type: "question", id: "r1" }, preview: "Why?" }],
   "session-ended": [{ sessionId: "s1" }],
   "session-completed": [{ sessionId: "s1", preview: "Done." }],
@@ -41,6 +49,8 @@ const events = {
       conversationId: "c1",
       subject,
       inbox: { type: subject === "team" ? "team" : "action", id: "x1" },
+      decide: "deny",
+      revision: 1,
     },
     // A user's approval opens her chat, never the owner's inbox.
     { assistantId: "a1", conversationId: "c1", subject },

@@ -218,7 +218,7 @@ export function auditEvent(input) {
   // Assistant approval decisions name the deciding actor and surface.
   if (["owner", "assistant", "user"].includes(details.actor))
     event.details.actor = details.actor;
-  if (["ui", "telegram", "mcp", "tool"].includes(details.channel))
+  if (["ui", "telegram", "mcp", "tool", "push"].includes(details.channel))
     event.details.channel = details.channel;
   if (details.actionId !== undefined) event.details.actionId = auditId(details.actionId);
   // Assistant shell changes name the levels and the allowlist entry removed.

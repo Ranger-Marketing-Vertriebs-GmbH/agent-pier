@@ -7,7 +7,7 @@ import { problem, nameValue } from "../../lib/storage.js";
 import { pushId, pushSubscription, pushEvent } from "./push-validation.js";
 import { buildPayload, pushSource } from "./push-content.js";
 import {
-  defaultPreferences,
+  newDevicePreferences,
   normalizePreferences,
   systemKinds,
   updatePreferences,
@@ -161,8 +161,8 @@ export class NotificationService {
       throw problem(serverMessages.notifications.deviceLimit, 409);
     const previous = existing ? this.summary(existing.public) : null;
     const timeZone = validTimeZone(input.timeZone) ? input.timeZone : null;
-    // A new device starts at the event type only; a renewed one keeps its choices.
-    const preferences = previous ? previous.preferences : defaultPreferences(timeZone);
+    // A new device starts with names; a renewed one keeps its choices.
+    const preferences = previous ? previous.preferences : newDevicePreferences(timeZone);
     if (timeZone) preferences.timeZone = timeZone;
     const summary = {
       id: existing?.id || randomUUID(),

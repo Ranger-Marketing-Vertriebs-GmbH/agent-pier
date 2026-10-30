@@ -3,6 +3,7 @@
 // text a device may see at the "with preview" level. The notification service decides
 // per device what is sent and drops anything that looks like a command, path, URL or
 // secret (server/features/notifications/push-content.js).
+import { decideMode, requestDecisions } from "./push-decisions.js";
 
 const folder = (cwd) =>
   typeof cwd === "string" ? cwd.split("/").filter(Boolean).at(-1) || "" : "";
@@ -17,11 +18,33 @@ export function sessionNotice(session) {
   };
 }
 
-/** A native question or approval, at its inbox address; a question previews itself. */
+// Codex names its requests by protocol method; the push names Codex's own tools.
+const codexTools = {
+  "item/commandExecution/requestApproval": "shell",
+  "item/fileChange/requestApproval": "apply_patch",
+};
+
+/** The tool a CLI approval asks for ("Bash", "Edit", "shell"), or undefined. */
+export function requestTool(entry) {
+  const tool = entry?.subject?.tool;
+  if (typeof tool !== "string") return undefined;
+  return codexTools[tool] || (tool.includes("/") ? undefined : tool);
+}
+
+/**
+ * A native question or approval, at its inbox address; a question previews itself,
+ * an approval names its tool and offers Allow and Deny where a push may decide it.
+ */
 export function requestNotice(event, session, entry) {
   const question = event.kind === "question";
   const first = entry?.questions?.[0];
+  const decide = question ? undefined : decideMode(requestDecisions(entry));
+  const toolName = question ? undefined : requestTool(entry);
   return {
+    ...(toolName ? { toolName } : {}),
+    ...(decide && Number.isSafeInteger(entry.revision)
+      ? { decide, revision: entry.revision }
+      : {}),
     ...(session ? sessionNotice(session) : {}),
     sessionId: event.sessionId,
     inbox: { type: question ? "question" : "approval", id: event.resourceId },

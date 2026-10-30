@@ -11,7 +11,7 @@ export const notificationCopy = {
     "Offline erscheint nur ein öffentlicher Hinweis. Sessions, Chats, API-Antworten und Zugangsdaten werden nicht für die Offline-Nutzung gespeichert.",
   pushTitle: "Benachrichtigungen auf diesem Gerät",
   pushPrivacy:
-    "Was Hinweise zeigen, legst du pro Gerät fest. Sie enthalten nie Befehle, Pfade, Links oder Geheimnisse. Ein Hinweis öffnet die betreffende Ansicht; er genehmigt keine Aktion.",
+    "Was Hinweise zeigen, legst du pro Gerät fest. Sie enthalten nie Befehle, Pfade, Links oder Geheimnisse. Ein Hinweis öffnet die betreffende Ansicht. Wo das Gerät Schaltflächen zeigt, bietet eine Freigabe „Einmal erlauben“ und „Ablehnen“; dauerhaft erlaubt wird aus einem Hinweis nie etwas.",
   unsupported:
     "Dieser Browser unterstützt hier keine Push-Mitteilungen. Eine sichere HTTPS-Verbindung oder localhost und ein unterstützter Browser sind erforderlich.",
   denied:
@@ -62,7 +62,7 @@ export const notificationCopy = {
     },
     label: {
       label: "Mit Namen",
-      sub: "Name der Session, des Agenten oder der Pipeline, CLI und Projekt. Keine Inhalte.",
+      sub: "Name der Session, des Agenten oder der Pipeline, CLI, Projekt und das Tool, nach dem eine Freigabe fragt. Keine Inhalte. Neue Geräte starten hier.",
     },
     preview: {
       label: "Mit Vorschau",
@@ -106,9 +106,6 @@ export const notificationCopy = {
     "Rückfragen, Freigaben und Gates, die auf dich warten, kommen auch in der Ruhezeit.",
   visibleNote:
     "Solange der Eingang oder dieselbe Session, derselbe Agenten-Chat oder Lauf auf einem deiner Geräte offen ist, kommt kein Hinweis.",
-  labelOffer: "Namen in Hinweisen zeigen?",
-  labelOfferSub:
-    "Namen von Sessions, Agenten und Pipelines erscheinen auf dem Sperrbildschirm dieses Geräts. Inhalte bleiben privat.",
   // Die Geräte eines Benutzers: nur Freigaben, Check-ins und Routinen seiner Agenten.
   user: {
     approval: "Freigabe für einen Agenten",
@@ -122,11 +119,7 @@ export const notificationCopy = {
     blockingThroughSub: "Freigaben, die auf dich warten, kommen auch in der Ruhezeit.",
     visibleNote:
       "Solange derselbe Agenten-Chat auf einem deiner Geräte offen ist, kommt kein Hinweis.",
-    labelOfferSub:
-      "Namen von Agenten erscheinen auf dem Sperrbildschirm dieses Geräts. Inhalte bleiben privat.",
   },
-  labelOfferAccept: "Namen zeigen",
-  labelOfferDismiss: "Nicht jetzt",
   lastAttemptFailed: (time) => `Letzte Zustellung fehlgeschlagen (${time})`,
   // Der Hinweis auf der Startseite und im Posteingang (PushHealthNotice.jsx).
   health: {

@@ -17,40 +17,6 @@ function toggleSub(state) {
   return state.own ? copy.incomplete : copy.inactive;
 }
 
-// After enabling a new device: show names on its lock screen? Never a forced change.
-function LabelOffer({ state }) {
-  if (!state.offer) return null;
-  return (
-    <div className="notification-offer" role="group" aria-labelledby="notification-offer">
-      <span className="notification-offer-text">
-        <span id="notification-offer" className="notification-offer-title">
-          {copy.labelOffer}
-        </span>
-        <span>{state.personal ? copy.user.labelOfferSub : copy.labelOfferSub}</span>
-        <ErrorMessage as="span" error={state.errorFor("offer")} />
-      </span>
-      <span className="notification-offer-actions">
-        <button
-          type="button"
-          className="button primary compact"
-          disabled={state.action.busy}
-          onClick={state.acceptOffer}
-        >
-          {copy.labelOfferAccept}
-        </button>
-        <button
-          type="button"
-          className="button secondary compact"
-          disabled={state.action.busy}
-          onClick={state.dismissOffer}
-        >
-          {copy.labelOfferDismiss}
-        </button>
-      </span>
-    </div>
-  );
-}
-
 function ThisDevice({ state }) {
   const { resource, action } = state;
   // On while the server knows this device, so turning it off always unregisters it.
@@ -93,7 +59,6 @@ function ThisDevice({ state }) {
           </button>
         )}
       </div>
-      <LabelOffer state={state} />
       {state.active && (
         <div className="notification-test-row">
           <button

@@ -103,4 +103,6 @@ self.agentPierNotificationCopy = {
     opencode: "OpenCode",
   },
   quote: (text) => `„${text}“`,
+  toolRequest: (name) => `Eine Session möchte ${name} verwenden.`,
+  actions: { allow: "Einmal erlauben", deny: "Ablehnen" },
 };

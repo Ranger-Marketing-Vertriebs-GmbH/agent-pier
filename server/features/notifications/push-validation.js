@@ -117,7 +117,16 @@ export function pushPayload(input) {
   return payload;
 }
 
-const textLimits = { label: 200, tool: 40, project: 200, stage: 200, preview: 4000 };
+const textLimits = {
+  label: 200,
+  tool: 40,
+  toolName: 64,
+  project: 200,
+  stage: 200,
+  preview: 4000,
+};
+/** What Allow and Deny a push may offer (push-decisions.js decideMode). */
+export const decideModes = ["both", "deny"];
 
 /**
  * An emitter's event: its identifiers, plus the names and the preview text a device
@@ -140,6 +149,16 @@ export function pushEvent(input) {
     event.inbox = { type: input.inbox.type, id: pushId(input.inbox.id) };
   }
   if (input.telegram === true) event.telegram = true;
+  // Allow and Deny name the exact inbox item and its revision.
+  if (
+    decideModes.includes(input.decide) &&
+    ["approval", "action"].includes(event.inbox?.type) &&
+    Number.isSafeInteger(input.revision) &&
+    input.revision >= 0
+  ) {
+    event.decide = input.decide;
+    event.revision = input.revision;
+  }
   return event;
 }
 
@@ -157,9 +176,12 @@ const messageKeys = [
   "subject",
   "label",
   "tool",
+  "toolName",
   "project",
   "stage",
   "preview",
+  "decide",
+  "revision",
 ];
 
 /**
@@ -173,6 +195,13 @@ export function pushMessage(input) {
   if (!pushKinds.includes(payload?.kind) || payload.v !== 2)
     throw problem("Invalid notification kind.");
   pushId(payload.eventId);
+  if (
+    payload.decide !== undefined &&
+    (!decideModes.includes(payload.decide) ||
+      !Number.isSafeInteger(payload.revision) ||
+      !/^\/inbox\/(?:approval|action)\//.test(payload.link || ""))
+  )
+    throw problem("Invalid notification kind.");
   if (typeof payload.link !== "string" || !linkPattern.test(payload.link))
     throw problem("Invalid notification kind.");
   const text = JSON.stringify(payload);

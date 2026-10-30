@@ -179,15 +179,46 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     notificationCopy().then(async (catalog) => {
       const { title, body } = notices.render(payload, catalog);
-      const options = notices.options(payload);
+      const options = notices.options(payload, catalog);
       await closeGroup(options.data.group);
       await updateBadge(notices.badgeCount(payload));
       return self.registration.showNotification(title, { ...options, body });
     }),
   );
 });
+// Allow or Deny on an approval: the page's signed-in session decides the exact item
+// and revision the push named (/api/notifications/decide checks it still waits). When
+// that fails, the inbox item opens so the owner sees why and decides there.
+async function decideFromNotice(decision, choice, target) {
+  try {
+    const response = await fetch("/api/notifications/decide", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: decision.type,
+        id: decision.id,
+        revision: decision.revision,
+        decision: choice,
+      }),
+    });
+    if (response.ok) return;
+  } catch {
+    // Offline or signed out: the inbox item explains.
+  }
+  await self.clients.openWindow(target);
+}
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
+  const decision = event.notification.data?.decision;
+  if (
+    decision &&
+    (event.action === "deny" || (event.action === "allow" && decision.allow))
+  ) {
+    const link = new URL(notices.target(event.notification.data), self.location.origin)
+      .href;
+    event.waitUntil(decideFromNotice(decision, event.action, link));
+    return;
+  }
   const target = new URL(
     notices.target(event.notification.data || {}),
     self.location.origin,

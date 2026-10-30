@@ -29,4 +29,7 @@ export const notifications = Object.freeze({
   publicHttpsRequired: "Push requires a public HTTPS endpoint.",
   invalidPublicKey: "Invalid push public key.",
   invalidPreferences: "Invalid notification settings.",
+  invalidDecision: "Invalid decision from a notification.",
+  decisionStale:
+    "This request no longer waits as the notification showed it. Open AgentPier to decide.",
 });

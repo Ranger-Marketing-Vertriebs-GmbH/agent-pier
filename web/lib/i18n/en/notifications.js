@@ -10,7 +10,7 @@ export const notificationCopy = {
     "Only a public notice appears offline. Sessions, chats, API responses and credentials are not stored for offline use.",
   pushTitle: "Notifications on this device",
   pushPrivacy:
-    "You choose per device what notifications show. They never contain commands, paths, links or secrets. A notification opens the relevant view; it does not approve any action.",
+    "You choose per device what notifications show. They never contain commands, paths, links or secrets. A notification opens the relevant view. Where the device shows buttons, an approval offers Allow once and Deny; nothing is ever allowed permanently from a notification.",
   unsupported:
     "This browser does not support push notifications here. A secure HTTPS connection or localhost and a supported browser are required.",
   denied:
@@ -61,7 +61,7 @@ export const notificationCopy = {
     },
     label: {
       label: "With names",
-      sub: "Session, agent or pipeline name, CLI and project. No content.",
+      sub: "Session, agent or pipeline name, CLI, project and the tool an approval asks for. No content. New devices start here.",
     },
     preview: {
       label: "With preview",
@@ -104,10 +104,6 @@ export const notificationCopy = {
     "Questions, approvals and gates that wait for you arrive during quiet hours too.",
   visibleNote:
     "Nothing is sent while the inbox or the same session, agent chat or run is open on one of your devices.",
-  labelOffer: "Show names in notifications?",
-  labelOfferSub:
-    "Session, agent and pipeline names appear on this device's lock screen. Content stays private.",
-  labelOfferAccept: "Show names",
   // A restricted user's devices: only her agents' approvals, check-ins and routines.
   user: {
     approval: "Agent approval",
@@ -121,10 +117,7 @@ export const notificationCopy = {
     blockingThroughSub: "Approvals that wait for you arrive during quiet hours too.",
     visibleNote:
       "Nothing is sent while the same agent chat is open on one of your devices.",
-    labelOfferSub:
-      "Agent names appear on this device's lock screen. Content stays private.",
   },
-  labelOfferDismiss: "Not now",
   lastAttemptFailed: (time) => `Last delivery failed (${time})`,
   // The start page's and the inbox's warning (PushHealthNotice.jsx).
   health: {

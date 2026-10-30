@@ -91,6 +91,14 @@ export function safePreview(value) {
   return clip(text, previewLimit);
 }
 
+// A CLI tool's name ("Bash", "Edit", "mcp__github__create_issue"): an identifier only,
+// never a command or its arguments.
+const toolNamePattern = /^[A-Za-z][A-Za-z0-9_.:-]{0,63}$/;
+export const safeToolName = (value) =>
+  typeof value === "string" && toolNamePattern.test(value) && !looksSensitive(value)
+    ? value
+    : null;
+
 const segment = (value) => encodeURIComponent(value);
 
 /** The page a tap opens: the inbox item, or the exact session, chat or run. */
@@ -145,18 +153,26 @@ export function buildPayload(event, preferences, { count } = {}) {
   // A replacement that still waits for the owner alerts again; others replace quietly.
   if (grouped && blockingKinds.has(event.kind)) payload.renotify = true;
   if (Number.isSafeInteger(count) && count >= 0) payload.count = Math.min(count, 999);
+  // Allow and Deny reveal nothing about the item, so every level may offer them.
+  if (event.decide) {
+    payload.decide = event.decide;
+    payload.revision = event.revision;
+  }
   if (preferences.level !== "type") {
     if (event.subject) payload.subject = event.subject;
     for (const key of ["label", "tool", "project", "stage"]) {
       const value = safeLabel(event[key]);
       if (value) payload[key] = value;
     }
+    // A CLI approval names the tool that asks (never its input).
+    const toolName = event.kind === "permission" && safeToolName(event.toolName);
+    if (toolName) payload.toolName = toolName;
   }
   if (preferences.level === "preview" && previewAllowed(event)) {
     const preview = safePreview(event.preview);
     if (preview) payload.preview = preview;
   }
-  for (const key of ["preview", "stage", "project", "tool", "label"]) {
+  for (const key of ["preview", "stage", "project", "tool", "toolName", "label"]) {
     if (bytes(payload) <= payloadBudget) break;
     delete payload[key];
   }
