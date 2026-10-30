@@ -1,5 +1,6 @@
 import { agentNotice } from "./push-notices.js";
 import { approvalAudience } from "../features/users/approval-audience.js";
+import { actionDecisions, decideMode } from "./push-decisions.js";
 
 // Which approval an agent action asks for, as the push names it.
 const subjects = {
@@ -38,6 +39,9 @@ export class AgentApprovalEvents {
       if (!subject) continue;
       // A user's approval goes to her devices only, never into the owner's inbox.
       const audience = approvalAudience(action, assistants.store);
+      // Allow and Deny only on the owner's own items (users decide in their app).
+      const decide =
+        audience.kind === "user" ? undefined : decideMode(actionDecisions(action));
       items.push({
         key: `action:${action.id}`,
         notice: {
@@ -48,6 +52,9 @@ export class AgentApprovalEvents {
           ...(audience.kind === "user"
             ? { audience }
             : { inbox: { type: "action", id: action.id } }),
+          ...(decide && Number.isSafeInteger(action.revision)
+            ? { decide, revision: action.revision }
+            : {}),
         },
       });
     }

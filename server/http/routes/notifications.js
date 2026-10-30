@@ -1,5 +1,6 @@
 import { Router } from "express";
-export function notificationsRoutes({ notifications, audit }) {
+import { decideFromPush } from "../../application/push-decisions.js";
+export function notificationsRoutes({ notifications, audit, requests, assistants }) {
   const router = Router();
   const record = (action, id, outcome = "success") =>
     audit.append({
@@ -37,6 +38,10 @@ export function notificationsRoutes({ notifications, audit }) {
     notifications.reportPresence(req.body?.route);
     res.status(204).end();
   });
+  // Allow or Deny on an approval notification (public/sw.js); the owner's items only.
+  router.post("/notifications/decide", async (req, res) =>
+    res.json(await decideFromPush({ requests, assistants }, req.body)),
+  );
   router.post("/notifications/test", async (req, res) => {
     const result = await notifications.test(req.body?.subscriptionId);
     record(

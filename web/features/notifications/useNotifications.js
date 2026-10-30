@@ -30,9 +30,7 @@ export default function useNotifications(base = "/notifications") {
   const [label, setLabel] = useState(derivedName),
     [message, setMessage] = useState(""),
     // Where the last action's error belongs: "device", "test" or a subscription id.
-    [scope, setScope] = useState(null),
-    // After enabling a new device: the offer to show names (never a forced change).
-    [offer, setOffer] = useState(false);
+    [scope, setScope] = useState(null);
   const supported =
     globalThis.isSecureContext &&
     "Notification" in window &&
@@ -89,7 +87,6 @@ export default function useNotifications(base = "/notifications") {
         });
       subscriptionGeneration.current++;
       setSubscription(current);
-      const known = Boolean(own);
       const result = await api(`${base}/subscriptions`, "POST", {
         deviceId,
         label: label.trim() || derivedName,
@@ -101,7 +98,6 @@ export default function useNotifications(base = "/notifications") {
         pushPerson() || (base === "/notifications" ? "owner" : null),
         deviceId,
       );
-      if (!known && result.subscription.preferences?.level === "type") setOffer(true);
       updateSubscriptions([
         ...(resource.data.subscriptions || []).filter(
           (item) => item.deviceId !== deviceId,
@@ -126,15 +122,9 @@ export default function useNotifications(base = "/notifications") {
     replace(result.subscription);
     return result.subscription;
   };
-  const acceptOffer = () =>
-    run("offer", async () => {
-      await savePreferences(own, { level: "label" });
-      setOffer(false);
-    });
   const remove = (entry = own) =>
     run(!entry || entry.deviceId === deviceId ? "device" : entry.id, async () => {
       setMessage("");
-      setOffer(false);
       if (entry) {
         await api(`${base}/subscriptions/${encodeURIComponent(entry.id)}`, "DELETE");
         updateSubscriptions(
@@ -185,9 +175,6 @@ export default function useNotifications(base = "/notifications") {
     enable,
     remove,
     test,
-    offer: Boolean(offer && own && own.preferences?.level === "type"),
-    acceptOffer,
-    dismissOffer: () => setOffer(false),
     savePreferences,
     timeZone: timeZone(),
     // A restricted user's own devices (/me/notifications): only her agents' notices.

@@ -73,6 +73,14 @@ export function defaultPreferences(timeZone = null) {
 }
 
 /**
+ * A newly registered device shows names (session, agent, run, CLI tool) but no
+ * content; a device stored without a level keeps "type" (normalizePreferences).
+ */
+export function newDevicePreferences(timeZone = null) {
+  return { ...defaultPreferences(timeZone), level: "label" };
+}
+
+/**
  * Stored preferences in the current shape. A device registered before preferences
  * existed, or one stored by an older version, gets the defaults for everything it
  * lacks; unknown fields are dropped.

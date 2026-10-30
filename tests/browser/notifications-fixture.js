@@ -1,6 +1,6 @@
 import { operationsFixture } from "./operations-fixture.js";
 import {
-  defaultPreferences,
+  newDevicePreferences,
   normalizePreferences,
   updatePreferences,
 } from "../../server/features/notifications/push-preferences.js";
@@ -123,8 +123,8 @@ export async function notifications(
         deviceId: body.deviceId,
         label: body.label,
         createdAt: existing?.createdAt || "2026-09-07T12:00:00Z",
-        // As on the server: a new device starts at the event type only.
-        preferences: existing?.preferences || defaultPreferences(body.timeZone),
+        // As on the server: a new device starts with names.
+        preferences: existing?.preferences || newDevicePreferences(body.timeZone),
       };
       state.subscriptions = [
         ...state.subscriptions.filter((entry) => entry.deviceId !== body.deviceId),

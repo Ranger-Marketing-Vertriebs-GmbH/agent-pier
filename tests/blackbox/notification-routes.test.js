@@ -68,3 +68,14 @@ test("notification HTTP registration survives restart, checks origins and audits
   assert.equal(health.application, "agentpier");
   assert.ok(health.instanceId);
 });
+
+test("a decision from a notification needs the origin, a valid body and a waiting item", async (t) => {
+  const f = await applicationFixture(t);
+  const body = { type: "approval", id: "missing", revision: 0, decision: "allow" };
+  const decide = (input, options = {}) =>
+    f.request("/api/notifications/decide", { method: "POST", body: input, ...options });
+  assert.equal((await decide(body, { origin: "https://foreign.example" })).status, 403);
+  assert.equal((await decide({ ...body, decision: "always" })).status, 400);
+  assert.equal((await decide(body)).status, 409);
+  assert.equal((await decide({ ...body, type: "action" })).status, 409);
+});

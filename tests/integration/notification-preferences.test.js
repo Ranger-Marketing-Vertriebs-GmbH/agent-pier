@@ -64,16 +64,16 @@ const question = (eventId, extra = {}) => ({
   ...extra,
 });
 
-test("devices start at the event type only, keep their choices and store their time zone", async (t) => {
+test("new devices start with names, keep their choices and store their time zone", async (t) => {
   const f = await fixture(t);
   const device = await f.add("phone", { timeZone: "Europe/Berlin" });
-  assert.equal(device.preferences.level, "type");
+  assert.equal(device.preferences.level, "label");
   assert.equal(device.preferences.timeZone, "Europe/Berlin");
-  await f.service.setPreferences(device.id, { level: "label" });
+  await f.service.setPreferences(device.id, { level: "type" });
   // Renewing the push subscription (or renaming) keeps the preferences.
   await f.add("phone");
   const [stored] = f.service.status().subscriptions;
-  assert.equal(stored.preferences.level, "label");
+  assert.equal(stored.preferences.level, "type");
   assert.equal(stored.preferences.timeZone, "Europe/Berlin");
   await assert.rejects(f.service.setPreferences(device.id, { level: "everything" }));
   await assert.rejects(f.service.setPreferences("missing", { level: "type" }), {

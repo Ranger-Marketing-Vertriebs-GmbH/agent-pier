@@ -97,34 +97,6 @@
   flex-wrap: wrap;
   gap: var(--space-2);
 }
-.notification-offer {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-3);
-  padding: var(--space-3) var(--space-3) var(--space-3) 14px;
-  background: var(--surface-accent);
-  border-top: 1px solid var(--accent-line);
-}
-.notification-offer-text {
-  display: grid;
-  flex: 1 1 260px;
-  gap: var(--space-1);
-  min-width: 0;
-  font-size: var(--font-size-md);
-  line-height: 1.45;
-  color: var(--muted);
-}
-.notification-offer-title {
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text);
-}
-.notification-offer-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
 .notification-preferences .dialog-body > .group-label:not(:first-child),
 .notification-event-group + .group-label {
   margin-top: var(--space-4);
@@ -150,8 +122,7 @@
   color: var(--text-meta);
 }
 @media (max-width: 700px) {
-  .notification-device .button,
-  .notification-offer-actions .button {
+  .notification-device .button {
     flex: 1 1 auto;
   }
 }

@@ -103,4 +103,8 @@ self.agentPierNotificationCopyEn = {
     opencode: "OpenCode",
   },
   quote: (text) => `“${text}”`,
+  // A CLI approval at "with names": the tool that asks.
+  toolRequest: (name) => `A session wants to use ${name}.`,
+  // Buttons on an approval where the platform shows them; never "always".
+  actions: { allow: "Allow once", deny: "Deny" },
 };

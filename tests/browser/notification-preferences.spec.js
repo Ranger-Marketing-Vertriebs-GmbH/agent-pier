@@ -102,29 +102,14 @@ for (const size of ["desktop", "phone"])
     expect(state.subscriptions[0].preferences.level).toBe("preview");
   });
 
-test("enabling a new device offers names on its lock screen without forcing them", async ({
-  page,
-}) => {
+test("a new device starts with names and asks nothing more", async ({ page }) => {
   const state = await open(page, "phone", { subscribed: false });
   await page.getByRole("switch", { name: "Notifications", exact: true }).click();
-  const offer = page.getByRole("group", { name: "Show names in notifications?" });
-  await expect(offer).toBeVisible();
-  expect(state.subscriptions[0].preferences.level).toBe("type");
-  expect(await noHorizontalScroll(page)).toBe(true);
-  await offer.getByRole("button", { name: "Show names", exact: true }).click();
-  await expect(offer).toHaveCount(0);
-  expect(state.calls.find((call) => call.method === "PUT").body).toMatchObject({
-    level: "label",
-  });
+  await expect(page.getByText("Enabled on this device.", { exact: true })).toBeVisible();
   expect(state.subscriptions[0].preferences.level).toBe("label");
-});
-
-test("the offer can be dismissed and leaves the event type only", async ({ page }) => {
-  const state = await open(page, "desktop", { subscribed: false });
-  await page.getByRole("switch", { name: "Notifications", exact: true }).click();
-  const offer = page.getByRole("group", { name: "Show names in notifications?" });
-  await offer.getByRole("button", { name: "Not now", exact: true }).click();
-  await expect(offer).toHaveCount(0);
   expect(state.calls.filter((call) => call.method === "PUT")).toHaveLength(0);
-  expect(state.subscriptions[0].preferences.level).toBe("type");
+  await expect(page.getByRole("group", { name: /names in notifications/ })).toHaveCount(
+    0,
+  );
+  expect(await noHorizontalScroll(page)).toBe(true);
 });

@@ -1,6 +1,6 @@
 // Every owner decision on an assistant proposal leaves one audit record naming who
 // decided, through which surface, on which proposal and revision.
-const channels = { telegram: "telegram", mcp: "mcp", tool: "tool" };
+const channels = { telegram: "telegram", mcp: "mcp", tool: "tool", push: "push" };
 export function approvalOrigin(origin) {
   const channel = channels[origin?.channel] || channels[origin?.kind] || "ui";
   const actor =

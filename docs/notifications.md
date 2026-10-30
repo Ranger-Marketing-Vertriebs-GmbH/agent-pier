@@ -94,15 +94,17 @@ she changed it on.
 Each device has its own **Detail level**. The server applies it, so a device never
 receives more than its level allows:
 
-| Level               | Shows                                                                                                                                                         |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Event type only** | What happened, for example "Question: A session is waiting for your answer". Meant for shared devices. New and existing devices start here.                   |
-| **With names**      | Also the session, agent or pipeline name, the CLI, the pipeline stage and the project folder's name, for example "api-refactor · Question" and "Claude Code". |
-| **With preview**    | Also up to 140 characters of a question, the start of a reply, an agent check-in or a team proposal's goal.                                                   |
+| Level               | Shows                                                                                                                                                                                                                                            |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Event type only** | What happened, for example "Question: A session is waiting for your answer". Meant for shared devices. Devices registered earlier keep their level.                                                                                              |
+| **With names**      | Also the session, agent or pipeline name, the CLI, the pipeline stage, the project folder's name and the tool a CLI approval asks for, for example "api-refactor · Approval required" and "A session wants to use Bash." New devices start here. |
+| **With preview**    | Also up to 140 characters of a question, the start of a reply, an agent check-in or a team proposal's goal.                                                                                                                                      |
 
-When you enable notifications on a new device, the page offers **Show names in
-notifications?**; **Show names** switches that device to **With names**, **Not now**
-keeps **Event type only**.
+A new device starts at **With names**; choose **Event type only** in its **Settings**
+for a device others can see. An agent approval names what waits (for example **SSH
+command**, **SFTP transfer** or **Email to send**); a CLI approval names its tool (for
+example `Bash`, `Edit` or Codex's `shell`), never the command, its arguments or a
+path.
 
 Notifications never contain commands, arguments, file paths, working directories,
 URLs, tokens or other secrets, at any level. Approvals (of a CLI or an agent, including
@@ -111,8 +113,30 @@ preview or name that looks like a command, a path, a URL or a secret is not show
 all. The server sends only data (kind, names, preview, link, grouping tag, inbox
 count) of at most 1 KB; the app words it in your interface language.
 
-A notification has no action buttons. Opening it opens the matching view; it never
-approves anything. Items that wait in the [inbox](inbox.md) open at their inbox address
+### Allow once and Deny
+
+Where the platform shows notification buttons (Chrome and Edge on desktop and Android),
+an approval offers **Allow once** and **Deny** at every detail level:
+
+- A CLI approval offers both when the CLI has a once-only choice, and only **Deny**
+  otherwise (a Codex permission request grants for the whole turn). Plans, folder trust
+  and startup prompts offer no buttons.
+- An agent's coding task or coding session start, memory entry and team member
+  permission offer both. A shell, SSH or SFTP command and an email to send offer only
+  **Deny**, because the notification never shows what would run or be sent. Hook and
+  SSH access proposals, team proposals and a user's own approvals offer no buttons.
+- Nothing is ever allowed permanently, for a session or for a turn from a notification:
+  **Always allow** and similar choices exist only in AgentPier.
+
+The button sends the decision with the browser's signed-in session. The notification
+names the exact inbox item and its revision, and the server decides only while that
+item still waits unchanged; otherwise, or when the device is offline or signed out, the
+inbox item opens instead. Decisions on agent approvals appear in the audit log with the
+channel `push`. iPhone and iPad show no buttons: tapping opens the inbox item.
+
+### Opening a notification
+
+Opening a notification opens the matching view. Items that wait in the [inbox](inbox.md) open at their inbox address
 (`/inbox/<type>/<id>`), which shows **Already done** once they were answered elsewhere;
 everything else opens the exact session chat, agent chat or pipeline run. An agent
 notice opens the chat that produced it; check-ins, routine and reminder results open

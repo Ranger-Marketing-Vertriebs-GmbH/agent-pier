@@ -29,5 +29,8 @@ export const notifications = Object.freeze({
   invalidEndpoint: "Ungültiger Push-Endpunkt.",
   publicHttpsRequired: "Push erfordert einen öffentlichen HTTPS-Endpunkt.",
   invalidPublicKey: "Ungültiger öffentlicher Push-Schlüssel.",
+  invalidDecision: "Ungültige Entscheidung aus einer Benachrichtigung.",
+  decisionStale:
+    "Diese Anfrage wartet nicht mehr so, wie die Benachrichtigung sie zeigte. Öffne AgentPier, um zu entscheiden.",
   invalidPreferences: "Ungültige Einstellungen für Benachrichtigungen.",
 });
