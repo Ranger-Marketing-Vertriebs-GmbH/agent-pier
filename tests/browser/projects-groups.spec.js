@@ -267,3 +267,53 @@ test("a conflict with a lower version after a restore is adopted, the next save 
     assignments: { "/work/notes": "g_9" },
   });
 });
+
+test("a group change made elsewhere appears in the open page", async ({
+  page,
+  liveStub,
+}) => {
+  const { server } = await groupsFixture(page);
+  server.document = {
+    version: 1,
+    groups: [{ id: "g_1", name: "Clients" }],
+    assignments: {},
+  };
+  await page.goto(base + "/projects");
+  await expect(section(page, "Clients")).toBeVisible();
+  await liveStub.waitForSubscribe("project-groups.changed");
+  // Another tab adds a group and moves notes into it.
+  server.document = {
+    version: 2,
+    groups: [
+      { id: "g_1", name: "Clients" },
+      { id: "g_2", name: "Games" },
+    ],
+    assignments: { "/work/notes": "g_2" },
+  };
+  liveStub.changed("project-groups.changed");
+  await expect(section(page, "Games")).toHaveText(/Games\s*1/);
+  await expect(page.getByRole("alert")).toHaveCount(0);
+});
+
+test("until the groups have loaded the list offers no group sections or actions", async ({
+  page,
+}) => {
+  const { server } = await groupsFixture(page);
+  let release;
+  server.gate = new Promise((resolve) => (release = resolve));
+  server.document = {
+    version: 1,
+    groups: [{ id: "g_1", name: "Clients" }],
+    assignments: { "/work/notes": "g_1" },
+  };
+  await page.goto(base + "/projects");
+  const list = projectList(page);
+  await expect(list.getByRole("status").filter({ hasText: "Loading" })).toBeVisible();
+  await expect(list.locator(".project-section")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "New group" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Actions for notes" })).toHaveCount(0);
+  release();
+  await expect(section(page, "Clients")).toHaveText(/Clients\s*1/);
+  await expect(page.getByRole("button", { name: "Actions for notes" })).toBeVisible();
+  expect(server.puts).toEqual([]);
+});

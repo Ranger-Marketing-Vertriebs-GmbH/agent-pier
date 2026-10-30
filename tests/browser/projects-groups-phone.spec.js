@@ -97,6 +97,16 @@ test("the list scrolls below fixed tools; rows open the detail and back returns"
   await page.getByRole("button", { name: "All projects" }).click();
   await expect(page).toHaveURL(/\/projects$/);
   await expect(rowNames(page).first()).toHaveText("agent-pier");
+
+  // The search survives opening a result and coming back.
+  await search.fill("notes");
+  await expect(rowNames(page)).toHaveText(["notes"]);
+  await list.getByRole("button", { name: /^notes/ }).click();
+  await expect(page).toHaveURL(/\/projects\/m2$/);
+  await page.getByRole("button", { name: "All projects" }).click();
+  await expect(page).toHaveURL(/\/projects$/);
+  await expect(search).toHaveValue("notes");
+  await expect(rowNames(page)).toHaveText(["notes"]);
 });
 
 test("the project sheet moves, removes and creates a group", async ({ page }) => {

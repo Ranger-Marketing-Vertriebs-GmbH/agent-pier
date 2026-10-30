@@ -8,7 +8,7 @@ import { hintCount, remoteShort } from "./project-presentation.js";
 
 // A project row: name over `owner/repo` or "Local only", attention hints, "● Running"
 // while a session runs, and the ⋯ menu beside the row's own button (`menuSheet` turns
-// it into a sheet on phones). On desktop the row's button also starts a drag
+// it into a sheet on phones; none without `menuItems`). On desktop the row's button also starts a drag
 // (`onPress`, useProjectDrag.js).
 export default function ProjectListItem({
   item,
@@ -54,13 +54,15 @@ export default function ProjectListItem({
           </span>
         )}
       </button>
-      <ProjectMenuButton
-        className="project-row-more"
-        data-project-path={item.path}
-        label={groupsCopy.projectActions(item.name)}
-        items={menuItems}
-        sheet={menuSheet}
-      />
+      {menuItems && (
+        <ProjectMenuButton
+          className="project-row-more"
+          data-project-path={item.path}
+          label={groupsCopy.projectActions(item.name)}
+          items={menuItems}
+          sheet={menuSheet}
+        />
+      )}
     </div>
   );
 }

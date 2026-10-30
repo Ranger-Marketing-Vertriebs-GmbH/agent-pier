@@ -251,7 +251,7 @@ export default function ProjectDetail({
             {chips}
           </>
         }
-        actions={menu}
+        actions={groups.loading ? null : menu}
         tabs={tabRow}
         bar={<div className="project-launch-bar">{actions}</div>}
       >

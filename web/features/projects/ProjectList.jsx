@@ -30,7 +30,10 @@ const sectionTitle = (section) =>
  * (groups, origins or one flat list) in their own scroll container. `groups` is
  * useProjectGroups(); `isRunning(project)` says whether one of its sessions runs.
  * Phones open the ⋯ menus as sheets; a project's sheet also offers
- * `onMerge(project, trigger)` while an older entry of its folder exists.
+ * `onMerge(project, trigger)` while an older entry of its folder exists. The search
+ * `query` lives in the page so it survives the phone detail page and breakpoints.
+ * Until the groups document has loaded, the groups view shows a loading status and
+ * rows offer no menu: actions would edit an empty document.
  */
 export default function ProjectList({
   projects,
@@ -40,10 +43,11 @@ export default function ProjectList({
   attentionFor,
   isRunning,
   onMerge,
+  query,
+  onQueryChange,
 }) {
   const phone = useMobileLayout();
   const prefs = useProjectListPrefs();
-  const [query, setQuery] = useState("");
   // While the name field is open: `{ path }` of a project to move into the new group
   // ("" from the new-group button) and the control to focus again afterwards.
   const [creating, setCreating] = useState(null);
@@ -52,16 +56,20 @@ export default function ProjectList({
   const [deleting, setDeleting] = useState(null);
   const groupFocus = useRef(null);
   const { document } = groups;
+  const groupsReady = !groups.loading;
+  const waiting = !groupsReady && prefs.view === "groups";
   const searching = query.trim() !== "";
   const scroller = useRef(null);
-  // Drag and drop: a fine pointer, view "Groups", no search (rows may be hidden then).
+  // Drag and drop: a fine pointer outside the phone layout, view "Groups", no search
+  // (rows may be hidden then), once the groups have loaded.
   const finePointer = useMediaQuery("(pointer: fine)");
   // Drops are announced once saved; the count makes a repeated message differ, so it
   // is announced again (a trailing no-break space alternates).
   const [announcement, setAnnouncement] = useState({ text: "", count: 0 });
   const announce = (text) => setAnnouncement((last) => ({ text, count: last.count + 1 }));
   const { drag, press } = useProjectDrag({
-    enabled: finePointer && prefs.view === "groups" && !searching,
+    enabled:
+      finePointer && !phone && groupsReady && prefs.view === "groups" && !searching,
     scroller,
     onOpen: (key) => prefs.isCollapsed(key) && prefs.toggleSection(key),
     onDrop: async (source, target) => {
@@ -169,7 +177,7 @@ export default function ProjectList({
             maxLength={200}
             placeholder={copy.searchPlaceholder}
             aria-label={copy.searchLabel}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => onQueryChange(event.target.value)}
           />
         </label>
         <div className="project-view-row">
@@ -182,7 +190,7 @@ export default function ProjectList({
             value={prefs.view}
             onChange={prefs.setView}
           />
-          {prefs.view === "groups" && (
+          {prefs.view === "groups" && groupsReady && (
             <button
               type="button"
               className="icon-button project-new-group"
@@ -207,91 +215,105 @@ export default function ProjectList({
             onCancel={closeCreate}
           />
         )}
-        {sections.map((section) => (
-          <ProjectListSection
-            key={section.key}
-            section={section}
-            title={sectionTitle(section)}
-            open={searching || !prefs.isCollapsed(section.key)}
-            onToggle={() => prefs.toggleSection(section.key)}
-            onPress={
-              press && section.kind === "group"
-                ? press({ type: "group", groupId: section.groupId, name: section.title })
-                : undefined
-            }
-            dragging={dragged?.type === "group" && dragged.groupId === section.groupId}
-            dropTarget={target?.type === "assign" && target.key === section.key}
-            insert={section.kind === "group" ? insertLine(section.groupId) : ""}
-            editor={
-              renaming && renaming === section.groupId ? (
-                <ProjectGroupNameRow
-                  initialName={section.title}
-                  submitLabel={commonCopy.save}
-                  validate={(name) => nameProblem(name, section.groupId)}
-                  onSubmit={async (name) => {
-                    await groups.renameGroup(section.groupId, name);
-                    closeRename(section.groupId);
-                  }}
-                  onCancel={() => closeRename(section.groupId)}
-                />
-              ) : null
-            }
-            actions={
-              section.kind === "group" ? (
-                <ProjectGroupMenu
-                  group={{ id: section.groupId, name: section.title }}
-                  first={section.groupId === document.groups[0]?.id}
-                  last={section.groupId === document.groups.at(-1)?.id}
-                  phone={phone}
-                  onRename={() => setRenaming(section.groupId)}
-                  onMove={(offset) =>
-                    groups.moveGroupTo(
-                      section.groupId,
-                      document.groups.findIndex((g) => g.id === section.groupId) + offset,
-                    )
-                  }
-                  onDelete={() =>
-                    startDelete({ id: section.groupId, name: section.title })
-                  }
-                />
-              ) : null
-            }
-          >
-            {section.projects.map((item) => {
-              const current = groups.groupOf(item.path);
-              return (
-                <ProjectListItem
-                  key={item.id}
-                  item={item}
-                  attention={attentionFor(item)}
-                  running={isRunning(item)}
-                  selected={item.id === selectedId}
-                  onSelect={onSelect}
-                  onPress={press?.({
-                    type: "project",
-                    path: item.path,
-                    name: item.name,
-                    groupId: current?.id ?? null,
-                  })}
-                  dragging={dragged?.type === "project" && dragged.path === item.path}
-                  menuItems={projectMenuItems({
-                    groups: document.groups,
-                    current,
-                    onMove: (groupId) => groups.moveProject(item.path, groupId),
-                    onNewGroup: (opener) => setCreating({ path: item.path, opener }),
-                    onRemove: () => groups.removeProject(item.path),
-                    onMerge:
-                      phone && item.olderDuplicates?.length
-                        ? (trigger) => onMerge(item, trigger)
-                        : undefined,
-                  })}
-                  menuSheet={phone ? projectMenuSheet(item, current) : null}
-                />
-              );
-            })}
-          </ProjectListSection>
-        ))}
-        {searching && !sections.length && (
+        {waiting && (
+          <p role="status" className="loading">
+            {hubCopy.loading}
+          </p>
+        )}
+        {!waiting &&
+          sections.map((section) => (
+            <ProjectListSection
+              key={section.key}
+              section={section}
+              title={sectionTitle(section)}
+              open={searching || !prefs.isCollapsed(section.key)}
+              onToggle={() => prefs.toggleSection(section.key)}
+              onPress={
+                press && section.kind === "group"
+                  ? press({
+                      type: "group",
+                      groupId: section.groupId,
+                      name: section.title,
+                    })
+                  : undefined
+              }
+              dragging={dragged?.type === "group" && dragged.groupId === section.groupId}
+              dropTarget={target?.type === "assign" && target.key === section.key}
+              insert={section.kind === "group" ? insertLine(section.groupId) : ""}
+              editor={
+                renaming && renaming === section.groupId ? (
+                  <ProjectGroupNameRow
+                    initialName={section.title}
+                    submitLabel={commonCopy.save}
+                    validate={(name) => nameProblem(name, section.groupId)}
+                    onSubmit={async (name) => {
+                      await groups.renameGroup(section.groupId, name);
+                      closeRename(section.groupId);
+                    }}
+                    onCancel={() => closeRename(section.groupId)}
+                  />
+                ) : null
+              }
+              actions={
+                section.kind === "group" ? (
+                  <ProjectGroupMenu
+                    group={{ id: section.groupId, name: section.title }}
+                    first={section.groupId === document.groups[0]?.id}
+                    last={section.groupId === document.groups.at(-1)?.id}
+                    phone={phone}
+                    onRename={() => setRenaming(section.groupId)}
+                    onMove={(offset) =>
+                      groups.moveGroupTo(
+                        section.groupId,
+                        document.groups.findIndex((g) => g.id === section.groupId) +
+                          offset,
+                      )
+                    }
+                    onDelete={() =>
+                      startDelete({ id: section.groupId, name: section.title })
+                    }
+                  />
+                ) : null
+              }
+            >
+              {section.projects.map((item) => {
+                const current = groups.groupOf(item.path);
+                return (
+                  <ProjectListItem
+                    key={item.id}
+                    item={item}
+                    attention={attentionFor(item)}
+                    running={isRunning(item)}
+                    selected={item.id === selectedId}
+                    onSelect={onSelect}
+                    onPress={press?.({
+                      type: "project",
+                      path: item.path,
+                      name: item.name,
+                      groupId: current?.id ?? null,
+                    })}
+                    dragging={dragged?.type === "project" && dragged.path === item.path}
+                    menuItems={
+                      groupsReady &&
+                      projectMenuItems({
+                        groups: document.groups,
+                        current,
+                        onMove: (groupId) => groups.moveProject(item.path, groupId),
+                        onNewGroup: (opener) => setCreating({ path: item.path, opener }),
+                        onRemove: () => groups.removeProject(item.path),
+                        onMerge:
+                          phone && item.olderDuplicates?.length
+                            ? (trigger) => onMerge(item, trigger)
+                            : undefined,
+                      })
+                    }
+                    menuSheet={phone ? projectMenuSheet(item, current) : null}
+                  />
+                );
+              })}
+            </ProjectListSection>
+          ))}
+        {searching && !waiting && !sections.length && (
           <p className="project-no-matches">{copy.noMatches(query.trim())}</p>
         )}
       </div>
