@@ -89,7 +89,7 @@ export default function useProjectDrag({ enabled, scroller, onOpen, onDrop }) {
       const tick = (now) => {
         const list = scroller.current;
         if (!list) return;
-        const step = autoScrollStep(point.y, list.getBoundingClientRect());
+        const step = autoScrollStep(point, list.getBoundingClientRect());
         if (step) list.scrollTop += step;
         const { rect, sections } = locate();
         const hit = source.type === "project" && sectionAt(sections, point.y);

@@ -95,10 +95,31 @@ test("a project dragged onto a group, its empty hint or No group moves there", a
   await expect(status).toHaveText("notes → No group");
 
   // Dropping on its own group does nothing.
-  const puts = server.puts.length;
+  let puts = server.puts.length;
   await dragTo(page, row(page, "notes"), section(page, "No group"));
   await expect(projectList(page).locator(".dragging")).toHaveCount(0);
   expect(server.puts).toHaveLength(puts);
+
+  // A refused drop is rolled back and not announced.
+  server.fail = true;
+  await dragTo(page, row(page, "notes"), section(page, "Games"));
+  await expect(page.getByRole("alert")).toHaveText("Refused by the server.");
+  await expect(area(page, "ungrouped").getByText("notes", { exact: true })).toBeVisible();
+  await expect(status).toHaveText("notes → No group");
+
+  // The same message again (after a menu move in between) is a new announcement.
+  await dragTo(page, row(page, "notes"), section(page, "Games"));
+  await expect(status).toHaveText("notes → Games");
+  const first = await status.textContent();
+  await page.getByRole("button", { name: "Actions for notes" }).click();
+  await page.getByRole("menuitem", { name: "Remove from group" }).click();
+  await expect(area(page, "ungrouped").getByText("notes", { exact: true })).toBeVisible();
+  puts = server.puts.length;
+  await dragTo(page, row(page, "notes"), section(page, "Games"));
+  // Announced again once saved: the text is the same, the region's content is new.
+  await expect.poll(() => status.textContent()).not.toBe(first);
+  expect(server.puts).toHaveLength(puts + 1);
+  await expect(status).toHaveText("notes → Games");
 });
 
 test("a group header dragged between groups moves there; No group stays last", async ({
@@ -119,6 +140,9 @@ test("a group header dragged between groups moves there; No group stays last", a
     "g_1",
     "g_2",
   ]);
+  await expect(projectList(page).getByRole("status")).toHaveText(
+    "Empty moved to position 1",
+  );
   // The click that ended the drag did not collapse the header.
   await expect(section(page, "Empty")).toHaveAttribute("aria-expanded", "true");
 
@@ -134,6 +158,9 @@ test("a group header dragged between groups moves there; No group stays last", a
     "g_2",
     "g_3",
   ]);
+  await expect(projectList(page).getByRole("status")).toHaveText(
+    "Empty moved to position 3",
+  );
 
   // "No group" is not draggable, and a group dropped on its own place saves nothing.
   const puts = server.puts.length;
@@ -195,7 +222,7 @@ test("a collapsed group opens when hovered during a drag", async ({ page }) => {
   await expect(area(page, "group:g_2").getByText("notes", { exact: true })).toBeVisible();
 });
 
-test("the list scrolls while a drag nears its bottom edge", async ({ page }) => {
+test("the list scrolls while a drag nears its bottom or top edge", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 600 });
   const projects = Array.from({ length: 30 }, (_, index) => ({
     id: `m${index + 10}`,
@@ -223,6 +250,18 @@ test("the list scrolls while a drag nears its bottom edge", async ({ page }) => 
   await expect
     .poll(() => scroller.evaluate((node) => node.scrollTop))
     .toBeGreaterThan(100);
+  // Beside the list nothing scrolls; at its top edge it scrolls back up.
+  const scrolled = await scroller.evaluate((node) => node.scrollTop);
+  await page.mouse.move(box.x + box.width + 40, box.y + box.height - 8, { steps: 2 });
+  await page.waitForTimeout(200);
+  const beside = await scroller.evaluate((node) => node.scrollTop);
+  expect(beside).toBeGreaterThanOrEqual(scrolled);
+  await page.waitForTimeout(200);
+  expect(await scroller.evaluate((node) => node.scrollTop)).toBe(beside);
+  await page.mouse.move(box.x + box.width / 2, box.y + 8, { steps: 4 });
+  await expect
+    .poll(() => scroller.evaluate((node) => node.scrollTop))
+    .toBeLessThan(beside - 100);
   await page.keyboard.press("Escape");
   await page.mouse.up();
   expect(server.puts).toHaveLength(0);

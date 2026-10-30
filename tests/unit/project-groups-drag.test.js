@@ -93,12 +93,17 @@ test("helpers: section lookup, target equality, auto-scroll speed", () => {
     false,
   );
 
-  assert.equal(autoScrollStep(300, list), 0);
-  assert.equal(autoScrollStep(140, list), 0);
-  assert.ok(autoScrollStep(130, list) < 0);
-  assert.ok(autoScrollStep(100, list) < autoScrollStep(130, list), "faster at the edge");
-  assert.equal(autoScrollStep(40, list), autoScrollStep(100, list), "capped");
-  assert.ok(autoScrollStep(480, list) > 0);
+  assert.equal(autoScrollStep(at(300), list), 0);
+  assert.equal(autoScrollStep(at(140), list), 0);
+  assert.ok(autoScrollStep(at(130), list) < 0);
+  assert.ok(
+    autoScrollStep(at(100), list) < autoScrollStep(at(130), list),
+    "faster at the edge",
+  );
+  assert.equal(autoScrollStep(at(40), list), autoScrollStep(at(100), list), "capped");
+  assert.ok(autoScrollStep(at(480), list) > 0);
+  assert.equal(autoScrollStep(at(480, 400), list), 0, "beside the list");
+  assert.equal(autoScrollStep(at(110, -1), list), 0, "beside the list");
 });
 
 test("withGroupAt moves a group to an absolute position", () => {

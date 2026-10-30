@@ -56,8 +56,12 @@ export function sameTarget(a, b) {
   return a.type === b.type && a.groupId === b.groupId && a.before === b.before;
 }
 
-/** Pixels to scroll the list this frame: negative near the top, positive near the bottom. */
-export function autoScrollStep(y, list) {
+/**
+ * Pixels to scroll the list this frame: negative near the top, positive near the
+ * bottom, 0 while the pointer is beside the list.
+ */
+export function autoScrollStep({ x, y }, list) {
+  if (x < list.left || x > list.right) return 0;
   const speed = (depth) =>
     Math.ceil((SCROLL_MAX * Math.min(depth, SCROLL_EDGE)) / SCROLL_EDGE);
   if (y < list.top + SCROLL_EDGE) return -speed(list.top + SCROLL_EDGE - y);
