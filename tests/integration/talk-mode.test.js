@@ -288,10 +288,10 @@ test("talk mode is the owner's: users and users' chats are refused", async (t) =
   const request = as(f, cookie);
   assert.equal((await request("/api/assistant-talk")).status, 404);
   assert.equal((await request("/api/assistant-speech/voice")).status, 404);
-  // Her dictation cannot be a talk turn.
-  const hers = open("some-talk-session-id", cookie);
-  await hers.closed;
-  assert.deepEqual(hers.messages, [{ type: "error", code: "talkUnavailable" }]);
+  // A user's dictation cannot be a talk turn.
+  const userTurn = open("some-talk-session-id", cookie);
+  await userTurn.closed;
+  assert.deepEqual(userTurn.messages, [{ type: "error", code: "talkUnavailable" }]);
   // The owner cannot talk in, or have read aloud, a user's chat.
   const agent = await userAgent(f, {
     mode: "shared",

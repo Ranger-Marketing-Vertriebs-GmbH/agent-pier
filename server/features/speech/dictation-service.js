@@ -95,7 +95,7 @@ export class DictationService {
   /**
    * Starts one dictation for login session `holder` of `principal` (the owner when
    * absent); `client` receives `{type, ...}` messages and is closed with a
-   * WebSocket close code. A user's newer dictation replaces her older one. `talk`
+   * WebSocket close code. A user's newer dictation replaces the user's older one. `talk`
    * names the owner's talk session (talk-sessions.js) the dictation is a turn of:
    * Deepgram then marks the end of each utterance, and the dictation ends with the
    * session at the latest.
