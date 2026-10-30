@@ -13,6 +13,13 @@ export const FLUSH_MS = 100;
 // Presence ops one socket may send per minute; the notification service limits the
 // person as the REST route does, this keeps one socket from flooding it.
 export const PRESENCE_PER_MINUTE = 60;
+// Sub and unsub frames one socket may send per minute (a token bucket that holds as
+// many and refills evenly). An unsub of the last subscriber drops the topic instance
+// and the next sub reads it again (a file topic also watches anew), so a client that
+// loops would churn without end. A page load or a view change sends a few dozen. An
+// unsub takes a token but is always honoured, since it only frees; a sub over the
+// limit is refused like a full socket (`error` with code `limit`).
+export const SUBS_PER_MINUTE = 600;
 // A longer route names no view (push-presence.js) and is ignored.
 export const MAX_ROUTE = 512;
 
@@ -52,6 +59,8 @@ export class LiveConnection {
   }) {
     Object.assign(this, { ws, hub, principal, timers, maxTopics, presence, now });
     this.presenceTimes = [];
+    this.subTokens = SUBS_PER_MINUTE;
+    this.subRefilledAt = this.now();
     // topic -> { unsubscribe }; a frame from a replaced entry is dropped.
     this.subscriptions = new Map();
     // topic -> the newest frame not yet written, while the reader is behind.
@@ -68,9 +77,29 @@ export class LiveConnection {
     if (!frame) return false;
     if (frame.op === "ping") this.reply({ type: "pong" });
     else if (frame.op === "presence") this.reportPresence(frame.route);
-    else if (frame.op === "unsub") this.unsubscribe(frame.topic);
-    else this.subscribe(frame.topic, frame.have);
+    else if (frame.op === "unsub") {
+      this.takeSubToken();
+      this.unsubscribe(frame.topic);
+    } else if (this.takeSubToken()) this.subscribe(frame.topic, frame.have);
+    else {
+      // The client takes a refused topic as not live and never unsubscribes it.
+      this.unsubscribe(frame.topic);
+      this.refuse(frame.topic);
+    }
     return true;
+  }
+  /** Takes one sub/unsub token; false when the bucket is empty. */
+  takeSubToken() {
+    const at = this.now();
+    const refill = ((at - this.subRefilledAt) * SUBS_PER_MINUTE) / 60000;
+    this.subTokens = Math.min(SUBS_PER_MINUTE, this.subTokens + Math.max(0, refill));
+    this.subRefilledAt = at;
+    if (this.subTokens < 1) return false;
+    this.subTokens -= 1;
+    return true;
+  }
+  refuse(topic) {
+    this.reply({ type: "error", topic: topic.slice(0, MAX_TOPIC_ID), code: "limit" });
   }
   /**
    * A visible tab names its view, as POST /notifications/presence does. The owner
@@ -90,10 +119,7 @@ export class LiveConnection {
   }
   subscribe(topic, have) {
     const held = this.subscriptions.get(topic);
-    if (!held && this.subscriptions.size >= this.maxTopics) {
-      this.reply({ type: "error", topic: topic.slice(0, MAX_TOPIC_ID), code: "limit" });
-      return;
-    }
+    if (!held && this.subscriptions.size >= this.maxTopics) return this.refuse(topic);
     // A frame queued for the earlier subscription answers what it held, not `have`.
     this.pending.delete(topic);
     const entry = { unsubscribe: () => {} };
