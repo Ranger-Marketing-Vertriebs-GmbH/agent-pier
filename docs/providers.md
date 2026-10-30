@@ -41,9 +41,25 @@ For central connections, provider identity is immutable. PATCH can rename the co
 
 ## Custom endpoints
 
-A custom endpoint connection points the CLIs at your own model server. Presets fill
-defaults for **Ollama** and **llama.cpp**; **Custom** covers any OpenAI- or
-Anthropic-compatible server such as LM Studio, vLLM, LiteLLM or Azure OpenAI.
+A custom endpoint connection points the CLIs at your own model server. Under
+**Connections › Model access › Add provider connection**, the **API provider** list
+offers **Ollama**, **llama.cpp** and **Azure OpenAI** as their own entries next to
+OpenRouter and Z.ai. Each opens the endpoint form with that **Server type** preset and
+its defaults:
+
+| API provider    | OpenAI-compatible base URL                              | Protocols                   | Auth header |
+| --------------- | ------------------------------------------------------- | --------------------------- | ----------- |
+| Ollama          | `http://127.0.0.1:11434/v1`                             | Messages, Responses, Chat   | —           |
+| llama.cpp       | `http://127.0.0.1:8080/v1`                              | Chat Completions            | —           |
+| Azure OpenAI    | pattern `https://<resource>.openai.azure.com/openai/v1` | Responses, Chat Completions | `api-key`   |
+| Custom endpoint | empty                                                   | Chat Completions            | —           |
+
+**Custom endpoint** covers LM Studio, vLLM, LiteLLM and any other OpenAI- or
+Anthropic-compatible server. A saved connection keeps its preset: the list and the
+session launcher name it **Ollama**, **llama.cpp** or **Azure OpenAI**; connections
+without a recorded preset, or created as Custom, show **Custom endpoint**. Through the
+API, `providerId` stays `endpoint` and `endpoint.preset` is `ollama`, `llamacpp`,
+`azure` or `custom`.
 
 ![Connection dialog with CLI routes](screenshots/endpoint-routing-desktop.png)
 
@@ -149,9 +165,10 @@ plus optional warnings. Paid endpoints may charge for the few tokens used.
   from their `-c`/`--ctx-size` launch argument when the router reports it, otherwise
   enter it yourself. A test never makes the router load a model. Model IDs that are file paths are
   skipped; start `llama-server` with `--alias` or add the model manually.
-- Azure OpenAI: use `https://<resource>.openai.azure.com/openai/v1` and add your
-  deployment names as models; the model list shows base models, not deployments. For
-  Azure OpenAI choose one of your deployments as test model.
+- Azure OpenAI: choose **Azure OpenAI** as API provider, replace `<resource>` in
+  `https://<resource>.openai.azure.com/openai/v1` and add your deployment names as
+  models; the model list shows base models, not deployments. Choose one of your
+  deployments as test model.
 
 Model changes inside a running endpoint session require a reload.
 

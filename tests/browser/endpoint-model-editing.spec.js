@@ -13,7 +13,9 @@ async function openEndpointDialog(page) {
     .click();
   const dialog = accountDetail(page);
   await dialog.getByLabel("Connection name", { exact: true }).fill("GPU box");
-  await dialog.getByLabel("API provider", { exact: true }).selectOption("endpoint");
+  await dialog
+    .getByLabel("API provider", { exact: true })
+    .selectOption("endpoint:ollama");
   return dialog;
 }
 

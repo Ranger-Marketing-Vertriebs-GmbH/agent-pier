@@ -23,10 +23,34 @@ import { connectionSaveStep, connectionValues } from "./connection-save.js";
 import {
   initialEndpoint,
   keyReentryRequired,
+  LISTED_PRESETS,
   modelsInvalid,
+  parseProviderChoice,
+  providerChoice,
   withoutTest,
 } from "./endpoint-draft.js";
+import { connectionProviderName } from "./provider-name.js";
 import "./connections.css";
+
+/**
+ * The API provider choices: Ollama, llama.cpp and Azure OpenAI are listed as their own
+ * entries before "Custom endpoint", which opens the endpoint form with that preset.
+ */
+const providerOptions = (providers) =>
+  providers.flatMap((provider) => {
+    const option = {
+      value: provider.id,
+      label: copy.providerNames[provider.id] || provider.name,
+    };
+    if (provider.id !== "endpoint") return [option];
+    return [
+      ...LISTED_PRESETS.map((preset) => ({
+        value: `endpoint:${preset}`,
+        label: copy.endpoint.presets[preset],
+      })),
+      option,
+    ];
+  });
 
 /** One central provider connection: create (item=new) or edit, use, delete. */
 export default function ConnectionDetail({
@@ -96,7 +120,7 @@ export default function ConnectionDetail({
       ? [
           {
             id: connection.providerId,
-            name: copy.providerNames[connection.providerId] || connection.providerId,
+            name: connectionProviderName(connection),
           },
         ]
       : []);
@@ -152,23 +176,21 @@ export default function ConnectionDetail({
             <FieldRow label={copy.provider}>
               <AnchoredSelect
                 label={copy.provider}
-                value={values.providerId}
+                value={providerChoice(values.providerId, values.endpoint)}
                 disabled={Boolean(connection) || providers.loading}
                 required
                 onChange={(value) => {
+                  const { providerId, preset } = parseProviderChoice(value);
                   draft.update({
-                    providerId: value,
+                    providerId,
                     responsesAccess: false,
                     apiKey: "",
-                    endpoint: initialEndpoint(null),
+                    endpoint: initialEndpoint(null, preset),
                   });
                   setProbeModel("");
                   tester.reset();
                 }}
-                options={options.map((provider) => ({
-                  value: provider.id,
-                  label: copy.providerNames[provider.id] || provider.name,
-                }))}
+                options={providerOptions(options)}
               />
             </FieldRow>
             <KeyField

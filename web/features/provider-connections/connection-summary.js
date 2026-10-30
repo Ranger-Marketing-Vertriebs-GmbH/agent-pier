@@ -1,4 +1,5 @@
 import { connectionCopy as copy } from "../../lib/i18n/messages/connections.js";
+import { connectionProviderName } from "./provider-name.js";
 
 function endpointHost(connection) {
   const url = connection.endpoint?.openaiBaseUrl || connection.endpoint?.anthropicBaseUrl;
@@ -13,7 +14,7 @@ function endpointHost(connection) {
 /** Provider · endpoint host · key state, as the connection list shows it. */
 export function connectionSummary(connection) {
   return [
-    copy.providerNames[connection.providerId] || connection.providerId,
+    connectionProviderName(connection),
     endpointHost(connection),
     connection.hasSecret
       ? copy.keySaved

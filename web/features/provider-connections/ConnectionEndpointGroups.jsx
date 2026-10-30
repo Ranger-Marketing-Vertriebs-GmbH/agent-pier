@@ -50,7 +50,7 @@ export default function ConnectionEndpointGroups({
                 })),
               ]}
             />
-            <small>{copy.probeHint}</small>
+            {endpoint.preset === "azure" && <small>{copy.probeHint}</small>}
           </label>
           <button
             type="button"

@@ -52,6 +52,12 @@ export const ENDPOINT_PRESETS = Object.freeze({
     anthropicBaseUrl: "http://127.0.0.1:8080",
     protocols: { messages: false, responses: false, chatCompletions: true },
   },
+  // https://<resource>.openai.azure.com/openai/v1; the models are the deployment names.
+  azure: {
+    openaiBaseUrl: "",
+    anthropicBaseUrl: null,
+    protocols: { messages: false, responses: true, chatCompletions: true },
+  },
   custom: {
     openaiBaseUrl: "",
     anthropicBaseUrl: null,

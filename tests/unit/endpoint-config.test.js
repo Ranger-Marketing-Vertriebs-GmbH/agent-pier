@@ -97,6 +97,22 @@ test("model lookup enforces protocol and context", () => {
 test("presets and output fallback", () => {
   assert.equal(ENDPOINT_PRESETS.llamacpp.protocols.chatCompletions, true);
   assert.equal(ENDPOINT_PRESETS.llamacpp.protocols.messages, false);
+  assert.deepEqual(ENDPOINT_PRESETS.azure.protocols, {
+    messages: false,
+    responses: true,
+    chatCompletions: true,
+  });
+  const azure = validateEndpoint({
+    ...base,
+    preset: "azure",
+    openaiBaseUrl: "https://contoso.openai.azure.com/openai/v1/",
+    anthropicBaseUrl: null,
+  });
+  assert.equal(azure.preset, "azure");
+  assert.equal(azure.openaiBaseUrl, "https://contoso.openai.azure.com/openai/v1");
+  assert.throws(() => validateEndpoint({ ...base, preset: "lmstudio" }), {
+    status: 400,
+  });
   assert.equal(fallbackOutputTokens(32768, null), 8192);
   assert.equal(fallbackOutputTokens(1000000, null), 32000);
   assert.equal(fallbackOutputTokens(32768, 4096), 4096);

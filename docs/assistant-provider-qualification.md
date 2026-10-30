@@ -62,7 +62,7 @@ AGENTPIER_ASSISTANT_LIVE_CONTEXT=32768 \
 node --test tests/integration/assistant-provider-live.test.js
 ```
 
-Use `llamacpp` for that preset or `custom` for Azure and other compatible services.
+Use `llamacpp` for that preset, `azure` for Azure or `custom` for other compatible services.
 Context must be at least 4,000 tokens and reflect the running model's configuration.
 `AGENTPIER_ASSISTANT_LIVE_OUTPUT` defaults to 2,048 and accepts 1,024–4,096 tokens.
 The turn wait is bounded to 150 seconds; model startup and slow local inference can

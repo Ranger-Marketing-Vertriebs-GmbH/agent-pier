@@ -11,23 +11,60 @@ const adapterFields = (endpoint) => ({
   capabilityEdits: {},
 });
 
+// Choosing a preset sets these fields of the draft.
 export const PRESETS = {
   ollama: {
     openaiBaseUrl: "http://127.0.0.1:11434/v1",
     anthropicBaseUrl: "http://127.0.0.1:11434",
     protocols: { messages: true, responses: true, chatCompletions: true },
+    authHeader: "",
   },
   llamacpp: {
     openaiBaseUrl: "http://127.0.0.1:8080/v1",
     anthropicBaseUrl: "http://127.0.0.1:8080",
     protocols: { messages: false, responses: false, chatCompletions: true },
+    authHeader: "",
+  },
+  azure: {
+    openaiBaseUrl: "",
+    anthropicBaseUrl: "",
+    protocols: { messages: false, responses: true, chatCompletions: true },
+    // Azure takes its API key in the api-key header.
+    authHeader: "api-key",
+    // Azure has no Anthropic Messages API: the URL is not derived from the OpenAI URL.
+    anthropicAuto: false,
   },
   custom: {
     openaiBaseUrl: "",
     anthropicBaseUrl: "",
     protocols: { messages: false, responses: false, chatCompletions: true },
+    authHeader: "",
   },
 };
+
+// The base URL each preset expects, shown while its URL field is empty.
+export const PRESET_URL_PATTERNS = {
+  azure: "https://<resource>.openai.azure.com/openai/v1",
+};
+
+// Presets the API provider list offers as their own entries ("endpoint:<preset>").
+export const LISTED_PRESETS = ["ollama", "llamacpp", "azure"];
+
+const PRESET_CHOICE = /^endpoint:(.+)$/;
+
+/** The API provider choice of a draft: a listed preset or the provider itself. */
+export const providerChoice = (providerId, endpoint) =>
+  providerId === "endpoint" && LISTED_PRESETS.includes(endpoint?.preset)
+    ? `endpoint:${endpoint.preset}`
+    : providerId;
+
+/** Provider id and endpoint preset of an API provider choice. */
+export function parseProviderChoice(value) {
+  const preset = PRESET_CHOICE.exec(value)?.[1];
+  if (preset && LISTED_PRESETS.includes(preset))
+    return { providerId: "endpoint", preset };
+  return { providerId: value, preset: value === "endpoint" ? "custom" : "ollama" };
+}
 
 export function initialEndpoint(connection, preset = "ollama") {
   if (connection?.endpoint)
@@ -46,7 +83,6 @@ export function initialEndpoint(connection, preset = "ollama") {
   return {
     preset,
     ...structuredClone(PRESETS[preset]),
-    authHeader: "",
     models: [],
     lastTest: null,
     ...adapterFields(null),

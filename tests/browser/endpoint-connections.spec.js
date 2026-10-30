@@ -28,7 +28,9 @@ test("create a keyless Ollama connection, confirm context and launch with it", a
     .click();
   const dialog = accountDetail(page);
   await dialog.getByLabel("Connection name", { exact: true }).fill("GPU box");
-  await dialog.getByLabel("API provider", { exact: true }).selectOption("endpoint");
+  await dialog
+    .getByLabel("API provider", { exact: true })
+    .selectOption("endpoint:ollama");
   await expect(dialog.getByLabel("OpenAI-compatible base URL")).toHaveValue(
     "http://127.0.0.1:11434/v1",
   );
@@ -165,10 +167,9 @@ test("changing the address after a test discards the stale test result", async (
     .click();
   const dialog = accountDetail(page);
   await dialog.getByLabel("Connection name", { exact: true }).fill("GPU box");
-  await dialog.getByLabel("API provider", { exact: true }).selectOption("endpoint");
-  await expect(
-    dialog.getByText("For Azure OpenAI choose one of your deployments as test model."),
-  ).toBeVisible();
+  await dialog
+    .getByLabel("API provider", { exact: true })
+    .selectOption("endpoint:ollama");
   await dialog.getByRole("button", { name: "Test connection", exact: true }).click();
   const status = dialog.getByText("Not supported · Endpoint not found");
   await expect(status).toBeVisible();
@@ -210,7 +211,9 @@ test("a rejected API key reads as an authentication failure", async ({ page }) =
     .getByRole("button", { name: "Add provider connection", exact: true })
     .click();
   const dialog = accountDetail(page);
-  await dialog.getByLabel("API provider", { exact: true }).selectOption("endpoint");
+  await dialog
+    .getByLabel("API provider", { exact: true })
+    .selectOption("endpoint:ollama");
   await dialog.getByRole("button", { name: "Test connection", exact: true }).click();
   await expect(
     dialog.getByText("Not tested · Authentication failed (401/403)"),

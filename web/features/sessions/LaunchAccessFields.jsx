@@ -3,6 +3,7 @@ import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import ProviderModelPicker from "../providers/ProviderModelPicker.jsx";
 import { routeLabel } from "../provider-connections/route-label.js";
 import { connectionCopy as copy } from "../../lib/i18n/messages/connections.js";
+import { connectionProviderName } from "../provider-connections/provider-name.js";
 import { launchDialogCopy as launchCopy } from "../../lib/i18n/messages/sessions.js";
 export default function LaunchAccessFields({
   access,
@@ -62,7 +63,7 @@ export default function LaunchAccessFields({
                 value: `provider:${connection.id}`,
                 label: [
                   connection.name,
-                  copy.providerNames[connection.providerId] || connection.providerId,
+                  connectionProviderName(connection),
                   ...(route ? [routeLabel(route)] : []),
                   ...(connection.launchable ? [] : [copy.keyMissing]),
                 ].join(" · "),
