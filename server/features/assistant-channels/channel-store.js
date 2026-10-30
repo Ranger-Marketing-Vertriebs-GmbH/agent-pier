@@ -165,6 +165,16 @@ export class ChannelStore {
     this.onWrite?.(record.id);
     return this.get(record.id);
   }
+  /**
+   * Re-points the channel at another chat of its agent, keeping the pairing and the
+   * chat: a main-chat restart moves Telegram into the new main chat
+   * (main-chat-swap.js).
+   */
+  moveConversation(id, conversationId) {
+    textValue(conversationId, 100);
+    const current = this.record(id);
+    return this.write({ ...current, conversationId }, current.revision);
+  }
   requireRevision(id, revision) {
     const current = this.record(id);
     if (!Number.isSafeInteger(revision) || revision !== current.revision)

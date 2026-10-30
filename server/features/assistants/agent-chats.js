@@ -12,7 +12,8 @@ import { firstTurnTitle, setTitle } from "./chat-titles.js";
  * with its own native session from `sessions.create`; New chat never resets or
  * replaces a session (OpenClaw's `/new` and `sessions.reset` keep the key). The
  * person's main chat stays the one reminders, routines, check-ins and Telegram
- * deliver into (routine-targets.js). Archive and title state live in AgentPier.
+ * deliver into (routine-targets.js); only Restart main chat archives it and opens a
+ * fresh one (main-chat-restart.js). Archive and title state live in AgentPier.
  */
 
 const chatErrors = Object.freeze({

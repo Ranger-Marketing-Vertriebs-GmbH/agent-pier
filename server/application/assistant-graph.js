@@ -268,6 +268,8 @@ export function constructAssistantGraph(host, created = {}) {
   }));
   // A shared file also reaches the owner's Telegram chat its turn came from.
   assistants.shares.channels = assistantChannels;
+  // A main-chat restart moves Telegram into the new main chat (main-chat-swap.js).
+  assistants.channels = assistantChannels;
   // Every image_generate and pdf call is checked through the bridge (pdf-policy.js).
   assistants.imagePolicy = new ImagePolicy({ assistants });
   assistants.pdfPolicy = assistantPdfModel.policy(assistants);
