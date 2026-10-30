@@ -113,7 +113,7 @@ test.describe("phone dialogs", () => {
       await expect(dialog).toBeHidden();
     }
     // A row's ⋯ menu opens its items as a sheet on phones; Cancel returns focus.
-    const more = page.getByRole("button", { name: "Actions for Sample" });
+    const more = page.getByRole("button", { name: "Actions for sample" });
     await more.click();
     const sheet = page.getByRole("dialog", { name: "Sample" });
     await expect(sheet.getByText("A sheet on phones, a menu on desktop")).toBeVisible();
@@ -138,7 +138,7 @@ test.describe("desktop row menu", () => {
 
   test("the gallery's row menu opens as a popover with radio items", async ({ page }) => {
     await page.goto("/settings/components");
-    const more = page.getByRole("button", { name: "Actions for Sample" });
+    const more = page.getByRole("button", { name: "Actions for sample" });
     // The popover closes on scroll; the scroll event of bringing the button into view
     // arrives a frame later, so it must pass before the menu opens.
     await more.scrollIntoViewIfNeeded();
@@ -147,7 +147,7 @@ test.describe("desktop row menu", () => {
         new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))),
     );
     await more.click();
-    const menu = page.getByRole("menu", { name: "Actions for Sample" });
+    const menu = page.getByRole("menu", { name: "Actions for sample" });
     await expect(menu.getByRole("menuitemradio")).toHaveText(["Option A", "Option B"]);
     await expect(menu.getByRole("menuitem")).toHaveText(["Edit", "Delete"]);
     await expect(page.getByRole("dialog")).toHaveCount(0);
