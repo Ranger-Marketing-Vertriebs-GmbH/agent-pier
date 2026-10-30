@@ -4,14 +4,15 @@ import Icon from "../../components/Icon.jsx";
 import Segment from "../../components/Segment.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import useMediaQuery from "../../lib/useMediaQuery.js";
+import useMobileLayout from "../../lib/useMobileLayout.js";
 import { projectGroupsCopy as copy } from "../../lib/i18n/messages/project-groups.js";
 import { projectsHubCopy as hubCopy } from "../../lib/i18n/messages/projects.js";
 import ProjectGroupMenu from "./ProjectGroupMenu.jsx";
 import ProjectGroupNameRow from "./ProjectGroupNameRow.jsx";
 import ProjectListItem from "./ProjectListItem.jsx";
-import { projectMenuItems } from "./project-menu.js";
+import { groupNameMessage, projectMenuItems } from "./project-menu.js";
 import ProjectListSection from "./ProjectListSection.jsx";
-import { buildProjectSections, groupNameProblem } from "./project-groups.js";
+import { buildProjectSections } from "./project-groups.js";
 import { normalizePath } from "./project-paths.js";
 import useProjectDrag from "./useProjectDrag.js";
 import useProjectListPrefs from "./useProjectListPrefs.js";
@@ -28,6 +29,8 @@ const sectionTitle = (section) =>
  * The projects list column: search and view switch on top, then the sections
  * (groups, origins or one flat list) in their own scroll container. `groups` is
  * useProjectGroups(); `isRunning(project)` says whether one of its sessions runs.
+ * Phones open the ⋯ menus as sheets; a project's sheet also offers
+ * `onMerge(project, trigger)` while an older entry of its folder exists.
  */
 export default function ProjectList({
   projects,
@@ -36,7 +39,9 @@ export default function ProjectList({
   onSelect,
   attentionFor,
   isRunning,
+  onMerge,
 }) {
+  const phone = useMobileLayout();
   const prefs = useProjectListPrefs();
   const [query, setQuery] = useState("");
   // While the name field is open: `{ path }` of a project to move into the new group
@@ -147,14 +152,7 @@ export default function ProjectList({
     setDeleting(null);
     removeGroup(group);
   };
-  const nameProblem = (name, exceptId = "") => {
-    const problem = groupNameProblem(document, name, exceptId);
-    return problem === "required"
-      ? copy.nameRequired
-      : problem === "taken"
-        ? copy.nameTaken
-        : "";
-  };
+  const nameProblem = (name, exceptId = "") => groupNameMessage(document, name, exceptId);
   const views = [
     { value: "groups", label: copy.viewGroups },
     { value: "origin", label: copy.viewOrigin },
@@ -244,6 +242,7 @@ export default function ProjectList({
                   group={{ id: section.groupId, name: section.title }}
                   first={section.groupId === document.groups[0]?.id}
                   last={section.groupId === document.groups.at(-1)?.id}
+                  phone={phone}
                   onRename={() => setRenaming(section.groupId)}
                   onMove={(offset) => groups.moveGroup(section.groupId, offset)}
                   onDelete={() =>
@@ -276,7 +275,19 @@ export default function ProjectList({
                     onMove: (groupId) => groups.moveProject(item.path, groupId),
                     onNewGroup: (opener) => setCreating({ path: item.path, opener }),
                     onRemove: () => groups.removeProject(item.path),
+                    onMerge:
+                      phone && item.olderDuplicates?.length
+                        ? (trigger) => onMerge(item, trigger)
+                        : undefined,
                   })}
+                  menuSheet={
+                    phone
+                      ? {
+                          title: item.name,
+                          subtitle: copy.currentGroup(current?.name ?? copy.ungrouped),
+                        }
+                      : null
+                  }
                 />
               );
             })}

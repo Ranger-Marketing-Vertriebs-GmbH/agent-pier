@@ -12,7 +12,10 @@ import {
   withRenamedGroup,
   withoutGroup,
 } from "../../web/features/projects/project-groups.js";
-import { projectMenuItems } from "../../web/features/projects/project-menu.js";
+import {
+  groupNameMessage,
+  projectMenuItems,
+} from "../../web/features/projects/project-menu.js";
 
 const doc = normalizeGroupsDocument({
   version: 4,
@@ -96,6 +99,40 @@ test("the project menu lists groups as radio items and removal only when grouped
     ungrouped.map((item) => item.id),
     ["move"],
   );
+
+  // Phones add "Merge older entry" after a separator, even without a group.
+  const trigger = { id: "trigger" };
+  const merged = [];
+  const withMerge = (current) =>
+    projectMenuItems({
+      groups: doc.groups,
+      current,
+      onMove() {},
+      onNewGroup() {},
+      onRemove() {},
+      onMerge: (from) => merged.push(from),
+    });
+  assert.deepEqual(
+    withMerge(null).map((item) => item.id),
+    ["move", "separator", "merge"],
+  );
+  const grouped = withMerge(doc.groups[0]);
+  assert.deepEqual(
+    grouped.map((item) => item.id),
+    ["move", "separator", "remove", "merge"],
+  );
+  assert.equal(grouped[3].restoreFocus, false);
+  grouped[3].run(trigger);
+  assert.deepEqual(merged, [trigger]);
+});
+
+test("group names map to the inline messages", () => {
+  assert.equal(groupNameMessage(doc, " "), "Gib einen Namen für die Gruppe ein.");
+  assert.equal(
+    groupNameMessage(doc, "work"),
+    "Eine Gruppe mit diesem Namen gibt es schon.",
+  );
+  assert.equal(groupNameMessage(doc, "work", "g_1"), "");
 });
 
 test("rename, reorder and delete edit a copy of the document", () => {

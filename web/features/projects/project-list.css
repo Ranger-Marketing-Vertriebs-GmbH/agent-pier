@@ -297,3 +297,58 @@
 .project-section.insert-after::after {
   bottom: -1px;
 }
+/* Phones: the list page fills the screen; search, view switch and the new-group button
+   stay put while the list scrolls below them. Controls are 44px touch targets; the
+   search field uses 16px text so iOS does not zoom. */
+@media (max-width: 700px) {
+  .projects-hub:not(.project-detail-shell) {
+    height: 100dvh;
+  }
+  .projects-hub:not(.project-detail-shell) .settings-shell-body {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    padding-bottom: 0;
+  }
+  .projects-hub:not(.project-detail-shell) .settings-shell-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .project-list.list-detail {
+    flex: 1;
+    min-height: 0;
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .project-list-scroller {
+    padding-bottom: calc(12px + var(--safe-area-inset-bottom));
+  }
+  .project-search {
+    height: 44px;
+  }
+  .project-search input {
+    font-size: 16px;
+  }
+  .project-view-label {
+    display: none;
+  }
+  .project-view-row .segment label,
+  .project-view-row .segment button {
+    height: 34px;
+    font-size: 13px;
+  }
+  .project-new-group {
+    width: 44px;
+    height: 44px;
+  }
+  .project-section-toggle {
+    height: 44px;
+  }
+  .project-group-more,
+  .project-row-more {
+    width: 44px;
+    height: 44px;
+  }
+}

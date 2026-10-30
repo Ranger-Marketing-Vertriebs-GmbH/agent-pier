@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import Icon from "../../components/Icon.jsx";
+import StatusChip from "../../components/StatusChip.jsx";
 import SettingsShell from "../../components/SettingsShell.jsx";
 import UnderlineTabs from "../../components/UnderlineTabs.jsx";
 import api from "../../lib/api.js";
@@ -12,15 +13,17 @@ import {
   projectApprovalsCopy,
 } from "../../lib/i18n/messages/projects.js";
 import { repositoriesPageCopy } from "../../lib/i18n/messages/repositories.js";
-import MergeDuplicateDialog from "./MergeDuplicateDialog.jsx";
 import ProjectAgentBus from "./ProjectAgentBus.jsx";
 import ProjectAgents from "./ProjectAgents.jsx";
 import ProjectApprovals from "./ProjectApprovals.jsx";
 import { projectAgentsCopy } from "../../lib/i18n/messages/project-agents.js";
 import { projectGroupsCopy } from "../../lib/i18n/messages/project-groups.js";
+import ProjectGroupNameRow from "./ProjectGroupNameRow.jsx";
 import ProjectKnowledge from "./ProjectKnowledge.jsx";
+import ProjectMenuButton from "./ProjectMenuButton.jsx";
 import ProjectOverview from "./ProjectOverview.jsx";
 import ProjectRuns from "./ProjectRuns.jsx";
+import { groupNameMessage, projectMenuItems } from "./project-menu.js";
 import { projectSessions, remoteDisplay, remoteShort } from "./project-presentation.js";
 import { projectsRoute } from "./routes.js";
 
@@ -47,13 +50,17 @@ export default function ProjectDetail({
   busError,
   home,
   attention,
-  group,
+  groups,
+  running,
+  onMerge,
   notices,
   onBack,
 }) {
   const runTotal = useRunTotal(project.memoryId);
-  const [merging, setMerging] = useState(false);
-  // Older entries of this folder merge one at a time, the most recent first.
+  const group = groups.groupOf(project.path);
+  // Phones: the ⋯ sheet's "New group …" opens the name field above the tab content;
+  // `creating` holds the ⋯ trigger that gets focus back.
+  const [creating, setCreating] = useState(null);
   const older = project.olderDuplicates?.[0];
   const sessions = projectSessions(allSessions, project);
   const credential = credentials.find((item) => item.id === project.credentialId);
@@ -71,8 +78,18 @@ export default function ProjectDetail({
       label: overviewCopy.remote,
       value: remoteDisplay(project.remote) || copy.localOnly,
     },
-    { label: overviewCopy.branch, value: branch || "—", mono: Boolean(branch) },
-    { label: overviewCopy.tokenProfile, value: credential?.name || overviewCopy.noToken },
+    // Phones show these two side by side.
+    {
+      label: overviewCopy.branch,
+      value: branch || "—",
+      mono: Boolean(branch),
+      half: true,
+    },
+    {
+      label: overviewCopy.tokenProfile,
+      value: credential?.name || overviewCopy.noToken,
+      half: true,
+    },
     { label: overviewCopy.folder, value: project.path, mono: true },
     {
       label: projectGroupsCopy.factGroup,
@@ -101,11 +118,11 @@ export default function ProjectDetail({
   );
   const actions = (
     <>
-      {older && (
+      {older && !mobile && (
         <button
           type="button"
           className="button secondary"
-          onClick={() => setMerging(true)}
+          onClick={(event) => onMerge(event.currentTarget)}
         >
           {dialogsCopy.mergeOlder}
         </button>
@@ -185,18 +202,47 @@ export default function ProjectDetail({
       )}
     </div>
   );
-  const mergeDialog = merging && older && (
-    <MergeDuplicateDialog
-      project={project}
-      older={older}
-      close={() => setMerging(false)}
-      merged={() => {
-        setMerging(false);
-        reloadHub();
-      }}
-    />
-  );
-  if (mobile)
+  if (mobile) {
+    const closeCreate = () => {
+      const trigger = creating;
+      setCreating(null);
+      queueMicrotask(() => trigger?.isConnected && trigger.focus());
+    };
+    const menu = (
+      <ProjectMenuButton
+        className="project-detail-more"
+        label={projectGroupsCopy.projectActions(project.name)}
+        sheet={{
+          title: project.name,
+          subtitle: projectGroupsCopy.currentGroup(
+            group?.name ?? projectGroupsCopy.ungrouped,
+          ),
+        }}
+        items={projectMenuItems({
+          groups: groups.document.groups,
+          current: group,
+          onMove: (groupId) => groups.moveProject(project.path, groupId),
+          onNewGroup: (trigger) => setCreating(trigger),
+          onRemove: () => groups.removeProject(project.path),
+          onMerge: older ? onMerge : undefined,
+        })}
+      />
+    );
+    const chips = (group || running) && (
+      <span className="project-chips">
+        {group && (
+          <span className="project-group-chip">
+            <Icon name="folder" size={14} />
+            {group.name}
+          </span>
+        )}
+        {running && (
+          <StatusChip tone="ok" pill>
+            {projectGroupsCopy.sessionRunning}
+          </StatusChip>
+        )}
+      </span>
+    );
     return (
       <SettingsShell
         className="projects-hub project-detail-shell"
@@ -204,15 +250,32 @@ export default function ProjectDetail({
         onLeading={onBack}
         leadingLabel={copy.back}
         title={project.name}
-        subtitle={meta}
+        subtitle={
+          <>
+            <span className="project-detail-meta">{meta}</span>
+            {chips}
+          </>
+        }
+        actions={menu}
         tabs={tabRow}
         bar={<div className="project-launch-bar">{actions}</div>}
       >
         {notices}
+        {creating && (
+          <ProjectGroupNameRow
+            submitLabel={projectGroupsCopy.createGroup}
+            validate={(name) => groupNameMessage(groups.document, name)}
+            onSubmit={async (name) => {
+              await groups.createGroup(name, project.path);
+              closeCreate();
+            }}
+            onCancel={closeCreate}
+          />
+        )}
         {panel}
-        {mergeDialog}
       </SettingsShell>
     );
+  }
   return (
     <section className="project-card" aria-labelledby="project-card-title">
       <header className="project-card-header">
@@ -224,7 +287,6 @@ export default function ProjectDetail({
       </header>
       {tabRow}
       {panel}
-      {mergeDialog}
     </section>
   );
 }

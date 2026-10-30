@@ -10,6 +10,7 @@ import { repositoriesPageCopy } from "../../lib/i18n/messages/repositories.js";
 import { getCloneOperation, subscribeToClone } from "../repositories/cloneStore.js";
 import AddFolderDialog from "./AddFolderDialog.jsx";
 import CloneDialog, { useCloneDraft } from "./CloneDialog.jsx";
+import MergeDuplicateDialog from "./MergeDuplicateDialog.jsx";
 import ProjectAddMenu from "./ProjectAddMenu.jsx";
 import ProjectDetail from "./ProjectDetail.jsx";
 import ProjectList from "./ProjectList.jsx";
@@ -43,11 +44,19 @@ export default function ProjectsPage({
     loading: hub.loading,
   });
   const [dialog, setDialog] = useState(null);
-  // A dialog unmounts its native <dialog> without restoring focus; return it to the opener.
+  // The id of the project whose older entry the merge dialog merges.
+  const [mergingId, setMergingId] = useState("");
+  // A dialog unmounts its native <dialog> without restoring focus; return it to the
+  // opener (a menu item that closed itself names its ⋯ trigger instead).
   const opener = useRef(null);
-  const openDialog = (name) => {
-    opener.current = document.activeElement;
+  const openDialog = (name, from = document.activeElement) => {
+    opener.current = from;
     setDialog(name);
+  };
+  // Older entries of a folder merge one at a time, the most recent first.
+  const merge = (item, from) => {
+    setMergingId(item.id);
+    openDialog("merge", from);
   };
   useEffect(() => {
     if (dialog) return;
@@ -68,6 +77,7 @@ export default function ProjectsPage({
       ),
     [state.sessions],
   );
+  const merging = projects.find((item) => item.id === mergingId);
   const ready = !hub.loading;
   const canonical = resolveProjectId(projects, route.projectId);
   const project = projects.find((item) => item.id === canonical);
@@ -169,7 +179,9 @@ export default function ProjectsPage({
       busError={hub.errors.agentbus}
       home={home}
       attention={projectAttention(hub.attention, item.memoryId)}
-      group={hub.groups.groupOf(item.path)}
+      groups={hub.groups}
+      running={runningPaths.has(item.path)}
+      onMerge={(from) => merge(item, from)}
       notices={mobile ? notices : null}
       onBack={() => choose("")}
     />
@@ -193,6 +205,17 @@ export default function ProjectsPage({
             setDialog(null);
             reload();
             onNavigate(projectsRoute({ projectId: added.id }));
+          }}
+        />
+      )}
+      {dialog === "merge" && merging?.olderDuplicates?.[0] && (
+        <MergeDuplicateDialog
+          project={merging}
+          older={merging.olderDuplicates[0]}
+          close={() => setDialog(null)}
+          merged={() => {
+            setDialog(null);
+            reload();
           }}
         />
       )}
@@ -286,6 +309,7 @@ export default function ProjectsPage({
               onSelect={choose}
               attentionFor={(item) => projectAttention(hub.attention, item.memoryId)}
               isRunning={(item) => runningPaths.has(item.path)}
+              onMerge={merge}
             />
           }
           detail={project ? detail(project) : missing ? missingCard : loadingStatus}
