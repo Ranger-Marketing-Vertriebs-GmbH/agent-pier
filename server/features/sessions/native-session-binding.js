@@ -434,6 +434,23 @@ export async function runNativeSessionHook({
   const push = env.AGENTPIER_REQUEST_FILE ? hookPush(payload) : null;
   if (push) await pushNative(push, { env });
 }
+// Input Claude Code writes itself and submits as a prompt: a background task's or
+// subagent's notification, a peer or channel message, a system reminder.
+const generatedPrompt =
+  /^\s*<(?:task-notification|peer-message|channel-message|system-reminder)[\s>]/;
+
+/**
+ * Who submitted a prompt: "owner" (typed in the terminal or sent from AgentPier's
+ * chat) or "generated". A payload that names its origin decides; otherwise its text.
+ */
+export function promptOrigin(payload) {
+  const kind = payload?.origin?.kind;
+  if (typeof kind === "string") return kind === "human" ? "owner" : "generated";
+  return typeof payload?.prompt === "string" && generatedPrompt.test(payload.prompt)
+    ? "generated"
+    : "owner";
+}
+
 /** What a hook payload tells an open chat (native-push.js), or null for nothing. */
 export function hookPush(payload) {
   const event = payload?.hook_event_name;
@@ -459,6 +476,7 @@ export function hookPush(payload) {
   return {
     type: "activity",
     event,
+    ...(event === "UserPromptSubmit" ? { prompt: promptOrigin(payload) } : {}),
     ...(limited
       ? { failure: "usage-limit", ...(detail ? { detail: detail.slice(0, 500) } : {}) }
       : {}),

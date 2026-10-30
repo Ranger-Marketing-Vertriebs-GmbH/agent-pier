@@ -245,3 +245,85 @@ test("Claude's StopFailure and Codex's failed turn report the usage limit", () =
     { type: "activity", event: "StopFailure" },
   );
 });
+
+function turns() {
+  const notifications = fakeNotifications();
+  const observations = new Map();
+  notifications.observation = (key) => observations.get(key);
+  notifications.observe = (key, value) => observations.set(key, value);
+  notifications.deviceCount = () => 1;
+  const session = { id: "session-one", name: "api", tool: "claude", status: "running" };
+  let state = "idle";
+  const events = new OperationsEvents({
+    audit: { append() {} },
+    notifications,
+    sessions: { list: async () => [session], get: async () => session },
+    activity: { read: async () => ({ state }) },
+    pipelines: { store: { all: () => [] } },
+    intervalMs: 0,
+  });
+  // One turn: its start as the hook reports it, then the poll sees it finish.
+  const turn = async (prompt) => {
+    if (prompt) events.nativeActivity("session-one", "UserPromptSubmit", { prompt });
+    state = "working";
+    await events.collect();
+    state = "idle";
+    await events.collect();
+  };
+  const completed = () =>
+    notifications.sent.filter((notice) => notice.kind === "session-completed").length;
+  return { events, turn, completed };
+}
+
+test('"Response ready" follows only turns the owner started', async (t) => {
+  const { events, turn, completed } = turns();
+  t.after(() => events.close());
+  await events.collect();
+  await turn("owner");
+  assert.equal(completed(), 1);
+  // A background task's notification starts a turn: no push, however often.
+  await turn("generated");
+  await turn("generated");
+  // A background turn the hook does not even report as a prompt.
+  await turn();
+  assert.equal(completed(), 1);
+  await turn("owner");
+  assert.equal(completed(), 2);
+});
+
+test("a CLI that never says who starts turns keeps notifying every turn", async (t) => {
+  const { events, turn, completed } = turns();
+  t.after(() => events.close());
+  await events.collect();
+  await turn();
+  await turn();
+  assert.equal(completed(), 2);
+});
+
+test("Claude's prompt hook tells the owner's prompt from generated input", async () => {
+  const { promptOrigin } =
+    await import("../../server/features/sessions/native-session-binding.js");
+  assert.equal(promptOrigin({ prompt: "Fix the build" }), "owner");
+  assert.equal(
+    promptOrigin({ prompt: "<task-notification>\n<task-id>a1</task-id>" }),
+    "generated",
+  );
+  assert.equal(
+    promptOrigin({ prompt: "x", origin: { kind: "task-notification" } }),
+    "generated",
+  );
+  assert.equal(promptOrigin({ prompt: "<b>", origin: { kind: "human" } }), "owner");
+  assert.equal(
+    hookPush({ hook_event_name: "UserPromptSubmit", prompt: "<task-notification>" })
+      .prompt,
+    "generated",
+  );
+  assert.deepEqual(
+    nativePushValue({ type: "activity", event: "UserPromptSubmit", prompt: "owner" }),
+    { type: "activity", event: "UserPromptSubmit", prompt: "owner" },
+  );
+  assert.deepEqual(
+    nativePushValue({ type: "activity", event: "Stop", prompt: "owner" }),
+    { type: "activity", event: "Stop" },
+  );
+});

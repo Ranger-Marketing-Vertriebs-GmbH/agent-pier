@@ -408,8 +408,17 @@ export async function createServices(config) {
         services.operationsEvents?.nativeActivity(
           sessionId,
           push.event,
-          // A turn ended at the CLI's usage limit (session-limited push).
-          ...(push.failure ? [{ failure: push.failure, detail: push.detail }] : []),
+          // A turn ended at the CLI's usage limit (session-limited push), or who
+          // started a Claude turn (session-completed push).
+          ...(push.failure || push.prompt
+            ? [
+                Object.fromEntries(
+                  ["failure", "detail", "prompt"]
+                    .filter((key) => push[key] !== undefined)
+                    .map((key) => [key, push[key]]),
+                ),
+              ]
+            : []),
         );
     },
     // A new launch or a stopped session: the mod reports again only once it loads.
