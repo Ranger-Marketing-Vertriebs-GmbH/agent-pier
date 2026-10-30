@@ -1,0 +1,44 @@
+/* Skeleton placeholders (Skeleton.jsx, docs/ui-guide.md#feedback). */
+.skeleton {
+  display: inline-block;
+  flex: none;
+  max-width: 100%;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+      90deg,
+      transparent 0%,
+      var(--skeleton-shine) 50%,
+      transparent 100%
+    )
+    var(--skeleton);
+  background-repeat: no-repeat;
+  background-size: 50% 100%;
+  animation: skeleton-shimmer 1.6s ease-in-out infinite;
+  vertical-align: top;
+  pointer-events: none;
+  user-select: none;
+}
+/* One line of the surrounding font: the no-break space gives it the line's height;
+   the bar itself is drawn a little slimmer, which does not change the layout. */
+.skeleton-text {
+  width: 100%;
+  color: transparent;
+  transform: scaleY(0.72);
+}
+.skeleton-circle {
+  border-radius: 50%;
+}
+@keyframes skeleton-shimmer {
+  from {
+    background-position: -150% 0;
+  }
+  to {
+    background-position: 250% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+    background: var(--skeleton);
+  }
+}

@@ -156,7 +156,8 @@
 .start-attention-list li {
   overflow-wrap: anywhere;
 }
-.start-attention-card > .button {
+.start-attention-card > .button,
+.start-attention-card > .start-attention-button {
   align-self: flex-start;
   margin-top: 6px;
 }
@@ -498,7 +499,8 @@ a.start-row:hover {
   .start-list > .start-search input {
     height: var(--touch-target);
   }
-  .start-head-link {
+  .start-head-link,
+  .start-attention .start-section-head {
     min-height: var(--touch-target);
   }
   .start-attention-rows > li + li {

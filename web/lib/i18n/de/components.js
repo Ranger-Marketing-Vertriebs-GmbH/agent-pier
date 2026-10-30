@@ -40,3 +40,6 @@ export const addPickerCopy = {
   modeLabel: "Modus für neue Einträge",
   add: (count) => (count > 0 ? `${count} hinzufügen` : "Hinzufügen"),
 };
+export const skeletonCopy = {
+  loading: "Wird geladen",
+};

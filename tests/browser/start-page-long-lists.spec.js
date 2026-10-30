@@ -282,7 +282,10 @@ test.describe("phone without agents", () => {
     });
     await page.goto("/");
     await expect(sessionsCard(page)).toBeVisible();
-    await expect(agentsCard(page)).toHaveCount(0);
+    // Skeleton rows hold the card's place; no "No agent yet" before the list.
+    await expect(agentsCard(page)).toHaveAttribute("aria-busy", "true");
+    await expect(agentsCard(page).locator(".skeleton").first()).toBeVisible();
+    await expect(agentsCard(page)).not.toContainText("No agent yet");
     release();
     const card = agentsCard(page);
     await expect(card).toContainText("No agent yet");

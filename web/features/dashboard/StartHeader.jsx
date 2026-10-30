@@ -1,14 +1,16 @@
 import React from "react";
 import Icon from "../../components/Icon.jsx";
 import PageHeader from "../../components/PageHeader.jsx";
+import Skeleton from "../../components/Skeleton.jsx";
 import { locale } from "../../lib/i18n/index.js";
 import { startPageCopy as copy } from "../../lib/i18n/messages/dashboard.js";
 import { greetingOf, summaryParts } from "./start-header.js";
 
 /**
  * "Overview · Tuesday, 27 October", a greeting by the time of day and what is going
- * on; New agent (while agents are on) and New session, which stays disabled while no
- * CLI is installed.
+ * on (a skeleton line holds its place until anything is known); New agent (while
+ * agents are on, or until that is known if they were on last time) and New session,
+ * which stays disabled while no CLI is installed.
  */
 export default function StartHeader({
   counts,
@@ -45,7 +47,13 @@ export default function StartHeader({
           </p>
         ) : known ? (
           <p>{copy.calm}</p>
-        ) : null
+        ) : (
+          <p>
+            <Skeleton width="22em" />
+            {/* Phones wrap the summary to a second line. */}
+            {phone && <Skeleton width="6em" />}
+          </p>
+        )
       }
       actions={
         <>

@@ -105,6 +105,9 @@
   --approval-line: var(--warm-02);
   --divider: var(--neutral-14);
   --divider-soft: var(--neutral-10);
+  /* Skeleton placeholders: the bar and the highlight that moves across it. */
+  --skeleton: var(--neutral-09);
+  --skeleton-shine: var(--neutral-15);
   --switch-off: var(--neutral-17);
   --switch-knob: var(--neutral-31);
   --on-accent: var(--neutral-11);

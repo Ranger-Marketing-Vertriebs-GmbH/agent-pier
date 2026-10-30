@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import Icon from "../../components/Icon.jsx";
+import Skeleton, { SkeletonLabel } from "../../components/Skeleton.jsx";
 import StatusDot from "../../components/StatusDot.jsx";
 import { startPageCopy as copy } from "../../lib/i18n/messages/dashboard.js";
 import { systemStatusCopy } from "../../lib/i18n/messages/system-status.js";
@@ -189,14 +190,97 @@ function Row({ card }) {
   );
 }
 
+// Skeleton cards (rows on phones) in the shape of the real ones.
+function SkeletonItems({ count, phone }) {
+  const indexes = Array.from({ length: count }, (_, index) => index);
+  if (phone)
+    return (
+      <ul className="start-rows start-attention-rows">
+        {indexes.map((index) => (
+          <li key={index}>
+            <span className="start-row start-attention-row">
+              <span className="start-row-text">
+                <small className="start-attention-kind">
+                  <Skeleton width="30%" />
+                </small>
+                {/* Phones wrap a title to a second line. */}
+                <strong>
+                  <Skeleton width="90%" />
+                  <Skeleton width="45%" />
+                </strong>
+              </span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    );
+  return (
+    <ul className="start-attention-grid">
+      {indexes.map((index) => (
+        <li key={index} className="start-attention-card">
+          <span className="start-attention-top">
+            <span className="start-attention-kind">
+              <Skeleton width="7em" />
+            </span>
+          </span>
+          <strong>
+            <Skeleton width="75%" />
+          </strong>
+          <p>
+            <Skeleton width="55%" />
+          </p>
+          <Skeleton
+            shape="block"
+            width="88px"
+            height="33px"
+            className="start-attention-button"
+          />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /**
- * "Needs you": up to three cards, then "n more" unfolds the rest in place. Hidden
- * while nothing is pending. Phones show compact rows (kind and title).
+ * "Needs you": up to three cards, then "n more" unfolds the rest in place. Phones show
+ * compact rows (kind and title). While the Inbox is `loading`, `shape` skeleton cards
+ * (as many as last time) hold the place; with none remembered the section stays
+ * hidden until something is pending. Once shown, it stays and says so when the last
+ * item is gone, so the page below does not jump.
  */
-export default function NeedsYou({ items, phone, ...effects }) {
+export default function NeedsYou({
+  items,
+  loading = false,
+  shape = 0,
+  phone,
+  ...effects
+}) {
   const [expanded, setExpanded] = useState(false);
-  if (!items.length) return null;
-  const shown = expanded ? items : items.slice(0, ATTENTION_LIMIT);
+  const shown = useRef(false);
+  const placeholders = loading && !items.length ? Math.min(shape, ATTENTION_LIMIT) : 0;
+  if (items.length || placeholders) shown.current = true;
+  if (!shown.current) return null;
+  if (placeholders || !items.length)
+    return (
+      <section
+        className="start-attention"
+        aria-labelledby="start-attention-title"
+        aria-busy={placeholders > 0 || undefined}
+      >
+        <div className="start-section-head">
+          <h2 id="start-attention-title">{copy.needsYou}</h2>
+        </div>
+        {placeholders ? (
+          <>
+            <SkeletonLabel />
+            <SkeletonItems count={placeholders} phone={phone} />
+          </>
+        ) : (
+          <p className="start-empty start-attention-clear">{copy.attentionClear}</p>
+        )}
+      </section>
+    );
+  const visible = expanded ? items : items.slice(0, ATTENTION_LIMIT);
   const hidden = items.length - ATTENTION_LIMIT;
   const Item = phone ? Row : Card;
   return (
@@ -235,7 +319,7 @@ export default function NeedsYou({ items, phone, ...effects }) {
         id="start-attention-items"
         className={phone ? "start-rows start-attention-rows" : "start-attention-grid"}
       >
-        {shown.map((entry) => (
+        {visible.map((entry) => (
           <Item key={entry.id} card={present(entry, effects)} />
         ))}
       </ul>

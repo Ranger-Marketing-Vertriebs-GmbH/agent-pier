@@ -1,6 +1,7 @@
 import React from "react";
 import Icon from "../../components/Icon.jsx";
 import ProviderMark from "../../components/ProviderMark.jsx";
+import Skeleton from "../../components/Skeleton.jsx";
 import StatusDot from "../../components/StatusDot.jsx";
 import { activityTone } from "../../components/status-tones.js";
 import { isPlainClick } from "../../components/link-click.js";
@@ -54,25 +55,31 @@ function SessionLink({ item, navigate, className, children, label }) {
   );
 }
 
+function TableHead() {
+  return (
+    <thead>
+      <tr>
+        <th scope="col">{copy.columns.session}</th>
+        <th scope="col">{copy.columns.state}</th>
+        <th scope="col" className="numeric">
+          {copy.columns.cpu}
+        </th>
+        <th scope="col" className="numeric">
+          {copy.columns.memory}
+        </th>
+        <th scope="col">
+          <span className="visually-hidden">{copy.columns.open}</span>
+        </th>
+      </tr>
+    </thead>
+  );
+}
+
 function Table({ rows, figures, navigate }) {
   const now = Date.now();
   return (
     <table className="start-table">
-      <thead>
-        <tr>
-          <th scope="col">{copy.columns.session}</th>
-          <th scope="col">{copy.columns.state}</th>
-          <th scope="col" className="numeric">
-            {copy.columns.cpu}
-          </th>
-          <th scope="col" className="numeric">
-            {copy.columns.memory}
-          </th>
-          <th scope="col">
-            <span className="visually-hidden">{copy.columns.open}</span>
-          </th>
-        </tr>
-      </thead>
+      <TableHead />
       <tbody>
         {rows.map((item) => {
           const usage = figures.get(item.id);
@@ -146,12 +153,85 @@ function PhoneRows({ rows, navigate }) {
   );
 }
 
+// Skeleton rows in the shape of the table's and the phone's rows.
+function SkeletonRows({ count, phone }) {
+  const rows = Array.from({ length: count }, (_, index) => index);
+  const mark = <Skeleton shape="block" width="30px" height="30px" />;
+  if (phone)
+    return (
+      <ul className="start-rows">
+        {rows.map((index) => (
+          <li key={index}>
+            <span className="start-row">
+              {mark}
+              <span className="start-row-text">
+                <strong>
+                  <Skeleton width="55%" />
+                </strong>
+                <small>
+                  <Skeleton width="40%" />
+                </small>
+              </span>
+              <span className="start-state">
+                <Skeleton width="4.5em" />
+              </span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    );
+  return (
+    <table className="start-table">
+      <TableHead />
+      <tbody>
+        {rows.map((index) => (
+          <tr key={index}>
+            <th scope="row">
+              <span className="start-row-main">
+                {mark}
+                <span className="start-row-text">
+                  <strong>
+                    <Skeleton width="60%" />
+                  </strong>
+                  <small>
+                    <Skeleton width="40%" />
+                  </small>
+                </span>
+              </span>
+            </th>
+            <td>
+              <span className="start-state">
+                <Skeleton width="5em" />
+              </span>
+              <small className="start-state-time">
+                <Skeleton width="3.5em" />
+              </small>
+            </td>
+            <td className="numeric">
+              <Skeleton width="2.5em" />
+            </td>
+            <td className="numeric">
+              <Skeleton width="3em" />
+            </td>
+            <td className="start-open">
+              <Skeleton shape="block" width="34px" height="34px" />
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 /**
  * Sessions with their state, since when, CPU and RAM (`figures` from the system
- * status summary, by session id) and Open. Waiting sessions come first.
+ * status summary, by session id) and Open. Waiting sessions come first. Until the
+ * workspace state is `ready`, skeleton rows in the remembered `shape` hold its place.
  */
 export default function SessionsCard({
   sessions,
+  ready = true,
+  shape = null,
   figures = [],
   navigate,
   openNavigation,
@@ -177,6 +257,9 @@ export default function SessionsCard({
       empty={copy.noSessions}
       noMatch={copy.noSessionMatch}
       phone={phone}
+      loading={!ready}
+      shape={shape}
+      placeholder={(count) => <SkeletonRows count={count} phone={phone} />}
       showAll={
         openNavigation &&
         ((count) => ({ label: copy.showAllSessions(count), onClick: openNavigation }))

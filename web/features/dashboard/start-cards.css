@@ -28,6 +28,11 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* A decision chip's padding must not make its run taller than the others (and than
+   the skeleton runs while the page loads). */
+.start-run-head .status-chip-decision {
+  margin-block: -5px;
+}
 .start-run-bar {
   display: flex;
   gap: 4px;

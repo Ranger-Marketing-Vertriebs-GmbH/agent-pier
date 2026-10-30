@@ -18,7 +18,9 @@ you, in a column up to about 1180 px wide:
   space](#low-disk-space) (**Free up space** opens **Storage**), a stopped agent service,
   each CLI below its minimum version and each browser update (**Update**), Zugänge with
   problems, a new AgentPier release and [sessions on the old tmux
-  server](#sessions-on-the-old-tmux-server). The section is hidden while nothing waits.
+  server](#sessions-on-the-old-tmux-server). The section is hidden while nothing waits;
+  once it has shown on the open page it stays and says "All clear – nothing waits for
+  you." when the last item is gone, so the page below does not jump.
   These sources are the ones the sidebar **Menu** shows as hints; the server pushes
   them over the [live channel](architecture.md) while the start page or the menu is
   open, so neither polls them.
@@ -26,7 +28,8 @@ you, in a column up to about 1180 px wide:
   **System status** tile (below).
 - **Agents** with their team note ("Lead, 2 members", "shared, 3 users"), current
   activity and state, and the agent service's state in the footer (absent while agents
-  are off), beside **Pipelines** with up to three runs (running, awaiting a decision,
+  are off; when agents turn out to be off after the card already showed, it says
+  **Agents are off** with **Enable agents** until the next visit), beside **Pipelines** with up to three runs (running, awaiting a decision,
   failed in the last 24 hours), each with a bar per stage, and **All runs**.
 - **Your tools:** the heading counts the ready tools and the CLI profiles (once
   known), such as "Your tools · 4 of 5 ready · 3 profiles". One row per CLI and
@@ -37,6 +40,18 @@ you, in a column up to about 1180 px wide:
   **CLIs & extensions › Installation** keeps the full grid with every action.
 - A footer: your sessions keep running when you close the browser; everything runs
   locally and only you have access.
+
+Every tile is in place from the first paint. Until its data arrives it shows grey
+skeleton bars with a slow shimmer (still with reduced motion) in the shape of its
+content: the header's summary line, the Needs you cards, the session, agent, run and
+tool rows and the system figures. Their number follows what the page showed last time
+in this browser (`web/features/dashboard/start-layout.js` keeps only counts: whether
+agents were on, how many items needed you, how many sessions, agents, runs and tools
+there were); a first visit assumes agents on, no item waiting, three sessions and
+agents, one run and four tools. The content then replaces the skeletons in place, so
+the tiles neither appear one after another nor move. A loading tile carries
+`aria-busy="true"` and a single "Loading" label for screen readers. Loading the page
+makes no extra requests.
 
 The sessions and agents lists sort what needs you first: sessions as waiting, working,
 ready, unknown, then stopped, each most recent first; agents as needs you, working,
@@ -59,7 +74,8 @@ as two tiles that lead to their pages.
 The **System status** tile shows CPU and RAM with their value and a sparkline of the
 last 20 minutes, the disk with free of total, and AgentPier's own CPU and RAM. The
 whole tile is one button that opens the details. When the figures cannot be read
-before any have arrived, the tile stays hidden. The dialog names the computer (cores,
+before any have arrived, the tile keeps its place and says **System status
+unavailable**. The dialog names the computer (cores,
 RAM and, when known, the platform), shows **Live · every 5 s**, and has three tabs:
 
 - **Load** (the dialog opens here): cards for CPU with the load average, RAM and disk; a

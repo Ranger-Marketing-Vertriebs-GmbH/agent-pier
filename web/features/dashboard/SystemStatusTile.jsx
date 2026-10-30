@@ -1,5 +1,6 @@
 import React from "react";
 import Icon from "../../components/Icon.jsx";
+import Skeleton, { SkeletonLabel } from "../../components/Skeleton.jsx";
 import StatusChip from "../../components/StatusChip.jsx";
 import { sparklinePaths } from "../../components/history-chart.js";
 import { startPageCopy as copy } from "../../lib/i18n/messages/dashboard.js";
@@ -44,13 +45,77 @@ function Figure({ label, side, percent, tone, points, field }) {
   );
 }
 
+// The tile's figures as skeletons, in the same places and sizes.
+function SkeletonFigures({ phone }) {
+  if (phone)
+    return (
+      <span className="system-status-meters">
+        {[systemStatusCopy.cpu, systemStatusCopy.memory, systemStatusCopy.disk].map(
+          (label) => (
+            <span key={label} className="system-meter">
+              <span className="system-meter-top">
+                <span>{label}</span>
+                <strong>
+                  <Skeleton width="2.2em" />
+                </strong>
+              </span>
+              <span className="system-meter-bar" aria-hidden="true" />
+              <small>
+                <Skeleton width="60%" />
+              </small>
+            </span>
+          ),
+        )}
+      </span>
+    );
+  return (
+    <>
+      <span className="start-figures">
+        {[systemStatusCopy.cpu, systemStatusCopy.memory].map((label) => (
+          <span key={label} className="start-figure">
+            <span className="start-figure-top">
+              <span>{label}</span>
+              <small>
+                <Skeleton width="5em" />
+              </small>
+            </span>
+            <strong>
+              <Skeleton width="2.4em" />
+            </strong>
+            <Skeleton shape="block" width="100%" height="28px" />
+          </span>
+        ))}
+      </span>
+      <span className="start-disk">
+        <span className="start-figure-top">
+          <span>{systemStatusCopy.disk}</span>
+          <small>
+            <Skeleton width="9em" />
+          </small>
+        </span>
+        <span className="system-meter-bar" aria-hidden="true" />
+      </span>
+      <span className="start-system-foot">
+        <span>
+          <Skeleton width="14em" />
+        </span>
+        <span className="start-head-link">
+          {copy.systemDetails}
+          <Icon name="chevron" size={14} />
+        </span>
+      </span>
+    </>
+  );
+}
+
 /**
  * The start page's system status: CPU and RAM with sparklines, the disk and
- * AgentPier's share. The whole tile is one button that opens the details. Without
- * figures yet a failure hides it quietly; phones show three small bars.
+ * AgentPier's share. The whole tile is one button that opens the details. Skeleton
+ * figures hold their place until the first figures arrive; a failure before any
+ * arrived says the status is unavailable. Phones show three small bars.
  */
 export default function SystemStatusTile({ data, error, onOpen, phone }) {
-  if (error && !data) return null;
+  const failed = Boolean(error && !data);
   const history = Array.isArray(data?.history) ? data.history : [];
   const diskTone = data?.warning.diskLow ? "low" : "";
   return (
@@ -60,16 +125,27 @@ export default function SystemStatusTile({ data, error, onOpen, phone }) {
       onClick={onOpen}
       aria-haspopup="dialog"
       title={systemStatusCopy.rowLabel}
+      aria-busy={(!data && !failed) || undefined}
     >
       <span className="start-card-head">
         <span className="start-system-title">{systemStatusCopy.title}</span>
         {data && !error && !phone && (
           <StatusChip tone="ok">{systemStatusCopy.live}</StatusChip>
         )}
+        {!data && !failed && !phone && (
+          <span className="status-chip">
+            <Skeleton width="7em" />
+          </span>
+        )}
         {phone && <Icon name="chevron" size={16} />}
       </span>
-      {!data ? (
-        <span className="start-empty">{systemStatusCopy.loading}</span>
+      {failed ? (
+        <span className="start-empty">{systemStatusCopy.unavailable}</span>
+      ) : !data ? (
+        <>
+          <SkeletonLabel />
+          <SkeletonFigures phone={phone} />
+        </>
       ) : phone ? (
         <span className="system-status-meters">
           <SystemMeter label={systemStatusCopy.cpu} percent={data.cpu.percent} />
