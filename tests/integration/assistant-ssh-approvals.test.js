@@ -4,6 +4,7 @@ import { AssistantActionStore } from "../../server/features/assistants/assistant
 import { toolError } from "../../server/features/assistants/tool-errors.js";
 import {
   agentSshFixture,
+  archiveMainChat,
   hostId,
   otherHostId,
   waitFor,
@@ -261,4 +262,25 @@ test("an allowed member command stays in the lead's chat while it runs", async (
   assert.equal(listed(f.id, { delegated: true }), "executing");
   await call;
   assert.equal(listed(f.id, { delegated: true }), undefined);
+});
+
+test("a result after a main chat restart settles instead of retrying", async (t) => {
+  const f = await approvalFixture(t);
+  f.workflows.ssh.approvals.holdMs = 100;
+  const result = await f.execute(
+    f.ownTurn(),
+    'setTimeout(() => process.stdout.write("after restart"), 400)',
+  );
+  const action = f.workflows.get(result.actionId);
+  await decide(f, action, "approve");
+  await waitFor(() => f.workflows.get(action.id).state === "executing");
+  // The restart archives the main chat while the command runs (main-chat-swap.js).
+  archiveMainChat(f);
+  assert.ok(f.store.getConversation(f.channel.conversationId).archivedAt);
+  await waitFor(() => f.workflows.get(action.id).state === "completed");
+  await f.workflows.tick();
+  const after = f.workflows.get(action.id);
+  assert.equal(after.settled, true);
+  assert.equal(after.followUpRetryAt, undefined);
+  assert.equal(f.followUps.length, 1, "tried once, never re-queued");
 });

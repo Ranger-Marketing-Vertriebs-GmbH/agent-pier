@@ -4,7 +4,7 @@ import { withinBudget } from "../sftp/sftp-summary.js";
 import { actionTerminal } from "./assistant-action-store.js";
 import { notifyAction } from "./assistant-action-notifications.js";
 import { assistantProblem } from "./assistant-validation.js";
-import { pairedTelegram } from "./team-coding.js";
+import { pairedTelegram, retriedFollowUp } from "./team-coding.js";
 import { sshApprovalMs, sshHoldMs } from "./agent-ssh-approvals.js";
 import { alwaysAllowSftp } from "./agent-sftp-grants.js";
 import { toolError } from "./tool-errors.js";
@@ -19,7 +19,6 @@ import { toolError } from "./tool-errors.js";
 export const sftpDecisions = ["approve", "allow-always", "decline"];
 export const maxOpenSftpApprovals = 3;
 const followUpRetryMs = 300000;
-const retryable = new Set([409, 429, 503]);
 // The card's path lists share one UTF-8 budget, like a tool's plan summary.
 const CARD_BYTES = 256 * 1024;
 const listLimit = sftpLimits.planListLimit;
@@ -398,7 +397,7 @@ export class SftpApprovals {
       this.w.store.patch(a.id, { followUpSent: true, followUpRetryAt: undefined });
       return true;
     } catch (error) {
-      if (!retryable.has(error.status)) {
+      if (!retriedFollowUp(error)) {
         this.w.store.patch(a.id, { followUpSent: "failed" });
         return true;
       }

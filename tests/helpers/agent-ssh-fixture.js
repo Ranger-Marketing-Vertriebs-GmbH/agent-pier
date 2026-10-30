@@ -97,6 +97,13 @@ export function fakeCatalog(cwd, hosts = defaultHosts) {
   return catalog;
 }
 
+/** What a main chat restart does to the agent's chat (main-chat-swap.js). */
+export const archiveMainChat = (f) =>
+  f.store.updateConversation(f.channel.conversationId, {
+    main: false,
+    archivedAt: new Date().toISOString(),
+  });
+
 export async function waitFor(check, timeoutMs = 3000) {
   const end = Date.now() + timeoutMs;
   for (;;) {
