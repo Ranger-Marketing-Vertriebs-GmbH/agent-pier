@@ -117,7 +117,8 @@ test(
     const answered = h.audit.filter((e) => e.action === "assistant.answered");
     assert.equal(answered.at(-1).details.allowlist, "written");
 
-    // An interpreter: allowed once, no entry; the next run asks again.
+    // An interpreter: no program entry, but "Always allow" remembers exactly this
+    // command (AGENTPIER-276, exec-remembered.js); any other command asks again.
     const node = fs.realpathSync(path.join(installed, "node/bin/node"));
     fs.writeFileSync(
       at("mark.js"),
@@ -135,11 +136,22 @@ test(
     await h.settle(interpreted);
     assert.equal(fs.existsSync(at("n1")), true);
     assert.equal(state(once2).result.allowlist.skipped, "interpreter");
+    assert.equal(state(once2).result.allowlist.remembered, true);
     const reasked = await h.send(agent, "interpreter-again", script("n2"));
     await h.decide(await h.action(reasked), "deny");
     await h.settle(reasked);
     assert.equal(fs.existsSync(at("n2")), false);
-    assert.equal((await assistants.allowlist.list(agent.id)).entries.length, 1);
+    // The program entry from the first approval and the exact command of the second:
+    // one entry per approval.
+    const entries = (await assistants.allowlist.list(agent.id)).entries;
+    assert.deepEqual(
+      entries.map((e) => [e.source, e.kind, e.pattern]),
+      [
+        ["agentpier", "program", mark],
+        ["agentpier", "command", ""],
+      ],
+    );
+    assert.equal(entries[1].command, script("n1"));
     assert.equal(h.runtime.generation, generation, "no restart");
   },
 );

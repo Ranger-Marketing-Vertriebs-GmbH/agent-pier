@@ -118,7 +118,8 @@ test("all six steps create the agent, its grants and routine, then its chat", as
   const create = sent[0][1];
   expect(create).toMatchObject({ name: "Scout", model: { connectionId: "router" } });
   expect(create.capabilities.browser).toBe(false);
-  expect(create.shell).toBeUndefined();
+  // The level the profile shows, always explicit (AGENTPIER-276).
+  expect(create.shell).toBe("off");
   expect(sent[1][1]).toMatchObject({
     revision: 3,
     capabilities: { browser: true, webSearch: true, readPdfs: false },

@@ -19,22 +19,23 @@ for (const [label, viewport] of Object.entries(viewports)) {
   test.describe(`team usage on ${label}`, () => {
     test.beforeEach(({ page }) => page.setViewportSize(viewport));
 
-    test("defaults to Suggest and saves another level with the team policy", async ({
+    // AGENTPIER-276: Autonomous is the default.
+    test("defaults to Autonomous and saves another level with the team policy", async ({
       page,
     }) => {
       // A policy saved before the level existed reads as the default.
       const state = await setup(page);
       await page.goto(baseURL + settingsPath("team"));
       const group = usage(page);
-      await expect(group.getByRole("radio", { name: "Suggest" })).toBeChecked();
-      await expect(page.locator("#agent-team")).toContainText(
-        "offers to involve a matching member in one sentence and waits for your yes",
-      );
-      await fits(page);
-      await group.getByText("Autonomous", { exact: true }).click();
       await expect(group.getByRole("radio", { name: "Autonomous" })).toBeChecked();
       await expect(page.locator("#agent-team")).toContainText(
         "delegates suitable tasks on its own",
+      );
+      await fits(page);
+      await group.getByText("Suggest", { exact: true }).click();
+      await expect(group.getByRole("radio", { name: "Suggest" })).toBeChecked();
+      await expect(page.locator("#agent-team")).toContainText(
+        "offers to involve a matching member in one sentence and waits for your yes",
       );
       await fits(page);
       if (shots) {
@@ -48,7 +49,7 @@ for (const [label, viewport] of Object.entries(viewports)) {
       expect(state.work[0]).toEqual({
         team: {
           revision: 1,
-          usage: "autonomous",
+          usage: "suggest",
           autonomous: false,
           memberShellSsh: false,
           maxMembers: 4,
@@ -56,7 +57,7 @@ for (const [label, viewport] of Object.entries(viewports)) {
         },
       });
       await expect(saveBar(page)).toHaveCount(0);
-      await expect(group.getByRole("radio", { name: "Autonomous" })).toBeChecked();
+      await expect(group.getByRole("radio", { name: "Suggest" })).toBeChecked();
     });
 
     test("shows the stored level and its hint", async ({ page }) => {

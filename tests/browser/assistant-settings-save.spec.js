@@ -155,7 +155,7 @@ test("Access saves grants and Team saves the team policy, each its own half", as
   expect(state.work[1]).toEqual({
     team: {
       revision: 1,
-      usage: "suggest",
+      usage: "autonomous",
       autonomous: false,
       memberShellSsh: false,
       maxMembers: 6,
@@ -169,7 +169,7 @@ test("Access saves grants and Team saves the team policy, each its own half", as
   expect(state.work[2]).toEqual({
     team: {
       revision: 2,
-      usage: "suggest",
+      usage: "autonomous",
       autonomous: false,
       memberShellSsh: false,
       maxMembers: 6,
