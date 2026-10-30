@@ -1,6 +1,6 @@
 import { assistantProblem } from "./assistant-validation.js";
 import { mainConversation } from "./routine-targets.js";
-import { restartScope, runningWork } from "./restart-work.js";
+import { restartScope, runningWork, stopWork } from "./restart-work.js";
 import { freshMainChat, repointDeliveries } from "./main-chat-swap.js";
 
 // Only a lead that is not archived restarts: a team member's chat is its team's.
@@ -45,11 +45,17 @@ export function restartPreview(service, assistantId) {
 /**
  * Restart main chat, the owner's action: every person's main chat of the lead is
  * archived and replaced by a fresh one with its own native session (main-chat-swap.js),
- * then Telegram, routines and check-ins follow the new main chats. Each person keeps
+ * then Telegram, routines and check-ins follow the new main chats. All work of the
+ * lead and its members stops first (restart-work.js), before and outside the swap's
+ * admission: admission is not re-entrant, and the stop steps abort runs and reconcile
+ * with the Gateway, which must never hold or wait on it. Each person keeps
  * exactly one unarchived main chat even when a swap fails halfway; deliveries are
  * re-pointed then too, and a second restart swaps again.
  */
 export async function restartMainChats(service, assistantId) {
+  restartable(service, assistantId);
+  service.requireReady();
+  const work = await stopWork(service, assistantId, restartScope(service, assistantId));
   let result;
   try {
     result = await service.admit(async () => {
@@ -65,7 +71,7 @@ export async function restartMainChats(service, assistantId) {
           to: next.id,
         });
       }
-      return { restartedAt, chats };
+      return { restartedAt, chats, work };
     });
   } catch (error) {
     await repointDeliveries(service, assistantId).catch(() => {});
