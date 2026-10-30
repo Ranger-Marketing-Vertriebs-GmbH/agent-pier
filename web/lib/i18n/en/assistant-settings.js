@@ -110,4 +110,52 @@ export const assistantSettingsCopy = {
     "Reminders and routines are off for this agent. Switch on “Allow reminders and routines” under Capabilities.",
   heartbeatNeedsMemory:
     "Needs memory: switch on “Remember information” under Capabilities.",
+  mainChatRestart: {
+    group: "Danger zone",
+    row: "Restart main chat",
+    rowHint: "Starts every main chat of this agent over. Memory stays.",
+    title: (name) => `Restart the main chat of “${name}”?`,
+    body: "The agent loses its conversations so far, and all its running work stops at once.",
+    confirm: "Restart main chats and stop work",
+    goes: (people) =>
+      people === 1
+        ? "Goes: the conversation history and summaries of 1 main chat."
+        : `Goes: the conversation history and summaries of ${people} main chats.`,
+    stays:
+      "Stays: memory, files, settings, routines and reminders. Routines and reminders are not checked.",
+    notSaved: "Nothing is saved beforehand.",
+    temporary: (count) =>
+      count === 1 ? "1 temporary member ends." : `${count} temporary members end.`,
+    permanent: (count) =>
+      count === 1
+        ? "1 permanent member starts fresh."
+        : `${count} permanent members start fresh.`,
+    workIntro: "Work that will be cancelled:",
+    work: {
+      turns: (count) => (count === 1 ? "1 running turn" : `${count} running turns`),
+      teams: (count) =>
+        count === 1
+          ? "1 team proposal awaiting approval"
+          : `${count} team proposals awaiting approval`,
+      members: (count) =>
+        count === 1 ? "1 temporary member at work" : `${count} temporary members at work`,
+      requests: (count) =>
+        count === 1
+          ? "1 open request to a permanent member"
+          : `${count} open requests to permanent members`,
+      coding: (count) =>
+        count === 1
+          ? "1 coding session or workflow"
+          : `${count} coding sessions and workflows`,
+      goals: (count) =>
+        count === 1 ? "1 active work goal" : `${count} active work goals`,
+      approvals: (count) =>
+        count === 1 ? "1 pending approval" : `${count} pending approvals`,
+    },
+    archived: "The old main chats stay readable under archived chats.",
+    acknowledge: "I understand this cannot be undone",
+    loading: "Checking what the restart affects …",
+    loadFailed: "Could not load what the restart affects.",
+    done: "Main chats restarted. The previous ones are under archived chats.",
+  },
 };

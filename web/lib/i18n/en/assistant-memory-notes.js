@@ -15,6 +15,8 @@ export const memoryNoteCopy = {
     "memory-step":
       "Memory not saved: before a summary, the agent may change only its own memory.",
     "shared-write": "Applies to everyone who uses this agent.",
+    "main-restarted":
+      "The owner restarted the main chat. The previous one is under archived chats.",
   },
   unknown: "Memory not saved.",
 };
