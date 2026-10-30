@@ -43,7 +43,13 @@ function InboxRow({ item }) {
  * Everything waiting on the owner (route /inbox): tabs with counts, the list, and the
  * selected item's own card in the detail pane, answered there or opened in context.
  */
-export default function InboxPage({ route, navigate, openNavigation, navigationOpen }) {
+export default function InboxPage({
+  route,
+  navigate,
+  openNavigation,
+  navigationOpen,
+  pushHealth = null,
+}) {
   const inbox = useInbox();
   const tab = route.inboxTab || "all";
   const visible = inbox.items.filter((item) => tab === "all" || item.tab === tab);
@@ -90,7 +96,7 @@ export default function InboxPage({ route, navigate, openNavigation, navigationO
         className="inbox-panel"
       >
         <PushHealthNotice
-          person="owner"
+          health={pushHealth}
           openSettings={() =>
             navigate({ view: "settings", settingsSection: "notifications" })
           }

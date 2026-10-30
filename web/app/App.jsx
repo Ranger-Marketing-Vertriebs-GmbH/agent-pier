@@ -289,6 +289,7 @@ function Application() {
                 </Suspense>
               ) : view === "inbox" ? (
                 <InboxPage
+                  pushHealth={state.pushHealth ?? null}
                   route={route}
                   navigate={navigate}
                   openNavigation={openNavigation}

@@ -108,6 +108,8 @@ export async function operationsFixture(page, { tool = "codex", session = {} } =
         ],
         home: "/fixture",
         defaultCwd: "/fixture",
+        // Whether the owner's notices reach a device (PushHealthNotice); a test sets it.
+        ...(state.pushHealth ? { pushHealth: state.pushHealth } : {}),
         ...state.preferences,
       };
     else if (path === "/notifications")

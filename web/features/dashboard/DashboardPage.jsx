@@ -102,7 +102,7 @@ export default function DashboardPage({
         phone={phone}
       />
       <PushHealthNotice
-        person="owner"
+        health={state.pushHealth ?? null}
         openSettings={() =>
           navigate({ view: "settings", settingsSection: "notifications" })
         }

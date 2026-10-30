@@ -16,7 +16,7 @@ test("the start page says a device was lost, opens the settings and hides for th
 }) => {
   await english(page);
   const state = await notifications(page);
-  state.health = {
+  state.operations.pushHealth = {
     devices: 0,
     lost: true,
     failing: false,
@@ -48,7 +48,7 @@ test("German: the inbox warns when the last delivery failed on every device", as
   page,
 }) => {
   const state = await notifications(page);
-  state.health = { devices: 2, lost: false, failing: true };
+  state.operations.pushHealth = { devices: 2, lost: false, failing: true };
   await page.goto(baseURL + "/inbox");
   const notice = page.locator(".push-health-notice");
   await expect(notice).toContainText("Benachrichtigungen kommen nicht an");
@@ -63,7 +63,7 @@ test("German: the inbox warns when the last delivery failed on every device", as
 test("no notice while a device receives notifications", async ({ page }) => {
   await english(page);
   const state = await notifications(page);
-  state.health = { devices: 1, lost: false, failing: false };
+  state.operations.pushHealth = { devices: 1, lost: false, failing: false };
   await page.goto(baseURL + "/inbox");
   await expect(page.getByRole("heading", { name: "Inbox" })).toBeVisible();
   await expect(page.locator(".push-health-notice")).toHaveCount(0);
@@ -118,10 +118,11 @@ test("another person's subscription in this browser is never taken over", async 
   });
   await page.goto(baseURL + "/");
   await expect(page.getByRole("heading").first()).toBeVisible();
-  // The start page's own status read shows the reconciliation has finished.
+  // The reconciliation read the device list; it would register right after.
   await expect
     .poll(() => state.calls.filter((call) => call.method === "GET").length)
-    .toBeGreaterThan(1);
+    .toBe(1);
+  await page.waitForTimeout(500);
   expect(posts(state, "/subscriptions")).toHaveLength(0);
   expect(posts(state, "/renew")).toHaveLength(0);
 });
