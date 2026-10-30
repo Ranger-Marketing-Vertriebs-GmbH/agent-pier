@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { assistantProblem } from "../../features/assistants/assistant-validation.js";
 import { chatProblem } from "../../features/assistants/agent-chats.js";
+import { restartPreview } from "../../features/assistants/main-chat-restart.js";
 import {
   archiveChat,
   deleteChat,
@@ -55,6 +56,10 @@ export function assistantChatRoutes({ assistants, ownerPrivacy, audit }) {
         view: ownerChatView(ownerPrivacy),
       }),
     );
+  });
+  // What a main-chat restart would stop; the owner-only guard refuses users.
+  router.get("/assistants/:id/main-chat-restart", (req, res) => {
+    res.json(restartPreview(assistants, req.params.id));
   });
   router.post("/assistants/:id/chats", async (req, res) => {
     const conversation = await assistants.chats.create(req.params.id);
