@@ -149,9 +149,22 @@ export async function stopWork(service, leadId, scope) {
     );
   for (const id of work.goals) await attempt(() => teams.goals.stop(id));
   // Read again: stopping members and requests above may have ended some turns.
-  for (const turn of pendingTurns(service, work.conversations))
-    await attempt(() => service.cancel(turn.id));
+  await attempt(() => cancelTurns(service, work.conversations));
   if (work.approvals.length) service.changed({ feeds: false });
   if (failure) throw failure;
   return summary(work);
+}
+
+/**
+ * Cancels every pending turn in `conversations` (a Set of ids). One failing cancel
+ * never skips the rest; the first error is thrown at the end. Runs outside admission:
+ * a cancel reconciles with the Gateway.
+ */
+export async function cancelTurns(service, conversations) {
+  let failure;
+  for (const turn of pendingTurns(service, conversations))
+    await service.cancel(turn.id).catch((error) => {
+      failure ??= error;
+    });
+  if (failure) throw failure;
 }
