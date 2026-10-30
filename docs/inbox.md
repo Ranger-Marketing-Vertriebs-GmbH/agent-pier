@@ -99,15 +99,20 @@ Some requests need no card at all. The list lives in one constant,
 - `grep`, `rg` (without `--pre`), `cat`, `head`, `tail`, `ls`, `wc`, and `sed` without
   `-i` whose script only prints, deletes lines or substitutes without the `w` and `e`
   flags;
-- `npm test`, `npm run test*`, `npm run lint` and `npm run check`.
+- `npm test`, `npm run test*`, `npm run lint` and `npm run check`;
+- a plain `cd <dir>`.
 
-A command qualifies only when every part of a `;`, `&&`, `||` or `|` chain does, and
-it has no command substitution, variables, redirection into or out of a file, background
+A command needs no card only when every part of a `;`, `&&`, `||` or `|` chain is on
+this list or covered by a remembered approval (`cd sub && git status` runs, `cd sub &&
+rm x` asks unless `rm` is remembered), and it has no command substitution, variables, redirection into or out of a file, background
 job, subshell or leading `NAME=value`. Discarding output (`2>&1`, `>/dev/null`) is
 fine. A command that names a secret or credentials file (`.env`, `.ssh/`, keys,
 `credentials`, tokens, passwords) always asks, as do `rm`, `ssh`, `scp`, `sftp`,
 `git push` and other writing git commands and package installs; you can remember
-these once you approved them.
+these once you approved them. A remembered program or tool never covers a secret: with
+`cat` remembered, `cat README.md` runs but `cat .env` shows a card, and remembering
+from that card covers exactly `cat .env` (or, for a tool such as `Read`, exactly that
+path), not `cat secrets/other.key`.
 
 The audit records how a request was allowed: `allow` once, `allow-session` and
 `allow-project` for remembered approvals (and for the CLI's own session approval),

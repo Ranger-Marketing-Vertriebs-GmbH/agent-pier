@@ -149,6 +149,80 @@ test("a project approval survives a restart, is listed and can be removed", asyn
   assert.throws(() => f.broker.approvals.remove(rule.id), { status: 404 });
 });
 
+test("a chain is allowed only when every part is on the list or remembered", async (t) => {
+  const f = await fixture(t);
+  const run = hook(f, bash("cd sub && git status"), { timeout: 20_000 });
+  await run.done;
+  assert.deepEqual(JSON.parse(run.output()).hookSpecificOutput, allowOutput);
+  const asks = hook(f, bash("cd sub && rm x"), { timeout: 20_000 });
+  const card = await pending(f);
+  assert.deepEqual(
+    card.options.find((option) => option.remember).remember.programs,
+    ["rm"],
+    "only the part outside the list needs an approval",
+  );
+  await f.broker.answer("session", card.id, { expectedRevision: 1, choice: "deny" });
+  await asks.done;
+});
+
+test("a remembered program never covers a secret; a secret is remembered exactly", async (t) => {
+  const f = await fixture(t);
+  const ask = async (command) => {
+    const run = hook(f, bash(command), { timeout: 20_000 });
+    const card = await pending(f);
+    return { run, card };
+  };
+  // Remember cat for the project from an ordinary card.
+  const first = await ask("cat README.md | tee copy.md");
+  await f.broker.answer("session", first.card.id, {
+    expectedRevision: 1,
+    choice: "remember-project",
+  });
+  await first.run.done;
+  const plain = hook(f, bash("cat README.md docs/a.md"), { timeout: 20_000 });
+  await plain.done;
+  assert.deepEqual(JSON.parse(plain.output()).hookSpecificOutput, allowOutput);
+  // A secret path still asks, and its card names exactly that command.
+  const secret = await ask("cat .env");
+  assert.deepEqual(
+    secret.card.options.find((option) => option.remember).remember.programs,
+    ["cat .env"],
+  );
+  await f.broker.answer("session", secret.card.id, {
+    expectedRevision: 1,
+    choice: "remember-project",
+  });
+  await secret.run.done;
+  const again = hook(f, bash("cat .env"), { timeout: 20_000 });
+  await again.done;
+  assert.deepEqual(JSON.parse(again.output()).hookSpecificOutput, allowOutput);
+  const other = await ask("cat secrets/other.key");
+  await f.broker.answer("session", other.card.id, {
+    expectedRevision: 1,
+    choice: "deny",
+  });
+  await other.run.done;
+  // A tool rule does not cover a secret path either.
+  const readme = hook(f, tool("Read", { file_path: "/work/README.md" }), {
+    timeout: 20_000,
+  });
+  const readCard = await pending(f);
+  await f.broker.answer("session", readCard.id, {
+    expectedRevision: 1,
+    choice: "remember-session",
+  });
+  await readme.done;
+  const key = hook(f, tool("Read", { file_path: "/work/.ssh/id_ed25519" }), {
+    timeout: 20_000,
+  });
+  const keyCard = await pending(f);
+  assert.deepEqual(keyCard.options.find((option) => option.remember).remember.programs, [
+    "/work/.ssh/id_ed25519",
+  ]);
+  await f.broker.answer("session", keyCard.id, { expectedRevision: 1, choice: "deny" });
+  await key.done;
+});
+
 test("Codex and OpenCode shell requests use the same defaults and rules", async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-approvals-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
