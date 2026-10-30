@@ -70,6 +70,11 @@ export default function ProjectList({
         );
     target?.focus();
   }, [creating, sections]);
+  // A rename field whose group vanished (live update) must not block focus handoffs.
+  useEffect(() => {
+    if (renaming && !document.groups.some((group) => group.id === renaming))
+      setRenaming("");
+  }, [renaming, document]);
   // After a rename ends, focus returns to the group's ⋯; after a delete it moves to
   // the header that took its place, or to the list's first header.
   useEffect(() => {
@@ -83,24 +88,27 @@ export default function ProjectList({
     groupFocus.current = groupControl(`[data-group-id="${groupId}"]`);
     setRenaming("");
   };
+  // Focus moves to the header after the deleted group ("No group" after the last one).
+  const removeGroup = (group) => {
+    const next = document.groups[document.groups.findIndex((g) => g.id === group.id) + 1];
+    groupFocus.current = groupControl(
+      `[data-section="${next ? `group:${next.id}` : "ungrouped"}"] .project-section-toggle`,
+    );
+    groups.deleteGroup(group.id);
+  };
+  // The count and `withoutGroup` read the same assignments; assignments to folders that
+  // are not in the project list are intentionally ignored.
   const startDelete = (group) => {
     const count = projects.filter(
       (project) => document.assignments[normalizePath(project.path)] === group.id,
     ).length;
     if (count) return setDeleting({ group, count });
-    groups.deleteGroup(group.id);
+    removeGroup(group);
   };
   const confirmDelete = () => {
     const { group } = deleting;
-    const at = document.groups.findIndex((item) => item.id === group.id);
-    const next = document.groups[at + 1];
-    groupFocus.current = groupControl(
-      next
-        ? `[data-section="group:${next.id}"] .project-section-toggle`
-        : "[data-section]",
-    );
     setDeleting(null);
-    groups.deleteGroup(group.id);
+    removeGroup(group);
   };
   const nameProblem = (name, exceptId = "") => {
     const problem = groupNameProblem(document, name, exceptId);
