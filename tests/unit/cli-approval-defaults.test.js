@@ -37,6 +37,8 @@ test("read-only commands on the default list need no card", () => {
     "npm run test:unit",
     "npm run lint",
     "npm run check >/dev/null 2>&1",
+    "cd sub && git status",
+    "cd /work/repo; ls",
   ])
     assert.equal(allowed(command), true, command);
 });
@@ -83,6 +85,9 @@ test("anything that writes, runs other programs or reads secrets keeps asking", 
     "/usr/bin/cat file",
     "./ls",
     "ls # comment",
+    "cd sub && rm x",
+    "cd a b",
+    "cd .ssh",
   ])
     assert.equal(allowed(command), false, command);
 });

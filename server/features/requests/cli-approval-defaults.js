@@ -6,9 +6,11 @@ import { gitWords } from "./shell-command.js";
  * asks, including `rm`, ssh/scp/sftp, git push and other writing git commands,
  * package installs and any command that touches a secret or credentials file;
  * those can only be remembered for a session or project after the owner approved
- * one. A shell command qualifies only when every simple command in it qualifies
- * and it has no substitution, variable, file redirection, background job or
- * subshell (shell-command.js).
+ * one. A remembered program never covers a secret: such a command is remembered
+ * only exactly as approved (request-approvals.js). A shell command qualifies only
+ * when every simple command in it (`cd sub && git status`) is on this list or
+ * covered by a remembered approval, and it has no substitution, variable, file
+ * redirection, background job or subshell (shell-command.js).
  */
 export const DEFAULT_ALLOWED = Object.freeze({
   // Claude Code tools by name.
@@ -26,6 +28,8 @@ export const DEFAULT_ALLOWED = Object.freeze({
   // Programs that only read files; `sed` only without in-place editing or scripts
   // that write files or run commands.
   readers: Object.freeze(["grep", "rg", "sed", "cat", "head", "tail", "ls", "wc"]),
+  // `cd <dir>` alone; in a chain every other part must qualify too.
+  navigation: Object.freeze(["cd"]),
   // `npm test`, `npm run test*`, `npm run lint` and `npm run check`.
   npmScripts: Object.freeze([/^test/, /^lint$/, /^check$/]),
 });
@@ -96,11 +100,15 @@ function npmCheck(words) {
   return DEFAULT_ALLOWED.npmScripts.some((pattern) => pattern.test(script ?? ""));
 }
 
+/** Whether a command's words (or a tool's path) name a secret or credentials file. */
+export const touchesSecret = (words) => words.some((word) => secretWords.test(word));
+
 /** Whether one simple command (its words) is on the default list. */
 export function defaultCommand(words) {
   const [program] = words;
   if (!program || program.includes("/")) return false;
-  if (words.some((word) => secretWords.test(word))) return false;
+  if (touchesSecret(words)) return false;
+  if (DEFAULT_ALLOWED.navigation.includes(program)) return words.length <= 2;
   if (program === "git") return readOnlyGit(words);
   if (program === "npm") return npmCheck(words);
   if (!DEFAULT_ALLOWED.readers.includes(program)) return false;

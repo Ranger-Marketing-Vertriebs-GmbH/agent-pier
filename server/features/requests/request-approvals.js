@@ -5,14 +5,21 @@ import { problem } from "../../lib/storage.js";
 import { requestCopy as copy } from "../../lib/i18n/de/requests.js";
 import { projectScope } from "../memory/project-scope.js";
 import { shellSegments, programKey } from "./shell-command.js";
-import { DEFAULT_ALLOWED, defaultCommand } from "./cli-approval-defaults.js";
+import {
+  DEFAULT_ALLOWED,
+  defaultCommand,
+  touchesSecret,
+} from "./cli-approval-defaults.js";
 
 // Approvals the owner remembered on a CLI permission card ("Allow for this session"
 // or "for this project"), kept by AgentPier and answered by it: a later request of
 // the same CLI for the same tool, or for a shell command whose every program is
 // remembered or on the default list (cli-approval-defaults.js), gets "allow once"
 // without a card. Rules are per CLI and name a tool, or a shell program with its
-// subcommand (`git push`). Session rules end with their session; project rules
+// subcommand (`git push`). A command or path that looks like a secret is never
+// covered by such a rule: its card remembers exactly that command (`command`), so
+// `cat .env` approved once does not allow `cat secrets/other.key`. Session rules end
+// with their session; project rules
 // apply to every session whose folder belongs to the project (memory/project-scope).
 
 // The shell tool of each CLI; its requests carry a command line.
@@ -73,9 +80,12 @@ export class RequestApprovals {
     return id;
   }
   /**
-   * What a request asks for, as rules name it: its CLI and tool and, for a shell
-   * command, the keys of its programs that the default list does not cover. Null
-   * when the request cannot be remembered or answered automatically.
+   * What a request asks for, as rules name it: its CLI and tool and `needs`, what a
+   * rule must cover. For a shell command, one need per simple command the default
+   * list does not cover: `{ program }` (`git push`), or `{ command }` with the exact
+   * words when it touches a secret. For another tool, `[{}]` (the tool), or
+   * `[{ command: path }]` for a secret path. Null when the request cannot be
+   * remembered or answered automatically.
    */
   subject(entry) {
     const cli = entry.source;
@@ -90,22 +100,30 @@ export class RequestApprovals {
     )
       return null;
     if (shellTools[cli] !== tool) {
+      const target = entry.subject.path;
+      if (typeof target === "string" && touchesSecret([target]))
+        return { cli, tool, needs: [{ command: target }], builtIn: false };
       const builtIn = cli === "claude" && DEFAULT_ALLOWED.claudeTools.includes(tool);
-      return { cli, tool, programs: null, builtIn };
+      return { cli, tool, needs: [{}], builtIn };
     }
     const segments = shellSegments(entry.subject.command);
     if (!segments) return null;
-    const programs = [
-      ...new Set(segments.filter((words) => !defaultCommand(words)).map(programKey)),
-    ];
-    return { cli, tool, programs, builtIn: !programs.length };
+    const keys = new Map();
+    for (const words of segments.filter((words) => !defaultCommand(words))) {
+      const need = touchesSecret(words)
+        ? { command: words.join(" ") }
+        : { program: programKey(words) };
+      keys.set(need.command ?? need.program, need);
+    }
+    return { cli, tool, needs: [...keys.values()], builtIn: !keys.size };
   }
-  matching(subject, sessionId, projectId, program) {
+  matching(subject, sessionId, projectId, need) {
     return this.rules.filter(
       (rule) =>
         rule.cli === subject.cli &&
         rule.tool === subject.tool &&
-        (rule.program ?? null) === (program ?? null) &&
+        (rule.program ?? null) === (need.program ?? null) &&
+        (rule.command ?? null) === (need.command ?? null) &&
         ((rule.scope === "session" && rule.target === sessionId) ||
           (rule.scope === "project" && projectId && rule.target === projectId)),
     );
@@ -121,20 +139,20 @@ export class RequestApprovals {
     const choice = allowOnce(entry);
     if (subject.builtIn) return { choice, decision: "allow-default" };
     const projectId = await this.projectOf(session);
-    const needed = subject.programs ?? [null];
-    // A session rule wins over a project rule for the same program.
-    const used = needed.map((program) => {
-      const rules = this.matching(subject, session.id, projectId, program);
+    // A session rule wins over a project rule for the same need.
+    const used = subject.needs.map((need) => {
+      const rules = this.matching(subject, session.id, projectId, need);
       return rules.find((rule) => rule.scope === "session") ?? rules[0];
     });
     if (used.every(Boolean)) {
       const project = used.some((rule) => rule.scope === "project");
       return { choice, decision: project ? "allow-project" : "allow-session" };
     }
-    const remember = {
-      tool: subject.tool,
-      ...(subject.programs ? { programs: subject.programs } : {}),
-    };
+    // What the options name: programs, exact commands or paths, or the tool alone.
+    const named = subject.needs
+      .map((need) => need.program ?? need.command)
+      .filter(Boolean);
+    const remember = { tool: subject.tool, ...(named.length ? { programs: named } : {}) };
     const index = entry.options.findIndex((o) => o.id === choice) + 1;
     entry.options.splice(
       index,
@@ -165,15 +183,13 @@ export class RequestApprovals {
     const projectId = await this.projectOf(session);
     const target = scope === "session" ? session.id : projectId;
     if (!target) return;
-    for (const program of subject.programs ?? [null]) {
-      const known = this.rules.some(
-        (rule) =>
-          rule.scope === scope &&
-          rule.target === target &&
-          rule.cli === subject.cli &&
-          rule.tool === subject.tool &&
-          (rule.program ?? null) === (program ?? null),
-      );
+    for (const need of subject.needs) {
+      const known = this.matching(
+        subject,
+        scope === "session" ? target : null,
+        scope === "project" ? target : null,
+        need,
+      ).some((rule) => rule.scope === scope);
       if (known) continue;
       this.rules.push({
         id: randomUUID(),
@@ -183,7 +199,8 @@ export class RequestApprovals {
         ...(scope === "session" && projectId ? { projectId } : {}),
         cli: subject.cli,
         tool: subject.tool,
-        ...(program ? { program } : {}),
+        ...(need.program ? { program: need.program } : {}),
+        ...(need.command ? { command: need.command } : {}),
         createdAt: new Date().toISOString(),
       });
     }
@@ -224,6 +241,7 @@ function validRule(rule) {
     text(rule.target) &&
     Object.hasOwn(shellTools, rule.cli) &&
     text(rule.tool) &&
-    (rule.program === undefined || text(rule.program, 400))
+    (rule.program === undefined || text(rule.program, 400)) &&
+    (rule.command === undefined || text(rule.command, 8000))
   );
 }

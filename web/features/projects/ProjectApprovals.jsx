@@ -13,9 +13,9 @@ import "./project-agents.css";
 
 const cliNames = { claude: "Claude Code", codex: "Codex", opencode: "OpenCode" };
 
-/** What a rule allows: its program (`git push`) or its tool. */
+/** What a rule allows: its program (`git push`), its exact command (`cat .env`) or its tool. */
 const allowed = (rule) =>
-  rule.program || requestCopy.rememberTools[rule.tool] || rule.tool;
+  rule.program || rule.command || requestCopy.rememberTools[rule.tool] || rule.tool;
 
 /**
  * Approvals remembered from CLI permission cards ("Always allow … in this project"
