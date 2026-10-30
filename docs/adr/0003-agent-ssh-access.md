@@ -100,6 +100,8 @@ management; they may only **propose** an access, like a hook proposal:
   owner turn (web or Telegram, not forwarded, not a goal continuation) may propose;
   agents with a Telegram bot for other people are refused, as for grants. At most two
   proposals wait per agent and five are made per hour, failed scans included.
+  (Superseded by AGENTPIER-276: any run of the owner's chat may propose, since the
+  card protects it; the limits gave way to the agent's loop guard.)
 - Name, host, port, remote user, purpose and an optional project are checked like the
   owner's own host (no value can reach `ssh` or `ssh-keyscan` as an option). AgentPier
   scans the host key and stores it with the proposal as an unverified observation;

@@ -390,22 +390,14 @@ export const assistants = {
     "Dieses Mitglied hat schon eine offene Aufgabe. Warte auf ihr Ergebnis oder brich sie ab.",
   memberRequestNotFinished:
     "Nur abgeschlossene temporäre Mitglieder lassen sich archivieren.",
-  memberRequestRate:
-    "Der Agent hat in kurzer Zeit zu viele Fragen oder Aufgaben geschickt. Warte einen Moment.",
   peerRequestTurn:
-    "Ein Mitglied kann andere Mitglieder nur in seiner eigenen Arbeit fragen oder beauftragen.",
-  peerRequestLoop:
-    "Ein Mitglied kann keine weitere Frage oder Aufgabe stellen, solange es die Anfrage eines anderen Mitglieds bearbeitet.",
+    "Ein Mitglied kann in einem Zug mit weitergeleiteten Inhalten oder Inhalten von Mitgliedern andere Mitglieder weder fragen noch beauftragen oder ihnen berichten.",
+  agentLoopLimit:
+    "Der Agent hat in kurzer Zeit zu viele Team-, Routinen-, Projekt- oder SSH-Vorschlagsaktionen gestartet und wurde angehalten, damit keine Schleife ausufert.",
   peerRequestOpen:
     "Zwischen diesen Mitgliedern ist schon eine Anfrage offen, oder das Mitglied arbeitet schon an einer Aufgabe.",
-  peerRequestLimit:
-    "Ein Mitglied darf höchstens 3 offene Anfragen an andere Mitglieder haben und 6 pro Stunde stellen.",
-  memberReportLimit:
-    "Ein Mitglied darf seinem leitenden Agenten höchstens 6 Berichte pro Stunde senden.",
   memberReportTooLong:
     "Ein Bericht an den leitenden Agenten darf höchstens 32.768 Zeichen lang sein.",
-  memberRequestAutonomousLimit:
-    "Der Agent hat vorerst die meisten Fragen und Aufgaben aus eigenem Antrieb gestellt. Bitte ihn ausdrücklich darum, wenn er mehr tun soll.",
   memberTemplate: (name) => `Vorlage: ${name} (Agency-Agenten)`,
   memberTemplateWarned: (findings) =>
     `Die Prüfung hat gefunden: ${findings}. Prüfe die Vorlage vor der Freigabe.`,
@@ -451,27 +443,13 @@ export const assistants = {
     "Mit einem dauerhaften Mitglied kann ein leitender Agent nur Projektordner, Bilder lesen, Coding-Projekte und MCP-Server teilen.",
   teamGrantNotHeld:
     "Ein leitender Agent kann einem Teammitglied nur geben, was er selbst hat; Shell und SSH nur mit der Einstellung „Team-Mitglieder dürfen Shell und SSH nutzen“.",
-  goalOwnerTurn:
-    "Ein Ziel lässt sich nur in einer Antwort auf deine eigene Nachricht setzen, nicht in einer Fortsetzung oder einer weitergeleiteten, geplanten oder delegierten Antwort.",
   goalOwnerOnly:
     "Das braucht deine eigene Nachricht; eine Fortsetzung des Ziels kann das nicht.",
   goalUnavailable: "Ziele gibt es nur in deinen eigenen Chats mit diesem Agenten.",
   goalNotOpen: "Dieser Chat hat kein offenes Ziel.",
-  goalUpdateTurn:
-    "Die Schritte eines Ziels lassen sich nur in einer Antwort auf deine eigene Nachricht oder in einer Fortsetzung dieses Ziels festhalten, nicht in einer weitergeleiteten, geplanten oder delegierten Antwort.",
-  leadRoutineOwnerTurn:
-    "Ein leitender Agent legt Routinen bei seinen Mitgliedern nur in einer Antwort auf deine eigene Nachricht an oder ändert sie.",
   leadRoutineNotPermanent:
     "Routinen lassen sich nur bei dauerhaften Mitgliedern anlegen; temporäre Mitglieder arbeiten nur an ihrem Auftrag.",
   leadRoutineMemberOff: "Bei diesem Mitglied sind Routinen ausgeschaltet.",
-  leadRoutineInterval:
-    "Eine Routine bei einem Mitglied darf höchstens alle 15 Minuten laufen.",
-  leadRoutineNotRequested:
-    "Bei der Team-Nutzung „Auf Anfrage“ legt ein leitender Agent eine Routine bei einem Mitglied nur an, wenn deine Nachricht dieses Mitglied nennt.",
-  leadRoutineLimit:
-    "Der leitende Agent hat bei diesem Mitglied bereits die höchstmögliche Zahl an Routinen angelegt.",
-  memberReminderLimit:
-    "Die Mitglieder dieses Teams haben bereits die höchstmögliche Zahl an Erinnerungen beim leitenden Agenten angelegt.",
   teamGrantMemberEnded:
     "Rechte lassen sich nur einem laufenden auftragsgebundenen Mitglied des eigenen Teams geben.",
   teamMcpServerNotBound:
@@ -511,18 +489,12 @@ export const assistants = {
     "Der Start dieser Antwort ist noch nicht bestätigt. Gleich noch einmal versuchen.",
   hookRightExceeds:
     "Ein Hook darf nicht mehr als sein Agent: Dieses Recht hat der Agent nicht.",
-  hookOwnerOnly:
-    "Hooks können nur in einem Zug deiner eigenen Nachricht an den Agenten vorgeschlagen werden, nicht aus weitergeleiteten, geplanten oder Hook-Inhalten.",
   hookUnavailable:
     "Hooks gibt es nur für eigene Agenten und dauerhafte Teammitglieder, bei denen „Erinnerungen und Routinen erlauben“ eingeschaltet ist.",
-  sshProposalOwnerOnly:
-    "SSH-Zugänge können nur in einem Zug deiner eigenen Nachricht an den Agenten vorgeschlagen werden, nicht aus weitergeleiteten, geplanten oder Hook-Inhalten.",
   sshProposalUnavailable:
     "SSH-Zugangsvorschläge gibt es nur für eigene Agenten und dauerhafte Teammitglieder ohne Telegram-Bot für andere Personen.",
   sshProposalInvalid:
     "Gib einen Hostnamen oder eine IP-Adresse, einen Port von 1 bis 65535 und einen entfernten Benutzernamen aus Buchstaben, Ziffern, _ . und - an.",
-  sshProposalLimit:
-    "Für diesen Agenten warten schon zwei SSH-Zugangsvorschläge, oder er hat in der letzten Stunde fünf vorgeschlagen.",
   sshProposalExists: "Dieser Host, Port und Benutzer sind schon ein SSH-Zugang.",
   sshProposalScanFailed: "Der Hostschlüssel konnte von diesem Host nicht gelesen werden.",
   sshProposalProject: "Dieses Projekt gibt es nicht.",

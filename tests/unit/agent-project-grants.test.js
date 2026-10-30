@@ -248,7 +248,7 @@ test("an archived agent or temporary member gets no grant", (t) => {
   assert.equal(changed(), 0);
 });
 
-test("the store lists, matches, times and removes only the agent's own rows", (t) => {
+test("the store lists, matches and removes only the agent's own rows", (t) => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-agent-projects-"));
   const store = new AssistantStore({ dataDir });
   t.after(() => {
@@ -269,11 +269,6 @@ test("the store lists, matches, times and removes only the agent's own rows", (t
   assert.equal(projects.createdBy("a", "p-3"), false);
   assert.equal(projects.createdBy("b", "p-3"), true);
   assert.equal(projects.createdBy("c", "p-1"), false);
-  assert.deepEqual(projects.times("a"), [
-    Date.parse("2026-10-28T10:00:00Z"),
-    Date.parse("2026-10-28T12:00:00Z"),
-  ]);
-  assert.deepEqual(projects.times("c"), []);
   projects.remove("p-1", "a");
   projects.remove("p-1", "a"); // removing a missing row is harmless
   projects.remove("p-3", "a"); // another agent's row stays

@@ -87,32 +87,35 @@ async function setup(t) {
   return { ...f, hooks, call, pending, texts, setCaps };
 }
 
-test("the agent proposes a hook only in a direct owner turn", async (t) => {
+// AGENTPIER-276: the owner approves every hook on its card, so any run of his chat may
+// propose one; forwarded and members' content and other runs never.
+test("the agent proposes a hook in any run of the owner's chat, never for someone else", async (t) => {
   const f = await setup(t);
-  const refused = { key: "hookOwnerOnly", status: 403 };
+  const refused = { key: "invalid", status: 403 };
   for (const origin of [
     { kind: "owner", forwarded: true },
     { kind: "telegram", forwarded: true },
-    { kind: "member-result", requestId: "member-request" },
     { kind: "memory-step" },
     { kind: "lead-request", requestId: "lead-request" },
-    // AgentPier's own goal continuation, sent on the owner's behalf.
-    { kind: "owner", goal: { id: "goal", anchorRequestId: "anchor", title: "Ship" } },
   ])
     await assert.rejects(f.call(proposal, origin), refused, origin.kind);
-  // A routine's or a hook's own run, and a command's completion, have no owner turn.
+  // A routine's or a hook's own run has no owner turn.
   const run = { attemptId: null, toolCallId: "call", assertCurrent() {} };
   for (const bound of [
     { routine: { binding: { id: "routine" } } },
     { hook: { event: { id: "event" } } },
-    { ownerRun: { conversationId: "c" } },
   ])
     assert.throws(() => invokeHook(f.hooks, { ...run, ...bound }, proposal), refused);
   await assert.rejects(
     f.call({ action: "list" }, { kind: "owner", forwarded: true }),
     refused,
   );
-  assert.equal(toolError({ key: "hookOwnerOnly", status: 403 }).code, "HOOK_OWNER_ONLY");
+  // A goal continuation lists like the owner's own turn.
+  const goal = {
+    kind: "owner",
+    goal: { id: "goal", anchorRequestId: "anchor", title: "Ship" },
+  };
+  assert.deepEqual((await f.call({ action: "list" }, goal)).hooks, []);
   assert.equal(f.pending(), undefined);
 
   // The owner's own turn: an approval card, sent to the paired Telegram chat too.
@@ -393,7 +396,7 @@ test("agentpier_hook is compiled for own agents and permanent members, never for
   assert.ok(lockedTools.includes("agentpier_hook"));
 });
 
-test("a permanent member proposes a hook through the bridge in the owner's own turn", async (t) => {
+test("a permanent member proposes a hook through the bridge in the owner's chat", async (t) => {
   const f = await leadShareFixture(t);
   const id = f.member.assistantId;
   const stored = f.store.storedAssistant(id);
@@ -446,10 +449,10 @@ test("a permanent member proposes a hook through the bridge in the owner's own t
   assert.equal(action.payload.name, "Zabbix");
   assert.deepEqual((await call({ action: "list" })).hooks, []);
   f.assistants.ledger.transition(owner.attemptId, "completed");
-  // A forwarded message in that chat is no owner turn.
+  // A forwarded message in that chat proposes nothing.
   await f.turn(f.memberChat.id, { kind: "owner", forwarded: true });
   await assert.rejects(call(proposal), (error) => {
-    assert.equal(toolError(error).code, "HOOK_OWNER_ONLY");
+    assert.equal(toolError(error).code, "FORBIDDEN");
     return true;
   });
 });

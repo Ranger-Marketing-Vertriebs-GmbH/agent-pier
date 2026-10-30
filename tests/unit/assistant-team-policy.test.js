@@ -10,7 +10,7 @@ test("team limits accept all members but reject invalid capacity and hidden gran
   assert.deepEqual(policy, {
     revision: 1,
     autonomous: false,
-    usage: "suggest",
+    usage: "autonomous",
     maxMembers: 4,
     runTimeoutMinutes: 10,
     memberShellSsh: false,

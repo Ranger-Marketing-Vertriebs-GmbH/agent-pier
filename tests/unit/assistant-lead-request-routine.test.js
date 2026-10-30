@@ -4,10 +4,8 @@ import { leadStoreFixture } from "../helpers/lead-request-fixture.js";
 import {
   callerOf,
   publicRequest,
-  requestCaps,
   taskWritable,
 } from "../../server/features/assistants/lead-request-store.js";
-import { autonomousCaps } from "../../server/features/assistants/team-policy.js";
 
 // A lead with a permanent "Scout" and a temporary "Writer"; its routine "Morning
 // check" runs in its own run session, without any ledger attempt.
@@ -147,10 +145,7 @@ test("a routine of an archived lead or of a member is refused", (t) => {
   assert.throws(() => f.request(f.writer, { type: "question" }), { status: 403 });
 });
 
-test("a routine run's requests are idempotent and capped per run", (t) => {
-  const saved = { ...requestCaps };
-  Object.assign(requestCaps, { perMinute: 1000 });
-  t.after(() => Object.assign(requestCaps, saved));
+test("a routine run's requests are idempotent", (t) => {
   const f = setup(t);
   const routine = f.run();
   const operationId = crypto.randomUUID();
@@ -162,24 +157,4 @@ test("a routine run's requests are idempotent and capped per run", (t) => {
       input: { memberId: f.writer.id, question: "Status?" },
     });
   assert.equal(make().id, make().id);
-  for (let n = 1; n < requestCaps.perTurn; n++)
-    f.request(f.writer, { type: "question", routine });
-  assert.throws(() => f.request(f.writer, { type: "question", routine }), {
-    key: "memberRequestRate",
-  });
-  // The next run starts with a fresh budget.
-  assert.ok(f.request(f.writer, { type: "question" }).id);
-});
-
-test("an autonomous lead's routine requests count against the autonomous caps", (t) => {
-  const saved = { ...requestCaps };
-  Object.assign(requestCaps, { perMinute: 1000 });
-  t.after(() => Object.assign(requestCaps, saved));
-  const f = setup(t, "autonomous");
-  const routine = f.run();
-  for (let n = 0; n < autonomousCaps.perTurn; n++)
-    f.request(f.writer, { type: "question", routine });
-  assert.throws(() => f.request(f.writer, { type: "question", routine }), {
-    key: "memberRequestAutonomousLimit",
-  });
 });

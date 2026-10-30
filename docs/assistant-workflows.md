@@ -238,9 +238,9 @@ It has three actions:
 
 - **Who and when:** the owner's own agents and leads that are not archived. Team
   members, user agents and agents with their own Telegram bot for other people never
-  hold the tool. It works only in a direct owner turn (web chat or the owner's paired
-  Telegram chat); routines, hooks, team requests, forwarded content and goal
-  continuations answer `PROJECT_OWNER_ONLY`.
+  hold the tool. It works in any run of the owner's chat (AGENTPIER-276): his messages,
+  scheduled and result turns, goal continuations and runs without a turn. A routine's
+  or hook's own run, team requests and forwarded content answer `FORBIDDEN`.
 - **Where:** the project is a new folder directly in the owner's default working
   directory (`defaultCwd`, the home folder while unset). The name is a plain folder name:
   no `/` or `\`, no control or disguising characters, no leading dot, not `.` or `..`, at
@@ -256,7 +256,8 @@ It has three actions:
   agent created (`PROJECT_NOT_CREATED_BY_YOU`) and, to switch on, only while the agent
   still holds the project with write access; otherwise it answers
   `PROJECT_NOT_GRANTED`. Switching off always works.
-- **Limit:** 10 creations per agent in 24 hours (`PROJECT_CREATE_LIMIT`).
+- **Limit:** none of its own; each creation counts toward the agent's loop guard
+  (`AGENT_LOOP_LIMIT`, see [the Gateway guide](assistant-gateway.md)).
 - **Notice:** each creation and each coding change leaves a settled note in the agent's
   chat and under **Overview › Actions and coding tasks**, and a Telegram message when
   paired. It names the agent, the project, its path and whether coding sessions are on.
@@ -270,9 +271,8 @@ It has three actions:
   cannot re-grant itself a removed project.
 - **Sharing:** the agent shares the project with permanent members through
   `agentpier_team_grant` ([sharing](agents.md#sharing-a-leads-access-with-permanent-members)).
-- **Codes:** `PROJECT_NAME_INVALID`, `PROJECT_EXISTS`, `PROJECT_CREATE_LIMIT`,
-  `PROJECT_OWNER_ONLY`, `PROJECT_NOT_CREATED_BY_YOU`, `PROJECT_NOT_ELIGIBLE`,
-  `PROJECT_FOLDER_UNAVAILABLE`.
+- **Codes:** `PROJECT_NAME_INVALID`, `PROJECT_EXISTS`, `AGENT_LOOP_LIMIT`,
+  `PROJECT_NOT_CREATED_BY_YOU`, `PROJECT_NOT_ELIGIBLE`, `PROJECT_FOLDER_UNAVAILABLE`.
 
 ## Agent access from the project
 
@@ -827,9 +827,9 @@ refuses `rights.secrets: true`). `HookRuns.start` decides at the start and recor
 
 **Proposals.** The agent can propose a hook itself with `agentpier_hook`
 (`agent-hook-proposals.js`, own agents and permanent members with **Allow reminders and
-routines** on), actions `propose` and `list`, but only in a turn of the owner's own
-message: forwarded, scheduled, routine, hook, member-result, goal continuation and
-command completion turns answer `HOOK_OWNER_ONLY`. `propose` names the hook and its sender (one line each, no control characters), a reason, an optional
+routines** on), actions `propose` and `list`, in any run of the owner's chat, since the
+owner approves every proposal on its card (AGENTPIER-276); forwarded content, members'
+content and a routine's or hook's own run answer `FORBIDDEN`. `propose` names the hook and its sender (one line each, no control characters), a reason, an optional
 instruction, the rights and the hourly limit; rights above what the agent holds answer
 `HOOK_RIGHT_EXCEEDS`. The proposal is a `hook_proposal` approval action: a card in the
 chat, the owner's paired Telegram chat (hook, sender, reason, instruction and the

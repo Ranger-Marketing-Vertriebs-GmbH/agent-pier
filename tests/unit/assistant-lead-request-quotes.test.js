@@ -1,17 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { leadStoreFixture } from "../helpers/lead-request-fixture.js";
-import { requestCaps } from "../../server/features/assistants/lead-request-store.js";
 
 // The lead's verbatim quote proves a task only from the owner's own prose, as the
 // chat shows it: never from words the owner quoted, pasted, coded or linked, and
 // never in a message that says not to change anything.
 function setup(t) {
-  const saved = { ...requestCaps };
-  Object.assign(requestCaps, { perMinute: 1000 });
-  t.after(() => Object.assign(requestCaps, saved));
   const f = leadStoreFixture(t);
   const own = f.lead("Lead");
+  // At "Suggest" only a proof makes a task writable (the default is "Autonomous").
+  f.teams.savePolicy(own.assistant.id, { usage: "suggest" }, 1);
   const [scout] = f.team(own, { count: 1, names: ["Scout"] });
   f.promote(scout);
   const task = (text, quote, context) => {

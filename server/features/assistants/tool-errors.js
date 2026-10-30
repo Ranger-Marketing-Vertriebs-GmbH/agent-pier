@@ -2,11 +2,8 @@
 // on. Problem texts are owner-facing German UI copy and may name internals, so
 // they never reach the model; only real transport or runtime failures read as
 // "unavailable".
-import { autonomousCaps } from "./team-policy.js";
-import { peerCaps } from "./peer-request-rules.js";
-import { reportCaps, reportLimits } from "./member-reports.js";
-import { sshProposalCaps } from "./agent-ssh-proposal-notes.js";
-import { projectCreateCaps } from "./agent-project-rules.js";
+import { reportLimits } from "./member-reports.js";
+import { loopGuardCaps } from "./agent-loop-guard.js";
 const reasons = {
   TELEGRAM_NOT_CONNECTED:
     "No Telegram chat is paired for this person. Ask them to pair Telegram in the agent settings first; retrying does not help until then.",
@@ -20,20 +17,10 @@ const reasons = {
     "mcpServers may only name MCP servers bound to you (the prefix before __ in your MCP tool names). Remove the other names and propose again.",
   TEAM_GRANT_NOT_HELD:
     "You can only grant a member tools, skills, MCP servers and access that you hold yourself. Shell and SSH also need the owner's setting 'Team members may use shell and SSH', and never more than your own shell level. Remove that grant and try again.",
-  MEMBER_REMINDER_LIMIT:
-    "Your team already set the most reminders a team may set on its lead. Do not retry; report the reminder you wanted to your lead instead.",
-  ROUTINE_OWNER_TURN:
-    "Routines on members can only be set up or changed in a turn of the owner's own message, not in scheduled, forwarded or member-result turns. Do not retry now; offer it to the owner.",
   ROUTINE_MEMBER_NOT_PERMANENT:
     "Routines can only be set up on your own permanent members; temporary members work only on their task. Ask the owner to keep the member as a permanent agent first.",
   ROUTINE_MEMBER_OFF:
     "This member has routines switched off in its settings. Do not retry; ask the owner to switch them on.",
-  ROUTINE_TOO_FREQUENT:
-    "A routine on a member may run at most every 15 minutes. Choose a less frequent schedule.",
-  ROUTINE_NOT_REQUESTED:
-    "At your team usage 'On request' you set up a routine on a member only when the owner's own message in this turn asks for it and names that member. Ask the owner instead of retrying.",
-  ROUTINE_MEMBER_LIMIT:
-    "You already run the most routines allowed on this member (5). Change or remove one of them with agentpier_team_member_routine instead.",
   MEMBER_NOT_RUNNING:
     "Grants are only for your own task members that are not archived, and shares only for your own permanent members. Check agentpier_team_members for the memberId.",
   FORBIDDEN:
@@ -55,18 +42,12 @@ const reasons = {
     "This member already has an open task. Wait for its result or cancel it with agentpier_team_cancel.",
   MEMBER_NOT_FINISHED:
     "Only your finished temporary members without open questions or tasks can be archived. Check agentpier_team_members.",
-  RATE_LIMITED:
-    "Too many questions or tasks for your members in this turn or minute. Do not retry now; tell the owner what is still open, or let the owner approve more.",
-  AUTONOMOUS_LIMIT: `You already started ${autonomousCaps.perTurn} questions or tasks for your members on your own in this turn, or ${autonomousCaps.perHour} in the last hour. Do not retry; finish with what you have and tell the owner what is still open. The owner can ask you by name for more.`,
   PEER_TURN:
-    "Questions and tasks for other members are only possible in your own work: the owner's own message, your team assignment, your lead's request or your routine. Reports are not possible in this turn either. Do not retry.",
-  PEER_LOOP:
-    "You are handling another member's request (or its result), so you cannot ask or hand a task to a member now. Answer with what you have; if more is needed, report it to your lead with agentpier_team_report.",
+    "Questions, tasks and reports to other members are not possible in a turn of forwarded or member content. Do not retry.",
+  AGENT_LOOP_LIMIT: `You started ${loopGuardCaps.actions} team, routine, project or SSH proposal actions in the last ${loopGuardCaps.windowMs / 60000} minutes. AgentPier stops here so that no loop runs away. Do not retry now; finish with what you have and tell the owner what is still open.`,
   PEER_OPEN:
     "You already have an open request to this member, or it already works on an open task. Wait for its answer instead of retrying, or report it to your lead with agentpier_team_report.",
-  PEER_LIMIT: `You already have ${peerCaps.openPerMember} open requests to other members, or sent ${peerCaps.perHour} in the last hour. Do not retry now; report what you need to your lead with agentpier_team_report.`,
   REPORT_TOO_LONG: `A report holds at most ${reportLimits.text} characters, and this one is longer; nothing was sent. Shorten it to the result your lead needs. Put the details into a project file you may write and name it in files, or send the rest as a second report.`,
-  REPORT_LIMIT: `You already sent your lead ${reportCaps.perHour} reports in the last hour. Do not retry now; put what is still open into your next report, or answer in this chat.`,
   TEMPLATE_NOT_FOUND:
     "No Agency agent has this id. Search with agentpier_team_templates and use an id it returned.",
   TEMPLATE_BLOCKED:
@@ -181,28 +162,19 @@ const reasons = {
     "AgentPier's storage for this file is full. Do not retry; tell the owner.",
   STORAGE_UNSAFE:
     "AgentPier's storage for shared files is not a plain folder, so nothing can be shared. Do not retry; tell the owner.",
-  GOAL_OWNER_TURN:
-    "A goal can only be set in a turn of the owner's own message, not in continuations, forwarded, scheduled or member-result turns. Do not retry; keep working on the open goal or ask the owner.",
   GOAL_OWNER_ONLY:
     "This needs the owner's own message; a goal continuation cannot do it. Do not retry; tell the owner what you need.",
   GOAL_UNAVAILABLE:
     "Goals are only available in the owner's own chats with this agent. Do not retry.",
   GOAL_NOT_OPEN: "This chat has no open goal. Do not retry.",
-  GOAL_UPDATE_TURN:
-    "The steps of the open goal can only be noted in a turn of the owner's own message or in a turn of that goal, not in forwarded, scheduled or member-result turns or for a goal that has since been replaced. Do not retry; keep working on the open goal.",
   HOOK_RIGHT_EXCEEDS:
     "A hook cannot hold a right you do not have yourself. Remove that right and propose again.",
-  HOOK_OWNER_ONLY:
-    "Hooks can only be proposed or listed in a turn of the owner's own message, not in forwarded, scheduled, hook or member-result turns. Do not retry; tell the owner.",
   HOOK_UNAVAILABLE:
     "Hooks are only available to your owner's own agents and permanent members with reminders and routines switched on. Do not retry; tell the owner.",
-  SSH_PROPOSAL_OWNER_ONLY:
-    "SSH accesses can only be proposed or checked in a turn of the owner's own message, not in forwarded, scheduled, hook or member-result turns. Do not retry; tell the owner.",
   SSH_PROPOSAL_UNAVAILABLE:
     "SSH access proposals are only available to your owner's own agents and permanent members without a Telegram bot for other people. Do not retry; tell the owner.",
   SSH_PROPOSAL_INVALID:
     "Give host as a host name or IP address (no spaces, options or user@ prefix), port as a number from 1 to 65535 and username as letters, digits, _ . and - (not starting with -). Fix the values and propose again.",
-  SSH_PROPOSAL_LIMIT: `${sshProposalCaps.open} of your SSH access proposals already wait for the owner, or you proposed ${sshProposalCaps.perHour} in the last hour. Do not retry now; check them with action status and tell the owner.`,
   SSH_PROPOSAL_EXISTS:
     "This host, port and user are already an SSH access in AgentPier. Do not propose it again; ask the owner to grant you that access.",
   SSH_PROPOSAL_SCAN_FAILED:
@@ -287,9 +259,6 @@ const reasons = {
     "Give name as a plain folder name: no / or \\, no control characters, not . or .., no leading dot, at most 255 bytes. Fix it and try again.",
   PROJECT_EXISTS:
     "The owner's default working directory already has an entry with this name. Pick another name; never reuse an existing folder.",
-  PROJECT_CREATE_LIMIT: `You already created ${projectCreateCaps.perDay} projects in the last 24 hours. Do not retry now; tell the owner.`,
-  PROJECT_OWNER_ONLY:
-    "Projects can only be created, listed or switched in a turn of the owner's own message, not in forwarded, scheduled, hook, team or member-result turns. Do not retry; tell the owner.",
   PROJECT_NOT_CREATED_BY_YOU:
     "You can switch coding sessions only for projects you created yourself (see action list). Ask the owner for anything else.",
   PROJECT_NOT_ELIGIBLE:
@@ -307,29 +276,20 @@ const byKey = {
   teamMcpServerNotBound: "MCP_SERVER_NOT_BOUND",
   teamGrantNotHeld: "TEAM_GRANT_NOT_HELD",
   teamGrantMemberEnded: "MEMBER_NOT_RUNNING",
-  memberReminderLimit: "MEMBER_REMINDER_LIMIT",
-  leadRoutineOwnerTurn: "ROUTINE_OWNER_TURN",
   leadRoutineNotPermanent: "ROUTINE_MEMBER_NOT_PERMANENT",
   leadRoutineMemberOff: "ROUTINE_MEMBER_OFF",
-  leadRoutineInterval: "ROUTINE_TOO_FREQUENT",
-  leadRoutineNotRequested: "ROUTINE_NOT_REQUESTED",
-  leadRoutineLimit: "ROUTINE_MEMBER_LIMIT",
   memberRequestNotPermanent: "MEMBER_NOT_PERMANENT",
   memberRequestOpenTask: "TASK_OPEN",
   memberRequestNotFinished: "MEMBER_NOT_FINISHED",
   memberRequestUnavailable: "MEMBER_UNAVAILABLE",
-  memberRequestRate: "RATE_LIMITED",
   peerRequestTurn: "PEER_TURN",
-  peerRequestLoop: "PEER_LOOP",
+  agentLoopLimit: "AGENT_LOOP_LIMIT",
   peerRequestOpen: "PEER_OPEN",
-  peerRequestLimit: "PEER_LIMIT",
-  memberReportLimit: "REPORT_LIMIT",
   memberReportTooLong: "REPORT_TOO_LONG",
   templateNotFound: "TEMPLATE_NOT_FOUND",
   templateBlocked: "TEMPLATE_BLOCKED",
   templateTooLarge: "TEMPLATE_TOO_LARGE",
   templateUnavailable: "TEMPLATE_UNAVAILABLE",
-  memberRequestAutonomousLimit: "AUTONOMOUS_LIMIT",
   sshNotGranted: "SSH_NOT_GRANTED",
   sshHostUnavailable: "SSH_HOST_UNAVAILABLE",
   sshRoutineNotTrusted: "SSH_ROUTINE_NOT_TRUSTED",
@@ -360,11 +320,8 @@ const byKey = {
   projectWriteTooLarge: "PROJECT_WRITE_TOO_LARGE",
   hookRightExceeds: "HOOK_RIGHT_EXCEEDS",
   hookUnavailable: "HOOK_UNAVAILABLE",
-  hookOwnerOnly: "HOOK_OWNER_ONLY",
-  sshProposalOwnerOnly: "SSH_PROPOSAL_OWNER_ONLY",
   sshProposalUnavailable: "SSH_PROPOSAL_UNAVAILABLE",
   sshProposalInvalid: "SSH_PROPOSAL_INVALID",
-  sshProposalLimit: "SSH_PROPOSAL_LIMIT",
   sshProposalExists: "SSH_PROPOSAL_EXISTS",
   sshProposalScanFailed: "SSH_PROPOSAL_SCAN_FAILED",
   sshProposalProject: "SSH_PROPOSAL_PROJECT",
@@ -378,18 +335,14 @@ const byKey = {
   browserUploadSlow: "UPLOAD_TIMEOUT",
   attachmentStorageFull: "STORAGE_FULL",
   attachmentStorageUnsafe: "STORAGE_UNSAFE",
-  goalOwnerTurn: "GOAL_OWNER_TURN",
   goalOwnerOnly: "GOAL_OWNER_ONLY",
   goalUnavailable: "GOAL_UNAVAILABLE",
   goalNotOpen: "GOAL_NOT_OPEN",
-  goalUpdateTurn: "GOAL_UPDATE_TURN",
   sessionsNotEnabled: "SESSIONS_NOT_ENABLED",
   grantRevoked: "GRANT_REVOKED",
   sessionLimit: "SESSION_LIMIT",
   projectNameInvalid: "PROJECT_NAME_INVALID",
   projectExists: "PROJECT_EXISTS",
-  projectCreateLimit: "PROJECT_CREATE_LIMIT",
-  projectOwnerOnly: "PROJECT_OWNER_ONLY",
   projectNotCreatedByYou: "PROJECT_NOT_CREATED_BY_YOU",
   projectNotEligible: "PROJECT_NOT_ELIGIBLE",
   projectFolderUnavailable: "PROJECT_FOLDER_UNAVAILABLE",

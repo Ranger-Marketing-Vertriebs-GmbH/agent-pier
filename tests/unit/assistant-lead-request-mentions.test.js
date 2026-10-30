@@ -1,16 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { leadStoreFixture } from "../helpers/lead-request-fixture.js";
-import { requestCaps } from "../../server/features/assistants/lead-request-store.js";
 
 // AGENTPIER-68: an @mention of a member in the owner's own message proves a
 // delegated task to that member, whether or not the lead quotes it.
 function setup(t, names = ["Researcher", "Scout", "Writer"]) {
-  const saved = { ...requestCaps };
-  requestCaps.perMinute = 1000;
-  t.after(() => Object.assign(requestCaps, saved));
   const f = leadStoreFixture(t);
   const own = f.lead("Lead");
+  // At "Suggest" only a proof makes a task writable (the default is "Autonomous").
+  const policy = f.teams.policy(own.assistant.id);
+  f.teams.savePolicy(own.assistant.id, { usage: "suggest" }, policy.revision);
   const team = f.team(own, { count: names.length, names });
   const [, scout, writer] = team;
   for (const m of team.slice(1)) f.promote(m);

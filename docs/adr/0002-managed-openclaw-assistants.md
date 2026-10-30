@@ -464,6 +464,8 @@ Under suggest the owner's short yes counts as the owner request when the lead's 
 reply offered that member.
 Under autonomous a task the lead starts itself in the owner's turn may write in the
 member's own workspace and is marked self-initiated, capped per turn and hour.
+AGENTPIER-276 made autonomous the default and replaced the caps with one loop guard
+per agent (`agent-loop-guard.js`).
 Accepted risk: an autonomous lead decides itself when a member's workspace changes;
 memory, shell, SSH, project folders, GitHub, grants and new teams keep their rules.
 

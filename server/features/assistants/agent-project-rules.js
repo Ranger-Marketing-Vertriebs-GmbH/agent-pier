@@ -1,10 +1,9 @@
-// Rules for projects that agents create themselves: the name, the daily limit and
-// the problem keys behind the PROJECT_* tool codes. Eligibility (`mayCreateProjects`)
+// Rules for projects that agents create themselves: the name and the problem keys
+// behind the PROJECT_* tool codes (the agent's loop guard bounds how many,
+// agent-loop-guard.js). Eligibility (`mayCreateProjects`)
 // lives in goal-turns.js, which this module must not be imported from.
 import { validDirectoryName } from "../../lib/directories.js";
 import { assistantProblem } from "./assistant-validation.js";
-
-export const projectCreateCaps = Object.freeze({ perDay: 10, windowMs: 86400000 });
 
 // Invisible format and bidi characters, line and paragraph separators, and slash
 // look-alikes: they could disguise the name in the owner's notice.
@@ -15,11 +14,4 @@ export function projectName(value) {
   if (!validDirectoryName(value) || value.startsWith(".") || disguising.test(value))
     throw assistantProblem("projectNameInvalid");
   return value;
-}
-
-/** Throws a 429 when `times` within the window already reach the daily cap. */
-export function projectCreateLimit(times, now = Date.now()) {
-  const recent = times.filter((time) => now - time < projectCreateCaps.windowMs);
-  if (recent.length >= projectCreateCaps.perDay)
-    throw assistantProblem("projectCreateLimit", 429, projectCreateCaps.perDay);
 }

@@ -9,7 +9,7 @@ const schema = (properties, required = []) => ({
   additionalProperties: false,
 });
 const limits =
-  "Only colleagues of your own lead. At most one open request per colleague, 3 open at once and 6 per hour; not while you are handling a colleague's request yourself. When a call is refused, report to your lead with agentpier_team_report instead. The owner and your lead see every exchange.";
+  "Only colleagues of your own lead, at most one open request per colleague; not for forwarded content. Do not hand the same request back and forth: answer with what you have. When a call is refused, report to your lead with agentpier_team_report instead. AGENT_LOOP_LIMIT means you started too many such actions in a short time: stop and tell the owner. The owner and your lead see every exchange.";
 export const memberDefinitions = {
   peers: {
     description:
@@ -36,7 +36,7 @@ export const memberDefinitions = {
   },
   report: {
     description:
-      "Report to your lead on your own: kind result for a finished result, problem for something your lead must know or decide. text says what happened, at most 32768 characters; a longer text is refused and nothing is sent, so put long details into a project file you may write and name it in files, or send the rest as a second report. files names up to 10 project files that hold it (your lead reads them itself). It reaches your lead as a separate message, one report at a time, at most 6 per hour; do not send the same report again. The owner sees every report.",
+      "Report to your lead on your own: kind result for a finished result, problem for something your lead must know or decide. text says what happened, at most 32768 characters; a longer text is refused and nothing is sent, so put long details into a project file you may write and name it in files, or send the rest as a second report. files names up to 10 project files that hold it (your lead reads them itself). It reaches your lead as a separate message, one report at a time; do not send the same report again. The owner sees every report.",
     parameters: schema(
       {
         kind: { type: "string", enum: ["result", "problem"] },

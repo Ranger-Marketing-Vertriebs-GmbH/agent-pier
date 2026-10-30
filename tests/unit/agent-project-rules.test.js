@@ -5,13 +5,8 @@ import { validDirectoryName } from "../../server/lib/directories.js";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import {
-  projectCreateCaps,
-  projectCreateLimit,
-  projectName,
-} from "../../server/features/assistants/agent-project-rules.js";
+import { projectName } from "../../server/features/assistants/agent-project-rules.js";
 import { mayCreateProjects } from "../../server/features/assistants/goal-turns.js";
-import { serverCatalogs } from "../../server/lib/i18n/catalogs.js";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
 
 const throwsKey = (run, key) => {
@@ -125,34 +120,4 @@ test("a real lead qualifies; its own members do not", (t) => {
   assert.equal(mayCreateProjects(store.getAssistant(lead.id), true), false);
   store.setArchived(lead.id, lead.revision, "2026-10-28T12:00:00Z");
   assert.equal(mayCreateProjects(store.getAssistant(lead.id)), false);
-});
-
-test("ten creations within 24 hours reach the limit; older ones do not count", () => {
-  const now = Date.parse("2026-10-28T12:00:00Z"),
-    hour = 3600000;
-  projectCreateLimit(
-    Array.from({ length: 9 }, (_, i) => now - i * hour),
-    now,
-  );
-  projectCreateLimit([...Array.from({ length: 9 }, () => now), now - 24 * hour], now);
-  assert.throws(
-    () =>
-      projectCreateLimit(
-        Array.from({ length: 10 }, () => now - hour),
-        now,
-      ),
-    (e) =>
-      e.key === "projectCreateLimit" &&
-      e.status === 429 &&
-      e.message.includes(String(projectCreateCaps.perDay)),
-  );
-});
-
-test("the limit copy names the cap in both languages", () => {
-  for (const lang of ["de", "en"]) {
-    const copy = serverCatalogs[lang].agentProjects.projectCreateLimit;
-    assert.equal(typeof copy, "function", lang);
-    assert.match(copy(projectCreateCaps.perDay), /\b10\b/, lang);
-    assert.match(copy(3), /\b3\b/, lang);
-  }
 });

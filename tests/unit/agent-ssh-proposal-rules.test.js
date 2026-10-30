@@ -3,9 +3,7 @@ import assert from "node:assert/strict";
 import {
   mayPropose,
   proposalFields,
-  proposalLimit,
   proposalTurn,
-  sshProposalCaps,
 } from "../../server/features/assistants/agent-ssh-proposals.js";
 import { toolError } from "../../server/features/assistants/tool-errors.js";
 
@@ -93,29 +91,6 @@ test("purpose, project and unknown keys are refused when malformed", () => {
   assert.throws(() => proposalFields(null), invalid);
 });
 
-test("proposals are limited per agent: two waiting, five per hour", () => {
-  const now = Date.parse("2026-10-26T12:00:00Z");
-  const waiting = { state: "awaiting_approval", expiresAt: now + 1000 };
-  const limited = { key: "sshProposalLimit", status: 429 };
-  assert.deepEqual(sshProposalCaps, { open: 2, perHour: 5 });
-  assert.doesNotThrow(() => proposalLimit([waiting], [now - 1000], now));
-  assert.throws(() => proposalLimit([waiting, waiting], [], now), limited);
-  // An expired one no longer waits, a decided one neither.
-  assert.doesNotThrow(() =>
-    proposalLimit(
-      [waiting, { ...waiting, expiresAt: now - 1 }, { state: "declined" }],
-      [],
-      now,
-    ),
-  );
-  const recent = Array.from({ length: 5 }, (_, i) => now - i * 60000);
-  assert.throws(() => proposalLimit([], recent, now), limited);
-  // Older than an hour does not count.
-  assert.doesNotThrow(() => proposalLimit([], [...recent.slice(1), now - 3600000], now));
-  assert.equal(toolError(limited).code, "SSH_PROPOSAL_LIMIT");
-  assert.match(toolError(limited).reason, /in the last hour/);
-});
-
 test("only own agents and permanent members without a bot for others may propose", () => {
   const own = { id: "a" };
   assert.equal(mayPropose(own), true);
@@ -145,39 +120,46 @@ function turnOf(origin, agent = { id: "a" }, senders = false) {
   return (inv = {}) => proposalTurn(w, { attemptId: "attempt", ...inv });
 }
 
-test("only a turn of the owner's own message may propose", () => {
-  const ownerOnly = { key: "sshProposalOwnerOnly", status: 403 };
+// AGENTPIER-276: the owner approves every proposal on its card, so any run of his
+// chat may propose; forwarded and members' content and other people's runs never.
+test("any run of the owner's chat may propose; someone else's content never", () => {
+  const forbidden = { key: "invalid", status: 403 };
   for (const origin of [
     { kind: "owner", forwarded: true },
     { kind: "telegram", forwarded: true },
-    { kind: "member-result" },
     { kind: "lead-request", requestId: "x" },
     { kind: "team-member" },
     { kind: "memory-step" },
     { kind: "ssh-result" },
-    { kind: "ssh-access-result" },
+  ])
+    assert.throws(() => turnOf(origin)(), forbidden, JSON.stringify(origin));
+  for (const origin of [
+    { kind: "owner" },
+    { kind: "member-result" },
+    { kind: "reminder" },
     { kind: "owner", goal: { id: "g", anchorRequestId: "r", title: "Ship" } },
     undefined,
   ])
-    assert.throws(() => turnOf(origin)(), ownerOnly, JSON.stringify(origin));
-  // Routine and hook runs and command completions have no owner turn.
+    assert.equal(turnOf(origin)().agent.id, "a", JSON.stringify(origin));
+  // Routine and hook runs never; a run of the owner's chat without a turn does.
   const owner = turnOf({ kind: "owner" });
   for (const inv of [
     { attemptId: null },
     { routine: { binding: { id: "b" } } },
     { hook: { event: { id: "e" } } },
-    { ownerRun: { conversationId: "c" } },
   ])
-    assert.throws(() => owner(inv), ownerOnly, JSON.stringify(inv));
-  assert.equal(owner().agent.id, "a");
+    assert.throws(() => owner(inv), forbidden, JSON.stringify(inv));
+  assert.equal(
+    owner({ attemptId: null, ownerRun: { conversationId: "c" } }).origin.kind,
+    "agent-run",
+  );
   assert.equal(turnOf({ kind: "telegram", chatId: 1 })().origin.kind, "telegram");
   // A temporary member, or an agent with a bot for other people, never proposes.
-  const unavailable = { key: "sshProposalUnavailable", status: 403 };
   assert.throws(
     () => turnOf({ kind: "owner" }, { id: "m", teamMemberId: "t", lifetime: "task" })(),
-    unavailable,
+    forbidden,
   );
+  const unavailable = { key: "sshProposalUnavailable", status: 403 };
   assert.throws(() => turnOf({ kind: "owner" }, { id: "a" }, true)(), unavailable);
   assert.equal(toolError(unavailable).code, "SSH_PROPOSAL_UNAVAILABLE");
-  assert.equal(toolError(ownerOnly).code, "SSH_PROPOSAL_OWNER_ONLY");
 });

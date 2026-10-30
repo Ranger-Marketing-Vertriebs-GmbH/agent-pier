@@ -1,6 +1,6 @@
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { exact } from "./assistant-access.js";
-import { directOwnerTurn } from "./goal-turns.js";
+import { ownerChatCall } from "./owner-runs.js";
 import { notifyAction } from "./assistant-action-notifications.js";
 import { pairedTelegram } from "./team-coding.js";
 import { actionPath, fenced } from "./action-text.js";
@@ -16,23 +16,17 @@ import { actionPath, fenced } from "./action-text.js";
 const createKeys = ["name", "sender", "instruction", "rights", "hourlyLimit"];
 const proposeKeys = ["action", "reason", ...createKeys];
 const terminal = new Set(["completed", "failed", "declined", "expired"]);
-const ownerOnly = () => assistantProblem("hookOwnerOnly", 403);
 const instructionLimit = 1500;
 
-/** The owner's own turn of an eligible agent behind a tool call; throws otherwise. */
+/**
+ * Any run of the owner's chat with an eligible agent behind a tool call (owner-runs.js
+ * ownerChatCall: the owner approves every proposal on its card, AGENTPIER-276),
+ * never forwarded or member content or a routine's or hook's own run; throws.
+ */
 function ownerTurn(hooks, inv) {
-  // A routine's or a hook's own run and a command's completion have no turn.
-  if (!inv.attemptId || inv.routine || inv.hook || inv.ownerRun) throw ownerOnly();
-  const a = hooks.assistants,
-    attempt = a.ledger.getAttempt(inv.attemptId),
-    request = a.ledger.getRequest(attempt.requestId),
-    conversation = a.store.getConversation(request.conversationId),
-    agent = a.store.getAssistant(conversation.assistantId),
-    origin = a.teams.store.context(request.id);
-  // The owner's own message (web or Telegram), never a goal continuation, which
-  // AgentPier sends on his behalf, nor forwarded content.
-  if (!directOwnerTurn(origin)) throw ownerOnly();
-  return { agent: hooks.eligible(agent.id), conversation, origin };
+  const turn = ownerChatCall(hooks.assistants, inv);
+  if (!turn) throw assistantProblem("invalid", 403);
+  return { ...turn, agent: hooks.eligible(turn.agent.id) };
 }
 
 /** agentpier_hook: `list` the agent's hooks or `propose` one for the owner. */

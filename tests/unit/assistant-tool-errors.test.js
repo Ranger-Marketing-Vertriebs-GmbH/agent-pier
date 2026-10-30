@@ -128,8 +128,6 @@ test("project tool problems carry their stable codes and English reasons", () =>
   for (const [key, status, code] of [
     ["projectNameInvalid", 400, "PROJECT_NAME_INVALID"],
     ["projectExists", 409, "PROJECT_EXISTS"],
-    ["projectCreateLimit", 429, "PROJECT_CREATE_LIMIT"],
-    ["projectOwnerOnly", 403, "PROJECT_OWNER_ONLY"],
     ["projectNotCreatedByYou", 403, "PROJECT_NOT_CREATED_BY_YOU"],
     ["projectNotEligible", 403, "PROJECT_NOT_ELIGIBLE"],
     ["projectFolderUnavailable", 409, "PROJECT_FOLDER_UNAVAILABLE"],
@@ -138,12 +136,7 @@ test("project tool problems carry their stable codes and English reasons", () =>
     assert.equal(e.code, code, key);
     assert.equal(e.reason, toolReason(code), key);
     assert.notEqual(e.reason, toolReason("UNAVAILABLE"), key);
-    // The limit copy names the cap (agent-project-rules.js projectCreateCaps).
     for (const lang of ["de", "en"])
-      assert.equal(
-        typeof serverCatalogs[lang].agentProjects[key],
-        key === "projectCreateLimit" ? "function" : "string",
-        key,
-      );
+      assert.equal(typeof serverCatalogs[lang].agentProjects[key], "string", key);
   }
 });

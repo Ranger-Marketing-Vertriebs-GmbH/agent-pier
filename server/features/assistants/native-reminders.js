@@ -20,7 +20,6 @@ import { invokeReminder } from "./reminder-tools.js";
 
 import { agentName, audienceOf, noTelegram, pushAudience } from "./reminder-audience.js";
 export { exact, schedule, updateInput } from "./reminder-input.js";
-export { memberReminderLimit } from "./reminder-tools.js";
 const declaration = (binding) => `agentpier-reminder:${binding.id}`;
 // OpenClaw's silent-reply token; an empty summary is just as silent.
 const silent = (text) => !text.trim() || text.trim() === "NO_REPLY";

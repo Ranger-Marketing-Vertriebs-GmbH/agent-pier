@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { writeGate } from "../helpers/lead-request-service-fixture.js";
-import { autonomousCaps } from "../../server/features/assistants/team-policy.js";
+import {
+  loopGuard,
+  loopGuardCaps,
+} from "../../server/features/assistants/agent-loop-guard.js";
 
 // The owner's team usage level for the fixture's lead.
 const level = (f, usage) => {
@@ -99,12 +102,19 @@ test("under suggest the owner's yes after the offer lets the task write", async 
   assert.equal(strict.mayWrite, false);
 });
 
-test("the autonomous budget refuses with a clear tool error", async (t) => {
+// AGENTPIER-276: no autonomous budget any more; the lead's loop guard stops a loop.
+test("the lead's loop guard refuses with a clear tool error", async (t) => {
   const f = await writeGate(t);
   level(f, "autonomous");
   f.service.requests.waitMs = 0;
+  const guard = loopGuard(f.assistants.store);
+  guard.caps = { actions: 4, windowMs: 600000 };
+  t.after(() => {
+    guard.caps = loopGuardCaps;
+    guard.times.clear();
+  });
   const inv = f.turn("What do we know about the market?");
-  for (let n = 0; n < autonomousCaps.perTurn; n++)
+  for (let n = 0; n < 4; n++)
     await f.service.ask(
       { ...inv, toolCallId: crypto.randomUUID() },
       { memberId: f.temporary.id, question: `Question ${n}` },
@@ -114,13 +124,12 @@ test("the autonomous budget refuses with a clear tool error", async (t) => {
       { ...inv, toolCallId: crypto.randomUUID() },
       { memberId: f.temporary.id, question: "One more" },
     ),
-    { status: 429, key: "memberRequestAutonomousLimit" },
+    { status: 429, key: "agentLoopLimit" },
   );
 });
-
 test("the lead's roster names its members and the level", async (t) => {
   const f = await writeGate(t);
-  assert.equal(f.service.requests.roster(f.parent.id).usage, "suggest");
+  assert.equal(f.service.requests.roster(f.parent.id).usage, "autonomous");
   level(f, "autonomous");
   const roster = f.service.requests.roster(f.parent.id);
   assert.equal(roster.usage, "autonomous");

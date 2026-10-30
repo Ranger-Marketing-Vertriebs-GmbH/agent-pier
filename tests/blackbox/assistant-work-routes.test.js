@@ -44,7 +44,7 @@ test("an agent's work settings save together or not at all", async (t) => {
     revision: 2,
     autonomous: true,
     // Saved without a level: the default for new and existing agents.
-    usage: "suggest",
+    usage: "autonomous",
     maxMembers: 3,
     runTimeoutMinutes: 15,
     memberShellSsh: false,

@@ -3,17 +3,17 @@ import { assistantProblem, textValue } from "./assistant-validation.js";
 import { exact, fingerprint, requestKind } from "./lead-request-store.js";
 import { peerCaller, peerTurn } from "./peer-request-rules.js";
 import { mainConversation } from "./routine-targets.js";
+import { loopGuard } from "./agent-loop-guard.js";
 
 // A member's own report to its lead: a finished result or a problem. Stored as a
 // settled-pending lead request of type `report` under the lead, which the lead's
 // scheduler delivers as a `member-result` follow-up (lead-request-delivery.js), one
-// report per member at a time. Never counts against the lead's or the peer caps.
-export const reportCaps = { perHour: 6 };
+// report per member at a time. The member's loop guard bounds a burst
+// (agent-loop-guard.js, AGENTPIER-276).
 // A report carries a whole result (AGENTPIER-284): 32,768 characters fit the lead's
 // follow-up turn (lead-request-text.js followUpMaxChars) with its files, and the
 // team bridge's 256 KiB request bound even in four-byte characters.
 export const reportLimits = { text: 32768, files: 10, file: 500 };
-const hourMs = 3600000;
 const isMemberReport = (r) => r?.type === "report" && r.origin?.kind === "member-report";
 
 export class MemberReports {
@@ -44,8 +44,7 @@ export class MemberReports {
     files.forEach((file) => textValue(file, reportLimits.file));
     inv?.assertCurrent?.();
     textValue(inv?.toolCallId, 256);
-    const teams = this.teams,
-      store = this.service.requests.store;
+    const teams = this.teams;
     const r = teams.transaction(() => {
       const caller = peerCaller(this.service, inv);
       const key = `${caller.attempt?.id || `routine:${caller.routine.sessionKey}`}:${inv.toolCallId}`;
@@ -60,16 +59,7 @@ export class MemberReports {
       }
       if (!peerTurn(this.service, caller)) throw assistantProblem("peerRequestTurn", 403);
       const { lead, member, assistant } = caller;
-      const recent = store
-        .list(lead.id)
-        .filter(
-          (x) =>
-            isMemberReport(x) &&
-            x.memberId === member.id &&
-            now - Date.parse(x.createdAt) < hourMs,
-        );
-      if (recent.length >= reportCaps.perHour)
-        throw assistantProblem("memberReportLimit", 429);
+      loopGuard(this.service.assistants.store).take(assistant.id);
       const at = new Date(now).toISOString();
       const routine = caller.routine?.binding.definition?.name;
       return teams.insert(

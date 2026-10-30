@@ -62,6 +62,10 @@ export async function leadRoutineFixture(t) {
   const routines = new NativeRoutines({ reminders });
   f.assistants.routines = routines;
   t.after(() => reminders.close());
+  // At "Suggest" a lead routine writes only with the owner's switch (the default
+  // usage is "Autonomous", AGENTPIER-276).
+  const policy = f.service.store.policy(f.parent.id);
+  f.service.store.savePolicy(f.parent.id, { usage: "suggest" }, policy.revision);
   const tool = (
     action,
     input = {},

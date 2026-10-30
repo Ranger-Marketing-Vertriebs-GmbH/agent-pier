@@ -3,8 +3,7 @@ import { assistantProblem } from "./assistant-validation.js";
 import { exact } from "./reminder-input.js";
 import { pairedChannel } from "./routine-targets.js";
 import { boundTo, turnAudience } from "./reminder-audience.js";
-// Reminders all task members of one team may create together on their lead.
-export const memberReminderLimit = 5;
+import { loopGuard } from "./agent-loop-guard.js";
 /** The agent's reminder tool (agentpier_reminder) for one turn. */
 export function invokeReminder(self, invocation, input) {
   invocation.assertCurrent();
@@ -83,13 +82,8 @@ export async function memberCreate(self, member, invocation, input, origin) {
     key = `${invocation.attemptId}:${invocation.toolCallId}`;
   const own = self.bindings.list(lead);
   const replay = own.some((b) => b.key === key);
-  // At most a few per team, so a steered member cannot flood the owner's chat.
-  if (
-    !replay &&
-    own.filter((b) => b.createdBy?.teamId === member.teamId && b.state !== "removed")
-      .length >= memberReminderLimit
-  )
-    throw assistantProblem("memberReminderLimit", 409);
+  // A steered member that keeps creating meets its loop guard (agent-loop-guard.js).
+  if (!replay) loopGuard(self.assistants.store).take(member.id);
   const result = await self.create(
     lead,
     {

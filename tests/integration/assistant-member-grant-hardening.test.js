@@ -149,7 +149,7 @@ test("members reserved before grants existed get the default within the lead", a
   );
 });
 
-test("a member's reminders are capped per team and noted in the lead's chat", async (t) => {
+test("a member's reminders are noted in the lead's chat and bounded by its loop guard", async (t) => {
   const f = await memberGrantFixture(t, { grants: { reminders: true } });
   const turn = () => {
     const request = f.assistants.ledger.accept(f.memberChat.id, {
@@ -193,16 +193,23 @@ test("a member's reminders are capped per team and noted in the lead's chat", as
   for (let n = 0; n < 5; n++) await reminders.invoke(turn(), input);
   assert.equal(created.length, 5);
   assert.equal(created[0].createdBy.teamId, f.member.teamId);
+  // No cap per team any more (AGENTPIER-276): the member's loop guard bounds a loop.
+  const { loopGuard } =
+    await import("../../server/features/assistants/agent-loop-guard.js");
+  const guard = loopGuard(f.assistants.store);
+  guard.caps = { actions: 6, windowMs: 600000 };
+  t.after(() => guard.times.clear());
+  await reminders.invoke(turn(), input);
   await assert.rejects(async () => reminders.invoke(turn(), input), {
-    key: "memberReminderLimit",
+    key: "agentLoopLimit",
   });
   const notes = f.workflows.store
     .list(f.channel.assistantId)
     .filter((a) => a.payload.action === "member_reminder");
-  assert.equal(notes.length, 5);
+  assert.equal(notes.length, 6);
   assert.equal(notes[0].conversationId, f.channel.conversationId);
   const audit = f.audits.filter((a) => a.details.kind === "member-reminder");
-  assert.equal(audit.length, 5);
+  assert.equal(audit.length, 6);
   assert.ok(!JSON.stringify(audit).includes("Look"));
 });
 

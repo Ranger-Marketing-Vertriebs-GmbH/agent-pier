@@ -289,7 +289,7 @@ test("a turn of a replaced goal does not note the new goal's steps", async (t) =
   await setGoal(f, chat, "New");
   await assert.rejects(
     f.service.goal(stale.inv, { action: "update", steps: "1. Wrong" }),
-    (e) => e.key === "goalUpdateTurn" && e.status === 403,
+    (e) => e.key === "invalid" && e.status === 403,
   );
   assert.equal(f.service.goals.view(chat.id).steps, "");
   // A turn of the open goal and the owner's own turn still note them.

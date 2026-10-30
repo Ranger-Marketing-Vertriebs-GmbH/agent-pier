@@ -391,7 +391,7 @@ test("work drafts send only the half that changed, each with its revision", () =
     autonomous: false,
     publish: false,
     // A policy without a level reads as the server's default.
-    teamUsage: "suggest",
+    teamUsage: "autonomous",
     teamAutonomous: false,
     memberShellSsh: false,
     maxMembers: 4,
@@ -408,7 +408,7 @@ test("work drafts send only the half that changed, each with its revision", () =
     {
       team: {
         revision: 7,
-        usage: "suggest",
+        usage: "autonomous",
         autonomous: false,
         memberShellSsh: false,
         maxMembers: 6,
@@ -456,7 +456,7 @@ test("work drafts send only the half that changed, each with its revision", () =
     "autonomous",
   );
   assert.equal(workServer(null, { usage: "onRequest" }).teamUsage, "onRequest");
-  assert.equal(workServer(null, { usage: "always" }).teamUsage, "suggest");
+  assert.equal(workServer(null, { usage: "always" }).teamUsage, "autonomous");
 });
 
 test("the Access and Team tabs each send only their own half of the work record", () => {

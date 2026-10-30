@@ -366,7 +366,7 @@ test("a host key that changed before approval refuses it; an unreachable host wa
   assert.ok(f.texts().some((text) => /anderen Schlüssel/.test(text)));
 });
 
-test("existing hosts, unknown projects, failed scans and the rate limit are refused", async (t) => {
+test("existing hosts, unknown projects and failed scans are refused", async (t) => {
   const f = await setup(t);
   await assert.rejects(f.call({ ...proposal, projectId: "missing" }), {
     key: "sshProposalProject",
@@ -385,25 +385,13 @@ test("existing hosts, unknown projects, failed scans and the rate limit are refu
     hostKey: f.keys[0],
   });
   await assert.rejects(f.call(proposal), { key: "sshProposalExists", status: 409 });
-  // Two waiting proposals are the limit.
-  await f.call({ ...proposal, username: "ops" });
-  await f.call({ ...proposal, username: "audit" });
-  await assert.rejects(f.call({ ...proposal, username: "logs" }), {
-    key: "sshProposalLimit",
-    status: 429,
-  });
-  for (const a of f.workflows.store.list(f.id))
-    if (a.state === "awaiting_approval") await f.decide(a, "decline");
-  // Failed scans count toward the hourly limit with the proposals.
+  // AGENTPIER-276: no waiting or hourly limit; the agent's loop guard bounds a loop.
+  for (const username of ["ops", "audit", "logs"])
+    assert.equal((await f.call({ ...proposal, username })).status, "approval_requested");
   f.scan.fail = true;
-  for (const username of ["a1", "a2", "a3"])
-    await assert.rejects(f.call({ ...proposal, username }), {
-      key: "sshProposalScanFailed",
-      status: 502,
-    });
-  f.scan.fail = false;
-  await assert.rejects(f.call({ ...proposal, username: "a4" }), {
-    key: "sshProposalLimit",
+  await assert.rejects(f.call({ ...proposal, username: "a1" }), {
+    key: "sshProposalScanFailed",
+    status: 502,
   });
   assert.equal(f.catalog().hosts.length, 1);
 });
@@ -412,17 +400,13 @@ test("forwarded, routine and member turns never propose", async (t) => {
   const f = await setup(t);
   for (const origin of [
     { kind: "owner", forwarded: true },
-    { kind: "member-result", requestId: "r" },
     { kind: "lead-request", requestId: "r" },
   ])
-    await assert.rejects(f.call(proposal, origin), {
-      key: "sshProposalOwnerOnly",
-      status: 403,
-    });
+    await assert.rejects(f.call(proposal, origin), { key: "invalid", status: 403 });
   const run = { attemptId: null, toolCallId: "call", assertCurrent() {} };
   await assert.rejects(
     invokeSshAccess(f.workflows, { ...run, routine: { binding: { id: "b" } } }, proposal),
-    { key: "sshProposalOwnerOnly" },
+    { key: "invalid" },
   );
   // A Telegram turn of the owner proposes; its own chat gets the card.
   const result = await f.call(proposal, {
@@ -530,7 +514,7 @@ test("a permanent member proposes through the bridge in the owner's own turn", a
   // The lead's task in the member's chat is no owner turn.
   await f.task();
   await assert.rejects(call({ ...proposal, username: "ops" }), (error) => {
-    assert.equal(toolError(error).code, "SSH_PROPOSAL_OWNER_ONLY");
+    assert.equal(toolError(error).code, "FORBIDDEN");
     return true;
   });
 });

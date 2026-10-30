@@ -3,8 +3,6 @@ import { actionPath, fenced } from "./action-text.js";
 // What an SSH access proposal (agent-ssh-proposals.js) tells the agent and the owner's
 // Telegram chat. Never a private key, a password or the host key itself.
 
-// Waiting proposals per agent, and proposals plus failed scans per hour.
-export const sshProposalCaps = { open: 2, perHour: 5 };
 const endpoint = (p) => `${p.username}@${p.host}:${p.port}`;
 
 /** The agent's follow-up turn: the outcome, and the public key to install. */

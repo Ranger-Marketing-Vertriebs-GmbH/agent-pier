@@ -8,7 +8,6 @@ import { requestKind } from "../../server/features/assistants/lead-request-store
 import { turnAudience } from "../../server/features/assistants/reminder-audience.js";
 import { sshOrigin } from "../../server/features/assistants/agent-ssh-origin.js";
 import { directTurn } from "../../server/features/assistants/memory-write-policy.js";
-import { toolError } from "../../server/features/assistants/tool-errors.js";
 
 const keyed = (key) => (error) => error?.key === key;
 
@@ -185,35 +184,18 @@ function selfInitiatedHour(f, count) {
     });
 }
 
-test("goal tasks keep the per-turn cap and skip the hourly one", async (t) => {
+// AGENTPIER-276: no per-turn or hourly budget; goal tasks write and the loop guard
+// bounds a loop.
+test("goal tasks write without a per-turn or hourly budget", async (t) => {
   const f = await setup(t, "autonomous");
   selfInitiatedHour(f, 20);
   const anchor = turn(f, "Finish the episode").request;
   const { inv } = continuation(f, anchor);
-  for (let n = 0; n < 4; n++) {
+  for (let n = 0; n < 6; n++) {
     const r = await delegate(f, { ...inv, toolCallId: `task-${n}` });
     assert.equal(r.writeAllowed, true, `goal task ${n}`);
     assert.equal(r.goalId, "g");
   }
-  await assert.rejects(
-    delegate(f, { ...inv, toolCallId: "task-4" }),
-    keyed("memberRequestAutonomousLimit"),
-  );
-  // Goal tasks never fill the hourly limit, and an ordinary owner turn keeps it.
-  await assert.rejects(
-    delegate(f, turn(f, "Finish the episode").inv),
-    keyed("memberRequestAutonomousLimit"),
-  );
-});
-
-test("goal tasks do not count against the hourly limit", async (t) => {
-  const f = await setup(t, "autonomous");
-  selfInitiatedHour(f, 16);
-  const anchor = turn(f, "Finish the episode").request;
-  const { inv } = continuation(f, anchor);
-  for (let n = 0; n < 4; n++) await delegate(f, { ...inv, toolCallId: `task-${n}` });
-  const r = await delegate(f, turn(f, "Finish the episode").inv);
-  assert.equal(r.autonomous, true, "16 ordinary ones leave room for more");
 });
 
 // The lead's own question to the permanent member, answered (`replies`, the
@@ -388,7 +370,7 @@ test("a team request is used once across the anchor and its continuations", asyn
   assert.notEqual(f.service.store.get(second.id).authorization?.kind, "task");
 });
 
-test("routines, reminders and lead routines refuse a continuation", async (t) => {
+test("routines and reminders refuse a continuation; lead routines take it", async (t) => {
   const f = await leadRoutineFixture(t);
   const agent = f.store.getAssistant(f.parent.id);
   const anchor = turn(f, "Please set up a routine on Member 1").request;
@@ -396,10 +378,8 @@ test("routines, reminders and lead routines refuse a continuation", async (t) =>
   const ctx = f.service.store.context(cont.request.id);
   assert.throws(() => turnAudience(agent, f.chat, ctx, true), keyed("goalOwnerOnly"));
   assert.equal(turnAudience(agent, f.chat, ctx, false), null, "listing still works");
-  await assert.rejects(
-    f.create({}, cont.inv),
-    (error) => toolError(error).code === "ROUTINE_OWNER_TURN",
-  );
+  // A lead routine on a member is no owner-only switch any more (AGENTPIER-276).
+  assert.equal((await f.create({}, cont.inv)).member, "Member 1");
 });
 
 test("a continuation writes files and memory and uses trusted SSH like the owner", () => {

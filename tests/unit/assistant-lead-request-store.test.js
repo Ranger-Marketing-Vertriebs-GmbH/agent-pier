@@ -1,22 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { leadStoreFixture } from "../helpers/lead-request-fixture.js";
-import {
-  ownerQuote,
-  requestCaps,
-} from "../../server/features/assistants/lead-request-store.js";
+import { ownerQuote } from "../../server/features/assistants/lead-request-store.js";
 import { profileTools } from "../../server/features/assistants/native-capabilities.js";
 
 // The owner's own words for one member: "Please delegate the budget review to Scout".
 const said = (name) => `Please delegate the budget review to ${name}`;
 const quoted = (name) => `delegate the budget review to ${name}`;
 
-function setup(t, { caps = { perMinute: 1000 } } = {}) {
-  const saved = { ...requestCaps };
-  Object.assign(requestCaps, caps);
-  t.after(() => Object.assign(requestCaps, saved));
+function setup(t) {
   const f = leadStoreFixture(t);
   const own = f.lead("Lead");
+  // At "Suggest" only a proof makes a task writable (the default is "Autonomous").
+  f.teams.savePolicy(own.assistant.id, { usage: "suggest" }, 1);
   const [temporary, permanent, third] = f.team(own, {
     count: 3,
     names: ["Researcher", "Scout", "Writer"],
@@ -235,29 +231,9 @@ test("a negated or embedded owner instruction proves nothing", (t) => {
   assert.equal(f.writes({ text: `Hi. ${later}.`, quote: later }), true);
 });
 
-test("requests per turn and per minute are capped", (t) => {
-  const f = setup(t, { caps: { perMinute: 6, perTurn: 8 } });
-  const attempt = f.turn(f.own.chat, said("Researcher"));
-  for (let n = 0; n < 6; n++) f.ask(f.temporary, { attempt });
-  assert.throws(() => f.ask(f.temporary, { attempt }), {
-    status: 429,
-    key: "memberRequestRate",
-  });
-  // Another lead has its own budget.
-  const other = f.turn(f.other.chat, said("Scout"));
-  assert.equal(f.ask(f.foreign, { attempt: other }).phase, "queued");
-});
-
-test("a turn takes at most eight requests", (t) => {
-  const f = setup(t, { caps: { perMinute: 1000, perTurn: 8 } });
-  const attempt = f.turn(f.own.chat, said("Researcher"));
-  for (let n = 0; n < 8; n++) f.ask(f.temporary, { attempt });
-  assert.throws(() => f.ask(f.temporary, { attempt }), { status: 429 });
-});
-
 test("standing team permission does not let a task write", (t) => {
   const f = setup(t);
-  f.teams.savePolicy(f.own.assistant.id, { autonomous: true }, 1);
+  f.teams.savePolicy(f.own.assistant.id, { autonomous: true }, 2);
   assert.equal(f.writes({ claim: false }), false);
 });
 
