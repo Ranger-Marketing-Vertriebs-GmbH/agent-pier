@@ -1,5 +1,6 @@
 import { decideAudited } from "./approval-audit.js";
-import { stopSession } from "./coding-sessions/session-worktrees.js";
+import { stopRevokedSession, stopSession } from "./coding-sessions/session-worktrees.js";
+import { isUserAgent } from "../users/user-access.js";
 
 /**
  * The work a main-chat restart stops (design: main chat restart). The restart covers
@@ -96,7 +97,8 @@ export function runningWork(service, leadId) {
 
 /**
  * Stops what runs for the lead and the people in `scope` before its main chats
- * restart: proposals are declined, temporary members end, lead requests, approvals,
+ * restart: proposals are declined, temporary members end, lead requests (peer
+ * requests and member reports too) end and settle without a follow-up, approvals,
  * coding runs and sessions and work goals stop, and every pending turn is cancelled,
  * in extra chats too. Permanent members are never stopped here; only their turns are.
  * One failing step never skips the rest; the first error is thrown at the end.
@@ -114,11 +116,11 @@ export async function stopWork(service, leadId, scope) {
   };
   const teams = service.teams;
   const w = service.workflows;
-  for (const team of work.teams) await attempt(() => teams.stop(team.id));
+  for (const team of work.teams) await attempt(() => declineTeam(service, team));
   for (const member of work.members)
     await attempt(() => teams.stop(member.teamId, member.id));
   for (const request of work.requests)
-    await attempt(() => teams.requests.stop(request.id, "owner"));
+    await attempt(() => settleRequest(teams.requests, request.id));
   for (const { id } of work.approvals)
     await attempt(() => {
       // Stopping a member may have withdrawn its request already.
@@ -142,9 +144,11 @@ export async function stopWork(service, leadId, scope) {
   for (const run of work.runs) await attempt(() => w.s.pipelines.cancel(run.runId));
   for (const { assistantId, sessionId } of work.sessions)
     await attempt(() =>
-      stopSession(w, { assistantId }, { sessionId }).catch((error) => {
-        // A session that is gone has nothing left to stop.
-        if (error?.status !== 404) throw error;
+      stopSession(w, { assistantId }, { sessionId }).catch(async (error) => {
+        // A session that is gone has nothing left to stop. One whose grant was
+        // revoked the agent may no longer stop: the owner stops it.
+        if (error?.status === 403) await stopRevokedSession(w, sessionId);
+        else if (error?.status !== 404) throw error;
       }),
     );
   for (const id of work.goals) await attempt(() => teams.goals.stop(id));
@@ -153,6 +157,52 @@ export async function stopWork(service, leadId, scope) {
   if (work.approvals.length) service.changed({ feeds: false });
   if (failure) throw failure;
   return summary(work);
+}
+
+/**
+ * Declines a team proposal awaiting approval. One of a user agent, which has no
+ * teams, is declined in the store: TeamService.decide refuses user agents.
+ */
+function declineTeam(service, team) {
+  const teams = service.teams;
+  if (!isUserAgent(service.store.getAssistant(team.parentAssistantId)))
+    return teams.stop(team.id);
+  const origin = { kind: "owner", channel: "ui" };
+  decideAudited(
+    service.audit,
+    {
+      origin,
+      actionId: team.id,
+      decision: "decline",
+      revision: team.revision,
+      kind: "team",
+      assistantId: () => team.parentAssistantId,
+    },
+    () =>
+      teams.store.decide(
+        team.id,
+        { revision: team.revision, decision: "decline" },
+        origin,
+      ),
+  );
+  service.changed();
+}
+
+/**
+ * Ends a lead request for the restart without a follow-up: its outcome, a member's
+ * report or a peer request's answer, holds the old context, and the lead's main
+ * chat a follow-up would reach is the new one (lead-request-delivery.js). A running
+ * member turn is aborted through the owner's stop.
+ */
+async function settleRequest(requests, id) {
+  await requests.stop(id, "owner");
+  const r = requests.store.get(id);
+  requests.teams.write(r, {
+    // A follow-up already sent went to the old chat, whose turns are cancelled.
+    ...(r.delivery === "sent" ? {} : { delivery: "skipped" }),
+    settled: true,
+    resultDiagnostic: "MAIN_CHAT_RESTARTED",
+  });
 }
 
 /**

@@ -255,9 +255,11 @@ The restart:
 
 - stops all work of the agent and its direct members: running turns in every chat
   (the other chats stay), temporary members, pending team proposals, open lead and peer
-  requests, approvals (declined with `MAIN_CHAT_RESTARTED`), coding sessions and
-  workflows, and work goals. An SSH, SFTP or mail action that is already executing
-  finishes; its follow-up into the archived chat is dropped;
+  requests and member reports not yet delivered (they end with `MAIN_CHAT_RESTARTED`
+  and never reach the new chat), approvals (declined with `MAIN_CHAT_RESTARTED`), coding
+  sessions (also those whose grant was revoked) and workflows, and work goals. An SSH,
+  SFTP or mail action that is already executing finishes; its follow-up into the
+  archived chat is dropped;
 - archives each person's current main chat (readable under archived chats; the native
   session is not deleted) and opens a fresh session as the new main chat with a quiet
   note that the owner restarted it;
