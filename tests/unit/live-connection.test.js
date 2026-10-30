@@ -6,6 +6,7 @@ import {
   LiveConnection,
   PRESENCE_PER_MINUTE,
   QUEUE_BYTES,
+  SUBS_PER_MINUTE,
   parseClientFrame,
 } from "../../server/features/live/live-connection.js";
 import { LiveHub, unknownTopic } from "../../server/features/live/live-hub.js";
@@ -347,4 +348,55 @@ test("a principal that is neither owner nor user never reports presence", () => 
   });
   connection.receive('{"op":"presence","route":"/inbox"}');
   assert.deepEqual(calls, []);
+});
+
+test("sub and unsub frames share a per-socket token bucket that refills over time", () => {
+  let at = 1000;
+  const { ws, connection, hub } = setup({ now: () => at });
+  const sub = (topic) => connection.receive(JSON.stringify({ op: "sub", topic }));
+  const unsub = (topic) => connection.receive(JSON.stringify({ op: "unsub", topic }));
+  // A sub/unsub loop on one topic: every frame below the limit reaches the hub.
+  for (let i = 0; i < SUBS_PER_MINUTE / 2; i += 1) {
+    assert.equal(sub("state"), true);
+    assert.equal(unsub("state"), true);
+  }
+  assert.equal(hub.subscriptions.length, SUBS_PER_MINUTE / 2);
+  assert.deepEqual(ws.sent, []);
+  // Over the limit a sub is refused like a full socket and never reaches the hub.
+  assert.equal(sub("state"), true);
+  assert.equal(hub.subscriptions.length, SUBS_PER_MINUTE / 2);
+  assert.deepEqual(ws.sent, [{ type: "error", topic: "state", code: "limit" }]);
+  assert.equal(connection.subscriptions.size, 0);
+  assert.equal(ws.closedWith, undefined);
+  // The bucket refills evenly: a tenth of a minute buys a tenth of the limit.
+  at += 6000;
+  for (let i = 0; i < SUBS_PER_MINUTE / 10; i += 1) sub(`topic-${i % 8}`);
+  assert.equal(hub.subscriptions.length, SUBS_PER_MINUTE / 2 + SUBS_PER_MINUTE / 10);
+  sub("state");
+  assert.equal(ws.sent.length, 2);
+  // A full minute refills the bucket, but never above the limit.
+  at += 10 * 60000;
+  for (let i = 0; i < SUBS_PER_MINUTE; i += 1) sub("state");
+  assert.equal(ws.sent.length, 2);
+  sub("state");
+  assert.equal(ws.sent.length, 3);
+});
+
+test("an unsub over the limit still frees, and a refused re-sub drops the held topic", () => {
+  let at = 0;
+  const { ws, connection, hub } = setup({ now: () => at });
+  for (let i = 0; i < SUBS_PER_MINUTE - 2; i += 1)
+    connection.receive(JSON.stringify({ op: "sub", topic: `t${i % 2}` }));
+  connection.receive('{"op":"sub","topic":"kept"}');
+  connection.receive('{"op":"sub","topic":"state"}');
+  assert.deepEqual([...connection.subscriptions.keys()], ["t0", "t1", "kept", "state"]);
+  // The bucket is empty: the unsub is honoured all the same.
+  connection.receive('{"op":"unsub","topic":"kept"}');
+  assert.equal(connection.subscriptions.has("kept"), false);
+  // The client takes a refused topic as gone, so the server lets go of it too.
+  const held = hub.subscriptions.find((entry) => entry.topic === "state");
+  connection.receive('{"op":"sub","topic":"state"}');
+  assert.equal(held.active, false);
+  assert.equal(connection.subscriptions.has("state"), false);
+  assert.deepEqual(ws.sent, [{ type: "error", topic: "state", code: "limit" }]);
 });
