@@ -138,7 +138,7 @@ test("sign-out and a remote sign-out are audited; unregistering on purpose is no
   assert.equal(f.service.status().health.removed.reason, "signed-out");
   assert.equal(f.service.status().health.lost, true);
   await f.service.subscribe(
-    { deviceId: "device-two", label: "Her phone", subscription: subscription() },
+    { deviceId: "device-two", label: "User phone", subscription: subscription() },
     { userId: "user-one" },
   );
   f.service.forgetDevice("device-two", { userId: "user-two", others: true });
@@ -156,7 +156,7 @@ test("sign-out and a remote sign-out are audited; unregistering on purpose is no
   const health = f.service.status().health;
   assert.equal(health.lost, false);
   assert.equal(health.removed, undefined);
-  // Her own removal stays hers: the owner's status never names it.
+  // A user's own removal stays theirs: the owner's status never names it.
   assert.equal(f.service.status({ userId: "user-one" }).health.lost, true);
 });
 
@@ -187,7 +187,7 @@ test("a renewed subscription keeps the device; an unknown device is not found", 
     f.service.renew({ deviceId: "device-two", subscription: first }),
     (error) => error.status === 404,
   );
-  // Another person's device is not hers to renew.
+  // Another person's device is not theirs to renew.
   await assert.rejects(
     f.service.renew(
       { deviceId: "device-one", subscription: first },

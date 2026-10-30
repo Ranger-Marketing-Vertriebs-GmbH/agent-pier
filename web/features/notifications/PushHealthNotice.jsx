@@ -25,8 +25,8 @@ export function pushHealthKind(health) {
 }
 
 /**
- * Tells the person on her start page (and the owner in the inbox) that her
- * notifications reach no device, with the way to her notification settings. Dismissed
+ * Tells the person on their start page (and the owner in the inbox) that their
+ * notifications reach no device, with the way to their notification settings. Dismissed
  * for this browser session only; it returns in the next one while the cause remains.
  */
 export default function PushHealthNotice({ person, openSettings }) {
