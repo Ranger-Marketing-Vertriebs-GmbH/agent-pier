@@ -142,14 +142,16 @@ test("reconciliation removes servers of members that ended without a sync", asyn
   assert.equal(f.service.mcp.sync(), false);
 });
 
-test("a server the lead loses is taken from its running members", async (t) => {
+// AGENTPIER-276: a lead may share any of the owner's servers, so a member keeps a
+// granted server the lead itself no longer holds; a removed server goes.
+test("a server the lead loses stays with its running members while it exists", async (t) => {
   const f = setup(t),
     { team } = await f.propose();
   await f.service.reconcile();
   const a = f.memberOf(team, "A");
   f.servers.setBindings("agent", f.lead.id, [f.github.id]);
   await f.service.reconcile();
-  assert.deepEqual(f.bound(a.assistantId), [f.github.id]);
+  assert.equal(f.bound(a.assistantId).length, 2);
 });
 
 test("a server the lead gains reaches no member it was not granted to", async (t) => {
@@ -207,11 +209,11 @@ test("the team list shows each member's servers by name with the stdio marker", 
     assert.ok(!text.includes(hidden), hidden);
 });
 
-test("a proposal naming another agent's server is refused and stores nothing", async (t) => {
+test("a proposal may name any of the owner's servers", async (t) => {
   const f = setup(t);
   f.servers.setBindings("agent", f.lead.id, [f.github.id]);
-  await assert.rejects(f.propose(), { status: 400, key: "teamMcpServerNotBound" });
-  assert.deepEqual(f.service.store.list(), []);
+  const { team } = await f.propose();
+  assert.ok(team.id);
 });
 
 test("archiving a member removes servers bound only to it; restoring returns them", async (t) => {

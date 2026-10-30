@@ -24,7 +24,7 @@ export const memberDefinitions = {
     ]),
   },
   peer_delegate: {
-    description: `Hand a colleague a task in its area. It works in its own chat when it is free, with its own tools and access only; your grants and shares never pass to it. It may change files only when your current work may change files itself; otherwise the task runs read-only. resultTo: me (default) brings the result back to you as a separate message; lead sends it to your lead instead. Temporary colleagues only answer questions. ${limits}`,
+    description: `Hand a colleague a task in its area. It works in its own chat when it is free, with its own tools and access only; your grants and shares never pass to it. It may change files only when your current work may change files itself; otherwise the task runs read-only. resultTo: me (default) brings the result back to you as a separate message; lead sends it to your lead instead. ${limits}`,
     parameters: schema(
       {
         memberId: text(100),

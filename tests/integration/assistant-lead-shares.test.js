@@ -335,19 +335,20 @@ test("a lead's follow-up on a member's result writes with the lead's own access"
   assert.equal(audit.resourceId, f.lead);
   assert.equal(audit.details.via, "member-result");
   assert.equal(audit.details.leadRequestId, id);
-  // Coding requests wait for the owner, even where the lead may start them alone.
+  // Coding requests follow the project's "start without approval" like the lead's
+  // own turn (AGENTPIER-276).
   const action = await f.call(inv, {
     action: "coding_start",
     pipelineId: f.pipeline.id,
     task: "Render the site",
   });
-  assert.equal(action.state, "awaiting_approval");
+  assert.equal(action.state, "approved");
   assert.equal(f.workflows.store.get(action.id).via, "member-result");
   assert.deepEqual(f.marked, []);
   assert.equal(f.teams.get(id).resultWriteRefused, undefined);
 });
 
-test("a shared MCP server compiles for the member while the lead holds it", async (t) => {
+test("a shared MCP server compiles for the member while it exists", async (t) => {
   const f = await setup(t);
   const { McpChanges } = await import("../../server/features/assistants/mcp-changes.js");
   const changes = new McpChanges({ assistants: f.assistants, servers: f.mcpStore });
@@ -365,18 +366,15 @@ test("a shared MCP server compiles for the member while the lead holds it", asyn
   assert.deepEqual(changes.inherited(), { [f.member.assistantId]: ["s1"] });
   await assert.rejects(f.share({ mcpServers: ["files"] }), { key: "teamGrantNotHeld" });
   f.assistants.mcp.telegramSenders = null;
-  // The lead loses a binding: the member loses it at once, and the share ends.
+  // AGENTPIER-276: a lead may share any of the owner's servers, so the share stays
+  // when the lead itself loses the binding.
   f.bindings.set(f.lead, ["s2"]);
-  assert.deepEqual(changes.inherited(), { [f.member.assistantId]: ["s2"] });
-  assert.equal(f.shares.prune(), true);
-  assert.deepEqual(
-    f.shares.rows().map((r) => r.serverId),
-    ["s2"],
-  );
+  assert.deepEqual(changes.inherited(), { [f.member.assistantId]: ["s1", "s2"] });
+  assert.equal(f.shares.prune(), false);
   // A lead takes a share back itself.
   const revoked = await f.share({ mcpServers: ["files"], revoke: true });
   assert.equal(revoked.status, "revoked");
-  assert.deepEqual(changes.inherited(), {});
+  assert.deepEqual(changes.inherited(), { [f.member.assistantId]: ["s1"] });
 });
 
 test("a coding request on a task's share stays approvable once the task ended", async (t) => {

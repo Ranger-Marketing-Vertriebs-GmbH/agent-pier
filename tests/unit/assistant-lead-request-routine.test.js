@@ -120,9 +120,10 @@ test("only the routine binding's own switch reaches a request, never the lead", 
   assert.equal(caller("yes"), true);
 });
 
-test("a routine reaches neither archived nor temporary members for tasks", (t) => {
+test("a routine tasks temporary members too, never archived ones", (t) => {
   const f = setup(t);
-  assert.throws(() => f.request(f.writer), { key: "memberRequestNotPermanent" });
+  // AGENTPIER-276: temporary members take tasks.
+  assert.equal(f.request(f.writer).type, "task");
   f.archive(f.writer);
   assert.throws(() => f.request(f.writer, { type: "question" }), { status: 404 });
 });

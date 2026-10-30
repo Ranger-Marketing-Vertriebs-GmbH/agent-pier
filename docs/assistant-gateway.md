@@ -1257,8 +1257,8 @@ A lead reaches its own members without the owner relaying anything
   writes in the lead's workspace and memory, each audited as `kind: "native-write"`
   with `via: "member-result"` and `leadRequestId`, and `agentpier_workspace` on the
   lead's own `projectFiles` and projects only (never shares; folder changes audited
-  the same way). Its `coding_start` always waits for the owner (`via:
-"member-result"` on the action). The member's text never proves anything: SSH stays
+  the same way). Its `coding_start` follows the project's standing permission like the
+  lead's own turn (AGENTPIER-276; `via: "member-result"` on the action). The member's text never proves anything: SSH stays
   refused (`SSH_ORIGIN_REFUSED`), and so do grants and owner-only switches. A refused
   SSH command makes `LeadRequests.refusedChange` mark the request
   `resultWriteRefused`, the chat history marks that follow-up `goAhead`
@@ -2791,7 +2791,7 @@ member's effective grants instead (see
 | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | `webSearch`, `webFetch`, `browser`, `documents`, `readPdfs`, `createImages` | The lead's web, image and PDF tools (reading images and PDFs, creating images), with the same global network and browser safety |
 | `skills` (`true` for all of the lead's, or names)                           | Those of the lead's skills                                                                                                      |
-| `mcpServers` (names of servers bound to the lead)                           | Those servers, while the member works ([bindings](#bindings))                                                                   |
+| `mcpServers` (names of any of the owner's servers)                          | Those servers, while the member works ([bindings](#bindings))                                                                   |
 | `memory`                                                                    | A read-only copy of the lead's memory beside the member's own memory (see below)                                                |
 | `reminders`                                                                 | Reminders created on the lead (see below)                                                                                       |
 | `shell` (`approval` or `full`), `ssh`                                       | Only with the lead's **Team members may use shell and SSH**, at most at the lead's level and on its SSH grants                  |
@@ -2804,10 +2804,11 @@ with the lead.
 
 - **Ceiling.** The proposal (`TeamStore.propose`) and every later grant refuse a
   grant the lead does not hold now (`TEAM_GRANT_NOT_HELD`): a capability or skill it
-  lacks, a server not bound to it (`MCP_SERVER_NOT_BOUND`), a shell level above its
-  own, or shell and SSH without the setting or without the lead's own shell or SSH
-  grants. The grants belong to the proposal's fingerprint and are stored on the
-  member's team record.
+  lacks, a shell level above its own, or shell and SSH without the setting or without the lead's own shell or SSH
+  grants. MCP servers are no longer capped by the lead's own bindings
+  (AGENTPIER-276): any of the owner's servers may be granted or shared, an unknown name
+  answers `MCP_SERVER_NOT_BOUND`; shell and SSH keep the lead's ceiling. The grants
+  belong to the proposal's fingerprint and are stored on the member's team record.
 - **Live.** Every apply of a member compiles its grants within what the lead holds at
   that moment, and every member turn applies first. When the lead's entry changes (a
   capability, a skill, its shell level or its first or last SSH grant) or its team
@@ -2952,9 +2953,10 @@ images** (`documents`) with its own permanent members, without the owner
   `ROUTINE_READ_ONLY` (not a failed run; the run's result carries the note
   `writes_refused`, and folders report `access: "read"` while **May write** is off),
   and audited with `origin: "routine"` and
-  `routineId`. Coding and project-knowledge requests from a
-  run always wait for the owner in the agent's main chat (`routineId` on the action,
-  never auto-approved); `coding_cancel` is refused.
+  `routineId`. A coding request from a run follows the project's standing
+  permission like the owner's turn (AGENTPIER-276; `routineId` on the action); project
+  knowledge proposals wait for the owner in the agent's main chat; `coding_cancel` is
+  refused.
 - **Coding.** A coding request on a shared project is stored on the member with
   `inherited: { leadId, requestId, shareId }`, always waits for the owner (also with
   the lead's standing permission), and in a task carries `leadAssistantId`, so it
@@ -3116,12 +3118,12 @@ owner's `HOME` or a `TMPDIR` does not find them.
   agent's settings (**MCP servers**). Archived agents get no servers.
 - **Temporary team members** cannot be bound directly; the agent update refuses it.
   They get servers only through their lead's grants: optional `mcpServers` per
-  member in the proposal, or later with `agentpier_team_grant` (names of servers
-  bound to the lead, at most 16; any other name rejects the call with
+  member in the proposal, or later with `agentpier_team_grant` (names of any of the
+  owner's servers, at most 16, AGENTPIER-276; an unknown name rejects the call with
   `MCP_SERVER_NOT_BOUND`). The approval (in the web UI and on Telegram) shows each
   member's servers by name with a stdio marker, never addresses, commands or values.
-- A granted temporary member holds exactly its granted servers that its lead still
-  holds, and only while it works: on its task, or on an open question or task of
+- A granted temporary member holds exactly its granted servers that still exist, and
+  only while it works: on its task, or on an open question or task of
   its lead after the task finished (bound when that request is dispatched, patched
   into the Gateway at the next scheduler tick). When it ends, is stopped, the
   request finishes, the lead revokes a server or loses it, the binding goes at the

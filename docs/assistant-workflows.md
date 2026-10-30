@@ -573,8 +573,9 @@ its colleagues and report to its lead (`agentpier_team_peers`, `_peer_ask`,
 agent's own project folders and its lead's standing shares, never a task's share;
 reads always, changes while the routine's **May write** is on (`routineWrites` not
 `false`, otherwise `ROUTINE_READ_ONLY`), audited with `origin: "routine"` and the
-`routineId`. Coding requests and project knowledge proposals always wait for the
-owner (shown in the agent's chat, stored with the `routineId`); `coding_cancel` is
+`routineId`. A coding request follows the project's standing permission like the
+owner's turn (AGENTPIER-276), and project knowledge proposals wait for the owner (both
+shown in the agent's chat, stored with the `routineId`); `coding_cancel` is
 refused. Every other team tool stays out, so a routine cannot propose teams or
 archive and grant members; the bridge serves those only within an owner's chat turn
 (an AgentPier attempt for the session). The run cap is the

@@ -144,10 +144,10 @@ export function peerLeadScope(caller) {
 }
 
 /**
- * A sibling of the sender the lead itself could still reach, with a chat. Only a
- * permanent sibling takes a task; an ended temporary one answers questions.
+ * A sibling of the sender the lead itself could still reach, with a chat; temporary
+ * siblings take tasks too (AGENTPIER-276).
  */
-export function peerTarget(service, lead, sender, memberId, type) {
+export function peerTarget(service, lead, sender, memberId) {
   textValue(memberId, 100);
   const m = service.store.find(memberId);
   if (
@@ -160,11 +160,6 @@ export function peerTarget(service, lead, sender, memberId, type) {
     throw assistantProblem("notFound", 404);
   const assistant = service.assistants.store.getAssistant(m.assistantId);
   if (assistant.archivedAt) throw assistantProblem("notFound", 404);
-  if (
-    type === "task" &&
-    (m.lifetime !== "permanent" || assistant.lifetime !== "permanent")
-  )
-    throw assistantProblem("memberRequestNotPermanent", 409);
   return { member: m, assistant };
 }
 
@@ -210,7 +205,7 @@ export function createPeerRequest(service, { type, inv, input, now = Date.now() 
     }
     if (!peerTurn(service, caller)) throw assistantProblem("peerRequestTurn", 403);
     const { lead, member: sender, assistant: from } = caller;
-    const { member, assistant } = peerTarget(service, lead, sender, input.memberId, type);
+    const { member, assistant } = peerTarget(service, lead, sender, input.memberId);
     assertPeerLimits(store, sender, member, type);
     loopGuard(service.assistants.store).take(from.id);
     // Questions never write; a task only when the sender's own turn may.

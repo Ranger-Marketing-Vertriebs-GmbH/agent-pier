@@ -363,13 +363,14 @@ command is such a runner.
 
 ### Servers a member uses through its lead
 
-A lead agent can share the MCP servers bound to it with its permanent members, for
+A lead agent can share any of your MCP servers with its permanent members (not only
+those bound to it, AGENTPIER-276), for
 good or for one delegated task
 ([sharing a lead's access](agents.md#sharing-a-leads-access-with-permanent-members)).
 Such a binding is not stored with the member's own bindings, which stay yours to
 edit: AgentPier adds it when it compiles the agents' servers, at every Gateway start
-and with every live apply, as long as the lead is bound to the server, the share
-exists and (for a task's share) the task runs. A server with
+and with every live apply, as long as the server exists, the share exists and (for a
+task's share) the task runs. A server with
 [agent placeholders](#agent-placeholders) gets an entry of its own for the member,
 with the member's folders. An agent with its own Telegram bot for other people never
 gets a local (stdio) server this way. A share, its revocation and the lead losing the

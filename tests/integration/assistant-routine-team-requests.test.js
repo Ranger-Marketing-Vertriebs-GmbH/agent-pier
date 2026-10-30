@@ -105,12 +105,18 @@ test("a task a routine without May write delegates cannot write in the member's 
   }
 });
 
-test("a routine is refused for archived and temporary members as in chat", async (t) => {
+test("a routine tasks temporary members too", async (t) => {
   const f = await routineLead(t);
-  await assert.rejects(
-    f.call("delegate", { memberId: f.temporary.id, task: "Draft the plan" }),
-    { key: "memberRequestNotPermanent" },
-  );
+  // AGENTPIER-276: temporary members take tasks.
+  const task = await f.call("delegate", {
+    memberId: f.temporary.id,
+    task: "Draft the plan",
+  });
+  assert.ok(task.requestId);
+});
+
+test("a routine is refused for archived members as in chat", async (t) => {
+  const f = await routineLead(t);
   await f.service.lifecycle(
     "archive",
     f.temporary.id,

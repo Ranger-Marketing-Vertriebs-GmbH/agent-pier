@@ -826,8 +826,8 @@ A lead also talks to its members directly:
   and in the audit log. If an assigned model stops working, the member's turns fail
   visibly; it does not fall back to another model.
 
-- It can **ask** any of its members a question and **delegate** a task to a permanent
-  member. The answer comes back to the lead, and to Telegram when the request came
+- It can **ask** any of its members a question and **delegate** a task to any member,
+  permanent or temporary (not archived). The answer comes back to the lead, and to Telegram when the request came
   from there. The member's chat shows the request as "from <lead>".
 - **These questions and tasks run without an approval prompt.** The member works with
   its own capabilities: a member with full shell access or bound MCP servers uses them
@@ -846,7 +846,8 @@ A lead also talks to its members directly:
 - The turn in which the lead handles a member's result may act on it like the lead's
   own work, whatever the task was allowed: it changes files in the lead's own
   workspace and memory and in the project folders you gave the lead with **Read and
-  write**; a coding request from it always waits for your approval. The member's
+  write**; a coding request from it starts like one from the lead's own turn (at once
+  only where you allowed starting without approval). The member's
   answer never counts as your request or approval, so it unlocks nothing else. Each
   such change is recorded in the activity log with the request. When the lead tried
   something that needs your own message, such as an SSH command, the chat shows
@@ -882,8 +883,8 @@ Members of the same lead, temporary and permanent, can agree among themselves wi
 the lead relaying every message, both when the lead's task says so ("agree the story
 with Learning") and on their own:
 
-- A member can **ask** a colleague a question and **hand a task** to a permanent
-  colleague; temporary colleagues only answer questions. The colleague works in its own
+- A member can **ask** a colleague a question and **hand a task** to a colleague,
+  permanent or temporary. The colleague works in its own
   task chat when it is free, where you can read it, and sees only the question or task,
   "from" the asking member, never that member's chat. The answer comes back to the
   asking member as a separate message ("A colleague's answer arrived. The agent
@@ -1161,9 +1162,9 @@ or proposing a team sends an **Agent approval** push notification as well.
   chat. When the agent creates a routine without **May write**, it is told to ask you
   to switch it on if the routine should change files. Every change
   is recorded in the activity log with the routine. A coding request from a routine
-  always waits for your approval in the agent's chat, also when the agent may start
-  pipelines without one; a routine cannot cancel coding runs. A lead's routine can ask
-  its members and delegate tasks to permanent ones; such a task runs read-only when
+  starts like one from your own turn: at once where the agent may start pipelines
+  without approval, otherwise it waits for you in the agent's chat; a routine cannot
+  cancel coding runs. A lead's routine can ask its members and delegate tasks to them; such a task runs read-only when
   the routine's **May write** is off, and **Team › Teams › Questions and tasks**
   marks the request "Scheduled · <name>". Otherwise the routine's tasks count as your
   standing instruction and may change files like a task you asked for. Its result

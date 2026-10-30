@@ -265,8 +265,8 @@ is on; a later SSH grant waits for the owner's approval (see [agents](agents.md)
 SFTP hosts are granted the same way and show **SFTP** in the picker; the tool lists,
 downloads, uploads and syncs on them with approvals as described in
 [SFTP access](sftp-access.md#agent-actions-and-approvals). On SSH hosts, the agent's
-`agentpier_ssh` tool can list its granted hosts and run one command at a
-time; it cannot create, import, scan, test or download keys or hosts, only
+`agentpier_ssh` tool can list its granted hosts and run up to three commands at a
+time (AGENTPIER-276; a fourth answers `SSH_BUSY` until one ends); it cannot create, import, scan, test or download keys or hosts, only
 [propose a new access](#proposals-from-agents) for you to confirm. AgentPier runs
 the command with the same pinned connection as sessions (`-F /dev/null`, only the
 pinned host key, no agent forwarding), with at most 16 KiB of command, 120 seconds and

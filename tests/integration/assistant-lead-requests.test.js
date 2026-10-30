@@ -142,12 +142,9 @@ test("a delegated task runs in the member's chat, can be cancelled and reports b
   const r = f.service.requests.store.get(first.requestId);
   assert.equal(r.phase, "running");
   assert.match(f.sends().at(-1).input.message, /^Task from "Parent"/);
-  // A second task waits for the first to end; a temporary member takes none.
+  // A second task waits for the first to end (a temporary member takes tasks too
+  // since AGENTPIER-276, assistant-lead-request-store.test.js).
   await assert.rejects(delegate(f.turn()), { status: 409 });
-  await assert.rejects(
-    f.service.delegate(f.turn(), { memberId: f.temporary.id, task: "Draft" }),
-    { status: 409 },
-  );
   // The lead cancels: the member's turn is aborted and nothing is reported back.
   const cancelled = await f.service.cancel(lead1, { requestId: r.id });
   assert.equal(cancelled.requestId, r.id);
