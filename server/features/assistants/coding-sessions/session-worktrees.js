@@ -43,6 +43,29 @@ export async function mergedIntoBase({ cwd, projectRoot, baseBranch, baseSha }, 
  */
 export async function stopSession(w, ctx, input, inv) {
   const { record, session } = await control(w, ctx.assistantId, input.sessionId);
+  return stopRecorded(w, record, session, inv);
+}
+
+/**
+ * The owner stops an agent's session whose grant was revoked (a main chat restart),
+ * which the agent itself no longer may. The record then ends. Returns false when
+ * the record or the session is gone.
+ */
+export async function stopRevokedSession(w, sessionId) {
+  const record = w.sessions.store.get(sessionId);
+  const session = record
+    ? await w.s.sessions.get(sessionId).catch((error) => {
+        if (error?.status === 404) return null;
+        throw error;
+      })
+    : null;
+  if (!session) return false;
+  const { state } = await stopRecorded(w, record, session);
+  if (state === "ended") w.sessions.store.patch(sessionId, { ended: true });
+  return true;
+}
+
+async function stopRecorded(w, record, session, inv) {
   const sessionId = record.sessionId;
   if (session.status === "running") {
     // The turn may have ended while the session was looked up: never act for it.
