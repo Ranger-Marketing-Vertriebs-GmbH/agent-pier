@@ -19,6 +19,8 @@ const application = await createApplication({
   port,
   // Browser tests never run the real Codex for MCP login status.
   cliOAuthRun: async () => ({ stdout: "[]" }),
+  // Nor ask a release channel for updates on their own.
+  updateCheck: false,
 });
 let stopping = false;
 async function stop() {

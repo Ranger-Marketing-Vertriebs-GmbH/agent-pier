@@ -10,6 +10,7 @@ import { SessionReload } from "./features/sessions/session-reload.js";
 import { reloadChanged } from "./features/sessions/live-reload-topic.js";
 import { SessionAutoResume } from "./features/sessions/session-auto-resume.js";
 import { ReleaseFailureEvents } from "./application/release-events.js";
+import { UpdateChecker } from "./application/update-checker.js";
 import { secretsRoutes } from "./http/routes/secrets.js";
 import { mailRoutes } from "./http/routes/mail.js";
 import { sshRoutes } from "./http/routes/ssh.js";
@@ -218,6 +219,11 @@ export async function createApplication(config) {
   });
   server.once("listening", () => services.releaseMigration.resumeAfterActivation());
   server.once("listening", () => services.mcpAccess.initialize());
+  // The daily update check (update-checker.js); test fixtures switch it off.
+  services.updateChecker = new UpdateChecker({
+    releases: services.operations.releases,
+    notifications: services.notifications,
+  });
   services.githubTokenMonitor = new GithubTokenMonitor({
     repositories: services.repositories,
     notifications: services.notifications,
@@ -254,6 +260,7 @@ export async function createApplication(config) {
   // One listener for both monitors keeps the server below the listener warning limit.
   server.once("listening", () => {
     services.githubTokenMonitor.start();
+    if (config.updateCheck !== false) services.updateChecker.start();
     services.systemStatus.start();
     // Finishes node_modules deletions a restart interrupted (cleanup-dependencies.js).
     services.storageCleanup.start();
