@@ -94,6 +94,8 @@ self.agentPierNotificationCopy = {
     hook: "Hook-Vorschlag",
     sshAccess: "SSH-Zugangsvorschlag",
     team: "Team-Vorschlag",
+    sftp: "SFTP-Übertragung",
+    mail: "E-Mail-Versand",
   },
   tools: {
     claude: "Claude Code",

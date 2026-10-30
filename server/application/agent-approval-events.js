@@ -5,6 +5,8 @@ import { approvalAudience } from "../features/users/approval-audience.js";
 const subjects = {
   exec: "exec",
   ssh: "ssh",
+  sftp: "sftp",
+  mail_send: "mail",
   coding_start: "coding",
   session_start: "codingSession",
   memory_write: "memory",
@@ -14,7 +16,8 @@ const subjects = {
 };
 
 /**
- * The `agent-approval` push: an agent's shell or SSH command, coding task, memory
+ * The `agent-approval` push: an agent's shell or SSH command, SFTP transfer, email
+ * to send, coding task, memory
  * entry, member permission or hook proposal waiting for approval, and a lead's team
  * proposal. It reads the same stores as the inbox (server/features/inbox/
  * inbox-sources.js) on the operations poll, so every path that makes an agent wait is

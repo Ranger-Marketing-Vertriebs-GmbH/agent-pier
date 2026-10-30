@@ -3,6 +3,7 @@ import webpush from "web-push";
 import { pushLookup } from "./push-network.js";
 import { pushSubscription, pushMessage } from "./push-validation.js";
 import { pushRefusalReason } from "./push-failure.js";
+import { blockingKinds } from "./push-preferences.js";
 
 /**
  * VAPID contact for the JWT `sub` claim. Apple's push service answers 403
@@ -13,10 +14,22 @@ export const vapidSubject =
   "https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier";
 const refusalBodyLimit = 2048;
 
+/**
+ * How long the push service keeps a notice for a device that is offline, and how
+ * urgently it wakes it. What waits for the owner (a question, an approval, a gate) is
+ * kept for a day and delivered at once; anything else is stale after five minutes.
+ */
+export function deliveryOptions(kind) {
+  return blockingKinds.has(kind)
+    ? { TTL: 24 * 60 * 60, urgency: "high" }
+    : { TTL: 300, urgency: "normal" };
+}
+
 /** Library-owned Web Push crypto with bounded, non-redirecting HTTPS transport. */
 export function createPushSender({ request = https.request } = {}) {
   const active = new Set();
   const send = async (subscription, payload, vapid) => {
+    const { TTL, urgency } = deliveryOptions(payload?.kind);
     const prepared = webpush.generateRequestDetails(
       pushSubscription(subscription),
       pushMessage(payload),
@@ -28,8 +41,8 @@ export function createPushSender({ request = https.request } = {}) {
         },
         // web-push signs a fresh JWT per request that expires after 12 hours; Apple
         // rejects an expiration more than one day ahead (tests pin this ceiling).
-        TTL: 300,
-        urgency: "normal",
+        TTL,
+        urgency,
         contentEncoding: "aes128gcm",
       },
     );

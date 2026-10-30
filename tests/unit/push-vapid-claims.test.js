@@ -211,3 +211,22 @@ test("stored failure texts resolve to English through the German catalog index",
     "Delivery failed. Try a test notification.",
   );
 });
+
+test("what waits for the owner is kept a day and sent urgently; the rest expires soon", async () => {
+  const { send, requests } = capture();
+  const { subscription, vapid } = material("https://fcm.googleapis.com/fcm/send/token");
+  for (const kind of [
+    "question",
+    "permission",
+    "session-waiting",
+    "pipeline-gate",
+    "agent-approval",
+    "session-completed",
+    "test",
+  ])
+    await send(subscription, { ...payload, kind }, vapid);
+  assert.deepEqual(
+    requests.map((request) => [request.headers.TTL, request.headers.Urgency]),
+    [...Array(5).fill([86400, "high"]), [300, "normal"], [300, "normal"]],
+  );
+});
