@@ -51,17 +51,23 @@ export default function ProjectList({
   const scroller = useRef(null);
   // Drag and drop: a fine pointer, view "Groups", no search (rows may be hidden then).
   const finePointer = useMediaQuery("(pointer: fine)");
-  const [announcement, setAnnouncement] = useState("");
+  // Drops are announced once saved; the count makes a repeated message differ, so it
+  // is announced again (a trailing no-break space alternates).
+  const [announcement, setAnnouncement] = useState({ text: "", count: 0 });
+  const announce = (text) => setAnnouncement((last) => ({ text, count: last.count + 1 }));
   const { drag, press } = useProjectDrag({
     enabled: finePointer && prefs.view === "groups" && !searching,
     scroller,
     onOpen: (key) => prefs.isCollapsed(key) && prefs.toggleSection(key),
-    onDrop: (source, target) => {
-      if (target.type === "reorder")
-        return groups.moveGroupTo(source.groupId, target.index);
-      groups.moveProject(source.path, target.groupId);
+    onDrop: async (source, target) => {
+      if (target.type === "reorder") {
+        if (await groups.moveGroupTo(source.groupId, target.index))
+          announce(copy.groupReordered(source.name, target.index + 1));
+        return;
+      }
       const group = document.groups.find((entry) => entry.id === target.groupId);
-      setAnnouncement(copy.groupMoved(source.name, group ? group.name : copy.ungrouped));
+      if (await groups.moveProject(source.path, target.groupId))
+        announce(copy.groupMoved(source.name, group ? group.name : copy.ungrouped));
     },
   });
   const dragged = drag?.source;
@@ -212,7 +218,7 @@ export default function ProjectList({
             onToggle={() => prefs.toggleSection(section.key)}
             onPress={
               press && section.kind === "group"
-                ? press({ type: "group", groupId: section.groupId })
+                ? press({ type: "group", groupId: section.groupId, name: section.title })
                 : undefined
             }
             dragging={dragged?.type === "group" && dragged.groupId === section.groupId}
@@ -281,7 +287,8 @@ export default function ProjectList({
         )}
       </div>
       <p className="visually-hidden" role="status">
-        {announcement}
+        {announcement.text}
+        {announcement.count % 2 ? "\u00a0" : ""}
       </p>
       {deleting && (
         <ConfirmDialog

@@ -265,15 +265,15 @@
   opacity: 0.85;
 }
 .project-section.dragging > .project-section-header {
-  border-radius: 6px;
+  border-radius: var(--radius-md);
 }
 .project-section.drop-target {
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   outline: 1px solid var(--accent);
   background: var(--surface-accent);
 }
 .project-section.drop-target > .project-section-header {
-  border-radius: 8px 8px 0 0;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
   background: var(--surface-accent);
 }
 .project-section.insert-before::before,
@@ -289,6 +289,10 @@
 }
 .project-section.insert-before::before {
   top: -1px;
+}
+/* The first section may sit at the scroller's top edge, which would clip the line. */
+.project-section.insert-before:first-of-type::before {
+  top: 0;
 }
 .project-section.insert-after::after {
   bottom: -1px;

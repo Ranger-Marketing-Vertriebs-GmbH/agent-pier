@@ -29,4 +29,5 @@ export const projectGroupsCopy = {
       : `${count} projects move to “No group”. No files are changed.`,
   factGroup: "Group",
   groupMoved: (project, group) => `${project} → ${group}`,
+  groupReordered: (group, position) => `${group} moved to position ${position}`,
 };
