@@ -3,7 +3,7 @@ import api from "../../lib/api.js";
 import { notificationBase, reconcilePush } from "./push-reconcile.js";
 
 // The person whose app is open ("owner" or `user:<id>`): enabling notifications in
-// this browser remembers her, so only she gets the device back on the next load.
+// this browser remembers them, so only they get the device back on the next load.
 let activePerson = null;
 export const pushPerson = () => activePerson;
 

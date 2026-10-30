@@ -6,7 +6,7 @@ export const removalReasons = [
   // The browser signed out, or someone else signed in on it.
   "signed-out",
   "signed-in-elsewhere",
-  // The owner reset a user's password, turned her sign-in off or deleted her.
+  // The owner reset a user's password, turned the user's sign-in off or deleted the user.
   "user-signed-out",
 ];
 

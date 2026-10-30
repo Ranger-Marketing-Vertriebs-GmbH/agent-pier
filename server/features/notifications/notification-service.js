@@ -92,7 +92,7 @@ export class NotificationService {
   }
   /**
    * One person's devices: the owner's (`userId` null) or a restricted user's, each with
-   * its last delivery attempt, and whether her notices still reach a device.
+   * its last delivery attempt, and whether the person's notices still reach a device.
    */
   status({ userId = null } = {}) {
     const subscriptions = this.devices(userId).map((device) => {
@@ -113,8 +113,8 @@ export class NotificationService {
       .map((row) => this.summary(row.public));
   }
   /**
-   * `lost`: no device is left, and not because she unregistered the last one herself;
-   * `failing`: every device's last delivery failed. `removed` names her last device
+   * `lost`: no device is left, and not because the person unregistered the last one;
+   * `failing`: every device's last delivery failed. `removed` names the person's last device
    * AgentPier removed (expired, signed out), never its endpoint.
    */
   health(subscriptions, userId) {

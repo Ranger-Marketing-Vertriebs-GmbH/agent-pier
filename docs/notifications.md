@@ -75,7 +75,7 @@ going unnoticed:
   **Notifications reach no device** when no device of yours is registered (unless you
   unregistered the last one yourself), naming the last device AgentPier removed and
   why, and **Notifications are not arriving** when the last delivery to every one of
-  your devices failed. A restricted user sees the same warning on her start page.
+  your devices failed. A restricted user sees the same warning on their start page.
   **Notification settings** opens the page to turn them on again; **Hide** hides the
   warning until the browser session ends. Pages served over plain HTTP, where
   notifications cannot be enabled, do not show it.

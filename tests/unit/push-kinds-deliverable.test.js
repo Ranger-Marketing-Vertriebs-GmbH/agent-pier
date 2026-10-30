@@ -52,7 +52,7 @@ const events = {
       decide: "deny",
       revision: 1,
     },
-    // A user's approval opens her chat, never the owner's inbox.
+    // A user's approval opens their chat, never the owner's inbox.
     { assistantId: "a1", conversationId: "c1", subject },
   ]),
   "agent-checkin": [{ assistantId: "a1", conversationId: "c1" }, { assistantId: "a1" }],
