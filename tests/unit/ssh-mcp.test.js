@@ -53,7 +53,6 @@ test("MCP readiness follows initialized transport, exposes tools and rejects rot
   assert.deepEqual(
     names.sort(),
     [
-      "ssh_execute",
       "ssh_generate_key",
       "ssh_get_public_key",
       "ssh_import_key",

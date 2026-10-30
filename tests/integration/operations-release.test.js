@@ -78,6 +78,21 @@ test("release staging validates content and failed health restores the previous 
   });
   const staged = await releases.stage({ version: "1.1.0" });
   assert.equal(await fs.readlink(path.join(root, "current")), "releases/1.0.0");
+  // An update needs OpenSSH 8.9 or newer and refuses before switching.
+  for (const found of [null, { major: 8, minor: 2 }])
+    await assert.rejects(
+      activateRelease(
+        { installRoot: root, dataDir, stagedId: staged.stagedId },
+        {
+          restart: async () => assert.fail("Must not restart without OpenSSH 8.9"),
+          health: async () => true,
+          openssh: async () => found,
+        },
+      ),
+      { message: serverMessages.releases.opensshRequired, status: 409 },
+    );
+  assert.equal(await fs.readlink(path.join(root, "current")), "releases/1.0.0");
+  const modern = async () => ({ major: 9, minor: 6 });
   let restarts = 0;
   await assert.rejects(
     activateRelease(
@@ -85,6 +100,7 @@ test("release staging validates content and failed health restores the previous 
       {
         restart: async () => restarts++,
         health: async ({ version }) => version === "1.0.0",
+        openssh: modern,
       },
     ),
     { message: serverMessages.releases.healthFailedRestored },
@@ -94,9 +110,22 @@ test("release staging validates content and failed health restores the previous 
   assert.ok(await fs.stat(path.join(root, "releases/1.1.0/server/index.js")));
   const result = await activateRelease(
     { installRoot: root, dataDir, stagedId: staged.stagedId },
-    { restart: async () => {}, health: async () => true },
+    { restart: async () => {}, health: async () => true, openssh: modern },
   );
   assert.equal(result.activated, true);
+  assert.equal(await fs.readlink(path.join(root, "current")), "releases/1.1.0");
+  // A rollback to an older release never asks for OpenSSH.
+  const old = async () => ({ major: 8, minor: 2 });
+  const back = { restart: async () => {}, health: async () => true, openssh: old };
+  assert.equal(
+    (await activateRelease({ installRoot: root, dataDir, version: "1.0.0" }, back))
+      .activated,
+    true,
+  );
+  await activateRelease(
+    { installRoot: root, dataDir, version: "1.1.0" },
+    { ...back, openssh: modern },
+  );
   assert.equal(await fs.readlink(path.join(root, "current")), "releases/1.1.0");
   assert.equal(
     releases.status().releases.find((r) => r.version === "1.0.0").canRollback,

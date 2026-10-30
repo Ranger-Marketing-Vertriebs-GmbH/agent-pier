@@ -30,6 +30,10 @@ const sessionOwner = (id) => ({ kind: "session", id });
 
 const codingTools = new Set(["codex", "claude", "opencode"]);
 
+// Coding sessions also reach key-only SFTP hosts without a folder natively; a shell
+// session neither lists nor inherits SFTP hosts (ssh-sessions.js).
+const hostOptions = (session) => ({ sftpKeyHosts: codingTools.has(session?.tool) });
+
 /**
  * Whether a launch or a session record gets an agent (R15, R27). Shell sessions do;
  * Codex, Claude Code and OpenCode only with the SSH tools. Login, headless pipeline
@@ -142,7 +146,13 @@ export class SessionSshAgents {
     const record = this.record(agent.id);
     if (!this.current(record, agent)) return null;
     agent.projectId = record.sshTools?.project?.projectId;
-    return { hosts: agentHosts(this.store.list(), await this.grants.effective(record)) };
+    return {
+      hosts: agentHosts(
+        this.store.list(),
+        await this.grants.effective(record),
+        hostOptions(record),
+      ),
+    };
   }
 
   start(id, { token, generation, binaries }) {
@@ -237,7 +247,11 @@ export class SessionSshAgents {
   // or grant failure fails the write like a file error (withoutHosts, retry).
   syncAgent(agent, session) {
     return this.registry.write(sessionOwner(agent.id), async () =>
-      agentHosts(this.store.list(), await this.grants.effective(session)),
+      agentHosts(
+        this.store.list(),
+        await this.grants.effective(session),
+        hostOptions(session),
+      ),
     );
   }
 

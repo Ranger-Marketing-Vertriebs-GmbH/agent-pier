@@ -54,12 +54,14 @@ export const sshCopy = {
   agentReady:
     "Plain ssh works in this session. Use the alias of a host for ssh, scp, sftp, rsync, git and tunnels.",
   agentTooOld:
-    "Plain ssh needs OpenSSH 8.9 or newer on this computer. ssh_execute still works.",
-  agentNoOpenSsh: "Plain ssh needs OpenSSH on this computer. ssh_execute still works.",
+    "This session cannot reach SSH hosts: AgentPier needs OpenSSH 8.9 or newer on this computer. Update OpenSSH, then restart AgentPier.",
+  agentNoOpenSsh:
+    "This session cannot reach SSH hosts: AgentPier finds no ssh on this computer or on the session's PATH. Install OpenSSH 8.9 or newer, then restart AgentPier.",
   agentFailed:
-    "Plain ssh could not be started for this session. ssh_execute still works.",
+    "The SSH agent of this session could not be started, so plain ssh does not work here. Use Reload & resume; if that does not help, check the AgentPier log.",
   agentNotEligible: "Plain ssh is not available in this session.",
   agentAliasLabel: (alias) => `ssh ${alias}`,
+  agentSftpAliasLabel: (alias) => `sftp ${alias}`,
   agentSshConfig: (reason) =>
     `AgentPier left ~/.ssh/config unchanged: ${reason}. If ssh <alias> reports an unknown host, use ssh -F "$AGENTPIER_SSH_CONFIG" <alias>.`,
   agentSshConfigSession:

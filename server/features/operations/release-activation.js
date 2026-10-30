@@ -7,6 +7,8 @@ import { releaseVersion, releaseManifest } from "./release-archive.js";
 import { restartService, checkHealth } from "./release-service.js";
 import { problem } from "../../lib/storage.js";
 import { requireDataCompatibility, requireTmuxNames } from "./release-schema.js";
+import { compareReleaseVersions } from "./version.js";
+import { detectOpenSsh, supportsSessionBind } from "../ssh/ssh-openssh-version.js";
 
 export function switchRelease(root, version) {
   releaseVersion(version);
@@ -46,7 +48,7 @@ function requireTarget(target, dataDir) {
 }
 export async function activateRelease(
   input,
-  { restart = restartService, health = checkHealth } = {},
+  { restart = restartService, health = checkHealth, openssh = detectOpenSsh } = {},
 ) {
   const root = fs.realpathSync(input.installRoot),
     dataDir = fs.realpathSync(input.dataDir);
@@ -75,6 +77,10 @@ export async function activateRelease(
     readJson(path.join(root, previous, "release.json")),
   );
   if (from === version) throw problem(serverMessages.releases.alreadyActive, 409);
+  // Coding sessions reach SSH hosts only through their SSH agent (OpenSSH 8.9+). An
+  // update refuses before switching; a rollback to an older release never does.
+  if (compareReleaseVersions(version, from) > 0 && !supportsSessionBind(await openssh()))
+    throw problem(serverMessages.releases.opensshRequired, 409);
   const lock = path.join(dataDir, "operations/release-activation.lock");
   let fd;
   try {

@@ -152,7 +152,7 @@ test(
     await installRelease(
       { archive, installRoot, dataDir, installDependencies: false },
       {
-        run: async () => ({ stdout: "fixture tool available" }),
+        run: async () => ({ stdout: "fixture tool available", stderr: "OpenSSH_9.6p1" }),
         toolchains: async () => ({}),
       },
     );
@@ -184,7 +184,10 @@ test(
           installDependencies: false,
         },
         {
-          run: async () => ({ stdout: "fixture tool available" }),
+          run: async () => ({
+            stdout: "fixture tool available",
+            stderr: "OpenSSH_9.6p1",
+          }),
           toolchains: async () => ({}),
         },
       ),

@@ -45,7 +45,7 @@ export async function setupFixture(t) {
     restartCalls = [];
   const state = { service: "missing", listener: false, healthy: true };
   const dependencies = {
-    run: async () => ({ stdout: "fixture" }),
+    run: async () => ({ stdout: "fixture", stderr: "OpenSSH_9.6p1" }),
     releaseOptions: { smoke: async (directory) => stageCalls.push(directory) },
     inspectService: async () => ({ state: state.service, listener: state.listener }),
     serviceRunner: async (input) => {

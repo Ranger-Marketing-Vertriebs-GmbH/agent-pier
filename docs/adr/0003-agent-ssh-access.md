@@ -78,7 +78,7 @@ and needs an explicit choice:
 
 Some network devices close a connection that asks for a remote command and offer only
 an interactive console (AGENTPIER-236). An owner-only, per-host switch **Interactive
-shell (network devices)** makes `agentpier_ssh` `execute` (and `ssh_execute`) type the
+shell (network devices)** makes `agentpier_ssh` `execute` (and, until 2026-10-30, `ssh_execute`) type the
 command into that console line by line after each prompt over `ssh -tt`, answer pager
 prompts and log out. Nothing else about agent SSH changes: the modes, approval cards
 (the approved text is what is typed: its lines one by one, then `exit` only at a prompt; control characters other than line breaks are refused before a card), the digest-only audit and the stored
@@ -150,3 +150,24 @@ The owner wants agents to use their servers like coding sessions do, with `ssh`,
   host by plain ssh. A revoke or a switch to `approval` refuses the next signature at
   once; open connections stay until they close. This remains scoping under one OS
   user, not isolation: an agent with full shell can reach other agents' SSH agents.
+
+## Amendment 2026-10-30: coding sessions reach hosts only natively
+
+The owner decided that coding sessions (Codex, Claude Code, OpenCode) reach SSH hosts
+only with plain OpenSSH (`ssh <alias>`, `scp`, `sftp`, `rsync`, `git`, tunnels) through
+the per-session SSH agent. The `ssh_execute` MCP tool is removed; the host and key
+management tools stay. There is no fallback path:
+
+- OpenSSH 8.9 or newer (the `session-bind@openssh.com` extension the agent requires) is
+  a hard installation requirement. The installer and dependency repair check `ssh -V`
+  and refuse an older or non-OpenSSH client; activating a newer release refuses as
+  well (a rollback does not).
+- Interactive-shell devices get no alias. Sessions use the manual helper
+  (`<helper> -- <remote command>`), which types into the console; `ssh_list_hosts`
+  names the exact command per host.
+- SFTP hosts that sign in with a key and have no allowed remote folder get an alias in
+  coding sessions, so native `sftp` and `scp` work. Password hosts and folder-restricted
+  hosts keep only the `sftp_*` tools, which enforce the folder and keep the password in
+  AgentPier.
+- Agents keep `agentpier_ssh` with its approval cards; their own SSH agents are
+  unchanged and still serve no SFTP host.

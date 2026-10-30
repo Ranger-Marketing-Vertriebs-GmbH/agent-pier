@@ -12,7 +12,9 @@ Optionen, ACLs und ein schreibgeschütztes Dateisystem bleiben wirksam.
 
 Die folgenden Abschnitte beschreiben den Start aus einem Source-Checkout. Für eine versionierte Installation mit unveränderlichen Releases, eigenem Node-Runtime und getrenntem Datenverzeichnis nutze stattdessen den [Release-Installer mit den genauen Befehlen](operations.md#installer-and-exact-commands). Dafür wird ein zur Plattform passendes `.aprelease`-Artefakt benötigt; diese Anleitung behauptet keine bereits veröffentlichte oder auf dem Zielrechner geprüfte Version.
 
-`sh scripts/install.sh` benötigt aus einem sauberen Checkout kein `npm ci`. Fehlende tmux-/Git-Pakete werden standardmäßig installiert; Node wird bei Bedarf vorübergehend geladen und ist im Release enthalten. Fehlende Download-Tools (`curl`, `tar`, SHA-256-Prüfung) werden ebenfalls bei Bedarf installiert. Auf macOS wird Homebrew verwendet und bei Bedarf über den [offiziellen Installer](https://brew.sh) eingerichtet; unter Linux wird apt verwendet. Bestätigungen und Admin-Passwort können im Terminal eingegeben werden. Ohne Terminal läuft der Homebrew-Installer nichtinteraktiv und benötigt passende Administratorrechte. Auf anderen Linux-Distributionen die fehlenden Pakete mit dem dortigen Paketmanager installieren.
+`sh scripts/install.sh` benötigt aus einem sauberen Checkout kein `npm ci`. Fehlende tmux-, Git- und OpenSSH-Client-Pakete (`openssh-client`) werden standardmäßig installiert; Node wird bei Bedarf vorübergehend geladen und ist im Release enthalten. Fehlende Download-Tools (`curl`, `tar`, SHA-256-Prüfung) werden ebenfalls bei Bedarf installiert. Auf macOS wird Homebrew verwendet und bei Bedarf über den [offiziellen Installer](https://brew.sh) eingerichtet; unter Linux wird apt verwendet. Bestätigungen und Admin-Passwort können im Terminal eingegeben werden. Ohne Terminal läuft der Homebrew-Installer nichtinteraktiv und benötigt passende Administratorrechte. Auf anderen Linux-Distributionen die fehlenden Pakete mit dem dortigen Paketmanager installieren.
+
+Der Installer prüft außerdem `ssh -V` und bricht ab, wenn der OpenSSH-Client älter als 8.9 ist oder `ssh` kein OpenSSH ist: Coding-Sessions erreichen SSH-Hosts nur über ihren eigenen SSH-Agenten, der OpenSSH 8.9 braucht ([SSH-Zugänge](ssh-access.md#plain-ssh-from-coding-sessions)). Ein alter Client wird nie automatisch ersetzt; Ubuntu 20.04 (8.2) und Debian 11 (8.4) reichen nicht, Ubuntu 22.04 und Debian 12 oder neuer schon. Das Aktivieren eines neueren Releases unter **Einstellungen → Betrieb → Updates** bricht ebenso ab; ein Rollback nicht.
 
 `--skip-dependencies` prüft Voraussetzungen, ohne Host-Pakete zu installieren. `--install-dependencies` bleibt als kompatible Option erhalten. `--service` richtet den Benutzer-Webdienst ein und wartet auf dessen Versions-Healthcheck; dabei werden auch die üblichen Homebrew- und Systempfade gespeichert. Das Datenverzeichnis darf nicht innerhalb eines Release-Ordners liegen.
 
@@ -26,13 +28,14 @@ Danach den AgentPier-Webdienst neu starten. Falls `tmux -V` funktioniert, aber d
 
 ## Voraussetzungen und erster Start
 
-Benötigt werden Node.js `^22.23.4 || ^24.22.1 || >=26.12.1` (22.23.4+, 24.22.1+ oder 26.12.1+; Node 23 und 25 werden nicht unterstützt) mit npm, tmux und Git. Für das native Terminal-Modul können Python 3, make und ein C++-Compiler erforderlich sein, falls npm für das System kein passendes vorkompiliertes Modul findet. Installiere diese Voraussetzungen mit den üblichen Tools deiner Distribution. Die direkte Installation der drei Coding-CLIs in AgentPier unterstützt Linux auf x64 und ARM64.
+Benötigt werden Node.js `^22.23.4 || ^24.22.1 || >=26.12.1` (22.23.4+, 24.22.1+ oder 26.12.1+; Node 23 und 25 werden nicht unterstützt) mit npm, tmux und Git sowie OpenSSH 8.9 oder neuer. Für das native Terminal-Modul können Python 3, make und ein C++-Compiler erforderlich sein, falls npm für das System kein passendes vorkompiliertes Modul findet. Installiere diese Voraussetzungen mit den üblichen Tools deiner Distribution. Die direkte Installation der drei Coding-CLIs in AgentPier unterstützt Linux auf x64 und ARM64.
 
 ```sh
 node --version
 npm --version
 tmux -V
 git --version
+ssh -V
 
 git clone https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier.git
 cd agent-pier

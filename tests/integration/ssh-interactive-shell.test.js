@@ -163,11 +163,16 @@ test("only the owner switches the console mode; MCP lists it and tests sign-in",
   });
   t.after(() => tools.close());
   const listed = await tools.call("ssh_list_hosts", {});
-  assert.equal(listed.hosts.find((h) => h.accessId === host.id).interactiveShell, true);
-  await assert.rejects(
-    tools.call("ssh_execute", { accessId: host.id, command: "show\tversion" }),
-    { code: "SSH_CONSOLE_CONTROL", status: 400 },
-  );
+  const device = listed.hosts.find((h) => h.accessId === host.id);
+  assert.equal(device.interactiveShell, true);
+  // No alias and no remote-command tool: the manual helper types into the console.
+  assert.equal(device.alias, undefined);
+  assert.equal(device.use.via, "helper");
+  assert.match(device.use.command, /ssh\.mjs' '--data-dir' .* -- <remote command>$/);
+  assert.ok(device.use.command.includes(`'--access' '${host.id}'`));
+  await assert.rejects(tools.call("ssh_execute", { accessId: host.id, command: "x" }), {
+    message: "Unknown SSH tool.",
+  });
   // The console test opens the shell, waits for the prompt and logs out.
   const consoles = [];
   store.runConsole = (connection, command) => {

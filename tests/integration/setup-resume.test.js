@@ -200,7 +200,7 @@ test("existing installation still checks and repairs missing dependencies", asyn
   const run = async (command, args) => {
     if (command === "tmux" && !available) throw Error("missing");
     if (args.includes("install")) available = true;
-    return { stdout: "fixture" };
+    return { stdout: "fixture", stderr: "OpenSSH_9.6p1" };
   };
   await assert.rejects(
     f.install({ installDependencies: false }, { run }),

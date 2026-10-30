@@ -24,14 +24,17 @@ export const configReasons = {
 /**
  * The session's SSH agent (GET /sessions/:id/ssh-accesses `agent`, live through
  * `job.ssh-tools`): one status line and, while it is ready, a note when ~/.ssh/config
- * could not take AgentPier's block and a copyable `ssh <alias>` per host that has an
- * alias, in the order of `accesses`.
+ * could not take AgentPier's block and a copyable `ssh <alias>` (`sftp <alias>` for an
+ * SFTP host) per host that has an alias, in the order of `accesses`.
  */
 export default function SessionSshAgentStatus({ agent, accesses = [] }) {
   if (!agent) return null;
   const ready = agent.state === "ready";
   const aliases = ready ? agent.aliases || {} : {};
   const names = new Map(accesses.map((access) => [access.id, access.name]));
+  const sftp = new Set(
+    accesses.filter((access) => access.type === "sftp").map((access) => access.id),
+  );
   const ids = [
     ...accesses.map((access) => access.id).filter((id) => Object.hasOwn(aliases, id)),
     ...Object.keys(aliases).filter((id) => !names.has(id)),
@@ -58,7 +61,7 @@ export default function SessionSshAgentStatus({ agent, accesses = [] }) {
         <SshCopy
           key={id}
           label={names.get(id) || alias}
-          text={copy.agentAliasLabel(alias)}
+          text={(sftp.has(id) ? copy.agentSftpAliasLabel : copy.agentAliasLabel)(alias)}
           button={copy.copyCommand}
         />
       ))}

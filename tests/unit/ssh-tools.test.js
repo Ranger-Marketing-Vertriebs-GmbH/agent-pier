@@ -47,77 +47,24 @@ async function fixture(t) {
     dataDir,
   };
 }
-test("SSH tools only list assigned host metadata and reauthorize every command", async (t) => {
+test("SSH tools only list assigned host metadata", async (t) => {
   const { tools, grants, session } = await fixture(t);
   const hosts = await tools.call("ssh_list_hosts", {});
   assert.equal(hosts.hosts.length, 1);
   assert.equal(JSON.stringify(hosts).includes("SECRET"), false);
-  assert.equal(
-    (
-      await tools.call("ssh_execute", {
-        accessId: "host",
-        command: "process.stdout.write(process.cwd())",
-      })
-    ).exitCode,
-    0,
-  );
-  await assert.rejects(
-    tools.call("ssh_execute", { accessId: "other", command: "process.exit(0)" }),
-  );
   await grants.set(session, []);
-  await assert.rejects(
-    tools.call("ssh_execute", { accessId: "host", command: "process.exit(0)" }),
-  );
-});
-test("execution bounds command, output, timeout and concurrency", async (t) => {
-  const { tools } = await fixture(t);
-  await assert.rejects(
-    tools.call("ssh_execute", { accessId: "host", command: "x".repeat(16385) }),
-  );
-  await assert.rejects(
-    tools.call("ssh_execute", { accessId: "host", command: "true", timeoutSeconds: 121 }),
-  );
-  const output = await tools.call("ssh_execute", {
-    accessId: "host",
-    command: "process.stdout.write('x'.repeat(200000))",
-  });
-  assert.ok(Buffer.byteLength(output.stdout) <= 65536);
-  assert.equal(output.truncated, true);
-  const running = tools.call("ssh_execute", {
-    accessId: "host",
-    command: "setInterval(()=>{},100)",
-    timeoutSeconds: 1,
-  });
-  await assert.rejects(
-    tools.call("ssh_execute", { accessId: "host", command: "process.exit(0)" }),
-    /already running/,
-  );
-  assert.equal((await running).timedOut, true);
+  assert.deepEqual((await tools.call("ssh_list_hosts", {})).hosts, []);
 });
 
-test("revoking an assignment interrupts an active command", async (t) => {
-  const { tools, grants, session, dataDir } = await fixture(t);
-  const started = path.join(dataDir, "command-started");
-  const running = tools.call("ssh_execute", {
-    accessId: "host",
-    command: `require('node:fs').writeFileSync(${JSON.stringify(started)}, 'ready');setInterval(()=>{},100)`,
-    timeoutSeconds: 5,
-  });
-  const deadline = performance.now() + 3000;
-  while (!fs.existsSync(started) && performance.now() < deadline)
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  assert.ok(fs.existsSync(started), "the owned command must start before revocation");
-  await grants.set(session, []);
-  await assert.rejects(running, /revoked/);
-});
-
-test("UTF-8 truncation also respects the byte budget", async (t) => {
+test("coding sessions have no remote-command tool", async (t) => {
+  const names = sshTools.map((tool) => tool.name);
+  assert.equal(names.includes("ssh_execute"), false);
+  for (const tool of sshTools) assert.doesNotMatch(tool.description, /ssh_execute/);
   const { tools } = await fixture(t);
-  const result = await tools.call("ssh_execute", {
-    accessId: "host",
-    command: "process.stdout.write('€'.repeat(100000))",
-  });
-  assert.ok(Buffer.byteLength(result.stdout) + Buffer.byteLength(result.stderr) <= 65536);
+  await assert.rejects(
+    tools.call("ssh_execute", { accessId: "host", command: "true" }),
+    /Unknown SSH tool/,
+  );
 });
 
 test("host discovery excludes explicit grants revoked during project validation", async (t) => {
@@ -209,8 +156,54 @@ test("ssh_list_hosts returns the alias from the session's aliases.json", async (
   );
   const result = await listed();
   assert.equal(result.find((host) => host.accessId === "host").alias, "proxmox-2");
+  assert.deepEqual(result.find((host) => host.accessId === "host").use, {
+    via: "ssh",
+    command: "ssh proxmox-2",
+  });
+  // A row without auth "key" is not a native SFTP host: no alias, sftp_* tools.
   assert.equal(result.find((host) => host.accessId === "files").alias, undefined);
+  assert.deepEqual(result.find((host) => host.accessId === "files").use, {
+    via: "sftp_tools",
+  });
   assert.equal(result.length, 2);
+});
+
+test("ssh_list_hosts says per host which way applies", async (t) => {
+  const { tools, grants, session, dataDir } = await fixture(t);
+  const sftp = { type: "sftp", host: "files.invalid" };
+  const hosts = [
+    ...tools.store.list(),
+    { id: "device", name: "Switch", host: "switch.invalid", interactiveShell: true },
+    { id: "keyfiles", name: "Key files", ...sftp, auth: "key", remoteRoot: null },
+    { id: "pwfiles", name: "Password files", ...sftp, auth: "password" },
+    { id: "rooted", name: "Rooted", ...sftp, auth: "key", remoteRoot: "/www" },
+    { id: "plain", name: "Plain", host: "plain.invalid" },
+  ];
+  tools.store.list = () => hosts;
+  await grants.set(session, ["host", "device", "keyfiles", "pwfiles", "rooted", "plain"]);
+  const folder = sessionFolder(dataDir, session.id);
+  fs.mkdirSync(folder, { recursive: true });
+  fs.writeFileSync(
+    path.join(folder, "aliases.json"),
+    JSON.stringify({ host: "synthetic", keyfiles: "key-files" }),
+  );
+  const byId = Object.fromEntries(
+    (await tools.call("ssh_list_hosts", {})).hosts.map((host) => [host.accessId, host]),
+  );
+  assert.deepEqual(byId.host.use, { via: "ssh", command: "ssh synthetic" });
+  assert.equal(byId.keyfiles.alias, "key-files");
+  assert.deepEqual(byId.keyfiles.use, { via: "sftp", command: "sftp key-files" });
+  assert.deepEqual(byId.pwfiles.use, { via: "sftp_tools" });
+  assert.deepEqual(byId.rooted.use, { via: "sftp_tools" });
+  assert.equal(byId.device.use.via, "helper");
+  assert.match(
+    byId.device.use.command,
+    /'--session' 'one' '--access' 'device' -- <remote command>$/,
+  );
+  assert.equal(byId.device.alias, undefined);
+  // An SSH host without an alias (no agent yet) says so instead of guessing.
+  assert.equal(byId.plain.use.via, "unavailable");
+  assert.equal(byId.plain.alias, undefined);
 });
 
 test("ssh_list_hosts says that SSH hosts carry their alias", () => {

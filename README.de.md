@@ -58,9 +58,10 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
 - **SSH und SFTP:** SSH- und SFTP-Hosts mit fixiertem Host-Schlüssel (SFTP mit
   Passwort oder Schlüssel), die Coding-CLIs und Agenten nutzen, mit Freigaben für
   Änderungen und Löschungen, Ordnerübertragungen, Synchronisieren und
-  Live-Aktivitätszeilen; Sessions und Agenten mit Shell-Zugriff (für ihre vertrauten
-  Hosts) erreichen ihre Hosts auch mit einfachem `ssh <alias>`, `scp`, `rsync`, `git`
-  und Tunneln über einen eigenen SSH-Agenten, der den Schlüssel in AgentPier behält;
+  Live-Aktivitätszeilen; Coding-Sessions erreichen ihre Hosts nur mit einfachem
+  `ssh <alias>`, `scp`, `sftp`, `rsync`, `git` und Tunneln über einen eigenen
+  SSH-Agenten, der den Schlüssel in AgentPier behält, ebenso Agenten mit Shell-Zugriff
+  für ihre vertrauten Hosts;
   Agenten können einen neuen SSH-Zugang vorschlagen,
   den du nach Prüfung seines Hostschlüssels bestätigst ([SSH](docs/ssh-access.md),
   [einfaches SSH](docs/ssh-access.md#plain-ssh-from-coding-sessions),
@@ -110,7 +111,7 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
 ## Voraussetzungen
 
 - macOS 14 oder neuer (Apple Silicon oder Intel) oder Linux auf x64 oder arm64. Intel-Macs werden unterstützt, die vollständige native Agenten-Qualifikation deckt aber nur Apple Silicon und Linux ab.
-- Node.js `^22.23.4 || ^24.22.1 || >=26.12.1` (22.23.4+, 24.22.1+ oder 26.12.1+; Node 23 und 25 werden nicht unterstützt; in Release-Paketen enthalten), Git und tmux.
+- Node.js `^22.23.4 || ^24.22.1 || >=26.12.1` (22.23.4+, 24.22.1+ oder 26.12.1+; Node 23 und 25 werden nicht unterstützt; in Release-Paketen enthalten), Git, tmux und OpenSSH 8.9 oder neuer.
 - Optional: Tailscale für den Fernzugriff und ein Chromium-basierter Browser für das
   Browser-Tool der Agenten (Brave oder Chromium für sichtbare Browserfenster der
   Agenten; AgentPier kann dafür mit einem Klick ein verwaltetes Chrome for Testing
