@@ -85,3 +85,45 @@ test("runtime update routes require owner auth, reject runtime inputs, and sanit
     200,
   );
 });
+
+test("an activation refused before any change names its reason, not a running request", async (t) => {
+  const app = express();
+  let failure;
+  app.use(express.json());
+  app.use(
+    assistantRuntimeUpdateRoutes({
+      assistants: { maintenance: false },
+      assistantUpdates: {
+        status: () => ({ recoveryRequired: false }),
+        activate: async () => {
+          throw failure;
+        },
+      },
+    }),
+  );
+  app.use((error, _req, res, _next) =>
+    res.status(error.status || 500).json({ error: error.message, key: error.key }),
+  );
+  const server = app.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(async () => {
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
+  });
+  const url = `http://127.0.0.1:${server.address().port}/assistant-runtime/updates/activate`;
+  const headers = { "content-type": "application/json" };
+  for (const [code, status, key] of [
+    ["UPDATE_BLOCKED", 409, "updateBlocked"],
+    ["UPDATE_CONFIG_BUSY", 503, "configBusy"],
+    ["UPDATE_PREPARE_FAILED", 503, "updatePrepareFailed"],
+    ["UPDATE_BUSY", 409, "active"],
+  ]) {
+    failure = Object.assign(Error(code), {
+      code,
+      status: code === "UPDATE_BUSY" ? 409 : 503,
+    });
+    const response = await fetch(url, { method: "POST", headers, body: "{}" });
+    assert.equal(response.status, status);
+    assert.equal((await response.json()).key, key);
+  }
+});

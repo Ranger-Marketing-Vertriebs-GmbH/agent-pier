@@ -504,6 +504,12 @@ export const assistants = {
   chatHintFailed: "The hint could not be hidden right now. Try again later.",
   queuedArchived: "This agent is archived and takes no more messages.",
   active: "A request is still running. Wait for its result or stop it first.",
+  configBusy:
+    "The runtime is not accepting configuration changes right now. Try again in a minute.",
+  updateBlocked:
+    "Open work blocks the update. The runtime page lists what is still open.",
+  updatePrepareFailed:
+    "The runtime could not be prepared for the update. The active version is kept; try again shortly.",
   disabled: "Agents are turned off. Turn them on under Agents › Runtime.",
   storageUnsafe:
     "The agent storage folder is unsafe. Check its owner and links in the data directory.",

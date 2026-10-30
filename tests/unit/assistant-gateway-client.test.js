@@ -38,6 +38,19 @@ test("TCP open is not authenticated readiness and RPCs preserve correlation", as
       error.remoteMessage === undefined &&
       error.remoteError === undefined,
   );
+  // A refused control-plane write keeps how long the Gateway asks to wait.
+  await assert.rejects(
+    client.call("rateLimited", {}),
+    (error) =>
+      error.code === "UNAVAILABLE" &&
+      error.retryable === true &&
+      error.retryAfterMs === 45559 &&
+      error.remoteMessage === undefined,
+  );
+  await assert.rejects(
+    client.call("busy", {}),
+    (error) => error.retryAfterMs === undefined,
+  );
   // An error OpenClaw's handler threw keeps only its class name, never the text.
   await assert.rejects(
     client.call("refused", {}),

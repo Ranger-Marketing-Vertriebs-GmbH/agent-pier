@@ -142,6 +142,13 @@ export class GatewayClient extends EventEmitter {
                   ...(typeof frame.error?.retryable === "boolean"
                     ? { retryable: frame.error.retryable }
                     : {}),
+                  // How long the Gateway asks a retryable refusal to wait, such as
+                  // its control-plane write budget (30 config.patch a minute per
+                  // connection, OpenClaw 2026.10).
+                  ...(Number.isFinite(frame.error?.retryAfterMs) &&
+                  frame.error.retryAfterMs >= 0
+                    ? { retryAfterMs: frame.error.retryAfterMs }
+                    : {}),
                   // An agent the Gateway has not admitted (agent-admission.js): its id
                   // and refusal code only, never the reason or the paths.
                   ...admissionRefusal(frame.error),

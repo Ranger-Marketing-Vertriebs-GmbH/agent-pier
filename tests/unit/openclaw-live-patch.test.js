@@ -90,3 +90,96 @@ test("other patch failures and a missing config pass through", async () => {
   );
   assert.equal(gateway.calls[1][1].raw, JSON.stringify({ seen: {} }));
 });
+
+// As OpenClaw 2026.10 refuses a config.patch over its budget of 30 a minute per
+// connection: before any write, retryable, with the wait it asks for.
+const rateLimited = (retryAfterMs) =>
+  Object.assign(Error("rate limit exceeded for config.patch"), {
+    code: "UNAVAILABLE",
+    answered: true,
+    retryable: true,
+    retryAfterMs,
+  });
+function limitedGateway(refusals, retryAfterMs) {
+  let clock = 0;
+  const waits = [];
+  let refused = 0;
+  const gateway = client({
+    "config.get": { hash: "h1", config: {} },
+    "config.patch": () => {
+      if (refused++ < refusals) throw rateLimited(retryAfterMs);
+      return {};
+    },
+  });
+  const options = {
+    now: () => clock,
+    wait: async (ms) => {
+      waits.push(ms);
+      clock += ms;
+    },
+  };
+  const patches = () => gateway.calls.filter(([method]) => method === "config.patch");
+  return { gateway, options, waits, patches };
+}
+
+test("a rate-limited patch waits as long as the Gateway asks, then applies", async () => {
+  const f = limitedGateway(1, 45000);
+  const base = await patchConfig(
+    f.gateway,
+    () => ({ patch: { cron: { enabled: false } } }),
+    f.options,
+  );
+  assert.equal(base.hash, "h1");
+  assert.deepEqual(f.waits, [45000]);
+  assert.equal(f.patches().length, 2);
+});
+
+test("a rate limit beyond the bound fails at once as configBusy, never in a loop", async () => {
+  const f = limitedGateway(Infinity, 45000);
+  await assert.rejects(
+    patchConfig(f.gateway, () => ({ patch: { a: 1 } }), {
+      ...f.options,
+      maxWaitMs: 30000,
+    }),
+    (error) =>
+      error.status === 503 && error.code === "CONFIG_BUSY" && error.key === "configBusy",
+  );
+  assert.deepEqual(f.waits, [], "a wait past the bound is not even started");
+  assert.equal(f.patches().length, 1);
+  // Within the default minute: one wait, one more patch, then the honest refusal.
+  const g = limitedGateway(Infinity, 45000);
+  await assert.rejects(
+    patchConfig(g.gateway, () => ({ patch: { a: 1 } }), g.options),
+    { code: "CONFIG_BUSY" },
+  );
+  assert.deepEqual(g.waits, [45000]);
+  assert.equal(g.patches().length, 2);
+});
+
+test("a zero retry hint still pauses before the next patch", async () => {
+  const f = limitedGateway(2, 0);
+  await patchConfig(f.gateway, () => ({ patch: { a: 1 } }), f.options);
+  assert.deepEqual(f.waits, [250, 250]);
+  assert.equal(f.patches().length, 3);
+});
+
+test("a refusal without a retry hint is not repeated", async () => {
+  const refused = Object.assign(Error("refused"), {
+    code: "UNAVAILABLE",
+    answered: true,
+    retryable: false,
+    retryAfterMs: 1000,
+  });
+  const gateway = client({
+    "config.get": { hash: "h1", config: {} },
+    "config.patch": refused,
+  });
+  let waited = false;
+  await assert.rejects(
+    patchConfig(gateway, () => ({ patch: { a: 1 } }), {
+      wait: async () => (waited = true),
+    }),
+    refused,
+  );
+  assert.equal(waited, false);
+});
