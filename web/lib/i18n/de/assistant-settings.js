@@ -110,4 +110,56 @@ export const assistantSettingsCopy = {
     "Erinnerungen und Routinen sind für diesen Agenten aus. Schalte „Erinnerungen und Routinen erlauben“ unter Fähigkeiten ein.",
   heartbeatNeedsMemory:
     "Braucht das Gedächtnis: Schalte „Informationen merken“ unter Fähigkeiten ein.",
+  mainChatRestart: {
+    group: "Gefahrenbereich",
+    row: "Hauptchat neu beginnen",
+    rowHint: "Beginnt jeden Hauptchat dieses Agenten neu. Das Gedächtnis bleibt.",
+    title: (name) => `Hauptchat von „${name}“ neu beginnen?`,
+    body: "Der Agent verliert seine bisherigen Gespräche, und alle laufende Arbeit endet sofort.",
+    confirm: "Hauptchats neu beginnen und Arbeit abbrechen",
+    goes: (people) =>
+      people === 1
+        ? "Weg: Gesprächsverlauf und Zusammenfassungen von 1 Hauptchat."
+        : `Weg: Gesprächsverlauf und Zusammenfassungen von ${people} Hauptchats.`,
+    stays:
+      "Bleibt: Gedächtnis, Dateien, Einstellungen, Routinen und Erinnerungen. Routinen und Erinnerungen werden nicht geprüft.",
+    notSaved: "Vorher wird nichts gesichert.",
+    temporary: (count) =>
+      count === 1
+        ? "1 temporäres Mitglied endet."
+        : `${count} temporäre Mitglieder enden.`,
+    permanent: (count) =>
+      count === 1
+        ? "1 dauerhaftes Mitglied beginnt neu."
+        : `${count} dauerhafte Mitglieder beginnen neu.`,
+    workIntro: "Diese Arbeit wird abgebrochen:",
+    work: {
+      turns: (count) => (count === 1 ? "1 laufender Turn" : `${count} laufende Turns`),
+      teams: (count) =>
+        count === 1
+          ? "1 Teamvorschlag, der auf Freigabe wartet"
+          : `${count} Teamvorschläge, die auf Freigabe warten`,
+      members: (count) =>
+        count === 1
+          ? "1 arbeitendes temporäres Mitglied"
+          : `${count} arbeitende temporäre Mitglieder`,
+      requests: (count) =>
+        count === 1
+          ? "1 offene Anfrage an ein dauerhaftes Mitglied"
+          : `${count} offene Anfragen an dauerhafte Mitglieder`,
+      coding: (count) =>
+        count === 1
+          ? "1 Coding-Session oder Workflow"
+          : `${count} Coding-Sessions und Workflows`,
+      goals: (count) =>
+        count === 1 ? "1 aktives Arbeitsziel" : `${count} aktive Arbeitsziele`,
+      approvals: (count) =>
+        count === 1 ? "1 wartende Freigabe" : `${count} wartende Freigaben`,
+    },
+    archived: "Die alten Hauptchats bleiben unter den archivierten Chats lesbar.",
+    acknowledge: "Ich verstehe, dass das nicht rückgängig gemacht werden kann",
+    loading: "Prüfe, was der Neubeginn betrifft …",
+    loadFailed: "Was der Neubeginn betrifft, ließ sich nicht laden.",
+    done: "Hauptchats neu begonnen. Die vorherigen liegen unter den archivierten Chats.",
+  },
 };
