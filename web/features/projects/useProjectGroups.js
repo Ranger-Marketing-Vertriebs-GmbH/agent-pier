@@ -8,7 +8,6 @@ import {
   normalizeGroupsDocument,
   withAssignment,
   withGroupAt,
-  withGroupMoved,
   withNewGroup,
   withRenamedGroup,
   withoutGroup,
@@ -42,6 +41,9 @@ export default function useProjectGroups() {
     saved.current = next;
     setConfirmed(next);
   }, []);
+  // Live reads are ignored when older than the saved document: a read that started
+  // before our own write may arrive after its answer and would undo it. Write answers
+  // are trusted because the server just wrote them.
   useEffect(() => {
     if (live.data) adopt(live.data);
   }, [live.data, adopt]);
@@ -110,12 +112,9 @@ export default function useProjectGroups() {
       update((current) => withRenamedGroup(current, groupId, name), { report: false }),
     [update],
   );
-  const moveGroup = useCallback(
-    (groupId, offset) =>
-      quietly(update((current) => withGroupMoved(current, groupId, offset))),
-    [update],
-  );
-  // A dragged group lands at an absolute position.
+  // Moves a group to an absolute position (drag, or Move up / down from the shown
+  // index). Absolute, so re-applying the pending edit over a saved document that
+  // already contains it changes nothing.
   const moveGroupTo = useCallback(
     (groupId, index) =>
       quietly(update((current) => withGroupAt(current, groupId, index))),
@@ -136,7 +135,6 @@ export default function useProjectGroups() {
     removeProject,
     createGroup,
     renameGroup,
-    moveGroup,
     moveGroupTo,
     deleteGroup,
   };

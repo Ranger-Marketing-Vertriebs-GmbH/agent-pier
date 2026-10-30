@@ -7,7 +7,7 @@ import {
   groupNameProblem,
   normalizeGroupsDocument,
   withAssignment,
-  withGroupMoved,
+  withGroupAt,
   withNewGroup,
   withRenamedGroup,
   withoutGroup,
@@ -143,14 +143,15 @@ test("rename, reorder and delete edit a copy of the document", () => {
   ]);
   assert.equal(doc.groups[1].name, "Spiele");
 
-  const up = withGroupMoved(doc, "g_2", -1);
+  // Move up from shown index 1 lands at 0; re-applying the same absolute edit over
+  // a document that already contains it changes nothing (a pending edit replayed).
+  const up = withGroupAt(doc, "g_2", 0);
   assert.deepEqual(
     up.groups.map((group) => group.id),
     ["g_2", "g_1"],
   );
-  assert.equal(withGroupMoved(doc, "g_1", -1), doc);
-  assert.equal(withGroupMoved(doc, "g_2", 1), doc);
-  assert.equal(withGroupMoved(doc, "g_x", 1), doc);
+  assert.equal(withGroupAt(up, "g_2", 0), up);
+  assert.equal(withGroupAt(doc, "g_x", 1), doc);
 
   const deleted = withoutGroup(doc, "g_1");
   assert.deepEqual(deleted.groups, [{ id: "g_2", name: "Spiele" }]);

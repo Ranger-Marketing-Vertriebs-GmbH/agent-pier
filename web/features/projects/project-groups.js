@@ -167,16 +167,6 @@ export function withRenamedGroup(document, groupId, name) {
   };
 }
 
-/** Moves a group `offset` places (-1 up, 1 down); the same document at the ends. */
-export function withGroupMoved(document, groupId, offset) {
-  const from = document.groups.findIndex((group) => group.id === groupId);
-  const to = from + offset;
-  if (from < 0 || to < 0 || to >= document.groups.length) return document;
-  const groups = [...document.groups];
-  [groups[from], groups[to]] = [groups[to], groups[from]];
-  return { ...document, groups };
-}
-
 /** Moves a group to position `index`; the same document if nothing changes. */
 export function withGroupAt(document, groupId, index) {
   const from = document.groups.findIndex((group) => group.id === groupId);
