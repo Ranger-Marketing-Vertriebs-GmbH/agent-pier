@@ -40,6 +40,21 @@ export function lockedDependencies(manifest) {
     dependencies[pin.package] = pin.version;
   return Object.fromEntries(byKey(dependencies));
 }
+/**
+ * The npm overrides of the locked graph: exact security versions for transitive
+ * packages. A receipt written before overrides existed has none.
+ */
+export function lockedOverrides(manifest) {
+  const overrides = byKey(manifest.dependencyOverrides);
+  for (const [name, version] of overrides)
+    if (
+      !/^(@[a-z0-9-]+\/)?[a-z0-9][a-z0-9._-]*$/.test(name) ||
+      typeof version !== "string" ||
+      !/^\d+\.\d+\.\d+$/.test(version)
+    )
+      throw Error("Invalid assistant dependency override.");
+  return Object.fromEntries(overrides);
+}
 const pluginTarball = (pin) =>
   `https://registry.npmjs.org/${pin.package}/-/${pin.package.split("/")[1]}-${pin.version}.tgz`;
 export function readRuntimeLock(manifest, directory = runtimeLockDirectory) {
@@ -63,6 +78,7 @@ export function readRuntimeLock(manifest, directory = runtimeLockDirectory) {
     pkg.name !== "agentpier-managed-assistants" ||
     pkg.private !== true ||
     sorted(pkg.dependencies) !== sorted(lockedDependencies(manifest)) ||
+    sorted(pkg.overrides) !== sorted(lockedOverrides(manifest)) ||
     lock.lockfileVersion !== 3 ||
     (root?.name && root.name !== pkg.name) ||
     sorted(root?.dependencies) !== sorted(pkg.dependencies) ||
@@ -83,6 +99,11 @@ export function readRuntimeLock(manifest, directory = runtimeLockDirectory) {
     )
       throw Error("Invalid assistant search plugin lock entry.");
   }
+  // Every locked copy of an overridden package carries the security version.
+  for (const [override, version] of Object.entries(lockedOverrides(manifest)))
+    for (const [name, entry] of Object.entries(lock.packages))
+      if (name.endsWith(`node_modules/${override}`) && entry.version !== version)
+        throw Error("Assistant dependency override not applied.");
   for (const [name, entry] of Object.entries(lock.packages)) {
     if (!name) continue;
     if (

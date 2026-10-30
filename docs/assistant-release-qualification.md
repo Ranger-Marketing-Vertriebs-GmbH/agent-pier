@@ -606,6 +606,38 @@ therefore not sit behind a symbolic link for dreaming to write anything
 ([Dreaming](assistant-gateway.md#dreaming)); the scope contract pins this case, and
 no other native contract showed this error on the macOS runners.
 
+### Lock security refresh: undici and zod (2026-10-30)
+
+Dependabot reported advisories against the lock for `undici` 8.11.2 (fixed in 8.12.2:
+cache poisoning and cross-user disclosure, TLS certificate validation bypass,
+several denial-of-service issues including the WebSocket client, an SRI bypass) and
+`zod` 4.6.5 (fixed in 4.6.6: memory exhaustion validating oversized collections).
+OpenClaw 2026.10.7 pins both exactly, and so do 2026.10.8 and 2026.10.9, so a
+refresh alone keeps them. The manifest therefore gains
+`dependencyOverrides: { undici: "8.12.3", zod: "4.6.7" }` (see
+[Locked dependency installation](assistant-runtime-updates.md#locked-dependency-installation)).
+OpenClaw, Node, npm, the plugins and `rollbackTargets` stay unchanged.
+
+The lock was resolved in full twice with `scripts/refresh-assistant-runtime-lock.mjs`
+(no `--keep-graph`) on a Node 26.12.1/npm 11.20.0 runtime, byte for byte the same:
+`aba8ef1b9a94…` becomes `2787f9f8ee00…`, still 422 entries. Besides `undici`
+8.11.2 → 8.12.3 and `zod` 4.6.5 → 4.6.7, the full resolve moves patch and minor
+versions of `@babel/types`, `@borewit/text-codec`,
+`@opentelemetry/semantic-conventions`, `@types/node`, `encodeurl`,
+`express-rate-limit`, `hono`, `ip-address`, `jose`, `qs` and `strtok3`. `npm ci` of
+the new lock with the pinned npm installs every copy of both packages at the
+override version, and `npm audit --omit=dev` reports no vulnerabilities. npm 12.2.0,
+bundled by OpenClaw, still carries `undici` 6.28.0 for `node-gyp` inside its own
+archive; it is not part of the locked graph (see the bundled dependencies above).
+
+Installed users on `2026.10.7-node26.12.1-<target>-lockaba8ef1b9a94` get the change
+through the normal update path: the lock digest is part of the runtime identity, so
+the next start after the AgentPier update stages
+`2026.10.7-node26.12.1-<target>-lock2787f9f8ee00` as a candidate, and activation
+goes through the usual snapshot, validation and rollback flow. The OpenClaw version
+is unchanged, so activation runs no Doctor migration. The native installations and
+contracts run in the `Assistant runtime` workflow; they were not run locally.
+
 ### Native architectures (2026-10-19)
 
 The runtime manifest pins Node checksums for darwin-arm64, darwin-x64, linux-arm64

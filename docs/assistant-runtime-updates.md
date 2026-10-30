@@ -254,6 +254,16 @@ that is npm's own bundle and `chrome-devtools-mcp`, the only package OpenClaw st
 bundles; `@openclaw/proxyline` and `undici` are ordinary dependencies now and appear
 in the lock.
 
+When OpenClaw pins a transitive package exactly at a version with a published
+advisory, the manifest's `dependencyOverrides` names the fixed version (exact
+versions only), for example `{ undici: "8.12.3", zod: "4.6.7" }` while OpenClaw
+2026.10.7 pins undici 8.11.2 and zod 4.6.5. The lock refresh writes them as npm
+`overrides` into `runtime-lock/package.json`. The lock check refuses a package.json
+whose overrides differ from the manifest and a graph in which any locked copy of an
+overridden package has another version. The receipt records the overrides; a runtime
+installed before they existed has none and still starts. Remove an entry once the
+pinned OpenClaw ships the fixed version itself.
+
 Before any download, the installer verifies the lock digest and metadata. It then
 checks Node and OpenClaw archive integrity and executes the private, pinned npm with
 `ci --ignore-scripts --include=optional`. User/global npm configuration and inherited
@@ -357,7 +367,9 @@ then stays unchanged; without the flag, the whole graph is resolved again.
 **Do not use `--keep-graph` for a security alert or an OpenClaw version change:**
 it keeps every already locked transitive version, including the vulnerable or
 outdated one the refresh is meant to replace. Those refreshes always resolve the
-whole graph. Copy both reviewed JSON files to
+whole graph. If OpenClaw pins the vulnerable package exactly, a refresh alone keeps
+it: first add the fixed version to the manifest's `dependencyOverrides` (see
+[Locked dependency installation](#locked-dependency-installation)). Copy both reviewed JSON files to
 `server/features/assistants/runtime-lock/`, update `dependencyLockSha256` in the
 manifest, and run unit checks plus the four native CI installations. A deliberate
 refresh may select newer transitive versions and change npm's bundled-package
