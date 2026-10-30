@@ -17,6 +17,7 @@ import {
 import { PushPresence } from "./push-presence.js";
 import { createPushSender } from "./push-sender.js";
 import { pushFailureText } from "./push-failure.js";
+import { PushDeliveryLog } from "./push-delivery-log.js";
 
 /** A lookup for a notice, given up (undefined) after a failure or the time limit. */
 async function bounded(read, ms) {
@@ -49,9 +50,19 @@ function migrateNotifications(db) {
 }
 
 export class NotificationService {
-  constructor({ dataDir, send = createPushSender(), clock = Date, inboxCount = null }) {
+  constructor({
+    dataDir,
+    send = createPushSender(),
+    clock = Date,
+    inboxCount = null,
+    audit = null,
+    logger = console,
+  }) {
     this.send = send;
     this.clock = clock;
+    // Devices AgentPier removes on its own are audited and logged, never silently lost.
+    this.audit = audit;
+    this.logger = logger;
     // The number of inbox items, for the app badge (set once the inbox exists).
     this.inboxCount = inboxCount;
     this.presence = new PushPresence({ now: () => this.clock.now() });
@@ -66,6 +77,7 @@ export class NotificationService {
       "CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY,value TEXT NOT NULL); CREATE TABLE IF NOT EXISTS subscriptions (id TEXT PRIMARY KEY,device_id TEXT NOT NULL UNIQUE,public TEXT NOT NULL,secret TEXT NOT NULL); CREATE TABLE IF NOT EXISTS deliveries (event_id TEXT NOT NULL,subscription_id TEXT NOT NULL,status TEXT NOT NULL,PRIMARY KEY(event_id,subscription_id)); CREATE TABLE IF NOT EXISTS observations (id TEXT PRIMARY KEY,value TEXT NOT NULL);",
     );
     migrateNotifications(this.db);
+    this.deliveries = new PushDeliveryLog(this.db, () => this.now());
     const existing = this.db
       .prepare("SELECT value FROM settings WHERE key='vapid'")
       .get();
@@ -78,15 +90,42 @@ export class NotificationService {
   now() {
     return new Date(this.clock.now()).toISOString();
   }
-  /** One person's devices: the owner's (`userId` null) or a restricted user's. */
+  /**
+   * One person's devices: the owner's (`userId` null) or a restricted user's, each with
+   * its last delivery attempt, and whether her notices still reach a device.
+   */
   status({ userId = null } = {}) {
+    const subscriptions = this.devices(userId).map((device) => {
+      const lastDelivery = this.deliveries.latest(device.id);
+      return lastDelivery ? { ...device, lastDelivery } : device;
+    });
     return {
       enabled: true,
       publicKey: this.vapid.publicKey,
-      subscriptions: this.db
-        .prepare("SELECT public FROM subscriptions WHERE user_id IS ? ORDER BY rowid")
-        .all(userId)
-        .map((row) => this.summary(row.public)),
+      subscriptions,
+      health: this.health(subscriptions, userId),
+    };
+  }
+  devices(userId = null) {
+    return this.db
+      .prepare("SELECT public FROM subscriptions WHERE user_id IS ? ORDER BY rowid")
+      .all(userId)
+      .map((row) => this.summary(row.public));
+  }
+  /**
+   * `lost`: no device is left, and not because she unregistered the last one herself;
+   * `failing`: every device's last delivery failed. `removed` names her last device
+   * AgentPier removed (expired, signed out), never its endpoint.
+   */
+  health(subscriptions, userId) {
+    const removal = this.deliveries.lastRemoval(userId);
+    return {
+      devices: subscriptions.length,
+      lost: !subscriptions.length && removal?.reason !== "unregistered",
+      failing:
+        subscriptions.length > 0 &&
+        subscriptions.every((device) => device.lastDelivery?.status === "failed"),
+      ...(removal && removal.reason !== "unregistered" ? { removed: removal } : {}),
     };
   }
   // A device of this person, or 404 as for any device that is not registered.
@@ -149,6 +188,32 @@ export class NotificationService {
       );
     return { subscription: summary };
   }
+  /**
+   * The browser renewed this device's push subscription (on load or in the service
+   * worker's pushsubscriptionchange): name, preferences and history stay; a device this
+   * person has not registered is not found.
+   */
+  async renew(input, { userId = null } = {}) {
+    if (this.closed) throw problem(serverMessages.notifications.unavailable, 503);
+    const deviceId = pushId(input?.deviceId),
+      subscription = JSON.stringify(pushSubscription(input.subscription));
+    const row = this.db
+      .prepare(
+        "SELECT id,public,secret FROM subscriptions WHERE device_id=? AND user_id IS ?",
+      )
+      .get(deviceId, userId);
+    if (!row) throw problem(serverMessages.notifications.deviceNotRegistered, 404);
+    const summary = this.summary(row.public);
+    if (row.secret !== subscription) {
+      delete summary.lastSuccessAt;
+      delete summary.lastFailure;
+      this.db
+        .prepare("UPDATE subscriptions SET public=?,secret=? WHERE id=?")
+        .run(JSON.stringify(summary), subscription, row.id);
+      this.deliveries.forget(row.id);
+    }
+    return { subscription: summary, renewed: row.secret !== subscription };
+  }
   /** Changes a device's preferences; unknown or invalid fields are refused. */
   async setPreferences(id, input, { userId = null } = {}) {
     if (this.closed) throw problem(serverMessages.notifications.unavailable, 503);
@@ -171,10 +236,45 @@ export class NotificationService {
       : undefined;
   }
   async unsubscribe(id, { userId = null } = {}) {
-    this.db
-      .prepare("DELETE FROM subscriptions WHERE id=? AND user_id IS ?")
-      .run(pushId(id), userId);
+    const row = this.db
+      .prepare("SELECT id,public,user_id FROM subscriptions WHERE id=? AND user_id IS ?")
+      .get(pushId(id), userId);
+    // The route audits an unregistration the person chose; it never raises the banner.
+    if (row) this.removeDevice(row, "unregistered");
     return { removed: true };
+  }
+  /**
+   * Removes a device and records why. Anything but the person's own unregistration is
+   * audited and logged (reason and status code only, never the endpoint or keys).
+   */
+  removeDevice(row, reason, { statusCode, secret } = {}) {
+    const removed =
+      secret === undefined
+        ? this.db.prepare("DELETE FROM subscriptions WHERE id=?").run(row.id)
+        : this.db
+            .prepare("DELETE FROM subscriptions WHERE id=? AND secret=?")
+            .run(row.id, secret);
+    if (!removed.changes) return;
+    this.deliveries.forget(row.id);
+    let label = "";
+    try {
+      label = JSON.parse(row.public).label || "";
+    } catch {}
+    this.deliveries.removed({ userId: row.user_id ?? null, label, reason, statusCode });
+    if (reason === "unregistered") return;
+    try {
+      this.audit?.append({
+        action: "notification.unsubscribed",
+        resourceType: "notification",
+        resourceId: row.id,
+        outcome: "success",
+        source: "system",
+        details: { reason, ...(statusCode ? { statusCode } : {}) },
+      });
+    } catch {}
+    this.logger?.warn?.(
+      `AgentPier removed a push device (${reason}${statusCode ? `, HTTP ${statusCode}` : ""}).`,
+    );
   }
   /**
    * A browser that signs out stops getting its person's notices; one that signs in as
@@ -184,9 +284,12 @@ export class NotificationService {
     if (this.closed || typeof deviceId !== "string" || !/^[\w-]{1,120}$/.test(deviceId))
       return;
     const match = others ? "IS NOT" : "IS";
-    this.db
-      .prepare(`DELETE FROM subscriptions WHERE device_id=? AND user_id ${match} ?`)
-      .run(deviceId, userId);
+    for (const row of this.db
+      .prepare(
+        `SELECT id,public,user_id FROM subscriptions WHERE device_id=? AND user_id ${match} ?`,
+      )
+      .all(deviceId, userId))
+      this.removeDevice(row, others ? "signed-in-elsewhere" : "signed-out");
   }
   /**
    * Removes the devices of a user who is deleted or signed out remotely; `except` keeps
@@ -194,9 +297,12 @@ export class NotificationService {
    */
   forgetUser(userId, { except = null } = {}) {
     if (this.closed || typeof userId !== "string") return;
-    this.db
-      .prepare("DELETE FROM subscriptions WHERE user_id=? AND device_id IS NOT ?")
-      .run(userId, typeof except === "string" ? except : null);
+    for (const row of this.db
+      .prepare(
+        "SELECT id,public,user_id FROM subscriptions WHERE user_id=? AND device_id IS NOT ?",
+      )
+      .all(userId, typeof except === "string" ? except : null))
+      this.removeDevice(row, "user-signed-out");
   }
   async deliver(id, payload) {
     if (this.closed) return { sent: false };
@@ -213,7 +319,7 @@ export class NotificationService {
   }
   async deliverNow(id, payload) {
     const row = this.db
-      .prepare("SELECT public,secret FROM subscriptions WHERE id=?")
+      .prepare("SELECT id,public,secret,user_id FROM subscriptions WHERE id=?")
       .get(id);
     if (!row)
       return { sent: false, error: serverMessages.notifications.deviceNotRegistered };
@@ -232,10 +338,12 @@ export class NotificationService {
       }
       return { sent: true };
     } catch (error) {
+      const failure = pushFailureText(error);
       if ([404, 410].includes(error.statusCode))
-        this.db
-          .prepare("DELETE FROM subscriptions WHERE id=? AND secret=?")
-          .run(id, row.secret);
+        this.removeDevice(row, "expired", {
+          statusCode: error.statusCode,
+          secret: row.secret,
+        });
       else {
         const current = this.db
           .prepare("SELECT public FROM subscriptions WHERE id=? AND secret=?")
@@ -243,7 +351,7 @@ export class NotificationService {
         if (current) {
           const summary = {
             ...JSON.parse(current.public),
-            lastFailure: pushFailureText(error),
+            lastFailure: failure,
           };
           this.db
             .prepare("UPDATE subscriptions SET public=? WHERE id=?")
@@ -253,6 +361,10 @@ export class NotificationService {
       return {
         sent: false,
         error: serverMessages.notifications.notDelivered,
+        failure,
+        ...(Number.isSafeInteger(error.statusCode)
+          ? { statusCode: error.statusCode }
+          : {}),
       };
     }
   }
@@ -267,7 +379,18 @@ export class NotificationService {
     const payload = buildPayload({ kind: "test", eventId: randomUUID() }, preferences, {
       count: await this.badgeCount({ userId }),
     });
-    return this.track(this.deliver(id, payload));
+    return this.track(this.attempt(id, payload));
+  }
+  /** Delivers and records the attempt; the caller sees only sent and the error. */
+  async attempt(id, payload) {
+    const result = await this.deliver(id, payload);
+    const registered = () =>
+      this.db.prepare("SELECT 1 FROM subscriptions WHERE id=?").get(id);
+    if (!this.closed && (result.sent || result.failure) && registered())
+      try {
+        this.deliveries.record(id, payload.eventId, payload.kind, result);
+      } catch {}
+    return result.sent ? { sent: true } : { sent: false, error: result.error };
   }
   async notify(input) {
     if (this.closed) return;
@@ -312,7 +435,7 @@ export class NotificationService {
       for (let index = 0; index < targets.length; index += 4)
         await Promise.all(
           targets.slice(index, index + 4).map(async ([id, payload]) => {
-            const result = await this.deliver(id, payload);
+            const result = await this.attempt(id, payload);
             this.db
               .prepare(
                 "UPDATE deliveries SET status=? WHERE event_id=? AND subscription_id=?",

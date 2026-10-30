@@ -228,3 +228,27 @@ test("signing her out remotely forgets her other devices, never the owner's", as
   assert.deepEqual(await deliveries({ ...hers, eventId: "r25" }), []);
   assert.deepEqual(await deliveries(routine("r26")), ["owner-phone"]);
 });
+
+test("each person renews only her own device; health stays per person", async (t) => {
+  const { f, anna } = await devices(t);
+  const renewed = device("anna-phone");
+  const own = await as(f, anna.cookie)("/api/me/notifications/renew", {
+    method: "POST",
+    body: { deviceId: "anna-phone", subscription: renewed.subscription },
+  });
+  assert.equal(own.status, 200, await own.clone().text());
+  assert.equal((await own.json()).subscription.label, "anna-phone");
+  // The owner's device is not hers, and hers is not the owner's.
+  const foreign = await as(f, anna.cookie)("/api/me/notifications/renew", {
+    method: "POST",
+    body: { deviceId: "owner-phone", subscription: renewed.subscription },
+  });
+  assert.equal(foreign.status, 404);
+  const owner = await f.request("/api/notifications/renew", {
+    method: "POST",
+    body: { deviceId: "anna-phone", subscription: renewed.subscription },
+  });
+  assert.equal(owner.status, 404);
+  const health = await (await as(f, anna.cookie)("/api/me/notifications")).json();
+  assert.deepEqual(health.health, { devices: 1, lost: false, failing: false });
+});

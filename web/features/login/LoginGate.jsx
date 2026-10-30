@@ -5,6 +5,7 @@ import { startVisiblePolling } from "../../lib/visible-polling.js";
 import { LoginContext } from "./LoginContext.js";
 import { loginRequest, announceLoginChange } from "./login-api.js";
 import { endPushSubscription, knownDevice } from "../notifications/device-identity.js";
+import { rememberPushDevice } from "../notifications/push-reconcile.js";
 import LoginPage from "./LoginPage.jsx";
 import { loginCopy as copy } from "../../lib/i18n/messages/login.js";
 import { clearChatCache } from "../chat/chat-session-cache.js";
@@ -88,6 +89,7 @@ export default function LoginGate({ children }) {
   async function logout() {
     await loginRequest("logout", { deviceId: knownDevice() });
     await endPushSubscription();
+    await rememberPushDevice(null);
     invalidate();
     forgetUser();
     setStatus({ configured: true, authenticated: false });

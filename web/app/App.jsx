@@ -27,6 +27,7 @@ import {
   useAppBadge,
   usePushPresence,
 } from "../features/notifications/usePushPresence.js";
+import { usePushReconcile } from "../features/notifications/usePushHealth.js";
 const AgentsPage = lazy(() => import("../features/assistants/AgentsPage.jsx"));
 const ProjectsPage = lazy(() => import("../features/projects/ProjectsPage.jsx"));
 const CodingPage = lazy(() => import("../features/coding/CodingPage.jsx"));
@@ -57,6 +58,8 @@ function Application() {
   }, [state.inbox]);
   // Quiet while visible, and the inbox count on the installed app's badge.
   usePushPresence(state.pushDevices > 0);
+  // This browser's device registers again when the server lost it (push-reconcile.js).
+  usePushReconcile("owner");
   useAppBadge();
   const [modal, setModal] = useState(null),
     [mobileNav, setMobileNav] = useState(false),

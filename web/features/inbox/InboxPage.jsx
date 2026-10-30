@@ -16,6 +16,7 @@ import {
 } from "./inbox-presentation.js";
 import { inboxTabs, itemKey } from "./routes.js";
 import useInbox from "./useInbox.js";
+import PushHealthNotice from "../notifications/PushHealthNotice.jsx";
 import "./inbox.css";
 
 function InboxRow({ item }) {
@@ -88,6 +89,12 @@ export default function InboxPage({ route, navigate, openNavigation, navigationO
         aria-labelledby={`inbox-tab-${tab}`}
         className="inbox-panel"
       >
+        <PushHealthNotice
+          person="owner"
+          openSettings={() =>
+            navigate({ view: "settings", settingsSection: "notifications" })
+          }
+        />
         <ErrorMessage error={inbox.error} />
         {inbox.loading ? (
           <p className="loading" role="status">

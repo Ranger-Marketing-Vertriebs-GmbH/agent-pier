@@ -6,6 +6,8 @@ import UserAgentSettings from "./UserAgentSettings.jsx";
 import AccountPage from "./AccountPage.jsx";
 import UserBrowserPage from "./UserBrowserPage.jsx";
 import { usePushPresence } from "../notifications/usePushPresence.js";
+import { usePushReconcile } from "../notifications/usePushHealth.js";
+import PushHealthNotice from "../notifications/PushHealthNotice.jsx";
 import { UserPage } from "./UserPage.jsx";
 import useUserAgents from "./useUserAgents.js";
 import { AgentPathsContext, userAgentPaths } from "../assistants/agent-paths.js";
@@ -49,6 +51,8 @@ export default function UserApp({ status }) {
   const data = useUserAgents();
   // Her devices get no push about the chat she is looking at.
   usePushPresence(true, "/me/notifications");
+  const person = status.user?.id ? `user:${status.user.id}` : null;
+  usePushReconcile(person);
   // Lives with her app, so signing out (which unmounts it) forgets every chat.
   const [histories] = useState(() => new AgentHistoryCache());
   const name = status.user?.displayName || status.user?.username || "";
@@ -115,6 +119,10 @@ export default function UserApp({ status }) {
           />
         }
       >
+        <PushHealthNotice
+          person={person}
+          openSettings={() => navigate({ view: "account" })}
+        />
         <MyAgentsPage agents={data.agents} error={data.error} navigate={navigate} />
       </UserPage>
     );

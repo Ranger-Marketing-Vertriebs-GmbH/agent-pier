@@ -38,7 +38,9 @@ If the status says **Not fully enabled**, turn **Notifications** off and on agai
 **Registered devices** lists every device that receives notifications, with its name,
 when it was registered and when a notification last reached it. The device you are
 using is marked **This device**. A device whose last delivery failed shows **Last
-delivery error**. **Settings** opens what that device receives (see below), also for a
+delivery failed** with the time and the push service's reason; the next successful
+delivery clears it. The server keeps the last 20 delivery attempts per device (time,
+result, the push service's status code and reason) for at most 30 days. **Settings** opens what that device receives (see below), also for a
 device other than the one you are using. **Unregister** stops notifications for a
 device; it can be enabled again on that device.
 
@@ -48,6 +50,35 @@ reminders, routines, check-ins and approvals), never the owner's or system notic
 and the owner's device list never shows hers. Her device's **Settings** offer only
 those events (**Agent approval**, **Agent check-in**, **Routine or hook result** and **Also what
 Telegram delivered**). Quiet hours and "quiet while visible" count per person.
+
+## Keeping devices registered
+
+A browser can lose its registration without anyone turning notifications off: the
+browser's push service renews or drops the subscription, or answers that it no longer
+exists (HTTP 404 or 410), and AgentPier then removes the device. To keep this from
+going unnoticed:
+
+- **Registering again on its own.** Whenever AgentPier opens, and after signing in, a
+  browser that has the notification permission and still holds its push subscription
+  registers again if the server no longer knows it, under the derived device name; a
+  device the server still knows sends its current subscription, keeping its name and
+  settings. Only the person who turned notifications on in that browser gets it back
+  this way; another person's subscription is never taken over. When the browser
+  replaces a subscription on its own (`pushsubscriptionchange`), the service worker
+  subscribes again and tells the server, signed in with the page's session.
+- **Removals are recorded.** A device removed because its subscription expired, because
+  its browser signed out, because someone else signed in there, or because the owner
+  ended a user's sign-in, appears in the audit log as `notification.unsubscribed` with
+  the reason (and the status code for an expired one), and in the server log. Neither
+  ever contains the device's endpoint or keys.
+- **A warning when nothing arrives.** The start page and the [inbox](inbox.md) show
+  **Notifications reach no device** when no device of yours is registered (unless you
+  unregistered the last one yourself), naming the last device AgentPier removed and
+  why, and **Notifications are not arriving** when the last delivery to every one of
+  your devices failed. A restricted user sees the same warning on her start page.
+  **Notification settings** opens the page to turn them on again; **Hide** hides the
+  warning until the browser session ends. Pages served over plain HTTP, where
+  notifications cannot be enabled, do not show it.
 
 Signing out of a browser unregisters it for the person who signs out and closes her
 notices still in the browser's notification tray and clears the app badge, so a shared
