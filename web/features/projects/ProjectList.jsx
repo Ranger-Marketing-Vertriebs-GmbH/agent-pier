@@ -244,7 +244,12 @@ export default function ProjectList({
                   last={section.groupId === document.groups.at(-1)?.id}
                   phone={phone}
                   onRename={() => setRenaming(section.groupId)}
-                  onMove={(offset) => groups.moveGroup(section.groupId, offset)}
+                  onMove={(offset) =>
+                    groups.moveGroupTo(
+                      section.groupId,
+                      document.groups.findIndex((g) => g.id === section.groupId) + offset,
+                    )
+                  }
                   onDelete={() =>
                     startDelete({ id: section.groupId, name: section.title })
                   }
