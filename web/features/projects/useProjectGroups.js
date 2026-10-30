@@ -7,7 +7,10 @@ import {
   groupForPath,
   normalizeGroupsDocument,
   withAssignment,
+  withGroupMoved,
   withNewGroup,
+  withRenamedGroup,
+  withoutGroup,
 } from "./project-groups.js";
 
 // Menu actions report their own failures in `error`; callers need not catch.
@@ -100,6 +103,22 @@ export default function useProjectGroups() {
     [update, moveProject],
   );
 
+  // Rejects (unreported) so the inline name field can show the message.
+  const renameGroup = useCallback(
+    (groupId, name) =>
+      update((current) => withRenamedGroup(current, groupId, name), { report: false }),
+    [update],
+  );
+  const moveGroup = useCallback(
+    (groupId, offset) =>
+      quietly(update((current) => withGroupMoved(current, groupId, offset))),
+    [update],
+  );
+  const deleteGroup = useCallback(
+    (groupId) => quietly(update((current) => withoutGroup(current, groupId))),
+    [update],
+  );
+
   return {
     document,
     loading: live.loading,
@@ -109,5 +128,8 @@ export default function useProjectGroups() {
     moveProject,
     removeProject,
     createGroup,
+    renameGroup,
+    moveGroup,
+    deleteGroup,
   };
 }

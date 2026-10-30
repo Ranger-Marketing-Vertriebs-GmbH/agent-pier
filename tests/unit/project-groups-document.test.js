@@ -7,7 +7,10 @@ import {
   groupNameProblem,
   normalizeGroupsDocument,
   withAssignment,
+  withGroupMoved,
   withNewGroup,
+  withRenamedGroup,
+  withoutGroup,
 } from "../../web/features/projects/project-groups.js";
 import { projectMenuItems } from "../../web/features/projects/project-menu.js";
 
@@ -93,4 +96,28 @@ test("the project menu lists groups as radio items and removal only when grouped
     ungrouped.map((item) => item.id),
     ["move"],
   );
+});
+
+test("rename, reorder and delete edit a copy of the document", () => {
+  const renamed = withRenamedGroup(doc, "g_2", "  Games ");
+  assert.deepEqual(renamed.groups, [
+    { id: "g_1", name: "Work" },
+    { id: "g_2", name: "Games" },
+  ]);
+  assert.equal(doc.groups[1].name, "Spiele");
+
+  const up = withGroupMoved(doc, "g_2", -1);
+  assert.deepEqual(
+    up.groups.map((group) => group.id),
+    ["g_2", "g_1"],
+  );
+  assert.equal(withGroupMoved(doc, "g_1", -1), doc);
+  assert.equal(withGroupMoved(doc, "g_2", 1), doc);
+  assert.equal(withGroupMoved(doc, "g_x", 1), doc);
+
+  const deleted = withoutGroup(doc, "g_1");
+  assert.deepEqual(deleted.groups, [{ id: "g_2", name: "Spiele" }]);
+  assert.equal("/w/a" in deleted.assignments, false);
+  assert.equal(deleted.version, 4);
+  assert.equal(doc.groups.length, 2);
 });
