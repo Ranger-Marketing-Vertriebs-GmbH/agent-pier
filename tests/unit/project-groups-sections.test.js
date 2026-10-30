@@ -61,7 +61,7 @@ test("origin view: owners sorted case-insensitively, local last", () => {
   const s = buildProjectSections({ projects, document: doc, view: "origin" });
   assert.deepEqual(keys(s), ["origin:acme", "origin:beta-org", "local"]);
   assert.deepEqual(names(s[0]), ["delta", "zeta"]);
-  assert.equal(s[0].title, "Acme");
+  assert.equal(s[0].title, "acme"); // casing of the first project (alphabetical)
   assert.equal(s[2].kind, "local");
 });
 
