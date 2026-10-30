@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Icon from "../../components/Icon.jsx";
 import Segment from "../../components/Segment.jsx";
 import { projectGroupsCopy as copy } from "../../lib/i18n/messages/project-groups.js";
@@ -42,11 +42,26 @@ export default function ProjectList({
     [projects, document, prefs.view, query],
   );
   const searching = query.trim() !== "";
+  // Focus goes back once the row is gone: to the opener, or to the ⋯ of the project
+  // it moved, whose row re-renders in its new section.
+  const returnFocus = useRef(null);
+  const scroller = useRef(null);
   const closeCreate = () => {
-    const opener = creating?.opener;
+    returnFocus.current = creating;
     setCreating(null);
-    if (opener?.isConnected) queueMicrotask(() => opener.focus());
   };
+  useEffect(() => {
+    const closed = returnFocus.current;
+    if (creating || !closed) return;
+    returnFocus.current = null;
+    const target = closed.opener?.isConnected
+      ? closed.opener
+      : closed.path &&
+        [...(scroller.current?.querySelectorAll("[data-project-path]") || [])].find(
+          (node) => node.dataset.projectPath === closed.path,
+        );
+    target?.focus();
+  }, [creating, sections]);
   const nameProblem = (name) => {
     const problem = groupNameProblem(document, name);
     return problem === "required"
@@ -96,7 +111,7 @@ export default function ProjectList({
           )}
         </div>
       </div>
-      <div className="project-list-scroller">
+      <div className="project-list-scroller" ref={scroller}>
         {creating && (
           <ProjectGroupNameRow
             key={creating.path}
@@ -131,7 +146,7 @@ export default function ProjectList({
                     groups: document.groups,
                     current,
                     onMove: (groupId) => groups.moveProject(item.path, groupId),
-                    onNewGroup: () => setCreating({ path: item.path, opener: null }),
+                    onNewGroup: (opener) => setCreating({ path: item.path, opener }),
                     onRemove: () => groups.removeProject(item.path),
                   })}
                 />
