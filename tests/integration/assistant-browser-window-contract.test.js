@@ -227,7 +227,13 @@ test(
     await browsers.ownerStart(agent.id);
     t.diagnostic(`start ${Date.now() - started}ms`);
     const keeper = browsers.running.get(own).keeper;
+    started = Date.now();
     for (let n = 0; n < 80 && !keeper.placed.size; n++) await sleep(250);
+    t.diagnostic(
+      `placed after ${Date.now() - started}ms: pages=${keeper.attached.size} ` +
+        `windows=${keeper.known.size} closed=${keeper.closed} ` +
+        `relaunched=${Boolean(keeper.relaunched)}`,
+    );
     assert.equal(keeper.placed.size, 1, "the fresh launch's window is parked");
     page = await pageClient(entry.cdpPort);
     const { windowId } = await page.send("Browser.getWindowForTarget", {

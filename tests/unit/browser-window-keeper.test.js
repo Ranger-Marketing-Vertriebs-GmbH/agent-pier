@@ -79,7 +79,8 @@ test("a CDP call the browser never answers fails within its timeout", options, (
   }),
 );
 
-// A browser over a fake socket: answers each CDP call from `reply` and records it.
+// A browser over a fake socket: answers each CDP call from `reply` and records it;
+// a call `reply` throws for fails with that error.
 function fakeBrowser(keeper, reply) {
   const sent = [];
   keeper.ws = {
@@ -87,9 +88,15 @@ function fakeBrowser(keeper, reply) {
     send: (data) => {
       const msg = JSON.parse(data);
       sent.push(msg);
-      queueMicrotask(() =>
-        keeper.message(JSON.stringify({ id: msg.id, result: reply(msg) || {} })),
-      );
+      queueMicrotask(() => {
+        let answer;
+        try {
+          answer = { result: reply(msg) || {} };
+        } catch (error) {
+          answer = { error: { message: error.message } };
+        }
+        keeper.message(JSON.stringify({ id: msg.id, ...answer }));
+      });
     },
     close() {},
   };
@@ -194,4 +201,73 @@ test(
       assert.equal(closed, 1);
       assert.equal(starts.length, 1);
     }),
+);
+
+// AGENTPIER-288: on a busy macOS runner the fresh launch's window was never parked.
+test("a fresh launch's window is parked even when a step fails at first", options, () =>
+  held(async () => {
+    let clock = 1000;
+    const keeper = new BrowserWindowKeeper(1, {
+      now: () => clock,
+      settleMs: 0,
+      retryMs: 0,
+    });
+    keeper.launchedAt = clock;
+    const window = { left: 10, top: 10, width: 800, height: 600, windowState: "normal" };
+    const screen = { availLeft: 0, availTop: 0, availWidth: 1920, availHeight: 1080 };
+    const failures = { "Browser.getWindowForTarget": 2, "Browser.setWindowBounds": 1 };
+    const sent = fakeBrowser(keeper, (msg) => {
+      if (failures[msg.method] > 0) {
+        failures[msg.method]--;
+        // The cold launch is still busy; meanwhile the launch window passes.
+        clock += 6000;
+        throw Error("No web contents in the target");
+      }
+      if (msg.method === "Target.attachToTarget") return { sessionId: "s1" };
+      if (msg.method === "Runtime.evaluate") return { result: { value: screen } };
+      if (msg.method === "Browser.getWindowForTarget") return { windowId: 1 };
+      if (msg.method === "Browser.setWindowBounds")
+        Object.assign(window, msg.params.bounds);
+      if (msg.method === "Browser.getWindowBounds") return { bounds: { ...window } };
+    });
+    // A second page of the same window shows up while the first one fails.
+    await Promise.all([
+      keeper.page({ type: "page", targetId: "t1" }),
+      keeper.page({ type: "page", targetId: "t2" }),
+    ]);
+    assert.deepEqual(keeper.placed.get(1), {
+      left: 1880,
+      top: 1040,
+      width: 800,
+      height: 600,
+      windowState: "normal",
+    });
+    // Each page is attached and gets focus emulation once, not per attempt.
+    const count = (method) => sent.filter((m) => m.method === method).length;
+    assert.equal(count("Target.attachToTarget"), 2);
+    assert.equal(count("Emulation.setFocusEmulationEnabled"), 2);
+    assert.equal(await keeper.inUse(), false);
+  }),
+);
+
+test("a window is not placed for a browser the keeper no longer watches", options, () =>
+  held(async () => {
+    const keeper = new BrowserWindowKeeper(1, { settleMs: 0, retryMs: 0 });
+    keeper.launchedAt = Date.now();
+    let replaced = false;
+    const sent = fakeBrowser(keeper, (msg) => {
+      if (msg.method === "Browser.getWindowForTarget") {
+        // The bootstrap browser ended; the keeper now talks to the real one.
+        if (!replaced) {
+          replaced = true;
+          keeper.ws = { ...keeper.ws };
+        }
+        throw Error("closed");
+      }
+      return { sessionId: "s1" };
+    });
+    await keeper.page({ type: "page", targetId: "t1" });
+    assert.equal(sent.filter((m) => m.method === "Browser.getWindowForTarget").length, 1);
+    assert.equal(keeper.placed.size, 0);
+  }),
 );

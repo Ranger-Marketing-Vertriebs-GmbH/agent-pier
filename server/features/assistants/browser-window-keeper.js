@@ -35,6 +35,9 @@ const screenExpression =
 const launchWindowMs = 10000;
 // A CDP call that takes longer never holds a limit check or an idle sweep.
 const commandTimeoutMs = 2000;
+// Placing a window fails while a cold launch is still busy (a CDP call over its
+// timeout, a page without its window yet): it is tried again, a few times.
+const placeAttempts = 6;
 export class BrowserWindowKeeper {
   constructor(
     cdpPort,
@@ -46,15 +49,27 @@ export class BrowserWindowKeeper {
       onClose = () => {},
       // The window manager may still move a window it just placed.
       settleMs = 300,
+      retryMs = 500,
     } = {},
   ) {
-    Object.assign(this, { cdpPort, now, fetch, timeoutMs, windows, onClose, settleMs });
+    Object.assign(this, {
+      cdpPort,
+      now,
+      fetch,
+      timeoutMs,
+      windows,
+      onClose,
+      settleMs,
+      retryMs,
+    });
     this.closed = false;
     this.attached = new Set();
     this.known = new Set();
     // Window id -> its bounds once placed (parked, or where a later window opened):
     // only the owner changes them afterwards.
     this.placed = new Map();
+    // Window ids a page is placing right now: another page of the window waits.
+    this.placing = new Set();
     this.pending = new Map();
     this.id = 0;
   }
@@ -151,7 +166,8 @@ export class BrowserWindowKeeper {
     if (!this.closed && early && !this.relaunched) {
       this.relaunched = true;
       this.ws = null;
-      for (const set of [this.attached, this.known, this.placed]) set.clear();
+      for (const set of [this.attached, this.known, this.placed, this.placing])
+        set.clear();
       this.start({ fresh: true }).catch(() => {});
       return;
     }
@@ -195,6 +211,12 @@ export class BrowserWindowKeeper {
     )
       this.page(msg.params?.targetInfo).catch(() => {});
   }
+  /**
+   * Keeps focus emulation on a page and places its window once: a fresh launch's
+   * window is parked. A failed step is tried again on the same connection: on a busy
+   * runner a single failure once left the window where it opened (AGENTPIER-288).
+   * Whether the window is parked is decided when its page first shows up.
+   */
   async page(info) {
     if (
       !this.windows ||
@@ -204,37 +226,67 @@ export class BrowserWindowKeeper {
     )
       return;
     this.attached.add(info.targetId);
-    try {
-      const { sessionId } = await this.send("Target.attachToTarget", {
-        targetId: info.targetId,
+    // Only a fresh launch's windows are parked; a later one (a login popup) stays
+    // where it opened.
+    const park =
+      this.launchedAt != null && this.now() - this.launchedAt <= launchWindowMs;
+    const ws = this.ws;
+    const state = { targetId: info.targetId, park, ws };
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await this.place(state);
+        return;
+      } catch {
+        // The page or the browser closed meanwhile, or the browser is still busy.
+        if (this.closed || this.ws !== ws || attempt >= placeAttempts) return;
+        await new Promise((r) => setTimeout(r, this.retryMs).unref?.());
+      }
+    }
+  }
+  /** One attempt of `page`; `state` keeps what an earlier attempt already did. */
+  async place(state) {
+    const send = (...args) =>
+      this.ws === state.ws ? this.send(...args) : Promise.reject(Error("closed"));
+    if (!state.sessionId) {
+      const { sessionId } = await send("Target.attachToTarget", {
+        targetId: state.targetId,
         flatten: true,
       });
-      await this.send("Emulation.setFocusEmulationEnabled", { enabled: true }, sessionId);
-      const { windowId } = await this.send("Browser.getWindowForTarget", {
-        targetId: info.targetId,
-      });
-      if (this.known.has(windowId)) return;
-      this.known.add(windowId);
-      // Only a fresh launch's windows are parked; a later one (a login popup) stays
-      // where it opened.
-      if (this.launchedAt !== null && this.now() - this.launchedAt <= launchWindowMs) {
+      state.sessionId = sessionId;
+    }
+    if (!state.focused) {
+      await send(
+        "Emulation.setFocusEmulationEnabled",
+        { enabled: true },
+        state.sessionId,
+      );
+      state.focused = true;
+    }
+    const { windowId } = await send("Browser.getWindowForTarget", {
+      targetId: state.targetId,
+    });
+    this.known.add(windowId);
+    if (this.placed.has(windowId) || this.placing.has(windowId)) return;
+    this.placing.add(windowId);
+    try {
+      if (state.park) {
         // A position applies to a normal window only (a restored profile may open
         // maximized).
-        const set = (bounds) =>
-          this.send("Browser.setWindowBounds", { windowId, bounds });
+        const set = (bounds) => send("Browser.setWindowBounds", { windowId, bounds });
         await set({ windowState: "normal" });
-        const screen = await this.send(
+        const screen = await send(
           "Runtime.evaluate",
           { expression: screenExpression, returnByValue: true },
-          sessionId,
+          state.sessionId,
         ).catch(() => null);
         await set(parkPosition(screen?.result?.value));
       }
       if (this.settleMs) await new Promise((r) => setTimeout(r, this.settleMs).unref?.());
-      const { bounds } = await this.send("Browser.getWindowBounds", { windowId });
-      this.placed.set(windowId, bounds);
-    } catch {
-      /* The page closed meanwhile. */
+      const { bounds } = await send("Browser.getWindowBounds", { windowId });
+      if (this.ws === state.ws) this.placed.set(windowId, bounds);
+    } finally {
+      // After a relaunch the sets are fresh; a window id there is the new browser's.
+      if (this.ws === state.ws) this.placing.delete(windowId);
     }
   }
   /** Stops watching; `onClose` is not called for a close AgentPier asked for. */
