@@ -483,7 +483,7 @@ executes):
 
 ## OpenClaw coupling and version requalification
 
-AgentPier depends on OpenClaw 2026.10.7 (qualified predecessors 2026.10.3, 2026.9.9 and 2026.9.8) at these
+AgentPier depends on OpenClaw 2026.10.9 (qualified predecessors 2026.10.7, 2026.10.3, 2026.9.9 and 2026.9.8) at these
 points. A version bump must re-check each of them.
 
 | Coupling point                                                                                                                                                                                                                                                                   | Where                                                                                                   | What to re-check                                                                                                                                                                                                                                                                                                               |
