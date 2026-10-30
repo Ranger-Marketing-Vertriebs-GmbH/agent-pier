@@ -47,6 +47,8 @@ export async function applicationFixture(t, overrides = {}) {
     configuration.cliOAuthRun ??= fakeCliOAuthRun;
     configuration.cliLoginSpawn ??= refuseCliLogin;
   }
+  // Fixtures never ask a release channel on their own; a test may switch it on.
+  configuration.updateCheck ??= false;
   let cookie = "";
   const root = await fs.realpath(
     await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-blackbox-")),
