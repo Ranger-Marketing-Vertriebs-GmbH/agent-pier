@@ -1,7 +1,7 @@
 import { assistantProblem } from "./assistant-validation.js";
 import { mainConversation } from "./routine-targets.js";
 import { restartScope, runningWork, stopWork } from "./restart-work.js";
-import { freshMainChat, repointDeliveries } from "./main-chat-swap.js";
+import { freshMainChat, freshMemberChat, repointDeliveries } from "./main-chat-swap.js";
 
 // Only a lead that is not archived restarts: a team member's chat is its team's.
 function restartable(service, assistantId) {
@@ -45,7 +45,8 @@ export function restartPreview(service, assistantId) {
 /**
  * Restart main chat, the owner's action: every person's main chat of the lead is
  * archived and replaced by a fresh one with its own native session (main-chat-swap.js),
- * then Telegram, routines and check-ins follow the new main chats. All work of the
+ * and so is the chat of each permanent member, which keeps running (temporary members
+ * end). Telegram, routines and check-ins then follow the new chats. All work of the
  * lead and its members stops first (restart-work.js), before and outside the swap's
  * admission: admission is not re-entrant, and the stop steps abort runs and reconcile
  * with the Gateway, which must never hold or wait on it. Each person keeps
@@ -55,7 +56,10 @@ export function restartPreview(service, assistantId) {
 export async function restartMainChats(service, assistantId) {
   restartable(service, assistantId);
   service.requireReady();
-  const work = await stopWork(service, assistantId, restartScope(service, assistantId));
+  const scope = restartScope(service, assistantId);
+  const work = await stopWork(service, assistantId, scope);
+  // A member's chat is restarted only while it has one; one still provisioning has none.
+  const kept = scope.permanent.filter((m) => m.conversationId);
   let result;
   try {
     result = await service.admit(async () => {
@@ -71,14 +75,26 @@ export async function restartMainChats(service, assistantId) {
           to: next.id,
         });
       }
-      return { restartedAt, chats, work };
+      const restarted = [];
+      for (const member of kept) {
+        await freshMemberChat(service, service.teams.store.member(member.id));
+        restarted.push(member.id);
+      }
+      const ended = scope.temporary.map((m) => m.id);
+      return { restartedAt, chats, members: { ended, restarted }, work };
     });
   } catch (error) {
-    await repointDeliveries(service, assistantId).catch(() => {});
+    await repoint(service, assistantId, kept).catch(() => {});
     throw error;
   } finally {
     service.changed();
   }
-  await repointDeliveries(service, assistantId);
+  await repoint(service, assistantId, kept);
   return result;
+}
+
+// Deliveries of the lead and of each restarted member follow their new chats.
+async function repoint(service, assistantId, members) {
+  await repointDeliveries(service, assistantId);
+  for (const member of members) await repointDeliveries(service, member.assistantId);
 }
