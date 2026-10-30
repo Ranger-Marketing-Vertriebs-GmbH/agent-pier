@@ -12,6 +12,14 @@ export function groupNameMessage(document, name, exceptId = "") {
       : "";
 }
 
+// The phone sheet of a project's ⋯: its name over "Current: <group>" or "No group".
+export function projectMenuSheet(project, current) {
+  return {
+    title: project.name,
+    subtitle: groupsCopy.currentGroup(current?.name ?? groupsCopy.ungrouped),
+  };
+}
+
 /**
  * The ⋯ menu items of a project: one radio item per group (checked on its own),
  * "New group …", "Remove from group" while it is in one, and "Merge older entry"

@@ -219,12 +219,12 @@ Buttons are CSS classes on a native `<button>` (`.button` variants in `web/app/l
 These do not exist yet; they are planned in follow-up tickets.
 Until they land, follow the rule for each and use the closest existing piece.
 
-| Component    | Replaces                                      | Until then                                           |
-| ------------ | --------------------------------------------- | ---------------------------------------------------- |
-| `Menu`       | Five `role="menu"` implementations            | `extensions/RowMenu.jsx` (roving focus) as reference |
-| `Notice`     | 17 notice and banner classes                  | `ErrorMessage`, `.save-bar-note`                     |
-| `EmptyState` | 17 empty-state classes                        | A short sentence plus one action                     |
-| `Loading`    | Three spinner animations, ad-hoc loading text | `<p role="status">` with the loading copy            |
+| Component    | Replaces                                      | Until then                                                                              |
+| ------------ | --------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `Menu`       | Five `role="menu"` implementations            | `extensions/RowMenu.jsx` (roving focus, `sheet` on phones; in the gallery) as reference |
+| `Notice`     | 17 notice and banner classes                  | `ErrorMessage`, `.save-bar-note`                                                        |
+| `EmptyState` | 17 empty-state classes                        | A short sentence plus one action                                                        |
+| `Loading`    | Three spinner animations, ad-hoc loading text | `<p role="status">` with the loading copy                                               |
 
 ## Rules
 
@@ -390,7 +390,7 @@ accent. Never encode a state by colour alone: add text or an icon.
   stay visible above the home indicator (`--safe-area-inset-bottom`).
 - A row's ⋯ menu may open as a sheet on phones: given `sheet` (title and optional
   subtitle), `RowMenu` shows the same items in a `Sheet` with Cancel (the Projects page
-  does this for projects and groups).
+  does this for projects and groups; the gallery's **Dialogs and sheets** shows both).
 - No horizontal page scroll; long values wrap or truncate with the full text available.
 
 ### Accessibility

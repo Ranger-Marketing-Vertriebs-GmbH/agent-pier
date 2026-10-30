@@ -10,7 +10,7 @@ import { projectsHubCopy as hubCopy } from "../../lib/i18n/messages/projects.js"
 import ProjectGroupMenu from "./ProjectGroupMenu.jsx";
 import ProjectGroupNameRow from "./ProjectGroupNameRow.jsx";
 import ProjectListItem from "./ProjectListItem.jsx";
-import { groupNameMessage, projectMenuItems } from "./project-menu.js";
+import { groupNameMessage, projectMenuItems, projectMenuSheet } from "./project-menu.js";
 import ProjectListSection from "./ProjectListSection.jsx";
 import { buildProjectSections } from "./project-groups.js";
 import { normalizePath } from "./project-paths.js";
@@ -280,14 +280,7 @@ export default function ProjectList({
                         ? (trigger) => onMerge(item, trigger)
                         : undefined,
                   })}
-                  menuSheet={
-                    phone
-                      ? {
-                          title: item.name,
-                          subtitle: copy.currentGroup(current?.name ?? copy.ungrouped),
-                        }
-                      : null
-                  }
+                  menuSheet={phone ? projectMenuSheet(item, current) : null}
                 />
               );
             })}

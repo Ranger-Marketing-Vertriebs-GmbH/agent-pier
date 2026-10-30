@@ -7,7 +7,10 @@ import Sheet from "../../components/Sheet.jsx";
 import SidePanel from "../../components/SidePanel.jsx";
 import UnsavedChangesSheet from "../../components/UnsavedChangesSheet.jsx";
 import { useAlertDialogFocus } from "../../components/useAlertDialogFocus.js";
+import Icon from "../../components/Icon.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
+import useMobileLayout from "../../lib/useMobileLayout.js";
+import { RowMenu, useRowMenu } from "../extensions/RowMenu.jsx";
 import { galleryCopy as copy } from "../../lib/i18n/messages/gallery.js";
 import { GallerySection, Specimen } from "./GallerySection.jsx";
 import { sampleImage } from "./gallery-fixtures.js";
@@ -39,6 +42,50 @@ function InlineConfirm({ onCancel, onConfirm }) {
         </button>
       </div>
     </div>
+  );
+}
+
+// A row's ⋯ menu: a popover on desktop, the same items in a sheet on phones.
+function RowMenuSpecimen() {
+  const menu = useRowMenu();
+  const phone = useMobileLayout();
+  const [choice, setChoice] = useState("alpha");
+  const label = s().rowMenu;
+  const items = [
+    {
+      id: "choose",
+      kind: "group",
+      label: s().rowMenuChoose,
+      items: ["alpha", "beta"].map((id) => ({
+        id,
+        label: s().rowMenuOption(id === "alpha" ? "A" : "B"),
+        checked: choice === id,
+        run: () => setChoice(id),
+      })),
+    },
+    { id: "edit", label: commonCopy.edit, run() {} },
+    { id: "separator", kind: "separator" },
+    { id: "delete", label: commonCopy.delete, danger: true, run() {} },
+  ];
+  return (
+    <>
+      <button
+        type="button"
+        className="icon-button"
+        aria-label={label}
+        aria-haspopup={phone ? "dialog" : "menu"}
+        aria-expanded={menu.open}
+        onClick={menu.toggle}
+      >
+        <Icon name="more" size={18} />
+      </button>
+      <RowMenu
+        label={label}
+        state={menu}
+        items={items}
+        sheet={phone ? { title: s().tabName, subtitle: s().rowMenuSubtitle } : null}
+      />
+    </>
   );
 }
 
@@ -172,6 +219,9 @@ export default function OverlaysSection() {
       <Specimen label="Sheet · UnsavedChangesSheet" wide>
         {opener("sheet", s().sheet)}
         {opener("unsaved", s().unsaved)}
+      </Specimen>
+      <Specimen label="RowMenu">
+        <RowMenuSpecimen />
       </Specimen>
       <Specimen label="useAlertDialogFocus" wide>
         {confirming ? (
