@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { as, chatFixture, sharedAgentOfTwo, userAgent } from "../helpers/user-chats.js";
 import { fixtureModel } from "../helpers/user-agents.js";
+import fs from "node:fs";
+import path from "node:path";
 
 // A shared agent of two users plus the owner's chat, one temporary member at work, one
 // permanent member idle and one turn running in a user's extra chat.
@@ -346,4 +348,167 @@ test("a failing step stops the rest and refuses the swap", async (t) => {
     ),
   );
   assert.equal(service.store.getConversation(main.id).archivedAt ?? null, null);
+});
+
+// The permanent member of ownerLead with its own chat and a turn running in it,
+// with memory and reminders, as a kept member has them.
+async function permanentMember(t) {
+  const lead = await ownerLead(t);
+  const { service, keeper } = lead;
+  const stored = service.store.getAssistant(keeper.assistantId);
+  // Written as TeamStore.lifecycle writes a kept member's record.
+  const member = {
+    ...stored,
+    lifetime: "permanent",
+    capabilities: { ...stored.capabilities, memory: true, reminders: true },
+    revision: stored.revision + 1,
+  };
+  service.store.db
+    .prepare("UPDATE assistants SET body=?,revision=? WHERE id=?")
+    .run(JSON.stringify(member), member.revision, member.id);
+  const chat = service.store.saveConversation({
+    assistantId: member.id,
+    runtimeSessionKey: "keeper-chat",
+  });
+  const teams = service.teams.store;
+  // A kept member between tasks, as its finished task leaves it.
+  teams.write(teams.member(keeper.id), { conversationId: chat.id, phase: "completed" });
+  const turn = service.ledger.accept(chat.id, { clientRequestId: "k1", text: "Notes" });
+  service.ledger.recordAttempt(turn.id);
+  return { ...lead, member, chat };
+}
+
+test("permanent member keeps running after its restart", async (t) => {
+  const { f, gateway, service, agent, scout, keeper, member, chat } =
+    await permanentMember(t);
+  const res = await restart(f, agent.id);
+  assert.equal(res.status, 200, await res.clone().text());
+  assert.deepEqual((await res.json()).members, {
+    ended: [scout.id],
+    restarted: [keeper.id],
+  });
+  assert.ok(
+    gateway.calls.some(
+      (c) => c.method === "sessions.abort" && c.params.key === "keeper-chat",
+    ),
+  );
+  const teams = service.teams.store;
+  const after = teams.member(keeper.id);
+  assert.equal(after.lifetime, "permanent");
+  assert.equal(after.phase, "completed");
+  assert.equal(after.stopRequested ?? false, false);
+  assert.equal(service.store.getAssistant(member.id).archivedAt ?? null, null);
+  assert.notEqual(after.conversationId, chat.id);
+  assert.ok(service.store.getConversation(chat.id).archivedAt);
+  const next = service.store.getConversation(after.conversationId);
+  assert.equal(next.main, true);
+  assert.equal(next.userId ?? null, null);
+  assert.equal(next.archivedAt, null);
+  assert.ok(
+    gateway.created.some((c) => c.label === `AgentPier ${member.id} main ${next.id}`),
+  );
+  teams.insert({
+    id: "request-after",
+    kind: "lead-request",
+    type: "question",
+    parentAssistantId: agent.id,
+    memberId: keeper.id,
+    memberAssistantId: member.id,
+    leadName: "Lead",
+    text: "Still there?",
+    phase: "queued",
+    revision: 1,
+    createdAt: new Date().toISOString(),
+  });
+  await service.teams.requests.dispatch("request-after");
+  assert.ok(
+    service.ledger
+      .requests(next.id)
+      .some((r) => r.clientRequestId === "lead-request:request-after"),
+  );
+  assert.equal(
+    service.ledger
+      .requests(chat.id)
+      .some((r) => r.clientRequestId === "lead-request:request-after"),
+    false,
+  );
+});
+
+test("member routines and telegram follow the member's new chat", async (t) => {
+  const { f, gateway, service, agent, keeper, member, chat } = await permanentMember(t);
+  const channels = f.application.assistantChannels.store;
+  const bot = channels.create({
+    assistantId: member.id,
+    conversationId: chat.id,
+    botId: 9002,
+    username: "bot_9002",
+    token: "9002:member-bot-secret-token",
+  });
+  const routine = await f.request(`/api/assistants/${member.id}/routines`, {
+    method: "POST",
+    body: {
+      clientRequestId: "inbox-request",
+      name: "inbox",
+      prompt: "Check inbox",
+      trigger: { kind: "cron", expr: "0 9 * * *", tz: "Europe/Berlin" },
+    },
+  });
+  assert.equal(routine.status, 201, await routine.clone().text());
+  const jobs = () =>
+    [...gateway.jobs.values()].filter((j) => j.agentId === member.runtimeAgentId);
+  assert.equal(jobs().length, 1);
+  const res = await restart(f, agent.id);
+  assert.equal(res.status, 200, await res.clone().text());
+  const next = service.teams.store.member(keeper.id).conversationId;
+  assert.notEqual(next, chat.id);
+  assert.equal(channels.get(bot.id).conversationId, next);
+  const { runtimeSessionKey } = service.store.getConversation(next);
+  assert.equal(jobs().length, 1);
+  for (const job of jobs()) assert.equal(job.sessionKey, runtimeSessionKey);
+});
+
+test("promoted independent agents are not touched", async (t) => {
+  const { f, service, agent } = await ownerLead(t);
+  // Once a member of this lead, now an agent of its own with its own main chat.
+  const own = await (
+    await f.request("/api/assistants", {
+      method: "POST",
+      body: { name: "Former", instructions: "", model: fixtureModel(f) },
+    })
+  ).json();
+  const main = await (
+    await f.request(`/api/assistants/${own.id}/conversations`, { method: "POST" })
+  ).json();
+  service.teams.store.insert({
+    id: "member-former",
+    kind: "member",
+    parentAssistantId: agent.id,
+    assistantId: own.id,
+    conversationId: main.id,
+    lifetime: "permanent",
+    phase: "idle",
+    archivedAt: new Date().toISOString(),
+    revision: 1,
+  });
+  const res = await restart(f, agent.id);
+  assert.equal(res.status, 200, await res.clone().text());
+  assert.equal((await res.json()).members.restarted.includes("member-former"), false);
+  assert.equal(service.store.getConversation(main.id).archivedAt ?? null, null);
+  assert.equal(service.store.getConversation(main.id).main, true);
+  assert.equal(service.teams.store.member("member-former").conversationId, main.id);
+});
+
+test("member memory is untouched", async (t) => {
+  const { f, service, agent, member } = await permanentMember(t);
+  const workspaces = service.config.workspaces;
+  const note = path.join(workspaces, member.id, "memory", "2026-10-29.md");
+  const lead = path.join(workspaces, agent.id, "MEMORY.md");
+  fs.mkdirSync(path.dirname(note), { recursive: true });
+  fs.mkdirSync(path.dirname(lead), { recursive: true });
+  fs.writeFileSync(note, "Member note\n");
+  fs.writeFileSync(lead, "Lead memory\n");
+  const before = [fs.readFileSync(note), fs.readFileSync(lead)];
+  const res = await restart(f, agent.id);
+  assert.equal(res.status, 200, await res.clone().text());
+  assert.deepEqual([fs.readFileSync(note), fs.readFileSync(lead)], before);
 });

@@ -16,7 +16,25 @@ import { channelPerson, mainConversation } from "./routine-targets.js";
  * old chat is archived and the new one saved in one transaction, so the person always
  * has exactly one unarchived main chat. Callers hold admission.
  */
-export async function freshMainChat(service, conversation) {
+export function freshMainChat(service, conversation) {
+  return swap(service, conversation, {
+    ...(typeof conversation.userId === "string" && { userId: conversation.userId }),
+  });
+}
+
+/**
+ * The same swap for a permanent team member's chat (`member.conversationId`), the
+ * one its lead's requests go to: the member row points at the fresh chat in the same
+ * transaction. The member itself keeps running. Callers hold admission.
+ */
+export function freshMemberChat(service, member) {
+  const teams = service.teams.store;
+  return swap(service, service.store.getConversation(member.conversationId), {}, (id) =>
+    teams.write(teams.member(member.id), { conversationId: id }),
+  );
+}
+
+async function swap(service, conversation, owner, linked = () => {}) {
   const assistant = service.store.getAssistant(conversation.assistantId);
   const id = randomUUID();
   const client = service.runtime.client;
@@ -42,8 +60,9 @@ export async function freshMainChat(service, conversation) {
       assistantId: assistant.id,
       runtimeSessionKey: created.key,
       main: true,
-      ...(typeof conversation.userId === "string" && { userId: conversation.userId }),
+      ...owner,
     });
+    linked(id);
     store.db.exec("COMMIT");
   } catch (error) {
     store.db.exec("ROLLBACK");
