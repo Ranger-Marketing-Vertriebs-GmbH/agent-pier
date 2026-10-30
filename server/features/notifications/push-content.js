@@ -12,7 +12,13 @@ const labelLimit = 60;
 
 // Kinds whose preview level may show a short text: questions, the start of a reply,
 // check-ins and team goals. Approvals never do.
-const previewKinds = new Set(["question", "session-completed", "agent-checkin"]);
+// A rate-limited session previews the CLI's own limit message with its reset time.
+const previewKinds = new Set([
+  "question",
+  "session-completed",
+  "agent-checkin",
+  "session-limited",
+]);
 const previewAllowed = (event) =>
   previewKinds.has(event.kind) ||
   (event.kind === "agent-approval" && event.subject === "team");
@@ -107,6 +113,8 @@ export function pushLink(event) {
     return `/inbox/${segment(event.inbox.type)}/${segment(event.inbox.id)}`;
   if (event.kind === "github-token") return "/connections?section=github";
   if (event.kind === "disk-space") return "/";
+  if (event.kind === "update-available" || event.kind === "update-failed")
+    return "/settings/updates";
   if (event.kind === "test") return "/settings/notifications";
   if (event.kind === "telegram-revocation")
     return event.assistantId
@@ -124,6 +132,9 @@ export function pushLink(event) {
  * hold several chats, so an event of one chat is its chat's, not the whole agent's.
  */
 export function pushSource(event) {
+  // A newer update notice replaces the older one.
+  if (event.kind === "update-available" || event.kind === "update-failed")
+    return "updates";
   if (event.sessionId) return `session:${event.sessionId}`;
   if (event.runId) return `run:${event.runId}`;
   if (event.assistantId && event.conversationId && event.kind !== "telegram-revocation")

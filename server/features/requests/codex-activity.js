@@ -1,6 +1,21 @@
 // Derive one session activity from the app-server's thread and turn notifications.
 // A session can run several threads (sub-agents); any waiting thread wins, then any
 // working one.
+// Codex's error code for a turn that hit the account's usage limit (app-server
+// camelCase, rollout snake_case).
+const usageLimitCodes = new Set(["usageLimitExceeded", "usage_limit_exceeded"]);
+
+/** A failed turn's usage limit, with Codex's own message (it names the reset time). */
+export function codexTurnLimit(params) {
+  const error = params?.turn?.error;
+  const code = error?.codexErrorInfo ?? error?.codex_error_info;
+  if (!usageLimitCodes.has(code)) return null;
+  return {
+    failure: "usage-limit",
+    ...(typeof error.message === "string" ? { detail: error.message.slice(0, 500) } : {}),
+  };
+}
+
 export function codexActivityTracker(report = () => {}, now = Date.now) {
   const threads = new Map();
   let current = null;
@@ -34,7 +49,8 @@ export function codexActivityTracker(report = () => {}, now = Date.now) {
       : states.includes("working")
         ? "working"
         : "idle";
-    if (state === current) return;
+    const limit = event === "turn/completed" ? codexTurnLimit(params) : null;
+    if (state === current && !limit) return;
     current = state;
     const reported = ["thread/closed", "thread/deleted", "thread/archived"].includes(
       event,
@@ -42,7 +58,7 @@ export function codexActivityTracker(report = () => {}, now = Date.now) {
       ? "thread/status/changed"
       : event;
     try {
-      report({ state, event: reported, at: now() });
+      report({ state, event: reported, at: now(), ...limit });
     } catch {
       /* Activity is advisory; the native protocol never waits for it. */
     }

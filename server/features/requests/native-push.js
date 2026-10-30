@@ -41,6 +41,14 @@ export function nativePushValue(message) {
       ...(message.event === "Stop" && text(message.lastAssistantMessage)
         ? { lastAssistantMessage: message.lastAssistantMessage }
         : {}),
+      // A turn that ended at the CLI's rate limit or usage quota, and its message.
+      ...(["StopFailure", "turn/completed"].includes(message.event) &&
+      message.failure === "usage-limit"
+        ? {
+            failure: "usage-limit",
+            ...(text(message.detail, 500) ? { detail: message.detail } : {}),
+          }
+        : {}),
     };
   if (message.type === "stream") {
     if (

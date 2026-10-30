@@ -77,6 +77,26 @@ self.agentPierNotificationCopyEn = {
       body: "Less than 10% is free on the drive that holds AgentPier's data.",
       name: "Disk space is low",
     },
+    "session-limited": {
+      title: "AgentPier: Usage limit reached",
+      body: "A session's CLI reached its rate limit or usage quota.",
+      name: "Usage limit reached",
+    },
+    "session-resume-failed": {
+      title: "AgentPier: Session not resumed",
+      body: "A session could not be resumed automatically. Open it to start it again.",
+      name: "Session not resumed",
+    },
+    "update-available": {
+      title: "AgentPier: Update available",
+      body: "A new AgentPier version is available. Open the updates to install it.",
+      name: "Update available",
+    },
+    "update-failed": {
+      title: "AgentPier: Update failed",
+      body: "Installing, activating or rolling back an AgentPier version failed.",
+      name: "Update failed",
+    },
     test: {
       title: "AgentPier: Test notification",
       body: "Notifications are reaching this device.",

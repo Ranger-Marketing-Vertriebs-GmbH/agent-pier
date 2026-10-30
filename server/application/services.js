@@ -405,7 +405,12 @@ export async function createServices(config) {
         claudeDrafts.end(sessionId);
       // The report reaches the push notifications without the poll's delay.
       if (push.type === "activity")
-        services.operationsEvents?.nativeActivity(sessionId, push.event);
+        services.operationsEvents?.nativeActivity(
+          sessionId,
+          push.event,
+          // A turn ended at the CLI's usage limit (session-limited push).
+          ...(push.failure ? [{ failure: push.failure, detail: push.detail }] : []),
+        );
     },
     // A new launch or a stopped session: the mod reports again only once it loads.
     onLaunch: (sessionId) => claudeMod.forget(sessionId),

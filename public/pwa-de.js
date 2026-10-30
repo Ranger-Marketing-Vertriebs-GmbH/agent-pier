@@ -77,6 +77,26 @@ self.agentPierNotificationCopy = {
       body: "Auf dem Laufwerk mit den AgentPier-Daten sind weniger als 10 % frei.",
       name: "Speicherplatz wird knapp",
     },
+    "session-limited": {
+      title: "AgentPier: Nutzungslimit erreicht",
+      body: "Die CLI einer Session hat ihr Rate-Limit oder Nutzungskontingent erreicht.",
+      name: "Nutzungslimit erreicht",
+    },
+    "session-resume-failed": {
+      title: "AgentPier: Session nicht fortgesetzt",
+      body: "Eine Session konnte nicht automatisch fortgesetzt werden. Öffne sie, um sie neu zu starten.",
+      name: "Session nicht fortgesetzt",
+    },
+    "update-available": {
+      title: "AgentPier: Update verfügbar",
+      body: "Eine neue AgentPier-Version ist verfügbar. Öffne die Updates, um sie zu installieren.",
+      name: "Update verfügbar",
+    },
+    "update-failed": {
+      title: "AgentPier: Update fehlgeschlagen",
+      body: "Das Installieren, Aktivieren oder Zurücksetzen einer AgentPier-Version ist fehlgeschlagen.",
+      name: "Update fehlgeschlagen",
+    },
     test: {
       title: "AgentPier: Testbenachrichtigung",
       body: "Benachrichtigungen erreichen dieses Gerät.",

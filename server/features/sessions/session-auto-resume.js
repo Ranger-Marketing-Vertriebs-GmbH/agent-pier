@@ -5,8 +5,16 @@ const IN_PROGRESS = ["waiting", "reloading"];
 
 /** Resumes sessions whose tmux server was lost: oldest first, one at a time, once each. */
 export class SessionAutoResume {
-  constructor({ services, enabled = () => true, timeoutMs = 120_000, pollMs = 1000 }) {
+  constructor({
+    services,
+    enabled = () => true,
+    timeoutMs = 120_000,
+    pollMs = 1000,
+    // Told about each failed attempt once (the owner's push, operations-events.js).
+    onFailed = () => {},
+  }) {
     this.services = services;
+    this.onFailed = onFailed;
     this.enabled = enabled;
     this.timeoutMs = timeoutMs;
     this.pollMs = pollMs;
@@ -139,6 +147,12 @@ export class SessionAutoResume {
     } catch {
       /* The audit trail is supplemental; the session marker stays authoritative. */
     }
+    if (outcome === "failure")
+      try {
+        await this.onFailed(session, interruption);
+      } catch {
+        /* A push is advisory; the session shows the failed resume itself. */
+      }
   }
   // Only the attempt's own "started" marker may be replaced; newer state wins.
   async isCurrent(session, { stopped = false } = {}) {

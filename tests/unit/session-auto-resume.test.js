@@ -11,7 +11,7 @@ const interrupted = (id, minute, extra = {}) => ({
   ...extra,
 });
 
-function fixture(list, { status = {}, request, enabled = () => true } = {}) {
+function fixture(list, { status = {}, request, enabled = () => true, onFailed } = {}) {
   const store = new Map(list.map((session) => [session.id, structuredClone(session)]));
   const calls = [];
   const audit = [];
@@ -54,7 +54,13 @@ function fixture(list, { status = {}, request, enabled = () => true } = {}) {
     },
     audit: { append: (event) => audit.push(event) },
   };
-  const resume = new SessionAutoResume({ services, enabled, timeoutMs: 30, pollMs: 1 });
+  const resume = new SessionAutoResume({
+    services,
+    enabled,
+    timeoutMs: 30,
+    pollMs: 1,
+    ...(onFailed ? { onFailed } : {}),
+  });
   return { resume, store, calls, audit, maxActive: () => maxActive };
 }
 
@@ -301,4 +307,29 @@ test("a manual reload before the request aborts the attempt silently", async () 
   assert.deepEqual(calls, []);
   assert.deepEqual(audit, []);
   assert.equal(store.get("manual").interruption, undefined);
+});
+
+test("a failed attempt tells the owner's push once; a success or skip never", async () => {
+  const failed = [];
+  const onFailed = (session, interruption) =>
+    failed.push([session.id, interruption.reason]);
+  const broken = fixture([interrupted("broken", 1)], {
+    request: () => ({ state: "failed" }),
+    onFailed,
+  });
+  await broken.resume.initialize();
+  await broken.resume.notify();
+  assert.deepEqual(failed, [["broken", "reload-failed"]]);
+  const fine = fixture([interrupted("fine", 1)], { onFailed });
+  await fine.resume.initialize();
+  assert.equal(failed.length, 1);
+  // A throwing listener never breaks the resume.
+  const throwing = fixture([interrupted("other", 1)], {
+    request: () => ({ state: "failed" }),
+    onFailed: () => {
+      throw new Error("push down");
+    },
+  });
+  await throwing.resume.initialize();
+  assert.equal(throwing.store.get("other").interruption.resume, "failed");
 });
