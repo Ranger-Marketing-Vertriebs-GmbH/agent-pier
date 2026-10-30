@@ -260,7 +260,7 @@ test("a hook run cannot save to the workspace", async (t) => {
 
 // AGENTPIER-276: a mail-result follow-up in the owner's own chat works on the agent's
 // standing grants like any run of that chat.
-test("a mail-result follow-up of the owner's chat saves like his turn", async (t) => {
+test("a mail-result follow-up of the owner's chat saves like their turn", async (t) => {
   const f = await setup(t, { projectFiles: {} });
   const id = f.folderProject.id;
   f.access({ projectFiles: { [id]: "write" } });

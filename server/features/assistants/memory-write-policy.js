@@ -32,7 +32,7 @@ export const memoryStep = (context) => context?.kind === "memory-step";
 export const memoryStepWrite = (context, { agent, root, path }) =>
   memoryStep(context) && !!agent && ownMemoryTarget(root, agent.runtimeAgentId, path);
 /**
- * Whether a bound turn works in the owner's own chat with his agent and is not
+ * Whether a bound turn works in the owner's own chat with their agent and is not
  * someone else's content (owner-runs.js ownerTurn): a check-in or reminder counts,
  * a member's result, a memory step or forwarded content does not.
  */
@@ -97,7 +97,7 @@ function sources(bridge, input) {
     if (!matches.length) {
       const source = { agentId: input.agentId, sessionKey: flush.sessionKey };
       // A routine's flush writes like the routine itself, on a shared agent too, and
-      // the flush of a run of the owner's chat without a turn like his turn.
+      // the flush of a run of the owner's chat without a turn like their turn.
       if (
         bridge.routineWrite(source) ||
         ownerRun(bridge, { ...source, runId: flush.runId })
@@ -133,7 +133,7 @@ function sources(bridge, input) {
  * OpenClaw's pre-compaction memory flush runs in its own internal session
  * (memory-flushes.js); its one write is the append-only day note. It writes for
  * the run it interrupts: a direct turn (directOrigin: the owner, his paired Telegram
- * chat or a restricted user on her agent), any other run of the owner's own chat
+ * chat or a restricted user on their agent), any other run of the owner's own chat
  * that is not someone else's content (owner-runs.js), a memory step or a routine's
  * run, of the same agent, never a forwarded, lead-requested or member turn. The key must name the
  * run the hook reports, the note must be today's or yesterday's, and the first flush

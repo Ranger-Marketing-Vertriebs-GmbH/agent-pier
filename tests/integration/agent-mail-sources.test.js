@@ -202,7 +202,7 @@ test("sources over 25 MB in total are refused", async (t) => {
 
 // AGENTPIER-276: a mail-result follow-up in the owner's own chat works on the agent's
 // standing grants like any run of that chat.
-test("a mail-result follow-up of the owner's chat attaches like his turn", async (t) => {
+test("a mail-result follow-up of the owner's chat attaches like their turn", async (t) => {
   const f = await setup(t, { projectFiles: {} });
   f.access({ projectFiles: { [f.folderProject.id]: "read" } });
   const inv = f.ownTurn({ kind: "mail-result", actionId: "a1" });

@@ -115,7 +115,7 @@ test("forwarded and members' content never reach project folders", async (t) => 
     await assert.rejects(f.call({ action: "file_read", path: "README.md" }, origin), {
       status: 403,
     });
-  // AGENTPIER-276: a scheduled turn of the owner's own chat works like his turn.
+  // AGENTPIER-276: a scheduled turn of the owner's own chat works like their turn.
   const read = await f.call(
     { action: "file_read", path: "README.md" },
     { kind: "routine" },

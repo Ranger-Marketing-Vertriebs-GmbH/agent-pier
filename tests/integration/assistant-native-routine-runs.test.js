@@ -383,7 +383,7 @@ test("a routine's own run may write in its workspace; reminders, check-ins and o
     capabilities: { memory: true, reminders: true },
   });
   assert.equal(write(nativeId(routine.id), { who: member.runtimeAgentId }), false);
-  // The owner's chat session without a running turn writes like his turn
+  // The owner's chat session without a running turn writes like their turn
   // (AGENTPIER-276, owner-runs.js).
   assert.equal(
     bridge.toolPolicy({

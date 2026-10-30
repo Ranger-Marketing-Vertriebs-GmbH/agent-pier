@@ -78,7 +78,7 @@ export const callerOf = (inv) =>
           routine: {
             bindingId: inv.routine.binding.id,
             name: inv.routine.binding.definition?.name || "",
-            // The owner's own switch on the routine, never the lead's: on unless he
+            // The owner's own switch on the routine, never the lead's: on unless they
             // switched it off (lead-routines.js ownRoutineWrites).
             writes: inv.routine.binding.routineWrites !== false,
             conversationId: inv.routine.conversation.id,

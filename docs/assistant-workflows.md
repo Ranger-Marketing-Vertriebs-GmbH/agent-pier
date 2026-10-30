@@ -101,7 +101,7 @@ view is audited with its path and size, like a change.
   changes files in every task of that lead, capped at the lead's own level; where
   both apply the higher level counts), a lead's own follow-up on its member's result (its own folders
   only, never shares) and the agent's own routine runs. On the owner's own agents
-  every run of his chat counts (AGENTPIER-276): his turns, reminders, check-ins and
+  every run of their chat counts (AGENTPIER-276): their turns, reminders, check-ins and
   OpenClaw's runs without a turn such as a background command's follow-up, unless
   the chat's latest turn was forwarded or members' content. A routine reads the
   agent's folders and its lead's standing shares and changes files while its **May
@@ -238,7 +238,7 @@ It has three actions:
 
 - **Who and when:** the owner's own agents and leads that are not archived. Team
   members, user agents and agents with their own Telegram bot for other people never
-  hold the tool. It works in any run of the owner's chat (AGENTPIER-276): his messages,
+  hold the tool. It works in any run of the owner's chat (AGENTPIER-276): their messages,
   scheduled and result turns, goal continuations and runs without a turn. A routine's
   or hook's own run, team requests and forwarded content answer `FORBIDDEN`.
 - **Where:** the project is a new folder directly in the owner's default working
@@ -515,7 +515,7 @@ pair one first when there is none (users can pair only on their own agent with
 **May write** is on by default for the agent's own routines on the owner's agents
 (AGENTPIER-276): their unattended runs change files in its project folders at the
 agent's level and delegate tasks that change members' files. Asked by the owner in
-one of his chats, the agent can switch it off or back on when it creates or changes
+one of their chats, the agent can switch it off or back on when it creates or changes
 one of its routines. Scheduled runs, forwarded or tool-provided content and users' requests never
 switch it.
 
