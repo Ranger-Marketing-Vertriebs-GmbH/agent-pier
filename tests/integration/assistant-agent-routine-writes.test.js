@@ -6,7 +6,8 @@ import plugin from "../../server/features/assistants/team-plugin/index.js";
 
 // AGENTPIER-199: on the owner's own direct request the agent switches "May write" on
 // its routines with its own tool, as the owner can in the routine's settings. Users,
-// scheduled, forwarded and member turns never can.
+// scheduled, forwarded and member turns never can. AGENTPIER-276: on the owner's own
+// agents it is on by default.
 const schedule = { kind: "cron", expr: "0 8 * * *", tz: "Europe/Berlin" };
 const ownerTurn = { kind: "owner" };
 
@@ -52,7 +53,7 @@ function setup(t) {
   return f;
 }
 
-const writesOf = (f, id) => f.reminders.bindings.get(id).routineWrites === true;
+const writesOf = (f, id) => f.routines.writable(f.reminders.bindings.get(id));
 const writeAudits = (f) => f.audits.filter((e) => e.details?.kind === "routine-writes");
 
 test("an owner's web-chat turn creates a routine that may write", async (t) => {
@@ -68,10 +69,15 @@ test("an owner's web-chat turn creates a routine that may write", async (t) => {
     actor: "assistant",
     channel: "tool",
   });
-  // Without the parameter a routine stays read-only, as before.
+  // Without the parameter a routine of the owner's agent may write by default.
   const quiet = await f.create();
-  assert.equal(quiet.writes, false);
+  assert.equal(quiet.writes, true);
+  assert.equal(writesOf(f, quiet.id), true);
   assert.equal(writeAudits(f).length, 1);
+  // Created with writes off, it stays read-only.
+  const off = await f.create({ writes: false });
+  assert.equal(off.writes, false);
+  assert.equal(writesOf(f, off.id), false);
   // An owner's Telegram turn is his direct request too.
   const channel = f.service.store.get(f.channel.id);
   const telegram = {
@@ -83,36 +89,36 @@ test("an owner's web-chat turn creates a routine that may write", async (t) => {
   assert.equal((await f.create({ writes: true }, telegram)).writes, true);
 });
 
-test("the agent switches May write on and off with an update", async (t) => {
+test("the agent switches May write off and on with an update", async (t) => {
   const f = setup(t);
   const routine = await f.create();
-  const on = await f.call({
-    action: "update",
-    id: routine.id,
-    writes: true,
-    revision: routine.revision,
-  });
-  assert.equal(on.writes, true);
-  assert.equal(on.revision, routine.revision + 1);
-  assert.equal(writesOf(f, routine.id), true);
   const off = await f.call({
     action: "update",
     id: routine.id,
     writes: false,
-    revision: on.revision,
+    revision: routine.revision,
   });
   assert.equal(off.writes, false);
+  assert.equal(off.revision, routine.revision + 1);
   assert.equal(writesOf(f, routine.id), false);
   assert.equal(off.enabled, true, "the routine keeps running");
+  const on = await f.call({
+    action: "update",
+    id: routine.id,
+    writes: true,
+    revision: off.revision,
+  });
+  assert.equal(on.writes, true);
+  assert.equal(writesOf(f, routine.id), true);
   assert.deepEqual(
     writeAudits(f).map((e) => [e.details.writes, e.details.actor]),
     [
-      [true, "assistant"],
       [false, "assistant"],
+      [true, "assistant"],
     ],
   );
   await assert.rejects(
-    f.call({ action: "update", id: routine.id, writes: "yes", revision: off.revision }),
+    f.call({ action: "update", id: routine.id, writes: "yes", revision: on.revision }),
     { status: 400 },
   );
   await assert.rejects(f.create({ writes: 1 }), { status: 400 });
@@ -131,13 +137,13 @@ test("scheduled, forwarded and member turns cannot switch May write", async (t) 
     await assert.rejects(f.create({ writes: true }, origin), { status: 403 });
     await assert.rejects(
       f.call(
-        { action: "update", id: routine.id, writes: true, revision: routine.revision },
+        { action: "update", id: routine.id, writes: false, revision: routine.revision },
         origin,
       ),
       { status: 403 },
     );
   }
-  assert.equal(writesOf(f, routine.id), false);
+  assert.equal(f.reminders.bindings.get(routine.id).routineWrites, undefined);
   assert.equal(f.reminders.bindings.list(f.id).length, 1);
   assert.equal(writeAudits(f).length, 0);
 });

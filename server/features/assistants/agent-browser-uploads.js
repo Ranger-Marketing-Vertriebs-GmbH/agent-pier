@@ -211,7 +211,7 @@ export function turnDetails(ctx) {
     ...(ctx.requestedBy ? { requestedBy: ctx.requestedBy } : {}),
     ...(ctx.routine ? { routineId: ctx.routine.bindingId } : {}),
     ...(ctx.memberResult ? { via: "member-result" } : {}),
-    ...(ctx.execContinuation ? { via: "exec-completion" } : {}),
+    ...(ctx.ownerRun ? { via: "agent-run" } : {}),
     ...(ctx.leadRequest
       ? { leadAssistantId: ctx.leadRequest.leadId, leadRequestId: ctx.leadRequest.id }
       : {}),

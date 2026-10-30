@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { execContinuationFixture } from "../helpers/exec-continuation-fixture.js";
+import { agentRunFixture } from "../helpers/agent-run-fixture.js";
 import { toolError } from "../../server/features/assistants/tool-errors.js";
 
 // A turn whose sessions.send acknowledgement timed out (a Gateway just restarted)
@@ -10,7 +10,7 @@ import { toolError } from "../../server/features/assistants/tool-errors.js";
 // would (run-confirmation.js), so its tools work instead of FORBIDDEN. (A file for
 // the owner needs no turn at all: assistant-owner-shares.test.js.)
 async function setup(t) {
-  const f = await execContinuationFixture(t);
+  const f = await agentRunFixture(t);
   // As the plugin prepares and invokes a workspace call, naming its tool call's run.
   const project = async (runId) => {
     const { ticket } = await f.bridge.prepare({

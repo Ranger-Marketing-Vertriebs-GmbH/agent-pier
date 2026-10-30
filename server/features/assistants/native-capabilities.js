@@ -116,12 +116,12 @@ export const lockedTools = [
  * (TeamBridge.routineWrite). Left out: reminders and routines (a routine never
  * schedules) and every other team tool (the bridge serves them only in an owner's
  * chat turn). `agentpier_workspace` is in for project folders and coding requests
- * (workspace-calls.js routineContext): folders are read-only unless the owner marked
- * the routine "May write", coding requests always wait for the owner. `agentpier_ssh` is in: the bridge admits a
- * routine's run session for SSH only on hosts marked "Trusted", for
+ * (workspace-calls.js routineContext): folders keep the agent's levels unless the
+ * owner switched "May write" off for the routine. `agentpier_ssh` is in: the bridge
+ * admits a routine's run session for SSH only on hosts marked "Trusted", for
  * `agentpier_share_file` into the routine's chat and Telegram, and for a lead's
- * routineTeamTools with the routine as origin: its tasks write only when the owner
- * marked the routine "May write". A member's routine also reaches memberTeamTools;
+ * routineTeamTools with the routine as origin: its tasks write while the routine's
+ * "May write" is on. A member's routine also reaches memberTeamTools;
  * OpenClaw's intersection with the agent's tools.allow keeps them from leads. `*__*`
  * stands for the agent's MCP tools (`<server>__<tool>`).
  */
@@ -132,7 +132,7 @@ export const routineTools = [
   ...shellTools,
   "agentpier_ssh",
   "agentpier_share_file",
-  // Project folders, read-only unless the owner marked the routine "May write".
+  // Project folders at the agent's levels, read-only once "May write" is off.
   "agentpier_workspace",
   // Coding sessions on projects with sessions on (coding-sessions/session-turns.js).
   "agentpier_coding_session",

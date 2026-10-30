@@ -22,7 +22,7 @@ const instructionLimit = 1500;
 /** The owner's own turn of an eligible agent behind a tool call; throws otherwise. */
 function ownerTurn(hooks, inv) {
   // A routine's or a hook's own run and a command's completion have no turn.
-  if (!inv.attemptId || inv.routine || inv.hook || inv.continuation) throw ownerOnly();
+  if (!inv.attemptId || inv.routine || inv.hook || inv.ownerRun) throw ownerOnly();
   const a = hooks.assistants,
     attempt = a.ledger.getAttempt(inv.attemptId),
     request = a.ledger.getRequest(attempt.requestId),

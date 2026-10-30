@@ -79,17 +79,20 @@ test("a routine run is offered the workspace tool", () => {
   assert.ok(routineTools.includes("agentpier_workspace"));
 });
 
-test("a routine reads its agent's folders and writes only when the owner allows it", async (t) => {
+// AGENTPIER-276: a routine inherits its agent's folder levels unless the owner
+// switched "May write" off for it.
+test("a routine works at its agent's folder levels unless the owner switched writes off", async (t) => {
   const f = await setup(t);
   const read = await f.call(f.lead, { action: "file_read", path: "README.md" });
   assert.equal(read.content, "# Site\n");
+  // The owner's switch is read live from the binding.
+  f.lead.binding.routineWrites = false;
   await assert.rejects(
     f.call(f.lead, { action: "file_write", path: "out.md", content: "x" }),
     code("ROUTINE_READ_ONLY"),
   );
   assert.equal(fs.existsSync(path.join(f.folder, "out.md")), false);
-  // The owner's switch is read live from the binding.
-  f.lead.binding.routineWrites = true;
+  delete f.lead.binding.routineWrites;
   const written = await f.call(f.lead, {
     action: "file_write",
     path: "out.md",
@@ -130,7 +133,8 @@ test("a member's routine reads its lead's standing share, never a task's", async
     code("PROJECT_NOT_GRANTED"),
   );
   await f.share({ grants: { projects: { [f.folderProject.id]: "write" } } });
-  // A write share, but the routine may not write: it sees read access.
+  // A write share, but the owner switched the routine's writes off: read access.
+  f.scout.binding.routineWrites = false;
   assert.equal((await f.call(f.scout, { action: "files_list" })).access, "read");
   await assert.rejects(
     f.call(f.scout, { action: "file_write", path: "s.md", content: "s" }),
@@ -197,7 +201,9 @@ test("a read-only routine sees read access and its refused write is noted for th
   const f = await setup(t);
   const notes = [];
   f.assistants.routines.noteRefusal = (key, note) => notes.push([key, note]);
-  // The grant is write, but this routine may not write: it is told so up front.
+  // The grant is write, but the owner switched this routine's writes off: it is told
+  // so up front.
+  f.lead.binding.routineWrites = false;
   const read = await f.call(f.lead, { action: "file_read", path: "README.md" });
   assert.equal(read.access, "read");
   assert.equal((await f.call(f.lead, { action: "files_list" })).access, "read");

@@ -43,12 +43,13 @@ test("a team report names the run of its tool call", async (t) => {
   f.before("call-1", "run-1");
   await f.tool("agentpier_team_report").execute("call-1", { text: "Done" });
   assert.equal(f.prepared().runId, "run-1");
-  // Only project and share calls carry the Gateway's record of background commands.
+  // No call carries the Gateway's record of background commands any more
+  // (AGENTPIER-276: a run of the owner's chat needs no proof).
   assert.equal(f.prepared().exec, undefined);
   f.before("call-2", "run-1");
   await f.tool("agentpier_workspace").execute("call-2", { action: "catalog" });
   assert.equal(f.prepared().runId, "run-1");
-  assert.ok(f.prepared().exec);
+  assert.equal(f.prepared().exec, undefined);
   // A call the hook never reported names no run.
   await f.tool("agentpier_team_report").execute("call-3", { text: "Done" });
   assert.equal("runId" in f.prepared(), false);

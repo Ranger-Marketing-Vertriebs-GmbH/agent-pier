@@ -65,10 +65,12 @@ test("a routine asks a member and gets the answer to relay", async (t) => {
     question: "What is the budget?",
   });
   const r = await until(() => f.requests().find((x) => x.phase === "running"));
+  // "May write" is on by default (AGENTPIER-276).
   assert.deepEqual(r.origin, {
     kind: "routine",
     bindingId: "binding-1",
     name: "Morning check",
+    writes: true,
   });
   assert.match(f.sends().at(-1).input.message, /What is the budget\?$/);
   f.complete(r.attemptId);
@@ -80,10 +82,11 @@ test("a routine asks a member and gets the answer to relay", async (t) => {
   assert.equal(card.routine, "Morning check");
 });
 
-test("a task a routine delegates cannot write in the member's workspace", async (t) => {
+test("a task a routine without May write delegates cannot write in the member's workspace", async (t) => {
   for (const usage of ["onRequest", "suggest", "autonomous"]) {
     await t.test(usage, async (t) => {
       const f = await routineLead(t);
+      f.routine.binding.routineWrites = false;
       const policy = f.service.store.policy(f.parent.id);
       f.service.store.savePolicy(f.parent.id, { usage }, policy.revision);
       const result = await f.call("delegate", {

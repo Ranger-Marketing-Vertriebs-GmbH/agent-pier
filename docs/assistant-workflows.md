@@ -100,13 +100,17 @@ view is audited with its path and size, like a change.
   read-only unless the task may change files, and what the lead shares; a write share
   changes files in every task of that lead, capped at the lead's own level; where
   both apply the higher level counts), a lead's own follow-up on its member's result (its own folders
-  only, never shares) and the agent's own routine runs, never forwarded content,
-  reminders or check-ins. A routine reads the agent's folders and its lead's standing
-  shares and changes files only when the owner marked it **May write** (for a
-  routine the member's lead set up, also while the lead uses its team
-  **Autonomous**ly); otherwise `ROUTINE_READ_ONLY`. Without **May write** the
-  catalog and every file result report `access: "read"`, even where the grant is
-  write, so the agent does not plan a change it cannot make.
+  only, never shares) and the agent's own routine runs. On the owner's own agents
+  every run of his chat counts (AGENTPIER-276): his turns, reminders, check-ins and
+  OpenClaw's runs without a turn such as a background command's follow-up, unless
+  the chat's latest turn was forwarded or members' content. A routine reads the
+  agent's folders and its lead's standing shares and changes files while its **May
+  write** is on, which it is by default for the agent's own routines on the owner's
+  agents (a routine the member's lead set up writes only when the owner switched it
+  on or while the lead uses its team **Autonomous**ly); otherwise
+  `ROUTINE_READ_ONLY`. Without **May write** the catalog and every file result report
+  `access: "read"`, even where the grant is write, so the agent does not plan a change
+  it cannot make.
 - **Paths:** relative to the project folder or absolute inside it. Every call
   resolves the real path again: `..`, `~`, URL forms, control characters and
   backslashes are refused, links may point anywhere inside the folder but never out
@@ -508,10 +512,11 @@ its reminders and routines; it uses your own paired Telegram chat and asks you t
 pair one first when there is none (users can pair only on their own agent with
 **Extended** access).
 
-Asked by the owner in one of his chats, the agent can likewise switch **May write**
-on or off when it creates or changes one of its routines; its unattended runs may
-then change files in its project folders and delegate tasks that change members'
-files. Scheduled runs, forwarded or tool-provided content and users' requests never
+**May write** is on by default for the agent's own routines on the owner's agents
+(AGENTPIER-276): their unattended runs change files in its project folders at the
+agent's level and delegate tasks that change members' files. Asked by the owner in
+one of his chats, the agent can switch it off or back on when it creates or changes
+one of its routines. Scheduled runs, forwarded or tool-provided content and users' requests never
 switch it.
 
 A reminder repeats prescribed text and runs without tools. A routine asks the
@@ -538,8 +543,8 @@ routine run as its own origin (`TeamBridge.routineWrite`): only the run session 
 a bound, enabled routine of the calling agent with memory and routines switched on
 may change that agent's workspace, under the same workspace and instruction-file
 limits as an owner turn. It is not owner text: it never makes a delegated task
-writable on its own (owner proof stays owner-text only); only a routine the owner
-marked **May write** in its details starts tasks that may write,
+writable on its own (owner proof stays owner-text only); only a routine with **May
+write** on (the default for the agent's own routines) starts tasks that may write,
 recorded as the owner's standing instruction. Reminder and check-in runs,
 forwarded and tool-provided content still never write. After a Gateway start the
 routine's agent regains `write` and `edit` after the write guard is reported and
@@ -566,8 +571,8 @@ its colleagues and report to its lead (`agentpier_team_peers`, `_peer_ask`,
 `agentpier_workspace` serves a routine run as well
 (`workspace-calls.js` `routineContext`, the binding read live on every step): the
 agent's own project folders and its lead's standing shares, never a task's share;
-reads always, changes only with the routine's **May write** (`routineWrites`,
-otherwise `ROUTINE_READ_ONLY`), audited with `origin: "routine"` and the
+reads always, changes while the routine's **May write** is on (`routineWrites` not
+`false`, otherwise `ROUTINE_READ_ONLY`), audited with `origin: "routine"` and the
 `routineId`. Coding requests and project knowledge proposals always wait for the
 owner (shown in the agent's chat, stored with the `routineId`); `coding_cancel` is
 refused. Every other team tool stays out, so a routine cannot propose teams or

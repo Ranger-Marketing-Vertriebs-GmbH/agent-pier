@@ -1,9 +1,9 @@
 // Team audit details that say how an agent was allowed to act: a lead's routines on
 // its members (lead-routines.js), native writes of a lead's follow-up on a member's
-// result (member-result-writes.js) or of a command's completion run
-// (exec-continuation.js), a share of a run without a turn (owner-shares.js) and the
-// way a project file change was authorized (in a lead's task the lead's share or the
-// member's own grant).
+// result (member-result-writes.js), writes, folder changes and shares of a run of the
+// owner's chat without a turn (`agent-run`, owner-runs.js; `exec-completion` in
+// records before 2.13) and the way a project file change was authorized (in a lead's
+// task the lead's share or the member's own grant).
 // Ids, enums and paths only; never a routine's text or file content.
 const changes = ["create", "update", "remove"];
 const reasons = [

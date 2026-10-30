@@ -16,16 +16,16 @@ const live = new Set(["pending", "accepted", "running"]);
  *   (`memberResult`); an explicit project session grant covers these starts too;
  * - `owner`: the owner's own message, from AgentPier or his Telegram chat, and goal
  *   continuations.
- * A command's completion run, a restricted user's turn and forwarded content are
- * refused (403), as is every turn workspaceContext refuses.
+ * A run of the owner's chat without a turn, a restricted user's turn and forwarded
+ * content are refused (403), as is every turn workspaceContext refuses.
  */
 export function sessionContext(w, inv) {
   inv.assertCurrent();
-  if (inv.continuation) throw refused();
+  if (inv.ownerRun) throw refused();
   const wake = inv.attemptId ? wakeContext(w, inv) : null;
   if (wake) return wake;
   const ctx = workspaceContext(w, inv);
-  if (ctx.execContinuation || ctx.origin?.kind === "user" || ctx.origin?.forwarded)
+  if (ctx.ownerRun || ctx.origin?.kind === "user" || ctx.origin?.forwarded)
     throw refused();
   if (ctx.hook) {
     if (!ctx.hook.coding) throw refused();

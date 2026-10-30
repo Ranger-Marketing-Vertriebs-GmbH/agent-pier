@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { workflowFixture } from "./assistant-workflow-fixture.js";
 import { nativeWriteGuard } from "./native-write-guard.js";
-import { CompletionRuns } from "../../server/features/assistants/exec-continuation.js";
+import { CompletionRuns } from "../../server/features/assistants/completion-runs.js";
 
 // OpenClaw 2026.10.3's completion prompt: one line per process with the first eight
 // characters of its id (heartbeat-events-filter buildExecEventPrompt).
@@ -11,37 +11,6 @@ export const completionPrompt = (lines) =>
 
 // OpenClaw 2026.10.7's completion turn: the bare line in the turn's timestamp envelope.
 export const eventPrompt = (line) => `[Sat 2026-10-24 14:31 GMT+2] ${line}`;
-const execProvenance = { kind: "internal_system", sourceTool: "exec" };
-/**
- * A `sessions.get` page as OpenClaw 2026.10.7 writes it for an event turn: the
- * completion's user entry (exec provenance, a random logical turn id as its key, no
- * run id), then the run's own records.
- */
-export function eventTranscript(runId, line, { entry = {} } = {}) {
-  return [
-    {
-      role: "user",
-      content: "Render it.",
-      provenance: { kind: "external_user" },
-      idempotencyKey: "owner-run:user",
-      __openclaw: { idempotencyKey: "owner-run:user", seq: 1 },
-    },
-    { role: "assistant", content: [], __openclaw: { runId: "owner-run", seq: 2 } },
-    {
-      role: "user",
-      content: line,
-      provenance: execProvenance,
-      idempotencyKey: "9a560d54-a41b-4bdc-a563-36106f676c5b:user",
-      __openclaw: { senderIsOwner: false, seq: 3 },
-      ...entry,
-    },
-    {
-      role: "assistant",
-      content: [{ type: "toolCall", id: "call-5", name: "write" }],
-      __openclaw: { runId, seq: 4 },
-    },
-  ];
-}
 
 // What OpenClaw 2026.10.3's handleToolExecutionEnd sends as the hook's `error`: the
 // first line of the result's message whenever isToolResultError holds for it (an
@@ -61,10 +30,10 @@ export function openClawError(result) {
 
 /**
  * The fixture's agent with memory, the plugin's write guard live and the Gateway's
- * hooks driven as OpenClaw would: background exec results, a completion run's model
- * input and its heartbeat agent events.
+ * hooks driven as OpenClaw would: turns that ran an exec and ended, and OpenClaw's
+ * own runs of the chat without a turn (owner-runs.js), as a command's follow-up.
  */
-export async function execContinuationFixture(t, { userAccess, started = true } = {}) {
+export async function agentRunFixture(t, { userAccess, started = true } = {}) {
   const f = await workflowFixture(t);
   const body = {
     ...f.store.storedAssistant(f.id),
@@ -78,15 +47,6 @@ export async function execContinuationFixture(t, { userAccess, started = true } 
   const audits = [];
   f.assistants.audit = { append: (event) => audits.push(event) };
   f.services.audit = { append: (event) => audits.push(event) };
-  const reads = [];
-  // The Gateway's transcripts by session key (`sessions.get`); a function throws.
-  const transcripts = new Map();
-  f.assistants.runtime.client.call = async (method, params) => {
-    reads.push({ method, params });
-    if (method !== "sessions.get") return {};
-    const page = transcripts.get(params.key);
-    return typeof page === "function" ? page() : { messages: page || [] };
-  };
   const guard = await nativeWriteGuard(t, f);
   if (started) await guard.emit("gateway_start", {}, {});
   let calls = 0;
@@ -97,7 +57,6 @@ export async function execContinuationFixture(t, { userAccess, started = true } 
       sessionId = "brisk-orbit",
       status = "running",
       sessionKey = "session",
-      pid,
       result,
       error,
     } = {},
@@ -105,7 +64,7 @@ export async function execContinuationFixture(t, { userAccess, started = true } 
     const ctx = { agentId: guard.agentId, sessionKey, runId, toolCallId: `x${++calls}` };
     const outcome = result ?? {
       content: [{ type: "text", text: `Command ${status}.\nDetails follow.` }],
-      details: { status, sessionId, pid },
+      details: { status, sessionId },
     };
     const failure = error ?? openClawError(outcome);
     await guard.emit("before_tool_call", { toolName: "exec", params: {} }, ctx);
@@ -127,64 +86,25 @@ export async function execContinuationFixture(t, { userAccess, started = true } 
     f.assistants.ledger.transition(attemptId, "completed");
     return attemptId;
   };
-  // OpenClaw's completion run: its heartbeat agent events and its model input.
-  const wake = async (
-    runId = "wake-1",
-    {
-      lines = ["Exec completed (brisk-or, code 1) :: done"],
-      prompt = completionPrompt(lines),
-      sessionKey = "session",
-      event = {},
-    } = {},
-  ) => {
-    f.assistants.completionRuns.observe({
-      runId,
-      sessionKey,
-      stream: "lifecycle",
-      isHeartbeat: true,
-      data: { phase: "start" },
-      ...event,
-    });
-    await guard.emit("llm_input", { runId, prompt }, { sessionKey, runId });
-    return { agentId: guard.agentId, sessionKey: "session", runId };
-  };
-  // OpenClaw 2026.10.7's completion run: an ordinary event turn whose agent events
-  // carry no mark, its model input with the hooks' `trigger` and its transcript.
+  // OpenClaw 2026.10.7's follow-up after a background command: an event turn of the
+  // chat's session without an AgentPier attempt.
   const eventTurn = async (
     runId = "turn-1",
     {
       line = "Exec completed (brisk-or, code 1) :: done",
       prompt = eventPrompt(line),
-      trigger = "event",
       sessionKey = "session",
-      transcript = eventTranscript(runId, line),
     } = {},
   ) => {
-    f.assistants.completionRuns.observe({
-      runId,
-      sessionKey,
-      stream: "lifecycle",
-      isHeartbeat: false,
-      data: { phase: "start" },
-    });
-    await guard.emit("llm_input", { runId, prompt }, { sessionKey, runId, trigger });
-    transcripts.set(sessionKey, transcript);
+    await guard.emit(
+      "llm_input",
+      { runId, prompt },
+      { sessionKey, runId, trigger: "event" },
+    );
     return { agentId: guard.agentId, sessionKey, runId };
   };
+  // Native writes of runs without a turn, as audited (owner-runs.js).
   const writes = () =>
-    audits
-      .filter((e) => e.details?.via === "exec-completion")
-      .map((e) => [e.details.filePath, e.details.sourceAttemptId]);
-  return {
-    ...f,
-    ...guard,
-    audits,
-    reads,
-    transcripts,
-    exec,
-    turn,
-    wake,
-    eventTurn,
-    writes,
-  };
+    audits.filter((e) => e.details?.via === "agent-run").map((e) => e.details.filePath);
+  return { ...f, ...guard, audits, exec, turn, eventTurn, writes };
 }

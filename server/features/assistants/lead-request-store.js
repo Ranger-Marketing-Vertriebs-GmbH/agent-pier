@@ -48,8 +48,8 @@ export function exact(input, keys, required) {
 }
 /**
  * Whether a lead's task may change files: a task the owner asked for (ownerProof),
- * one an autonomous lead started in the owner's own turn, or one a routine the owner
- * marked "May write" started (routineWrites, the owner's standing instruction), one
+ * one an autonomous lead started in the owner's own turn, or one a routine with "May
+ * write" started (routineWrites, the owner's standing instruction, on by default), one
  * a lead started in a goal turn (goalId, goal-turns.js), or a member's task for a
  * sibling sent from a turn that may write itself (peerWrites, peer-request-rules.js);
  * never once cancelled. Where and when it writes is checked apart.
@@ -78,8 +78,9 @@ export const callerOf = (inv) =>
           routine: {
             bindingId: inv.routine.binding.id,
             name: inv.routine.binding.definition?.name || "",
-            // The owner's own switch on the routine, never the lead's.
-            writes: inv.routine.binding.routineWrites === true,
+            // The owner's own switch on the routine, never the lead's: on unless he
+            // switched it off (lead-routines.js ownRoutineWrites).
+            writes: inv.routine.binding.routineWrites !== false,
             conversationId: inv.routine.conversation.id,
             sessionKey: inv.sessionKey,
           },

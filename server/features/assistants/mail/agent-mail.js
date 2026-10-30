@@ -70,10 +70,10 @@ export class AgentMail {
   }
   /**
    * Who calls (AgentSsh.caller) and, for a hook run, its live Email tick, re-read on
-   * every call. A command's completion run never uses mail.
+   * every call. A run of the owner's chat without a turn never uses mail.
    */
   caller(inv) {
-    if (inv.continuation) {
+    if (inv.ownerRun) {
       inv.assertCurrent();
       throw this.problem("mailOriginRefused");
     }

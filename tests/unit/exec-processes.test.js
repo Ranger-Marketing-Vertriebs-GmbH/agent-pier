@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { gateway, prompt } from "../helpers/exec-gateway.js";
-import { openClawError } from "../helpers/exec-continuation-fixture.js";
+import { openClawError } from "../helpers/agent-run-fixture.js";
 import {
   callRun,
   completedProcesses,

@@ -2,14 +2,14 @@ import { followUpTelegram } from "../assistants/follow-up-target.js";
 import {
   completionRun,
   completionTranscriptLimit,
-} from "../assistants/exec-continuation.js";
+} from "../assistants/completion-runs.js";
 import { boundedText, completeMessage, withNote } from "../assistants/history-text.js";
 import { telegramMessages } from "./telegram-messages.js";
 
 /**
  * The replies of runs AgentPier did not start, for the owner's paired Telegram chat.
  * When a background command exits, OpenClaw runs the chat's session once more on its
- * own (exec-continuation.js); its answer reaches the web chat but belongs to no
+ * own (completion-runs.js); its answer reaches the web chat but belongs to no
  * Telegram input. Each such run that ends in a chat whose latest turn came from the
  * paired chat (follow-up-target.js) is recorded once, durably, by its run id; its
  * final text then goes out as one outbox notice (`follow-up-reply`), sent, split and

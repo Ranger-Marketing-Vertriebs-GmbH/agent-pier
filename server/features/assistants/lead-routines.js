@@ -6,6 +6,7 @@ import { namesMember, ownerProse, parseOwnerText } from "./lead-request-proof.js
 import { minGapMinutes } from "./cron-gap.js";
 import { routineReport } from "./lead-routine-reports.js";
 import { directOwnerTurn } from "./goal-turns.js";
+import { isUserAgent } from "../users/user-access.js";
 
 // What a lead may set up on one of its permanent members (AGENTPIER-175).
 export const leadRoutineLimits = { perMember: 5, minIntervalMinutes: 15 };
@@ -23,6 +24,15 @@ const live = (b) => !["removed", "revoked"].includes(b.state);
  * when the relation does (`prune`): lead or member archived, or the member no longer
  * the lead's permanent member.
  */
+/**
+ * Whether the agent's own routine may write (AGENTPIER-276): on an agent of the
+ * owner's it inherits the agent's project folder levels unless the owner switched
+ * "May write" off for it; on an agent of restricted users only when he switched it on.
+ */
+export const ownRoutineWrites = (binding, agent) =>
+  binding?.routineWrites === true ||
+  (!!binding && binding.routineWrites !== false && !!agent && !isUserAgent(agent));
+
 export class LeadRoutines {
   constructor(routines) {
     this.routines = routines;
@@ -33,6 +43,13 @@ export class LeadRoutines {
   }
   get teams() {
     return this.assistants.teams?.store || null;
+  }
+  agentOf(binding) {
+    try {
+      return this.assistants.store.getAssistant(binding.assistantId);
+    } catch {
+      return null;
+    }
   }
   // --- live relation ----------------------------------------------------------
   /** Why a lead routine no longer belongs to its lead, or null. Never throws. */
@@ -65,12 +82,15 @@ export class LeadRoutines {
     return record.archivedAt ? "member-archived" : null;
   }
   /**
-   * Why a run of this routine may write: the owner's "May write" (`owner`), or for a
-   * lead routine the lead's autonomous team usage (`autonomous`, read live); null.
+   * Why a run of this routine may write: the owner's "May write" (`owner`), on by
+   * default for the agent's own routines (ownRoutineWrites), or for a lead routine
+   * the lead's autonomous team usage (`autonomous`, read live); null.
    */
   writeReason(binding) {
     if (binding?.routineWrites === true) return "owner";
-    if (!isLeadRoutine(binding) || this.ended(binding)) return null;
+    if (!isLeadRoutine(binding))
+      return ownRoutineWrites(binding, this.agentOf(binding)) ? "owner" : null;
+    if (this.ended(binding)) return null;
     try {
       return this.teams?.policy(binding.leadId).usage === "autonomous"
         ? "autonomous"

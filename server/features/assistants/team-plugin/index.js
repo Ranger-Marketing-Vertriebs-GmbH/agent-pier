@@ -1,6 +1,6 @@
 import { workflowDefinitions } from "./workflow-tools.js";
 import { registerToolGuard } from "./tool-guard.js";
-import { callRun, execEvidence, registerExecProcesses } from "./exec-processes.js";
+import { callRun, registerExecProcesses } from "./exec-processes.js";
 import { sshDefinition, sshTimeoutMs } from "./ssh-tool.js";
 import { sshAccessDefinition, sshAccessTimeoutMs } from "./ssh-access-tool.js";
 import { shareDefinition } from "./share-tool.js";
@@ -204,7 +204,7 @@ const definitions = {
     ]),
   },
   delegate: {
-    description: `Delegate a task to one of your own permanent members (lifetime permanent; temporary members only answer questions), for example longer research, writing or review in its area. ${usageRule} Each member has at most one open task. The member works in its own chat when it is free; its result follows later as a separate message for you to summarize. To have members agree among themselves, name in the task whom the member may involve and where the result goes (back to you, or into a project folder it may change); it can ask colleagues, hand tasks only to permanent ones, and report back to you. Cancel with agentpier_team_cancel. A task from a scheduled routine run runs read-only unless the owner marked that routine 'May write'. access passes your own access for this task only and ends with it: ${shareRule} Project folders you share with the member (standing or for this task) can be changed in any of your tasks up to the shared level, capped at your own; files in the member's own workspace change only when the task may change files (see below). ${ownerRule}`,
+    description: `Delegate a task to one of your own permanent members (lifetime permanent; temporary members only answer questions), for example longer research, writing or review in its area. ${usageRule} Each member has at most one open task. The member works in its own chat when it is free; its result follows later as a separate message for you to summarize. To have members agree among themselves, name in the task whom the member may involve and where the result goes (back to you, or into a project folder it may change); it can ask colleagues, hand tasks only to permanent ones, and report back to you. Cancel with agentpier_team_cancel. A task from a scheduled routine run runs read-only only when the owner switched 'May write' off for that routine. access passes your own access for this task only and ends with it: ${shareRule} Project folders you share with the member (standing or for this task) can be changed in any of your tasks up to the shared level, capped at your own; files in the member's own workspace change only when the task may change files (see below). ${ownerRule}`,
     parameters: schema(
       { memberId: text(100), task: text(8192), ...owner, access: accessSchema },
       ["memberId", "task"],
@@ -373,20 +373,14 @@ export default {
                 };
                 context.assertInvocationCurrent();
                 // Every call names its run: it proves a turn whose send went
-                // unacknowledged (run-confirmation.js). A workspace call of a command
-                // completion adds the Gateway's record of the session
-                // (exec-continuation.js).
+                // unacknowledged (run-confirmation.js).
                 const runId = callRun(context.sessionKey, toolCallId);
-                const evidence = action === "workspace";
                 const { ticket } = await call("/prepare", {
                   agentId: context.agentId,
                   sessionKey: context.sessionKey,
                   toolCallId,
                   action,
                   ...(runId ? { runId } : {}),
-                  ...(runId && evidence
-                    ? { exec: execEvidence(context.sessionKey, runId) }
-                    : {}),
                 });
                 context.assertInvocationCurrent();
                 const result = await call(

@@ -376,7 +376,7 @@ test("only direct owner turns may use the tool", async (t) => {
         "PROJECT_OWNER_ONLY",
         JSON.stringify(origin),
       );
-  for (const field of ["hook", "routine", "continuation"]) {
+  for (const field of ["hook", "routine", "ownerRun"]) {
     const inv = await f.invocation(randomUUID());
     inv[field] = { id: "x" };
     assert.equal(

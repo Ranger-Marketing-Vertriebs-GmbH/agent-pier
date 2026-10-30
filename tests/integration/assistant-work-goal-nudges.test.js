@@ -166,15 +166,8 @@ test("the nudge waits while the chat waits on the owner or on results", async (t
           data: { phase: "end" },
         });
     },
-    // OpenClaw 2026.10.7: a completion run the transcript proved (its agent events
-    // carry no mark), and one the Gateway's record knows before it wrote anything.
-    "verified 10.7 completion run": (f, { chat }) => {
-      const runs = f.assistants.completionRuns;
-      runs.admit("turn-1", chat.runtimeSessionKey);
-      const run = { runId: "turn-1", sessionKey: chat.runtimeSessionKey };
-      runs.observe({ ...run, isHeartbeat: false, stream: "assistant" });
-      return () => runs.observe({ ...run, stream: "lifecycle", data: { phase: "end" } });
-    },
+    // OpenClaw 2026.10.7: a completion run only the Gateway's record knows (its
+    // agent events carry no mark).
     "10.7 completion run": (f) => {
       let completing = true;
       background(
@@ -246,19 +239,8 @@ test("the nudge waits while the chat waits on the owner or on results", async (t
 });
 
 test("a live 10.7 completion run holds the nudge", async (t) => {
-  // Review Focus 3: no agent event marks it, yet the chat is busy while it runs.
+  // Review Focus 3: no agent event marks it; the Gateway's record reports it.
   const { f, chat } = setup(t);
-  const runs = f.assistants.completionRuns;
-  runs.admit("turn-1", chat.runtimeSessionKey);
-  assert.equal(goalWait(f.service.goals, chat), "busy");
-  runs.observe({
-    runId: "turn-1",
-    sessionKey: chat.runtimeSessionKey,
-    stream: "lifecycle",
-    data: { phase: "end" },
-  });
-  assert.equal(goalWait(f.service.goals, chat), null);
-  // Before it wrote anything, the Gateway's record reports it.
   background(
     f,
     () => false,

@@ -1,4 +1,4 @@
-import { openClawError } from "./exec-continuation-fixture.js";
+import { openClawError } from "./agent-run-fixture.js";
 import {
   execBounds,
   execEvidence,

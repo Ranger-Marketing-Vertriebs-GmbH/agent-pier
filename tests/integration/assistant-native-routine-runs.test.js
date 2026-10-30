@@ -383,7 +383,8 @@ test("a routine's own run may write in its workspace; reminders, check-ins and o
     capabilities: { memory: true, reminders: true },
   });
   assert.equal(write(nativeId(routine.id), { who: member.runtimeAgentId }), false);
-  // The owner's chat session without a running owner turn stays read-only.
+  // The owner's chat session without a running turn writes like his turn
+  // (AGENTPIER-276, owner-runs.js).
   assert.equal(
     bridge.toolPolicy({
       agentId: agent().runtimeAgentId,
@@ -391,7 +392,7 @@ test("a routine's own run may write in its workspace; reminders, check-ins and o
       toolName: "write",
       path: "memory/news-sent.md",
     }).allow,
-    false,
+    true,
   );
   // Memory or routines switched off, or the routine paused: no writes.
   f.store.updateAssistant(

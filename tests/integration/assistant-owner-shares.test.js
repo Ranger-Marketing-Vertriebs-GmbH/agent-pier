@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { execContinuationFixture } from "../helpers/exec-continuation-fixture.js";
+import { agentRunFixture } from "../helpers/agent-run-fixture.js";
 import { AgentShares } from "../../server/features/assistants/agent-shares.js";
 import { toolError } from "../../server/features/assistants/tool-errors.js";
 
@@ -14,7 +14,7 @@ import { toolError } from "../../server/features/assistants/tool-errors.js";
 // routine), whatever turn came before; only the file checks and other recipients'
 // rules still refuse.
 async function setup(t, options) {
-  const f = await execContinuationFixture(t, options);
+  const f = await agentRunFixture(t, options);
   f.assistants.shares = new AgentShares({
     assistants: f.assistants,
     channels: f.service,
@@ -41,17 +41,6 @@ async function setup(t, options) {
     return f.bridge.invoke({ ticket, action: "share_file", input });
   };
   const sent = () => f.audits.filter((e) => e.action === "assistant.sent");
-  const ended = async (runId) => {
-    await f.emit("agent_end", {}, { sessionKey: "session", runId });
-    f.assistants.completionRuns.observe({
-      runId,
-      sessionKey: "session",
-      stream: "lifecycle",
-      data: { phase: "end" },
-    });
-  };
-  // A native write of a completion run (the gate that still proves continuations).
-  const write = (ctx) => f.call("notes/render.md", { ctx });
   const files = () => f.service.outbox.all(f.channel.id).filter((e) => e.kind === "file");
   const telegram = {
     kind: "telegram",
@@ -60,19 +49,9 @@ async function setup(t, options) {
     userId: f.channel.userId,
     inputId: "input-1",
   };
-  return { ...f, leadRequests, file, share, sent, ended, write, files, telegram };
+  return { ...f, leadRequests, file, share, sent, files, telegram };
 }
 const forbidden = (error) => toolError(error).code === "FORBIDDEN";
-const nul =
-  "Execution command and arguments must not contain NUL bytes. Remove them and retry.";
-const failed = (text) => ({ content: [{ type: "text", text }], details: {} });
-// OpenClaw 2026.10.7's result of an error thrown inside the exec tool.
-const thrown = (error) => ({
-  content: [
-    { type: "text", text: JSON.stringify({ status: "error", tool: "exec", error }) },
-  ],
-  details: { status: "error", tool: "exec", error },
-});
 
 test("a follow-up after a background command shares whatever turn started it", async (t) => {
   for (const origin of [
@@ -119,46 +98,6 @@ test("a render shares after member results and newer messages of any kind", asyn
   }
   await f.eventTurn();
   assert.equal((await f.share()).status, "shared");
-});
-
-test("a rejected NUL-byte command never blocks the chat's later follow-ups", async (t) => {
-  const f = await setup(t);
-  // OpenClaw's supervisor refuses it before spawning anything.
-  await f.exec("earlier-run", { result: thrown(nul), error: nul });
-  await f.turn({ kind: "owner" });
-  const ctx = await f.eventTurn();
-  assert.equal((await f.share()).status, "shared");
-  // Writes and project folder actions, still proven, continue the owner turn too.
-  assert.equal(await f.write(ctx), true);
-});
-
-test("a follow-up run that started its own command continues its owner turn", async (t) => {
-  const f = await setup(t);
-  const source = await f.turn({ kind: "owner" }, { sessionId: "lucky-tidepool" });
-  // The render's completion run starts the export in the background.
-  await f.eventTurn("turn-1", { line: "Exec completed (lucky-ti, code 0) :: rendered" });
-  await f.exec("turn-1", { sessionId: "young-canyon" });
-  await f.ended("turn-1");
-  // The export's completion run.
-  const ctx = await f.eventTurn("turn-2", {
-    line: "Exec completed (young-ca, code 0) :: exported",
-  });
-  assert.equal((await f.share(undefined, "turn-2")).status, "shared");
-  assert.equal(await f.write(ctx), true);
-  assert.deepEqual(f.writes(), [["notes/render.md", source]]);
-});
-
-test("an uncertain exec call blocks other runs' follow-ups only while its run lasts", async (t) => {
-  const f = await setup(t);
-  await f.turn({ kind: "owner" });
-  // Another run's call ends in an error that may come after a backgrounded start.
-  await f.exec("other-run", { result: failed("Aborted"), error: "Aborted" });
-  const ctx = await f.eventTurn();
-  assert.equal(await f.write(ctx), false);
-  // Sharing with the owner never waits for it.
-  assert.equal((await f.share()).status, "shared");
-  await f.ended("other-run");
-  assert.equal(await f.write({ ...ctx }), true);
 });
 
 test("a routine's run shares from its workspace and the agent's project folders", async (t) => {
@@ -291,24 +230,6 @@ test("other recipients keep their rules: a user agent shares only in a turn", as
   await assert.rejects(
     g.share(undefined, "x", `agent:${g.agentId}:cron:job-2`),
     forbidden,
-  );
-});
-
-test("continuation refusals are logged with their time and reason", async (t) => {
-  const f = await setup(t);
-  const warnings = [];
-  f.bridge.warn = (message) => warnings.push(message);
-  await f.turn({ kind: "owner" });
-  await f.emit(
-    "before_tool_call",
-    { toolName: "exec", params: {} },
-    { agentId: f.agentId, sessionKey: "session", runId: "r9", toolCallId: "p1" },
-  );
-  assert.equal(await f.write(await f.eventTurn()), false);
-  assert.equal(warnings.length, 1);
-  assert.match(
-    warnings[0],
-    /^\[\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z\] Exec completion continuation refused for [^ ]+ \(UNTRACKED: pending\)\.$/,
   );
 });
 
