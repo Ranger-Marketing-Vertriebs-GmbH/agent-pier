@@ -3,6 +3,7 @@ import ConfirmDialog from "../../components/ConfirmDialog.jsx";
 import Icon from "../../components/Icon.jsx";
 import Segment from "../../components/Segment.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
+import useMediaQuery from "../../lib/useMediaQuery.js";
 import { projectGroupsCopy as copy } from "../../lib/i18n/messages/project-groups.js";
 import { projectsHubCopy as hubCopy } from "../../lib/i18n/messages/projects.js";
 import ProjectGroupMenu from "./ProjectGroupMenu.jsx";
@@ -12,6 +13,7 @@ import { projectMenuItems } from "./project-menu.js";
 import ProjectListSection from "./ProjectListSection.jsx";
 import { buildProjectSections, groupNameProblem } from "./project-groups.js";
 import { normalizePath } from "./project-paths.js";
+import useProjectDrag from "./useProjectDrag.js";
 import useProjectListPrefs from "./useProjectListPrefs.js";
 import "./project-list.css";
 
@@ -45,15 +47,44 @@ export default function ProjectList({
   const [deleting, setDeleting] = useState(null);
   const groupFocus = useRef(null);
   const { document } = groups;
-  const sections = useMemo(
-    () => buildProjectSections({ projects, document, view: prefs.view, query }),
-    [projects, document, prefs.view, query],
-  );
   const searching = query.trim() !== "";
+  const scroller = useRef(null);
+  // Drag and drop: a fine pointer, view "Groups", no search (rows may be hidden then).
+  const finePointer = useMediaQuery("(pointer: fine)");
+  const [announcement, setAnnouncement] = useState("");
+  const { drag, press } = useProjectDrag({
+    enabled: finePointer && prefs.view === "groups" && !searching,
+    scroller,
+    onOpen: (key) => prefs.isCollapsed(key) && prefs.toggleSection(key),
+    onDrop: (source, target) => {
+      if (target.type === "reorder")
+        return groups.moveGroupTo(source.groupId, target.index);
+      groups.moveProject(source.path, target.groupId);
+      const group = document.groups.find((entry) => entry.id === target.groupId);
+      setAnnouncement(copy.groupMoved(source.name, group ? group.name : copy.ungrouped));
+    },
+  });
+  const dragged = drag?.source;
+  const target = drag?.target;
+  const sections = useMemo(() => {
+    const list = buildProjectSections({ projects, document, view: prefs.view, query });
+    // A dragged project can always be dropped on "No group", even when it is empty.
+    if (dragged?.type === "project" && !list.some((entry) => entry.kind === "ungrouped"))
+      list.push({ key: "ungrouped", kind: "ungrouped", projects: [], count: 0 });
+    return list;
+  }, [projects, document, prefs.view, query, dragged]);
+  // The insertion line of a dragged group: before group `target.before`, or after the last.
+  const insertLine = (groupId) => {
+    if (target?.type !== "reorder") return "";
+    const index = document.groups.findIndex((group) => group.id === groupId);
+    if (index === target.before) return "before";
+    return index === document.groups.length - 1 && target.before === index + 1
+      ? "after"
+      : "";
+  };
   // Focus goes back once the row is gone: to the opener, or to the ⋯ of the project
   // it moved, whose row re-renders in its new section.
   const returnFocus = useRef(null);
-  const scroller = useRef(null);
   const closeCreate = () => {
     returnFocus.current = creating;
     setCreating(null);
@@ -159,7 +190,7 @@ export default function ProjectList({
           )}
         </div>
       </div>
-      <div className="project-list-scroller" ref={scroller}>
+      <div className={`project-list-scroller ${drag ? "dragging" : ""}`} ref={scroller}>
         {creating && (
           <ProjectGroupNameRow
             key={creating.path}
@@ -179,6 +210,14 @@ export default function ProjectList({
             title={sectionTitle(section)}
             open={searching || !prefs.isCollapsed(section.key)}
             onToggle={() => prefs.toggleSection(section.key)}
+            onPress={
+              press && section.kind === "group"
+                ? press({ type: "group", groupId: section.groupId })
+                : undefined
+            }
+            dragging={dragged?.type === "group" && dragged.groupId === section.groupId}
+            dropTarget={target?.type === "assign" && target.key === section.key}
+            insert={section.kind === "group" ? insertLine(section.groupId) : ""}
             editor={
               renaming && renaming === section.groupId ? (
                 <ProjectGroupNameRow
@@ -218,6 +257,13 @@ export default function ProjectList({
                   running={isRunning(item)}
                   selected={item.id === selectedId}
                   onSelect={onSelect}
+                  onPress={press?.({
+                    type: "project",
+                    path: item.path,
+                    name: item.name,
+                    groupId: current?.id ?? null,
+                  })}
+                  dragging={dragged?.type === "project" && dragged.path === item.path}
                   menuItems={projectMenuItems({
                     groups: document.groups,
                     current,
@@ -234,6 +280,9 @@ export default function ProjectList({
           <p className="project-no-matches">{copy.noMatches(query.trim())}</p>
         )}
       </div>
+      <p className="visually-hidden" role="status">
+        {announcement}
+      </p>
       {deleting && (
         <ConfirmDialog
           destructive

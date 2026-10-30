@@ -7,12 +7,18 @@ import { projectGroupsCopy as copy } from "../../lib/i18n/messages/project-group
  * only"): a sticky header button that opens and closes it, then its rows. A section
  * without `title` (the flat list) shows its rows without a header. `actions` sits next
  * to the toggle (a group's ⋯); `editor` replaces the whole header (the rename field).
+ * `onPress` starts a drag from the header; `dragging`, `dropTarget` and `insert`
+ * ("before" | "after" | "") style it during a drag (useProjectDrag.js).
  */
 export default function ProjectListSection({
   section,
   title,
   open,
   onToggle,
+  onPress,
+  dragging = false,
+  dropTarget = false,
+  insert = "",
   actions = null,
   editor = null,
   children,
@@ -20,7 +26,18 @@ export default function ProjectListSection({
   const id = useId();
   if (!title) return <div className="project-section-rows">{children}</div>;
   return (
-    <section className={`project-section ${section.kind}`} data-section={section.key}>
+    <section
+      className={[
+        "project-section",
+        section.kind,
+        dragging && "dragging",
+        dropTarget && "drop-target",
+        insert && `insert-${insert}`,
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      data-section={section.key}
+    >
       <div className="project-section-header">
         {editor || (
           <>
@@ -30,6 +47,7 @@ export default function ProjectListSection({
               aria-expanded={open}
               aria-controls={id}
               onClick={onToggle}
+              onPointerDown={onPress}
             >
               <Icon name="chevron" size={14} className="project-section-chevron" />
               <Icon name="folder" size={16} className="project-section-icon" />

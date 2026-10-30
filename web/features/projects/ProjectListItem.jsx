@@ -8,25 +8,31 @@ import { RowMenu, useRowMenu } from "../extensions/RowMenu.jsx";
 import { hintCount, remoteShort } from "./project-presentation.js";
 
 // A project row: name over `owner/repo` or "Local only", attention hints, "● Running"
-// while a session runs, and the ⋯ menu beside the row's own button.
+// while a session runs, and the ⋯ menu beside the row's own button. On desktop the
+// row's button also starts a drag (`onPress`, useProjectDrag.js).
 export default function ProjectListItem({
   item,
   attention,
   running,
   selected,
   onSelect,
+  onPress,
+  dragging = false,
   menuItems,
 }) {
   const menu = useRowMenu();
   const { decisions, failed } = attention;
   const label = groupsCopy.projectActions(item.name);
   return (
-    <div className={`project-row ${selected ? "selected" : ""}`}>
+    <div
+      className={`project-row ${selected ? "selected" : ""} ${dragging ? "dragging" : ""}`}
+    >
       <button
         type="button"
         className="project-row-main"
         aria-current={selected ? "true" : undefined}
         onClick={() => onSelect(item.id)}
+        onPointerDown={onPress}
       >
         <span className="project-item-text">
           <strong>{item.name}</strong>
