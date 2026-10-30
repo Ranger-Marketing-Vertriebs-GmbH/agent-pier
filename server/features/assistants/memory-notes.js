@@ -1,8 +1,9 @@
 // Quiet chat lines for memory that an agent could not write: a refused write to
 // MEMORY.md or memory/ (team-bridge.js) or an owner turn that ran before the write
 // guard was back (write-guard-wait.js). "shared-write" marks a saved write to a shared
-// agent's memory in the writing user's chat: it applies to all its users. The chat
-// translates `reason`.
+// agent's memory in the writing user's chat: it applies to all its users.
+// "main-restarted" opens the main chat that replaced an archived one
+// (main-chat-swap.js). The chat translates `reason`.
 export const memoryNoteReasons = [
   "guard-pending",
   "not-owner",
@@ -13,6 +14,7 @@ export const memoryNoteReasons = [
   "flush",
   "memory-step",
   "shared-write",
+  "main-restarted",
 ];
 const kept = 100;
 
