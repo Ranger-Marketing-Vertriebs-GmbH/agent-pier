@@ -17,7 +17,7 @@ _(German)_ are not translated yet.
 | [App and notifications](notifications.md)                  | Installing the app, push notifications and devices           |
 | [File Explorer](file-explorer.md)                          | Browsing, editing, uploading and recovering files            |
 | [Pipelines](pipelines.md)                                  | Task profiles, review pipelines and runs                     |
-| [Project memory](memory.md)                                | Shared project knowledge for sessions and agents             |
+| [Project memory](memory.md)                                | Project knowledge for sessions and agents; the Projects page |
 | [AgentBus](agentbus-integration.md) _(German)_             | Messages between sessions in the same project                |
 | [Artifacts](artifacts.md)                                  | Private pages published from sessions and agents             |
 | [MCP](mcp.md)                                              | AgentPier's MCP access for CLIs and central MCP servers      |
