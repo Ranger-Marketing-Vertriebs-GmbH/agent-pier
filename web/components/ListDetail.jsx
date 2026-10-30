@@ -1,5 +1,7 @@
 import React from "react";
 import Icon from "./Icon.jsx";
+// `list` replaces the default caption and item buttons with a page's own list (the
+// projects page); the `nav` landmark and the phone list/detail switch stay.
 export default function ListDetail({
   listLabel,
   count,
@@ -7,6 +9,7 @@ export default function ListDetail({
   selectedId,
   onSelect,
   renderItem,
+  list,
   detail,
   mobileBackLabel,
   disabled = false,
@@ -20,24 +23,28 @@ export default function ListDetail({
         .join(" ")}
     >
       <nav className="list-detail-list" aria-label={listLabel}>
-        <p className="list-detail-caps" aria-hidden="true">
-          {listLabel}
-          {typeof count === "number" ? ` · ${count}` : ""}
-        </p>
-        <div className="list-detail-items">
-          {items.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={item.id === selectedId ? "selected" : ""}
-              aria-current={item.id === selectedId ? "true" : undefined}
-              disabled={disabled}
-              onClick={() => onSelect(item.id)}
-            >
-              {renderItem(item)}
-            </button>
-          ))}
-        </div>
+        {list ?? (
+          <>
+            <p className="list-detail-caps" aria-hidden="true">
+              {listLabel}
+              {typeof count === "number" ? ` · ${count}` : ""}
+            </p>
+            <div className="list-detail-items">
+              {items.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={item.id === selectedId ? "selected" : ""}
+                  aria-current={item.id === selectedId ? "true" : undefined}
+                  disabled={disabled}
+                  onClick={() => onSelect(item.id)}
+                >
+                  {renderItem(item)}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </nav>
       <div className="list-detail-detail">
         {mobileBackLabel && (

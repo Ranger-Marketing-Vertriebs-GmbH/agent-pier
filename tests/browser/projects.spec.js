@@ -5,6 +5,8 @@ import { hubFixture, hubRun, repositoryPath } from "./projects-fixture.js";
 
 const projectList = (page, name = "Projekte") =>
   page.getByRole("navigation", { name, exact: true });
+// One ⋯ button per project row.
+const projectRows = (list) => list.getByRole("button", { name: /^Aktionen für / });
 const noOverflow = (page) =>
   page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
 
@@ -15,7 +17,7 @@ test("the hub joins projects, selects the first one and resolves every id space"
   await page.goto(base + "/projects");
   await expect(page).toHaveURL(/\/projects\/m1$/);
   const list = projectList(page);
-  await expect(list.getByRole("button")).toHaveCount(2);
+  await expect(projectRows(list)).toHaveCount(2);
   const first = list.getByRole("button", { name: /^agent-pier/ });
   await expect(first).toHaveAttribute("aria-current", "true");
   await expect(first).toContainText("acme/agent-pier");
@@ -31,6 +33,7 @@ test("the hub joins projects, selects the first one and resolves every id space"
     "—",
     "Arbeit",
     repositoryPath,
+    "Ohne Gruppe",
   ]);
   for (const [tab, count] of [
     ["Wissen", "4"],
@@ -93,7 +96,7 @@ test("a failing source keeps the other projects listed and retry recovers", asyn
   controls.failMemory = false;
   await page.getByRole("button", { name: "Erneut versuchen" }).click();
   await expect(page.getByRole("alert")).toHaveCount(0);
-  await expect(list.getByRole("button")).toHaveCount(2);
+  await expect(projectRows(list)).toHaveCount(2);
   await expect(page).toHaveURL(/\/projects\/m1$/);
 });
 
@@ -121,7 +124,7 @@ test("mobile shows the list first, then the detail, and dialogs fit as sheets", 
   await hubFixture(page);
   await page.goto(base + "/projects");
   const list = projectList(page);
-  await expect(list.getByRole("button")).toHaveCount(2);
+  await expect(projectRows(list)).toHaveCount(2);
   await expect(page).toHaveURL(/\/projects$/);
   await expect(page.getByRole("tablist")).toHaveCount(0);
   expect(await noOverflow(page)).toBe(true);

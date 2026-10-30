@@ -1,0 +1,110 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import useLiveTopic from "../../lib/live/useLiveTopic.js";
+import { saveProjectGroups } from "./project-groups-api.js";
+import {
+  emptyGroupsDocument,
+  findGroupByName,
+  groupForPath,
+  normalizeGroupsDocument,
+  withAssignment,
+  withNewGroup,
+} from "./project-groups.js";
+
+// Menu actions report their own failures in `error`; callers need not catch.
+const quietly = (promise) => promise.catch(() => null);
+
+/**
+ * The owner's project groups (`/api/project-groups`), followed over the live topic
+ * `project-groups.changed`. Every change is an edit of the whole document: `update`
+ * queues it, shows it at once (optimistic), and PUTs it on top of the newest saved
+ * version. A conflict (409) adopts the server's document and drops the edit; any
+ * other error rolls it back and reports it in `error`.
+ */
+export default function useProjectGroups() {
+  const live = useLiveTopic("project-groups.changed", "/project-groups");
+  const saved = useRef(emptyGroupsDocument);
+  const [confirmed, setConfirmed] = useState(emptyGroupsDocument);
+  const [pending, setPending] = useState([]);
+  const [error, setError] = useState("");
+  const queue = useRef(Promise.resolve());
+
+  // Versions only grow; a late read never replaces a newer saved document.
+  const adopt = useCallback((document) => {
+    const next = normalizeGroupsDocument(document);
+    if (next.version < saved.current.version) return;
+    saved.current = next;
+    setConfirmed(next);
+  }, []);
+  useEffect(() => {
+    if (live.data) adopt(live.data);
+  }, [live.data, adopt]);
+
+  /**
+   * Applies `change(document) => document` and saves it. Resolves with the saved
+   * document, rejects with the error. `optimistic: false` shows the edit only once
+   * saved; `report: false` leaves the error to the caller (an inline field).
+   */
+  const update = useCallback(
+    (change, { optimistic = true, report = true } = {}) => {
+      const entry = { change };
+      if (optimistic) setPending((list) => [...list, entry]);
+      const run = async () => {
+        try {
+          const base = saved.current;
+          const next = change(base);
+          if (!next || next === base) return base;
+          adopt(await saveProjectGroups({ ...next, version: base.version }));
+          setError("");
+          return saved.current;
+        } catch (failure) {
+          if (failure.document) adopt(failure.document);
+          if (report) setError(failure.message);
+          throw failure;
+        } finally {
+          if (optimistic) setPending((list) => list.filter((item) => item !== entry));
+        }
+      };
+      const result = queue.current.then(run);
+      queue.current = result.catch(() => {});
+      return result;
+    },
+    [adopt],
+  );
+
+  const document = useMemo(
+    () => pending.reduce((current, { change }) => change(current) || current, confirmed),
+    [pending, confirmed],
+  );
+
+  const moveProject = useCallback(
+    (path, groupId) =>
+      quietly(update((current) => withAssignment(current, path, groupId))),
+    [update],
+  );
+  const removeProject = useCallback((path) => moveProject(path, null), [moveProject]);
+  // A new group gets its id from the server, so a project moves in a second save.
+  // Rejects (unreported) when the group cannot be created, for an inline message.
+  const createGroup = useCallback(
+    async (name, path = "") => {
+      const created = await update((current) => withNewGroup(current, name), {
+        optimistic: false,
+        report: false,
+      });
+      const group = findGroupByName(created, name);
+      if (path && group) await moveProject(path, group.id);
+      return group;
+    },
+    [update, moveProject],
+  );
+
+  return {
+    document,
+    loading: live.loading,
+    error: error || live.error,
+    groupOf: useCallback((path) => groupForPath(document, path), [document]),
+    update,
+    moveProject,
+    removeProject,
+    createGroup,
+  };
+}

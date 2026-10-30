@@ -14,8 +14,7 @@ import useLiveTopic, {
 import { AGENTBUS_SAFETY_MS } from "../agentbus/useAgentBusMessages.js";
 import { getCloneOperation, subscribeToClone } from "../repositories/cloneStore.js";
 import { normalizePath } from "./project-paths.js";
-
-export { normalizePath };
+import useProjectGroups from "./useProjectGroups.js";
 
 const sortKey = (project) => project.name.toLocaleLowerCase();
 
@@ -219,6 +218,7 @@ export default function useProjectHub() {
   const [version, setVersion] = useState(0);
   const [sweep, setSweep] = useState(0);
   const attention = useAttention(sweep);
+  const groups = useProjectGroups();
   // AgentBus is read once and again on each `changed` of `agentbus.changed` (its
   // queues, peers and sessions; without the live channel every 10 s), plus a safety
   // read every 60 s while visible. A reload reads it again with the other sources.
@@ -322,6 +322,8 @@ export default function useProjectHub() {
     retry,
     credentials: sources.credentials,
     attention,
+    // Project groups, keyed by normalised path (useProjectGroups.js).
+    groups,
     busProjects: busData.projects,
     busVersion: busData.version,
     busNote: busData.note,

@@ -67,7 +67,7 @@ test("an older entry of a folder stays hidden and merges only after confirmation
   });
   await page.goto(base + "/projects/m2");
   const list = page.getByRole("navigation", { name: "Projects", exact: true });
-  await expect(list.getByRole("button")).toHaveCount(2);
+  await expect(list.getByRole("button", { name: /^Actions for / })).toHaveCount(2);
   await expect(list.getByRole("button", { name: /^notes/ })).toHaveCount(1);
   const action = page.getByRole("button", { name: "Merge older entry" });
   await action.click();
@@ -105,7 +105,7 @@ test("an older entry of a folder stays hidden and merges only after confirmation
     { olderId: "m9", fingerprint: "f1" },
   ]);
   await expect(page.getByRole("button", { name: "Merge older entry" })).toHaveCount(0);
-  await expect(list.getByRole("button")).toHaveCount(2);
+  await expect(list.getByRole("button", { name: /^Actions for / })).toHaveCount(2);
 });
 
 test("a project without older entries offers no merge", async ({ page }) => {
