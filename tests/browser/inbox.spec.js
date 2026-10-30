@@ -101,6 +101,18 @@ test("a stale address says the item no longer waits", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Wartet nicht mehr" })).toBeVisible();
 });
 
+test("a request closed in the terminal says why it ended", async ({ page }) => {
+  await inboxFixture(page);
+  await page.goto(baseURL + "/inbox/approval/closed-natively");
+  await expect(page.getByText("Im Terminal beantwortet.")).toBeVisible();
+});
+
+test("a request closed in the terminal says why in English", async ({ page }) => {
+  await inboxFixture(page, { language: "en" });
+  await page.goto(baseURL + "/inbox/approval/closed-natively");
+  await expect(page.getByText("Answered in the terminal.")).toBeVisible();
+});
+
 test("on a phone in English the inbox opens from the header and answers in the detail", async ({
   page,
 }) => {

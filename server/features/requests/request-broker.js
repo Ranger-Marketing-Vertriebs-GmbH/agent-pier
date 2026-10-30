@@ -10,6 +10,8 @@ import { problem } from "../../lib/storage.js";
 import { requestCopy as copy } from "../../lib/i18n/de/requests.js";
 import { prepareRequests } from "./request-launch.js";
 import { refreshClaudeRuntime, confirmClaudeRuntime } from "./claude-runtime.js";
+import { hookScript } from "./claude-hook-handover.js";
+import { endCause, startupPresentations } from "./request-endings.js";
 import { validSession, requestValue, answerValue } from "./request-validation.js";
 import { messages, send } from "./wire.js";
 import { nativePushValue } from "./native-push.js";
@@ -166,7 +168,8 @@ export class RequestBroker {
       return prepareRequests(this, input);
     });
   }
-  emit(entry, action, source = "system", outcome = "success", decision, actor) {
+  /** `extra`: who answered (actorOf) or why the request ended (`{ cause }`). */
+  emit(entry, action, source = "system", outcome = "success", decision, extra) {
     if (action === "request.created") {
       if (this.created.has(entry.id)) return;
       this.created.add(entry.id);
@@ -190,10 +193,22 @@ export class RequestBroker {
           kind: entry.kind,
           outcome,
           source,
-          details: { kind: entry.kind, ...(decision ? { decision } : {}), ...actor },
+          details: {
+            kind: entry.kind,
+            // Claude's startup screens are not tool permissions; stats count them apart.
+            ...(startupPresentations.includes(entry.presentation)
+              ? { startup: true }
+              : {}),
+            ...(decision ? { decision } : {}),
+            ...extra,
+          },
         }),
       ).catch(() => {});
     } catch {}
+  }
+  /** A request ended without an answer from chat; `cause` says why (request-endings.js). */
+  expired(entry, cause) {
+    this.emit(entry, "request.expired", "system", "success", undefined, { cause });
   }
   /** Claude now shows its own approval dialog; chat must not just go blank. */
   terminalNotice(entry) {
@@ -248,9 +263,18 @@ export class RequestBroker {
               client !== socket &&
               client.owner?.id === owner.id &&
               client.owner?.epoch === owner.epoch
-            )
+            ) {
+              // The same channel again (a reconnect, or a hook that took over from
+              // an outdated one): its requests continue on this socket.
+              for (const entry of this.entries.values())
+                if (entry.socket === client) entry.socket = socket;
               client.destroy();
-          send(socket, { type: "ready" });
+            }
+          // A Claude hook learns which hook file is current (claude-hook-handover.js).
+          send(socket, {
+            type: "ready",
+            ...(owner.tool === "claude" ? { hook: hookScript } : {}),
+          });
           return;
         }
         const push = nativePushValue(message);
@@ -272,7 +296,7 @@ export class RequestBroker {
               old.nativeOutcome = "trusted";
             this.entries.delete(id);
             if (message.outcome === "timeout") this.terminalNotice(old);
-            this.emit(old, "request.expired");
+            this.expired(old, endCause(message.outcome));
           }
           return;
         }
@@ -325,7 +349,7 @@ export class RequestBroker {
       for (const [id, entry] of this.entries)
         if (entry.socket === socket) {
           this.entries.delete(id);
-          this.emit(entry, "request.expired");
+          this.expired(entry, "socket");
         }
       for (const delivery of this.deliveries.values())
         if (delivery.socket === socket) delivery.finish("unknown");
@@ -539,7 +563,7 @@ export class RequestBroker {
     for (const [id, entry] of this.entries)
       if (entry.sessionId === sessionId) {
         this.entries.delete(id);
-        this.emit(entry, "request.expired");
+        this.expired(entry, "discard");
       }
     if (removeLaunch) {
       if (this.claudeReloadRequired.delete(sessionId)) this.changed(sessionId);

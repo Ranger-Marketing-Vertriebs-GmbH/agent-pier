@@ -149,11 +149,44 @@ hook is still waiting. Both dialogs are active, so these rules apply:
   waiting. Verified against the session folders of Claude Code 2.1.285.
   According to the hooks reference, in-process teammates also carry
   `agent_id`. Where their transcript lives is unverified; if the derived file
-  never shows their call, their approvals keep the 590-second bound as before.
-- **No matching `tool_use`.** This covers calls found in no watched transcript,
-  for example after a future change of the transcript layout. A terminal
-  approval cannot be observed, so the hook keeps the earlier 590-second bound.
-  That bound stops a stale request from holding chat messages for a day.
+  never shows their call, the rules for unmatched calls below apply.
+- **No matching `tool_use`.** This covers calls whose recorded input differs
+  from the hook's, and calls found in no watched transcript, for example after
+  a future change of the transcript layout. Since 2026-10-30 such a card keeps
+  the full hook lifetime instead of leaving chat after 590 seconds. It closes
+  earlier when the transcript shows that Claude decided: a later `tool_result`
+  for an open call of the same tool (an approval or a denial in the terminal),
+  or a call from a later assistant message, which means Claude moved on
+  (`stale`). Calls of the same assistant message do not count, because Claude
+  streams several calls of one message before it runs them.
+- **A later call while the exact call waits.** A matched card ignores it and
+  closes only on its own call's result.
+
+Every request that ends without an answer from chat is audited as
+`request.expired` with `details.cause`: `timeout` (the hook lifetime ran out),
+`native` (decided in the CLI's own dialog or TUI), `stale` (the CLI moved on),
+`socket` (the request channel closed), `discard` (the session stopped) or
+`startup` (a Claude startup screen left the terminal). Claude's startup screens
+(folder trust, theme, API key and the other first-start dialogs) arrive as
+permissions; their audit entries carry `details.startup: true`, so statistics count
+them apart from tool permissions. The inbox shows the cause on a card that already
+ended.
+
+### Hooks across AgentPier updates (2026-10-30)
+
+New hook invocations always run the current release through the dispatcher. A hook
+that is already waiting when AgentPier updates keeps the code it started with, for
+up to the 24-hour lifetime. When such a hook reconnects, the broker's `ready`
+message names the current hook file (`hook`). If it differs from the file the hook
+runs, the hook hands its request over: it starts the dispatcher with the same hook
+payload and passes its occurrence key, channel epoch and deadline in
+`AGENTPIER_CLAUDE_HOOK_HANDOVER`. The successor joins the broker under the same
+epoch, the broker moves the request to the new socket, and the successor's answer
+reaches Claude through the waiting hook's output. The card, its id and its audit
+stay the same, and no session restart is needed. Hooks of releases before
+2026-10-30 cannot hand over; their requests end with their own rules. A Claude
+process that still caches a command from before the dispatcher shows the
+`/reload-plugins` hint described above.
 
 A focused terminal view hands pending tool approvals to Claude in the same way
 as questions. The "Answer in terminal" action does the same from chat. A

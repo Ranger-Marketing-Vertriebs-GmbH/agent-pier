@@ -49,5 +49,7 @@ export function itemHistory(audit, type, id, now = Date.now()) {
     at: event.createdAt,
     ...(event.details?.decision ? { decision: event.details.decision } : {}),
     ...(event.details?.channel ? { channel: event.details.channel } : {}),
+    // Why a request ended without an answer (request-endings.js).
+    ...(event.details?.cause ? { cause: event.details.cause } : {}),
   };
 }

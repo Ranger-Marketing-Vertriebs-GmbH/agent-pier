@@ -1,128 +1,26 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
-import { Readable, Writable } from "node:stream";
-import {
-  RequestBroker,
-  terminalNoticeMs,
-} from "../../server/features/requests/request-broker.js";
-import { runClaudeHook } from "../../server/features/requests/claude-hook.js";
+import { terminalNoticeMs } from "../../server/features/requests/request-broker.js";
 import { claudeHookTimeoutSeconds } from "../../server/features/requests/claude-runtime.js";
 import {
   subagentSession,
   subagentToolResult,
   subagentToolUse,
 } from "../fixtures/requests/claude-subagent-permission.js";
-
-const workflow = {
-  hook_event_name: "PermissionRequest",
-  tool_name: "Workflow",
-  tool_input: {
-    script:
-      "export const meta = { name: 'nightly-review', description: 'Review open PRs' };\n",
-  },
-};
-async function fixture(t) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-claude-permission-"));
-  const session = {
-    id: "session",
-    tool: "claude",
-    accountId: "account",
-    status: "running",
-    nativeRequests: { enabled: true },
-  };
-  const events = [];
-  const config = {
-    dataDir: root,
-    sessions: { get: async () => session },
-    onEvent: (event) => events.push(event),
-  };
-  let broker = new RequestBroker(config);
-  const launch = await broker.prepare({
-    id: session.id,
-    account: { id: session.accountId, tool: "claude" },
-    cwd: root,
-    launch: { command: "claude", args: [], env: {} },
-  });
-  t.after(async () => {
-    await broker.close();
-    await fs.rm(root, { recursive: true, force: true });
-  });
-  return {
-    root,
-    launch,
-    events,
-    get broker() {
-      return broker;
-    },
-    async restart() {
-      await broker.close();
-      broker = new RequestBroker(config);
-      await broker.ready;
-    },
-  };
-}
-function hook(f, payload = workflow, options = {}) {
-  let written = "";
-  const output = new Writable({
-    write(chunk, _encoding, callback) {
-      written += chunk;
-      callback();
-    },
-  });
-  const input = Readable.from([JSON.stringify(payload)]);
-  let ended = false;
-  const done = runClaudeHook({ input, output, env: f.launch.env, ...options }).then(
-    () => {
-      ended = true;
-    },
-  );
-  return { done, output: () => written, ended: () => ended };
-}
-// Polls through I/O turns only, so it also works while setTimeout is mocked.
-async function waitFor(read, predicate) {
-  const until = Date.now() + 5000;
-  while (Date.now() < until) {
-    const value = await read();
-    if (predicate(value)) return value;
-    await new Promise((resolve) => setImmediate(resolve));
-  }
-  throw Error("Claude permission observation timed out");
-}
-const turns = async (count = 50) => {
-  for (let i = 0; i < count; i++) await new Promise((resolve) => setImmediate(resolve));
-};
-// Claude records the tool call in its transcript before asking for approval.
-const toolUse = (payload, id = "toolu_probe") =>
-  JSON.stringify({
-    type: "assistant",
-    message: {
-      content: [
-        { type: "tool_use", id, name: payload.tool_name, input: payload.tool_input },
-      ],
-    },
-  }) + "\n";
-const toolResult = (id = "toolu_probe") =>
-  JSON.stringify({
-    type: "user",
-    message: { content: [{ type: "tool_result", tool_use_id: id, content: "done" }] },
-  }) + "\n";
-async function transcribed(f, payload = workflow) {
-  const file = path.join(f.root, "transcript.jsonl");
-  await fs.writeFile(
-    file,
-    '{"type":"user","message":{"content":"Go"}}\n' + toolUse(payload),
-  );
-  return { ...payload, transcript_path: file };
-}
-const state = (f) => f.broker.list("session");
-const pending = (f) =>
-  waitFor(
-    () => state(f),
-    (value) => value.requests.length === 1,
-  ).then((value) => value.requests[0]);
+import {
+  fixture,
+  hook,
+  pending,
+  state,
+  toolResult,
+  toolUse,
+  transcribed,
+  turns,
+  waitFor,
+  workflow,
+} from "../helpers/claude-hook-fixture.js";
 
 test("a Claude permission keeps waiting in chat past the old 590 s fallback", async (t) => {
   const f = await fixture(t);
@@ -162,10 +60,10 @@ for (const [name, extra] of [
   // An unsafe agent id is never joined into a path; the session transcript stays.
   ["an unsafe agent id", { agent_id: "../x" }],
 ])
-  test(`a permission of ${name} found in no transcript keeps the bounded wait`, async (t) => {
+  test(`a permission of ${name} found in no transcript waits for the hook's lifetime`, async (t) => {
     const f = await fixture(t);
     t.mock.timers.enable({ apis: ["setTimeout"] });
-    // A terminal approval cannot be observed here, so chat must not hold it for a day.
+    // No transcript shows the call: chat keeps it as long as any other request.
     const run = hook(f, {
       ...workflow,
       ...extra,
@@ -173,10 +71,10 @@ for (const [name, extra] of [
     });
     const request = await pending(f);
     await turns();
-    t.mock.timers.tick(589_000);
+    t.mock.timers.tick(590_000 + 5_000);
     await turns();
-    assert.equal(run.ended(), false);
-    t.mock.timers.tick(2_000);
+    assert.equal(run.ended(), false, "no bounded wait cuts an unmatched card off");
+    t.mock.timers.tick(claudeHookTimeoutSeconds * 1000 - 10_000 - 595_000);
     await run.done;
     assert.equal(run.output(), "");
     const after = await waitFor(
@@ -184,6 +82,8 @@ for (const [name, extra] of [
       (value) => !value.requests.length && value.notice,
     );
     assert.deepEqual(after.notice, { id: request.id, reason: "terminal" });
+    const ended = f.events.find((event) => event.action === "request.expired");
+    assert.equal(ended.details.cause, "timeout");
   });
 
 test("a subagent permission keeps waiting in chat past 590 s", async (t) => {
@@ -271,10 +171,11 @@ test("a subagent call decided in Claude's own dialog withdraws the chat request"
     (value) => !value.requests.length,
   );
   assert.equal(after.notice, undefined);
-  assert.ok(
-    f.events.some(
+  assert.equal(
+    f.events.find(
       (event) => event.action === "request.expired" && event.resourceId === request.id,
-    ),
+    )?.details.cause,
+    "native",
   );
 });
 

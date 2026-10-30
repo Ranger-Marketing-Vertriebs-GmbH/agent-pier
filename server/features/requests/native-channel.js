@@ -9,13 +9,24 @@ const maxRuns = 16;
 
 /** Reconnectable native-side channel. Only the native owner decides whether a request still exists. */
 export class NativeRequestChannel {
-  constructor({ env = process.env, onDisconnect = () => {}, adapterVersion } = {}) {
+  /**
+   * `epoch` continues another invocation's channel (claude-hook-handover.js);
+   * `onReady(message)` hears each ready, before pending requests are republished.
+   */
+  constructor({
+    env = process.env,
+    onDisconnect = () => {},
+    onReady = () => {},
+    adapterVersion,
+    epoch,
+  } = {}) {
     this.onDisconnect = onDisconnect;
+    this.onReady = onReady;
     this.adapterVersion = adapterVersion;
     this.launch = JSON.parse(fs.readFileSync(env.AGENTPIER_REQUEST_FILE, "utf8"));
     if (this.launch.token !== env.AGENTPIER_REQUEST_TOKEN)
       throw Error("Invalid native request launch");
-    this.epoch = randomUUID();
+    this.epoch = epoch ?? randomUUID();
     this.pending = new Map();
     // Reply text streaming now, whole: a reconnect sends it again from the start.
     this.runs = new Map();
@@ -41,6 +52,7 @@ export class NativeRequestChannel {
     messages(socket, async (message) => {
       if (message.type === "ready") {
         this.connected = true;
+        this.onReady(message);
         this.resolveReady();
         for (const [key, entry] of this.pending)
           if (entry.status === "pending")
@@ -137,6 +149,17 @@ export class NativeRequestChannel {
   resolve(key, outcome) {
     this.pending.delete(key);
     send(this.socket, { type: "resolved", key, ...(outcome ? { outcome } : {}) });
+  }
+  /**
+   * Stops reconnecting and forgets every request, but keeps the socket: a successor
+   * joining under the same epoch takes the requests over, and the broker then
+   * closes this socket. close() still ends it.
+   */
+  release() {
+    this.closed = true;
+    clearTimeout(this.timer);
+    this.pending.clear();
+    this.runs.clear();
   }
   close() {
     this.closed = true;

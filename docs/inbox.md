@@ -44,7 +44,10 @@ address, `/inbox/<type>/<id>`, where the type is `question`, `approval`, `gate`,
 `action` or `team`. An address of an item that no longer waits shows **Already done**
 with the decision and its time when the audit log recorded it within the last 24 hours,
 and **No longer waiting** otherwise (for example after the CLI dialog was answered in
-the terminal long ago, or an approval expired).
+the terminal long ago, or an approval expired). A native request that ended without an
+answer from AgentPier says why: answered in the terminal, the CLI moved on to a later
+step, the CLI stopped asking, the session ended, or it expired and the CLI asks in its
+own terminal dialog now.
 
 ## Claude Code approvals and plans
 

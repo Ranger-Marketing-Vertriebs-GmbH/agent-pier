@@ -5,6 +5,7 @@ import { NativeRequestChannel } from "./native-channel.js";
 import { questionsView, questionAnswers, claudeAnnotations } from "./native-questions.js";
 import { claudeHookVersion, claudeHookTimeoutSeconds } from "./claude-runtime.js";
 import { requestValue } from "./request-validation.js";
+import { handoverState, handOver, hookScript, outdated } from "./claude-hook-handover.js";
 import { subagentTranscriptPath, watchNativeDecision } from "./claude-native-decision.js";
 import { workflowMeta } from "./claude-workflow-meta.js";
 import {
@@ -13,11 +14,6 @@ import {
   planRequest,
   ruleText,
 } from "./claude-permission.js";
-
-// Without a transcript match a terminal approval cannot be observed, so such a
-// permission keeps the earlier bounded wait instead of holding chat for a day.
-// Subagent calls are matched in the subagent's own transcript.
-const unmatchedPermissionMs = 590000;
 
 // Model-facing text stays English like Claude's own tool results.
 function declineReason(questions, notes = {}) {
@@ -165,11 +161,16 @@ export function claudeRequest(data) {
   }
   return null;
 }
+/**
+ * `script` is the file this invocation runs from; a broker that runs a newer release
+ * names another one, and the hook hands its request over (claude-hook-handover.js).
+ */
 export async function runClaudeHook({
   input = process.stdin,
   output = process.stdout,
   env = process.env,
   timeout,
+  script = hookScript,
 } = {}) {
   let text = "";
   for await (const chunk of input) {
@@ -182,9 +183,15 @@ export async function runClaudeHook({
   // Unsupported payloads must fall back to Claude, not reconnect indefinitely
   // after the broker rejects the same unrenderable request.
   requestValue(request.view);
-  let channel, outcome;
+  let channel, outcome, successor;
+  // A hook that took over from an older release keeps its key, epoch and deadline,
+  // so the broker sees the same request.
+  const inherited = handoverState(env);
   // The hook invocation is the return channel; no fabricated provider request ID.
-  const key = randomUUID();
+  const key = inherited?.key ?? randomUUID();
+  const deadline =
+    inherited?.deadline ??
+    Date.now() + (timeout ?? claudeHookTimeoutSeconds * 1000 - 10000);
   await new Promise((resolve) => {
     let finished = false;
     const finish = (reason) => {
@@ -192,22 +199,15 @@ export async function runClaudeHook({
       finished = true;
       outcome = reason;
       clearTimeout(timer);
-      clearTimeout(unmatched);
       clearTimeout(connectTimer);
       stopWatching();
       resolve();
     };
     // Questions and permissions share one lifetime: both wait in chat until
-    // shortly before Claude's own hook timeout, a terminal handoff, or a
-    // decision in Claude's own dialog.
-    const timer = setTimeout(
-      () => finish("timeout"),
-      timeout ?? claudeHookTimeoutSeconds * 1000 - 10000,
-    );
-    const unmatched =
-      request.view.kind === "permission" && timeout === undefined
-        ? setTimeout(() => finish("timeout"), unmatchedPermissionMs)
-        : undefined;
+    // shortly before Claude's own hook timeout, a terminal handoff, a decision in
+    // Claude's own dialog or a later call that shows Claude moved on. A permission
+    // Claude's transcript does not show keeps that lifetime too.
+    const timer = setTimeout(() => finish("timeout"), Math.max(0, deadline - Date.now()));
     // A subagent's call is only in its own transcript. The session transcript is
     // not watched beside it: an identical main-agent call there would settle the
     // wrong request. Without a usable agent id the session transcript remains.
@@ -219,14 +219,32 @@ export async function runClaudeHook({
               data.transcript_path,
             toolName: data.tool_name,
             toolInput: data.tool_input,
-            onMatched: () => clearTimeout(unmatched),
-            onSettled: () => finish("native"),
+            onSettled: (reason) => finish(reason),
           })
         : () => {};
     const connectTimer = setTimeout(() => finish(), 10000);
     channel = new NativeRequestChannel({
       env,
       adapterVersion: claudeHookVersion,
+      epoch: inherited?.epoch,
+      // A broker of a newer release names its hook: this invocation's code is
+      // outdated, so the current one takes the waiting request over.
+      onReady: (ready) => {
+        if (finished || !outdated(ready.hook, script, inherited)) return;
+        channel.release();
+        successor = handOver({
+          env,
+          text,
+          output,
+          state: {
+            key,
+            epoch: channel.epoch,
+            deadline,
+            hops: (inherited?.hops ?? 0) + 1,
+          },
+        });
+        finish("handover");
+      },
       // A waiting request still belongs to this live invocation during a
       // server restart. Republish it after reconnect instead of losing it.
       onDisconnect: () => {},
@@ -252,6 +270,12 @@ export async function runClaudeHook({
       });
     });
   });
+  // The successor owns the request now and answers Claude through this output.
+  if (successor) {
+    await successor;
+    channel.close();
+    return;
+  }
   // Tell chat why the request ended: after a timeout Claude's own dialog is
   // the only one left; after a native decision nothing is waiting any more.
   channel.resolve(key, outcome);

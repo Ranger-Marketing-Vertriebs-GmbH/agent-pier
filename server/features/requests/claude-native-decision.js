@@ -39,6 +39,13 @@ export function subagentTranscriptPath(transcriptPath, rawId) {
   );
 }
 
+/**
+ * Watches the transcript until Claude decided this hook's call itself. `onSettled`
+ * hears why: `native` once the call (or, while no exact call is known, the
+ * latest open call of the same tool) has a result, which Claude also records for
+ * a denial; `stale` once a later assistant message makes another call, so Claude
+ * moved on and no dialog can still wait for this one.
+ */
 export function watchNativeDecision({
   transcriptPath,
   toolName,
@@ -59,6 +66,14 @@ export function watchNativeDecision({
     partial,
     candidates,
     resolved,
+    // Calls of the same tool, whatever their input: the fallback while no exact
+    // match exists (Claude may record the input differently than the hook sees it).
+    similar,
+    // Results and calls appended after the first read, and the assistant
+    // messages of that read (a message streams several calls before running them).
+    resolvedLater,
+    messages,
+    moved,
     target = null,
     matched = false,
     stopped = false,
@@ -69,10 +84,14 @@ export function watchNativeDecision({
     decoder = new StringDecoder("utf8");
     partial = "";
     candidates = [];
+    similar = [];
     resolved = new Set();
+    resolvedLater = new Set();
+    messages = new Set();
+    moved = false;
     target = null;
   };
-  const consider = (line, eligible) => {
+  const consider = (line, eligible, initial) => {
     let entry;
     try {
       entry = JSON.parse(line);
@@ -81,17 +100,23 @@ export function watchNativeDecision({
     }
     const content = entry?.message?.content;
     if (!Array.isArray(content)) return;
+    const message = entry.message.id;
+    if (entry.type === "assistant" && initial) messages.add(message);
     for (const part of content) {
-      if (
-        entry.type === "assistant" &&
-        part?.type === "tool_use" &&
-        typeof part.id === "string" &&
-        part.name === toolName &&
-        isDeepStrictEqual(part.input, toolInput)
-      )
-        candidates.push({ id: part.id, eligible });
-      if (entry.type === "user" && part?.type === "tool_result")
+      if (entry.type === "assistant" && part?.type === "tool_use") {
+        const exact =
+          typeof part.id === "string" &&
+          part.name === toolName &&
+          isDeepStrictEqual(part.input, toolInput);
+        if (exact) candidates.push({ id: part.id, eligible });
+        else if (!initial && !messages.has(message)) moved = true;
+        if (typeof part.id === "string" && part.name === toolName)
+          similar.push({ id: part.id, eligible });
+      }
+      if (entry.type === "user" && part?.type === "tool_result") {
         resolved.add(part.tool_use_id);
+        if (!initial) resolvedLater.add(part.tool_use_id);
+      }
     }
   };
   const read = async () => {
@@ -114,13 +139,14 @@ export function watchNativeDecision({
         partial = lines.pop();
         if (partial.length > lineChars) partial = "";
         lines.forEach((line, index) => {
-          if (line) consider(line, !initial || index >= lines.length - recentLines);
+          if (line)
+            consider(line, !initial || index >= lines.length - recentLines, initial);
         });
       }
     } finally {
       await handle.close();
     }
-    if (target && resolved.has(target)) return true;
+    if (target && resolved.has(target)) return "native";
     // The call this hook guards is the latest eligible one still unanswered.
     // Re-evaluated on every read: a later append can supersede a guess.
     target = candidates.findLast((c) => c.eligible && !resolved.has(c.id))?.id ?? null;
@@ -128,10 +154,13 @@ export function watchNativeDecision({
       matched = true;
       onMatched(target);
     }
-    return false;
+    if (target) return null;
+    // No exact call: a later result for an open call of the same tool decided it.
+    if (similar.some((c) => c.eligible && resolvedLater.has(c.id))) return "native";
+    return moved ? "stale" : null;
   };
   const tick = async () => {
-    let settled = false;
+    let settled = null;
     try {
       settled = await read();
     } catch {
@@ -141,7 +170,7 @@ export function watchNativeDecision({
     if (stopped) return;
     if (settled) {
       stopped = true;
-      onSettled();
+      onSettled(settled);
       return;
     }
     timer = setTimeout(tick, interval);

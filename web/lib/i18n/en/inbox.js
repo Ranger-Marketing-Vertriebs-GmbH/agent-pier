@@ -62,6 +62,14 @@ export const inboxCopy = {
     closed:
       "Ended outside the inbox, for example in the terminal, by expiring or because the session ended.",
     cancelled: "Cancelled",
+    causes: {
+      timeout: "Expired. The CLI asks in its own terminal dialog now.",
+      native: "Answered in the terminal.",
+      stale: "Closed because the CLI moved on to a later step.",
+      socket: "Closed because the CLI stopped asking.",
+      discard: "Closed because the session ended.",
+      startup: "The startup screen closed in the terminal.",
+    },
     at: (time) => `On ${time}`,
   },
   decisions: {
