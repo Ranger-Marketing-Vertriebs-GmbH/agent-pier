@@ -34,6 +34,8 @@ async function fixture(page) {
     else if (url.pathname === "/api/repositories")
       data = { credentials: [], projects: [] };
     else if (url.pathname === "/api/agentbus") data = { version: "test", projects: [] };
+    else if (url.pathname === "/api/project-groups")
+      data = { version: 0, groups: [], assignments: {} };
     else if (url.pathname === "/api/pipeline-runs")
       data = { runs: [], total: 0, page: 1, pageSize: 20 };
     else if (url.pathname === "/api/pipeline-run-counts") data = runCountsAnswer([]);

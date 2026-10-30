@@ -77,7 +77,7 @@ test("mobile repositories with long enterprise project names avoid horizontal ov
   await openRepositories(page);
   await page
     .getByRole("navigation", { name: "Projekte" })
-    .getByRole("button", { name: /a-long-enterprise-project-name/ })
+    .getByRole("button", { name: /^a-long-enterprise-project-name/ })
     .click();
   await expect(
     page.getByRole("heading", { name: "a-long-enterprise-project-name" }),
