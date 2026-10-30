@@ -106,7 +106,7 @@ export const galleryCopy = {
     asyncForm: "Form in a modal",
     sheet: "Sheet",
     unsaved: "Unsaved changes sheet",
-    rowMenu: "Actions for Sample",
+    rowMenu: "Actions for sample",
     rowMenuChoose: "Choose",
     rowMenuOption: (name) => `Option ${name}`,
     rowMenuSubtitle: "A sheet on phones, a menu on desktop",
