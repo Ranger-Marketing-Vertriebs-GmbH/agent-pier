@@ -7,7 +7,7 @@ import { SpeechOutputError } from "../../features/speech/speech-output.js";
 
 const refuse = (res, status, code) => res.status(status).json({ code });
 
-/** The talk session the owner's chat may hold: his own chats, not archived ones. */
+/** Whether a talk session may use this chat: the owner's own chats, not archived ones. */
 function talkable(assistants, conversationId) {
   if (typeof conversationId !== "string" || !conversationId) return false;
   let conversation;

@@ -862,7 +862,7 @@ behind it.
   `keepalive`) and when the chat closes. `GET /api/assistant-talk` says whether talk
   mode works (`available`, `reason`: `notConfigured`, `voiceMissing`, `agentsOff`),
   with which provider, and the running session. Only the owner reaches these routes
-  (they are agent routes, never under `/api/me`), only for his own chats: not a
+  (they are agent routes, never under `/api/me`), only for the owner's own chats: not a
   user's chat, not one of a user's own agent, not an archived chat; the web app also
   leaves it out of a task member's chat.
 - **Listening.** Each turn opens `/api/dictation/stream?talk=<id>`, the dictation
