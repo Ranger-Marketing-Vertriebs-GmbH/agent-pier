@@ -41,6 +41,11 @@ export function nativePushValue(message) {
       ...(message.event === "Stop" && text(message.lastAssistantMessage)
         ? { lastAssistantMessage: message.lastAssistantMessage }
         : {}),
+      // Who started a Claude turn: the owner's prompt or Claude's generated input.
+      ...(message.event === "UserPromptSubmit" &&
+      ["owner", "generated"].includes(message.prompt)
+        ? { prompt: message.prompt }
+        : {}),
       // A turn that ended at the CLI's rate limit or usage quota, and its message.
       ...(["StopFailure", "turn/completed"].includes(message.event) &&
       message.failure === "usage-limit"

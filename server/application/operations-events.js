@@ -63,6 +63,10 @@ export class OperationsEvents {
     this.waits = new Map();
     // Sessions whose CLI reported its usage limit, until a turn succeeds again.
     this.limits = new Set();
+    // Sessions whose CLI reports who starts its turns, and those with an owner's
+    // prompt whose turn has not finished yet (ownerStarted).
+    this.promptHooks = new Set();
+    this.ownerTurns = new Set();
     // Request pushes held while an agent controls their session, by request ID.
     // Held only in memory. The broker announces a request once, even when it returns
     // after a restart or a socket reconnect, so collect() also holds every open
@@ -216,6 +220,17 @@ export class OperationsEvents {
       ...sessionNotice(session),
     });
   }
+  /**
+   * Whether the turn that just finished was the owner's, consumed once. A CLI that
+   * never said who starts its turns (Codex, OpenCode, Claude without hooks) counts
+   * every turn as the owner's, as before.
+   */
+  ownerStarted(sessionId) {
+    if (!this.promptHooks.has(sessionId)) return true;
+    const owner = this.ownerTurns.has(sessionId);
+    this.ownerTurns.delete(sessionId);
+    return owner;
+  }
   transition(key, value) {
     const stored = this.notifications.observation(key);
     const previous = stored ? JSON.parse(stored) : null;
@@ -235,8 +250,17 @@ export class OperationsEvents {
    * turn is remembered at once, so a turn that ends before the next poll still
    * notifies as finished, and the push is checked now instead of at the next interval.
    */
-  nativeActivity(sessionId, event, { failure, detail } = {}) {
+  nativeActivity(sessionId, event, { failure, detail, prompt } = {}) {
     if (this.closed || typeof sessionId !== "string") return;
+    // Claude Code says who started a turn: the owner's prompt, or Claude's own input
+    // (a background task's notification). From then on only the owner's turns end in
+    // "Response ready" for this session.
+    if (event === "UserPromptSubmit" && ["owner", "generated"].includes(prompt)) {
+      this.promptHooks.add(sessionId);
+      if (prompt === "owner") this.ownerTurns.add(sessionId);
+      for (const set of [this.promptHooks, this.ownerTurns])
+        if (set.size > 1000) set.delete(set.values().next().value);
+    }
     if (failure === "usage-limit") this.limited(sessionId, detail).catch(this.onError);
     // A turn that finished normally ends the limit: the next one notifies again.
     else if (["Stop", "turn/completed"].includes(event)) this.limits.delete(sessionId);
@@ -345,8 +369,9 @@ export class OperationsEvents {
           outcome: "success",
           details: { kind: "completion", tool: session.tool },
         });
-        // An agent's session wakes the agent instead (session-wakes.js).
-        if (!this.controlled(session.id))
+        // An agent's session wakes the agent instead (session-wakes.js); a turn a
+        // background event started is no response to the owner.
+        if (this.ownerStarted(session.id) && !this.controlled(session.id))
           await this.notifications.notify({
             kind: "session-completed",
             eventId: activity.eventId,
