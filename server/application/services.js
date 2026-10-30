@@ -62,6 +62,8 @@ import { GithubMcpTool } from "../features/tools/github-mcp-tool.js";
 import { SessionActivity } from "../features/sessions/session-activity.js";
 import { AgentBus } from "../features/agentbus/agent-bus.js";
 import { Preferences } from "../features/settings/preferences.js";
+import { ProjectGroups } from "../features/projects/project-groups.js";
+import { projectGroupsChanged } from "../features/projects/live-topics.js";
 import { McpDirectory } from "../features/mcp-directory/client.js";
 import { SlashCommandService } from "../features/chat/slash-command-service.js";
 import { AccountStore, detectUtilities } from "../features/accounts/account-store.js";
@@ -93,6 +95,10 @@ export async function createServices(config) {
   const endpointTester = new EndpointTester({ connections: providerConnections });
   const accounts = new AccountStore({ ...config, providerCatalog, providerConnections });
   const preferences = new Preferences({ ...config, accounts });
+  const projectGroups = new ProjectGroups({
+    dataDir: config.dataDir,
+    onChange: () => projectGroupsChanged(services.live),
+  });
   // The MCP Registry, asked only on an owner request (docs/mcp.md); memory cache only.
   const mcpDirectory = new McpDirectory({
     settings: () => preferences.get().mcpDirectory,
@@ -510,6 +516,7 @@ export async function createServices(config) {
     plugins,
     agentbus,
     preferences,
+    projectGroups,
     mcpDirectory,
     nonoSandbox,
   };

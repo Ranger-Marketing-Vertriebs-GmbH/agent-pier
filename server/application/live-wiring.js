@@ -48,6 +48,7 @@ import {
   accountAuthTopic,
   followAccountWrites,
 } from "../features/accounts/live-auth-topics.js";
+import { projectGroupsChangedTopic } from "../features/projects/live-topics.js";
 import { attachLiveWebSocket } from "../http/live-websocket.js";
 import { userMayWatch, userTopics } from "../http/route-access.js";
 
@@ -110,6 +111,7 @@ export function createLiveHub(services, options = {}) {
   defineAgentBusTopic(hub, services);
   hub.define(projectsChangedTopic());
   watchProjectWrites(services, hub);
+  hub.define(projectGroupsChangedTopic());
   hub.define(accountAuthTopic(services));
   followAccountWrites(services, hub);
   // A restricted user's own topics, each scoped to her (route-access.js userTopics).
