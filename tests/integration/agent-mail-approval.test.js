@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { mailFixture } from "../helpers/agent-mail-fixture.js";
-import { waitFor } from "../helpers/agent-ssh-fixture.js";
+import { archiveMainChat, waitFor } from "../helpers/agent-ssh-fixture.js";
 import { toolError } from "../../server/features/assistants/tool-errors.js";
 import {
   mailApprovalMs,
@@ -396,4 +396,19 @@ test("concurrent sends never open more than 5 cards", async (t) => {
   // The refused calls' drafts went to Trash; the cards keep theirs.
   assert.equal(f.count("Drafts"), maxOpenMailApprovals);
   assert.equal(f.count("Trash"), 2);
+});
+
+test("a result after a main chat restart settles instead of retrying", async (t) => {
+  const f = await approvalFixture(t);
+  const result = await f.send();
+  const card = f.workflows.get(result.actionId);
+  await f.decide(card, "approve");
+  // The restart archives the main chat while the mail goes out.
+  archiveMainChat(f);
+  await waitFor(() => f.workflows.get(card.id).state === "completed");
+  await f.workflows.tick();
+  const after = f.workflows.get(card.id);
+  assert.equal(after.settled, true);
+  assert.equal(after.followUpRetryAt, undefined);
+  assert.equal(f.followUps.length, 1, "tried once, never re-queued");
 });

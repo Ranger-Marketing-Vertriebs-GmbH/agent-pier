@@ -1,7 +1,7 @@
 import { actionTerminal } from "./assistant-action-store.js";
 import { notifyAction } from "./assistant-action-notifications.js";
 import { assistantProblem } from "./assistant-validation.js";
-import { pairedTelegram } from "./team-coding.js";
+import { pairedTelegram, retriedFollowUp } from "./team-coding.js";
 import { commandDigest, redactedCommand } from "./agent-ssh-text.js";
 import { redactSecrets } from "../../lib/secret-redaction.js";
 
@@ -13,7 +13,6 @@ export const sshHoldMs = 110000;
 export const maxOpenSshApprovals = 3;
 export const sshDecisions = ["approve", "decline"];
 const followUpRetryMs = 300000;
-const retryable = new Set([409, 429, 503]);
 const diagnostics = {
   sshBusy: "SSH_BUSY",
   sshRevoked: "SSH_REVOKED",
@@ -298,7 +297,7 @@ export class SshApprovals {
       this.w.store.patch(a.id, { followUpSent: true, followUpRetryAt: undefined });
       return true;
     } catch (error) {
-      if (!retryable.has(error.status)) {
+      if (!retriedFollowUp(error)) {
         this.w.store.patch(a.id, { followUpSent: "failed" });
         return true;
       }
