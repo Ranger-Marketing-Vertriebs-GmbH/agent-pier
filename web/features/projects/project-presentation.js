@@ -1,5 +1,5 @@
 import { pipelineRunRoute, projectsRoute } from "./routes.js";
-import { normalizePath } from "./useProjectHub.js";
+import { normalizePath } from "./project-paths.js";
 
 // "https://github.com/acme/app.git" → "github.com/acme/app"
 export function remoteDisplay(url) {
