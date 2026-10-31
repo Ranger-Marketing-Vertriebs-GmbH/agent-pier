@@ -1,11 +1,10 @@
 // The owner's workspace state: the body of GET /api/state and the value of the live
 // `state` topic (live-state-topic.js). Sessions, accounts, connections, preferences
-// and the inbox count are read each time. The detected CLIs (with their versions),
-// the PATH utilities and the sessions left on a legacy tmux server change rarely and
-// cost a PATH scan or a tmux call, so they come from a cache that lasts `slowMs` or
-// until invalidateSlow(). Every read carries `readStartedAt`, a stamp that rises with
-// each read started (also across a restart, as it follows the clock), so the browser
-// can keep the newer of a pushed value and a REST answer.
+// and the inbox count are read each time. The detected CLIs (with their versions) and
+// the PATH utilities change rarely and cost a PATH scan, so they come from a cache
+// that lasts `slowMs` or until invalidateSlow(). Every read carries `readStartedAt`, a
+// stamp that rises with each read started (also across a restart, as it follows the
+// clock), so the browser can keep the newer of a pushed value and a REST answer.
 import path from "node:path";
 import { detectUtilities as detectPathUtilities } from "../accounts/account-store.js";
 import { toolBinDirectories } from "../tools/tool-paths.js";
@@ -13,7 +12,6 @@ import { chromiumUtility } from "../tools/chromium-installer.js";
 import { isManagedInstall, withCliVersions } from "../tools/cli-version.js";
 import { SessionProjects } from "./session-projects.js";
 import { publicSession } from "./session-public.js";
-import { legacyTmuxSessions as listLegacyTmux } from "./legacy-tmux-server.js";
 
 /**
  * `read({ fresh })` returns the current state (`fresh` detects the slow parts again);
@@ -31,7 +29,6 @@ export function createWorkspaceState(
     offerMs = 1000,
     now = Date.now,
     detectUtilities = detectPathUtilities,
-    legacyTmuxSessions = listLegacyTmux,
   } = {},
 ) {
   const projects = new SessionProjects();
@@ -54,23 +51,20 @@ export function createWorkspaceState(
   };
   const detect = async () => {
     const { config } = services;
-    const [tools, legacy] = await Promise.all([
-      // Never waits for a probe: a slow --version must not delay the app.
-      withCliVersions(services.tools(), {
-        managed: (tool) =>
-          isManagedInstall(tool.id, tool.path, {
-            home: config.home,
-            dataDir: config.dataDir,
-          }),
-      }),
-      legacyTmuxSessions(services.sessions).catch(() => []),
-    ]);
+    // Never waits for a probe: a slow --version must not delay the app.
+    const tools = await withCliVersions(services.tools(), {
+      managed: (tool) =>
+        isManagedInstall(tool.id, tool.path, {
+          home: config.home,
+          dataDir: config.dataDir,
+        }),
+    });
     const utilities = detectUtilities(
       { ...process.env, HOME: config.home },
       true,
       toolBinDirectories(config.dataDir),
     );
-    return { tools, utilities, legacy };
+    return { tools, utilities };
   };
   const slowParts = () => {
     if (slow && now() - slow.at < slowMs) return slow.value;
@@ -98,7 +92,7 @@ export function createWorkspaceState(
         readStartedAt = Math.min(readStartedAt, offer.listedAt);
         basedOn?.(offer.listedAt);
       }
-      const [{ tools, utilities, legacy }, listed] = await Promise.all([
+      const [{ tools, utilities }, listed] = await Promise.all([
         slowParts(),
         (offer ? Promise.resolve(offer.list) : sessions.list()).then((list) =>
           activity.enrich(list),
@@ -119,8 +113,6 @@ export function createWorkspaceState(
         // Never the SSH agent's token or binary paths (session-public.js).
         sessions: (await projects.enrich(listed)).map(publicSession),
         inbox: await inboxSummary(),
-        // Sessions still on the tmux server of a release from before the rename.
-        legacyTmux: { sessions: legacy },
         // With registered push devices, open pages report what they show (quiet while
         // visible, server/features/notifications/push-presence.js).
         pushDevices: services.notifications?.deviceCount?.() ?? 0,

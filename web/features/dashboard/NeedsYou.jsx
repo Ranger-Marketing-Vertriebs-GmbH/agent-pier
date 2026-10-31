@@ -21,7 +21,7 @@ import { statusPercent } from "./system-status-format.js";
 const inboxRoute = { view: "inbox" };
 
 /**
- * One card's words and action: `{ kind, title, sub, time, list, action }`, where
+ * One card's words and action: `{ kind, title, sub, time, action }`, where
  * `action` is `{ label, run }` or null. An inbox item opens in the Inbox's detail,
  * since the Inbox has no quick actions.
  */
@@ -110,13 +110,6 @@ function present(entry, { navigate, setModal, openStorage }) {
           run: () => navigate(subpage("updates")),
         },
       };
-    case "legacyTmux":
-      return {
-        kind,
-        title: systemStatusCopy.legacyTmuxTitle(entry.sessions.length),
-        sub: systemStatusCopy.legacyTmux(entry.sessions.length),
-        list: entry.sessions.map((session) => session.name || session.id),
-      };
     default:
       return { kind: "", title: "" };
   }
@@ -138,16 +131,6 @@ function Card({ card }) {
       </span>
       <strong>{card.title}</strong>
       {card.sub && <p>{card.sub}</p>}
-      {card.list && (
-        <ul
-          className="start-attention-list"
-          aria-label={systemStatusCopy.legacyTmuxSessions}
-        >
-          {card.list.map((name) => (
-            <li key={name}>{name}</li>
-          ))}
-        </ul>
-      )}
       {card.action && (
         <button
           type="button"
@@ -169,7 +152,6 @@ function Row({ card }) {
       <span className="start-row-text">
         <small className="start-attention-kind">{card.kind}</small>
         <strong>{card.title}</strong>
-        {card.list && <small>{card.list.join(" · ")}</small>}
       </span>
       {card.action && <Icon name="chevron" size={16} />}
     </>

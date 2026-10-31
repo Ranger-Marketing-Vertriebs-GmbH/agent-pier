@@ -33,7 +33,7 @@ test("release staging validates content and failed health restores the previous 
       schemaMin: 1,
       schemaMax: 2,
       platform: `${process.platform}-${process.arch}`,
-      tmuxNames: ["agentpier", "tuiui"],
+      tmuxNames: ["agentpier"],
     }),
   );
   await fs.symlink("releases/1.0.0", path.join(root, "current"));
@@ -43,7 +43,7 @@ test("release staging validates content and failed health restores the previous 
     schemaMin: 1,
     schemaMax: 2,
     platform: `${process.platform}-${process.arch}`,
-    tmuxNames: ["agentpier", "tuiui"],
+    tmuxNames: ["agentpier"],
   };
   const archive = gzipSync(
     JSON.stringify({

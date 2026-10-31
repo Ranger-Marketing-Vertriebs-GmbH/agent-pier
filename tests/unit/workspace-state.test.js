@@ -7,7 +7,7 @@ import {
 
 // The services GET /api/state reads, with counted detectors.
 function fixture({ slowMs = 60000 } = {}) {
-  const calls = { utilities: 0, tools: 0, legacy: 0, sessions: 0 };
+  const calls = { utilities: 0, tools: 0, sessions: 0 };
   let clock = 1000;
   let sessions = [{ id: "one", name: "Eins", cwd: "/nowhere" }];
   const services = {
@@ -41,10 +41,6 @@ function fixture({ slowMs = 60000 } = {}) {
       calls.utilities += 1;
       return [{ id: "git", utility: true, installed: true }];
     },
-    legacyTmuxSessions: async () => {
-      calls.legacy += 1;
-      return [];
-    },
   });
   return {
     state,
@@ -68,7 +64,6 @@ test("the state has the shape of GET /api/state", async () => {
       { id: "one", name: "Eins", cwd: "/nowhere", activity: null, repositoryName: null },
     ],
     inbox: { counts: { all: 0 } },
-    legacyTmux: { sessions: [] },
     pushDevices: 2,
     pushHealth: { devices: 2, lost: false, failing: true },
     home: "/home/owner",
@@ -100,8 +95,8 @@ test("two reads within slowMs detect tools and utilities once", async () => {
   assert.deepEqual(second.sessions, []);
   assert.equal(calls.sessions, 2);
   assert.deepEqual(
-    { utilities: calls.utilities, tools: calls.tools, legacy: calls.legacy },
-    { utilities: 1, tools: 1, legacy: 1 },
+    { utilities: calls.utilities, tools: calls.tools },
+    { utilities: 1, tools: 1 },
   );
 });
 

@@ -11,13 +11,6 @@ export const systemStatusCopy = {
   diskLowTitle: "Disk space is low",
   diskLow: (percent, threshold) =>
     `Only ${percent} is free on the drive that holds AgentPier's data (warning below ${threshold}). Delete old backups or unused data before the drive runs full.`,
-  legacyTmuxTitle: (count) =>
-    count === 1
-      ? "1 session still runs on the old tmux server"
-      : `${count} sessions still run on the old tmux server`,
-  legacyTmux: (count) =>
-    `Stop ${count === 1 ? "this session" : "these sessions"} when convenient; AgentPier then starts new sessions on the new server.`,
-  legacyTmuxSessions: "Sessions on the old tmux server",
   host: {
     computer: "This computer",
     cores: (count) => (count === 1 ? "1 core" : `${count} cores`),

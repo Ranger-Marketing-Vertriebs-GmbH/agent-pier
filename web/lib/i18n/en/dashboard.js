@@ -46,7 +46,6 @@ export const startPageCopy = {
     appUpdate: "AgentPier update",
     agentsStopped: "Agent service",
     diskLow: "Disk space",
-    legacyTmux: "Old tmux server",
     serviceError: "Service",
   },
   attention: {

@@ -17,8 +17,7 @@ you, in a column up to about 1180 px wide:
   actions. Then the host's own problems: AgentPier unreachable, [low disk
   space](#low-disk-space) (**Free up space** opens **Storage**), a stopped agent service,
   each CLI below its minimum version and each browser update (**Update**), Zugänge with
-  problems, a new AgentPier release and [sessions on the old tmux
-  server](#sessions-on-the-old-tmux-server). The section is hidden while nothing waits;
+  problems, and a new AgentPier release. The section is hidden while nothing waits;
   once it has shown on the open page it stays and says "All clear – nothing waits for
   you." when the last item is gone, so the page below does not jump.
   These sources are the ones the sidebar **Menu** shows as hints; the server pushes
@@ -282,29 +281,9 @@ that [receive notifications](notifications.md). The warning clears when at least
 free again; a disk that hovers around the threshold does not notify again, and neither
 does a restart during the same low-space episode.
 
-## Sessions on the old tmux server
-
-AgentPier was formerly called "tuiui". A tmux server that a release from before the
-rename started keeps running across updates, and AgentPier keeps using it while one of
-its sessions runs there, so no session is lost. Until then, **Needs you** on the start page
-and the **Sessions** list in the sidebar show a notice such as
-**2 sessions still run on the old tmux server** with the text "Stop these sessions when
-convenient; AgentPier then starts new sessions on the new server." and the names of
-those sessions. Stop them whenever it suits you (**Stop session**); new sessions join
-the old server until the last one there has stopped. The next session then starts on
-the new server, and the notice disappears. AgentPier never ends a running session; it
-ends the old server once only finished AgentPier sessions remain on it (no live process
-in any of their windows or panes), after recording
-their exits and last screens. A session on it that AgentPier did not start keeps the old
-server running. A session whose CLI has ended but that still has an extra window or
-pane with a live process, for example one the agent opened from its shell, shows as
-stopped in the list but still counts in the notice; **Stop session** ends it. See
-[architecture](architecture.md) for the details.
-
 ## API
 
-`GET /api/system-status` returns the bars, the warning, the sessions on the old tmux
-server (`legacyTmux.sessions`, id and name only), each running session's figures
+`GET /api/system-status` returns the bars, the warning, each running session's figures
 (`sessions`: `id`, `cpuPercent`, `rssBytes`; no name or folder) and the last 40 points
 of the history (`history`, 30-second buckets), and
 `GET /api/system-status/details` adds the host platform (`host.platform`, such as

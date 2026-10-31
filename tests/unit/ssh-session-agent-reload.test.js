@@ -149,7 +149,7 @@ test("a reload records the new agent before the CLI starts and drops the old one
     reconciledStops: new Map(),
     remember: async () => {},
     killSession: async () => {},
-    newSessionName: (x) => `tuiui-${x}`,
+    sessionName: (x) => `agentpier-${x}`,
     tmux: async (args) => {
       if (args[0] === "new-session") atStart = read();
       if (args[0] === "display-message") throw new Error("no server");

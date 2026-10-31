@@ -19,11 +19,6 @@ test("without a configured port the dev server keeps 5173 and proxies to 4380", 
 
 test("a port without a block moves only the proxy target", () => {
   assert.deepEqual(devPorts({ AGENTPIER_PORT: "4391" }), { backend: 4391, vite: 5173 });
-  assert.deepEqual(devPorts({ TUIUI_PORT: "4392" }), { backend: 4392, vite: 5173 });
-  assert.deepEqual(devPorts({ AGENTPIER_PORT: "4393", TUIUI_PORT: "4392" }), {
-    backend: 4393,
-    vite: 5173,
-  });
 });
 
 test("a leased block puts the backend on its first and Vite on its second port", () => {
@@ -92,8 +87,6 @@ const variables = [
   "AGENTPIER_PORT",
   "AGENTPIER_PORT_COUNT",
   "AGENTPIER_DEV",
-  "TUIUI_PORT",
-  "TUIUI_DEV",
 ];
 function environment(t, values) {
   const saved = Object.fromEntries(variables.map((key) => [key, process.env[key]]));

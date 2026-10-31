@@ -89,7 +89,7 @@ export function reapStaleTmuxServers({ now = Date.now() } = {}) {
       // Only a test server's private socket, never the default tmux server.
       if (
         typeof socketPath !== "string" ||
-        !/^\/tmp\/(agentpier|tuiui)-[^/]+\/tmux\.sock$/.test(socketPath) ||
+        !/^\/tmp\/agentpier-[^/]+\/tmux\.sock$/.test(socketPath) ||
         typeof tmuxPath !== "string" ||
         path.basename(tmuxPath) !== "tmux" ||
         entryFor(socketPath) !== file

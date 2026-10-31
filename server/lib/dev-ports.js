@@ -16,7 +16,7 @@ function integer(value) {
  * and Vite on its second, so parallel stages never collide. Invalid values throw.
  */
 export function devPorts(env = process.env) {
-  const configured = env.AGENTPIER_PORT || env.TUIUI_PORT;
+  const configured = env.AGENTPIER_PORT;
   const backend = configured ? integer(configured) : DEFAULT_BACKEND_PORT;
   if (!Number.isInteger(backend) || backend < 1024 || backend > 65535)
     throw new Error(messages.invalidServerPort);

@@ -11,13 +11,6 @@ export const systemStatusCopy = {
   diskLowTitle: "Speicherplatz wird knapp",
   diskLow: (percent, threshold) =>
     `Auf dem Laufwerk mit den AgentPier-Daten sind nur noch ${percent} frei (Warnung unter ${threshold}). Lösche alte Sicherungen oder ungenutzte Daten, bevor das Laufwerk voll ist.`,
-  legacyTmuxTitle: (count) =>
-    count === 1
-      ? "1 Session läuft noch auf dem alten tmux-Server"
-      : `${count} Sessions laufen noch auf dem alten tmux-Server`,
-  legacyTmux: (count) =>
-    `Stoppe ${count === 1 ? "diese Session" : "diese Sessions"}, wenn es dir passt; danach startet AgentPier neue Sessions auf dem neuen Server.`,
-  legacyTmuxSessions: "Sessions auf dem alten tmux-Server",
   host: {
     computer: "Dieser Computer",
     cores: (count) => (count === 1 ? "1 Kern" : `${count} Kerne`),

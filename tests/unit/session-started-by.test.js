@@ -78,8 +78,8 @@ test("buildSessionLaunch persists a valid startedBy and refuses malformed ones",
   const manager = {
     directory,
     file: (id) => path.join(directory, `${id}.json`),
-    target: (id) => `tuiui-${id}`,
-    newSessionName: (id) => `tuiui-${id}`,
+    target: (id) => `agentpier-${id}`,
+    sessionName: (id) => `agentpier-${id}`,
     save: async (session) =>
       fs.writeFileSync(
         path.join(directory, `${session.id}.json`),

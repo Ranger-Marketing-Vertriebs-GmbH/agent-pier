@@ -18,7 +18,6 @@ import { agentsHubRoute } from "../features/assistants/hub-routes.js";
 import { codingRoute } from "../features/coding/routes.js";
 import SessionRow from "./SessionRow.jsx";
 import InboxEntry from "../features/inbox/InboxEntry.jsx";
-import LegacyTmuxNotice from "../features/dashboard/LegacyTmuxNotice.jsx";
 // A link-styled icon button of a group head that navigates in-app.
 function HeadLink({ icon, label, route, navigate }) {
   return (
@@ -183,7 +182,6 @@ export default function Sidebar({
           activeKey={selected}
           actions={sessionActions}
         >
-          <LegacyTmuxNotice status={state.legacyTmux} className="sidebar-legacy-tmux" />
           <div className="session-list">
             {sessions.length ? (
               sessions.map((s) => (
