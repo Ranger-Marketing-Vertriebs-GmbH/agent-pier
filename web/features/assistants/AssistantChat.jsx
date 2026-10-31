@@ -36,6 +36,7 @@ import { takeBack } from "./queued-message.js";
 import useAwaitingConfirmation from "./unconfirmed-turn.js";
 import AgentRunState from "./AgentRunState.jsx";
 import useLongChat from "./useLongChat.js";
+import SummariseConfirm from "./SummariseConfirm.jsx";
 import summariseAction from "./chats/summarise-action.js";
 import { memoryStepTurn, stepsOf, useRetry } from "./run-steps.js";
 import OwnerChatBar from "./chats/OwnerChatBar.jsx";
@@ -402,6 +403,7 @@ export default function AssistantChat({
         navigate={navigate}
         summarise={summarise}
       />
+      <SummariseConfirm longChat={longChat} />
       <ChatStrips
         entry={activityFor(activity, assistant.id)}
         output={output}

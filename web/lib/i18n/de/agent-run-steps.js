@@ -60,6 +60,13 @@ export const agentRunStepsCopy = {
     "Dieser Chat ist lang. Nach Pausen dauert die erste Antwort länger, und ältere Details gehen leichter unter.",
   summarise: "Jetzt zusammenfassen",
   dismiss: "Ausblenden",
+  // Jetzt zusammenfassen fragt zuerst: die Zusammenfassung lässt sich nicht rückgängig machen (AGENTPIER-295).
+  summariseConfirm: {
+    title: "Diesen Chat zusammenfassen?",
+    body: "Ältere Nachrichten werden zu einer Zusammenfassung verdichtet. Details daraus können verloren gehen, und das lässt sich nicht rückgängig machen.",
+    busy: "Während die Zusammenfassung läuft, ist der Chat beschäftigt.",
+    confirm: "Zusammenfassen",
+  },
   compactOutcome: {
     memoryNotSaved: "Vor der Zusammenfassung wurden keine Erinnerungen gespeichert.",
     failed: "Die Zusammenfassung wurde nicht fertig. Der Chat ist wieder bereit.",

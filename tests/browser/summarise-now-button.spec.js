@@ -57,6 +57,11 @@ test("Summarize now works outside the long-chat state and waits while a turn run
   await page.evaluate(() => window.agentFeed.push("dinner"));
   await expect(button(page)).toBeEnabled();
   await button(page).click();
+  // It asks first (AGENTPIER-295): nothing is sent until the summary is confirmed.
+  const dialog = page.getByRole("dialog", { name: "Summarize this chat?" });
+  await expect(dialog).toBeVisible();
+  expect(compacts).toEqual([]);
+  await dialog.getByRole("button", { name: "Summarize", exact: true }).click();
   await expect(page.locator(".assistant-run-state")).toContainText("Summarising");
   await expect(button(page)).toBeDisabled();
   await expect(button(page)).toHaveAttribute("title", "A summary is already running.");
