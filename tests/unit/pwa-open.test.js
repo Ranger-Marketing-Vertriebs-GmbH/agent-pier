@@ -13,8 +13,10 @@ const publicFile = (name) => new URL(`../../public/${name}`, import.meta.url);
 // A window: `answer` is what its page replies to an open message (undefined: no
 // listener, as in an app version from before), `navigate` false for a platform
 // without WindowClient.navigate, "reject" for a window the worker does not control.
+// A page without an answer lets the worker's wait run out (`giveUp`).
 function windowClient(
   log,
+  giveUp,
   { url = `${origin}/`, answer, navigate = true, focus = true, focused = false } = {},
 ) {
   const client = {
@@ -29,6 +31,7 @@ function windowClient(
     postMessage: (message, [port]) => {
       log.push(["message", message.type, message.link]);
       if (answer !== undefined) port.postMessage({ opened: answer });
+      else giveUp();
     },
   };
   if (navigate)
@@ -44,7 +47,18 @@ function windowClient(
 function worker(windows = [], { decided = true } = {}) {
   const handlers = new Map(),
     log = [];
-  const clients = windows.map((options) => windowClient(log, options));
+  // The worker's wait for an answer runs on these timers, never on the clock: they
+  // run out only when a page leaves the message unanswered, so a page that answers
+  // always wins, however slowly its reply arrives.
+  const timers = new Set();
+  const giveUp = () =>
+    queueMicrotask(() => {
+      for (const timer of timers) {
+        timers.delete(timer);
+        timer.callback();
+      }
+    });
+  const clients = windows.map((options) => windowClient(log, giveUp, options));
   const scope = {
     navigator: { languages: ["en"] },
     location: { origin },
@@ -61,9 +75,12 @@ function worker(windows = [], { decided = true } = {}) {
     Response,
     JSON,
     MessageChannel,
-    // An unanswered open message gives up at once in tests.
-    setTimeout: (callback) => setTimeout(callback, 5),
-    clearTimeout,
+    setTimeout: (callback) => {
+      const timer = { callback };
+      timers.add(timer);
+      return timer;
+    },
+    clearTimeout: (timer) => timers.delete(timer),
     fetch: async (url) => {
       log.push(["fetch", url]);
       return new Response("{}", { status: decided ? 200 : 409 });
