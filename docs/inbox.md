@@ -73,7 +73,7 @@ Telegram channel stay with that user and never appear in the owner's inbox.
 These items send no push notification. They are reminders of work that already
 waits elsewhere, not new decisions, and several can appear at once after a day; a
 push for each would be noise. No existing event fits either: **Agent approval** means
-a new request to decide, and **Problems and updates** are host or session failures
+a new request to decide, and **Problems** are host or session failures
 ([notifications](notifications.md#what-notifies-you)). They do count in the inbox
 badge and the installed app's badge.
 

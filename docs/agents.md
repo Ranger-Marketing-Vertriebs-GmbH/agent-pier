@@ -1168,11 +1168,13 @@ access; on a shared agent or at a lower level the agent tells them Telegram deli
 not available, and results still reach their chat. Unpairing Telegram only stops that extra delivery; everything keeps
 running in the chat. Reminders and routines created before this kept their Telegram
 delivery. An agent whose check-ins were switched on but which had no paired Telegram
-chat (so it never checked in) starts checking in after the update, in its chat with a
-push notification; switch **Check in on its own** off if you do not want that. A check-in
-or routine result that also went to the paired Telegram chat sends no push
-notification unless a device turned on **Also what Telegram delivered**
-([notifications](notifications.md#what-notifies-you)). An agent waiting for an approval
+chat (so it never checked in) starts checking in after the update, in its chat;
+switch **Check in on its own** off if you do not want that. A due reminder sends a
+**Reminder you asked an agent for** push notification; check-ins and routine results
+notify only devices that turned on **Agent check-in** or **Routine or hook result**
+([notifications](notifications.md#what-notifies-you)). A check-in, reminder or routine
+result that also went to the paired Telegram chat sends no push notification unless a
+device turned on **Also what Telegram delivered**. An agent waiting for an approval
 or proposing a team sends an **Agent approval** push notification as well.
 
 - **Reminders** send a one-time or daily text, shown in the chat marked

@@ -70,10 +70,9 @@ export const notificationCopy = {
   },
   eventsGroup: "Events",
   eventGroups: {
-    waiting: "Waiting for you",
-    finished: "Finished",
-    agents: "Agents",
-    problems: "Problems and updates",
+    waiting: "Needs you",
+    problems: "Problems",
+    info: "For information",
   },
   events: {
     question: "Question from a CLI",
@@ -87,6 +86,7 @@ export const notificationCopy = {
     "pipeline-failed": "Pipeline failed",
     "agent-checkin": "Agent check-in",
     "agent-routine": "Routine or hook result",
+    "agent-reminder": "Reminder you asked an agent for",
     "agent-hook-throttled": "Hook limit reached",
     "session-limited": "Session reached its usage limit",
     "session-resume-failed": "Session could not be resumed",
@@ -95,7 +95,7 @@ export const notificationCopy = {
     telegram: "Also what Telegram delivered",
   },
   telegramSub:
-    "Check-ins, routine and hook results that also reached the agent's paired Telegram chat.",
+    "Check-ins, reminders, routine and hook results that also reached the agent's paired Telegram chat.",
   systemNote:
     "Delivery problems, Telegram access, GitHub tokens and low disk space always notify.",
   behaviourGroup: "Grouping and quiet",

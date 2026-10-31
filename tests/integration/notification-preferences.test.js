@@ -129,6 +129,7 @@ test("each device gets its own level, events and badge count", async (t) => {
 test("a reply's preview is read only when a device shows previews", async (t) => {
   const f = await fixture(t);
   const device = await f.add("phone");
+  await f.service.setPreferences(device.id, { events: { "session-completed": true } });
   let reads = 0;
   const completed = (eventId) => ({
     kind: "session-completed",
@@ -177,7 +178,8 @@ test("quiet hours hold pushes per device, in its own time zone", async (t) => {
 test("nothing is pushed about a view that was visible in the last 30 seconds", async (t) => {
   let now = Date.parse("2026-10-17T12:00:00Z");
   const f = await fixture(t, { now: () => now });
-  await f.add("phone");
+  const phone = await f.add("phone");
+  await f.service.setPreferences(phone.id, { events: { "session-completed": true } });
   assert.equal(f.service.reportPresence("/sessions/session-one/chat"), true);
   await f.service.notify(question("request-seen"));
   await f.service.notify({

@@ -121,8 +121,8 @@ test("without Telegram a reminder is shown in the main chat with a push, failure
   assert.deepEqual(
     f.pushes.map((p) => [p.kind, p.conversationId]),
     [
-      ["agent-routine", f.channel.conversationId],
-      ["agent-routine", f.channel.conversationId],
+      ["agent-reminder", f.channel.conversationId],
+      ["agent-reminder", f.channel.conversationId],
     ],
   );
   assert.equal(f.service.outbox.all(f.channel.id).length, 0);

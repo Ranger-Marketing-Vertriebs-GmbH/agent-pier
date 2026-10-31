@@ -57,6 +57,7 @@ const events = {
   ]),
   "agent-checkin": [{ assistantId: "a1", conversationId: "c1" }, { assistantId: "a1" }],
   "agent-routine": [{ assistantId: "a1", conversationId: "c1" }],
+  "agent-reminder": [{ assistantId: "a1", conversationId: "c1" }],
   "agent-hook-throttled": [{ assistantId: "a1", conversationId: "c1" }],
   "telegram-revocation": [{ assistantId: "a1" }, {}],
   "github-token": [{}],

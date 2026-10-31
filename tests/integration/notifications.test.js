@@ -105,6 +105,7 @@ test("push expiration removes only the failed device and transport errors do not
     label: "Phone",
     subscription: subscription(),
   });
+  await f.service.setPreferences(row.id, { events: { "session-ended": true } });
   const result = await f.service.test(row.id);
   assert.equal(result.sent, false);
   assert.equal(JSON.stringify(result).includes("fixture-secret"), false);

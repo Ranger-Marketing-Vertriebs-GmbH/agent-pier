@@ -8,8 +8,10 @@ import { problem } from "../../lib/storage.js";
 export const pushLevels = ["type", "label", "preview"];
 
 /**
- * The events a device can choose, with their defaults. `telegram` is not a kind: it
- * covers agent messages that the paired Telegram chat delivers as well.
+ * The events a device can choose, with their defaults: what needs the owner (a
+ * question, an approval, a gate) and what went wrong notify; what only informs is
+ * opt-in. `telegram` is not a kind: it covers agent messages that the paired Telegram
+ * chat delivers as well.
  */
 export const pushEventDefaults = Object.freeze({
   question: true,
@@ -17,16 +19,19 @@ export const pushEventDefaults = Object.freeze({
   "session-waiting": true,
   "pipeline-gate": true,
   "agent-approval": true,
-  "session-completed": true,
-  "session-ended": true,
+  "session-completed": false,
+  "session-ended": false,
   "pipeline-completed": false,
   "pipeline-failed": true,
-  "agent-checkin": true,
-  "agent-routine": true,
+  "agent-checkin": false,
+  "agent-routine": false,
+  // A reminder is what its person asked to be told, at the time they chose.
+  "agent-reminder": true,
+  // Later events wait unprocessed until the hour is over: a problem to fix.
   "agent-hook-throttled": true,
   "session-limited": true,
   "session-resume-failed": true,
-  "update-available": true,
+  "update-available": false,
   "update-failed": true,
   telegram: false,
 });
@@ -47,6 +52,20 @@ export const blockingKinds = new Set([
   "session-waiting",
   "pipeline-gate",
   "agent-approval",
+]);
+
+/**
+ * Informational kinds that notified by default before defaults 2 (AGENTPIER-298).
+ * Stored preferences do not tell a person's choice from a default, so the one-time
+ * migration (`migrateInformationalDefaults`) switches each of them off on every device
+ * that was there before; switched on again afterwards, a kind stays on.
+ */
+export const informationalKinds = Object.freeze([
+  "session-completed",
+  "session-ended",
+  "agent-checkin",
+  "agent-routine",
+  "update-available",
 ]);
 
 const timePattern = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
@@ -95,12 +114,14 @@ export function normalizePreferences(stored) {
   const events = { ...base.events };
   for (const key of pushEvents)
     if (typeof stored.events?.[key] === "boolean") events[key] = stored.events[key];
-  // Before it had its own switch, a hook's throttle notice was a routine result.
-  if (
-    typeof stored.events?.["agent-routine"] === "boolean" &&
-    stored.events["agent-hook-throttled"] === undefined
-  )
-    events["agent-hook-throttled"] = stored.events["agent-routine"];
+  // Before they had their own switches, a hook's throttle notice and a due reminder
+  // were routine results.
+  for (const kind of ["agent-hook-throttled", "agent-reminder"])
+    if (
+      typeof stored.events?.["agent-routine"] === "boolean" &&
+      stored.events[kind] === undefined
+    )
+      events[kind] = stored.events["agent-routine"];
   // Before the split, one switch covered every ended run.
   if (typeof stored.events?.["pipeline-ended"] === "boolean") {
     if (stored.events["pipeline-completed"] === undefined)
@@ -122,6 +143,35 @@ export function normalizePreferences(stored) {
     },
     timeZone: validTimeZone(stored.timeZone) ? stored.timeZone : null,
   };
+}
+
+/**
+ * One stored device's preferences under defaults 2: the informational kinds become
+ * explicit `false` (an older release reading them back honours that too). The hook
+ * throttle and reminder switches, which still followed the routine switch, keep their
+ * own value first. Every other field stays as stored. Returns null when nothing changes.
+ */
+export function migrateInformationalDefaults(stored = {}) {
+  // A device stored before preferences existed gets its events written out as well.
+  if (stored === null) stored = {};
+  if (typeof stored !== "object" || Array.isArray(stored)) return null;
+  const events =
+    stored.events && typeof stored.events === "object" && !Array.isArray(stored.events)
+      ? { ...stored.events }
+      : {};
+  const current = normalizePreferences(stored).events;
+  let changed = false;
+  for (const kind of ["agent-hook-throttled", "agent-reminder"])
+    if (typeof events[kind] !== "boolean") {
+      events[kind] = current[kind];
+      changed = true;
+    }
+  for (const kind of informationalKinds)
+    if (events[kind] !== false) {
+      events[kind] = false;
+      changed = true;
+    }
+  return changed ? { ...stored, events } : null;
 }
 
 const invalid = () => problem(serverMessages.notifications.invalidPreferences);

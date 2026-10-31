@@ -35,6 +35,10 @@ async function fixture(t) {
       },
     },
   });
+  // "Response ready" is opt-in; this device switched it on.
+  await notifications.setPreferences(device.id, {
+    events: { "session-completed": true },
+  });
   const ctx = {
     sent,
     device,
