@@ -169,7 +169,7 @@ test(
     await h.until(() => h.pushes.length, "push notice");
     assert.deepEqual(
       h.pushes.map((p) => [p.kind, p.conversationId]),
-      [["agent-routine", paired.conversationId]],
+      [["agent-reminder", paired.conversationId]],
     );
     t.diagnostic(`events=${JSON.stringify(h.events)}`);
   },
