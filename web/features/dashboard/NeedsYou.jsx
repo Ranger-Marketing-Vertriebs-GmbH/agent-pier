@@ -128,7 +128,9 @@ function Card({ card }) {
       <span className="start-attention-top">
         <span className="start-attention-kind">
           <Icon name="info" size={14} />
-          {card.kind}
+          <span className="start-attention-kind-text" title={card.kind}>
+            {card.kind}
+          </span>
         </span>
         {card.time && (
           <small className={card.time.urgent ? "start-warn" : ""}>{card.time.text}</small>
