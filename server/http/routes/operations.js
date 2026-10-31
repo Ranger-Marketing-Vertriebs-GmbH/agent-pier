@@ -6,7 +6,7 @@ import { rateLimit } from "express-rate-limit";
 import { pipeline } from "node:stream/promises";
 import { problem } from "../../lib/storage.js";
 import { releaseVersion } from "../../features/operations/release-archive.js";
-import { updateAvailable } from "../../application/release-events.js";
+import { updateSeen } from "../../application/release-events.js";
 function fields(body, names) {
   if (
     !body ||
@@ -218,8 +218,14 @@ export function operationsRoutes({ operations, releaseMigration, notifications }
   });
   router.post(`${root}/releases/check`, async (_req, res) => {
     const plan = await operations.releases.check();
-    // A newer version notifies the owner's devices once (release-events.js).
-    if (notifications) updateAvailable(notifications, plan).catch(() => {});
+    // A person started this check and sees its result: never a push, but the version
+    // counts as known, so the automatic check does not announce it later.
+    if (notifications)
+      try {
+        updateSeen(notifications, plan);
+      } catch {
+        // Recording is best effort; the check result is what the page needs.
+      }
     res.json({ plan });
   });
   router.post(`${root}/releases/stage`, (req, res) =>

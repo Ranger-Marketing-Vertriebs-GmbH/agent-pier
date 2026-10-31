@@ -2,19 +2,37 @@ import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 
-// The owner's update pushes: a newer release an update check found (once per
-// version), and a release that failed to stage, activate or roll back (once per job).
+// The owner's update pushes: a newer release the automatic update check found (once
+// per version, never one a check started by a person already showed), and a release
+// that failed to stage, activate or roll back (once per job).
 // Neither ever goes to Telegram or a user's device.
 
 const hashed = (value) => createHash("sha256").update(value).digest("hex").slice(0, 40);
 
-/** After an update check: a newer version notifies once, whoever checked. */
-export async function updateAvailable(notifications, plan) {
-  if (!plan || plan.upToDate || typeof plan.version !== "string") return;
+/**
+ * Records a newer version an update check found; true only the first time. Kept in
+ * the observations table, so a later check (or a restart) treats it as known.
+ */
+function firstSeen(notifications, plan) {
+  if (!plan || plan.upToDate || typeof plan.version !== "string") return null;
   const key = `update-available:${plan.version}`;
-  // Remembered, so a later check (or a restart) never announces it again.
-  if (notifications.observation(key) !== undefined) return;
+  if (notifications.observation(key) !== undefined) return null;
   notifications.observe(key, "notified");
+  return key;
+}
+
+/**
+ * After a check someone started: the owner already sees the result, so a newer
+ * version is only recorded as known and the automatic check never pushes for it.
+ */
+export function updateSeen(notifications, plan) {
+  firstSeen(notifications, plan);
+}
+
+/** After the automatic update check: a newer version notifies once. */
+export async function updateAvailable(notifications, plan) {
+  const key = firstSeen(notifications, plan);
+  if (!key) return;
   await notifications.notify({
     kind: "update-available",
     eventId: `update-${hashed(key)}`,

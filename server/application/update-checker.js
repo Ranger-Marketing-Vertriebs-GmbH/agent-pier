@@ -3,7 +3,8 @@ import { updateAvailable } from "./release-events.js";
 // The automatic update check: once a few minutes after the server started, then once a
 // day, on the owner's selected channel. It only checks (the same check as **Check for
 // updates**, which also refreshes the menu's update hint); it never stages or
-// activates anything. A newer version notifies once (release-events.js). Two requests
+// activates anything. Only this check pushes: a newer version notifies once, and never
+// one a check started by a person already found (release-events.js). Two requests
 // a day stay far below GitHub's unauthenticated rate limit for the preview channel.
 
 export const startDelayMs = 3 * 60 * 1000;
