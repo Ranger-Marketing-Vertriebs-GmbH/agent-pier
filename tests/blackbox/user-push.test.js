@@ -41,6 +41,19 @@ async function devices(t) {
   });
   assert.equal(response.status, 201, await response.clone().text());
   const mine = await response.json();
+  // Routine results are opt-in; both devices switch them on.
+  const optIn = { method: "PUT", body: { events: { "agent-routine": true } } };
+  for (const changed of [
+    await f.request(
+      `/api/notifications/subscriptions/${owner.subscription.id}/preferences`,
+      optIn,
+    ),
+    await as(f, anna.cookie)(
+      `/api/me/notifications/subscriptions/${mine.subscription.id}/preferences`,
+      optIn,
+    ),
+  ])
+    assert.equal(changed.status, 200, await changed.clone().text());
   const notifications = f.application.notifications;
   const deliveries = async (notice) => {
     sent.length = 0;
@@ -194,6 +207,12 @@ test("signing her out remotely forgets her other devices, never the owner's", as
       body: device(deviceId),
     });
     assert.equal(response.status, 201, await response.clone().text());
+    const { subscription } = await response.json();
+    const changed = await as(f, anna.cookie)(
+      `/api/me/notifications/subscriptions/${subscription.id}/preferences`,
+      { method: "PUT", body: { events: { "agent-routine": true } } },
+    );
+    assert.equal(changed.status, 200, await changed.clone().text());
   };
   await register("family-ipad");
   assert.deepEqual(await deliveries({ ...hers, eventId: "r21" }), [

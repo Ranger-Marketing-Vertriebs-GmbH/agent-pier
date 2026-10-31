@@ -36,6 +36,18 @@ async function phones(f, anna) {
     body: device("anna-phone"),
   });
   assert.equal(hers.status, 201, await hers.clone().text());
+  // Check-ins are opt-in; both phones switch them on. Reminders notify by default.
+  const optIn = { method: "PUT", body: { events: { "agent-checkin": true } } };
+  const ownerId = (await owner.json()).subscription.id;
+  const hersId = (await hers.json()).subscription.id;
+  for (const changed of [
+    await f.request(`/api/notifications/subscriptions/${ownerId}/preferences`, optIn),
+    await as(f, anna.cookie)(
+      `/api/me/notifications/subscriptions/${hersId}/preferences`,
+      optIn,
+    ),
+  ])
+    assert.equal(changed.status, 200, await changed.clone().text());
   return sent;
 }
 

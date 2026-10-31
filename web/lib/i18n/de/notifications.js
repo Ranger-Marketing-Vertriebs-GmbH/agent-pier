@@ -71,10 +71,9 @@ export const notificationCopy = {
   },
   eventsGroup: "Ereignisse",
   eventGroups: {
-    waiting: "Wartet auf dich",
-    finished: "Fertig",
-    agents: "Agenten",
-    problems: "Probleme und Updates",
+    waiting: "Braucht dich",
+    problems: "Probleme",
+    info: "Zur Information",
   },
   events: {
     question: "Rückfrage einer CLI",
@@ -88,6 +87,7 @@ export const notificationCopy = {
     "pipeline-completed": "Pipeline abgeschlossen",
     "pipeline-failed": "Pipeline fehlgeschlagen",
     "agent-checkin": "Agent meldet sich",
+    "agent-reminder": "Erinnerung, um die du einen Agenten gebeten hast",
     "agent-routine": "Routine- oder Hook-Ergebnis",
     "agent-hook-throttled": "Hook-Limit erreicht",
     "session-limited": "Session hat ihr Nutzungslimit erreicht",
@@ -97,7 +97,7 @@ export const notificationCopy = {
     telegram: "Auch was Telegram schon zugestellt hat",
   },
   telegramSub:
-    "Check-ins und Ergebnisse von Routinen und Hooks, die auch im gekoppelten Telegram-Chat des Agenten ankamen.",
+    "Check-ins, Erinnerungen und Ergebnisse von Routinen und Hooks, die auch im gekoppelten Telegram-Chat des Agenten ankamen.",
   systemNote:
     "Zustellprobleme, Telegram-Zugang, GitHub-Token und knapper Speicherplatz melden sich immer.",
   behaviourGroup: "Bündeln und Ruhe",

@@ -1,8 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  blockingKinds,
   defaultPreferences,
+  informationalKinds,
   inQuietHours,
+  migrateInformationalDefaults,
+  newDevicePreferences,
   normalizePreferences,
   pushEventDefaults,
   updatePreferences,
@@ -39,6 +43,82 @@ test("new and older devices start at the event type only with the default events
   assert.equal(migrated.events.question, false);
   assert.equal(migrated.events.permission, true);
   assert.equal(migrated.events["pipeline-ended"], undefined);
+});
+
+test("by default only what needs the owner and what went wrong notifies", () => {
+  assert.deepEqual(pushEventDefaults, {
+    question: true,
+    permission: true,
+    "session-waiting": true,
+    "pipeline-gate": true,
+    "agent-approval": true,
+    "session-completed": false,
+    "session-ended": false,
+    "pipeline-completed": false,
+    "pipeline-failed": true,
+    "agent-checkin": false,
+    "agent-routine": false,
+    "agent-reminder": true,
+    "agent-hook-throttled": true,
+    "session-limited": true,
+    "session-resume-failed": true,
+    "update-available": false,
+    "update-failed": true,
+    telegram: false,
+  });
+  const now = Date.UTC(2026, 9, 31, 12);
+  for (const preferences of [defaultPreferences(), newDevicePreferences("UTC")]) {
+    for (const kind of blockingKinds)
+      assert.equal(wantsEvent(preferences, { kind }, now), true, kind);
+    for (const kind of informationalKinds)
+      assert.equal(wantsEvent(preferences, { kind }, now), false, kind);
+  }
+});
+
+test("the one-time migration switches only informational kinds off", () => {
+  const old = {
+    level: "preview",
+    events: {
+      question: true,
+      "session-completed": true,
+      "session-ended": true,
+      "agent-checkin": true,
+      "agent-routine": true,
+      "update-available": true,
+      "pipeline-completed": true,
+      "agent-hook-throttled": false,
+    },
+    quiet: { enabled: true, from: "23:00", to: "06:00", blockingThrough: true },
+    timeZone: "Europe/Berlin",
+  };
+  const migrated = migrateInformationalDefaults(old);
+  for (const kind of informationalKinds) assert.equal(migrated.events[kind], false, kind);
+  // Everything else stays as stored, including a kind the defaults never switched.
+  assert.equal(migrated.events.question, true);
+  assert.equal(migrated.events["pipeline-completed"], true);
+  assert.equal(migrated.events["agent-hook-throttled"], false);
+  assert.deepEqual(migrated.quiet, old.quiet);
+  assert.equal(migrated.level, "preview");
+  assert.equal(migrated.timeZone, "Europe/Berlin");
+  assert.equal(old.events["session-completed"], true, "the input is not changed");
+  // Already migrated: nothing to write.
+  assert.equal(migrateInformationalDefaults(migrated), null);
+  // A throttle switch that followed the routine switch keeps its value on its own.
+  const following = migrateInformationalDefaults({ events: { "agent-routine": true } });
+  assert.equal(following.events["agent-hook-throttled"], true);
+  assert.equal(normalizePreferences(following).events["agent-hook-throttled"], true);
+  // So does a due reminder, which used to be a routine result.
+  assert.equal(following.events["agent-reminder"], true);
+  assert.equal(following.events["agent-routine"], false);
+  const quiet = migrateInformationalDefaults({ events: { "agent-routine": false } });
+  assert.equal(quiet.events["agent-reminder"], false);
+  assert.equal(quiet.events["agent-hook-throttled"], false);
+  // A device stored before preferences existed gets its events written out.
+  for (const stored of [undefined, null, {}]) {
+    const written = migrateInformationalDefaults(stored);
+    for (const kind of informationalKinds) assert.equal(written.events[kind], false);
+    assert.deepEqual(normalizePreferences(written), defaultPreferences());
+  }
 });
 
 test("a hook's throttle notice is its own event and starts as the routine switch", () => {
@@ -141,7 +221,9 @@ test("a device receives only the events it chose", () => {
   const now = utc("12:00");
   assert.equal(wantsEvent(preferences, { kind: "pipeline-completed" }, now), false);
   assert.equal(wantsEvent(preferences, { kind: "pipeline-failed" }, now), true);
-  // A check-in the paired Telegram chat delivered too notifies only on opt-in.
+  // Check-ins are opt-in; one the paired Telegram chat delivered too needs both.
+  assert.equal(wantsEvent(preferences, { kind: "agent-checkin" }, now), false);
+  preferences.events["agent-checkin"] = true;
   assert.equal(wantsEvent(preferences, { kind: "agent-checkin" }, now), true);
   assert.equal(
     wantsEvent(preferences, { kind: "agent-checkin", telegram: true }, now),

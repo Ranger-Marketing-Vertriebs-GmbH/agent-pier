@@ -466,7 +466,8 @@ export class NativeReminders {
       Promise.resolve()
         .then(() =>
           this.notifications?.notify({
-            kind: "agent-routine",
+            // A due reminder is what its person asked for; a routine result informs.
+            kind: binding.kind === "routine" ? "agent-routine" : "agent-reminder",
             ...pushAudience(binding),
             assistantId: binding.assistantId,
             conversationId: recorded.conversation.id,

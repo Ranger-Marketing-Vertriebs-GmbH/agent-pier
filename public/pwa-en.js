@@ -54,8 +54,13 @@ self.agentPierNotificationCopyEn = {
     },
     "agent-routine": {
       title: "AgentPier: Routine or hook result",
-      body: "A routine, reminder or hook has written in an agent's chat.",
+      body: "A routine or hook has written in an agent's chat.",
       name: "Routine or hook result",
+    },
+    "agent-reminder": {
+      title: "AgentPier: Reminder",
+      body: "A reminder you asked an agent for is due. Open the agent's chat.",
+      name: "Reminder",
     },
     "agent-hook-throttled": {
       title: "AgentPier: Hook limit reached",

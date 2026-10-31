@@ -32,6 +32,9 @@ test("closed browser observes completion and every pipeline gate without replayi
       },
     },
   });
+  await notifications.setPreferences(device.id, {
+    events: { "session-completed": true },
+  });
   let state = "idle";
   const session = { id: "session-one", tool: "codex", status: "running" };
   const run = {

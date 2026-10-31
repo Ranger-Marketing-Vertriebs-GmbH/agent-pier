@@ -9,28 +9,49 @@ import { notificationCopy as copy } from "../../lib/i18n/messages/notifications.
 import useAsyncAction from "../../lib/useAsyncAction.js";
 
 // The events a device chooses, grouped as the server's defaults are
-// (server/features/notifications/push-preferences.js). System warnings always notify.
+// (server/features/notifications/push-preferences.js): what needs you and problems
+// notify by default, what only informs is opt-in. System warnings always notify.
 export const eventGroups = [
   [
     "waiting",
-    ["question", "permission", "session-waiting", "pipeline-gate", "agent-approval"],
+    [
+      "question",
+      "permission",
+      "session-waiting",
+      "pipeline-gate",
+      "agent-approval",
+      "agent-reminder",
+    ],
   ],
-  [
-    "finished",
-    ["session-completed", "session-ended", "pipeline-completed", "pipeline-failed"],
-  ],
-  ["agents", ["agent-checkin", "agent-routine", "agent-hook-throttled", "telegram"]],
   [
     "problems",
-    ["session-limited", "session-resume-failed", "update-available", "update-failed"],
+    [
+      "pipeline-failed",
+      "session-limited",
+      "session-resume-failed",
+      "agent-hook-throttled",
+      "update-failed",
+    ],
+  ],
+  [
+    "info",
+    [
+      "session-completed",
+      "session-ended",
+      "pipeline-completed",
+      "agent-checkin",
+      "agent-routine",
+      "update-available",
+      "telegram",
+    ],
   ],
 ];
-// A restricted user's devices get only her agents' notices (no sessions, pipelines
+// A restricted user's devices get only their agents' notices (no sessions, pipelines
 // or system notices: push-content.js sends those to the owner alone). Hooks are the
 // owner's alone, so neither is their throttle notice.
 export const userEventGroups = [
-  ["waiting", ["agent-approval"]],
-  ["agents", ["agent-checkin", "agent-routine", "telegram"]],
+  ["waiting", ["agent-approval", "agent-reminder"]],
+  ["info", ["agent-checkin", "agent-routine", "telegram"]],
 ];
 const levels = ["type", "label", "preview"];
 

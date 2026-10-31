@@ -172,6 +172,12 @@ const rows = [
     { view: "agents", assistantId: "a1", conversationId: "main" },
   ],
   [
+    "agent-reminder",
+    { assistantId: "a1", conversationId: "main" },
+    "/agents/a1/chats/main",
+    { view: "agents", assistantId: "a1", conversationId: "main" },
+  ],
+  [
     "agent-hook-throttled",
     { assistantId: "a1", conversationId: "main" },
     "/agents/a1/chats/main",

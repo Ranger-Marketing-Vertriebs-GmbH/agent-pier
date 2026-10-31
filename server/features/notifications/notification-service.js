@@ -7,6 +7,7 @@ import { problem, nameValue } from "../../lib/storage.js";
 import { pushId, pushSubscription, pushEvent } from "./push-validation.js";
 import { buildPayload, pushSource } from "./push-content.js";
 import {
+  migrateInformationalDefaults,
   newDevicePreferences,
   normalizePreferences,
   systemKinds,
@@ -49,6 +50,41 @@ function migrateNotifications(db) {
   db.exec(`PRAGMA user_version=${notificationSchema}`);
 }
 
+// Push defaults 2 (AGENTPIER-298) switched informational kinds off. Devices stored before
+// then move to them once, recorded in `settings`; a kind switched on again afterwards
+// stays on. Only explicit booleans are written, which older releases read unchanged;
+// they ignore the marker.
+export const pushDefaultsKey = "push-defaults";
+export const pushDefaultsVersion = "2";
+function migratePushDefaults(db) {
+  const marker = db
+    .prepare("SELECT value FROM settings WHERE key=?")
+    .get(pushDefaultsKey);
+  if (marker) return;
+  const update = db.prepare("UPDATE subscriptions SET public=? WHERE id=?");
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    for (const row of db.prepare("SELECT id,public FROM subscriptions").all()) {
+      let summary;
+      try {
+        summary = JSON.parse(row.public);
+      } catch {
+        continue;
+      }
+      const preferences = migrateInformationalDefaults(summary?.preferences);
+      if (preferences) update.run(JSON.stringify({ ...summary, preferences }), row.id);
+    }
+    db.prepare("INSERT INTO settings VALUES(?,?)").run(
+      pushDefaultsKey,
+      pushDefaultsVersion,
+    );
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
 export class NotificationService {
   constructor({
     dataDir,
@@ -77,6 +113,7 @@ export class NotificationService {
       "CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY,value TEXT NOT NULL); CREATE TABLE IF NOT EXISTS subscriptions (id TEXT PRIMARY KEY,device_id TEXT NOT NULL UNIQUE,public TEXT NOT NULL,secret TEXT NOT NULL); CREATE TABLE IF NOT EXISTS deliveries (event_id TEXT NOT NULL,subscription_id TEXT NOT NULL,status TEXT NOT NULL,PRIMARY KEY(event_id,subscription_id)); CREATE TABLE IF NOT EXISTS observations (id TEXT PRIMARY KEY,value TEXT NOT NULL);",
     );
     migrateNotifications(this.db);
+    migratePushDefaults(this.db);
     this.deliveries = new PushDeliveryLog(this.db, () => this.now());
     const existing = this.db
       .prepare("SELECT value FROM settings WHERE key='vapid'")

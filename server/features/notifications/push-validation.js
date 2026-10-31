@@ -65,8 +65,10 @@ export const pushKinds = [
   // a coding task, a memory entry, a member permission or a team proposal.
   "agent-approval",
   "agent-checkin",
-  // A routine, reminder or hook result in an agent's main chat.
+  // A routine or hook result in an agent's main chat.
   "agent-routine",
+  // A reminder the owner (or a user) asked an agent for is due.
+  "agent-reminder",
   // A hook went over its hourly limit: further events wake nobody this hour.
   "agent-hook-throttled",
   // An agent's own Telegram bot still runs after the owner revoked it.
@@ -104,6 +106,7 @@ export const approvalSubjects = [
 const agentKinds = [
   "agent-checkin",
   "agent-routine",
+  "agent-reminder",
   "agent-hook-throttled",
   "agent-approval",
 ];

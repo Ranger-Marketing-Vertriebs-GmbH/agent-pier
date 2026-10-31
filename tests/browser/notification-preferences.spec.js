@@ -47,22 +47,31 @@ for (const size of ["desktop", "phone"])
     await expect(dialog).toBeVisible();
     // A device stored without preferences keeps the event type only.
     await expect(dialog.getByRole("radio", { name: "Event type only" })).toBeChecked();
+    // What needs you and what went wrong notify by default; the rest is opt-in.
+    for (const name of ["Needs you", "Problems", "For information"])
+      await expect(dialog.getByRole("heading", { name, exact: true })).toBeVisible();
     for (const name of [
+      "Question from a CLI",
+      "Agent approval (shell, SSH, tasks, team proposals)",
+      "Pipeline failed",
       "Session reached its usage limit",
       "Session could not be resumed",
-      "Update available",
+      "Hook limit reached",
       "Update failed",
     ])
       await expect(dialog.getByRole("checkbox", { name })).toBeChecked();
-    await expect(dialog.getByRole("checkbox", { name: "Pipeline failed" })).toBeChecked();
-    await expect(
-      dialog.getByRole("checkbox", { name: "Pipeline completed" }),
-    ).not.toBeChecked();
-    await expect(
-      dialog.getByRole("checkbox", { name: "Also what Telegram delivered" }),
-    ).not.toBeChecked();
+    for (const name of [
+      "Response ready",
+      "Session ended",
+      "Pipeline completed",
+      "Agent check-in",
+      "Routine or hook result",
+      "Update available",
+      "Also what Telegram delivered",
+    ])
+      await expect(dialog.getByRole("checkbox", { name })).not.toBeChecked();
     await dialog.getByRole("radio", { name: "With preview" }).check();
-    await dialog.getByRole("checkbox", { name: "Session ended" }).uncheck();
+    await dialog.getByRole("checkbox", { name: "Response ready" }).check();
     await dialog.getByRole("checkbox", { name: "Pipeline completed" }).check();
     // A hook's throttle notice has its own switch beside routine results.
     await dialog.getByRole("checkbox", { name: "Hook limit reached" }).setChecked(false);
@@ -93,6 +102,7 @@ for (const size of ["desktop", "phone"])
       quiet: { enabled: true, from: "21:30", to: "06:45", blockingThrough: true },
     });
     expect(put.body.events).toMatchObject({
+      "session-completed": true,
       "session-ended": false,
       "pipeline-completed": true,
       "pipeline-failed": true,

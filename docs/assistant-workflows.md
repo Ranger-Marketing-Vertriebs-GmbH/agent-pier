@@ -456,7 +456,7 @@ for a CLI** push is held until the agent escalates the prompt or 15 minutes pass
 hold survives a restart and a reconnect of the session, and covers a startup or trust
 prompt the CLI asks while it launches), and **Session waiting in the terminal** and
 **Response ready** pushes are dropped, because the agent is woken instead. **Session
-ended** still notifies. Once the agent loses control (see below), held pushes are sent
+ended** still notifies on devices that switched it on. Once the agent loses control (see below), held pushes are sent
 and the session notifies like your own again. See
 [notifications](notifications.md#what-notifies-you).
 
@@ -754,7 +754,8 @@ reached", its own switch in the device's notification settings; a device that ha
 chat. Nothing is written to the chat for it.
 
 **Notify.** With **Notify** on, a result sends an `agent-routine` push notice
-("Routine or hook result") that opens the agent's chat and, with **Also send to
+("Routine or hook result", off by default on each device) that opens the agent's
+chat and, with **Also send to
 Telegram**, goes to the owner's paired Telegram chat (outbox kind `hook`, sent only
 while the hook is still enabled, its agent eligible, its Telegram right live and the
 chat the same). A failed run sends a short failure line there instead of a reply. A
