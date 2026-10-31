@@ -60,8 +60,9 @@ export default function VoiceFields({ voice, values, edit }) {
   const stored = openai ? voice?.hasOpenaiKey : voice?.hasElevenlabsKey;
   const keyField = openai ? "openaiApiKey" : "elevenlabsApiKey";
   const removeField = openai ? "removeOpenaiApiKey" : "removeElevenlabsApiKey";
+  // A group of its own, so its key state is never read as the Deepgram key's.
   return (
-    <>
+    <div className="accounts-detail-group" role="group" aria-labelledby="voice-settings">
       <GroupLabel id="voice-settings">{copy.title}</GroupLabel>
       <p className="accounts-note">{copy.description}</p>
       <p className="accounts-note">{copy.chatgptNote}</p>
@@ -77,7 +78,9 @@ export default function VoiceFields({ voice, values, edit }) {
         />
         <FieldRow
           label={openai ? copy.openaiKey : copy.elevenlabsKey}
-          help={stored ? copy.keySaved : copy.keyMissing}
+          help={(stored ? copy.keySaved : copy.keyMissing)(
+            openai ? copy.openai : copy.elevenlabs,
+          )}
         >
           <input
             type="password"
@@ -112,6 +115,6 @@ export default function VoiceFields({ voice, values, edit }) {
           </FieldRow>
         )}
       </ListCard>
-    </>
+    </div>
   );
 }

@@ -266,7 +266,11 @@ test("a changed Deepgram key asks to restart the agent service", async ({ page }
     .getByRole("alertdialog", { name: "Restart the agent service?" })
     .getByRole("button", { name: "Save and restart" })
     .click();
-  await expect(panel.getByText("No key configured", { exact: true })).toBeVisible();
+  await expect(
+    panel
+      .getByRole("group", { name: "Deepgram speech recognition" })
+      .getByText("No key configured", { exact: true }),
+  ).toBeVisible();
   expect(puts).toEqual([
     { revision: 1, model: "nova-3", language: "auto", removeApiKey: true },
     {
@@ -309,7 +313,11 @@ test("a new Deepgram key saved from the bar asks to restart first", async ({ pag
   const dialog = panel.getByRole("alertdialog", { name: "Restart the agent service?" });
   await expect(dialog).toContainText("Home");
   await dialog.getByRole("button", { name: "Save and restart" }).click();
-  await expect(panel.getByText("Key saved", { exact: false })).toBeVisible();
+  await expect(
+    panel
+      .getByRole("group", { name: "Deepgram speech recognition" })
+      .getByText("Key saved", { exact: false }),
+  ).toBeVisible();
   expect(puts.map((body) => [body.apiKey, body.confirmRestart ?? false])).toEqual([
     ["dg-fixture-key", false],
     ["dg-fixture-key", true],

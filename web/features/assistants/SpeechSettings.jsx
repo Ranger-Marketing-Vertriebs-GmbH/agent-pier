@@ -178,37 +178,39 @@ export default function SpeechSettings({ entry, usage, agentsEnabled, data, navi
             form.save();
           }}
         >
-          <p className="accounts-note" role="status">
-            {settings.hasSecret ? copy.saved : copy.missing}
-          </p>
-          <ListCard>
-            <FieldRow label={copy.key}>
-              <input
-                type="password"
-                autoComplete="new-password"
-                maxLength={1024}
-                value={draft.values.apiKey}
-                onChange={(event) => edit("apiKey", event.target.value)}
+          <div className="accounts-detail-group" role="group" aria-label={copy.group}>
+            <p className="accounts-note" role="status">
+              {settings.hasSecret ? copy.saved : copy.missing}
+            </p>
+            <ListCard>
+              <FieldRow label={copy.key}>
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  maxLength={1024}
+                  value={draft.values.apiKey}
+                  onChange={(event) => edit("apiKey", event.target.value)}
+                />
+              </FieldRow>
+              <FieldRow label={copy.model}>
+                <input
+                  required
+                  value={draft.values.model}
+                  onChange={(event) => edit("model", event.target.value)}
+                />
+              </FieldRow>
+              <SelectRow
+                label={copy.language}
+                value={draft.values.language}
+                onChange={(value) => edit("language", value)}
+                options={[
+                  { value: "auto", label: copy.auto },
+                  { value: "de", label: copy.german },
+                  { value: "en", label: copy.english },
+                ]}
               />
-            </FieldRow>
-            <FieldRow label={copy.model}>
-              <input
-                required
-                value={draft.values.model}
-                onChange={(event) => edit("model", event.target.value)}
-              />
-            </FieldRow>
-            <SelectRow
-              label={copy.language}
-              value={draft.values.language}
-              onChange={(value) => edit("language", value)}
-              options={[
-                { value: "auto", label: copy.auto },
-                { value: "de", label: copy.german },
-                { value: "en", label: copy.english },
-              ]}
-            />
-          </ListCard>
+            </ListCard>
+          </div>
           <ListCard>
             <ToggleRow
               label={copy.dictationSend}
