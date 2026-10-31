@@ -4892,7 +4892,8 @@ AgentPier's side:
   slow first reply after a pause (the cache expired) and older details the model
   misses, which is what the hint says. The owner reading under a user's opt-in never
   receives it: it measures her earlier messages too.
-- Summarize now and Hide (AGENTPIER-186, `server/features/assistants/long-chats.js`):
+- Summarize now and Hide (AGENTPIER-186, `server/features/assistants/long-chats.js`;
+  the browser asks first with a confirmation, `web/features/assistants/SummariseConfirm.jsx`):
   `POST /api/assistant-conversations/:id/compact` (the owner's own chats; the privacy
   guard answers 404 for a user's chat, opt-in or not) and
   `POST /api/me/conversations/:id/compact` (her own chats; another person's is the

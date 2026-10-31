@@ -4,8 +4,9 @@ import { agentChatsCopy as copy } from "../../../lib/i18n/messages/agent-chats.j
 
 /**
  * Summarize now in the owner's chat bar, at any time (AGENTPIER-263): the same action
- * as the long-chat hint's button. `reason` is why it cannot run now (it stays visible as
- * the tooltip and is announced); empty when it can. On a phone only the icon shows.
+ * as the long-chat hint's button, which asks first (SummariseConfirm.jsx). `reason` is
+ * why it cannot run now (it stays visible as the tooltip and is announced); empty when
+ * it can. On a phone only the icon shows.
  */
 export default function SummariseNowButton({ run, reason = "" }) {
   const reasonId = useId();

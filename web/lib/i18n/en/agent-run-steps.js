@@ -59,6 +59,13 @@ export const agentRunStepsCopy = {
     "This chat is long. After a pause the first reply takes longer, and older details are easier to miss.",
   summarise: "Summarize now",
   dismiss: "Hide",
+  // Summarize now asks first: the summary cannot be undone (AGENTPIER-295).
+  summariseConfirm: {
+    title: "Summarize this chat?",
+    body: "Older messages are condensed into a summary. Details in them may get lost, and this cannot be undone.",
+    busy: "The chat is busy while the summary runs.",
+    confirm: "Summarize",
+  },
   compactOutcome: {
     memoryNotSaved: "No memories were saved before the summary.",
     failed: "The summary did not finish. The chat is ready again.",

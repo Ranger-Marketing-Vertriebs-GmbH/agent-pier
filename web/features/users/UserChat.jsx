@@ -26,6 +26,7 @@ import { ReadOnlyComposer } from "../assistants/chats/ChatStates.jsx";
 import AgentRunState from "../assistants/AgentRunState.jsx";
 import { memoryStepTurn, stepsOf } from "../assistants/run-steps.js";
 import useLongChat from "../assistants/useLongChat.js";
+import SummariseConfirm from "../assistants/SummariseConfirm.jsx";
 import { userApi } from "./user-api.js";
 
 const sameTurn = (m, request) =>
@@ -262,6 +263,7 @@ export default function UserChat({
           />
         )}
       </div>
+      <SummariseConfirm longChat={longChat} />
     </section>
   );
 }

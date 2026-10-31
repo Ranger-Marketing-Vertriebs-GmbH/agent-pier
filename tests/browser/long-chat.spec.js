@@ -13,6 +13,10 @@ const languages = {
     hint: /This chat is long\./,
     summarise: "Summarize now",
     hide: "Hide",
+    confirmTitle: "Summarize this chat?",
+    confirm: "Summarize",
+    confirmBody: "Details in them may get lost, and this cannot be undone.",
+    cancel: "Cancel",
     summarising:
       "Summarising the conversation so far — this can take a few minutes for long chats.",
     note: "Earlier messages were summarised (about 150k → 9k tokens).",
@@ -27,6 +31,11 @@ const languages = {
     hint: /Dieser Chat ist lang\./,
     summarise: "Jetzt zusammenfassen",
     hide: "Ausblenden",
+    confirmTitle: "Diesen Chat zusammenfassen?",
+    confirm: "Zusammenfassen",
+    confirmBody:
+      "Details daraus können verloren gehen, und das lässt sich nicht rückgängig machen.",
+    cancel: "Abbrechen",
     summarising:
       "Fasst den bisherigen Verlauf zusammen – bei langen Chats kann das ein paar Minuten dauern.",
     note: "Ältere Nachrichten wurden zusammengefasst (etwa 150k → 9k Tokens).",
@@ -61,6 +70,13 @@ const note = {
   runId: null,
 };
 const hint = (page) => page.locator(".assistant-long-chat");
+// Summarize now asks first (AGENTPIER-295): only its confirm button sends the request.
+const summarise = async (page, copy) => {
+  await hint(page).getByRole("button", { name: copy.summarise }).click();
+  const dialog = page.getByRole("dialog", { name: copy.confirmTitle });
+  await dialog.getByRole("button", { name: copy.confirm, exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+};
 const synced = (page, id) =>
   page.waitForFunction((id) => window.agentFeed?.synced(id), id);
 const noSideScroll = async (page) =>
@@ -93,7 +109,7 @@ for (const [language, copy] of Object.entries(languages))
       await synced(page, "dinner");
       await expect(hint(page)).toContainText(copy.hint);
       await noSideScroll(page);
-      await hint(page).getByRole("button", { name: copy.summarise }).dblclick();
+      await summarise(page, copy);
       const status = page.locator(".assistant-run-state");
       await expect(status).toHaveText(copy.summarising);
       await expect(hint(page)).toHaveCount(0);
@@ -102,6 +118,34 @@ for (const [language, copy] of Object.entries(languages))
       await expect(status).not.toHaveText(copy.summarising);
       await expect(hint(page)).toHaveCount(0);
       expect(compacts).toEqual(["POST"]);
+    });
+
+    test("Summarize now asks first, and Cancel sends nothing", async ({ page }) => {
+      await chatFixture(page, { language, history: longHistory });
+      const compacts = [];
+      await page.route("**/api/assistant-conversations/dinner/compact", (route) => {
+        compacts.push(route.request().method());
+        return route.fulfill({ json: { compacted: false, running: true } });
+      });
+      await page.goto(baseURL + "/agents/home/chats/dinner");
+      await synced(page, "dinner");
+      await hint(page).getByRole("button", { name: copy.summarise }).click();
+      const dialog = page.getByRole("dialog", { name: copy.confirmTitle });
+      await expect(dialog).toBeVisible();
+      await expect(dialog).toContainText(copy.confirmBody);
+      // Cancel starts on focus, so Enter never summarises by accident.
+      await expect(dialog.getByRole("button", { name: copy.cancel })).toBeFocused();
+      await noSideScroll(page);
+      await dialog.getByRole("button", { name: copy.cancel }).click();
+      await expect(dialog).toHaveCount(0);
+      await expect(hint(page)).toBeVisible();
+      // Escape cancels as well.
+      await hint(page).getByRole("button", { name: copy.summarise }).click();
+      await expect(dialog).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(dialog).toHaveCount(0);
+      await expect(hint(page)).toBeVisible();
+      expect(compacts).toEqual([]);
     });
 
     test("Summarize now saves memories first, and says when none were saved", async ({
@@ -122,7 +166,7 @@ for (const [language, copy] of Object.entries(languages))
       });
       await page.goto(baseURL + "/agents/home/chats/dinner");
       await synced(page, "dinner");
-      await hint(page).getByRole("button", { name: copy.summarise }).click();
+      await summarise(page, copy);
       const status = page.locator(".assistant-run-state");
       await expect(status).toHaveText(copy.saving);
       await expect(hint(page)).toHaveCount(0);
@@ -194,7 +238,7 @@ for (const [language, copy] of Object.entries(languages))
       });
       await page.goto(baseURL + "/agents/home/chats/dinner");
       await synced(page, "dinner");
-      await hint(page).getByRole("button", { name: copy.summarise }).click();
+      await summarise(page, copy);
       const status = page.locator(".assistant-run-state");
       await expect(status).toHaveText(copy.summarising);
       await expect(page.getByRole("alert")).toHaveCount(0);
@@ -227,7 +271,7 @@ for (const [language, copy] of Object.entries(languages))
       );
       await page.goto(baseURL + "/agents/home/chats/dinner");
       await synced(page, "dinner");
-      await hint(page).getByRole("button", { name: copy.summarise }).click();
+      await summarise(page, copy);
       await expect(page.getByRole("alert")).toContainText(copy.nothing);
       await expect(hint(page)).toBeVisible();
       await hint(page).getByRole("button", { name: copy.hide }).click();
@@ -245,7 +289,7 @@ for (const [language, copy] of Object.entries(languages))
       await synced(page, "main");
       await expect(hint(page)).toContainText(copy.hint);
       await noSideScroll(page);
-      await hint(page).getByRole("button", { name: copy.summarise }).click();
+      await summarise(page, copy);
       await expect(hint(page)).toHaveCount(0);
       state.longChat = { main: true };
       await page.evaluate(() => window.agentFeed.push("main"));
