@@ -124,3 +124,27 @@ test("agents found off keep their card once; the next visit leaves it out", asyn
   await expect(card).toHaveCount(0);
   await expect(page.locator(".start-row-agents")).toHaveClass(/single/);
 });
+
+test("a Needs-you card keeps its kind and time on one line, as its skeleton does", async ({
+  page,
+}) => {
+  // A day later the times carry a date; a narrow card has no room for both in full.
+  await page.clock.install({ time: Date.now() + 86_400_000 });
+  await page.setViewportSize({ width: 860, height: 900 });
+  await serveLongLists(page);
+  await page.goto("/");
+  await loaded(page);
+  const cards = page.locator(".start-attention-card");
+  await expect(cards.first()).toContainText(/Waiting since .*\d.*,/);
+  for (const card of await cards.all()) {
+    // One 11px line, not two (a squeezed kind wraps inside itself).
+    const top = await card.locator(".start-attention-top").boundingBox();
+    expect(top.height).toBeLessThan(22);
+    const time = card.locator(".start-attention-top small");
+    expect(await time.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(
+      true,
+    );
+    const label = card.locator(".start-attention-kind-text");
+    await expect(label).toHaveAttribute("title", (await label.textContent()) ?? "");
+  }
+});
