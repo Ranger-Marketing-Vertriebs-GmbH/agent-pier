@@ -182,11 +182,15 @@ export function pushEvent(input) {
 const linkPattern =
   /^\/(?:|inbox(?:\/(?:question|approval|gate|action|team)\/[A-Za-z0-9_-]{1,120})?|sessions\/[A-Za-z0-9_-]{1,120}\/chat|pipelines\/runs\/[A-Za-z0-9_-]{1,120}|agents(?:\/[A-Za-z0-9_-]{1,120}\/(?:settings|chats\/[A-Za-z0-9_-]{1,120}))?|connections\?section=github|settings\/(?:github|notifications|updates))$/;
 
+const itemPattern =
+  /^\/inbox\/(?:question|approval|gate|action|team)\/[A-Za-z0-9_-]{1,120}$/;
+
 const messageKeys = [
   "v",
   "kind",
   "eventId",
   "link",
+  "item",
   "tag",
   "renotify",
   "count",
@@ -216,10 +220,12 @@ export function pushMessage(input) {
     payload.decide !== undefined &&
     (!decideModes.includes(payload.decide) ||
       !Number.isSafeInteger(payload.revision) ||
-      !/^\/inbox\/(?:approval|action)\//.test(payload.link || ""))
+      !/^\/inbox\/(?:approval|action)\//.test(payload.item || ""))
   )
     throw problem("Invalid notification kind.");
   if (typeof payload.link !== "string" || !linkPattern.test(payload.link))
+    throw problem("Invalid notification kind.");
+  if (payload.item !== undefined && !itemPattern.test(payload.item))
     throw problem("Invalid notification kind.");
   const text = JSON.stringify(payload);
   if (Buffer.byteLength(text, "utf8") > 1024) throw problem("Invalid notification kind.");

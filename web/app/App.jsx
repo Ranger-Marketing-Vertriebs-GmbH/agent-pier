@@ -11,7 +11,8 @@ import Sidebar from "./Sidebar.jsx";
 import AppDialogs from "./AppDialogs.jsx";
 import AppSearch from "./AppSearch.jsx";
 import SavePrompt from "../components/SavePrompt.jsx";
-import { defaultSessionMode, screenRoute } from "./routes.js";
+import { defaultSessionMode, readRoute, screenRoute } from "./routes.js";
+import { useNotificationOpen } from "../features/notifications/notification-open.js";
 import { CrossLinkOrigin } from "./cross-link.js";
 import DashboardPage from "../features/dashboard/DashboardPage.jsx";
 import useWorkspaceState from "./useWorkspaceState.js";
@@ -118,6 +119,13 @@ function Application() {
     ready,
     setMobileNav,
     setModal,
+  });
+  // A tapped push notification opens its page here when the app is already open.
+  useNotificationOpen((url) => {
+    const next = readRoute(url);
+    if (next.view === "missing") return false;
+    navigate(next);
+    return true;
   });
   // The page that shows the address: new areas render today's pages until they have
   // their own (route-screens.js); cross-links keep the address as their origin.
