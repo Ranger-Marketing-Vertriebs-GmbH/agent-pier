@@ -1,29 +1,15 @@
-import fs from "node:fs";
 import path from "node:path";
-import { runTestFiles } from "./test-runner.mjs";
+import { discoverTestFiles, runTestFiles } from "./test-runner.mjs";
 
 const strategies = ["unit", "integration", "blackbox", "property", "matrix"];
 const [strategy = "all", ...options] = process.argv.slice(2);
 if (strategy !== "all" && !strategies.includes(strategy)) {
   throw new Error(`Unknown test strategy: ${strategy}`);
 }
+// The checkout this script belongs to, never the current directory or the main
+// checkout of a worktree: every worktree runs only its own tests.
 const root = path.resolve(import.meta.dirname, "..");
-function collect(directory) {
-  if (!fs.existsSync(directory)) return [];
-  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const file = path.join(directory, entry.name);
-    return entry.isDirectory()
-      ? collect(file)
-      : entry.name.endsWith(".test.js")
-        ? [file]
-        : [];
-  });
-}
-const files = (
-  strategy === "all"
-    ? collect(path.join(root, "tests"))
-    : collect(path.join(root, "tests", strategy))
-).sort();
+const files = discoverTestFiles(root, strategy === "all" ? "" : strategy);
 if (!files.length) throw new Error(`No ${strategy} tests were discovered`);
 process.exitCode = runTestFiles({
   root,

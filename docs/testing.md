@@ -29,6 +29,14 @@ Run all Node strategies together:
 npm test
 ```
 
+`scripts/test.mjs` discovers `*.test.js` files under `tests/` of the checkout it belongs
+to, never of the current directory. Discovery skips `node_modules`, `dist`, `.git` and
+nested `.worktrees` folders and does not follow symbolic links, so a run in one
+worktree never collects a sibling worktree's tests. Source scans in tests resolve their
+folders from `import.meta.dirname` for the same reason. Parallel runs in different
+worktrees must also write their logs to different files: a shared log path mixes one
+run's failures into another's report.
+
 With `AGENTPIER_TEST_TIMEOUT_MS` (CI and local checks set it) every test file gets that
 per-test ceiling. A file whose tests need longer, such as a native package build or
 real CLIs in the matrix, declares its own in its first lines,

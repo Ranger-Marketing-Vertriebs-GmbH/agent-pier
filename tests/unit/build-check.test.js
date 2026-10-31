@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import {
   UPDATE_EVENT,
@@ -33,14 +34,35 @@ test("a differing build header raises one update event", (t) => {
   assert.equal(updateDetected(), true);
 });
 
-test("every client fetch passes through the build check", () => {
-  const root = path.resolve(import.meta.dirname, "../../web");
+// Client modules under webRoot that fetch without the build check. The scan stays in
+// the checkout this test belongs to: never a sibling or nested worktree.
+function unobservedFetches(webRoot) {
   const offenders = [];
-  for (const entry of fs.readdirSync(root, { recursive: true })) {
+  for (const entry of fs.readdirSync(webRoot, { recursive: true })) {
     if (!/\.(?:js|jsx)$/.test(entry) || entry.includes("i18n")) continue;
-    const source = fs.readFileSync(path.join(root, entry), "utf8");
+    const source = fs.readFileSync(path.join(webRoot, entry), "utf8");
     if (/\bfetch\(/.test(source) && !source.includes("observeBuild"))
       offenders.push(entry);
   }
-  assert.deepEqual(offenders, []);
+  return offenders;
+}
+
+test("every client fetch passes through the build check", () => {
+  assert.deepEqual(unobservedFetches(path.resolve(import.meta.dirname, "../../web")), []);
+});
+
+test("the fetch scan ignores a nested worktree beside its own web folder", (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-build-check-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const write = (name, body) => {
+    fs.mkdirSync(path.dirname(path.join(root, name)), { recursive: true });
+    fs.writeFileSync(path.join(root, name), body);
+  };
+  write("web/features/ok.js", 'observeBuild(await fetch("/api"));\n');
+  write(".worktrees/x/web/features/foo.js", 'await fetch("/api");\n');
+  assert.deepEqual(unobservedFetches(path.join(root, "web")), []);
+  write("web/features/foo.js", 'await fetch("/api");\n');
+  assert.deepEqual(unobservedFetches(path.join(root, "web")), [
+    path.join("features", "foo.js"),
+  ]);
 });
