@@ -74,22 +74,33 @@
   }
 
   const decidable = /^\/inbox\/(approval|action)\/([A-Za-z0-9_-]{1,120})$/;
+  const inboxItem = new RegExp(`^/inbox/(?:question|approval|gate|action|team)/${id}$`);
+
+  /**
+   * The inbox address of the item a payload waits as: its `item`, or the `link` of an
+   * older payload that still opened the inbox.
+   */
+  function item(payload) {
+    for (const value of [payload?.item, payload?.link])
+      if (typeof value === "string" && inboxItem.test(value)) return value;
+    return "";
+  }
 
   /**
    * Allow and Deny for an approval the server marked decidable, naming its inbox item
    * and revision; the platform shows them where it supports actions (not iOS).
    */
   function decision(payload) {
-    const item = decidable.exec(typeof payload.link === "string" ? payload.link : "");
+    const decided = decidable.exec(item(payload));
     if (
-      !item ||
+      !decided ||
       !["both", "deny"].includes(payload.decide) ||
       !Number.isSafeInteger(payload.revision)
     )
       return null;
     return {
-      type: item[1],
-      id: item[2],
+      type: decided[1],
+      id: decided[2],
       revision: payload.revision,
       allow: payload.decide === "both",
     };
@@ -122,6 +133,8 @@
         : {}),
       data: {
         link: target(payload),
+        // Where a failed Allow or Deny leads: the inbox item explains why.
+        ...(decide ? { item: item(payload) } : {}),
         ...(grouped ? { group: tag } : {}),
         ...(decide ? { decision: decide } : {}),
       },
@@ -135,5 +148,5 @@
       : null;
   }
 
-  self.agentPierNotificationRender = { render, options, target, badgeCount };
+  self.agentPierNotificationRender = { render, options, target, item, badgeCount };
 })();

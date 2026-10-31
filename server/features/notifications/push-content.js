@@ -107,10 +107,18 @@ export const safeToolName = (value) =>
 
 const segment = (value) => encodeURIComponent(value);
 
-/** The page a tap opens: the inbox item, or the exact session, chat or run. */
+/** The inbox address of the item an event waits as, or null. */
+export const pushItem = (event) =>
+  event.inbox ? `/inbox/${segment(event.inbox.type)}/${segment(event.inbox.id)}` : null;
+
+/**
+ * The page a tap opens: the exact session chat, agent chat or pipeline run, where a
+ * waiting question, approval, gate or team proposal shows its own card (as the inbox's
+ * "open in context" does). Only an item without such a place opens its inbox address.
+ */
 export function pushLink(event) {
-  if (event.inbox)
-    return `/inbox/${segment(event.inbox.type)}/${segment(event.inbox.id)}`;
+  if (event.inbox && !event.sessionId && !event.runId && !event.conversationId)
+    return pushItem(event);
   if (event.kind === "github-token") return "/connections?section=github";
   if (event.kind === "disk-space") return "/";
   if (event.kind === "update-available" || event.kind === "update-failed")
@@ -161,6 +169,9 @@ export function buildPayload(event, preferences, { count } = {}) {
     link: pushLink(event),
     tag: grouped ? source : event.eventId,
   };
+  // The inbox item Allow and Deny decide, and that opens when a decision fails.
+  const item = pushItem(event);
+  if (item) payload.item = item;
   // A replacement that still waits for the owner alerts again; others replace quietly.
   if (grouped && blockingKinds.has(event.kind)) payload.renotify = true;
   if (Number.isSafeInteger(count) && count >= 0) payload.count = Math.min(count, 999);

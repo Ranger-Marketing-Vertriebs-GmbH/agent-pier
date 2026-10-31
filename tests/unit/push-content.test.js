@@ -30,8 +30,9 @@ test("each detail level adds exactly its own fields", () => {
     v: 2,
     kind: "question",
     eventId: "request-one",
-    link: "/inbox/question/request-one",
+    link: "/sessions/session-one/chat",
     tag: "session:session-one",
+    item: "/inbox/question/request-one",
     renotify: true,
     count: 3,
   });
@@ -79,7 +80,9 @@ test("approvals never carry a preview; a team proposal shows its goal", () => {
   const payload = buildPayload(team, at("preview"));
   assert.equal(payload.preview, "Prepare the changelog for release 2.1");
   assert.equal(payload.subject, "team");
+  // Without the lead's chat the proposal opens its inbox item.
   assert.equal(payload.link, "/inbox/team/team-one");
+  assert.equal(payload.item, "/inbox/team/team-one");
   assert.equal(buildPayload(team, at("type")).subject, undefined);
 });
 
@@ -161,7 +164,7 @@ test("without grouping each notice has its own tag and never renotifies", () => 
   assert.equal(completed.link, "/sessions/s1/chat");
 });
 
-test("each event links to its inbox item or its exact view", () => {
+test("each event links to its exact view", () => {
   const link = (input) =>
     buildPayload(pushEvent({ eventId: "e1", ...input }), at("type")).link;
   assert.equal(
@@ -170,7 +173,7 @@ test("each event links to its inbox item or its exact view", () => {
   );
   assert.equal(
     link({ kind: "pipeline-gate", runId: "run-1", inbox: { type: "gate", id: "run-1" } }),
-    "/inbox/gate/run-1",
+    "/pipelines/runs/run-1",
   );
   assert.equal(
     link({ kind: "agent-checkin", assistantId: "a1", conversationId: "c1" }),

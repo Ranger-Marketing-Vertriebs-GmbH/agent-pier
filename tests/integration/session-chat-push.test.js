@@ -127,7 +127,9 @@ test("an open chat, a device's choice and its quiet hours hold the finished push
   await new Promise((resolve) => setTimeout(resolve, 20));
   await Promise.allSettled([...ctx.notifications.active]);
   assert.deepEqual(ctx.kinds(), ["permission"]);
-  assert.equal(ctx.sent[0].link, "/inbox/approval/request-one");
+  // The session's chat shows the approval's card; Allow and Deny name the inbox item.
+  assert.equal(ctx.sent[0].link, `/sessions/${ctx.session.id}/chat`);
+  assert.equal(ctx.sent[0].item, "/inbox/approval/request-one");
 });
 
 test("without registered devices a pushed turn start changes nothing", async (t) => {

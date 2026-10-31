@@ -131,16 +131,37 @@ an approval offers **Allow once** and **Deny** at every detail level:
 The button sends the decision with the browser's signed-in session. The notification
 names the exact inbox item and its revision, and the server decides only while that
 item still waits unchanged; otherwise, or when the device is offline or signed out, the
-inbox item opens instead. Decisions on agent approvals appear in the audit log with the
-channel `push`. iPhone and iPad show no buttons: tapping opens the inbox item.
+inbox item opens instead, which shows why. A decision that succeeds opens nothing.
+Decisions on agent approvals appear in the audit log with the channel `push`. iPhone
+and iPad show no buttons: tapping opens the place where the approval waits (see below).
 
 ### Opening a notification
 
-Opening a notification opens the matching view. Items that wait in the [inbox](inbox.md) open at their inbox address
-(`/inbox/<type>/<id>`), which shows **Already done** once they were answered elsewhere;
-everything else opens the exact session chat, agent chat or pipeline run. An agent
-notice opens the chat that produced it; check-ins, routine and reminder results open
-the agent's main chat.
+Opening a notification opens the exact place it is about, where a waiting item shows
+its own card to answer:
+
+| Notification                                                                    | Opens                                                                                      |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Question or approval from a CLI, session waiting, response ready, session ended | The session's chat (`/sessions/<id>/chat`)                                                 |
+| Session reached its usage limit, session could not be resumed                   | The session's chat                                                                         |
+| Pipeline waiting at a gate, pipeline completed or failed                        | The pipeline run (`/pipelines/runs/<id>`)                                                  |
+| Agent approval and team proposal                                                | The agent chat it was asked in, or the agent's main chat when that chat is gone            |
+| Agent check-in, routine or hook result, hook limit reached                      | The agent chat it was written to (`/agents/<agent>/chats/<chat>`)                          |
+| Update available, update failed                                                 | **Settings › Operations › Updates**                                                        |
+| Telegram access still active                                                    | The agent's settings, or **Agents** when no agent is named                                 |
+| Check GitHub token, disk space is low, test notification                        | **Connections › GitHub connections**, the start page, **Settings › App and notifications** |
+
+An item that has no such place (an agent approval of an agent without any chat of
+yours) opens its [inbox](inbox.md) address (`/inbox/<type>/<id>`), which shows **Already
+done** once it was answered elsewhere. A restricted user's approvals open the chat in
+their own app.
+
+When AgentPier is already open, the open window comes to the front and shows the page
+in place, without reloading, so unsaved changes still ask first; this also works in
+the installed app on iPhone and iPad, where a notification cannot reliably navigate an
+open window. A
+window of an older AgentPier version that does not answer is navigated instead. Only
+without any open window does a new one open.
 
 ## What notifies you
 
@@ -178,7 +199,7 @@ check every few seconds, and a turn that starts and finishes between two checks 
 counts as **Response ready**. A question or approval that AgentPier brokers notifies
 as **Question from a CLI** or **Approval for a CLI** only; **Session waiting in the
 terminal** is sent only for a wait that no such request covers. Every push opens the
-session's chat, or the inbox item for a question or approval.
+session's chat, where a question or approval shows its card.
 
 These always notify every device and cannot be switched off: **Telegram access still
 active** (a Telegram bot or person you removed could not be stopped; restart the agent

@@ -186,10 +186,66 @@ self.addEventListener("push", (event) => {
     }),
   );
 });
+// How long an open page has to confirm that it showed a tapped notice's page.
+const OPEN_CONFIRM_MS = 1500;
+// Asks an open AgentPier page to show `link` with its own router; true once it says so.
+function askToOpen(client, link) {
+  return new Promise((resolve) => {
+    let channel, timer;
+    const done = (opened) => {
+      clearTimeout(timer);
+      channel?.port1.close();
+      resolve(opened);
+    };
+    try {
+      channel = new MessageChannel();
+      timer = setTimeout(() => done(false), OPEN_CONFIRM_MS);
+      channel.port1.onmessage = (event) => done(event.data?.opened === true);
+      client.postMessage({ type: "agentpier-open", link }, [channel.port2]);
+    } catch {
+      done(false);
+    }
+  });
+}
+// Opens `link` (a validated app path) for a tap. An open AgentPier window comes to the
+// front first, while the tap still allows it, and then shows the page in place: its
+// router navigates on a message, which also works where WindowClient.navigate is
+// missing or unreliable (a standalone app on iPhone and iPad, a window this worker
+// does not control). A page that does not answer is navigated, and only without any
+// window, or when both fail, does a new one open.
+async function openLink(link) {
+  const target = new URL(link, self.location.origin).href;
+  const windows = (
+    await self.clients.matchAll({ type: "window", includeUncontrolled: true })
+  ).filter((client) => new URL(client.url).origin === self.location.origin);
+  const client =
+    windows.find((candidate) => candidate.url === target) ||
+    windows.find((candidate) => candidate.focused) ||
+    windows.find((candidate) => candidate.visibilityState === "visible") ||
+    windows[0];
+  if (!client) return self.clients.openWindow(target);
+  let focused = null;
+  try {
+    focused = (await client.focus()) || client;
+  } catch {
+    // Some platforms refuse focus(); the page can still follow the message.
+  }
+  if (focused && client.url === target) return focused;
+  if (await askToOpen(focused || client, link)) return focused || client;
+  if (client.navigate)
+    try {
+      const moved = await client.navigate(target);
+      if (moved) return focused ? moved : moved.focus().catch(() => moved);
+    } catch {
+      // Not controlled by this worker: a new window instead.
+    }
+  return self.clients.openWindow(target);
+}
 // Allow or Deny on an approval: the page's signed-in session decides the exact item
 // and revision the push named (/api/notifications/decide checks it still waits). When
-// that fails, the inbox item opens so the owner sees why and decides there.
-async function decideFromNotice(decision, choice, target) {
+// that fails, the inbox item opens so the owner sees why and decides there; a decision
+// that succeeds opens nothing.
+async function decideFromNotice(decision, choice, item) {
   try {
     const response = await fetch("/api/notifications/decide", {
       method: "POST",
@@ -205,40 +261,19 @@ async function decideFromNotice(decision, choice, target) {
   } catch {
     // Offline or signed out: the inbox item explains.
   }
-  await self.clients.openWindow(target);
+  await openLink(item);
 }
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const decision = event.notification.data?.decision;
+  const data = event.notification.data || {};
+  const decision = data.decision;
   if (
     decision &&
     (event.action === "deny" || (event.action === "allow" && decision.allow))
   ) {
-    const link = new URL(notices.target(event.notification.data), self.location.origin)
-      .href;
-    event.waitUntil(decideFromNotice(decision, event.action, link));
+    const item = notices.item(data) || `/inbox/${decision.type}/${decision.id}`;
+    event.waitUntil(decideFromNotice(decision, event.action, item));
     return;
   }
-  const target = new URL(
-    notices.target(event.notification.data || {}),
-    self.location.origin,
-  ).href;
-  event.waitUntil(
-    self.clients
-      .matchAll({ type: "window", includeUncontrolled: true })
-      .then(async (clients) => {
-        const existing = clients.find((client) => client.url === target);
-        if (existing) return existing.focus();
-        // An open AgentPier window moves to the target instead of a second window.
-        const open = clients.find(
-          (client) => new URL(client.url).origin === self.location.origin,
-        );
-        if (open?.navigate)
-          return open
-            .navigate(target)
-            .then((client) => (client || open).focus())
-            .catch(() => self.clients.openWindow(target));
-        return self.clients.openWindow(target);
-      }),
-  );
+  event.waitUntil(openLink(notices.target(data)));
 });

@@ -7,6 +7,7 @@ import AccountPage from "./AccountPage.jsx";
 import UserBrowserPage from "./UserBrowserPage.jsx";
 import { usePushPresence } from "../notifications/usePushPresence.js";
 import { usePushReconcile } from "../notifications/usePushHealth.js";
+import { useNotificationOpen } from "../notifications/notification-open.js";
 import PushHealthNotice from "../notifications/PushHealthNotice.jsx";
 import { UserPage } from "./UserPage.jsx";
 import useUserAgents from "./useUserAgents.js";
@@ -48,8 +49,15 @@ function useUserNavigation() {
 // workspace. It talks only to /auth and /api/me.
 export default function UserApp({ status }) {
   const [route, navigate] = useUserNavigation();
+  // A tapped push notification opens its chat here when the app is already open.
+  useNotificationOpen((url) => {
+    const next = readUserRoute(url);
+    if (next.view === "missing") return false;
+    navigate(next);
+    return true;
+  });
   const data = useUserAgents();
-  // Her devices get no push about the chat she is looking at.
+  // The user's devices get no push about the chat the user is looking at.
   usePushPresence(true, "/me/notifications");
   const person = status.user?.id ? `user:${status.user.id}` : null;
   usePushReconcile(person);
