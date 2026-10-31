@@ -65,6 +65,13 @@ export const ownerTelegram = (origin) =>
     : null;
 const runEnded = new Set(["completed", "failed", "cancelled"]);
 const retryable = new Set([409, 429, 503]);
+/**
+ * Whether a refused follow-up turn is tried again later: a busy session, capacity or
+ * an unavailable runtime. An archived chat (a restarted main chat) never takes it, so
+ * the follow-up settles as for any other refusal.
+ */
+export const retriedFollowUp = (error) =>
+  retryable.has(error?.status) && error?.code !== "CHAT_ARCHIVED";
 const runResult = (a) => ({
   actionId: a.id,
   state: a.state,
@@ -101,7 +108,8 @@ export async function handOver(
     return settle({ attemptId: sent.attempt.id });
   } catch (error) {
     if (error.status === 404) return settle({ skipped: "CONVERSATION_MISSING" });
-    if (!retryable.has(error.status)) return settle({ skipped: "DELIVERY_FAILED" });
+    if (error.code === "CHAT_ARCHIVED") return settle({ skipped: "CHAT_ARCHIVED" });
+    if (!retriedFollowUp(error)) return settle({ skipped: "DELIVERY_FAILED" });
     const count = (a[failures] || 0) + 1;
     w.store.patch(a.id, {
       [failures]: count,

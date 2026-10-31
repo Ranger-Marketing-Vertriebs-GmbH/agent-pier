@@ -12,8 +12,9 @@ import { forgetDreamingSession } from "./dreaming-backups.js";
  * in AgentPier: an archived chat leaves the list, stays readable and takes no turn
  * until it is restored. Delete removes the chat, its native session and transcript
  * archives, and everything AgentPier kept of it. The person's main chat, where
- * reminders, routines, check-ins and Telegram deliver, is never archived or deleted,
- * and neither is a chat while a turn runs or a message waits in it.
+ * reminders, routines, check-ins and Telegram deliver, is never archived or deleted
+ * here, and neither is a chat while a turn runs or a message waits in it. Only Restart
+ * main chat archives a main chat (main-chat-restart.js).
  */
 
 /** The retained `.jsonl.deleted.*` archives of a deleted native session. */

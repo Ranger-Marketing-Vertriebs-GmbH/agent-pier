@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { AssistantActionStore } from "../../server/features/assistants/assistant-action-store.js";
-import { sftpHostId, waitFor } from "../helpers/agent-ssh-fixture.js";
+import { archiveMainChat, sftpHostId, waitFor } from "../helpers/agent-ssh-fixture.js";
 import { PASSWORD, code, setup, until } from "../helpers/agent-sftp-fixture.js";
 import { tree } from "../helpers/sftp-transfer-fixture.js";
 
@@ -550,4 +550,19 @@ test("card payload, Telegram text and audit never contain the password", async (
   ]);
   assert.equal(text.includes(PASSWORD), false);
   assert.equal(text.includes(f.server.hostKey.split(" ")[1]), false);
+});
+
+test("a result after a main chat restart settles instead of retrying", async (t) => {
+  const f = await approvalFixture(t, { holdMs: 100 });
+  const result = await upload(f);
+  const a = f.workflows.get(result.actionId);
+  await decide(f, a, "approve");
+  // The restart archives the main chat while the upload runs.
+  archiveMainChat(f);
+  await until(() => f.workflows.get(a.id).state === "completed");
+  await f.workflows.tick();
+  const after = f.workflows.get(a.id);
+  assert.equal(after.settled, true);
+  assert.equal(after.followUpRetryAt, undefined);
+  assert.equal(f.followUps.length, 1, "tried once, never re-queued");
 });

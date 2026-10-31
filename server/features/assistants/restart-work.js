@@ -1,0 +1,220 @@
+import { decideAudited } from "./approval-audit.js";
+import { stopRevokedSession, stopSession } from "./coding-sessions/session-worktrees.js";
+import { isUserAgent } from "../users/user-access.js";
+
+/**
+ * The work a main-chat restart stops (design: main chat restart). The restart covers
+ * the lead and its unarchived team members; runningWork previews what runs now and
+ * stopWork stops the same items.
+ */
+
+const ended = new Set(["completed", "failed", "cancelled", "declined"]);
+
+/**
+ * The lead, its permanent members and its temporary members that are not archived.
+ * `assistantIds` holds the assistant ids of all three, the lead first.
+ */
+export function restartScope(service, leadId) {
+  const members = (service.teams?.store.members() || []).filter(
+    (m) => m.parentAssistantId === leadId && !m.archivedAt,
+  );
+  const permanent = members.filter((m) => m.lifetime === "permanent");
+  const temporary = members.filter((m) => m.lifetime === "task");
+  return {
+    assistantIds: [
+      leadId,
+      ...[...permanent, ...temporary].map((m) => m.assistantId).filter(Boolean),
+    ],
+    permanent,
+    temporary,
+  };
+}
+
+// The pending attempts of turns in `conversations`, routine runs and extra chats too.
+function pendingTurns(service, conversations) {
+  return service.ledger.pending().filter((attempt) => {
+    try {
+      const { conversationId } = service.ledger.getRequest(attempt.requestId);
+      return conversations.has(conversationId);
+    } catch {
+      return false; // A request that went away meanwhile.
+    }
+  });
+}
+
+/**
+ * What runs for the lead and the people in `scope`, item by item. The preview counts
+ * it (runningWork) and the restart stops it (stopWork), so both always agree.
+ */
+function selectWork(service, leadId, scope) {
+  const ids = new Set(scope.assistantIds);
+  const conversations = new Set(
+    service.store
+      .listConversations()
+      .filter((c) => ids.has(c.assistantId))
+      .map((c) => c.id),
+  );
+  const teams = service.teams;
+  const actions = service.workflows?.store;
+  const mine = actions ? actions.list().filter((a) => ids.has(a.assistantId)) : [];
+  return {
+    turns: pendingTurns(service, conversations),
+    teams: (teams?.store.list(leadId) || []).filter(
+      (t) => t.phase === "awaiting_approval",
+    ),
+    members: scope.temporary.filter((m) => !ended.has(m.phase)),
+    requests: (teams?.requests?.store.pending() || []).filter(
+      (r) => r.parentAssistantId === leadId,
+    ),
+    runs: mine.filter(
+      (a) => a.state === "running" && a.payload?.action === "coding_start",
+    ),
+    sessions: scope.assistantIds.flatMap((id) =>
+      (service.workflows?.sessions?.store.forAgent(id) || []).filter((s) => !s.ended),
+    ),
+    goals: [...conversations].filter((id) => teams?.goals?.store.open(id)),
+    approvals: mine.filter((a) => a.state === "awaiting_approval"),
+    conversations,
+  };
+}
+
+function summary(work) {
+  return {
+    turns: work.turns.length,
+    teams: work.teams.length,
+    members: work.members.length,
+    requests: work.requests.length,
+    coding: work.runs.length + work.sessions.length,
+    goals: work.goals.length,
+    approvals: work.approvals.length,
+  };
+}
+
+/** What currently runs for the lead and the people in `restartScope`. */
+export function runningWork(service, leadId) {
+  return summary(selectWork(service, leadId, restartScope(service, leadId)));
+}
+
+/**
+ * Stops what runs for the lead and the people in `scope` before its main chats
+ * restart: proposals are declined, temporary members end, lead requests (peer
+ * requests and member reports too) end and settle without a follow-up, approvals,
+ * coding runs and sessions and work goals stop, and every pending turn is cancelled,
+ * in extra chats too. Permanent members are never stopped here; only their turns are.
+ * One failing step never skips the rest; the first error is thrown at the end.
+ * Returns what it found running, counted as runningWork counts it.
+ */
+export async function stopWork(service, leadId, scope) {
+  const work = selectWork(service, leadId, scope);
+  let failure;
+  const attempt = async (step) => {
+    try {
+      await step();
+    } catch (error) {
+      failure ??= error;
+    }
+  };
+  const teams = service.teams;
+  const w = service.workflows;
+  for (const team of work.teams) await attempt(() => declineTeam(service, team));
+  for (const member of work.members)
+    await attempt(() => teams.stop(member.teamId, member.id));
+  for (const request of work.requests)
+    await attempt(() => settleRequest(teams.requests, request.id));
+  for (const { id } of work.approvals)
+    await attempt(() => {
+      // Stopping a member may have withdrawn its request already.
+      const a = w.store.get(id);
+      if (a.state !== "awaiting_approval") return;
+      decideAudited(
+        service.audit,
+        {
+          origin: { kind: "owner", channel: "ui" },
+          actionId: a.id,
+          decision: "decline",
+          revision: a.revision,
+          kind: "action",
+          assistantId: () => a.assistantId,
+          attribution: () => a,
+        },
+        () =>
+          w.store.patch(a.id, { state: "declined", diagnostic: "MAIN_CHAT_RESTARTED" }),
+      );
+    });
+  for (const run of work.runs) await attempt(() => w.s.pipelines.cancel(run.runId));
+  for (const { assistantId, sessionId } of work.sessions)
+    await attempt(() =>
+      stopSession(w, { assistantId }, { sessionId }).catch(async (error) => {
+        // A session that is gone has nothing left to stop. One whose grant was
+        // revoked the agent may no longer stop: the owner stops it.
+        if (error?.status === 403) await stopRevokedSession(w, sessionId);
+        else if (error?.status !== 404) throw error;
+      }),
+    );
+  for (const id of work.goals) await attempt(() => teams.goals.stop(id));
+  // Read again: stopping members and requests above may have ended some turns.
+  await attempt(() => cancelTurns(service, work.conversations));
+  if (work.approvals.length) service.changed({ feeds: false });
+  if (failure) throw failure;
+  return summary(work);
+}
+
+/**
+ * Declines a team proposal awaiting approval. One of a user agent, which has no
+ * teams, is declined in the store: TeamService.decide refuses user agents.
+ */
+function declineTeam(service, team) {
+  const teams = service.teams;
+  if (!isUserAgent(service.store.getAssistant(team.parentAssistantId)))
+    return teams.stop(team.id);
+  const origin = { kind: "owner", channel: "ui" };
+  decideAudited(
+    service.audit,
+    {
+      origin,
+      actionId: team.id,
+      decision: "decline",
+      revision: team.revision,
+      kind: "team",
+      assistantId: () => team.parentAssistantId,
+    },
+    () =>
+      teams.store.decide(
+        team.id,
+        { revision: team.revision, decision: "decline" },
+        origin,
+      ),
+  );
+  service.changed();
+}
+
+/**
+ * Ends a lead request for the restart without a follow-up: its outcome, a member's
+ * report or a peer request's answer, holds the old context, and the lead's main
+ * chat a follow-up would reach is the new one (lead-request-delivery.js). A running
+ * member turn is aborted through the owner's stop.
+ */
+async function settleRequest(requests, id) {
+  await requests.stop(id, "owner");
+  const r = requests.store.get(id);
+  requests.teams.write(r, {
+    // A follow-up already sent went to the old chat, whose turns are cancelled.
+    ...(r.delivery === "sent" ? {} : { delivery: "skipped" }),
+    settled: true,
+    resultDiagnostic: "MAIN_CHAT_RESTARTED",
+  });
+}
+
+/**
+ * Cancels every pending turn in `conversations` (a Set of ids). One failing cancel
+ * never skips the rest; the first error is thrown at the end. Runs outside admission:
+ * a cancel reconciles with the Gateway.
+ */
+export async function cancelTurns(service, conversations) {
+  let failure;
+  for (const turn of pendingTurns(service, conversations))
+    await service.cancel(turn.id).catch((error) => {
+      failure ??= error;
+    });
+  if (failure) throw failure;
+}

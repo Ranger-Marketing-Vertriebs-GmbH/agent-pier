@@ -1,7 +1,7 @@
 import { actionTerminal } from "../assistant-action-store.js";
 import { notifyAction } from "../assistant-action-notifications.js";
 import { assistantProblem } from "../assistant-validation.js";
-import { ownerTelegram, pairedTelegram } from "../team-coding.js";
+import { ownerTelegram, pairedTelegram, retriedFollowUp } from "../team-coding.js";
 import { mailError } from "../../mail/mail-connection.js";
 import { recipientsOf } from "../../mail/mail-compose.js";
 import { saveDraft, trashDraft } from "../../mail/mail-changes.js";
@@ -42,7 +42,6 @@ export const maxSendsPerHour = 30;
 export const mailDecisions = ["approve", "decline"];
 const hourMs = 3600000;
 const followUpRetryMs = 300000;
-const retryable = new Set([409, 429, 503]);
 const settledStates = new Set([...actionTerminal, "unknown"]);
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -437,7 +436,7 @@ export class MailSends {
       this.w.store.patch(a.id, { followUpSent: true, followUpRetryAt: undefined });
       return true;
     } catch (error) {
-      if (!retryable.has(error.status)) {
+      if (!retriedFollowUp(error)) {
         this.w.store.patch(a.id, { followUpSent: "failed" });
         return true;
       }

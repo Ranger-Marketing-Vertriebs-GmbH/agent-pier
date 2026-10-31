@@ -109,7 +109,8 @@ does not chat with a user's own agent.
 
 Each agent holds several chats per person: **New chat** starts one, the ⋯ of a chat
 offers **Rename**, **Archive** and **Delete**. The main chat cannot be archived or
-deleted; reminders, routines, check-ins and Telegram deliver into it
+deleted by hand (only the owner's [Restart main chat](agents.md#restart-the-main-chat)
+replaces it); reminders, routines, check-ins and Telegram deliver into it
 ([Chats](agents.md#chats)).
 
 Only the owner archives, restores or deletes an agent of users, own or shared, from

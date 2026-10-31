@@ -5,7 +5,16 @@ import { ChannelService } from "../../server/features/assistant-channels/channel
 import { SpeechConnections } from "../../server/features/speech/speech-connections.js";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
 import { RequestLedger } from "../../server/features/assistants/request-ledger.js";
+import { chatProblem } from "../../server/features/assistants/agent-chats.js";
 import { AgentAttachments } from "../../server/features/assistants/agent-attachments.js";
+// As refuseClosedChat: a missing chat is left to the ledger.
+function archived(store, id) {
+  try {
+    return !!store.getConversation(id).archivedAt;
+  } catch {
+    return false;
+  }
+}
 // `language` is the owner's interface language, stored on the created channel.
 // `userId` binds the channel to that restricted user's chat instead of the owner's.
 export function channelFixture(t, { language = () => "de", userId, ...options } = {}) {
@@ -45,6 +54,8 @@ export function channelFixture(t, { language = () => "de", userId, ...options } 
     openConversation: async () => conversation,
     send: async (id, input, context) => {
       if (!ready) throw Object.assign(Error(), { status: 503 });
+      // As sendTurn: an archived chat (a restarted main chat) takes no new turn.
+      if (archived(store, id)) throw chatProblem("CHAT_ARCHIVED");
       const request = ledger.accept(id, input);
       let attempt = ledger.attemptFor(request.id);
       attachments.claim(id, input.attachments, request.id, !!attempt);

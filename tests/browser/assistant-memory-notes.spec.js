@@ -24,6 +24,7 @@ const messages = [
   note("lead-request", 5),
   note("flush", 6),
   note("shared-write", 6.5),
+  note("main-restarted", 6.7),
   note("something-new", 7),
   // The agent's follow-up turn after a declined project-knowledge note.
   { id: "followup", role: "event", event: "memory-result", timestamp: 8, runId: null },
@@ -41,6 +42,7 @@ const copy = {
     "Memory not saved: tasks from the lead agent cannot change memory.",
     "Memory not saved: the automatic note before shortening the conversation was refused.",
     "Applies to everyone who uses this agent.",
+    "The owner restarted the main chat. The previous one is under archived chats.",
     "Memory not saved.",
   ],
   de: [
@@ -51,6 +53,7 @@ const copy = {
     "Gedächtnis nicht gespeichert: Aufgaben des leitenden Agenten können das Gedächtnis nicht ändern.",
     "Gedächtnis nicht gespeichert: Die automatische Notiz vor dem Kürzen der Unterhaltung wurde abgelehnt.",
     "Gilt für alle, die diesen Agenten nutzen.",
+    "Der Besitzer hat den Hauptchat neu begonnen. Der vorherige ist unter den archivierten Chats.",
     "Gedächtnis nicht gespeichert.",
   ],
 };
@@ -125,6 +128,7 @@ for (const language of ["en", "de"])
       "lead-request",
       "flush",
       "shared-write",
+      "main-restarted",
       "something-new",
     ]);
     await expect(log.locator(".assistant-event:not([data-memory-note])")).toHaveText(
