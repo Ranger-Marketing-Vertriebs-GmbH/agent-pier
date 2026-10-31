@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { SystemStatus } from "../../server/features/system-status/system-status.js";
 
 // One server process whose CPU time and the clock advance as the test says.
-function sampler({ cores = 1, processes, legacySessions } = {}) {
+function sampler({ cores = 1, processes } = {}) {
   const state = { now: 1_000_000, cpuSeconds: 100, errors: [] };
   const status = new SystemStatus({
     dataDir: "/unused",
@@ -19,7 +19,6 @@ function sampler({ cores = 1, processes, legacySessions } = {}) {
     memory: async () => ({ totalBytes: 100, usedBytes: 50 }),
     disk: async () => ({ totalBytes: 100, freeBytes: 50, usedBytes: 50 }),
     panes: async () => [],
-    ...(legacySessions ? { legacySessions } : {}),
     measureAreas: async () => ({ computedAt: new Date(0).toISOString(), areas: [] }),
     processes:
       processes ||
@@ -79,26 +78,7 @@ test("a failed ps still returns the host bars without process rows", async () =>
   await status.close();
 });
 
-test("the summary names the sessions still on the legacy tmux server", async () => {
-  let legacy = [{ id: "alpha", name: "Alpha review" }];
-  const { status, state } = sampler({ legacySessions: async () => legacy });
-  assert.deepEqual((await status.sample()).summary.legacyTmux, { sessions: legacy });
-  legacy = [];
-  state.now += 5000;
-  assert.deepEqual((await status.sample()).summary.legacyTmux, { sessions: [] });
-});
-
-test("an unreadable legacy tmux server reports no session and leaves a trace", async () => {
-  const { status, state } = sampler({
-    legacySessions: async () => {
-      throw new Error("tmux: out of memory");
-    },
-  });
-  assert.deepEqual((await status.sample()).summary.legacyTmux, { sessions: [] });
-  assert.deepEqual(state.errors, ["tmux: out of memory"]);
-});
-
-test("a manager outside the legacy server reports no session", async () => {
+test("the summary no longer carries a legacy tmux field", async () => {
   const { status } = sampler();
-  assert.deepEqual((await status.sample()).summary.legacyTmux, { sessions: [] });
+  assert.equal("legacyTmux" in (await status.sample()).summary, false);
 });

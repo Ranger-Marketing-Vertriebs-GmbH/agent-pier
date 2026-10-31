@@ -1,7 +1,6 @@
 import os from "node:os";
 import path from "node:path";
-import { parseSessionLines, pickSessionNames } from "../sessions/tmux-naming.js";
-import { legacyTmuxSessions } from "../sessions/legacy-tmux-server.js";
+import { parseSessionLines, pickSessionPanes } from "../sessions/tmux-naming.js";
 import { cpuBusy, cpuTimes, diskStats, memoryStats } from "./host-stats.js";
 import { processTrees, readProcessTable, treeUsage } from "./process-stats.js";
 import { measureDataAreas } from "./data-areas.js";
@@ -25,9 +24,9 @@ export async function sessionPanes(sessions) {
   } catch {
     return []; // No tmux server means no running session.
   }
-  // Either name form counts; a live pane wins over a dead one under the other name.
+  // One pane per session; a live pane wins over a dead one of the same session.
   const panes = new Map();
-  for (const [id, entry] of pickSessionNames(parseSessionLines(output))) {
+  for (const [id, entry] of pickSessionPanes(parseSessionLines(output))) {
     const pid = entry.rest[0];
     if (panes.size >= MAX_SESSIONS) break;
     if (/^\d+$/.test(pid ?? "")) panes.set(id, { pid: Number(pid) });
@@ -115,8 +114,6 @@ export class SystemStatus {
     disk = () => diskStats(dataDir),
     processes = (options) => readProcessTable(options),
     panes = () => sessionPanes(sessions),
-    // Sessions still on the tmux server of a release from before the rename.
-    legacySessions = () => legacyTmuxSessions(sessions),
     measureAreas = (stopped) => measureDataAreas(dataDir, { stopped }),
     serverPid = process.pid,
     onError = () => {},
@@ -136,7 +133,6 @@ export class SystemStatus {
       disk,
       processes,
       panes,
-      legacySessions,
       serverPid,
       onError,
     });
@@ -254,17 +250,10 @@ export class SystemStatus {
     const cpu = cpuBusy(this.cpuReading.times, times);
     const sampledAt = this.now();
     this.cpuReading = { at: sampledAt, times };
-    const [memory, disk, panes, legacyTmux] = await Promise.all([
+    const [memory, disk, panes] = await Promise.all([
       this.memory(),
       this.disk(),
       this.panes(),
-      // Optional information: a failed read reports no session there.
-      Promise.resolve()
-        .then(() => this.legacySessions())
-        .catch((error) => {
-          this.onError(error);
-          return [];
-        }),
     ]);
     const gateway = this.gatewayPid();
     const roots = [
@@ -352,7 +341,6 @@ export class SystemStatus {
         disk: { ...disk, freePercent: freePercent(disk) },
         agentPier,
         warning: { diskLow, thresholdPercent: WARN_BELOW_PERCENT },
-        legacyTmux: { sessions: legacyTmux },
       },
     };
     return this.latest;

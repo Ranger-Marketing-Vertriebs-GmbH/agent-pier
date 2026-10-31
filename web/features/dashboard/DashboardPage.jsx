@@ -74,7 +74,6 @@ export default function DashboardPage({
     utilities: state.utilities,
     ready,
     appVersion: sources?.summary?.operations?.updates?.available || null,
-    legacyTmux: state.legacyTmux?.sessions,
   });
   const attention = attentionItems({
     inbox,

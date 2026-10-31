@@ -14,7 +14,6 @@ test("system items come from the menu hint sources, the status and the tools", (
   const items = systemAttention({
     serviceError: true,
     status: status(true),
-    legacyTmux: [{ id: "old", name: "Old" }],
     hints: {
       agents: { kind: "agentsStopped" },
       connections: { kind: "problems", count: 2 },
@@ -31,16 +30,7 @@ test("system items come from the menu hint sources, the status and the tools", (
   });
   assert.deepEqual(
     items.map((item) => item.id),
-    [
-      "service",
-      "disk",
-      "agents",
-      "cli:claude",
-      "browser:chromium",
-      "connections",
-      "app",
-      "legacy-tmux",
-    ],
+    ["service", "disk", "agents", "cli:claude", "browser:chromium", "connections", "app"],
   );
   assert.equal(items[1].freePercent, 4);
   assert.equal(items[5].count, 2);

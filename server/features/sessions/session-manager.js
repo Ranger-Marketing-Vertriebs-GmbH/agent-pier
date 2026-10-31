@@ -16,21 +16,22 @@ import {
   sameTmuxServer,
   tmuxServerGone,
 } from "./tmux-server-identity.js";
-import {
-  ALTERNATE_SESSION_PREFIX,
-  chooseTmuxSocket,
-  SESSION_PREFIX,
-  tmuxSocketPaths,
-} from "./tmux-naming.js";
-import { leaveDrainedLegacyServer, privateDirectory } from "./legacy-tmux-server.js";
-import { alternatePaneState, scanSessionNames } from "./session-names.js";
+import { SESSION_PREFIX, tmuxSocketPath } from "./tmux-naming.js";
 import { randomUUID } from "node:crypto";
-import { readFile, rm } from "node:fs/promises";
+import { chmod, lstat, mkdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as pty from "node-pty";
 const launcher = fileURLToPath(new URL("../../terminal-launcher.js", import.meta.url));
 const failure = (message, status = 400) => Object.assign(new Error(message), { status });
+/** Creates a private directory owned by this user, or refuses an unsafe one. */
+async function privateDirectory(directory) {
+  await mkdir(directory, { recursive: true, mode: 0o700 });
+  const info = await lstat(directory);
+  if (!info.isDirectory() || (process.getuid && info.uid !== process.getuid()))
+    throw new Error("Unsafe terminal storage directory");
+  await chmod(directory, 0o700);
+}
 /** One private tmux server per data directory. Closing a manager only detaches its clients. */
 export class SessionManager {
   constructor({
@@ -42,10 +43,7 @@ export class SessionManager {
     if (typeof dataDir !== "string" || !path.isAbsolute(dataDir))
       throw failure("Invalid data directory");
     this.directory = path.join(path.resolve(dataDir), "sessions");
-    this.tmuxSockets = tmuxSocketPaths(dataDir);
-    this.socketPath = chooseTmuxSocket(dataDir, { tmuxPath });
-    // Ids whose session runs as `tuiui-<id>`, started by an earlier release.
-    this.alternateSessions = new Set();
+    this.socketPath = tmuxSocketPath(dataDir);
     this.tmuxPath = tmuxPath;
     this.configPath = path.join(this.directory, "tmux.conf");
     this.clients = new Set();
@@ -68,45 +66,14 @@ export class SessionManager {
       // Touch scrolling in terminal-touch.js assumes tmux's default wheel bindings.
       'set -g remain-on-exit on\nset -g default-shell /bin/sh\nset -g prefix None\nset -g history-limit 10000\nset -g status off\nset -g mouse on\nset -g default-terminal "tmux-256color"\nset -g set-clipboard on\nset -as terminal-features ",*:clipboard"\nset -g exit-empty off\nset -g escape-time 0\n',
     );
-    await scanSessionNames(this);
-    // A CLI that ended while AgentPier was stopped may have left the old server drained.
-    await leaveDrainedLegacyServer(this);
   }
-  /**
-   * Adopts `tuiui-<id>` for a running session when its pane is in one of `states`:
-   * "adopted", "no", or "unknown" when tmux could not answer.
-   */
-  async adoptAlternate(session, states) {
-    if (this.alternateSessions.has(session.id) || session.status !== "running")
-      return "no";
-    const state = await alternatePaneState(this, session.id);
-    if (state === "unknown") return state;
-    if (!states.includes(state)) return "no";
-    this.alternateSessions.add(session.id);
-    return "adopted";
-  }
-  /**
-   * Ends the session's tmux session and any session of the id under the other name
-   * form, e.g. a dead pane the startup scan did not choose, so a relaunch never leaves
-   * one beside the other. Only the session the id resolves to can fail the call, and
-   * only with `strict`.
-   */
+  /** Ends the session's tmux session; only with `strict` can a failure surface. */
   async killSession(id, { strict = false } = {}) {
-    const other = this.alternateSessions.has(id)
-      ? SESSION_PREFIX
-      : ALTERNATE_SESSION_PREFIX;
     try {
       await this.tmux(["kill-session", "-t", this.target(id)]);
     } catch (error) {
       if (strict) throw error;
-    } finally {
-      await this.tmux(["kill-session", "-t", `=${other}${validId(id)}`]).catch(() => {});
     }
-  }
-  /** The name for a session started now. Call only after the old session is gone. */
-  newSessionName(id) {
-    this.alternateSessions.delete(id);
-    return this.sessionName(id);
   }
   sessionName(id) {
     return `${SESSION_PREFIX}${validId(id)}`;
@@ -115,10 +82,7 @@ export class SessionManager {
     return this.operations.run(operation, id);
   }
   target(id) {
-    const prefix = this.alternateSessions.has(id)
-      ? ALTERNATE_SESSION_PREFIX
-      : SESSION_PREFIX;
-    return `=${prefix}${validId(id)}`;
+    return `=${this.sessionName(id)}`;
   }
   file(id) {
     return path.join(this.directory, `${validId(id)}.json`);
@@ -179,22 +143,7 @@ export class SessionManager {
         ])
       ).trim();
     try {
-      try {
-        state = await readState();
-      } catch (error) {
-        if (!/can't find/i.test(error.message)) throw error;
-        const adopted = await this.adoptAlternate(session, ["live", "dead"]);
-        // An unanswered probe is no evidence of a stop: keep the recorded state.
-        if (adopted === "unknown") return session;
-        if (adopted !== "adopted") throw error;
-        state = await readState();
-      }
-      if (state.startsWith("1|")) {
-        // A dead pane must not shadow a live one under the other name the scan missed.
-        const adopted = await this.adoptAlternate(session, ["live"]);
-        if (adopted === "unknown") return session;
-        if (adopted === "adopted") state = await readState();
-      }
+      state = await readState();
       if (state === "1||") {
         // tmux 3.4 + utempter can lose SIGCHLD. A no-output job wakes its reaper.
         // https://github.com/tmux/tmux/issues/4559
@@ -267,12 +216,11 @@ export class SessionManager {
         // Execute the launcher directly: an old tmux daemon may retain a deleted
         // release cwd, which makes an intermediate shell emit getcwd errors.
         // Arguments and credentials stay in the private, one-use payload.
-        await leaveDrainedLegacyServer(this);
         await this.tmux([
           "new-session",
           "-d",
           "-s",
-          this.newSessionName(id),
+          this.sessionName(id),
           "-c",
           session.cwd,
           "-x",

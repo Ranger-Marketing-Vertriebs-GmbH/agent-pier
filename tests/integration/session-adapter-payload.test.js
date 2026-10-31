@@ -25,8 +25,8 @@ function manager(t) {
       );
     },
     // removeSession needs these five
-    target: (id) => `tuiui-${id}`,
-    newSessionName: (id) => `tuiui-${id}`,
+    target: (id) => `agentpier-${id}`,
+    sessionName: (id) => `agentpier-${id}`,
     killSession: async () => {},
     serial: (fn) => fn(),
     current: async () => ({ status: "stopped" }),
@@ -111,7 +111,7 @@ test("reload writes a fresh adapter payload and drops stale diagnostics", async 
     clients: [],
     pendingTerminalInput: new Map(),
     reconciledStops: new Map(),
-    target: (x) => `tuiui-${x}`,
+    target: (x) => `agentpier-${x}`,
   });
   const launch = {
     command: process.execPath,

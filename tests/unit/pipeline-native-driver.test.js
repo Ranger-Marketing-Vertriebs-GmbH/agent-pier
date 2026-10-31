@@ -307,7 +307,7 @@ test("finishing a turn whose launcher already exited keeps its tmux session", as
         status: "running",
         pipeline: { ...identity, headless: true },
       }),
-      target: (id) => `tuiui-${id}`,
+      target: (id) => `agentpier-${id}`,
       tmux: async () => "1|4242\n",
       stop: async (id) => stopped.push(id),
     },

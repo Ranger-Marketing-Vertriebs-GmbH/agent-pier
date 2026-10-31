@@ -103,8 +103,7 @@
 .start-attention-grid,
 .start-rows,
 .start-runs,
-.start-tool-grid,
-.start-attention-list {
+.start-tool-grid {
   margin: 0;
   padding: 0;
   list-style: none;
@@ -159,14 +158,10 @@
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-medium);
 }
-.start-attention-card p,
-.start-attention-list {
+.start-attention-card p {
   color: var(--text-meta);
   font-size: var(--font-size-sm);
   line-height: 1.5;
-}
-.start-attention-list li {
-  overflow-wrap: anywhere;
 }
 .start-attention-card > .button,
 .start-attention-card > .start-attention-button {

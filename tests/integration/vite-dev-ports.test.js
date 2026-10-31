@@ -39,11 +39,10 @@ test("npm run dev on a leased block serves on its second port and reaches the ba
   await fs.mkdir(home, { mode: 0o700 });
   const saved = { ...process.env };
   t.after(() => {
-    for (const key of ["AGENTPIER_PORT", "AGENTPIER_PORT_COUNT", "TUIUI_PORT"])
+    for (const key of ["AGENTPIER_PORT", "AGENTPIER_PORT_COUNT"])
       if (saved[key] === undefined) delete process.env[key];
       else process.env[key] = saved[key];
   });
-  delete process.env.TUIUI_PORT;
 
   let application, vite, base;
   for (let attempt = 0; !vite && attempt < 5; attempt++) {

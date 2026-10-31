@@ -8,9 +8,8 @@ export const ATTENTION_LIMIT = 3;
 /**
  * The system items, most pressing first: an unreachable service, low disk, a stopped
  * agent service, each CLI below its minimum version, each browser update, Zugänge
- * with problems, an AgentPier update and sessions on the old tmux server. `hints` are
- * the menu hints (useHintsOf); `status` the system status summary (null: unknown);
- * `legacyTmux` the sessions on the old tmux server (from the workspace state).
+ * with problems and an AgentPier update. `hints` are the menu hints (useHintsOf);
+ * `status` the system status summary (null: unknown).
  */
 export function systemAttention({
   serviceError = false,
@@ -20,7 +19,6 @@ export function systemAttention({
   utilities = [],
   ready = false,
   appVersion = null,
-  legacyTmux = [],
 }) {
   const items = [];
   if (serviceError) items.push({ id: "service", kind: "serviceError" });
@@ -49,8 +47,6 @@ export function systemAttention({
     });
   if (hints.settings?.kind === "appUpdate")
     items.push({ id: "app", kind: "appUpdate", version: appVersion });
-  if (Array.isArray(legacyTmux) && legacyTmux.length)
-    items.push({ id: "legacy-tmux", kind: "legacyTmux", sessions: legacyTmux });
   return items;
 }
 
