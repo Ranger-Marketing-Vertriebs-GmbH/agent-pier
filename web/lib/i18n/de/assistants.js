@@ -258,6 +258,7 @@ export const assistantCopy = {
     english: "Englisch",
     save: "Spracheinstellungen speichern",
     remove: "Sprachschlüssel entfernen",
+    group: "Deepgram-Spracherkennung",
     dictationSend: "Diktierte Nachrichten sofort senden",
     dictationSendHint:
       "Aus: Der diktierte Text bleibt im Nachrichtenfeld, damit du ihn vor dem Senden bearbeiten kannst.",

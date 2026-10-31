@@ -110,7 +110,17 @@ test("Deepgram settings save a write-only credential and allow removal", async (
   await expect(send).not.toBeChecked();
   await send.check();
   await panel.getByRole("button", { name: "Save speech settings" }).click();
-  await expect(panel.getByText("Key saved", { exact: true })).toBeVisible();
+  await expect(
+    panel
+      .getByRole("group", { name: "Deepgram speech recognition" })
+      .getByText("Key saved", { exact: true }),
+  ).toBeVisible();
+  // The voice for talk mode names its own key, in a group of its own.
+  await expect(
+    panel
+      .getByRole("group", { name: "Voice for talk mode" })
+      .getByText("No OpenAI key configured", { exact: true }),
+  ).toBeVisible();
   expect(state.speech.dictationSend).toBe(true);
   await expect(send).toBeChecked();
   await expect(panel.getByLabel("Deepgram API key")).toHaveValue("");
@@ -120,7 +130,11 @@ test("Deepgram settings save a write-only credential and allow removal", async (
   await expect(remove).toBeDisabled();
   await accountSaveBar(page).getByRole("button", { name: "Cancel", exact: true }).click();
   await remove.click();
-  await expect(panel.getByText("No key configured", { exact: true })).toBeVisible();
+  await expect(
+    panel
+      .getByRole("group", { name: "Deepgram speech recognition" })
+      .getByText("No key configured", { exact: true }),
+  ).toBeVisible();
 });
 test("Telegram pairing and unknown delivery recovery remain visible in mobile agent settings", async ({
   page,

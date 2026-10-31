@@ -252,6 +252,7 @@ export const assistantCopy = {
     english: "English",
     save: "Save speech settings",
     remove: "Remove speech key",
+    group: "Deepgram speech recognition",
     dictationSend: "Send dictated messages right away",
     dictationSendHint:
       "Off: the dictated text stays in the message field so you can edit it before sending.",
