@@ -13,6 +13,26 @@ import {
   summaryMarkdown,
 } from "./test-retry.mjs";
 
+// Folders that never hold this checkout's tests: dependencies, build output and
+// nested Git worktrees (each runs its own suite from its own checkout).
+const foreignFolders = new Set(["node_modules", "dist", ".worktrees", ".git"]);
+
+/**
+ * The `*.test.js` files under `root/tests` (or `root/tests/<strategy>`), sorted.
+ * Symbolic links are not followed, so discovery never leaves the checkout.
+ */
+export function discoverTestFiles(root, strategy = "") {
+  const collect = (directory) => {
+    if (!fs.existsSync(directory)) return [];
+    return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+      const file = path.join(directory, entry.name);
+      if (entry.isDirectory()) return foreignFolders.has(entry.name) ? [] : collect(file);
+      return entry.isFile() && entry.name.endsWith(".test.js") ? [file] : [];
+    });
+  };
+  return collect(path.join(root, "tests", strategy)).sort();
+}
+
 // Runs node:test files. With `retry`, failing files run once more and are
 // reported (see test-retry.mjs). With `noSkips`, any skipped test fails the run,
 // for contracts that skip themselves when their runtime is missing.
