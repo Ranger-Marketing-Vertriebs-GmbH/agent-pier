@@ -17,7 +17,9 @@ const loopbackAddresses = ["127.0.0.1", "::1", "::ffff:127.0.0.1"];
  * The host branch a hook request arrived on: `local` (loopback, local host, no proxy
  * markers), `tailscale` (loopback from Tailscale Serve on the configured remote host;
  * no identity needed, tagged nodes send none) or `network` (network mode host without
- * Tailscale markers). Browsers, Funnel and query tokens are refused with 403.
+ * Tailscale markers). Browsers, Funnel and query tokens are refused with 403. A Host
+ * no branch accepts is refused with `code` HOOK_HOST_MISMATCH, so a stale address
+ * (after a move) can be told apart from a wrong secret.
  */
 export function authorizeHookTransport(req, config) {
   const headers = req.headers;
@@ -48,7 +50,10 @@ export function authorizeHookTransport(req, config) {
       throw problem("Proxy requests require the configured remote host.", 403);
     return "network";
   }
-  throw problem("Hooks require the local, Tailscale or configured network host.", 403);
+  throw Object.assign(
+    problem("Hooks require the local, Tailscale or configured network host.", 403),
+    { code: "HOOK_HOST_MISMATCH" },
+  );
 }
 
 // The windows no flood may evict: the local machine's and the shared tailnet
@@ -216,8 +221,16 @@ export function hookEndpoint(
     let branch;
     try {
       branch = authorizeHookTransport(req, effective());
-    } catch {
-      return reply(403, { error: "HOOK_FORBIDDEN" });
+    } catch (error) {
+      if (error.code !== "HOOK_HOST_MISMATCH")
+        return reply(403, { error: "HOOK_FORBIDDEN" });
+      // One answer for every hook ID, known or not, naming no configured host; only a
+      // stored hook's refusal is noted (hostRefused), so unknown IDs leave no trace.
+      const id = hookPath.exec(req.path)?.[1];
+      const hooks = services.assistantRoutines?.hooks;
+      const stored = id && hooks?.store.get(id);
+      if (stored) hooks.hostRefused(stored, req.headers.host);
+      return reply(403, { error: "HOOK_HOST_MISMATCH" });
     }
     req.setTimeout(bodyTimeout, () => req.destroy());
     const limited = (keys) => {

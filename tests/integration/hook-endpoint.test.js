@@ -476,3 +476,57 @@ test("every delivery outcome is audited without payload, headers or secret", asy
   for (const secretPart of [marker, "HEADER-MARKER", secret, "aph_wrong", "Bearer"])
     assert.ok(!text.includes(secretPart), secretPart);
 });
+
+test("a host AgentPier does not accept answers HOOK_HOST_MISMATCH and is noted for the hook", async (t) => {
+  const { f, post, hook } = await endpoint(t);
+  // After a move: Serve forwards the new machine's name, Remote access names the old.
+  const moved = "mac-studio.tail1234.ts.net";
+  const tailnet = { "x-forwarded-for": "100.64.0.9" };
+  const first = await post(tailnet, { host: moved });
+  assert.equal(first.status, 403);
+  assert.equal(first.text, '{"error":"HOOK_HOST_MISMATCH"}');
+  assert.equal((await post(tailnet, { host: moved })).status, 403);
+  // Network mode off: the LAN host is a host mismatch as well.
+  assert.equal((await post({}, { host: networkHost })).body.error, "HOOK_HOST_MISMATCH");
+  // An unknown hook gets the very same answer and leaves no trace.
+  const unknown = await post(tailnet, { host: moved, path: `/hooks/${randomUUID()}` });
+  assert.equal(unknown.text, first.text);
+  // Other transport refusals keep their generic code.
+  assert.equal(
+    (await post({ origin: "http://x" }, { host: moved })).text,
+    '{"error":"HOOK_FORBIDDEN"}',
+  );
+  assert.equal(f.calls.length, 0);
+  // One audit per hook and host an hour, with the received host and no secret.
+  const audits = deliveries(f).filter((a) => a.details.outcome === "wrong-host");
+  assert.deepEqual(
+    audits.map((a) => [a.details.host, a.outcome, a.details.hookId]),
+    [
+      [moved, "failure", hook.id],
+      [networkHost, "failure", hook.id],
+    ],
+  );
+  assert.equal(audits[0].details.branch, undefined);
+  for (const text of [first.text, unknown.text])
+    for (const configured of [remoteHost, networkHost])
+      assert.ok(!text.includes(configured));
+  // The owner sees it on the hook and in the overview of Remote access.
+  const shown = f.hooks.list(f.id).hooks[0].refusedHost;
+  assert.equal(shown.host, networkHost);
+  assert.equal(shown.count, 1);
+  assert.deepEqual(
+    f.hooks.hostRefusals
+      .recent()
+      .map(({ host, count }) => [host, count])
+      .sort(),
+    [
+      [networkHost, 1],
+      [moved, 2],
+    ],
+  );
+  // A request on an accepted host is not counted.
+  assert.equal((await post()).status, 202);
+  assert.equal(f.hooks.hostRefusals.latest(hook.id).count, 1);
+  f.hooks.remove(f.id, hook.id);
+  assert.deepEqual(f.hooks.hostRefusals.recent(), []);
+});

@@ -59,6 +59,26 @@ for (const locale of ["de-DE", "en-GB"]) {
         await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
       ).toBe(true);
     });
+    test("hosts that hook requests were refused on are listed", async ({ page }) => {
+      const en = locale === "en-GB";
+      const state = await operationsFixture(page);
+      await page.goto(baseURL + "/settings/remote");
+      await expect(page.locator("[data-hook-refused-hosts]")).toHaveCount(0);
+      state.remote.hooks = {
+        refusedHosts: [
+          { host: "mac-studio.tail2788d4.ts.net", count: 2, at: "2026-10-26T09:12:00Z" },
+        ],
+      };
+      await page.reload();
+      const card = page.locator("[data-hook-refused-hosts]");
+      await expect(
+        card.getByRole("heading", {
+          name: en ? "Refused hook requests" : "Abgewiesene Hook-Anfragen",
+        }),
+      ).toBeVisible();
+      await expect(card.getByText("mac-studio.tail2788d4.ts.net")).toBeVisible();
+      await expect(card).toContainText(en ? "2 times, last" : "2-mal, zuletzt");
+    });
     test("network access itself may only switch the mode off", async ({ page }) => {
       const en = locale === "en-GB";
       const state = await operationsFixture(page);

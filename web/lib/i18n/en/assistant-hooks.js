@@ -81,6 +81,8 @@ export const hookCopy = {
     "Tailscale is not set up: other devices in your tailnet cannot reach this hook.",
   networkOff:
     "Network mode is off: devices in your local network cannot reach this hook.",
+  refusedHost: (host, time) =>
+    `Requests to ${host} were refused (last ${time}): AgentPier does not accept this host. If AgentPier moved to another computer, give the sender one of the addresses above or set up Remote access on the new computer.`,
   actions: "Actions",
   noSecret: "This hook has no secret yet: every request is refused until you create one.",
   createSecret: "Create secret",

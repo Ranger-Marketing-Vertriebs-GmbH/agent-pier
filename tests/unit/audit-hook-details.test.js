@@ -100,3 +100,24 @@ test("a hook run's native write keeps via, hook and event ids", () => {
     hookEventId,
   });
 });
+
+test("a refusal on a host AgentPier does not accept keeps the host, never more", () => {
+  assert.deepEqual(
+    event({
+      kind: "hook-delivery",
+      hookId,
+      outcome: "wrong-host",
+      host: "mac-studio.tail2788d4.ts.net",
+      size: 0,
+    }),
+    {
+      kind: "hook-delivery",
+      hookId,
+      outcome: "wrong-host",
+      host: "mac-studio.tail2788d4.ts.net",
+      size: 0,
+    },
+  );
+  for (const host of ["a b", "x".repeat(300), "evil\nline", 7])
+    assert.equal(event({ kind: "hook-delivery", hookId, host }).host, undefined);
+});

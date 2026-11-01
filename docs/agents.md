@@ -1302,6 +1302,10 @@ own **Enabled** switch is off.
   command permanent for your own chats.
 - **Addresses** lists the hook's address on this computer, through Tailscale and in
   network mode, each with a copy button, and says when Tailscale or network mode is off.
+  When a sender recently called the hook on a host AgentPier does not accept (it
+  answers `403 HOOK_HOST_MISMATCH`, typically after AgentPier moved to another
+  computer), a note there names that host and when; see
+  [after a move](assistant-workflows.md#agent-hooks).
 - **Regenerate secret** (after a confirmation) replaces the secret; the old one stops
   working at once. A hook the agent proposed and you accepted has no secret yet:
   **Create secret** makes the first one. **Send test event** sends a sample event
