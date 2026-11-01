@@ -5,7 +5,7 @@ import { runtimePaths } from "./runtime-paths.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { destroyBackupKeys } from "./backup-credentials.js";
 import { ModelAccountCatalog, accountModelId } from "./model-account-catalog.js";
-import { hostReady } from "./runtimes/runtime-for.js";
+import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 const identity = (profileId) =>
   `openclaw:${createHash("sha256").update(profileId).digest("hex")}`;
 export class AssistantModelAccounts {
@@ -36,6 +36,10 @@ export class AssistantModelAccounts {
   }
   requireReady() {
     if (!hostReady(this.runtime)) throw assistantProblem("unavailable", 503);
+  }
+  // The models sub-port of the runtime, read at each call.
+  port() {
+    return runtimeFor(null, this.runtime).models;
   }
   /**
    * Starts a background model list read once the cached one is stale. Only pages
@@ -77,11 +81,7 @@ export class AssistantModelAccounts {
   }
   async list() {
     if (!hostReady(this.runtime)) return this.capabilities();
-    const result = await this.runtime.client.call(
-      "models.authStatus",
-      { agentId: "main" },
-      { timeoutMs: 60000 },
-    );
+    const result = await this.port().status({ timeoutMs: 60000 });
     const profiles =
       result.providers?.find((p) => p.provider === "openai")?.profiles || [];
     this.records = profiles
@@ -151,16 +151,12 @@ export class AssistantModelAccounts {
   async check(id) {
     this.requireReady();
     const record = this.record(id);
-    const result = await this.runtime.client.call(
-      "models.probe",
-      {
-        provider: "openai",
-        agentId: "main",
-        profileId: record.profileId,
-        timeoutMs: 15000,
-      },
-      { timeoutMs: 20000 },
-    );
+    const result = await this.port().probe({
+      provider: "openai",
+      profileId: record.profileId,
+      probeTimeoutMs: 15000,
+      timeoutMs: 20000,
+    });
     await this.list();
     return {
       status: ["ok", "auth", "rate_limit", "billing", "timeout", "no_model"].includes(
@@ -176,11 +172,11 @@ export class AssistantModelAccounts {
     const record = this.record(id);
     // Before revocation: an update backup must never resurrect this profile.
     destroyBackupKeys(path.dirname(this.file));
-    await this.runtime.client.call(
-      "models.authLogout",
-      { provider: "openai", agentId: "main", profileIds: [record.profileId] },
-      { timeoutMs: 60000 },
-    );
+    await this.port().logout({
+      provider: "openai",
+      profileIds: [record.profileId],
+      timeoutMs: 60000,
+    });
     return this.list();
   }
 }

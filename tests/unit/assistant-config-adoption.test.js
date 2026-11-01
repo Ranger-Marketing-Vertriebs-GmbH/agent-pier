@@ -78,7 +78,7 @@ function fixture(
   const warnings = [];
   const config = (timeoutMs = 5000) =>
     new AssistantConfig({
-      client: gateway.client,
+      runtime: { client: gateway.client },
       store,
       workspaces: dataDir,
       models: {

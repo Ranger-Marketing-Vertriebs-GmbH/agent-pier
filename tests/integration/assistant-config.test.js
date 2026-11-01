@@ -88,7 +88,7 @@ for (const layout of ["entries", "list", "arrayEntries"])
       };
       const config = new AssistantConfig({
         store,
-        client,
+        runtime: { client },
         workspaces: dataDir,
         models: {
           resolve: ({ connectionId, modelId }) => accounts.resolve(connectionId, modelId),
@@ -150,7 +150,7 @@ test("config conflict preserves desired revision and releases central credential
     },
   };
   const config = new AssistantConfig({
-    client,
+    runtime: { client },
     models,
     store,
     workspaces: path.join(dataDir, "workspaces"),
@@ -199,7 +199,7 @@ test("native OAuth configuration pins the profile without writing model credenti
   };
   const config = new AssistantConfig({
     store,
-    client,
+    runtime: { client },
     workspaces: dataDir,
     models: {
       resolve: async () => ({
@@ -273,7 +273,7 @@ test("managed profiles apply exact parent/member tools without copying native cr
   };
   let ready = true;
   const config = new AssistantConfig({
-    client,
+    runtime: { client },
     store,
     workspaces: dataDir,
     teamReady: () => ready,
@@ -362,7 +362,7 @@ test("a live apply withholds web tools the started Gateway could not serve", asy
   };
   let available = { browser: false, webSearch: false };
   const config = new AssistantConfig({
-    client,
+    runtime: { client },
     store,
     workspaces: dataDir,
     teamReady: () => true,
@@ -431,7 +431,7 @@ test("every turn admission restores tampered bootstrap files even when nothing c
     },
   };
   const config = new AssistantConfig({
-    client,
+    runtime: { client },
     store,
     workspaces: dataDir,
     models: {
@@ -515,7 +515,7 @@ test("a roster read during the native reload after profile creation is polled ag
   };
   const config = new AssistantConfig({
     store,
-    client,
+    runtime: { client },
     workspaces: dataDir,
     models: {
       resolve: async () => ({ modelRef: "openai/gpt-6-astra@selected", release() {} }),
@@ -555,7 +555,7 @@ test("a lost Gateway connection during the roster wait fails at once", async (t)
   };
   const config = new AssistantConfig({
     store,
-    client,
+    runtime: { client },
     workspaces: dataDir,
     models: {
       resolve: async () => ({ modelRef: "openai/gpt-6-astra@selected", release() {} }),

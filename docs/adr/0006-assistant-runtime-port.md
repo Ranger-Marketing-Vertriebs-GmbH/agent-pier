@@ -68,7 +68,8 @@ Adapters live in `server/features/assistants/runtimes/openclaw/` and
 `gateway-tls.js`, `openclaw-config/`, `exec-allowlist-policy.js`, the team plugin and
 the OpenClaw contract tests move into the OpenClaw adapter. A unit test fails when code outside `runtimes/` calls a
 runtime client or names a runtime method; its allowlist starts with today's files and may
-only shrink, as `tests/unit/ui-guide-rules.test.js` does for the UI.
+only shrink, as `tests/unit/ui-guide-rules.test.js` does for the UI. Step 1 of the
+delivery order emptied it: the rule is now absolute, without an allowlist.
 
 ### 3. AgentPier owns a runtime-neutral desired state
 

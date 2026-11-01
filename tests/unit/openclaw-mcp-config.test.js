@@ -297,7 +297,7 @@ test("a start and a live apply grant the same MCP tools and the readback holds",
     },
   };
   const apply = new AssistantConfig({
-    client,
+    runtime: { client },
     store,
     workspaces: dataDir,
     teamReady: () => true,

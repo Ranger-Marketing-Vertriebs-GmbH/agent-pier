@@ -153,7 +153,7 @@ function gateway(t) {
     },
   };
   const config = new AssistantConfig({
-    client,
+    runtime: { client },
     store,
     workspaces: dataDir,
     models: { resolve: () => ({ modelRef: "new/model", display: {}, release() {} }) },

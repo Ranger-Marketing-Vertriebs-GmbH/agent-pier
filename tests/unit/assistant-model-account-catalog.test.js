@@ -225,6 +225,30 @@ test("a forced read the Gateway answers while discovery still runs is read again
   assert.deepEqual(logs, ["ChatGPT model list could not be read (PENDING)."]);
 });
 
+test("a refresh reads again only on the connection it started on", async () => {
+  // Discovery still runs at the first read; the Gateway restarts before the next.
+  const pending = { models: [], pendingProviders: ["openai"] };
+  const { runtime, calls } = gateway([pending]);
+  const old = runtime.client;
+  const fresh = {
+    ready: true,
+    calls: [],
+    call: async (...args) => fresh.calls.push(args),
+  };
+  const call = old.call;
+  old.call = async (...args) => {
+    const answer = await call(...args);
+    old.ready = false;
+    old.call = () => Promise.reject(Object.assign(Error("closed"), { status: 503 }));
+    runtime.client = fresh;
+    return answer;
+  };
+  const catalog = new ModelAccountCatalog({ runtime, ...quiet });
+  await assert.rejects(catalog.refresh({ force: true }), { status: 503 });
+  assert.equal(calls.length, 1);
+  assert.deepEqual(fresh.calls, []);
+});
+
 test("availability is the agent's: rejected, unknown, empty and stale lists are marked", async () => {
   const { runtime, calls } = gateway([
     {

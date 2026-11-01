@@ -92,7 +92,6 @@ async function harness(t) {
     store,
     workspaces: runtime.paths.workspaces,
     runtime,
-    client: runtime.client,
     hostCapacity: () => 4,
     models: {
       resolve: () => ({

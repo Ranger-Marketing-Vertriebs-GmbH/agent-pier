@@ -1,4 +1,4 @@
-import { hostReady } from "./runtimes/runtime-for.js";
+import { hostConnection, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 // The model IDs a ChatGPT account can pin: resolve() turns one into
 // `openai/<modelId>@<profileId>`, so only bare IDs survive.
 export const accountModelId = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/;
@@ -144,20 +144,17 @@ export class ModelAccountCatalog {
           this.#queued = null;
           return this.refresh({ force: true });
         }));
-    const client = this.runtime.client;
-    if (!client?.ready) return Promise.reject(Object.assign(Error(), { status: 503 }));
+    if (!hostReady(this.runtime))
+      return Promise.reject(Object.assign(Error(), { status: 503 }));
+    // Every read of this refresh goes to the connection checked here.
+    const models = runtimeFor(null, this.runtime).models.on(hostConnection(this.runtime));
     const deadline = Date.now() + readBudgetMs;
     const read = (refresh) =>
-      client.call(
-        "models.list",
-        {
-          agentId: "main",
-          provider: "openai",
-          view: "all",
-          ...(refresh ? { refresh } : {}),
-        },
-        { timeoutMs: Math.max(1, Math.min(callTimeoutMs, deadline - Date.now())) },
-      );
+      models.catalog({
+        provider: "openai",
+        refresh,
+        timeoutMs: Math.max(1, Math.min(callTimeoutMs, deadline - Date.now())),
+      });
     this.#forced = force;
     this.#inflight = (async () => {
       try {

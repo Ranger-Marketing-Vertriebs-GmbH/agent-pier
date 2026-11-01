@@ -11,6 +11,9 @@
  *   - connection(): an opaque handle of the current connection, null without one; the
  *     same value until the runtime replaces it, so a caller compares the handle from
  *     before an await with the one after it to learn whether a restart came between.
+ *   - connected(connection): synchronously, whether that connection still takes
+ *     calls, current or not; onDisconnect(connection, listener): `listener()` once
+ *     when it drops; returns unsubscribe.
  *   - status(): `{ availability, sync, version, diagnostic }`, availability one of
  *     HOST_AVAILABILITY; version(): the running version or null.
  *   - subscribe(listener): calls `listener(status)` on each change; returns unsubscribe.
@@ -38,6 +41,9 @@
  *   - downloadArtifact({ sessionKey, artifactId, maxBytes, timeoutMs }): `{ body }`;
  *     an error with `artifactRefusal` ("gone", "location", "size") never changes on
  *     a retry.
+ *   - backgroundRunning({ key }): whether the session still runs background work.
+ *   - title({ agentId, message, reply }): `{ title }`, a chat title the agent's own
+ *     model proposes from a message and its reply, outside any session.
  *   - on(connection): the same methods (without `on`) bound to a handle of
  *     host.connection(): while it is current they act as above; once the runtime
  *     replaced that connection they reject (code "UNAVAILABLE", status 503) and the
@@ -111,8 +117,27 @@
  *   - status(): `{ enabled }`, whether the scheduler runs jobs at all.
  *   - on(connection), as sessions.on.
  * - skills: per-agent skill status and eligibility
+ *   - status({ agentId }): `{ skills: [{ name, source, eligible, … }] }` for the
+ *     agent's workspace, or the bundled and host-wide skills without one; rejects
+ *     while unreachable. unknownAgent(error): synchronously, whether the runtime
+ *     refused it for an agent it has not created yet.
+ *   - on(connection), as sessions.on.
  * - browser: profiles, live view, input, takeover
- * - models: catalog, probe, login, logout, status
+ *   - request({ method, path, query, body, timeoutMs }): one call of the runtime's
+ *     browser control API (the profile in `query`), answered with its body.
+ *   - openStream({ path }): synchronously, the live-view socket a screencast ticket
+ *     names; throws for a path off the runtime's origin.
+ *   - on(connection), as sessions.on.
+ * - models: catalog, probe, login, logout, status. Account sign-ins are host-wide.
+ *   Async methods reject while unreachable; answers are the runtime's.
+ *   - catalog({ provider, refresh, timeoutMs }): the provider's model list.
+ *   - status({ timeoutMs }): `{ providers: [{ provider, profiles }] }`.
+ *   - probe({ provider, profileId, probeTimeoutMs, timeoutMs }): `{ status }`.
+ *   - logout({ provider, profileIds, timeoutMs }).
+ *   - login({ sessionId, authChoice, timeoutMs }) starts a sign-in wizard;
+ *     loginStep({ sessionId, answer, timeoutMs }) answers its step and resolves the
+ *     next (`{ done, status, step }`); cancelLogin({ sessionId, timeoutMs }).
+ *   - on(connection), as sessions.on.
  * - channels: channel status
  *   - status({ probe }): resolves `{ channelAccounts: { telegram: [account] } }`,
  *     each account `{ accountId, running, connected, lastError }`; rejects when the

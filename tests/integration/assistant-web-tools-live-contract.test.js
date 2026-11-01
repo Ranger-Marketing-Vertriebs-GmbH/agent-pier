@@ -148,7 +148,6 @@ test(
       store,
       workspaces: runtime.paths.workspaces,
       runtime,
-      client: runtime.client,
       teamReady: () => bridge.status().ready,
       hostCapacity: () => 4,
       models,

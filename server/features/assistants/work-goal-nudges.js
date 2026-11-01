@@ -14,8 +14,7 @@ import {
   recordedTurn,
 } from "./goal-turns.js";
 import { mainConversation } from "./routine-targets.js";
-import { backgroundMethod } from "./team-plugin/background-commands.js";
-import { hostReady } from "./runtimes/runtime-for.js";
+import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 
 export const nudgeDelayMs = 90000;
 export const technicalFailureLimit = 3;
@@ -42,10 +41,9 @@ export function latestOwnerTurn(service, conversationId) {
  */
 export async function backgroundRunning(service, sessionKey) {
   try {
-    const answer = await service.assistants.runtime.client.call(backgroundMethod, {
-      sessionKey,
+    return await runtimeFor(null, service.assistants.runtime).sessions.backgroundRunning({
+      key: sessionKey,
     });
-    return answer?.running > 0 || answer?.completing > 0;
   } catch {
     return false;
   }

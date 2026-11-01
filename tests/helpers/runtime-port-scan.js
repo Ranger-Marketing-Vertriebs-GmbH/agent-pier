@@ -59,35 +59,3 @@ export function clientAccesses(sources) {
   }
   return found;
 }
-
-/**
- * Problems of `found` against `allowed` ({ file: count } or { file: [name] }): a new
- * offender, a grown one, and one that shrank until its allowance is lowered.
- */
-export function ratchet(found, allowed = {}) {
-  const problems = [];
-  const size = (value) => (Array.isArray(value) ? value.length : (value ?? 0));
-  for (const [file, value] of Object.entries(found)) {
-    const limit = allowed[file];
-    if (Array.isArray(value)) {
-      const extra = value.filter((name) => !(limit || []).includes(name));
-      if (extra.length) problems.push(`${file}: ${extra.join(", ")} (not allowed)`);
-    } else if (value > size(limit))
-      problems.push(`${file}: ${value} (allowed ${size(limit)})`);
-  }
-  for (const [file, limit] of Object.entries(allowed)) {
-    const value = found[file];
-    if (Array.isArray(limit)) {
-      const gone = limit.filter((name) => !(value || []).includes(name));
-      if (gone.length)
-        problems.push(
-          `${file}: ${gone.join(", ")} no longer named, remove from allowlist`,
-        );
-    } else if (size(value) < limit)
-      problems.push(
-        `${file}: ${size(value)} left, lower its allowance from ${limit}` +
-          (size(value) ? ` to ${size(value)}` : " by removing it"),
-      );
-  }
-  return problems;
-}

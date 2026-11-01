@@ -206,18 +206,25 @@ arrive as run events. The `routines` sub-port drives OpenClaw's cron scheduler: 
 lists an agent's jobs page by page, adds, changes, removes and runs a job (a forced run
 answers whether it was queued or refused), lists a job's runs and reads whether the
 scheduler is on; the jobs themselves keep OpenClaw's fields, which reminders,
-routines, check-ins and hook runs still build and read. Each has `on(connection)` like
-`sessions`. OpenClaw's admission wait (`agent-admission.js`), the serialized
+routines, check-ins and hook runs still build and read. The `skills` sub-port reads an
+agent's skill status (`skills.status`) and tells a refusal for an agent OpenClaw has
+not created yet; the `browser` sub-port makes one call of OpenClaw's browser control
+API (`browser.request`) and opens the live view's screencast socket; the `models`
+sub-port reads the ChatGPT model catalog, signs accounts in through OpenClaw's login
+wizard, probes and signs them out. `sessions` also asks the team plugin whether a
+session still runs background commands and for a generated chat title, and the
+`host` sub-port tells whether a captured connection still takes calls
+(`connected`) and when it drops (`onDisconnect`), which the ChatGPT sign-in follows.
+Each has `on(connection)` like `sessions`. OpenClaw's admission wait (`agent-admission.js`), the serialized
 configuration writes (`live-patch.js`), the adoption watch (`config-adoption.js`)
 and the roster wait (`agent-roster.js`) live in the adapter; the compiler in
 `openclaw-config/` still produces the configuration it applies.
 `tests/unit/runtime-port-rules.test.js`
 fails when server code outside `runtimes/` names a Gateway method in
-`.call()`/`.request()` or reaches `runtime.client`; its allowlist
-(`tests/fixtures/runtime-port-allowlist.json`) holds today's callers and may only
-shrink. `tests/helpers/runtime-port-contract.js` is the contract every adapter passes,
-the `host`, `sessions`, `events`, `agents`, `agentFiles`, `config`, `approvals` and
-`routines` sub-ports included.
+`.call()`/`.request()` or reaches `runtime.client`. Every caller has moved behind the
+port, so the rule is absolute: there is no allowlist, and no file outside `runtimes/`
+may offend. `tests/helpers/runtime-port-contract.js` is the contract every adapter
+passes, every sub-port included.
 
 See [the user guide](agents.md), [the Gateway design](assistant-gateway.md) and
 [ADR 0002](adr/0002-managed-openclaw-assistants.md). The proposed

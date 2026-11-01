@@ -19,6 +19,7 @@ import {
   leaseMs,
   warnMs,
 } from "./browser-takeover.js";
+import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 
 const screencastOptions = { maxWidth: 1280, maxHeight: 1280, quality: 60 };
 // Viewers of one agent's browser at once (several tabs and devices of the owner).
@@ -230,11 +231,11 @@ class LiveStream {
     for (const { viewer } of this.viewers) viewer.state(snapshot);
   }
   request(method, path, body) {
-    return this.live.runtime.client.request("browser.request", {
+    return runtimeFor(null, this.live.runtime).browser.request({
       method,
       path,
       query: { profile: this.profile },
-      ...(body ? { body } : {}),
+      body,
     });
   }
   /** Refreshes now and keeps polling while viewers stay. */
@@ -259,14 +260,14 @@ class LiveStream {
     this.busy = true;
     this.again = false;
     try {
-      const client = this.live.runtime?.client;
-      const view = client?.ready ? this.live.browsers.viewProfile(this.id) : null;
+      const ready = hostReady(this.live.runtime);
+      const view = ready ? this.live.browsers.viewProfile(this.id) : null;
       if (!view) {
         this.disconnect();
         return this.set({
           status: "unavailable",
           tabs: [],
-          reason: client?.ready ? this.live.browsers.viewReason(this.id) : "service",
+          reason: ready ? this.live.browsers.viewReason(this.id) : "service",
         });
       }
       this.profile = view.name;
@@ -335,7 +336,9 @@ class LiveStream {
       ...(targetId ? { targetId } : {}),
     });
     if (this.stopped || !this.viewers.size || typeof ticket?.wsPath !== "string") return;
-    const ws = this.live.runtime.client.openStream(ticket.wsPath);
+    const ws = runtimeFor(null, this.live.runtime).browser.openStream({
+      path: ticket.wsPath,
+    });
     this.upstream = ws;
     this.set({
       status: "connecting",

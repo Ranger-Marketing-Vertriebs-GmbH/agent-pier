@@ -173,7 +173,6 @@ test(
       store,
       workspaces: runtime.paths.workspaces,
       runtime,
-      client: runtime.client,
       teamReady: () => bridge.status().ready,
       models: {
         resolve: () => ({

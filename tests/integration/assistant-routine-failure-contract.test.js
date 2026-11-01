@@ -116,10 +116,9 @@ test(
       profiles: f.store.listAssistants(),
     });
     await runtime.start();
-    // The current Gateway client: the restart below replaces it.
-    const client = { call: (...args) => runtime.client.call(...args) };
     f.assistants.config = new AssistantConfig({
-      client,
+      // The supervisor, as the graph wires it: a restart replaces its client.
+      runtime,
       store: f.store,
       workspaces: runtime.paths.workspaces,
       models: fixtureModels(model),

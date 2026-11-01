@@ -112,10 +112,9 @@ test(
       native: { token: connection.token },
       profiles: f.store.listAssistants(),
     });
-    // The current Gateway client, as the graph wires it: a restart replaces it.
-    const client = { call: (...args) => runtime.client.call(...args) };
     f.assistants.config = new AssistantConfig({
-      client,
+      // The supervisor, as the graph wires it: a restart replaces its client.
+      runtime,
       store: f.store,
       workspaces: runtime.paths.workspaces,
       models: fixtureModels(model),

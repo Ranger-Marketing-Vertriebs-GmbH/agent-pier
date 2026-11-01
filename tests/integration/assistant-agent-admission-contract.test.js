@@ -102,7 +102,6 @@ test(
     const configFor = () =>
       new AssistantConfig({
         runtime,
-        client: runtime.client,
         models,
         store,
         workspaces: runtime.paths.workspaces,

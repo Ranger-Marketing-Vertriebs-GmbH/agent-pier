@@ -155,6 +155,40 @@ export function sessionsContract(name, make, { kinds, tick }) {
 }
 
 /**
+ * The sessions contract's background and title checks: a fresh session runs nothing
+ * in the background, and a title is proposed outside any session.
+ */
+export function sessionExtrasContract(name, make) {
+  test(`${name}: a fresh session runs no background work and chats get a title`, async () => {
+    const runtime = await make({});
+    const { key } = await runtime.sessions.create({ agentId: "ap-1", label: "Chat" });
+    assert.equal(await runtime.sessions.backgroundRunning({ key }), false);
+    const { title } = await runtime.sessions.title({
+      agentId: "ap-1",
+      message: "the budget",
+      reply: "It is 10k.",
+    });
+    assert.equal(typeof title, "string");
+    assert.ok(title.length > 0);
+    const bound = runtime.sessions.on(runtime.host.connection());
+    await runtime.host.restart();
+    await assert.rejects(bound.backgroundRunning({ key }));
+    await assert.rejects(bound.title({ agentId: "ap-1", message: "m", reply: "r" }));
+  });
+
+  test(`${name}: background and title reads reject while unreachable`, async () => {
+    const { sessions } = await make({ unreachable: true });
+    for (const pending of [
+      sessions.backgroundRunning({ key: "k" }),
+      sessions.title({ agentId: "ap-1", message: "m", reply: "r" }),
+    ]) {
+      assert.ok(pending instanceof Promise);
+      await assert.rejects(pending);
+    }
+  });
+}
+
+/**
  * Sessions and events held in memory for the fake runtime: runs end on the next
  * turns of the event loop, finished or failed with `runFailure`. Every call goes
  * through `reach`, which rejects while the runtime is unreachable.
@@ -230,6 +264,8 @@ export function fakeSessionPorts({ reach, runFailure = null, connection }) {
       reach(() => {
         throw Object.assign(new Error("Artifact gone."), { artifactRefusal: "gone" });
       }),
+    backgroundRunning: () => reach(() => false),
+    title: ({ message }) => reach(() => ({ title: `About ${message}` })),
   };
   // A view bound to one connection refuses every call once another replaced it.
   const closed = () =>

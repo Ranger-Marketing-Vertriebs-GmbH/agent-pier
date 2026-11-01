@@ -1,10 +1,7 @@
 import { firstWrittenTurn, generatedTitle, written } from "./chat-titles.js";
 import { goalTurn } from "./goal-turns.js";
-import {
-  chatTitleMethod,
-  titleSourceLimit,
-  titleTimeoutMs,
-} from "./team-plugin/chat-title.js";
+import { titleSourceLimit } from "./team-plugin/chat-title.js";
+import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 
 // A chat's generated title (AGENTPIER-187). Once the chat's first written turn has
 // its reply, the agent's own model names the chat in 3 to 6 words from that message
@@ -78,18 +75,17 @@ async function nameChat(service, conversation, request, attempt) {
   );
   const message = clip(first.text);
   if (!reply || !message) return tried();
-  const client = service.runtime.client;
-  if (!client?.ready) return;
+  if (!hostReady(service.runtime)) return;
   tried();
   titling.add(id);
   let title;
   try {
     const agent = service.store.getAssistant(conversation.assistantId);
-    const result = await client.call(
-      chatTitleMethod,
-      { agentId: agent.runtimeAgentId, message, reply },
-      { timeoutMs: titleTimeoutMs + 5000 },
-    );
+    const result = await runtimeFor(agent, service.runtime).sessions.title({
+      agentId: agent.runtimeAgentId,
+      message,
+      reply,
+    });
     title = generatedTitle(result?.title);
   } finally {
     titling.delete(id);

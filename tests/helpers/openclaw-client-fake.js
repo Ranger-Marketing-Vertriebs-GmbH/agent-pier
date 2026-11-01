@@ -22,6 +22,7 @@ export const openClawStore = ({ approvals = [] } = {}) => ({
   ended: [],
   allowlist: { file: { version: 1 }, writes: 0 },
   cron: { jobs: new Map(), runs: new Map(), created: 0 },
+  profiles: [],
 });
 
 /**
@@ -42,6 +43,8 @@ export function openClawClientFake({
   const frames = new EventEmitter();
   const sessions = new Map();
   const runs = new Map();
+  // Login wizards run in the Gateway process: a restart ends them.
+  const wizards = new Set();
   let created = 0;
   const frame = (event, payload) => frames.emit("event", { event, payload });
   const pause = () => new Promise((resolve) => setImmediate(resolve));
@@ -88,8 +91,25 @@ export function openClawClientFake({
     ...agentAnswers(store, frame),
     ...approvalAnswers(store),
     ...cronAnswers(store.cron),
+    ...modelAnswers(store, wizards),
+    "skills.status": ({ agentId } = {}) => {
+      if (agentId && !store.agents.has(agentId))
+        throw answered("INVALID_REQUEST", `unknown agent id "${agentId}"`);
+      return {
+        skills: [{ name: "weather", source: "openclaw-bundled", eligible: true }],
+      };
+    },
+    "agentpier.backgroundCommands": () => ({ running: 0, completing: 0 }),
+    "agentpier.chatTitle": ({ message }) => ({ title: `About ${message}` }),
   };
-  return {
+  // The browser control service of this Gateway process (`browser.request`).
+  const browser = { running: false };
+  const browserAnswer = ({ method, path }) => {
+    if (method === "POST" && path === "/start") browser.running = true;
+    if (method === "POST" && path === "/stop") browser.running = false;
+    return path === "/tabs" ? { tabs: [] } : { running: browser.running };
+  };
+  return Object.assign(new EventEmitter(), {
     ready: true,
     calls,
     async call(method, params, ...options) {
@@ -97,6 +117,23 @@ export function openClawClientFake({
       calls.push([method, params, ...options]);
       if (!answers[method]) throw new Error(`unexpected ${method}`);
       return answers[method](params);
+    },
+    // Unlike call, request needs only an open socket (gateway-client.js).
+    async request(method, params, ...options) {
+      if (!this.ready) throw gatewayError();
+      calls.push([method, params, ...options]);
+      if (method !== "browser.request") throw new Error(`unexpected ${method}`);
+      return browserAnswer(params);
+    },
+    openStream(wsPath) {
+      if (
+        typeof wsPath !== "string" ||
+        !wsPath.startsWith("/") ||
+        wsPath.startsWith("//")
+      )
+        throw gatewayError("RPC_FAILED");
+      calls.push(["openStream", wsPath]);
+      return { wsPath };
     },
     close() {
       this.ready = false;
@@ -110,7 +147,7 @@ export function openClawClientFake({
       return () => frames.off("event", listener);
     },
     frame,
-  };
+  });
 }
 
 // agents.*, agents.files.*, tools.invoke (memory_search) and config.* over `store`.
@@ -246,5 +283,41 @@ function cronAnswers(cron) {
       entries: (cron.runs.get(id) || []).slice(0, limit).map(copy),
     }),
     "cron.status": () => ({ enabled: true, jobs: cron.jobs.size }),
+  };
+}
+
+// models.* and wizard.*: accounts in `store.profiles`, sign-ins as wizard sessions of
+// this process (`wizards`), each finished by its first step.
+function modelAnswers(store, wizards) {
+  return {
+    "models.list": ({ provider }) => ({
+      models: [{ id: "gpt-fixture", provider, available: true }],
+      providerOutcomes: [],
+    }),
+    "models.authStatus": () => ({
+      providers: [
+        { provider: "openai", profiles: store.profiles.map((p) => ({ ...p })) },
+      ],
+    }),
+    "models.probe": ({ profileId }) => ({
+      status: store.profiles.some((p) => p.profileId === profileId) ? "ok" : "auth",
+    }),
+    "models.authLogout": ({ profileIds }) => {
+      store.profiles = store.profiles.filter((p) => !profileIds.includes(p.profileId));
+      return { ok: true };
+    },
+    "models.authLogin": ({ sessionId }) => {
+      wizards.add(sessionId);
+      return { ok: true };
+    },
+    "wizard.next": ({ sessionId }) => {
+      if (!wizards.delete(sessionId)) throw answered("INVALID_REQUEST");
+      store.profiles.push({ profileId: "openai:fixture", type: "oauth", status: "ok" });
+      return { done: true, status: "done" };
+    },
+    "wizard.cancel": ({ sessionId }) => {
+      wizards.delete(sessionId);
+      return { ok: true };
+    },
   };
 }

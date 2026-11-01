@@ -79,17 +79,19 @@ test("a new agent that the Gateway lists only after 8 s is still applied", async
   const creates = [];
   const config = new AssistantConfig({
     store,
-    client: {
-      call: async (method, params, options) => {
-        if (method === "agents.create") creates.push(options?.timeoutMs);
-        if (method === "agents.files.set" && params.name === "AGENTS.md")
-          bootstrap.push(params.content);
-        const result = await gateway.call(method, params);
-        if (method === "agents.files.get")
-          return params.name === "AGENTS.md" && bootstrap.length
-            ? { file: { content: bootstrap.at(-1) } }
-            : { file: { missing: true } };
-        return result;
+    runtime: {
+      client: {
+        call: async (method, params, options) => {
+          if (method === "agents.create") creates.push(options?.timeoutMs);
+          if (method === "agents.files.set" && params.name === "AGENTS.md")
+            bootstrap.push(params.content);
+          const result = await gateway.call(method, params);
+          if (method === "agents.files.get")
+            return params.name === "AGENTS.md" && bootstrap.length
+              ? { file: { content: bootstrap.at(-1) } }
+              : { file: { missing: true } };
+          return result;
+        },
       },
     },
     workspaces: dataDir,

@@ -1,5 +1,7 @@
 import { createGatewaySession, sessionNotCreated } from "./session-create.js";
 import { keepChatOpen, reopenRefusedChat } from "./native-chat-archive.js";
+import { backgroundMethod } from "../../team-plugin/background-commands.js";
+import { chatTitleMethod, titleTimeoutMs } from "../../team-plugin/chat-title.js";
 
 // Where OpenClaw serves an artifact's bytes once artifacts.download located it.
 const mediaPath = "/api/chat/media/outgoing/";
@@ -66,6 +68,20 @@ function sessionsOver(current) {
     compact: ({ key, timeoutMs }) => call("sessions.compact", { key }, { timeoutMs }),
     subscribeMessages: ({ key }) => call("sessions.messages.subscribe", { key }),
     history: (params) => call("chat.history", historyParams(params)),
+    // The team plugin's count of the session's background commands, and of an
+    // OpenClaw completion run under way (whose agent events carry no mark).
+    async backgroundRunning({ key }) {
+      const answer = await call(backgroundMethod, { sessionKey: key });
+      return answer?.running > 0 || answer?.completing > 0;
+    },
+    // The team plugin's chat title from the agent's own model: `{ title }`, outside
+    // any session (team-plugin/chat-title.js).
+    title: ({ agentId, message, reply }) =>
+      call(
+        chatTitleMethod,
+        { agentId, message, reply },
+        { timeoutMs: titleTimeoutMs + 5000 },
+      ),
     async downloadArtifact({ sessionKey, artifactId, maxBytes, timeoutMs }) {
       // One connection for both steps: a location names a file of that Gateway.
       const client = current();

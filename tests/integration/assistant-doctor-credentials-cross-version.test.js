@@ -157,7 +157,6 @@ test(
       let apiKey = OLD_KEY;
       assistants.config = new AssistantConfig({
         runtime,
-        client: { call: (...args) => runtime.client.call(...args) },
         store,
         workspaces: runtime.paths.workspaces,
         models: {
