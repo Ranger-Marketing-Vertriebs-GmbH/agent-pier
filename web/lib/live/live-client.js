@@ -77,8 +77,9 @@ export class LiveClient {
         mode: info?.mode || "state",
         records: new Set(),
         held: null,
-        // The last stale or refusal frame while no data is held, replayed to later
-        // listeners so they read over REST or fall back instead of waiting.
+        // The last stale, refusal or failed-read frame while no data is held,
+        // replayed to later listeners so they read over REST or fall back instead of
+        // waiting.
         condition: null,
         rows: null,
         have: null,
@@ -384,7 +385,11 @@ export class LiveClient {
         if (frame.code === "unknown-topic") this.send({ op: "unsub", topic: entry.id });
         return this.condition(entry, { type: "error", code: frame.code });
       }
-      this.emit(entry, { type: "error" });
+      // The server's read failed. Without data held, a later listener hears it too
+      // and reads the route itself; otherwise it would wait for a push that the
+      // server sends only after a read that succeeds again.
+      if (entry.held) this.emit(entry, { type: "error" });
+      else this.condition(entry, { type: "error" });
     }
   }
 
