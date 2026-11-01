@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import CapabilityGate from "../../components/CapabilityGate.jsx";
 import CheckRow from "../../components/CheckRow.jsx";
 import Checkbox from "../../components/Checkbox.jsx";
 import Switch from "../../components/Switch.jsx";
@@ -96,6 +97,19 @@ export default function ControlsSection() {
           onChange={(event) => setCheck(event.target.checked)}
         />
         <CheckRow title={copy.variants.disabled} checked readOnly disabled />
+      </Specimen>
+      <Specimen label="CapabilityGate" wide>
+        <CapabilityGate
+          runtime={{
+            name: s.gateRuntime,
+            capabilities: { skills: { available: false, reason: "sample" } },
+          }}
+          capability="skills"
+        >
+          <ListCard label={s.gateControl}>
+            <ToggleRow label={s.gateControl} checked={on} onChange={setOn} />
+          </ListCard>
+        </CapabilityGate>
       </Specimen>
     </GallerySection>
   );

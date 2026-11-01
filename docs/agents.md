@@ -298,6 +298,13 @@ shows Overview, Identity, Capabilities and Access; an agent of users has no Team
 Old links with `tab=profile`, `tab=work`, `tab=routines` or `tab=telegram` open the
 matching new tab.
 
+Beside the tabs on wide screens (on a phone at the end of **Overview**), **Agent
+service** names the agent's **Runtime** with its version, such as "OpenClaw
+2026.10.3", next to the service and synchronization state. A setting whose feature the
+agent's runtime does not offer (shell and approvals, reminders and routines, skills,
+browser, MCP servers, memory, model, Telegram) stays visible but disabled, with the
+reason above it. With OpenClaw every setting is available.
+
 ![Agent settings on the Access tab](screenshots/agent-settings-access-desktop.png)
 
 On a phone: [Overview tab](screenshots/agent-settings-phone.png).

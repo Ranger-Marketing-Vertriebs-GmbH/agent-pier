@@ -20,6 +20,9 @@ async function assistantFixture(
     model: { connectionId: "router", modelId: "openai/gpt-4.1-mini" },
     revision: 2,
     effectiveRevision: 1,
+    // The agent API names its runtime (ADR 0006).
+    runtime: "openclaw",
+    runtimeInfo: { id: "openclaw", name: "OpenClaw", version: "2026.10.3" },
   };
   await page.route(/\/api\/assistant/, async (route) => {
     if (await fulfillEnabledAssistantFeature(route)) return;
@@ -250,6 +253,12 @@ test("conversation and settings share the mockup navigation on desktop and mobil
     await expect(page).toHaveURL(/\/agents\/home\/settings$/);
     await expect(
       page.getByRole("heading", { name: "Agent service", exact: true }),
+    ).toBeVisible();
+    // The agent's runtime with its version, from the agent API.
+    await expect(
+      page
+        .getByRole("group", { name: "Agent service", exact: true })
+        .getByText("OpenClaw 2026.10.3", { exact: true }),
     ).toBeVisible();
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),

@@ -86,8 +86,19 @@ test("a catalog skill's status names why it is shadowed or unavailable", () => {
   assert.doesNotMatch(statusText(row("unavailable"), copy), /OpenClaw version/);
   assert.equal(
     statusText({ state: "unavailable", missing: none }, copy),
-    copy.states.unavailable,
+    copy.states.unavailable("OpenClaw"),
   );
+});
+
+test("states the runtime reports name the agent's runtime", () => {
+  const row = (state) => ({ state, source: "bundled", missing: none });
+  assert.equal(statusText(row("disabled"), copy), copy.states.disabled("OpenClaw"));
+  assert.equal(
+    statusText(row("unavailable"), copy, "Hermes"),
+    copy.states.unavailable("Hermes"),
+  );
+  assert.match(statusText(row("disabled"), copy, "Hermes"), /Hermes/);
+  assert.doesNotMatch(statusText(row("disabled"), copy, "Hermes"), /OpenClaw/);
 });
 
 test("the skills subpage belongs to Capabilities and to eligible agents only", () => {

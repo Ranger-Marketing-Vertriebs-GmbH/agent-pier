@@ -5,8 +5,8 @@ export const assistantSkillsCopy = {
   row: "Skills",
   shellOff:
     "Die meisten Skills führen Kommandozeilenprogramme aus und brauchen Shell-Zugriff.",
-  pageHint:
-    "Angeboten werden mit OpenClaw mitgelieferte Skills und Skills aus dem Skill-Katalog; Katalog-Skills installierst du unter Agenten › Skills. Ein Skill ist ein Hinweis, keine Berechtigung: Was der Agent ausführen darf, entscheidet der Shell-Zugriff. Die Beschreibungen stammen von OpenClaw und bleiben englisch.",
+  pageHint: (runtime) =>
+    `Angeboten werden mit ${runtime} mitgelieferte Skills und Skills aus dem Skill-Katalog; Katalog-Skills installierst du unter Agenten › Skills. Ein Skill ist ein Hinweis, keine Berechtigung: Was der Agent ausführen darf, entscheidet der Shell-Zugriff. Die Beschreibungen stammen von ${runtime} und bleiben englisch.`,
   search: "Skills suchen",
   filter: "Anzeigen",
   filters: {
@@ -25,8 +25,8 @@ export const assistantSkillsCopy = {
     ready: "Bereit",
     missing: "Fehlt",
     unsupported: "Auf diesem System nicht verfügbar",
-    disabled: "In OpenClaw abgeschaltet",
-    unavailable: "In dieser OpenClaw-Version nicht mehr enthalten",
+    disabled: (runtime) => `In ${runtime} abgeschaltet`,
+    unavailable: (runtime) => `In dieser ${runtime}-Version nicht mehr enthalten`,
     needsSettings: "Braucht Einstellungen \u2014 noch nicht unterstützt",
     damaged: "Beschädigt \u2014 installiere ihn unter Agenten \u203a Skills neu",
     unavailableCatalog: "Gerade nicht verfügbar \u2014 AgentPier prüft ihn erneut",

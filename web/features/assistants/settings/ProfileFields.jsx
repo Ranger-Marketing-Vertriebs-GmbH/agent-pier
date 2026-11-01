@@ -6,6 +6,7 @@ import { useCrossLink } from "../../../app/cross-link.js";
 import { assistantCopy as copy } from "../../../lib/i18n/messages/assistants.js";
 import AssistantModelFields from "../AssistantModelFields.jsx";
 import { connectionLabel } from "../connection-label.js";
+import AgentCapability from "./AgentCapability.jsx";
 
 /**
  * Whether the profile fields may be sent: the mounted form reports its own errors;
@@ -19,7 +20,8 @@ export function profileValid(draft) {
 /**
  * Name, instructions and model of an agent draft (Profile tab and create mode). A
  * temporary team member (`member`) may follow its lead's model (`leadModel`), which is
- * then only shown, or pick its own.
+ * then only shown, or pick its own. `assistant` (a saved agent) gates the model choice
+ * on its runtime's models capability.
  */
 export default function ProfileFields({
   draft,
@@ -28,6 +30,7 @@ export default function ProfileFields({
   navigate,
   member = false,
   leadModel,
+  assistant,
 }) {
   const { name, instructions, connectionId, modelId, followLead } = draft.values;
   const followsLead = member && followLead;
@@ -80,16 +83,18 @@ export default function ProfileFields({
             </p>
           </div>
         ) : (
-          <div className="agent-field">
-            <AssistantModelFields
-              key={modelKey}
-              models={models}
-              connectionId={connectionId}
-              modelId={modelId}
-              setConnection={(value) => draft.set("connectionId", value)}
-              setModel={(value) => draft.set("modelId", value)}
-            />
-          </div>
+          <AgentCapability assistant={assistant} surface="models">
+            <div className="agent-field">
+              <AssistantModelFields
+                key={modelKey}
+                models={models}
+                connectionId={connectionId}
+                modelId={modelId}
+                setConnection={(value) => draft.set("connectionId", value)}
+                setModel={(value) => draft.set("modelId", value)}
+              />
+            </div>
+          </AgentCapability>
         )}
       </div>
       {/* A member that follows its lead chooses no connection of its own. */}

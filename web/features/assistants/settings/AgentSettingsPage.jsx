@@ -109,6 +109,7 @@ export default function AgentSettingsPage({
           </div>
           <RuntimeSummary
             as="aside"
+            assistant={assistant}
             className="agent-runtime-aside"
             runtime={runtime}
             navigate={navigate}

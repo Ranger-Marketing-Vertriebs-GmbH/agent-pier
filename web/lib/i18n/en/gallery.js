@@ -55,6 +55,8 @@ export const galleryCopy = {
     statusError: "2 checks failed",
     groupAction: "+ Add",
     toggle: "Binary setting",
+    gateRuntime: "Sample runtime",
+    gateControl: "Needs a capability of the runtime",
     toggleSub: "A switch saves through the save bar",
     number: "Number",
     select: "Selection",
