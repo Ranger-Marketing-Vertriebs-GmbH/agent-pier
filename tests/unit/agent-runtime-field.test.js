@@ -182,7 +182,9 @@ test("runtimeDetails names the runtime, its version and its capabilities", () =>
   );
   assert.equal(hermes.name, "Hermes Agent");
   assert.equal(hermes.version, null);
-  assert.deepEqual(hermes.capabilities.routines, {
+  assert.deepEqual(hermes.capabilities.routines, { available: true });
+  assert.deepEqual(hermes.capabilities.skills, { available: true });
+  assert.deepEqual(hermes.capabilities.browser, {
     available: false,
     reason: "hermesNotYetSupported",
   });

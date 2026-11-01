@@ -306,10 +306,11 @@ export class LeadRoutines {
         this.routines.bindings.patch(binding.id, { state: "revoked", leadEnded: reason });
         this.audit(binding, { change: "remove", by: "system", reason });
       }
-    if (!ending.length || !hostReady(this.assistants.runtime)) return;
+    const runs = ({ agent }) => hostReady(this.assistants.runtime, agent);
+    if (!ending.some(runs)) return;
     await this.assistants
       .admit(async () => {
-        for (const { agent, binding } of ending) {
+        for (const { agent, binding } of ending.filter(runs)) {
           const job = this.routines.find(binding, await this.routines.jobs(agent));
           if (job)
             await runtimeFor(agent, this.assistants.runtime).routines.remove({

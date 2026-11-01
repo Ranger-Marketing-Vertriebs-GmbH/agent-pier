@@ -7,6 +7,7 @@ import {
   hostReady,
   routineRunOf,
   runtimeFor,
+  runtimeForSession,
 } from "./runtimes/runtime-for.js";
 
 // OpenClaw 2026.10.3 runs image_generate in the background. When the provider is
@@ -124,8 +125,9 @@ export class GeneratedImages {
   /** After a run of the conversation ended: its newest messages may hold images. */
   async observe(conversation, { session, origin } = {}) {
     if (this.idle) return;
-    const page = await runtimeFor(null, this.s.runtime).sessions.history({
-      sessionKey: session || conversation.runtimeSessionKey,
+    const sessionKey = session || conversation.runtimeSessionKey;
+    const page = await runtimeForSession(sessionKey, this.s.runtime).sessions.history({
+      sessionKey,
       limit: pageSize,
     });
     await Promise.all(this.scan(conversation, page?.messages || [], { session, origin }));

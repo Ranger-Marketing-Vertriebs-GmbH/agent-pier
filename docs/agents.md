@@ -228,12 +228,18 @@ What works on Hermes today:
 - MCP servers: bind servers of the MCP store under **Access**, local commands and
   servers with a token; their tools appear as `mcp__<server>__<tool>`. Servers with
   sign-in (OAuth) are not available for Hermes agents yet.
+- Reminders, routines and check-ins you set up in the agent's settings: they run
+  on the agent's own Hermes scheduler and their results show in its main chat as on
+  OpenClaw. The agent does not see a routine's result in later turns, a routine run
+  refuses commands that would need an approval, and Hermes runs schedules in the
+  server's time zone ([Hermes runtime](hermes-runtime.md#routines)).
 
 What comes later, shown disabled with **Not available for Hermes agents yet.** in
-the agent's settings: routines, reminders and check-ins, the browser, ChatGPT sign-in,
-Telegram and other channels, teams and advanced runtime settings. Updates of Hermes
-itself appear in the **Hermes Agent** group (**Update**); the Hermes agents restart,
-and a failed start restores the previous installation. What AgentPier writes into a Hermes home is described in
+the agent's settings: the agent's own reminder and routine tool, the browser, ChatGPT
+sign-in, Telegram and other channels, teams and advanced runtime settings. Updates of
+Hermes itself appear in the **Hermes Agent** group (**Update**); the Hermes agents
+restart, and a failed start restores the previous installation. What AgentPier writes
+into a Hermes home is described in
 [Hermes runtime](hermes-runtime.md).
 
 <a id="archive-and-delete"></a>

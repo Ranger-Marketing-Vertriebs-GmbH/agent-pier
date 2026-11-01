@@ -6,14 +6,15 @@ import { cronRunOf } from "./openclaw/openclaw-routine-jobs.js";
 import { hermesCompiler } from "./hermes/hermes-compiler.js";
 import { HermesFleet } from "./hermes/hermes-fleet.js";
 import { storedIdOf } from "./hermes/hermes-run-state.js";
+import { hermesCronRunOf } from "./hermes/hermes-routine-jobs.js";
 
 // The runtimes this AgentPier ships, by the id agents record (`agent.runtime`). Each
 // names its product, resolves an agent's adapter behind the host it runs on, and
 // brings its pure configuration compiler and the routine-run reader of its session
 // keys. OpenClaw: one adapter over the OpenClaw supervisor that every OpenClaw agent
 // shares. Hermes Agent: one process set per agent (ADR 0006 decision 4), kept by the
-// Hermes fleet attached to that supervisor (attachHermesFleet); its routines come
-// later, so no session key of it belongs to a routine run yet.
+// Hermes fleet attached to that supervisor (attachHermesFleet); its routines run on
+// each agent's gateway cron, their runs in `agent:<agent>:hermes:cron:<job>:<id>`.
 const registry = Object.freeze({
   openclaw: Object.freeze({
     name: "OpenClaw",
@@ -30,7 +31,7 @@ const registry = Object.freeze({
     name: "Hermes Agent",
     resolve: (supervisor, agent) => hermesFleetOf(supervisor).runtimeOf(agent),
     compiler: hermesCompiler,
-    runOf: () => null,
+    runOf: hermesCronRunOf,
   }),
 });
 
@@ -132,6 +133,21 @@ export const agentRuntimeEvents = (supervisor) => ({
   subscribe: (listener) => hermesFleetOf(supervisor).subscribe(listener),
 });
 
+/**
+ * Calls `listener(runtimeAgentId)` whenever the own process set of an agent behind
+ * `supervisor` (Hermes) became ready, a start or restart; OpenClaw's own readiness
+ * reaches its callers through the supervisor. Returns unsubscribe; a no-op without a
+ * supervisor.
+ */
+export function onAgentRuntimeReady(supervisor, listener) {
+  if (!supervisor || typeof supervisor !== "object") return () => {};
+  const fleet = hermesFleetOf(supervisor);
+  const follow = (agentId, status) =>
+    status?.availability === "ready" && listener(agentId);
+  fleet.on("status", follow);
+  return () => fleet.off("status", follow);
+}
+
 /** Whether `agent` runs on its own process set (Hermes) rather than the shared host. */
 export const ownProcess = (agent) => runtimeIdOf(agent) === "hermes";
 
@@ -215,9 +231,14 @@ export const hostConnection = (supervisor, agent) =>
 /**
  * The routine run a runtime session key of `agent` belongs to (routines.runOf), or
  * null. It reads only the key, so it needs no supervisor; the runtime is the one
- * `agent` records (runtimeIdOf), and a runtime this AgentPier lacks owns no run here.
+ * `agent` records (runtimeIdOf), for a null `agent` the one the key names (a Hermes
+ * key, else DEFAULT_RUNTIME), and a runtime this AgentPier lacks owns no run here.
  */
 export const routineRunOf = (agent, sessionKey) => {
-  const id = runtimeIdOf(agent);
+  // Without an agent the key tells its runtime.
+  const hermes = /^agent:[^:]+:hermes:/.test(
+    typeof sessionKey === "string" ? sessionKey : "",
+  );
+  const id = agent ? runtimeIdOf(agent) : hermes ? "hermes" : DEFAULT_RUNTIME;
   return knownRuntime(id) ? registry[id].runOf(sessionKey) : null;
 };

@@ -34,7 +34,8 @@ export const guardsEveryCommand = (level) => level === everyCommand;
  * The Hermes toolsets the agent may not use, sorted. `delegation` (invisible
  * subagents) and the rest of Hermes's own toolsets stay on. Not yet mapped and
  * therefore off: `browser` (AgentPier will run each agent's Chromium, ADR 0006
- * decision 4), `cronjob` (routines need the messaging gateway, step 5) and
+ * decision 4), `cronjob` (the agent's own Hermes jobs, which bypass the routines
+ * AgentPier sets up on the same scheduler) and
  * `computer_use` (desktop control AgentPier has no setting for).
  */
 export function disabledToolsets(agent, level) {

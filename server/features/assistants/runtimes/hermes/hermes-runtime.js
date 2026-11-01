@@ -7,19 +7,20 @@ import { hermesApprovals } from "./hermes-approvals.js";
 import { hermesAgentFiles } from "./hermes-files.js";
 import { bundledSkillNames, hermesSkills } from "./hermes-skills.js";
 import { hermesEnvironment } from "./hermes-environment.js";
+import { hermesDeliveries, hermesRoutines } from "./hermes-routines.js";
 import { hermesCompiler, hermesConfigCapabilities } from "./hermes-compiler.js";
 import { hermesError } from "./hermes-rpc-client.js";
 
 // The sub-ports Hermes gets in later delivery steps (ADR 0006): reported, never hidden.
 const later = unavailable("hermesNotYetSupported");
-const laterPorts = ["routines", "browser", "models", "channels"];
+const laterPorts = ["browser", "models", "channels"];
 
 /**
  * What a Hermes agent offers (agent-runtime.js RUNTIME_CAPABILITIES): host,
  * sessions, events, approvals, config, agents, agentFiles (its memory,
- * instructions and AGENTS.md, hermes-files.js) and skills (hermes-skills.js);
- * every-command approval, which only
- * Hermes has (ADR 0006 decision 5); the sub-ports of later steps report
+ * instructions and AGENTS.md, hermes-files.js), skills (hermes-skills.js) and
+ * routines (its gateway's cron, hermes-routines.js); every-command approval, which
+ * only Hermes has (ADR 0006 decision 5); the sub-ports of later steps report
  * `hermesNotYetSupported`, advanced settings `advancedSettingsUnsupported`.
  */
 export const hermesCapabilities = Object.freeze({
@@ -39,8 +40,9 @@ const isRunning = (availability) => !["disabled", "failed"].includes(availabilit
  * connection and instructions of a live apply) the last `config.apply` named, else
  * `desired()`'s, or none to start the home as it is. `strict` (a boolean, or a
  * function answering one at each start) says whether its owner chose every-command
- * approval. Host from hermes-host.js; sessions, events and approvals over the client
- * of the current start.
+ * approval. Host from hermes-host.js; sessions, events, approvals and routines over
+ * the client of the current start, and the deliveries of routine results
+ * (HermesRoutineDeliveries) following each start's client.
  *
  * - config.apply({ desired, strict, catalog, mcp }): writes the compiled home now;
  *   a running set that this changed restarts, a stopped or failed one starts.
@@ -93,6 +95,8 @@ export function createHermesRuntime({
   const supervisor = new HermesSupervisor({ ...options, prepare });
   const host = createHermesHost(supervisor);
   const agentId = supervisor.agentId;
+  const deliveries = hermesDeliveries(supervisor, { dataDir: options.dataDir });
+  host.subscribe(() => deliveries.follow(host.ready() ? supervisor.client : null));
   const ready = () => {
     if (!host.ready()) throw hermesError();
   };
@@ -133,6 +137,7 @@ export function createHermesRuntime({
           pathPrepend: supervisor.pathPrepend,
         }).PATH.split(":"),
     }),
+    routines: hermesRoutines(supervisor, { deliveries }),
     config: {
       compiler: hermesCompiler,
       async apply({

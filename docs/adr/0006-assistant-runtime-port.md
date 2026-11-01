@@ -140,7 +140,10 @@ state: the compiler preserves them and never produces duplicate keys.
 - **Routines and Telegram** need Hermes's messaging gateway for that home. The
   supervised gateway is the home's owner anyway (below), so routines and Telegram run
   in it. Hermes must never start a gateway of its own (the spike observed a detached,
-  self-started one).
+  self-started one). As built (AGENTPIER-335): the routines sub-port drives that
+  gateway's cron through the REST routes it hosts, which the RPC bridge calls with a
+  one-request ticket from the control socket, and delivers each run's result to
+  AgentPier's completion webhook itself ([routines](../hermes-runtime.md#routines)).
 - **Host as built (AGENTPIER-329):** Hermes lets one process own a `HERMES_HOME`
   (`gateway.lock`), and `python -m tui_gateway.entry` refuses a home a gateway owns.
   Each Hermes agent therefore runs `hermes gateway run --external-supervisor` in the

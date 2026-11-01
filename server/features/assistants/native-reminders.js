@@ -65,7 +65,8 @@ export class NativeReminders {
       (enabled && !personalCapabilities(a).reminders)
     )
       throw assistantProblem("invalid", 403);
-    this.assistants.requireReady();
+    // The agent's own runtime: a Hermes agent's process set, else OpenClaw's host.
+    this.assistants.requireReady(a);
     return a;
   }
   // The routines sub-port of `agent`'s runtime (runtimes/runtime-for.js).

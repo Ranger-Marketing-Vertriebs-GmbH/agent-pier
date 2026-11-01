@@ -1,13 +1,14 @@
 import { publicMessages } from "./conversations.js";
 import { historyTextLimit } from "./history-text.js";
-import { hostReady, routineRunOf, runtimeFor } from "./runtimes/runtime-for.js";
+import { hostReady, routineRunOf, runtimeForSession } from "./runtimes/runtime-for.js";
 
 // OpenClaw (2026.10.3, pickSummaryFromOutput) caps the `summary` a cron run's
 // completion webhook carries at 2000 UTF-16 code units plus "…" (one less when the
 // cut would split a surrogate pair). The full reply stays in the routine's session:
 // the run reports its run session, whose transcript the routine's own session
 // (routines.runOf `routineSession`) serves with `sessionId` <run id> until the next
-// run starts (see tests/integration/assistant-routine-contract.test.js).
+// run starts (see tests/integration/assistant-routine-contract.test.js). Hermes's
+// completions carry the whole reply (runtimes/hermes/hermes-routines.js).
 export const summaryCap = 2000;
 const capped = (summary) =>
   summary.endsWith("…") &&
@@ -52,7 +53,7 @@ export async function cronResultText({
   const run = runOf(event.sessionKey, agentId, event.jobId);
   if (!hostReady(supervisor) || !run) return summary;
   try {
-    const history = await runtimeFor(null, supervisor).sessions.history({
+    const history = await runtimeForSession(run.jobSession, supervisor).sessions.history({
       sessionKey: run.jobSession,
       limit: 50,
       maxChars: historyTextLimit,

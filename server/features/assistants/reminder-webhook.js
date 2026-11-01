@@ -3,9 +3,20 @@ import path from "node:path";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { readJSON, writePrivate } from "../../lib/storage.js";
 import { assistantProblem } from "./assistant-validation.js";
+const webhookFile = (dataDir) =>
+  path.join(dataDir, "assistants", "reminder-webhook.json");
+/**
+ * The token completions present (`Authorization: Bearer <token>`), or null before the
+ * webhook first listened. Runtimes that deliver their routines' results themselves
+ * (Hermes, runtimes/hermes/hermes-routines.js) read it here.
+ */
+export function webhookToken(dataDir) {
+  const token = readJSON(webhookFile(dataDir), null)?.token;
+  return typeof token === "string" && /^[a-f0-9]{64}$/.test(token) ? token : null;
+}
 export class ReminderWebhook {
   constructor({ dataDir, receive }) {
-    this.file = path.join(dataDir, "assistants", "reminder-webhook.json");
+    this.file = webhookFile(dataDir);
     this.receive = receive;
     // Set by the hook service; until then its route answers 404.
     this.receiveHook = null;

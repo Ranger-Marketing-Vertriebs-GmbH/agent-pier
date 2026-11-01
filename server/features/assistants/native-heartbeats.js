@@ -219,14 +219,18 @@ export class NativeHeartbeats {
   /** One agent outside any admission, after its pairing changed (channel-service.js). */
   resync(id) {
     return this.assistants.admit(async () => {
-      if (hostReady(this.assistants.runtime)) await this.sync(id);
+      const agent = this.assistants.store.getAssistant(id);
+      if (hostReady(this.assistants.runtime, agent)) await this.sync(id);
     });
   }
-  /** Every agent with settings or a binding, outside any admission (ready, leave). */
+  /**
+   * Every agent with settings or a binding whose runtime takes calls, outside any
+   * admission (ready, leave, a Hermes agent's set ready).
+   */
   reconcile() {
     return this.assistants.admit(async () => {
-      if (!hostReady(this.assistants.runtime)) return;
       for (const agent of this.assistants.store.listAssistants()) {
+        if (!hostReady(this.assistants.runtime, agent)) continue;
         if (!agent.heartbeat?.enabled && !this.current(agent.id).length) continue;
         await this.sync(agent.id).catch(() => {});
       }
