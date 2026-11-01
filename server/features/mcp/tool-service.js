@@ -31,6 +31,24 @@ export class McpTools {
     this.services = services;
     this.scope = scope;
     this.requests = new StartRequests(services.config.dataDir);
+    // The latest start of each grant and request ID that has not settled yet.
+    this.startsInFlight = new Map();
+  }
+  /**
+   * Runs the starts of one grant and request ID one after another. A duplicate sent
+   * while the first is still checked or launched waits for it and then replays its
+   * reservation and run, instead of reserving the request ID a second time.
+   */
+  async serialStart(grantId, requestId, start) {
+    const key = JSON.stringify([grantId, requestId]);
+    const before = this.startsInFlight.get(key);
+    const current = (before ? before.catch(() => {}) : Promise.resolve()).then(start);
+    this.startsInFlight.set(key, current);
+    try {
+      return await current;
+    } finally {
+      if (this.startsInFlight.get(key) === current) this.startsInFlight.delete(key);
+    }
   }
   list(grant, context) {
     return [
@@ -204,7 +222,12 @@ export class McpTools {
       return { tokenBudget: bound };
     return { tokenBudget: item.tokenBudget };
   }
-  async start(args, grant, resolveGrant) {
+  start(args, grant, resolveGrant) {
+    return this.serialStart(grant.id, args.requestId, () =>
+      this.startOnce(args, grant, resolveGrant),
+    );
+  }
+  async startOnce(args, grant, resolveGrant) {
     const { pipelineId, projectId, task, baseBranch, tokenBudget, requestId } = args;
     const input = {
       pipelineId,
