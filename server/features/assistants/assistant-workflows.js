@@ -446,7 +446,10 @@ export class AssistantWorkflows {
   }
   tick() {
     if (this.closed || this.a.maintenance) return Promise.resolve();
-    if (this.running) return this.running;
+    // A pass already in flight began before this call and may have passed over
+    // changes made since; settle it, then run one that sees them (shared by
+    // every caller waiting meanwhile).
+    if (this.running) return this.running.then(() => this.tick());
     this.running = this.advance().finally(() => {
       this.running = null;
     });

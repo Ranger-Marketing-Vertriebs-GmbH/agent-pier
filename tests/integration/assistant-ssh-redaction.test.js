@@ -53,6 +53,7 @@ test("a card a removed host cancels keeps its command redacted", async (t) => {
 
 test("a run lost to a restart is settled as unknown and redacted", async (t) => {
   const { f, id } = await card(t);
+  void f.workflows.tick(); // a pass already in flight, as the interval timer starts one
   f.workflows.store.patch(id, { state: "executing" });
   await f.workflows.tick();
   assertRedacted(f, id, "unknown");
