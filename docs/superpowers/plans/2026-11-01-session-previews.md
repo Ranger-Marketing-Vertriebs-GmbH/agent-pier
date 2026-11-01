@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - Default range **47100–47109** (10 ports); range validated: start ≥ 1024, end ≤ 65535, at most **50** ports, end ≥ start, no overlap with AgentPier's port, `pipelines.portRange` (default 20100–20999, `server/features/pipelines/run-ports.js`) or the Tailscale HTTPS port (port of `remoteUrl`, 443 when absent).
-- Stored in `config.json` as `previews: { enabled, portRangeStart, portRangeEnd }`; **Enable previews is off by default**; existing installations get no tailnet ports unasked. Writes go through the config.json merge helper from AGENTPIER-300 (check the merged name on main); never replace config.json.
+- Stored in `config.json` as `previews: { enabled, portRangeStart, portRangeEnd }`; **Enable previews is off by default**; existing installations get no tailnet ports unasked. Writes go through `updateStoredConfig(dataDir, patch)` from `server/lib/config.js` (AGENTPIER-300, PR #601); never replace config.json.
 - Error codes, stable for agents and localized for the UI: `PREVIEW_NOT_LISTENING`, `PREVIEW_PORT_FORBIDDEN`, `PREVIEW_RANGE_FULL`, `PREVIEW_DISABLED`, `PREVIEW_UNAVAILABLE` (plus internal `PREVIEW_INVALID_INPUT`, `PREVIEW_NOT_FOUND`, `PREVIEW_RANGE_INVALID`).
 - Owner only: proxy admits only principal role `owner`; restricted users' agents and sender-facing agents never get the tool; pipeline sessions have no session MCP.
 - Upstream `Host: localhost:<target>`; set `X-Forwarded-Host`, `X-Forwarded-Proto`, `X-Forwarded-For`; rewrite `Location` from `http://localhost:<target>` / `http://127.0.0.1:<target>` to the preview origin; strip `agentpier_session` from `Cookie`, `tailscale-*` headers, and upstream `Set-Cookie` named `agentpier_session`; never add AgentPier's CSP or `X-Frame-Options`; no `Clear-Site-Data`; no body size limit beyond Node defaults.
@@ -161,7 +161,7 @@ git commit -m "fix: keep the owner signed in when a second session cookie arrive
 - Produces:
   - `DEFAULT_PREVIEW_RANGE = { start: 47100, end: 47109 }`, `MAX_PREVIEW_PORTS = 50`.
   - `normalizePreviewConfig(raw, { hostPort, pipelineRange, tailscaleHttpsPort }): { enabled: boolean, portRangeStart: number, portRangeEnd: number }` — `undefined`/`null` → `{ enabled: false, 47100, 47109 }`; invalid → throws `previewError("PREVIEW_RANGE_INVALID", 400)`; unknown keys refused.
-  - `readPreviewConfig(dataDir, constraints)` (invalid stored range falls back to the default, disabled kept), `writePreviewConfig(dataDir, previews)` (merge helper from AGENTPIER-300).
+  - `readPreviewConfig(dataDir, constraints)` (invalid stored range falls back to the default, disabled kept), `writePreviewConfig(dataDir, previews)` (via `updateStoredConfig` from AGENTPIER-300).
   - `tailscaleHttpsPort(remoteUrl): number|null` (`new URL(remoteUrl).port || 443`; null without `remoteUrl`).
   - `previewError(code, status = 400, ...args): Error & { code, status }` — message from `serverMessages.previews[code]` (German; English via `agentText`), like `artifactError`.
   - `class PreviewSlots { constructor({ range, probe = portAvailable, file, forbidden = () => new Set() }); slots(): number[]; async allocate({ key }): number; release(slot): void; remember(slot, key): void; busy(): Set<number> }` — `file` is `<dataDir>/previews/slots.json` (0600, `{ "<slot>": "<sha256(key) hex, 16 chars>" }`, at most one entry per slot).
