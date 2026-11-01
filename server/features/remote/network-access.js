@@ -1,7 +1,8 @@
 import os from "node:os";
 import net from "node:net";
 import path from "node:path";
-import { readJSON, writePrivate } from "../../lib/storage.js";
+import { readJSON } from "../../lib/storage.js";
+import { updateStoredConfig } from "../../lib/config.js";
 import { normalizeNetworkConfig } from "../../lib/network-config.js";
 
 export { normalizeNetworkConfig };
@@ -73,6 +74,5 @@ export function readNetworkConfig(dataDir) {
 }
 
 export function writeNetworkConfig(dataDir, network) {
-  const saved = readJSON(file(dataDir), {});
-  writePrivate(file(dataDir), { ...saved, network: normalizeNetworkConfig(network) });
+  updateStoredConfig(dataDir, { network: normalizeNetworkConfig(network) });
 }
