@@ -49,7 +49,7 @@ export const searchCopy = {
     addGithub: "Add GitHub access",
     openInbox: "Open inbox",
   },
-  // The search in a user's own app: her agents, their chats and pages, her account.
+  // The search in a user's own app: the user's agents, their chats and pages, the account.
   user: {
     inputLabel: "Search your agents, chats or account",
     placeholder: "Search your agents or account …",

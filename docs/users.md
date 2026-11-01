@@ -32,9 +32,10 @@ A user's page offers:
 After signing in, a user sees **My agents** (with a greeting and her agents), the chats
 with each agent, her agents' settings within her level, and **Account**: **Change
 password**, whether the owner may read her chats, the notifications of her devices and
-**Sign out**. The menu holds only **My agents** and **Account**. Her **Search** button
-(and ⌘K or Ctrl+K) finds only her own agents' chats, settings and memory and these two
-pages, from the agent list her app already reads; nothing of the owner's is indexed. Her app makes HTTP
+**Sign out**. The menu holds only **My agents** and **Account**. The user's **Search**
+button (and ⌘K or Ctrl+K) finds only their own agents' chats, settings and memory and
+these two pages, from the agent list the user's app already reads; nothing of the
+owner's is indexed. The user's app makes HTTP
 requests only to `/auth` and `/api/me`; an owner address opened in it shows "This page
 does not exist here." It also opens four WebSockets outside `/api/me`, each admitted
 after the session check by `server/http/socket-access.js`:

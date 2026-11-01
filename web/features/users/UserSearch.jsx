@@ -41,10 +41,10 @@ function UserSearchDialog({ agents, recent, close, choose, failure }) {
 
 /**
  * The search of a restricted user's app (AGENTPIER-224): the same palette and shortcut
- * as the owner's, over her own agents and pages only (user-search-entries.js). It
- * provides `useSearchDialog().open` to her header's search button; her recent results
- * are kept apart from everyone else's (`scope`). Opening an agent's chat starts her
- * main chat with it when she has none yet, as My agents does.
+ * as the owner's, over the user's own agents and pages only (user-search-entries.js). It
+ * provides `useSearchDialog().open` to the user header's search button; the user's recent results
+ * are kept apart from everyone else's (`scope`). Opening an agent's chat starts the
+ * user's main chat with it when there is none yet, as My agents does.
  */
 export default function UserSearch({ agents, navigate, scope, children }) {
   const [open, setOpen] = useState(false);

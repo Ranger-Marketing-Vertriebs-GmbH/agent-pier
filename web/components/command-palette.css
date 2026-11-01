@@ -9,7 +9,8 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  margin: 0 var(--space-6);
+  /* Room above for the focus ring, which the sticky dialog heading would cover. */
+  margin: var(--space-2) var(--space-6) 0;
   padding: 0 var(--space-3);
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
@@ -149,7 +150,7 @@
 /* Phones: the dialog is a bottom sheet; key hints do not apply to touch. */
 @media (max-width: 700px) {
   .command-palette-field {
-    margin: 0 var(--space-4);
+    margin: var(--space-2) var(--space-4) 0;
   }
   .command-palette-group-label,
   .command-palette-option,

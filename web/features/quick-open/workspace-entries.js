@@ -1,8 +1,8 @@
 // The search's entries for the owner's own things (AGENTPIER-224): sessions, projects,
 // agent chats, pipeline runs and definitions, inbox items, and the actions New run and
-// Open inbox. Every source is data the owner's app already reads under his session
+// Open inbox. Every source is data the owner's app already reads under the owner's session
 // (the workspace state, the agent list, the pushed run list and inbox, the project and
-// pipeline lists), so the search shows nothing his pages would not.
+// pipeline lists), so the search shows nothing the owner's pages would not.
 import { sidebarCopy } from "../../lib/i18n/messages/app.js";
 import { assistantCopy } from "../../lib/i18n/messages/assistants.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
@@ -87,8 +87,8 @@ export function projectEntries({ projects = [], repositories = [] } = {}) {
 }
 
 /**
- * The owner's chats with his agents, as the agent's chat list shows them: not archived,
- * not on an archived agent or a team member, and on a shared agent only his own.
+ * The owner's chats with agents, as the agent's chat list shows them: not archived,
+ * not on an archived agent or a team member, and on a shared agent only the owner's own.
  */
 export function chatEntries({ agents = [], conversations = [] } = {}) {
   const root = bilingual(() => assistantCopy.title);

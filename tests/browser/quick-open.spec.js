@@ -2,7 +2,7 @@
 // runs, pipelines and inbox items besides pages and actions, fuzzy and recent first;
 // arrows and Enter open a result. Ctrl+K stays with a focused terminal (readline's
 // kill-line) on Linux, ⌘K opens the palette from it on macOS; phones open it from a
-// button; a restricted user's palette holds only her own agents and pages.
+// button; a restricted user's palette holds only the user's own agents and pages.
 import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { userAgent, userAppFixture } from "../helpers/user-app-fixture.js";
@@ -298,7 +298,7 @@ test.describe("phone", () => {
     await expect(page.locator(".sidebar")).not.toHaveClass(/open/);
   });
 
-  test("a user's palette holds only her agents and pages", async ({ page }) => {
+  test("a user's palette holds only the user's agents and pages", async ({ page }) => {
     await platform(page, "linux");
     const state = await userAppFixture(page, {
       agents: [
@@ -325,7 +325,7 @@ test.describe("phone", () => {
     await expect(options(page).first()).toContainText("Chat with Lotta");
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(/\/agents\/lotta\/chats\/main$/);
-    // Ctrl+K opens it too; her recent result comes first.
+    // Ctrl+K opens it too; the user's recent result comes first.
     await page.locator(".user-search-button").focus();
     await openWithShortcut(page, "Control+k", { touch: true });
     await expect(group(page, "Recent").getByRole("option").first()).toContainText(

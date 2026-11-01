@@ -366,8 +366,9 @@ The information architecture is recorded in
     names as aliases ("Settings › Access › SSH accesses"), the loaded agents and their
     tabs, connection names (loaded on first open), and the owner's own things:
     sessions (by name, project, CLI and account; opened in their last view), projects,
-    his chats with agents, the first page of pipeline runs, pipeline definitions and
-    inbox items. They come only from what his pages read under his session: the
+    the owner's chats with agents, the first page of pipeline runs, pipeline definitions
+    and inbox items. They come only from what the owner's pages read under the owner's
+    session: the
     workspace state and agent list the app already holds, the pushed run list and
     inbox, and the project and pipeline lists, read while the search is open
     (`useQuickOpenSources.js`). Actions: "New session", "Start run", "Open inbox", "New
@@ -390,9 +391,9 @@ A restricted [user](users.md) gets her own shell (`web/features/users/UserApp.js
 not the owner's sidebar:
 
 - `UserPage` frames every page with `UserHeader`: title, back arrow to **My agents**,
-  the search button and the menu button. Her search (`UserSearch.jsx`, the same
-  `CommandPalette` and shortcut) finds only her own agents' chats, settings and memory
-  and **My agents** and **Account** (`user-search-entries.js`); her recent results are
+  the search button and the menu button. The user's search (`UserSearch.jsx`, the same
+  `CommandPalette` and shortcut) finds only their own agents' chats, settings and memory
+  and **My agents** and **Account** (`user-search-entries.js`); their recent results are
   kept apart from the owner's. The menu is a `Sheet` with **My agents**, **Account** and **Sign
   out**; there are no other destinations.
 - Pages reuse the shared components (`ListCard`, `ListRow`, `ToggleRow`, `Sheet`,

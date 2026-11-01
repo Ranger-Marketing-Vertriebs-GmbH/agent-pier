@@ -41,7 +41,7 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
   Pipeline-Läufe und -Definitionen, Einträge im Eingang, jede Seite und Einstellung
   und Aktionen wie **Neue Session**, **Lauf starten** und **Eingang öffnen**; auch
   Tippfehler treffen, zuletzt Geöffnetes steht oben, und ein eingeschränkter Benutzer
-  findet nur ihre eigenen Agenten
+  findet nur die eigenen Agenten
   ([UI-Leitfaden](docs/ui-guide.md#sidebar-menu-and-search), auf Englisch).
 - **Pipelines mit Review:** wiederverwendbare Profile, isolierte Git-Worktrees,
   parallele Reviewer mit zusammengeführtem Ergebnis, begrenzte Review-Schleifen, Prüfungen, ein Risiko-Gate für heikle Pfade, ein Token-Budget je Lauf, eine Warteschlange je Projekt mit Limit für gleichzeitige Läufe und

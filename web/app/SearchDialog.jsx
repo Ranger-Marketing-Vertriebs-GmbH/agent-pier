@@ -9,7 +9,7 @@ import useQuickOpenSources from "../features/quick-open/useQuickOpenSources.js";
 import { paletteGroups, resultCount } from "../features/quick-open/palette-groups.jsx";
 
 /**
- * The owner's ⌘K search (AGENTPIER-224), a `CommandPalette` over his sessions,
+ * The owner's ⌘K search (AGENTPIER-224), a `CommandPalette` over the owner's sessions,
  * projects, agents and chats, runs and pipelines, inbox, every page and setting, and
  * actions; recent results first. `choose(entry)` performs a result.
  */

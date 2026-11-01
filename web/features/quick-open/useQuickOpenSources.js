@@ -6,8 +6,8 @@ import { listedProjectsPath } from "../../lib/project-list.js";
 const list = (value, key) => (Array.isArray(value?.[key]) ? value[key] : []);
 
 /**
- * What the owner's search reads while it is open, from the routes and live topics his
- * pages use (so the same authorization applies): the inbox and the first page of the
+ * What the owner's search reads while it is open, from the routes and live topics the
+ * owner's pages use (so the same authorization applies): the inbox and the first page of the
  * run list (pushed), the project list and the pipeline definitions (read once per
  * open). A source that fails stays empty; `loading` while any is on its way.
  */
