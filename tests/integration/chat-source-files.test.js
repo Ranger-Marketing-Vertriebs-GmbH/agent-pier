@@ -11,6 +11,11 @@ import { ChatEvents } from "../../server/features/chat/chat-events.js";
 import { until } from "../helpers/adapter-process.js";
 import { hangGuard } from "../helpers/hang-guard.js";
 
+// The waits follow the chat stream's own progress (watch events, the source probe,
+// the discovery safety net) instead of a wall-clock budget a loaded host can exhaust
+// between two polls; a stream that never gets there fails on the test's hang guard.
+const reached = (check) => until(check, Infinity);
+
 function fixture(t, { waiting = false, tool = "claude", extra = [], watch } = {}) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "chat-source-files-"));
   t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
@@ -66,7 +71,9 @@ function fixture(t, { waiting = false, tool = "claude", extra = [], watch } = {}
     debounceMs: 5,
     settleMs: 20,
     probeMs: 25,
-    recoveryMs: 60000,
+    // Longer than the hang guard: the periodic recovery never rescues a wait, so what
+    // reaches the chat came through the watches, the probe or discovery.
+    recoveryMs: 10 * hangGuard.timeout,
     watchInput: () => () => {},
   });
   if (watch) streams.sourceWatches.watch = watch;
@@ -79,110 +86,130 @@ function fixture(t, { waiting = false, tool = "claude", extra = [], watch } = {}
   return { dataDir, file, source, session, chat, streams, values, stop, text, idle };
 }
 
-test("real file append, atomic replacement and recreation reach an open chat", async (t) => {
-  const f = fixture(t);
-  await until(() => f.text() === "first" && f.idle());
-  fs.appendFileSync(f.file, " append");
-  await until(() => f.text() === "first append");
-  const replacement = path.join(f.dataDir, "replacement");
-  fs.writeFileSync(replacement, "replacement");
-  fs.utimesSync(replacement, new Date(0), new Date(0));
-  fs.renameSync(replacement, f.file);
-  await until(() => f.text() === "replacement");
-  fs.unlinkSync(f.file);
-  await delay(80);
-  fs.writeFileSync(f.file, "recreated");
-  fs.utimesSync(f.file, new Date(0), new Date(0));
-  await until(() => f.text() === "recreated");
-  f.stop();
-  assert.equal(f.streams.sourceWatches.entries.size, 0);
-});
+test(
+  "real file append, atomic replacement and recreation reach an open chat",
+  hangGuard,
+  async (t) => {
+    const f = fixture(t);
+    await reached(() => f.text() === "first" && f.idle());
+    fs.appendFileSync(f.file, " append");
+    await reached(() => f.text() === "first append");
+    const replacement = path.join(f.dataDir, "replacement");
+    fs.writeFileSync(replacement, "replacement");
+    fs.utimesSync(replacement, new Date(0), new Date(0));
+    fs.renameSync(replacement, f.file);
+    await reached(() => f.text() === "replacement");
+    fs.unlinkSync(f.file);
+    await delay(80);
+    fs.writeFileSync(f.file, "recreated");
+    fs.utimesSync(f.file, new Date(0), new Date(0));
+    await reached(() => f.text() === "recreated");
+    f.stop();
+    assert.equal(f.streams.sourceWatches.entries.size, 0);
+  },
+);
 
-test("a transcript created after a waiting snapshot is found without a directory event", async (t) => {
-  const f = fixture(t, { waiting: true });
-  await until(() => f.values.at(-1)?.snapshot?.availability === "waiting");
-  f.source.waiting = false;
-  // No watched file or directory is changed. The discovery safety net must re-read.
-  await until(() => f.text() === "first", 3000);
-  assert.ok(f.streams.sourceWatches.entries.size > 0);
-});
+test(
+  "a transcript created after a waiting snapshot is found without a directory event",
+  hangGuard,
+  async (t) => {
+    const f = fixture(t, { waiting: true });
+    await reached(() => f.values.at(-1)?.snapshot?.availability === "waiting");
+    f.source.waiting = false;
+    // No watched file or directory is changed. The discovery safety net must re-read.
+    await reached(() => f.text() === "first");
+    assert.ok(f.streams.sourceWatches.entries.size > 0);
+  },
+);
 
-test("account rebinding retires the previous source and cannot revive it", async (t) => {
-  const f = fixture(t);
-  await until(() => f.text() === "first" && f.idle());
-  const other = path.join(f.dataDir, "transcripts", "native-two.jsonl");
-  fs.writeFileSync(other, "other account");
-  f.source.file = other;
-  f.session.accountId = "b";
-  assert.equal(f.chat.sourceState("s1", f.session), null, "old scope is never reused");
-  f.chat.initialize(f.session, "native-two", "manual");
-  await until(() => f.text() === "other account" && f.idle());
-  assert.ok(
-    ![...f.streams.sourceWatches.entries.values()].some((e) => e.file === f.file),
-  );
-  await delay(80);
-  await until(f.idle);
-  const reads = f.source.reads;
-  fs.appendFileSync(f.file, " foreign change");
-  await delay(150);
-  assert.equal(f.source.reads, reads, "old account no longer invalidates the chat");
-  assert.equal(f.text(), "other account");
-  f.chat.reset("s1");
-  assert.equal(f.chat.sourceState("s1"), null, "binding reset clears all source paths");
-});
+test(
+  "account rebinding retires the previous source and cannot revive it",
+  hangGuard,
+  async (t) => {
+    const f = fixture(t);
+    await reached(() => f.text() === "first" && f.idle());
+    const other = path.join(f.dataDir, "transcripts", "native-two.jsonl");
+    fs.writeFileSync(other, "other account");
+    f.source.file = other;
+    f.session.accountId = "b";
+    assert.equal(f.chat.sourceState("s1", f.session), null, "old scope is never reused");
+    f.chat.initialize(f.session, "native-two", "manual");
+    await reached(() => f.text() === "other account" && f.idle());
+    assert.ok(
+      ![...f.streams.sourceWatches.entries.values()].some((e) => e.file === f.file),
+    );
+    await delay(80);
+    await reached(f.idle);
+    const reads = f.source.reads;
+    fs.appendFileSync(f.file, " foreign change");
+    await delay(150);
+    assert.equal(f.source.reads, reads, "old account no longer invalidates the chat");
+    assert.equal(f.text(), "other account");
+    f.chat.reset("s1");
+    assert.equal(f.chat.sourceState("s1"), null, "binding reset clears all source paths");
+  },
+);
 
-test("account rebinding keeps shared directory watches and mutes the old scope", async (t) => {
-  const registrations = [];
-  // Closing a macOS FSEvents directory watch can block the event loop for seconds,
-  // so rebinding must not close and reopen the session's own state directories.
-  const f = fixture(t, {
-    watch: (file, options, listener) => {
-      const watcher = new EventEmitter();
-      const entry = { file, listener, closed: false };
-      watcher.unref = () => {};
-      watcher.close = () => (entry.closed = true);
-      registrations.push(entry);
-      return watcher;
-    },
-  });
-  await until(() => f.text() === "first" && f.idle());
-  const directories = ["sessions", "native-sessions"].map((name) =>
-    path.join(f.dataDir, name),
-  );
-  const opened = (file) => registrations.filter((entry) => entry.file === file);
-  for (const file of [...directories, f.file]) assert.equal(opened(file).length, 1);
-  const previous = opened(f.file)[0];
-  const other = path.join(f.dataDir, "transcripts", "native-two.jsonl");
-  fs.writeFileSync(other, "other account");
-  f.source.file = other;
-  f.session.accountId = "b";
-  f.chat.initialize(f.session, "native-two", "manual");
-  await until(() => f.text() === "other account" && f.idle());
-  await until(() => previous.closed);
-  for (const file of directories) {
-    assert.equal(opened(file).length, 1, `${file} is not reopened`);
-    assert.equal(opened(file)[0].closed, false, `${file} stays open`);
-  }
-  assert.equal(opened(other).length, 1, "the new source is observed");
-  await delay(80);
-  await until(f.idle);
-  const reads = f.source.reads;
-  previous.listener("change", path.basename(f.file));
-  await delay(80);
-  assert.equal(f.source.reads, reads, "the retired source no longer invalidates");
-});
+test(
+  "account rebinding keeps shared directory watches and mutes the old scope",
+  hangGuard,
+  async (t) => {
+    const registrations = [];
+    // Closing a macOS FSEvents directory watch can block the event loop for seconds,
+    // so rebinding must not close and reopen the session's own state directories.
+    const f = fixture(t, {
+      watch: (file, options, listener) => {
+        const watcher = new EventEmitter();
+        const entry = { file, listener, closed: false };
+        watcher.unref = () => {};
+        watcher.close = () => (entry.closed = true);
+        registrations.push(entry);
+        return watcher;
+      },
+    });
+    await reached(() => f.text() === "first" && f.idle());
+    const directories = ["sessions", "native-sessions"].map((name) =>
+      path.join(f.dataDir, name),
+    );
+    const opened = (file) => registrations.filter((entry) => entry.file === file);
+    for (const file of [...directories, f.file]) assert.equal(opened(file).length, 1);
+    const previous = opened(f.file)[0];
+    const other = path.join(f.dataDir, "transcripts", "native-two.jsonl");
+    fs.writeFileSync(other, "other account");
+    f.source.file = other;
+    f.session.accountId = "b";
+    f.chat.initialize(f.session, "native-two", "manual");
+    await reached(() => f.text() === "other account" && f.idle());
+    await reached(() => previous.closed);
+    for (const file of directories) {
+      assert.equal(opened(file).length, 1, `${file} is not reopened`);
+      assert.equal(opened(file)[0].closed, false, `${file} stays open`);
+    }
+    assert.equal(opened(other).length, 1, "the new source is observed");
+    await delay(80);
+    await reached(f.idle);
+    const reads = f.source.reads;
+    previous.listener("change", path.basename(f.file));
+    await delay(80);
+    assert.equal(f.source.reads, reads, "the retired source no longer invalidates");
+  },
+);
 
-test("only a child source changing updates the parent chat before recovery", async (t) => {
-  const childDir = fs.mkdtempSync(path.join(os.tmpdir(), "child-source-"));
-  t.after(() => fs.rmSync(childDir, { recursive: true, force: true }));
-  const child = path.join(childDir, "child.jsonl");
-  fs.writeFileSync(child, " child-one");
-  const f = fixture(t, { tool: "codex", extra: [child] });
-  await until(() => f.text() === "first child-one");
-  fs.writeFileSync(child, " child-two");
-  await until(() => f.text() === "first child-two", 3000);
-  assert.equal("sources" in f.values.at(-1).snapshot, false);
-});
+test(
+  "only a child source changing updates the parent chat before recovery",
+  hangGuard,
+  async (t) => {
+    const childDir = fs.mkdtempSync(path.join(os.tmpdir(), "child-source-"));
+    t.after(() => fs.rmSync(childDir, { recursive: true, force: true }));
+    const child = path.join(childDir, "child.jsonl");
+    fs.writeFileSync(child, " child-one");
+    const f = fixture(t, { tool: "codex", extra: [child] });
+    await reached(() => f.text() === "first child-one");
+    fs.writeFileSync(child, " child-two");
+    await reached(() => f.text() === "first child-two");
+    assert.equal("sources" in f.values.at(-1).snapshot, false);
+  },
+);
 
 test(
   "Claude subagent-only events still invalidate their parent's history",
