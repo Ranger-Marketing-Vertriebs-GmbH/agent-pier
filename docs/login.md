@@ -30,6 +30,8 @@ Die Oberfläche liest `GET /auth/status` beim Öffnen, wenn das Fenster den Foku
 
 Nur `GET`/`HEAD /api/health` bleiben für direkte lokale Aufrufe ohne Proxy- oder Tailscale-Header ohne Anmeldung erreichbar, damit Dienststart und Release-Aktivierung weiterhin ihre Versionsprüfung durchführen können. Über Fernzugriff benötigt auch dieser Endpunkt eine Anmeldung. MCP-Maschinenzugänge behalten ihre eigene OAuth-/Token-Authentifizierung; ihre Tokens berechtigen weiterhin nicht zum Aufruf normaler Browser-APIs. Native CLI-Anfragen nutzen unverändert ihre eigenen sitzungsgebundenen Kanäle.
 
+Kommen mehrere `agentpier_session`-Cookies an (eine [Vorschau](previews.md)-Seite kann ein zweites für denselben Host setzen, denn Cookies ignorieren Ports), verwendet die Anmeldung das gültige und ignoriert die übrigen; früher wurden beide abgelehnt. Die API weist Anfragen mit `Sec-Fetch-Site: same-site` ab, außer Navigationen.
+
 `npm run dev` leitet sowohl `/api` als auch `/auth` an den Backend-Port weiter. Die bestehende explizite Freigabe der Entwicklungs-Origin bleibt erforderlich (`AGENTPIER_DEV=1`); sie gilt genau für den Vite-Port aus `server/lib/dev-ports.js`, standardmäßig 5173, in einer Pipeline-Stufe mit geliehenem Portblock `AGENTPIER_PORT + 1`. Browser-Tests legen nur in ihrem isolierten Testserver einen temporären Benutzer an; Tests gegen einen externen Testserver können mit `AGENTPIER_TEST_STORAGE_STATE` eine vorhandene Playwright-Session verwenden.
 
 ![Erste Benutzeranlage auf einem Mobilgerät](screenshots/agentpier-login-setup.png)

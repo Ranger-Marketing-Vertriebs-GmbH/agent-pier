@@ -4689,6 +4689,17 @@ returns each hook's id, name, sender, state, the rights it holds now and its
 addresses. The agent never receives a secret or its hash. See
 [agent hooks](assistant-workflows.md#agent-hooks).
 
+## Previews (2026-11-01, AGENTPIER-277)
+
+`agentpier_preview` (actions `open`, `close` and `list`) is compiled for the owner's own
+agents and permanent members only (`mayOpenPreviews`), never for user agents, sender-facing
+agents, routines or hooks. `agent-previews.js` admits any run of the owner's chat
+(`ownerChatCall`, background owner runs included) and answers `FORBIDDEN` otherwise. A preview
+belongs to the chat, ends 24 hours after its last proxied request and is closed when the chat
+is deleted. The owner's Telegram chat gets a text message with the link, except for a
+`127.0.0.1` address. Errors carry the stable `PREVIEW_*` codes. See
+[Session previews](previews.md).
+
 ## SSH access proposals (2026-10-26, AGENTPIER-249)
 
 `agentpier_ssh_access` (actions `propose` and `status`) is compiled for own agents and
