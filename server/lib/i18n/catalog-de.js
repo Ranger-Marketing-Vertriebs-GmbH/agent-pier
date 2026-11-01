@@ -4,6 +4,7 @@ import { agentCodingSessions } from "./de/agent-coding-sessions.js";
 import { accounts } from "./de/accounts.js";
 import { agentbus } from "./de/agentbus.js";
 import { artifacts } from "./de/artifacts.js";
+import { previews } from "./de/previews.js";
 import { chat, chatAttachmentCopy } from "./de/chat.js";
 import { chatDeliveryCopy } from "./de/chat-delivery.js";
 import { common } from "./de/common.js";
@@ -80,6 +81,7 @@ export const germanServerMessages = Object.freeze({
   accounts,
   agentbus,
   artifacts,
+  previews,
   chat,
   common,
   extensions,
