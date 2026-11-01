@@ -21,11 +21,25 @@ import { insideRoot } from "./skill-paths.js";
 // which OpenClaw reads as the agent's final allow list (agents.defaults.skills stays
 // [], so an agent without a list has none). Skills the runtime bundles and skills of
 // the owner's agent skill catalog (skill-catalog/) are assignable: never ClawHub or
-// workspace skills.
+// workspace skills. A Hermes agent's skills compile into its own home
+// (runtimes/hermes/hermes-config/skills.js); its report names each skill's origin, and
+// a skill it wrote or installed in Hermes itself is listed as on (`selfWritten`).
 
 const bundledSource = "openclaw-bundled";
 /** The source OpenClaw reports for skills from skills.load.extraDirs: the catalog. */
 export const catalogSource = "openclaw-extra";
+/**
+ * Where a reported skill comes from: the runtime's normalized `origin` ("bundled",
+ * "catalog" or "local", a skill the agent wrote or installed in the runtime itself;
+ * Hermes reports it, agent-runtime.js skills), else OpenClaw's `source`.
+ */
+const originOf = (entry) =>
+  entry?.origin ??
+  (entry?.source === bundledSource
+    ? "bundled"
+    : entry?.source === catalogSource
+      ? "catalog"
+      : "other");
 const requirementKeys = ["bins", "anyBins", "env", "config", "os"];
 
 /**
@@ -43,6 +57,11 @@ export const skillRisks = {
   visualize: "duplicates",
   mcporter: "duplicates",
   "1password": "secrets",
+  // Hermes's bundled skills of the same kinds.
+  "hermes-agent-skill-authoring": "installsCode",
+  "claude-code": "duplicates",
+  codex: "duplicates",
+  opencode: "duplicates",
 };
 
 /**
@@ -141,7 +160,7 @@ const emptySkill = (name, state, roots, description = "") => ({
 
 /** Whether a report entry is the catalog's own live copy below `liveRoot`. */
 export const ownCopy = (entry, liveRoot) =>
-  entry?.source === catalogSource && insideRoot(entry.filePath, liveRoot);
+  originOf(entry) === "catalog" && insideRoot(entry.filePath, liveRoot);
 
 function catalogState({ record, entry, clash, shadowed, liveRoot, roots }) {
   const { name } = record;
@@ -218,11 +237,11 @@ export function skillCatalog({
     if (
       typeof entry?.name === "string" &&
       skillNamePattern.test(entry.name) &&
-      (!fallback || entry.source === bundledSource || entry.source === catalogSource)
+      (!fallback || ["bundled", "catalog"].includes(originOf(entry)))
     ) {
-      if (entry.source === catalogSource) extras.set(entry.name, entry);
+      if (originOf(entry) === "catalog") extras.set(entry.name, entry);
       else others.add(entry.name);
-      if (entry.source !== catalogSource || !entries.has(entry.name))
+      if (originOf(entry) !== "catalog" || !entries.has(entry.name))
         entries.set(entry.name, entry);
     }
   const records = new Map(
@@ -239,7 +258,7 @@ export function skillCatalog({
     ...records.keys(),
     ...assigned,
     ...[...entries.values()]
-      .filter((entry) => entry.source === bundledSource)
+      .filter((entry) => ["bundled", "local"].includes(originOf(entry)))
       .map((entry) => entry.name),
   ]);
   const skills = [...names].sort().map((name) => {
@@ -256,29 +275,50 @@ export function skillCatalog({
           roots,
         })
       : entry
-        ? entry.source !== bundledSource
-          ? emptySkill(name, "shadowed", roots)
-          : shadowed.has(name)
-            ? { ...sanitizeSkill(entry, roots), state: "shadowed" }
-            : sanitizeSkill(entry, roots)
+        ? originOf(entry) === "local"
+          ? { ...sanitizeSkill(entry, roots), state: "selfWritten" }
+          : originOf(entry) !== "bundled"
+            ? emptySkill(name, "shadowed", roots)
+            : shadowed.has(name)
+              ? { ...sanitizeSkill(entry, roots), state: "shadowed" }
+              : sanitizeSkill(entry, roots)
         : emptySkill(name, "unavailable", roots);
     return {
       ...base,
       assigned: on,
-      // OpenClaw confirms it offers the skill to this agent's next turn.
+      // The runtime confirms it offers the skill to this agent's next turn; one the
+      // agent wrote itself is always offered.
       active:
-        on &&
-        !fallback &&
-        base.state === "ready" &&
-        entry?.blockedByAgentFilter === false,
+        base.state === "selfWritten" ||
+        (on &&
+          !fallback &&
+          base.state === "ready" &&
+          entry?.blockedByAgentFilter === false),
       ...(Object.hasOwn(skillRisks, name) ? { risk: skillRisks[name] } : {}),
     };
   });
   return { skills, assigned, shell: personalShell(assistant) };
 }
 
-// States a skill cannot be switched on in (catalogRow and skillCatalog).
-const refusedStates = ["shadowed", "unavailable", "needsSettings", "damaged"];
+// The bundled names a report that names origins lists (Hermes); null for OpenClaw's,
+// whose bundled names come from its installation.
+function reportedBundled(report) {
+  const entries = Array.isArray(report?.skills) ? report.skills : [];
+  if (!entries.some((entry) => entry?.origin)) return null;
+  return new Set(
+    entries.filter((entry) => entry?.origin === "bundled").map((entry) => entry.name),
+  );
+}
+
+// States a skill cannot be switched on in (catalogRow and skillCatalog); a skill the
+// agent wrote itself is on without AgentPier.
+const refusedStates = [
+  "shadowed",
+  "unavailable",
+  "needsSettings",
+  "damaged",
+  "selfWritten",
+];
 
 /** Reads an agent's skills from the running Gateway and checks assignments. */
 export class AgentSkills {
@@ -286,10 +326,10 @@ export class AgentSkills {
     Object.assign(this, { store, runtime, roots });
   }
   async report(assistant) {
-    if (!hostReady(this.runtime)) throw assistantProblem("unavailable", 503);
-    // Both reads go to the connection checked here.
+    if (!hostReady(this.runtime, assistant)) throw assistantProblem("unavailable", 503);
+    // Both reads go to the connection checked here, the agent's runtime's.
     const skills = runtimeFor(assistant, this.runtime).skills.on(
-      hostConnection(this.runtime),
+      hostConnection(this.runtime, assistant),
     );
     try {
       return await skills.status({ agentId: assistant.runtimeAgentId });
@@ -319,7 +359,7 @@ export class AgentSkills {
     const root = this.runtime.paths?.root;
     return skillCatalog({
       report,
-      bundled: bundledSkillNames(entryPath),
+      bundled: reportedBundled(report) ?? bundledSkillNames(entryPath),
       assistant,
       roots,
       // Names a skill in the agent's own folders would replace (the compiler's scan).

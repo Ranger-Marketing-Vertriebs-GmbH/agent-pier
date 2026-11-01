@@ -8,6 +8,7 @@ import {
 } from "./tools.js";
 import { guardDirectory, guardFiles, guardPlugin } from "./guard-plugin.js";
 import { memoryLimits } from "./memory.js";
+import { skillEntries } from "./skills.js";
 
 // One agent's Hermes home (its own HERMES_HOME, ADR 0006 decision 4) compiled from
 // its desired state: config.yaml, .env, SOUL.md and the guard plugin, nothing else.
@@ -42,14 +43,15 @@ const practicalDefaults = [
   [["telemetry", "shared_metrics", "send"], false],
 ];
 
-// What Hermes cannot take from the desired state yet, by reason id.
-function unsupportedOf(agent, level, model) {
+// What Hermes cannot take from the desired state yet, by reason id. `placed`: the
+// assigned skills the home offers (skills.js); any other is named as `skills`.
+function unsupportedOf(agent, level, model, placed) {
   const grants = agent.tools.flatMap((grant) => grant.tools || []);
   return [
     ...(model?.unsupported ? [model.unsupported] : []),
     ...(agent.browser.wanted ? ["browser"] : []),
     ...(agent.mcp.servers.length ? ["mcp"] : []),
-    ...(agent.skills.assigned.length ? ["skills"] : []),
+    ...(agent.skills.assigned.some((name) => !placed.includes(name)) ? ["skills"] : []),
     ...(agent.web.readPdfs ? ["readPdfs"] : []),
     ...(grants.includes("agentpier_reminder") ? ["routines"] : []),
     ...(agent.tools.some((grant) => grant.needs?.includes("teams")) ? ["teams"] : []),
@@ -65,11 +67,17 @@ function unsupportedOf(agent, level, model) {
  * and `env` (`{ owned, values }`) are what a writer merges again over the files it
  * finds. Without `agent.model` the model section and its secrets stay as they were,
  * without `agent.instructions` SOUL.md does. `workspace`: the agent's folder, where
- * its commands start; `strict`: runtime agent ids on every-command approval.
+ * its commands start; `strict`: runtime agent ids on every-command approval;
+ * `bundledSkills`: the names the installation bundles, `catalogSkills`: `{ [name]:
+ * folder }` of catalog skills it may offer (skills.js).
  * Pure: the same inputs yield the same home.
  */
-export function compileHome(agent, { workspace, strict = [], existing = {} } = {}) {
+export function compileHome(
+  agent,
+  { workspace, strict = [], existing = {}, bundledSkills, catalogSkills } = {},
+) {
   const level = shellLevel(agent, strict);
+  const skills = skillEntries(agent, { bundled: bundledSkills, catalog: catalogSkills });
   const guard = guardsEveryCommand(level);
   const model = agent.model ? modelSection(agent.model) : null;
   const config = [
@@ -87,6 +95,7 @@ export function compileHome(agent, { workspace, strict = [], existing = {} } = {
     [["memory", "memory_char_limit"], memoryLimits["MEMORY.md"]],
     [["memory", "user_char_limit"], memoryLimits["USER.md"]],
     [["plugins", "enabled"], guard ? [guardPlugin] : []],
+    ...skills.entries,
     ...practicalDefaults,
   ];
   const env = { owned: modelEnvNames, values: model?.env || {} };
@@ -102,6 +111,6 @@ export function compileHome(agent, { workspace, strict = [], existing = {} } = {
     remove: Object.freeze(guard ? [] : [guardDirectory]),
     config: Object.freeze(config),
     env: Object.freeze(model ? env : { owned: [], values: {} }),
-    unsupported: Object.freeze(unsupportedOf(agent, level, model)),
+    unsupported: Object.freeze(unsupportedOf(agent, level, model, skills.placed)),
   });
 }

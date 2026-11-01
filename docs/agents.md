@@ -222,9 +222,12 @@ What works on Hermes today:
   Hermes's memory tool. You read and edit both on the agent's memory page; Hermes
   allows at most 2,200 and 1,375 characters, and an edit reaches the agent's next
   chat. Memory search looks through both files.
+- Skills: switch on Hermes's bundled skills and skills from the skill catalog on the
+  agent's skills page; the bundled skills you leave off stay off. Skills the agent
+  writes itself in Hermes stay on and are listed there without a switch.
 
 What comes later, shown disabled with **Not available for Hermes agents yet.** in
-the agent's settings: routines, reminders and check-ins, skills, MCP servers, the browser, ChatGPT sign-in, Telegram and other channels, teams and
+the agent's settings: routines, reminders and check-ins, MCP servers, the browser, ChatGPT sign-in, Telegram and other channels, teams and
 advanced runtime settings. Updates of Hermes itself appear in the **Hermes Agent** group
 (**Update**); the Hermes agents restart, and a failed start restores the previous
 installation. What AgentPier writes into a Hermes home is described in

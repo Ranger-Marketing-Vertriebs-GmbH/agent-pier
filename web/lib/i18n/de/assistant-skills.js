@@ -34,6 +34,8 @@ export const assistantSkillsCopy = {
       "Aus: Ein anderer installierter Skill gleichen Namens läuft an Stelle dieses Katalog-Skills. Deine Auswahl bleibt gespeichert und gilt wieder, sobald dieser Skill entfernt ist.",
     shadowedCatalog:
       "Aus: Ein mitgelieferter Skill gleichen Namens ersetzt diesen Katalog-Skill. Entferne den Katalog-Skill, um den mitgelieferten zu nutzen.",
+    selfWritten: (runtime) =>
+      `An: Der Agent hat diesen Skill selbst in ${runtime} angelegt oder installiert. AgentPier schaltet ihn nicht ab.`,
     shadowed:
       "Für diesen Agenten aus: Ein gleichnamiger Skill in den Ordnern des Agenten würde an seiner Stelle laufen. Deine Auswahl bleibt gespeichert und gilt wieder, sobald dieser Skill entfernt ist.",
   },

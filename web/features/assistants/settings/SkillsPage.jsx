@@ -12,7 +12,7 @@ import SubpageHeader from "./SubpageHeader.jsx";
 import "../agent-skills.css";
 
 function SkillDetails({ skill, shellOff, on, runtime }) {
-  const tone = skill.state === "ready" ? "ok" : "warn";
+  const tone = ["ready", "selfWritten"].includes(skill.state) ? "ok" : "warn";
   return (
     <>
       {skill.description && (
@@ -46,8 +46,8 @@ function SkillDetails({ skill, shellOff, on, runtime }) {
 }
 
 /**
- * The bundled OpenClaw skills of one agent with their status on the running agent
- * service. Switches edit the Capabilities draft; the tab's save bar stores them.
+ * The bundled skills of one agent's runtime and its catalog skills, with their status
+ * on the running agent service (on Hermes also the skills the agent wrote itself). Switches edit the Capabilities draft; the tab's save bar stores them.
  */
 export default function SkillsPage({ assistant, draft, onBack }) {
   const [catalog, setCatalog] = useState(null),
@@ -126,7 +126,8 @@ export default function SkillsPage({ assistant, draft, onBack }) {
       {skills.length > 0 && (
         <ListCard label={copy.title} className="agent-skills-list">
           {skills.map((skill) => {
-            const checked = on.includes(skill.name);
+            // A skill the agent wrote itself is on in its runtime, without a switch.
+            const checked = skill.state === "selfWritten" || on.includes(skill.name);
             return (
               <ToggleRow
                 key={skill.name}
