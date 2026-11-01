@@ -224,6 +224,7 @@ export class SessionMcp {
   async revoke(id) {
     // Delete first, so an in-flight mutation rechecks a revoked grant immediately.
     this.discard(id);
+    await this.services.previews?.closeSession(id, "revoked");
     writePrivate(path.join(capabilityDirectory(this.dataDir, id), "revoked.json"), {
       revokedAt: Date.now(),
     });

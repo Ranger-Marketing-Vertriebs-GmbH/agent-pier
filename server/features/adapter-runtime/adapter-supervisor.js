@@ -5,7 +5,7 @@ import {
   ADAPTER_PORT_PLACEHOLDER,
   ADAPTER_URL_PLACEHOLDER,
 } from "../providers/adapter-launch.js";
-import { writeDiagnostics } from "./adapter-diagnostics.js";
+import { recordAdapterPort, writeDiagnostics } from "./adapter-diagnostics.js";
 import { createAdapterListener } from "./adapter-listener.js";
 import { unavailableResponse } from "./adapter-http.js";
 
@@ -95,6 +95,7 @@ export async function startAdapter(config, options = {}) {
     throw error;
   }
   const { port } = listener;
+  recordAdapterPort(diagnostics.file, port, diagnostics.generation);
   // `secret` holds the key and token while restarts may need them; dropped on stop/give-up.
   let secret = config;
   config = null;

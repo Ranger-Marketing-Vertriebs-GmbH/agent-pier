@@ -23,6 +23,7 @@ import { agentProjectAuditDetails } from "./audit-agent-project-details.js";
 import { notificationAuditDetails } from "./audit-notification-details.js";
 import { runtimeUpdateAuditDetails } from "./audit-runtime-update-details.js";
 import { restartAuditDetails } from "./audit-restart-details.js";
+import { previewAuditDetails } from "./audit-preview-details.js";
 const memberGrantKeys = new Set([
   "memory",
   "reminders",
@@ -205,6 +206,8 @@ export function auditEvent(input) {
       "agent-project",
       // A blocker resolved by "Pause agents and update" (audit-runtime-update-details.js).
       "runtime-update",
+      // A session or agent preview (audit-preview-details.js).
+      "preview",
     ].includes(details.kind)
   )
     event.details.kind = details.kind;
@@ -520,6 +523,7 @@ export function auditEvent(input) {
   // A push device removed without the owner (audit-notification-details.js).
   if (input.resourceType === "notification") notificationAuditDetails(details, event);
   if (action === "assistant.main-chat-restarted") restartAuditDetails(details, event);
+  if (input.resourceType === "preview") previewAuditDetails(details, event);
   userAuditDetails(input, event, auditId);
   return event;
 }

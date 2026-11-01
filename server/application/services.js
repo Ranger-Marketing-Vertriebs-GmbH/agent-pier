@@ -52,6 +52,7 @@ import { McpServerStore } from "../features/mcp-servers/mcp-server-store.js";
 import { CentralMcpChanges } from "../features/mcp-servers/central-changes.js";
 import { McpPackages } from "../features/mcp-packages/mcp-packages.js";
 import { createReaTool } from "./rea-wiring.js";
+import { createPreviewService } from "./preview-wiring.js";
 import { CliMcpBindings } from "../features/mcp-servers/cli-bindings.js";
 import { CliOAuthStatus } from "../features/mcp-servers/cli-oauth-status.js";
 import { ToolInstaller } from "../features/tools/tool-installer.js";
@@ -146,16 +147,18 @@ export async function createServices(config) {
     onProject: (binding) => sshManagement.registerProject(binding),
   });
   // Declared before the session manager: its stop cleanup discards the session's agent.
-  let artifacts, sessionSecrets, sshAgents;
+  let artifacts, sessionSecrets, sshAgents, previews;
   const sessions = new SessionManager({
-    onRemoving: (session) => {
+    onRemoving: async (session) => {
       // Approvals remembered for the session end with it, not with a stop or reload.
       requests?.approvals.forgetSession(session.id);
+      await previews?.closeSession(session.id, "session");
       return artifacts?.retireSession(session.id);
     },
     dataDir: config.dataDir,
     onStopped: async (session) => {
       revokeSessionMcp(config.dataDir, session.id);
+      await previews?.closeSession(session.id, "session");
       await agentbus?.revoke(session.id);
       sshSessions.discard(session.id);
       sessionSecrets?.discard(session.id);
@@ -570,6 +573,7 @@ export async function createServices(config) {
         compiled.startsWith(path.join(config.dataDir, "clis") + path.sep))
     );
   };
+  services.previews = previews = createPreviewService(services);
   // Listing sessions reconciles stopped ones through onStopped, whose cleanup needs
   // every service above, so the first rewrite of the secrets files waits until here.
   refreshSessionSecrets();

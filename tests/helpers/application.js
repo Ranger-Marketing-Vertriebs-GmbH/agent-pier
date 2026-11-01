@@ -30,6 +30,10 @@ export const enabledAssistants = {
  * never the real CLI) with `realCliOAuthStatus: true`.
  */
 export const fakeCliOAuthRun = async () => ({ stdout: "[]" });
+/** Fixtures never run the real Tailscale CLI (session previews' Serve registrations). */
+export const refuseTailscale = () => {
+  throw new Error("Fixtures do not run tailscale.");
+};
 /** Brokered CLI logins never start a CLI in a fixture unless a suite opts in as above. */
 export const refuseCliLogin = () => {
   throw new Error("Fixtures do not start coding CLI logins.");
@@ -49,6 +53,7 @@ export async function applicationFixture(t, overrides = {}) {
   }
   // Fixtures never ask a release channel on their own; a test may switch it on.
   configuration.updateCheck ??= false;
+  configuration.tailscaleRun ??= refuseTailscale;
   let cookie = "";
   const root = await fs.realpath(
     await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-blackbox-")),

@@ -35,6 +35,8 @@ export const resources = new Set([
   "storage",
   // Agents' email accounts and their sends (audit-mail-details.js).
   "mail",
+  // Session and agent previews: open, close, expiry (audit-preview-details.js).
+  "preview",
 ]);
 export const verbs = new Set([
   "revoked",

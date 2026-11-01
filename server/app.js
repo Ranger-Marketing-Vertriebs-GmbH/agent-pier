@@ -276,6 +276,14 @@ export async function createApplication(config) {
     services.systemStatus.start();
     // Finishes node_modules deletions a restart interrupted (cleanup-dependencies.js).
     services.storageCleanup.start();
+    // Binds the preview slots once AgentPier's own port and host checks are known.
+    services.previews
+      .start()
+      .catch((error) =>
+        console.error(
+          `AgentPier could not start previews: ${error?.code || "unknown error"}`,
+        ),
+      );
   });
   server.once("listening", () =>
     stageToolchainsInBackground({ dataDir: config.dataDir }),
