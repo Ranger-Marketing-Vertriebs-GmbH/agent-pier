@@ -83,12 +83,18 @@ export function compactOutcome({ result, error } = {}) {
   return "interrupted";
 }
 
-/** The newest compaction marker of a chat.history page: { id, at } or null. */
+/**
+ * The newest compaction marker of a history page: { id, at } or null, read from each
+ * message's normalized entry (runtimes/agent-runtime.js `entry.compaction`), so every
+ * runtime's markers count (Hermes writes none).
+ */
 export function latestMarker(history) {
   const m = (Array.isArray(history?.messages) ? history.messages : [])
-    .filter((m) => m?.__openclaw?.kind === "compaction" && m.__openclaw.id)
+    .filter((m) => m?.entry?.compaction?.id)
     .at(-1);
-  return m ? { id: String(m.__openclaw.id), at: Number(m.timestamp) || 0 } : null;
+  return m
+    ? { id: String(m.entry.compaction.id), at: Number(m.entry.timestamp) || 0 }
+    : null;
 }
 
 // `sessions` is the sessions sub-port of the chat's runtime (runtimes/agent-runtime.js).

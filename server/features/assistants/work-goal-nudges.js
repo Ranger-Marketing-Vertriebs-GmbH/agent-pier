@@ -14,7 +14,7 @@ import {
   recordedTurn,
 } from "./goal-turns.js";
 import { mainConversation } from "./routine-targets.js";
-import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
+import { hostReady, runtimeForSession } from "./runtimes/runtime-for.js";
 
 export const nudgeDelayMs = 90000;
 export const technicalFailureLimit = 3;
@@ -41,7 +41,10 @@ export function latestOwnerTurn(service, conversationId) {
  */
 export async function backgroundRunning(service, sessionKey) {
   try {
-    return await runtimeFor(null, service.assistants.runtime).sessions.backgroundRunning({
+    return await runtimeForSession(
+      sessionKey,
+      service.assistants.runtime,
+    ).sessions.backgroundRunning({
       key: sessionKey,
     });
   } catch {

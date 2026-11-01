@@ -5,6 +5,7 @@ import {
   nextCompaction,
 } from "../../server/features/assistants/compactions.js";
 import { publicMessages as fromEntries } from "../../server/features/assistants/conversations.js";
+import { latestMarker } from "../../server/features/assistants/compaction-watch.js";
 import { withOpenClawEntries } from "../../server/features/assistants/runtimes/openclaw/openclaw-sessions.js";
 
 // publicMessages reads history entries: raw OpenClaw messages go through its adapter.
@@ -247,4 +248,25 @@ test("the tracker names the run and forgets a status another run replaced", () =
   now += 61 * 60000;
   tracker.observe({ stream: "tool", sessionKey: "agent:elsewhere:main", data: {} });
   assert.equal(tracker.running.size, 0);
+});
+
+test("the compaction marker is read from each runtime's normalized entries", () => {
+  const marker = {
+    role: "system",
+    timestamp: 1700000000000,
+    __openclaw: { kind: "compaction", id: "c-2" },
+  };
+  const page = (messages) => ({ messages: withOpenClawEntries(messages) });
+  assert.deepEqual(
+    latestMarker(
+      page([{ ...marker, __openclaw: { kind: "compaction", id: "c-1" } }, marker]),
+    ),
+    { id: "c-2", at: 1700000000000 },
+  );
+  // A raw message without its entry, and Hermes's rows (no markers), name none.
+  assert.equal(latestMarker({ messages: [marker] }), null);
+  assert.equal(
+    latestMarker({ messages: [{ role: "user", entry: { compaction: null } }] }),
+    null,
+  );
 });

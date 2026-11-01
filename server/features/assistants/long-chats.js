@@ -3,7 +3,7 @@ import { assistantProblem } from "./assistant-validation.js";
 import { refuseClosedChat } from "./conversation-turns.js";
 import { dispatchQueued } from "./queued-dispatch.js";
 import { MemoryStep } from "./memory-step.js";
-import { hostConnection, runtimeFor } from "./runtimes/runtime-for.js";
+import { hostConnection, ownProcess, runtimeFor } from "./runtimes/runtime-for.js";
 import {
   answerCodeOf,
   compactOutcome,
@@ -258,17 +258,26 @@ export class LongChats {
     const service = this.service;
     const id = conversation.id;
     const sessionKey = conversation.runtimeSessionKey;
-    const connection = hostConnection(service.runtime);
+    // The chat's own runtime: a Hermes agent's process set, else OpenClaw's Gateway.
+    const agent = service.store.getAssistant(conversation.assistantId);
+    const runtime = runtimeFor(agent, service.runtime);
+    const connection = hostConnection(service.runtime, agent);
     // Every call of this summary goes to the Gateway it started on.
-    const sessions = runtimeFor(null, service.runtime).sessions.on(connection);
-    const generation = service.runtime.generationId ?? null;
+    const sessions = runtime.sessions.on(connection);
+    const generationOf = () =>
+      ownProcess(agent)
+        ? (runtime.host.generation?.() ?? null)
+        : (service.runtime.generationId ?? null);
+    const generation = generationOf();
     const { answerMs, maxMs, lostMs, pollMs } = this.timing;
     const since = service.now?.() ?? Date.now();
     const alive = () =>
       !service.closed &&
-      hostConnection(service.runtime) === connection &&
-      (service.runtime.generationId ?? null) === generation &&
-      runningStates.has(service.runtime.status?.().availability);
+      hostConnection(service.runtime, agent) === connection &&
+      generationOf() === generation &&
+      runningStates.has(
+        (ownProcess(agent) ? runtime.host : service.runtime).status?.().availability,
+      );
     const warned = new Set();
     // Once per step and kind of failure: another failure of the step still shows.
     const warn = (what, error) => {
@@ -451,10 +460,11 @@ export class LongChats {
     const service = this.service;
     const conversation = service.store.getConversation(conversationId);
     refuseClosedChat(service, conversation);
-    service.requireReady();
+    const agent = service.store.getAssistant(conversation.assistantId);
+    service.requireReady(agent);
     let history;
     try {
-      history = await runtimeFor(null, service.runtime).sessions.history({
+      history = await runtimeFor(agent, service.runtime).sessions.history({
         sessionKey: conversation.runtimeSessionKey,
         limit: 1,
       });

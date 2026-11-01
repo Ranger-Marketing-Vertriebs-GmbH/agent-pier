@@ -17,6 +17,7 @@ import {
   readBaseline,
 } from "../../server/features/assistants/compaction-watch.js";
 import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
+import { runtimeFor } from "../../server/features/assistants/runtimes/runtime-for.js";
 
 // AGENTPIER-190: what long-chats.js and compaction-watch.js rely on for a summary
 // on request. Its `sessions.compact` answer says how it ended, a repeated one that
@@ -162,7 +163,9 @@ test(
       );
     }
     const warnings = [];
-    const before = await readBaseline(runtime.client, created.key, (what, error) =>
+    // The chat's sessions sub-port, as long-chats.js reads markers through it.
+    const sessions = runtimeFor(null, runtime).sessions;
+    const before = await readBaseline(sessions, created.key, (what, error) =>
       warnings.push([what, error?.code]),
     );
     assert.deepEqual(warnings, []);
@@ -174,7 +177,7 @@ test(
     );
     assert.equal(compactOutcome({ result: answer }), "compacted", JSON.stringify(answer));
     const marker = latestMarker(
-      await runtime.client.call("chat.history", { sessionKey: created.key, limit: 20 }),
+      await sessions.history({ sessionKey: created.key, limit: 20 }),
     );
     assert.ok(marker, "the summary leaves a marker");
     assert.notEqual(marker.id, before?.id);
