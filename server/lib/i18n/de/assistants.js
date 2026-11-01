@@ -511,6 +511,8 @@ export const assistants = {
     `Die Laufzeit „${runtime}“ gibt es in diesem AgentPier nicht.`,
   hermesUnavailable:
     "Hermes Agent ist nicht bereit. Schalte Hermes unter Agenten › Laufzeit ein und warte, bis es installiert ist.",
+  memoryTooLarge: (name, limit) =>
+    `${name} ist zu lang: Hermes erlaubt höchstens ${limit} Zeichen. Kürze oder entferne Einträge.`,
   shellEveryCommandUnsupported:
     "„Jeder Befehl“ gibt es nur für Hermes-Agenten; bei OpenClaw fragt „Mit Freigabe“ schon vor jedem Befehl.",
   notFound: "Agent oder Unterhaltung nicht gefunden.",

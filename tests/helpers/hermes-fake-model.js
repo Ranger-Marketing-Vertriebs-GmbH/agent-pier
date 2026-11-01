@@ -4,6 +4,7 @@ import http from "node:http";
 // the Hermes runtime spike, docs/research/hermes-runtime-spike.md), served in the test
 // process on a loopback port: no account, no network. The last user message decides:
 // - "RUN: <command>" asks for the `terminal` tool with that command;
+// - "CALL: <tool> <json arguments>" asks for any tool with those arguments;
 // - a tool result is answered "TOOL_DONE: <result>";
 // - "SLOW" streams the echo one word every `slowMs`, then 40 more ticks;
 // - anything else is answered "ECHO: <message>".
@@ -18,6 +19,15 @@ function answer(body) {
   if (last.role === "tool")
     return { reply: `TOOL_DONE: ${text(last.content).slice(0, 80)}` };
   const said = text(last.content);
+  const call = said.match(/CALL: (\S+) (.*)$/m);
+  if (call)
+    return {
+      tool: {
+        id: `call_${Date.now()}`,
+        type: "function",
+        function: { name: call[1], arguments: call[2] },
+      },
+    };
   const run = said.match(/RUN: (.*)$/m);
   if (run)
     return {

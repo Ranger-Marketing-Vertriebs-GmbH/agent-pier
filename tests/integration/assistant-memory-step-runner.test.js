@@ -65,6 +65,8 @@ test("the step runs only where the agent may write its own memory", () => {
     true,
   );
   assert.equal(eligibleFor({ ...own, archivedAt: "2026-10-23T00:00:00Z" }), false);
+  // A Hermes agent keeps its memory with Hermes's own memory tool and review.
+  assert.equal(eligibleFor({ ...own, runtime: "hermes" }), false);
   // A temporary member runs with its lead's capabilities.
   const member = {
     id: "m",

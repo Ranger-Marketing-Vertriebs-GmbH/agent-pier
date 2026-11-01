@@ -18,6 +18,8 @@ approvals:
 memory:
   memory_enabled: false
   user_profile_enabled: false
+  memory_char_limit: 2200
+  user_char_limit: 1375
 plugins:
   enabled: []
   auto_update_check_hours: 0

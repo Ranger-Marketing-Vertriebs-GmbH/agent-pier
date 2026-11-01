@@ -7,6 +7,7 @@ import {
   shellLevel,
 } from "./tools.js";
 import { guardDirectory, guardFiles, guardPlugin } from "./guard-plugin.js";
+import { memoryLimits } from "./memory.js";
 
 // One agent's Hermes home (its own HERMES_HOME, ADR 0006 decision 4) compiled from
 // its desired state: config.yaml, .env, SOUL.md and the guard plugin, nothing else.
@@ -82,6 +83,9 @@ export function compileHome(agent, { workspace, strict = [], existing = {} } = {
     [["approvals", "mode"], approvalMode(level)],
     [["memory", "memory_enabled"], agent.memory],
     [["memory", "user_profile_enabled"], agent.memory],
+    // Hermes's defaults, written so the limit AgentPier checks edits against holds.
+    [["memory", "memory_char_limit"], memoryLimits["MEMORY.md"]],
+    [["memory", "user_char_limit"], memoryLimits["USER.md"]],
     [["plugins", "enabled"], guard ? [guardPlugin] : []],
     ...practicalDefaults,
   ];

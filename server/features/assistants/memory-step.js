@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { personalCapabilities } from "./native-capabilities.js";
+import { ownProcess } from "./runtimes/runtime-for.js";
 
 /**
  * What the agent hears in the memory step: OpenClaw's `sessions.compact` runs no
@@ -66,7 +67,10 @@ export class MemoryStep {
   /**
    * Whether the chat's agent may write its memory: "Remember information" on (a
    * temporary member's from its lead, personalCapabilities) and the write guard
-   * proven; a shared agent's step writes its shared memory (as flushWrite).
+   * proven; a shared agent's step writes its shared memory (as flushWrite). A Hermes
+   * agent never takes the step: AgentPier's write guard does not see its writes, and
+   * Hermes's own memory tool and background review keep its memory
+   * (docs/hermes-runtime.md#memory-and-instructions).
    */
   eligible(conversation) {
     const { store, config } = this.service;
@@ -76,7 +80,12 @@ export class MemoryStep {
     } catch {
       return false;
     }
-    return !!agent && personalCapabilities(agent).memory && !!config?.writeGuard?.();
+    return (
+      !!agent &&
+      !ownProcess(agent) &&
+      personalCapabilities(agent).memory &&
+      !!config?.writeGuard?.()
+    );
   }
   /**
    * Runs the step: `{ saved }`, with a `reason` when nothing was saved; a completed

@@ -205,15 +205,18 @@ export class NativeMemory {
     const a = this.assistants;
     const agent = a.store.getAssistant(id);
     if (!memoryEnabled(agent)) throw assistantProblem("invalid", 403);
-    a.requireReady();
+    a.requireReady(agent);
     await a.config.apply(id);
     return agent;
   }
-  // A call of the agentFiles sub-port (runtime-for.js) with its failure translated.
+  // A call of the agentFiles sub-port (runtime-for.js) with its failure translated;
+  // a Hermes agent's memory file over Hermes's own limit is refused with it.
   async call(agent, method, input) {
     try {
       return await runtimeFor(agent, this.assistants.runtime).agentFiles[method](input);
     } catch (error) {
+      if (error.code === "TOO_LARGE")
+        throw assistantProblem("memoryTooLarge", 413, input.name, error.limit);
       throw assistantProblem(
         error.code === "CONFLICT" ? "conflict" : "unavailable",
         error.code === "CONFLICT" ? 409 : 503,

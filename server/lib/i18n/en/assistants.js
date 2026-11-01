@@ -484,6 +484,8 @@ export const assistants = {
     `The runtime “${runtime}” is not available in this AgentPier.`,
   hermesUnavailable:
     "Hermes Agent is not ready. Switch Hermes on under Agents › Runtime and wait until it is installed.",
+  memoryTooLarge: (name, limit) =>
+    `${name} is too long: Hermes allows at most ${limit} characters. Shorten or remove entries.`,
   shellEveryCommandUnsupported:
     "“Every command” exists only for Hermes agents; on OpenClaw “With approval” already asks before every command.",
   notFound: "Agent or conversation not found.",

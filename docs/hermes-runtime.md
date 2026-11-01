@@ -25,6 +25,10 @@ nothing else:
 | `SOUL.md`                  | The agent's instructions                                           |
 | `plugins/agentpier-guard/` | `plugin.yaml` and `__init__.py`, only for every-command approval   |
 
+The agent's memory (`memories/MEMORY.md`, `memories/USER.md`) and the `AGENTS.md` of
+its work folder are not compiled: they are read and written through the agentFiles
+sub-port ([memory and instructions](#memory-and-instructions)).
+
 ### Merging with what Hermes writes
 
 Hermes writes into the same files: `_config_version`, `onboarding.seen.*`,
@@ -104,6 +108,37 @@ their dangerous commands reach the owner through the session's approval queue.
 search or fetch, `vision` with documents and `image_gen` with image creation. `browser`,
 `cronjob` and `computer_use` stay off until AgentPier serves them on Hermes.
 
+### Memory and instructions
+
+The agentFiles sub-port (`runtimes/hermes/hermes-files.js`) serves a Hermes agent's
+files under the names AgentPier uses for OpenClaw's, while the agent's set runs:
+
+| Name        | File                               | Meaning                                          |
+| ----------- | ---------------------------------- | ------------------------------------------------ |
+| `MEMORY.md` | `<HERMES_HOME>/memories/MEMORY.md` | The agent's own notes (Hermes's `memory` store)  |
+| `USER.md`   | `<HERMES_HOME>/memories/USER.md`   | What it knows about the owner (`user` store)     |
+| `SOUL.md`   | `<HERMES_HOME>/SOUL.md`            | The instructions AgentPier compiles              |
+| `AGENTS.md` | `AGENTS.md` in its work folder     | Project context Hermes loads from `terminal.cwd` |
+
+Hermes has no API for these files (`tools/memory_tool.py`, `tools/memory_tool_store.py`),
+so the adapter reads and writes them directly: atomically, owner-only, only over the
+hash or absence the caller read, never through a link the agent put in their place.
+Entries in a memory file are separated by `\n§\n`. Hermes refuses a memory write that
+would take a store over its limit, counted as its entries joined by that separator:
+2,200 characters for `MEMORY.md` and 1,375 for `USER.md`. AgentPier compiles both
+limits (`memory.memory_char_limit`, `memory.user_char_limit`) and refuses an owner's
+edit beyond them with `memoryTooLarge` (413), since Hermes would keep loading such a
+file but refuse every later write of the agent. Hermes freezes memory into a
+session's prompt when the session starts, so an edit reaches the agent's next chat.
+Memory search looks for the query's words in the entries of both files; Hermes's own
+`session_search` covers past chats, not memory.
+
+The agent keeps its memory with Hermes's `memory` tool and Hermes's background review
+after a turn (`memory.write_approval` stays off, Hermes's default). AgentPier's memory
+step before a chat summary is OpenClaw's: AgentPier's write guard never sees a Hermes
+agent's writes, so Hermes agents skip it (`memory-step.js`). Notes below `memory/` and
+the Dream Diary are OpenClaw's and stay empty for a Hermes agent.
+
 ### Not mapped yet
 
 The compiler names what an agent wants that Hermes does not get yet, so the owner can see
@@ -138,12 +173,13 @@ approval resync and own-job pauses skip them. Their chats reconcile on their own
 set's connection (`chat-reconcile.js`, `run-reconciler.js`), and the run events of
 every set reach the chat path and the event hub once (`agentRuntimeEvents`).
 
-| Capability                                              | Hermes                              |
-| ------------------------------------------------------- | ----------------------------------- |
-| host, sessions, events, approvals, config, agents       | available                           |
-| everyCommandApproval                                    | available (unavailable on OpenClaw) |
-| agentFiles, routines, skills, browser, models, channels | `hermesNotYetSupported`             |
-| advancedSettings                                        | `advancedSettingsUnsupported`       |
+| Capability                                        | Hermes                              |
+| ------------------------------------------------- | ----------------------------------- |
+| host, sessions, events, approvals, config, agents | available                           |
+| agentFiles                                        | available                           |
+| everyCommandApproval                              | available (unavailable on OpenClaw) |
+| routines, skills, browser, models, channels       | `hermesNotYetSupported`             |
+| advancedSettings                                  | `advancedSettingsUnsupported`       |
 
 ## Gateway protocol
 
@@ -178,7 +214,10 @@ runs `hermes config check` on each compiled home and checks how Hermes reads it:
 approval mode, the toolsets, the guard plugin, the model route and that the key stays out
 of child processes. The sessions, approvals, host and install contracts run the agent
 through the Hermes runtime, its supervised gateway and the RPC bridge, against the
-in-repo fake model. Set `AGENTPIER_HERMES_CONTRACT_RUNTIME` to an installation made by
+in-repo fake model. `tests/integration/hermes-files-contract.test.js` checks the agent's
+files: a memory entry written through the port reaches the agent's prompt, and an
+entry the agent adds with Hermes's `memory` tool comes back through it. Set
+`AGENTPIER_HERMES_CONTRACT_RUNTIME` to an installation made by
 `scripts/provision-hermes-contracts.mjs` (its `venv/bin/` holds `python` and
 `hermes`). The tests use a private `HOME` and `HERMES_HOME` and never touch
 `~/.hermes`.

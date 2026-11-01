@@ -74,6 +74,19 @@ test("native file writes carry compare-and-swap and allow explicit clearing", as
     { status: 409 },
   );
 });
+test("a memory file over the runtime's own limit is refused with that limit", async (t) => {
+  const f = fixture(t);
+  f.assistants.runtime.client.call = async () => {
+    throw Object.assign(Error("too long"), { code: "TOO_LARGE", limit: 1375 });
+  };
+  await assert.rejects(
+    f.memory.write(f.id, { name: "USER.md", content: "long", expectedMissing: true }),
+    (error) =>
+      error.status === 413 &&
+      error.key === "memoryTooLarge" &&
+      /1375/.test(error.message),
+  );
+});
 test("memory refuses path traversal, blind writes and revoked grants before native calls", async (t) => {
   const f = fixture(t);
   for (const name of ["../MEMORY.md", "AGENTS.md", "/etc/passwd"])
