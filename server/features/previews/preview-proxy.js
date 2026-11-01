@@ -3,6 +3,7 @@ import net from "node:net";
 import { downstreamHeaders, upstreamHeaders } from "./preview-headers.js";
 import { pageLanguage, previewPage, refusalText } from "./preview-pages.js";
 import { listenerPort } from "./preview-slots.js";
+import { previewConfig } from "./preview-access.js";
 
 const pageHeaders = {
   "content-type": "text/html; charset=utf-8",
@@ -69,19 +70,22 @@ export async function createPreviewListener({
   gate,
   resolve,
   touch = () => {},
-  watch = () => () => {},
+  watch,
   effective,
 }) {
+  // Without a watch, revoking the session would leave proxied sockets open.
+  if (typeof watch !== "function")
+    throw new TypeError("createPreviewListener needs watch(session, close)");
   const upgraded = new Set();
   const previewOrigin = (req, branch) => {
-    const remote = branch === "tailscale" && (effective?.() || {}).remoteUrl;
+    const remote = branch === "tailscale" && previewConfig(effective).remoteUrl;
     return `${remote ? new URL(remote).protocol : "http:"}//${req.headers.host}`;
   };
 
   async function request(req, res) {
     let access;
     try {
-      access = gate(req);
+      access = await gate(req);
     } catch (error) {
       return refuse(req, res, error);
     }
@@ -138,7 +142,7 @@ export async function createPreviewListener({
     socket.on("error", () => {});
     let access;
     try {
-      access = gate(req);
+      access = await gate(req);
     } catch (error) {
       return refuseUpgrade(
         socket,

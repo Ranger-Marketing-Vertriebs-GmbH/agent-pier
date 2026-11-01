@@ -55,7 +55,15 @@ export async function startUpstream(t, { host = "127.0.0.1", port = 0, handler }
  */
 export async function previewFixture(
   t,
-  { upstream, address = "127.0.0.1", config = {}, detected, label = "Shop <b>" } = {},
+  {
+    upstream,
+    address = "127.0.0.1",
+    config = {},
+    detected,
+    label = "Shop <b>",
+    plainConfig = false,
+    gate,
+  } = {},
 ) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-preview-proxy-"));
   t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
@@ -71,11 +79,13 @@ export async function previewFixture(
     watch: (row, close) => (row === userRow ? () => {} : store.watch(row, close)),
   };
   const { start: slot } = await freePortRange(1);
-  const effective = () => ({
+  const current = {
     port: agentPierPort,
     network: { enabled: false, bind: "127.0.0.1", hosts: [] },
     ...config,
-  });
+  };
+  // The config as a function (like the app's effective()) or as a plain object.
+  const effective = plainConfig ? current : () => current;
   const state = {
     preview: { id: "p1", slot, target: upstream.port, label },
     address,
@@ -85,7 +95,7 @@ export async function previewFixture(
   const listener = await createPreviewListener({
     slot,
     host: "127.0.0.1",
-    gate: previewGate({ login, effective, slot, detected }),
+    gate: gate || previewGate({ login, effective, slot, detected }),
     watch: (session, close) => login.watch(session, close),
     resolve: (asked) =>
       asked === slot && state.alive
