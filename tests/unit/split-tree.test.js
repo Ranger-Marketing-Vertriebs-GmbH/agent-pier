@@ -204,6 +204,11 @@ test("twoPaneLayout counts centre as right", () => {
   assert.deepEqual(twoPaneLayout(s1, c1, "top").a.item, c1);
 });
 
+test("twoPaneLayout keeps the tab the shown session is on", () => {
+  assert.equal(twoPaneLayout(s1, c1, "right", "files").a.tab, "files");
+  assert.equal(twoPaneLayout(s1, c1, "right").a.tab, "terminal");
+});
+
 test("operations never mutate their input", () => {
   const frozen = deepFreeze(pair);
   assert.doesNotThrow(() => splitPane(frozen, "chat:a1:c1", "right", paneLeaf(s2)));

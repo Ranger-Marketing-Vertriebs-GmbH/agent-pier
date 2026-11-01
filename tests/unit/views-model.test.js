@@ -4,6 +4,7 @@ import {
   adoptViews,
   normalizeViews,
   withPending,
+  unreadViews,
   withWrite,
 } from "../../web/features/views/views-model.js";
 
@@ -81,4 +82,16 @@ test("adoptViews follows the epoch: a restarted server's document wins", () => {
     version: 4,
     views: [],
   });
+});
+
+test("a write answered before the first read never hides the read", () => {
+  const a = { id: "v_a", name: "A" },
+    b = { id: "v_b", name: "B" };
+  const written = withWrite(unreadViews, { epoch: "e1", version: 2, view: a });
+  assert.deepEqual(written.views, [a]);
+  const read = { epoch: "e1", version: 1, views: [a, b] };
+  assert.equal(adoptViews(written, read), read);
+  // Once read, the usual order applies again.
+  const after = withWrite(read, { epoch: "e1", version: 3, view: a });
+  assert.equal(adoptViews(after, read), after);
 });

@@ -53,7 +53,7 @@ const text = {
     defaultName: "View 1",
     secondName: "View 2",
     shownInView: "Shown in this view",
-    rowLabel: (name, n) => `${name}, ${n} panes`,
+    shopLabel: "Shop, 3 panes",
     empty: /This view is empty/,
     search: "Search",
     openAlone: "Open alone",
@@ -65,7 +65,7 @@ const text = {
     defaultName: "Ansicht 1",
     secondName: "Ansicht 2",
     shownInView: "In dieser Ansicht",
-    rowLabel: (name, n) => `${name}, ${n} Bereiche`,
+    shopLabel: "Shop, 3 Bereiche",
     empty: /Diese Ansicht ist leer/,
     search: "Suchen",
     openAlone: "Einzeln öffnen",
@@ -76,6 +76,8 @@ const text = {
 const sidebar = (page) => page.locator("aside.sidebar");
 const sessionRow = (page, name) =>
   sidebar(page).locator(".sessions-group .session-item", { hasText: name });
+const viewRow = (page, name) =>
+  sidebar(page).locator(".views-group .views-sidebar-item", { hasText: name });
 const groupHeads = (page) =>
   sidebar(page)
     .locator(".sidebar-scroll .sidebar-group")
@@ -103,9 +105,8 @@ for (const language of ["en", "de"]) {
       await expect(
         group.locator(".sidebar-group-toggle .sidebar-group-count"),
       ).toHaveText("2");
-      await expect(
-        group.getByRole("button", { name: t.rowLabel("Shop", 3) }),
-      ).toContainText("3");
+      await expect(viewRow(page, "Shop")).toHaveAttribute("aria-label", t.shopLabel);
+      await expect(viewRow(page, "Shop")).toContainText("3");
       await expect(sidebar(page).locator(".assistant-chats-group")).toBeVisible();
       expect(await groupHeads(page)).toEqual([
         "views-group",
@@ -127,9 +128,7 @@ for (const language of ["en", "de"]) {
         body: { name: t.defaultName, layout: null },
       });
       await expect(page.getByText(t.empty)).toBeVisible();
-      await expect(
-        sidebar(page).getByRole("button", { name: t.rowLabel(t.defaultName, 0) }),
-      ).toHaveAttribute("aria-current", "page");
+      await expect(viewRow(page, t.defaultName)).toHaveAttribute("aria-current", "page");
     });
 
     test("clicking a session that is in the open view focuses its pane", async ({
@@ -164,6 +163,37 @@ for (const language of ["en", "de"]) {
       await expect(page).toHaveURL(`${baseURL}/views/${viewId}`);
       await focusedFlash(page, S2);
       expect(layoutWrites(controls)).toEqual([]);
+    });
+
+    test("returning to a view does not replay an earlier focus", async ({ page }) => {
+      const [shop, pairing] = twoViews();
+      await splitViewFixture(page, {
+        language,
+        views: [
+          pairing,
+          shop,
+          view("v_0000000000000003", "Empty", null, "2026-11-01T11:00:00.000Z"),
+        ],
+      });
+      await page.goto(`${baseURL}/views/v_0000000000000003`);
+      await expect(page.getByText(t.empty)).toBeVisible();
+      await sessionRow(page, "Shop UI").click();
+      await expect(page).toHaveURL(`${baseURL}/views/${viewId}`);
+      await focusedFlash(page, S2);
+      await viewRow(page, "Empty").click();
+      await expect(page.getByText(t.empty)).toBeVisible();
+      await viewRow(page, "Shop").click();
+      await expect(page).toHaveURL(`${baseURL}/views/${viewId}`);
+      const host = paneOf(page, S2).locator(".split-pane-host");
+      await expect(host).toBeVisible();
+      // Checked at once: a replayed request would flash and focus the pane right now.
+      expect(await host.getAttribute("class")).not.toMatch(/split-pane-(flash|focused)/);
+      await expect(paneOf(page, S1).locator(".split-pane-host")).toHaveClass(
+        /split-pane-focused/,
+      );
+      expect(await host.evaluate((node) => node.contains(document.activeElement))).toBe(
+        false,
+      );
     });
 
     test("rows the open view shows are marked", async ({ page }) => {
@@ -258,9 +288,7 @@ for (const language of ["en", "de"]) {
       await page.getByRole("menuitem", { name: t.openAlone }).click();
       await expect(page).toHaveURL(`${baseURL}/sessions/s1/terminal`);
       expect(layoutWrites(controls)).toEqual([]);
-      await expect(
-        sidebar(page).getByRole("button", { name: t.rowLabel("Shop", 3) }),
-      ).toBeVisible();
+      await expect(viewRow(page, "Shop")).toBeVisible();
     });
 
     test("a direct URL opens the single view", async ({ page }) => {

@@ -99,7 +99,8 @@ export default function SplitViewPage({
   const views = useViews();
   const view = views.byId(viewId);
   const offered = useMediaQuery(mediaQueries.aboveTablet);
-  const { touch, setLayout, rename, remove, requestFocus, focusRequest } = views;
+  const { touch, setLayout, rename, remove, requestFocus, focusRequest, consumeFocus } =
+    views;
   useEffect(() => {
     touch(viewId);
   }, [viewId, touch]);
@@ -118,11 +119,10 @@ export default function SplitViewPage({
   const focused = all.some((pane) => pane.key === focusedKey)
     ? focusedKey
     : (all[0]?.key ?? null);
-  const handled = useRef(null);
+  // A focus request is handled once and then consumed: coming back to the view later
+  // neither flashes nor focuses that pane again.
   useEffect(() => {
-    if (!focusRequest || focusRequest.viewId !== viewId) return undefined;
-    if (handled.current === focusRequest.nonce) return undefined;
-    handled.current = focusRequest.nonce;
+    if (!focusRequest || focusRequest.viewId !== viewId) return;
     setFocusedKey(focusRequest.key);
     setFlashKey(focusRequest.key);
     document
@@ -130,9 +130,13 @@ export default function SplitViewPage({
         `.split-pane[data-pane-key="${CSS.escape(focusRequest.key)}"] .split-pane-host`,
       )
       ?.focus({ preventScroll: true });
+    consumeFocus(focusRequest.nonce);
+  }, [focusRequest, viewId, consumeFocus]);
+  useEffect(() => {
+    if (!flashKey) return undefined;
     const timer = setTimeout(() => setFlashKey(null), FLASH_MS);
     return () => clearTimeout(timer);
-  }, [focusRequest, viewId]);
+  }, [flashKey]);
 
   // The latest layout for actions that run after an await or from a stale closure.
   const latest = useRef(layout);

@@ -147,7 +147,7 @@ export function replaceItem(layout, key, item) {
   return replacePane(layout, key, paneLeaf(item));
 }
 
-/** A fresh two-pane view; a centre drop counts as right. */
-export function twoPaneLayout(current, dropped, side) {
-  return splitPane(paneLeaf(current), itemKey(current), side, paneLeaf(dropped));
+/** A fresh two-pane view; a centre drop counts as right; `current` keeps `tab`. */
+export function twoPaneLayout(current, dropped, side, tab) {
+  return splitPane(paneLeaf(current, tab), itemKey(current), side, paneLeaf(dropped));
 }

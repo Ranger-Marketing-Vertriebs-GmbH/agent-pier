@@ -60,20 +60,20 @@ const text = {
     full: "The view is full (at most 6 panes).",
     hint: "6 of 6 panes",
     attachments: "Attachments",
-    rowLabel: (name, n) => `${name}, ${n} panes`,
   },
   de: {
     defaultName: "Ansicht 1",
     full: "Die Ansicht ist voll (höchstens 6 Bereiche).",
     hint: "6 von 6 Bereichen",
     attachments: "Anhänge",
-    rowLabel: (name, n) => `${name}, ${n} Bereiche`,
   },
 };
 
 const sidebar = (page) => page.locator("aside.sidebar");
 const sessionRow = (page, name) =>
   sidebar(page).locator(".sessions-group .session-item", { hasText: name });
+const viewRow = (page, name) =>
+  sidebar(page).locator(".views-group .views-sidebar-item", { hasText: name });
 const agentRow = (page, name) =>
   sidebar(page).locator(".assistant-sidebar-item", { hasText: name });
 const overlay = (page, key) => paneOf(page, key).locator(".drop-zone-overlay");
@@ -446,10 +446,15 @@ for (const language of ["en", "de"]) {
         ],
       });
       await page.goto(viewURL);
+      await expect(viewRow(page, "Pairing")).toBeVisible();
+      // Opening the view marks it used; the draft starts after that write landed.
+      await expect
+        .poll(() =>
+          controls.writes.some((write) => write.id === viewId && write.body?.used),
+        )
+        .toBe(true);
       await editDraft(page, S1, language);
-      await sidebar(page)
-        .getByRole("button", { name: t.rowLabel("Pairing", 1) })
-        .click();
+      await viewRow(page, "Pairing").click();
       await expect(page.getByRole("heading", { name: c.unsaved })).toBeVisible();
       await page.getByRole("button", { name: c.cancel, exact: true }).click();
       await expect(page).toHaveURL(viewURL);
@@ -457,6 +462,18 @@ for (const language of ["en", "de"]) {
     });
   });
 }
+
+test("a view made from the single session view keeps its tab", async ({ page }) => {
+  const controls = await splitViewFixture(page);
+  await page.goto(`${baseURL}/sessions/s1/files`);
+  await expect(sidebar(page).locator(".views-sidebar-item")).toHaveCount(1);
+  await expect(page.locator(".session-workspace")).toBeVisible();
+  await dropOn(page.locator("main"), "right", await paneTransfer(page, item("s2")));
+  await expect(page).toHaveURL(`${baseURL}/views/v_new0000000000001`);
+  expect(controls.writes.find((write) => write.method === "POST").body.layout).toEqual(
+    split("row", leaf.s1("files"), leaf.s2()),
+  );
+});
 
 test("an empty view takes a dropped session", async ({ page }) => {
   const controls = await splitViewFixture(page, { layout: null });
@@ -513,6 +530,10 @@ test("a real drag from the sidebar onto a full view offers only the centre", asy
   controls.sessions = [sessions.s1, sessions.s2, s3, s4, s5, s6];
   await page.goto(viewURL);
   await expect(page.locator(".split-pane")).toHaveCount(6);
+  // The drag starts where the row is once the sidebar has settled: the agents group
+  // above the sessions shows up later and moves them down.
+  await expect(agentRow(page, "Home assistant")).toBeVisible();
+  await expect(sidebar(page).locator(".sessions-group .session-item")).toHaveCount(6);
   const row = sessionRow(page, "Billing jobs");
   await row.hover();
   await page.mouse.down();

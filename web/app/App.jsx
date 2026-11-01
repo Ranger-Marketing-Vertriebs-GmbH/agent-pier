@@ -39,7 +39,7 @@ import useViewsStore from "../features/views/useViewsStore.js";
 import { ViewsContext } from "../features/views/views-context.js";
 import useViewRouting from "../features/views/useViewRouting.js";
 import SingleViewDropTarget from "../features/views/SingleViewDropTarget.jsx";
-import { itemFromRoute } from "../features/views/click-rule.js";
+import { itemFromRoute, tabOfMode } from "../features/views/click-rule.js";
 const AgentsPage = lazy(() => import("../features/assistants/AgentsPage.jsx"));
 const ProjectsPage = lazy(() => import("../features/projects/ProjectsPage.jsx"));
 const CodingPage = lazy(() => import("../features/coding/CodingPage.jsx"));
@@ -154,6 +154,13 @@ function Application() {
     (view === "split" && views.loaded && !views.byId(route.viewId)
       ? navigationCopy.pageNotFound
       : null);
+  // The tab the open session shows; a view made by a drop onto it keeps that tab.
+  const sessionMode = activeSession
+    ? activeSession.tool === "shell" && route.mode !== "files"
+      ? "terminal"
+      : route.mode ||
+        defaultSessionMode(activeSession, window.matchMedia("(max-width: 700px)").matches)
+    : null;
   const extensionsShown = view === "coding" && route.codingTab === "extensions";
   const created = async (session) => {
     await refresh();
@@ -420,6 +427,7 @@ function Application() {
                 <SingleViewDropTarget
                   key={activeSession.id}
                   item={{ kind: "session", id: activeSession.id }}
+                  tab={tabOfMode(sessionMode)}
                   navigate={navigate}
                 >
                   <SessionWorkspace
@@ -430,15 +438,7 @@ function Application() {
                     account={state.accounts.find((a) => a.id === activeSession.accountId)}
                     autoResume={state.autoResumeInterrupted !== false}
                     action={act}
-                    mode={
-                      activeSession.tool === "shell" && route.mode !== "files"
-                        ? "terminal"
-                        : route.mode ||
-                          defaultSessionMode(
-                            activeSession,
-                            window.matchMedia("(max-width: 700px)").matches,
-                          )
-                    }
+                    mode={sessionMode}
                     setMode={(mode) =>
                       navigate({
                         ...route,

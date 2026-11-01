@@ -3,8 +3,8 @@ import { test, expect } from "../helpers/browser-test.js";
 // Settings › Operations › Development › Components: the split layout and drop zone
 // specimens (docs/ui-guide.md#page-structure).
 for (const [locale, label, status] of [
-  ["de-DE", "Größe der Bereiche ändern", /Auf der Seite links abgelegt/],
-  ["en-GB", "Resize panes", /Dropped on the left side/],
+  ["de-DE", "Größe der Bereiche ändern", /Links abgelegt/],
+  ["en-GB", "Resize panes", /Dropped on the left/],
 ]) {
   test.describe(`split primitives ${locale}`, () => {
     test.use({ locale, viewport: { width: 1440, height: 1000 } });
