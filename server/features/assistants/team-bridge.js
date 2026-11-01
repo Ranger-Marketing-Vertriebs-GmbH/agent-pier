@@ -16,6 +16,7 @@ import { boundTurnLive, confirmFromCall, turnRefusal } from "./run-confirmation.
 import { routineRun, routineWrite } from "./routine-run-origin.js";
 import { invokeHook } from "./agent-hook-proposals.js";
 import { invokeSshAccess } from "./agent-ssh-proposals.js";
+import { invokePreview } from "./agent-previews.js";
 import * as hooks from "./agent-hook-bridge.js";
 import { lockedCall, lockedTools } from "../users/user-agent-lock.js";
 import { isShared } from "../users/user-access.js";
@@ -480,6 +481,8 @@ export class TeamBridge {
         return this.assistants.workflows.mail.invoke(invocation, input);
       if (action === "project")
         return this.assistants.workflows.projects.invoke(invocation, input);
+      if (action === "preview")
+        return invokePreview(this.assistants.workflows, invocation, input);
       if (action === "report") return this.teams.reports.report(invocation, input);
       if (peerActions.has(action)) return this.teams.peers[action](invocation, input);
       return action === "reminder"

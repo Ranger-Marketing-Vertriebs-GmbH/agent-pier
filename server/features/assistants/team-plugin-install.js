@@ -15,6 +15,7 @@ const files = [
   "coding-session-tool.js",
   "mail-tool.js",
   "project-tool.js",
+  "preview-tool.js",
   "member-tools.js",
   "group-tools.js",
   "chat-title.js",

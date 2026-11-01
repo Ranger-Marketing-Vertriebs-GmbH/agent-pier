@@ -360,3 +360,27 @@ test("an agent with its own Telegram bot for other people is compiled without ag
   assert.ok(allow(false).includes("agentpier_project"));
   assert.ok(!allow(true).includes("agentpier_project"));
 });
+
+test("agentpier_preview: own agents and permanent members only, never user agents, sender-facing agents or routines", () => {
+  const tool = "agentpier_preview";
+  const tools = (agent, nativeReady = true) => profileTools(agent, true, nativeReady);
+  const own = { id: "a", capabilities: { memory: true, reminders: true } };
+  assert.ok(tools(own).includes(tool));
+  assert.ok(tools({ id: "p", teamMemberId: "t", lifetime: "permanent" }).includes(tool));
+  for (const agent of [
+    { id: "m", teamMemberId: "t", lifetime: "task" },
+    { ...own, userAccess: { mode: "own", members: [], released: [] } },
+    { ...own, archivedAt: "today" },
+  ])
+    assert.ok(!tools(agent).includes(tool), JSON.stringify(agent));
+  assert.ok(!tools(own, false).includes(tool));
+  assert.ok(senderLockedTools.includes(tool));
+  assert.ok(lockedTools.includes(tool));
+  assert.ok(!routineTools.includes(tool));
+  assert.ok(nativeTools.includes(tool));
+  const allow = (senderFacing) =>
+    agentEntry({}, own, { teamsReady: true, nativeReady: true, senderFacing }).tools
+      .allow;
+  assert.ok(allow(false).includes(tool));
+  assert.ok(!allow(true).includes(tool));
+});

@@ -4,6 +4,7 @@
 // "unavailable".
 import { reportLimits } from "./member-reports.js";
 import { loopGuardCaps } from "./agent-loop-guard.js";
+import { agentText } from "../../lib/i18n/agent-text.js";
 const reasons = {
   TELEGRAM_NOT_CONNECTED:
     "No Telegram chat is paired for this person. Ask them to pair Telegram in the agent settings first; retrying does not help until then.",
@@ -419,6 +420,10 @@ const sftpCode = (error) =>
   !error?.key && /^SFTP_[A-Z_]+$/.test(error?.code ?? "") && reasons[error.code]
     ? error.code
     : null;
+// Preview problems (previews/preview-errors.js) carry their stable code and a catalog
+// message that names nothing internal; the model reads it in English.
+const previewCode = (error) =>
+  !error?.key && /^PREVIEW_[A-Z_]+$/.test(error?.code ?? "") ? error.code : null;
 // Who answered a coding session's prompt first (coding-sessions/session-requests.js).
 const answerers = ["owner", "agent", "telegram", "session"];
 export function toolError(error) {
@@ -426,6 +431,7 @@ export function toolError(error) {
   const code =
     (error?.key === "invalid" && status === 403 ? "FORBIDDEN" : byKey[error?.key]) ||
     sftpCode(error) ||
+    previewCode(error) ||
     byStatus[status] ||
     (status === 413 ? "REQUEST_TOO_LARGE" : "UNAVAILABLE");
   return {
@@ -434,6 +440,8 @@ export function toolError(error) {
     reason:
       code === "PROMPT_ANSWERED" && answerers.includes(error.answeredBy)
         ? `${reasons[code]} Answered by: ${error.answeredBy}.`
-        : reasons[code],
+        : code === previewCode(error)
+          ? agentText(error.message)
+          : reasons[code],
   };
 }

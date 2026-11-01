@@ -62,6 +62,7 @@ export const nativeTools = [
   "agentpier_coding_session",
   "agentpier_mail",
   "agentpier_project",
+  "agentpier_preview",
 ];
 
 function freshDefaults(paths) {

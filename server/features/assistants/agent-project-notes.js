@@ -10,7 +10,7 @@ export const projectMessages = (channel) =>
 
 // A name or path on one visible line: invisible and control characters (a line
 // break among them) show as their code point, so a crafted name cannot fake lines.
-const visibleLine = (text) =>
+export const visibleLine = (text) =>
   String(text ?? "").replace(
     hidden,
     (c) => `\\u{${c.codePointAt(0).toString(16).toUpperCase()}}`,
@@ -19,7 +19,7 @@ const visibleLine = (text) =>
 // A name or path the agent chose, as inline code: inside it the Telegram Markdown
 // renderer escapes everything (**, __, links), and a backtick, which would end it,
 // becomes a look-alike.
-const literal = (text) => `\`${visibleLine(text).replaceAll("`", "\u02cb")}\``;
+export const literal = (text) => `\`${visibleLine(text).replaceAll("`", "\u02cb")}\``;
 
 /**
  * The chat notes of an agent's project change (actionNotes): the creation of a project

@@ -11,7 +11,7 @@ import {
 } from "./native-capabilities.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { assertWired } from "./service-wiring.js";
-import { mayCreateProjects } from "./goal-turns.js";
+import { mayCreateProjects, mayOpenPreviews } from "./goal-turns.js";
 import { assistantBootstrap } from "./assistant-bootstrap.js";
 import { mirrorLeadMemory } from "./member-memory.js";
 import { agentEntry } from "./openclaw-config/agent-entry.js";
@@ -305,6 +305,7 @@ export class AssistantConfig {
       mailAccounts: (nativeReady && this.mailAccounts?.(assistant)) || [],
       // Whether it holds agentpier_project (profileTools without senderLockedTools).
       projectCreation: nativeReady && mayCreateProjects(assistant, senderFacing),
+      previews: nativeReady && mayOpenPreviews(assistant, senderFacing),
     };
     // A lead's "Your team" section names its members as they are now. It changes
     // with every busy member, so it stays out of the fingerprint: verifyBootstrap

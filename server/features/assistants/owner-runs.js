@@ -93,6 +93,8 @@ export const ownerRunActions = new Set([
   "ssh_access",
   "project",
   "goal",
+  // A preview of a server the run started for its chat (agent-previews.js).
+  "preview",
 ]);
 
 /**

@@ -19,3 +19,13 @@
   display: grid;
   gap: var(--space-3);
 }
+
+/* An agent chat's previews (PreviewStrip.jsx): a row of the chat's column. */
+.agent-preview-strip {
+  display: grid;
+  gap: 8px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  max-height: 30dvh;
+  overflow: auto;
+}

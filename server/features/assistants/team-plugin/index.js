@@ -9,6 +9,7 @@ import { goalDefinition } from "./goal-tool.js";
 import { codingSessionDefinition } from "./coding-session-tool.js";
 import { mailDefinition } from "./mail-tool.js";
 import { projectDefinition } from "./project-tool.js";
+import { previewDefinition } from "./preview-tool.js";
 import { memberDefinitions } from "./member-tools.js";
 import { groupDefinitions } from "./group-tools.js";
 import { registerChatTitle } from "./chat-title.js";
@@ -46,6 +47,8 @@ export const toolTimeouts = {
   mail: 125000,
   // A project creation initializes Git and registers the folder before it answers.
   project: 30000,
+  // A preview open checks the server's port and binds a slot before it answers.
+  preview: 15000,
 };
 // A file staged for the browser (up to 8 GiB) is copied before the call answers.
 export const browserStageTimeoutMs = 300000;
@@ -62,6 +65,7 @@ const ownTools = [
   "coding_session",
   "mail",
   "project",
+  "preview",
 ];
 const toolName = (action) =>
   ownTools.includes(action) ? `agentpier_${action}` : `agentpier_team_${action}`;
@@ -124,6 +128,7 @@ const definitions = {
   ...codingSessionDefinition,
   ...mailDefinition,
   ...projectDefinition,
+  ...previewDefinition,
   ...memberDefinitions,
   ...groupDefinitions,
   reminder: {

@@ -31,4 +31,7 @@ export const previews = {
       `Die Vorschau „${label}“ bleibt geöffnet. Lade diese Seite neu, sobald der Server wieder läuft.`,
     unauthorized: "Anmeldung bei AgentPier erforderlich.",
   },
+  telegram: {
+    opened: (agent, label, url) => `${agent} hat die Vorschau ${label} geöffnet: ${url}`,
+  },
 };
