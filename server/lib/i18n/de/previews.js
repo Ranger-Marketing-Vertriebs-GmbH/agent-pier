@@ -13,4 +13,21 @@ export const previews = {
   PREVIEW_NOT_FOUND: "Diese Vorschau existiert nicht mehr.",
   PREVIEW_RANGE_INVALID:
     "Ungültiger Portbereich: erlaubt sind Ports von 1024 bis 65535, höchstens 50 Ports, ohne den Port von AgentPier, den Pipeline-Portbereich und den Tailscale-HTTPS-Port.",
+  pages: {
+    bounceTitle: "Vorschau wird geöffnet …",
+    bounceLink: "Weiter zur Vorschau",
+    signInTitle: "Bei AgentPier anmelden",
+    signInText:
+      "Diese Vorschau wird von AgentPier bereitgestellt. Melde dich als Besitzer bei AgentPier an; danach öffnet sich die Vorschau wieder.",
+    signInLink: "Bei AgentPier anmelden",
+    forbiddenTitle: "Kein Zugriff",
+    forbiddenText: "Nur der Besitzer dieses AgentPier kann Vorschauen öffnen.",
+    idleTitle: "Auf diesem Port läuft keine Vorschau",
+    idleText:
+      "Diese Vorschau wurde geschlossen oder ist abgelaufen. Bitte die Session oder den Agenten um einen neuen Link.",
+    unreachableTitle: (port) => `Der Server auf Port ${port} antwortet nicht`,
+    unreachableText: (label) =>
+      `Die Vorschau „${label}“ bleibt geöffnet. Lade diese Seite neu, sobald der Server wieder läuft.`,
+    unauthorized: "Anmeldung bei AgentPier erforderlich.",
+  },
 };
