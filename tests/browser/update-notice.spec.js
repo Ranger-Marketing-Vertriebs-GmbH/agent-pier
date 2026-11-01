@@ -103,8 +103,11 @@ test("on a narrow German screen the notice stays clear of the mobile header", as
   await expect(notice).toBeVisible();
   const box = await notice.boundingBox();
   const headerButtons = page.locator(".mobile-header .icon-button");
-  // Menu, inbox and "New".
-  await expect(headerButtons).toHaveCount(3);
+  // Menu, search, inbox and "New".
+  await expect(headerButtons).toHaveCount(4);
+  await expect(
+    page.locator(".mobile-header").getByRole("button", { name: "Suchen", exact: true }),
+  ).toBeVisible();
   for (const button of await headerButtons.all()) {
     expect(apart(box, await button.boundingBox())).toBe(true);
   }
