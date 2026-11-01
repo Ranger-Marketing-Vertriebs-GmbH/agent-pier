@@ -114,6 +114,23 @@ state: the compiler preserves them and never produces duplicate keys.
   listener, or schedules through AgentPier; the first implementation decides with a
   measurement. Hermes must never start a gateway of its own (the spike observed a
   detached, self-started one).
+- **Host as built (AGENTPIER-329):** Hermes lets one process own a `HERMES_HOME`
+  (`gateway.lock`), and `python -m tui_gateway.entry` refuses a home a gateway owns.
+  Each Hermes agent therefore runs `hermes gateway run --external-supervisor` in the
+  foreground as the home's owner (routines, channels and sessions) and a small
+  AgentPier bridge (`runtimes/hermes/hermes-rpc-bridge.py`) that only discovers that
+  owner, takes a session ticket from its owner-only control socket and relays its TUI
+  JSON-RPC WebSocket (the same newline-delimited protocol as stdio) over stdin and
+  stdout. AgentPier itself opens no listener; the gateway's loopback listener and
+  control socket are reachable by the agent's own shell, as the spike found. The
+  self-started gateway came from Hermes clients (`hermes cron run`, `hermes chat`,
+  session and Kanban commands) that find no owner: `ensure_gateway_runtime` then
+  starts one with `--idle-exit`, on macOS as a one-off launchd job through
+  `osascript`. Hermes has no setting that turns this off; it cannot happen while
+  AgentPier's gateway owns the home (clients attach to it), `--external-supervisor`
+  makes `/restart` and `hermes update` exit back to AgentPier instead of starting a
+  detached replacement, and the supervisor ends a gateway that owns the home before
+  each start and after each stop (`hermes-supervisor.js`).
 - **Team tools** reach Hermes as MCP tools (`team-mcp.js`), with a small Python plugin
   for the tool guard's `pre_tool_call` checks. Waits longer than Hermes's 30-second hook
   timeout stay inside tools.
@@ -173,6 +190,8 @@ Each step ships with its contract tests against a pinned runtime, as OpenClaw do
 ## Open questions
 
 - Messaging gateway per Hermes agent versus AgentPier scheduling and Telegram delivery.
-- Which Hermes command starts a detached gateway, and the setting that prevents it.
+- ~~Which Hermes command starts a detached gateway, and the setting that prevents
+  it.~~ Answered in decision 4 (host as built): clients without an owner; no setting,
+  the supervised owner prevents it.
 - Linux behaviour, real Telegram, Codex subscription login and browser CDP handoff.
 - Moving an agent between runtimes, including history and memory.
