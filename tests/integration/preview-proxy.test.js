@@ -302,12 +302,17 @@ test("the agentpier_session cookie and tailscale headers never reach the upstrea
       res.writeHead(302, {
         location: `http://localhost:${req.headers.host.split(":")[1]}/next`,
         "set-cookie": ["agentpier_session=planted; Path=/", "app=1; Path=/"],
+        "clear-site-data": '"cookies"',
       });
       res.end();
     },
   });
   upstream.wss.on("headers", (lines) =>
-    lines.push("Set-Cookie: agentpier_session=planted", "Set-Cookie: app=2"),
+    lines.push(
+      "Set-Cookie: agentpier_session=planted",
+      "Set-Cookie: app=2",
+      'Clear-Site-Data: "*"',
+    ),
   );
   const f = await previewFixture(t, {
     upstream,
@@ -327,6 +332,8 @@ test("the agentpier_session cookie and tailscale headers never reach the upstrea
   assert.deepEqual(answer.headers["set-cookie"], ["app=1; Path=/"]);
   const socket = await openSocket(f.slot, { ...tailnet, origin: `https://${host}` });
   assert.deepEqual(socket.handshake["set-cookie"], ["app=2"]);
+  assert.equal(answer.headers["clear-site-data"], undefined);
+  assert.equal(socket.handshake["clear-site-data"], undefined);
   socket.close();
   for (const seen of upstream.seen) {
     assert.equal(seen.headers.cookie, "app=1");

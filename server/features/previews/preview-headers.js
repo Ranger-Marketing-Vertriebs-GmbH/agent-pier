@@ -98,6 +98,9 @@ export function downstreamHeaders(headers, { target, previewOrigin }) {
     if (scoped.has(key)) continue;
     result[key] = value;
   }
+  // Clear-Site-Data would wipe every cookie of the host, including AgentPier's session,
+  // whatever the port.
+  delete result["clear-site-data"];
   if (result["set-cookie"]) {
     const cookies = [].concat(result["set-cookie"]).filter((c) => !named(c, cookieName));
     if (cookies.length) result["set-cookie"] = cookies;

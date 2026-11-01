@@ -54,7 +54,11 @@ function refuseUpgrade(socket, status) {
 function filterResponseHead(head) {
   return head
     .split("\r\n")
-    .filter((line) => !/^set-cookie\s*:\s*agentpier_session\s*=/i.test(line))
+    .filter(
+      (line) =>
+        !/^set-cookie\s*:\s*agentpier_session\s*=/i.test(line) &&
+        !/^clear-site-data\s*:/i.test(line),
+    )
     .join("\r\n");
 }
 

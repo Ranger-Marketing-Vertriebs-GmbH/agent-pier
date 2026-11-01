@@ -92,8 +92,8 @@ configured network hosts.
 
 When previews are on and Tailscale remote access is configured, AgentPier registers the
 whole range once with `tailscale serve --bg --https=<slot> http://127.0.0.1:<slot+1000>`.
-It re-applies the registration at every start, after a range change and in
-`npm run tailscale` (which also installs and updates use). Switching previews off or
+It re-applies the registration at every service start, after a range change and in
+`npm run tailscale`. Switching previews off or
 changing the range removes the old entries. Only entries whose target is one of
 AgentPier's own preview listeners are ever removed; other Serve entries stay. If another
 Serve entry already uses a port of the range, the card says so and asks for another range.
@@ -101,7 +101,12 @@ Serve entry already uses a port of the range, the card says so and asks for anot
 If a `tailscale` call fails or hangs (no permission, socket missing, Tailscale stopped),
 the **Tailscale** area of the card lists the ports that are **Not shared** and the exact
 commands. Run them on the AgentPier computer (**Copy commands**), then switch previews
-off and on again. Previews keep working locally and in network mode meanwhile.
+off and on again. Network mode is unaffected. In Tailscale mode, while no slot is
+registered, opening a preview fails with `PREVIEW_UNAVAILABLE`.
+
+In Tailscale mode the **Open preview** link assumes AgentPier itself is opened through its
+Tailscale address. If you open AgentPier at `127.0.0.1` while Tailscale is active, the link
+points at `<slot>`, whose local listener is at `<slot+1000>`.
 
 ## Sign-in and isolation
 
@@ -126,6 +131,11 @@ requests with `Sec-Fetch-Site: same-site` unless they are navigations, so a prev
 cannot call it. One risk remains and is accepted: a hostile preview page can push the
 AgentPier cookie out by filling the host's cookie storage. That signs you out; it does
 not give the page access.
+
+Preview origins on the same host are same-site, so one preview page can make credentialed
+requests to another preview; the target app's own `Origin` checks are the only protection.
+The cross-site bounce also turns a credentialed GET navigation into a same-origin one, which
+bypasses an app's own `SameSite=Strict` cookie protection.
 
 ## Lifetime
 

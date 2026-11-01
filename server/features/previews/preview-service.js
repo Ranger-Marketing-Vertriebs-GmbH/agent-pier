@@ -50,6 +50,9 @@ function checkedInput({ owner, port, label, path } = {}) {
     if (typeof path !== "string" || path.length > 2048 || !/^\/(?!\/)/.test(path))
       throw invalid();
     if (controls.test(path)) throw invalid();
+    // Spaces and other raw characters leave the URL (and Markdown links) intact.
+    const url = new URL(path, "http://x");
+    path = url.pathname + url.search + url.hash;
   }
   return { owner, port, label, path };
 }
@@ -162,10 +165,14 @@ export class PreviewService extends EventEmitter {
     try {
       await this.apply(next, before, source);
     } catch (error) {
-      // The saved settings never differ from what runs: restore the old ones.
+      // A failed apply restores the previous settings, so the saved ones match what runs.
       try {
         writePreviewConfig(this.dataDir, before);
-      } catch {}
+      } catch (restore) {
+        console.error(
+          `AgentPier could not restore the preview settings: ${restore?.code || "unknown error"}`,
+        );
+      }
       throw error;
     }
     this.recordSettings(next, source);

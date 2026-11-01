@@ -1,5 +1,5 @@
 .session-previews {
-  padding: 8px 16px;
+  padding: var(--space-2) var(--space-4);
   border-bottom: 1px solid var(--border);
   max-height: 40dvh;
   overflow: auto;
@@ -10,8 +10,8 @@
 }
 .session-previews-panel {
   display: grid;
-  gap: 8px;
-  padding: 8px 0 4px;
+  gap: var(--space-2);
+  padding: var(--space-2) 0 var(--space-1);
 }
 
 /* The card's parts keep one rhythm; the page's reset leaves paragraphs without margin. */
@@ -23,8 +23,8 @@
 /* An agent chat's previews (PreviewStrip.jsx): a row of the chat's column. */
 .agent-preview-strip {
   display: grid;
-  gap: 8px;
-  padding: 8px 16px;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
   border-bottom: 1px solid var(--border);
   max-height: 30dvh;
   overflow: auto;
