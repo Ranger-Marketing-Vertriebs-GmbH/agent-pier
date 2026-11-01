@@ -313,6 +313,8 @@ export async function createApplication(config) {
     services.autoResume.initialize().catch(report);
   });
   server.once("listening", () => services.assistantFeature.start());
+  // Installs or stages the pinned Hermes runtime when the owner enabled Hermes.
+  server.once("listening", () => services.hermesRuntime?.start());
   app.disable("x-powered-by");
   app.use(securityHeaders);
   app.use(buildHeader(buildIdentity(config.buildDocument)));

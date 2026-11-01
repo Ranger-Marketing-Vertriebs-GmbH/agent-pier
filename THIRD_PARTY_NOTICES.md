@@ -125,6 +125,14 @@ plugins, and a pinned Node.js runtime under the Node.js license, into the data
 directory. Their license files stay inside that runtime installation; the locked
 versions are listed in `server/features/assistants/runtimes/openclaw/runtime-lock/package-lock.json`.
 
+When the owner opts into Hermes Agent, AgentPier downloads the pinned Hermes Agent
+source (MIT, Copyright (c) 2025 Nous Research), the uv installer (MIT or Apache-2.0,
+Copyright (c) Astral Software Inc.) and the CPython build uv installs (Python
+Software Foundation License, with the licenses of its bundled libraries) into the
+data directory. Hermes's Python dependencies keep their own licenses inside that
+installation; their exact versions are those of the `uv.lock` in the pinned Hermes
+commit (`server/features/assistants/runtimes/hermes/hermes-manifest.json`).
+
 ## Unicode upload-name data
 
 The pinned Unicode 15.1 data under `server/features/files/unicode-15.1/` is

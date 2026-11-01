@@ -30,9 +30,10 @@ import {
 } from "./assistant-attachments.js";
 import { Router } from "express";
 import path from "node:path";
-import { writePrivate } from "../../lib/storage.js";
+import { readJSON, writePrivate } from "../../lib/storage.js";
 import { assistantProblem } from "../../features/assistants/assistant-validation.js";
 import { assistantFeatureRoutes } from "./assistant-feature.js";
+import { assistantHermesRoutes } from "./assistant-hermes.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { messageIdentity } from "../../lib/i18n/message-identity.js";
 import { ASSISTANT_STORAGE_UNSAFE } from "../../features/assistants/assistant-feature.js";
@@ -110,6 +111,7 @@ function activeAssistantRoutes(services) {
   router.use(assistantHookRoutes(services));
   router.use(assistantWorkflowRoutes(services));
   router.use(assistantRuntimeUpdateRoutes(services));
+  router.use(assistantHermesRoutes(services));
   router.use(assistantChannelRoutes(services));
   router.use(assistantWebSearchRoutes(services));
   router.use(assistantBrowserNetworkRoutes(services));
@@ -284,9 +286,15 @@ function activeAssistantRoutes(services) {
           (hostReady(assistantRuntime) && (await assistants.reminders?.hasRunning())))
       )
         throw assistantProblem("active", 409);
-      writePrivate(path.join(assistantRuntime.paths.root, "settings.json"), {
-        enabled: action !== "stop",
-      });
+      // Other settings of the store (the Hermes opt-in) stay as they are.
+      const settings = path.join(assistantRuntime.paths.root, "settings.json");
+      let stored;
+      try {
+        stored = readJSON(settings, {});
+      } catch {
+        stored = {};
+      }
+      writePrivate(settings, { ...stored, enabled: action !== "stop" });
       const host = hostOf(assistantRuntime);
       if (action === "stop") await host.stop();
       else (action === "restart" ? host.restart() : host.start()).catch(() => {});
