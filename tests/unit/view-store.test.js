@@ -101,7 +101,7 @@ test("update raises the revision; used sets usedAt; unknown id is VIEW_UNKNOWN",
     status: 404,
   });
   assert.throws(() => timed.update(view.id, {}), { code: "VIEW_INVALID" });
-  assert.deepEqual(timed.remove(view.id), { version: 4 });
+  assert.deepEqual(timed.remove(view.id), { epoch: timed.epoch, version: 4 });
   assert.throws(() => timed.remove(view.id), { code: "VIEW_UNKNOWN" });
 });
 
@@ -142,7 +142,22 @@ test("sanitizeViews drops invalid views and keeps valid ones", () => {
 
 test("a corrupt views.json starts empty", () => {
   fs.writeFileSync(path.join(dataDir, "views.json"), "{");
-  assert.deepEqual(new ViewStore({ dataDir }).list(), { version: 0, views: [] });
+  const fresh = new ViewStore({ dataDir });
+  assert.deepEqual(fresh.list(), { epoch: fresh.epoch, version: 0, views: [] });
+});
+
+test("the epoch is stable within one store and new for the next one", () => {
+  const { epoch } = store.list();
+  assert.match(epoch, /^[a-f0-9]{16}$/);
+  const created = store.create({ name: "A", layout: null });
+  assert.equal(created.epoch, epoch);
+  assert.equal(store.update(created.view.id, { name: "B" }).epoch, epoch);
+  assert.equal(store.list().epoch, epoch);
+  assert.equal(store.remove(created.view.id).epoch, epoch);
+  // A restore starts the server again: the next store reads the same file anew.
+  const next = new ViewStore({ dataDir });
+  assert.equal(next.list().version, store.list().version);
+  assert.notEqual(next.list().epoch, epoch);
 });
 
 test("the views topic admits only the owner", () => {

@@ -272,7 +272,6 @@ function Application() {
                   openRoute={navigate}
                   action={act}
                   autoResume={state.autoResumeInterrupted !== false}
-                  openNavigation={openNavigation}
                 />
               ) : view === "agents" ? (
                 agentsEnabled ? (

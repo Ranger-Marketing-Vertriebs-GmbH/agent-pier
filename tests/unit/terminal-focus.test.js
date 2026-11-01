@@ -69,3 +69,16 @@ test("without a mount yet a gained focus does not steal from a field", () => {
     false,
   );
 });
+
+test("a terminal in a pane never takes the focus from a field outside it", () => {
+  const viewName = { ...element("view-header", body), tagName: "INPUT" };
+  const composer = { ...element("composer", otherPane), tagName: "TEXTAREA" };
+  assert.equal(takesFocus(focusCase({ active: viewName })), false);
+  assert.equal(takesFocus(focusCase({ active: composer })), false);
+  assert.equal(takesFocus(focusCase({ gained: true, active: composer })), false);
+  const xtermInput = { ...element("xterm-helper-textarea", mount), tagName: "TEXTAREA" };
+  assert.equal(takesFocus(focusCase({ active: xtermInput })), true);
+  // A single view keeps today's behaviour.
+  const single = element("terminal-mount", element("session-workspace", body));
+  assert.equal(takesFocus(focusCase({ active: viewName, mount: single })), true);
+});

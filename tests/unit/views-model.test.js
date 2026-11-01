@@ -59,3 +59,26 @@ test("withPending applies optimistic edits over the confirmed document", () => {
   });
   assert.equal(withPending(document, []), document);
 });
+
+test("adoptViews follows the epoch: a restarted server's document wins", () => {
+  const a = { id: "v_a", name: "A" },
+    b = { id: "v_b", name: "B" };
+  const current = withWrite(
+    { epoch: "e1", version: 7, views: [a] },
+    { epoch: "e1", version: 8, view: b },
+  );
+  assert.deepEqual(current, { epoch: "e1", version: 8, views: [a, b] });
+  assert.equal(adoptViews(current, { epoch: "e1", version: 6, views: [a] }), current);
+  const restored = { epoch: "e2", version: 3, views: [a] };
+  assert.equal(adoptViews(current, restored), restored);
+  assert.deepEqual(normalizeViews({ epoch: "e2", version: 3, views: [] }), {
+    epoch: "e2",
+    version: 3,
+    views: [],
+  });
+  assert.deepEqual(withWrite(restored, { epoch: "e2", version: 4, removedId: "v_a" }), {
+    epoch: "e2",
+    version: 4,
+    views: [],
+  });
+});

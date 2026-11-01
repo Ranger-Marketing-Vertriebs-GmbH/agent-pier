@@ -98,7 +98,11 @@ export default function ViewHeader({ view, paneCount, onRename, onDelete }) {
           body={viewsCopy.deleteBody(view.name)}
           confirmLabel={viewsCopy.deleteView}
           destructive
-          onConfirm={onDelete}
+          onConfirm={() => {
+            // The unsaved-documents question, if any, follows this dialog.
+            setConfirming(false);
+            return onDelete();
+          }}
           onCancel={() => setConfirming(false)}
         />
       )}

@@ -22,16 +22,21 @@ const layout = {
 
 test("views: create, rename, set layout, use and delete through /api/views", async (t) => {
   const f = await applicationFixture(t);
-  assert.deepEqual(await (await call(f, "", "GET")).json(), { version: 0, views: [] });
+  const listed = await (await call(f, "", "GET")).json();
+  const { epoch } = listed;
+  assert.match(epoch, /^[a-f0-9]{16}$/);
+  assert.deepEqual(listed, { epoch, version: 0, views: [] });
 
   const created = await call(f, "", "POST", { name: "Shop", layout: null });
   assert.equal(created.status, 201);
-  const { version, view } = await created.json();
+  const { epoch: createdEpoch, version, view } = await created.json();
   assert.equal(version, 1);
   assert.equal(view.revision, 1);
+  assert.equal(createdEpoch, epoch);
 
   let answer = await (await call(f, `/${view.id}`, "PATCH", { name: "B" })).json();
   assert.equal(answer.version, 2);
+  assert.equal(answer.epoch, epoch);
   assert.equal(answer.view.revision, 2);
   assert.equal(answer.view.name, "B");
 
@@ -44,9 +49,14 @@ test("views: create, rename, set layout, use and delete through /api/views", asy
   assert.notEqual(answer.view.usedAt, view.usedAt);
 
   assert.deepEqual(await (await call(f, `/${view.id}`, "DELETE")).json(), {
+    epoch,
     version: 5,
   });
-  assert.deepEqual(await (await call(f, "", "GET")).json(), { version: 5, views: [] });
+  assert.deepEqual(await (await call(f, "", "GET")).json(), {
+    epoch,
+    version: 5,
+    views: [],
+  });
 });
 
 test("views: refusals carry code and messageKey", async (t) => {
@@ -67,7 +77,8 @@ test("views: a write pushes the views topic", async (t) => {
   await live.next((frame) => frame.type === "hello");
   live.send({ op: "sub", topic: "views" });
   const first = await live.next((frame) => frame.topic === "views", 5000);
-  assert.deepEqual(first.data, { version: 0, views: [] });
+  assert.deepEqual(first.data, { epoch: first.data.epoch, version: 0, views: [] });
+  assert.equal(typeof first.data.epoch, "string");
   const pushed = live.next(
     (frame) => frame.topic === "views" && frame.data?.version === 1,
   );

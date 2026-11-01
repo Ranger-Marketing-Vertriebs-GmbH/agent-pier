@@ -48,6 +48,8 @@ export const copy = {
     cancel: "Cancel",
     settings: "Settings",
     disconnected: "Disconnected",
+    deleteView: "Delete view",
+    retry: "Try again",
   },
   de: {
     removed: "Session entfernt",
@@ -62,6 +64,8 @@ export const copy = {
     cancel: "Abbrechen",
     settings: "Einstellungen",
     disconnected: "Getrennt",
+    deleteView: "Ansicht löschen",
+    retry: "Erneut versuchen",
   },
 };
 
@@ -152,6 +156,8 @@ export async function splitViewFixture(page, { language = "en", layout } = {}) {
     presence: [],
     sessions: [sessions.s1, sessions.s2],
     pushDevices: 0,
+    // /api/views answers 500 to reads and writes while set.
+    failRead: false,
   };
   const answerWrite = (route, method, id, body) => {
     controls.writes.push({ method, id, body });
@@ -192,12 +198,16 @@ export async function splitViewFixture(page, { language = "en", layout } = {}) {
           pushDevices: controls.pushDevices,
         },
       });
+    if (path === "/api/views" && method === "GET" && controls.failRead)
+      return route.fulfill({ status: 500, json: { error: "Views unavailable" } });
     if (path === "/api/views" && method === "GET")
       return route.fulfill({
         json: { version: controls.version, views: controls.views },
       });
     const write = /^\/api\/views\/([^/]+)$/.exec(path);
     if (write) {
+      if (controls.failRead)
+        return route.fulfill({ status: 500, json: { error: "Views unavailable" } });
       const body = method === "PATCH" ? request.postDataJSON() : null;
       return answerWrite(route, method, write[1], body);
     }
