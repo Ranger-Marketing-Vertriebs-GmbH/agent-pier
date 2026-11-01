@@ -46,8 +46,8 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
 - **Geteilte Ansichten:** zeigen bis zu sechs Sessions und Agenten-Chats nebeneinander,
   in einem Fenster breiter als 1150 px; eine Ansicht entsteht mit **+** in der
   Seitenleistengruppe **Ansichten** oder durch Ziehen eines zweiten Eintrags auf eine
-  Session. Bereiche teilen, ersetzen, verschieben und in der Größe ändern geht per Drag
-  and Drop; die Ansichten bleiben auf dem Host gespeichert
+  Session oder einen Agenten-Chat. Bereiche teilen, ersetzen, verschieben und in der
+  Größe ändern geht per Drag and Drop; die Ansichten bleiben auf dem Host gespeichert
   ([Ansichten](docs/views.md), auf Englisch).
 - **Pipelines mit Review:** wiederverwendbare Profile, isolierte Git-Worktrees,
   parallele Reviewer mit zusammengeführtem Ergebnis, begrenzte Review-Schleifen, Prüfungen, ein Risiko-Gate für heikle Pfade, ein Token-Budget je Lauf, eine Warteschlange je Projekt mit Limit für gleichzeitige Läufe und

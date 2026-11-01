@@ -41,8 +41,8 @@ and agents that work as a team.
   ([UI guide](docs/ui-guide.md#sidebar-menu-and-search)).
 - **Split views:** show up to six sessions and agent chats side by side in a window wider
   than 1150 px; create a view with **+** in the sidebar group **Views** or by dragging a
-  second item onto a session, split, replace, move and resize panes by drag and drop,
-  and keep views saved on the host ([views](docs/views.md)).
+  second item onto a session or an agent chat, split, replace, move and resize panes by
+  drag and drop, and keep views saved on the host ([views](docs/views.md)).
 - **Pipelines with review:** reusable profiles, isolated Git worktrees, parallel
   reviewers whose verdicts are joined, bounded review loops, checks, a risk gate for sensitive paths, a token budget per run, a run queue per project with a concurrency limit and human approval,
   plus a built-in software factory from spec to pull request
