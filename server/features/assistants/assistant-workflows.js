@@ -77,7 +77,7 @@ export class AssistantWorkflows {
     // Staged browser uploads of an earlier process go (agent-browser-uploads.js).
     this.browserUploads.start();
     this.sessions.start();
-    this.timer = setInterval(() => this.tick().catch(() => {}), 1000);
+    this.timer = setInterval(() => this.running || this.tick().catch(() => {}), 1000);
     this.timer.unref();
   }
   get(id) {
@@ -444,16 +444,17 @@ export class AssistantWorkflows {
     }
     this.a.changed({ feeds: false });
   }
+  // Settles after a pass that began after this call; callers during a pass share one.
   tick() {
     if (this.closed || this.a.maintenance) return Promise.resolve();
-    // A pass already in flight began before this call and may have passed over
-    // changes made since; settle it, then run one that sees them (shared by
-    // every caller waiting meanwhile).
-    if (this.running) return this.running.then(() => this.tick());
-    this.running = this.advance().finally(() => {
-      this.running = null;
-    });
-    return this.running;
+    if (!this.running) return this.pass();
+    return (this.again ??= this.running.then(() => {
+      this.again = null;
+      return this.running ?? this.pass();
+    }));
+  }
+  pass() {
+    return (this.running = this.advance().finally(() => (this.running = null)));
   }
   // A pass that wrote no action changes nothing the owner sees.
   async advance() {
