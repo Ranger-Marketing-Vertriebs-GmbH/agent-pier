@@ -71,7 +71,7 @@ with `version: "2026.9.8"`. `config.schema.lookup { path }` returns
 **Advanced settings.** `tests/integration/assistant-advanced-settings-contract.test.js`
 uses the same variable. Against the pinned 2026.9.9 runtime (2026-10-14, macOS arm64)
 `config.schema` was 2,144,101 bytes with 8,043 hint keys. For every path on the
-allow list (`openclaw-config/advanced-settings.js`) the contract requires that the
+allow list (`runtimes/openclaw/openclaw-config/advanced-settings.js`) the contract requires that the
 schema node still exists with the same type, enum and range, carries no
 `sensitive` hint, reports the qualified `reloadKind` through `config.schema.lookup`,
 and is absent from the configuration a fresh start writes. It then saves values

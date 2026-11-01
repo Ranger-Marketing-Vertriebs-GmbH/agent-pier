@@ -9,7 +9,7 @@ import { createMcpCli } from "../../server/features/mcp-servers/openclaw-mcp-cli
 import {
   mcpServerConfig,
   mcpServerSignature,
-} from "../../server/features/assistants/openclaw-config/mcp-servers.js";
+} from "../../server/features/assistants/runtimes/openclaw/openclaw-config/mcp-servers.js";
 
 const fakeEntry = fileURLToPath(
   new URL("../fixtures/fake-openclaw-mcp.mjs", import.meta.url),

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { shellService } from "../helpers/assistant-shell-service.js";
-import { compileOpenClawConfig } from "../../server/features/assistants/runtime-config.js";
+import { compileOpenClawConfig } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 
 // The owner's agent: memory and reminders on, a ChatGPT account model, no Telegram chat.
 const chatgpt = { connectionId: "openclaw:5a3bed0e", modelId: "gpt-6-astra" };

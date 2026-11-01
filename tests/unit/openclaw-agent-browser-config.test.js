@@ -3,12 +3,12 @@ import assert from "node:assert/strict";
 import {
   displayEnvironment,
   runtimeEnvironment,
-} from "../../server/features/assistants/runtime-config.js";
+} from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 import {
   webToolsSections,
   webToolsSignatures,
   webToolsSnapshot,
-} from "../../server/features/assistants/openclaw-config/web-tools.js";
+} from "../../server/features/assistants/runtimes/openclaw/openclaw-config/web-tools.js";
 import {
   guardGatedTools,
   profileTools,
@@ -19,7 +19,7 @@ import {
   browserProfileMap,
   browserProfilesPatch,
   nextBrowserProfiles,
-} from "../../server/features/assistants/openclaw-config/browser-profiles.js";
+} from "../../server/features/assistants/runtimes/openclaw/openclaw-config/browser-profiles.js";
 
 const port = 30000;
 const brave = "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser";

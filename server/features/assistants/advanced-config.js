@@ -1,15 +1,8 @@
 import path from "node:path";
 import { readJSON } from "../../lib/storage.js";
-import {
-  advancedSetting,
-  advancedSettings,
-  advancedSettingsRuntime,
-  settingBounds,
-} from "./openclaw-config/advanced-settings.js";
-import { validateOverride } from "./openclaw-config/overrides.js";
 import { restartRequired } from "./assistant-provider-synchronization.js";
 import { assistantProblem } from "./assistant-validation.js";
-import { hostOf, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
+import { compilerFor, hostOf, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 
 const reloadKinds = new Set(["hot", "none", "restart"]);
 
@@ -29,8 +22,9 @@ const patchFor = (target, value) =>
     .reduceRight((inner, key) => ({ [key]: inner }), value === undefined ? null : value);
 
 /**
- * The owner's advanced OpenClaw settings: the allow-listed paths of
- * openclaw-config/advanced-settings.js, stored as layer 3 overrides. A running
+ * The owner's advanced OpenClaw settings: the allow-listed paths the runtime's
+ * compiler offers (config sub-port `compiler.advancedSettings`, from
+ * runtimes/openclaw/openclaw-config/advanced-settings.js), stored as layer 3 overrides. A running
  * Gateway takes a `hot` or `none` change live through config.patch; a `restart` change
  * restarts it in maintenance once the owner confirmed, like a web tools change. A
  * stopped Gateway compiles the stored overrides at its next start.
@@ -47,6 +41,10 @@ export class AdvancedConfig {
   // The config sub-port of the runtime port (runtime-for.js).
   get runtimeConfig() {
     return runtimeFor(null, this.runtime).config;
+  }
+  // The allow list and its checks (the config sub-port's compiler).
+  get settings() {
+    return compilerFor(null).advancedSettings;
   }
   // The version the next start runs: the selected installation (runtime.json), which
   // after a rollback is not the manifest's. Null when nothing is installed yet.
@@ -74,7 +72,7 @@ export class AdvancedConfig {
       ready,
       settled,
       version: version || null,
-      qualified: !version || version === advancedSettingsRuntime,
+      qualified: !version || version === this.settings.runtime,
     };
   }
   /**
@@ -85,7 +83,7 @@ export class AdvancedConfig {
     if (!gateway.ready) return null;
     if (this.lookupCache.version === gateway.version) return this.lookupCache.kinds;
     const kinds = {};
-    for (const { path: target } of advancedSettings) {
+    for (const { path: target } of this.settings.list) {
       try {
         const found = await this.runtimeConfig.lookup({ path: target });
         kinds[target] = reloadKinds.has(found?.reloadKind) ? found.reloadKind : null;
@@ -120,7 +118,7 @@ export class AdvancedConfig {
         version: gateway.version,
         qualified: gateway.qualified,
       },
-      settings: advancedSettings.map((setting) => {
+      settings: this.settings.list.map((setting) => {
         const reloadKind = kinds ? kinds[setting.path] : setting.reloadKind;
         const value = live ? valueAt(live, setting.path) : undefined;
         return {
@@ -131,7 +129,7 @@ export class AdvancedConfig {
           ...(setting.schema.enum && { options: [...setting.schema.enum] }),
           ...(setting.format && { format: setting.format }),
           ...(setting.unit && { unit: setting.unit }),
-          ...settingBounds(setting),
+          ...this.settings.bounds(setting),
           fallback: setting.fallback,
           override: stored.get(setting.path)?.value ?? null,
           // What the running Gateway uses now; null before a start or while unset.
@@ -144,9 +142,9 @@ export class AdvancedConfig {
   }
   /** Sets one override; `value: null` resets it to OpenClaw's default. */
   async save(target, value, { confirmed = false } = {}) {
-    const setting = advancedSetting(target);
+    const setting = this.settings.byPath(target);
     if (!setting) throw assistantProblem("invalid");
-    if (value !== null) validateOverride(setting.path, value);
+    if (value !== null) this.settings.validate(setting.path, value);
     const next = value === null ? undefined : value;
     const gateway = this.gateway();
     if (!gateway.settled) throw assistantProblem("active", 409);
@@ -187,7 +185,7 @@ export class AdvancedConfig {
   // old and new value only as the setting's own scalar type.
   record(action, target, from, to, outcome) {
     try {
-      const { id } = advancedSetting(target);
+      const { id } = this.settings.byPath(target);
       this.audit?.append({
         action,
         resourceType: "setting",

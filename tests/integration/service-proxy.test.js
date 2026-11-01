@@ -9,7 +9,7 @@ import { promisify } from "node:util";
 import { renderLaunchAgent, runService } from "../../scripts/service.mjs";
 import { inspectSetupService } from "../../scripts/setup-service.mjs";
 import { proxyEnvironment } from "../../server/lib/proxy-environment.js";
-import { runtimeEnvironment } from "../../server/features/assistants/runtime-config.js";
+import { runtimeEnvironment } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 import { setupFixture } from "../helpers/setup-fixture.js";
 
 const proxies = {

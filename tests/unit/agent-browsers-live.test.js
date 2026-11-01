@@ -6,7 +6,7 @@ import path from "node:path";
 import { EventEmitter } from "node:events";
 import { AgentBrowsers } from "../../server/features/assistants/agent-browsers.js";
 import { BrowserLiveView } from "../../server/features/assistants/browser-live-view.js";
-import { browserProfileMap } from "../../server/features/assistants/openclaw-config/browser-profiles.js";
+import { browserProfileMap } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/browser-profiles.js";
 
 const visibleApp = {
   available: true,

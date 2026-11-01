@@ -8,7 +8,7 @@ import { WebToolsChanges } from "../../server/features/assistants/web-tools-chan
 import {
   webToolsSections,
   webToolsSnapshot,
-} from "../../server/features/assistants/openclaw-config/web-tools.js";
+} from "../../server/features/assistants/runtimes/openclaw/openclaw-config/web-tools.js";
 
 function settings(t) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "browser-network-"));

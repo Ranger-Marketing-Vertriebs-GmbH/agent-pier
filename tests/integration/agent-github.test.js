@@ -13,7 +13,7 @@ import {
   mcpSections,
   mcpSnapshot,
   readMcpInputs,
-} from "../../server/features/assistants/openclaw-config/mcp-servers.js";
+} from "../../server/features/assistants/runtimes/openclaw/openclaw-config/mcp-servers.js";
 import { githubServerName } from "../../server/features/assistants/agent-github.js";
 import { TeamStore } from "../../server/features/assistants/team-store.js";
 import { execShellScript } from "../../server/features/assistants/exec-shell.js";

@@ -1,4 +1,5 @@
 import { createOpenClawRuntime } from "./openclaw/openclaw-runtime.js";
+import { openClawCompiler } from "./openclaw/openclaw-compiler.js";
 
 // One adapter per supervisor, so every caller of one host shares it.
 const adapters = new WeakMap();
@@ -16,6 +17,15 @@ export function runtimeFor(agent, supervisor) {
   if (!adapter) adapters.set(supervisor, (adapter = createOpenClawRuntime(supervisor)));
   return adapter;
 }
+
+/**
+ * The configuration compiler of the runtime that runs `agent`: the pure part of its
+ * config sub-port (agent-runtime.js `config.compiler`), the same object as
+ * `runtimeFor(agent, supervisor).config.compiler`. It needs no host, so callers
+ * without a supervisor (an audit record, a CLI environment) use it too. Every agent
+ * runs on OpenClaw until agents record `runtime`.
+ */
+export const compilerFor = (_agent) => openClawCompiler;
 
 /** A resolver `(agent) => AgentRuntime` bound to the supervisor `supervisor()` returns. */
 export const runtimeResolver = (supervisor) => (agent) => runtimeFor(agent, supervisor());

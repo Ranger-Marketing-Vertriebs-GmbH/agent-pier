@@ -6,7 +6,7 @@ import { AssistantStore } from "../../server/features/assistants/assistant-store
 import { AssistantService } from "../../server/features/assistants/assistant-service.js";
 import { McpChanges } from "../../server/features/assistants/mcp-changes.js";
 import { McpServerStore } from "../../server/features/mcp-servers/mcp-server-store.js";
-import { nativeTools } from "../../server/features/assistants/runtime-config.js";
+import { nativeTools } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 
 export const model = { connectionId: "c", modelId: "m" };
 const redacted = "__OPENCLAW_REDACTED__";

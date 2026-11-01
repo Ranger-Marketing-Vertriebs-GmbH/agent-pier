@@ -20,7 +20,7 @@ import { defaultGrants } from "../../server/features/assistants/member-grants.js
 import {
   hasDocumentExtract,
   webToolsSections,
-} from "../../server/features/assistants/openclaw-config/web-tools.js";
+} from "../../server/features/assistants/runtimes/openclaw/openclaw-config/web-tools.js";
 import { AgentBrowsers } from "../../server/features/assistants/agent-browsers.js";
 import { BrowserLiveView } from "../../server/features/assistants/browser-live-view.js";
 import { AssistantProviderSynchronization } from "../../server/features/assistants/assistant-provider-synchronization.js";

@@ -8,7 +8,7 @@ import { McpServerStore } from "../../server/features/mcp-servers/mcp-server-sto
 import {
   mcpSections,
   readMcpInputs,
-} from "../../server/features/assistants/openclaw-config/mcp-servers.js";
+} from "../../server/features/assistants/runtimes/openclaw/openclaw-config/mcp-servers.js";
 
 const model = { connectionId: "c", modelId: "m" };
 

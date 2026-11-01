@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { RuntimeSupervisor } from "../../server/features/assistants/runtimes/openclaw/runtime-supervisor.js";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
-import { compileOpenClawConfig } from "../../server/features/assistants/runtime-config.js";
+import { compileOpenClawConfig } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 import { connectSkillCatalog } from "../../server/application/skill-catalog-wiring.js";
 import { readJSON } from "../../server/lib/storage.js";
 

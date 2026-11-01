@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { compileOpenClawConfig } from "../../server/features/assistants/runtime-config.js";
+import { compileOpenClawConfig } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 import {
   applyTelegram,
   configuredAgents,
@@ -10,11 +10,11 @@ import {
   telegramEligible,
   telegramSections,
   telegramSnapshot,
-} from "../../server/features/assistants/openclaw-config/telegram-senders.js";
+} from "../../server/features/assistants/runtimes/openclaw/openclaw-config/telegram-senders.js";
 import {
   isLockedPath,
   lockedPaths,
-} from "../../server/features/assistants/openclaw-config/locked-core.js";
+} from "../../server/features/assistants/runtimes/openclaw/openclaw-config/locked-core.js";
 
 // Verified against OpenClaw 2026.9.8 by
 // tests/integration/assistant-telegram-senders-contract.test.js.

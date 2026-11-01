@@ -502,7 +502,7 @@ and Linux arm64/x64 packages, which still require native-host qualification.
 `INVALID_CONFIG`) with an `agents.list` array or a boolean `default` marker on an
 agent entry; 2026.9.x only warned. A fresh configuration therefore writes
 `agents.entries: { main: {} }`, and every compile converts a legacy list into keyed
-`agents.entries` (`canonicalAgentRoster()` in `runtime-config.js`). A roster of two
+`agents.entries` (`canonicalAgentRoster()` in `runtimes/openclaw/runtime-config.js`). A roster of two
 or more agents gets `agents.ownership: "explicit"`, and `agents.defaults.systemAgent`
 and `talk` point at the former default agent. 2026.9.8, 2026.9.9 and 2026.10.3 all
 accept the converted shape.
@@ -2275,8 +2275,8 @@ start and removes any `mcp` block it did not write. `channels`, `bindings`,
 `session`, `commands`, `approvals`, `accessGroups` and `models.providers.deepgram`
 belong to the agents' own Telegram bots and are locked as well.
 
-Owner overrides (layer 3, `openclaw-config/overrides.js`) reach only the paths on the
-allow list in `openclaw-config/advanced-settings.js`, with a value their qualified
+Owner overrides (layer 3, `runtimes/openclaw/openclaw-config/overrides.js`) reach only the paths on the
+allow list in `runtimes/openclaw/openclaw-config/advanced-settings.js`, with a value their qualified
 schema accepts; every other path, including any key a future OpenClaw adds, stays
 AgentPier's. Each start first removes every allow-listed path from the existing
 configuration and then writes the stored overrides, so a reset override never
@@ -2286,7 +2286,7 @@ list was qualified against (`advancedSettingsRuntime`, 2026.10.9); a rolled-back
 starts with OpenClaw's defaults. After an AgentPier update that moves the approval
 (2026.10.3 to 2026.10.7, then 2026.10.7 to 2026.10.9), stored overrides therefore stay
 inactive on the previous runtime until the owner activates the new one, and again after a rollback before commit
-(`overridesFor`, `openclaw-config/overrides.js`).
+(`overridesFor`, `runtimes/openclaw/openclaw-config/overrides.js`).
 The owner edits them under **Agents › Runtime › Advanced · for all agents** (the old `/settings/assistants-advanced` opens it)
 (`GET`/`PUT /api/assistant-advanced-settings`, `advanced-config.js`). Labels and help
 are AgentPier's own German and English texts. A `hot` or `none` setting is patched into
@@ -4479,7 +4479,7 @@ OpenClaw's dreaming (memory-core's nightly sweep,
 03:00) and its time zone. Switching on adopts this device's zone; **Use my time zone**
 adopts it again later. The setting lives in `assistants/dreaming.sqlite`
 (`dreaming-settings.js`, `GET`/`PUT /api/assistant-dreaming`) and compiles
-(`openclaw-config/dreaming.js`) to
+(`runtimes/openclaw/openclaw-config/dreaming.js`) to
 `dreaming: { enabled, frequency: "0 <hour> * * *", timezone, storage: { mode: "separate" } }`:
 every phase at memory-core's defaults, deep included, and no `model` key, so each agent
 dreams with its own model and model account. A save reaches the running Gateway as a

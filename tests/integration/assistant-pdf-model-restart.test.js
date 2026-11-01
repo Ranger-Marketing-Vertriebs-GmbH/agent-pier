@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { PdfModelSettings } from "../../server/features/assistants/pdf-model-settings.js";
 import { WebToolsChanges } from "../../server/features/assistants/web-tools-changes.js";
-import { webToolsSnapshot } from "../../server/features/assistants/openclaw-config/web-tools.js";
+import { webToolsSnapshot } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/web-tools.js";
 
 const search = { provider: "duckduckgo", requiresPlugin: true };
 const searchPlugins = { duckduckgo: { id: "duckduckgo", directory: "/rt/ddg" } };

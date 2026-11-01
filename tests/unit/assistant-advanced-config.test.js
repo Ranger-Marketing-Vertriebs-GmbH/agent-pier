@@ -5,11 +5,11 @@ import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { AdvancedConfig } from "../../server/features/assistants/advanced-config.js";
-import { OverrideStore } from "../../server/features/assistants/openclaw-config/overrides.js";
+import { OverrideStore } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/overrides.js";
 import {
   advancedSettings,
   advancedSettingsRuntime,
-} from "../../server/features/assistants/openclaw-config/advanced-settings.js";
+} from "../../server/features/assistants/runtimes/openclaw/openclaw-config/advanced-settings.js";
 import { migrateAssistants } from "../../server/features/assistants/assistant-schema.js";
 
 const timeout = "agents.defaults.timeoutSeconds";

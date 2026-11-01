@@ -5,7 +5,7 @@ import {
   mcpSections,
   readMcpInputs,
   withInherited,
-} from "../../server/features/assistants/openclaw-config/mcp-servers.js";
+} from "../../server/features/assistants/runtimes/openclaw/openclaw-config/mcp-servers.js";
 
 const workspaces = "/data/assistants/workspaces";
 const lead = { id: "lead", runtimeAgentId: "ap-lead", capabilities: {} };

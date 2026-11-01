@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { BrowserProfileSync } from "../../server/features/assistants/browser-profile-sync.js";
-import { browserProfileMap } from "../../server/features/assistants/openclaw-config/browser-profiles.js";
+import { browserProfileMap } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/browser-profiles.js";
 
 const port = 40000;
 const agent = (id, extra = {}) => ({

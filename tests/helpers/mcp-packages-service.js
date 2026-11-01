@@ -7,7 +7,7 @@ import { hostNode, npmRegistryFixture } from "./npm-registry-fixture.js";
 import { CentralMcpChanges } from "../../server/features/mcp-servers/central-changes.js";
 import { McpPackages } from "../../server/features/mcp-packages/mcp-packages.js";
 import { toolchainRoot } from "../../server/features/mcp-packages/toolchains.js";
-import { mcpServerConfig } from "../../server/features/assistants/openclaw-config/mcp-servers.js";
+import { mcpServerConfig } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/mcp-servers.js";
 
 const executeFile = promisify(execFile);
 

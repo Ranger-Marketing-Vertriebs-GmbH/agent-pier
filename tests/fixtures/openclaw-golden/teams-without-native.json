@@ -1,0 +1,158 @@
+{
+  "agents": {
+    "entries": {
+      "main": {},
+      "ap-a1": {}
+    },
+    "ownership": "explicit",
+    "defaults": {
+      "systemAgent": {
+        "agentId": "main"
+      },
+      "workspace": "/golden/assistants/workspaces",
+      "heartbeat": {
+        "every": "0m"
+      },
+      "skills": [],
+      "maxConcurrent": 12
+    }
+  },
+  "talk": {
+    "agentId": "main"
+  },
+  "channels": {},
+  "browser": {
+    "enabled": false
+  },
+  "discovery": {
+    "mdns": {
+      "mode": "off"
+    }
+  },
+  "telemetry": {
+    "enabled": false
+  },
+  "update": {
+    "checkOnStart": false,
+    "auto": {
+      "enabled": false
+    }
+  },
+  "skills": {
+    "allowBundled": [],
+    "load": {
+      "extraDirs": [
+        "/golden/assistants/skill-catalog/skills"
+      ],
+      "watch": true
+    }
+  },
+  "tools": {
+    "allow": [
+      "session_status",
+      "agentpier_team_propose",
+      "agentpier_team_status",
+      "agentpier_team_stop",
+      "agentpier_team_members",
+      "agentpier_team_ask",
+      "agentpier_team_delegate",
+      "agentpier_team_cancel",
+      "agentpier_team_groups",
+      "agentpier_team_group_delegate",
+      "agentpier_team_archive",
+      "agentpier_team_grant",
+      "agentpier_team_member_update",
+      "agentpier_team_member_summarise",
+      "agentpier_team_models",
+      "agentpier_team_member_routine",
+      "agentpier_team_promote",
+      "agentpier_team_templates",
+      "agentpier_team_peers",
+      "agentpier_team_peer_ask",
+      "agentpier_team_peer_delegate",
+      "agentpier_team_report"
+    ],
+    "toolSearch": false,
+    "exec": {
+      "mode": "deny"
+    },
+    "sessions": {
+      "visibility": "agent"
+    }
+  },
+  "plugins": {
+    "slots": {
+      "memory": "none"
+    },
+    "allow": [
+      "agentpier-teams",
+      "openai"
+    ],
+    "load": {
+      "paths": [
+        "/golden/plugin"
+      ]
+    },
+    "entries": {
+      "agentpier-teams": {
+        "enabled": true,
+        "hooks": {
+          "allowConversationAccess": true
+        },
+        "config": {
+          "url": "http://127.0.0.1:1235",
+          "token": "bridge-token",
+          "workspaces": "/golden/assistants/workspaces"
+        },
+        "llm": {
+          "allowAgentIdOverride": true
+        }
+      }
+    }
+  },
+  "session": {
+    "maintenance": {
+      "archiveDashboardAfter": false
+    }
+  },
+  "cron": {
+    "enabled": false
+  },
+  "logging": {
+    "file": "/golden/assistants/logs/openclaw.log",
+    "level": "warn",
+    "consoleLevel": "warn",
+    "maxFileBytes": 10485760
+  },
+  "diagnostics": {
+    "flags": [],
+    "otel": {
+      "enabled": false,
+      "captureContent": false
+    },
+    "cacheTrace": {
+      "enabled": false
+    }
+  },
+  "gateway": {
+    "mode": "local",
+    "bind": "loopback",
+    "port": 18000,
+    "auth": {
+      "mode": "token",
+      "token": "golden-token"
+    },
+    "controlUi": {
+      "enabled": false
+    },
+    "terminal": {
+      "enabled": false
+    },
+    "tailscale": {
+      "mode": "off"
+    },
+    "reload": {
+      "mode": "hybrid"
+    }
+  }
+}

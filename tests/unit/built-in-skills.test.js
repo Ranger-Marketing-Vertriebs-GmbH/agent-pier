@@ -14,9 +14,9 @@ import {
   shoppingOn,
   shoppingSkill,
 } from "../../server/features/assistants/built-in-skills.js";
-import { agentEntry } from "../../server/features/assistants/openclaw-config/agent-entry.js";
+import { agentEntry } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/agent-entry.js";
 import { teamPluginDirectory } from "../../server/features/assistants/team-plugin-install.js";
-import { compileOpenClawConfig } from "../../server/features/assistants/runtime-config.js";
+import { compileOpenClawConfig } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 
 const own = (extra = {}) => ({
   id: "a1",

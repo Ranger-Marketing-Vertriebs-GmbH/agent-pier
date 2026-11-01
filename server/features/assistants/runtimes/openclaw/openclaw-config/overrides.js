@@ -5,7 +5,7 @@ import {
   advancedSettingsRuntime,
   validSettingValue,
 } from "./advanced-settings.js";
-import { assistantProblem } from "../assistant-validation.js";
+import { assistantProblem } from "../../../assistant-validation.js";
 
 const forbidden = new Set(["__proto__", "prototype", "constructor"]);
 

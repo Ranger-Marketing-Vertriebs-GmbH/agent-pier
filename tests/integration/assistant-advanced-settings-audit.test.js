@@ -8,8 +8,8 @@ import { DatabaseSync } from "node:sqlite";
 import { assistantAdvancedSettingsRoutes } from "../../server/http/routes/assistant-advanced-settings.js";
 import { registerResponses } from "../../server/http/responses.js";
 import { AdvancedConfig } from "../../server/features/assistants/advanced-config.js";
-import { OverrideStore } from "../../server/features/assistants/openclaw-config/overrides.js";
-import { advancedSettingsRuntime } from "../../server/features/assistants/openclaw-config/advanced-settings.js";
+import { OverrideStore } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/overrides.js";
+import { advancedSettingsRuntime } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/advanced-settings.js";
 import { migrateAssistants } from "../../server/features/assistants/assistant-schema.js";
 import { AuditStore } from "../../server/features/audit/audit-store.js";
 

@@ -9,7 +9,7 @@ import { openClawModels } from "./openclaw-models.js";
 import { openClawRoutines } from "./openclaw-routines.js";
 import { openClawSkills } from "./openclaw-skills.js";
 import { openClawSessions } from "./openclaw-sessions.js";
-import { lastCdpOffset } from "../../openclaw-config/browser-profiles.js";
+import { lastCdpOffset } from "./openclaw-config/browser-profiles.js";
 
 // One opaque handle per Gateway client: a restart replaces the client, so the handle
 // tells callers whether an await crossed one. Shared by every adapter of a process.

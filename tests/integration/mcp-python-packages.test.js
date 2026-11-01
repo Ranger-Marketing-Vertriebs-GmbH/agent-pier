@@ -13,8 +13,8 @@ import {
 } from "../helpers/mcp-python-service.js";
 import { pypiIndexFixture } from "../helpers/pypi-index-fixture.js";
 import { resolvePython } from "../../server/features/mcp-packages/python-package-install.js";
-import { mcpServerConfig } from "../../server/features/assistants/openclaw-config/mcp-servers.js";
-import { gatewayPath } from "../../server/features/assistants/runtime-config.js";
+import { mcpServerConfig } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/mcp-servers.js";
+import { gatewayPath } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 import { toolchainRoot } from "../../server/features/mcp-packages/toolchains.js";
 import { serverMessages } from "../../server/lib/i18n/de.js";
 

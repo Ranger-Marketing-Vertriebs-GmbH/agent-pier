@@ -7,7 +7,7 @@ import { AssistantStore } from "../../server/features/assistants/assistant-store
 import { AssistantAccess } from "../../server/features/assistants/assistant-access.js";
 import { RequestLedger } from "../../server/features/assistants/request-ledger.js";
 import { TeamStore } from "../../server/features/assistants/team-store.js";
-import { compileOpenClawConfig } from "../../server/features/assistants/runtime-config.js";
+import { compileOpenClawConfig } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 import {
   mirrorLeadMemory,
   mirrorName,

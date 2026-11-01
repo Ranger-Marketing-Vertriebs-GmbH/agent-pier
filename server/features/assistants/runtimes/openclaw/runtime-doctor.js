@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { spawn as spawnProcess } from "node:child_process";
-import { runtimeEnvironment } from "../../runtime-config.js";
+import { runtimeEnvironment } from "./runtime-config.js";
 import { setTimeout as delay } from "node:timers/promises";
 import { openConsoleLog } from "./gateway-log.js";
 import { readJSON, writePrivate } from "../../../../lib/storage.js";

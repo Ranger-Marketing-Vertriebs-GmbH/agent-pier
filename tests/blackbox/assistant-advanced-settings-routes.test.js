@@ -6,7 +6,7 @@ import { assistantAdvancedSettingsRoutes } from "../../server/http/routes/assist
 import { DatabaseSync } from "node:sqlite";
 import { restartRequired } from "../../server/features/assistants/assistant-provider-synchronization.js";
 import { AdvancedConfig } from "../../server/features/assistants/advanced-config.js";
-import { OverrideStore } from "../../server/features/assistants/openclaw-config/overrides.js";
+import { OverrideStore } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/overrides.js";
 import { migrateAssistants } from "../../server/features/assistants/assistant-schema.js";
 
 async function serve(t, advanced) {

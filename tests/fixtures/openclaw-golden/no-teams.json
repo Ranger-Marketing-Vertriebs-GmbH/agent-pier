@@ -1,0 +1,105 @@
+{
+  "agents": {
+    "defaults": {
+      "workspace": "/golden/assistants/workspaces",
+      "skipBootstrap": true,
+      "heartbeat": {
+        "every": "0m"
+      },
+      "skills": [],
+      "maxConcurrent": 8
+    },
+    "entries": {
+      "main": {}
+    }
+  },
+  "channels": {},
+  "browser": {
+    "enabled": false
+  },
+  "cron": {
+    "enabled": false
+  },
+  "plugins": {
+    "slots": {
+      "memory": "none"
+    }
+  },
+  "skills": {
+    "allowBundled": [],
+    "load": {
+      "extraDirs": [
+        "/golden/assistants/skill-catalog/skills"
+      ],
+      "watch": true
+    }
+  },
+  "tools": {
+    "allow": [
+      "session_status"
+    ],
+    "toolSearch": false,
+    "exec": {
+      "mode": "deny"
+    },
+    "sessions": {
+      "visibility": "agent"
+    }
+  },
+  "discovery": {
+    "mdns": {
+      "mode": "off"
+    }
+  },
+  "telemetry": {
+    "enabled": false
+  },
+  "update": {
+    "checkOnStart": false,
+    "auto": {
+      "enabled": false
+    }
+  },
+  "session": {
+    "maintenance": {
+      "archiveDashboardAfter": false
+    }
+  },
+  "logging": {
+    "file": "/golden/assistants/logs/openclaw.log",
+    "level": "warn",
+    "consoleLevel": "warn",
+    "maxFileBytes": 10485760
+  },
+  "diagnostics": {
+    "flags": [],
+    "otel": {
+      "enabled": false,
+      "captureContent": false
+    },
+    "cacheTrace": {
+      "enabled": false
+    }
+  },
+  "gateway": {
+    "mode": "local",
+    "bind": "loopback",
+    "port": 18000,
+    "auth": {
+      "mode": "token",
+      "token": "golden-token"
+    },
+    "controlUi": {
+      "enabled": false
+    },
+    "terminal": {
+      "enabled": false
+    },
+    "tailscale": {
+      "mode": "off"
+    },
+    "reload": {
+      "mode": "hybrid"
+    }
+  }
+}

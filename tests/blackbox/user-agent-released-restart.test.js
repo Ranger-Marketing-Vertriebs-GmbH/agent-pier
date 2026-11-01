@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { as, chatFixture, userAgent } from "../helpers/user-chats.js";
 import { signedInUser } from "../helpers/users.js";
-import { webToolsSignatures } from "../../server/features/assistants/openclaw-config/web-tools.js";
+import { webToolsSignatures } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/web-tools.js";
 
 const installed = { available: true, executablePath: "/fixture/browser" };
 // A running Gateway started with `browser` (none: installed after the start); a

@@ -1,4 +1,3 @@
-import { telegramLivePatch } from "../assistants/openclaw-config/telegram-senders.js";
 import { hostConnection, runtimeFor } from "../assistants/runtimes/runtime-for.js";
 
 /**
@@ -11,11 +10,14 @@ import { hostConnection, runtimeFor } from "../assistants/runtimes/runtime-for.j
  * newer one (the config sub-port bound to that connection).
  */
 export async function patchTelegramAllowlists(runtime, changes, adoption = {}) {
-  const config = runtimeFor(null, runtime).config.on(hostConnection(runtime));
+  const port = runtimeFor(null, runtime).config;
+  const config = port.on(hostConnection(runtime));
   const watch = config.watchAdoption(adoption);
   try {
     watch.mark();
-    const base = await config.patch({ build: () => telegramLivePatch(changes) });
+    const base = await config.patch({
+      build: () => port.compiler.telegramLivePatch(changes),
+    });
     const written = await config.get();
     await watch.settle(base?.hash, written?.hash);
   } finally {

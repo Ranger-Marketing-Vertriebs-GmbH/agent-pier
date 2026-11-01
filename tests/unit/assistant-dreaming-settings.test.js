@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { DreamingSettings } from "../../server/features/assistants/dreaming-settings.js";
-import { dreamingSection } from "../../server/features/assistants/openclaw-config/dreaming.js";
+import { dreamingSection } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/dreaming.js";
 
 function settings(t) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "dreaming-settings-"));

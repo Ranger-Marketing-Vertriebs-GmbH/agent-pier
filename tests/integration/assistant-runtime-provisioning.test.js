@@ -13,7 +13,7 @@ import { ensureAssistantRuntime } from "../../server/features/assistants/runtime
 import {
   proxyVariables,
   runtimeEnvironment,
-} from "../../server/features/assistants/runtime-config.js";
+} from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
 import { writeAssistantFeature } from "../../server/features/assistants/assistant-feature.js";
 import { startAssistantServices } from "../../server/application/assistants.js";

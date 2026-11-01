@@ -2,12 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
 import { shellService } from "../helpers/assistant-shell-service.js";
-import { compileOpenClawConfig } from "../../server/features/assistants/runtime-config.js";
+import { compileOpenClawConfig } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 import { lockedTools } from "../../server/features/users/user-agent-lock.js";
 import {
   agentProfileName,
   browserProfileMap,
-} from "../../server/features/assistants/openclaw-config/browser-profiles.js";
+} from "../../server/features/assistants/runtimes/openclaw/openclaw-config/browser-profiles.js";
 import { personalCapabilities } from "../../server/features/assistants/native-capabilities.js";
 
 const userAccess = {

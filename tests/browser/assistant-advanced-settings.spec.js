@@ -4,7 +4,7 @@ import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fix
 import { fixture } from "./providers-fixture.js";
 import { DatabaseSync } from "node:sqlite";
 import { AdvancedConfig } from "../../server/features/assistants/advanced-config.js";
-import { OverrideStore } from "../../server/features/assistants/openclaw-config/overrides.js";
+import { OverrideStore } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/overrides.js";
 import { migrateAssistants } from "../../server/features/assistants/assistant-schema.js";
 
 /**

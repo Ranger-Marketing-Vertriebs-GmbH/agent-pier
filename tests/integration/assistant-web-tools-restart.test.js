@@ -10,7 +10,7 @@ import { AssistantProviderSynchronization } from "../../server/features/assistan
 import { WebSearchSettings } from "../../server/features/assistants/web-search-settings.js";
 import { WebToolsChanges } from "../../server/features/assistants/web-tools-changes.js";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
-import { webToolsSnapshot } from "../../server/features/assistants/openclaw-config/web-tools.js";
+import { webToolsSnapshot } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/web-tools.js";
 import { PendingRestart } from "../../server/features/assistants/pending-restart.js";
 
 const searchPlugins = {

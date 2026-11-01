@@ -153,9 +153,9 @@ loopback WSS with a pinned certificate. The browser never reaches the Gateway
 directly.
 
 - `server/features/assistants/`: AgentPier's runtime lifecycle (`runtime-updates.js`
-  with its snapshot, blockers and retention, `pending-restart.js`, `runtime-paths.js`)
-  and the OpenClaw configuration compiler (`openclaw-config/`, `runtime-config.js`).
-  The OpenClaw adapter, `runtimes/openclaw/`, holds the runtime manifest, its
+  with its snapshot, blockers and retention, `pending-restart.js`, `runtime-paths.js`).
+  The OpenClaw adapter, `runtimes/openclaw/`, holds the configuration compiler
+  (`openclaw-config/`, `runtime-config.js`), the runtime manifest, its
   dependency lock (`runtime-lock/`), installation (`runtime-install.js`,
   `runtime-provisioning.js`), the Doctor migration (`runtime-doctor.js`), the
   supervisor (`runtime-supervisor.js`, with `gateway-log.js` and
@@ -231,8 +231,8 @@ session still runs background commands and for a generated chat title, and the
 (`connected`) and when it drops (`onDisconnect`), which the ChatGPT sign-in follows.
 Each has `on(connection)` like `sessions`. OpenClaw's admission wait (`agent-admission.js`), the serialized
 configuration writes (`live-patch.js`), the adoption watch (`config-adoption.js`)
-and the roster wait (`agent-roster.js`) live in the adapter; the compiler in
-`openclaw-config/` still produces the configuration it applies.
+and the roster wait (`agent-roster.js`) live in the adapter, and so does the
+compiler in `openclaw-config/` that produces the configuration it applies.
 `tests/unit/runtime-port-rules.test.js`
 fails when server code outside `runtimes/` names a Gateway method in
 `.call()`/`.request()` or reaches `runtime.client`. Every caller has moved behind the
@@ -244,6 +244,18 @@ the OpenClaw supervisor; a shrink-only allowlist names the two modules that stil
 OpenClaw's runtime manifest (the MCP toolchains share its Node pin, and the team
 plugin installer checks its versions until the team plugin moves into the adapter). `tests/helpers/runtime-port-contract.js` is the contract every adapter
 passes, every sub-port included.
+
+The config sub-port carries the compiler as `config.compiler`
+(`runtimes/openclaw/openclaw-compiler.js`); `compilerFor(agent)` in `runtime-for.js`
+returns the same object without a host. Feature code reaches every compile step
+through it: a Gateway start, an agent's live entry and its readback, the live MCP,
+Telegram allowlist, browser profile and dreaming patches, the web tools signatures,
+skill shadows, the advanced settings allow list and the CLI's process environment.
+What the stores hold in AgentPier's own terms stays outside the adapter:
+`mcp-servers/mcp-inputs.js` (MCP eligibility, the per-agent name of a placeholder
+server, the store inputs), `assistant-channels/telegram-inputs.js` (which agents may
+own a bot, the bot store inputs), `assistants/browser-profile-names.js` and
+`assistants/agent-folders.js`.
 
 See [the user guide](agents.md), [the Gateway design](assistant-gateway.md) and
 [ADR 0002](adr/0002-managed-openclaw-assistants.md). The proposed

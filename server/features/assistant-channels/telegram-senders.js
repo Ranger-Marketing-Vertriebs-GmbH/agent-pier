@@ -6,20 +6,16 @@ import { temporaryMember } from "../assistants/team-presentation.js";
 import { destroyBackupKeys } from "../assistants/backup-credentials.js";
 import { randomUUID } from "node:crypto";
 import { readJSON } from "../../lib/storage.js";
-import {
-  configuredAgents,
-  readTelegramInputs,
-  telegramEligible,
-  telegramLiveChanges,
-  telegramRevoked,
-  telegramSections,
-  telegramSnapshot,
-} from "../assistants/openclaw-config/telegram-senders.js";
+import { readTelegramInputs, telegramEligible } from "./telegram-inputs.js";
 import { TelegramClient } from "./telegram-client.js";
 import { patchTelegramAllowlists } from "./telegram-live.js";
 import { validPeople } from "./native-telegram-store.js";
 import { runtimeResolver } from "../assistants/runtimes/runtime-for.js";
-import { hostReady } from "../assistants/runtimes/runtime-for.js";
+import { compilerFor, hostReady } from "../assistants/runtimes/runtime-for.js";
+
+// The configuration compiler of the agents' runtime (config sub-port): the Telegram
+// sections a start compiles and how the running ones differ from them.
+const compiler = () => compilerFor(null);
 
 // Telegram client failures the owner can act on; anything else is "unavailable".
 const clientProblems = {
@@ -135,20 +131,20 @@ export class TelegramSenders {
   }
   /** The agent ids in openclaw.json; throws when the file cannot be read or parsed. */
   configuredFromFile() {
-    return configuredAgents(readJSON(this.assistants.runtime.paths?.config, null));
+    return compiler().configuredAgents(
+      readJSON(this.assistants.runtime.paths?.config, null),
+    );
   }
   /** The snapshot a start would compile from `inputs` now. */
   desired(inputs = this.inputs()) {
     const profiles = this.assistants.store.listAssistants();
-    return telegramSnapshot(
-      telegramSections({
-        profiles,
-        telegram: inputs,
-        agents: this.configured(),
-        stdio: this.stdioAgents(),
-        ssh: this.sshAgents(),
-      }),
-    );
+    return compiler().telegramSnapshot({
+      profiles,
+      telegram: inputs,
+      agents: this.configured(),
+      stdio: this.stdioAgents(),
+      ssh: this.sshAgents(),
+    });
   }
   /**
    * True when the running or starting Gateway compiled other Telegram sections than
@@ -160,14 +156,14 @@ export class TelegramSenders {
   }
   /** True when the Gateway still runs a bot, person, token or key that is gone. */
   revoked(inputs = this.inputs()) {
-    return telegramRevoked(this.running(), this.desired(inputs));
+    return compiler().telegramRevoked(this.running(), this.desired(inputs));
   }
   /**
    * The allowlists the running or starting Gateway can take live, when they are all
    * that differs from `inputs` (telegramLiveChanges); null otherwise.
    */
   liveChanges(inputs = this.inputs()) {
-    return telegramLiveChanges(this.running(), this.desired(inputs));
+    return compiler().telegramLiveChanges(this.running(), this.desired(inputs));
   }
   /**
    * Patches the stored allowlists into the ready Gateway when they are all that
@@ -183,7 +179,7 @@ export class TelegramSenders {
       const started = runtime.telegram;
       if (!hostReady(runtime) || !started) return false;
       const desired = this.desired();
-      const changes = telegramLiveChanges(started, desired);
+      const changes = compiler().telegramLiveChanges(started, desired);
       if (!changes) return false;
       await patchTelegramAllowlists(runtime, changes, this.adoption);
       // A restart meanwhile compiled the store itself and keeps its own snapshot.
@@ -275,7 +271,7 @@ export class TelegramSenders {
       }
     }
     const desired = this.desired();
-    if (!telegramRevoked(this.running(), desired)) {
+    if (!compiler().telegramRevoked(this.running(), desired)) {
       this.revocation = null;
       return false;
     }

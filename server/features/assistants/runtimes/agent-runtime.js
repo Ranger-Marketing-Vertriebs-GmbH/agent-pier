@@ -104,6 +104,11 @@
  *     { results } } }`.
  *   - on(connection), as sessions.on.
  * - config: apply the compiled desired state; whether a restart is needed
+ *   - compiler: synchronously, the runtime's configuration compiler, the same object
+ *     in every view and the one runtime-for.js `compilerFor(agent)` returns without a
+ *     host. Pure: it turns AgentPier's state into the runtime's configuration, live
+ *     patch builders for `patch` and the runtime's process environment, and never
+ *     reaches the runtime. Feature code compiles only through it.
  *   - get(): `{ config, hash }`, the running configuration and its hash.
  *   - lookup({ path }): the schema entry, `reloadKind` "hot", "none" or "restart"
  *     telling whether a change there needs a restart.

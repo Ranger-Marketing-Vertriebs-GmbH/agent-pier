@@ -17,7 +17,7 @@ import { writeGuardWiring } from "../features/assistants/write-guard-wait.js";
 import { workflowInstructionWiring } from "./workflow-instruction-wiring.js";
 import { ChannelService } from "../features/assistant-channels/channel-service.js";
 import { TelegramSenders } from "../features/assistant-channels/telegram-senders.js";
-import { stdioAgents } from "../features/assistants/openclaw-config/telegram-senders.js";
+import { stdioAgents } from "../features/assistant-channels/telegram-inputs.js";
 import { WebSearchSettings } from "../features/assistants/web-search-settings.js";
 import { PdfModelSettings } from "../features/assistants/pdf-model-settings.js";
 import { DreamingSettings } from "../features/assistants/dreaming-settings.js";
@@ -33,8 +33,8 @@ import { noteBrowserHandBack } from "../features/assistants/browser-hand-back.js
 import {
   hasDocumentExtract,
   webToolsAvailability,
-} from "../features/assistants/openclaw-config/web-tools.js";
-import { readMcpInputs } from "../features/assistants/openclaw-config/mcp-servers.js";
+} from "../features/assistants/runtimes/openclaw/openclaw-config/web-tools.js";
+import { readMcpInputs } from "../features/mcp-servers/mcp-inputs.js";
 import { McpServerStore } from "../features/mcp-servers/mcp-server-store.js";
 import { SpeechConnections } from "../features/speech/speech-connections.js";
 import { AssistantModelAccounts } from "../features/assistants/model-accounts.js";
@@ -47,7 +47,7 @@ import { turnReviewable } from "../features/users/turn-review.js";
 import {
   OverrideStore,
   overridesFor,
-} from "../features/assistants/openclaw-config/overrides.js";
+} from "../features/assistants/runtimes/openclaw/openclaw-config/overrides.js";
 import { RuntimeSupervisor } from "../features/assistants/runtimes/openclaw/runtime-supervisor.js";
 import {
   AssistantMaintenance,

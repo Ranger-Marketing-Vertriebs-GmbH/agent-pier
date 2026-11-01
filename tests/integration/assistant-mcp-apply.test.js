@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { nativeTools } from "../../server/features/assistants/runtime-config.js";
+import { nativeTools } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 import {
   mcpStartSnapshot,
   readMcpInputs,
-} from "../../server/features/assistants/openclaw-config/mcp-servers.js";
+} from "../../server/features/assistants/runtimes/openclaw/openclaw-config/mcp-servers.js";
 import { mcpApplyFixture as fixture, model } from "../helpers/mcp-apply-fixture.js";
 
 test("binding a server patches mcp and tools.allow live and re-applies the agent", async (t) => {

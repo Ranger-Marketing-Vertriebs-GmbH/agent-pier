@@ -23,7 +23,7 @@ import {
 import {
   mcpSections,
   mcpSnapshot,
-} from "../../server/features/assistants/openclaw-config/mcp-servers.js";
+} from "../../server/features/assistants/runtimes/openclaw/openclaw-config/mcp-servers.js";
 import { assistantBootstrap } from "../../server/features/assistants/assistant-bootstrap.js";
 import { execShellScript } from "../../server/features/assistants/exec-shell.js";
 import {

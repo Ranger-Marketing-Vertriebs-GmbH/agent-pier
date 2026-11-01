@@ -6,9 +6,9 @@ import path from "node:path";
 import {
   compileOpenClawConfig,
   nativeTools,
-} from "../../server/features/assistants/runtime-config.js";
-import { webToolsSnapshot } from "../../server/features/assistants/openclaw-config/web-tools.js";
-import { agentEntry } from "../../server/features/assistants/openclaw-config/agent-entry.js";
+} from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
+import { webToolsSnapshot } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/web-tools.js";
+import { agentEntry } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/agent-entry.js";
 import {
   applyMcp,
   mcpSections,
@@ -16,7 +16,7 @@ import {
   mcpSnapshot,
   mcpStartSnapshot,
   readMcpInputs,
-} from "../../server/features/assistants/openclaw-config/mcp-servers.js";
+} from "../../server/features/assistants/runtimes/openclaw/openclaw-config/mcp-servers.js";
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
 import { McpServerStore } from "../../server/features/mcp-servers/mcp-server-store.js";

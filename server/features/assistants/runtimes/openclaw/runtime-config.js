@@ -1,8 +1,12 @@
 import path from "node:path";
 import { randomBytes } from "node:crypto";
-import { proxyEnvironment } from "../../lib/proxy-environment.js";
-import { readJSON, writePrivate } from "../../lib/storage.js";
-import { guardGatedTools, memberTeamTools, memoryTools } from "./native-capabilities.js";
+import { proxyEnvironment } from "../../../../lib/proxy-environment.js";
+import { readJSON, writePrivate } from "../../../../lib/storage.js";
+import {
+  guardGatedTools,
+  memberTeamTools,
+  memoryTools,
+} from "../../native-capabilities.js";
 import { agentEntry } from "./openclaw-config/agent-entry.js";
 import { hardenedDefaults } from "./openclaw-config/locked-core.js";
 import { applyOverrides } from "./openclaw-config/overrides.js";
@@ -472,4 +476,4 @@ export const displayEnvironment = (parent = process.env) =>
       .filter((name) => typeof parent[name] === "string" && parent[name])
       .map((name) => [name, parent[name]]),
   );
-export { proxyEnvironment, proxyVariables } from "../../lib/proxy-environment.js";
+export { proxyEnvironment, proxyVariables } from "../../../../lib/proxy-environment.js";

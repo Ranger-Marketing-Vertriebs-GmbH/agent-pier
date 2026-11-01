@@ -12,3 +12,5 @@ docs/screenshots/
 
 .cache/
 coverage/
+# The compiler's own output, compared byte for byte (openclaw-config-golden.test.js).
+tests/fixtures/openclaw-golden/

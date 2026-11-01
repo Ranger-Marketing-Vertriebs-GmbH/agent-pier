@@ -1,0 +1,351 @@
+{
+  "agents": {
+    "entries": {
+      "main": {
+        "tools": {
+          "allow": [
+            "session_status"
+          ]
+        }
+      },
+      "ap-a1": {
+        "tools": {
+          "allow": [
+            "session_status",
+            "agentpier_team_propose",
+            "agentpier_team_status",
+            "agentpier_team_stop",
+            "agentpier_team_members",
+            "agentpier_team_ask",
+            "agentpier_team_delegate",
+            "agentpier_team_cancel",
+            "agentpier_team_groups",
+            "agentpier_team_group_delegate",
+            "agentpier_team_archive",
+            "agentpier_team_grant",
+            "agentpier_team_member_update",
+            "agentpier_team_member_summarise",
+            "agentpier_team_models",
+            "agentpier_team_member_routine",
+            "agentpier_team_promote",
+            "agentpier_team_templates",
+            "memory_search",
+            "memory_get",
+            "read",
+            "agentpier_workspace",
+            "agentpier_share_file",
+            "agentpier_goal",
+            "agentpier_ssh_access",
+            "agentpier_coding_session",
+            "agentpier_mail",
+            "agentpier_project",
+            "agentpier_preview",
+            "files__*",
+            "remote__*",
+            "login__*"
+          ]
+        },
+        "memory": {
+          "search": {
+            "enabled": true,
+            "rememberAcrossConversations": false
+          }
+        }
+      },
+      "ap-a2": {
+        "tools": {
+          "allow": [
+            "session_status",
+            "agentpier_team_propose",
+            "agentpier_team_status",
+            "agentpier_team_stop",
+            "agentpier_team_members",
+            "agentpier_team_ask",
+            "agentpier_team_delegate",
+            "agentpier_team_cancel",
+            "agentpier_team_groups",
+            "agentpier_team_group_delegate",
+            "agentpier_team_archive",
+            "agentpier_team_grant",
+            "agentpier_team_member_update",
+            "agentpier_team_member_summarise",
+            "agentpier_team_models",
+            "agentpier_team_member_routine",
+            "agentpier_team_promote",
+            "agentpier_team_templates",
+            "agentpier_workspace",
+            "agentpier_share_file",
+            "agentpier_goal",
+            "agentpier_ssh_access",
+            "agentpier_coding_session",
+            "agentpier_mail",
+            "agentpier_project",
+            "agentpier_preview",
+            "remote__*"
+          ]
+        },
+        "memory": {
+          "search": {
+            "enabled": false,
+            "rememberAcrossConversations": false
+          }
+        }
+      },
+      "ap-a3": {
+        "tools": {
+          "allow": [
+            "session_status"
+          ]
+        },
+        "memory": {
+          "search": {
+            "enabled": false,
+            "rememberAcrossConversations": false
+          }
+        }
+      }
+    },
+    "ownership": "explicit",
+    "defaults": {
+      "systemAgent": {
+        "agentId": "main"
+      },
+      "workspace": "/golden/assistants/workspaces",
+      "heartbeat": {
+        "every": "0m"
+      },
+      "skills": [],
+      "maxConcurrent": 12
+    }
+  },
+  "talk": {
+    "agentId": "main"
+  },
+  "channels": {},
+  "browser": {
+    "enabled": false
+  },
+  "discovery": {
+    "mdns": {
+      "mode": "off"
+    }
+  },
+  "telemetry": {
+    "enabled": false
+  },
+  "update": {
+    "checkOnStart": false,
+    "auto": {
+      "enabled": false
+    }
+  },
+  "skills": {
+    "allowBundled": [],
+    "load": {
+      "extraDirs": [
+        "/golden/assistants/skill-catalog/skills"
+      ],
+      "watch": true
+    },
+    "workshop": {
+      "autonomous": {
+        "mode": "off"
+      }
+    }
+  },
+  "tools": {
+    "allow": [
+      "session_status",
+      "agentpier_team_propose",
+      "agentpier_team_status",
+      "agentpier_team_stop",
+      "agentpier_team_members",
+      "agentpier_team_ask",
+      "agentpier_team_delegate",
+      "agentpier_team_cancel",
+      "agentpier_team_groups",
+      "agentpier_team_group_delegate",
+      "agentpier_team_archive",
+      "agentpier_team_grant",
+      "agentpier_team_member_update",
+      "agentpier_team_member_summarise",
+      "agentpier_team_models",
+      "agentpier_team_member_routine",
+      "agentpier_team_promote",
+      "agentpier_team_templates",
+      "agentpier_team_peers",
+      "agentpier_team_peer_ask",
+      "agentpier_team_peer_delegate",
+      "agentpier_team_report",
+      "memory_search",
+      "memory_get",
+      "read",
+      "write",
+      "edit",
+      "agentpier_reminder",
+      "agentpier_routine",
+      "agentpier_workspace",
+      "agentpier_ssh",
+      "agentpier_share_file",
+      "agentpier_goal",
+      "agentpier_hook",
+      "agentpier_ssh_access",
+      "agentpier_coding_session",
+      "agentpier_mail",
+      "agentpier_project",
+      "agentpier_preview",
+      "web_fetch",
+      "view_image",
+      "bundle-mcp"
+    ],
+    "toolSearch": false,
+    "exec": {
+      "mode": "deny"
+    },
+    "sessions": {
+      "visibility": "agent"
+    },
+    "fs": {
+      "workspaceOnly": true
+    },
+    "web": {
+      "fetch": {
+        "ssrfPolicy": {
+          "dangerouslyAllowPrivateNetwork": false
+        }
+      }
+    }
+  },
+  "plugins": {
+    "slots": {
+      "memory": "memory-core"
+    },
+    "allow": [
+      "agentpier-teams",
+      "openai",
+      "memory-core"
+    ],
+    "load": {
+      "paths": [
+        "/golden/plugin"
+      ]
+    },
+    "entries": {
+      "agentpier-teams": {
+        "enabled": true,
+        "hooks": {
+          "allowConversationAccess": true
+        },
+        "config": {
+          "url": "http://127.0.0.1:1235",
+          "token": "bridge-token",
+          "workspaces": "/golden/assistants/workspaces"
+        },
+        "llm": {
+          "allowAgentIdOverride": true
+        }
+      },
+      "memory-core": {
+        "enabled": true,
+        "config": {
+          "dreaming": {
+            "enabled": false
+          }
+        }
+      }
+    }
+  },
+  "memory": {
+    "search": {
+      "enabled": false,
+      "provider": "none",
+      "sources": [
+        "memory"
+      ],
+      "rememberAcrossConversations": false
+    }
+  },
+  "cron": {
+    "enabled": true,
+    "webhookToken": "hook-token",
+    "webhookSsrfPolicy": {
+      "allowedHostnames": [
+        "127.0.0.1"
+      ]
+    }
+  },
+  "mcp": {
+    "servers": {
+      "files": {
+        "command": "/usr/bin/node",
+        "args": [
+          "server.js",
+          "--root",
+          "/tmp"
+        ],
+        "env": {
+          "TOKEN": "stdio-secret"
+        },
+        "cwd": "/srv/files"
+      },
+      "remote": {
+        "url": "https://mcp.example/x",
+        "transport": "streamable-http",
+        "headers": {
+          "Authorization": "Bearer http-secret"
+        }
+      },
+      "login": {
+        "url": "https://oauth.example/sse",
+        "transport": "sse",
+        "auth": "oauth",
+        "oauth": {
+          "redirectUrl": "https://agentpier.example/api/mcp/oauth/callback",
+          "scope": "read"
+        }
+      }
+    }
+  },
+  "session": {
+    "maintenance": {
+      "archiveDashboardAfter": false
+    }
+  },
+  "logging": {
+    "file": "/golden/assistants/logs/openclaw.log",
+    "level": "warn",
+    "consoleLevel": "warn",
+    "maxFileBytes": 10485760
+  },
+  "diagnostics": {
+    "flags": [],
+    "otel": {
+      "enabled": false,
+      "captureContent": false
+    },
+    "cacheTrace": {
+      "enabled": false
+    }
+  },
+  "gateway": {
+    "mode": "local",
+    "bind": "loopback",
+    "port": 18000,
+    "auth": {
+      "mode": "token",
+      "token": "golden-token"
+    },
+    "controlUi": {
+      "enabled": false
+    },
+    "terminal": {
+      "enabled": false
+    },
+    "tailscale": {
+      "mode": "off"
+    },
+    "reload": {
+      "mode": "hybrid"
+    }
+  }
+}

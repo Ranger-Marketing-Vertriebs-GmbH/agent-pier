@@ -3,14 +3,14 @@ import assert from "node:assert/strict";
 import {
   compileOpenClawConfig,
   runtimeEnvironment,
-} from "../../server/features/assistants/runtime-config.js";
-import { agentEntry } from "../../server/features/assistants/openclaw-config/agent-entry.js";
+} from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
+import { agentEntry } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/agent-entry.js";
 import {
   webToolsAvailability,
   webToolsSections,
   webToolsSignatures,
   webToolsSnapshot,
-} from "../../server/features/assistants/openclaw-config/web-tools.js";
+} from "../../server/features/assistants/runtimes/openclaw/openclaw-config/web-tools.js";
 import {
   memberTeamTools,
   usedCapabilities,

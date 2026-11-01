@@ -11,7 +11,7 @@ import {
   agentProfileName,
   memberSlotCount,
   memberSlotName,
-} from "./openclaw-config/browser-profiles.js";
+} from "./browser-profile-names.js";
 import { BrowserWindowKeeper } from "./browser-window-keeper.js";
 import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 

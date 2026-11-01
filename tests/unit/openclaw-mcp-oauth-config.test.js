@@ -10,7 +10,7 @@ import {
   mcpSnapshot,
   mcpStartSnapshot,
   readMcpInputs,
-} from "../../server/features/assistants/openclaw-config/mcp-servers.js";
+} from "../../server/features/assistants/runtimes/openclaw/openclaw-config/mcp-servers.js";
 import {
   oauthLoginUsable,
   oauthRedirect,

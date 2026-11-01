@@ -7,9 +7,9 @@ import { spawn as spawnProcess } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import { runtimePaths } from "../../runtime-paths.js";
 import { selectedAssistantRuntime } from "./runtime-install.js";
-import { prepareRuntimeConfig, runtimeEnvironment } from "../../runtime-config.js";
+import { prepareRuntimeConfig, runtimeEnvironment } from "./runtime-config.js";
 import { personalSkills } from "../../native-capabilities.js";
-import { shadowedSkills } from "../../openclaw-config/skill-shadows.js";
+import { shadowedSkills } from "./openclaw-config/skill-shadows.js";
 import { bundledSkillNames } from "../../agent-skills.js";
 import { builtInSkillNames } from "../../built-in-skills.js";
 import { GatewayClient } from "./gateway-client.js";
@@ -19,20 +19,20 @@ import { reclaimOwner, recordOwner } from "./gateway-ownership.js";
 import { processIdentity } from "../../../../lib/process-identity.js";
 import { assertWired } from "../../service-wiring.js";
 import { AGENT_FOLDER } from "../../../ssh/ssh-agent-shared.js";
-import { webToolsSnapshot } from "../../openclaw-config/web-tools.js";
-import { lastCdpOffset } from "../../openclaw-config/browser-profiles.js";
+import { webToolsSnapshot } from "./openclaw-config/web-tools.js";
+import { lastCdpOffset } from "./openclaw-config/browser-profiles.js";
 import {
   ownerShellEnvironment,
   resolveShellOwner,
   writeExecShell,
 } from "../../exec-shell.js";
-import { mcpStartSnapshot } from "../../openclaw-config/mcp-servers.js";
+import { mcpStartSnapshot } from "./openclaw-config/mcp-servers.js";
 import {
   configuredAgents,
   stdioAgents,
   telegramSections,
   telegramSnapshot,
-} from "../../openclaw-config/telegram-senders.js";
+} from "./openclaw-config/telegram-senders.js";
 import { readJSON } from "../../../../lib/storage.js";
 
 // Errors an unattended retry cannot fix; they wait for the owner instead.

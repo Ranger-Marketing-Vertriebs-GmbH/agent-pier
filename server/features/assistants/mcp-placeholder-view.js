@@ -1,6 +1,6 @@
 import { agentFolders, resolvePlaceholder } from "../mcp-servers/agent-placeholders.js";
-import { safeAgentPath } from "./openclaw-config/agent-folders.js";
-import { agentServerName, mcpEligible } from "./openclaw-config/mcp-servers.js";
+import { safeAgentPath } from "./agent-folders.js";
+import { agentServerName, mcpEligible } from "../mcp-servers/mcp-inputs.js";
 
 /**
  * What a server with agent placeholders resolves to for each bound agent, for the

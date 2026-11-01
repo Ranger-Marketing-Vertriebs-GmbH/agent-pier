@@ -9,21 +9,21 @@ import {
   applyOverrides,
   overridesFor,
   OverrideStore,
-} from "../../server/features/assistants/openclaw-config/overrides.js";
+} from "../../server/features/assistants/runtimes/openclaw/openclaw-config/overrides.js";
 import {
   advancedSettings,
   advancedSettingsRuntime,
   settingBounds,
   validSettingValue,
-} from "../../server/features/assistants/openclaw-config/advanced-settings.js";
-import { isLockedPath } from "../../server/features/assistants/openclaw-config/locked-core.js";
+} from "../../server/features/assistants/runtimes/openclaw/openclaw-config/advanced-settings.js";
+import { isLockedPath } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/locked-core.js";
 import { migrateAssistants } from "../../server/features/assistants/assistant-schema.js";
 import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
 import {
   compileOpenClawConfig,
   prepareRuntimeConfig,
-} from "../../server/features/assistants/runtime-config.js";
+} from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 import { readJSON } from "../../server/lib/storage.js";
 
 function database() {
