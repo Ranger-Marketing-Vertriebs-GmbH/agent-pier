@@ -18,14 +18,14 @@ export function attachTerminalWebSocket(server, { sessions, login, admit, effect
     if (ownSocketPath(pathname)) return;
     try {
       authorizeRequest(req, effective(), true);
-      const authSession = login.require(sessionToken(req));
+      const authSession = login.require(sessionToken(req, login));
       const match = pathname.match(terminalPath);
       if (!match) throw problem(serverMessages.http.notFound, 404);
       admit(login.principal(authSession), { kind: "terminal", id: match[1] });
       wss.handleUpgrade(req, socket, head, (ws) => {
         ws.sessionId = match[1];
         ws.authSession = authSession;
-        ws.authToken = sessionToken(req);
+        ws.authToken = sessionToken(req, login);
         wss.emit("connection", ws);
       });
     } catch (e) {

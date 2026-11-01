@@ -62,7 +62,9 @@ export function authorizeRequest(req, config, websocket = false) {
     // keeps mode navigate but reports the destination as empty. No page can start a
     // navigate-mode request with fetch(), so only this origin's worker sends that pair.
     ["document", "empty"].includes(req.headers["sec-fetch-dest"]);
-  if (req.headers["sec-fetch-site"] === "cross-site" && !openingPage)
+  // AgentPier's own pages are always same-origin; same-site is another port of this
+  // host (a session preview), which may open a page but never call the API.
+  if (["cross-site", "same-site"].includes(req.headers["sec-fetch-site"]) && !openingPage)
     throw problem(serverMessages.http.crossSiteAccessDenied, 403);
   const origin = req.headers.origin;
   if (origin && origin !== expected)

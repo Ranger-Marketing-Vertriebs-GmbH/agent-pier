@@ -9,10 +9,23 @@ import { loginErrors, loginProblem } from "../features/login/login-errors.js";
 import { loginMessages as copy } from "../lib/i18n/de/login.js";
 import { principalOf } from "../features/users/identity.js";
 const cookieName = "agentpier_session";
-export function sessionToken(req) {
-  const cookies = (req.headers.cookie || "").split(";").map((part) => part.trim());
-  const matches = cookies.filter((part) => part.startsWith(cookieName + "="));
-  return matches.length === 1 ? matches[0].slice(cookieName.length + 1) : "";
+// Every agentpier_session value of the request, in header order.
+export function sessionTokens(req) {
+  return (req.headers.cookie || "")
+    .split(";")
+    .map((part) => part.trim())
+    .filter((part) => part.startsWith(cookieName + "="))
+    .map((part) => part.slice(cookieName.length + 1));
+}
+/**
+ * The request's session token: the first agentpier_session value `login` (Identity or
+ * LoginStore) knows, else "". Cookies ignore ports, so a page on another port of this
+ * host (a session preview) can plant a second value beside the real one.
+ */
+export function sessionToken(req, login) {
+  if (typeof login?.session !== "function")
+    throw new TypeError("sessionToken needs the login to check each cookie");
+  return sessionTokens(req).find((token) => login.session(token)) || "";
 }
 // Call only after authorizeRequest has checked the Host and Origin.
 export function directLocalRequest(req, config) {
@@ -91,7 +104,7 @@ export function loginRoutes(login, effective, { notifications } = {}) {
   };
   router.use(express.json({ limit: "4kb", strict: true }));
   const status = (req) => {
-    const signedIn = login.describe(sessionToken(req));
+    const signedIn = login.describe(sessionToken(req, login));
     return {
       configured: login.configured,
       authenticated: Boolean(signedIn.role),
@@ -113,14 +126,14 @@ export function loginRoutes(login, effective, { notifications } = {}) {
   });
   router.post("/login", async (req, res) => {
     const token = await login.login(req.body, attemptSource(req, effective()));
-    login.revoke(sessionToken(req));
+    login.revoke(sessionToken(req, login));
     device(req, token, true);
     cookie(req, res, token);
     res.json({ authenticated: true });
   });
   router.post("/logout", (req, res) => {
-    device(req, sessionToken(req), false);
-    login.revoke(sessionToken(req));
+    device(req, sessionToken(req, login), false);
+    login.revoke(sessionToken(req, login));
     cookie(req, res, "");
     res.sendStatus(204);
   });
@@ -156,7 +169,7 @@ export function requireLogin(login, effective) {
       directLocalRequest(req, effective())
     )
       return next();
-    const token = sessionToken(req);
+    const token = sessionToken(req, login);
     const session = login.require(token);
     // WebSocket upgrades cannot set cookies; the next page request carries the renewal.
     const maxAge = login.renew(session);

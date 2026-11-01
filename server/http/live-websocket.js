@@ -40,7 +40,7 @@ export function attachLiveWebSocket(
     if (!livePath.test(url.pathname)) return;
     try {
       authorizeRequest(req, effective(), true);
-      const token = sessionToken(req);
+      const token = sessionToken(req, login);
       const auth = login.require(token);
       const principal = login.principal(auth);
       admit(principal, { kind: "live" });

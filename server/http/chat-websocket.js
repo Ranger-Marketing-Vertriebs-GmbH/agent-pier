@@ -18,7 +18,7 @@ export function attachChatWebSocket(server, { sync, streams, login, admit, effec
     if (!match) return;
     try {
       authorizeRequest(req, effective(), true);
-      const token = sessionToken(req);
+      const token = sessionToken(req, login);
       const auth = login.require(token);
       admit(login.principal(auth), { kind: "chat", id: match[1] });
       if (streams.closed) {

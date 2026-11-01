@@ -35,7 +35,7 @@ export function attachAssistantChatWebSocket(
     if (!match) return;
     try {
       authorizeRequest(req, effective(), true);
-      const token = sessionToken(req);
+      const token = sessionToken(req, login);
       const auth = login.require(token);
       if (!ID.test(match[1])) return refuse(socket, 404);
       const principal = login.principal(auth);
