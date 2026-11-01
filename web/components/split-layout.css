@@ -14,7 +14,7 @@
 }
 .split-divider {
   position: absolute;
-  z-index: 1;
+  z-index: var(--z-base);
   touch-action: none;
   outline: none;
 }
@@ -44,4 +44,9 @@
 .split-divider:focus-visible::after,
 .split-divider[data-dragging="true"]::after {
   background: var(--accent);
+}
+.split-divider:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
 }
