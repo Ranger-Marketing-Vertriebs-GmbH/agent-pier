@@ -4,6 +4,11 @@ import {
   artifactToolEntries,
   callArtifactTool,
 } from "../artifacts/artifact-mcp.js";
+import {
+  previewTools,
+  previewToolEntries,
+  callPreviewTool,
+} from "../previews/preview-mcp.js";
 import { endpointModel } from "../providers/endpoint-config.js";
 import { problem } from "../../lib/storage.js";
 import { projectScope } from "../memory/project-scope.js";
@@ -56,6 +61,7 @@ export class McpTools {
         grant.scopes.includes(tool.scope),
       ),
       ...artifactToolEntries(grant, context),
+      ...previewToolEntries(grant, context),
     ];
   }
   async call(name, input, grant, resolveGrant, context) {
@@ -69,6 +75,12 @@ export class McpTools {
           context,
         );
       return artifactTools[name].readOnly
+        ? execute()
+        : this.services.mutationBarrier.run(execute);
+    }
+    if (Object.hasOwn(previewTools, name)) {
+      const execute = () => callPreviewTool(this.services, name, input, context);
+      return previewTools[name].readOnly
         ? execute()
         : this.services.mutationBarrier.run(execute);
     }
