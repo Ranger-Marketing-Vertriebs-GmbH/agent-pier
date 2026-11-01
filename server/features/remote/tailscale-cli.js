@@ -15,14 +15,14 @@ export function tailscaleArgs(args, env = process.env) {
 /** Runs the Tailscale CLI; resolves its stdout, rejects with `stderr` on the error. */
 export async function runTailscale(
   args,
-  { env = process.env, execFile = nodeExecFile } = {},
+  { env = process.env, execFile = nodeExecFile, timeout = 30000 } = {},
 ) {
   const argv = tailscaleArgs(args, env);
   return new Promise((resolve, reject) =>
     execFile(
       "tailscale",
       argv,
-      { encoding: "utf8", timeout: 30000, env },
+      { encoding: "utf8", timeout, env },
       (error, stdout, stderr) =>
         error ? reject(Object.assign(error, { stderr })) : resolve(stdout),
     ),

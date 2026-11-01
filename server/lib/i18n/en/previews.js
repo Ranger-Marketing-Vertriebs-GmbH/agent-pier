@@ -13,7 +13,7 @@ export const previews = {
   PREVIEW_NOT_FOUND: "This preview no longer exists.",
   accessRevoked: "AgentPier access revoked or session unavailable.",
   PREVIEW_RANGE_INVALID:
-    "Invalid port range: ports 1024 to 65535, at most 50 ports, excluding AgentPier's port, the pipeline port range and the Tailscale HTTPS port.",
+    "Invalid port range: ports 1024 to 64535, at most 50 ports, excluding AgentPier's port, the pipeline port range and the Tailscale HTTPS port, also 1000 ports higher (the Tailscale listeners).",
   pages: {
     bounceTitle: "Opening the preview …",
     bounceLink: "Continue to the preview",

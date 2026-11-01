@@ -12,7 +12,7 @@ const copy = {
     taken: "Used by another program",
     stop: "Stop",
     save: "Save",
-    notShared: "Not shared: 47101, 47102",
+    notShared: "Not shared: 47101, 47102, 47103",
     shared: "2 ports shared in your tailnet",
     occupied: /Another Tailscale Serve entry uses 47102/,
     copyCommands: "Copy commands",
@@ -25,7 +25,7 @@ const copy = {
     taken: "Von einem anderen Programm belegt",
     stop: "Beenden",
     save: "Speichern",
-    notShared: "Nicht freigegeben: 47101, 47102",
+    notShared: "Nicht freigegeben: 47101, 47102, 47103",
     shared: "2 Ports im Tailnet freigegeben",
     occupied: /Eine andere Tailscale-Serve-Freigabe nutzt 47102/,
     copyCommands: "Befehle kopieren",
@@ -146,6 +146,7 @@ for (const locale of ["en-GB", "de-DE"])
         failed: [
           { port: 47101, reason: "denied" },
           { port: 47102, reason: "occupied" },
+          { port: 47103, reason: "denied" },
         ],
         commands: [command],
       };
@@ -156,6 +157,8 @@ for (const locale of ["en-GB", "de-DE"])
       await expect(card.getByText(text.notShared)).toBeVisible();
       await expect(card.getByText(text.occupied)).toBeVisible();
       await expect(card.locator("pre", { hasText: command })).toBeVisible();
+      // One line per CLI answer, however many ports it refused.
+      await expect(card.getByText("Port 47101, 47103:")).toBeVisible();
       await expect(card.getByRole("button", { name: text.copyCommands })).toBeVisible();
       state.serve = { registered: [47100, 47101], failed: [], commands: [] };
       await page.reload();

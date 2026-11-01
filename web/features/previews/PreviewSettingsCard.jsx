@@ -23,6 +23,13 @@ const slotRow = ({ state }) =>
       ? { status: { tone: "ok", text: copy.slotFree } }
       : { status: { tone: "warn", text: copy.slotTaken } };
 
+/** { reason: [port] }: one line per CLI answer, however many ports it refused. */
+const byReason = (entries) =>
+  entries.reduce((groups, { port, reason }) => {
+    (groups[reason] ??= []).push(port);
+    return groups;
+  }, {});
+
 /**
  * The Tailscale Serve state of the range: shared, skipped in network mode, or the ports
  * it could not share with the exact commands to run by hand.
@@ -47,9 +54,9 @@ function ServeState({ serve }) {
       {refused.length > 0 && serve.commands?.length > 0 && (
         <>
           <p>{copy.serveCommandsHint}</p>
-          {refused.map((entry) => (
-            <p key={entry.port}>
-              {copy.port(entry.port)}: <code>{entry.reason}</code>
+          {Object.entries(byReason(refused)).map(([reason, ports]) => (
+            <p key={reason}>
+              {copy.port(ports.join(", "))}: <code>{reason}</code>
             </p>
           ))}
           <CodeBlock copyLabel={copy.serveCopy}>{serve.commands.join("\n")}</CodeBlock>
@@ -114,7 +121,7 @@ export default function PreviewSettingsCard({ locked = false }) {
           sub={copy.rangeSub}
           value={draft.portRangeStart}
           min={1024}
-          max={65535}
+          max={64535}
           disabled={busy || locked}
           onChange={(portRangeStart) => edit({ portRangeStart })}
         />
@@ -122,7 +129,7 @@ export default function PreviewSettingsCard({ locked = false }) {
           label={copy.rangeEnd}
           value={draft.portRangeEnd}
           min={1024}
-          max={65535}
+          max={64535}
           disabled={busy || locked}
           onChange={(portRangeEnd) => edit({ portRangeEnd })}
         />

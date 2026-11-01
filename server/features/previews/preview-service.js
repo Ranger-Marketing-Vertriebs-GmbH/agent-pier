@@ -11,7 +11,7 @@ import {
 } from "./preview-config.js";
 import { previewError } from "./preview-errors.js";
 import { createPreviewListener } from "./preview-proxy.js";
-import { applyPreviewServe, removePreviewServe, serveView } from "./preview-serve.js";
+import { PreviewRegistrations } from "./preview-registrations.js";
 import {
   listenerOffset,
   listenerPort,
@@ -25,7 +25,6 @@ const DAY = 24 * 60 * 60 * 1000;
 const controls = /[\u0000-\u001f\u007f]/;
 const invalid = () => previewError("PREVIEW_INVALID_INPUT", 400);
 const iso = (time) => new Date(time).toISOString();
-const noServe = () => ({ registered: [], failed: [], commands: [] });
 const rangeOf = (settings) => ({
   start: settings.portRangeStart,
   end: settings.portRangeEnd,
@@ -116,7 +115,7 @@ export class PreviewService extends EventEmitter {
     this.binding = new Map(); // slot → bind in flight
     this.slots = null;
     this.offset = 0; // listenerPort offset of the bound listeners (preview-slots.js)
-    this.serve = noServe(); // Tailscale Serve registrations of the last start
+    this.serve = new PreviewRegistrations(tailscaleRun); // Tailscale Serve, this process
     this.previousRange = null; // the range a running start replaces
     this.starting = null;
     this.stopped = false;
@@ -195,9 +194,11 @@ export class PreviewService extends EventEmitter {
         await listener.close().catch(() => {});
       }
     const moved = before.portRangeStart !== start || before.portRangeEnd !== end;
-    if (before.enabled && !next.enabled) await this.unregister(rangeOf(before));
+    if (before.enabled && !next.enabled) await this.serve.remove(rangeOf(before));
     else if (before.enabled && moved) this.previousRange = rangeOf(before);
-    if (!next.enabled || moved) {
+    // Remote access changed since the last start: start afresh in the new mode.
+    const remode = listenerOffset(this.current()) !== this.offset;
+    if (!next.enabled || moved || remode) {
       clearInterval(this.timer);
       this.slots = null;
     }
@@ -254,10 +255,14 @@ export class PreviewService extends EventEmitter {
       await Promise.all(stale.map((listener) => listener.close().catch(() => {})));
       this.offset = offset;
     }
-    await this.register(range);
+    const previousRange = this.previousRange;
+    this.previousRange = null;
+    await this.serve.sync({ tailscale: offset > 0, range, previousRange });
     this.slots = new PreviewSlots({
       range,
       offset,
+      // With Tailscale only the slots Serve forwards can be reached.
+      forbidden: () => (this.offset ? this.serve.unserved(range) : new Set()),
       // A slot is free when its listener is ours or can be bound now.
       probe: (port) => this.bind(this.slotOf(port)),
       file: slotsFile(this.dataDir),
@@ -286,34 +291,13 @@ export class PreviewService extends EventEmitter {
   /** With Tailscale, the slot port stays free for tailscaled unless Serve holds it. */
   async slotFree(slot) {
     if (!(await this.probe(this.portOf(slot)))) return false;
-    if (!this.offset || this.serve.registered.includes(slot)) return true;
+    if (!this.offset || this.serve.has(slot)) return true;
     return this.probe(slot);
-  }
-
-  /**
-   * The update path: every start registers the range with Tailscale Serve, idempotently,
-   * while a remote URL is set and network mode is off; other modes skip it.
-   */
-  async register(range) {
-    const previousRange = this.previousRange;
-    this.previousRange = null;
-    if (!this.offset || !this.tailscaleRun) return (this.serve = noServe());
-    this.serve = await applyPreviewServe({
-      run: this.tailscaleRun,
-      range,
-      previousRange,
-    });
-  }
-
-  async unregister(range) {
-    this.serve = noServe();
-    if (!listenerOffset(this.current()) || !this.tailscaleRun) return;
-    await removePreviewServe({ run: this.tailscaleRun, range });
   }
 
   /** The owner cannot reach a slot that Tailscale Serve does not forward. */
   unreachable(slot) {
-    return listenerOffset(this.current()) > 0 && !this.serve.registered.includes(slot);
+    return this.offset > 0 && !this.serve.has(slot);
   }
 
   /** Whether the slot has our listener (binding it when the port is free). */
@@ -405,6 +389,7 @@ export class PreviewService extends EventEmitter {
     }
     if (!this.slots) throw previewError("PREVIEW_DISABLED", 409);
     const internal = new Set(this.internalPorts());
+    for (const slot of this.slots.slots()) internal.add(this.portOf(slot));
     if (
       forbiddenTarget(port, {
         hostPort: this.current().port,
@@ -419,7 +404,12 @@ export class PreviewService extends EventEmitter {
     if (!(await this.alive({ owner }))) throw previewError("PREVIEW_NOT_FOUND", 404);
     const key = ownerKey(owner, port);
     let preview = [...this.previews.values()].find((entry) => entry.key === key);
-    if (preview && this.unreachable(preview.slot))
+    // No slot Serve forwards (or this preview's slot lost it): nothing reaches the owner.
+    if (
+      preview
+        ? this.unreachable(preview.slot)
+        : this.offset && !this.serve.state.registered.length
+    )
       throw previewError("PREVIEW_UNAVAILABLE", 503);
     if (preview) {
       Object.assign(preview, { address, usedAt: this.now() });
@@ -427,10 +417,6 @@ export class PreviewService extends EventEmitter {
       if (path !== undefined) preview.path = path;
     } else {
       const slot = await this.slots.allocate({ key: `${owner.project}\0${port}` });
-      if (this.unreachable(slot)) {
-        this.slots.release(slot);
-        throw previewError("PREVIEW_UNAVAILABLE", 503);
-      }
       const time = this.now();
       preview = {
         id: randomUUID(),
@@ -550,7 +536,7 @@ export class PreviewService extends EventEmitter {
       else if (await this.slotFree(port)) state = "free";
       slots.push({ port, state });
     }
-    return { settings, previews, slots, serve: serveView(this.current(), this.serve) };
+    return { settings, previews, slots, serve: this.serve.view(this.current()) };
   }
 
   /** Closes listeners and their sockets; Tailscale Serve registrations stay. */

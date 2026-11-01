@@ -5,7 +5,10 @@ import {
   readPreviewConfig,
   tailscaleHttpsPort,
 } from "../server/features/previews/preview-config.js";
-import { applyPreviewServe } from "../server/features/previews/preview-serve.js";
+import {
+  applyPreviewServe,
+  previewServeOwned,
+} from "../server/features/previews/preview-serve.js";
 import { runTailscale } from "../server/features/remote/tailscale-cli.js";
 export function selectServePort(status, localPort, { httpsPort } = {}) {
   if (
@@ -14,14 +17,12 @@ export function selectServePort(status, localPort, { httpsPort } = {}) {
   )
     throw Error("Invalid Tailscale HTTPS port.");
   for (const port of httpsPort === undefined ? [8443, 10000, 9443] : [httpsPort]) {
-    const web = Object.entries(status.Web || {}).filter(([host]) =>
-      host.endsWith(`:${port}`),
-    );
-    const owned =
-      web.length === 1 &&
-      Object.keys(web[0][1].Handlers || {}).length === 1 &&
-      web[0][1].Handlers?.["/"]?.Proxy === `http://127.0.0.1:${localPort}`;
-    if (owned || (!status.TCP?.[port] && !web.length)) return port;
+    const web = Object.keys(status.Web || {}).filter((host) => host.endsWith(`:${port}`));
+    if (
+      previewServeOwned(status, port, localPort) ||
+      (!status.TCP?.[port] && !web.length)
+    )
+      return port;
   }
   throw new Error(serverMessages.scripts.httpsPortsOccupied);
 }

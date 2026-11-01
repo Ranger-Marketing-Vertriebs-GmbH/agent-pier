@@ -9,7 +9,7 @@ export const previewCopy = {
   enableSub: "While on, AgentPier listens on the ports below. Off by default.",
   rangeStart: "First port",
   rangeEnd: "Last port",
-  rangeSub: "From 1024 to 65535, at most 50 ports.",
+  rangeSub: "From 1024 to 64535, at most 50 ports.",
   locked: "Plain network access can only turn previews off.",
   portsTitle: "Ports",
   slotFree: "Free",

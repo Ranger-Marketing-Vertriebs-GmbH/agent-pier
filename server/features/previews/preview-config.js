@@ -2,6 +2,7 @@ import { readJSON } from "../../lib/storage.js";
 import { updateStoredConfig } from "../../lib/config.js";
 import path from "node:path";
 import { previewError } from "./preview-errors.js";
+import { listenerPort, TAILSCALE_LISTENER_OFFSET } from "./preview-slots.js";
 
 export const DEFAULT_PREVIEW_RANGE = Object.freeze({ start: 47100, end: 47109 });
 export const MAX_PREVIEW_PORTS = 50;
@@ -37,12 +38,25 @@ export function normalizePreviewConfig(
   const start = raw.portRangeStart ?? DEFAULT_PREVIEW_RANGE.start;
   const end = raw.portRangeEnd ?? DEFAULT_PREVIEW_RANGE.end;
   if (!Number.isInteger(start) || !Number.isInteger(end)) throw invalid();
-  if (start < 1024 || end > 65535 || end < start || end - start + 1 > MAX_PREVIEW_PORTS)
+  // With Tailscale the listeners take slot + 1000 (preview-slots.js): checked always,
+  // so a later `npm run tailscale` never makes a saved range unusable.
+  const listener = (port) => listenerPort(port, { offset: TAILSCALE_LISTENER_OFFSET });
+  if (
+    start < 1024 ||
+    listener(end) > 65535 ||
+    end < start ||
+    end - start + 1 > MAX_PREVIEW_PORTS
+  )
     throw invalid();
-  const inside = (port) => Number.isInteger(port) && port >= start && port <= end;
-  if (inside(hostPort) || inside(httpsPort)) throw invalid();
-  if (pipelineRange && start <= pipelineRange.end && end >= pipelineRange.start)
-    throw invalid();
+  for (const [low, high] of [
+    [start, end],
+    [listener(start), listener(end)],
+  ]) {
+    const inside = (port) => Number.isInteger(port) && port >= low && port <= high;
+    if (inside(hostPort) || inside(httpsPort)) throw invalid();
+    if (pipelineRange && low <= pipelineRange.end && high >= pipelineRange.start)
+      throw invalid();
+  }
   return { enabled, portRangeStart: start, portRangeEnd: end };
 }
 

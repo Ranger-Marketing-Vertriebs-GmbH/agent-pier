@@ -10,7 +10,7 @@ export const previewCopy = {
     "Solange sie an sind, hört AgentPier auf den Ports unten. Standardmäßig aus.",
   rangeStart: "Erster Port",
   rangeEnd: "Letzter Port",
-  rangeSub: "Von 1024 bis 65535, höchstens 50 Ports.",
+  rangeSub: "Von 1024 bis 64535, höchstens 50 Ports.",
   locked: "Einfacher Netzwerkzugriff kann Vorschauen nur ausschalten.",
   portsTitle: "Ports",
   slotFree: "Frei",

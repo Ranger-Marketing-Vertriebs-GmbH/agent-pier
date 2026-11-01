@@ -76,6 +76,23 @@ test("range may not contain AgentPier's port, the pipeline range or the Tailscal
     );
 });
 
+test("the Tailscale listener ports (slot + 1000) follow the same rules", () => {
+  const check = (s, e) =>
+    normalizePreviewConfig(
+      { enabled: true, portRangeStart: s, portRangeEnd: e },
+      constraints,
+    );
+  for (const [s, e] of [
+    [65000, 65049], // listeners above 65535
+    [64536, 64536],
+    [3380, 3389], // a listener on AgentPier's port 4380
+    [7440, 7449], // a listener on the Tailscale HTTPS port 8443
+    [19100, 19110], // listeners inside the pipeline range
+  ])
+    assert.throws(() => check(s, e), { code: "PREVIEW_RANGE_INVALID" }, `${s}-${e}`);
+  assert.equal(check(64535, 64535).portRangeEnd, 64535);
+});
+
 test("writePreviewConfig keeps every other config.json key", () => {
   const dir = tmp();
   const other = { port: 4390, remoteUrl: "https://x.ts.net:8443", ownerLogin: "me" };
