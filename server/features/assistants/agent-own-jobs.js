@@ -1,4 +1,5 @@
 import { assistantProblem } from "./assistant-validation.js";
+import { hostConnection, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 
 /**
  * Cron jobs an agent made itself in OpenClaw (its own `cron` tool), which AgentPier
@@ -14,18 +15,23 @@ import { assistantProblem } from "./assistant-validation.js";
 const ownJob = (job) => !String(job?.declarationKey || "").startsWith("agentpier-");
 const code = (error) => error?.code ?? error?.name ?? "UNKNOWN";
 const merged = (...lists) => [...new Set(lists.flat())];
+// The agent's routines sub-port bound to the runtime's current connection.
+const boundRoutines = (assistants, agent) =>
+  runtimeFor(agent, assistants.runtime).routines.on(hostConnection(assistants.runtime));
 
 /** The `ownJobs` field after pausing: every paused id, and `pending` if not done. */
 export async function pauseOwnJobs(assistants, agent) {
   const before = agent.ownJobs?.paused || [];
-  const client = assistants.runtime?.client;
   if (!assistants.reminders) return agent.ownJobs ?? null;
-  if (!client?.ready) return { pending: "pause", paused: before };
+  if (!hostReady(assistants.runtime)) return { pending: "pause", paused: before };
+  // The jobs are paused on the connection checked here: a Gateway that replaced it
+  // receives none of it, and the archive leaves the pause pending.
+  const routines = boundRoutines(assistants, agent);
   const paused = [];
   try {
     for (const job of await assistants.reminders.jobs(agent))
       if (ownJob(job) && job.enabled !== false) {
-        await client.call("cron.update", { id: job.id, patch: { enabled: false } });
+        await routines.update({ id: job.id, patch: { enabled: false } });
         paused.push(job.id);
       }
   } catch (error) {
@@ -40,15 +46,14 @@ export async function pauseOwnJobs(assistants, agent) {
 export async function resumeOwnJobs(assistants, agent) {
   const paused = agent.ownJobs?.paused || [];
   if (!paused.length) return null;
-  const client = assistants.runtime?.client;
-  if (!client?.ready) return { pending: "resume", paused };
+  if (!hostReady(assistants.runtime)) return { pending: "resume", paused };
+  const routines = boundRoutines(assistants, agent);
   const left = [...paused];
   try {
     // A job deleted meanwhile stays deleted.
     const listed = new Set((await assistants.reminders.jobs(agent)).map((j) => j.id));
     for (const id of paused) {
-      if (listed.has(id))
-        await client.call("cron.update", { id, patch: { enabled: true } });
+      if (listed.has(id)) await routines.update({ id, patch: { enabled: true } });
       left.shift();
     }
   } catch (error) {

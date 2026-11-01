@@ -7,7 +7,7 @@ import { routineReport } from "./lead-routine-reports.js";
 import { foreignOrigin } from "./owner-runs.js";
 import { loopGuard } from "./agent-loop-guard.js";
 import { isUserAgent } from "../users/user-access.js";
-import { hostReady } from "./runtimes/runtime-for.js";
+import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 
 // What a lead may set up on one of its permanent members (AGENTPIER-175).
 export const isLeadRoutine = (binding) => binding?.createdBy === "lead";
@@ -312,7 +312,9 @@ export class LeadRoutines {
         for (const { agent, binding } of ending) {
           const job = this.routines.find(binding, await this.routines.jobs(agent));
           if (job)
-            await this.assistants.runtime.client.call("cron.remove", { id: job.id });
+            await runtimeFor(agent, this.assistants.runtime).routines.remove({
+              id: job.id,
+            });
           this.routines.bindings.patch(binding.id, { state: "removed" });
         }
         this.assistants.changed();

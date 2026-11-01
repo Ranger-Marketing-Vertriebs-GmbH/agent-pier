@@ -102,13 +102,13 @@ export class AssistantMaintenance {
   }
   async validate() {
     const s = this.s,
-      client = s.assistantRuntime.client,
       connection = hostConnection(s.assistantRuntime);
-    if (!client?.ready) throw assistantProblem("unavailable", 503);
-    if (this.intent && (await client.call("cron.status", {})).enabled)
-      throw assistantProblem("conflict", 409);
-    // The roster and the sessions are read on the connection checked above.
+    if (!hostReady(s.assistantRuntime)) throw assistantProblem("unavailable", 503);
+    // The scheduler, the roster and the sessions are read on the connection checked
+    // above.
     const runtime = runtimeFor(null, s.assistantRuntime);
+    if (this.intent && (await runtime.routines.on(connection).status()).enabled)
+      throw assistantProblem("conflict", 409);
     const roster = await runtime.agents.on(connection).list();
     for (const a of s.assistants.store.listAssistants()) {
       if (a.effectiveRevision && !roster.agents?.some((p) => p.id === a.runtimeAgentId))
@@ -178,7 +178,7 @@ export class AssistantMaintenance {
       try {
         if (
           hostReady(runtime) &&
-          (await runtime.client.call("cron.status", {})).enabled === enabled
+          (await runtimeFor(null, runtime).routines.status()).enabled === enabled
         )
           return;
       } catch {

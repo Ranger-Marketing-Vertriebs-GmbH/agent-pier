@@ -102,6 +102,37 @@ test("restore and archive again while the Gateway is away keep the paused list",
   assert.equal(own.enabled, true);
 });
 
+test("a Gateway replaced during a pause receives none of it", async (t) => {
+  const f = lifecycleFixture(t);
+  const { agent } = f.populated();
+  const own = f.cron.find((j) => j.id === `own-${agent.id}`);
+  const old = f.assistants.runtime.client;
+  const fresh = {
+    ready: true,
+    calls: [],
+    call: async (...args) => fresh.calls.push(args),
+  };
+  // The Gateway restarts while the jobs are listed; the old client is closed.
+  const jobs = f.assistants.reminders.jobs;
+  f.assistants.reminders.jobs = async (a) => {
+    const listed = await jobs.call(f.assistants.reminders, a);
+    old.ready = false;
+    old.call = async () => {
+      throw Object.assign(Error("closed"), { code: "UNAVAILABLE", status: 503 });
+    };
+    f.assistants.runtime.client = fresh;
+    return listed;
+  };
+  f.assistants.reminders.disable = async () => {};
+  await f.lifecycle.archive(agent.id, { revision: agent.revision });
+  assert.equal(own.enabled, true);
+  assert.deepEqual(stored(f, agent.id), { pending: "pause", paused: [] });
+  assert.deepEqual(
+    fresh.calls.filter(([method]) => method === "cron.update"),
+    [],
+  );
+});
+
 test("a member's pause failing never fails its archive; a start settles it", async (t) => {
   const f = lifecycleFixture(t);
   const { members } = await leadWithMembers(f, { count: 1, keep: 1 });

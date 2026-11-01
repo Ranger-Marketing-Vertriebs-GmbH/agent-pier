@@ -276,7 +276,7 @@ export class NativeRoutines extends NativeReminders {
       // Pausing revokes delivery before the RPC, including on an uncertain response.
       if (!input.enabled) this.bindings.patch(bindingId, { routineEnabled: false });
       this.bindings.patch(bindingId, { routineUpdateUnknown: true });
-      const updated = await this.assistants.runtime.client.call("cron.update", {
+      const updated = await this.scheduler(agent).update({
         id: job.id,
         patch: { enabled: input.enabled && binding.definition.trigger.kind !== "event" },
       });
@@ -312,18 +312,10 @@ export class NativeRoutines extends NativeReminders {
       const { receipt, fresh } = this.receipts.reserve(bindingId, input.eventId);
       if (!fresh) return receipt;
       try {
-        const result = await this.assistants.runtime.client.call("cron.run", {
-          id: job.id,
-          mode: "force",
-        });
+        const result = await this.scheduler(agent).run({ id: job.id, force: true });
         return this.receipts.write(bindingId, {
           eventId: input.eventId,
-          status:
-            result?.enqueued === true
-              ? "queued"
-              : result?.ran === false
-                ? "rejected"
-                : "unknown",
+          status: result.queued ? "queued" : result.refused ? "rejected" : "unknown",
         });
       } catch {
         return receipt;
@@ -459,7 +451,8 @@ export class NativeRoutines extends NativeReminders {
       .list(id)
       .filter((b) => b.kind === "routine" && b.state === "bound" && b.definition);
     if (!routines.length) return;
-    const jobs = await this.jobs(this.agent(id));
+    const agent = this.agent(id);
+    const jobs = await this.jobs(agent);
     const connection = await this.start();
     let changed = false;
     for (const binding of routines) {
@@ -485,10 +478,7 @@ export class NativeRoutines extends NativeReminders {
         `${connection.url}/complete/${binding.id}`,
       );
       if (current(job, want)) continue;
-      await this.assistants.runtime.client.call("cron.update", {
-        id: job.id,
-        patch: want,
-      });
+      await this.scheduler(agent).update({ id: job.id, patch: want });
       changed = true;
     }
     if (changed) this.assistants.changed();

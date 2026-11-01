@@ -14,6 +14,7 @@ import {
   approvalsContract,
   fakeApprovalPorts,
 } from "./runtime-port-approvals-contract.js";
+import { fakeRoutinePorts, routinesContract } from "./runtime-port-routines-contract.js";
 
 /**
  * The contract every agent runtime adapter meets (ADR 0006), so the OpenClaw adapter,
@@ -107,6 +108,7 @@ export function runtimePortContract(name, make) {
   sessionsContract(name, make, { kinds: RUN_EVENT_KINDS, tick });
   agentsContract(name, make);
   approvalsContract(name, make);
+  routinesContract(name, make);
 
   test(`${name}: channels.status() reports the channel accounts`, async (t) => {
     const runtime = await make({ channels: { telegram: [account] } });
@@ -176,6 +178,7 @@ export function fakeRuntime({
     ...fakeSessionPorts({ reach, runFailure, connection: () => connection }),
     ...fakeAgentPorts({ reach, connection: () => connection }),
     ...fakeApprovalPorts({ reach, connection: () => connection, approvals }),
+    ...fakeRoutinePorts({ reach, connection: () => connection }),
     channels: {
       status: () => reach(() => ({ channelAccounts: structuredClone(channels) })),
     },

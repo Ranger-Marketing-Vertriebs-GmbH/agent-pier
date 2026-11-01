@@ -13,6 +13,7 @@ import { pairedChannel, telegramTarget } from "./routine-targets.js";
 import { agentName } from "./reminder-audience.js";
 import { hookReport } from "./agent-hook-reports.js";
 import { telegramMessages } from "../assistant-channels/telegram-messages.js";
+import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 
 const prefix = "agentpier-hook:";
 // A run's session (`agent:<agent>:cron:<job>`, per run `…:run:<id>`).
@@ -52,8 +53,9 @@ export class HookRuns {
   now() {
     return this.hooks.events.now();
   }
-  get client() {
-    return this.assistants.runtime.client;
+  // The routines sub-port of the agents' runtime, read at each call.
+  get scheduler() {
+    return runtimeFor(null, this.assistants.runtime).routines;
   }
   /**
    * Creates and forces the event's job; throws when it could not be started (config
@@ -87,40 +89,41 @@ export class HookRuns {
       const effective = effectiveRights(hook.rights, ceiling);
       const connection = await this.reminders.start();
       const conversation = await this.reminders.openMain(agent.id);
-      const result = await this.client.call("cron.add", {
-        name: `Hook ${hook.name}`,
-        declarationKey: `${prefix}${event.id}`,
-        agentId: agent.runtimeAgentId,
-        enabled: false,
-        deleteAfterRun: false,
-        schedule: { kind: "cron", expr: "0 0 1 1 *", tz: "UTC" },
-        wakeMode: "now",
-        failureAlert: false,
-        sessionTarget: "current",
-        sessionKey: conversation.runtimeSessionKey,
-        payload: {
-          kind: "agentTurn",
-          message: hookPrompt({
-            hook,
-            payloadText: events.payload(event.id) ?? "",
-            contentType: event.contentType,
-            test: event.test === true,
-            secretsClosed: !early.secrets && this.hooks.ceiling(agent).secrets,
-          }),
-          timeoutSeconds: routineTimeoutSeconds,
-          lightContext: false,
-          toolsAllow: hookTools(effective, ceiling),
-        },
-        // Announce is the commit into the main chat; the webhook hands the result here.
-        delivery: {
-          mode: "announce",
-          completionDestination: {
-            mode: "webhook",
-            to: `${connection.url}/hook-complete/${event.id}`,
+      const job = await this.scheduler.add({
+        job: {
+          name: `Hook ${hook.name}`,
+          declarationKey: `${prefix}${event.id}`,
+          agentId: agent.runtimeAgentId,
+          enabled: false,
+          deleteAfterRun: false,
+          schedule: { kind: "cron", expr: "0 0 1 1 *", tz: "UTC" },
+          wakeMode: "now",
+          failureAlert: false,
+          sessionTarget: "current",
+          sessionKey: conversation.runtimeSessionKey,
+          payload: {
+            kind: "agentTurn",
+            message: hookPrompt({
+              hook,
+              payloadText: events.payload(event.id) ?? "",
+              contentType: event.contentType,
+              test: event.test === true,
+              secretsClosed: !early.secrets && this.hooks.ceiling(agent).secrets,
+            }),
+            timeoutSeconds: routineTimeoutSeconds,
+            lightContext: false,
+            toolsAllow: hookTools(effective, ceiling),
+          },
+          // Announce is the commit into the main chat; the webhook hands the result here.
+          delivery: {
+            mode: "announce",
+            completionDestination: {
+              mode: "webhook",
+              to: `${connection.url}/hook-complete/${event.id}`,
+            },
           },
         },
       });
-      const job = result?.job || result;
       if (!job?.id) throw assistantProblem("unavailable", 503);
       // Running before the run starts: its completion may come back at once.
       events.patch(event.id, {
@@ -131,13 +134,13 @@ export class HookRuns {
       });
       let ran;
       try {
-        ran = await this.client.call("cron.run", { id: job.id, mode: "force" });
+        ran = await this.scheduler.run({ id: job.id, force: true });
       } catch (error) {
         await this.removeJob(job.id);
         throw error;
       }
       // A refused run is a failed start: the sender's retry must run.
-      if (ran?.ran === false) {
+      if (ran.refused) {
         await this.removeJob(job.id);
         throw assistantProblem("unavailable", 503);
       }
@@ -148,7 +151,7 @@ export class HookRuns {
   }
   removeJob(id) {
     return Promise.resolve()
-      .then(() => this.client.call("cron.remove", { id }))
+      .then(() => this.scheduler.remove({ id }))
       .catch(() => {});
   }
   /** The completion webhook of an event's job. */
@@ -343,7 +346,7 @@ export class HookRuns {
    */
   reconcile() {
     return this.assistants.admit(async () => {
-      if (!this.client?.ready) return;
+      if (!hostReady(this.assistants.runtime)) return;
       const { events } = this.hooks;
       const jobs = (await this.reminders.jobs(null)).filter((job) =>
         job.declarationKey?.startsWith(prefix),

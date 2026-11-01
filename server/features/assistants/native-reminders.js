@@ -17,6 +17,7 @@ import {
 } from "./routine-targets.js";
 import { exact, schedule, updateInput } from "./reminder-input.js";
 import { invokeReminder } from "./reminder-tools.js";
+import { runtimeFor } from "./runtimes/runtime-for.js";
 
 import { agentName, audienceOf, noTelegram, pushAudience } from "./reminder-audience.js";
 export { exact, schedule, updateInput } from "./reminder-input.js";
@@ -63,24 +64,13 @@ export class NativeReminders {
     this.assistants.requireReady();
     return a;
   }
+  // The routines sub-port of `agent`'s runtime (runtimes/runtime-for.js).
+  scheduler(agent) {
+    return runtimeFor(agent, this.assistants.runtime).routines;
+  }
   // The cron jobs of `agent`, or of every agent for null.
   async jobs(agent) {
-    const jobs = [];
-    let offset = 0;
-    do {
-      const page = await this.assistants.runtime.client.call("cron.list", {
-        ...(agent && { agentId: agent.runtimeAgentId }),
-        includeDisabled: true,
-        limit: 200,
-        offset,
-      });
-      if (!Array.isArray(page.jobs)) throw assistantProblem("unavailable", 503);
-      jobs.push(...page.jobs);
-      if (!page.hasMore) return jobs;
-      if (!(page.nextOffset > offset) || jobs.length >= 10000)
-        throw assistantProblem("unavailable", 503);
-      offset = page.nextOffset;
-    } while (true);
+    return this.scheduler(agent).list({ agentId: agent?.runtimeAgentId });
   }
   find(binding, jobs) {
     binding = this.bindings.get(binding.id);
@@ -292,22 +282,23 @@ export class NativeReminders {
       });
       this.creating.add(binding.id);
       try {
-        const result = await this.assistants.runtime.client.call("cron.add", {
-          name: values.name,
-          declarationKey: declaration(binding),
-          agentId: agent.runtimeAgentId,
-          enabled: this.nativeEnabled(values),
-          deleteAfterRun: false,
-          schedule: values.schedule,
-          wakeMode: "now",
-          failureAlert: false,
-          ...this.run(
-            this.bindings.get(binding.id),
-            values,
-            `${connection.url}/complete/${binding.id}`,
-          ),
+        const job = await this.scheduler(agent).add({
+          job: {
+            name: values.name,
+            declarationKey: declaration(binding),
+            agentId: agent.runtimeAgentId,
+            enabled: this.nativeEnabled(values),
+            deleteAfterRun: false,
+            schedule: values.schedule,
+            wakeMode: "now",
+            failureAlert: false,
+            ...this.run(
+              this.bindings.get(binding.id),
+              values,
+              `${connection.url}/complete/${binding.id}`,
+            ),
+          },
         });
-        const job = result?.job || result;
         if (!job?.id) throw assistantProblem("unavailable", 503);
         this.bindings.patch(binding.id, { nativeId: job.id, state: "bound" });
         this.assistants.changed();
@@ -371,7 +362,7 @@ export class NativeReminders {
       // Pause delivery before the RPC; a lost acknowledgement must stay paused.
       if (!input.enabled) this.bindings.patch(bindingId, { deliveryEnabled: false });
       this.bindings.patch(bindingId, { reminderUpdateUnknown: true });
-      const updated = await this.assistants.runtime.client.call("cron.update", {
+      const updated = await this.scheduler(agent).update({
         id: job.id,
         patch: { enabled: input.enabled },
       });
@@ -389,9 +380,10 @@ export class NativeReminders {
       const binding = this.owned(id, bindingId);
       // Revoke delivery first, even if the native removal response is lost.
       const revokedBinding = this.bindings.patch(binding.id, { state: "revoked" });
-      const job = this.find(revokedBinding, await this.jobs(this.agent(id)));
+      const agent = this.agent(id);
+      const job = this.find(revokedBinding, await this.jobs(agent));
       assertCurrent();
-      if (job) await this.assistants.runtime.client.call("cron.remove", { id: job.id });
+      if (job) await this.scheduler(agent).remove({ id: job.id });
       this.bindings.patch(binding.id, { state: "removed" });
       this.assistants.changed();
       return { removed: true };
@@ -401,7 +393,8 @@ export class NativeReminders {
     return this.assistants.admit(async () => {
       const binding = this.owned(id, bindingId);
       if (!binding.nativeId) return { entries: [] };
-      const result = await this.assistants.runtime.client.call("cron.runs", {
+      const agent = this.assistants.store.getAssistant(id);
+      const result = await this.scheduler(agent).runs({
         id: binding.nativeId,
         limit: 20,
       });
@@ -588,10 +581,7 @@ export class NativeReminders {
     for (const binding of this.bindings.list(id)) {
       const job = this.find(binding, jobs);
       if (job?.enabled)
-        await this.assistants.runtime.client.call("cron.update", {
-          id: job.id,
-          patch: { enabled: false },
-        });
+        await this.scheduler(agent).update({ id: job.id, patch: { enabled: false } });
     }
   }
   invoke(invocation, input) {
