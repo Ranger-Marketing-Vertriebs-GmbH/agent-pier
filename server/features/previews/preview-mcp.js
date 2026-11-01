@@ -31,30 +31,37 @@ export const previewTools = {
 };
 
 export function previewToolEntries(grant, context) {
-  return context?.sessionId ? Object.entries(previewTools) : [];
+  return grant.allResources && context?.sessionId ? Object.entries(previewTools) : [];
 }
 
+const unavailable = () =>
+  problem("AgentPier access revoked or session unavailable.", 403);
 const view = ({ id, url, port, label }) => ({ id, url, port, label });
 
 export async function callPreviewTool(services, name, input, context) {
   // The grant is checked on every call: a revoked session opens nothing more.
   if (!context?.sessionId || !services.sessionMcp?.grantFor(context.sessionId))
-    throw problem("AgentPier access revoked or session unavailable.", 403);
+    throw unavailable();
   const parsed = previewTools[name].schema.safeParse(input);
   if (!parsed.success) throw previewError("PREVIEW_INVALID_INPUT", 400);
-  context.revalidate?.();
+  const revalidate = () => {
+    try {
+      context.revalidate?.();
+    } catch {
+      throw unavailable();
+    }
+  };
+  revalidate();
   const { previews } = services;
   const sessionId = context.sessionId;
   const mine = () => previews.list({ sessionId });
   if (name === "preview_list") {
-    const items = mine().map((preview) =>
-      view({
-        id: preview.id,
-        url: previews.previewUrl(preview),
-        port: preview.target,
-        label: preview.label,
-      }),
-    );
+    const items = mine().map((preview) => ({
+      id: preview.id,
+      url: previews.previewUrl(preview),
+      port: preview.target,
+      label: preview.label,
+    }));
     return { items };
   }
   if (name === "preview_close") {
@@ -72,6 +79,6 @@ export async function callPreviewTool(services, name, input, context) {
     owner: { kind: "session", sessionId, project: session.cwd },
     ...parsed.data,
   });
-  context.revalidate?.();
+  revalidate();
   return view(result);
 }
