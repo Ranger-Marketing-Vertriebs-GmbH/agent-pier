@@ -3,7 +3,7 @@ import { sessionToken } from "../login.js";
 import { notFoundBody } from "../responses.js";
 
 /** A restricted user's own account. */
-export function meAccountRoutes({ users, dictation, notifications }) {
+export function meAccountRoutes({ users, identity, dictation, notifications }) {
   const router = Router();
   router.use("/me", (req, res, next) =>
     req.principal?.role === "user" ? next() : res.status(404).json(notFoundBody()),
@@ -26,7 +26,7 @@ export function meAccountRoutes({ users, dictation, notifications }) {
     await users.changePassword(
       req.principal.userId,
       { current, next },
-      sessionToken(req),
+      sessionToken(req, identity),
     );
     notifications?.forgetUser(req.principal.userId, { except: deviceId });
     res.sendStatus(204);

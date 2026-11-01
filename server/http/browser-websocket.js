@@ -51,7 +51,7 @@ export function attachBrowserWebSocket(
     if (!match || !ID.test(match[1])) return;
     try {
       authorizeRequest(req, effective(), true);
-      const token = sessionToken(req);
+      const token = sessionToken(req, login);
       const auth = login.require(token);
       const principal = login.principal(auth);
       const target = { kind: "browser", id: match[1] };

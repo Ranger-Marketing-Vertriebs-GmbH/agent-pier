@@ -37,7 +37,7 @@ export function assistantTalkRoutes({
   dictation,
 }) {
   const router = Router();
-  const holder = (req) => identity.require(sessionToken(req)).hash;
+  const holder = (req) => identity.require(sessionToken(req, identity)).hash;
   const owner = (req, res, next) =>
     req.principal?.role === "owner" ? next() : refuse(res, 404, "notFound");
   router.use(["/assistant-talk", "/assistant-speech/voice"], owner, (_req, res, next) => {

@@ -62,6 +62,7 @@ test("requireLogin attaches the session's principal to the request", () => {
   const token = "a".repeat(64);
   const rows = { [token]: { hash: "h", userId: "u1" }, ["b".repeat(64)]: { hash: "o" } };
   const identity = {
+    session: (value) => rows[value],
     require: (value) => rows[value],
     renew: () => null,
     watch: () => () => {},

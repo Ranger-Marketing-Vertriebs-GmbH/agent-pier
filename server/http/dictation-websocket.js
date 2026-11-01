@@ -25,7 +25,7 @@ export function attachDictationWebSocket(server, { dictation, login, admit, effe
       talkId === null ? null : /^[A-Za-z0-9_-]{8,64}$/.test(talkId) ? talkId : "";
     try {
       authorizeRequest(req, effective(), true);
-      const token = sessionToken(req);
+      const token = sessionToken(req, login);
       const auth = login.require(token);
       const principal = login.principal(auth);
       admit(principal, { kind: "dictation" });
