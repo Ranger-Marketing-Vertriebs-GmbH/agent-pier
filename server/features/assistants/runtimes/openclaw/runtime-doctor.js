@@ -1,17 +1,17 @@
 import fs from "node:fs";
 import path from "node:path";
 import { spawn as spawnProcess } from "node:child_process";
-import { runtimeEnvironment } from "./runtime-config.js";
+import { runtimeEnvironment } from "../../runtime-config.js";
 import { setTimeout as delay } from "node:timers/promises";
 import { openConsoleLog } from "./gateway-log.js";
-import { readJSON, writePrivate } from "../../lib/storage.js";
+import { readJSON, writePrivate } from "../../../../lib/storage.js";
 import { inspectOwner, ownerRecord, ownershipConflict } from "./gateway-ownership.js";
 import {
   bootIdentity,
   processGroupMembers,
   processIdentity,
   startedAtOrAfter,
-} from "../../lib/process-identity.js";
+} from "../../../../lib/process-identity.js";
 
 const failure = (code, status = 503) => Object.assign(Error(code), { code, status });
 // OpenClaw's pre-migration database copies beside each agent and state database.

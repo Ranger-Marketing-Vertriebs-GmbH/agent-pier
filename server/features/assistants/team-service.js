@@ -29,7 +29,7 @@ import { mirrorLeadMemory } from "./member-memory.js";
 import { resolveTemplates, searchTemplates } from "./team-templates.js";
 import { WorkGoals } from "./work-goals.js";
 import { followArchive, refuseDeleting } from "./agent-own-jobs.js";
-import { hostReady } from "./runtimes/runtime-for.js";
+import { hostOf, hostReady } from "./runtimes/runtime-for.js";
 function exact(input, keys) {
   if (
     !input ||
@@ -504,7 +504,7 @@ export class TeamService {
     if (a.recovering || a.ledger.pending().length) throw assistantProblem("active", 409);
     a.recovering = true;
     try {
-      await a.runtime.stop({ urgent: true });
+      await hostOf(a.runtime).stop({ urgent: true });
       await Promise.allSettled(
         [...a.locks.values(), this.scheduler.running].filter(Boolean),
       );
@@ -512,7 +512,7 @@ export class TeamService {
       if (current.phase !== "provisioning_uncertain")
         throw assistantProblem("conflict", 409);
       this.store.write(current, { phase: "failed", diagnostic: "OUTCOME_REVIEWED" });
-      await a.runtime.start();
+      await hostOf(a.runtime).start();
       a.changed();
       return this.project(this.store.member(id));
     } finally {

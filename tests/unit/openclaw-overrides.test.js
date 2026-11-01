@@ -18,7 +18,7 @@ import {
 } from "../../server/features/assistants/openclaw-config/advanced-settings.js";
 import { isLockedPath } from "../../server/features/assistants/openclaw-config/locked-core.js";
 import { migrateAssistants } from "../../server/features/assistants/assistant-schema.js";
-import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
+import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
 import {
   compileOpenClawConfig,
@@ -45,7 +45,7 @@ test("the allow list is reviewed against every OpenClaw update", () => {
   const lock = JSON.parse(
     fs.readFileSync(
       new URL(
-        "../../server/features/assistants/runtime-lock/package-lock.json",
+        "../../server/features/assistants/runtimes/openclaw/runtime-lock/package-lock.json",
         import.meta.url,
       ),
       "utf8",

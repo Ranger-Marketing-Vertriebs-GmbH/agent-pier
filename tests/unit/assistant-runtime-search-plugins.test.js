@@ -5,9 +5,9 @@ import path from "node:path";
 import {
   selectedAssistantRuntime,
   stageAssistantRuntime,
-} from "../../server/features/assistants/runtime-install.js";
-import { readRuntimeLock } from "../../server/features/assistants/runtime-lock.js";
-import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
+} from "../../server/features/assistants/runtimes/openclaw/runtime-install.js";
+import { readRuntimeLock } from "../../server/features/assistants/runtimes/openclaw/runtime-lock.js";
+import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import {
   addSearchPlugins,
   assistantInstallFixture,

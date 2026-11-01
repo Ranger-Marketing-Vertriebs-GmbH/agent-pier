@@ -5,6 +5,7 @@ import { createOpenClawRuntime } from "../../server/features/assistants/runtimes
 import { GatewayClient } from "../../server/features/assistants/runtimes/openclaw/gateway-client.js";
 import { agentCreateTimeoutMs } from "../../server/features/assistants/runtimes/openclaw/gateway-client.js";
 import {
+  admittingOn,
   agentDegradedOn,
   admissionDoneOn,
   noteRefusalOn,
@@ -273,4 +274,13 @@ test("admission state is the current connection's, read through the agents sub-p
   assert.deepEqual(noteRefusalOn(undefined, error), error.admissionRefusal);
   assert.equal(noteRefusalOn(undefined, new Error("x")), null);
   assert.equal(await admissionDoneOn(undefined), undefined);
+});
+
+test("a pending admission is a wait, any other refusal degrades the agent", () => {
+  const supervisor = { client: recorder() };
+  const code = (value) => ({ agentId: "ap-a", code: value });
+  assert.equal(admittingOn(supervisor, code("agent-database-inspection-pending")), true);
+  assert.equal(admittingOn(supervisor, code("agent-database-inspection-failed")), false);
+  assert.equal(admittingOn(supervisor, null), false);
+  assert.equal(admittingOn(undefined, code("agent-database-inspection-pending")), false);
 });

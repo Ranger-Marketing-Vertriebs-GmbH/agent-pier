@@ -9,7 +9,7 @@ import { AssistantStore } from "../../server/features/assistants/assistant-store
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { RequestLedger } from "../../server/features/assistants/request-ledger.js";
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
-import { selectedAssistantRuntime } from "../../server/features/assistants/runtime-install.js";
+import { selectedAssistantRuntime } from "../../server/features/assistants/runtimes/openclaw/runtime-install.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { patchConfig } from "../../server/features/assistants/runtimes/openclaw/live-patch.js";
 import { gatewayPath } from "../../server/features/assistants/runtime-config.js";

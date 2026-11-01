@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { stageAssistantRuntime } from "../../server/features/assistants/runtime-install.js";
+import { stageAssistantRuntime } from "../../server/features/assistants/runtimes/openclaw/runtime-install.js";
 import { assistantInstallFixture } from "../helpers/assistant-install-fixture.js";
 
 test("fresh runtime uses verified bundled dependency graph and pinned npm ci", async (t) => {
@@ -150,9 +150,9 @@ test("locked graph rejects unpinned and non-registry dependencies before downloa
 
 test("shipped dependency graph covers native packages for all supported hosts", async () => {
   const { readRuntimeLock } =
-    await import("../../server/features/assistants/runtime-lock.js");
+    await import("../../server/features/assistants/runtimes/openclaw/runtime-lock.js");
   const { runtimeManifest } =
-    await import("../../server/features/assistants/runtime-manifest.js");
+    await import("../../server/features/assistants/runtimes/openclaw/runtime-manifest.js");
   const { lockBytes } = readRuntimeLock(runtimeManifest);
   const { packages } = JSON.parse(lockBytes);
   for (const platform of ["darwin", "linux"])
@@ -179,7 +179,7 @@ test("starting a selected locked runtime rejects altered dependency metadata", a
     JSON.stringify(installed),
   );
   const { selectedAssistantRuntime } =
-    await import("../../server/features/assistants/runtime-install.js");
+    await import("../../server/features/assistants/runtimes/openclaw/runtime-install.js");
   assert.equal((await selectedAssistantRuntime(f.options)).nodePath, installed.nodePath);
   fs.appendFileSync(
     path.join(path.resolve(installed.entryPath, "../../.."), "package-lock.json"),

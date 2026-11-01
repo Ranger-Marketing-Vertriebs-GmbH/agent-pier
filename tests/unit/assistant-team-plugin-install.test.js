@@ -8,7 +8,7 @@ import {
   provisionTeamPlugin,
   teamPluginDirectory,
 } from "../../server/features/assistants/team-plugin-install.js";
-import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
+import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { writeGuardRuntimes } from "../../server/features/assistants/native-capabilities.js";
 test("managed plugin assets are private, reproducible and repaired without adopting a symlink", (t) => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "team-plugin-"));

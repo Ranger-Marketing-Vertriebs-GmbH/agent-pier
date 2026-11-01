@@ -10,7 +10,7 @@ import { AssistantConfig } from "../../server/features/assistants/assistant-conf
 import { AssistantService } from "../../server/features/assistants/assistant-service.js";
 import { TeamService } from "../../server/features/assistants/team-service.js";
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
-import { selectedAssistantRuntime } from "../../server/features/assistants/runtime-install.js";
+import { selectedAssistantRuntime } from "../../server/features/assistants/runtimes/openclaw/runtime-install.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 
 // The installation provisioned by scripts/provision-assistant-contracts.mjs. The

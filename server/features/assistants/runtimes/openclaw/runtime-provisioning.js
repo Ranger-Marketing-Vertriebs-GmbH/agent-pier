@@ -1,9 +1,10 @@
 import path from "node:path";
-import { readJSON } from "../../lib/storage.js";
-import { readAssistantFeature, writeAssistantFeature } from "./assistant-feature.js";
+import { readJSON } from "../../../../lib/storage.js";
+import { readAssistantFeature, writeAssistantFeature } from "../../assistant-feature.js";
 import {
   provisionEnabledRuntime,
   sameRuntime,
+  shippedRuntime as current,
   stageAssistantRuntime,
 } from "./runtime-install.js";
 import { runtimeManifest } from "./runtime-manifest.js";
@@ -11,11 +12,6 @@ import { runtimeManifest } from "./runtime-manifest.js";
 // Only a stable code is reported; installer errors can carry private paths.
 const stableCode = (error, fallback) =>
   /^[A-Z][A-Z0-9_]*$/.test(error?.code || "") ? error.code : fallback;
-const current = (runtime, manifest) =>
-  !!runtime &&
-  runtime.version === manifest.version &&
-  runtime.nodeVersion === manifest.nodeVersion &&
-  runtime.dependencyLockSha256 === manifest.dependencyLockSha256;
 
 /**
  * True when an enabled installation selected a runtime that this AgentPier version

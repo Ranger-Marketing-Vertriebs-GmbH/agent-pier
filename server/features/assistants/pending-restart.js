@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { readJSON, writePrivate } from "../../lib/storage.js";
-import { hostReady } from "./runtimes/runtime-for.js";
+import { runtimeFor } from "./runtimes/runtime-for.js";
 
 // How often a pending restart checks again whether nothing is busy any more.
 export const pendingRestartRetryMs = 15000;
@@ -36,7 +36,8 @@ const valid = (state) =>
  * while work runs). The owner can run it at once with `restartNow` instead, which
  * interrupts running agent work. Any later Gateway start compiles every saved change,
  * so a start of another Gateway generation ends it too, also after an AgentPier
- * restart.
+ * restart. This keeps why a restart waits; whether one is needed and which start
+ * loaded the changes come from the host sub-port (restartNeeded(), generation()).
  */
 export class PendingRestart {
   constructor({
@@ -51,8 +52,12 @@ export class PendingRestart {
     this.onStatus = (status) => {
       if (status.availability === "ready") this.settle();
     };
-    assistants.runtime.on?.("status", this.onStatus);
+    this.unsubscribe = this.host.subscribe(this.onStatus);
     if (this.state) this.schedule(this.retryMs);
+  }
+  // The host of the runtime all agents share today (runtimes/runtime-for.js).
+  get host() {
+    return runtimeFor(null, this.assistants.runtime).host;
   }
   get file() {
     const root = this.assistants.runtime.paths?.root;
@@ -88,14 +93,12 @@ export class PendingRestart {
    * whether a restart is pending.
    */
   request(reason, affected = { agents: [], teamMembers: 0 }) {
-    const runtime = this.assistants.runtime;
-    const availability = runtime.status?.().availability;
-    if (availability ? availability === "disabled" : !hostReady(runtime)) return false;
+    if (!this.host.restartNeeded()) return false;
     const state = this.state || {
       since: Date.now(),
       reasons: [],
       affected: { agents: [], teamMembers: 0 },
-      generationId: runtime.generationId || null,
+      generationId: this.host.generation() || null,
     };
     if (!state.reasons.includes(reason)) state.reasons.push(reason);
     for (const agent of affected.agents || [])
@@ -115,10 +118,9 @@ export class PendingRestart {
   }
   /** A Gateway of another generation is ready: it compiled every saved change. */
   settle() {
-    const runtime = this.assistants.runtime;
     if (!this.state || this.running) return;
-    if (runtime.generationId && runtime.generationId !== this.state.generationId)
-      this.clear();
+    const generation = this.host.generation();
+    if (generation && generation !== this.state.generationId) this.clear();
   }
   clear() {
     this.state = null;
@@ -159,7 +161,7 @@ export class PendingRestart {
       return this.attempt({ force });
     }
     // A stopped or starting Gateway compiles the changes when it starts.
-    if (!hostReady(this.assistants.runtime)) {
+    if (!this.host.ready()) {
       this.schedule(this.retryMs);
       return null;
     }
@@ -181,7 +183,7 @@ export class PendingRestart {
         // A change saved during the restart may have been compiled too late.
         if (this.version === version) this.clear();
         else {
-          this.state.generationId = this.assistants.runtime.generationId || null;
+          this.state.generationId = this.host.generation() || null;
           this.wait([]);
         }
         return { restarted: true };
@@ -207,6 +209,6 @@ export class PendingRestart {
   close() {
     this.closed = true;
     clearTimeout(this.timer);
-    this.assistants.runtime.off?.("status", this.onStatus);
+    this.unsubscribe();
   }
 }

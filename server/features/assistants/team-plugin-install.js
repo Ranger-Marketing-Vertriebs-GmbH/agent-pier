@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash, randomUUID } from "node:crypto";
 import { privateFolder } from "./runtime-paths.js";
-import { runtimeManifest } from "./runtime-manifest.js";
+import { runtimeManifest } from "./runtimes/openclaw/runtime-manifest.js";
 const source = fileURLToPath(new URL("./team-plugin/", import.meta.url));
 const files = [
   "index.js",

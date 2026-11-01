@@ -96,7 +96,7 @@ jobs:
         id: runtime
         run: >-
           node --input-type=module -e 'import { runtimeManifest as m } from
-          "./server/features/assistants/runtime-manifest.js";
+          "./server/features/assistants/runtimes/openclaw/runtime-manifest.js";
           console.log(`identity=${m.version}-node${m.nodeVersion}-${m.dependencyLockSha256}`)'
           >> "$GITHUB_OUTPUT"
       # Only the immutable installation is cached; the data directory stays fresh.
@@ -200,7 +200,7 @@ jobs:
         id: runtime
         run: >-
           node --input-type=module -e 'import { runtimeManifest as m } from
-          "./server/features/assistants/runtime-manifest.js";
+          "./server/features/assistants/runtimes/openclaw/runtime-manifest.js";
           console.log(`identity=${m.version}-node${m.nodeVersion}-${m.dependencyLockSha256}`)'
           >> "$GITHUB_OUTPUT"
       # Same path and key as native-contracts, so either job reuses the other's cache.

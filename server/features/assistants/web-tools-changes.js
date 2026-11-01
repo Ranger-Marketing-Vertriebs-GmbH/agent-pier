@@ -3,7 +3,7 @@ import { restartRequired } from "./assistant-provider-synchronization.js";
 import { temporaryMember } from "./team-presentation.js";
 import { webToolsSignatures } from "./openclaw-config/web-tools.js";
 import { usedCapabilities } from "./native-capabilities.js";
-import { hostReady } from "./runtimes/runtime-for.js";
+import { hostOf, hostReady } from "./runtimes/runtime-for.js";
 
 /**
  * The global web tool sections (the tools.allow additions, tools.web, the search
@@ -75,7 +75,8 @@ export class WebToolsChanges {
     if (this.pending) {
       save();
       this.queue();
-    } else if (this.assistants.runtime.status().availability === "disabled") save();
+    } else if (hostOf(this.assistants.runtime).status().availability === "disabled")
+      save();
     else {
       this.confirm(confirmed);
       await this.restart(save);

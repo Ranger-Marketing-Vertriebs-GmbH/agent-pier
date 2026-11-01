@@ -123,7 +123,7 @@ The optional agent service is not bundled. When the owner turns agents on, Agent
 downloads the pinned OpenClaw package (MIT) with its locked npm dependencies and
 plugins, and a pinned Node.js runtime under the Node.js license, into the data
 directory. Their license files stay inside that runtime installation; the locked
-versions are listed in `server/features/assistants/runtime-lock/package-lock.json`.
+versions are listed in `server/features/assistants/runtimes/openclaw/runtime-lock/package-lock.json`.
 
 ## Unicode upload-name data
 

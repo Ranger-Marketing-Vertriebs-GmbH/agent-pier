@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { isMainModule } from "../server/lib/is-main-module.js";
-import { provisionInstallerRuntime } from "../server/features/assistants/runtime-provisioning.js";
-import { selectedAssistantRuntime } from "../server/features/assistants/runtime-install.js";
+import { provisionInstallerRuntime } from "../server/features/assistants/runtimes/openclaw/runtime-provisioning.js";
+import { selectedAssistantRuntime } from "../server/features/assistants/runtimes/openclaw/runtime-install.js";
 
 const runtimeVariables = [
   "AGENTPIER_ASSISTANT_PROVIDER_RUNTIME",

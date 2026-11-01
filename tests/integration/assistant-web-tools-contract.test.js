@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "../helpers/process-guard.js";
-import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
+import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { patchConfig } from "../../server/features/assistants/runtimes/openclaw/live-patch.js";
 
 const installed = process.env.AGENTPIER_WEB_TOOLS_CONTRACT_RUNTIME;

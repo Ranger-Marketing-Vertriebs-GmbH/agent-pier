@@ -19,7 +19,7 @@ import {
   writeAssistantFeature,
 } from "../../server/features/assistants/assistant-feature.js";
 import { needsAssistantMaintenance } from "../../server/features/assistants/assistant-maintenance.js";
-import { selectedAssistantRuntime } from "../../server/features/assistants/runtime-install.js";
+import { selectedAssistantRuntime } from "../../server/features/assistants/runtimes/openclaw/runtime-install.js";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
 import { destroyBackupKeys } from "../../server/features/assistants/backup-credentials.js";
 

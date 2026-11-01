@@ -4,9 +4,9 @@ import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { isMainModule } from "../server/lib/is-main-module.js";
-import { runtimeManifest } from "../server/features/assistants/runtime-manifest.js";
-import { stageAssistantRuntime } from "../server/features/assistants/runtime-install.js";
-import { RuntimeSupervisor } from "../server/features/assistants/runtime-supervisor.js";
+import { runtimeManifest } from "../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
+import { stageAssistantRuntime } from "../server/features/assistants/runtimes/openclaw/runtime-install.js";
+import { RuntimeSupervisor } from "../server/features/assistants/runtimes/openclaw/runtime-supervisor.js";
 import {
   GatewayClient,
   agentCreateTimeoutMs,

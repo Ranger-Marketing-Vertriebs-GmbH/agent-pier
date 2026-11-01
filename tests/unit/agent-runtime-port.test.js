@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
+import { randomUUID } from "node:crypto";
 import {
   RUNTIME_PORTS,
   available,
@@ -42,12 +43,15 @@ function fakeSupervisor({
   };
   return Object.assign(supervisor, {
     client: unreachable ? null : connect(),
+    // Each launch draws a new one (runtime-supervisor.js start).
+    generationId: unreachable ? null : randomUUID(),
     calls,
     lifecycle: [],
     status: () => ({ ...state }),
     async start(options) {
       supervisor.lifecycle.push(["start", options]);
       setState({ availability: "starting" });
+      supervisor.generationId = randomUUID();
       supervisor.client = connect();
       setState({ availability: "ready", sync: "reconciling" });
     },

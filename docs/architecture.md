@@ -152,11 +152,15 @@ OpenClaw Gateway per host as the same OS user and talks to it over authenticated
 loopback WSS with a pinned certificate. The browser never reaches the Gateway
 directly.
 
-- `server/features/assistants/`: the runtime manifest, installation and update
-  lifecycle (`runtime-*.js`), the supervisor (`runtime-supervisor.js`), and the
-  OpenClaw configuration compiler (`openclaw-config/`). The Gateway transport
-  (`gateway-client.js`, `gateway-protocol.js`, `gateway-tls.js`) lives in the OpenClaw
-  adapter, `runtimes/openclaw/`. The compiler writes locked paths and AgentPier-owned
+- `server/features/assistants/`: AgentPier's runtime lifecycle (`runtime-updates.js`
+  with its snapshot, blockers and retention, `pending-restart.js`, `runtime-paths.js`)
+  and the OpenClaw configuration compiler (`openclaw-config/`, `runtime-config.js`).
+  The OpenClaw adapter, `runtimes/openclaw/`, holds the runtime manifest, its
+  dependency lock (`runtime-lock/`), installation (`runtime-install.js`,
+  `runtime-provisioning.js`), the Doctor migration (`runtime-doctor.js`), the
+  supervisor (`runtime-supervisor.js`, with `gateway-log.js` and
+  `gateway-ownership.js`) and the Gateway transport (`gateway-client.js`,
+  `gateway-protocol.js`, `gateway-tls.js`). The compiler writes locked paths and AgentPier-owned
   settings, plus only the allow-listed overrides from the advanced settings
   (`advanced-config.js`). The same directory holds agent profiles and conversations,
   capabilities and skills, shell approvals and the allowlist, teams (`team-*.js`, with the bundled `team-plugin/`), lead requests
@@ -181,7 +185,17 @@ the supervisor's availability states, `version()`, `subscribe()` and `start`/`st
 `restart`, plus `connection()`, a handle that changes when a restart replaces the
 Gateway client; feature code checks readiness with `hostReady()` and compares
 `hostConnection()` across an await, both from `runtime-for.js`, instead of reading
-`runtime.client`. The `sessions` sub-port creates, sends to, aborts, waits for,
+`runtime.client`, and starts, stops and reads it through `hostOf(supervisor)`. The
+host also installs (`install`, `sameInstall`), reports the shipped version and
+whether an install record is it (`target`, `current`), stages an update in the
+background after an AgentPier update (`stageUpdate`), migrates the stopped state to a
+new version (`migrate`), stops a leftover migration and clears its files before a
+rollback restores the snapshot (`stopMigration`, `clearMigration`) and tells whether
+a saved change needs a restart and which start loaded the running configuration
+(`restartNeeded`, `generation`). AgentPier's own update journal (`runtime-updates.js`:
+staging, maintenance, snapshot, validation, rollback, recovery) and the pending
+restart (`pending-restart.js`: why a restart waits) stay outside the adapter and use
+only these methods; the OpenClaw side is `runtimes/openclaw/openclaw-lifecycle.js`. The `sessions` sub-port creates, sends to, aborts, waits for,
 describes, lists, keeps open, compacts and deletes agent sessions, reads their history
 and downloads generated artifacts, with named parameters; `sessions.on(connection)`
 binds those calls to the connection a caller captured before an await, so they never
@@ -223,7 +237,12 @@ and the roster wait (`agent-roster.js`) live in the adapter; the compiler in
 fails when server code outside `runtimes/` names a Gateway method in
 `.call()`/`.request()` or reaches `runtime.client`. Every caller has moved behind the
 port, so the rule is absolute: there is no allowlist, and no file outside `runtimes/`
-may offend. `tests/helpers/runtime-port-contract.js` is the contract every adapter
+may offend. A third rule refuses imports of adapter modules from outside `runtimes/`:
+only `runtime-for.js` and `agent-runtime.js` are public. Composition roots
+(`server/application/assistant-graph.js`, `services.js`, `*-wiring.js`) may construct
+the OpenClaw supervisor; a shrink-only allowlist names the two modules that still read
+OpenClaw's runtime manifest (the MCP toolchains share its Node pin, and the team
+plugin installer checks its versions until the team plugin moves into the adapter). `tests/helpers/runtime-port-contract.js` is the contract every adapter
 passes, every sub-port included.
 
 See [the user guide](agents.md), [the Gateway design](assistant-gateway.md) and

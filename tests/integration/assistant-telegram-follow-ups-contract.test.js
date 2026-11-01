@@ -8,7 +8,7 @@ import { contractTimeout } from "../helpers/contract-timeout.js";
 import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "../helpers/process-guard.js";
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { GatewayEventHub } from "../../server/features/assistants/gateway-event-hub.js";
-import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
+import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { publicMessages } from "../../server/features/assistants/conversations.js";
 import { channelFixture } from "../helpers/assistant-channel-fixture.js";
 import {

@@ -1,5 +1,5 @@
 import { assistantProblem } from "./assistant-validation.js";
-import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
+import { hostOf, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 
 // Recovery after an attempt whose outcome is unknown: the owner acknowledges it, the
 // owned runtime restarts, and the attempt is marked reviewed so a new one may follow.
@@ -18,13 +18,13 @@ export async function recoverAttempt(service, id, input) {
   service.recovering = true;
   try {
     // Confirm the owned process has exited before permitting another delivery.
-    await service.runtime.stop({ urgent: true });
+    await hostOf(service.runtime).stop({ urgent: true });
     await Promise.allSettled(
       [...service.locks.values(), service.reconciling].filter(Boolean),
     );
     const current = service.ledger.getAttempt(id);
     if (["uncertain", "interrupted"].includes(current.state)) service.ledger.review(id);
-    await service.runtime.start();
+    await hostOf(service.runtime).start();
     service.changed();
     return service.ledger.getAttempt(id);
   } finally {

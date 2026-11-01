@@ -9,7 +9,7 @@ import { detectBrowser } from "../../server/features/assistants/browser-detectio
 import {
   freePort,
   maxGatewayPort,
-} from "../../server/features/assistants/runtime-supervisor.js";
+} from "../../server/features/assistants/runtimes/openclaw/runtime-supervisor.js";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
 import { prepareRuntimeConfig } from "../../server/features/assistants/runtime-config.js";
 import { webToolsSections } from "../../server/features/assistants/openclaw-config/web-tools.js";

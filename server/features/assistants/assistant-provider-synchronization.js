@@ -3,7 +3,7 @@ import { temporaryMember } from "./team-presentation.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { destroyBackupKeys } from "./backup-credentials.js";
 import { personalCapabilities } from "./native-capabilities.js";
-import { hostReady } from "./runtimes/runtime-for.js";
+import { hostOf, hostReady } from "./runtimes/runtime-for.js";
 
 const blockedModel = { primary: "agentpier-unavailable/blocked", fallbacks: [] };
 const central = (profile) => !profile.model.connectionId.startsWith("openclaw:");
@@ -133,7 +133,7 @@ export class AssistantProviderSynchronization {
     } catch (error) {
       // A lost cron acknowledgement must not leave scheduling with uncertain
       // authorization. The next start repeats the offline model guard.
-      await a.runtime.stop({ urgent: true });
+      await hostOf(a.runtime).stop({ urgent: true });
       throw error;
     }
   }
@@ -251,12 +251,12 @@ export class AssistantProviderSynchronization {
       await busy();
       // Awaited while the Gateway still runs, after nothing can refuse the change.
       await beforeChange();
-      const wasRunning = a.runtime.status().availability !== "disabled";
+      const wasRunning = hostOf(a.runtime).status().availability !== "disabled";
       if (!online) {
         // Once more right before the stop: a cron run the scheduler started just as
         // it was switched off is visible by now. Leaving restores cron.
         await busy();
-        await a.runtime.stop();
+        await hostOf(a.runtime).stop();
         await this.maintenance.quiesce();
       } else {
         for (const profile of a.store.listAssistants())
@@ -270,13 +270,13 @@ export class AssistantProviderSynchronization {
         failure = error;
       }
       if (online) {
-        await a.runtime.stop();
+        await hostOf(a.runtime).stop();
         await this.maintenance.quiesce();
       }
       await this.prepare();
       if (online && failure) throw assistantProblem("unavailable", 503);
       // Not after AgentPier's shutdown began during the drain (runtime-supervisor.js).
-      if (wasRunning && !a.runtime.closed) await a.runtime.start();
+      if (wasRunning && !a.runtime.closed) await hostOf(a.runtime).start();
       await this.pauseBlocked({ duringMaintenance: true });
       safeToLeave = true;
       a.changed();

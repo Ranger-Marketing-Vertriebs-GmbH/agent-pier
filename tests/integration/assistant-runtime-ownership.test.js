@@ -6,7 +6,7 @@ import path from "node:path";
 import { EventEmitter, once } from "node:events";
 import { spawn } from "node:child_process";
 import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "../helpers/process-guard.js";
-import { recordOwner } from "../../server/features/assistants/gateway-ownership.js";
+import { recordOwner } from "../../server/features/assistants/runtimes/openclaw/gateway-ownership.js";
 import { processIdentity } from "../../server/lib/process-identity.js";
 
 function fixture(t, prefix, source = "setInterval(() => {}, 1000)") {

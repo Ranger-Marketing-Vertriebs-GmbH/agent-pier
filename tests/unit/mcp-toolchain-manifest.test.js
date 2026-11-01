@@ -4,7 +4,7 @@ import {
   toolchainManifest as m,
   toolchainTarget,
 } from "../../server/features/mcp-packages/toolchain-manifest.js";
-import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
+import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 
 const targets = ["darwin-arm64", "darwin-x64", "linux-arm64", "linux-x64"];
 const sha = /^[0-9a-f]{64}$/;

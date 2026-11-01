@@ -48,7 +48,7 @@ import { withAdmission } from "./agent-admission.js";
 import { chatCommand, isChatCommand } from "./chat-commands.js";
 import { templateProblem, templateRecord } from "../agency/agency-templates.js";
 import { auditProactivity, proactivityChange } from "./proactivity-changes.js";
-import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
+import { hostOf, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 
 const pick = (value, keys) => Object.fromEntries(keys.map((k) => [k, value[k]]));
 export class AssistantService {
@@ -114,7 +114,7 @@ export class AssistantService {
     this.locks = new Map();
     this.closed = false;
     this.onStatus = runtimeStatusHandler(this);
-    runtime.on("status", this.onStatus);
+    this.unsubscribeStatus = hostOf(runtime).subscribe(this.onStatus);
     this.bindGateway();
     this.poll = setInterval(() => this.pollReconcile(), 2000);
     this.poll.unref();
@@ -586,7 +586,7 @@ export class AssistantService {
     this.chatStreams.clear();
     this.feeds.close();
     this.gatewayEvents.unsubscribe?.();
-    this.runtime.off("status", this.onStatus);
+    this.unsubscribeStatus();
     await this.workflows?.close();
     await this.teams?.close();
     await this.login?.close();

@@ -48,7 +48,7 @@ import {
   OverrideStore,
   overridesFor,
 } from "../features/assistants/openclaw-config/overrides.js";
-import { RuntimeSupervisor } from "../features/assistants/runtime-supervisor.js";
+import { RuntimeSupervisor } from "../features/assistants/runtimes/openclaw/runtime-supervisor.js";
 import {
   AssistantMaintenance,
   needsAssistantMaintenance,

@@ -1,4 +1,4 @@
-import { runtimeManifest } from "../assistants/runtime-manifest.js";
+import { runtimeManifest } from "../assistants/runtimes/openclaw/runtime-manifest.js";
 import { packageProblem } from "./package-errors.js";
 
 // uv release assets (.sha256) and python-build-standalone SHA256SUMS, verified

@@ -11,7 +11,7 @@ import { AgentAttachments } from "../../server/features/assistants/agent-attachm
 import { AgentShares } from "../../server/features/assistants/agent-shares.js";
 import { GeneratedImages } from "../../server/features/assistants/generated-images.js";
 import { ImagePolicy } from "../../server/features/assistants/image-policy.js";
-import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
+import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { patchConfig } from "../../server/features/assistants/runtimes/openclaw/live-patch.js";

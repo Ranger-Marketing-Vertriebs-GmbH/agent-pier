@@ -7,7 +7,7 @@ import { randomUUID } from "node:crypto";
 import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "../helpers/process-guard.js";
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
-import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
+import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { workflowFixture } from "../helpers/assistant-workflow-fixture.js";
 import {

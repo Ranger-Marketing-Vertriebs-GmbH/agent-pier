@@ -6,6 +6,7 @@ import {
   agentDegraded,
   degradedAgents,
   noteRefusal,
+  pendingAdmission,
   settledAdmission,
 } from "../../server/features/assistants/runtimes/openclaw/agent-admission.js";
 import { withAdmission } from "../../server/features/assistants/agent-admission.js";
@@ -188,6 +189,7 @@ test("only a definite answer before any run refuses a turn", () => {
         retryable: true,
         ...refusal("agent-database-inspection-pending"),
       }),
+      (refusal) => refusal.code === pendingAdmission,
     ),
     "starting",
   );

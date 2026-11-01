@@ -12,7 +12,7 @@ import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { WebSearchSettings } from "../../server/features/assistants/web-search-settings.js";
 import { detectBrowser } from "../../server/features/assistants/browser-detection.js";
-import { selectedAssistantRuntime } from "../../server/features/assistants/runtime-install.js";
+import { selectedAssistantRuntime } from "../../server/features/assistants/runtimes/openclaw/runtime-install.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { hasDocumentExtract } from "../../server/features/assistants/openclaw-config/web-tools.js";
 import { agentProfileName } from "../../server/features/assistants/openclaw-config/browser-profiles.js";

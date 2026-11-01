@@ -19,7 +19,7 @@ import {
 } from "../../server/features/assistants/exec-shell.js";
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
-import { RuntimeSupervisor } from "../../server/features/assistants/runtime-supervisor.js";
+import { RuntimeSupervisor } from "../../server/features/assistants/runtimes/openclaw/runtime-supervisor.js";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
 import { readJSON } from "../../server/lib/storage.js";
 import { mergeGateway } from "../helpers/assistant-shell-service.js";

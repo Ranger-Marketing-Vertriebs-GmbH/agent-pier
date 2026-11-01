@@ -6,7 +6,8 @@ const adapters = new WeakMap();
 /**
  * The agent runtime port (agent-runtime.js) that runs `agent`. Agents have no runtime
  * field yet, so every agent, and a missing one, runs on OpenClaw behind `supervisor`
- * (runtime-supervisor.js). Once agents record `runtime`, this picks its adapter.
+ * (openclaw/runtime-supervisor.js). Once agents record `runtime`, this picks its
+ * adapter.
  */
 export function runtimeFor(agent, supervisor) {
   if (!supervisor || typeof supervisor !== "object")
@@ -18,6 +19,9 @@ export function runtimeFor(agent, supervisor) {
 
 /** A resolver `(agent) => AgentRuntime` bound to the supervisor `supervisor()` returns. */
 export const runtimeResolver = (supervisor) => (agent) => runtimeFor(agent, supervisor());
+
+/** The host sub-port of the runtime of `agent` behind `supervisor`. */
+export const hostOf = (supervisor, agent) => runtimeFor(agent, supervisor).host;
 
 /**
  * Whether the runtime host of `agent` behind `supervisor` takes calls now

@@ -493,7 +493,7 @@ installation, and an older AgentPier's team plugin refuses 2026.10.7.
   starts, but every session call on an existing agent fails with `UNAVAILABLE`
   ("uses schema version 24; … run openclaw doctor --fix"), because the 24 → 25 step
   is an identity migration that needs Doctor's maintenance lease. Validation then
-  failed and every activation rolled back. `runtime-doctor.js` now runs
+  failed and every activation rolled back. `runtimes/openclaw/runtime-doctor.js` now runs
   `openclaw doctor --fix --non-interactive` between the snapshot and the candidate's
   first start (phase `migrating`, `UPDATE_MIGRATION_FAILED`), with
   `OPENCLAW_SERVICE_REPAIR_POLICY=external`, and removes its plain

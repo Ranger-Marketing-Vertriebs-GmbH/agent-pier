@@ -6,7 +6,7 @@ import path from "node:path";
 import { EventEmitter, once } from "node:events";
 import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "../helpers/process-guard.js";
 import { webToolsSignatures } from "../../server/features/assistants/openclaw-config/web-tools.js";
-import { consoleLogLimit } from "../../server/features/assistants/gateway-log.js";
+import { consoleLogLimit } from "../../server/features/assistants/runtimes/openclaw/gateway-log.js";
 test("disabled service stays inert and interrupted installation cannot launch after close", async (t) => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-supervisor-"));
   t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));

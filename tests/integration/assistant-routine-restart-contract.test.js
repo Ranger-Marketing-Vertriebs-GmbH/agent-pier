@@ -7,7 +7,7 @@ import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "../helpers/proces
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { NativeReminders } from "../../server/features/assistants/native-reminders.js";
 import { NativeRoutines } from "../../server/features/assistants/native-routines.js";
-import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
+import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { WriteGuardReapply } from "../../server/features/assistants/write-guard-reapply.js";

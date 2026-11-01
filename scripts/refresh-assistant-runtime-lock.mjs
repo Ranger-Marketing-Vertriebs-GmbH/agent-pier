@@ -6,14 +6,14 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { isMainModule } from "../server/lib/is-main-module.js";
 import { download as fetchDownload } from "../server/features/operations/releases.js";
-import { runtimeManifest } from "../server/features/assistants/runtime-manifest.js";
+import { runtimeManifest } from "../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import {
   dependencyLockDigest,
   lockedDependencies,
   lockedOverrides,
   readRuntimeLock,
   runtimeLockDirectory,
-} from "../server/features/assistants/runtime-lock.js";
+} from "../server/features/assistants/runtimes/openclaw/runtime-lock.js";
 
 // Maintainer operation only. Product installation always consumes the reviewed lock.
 // Dependabot excludes the lock; security fixes go through this refresh as described

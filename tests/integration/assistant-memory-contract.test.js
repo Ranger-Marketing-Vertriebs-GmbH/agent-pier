@@ -9,7 +9,7 @@ import { promisify } from "node:util";
 import { setTimeout as delay } from "node:timers/promises";
 import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "../helpers/process-guard.js";
 import { runtimeEnvironment } from "../../server/features/assistants/runtime-config.js";
-import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
+import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import path from "node:path";
-import { splitCommand } from "./runtimes/openclaw/exec-allowlist-policy.js";
+import { splitCommand } from "./exec-command-split.js";
 
 // How OpenClaw 2026.10.3 writes an allow-always (dist: exec-approvals-allow-always,
 // exec-command-resolution): one path entry per program whose `argPattern` hashes
