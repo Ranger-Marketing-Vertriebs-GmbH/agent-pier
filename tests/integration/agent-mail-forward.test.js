@@ -314,21 +314,25 @@ test("a forward parses the original's HTML off the event loop", async (t) => {
   const probe = `<a ${Array.from({ length: 130_000 }, (_, i) => `a${i}`).join(" ")}>x</a>`;
   assert.ok(Buffer.byteLength(probe) < 1_048_576);
   const { uid } = original(f, { html: probe });
-  let last = performance.now();
-  let gap = 0;
+  // Proven by what ran, not by how long it took (a busy host stretches any duration):
+  // the parse holds a place of the HTML process pool, and this event loop keeps
+  // running timers while that place is held. A parse on this thread would hold no
+  // place, and while it ran no timer could fire.
+  const before = extractionQueues().html.started;
+  let ticksWhileParsing = 0;
   const timer = setInterval(() => {
-    gap = Math.max(gap, performance.now() - last);
-    last = performance.now();
-  }, 20);
-  const started = Date.now();
+    if (extractionQueues().html.running > 0) ticksWhileParsing++;
+  }, 5);
   let r;
   try {
     r = await forwardOf(f)({ uid });
   } finally {
     clearInterval(timer);
   }
-  assert.ok(gap < 200, `the event loop stalled for ${gap} ms`);
-  assert.ok(Date.now() - started < 7_000);
+  assert.equal(extractionQueues().html.started - before, 1, "parsed in a child process");
+  assert.ok(ticksWhileParsing > 0, "the event loop ran while the child parsed");
+  // The child's deadline ended the parse: a parse left to finish would have returned
+  // a quote, so the HTML would go along.
   assert.match(r.htmlNote, /too many tags/);
   const p = f.workflows.get(r.actionId).payload;
   assert.equal(p.html, null);
