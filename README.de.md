@@ -78,6 +78,10 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
   [einfaches SSH](docs/ssh-access.md#plain-ssh-from-coding-sessions),
   [einfaches SSH für Agenten](docs/ssh-access.md#plain-ssh-from-agents),
   [SFTP](docs/sftp-access.md)).
+- **Vorschauen:** Coding-Sessions und Agenten öffnen ihren Dev-Server oder SSH-Tunnel
+  als Link in deinem Browser über AgentPier, mit eigenem Port aus einem einstellbaren
+  Bereich, lokal, über Tailscale und im Netzwerkmodus erreichbar, nur für den
+  angemeldeten Besitzer ([Vorschauen](docs/previews.md), auf Englisch).
 - **Secrets:** benannte Geheimnisse, etwa API-Tokens, die du Agenten und
   Coding-Sessions als Datei zuweist, nie als Umgebungsvariable
   ([Secrets](docs/secrets.md), auf Englisch).
@@ -227,12 +231,12 @@ Mindestversion startet erst nach dem Update wieder Sessions. Ein Quellcode-Check
 
 Die [Dokumentationsübersicht](docs/README.md) listet alle Anleitungen.
 
-| Bereich    | Anleitungen                                                                                                                                                                                                                                                                                                                                                                      |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Nutzen     | [Eingang](docs/inbox.md) · [Provider](docs/providers.md) · [Pipelines](docs/pipelines.md) · [Dateien](docs/file-explorer.md) · [Artifacts](docs/artifacts.md) · [MCP](docs/mcp.md) · [SSH](docs/ssh-access.md) · [SFTP](docs/sftp-access.md) · [E-Mail](docs/mail.md) · [Einkaufen](docs/shopping.md) · [Secrets](docs/secrets.md) · [Benachrichtigungen](docs/notifications.md) |
-| Agenten    | [Agenten](docs/agents.md) · [Benutzer](docs/users.md) · [Workflows](docs/assistant-workflows.md) · [Modell-Zugänge](docs/assistant-model-connections.md) · [Runtime-Updates](docs/assistant-runtime-updates.md)                                                                                                                                                                  |
-| Betreiben  | [macOS](docs/installation.md) · [Linux](docs/linux.md) · [Fernzugriff](docs/remote-access.md) · [Sicherungen](docs/backups.md) · [Betrieb](docs/operations.md) · [Systemstatus](docs/system-status.md) · [Sandbox](docs/sandbox.md)                                                                                                                                              |
-| Entwickeln | [Architektur](docs/architecture.md) · [UI-Leitfaden](docs/ui-guide.md) · [Einstellungsmuster](docs/settings-pattern.md) · [Tests](docs/testing.md) · [Frontend](web/README.md) · [Mitwirken](CONTRIBUTING.md)                                                                                                                                                                    |
+| Bereich    | Anleitungen                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Nutzen     | [Eingang](docs/inbox.md) · [Provider](docs/providers.md) · [Pipelines](docs/pipelines.md) · [Dateien](docs/file-explorer.md) · [Artifacts](docs/artifacts.md) · [Vorschauen](docs/previews.md) · [MCP](docs/mcp.md) · [SSH](docs/ssh-access.md) · [SFTP](docs/sftp-access.md) · [E-Mail](docs/mail.md) · [Einkaufen](docs/shopping.md) · [Secrets](docs/secrets.md) · [Benachrichtigungen](docs/notifications.md) |
+| Agenten    | [Agenten](docs/agents.md) · [Benutzer](docs/users.md) · [Workflows](docs/assistant-workflows.md) · [Modell-Zugänge](docs/assistant-model-connections.md) · [Runtime-Updates](docs/assistant-runtime-updates.md)                                                                                                                                                                                                   |
+| Betreiben  | [macOS](docs/installation.md) · [Linux](docs/linux.md) · [Fernzugriff](docs/remote-access.md) · [Sicherungen](docs/backups.md) · [Betrieb](docs/operations.md) · [Systemstatus](docs/system-status.md) · [Sandbox](docs/sandbox.md)                                                                                                                                                                               |
+| Entwickeln | [Architektur](docs/architecture.md) · [UI-Leitfaden](docs/ui-guide.md) · [Einstellungsmuster](docs/settings-pattern.md) · [Tests](docs/testing.md) · [Frontend](web/README.md) · [Mitwirken](CONTRIBUTING.md)                                                                                                                                                                                                     |
 
 ## Daten und Sicherheitsgrenzen
 

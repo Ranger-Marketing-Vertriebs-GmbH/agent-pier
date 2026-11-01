@@ -147,7 +147,7 @@ Generation, import and registration require a caller-generated `requestId`. Afte
 
 ## Plain SSH from coding sessions
 
-A session reaches its SSH hosts with plain OpenSSH: `ssh <alias>`, `scp`, `sftp`, `rsync -e ssh`, `git` over SSH and tunnels (`-L`, `-R`, `-D`). Each such session gets its own SSH agent in the AgentPier process. The private key never enters the session: the agent signs the sign-in for a granted host and refuses everything else. There is no approval per connection; the grant is the permission. Coding sessions have no remote-command MCP tool (`ssh_execute` was removed in favour of plain SSH); remote commands run as `ssh <alias> <command>`.
+A session reaches its SSH hosts with plain OpenSSH: `ssh <alias>`, `scp`, `sftp`, `rsync -e ssh`, `git` over SSH and tunnels (`-L`, `-R`, `-D`). Each such session gets its own SSH agent in the AgentPier process. The local end of a tunnel (`ssh -L 8080:internal-service:80 <alias>`) can be opened for you with `preview_open` ([session previews](previews.md)). The private key never enters the session: the agent signs the sign-in for a granted host and refuses everything else. There is no approval per connection; the grant is the permission. Coding sessions have no remote-command MCP tool (`ssh_execute` was removed in favour of plain SSH); remote commands run as `ssh <alias> <command>`.
 
 ### How it works
 

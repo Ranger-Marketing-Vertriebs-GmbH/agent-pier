@@ -843,6 +843,10 @@ refuses `rights.secrets: true`). `HookRuns.start` decides at the start and recor
   instructions still name the file for all its chats, so the run's prompt says that
   its secrets are not available.
 
+**Previews.** An own agent or permanent member can hand the owner a link to a web server it
+runs with `agentpier_preview` (see [session previews](previews.md)); routines and hooks
+cannot.
+
 **Proposals.** The agent can propose a hook itself with `agentpier_hook`
 (`agent-hook-proposals.js`, own agents and permanent members with **Allow reminders and
 routines** on), actions `propose` and `list`, in any run of the owner's chat, since the

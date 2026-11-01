@@ -135,6 +135,10 @@ npm run remote -- disable
 
 Die Hostliste bleibt dabei erhalten und lässt sich beim nächsten Einschalten weiterverwenden.
 
+## Vorschauen
+
+Coding-Sessions und Agenten können den Dev-Server auf dem AgentPier-Rechner als Vorschau freigeben. Jede Vorschau hat einen eigenen Port aus einem Bereich (Standard 47100–47109). Unter **Einstellungen › Fernzugriff › Vorschauen** schaltest du **Vorschauen einschalten** ein (standardmäßig aus) und stellst den Bereich ein. Bei Tailscale trägt AgentPier den Bereich selbst mit `tailscale serve` ein; `npm run tailscale` und jeder Start des Diensts wenden die Einträge erneut an, solange Vorschauen an sind. Im Netzwerkmodus hören die Ports auf der Bind-Adresse. Einzelheiten und Fehlersuche: [Session previews](previews.md) (auf Englisch).
+
 ## Was die Anmeldung schützt und was nicht
 
 - **Schützt:** alle APIs, die Terminal-WebSockets und die statischen Arbeitsbereichsdaten; ein Rate-Limit von zehn Versuchen pro Minute je Quelladresse begrenzt das Erraten des Passworts, sodass ein Gerät im Netz den lokalen Zugang nicht aussperren kann.

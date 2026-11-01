@@ -159,6 +159,14 @@ session; external OAuth grants do not expose these tools. See
 [Private artifacts](artifacts.md) for examples, supported resources, retention and
 backup limits.
 
+### Previews of local servers
+
+Sessions with full access also receive `preview_open`, `preview_close` and
+`preview_list`. They hand the owner a link to a web server the session runs on a local
+port (a dev server or the local end of an SSH tunnel), opened through AgentPier. The
+tools are off while previews are disabled (`PREVIEW_DISABLED`), exist only for the
+owner and fail with stable `PREVIEW_*` codes. See [Session previews](previews.md).
+
 ## Central MCP servers in the coding CLIs
 
 **Connections › MCP servers** is the one place for the MCP servers the owner uses. A server
