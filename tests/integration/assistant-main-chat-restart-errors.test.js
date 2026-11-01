@@ -1,15 +1,21 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { chatFixture, sharedAgentOfTwo } from "../helpers/user-chats.js";
+import {
+  chatFixture,
+  holdBackgroundPasses,
+  sharedAgentOfTwo,
+} from "../helpers/user-chats.js";
 import { fixtureModel } from "../helpers/user-agents.js";
 
 const restart = (f, id) =>
   f.request(`/api/assistants/${id}/main-chat-restart`, { method: "POST", body: {} });
 
 // The owner's lead with its main chat and one idle permanent member that has a chat
-// of its own and a routine bound to it.
+// of its own and a routine bound to it. The team is a stand-in the team pass would
+// finish and report to the main chat, so the background passes stand still.
 async function keptMember(t) {
   const { f, gateway } = await chatFixture(t);
+  holdBackgroundPasses(f);
   const service = f.application.assistants;
   const agent = await (
     await f.request("/api/assistants", {

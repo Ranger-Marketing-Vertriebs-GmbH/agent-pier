@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { isDeepStrictEqual } from "node:util";
 import {
   as,
   chatFixture,
@@ -256,6 +257,7 @@ test("two restarts in a row both succeed", async (t) => {
     return resync(id);
   });
   const before = gateway.created.length;
+  const original = [...mains(store, agent.id).values()].flat().sort();
   const both = Promise.all([restart(f, agent.id), restart(f, agent.id)]);
   await waiting;
   await new Promise((resolve) => setTimeout(resolve, 100));
@@ -263,7 +265,13 @@ test("two restarts in a row both succeed", async (t) => {
   release();
   const responses = await both;
   for (const res of responses) assert.equal(res.status, 200, await res.clone().text());
-  const [one, two] = await Promise.all(responses.map((res) => res.json()));
+  // The two requests travel on their own connections, so either may reach the server
+  // first: the first swaps the original main chats, the second the first's new ones.
+  const results = await Promise.all(responses.map((res) => res.json()));
+  const swapped = (result) => result.chats.map((c) => c.from).sort();
+  const one = results.find((r) => isDeepStrictEqual(swapped(r), original));
+  assert.ok(one, "one restart swaps the original main chats");
+  const two = results.find((r) => r !== one);
   assert.deepEqual(
     two.chats.map((c) => c.from).sort(),
     one.chats.map((c) => c.to).sort(),
