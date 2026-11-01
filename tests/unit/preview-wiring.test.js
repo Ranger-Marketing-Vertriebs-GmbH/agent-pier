@@ -15,7 +15,7 @@ function sessionsDirectory(t) {
   return directory;
 }
 
-test("internal ports name AgentPier, the bridge, the Gateway band and running adapters", (t) => {
+test("internal ports name AgentPier, the bridge, the reminder webhook, the Gateway band and running adapters", (t) => {
   const directory = sessionsDirectory(t);
   for (const [id, status, port] of [
     ["run", "running", 41001],
@@ -28,6 +28,7 @@ test("internal ports name AgentPier, the bridge, the Gateway band and running ad
   const ports = internalPorts({
     effectiveConfig: () => ({ port: 4999 }),
     assistantTeams: { bridge: { connection: { url: "http://127.0.0.1:41100" } } },
+    assistantReminders: { webhook: { connection: { url: "http://127.0.0.1:41200" } } },
     assistantRuntime: {
       client: { url: "wss://127.0.0.1:42000" },
       webTools: { browserProfiles: { a: { cdpPort: 43000 } } },
@@ -37,7 +38,7 @@ test("internal ports name AgentPier, the bridge, the Gateway band and running ad
     },
     sessions: { directory },
   });
-  for (const port of [4999, 41100, 42000, 42011, 42110, 43000, 43001, 41001])
+  for (const port of [4999, 41100, 41200, 42000, 42011, 42110, 43000, 43001, 41001])
     assert.ok(ports.has(port), `${port} is internal`);
   assert.equal(ports.has(41002), false);
   assert.equal(ports.has(42111), false);
