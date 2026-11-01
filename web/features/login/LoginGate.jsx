@@ -11,6 +11,7 @@ import { loginCopy as copy } from "../../lib/i18n/messages/login.js";
 import { clearChatCache } from "../chat/chat-session-cache.js";
 import { sharedDrafts } from "../assistants/useAssistants.js";
 import { liveAuthCheckEvent } from "../../lib/live/live-client.js";
+import { previewParams, previewReturn } from "./preview-return.js";
 // Everything this page remembers for the signed-in user. Agent data, the agent chat
 // cache and its offline outbox live in the app and go with its unmount.
 const forgetUser = () => {
@@ -26,6 +27,21 @@ export default function LoginGate({ children }) {
   const invalidate = useCallback(() => ++generation.current, []);
   const [status, setStatus] = useState(null);
   const [error, setError] = useState("");
+  // A preview sent the owner here to sign in; read its return target once.
+  const [previewTarget] = useState(() => previewReturn(location.search, location));
+  useEffect(() => {
+    const url = new URL(location.href);
+    if (!url.searchParams.has("preview")) return;
+    for (const name of previewParams) url.searchParams.delete(name);
+    history.replaceState(history.state, "", url.pathname + url.search + url.hash);
+  }, []);
+  const returned = useRef(false);
+  useEffect(() => {
+    if (returned.current || !previewTarget) return;
+    if (!status?.authenticated || status.role === "user") return;
+    returned.current = true;
+    location.replace(previewTarget);
+  }, [previewTarget, status]);
   useEffect(() => {
     startupStage(status || error ? "done" : "authenticating");
   }, [status, error]);

@@ -13,4 +13,21 @@ export const previews = {
   PREVIEW_NOT_FOUND: "This preview no longer exists.",
   PREVIEW_RANGE_INVALID:
     "Invalid port range: ports 1024 to 65535, at most 50 ports, excluding AgentPier's port, the pipeline port range and the Tailscale HTTPS port.",
+  pages: {
+    bounceTitle: "Opening the preview …",
+    bounceLink: "Continue to the preview",
+    signInTitle: "Sign in to AgentPier",
+    signInText:
+      "This preview is served by AgentPier. Sign in to AgentPier as the owner; the preview opens again afterwards.",
+    signInLink: "Sign in to AgentPier",
+    forbiddenTitle: "No access",
+    forbiddenText: "Only the owner of this AgentPier can open previews.",
+    idleTitle: "No preview on this port",
+    idleText:
+      "This preview was closed or has expired. Ask the session or agent for a new link.",
+    unreachableTitle: (port) => `The server on port ${port} is not answering`,
+    unreachableText: (label) =>
+      `The preview “${label}” stays open. Reload this page once the server is running again.`,
+    unauthorized: "Sign-in to AgentPier required.",
+  },
 };
