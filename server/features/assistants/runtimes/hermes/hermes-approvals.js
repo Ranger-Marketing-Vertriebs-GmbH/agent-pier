@@ -2,10 +2,11 @@ import { boundPort, reachable, unsupported } from "./hermes-connection.js";
 
 /**
  * The approvals sub-port (agent-runtime.js) over Hermes's approval requests
- * (hermes-approval-queue.js): the pending ones, the owner's answer to the waiting
- * JSON-RPC request, and how requests of this connection ended. Hermes keeps no
- * approval history it could be asked for, so history() knows only what this
- * connection saw; after a restart Hermes asks again for what still waits.
+ * (hermes-approval-queue.js): the pending ones, the owner's answer
+ * (`approval.respond`, fenced on the turn's execution generation), and how requests
+ * of this connection ended. Hermes keeps no approval history it could be asked for,
+ * so history() knows only what this connection saw; after a restart a session
+ * attached again lists what still waits, and it is asked anew.
  *
  * Capability gaps: the allowlist (Hermes's `command_allowlist` in config.yaml) is the
  * configuration compiler's to write, so readAllowlist and writeAllowlist refuse

@@ -1,11 +1,17 @@
 import { hermesError } from "./hermes-rpc-client.js";
 
 // Hermes asks before a dangerous command (and, with AgentPier's guard plugin, before
-// every command) with a request to the client, not an event:
-// `approval { session_id, command, pattern_key(s), description, allow_permanent,
-// allow_session, request_id, timeout_s, choices: [once, session, always, deny] }`,
-// answered `{ choice }`. It withdraws one it stopped waiting for with the event
-// `request.cancel { id, method, reason }` (timeout, interrupt, session close).
+// every command) with an event to every connection attached to the session:
+// `approval.request { kind: "approval", prompt_id, execution_generation, command,
+// description, choices: [once, deny, session, always], timeout_s }`, answered with
+// `approval.respond { session_id, execution_generation, prompt_id, choice }`
+// (gateway/session_pending_controls.py). `approval.settled { prompt_id }` follows
+// every answer, also one another viewer gave or Hermes's own timeout, and
+// `approval.cancelled { request_ids, reason }` withdraws those an interrupt or
+// teardown dropped. A session attached again lists what still waits (`prompts` of its
+// snapshot), which reopened() asks anew. Questions of the clarify tool
+// (`clarify.request`) are skipped at once (an empty answer) until AgentPier offers
+// them, so the agent goes on instead of waiting out Hermes's deadline.
 //
 // The queue turns each into the exec approval OpenClaw's adapter produces (frame
 // `exec.approval.requested`, payload `{ id, request, createdAtMs, expiresAtMs }`), so
@@ -23,6 +29,7 @@ const defaultTimeoutS = 300;
 const keptHistory = 200;
 const choices = { "allow-once": "once", "allow-session": "session", deny: "deny" };
 const decisionOf = { once: "allow-once", session: "allow-session", deny: "deny" };
+const decisionOrder = ["allow-once", "allow-session", "deny"];
 const statuses = { "allow-once": "allowed", "allow-session": "allowed", deny: "denied" };
 const text = (value, max) => (typeof value === "string" ? value.slice(0, max) : "");
 
@@ -33,13 +40,12 @@ export const refused = (message) =>
     remoteMessage: message,
   });
 
-// The decisions a request offers, in OpenClaw's names.
-function offered(params) {
-  const listed = Array.isArray(params.choices) ? params.choices : ["once", "deny"];
-  return listed
-    .filter((choice) => choice !== "session" || params.allow_session !== false)
-    .map((choice) => decisionOf[choice])
-    .filter(Boolean);
+// The decisions a request offers, in OpenClaw's names and order.
+function offered(listed) {
+  const named = new Set(
+    (Array.isArray(listed) ? listed : ["once", "deny"]).map((c) => decisionOf[c]),
+  );
+  return decisionOrder.filter((decision) => named.has(decision));
 }
 
 export class HermesApprovalQueue {
@@ -47,30 +53,39 @@ export class HermesApprovalQueue {
     Object.assign(this, { client, runs });
     this.pending = new Map();
     this.ended = [];
-    client.handle("approval", (params, { id }) => this.requested(String(id), params));
-    client.subscribe((params) => {
-      if (params?.type === "request.cancel") this.withdrawn(params.payload);
-    });
+    client.subscribe((params) => this.observe(params || {}));
     // A closed connection answers nothing more; the new one asks again.
     client.once("disconnected", () => this.pending.clear());
   }
 
-  // Answers later: resolve() sends the owner's decision. Returns undefined so the
-  // client leaves the request open.
-  requested(id, params) {
-    if (!id || this.pending.has(id)) return undefined;
-    const sid = text(params.session_id, 200);
+  observe({ type, session_id: sid, payload, admission_id: admission }) {
+    if (type === "approval.request" && payload?.kind !== "clarify")
+      this.requested(sid, payload, admission);
+    else if (type === "approval.settled") this.settled(payload);
+    else if (type === "approval.cancelled") this.cancelled(payload);
+    else if (type === "clarify.request") this.skip(sid, payload);
+  }
+
+  /** The approvals a snapshot of session `sid` lists as still waiting. */
+  reopened(sid, prompts) {
+    for (const prompt of Array.isArray(prompts) ? prompts : [])
+      if (prompt?.kind === "approval") this.requested(sid, prompt, null);
+      else if (prompt?.kind === "clarify") this.skip(sid, prompt);
+  }
+
+  requested(sessionId, params, admission) {
+    const id = text(params?.prompt_id, 200);
+    if (!id || this.pending.has(id)) return;
+    const sid = text(sessionId, 200);
     const sessionKey = this.runs.keyOf(sid);
-    const runId = this.runs.runOf(sid);
+    const runId = this.runs.runOfAdmission(sid, admission) ?? this.runs.runOf(sid);
     const createdAtMs = Date.now();
     const timeoutS = Number.isFinite(params.timeout_s)
       ? params.timeout_s
       : defaultTimeoutS;
-    const patternKeys = Array.isArray(params.pattern_keys)
-      ? params.pattern_keys
-          .filter((k) => typeof k === "string")
-          .map((k) => k.slice(0, 120))
-      : [];
+    const generation = Number.isSafeInteger(params.execution_generation)
+      ? params.execution_generation
+      : this.runs.fences(sid).generation;
     const item = {
       id,
       request: {
@@ -79,16 +94,14 @@ export class HermesApprovalQueue {
         agentId: this.runs.agentId,
         sessionKey,
         runId,
-        allowedDecisions: offered(params),
+        allowedDecisions: offered(params.choices),
         ...(params.description ? { warningText: text(params.description, 2000) } : {}),
         hermes: {
           sessionId: sid,
-          requestId: text(params.request_id, 200) || null,
-          patternKeys,
+          promptId: id,
+          executionGeneration: generation,
           description: text(params.description, 2000),
           choices: Array.isArray(params.choices) ? params.choices.slice(0, 8) : [],
-          allowSession: params.allow_session === true,
-          allowPermanent: params.allow_permanent === true,
         },
       },
       createdAtMs,
@@ -99,7 +112,6 @@ export class HermesApprovalQueue {
       ...structuredClone(item),
       sessionKey,
     });
-    return undefined;
   }
 
   /** The pending requests, OpenClaw's exec.approval.list items. */
@@ -107,26 +119,75 @@ export class HermesApprovalQueue {
     return [...this.pending.values()].map((item) => structuredClone(item));
   }
 
-  resolve({ id, decision }) {
+  async resolve({ id, decision }) {
     const item = this.pending.get(id);
     if (!item) throw refused("unknown or expired approval id");
     if (!item.request.allowedDecisions.includes(decision))
       throw refused("decision not offered");
-    if (!this.client.respond(id, { result: { choice: choices[decision] } }))
-      throw hermesError();
+    const { sessionId, executionGeneration } = item.request.hermes;
+    // Hermes announces the answer (approval.settled) before it acknowledges it.
+    item.answering = true;
+    let answer;
+    try {
+      answer = await this.client.call("approval.respond", {
+        session_id: sessionId,
+        execution_generation: executionGeneration,
+        prompt_id: id,
+        choice: choices[decision],
+      });
+    } finally {
+      item.answering = false;
+    }
+    if (!this.pending.has(id)) return { ok: true, id, decision };
     this.pending.delete(id);
+    // Settled before this answer: by another viewer, or Hermes stopped waiting.
+    if (answer?.status !== "resolved") {
+      this.end(item, "cancelled", null, "hermes");
+      throw refused("unknown or expired approval id");
+    }
     this.end(item, statuses[decision], decision, "owner");
     return { ok: true, id, decision };
   }
 
-  // Hermes stopped waiting: a timeout expired it, anything else cancelled it.
-  withdrawn(payload) {
-    if (payload?.method !== "approval") return;
-    const item = this.pending.get(String(payload.id));
-    if (!item) return;
+  // Settled without this connection's answer: Hermes's timeout expired it, anything
+  // else (another viewer, the turn's end) withdrew it.
+  settled(payload) {
+    const item = this.pending.get(text(payload?.prompt_id, 200));
+    if (!item || item.answering) return;
     this.pending.delete(item.id);
-    const reason = text(payload.reason, 60) || "cancelled";
-    this.end(item, reason === "timeout" ? "expired" : "cancelled", null, reason);
+    const expired = Date.now() >= item.expiresAtMs;
+    this.end(
+      item,
+      expired ? "expired" : "cancelled",
+      null,
+      expired ? "timeout" : "hermes",
+    );
+  }
+
+  cancelled(payload) {
+    const reason = text(payload?.reason, 60) || "cancelled";
+    for (const id of Array.isArray(payload?.request_ids) ? payload.request_ids : []) {
+      const item = this.pending.get(text(id, 200));
+      if (!item) continue;
+      this.pending.delete(item.id);
+      this.end(item, "cancelled", null, reason);
+    }
+  }
+
+  // A clarify question this connection cannot ask the owner yet: skipped at once.
+  skip(sid, prompt) {
+    const promptId = text(prompt?.prompt_id, 200);
+    if (!promptId || !Number.isSafeInteger(prompt.execution_generation)) return;
+    this.client
+      .call("clarify.respond", {
+        session_id: text(sid, 200),
+        execution_generation: prompt.execution_generation,
+        prompt_id: promptId,
+        answer: "",
+      })
+      .catch(() => {
+        /* Answered elsewhere, or Hermes stopped waiting. */
+      });
   }
 
   end(item, status, decision, resolvedBy) {

@@ -103,17 +103,20 @@ export function hermesInstallEnvironment({ paths, directory, scratch, environmen
 
 /**
  * Runs the installed Python once and reads what it ships: the release date of
- * hermes_cli, the CPython version, and whether the stdio TUI-RPC server imports.
+ * hermes_cli, the CPython version, and whether what the RPC bridge
+ * (hermes-rpc-bridge.py) needs imports: the gateway discovery and client, and
+ * websockets.
  * HOME and HERMES_HOME point at a scratch folder, so nothing reaches `~/.hermes`.
  */
 export async function hermesIdentityCheck(
   record,
   { scratch, execute = executeFile, manifest = hermesManifest },
 ) {
-  // tui_gateway.server moves print() to stderr (stdout is its RPC channel), so the
-  // answer goes to file descriptor 1 directly.
+  // The answer goes to file descriptor 1 directly: an import may move print().
   const probe =
-    "import json, os, platform, hermes_cli, tui_gateway.server; " +
+    "import json, os, platform, hermes_cli, hermes_cli.gateway_client, " +
+    "hermes_cli.gateway_runtime, hermes_cli.gateway_runtime_discovery, " +
+    "websockets.asyncio.client; " +
     "os.write(1, (json.dumps({'releaseDate': hermes_cli.__release_date__, " +
     "'python': platform.python_version()}) + '\\n').encode())";
   const env = {

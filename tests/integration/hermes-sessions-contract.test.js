@@ -9,34 +9,22 @@ import {
   hermesSkip,
   startHermes,
   strayAfterStop,
-  writeHermesConfig,
 } from "../helpers/hermes-native.js";
-import { hermesSessions } from "../../server/features/assistants/runtimes/hermes/hermes-sessions.js";
-import { hermesEvents } from "../../server/features/assistants/runtimes/hermes/hermes-events.js";
 
-// The Hermes adapter's sessions and run events against the real TUI gateway
-// (`python -m tui_gateway.entry` of AGENTPIER_HERMES_CONTRACT_RUNTIME), with the
-// in-repo fake model and a private HOME and HERMES_HOME (hermes-native.js).
+// The Hermes adapter's sessions and run events against the pinned Hermes as AgentPier
+// runs it: the supervised messaging gateway and the RPC bridge to its session store
+// (hermes-native.js), with the in-repo fake model and a private HOME and HERMES_HOME.
 const options = { skip: hermesSkip, timeout: contractTimeout(600000) };
 const agentId = "hermes-agent";
 const label = "AgentPier hermes-agent chat";
 
-// The sessions and events sub-ports over one started gateway, as its supervisor's.
-async function hermes(t, dirs) {
-  const started = await startHermes(t, dirs, { agentId });
-  const supervisor = { client: started.client, agentId };
-  return {
-    ...started,
-    sessions: hermesSessions(supervisor),
-    events: hermesEvents(supervisor),
-  };
-}
+// The Hermes runtime of the agent, started over the fake model.
+const hermes = (t, { dirs, model }) => startHermes(t, dirs, { agentId, model });
 
 async function sandbox(t) {
   const model = await startFakeModel({ slowMs: 300 });
   t.after(() => model.close());
   const dirs = hermesSandbox(t);
-  writeHermesConfig(dirs, model);
   return { dirs, model };
 }
 
@@ -44,8 +32,9 @@ test(
   "Hermes contract: a session is created, streams a turn and is deleted",
   options,
   async (t) => {
-    const { dirs } = await sandbox(t);
-    const { sessions, events, stop } = await hermes(t, dirs);
+    const box = await sandbox(t);
+    const { dirs } = box;
+    const { sessions, events, stop } = await hermes(t, box);
     const { key } = await sessions.create({ agentId, label, idempotencyKey: "create-1" });
     assert.match(key, /^agent:hermes-agent:hermes:\S+$/);
     // The same idempotency key names the same session.
@@ -69,15 +58,14 @@ test(
     assert.equal(end.kind, "finished");
     const own = run.seen.filter((e) => e.runId === "run-1");
     assert.equal(own[0].kind, "started");
-    // The streamed deltas add up to the reply. Hermes appends a one-time intro note to
-    // an install's very first message, whatever onboarding.profile_build says, so the
-    // fake model's echo ends with that note's text rather than the message.
+    // The streamed deltas add up to the reply.
     const text = own
       .filter((e) => e.kind === "text")
       .map((e) => e.payload.text)
       .join("");
     assert.equal(text.trim(), end.payload.text.trim());
-    assert.match(end.payload.text, /^ECHO: /);
+    // No onboarding hint was appended to the first message (onboarding off).
+    assert.equal(end.payload.text, "ECHO: hello hermes");
     assert.ok(own.every((e) => e.sessionKey === key && e.reason === null));
     assert.equal((await sessions.wait({ runId: "run-1", waitMs: 1 })).status, "ok");
     const history = await sessions.history({ sessionKey: key, limit: 10 });
@@ -111,8 +99,9 @@ test(
 );
 
 test("Hermes contract: abort interrupts a streaming turn", options, async (t) => {
-  const { dirs } = await sandbox(t);
-  const { sessions, events, stop } = await hermes(t, dirs);
+  const box = await sandbox(t);
+  const { dirs } = box;
+  const { sessions, events, stop } = await hermes(t, box);
   const { key } = await sessions.create({ agentId, label });
   const run = collectEvents(events);
   await sessions.send({ key, turn: { message: "SLOW please" }, idempotencyKey: "slow" });
@@ -136,8 +125,9 @@ test(
   "Hermes contract: a restarted process resumes the stored session with its history",
   options,
   async (t) => {
-    const { dirs } = await sandbox(t);
-    const first = await hermes(t, dirs);
+    const box = await sandbox(t);
+    const { dirs } = box;
+    const first = await hermes(t, box);
     const { key } = await first.sessions.create({ agentId, label });
     const run = collectEvents(first.events);
     await first.sessions.send({
@@ -147,6 +137,19 @@ test(
     });
     assert.equal((await run.until(endsRun("r1"))).kind, "finished");
     const before = await first.sessions.history({ sessionKey: key });
+    // An owner's restart replaces the connection: a view bound to the old one refuses,
+    // the current one reaches the same session.
+    const connection = first.runtime.host.connection();
+    await first.runtime.host.restart();
+    assert.notEqual(first.runtime.host.connection(), connection);
+    await assert.rejects(
+      first.sessions.on(connection).history({ sessionKey: key }),
+      (e) => e.code === "UNAVAILABLE" && e.status === 503,
+    );
+    assert.deepEqual(
+      (await first.sessions.history({ sessionKey: key })).messages.length,
+      before.messages.length,
+    );
     await first.stop();
     assert.deepEqual(await strayAfterStop(dirs), []);
     // The handle of the stopped process reaches nothing.
@@ -155,7 +158,7 @@ test(
       (e) => e.status === 503,
     );
 
-    const second = await hermes(t, dirs);
+    const second = await hermes(t, box);
     assert.deepEqual(
       (await second.sessions.list({ agentId, label })).map((s) => s.key),
       [key],

@@ -105,26 +105,40 @@ state: the compiler preserves them and never produces duplicate keys.
 - **One Hermes process per agent**, each with its own `HERMES_HOME` inside AgentPier's
   private runtime folder. This avoids Hermes's process-wide MCP registration and
   terminal environment in multiplexed mode, at about 150–180 MB per agent (spike).
-- **Control over stdio JSON-RPC** (`python -m tui_gateway.entry`) of a process the
-  supervisor starts. No network listener and no control-socket ticket a process of the
-  agent could use. Approvals, clarify and secret questions arrive as requests from
-  Hermes and are answered by AgentPier; until AgentPier offers clarify and secret
-  questions, the adapter answers them "method not found" (`-32601`), so the agent
-  fails fast instead of waiting out Hermes's deadline.
-- **Sessions, run events and approvals** (`runtimes/hermes/`): session keys are
-  `agent:<runtimeAgentId>:hermes:<stored session id>`, and a call resumes the stored
-  session into the process when it is not live there, so keys survive a restart. A
-  turn's run id is its idempotency key, as with OpenClaw. Hermes's `approval` requests
-  become the exec approvals OpenClaw's adapter produces, offering allow once, allow
-  for the session and deny; Hermes's `always` is never offered, because it allows the
-  whole pattern class for good. Gaps the adapter reports: artifact downloads, the
-  exec allowlist (Hermes keeps it in `config.yaml`, which the compiler owns), and an
-  approval history beyond the current connection.
-- **Routines and Telegram** need Hermes's messaging gateway for that home. The adapter
-  either runs it supervised next to the stdio process and attaches through the gateway
-  listener, or schedules through AgentPier; the first implementation decides with a
-  measurement. Hermes must never start a gateway of its own (the spike observed a
-  detached, self-started one).
+- **Control over JSON-RPC to the agent's own messaging gateway**, the process set's
+  owner (see "host as built" below). The first plan, stdio JSON-RPC of
+  `python -m tui_gateway.entry`, cannot share a home with the messaging gateway that
+  routines and Telegram need, so the RPC bridge carries the gateway's session protocol
+  over stdio instead. AgentPier opens no listener and the bridge's ticket never leaves
+  it; the gateway's own loopback listener stays reachable by the agent's shell, as the
+  spike found. Each start connects a new client (`runtimes/hermes/hermes-runtime.js`
+  composes host, sessions, events, approvals and the compiler, which writes the
+  agent's `HERMES_HOME` before each start).
+- **Sessions, run events and approvals** (`runtimes/hermes/`) over the gateway's
+  session store, which differs from the stdio server: sessions have one durable id,
+  a connection attaches to a session (`session.resume`) before it may submit there,
+  `session.create` takes a `request_id` and the title, `prompt.submit` requires a
+  `submission_id`, every method refuses unknown parameters (`invalid_params`), and
+  refusals carry their reason (`not_found`, `session_busy`, `stale_generation`, …)
+  under code 4001. Edits (`session.mutate`: compress, archive, delete) are fenced on
+  the session's revision and interrupts and approval answers on its execution
+  generation; the adapter tracks both and repeats a fenced refusal once with the
+  fences it names. Session keys are `agent:<runtimeAgentId>:hermes:<session id>`, so
+  keys survive a restart. A turn's run id is its idempotency key, as with OpenClaw,
+  and Hermes's `admission_id` on every frame of the turn maps the frame to it.
+  Approvals arrive as `approval.request` events and are answered with
+  `approval.respond`; they become the exec approvals OpenClaw's adapter produces,
+  offering allow once, allow for the session and deny. Hermes's `always` is never
+  offered, because it allows the whole pattern class for good. Until AgentPier offers
+  them, clarify questions are skipped at once and secret or sudo requests are answered
+  "method not found" (`-32601`), so the agent goes on instead of waiting out Hermes's
+  deadline. Gaps the adapter reports: artifact downloads, the exec allowlist (Hermes
+  keeps it in `config.yaml`, which the compiler owns), and an approval history beyond
+  the current connection.
+- **Routines and Telegram** need Hermes's messaging gateway for that home. The
+  supervised gateway is the home's owner anyway (below), so routines and Telegram run
+  in it. Hermes must never start a gateway of its own (the spike observed a detached,
+  self-started one).
 - **Host as built (AGENTPIER-329):** Hermes lets one process own a `HERMES_HOME`
   (`gateway.lock`), and `python -m tui_gateway.entry` refuses a home a gateway owns.
   Each Hermes agent therefore runs `hermes gateway run --external-supervisor` in the
@@ -200,7 +214,9 @@ Each step ships with its contract tests against a pinned runtime, as OpenClaw do
 
 ## Open questions
 
-- Messaging gateway per Hermes agent versus AgentPier scheduling and Telegram delivery.
+- ~~Messaging gateway per Hermes agent versus AgentPier scheduling and Telegram
+  delivery.~~ Answered in decision 4: the supervised gateway owns each agent's home
+  and serves its sessions, so routines and Telegram run there.
 - ~~Which Hermes command starts a detached gateway, and the setting that prevents
   it.~~ Answered in decision 4 (host as built): clients without an owner; no setting,
   the supervised owner prevents it.

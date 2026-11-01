@@ -11,16 +11,14 @@ import {
   hermesSkip,
   startHermes,
   strayAfterStop,
-  writeHermesConfig,
 } from "../helpers/hermes-native.js";
-import { hermesSessions } from "../../server/features/assistants/runtimes/hermes/hermes-sessions.js";
-import { hermesEvents } from "../../server/features/assistants/runtimes/hermes/hermes-events.js";
-import { hermesApprovals } from "../../server/features/assistants/runtimes/hermes/hermes-approvals.js";
 
-// Hermes's own approval model against the real TUI gateway: a dangerous command asks
-// AgentPier (a server→client `approval` request), the exec approval the adapter makes
-// of it is answered through the approvals sub-port, deny blocks the command and allow
-// once runs it; a harmless command runs without asking.
+// Hermes's own approval model against the pinned Hermes as AgentPier runs it (the
+// supervised gateway and the RPC bridge, hermes-native.js), with the agent's home
+// compiled for shell mode approval: a dangerous command asks AgentPier (the
+// gateway's `approval.request` event), the exec approval the adapter makes of it is
+// answered through the approvals sub-port, deny blocks the command and allow once
+// runs it; a harmless command runs without asking.
 const options = { skip: hermesSkip, timeout: contractTimeout(600000) };
 const agentId = "hermes-agent";
 
@@ -31,15 +29,14 @@ test(
     const model = await startFakeModel();
     t.after(() => model.close());
     const dirs = hermesSandbox(t);
-    writeHermesConfig(dirs, model);
-    const build = path.join(dirs.work, "build");
+    const { sessions, events, approvals, agent, stop } = await startHermes(t, dirs, {
+      agentId,
+      model,
+    });
+    const build = path.join(agent.workspace, "build");
     fs.mkdirSync(build);
     fs.writeFileSync(path.join(build, "x.txt"), "x");
-    const { client, stop } = await startHermes(t, dirs, { agentId });
-    const supervisor = { client, agentId };
-    const sessions = hermesSessions(supervisor);
-    const approvals = hermesApprovals(supervisor);
-    const run = collectEvents(hermesEvents(supervisor));
+    const run = collectEvents(events);
     const { key } = await sessions.create({ agentId, label: "Approvals" });
 
     // A harmless command runs without a question.
@@ -62,7 +59,7 @@ test(
       assert.equal(request.command, "rm -rf build");
       assert.equal(request.agentId, agentId);
       assert.deepEqual(request.allowedDecisions, ["allow-once", "allow-session", "deny"]);
-      assert.ok(request.hermes.patternKeys.length > 0);
+      assert.equal(request.warningText, "recursive delete");
       assert.deepEqual(
         (await approvals.list()).map((item) => item.id),
         [id],

@@ -9,8 +9,8 @@ import { hermesExecutables } from "../server/features/assistants/runtimes/hermes
  * Installs the pinned Hermes exactly like `--with-hermes` into a disposable data
  * directory and returns the environment of the native Hermes contracts
  * (tests/integration/*hermes*-contract.test.js): AGENTPIER_HERMES_CONTRACT_RUNTIME
- * names the installation, whose `venv/bin/python` imports tui_gateway and whose
- * `venv/bin/hermes` runs Hermes (hermesExecutables).
+ * names the installation, whose `venv/bin/python` runs the RPC bridge and whose
+ * `venv/bin/hermes` runs Hermes and its messaging gateway (hermesExecutables).
  */
 export async function provisionHermesContractRuntime(
   dataDir,

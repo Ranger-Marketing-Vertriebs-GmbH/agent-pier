@@ -1,8 +1,9 @@
 import { EventEmitter } from "node:events";
-import readline from "node:readline";
 
-// Hermes's TUI gateway (`python -m tui_gateway.entry`) speaks newline-delimited
-// JSON-RPC 2.0 on its stdio: requests with ids both ways, and notifications
+// Hermes's gateway serves its sessions as JSON-RPC 2.0 over its TUI WebSocket
+// (`/api/ws`), which the RPC bridge (hermes-rpc-bridge.py) relays as newline-delimited
+// frames on its stdio, the same protocol as `python -m tui_gateway.entry`: requests
+// with ids both ways, and notifications
 // `{ method: "event", params: { type, session_id, payload, seq } }`. The process
 // announces itself with the event `gateway.ready`; a client that answers the gateway's
 // own requests (approval, clarify, …) says so once with `client.capabilities
@@ -29,23 +30,48 @@ export function hermesError(code = "UNAVAILABLE") {
 const closedError = () =>
   Object.assign(Error("Assistant Gateway closed."), { code: "CLOSED", status: 503 });
 
-// Hermes's numeric error codes as the port's string codes; the number stays as
-// `hermesCode`. 4001/4006/4007: no such session; 4009: busy; -32602: invalid params.
-const answeredCodes = {
-  [-32601]: "UNKNOWN_METHOD",
-  [-32602]: "INVALID_REQUEST",
-  4001: "NOT_FOUND",
-  4006: "INVALID_REQUEST",
-  4007: "NOT_FOUND",
-  4009: "BUSY",
+// Hermes's refusals as the port's string codes. The gateway's session store answers
+// every refusal with code 4001 and names it in `error.data.reason` (and as the
+// message): `invalid_params` for a missing or unknown parameter, `not_found`,
+// `session_busy` while a turn runs, `stale_generation` and `revision_conflict` for a
+// control or edit fenced on an older state, `permission_denied` for a session this
+// connection is not attached to. -32601 is JSON-RPC's unknown method.
+const reasonCodes = {
+  invalid_params: "INVALID_REQUEST",
+  not_found: "NOT_FOUND",
+  session_busy: "BUSY",
+  admission_started: "BUSY",
+  stale_generation: "CONFLICT",
+  revision_conflict: "CONFLICT",
+  admission_conflict: "CONFLICT",
+  permission_denied: "FORBIDDEN",
 };
+const numberCodes = { [-32601]: "UNKNOWN_METHOD", [-32602]: "INVALID_REQUEST" };
+const reasonOf = (error) => {
+  const reason = error?.data?.reason ?? error?.message;
+  return typeof reason === "string" && /^[a-z][a-z0-9_]{0,63}$/.test(reason)
+    ? reason
+    : null;
+};
+// The fences a refusal names: the session's current revision and generation.
+const fencesOf = (data) =>
+  Object.fromEntries(
+    ["revision", "execution_generation"]
+      .filter((name) => Number.isSafeInteger(data?.[name]))
+      .map((name) => [name, data[name]]),
+  );
 
-/** An error Hermes answered: `answered` separates it from a transport failure. */
+/**
+ * An error Hermes answered: `answered` separates it from a transport failure;
+ * `hermesCode` is its number, `reason` its refusal reason, `fences` the revision and
+ * execution generation it named.
+ */
 export function answeredError(error) {
   const hermesCode = Number.isSafeInteger(error?.code) ? error.code : null;
+  const reason = reasonOf(error);
   return Object.assign(
-    hermesError(answeredCodes[hermesCode] || "RPC_FAILED"),
-    { answered: true, hermesCode },
+    hermesError(reasonCodes[reason] || numberCodes[hermesCode] || "RPC_FAILED"),
+    { answered: true, hermesCode, reason, fences: fencesOf(error?.data) },
     // Hermes's reason, for callers that must tell one refusal from another; it may
     // name host paths, so it is never logged or shown.
     typeof error?.message === "string"
@@ -55,39 +81,15 @@ export function answeredError(error) {
 }
 
 /**
- * The transport a Hermes process offers (the runtime supervisor builds it over the
- * child's stdin and stdout, childTransport below):
+ * The transport a client runs over: the supervisor builds it over the RPC bridge's
+ * channel (hermes-transport.js rpcTransport); the unit tests over memory.
  * - write(line): sends one frame, a JSON text without its newline; false or a throw
  *   when the peer is gone.
- * - on("line", listener) / off: each line Hermes wrote, without the newline.
+ * - on("line", listener) / off: each frame Hermes sent, as its JSON text or already
+ *   parsed.
  * - on("close", listener) / off: once, when the peer is gone for good.
  * - close(): optional; ends the transport (the client calls it from close()).
  */
-export function childTransport(child) {
-  const transport = new EventEmitter();
-  const lines = readline.createInterface({ input: child.stdout, crlfDelay: Infinity });
-  let closed = false;
-  const end = () => {
-    if (closed) return;
-    closed = true;
-    lines.close();
-    transport.emit("close");
-  };
-  lines.on("line", (line) => transport.emit("line", line));
-  child.stdout.once("close", end);
-  child.once("exit", end);
-  child.stdin.on("error", end);
-  transport.write = (line) => {
-    if (closed || !child.stdin.writable) return false;
-    child.stdin.write(`${line}\n`);
-    return true;
-  };
-  transport.close = () => {
-    child.stdin.end();
-    end();
-  };
-  return transport;
-}
 
 /**
  * One connection to one Hermes process over `transport`. `connect()` resolves once
@@ -216,13 +218,14 @@ export class HermesRpcClient extends EventEmitter {
   }
 
   receive(line) {
-    let frame;
-    try {
-      frame = JSON.parse(line);
-    } catch {
-      // Hermes keeps its stdout to frames; anything else is noise, never a frame.
-      return;
-    }
+    let frame = line;
+    if (typeof line === "string")
+      try {
+        frame = JSON.parse(line);
+      } catch {
+        // Hermes keeps its stdout to frames; anything else is noise, never a frame.
+        return;
+      }
     if (!frame || typeof frame !== "object") return;
     if (frame.method === "event" && frame.id === undefined) {
       const params = frame.params && typeof frame.params === "object" ? frame.params : {};

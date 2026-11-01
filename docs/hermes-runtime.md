@@ -2,9 +2,11 @@
 
 AgentPier can run an agent on [Hermes Agent](https://github.com/NousResearch/hermes-agent)
 beside OpenClaw ([ADR 0006](adr/0006-assistant-runtime-port.md)). Each Hermes agent runs
-in its own Hermes process with its own `HERMES_HOME` inside AgentPier's private runtime
-folder. This guide describes what AgentPier writes into that home and which defaults it
-sets. Key names were verified against Hermes `a4994d4e` (2026-10-31); the
+in its own supervised process set, its messaging gateway and AgentPier's RPC bridge,
+with its own `HERMES_HOME` inside AgentPier's private runtime folder
+([processes](assistant-runtime-updates.md#hermes-agent-runtime)). This guide describes
+what AgentPier writes into that home, which defaults it sets and how it talks to the
+gateway. Key names were verified against Hermes `a4994d4e` (2026-10-31); the
 [spike](research/hermes-runtime-spike.md) records the hands-on evidence.
 
 ## Hermes configuration
@@ -78,8 +80,8 @@ owner's choice, changes the installation or rewrites the first turn:
 | `security.allow_lazy_installs`                     | `false` | No packages installed from PyPI at run time               |
 | `telemetry.shared_metrics.enabled`, `.send`        | `false` | No shared metrics                                         |
 
-Invisible subagents (`delegate_task`) stay on. Under the stdio gateway AgentPier uses,
-their dangerous commands reach the owner through the parent session's approval queue.
+Invisible subagents (`delegate_task`) stay on. In a session of the messaging gateway,
+their dangerous commands reach the owner through the session's approval queue.
 `terminal.backend` is `local` and `terminal.cwd` is the agent's folder.
 
 ### Toolsets
@@ -98,12 +100,40 @@ follow in step 5 of the ADR's delivery order, teams and the browser in step 6. H
 no advanced settings in AgentPier yet: the capability reports
 `advancedSettingsUnsupported`.
 
+## Gateway protocol
+
+AgentPier writes the home before each start (`runtimes/hermes/hermes-runtime.js`), then
+talks to the gateway's session store over the RPC bridge: newline-delimited JSON-RPC
+2.0, the same framing as Hermes's stdio server, but the gateway's own methods. The
+adapter (`hermes-sessions.js`, `hermes-run-state.js`, `hermes-approval-queue.js`)
+relies on these:
+
+| Purpose           | Gateway method or event                                                                   |
+| ----------------- | ----------------------------------------------------------------------------------------- |
+| Create a chat     | `session.create { request_id, title }`: idempotent by `request_id`; titles are unique     |
+| Attach a chat     | `session.resume { session_id, omit_messages }`: needed before a turn, after every restart |
+| Find a chat       | `session.list { title }`                                                                  |
+| Run a turn        | `prompt.submit { session_id, text, submission_id }`: answers the turn's `admission_id`    |
+| Stop a turn       | `session.interrupt { session_id, execution_generation }`; `prompt.cancel` while queued    |
+| Read a transcript | `session.history { session_id }`                                                          |
+| Compress, archive | `session.mutate { operation, payload, request_id, expected_revision, … }`                 |
+| Delete            | `session.mutate` with `delete` and `expected_generation`                                  |
+| Title a chat      | `llm.oneshot` with the `title_generation` task                                            |
+| Turn frames       | `message.start`, `message.delta`, `tool.*`, `message.complete`, each with `admission_id`  |
+| Approvals         | `approval.request` → `approval.respond`; `approval.settled`, `approval.cancelled`         |
+
+Every refusal is code 4001 with its reason in `error.data.reason`; an unknown parameter
+is refused as `invalid_params`, so AgentPier sends only the parameters listed.
+
 ## Contract tests
 
 `tests/unit/hermes-config-golden.test.js` compares the compiled homes with
 `tests/fixtures/hermes-golden/`. `tests/integration/hermes-config-check-contract.test.js`
 runs `hermes config check` on each compiled home and checks how Hermes reads it: the
 approval mode, the toolsets, the guard plugin, the model route and that the key stays out
-of child processes. Set `AGENTPIER_HERMES_CONTRACT_RUNTIME` to a Hermes installation
-folder whose `bin/` (or `.venv/bin/`) holds `python` and `hermes`. The test uses a
-private `HOME` and `HERMES_HOME` and never touches `~/.hermes`.
+of child processes. The sessions, approvals, host and install contracts run the agent
+through the Hermes runtime, its supervised gateway and the RPC bridge, against the
+in-repo fake model. Set `AGENTPIER_HERMES_CONTRACT_RUNTIME` to an installation made by
+`scripts/provision-hermes-contracts.mjs` (its `venv/bin/` holds `python` and
+`hermes`). The tests use a private `HOME` and `HERMES_HOME` and never touch
+`~/.hermes`.
