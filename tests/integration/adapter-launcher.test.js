@@ -9,7 +9,8 @@ import { once } from "node:events";
 import { scriptedUpstream, sse } from "../helpers/scripted-upstream.js";
 import { loadFixture } from "../helpers/protocol-adapter.js";
 import { KEY, TOKEN, validAdapterConfig } from "../helpers/adapter-fixture.js";
-import { alive, until } from "../helpers/adapter-process.js";
+import { alive } from "../helpers/adapter-process.js";
+import { hangGuard } from "../helpers/hang-guard.js";
 
 const launcher = fileURLToPath(
   new URL("../../server/terminal-launcher.js", import.meta.url),
@@ -68,7 +69,26 @@ function watchAdapters(child, done) {
     return { ...result, seen: [...seen] };
   });
 }
-const allDead = (pids) => until(() => pids.every((pid) => !alive(pid)));
+// Every wait here is for a process to start or to end, which a loaded host stretches
+// without limit, so none has a wall-clock budget of its own. A wait for the launcher's
+// progress fails as soon as the launcher exits without it: every failed start (the
+// adapter's own start deadline included) ends the launcher. A wait for a process to
+// end follows a signal production has sent; one that never ends fails on the test's
+// hang guard.
+const tick = () => new Promise((resolve) => setTimeout(resolve, 25));
+async function whileLauncherRuns(done, check, what) {
+  let exited = null;
+  done.then((result) => (exited = result));
+  while (!(await check())) {
+    if (exited) assert.fail(`launcher exited before ${what}: ${JSON.stringify(exited)}`);
+    await tick();
+  }
+}
+const cliReady = (out, done) =>
+  whileLauncherRuns(done, () => fs.existsSync(`${out}.ready`), "the CLI was ready");
+async function gone(pids) {
+  while (pids.some(alive)) await tick();
+}
 
 async function setup(t, mode = "call", extra = () => ({})) {
   const up = await scriptedUpstream(t, (_e, res) =>
@@ -109,30 +129,34 @@ test("placeholders are substituted in env and argv; the CLI reaches the adapter;
   assert.equal(stderr, "");
 });
 
-test("the adapter stops when the CLI exits", async (t) => {
+test("the adapter stops when the CLI exits", hangGuard, async (t) => {
   const { file, out } = await setup(t, "wait");
   const { child, done } = run(file);
-  await until(() => fs.existsSync(`${out}.ready`));
+  await cliReady(out, done);
   const [pid] = adapterPids(child.pid);
   assert.ok(pid, "adapter child of the launcher");
   child.kill("SIGTERM");
   await done;
-  await until(() => !alive(pid));
+  await gone([pid]);
 });
 
-test("a CLI exiting on its own stops the adapter and keeps the CLI's exit code", async (t) => {
-  const { file, out } = await setup(t, "wait");
-  const { child, done } = run(file);
-  await until(() => fs.existsSync(`${out}.ready`));
-  const [pid] = adapterPids(child.pid);
-  assert.ok(pid, "adapter child of the launcher");
-  process.kill(JSON.parse(fs.readFileSync(out, "utf8")).pid, "SIGUSR2"); // CLI exits 7
-  const { code, stdout, stderr } = await done;
-  assert.equal(code, 7);
-  assert.equal(stdout, "");
-  assert.equal(stderr, "");
-  await until(() => !alive(pid));
-});
+test(
+  "a CLI exiting on its own stops the adapter and keeps the CLI's exit code",
+  hangGuard,
+  async (t) => {
+    const { file, out } = await setup(t, "wait");
+    const { child, done } = run(file);
+    await cliReady(out, done);
+    const [pid] = adapterPids(child.pid);
+    assert.ok(pid, "adapter child of the launcher");
+    process.kill(JSON.parse(fs.readFileSync(out, "utf8")).pid, "SIGUSR2"); // CLI exits 7
+    const { code, stdout, stderr } = await done;
+    assert.equal(code, 7);
+    assert.equal(stdout, "");
+    assert.equal(stderr, "");
+    await gone([pid]);
+  },
+);
 
 test("adapter start failure: one sanitized line, exit 127, CLI not started", async (t) => {
   const { dir, file } = payloadFile(t, (d) => ({
@@ -149,105 +173,131 @@ test("adapter start failure: one sanitized line, exit 127, CLI not started", asy
   assert.equal(fs.existsSync(path.join(dir, "out.json")), false);
 });
 
-test("an adapter crash is restarted on the same URL and never writes to the CLI's terminal", async (t) => {
-  const { file, out } = await setup(t, "wait");
-  const { child, done } = run(file);
-  await until(() => fs.existsSync(`${out}.ready`));
-  const url = JSON.parse(fs.readFileSync(out, "utf8")).env.ANTHROPIC_BASE_URL;
-  const [first] = adapterPids(child.pid);
-  process.kill(first, "SIGKILL");
-  await until(() => adapterPids(child.pid).some((pid) => pid !== first));
-  await until(
-    async () =>
-      (await fetch(`${url}/api/hello`, { method: "HEAD" }).catch(() => null))?.status ===
-      200,
-  );
-  child.kill("SIGTERM");
-  const { stdout, stderr } = await done;
-  assert.equal(stdout, "");
-  assert.equal(stderr, "");
-});
+test(
+  "an adapter crash is restarted on the same URL and never writes to the CLI's terminal",
+  hangGuard,
+  async (t) => {
+    const { file, out } = await setup(t, "wait");
+    const { child, done } = run(file);
+    await cliReady(out, done);
+    const url = JSON.parse(fs.readFileSync(out, "utf8")).env.ANTHROPIC_BASE_URL;
+    const [first] = adapterPids(child.pid);
+    process.kill(first, "SIGKILL");
+    await whileLauncherRuns(
+      done,
+      () => adapterPids(child.pid).some((pid) => pid !== first),
+      "the adapter restarted",
+    );
+    await whileLauncherRuns(
+      done,
+      async () =>
+        (await fetch(`${url}/api/hello`, { method: "HEAD" }).catch(() => null))
+          ?.status === 200,
+      "the restarted adapter answered",
+    );
+    child.kill("SIGTERM");
+    const { stdout, stderr } = await done;
+    assert.equal(stdout, "");
+    assert.equal(stderr, "");
+  },
+);
 
-test("launcher shutdown during an adapter restart leaves no adapter behind", async (t) => {
-  const { file, out } = await setup(t, "wait");
-  const { child, done } = run(file);
-  await until(() => fs.existsSync(`${out}.ready`));
-  const watched = watchAdapters(child, done);
-  process.kill(adapterPids(child.pid)[0], "SIGKILL");
-  child.kill("SIGTERM"); // inside the supervisor's 250 ms restart delay
-  const { seen } = await watched;
-  // Leaked adapters would be reparented, so the PIDs are captured while the launcher runs.
-  assert.ok(seen.length >= 1);
-  await new Promise((r) => setTimeout(r, 600)); // past the restart delay
-  await allDead(seen);
-});
+test(
+  "launcher shutdown during an adapter restart leaves no adapter behind",
+  hangGuard,
+  async (t) => {
+    const { file, out } = await setup(t, "wait");
+    const { child, done } = run(file);
+    await cliReady(out, done);
+    const watched = watchAdapters(child, done);
+    process.kill(adapterPids(child.pid)[0], "SIGKILL");
+    child.kill("SIGTERM"); // inside the supervisor's 250 ms restart delay
+    const { seen } = await watched;
+    // Leaked adapters would be reparented, so the PIDs are captured while the launcher runs.
+    assert.ok(seen.length >= 1);
+    await new Promise((r) => setTimeout(r, 600)); // past the restart delay
+    await gone(seen);
+  },
+);
 
-test("Ctrl+C in the terminal does not stop the adapter", async (t) => {
+test("Ctrl+C in the terminal does not stop the adapter", hangGuard, async (t) => {
   const { file, out } = await setup(t, "wait-sigint");
   const { child, done } = run(file, { detached: true }); // launcher leads its own process group, like a tmux pane
-  await until(() => fs.existsSync(`${out}.ready`));
+  await cliReady(out, done);
   process.kill(-child.pid, "SIGINT");
   const { code } = await done;
   assert.equal(code, 0);
   assert.match(JSON.parse(fs.readFileSync(out, "utf8")).calls[0].text, /message_stop/);
 });
 
-test("headless pipelines get the substituted URL through the native process group", async (t) => {
-  // observationPath switches the launcher to spawnNativeProcess (the pipeline path).
-  const { dir, file, out } = await setup(t, "call-wait", (d) => ({
-    observationPath: path.join(d, "s.events.jsonl"),
-    outcomePath: path.join(d, "s.outcome.json"),
-  }));
-  const { child, done } = run(file);
-  await until(() => fs.existsSync(`${out}.ready`), 10_000);
-  // Captured while the launcher runs: after its exit a leaked adapter would be reparented.
-  const pids = adapterPids(child.pid);
-  assert.equal(pids.length, 1, "adapter child of the launcher");
-  process.kill(JSON.parse(fs.readFileSync(out, "utf8")).pid, "SIGUSR2"); // CLI exits 7
-  const { code, stdout, stderr } = await done;
-  assert.equal(code, 7, stderr);
-  assert.match(stdout, /FAKE-CLI-STDOUT/);
-  assert.match(
-    fs.readFileSync(path.join(dir, "s.events.jsonl"), "utf8"),
-    /FAKE-CLI-STDOUT/,
-    "observation captured the CLI output",
-  );
-  const record = JSON.parse(fs.readFileSync(out, "utf8"));
-  assert.match(record.env.ANTHROPIC_BASE_URL, /^http:\/\/127\.0\.0\.1:\d+$/);
-  assert.equal(JSON.stringify(record).includes("__AGENTPIER_ADAPTER_URL__"), false);
-  assert.equal(JSON.stringify(record).includes(KEY), false);
-  assert.match(record.calls[0].text, /message_stop/);
-  assert.equal(
-    JSON.parse(fs.readFileSync(path.join(dir, "s.outcome.json"), "utf8")).exitCode,
-    7,
-  );
-  await allDead(pids);
-});
+test(
+  "headless pipelines get the substituted URL through the native process group",
+  hangGuard,
+  async (t) => {
+    // observationPath switches the launcher to spawnNativeProcess (the pipeline path).
+    const { dir, file, out } = await setup(t, "call-wait", (d) => ({
+      observationPath: path.join(d, "s.events.jsonl"),
+      outcomePath: path.join(d, "s.outcome.json"),
+    }));
+    const { child, done } = run(file);
+    await cliReady(out, done);
+    // Captured while the launcher runs: after its exit a leaked adapter would be reparented.
+    const pids = adapterPids(child.pid);
+    assert.equal(pids.length, 1, "adapter child of the launcher");
+    process.kill(JSON.parse(fs.readFileSync(out, "utf8")).pid, "SIGUSR2"); // CLI exits 7
+    const { code, stdout, stderr } = await done;
+    assert.equal(code, 7, stderr);
+    assert.match(stdout, /FAKE-CLI-STDOUT/);
+    assert.match(
+      fs.readFileSync(path.join(dir, "s.events.jsonl"), "utf8"),
+      /FAKE-CLI-STDOUT/,
+      "observation captured the CLI output",
+    );
+    const record = JSON.parse(fs.readFileSync(out, "utf8"));
+    assert.match(record.env.ANTHROPIC_BASE_URL, /^http:\/\/127\.0\.0\.1:\d+$/);
+    assert.equal(JSON.stringify(record).includes("__AGENTPIER_ADAPTER_URL__"), false);
+    assert.equal(JSON.stringify(record).includes(KEY), false);
+    assert.match(record.calls[0].text, /message_stop/);
+    assert.equal(
+      JSON.parse(fs.readFileSync(path.join(dir, "s.outcome.json"), "utf8")).exitCode,
+      7,
+    );
+    await gone(pids);
+  },
+);
 
 for (const [signal, expected] of [
   ["SIGTERM", 143],
   ["SIGHUP", 129],
 ])
-  test(`${signal} during the adapter start exits ${expected} without the CLI`, async (t) => {
-    const { dir, file, out } = await setup(t);
-    const marker = path.join(dir, "held.pid");
-    // Test-only preload: holds back the adapter's ready message, so the launcher stays in
-    // its start phase until the signal arrives.
-    const { child, done } = run(file, {
-      env: { ...process.env, NODE_OPTIONS: `--import=${holdReady}`, HOLD_MARKER: marker },
-    });
-    await until(() => fs.existsSync(marker), 10_000);
-    const adapterPid = Number(fs.readFileSync(marker, "utf8"));
-    assert.ok(alive(adapterPid));
-    child.kill(signal);
-    const { code, stdout, stderr } = await done;
-    assert.equal(code, expected);
-    assert.equal(stdout, "");
-    assert.equal(stderr, "");
-    assert.equal(fs.existsSync(out), false, "CLI never started");
-    assert.equal(fs.existsSync(file), false, "payload consumed");
-    await until(() => !alive(adapterPid)); // the aborted start killed the adapter
-  });
+  test(
+    `${signal} during the adapter start exits ${expected} without the CLI`,
+    hangGuard,
+    async (t) => {
+      const { dir, file, out } = await setup(t);
+      const marker = path.join(dir, "held.pid");
+      // Test-only preload: holds back the adapter's ready message, so the launcher stays in
+      // its start phase until the signal arrives.
+      const { child, done } = run(file, {
+        env: {
+          ...process.env,
+          NODE_OPTIONS: `--import=${holdReady}`,
+          HOLD_MARKER: marker,
+        },
+      });
+      await whileLauncherRuns(done, () => fs.existsSync(marker), "the adapter was held");
+      const adapterPid = Number(fs.readFileSync(marker, "utf8"));
+      assert.ok(alive(adapterPid));
+      child.kill(signal);
+      const { code, stdout, stderr } = await done;
+      assert.equal(code, expected);
+      assert.equal(stdout, "");
+      assert.equal(stderr, "");
+      assert.equal(fs.existsSync(out), false, "CLI never started");
+      assert.equal(fs.existsSync(file), false, "payload consumed");
+      await gone([adapterPid]); // the aborted start killed the adapter
+    },
+  );
 
 test("SIGTERM during the adapter start never starts the CLI afterwards (race-tolerant)", async (t) => {
   const { file, out } = await setup(t);
