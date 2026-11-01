@@ -481,6 +481,8 @@ export const assistants = {
   sshProposalProject: "This project does not exist.",
   sshProposalKey: "Choose a key of the proposal's project, or a new managed key.",
   notFound: "Agent or conversation not found.",
+  pipelineAccessChanged:
+    "The pipeline or one of its profiles changed since access was granted. Review the current settings and save project and pipeline access again for the granting agent; for shared access, this is the lead. Then request a new coding task.",
   conflict: "The data has changed. Please reload.",
   capacity: "The team size exceeds this host's capacity. Choose a smaller value.",
   hostCapacity:

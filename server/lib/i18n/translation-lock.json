@@ -285,6 +285,7 @@
   "assistants.notFound": "de:ff35e88bf568 en:7860a121e311",
   "assistants.peerRequestOpen": "de:7b0f8d90a1f1 en:264d38515608",
   "assistants.peerRequestTurn": "de:6e81ca8c1e30 en:432b8f59df77",
+  "assistants.pipelineAccessChanged": "de:8167a00ee326 en:4a5bedd603e6",
   "assistants.projectEditNoMatch": "de:6beabe1d2c22 en:355aa36dd811",
   "assistants.projectFileEncoding": "de:0f266caa48a3 en:9aec28ca0b10",
   "assistants.projectFileUnsuitable": "de:7c6bba968883 en:d0d0a8a3496b",

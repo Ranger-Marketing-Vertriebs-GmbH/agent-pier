@@ -30,6 +30,8 @@ const reasons = {
     "AgentPier has not yet confirmed that this turn started (the Gateway acknowledged it late). This is temporary: wait about 5 seconds and retry the same call, at most 3 times; if it still fails, tell the owner.",
   NOT_FOUND:
     "The referenced item does not exist or is not accessible. Use catalog, list or status to find valid IDs.",
+  PIPELINE_ACCESS_CHANGED:
+    "The pipeline or one of its profiles changed since the owner granted access. Do not retry until the owner reviews the current pipeline/profiles and saves project and pipeline access again in the granting agent's settings (the lead for shared access). Then submit a new coding request.",
   CONFLICT:
     "The item changed or this call conflicts with an earlier one. Read the current state and retry with the current revision.",
   BUSY: "Another operation is still active, for example a running team or a pending request. Check its status instead of retrying.",
@@ -401,6 +403,7 @@ const byKey = {
   mailSourceEmpty: "MAIL_SOURCE_EMPTY",
   mailSaveRefused: "MAIL_SAVE_REFUSED",
   notFound: "NOT_FOUND",
+  pipelineAccessChanged: "PIPELINE_ACCESS_CHANGED",
   conflict: "CONFLICT",
   active: "BUSY",
   provider: "MODEL_UNAVAILABLE",
