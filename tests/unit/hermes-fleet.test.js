@@ -107,6 +107,33 @@ test("config.apply writes the agent's home, starts the set and restarts it on a 
   assert.ok(fs.existsSync(path.join(fake.home("ap-a"), "plugins/agentpier-guard")));
 });
 
+test("a new team bridge reaches the team plugin without a restart", async (t) => {
+  const fake = hermesFakeRuntime(t);
+  const sets = fleet(t, fake);
+  const runtime = sets.runtimeOf(hermesAgent("lead"));
+  const desired = contractAgent("ap-lead", { baseUrl: "http://127.0.0.1:9/v1" });
+  const bridge = (token) => ({ url: "http://127.0.0.1:4100", token });
+  await runtime.config.apply({ desired, connection: bridge("first") });
+  const plugin = path.join(fake.home("ap-lead"), "plugins/agentpier-team");
+  assert.match(
+    fs.readFileSync(path.join(plugin, "tools.json"), "utf8"),
+    /agentpier_team_propose/,
+  );
+  assert.equal(fake.starts("ap-lead").length, 1);
+  // AgentPier restarted: a new token, read by the plugin at its next call.
+  const next = await runtime.config.apply({ desired, connection: bridge("second") });
+  assert.deepEqual(next, {
+    written: ["plugins/agentpier-team/bridge.json"],
+    restarted: false,
+  });
+  assert.equal(fake.starts("ap-lead").length, 1);
+  assert.match(fs.readFileSync(path.join(plugin, "bridge.json"), "utf8"), /"second"/);
+  // Without the bridge the plugin goes, and the set restarts without it.
+  const gone = await runtime.config.apply({ desired });
+  assert.equal(gone.restarted, true);
+  assert.equal(fs.existsSync(plugin), false);
+});
+
 test("removing an agent stops its set and deletes its Hermes folders", async (t) => {
   const fake = hermesFakeRuntime(t);
   const sets = fleet(t, fake);

@@ -194,8 +194,19 @@ function protectedTargets(workspace) {
       } catch {}
   return ids;
 }
-export function classifyWrite(params, { roots = [], agentId } = {}) {
-  const ownId = workspaceId(agentId);
+// Why the write guard refused a file change, for the model.
+export const writeRefusals = {
+  unverified: "The write target could not be verified.",
+  outside: "Writes are limited to this agent's workspace.",
+  bootstrap: "Agent instruction files are managed by AgentPier.",
+  unauthorized: "This turn is not authorized to change files.",
+  owner: "Only the owner's own messages may change files.",
+};
+// `ownId`: the agent's own folder below `roots`, by default its OpenClaw workspace id.
+export function classifyWrite(
+  params,
+  { roots = [], agentId, ownId = workspaceId(agentId) } = {},
+) {
   const values = [params?.path, params?.file_path, params?.filePath].filter(
     (value) => typeof value === "string",
   );
@@ -492,14 +503,13 @@ export function registerToolGuard(api) {
         for (const params of writeTargets(event.toolName, event.params))
           targets.push(classifyWrite(params, { roots, agentId: ctx?.agentId }));
       } catch {
-        return deny("The write target could not be verified.");
+        return deny(writeRefusals.unverified);
       }
-      if (targets.some((target) => target.outside))
-        return deny("Writes are limited to this agent's workspace.");
+      if (targets.some((target) => target.outside)) return deny(writeRefusals.outside);
       if (targets.some((target) => target.bootstrap))
-        return deny("Agent instruction files are managed by AgentPier.");
+        return deny(writeRefusals.bootstrap);
       if (targets.some((target) => target.managed)) return deny(managedRefusal);
-      if (!ctx?.sessionKey) return deny("This turn is not authorized to change files.");
+      if (!ctx?.sessionKey) return deny(writeRefusals.unauthorized);
       // The bridge alone knows whether the current turn came directly from the owner;
       // every path of a patch must be allowed.
       for (const target of targets) {
@@ -516,8 +526,7 @@ export function registerToolGuard(api) {
           ctx.abortSignal,
         ).catch(() => null);
         const policy = response?.ok ? await response.json().catch(() => null) : null;
-        if (policy?.allow !== true)
-          return deny("Only the owner's own messages may change files.");
+        if (policy?.allow !== true) return deny(writeRefusals.owner);
       }
       return undefined;
     },

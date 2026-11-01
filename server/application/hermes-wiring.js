@@ -47,6 +47,15 @@ export function hermesAgentFleet(supervisor, { dataDir, store }) {
   );
 }
 
+/**
+ * What a Hermes agent's apply reads beside its record (AssistantConfig
+ * applyOwnProcess): the team bridge its team plugin calls, started for it when the
+ * OpenClaw start has not yet (TeamBridge.start is idempotent); none while it cannot.
+ */
+export const hermesApplyWiring = ({ bridge }) => ({
+  hermesInputs: async () => ({ connection: await bridge.start().catch(() => null) }),
+});
+
 const stableCode = (error, fallback) =>
   /^[A-Z][A-Z0-9_]*$/.test(error?.code || "") ? error.code : fallback;
 

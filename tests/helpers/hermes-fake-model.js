@@ -4,11 +4,12 @@ import http from "node:http";
 // the Hermes runtime spike, docs/research/hermes-runtime-spike.md), served in the test
 // process on a loopback port: no account, no network. The last user message decides:
 // - "RUN: <command>" asks for the `terminal` tool with that command;
-// - "CALL: <tool> <json arguments>" asks for any tool with those arguments;
+// - "CALL: <tool> <JSON arguments>" asks for that tool, when the request offers it
+//   (an auxiliary call without tools, such as a chat title, gets the echo);
 // - "ASK: <question>" asks the person with the `clarify` tool, offering staging and
 //   prod;
 // - a clarify result is answered "ANSWERED: <the person's answer>", any other tool
-//   result "TOOL_DONE: <result>";
+//   result "TOOL_DONE: <result>" (its first 400 characters);
 // - "SLOW" streams the echo one word every `slowMs`, then 40 more ticks;
 // - anything else is answered "ECHO: <message>".
 const text = (content) =>
@@ -23,12 +24,13 @@ function answer(body) {
     const result = text(last.content);
     const answered = /"user_response":\s*"([^"]*)"/.exec(result);
     return {
-      reply: answered ? `ANSWERED: ${answered[1]}` : `TOOL_DONE: ${result.slice(0, 80)}`,
+      reply: answered ? `ANSWERED: ${answered[1]}` : `TOOL_DONE: ${result.slice(0, 400)}`,
     };
   }
   const said = text(last.content);
   const call = said.match(/CALL: (\S+) (.*)$/m);
-  if (call)
+  const offered = (body.tools || []).map((tool) => tool?.function?.name);
+  if (call && offered.includes(call[1]))
     return {
       tool: {
         id: `call_${Date.now()}`,

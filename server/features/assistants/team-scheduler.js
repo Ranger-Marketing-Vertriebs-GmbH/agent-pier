@@ -1,7 +1,7 @@
 import { TeamProvisioning } from "./team-provisioning.js";
 import { memberTerminal, TeamResults } from "./team-results.js";
 import { ownerTelegram } from "./team-coding.js";
-import { hostReady } from "./runtimes/runtime-for.js";
+import { anyHostReady } from "./runtimes/runtime-for.js";
 export class TeamScheduler {
   constructor({ teams, assistants, now = Date.now, mcp = null }) {
     Object.assign(this, { teams, assistants, now, mcp });
@@ -21,7 +21,7 @@ export class TeamScheduler {
         );
   }
   tick() {
-    if (this.closed || !hostReady(this.assistants.runtime)) return Promise.resolve();
+    if (this.closed || !anyHostReady(this.assistants.runtime)) return Promise.resolve();
     if (this.running) return this.running;
     this.running = this.advance().finally(() => {
       this.running = null;

@@ -54,6 +54,7 @@ telemetry:
     send: false
 ==> (remove) <==
 plugins/agentpier-guard
+plugins/agentpier-team
 ==> (unsupported) <==
 browser
 skills

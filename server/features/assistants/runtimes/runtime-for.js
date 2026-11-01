@@ -148,6 +148,16 @@ export function onAgentRuntimeReady(supervisor, listener) {
   return () => fleet.off("status", follow);
 }
 
+/**
+ * The work folder of `agent` when it runs on its own process set (Hermes: the folder
+ * its commands and file tools start in), else null: OpenClaw's workspaces are the
+ * runtime paths' own.
+ */
+export const agentWorkspace = (supervisor, agent) =>
+  ownProcess(agent) && supervisor && typeof supervisor === "object"
+    ? hermesFleetOf(supervisor).workspaceOf(agent)
+    : null;
+
 /** Whether `agent` runs on its own process set (Hermes) rather than the shared host. */
 export const ownProcess = (agent) => runtimeIdOf(agent) === "hermes";
 
@@ -217,6 +227,18 @@ export const hostReady = (supervisor, agent) =>
   !!supervisor &&
   typeof supervisor === "object" &&
   runtimeFor(agent, supervisor).host.ready();
+
+/**
+ * Whether some runtime host behind `supervisor` takes calls: the shared OpenClaw host
+ * or the process set of a Hermes agent. Background passes that serve agents of every
+ * runtime (the team scheduler, lead requests) run while this holds; each step checks
+ * the host of its own agent (hostReady, runtimeAccepts).
+ */
+export const anyHostReady = (supervisor) =>
+  hostReady(supervisor) ||
+  (!!supervisor &&
+    typeof supervisor === "object" &&
+    (fleets.get(supervisor)?.list() || []).some(({ runtime }) => runtime.host.ready()));
 
 /**
  * The current connection of the runtime of `agent` behind `supervisor`

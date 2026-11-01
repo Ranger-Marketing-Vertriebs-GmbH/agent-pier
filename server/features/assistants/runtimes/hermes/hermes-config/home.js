@@ -11,10 +11,12 @@ import { memoryLimits } from "./memory.js";
 import { skillEntries } from "./skills.js";
 import { mcpEntries, mcpEnvOwned } from "./mcp.js";
 import { channelBotEnvNames, channelBotHome, senderLockedToolsets } from "./telegram.js";
+import { teamDirectory, teamPlugin, teamPluginFiles, teamTools } from "./team-plugin.js";
 
 // One agent's Hermes home (its own HERMES_HOME, ADR 0006 decision 4) compiled from
-// its desired state: config.yaml, .env, SOUL.md, the guard plugin and the Deepgram
-// plugin of its own Telegram bot (telegram.js), nothing else.
+// its desired state: config.yaml, .env, SOUL.md, the guard plugin, the team plugin
+// (team-plugin.js) and the Deepgram plugin of its own Telegram bot (telegram.js),
+// nothing else.
 // Key names verified against Hermes v0.22.5 (hermes_cli/config_defaults.py unless
 // named otherwise; docs/hermes-runtime.md lists them).
 
@@ -49,8 +51,9 @@ const practicalDefaults = [
 // What Hermes cannot take from the desired state yet, by reason id. `placed`: the
 // assigned skills the home offers (skills.js); any other is named as `skills`.
 // `mcp`: the compiled servers (mcp.js), null when the store was not read; a bound
-// server left out is named as `mcp`, an OAuth one as `mcpOAuth`.
-function unsupportedOf(agent, level, model, placed, mcp) {
+// server left out is named as `mcp`, an OAuth one as `mcpOAuth`. `team`: the team
+// plugin's files (team-plugin.js), without which team tools are named as `teams`.
+function unsupportedOf(agent, level, model, { placed, mcp, team }) {
   const grants = agent.tools.flatMap((grant) => grant.tools || []);
   return [
     ...(model?.unsupported ? [model.unsupported] : []),
@@ -60,7 +63,9 @@ function unsupportedOf(agent, level, model, placed, mcp) {
     ...(agent.skills.assigned.some((name) => !placed.includes(name)) ? ["skills"] : []),
     ...(agent.web.readPdfs ? ["readPdfs"] : []),
     ...(grants.includes("agentpier_reminder") ? ["routines"] : []),
-    ...(agent.tools.some((grant) => grant.needs?.includes("teams")) ? ["teams"] : []),
+    ...(!team && agent.tools.some((grant) => grant.needs?.includes("teams"))
+      ? ["teams"]
+      : []),
     ...(level !== "off" && agent.shell.pathPrepend.length ? ["shellPath"] : []),
   ];
 }
@@ -77,17 +82,27 @@ function unsupportedOf(agent, level, model, placed, mcp) {
  * `bundledSkills`: the names the installation bundles, `catalogSkills`: `{ [name]:
  * folder }` of catalog skills it may offer (skills.js); `mcp`: the MCP store's inputs
  * (the desired state's host `mcp`), without which `mcp_servers` and its secrets in
- * .env stay as they are (mcp.js).
+ * .env stay as they are (mcp.js); `connection`: the team bridge's `{ url, token }`
+ * for the team plugin (team-plugin.js).
  * Pure: the same inputs yield the same home.
  */
 export function compileHome(
   agent,
-  { workspace, strict = [], existing = {}, bundledSkills, catalogSkills, mcp } = {},
+  {
+    workspace,
+    strict = [],
+    existing = {},
+    bundledSkills,
+    catalogSkills,
+    mcp,
+    connection,
+  } = {},
 ) {
   const level = shellLevel(agent, strict);
   const skills = skillEntries(agent, { bundled: bundledSkills, catalog: catalogSkills });
   const servers = mcp === undefined ? null : mcpEntries(agent, mcp, { workspace });
   const guard = guardsEveryCommand(level);
+  const team = teamPluginFiles(agent, { connection });
   const model = agent.model ? modelSection(agent.model) : null;
   // The agent's own bot, when the desired state knows it (an apply, not a bare start).
   const bot = agent.channelBot !== undefined ? channelBotHome(agent) : null;
@@ -95,7 +110,11 @@ export function compileHome(
     ...disabledToolsets(agent, level),
     ...(bot?.senders ? senderLockedToolsets : []),
   ];
-  const plugins = [...(guard ? [guardPlugin] : []), ...(bot?.plugin ? [bot.plugin] : [])];
+  const plugins = [
+    ...(guard ? [guardPlugin] : []),
+    ...(team ? [teamPlugin] : []),
+    ...(bot?.plugin ? [bot.plugin] : []),
+  ];
   const config = [
     ...(model ? [[["model"], model.section]] : []),
     [["agent", "disabled_toolsets"], [...new Set(toolsets)].sort()],
@@ -105,6 +124,12 @@ export function compileHome(
     [["terminal", "backend"], "local"],
     ...(workspace ? [[["terminal", "cwd"], workspace]] : []),
     [["approvals", "mode"], approvalMode(level)],
+    // Hermes's Tool Search would put plugin tools behind its tool_search bridge
+    // (tools/tool_search.py is_deferrable_tool_name); the team tools stay at hand, as
+    // OpenClaw offers them, and the instructions name them directly.
+    ...(team && teamTools(agent).length
+      ? [[["tools", "tool_search", "enabled"], "off"]]
+      : []),
     [["memory", "memory_enabled"], agent.memory],
     [["memory", "user_profile_enabled"], agent.memory],
     // Hermes's defaults, written so the limit AgentPier checks edits against holds.
@@ -142,15 +167,20 @@ export function compileHome(
     ...(agent.instructions !== undefined && { "SOUL.md": String(agent.instructions) }),
     ...(guard && guardFiles),
     ...bot?.files,
+    ...team,
   };
   return Object.freeze({
     runtimeAgentId: agent.runtimeAgentId,
     files: Object.freeze(files),
-    remove: Object.freeze([...(guard ? [] : [guardDirectory]), ...(bot?.remove || [])]),
+    remove: Object.freeze([
+      ...(guard ? [] : [guardDirectory]),
+      ...(team ? [] : [teamDirectory]),
+      ...(bot?.remove || []),
+    ]),
     config: Object.freeze(config),
     env: Object.freeze(env),
     unsupported: Object.freeze(
-      unsupportedOf(agent, level, model, skills.placed, servers),
+      unsupportedOf(agent, level, model, { placed: skills.placed, mcp: servers, team }),
     ),
   });
 }

@@ -21,8 +21,9 @@ export const hermesConfigCapabilities = Object.freeze({
  * "config.yaml", ".env" }`) are by runtime agent id; `strictShell`: the runtime
  * agent ids on every-command approval; `bundledSkills` and `catalogSkills` as
  * compileHome takes them, for every agent; the MCP servers from the desired state's
- * host `mcp`. Facts other runtimes take (`existing`,
- * `paths`, `port`, `token`) are ignored. Pure.
+ * host `mcp`. The team plugin answers through the team bridge
+ * `desired.host.team.plugin.connection` names. Facts other runtimes take
+ * (`existing`, `paths`, `port`, `token`) are ignored. Pure.
  */
 function compile({
   desired,
@@ -50,6 +51,7 @@ function compile({
         bundledSkills,
         catalogSkills,
         mcp: desired.host.mcp,
+        connection: desired.host.team.plugin?.connection,
       }),
     ]);
   return Object.freeze({ homes: Object.freeze(Object.fromEntries(entries)) });

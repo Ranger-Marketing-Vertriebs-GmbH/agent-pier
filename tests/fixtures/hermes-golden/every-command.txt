@@ -113,5 +113,6 @@ name: agentpier-guard
 version: "1"
 description: AgentPier asks the owner before every shell command and Python run
 ==> (remove) <==
+plugins/agentpier-team
 ==> (unsupported) <==
 teams

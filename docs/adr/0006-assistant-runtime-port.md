@@ -172,9 +172,12 @@ state: the compiler preserves them and never produces duplicate keys.
   makes `/restart` and `hermes update` exit back to AgentPier instead of starting a
   detached replacement, and the supervisor ends a gateway that owns the home before
   each start and after each stop (`hermes-supervisor.js`).
-- **Team tools** reach Hermes as MCP tools (`team-mcp.js`), with a small Python plugin
-  for the tool guard's `pre_tool_call` checks. Waits longer than Hermes's 30-second hook
-  timeout stay inside tools.
+- **Team tools** reach Hermes through a small Python profile plugin that also carries
+  the tool guard's `pre_tool_call` checks. The first plan named MCP tools; an MCP call
+  carries no session or tool call id, while a plugin tool's handler receives the
+  calling session, which the team bridge binds every call to. Waits longer than
+  Hermes's 30-second hook timeout stay inside tools
+  ([teams on Hermes](../hermes-runtime.md#teams)).
 - **Browser:** AgentPier starts each Hermes agent's Chromium and passes
   `browser.cdp_url`, so live view and takeover use AgentPier's own CDP screencast.
 - **Models:** AgentPier injects connection keys through Hermes's secret source; Hermes

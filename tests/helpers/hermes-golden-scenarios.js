@@ -188,13 +188,37 @@ export const hermesGoldenScenarios = {
     model: models.bearer,
     instructions,
   }),
+  // A lead with the team bridge: AgentPier's team tools and guard as a Hermes plugin.
+  "team-lead": () => ({
+    profile: agent({ capabilities: { memory: true } }),
+    model: models.bearer,
+    instructions,
+    connection: bridgeConnection,
+  }),
+  // A permanent team member: its own tools, and the guard asks before its file changes.
+  "team-member": () => ({
+    profile: agent({
+      capabilities: { memory: true },
+      teamMemberId: "a1",
+      teamId: "t1",
+      parentAssistantId: "lead",
+      lifetime: "permanent",
+    }),
+    model: models.bearer,
+    instructions,
+    connection: bridgeConnection,
+  }),
 };
+
+// The team bridge a start names (team-bridge.js), with a fixed token.
+const bridgeConnection = { url: "http://127.0.0.1:43210", token: "golden-bridge-token" };
 
 /** What hermesCompiler.compile takes for a scenario (`homes`: files found there). */
 export function goldenCompileInput(scenario, homes = {}) {
   const { profile, model: connection, instructions: text, workspace, strict } = scenario;
   const { bundledSkills, catalogSkills, mcp, channelBot } = scenario;
   const servers = mcp?.bindings[profile.id] || [];
+  const bridge = scenario.connection;
   const live =
     connection || text !== undefined
       ? [
@@ -207,7 +231,11 @@ export function goldenCompileInput(scenario, homes = {}) {
         ]
       : [];
   return {
-    desired: desiredState({ profiles: [profile], mcp }),
+    desired: desiredState({
+      profiles: [profile],
+      mcp,
+      ...(bridge && { directory: "/golden/team-plugin", connection: bridge }),
+    }),
     agents: live,
     workspaces: workspace ? { [profile.runtimeAgentId]: workspace } : {},
     homes: Object.keys(homes).length ? { [profile.runtimeAgentId]: homes } : {},

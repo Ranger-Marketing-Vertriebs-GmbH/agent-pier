@@ -29,7 +29,7 @@ import { mirrorLeadMemory } from "./member-memory.js";
 import { resolveTemplates, searchTemplates } from "./team-templates.js";
 import { WorkGoals } from "./work-goals.js";
 import { followArchive, refuseDeleting } from "./agent-own-jobs.js";
-import { hostOf, hostReady } from "./runtimes/runtime-for.js";
+import { hostOf, runtimeAccepts } from "./runtimes/runtime-for.js";
 function exact(input, keys) {
   if (
     !input ||
@@ -199,8 +199,13 @@ export class TeamService {
           ? this.store.archive(id, revision, check)
           : this.store[action](id, revision);
       await this.applyMcp();
-      if (hostReady(this.assistants.runtime))
-        for (const member of members) {
+      for (const member of members)
+        if (
+          runtimeAccepts(
+            this.assistants.runtime,
+            this.assistants.store.getAssistant(member.assistantId),
+          )
+        ) {
           await this.assistants.config.apply(member.assistantId);
           // Archive retires a check-in job, restore schedules it again.
           await this.assistants.reminders?.heartbeats
@@ -417,7 +422,12 @@ export class TeamService {
     return this.assistants.admit(async () => {
       const result = await this.promotions.promote(inv, input);
       await this.applyMcp();
-      if (hostReady(this.assistants.runtime)) {
+      if (
+        runtimeAccepts(
+          this.assistants.runtime,
+          this.assistants.store.getAssistant(result.assistantId),
+        )
+      ) {
         await this.assistants.config.apply(result.assistantId).catch(() => {});
         await this.assistants.reminders?.heartbeats
           ?.sync(result.assistantId)
@@ -474,7 +484,7 @@ export class TeamService {
   memberChanged(member) {
     this.mcp.sync();
     const a = this.assistants;
-    if (hostReady(a.runtime))
+    if (runtimeAccepts(a.runtime, a.store.getAssistant(member.assistantId)))
       Promise.resolve()
         .then(() => a.admit(() => a.config.apply(member.assistantId)))
         .catch(() => {});
