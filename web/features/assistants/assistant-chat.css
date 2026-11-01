@@ -37,7 +37,7 @@
   flex: 1;
   min-width: 0;
 }
-.assistant-header h1 {
+.assistant-header :is(h1, h2) {
   margin: 0;
   overflow: hidden;
   font-family: inherit;
@@ -239,10 +239,10 @@
 }
 @media (min-width: 701px) {
   /* The floating expand/new-session buttons sit where the header starts. */
-  .app.sidebar-collapsed main:has(.assistant-detail) {
+  .app.sidebar-collapsed main:has(.assistant-detail:not(.in-pane)) {
     padding-top: 0;
   }
-  .app.sidebar-collapsed .assistant-header {
+  .app.sidebar-collapsed .assistant-header:not(.in-pane) {
     padding-left: 106px;
   }
 }
@@ -473,7 +473,7 @@
     border-radius: 9px;
     font-size: 13px;
   }
-  .assistant-header h1 {
+  .assistant-header :is(h1, h2) {
     font-size: 15px;
     line-height: 20px;
   }

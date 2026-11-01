@@ -1,18 +1,16 @@
 import { artifactCopy } from "../../lib/i18n/messages/artifacts.js";
-import { mcpCopy } from "../../lib/i18n/messages/mcp.js";
 import {
   sessionInterruptionCopy,
   sessionReloadCopy,
 } from "../../lib/i18n/messages/sessions.js";
 import "./session-reload.css";
 import "../artifacts/artifacts.css";
-import { sshCopy } from "../../lib/i18n/messages/ssh.js";
 import { sessionActivity } from "./sessionPresentation.js";
 import { filesCopy } from "../../lib/i18n/messages/files.js";
 import { pipelineCopy } from "../../lib/i18n/messages/pipelines.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { sessionWorkspaceCopy as copy } from "../../lib/i18n/messages/sessions.js";
-import React, { lazy, Suspense, useMemo, useRef, useState } from "react";
+import React, { lazy, Suspense, useRef, useState } from "react";
 import api from "../../lib/api.js";
 import { routePath } from "../../app/routes.js";
 import { names, statusLabels } from "../../lib/providers.js";
@@ -21,21 +19,32 @@ import ProviderMark from "../../components/ProviderMark.jsx";
 import { routeLabel } from "../provider-connections/route-label.js";
 import ChatView from "../chat/ChatView.jsx";
 import useSessionViewport from "./useSessionViewport.js";
+import useSessionActions from "./useSessionActions.jsx";
 import SessionGithubStatus from "./SessionGithubStatus.jsx";
+import SessionPaneHeader from "./SessionPaneHeader.jsx";
 import StatusDot from "../../components/StatusDot.jsx";
 
 // The terminal connection as a status dot: connected is ok, not the accent.
 const connectionTones = { connecting: "waiting", connected: "ok", disconnected: "error" };
-const SessionReloadDialog = lazy(() => import("./SessionReloadDialog.jsx"));
 const PipelineSessionRecovery = lazy(
   () => import("../pipelines/PipelineSessionRecovery.jsx"),
 );
-const SessionMcpDialog = lazy(() => import("../mcp/SessionMcpDialog.jsx"));
-const SessionSshDialog = lazy(() => import("../ssh/SessionSshDialog.jsx"));
 const SessionPreviews = lazy(() => import("../previews/SessionPreviews.jsx"));
 const SessionArtifacts = lazy(() => import("../artifacts/SessionArtifacts.jsx"));
 const FileExplorer = lazy(() => import("../files/FileExplorer.jsx"));
 const TerminalView = lazy(() => import("../terminal/TerminalView.jsx"));
+
+const ActionButton = ({ item }) => (
+  <button
+    className="icon-button"
+    aria-label={item.label}
+    title={item.title}
+    disabled={item.disabled}
+    onClick={item.run}
+  >
+    <Icon name={item.icon} />
+  </button>
+);
 export default function SessionWorkspace({
   session,
   account,
@@ -46,27 +55,16 @@ export default function SessionWorkspace({
   navigate,
   openNavigation,
   autoResume = true,
+  // The pane's chrome inside a split view ({ menuItems, close, headerProps }), else null.
+  pane = null,
 }) {
   const [artifactsOpen, setArtifactsOpen] = useState(false);
-  const [sshSession, setSshSession] = useState(null);
-  const [mcpSession, setMcpSession] = useState(null);
-  const [reloadSession, setReloadSession] = useState(null);
-  const [switchAccount, setSwitchAccount] = useState(false);
-  const sessionIdentity = JSON.stringify([
-    session.id,
-    session.deliveryAccountId || session.accountId,
-    session.tool,
-    session.createdAt,
-  ]);
-  const pendingReload = useMemo(
-    () => ({ current: null, identity: sessionIdentity }),
-    [sessionIdentity],
-  );
   const [connection, setConnection] = useState("connecting");
   const coding = session.tool !== "shell";
   const reloadable = coding && !session.pipeline && session.purpose !== "login";
-  const mobileChat = coding && mode === "reader";
-  const mobileViewport = mobileChat || mode === "terminal";
+  // A pane is never the phone layout: it keeps its own height inside the view.
+  const mobileChat = !pane && coding && mode === "reader";
+  const mobileViewport = !pane && (mobileChat || mode === "terminal");
   useSessionViewport(mobileViewport);
   const sendRef = useRef(null);
   const focusRef = useRef(null);
@@ -78,6 +76,14 @@ export default function SessionWorkspace({
       focusRef.current?.();
     }
   };
+  const actions = useSessionActions({
+    session,
+    action,
+    reloadable,
+    openTerminal: showTerminal,
+  });
+  const { sessionIdentity } = actions;
+  const reloadItem = actions.items.find((item) => item.id === "reload");
   const keys = [
     ["Esc", "", commonCopy.sendEscape],
     ["Tab", "\t", commonCopy.sendTab],
@@ -90,146 +96,93 @@ export default function SessionWorkspace({
   ];
   return (
     <div
-      className={`session-workspace${mobileViewport ? " mobile-session-workspace" : ""}${mobileChat ? " mobile-chat-workspace" : ""}`}
+      className={`session-workspace${pane ? " in-pane" : ""}${mobileViewport ? " mobile-session-workspace" : ""}${mobileChat ? " mobile-chat-workspace" : ""}`}
     >
-      <header className="session-heading">
-        {mobileChat && (
-          <button
-            type="button"
-            className="icon-button chat-navigation"
-            aria-label={copy.openNavigation}
-            onClick={openNavigation}
-          >
-            <Icon name="menu" />
-          </button>
-        )}
-        <div className="session-title">
-          <ProviderMark tool={session.tool} small />
-          <div>
-            <h1>{session.name}</h1>
-            <p>
-              {names[session.tool]}
-              <span> / </span>
-              {session.access?.providerConnectionName ||
-                account?.name ||
-                copy.sessionTitleDescription}
-              {/* The space keeps screen readers from joining name and route. */}
-              {session.provider?.route && " "}
-              {session.provider?.route && (
-                <span className="route-badge" title={copy.routeTitle}>
-                  {routeLabel(session.provider.route)}
-                </span>
-              )}
-            </p>
-            {session.startedBy?.kind === "agent" && (
-              <p className="session-started-by">
-                {copy.startedByAgent(session.startedBy.name)}
+      {pane ? (
+        <SessionPaneHeader
+          session={session}
+          mode={mode}
+          setMode={(next) => (next === "terminal" ? showTerminal() : setMode(next))}
+          coding={coding}
+          actions={actions}
+          pane={pane}
+          route={route}
+          navigate={navigate}
+        />
+      ) : (
+        <header className="session-heading">
+          {mobileChat && (
+            <button
+              type="button"
+              className="icon-button chat-navigation"
+              aria-label={copy.openNavigation}
+              onClick={openNavigation}
+            >
+              <Icon name="menu" />
+            </button>
+          )}
+          <div className="session-title">
+            <ProviderMark tool={session.tool} small />
+            <div>
+              <h1>{session.name}</h1>
+              <p>
+                {names[session.tool]}
+                <span> / </span>
+                {session.access?.providerConnectionName ||
+                  account?.name ||
+                  copy.sessionTitleDescription}
+                {/* The space keeps screen readers from joining name and route. */}
+                {session.provider?.route && " "}
+                {session.provider?.route && (
+                  <span className="route-badge" title={copy.routeTitle}>
+                    {routeLabel(session.provider.route)}
+                  </span>
+                )}
               </p>
-            )}
-          </div>
-        </div>
-        <div className="session-actions">
-          {reloadable && (
-            <button
-              className="icon-button"
-              aria-label={sessionReloadCopy.title}
-              title={sessionReloadCopy.title}
-              onClick={() => {
-                setSwitchAccount(false);
-                setReloadSession(sessionIdentity);
-              }}
-            >
-              <Icon name="refresh" />
-            </button>
-          )}
-          {coding && (
-            <Suspense>
-              <SessionPreviews sessionId={session.id} />
-            </Suspense>
-          )}
-          {coding && (
-            <details
-              className="session-artifacts"
-              onToggle={(event) => setArtifactsOpen(event.currentTarget.open)}
-            >
-              <summary>{artifactCopy.title}</summary>
-              {artifactsOpen && (
-                <Suspense>
-                  <SessionArtifacts
-                    key={session.id}
-                    sessionId={session.id}
-                    returnTo={routePath({ ...route, sessionId: session.id, mode })}
-                    navigate={navigate}
-                  />
-                </Suspense>
+              {session.startedBy?.kind === "agent" && (
+                <p className="session-started-by">
+                  {copy.startedByAgent(session.startedBy.name)}
+                </p>
               )}
-            </details>
-          )}
-          {reloadable &&
-            ["codex", "claude"].includes(session.tool) &&
-            !session.provider &&
-            !session.access?.providerConnectionId && (
-              <button
-                className="icon-button"
-                aria-label={sessionReloadCopy.switchTitle}
-                title={sessionReloadCopy.switchTitle}
-                onClick={() => {
-                  setSwitchAccount(true);
-                  setReloadSession(sessionIdentity);
-                }}
-              >
-                <Icon name="users" />
-              </button>
+            </div>
+          </div>
+          <div className="session-actions">
+            {reloadItem && <ActionButton item={reloadItem} />}
+            {coding && (
+              <Suspense>
+                <SessionPreviews sessionId={session.id} />
+              </Suspense>
             )}
-          {session.agentpierTools && (
-            <button
-              className="icon-button"
-              aria-label={mcpCopy.sessionTools}
-              title={mcpCopy.sessionTools}
-              onClick={() => setMcpSession(sessionIdentity)}
-            >
-              <Icon name="shield" />
-            </button>
-          )}
-          {session.status === "running" &&
-            !session.pipeline?.headless &&
-            session.purpose !== "login" && (
-              <button
-                className="icon-button"
-                aria-label={sshCopy.title}
-                title={sshCopy.title}
-                onClick={() => setSshSession(sessionIdentity)}
+            {coding && (
+              <details
+                className="session-artifacts"
+                onToggle={(event) => setArtifactsOpen(event.currentTarget.open)}
               >
-                <Icon name="link" />
-              </button>
+                <summary>{artifactCopy.title}</summary>
+                {artifactsOpen && (
+                  <Suspense>
+                    <SessionArtifacts
+                      key={session.id}
+                      sessionId={session.id}
+                      returnTo={routePath({ ...route, sessionId: session.id, mode })}
+                      navigate={navigate}
+                    />
+                  </Suspense>
+                )}
+              </details>
             )}
-          <button
-            className="icon-button"
-            aria-label={commonCopy.renameSession}
-            onClick={() => action("rename", session)}
-          >
-            <Icon name="edit" />
-          </button>
-          <button
-            className="icon-button"
-            aria-label={
-              session.status === "running"
-                ? commonCopy.stopSession
-                : commonCopy.removeSession
-            }
-            disabled={session.status === "running" && Boolean(session.pipeline?.headless)}
-            onClick={() =>
-              action(session.status === "running" ? "stop" : "remove", session)
-            }
-          >
-            <Icon name={session.status === "running" ? "stop" : "trash"} />
-          </button>
-        </div>
-      </header>
+            {actions.items
+              .filter((item) => item !== reloadItem)
+              .map((item) => (
+                <ActionButton key={item.id} item={item} />
+              ))}
+          </div>
+        </header>
+      )}
       {reloadable &&
         ["waiting", "reloading", "failed"].includes(session.reload?.state) && (
           <div className="session-reload-notice" role="status">
-            <button className="button" onClick={() => setReloadSession(sessionIdentity)}>
+            <button className="button" onClick={actions.openReload}>
               {sessionReloadCopy[session.reload.state]}
             </button>
           </div>
@@ -269,50 +222,52 @@ export default function SessionWorkspace({
             <PipelineSessionRecovery key={sessionIdentity} session={session} />
           </Suspense>
         )}
-      <div className="terminal-topbar">
-        <div className="segmented">
-          <button
-            className={mode === "terminal" ? "selected" : ""}
-            onClick={showTerminal}
-          >
-            <Icon name="terminal" size={15} />
-            {copy.terminalTab}
-          </button>
-          {coding && (
+      {!pane && (
+        <div className="terminal-topbar">
+          <div className="segmented">
             <button
-              className={mode === "reader" ? "selected" : ""}
-              onClick={() => setMode("reader")}
+              className={mode === "terminal" ? "selected" : ""}
+              onClick={showTerminal}
             >
-              {sessionActivity(session).state === "working" ? (
-                <span className="chat-working-spinner" aria-hidden="true" />
-              ) : (
-                <Icon name="book" size={15} />
-              )}
-              {copy.chatTab}
+              <Icon name="terminal" size={15} />
+              {copy.terminalTab}
             </button>
-          )}
-          <button
-            className={mode === "files" ? "selected" : ""}
-            onClick={() => setMode("files")}
-          >
-            <Icon name="folder" size={15} />
-            {filesCopy.tab}
-          </button>
-        </div>
-        {mode !== "files" && (
-          <span className={`connection ${connection}`} role="status">
-            <StatusDot tone={connectionTones[connection] ?? "idle"} />
-            {
+            {coding && (
+              <button
+                className={mode === "reader" ? "selected" : ""}
+                onClick={() => setMode("reader")}
+              >
+                {sessionActivity(session).state === "working" ? (
+                  <span className="chat-working-spinner" aria-hidden="true" />
+                ) : (
+                  <Icon name="book" size={15} />
+                )}
+                {copy.chatTab}
+              </button>
+            )}
+            <button
+              className={mode === "files" ? "selected" : ""}
+              onClick={() => setMode("files")}
+            >
+              <Icon name="folder" size={15} />
+              {filesCopy.tab}
+            </button>
+          </div>
+          {mode !== "files" && (
+            <span className={`connection ${connection}`} role="status">
+              <StatusDot tone={connectionTones[connection] ?? "idle"} />
               {
-                connecting: commonCopy.connecting,
-                connected: commonCopy.connected,
-                disconnected: copy.terminalTopbarDisconnected,
-                ended: statusLabels[session.status] || commonCopy.ended,
-              }[connection]
-            }
-          </span>
-        )}
-      </div>
+                {
+                  connecting: commonCopy.connecting,
+                  connected: commonCopy.connected,
+                  disconnected: copy.terminalTopbarDisconnected,
+                  ended: statusLabels[session.status] || commonCopy.ended,
+                }[connection]
+              }
+            </span>
+          )}
+        </div>
+      )}
       <div className="terminal-shell">
         {mode === "files" && (
           <Suspense fallback={<p>{filesCopy.loading}</p>}>
@@ -377,55 +332,19 @@ export default function SessionWorkspace({
           ))}
         </div>
       )}
-      {mcpSession === sessionIdentity && session.agentpierTools && (
-        <Suspense fallback={<p role="status">{mcpCopy.loading}</p>}>
-          <SessionMcpDialog session={session} close={() => setMcpSession(null)} />
-        </Suspense>
+      {actions.dialogs}
+      {!pane && (
+        <footer className="session-footer">
+          <span title={session.cwd}>
+            <Icon name="folder" size={13} />
+            {session.repositoryName || session.cwd}
+          </span>
+          {session.purpose !== "login" && !session.pipeline?.headless && (
+            <SessionGithubStatus session={session} />
+          )}
+          <span>{copy.sessionFooterLabel}</span>
+        </footer>
       )}
-      {sshSession === sessionIdentity &&
-        session.status === "running" &&
-        !session.pipeline?.headless && (
-          <Suspense fallback={<p role="status">{sshCopy.loading}</p>}>
-            <SessionSshDialog
-              key={sessionIdentity}
-              session={session}
-              close={() => setSshSession(null)}
-              openReload={
-                reloadable
-                  ? () => {
-                      setSshSession(null);
-                      setReloadSession(sessionIdentity);
-                    }
-                  : undefined
-              }
-            />
-          </Suspense>
-        )}
-      {reloadSession === sessionIdentity && reloadable && (
-        <Suspense fallback={<p role="status">{sessionReloadCopy.loading}</p>}>
-          <SessionReloadDialog
-            key={sessionIdentity}
-            session={session}
-            close={() => setReloadSession(null)}
-            pending={pendingReload}
-            switchAccount={switchAccount}
-            openTerminal={() => {
-              setReloadSession(null);
-              showTerminal();
-            }}
-          />
-        </Suspense>
-      )}
-      <footer className="session-footer">
-        <span title={session.cwd}>
-          <Icon name="folder" size={13} />
-          {session.repositoryName || session.cwd}
-        </span>
-        {session.purpose !== "login" && !session.pipeline?.headless && (
-          <SessionGithubStatus session={session} />
-        )}
-        <span>{copy.sessionFooterLabel}</span>
-      </footer>
     </div>
   );
 }

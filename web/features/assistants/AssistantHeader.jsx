@@ -10,10 +10,15 @@ import { assistantBrowserCopy } from "../../lib/i18n/messages/assistant-browser.
 import { shellLevel } from "./shell-level.js";
 import BrowserPreview from "./browser/BrowserPreview.jsx";
 import "./assistant-shell.css";
+import "./assistant-pane.css";
 import StatusDot from "../../components/StatusDot.jsx";
+import { viewsCopy } from "../../lib/i18n/messages/views.js";
+import { RowMenu, useRowMenu } from "../extensions/RowMenu.jsx";
 
 // One bar for the agent chat and its settings (handoff 1d, 2e, 2f). Below 701px it
-// replaces the app's mobile header, so it carries the navigation button itself.
+// replaces the app's mobile header, so it carries the navigation button itself. In a
+// split view's pane (`pane`: { menuItems, close, headerProps }) it has no navigation;
+// ⋯ holds the pane's entries and Settings, × takes the pane out of the view.
 export default function AssistantHeader({
   assistant,
   variant,
@@ -27,7 +32,9 @@ export default function AssistantHeader({
   subtitle,
   backLabel,
   actions,
+  pane = null,
 }) {
+  const menu = useRowMenu();
   const { runtime, models, activity = {} } = useAssistants();
   const status = headerStatus({
     assistant,
@@ -45,10 +52,16 @@ export default function AssistantHeader({
     ? `${member.role} · ${assistant.model.modelId}`
     : assistant.model.modelId;
   const shell = shellLevel(assistant);
+  const Heading = pane ? "h2" : "h1";
+  const openSettings = () =>
+    navigate({ view: "agents", assistantId: assistant.id, agentSettings: true });
   return (
     <>
-      <header className={`assistant-header ${variant}`}>
-        {openNavigation && (
+      <header
+        className={`assistant-header ${variant}${pane ? " in-pane" : ""}`}
+        {...pane?.headerProps}
+      >
+        {openNavigation && !pane && (
           <button
             type="button"
             className="assistant-header-icon assistant-header-menu"
@@ -74,7 +87,8 @@ export default function AssistantHeader({
         </span>
         <div className="assistant-header-title">
           <div className="assistant-header-name">
-            <h1>{assistant.name}</h1>
+            {/* Several panes share the page: each names its chat one level down. */}
+            <Heading>{assistant.name}</Heading>
             {shell !== "off" && (
               <span
                 className={`assistant-shell-chip ${shell}`}
@@ -110,18 +124,47 @@ export default function AssistantHeader({
           <BrowserPreview assistant={assistant} navigate={navigate} />
         )}
         {actions}
-        {!settings && (
+        {!settings && !pane && (
           <button
             type="button"
             className="assistant-header-settings"
             aria-label={copy.settings}
-            onClick={() =>
-              navigate({ view: "agents", assistantId: assistant.id, agentSettings: true })
-            }
+            onClick={openSettings}
           >
             <Icon name="settings" />
             <span>{copy.settingsTab}</span>
           </button>
+        )}
+        {pane && (
+          <>
+            <button
+              type="button"
+              className="assistant-header-icon"
+              aria-label={viewsCopy.paneMenu(assistant.name)}
+              aria-haspopup="menu"
+              aria-expanded={menu.open}
+              onClick={menu.toggle}
+            >
+              <Icon name="more" />
+            </button>
+            <RowMenu
+              label={viewsCopy.paneMenu(assistant.name)}
+              state={menu}
+              items={[
+                ...pane.menuItems,
+                { id: "settings", label: copy.settingsTab, run: openSettings },
+              ]}
+            />
+            <button
+              type="button"
+              className="assistant-header-icon"
+              aria-label={viewsCopy.removePane(assistant.name)}
+              title={viewsCopy.removePane(assistant.name)}
+              onClick={pane.close}
+            >
+              <Icon name="close" />
+            </button>
+          </>
         )}
       </header>
       {missing && (

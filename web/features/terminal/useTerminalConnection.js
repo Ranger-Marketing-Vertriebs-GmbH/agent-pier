@@ -10,6 +10,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { terminalKey } from "./terminal-keyboard.js";
 import { attachTouchScroll } from "./terminal-touch.js";
+import { takesFocus } from "./terminal-focus.js";
 import { artifactLink } from "../artifacts/artifact-return-link.js";
 import { writeClipboard } from "../../lib/clipboard.js";
 
@@ -177,9 +178,17 @@ export default function useTerminalConnection({
     focusRef,
     request,
   ]);
-  // Focuses on mount, on a mode change and when its pane becomes the focused one.
+  // Focuses on mount, on a mode change and when its pane becomes the focused one,
+  // unless a click into the pane's own chrome focused it (terminal-focus.js).
+  const focused = useRef({ mode, autoFocus });
   useEffect(() => {
-    if (autoFocus && mode === "terminal") terminalRef.current?.focus();
+    const previous = focused.current;
+    focused.current = { mode, autoFocus };
+    const gained = !previous.autoFocus && previous.mode === mode;
+    const active = document.activeElement;
+    const { body } = document;
+    if (takesFocus({ mode, autoFocus, gained, active, body, mount: container.current }))
+      terminalRef.current?.focus();
   }, [mode, autoFocus]);
 
   return {

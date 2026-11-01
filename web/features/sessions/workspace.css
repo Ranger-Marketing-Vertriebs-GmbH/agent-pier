@@ -249,3 +249,76 @@
 .pipeline-session-notice a {
   color: var(--accent);
 }
+
+/* A session inside a split view's pane: it fills the pane, without page padding, and
+   one compact row (SessionPaneHeader.jsx) replaces the heading, topbar and footer. */
+.session-workspace.in-pane {
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+}
+.session-workspace.in-pane .terminal-shell {
+  border-inline: 0;
+  border-bottom: 0;
+}
+.session-workspace.in-pane .keyboard-toolbar {
+  border-inline: 0;
+  border-radius: 0;
+}
+.session-pane-header {
+  container-type: inline-size;
+  display: flex;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  padding: 6px var(--space-2) 6px var(--space-3);
+  border-bottom: 1px solid var(--header-line);
+}
+.session-pane-title {
+  flex: 1 1 120px;
+  min-width: 0;
+}
+.session-pane-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.session-pane-name h2 {
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.session-pane-name .status-dot {
+  --status-dot-size: 6px;
+  flex: none;
+}
+.session-pane-title p {
+  margin: 2px 0 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.session-pane-header .segmented button {
+  padding: 4px 8px;
+}
+.session-pane-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+/* A narrow pane keeps name and actions on the first row, the switch below them. */
+@container (max-width: 480px) {
+  .session-pane-header > .segmented {
+    order: 1;
+  }
+}
