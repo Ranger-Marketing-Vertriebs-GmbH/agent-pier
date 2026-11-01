@@ -66,6 +66,8 @@ import { AgentBus } from "../features/agentbus/agent-bus.js";
 import { Preferences } from "../features/settings/preferences.js";
 import { ProjectGroups } from "../features/projects/project-groups.js";
 import { projectGroupsChanged } from "../features/projects/live-topics.js";
+import { ViewStore } from "../features/views/view-store.js";
+import { viewsChanged } from "../features/views/live-topics.js";
 import { McpDirectory } from "../features/mcp-directory/client.js";
 import { SlashCommandService } from "../features/chat/slash-command-service.js";
 import { AccountStore, detectUtilities } from "../features/accounts/account-store.js";
@@ -98,6 +100,10 @@ export async function createServices(config) {
   const endpointTester = new EndpointTester({ connections: providerConnections });
   const accounts = new AccountStore({ ...config, providerCatalog, providerConnections });
   const preferences = new Preferences({ ...config, accounts });
+  const views = new ViewStore({
+    dataDir: config.dataDir,
+    onChange: () => viewsChanged(services.live),
+  });
   const projectGroups = new ProjectGroups({
     dataDir: config.dataDir,
     onChange: () => projectGroupsChanged(services.live),
@@ -536,6 +542,7 @@ export async function createServices(config) {
     agentbus,
     preferences,
     projectGroups,
+    views,
     mcpDirectory,
     nonoSandbox,
   };

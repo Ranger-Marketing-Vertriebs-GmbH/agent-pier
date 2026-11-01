@@ -50,6 +50,7 @@ import {
   followAccountWrites,
 } from "../features/accounts/live-auth-topics.js";
 import { projectGroupsChangedTopic } from "../features/projects/live-topics.js";
+import { viewsTopic } from "../features/views/live-topics.js";
 import { attachLiveWebSocket } from "../http/live-websocket.js";
 import { userMayWatch, userTopics } from "../http/route-access.js";
 
@@ -114,6 +115,7 @@ export function createLiveHub(services, options = {}) {
   hub.define(projectsChangedTopic());
   watchProjectWrites(services, hub);
   hub.define(projectGroupsChangedTopic());
+  hub.define(viewsTopic(services));
   hub.define(accountAuthTopic(services));
   followAccountWrites(services, hub);
   // A restricted user's own topics, each scoped to her (route-access.js userTopics).
@@ -151,6 +153,7 @@ const QUIET_WRITE_AREAS = new Set([
   "pipeline-queue",
   "memory",
   "project-groups",
+  "views",
   "artifacts",
   "previews",
   "presence",

@@ -318,6 +318,7 @@ export const backupCopy = {
     repositories: "Registered repositories",
     preferences: "Settings",
     "project-groups": "Project groups",
+    views: "Views",
     "pipeline-definitions": "Pipeline and profile definitions",
     memory: "Project knowledge",
     "pipeline-history": "Pipeline history (encrypted)",

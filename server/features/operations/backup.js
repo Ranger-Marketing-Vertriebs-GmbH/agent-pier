@@ -77,6 +77,7 @@ export class Backup {
         "repositories",
         "preferences",
         "project-groups",
+        "views",
         "pipeline-definitions",
         "memory",
         "audit",

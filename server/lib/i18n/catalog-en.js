@@ -30,6 +30,7 @@ import { cliProfiles } from "./en/cli-profiles.js";
 import { pipelines } from "./en/pipelines.js";
 import { pipelineQueue } from "./en/pipeline-queue.js";
 import { projectGroups } from "./en/project-groups.js";
+import { views } from "./en/views.js";
 import { pipelineProfiles } from "./en/pipeline-profiles.js";
 import { pipelineGraph } from "./en/pipeline-graph.js";
 import { pipelineWorkspaces } from "./en/pipeline-workspaces.js";
@@ -60,6 +61,7 @@ export const englishServerMessages = Object.freeze({
   pipelines,
   pipelineQueue,
   projectGroups,
+  views,
   pipelineProfiles,
   pipelineGraph,
   pipelineWorkspaces,
