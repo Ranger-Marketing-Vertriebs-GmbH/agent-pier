@@ -1,7 +1,12 @@
 import { sameValue } from "../../../lib/settings/draft-state.js";
 import { agentPages, agentSettingsLocation } from "../settings-routes.js";
 import { heartbeatForm } from "../heartbeat.js";
-import { shellEligible, shellLevel } from "../shell-level.js";
+import {
+  offersEveryCommand,
+  shellChoice,
+  shellEligible,
+  shellFields,
+} from "../shell-level.js";
 
 // Pure rules of the agent settings page (docs/settings-pattern.md): which tabs and
 // subpages an agent has, what each tab's draft holds and what a save sends.
@@ -280,7 +285,8 @@ export const profilePatch = (values) => ({
 export const capabilityServer = (assistant) => ({
   ...pick(assistant?.capabilities, capabilityKeys),
   browserVisible: assistant?.browserVisible === true,
-  shell: shellLevel(assistant),
+  // "every" where the runtime asks before every command (shell-level.js).
+  shell: shellChoice(assistant),
   skills: sortedIds(assistant?.skills),
   // The built-in Shopping skill's switch: on unless stored off (built-in-skills.js).
   shopping: assistant?.shopping !== false,
@@ -301,7 +307,11 @@ export function capabilityPatch({ values, base, assistant }) {
   if (shellEligible(assistant) && !assistant.userAccess && changed("browserVisible"))
     patch.browserVisible = values.browserVisible;
   // Only a changed level is sent: the server asks to confirm a raise.
-  if (shellEligible(assistant) && changed("shell")) patch.shell = values.shell;
+  if (shellEligible(assistant) && changed("shell"))
+    Object.assign(
+      patch,
+      shellFields(values.shell, offersEveryCommand(assistant.runtimeInfo)),
+    );
   if (shellEligible(assistant) && changed("skills")) patch.skills = values.skills;
   // A task member follows its lead's switch and never saves its own.
   if (!followsLeadModel(assistant) && changed("shopping"))

@@ -11,6 +11,21 @@ export const assistantShellCopy = {
     approval: "The agent asks you before every command that is not always allowed.",
     full: "The agent runs every command without asking you.",
   },
+  // A runtime that can ask before every command (Hermes) offers four levels.
+  everyCommand: {
+    levels: {
+      off: "Off",
+      approval: "Dangerous commands",
+      every: "Every command",
+      full: "Full access",
+    },
+    levelHints: {
+      off: "The agent cannot run new commands.",
+      approval: "Commands Hermes flags as dangerous ask you first; everything else runs.",
+      every: "Every shell command and Python run asks you first.",
+      full: "The agent runs every command without asking you.",
+    },
+  },
   offHint:
     "Without shell access, skills and tools that need command-line programs do not work, for example gh, git or mail programs.",
   warning:

@@ -49,5 +49,8 @@ export const capabilityGateCopy = {
   reasons: {
     runtimeUnknown: (runtime) =>
       `Nicht verfügbar: Die Laufzeit „${runtime}“ gibt es in diesem AgentPier nicht.`,
+    hermesNotYetSupported: () => "Kommt bald für Hermes-Agenten.",
+    advancedSettingsUnsupported: (runtime) =>
+      `${runtime} hat in AgentPier noch keine erweiterten Einstellungen.`,
   },
 };

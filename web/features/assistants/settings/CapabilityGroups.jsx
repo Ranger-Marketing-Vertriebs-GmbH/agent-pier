@@ -18,7 +18,12 @@ import { assistantSettingsCopy as settingsCopy } from "../../../lib/i18n/message
 import { assistantDreamingCopy as dreamingCopy } from "../../../lib/i18n/messages/assistant-dreaming.js";
 import { assistantApi } from "../assistant-api.js";
 import useDreaming from "../useDreaming.js";
-import { shellEligible, shellLevels } from "../shell-level.js";
+import {
+  everyCommandLevels,
+  offersEveryCommand,
+  shellEligible,
+  shellLevels,
+} from "../shell-level.js";
 import { agentRoute, isPersonal, webCapabilityKeys } from "./agent-settings-fields.js";
 import useCount from "./useCount.js";
 
@@ -158,20 +163,27 @@ export function WebGroup({ draft, browser, images, creating = false, navigate })
   );
 }
 
-/** Shell level: selected hint and warning visible, the other levels' hints behind ⓘ. */
-export function ShellGroup({ assistant, draft, go, creating = false }) {
+/**
+ * Shell level: selected hint and warning visible, the other levels' hints behind ⓘ.
+ * A runtime that asks before every command (`everyCommand`, the agent's runtime by
+ * default) offers "Every command" as a fourth level (shell-level.js).
+ */
+export function ShellGroup({ assistant, draft, go, creating = false, everyCommand }) {
   const id = useId();
   const others = useInfoHint();
   const eligible = shellEligible(assistant);
+  const every = everyCommand ?? offersEveryCommand(assistant?.runtimeInfo);
+  const levels = every ? everyCommandLevels : shellLevels;
+  const texts = every ? shellCopy.everyCommand : shellCopy;
   const reason = eligible
     ? ""
     : assistant?.archivedAt
       ? shellCopy.archived
       : shellCopy.temporary;
   const level = draft.values.shell;
-  const otherHints = shellLevels
+  const otherHints = levels
     .filter((value) => value !== level)
-    .map((value) => `${shellCopy.levels[value]}: ${shellCopy.levelHints[value]}`)
+    .map((value) => `${texts.levels[value]}: ${texts.levelHints[value]}`)
     .join(" ");
   const listed = Boolean(assistant) && eligible && !creating;
   const entries = useCount(
@@ -191,10 +203,7 @@ export function ShellGroup({ assistant, draft, go, creating = false }) {
         <div className="list-row agent-shell-levels">
           <Segmented
             label={shellCopy.title}
-            options={shellLevels.map((value) => ({
-              value,
-              label: shellCopy.levels[value],
-            }))}
+            options={levels.map((value) => ({ value, label: texts.levels[value] }))}
             value={level}
             disabled={!eligible || draft.saving}
             onChange={(next) => draft.set("shell", next)}
@@ -205,7 +214,7 @@ export function ShellGroup({ assistant, draft, go, creating = false }) {
         ) : (
           <div className="agent-row-note">
             <p>
-              {shellCopy.levelHints[level]} <InfoHintButton hint={others} />
+              {texts.levelHints[level]} <InfoHintButton hint={others} />
             </p>
             <InfoHintText hint={others}>{otherHints}</InfoHintText>
           </div>

@@ -1,6 +1,6 @@
 // Pure rules of the new agent wizard (handoff 5.3): its draft, its steps, what a
 // duplicate copies (5.3.1) and what the summary names. No request is made here.
-import { shellLevel } from "../shell-level.js";
+import { shellChoice } from "../shell-level.js";
 import {
   sortedGrants,
   sortedIds,
@@ -86,7 +86,7 @@ export function duplicateFields(agent, policy, team, copyName) {
     connectionId: agent.model?.connectionId || "",
     modelId: agent.model?.modelId || "",
     ...Object.fromEntries(switchKeys.map((key) => [key, capabilities[key] === true])),
-    shell: shellLevel(agent),
+    shell: shellChoice(agent),
     skills: sortedIds(agent.skills),
     projectIds: sortedIds(policy?.projectIds),
     projectFiles: sortedLevels(policy?.projectFiles),
@@ -110,6 +110,15 @@ export function duplicateFields(agent, policy, team, copyName) {
       : null,
   };
 }
+
+/**
+ * The draft fields for runtime `runtime` ("" lets the server choose OpenClaw). Only
+ * Hermes asks before every command: elsewhere "Every command" becomes "With approval".
+ */
+export const withRuntime = (d, runtime) => ({
+  runtime,
+  ...(runtime !== "hermes" && d.shell === "every" ? { shell: "approval" } : {}),
+});
 
 /** Whether the draft holds any access grant (step 4). */
 export const hasAccess = (d) =>

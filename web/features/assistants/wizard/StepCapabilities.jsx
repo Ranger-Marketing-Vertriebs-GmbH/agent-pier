@@ -44,7 +44,7 @@ const texts = {
  * images need ChatGPT, so "+ Modell verbinden"); it never blocks creating. Shell uses
  * the settings' control (confirmations as today); agents of users keep it locked.
  */
-export default function StepCapabilities({ d, set, runtime, models }) {
+export default function StepCapabilities({ d, set, runtime, models, everyCommand }) {
   const id = useId();
   const [search, setSearch] = useState(null);
   const [pdf, setPdf] = useState(null);
@@ -152,7 +152,7 @@ export default function StepCapabilities({ d, set, runtime, models }) {
       {d.owner ? (
         <LockedNotice items={["shell", "sessions"]} />
       ) : (
-        <ShellGroup draft={draft} creating />
+        <ShellGroup draft={draft} creating everyCommand={everyCommand} />
       )}
       <p className="field-description">{copy().later}</p>
       {(sheet === "web-search" || sheet === "pdf-model") && (

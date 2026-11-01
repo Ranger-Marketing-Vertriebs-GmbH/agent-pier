@@ -23,6 +23,7 @@ import { landOn } from "../transcript-scroll.js";
 import HubFrame from "./HubFrame.jsx";
 import RuntimeAdvancedGroup from "./RuntimeAdvancedGroup.jsx";
 import RuntimeFeatureGroup from "./RuntimeFeatureGroup.jsx";
+import RuntimeHermesGroup from "./RuntimeHermesGroup.jsx";
 import RuntimeServiceGroup from "./RuntimeServiceGroup.jsx";
 import {
   advancedKey,
@@ -169,6 +170,7 @@ export function RuntimeOn({ frame, feature, section }) {
       <RuntimeFeatureGroup draft={draft} feature={feature} />
       <RuntimeServiceGroup />
       <AssistantRuntimeUpdates onChange={refresh} navigate={frame.navigate} />
+      <RuntimeHermesGroup />
       <section aria-labelledby={teamId}>
         <GroupLabel id={teamId} hint={teamCopy.concurrentHint}>
           {copy.runtime.teams}

@@ -130,5 +130,33 @@ export const agentsHubCopy = {
     storage: "Storage",
     diagnosticOk: "No problem reported",
     serviceOff: "Switch agents on to run the agent service.",
+    hermes: {
+      title: "Hermes Agent",
+      hint: "A second agent runtime next to OpenClaw. You choose it per agent when you create one; existing agents keep their runtime.",
+      enable: "Offer Hermes Agent",
+      enableSub: "Installs Hermes Agent in the background.",
+      state: "State",
+      states: {
+        installing: "Installing Hermes Agent …",
+        updating: "Updating Hermes Agent …",
+        off: "Off",
+        ready: "Ready",
+        notInstalled: "Not installed",
+      },
+      errors: {
+        HERMES_PROVISIONING_FAILED:
+          "Hermes Agent could not be installed. Switch it off and on to try again.",
+        HERMES_UPDATE_FAILED:
+          "The update failed. Hermes Agent keeps running on its previous version.",
+      },
+      unknownError: (code) => `Hermes Agent reported a problem (${code}).`,
+      version: "Version",
+      python: (version) => `Python ${version}`,
+      target: (version) => `Pinned version ${version}`,
+      update: "Update",
+      updateTo: (version) => `Update to ${version}`,
+      updateNote: "Hermes agents restart during the update.",
+      agents: "Agents on Hermes",
+    },
   },
 };

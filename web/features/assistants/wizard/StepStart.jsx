@@ -6,10 +6,53 @@ import ListRow, { RadioRow, SelectRow } from "../../../components/ListRow.jsx";
 import Segmented from "../../../components/Segmented.jsx";
 import { agentWizardCopy } from "../../../lib/i18n/messages/agent-wizard.js";
 import { usersCopy } from "../../../lib/i18n/messages/users.js";
+import { runtimeIdName } from "../runtime-capabilities.js";
 import TemplateNote from "../settings/TemplateNote.jsx";
 
 const copy = () => agentWizardCopy.start;
 const starts = ["blank", "template", "duplicate"];
+// "" lets the server choose its default runtime, OpenClaw.
+const runtimes = [
+  ["", "openclawSub"],
+  ["hermes", "hermesSub"],
+];
+
+/**
+ * Laufzeit: OpenClaw or Hermes Agent while Hermes is switched on and installed
+ * (`hermes`). A duplicate keeps its source's runtime and names it read-only.
+ */
+function RuntimeGroup({ d, hermes, onRuntime }) {
+  const id = useId();
+  const duplicating = d.start === "duplicate";
+  // A duplicate shows its runtime once its source is chosen; one off OpenClaw always.
+  if (duplicating && !d.duplicateOf) return null;
+  const other = Boolean(d.runtime) && d.runtime !== "openclaw";
+  if (!hermes && !(duplicating && other)) return null;
+  return (
+    <section aria-labelledby={id}>
+      <GroupLabel id={id} hint={copy().runtimeHint}>
+        {copy().runtime}
+      </GroupLabel>
+      <ListCard labelledBy={id}>
+        {duplicating ? (
+          <ListRow label={runtimeIdName(d.runtime)} sub={copy().duplicateRuntime} />
+        ) : (
+          runtimes.map(([runtime, sub]) => (
+            <RadioRow
+              key={runtime || "default"}
+              name={`${id}-runtime`}
+              value={runtime}
+              checked={(d.runtime === "hermes" ? "hermes" : "") === runtime}
+              label={runtimeIdName(runtime)}
+              sub={copy()[sub]}
+              onChange={onRuntime}
+            />
+          ))
+        )}
+      </ListCard>
+    </section>
+  );
+}
 
 /**
  * Schritt 1 (handoff 5.3): Leer, Aus Vorlage (TemplatePicker, scan, TemplateNote,
@@ -25,6 +68,8 @@ export default function StepStart({
   onPickTemplate,
   onDuplicate,
   onStart,
+  hermes = false,
+  onRuntime,
   error,
 }) {
   const startId = useId(),
@@ -71,6 +116,7 @@ export default function StepStart({
           <TemplateNote template={d.template} findings={d.template.findings} />
         )}
       </section>
+      <RuntimeGroup d={d} hermes={hermes} onRuntime={onRuntime} />
       {(users.length > 0 || d.owner) && (
         <section aria-labelledby={forId}>
           <GroupLabel id={forId}>{copy().forWhom}</GroupLabel>
