@@ -82,16 +82,26 @@ for (const tool of ["codex", "claude", "opencode"])
     assert.equal(data(none).code, "PREVIEW_INVALID_INPUT");
   });
 
-test("preview tools are absent without a session context", async (t) => {
+test("preview tools are absent without a full session context", async (t) => {
   const f = await applicationFixture(t);
-  const grant = { allResources: true, scopes: [] };
-  const names = f.application.mcpTools.list(grant).map(([name]) => name);
-  assert.ok(!names.some((name) => name.startsWith("preview_")));
-  await assert.rejects(
-    f.application.mcpTools.call("preview_open", { port: 3000 }, grant),
-    {
-      status: 403,
-    },
+  const grants = [
+    { allResources: true, scopes: [] },
+    { allResources: false, scopes: ["catalog:read"] },
+  ];
+  for (const grant of grants) {
+    const names = f.application.mcpTools.list(grant).map(([name]) => name);
+    assert.ok(!names.some((name) => name.startsWith("preview_")));
+    await assert.rejects(
+      f.application.mcpTools.call("preview_open", { port: 3000 }, grant),
+      { status: 403 },
+    );
+  }
+  const scoped = { allResources: false, scopes: [] };
+  const context = { sessionId: "s1", revalidate() {} };
+  assert.ok(
+    !f.application.mcpTools
+      .list(scoped, context)
+      .some(([name]) => name === "preview_open"),
   );
 });
 
@@ -132,9 +142,47 @@ test("a revoked grant refuses the next call and closes the preview", async (t) =
   assert.equal(f.application.previews.list().length, 1);
   await f.application.sessionMcp.revoke(issued.session.id);
   assert.equal(f.application.previews.list().length, 0);
+  const grant = { allResources: true, scopes: [] };
+  const context = { sessionId: issued.session.id, revalidate() {} };
+  await assert.rejects(
+    f.application.mcpTools.call(
+      "preview_open",
+      { port: upstream.port },
+      grant,
+      undefined,
+      context,
+    ),
+    { status: 403, message: "AgentPier access revoked or session unavailable." },
+  );
+  assert.equal(f.application.previews.list().length, 0);
   const again = await client
     .callTool({ name: "preview_open", arguments: { port: upstream.port } })
     .catch((error) => ({ isError: true, error }));
   assert.equal(again.isError, true);
-  assert.equal(f.application.previews.list().length, 0);
+});
+
+test("a session sees and closes only its own previews", async (t) => {
+  const f = await previewApp(t);
+  const upstream = await startUpstream(t);
+  const a = await connect(t, f, await issue(f, { choices: true }));
+  const b = await connect(t, f, await issue(f, { choices: true }));
+  const mine = data(
+    await a.callTool({ name: "preview_open", arguments: { port: upstream.port } }),
+  );
+  assert.deepEqual(
+    data(await b.callTool({ name: "preview_list", arguments: {} })).items,
+    [],
+  );
+  for (const args of [{ id: mine.id }, { port: upstream.port }]) {
+    const result = await b.callTool({ name: "preview_close", arguments: args });
+    assert.equal(result.isError, true);
+    const error = data(result);
+    assert.equal(error.code, "PREVIEW_NOT_FOUND");
+    assert.equal(error.status, 404);
+    assert.match(error.error, /no longer exists/);
+  }
+  assert.deepEqual(
+    f.application.previews.list().map((entry) => entry.id),
+    [mine.id],
+  );
 });
