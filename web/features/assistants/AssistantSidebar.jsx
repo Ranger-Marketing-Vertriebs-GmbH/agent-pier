@@ -16,6 +16,11 @@ import { activityFor, activityDot, sidebarSubline } from "./assistant-status.js"
 import SidebarChats from "./chats/SidebarChats.jsx";
 import { usersCopy } from "../../lib/i18n/messages/users.js";
 import { groupedMembers } from "./member-group-view.js";
+import { ownerChatsOf, paneDraggable } from "./agent-chat-target.js";
+import { writePayload } from "../views/drag-payload.js";
+import useViewsOffered from "../views/useViewsOffered.js";
+import useShownInView from "../views/useShownInView.js";
+import { viewsCopy } from "../../lib/i18n/messages/views.js";
 
 // Agents whose team members the owner unfolded stay unfolded across reloads (per
 // browser, like the sidebar groups). Storage may be unavailable; folding still works.
@@ -56,6 +61,8 @@ export default function AssistantSidebar({ navigate, route }) {
   // A stopped or failed agent service (handoff 5.10): rows dimmed with "offline" and
   // a warning dot on the group head; the hub shows the banner with start and diagnose.
   const down = serviceDown(runtime);
+  const offered = useViewsOffered();
+  const shown = useShownInView(route);
   const [opening, setOpening] = useState(null),
     [error, setError] = useState(""),
     [expanded, setExpanded] = useState(readExpanded);
@@ -147,24 +154,7 @@ export default function AssistantSidebar({ navigate, route }) {
   ]);
   const quiet = (phase) =>
     ["ready", "completed", "failed", "cancelled", "declined", "partial"].includes(phase);
-  // The owner's own open chats with an agent, his main chat first, then the most
-  // recently active; a user's chat (readable under her opt-in) is not his to open here.
-  const chatsOf = (assistant) =>
-    conversations
-      .filter(
-        (c) =>
-          c.assistantId === assistant.id &&
-          !c.archivedAt &&
-          (!c.channel || c.channel === "agentpier") &&
-          (assistant.userAccess?.mode === "own" || typeof c.userId !== "string"),
-      )
-      .sort(
-        (a, b) =>
-          (b.main === true) - (a.main === true) ||
-          String(b.lastActivityAt || b.createdAt).localeCompare(
-            String(a.lastActivityAt || a.createdAt),
-          ),
-      );
+  const chatsOf = (assistant) => ownerChatsOf(assistant, conversations);
   function item(assistant, nested = false) {
     const member = members.find((m) => m.assistantId === assistant.id);
     const chat = chatsOf(assistant)[0];
@@ -180,24 +170,33 @@ export default function AssistantSidebar({ navigate, route }) {
           copy,
         });
     const current = route.assistantId === assistant.id && route.view === "agents";
+    const inView = shown.agent(assistant.id);
+    const label = copy.sidebarLabel(
+      assistant.name,
+      member ? `${member.role} · ${assistant.model.modelId}` : assistant.model.modelId,
+      member
+        ? copy.team.states[member.phase]
+        : connectionMissing(assistant, models)
+          ? copy.status.connectionMissing
+          : copy.status[runtime.availability],
+    );
+    // Wider than 1150 px the agent's chat can be dragged into a split view.
+    const draggable = offered && paneDraggable(assistant, models);
     return (
       <button
         key={assistant.id}
-        className={`session-item assistant-sidebar-item ${nested ? "assistant-sidebar-member" : ""} ${current ? "selected" : ""}`}
-        aria-label={copy.sidebarLabel(
-          assistant.name,
-          member
-            ? `${member.role} · ${assistant.model.modelId}`
-            : assistant.model.modelId,
-          member
-            ? copy.team.states[member.phase]
-            : connectionMissing(assistant, models)
-              ? copy.status.connectionMissing
-              : copy.status[runtime.availability],
-        )}
+        className={`session-item assistant-sidebar-item ${nested ? "assistant-sidebar-member" : ""} ${current ? "selected" : ""}${inView ? " in-view" : ""}`}
+        aria-label={inView ? `${label}, ${viewsCopy.shownInView}` : label}
         aria-describedby={member ? `assistant-task-${assistant.id}` : undefined}
         aria-current={current ? "page" : undefined}
         disabled={!!opening && !chat && !member}
+        draggable={draggable || undefined}
+        onDragStart={
+          draggable
+            ? (event) =>
+                writePayload(event.dataTransfer, { agent: { assistantId: assistant.id } })
+            : undefined
+        }
         onClick={() => open(assistant, chat)}
       >
         <span className="assistant-avatar-wrap" aria-hidden="true">

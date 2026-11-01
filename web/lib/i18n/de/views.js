@@ -20,5 +20,7 @@ export const viewsCopy = {
   agentDeleted: "Agent gelöscht",
   agentsOff: "Agenten sind ausgeschaltet",
   disconnected: "Getrennt",
+  shownInView: "In dieser Ansicht",
+  full: "Die Ansicht ist voll (höchstens 6 Bereiche).",
   removeStale: "Aus der Ansicht nehmen",
 };

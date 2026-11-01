@@ -130,3 +130,28 @@
 .views-sidebar-name strong {
   min-width: 0;
 }
+/* A sidebar row the open view shows: a thin accent edge. */
+.session-item.in-view {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+/* A pane's or the empty view's drop target: the drop zone overlay's frame. */
+.split-pane-drop,
+.split-view-drop {
+  position: relative;
+}
+.split-pane-drop {
+  height: 100%;
+}
+/* The single session view or agent chat as a drop target: no box of its own, so the
+   page keeps its layout; the overlay and a failed drop's error sit over the main
+   area. */
+.single-view-drop {
+  display: contents;
+}
+.single-view-drop-error {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-4);
+  left: var(--space-4);
+  z-index: var(--z-toast);
+}

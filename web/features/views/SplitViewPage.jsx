@@ -7,6 +7,7 @@ import React, {
   useState,
 } from "react";
 import SplitLayout from "../../components/SplitLayout.jsx";
+import DropZoneOverlay from "../../components/DropZoneOverlay.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import useMediaQuery from "../../lib/useMediaQuery.js";
 import { mediaQueries } from "../../lib/breakpoints.js";
@@ -29,11 +30,27 @@ import {
 } from "./split-tree.js";
 import ViewHeader from "./ViewHeader.jsx";
 import PaneHost from "./PaneHost.jsx";
+import useViewDrop from "./useViewDrop.js";
 import "./views.css";
 
 const FLASH_MS = 700;
 const keyOf = (leaf) => itemKey(leaf.item);
 const paneOf = (leaf) => ({ key: itemKey(leaf.item), item: leaf.item, tab: leaf.tab });
+
+/** A pane's drop zones: edges split it, the centre replaces it. */
+function PaneDropTarget({ drop, paneKey, children }) {
+  const zone = drop.paneZone(paneKey);
+  return (
+    <div className="split-pane-drop" {...zone.handlers}>
+      {children}
+      <DropZoneOverlay
+        side={zone.side}
+        label={drop.full ? viewsCopy.full : undefined}
+        title={drop.full ? viewsCopy.full : undefined}
+      />
+    </div>
+  );
+}
 
 /** A pane shown alone (below 1151 px): measured before its content renders. */
 function SinglePane({ paneKey, render }) {
@@ -153,9 +170,11 @@ export default function SplitViewPage({
     () => ({ state, ready, action, autoResume }),
     [state, ready, action, autoResume],
   );
-  const renderPane = (leaf, size) => {
+  const [stageSize, setStageSize] = useState(null);
+  const drop = useViewDrop({ view, stageSize });
+  const renderPane = (leaf, size, arranged = false) => {
     const pane = paneOf(leaf);
-    return (
+    const host = (
       <PaneHost
         pane={pane}
         size={size}
@@ -164,9 +183,19 @@ export default function SplitViewPage({
         actions={actions}
         onFocusPane={setFocusedKey}
         shared={shared}
+        dragHeader={arranged ? drop.onHeaderDragStart : null}
       />
     );
+    return arranged ? (
+      <PaneDropTarget drop={drop} paneKey={pane.key}>
+        {host}
+      </PaneDropTarget>
+    ) : (
+      host
+    );
   };
+
+  const renderArranged = (leaf, size) => renderPane(leaf, size, true);
 
   if (!view)
     return (
@@ -198,17 +227,21 @@ export default function SplitViewPage({
           if (await navigate({ view: "workspace", sessionId: "" })) await remove(view.id);
         }}
       />
-      <ErrorMessage error={views.error} />
+      <ErrorMessage error={views.error || drop.error} />
       {!layout ? (
-        <p className="split-view-empty">{viewsCopy.empty}</p>
+        <div className="split-view-body split-view-drop" {...drop.emptyZone.handlers}>
+          <p className="split-view-empty">{viewsCopy.empty}</p>
+          <DropZoneOverlay side={drop.emptyZone.side} />
+        </div>
       ) : offered ? (
         <div className="split-view-body">
           <SplitLayout
             layout={layout}
             keyOf={keyOf}
-            renderPane={renderPane}
+            renderPane={renderArranged}
             onRatio={onRatio}
             minPane={MIN_PANE}
+            onSize={setStageSize}
           />
         </div>
       ) : (

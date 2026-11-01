@@ -1,10 +1,8 @@
 import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { componentsCopy } from "../lib/i18n/messages/components.js";
-import { ratioBounds } from "./split-geometry.js";
+import { SPLIT_GAP as GAP, ratioBounds } from "./split-geometry.js";
 import "./split-layout.css";
 
-// Width of the divider hit area in pixels; panes are separated by exactly this gap.
-const GAP = 8;
 const STEP = 0.05;
 const isSplit = (node) => node?.type === "split";
 const roundRatio = (value) => Math.round(value * 1000) / 1000;
@@ -123,7 +121,8 @@ function Divider({ divider, dragging, onRatio, onPreview }) {
 /**
  * Lays a binary split tree out as absolutely positioned panes. Panes render in one
  * flat list ordered by key, so moving a leaf within the tree never remounts it.
- * `layout`: `{ type: "split", dir: "row" | "col", ratio, a, b }` or a leaf.
+ * `layout`: `{ type: "split", dir: "row" | "col", ratio, a, b }` or a leaf; `onSize`
+ * hears the measured stage size.
  */
 export default function SplitLayout({
   layout,
@@ -132,6 +131,7 @@ export default function SplitLayout({
   onRatio,
   minPane = { width: 280, height: 220 },
   className = "",
+  onSize,
 }) {
   const root = useRef(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -163,6 +163,9 @@ export default function SplitLayout({
     [panes],
   );
   const setPreviewStable = useCallback((value) => setPreview(value), []);
+  useLayoutEffect(() => {
+    if (size.width > 0 && size.height > 0) onSize?.(size);
+  }, [size, onSize]);
   const ready = size.width > 0 && size.height > 0;
 
   return (

@@ -21,3 +21,24 @@ test("useDropZone reports no side when the side is not allowed", () => {
   assert.equal(dropDecision({ types, accepts, allowed, rect, x: 5, y: 50 }), null);
   assert.equal(dropDecision({ types, accepts, allowed, rect, x: 50, y: 50 }), "center");
 });
+
+test("useDropZone maps the side and hands the transfer to allowed", () => {
+  const types = ["application/x-agentpier-pane"];
+  const data = { marker: true };
+  const seen = [];
+  const side = dropDecision({
+    types,
+    accepts,
+    rect,
+    x: 50,
+    y: 50,
+    data,
+    sideFor: (under) => (under === "center" ? "right" : under),
+    allowed: (next, transfer) => {
+      seen.push([next, transfer]);
+      return true;
+    },
+  });
+  assert.equal(side, "right");
+  assert.deepEqual(seen, [["right", data]]);
+});

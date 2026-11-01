@@ -19,6 +19,8 @@ import { codingRoute } from "../features/coding/routes.js";
 import SessionRow from "./SessionRow.jsx";
 import InboxEntry from "../features/inbox/InboxEntry.jsx";
 import ViewsSidebarGroup from "../features/views/ViewsSidebarGroup.jsx";
+import useViewsOffered from "../features/views/useViewsOffered.js";
+import useShownInView from "../features/views/useShownInView.js";
 // A link-styled icon button of a group head that navigates in-app.
 function HeadLink({ icon, label, route, navigate }) {
   return (
@@ -62,6 +64,10 @@ export default function Sidebar({
   const mobile = useMobileLayout();
   const { enabled: agentsEnabled } = useAssistantFeature();
   const search = useSearchDialog();
+  // Wider than 1150 px session rows can be dragged into a split view; rows the open
+  // view shows are marked.
+  const viewsOffered = useViewsOffered();
+  const shown = useShownInView(route);
   // Head icons of the Agenten group (rendered by AssistantSidebar while agents are on)
   // and of the Sessions group (handoff §5.1), also in the phone drawer. Their "+"
   // buttons are how the sidebar creates sessions and agents; the compact "+ New" menu
@@ -195,6 +201,8 @@ export default function Sidebar({
                   selected={selected === s.id && view === "workspace"}
                   onSelect={openSession}
                   names={names}
+                  draggable={viewsOffered}
+                  inView={shown.session(s.id)}
                 />
               ))
             ) : (

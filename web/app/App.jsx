@@ -38,6 +38,8 @@ import { mediaQueries } from "../lib/breakpoints.js";
 import useViewsStore from "../features/views/useViewsStore.js";
 import { ViewsContext } from "../features/views/views-context.js";
 import useViewRouting from "../features/views/useViewRouting.js";
+import SingleViewDropTarget from "../features/views/SingleViewDropTarget.jsx";
+import { itemFromRoute } from "../features/views/click-rule.js";
 const AgentsPage = lazy(() => import("../features/assistants/AgentsPage.jsx"));
 const ProjectsPage = lazy(() => import("../features/projects/ProjectsPage.jsx"));
 const CodingPage = lazy(() => import("../features/coding/CodingPage.jsx"));
@@ -281,17 +283,23 @@ function Application() {
                 />
               ) : view === "agents" ? (
                 agentsEnabled ? (
-                  <AgentsPage
-                    route={route}
+                  // A single agent chat takes a dragged session or agent into a new view.
+                  <SingleViewDropTarget
+                    item={route.agentSettings ? null : itemFromRoute(route)}
                     navigate={navigate}
-                    subagentProfiles={
-                      ready
-                        ? Boolean(state.sharedCliExtensions && extensionProfileId)
-                        : null
-                    }
-                    openNavigation={openNavigation}
-                    navigationOpen={mobileNav}
-                  />
+                  >
+                    <AgentsPage
+                      route={route}
+                      navigate={navigate}
+                      subagentProfiles={
+                        ready
+                          ? Boolean(state.sharedCliExtensions && extensionProfileId)
+                          : null
+                      }
+                      openNavigation={openNavigation}
+                      navigationOpen={mobileNav}
+                    />
+                  </SingleViewDropTarget>
                 ) : agentsLoading ? (
                   <p className="loading" role="status">
                     {copy.workspaceLoading}
@@ -409,31 +417,36 @@ function Application() {
                   }}
                 />
               ) : activeSession ? (
-                <SessionWorkspace
-                  openNavigation={openNavigation}
+                <SingleViewDropTarget
                   key={activeSession.id}
-                  session={activeSession}
-                  route={route}
+                  item={{ kind: "session", id: activeSession.id }}
                   navigate={navigate}
-                  account={state.accounts.find((a) => a.id === activeSession.accountId)}
-                  autoResume={state.autoResumeInterrupted !== false}
-                  action={act}
-                  mode={
-                    activeSession.tool === "shell" && route.mode !== "files"
-                      ? "terminal"
-                      : route.mode ||
-                        defaultSessionMode(
-                          activeSession,
-                          window.matchMedia("(max-width: 700px)").matches,
-                        )
-                  }
-                  setMode={(mode) =>
-                    navigate({
-                      ...route,
-                      mode,
-                    })
-                  }
-                />
+                >
+                  <SessionWorkspace
+                    openNavigation={openNavigation}
+                    session={activeSession}
+                    route={route}
+                    navigate={navigate}
+                    account={state.accounts.find((a) => a.id === activeSession.accountId)}
+                    autoResume={state.autoResumeInterrupted !== false}
+                    action={act}
+                    mode={
+                      activeSession.tool === "shell" && route.mode !== "files"
+                        ? "terminal"
+                        : route.mode ||
+                          defaultSessionMode(
+                            activeSession,
+                            window.matchMedia("(max-width: 700px)").matches,
+                          )
+                    }
+                    setMode={(mode) =>
+                      navigate({
+                        ...route,
+                        mode,
+                      })
+                    }
+                  />
+                </SingleViewDropTarget>
               ) : (
                 <DashboardPage
                   {...{

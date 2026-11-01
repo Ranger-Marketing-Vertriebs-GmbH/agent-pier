@@ -131,13 +131,18 @@ function explorerAnswer(session, rest, url) {
  * controls: `views` (the stored list; `POST /api/views` adds to it, refused from 30),
  * `writes` ({ method, id?, body } per view write), `sessionPosts` (POST paths under
  * /api/sessions), `presence` (REST presence reports) and `sessions` (shown in
- * /api/state; replace it to drop a session).
+ * /api/state; replace it to drop a session) and `agents` (the agents fixture's state;
+ * `chat` overrides its options).
  */
-export async function splitViewFixture(page, { language = "en", layout, views } = {}) {
-  await chatFixture(page, {
+export async function splitViewFixture(
+  page,
+  { language = "en", layout, views, chat = {} } = {},
+) {
+  const agents = await chatFixture(page, {
     language,
     assistants: [chatAssistant({ id: "a1" })],
     conversations: [{ id: "c1", assistantId: "a1" }],
+    ...chat,
   });
   const at = "2026-11-01T10:00:00.000Z";
   const controls = {
@@ -160,6 +165,8 @@ export async function splitViewFixture(page, { language = "en", layout, views } 
     pushDevices: 0,
     // /api/views answers 500 to reads and writes while set.
     failRead: false,
+    // The agents fixture's state (assistant-chat-fixture.js).
+    agents,
   };
   const answerWrite = (route, method, id, body) => {
     controls.writes.push({ method, id, body });
