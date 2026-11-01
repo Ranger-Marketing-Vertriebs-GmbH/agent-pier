@@ -1870,5 +1870,12 @@
   "users.level": "de:e5d416f82f94 en:c3e875853500",
   "users.nameTaken": "de:e373eb1a6c0c en:da2c9d394ae3",
   "users.notFound": "de:696a7c61d5c4 en:85dcd7d5eb16",
-  "users.passwordWrong": "de:24182847ccb0 en:aa43911cc13f"
+  "users.passwordWrong": "de:24182847ccb0 en:aa43911cc13f",
+  "views.duplicateItem": "de:d020b0337d26 en:73172182166b",
+  "views.invalidDocument": "de:db17833bd1ec en:8e6cc8754fb1",
+  "views.invalidLayout": "de:f660652e8a51 en:aca7bb8a2cb9",
+  "views.invalidName": "de:3e02b6b6b153 en:807d0d4d57d6",
+  "views.tooMany": "de:d89913c4cb8b en:5c17031226ee",
+  "views.tooManyPanes": "de:092e47192c0f en:63968351ffc8",
+  "views.unknownView": "de:3a57244b7dfb en:776cdf4cfe78"
 }

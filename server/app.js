@@ -3,6 +3,7 @@ import { assistantRoutes } from "./http/routes/assistants.js";
 import { agentText } from "./lib/i18n/agent-text.js";
 import { messageIdentity } from "./lib/i18n/message-identity.js";
 import { projectGroupsRoutes } from "./http/routes/project-groups.js";
+import { viewsRoutes } from "./http/routes/views.js";
 import { artifactsRoutes } from "./http/routes/artifacts.js";
 import { previewsRoutes } from "./http/routes/previews.js";
 import { fileTextRoutes } from "./http/routes/file-text.js";
@@ -401,6 +402,7 @@ export async function createApplication(config) {
   mount(mcpAccessRoutes(services));
   mount(workspaceRoutes(services));
   mount(projectGroupsRoutes(services));
+  mount(viewsRoutes(services));
   mount(fileExplorerRoutes(services));
   mount(fileOperationsRoutes(services));
   mount(fileTransfersRoutes(services));

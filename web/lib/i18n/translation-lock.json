@@ -5653,6 +5653,7 @@
   "operations:backupCopy.descriptions.terminal": "de:bc692a3a3640 en:5ba5053231a7",
   "operations:backupCopy.descriptions.unpinned-artifacts": "de:e11a3cd84df5 en:880ab1fd1e60",
   "operations:backupCopy.descriptions.users": "de:063098a6471b en:7ae1b91ab5d7",
+  "operations:backupCopy.descriptions.views": "de:4ed4ed7757b5 en:69c404591e99",
   "operations:diagnosticCopy.account": "de:83849a48be5a en:eb3e7adcab2f",
   "operations:diagnosticCopy.adapterSession": "de:d374fa29d2ec en:7931f6f43df7",
   "operations:diagnosticCopy.checks.cli.claude": "de:5491a4603602 en:5491a4603602",
