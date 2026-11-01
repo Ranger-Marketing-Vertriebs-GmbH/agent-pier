@@ -16,6 +16,20 @@ import { BrowserWindowKeeper } from "./browser-window-keeper.js";
 import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 
 export const visibleBrowserLimit = 3;
+
+/** Whether agent `id` has a run in progress; an unreadable attempt does not count. */
+export const agentRunning = (assistants, id) =>
+  assistants.ledger.pending().some((attempt) => {
+    try {
+      return (
+        assistants.store.getConversation(
+          assistants.ledger.getRequest(attempt.requestId).conversationId,
+        ).assistantId === id
+      );
+    } catch {
+      return false;
+    }
+  });
 export const browserIdleMs = 15 * 60 * 1000;
 // The longest an idle browser stays for a window the owner keeps open.
 export const browserIdleCapMs = 60 * 60 * 1000;

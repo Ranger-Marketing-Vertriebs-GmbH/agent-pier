@@ -24,6 +24,7 @@ nothing else:
 | `.env`                        | The model connection's key, the MCP servers' secrets, the agent's bot token and the Deepgram key |
 | `SOUL.md`                     | The agent's instructions                                                                         |
 | `plugins/agentpier-guard/`    | `plugin.yaml` and `__init__.py`, only for every-command approval                                 |
+| `plugins/agentpier-team/`     | AgentPier's team tools and tool guard ([teams](#teams))                                          |
 | `plugins/agentpier-deepgram/` | `plugin.yaml` and `__init__.py`, only for a bot for other people with voice                      |
 
 The agent's memory (`memories/MEMORY.md`, `memories/USER.md`) and the `AGENTS.md` of
@@ -212,7 +213,8 @@ MCP tools through its tool search (`tools.tool_search`, on by default,
 `website/docs/user-guide/features/tool-search.md`): the model sees `tool_search`,
 `tool_describe` and `tool_call` with a listing of the servers' tools and calls one
 through `tool_call`, which Hermes unwraps to the tool itself. AgentPier keeps that
-default. No secret stands
+default, except for an agent with team tools, which gets `tools.tool_search.enabled:
+off` ([teams](#teams)) and so sees its MCP tools directly. No secret stands
 in `config.yaml`: every environment value, header and URL is a reference
 (`${AUXILIARY_AGENTPIER_MCP<n>_<kind><m>_API_KEY}`) to the agent's `.env`, which Hermes
 resolves when it connects. Hermes strips such names from every command and process it
@@ -242,10 +244,62 @@ agent placeholders for OpenClaw's workspace; a Hermes agent's resolved paths dif
 The compiler names what an agent wants that Hermes does not get yet, so the owner can see
 it: ChatGPT accounts, the browser, MCP servers it cannot compile (`mcp`, `mcpOAuth`),
 assigned skills Hermes cannot offer, PDF reading, the agent's own routine tool (owner
-routines work, [Routines](#routines)), team tools and the extra folders on the shell's
-PATH. Teams and the browser follow in step 6 of the ADR's delivery order. Hermes has
-no advanced settings in AgentPier yet: the capability reports
+routines work, [Routines](#routines)), team tools while no team bridge runs, and the
+extra folders on the shell's PATH. The browser follows in step 6 of the ADR's delivery
+order. Hermes has no advanced settings in AgentPier yet: the capability reports
 `advancedSettingsUnsupported`.
+
+## Teams
+
+A Hermes agent leads a team and works as a member as an OpenClaw agent does
+([teams](agents.md#teams-asks-and-tasks)): AgentPier's team tools, the team bridge, provisioning,
+delegation, results and every member's own chat are the same. A member runs on its
+lead's runtime (`assistant-store.js` reads a member's runtime from its lead), so a
+Hermes lead's members are Hermes agents, each in its own process set, and an OpenClaw
+lead's members run on OpenClaw. Mixed teams cannot arise: no path gives a member
+another runtime than its lead's, and moving an agent between runtimes is a later
+migration (ADR 0006).
+
+The `agentpier-team` profile plugin carries both parts of the OpenClaw team plugin:
+
+- **Tools.** The plugin registers the agent's team tools with `ctx.register_tool` under
+  their OpenClaw names (`agentpier_team_propose`, `agentpier_team_delegate`, …; a
+  member gets `agentpier_team_peers`, `agentpier_team_peer_ask`,
+  `agentpier_team_peer_delegate` and `agentpier_team_report`), with the same
+  descriptions and schemas (`team-plugin/index.js`). A plugin tool's handler receives
+  the calling session's id, the stored session id the session keys carry, and runs
+  under the tool call's id (`model_tools.py` `handle_function_call`,
+  `tools/approval_context.py`); an MCP call carries neither (`tools/mcp_tool_handlers.py`
+  sends only the arguments), so the team tools are no MCP server. Each call takes a
+  ticket for its session from the bridge (`/prepare`) and waits inside the tool for the
+  answer (`/invoke`): an ask or a proposal waits up to about two minutes, beyond Hermes's
+  30-second hook timeout. Hermes's Tool Search would put plugin tools behind its
+  `tool_search` bridge (`tools/tool_search.py`); an agent with team tools gets
+  `tools.tool_search.enabled: off`, so they are offered directly, as on OpenClaw.
+- **Guard.** A `pre_tool_call` hook asks the bridge (`/hermes-guard`,
+  `hermes-tool-guard.js`) before a team member's `write_file` or `patch` and before
+  every browser call. It applies the OpenClaw guard's rules (`team-plugin/tool-guard.js`):
+  a file change stays inside the agent's own folder, never touches an instruction file
+  (`AGENTS.md`, `SOUL.md`, skill folders, …) and is allowed only as the bridge allows
+  the turn, so a task the owner did not ask for runs read-only. The hook answers within
+  10 seconds; no answer blocks the call (Hermes blocks a hook that fails or outlasts its
+  30 seconds as well). An own agent's file changes stay Hermes's own, as in step 4.
+
+The bridge's address and token change with every AgentPier start. They live in
+`plugins/agentpier-team/bridge.json`, which the plugin reads at each call, so a new one
+needs no restart. A lead's instructions (`SOUL.md`) carry the **Your team** section
+without the member list, because Hermes reads them only at its start;
+`agentpier_team_members` lists the current members.
+
+Invisible subagents (`delegate_task`) stay on and apart from visible teams: a subagent
+runs under a session of its own, which no AgentPier turn is bound to, so its team tool
+calls are refused; the plugin's `subagent_start` hook maps it to its parent, so the
+guard judges its file changes and browser calls as the parent's.
+
+Gaps beside OpenClaw's guard: memory steps, restricted users' locked tools, attachment,
+secrets, image and PDF checks have no Hermes counterpart yet, because Hermes agents
+have none of those features in AgentPier. A compression that gives a Hermes session a
+new id ends its team tool calls until the chat is opened again.
 
 ## Agents on Hermes
 
@@ -282,6 +336,8 @@ every set reach the chat path and the event hub once (`agentRuntimeEvents`).
 | everyCommandApproval                                        | available (unavailable on OpenClaw) |
 | browser                                                     | `hermesNotYetSupported`             |
 | advancedSettings                                            | `advancedSettingsUnsupported`       |
+
+Teams have no capability of their own: a Hermes agent offers them as OpenClaw does.
 
 ### Telegram
 
@@ -325,8 +381,8 @@ gateway's `gateway_state.json` (`platforms.telegram.state`). Other people's
 conversations stay in Hermes's sessions and belong to no AgentPier chat, as on
 OpenClaw. A person's very first message in a home that has no session yet gets Hermes's
 one-time introduction note. Files reach the paired chat
-when an agent shares them with `agentpier_share_file`; Hermes agents get that tool with
-AgentPier's team tools (step 6) and until then name a file's path in their reply.
+when an agent shares them with `agentpier_share_file`; the Hermes team plugin does not
+carry that tool yet, so Hermes agents name a file's path in their reply.
 
 ## Routines
 

@@ -25,7 +25,7 @@ import { DreamingService } from "../features/assistants/dreaming-service.js";
 import { DreamingBackups } from "../features/assistants/dreaming-backups.js";
 import { detectBrowser } from "../features/assistants/browser-detection.js";
 import { managedChromium } from "../features/tools/chromium-installer.js";
-import { AgentBrowsers } from "../features/assistants/agent-browsers.js";
+import { AgentBrowsers, agentRunning } from "../features/assistants/agent-browsers.js";
 import { BrowserProfileSync } from "../features/assistants/browser-profile-sync.js";
 import { PendingRestart, updateBlocked } from "../features/assistants/pending-restart.js";
 import { BrowserLiveView } from "../features/assistants/browser-live-view.js";
@@ -50,7 +50,11 @@ import {
   overridesFor,
 } from "../features/assistants/runtimes/openclaw/openclaw-config/overrides.js";
 import { RuntimeSupervisor } from "../features/assistants/runtimes/openclaw/runtime-supervisor.js";
-import { hermesAgentFleet, openClawProfiles } from "./hermes-wiring.js";
+import {
+  hermesAgentFleet,
+  hermesApplyWiring,
+  openClawProfiles,
+} from "./hermes-wiring.js";
 import {
   AssistantMaintenance,
   needsAssistantMaintenance,
@@ -187,19 +191,7 @@ export function constructAssistantGraph(host, created = {}) {
   assistants.browsers = created.browsers = new AgentBrowsers({
     store,
     runtime: assistantRuntime,
-    // A running agent keeps its browser; an unreadable attempt does not count.
-    busy: (id) =>
-      assistants.ledger.pending().some((attempt) => {
-        try {
-          return (
-            store.getConversation(
-              assistants.ledger.getRequest(attempt.requestId).conversationId,
-            ).assistantId === id
-          );
-        } catch {
-          return false;
-        }
-      }),
+    busy: (id) => agentRunning(assistants, id),
   });
   assistants.browsers.onChange = () => assistants.changed();
   // Each apply brings the Gateway's browser profiles in step with the agents.
@@ -479,6 +471,7 @@ export function connectAssistantServices(graph) {
   // Resolved at most once per process for applies before the first ready start.
   let fallbackOwner;
   wire(configuration, "configuration", {
+    ...hermesApplyWiring({ bridge }),
     teamReady: () => bridge.status().ready,
     writeGuard: () => bridge.guardLive(),
     ...writeGuardWiring({

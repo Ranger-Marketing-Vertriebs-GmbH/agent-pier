@@ -41,7 +41,10 @@ export class TeamProvisioning {
   async createSession(id, agentId, label) {
     const { teams, assistants: a } = this;
     teams.write(teams.member(id), { phase: "provisioning", provisionStep: "session" });
-    const { sessions } = runtimeFor(null, a.runtime);
+    const { sessions } = runtimeFor(
+      a.store.getAssistant(teams.member(id).assistantId),
+      a.runtime,
+    );
     let created;
     try {
       created = await sessions.create({ agentId, label }, a.sessionCreate);

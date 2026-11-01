@@ -254,10 +254,14 @@ What works on Hermes today:
   speech settings. Hermes runs the bot itself; saving a change restarts only this
   agent, so adding or removing a person takes a few seconds. Each person's
   conversation stays in Hermes, not in your chats, as on OpenClaw.
+- Teams: a Hermes agent proposes teams, asks and delegates as a lead, and works as a
+  member; its members are Hermes agents too, each with its own chat (a member always
+  runs on its lead's runtime). A member's task the owner did not ask for runs
+  read-only, as on OpenClaw. Hermes's own invisible subagents stay on beside them.
 
 What comes later, shown disabled with **Not available for Hermes agents yet.** in
-the agent's settings: the agent's own reminder and routine tool, the browser, teams
-and advanced runtime settings. Updates of Hermes itself appear in the **Hermes Agent**
+the agent's settings: the agent's own reminder and routine tool, the browser and advanced runtime
+settings. Updates of Hermes itself appear in the **Hermes Agent**
 group (**Update**); the Hermes agents restart, and a failed start restores the
 previous installation. Work of Hermes agents still running blocks it and is listed
 there, with **Pause agents and update** as for OpenClaw. What AgentPier writes into a

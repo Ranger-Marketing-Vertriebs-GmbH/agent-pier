@@ -200,9 +200,10 @@ export class AssistantConfig {
    * set or restarts it when the home changed; an archived agent's set stops. Its
    * catalog skills are checked first (a tampered copy is restored, a damaged one left
    * out) and offered from their live folders; its bound MCP servers come from the
-   * store (`ownMcp`, mcp-changes.js agentInputs). Tools beyond the shell, memory,
-   * web, skills and MCP come with later steps (the compiler names what is not mapped
-   * yet), so its instructions carry AgentPier's identity section only.
+   * store (`ownMcp`, mcp-changes.js agentInputs); the team bridge its team plugin
+   * calls comes from `hermesInputs`. Tools the compiler cannot map yet are named as
+   * unsupported, so its instructions carry AgentPier's identity section and, for a
+   * lead, its team only.
    */
   async applyOwnProcess(assistant, lease) {
     const runtime = runtimeFor(assistant, this.runtime);
@@ -222,6 +223,16 @@ export class AssistantConfig {
           .map((name) => [name, this.skillCatalog.livePath(name)]),
       );
       const mcp = this.ownMcp?.(assistant) || { servers: [], inputs: undefined };
+      // The team bridge (and the browser settings) its plugin needs; a lead's team
+      // section leaves its members out, which agentpier_team_members lists.
+      const inputs = (await this.hermesInputs?.(assistant)) || {};
+      let team = null;
+      if (inputs.connection && !assistant.teamMemberId)
+        try {
+          team = this.teamRoster?.(assistant) || null;
+        } catch {
+          team = null;
+        }
       const desired = desiredAgent(assistant, {
         mcp: mcp.servers,
         stdio: mcp.servers.some(
@@ -230,6 +241,7 @@ export class AssistantConfig {
         ),
         instructions: assistantBootstrap(assistant, lease.display, {
           memoryWritable: false,
+          team: team && { ...team, listed: false },
         }),
         model: {
           ref: lease.modelRef,
@@ -246,6 +258,7 @@ export class AssistantConfig {
         strict: assistant.shell === "approval" && assistant.shellEveryCommand === true,
         catalog,
         mcp: mcp.inputs,
+        connection: inputs.connection,
       });
     }
     this.store.markEffective(assistant.id, assistant.revision);

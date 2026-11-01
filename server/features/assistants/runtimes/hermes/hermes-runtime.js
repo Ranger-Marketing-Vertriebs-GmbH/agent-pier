@@ -12,6 +12,7 @@ import { hermesModels } from "./hermes-models.js";
 import { hermesChannels } from "./hermes-channels.js";
 import { hermesCompiler, hermesConfigCapabilities } from "./hermes-compiler.js";
 import { hermesError } from "./hermes-rpc-client.js";
+import { liveTeamFiles } from "./hermes-config/team-plugin.js";
 
 // The sub-ports Hermes gets in later delivery steps (ADR 0006): reported, never hidden.
 const later = unavailable("hermesNotYetSupported");
@@ -50,13 +51,15 @@ const isRunning = (availability) => !["disabled", "failed"].includes(availabilit
  * the client of the current start, and the deliveries of routine results
  * (HermesRoutineDeliveries) following each start's client.
  *
- * - config.apply({ desired, strict, catalog, mcp }): writes the compiled home now;
- *   a running set that this changed restarts, a stopped or failed one starts.
+ * - config.apply({ desired, strict, catalog, mcp, connection }): writes the compiled
+ *   home now; a running set that this changed restarts, unless only files the gateway
+ *   reads at each call changed (liveTeamFiles); a stopped or failed one starts.
  *   `catalog`: `{ [name]: folder }` of the catalog skills it may offer
  *   (hermes-config/skills.js); `mcp`: the MCP store's inputs (mcp-inputs.js
  *   readMcpInputs) for the agent's bound servers (hermes-config/mcp.js), which a
  *   restart loads: Hermes freezes a session's tools, so neither its config watcher
- *   nor `reload.mcp` reaches the chats already open. Later starts keep both.
+ *   nor `reload.mcp` reaches the chats already open; `connection`: the team
+ *   bridge's (hermes-config/team-plugin.js). Later starts keep all three.
  *   Resolves `{ written, restarted }`.
  * - agents: one runtime agent, the set's own: list() names it while ready; create and
  *   update leave the home to config.apply; delete({ deleteFiles }) stops the set and,
@@ -85,6 +88,7 @@ export function createHermesRuntime({
       bundledSkills: bundled,
       catalogSkills: inputs.catalog,
       mcp: inputs.mcp,
+      connection: inputs.connection,
     });
     written = hermesCompiler.write(agent.hermesHome, home);
     return written;
@@ -153,8 +157,13 @@ export function createHermesRuntime({
         strict: everyCommand = strictNow(),
         catalog = {},
         mcp,
+        connection,
       }) {
-        latest = { desired: read, strict: !!everyCommand, inputs: { catalog, mcp } };
+        latest = {
+          desired: read,
+          strict: !!everyCommand,
+          inputs: { catalog, mcp, connection },
+        };
         const { availability } = supervisor.status();
         if (!isRunning(availability)) {
           await supervisor.start();
@@ -166,9 +175,10 @@ export function createHermesRuntime({
           !!everyCommand,
           latest.inputs,
         );
-        if (changed.length) await supervisor.restart();
+        const restart = changed.some((file) => !liveTeamFiles.includes(file));
+        if (restart) await supervisor.restart();
         else await supervisor.start();
-        return { written: changed, restarted: changed.length > 0 };
+        return { written: changed, restarted: restart };
       },
     },
     // One runtime agent per set: every connection serves the same one.

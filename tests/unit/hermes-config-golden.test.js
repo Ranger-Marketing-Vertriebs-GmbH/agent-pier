@@ -38,7 +38,7 @@ test("the compiled home holds config.yaml, .env, SOUL.md and AgentPier's plugins
     for (const file of Object.keys(compiled(name).files))
       assert.match(
         file,
-        /^(?:config\.yaml|\.env|SOUL\.md|plugins\/agentpier-(?:guard|deepgram)\/.+)$/,
+        /^(?:config\.yaml|\.env|SOUL\.md|plugins\/agentpier-(?:guard|team|deepgram)\/.+)$/,
       );
 });
 
@@ -61,8 +61,53 @@ test("shell levels map to Hermes's approval model and toolsets", () => {
       name === "every-command" ? ["agentpier-guard"] : [],
     );
   }
-  assert.deepEqual(compiled("shell-approval").remove, ["plugins/agentpier-guard"]);
-  assert.deepEqual(compiled("every-command").remove, []);
+  assert.deepEqual(compiled("shell-approval").remove, [
+    "plugins/agentpier-guard",
+    "plugins/agentpier-team",
+  ]);
+  assert.deepEqual(compiled("every-command").remove, ["plugins/agentpier-team"]);
+});
+
+test("a lead and a member get the team plugin with their own team tools", () => {
+  const plugin = (name) => {
+    const home = compiled(name);
+    const file = (part) => home.files[`plugins/agentpier-team/${part}`];
+    return {
+      home,
+      config: readHermesConfig(home.files["config.yaml"]),
+      settings: JSON.parse(file("tools.json")),
+      bridge: JSON.parse(file("bridge.json")),
+    };
+  };
+  const lead = plugin("team-lead");
+  assert.deepEqual(lead.config.plugins.enabled, ["agentpier-team"]);
+  assert.equal(lead.home.unsupported.includes("teams"), false);
+  const names = lead.settings.tools.map((tool) => tool.name);
+  assert.ok(names.includes("agentpier_team_propose"));
+  assert.ok(names.includes("agentpier_team_delegate"));
+  assert.equal(names.includes("agentpier_team_report"), false);
+  // An ask waits inside the tool, beyond Hermes's 30-second hook timeout.
+  const ask = lead.settings.tools.find((tool) => tool.name === "agentpier_team_ask");
+  assert.ok(ask.timeoutMs > 30000);
+  assert.equal(lead.settings.guardWrites, false);
+  assert.deepEqual(lead.bridge, {
+    url: "http://127.0.0.1:43210",
+    token: "golden-bridge-token",
+    agentId: "ap-a1",
+  });
+  const member = plugin("team-member");
+  assert.deepEqual(
+    member.settings.tools.map((tool) => tool.name),
+    [
+      "agentpier_team_peer_ask",
+      "agentpier_team_peer_delegate",
+      "agentpier_team_peers",
+      "agentpier_team_report",
+    ],
+  );
+  assert.equal(member.settings.guardWrites, true);
+  // Without the bridge the tools are named as not served yet.
+  assert.ok(compiled("subagents-default").unsupported.includes("teams"));
 });
 
 test("subagents stay on and the practical defaults hold for every home", () => {

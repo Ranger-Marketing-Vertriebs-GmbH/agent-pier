@@ -1,5 +1,5 @@
 import { inheritsFromLead } from "./native-capabilities.js";
-import { hostReady } from "./runtimes/runtime-for.js";
+import { anyHostReady, runtimeAccepts } from "./runtimes/runtime-for.js";
 
 // Members whose profile the Gateway runs: provisioned and not ended yet.
 const live = new Set(["ready", "admitting", "running", "stopping"]);
@@ -12,7 +12,7 @@ const live = new Set(["ready", "admitting", "running", "stopping"]);
  * only leaves the member to its next turn's apply, which compiles the same values.
  */
 export function followLead(assistants, leadId) {
-  if (!hostReady(assistants.runtime) || !assistants.teams?.store) return;
+  if (!anyHostReady(assistants.runtime) || !assistants.teams?.store) return;
   let members;
   try {
     members = assistants.store
@@ -27,9 +27,10 @@ export function followLead(assistants, leadId) {
     return;
   }
   for (const member of [...members, ...capabilityMembers(assistants, leadId)])
-    Promise.resolve()
-      .then(() => assistants.admit(() => assistants.config.apply(member.id)))
-      .catch(() => {});
+    if (runtimeAccepts(assistants.runtime, member))
+      Promise.resolve()
+        .then(() => assistants.admit(() => assistants.config.apply(member.id)))
+        .catch(() => {});
 }
 
 /**

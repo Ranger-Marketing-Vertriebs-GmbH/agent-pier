@@ -85,6 +85,13 @@ export class HermesFleet extends EventEmitter {
     return this.sets.get(agentId)?.runtime ?? null;
   }
 
+  /** The work folder of a Hermes agent read (its terminal's cwd), or null. */
+  workspaceOf(agent) {
+    const agentId = hermesAgentIdOf(agent);
+    if (!this.dataDir || !folderId.test(agentId || "")) return null;
+    return path.join(hermesPaths(this.dataDir).workspaces, agentId);
+  }
+
   /** The runtimes made so far, by runtime agent id. */
   list() {
     return [...this.sets.values()].map(({ agentId, runtime }) => ({ agentId, runtime }));

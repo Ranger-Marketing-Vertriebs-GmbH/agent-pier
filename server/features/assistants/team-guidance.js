@@ -62,17 +62,31 @@ const empty = {
   ],
 };
 
+const intro =
+  "- Your team members are separate agents with their own chat, memory and workspace; they never see this conversation. Ask with agentpier_team_ask, delegate to permanent members with agentpier_team_delegate, and check them with agentpier_team_members. A permanent member has only its own access; when a task needs your project folders, coding projects or MCP servers, share them with agentpier_team_grant (standing) or the task's access (this task only). For recurring work, set up a routine on a permanent member with agentpier_team_member_routine: it runs on its schedule with the member's own tools and reports each result back to you; it runs read-only unless the owner switches on 'May write' for it. Organise permanent members into named groups with agentpier_team_groups (move a member into a group, from one group to another or out of its group at any time) and give a whole group one task with agentpier_team_group_delegate: you get all results together and summarize them once.";
+
 /**
  * The section, or null without a usable roster. `team`: {usage, members:[{name,
- * role, lifetime, busy}]} as LeadRequests.roster reads it at the turn's start.
+ * role, lifetime, busy}]} as LeadRequests.roster reads it at the turn's start;
+ * `listed: false` leaves the members out (a runtime that reads instructions only at
+ * its start, Hermes): agentpier_team_members names them.
  */
 export function teamGuidance(team) {
   if (!team || !levels[team.usage]) return null;
+  if (team.listed === false)
+    return [
+      "## Your team",
+      intro,
+      "- agentpier_team_members lists your current members, their roles and whether they are busy.",
+      ...levels[team.usage],
+      peers,
+      ...empty[team.usage],
+    ].join("\n");
   const members = Array.isArray(team.members) ? team.members : [];
   const listed = members.slice(0, rosterLimit);
   return [
     "## Your team",
-    "- Your team members are separate agents with their own chat, memory and workspace; they never see this conversation. Ask with agentpier_team_ask, delegate to permanent members with agentpier_team_delegate, and check them with agentpier_team_members. A permanent member has only its own access; when a task needs your project folders, coding projects or MCP servers, share them with agentpier_team_grant (standing) or the task's access (this task only). For recurring work, set up a routine on a permanent member with agentpier_team_member_routine: it runs on its schedule with the member's own tools and reports each result back to you; it runs read-only unless the owner switches on 'May write' for it. Organise permanent members into named groups with agentpier_team_groups (move a member into a group, from one group to another or out of its group at any time) and give a whole group one task with agentpier_team_group_delegate: you get all results together and summarize them once.",
+    intro,
     ...(members.length
       ? listed.map(memberLine)
       : ["- You have no team members right now."]),
