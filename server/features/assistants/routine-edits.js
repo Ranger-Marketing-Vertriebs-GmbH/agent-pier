@@ -1,5 +1,6 @@
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { exact, schedule } from "./reminder-input.js";
+import { runtimeFor } from "./runtimes/runtime-for.js";
 
 /**
  * Changes a routine's name, task or schedule in place (NativeRoutines.edit): the
@@ -41,7 +42,7 @@ export function editRoutine(routines, id, bindingId, input, assertCurrent = () =
       `${connection.url}/complete/${binding.id}`,
     );
     routines.bindings.patch(bindingId, { routineUpdateUnknown: true });
-    const updated = await routines.assistants.runtime.client.call("cron.update", {
+    const updated = await runtimeFor(agent, routines.assistants.runtime).routines.update({
       id: job.id,
       patch: {
         name: definition.name,

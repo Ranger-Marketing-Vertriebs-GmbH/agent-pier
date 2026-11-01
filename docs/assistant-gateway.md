@@ -1802,7 +1802,8 @@ never sets it on its members' routines (`agentpier_team_member_routine` has no
 `writes`).
 
 The `agentpier_reminder` tool is a thin authorized adapter to native
-`cron.add/list/update/remove`; it does not implement scheduling. Chat mutations
+`cron.add/list/update/remove`, reached through the runtime port's `routines` sub-port
+(`runtimes/openclaw/openclaw-routines.js`); it does not implement scheduling. Chat mutations
 require a current owner/Telegram turn, in the web chat as well as in Telegram. Creation keys bind the attempt and tool call;
 the UI retains its creation key across retries of an unchanged form. Source bindings
 store an agent, its target chat, an optional Telegram destination and operation

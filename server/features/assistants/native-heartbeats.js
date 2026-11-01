@@ -14,7 +14,7 @@ import {
 
 import { agentName, agentPerson, pushAudience } from "./reminder-audience.js";
 import { isShared } from "../users/user-access.js";
-import { hostReady } from "./runtimes/runtime-for.js";
+import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 
 export const heartbeatKind = "heartbeat";
 // OpenClaw's silent-reply token; an empty summary is just as silent.
@@ -110,12 +110,13 @@ export class NativeHeartbeats {
       .list(id)
       .filter((b) => b.kind === heartbeatKind && b.state !== "removed");
   }
-  async retire(binding, job) {
+  async retire(binding, job, agent) {
     // Kept until a listing shows its job: retiring it now could orphan a late job.
     if (!job && unconfirmed(binding)) return;
     // Revoked before the RPC: a lost acknowledgement must not keep delivering.
     this.bindings.patch(binding.id, { state: "revoked" });
-    if (job) await this.assistants.runtime.client.call("cron.remove", { id: job.id });
+    if (job)
+      await runtimeFor(agent, this.assistants.runtime).routines.remove({ id: job.id });
     this.bindings.patch(binding.id, { state: "removed" });
   }
   /**
@@ -143,7 +144,7 @@ export class NativeHeartbeats {
         job.sessionTarget === "current" &&
         job.sessionKey === want.target.sessionKey;
       if (same) keep = { binding: current, job };
-      else await this.retire(current, job);
+      else await this.retire(current, job, agent);
     }
     if (!want) return this.assistants.changed();
     const definition = this.job(want.settings, agentPerson(agent));
@@ -164,7 +165,7 @@ export class NativeHeartbeats {
       isDeepStrictEqual(job.payload, definition.payload)
     )
       return;
-    await this.assistants.runtime.client.call("cron.update", {
+    await runtimeFor(agent, this.assistants.runtime).routines.update({
       id: job.id,
       patch: { ...definition, enabled: true },
     });
@@ -188,29 +189,30 @@ export class NativeHeartbeats {
     );
     this.bindings.patch(binding.id, { state: "pending" });
     try {
-      const result = await this.assistants.runtime.client.call("cron.add", {
-        name: "AgentPier check-in",
-        declarationKey: declaration(binding),
-        agentId: agent.runtimeAgentId,
-        enabled: true,
-        deleteAfterRun: false,
-        ...definition,
-        // Commits the visible result into this conversation after any running turn.
-        sessionTarget: "current",
-        sessionKey: target.sessionKey,
-        wakeMode: "now",
-        failureAlert: false,
-        // Announce is the session commit (no channels are configured); the
-        // completion webhook hands the result to AgentPier.
-        delivery: {
-          mode: "announce",
-          completionDestination: {
-            mode: "webhook",
-            to: `${connection.url}/complete/${binding.id}`,
+      const job = await runtimeFor(agent, this.assistants.runtime).routines.add({
+        job: {
+          name: "AgentPier check-in",
+          declarationKey: declaration(binding),
+          agentId: agent.runtimeAgentId,
+          enabled: true,
+          deleteAfterRun: false,
+          ...definition,
+          // Commits the visible result into this conversation after any running turn.
+          sessionTarget: "current",
+          sessionKey: target.sessionKey,
+          wakeMode: "now",
+          failureAlert: false,
+          // Announce is the session commit (no channels are configured); the
+          // completion webhook hands the result to AgentPier.
+          delivery: {
+            mode: "announce",
+            completionDestination: {
+              mode: "webhook",
+              to: `${connection.url}/complete/${binding.id}`,
+            },
           },
         },
       });
-      const job = result?.job || result;
       if (!job?.id) throw assistantProblem("unavailable", 503);
       this.bindings.patch(binding.id, { nativeId: job.id, state: "bound" });
     } catch (error) {

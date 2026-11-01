@@ -10,8 +10,8 @@ const answered = (code, remoteMessage = code) =>
 /**
  * What a Gateway keeps on disk across restarts: its agents, their workspace files
  * its configuration with a hash per write, the exec approvals still pending
- * (`approvals`, as `exec.approval.list` items), how others ended and the exec
- * allowlist file. One store serves every client a supervisor connects in turn.
+ * (`approvals`, as `exec.approval.list` items), how others ended, the exec
+ * allowlist file and the cron jobs with their runs. One store serves every client a supervisor connects in turn.
  */
 export const openClawStore = ({ approvals = [] } = {}) => ({
   agents: new Map(),
@@ -21,6 +21,7 @@ export const openClawStore = ({ approvals = [] } = {}) => ({
   approvals: new Map(approvals.map((item) => [item.id, structuredClone(item)])),
   ended: [],
   allowlist: { file: { version: 1 }, writes: 0 },
+  cron: { jobs: new Map(), runs: new Map(), created: 0 },
 });
 
 /**
@@ -86,6 +87,7 @@ export function openClawClientFake({
     "agent.wait": ({ runId }) => ({ runId, status: runs.get(runId) || "timeout" }),
     ...agentAnswers(store, frame),
     ...approvalAnswers(store),
+    ...cronAnswers(store.cron),
   };
   return {
     ready: true,
@@ -205,5 +207,44 @@ function approvalAnswers(store) {
       store.allowlist.writes++;
       return { ok: true };
     },
+  };
+}
+
+// cron.* over `cron`: paged listings (`limit`, `offset`, `hasMore`, `nextOffset`), the
+// created job as `{ job }`, and a run that a disabled job gets only with mode "force".
+function cronAnswers(cron) {
+  const copy = (value) => structuredClone(value);
+  return {
+    "cron.list": ({ agentId, limit, offset }) => {
+      const all = [...cron.jobs.values()].filter(
+        (j) => !agentId || j.agentId === agentId,
+      );
+      const jobs = all.slice(offset, offset + limit).map(copy);
+      const hasMore = offset + limit < all.length;
+      return { jobs, hasMore, ...(hasMore && { nextOffset: offset + limit }) };
+    },
+    "cron.add": (definition) => {
+      const job = { ...copy(definition), id: `job-${++cron.created}` };
+      cron.jobs.set(job.id, { ...job, updatedAtMs: 1, state: {} });
+      return { job: copy(cron.jobs.get(job.id)) };
+    },
+    "cron.update": ({ id, patch }) => {
+      const old = cron.jobs.get(id);
+      if (!old) throw answered("INVALID_REQUEST");
+      cron.jobs.set(id, { ...old, ...copy(patch), updatedAtMs: old.updatedAtMs + 1 });
+      return copy(cron.jobs.get(id));
+    },
+    "cron.remove": ({ id }) => ({ ok: true, removed: cron.jobs.delete(id) }),
+    "cron.run": ({ id, mode }) => {
+      const job = cron.jobs.get(id);
+      if (!job || (mode !== "force" && !job.enabled))
+        return { ok: true, ran: false, reason: job ? "not-due" : "not-found" };
+      cron.runs.set(id, [{ ts: Date.now(), status: "ok" }, ...(cron.runs.get(id) || [])]);
+      return { ok: true, enqueued: true };
+    },
+    "cron.runs": ({ id, limit }) => ({
+      entries: (cron.runs.get(id) || []).slice(0, limit).map(copy),
+    }),
+    "cron.status": () => ({ enabled: true, jobs: cron.jobs.size }),
   };
 }

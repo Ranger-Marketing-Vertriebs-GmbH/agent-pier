@@ -6,7 +6,7 @@ import {
   markArchivePurges,
 } from "../assistants/chat-removal.js";
 import { agentRemindersChanged } from "../assistants/live-topics.js";
-import { hostReady } from "../assistants/runtimes/runtime-for.js";
+import { hostReady, runtimeFor } from "../assistants/runtimes/runtime-for.js";
 
 /**
  * Everything of a deleted user's on the agents (UserAgents.releaseUser): her own
@@ -204,10 +204,14 @@ export async function retireReleased(services, agents) {
           .filter((b) => b.userReleased && b.state === "revoked");
         if (!released.length) continue;
         try {
-          const jobs = await reminders.jobs(assistants.store.getAssistant(agent.id));
+          const current = assistants.store.getAssistant(agent.id);
+          const jobs = await reminders.jobs(current);
           for (const binding of released) {
             const job = reminders.find(binding, jobs);
-            if (job) await assistants.runtime.client.call("cron.remove", { id: job.id });
+            if (job)
+              await runtimeFor(current, assistants.runtime).routines.remove({
+                id: job.id,
+              });
             reminders.bindings.patch(binding.id, { state: "removed" });
           }
         } catch {

@@ -147,6 +147,34 @@ test("shell approvals and the allowlist go through the port", () => {
   );
 });
 
+test("routines go through the port", () => {
+  // AGENTPIER-307: the scheduler's callers name no Gateway method and reach no client.
+  const moved = [
+    "users/user-release",
+    ...[
+      "agent-hook-runs",
+      "agent-own-jobs",
+      "assistant-maintenance",
+      "lead-routines",
+      "native-heartbeats",
+      "native-reminders",
+      "native-routines",
+      "routine-edits",
+    ].map((name) => `assistants/${name}`),
+  ].map((name) => `server/features/${name}.js`);
+  const offenders = { ...gatewayMethods(sources), ...clientAccesses(sources) };
+  assert.deepEqual(
+    moved.filter((file) => offenders[file] || !sources.some((s) => s.file === file)),
+    [],
+  );
+  assert.deepEqual(
+    Object.entries(gatewayMethods(sources)).filter(([, methods]) =>
+      methods.some((method) => method.startsWith("cron.")),
+    ),
+    [],
+  );
+});
+
 test("readiness checks go through the host port", () => {
   // `runtime.client?.ready` outside runtimes/ is hostReady() (runtimes/runtime-for.js).
   const readiness = /[rR]untime\??\.client\??\.ready\b/;

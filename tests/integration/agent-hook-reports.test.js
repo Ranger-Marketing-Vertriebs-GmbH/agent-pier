@@ -164,12 +164,17 @@ test("a failure whose report could not be stored is reported on the next failure
 test("the lead's follow-up turn on a hook report cannot write, on a routine report it can", async (t) => {
   const f = await setup(t);
   // One follow-up is delivered at a time: each report is handed over and checked.
-  const turn = async (report) => {
-    f.idle();
-    await f.service.reconcile();
-    const request = f.assistants.ledger
+  // The settled run may already have delivered it while the lead's chat was idle.
+  const delivered = (report) =>
+    f.assistants.ledger
       .requests(f.chat.id)
       .find((x) => x.clientRequestId === `lead-request-result:${report.id}`);
+  const turn = async (report) => {
+    if (!delivered(report)) {
+      f.idle();
+      await f.service.reconcile();
+    }
+    const request = delivered(report);
     const attempt = f.assistants.ledger.pending().find((a) => a.requestId === request.id);
     return resultTurn(f.assistants, report.id, attempt.id);
   };
