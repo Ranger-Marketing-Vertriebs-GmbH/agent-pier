@@ -120,3 +120,18 @@ test("forbiddenTarget refuses AgentPier's port, the range and internal ports", (
     assert.equal(forbiddenTarget(port, opts), true, String(port));
   assert.equal(forbiddenTarget(3000, opts), false);
 });
+
+test("a probe that throws releases its reservation", async () => {
+  let calls = 0;
+  const slots = new PreviewSlots({
+    range: { start: 41000, end: 41000 },
+    probe: async () => {
+      if (calls++ === 0) throw new Error("probe failed");
+      return true;
+    },
+    file: file(),
+  });
+  await assert.rejects(slots.allocate({ key: "A" }), { message: "probe failed" });
+  assert.equal(slots.busy().size, 0);
+  assert.equal(await slots.allocate({ key: "A" }), 41000);
+});

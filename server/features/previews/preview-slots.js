@@ -45,11 +45,14 @@ export class PreviewSlots {
       tried.add(slot);
       if (this.reserved.has(slot) || this.forbidden().has(slot)) continue;
       this.reserved.add(slot);
-      if (await this.probe(listenerPort(slot))) {
-        this.remember(slot, key);
-        return slot;
+      let accepted = false;
+      try {
+        accepted = await this.probe(listenerPort(slot));
+        if (accepted) this.remember(slot, key);
+      } finally {
+        if (!accepted) this.reserved.delete(slot);
       }
-      this.reserved.delete(slot);
+      if (accepted) return slot;
     }
     throw previewError("PREVIEW_RANGE_FULL", 409);
   }
