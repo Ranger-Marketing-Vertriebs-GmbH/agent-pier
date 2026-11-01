@@ -7,6 +7,7 @@ import {
   ROUTE_TOOLS,
 } from "../../web/features/provider-connections/endpoint-routes.js";
 import { runCountsAnswer } from "../helpers/run-counts.js";
+import { noPreviews } from "../helpers/previews-fixture.js";
 const emptyUsage = {
   agentsEnabled: false,
   connections: {},
@@ -482,6 +483,9 @@ export async function fixture(page, { account, session } = {}) {
     // which shows no block.
     if (/^\/api\/assistants\/[^/]+\/ssh-agent$/.test(path) && method === "GET")
       return route.fulfill({ json: { state: "unavailable", reason: "no-hosts" } });
+    // Agent chats and session views list their previews; fixtures have none.
+    if (path === "/api/previews" && method === "GET")
+      return route.fulfill({ json: noPreviews });
     throw new Error(`Unexpected provider fixture request: ${method} ${path}`);
   });
   await page.routeWebSocket("**/terminal", (socket) =>

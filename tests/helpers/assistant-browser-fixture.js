@@ -1,8 +1,9 @@
 import { systemStatusAnswer } from "./system-status-fixture.js";
+import { noPreviews } from "./previews-fixture.js";
 // Unrelated browser fixtures run with agents switched off: the only requests the UI
-// may make then are the opt-in switch and the central MCP server list with its finds
-// in the CLIs (empty, shown on Accounts with or without agents); any other one fails
-// in strict fixtures.
+// may make then are the opt-in switch, the previews (none) and the central MCP server
+// list with its finds in the CLIs (empty, shown on Accounts with or without agents);
+// any other one fails in strict fixtures.
 // The start page's system status polls in every fixture that shows it; it is answered
 // here too.
 export async function fulfillDormantAssistantRequest(route) {
@@ -17,6 +18,11 @@ export async function fulfillDormantAssistantRequest(route) {
   // Creating an agent offers it to a restricted user; fixtures have none.
   if (path === "/api/users") {
     await route.fulfill({ json: [] });
+    return true;
+  }
+  // Agent chats and session views list their previews; fixtures have none.
+  if (path === "/api/previews") {
+    await route.fulfill({ json: noPreviews });
     return true;
   }
   if (path === "/api/mcp-servers") {
