@@ -206,51 +206,69 @@ for (const timing of ["before", "after"])
     }
   });
 
-for (const failing of ["native write", "progress persistence"])
-  test(`paused upload fails and releases its slot when ${failing} rejects`, async (t) => {
-    const f = await uploadFixture(t),
-      failed = Promise.withResolvers();
-    let writes = 0;
-    const native = f.publisher.native,
-      run = native.run.bind(native);
-    native.run = (operation, args) => {
-      if (operation === "write") {
-        writes++;
-        if (failing === "native write") {
-          failed.resolve();
-          return Promise.reject(
-            Object.assign(new Error("fixture full disk"), { code: "ENOSPC" }),
-          );
+// Staging reaches the injected fault only after real disk I/O, whose latency is not
+// bounded under load. Arriving at the fault is therefore awaited as an event; the
+// per-test timeout is the hang guard. "slow staging" holds the first native operation
+// longer than any former wall-clock budget to keep that property forced.
+const slowStagingMs = 1700;
+for (const [failing, slowStaging] of [
+  ["native write", false],
+  ["progress persistence", false],
+  ["progress persistence", true],
+])
+  test(
+    `paused upload fails and releases its slot when ${failing} rejects${slowStaging ? " after slow staging" : ""}`,
+    { timeout: 30000 },
+    async (t) => {
+      const f = await uploadFixture(t),
+        failed = Promise.withResolvers();
+      let writes = 0,
+        slowed = !slowStaging;
+      const native = f.publisher.native,
+        run = native.run.bind(native);
+      native.run = async (operation, args) => {
+        if (!slowed) {
+          slowed = true;
+          await delay(slowStagingMs);
         }
-      }
-      return run(operation, args);
-    };
-    if (failing === "progress persistence")
-      f.store.uploads.charge = () => {
-        failed.resolve();
-        throw Object.assign(new Error("fixture progress persistence failure"), {
-          code: "SQLITE_FULL",
-        });
+        if (operation === "write") {
+          writes++;
+          if (failing === "native write") {
+            failed.resolve();
+            return Promise.reject(
+              Object.assign(new Error("fixture full disk"), { code: "ENOSPC" }),
+            );
+          }
+        }
+        return run(operation, args);
       };
-    const { uploadId } = await f.create("failed", 2),
-      stream = new PassThrough();
-    const receiving = f.uploads.receive(f.scope, uploadId, stream);
-    try {
-      stream.write("a");
-      await promptly(failed.promise);
-      const job = await promptly(receiving);
-      assert.equal(job.status, "failed");
-      assert.equal(stream.destroyed, true);
-      assert.equal(f.jobs.transfers, 0);
-      assert.equal(f.jobs.active.size, 0);
-      assert.equal(f.store.listPublications().at(-1).phase, "resolved");
-      if (failing === "progress persistence") assert.equal(writes, 0);
-      await assert.rejects(fs.stat(path.join(f.home, "failed")), { code: "ENOENT" });
-    } finally {
-      stream.end();
-      await receiving;
-    }
-  });
+      if (failing === "progress persistence")
+        f.store.uploads.charge = () => {
+          failed.resolve();
+          throw Object.assign(new Error("fixture progress persistence failure"), {
+            code: "SQLITE_FULL",
+          });
+        };
+      const { uploadId } = await f.create("failed", 2),
+        stream = new PassThrough();
+      const receiving = f.uploads.receive(f.scope, uploadId, stream);
+      try {
+        stream.write("a");
+        await failed.promise;
+        const job = await receiving;
+        assert.equal(job.status, "failed");
+        assert.equal(stream.destroyed, true);
+        assert.equal(f.jobs.transfers, 0);
+        assert.equal(f.jobs.active.size, 0);
+        assert.equal(f.store.listPublications().at(-1).phase, "resolved");
+        if (failing === "progress persistence") assert.equal(writes, 0);
+        await assert.rejects(fs.stat(path.join(f.home, "failed")), { code: "ENOENT" });
+      } finally {
+        stream.end();
+        await receiving;
+      }
+    },
+  );
 
 test("progress failure stops input immediately but retains the slot until the owned write drains", async (t) => {
   const f = await uploadFixture(t),
