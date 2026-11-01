@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fc from "fast-check";
 import { check } from "../helpers/property.js";
+import { checkLayout } from "../../server/features/views/view-layout.js";
 import {
   MAX_PANES,
   dropItem,
@@ -11,6 +12,7 @@ import {
   panes,
   removePane,
   setRatio,
+  setTab,
   wouldAdd,
 } from "../../web/features/views/split-tree.js";
 
@@ -29,81 +31,115 @@ const operation = fc.oneof(
   fc.record({ op: fc.constant("move"), from: index, to: index, side: sides }),
   fc.record({ op: fc.constant("remove"), key: index }),
   fc.record({
+    op: fc.constant("tab"),
+    key: index,
+    tab: fc.constantFrom("terminal", "chat", "files"),
+  }),
+  fc.record({
     op: fc.constant("ratio"),
     at: index,
-    ratio: fc.double({ min: -1, max: 2, noNaN: true }),
+    ratio: fc.oneof(
+      fc.double({ min: -1, max: 2, noNaN: true }),
+      fc.constantFrom(Number.NaN, Infinity, -Infinity, 0, 1, 0.15, 0.85),
+    ),
   }),
 );
 
-function ratios(node, out = []) {
+function splitPaths(node, path = [], out = []) {
   if (node?.type === "split") {
-    out.push(node.ratio);
-    ratios(node.a, out);
-    ratios(node.b, out);
+    out.push(path);
+    splitPaths(node.a, [...path, "a"], out);
+    splitPaths(node.b, [...path, "b"], out);
   }
   return out;
 }
 
-function apply(layout, step) {
-  const present = panes(layout);
-  const pick = (n) => present[n % Math.max(present.length, 1)];
-  if (step.op === "drop") {
-    const item = items[step.item];
-    if (layout && paneCount(layout) >= MAX_PANES && wouldAdd(layout, item)) return layout;
-    return dropItem(layout, item, pick(step.target)?.key ?? null, step.side);
-  }
-  if (!layout) return layout;
-  if (step.op === "move")
-    return movePane(layout, pick(step.from).key, pick(step.to).key, step.side);
-  if (step.op === "remove") return removePane(layout, pick(step.key).key);
-  const dividers =
-    present.length > 1 ? panes(layout).map((p) => p.path.slice(0, -1)) : [];
-  const path = dividers.length ? dividers[step.at % dividers.length] : [];
-  return layout.type === "split" ? setRatio(layout, path, step.ratio) : layout;
+function wellFormed(node) {
+  if (node.type === "pane") return true;
+  return Boolean(node.a && node.b) && wellFormed(node.a) && wellFormed(node.b);
 }
 
-test("any operation sequence keeps the view tree consistent", () => {
-  check(
-    fc.property(fc.array(operation, { maxLength: 40 }), (steps) => {
-      let layout = null;
-      for (const step of steps) {
-        layout = apply(layout, step);
-        const keys = panes(layout).map((p) => p.key);
-        assert.equal(new Set(keys).size, keys.length);
-        assert.equal(paneCount(layout), keys.length);
-        assert.ok(keys.length <= MAX_PANES);
-        for (const ratio of ratios(layout)) assert.ok(ratio >= 0.15 && ratio <= 0.85);
-      }
-    }),
-  );
+const keysOf = (layout) =>
+  panes(layout)
+    .map((p) => p.key)
+    .sort();
+
+/** Applies a step and asserts its no-loss invariants; returns the new layout. */
+function step(layout, s) {
+  const present = panes(layout);
+  const pick = (n) => present[n % present.length];
+  const before = keysOf(layout);
+  if (s.op === "drop") {
+    const item = items[s.item];
+    const key = itemKey(item);
+    if (layout && paneCount(layout) >= MAX_PANES && wouldAdd(layout, item)) return layout;
+    const target = layout ? pick(s.target) : null;
+    const next = dropItem(layout, item, target?.key ?? null, s.side);
+    // A new item dropped on the centre replaces the target pane.
+    const replaced = !before.includes(key) && layout && s.side === "center";
+    const expected = before.includes(key)
+      ? before
+      : [...before.filter((k) => !(replaced && k === target.key)), key].sort();
+    assert.deepEqual(keysOf(next), expected);
+    return next;
+  }
+  if (!layout) return layout;
+  if (s.op === "move") {
+    const from = pick(s.from),
+      to = pick(s.to);
+    const next = movePane(layout, from.key, to.key, s.side);
+    assert.deepEqual(keysOf(next), before);
+    const moved = panes(next).find((p) => p.key === from.key);
+    assert.equal(moved.tab, from.tab);
+    if (s.side === "center" && from.key !== to.key)
+      assert.equal(panes(next).find((p) => p.key === to.key).tab, to.tab);
+    return next;
+  }
+  if (s.op === "remove") {
+    const key = pick(s.key).key;
+    const next = removePane(layout, key);
+    assert.deepEqual(
+      keysOf(next),
+      before.filter((k) => k !== key),
+    );
+    return next;
+  }
+  if (s.op === "tab") {
+    const next = setTab(layout, pick(s.key).key, s.tab);
+    assert.deepEqual(keysOf(next), before);
+    return next;
+  }
+  const paths = splitPaths(layout);
+  if (!paths.length) return layout;
+  const next = setRatio(layout, paths[s.at % paths.length], s.ratio);
+  assert.deepEqual(keysOf(next), before);
+  return next;
+}
+
+function run(steps, each) {
+  let layout = null;
+  for (const s of steps) {
+    layout = step(layout, s);
+    if (layout) {
+      assert.ok(wellFormed(layout));
+      assert.ok(paneCount(layout) <= MAX_PANES);
+      assert.deepEqual(checkLayout(layout), layout);
+    }
+    each?.(layout);
+  }
+  return layout;
+}
+
+test("any operation sequence keeps the tree valid for the server and loses no pane", () => {
+  check(fc.property(fc.array(operation, { maxLength: 40 }), (steps) => void run(steps)));
 });
 
 test("removing every pane yields null", () => {
   check(
     fc.property(fc.array(operation, { maxLength: 30 }), (steps) => {
-      let layout = null;
-      for (const step of steps) layout = apply(layout, step);
+      let layout = run(steps);
       for (const pane of panes(layout)) layout = removePane(layout, pane.key);
       assert.equal(layout, null);
     }),
-  );
-});
-
-test("dropping an item on a pane puts it in the layout exactly once", () => {
-  check(
-    fc.property(
-      fc.array(operation, { maxLength: 20 }),
-      index,
-      sides,
-      (steps, n, side) => {
-        let layout = null;
-        for (const step of steps) layout = apply(layout, step);
-        if (!layout || (paneCount(layout) >= MAX_PANES && wouldAdd(layout, items[n])))
-          return;
-        const target = panes(layout)[0].key;
-        const next = dropItem(layout, items[n], target, side);
-        assert.equal(panes(next).filter((p) => p.key === itemKey(items[n])).length, 1);
-      },
-    ),
   );
 });
