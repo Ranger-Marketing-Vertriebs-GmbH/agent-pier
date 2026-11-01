@@ -25,8 +25,15 @@ By default each proposal requires approval. Standing permission permits starting
 the selected pipelines without another approval. The separate publishing setting
 permits a pipeline with a publish node; it does not add publishing to a pipeline.
 Saving captures pipeline/profile definitions and their account references. After
-changing a pipeline or profile, save project access again. A changed access
-revision invalidates pending proposals; ask the agent for a new proposal.
+changing a pipeline or profile, review the current configuration and save project
+and pipeline access again in the granting agent's settings (**Access**); for
+shared access, this is the lead. Until then, a coding request returns
+`PIPELINE_ACCESS_CHANGED` before creating an approval card or starting a run.
+Retrying the same request cannot refresh the owner's grant. Older versions report
+only `CONFLICT` for this condition. After saving, ask the agent for a new proposal.
+If the settings have no changes to save, remove the affected pipeline and save,
+then add it back and save again. A changed access revision invalidates pending
+proposals.
 
 Project access never follows a project to another entry. When you merge an older
 project entry (**Projects → Merge older entry**) or a folder's `git init` moves its

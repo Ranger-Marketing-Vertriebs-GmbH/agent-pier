@@ -573,7 +573,7 @@ export class AssistantAccess {
         throw assistantProblem("invalid", 403);
       const def = this.definition(pipelineId);
       if (policy.definitions[pipelineId] !== def.hash)
-        throw assistantProblem("conflict", 409);
+        throw assistantProblem("pipelineAccessChanged", 409);
       requirePipeline(this.grant(id), def.pipeline, this.s.pipelineDefinitions, {
         executing: true,
       });
