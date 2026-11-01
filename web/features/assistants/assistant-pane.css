@@ -17,7 +17,8 @@
   font-size: var(--font-size-sm);
 }
 .assistant-header.in-pane :is(h1, h2) {
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-md);
+  font-weight: 600;
   line-height: 18px;
 }
 .assistant-header.in-pane .assistant-header-icon {

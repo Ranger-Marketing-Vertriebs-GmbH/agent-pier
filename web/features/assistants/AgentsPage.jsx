@@ -11,6 +11,7 @@ import useSessionViewport from "../sessions/useSessionViewport.js";
 import { connectionMissing } from "./connection-state.js";
 import AssistantHeader from "./AssistantHeader.jsx";
 import { DeletedChat } from "./chats/ChatStates.jsx";
+import { chatGone } from "./chats/chat-gone.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import AgentsHub from "./hub/AgentsHub.jsx";
 export default function AgentsPage({
@@ -68,18 +69,11 @@ export default function AgentsPage({
   // Settings on phones scroll inside their own container under the fixed header, so
   // the visual viewport (keyboard) must size the app like the chat does.
   useSessionViewport(Boolean(route.agentSettings && assistant && !conversationId));
-  // A link to a chat that is gone (a push notice's, another tab deleted it). The
-  // agent's other chats are known by then (its main chat is never deleted); a list
-  // without any yet may still be catching up with a chat just opened. A user's own
-  // agent has no chat of the owner's: one he cannot list is one he may not read.
-  const known = (id) => conversations.some((c) => c.id === id);
+  // A link to a chat that is gone (chat-gone.js); a team task opens its parent chat.
   const usersOwn = assistant?.userAccess?.mode === "own";
   if (
-    route.conversationId &&
-    assistant &&
     !team &&
-    !known(route.conversationId) &&
-    (usersOwn || conversations.some((c) => c.assistantId === assistant.id))
+    chatGone({ assistant, conversationId: route.conversationId, conversations })
   )
     return (
       <section className="assistant-detail assistant-chat">

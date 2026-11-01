@@ -142,6 +142,10 @@ test("the operations and artifact topics name their routes at their former polls
   assert.equal(previews.path(), "/previews");
   assert.deepEqual([previews.mode, previews.interval], ["state", 5000]);
   assert.equal(topicInfo("previews:x"), null);
+  const views = topicInfo("views");
+  assert.equal(views.path(), "/views");
+  assert.deepEqual([views.mode, views.interval], ["state", 30000]);
+  assert.equal(topicInfo("views:x"), null);
   const projects = topicInfo("projects.changed");
   assert.deepEqual(
     [projects.mode, projects.path, projects.interval],

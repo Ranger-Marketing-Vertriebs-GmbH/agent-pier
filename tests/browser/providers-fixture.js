@@ -8,6 +8,7 @@ import {
 } from "../../web/features/provider-connections/endpoint-routes.js";
 import { runCountsAnswer } from "../helpers/run-counts.js";
 import { noPreviews } from "../helpers/previews-fixture.js";
+import { noViews } from "../helpers/views-fixture.js";
 const emptyUsage = {
   agentsEnabled: false,
   connections: {},
@@ -489,6 +490,9 @@ export async function fixture(page, { account, session } = {}) {
     // Agent chats and session views list their previews; fixtures have none.
     if (path === "/api/previews" && method === "GET")
       return route.fulfill({ json: noPreviews });
+    // Wide pages follow the split views; fixtures have none.
+    if (path === "/api/views" && method === "GET")
+      return route.fulfill({ json: noViews });
     throw new Error(`Unexpected provider fixture request: ${method} ${path}`);
   });
   await page.routeWebSocket("**/terminal", (socket) =>

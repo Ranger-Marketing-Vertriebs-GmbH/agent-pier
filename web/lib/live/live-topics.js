@@ -39,6 +39,8 @@ export const liveTopics = Object.freeze({
   inbox: Object.freeze({ mode: "state", path: () => "/inbox", interval: 5000 }),
   // The open previews of sessions and agents (server/features/previews/live-topics.js).
   previews: Object.freeze({ mode: "state", path: () => "/previews", interval: 5000 }),
+  // The owner's split views (server/features/views/live-topics.js), pushed per write.
+  views: Object.freeze({ mode: "state", path: () => "/views", interval: 30000 }),
   "pipeline.run": Object.freeze({
     mode: "state",
     path: under("/pipeline-runs"),

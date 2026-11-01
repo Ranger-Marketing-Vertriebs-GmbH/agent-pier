@@ -1,0 +1,116 @@
+/* A saved split view fills the main area: its header, then the panes. */
+.split-view-page {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  min-height: 0;
+}
+.view-header {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 48px;
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-4);
+  border-bottom: 1px solid var(--header-line);
+}
+.view-header h1 {
+  min-width: 0;
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+}
+.view-header-name {
+  max-width: 100%;
+  overflow: hidden;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: text;
+}
+.view-header-name:hover {
+  background: var(--panel);
+}
+.view-header-name-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.view-header-hint {
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+}
+.view-header-delete {
+  margin-left: auto;
+}
+.split-view-body {
+  flex: 1;
+  min-height: 0;
+  padding: var(--space-2);
+}
+.split-view-empty,
+.split-view-note {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  color: var(--muted);
+  font-size: var(--font-size-md);
+}
+.split-single {
+  position: relative;
+  height: 100%;
+}
+.split-single > .split-pane {
+  inset: 0;
+}
+.split-pane-host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  outline: none;
+}
+.split-pane-host > * {
+  flex: 1;
+  min-height: 0;
+}
+.split-pane-host.split-pane-focused {
+  border-color: var(--accent);
+}
+.split-pane-host.split-pane-flash {
+  animation: split-pane-flash 700ms ease-out;
+}
+@keyframes split-pane-flash {
+  from {
+    box-shadow: inset 0 0 0 3px var(--accent);
+  }
+  to {
+    box-shadow: inset 0 0 0 0 var(--accent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .split-pane-host.split-pane-flash {
+    animation: none;
+  }
+}
+.split-pane-stale {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  color: var(--muted);
+  text-align: center;
+}
+.split-pane-stale p {
+  margin: 0;
+}

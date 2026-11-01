@@ -3,7 +3,11 @@ import useAssistantFeature from "../features/assistants/useAssistantFeature.js";
 import { FileEditorProvider } from "../features/files/file-editor-context.jsx";
 import useLanguage from "../lib/i18n/useLanguage.js";
 import { commonCopy } from "../lib/i18n/messages/common.js";
-import { appCopy as copy, sidebarCopy } from "../lib/i18n/messages/app.js";
+import {
+  appCopy as copy,
+  sidebarCopy,
+  useWorkspaceNavigationCopy as navigationCopy,
+} from "../lib/i18n/messages/app.js";
 import React, { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import ErrorMessage from "../components/ErrorMessage.jsx";
 import Icon from "../components/Icon.jsx";
@@ -29,6 +33,10 @@ import {
   usePushPresence,
 } from "../features/notifications/usePushPresence.js";
 import { usePushReconcile } from "../features/notifications/usePushHealth.js";
+import useMediaQuery from "../lib/useMediaQuery.js";
+import { mediaQueries } from "../lib/breakpoints.js";
+import useViewsStore from "../features/views/useViewsStore.js";
+import { ViewsContext } from "../features/views/views-context.js";
 const AgentsPage = lazy(() => import("../features/assistants/AgentsPage.jsx"));
 const ProjectsPage = lazy(() => import("../features/projects/ProjectsPage.jsx"));
 const CodingPage = lazy(() => import("../features/coding/CodingPage.jsx"));
@@ -39,6 +47,7 @@ const PipelinePage = lazy(() => import("../features/pipelines/PipelinePage.jsx")
 const ArtifactsPage = lazy(() => import("../features/artifacts/ArtifactsPage.jsx"));
 const FilesPage = lazy(() => import("../features/files/FilesPage.jsx"));
 const InboxPage = lazy(() => import("../features/inbox/InboxPage.jsx"));
+const SplitViewPage = lazy(() => import("../features/views/SplitViewPage.jsx"));
 export default function App() {
   const { enabled } = useAssistantFeature();
   return (
@@ -131,6 +140,14 @@ function Application() {
   // their own (route-screens.js); cross-links keep the address as their origin.
   const route = screenRoute(address);
   const view = route.view;
+  // Split views exist wider than 1150 px; a view's own address loads them anywhere.
+  const viewsOffered = useMediaQuery(mediaQueries.aboveTablet);
+  const views = useViewsStore({ enabled: viewsOffered || view === "split" });
+  const notFound =
+    missing ||
+    (view === "split" && views.loaded && !views.byId(route.viewId)
+      ? navigationCopy.pageNotFound
+      : null);
   const extensionsShown = view === "coding" && route.codingTab === "extensions";
   const created = async (session) => {
     await refresh();
@@ -155,7 +172,7 @@ function Application() {
       type,
       item,
     });
-  return (
+  const content = (
     <AppSearch
       navigate={navigate}
       select={select}
@@ -231,9 +248,9 @@ function Application() {
                 </p>
               }
             >
-              {missing ? (
+              {notFound ? (
                 <div className="page">
-                  <h1>{missing}</h1>
+                  <h1>{notFound}</h1>
                   <p>{copy.pageDescription}</p>
                   <button className="button secondary" onClick={() => select(null)}>
                     {copy.returnToOverview}
@@ -245,6 +262,18 @@ function Application() {
                     {copy.workspaceLoading}
                   </p>
                 </div>
+              ) : view === "split" ? (
+                <SplitViewPage
+                  key={route.viewId}
+                  viewId={route.viewId}
+                  state={state}
+                  ready={ready}
+                  navigate={navigate}
+                  openRoute={navigate}
+                  action={act}
+                  autoResume={state.autoResumeInterrupted !== false}
+                  openNavigation={openNavigation}
+                />
               ) : view === "agents" ? (
                 agentsEnabled ? (
                   <AgentsPage
@@ -439,4 +468,5 @@ function Application() {
       </div>
     </AppSearch>
   );
+  return <ViewsContext.Provider value={views}>{content}</ViewsContext.Provider>;
 }
