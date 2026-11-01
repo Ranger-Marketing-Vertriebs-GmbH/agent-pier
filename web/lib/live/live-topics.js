@@ -37,6 +37,8 @@ export const liveTopics = Object.freeze({
     sampled: true,
   }),
   inbox: Object.freeze({ mode: "state", path: () => "/inbox", interval: 5000 }),
+  // The open previews of sessions and agents (server/features/previews/live-topics.js).
+  previews: Object.freeze({ mode: "state", path: () => "/previews", interval: 5000 }),
   "pipeline.run": Object.freeze({
     mode: "state",
     path: under("/pipeline-runs"),

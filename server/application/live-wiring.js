@@ -34,6 +34,7 @@ import {
   artifactsChangedTopic,
   artifactsUsageTopic,
 } from "../features/artifacts/live-topics.js";
+import { previewsTopic } from "../features/previews/live-topics.js";
 import {
   cleanupSummaryTopic,
   systemStatusTopics,
@@ -106,6 +107,7 @@ export function createLiveHub(services, options = {}) {
   hub.define(releaseSessionsTopic(services));
   hub.define(artifactsUsageTopic(services));
   hub.define(artifactsChangedTopic());
+  hub.define(previewsTopic(services));
   for (const topic of systemStatusTopics(services)) hub.define(topic);
   hub.define(cleanupSummaryTopic(services));
   defineAgentBusTopic(hub, services);
@@ -150,6 +152,7 @@ const QUIET_WRITE_AREAS = new Set([
   "memory",
   "project-groups",
   "artifacts",
+  "previews",
   "presence",
 ]);
 const READS = new Set(["GET", "HEAD", "OPTIONS"]);

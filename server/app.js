@@ -4,6 +4,7 @@ import { agentText } from "./lib/i18n/agent-text.js";
 import { messageIdentity } from "./lib/i18n/message-identity.js";
 import { projectGroupsRoutes } from "./http/routes/project-groups.js";
 import { artifactsRoutes } from "./http/routes/artifacts.js";
+import { previewsRoutes } from "./http/routes/previews.js";
 import { fileTextRoutes } from "./http/routes/file-text.js";
 import { SessionMcp } from "./features/mcp/session-integration.js";
 import { SessionReload } from "./features/sessions/session-reload.js";
@@ -394,6 +395,7 @@ export async function createApplication(config) {
   app.use(express.json({ limit: "64kb", strict: true }));
   const mount = (router) => api.mount(router);
   mount(artifactsRoutes(services));
+  mount(previewsRoutes(services));
   mount(mcpAccessRoutes(services));
   mount(workspaceRoutes(services));
   mount(projectGroupsRoutes(services));
