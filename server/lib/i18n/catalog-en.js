@@ -4,6 +4,7 @@ import { agentCodingSessions } from "./en/agent-coding-sessions.js";
 import { accounts } from "./en/accounts.js";
 import { agentbus } from "./en/agentbus.js";
 import { artifacts } from "./en/artifacts.js";
+import { previews } from "./en/previews.js";
 import { chat, chatAttachmentCopy } from "./en/chat.js";
 import { chatDeliveryCopy } from "./en/chat-delivery.js";
 import { common } from "./en/common.js";
@@ -79,6 +80,7 @@ export const englishServerMessages = Object.freeze({
   accounts,
   agentbus,
   artifacts,
+  previews,
   chat,
   common,
   extensions,
