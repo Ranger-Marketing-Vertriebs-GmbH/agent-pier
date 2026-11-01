@@ -70,6 +70,12 @@ The one managed OpenClaw Gateway process that runs all agents on a host. "Gatewa
 OpenClaw's own name for it and appears in design documents and code.
 _Avoid_: Runtime (for the process), daemon.
 
+**Agent runtime**:
+The engine an agent runs on: OpenClaw today; Hermes Agent is proposed as a second one,
+chosen per agent ([ADR 0006](docs/adr/0006-assistant-runtime-port.md)). The runtime is
+the product, not its process; the process stays the _agent service_.
+_Avoid_: Engine, backend.
+
 **Team**:
 The members one agent works with on a task. A team belongs to its lead.
 _Avoid_: Crew, group, swarm.

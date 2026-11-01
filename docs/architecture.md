@@ -169,7 +169,9 @@ directly.
 - HTTP routes live in `server/http/routes/assistant*.js` and `mcp-*.js`.
 
 See [the user guide](agents.md), [the Gateway design](assistant-gateway.md) and
-[ADR 0002](adr/0002-managed-openclaw-assistants.md).
+[ADR 0002](adr/0002-managed-openclaw-assistants.md). The proposed
+[runtime port](adr/0006-assistant-runtime-port.md) moves this coupling behind one port so
+that agents can also run on Hermes Agent.
 
 ## Central MCP servers in the coding CLIs
 
