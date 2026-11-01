@@ -37,7 +37,7 @@ and agents that work as a team.
   sessions by name, project, CLI or account, projects, agents and their chats, pipeline
   runs and definitions, inbox items, every page and setting, and actions such as **New
   session**, **Start run** and **Open inbox**; typos still match, recent results come
-  first, and a restricted user finds only her own agents
+  first, and a restricted user finds only their own agents
   ([UI guide](docs/ui-guide.md#sidebar-menu-and-search)).
 - **Pipelines with review:** reusable profiles, isolated Git worktrees, parallel
   reviewers whose verdicts are joined, bounded review loops, checks, a risk gate for sensitive paths, a token budget per run, a run queue per project with a concurrency limit and human approval,

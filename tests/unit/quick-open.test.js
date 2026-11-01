@@ -1,6 +1,6 @@
 // Quick open (AGENTPIER-224): fuzzy matching, recent results, group order, the owner's
 // sessions, projects, chats, runs, pipelines and inbox, and the restricted user's index
-// that holds only her own agents and pages.
+// that holds only the user's own agents and pages.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { routePath } from "../../web/app/routes.js";
@@ -208,7 +208,7 @@ test("projects are listed once per folder and open on the projects page", () => 
   assert.equal(find("/old/billing").filter((i) => i.group === "projects").length, 0);
 });
 
-test("chats: only the owner's open chats on agents he uses", () => {
+test("chats: only the owner's open chats on agents the owner uses", () => {
   const chats = owner.filter((item) => item.group === "chats");
   assert.deepEqual(
     chats.map((item) => item.id),
@@ -247,7 +247,7 @@ test("a source not loaded yet adds nothing", () => {
   assert.deepEqual([...new Set(entries.map((item) => item.group))], ["actions"]);
 });
 
-test("a restricted user's index holds only her agents and pages", () => {
+test("a restricted user's index holds only the user's agents and pages", () => {
   const index = buildUserSearchIndex({
     agents: [
       { id: "lumi", name: "Lumi", avatar: "🦊", conversationId: "main-1" },
@@ -262,7 +262,7 @@ test("a restricted user's index holds only her agents and pages", () => {
   );
   const groups = new Set(index.map((item) => item.group));
   assert.deepEqual([...groups].sort(), ["agents", "chats", "pages"]);
-  // Every target is a route of her app or opens her own agent's chat.
+  // Every target is a route of the user's app or opens one of their agents' chats.
   for (const item of index) {
     if (item.target.route)
       assert.notEqual(userRoutePath(item.target.route), undefined, item.id);

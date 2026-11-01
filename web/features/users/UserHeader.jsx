@@ -9,7 +9,7 @@ import { userAppCopy as copy } from "../../lib/i18n/messages/user-app.js";
 import { searchCopy } from "../../lib/i18n/messages/search.js";
 import useSearchDialog from "../../app/search-dialog.js";
 
-/** Opens her search (UserSearch.jsx); ⌘K / Ctrl+K opens the same. */
+/** Opens the user's search (UserSearch.jsx); ⌘K / Ctrl+K opens the same. */
 export function UserSearchButton() {
   const search = useSearchDialog();
   return (

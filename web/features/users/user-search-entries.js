@@ -1,5 +1,5 @@
 // The search in a restricted user's own app (AGENTPIER-224, docs/users.md): only what
-// her app can open. Its entries come from her own agent list (`/api/me`, pushed on
+// the user's app can open. Its entries come from the user's own agent list (`/api/me`, pushed on
 // `me.agents`): each agent's chat, settings and memory, plus My agents and Account.
 // Nothing of the owner's (sessions, projects, pipelines, settings) is ever indexed.
 import { withLanguage } from "../../lib/i18n/index.js";
@@ -29,7 +29,7 @@ function withTerms(entry) {
   };
 }
 
-/** Her pages, her agents' chats, settings and memory, with their terms. */
+/** The user's pages and their agents' chats, settings and memory, with terms. */
 export function buildUserSearchIndex({ agents = [] } = {}) {
   const root = bilingual(() => userAppCopy.myAgents);
   const entries = [
