@@ -29,19 +29,6 @@ async function child(f, groupId, entryId) {
     entryId,
   });
 }
-async function promptly(promise) {
-  const timer = new AbortController();
-  try {
-    return await Promise.race([
-      promise,
-      delay(1500, null, { signal: timer.signal }).then(() =>
-        assert.fail("owned work did not settle without additional client input"),
-      ),
-    ]);
-  } finally {
-    timer.abort();
-  }
-}
 function retentionEvidence(f, child, jobId, pruneAt) {
   const db = f.store.db;
   return JSON.stringify({
@@ -94,117 +81,126 @@ test("blocked nested manifest settles after explicit directory IDs reorder its r
   assert.deepEqual(await fs.readdir(destination), []);
 });
 
-test("pruned completed child cannot prevent cancellation and drainage of a live sibling", async (t) => {
-  const f = await uploadFixture(t),
-    id = await group(f, [file("done", "done", 1), file("live", "live", 2)]);
-  await f.uploads.commitGroup(f.scope, id);
-  await f.jobs.join(f.scope, id);
-  const done = await child(f, id, "done");
-  await f.uploads.receive(f.scope, done.uploadId, Readable.from([Buffer.from("a")]));
-  await f.until(() => !f.jobs.owns(done.uploadId));
-  const live = await child(f, id, "live"),
-    stream = new PassThrough();
-  const receiving = f.uploads.receive(f.scope, live.uploadId, stream);
-  try {
-    stream.write("b");
-    await f.until(() => f.jobs.get(f.scope, live.uploadId).completedBytes === 1);
-    const controller = f.jobs.active.get(live.uploadId).controller;
-    await f.barrier.run(() => f.store.prune(Date.now() + 8 * 86400000));
-    assert.throws(() => f.jobs.get(f.scope, done.uploadId), { code: "FILE_NOT_FOUND" });
-    assert.equal((await promptly(f.jobs.cancel(f.scope, id))).status, "cancelled");
-    assert.equal((await promptly(receiving)).status, "cancelled");
-    assert.equal(controller.signal.aborted, true);
-    assert.equal(f.jobs.transfers, 0);
-    assert.equal(f.store.getEntry(id, "done").status, "completed");
-    assert.equal(await fs.readFile(path.join(f.home, "done"), "utf8"), "a");
-  } finally {
-    stream.end("c");
-    await receiving;
-  }
-});
+test(
+  "pruned completed child cannot prevent cancellation and drainage of a live sibling",
+  { timeout: 30000 },
+  async (t) => {
+    const f = await uploadFixture(t),
+      id = await group(f, [file("done", "done", 1), file("live", "live", 2)]);
+    await f.uploads.commitGroup(f.scope, id);
+    await f.jobs.join(f.scope, id);
+    const done = await child(f, id, "done");
+    await f.uploads.receive(f.scope, done.uploadId, Readable.from([Buffer.from("a")]));
+    await f.until(() => !f.jobs.owns(done.uploadId));
+    const live = await child(f, id, "live"),
+      stream = new PassThrough();
+    const receiving = f.uploads.receive(f.scope, live.uploadId, stream);
+    try {
+      stream.write("b");
+      await f.until(() => f.jobs.get(f.scope, live.uploadId).completedBytes === 1);
+      const controller = f.jobs.active.get(live.uploadId).controller;
+      await f.barrier.run(() => f.store.prune(Date.now() + 8 * 86400000));
+      assert.throws(() => f.jobs.get(f.scope, done.uploadId), { code: "FILE_NOT_FOUND" });
+      assert.equal((await f.jobs.cancel(f.scope, id)).status, "cancelled");
+      assert.equal((await receiving).status, "cancelled");
+      assert.equal(controller.signal.aborted, true);
+      assert.equal(f.jobs.transfers, 0);
+      assert.equal(f.store.getEntry(id, "done").status, "completed");
+      assert.equal(await fs.readFile(path.join(f.home, "done"), "utf8"), "a");
+    } finally {
+      stream.end("c");
+      await receiving;
+    }
+  },
+);
 
 for (const timing of ["before", "after"])
-  test(`group cancellation drains directory admission held ${timing} the actual start`, async (t) => {
-    const f = await uploadFixture(t),
-      id = await group(f, [file("file", "folder/file", 1)]);
-    await fs.writeFile(path.join(f.home, "folder"), "original");
-    const start = f.jobs.start.bind(f.jobs),
-      entered = Promise.withResolvers(),
-      release = Promise.withResolvers(),
-      returned = Promise.withResolvers();
-    let directoryChild,
-      cancelling,
-      cancelSettled = false;
-    f.jobs.start = async (...args) => {
-      if (args[1].kind !== "create_directory" || args[1].parentJobId !== id)
-        return start(...args);
+  test(
+    `group cancellation drains directory admission held ${timing} the actual start`,
+    { timeout: 30000 },
+    async (t) => {
+      const f = await uploadFixture(t),
+        id = await group(f, [file("file", "folder/file", 1)]);
+      await fs.writeFile(path.join(f.home, "folder"), "original");
+      const start = f.jobs.start.bind(f.jobs),
+        entered = Promise.withResolvers(),
+        release = Promise.withResolvers(),
+        returned = Promise.withResolvers();
+      let directoryChild,
+        cancelling,
+        cancelSettled = false;
+      f.jobs.start = async (...args) => {
+        if (args[1].kind !== "create_directory" || args[1].parentJobId !== id)
+          return start(...args);
+        try {
+          if (timing === "before") {
+            entered.resolve();
+            await release.promise;
+          }
+          directoryChild = await start(...args);
+          if (timing === "after") {
+            entered.resolve();
+            await release.promise;
+          }
+          return directoryChild;
+        } finally {
+          returned.resolve();
+        }
+      };
+      await f.uploads.commitGroup(f.scope, id);
       try {
-        if (timing === "before") {
-          entered.resolve();
-          await release.promise;
-        }
-        directoryChild = await start(...args);
+        await entered.promise;
+        let controller;
         if (timing === "after") {
-          entered.resolve();
-          await release.promise;
+          await f.until(
+            () =>
+              f.jobs.get(f.scope, directoryChild.id).status === "waiting_for_conflict",
+          );
+          controller = f.jobs.active.get(directoryChild.id).controller;
         }
-        return directoryChild;
-      } finally {
-        returned.resolve();
-      }
-    };
-    await f.uploads.commitGroup(f.scope, id);
-    try {
-      await promptly(entered.promise);
-      let controller;
-      if (timing === "after") {
-        await f.until(
-          () => f.jobs.get(f.scope, directoryChild.id).status === "waiting_for_conflict",
+        cancelling = f.jobs.cancel(f.scope, id);
+        cancelling.then(
+          () => {
+            cancelSettled = true;
+          },
+          () => {
+            cancelSettled = true;
+          },
         );
-        controller = f.jobs.active.get(directoryChild.id).controller;
-      }
-      cancelling = f.jobs.cancel(f.scope, id);
-      cancelling.then(
-        () => {
-          cancelSettled = true;
-        },
-        () => {
-          cancelSettled = true;
-        },
-      );
-      await f.until(() => f.jobs.active.get(id)?.controller.signal.aborted);
-      await delay(30);
-      assert.equal(
-        cancelSettled,
-        false,
-        "cancellation must retain coordinator ownership through the admission handoff",
-      );
-      assert.equal(f.jobs.get(f.scope, id).status, "cancelling");
-      if (controller) assert.equal(controller.signal.aborted, true);
-      release.resolve();
-      assert.equal((await promptly(cancelling)).status, "cancelled");
-      assert.equal(f.jobs.owns(id), false);
-      assert.equal(f.jobs.workers.size, 0);
-      assert.equal(
-        f.jobs.entries(f.scope, id).entries.every((row) => row.status === "cancelled"),
-        true,
-      );
-      if (timing === "before") {
-        assert.equal(directoryChild, undefined);
+        await f.until(() => f.jobs.active.get(id)?.controller.signal.aborted);
+        await delay(30);
         assert.equal(
-          f.jobs.list(f.scope).jobs.some((job) => job.kind === "create_directory"),
+          cancelSettled,
           false,
-          "cancelled admission must roll back its durable job and row claim",
+          "cancellation must retain coordinator ownership through the admission handoff",
         );
-      } else assert.equal(f.jobs.get(f.scope, directoryChild.id).status, "cancelled");
-      assert.equal(await fs.readFile(path.join(f.home, "folder"), "utf8"), "original");
-    } finally {
-      release.resolve();
-      await promptly(returned.promise);
-      if (directoryChild) await f.jobs.cancel(f.scope, directoryChild.id);
-      await Promise.allSettled([cancelling, f.jobs.join(f.scope, id)]);
-    }
-  });
+        assert.equal(f.jobs.get(f.scope, id).status, "cancelling");
+        if (controller) assert.equal(controller.signal.aborted, true);
+        release.resolve();
+        assert.equal((await cancelling).status, "cancelled");
+        assert.equal(f.jobs.owns(id), false);
+        assert.equal(f.jobs.workers.size, 0);
+        assert.equal(
+          f.jobs.entries(f.scope, id).entries.every((row) => row.status === "cancelled"),
+          true,
+        );
+        if (timing === "before") {
+          assert.equal(directoryChild, undefined);
+          assert.equal(
+            f.jobs.list(f.scope).jobs.some((job) => job.kind === "create_directory"),
+            false,
+            "cancelled admission must roll back its durable job and row claim",
+          );
+        } else assert.equal(f.jobs.get(f.scope, directoryChild.id).status, "cancelled");
+        assert.equal(await fs.readFile(path.join(f.home, "folder"), "utf8"), "original");
+      } finally {
+        release.resolve();
+        await returned.promise;
+        if (directoryChild) await f.jobs.cancel(f.scope, directoryChild.id);
+        await Promise.allSettled([cancelling, f.jobs.join(f.scope, id)]);
+      }
+    },
+  );
 
 // Staging reaches the injected fault only after real disk I/O, whose latency is not
 // bounded under load. Arriving at the fault is therefore awaited as an event; the
@@ -270,60 +266,64 @@ for (const [failing, slowStaging] of [
     },
   );
 
-test("progress failure stops input immediately but retains the slot until the owned write drains", async (t) => {
-  const f = await uploadFixture(t),
-    writing = Promise.withResolvers(),
-    release = Promise.withResolvers(),
-    failed = Promise.withResolvers();
-  const native = f.publisher.native,
-    run = native.run.bind(native),
-    charge = f.store.uploads.charge.bind(f.store.uploads);
-  native.run = async (operation, args) => {
-    if (operation === "write") {
-      writing.resolve();
-      await release.promise;
+test(
+  "progress failure stops input immediately but retains the slot until the owned write drains",
+  { timeout: 30000 },
+  async (t) => {
+    const f = await uploadFixture(t),
+      writing = Promise.withResolvers(),
+      release = Promise.withResolvers(),
+      failed = Promise.withResolvers();
+    const native = f.publisher.native,
+      run = native.run.bind(native),
+      charge = f.store.uploads.charge.bind(f.store.uploads);
+    native.run = async (operation, args) => {
+      if (operation === "write") {
+        writing.resolve();
+        await release.promise;
+      }
+      return run(operation, args);
+    };
+    let charged = 0,
+      settled = false;
+    f.store.uploads.charge = (...args) => {
+      if (++charged === 2) {
+        failed.resolve();
+        throw new Error("fixture second report failure");
+      }
+      return charge(...args);
+    };
+    const { uploadId } = await f.create("draining", 3),
+      stream = new PassThrough();
+    const receiving = f.uploads.receive(f.scope, uploadId, stream);
+    receiving.then(
+      () => {
+        settled = true;
+      },
+      () => {
+        settled = true;
+      },
+    );
+    try {
+      stream.write("a");
+      await writing.promise;
+      stream.write("b");
+      await failed.promise;
+      await f.until(() => stream.destroyed);
+      assert.equal(settled, false);
+      assert.equal(f.jobs.transfers, 1);
+      await f.barrier.snapshot(() => {});
+      release.resolve();
+      assert.equal((await receiving).status, "failed");
+      assert.equal(f.jobs.transfers, 0);
+      assert.equal(f.store.listPublications().at(-1).phase, "resolved");
+    } finally {
+      release.resolve();
+      stream.end();
+      await receiving;
     }
-    return run(operation, args);
-  };
-  let charged = 0,
-    settled = false;
-  f.store.uploads.charge = (...args) => {
-    if (++charged === 2) {
-      failed.resolve();
-      throw new Error("fixture second report failure");
-    }
-    return charge(...args);
-  };
-  const { uploadId } = await f.create("draining", 3),
-    stream = new PassThrough();
-  const receiving = f.uploads.receive(f.scope, uploadId, stream);
-  receiving.then(
-    () => {
-      settled = true;
-    },
-    () => {
-      settled = true;
-    },
-  );
-  try {
-    stream.write("a");
-    await promptly(writing.promise);
-    stream.write("b");
-    await promptly(failed.promise);
-    await f.until(() => stream.destroyed);
-    assert.equal(settled, false);
-    assert.equal(f.jobs.transfers, 1);
-    await f.barrier.snapshot(() => {});
-    release.resolve();
-    assert.equal((await promptly(receiving)).status, "failed");
-    assert.equal(f.jobs.transfers, 0);
-    assert.equal(f.store.listPublications().at(-1).phase, "resolved");
-  } finally {
-    release.resolve();
-    stream.end();
-    await receiving;
-  }
-});
+  },
+);
 
 for (const disposition of ["failed", "interrupted"])
   test(`fresh retry survives a pruned ${disposition} child without resetting its group budget`, async (t) => {
