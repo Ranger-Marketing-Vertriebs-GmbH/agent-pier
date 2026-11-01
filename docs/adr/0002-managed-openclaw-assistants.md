@@ -352,6 +352,8 @@ owner's user account (see [agent shell access](../assistant-gateway.md#agent-she
 - **Hermes or a smaller framework:** credible alternatives, retained as fallbacks.
   OpenClaw currently has the best demonstrated fit for this scope; the adapter
   boundary limits lock-in without promising trivial runtime replacement.
+  [ADR 0006](0006-assistant-runtime-port.md) (proposed, 2026-11-01) turns Hermes into a
+  second runtime chosen per agent, behind a runtime port.
 - **Mandatory sandbox from the outset:** conflicts with the user's decision to
   defer this topic and would expand the spike into host integration design.
 
