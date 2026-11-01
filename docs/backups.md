@@ -10,6 +10,7 @@ passphrase on stdin) leaves out all histories and private content.
 
 Always, as public (unencrypted) members:
 
+- Saved split views (`views.json`), restored as saved ([Views](views.md)).
 - Accounts, provider connections, repositories, preferences, the project groups of the
   projects page (`project-groups.json`; a restore with a project mapping moves their
   folder paths along), pipeline definitions, the port from `config.json`.
