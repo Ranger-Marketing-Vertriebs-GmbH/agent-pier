@@ -1,0 +1,103 @@
+import { mergeConfig, mergeEnv } from "./home-merge.js";
+import { modelEnvNames, modelSection } from "./model.js";
+import {
+  approvalMode,
+  disabledToolsets,
+  guardsEveryCommand,
+  shellLevel,
+} from "./tools.js";
+import { guardDirectory, guardFiles, guardPlugin } from "./guard-plugin.js";
+
+// One agent's Hermes home (its own HERMES_HOME, ADR 0006 decision 4) compiled from
+// its desired state: config.yaml, .env, SOUL.md and the guard plugin, nothing else.
+// Key names verified against Hermes a4994d4e (hermes_cli/config_defaults.py unless
+// named otherwise; docs/hermes-runtime.md lists them).
+
+/**
+ * Practical defaults (ADR 0006 decision 5): AgentPier turns off only what touches
+ * credentials, sends data off the host without the owner's choice, changes the
+ * installation, or rewrites the first turn.
+ */
+const practicalDefaults = [
+  // Dangerous commands of invisible subagents reach the owner through the parent's
+  // approval queue under the stdio gateway (tui_gateway/server.py sets
+  // HERMES_GATEWAY_SESSION; tools/approval.py `_human_decision`); this fallback for a
+  // child without one denies instead of approving.
+  [["delegation", "subagent_auto_approve"], false],
+  // Never search through third-party free tiers the owner did not choose.
+  [["web", "keyless_fallback"], false],
+  // Never borrow and refresh the host's Codex or Claude Code logins.
+  [["auth", "adopt_external_logins"], false],
+  // No profile-building offer appended to the first message.
+  [["onboarding", "profile_build"], "off"],
+  // AgentPier provisions and updates the installation: no update checks, plugin
+  // update checks or packages installed from PyPI at run time.
+  [["updates", "check"], false],
+  [["plugins", "auto_update_check_hours"], 0],
+  [["security", "allow_lazy_installs"], false],
+  // Shared metrics stay off (they are off by default; a consent prompt would turn
+  // them on).
+  [["telemetry", "shared_metrics", "enabled"], false],
+  [["telemetry", "shared_metrics", "send"], false],
+];
+
+// What Hermes cannot take from the desired state yet, by reason id.
+function unsupportedOf(agent, level, model) {
+  const grants = agent.tools.flatMap((grant) => grant.tools || []);
+  return [
+    ...(model?.unsupported ? [model.unsupported] : []),
+    ...(agent.browser.wanted ? ["browser"] : []),
+    ...(agent.mcp.servers.length ? ["mcp"] : []),
+    ...(agent.skills.assigned.length ? ["skills"] : []),
+    ...(agent.web.readPdfs ? ["readPdfs"] : []),
+    ...(grants.includes("agentpier_reminder") ? ["routines"] : []),
+    ...(agent.tools.some((grant) => grant.needs?.includes("teams")) ? ["teams"] : []),
+    ...(level !== "off" && agent.shell.pathPrepend.length ? ["shellPath"] : []),
+  ];
+}
+
+/**
+ * The home of `agent` (a desiredAgent): `{ runtimeAgentId, files, remove, config,
+ * env, unsupported }`. `files` maps paths inside the home to their text, config.yaml
+ * and .env merged over `existing` (`{ "config.yaml", ".env" }` as found there);
+ * `remove` names AgentPier's paths that must not stay; `config` (`[[path, value]]`)
+ * and `env` (`{ owned, values }`) are what a writer merges again over the files it
+ * finds. Without `agent.model` the model section and its secrets stay as they were,
+ * without `agent.instructions` SOUL.md does. `workspace`: the agent's folder, where
+ * its commands start; `strict`: runtime agent ids on every-command approval.
+ * Pure: the same inputs yield the same home.
+ */
+export function compileHome(agent, { workspace, strict = [], existing = {} } = {}) {
+  const level = shellLevel(agent, strict);
+  const guard = guardsEveryCommand(level);
+  const model = agent.model ? modelSection(agent.model) : null;
+  const config = [
+    ...(model ? [[["model"], model.section]] : []),
+    [["agent", "disabled_toolsets"], disabledToolsets(agent, level)],
+    ...(model
+      ? [[["agent", "image_input_mode"], model.images ? "native" : undefined]]
+      : []),
+    [["terminal", "backend"], "local"],
+    ...(workspace ? [[["terminal", "cwd"], workspace]] : []),
+    [["approvals", "mode"], approvalMode(level)],
+    [["memory", "memory_enabled"], agent.memory],
+    [["memory", "user_profile_enabled"], agent.memory],
+    [["plugins", "enabled"], guard ? [guardPlugin] : []],
+    ...practicalDefaults,
+  ];
+  const env = { owned: modelEnvNames, values: model?.env || {} };
+  const files = {
+    "config.yaml": mergeConfig(existing["config.yaml"], config),
+    ...(model && { ".env": mergeEnv(existing[".env"], env.owned, env.values) }),
+    ...(agent.instructions !== undefined && { "SOUL.md": String(agent.instructions) }),
+    ...(guard && guardFiles),
+  };
+  return Object.freeze({
+    runtimeAgentId: agent.runtimeAgentId,
+    files: Object.freeze(files),
+    remove: Object.freeze(guard ? [] : [guardDirectory]),
+    config: Object.freeze(config),
+    env: Object.freeze(model ? env : { owned: [], values: {} }),
+    unsupported: Object.freeze(unsupportedOf(agent, level, model)),
+  });
+}

@@ -14,3 +14,5 @@ docs/screenshots/
 coverage/
 # The compiler's own output, compared byte for byte (openclaw-config-golden.test.js).
 tests/fixtures/openclaw-golden/
+# The Hermes compiler's output, compared byte for byte (hermes-config-golden.test.js).
+tests/fixtures/hermes-golden/

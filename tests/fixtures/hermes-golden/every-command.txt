@@ -1,0 +1,96 @@
+==> .env <==
+==> SOUL.md <==
+# Agent a1
+
+You help the owner with their work.
+==> config.yaml <==
+model:
+  provider: custom
+  default: llama3.2
+  base_url: http://127.0.0.1:11434/v1
+  api_mode: chat_completions
+  context_length: 32768
+agent:
+  disabled_toolsets:
+    - browser
+    - computer_use
+    - cronjob
+    - image_gen
+    - vision
+    - web
+terminal:
+  backend: local
+  cwd: /golden/assistants/workspaces/ap-a1
+approvals:
+  mode: manual
+memory:
+  memory_enabled: true
+  user_profile_enabled: true
+plugins:
+  enabled:
+    - agentpier-guard
+  auto_update_check_hours: 0
+delegation:
+  subagent_auto_approve: false
+web:
+  keyless_fallback: false
+auth:
+  adopt_external_logins: false
+onboarding:
+  profile_build: "off"
+updates:
+  check: false
+security:
+  allow_lazy_installs: false
+telemetry:
+  shared_metrics:
+    enabled: false
+    send: false
+==> plugins/agentpier-guard/__init__.py <==
+"""AgentPier guard: every shell command, Python run and process input asks the owner.
+
+Written by AgentPier into this agent's Hermes home; AgentPier replaces it on every
+configuration change.
+"""
+
+import hashlib
+
+# The argument that holds what the tool runs.
+_RUNS = {"terminal": "command", "execute_code": "code"}
+# process_manage actions that send input to a running process.
+_INPUT = {"write", "submit"}
+# Longer texts are shortened in the approval card; the rule key covers all of it.
+_SHOWN = 4000
+
+
+def _text(tool_name, args):
+    if tool_name in _RUNS:
+        return str(args.get(_RUNS[tool_name]) or "")
+    if tool_name == "process_manage" and args.get("action") in _INPUT:
+        target = args.get("session_id") or ""
+        return f"{args.get('action')} {target}: {args.get('data') or ''}"
+    return None
+
+
+def _guard(tool_name="", args=None, **kwargs):
+    text = _text(tool_name, args if isinstance(args, dict) else {})
+    if text is None:
+        return None
+    digest = hashlib.sha256(f"{tool_name}\0{text}".encode("utf-8")).hexdigest()[:32]
+    shown = text if len(text) <= _SHOWN else text[:_SHOWN] + " …"
+    return {
+        "action": "approve",
+        "message": shown,
+        "rule_key": f"agentpier:{tool_name}:{digest}",
+    }
+
+
+def register(ctx):
+    ctx.register_hook("pre_tool_call", _guard)
+==> plugins/agentpier-guard/plugin.yaml <==
+name: agentpier-guard
+version: "1"
+description: AgentPier asks the owner before every shell command and Python run
+==> (remove) <==
+==> (unsupported) <==
+teams

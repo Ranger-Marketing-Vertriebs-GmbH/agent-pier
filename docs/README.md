@@ -41,6 +41,7 @@ _(German)_ are not translated yet.
 | [Model connections](assistant-model-connections.md) | Models and ChatGPT accounts for agents                                   |
 | [Runtime updates](assistant-runtime-updates.md)     | Updating and rolling back the managed OpenClaw runtime                   |
 | [Gateway design](assistant-gateway.md)              | Design and limits of the managed agent service                           |
+| [Hermes runtime](hermes-runtime.md)                 | What AgentPier writes into a Hermes agent's home, and its defaults       |
 
 ## Operate
 
