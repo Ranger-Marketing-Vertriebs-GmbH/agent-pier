@@ -51,6 +51,8 @@ const text = {
     group: "Views",
     newView: "New view",
     defaultName: "View 1",
+    secondName: "View 2",
+    shownInView: "Shown in this view",
     rowLabel: (name, n) => `${name}, ${n} panes`,
     empty: /This view is empty/,
     search: "Search",
@@ -61,6 +63,8 @@ const text = {
     group: "Ansichten",
     newView: "Neue Ansicht",
     defaultName: "Ansicht 1",
+    secondName: "Ansicht 2",
+    shownInView: "In dieser Ansicht",
     rowLabel: (name, n) => `${name}, ${n} Bereiche`,
     empty: /Diese Ansicht ist leer/,
     search: "Suchen",
@@ -143,10 +147,14 @@ for (const language of ["en", "de"]) {
     test("clicking a session in another view opens the most recently used one", async ({
       page,
     }) => {
+      // The more recently used view ("Shop") comes second, so list order alone
+      // would pick "Pairing".
+      const [shop, pairing] = twoViews();
       const controls = await splitViewFixture(page, {
         language,
         views: [
-          ...twoViews(),
+          pairing,
+          shop,
           view("v_0000000000000003", "Empty", null, "2026-11-01T11:00:00.000Z"),
         ],
       });
@@ -156,6 +164,52 @@ for (const language of ["en", "de"]) {
       await expect(page).toHaveURL(`${baseURL}/views/${viewId}`);
       await focusedFlash(page, S2);
       expect(layoutWrites(controls)).toEqual([]);
+    });
+
+    test("rows the open view shows are marked", async ({ page }) => {
+      const controls = await splitViewFixture(page, { language, views: twoViews() });
+      controls.sessions = [sessions.s1, sessions.s2, s9];
+      await page.goto(`${baseURL}/views/${otherId}`);
+      await expect(page.locator(".split-pane")).toHaveCount(2);
+      await expect(sessionRow(page, "Shop UI")).toHaveClass(/in-view/);
+      await expect(sessionRow(page, "Shop UI")).toContainText(t.shownInView);
+      await expect(sessionRow(page, "Loose ends")).not.toHaveClass(/in-view/);
+      const agent = sidebar(page).locator(".assistant-sidebar-item", {
+        hasText: "Home assistant",
+      });
+      await expect(agent).not.toHaveClass(/in-view/);
+      await page.goto(`${baseURL}/views/${viewId}`);
+      await expect(agent).toHaveClass(/in-view/);
+      await expect(agent).toHaveAttribute("aria-label", new RegExp(`${t.shownInView}$`));
+      await page.goto(`${baseURL}/sessions/s9`);
+      await expect(sessionRow(page, "Shop UI")).not.toHaveClass(/in-view/);
+    });
+
+    test("+ waits for the saved views before naming a new one", async ({ page }) => {
+      const controls = await splitViewFixture(page, {
+        language,
+        views: [view(viewId, t.defaultName, null, "2026-11-01T10:00:00.000Z")],
+      });
+      let release;
+      const held = new Promise((resolve) => {
+        release = resolve;
+      });
+      await page.route("**/api/views", async (route) => {
+        if (route.request().method() === "GET") await held;
+        return route.fallback();
+      });
+      await page.goto(baseURL + "/");
+      const plus = sidebar(page).getByRole("button", { name: t.newView });
+      await expect(plus).toBeDisabled();
+      release();
+      await expect(plus).toBeEnabled();
+      await plus.click();
+      await expect
+        .poll(() => controls.writes.find((write) => write.method === "POST"))
+        .toEqual({
+          method: "POST",
+          body: { name: t.secondName, layout: null },
+        });
     });
 
     test("clicking a session in no view opens the single view", async ({ page }) => {

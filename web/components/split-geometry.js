@@ -2,6 +2,8 @@ export const MIN_RATIO = 0.15;
 export const MAX_RATIO = 0.85;
 /** Fraction of a pane's width or height, measured from an edge, that selects that edge. */
 export const EDGE_ZONE = 0.28;
+/** The gap between two panes in pixels: the width of a divider's hit area. */
+export const SPLIT_GAP = 8;
 
 const isSplit = (node) => node?.type === "split";
 

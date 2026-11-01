@@ -12,7 +12,8 @@ const noHeaderProps = Object.freeze({});
 /**
  * One pane of a split view: its own editor store and unsaved-edits guard, so leaving
  * the view or closing the pane asks only about this pane's documents, and its own
- * PaneContext (size, focus, id prefix) for the session or chat inside.
+ * PaneContext (size, focus, id prefix) for the session or chat inside. `dragHeader(key)`
+ * gives the header's dragstart handler while the view arranges its panes.
  */
 export default function PaneHost(props) {
   return (
@@ -22,7 +23,16 @@ export default function PaneHost(props) {
   );
 }
 
-function PaneFrame({ pane, size, focused, flash, actions, onFocusPane, shared }) {
+function PaneFrame({
+  pane,
+  size,
+  focused,
+  flash,
+  actions,
+  onFocusPane,
+  shared,
+  dragHeader,
+}) {
   const reactId = useId();
   const idPrefix = `pane${reactId.replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const guard = useFileNavigationGuard({ scope: pane.key });
@@ -45,7 +55,13 @@ function PaneFrame({ pane, size, focused, flash, actions, onFocusPane, shared })
       }),
     [actions, pane.key],
   );
-  const chrome = useMemo(() => ({ close, headerProps: noHeaderProps }), [close]);
+  // Side by side, the header drags the pane to another place in the view.
+  const headerProps = useMemo(
+    () =>
+      dragHeader ? { draggable: true, onDragStart: dragHeader(pane.key) } : noHeaderProps,
+    [dragHeader, pane.key],
+  );
+  const chrome = useMemo(() => ({ close, headerProps }), [close, headerProps]);
   const focus = () => onFocusPane(pane.key);
   return (
     <PaneContext.Provider value={context}>

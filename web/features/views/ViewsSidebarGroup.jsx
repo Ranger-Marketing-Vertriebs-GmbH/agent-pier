@@ -29,6 +29,7 @@ export default function ViewsSidebarGroup({ navigate, route }) {
   const { views } = store;
   const current = route?.view === "split" ? route.viewId : "";
   const create = async () => {
+    if (!store.loaded) return;
     setError("");
     setCreating(true);
     try {
@@ -56,7 +57,8 @@ export default function ViewsSidebarGroup({ navigate, route }) {
           className="icon-button"
           aria-label={viewsCopy.newView}
           title={viewsCopy.newView}
-          disabled={creating}
+          // The next default name needs the saved views' names.
+          disabled={creating || !store.loaded}
           onClick={create}
         >
           <Icon name="plus" size={16} />

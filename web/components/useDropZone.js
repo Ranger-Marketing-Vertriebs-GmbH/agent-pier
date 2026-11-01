@@ -3,19 +3,24 @@ import { sideAt } from "./split-geometry.js";
 
 /**
  * The drop side for a drag over a rect, or null when the drag is not ours or the side
- * is not allowed. Pure so the decision is testable without a DOM.
+ * is not allowed. `sideFor` maps the side under the pointer (say, a centre that counts
+ * as an edge); `allowed` also gets the drag's `dataTransfer`. Pure so the decision is
+ * testable without a DOM.
  */
-export function dropDecision({ types, accepts, allowed, rect, x, y }) {
+export function dropDecision({ types, accepts, allowed, sideFor, rect, x, y, data }) {
   if (!accepts(Array.from(types ?? []))) return null;
-  const side = sideAt(rect, x, y);
-  return !allowed || allowed(side) ? side : null;
+  const under = sideAt(rect, x, y);
+  const side = sideFor ? sideFor(under) : under;
+  return !allowed || allowed(side, data) ? side : null;
 }
 
 /**
- * Drop zones on a pane edge or centre. Drags that `accepts` rejects are left alone
- * (no preventDefault), so other drop handlers on the same element keep working.
+ * Drop zones on a pane edge or centre. `rectOf(element)` names the element whose box
+ * the sides divide (default: the element with the handlers). Drags that `accepts`
+ * rejects are left alone (no preventDefault), so other drop handlers on the same
+ * element keep working.
  */
-export default function useDropZone({ accepts, allowed, onDrop }) {
+export default function useDropZone({ accepts, allowed, sideFor, rectOf, onDrop }) {
   const [side, setSide] = useState(null);
 
   const decide = (event) => {
@@ -25,9 +30,14 @@ export default function useDropZone({ accepts, allowed, onDrop }) {
       types,
       accepts,
       allowed,
-      rect: event.currentTarget.getBoundingClientRect(),
+      sideFor,
+      rect: (rectOf
+        ? rectOf(event.currentTarget)
+        : event.currentTarget
+      ).getBoundingClientRect(),
       x: event.clientX,
       y: event.clientY,
+      data: event.dataTransfer,
     });
   };
 
