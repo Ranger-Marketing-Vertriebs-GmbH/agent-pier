@@ -2,7 +2,6 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import {
   inheritsFromLead,
-  memoryEnabled,
   personalCapabilities,
   personalShell,
   profileTools,
@@ -20,6 +19,7 @@ import {
   pluginSkillReported,
 } from "./built-in-skills.js";
 import { compilerFor, runtimeFor } from "./runtimes/runtime-for.js";
+import { desiredAgent } from "./agent-desired-state.js";
 // Bootstrap files the Gateway exposes besides AGENTS.md. AgentPier never creates
 // them (skipBootstrap), so any content is foreign and is neutralized. USER.md is
 // the owner's preference note and stays under owner control.
@@ -244,11 +244,11 @@ export class AssistantConfig {
     // The owner's login PATH the running Gateway was started with (exec-shell.js).
     // An agent with GitHub access starts with its GitHub folder (agent-github.js),
     // then its SSH agent's bin/ (agent-ssh-shell.js).
-    const pathPrepend = [
+    const shellPath = [
       ...(this.githubShellPath?.(assistant) || []),
       ...(this.sshShellPath?.(assistant) || []),
-      ...(this.shellPathPrepend?.() || []),
     ];
+    const pathPrepend = [...shellPath, ...(this.shellPathPrepend?.() || [])];
     const compiler = this.compiler;
     // As the agent's entry compiles it; the readback below checks the same value.
     const exec = nativeReady
@@ -309,6 +309,19 @@ export class AssistantConfig {
     const configured = team
       ? assistantBootstrap(assistant, lease.display, guidance)
       : bootstrap;
+    // The agent as AgentPier wants it (agent-desired-state.js), which the runtime's
+    // config sub-port applies; its grants yield `allowed` above.
+    const desired = desiredAgent(assistant, {
+      ssh,
+      shellPath,
+      instructions: bootstrap,
+      model: {
+        ref: lease.modelRef,
+        providerId: lease.providerId,
+        provider: lease.provider,
+        agentRuntime: lease.agentRuntime,
+      },
+    });
     const fingerprint = createHash("sha256")
       .update(
         JSON.stringify([
@@ -351,10 +364,7 @@ export class AssistantConfig {
       // Watched before the first write, so the commit cannot be announced unseen.
       adoption = config.watchAdoption(this.adoption);
       const base = adoption.watching ? await config.get() : {};
-      if (lease.provider)
-        await config.patch({
-          build: () => compiler.providerPatch(lease.providerId, lease.provider),
-        });
+      if (desired.model.provider) await config.applyModel({ desired });
       // agents.create and agents.update write the configuration: the roster is read
       // once the runtime admitted its agents.
       await agents.settled();
@@ -392,29 +402,24 @@ export class AssistantConfig {
       });
       if (this.teamReady || this.nativeReady || lease.agentRuntime) {
         adoption.mark();
-        await config.patch({
-          build: (current) =>
-            compiler.agentPatch(current, {
-              assistant,
-              // Read as the write runs.
-              entryOptions: () => ({
-                teamsReady: !!this.teamReady?.(),
-                nativeReady,
-                guardProven: !!this.writeGuard?.(),
-                agentRuntime: lease.agentRuntime,
-                toolsManaged: !!(this.teamReady || this.nativeReady),
-                memoryManaged: !!this.nativeReady,
-                available,
-                pathPrepend,
-                mcpTools,
-                senderFacing,
-                ssh,
-                shadowedSkills: shadowed,
-              }),
-              managed: !!(this.teamReady || this.nativeReady),
-              hostCapacity: this.hostCapacity,
-              shellGlobal,
-            }),
+        await config.apply({
+          desired,
+          // Read as the write runs.
+          state: () => ({
+            teamsReady: !!this.teamReady?.(),
+            nativeReady,
+            guardProven: !!this.writeGuard?.(),
+            toolsManaged: !!(this.teamReady || this.nativeReady),
+            memoryManaged: !!this.nativeReady,
+            available,
+            pathPrepend,
+            mcpTools,
+            senderFacing,
+            shadowedSkills: shadowed,
+            managed: !!(this.teamReady || this.nativeReady),
+            hostCapacity: this.hostCapacity,
+            shellGlobal,
+          }),
         });
       }
       const file = await agentFiles.get({
@@ -433,16 +438,17 @@ export class AssistantConfig {
       });
       const effective = await config.get();
       if (
-        compiler.agentDrift(effective.config, {
-          runtimeAgentId: assistant.runtimeAgentId,
-          managed: !!(this.teamReady || this.nativeReady),
-          allowed,
-          exec,
-          skills,
-          shellGlobal,
-          memory: this.nativeReady ? nativeReady && memoryEnabled(assistant) : undefined,
-          agentRuntime: lease.agentRuntime,
-          modelRef: lease.modelRef,
+        !config.applied({
+          desired,
+          config: effective.config,
+          expected: {
+            managed: !!(this.teamReady || this.nativeReady),
+            tools: allowed,
+            exec,
+            skills,
+            shellGlobal,
+            memory: this.nativeReady ? nativeReady && desired.memory : undefined,
+          },
         })
       )
         throw assistantProblem("conflict", 409);

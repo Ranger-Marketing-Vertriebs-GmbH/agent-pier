@@ -16,9 +16,10 @@ import { applyMcp, mcpSections } from "./openclaw-config/mcp-servers.js";
 import {
   applyTelegram,
   configuredAgents,
-  stdioAgents,
   telegramSections,
 } from "./openclaw-config/telegram-senders.js";
+import { isDesiredState } from "../../agent-desired-state.js";
+import { asDesiredState } from "./openclaw-config/desired-agents.js";
 import {
   applyWebTools,
   webToolsAvailability,
@@ -133,12 +134,21 @@ export function canonicalAgentRoster(config) {
   return config;
 }
 
-// Pure: the same inputs and runtime state always yield the same configuration.
+/**
+ * A Gateway start's openclaw.json from AgentPier's desired state (`desired`,
+ * agent-desired-state.js: the agents and the host's team plugin, native tools, web
+ * tools, MCP servers, Telegram bots and dreaming) and this start's own facts: the
+ * file it starts from, paths, port, token, the owner's overrides, maintenance, TLS,
+ * the owner's login PATH (`shell`) and skill shadows. Pure: the same inputs and
+ * runtime state always yield the same configuration. Without `desired`, `teams`,
+ * `webTools`, `mcp` and `telegram` are the stores' reads it is built from.
+ */
 export function compileOpenClawConfig({
   existing,
   paths,
   port,
   token,
+  desired,
   teams,
   overrides = [],
   runtime: { maintenance = false } = {},
@@ -147,13 +157,18 @@ export function compileOpenClawConfig({
   webTools,
   // { pathPrepend }: the owner's login PATH for agents with shell; see exec-shell.js.
   shell,
-  // { servers, bindings, secrets }; see openclaw-config/mcp-servers.js readMcpInputs.
+  // { servers, bindings, secrets }; see mcp-servers/mcp-inputs.js readMcpInputs.
   mcp,
-  // { accounts, speech }; see openclaw-config/telegram-senders.js readTelegramInputs.
+  // { accounts, speech }; see assistant-channels/telegram-inputs.js.
   telegram,
   // { [runtimeAgentId]: names } assigned skills a same-named skill would replace.
   skillShadows = {},
 }) {
+  const state = isDesiredState(desired)
+    ? desired
+    : asDesiredState({ ...teams, webTools, mcp, telegram });
+  const { agents, host } = state;
+  const { plugin, native } = host.team;
   const config = canonicalAgentRoster(
     applyOverrides(existing || freshDefaults(paths), overrides),
   );
@@ -193,7 +208,7 @@ export function compileOpenClawConfig({
   // Likewise `secrets` and `env`: AgentPier never writes them and they are locked.
   delete config.secrets;
   delete config.env;
-  const enabled = !!(teams?.directory && teams?.connection);
+  const enabled = !!plugin;
   // Without a mode the gateway host runs exec in "full"; "deny" is the default every
   // agent without its own override gets (openclaw-config/shell.js).
   // Session tools reach only the calling agent's own sessions; OpenClaw's default
@@ -214,7 +229,7 @@ export function compileOpenClawConfig({
           // The allow list is restrictive: OpenClaw offers only the provider logins
           // of plugins it lists, so the ChatGPT device-code sign-in needs `openai`.
           allow: ["agentpier-teams", "openai"],
-          load: { paths: [teams.directory] },
+          load: { paths: [plugin.directory] },
           entries: {
             "agentpier-teams": {
               enabled: true,
@@ -222,7 +237,7 @@ export function compileOpenClawConfig({
               // commands a completion run reports (team-plugin/exec-processes.js).
               hooks: { allowConversationAccess: true },
               // The plugin classifies absolute write targets below this root.
-              config: { ...teams.connection, workspaces: paths.workspaces },
+              config: { ...plugin.connection, workspaces: paths.workspaces },
               // Its chat title method runs on the asking agent's own model
               // (team-plugin/chat-title.js); no other model or login can be chosen.
               llm: { allowAgentIdOverride: true },
@@ -233,20 +248,18 @@ export function compileOpenClawConfig({
   };
   // The agents' own bots, compiled below; their agents lose the session tools.
   const telegramCompiled = telegramSections({
-    profiles: teams?.profiles,
-    telegram: enabled && teams.native ? telegram : undefined,
+    profiles: agents,
+    telegram: enabled && native ? host.telegram : undefined,
     agents: configuredAgents(config),
-    stdio: stdioAgents(mcp || {}),
-    ssh: teams?.sshAgents,
   });
-  if (enabled && teams.native) {
+  if (enabled && native) {
     // memory and skills.workshop are written only here; otherwise they stay inert
     // (memory slot "none", cron off).
     config.plugins.slots.memory = "memory-core";
     config.plugins.allow.push("memory-core");
     config.plugins.entries["memory-core"] = {
       enabled: true,
-      config: { dreaming: dreamingSection(teams.dreaming || {}) },
+      config: { dreaming: dreamingSection(host.dreaming) },
     };
     config.memory = {
       search: {
@@ -268,16 +281,19 @@ export function compileOpenClawConfig({
     config.tools.fs = { workspaceOnly: true };
     config.cron = {
       enabled: true,
-      webhookToken: teams.native.token,
+      webhookToken: native.token,
       webhookSsrfPolicy: { allowedHostnames: ["127.0.0.1"] },
     };
     // Unused or unavailable web capabilities leave every section as above.
-    applyWebTools(config, webToolsSections({ profiles: teams.profiles, webTools, port }));
-    applyShell(config, shellSections({ profiles: teams.profiles }));
+    applyWebTools(
+      config,
+      webToolsSections({ profiles: agents, webTools: host.webTools, port }),
+    );
+    applyShell(config, shellSections({ profiles: agents }));
     // Without bindings to usable servers nothing is added.
-    const mcpServers = mcpSections({ profiles: teams.profiles, ...mcp });
+    const mcpServers = mcpSections({ profiles: agents, ...host.mcp });
     applyMcp(config, mcpServers);
-    const available = webToolsAvailability(webTools);
+    const available = webToolsAvailability(host.webTools);
     const entries = config.agents.entries || config.agents.list;
     for (const [key, entry] of Object.entries(entries || {})) {
       delete entry.skills;
@@ -285,7 +301,7 @@ export function compileOpenClawConfig({
       // the browser.
       if (Array.isArray(entry.tools?.allow))
         entry.tools.allow = entry.tools.allow.filter((t) => !guardGatedTools.includes(t));
-      const profile = teams.profiles?.find((a) => a.runtimeAgentId === (entry.id || key));
+      const profile = agents.find((a) => a.runtimeAgentId === (entry.id || key));
       // OpenClaw's own `main` agent is no AgentPier agent: it never inherits the global
       // list, which offers every available web tool (web-tools.js).
       if (!profile && (entry.id || key) === "main")
@@ -300,14 +316,10 @@ export function compileOpenClawConfig({
           available,
           // An agent with GitHub access and shell starts with its GitHub folder,
           // then its SSH agent's bin/ (agent-ssh-shell.js).
-          pathPrepend: [
-            ...(teams.githubShell?.[profile.id] || []),
-            ...(teams.sshShell?.[profile.id] || []),
-            ...(shell?.pathPrepend || []),
-          ],
+          pathPrepend: [...profile.shell.pathPrepend, ...(shell?.pathPrepend || [])],
           mcpTools: mcpServers.agentTools[profile.runtimeAgentId],
           senderFacing: !!telegramCompiled.accounts[profile.runtimeAgentId],
-          ssh: !!teams.sshAgents?.has(profile.id),
+          ssh: profile.ssh,
           shadowedSkills: skillShadows[profile.runtimeAgentId],
         }),
       );
@@ -324,14 +336,14 @@ export function compileOpenClawConfig({
     ...config.session,
     maintenance: { ...config.session?.maintenance, archiveDashboardAfter: false },
   };
-  config.cron = { ...config.cron, enabled: !!(enabled && teams.native && !maintenance) };
+  config.cron = { ...config.cron, enabled: !!(enabled && native && !maintenance) };
   // No skills for an agent without its own list: OpenClaw reads agents.defaults.skills
   // `[]` as "none" and agentEntry writes each eligible profile's bundled and catalog
   // skills.
   // Workspace skill folders would load model-written text as instructions.
   config.agents.defaults = { ...config.agents.defaults, skills: [] };
   // Reserve room for parent conversations as well as the host's member slots.
-  config.agents.defaults.maxConcurrent = enabled ? teams.hostMaxConcurrent + 8 : 8;
+  config.agents.defaults.maxConcurrent = enabled ? host.team.maxConcurrent + 8 : 8;
   // Warnings only: routine records can carry conversation context. OpenClaw rotates
   // its own file at the same 10 MiB bound AgentPier applies to the console log.
   config.logging = {
@@ -372,10 +384,15 @@ export function compileOpenClawConfig({
   return config;
 }
 
+/**
+ * Compiles and writes this start's openclaw.json; resolves its Gateway token.
+ * `desired` is AgentPier's desired state (or, as compileOpenClawConfig takes them,
+ * the stores' reads with `webTools`, `mcp` and `telegram`).
+ */
 export function prepareRuntimeConfig(
   paths,
   port,
-  teams,
+  desired,
   {
     maintenance = false,
     tls,
@@ -399,7 +416,8 @@ export function prepareRuntimeConfig(
       paths,
       port,
       token,
-      teams,
+      desired,
+      teams: desired,
       overrides,
       runtime: { maintenance },
       tls,

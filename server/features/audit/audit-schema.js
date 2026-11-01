@@ -387,7 +387,7 @@ export function auditEvent(input) {
   // Advanced OpenClaw settings (advanced-config.js) name the setting and its old and
   // new value, kept only as that setting's own scalar type (null: unset).
   const advanced = compilerFor(null).advancedSettings;
-  if (input.resourceType === "setting" && advanced.byId(details.setting)) {
+  if (input.resourceType === "setting" && advanced?.byId(details.setting)) {
     event.details.setting = details.setting;
     for (const key of ["from", "to"])
       if (advanced.auditable(details.setting, details[key]))

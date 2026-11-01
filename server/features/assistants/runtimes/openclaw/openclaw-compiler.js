@@ -1,5 +1,4 @@
 import { compileOpenClawConfig, runtimeEnvironment } from "./runtime-config.js";
-import { agentDrift, agentPatch, providerPatch } from "./openclaw-config/agent-apply.js";
 import { agentExec } from "./openclaw-config/shell.js";
 import {
   anyName,
@@ -61,18 +60,16 @@ const openClawAdvancedSettings = Object.freeze({
  * outside runtimes/ imports openclaw-config/.
  */
 export const openClawCompiler = Object.freeze({
-  // A Gateway start's whole configuration (runtime-config.js).
-  compile: compileOpenClawConfig,
+  // A Gateway start's whole configuration from AgentPier's desired state
+  // (`{ desired, existing, paths, port, token, overrides, runtime, tls, shell,
+  // skillShadows }`, runtime-config.js).
+  compile: ({ desired, ...start }) => compileOpenClawConfig({ ...start, desired }),
   // The Gateway's and its CLI's process environment (runtime-config.js).
   environment: runtimeEnvironment,
   // The runtime agent ids a configuration defines.
   configuredAgents,
-  // One agent's live apply (AssistantConfig): its exec override for a shell level,
-  // its model provider, its entry patch and the readback that proves it took.
+  // One agent's exec override for a shell level (config.apply writes it).
   agentExec,
-  providerPatch,
-  agentPatch,
-  agentDrift,
   // Assigned skills a same-named skill in the agent's folders would replace
   // (skill-shadows.js), and every name found there as `{ has(name) }`.
   shadowedSkills,
@@ -84,14 +81,23 @@ export const openClawCompiler = Object.freeze({
   mcpLive,
   mcpServerConfig,
   mcpServerSignature,
-  // The agents' own Telegram bots: what a start compiles, and the live allowlists.
-  telegramSnapshot: (inputs) => telegramSnapshot(telegramSections(inputs)),
+  // The agents' own Telegram bots: what a start compiles from the desired state
+  // (`configured`: the agent ids openclaw.json defines), and the live allowlists.
+  telegramSnapshot: ({ desired, configured }) =>
+    telegramSnapshot(
+      telegramSections({
+        profiles: desired.agents,
+        telegram: desired.host.telegram,
+        agents: configured,
+      }),
+    ),
   telegramRevoked,
   telegramLiveChanges,
   telegramLivePatch,
   // Web tools: the signatures a save compares with the running start's.
   webToolsSignatures,
-  // Browser profiles: the next map, its patch and the live config.patch for it.
+  // Browser profiles: the next map for the desired agents (`profiles`), its patch
+  // and the live config.patch for it.
   nextBrowserProfiles,
   browserProfilesPatch,
   browserLivePatch,

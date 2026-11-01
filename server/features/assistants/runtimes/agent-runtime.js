@@ -103,12 +103,48 @@
  *   - searchMemory({ agentId, query, maxResults }): `{ ok, output: { details:
  *     { results } } }`.
  *   - on(connection), as sessions.on.
- * - config: apply the compiled desired state; whether a restart is needed
+ * - config: apply the compiled desired state; whether a restart is needed.
+ *   The desired state is AgentPier's, runtime-neutral (ADR 0006 decision 3), built
+ *   by agent-desired-state.js from AgentPier's stores and never in a runtime's terms.
+ *   `desiredState(inputs)` is `{ agents, host }`, frozen:
+ *   - agents: one desiredAgent per agent: `{ id, runtimeAgentId, name, archived,
+ *     eligible` (its own settings apply), `inherits` (a temporary member running on
+ *     its lead's grants), `locked` (a user agent under the hard lock), `team:
+ *     { memberOf, permanent }`, `tools` (grants in offer order, each `{ tools,
+ *     needs }` or `{ mcp: true, needs }` for its MCP servers' tools; `needs` of
+ *     "teams", "native", "guard" and `available:<capability>`, resolved by
+ *     native-capabilities.js grantedTools), `shell: { level, pathPrepend }` (level
+ *     "off", "approval" or "full"; the folders its PATH starts with), `memory`,
+ *     `skills: { assigned, compiled }` (switched on; compiled with the built-ins),
+ *     `mcp: { eligible, servers }` (bound server ids), `web` (web capability on or
+ *     released, by key), `browser: { wanted, visible, profile }`, `channels:
+ *     { telegram: { eligible } }` (may own a bot for other people), `ssh` (holds an
+ *     SSH grant) }`, and for a live apply `instructions` (its AGENTS.md, which
+ *     agentFiles writes) and `model: { ref, providerId, provider, agentRuntime }`.
+ *   - host: `{ team: { plugin: { directory, connection } | null, native,
+ *     maxConcurrent }, dreaming, webTools, mcp` (the MCP store's servers, secrets,
+ *     redirect URL and placeholder root; bindings are the agents'), `telegram` (the
+ *     bots and the speech key) `}`.
+ *   Runtime-only settings (OpenClaw's advanced settings, locked core paths, plugin
+ *   entries, skill shadows) stay inside the adapter.
  *   - compiler: synchronously, the runtime's configuration compiler, the same object
  *     in every view and the one runtime-for.js `compilerFor(agent)` returns without a
  *     host. Pure: it turns AgentPier's state into the runtime's configuration, live
  *     patch builders for `patch` and the runtime's process environment, and never
  *     reaches the runtime. Feature code compiles only through it.
+ *     compile({ desired, ...start }): a start's whole configuration from the desired
+ *     state and the start's own facts (OpenClaw: existing, paths, port, token,
+ *     overrides, runtime, tls, shell, skillShadows); the same inputs always yield
+ *     the same configuration and leave `desired` as it was. `advancedSettings`
+ *     (`{ list, byPath, byId, bounds, valid, auditable, validate, runtime }`) exists
+ *     exactly while the `advancedSettings` capability is available.
+ *   - applyModel({ desired }), apply({ desired, state }): write one agent's model
+ *     connection, then its tools, shell, skills and memory, on the running
+ *     configuration as `patch` does; `state()` tells what the runtime offers as the
+ *     write runs (readiness, available web tools, MCP tools, skills left out).
+ *     applied({ desired, config, expected }): synchronously, whether a `get()`
+ *     configuration holds what the apply wrote (`expected`: the tools, skills,
+ *     memory and shell it compiled).
  *   - get(): `{ config, hash }`, the running configuration and its hash.
  *   - lookup({ path }): the schema entry, `reloadKind` "hot", "none" or "restart"
  *     telling whether a change there needs a restart.
@@ -214,8 +250,10 @@ export const RUN_EVENT_KINDS = Object.freeze([
   "other",
 ]);
 
-// One capability per sub-port for now; finer capabilities join as ports grow.
-export const RUNTIME_CAPABILITIES = RUNTIME_PORTS;
+// One capability per sub-port, and finer ones as ports grow: `advancedSettings`, the
+// owner's overrides of runtime settings beyond AgentPier's model (config.compiler
+// `advancedSettings`; OpenClaw has them, a runtime without reports it unavailable).
+export const RUNTIME_CAPABILITIES = Object.freeze([...RUNTIME_PORTS, "advancedSettings"]);
 
 /** A capability the runtime offers. */
 export const available = () => Object.freeze({ available: true });

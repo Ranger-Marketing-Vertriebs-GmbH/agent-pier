@@ -3,6 +3,7 @@ import { problem } from "../../lib/storage.js";
 import { record } from "../extensions/mcp-config.js";
 import { mcpEligible, readMcpInputs, withInherited } from "../mcp-servers/mcp-inputs.js";
 import { placeholderViews } from "./mcp-placeholder-view.js";
+import { desiredState } from "./agent-desired-state.js";
 import { temporaryMember } from "./team-presentation.js";
 import {
   STDIO_CONFIRMATION_REQUIRED,
@@ -337,8 +338,7 @@ export class McpChanges {
     // its web tools, including the shell tools while some agent has shell (they
     // apply hot).
     const { snapshot, build } = live.compiler.mcpLive({
-      profiles,
-      inputs,
+      desired: desiredState({ profiles, mcp: inputs }),
       webTools: runtime.webTools,
     });
     if (snapshot.signature === running.signature) return false;

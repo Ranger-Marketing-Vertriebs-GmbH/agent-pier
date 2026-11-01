@@ -7,6 +7,7 @@ import {
   RUNTIME_PORTS,
   RUN_EVENT_KINDS,
   defineAgentRuntime,
+  unavailable,
 } from "../../server/features/assistants/runtimes/agent-runtime.js";
 import {
   fakeSessionPorts,
@@ -20,6 +21,7 @@ import {
 } from "./runtime-port-approvals-contract.js";
 import { fakeRoutinePorts, routinesContract } from "./runtime-port-routines-contract.js";
 import { fakeToolPorts, toolsContract } from "./runtime-port-tools-contract.js";
+import { configContract, fakeDesiredConfig } from "./runtime-port-config-contract.js";
 import {
   fakeLifecyclePorts,
   lifecycleContract,
@@ -135,6 +137,7 @@ export function runtimePortContract(name, make) {
   routinesContract(name, make);
   sessionExtrasContract(name, make);
   toolsContract(name, make);
+  configContract(name, make);
 
   test(`${name}: channels.status() reports the channel accounts`, async (t) => {
     const runtime = await make({ channels: { telegram: [account] } });
@@ -194,6 +197,8 @@ export function fakeRuntime({
   };
   return defineAgentRuntime({
     id: "fake",
+    // Runs without advanced settings (runtime-port-config-contract.js).
+    capabilities: { advancedSettings: unavailable("advancedSettingUnavailable") },
     host: {
       ready: () => state.availability === "ready",
       connection: () => connection,
@@ -222,7 +227,7 @@ export function fakeRuntime({
       }),
     },
     ...fakeSessionPorts({ reach, runFailure, connection: () => connection }),
-    ...fakeAgentPorts({ reach, connection: () => connection }),
+    ...withDesiredConfig(fakeAgentPorts({ reach, connection: () => connection })),
     ...fakeApprovalPorts({ reach, connection: () => connection, approvals }),
     ...fakeRoutinePorts({ reach, connection: () => connection }),
     ...fakeToolPorts({ reach, connection: () => connection }),
@@ -231,3 +236,9 @@ export function fakeRuntime({
     },
   });
 }
+
+// The fake config sub-port with the desired-state compiler and live apply.
+const withDesiredConfig = (ports) => ({
+  ...ports,
+  config: { ...ports.config, ...fakeDesiredConfig(ports.config) },
+});

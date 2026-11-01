@@ -21,15 +21,16 @@ function mergeDiff(current, target) {
 }
 
 /**
- * What a live MCP apply writes (mcp-changes.js): the `snapshot` the store compiles
- * now (mcpSnapshot) and `build(config)`, the `config.patch` that gives the running
+ * What a live MCP apply writes (mcp-changes.js): the `snapshot` AgentPier's desired
+ * state `desired` compiles now (mcpSnapshot) and `build(config)`, the `config.patch` that gives the running
  * configuration its `mcp` block and global `tools.allow`. The list is the start's
  * own (`webTools`: the start's web tools snapshot, whose tools it appended) with the
  * shell tools while some agent has shell (they apply hot), so it equals what a start
  * writes.
  */
-export function mcpLive({ profiles, inputs, webTools }) {
-  const sections = mcpSections({ profiles, ...inputs });
+export function mcpLive({ desired, webTools }) {
+  const { agents: profiles, host } = desired;
+  const sections = mcpSections({ profiles, ...host.mcp });
   const snapshot = mcpSnapshot(sections);
   const global = { tools: { allow: [...nativeTools, ...(webTools?.tools || [])] } };
   const target = applyMcp(applyShell(global, shellSections({ profiles })), sections);

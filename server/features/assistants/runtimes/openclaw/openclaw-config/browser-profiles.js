@@ -1,10 +1,4 @@
-import {
-  browserVisible,
-  inheritsFromLead,
-  personalCapabilities,
-  personalEligible,
-  releasedCapabilities,
-} from "../../../native-capabilities.js";
+import { asDesired } from "./desired-agents.js";
 import {
   agentProfileName,
   memberSlotCount,
@@ -27,13 +21,8 @@ export const lastCdpOffset = 110;
  */
 export function browserAgents(profiles = []) {
   return profiles
-    .filter(
-      (profile) =>
-        personalEligible(profile) &&
-        !inheritsFromLead(profile) &&
-        (personalCapabilities(profile).browser ||
-          releasedCapabilities(profile).includes("browser")),
-    )
+    .map((profile) => asDesired(profile))
+    .filter((agent) => agent.browser.wanted)
     .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }
 
@@ -71,10 +60,10 @@ export function nextBrowserProfiles({ current = {}, profiles, visibleApp, port }
     Object.entries(current).filter(([, entry]) => !entry.agentId),
   );
   const agents = browserAgents(profiles).flatMap((agent) => {
-    const name = agentProfileName(agent.id);
+    const name = agent.browser.profile;
     return name ? [{ agent, name }] : [];
   });
-  const headless = (agent) => !(visibleApp && browserVisible(agent));
+  const headless = (agent) => !(visibleApp && agent.browser.visible);
   for (const { agent, name } of agents)
     if (current[name]?.agentId === agent.id)
       next[name] = { ...current[name], headless: headless(agent) };

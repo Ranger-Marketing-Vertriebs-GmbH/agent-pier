@@ -11,6 +11,7 @@ import {
   readMcpInputs,
   withInherited,
 } from "../../../../mcp-servers/mcp-inputs.js";
+import { asDesired } from "./desired-agents.js";
 
 // Verified against OpenClaw 2026.10.3, see docs/assistant-mcp-qualification.md.
 
@@ -142,9 +143,10 @@ export function mcpSections({
     return name;
   };
   const used = new Set();
-  for (const profile of profiles) {
-    if (!mcpEligible(profile)) continue;
-    const ids = [...new Set(bindings[profile.id] || [])]
+  for (const agent of profiles) {
+    const profile = asDesired(agent, { mcp: bindings[agent.id] || [] });
+    if (!profile.mcp.eligible) continue;
+    const ids = [...profile.mcp.servers]
       .filter((id) => order.has(id))
       .sort((a, b) => order.get(a) - order.get(b));
     const tools = [];

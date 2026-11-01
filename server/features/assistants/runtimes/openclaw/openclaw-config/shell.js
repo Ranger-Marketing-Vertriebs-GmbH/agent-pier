@@ -1,4 +1,5 @@
-import { personalShell, shellTools } from "../../../native-capabilities.js";
+import { shellTools } from "../../../native-capabilities.js";
+import { asDesired } from "./desired-agents.js";
 
 // Verified against OpenClaw 2026.10.3, see docs/assistant-shell-qualification.md.
 // `shellTools` (exec, process) are offered only to an agent with shell access.
@@ -25,7 +26,7 @@ export function agentExec(level, pathPrepend = []) {
  * override comes from agentExec through agentEntry.
  */
 export function shellSections({ profiles = [] }) {
-  const any = profiles.some((profile) => personalShell(profile) !== "off");
+  const any = profiles.some((profile) => asDesired(profile).shell.level !== "off");
   return { globalTools: any ? [...shellTools] : [] };
 }
 

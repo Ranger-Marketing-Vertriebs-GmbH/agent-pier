@@ -167,6 +167,11 @@ function agentAnswers(store, frame) {
     "agents.list": () => ({ agents: [...store.agents.values()].map((a) => ({ ...a })) }),
     "agents.create": ({ name, workspace, model }) => {
       store.agents.set(name, { id: name, name, workspace, model });
+      // As OpenClaw, the new agent's entry joins the configuration.
+      store.config.agents = {
+        ...store.config.agents,
+        entries: { ...store.config.agents?.entries, [name]: { workspace } },
+      };
       written();
       return { ok: true, agentId: name };
     },
