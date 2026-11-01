@@ -7,10 +7,11 @@ import { assistantSkillsCopy as copy } from "../../../lib/i18n/messages/assistan
 import { assistantApi } from "../assistant-api.js";
 import { toggleId } from "./agent-settings-fields.js";
 import { skillFilters, skillLocked, statusText, visibleSkills } from "./skill-list.js";
+import { runtimeName } from "../runtime-capabilities.js";
 import SubpageHeader from "./SubpageHeader.jsx";
 import "../agent-skills.css";
 
-function SkillDetails({ skill, shellOff, on }) {
+function SkillDetails({ skill, shellOff, on, runtime }) {
   const tone = skill.state === "ready" ? "ok" : "warn";
   return (
     <>
@@ -20,7 +21,7 @@ function SkillDetails({ skill, shellOff, on }) {
         </span>
       )}
       <span className={`agent-skill-line agent-skill-state ${tone}`}>
-        {statusText(skill, copy)}
+        {statusText(skill, copy, runtime)}
       </span>
       {skill.source === "catalog" && (
         <span className="agent-skill-line">
@@ -86,7 +87,7 @@ export default function SkillsPage({ assistant, draft, onBack }) {
         title={copy.title}
         tab="capabilities"
         onBack={onBack}
-        hint={copy.pageHint}
+        hint={copy.pageHint(runtimeName(assistant))}
       />
       {shellOff && <p className="assistant-note">{copy.shellOff}</p>}
       <div className="agent-skills-toolbar">
@@ -141,7 +142,12 @@ export default function SkillsPage({ assistant, draft, onBack }) {
                 }
                 sub={
                   offline ? undefined : (
-                    <SkillDetails skill={skill} shellOff={shellOff} on={checked} />
+                    <SkillDetails
+                      skill={skill}
+                      shellOff={shellOff}
+                      on={checked}
+                      runtime={runtimeName(assistant)}
+                    />
                   )
                 }
                 checked={checked}

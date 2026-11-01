@@ -19,6 +19,7 @@ import useTelegramChannel from "./useTelegramChannel.js";
 import ConflictNotice from "./ConflictNotice.jsx";
 import ConfirmationSheet from "./ConfirmationSheet.jsx";
 import ProactivityGroup from "./ProactivityGroup.jsx";
+import AgentCapability from "./AgentCapability.jsx";
 
 const conflictLabels = {
   heartbeatEnabled: () => proactivity.heartbeat,
@@ -90,8 +91,10 @@ export default function AutomationTab({ assistant, page, go, navigate, hookId })
         <>
           {assistant.capabilities?.reminders ? (
             <>
-              <RemindersGroup assistantId={assistant.id} paired={paired} />
-              <RoutinesGroup assistantId={assistant.id} paired={paired} />
+              <AgentCapability assistant={assistant} surface="routines">
+                <RemindersGroup assistantId={assistant.id} paired={paired} />
+                <RoutinesGroup assistantId={assistant.id} paired={paired} />
+              </AgentCapability>
             </>
           ) : (
             <p className="assistant-note">{settingsCopy.remindersNeedCapability}</p>

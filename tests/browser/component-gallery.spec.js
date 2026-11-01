@@ -79,6 +79,18 @@ for (const [name, viewport] of [
             name: en ? "Unsaved changes" : "Ungespeicherte Änderungen",
           }),
         ).toBeVisible();
+        // A capability the runtime lacks: the control stays, disabled with the reason.
+        const gate = page.locator(".capability-gate");
+        await expect(
+          gate
+            .getByRole("note")
+            .getByText(
+              en
+                ? "Sample runtime does not offer this."
+                : "Beispiel-Laufzeit bietet das nicht an.",
+            ),
+        ).toBeVisible();
+        await expect(gate.getByRole("switch")).toBeDisabled();
         await expectNoOverflow(page);
         await page.screenshot({
           path: test.info().outputPath(`component-gallery-${name}-${locale}.png`),

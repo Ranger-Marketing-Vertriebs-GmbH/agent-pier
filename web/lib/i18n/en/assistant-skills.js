@@ -4,8 +4,8 @@ export const assistantSkillsCopy = {
     "Skills teach the agent a tool, mostly a command-line program. Switch on the bundled or catalog skills this agent may use; install catalog skills in Agents › Skills.",
   row: "Skills",
   shellOff: "Most skills run command-line programs and need shell access.",
-  pageHint:
-    "Skills bundled with OpenClaw and skills from the skill catalog are offered; install catalog skills in Agents › Skills. A skill is a hint, not a permission: shell access decides what the agent can run. Descriptions come from OpenClaw and stay in English.",
+  pageHint: (runtime) =>
+    `Skills bundled with ${runtime} and skills from the skill catalog are offered; install catalog skills in Agents › Skills. A skill is a hint, not a permission: shell access decides what the agent can run. Descriptions come from ${runtime} and stay in English.`,
   search: "Search skills",
   filter: "Show",
   filters: {
@@ -24,8 +24,8 @@ export const assistantSkillsCopy = {
     ready: "Ready",
     missing: "Missing",
     unsupported: "Not available on this system",
-    disabled: "Disabled in OpenClaw",
-    unavailable: "No longer bundled with this OpenClaw version",
+    disabled: (runtime) => `Disabled in ${runtime}`,
+    unavailable: (runtime) => `No longer bundled with this ${runtime} version`,
     needsSettings: "Needs settings \u2014 not supported yet",
     damaged: "Damaged \u2014 install it again in Agents \u203a Skills",
     unavailableCatalog: "Not available right now \u2014 AgentPier will check it again",

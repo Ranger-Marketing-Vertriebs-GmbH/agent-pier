@@ -10,12 +10,15 @@ import {
 import { routineCopy as copy } from "../../../lib/i18n/messages/assistant-routines.js";
 import { failureText } from "../routine-failure-text.js";
 import { routineApi } from "../routine-api.js";
+import { runtimeName } from "../runtime-capabilities.js";
+import useAssistants from "../useAssistants.js";
 
 /**
  * A failed run as an activity row: the readable cause, its time, and, opened,
- * OpenClaw's own message (redacted and bounded by the server) to read or copy.
+ * the runtime's own message (redacted and bounded by the server) to read or copy.
+ * `runtime` names the agent's runtime.
  */
-export function RunFailure({ failure, atMs, durationMs, consecutive }) {
+export function RunFailure({ failure, atMs, durationMs, consecutive, runtime }) {
   return (
     <ActivityRow
       icon="history"
@@ -36,7 +39,7 @@ export function RunFailure({ failure, atMs, durationMs, consecutive }) {
           <code>{failure.message}</code>
         </CodeBlock>
       ) : (
-        <p className="activity-row-note">{copy.noFailureMessage}</p>
+        <p className="activity-row-note">{copy.noFailureMessage(runtime)}</p>
       )}
       <dl className="activity-row-facts">
         {Number.isFinite(atMs) && (
@@ -65,6 +68,8 @@ export function RunFailure({ failure, atMs, durationMs, consecutive }) {
 
 /** A routine's last failure and, on request, its recent runs (newest first). */
 export default function RoutineRuns({ assistantId, item, busy }) {
+  const { assistants = [] } = useAssistants();
+  const runtime = runtimeName(assistants.find((a) => a.id === assistantId));
   const [runs, setRuns] = useState(null),
     [loading, setLoading] = useState(false),
     [error, setError] = useState("");
@@ -89,6 +94,7 @@ export default function RoutineRuns({ assistantId, item, busy }) {
           failure={failure}
           atMs={failure.atMs}
           consecutive={failure.consecutive}
+          runtime={runtime}
         />
       )}
       <div className="assistant-actions">
@@ -111,6 +117,7 @@ export default function RoutineRuns({ assistantId, item, busy }) {
             failure={run.failure}
             atMs={run.runAtMs}
             durationMs={run.durationMs}
+            runtime={runtime}
           />
         ) : (
           <p key={`${run.runAtMs}-${index}`} className="agent-row-note">

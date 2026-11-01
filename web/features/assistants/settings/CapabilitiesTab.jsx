@@ -28,6 +28,7 @@ import SkillsGroup from "./SkillsGroup.jsx";
 import SkillsPage from "./SkillsPage.jsx";
 import { shellEligible } from "../shell-level.js";
 import LockedNotice, { OwnContentNotice, ownContent } from "./LockedNotice.jsx";
+import AgentCapability from "./AgentCapability.jsx";
 
 const subpages = { memory: MemoryPage, allowlist: AllowlistPage, skills: SkillsPage };
 const conflictLabels = {
@@ -104,12 +105,14 @@ export default function CapabilitiesTab({ assistant, page, go, navigate }) {
       <>
         {/* The skills subpage edits this tab's draft and saves with its bar. */}
         {page === "skills" && <ConflictNotice draft={draft} labels={conflictLabels} />}
-        <Subpage
-          assistant={assistant}
-          draft={draft}
-          readOnly={own === "read"}
-          onBack={() => go("capabilities")}
-        />
+        <AgentCapability assistant={assistant} surface={page}>
+          <Subpage
+            assistant={assistant}
+            draft={draft}
+            readOnly={own === "read"}
+            onBack={() => go("capabilities")}
+          />
+        </AgentCapability>
         {page === "skills" && saveBar}
         {sheets}
       </>
@@ -130,12 +133,14 @@ export default function CapabilitiesTab({ assistant, page, go, navigate }) {
       )}
       <OwnContentNotice own={own} />
       {personal && (
-        <MemoryGroup
-          assistant={assistant}
-          draft={draft}
-          go={go}
-          notes={own !== "private"}
-        />
+        <AgentCapability assistant={assistant} surface="memory">
+          <MemoryGroup
+            assistant={assistant}
+            draft={draft}
+            go={go}
+            notes={own !== "private"}
+          />
+        </AgentCapability>
       )}
       {personal && (
         <WebGroup
@@ -146,23 +151,29 @@ export default function CapabilitiesTab({ assistant, page, go, navigate }) {
         />
       )}
       {personal && (
-        <BrowserGroup
-          assistant={assistant}
-          own={own}
-          draft={draft}
-          browser={runtime?.browser}
-          refresh={refresh}
-          navigate={navigate}
-        />
+        <AgentCapability assistant={assistant} surface="browser">
+          <BrowserGroup
+            assistant={assistant}
+            own={own}
+            draft={draft}
+            browser={runtime?.browser}
+            refresh={refresh}
+            navigate={navigate}
+          />
+        </AgentCapability>
       )}
       <ShoppingGroup assistant={assistant} draft={draft} />
       {assistant.userAccess ? (
         <LockedNotice items={["shell", "sessions", "visibleBrowser"]} />
       ) : (
-        <ShellGroup assistant={assistant} draft={draft} go={go} />
+        <AgentCapability assistant={assistant} surface="shell">
+          <ShellGroup assistant={assistant} draft={draft} go={go} />
+        </AgentCapability>
       )}
       {shellEligible(assistant) && (
-        <SkillsGroup assistant={assistant} draft={draft} go={go} />
+        <AgentCapability assistant={assistant} surface="skills">
+          <SkillsGroup assistant={assistant} draft={draft} go={go} />
+        </AgentCapability>
       )}
       {saveBar}
       {sheets}

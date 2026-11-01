@@ -75,7 +75,7 @@ export const routineCopy = {
   failedInARow: (count) => `${count} Läufe in Folge fehlgeschlagen`,
   failureMessage: "Fehlermeldung",
   copyFailure: "Fehlermeldung kopieren",
-  noFailureMessage: "OpenClaw hat keine Fehlermeldung gemeldet.",
+  noFailureMessage: (runtime) => `${runtime} hat keine Fehlermeldung gemeldet.`,
   runAt: "Zeitpunkt",
   duration: "Dauer",
   seconds: (value) => `${value} s`,

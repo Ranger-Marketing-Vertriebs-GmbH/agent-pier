@@ -408,6 +408,10 @@ export const assistantCopy = {
   start: "Start service",
   stopService: "Stop service",
   restart: "Restart service",
+  // An agent's runtime (ADR 0006) in its settings.
+  agentRuntime: "Runtime",
+  agentRuntimeDescription: (runtime) =>
+    `${runtime} runs this agent in a service AgentPier manages on this host.`,
   serviceState: "Service",
   syncState: "Synchronization",
   details: "Technical details",

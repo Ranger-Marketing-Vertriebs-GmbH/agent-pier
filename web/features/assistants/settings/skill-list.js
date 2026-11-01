@@ -27,8 +27,11 @@ export function missingText(skill, copy) {
   return parts.length ? copy.missingLine(parts.join("; ")) : "";
 }
 
-/** The status line: the state, or what is missing. */
-export function statusText(skill, copy) {
+/**
+ * The status line: the state, or what is missing. `runtime` names the agent's runtime
+ * in states it reports itself (switched off there, no longer bundled).
+ */
+export function statusText(skill, copy, runtime = "OpenClaw") {
   if (skill.state === "missing") return missingText(skill, copy) || copy.states.missing;
   if (skill.state === "unsupported") {
     const os = skill.missing?.os?.length ? ` (${skill.missing.os.join(", ")})` : "";
@@ -42,7 +45,8 @@ export function statusText(skill, copy) {
       return copy.states.shadowedCatalogSource;
     if (skill.state === "unavailable") return copy.states.unavailableCatalog;
   }
-  return copy.states[skill.state] || copy.states.unavailable;
+  const state = copy.states[skill.state] || copy.states.unavailable;
+  return typeof state === "function" ? state(runtime) : state;
 }
 
 /** A switched-off skill that cannot be used is not offered; one that is on can go. */

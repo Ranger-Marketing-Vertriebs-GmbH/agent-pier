@@ -149,6 +149,7 @@ export default function OverviewTab({ assistant, page, go, navigate }) {
       <ManageGroup assistant={assistant} navigate={navigate} />
       <RuntimeSummary
         className="agent-runtime-group"
+        assistant={assistant}
         runtime={runtime}
         navigate={navigate}
       />

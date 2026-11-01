@@ -55,6 +55,8 @@ export const galleryCopy = {
     statusError: "2 Prüfungen fehlgeschlagen",
     groupAction: "+ Hinzufügen",
     toggle: "Binäre Einstellung",
+    gateRuntime: "Beispiel-Laufzeit",
+    gateControl: "Braucht eine Fähigkeit der Laufzeit",
     toggleSub: "Ein Schalter speichert über die Speicherleiste",
     number: "Zahl",
     select: "Auswahl",

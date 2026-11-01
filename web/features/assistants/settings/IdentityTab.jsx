@@ -107,6 +107,7 @@ export default function IdentityTab({ assistant, navigate }) {
           navigate={navigate}
           member={member}
           leadModel={leadModel}
+          assistant={assistant}
         />
         <p className="agent-revision">
           {copy.revisions(assistant.revision, assistant.effectiveRevision)}

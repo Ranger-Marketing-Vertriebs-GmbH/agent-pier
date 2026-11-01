@@ -6,9 +6,12 @@ import { routePath } from "../../../app/routes.js";
 import { useCrossLink } from "../../../app/cross-link.js";
 import { agentsHubRoute } from "../hub-routes.js";
 import { assistantCopy as copy } from "../../../lib/i18n/messages/assistants.js";
+import { runtimeLabel, runtimeName } from "../runtime-capabilities.js";
 
-// The agent service at a glance: a right column on wide screens, a Profile group otherwise.
+// The agent service at a glance: a right column on wide screens, a Profile group
+// otherwise. It names the runtime of `assistant` with its version (ADR 0006).
 export default function RuntimeSummary({
+  assistant,
   runtime,
   navigate,
   as: Tag = "section",
@@ -19,7 +22,7 @@ export default function RuntimeSummary({
   const diagnostic = copy.runtimeDiagnostics[runtime.diagnostic];
   return (
     <Tag className={`agent-runtime ${className}`} aria-labelledby={id}>
-      <GroupLabel id={id} hint={copy.runtimeDescription}>
+      <GroupLabel id={id} hint={copy.agentRuntimeDescription(runtimeName(assistant))}>
         {copy.runtime}
       </GroupLabel>
       {diagnostic && (
@@ -28,6 +31,7 @@ export default function RuntimeSummary({
         </p>
       )}
       <ListCard labelledBy={id}>
+        <ListRow label={copy.agentRuntime} value={runtimeLabel(assistant)} />
         <ListRow
           label={copy.serviceState}
           value={copy.status[runtime.availability] ?? unknownValue}

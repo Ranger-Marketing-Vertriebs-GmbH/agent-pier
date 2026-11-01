@@ -18,6 +18,7 @@ import SshAccess from "./SshAccess.jsx";
 import MailAccess from "./MailAccess.jsx";
 import McpAccess from "./McpAccess.jsx";
 import ListAccess from "./ListAccess.jsx";
+import AgentCapability from "../AgentCapability.jsx";
 
 const copy = assistantSettingsCopy.access;
 
@@ -102,14 +103,16 @@ export default function AccessGroups({
         />
       )}
       {withMcp && (
-        <McpAccess
-          assistant={assistant}
-          draft={draft}
-          disabled={draft.saving}
-          notice={mcpNotice}
-          reloadKey={mcpReload}
-          navigate={navigate}
-        />
+        <AgentCapability assistant={assistant} surface="mcp">
+          <McpAccess
+            assistant={assistant}
+            draft={draft}
+            disabled={draft.saving}
+            notice={mcpNotice}
+            reloadKey={mcpReload}
+            navigate={navigate}
+          />
+        </AgentCapability>
       )}
       {!userAgent && (
         <ListAccess

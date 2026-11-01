@@ -21,6 +21,7 @@ import TelegramConnectionPage from "./TelegramConnectionPage.jsx";
 import TelegramActivityPage from "./TelegramActivityPage.jsx";
 import TelegramSendersSettings from "../TelegramSendersSettings.jsx";
 import Icon from "../../../components/Icon.jsx";
+import AgentCapability from "./AgentCapability.jsx";
 
 const channelCopy = assistantCopy.channel;
 const conflictLabels = {
@@ -124,20 +125,24 @@ export default function ChannelsTab({ assistant, page, go, navigate }) {
               }
             />
           ) : (
-            <ConnectionGroup
-              assistant={assistant}
-              telegram={telegram}
-              draft={draft}
-              go={go}
-              navigate={navigate}
-            />
+            <AgentCapability assistant={assistant} surface="channels">
+              <ConnectionGroup
+                assistant={assistant}
+                telegram={telegram}
+                draft={draft}
+                go={go}
+                navigate={navigate}
+              />
+            </AgentCapability>
           )}
           {/* Its own bot for other people: immediate actions, outside the draft. */}
           {assistant.userAccess ? (
             <UserAgentNote text={usersCopy.lockedTelegramSenders} />
           ) : (
             isPersonal(assistant) && (
-              <TelegramSendersSettings assistantId={assistant.id} />
+              <AgentCapability assistant={assistant} surface="channels">
+                <TelegramSendersSettings assistantId={assistant.id} />
+              </AgentCapability>
             )
           )}
           <NotificationsGroup navigate={navigate} />

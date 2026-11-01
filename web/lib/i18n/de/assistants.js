@@ -421,6 +421,10 @@ export const assistantCopy = {
   start: "Dienst starten",
   stopService: "Dienst stoppen",
   restart: "Dienst neu starten",
+  // Die Laufzeit eines Agenten (ADR 0006) in seinen Einstellungen.
+  agentRuntime: "Laufzeit",
+  agentRuntimeDescription: (runtime) =>
+    `${runtime} führt diesen Agenten in einem von AgentPier verwalteten Dienst auf diesem Rechner aus.`,
   serviceState: "Dienst",
   syncState: "Synchronisierung",
   details: "Technische Details",

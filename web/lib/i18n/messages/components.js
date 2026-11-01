@@ -8,3 +8,7 @@ export const fileLinkCopy = localizedCopy(de.fileLinkCopy, en.fileLinkCopy);
 export const copyButtonCopy = localizedCopy(de.copyButtonCopy, en.copyButtonCopy);
 export const addPickerCopy = localizedCopy(de.addPickerCopy, en.addPickerCopy);
 export const skeletonCopy = localizedCopy(de.skeletonCopy, en.skeletonCopy);
+export const capabilityGateCopy = localizedCopy(
+  de.capabilityGateCopy,
+  en.capabilityGateCopy,
+);

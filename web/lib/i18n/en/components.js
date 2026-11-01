@@ -42,3 +42,11 @@ export const addPickerCopy = {
 export const skeletonCopy = {
   loading: "Loading",
 };
+export const capabilityGateCopy = {
+  unknownRuntime: "The agent's runtime",
+  fallback: (runtime) => `${runtime} does not offer this.`,
+  reasons: {
+    runtimeUnknown: (runtime) =>
+      `Not available: this AgentPier has no runtime “${runtime}”.`,
+  },
+};

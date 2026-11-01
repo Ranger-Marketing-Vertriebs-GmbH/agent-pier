@@ -1,0 +1,14 @@
+/* A control its agent's runtime does not offer: visible, dimmed, with the reason. */
+.capability-gate {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.capability-gate-reason {
+  margin: 0 0 8px;
+}
+.capability-gate-body {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
