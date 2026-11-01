@@ -51,10 +51,20 @@ function actorOf(author) {
   );
 }
 export class ProjectMemory {
-  /** `fullTextSearch: false` forces the LIKE search used without FTS5 (tests). */
-  constructor({ dataDir, home = os.homedir(), fullTextSearch = true }) {
+  /**
+   * `fullTextSearch: false` forces the LIKE search used without FTS5 (tests).
+   * `scope` reads a folder's project scope at registration (projectScope; test
+   * fixtures pass one that skips Git for folders outside every work tree).
+   */
+  constructor({
+    dataDir,
+    home = os.homedir(),
+    fullTextSearch = true,
+    scope = projectScope,
+  }) {
     Object.assign(this, openDatabase(dataDir));
     this.home = home;
+    this.scope = scope;
     this.closed = false;
     this.fullText = prepareSearchIndex(
       this.db,
@@ -126,7 +136,7 @@ export class ProjectMemory {
   async register(cwd) {
     const folder = await this.classifyFolder(cwd);
     if (folder.kind !== "project") return null;
-    const scope = folder.scope || (await projectScope(folder.cwd));
+    const scope = folder.scope || (await this.scope(folder.cwd));
     for (const other of this.db
       .prepare("SELECT id FROM projects WHERE cwd=? AND id<>? AND kind='directory'")
       .all(scope.cwd, scope.id))
@@ -147,12 +157,12 @@ export class ProjectMemory {
       // A row a run worktree registered first belongs to the project root.
       if (runWorktreeRoot(existing.cwd) !== scope.cwd)
         try {
-          current = await projectScope(existing.cwd);
+          current = await this.scope(existing.cwd);
         } catch (error) {
           if (error.status !== 404) throw error;
         }
       if (current?.id !== scope.id) {
-        const verified = await projectScope(scope.cwd);
+        const verified = await this.scope(scope.cwd);
         if (verified.id !== scope.id)
           throw failure(serverMessages.memory.projectChanged, 409);
         // Preserve identity/history, and do not overwrite another completed repair.

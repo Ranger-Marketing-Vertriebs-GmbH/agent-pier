@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { applicationFixture } from "./application.js";
 import { McpTools } from "../../server/features/mcp/tool-service.js";
+import { fixtureProjectScope } from "./fixture-project-scope.js";
 
 /**
  * An application with two registered projects, a synthetic pipeline workspace and
@@ -37,7 +38,7 @@ export async function setup(t) {
     },
     async cancel() {},
   };
-  const tools = new McpTools(services);
+  const tools = new McpTools(services, { scope: fixtureProjectScope });
   t.after(() => tools.close());
   const grant = {
     id: "grant-one",
