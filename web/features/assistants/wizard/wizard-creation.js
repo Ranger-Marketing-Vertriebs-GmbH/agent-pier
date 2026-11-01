@@ -44,6 +44,8 @@ export function createBody(d) {
       ...Object.fromEntries(web.map((key) => [key, false])),
     },
     ...(d.template && { template: { id: d.template.id, revision: d.template.revision } }),
+    // A duplicate runs on its source's runtime (ADR 0006).
+    ...(d.runtime && { runtime: d.runtime }),
   };
   if (d.owner)
     return {

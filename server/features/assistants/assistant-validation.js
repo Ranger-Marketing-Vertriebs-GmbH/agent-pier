@@ -87,12 +87,18 @@ export function validateDefinition(input, partial = false) {
           "heartbeat",
           "confirmInstructions",
           "avatar",
+          "runtime",
         ].includes(k),
     ) ||
-    ("confirmInstructions" in input && (!partial || input.confirmInstructions !== true))
+    ("confirmInstructions" in input &&
+      (!partial || input.confirmInstructions !== true)) ||
+    // The runtime is chosen at creation; moving an agent is a later migration (ADR 0006).
+    ("runtime" in input && partial)
   )
     throw assistantProblem("invalid");
   const result = {};
+  // Which runtime it is: the store refuses one this AgentPier lacks (runtime-for.js).
+  if ("runtime" in input) result.runtime = textValue(input.runtime, 64).trim();
   if (input.confirmInstructions === true) result.confirmInstructions = true;
   if ("shell" in input) {
     if (!shellLevels.includes(input.shell)) throw assistantProblem("invalid");

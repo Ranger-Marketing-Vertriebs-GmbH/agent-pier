@@ -322,10 +322,8 @@ export class HookRuns {
     } catch {
       return;
     }
-    if (
-      routineRunOf(agent, payload.sessionKey).agentId.toLowerCase() !==
-      agent?.runtimeAgentId?.toLowerCase()
-    )
+    const run = routineRunOf(agent, payload.sessionKey);
+    if (!run || run.agentId.toLowerCase() !== agent?.runtimeAgentId?.toLowerCase())
       return;
     if (event.sessionKey !== payload.sessionKey)
       this.hooks.events.patch(event.id, { sessionKey: payload.sessionKey });

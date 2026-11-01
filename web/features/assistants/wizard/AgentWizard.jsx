@@ -125,7 +125,7 @@ export default function AgentWizard({ route, navigate }) {
       ...(start !== "template" && d.template
         ? { template: null, name: "", instructions: "" }
         : {}),
-      ...(start !== "duplicate" ? { duplicateOf: "" } : {}),
+      ...(start !== "duplicate" ? { duplicateOf: "", runtime: "" } : {}),
     });
   // Duplicate (5.3.1): the source's access record is read; the rest is listed.
   const duplicate = async (id) => {

@@ -1,3 +1,5 @@
+import { DEFAULT_RUNTIME } from "./runtimes/agent-runtime.js";
+
 export function migrateAssistants(db) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS assistants (id TEXT PRIMARY KEY, revision INTEGER NOT NULL, body TEXT NOT NULL);
@@ -27,4 +29,9 @@ export function migrateAssistants(db) {
   ])
     if (!columns.has(name))
       db.exec(`ALTER TABLE queued_messages ADD COLUMN ${name} ${type}`);
+  // Agents from before the runtime field run on OpenClaw (ADR 0006, decision 1). A
+  // team member records none: it runs on its lead's runtime (assistant-store.js).
+  db.prepare(
+    "UPDATE assistants SET body=json_set(body,'$.runtime',?) WHERE json_extract(body,'$.runtime') IS NULL AND json_extract(body,'$.teamMemberId') IS NULL",
+  ).run(DEFAULT_RUNTIME);
 }

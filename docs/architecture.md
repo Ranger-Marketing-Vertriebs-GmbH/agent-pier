@@ -251,7 +251,8 @@ passes, every sub-port included.
 
 The config sub-port carries the compiler as `config.compiler`
 (`runtimes/openclaw/openclaw-compiler.js`); `compilerFor(agent)` in `runtime-for.js`
-returns the same object without a host. Feature code reaches every compile step
+picks it from the runtime registry by the agent's runtime and returns the same object
+without a host. Feature code reaches every compile step
 through it: a Gateway start, an agent's live entry and its readback, the live MCP,
 Telegram allowlist, browser profile and dreaming patches, the web tools signatures,
 skill shadows, the advanced settings allow list and the CLI's process environment.

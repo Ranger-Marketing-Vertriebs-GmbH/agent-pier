@@ -507,6 +507,8 @@ export const assistants = {
   sshProposalProject: "Dieses Projekt gibt es nicht.",
   sshProposalKey:
     "Wähle einen Schlüssel aus dem Projekt des Vorschlags oder einen neuen verwalteten Schlüssel.",
+  runtimeUnknown: (runtime) =>
+    `Die Laufzeit „${runtime}“ gibt es in diesem AgentPier nicht.`,
   notFound: "Agent oder Unterhaltung nicht gefunden.",
   pipelineAccessChanged:
     "Die Pipeline oder eines ihrer Profile wurde seit der Freigabe geändert. Prüfe die aktuellen Einstellungen und speichere den Projekt- und Pipelinezugriff beim freigebenden Agenten erneut; bei geteiltem Zugriff ist das der leitende Agent. Fordere danach einen neuen Coding-Auftrag an.",

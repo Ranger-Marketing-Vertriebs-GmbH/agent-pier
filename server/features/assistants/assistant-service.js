@@ -48,7 +48,7 @@ import { withAdmission } from "./agent-admission.js";
 import { chatCommand, isChatCommand } from "./chat-commands.js";
 import { templateProblem, templateRecord } from "../agency/agency-templates.js";
 import { auditProactivity, proactivityChange } from "./proactivity-changes.js";
-import { hostOf, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
+import { hostOf, hostReady, runtimeFor, withRuntime } from "./runtimes/runtime-for.js";
 
 const pick = (value, keys) => Object.fromEntries(keys.map((k) => [k, value[k]]));
 export class AssistantService {
@@ -250,9 +250,9 @@ export class AssistantService {
     if (t.scan.verdict === "block") throw templateProblem("templateBlocked", 422);
     return templateRecord(t);
   }
-  /** The profile with its bound MCP server ids, for agents the owner binds. */
+  /** The profile with its bound MCP server ids and its runtime (runtime-for.js). */
   withMcp(profile) {
-    const decorated = this.shellChanges.decorate(profile);
+    const decorated = withRuntime(this.shellChanges.decorate(profile), this.runtime);
     // The badge while the agent's own browser runs (agent-browsers.js).
     if (this.browsers?.isRunning(profile.id)) decorated.browserRunning = true;
     return this.mcp ? this.mcp.decorate(decorated) : decorated;

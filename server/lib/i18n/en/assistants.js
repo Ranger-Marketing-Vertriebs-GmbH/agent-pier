@@ -480,6 +480,8 @@ export const assistants = {
   sshProposalScanFailed: "The host key could not be read from this host.",
   sshProposalProject: "This project does not exist.",
   sshProposalKey: "Choose a key of the proposal's project, or a new managed key.",
+  runtimeUnknown: (runtime) =>
+    `The runtime “${runtime}” is not available in this AgentPier.`,
   notFound: "Agent or conversation not found.",
   pipelineAccessChanged:
     "The pipeline or one of its profiles changed since access was granted. Review the current settings and save project and pipeline access again for the granting agent; for shared access, this is the lead. Then request a new coding task.",
