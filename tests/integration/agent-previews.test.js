@@ -229,6 +229,34 @@ test("a Telegram turn queues the preview link to the owner's Telegram chat", asy
   assert.equal(f.notices().length, 1);
 });
 
+test("the Telegram notice keeps one intact Markdown link for odd paths and labels", async (t) => {
+  const f = await previewFixture(t);
+  const upstream = await startUpstream(t);
+  f.previews.previewUrl = ({ slot, path: page = "/" }) =>
+    `https://box.ts.net:${slot}${page}`;
+  const origin = {
+    kind: "telegram",
+    channelId: f.channel.id,
+    chatId: f.channel.chatId,
+    userId: f.channel.userId,
+  };
+  const opened = await f.call(
+    {
+      action: "open",
+      port: upstream.port,
+      label: "a`b **c**",
+      path: "/_x_/(a) b",
+    },
+    origin,
+  );
+  const [slot] = f.previews.list().map((p) => p.slot);
+  assert.equal(opened.url, `https://box.ts.net:${slot}/_x_/(a)%20b`);
+  const [notice] = f.notices();
+  const safe = `https://box.ts.net:${slot}/%5Fx%5F/%28a%29%20b`;
+  assert.ok(notice.text.includes(`[${safe}](${safe})`), notice.text);
+  assert.ok(!notice.text.includes("a`b **c**"), notice.text);
+});
+
 test("a failing Telegram notice never fails the call", async (t) => {
   const f = await previewFixture(t);
   const upstream = await startUpstream(t);

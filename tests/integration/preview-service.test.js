@@ -72,6 +72,17 @@ async function occupy(t, port) {
 const through = (f, slot, url = "/") =>
   send(slot, { path: url, headers: { host: `127.0.0.1:${slot}`, cookie: f.cookie } });
 
+test("a path with spaces is stored percent-encoded", async (t) => {
+  const upstream = await startUpstream(t);
+  const { f, previews } = await previewApp(t);
+  await previews.open({
+    owner: sessionOwner(f),
+    port: upstream.port,
+    path: "/my page?q=a b#top x",
+  });
+  assert.equal(previews.list()[0].path, "/my%20page?q=a%20b#top%20x");
+});
+
 test("open answers id, url, port and label; the same session and port reuse the preview", async (t) => {
   const upstream = await startUpstream(t);
   const { f, range, previews } = await previewApp(t);

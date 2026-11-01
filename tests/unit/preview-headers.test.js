@@ -211,3 +211,12 @@ test("Connection cannot name the framing or Host away", () => {
   assert.equal(chunked["transfer-encoding"], "chunked");
   assert.equal(chunked["content-length"], undefined);
 });
+
+test("an app cannot clear the owner's cookies with Clear-Site-Data", () => {
+  const h = downstreamHeaders(
+    { "clear-site-data": '"cookies"', "x-app": "1" },
+    { target: 5173, previewOrigin: "https://box.ts.net:47100" },
+  );
+  assert.equal(h["clear-site-data"], undefined);
+  assert.equal(h["x-app"], "1");
+});
