@@ -76,23 +76,6 @@ test("views: a write pushes the views topic", async (t) => {
   live.ws.close();
 });
 
-test("views: writes do not signal settings.summary", async (t) => {
-  const f = await applicationFixture(t);
-  const { view } = await (await call(f, "", "POST", { name: "A", layout: null })).json();
-  const live = openLive(f);
-  await live.next((frame) => frame.type === "hello");
-  live.send({ op: "sub", topic: "settings.summary" });
-  await live.next((frame) => frame.topic === "settings.summary", 5000);
-  const changed = live.next(
-    (frame) => frame.topic === "settings.summary" && frame.type === "changed",
-    500,
-  );
-  changed.catch(() => {});
-  assert.equal((await call(f, `/${view.id}`, "PATCH", { name: "B" })).status, 200);
-  await assert.rejects(changed, /no matching frame/);
-  live.ws.close();
-});
-
 test("views: a backup contains views.json and a restore brings it back as saved", async (t) => {
   const root = await fs.realpath(
     await fs.mkdtemp(path.join(os.tmpdir(), "restore-views-")),

@@ -1,7 +1,13 @@
 import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { readJSON, writePrivate } from "../../lib/storage.js";
-import { MAX_VIEWS, checkLayout, cleanViewName, viewError } from "./view-layout.js";
+import {
+  MAX_VIEWS,
+  checkLayout,
+  cleanViewName,
+  onlyKeys,
+  viewError,
+} from "./view-layout.js";
 
 export { viewError };
 
@@ -118,8 +124,4 @@ export class ViewStore {
     if (!this.value.views.some((view) => view.id === id)) throw viewError("VIEW_UNKNOWN");
     return { version: this.#save(this.value.views.filter((view) => view.id !== id)) };
   }
-}
-
-function onlyKeys(value, keys) {
-  return Object.keys(value).every((key) => keys.includes(key));
 }

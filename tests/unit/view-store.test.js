@@ -151,3 +151,36 @@ test("the views topic admits only the owner", () => {
   assert.equal(topic.authorize({ role: "user" }), false);
   assert.deepEqual(topic.read(), { version: 0, views: [] });
 });
+
+test("hostile layouts are refused without blowing the stack", () => {
+  let deep = pane(s1);
+  for (let n = 0; n < 1000; n++) deep = split(deep, pane({ kind: "session", id: "x" }));
+  assert.throws(() => store.create({ name: "A", layout: deep }), {
+    code: "VIEW_TOO_MANY_PANES",
+  });
+  const proto = JSON.parse(
+    '{"type":"pane","item":{"kind":"session","id":"s1"},"__proto__":{}}',
+  );
+  assert.throws(() => store.create({ name: "A", layout: proto }), {
+    code: "VIEW_LAYOUT_INVALID",
+  });
+  const ctor = { ...pane(s1), constructor: 1 };
+  assert.throws(() => store.create({ name: "A", layout: ctor }), {
+    code: "VIEW_LAYOUT_INVALID",
+  });
+  for (const ratio of [NaN, "0.5", null, Infinity])
+    assert.throws(
+      () => store.create({ name: "A", layout: split(pane(s1), pane(s2), ratio) }),
+      { code: "VIEW_LAYOUT_INVALID" },
+      String(ratio),
+    );
+  assert.throws(() => store.create({ name: "A", layout: { type: "tabs" } }), {
+    code: "VIEW_LAYOUT_INVALID",
+  });
+  for (const id of ["", "-a", "a b", "a/b", "x".repeat(81), 5])
+    assert.throws(
+      () => store.create({ name: "A", layout: pane({ kind: "session", id }) }),
+      { code: "VIEW_LAYOUT_INVALID" },
+      String(id),
+    );
+});

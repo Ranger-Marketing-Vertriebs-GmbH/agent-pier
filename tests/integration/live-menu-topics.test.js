@@ -294,6 +294,9 @@ test("only a successful write outside the frequent areas signals the topics", ()
   send("POST", "/sessions/s1/requests/r1/answer", 200);
   send("POST", "/assistant-conversations/c1/messages", 200);
   send("PUT", "/project-groups", 200);
+  send("POST", "/views", 201);
+  send("PATCH", "/views/v_0000000000000000", 200);
+  send("DELETE", "/views/v_0000000000000000", 200);
   send("POST", "/secrets", 400);
   assert.deepEqual(signaled, []);
   send("DELETE", "/secrets/x", 204);
