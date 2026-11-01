@@ -11,7 +11,12 @@ export { lockedTools };
  * agents' entries are returned unchanged.
  */
 export function lockedEntry(entry, assistant) {
-  if (!isUserAgent(assistant)) return entry;
+  return lockEntry(entry, isUserAgent(assistant));
+}
+
+/** lockedEntry for an agent whose desired state says whether it is `locked`. */
+export function lockEntry(entry, locked) {
+  if (!locked) return entry;
   const { exec: _exec, ...tools } = entry.tools || {};
   return {
     ...entry,

@@ -1,4 +1,5 @@
 import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
+import { desiredState } from "./agent-desired-state.js";
 
 /**
  * Keeps the running Gateway's `browser.profiles` in step with the agents: the start
@@ -32,7 +33,8 @@ export class BrowserProfileSync {
     const current = running.browserProfiles || {};
     const next = config.compiler.nextBrowserProfiles({
       current,
-      profiles: this.store.listAssistants(),
+      // The agents' desired browsers (agent-desired-state.js).
+      profiles: desiredState({ profiles: this.store.listAssistants() }).agents,
       visibleApp: running.visibleBrowser === true,
       port: running.port,
     });

@@ -3,6 +3,7 @@ import {
   stdioAgents,
   telegramEligible,
 } from "../../../../assistant-channels/telegram-inputs.js";
+import { asDesired } from "./desired-agents.js";
 
 // Verified against OpenClaw 2026.10.3, see docs/assistant-telegram-senders-qualification.md
 // and tests/integration/assistant-telegram-senders-contract.test.js: one Telegram account
@@ -63,7 +64,13 @@ export function telegramSections({ profiles = [], telegram, agents, stdio, ssh }
     deepgram: telegram?.deepgram || null,
     skipped: [],
   };
-  const byId = new Map(profiles.map((p) => [p.id, p]));
+  // Each agent's desired state says whether it may own a bot (telegramEligible).
+  const byId = new Map(
+    profiles.map((p) => [
+      p.id,
+      asDesired(p, { stdio: !!stdio?.has(p.id), ssh: !!ssh?.has(p.id) }),
+    ]),
+  );
   for (const stored of telegram?.accounts || []) {
     const profile = byId.get(stored.assistantId);
     const people = [...new Set(stored.people || [])].filter((id) =>
@@ -71,7 +78,7 @@ export function telegramSections({ profiles = [], telegram, agents, stdio, ssh }
     );
     // An allowlist without ids is rejected by OpenClaw's validation.
     if (
-      !telegramEligible(profile, stdio, ssh) ||
+      !profile?.channels.telegram.eligible ||
       !people.length ||
       !stored.token ||
       (agents && !agents.has(profile.runtimeAgentId))

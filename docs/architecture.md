@@ -257,6 +257,22 @@ server, the store inputs), `assistant-channels/telegram-inputs.js` (which agents
 own a bot, the bot store inputs), `assistants/browser-profile-names.js` and
 `assistants/agent-folders.js`.
 
+The compiler reads AgentPier's runtime-neutral desired state
+(`assistants/agent-desired-state.js`, ADR 0006 decision 3). Per agent it names the
+tools it may hold as grants with what each needs of the runtime, its shell level and
+PATH folders, memory, skills, MCP bindings, web capabilities, browser, whether it
+may own a Telegram bot for other people, its SSH grant and team membership, and for a
+live apply its instructions and model connection; for the host it names the team
+plugin, native tools, web tools, MCP servers, Telegram bots and dreaming. The
+composition root builds it from the stores for every Gateway start, and the live
+applies (`assistant-config.js`, `mcp-changes.js`, `telegram-senders.js`,
+`browser-profile-sync.js`) build it for theirs; `config.apply`, `config.applyModel`
+and `config.applied` write and read back one agent. OpenClaw-only settings stay in
+the adapter: advanced settings are the `advancedSettings` capability with
+`config.compiler.advancedSettings`, a runtime without them lists none and refuses a
+save. `tests/unit/openclaw-config-golden.test.js` holds the compiled
+`openclaw.json` of representative agents byte for byte.
+
 See [the user guide](agents.md), [the Gateway design](assistant-gateway.md) and
 [ADR 0002](adr/0002-managed-openclaw-assistants.md). The proposed
 [runtime port](adr/0006-assistant-runtime-port.md) moves this coupling behind one port so

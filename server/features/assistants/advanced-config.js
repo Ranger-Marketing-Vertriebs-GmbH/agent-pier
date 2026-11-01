@@ -5,6 +5,12 @@ import { assistantProblem } from "./assistant-validation.js";
 import { compilerFor, hostOf, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 
 const reloadKinds = new Set(["hot", "none", "restart"]);
+// What a runtime without advanced settings offers: nothing to list or change.
+const noSettings = Object.freeze({
+  runtime: null,
+  list: Object.freeze([]),
+  byPath: () => undefined,
+});
 
 function valueAt(config, target) {
   let node = config;
@@ -42,9 +48,14 @@ export class AdvancedConfig {
   get runtimeConfig() {
     return runtimeFor(null, this.runtime).config;
   }
+  // Whether the runtime offers advanced settings at all (its `advancedSettings`
+  // capability); one without lists none and refuses every save.
+  get offered() {
+    return runtimeFor(null, this.runtime).capabilities().advancedSettings.available;
+  }
   // The allow list and its checks (the config sub-port's compiler).
   get settings() {
-    return compilerFor(null).advancedSettings;
+    return this.offered ? compilerFor(null).advancedSettings : noSettings;
   }
   // The version the next start runs: the selected installation (runtime.json), which
   // after a rollback is not the manifest's. Null when nothing is installed yet.
@@ -142,6 +153,7 @@ export class AdvancedConfig {
   }
   /** Sets one override; `value: null` resets it to OpenClaw's default. */
   async save(target, value, { confirmed = false } = {}) {
+    if (!this.offered) throw assistantProblem("advancedSettingUnavailable", 409);
     const setting = this.settings.byPath(target);
     if (!setting) throw assistantProblem("invalid");
     if (value !== null) this.settings.validate(setting.path, value);

@@ -1,15 +1,11 @@
-import {
-  memoryEnabled,
-  personalShell,
-  profileTools,
-  senderLockedTools,
-} from "../../../native-capabilities.js";
-import { compiledSkillNames } from "../../../built-in-skills.js";
+import { grantedTools, senderLockedTools } from "../../../native-capabilities.js";
 import { agentExec } from "./shell.js";
-import { lockedEntry } from "../../../../users/user-agent-lock.js";
+import { lockEntry } from "../../../../users/user-agent-lock.js";
+import { asDesired } from "./desired-agents.js";
 
-// One definition for a Gateway start and a live apply: the same assistant and
-// runtime state always yield the same managed entry paths. `toolsManaged` and
+// One definition for a Gateway start and a live apply: the same agent (its desired
+// state, agent-desired-state.js) and runtime state always yield the same managed
+// entry paths. `toolsManaged` and
 // `memoryManaged` let a caller whose readiness probes are wired but report "not
 // ready" still reset those paths; they default to the readiness itself. `available`
 // (see webToolsAvailability) withholds web tools whose browser or provider is absent;
@@ -39,19 +35,18 @@ export function agentEntry(
     shadowedSkills = [],
   },
 ) {
+  const agent = asDesired(assistant, { ssh });
   const next = { ...entry };
-  const exec = nativeReady ? agentExec(personalShell(assistant), pathPrepend) : undefined;
+  const exec = nativeReady ? agentExec(agent.shell.level, pathPrepend) : undefined;
   if (toolsManaged)
     next.tools = {
-      allow: profileTools(
-        assistant,
+      allow: grantedTools(agent.tools, {
         teamsReady,
         nativeReady,
-        guardProven,
+        writeGuard: guardProven,
         available,
         mcpTools,
-        ssh,
-      ).filter((tool) => !senderFacing || !senderLockedTools.includes(tool)),
+      }).filter((tool) => !senderFacing || !senderLockedTools.includes(tool)),
       ...(exec && { exec }),
     };
   // The agent's final skill list (agents.defaults.skills is []): the bundled and
@@ -59,7 +54,7 @@ export function agentEntry(
   // gets (built-in-skills.js), and only once native tools are ready.
   if (toolsManaged) {
     const skills = nativeReady
-      ? compiledSkillNames(assistant).filter((name) => !shadowedSkills.includes(name))
+      ? agent.skills.compiled.filter((name) => !shadowedSkills.includes(name))
       : [];
     if (skills.length) next.skills = skills;
     else delete next.skills;
@@ -67,7 +62,7 @@ export function agentEntry(
   if (memoryManaged)
     next.memory = {
       search: {
-        enabled: !!nativeReady && memoryEnabled(assistant),
+        enabled: !!nativeReady && agent.memory,
         rememberAcrossConversations: false,
       },
     };
@@ -80,5 +75,5 @@ export function agentEntry(
       },
     };
   // Last, so nothing above can hand a user agent a locked tool (user-agent-lock.js).
-  return lockedEntry(next, assistant);
+  return lockEntry(next, agent.locked);
 }

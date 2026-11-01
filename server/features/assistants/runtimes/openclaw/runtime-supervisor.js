@@ -8,7 +8,6 @@ import { setTimeout as delay } from "node:timers/promises";
 import { runtimePaths } from "../../runtime-paths.js";
 import { selectedAssistantRuntime } from "./runtime-install.js";
 import { prepareRuntimeConfig, runtimeEnvironment } from "./runtime-config.js";
-import { personalSkills } from "../../native-capabilities.js";
 import { shadowedSkills } from "./openclaw-config/skill-shadows.js";
 import { bundledSkillNames } from "../../agent-skills.js";
 import { builtInSkillNames } from "../../built-in-skills.js";
@@ -29,10 +28,10 @@ import {
 import { mcpStartSnapshot } from "./openclaw-config/mcp-servers.js";
 import {
   configuredAgents,
-  stdioAgents,
   telegramSections,
   telegramSnapshot,
 } from "./openclaw-config/telegram-senders.js";
+import { asDesiredState } from "./openclaw-config/desired-agents.js";
 import { readJSON } from "../../../../lib/storage.js";
 
 // Errors an unattended retry cannot fix; they wait for the owner instead.
@@ -258,9 +257,14 @@ export class RuntimeSupervisor extends EventEmitter {
     // The runtime the Gateway runs; the OpenClaw CLI (MCP OAuth) uses the same one.
     this.runtime = runtime;
     if (runtime.diagnostic) this.setState({ diagnostic: runtime.diagnostic });
-    const teams = this.teamConfiguration
-      ? await this.teamConfiguration(runtime)
-      : undefined;
+    // AgentPier's desired state for this start (agent-desired-state.js).
+    const desired = asDesiredState(
+      this.teamConfiguration ? await this.teamConfiguration(runtime) : undefined,
+    );
+    const { agents, host } = desired;
+    // The same gate as the compiler's native branch, which alone writes MCP servers
+    // and the agents' own bots.
+    const native = !!(host.team.plugin && host.team.native);
     if (generation !== this.generation) return;
     // Drawn after the team bridge listens: its listen(0) could otherwise receive the
     // port freePort has just released.
@@ -270,8 +274,8 @@ export class RuntimeSupervisor extends EventEmitter {
     // Gateway's state only once that Gateway answers; until then nothing runs.
     this.webTools = null;
     const webTools =
-      teams?.webTools &&
-      webToolsSnapshot({ profiles: teams.profiles, webTools: teams.webTools, port });
+      host.webTools &&
+      webToolsSnapshot({ profiles: agents, webTools: host.webTools, port });
     // The owner's environment for exec children, computed once per start. The
     // wrapper is set Gateway-wide even while no agent has shell: only agents with
     // shell are offered exec, and an agent switched on later (a hot change) then
@@ -290,29 +294,22 @@ export class RuntimeSupervisor extends EventEmitter {
     // Like the web tools, a snapshot of the MCP servers: names and globs only, never
     // header or env values.
     this.mcp = null;
-    // The same gate as the compiler's native branch, which alone writes MCP servers.
-    const mcp =
-      teams?.directory &&
-      teams?.connection &&
-      teams?.native &&
-      mcpStartSnapshot({ profiles: teams.profiles, mcp: teams.mcp || {} });
+    const mcp = native
+      ? mcpStartSnapshot({ profiles: agents, mcp: host.mcp || {} })
+      : null;
     // The agents' own Telegram bots this start compiles: account ids and a
     // signature, never a token or the speech key.
     this.telegram = null;
     this.telegramStarting = null;
+    // Must match the compile in runtime-config.js, or the bot stays pending.
     const telegram =
-      teams?.directory &&
-      teams?.connection &&
-      teams?.native &&
+      native &&
       telegramSnapshot(
         telegramSections({
-          profiles: teams.profiles,
-          telegram: teams.telegram,
+          profiles: agents,
+          telegram: host.telegram,
           // The agents the compile below finds in the configuration it starts from.
           agents: configuredAgents(readJSON(this.paths.config, null)),
-          stdio: stdioAgents(teams.mcp || {}),
-          // Must match the compile in runtime-config.js, or the bot stays pending.
-          ssh: teams.sshAgents,
         }),
       );
     // What this start compiles, before it answers: a revocation saved meanwhile must
@@ -320,26 +317,23 @@ export class RuntimeSupervisor extends EventEmitter {
     this.telegramStarting = telegram || null;
     const tls = prepareGatewayTls(this.paths);
     const bundled = bundledSkillNames(runtime.entryPath);
-    const token = prepareRuntimeConfig(this.paths, port, teams, {
+    const token = prepareRuntimeConfig(this.paths, port, desired, {
       maintenance: !!this.maintenance?.(),
       tls,
       overrides: this.configOverrides?.(runtime.version) || [],
-      webTools: teams?.webTools,
       shell,
-      mcp: teams?.mcp,
-      telegram: teams?.telegram,
       // Assigned skills a same-named skill in the agent's folders would replace, and
       // catalog skills this start must not load (catalogDrops).
       skillShadows: Object.fromEntries(
-        (teams?.profiles || []).map((profile) => [
-          profile.runtimeAgentId,
+        agents.map((agent) => [
+          agent.runtimeAgentId,
           [
             // Built-in names are candidates unconditionally: a candidate only drops.
-            ...shadowedSkills(this.paths.root, profile, [
-              ...personalSkills(profile),
+            ...shadowedSkills(this.paths.root, agent, [
+              ...agent.skills.assigned,
               ...builtInSkillNames,
             ]),
-            ...this.catalogDrops(personalSkills(profile), bundled),
+            ...this.catalogDrops(agent.skills.assigned, bundled),
           ],
         ]),
       ),

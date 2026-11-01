@@ -35,6 +35,7 @@ import {
   webToolsAvailability,
 } from "../features/assistants/runtimes/openclaw/openclaw-config/web-tools.js";
 import { readMcpInputs } from "../features/mcp-servers/mcp-inputs.js";
+import { desiredState } from "../features/assistants/agent-desired-state.js";
 import { McpServerStore } from "../features/mcp-servers/mcp-server-store.js";
 import { SpeechConnections } from "../features/speech/speech-connections.js";
 import { AssistantModelAccounts } from "../features/assistants/model-accounts.js";
@@ -530,7 +531,9 @@ export function connectAssistantServices(graph) {
       teams.mcp.sync();
       // Failed OAuth logouts are retried before the start compiles.
       await mcpChanges.drainLogouts();
-      return {
+      // AgentPier's desired state for the start, read from the stores now; the
+      // adapter compiles it (agent-desired-state.js).
+      return desiredState({
         directory: installed.teamPlugin.directory,
         connection: await bridge.start(),
         hostMaxConcurrent: teams.store.settings().hostMaxConcurrent,
@@ -562,7 +565,7 @@ export function connectAssistantServices(graph) {
         // Read at each start; tokens and the speech key reach only openclaw.json.
         telegram: telegramSenders.inputs(),
         dreaming: graph.assistantDreaming.compiled(),
-      };
+      });
     },
     maintenance: () => assistants.maintenance,
     beforeSpawn: () => synchronization.prepare(),

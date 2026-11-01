@@ -247,6 +247,121 @@ export function usedCapabilities(profiles = []) {
   }
   return used;
 }
+/**
+ * The tools an agent may hold, as grants in the order a runtime offers them: each
+ * `{ tools, needs }`, or `{ mcp: true, needs }` where the agent's MCP servers' tools
+ * go. `needs` names what the runtime must offer for the grant to apply: "teams" (the
+ * team tools are ready), "native" (AgentPier's native tools are), "guard" (the tool
+ * guard is proven) and `available:<capability>` (the runtime can serve that web
+ * capability). `ssh`: the agent holds at least one SSH grant. A user agent's grants
+ * never name a locked tool. grantedTools resolves them.
+ */
+export function toolGrants(assistant, { ssh = false } = {}) {
+  const capabilities = personalCapabilities(assistant);
+  // A temporary member has its own memory beside the read-only copy of its lead's,
+  // and gets no routines (standing jobs with tools that would outlive the team).
+  const member = inheritsFromLead(assistant);
+  const live = !assistant.archivedAt;
+  const grant = (tools, needs = ["native"]) => ({ tools: [...tools], needs });
+  const grants = [
+    grant(["session_status"], []),
+    ...(!assistant.teamMemberId && live ? [grant(delegationTools, ["teams"])] : []),
+    ...(assistant.teamMemberId && live ? [grant(memberTeamTools, ["teams"])] : []),
+    // A member writes only its own memory: the bridge refuses everything else.
+    ...(capabilities.memory || member
+      ? memoryTools.map((tool) =>
+          grant([tool], guardedTools.includes(tool) ? ["native", "guard"] : ["native"]),
+        )
+      : []),
+    ...(capabilities.reminders
+      ? [
+          grant([
+            "agentpier_reminder",
+            ...(member ? [] : ["agentpier_routine"]),
+            // Hook proposals: own agents and permanent members (agent-hook-proposals.js).
+            ...(goalAgent(assistant) ? ["agentpier_hook"] : []),
+          ]),
+        ]
+      : []),
+    // Temporary members use it only to request coding runs on the parent's grant.
+    ...(live ? [grant(["agentpier_workspace"])] : []),
+    // Every agent may hand the owner a file from its own workspace (agent-shares.js).
+    ...(live ? [grant(["agentpier_share_file"])] : []),
+    // Work goals, SSH access proposals, coding sessions and email: own agents and
+    // permanent members only (goal-turns.js, agent-ssh-proposals.js,
+    // agent-coding-sessions.js, mail/agent-mail.js). Without a project with sessions
+    // on, or a mail grant, the tool answers so, and a grant needs no recompile.
+    ...(goalAgent(assistant)
+      ? [
+          grant([
+            "agentpier_goal",
+            "agentpier_ssh_access",
+            "agentpier_coding_session",
+            "agentpier_mail",
+          ]),
+        ]
+      : []),
+    // Own projects: own agents and leads, never members (agent-projects.js). An
+    // agent with its own bot for other people loses it with senderLockedTools.
+    ...(mayCreateProjects(assistant) ? [grant(["agentpier_project"])] : []),
+    // Previews: own agents and permanent members (agent-previews.js); an agent with
+    // its own bot for other people loses it with senderLockedTools.
+    ...(mayOpenPreviews(assistant) ? [grant(["agentpier_preview"])] : []),
+    // A tool whose browser or search provider the runtime lacks is withheld; the
+    // browser, images and PDFs also wait for the proven tool guard.
+    ...Object.entries(capabilityTools).flatMap(([key, tools]) =>
+      capabilities[key]
+        ? [
+            grant(tools, [
+              "native",
+              `available:${key}`,
+              ...(guardGatedCapabilities.includes(key) ? ["guard"] : []),
+            ]),
+          ]
+        : [],
+    ),
+    // Paired with the entry's exec override (runtimes/openclaw/openclaw-config/shell.js).
+    ...(personalShell(assistant) !== "off" ? [grant(shellTools)] : []),
+    ...(live ? [{ mcp: true, needs: ["native"] }] : []),
+    ...(ssh && (personalEligible(assistant) || (member && assistant.inherited.ssh))
+      ? [grant(["agentpier_ssh"])]
+      : []),
+  ];
+  if (!isUserAgent(assistant)) return grants;
+  return grants.map((entry) =>
+    entry.mcp
+      ? entry
+      : { ...entry, tools: entry.tools.filter((t) => !lockedTools.includes(t)) },
+  );
+}
+
+/**
+ * The tool names `grants` (toolGrants) yield for what the runtime offers now:
+ * `teamsReady`, `nativeReady`, `writeGuard` (the proven tool guard), `available`
+ * (webToolsAvailability: false withholds a capability) and `mcpTools`, the agent's
+ * MCP tool globs.
+ */
+export function grantedTools(
+  grants,
+  { teamsReady, nativeReady, writeGuard = false, available = {}, mcpTools = [] } = {},
+) {
+  const met = (need) =>
+    need === "teams"
+      ? teamsReady
+      : need === "native"
+        ? nativeReady
+        : need === "guard"
+          ? writeGuard
+          : available[need.slice("available:".length)] !== false;
+  return grants.flatMap((grant) =>
+    grant.needs.every(met) ? (grant.mcp ? [...mcpTools] : grant.tools) : [],
+  );
+}
+
+/**
+ * The tool names an agent holds now: its grants (toolGrants) for what the runtime
+ * offers (grantedTools).
+ */
 export function profileTools(
   assistant,
   teamsReady,
@@ -258,69 +373,11 @@ export function profileTools(
   // The agent holds at least one SSH grant (assistant-access.js hasSshGrants).
   ssh = false,
 ) {
-  const capabilities = personalCapabilities(assistant);
-  // A temporary member has its own memory beside the read-only copy of its lead's,
-  // and gets no routines (standing jobs with tools that would outlive the team).
-  const member = inheritsFromLead(assistant);
-  const tools = [
-    "session_status",
-    ...(teamsReady && !assistant.teamMemberId && !assistant.archivedAt
-      ? delegationTools
-      : []),
-    ...(teamsReady && assistant.teamMemberId && !assistant.archivedAt
-      ? memberTeamTools
-      : []),
-    // A member writes only its own memory: the bridge refuses everything else.
-    ...(nativeReady && (capabilities.memory || member)
-      ? memoryTools.filter((tool) => writeGuard || !guardedTools.includes(tool))
-      : []),
-    ...(nativeReady && capabilities.reminders
-      ? [
-          "agentpier_reminder",
-          ...(member ? [] : ["agentpier_routine"]),
-          // Hook proposals: own agents and permanent members (agent-hook-proposals.js).
-          ...(goalAgent(assistant) ? ["agentpier_hook"] : []),
-        ]
-      : []),
-    // Temporary members use it only to request coding runs on the parent's grant.
-    ...(nativeReady && !assistant.archivedAt ? ["agentpier_workspace"] : []),
-    // Every agent may hand the owner a file from its own workspace (agent-shares.js).
-    ...(nativeReady && !assistant.archivedAt ? ["agentpier_share_file"] : []),
-    // Work goals: own agents and permanent members only (goal-turns.js).
-    ...(nativeReady && goalAgent(assistant) ? ["agentpier_goal"] : []),
-    // SSH access proposals: own agents and permanent members (agent-ssh-proposals.js).
-    ...(nativeReady && goalAgent(assistant) ? ["agentpier_ssh_access"] : []),
-    // Coding sessions: own agents and permanent members; without a project with
-    // sessions on the tool answers SESSIONS_NOT_ENABLED (agent-coding-sessions.js).
-    ...(nativeReady && goalAgent(assistant) ? ["agentpier_coding_session"] : []),
-    // Email: own agents and permanent members; without a grant the tool answers
-    // MAIL_NOT_GRANTED, so a grant needs no recompile (mail/agent-mail.js).
-    ...(nativeReady && goalAgent(assistant) ? ["agentpier_mail"] : []),
-    // Own projects: own agents and leads, never members (agent-projects.js). An
-    // agent with its own bot for other people loses it with senderLockedTools.
-    ...(nativeReady && mayCreateProjects(assistant) ? ["agentpier_project"] : []),
-    // Previews: own agents and permanent members (agent-previews.js); an agent with
-    // its own bot for other people loses it with senderLockedTools.
-    ...(nativeReady && mayOpenPreviews(assistant) ? ["agentpier_preview"] : []),
-    ...(nativeReady
-      ? Object.entries(capabilityTools).flatMap(([key, tools]) =>
-          // `available` withholds a tool whose browser or search provider is absent;
-          // the browser also waits for the proven tool guard.
-          capabilities[key] &&
-          available[key] !== false &&
-          (!guardGatedCapabilities.includes(key) || writeGuard)
-            ? tools
-            : [],
-        )
-      : []),
-    // Paired with the entry's tools.exec override (openclaw-config/shell.js).
-    ...(nativeReady && personalShell(assistant) !== "off" ? shellTools : []),
-    ...(nativeReady && !assistant.archivedAt ? mcpTools : []),
-    ...(nativeReady &&
-    ssh &&
-    (personalEligible(assistant) || (member && assistant.inherited.ssh))
-      ? ["agentpier_ssh"]
-      : []),
-  ];
-  return isUserAgent(assistant) ? tools.filter((t) => !lockedTools.includes(t)) : tools;
+  return grantedTools(toolGrants(assistant, { ssh }), {
+    teamsReady,
+    nativeReady,
+    writeGuard,
+    available,
+    mcpTools,
+  });
 }

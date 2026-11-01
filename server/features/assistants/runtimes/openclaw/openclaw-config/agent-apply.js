@@ -17,31 +17,36 @@ export function shellAllow(allow = [], wanted) {
   ];
 }
 
-/** The model connection's provider entry, written before the agent's own entry. */
-export const providerPatch = (providerId, provider) => ({
-  patch: { models: { providers: { [providerId]: provider } } },
-});
+/**
+ * The `config.patch` of the desired agent's model connection (`desired.model`): its
+ * provider entry, written before the agent's own entry; null without a provider.
+ */
+export const providerPatch = ({ model } = {}) =>
+  model?.provider
+    ? { patch: { models: { providers: { [model.providerId]: model.provider } } } }
+    : null;
 
 /**
  * The live `config.patch` of one agent's entry over the running configuration
- * `config` (AssistantConfig.applyOnce): its managed paths as agentEntry compiles them
- * from `entryOptions()` (read inside the build, as the write runs), the host's
- * concurrency and the global shell tools. `managed`: the team or native tools are
- * wired, so the entry's tools, skills and memory belong to AgentPier.
- * `hostCapacity()`: the host's member slots, when wired. `shellGlobal`: whether some
- * agent has shell, undefined while that is not managed.
+ * `config` (AssistantConfig.applyOnce): the paths of its desired state `desired`
+ * (agent-desired-state.js) as agentEntry compiles them for what the runtime offers
+ * now, the host's concurrency and the global shell tools. `state()`, read inside the
+ * build as the write runs: agentEntry's options, plus `managed` (the team or native
+ * tools are wired, so the entry's tools, skills and memory belong to AgentPier),
+ * `hostCapacity` (a function: the host's member slots, when wired) and `shellGlobal`
+ * (whether some agent has shell, undefined while that is not managed).
  */
-export function agentPatch(
-  config,
-  { assistant, entryOptions, managed, hostCapacity, shellGlobal },
-) {
+export function agentPatch(config, desired, state) {
+  const { managed, hostCapacity, shellGlobal, ...entryOptions } = state();
+  const agentRuntime = desired.model?.agentRuntime;
   const agents = config.agents;
   const arrayKey = Array.isArray(agents.entries) ? "entries" : "list";
   // Live writes keep the managed paths even before the Gateway reports readiness.
-  const configure = (entry = {}) => agentEntry(entry, assistant, entryOptions());
+  const configure = (entry = {}) =>
+    agentEntry(entry, desired, { ...entryOptions, agentRuntime });
   const keyed = agents.entries && !Array.isArray(agents.entries);
   const keyedEntry = () => {
-    const current = agents.entries[assistant.runtimeAgentId];
+    const current = agents.entries[desired.runtimeAgentId];
     const next = configure(current);
     // A merge patch keeps omitted keys: null removes a lowered level's
     // override and keys the new level does not set (strictInlineEval).
@@ -64,10 +69,10 @@ export function agentPatch(
     return next;
   };
   const patch = keyed
-    ? { entries: { [assistant.runtimeAgentId]: keyedEntry() } }
+    ? { entries: { [desired.runtimeAgentId]: keyedEntry() } }
     : {
         [arrayKey]: (agents[arrayKey] || []).map((a) =>
-          a.id === assistant.runtimeAgentId ? configure(a) : a,
+          a.id === desired.runtimeAgentId ? configure(a) : a,
         ),
       };
   if (hostCapacity) patch.defaults = { maxConcurrent: hostCapacity() + 8 };
@@ -75,15 +80,15 @@ export function agentPatch(
   // removing or changing the exec override drops pathPrepend entries.
   const replacePaths = keyed
     ? [
-        `agents.entries.${assistant.runtimeAgentId}.tools.allow`,
-        `agents.entries.${assistant.runtimeAgentId}.tools.exec.pathPrepend`,
+        `agents.entries.${desired.runtimeAgentId}.tools.allow`,
+        `agents.entries.${desired.runtimeAgentId}.tools.exec.pathPrepend`,
       ]
     : [`agents.${arrayKey}`];
   // A shorter or removed skill list drops array items as well.
-  if (keyed && Array.isArray(agents.entries[assistant.runtimeAgentId]?.skills))
-    replacePaths.push(`agents.entries.${assistant.runtimeAgentId}.skills`);
-  if (keyed && Array.isArray(agents.entries[assistant.runtimeAgentId]?.tools?.deny))
-    replacePaths.push(`agents.entries.${assistant.runtimeAgentId}.tools.deny`);
+  if (keyed && Array.isArray(agents.entries[desired.runtimeAgentId]?.skills))
+    replacePaths.push(`agents.entries.${desired.runtimeAgentId}.skills`);
+  if (keyed && Array.isArray(agents.entries[desired.runtimeAgentId]?.tools?.deny))
+    replacePaths.push(`agents.entries.${desired.runtimeAgentId}.tools.deny`);
   const globalAllow = shellAllow(config.tools?.allow, shellGlobal);
   if (globalAllow) replacePaths.push("tools.allow");
   return {
@@ -96,25 +101,16 @@ export function agentPatch(
 }
 
 /**
- * Whether the running configuration `config` holds anything else for the agent than
- * its apply wrote: its tools, exec override and skills while `managed`, the global
- * shell tools while `shellGlobal` is managed, its memory search while `memory` is
- * (a boolean), its agent runtime and its model. True means the apply did not take.
+ * Whether the running configuration `config` holds anything else for the desired
+ * agent than its apply wrote (`expected`): its tools (`tools`), exec override and
+ * skills while `managed`, the global shell tools while `shellGlobal` is managed, its
+ * memory search while `memory` is (a boolean), and the agent runtime and model of
+ * its model connection, when it names one. True means the apply did not take.
  */
-export function agentDrift(
-  config,
-  {
-    runtimeAgentId,
-    managed,
-    allowed,
-    exec,
-    skills,
-    shellGlobal,
-    memory,
-    agentRuntime,
-    modelRef,
-  },
-) {
+export function agentDrift(config, desired, expected) {
+  const { managed, tools: allowed, exec, skills, shellGlobal, memory } = expected;
+  const { runtimeAgentId, model: connection } = desired;
+  const agentRuntime = connection?.agentRuntime;
   const entries = config?.agents?.entries;
   const entry = Array.isArray(entries)
     ? entries.find((a) => a.id === runtimeAgentId)
@@ -133,6 +129,7 @@ export function agentDrift(
     own?.models?.[agentRuntime.model]?.agentRuntime?.id !== agentRuntime.id
   )
     return true;
+  if (!connection) return false;
   const model = own?.model;
-  return (typeof model === "string" ? model : model?.primary) !== modelRef;
+  return (typeof model === "string" ? model : model?.primary) !== connection.ref;
 }

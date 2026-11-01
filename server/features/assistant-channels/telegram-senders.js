@@ -7,6 +7,7 @@ import { destroyBackupKeys } from "../assistants/backup-credentials.js";
 import { randomUUID } from "node:crypto";
 import { readJSON } from "../../lib/storage.js";
 import { readTelegramInputs, telegramEligible } from "./telegram-inputs.js";
+import { desiredState } from "../assistants/agent-desired-state.js";
 import { TelegramClient } from "./telegram-client.js";
 import { patchTelegramAllowlists } from "./telegram-live.js";
 import { validPeople } from "./native-telegram-store.js";
@@ -139,11 +140,13 @@ export class TelegramSenders {
   desired(inputs = this.inputs()) {
     const profiles = this.assistants.store.listAssistants();
     return compiler().telegramSnapshot({
-      profiles,
-      telegram: inputs,
-      agents: this.configured(),
-      stdio: this.stdioAgents(),
-      ssh: this.sshAgents(),
+      desired: desiredState({
+        profiles,
+        telegram: inputs,
+        stdio: this.stdioAgents(),
+        sshAgents: this.sshAgents(),
+      }),
+      configured: this.configured(),
     });
   }
   /**

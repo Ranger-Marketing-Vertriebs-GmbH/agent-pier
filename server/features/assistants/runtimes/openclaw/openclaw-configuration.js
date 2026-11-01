@@ -2,6 +2,7 @@ import { patchConfig } from "./live-patch.js";
 import { watchConfigAdoption } from "./config-adoption.js";
 import { boundPort } from "./openclaw-agents.js";
 import { openClawCompiler } from "./openclaw-compiler.js";
+import { agentDrift, agentPatch, providerPatch } from "./openclaw-config/agent-apply.js";
 
 /**
  * The config sub-port (agent-runtime.js) over OpenClaw's live configuration, the
@@ -25,6 +26,16 @@ function configOver(current) {
     get: () => call("config.get", {}),
     lookup: ({ path }) => call("config.schema.lookup", { path }),
     patch: async ({ build, ...options }) => patchConfig(current(), build, options),
+    // One agent's desired state (agent-desired-state.js) on the running
+    // configuration: its model connection's provider, then its entry and the
+    // host-wide shell tools (`state()`: what the runtime offers as the write runs,
+    // agent-apply.js agentPatch). Each is a patch as above.
+    applyModel: async ({ desired }) =>
+      patchConfig(current(), () => providerPatch(desired), {}),
+    apply: async ({ desired, state }) =>
+      patchConfig(current(), (config) => agentPatch(config, desired, state), {}),
+    // Synchronously, whether `config` (a get() answer's) holds what the apply wrote.
+    applied: ({ desired, config, expected }) => !agentDrift(config, desired, expected),
     // Synchronous: watched from before the first write (config-adoption.js).
     watchAdoption: (options) => watchConfigAdoption(current(), options),
   };
