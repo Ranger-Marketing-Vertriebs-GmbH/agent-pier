@@ -2,17 +2,25 @@
 // key a live Hermes session id belongs to, which run a turn is, how runs ended, and
 // the run events (agent-runtime.js events.subscribe) they make.
 //
-// Session keys: Hermes names a session twice, by its live id in this process
-// (`session_id`, gone with the process) and by its stored id (`stored_session_id`,
-// durable in its state.db). AgentPier keeps `agent:<runtimeAgentId>:hermes:<stored>`,
-// so a key outlives a restart, names its agent as OpenClaw's keys do, and stays unique
-// across agents; the adapter resumes a stored session into the process when a call
-// needs it live (hermes-sessions.js).
+// Session keys: the gateway's session store names a session by its durable id
+// (`session_id`, equal to `stored_session_id`, kept in its state.db), and a connection
+// attaches to it (`session.resume`, one subscription per connection) before it may
+// submit there. AgentPier keeps `agent:<runtimeAgentId>:hermes:<stored>`, so a key
+// outlives a restart, names its agent as OpenClaw's keys do, and stays unique across
+// agents; the adapter attaches a session when a call needs it (hermes-sessions.js).
 //
-// Runs: Hermes has no run id. A turn AgentPier submits takes its idempotency key as
-// run id (as OpenClaw's sessions.send); the key waits in the session's queue until the
-// turn's `message.start`, so a turn Hermes queued behind a running one keeps its own
-// id. A turn AgentPier did not submit (a background completion) is `hermes-turn:<id>`.
+// Runs: a turn AgentPier submits takes its idempotency key as run id (as OpenClaw's
+// sessions.send) and as Hermes's `submission_id`; Hermes answers with the turn's
+// `admission_id`, which every frame of the turn carries. A run id waits in the
+// session's queue only while its submit is unanswered, so a turn whose answer was
+// lost still keeps its id. A turn AgentPier did not submit (a routine, a channel
+// message) is `hermes-turn:<admission id>`.
+//
+// Fences: Hermes refuses a control (interrupt, approval answer) for another
+// execution generation than the session's current one, and a session edit
+// (`session.mutate`) for another revision. Both are read from the attach snapshot
+// and from the frames: `execution_generation` on a turn's frames, `revision` on
+// `session.info` and `session.updated`.
 
 const keyPrefix = (agentId) => `agent:${agentId}:hermes:`;
 // Event types that belong to a running turn even when its message.start was missed.
@@ -64,26 +72,45 @@ export function hermesEventKind(type, payload, inRun) {
 
 const ending = new Set(["finished", "aborted", "failed"]);
 
+// Takes the newer execution generation and revision `values` name.
+function fence(turn, values) {
+  const generation = values?.execution_generation;
+  const revision = values?.revision;
+  if (Number.isSafeInteger(generation) && generation >= turn.generation)
+    turn.generation = generation;
+  if (Number.isSafeInteger(revision) && revision >= turn.revision)
+    turn.revision = revision;
+}
+
 export class HermesRuns {
   constructor(client, { agentId }) {
     Object.assign(this, { client, agentId });
     this.keys = new Map();
     this.sids = new Map();
-    // Per live session id: `{ queue: [runId], current: runId | null, seq }`.
+    // Per session id: `{ queue: [runId], current: runId | null, seq, admissions:
+    // Map(admission id → runId), generation, revision, subscription }`.
     this.turns = new Map();
     this.outcomes = new Map();
     this.waiters = new Map();
     this.listeners = new Set();
+    // The title each key was last seen with (create, list, a rename).
+    this.titles = new Map();
     client.subscribe((params) => this.observe(params));
     client.once("disconnected", () => this.dropped());
   }
 
   /** Records that live session `sid` is the stored session behind `key`. */
-  bind(key, sid) {
+  bind(key, sid, snapshot) {
     const before = this.sids.get(key);
     if (before && before !== sid) this.keys.delete(before);
     this.keys.set(sid, key);
     this.sids.set(key, sid);
+    if (snapshot && typeof snapshot === "object") {
+      const turn = this.turn(sid);
+      fence(turn, snapshot);
+      if (typeof snapshot.subscription_id === "string")
+        turn.subscription = snapshot.subscription_id;
+    }
   }
 
   unbind(key) {
@@ -101,23 +128,93 @@ export class HermesRuns {
 
   turn(sid) {
     let turn = this.turns.get(sid);
-    if (!turn) this.turns.set(sid, (turn = { queue: [], current: null, seq: 0 }));
+    if (!turn)
+      this.turns.set(
+        sid,
+        (turn = {
+          queue: [],
+          current: null,
+          seq: 0,
+          admissions: new Map(),
+          // Admitted runs that have not ended yet.
+          open: new Set(),
+          generation: 0,
+          revision: 0,
+          subscription: null,
+        }),
+      );
     return turn;
+  }
+
+  /** The fences of session `sid` as this connection saw them last. */
+  fences(sid) {
+    const turn = this.turns.get(sid);
+    return {
+      generation: turn?.generation ?? 0,
+      revision: turn?.revision ?? 0,
+      subscription: turn?.subscription ?? null,
+    };
+  }
+
+  /** Records fences Hermes answered (a snapshot, an edit's receipt, a refusal's data). */
+  fenced(sid, values) {
+    fence(this.turn(sid), values);
   }
 
   /** The run under way in live session `sid`, or null. */
   runOf = (sid) => this.turns.get(sid)?.current ?? null;
 
-  /** Whether a turn of live session `sid` runs or waits to run. */
+  /** Whether a turn of session `sid` runs or waits to run. */
   busy = (sid) => {
     const turn = this.turns.get(sid);
-    return !!turn && (!!turn.current || turn.queue.length > 0);
+    return !!turn && (!!turn.current || turn.queue.length > 0 || turn.open.size > 0);
   };
 
-  /** A turn AgentPier is about to submit: its run id waits for its message.start. */
+  /** A turn AgentPier is about to submit: its run id waits for Hermes's answer. */
   submitted(sid, runId) {
-    this.turn(sid).queue.push(runId);
+    const turn = this.turn(sid);
+    // A repeated submit of the same id is the same admission (Hermes deduplicates).
+    if (turn.queue.includes(runId) || [...turn.admissions.values()].includes(runId))
+      return;
+    turn.queue.push(runId);
   }
+
+  /** Hermes admitted run `runId` as `admission`: its frames carry that id. */
+  admitted(sid, runId, admission) {
+    const turn = this.turn(sid);
+    turn.queue = turn.queue.filter((id) => id !== runId);
+    if (typeof admission === "string" && admission && !turn.admissions.has(admission))
+      turn.admissions.set(admission, runId);
+    if (!this.outcomes.has(runId)) turn.open.add(runId);
+  }
+
+  /** The run of `turn` a frame of `admission` starts. */
+  runFor(turn, admission, fallback) {
+    if (admission && turn.admissions.has(admission))
+      return turn.admissions.get(admission);
+    // A frame before the submit's answer: the oldest unanswered submit is that turn.
+    const runId = turn.queue.shift() ?? `hermes-turn:${admission || fallback}`;
+    if (admission) turn.admissions.set(admission, runId);
+    return runId;
+  }
+
+  /** The admission id run `runId` of session `sid` was admitted as, or null. */
+  admissionOf(sid, runId) {
+    for (const [admission, id] of this.turns.get(sid)?.admissions || [])
+      if (id === runId) return admission;
+    return null;
+  }
+
+  /** Records the title `key`'s session holds; titleOf(key) reads it back. */
+  titled(key, title) {
+    if (typeof title === "string" && title) this.titles.set(key, title);
+  }
+
+  titleOf = (key) => this.titles.get(key) ?? null;
+
+  /** The run admission `admission` of session `sid` is, or null. */
+  runOfAdmission = (sid, admission) =>
+    (admission && this.turns.get(sid)?.admissions.get(admission)) || null;
 
   /** A submit Hermes refused or never answered: its run id never starts. */
   withdrawn(sid, runId) {
@@ -136,13 +233,30 @@ export class HermesRuns {
       if (params.seq <= turn.seq) return;
       turn.seq = params.seq;
     }
+    const admission =
+      typeof params.admission_id === "string" && params.admission_id
+        ? params.admission_id
+        : null;
+    if (turn) {
+      fence(turn, { execution_generation: params.execution_generation });
+      if (type === "session.info" || type === "session.updated") fence(turn, payload);
+      if (type === "session.updated" && this.keys.has(sid))
+        this.titled(this.keys.get(sid), payload.title);
+    }
     if (turn && (type === "message.start" || (!turn.current && turnTypes.test(type))))
-      turn.current ??=
-        turn.queue.shift() ??
-        `hermes-turn:${payload.turn_id || params.seq || Date.now()}`;
+      turn.current ??= this.runFor(
+        turn,
+        admission,
+        payload.turn_id || params.seq || Date.now(),
+      );
     // An error that ends a submitted turn which never started fails that turn.
-    if (turn && type === "error" && !turn.current && turn.queue.length)
-      turn.current = turn.queue.shift();
+    if (
+      turn &&
+      type === "error" &&
+      !turn.current &&
+      (admission ? turn.admissions.has(admission) : turn.queue.length > 0)
+    )
+      turn.current = this.runFor(turn, admission, params.seq || Date.now());
     const runId = turn?.current ?? null;
     const kind = hermesEventKind(type, payload, !!runId);
     const sessionKey = typeof sid === "string" ? this.keyOf(sid) : null;
@@ -158,6 +272,7 @@ export class HermesRuns {
     });
     if (runId && ending.has(kind)) {
       turn.current = null;
+      turn.open.delete(runId);
       this.ended(runId, kind, reason);
     }
   }

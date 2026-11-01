@@ -3,10 +3,12 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { execFileSync, spawn } from "node:child_process";
-import { createInterface } from "node:readline";
+import { execFileSync } from "node:child_process";
 import { hermesExecutables } from "../../server/features/assistants/runtimes/hermes/hermes-paths.js";
 import { hermesManifest } from "../../server/features/assistants/runtimes/hermes/hermes-manifest.js";
+import { hermesIdentityCheck } from "../../server/features/assistants/runtimes/hermes/hermes-install.js";
+import { createHermesAgentHost } from "../../server/features/assistants/runtimes/hermes/hermes-host.js";
+import { contractRecord } from "../helpers/hermes-native.js";
 
 // Native Hermes contract: AGENTPIER_HERMES_CONTRACT_RUNTIME names an installation
 // that scripts/provision-hermes-contracts.mjs made from the pinned manifest.
@@ -31,8 +33,8 @@ function privateEnvironment(t) {
 }
 
 test(
-  "the pinned installation runs hermes and the stdio TUI-RPC server",
-  { skip, timeout: 120000 },
+  "the pinned installation runs hermes and serves AgentPier's RPC bridge",
+  { skip, timeout: 300000 },
   async (t) => {
     const { python, hermes } = hermesExecutables(runtime);
     const { root, env } = privateEnvironment(t);
@@ -49,35 +51,25 @@ test(
       version,
       new RegExp(`Python: ${hermesManifest.pythonVersion.replaceAll(".", "\\.")}`),
     );
-    const child = spawn(python, ["-m", "tui_gateway.entry"], {
-      env,
-      cwd: path.join(root, "work"),
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-    t.after(() => child.exitCode === null && child.kill("SIGKILL"));
-    const lines = createInterface({ input: child.stdout });
-    const ready = await new Promise((resolve, reject) => {
-      child.once("exit", (code) => reject(Error(`exited ${code}`)));
-      lines.on("line", (line) => {
-        const frame = JSON.parse(line);
-        if (frame.method === "event" && frame.params?.type === "gateway.ready")
-          resolve(frame);
-      });
-    });
-    assert.equal(ready.jsonrpc, "2.0");
-    child.stdin.write(
-      `${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "gateway.capabilities", params: {} })}\n`,
+    // The bridge's imports, as the installer's identity check runs them.
+    await hermesIdentityCheck(
+      { pythonPath: python, hermesPath: hermes },
+      { scratch: path.join(root, "work") },
     );
-    const answer = await new Promise((resolve) =>
-      lines.on("line", (line) => {
-        const frame = JSON.parse(line);
-        if (frame.id === 1) resolve(frame);
-      }),
-    );
-    assert.ok(answer.result, JSON.stringify(answer));
-    child.stdin.end();
-    assert.equal(await new Promise((resolve) => child.once("exit", resolve)), 0);
-    // Everything Hermes wrote stayed in the private home.
-    assert.ok(fs.existsSync(path.join(env.HERMES_HOME, "state.db")));
+    // Its messaging gateway serves AgentPier's RPC bridge in a home of its own.
+    const { supervisor, host } = createHermesAgentHost({
+      dataDir: path.join(root, "data"),
+      agentId: "install-contract",
+      runtime: async () => contractRecord(runtime),
+      readyTimeoutMs: 180000,
+    });
+    t.after(() => host.stop());
+    await host.start();
+    assert.ok(await supervisor.client.call("gateway.capabilities", {}));
+    await host.stop();
+    const agentHome = supervisor.agentPaths().hermesHome;
+    assert.ok(fs.existsSync(path.join(agentHome, "state.db")));
+    // Nothing reached the scratch HERMES_HOME of the version check but Hermes's own.
+    assert.equal(fs.existsSync(path.join(env.HERMES_HOME, "gateway.lock")), false);
   },
 );

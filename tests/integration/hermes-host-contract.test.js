@@ -32,37 +32,12 @@ function hermesProcesses() {
     }));
 }
 
-/** A JSON-RPC call over the host's channel; events are collected in `events`. */
-function client(host) {
-  const transport = host.transport();
+/** The JSON-RPC client of the host's current connection; its events in `events`. */
+function client(supervisor) {
+  const rpc = supervisor.client;
   const events = [];
-  const pending = new Map();
-  const methods = new Map();
-  const method = (key) => methods.get(key);
-  let id = 0;
-  transport.onMessage((frame) => {
-    if (frame.id !== undefined && pending.has(frame.id)) {
-      const { resolve, reject } = pending.get(frame.id);
-      pending.delete(frame.id);
-      if (frame.error)
-        reject(
-          Object.assign(Error(`${method(frame.id)}: ${frame.error.message}`), {
-            code: frame.error.code,
-            data: frame.error.data,
-          }),
-        );
-      else resolve(frame.result);
-    } else if (frame.method === "event") events.push(frame.params);
-  });
-  return {
-    events,
-    call: (method, params = {}) =>
-      new Promise((resolve, reject) => {
-        pending.set(++id, { resolve, reject });
-        methods.set(id, method);
-        transport.send({ jsonrpc: "2.0", id, method, params });
-      }),
-  };
+  rpc.subscribe((params) => events.push(params));
+  return { events, call: (method, params = {}) => rpc.call(method, params) };
 }
 
 test(
@@ -125,9 +100,10 @@ test(
     );
     assert.equal(lock.pid, gateway);
 
-    const rpc = client(host);
-    await rpc.call("client.capabilities", { server_requests: true });
-    const session = await rpc.call("session.create", {});
+    // The connection declared that it answers Hermes's questions before it was ready.
+    assert.ok(supervisor.client.capabilities?.server_requests.includes("approval"));
+    const rpc = client(supervisor);
+    const session = await rpc.call("session.create", { request_id: "contract-chat" });
     // The gateway's own session store admits a turn by its idempotency key.
     await rpc.call("prompt.submit", {
       session_id: session.session_id,
@@ -179,8 +155,13 @@ test(
     const crashed = host.generation();
     await host.restart();
     assert.notEqual(host.generation(), crashed);
-    const again = client(host);
+    const again = client(supervisor);
     assert.ok(await again.call("session.list", {}));
+    // The stored session outlived both restarts.
+    assert.equal(
+      (await again.call("session.history", { session_id: session.session_id })).count,
+      2,
+    );
 
     const pointer = path.join(agent.hermesHome, "gateway.sock.path");
     const socket = fs.existsSync(pointer)

@@ -10,84 +10,101 @@ import {
   titleTimeoutMs,
 } from "../../team-plugin/chat-title.js";
 
-// A create's room: Hermes builds its agent lazily, so session.create answers at once;
-// an attempt that timed out (after the client's call timeout) is repeated with the same
-// idempotency key, which Hermes answers with the session it created first
-// (methods_session.py `_create_session`).
+// A create's room: Hermes stores the session before it answers; an attempt that timed
+// out (after the client's call timeout) is repeated with the same `request_id`, which
+// Hermes answers with the session it created first.
 const createBudgetMs = 60000;
 const minAttemptMs = 5000;
-// session.resume of a stored session reads its transcript.
+// session.resume attaches the session and reads its state.
 const resumeTimeoutMs = 60000;
-// How many stored sessions a lookup reads (session.list answers newest first).
-const listLimit = 1000;
-const notFound = new Set([4001, 4007]);
 
-// Resumes in flight per connection, so two calls for one key share one live session.
-const resuming = new WeakMap();
+// Attaches in flight per connection, so two calls for one key share one attach.
+const attaching = new WeakMap();
+
+const missing = (error) => error?.answered === true && error.reason === "not_found";
 
 /**
- * The sessions sub-port (agent-runtime.js) over Hermes's TUI gateway. Keys are
- * `agent:<runtimeAgentId>:hermes:<stored session id>` (hermes-run-state.js); a call
- * that needs the session live in the process resumes the stored one first
- * (`session.resume`), so a key works across restarts and after Hermes let an idle
- * session go. Methods: create → session.create (idempotency key) + session.title
- * (the label, which also stores the session at once), send → prompt.submit, abort →
- * session.interrupt, wait → the run's end as this connection saw it, describe/list →
- * session.list, get/history → session.history, compact → session.compress, delete →
- * session.close + session.delete (or session.archive keeping the transcript),
- * keepOpen → session.archive { archived: false }, subscribeMessages → the session is
- * live here, title → llm.oneshot. downloadArtifact is a capability gap (UNSUPPORTED).
+ * The sessions sub-port (agent-runtime.js) over the session store of Hermes's
+ * messaging gateway, reached through the RPC bridge. Keys are
+ * `agent:<runtimeAgentId>:hermes:<session id>` (hermes-run-state.js). A call that
+ * needs the session attached to this connection (a turn, an edit) attaches it first
+ * (`session.resume`), so a key works across restarts. Methods: create →
+ * session.create (`request_id` = idempotency key, `title` = the label, unique per
+ * agent like OpenClaw's labels), send → prompt.submit (`submission_id` = run id),
+ * abort → session.interrupt of the current execution generation (prompt.cancel for a
+ * turn still queued), wait → the run's end as this connection saw it, describe and
+ * get/history → session.history, list → session.list by title, compact, delete
+ * (or archive keeping the transcript) and keepOpen → session.mutate (`compress`,
+ * `delete`, `archive`) fenced on the session's revision, subscribeMessages → the
+ * attach, title → llm.oneshot. downloadArtifact is a capability gap (UNSUPPORTED).
  * `on(connection)` binds the methods to one connection (hermes-connection.js).
  */
 export const hermesSessions = (supervisor) => boundPort(sessionsOver, supervisor);
 
-// The live session id behind `key` in this connection, resuming it when needed.
-async function live(link, key) {
+// Attaches the session behind `key` to this connection; resolves its session id.
+async function attach(link, key) {
   const stored = storedIdOf(link.agentId, key);
   if (!stored) throw refused("unknown session key");
   const known = link.runs.sidOf(key);
   if (known) return known;
-  let pending = resuming.get(link.client);
-  if (!pending) resuming.set(link.client, (pending = new Map()));
+  let pending = attaching.get(link.client);
+  if (!pending) attaching.set(link.client, (pending = new Map()));
   if (!pending.has(key))
     pending.set(
       key,
       link.client
-        .call("session.resume", { session_id: stored }, { timeoutMs: resumeTimeoutMs })
-        .then((resumed) => {
-          if (typeof resumed?.session_id !== "string") throw hermesError("RPC_FAILED");
-          link.runs.bind(key, resumed.session_id);
+        .call(
+          "session.resume",
+          { session_id: stored, omit_messages: true },
+          { timeoutMs: resumeTimeoutMs },
+        )
+        .then((snapshot) => {
+          if (typeof snapshot?.session_id !== "string") throw hermesError("RPC_FAILED");
+          link.runs.bind(key, snapshot.session_id, snapshot);
           // Questions still waiting in the session are asked again here.
-          for (const frame of resumed.open_requests || []) link.client.serve(frame);
-          return resumed.session_id;
+          link.approvals.reopened(snapshot.session_id, snapshot.prompts);
+          return snapshot.session_id;
         })
         .finally(() => pending.delete(key)),
     );
   return pending.get(key);
 }
 
-// A call on the live session; a live id Hermes no longer holds is resumed once more.
-async function onLive(link, key, method, params = {}, options = {}) {
+/**
+ * A revision-fenced edit of the session behind `key` (session.mutate): attached
+ * first, so its fences are known; a refusal for an older revision or generation is
+ * repeated once with the fences it names, under the same request id.
+ */
+async function mutate(link, key, operation, payload, options = {}) {
+  const sid = await attach(link, key);
+  const requestId = `${operation}-${randomUUID()}`;
   for (let attempt = 0; ; attempt++) {
-    const sid = await live(link, key);
+    const { revision, generation } = link.runs.fences(sid);
     try {
-      return await link.client.call(method, { ...params, session_id: sid }, options);
+      const receipt = await link.client.call(
+        "session.mutate",
+        {
+          session_id: sid,
+          request_id: requestId,
+          expected_revision: revision,
+          ...(options.fenced ? { expected_generation: generation } : {}),
+          operation,
+          payload,
+        },
+        options,
+      );
+      link.runs.fenced(sid, receipt);
+      return receipt;
     } catch (error) {
-      if (attempt > 0 || !error?.answered || error.hermesCode !== 4001) throw error;
-      link.runs.unbind(key);
+      if (
+        attempt > 0 ||
+        error?.code !== "CONFLICT" ||
+        error.reason === "admission_conflict"
+      )
+        throw error;
+      link.runs.fenced(sid, error.fences);
     }
   }
-}
-
-// The stored session row of `stored`, or null.
-async function storedRow(link, stored) {
-  const { sessions = [] } = await link.client.call("session.list", {
-    limit: listLimit,
-    include_hidden: true,
-  });
-  return (
-    sessions.find((row) => row?.id === stored || row?.resolved_id === stored) || null
-  );
 }
 
 const describeRow = (link, key, row, sid) => ({
@@ -121,6 +138,13 @@ const titleOf = (text) =>
     ?.replace(/^["'“”]+|["'“”.]+$/g, "")
     .slice(0, 120) || "";
 
+// The stored transcript of `key`: readable without attaching.
+async function transcript(link, key, options) {
+  const stored = storedIdOf(link.agentId, key);
+  if (!stored) throw refused("unknown session key");
+  return link.client.call("session.history", { session_id: stored }, options);
+}
+
 function sessionsOver(current) {
   const reach = async () => reachable(current());
   return {
@@ -128,7 +152,10 @@ function sessionsOver(current) {
       const link = await reach();
       const { budgetMs = createBudgetMs, now = Date.now, sleep = delay } = options;
       if (agentId !== link.agentId) throw refused("agent not served by this process");
-      const params = { idempotency_key: idempotencyKey || randomUUID() };
+      const params = {
+        request_id: idempotencyKey || randomUUID(),
+        ...(label ? { title: String(label) } : {}),
+      };
       const deadline = now() + budgetMs;
       let created;
       for (;;) {
@@ -142,24 +169,16 @@ function sessionsOver(current) {
           await sleep(100);
         }
       }
-      const { session_id: sid, stored_session_id: stored } = created || {};
-      if (typeof sid !== "string" || typeof stored !== "string")
+      const sid = created?.session_id;
+      if (typeof sid !== "string" || !sid)
         throw Object.assign(hermesError("RPC_FAILED"), { created: true });
-      const key = sessionKeyOf(link.agentId, stored);
-      link.runs.bind(key, sid);
-      // The label is the session's title; setting it stores the session right away,
-      // so list() finds it and a restart keeps it before its first turn.
-      if (label)
-        await link.client
-          .call("session.title", { session_id: sid, title: String(label) })
-          .catch((error) => {
-            throw Object.assign(hermesError(error?.code || "RPC_FAILED"), {
-              created: true,
-            });
-          });
+      const key = sessionKeyOf(link.agentId, created.stored_session_id || sid);
+      // The create attached the session to this connection.
+      link.runs.bind(key, sid, created);
+      link.runs.titled(key, params.title);
       return { key };
     },
-    // Hermes answers a refused create before it registers any session.
+    // Hermes answers a refused create before it stores any session.
     notCreated: (error) => error?.answered === true && error.created !== true,
     async send({ key, turn, idempotencyKey, onLate }) {
       const link = await reach();
@@ -168,34 +187,55 @@ function sessionsOver(current) {
       // message names every attached file by its path (agent-attachments.js).
       const text = typeof turn?.message === "string" ? turn.message : "";
       for (let attempt = 0; ; attempt++) {
-        const sid = await live(link, key);
+        const sid = await attach(link, key);
         link.runs.submitted(sid, runId);
         try {
           const answer = await link.client.call(
             "prompt.submit",
-            { session_id: sid, text },
+            { session_id: sid, text, submission_id: runId },
             { onLate },
           );
-          if (answer?.status === "rejected") {
-            link.runs.withdrawn(sid, runId);
-            throw refused("turn rejected while busy");
-          }
+          link.runs.admitted(sid, runId, answer?.admission_id);
           return { runId, status: answer?.status ?? null };
         } catch (error) {
-          // An answered refusal submitted nothing; a timeout may still run the turn.
+          // An answered refusal admitted nothing; a timeout may still run the turn.
           if (!error?.answered) throw error;
           link.runs.withdrawn(sid, runId);
-          if (attempt > 0 || error.hermesCode !== 4001) throw error;
+          // A session this connection is no longer attached to is attached again.
+          if (attempt > 0 || error.reason !== "permission_denied") throw error;
           link.runs.unbind(key);
         }
       }
     },
-    async abort({ key }) {
+    async abort({ key, runId }) {
       const link = await reach();
       const sid = link.runs.sidOf(key);
-      // A session not live in this process runs nothing.
-      if (!sid) return { status: "not_interrupted", interrupted: false };
-      return link.client.call("session.interrupt", { session_id: sid });
+      // A session not attached here runs nothing this connection started.
+      if (!sid || !link.runs.busy(sid))
+        return { status: "not_interrupted", interrupted: false };
+      const admission = runId && link.runs.admissionOf(sid, runId);
+      if (admission && link.runs.runOf(sid) !== runId) {
+        // Still queued behind the running turn: retired before it starts.
+        await link.client.call("prompt.cancel", {
+          session_id: sid,
+          admission_id: admission,
+        });
+        return { status: "cancelled", interrupted: true };
+      }
+      const interrupt = (generation) =>
+        link.client.call("session.interrupt", {
+          session_id: sid,
+          execution_generation: generation,
+        });
+      try {
+        await interrupt(link.runs.fences(sid).generation);
+      } catch (error) {
+        if (error?.reason !== "stale_generation" || !error.fences?.execution_generation)
+          throw error;
+        link.runs.fenced(sid, error.fences);
+        await interrupt(error.fences.execution_generation);
+      }
+      return { status: "interrupted", interrupted: true };
     },
     async wait({ runId, waitMs }) {
       const link = await reach();
@@ -203,33 +243,41 @@ function sessionsOver(current) {
     },
     async describe({ key }) {
       const link = await reach();
-      const stored = storedIdOf(link.agentId, key);
-      if (!stored) return { session: null };
+      if (!storedIdOf(link.agentId, key)) return { session: null };
+      let answer;
+      try {
+        answer = await transcript(link, key);
+      } catch (error) {
+        if (missing(error)) return { session: null };
+        throw error;
+      }
       const sid = link.runs.sidOf(key);
-      const row = await storedRow(link, stored);
-      return { session: row || sid ? describeRow(link, key, row, sid) : null };
+      const row = { title: link.runs.titleOf(key), message_count: answer?.count ?? 0 };
+      return { session: describeRow(link, key, row, sid) };
     },
     async list({ agentId, label }) {
       const link = await reach();
       if (agentId !== link.agentId || !label) return [];
+      // Titles are unique: the lookup answers the session holding the label, or none.
       const { sessions = [] } = await link.client.call("session.list", {
         title: String(label),
       });
       return sessions
         .filter((row) => typeof row?.id === "string" && row.title === label)
         .map((row) => {
-          const key = sessionKeyOf(link.agentId, row.id);
+          const key = sessionKeyOf(link.agentId, row.resolved_id || row.id);
+          link.runs.titled(key, row.title);
           return describeRow(link, key, row, link.runs.sidOf(key));
         });
     },
     async get({ key, limit, timeoutMs }) {
       const link = await reach();
-      const answer = await onLive(link, key, "session.history", {}, { timeoutMs });
+      const answer = await transcript(link, key, { timeoutMs });
       return { messages: messagesOf(answer, limit) };
     },
     async history({ sessionKey, limit, offset, maxChars }) {
       const link = await reach();
-      const answer = await onLive(link, sessionKey, "session.history");
+      const answer = await transcript(link, sessionKey);
       let messages = messagesOf(answer, undefined);
       const total = messages.length;
       const skip = Number.isSafeInteger(offset) && offset > 0 ? offset : 0;
@@ -257,52 +305,44 @@ function sessionsOver(current) {
     },
     async delete({ key, deleteTranscript }) {
       const link = await reach();
-      const stored = storedIdOf(link.agentId, key);
-      if (!stored) throw refused("unknown session key");
-      // Hermes refuses to delete a session that is live in the process.
-      const sid = link.runs.sidOf(key);
-      if (sid) {
-        await link.client.call("session.close", { session_id: sid });
+      if (!storedIdOf(link.agentId, key)) throw refused("unknown session key");
+      try {
+        // Archiving keeps the transcript; Hermes refuses to delete a running session.
+        const receipt =
+          deleteTranscript === false
+            ? await mutate(link, key, "archive", { archived: true })
+            : await mutate(link, key, "delete", {}, { fenced: true });
+        if (deleteTranscript !== false) link.runs.unbind(key);
+        return receipt;
+      } catch (error) {
+        if (!missing(error)) throw error;
         link.runs.unbind(key);
-      }
-      const ignoreMissing = (error) => {
-        if (!(error?.answered && notFound.has(error.hermesCode))) throw error;
         return { deleted: null };
-      };
-      if (deleteTranscript === false)
-        return link.client
-          .call("session.archive", { session_id: stored, archived: true })
-          .catch(ignoreMissing);
-      return link.client
-        .call("session.delete", { session_id: stored })
-        .catch(ignoreMissing);
+      }
     },
-    // Hermes's own maintenance never archives an AgentPier session (its reaper only
-    // lets idle live sessions go, which a later call resumes); an archived one is
-    // restored with its history.
+    // Hermes's own maintenance never archives an AgentPier session; an archived one
+    // is restored with its history.
     async keepOpen({ key }) {
       const link = await reach();
-      const stored = storedIdOf(link.agentId, key);
-      const row = stored && (await storedRow(link, stored));
-      if (!row && !link.runs.sidOf(key)) return "missing";
-      await link.client
-        .call("session.archive", { session_id: stored, archived: false })
-        .catch((error) => {
-          if (!(error?.answered && notFound.has(error.hermesCode))) throw error;
-        });
+      try {
+        await mutate(link, key, "archive", { archived: false });
+      } catch (error) {
+        if (missing(error)) return "missing";
+        throw error;
+      }
       return "open";
     },
     // Hermes refuses no turn of an archived session, so no refused turn goes again.
     reopenRefused: async () => false,
     async compact({ key, timeoutMs }) {
       const link = await reach();
-      return onLive(link, key, "session.compress", {}, { timeoutMs });
+      return mutate(link, key, "compress", {}, { fenced: true, timeoutMs });
     },
-    // A live session's events reach every attached client: resuming it here is the
-    // subscription.
+    // A session's events reach every connection attached to it: attaching here is
+    // the subscription.
     async subscribeMessages({ key }) {
       const link = await reach();
-      await live(link, key);
+      await attach(link, key);
       return { subscribed: true };
     },
     async downloadArtifact() {

@@ -5,10 +5,8 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { alive, eventually, hermesFakeRuntime } from "../helpers/hermes-fake-runtime.js";
 import { HermesSupervisor } from "../../server/features/assistants/runtimes/hermes/hermes-supervisor.js";
-import {
-  createHermesAgentHost,
-  transportOf,
-} from "../../server/features/assistants/runtimes/hermes/hermes-host.js";
+import { createHermesAgentHost } from "../../server/features/assistants/runtimes/hermes/hermes-host.js";
+import { clientOf } from "../../server/features/assistants/runtimes/hermes/hermes-connection.js";
 import { hermesEnvironment } from "../../server/features/assistants/runtimes/hermes/hermes-environment.js";
 import { HOST_AVAILABILITY } from "../../server/features/assistants/runtimes/agent-runtime.js";
 
@@ -32,16 +30,6 @@ function supervised(t, fake, options = {}) {
   t.after(() => supervisor.stop());
   return { supervisor, host };
 }
-const request = (transport, id, method) =>
-  new Promise((resolve) => {
-    const off = transport.onMessage((frame) => {
-      if (frame.id === id) {
-        off();
-        resolve(frame);
-      }
-    });
-    transport.send({ jsonrpc: "2.0", id, method, params: {} });
-  });
 
 test("a start runs the foreground gateway and the RPC bridge in a private environment", async (t) => {
   const fake = hermesFakeRuntime(t);
@@ -88,11 +76,11 @@ test("a start runs the foreground gateway and the RPC bridge in a private enviro
   const [gateway, bridge] = supervisor.pids();
   assert.deepEqual(fake.bridges("agent-1")[0].argv.slice(0, 1), ["-I"]);
   for (const pid of [gateway, bridge]) assert.equal(alive(-pid), true);
-  const transport = transportOf(host.connection());
-  assert.equal(transport, host.transport());
-  assert.deepEqual((await request(transport, 1, "session.list")).result, {
-    method: "session.list",
-  });
+  // The connection is the start's JSON-RPC client, connected over the bridge.
+  const client = clientOf(host.connection());
+  assert.equal(client, supervisor.client);
+  assert.deepEqual(client.capabilities, { method: "client.capabilities" });
+  assert.deepEqual(await client.call("session.list", {}), { method: "session.list" });
 });
 
 test("stop ends both process groups, descendants included, and nothing stays", async (t) => {
@@ -141,7 +129,8 @@ test("a crash ends the set and restarts it with a new connection and generation"
   assert.equal(host.connected(first.connection), false);
   assert.notEqual(host.generation(), first.generation);
   assert.equal(fake.starts("agent-1").length, 2);
-  assert.ok(await request(host.transport(), 7, "gateway.capabilities"));
+  assert.ok(await supervisor.client.call("gateway.capabilities", {}));
+  assert.equal(clientOf(first.connection).closed, true);
 });
 
 test("a set that never gets ready backs off and gives up as failed", async (t) => {
@@ -295,4 +284,5 @@ test("the supervisor class reports no version while stopped", (t) => {
     diagnostic: null,
   });
   assert.equal(supervisor.transport, null);
+  assert.equal(supervisor.client, null);
 });

@@ -2,12 +2,13 @@ import { HermesRpcClient, hermesError } from "./hermes-rpc-client.js";
 import { HermesRuns } from "./hermes-run-state.js";
 import { HermesApprovalQueue } from "./hermes-approval-queue.js";
 
-// One Hermes process per agent (ADR 0006, section 4): its supervisor spawns
-// `python -m tui_gateway.entry`, wraps the child's stdio as a transport
-// (hermes-rpc-client.js childTransport) and keeps the client createHermesClient makes
-// as `supervisor.client`, replacing it with each start. The sub-ports here read
-// `supervisor.client` at each call and `supervisor.agentId`, the runtime agent id the
-// process serves, never binding to one client.
+// One Hermes process set per agent (ADR 0006, section 4): its supervisor
+// (hermes-supervisor.js) runs the messaging gateway and the RPC bridge, wraps the
+// bridge's channel as a transport (hermes-transport.js rpcTransport) and keeps the
+// client createHermesClient makes as `supervisor.client`, replacing it with each
+// start. The sub-ports here read `supervisor.client` at each call and
+// `supervisor.agentId`, the runtime agent id the gateway serves, never binding to
+// one client.
 
 const states = new WeakMap();
 

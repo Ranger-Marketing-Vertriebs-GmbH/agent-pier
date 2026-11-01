@@ -542,7 +542,8 @@ built into the pinned uv release. uv runs with `UV_NO_CONFIG`, a private `HOME` 
 inside AgentPier's folder; the only inherited variables are the proxy settings. No
 Python of the host, no `~/.hermes`, `~/.local/bin` or global uv configuration is used.
 An identity check runs the installed Python once (release date, CPython version and
-whether `tui_gateway` imports) and `hermes --version`, with a scratch `HERMES_HOME`.
+whether the gateway discovery, gateway client and `websockets` modules the RPC bridge
+needs import) and `hermes --version`, with a scratch `HERMES_HOME`.
 A `receipt.json` written last marks the installation complete; a folder without one
 is a crashed attempt and is replaced. The uv cache is removed afterwards. The
 installation needs about 540 MB (source 290 MB, environment 145 MB, CPython 75 MB,
@@ -565,7 +566,13 @@ candidate or backup names.
 (`runtimes/hermes/hermes-supervisor.js`, host sub-port in `hermes-host.js`): the
 messaging gateway `hermes gateway run --external-supervisor`, which owns the agent's
 `HERMES_HOME`, and AgentPier's RPC bridge, which attaches to that gateway and carries
-its JSON-RPC over stdin and stdout (ADR 0006, decision 4, "host as built"). Both get
+its JSON-RPC over stdin and stdout (ADR 0006, decision 4, "host as built"). Before
+each start the Hermes runtime (`runtimes/hermes/hermes-runtime.js`) writes the
+agent's compiled home into its `HERMES_HOME` ([Hermes runtime](hermes-runtime.md));
+a home that cannot be written ends the start as `failed` before any process runs.
+Each start connects a new JSON-RPC client over the bridge, and the host is ready once
+that client is connected; a stop or crash closes it, so a restart is a new connection
+and views bound to the old one refuse. Both processes get
 an environment built from nothing: `HOME`, `HERMES_HOME`, `TMPDIR` and the XDG
 folders inside `<data>/assistants/hermes/{home,state,tmp}/<agent>/`, `PATH` with
 Hermes's environment, the folders AgentPier provides and the system folders, UTF-8,
@@ -592,7 +599,10 @@ byte. Review the diff, then run the Hermes contracts.
 **Native Hermes contracts.** `node scripts/provision-hermes-contracts.mjs --data-dir
 <absolute dir> [--env-file <file>]` installs the pinned Hermes like `--with-hermes` and
 prints `AGENTPIER_HERMES_CONTRACT_RUNTIME=<installation>` (its `venv/bin/python`
-imports `tui_gateway`, `venv/bin/hermes` runs Hermes). The `Hermes contracts` job of
+runs the RPC bridge, `venv/bin/hermes` runs Hermes and its messaging gateway). Every
+contract runs Hermes as AgentPier does: through the Hermes runtime, its supervised
+gateway and the RPC bridge, never a gateway or `tui_gateway.entry` of its own. Node
+reads `--env-file` even after the script name, so the file must exist. The `Hermes contracts` job of
 the `Assistant runtime` workflow runs every
 `tests/integration/*hermes*-contract.test.js` with that variable set, on Linux x64 in
 pull requests and also on macOS arm64 and Linux arm64 otherwise; a skipped contract

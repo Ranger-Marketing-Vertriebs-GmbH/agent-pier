@@ -9,8 +9,8 @@ import { hermesEvents } from "../../server/features/assistants/runtimes/hermes/h
 import { hermesApprovals } from "../../server/features/assistants/runtimes/hermes/hermes-approvals.js";
 
 /**
- * An in-memory duplex in place of a Hermes process's stdio: `transport` is what the
- * client gets (write(line), "line", "close", close()), `peer` the process side
+ * An in-memory duplex in place of the RPC bridge's channel: `transport` is what the
+ * client gets (write(line), "line", "close", close()), `peer` the gateway side
  * (`frames` it received, send(frame), close()). Lines travel on the next microtask,
  * as a pipe never delivers synchronously.
  */
@@ -46,152 +46,204 @@ export function memoryTransport() {
   return { transport, peer };
 }
 
-/** What a fake Hermes keeps across its restarts: stored sessions. */
-export const hermesStore = () => ({ rows: new Map(), created: 0 });
+/** What a fake Hermes keeps across its restarts: stored sessions and admissions. */
+export const hermesStore = () => ({ rows: new Map(), created: 0, admissions: new Map() });
 
-const error = (id, code, message) => ({ jsonrpc: "2.0", id, error: { code, message } });
+// A refusal as the gateway's session store answers it: code 4001, the reason as
+// message and in `data` with the fences it names.
+const refusal = (id, reason, data = {}) => ({
+  jsonrpc: "2.0",
+  id,
+  error: { code: 4001, message: reason, data: { reason, ...data } },
+});
 
 /**
- * A Hermes TUI gateway over `peer` that answers like the real one in the frames the
- * adapter uses (docs/research/hermes-runtime-spike.md): gateway.ready on start, live
- * sessions per process over `store`'s stored ones, a turn as message.start, two
- * message.delta and message.complete (status "error" with an error surface of code
- * `runFailure` when given), and an `approval` request per entry of `approvals` once
- * the client declared server requests.
+ * The session store of a Hermes messaging gateway over `peer`, in the frames the
+ * adapter uses (docs/hermes-runtime.md, "Gateway protocol"): gateway.ready on start,
+ * sessions stored in `store` (durable ids, unique titles, idempotent create by
+ * `request_id`) that a connection attaches to (`session.resume`) before it submits,
+ * a turn as message.start, two message.delta and message.complete carrying its
+ * `admission_id` and `execution_generation` (status "error" with an error surface of
+ * code `runFailure` when given), revision-fenced `session.mutate`, and an
+ * `approval.request` event per entry of `approvals` once the client declared server
+ * requests.
  */
 export function fakeHermesGateway(
   peer,
   store,
   { runFailure = null, approvals = [] } = {},
 ) {
-  const live = new Map();
-  const keys = new Map();
+  const attached = new Set();
   let seq = 0;
-  const event = (type, sid, payload = {}) =>
+  const event = (type, sid, payload = {}, extra = {}) =>
     peer.send({
       jsonrpc: "2.0",
       method: "event",
-      params: { type, session_id: sid, payload, seq: ++seq },
+      params: { type, session_id: sid, payload, seq: ++seq, ...extra },
     });
   const ok = (id, result) => peer.send({ jsonrpc: "2.0", id, result });
-  const open = (sid, stored) => {
-    live.set(sid, stored);
-    keys.set(stored, sid);
-  };
-  const turn = async (sid, text) => {
-    const stored = live.get(sid);
-    const row = store.rows.get(stored);
+  const snapshot = (row) => ({
+    session_id: row.id,
+    stored_session_id: row.id,
+    message_count: row.messages.length,
+    revision: row.revision,
+    execution_generation: row.generation,
+    subscription_id: `sub-${row.id}`,
+    prompts: [],
+  });
+  const turn = async (row, text, admission) => {
+    const sid = row.id;
     const pause = () => new Promise((resolve) => setImmediate(resolve));
+    row.generation++;
+    const frame = { admission_id: admission, execution_generation: row.generation };
     await pause();
-    event("message.start", sid, { turn_id: `t${seq}` });
+    event("message.start", sid, {}, frame);
     for (const part of ["ECHO: ", text]) {
       await pause();
-      event("message.delta", sid, { text: part });
+      event("message.delta", sid, { text: part }, frame);
     }
     await pause();
     if (runFailure)
-      return event("message.complete", sid, {
-        text: "",
-        status: "error",
-        error: "failed",
-        error_surface: { layer: "provider", code: runFailure, retryable: true },
-      });
-    row?.messages.push({
+      return event(
+        "message.complete",
+        sid,
+        {
+          text: "",
+          status: "error",
+          error: "failed",
+          error_surface: { layer: "provider", code: runFailure, retryable: true },
+        },
+        frame,
+      );
+    row.messages.push({
       role: "assistant",
       text: `ECHO: ${text}`,
       row_id: row.messages.length + 1,
     });
-    event("message.complete", sid, { text: `ECHO: ${text}`, status: "complete" });
+    event("message.complete", sid, { text: `ECHO: ${text}`, status: "complete" }, frame);
+  };
+  const stored = (id, sid) => {
+    const row = store.rows.get(sid);
+    if (!row) peer.send(refusal(id, "not_found"));
+    return row;
   };
   const methods = {
     "client.capabilities": (id) => {
       for (const item of approvals)
-        peer.send({
-          jsonrpc: "2.0",
-          id: item.id,
-          method: "approval",
-          params: {
-            session_id: "",
-            command: item.request?.command ?? "",
-            description: "dangerous command",
-            pattern_keys: ["dangerous"],
-            allow_session: true,
-            allow_permanent: true,
-            request_id: `r-${item.id}`,
-            timeout_s: 300,
-            choices: ["once", "session", "always", "deny"],
-          },
+        event("approval.request", "", {
+          kind: "approval",
+          prompt_id: item.id,
+          execution_generation: 0,
+          command: item.request?.command ?? "",
+          description: "dangerous command",
+          choices: ["once", "deny", "session", "always"],
+          timeout_s: 300,
         });
       ok(id, { server_requests: ["approval", "clarify"] });
     },
-    "session.create": (id) => {
-      const n = ++store.created;
-      const sid = `live${n}-${Math.random().toString(16).slice(2, 6)}`;
-      const stored = `20261101_00000${n}_abc`;
-      open(sid, stored);
+    "session.create": (id, { request_id: request, title }) => {
+      let row = [...store.rows.values()].find(
+        (r) => r.request === request || (title && r.title === title),
+      );
+      if (!row) {
+        const n = ++store.created;
+        row = {
+          id: `local-${n}abc`,
+          request,
+          title,
+          messages: [],
+          archived: false,
+          revision: 0,
+          generation: 0,
+        };
+        store.rows.set(row.id, row);
+      }
+      attached.add(row.id);
+      ok(id, snapshot(row));
+    },
+    "session.list": (id, { title }) => {
+      const row = [...store.rows.values()].find((r) => r.title === title);
       ok(id, {
-        session_id: sid,
-        stored_session_id: stored,
-        message_count: 0,
-        messages: [],
+        scope: "stored",
+        sessions: row
+          ? [
+              {
+                session_id: row.id,
+                id: row.id,
+                title,
+                message_count: row.messages.length,
+              },
+            ]
+          : [],
       });
     },
-    "session.title": (id, { session_id: sid, title }) => {
-      const stored = live.get(sid);
-      if (!stored) return peer.send(error(id, 4001, "session not found"));
-      const row = store.rows.get(stored) || { id: stored, messages: [], archived: false };
-      store.rows.set(stored, Object.assign(row, { title }));
-      ok(id, { pending: false, title });
-    },
-    "session.list": (id, { title }) =>
-      ok(id, {
-        sessions: [...store.rows.values()]
-          .filter((row) => !row.archived && (title === undefined || row.title === title))
-          .map((row) => ({
-            id: row.id,
-            title: row.title,
-            message_count: row.messages.length,
-          })),
-      }),
-    "session.resume": (id, { session_id: stored }) => {
-      if (!store.rows.has(stored)) return peer.send(error(id, 4007, "session not found"));
-      if (!keys.has(stored)) open(`resumed-${stored}-${seq}`, stored);
-      ok(id, { session_id: keys.get(stored), resumed: stored, open_requests: [] });
+    "session.resume": (id, { session_id: sid }) => {
+      const row = stored(id, sid);
+      if (!row) return;
+      attached.add(sid);
+      ok(id, snapshot(row));
     },
     "session.history": (id, { session_id: sid }) => {
-      if (!live.has(sid)) return peer.send(error(id, 4001, "session not found"));
-      const messages = store.rows.get(live.get(sid))?.messages || [];
-      ok(id, { count: messages.length, messages });
+      const row = stored(id, sid);
+      if (row) ok(id, { count: row.messages.length, messages: row.messages });
     },
-    "prompt.submit": (id, { session_id: sid, text }) => {
-      if (!live.has(sid)) return peer.send(error(id, 4001, "session not found"));
-      const row = store.rows.get(live.get(sid));
-      row?.messages.push({ role: "user", text, row_id: row.messages.length + 1 });
-      ok(id, { status: "streaming" });
-      turn(sid, text);
+    "prompt.submit": (id, { session_id: sid, text, submission_id: submission }) => {
+      if (!attached.has(sid)) return peer.send(refusal(id, "permission_denied"));
+      if (!submission) return peer.send(refusal(id, "invalid_params"));
+      const row = stored(id, sid);
+      if (!row) return;
+      const known = store.admissions.get(submission);
+      if (known) return ok(id, { admission_id: known, status: "terminal" });
+      const admission = `adm-${store.admissions.size + 1}`;
+      store.admissions.set(submission, admission);
+      row.messages.push({ role: "user", text, row_id: row.messages.length + 1 });
+      ok(id, { admission_id: admission, status: "queued" });
+      turn(row, text, admission);
     },
-    "session.interrupt": (id) => ok(id, { status: "interrupted" }),
-    "session.compress": (id, { session_id: sid }) =>
-      live.has(sid)
-        ? ok(id, { status: "compressed" })
-        : peer.send(error(id, 4001, "session not found")),
-    "session.close": (id, { session_id: sid }) => {
-      keys.delete(live.get(sid));
-      live.delete(sid);
-      ok(id, { closed: true });
+    "session.interrupt": (id, { session_id: sid, execution_generation: generation }) => {
+      const row = stored(id, sid);
+      if (!row) return;
+      if (generation !== row.generation)
+        return peer.send(
+          refusal(id, "stale_generation", { execution_generation: row.generation }),
+        );
+      ok(id, { execution_state: "idle" });
     },
-    "session.delete": (id, { session_id: stored }) => {
-      if (keys.has(stored))
-        return peer.send(error(id, 4023, "cannot delete an active session"));
-      if (!store.rows.delete(stored))
-        return peer.send(error(id, 4007, "session not found"));
-      ok(id, { deleted: stored });
+    "session.mutate": (id, params) => {
+      const row = stored(id, params.session_id);
+      if (!row) return;
+      if (params.expected_revision !== row.revision)
+        return peer.send(
+          refusal(id, "revision_conflict", {
+            revision: row.revision,
+            execution_generation: row.generation,
+          }),
+        );
+      const receipt = (extra) => {
+        row.revision++;
+        ok(id, {
+          session_id: row.id,
+          operation: params.operation,
+          revision: row.revision,
+          execution_generation: row.generation,
+          ...extra,
+        });
+      };
+      if (params.operation === "archive") {
+        row.archived = params.payload.archived;
+        return receipt({ archived: row.archived });
+      }
+      if (params.operation === "compress") return receipt({ status: "compressed" });
+      if (params.operation === "delete") {
+        store.rows.delete(row.id);
+        attached.delete(row.id);
+        return receipt({ deleted_ids: [row.id] });
+      }
+      peer.send(refusal(id, "invalid_params"));
     },
-    "session.archive": (id, { session_id: stored, archived }) => {
-      const row = store.rows.get(stored);
-      if (!row) return peer.send(error(id, 4001, "session not found"));
-      row.archived = archived !== false;
-      ok(id, { archived: row.archived, session_key: stored });
+    "approval.respond": (id, { session_id: sid, prompt_id: prompt }) => {
+      ok(id, { status: "resolved", prompt_id: prompt });
+      event("approval.settled", sid, { prompt_id: prompt, execution_generation: 0 });
     },
     "llm.oneshot": (id, { input }) =>
       ok(id, {
@@ -202,7 +254,11 @@ export function fakeHermesGateway(
     if (typeof frame.method !== "string") return;
     const method = methods[frame.method];
     if (!method)
-      return peer.send(error(frame.id, -32601, `unknown method ${frame.method}`));
+      return peer.send({
+        jsonrpc: "2.0",
+        id: frame.id,
+        error: { code: -32601, message: `unknown method: ${frame.method}` },
+      });
     method(frame.id, frame.params || {});
   });
   peer.send({
@@ -210,7 +266,7 @@ export function fakeHermesGateway(
     method: "event",
     params: { type: "gateway.ready", payload: {} },
   });
-  return { live };
+  return { attached };
 }
 
 /**

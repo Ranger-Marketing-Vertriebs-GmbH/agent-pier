@@ -1,3 +1,4 @@
+import { EventEmitter } from "node:events";
 import { createInterface } from "node:readline";
 
 const closedError = () =>
@@ -79,4 +80,47 @@ export function stdioTransport(child) {
       if (!closed) child.stdin.end();
     },
   };
+}
+
+/**
+ * The transport the JSON-RPC client takes (hermes-rpc-client.js HermesRpcClient) over
+ * a channel of stdioTransport: an EventEmitter with write(line), "line" (each parsed
+ * frame), "close" (once) and close(). The supervisor builds a client only once the
+ * channel reported `gateway.ready`, so that frame is handed to the client again
+ * (once): the client connects on it as on a fresh channel.
+ */
+export function rpcTransport(channel) {
+  const transport = new EventEmitter();
+  let announced = false;
+  let ended = false;
+  const end = () => {
+    if (ended) return;
+    ended = true;
+    offMessage();
+    transport.emit("close");
+  };
+  const deliver = (frame) => {
+    const ready = frame?.method === "event" && frame.params?.type === "gateway.ready";
+    if (ready && announced) return;
+    if (ready) announced = true;
+    transport.emit("line", frame);
+  };
+  const offMessage = channel.onMessage(deliver);
+  const offClose = channel.onClose(end);
+  channel.ready.then((frame) => !channel.closed && deliver(frame));
+  transport.write = (line) => {
+    // A full pipe buffers the frame; only a closed channel refuses it.
+    try {
+      channel.send(line);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  transport.close = () => {
+    offClose();
+    channel.close();
+    end();
+  };
+  return transport;
 }

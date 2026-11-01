@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { hermesCompiler } from "../../server/features/assistants/runtimes/hermes/hermes-compiler.js";
+import { hermesExecutables } from "../../server/features/assistants/runtimes/hermes/hermes-paths.js";
 import {
   endpointKeyEnv,
   openRouterKeyEnv,
@@ -16,10 +17,11 @@ import {
 } from "../helpers/hermes-golden-scenarios.js";
 import { contractTimeout } from "../helpers/contract-timeout.js";
 
-// The compiled homes against a pinned Hermes (docs/hermes-runtime.md): `hermes
-// config check` accepts each, and Hermes reads them as AgentPier means them. Set
-// AGENTPIER_HERMES_CONTRACT_RUNTIME to a Hermes source folder whose bin/python (or
-// .venv/bin/python) and bin/hermes run it. Every process gets a private HOME,
+// The compiled homes against the pinned Hermes (docs/hermes-runtime.md): `hermes
+// config check` accepts each, and Hermes reads them as AgentPier means them.
+// AGENTPIER_HERMES_CONTRACT_RUNTIME names an installation that
+// scripts/provision-hermes-contracts.mjs made from the pinned manifest (its
+// venv/bin/python and venv/bin/hermes, hermesExecutables). Every process gets a private HOME,
 // HERMES_HOME and TMPDIR inside the test folder and a cleared environment, so the
 // developer's own ~/.hermes is never read or written.
 const runtime = process.env.AGENTPIER_HERMES_CONTRACT_RUNTIME;
@@ -28,11 +30,7 @@ const options = {
   timeout: contractTimeout(300000),
 };
 const run = promisify(execFile);
-const bin = (name) =>
-  [
-    path.join(runtime || "", "bin", name),
-    path.join(runtime || "", ".venv/bin", name),
-  ].find((file) => fs.existsSync(file));
+const bin = (name) => hermesExecutables(runtime || "")[name];
 
 // What Hermes makes of a home: approval mode, the CLI's toolsets, the loaded guard
 // plugin and its directive for a command, the model route and whether its key

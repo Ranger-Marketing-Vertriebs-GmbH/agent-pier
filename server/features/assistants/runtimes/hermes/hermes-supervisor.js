@@ -8,7 +8,8 @@ import { readJSON } from "../../../../lib/storage.js";
 import { hermesAgentPaths, hermesPaths } from "./hermes-paths.js";
 import { hermesEnvironment } from "./hermes-environment.js";
 import { selectedHermesRuntime } from "./hermes-install.js";
-import { stdioTransport } from "./hermes-transport.js";
+import { rpcTransport, stdioTransport } from "./hermes-transport.js";
+import { createHermesClient } from "./hermes-connection.js";
 
 export const hermesBridgeFile = fileURLToPath(
   new URL("./hermes-rpc-bridge.py", import.meta.url),
@@ -55,6 +56,13 @@ const commandOf = (pid) => {
  *    tui_gateway.entry` on a home a gateway owns, so the bridge attaches to the
  *    gateway's TUI JSON-RPC listener with a session ticket from the owner-only
  *    control socket and relays it over its stdin and stdout, the `transport`.
+ *    Each start builds a new JSON-RPC client over it (hermes-connection.js
+ *    createHermesClient), `client`, and becomes ready once that client is
+ *    connected; a stop or crash closes it, so a restart is a new connection.
+ *
+ * `prepare(agentPaths)` runs before each start, once the installation is known and
+ * before any process of the set: the runtime (hermes-runtime.js) writes the agent's
+ * compiled HERMES_HOME there.
  *
  * Hermes starts a gateway of its own only when a client finds no owner (`hermes cron
  * run`, `hermes chat`, …, through ensure_gateway_runtime with `--idle-exit`, on macOS
@@ -80,6 +88,8 @@ export class HermesSupervisor extends EventEmitter {
     pathPrepend = [],
     extra = {},
     bridge = hermesBridgeFile,
+    prepare = async () => {},
+    callTimeoutMs = 30000,
     readyTimeoutMs = 120000,
     stopTimeoutMs = 10000,
     backoff = { initialMs: 1000, maxMs: 30000 },
@@ -91,6 +101,7 @@ export class HermesSupervisor extends EventEmitter {
     super();
     Object.assign(this, { dataDir, agentId, runtime, spawn, kill, command, environment });
     Object.assign(this, { pathPrepend, extra, bridge, readyTimeoutMs, stopTimeoutMs });
+    Object.assign(this, { prepare, callTimeoutMs });
     Object.assign(this, { backoff, stableMs, maxFailures, timers, now });
     this.availability = "disabled";
     this.diagnostic = null;
@@ -119,6 +130,10 @@ export class HermesSupervisor extends EventEmitter {
   /** The channel of the running set (hermes-transport.js), or null. */
   get transport() {
     return this.current?.ready ? this.current.transport : null;
+  }
+  /** The JSON-RPC client of the running set (hermes-rpc-client.js), or null. */
+  get client() {
+    return this.current?.ready ? this.current.client : null;
   }
   /** The pids of the running set's process groups. */
   pids() {
@@ -155,6 +170,13 @@ export class HermesSupervisor extends EventEmitter {
     this.version = record.version;
     this.set("starting");
     const agent = this.agentPaths();
+    try {
+      await this.prepare(agent, record);
+    } catch (error) {
+      this.set("failed", stableCode(error, "HERMES_PREPARE_FAILED"));
+      throw error;
+    }
+    if (!this.wanted) return this.stopped();
     await this.sweep(agent);
     if (!this.wanted) return this.stopped();
     const env = hermesEnvironment({
@@ -169,7 +191,7 @@ export class HermesSupervisor extends EventEmitter {
     this.generationId = set.generation;
     let timeout;
     const ready = await Promise.race([
-      set.transport.ready.then(() => true),
+      set.transport.ready.then(() => this.connect(set)),
       set.ended.then(() => false),
       new Promise(
         (resolve) =>
@@ -194,6 +216,22 @@ export class HermesSupervisor extends EventEmitter {
     // A stop that ended the set meanwhile is no failure of this start.
     if (!this.wanted) return this.status();
     throw failure(this.diagnostic || "HERMES_START_FAILED");
+  }
+  /**
+   * The set's client once the bridge reported gateway.ready: true when it connected
+   * (Hermes knows it answers approvals), false when the channel closed first.
+   */
+  async connect(set) {
+    set.client = createHermesClient(rpcTransport(set.transport), {
+      agentId: this.agentId,
+      timeoutMs: this.callTimeoutMs,
+    });
+    try {
+      await set.client.connect({ timeoutMs: this.readyTimeoutMs });
+      return true;
+    } catch {
+      return false;
+    }
   }
   spawnSet(record, agent, env) {
     const log = (name) => fs.openSync(path.join(agent.logs, name), "a", 0o600);
@@ -271,6 +309,7 @@ export class HermesSupervisor extends EventEmitter {
   }
   /** Ends both process groups: stdin closes, TERM, and KILL after stopTimeoutMs. */
   async terminate(set) {
+    set.client?.close();
     set.transport.close();
     const groups = [set.gateway.pid, set.bridge.pid].filter(Boolean);
     for (const pid of groups) signal(-pid, "SIGTERM", this.kill);

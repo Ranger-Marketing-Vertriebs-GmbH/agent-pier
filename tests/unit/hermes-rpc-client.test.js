@@ -5,9 +5,12 @@ import { PassThrough } from "node:stream";
 import { setImmediate as tick } from "node:timers/promises";
 import {
   HermesRpcClient,
-  childTransport,
   methodNotFound,
 } from "../../server/features/assistants/runtimes/hermes/hermes-rpc-client.js";
+import {
+  rpcTransport,
+  stdioTransport,
+} from "../../server/features/assistants/runtimes/hermes/hermes-transport.js";
 import { memoryTransport } from "../helpers/hermes-fake-gateway.js";
 
 const ready = {
@@ -86,7 +89,23 @@ test("calls resolve with Hermes's result and reject answered errors with its cod
       peer.send({
         jsonrpc: "2.0",
         id: frame.id,
-        error: { code: 4001, message: "session not found" },
+        error: { code: 4001, message: "not_found", data: { reason: "not_found" } },
+      });
+    if (frame.method === "session.mutate")
+      peer.send({
+        jsonrpc: "2.0",
+        id: frame.id,
+        error: {
+          code: 4001,
+          message: "revision_conflict",
+          data: { reason: "revision_conflict", revision: 4, execution_generation: 2 },
+        },
+      });
+    if (frame.method === "session.title")
+      peer.send({
+        jsonrpc: "2.0",
+        id: frame.id,
+        error: { code: -32601, message: "unknown method: session.title" },
       });
     if (frame.method === "ping")
       peer.send({ jsonrpc: "2.0", id: frame.id, result: { pong: true } });
@@ -99,9 +118,20 @@ test("calls resolve with Hermes's result and reject answered errors with its cod
     assert.equal(error.code, "NOT_FOUND");
     assert.equal(error.hermesCode, 4001);
     assert.equal(error.status, 503);
-    assert.equal(error.remoteMessage, "session not found");
+    assert.equal(error.reason, "not_found");
+    assert.equal(error.remoteMessage, "not_found");
     return true;
   });
+  // A fenced refusal names the session's current fences.
+  await assert.rejects(client.call("session.mutate", {}), (error) => {
+    assert.equal(error.code, "CONFLICT");
+    assert.deepEqual(error.fences, { revision: 4, execution_generation: 2 });
+    return true;
+  });
+  await assert.rejects(
+    client.call("session.title", {}),
+    (e) => e.code === "UNKNOWN_METHOD" && e.reason === null,
+  );
   await assert.rejects(client.call("odd"), (e) => e.code === "RPC_FAILED" && e.answered);
   // Ids are integers that never repeat on a connection.
   const ids = peer.frames.map((frame) => frame.id);
@@ -206,26 +236,65 @@ test("events reach subscribers; lines that are no frames are ignored", async () 
   assert.deepEqual(seen, ["message.delta"]);
 });
 
-test("childTransport frames a child's stdio by lines and closes once", async () => {
+// A child process with piped stdio, as the supervisor spawns the RPC bridge.
+function fakeBridge() {
   const child = new EventEmitter();
   child.stdout = new PassThrough();
   child.stdin = new PassThrough();
-  const written = [];
-  child.stdin.on("data", (chunk) => written.push(String(chunk)));
-  const transport = childTransport(child);
-  const lines = [];
-  let closes = 0;
-  transport.on("line", (line) => lines.push(line));
-  transport.on("close", () => closes++);
-  child.stdout.write('{"a":1}\n{"b"');
-  child.stdout.write(":2}\n");
-  assert.equal(transport.write('{"c":3}'), true);
+  child.written = [];
+  child.stdin.on("data", (chunk) => child.written.push(String(chunk)));
+  return child;
+}
+
+test("the bridge channel frames its stdio and hands the client gateway.ready once", async () => {
+  const child = fakeBridge();
+  const channel = stdioTransport(child);
+  child.stdout.write(
+    '{"jsonrpc":"2.0","method":"event","params":{"type":"gateway.ready"}}\n',
+  );
+  child.stdout.write("not a frame\n");
+  assert.equal((await channel.ready).params.type, "gateway.ready");
+  // The supervisor connects a client only once the channel is ready.
+  const transport = rpcTransport(channel);
+  const client = new HermesRpcClient(transport, { timeoutMs: 1000 });
+  const connecting = client.connect({ timeoutMs: 1000 });
   await settle();
-  assert.deepEqual(lines, ['{"a":1}', '{"b":2}']);
-  assert.deepEqual(written, ['{"c":3}\n']);
+  const capabilities = JSON.parse(child.written.at(-1));
+  assert.equal(capabilities.method, "client.capabilities");
+  child.stdout.write(
+    `${JSON.stringify({ jsonrpc: "2.0", id: capabilities.id, result: {} })}\n`,
+  );
+  await connecting;
+  const seen = [];
+  client.subscribe((params) => seen.push(params.type));
+  child.stdout.write(
+    '{"jsonrpc":"2.0","method":"event","params":{"type":"gateway.ready"}}\n',
+  );
+  child.stdout.write(
+    '{"jsonrpc":"2.0","method":"event","params":{"type":"message.delta"}}\n',
+  );
+  await settle();
+  assert.deepEqual(seen, ["message.delta"]);
+  // The bridge's exit closes the client: pending calls reject, later ones are refused.
+  const pending = client.call("session.list", {});
   child.emit("exit", 0);
-  child.stdout.end();
-  await settle();
-  assert.equal(closes, 1);
+  await assert.rejects(pending, (e) => e.code === "CLOSED" && e.status === 503);
+  assert.equal(client.closed, true);
   assert.equal(transport.write("{}"), false);
+});
+
+test("closing the client ends the bridge's stdin once", async () => {
+  const child = fakeBridge();
+  const channel = stdioTransport(child);
+  const transport = rpcTransport(channel);
+  let closes = 0;
+  transport.on("close", () => closes++);
+  let ended = false;
+  child.stdin.on("finish", () => (ended = true));
+  transport.close();
+  transport.close();
+  child.emit("exit", 0);
+  await settle();
+  assert.equal(ended, true);
+  assert.equal(closes, 1);
 });

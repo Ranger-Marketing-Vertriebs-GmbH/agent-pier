@@ -1,39 +1,39 @@
-import { execFileSync, spawn } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { childTransport } from "../../server/features/assistants/runtimes/hermes/hermes-rpc-client.js";
-import { createHermesClient } from "../../server/features/assistants/runtimes/hermes/hermes-connection.js";
+import { desiredAgent } from "../../server/features/assistants/agent-desired-state.js";
+import { createHermesRuntime } from "../../server/features/assistants/runtimes/hermes/hermes-runtime.js";
+import { hermesExecutables } from "../../server/features/assistants/runtimes/hermes/hermes-paths.js";
 import { guardProcess } from "./process-guard.js";
 
-// The native Hermes contracts (tests/integration/hermes-*-contract.test.js) run the
-// real TUI gateway, `python -m tui_gateway.entry`, of the Hermes checkout or install
-// AGENTPIER_HERMES_CONTRACT_RUNTIME names: a directory with bin/python that can
-// `import tui_gateway` (a uv venv of hermes-agent). Each start gets a private HOME,
-// HERMES_HOME, TMPDIR and work directory in one disposable folder, an environment
-// without the caller's variables, and a config.yaml pointing at the in-repo fake
-// model (hermes-fake-model.js); the real ~/.hermes is never read or written.
+// The native Hermes contracts (tests/integration/*hermes*-contract.test.js) run the
+// installation AGENTPIER_HERMES_CONTRACT_RUNTIME names (made by
+// scripts/provision-hermes-contracts.mjs from the pinned manifest) the way AgentPier
+// runs it: the Hermes runtime (hermes-runtime.js) compiles the agent's home, and its
+// supervisor runs the messaging gateway and the RPC bridge (hermes-supervisor.js)
+// inside one disposable data directory: private HOME, HERMES_HOME, TMPDIR and work
+// directory, an environment built from nothing, and the in-repo fake model
+// (hermes-fake-model.js) as the agent's model connection. The real ~/.hermes is never
+// read or written.
 
 export const hermesRuntime = process.env.AGENTPIER_HERMES_CONTRACT_RUNTIME || "";
 export const hermesSkip = !hermesRuntime && "set AGENTPIER_HERMES_CONTRACT_RUNTIME";
 
-/** A disposable folder for one contract: home, Hermes home, temp and work dirs. */
+/** The install record of the contract installation, as hermes-install.js writes it. */
+export function contractRecord(directory = hermesRuntime) {
+  const { python, hermes } = hermesExecutables(directory);
+  return { version: "contract", directory, pythonPath: python, hermesPath: hermes };
+}
+
+/** A disposable data directory for one contract (`root`); `stops` run before it goes. */
 export function hermesSandbox(t) {
   const root = fs.realpathSync(
     fs.mkdtempSync(path.join(os.tmpdir(), "hermes-contract-")),
   );
-  const dirs = {
-    root,
-    home: path.join(root, "home"),
-    hermesHome: path.join(root, "home", ".hermes"),
-    tmp: path.join(root, "tmp"),
-    work: path.join(root, "work"),
-  };
-  for (const dir of [dirs.hermesHome, dirs.tmp, dirs.work])
-    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  const dirs = { root, stops: [] };
   // Every process started here stops before the folder goes, also after a failure:
   // a gateway still shutting down would write into it again.
-  dirs.stops = [];
   t.after(async () => {
     await Promise.allSettled(dirs.stops.map((stop) => stop()));
     fs.rmSync(root, { recursive: true, force: true });
@@ -41,90 +41,69 @@ export function hermesSandbox(t) {
   return dirs;
 }
 
-/** The minimal config.yaml: the fake model, manual approvals, no onboarding prompt. */
-export function writeHermesConfig({ hermesHome, work }, { baseUrl }) {
-  const config = [
-    "model:",
-    "  provider: custom",
-    "  default: fake-1",
-    `  base_url: ${baseUrl}`,
-    "  api_key: contract-key",
-    "  api_mode: chat_completions",
-    "terminal:",
-    "  backend: local",
-    `  cwd: ${work}`,
-    "approvals:",
-    "  mode: manual",
-    "compression:",
-    "  enabled: false",
-    "onboarding:",
-    '  profile_build: "off"',
-    "",
-  ].join("\n");
-  fs.writeFileSync(path.join(hermesHome, "config.yaml"), config, { mode: 0o600 });
+/**
+ * The agent AgentPier would run, as its desired state reads it: shell on approval
+ * (Hermes asks before dangerous commands), memory, and the fake model at `baseUrl` as
+ * its model connection, with its key.
+ */
+export function contractAgent(agentId, { baseUrl }) {
+  const profile = {
+    id: agentId,
+    name: `Agent ${agentId}`,
+    runtimeAgentId: agentId,
+    revision: 1,
+    shell: "approval",
+    capabilities: { memory: true },
+  };
+  return desiredAgent(profile, {
+    instructions: `# ${agentId}\n\nYou help the owner.\n`,
+    model: {
+      ref: "ap-contract/fake-1",
+      providerId: "ap-contract",
+      provider: {
+        baseUrl,
+        api: "openai-completions",
+        apiKey: "contract-key",
+        models: [
+          { id: "fake-1", name: "Fake 1", contextWindow: 128000, maxTokens: 4096 },
+        ],
+      },
+    },
+  });
 }
 
-const env = ({ home, hermesHome, tmp }) => ({
-  PATH: "/usr/bin:/bin:/usr/sbin:/sbin",
-  HOME: home,
-  HERMES_HOME: hermesHome,
-  TMPDIR: tmp,
-  SHELL: "/bin/sh",
-  LANG: "en_US.UTF-8",
-  PYTHONUNBUFFERED: "1",
-});
-
 /**
- * Spawns one TUI gateway in `dirs`, leading its own process group, and connects a
- * client to it; resolves `{ child, client, stop() }` once the gateway is ready.
- * stop() closes the client and signals the whole group: Hermes starts helpers of its
- * own (a `python3 -m pip --version` probe was seen) that outlive a SIGTERM of the
- * gateway alone. SIGTERM first, SIGKILL after `graceMs`, and SIGKILL once more for
- * anything left in the group; t.after stops it whatever happens.
+ * Starts the agent `agentId` in `dirs` through the Hermes runtime with `model` (the
+ * fake model) and resolves `{ supervisor, runtime, sessions, events, approvals,
+ * agent, stop() }` once its host is ready. Its home starts with compression off, so
+ * no turn calls the model a second time; the compiled home is merged over it. The
+ * process groups are guarded, so they end also when the test process exits early.
  */
-export async function startHermes(
-  t,
-  dirs,
-  { agentId = "hermes-agent", graceMs = 5000 } = {},
-) {
-  const child = spawn(
-    path.join(hermesRuntime, "bin", "python"),
-    ["-m", "tui_gateway.entry"],
-    {
-      cwd: dirs.work,
-      env: env(dirs),
-      stdio: ["pipe", "pipe", "pipe"],
-      detached: true,
-    },
-  );
-  // Killed with its group also when the test process exits early.
-  guardProcess(t, child, { group: true, graceMs });
-  const stderr = fs.createWriteStream(path.join(dirs.root, "stderr.log"), { flags: "a" });
-  child.stderr.pipe(stderr);
-  const exited = new Promise((resolve) => child.once("exit", resolve));
-  const group = (signal) => {
-    try {
-      process.kill(-child.pid, signal);
-    } catch {
-      /* The group is gone already. */
-    }
-  };
-  const client = createHermesClient(childTransport(child), { agentId, timeoutMs: 60000 });
-  let stopping;
-  const stop = () =>
-    (stopping ??= (async () => {
-      client.close();
-      group("SIGTERM");
-      const timer = setTimeout(() => group("SIGKILL"), graceMs);
-      await exited;
-      clearTimeout(timer);
-      group("SIGKILL");
-      stderr.end();
-    })());
+export async function startHermes(t, dirs, { agentId = "hermes-agent", model } = {}) {
+  const { supervisor, runtime } = createHermesRuntime({
+    dataDir: dirs.root,
+    agentId,
+    runtime: async () => contractRecord(),
+    desired: () => contractAgent(agentId, model),
+    readyTimeoutMs: 180000,
+    callTimeoutMs: 60000,
+  });
+  const agent = supervisor.agentPaths();
+  const config = path.join(agent.hermesHome, "config.yaml");
+  if (!fs.existsSync(config))
+    fs.writeFileSync(config, "compression:\n  enabled: false\n", { mode: 0o600 });
+  const stop = () => runtime.host.stop();
   dirs.stops.push(stop);
   t.after(stop);
-  await client.connect({ timeoutMs: 180000 });
-  return { child, client, stop };
+  const guard = () => {
+    for (const pid of supervisor.pids())
+      guardProcess(t, pid, { group: true, graceMs: 5000 });
+  };
+  supervisor.on("status", ({ availability }) => availability === "ready" && guard());
+  await runtime.host.start();
+  guard();
+  const { sessions, events, approvals } = runtime;
+  return { supervisor, runtime, sessions, events, approvals, agent, stop };
 }
 
 /**
