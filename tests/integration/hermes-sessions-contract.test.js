@@ -10,6 +10,9 @@ import {
   startHermes,
   strayAfterStop,
 } from "../helpers/hermes-native.js";
+import { ChatStreams } from "../../server/features/assistants/chat-stream.js";
+import { RunSteps } from "../../server/features/assistants/run-steps.js";
+import { publicMessages } from "../../server/features/assistants/conversations.js";
 
 // The Hermes adapter's sessions and run events against the pinned Hermes as AgentPier
 // runs it: the supervised messaging gateway and the RPC bridge to its session store
@@ -66,11 +69,51 @@ test(
     assert.equal(text.trim(), end.payload.text.trim());
     // No onboarding hint was appended to the first message (onboarding off).
     assert.equal(end.payload.text, "ECHO: hello hermes");
+    // The normalized reply holds the whole text so far from the first delta on, and
+    // the chat's stream follows it (agent-runtime.js `reply`, chat-stream.js).
+    const streams = new ChatStreams();
+    const streamed = own
+      .filter((e) => e.kind === "text" && e.reply)
+      .map((e) => [e.reply.text, streams.delta(e)]);
+    assert.ok(streamed.length > 0);
+    assert.ok(streamed.every(([whole, shown]) => whole === shown));
+    assert.equal(streamed.at(-1)[0].trim(), end.payload.text.trim());
+    assert.deepEqual(end.reply, {
+      text: end.payload.text,
+      delta: undefined,
+      replace: false,
+    });
+    // The run's steps: its start, then writing.
+    assert.deepEqual(own[0].step, { type: "lifecycle", phase: "start" });
+    const steps = new RunSteps();
+    const phases = own.map((e) => (steps.observe(e), steps.view("run-1")?.phase));
+    assert.ok(phases.includes("writing"), phases.join());
     assert.ok(own.every((e) => e.sessionKey === key && e.reason === null));
     assert.equal((await sessions.wait({ runId: "run-1", waitMs: 1 })).status, "ok");
     const history = await sessions.history({ sessionKey: key, limit: 10 });
     assert.deepEqual(
       history.messages.map((m) => [m.role, m.text]),
+      [
+        ["user", "hello hermes"],
+        ["assistant", end.payload.text],
+      ],
+    );
+    // Each row's entry: a unique id, its text, a timestamp in milliseconds.
+    const entries = history.messages.map((m) => m.entry);
+    assert.equal(new Set(entries.map((e) => e.id)).size, entries.length);
+    assert.deepEqual(
+      entries.map((e) => [e.role, e.text, e.internal, e.compaction]),
+      [
+        ["user", "hello hermes", false, null],
+        ["assistant", end.payload.text, false, null],
+      ],
+    );
+    for (const entry of entries) {
+      assert.equal(typeof entry.id, "string");
+      assert.ok(Math.abs(entry.timestamp - Date.now()) < 600000, String(entry.timestamp));
+    }
+    assert.deepEqual(
+      publicMessages(history.messages).map((m) => [m.role, m.text]),
       [
         ["user", "hello hermes"],
         ["assistant", end.payload.text],
@@ -136,6 +179,20 @@ test(
       idempotencyKey: "r1",
     });
     assert.equal((await run.until(endsRun("r1"))).kind, "finished");
+    // The terminal call is a tool step of the run, by its call id, without a label.
+    const tools = run.seen.filter((e) => e.runId === "r1" && e.step?.type === "tool");
+    assert.ok(tools.some((e) => e.step.phase === "start"));
+    assert.ok(tools.some((e) => e.step.phase === "end"));
+    assert.ok(tools.every((e) => e.step.title === null && e.step.name === "terminal"));
+    const steps = new RunSteps();
+    for (const e of run.seen) steps.observe(e);
+    assert.deepEqual(
+      steps
+        .view("r1")
+        .steps.filter((s) => s.kind === "tool")
+        .map((s) => [s.tool, s.label, s.state]),
+      [["terminal", "", "done"]],
+    );
     const before = await first.sessions.history({ sessionKey: key });
     // An owner's restart replaces the connection: a view bound to the old one refuses,
     // the current one reaches the same session.
@@ -167,6 +224,15 @@ test(
     assert.deepEqual(
       after.messages.map((m) => [m.role, m.text ?? null]),
       before.messages.map((m) => [m.role, m.text ?? null]),
+    );
+    // Entry ids are durable: the same rows keep them after a restart.
+    assert.deepEqual(
+      after.messages.map((m) => m.entry.id),
+      before.messages.map((m) => m.entry.id),
+    );
+    assert.equal(
+      new Set(after.messages.map((m) => m.entry.id)).size,
+      after.messages.length,
     );
     assert.ok(after.messages.some((m) => m.role === "tool"));
     const next = collectEvents(second.events);

@@ -1,10 +1,23 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  ChatStreams,
+  ChatStreams as Streams,
   maxStreamText,
-  nextChatText,
+  nextChatText as nextText,
 } from "../../server/features/assistants/chat-stream.js";
+import {
+  openClawReply,
+  openClawRunEvent,
+} from "../../server/features/assistants/runtimes/openclaw/openclaw-events.js";
+
+// ChatStreams reads normalized run events: the Gateway's `chat` payloads below go
+// through OpenClaw's adapter.
+class ChatStreams extends Streams {
+  delta(payload) {
+    return super.delta(openClawRunEvent({ event: "chat", payload }));
+  }
+}
+const nextChatText = (previous, payload) => nextText(previous, openClawReply(payload));
 
 const snapshot = (runId, text, sessionKey = "s") => ({
   runId,

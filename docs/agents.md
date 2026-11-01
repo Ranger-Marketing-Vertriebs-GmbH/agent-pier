@@ -190,6 +190,42 @@ attachments, Telegram, hooks, reminders, routines, always allowed commands, the
 browser profile, users and the template's provenance are not copied. Review every step
 before **Create agent**.
 
+<a id="choose-the-runtime"></a>
+
+### Choose the runtime: OpenClaw or Hermes Agent
+
+Every agent runs on one runtime, chosen when it is created and kept for good (a
+duplicate keeps its source's). **OpenClaw** is the default and offers everything on
+this page. **Hermes Agent** is a second runtime
+([ADR 0006](adr/0006-assistant-runtime-port.md)): switch on **Offer Hermes Agent** under
+**Agents › Runtime › Hermes Agent**, which installs its pinned release (about 540 MB) in the
+background. Once it is installed, the wizard's **Start** step offers a **Runtime**
+group with **OpenClaw** and **Hermes Agent**; the review lists the choice. Each Hermes agent runs in its own process set with a
+private home inside AgentPier's data directory; it starts when the agent is created
+and with AgentPier, stops when the agent is archived or Hermes is switched off, and
+its home and work folder are removed when the agent is deleted.
+
+What works on Hermes today:
+
+- Chats: replies stream into the chat, tool steps show while they run, the history
+  and new chats work as on OpenClaw.
+- Shell with approvals: **Dangerous commands** asks before the commands Hermes flags
+  as dangerous and runs the rest; **Every command** asks before every shell command
+  and Python run; **Off** and **Full access** work as on OpenClaw. Approval cards
+  offer **Allow once**, **Always allow** (AgentPier remembers the exact command) and
+  **Deny**. On OpenClaw, **With approval** already asks before every command, so it
+  keeps its three levels.
+- The model connection (an OpenAI-compatible endpoint or OpenRouter) and the
+  instructions.
+
+What comes later, shown disabled with **Not available for Hermes agents yet.** in
+the agent's settings: routines, reminders and check-ins, memory files, skills, MCP
+servers, the browser, ChatGPT sign-in, Telegram and other channels, teams and
+advanced runtime settings. Updates of Hermes itself appear in the **Hermes Agent** group
+(**Update**); the Hermes agents restart, and a failed start restores the previous
+installation. What AgentPier writes into a Hermes home is described in
+[Hermes runtime](hermes-runtime.md).
+
 <a id="archive-and-delete"></a>
 
 ### Archive and delete

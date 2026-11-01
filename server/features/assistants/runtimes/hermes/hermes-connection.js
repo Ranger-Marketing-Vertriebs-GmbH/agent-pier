@@ -17,14 +17,15 @@ const states = new WeakMap();
  * keys and runs (hermes-run-state.js) and the approvals Hermes asks for
  * (hermes-approval-queue.js). Both listen from the first line on, so nothing the
  * process sends before connect() resolves is lost. `client.connect()` then waits for
- * the gateway.
+ * the gateway. `workspace` is the folder the agent's commands run in, which its
+ * approval requests name as `cwd`.
  */
-export function createHermesClient(transport, { agentId, timeoutMs } = {}) {
+export function createHermesClient(transport, { agentId, timeoutMs, workspace } = {}) {
   if (typeof agentId !== "string" || !agentId)
     throw new TypeError("A Hermes client needs the runtime agent id it serves.");
   const client = new HermesRpcClient(transport, { timeoutMs });
   const runs = new HermesRuns(client, { agentId });
-  const approvals = new HermesApprovalQueue(client, runs);
+  const approvals = new HermesApprovalQueue(client, runs, { cwd: workspace });
   states.set(client, Object.freeze({ agentId, runs, approvals }));
   return client;
 }

@@ -3,9 +3,13 @@ import assert from "node:assert/strict";
 import {
   requestSource,
   requestsWithSources,
-  turnKey,
+  turnKey as keyOf,
   withMessageSources,
 } from "../../server/features/assistants/message-source.js";
+import { openClawEntry } from "../../server/features/assistants/runtimes/openclaw/openclaw-sessions.js";
+
+// turnKey reads the history entry: raw OpenClaw messages go through its adapter.
+const turnKey = (message) => keyOf({ entry: openClawEntry(message) });
 
 const at = (ms) => new Date(ms).toISOString();
 const telegram = {

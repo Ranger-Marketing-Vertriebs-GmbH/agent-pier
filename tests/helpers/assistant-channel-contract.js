@@ -7,6 +7,7 @@ import { DeepgramTranscriber } from "../../server/features/speech/deepgram-trans
 import { TelegramClient } from "../../server/features/assistant-channels/telegram-client.js";
 import { withMessageSources } from "../../server/features/assistants/message-source.js";
 import { publicMessages } from "../../server/features/assistants/conversations.js";
+import { withOpenClawEntries } from "../../server/features/assistants/runtimes/openclaw/openclaw-sessions.js";
 export async function qualifyAssistantChannels({ dataDir, assistants, assistantId }) {
   const botId = Date.now(),
     token = `${botId}:synthetic-test-token-for-contract`;
@@ -155,7 +156,9 @@ export async function qualifyAssistantChannels({ dataDir, assistants, assistantI
         `no reply with runId ${attemptId}`,
       );
     }
-    const turns = publicMessages(raw.messages).filter((m) => m.role === "user");
+    const turns = publicMessages(withOpenClawEntries(raw.messages)).filter(
+      (m) => m.role === "user",
+    );
     assert.ok(turns.every((m) => m.turnKey));
     assert.equal(
       turns.filter((m) => attemptIds.includes(m.turnKey)).length,

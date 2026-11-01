@@ -546,7 +546,7 @@ export async function createServices(config) {
   // Assistant services stay null until the owner opts in; failures never stop startup.
   services.assistantFeature = createAssistantFeature(services);
   // The owner's Hermes Agent opt-in and its pinned runtime (hermes-wiring.js).
-  services.hermesRuntime = createHermesRuntime({ config });
+  services.hermesRuntime = createHermesRuntime({ config, services });
   // Every job write reaches the live job topics (services.live, once listening).
   installer.onChange = () => toolJobsChanged(services.live);
   if (rea) rea.onChange = () => reaJobChanged(services.live);

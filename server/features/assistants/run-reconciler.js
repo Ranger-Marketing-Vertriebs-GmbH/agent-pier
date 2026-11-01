@@ -1,6 +1,6 @@
 import { settleUnreviewable } from "./attempt-recovery.js";
 import { titleAfterReply } from "./generated-titles.js";
-import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
+import { runtimeForSession } from "./runtimes/runtime-for.js";
 
 export function terminalState(result) {
   if (result.status === "ok")
@@ -18,7 +18,9 @@ function timedOut(service, runId, result) {
   );
 }
 export async function reconcileRuns(service) {
-  if (!hostReady(service.runtime) || service.closed) return;
+  // The shared host, or a Hermes agent's own set: each run asks the runtime of its
+  // chat's session, and only while that runtime takes calls.
+  if (service.closed) return;
   for (const listed of service.ledger.unresolved()) {
     if (service.closed) return;
     // Its send decides first (conversation-turns.js).
@@ -33,10 +35,12 @@ export async function reconcileRuns(service) {
       continue;
     const request = service.ledger.getRequest(attempt.requestId);
     const conversation = service.store.getConversation(request.conversationId);
+    const runtime = runtimeForSession(conversation.runtimeSessionKey, service.runtime);
+    if (!runtime.host.ready()) continue;
     try {
       // The pinned sessions.send contract uses the idempotency key as run identity.
       // Querying it is safe after a lost acknowledgement; sending it again is not.
-      const { sessions } = runtimeFor(null, service.runtime);
+      const { sessions } = runtime;
       const result = await sessions.wait({
         runId: attempt.runtimeRunId || attempt.id,
         waitMs: 1,

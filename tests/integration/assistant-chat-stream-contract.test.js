@@ -13,6 +13,7 @@ import { AssistantModels } from "../../server/features/assistants/assistant-mode
 import { ProviderConnections } from "../../server/features/providers/provider-connections.js";
 import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { ChatStreams } from "../../server/features/assistants/chat-stream.js";
+import { openClawRunEvent } from "../../server/features/assistants/runtimes/openclaw/openclaw-events.js";
 import { GatewayClient } from "../../server/features/assistants/runtimes/openclaw/gateway-client.js";
 import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 
@@ -151,7 +152,8 @@ test(
       for (const frame of own.splice(0))
         if (frame.state === "delta") {
           ownDeltas.push(frame);
-          ownText = streams.delta(frame) ?? ownText;
+          ownText =
+            streams.delta(openClawRunEvent({ event: "chat", payload: frame })) ?? ownText;
         }
       return ownText;
     };

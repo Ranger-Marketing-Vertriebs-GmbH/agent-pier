@@ -1,6 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { RunSteps, maxSteps } from "../../server/features/assistants/run-steps.js";
+import {
+  RunSteps as Steps,
+  maxSteps,
+} from "../../server/features/assistants/run-steps.js";
+import { openClawRunEvent } from "../../server/features/assistants/runtimes/openclaw/openclaw-events.js";
+
+// RunSteps reads normalized run events: the frames below go through OpenClaw's adapter.
+class RunSteps extends Steps {
+  observe(frame) {
+    return super.observe(openClawRunEvent(frame));
+  }
+}
 
 // Frames shaped like OpenClaw 2026.10.3 `agent` events
 // (tests/integration/assistant-run-steps-contract.test.js pins them).

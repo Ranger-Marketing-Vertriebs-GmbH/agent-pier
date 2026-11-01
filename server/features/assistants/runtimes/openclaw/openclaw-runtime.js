@@ -1,4 +1,4 @@
-import { defineAgentRuntime } from "../agent-runtime.js";
+import { defineAgentRuntime, unavailable } from "../agent-runtime.js";
 import { openClawAgentFiles, openClawAgents } from "./openclaw-agents.js";
 import { openClawApprovals } from "./openclaw-approvals.js";
 import { openClawConfig } from "./openclaw-configuration.js";
@@ -66,6 +66,8 @@ export function createOpenClawRuntime(supervisor) {
   const call = async (method, params) => supervisor.client.call(method, params);
   return defineAgentRuntime({
     id: "openclaw",
+    // OpenClaw's "approval" level already asks before every command.
+    capabilities: { everyCommandApproval: unavailable("approvalAsksEveryCommand") },
     host: openClawHost(supervisor),
     sessions: openClawSessions(supervisor, clientOf),
     events: openClawEvents(supervisor),

@@ -40,7 +40,11 @@ import { ChatStreams } from "./chat-stream.js";
 import { conversationFeeds } from "./conversation-feeds.js";
 import { RunSteps } from "./run-steps.js";
 import { guardStalledRuns } from "./run-stall-guard.js";
-import { bindChatEvents, runtimeStatusHandler } from "./gateway-wiring.js";
+import {
+  bindChatEvents,
+  chatEventListener,
+  runtimeStatusHandler,
+} from "./gateway-wiring.js";
 import { openMainConversation } from "./conversation-open.js";
 import { AgentChats } from "./agent-chats.js";
 import { LongChats } from "./long-chats.js";
@@ -48,7 +52,21 @@ import { withAdmission } from "./agent-admission.js";
 import { chatCommand, isChatCommand } from "./chat-commands.js";
 import { templateProblem, templateRecord } from "../agency/agency-templates.js";
 import { auditProactivity, proactivityChange } from "./proactivity-changes.js";
-import { hostOf, hostReady, runtimeFor, withRuntime } from "./runtimes/runtime-for.js";
+import {
+  hermesFleetOf,
+  hostOf,
+  ownProcess,
+  runtimeAccepts,
+  runtimeFor,
+  runtimeForSession,
+  withRuntime,
+} from "./runtimes/runtime-for.js";
+import { logoutAccount } from "./account-logout.js";
+import {
+  followOwnProcesses,
+  refuseEveryCommand,
+  refuseRuntimeChoice,
+} from "./own-process-agents.js";
 
 const pick = (value, keys) => Object.fromEntries(keys.map((k) => [k, value[k]]));
 export class AssistantService {
@@ -115,6 +133,12 @@ export class AssistantService {
     this.closed = false;
     this.onStatus = runtimeStatusHandler(this);
     this.unsubscribeStatus = hostOf(runtime).subscribe(this.onStatus);
+    // Hermes agents' own sets: their status, and their run events once each.
+    const chat = chatEventListener(this);
+    this.unfollowOwn = followOwnProcesses(this, (e) => {
+      chat(e);
+      this.gatewayEvents.deliver(e);
+    });
     this.bindGateway();
     this.poll = setInterval(() => this.pollReconcile(), 2000);
     this.poll.unref();
@@ -210,6 +234,7 @@ export class AssistantService {
       shellChange({ shell: base }, input, { confirmShell, confirmFull });
       // Skills are assigned once the agent exists (agent-skills.js).
       if (input.skills?.length) throw assistantProblem("invalid");
+      refuseRuntimeChoice(this.runtime, input);
       const lease = await this.models.resolve(input.model || {});
       lease.release();
       // Memory on by default, web capabilities off (memory-rules.js).
@@ -232,6 +257,8 @@ export class AssistantService {
       if (level !== "off")
         this.shellChanges.audit(record.id, { from: "off", to: level }, {});
       auditProactivity(this.audit, record.id, proactivityChange({}, record));
+      // A Hermes agent's set starts now (in the background), OpenClaw's at first apply.
+      if (ownProcess(record)) this.config.apply(record.id).catch(() => {});
       this.changed();
       return record;
     });
@@ -284,6 +311,7 @@ export class AssistantService {
       const current = this.store.getAssistant(id);
       if (current.revision !== revision) throw assistantProblem("conflict", 409);
       refuseLockedSettings(current, changes);
+      refuseEveryCommand(this.runtime, current, changes);
       // A form sends every field; only the ones that differ are a change, so an
       // unchanged name or model never holds back lowering the shell level.
       patch = withoutUnchanged(body, changes, current);
@@ -369,7 +397,8 @@ export class AssistantService {
       // Saved first, so a request arriving now is denied (exec-approvals.js). A
       // failed live apply stays pending and is retried; never reported as live.
       if (shell) pending = (await this.shellChanges.settle(id, shell)) || pending;
-      else if (recompiles(patch) && hostReady(this.runtime)) await this.config.apply(id);
+      else if (recompiles(patch) && runtimeAccepts(this.runtime, current))
+        await this.config.apply(id);
       pending = (await this.syncHeartbeat(id, patch)) || pending;
       if (queued) this.webTools.queue();
       this.changed();
@@ -398,7 +427,7 @@ export class AssistantService {
     // The restarted Gateway's ready reconciles check-ins; this save repeats it.
     await this.admit(() => this.syncHeartbeat(id, patch)).catch(() => {});
     if (!shell) {
-      if (hostReady(this.runtime)) await this.config.apply(id);
+      if (runtimeAccepts(this.runtime, before)) await this.config.apply(id);
       return this.withMcp(record);
     }
     // The restarted Gateway compiled the level; the apply confirms it.
@@ -427,43 +456,11 @@ export class AssistantService {
     });
   }
   logoutAccount(accounts, id) {
-    // Maintenance drains admission locks itself; entering it from admit() would
-    // wait on this operation's own lock indefinitely.
-    if (this.providerSynchronization) {
-      this.requireReady();
-      accounts.record(id);
-      return this.providerSynchronization.change(id, () => accounts.logout(id), {
-        online: true,
-      });
-    }
-    return this.admit(async () => {
-      await this.settleUserTurns();
-      if (
-        this.ledger.pending().some((attempt) => {
-          const request = this.ledger.getRequest(attempt.requestId);
-          const conversation = this.store.getConversation(request.conversationId);
-          return (
-            this.store.getAssistant(conversation.assistantId).model.connectionId === id
-          );
-        }) ||
-        // A history summarised on request uses the agent's model too (long-chats.js).
-        this.longChats.runningFor(
-          new Set(
-            this.store
-              .listAssistants()
-              .filter((a) => a.model?.connectionId === id)
-              .map((a) => a.id),
-          ),
-        )
-      )
-        throw assistantProblem("active", 409);
-      const result = await accounts.logout(id);
-      this.changed();
-      return result;
-    });
+    return logoutAccount(this, accounts, id);
   }
-  requireReady() {
-    if (this.closed || this.recovering || !hostReady(this.runtime))
+  // Refuses while the runtime of `agent` takes no changes (runtime-for.js runtimeAccepts).
+  requireReady(agent = null) {
+    if (this.closed || this.recovering || !runtimeAccepts(this.runtime, agent))
       throw assistantProblem("unavailable", 503);
   }
   /**
@@ -546,12 +543,12 @@ export class AssistantService {
     return conversationMessage(this, id, messageId, options);
   }
   async cancel(id) {
-    this.requireReady();
     const attempt = this.ledger.getAttempt(id);
     const conversation = this.store.getConversation(
       this.ledger.getRequest(attempt.requestId).conversationId,
     );
-    await runtimeFor(null, this.runtime).sessions.abort({
+    this.requireReady(this.store.getAssistant(conversation.assistantId));
+    await runtimeForSession(conversation.runtimeSessionKey, this.runtime).sessions.abort({
       key: conversation.runtimeSessionKey,
       runId: attempt.runtimeRunId || attempt.id,
     });
@@ -587,10 +584,12 @@ export class AssistantService {
     this.feeds.close();
     this.gatewayEvents.unsubscribe?.();
     this.unsubscribeStatus();
+    this.unfollowOwn();
     await this.workflows?.close();
     await this.teams?.close();
     await this.login?.close();
     await this.runtime.close();
+    await hermesFleetOf(this.runtime).close();
     await this.reminders?.close();
     await Promise.allSettled([...this.locks.values(), this.reconciling].filter(Boolean));
     this.markOutstandingUnknown();

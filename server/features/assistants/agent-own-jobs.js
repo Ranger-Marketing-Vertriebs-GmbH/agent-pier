@@ -17,13 +17,17 @@ const ownJob = (job) => !agentPierRoutine(job);
 const code = (error) => error?.code ?? error?.name ?? "UNKNOWN";
 const merged = (...lists) => [...new Set(lists.flat())];
 // The agent's routines sub-port bound to the runtime's current connection.
+// A runtime without routines (Hermes, ADR 0006 step 5) holds no jobs of the agent.
+const schedules = (assistants, agent) =>
+  runtimeFor(agent, assistants.runtime).capabilities().routines.available;
 const boundRoutines = (assistants, agent) =>
   runtimeFor(agent, assistants.runtime).routines.on(hostConnection(assistants.runtime));
 
 /** The `ownJobs` field after pausing: every paused id, and `pending` if not done. */
 export async function pauseOwnJobs(assistants, agent) {
   const before = agent.ownJobs?.paused || [];
-  if (!assistants.reminders) return agent.ownJobs ?? null;
+  if (!assistants.reminders || !schedules(assistants, agent))
+    return agent.ownJobs ?? null;
   if (!hostReady(assistants.runtime)) return { pending: "pause", paused: before };
   // The jobs are paused on the connection checked here: a Gateway that replaced it
   // receives none of it, and the archive leaves the pause pending.
@@ -46,7 +50,8 @@ export async function pauseOwnJobs(assistants, agent) {
 /** The `ownJobs` field after resuming: none, or what is still to enable. */
 export async function resumeOwnJobs(assistants, agent) {
   const paused = agent.ownJobs?.paused || [];
-  if (!paused.length) return null;
+  if (!paused.length || !schedules(assistants, agent))
+    return paused.length ? agent.ownJobs : null;
   if (!hostReady(assistants.runtime)) return { pending: "resume", paused };
   const routines = boundRoutines(assistants, agent);
   const left = [...paused];

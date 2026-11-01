@@ -95,10 +95,12 @@ export async function decideExec(
   log = (l) => console.warn(l),
   { remembered = false } = {},
 ) {
-  if (!hostReady(w.a.runtime)) throw assistantProblem("unavailable", 503);
-  // The answer and the allowlist entry it allows go to the Gateway that asked.
-  const approvals = runtimeFor(null, w.a.runtime).approvals.on(
-    hostConnection(w.a.runtime),
+  // The answer and the allowlist entry it allows go to the runtime that asked: the
+  // shared host, or a Hermes agent's own set.
+  const asking = w.a.store.getAssistant(action.assistantId);
+  if (!hostReady(w.a.runtime, asking)) throw assistantProblem("unavailable", 503);
+  const approvals = runtimeFor(asking, w.a.runtime).approvals.on(
+    hostConnection(w.a.runtime, asking),
   );
   // Defence in depth: with shell off nothing may be allowed, whatever is pending.
   if (

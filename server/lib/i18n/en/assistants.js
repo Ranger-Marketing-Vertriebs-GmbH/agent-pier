@@ -482,6 +482,10 @@ export const assistants = {
   sshProposalKey: "Choose a key of the proposal's project, or a new managed key.",
   runtimeUnknown: (runtime) =>
     `The runtime “${runtime}” is not available in this AgentPier.`,
+  hermesUnavailable:
+    "Hermes Agent is not ready. Switch Hermes on under Agents › Runtime and wait until it is installed.",
+  shellEveryCommandUnsupported:
+    "“Every command” exists only for Hermes agents; on OpenClaw “With approval” already asks before every command.",
   notFound: "Agent or conversation not found.",
   pipelineAccessChanged:
     "The pipeline or one of its profiles changed since access was granted. Review the current settings and save project and pipeline access again for the granting agent; for shared access, this is the lead. Then request a new coding task.",

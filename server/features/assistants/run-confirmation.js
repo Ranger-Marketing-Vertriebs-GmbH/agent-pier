@@ -32,9 +32,9 @@ function confirm(service, attempt, proof) {
   return confirmed;
 }
 
-/** A Gateway event (chat or agent) of a known conversation's session. */
-export function confirmFromEvent(service, conversation, payload) {
-  const attempt = service.ledger.attemptForRun(payload?.runId);
+/** A run event (runtimes/agent-runtime.js) of a known conversation's session. */
+export function confirmFromEvent(service, conversation, event) {
+  const attempt = service.ledger.attemptForRun(event?.runId);
   if (!attempt?.unconfirmed) return null;
   if (service.ledger.getRequest(attempt.requestId).conversationId !== conversation.id)
     return null;

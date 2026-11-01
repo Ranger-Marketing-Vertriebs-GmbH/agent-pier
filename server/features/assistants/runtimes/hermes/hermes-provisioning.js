@@ -46,6 +46,19 @@ const records = (dataDir) => {
   };
 };
 
+/** Whether a Hermes installation is selected. Never creates storage. */
+export const hermesInstalled = (dataDir) => {
+  try {
+    return !!records(dataDir).selected;
+  } catch {
+    return false;
+  }
+};
+
+/** Whether Hermes agents may run: the owner enabled Hermes and it is installed. */
+export const hermesRunnable = (dataDir) =>
+  hermesEnabled(dataDir) && hermesInstalled(dataDir);
+
 /**
  * True when Hermes is enabled and nothing selected or staged is the pinned runtime
  * this AgentPier ships: a fresh opt-in without an installation, or an AgentPier
@@ -134,6 +147,8 @@ export function createHermesSwitch({
         installed: !!selected,
         version: selected?.version || null,
         targetVersion: manifest.version,
+        // Hermes runs on its own CPython (the installation's, else the pinned one).
+        pythonVersion: selected?.pythonVersion || manifest.pythonVersion || null,
         candidateReady: !!candidate && !sameHermesRuntime(candidate, selected),
         error: failed,
       };

@@ -32,6 +32,8 @@ const toolTypes = new Set([
   "tool.complete",
 ]);
 const endKinds = { complete: "finished", interrupted: "aborted" };
+// A run's reply is kept up to this many characters (the chat shows less).
+const maxReply = 262144;
 // How many ended runs a connection remembers for wait().
 const keptOutcomes = 256;
 
@@ -72,6 +74,39 @@ export function hermesEventKind(type, payload, inRun) {
 
 const ending = new Set(["finished", "aborted", "failed"]);
 
+const text = (value) => (typeof value === "string" ? value : undefined);
+
+/**
+ * The activity of one Hermes event (agent-runtime.js `step`), or null: a turn's
+ * `message.start` starts it, `message.delta` writes, `thinking.*`/`reasoning.*`
+ * think, and `tool.start`/`tool.progress`/`tool.complete` are its tool calls by
+ * `tool_call_id` (`tool_id` on progress), failed when the completion reports
+ * `is_error`. Hermes's `context` of a call is a preview of its arguments (a command,
+ * a URL), so a tool step carries no title. `tool.generating` names no call yet.
+ */
+export function hermesStep(type, payload) {
+  if (type === "message.start") return { type: "lifecycle", phase: "start" };
+  if (type === "message.delta") return { type: "writing" };
+  if (/^(?:thinking|reasoning)\./.test(type)) return { type: "thinking" };
+  const phase = {
+    "tool.start": "start",
+    "tool.progress": "update",
+    "tool.complete": "end",
+  }[type];
+  const id = text(payload?.tool_call_id) || text(payload?.tool_id);
+  if (!phase || !id) return null;
+  return {
+    type: "tool",
+    id,
+    name: text(payload.name) ?? text(payload.tool_name) ?? "",
+    title: null,
+    phase,
+    failed:
+      phase === "end" &&
+      (payload.is_error === true || ["error", "failed"].includes(payload.status)),
+  };
+}
+
 // Takes the newer execution generation and revision `values` name.
 function fence(turn, values) {
   const generation = values?.execution_generation;
@@ -93,6 +128,8 @@ export class HermesRuns {
     this.outcomes = new Map();
     this.waiters = new Map();
     this.listeners = new Set();
+    // The reply so far of each run under way.
+    this.replies = new Map();
     // The title each key was last seen with (create, list, a rename).
     this.titles = new Map();
     client.subscribe((params) => this.observe(params));
@@ -266,15 +303,46 @@ export class HermesRuns {
       sessionKey,
       runId,
       reason,
+      reply: runId ? this.reply(runId, type, payload) : null,
+      step: runId ? hermesStep(type, payload) : null,
       event: type,
       // Hermes's own payload, with the session key and run id OpenClaw's carry.
       payload: { ...payload, sessionKey, runId },
     });
     if (runId && ending.has(kind)) {
+      this.replies.delete(runId);
       turn.current = null;
       turn.open.delete(runId);
       this.ended(runId, kind, reason);
     }
+  }
+
+  /**
+   * The reply of run `runId` after one of its events (agent-runtime.js `reply`), or
+   * null: Hermes's `message.delta` carries only the appended text, which is kept per
+   * run, so every delta names the whole reply so far as `text` (the first one places
+   * it); `message.complete` carries the final text. A delta without text (a segment
+   * boundary) changes nothing.
+   */
+  reply(runId, type, payload) {
+    if (type === "message.start") this.replies.set(runId, "");
+    if (type === "message.delta") {
+      const delta = text(payload.text);
+      if (delta === undefined) return null;
+      const whole = ((this.replies.get(runId) ?? "") + delta).slice(0, maxReply);
+      this.replies.delete(runId);
+      this.replies.set(runId, whole);
+      // Runs whose end never arrives are forgotten oldest first.
+      if (this.replies.size > 64) this.replies.delete(this.replies.keys().next().value);
+      return { text: whole, delta, replace: false };
+    }
+    if (type === "message.complete") {
+      const final = text(payload.text) ?? this.replies.get(runId);
+      return final === undefined
+        ? null
+        : { text: final, delta: undefined, replace: false };
+    }
+    return null;
   }
 
   ended(runId, kind, reason) {
@@ -329,6 +397,7 @@ export class HermesRuns {
   // A closed connection sends nothing more; its runs' outcomes stay unknown there.
   dropped() {
     this.listeners.clear();
+    this.replies.clear();
     for (const [runId, wakes] of this.waiters)
       for (const wake of wakes) wake({ runId, status: "timeout" });
     this.waiters.clear();

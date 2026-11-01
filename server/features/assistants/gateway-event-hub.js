@@ -19,16 +19,22 @@ export class GatewayEventHub {
   /** Listens to `events`, the runtime port's events sub-port, instead of the last one. */
   bind(events) {
     this.unsubscribe?.();
-    this.unsubscribe = events?.subscribe((event) => {
-      if (event.event === "chat") return;
-      for (const handler of this.handlers.get(event.event) || []) {
-        try {
-          handler(event.payload);
-        } catch {
-          /* One failing handler must not stop the others. */
-        }
+    this.unsubscribe = events?.subscribe((event) => this.deliver(event));
+  }
+  /**
+   * Hands one run event to the handlers of its frame name: those of the bound events
+   * sub-port, and those of runtimes subscribed on their own (a Hermes agent's set,
+   * runtime-for.js agentRuntimeEvents), whose approvals use OpenClaw's names.
+   */
+  deliver(event) {
+    if (event.event === "chat") return;
+    for (const handler of this.handlers.get(event.event) || []) {
+      try {
+        handler(event.payload);
+      } catch {
+        /* One failing handler must not stop the others. */
       }
-    });
+    }
   }
   ready() {
     for (const resync of this.resyncs)

@@ -2,7 +2,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fc from "fast-check";
 import { check } from "../helpers/property.js";
-import { ChatStreams } from "../../server/features/assistants/chat-stream.js";
+import { ChatStreams as Streams } from "../../server/features/assistants/chat-stream.js";
+import { openClawRunEvent } from "../../server/features/assistants/runtimes/openclaw/openclaw-events.js";
+
+// ChatStreams reads normalized run events: these payloads go through OpenClaw's adapter.
+class ChatStreams extends Streams {
+  delta(payload) {
+    return super.delta(openClawRunEvent({ event: "chat", payload }));
+  }
+}
 
 // The Gateway sends the reply as a snapshot, appended pieces and, where the text was
 // rewritten, a replace frame (`takeBufferDelta`). Any such split adds up to the text.

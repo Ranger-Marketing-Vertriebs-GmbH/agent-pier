@@ -8,6 +8,15 @@ import { AssistantStore } from "../../server/features/assistants/assistant-store
 import { AssistantService } from "../../server/features/assistants/assistant-service.js";
 import { conversationHistory } from "../../server/features/assistants/conversations.js";
 
+// publicMessages reads history entries: raw OpenClaw messages go through its adapter.
+async function openClawPublicMessages() {
+  const { publicMessages } =
+    await import("../../server/features/assistants/conversations.js");
+  const { withOpenClawEntries } =
+    await import("../../server/features/assistants/runtimes/openclaw/openclaw-sessions.js");
+  return (messages, options) => publicMessages(withOpenClawEntries(messages), options);
+}
+
 test("maintenance history serves cached messages and fences late responses across resume", async (t) => {
   const dataDir = fs.mkdtempSync(
     path.join(os.tmpdir(), "assistant-history-maintenance-"),
@@ -124,8 +133,7 @@ test("lost acceptance never replays a send and timeout never means completion", 
 test("runtime timeout is nonterminal, cancellation is distinct and duplicate history collapses by native identity", async () => {
   const { terminalState } =
     await import("../../server/features/assistants/run-reconciler.js");
-  const { publicMessages } =
-    await import("../../server/features/assistants/conversations.js");
+  const publicMessages = await openClawPublicMessages();
   assert.equal(terminalState({ status: "timeout" }), null);
   assert.equal(terminalState({ status: "ok", stopReason: "rpc" }), "cancelled");
   assert.equal(terminalState({ status: "error" }), "failed");
@@ -142,8 +150,7 @@ test("runtime timeout is nonterminal, cancellation is distinct and duplicate his
 test("an exec completion's user entry is never served as an owner message", async () => {
   // OpenClaw 2026.10.7's chat.history shows the completion turn's user entry (10.3
   // hid it): only its reply is the chat's.
-  const { publicMessages } =
-    await import("../../server/features/assistants/conversations.js");
+  const publicMessages = await openClawPublicMessages();
   const messages = [
     {
       role: "user",

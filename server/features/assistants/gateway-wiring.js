@@ -63,8 +63,9 @@ export function runtimeStatusHandler(service) {
 /**
  * Subscribes to the run events of the current connection (the runtime port's events,
  * runtimes/agent-runtime.js): streamed reply deltas for the open chat, reconciliation
- * after a run ends and the images a run left behind. The reply text (chat-streams.js)
- * and the steps (run-steps.js) are still read from the runtime's own payload.
+ * after a run ends and the images a run left behind. The reply text (chat-stream.js)
+ * and the steps (run-steps.js) are read from the event's normalized `reply` and
+ * `step`.
  */
 export function bindChatEvents(service) {
   service.unsubscribe?.();
@@ -72,20 +73,30 @@ export function bindChatEvents(service) {
   service.chatStreams.clear();
   service.feeds?.clearRuns();
   service.runSteps.reconnected();
-  service.unsubscribe = runtimeFor(null, service.runtime).events.subscribe((event) => {
-    const { payload, runId } = event;
+  service.unsubscribe = runtimeFor(null, service.runtime).events.subscribe(
+    chatEventListener(service),
+  );
+}
+
+/**
+ * The chat path's listener for one run event of any runtime: the shared host's
+ * connection (bindChatEvents) or a Hermes agent's own set (own-process-agents.js).
+ */
+export function chatEventListener(service) {
+  return (event) => {
+    const { runId } = event;
     if (!event.sessionKey) return;
     // The session key is indexed: every streamed delta looks its chat up.
     const conversation = service.store.conversationOfSession(event.sessionKey);
     // A routine's own run session may leave images too (generated-images.js).
     if (!conversation) return service.generatedImages.observeRun(event);
     // Any frame of the turn's run proves a send whose acknowledgement was lost.
-    confirmFromEvent(service, conversation, payload);
+    confirmFromEvent(service, conversation, event);
     // Its live steps, and any frame at all as a sign of life (run-steps.js).
     publishSteps(service, conversation, event);
     // Only a run's first frame carries the whole reply; later ones carry what was
     // appended. The chat's live feed always holds the reply so far.
-    const text = event.kind === "text" ? service.chatStreams.delta(payload) : undefined;
+    const text = event.kind === "text" ? service.chatStreams.delta(event) : undefined;
     if (text !== undefined) service.feeds?.stream(conversation.id, runId, text);
     if (["finished", "aborted", "failed"].includes(event.kind)) {
       service.chatStreams.end(runId);
@@ -114,7 +125,7 @@ export function bindChatEvents(service) {
       if (!conversation.userReleased)
         service.generatedImages.observe(conversation).catch(() => {});
     }
-  });
+  };
 }
 
 // A run's steps go to its chat when they change, and at most every `aliveMs` while

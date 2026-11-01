@@ -16,7 +16,10 @@ import { hermesError } from "./hermes-rpc-client.js";
 // The queue turns each into the exec approval OpenClaw's adapter produces (frame
 // `exec.approval.requested`, payload `{ id, request, createdAtMs, expiresAtMs }`), so
 // exec-approvals.js, its actions and the UI take it unchanged; Hermes's own fields
-// ride along as `request.hermes`. Decisions: allow-once → once, deny → deny, and
+// ride along as `request.hermes`; `request.cwd` is the folder the agent's commands run
+// in (its workspace, given by the supervisor), and while a request of a running turn
+// waits that run reports the approval phase (a `progress` event whose `step` is the
+// lifecycle phase `waiting-approval`, then `approval-resolved`). Decisions: allow-once → once, deny → deny, and
 // allow-session → session (Hermes allows the pattern for the rest of the session;
 // OpenClaw has no such answer, so the UI decides later whether to offer it).
 // Hermes's `always` is never offered: it would allow the whole pattern class (every
@@ -25,6 +28,7 @@ import { hermesError } from "./hermes-rpc-client.js";
 // remember the exact command, exec-decisions.js).
 
 const defaultTimeoutS = 300;
+const pluginTarget = /^<[\w.-]{1,64}> \(plugin approval rule\)$/;
 // How many ended requests a connection remembers for history().
 const keptHistory = 200;
 const choices = { "allow-once": "once", "allow-session": "session", deny: "deny" };
@@ -49,8 +53,9 @@ function offered(listed) {
 }
 
 export class HermesApprovalQueue {
-  constructor(client, runs) {
+  constructor(client, runs, { cwd = null } = {}) {
     Object.assign(this, { client, runs });
+    this.cwd = typeof cwd === "string" && cwd ? cwd : null;
     this.pending = new Map();
     this.ended = [];
     client.subscribe((params) => this.observe(params || {}));
@@ -86,16 +91,22 @@ export class HermesApprovalQueue {
     const generation = Number.isSafeInteger(params.execution_generation)
       ? params.execution_generation
       : this.runs.fences(sid).generation;
+    // A plugin's question (AgentPier's guard on every-command approval) names a
+    // synthetic target, "<terminal> (plugin approval rule)" (tools/approval.py
+    // request_tool_approval); the guard's message is the command itself.
+    const plugin = pluginTarget.test(params.command || "") && !!params.description;
     const item = {
       id,
       request: {
-        command: text(params.command, 32768),
-        cwd: null,
+        command: text(plugin ? params.description : params.command, 32768),
+        cwd: this.cwd,
         agentId: this.runs.agentId,
         sessionKey,
         runId,
         allowedDecisions: offered(params.choices),
-        ...(params.description ? { warningText: text(params.description, 2000) } : {}),
+        ...(params.description && !plugin
+          ? { warningText: text(params.description, 2000) }
+          : {}),
         hermes: {
           sessionId: sid,
           promptId: id,
@@ -112,6 +123,7 @@ export class HermesApprovalQueue {
       ...structuredClone(item),
       sessionKey,
     });
+    this.phase(item, "waiting-approval", "approval.request");
   }
 
   /** The pending requests, OpenClaw's exec.approval.list items. */
@@ -204,6 +216,7 @@ export class HermesApprovalQueue {
       runId,
       request: structuredClone(item.request),
     });
+    this.phase(item, "approval-resolved", "approval.settled");
   }
 
   /** How requests of this connection ended: Hermes keeps no history to ask. */
@@ -213,6 +226,31 @@ export class HermesApprovalQueue {
 
   publish(kind, event, item, payload) {
     const { sessionKey, runId } = item.request;
-    this.runs.emit({ kind, sessionKey, runId, reason: null, event, payload });
+    this.runs.emit({
+      kind,
+      sessionKey,
+      runId,
+      reason: null,
+      reply: null,
+      step: null,
+      event,
+      payload,
+    });
+  }
+
+  // The approval phase of the run a request belongs to, while that run is under way.
+  phase(item, phase, event) {
+    const { sessionKey, runId } = item.request;
+    if (!sessionKey || !runId || this.runs.outcomes.has(runId)) return;
+    this.runs.emit({
+      kind: "progress",
+      sessionKey,
+      runId,
+      reason: null,
+      reply: null,
+      step: { type: "lifecycle", phase },
+      event,
+      payload: { id: item.id, sessionKey, runId },
+    });
   }
 }

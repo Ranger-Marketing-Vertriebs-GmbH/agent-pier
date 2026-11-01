@@ -4,7 +4,12 @@ import {
   Compactions,
   nextCompaction,
 } from "../../server/features/assistants/compactions.js";
-import { publicMessages } from "../../server/features/assistants/conversations.js";
+import { publicMessages as fromEntries } from "../../server/features/assistants/conversations.js";
+import { withOpenClawEntries } from "../../server/features/assistants/runtimes/openclaw/openclaw-sessions.js";
+
+// publicMessages reads history entries: raw OpenClaw messages go through its adapter.
+const publicMessages = (messages, options) =>
+  fromEntries(withOpenClawEntries(messages), options);
 import { headerStatus } from "../../web/features/assistants/assistant-status.js";
 import { compactionNoteText } from "../../web/features/assistants/compaction-note.js";
 import { assistantCopy as de } from "../../web/lib/i18n/de/assistants.js";

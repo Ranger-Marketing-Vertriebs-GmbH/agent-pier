@@ -15,6 +15,7 @@ import {
   conversationMessage,
   publicMessages,
 } from "../../server/features/assistants/conversations.js";
+import { withOpenClawEntries } from "../../server/features/assistants/runtimes/openclaw/openclaw-sessions.js";
 import { routineTools } from "../../server/features/assistants/native-capabilities.js";
 import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
@@ -419,7 +420,7 @@ test(
     assert.ok(!view.messages.some((m) => m.text?.startsWith?.("ROUTINE_SECOND")));
     assert.equal(shown.name, "News digest");
     // Read on its own, as a Telegram relay does, the same message is whole.
-    const committed = publicMessages(await history()).find((m) =>
+    const committed = publicMessages(withOpenClawEntries(await history())).find((m) =>
       m.text?.startsWith?.("ROUTINE_SECOND"),
     );
     assert.equal(

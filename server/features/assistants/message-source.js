@@ -8,11 +8,12 @@
 // agent's own bot for other people (openclaw-config/telegram-senders.js) run in
 // OpenClaw's per-sender sessions and never reach an AgentPier conversation.
 //
-// OpenClaw 2026.10.3 stores a `sessions.send` turn with the idempotency key
-// `<run id>:user` (the run id is the key AgentPier sent: the attempt id), at the top
-// level and in `__openclaw`, and keeps the sent text unchanged. That key links a
-// history message to its attempt and so to its request; the contract checks it
-// (tests/helpers/assistant-channel-contract.js).
+// A runtime stores a sent turn with its delivery key, the run id AgentPier sent (the
+// attempt id), which the history entry names as `turnKey` (runtimes/agent-runtime.js
+// sessions; OpenClaw 2026.10.3 keeps `<run id>:user` as the turn's idempotency key,
+// openclaw-sessions.js openClawEntry) and keeps the sent text unchanged. That key
+// links a history message to its attempt and so to its request; the contract checks
+// it (tests/helpers/assistant-channel-contract.js).
 //
 // The browser gets `{ source: "telegram", sender: { kind: "owner" } }` (plus
 // `forwarded: true` for a forwarded message) and nothing else: never a Telegram
@@ -23,11 +24,10 @@
 // text with `{ source: "lead", sender: { kind: "agent", name } }` instead of the
 // framing AgentPier added for the model.
 
-/** The delivery key of a raw OpenClaw user message (`<run id>:user`), or null. */
+/** The delivery key of a history message (its entry's `turnKey`), or null. */
 export function turnKey(message) {
-  const key = message?.idempotencyKey ?? message?.__openclaw?.idempotencyKey;
-  if (typeof key !== "string" || !key.endsWith(":user")) return null;
-  return key.slice(0, -":user".length) || null;
+  const key = message?.entry?.turnKey;
+  return typeof key === "string" && key ? key : null;
 }
 
 /** The public source of a request's trusted context, or null for any other turn. */

@@ -7,7 +7,13 @@ import { durablePrivate } from "./runtime-update-snapshot.js";
 import { ledgerFence } from "./ledger-fence.js";
 import { blockerCodes, blockerItems } from "./runtime-update-blockers.js";
 import { confirmedAll, resolveItems } from "./runtime-update-resolution.js";
-import { hostConnection, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
+import {
+  hostConnection,
+  hostReady,
+  ownProcess,
+  runtimeFor,
+  runtimeForSession,
+} from "./runtimes/runtime-for.js";
 export function needsAssistantMaintenance(paths) {
   if (fs.existsSync(path.join(paths.root, "runtime-maintenance.json"))) return true;
   try {
@@ -110,14 +116,20 @@ export class AssistantMaintenance {
     if (this.intent && (await runtime.routines.on(connection).status()).enabled)
       throw assistantProblem("conflict", 409);
     const roster = await runtime.agents.on(connection).list();
+    // Hermes agents run in their own process sets, never in this roster.
     for (const a of s.assistants.store.listAssistants()) {
+      if (ownProcess(a)) continue;
       if (a.effectiveRevision && !roster.agents?.some((p) => p.id === a.runtimeAgentId))
         throw assistantProblem("conflict", 409);
     }
     // A deleted user's chat keeps its row, not its native session (user-release.js).
     const sessions = runtime.sessions.on(connection);
     for (const c of s.assistants.store.listConversations())
-      if (!c.userReleased) await sessions.describe({ key: c.runtimeSessionKey });
+      if (
+        !c.userReleased &&
+        runtimeForSession(c.runtimeSessionKey, s.assistantRuntime).id === "openclaw"
+      )
+        await sessions.describe({ key: c.runtimeSessionKey });
     if ((await this.blockers()).length) throw assistantProblem("active", 409);
   }
   async leave() {

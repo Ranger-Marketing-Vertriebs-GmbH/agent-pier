@@ -5,7 +5,9 @@
 // `request_tool_approval`). The message carries the command itself: Hermes shows the
 // call only as "<terminal> (plugin approval rule)" (Hermes runtime spike). The rule
 // key hashes the exact text, so "always" allows that one command again, never every
-// command of the tool (an empty key would hash only the message).
+// command of the tool (an empty key would hash only the message). A shell command
+// Hermes itself flags as dangerous is left to Hermes's own check, which asks after
+// the plugin hook: asking in both would put the same command to the owner twice.
 
 export const guardPlugin = "agentpier-guard";
 export const guardDirectory = `plugins/${guardPlugin}`;
@@ -22,6 +24,14 @@ configuration change.
 """
 
 import hashlib
+
+try:
+    # Hermes's own check (tools/approval.py check_dangerous_command) asks before the
+    # shell commands it flags as dangerous; the guard leaves those to it, so such a
+    # command asks the owner once, with Hermes's reason, instead of twice.
+    from tools.approval_detection import detect_dangerous_command as _dangerous
+except Exception:  # A Hermes without it: the guard asks for every command itself.
+    _dangerous = None
 
 # The argument that holds what the tool runs.
 _RUNS = {"terminal": "command", "execute_code": "code"}
@@ -40,9 +50,18 @@ def _text(tool_name, args):
     return None
 
 
+def _flagged(tool_name, text):
+    if tool_name != "terminal" or _dangerous is None:
+        return False
+    try:
+        return bool(_dangerous(text)[0])
+    except Exception:
+        return False
+
+
 def _guard(tool_name="", args=None, **kwargs):
     text = _text(tool_name, args if isinstance(args, dict) else {})
-    if text is None:
+    if text is None or _flagged(tool_name, text):
         return None
     digest = hashlib.sha256(f"{tool_name}\\0{text}".encode("utf-8")).hexdigest()[:32]
     shown = text if len(text) <= _SHOWN else text[:_SHOWN] + " …"

@@ -113,7 +113,9 @@ state: the compiler preserves them and never produces duplicate keys.
   it; the gateway's own loopback listener stays reachable by the agent's shell, as the
   spike found. Each start connects a new client (`runtimes/hermes/hermes-runtime.js`
   composes host, sessions, events, approvals and the compiler, which writes the
-  agent's `HERMES_HOME` before each start).
+  agent's `HERMES_HOME` before each start). `runtime-for.js` registers Hermes; each Hermes agent
+  resolves to its own process set in the Hermes fleet (`runtimes/hermes/hermes-fleet.js`),
+  attached to the supervisor callers pass ([agents on Hermes](../hermes-runtime.md#agents-on-hermes)).
 - **Sessions, run events and approvals** (`runtimes/hermes/`) over the gateway's
   session store, which differs from the stdio server: sessions have one durable id,
   a connection attaches to a session (`session.resume`) before it may submit there,

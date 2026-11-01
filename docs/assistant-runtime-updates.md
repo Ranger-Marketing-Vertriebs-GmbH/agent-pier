@@ -515,12 +515,19 @@ lock as generated, so reviews show it collapsed.
 ## Hermes Agent runtime
 
 Hermes Agent is the second agent runtime of the
-[agent runtime port](adr/0006-assistant-runtime-port.md) (decision 4). Agents do not
-run on it yet; this section covers its installation and updates. The owner opts in
-with `--with-hermes` or `PUT /api/assistant-runtime/hermes {"enabled": true}` (no UI
-yet); the opt-in is `hermes.enabled` in `<data>/assistants/settings.json`, beside the
-runtime switch. Enabling starts the installation in the background; disabling keeps
-the installation for the next opt-in.
+[agent runtime port](adr/0006-assistant-runtime-port.md) (decision 4); agents choose it when they are created
+([Choose the runtime](agents.md#choose-the-runtime)). This section covers its
+installation and updates. The owner opts in with **Offer Hermes Agent** under
+**Agents › Runtime › Hermes Agent**, `--with-hermes` or
+`PUT /api/assistant-runtime/hermes {"enabled": true}`; the opt-in is `hermes.enabled` in `<data>/assistants/settings.json`, beside the
+runtime switch. Enabling starts the installation in the background and then the Hermes agents;
+disabling stops their process sets and keeps the installation for the next opt-in.
+When this AgentPier pins a newer release than the installed one, the group shows
+**Update** (`POST /api/assistant-runtime/hermes/update`): the new release is installed
+beside the selected one and activated through the update journal below; every Hermes
+agent's set stops, the snapshot is taken, the sets start on the new release, and a set
+that fails to start rolls the installation and the agents' homes back. OpenClaw agents
+keep running.
 
 **The pin.** `server/features/assistants/runtimes/hermes/hermes-manifest.json` names a
 release tag of `NousResearch/hermes-agent` and the commit it names (release `v0.22.5`,

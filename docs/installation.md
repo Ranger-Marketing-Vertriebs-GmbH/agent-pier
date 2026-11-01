@@ -430,8 +430,10 @@ This installs the runtime only; it does not enable or start a service.
 
 ### Hermes Agent runtime
 
-Hermes Agent is off until the owner opts in (`--with-hermes`, or
-`PUT /api/assistant-runtime/hermes`; agents cannot run on it yet). AgentPier then
+Hermes Agent is off until the owner opts in: the **Hermes Agent** switch under
+**Agents › Runtime**, `--with-hermes`, or `PUT /api/assistant-runtime/hermes`. New
+agents can then choose it as their runtime
+([Choose the runtime](agents.md#choose-the-runtime)). AgentPier
 installs a pinned Hermes release (`v0.22.5`, by its commit) into
 `<data dir>/assistants/hermes/runtimes/`, about 540 MB: the checksum-verified source
 archive, a pinned `uv` and the Python 3.14 that uv installs there, and the locked

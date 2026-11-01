@@ -8,9 +8,24 @@ import { reconcileRuns } from "./run-reconciler.js";
 import { reconciledChanges } from "./conversation-feeds.js";
 import { busyChats, chatBusy } from "./agent-chats.js";
 import { noteRefusalOn } from "./agent-admission.js";
-import { hostConnection, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
+import {
+  hermesFleetOf,
+  hostConnection,
+  hostReady,
+  ownProcess,
+  runtimeFor,
+} from "./runtimes/runtime-for.js";
 
 const sessionRetryMs = 60000;
+
+// The agent of chat `c`, or null once it is gone.
+function agentOf(service, c) {
+  try {
+    return service.store.getAssistant(c.assistantId);
+  } catch {
+    return null;
+  }
+}
 
 // The pass still runs on the connection it started on, and that connection takes calls.
 const stillOn = (service, connection) =>
@@ -37,7 +52,11 @@ export function reconcileChats(service, { full = true, chats = [] } = {}) {
       });
     return service.reconcileNext;
   }
-  if (!hostReady(service.runtime) || service.closed || service.maintenance)
+  if (
+    service.closed ||
+    service.maintenance ||
+    !(hostReady(service.runtime) || ownReady(service))
+  )
     return Promise.resolve();
   service.reconciling = pass(service).finally(() => {
     service.reconciling = null;
@@ -84,6 +103,44 @@ async function keepOpen(service, connection, c) {
   }
 }
 
+// Whether a Hermes agent's own process set takes calls (hermes-fleet.js).
+const ownReady = (service) =>
+  hermesFleetOf(service.runtime)
+    .list()
+    .some(({ runtime }) => runtime.host.ready());
+
+/**
+ * One chat of a Hermes agent in a pass: its session attached on the agent's current
+ * connection (the subscription), then read when the pass needs it, as for OpenClaw
+ * chats. Hermes never archives an AgentPier session on its own, so nothing is kept
+ * open. Returns whether the chat was read.
+ */
+async function ownProcessChat(service, c, agent, needs) {
+  const runtime = runtimeFor(agent, service.runtime);
+  if (!runtime.host.ready()) return false;
+  const connection = runtime.host.connection();
+  service.ownSubscribed ??= new WeakMap();
+  let subscribed = service.ownSubscribed.get(connection);
+  if (!subscribed) service.ownSubscribed.set(connection, (subscribed = new Set()));
+  const fresh = !subscribed.has(c.id);
+  if (fresh)
+    try {
+      await runtime.sessions
+        .on(connection)
+        .subscribeMessages({ key: c.runtimeSessionKey });
+      subscribed.add(c.id);
+      service.sessionFailures.delete(c.id);
+    } catch {
+      if (!runtime.host.connected(connection)) return false;
+      service.sessionFailures.set(c.id, {
+        diagnostic: "SESSION_UNAVAILABLE",
+        retryAt: service.now() + sessionRetryMs,
+      });
+      return false;
+    }
+  return fresh || needs;
+}
+
 async function pass(service) {
   const full = !!service.reconcileFull;
   const dirty = service.reconcileDirty;
@@ -107,6 +164,7 @@ async function pass(service) {
   const reads = new Map();
   const busy = busyChats(service);
   const watched = new Set(service.feeds?.entries?.keys() || []);
+  const openClaw = hostReady(service.runtime);
   for (const c of service.store.listConversations()) {
     // One unavailable session must not stall run reconciliation for the rest.
     if (service.closed) break;
@@ -115,6 +173,26 @@ async function pass(service) {
       stale.delete(c.id);
       continue;
     }
+    const agent = agentOf(service, c);
+    if (ownProcess(agent)) {
+      const working = chatBusy(service, c.id, busy);
+      if (c.archivedAt && !working) {
+        stale.delete(c.id);
+        continue;
+      }
+      if (service.now() < (service.sessionFailures.get(c.id)?.retryAt ?? -Infinity))
+        continue;
+      const needs =
+        full || working || dirty.has(c.id) || watched.has(c.id) || stale.has(c.id);
+      if (!(await ownProcessChat(service, c, agent, needs))) continue;
+      const history = await service.history(c.id);
+      reads.set(c.id, history);
+      if (history.stale) stale.add(c.id);
+      else stale.delete(c.id);
+      continue;
+    }
+    // The shared host's chats wait while it takes no calls.
+    if (!openClaw) continue;
     // Once per connection, archived chats too: pinned, a chat stays out of OpenClaw's
     // maintenance (its entry cap and disk budget included), and one it archived anyway
     // takes turns and deliveries again (native-chat-archive.js).
@@ -171,7 +249,8 @@ async function pass(service) {
   if (!service.closed) {
     const listed = new Set(service.store.listConversations().map((c) => c.id));
     for (const id of stale) if (!listed.has(id)) stale.delete(id);
-    service.runtime.setState({ sync: stale.size ? "stale" : "current" });
+    // The shared host's sync state; only its chats keep it while it runs.
+    if (openClaw) service.runtime.setState({ sync: stale.size ? "stale" : "current" });
     // The poll reconciles every 2 s during a turn: only the chats whose history
     // or turns changed read their feed again; the list hears of every pass.
     for (const id of reconciledChanges(service, reads)) service.feeds.invalidate(id);

@@ -10,6 +10,7 @@ import { AssistantConfig } from "../../server/features/assistants/assistant-conf
 import { GatewayEventHub } from "../../server/features/assistants/gateway-event-hub.js";
 import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { publicMessages } from "../../server/features/assistants/conversations.js";
+import { withOpenClawEntries } from "../../server/features/assistants/runtimes/openclaw/openclaw-sessions.js";
 import { channelFixture } from "../helpers/assistant-channel-fixture.js";
 import {
   fixtureModels,
@@ -125,7 +126,10 @@ test(
         { sessionKey: session.key, limit: 100 },
         long,
       );
-      return { stale: false, messages: publicMessages(page.messages) };
+      return {
+        stale: false,
+        messages: publicMessages(withOpenClawEntries(page.messages)),
+      };
     };
     const contexts = new Map();
     f.assistants.teams = {
