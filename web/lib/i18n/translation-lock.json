@@ -1757,6 +1757,7 @@
   "assistant-skills:assistantSkillsCopy.states.missing": "de:380f98c64bde en:6be36ca49ee8",
   "assistant-skills:assistantSkillsCopy.states.needsSettings": "de:2b54f3633677 en:f88daa18b871",
   "assistant-skills:assistantSkillsCopy.states.ready": "de:8d4d4830b4da en:5fa7aac5375c",
+  "assistant-skills:assistantSkillsCopy.states.selfWritten": "de:cef980914762 en:0b53d37d4262",
   "assistant-skills:assistantSkillsCopy.states.shadowed": "de:4f0849a54c18 en:d57fbffc0979",
   "assistant-skills:assistantSkillsCopy.states.shadowedCatalog": "de:ad52454b7452 en:cc79f3c3d860",
   "assistant-skills:assistantSkillsCopy.states.shadowedCatalogSource": "de:629c09911e82 en:7d61ca5bc1f7",

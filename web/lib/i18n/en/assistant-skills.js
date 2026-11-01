@@ -33,6 +33,8 @@ export const assistantSkillsCopy = {
       "Off: another installed skill of the same name runs in place of this catalog skill. Your choice stays saved and applies again once that skill is gone.",
     shadowedCatalog:
       "Off: a bundled skill of the same name replaces this catalog skill. Remove the catalog skill to use the bundled one.",
+    selfWritten: (runtime) =>
+      `On: the agent wrote or installed this skill itself in ${runtime}. AgentPier does not switch it off.`,
     shadowed:
       "Off for this agent: a skill of the same name in the agent's folders would run in its place. Your choice stays saved and applies again once that skill is gone.",
   },

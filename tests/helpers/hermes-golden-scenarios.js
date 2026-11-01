@@ -106,6 +106,23 @@ export const hermesGoldenScenarios = {
     model: models.account,
     instructions,
   }),
+  // Skills: the bundled ones switched on stay, the others are switched off (the
+  // essential one never), a catalog skill comes from its folder, a name Hermes
+  // neither bundles nor finds in the catalog is named.
+  skills: () => ({
+    profile: agent({
+      shell: "approval",
+      capabilities: { memory: true },
+      skills: ["github", "quartz-notes", "weather"],
+    }),
+    model: models.bearer,
+    instructions,
+    bundledSkills: ["github", "hermes-agent", "pdf"],
+    catalogSkills: {
+      "quartz-notes": "/golden/skill-catalog/skills/quartz-notes",
+      unassigned: "/golden/skill-catalog/skills/unassigned",
+    },
+  }),
   // Subagents stay on with their defaults; wishes Hermes cannot serve yet are named.
   "subagents-default": () => ({
     profile: agent({
@@ -120,6 +137,7 @@ export const hermesGoldenScenarios = {
 /** What hermesCompiler.compile takes for a scenario (`homes`: files found there). */
 export function goldenCompileInput(scenario, homes = {}) {
   const { profile, model: connection, instructions: text, workspace, strict } = scenario;
+  const { bundledSkills, catalogSkills } = scenario;
   const live =
     connection || text !== undefined
       ? [desiredAgent(profile, { model: connection, instructions: text })]
@@ -130,6 +148,8 @@ export function goldenCompileInput(scenario, homes = {}) {
     workspaces: workspace ? { [profile.runtimeAgentId]: workspace } : {},
     homes: Object.keys(homes).length ? { [profile.runtimeAgentId]: homes } : {},
     strictShell: strict || [],
+    bundledSkills,
+    catalogSkills,
   };
 }
 

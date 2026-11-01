@@ -19,7 +19,8 @@ export const hermesConfigCapabilities = Object.freeze({
  * carry the model connection and instructions of a live apply, replacing the entry
  * of the same agent; `workspaces` and `homes` (each agent's files as found, `{
  * "config.yaml", ".env" }`) are by runtime agent id; `strictShell`: the runtime
- * agent ids on every-command approval. Facts other runtimes take (`existing`,
+ * agent ids on every-command approval; `bundledSkills` and `catalogSkills` as
+ * compileHome takes them, for every agent. Facts other runtimes take (`existing`,
  * `paths`, `port`, `token`) are ignored. Pure.
  */
 function compile({
@@ -28,6 +29,8 @@ function compile({
   workspaces = {},
   homes = {},
   strictShell = [],
+  bundledSkills,
+  catalogSkills,
 }) {
   if (!isDesiredState(desired)) throw new TypeError("Hermes compiles a desired state.");
   if (!agents.every(isDesiredAgent))
@@ -43,6 +46,8 @@ function compile({
         workspace: workspaces[agent.runtimeAgentId],
         strict: strictShell,
         existing: homes[agent.runtimeAgentId] || {},
+        bundledSkills,
+        catalogSkills,
       }),
     ]);
   return Object.freeze({ homes: Object.freeze(Object.fromEntries(entries)) });
@@ -58,7 +63,10 @@ function compile({
  */
 export const hermesCompiler = Object.freeze({
   compile,
-  // One agent's home: compileHome(agent, { workspace, strict, existing }).
+  // One agent's home: compileHome(agent, { workspace, strict, existing, … }).
   compileHome,
   write: writeHermesHome,
+  // Names a skill in the agent's own folders would replace: none to know before a
+  // start, as Hermes reports such a skill itself (hermes-skills.js status).
+  skillShadows: () => new Set(),
 });

@@ -18,12 +18,12 @@ The Hermes compiler (`server/features/assistants/runtimes/hermes/hermes-compiler
 turns one agent's runtime-neutral desired state into these files of its home, and
 nothing else:
 
-| File                       | Content                                                            |
-| -------------------------- | ------------------------------------------------------------------ |
-| `config.yaml`              | Model, toolsets, approvals, memory, plugins and the defaults below |
-| `.env`                     | The model connection's key                                         |
-| `SOUL.md`                  | The agent's instructions                                           |
-| `plugins/agentpier-guard/` | `plugin.yaml` and `__init__.py`, only for every-command approval   |
+| File                       | Content                                                          |
+| -------------------------- | ---------------------------------------------------------------- |
+| `config.yaml`              | Model, toolsets, approvals, memory, skills, plugins and defaults |
+| `.env`                     | The model connection's key                                       |
+| `SOUL.md`                  | The agent's instructions                                         |
+| `plugins/agentpier-guard/` | `plugin.yaml` and `__init__.py`, only for every-command approval |
 
 The agent's memory (`memories/MEMORY.md`, `memories/USER.md`) and the `AGENTS.md` of
 its work folder are not compiled: they are read and written through the agentFiles
@@ -139,11 +139,44 @@ step before a chat summary is OpenClaw's: AgentPier's write guard never sees a H
 agent's writes, so Hermes agents skip it (`memory-step.js`). Notes below `memory/` and
 the Dream Diary are OpenClaw's and stay empty for a Hermes agent.
 
+### Skills
+
+Hermes seeds every skill it bundles into the home's `skills/` folder
+(`tools/skills_sync.py`) and offers each skill it finds there or in a folder of
+`skills.external_dirs`, unless `skills.disabled` names it (`agent/skill_utils.py`).
+The compiler (`hermes-config/skills.js`) writes:
+
+| Key                    | Value                                                                  |
+| ---------------------- | ---------------------------------------------------------------------- |
+| `skills.disabled`      | Every bundled skill the owner did not switch on, except `hermes-agent` |
+| `skills.external_dirs` | The live folder of each catalog skill the owner switched on            |
+
+`hermes-agent` is essential to Hermes and cannot be switched off. Catalog skills are
+checked before each apply (a tampered copy is restored from the catalog's store, a
+damaged one is left out) and offered from their folders in the catalog's live copy; a
+skill of the same name in the home wins over an external one, so such a catalog skill
+shows as replaced. An assigned name Hermes neither bundles nor finds in the catalog is
+named as `skills` (below). AgentPier's built-in skills (shopping) need the browser and
+are not offered yet.
+
+Skills the agent writes itself (`skill_manage`) or installs inside Hermes stay on:
+practical default, owner's choice. Nothing names them, so Hermes offers them, and
+`skills.write_approval` stays off. The skills page lists them as **On: the agent wrote
+or installed this skill itself in Hermes Agent** without a switch. Hermes's curator
+may archive such skills after long disuse; it never touches bundled, hub-installed or
+external skills.
+
+The skills sub-port (`hermes-skills.js`) answers `status` from the installation and
+the home as Hermes reads them: each skill with its `origin` (`bundled`, `catalog`, or
+`local` for the agent's own), whether `skills.disabled` filters it, and what it
+misses on this host (`prerequisites.commands` on the agent's PATH, `platforms`,
+`required_environment_variables` in its `.env`).
+
 ### Not mapped yet
 
 The compiler names what an agent wants that Hermes does not get yet, so the owner can see
-it: ChatGPT accounts, the browser, MCP servers, assigned skills, PDF reading, routines,
-team tools and the extra folders on the shell's PATH. Routines, MCP, skills and Telegram
+it: ChatGPT accounts, the browser, MCP servers, assigned skills Hermes cannot offer, PDF
+reading, routines, team tools and the extra folders on the shell's PATH. Routines, MCP, skills and Telegram
 follow in step 5 of the ADR's delivery order, teams and the browser in step 6. Hermes has
 no advanced settings in AgentPier yet: the capability reports
 `advancedSettingsUnsupported`.
@@ -176,9 +209,9 @@ every set reach the chat path and the event hub once (`agentRuntimeEvents`).
 | Capability                                        | Hermes                              |
 | ------------------------------------------------- | ----------------------------------- |
 | host, sessions, events, approvals, config, agents | available                           |
-| agentFiles                                        | available                           |
+| agentFiles, skills                                | available                           |
 | everyCommandApproval                              | available (unavailable on OpenClaw) |
-| routines, skills, browser, models, channels       | `hermesNotYetSupported`             |
+| routines, browser, models, channels               | `hermesNotYetSupported`             |
 | advancedSettings                                  | `advancedSettingsUnsupported`       |
 
 ## Gateway protocol
@@ -216,7 +249,9 @@ of child processes. The sessions, approvals, host and install contracts run the 
 through the Hermes runtime, its supervised gateway and the RPC bridge, against the
 in-repo fake model. `tests/integration/hermes-files-contract.test.js` checks the agent's
 files: a memory entry written through the port reaches the agent's prompt, and an
-entry the agent adds with Hermes's `memory` tool comes back through it. Set
+entry the agent adds with Hermes's `memory` tool comes back through it; an assigned
+bundled skill and a catalog skill reach the agent's skill index while an unassigned
+one stays out, and a skill the agent writes is reported as its own. Set
 `AGENTPIER_HERMES_CONTRACT_RUNTIME` to an installation made by
 `scripts/provision-hermes-contracts.mjs` (its `venv/bin/` holds `python` and
 `hermes`). The tests use a private `HOME` and `HERMES_HOME` and never touch

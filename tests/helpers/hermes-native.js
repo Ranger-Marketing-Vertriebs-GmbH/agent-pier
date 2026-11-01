@@ -44,9 +44,10 @@ export function hermesSandbox(t) {
 /**
  * The agent AgentPier would run, as its desired state reads it: shell on approval
  * (Hermes asks before dangerous commands), memory, and the fake model at `baseUrl` as
- * its model connection, with its key.
+ * its model connection, with its key. `extra`: more fields of its stored record
+ * (skills); `inputs`: what desiredAgent takes besides (its MCP server ids).
  */
-export function contractAgent(agentId, { baseUrl }) {
+export function contractAgent(agentId, { baseUrl }, extra = {}, inputs = {}) {
   const profile = {
     id: agentId,
     name: `Agent ${agentId}`,
@@ -54,8 +55,10 @@ export function contractAgent(agentId, { baseUrl }) {
     revision: 1,
     shell: "approval",
     capabilities: { memory: true },
+    ...extra,
   };
   return desiredAgent(profile, {
+    ...inputs,
     instructions: `# ${agentId}\n\nYou help the owner.\n`,
     model: {
       ref: "ap-contract/fake-1",

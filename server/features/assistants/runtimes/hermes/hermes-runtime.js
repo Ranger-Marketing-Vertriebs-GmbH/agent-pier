@@ -5,17 +5,20 @@ import { hermesSessions } from "./hermes-sessions.js";
 import { hermesEvents } from "./hermes-events.js";
 import { hermesApprovals } from "./hermes-approvals.js";
 import { hermesAgentFiles } from "./hermes-files.js";
+import { bundledSkillNames, hermesSkills } from "./hermes-skills.js";
+import { hermesEnvironment } from "./hermes-environment.js";
 import { hermesCompiler, hermesConfigCapabilities } from "./hermes-compiler.js";
 import { hermesError } from "./hermes-rpc-client.js";
 
 // The sub-ports Hermes gets in later delivery steps (ADR 0006): reported, never hidden.
 const later = unavailable("hermesNotYetSupported");
-const laterPorts = ["routines", "skills", "browser", "models", "channels"];
+const laterPorts = ["routines", "browser", "models", "channels"];
 
 /**
  * What a Hermes agent offers (agent-runtime.js RUNTIME_CAPABILITIES): host,
- * sessions, events, approvals, config, agents and agentFiles (its memory,
- * instructions and AGENTS.md, hermes-files.js); every-command approval, which only
+ * sessions, events, approvals, config, agents, agentFiles (its memory,
+ * instructions and AGENTS.md, hermes-files.js) and skills (hermes-skills.js);
+ * every-command approval, which only
  * Hermes has (ADR 0006 decision 5); the sub-ports of later steps report
  * `hermesNotYetSupported`, advanced settings `advancedSettingsUnsupported`.
  */
@@ -39,8 +42,10 @@ const isRunning = (availability) => !["disabled", "failed"].includes(availabilit
  * approval. Host from hermes-host.js; sessions, events and approvals over the client
  * of the current start.
  *
- * - config.apply({ desired, strict }): writes the compiled home now; a running set
- *   that this changed restarts, a stopped or failed one starts. Resolves `{ written,
+ * - config.apply({ desired, strict, catalog }): writes the compiled home now; a
+ *   running set that this changed restarts, a stopped or failed one starts.
+ *   `catalog`: `{ [name]: folder }` of the catalog skills it may offer
+ *   (hermes-config/skills.js); later starts keep them. Resolves `{ written,
  *   restarted }`.
  * - agents: one runtime agent, the set's own: list() names it while ready; create and
  *   update leave the home to config.apply; delete({ deleteFiles }) stops the set and,
@@ -58,19 +63,28 @@ export function createHermesRuntime({
 }) {
   let written = [];
   let latest = null;
+  // The installation the set last started with, and the names it bundles.
+  let installed = null;
+  let bundled;
   const strictNow = () => (typeof strict === "function" ? !!strict() : !!strict);
-  const writeHome = (agent, read, everyCommand) => {
+  const writeHome = (agent, read, everyCommand, inputs = {}) => {
     const home = hermesCompiler.compileHome(read, {
       workspace: agent.workspace,
       strict: everyCommand ? [read.runtimeAgentId] : [],
+      bundledSkills: bundled,
+      catalogSkills: inputs.catalog,
     });
     written = hermesCompiler.write(agent.hermesHome, home);
     return written;
   };
-  const prepare = async (agent) => {
+  const prepare = async (agent, record) => {
+    if (record && record !== installed) {
+      installed = record;
+      bundled = bundledSkillNames(record);
+    }
     const read = latest?.desired ?? (await desired());
     if (!read) return;
-    writeHome(agent, read, latest ? latest.strict : strictNow());
+    writeHome(agent, read, latest ? latest.strict : strictNow(), latest?.inputs);
   };
   const supervisor = new HermesSupervisor({ ...options, prepare });
   const host = createHermesHost(supervisor);
@@ -105,16 +119,31 @@ export function createHermesRuntime({
     events: hermesEvents(supervisor),
     approvals: hermesApprovals(supervisor),
     agentFiles: hermesAgentFiles(supervisor),
+    skills: hermesSkills(supervisor, {
+      installed: () => installed,
+      // The agent's PATH, where a skill's programs must be found.
+      folders: (record) =>
+        hermesEnvironment({
+          agent: supervisor.agentPaths(),
+          runtime: record,
+          pathPrepend: supervisor.pathPrepend,
+        }).PATH.split(":"),
+    }),
     config: {
       compiler: hermesCompiler,
-      async apply({ desired: read, strict: everyCommand = strictNow() }) {
-        latest = { desired: read, strict: !!everyCommand };
+      async apply({ desired: read, strict: everyCommand = strictNow(), catalog = {} }) {
+        latest = { desired: read, strict: !!everyCommand, inputs: { catalog } };
         const { availability } = supervisor.status();
         if (!isRunning(availability)) {
           await supervisor.start();
           return { written: [...written], restarted: false };
         }
-        const changed = writeHome(supervisor.agentPaths(), read, !!everyCommand);
+        const changed = writeHome(
+          supervisor.agentPaths(),
+          read,
+          !!everyCommand,
+          latest.inputs,
+        );
         if (changed.length) await supervisor.restart();
         else await supervisor.start();
         return { written: changed, restarted: changed.length > 0 };

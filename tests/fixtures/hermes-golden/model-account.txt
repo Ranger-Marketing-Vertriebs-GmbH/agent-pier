@@ -26,6 +26,8 @@ memory:
 plugins:
   enabled: []
   auto_update_check_hours: 0
+skills:
+  external_dirs: []
 delegation:
   subagent_auto_approve: false
 web:

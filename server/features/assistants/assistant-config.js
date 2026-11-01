@@ -4,6 +4,7 @@ import {
   inheritsFromLead,
   personalCapabilities,
   personalShell,
+  personalSkills,
   profileTools,
   senderLockedTools,
 } from "./native-capabilities.js";
@@ -196,15 +197,29 @@ export class AssistantConfig {
   /**
    * A Hermes agent (ADR 0006 decision 4): its own process set runs only its desired
    * state, written into its home by the runtime's config sub-port, which starts the
-   * set or restarts it when the home changed; an archived agent's set stops. Tools
-   * beyond the shell, memory and web of step 4 come with later steps (the compiler
-   * names what is not mapped yet), so its instructions carry AgentPier's identity
-   * section only.
+   * set or restarts it when the home changed; an archived agent's set stops. Its
+   * catalog skills are checked first (a tampered copy is restored, a damaged one left
+   * out) and offered from their live folders. Tools beyond the shell, memory, web
+   * and skills come with later steps (the compiler names what is not mapped yet), so
+   * its instructions carry AgentPier's identity section only.
    */
   async applyOwnProcess(assistant, lease) {
     const runtime = runtimeFor(assistant, this.runtime);
     if (assistant.archivedAt) await runtime.host.stop();
     else {
+      const assigned = personalSkills(assistant);
+      const { dropped } = this.catalogCheck(assigned);
+      let known = new Set();
+      try {
+        known = this.skillCatalog?.names() || known;
+      } catch {
+        /* A catalog that cannot be read offers none of its skills. */
+      }
+      const catalog = Object.fromEntries(
+        assigned
+          .filter((name) => known.has(name) && !dropped.includes(name))
+          .map((name) => [name, this.skillCatalog.livePath(name)]),
+      );
       const desired = desiredAgent(assistant, {
         instructions: assistantBootstrap(assistant, lease.display, {
           memoryWritable: false,
@@ -219,6 +234,7 @@ export class AssistantConfig {
       await runtime.config.apply({
         desired,
         strict: assistant.shell === "approval" && assistant.shellEveryCommand === true,
+        catalog,
       });
     }
     this.store.markEffective(assistant.id, assistant.revision);

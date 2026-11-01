@@ -49,6 +49,10 @@ export function statusText(skill, copy, runtime = "OpenClaw") {
   return typeof state === "function" ? state(runtime) : state;
 }
 
-/** A switched-off skill that cannot be used is not offered; one that is on can go. */
+/**
+ * A switched-off skill that cannot be used is not offered; one that is on can go. A
+ * skill the agent wrote itself in its runtime is on there without a switch here.
+ */
 export const skillLocked = (skill, on) =>
-  !on && ["shadowed", "unavailable", "needsSettings", "damaged"].includes(skill.state);
+  skill.state === "selfWritten" ||
+  (!on && ["shadowed", "unavailable", "needsSettings", "damaged"].includes(skill.state));
