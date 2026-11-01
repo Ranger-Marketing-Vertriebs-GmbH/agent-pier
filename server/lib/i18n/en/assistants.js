@@ -318,6 +318,8 @@ export const assistants = {
     "This Telegram bot is already in use: as your AgentPier bot or by another agent. Create a separate bot for each purpose.",
   skillUnavailable:
     "This skill is not available as a bundled OpenClaw skill, or a skill of the same name in the agent's folders would run in its place.",
+  telegramSendersRuntime:
+    "Hermes agents cannot have their own Telegram bot for other people yet. Your own Telegram chat with them works.",
   telegramSendersShell:
     "An agent with its own Telegram bot for other people must not have shell access. Turn shell off or disconnect the bot first.",
   telegramSendersStdio:

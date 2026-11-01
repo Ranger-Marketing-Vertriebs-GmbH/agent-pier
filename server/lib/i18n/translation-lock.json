@@ -478,6 +478,7 @@
   "assistants.telegramSendersArchive": "de:a6c5652328be en:d15953fa7228",
   "assistants.telegramSendersGithub": "de:53ff38411a7d en:7123162a3d83",
   "assistants.telegramSendersRestartRequired": "de:3cea19605dd6 en:d9ef06eaee0f",
+  "assistants.telegramSendersRuntime": "de:02fbfd6922cf en:0001613e15c8",
   "assistants.telegramSendersSecrets": "de:9754780e3869 en:d81426f0ef2a",
   "assistants.telegramSendersShell": "de:f73b21472f53 en:827a7747fd7e",
   "assistants.telegramSendersSsh": "de:0d2962cb5372 en:998ba7a3c73e",

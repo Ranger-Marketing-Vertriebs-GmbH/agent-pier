@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { boundPort, reachable, unsupported } from "./hermes-connection.js";
+import { HermesTurns } from "./hermes-turns.js";
 import { hermesError } from "./hermes-rpc-client.js";
 import { refused } from "./hermes-approval-queue.js";
 import { sessionKeyOf, storedIdOf } from "./hermes-run-state.js";
@@ -39,7 +40,11 @@ const missing = (error) => error?.answered === true && error.reason === "not_fou
  * attach, title → llm.oneshot. downloadArtifact is a capability gap (UNSUPPORTED).
  * `on(connection)` binds the methods to one connection (hermes-connection.js).
  */
-export const hermesSessions = (supervisor) => boundPort(sessionsOver, supervisor);
+export function hermesSessions(supervisor) {
+  // The turns AgentPier submitted, shared by every view (hermes-turns.js).
+  const turns = new HermesTurns();
+  return boundPort((current) => sessionsOver(current, turns), supervisor);
+}
 
 // Attaches the session behind `key` to this connection; resolves its session id.
 async function attach(link, key) {
@@ -129,7 +134,8 @@ const internalKinds = new Set(["auto_continue", "internal_notification"]);
  * row at `index` of the whole transcript. Hermes 0.22.5 sends `{ role, text,
  * timestamp, row_id, display_kind, … }` (session.history, _history_to_messages): the
  * durable `row_id` is its id (a row without one is named by its place), the
- * timestamp is in seconds, and a row names neither its turn's run nor its submission.
+ * timestamp is in seconds, and a row names neither its turn's run nor its submission
+ * (hermes-turns.js attributes the replies of the turns AgentPier sent).
  */
 export function hermesEntry(row, index) {
   const r = row && typeof row === "object" ? row : {};
@@ -153,17 +159,21 @@ export function hermesEntry(row, index) {
 }
 
 // Hermes's history rows, newest last, with OpenClaw's `content` beside its `text` and
-// the port's `entry`.
-const messagesOf = (answer, limit) => {
+// the port's `entry`; `attribute` names the runs of the rows (hermes-turns.js), read
+// over the whole transcript before a page is cut.
+const messagesOf = (answer, limit, attribute = (all) => all) => {
   const rows = Array.isArray(answer?.messages) ? answer.messages : [];
+  const all = attribute(
+    rows.map((row, i) => {
+      const entry = hermesEntry(row, i);
+      return typeof row?.text === "string"
+        ? { ...row, content: [{ type: "text", text: row.text }], entry }
+        : { ...(row && typeof row === "object" ? row : {}), entry };
+    }),
+  );
   const from =
-    Number.isSafeInteger(limit) && limit > 0 ? Math.max(0, rows.length - limit) : 0;
-  return rows.slice(from).map((row, i) => {
-    const entry = hermesEntry(row, from + i);
-    return typeof row?.text === "string"
-      ? { ...row, content: [{ type: "text", text: row.text }], entry }
-      : { ...(row && typeof row === "object" ? row : {}), entry };
-  });
+    Number.isSafeInteger(limit) && limit > 0 ? Math.max(0, all.length - limit) : 0;
+  return all.slice(from);
 };
 
 const titleOf = (text) =>
@@ -208,7 +218,7 @@ async function contextOf(link, key) {
   }
 }
 
-function sessionsOver(current) {
+function sessionsOver(current, turns) {
   const reach = async () => reachable(current());
   return {
     async create({ agentId, label, idempotencyKey }, options = {}) {
@@ -259,6 +269,7 @@ function sessionsOver(current) {
             { onLate },
           );
           link.runs.admitted(sid, runId, answer?.admission_id);
+          turns.record(key, runId, text);
           return { runId, status: answer?.status ?? null };
         } catch (error) {
           // An answered refusal admitted nothing; a timeout may still run the turn.
@@ -336,12 +347,16 @@ function sessionsOver(current) {
     async get({ key, limit, timeoutMs }) {
       const link = await reach();
       const answer = await transcript(link, key, { timeoutMs });
-      return { messages: messagesOf(answer, limit) };
+      return { messages: messagesOf(answer, limit, turns.attribute.bind(turns, key)) };
     },
     async history({ sessionKey, limit, offset, maxChars }) {
       const link = await reach();
       const answer = await transcript(link, sessionKey);
-      let messages = messagesOf(answer, undefined);
+      let messages = messagesOf(
+        answer,
+        undefined,
+        turns.attribute.bind(turns, sessionKey),
+      );
       const total = messages.length;
       const skip = Number.isSafeInteger(offset) && offset > 0 ? offset : 0;
       const end = total - skip;
@@ -380,7 +395,10 @@ function sessionsOver(current) {
           deleteTranscript === false
             ? await mutate(link, key, "archive", { archived: true })
             : await mutate(link, key, "delete", {}, { fenced: true });
-        if (deleteTranscript !== false) link.runs.unbind(key);
+        if (deleteTranscript !== false) {
+          link.runs.unbind(key);
+          turns.forget(key);
+        }
         return receipt;
       } catch (error) {
         if (!missing(error)) throw error;

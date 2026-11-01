@@ -140,7 +140,7 @@ export default function ChannelsTab({ assistant, page, go, navigate }) {
             <UserAgentNote text={usersCopy.lockedTelegramSenders} />
           ) : (
             isPersonal(assistant) && (
-              <AgentCapability assistant={assistant} surface="channels">
+              <AgentCapability assistant={assistant} surface="telegramSenders">
                 <TelegramSendersSettings assistantId={assistant.id} />
               </AgentCapability>
             )

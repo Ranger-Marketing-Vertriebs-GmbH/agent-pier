@@ -15,6 +15,7 @@ import {
 import {
   modelsFor,
   runtimeIdName,
+  surfaceCapabilities,
 } from "../../web/features/assistants/runtime-capabilities.js";
 import {
   capabilityPatch,
@@ -195,4 +196,9 @@ test("a Hermes agent lists ChatGPT accounts unavailable and drops a chosen one",
     modelId: "",
   });
   assert.deepEqual(withRuntime(draft, ""), { runtime: "" });
+});
+
+test("an agent's own Telegram bot needs the runtime's channelBots capability", () => {
+  assert.equal(surfaceCapabilities.channels, "channels");
+  assert.equal(surfaceCapabilities.telegramSenders, "channelBots");
 });

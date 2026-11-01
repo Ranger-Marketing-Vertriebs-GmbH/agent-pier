@@ -5,11 +5,7 @@ import {
 } from "../assistants/completion-runs.js";
 import { boundedText, completeMessage, withNote } from "../assistants/history-text.js";
 import { telegramMessages } from "./telegram-messages.js";
-import {
-  hostConnection,
-  hostReady,
-  runtimeFor,
-} from "../assistants/runtimes/runtime-for.js";
+import { runtimeForSession } from "../assistants/runtimes/runtime-for.js";
 
 /**
  * The replies of runs AgentPier did not start, for the owner's paired Telegram chat.
@@ -133,9 +129,11 @@ export class TelegramFollowUps {
     const expired = this.service.now() - row.endedAt >= followUpExpiryMs;
     if (!row.proven) {
       let page = null;
-      if (hostReady(a.runtime))
-        page = await runtimeFor(null, a.runtime)
-          .sessions.on(hostConnection(a.runtime))
+      // The runtime holding the run's session (a Hermes agent's own process set).
+      const runtime = runtimeForSession(row.sessionKey, a.runtime);
+      if (runtime.host.ready())
+        page = await runtime.sessions
+          .on(runtime.host.connection())
           .get({
             key: row.sessionKey,
             limit: completionTranscriptLimit,

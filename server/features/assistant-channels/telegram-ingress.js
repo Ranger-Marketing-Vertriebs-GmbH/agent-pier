@@ -196,10 +196,14 @@ export class TelegramIngress {
   async dispatch(id, signal) {
     const { store, ledger, assistants } = this.service;
     const channel = store.get(id);
+    // The runtime of the channel's agent (a Hermes agent's own process set) decides.
+    const agent = assistants.store
+      .listAssistants()
+      .find((a) => a.id === channel.assistantId);
     if (
       !channel.enabled ||
       !store.secret(id) ||
-      !hostReady(assistants.runtime) ||
+      !hostReady(assistants.runtime, agent) ||
       this.service.closed
     )
       return;

@@ -290,11 +290,15 @@ export const RUN_EVENT_KINDS = Object.freeze([
 // `advancedSettings`; OpenClaw has them, a runtime without reports it unavailable);
 // `everyCommandApproval`, a shell level beside "approval" on which every command asks
 // the owner (Hermes, whose "approval" asks only for dangerous commands; OpenClaw's
-// "approval" already asks for every command, so it reports the option unavailable).
+// "approval" already asks for every command, so it reports the option unavailable);
+// `channelBots`, an agent's own Telegram bot for other people, which the runtime runs
+// itself (OpenClaw's Telegram channel), beside the owner's chat AgentPier's channel
+// layer serves for every runtime (`channels`).
 export const RUNTIME_CAPABILITIES = Object.freeze([
   ...RUNTIME_PORTS,
   "advancedSettings",
   "everyCommandApproval",
+  "channelBots",
 ]);
 
 // The runtime of an agent that records none: every agent from before the field, and a
