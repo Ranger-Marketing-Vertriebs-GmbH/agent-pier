@@ -7,8 +7,9 @@ import {
   githubOutput,
 } from "../../scripts/affected/ci-plan.mjs";
 
-const linux = { os: "ubuntu-latest", node: 24 };
-const macos = { os: "macos-latest", node: 24 };
+const node = { node: 24, "node-version": ">=24.22.1 <25" };
+const linux = { os: "ubuntu-latest", ...node };
+const macos = { os: "macos-latest", ...node };
 const allSpecs = Array.from(
   { length: 200 },
   (_, index) => `tests/browser/s${index}.spec.js`,

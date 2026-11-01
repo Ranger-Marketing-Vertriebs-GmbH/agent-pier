@@ -1,11 +1,14 @@
 import { splitSpecs, weigher } from "../browser-shards.mjs";
+import { ciNodeVersion } from "../ci-node-versions.mjs";
 
 // Turns a selection into the job plan of .github/workflows/verify.yml. A pull
 // request runs what its selection needs, on Linux unless the change is platform
 // code; the merge queue (`full`) runs every node test and Chromium spec.
 
-const linux = { os: "ubuntu-latest", node: 24 };
-const macos = { os: "macos-latest", node: 24 };
+// `node` names the job (a required check); `node-version` is what setup-node installs.
+const node = { node: 24, "node-version": ciNodeVersion(24) };
+const linux = { os: "ubuntu-latest", ...node };
+const macos = { os: "macos-latest", ...node };
 const maxShards = 4;
 // A Chromium shard job runs two Playwright processes (.github/actions/browser-shard):
 // about 600 recorded seconds keep a shard near five minutes plus three of setup.
