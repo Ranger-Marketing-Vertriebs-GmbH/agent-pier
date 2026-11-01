@@ -124,8 +124,15 @@ setTimeout(() => { fs.appendFileSync(${JSON.stringify(log)}, "-"); process.stdou
     fs.mkdirSync(cwd);
     return { cwd };
   });
-  const listed = await new GitRemotes({ git, concurrency: 2 }).annotate(folders, "cwd");
-  assert.equal(listed.length, 7);
+  // A child killed by the timeout leaves a "+" without its "-" and would read as
+  // a third concurrent process, so a loaded machine must never reach the timeout.
+  const remotes = new GitRemotes({ git, concurrency: 2, timeoutMs: 60000 });
+  const listed = await remotes.annotate(folders, "cwd");
+  assert.deepEqual(
+    listed.map((item) => item.remote),
+    Array(7).fill("x"),
+    "every fake git ran to completion",
+  );
   let running = 0,
     peak = 0;
   for (const mark of fs.readFileSync(log, "utf8")) {
