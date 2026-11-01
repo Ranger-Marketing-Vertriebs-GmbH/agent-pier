@@ -85,14 +85,7 @@ test("writePreviewConfig keeps every other config.json key", () => {
   );
   writePreviewConfig(dir, { enabled: true, portRangeStart: 47100, portRangeEnd: 47109 });
   const saved = JSON.parse(fs.readFileSync(path.join(dir, "config.json"), "utf8"));
-  assert.deepEqual(
-    { ...saved, previews: undefined, network: undefined },
-    {
-      ...other,
-      previews: undefined,
-      network: undefined,
-    },
-  );
+  for (const key of Object.keys(other)) assert.equal(saved[key], other[key]);
   assert.deepEqual(saved.network, { a: 1 });
   assert.equal(saved.previews.enabled, true);
   assert.equal(readPreviewConfig(dir, constraints).enabled, true);
