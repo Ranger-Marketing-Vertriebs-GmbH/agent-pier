@@ -135,3 +135,15 @@ test("a probe that throws releases its reservation", async () => {
   assert.equal(slots.busy().size, 0);
   assert.equal(await slots.allocate({ key: "A" }), 41000);
 });
+
+test("a failing slots file write releases its reservation", async () => {
+  const blocker = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "slots-")), "blocked");
+  fs.writeFileSync(blocker, "not a directory");
+  const slots = new PreviewSlots({
+    range: { start: 41000, end: 41000 },
+    probe: async () => true,
+    file: path.join(blocker, "slots.json"),
+  });
+  await assert.rejects(slots.allocate({ key: "A" }));
+  assert.equal(slots.busy().size, 0);
+});

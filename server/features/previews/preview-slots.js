@@ -47,8 +47,9 @@ export class PreviewSlots {
       this.reserved.add(slot);
       let accepted = false;
       try {
-        accepted = await this.probe(listenerPort(slot));
-        if (accepted) this.remember(slot, key);
+        const free = await this.probe(listenerPort(slot));
+        if (free) this.remember(slot, key);
+        accepted = Boolean(free);
       } finally {
         if (!accepted) this.reserved.delete(slot);
       }
