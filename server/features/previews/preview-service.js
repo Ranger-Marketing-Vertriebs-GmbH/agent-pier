@@ -146,6 +146,21 @@ export class PreviewService extends EventEmitter {
     const next = this.checked(raw);
     const before = this.settings();
     writePreviewConfig(this.dataDir, next);
+    try {
+      await this.apply(next, before, source);
+    } catch (error) {
+      // The saved settings never differ from what runs: restore the old ones.
+      try {
+        writePreviewConfig(this.dataDir, before);
+      } catch {}
+      throw error;
+    }
+    this.recordSettings(next, source);
+    this.changed();
+    return this.view();
+  }
+
+  async apply(next, before, source) {
     const { portRangeStart: start, portRangeEnd: end } = next;
     const inside = (slot) => next.enabled && slot >= start && slot <= end;
     for (const preview of [...this.previews.values()])
@@ -153,7 +168,11 @@ export class PreviewService extends EventEmitter {
         await this.close(preview.id, {
           reason: next.enabled ? "range" : "disabled",
           source,
-        }).catch(() => {});
+        }).catch((error) =>
+          console.error(
+            `AgentPier could not close a preview: ${error?.code || error?.status || "unknown error"}`,
+          ),
+        );
     // A bind in flight settles first, so it cannot add a listener afterwards.
     await Promise.allSettled([...this.binding.values()]);
     for (const [slot, listener] of [...this.listeners])
@@ -168,10 +187,7 @@ export class PreviewService extends EventEmitter {
     }
     // A start that found previews off is memoized; enabling starts afresh.
     if (!this.slots) this.starting = null;
-    await this.start();
-    this.recordSettings(next, source);
-    this.changed();
-    return this.view();
+    await this.ensureStarted();
   }
 
   recordSettings(next, source) {
@@ -195,7 +211,14 @@ export class PreviewService extends EventEmitter {
   }
 
   /** Binds every free slot and starts the idle sweep, once, while enabled. */
+  /** Serialized with open() and configure(), so a settings change never overlaps it. */
   start() {
+    const run = this.queue.then(() => this.ensureStarted());
+    this.queue = run.catch(() => {});
+    return run;
+  }
+
+  ensureStarted() {
     if (this.stopped) return Promise.resolve();
     // A failed start is not kept: the next start or open tries again.
     return (this.starting ??= this.run().catch((error) => {
@@ -309,11 +332,11 @@ export class PreviewService extends EventEmitter {
     if (!this.settings().enabled || this.stopped)
       throw previewError("PREVIEW_DISABLED", 409);
     const { owner, port, label, path } = checkedInput(input);
-    if (!this.slots) await this.start();
+    if (!this.slots) await this.ensureStarted();
     if (!this.slots) {
       // Enabled after the start: bind now.
       this.starting = null;
-      await this.start();
+      await this.ensureStarted();
     }
     if (!this.slots) throw previewError("PREVIEW_DISABLED", 409);
     const internal = new Set(this.internalPorts());

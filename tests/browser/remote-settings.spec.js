@@ -34,8 +34,13 @@ for (const locale of ["de-DE", "en-GB"]) {
         .getByRole("button", { name: en ? "Add host" : "Host hinzufügen" })
         .click();
       await page
+        .locator("article", {
+          has: page.getByRole("heading", {
+            name: en ? "Network" : "Netzwerk",
+            exact: true,
+          }),
+        })
         .getByRole("button", { name: en ? "Save" : "Speichern" })
-        .first()
         .click();
       const put = state.calls
         .filter((c) => c.method === "PUT" && c.path === "/remote")
@@ -100,8 +105,13 @@ for (const locale of ["de-DE", "en-GB"]) {
         .getByRole("switch", { name: en ? "Network access" : "Netzwerkzugriff" })
         .click();
       await page
+        .locator("article", {
+          has: page.getByRole("heading", {
+            name: en ? "Network" : "Netzwerk",
+            exact: true,
+          }),
+        })
         .getByRole("button", { name: en ? "Save" : "Speichern" })
-        .first()
         .click();
       const put = state.calls
         .filter((c) => c.method === "PUT" && c.path === "/remote")
