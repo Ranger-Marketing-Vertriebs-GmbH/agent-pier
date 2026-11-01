@@ -571,7 +571,9 @@ enabled do the same. Activation and rollback use the same update journal as Open
 `createHermesUpdates`): the snapshot holds every Hermes agent's `HOME`, `HERMES_HOME`
 and work folder. Hermes has no downgrade path and migrates its own `config.yaml` when
 it starts, so there is no migration step; a failed validation restores the snapshot
-and the previous selection. Runtime retention keeps the installations a selection,
+and the previous selection. A native contract (`tests/integration/hermes-update-contract.test.js`)
+updates an agent from the previous release to the pinned one this way, a rollback first
+and then a commit. Runtime retention keeps the installations a selection,
 candidate or backup names.
 
 **Processes.** Each Hermes agent runs as one supervised process set

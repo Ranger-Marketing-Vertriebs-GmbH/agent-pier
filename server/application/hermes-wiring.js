@@ -54,7 +54,7 @@ const hermesAgents = (services) =>
  * agent's process set at once. Stop ends them all, start starts those not archived,
  * and the lifecycle methods are Hermes's (hermes-lifecycle.js).
  */
-function fleetHost(services) {
+export function hermesUpdateHost(services) {
   const sets = () => fleetOf(services)?.list() || [];
   const status = () => ({
     availability: sets().some(
@@ -87,7 +87,7 @@ function fleetHost(services) {
 
 // No AgentPier maintenance is needed to swap Hermes: only Hermes agents stop, and a
 // failed start rolls the installation and their homes back to the snapshot.
-const hermesMaintenance = (services) => ({
+export const hermesUpdateMaintenance = (services) => ({
   enter: async () => {},
   leave: async () => {},
   quiesce: async () => {},
@@ -156,8 +156,8 @@ export function createHermesRuntime({ config, services = {} }) {
     updating = (async () => {
       const updates = createHermesUpdates({
         dataDir,
-        host: fleetHost(services),
-        maintenance: hermesMaintenance(services),
+        host: hermesUpdateHost(services),
+        maintenance: hermesUpdateMaintenance(services),
       });
       await updates.stage();
       if (updates.status().candidateReady) await updates.activate();
