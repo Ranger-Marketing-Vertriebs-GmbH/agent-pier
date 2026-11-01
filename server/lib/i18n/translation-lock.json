@@ -957,6 +957,7 @@
   "mcpServers.nameTaken": "de:09a50e783494 en:0697c94af59f",
   "mcpServers.notFound": "de:ee6a9fe546dc en:79a6904e360e",
   "mcpServers.oauthCliTimeout": "de:991708208eab en:165e17d39b3f",
+  "mcpServers.oauthHermesUnsupported": "de:aa0ede5b6d2d en:ddd8e258fff0",
   "mcpServers.oauthLoginFailed": "de:d67c6f184ebd en:f6e552fd2e53",
   "mcpServers.oauthLogoutDeferred": "de:254cd6f96b47 en:50d066e45e3e",
   "mcpServers.oauthLogoutFailed": "de:4248e99449ad en:39af968fe3c6",

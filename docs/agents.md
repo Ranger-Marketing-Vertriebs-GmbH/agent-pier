@@ -225,12 +225,15 @@ What works on Hermes today:
 - Skills: switch on Hermes's bundled skills and skills from the skill catalog on the
   agent's skills page; the bundled skills you leave off stay off. Skills the agent
   writes itself in Hermes stay on and are listed there without a switch.
+- MCP servers: bind servers of the MCP store under **Access**, local commands and
+  servers with a token; their tools appear as `mcp__<server>__<tool>`. Servers with
+  sign-in (OAuth) are not available for Hermes agents yet.
 
 What comes later, shown disabled with **Not available for Hermes agents yet.** in
-the agent's settings: routines, reminders and check-ins, MCP servers, the browser, ChatGPT sign-in, Telegram and other channels, teams and
-advanced runtime settings. Updates of Hermes itself appear in the **Hermes Agent** group
-(**Update**); the Hermes agents restart, and a failed start restores the previous
-installation. What AgentPier writes into a Hermes home is described in
+the agent's settings: routines, reminders and check-ins, the browser, ChatGPT sign-in,
+Telegram and other channels, teams and advanced runtime settings. Updates of Hermes
+itself appear in the **Hermes Agent** group (**Update**); the Hermes agents restart,
+and a failed start restores the previous installation. What AgentPier writes into a Hermes home is described in
 [Hermes runtime](hermes-runtime.md).
 
 <a id="archive-and-delete"></a>

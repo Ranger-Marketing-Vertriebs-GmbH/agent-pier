@@ -494,6 +494,7 @@ export function connectAssistantServices(graph) {
       (fallbackOwner ??= resolveShellOwner() || { pathPrepend: [] }).pathPrepend,
     // Before any start, and for agents the start did not bind, no MCP tools.
     mcpTools: (assistant) => runtime.mcp?.agentTools?.[assistant.runtimeAgentId] || [],
+    ownMcp: (assistant) => mcpChanges.agentInputs(assistant),
     // The agents whose own Telegram bot the running (or starting) Gateway compiled.
     senderFacing: (assistant) =>
       !!(runtime.telegram || runtime.telegramStarting)?.accounts.includes(
@@ -537,13 +538,14 @@ export function connectAssistantServices(graph) {
       await mcpChanges.drainLogouts();
       // AgentPier's desired state for the start, read from the stores now; the
       // adapter compiles it (agent-desired-state.js).
+      const openClaw = openClawProfiles(store.listAssistants());
       return desiredState({
         directory: installed.teamPlugin.directory,
         connection: await bridge.start(),
         hostMaxConcurrent: teams.store.settings().hostMaxConcurrent,
         native: await reminders.start(),
         // Hermes agents run in their own process sets, never in OpenClaw's.
-        profiles: openClawProfiles(store.listAssistants()),
+        profiles: openClaw,
         // Eligible agents with an SSH grant (assistant-access.js sshAgents).
         sshAgents: workflows.access.sshAgents(),
         // Read at each start; secrets reach only the compiled openclaw.json.
@@ -555,12 +557,8 @@ export function connectAssistantServices(graph) {
           workspaces: runtime.paths?.workspaces ?? null,
         }),
         // Each agent's GitHub folder on its shell PATH (agent-github.js shellPaths).
-        githubShell: workflows.github.shellPaths(
-          openClawProfiles(store.listAssistants()),
-        ),
-        sshShell: workflows.agentSsh?.shellPaths(
-          openClawProfiles(store.listAssistants()),
-        ),
+        githubShell: workflows.github.shellPaths(openClaw),
+        sshShell: workflows.agentSsh?.shellPaths(openClaw),
         webTools: {
           search: webSearch.resolve(),
           browser: webToolsChanges.detect(),

@@ -123,6 +123,49 @@ export const hermesGoldenScenarios = {
       unassigned: "/golden/skill-catalog/skills/unassigned",
     },
   }),
+  // MCP servers bound to the agent: secrets only as .env references, a placeholder
+  // resolved to its work folder, an OAuth server left out and named.
+  mcp: () => ({
+    profile: agent({ capabilities: { memory: true } }),
+    model: models.bearer,
+    instructions,
+    workspace: goldenWorkspace,
+    mcp: {
+      servers: [
+        {
+          id: "s1",
+          name: "files",
+          transport: "stdio",
+          command: "/usr/local/bin/files-mcp",
+          args: ["--root={agent.workspace}/notes", "--fast"],
+          toolTimeoutSec: 120,
+        },
+        {
+          id: "s2",
+          name: "tracker",
+          transport: "http",
+          url: "https://mcp.example.test/mcp?team=golden",
+          startupTimeoutSec: 30,
+        },
+        { id: "s3", name: "events", transport: "sse", url: "https://sse.example.test/" },
+        {
+          id: "s4",
+          name: "linear",
+          transport: "http",
+          url: "https://l.test",
+          auth: "oauth",
+        },
+        { id: "s5", name: "unbound", transport: "http", url: "https://u.test" },
+      ],
+      bindings: { a1: ["s1", "s2", "s3", "s4"] },
+      secrets: {
+        s1: { env: { FILES_TOKEN: "golden-files-token" }, headers: {} },
+        s2: { env: {}, headers: { Authorization: "Bearer golden-tracker" } },
+        s3: { env: {}, headers: {} },
+      },
+      redirectUrl: null,
+    },
+  }),
   // Subagents stay on with their defaults; wishes Hermes cannot serve yet are named.
   "subagents-default": () => ({
     profile: agent({
@@ -137,13 +180,14 @@ export const hermesGoldenScenarios = {
 /** What hermesCompiler.compile takes for a scenario (`homes`: files found there). */
 export function goldenCompileInput(scenario, homes = {}) {
   const { profile, model: connection, instructions: text, workspace, strict } = scenario;
-  const { bundledSkills, catalogSkills } = scenario;
+  const { bundledSkills, catalogSkills, mcp } = scenario;
+  const servers = mcp?.bindings[profile.id] || [];
   const live =
     connection || text !== undefined
-      ? [desiredAgent(profile, { model: connection, instructions: text })]
+      ? [desiredAgent(profile, { model: connection, instructions: text, mcp: servers })]
       : [];
   return {
-    desired: desiredState({ profiles: [profile] }),
+    desired: desiredState({ profiles: [profile], mcp }),
     agents: live,
     workspaces: workspace ? { [profile.runtimeAgentId]: workspace } : {},
     homes: Object.keys(homes).length ? { [profile.runtimeAgentId]: homes } : {},

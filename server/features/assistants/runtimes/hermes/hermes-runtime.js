@@ -42,11 +42,14 @@ const isRunning = (availability) => !["disabled", "failed"].includes(availabilit
  * approval. Host from hermes-host.js; sessions, events and approvals over the client
  * of the current start.
  *
- * - config.apply({ desired, strict, catalog }): writes the compiled home now; a
- *   running set that this changed restarts, a stopped or failed one starts.
+ * - config.apply({ desired, strict, catalog, mcp }): writes the compiled home now;
+ *   a running set that this changed restarts, a stopped or failed one starts.
  *   `catalog`: `{ [name]: folder }` of the catalog skills it may offer
- *   (hermes-config/skills.js); later starts keep them. Resolves `{ written,
- *   restarted }`.
+ *   (hermes-config/skills.js); `mcp`: the MCP store's inputs (mcp-inputs.js
+ *   readMcpInputs) for the agent's bound servers (hermes-config/mcp.js), which a
+ *   restart loads: Hermes freezes a session's tools, so neither its config watcher
+ *   nor `reload.mcp` reaches the chats already open. Later starts keep both.
+ *   Resolves `{ written, restarted }`.
  * - agents: one runtime agent, the set's own: list() names it while ready; create and
  *   update leave the home to config.apply; delete({ deleteFiles }) stops the set and,
  *   with deleteFiles, calls `remove()` (the fleet's, which removes its folders).
@@ -73,6 +76,7 @@ export function createHermesRuntime({
       strict: everyCommand ? [read.runtimeAgentId] : [],
       bundledSkills: bundled,
       catalogSkills: inputs.catalog,
+      mcp: inputs.mcp,
     });
     written = hermesCompiler.write(agent.hermesHome, home);
     return written;
@@ -131,8 +135,13 @@ export function createHermesRuntime({
     }),
     config: {
       compiler: hermesCompiler,
-      async apply({ desired: read, strict: everyCommand = strictNow(), catalog = {} }) {
-        latest = { desired: read, strict: !!everyCommand, inputs: { catalog } };
+      async apply({
+        desired: read,
+        strict: everyCommand = strictNow(),
+        catalog = {},
+        mcp,
+      }) {
+        latest = { desired: read, strict: !!everyCommand, inputs: { catalog, mcp } };
         const { availability } = supervisor.status();
         if (!isRunning(availability)) {
           await supervisor.start();

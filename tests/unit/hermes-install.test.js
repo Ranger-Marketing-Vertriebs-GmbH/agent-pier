@@ -37,7 +37,7 @@ test("the shipped manifest pins a release, its commit and lock, uv per platform 
     bare.commit.slice(0, 12),
   );
   assert.match(hermesManifest.pythonVersion, /^3\.14\.\d+$/);
-  assert.deepEqual(hermesManifest.extras, ["messaging"]);
+  assert.deepEqual(hermesManifest.extras, ["messaging", "mcp"]);
   assert.deepEqual(Object.keys(hermesManifest.uvChecksums).sort(), [
     "darwin-arm64",
     "darwin-x64",
@@ -74,6 +74,12 @@ test("an installation verifies both archives and the lock, then selects itself",
   assert.equal(record.directory, directory);
   assert.equal(record.pythonPath, path.join(directory, "venv/bin/python"));
   assert.ok(shippedHermesRuntime(record, f.manifest));
+  // The same release built without an extra the pin names is due for an update.
+  assert.equal(
+    shippedHermesRuntime({ ...record, extras: ["messaging"] }, f.manifest),
+    false,
+  );
+  assert.match(record.directory, /-mcp\+messaging$/);
   assert.deepEqual(read(path.join(root(f), "runtime.json")), record);
   assert.equal(fs.existsSync(path.join(root(f), "candidate.json")), false);
   const receipt = read(path.join(directory, "receipt.json"));
@@ -106,6 +112,8 @@ test("uv runs locked, offline from host Pythons and inside AgentPier's folder", 
     "--no-dev",
     "--extra",
     "messaging",
+    "--extra",
+    "mcp",
     "--python",
     f.manifest.pythonVersion,
   ]);

@@ -147,6 +147,8 @@ export function createHermesSwitch({
         installed: !!selected,
         version: selected?.version || null,
         targetVersion: manifest.version,
+        // Whether the selected installation is the one this AgentPier pins.
+        current: shippedHermesRuntime(selected, manifest),
         // Hermes runs on its own CPython (the installation's, else the pinned one).
         pythonVersion: selected?.pythonVersion || manifest.pythonVersion || null,
         candidateReady: !!candidate && !sameHermesRuntime(candidate, selected),

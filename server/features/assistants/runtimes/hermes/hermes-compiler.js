@@ -20,7 +20,8 @@ export const hermesConfigCapabilities = Object.freeze({
  * of the same agent; `workspaces` and `homes` (each agent's files as found, `{
  * "config.yaml", ".env" }`) are by runtime agent id; `strictShell`: the runtime
  * agent ids on every-command approval; `bundledSkills` and `catalogSkills` as
- * compileHome takes them, for every agent. Facts other runtimes take (`existing`,
+ * compileHome takes them, for every agent; the MCP servers from the desired state's
+ * host `mcp`. Facts other runtimes take (`existing`,
  * `paths`, `port`, `token`) are ignored. Pure.
  */
 function compile({
@@ -48,6 +49,7 @@ function compile({
         existing: homes[agent.runtimeAgentId] || {},
         bundledSkills,
         catalogSkills,
+        mcp: desired.host.mcp,
       }),
     ]);
   return Object.freeze({ homes: Object.freeze(Object.fromEntries(entries)) });
