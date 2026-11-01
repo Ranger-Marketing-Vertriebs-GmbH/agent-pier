@@ -12,7 +12,37 @@ import {
   projectsHint,
   settingsHint,
 } from "./sidebar-menu-model.js";
-import { MENU_HINT_RUN_TOPICS, menuHintSources } from "./menu-hint-sources.js";
+import {
+  MENU_HINT_RUN_TOPICS,
+  menuHintSources,
+  startRunSources,
+} from "./menu-hint-sources.js";
+
+// The useLiveTopic results the menu-hint sources are made of; none is followed while
+// `active` is false.
+function useMenuHintParts(active) {
+  const feature = useAssistantFeature();
+  const on = (topic) => (active ? topic : null);
+  return {
+    counts: useLiveTopic(on("pipeline.counts")),
+    decisions: useLiveTopic(on(MENU_HINT_RUN_TOPICS.decisions)),
+    failed: useLiveTopic(on(MENU_HINT_RUN_TOPICS.failed)),
+    running: useLiveTopic(on(MENU_HINT_RUN_TOPICS.running)),
+    problems: useLiveTopic(on("connections.problems")),
+    summary: useLiveTopic(on("settings.summary")),
+    // Not followed (null) with agents off: the route answers 404 then.
+    updates: useLiveTopic(feature.enabled ? on("runtime.updates") : null),
+  };
+}
+
+// The sources of `parts`; the last complete ones stay until the next are complete.
+function useSourcesOf(parts, active) {
+  const last = useRef(null);
+  if (!active) return null;
+  const sources = menuHintSources(parts);
+  if (sources) last.current = sources;
+  return sources ?? last.current;
+}
 
 /**
  * What the menu hints are made of, pushed over the live channel while `active` (the
@@ -23,29 +53,16 @@ import { MENU_HINT_RUN_TOPICS, menuHintSources } from "./menu-hint-sources.js";
  * hints do not blink out and back.
  */
 export function useMenuHintSources(active) {
-  const feature = useAssistantFeature();
-  const on = (topic) => (active ? topic : null);
-  const counts = useLiveTopic(on("pipeline.counts"));
-  const decisions = useLiveTopic(on(MENU_HINT_RUN_TOPICS.decisions));
-  const failed = useLiveTopic(on(MENU_HINT_RUN_TOPICS.failed));
-  const running = useLiveTopic(on(MENU_HINT_RUN_TOPICS.running));
-  const problems = useLiveTopic(on("connections.problems"));
-  const summary = useLiveTopic(on("settings.summary"));
-  // Not followed (null) with agents off: the route answers 404 then.
-  const updates = useLiveTopic(feature.enabled ? on("runtime.updates") : null);
-  const last = useRef(null);
-  if (!active) return null;
-  const sources = menuHintSources({
-    counts,
-    decisions,
-    failed,
-    running,
-    problems,
-    summary,
-    updates,
-  });
-  if (sources) last.current = sources;
-  return sources ?? last.current;
+  return useSourcesOf(useMenuHintParts(active), active);
+}
+
+/**
+ * The start page's menu-hint sources (useMenuHintSources) and, from the same topics,
+ * its run sources (startRunSources), which never wait for the other sources.
+ */
+export function useStartSources() {
+  const parts = useMenuHintParts(true);
+  return { sources: useSourcesOf(parts, true), runs: startRunSources(parts) };
 }
 
 /** The hint of every menu entry, by entry id (null: no hint), from `sources`. */

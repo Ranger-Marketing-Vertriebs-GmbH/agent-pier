@@ -2,7 +2,7 @@ import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
 import Icon from "../../components/Icon.jsx";
 import useMobileLayout from "../../lib/useMobileLayout.js";
 import { startPageCopy as copy } from "../../lib/i18n/messages/dashboard.js";
-import { useHintsOf, useMenuHintSources } from "../../app/useMenuHints.js";
+import { useHintsOf, useStartSources } from "../../app/useMenuHints.js";
 import useAssistantFeature, {
   FEATURE_CHECK_FAILED,
 } from "../assistants/useAssistantFeature.js";
@@ -48,7 +48,8 @@ export default function DashboardPage({
   const phone = useMobileLayout();
   const [dialog, setDialog] = useState(null);
   const status = useSystemStatus("/system-status", !dialog);
-  const sources = useMenuHintSources(true);
+  // The pipelines card and tile wait only for their own run sources (`runSources`).
+  const { sources, runs: runSources } = useStartSources();
   const hints = useHintsOf(sources, state, ready);
   const inbox = useStartInbox();
   const feature = useAssistantFeature();
@@ -91,7 +92,7 @@ export default function DashboardPage({
     attention: attention.total,
   };
   const sessionList = ready ? sessionItems(state.sessions) : null;
-  const runs = startRuns(sources?.runs);
+  const runs = startRuns(runSources.lists);
   const seen = {
     agents: featureKnown ? agentsEnabled : undefined,
     attention: Array.isArray(inbox) ? attention.items.length : undefined,
@@ -171,7 +172,7 @@ export default function DashboardPage({
           )}
           {!phone && (
             <PipelinesCard
-              runs={sources?.runs}
+              runs={runSources.lists}
               shape={layout.runs}
               navigate={navigate}
               phone={false}
@@ -183,14 +184,17 @@ export default function DashboardPage({
         <div className="start-tiles">
           <PipelinesCard
             counts={{
-              running: sources?.running,
-              decisions: sources?.decisions,
+              running: runSources.counts?.running,
+              decisions: runSources.counts?.decisions,
               // Like the card: only failures of the last 24 hours (first page).
-              failed: sources?.runs?.failed
-                ? recentFailures(sources.runs.failed).length
+              failed: runSources.lists.failed
+                ? recentFailures(runSources.lists.failed).length
                 : null,
             }}
-            loading={!sources}
+            loading={
+              runSources.counts === undefined || runSources.lists.failed === undefined
+            }
+            unavailable={runSources.counts === null}
             navigate={navigate}
             phone
           />

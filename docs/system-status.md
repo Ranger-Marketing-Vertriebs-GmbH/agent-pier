@@ -29,7 +29,9 @@ you, in a column up to about 1180 px wide:
   activity and state, and the agent service's state in the footer (absent while agents
   are off; when agents turn out to be off after the card already showed, it says
   **Agents are off** with **Enable agents** until the next visit), beside **Pipelines** with up to three runs (running, awaiting a decision,
-  failed in the last 24 hours), each with a bar per stage, and **All runs**.
+  failed in the last 24 hours), each with a bar per stage, and **All runs**. The card
+  waits only for its own run lists: without runs it says so, and when the lists cannot
+  be read it says that instead of keeping its placeholders.
 - **Your tools:** the heading counts the ready tools and the CLI profiles (once
   known), such as "Your tools · 4 of 5 ready · 3 profiles". One row per CLI and
   utility with its version and one action:
