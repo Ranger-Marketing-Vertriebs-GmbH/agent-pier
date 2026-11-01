@@ -7,6 +7,7 @@ import ErrorMessage from "../../components/ErrorMessage.jsx";
 import Switch from "../../components/Switch.jsx";
 import { remoteCopy as copy } from "../../lib/i18n/messages/remote.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
+import { formatMessageTime } from "../../lib/i18n/index.js";
 import "./remote.css";
 
 const RESTART_TIMEOUT = 25000;
@@ -24,6 +25,8 @@ export default function RemoteSettings() {
   if (!resource.data || !draft)
     return <p role="status">{resource.error || copy.loading}</p>;
   const { local, tailscale, network } = resource.data;
+  // Hosts that agent hook requests named but AgentPier does not accept (after a move).
+  const refusedHosts = resource.data.hooks?.refusedHosts || [];
   const locked = network.locked;
   const toggle = () => {
     setNotice("");
@@ -79,6 +82,20 @@ export default function RemoteSettings() {
         <p>{copy.tailscaleDescription}</p>
         {tailscale.url ? <code>{tailscale.url}</code> : <p>{copy.tailscaleOff}</p>}
       </article>
+      {refusedHosts.length > 0 && (
+        <article className="settings-card" data-hook-refused-hosts>
+          <h2>{copy.hookHosts}</h2>
+          <p role="status">{copy.hookHostsDescription}</p>
+          <ul>
+            {refusedHosts.map((entry) => (
+              <li key={entry.host}>
+                <code>{entry.host}</code>{" "}
+                {copy.hookHostSeen(entry.count, formatMessageTime(entry.at))}
+              </li>
+            ))}
+          </ul>
+        </article>
+      )}
       <article className="settings-card">
         <h2>{copy.network}</h2>
         <p>{copy.networkDescription}</p>

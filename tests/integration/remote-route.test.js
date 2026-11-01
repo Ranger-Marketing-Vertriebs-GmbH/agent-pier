@@ -8,6 +8,7 @@ import { createApplication } from "../../server/app.js";
 import { remoteLocked } from "../../server/http/routes/remote.js";
 import { authorizeRequest } from "../../server/http/security.js";
 import { writeNetworkConfig } from "../../server/features/remote/network-access.js";
+import { HookHostRefusals } from "../../server/features/assistants/agent-hook-host-refusals.js";
 
 /** Sends a request with a raw Host header undici's fetch() cannot override. */
 function rawRequest(port, { method, path: target, headers, body }) {
@@ -212,4 +213,18 @@ test("a request through the network branch may only disable the mode, checked th
     headers,
   });
   assert.equal((await view.json()).network.locked, true);
+});
+test("remote settings list hosts that hook requests were refused on", async (t) => {
+  const f = await fixture(t);
+  const read = async () => (await (await f.request("GET", "/api/remote")).json()).hooks;
+  assert.deepEqual(await read(), { refusedHosts: [] });
+  // Without agents (as here) the list is empty; with them it is the hooks' record.
+  const refusals = new HookHostRefusals();
+  f.application.assistantRoutines = { hooks: { hostRefusals: refusals } };
+  refusals.record("3f1c2a9e-0000-4000-8000-000000000001", "mac-studio.tail1234.ts.net");
+  const [entry, ...rest] = (await read()).refusedHosts;
+  assert.deepEqual(rest, []);
+  assert.equal(entry.host, "mac-studio.tail1234.ts.net");
+  assert.equal(entry.count, 1);
+  assert.ok(!Number.isNaN(Date.parse(entry.at)));
 });

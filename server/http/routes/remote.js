@@ -33,6 +33,10 @@ export function remoteRoutes(services) {
         restartRequired: !isDeepStrictEqual(saved, running),
         locked: remoteLocked(req),
       },
+      // Hosts that agent hook requests named but no branch accepts (stale addresses).
+      hooks: {
+        refusedHosts: services.assistantRoutines?.hooks?.hostRefusals.recent() || [],
+      },
     };
   };
   router.get("/remote", (req, res) => res.json(view(req, effective())));

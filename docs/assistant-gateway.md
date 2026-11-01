@@ -351,7 +351,11 @@ for the implementation and remaining native platform/version qualification.
   and, only while network mode is on, a network-mode host without `Tailscale-*`
   headers. It refuses (403) any `Tailscale-Funnel-Request`, `Origin` or
   `Sec-Fetch-Site` header, so neither Funnel nor a browser page reaches it, and any
-  `token` query parameter. The sender authenticates with
+  `token` query parameter, all as `HOOK_FORBIDDEN`. A Host that none of the three
+  branches accepts answers `403 HOOK_HOST_MISMATCH` instead, the same for every hook
+  ID and without naming the accepted hosts; for a stored hook the endpoint notes the
+  received host (a plain host name only) for the owner and audits it once an hour
+  ([after a move](assistant-workflows.md#agent-hooks)). The sender authenticates with
   `Authorization: Bearer <secret>` (scheme in any case); AgentPier stores only the secret's SHA-256 and
   compares digests in constant time. Ten failed attempts in ten minutes answer
   `429 HOOK_RATE_LIMITED` with `Retry-After` until the window ends. The source is

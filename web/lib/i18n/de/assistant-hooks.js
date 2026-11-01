@@ -81,6 +81,8 @@ export const hookCopy = {
     "Tailscale ist nicht eingerichtet: Andere Geräte in deinem Tailnet erreichen diesen Hook nicht.",
   networkOff:
     "Der Netzwerkmodus ist aus: Geräte in deinem lokalen Netzwerk erreichen diesen Hook nicht.",
+  refusedHost: (host, time) =>
+    `Anfragen an ${host} wurden abgewiesen (zuletzt ${time}): AgentPier akzeptiert diesen Host nicht. Ist AgentPier auf einen anderen Computer umgezogen, trage beim Sender eine der Adressen oben ein oder richte den Fernzugriff auf dem neuen Computer ein.`,
   actions: "Aktionen",
   noSecret:
     "Dieser Hook hat noch kein Geheimnis: Jede Anfrage wird abgewiesen, bis du eines erstellst.",

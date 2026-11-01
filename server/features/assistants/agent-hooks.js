@@ -3,6 +3,7 @@ import { isDeepStrictEqual } from "node:util";
 import { eventIdOf, HookEvents } from "./agent-hook-events.js";
 import { HookRuns, runSession } from "./agent-hook-runs.js";
 import { HookStore, newSecret } from "./agent-hook-store.js";
+import { HookHostRefusals } from "./agent-hook-host-refusals.js";
 import { payloadCut } from "./agent-hook-prompt.js";
 import { eventActions } from "./agent-event-area.js";
 import {
@@ -62,6 +63,7 @@ export class AgentHooks {
     this.store = new HookStore(this.assistants.store.db);
     this.events = new HookEvents(this.assistants.store.db);
     this.runs = new HookRuns(this);
+    this.hostRefusals = new HookHostRefusals();
     routines.hooks = this;
     // Completions arrive on the reminder webhook's second route.
     reminders.webhook.receiveHook = (id, event) => this.runs.complete(id, event);
@@ -178,6 +180,8 @@ export class AgentHooks {
       createdAt: hook.createdAt,
       createdBy: hook.createdBy,
       addresses: this.addresses(hook.id),
+      // The latest request on a host AgentPier does not accept, or null.
+      refusedHost: this.hostRefusals.latest(hook.id),
       lastEvent: last
         ? { status: last.status, receivedAt: new Date(last.receivedAt).toISOString() }
         : null,
@@ -274,6 +278,7 @@ export class AgentHooks {
     // Cancelling reads the running events first; reconcile removes what is left.
     this.runs.cancel(hookId).catch(() => {});
     this.events.forget(hookId);
+    this.hostRefusals.forget(hookId);
     this.releaseSecrets(assistantId);
     this.audit("assistant.updated", hook, { change: "delete" });
     return { removed: true };
@@ -335,6 +340,19 @@ export class AgentHooks {
       "assistant.updated",
       hook,
       { kind: "hook-delivery", outcome, branch, size },
+      "failure",
+    );
+  }
+  /**
+   * A request for the stored hook on a Host no branch accepts: noted for the hook
+   * page and Remote access, audited with the received host at most once an hour.
+   */
+  hostRefused(hook, host) {
+    if (!this.hostRefusals.record(hook.id, host)?.audit) return;
+    this.audit(
+      "assistant.updated",
+      hook,
+      { kind: "hook-delivery", outcome: "wrong-host", host, size: 0 },
       "failure",
     );
   }

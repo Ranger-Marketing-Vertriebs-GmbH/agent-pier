@@ -10,6 +10,7 @@ import UnsavedChangesSheet from "../../../components/UnsavedChangesSheet.jsx";
 import api from "../../../lib/api.js";
 import useTabDraft from "../../../lib/settings/useTabDraft.js";
 import { hookCopy as copy } from "../../../lib/i18n/messages/assistant-hooks.js";
+import { formatMessageTime } from "../../../lib/i18n/index.js";
 import { hookApi } from "./hook-api.js";
 import { hookAddress, hookDraft, hookPatch, hookTicks } from "./hook-fields.js";
 import HookRights from "./HookRights.jsx";
@@ -34,8 +35,11 @@ const conflictLabels = {
   ...Object.fromEntries(hookTicks.map((key) => [key, () => copy.ticks[key]])),
 };
 
-/** Address rows with a copy button each, and why the others are missing. */
-function HookAddresses({ addresses }) {
+/**
+ * Address rows with a copy button each, why the others are missing, and requests
+ * the endpoint refused because they named a host AgentPier does not accept.
+ */
+function HookAddresses({ addresses, refusedHost }) {
   const id = useId();
   const rows = [
     ["local", addresses.local],
@@ -58,6 +62,11 @@ function HookAddresses({ addresses }) {
         ))}
         {!addresses.tailscale && <p className="agent-row-note">{copy.tailscaleOff}</p>}
         {!addresses.network.length && <p className="agent-row-note">{copy.networkOff}</p>}
+        {refusedHost && (
+          <p role="status" className="agent-row-note" data-hook-refused-host>
+            {copy.refusedHost(refusedHost.host, formatMessageTime(refusedHost.at))}
+          </p>
+        )}
       </ListCard>
     </section>
   );
@@ -271,7 +280,7 @@ export default function HookPage({ assistant, hookId, onBack }) {
           onChange={(next) => draft.set("enabled", next)}
         />
       </ListCard>
-      <HookAddresses addresses={hook.addresses} />
+      <HookAddresses addresses={hook.addresses} refusedHost={hook.refusedHost} />
       <section aria-labelledby={actionsId}>
         <GroupLabel id={actionsId}>{copy.actions}</GroupLabel>
         {!hook.secretSet && <p className="assistant-note">{copy.noSecret}</p>}

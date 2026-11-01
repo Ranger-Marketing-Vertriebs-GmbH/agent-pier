@@ -2,6 +2,7 @@
 // enums and sizes only. A delivery never keeps its payload, headers or secret, a
 // change never keeps a hook's name, sender or instruction.
 import { hookDefaults } from "../assistants/agent-hook-rights.js";
+import { hookHostLabel } from "../assistants/agent-hook-host-refusals.js";
 
 const outcomes = [
   "accepted",
@@ -12,6 +13,7 @@ const outcomes = [
   "too-large",
   "invalid",
   "unavailable",
+  "wrong-host",
 ];
 const branches = ["local", "tailscale", "network", "test"];
 const changes = ["create", "update", "secret", "delete", "enable", "pause"];
@@ -33,6 +35,9 @@ export function hookAuditDetails(details, event, auditId) {
     if (eventKey(details.eventKey)) event.details.eventKey = details.eventKey;
     if (outcomes.includes(details.outcome)) event.details.outcome = details.outcome;
     if (branches.includes(details.branch)) event.details.branch = details.branch;
+    // The Host a request named that no branch accepts (wrong-host): a plain host only.
+    const host = hookHostLabel(details.host);
+    if (host) event.details.host = host;
     if (Number.isSafeInteger(details.size) && details.size >= 0)
       event.details.size = details.size;
   }

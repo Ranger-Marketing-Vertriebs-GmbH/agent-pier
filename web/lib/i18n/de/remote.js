@@ -40,4 +40,9 @@ export const remoteCopy = {
     "Diese Verbindung endet mit dem Neustart. Danach lokal oder über Tailscale weiterarbeiten.",
   scriptHint: "Headless: npm run remote -- enable --accept-plain-http",
   loading: "Fernzugriff wird geladen …",
+  hookHosts: "Abgewiesene Hook-Anfragen",
+  hookHostsDescription:
+    "Agent-Hooks wurden über diese Hosts aufgerufen, die AgentPier nicht akzeptiert. Nach einem Umzug auf einen anderen Computer dort npm run tailscale ausführen (oder ihm den alten Tailscale-Namen geben) oder beim Sender eine Adresse von der Seite des Hooks eintragen.",
+  hookHostSeen: (count, time) =>
+    count === 1 ? `einmal (${time})` : `${count}-mal, zuletzt ${time}`,
 };

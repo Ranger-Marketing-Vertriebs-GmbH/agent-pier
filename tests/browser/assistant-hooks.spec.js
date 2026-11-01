@@ -56,6 +56,7 @@ const hookView = (input) => ({
   createdAt: "2026-10-25T08:00:00.000Z",
   createdBy: "owner",
   addresses: addresses(hookId),
+  refusedHost: input.refusedHost ?? null,
   lastEvent: null,
 });
 
@@ -377,4 +378,23 @@ test("an agent of a user says that it has no hooks", async ({ page }) => {
     page.getByText("Hooks are not available for shared agents or agents of users."),
   ).toBeVisible();
   await expect(hooksGroup(page)).toHaveCount(0);
+});
+
+test("a request on a host AgentPier does not accept shows under the addresses", async ({
+  page,
+}) => {
+  const refusedHost = {
+    host: "mac-studio.tail2788d4.ts.net",
+    count: 3,
+    at: "2026-10-26T09:12:00.000Z",
+  };
+  await setup(page, {
+    hooks: [hookView({ name: "Zabbix", sender: "zabbix01", refusedHost })],
+  });
+  await page.goto(baseURL + detailPath);
+  const note = page.locator("[data-hook-refused-host]");
+  await expect(note).toContainText(
+    "Requests to mac-studio.tail2788d4.ts.net were refused",
+  );
+  await expect(note).toContainText("set up Remote access on the new computer");
 });

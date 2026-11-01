@@ -703,9 +703,25 @@ endpoint itself; OpenClaw's own hooks stay off.
 `202 { eventId, status: "accepted" }` once the event is recorded, `200` for
 `duplicate` or `throttled`, `401` for a wrong secret, one `404` for unknown or paused
 hooks, `413`/`415`/`400` for a body that does not fit, `429` after repeated failed
-attempts and `503` with `Retry-After: 30` while the runtime is not ready. Transport,
+attempts and `503` with `Retry-After: 30` while the runtime is not ready. A request
+on a host AgentPier does not accept answers `403 HOOK_HOST_MISMATCH`; other refused
+transports (Funnel, browsers, a `token` query) answer `403 HOOK_FORBIDDEN`. Transport,
 secret and throttle are described under
 [security boundaries](assistant-gateway.md#security-boundaries).
+
+**After a move.** A hook address names the host it was copied from. When AgentPier
+moves to another computer, Tailscale Serve there forwards requests with the new
+machine name (for example `https://mac-studio.<tailnet>.ts.net/hooks/…`), while
+**Settings › Remote access** still names the old one until `npm run tailscale` runs
+on the new computer. Such requests answer `403 HOOK_HOST_MISMATCH`, not `401`: the
+secret is not the problem. The hook's page then notes under **Addresses** which host
+was refused and when, and **Settings › Remote access** lists the refused hosts under
+**Refused hook requests** (both kept in memory for a day, at most three hosts per hook,
+and only for hooks that exist). The audit log records the refusal once an hour per
+hook and host as outcome `wrong-host` with the received host. To fix it, run
+`npm run tailscale` and `npm run service:install` on the new computer and give the
+sender the address the hook's page shows now, or give the new machine the old
+Tailscale name so the stored address stays valid.
 
 **Waking.** Each accepted event gets one native cron job of its own
 (`agent-hook-runs.js`): created disabled with the event-routine dummy schedule and
