@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { PreviewService } from "../features/previews/preview-service.js";
+import { runTailscale } from "../features/remote/tailscale-cli.js";
 import { activeSessionGrant } from "../features/mcp/session-capability.js";
 import { lastCdpOffset } from "../features/assistants/openclaw-config/browser-profiles.js";
 import { readJSON } from "../lib/storage.js";
@@ -91,7 +92,7 @@ export function createPreviewService(services, overrides = {}) {
     sessionAlive: (id) => activeSessionGrant(config.dataDir, id) !== null,
     agentAlive: (owner) => agentAlive(services, owner),
     internalPorts: () => internalPorts(services),
-    tailscaleRun: config.tailscaleRun,
+    tailscaleRun: config.tailscaleRun ?? runTailscale,
     ...overrides,
   });
 }

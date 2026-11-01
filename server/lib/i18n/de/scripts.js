@@ -17,6 +17,9 @@ export const scripts = Object.freeze({
   httpsPortsOccupied:
     "Alle vorgesehenen HTTPS-Ports sind belegt. Vorhandene Freigaben bleiben unverändert.",
   tailscaleDisconnected: "Tailscale ist nicht verbunden.",
+  previewServeFailed: (port, reason) =>
+    `Vorschau-Port ${port} ist nicht über Tailscale freigegeben (${reason === "occupied" ? "von einer anderen Freigabe belegt" : reason}).`,
+  previewServeCommands: "Freigabe von Hand einrichten:",
   tailscaleIdentityUnavailable: "Tailscale-Identität konnte nicht ermittelt werden.",
   remoteAccessConfigured: (remoteUrl) =>
     `Fernzugriff eingerichtet: ${remoteUrl}\nJedes Mitglied des eigenen Tailnets erreicht die Anmeldeseite; wer AgentPier nutzt, entscheidet die AgentPier-Anmeldung. Dienst mit npm run service:install neu laden.`,

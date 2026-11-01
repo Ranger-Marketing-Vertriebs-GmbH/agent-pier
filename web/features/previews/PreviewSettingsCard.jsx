@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import CodeBlock from "../../components/CodeBlock.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import ListCard from "../../components/ListCard.jsx";
 import ListRow, { NumberRow, ToggleRow } from "../../components/ListRow.jsx";
@@ -21,6 +22,42 @@ const slotRow = ({ state }) =>
     : state === "free"
       ? { status: { tone: "ok", text: copy.slotFree } }
       : { status: { tone: "warn", text: copy.slotTaken } };
+
+/**
+ * The Tailscale Serve state of the range: shared, skipped in network mode, or the ports
+ * it could not share with the exact commands to run by hand.
+ */
+function ServeState({ serve }) {
+  const failed = serve.failed || [];
+  const occupied = failed.filter((entry) => entry.reason === "occupied");
+  const refused = failed.filter((entry) => entry.reason !== "occupied");
+  const list = (entries) => entries.map((entry) => entry.port).join(", ");
+  let row = {
+    status: { tone: "ok", text: copy.serveRegistered(serve.registered.length) },
+  };
+  if (serve.skipped) row = { sub: copy.serveNetwork };
+  else if (failed.length)
+    row = { status: { tone: "warn", text: copy.serveFailed(list(failed)) } };
+  return (
+    <>
+      <ListCard label={copy.serveTitle}>
+        <ListRow label={copy.serveTitle} {...row} />
+      </ListCard>
+      {occupied.length > 0 && <p>{copy.serveOccupied(list(occupied))}</p>}
+      {refused.length > 0 && serve.commands?.length > 0 && (
+        <>
+          <p>{copy.serveCommandsHint}</p>
+          {refused.map((entry) => (
+            <p key={entry.port}>
+              {copy.port(entry.port)}: <code>{entry.reason}</code>
+            </p>
+          ))}
+          <CodeBlock copyLabel={copy.serveCopy}>{serve.commands.join("\n")}</CodeBlock>
+        </>
+      )}
+    </>
+  );
+}
 
 /**
  * Settings › Remote access › Previews: the switch, the port range, the state of each
@@ -98,6 +135,7 @@ export default function PreviewSettingsCard({ locked = false }) {
           ))}
         </ListCard>
       )}
+      {data.settings.enabled && data.serve && <ServeState serve={data.serve} />}
       {data.previews?.length > 0 && (
         <PreviewRows
           previews={data.previews}

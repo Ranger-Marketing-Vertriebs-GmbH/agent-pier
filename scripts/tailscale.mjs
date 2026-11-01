@@ -1,8 +1,12 @@
 import { isMainModule } from "../server/lib/is-main-module.js";
 import { serverMessages } from "../server/lib/i18n/de.js";
-import path from "node:path";
-import { execFileSync } from "node:child_process";
 import { loadConfig, updateStoredConfig } from "../server/lib/config.js";
+import {
+  readPreviewConfig,
+  tailscaleHttpsPort,
+} from "../server/features/previews/preview-config.js";
+import { applyPreviewServe } from "../server/features/previews/preview-serve.js";
+import { runTailscale } from "../server/features/remote/tailscale-cli.js";
 export function selectServePort(status, localPort, { httpsPort } = {}) {
   if (
     httpsPort !== undefined &&
@@ -21,52 +25,69 @@ export function selectServePort(status, localPort, { httpsPort } = {}) {
   }
   throw new Error(serverMessages.scripts.httpsPortsOccupied);
 }
-function runTailscale(args) {
-  const socket = process.env.AGENTPIER_TAILSCALE_SOCKET;
-  if (socket && (!path.isAbsolute(socket) || /[\x00-\x1f]/.test(socket)))
-    throw Error("Tailscale socket must be an absolute path.");
-  return execFileSync("tailscale", [...(socket ? [`--socket=${socket}`] : []), ...args], {
-    encoding: "utf8",
-    timeout: 30000,
-    stdio: ["ignore", "pipe", "pipe"],
+/**
+ * Registers the preview range with Tailscale Serve when previews are on and network mode
+ * is off (the server re-applies it on every start); prints the commands of failures.
+ */
+export async function applyPreviews({ config, stored, remoteUrl, run, log }) {
+  if (stored.network?.enabled) return null;
+  const previews = readPreviewConfig(config.dataDir, {
+    hostPort: config.port,
+    pipelineRange: config.pipelines?.portRange,
+    tailscaleHttpsPort: tailscaleHttpsPort(remoteUrl),
   });
+  if (!previews.enabled) return null;
+  const result = await applyPreviewServe({
+    run,
+    range: { start: previews.portRangeStart, end: previews.portRangeEnd },
+  });
+  for (const { port, reason } of result.failed)
+    log(serverMessages.scripts.previewServeFailed(port, reason));
+  if (result.commands.length)
+    log([serverMessages.scripts.previewServeCommands, ...result.commands].join("\n"));
+  return result;
 }
 /** Serves AgentPier over Tailscale and records the URL; `run` is injectable for tests. */
-export function configureTailscale({
+export async function configureTailscale({
   config = loadConfig(),
   run = runTailscale,
   log = console.log,
 } = {}) {
-  const status = JSON.parse(run(["status", "--json"]));
+  const status = JSON.parse(await run(["status", "--json"]));
   if (status.BackendState !== "Running")
     throw new Error(serverMessages.scripts.tailscaleDisconnected);
   const login = status.User?.[String(status.Self?.UserID)]?.LoginName;
   const host = status.Self?.DNSName?.replace(/\.$/, "");
   if (!login || !host)
     throw new Error(serverMessages.scripts.tailscaleIdentityUnavailable);
-  const serve = JSON.parse(run(["serve", "status", "--json"]));
+  const serve = JSON.parse(await run(["serve", "status", "--json"]));
   const selectedPort = process.env.AGENTPIER_TAILSCALE_HTTPS_PORT;
   const port = selectServePort(serve, config.port, {
     httpsPort: selectedPort === undefined ? undefined : Number(selectedPort),
   });
   const remoteUrl = `https://${host}${port === 443 ? "" : `:${port}`}`;
   log(
-    run(["serve", "--bg", `--https=${port}`, `http://127.0.0.1:${config.port}`]).trim(),
+    String(
+      await run(["serve", "--bg", `--https=${port}`, `http://127.0.0.1:${config.port}`]),
+    ).trim(),
   );
   // Merge, never replace: network, pipelines and files settings must survive.
-  updateStoredConfig(config.dataDir, {
+  const stored = updateStoredConfig(config.dataDir, {
     port: config.port,
     remoteUrl,
     // Only this account may create the owner over Tailscale; everyone else signs in.
     ownerLogin: login,
   });
+  await applyPreviews({ config, stored, remoteUrl, run, log });
   log(serverMessages.scripts.remoteAccessConfigured(remoteUrl));
   return remoteUrl;
 }
-if (isMainModule(import.meta.url))
+async function main() {
   try {
-    configureTailscale();
+    await configureTailscale();
   } catch (e) {
     console.error(e.stderr?.toString().trim() || e.message);
     process.exitCode = 1;
   }
+}
+if (isMainModule(import.meta.url)) await main();

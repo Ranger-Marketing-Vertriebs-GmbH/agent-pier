@@ -21,10 +21,10 @@ function fakeTailscale(calls) {
   };
 }
 
-function withDataDir(fn) {
+async function withDataDir(fn) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-tailscale-"));
   try {
-    return fn(dataDir);
+    return await fn(dataDir);
   } finally {
     fs.rmSync(dataDir, { recursive: true, force: true });
   }
@@ -34,7 +34,7 @@ const read = (dataDir) =>
   JSON.parse(fs.readFileSync(path.join(dataDir, "config.json"), "utf8"));
 
 test("Tailscale setup keeps every other saved setting", () =>
-  withDataDir((dataDir) => {
+  withDataDir(async (dataDir) => {
     const saved = {
       port: 4390,
       remoteUrl: "https://old.tail.ts.net:8443",
@@ -45,7 +45,7 @@ test("Tailscale setup keeps every other saved setting", () =>
     };
     fs.writeFileSync(path.join(dataDir, "config.json"), JSON.stringify(saved));
     const calls = [];
-    const url = configureTailscale({
+    const url = await configureTailscale({
       config: { dataDir, port: 4390 },
       run: fakeTailscale(calls),
       log: () => {},
@@ -66,8 +66,8 @@ test("Tailscale setup keeps every other saved setting", () =>
   }));
 
 test("Tailscale setup creates the config file when none exists", () =>
-  withDataDir((dataDir) => {
-    configureTailscale({
+  withDataDir(async (dataDir) => {
+    await configureTailscale({
       config: { dataDir, port: 4380 },
       run: fakeTailscale([]),
       log: () => {},
@@ -80,7 +80,7 @@ test("Tailscale setup creates the config file when none exists", () =>
   }));
 
 test("updateStoredConfig merges a patch into config.json privately", () =>
-  withDataDir((dataDir) => {
+  withDataDir(async (dataDir) => {
     fs.writeFileSync(
       path.join(dataDir, "config.json"),
       JSON.stringify({ port: 4390, files: { limits: {} } }),
@@ -89,4 +89,61 @@ test("updateStoredConfig merges a patch into config.json privately", () =>
     assert.deepEqual(next, { port: 4390, files: { limits: {} }, remoteUrl: "https://x" });
     assert.deepEqual(read(dataDir), next);
     assert.equal(fs.statSync(path.join(dataDir, "config.json")).mode & 0o777, 0o600);
+  }));
+
+const previews = { enabled: true, portRangeStart: 41100, portRangeEnd: 41101 };
+const writes = (calls) =>
+  calls.filter((args) => args[0] === "serve" && args[1] !== "status");
+
+test("Tailscale setup registers the preview range when previews are on", () =>
+  withDataDir(async (dataDir) => {
+    fs.writeFileSync(path.join(dataDir, "config.json"), JSON.stringify({ previews }));
+    const calls = [];
+    await configureTailscale({
+      config: { dataDir, port: 4380 },
+      run: fakeTailscale(calls),
+      log: () => {},
+    });
+    assert.deepEqual(writes(calls), [
+      ["serve", "--bg", "--https=8443", "http://127.0.0.1:4380"],
+      ["serve", "--bg", "--https=41100", "http://127.0.0.1:42100"],
+      ["serve", "--bg", "--https=41101", "http://127.0.0.1:42101"],
+    ]);
+    assert.deepEqual(read(dataDir).previews, previews);
+  }));
+
+test("Tailscale setup leaves previews alone when off or in network mode", async () => {
+  for (const saved of [
+    { previews: { ...previews, enabled: false } },
+    { previews, network: { enabled: true, bind: "0.0.0.0", hosts: [] } },
+  ])
+    await withDataDir(async (dataDir) => {
+      fs.writeFileSync(path.join(dataDir, "config.json"), JSON.stringify(saved));
+      const calls = [];
+      await configureTailscale({
+        config: { dataDir, port: 4380 },
+        run: fakeTailscale(calls),
+        log: () => {},
+      });
+      assert.equal(writes(calls).length, 1);
+    });
+});
+
+test("Tailscale setup prints the commands of slots it could not register", () =>
+  withDataDir(async (dataDir) => {
+    fs.writeFileSync(path.join(dataDir, "config.json"), JSON.stringify({ previews }));
+    const lines = [];
+    const run = fakeTailscale([]);
+    await configureTailscale({
+      config: { dataDir, port: 4380 },
+      run: (args) => {
+        if (args.includes("--https=41101")) throw new Error("denied");
+        return run(args);
+      },
+      log: (line) => lines.push(line),
+    });
+    const text = lines.join("\n");
+    assert.match(text, /41101.*denied/);
+    assert.match(text, /tailscale serve --bg --https=41101 http:\/\/127\.0\.0\.1:42101/);
+    assert.doesNotMatch(text, /--https=41100 /);
   }));

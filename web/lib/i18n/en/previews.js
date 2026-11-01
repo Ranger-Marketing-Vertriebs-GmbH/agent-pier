@@ -18,4 +18,17 @@ export const previewCopy = {
   activeTitle: "Active previews",
   saved: "Saved.",
   loading: "Loading previews …",
+  serveTitle: "Tailscale",
+  serveRegistered: (count) =>
+    count === 1
+      ? "1 port shared in your tailnet"
+      : `${count} ports shared in your tailnet`,
+  serveFailed: (ports) => `Not shared: ${ports}`,
+  serveCommandsHint:
+    "Run these commands on the AgentPier computer, then switch previews off and on again.",
+  serveOccupied: (ports) =>
+    `Another Tailscale Serve entry uses ${ports}. Choose another port range.`,
+  serveNetwork:
+    "Network access is on: previews open on the network addresses, not through Tailscale.",
+  serveCopy: "Copy commands",
 };
