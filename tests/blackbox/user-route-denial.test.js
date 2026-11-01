@@ -78,6 +78,13 @@ test("users are denied every owner route in the registry", async (t) => {
     "POST /api/mail/test",
   ])
     assert.ok(probed.has(label), label);
+  for (const label of [
+    "GET /api/views",
+    "POST /api/views",
+    "PATCH /api/views/:id",
+    "DELETE /api/views/:id",
+  ])
+    assert.ok(probed.has(label), label);
 });
 
 test("every allow-list entry matches a real route", async (t) => {

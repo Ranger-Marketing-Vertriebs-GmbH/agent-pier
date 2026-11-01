@@ -26,7 +26,8 @@ const ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/;
 const TABS = new Set(["terminal", "chat", "files"]);
 const isRecord = (value) =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value);
-const onlyKeys = (value, keys) => Object.keys(value).every((key) => keys.includes(key));
+export const onlyKeys = (value, keys) =>
+  Object.keys(value).every((key) => keys.includes(key));
 const validId = (id) => typeof id === "string" && ID.test(id);
 const invalid = () => viewError("VIEW_LAYOUT_INVALID");
 
