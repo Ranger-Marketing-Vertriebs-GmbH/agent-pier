@@ -63,7 +63,7 @@ test("a home that cannot be compiled starts nothing and reports failed", async (
   assert.deepEqual(supervisor.pids(), []);
 });
 
-test("the runtime composes host, sessions, events, approvals and the compiler", async (t) => {
+test("the runtime composes host, sessions, events, approvals, routines and the compiler", async (t) => {
   const fake = hermesFakeRuntime(t);
   const { runtime } = hermes(t, fake);
   assert.equal(runtime.id, "hermes");
@@ -79,10 +79,11 @@ test("the runtime composes host, sessions, events, approvals and the compiler", 
     "agents",
     "agentFiles",
     "skills",
+    "routines",
     "everyCommandApproval",
   ])
     assert.equal(capabilities[name].available, true, name);
-  for (const name of ["routines", "browser", "models", "channels"])
+  for (const name of ["browser", "models", "channels"])
     assert.deepEqual(capabilities[name], {
       available: false,
       reason: "hermesNotYetSupported",

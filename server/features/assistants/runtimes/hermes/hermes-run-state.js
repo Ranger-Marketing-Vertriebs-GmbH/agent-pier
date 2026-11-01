@@ -40,11 +40,19 @@ const keptOutcomes = 256;
 /** The AgentPier session key of a stored Hermes session of `agentId`. */
 export const sessionKeyOf = (agentId, stored) => `${keyPrefix(agentId)}${stored}`;
 
-/** The stored Hermes session id an AgentPier key names for `agentId`, or null. */
+// A routine run's key names its job before the run's own session
+// (hermes-routine-jobs.js runSessionKey); the job's key alone names no session.
+const cronKey = /^cron:[A-Za-z0-9_-]{1,64}(?::([^:\s]{1,200}))?$/;
+
+/**
+ * The stored Hermes session id an AgentPier key names for `agentId`, or null: a chat's
+ * `agent:<agent>:hermes:<id>`, or a routine run's `agent:<agent>:hermes:cron:<job>:<id>`.
+ */
 export function storedIdOf(agentId, key) {
   const prefix = keyPrefix(agentId);
   if (typeof key !== "string" || !key.startsWith(prefix)) return null;
   const stored = key.slice(prefix.length);
+  if (stored.startsWith("cron:")) return cronKey.exec(stored)?.[1] ?? null;
   return stored && stored.length <= 200 ? stored : null;
 }
 

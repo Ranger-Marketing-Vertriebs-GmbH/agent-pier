@@ -197,7 +197,6 @@ export async function retireReleased(services, agents) {
   if (!reminders) return;
   await assistants
     .admit(async () => {
-      if (!hostReady(assistants.runtime)) return;
       for (const agent of agents || assistants.store.listAssistants()) {
         const released = reminders.bindings
           .list(agent.id)
@@ -205,6 +204,8 @@ export async function retireReleased(services, agents) {
         if (!released.length) continue;
         try {
           const current = assistants.store.getAssistant(agent.id);
+          // The agent's own runtime (a Hermes agent's set) must take calls.
+          if (!hostReady(assistants.runtime, current)) continue;
           const jobs = await reminders.jobs(current);
           for (const binding of released) {
             const job = reminders.find(binding, jobs);

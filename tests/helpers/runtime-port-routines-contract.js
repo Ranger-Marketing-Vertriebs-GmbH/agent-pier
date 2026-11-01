@@ -32,9 +32,12 @@ const definitionOf = ({ name, marker, agentId, schedule, target, prompt, deliver
  * The routines sub-port of the runtime port contract (runtime-port-contract.js):
  * routines in AgentPier's model added, listed per agent, changed, run and removed, the
  * scheduler's status, run sessions told apart, a view bound to a replaced connection,
- * and all of it while the runtime is unreachable.
+ * and all of it while the runtime is unreachable. `singleAgent`: the runtime serves
+ * the agent "ap-1" alone (Hermes: one process set per agent) and refuses a routine
+ * of any other.
  */
-export function routinesContract(name, make) {
+export function routinesContract(name, make, { singleAgent = false } = {}) {
+  const other = singleAgent ? "ap-1" : "ap-2";
   test(`${name}: routines are added, listed per agent, changed and removed`, async () => {
     const { routines } = await make({});
     const first = await routines.add({ routine: routine("ap-1", "Inbox") });
@@ -43,7 +46,7 @@ export function routinesContract(name, make) {
     assert.equal(first.enabled, true);
     assert.equal(typeof first.revision, "number");
     const second = await routines.add({
-      routine: routine("ap-2", "Report", {
+      routine: routine(other, "Report", {
         target: { kind: "own" },
         delivery: { kind: "webhook", url: "http://127.0.0.1:1/complete/r" },
         schedule: { kind: "at", at: "2026-11-02T09:00:00Z" },
@@ -53,9 +56,16 @@ export function routinesContract(name, make) {
     assert.deepEqual(second.target, { kind: "own" });
     assert.deepEqual(second.schedule, { kind: "at", at: "2026-11-02T09:00:00Z" });
     assert.deepEqual(
-      (await routines.list({ agentId: "ap-1" })).map((r) => r.id),
-      [first.id],
+      (await routines.list({ agentId: "ap-1" })).map((r) => r.id).sort(),
+      (singleAgent ? [first.id, second.id] : [first.id]).sort(),
     );
+    if (singleAgent) {
+      assert.deepEqual(await routines.list({ agentId: "ap-2" }), []);
+      await assert.rejects(
+        routines.add({ routine: routine("ap-2", "Foreign") }),
+        (e) => e.code === "INVALID_REQUEST",
+      );
+    }
     assert.deepEqual(
       (await routines.list()).map((r) => r.id).sort(),
       [first.id, second.id].sort(),
@@ -65,7 +75,9 @@ export function routinesContract(name, make) {
     assert.equal(paused.enabled, false);
     assert.notEqual(paused.revision, first.revision);
     // Disabled routines are listed too, with what they run.
-    const [listed] = await routines.list({ agentId: "ap-1" });
+    const listed = (await routines.list({ agentId: "ap-1" })).find(
+      (r) => r.id === first.id,
+    );
     assert.equal(listed.enabled, false);
     assert.deepEqual(definitionOf(listed), definitionOf(first));
     // A patch changes only the fields it names.
@@ -79,7 +91,10 @@ export function routinesContract(name, make) {
       ["New", prompt, first.target, false],
     );
     await routines.remove({ id: first.id });
-    assert.deepEqual(await routines.list({ agentId: "ap-1" }), []);
+    assert.deepEqual(
+      (await routines.list({ agentId: "ap-1" })).map((r) => r.id),
+      singleAgent ? [second.id] : [],
+    );
   });
 
   test(`${name}: a forced run is queued and the runs are listed`, async () => {

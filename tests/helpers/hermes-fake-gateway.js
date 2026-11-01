@@ -7,6 +7,11 @@ import {
 import { hermesSessions } from "../../server/features/assistants/runtimes/hermes/hermes-sessions.js";
 import { hermesEvents } from "../../server/features/assistants/runtimes/hermes/hermes-events.js";
 import { hermesApprovals } from "../../server/features/assistants/runtimes/hermes/hermes-approvals.js";
+import {
+  HermesRoutineDeliveries,
+  hermesRoutines,
+} from "../../server/features/assistants/runtimes/hermes/hermes-routines.js";
+import { cronRest, cronStore } from "./hermes-fake-cron.js";
 
 /**
  * An in-memory duplex in place of the RPC bridge's channel: `transport` is what the
@@ -46,8 +51,13 @@ export function memoryTransport() {
   return { transport, peer };
 }
 
-/** What a fake Hermes keeps across its restarts: stored sessions and admissions. */
-export const hermesStore = () => ({ rows: new Map(), created: 0, admissions: new Map() });
+/** What a fake Hermes keeps across its restarts: sessions, admissions, cron jobs. */
+export const hermesStore = () => ({
+  rows: new Map(),
+  created: 0,
+  admissions: new Map(),
+  cron: cronStore(),
+});
 
 // A refusal as the gateway's session store answers it: code 4001, the reason as
 // message and in `data` with the fences it names.
@@ -64,9 +74,9 @@ const refusal = (id, reason, data = {}) => ({
  * `request_id`) that a connection attaches to (`session.resume`) before it submits,
  * a turn as message.start, two message.delta and message.complete carrying its
  * `admission_id` and `execution_generation` (status "error" with an error surface of
- * code `runFailure` when given), revision-fenced `session.mutate`, and an
+ * code `runFailure` when given), revision-fenced `session.mutate`, an
  * `approval.request` event per entry of `approvals` once the client declared server
- * requests.
+ * requests, and the bridge's `agentpier.http` over the cron routes (hermes-fake-cron.js).
  */
 export function fakeHermesGateway(
   peer,
@@ -245,6 +255,13 @@ export function fakeHermesGateway(
       ok(id, { status: "resolved", prompt_id: prompt });
       event("approval.settled", sid, { prompt_id: prompt, execution_generation: 0 });
     },
+    "agentpier.http": (id, params) =>
+      ok(
+        id,
+        cronRest(store.cron, store.rows, params, {
+          changed: () => event("cron.changed", "", {}),
+        }),
+      ),
     "llm.oneshot": (id, { input }) =>
       ok(id, {
         text: `"About ${String(input).match(/<message>\n?(.*)/)?.[1] || "this"}"\n`,
@@ -319,8 +336,24 @@ export function fakeHermesSupervisor({
   return supervisor;
 }
 
-/** The Hermes adapter's host, sessions, events and approvals over `supervisor`. */
-export function hermesTestRuntime(supervisor) {
+/**
+ * The Hermes adapter's host, sessions, events, approvals and routines over
+ * `supervisor`; routine results are posted with `post` (default: dropped), the
+ * deliveries following the current client as the runtime's do.
+ */
+export function hermesTestRuntime(
+  supervisor,
+  { post = async () => ({ ok: true }) } = {},
+) {
+  const deliveries = new HermesRoutineDeliveries({
+    supervisor,
+    token: () => "t".repeat(64),
+    post,
+  });
+  supervisor.deliveries = deliveries;
+  supervisor.on("status", ({ availability }) =>
+    deliveries.follow(availability === "ready" ? supervisor.client : null),
+  );
   return defineAgentRuntime({
     id: "hermes",
     host: {
@@ -338,6 +371,7 @@ export function hermesTestRuntime(supervisor) {
     sessions: hermesSessions(supervisor),
     events: hermesEvents(supervisor),
     approvals: hermesApprovals(supervisor),
+    routines: hermesRoutines(supervisor, { deliveries }),
   });
 }
 
@@ -346,6 +380,7 @@ export const makeHermesRuntime =
   (agentId = "agent-1") =>
   async (state = {}) => {
     const supervisor = fakeHermesSupervisor({ agentId, ...state });
+    const runtime = hermesTestRuntime(supervisor, state);
     if (!state.unreachable) await supervisor.start();
-    return hermesTestRuntime(supervisor);
+    return runtime;
   };

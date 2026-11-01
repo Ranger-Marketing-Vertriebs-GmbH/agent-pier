@@ -472,15 +472,18 @@ export class NativeRoutines extends NativeReminders {
   /** One agent outside any admission, after its chats changed; never retires a job. */
   resync(id) {
     return this.assistants.admit(async () => {
-      if (hostReady(this.assistants.runtime)) await this.sync(id);
+      const agent = this.assistants.store.getAssistant(id);
+      if (hostReady(this.assistants.runtime, agent)) await this.sync(id);
     });
   }
-  /** Every agent with routines, outside any admission (Gateway ready, upgrade). */
+  /**
+   * Every agent with routines whose runtime takes calls, outside any admission
+   * (Gateway ready, upgrade, a Hermes agent's set ready).
+   */
   reconcile() {
     return this.assistants.admit(async () => {
-      if (!hostReady(this.assistants.runtime)) return;
       for (const agent of this.assistants.store.listAssistants()) {
-        if (agent.archivedAt) continue;
+        if (agent.archivedAt || !hostReady(this.assistants.runtime, agent)) continue;
         if (!this.bindings.list(agent.id).some((b) => b.kind === "routine")) continue;
         await this.sync(agent.id).catch(() => {});
       }

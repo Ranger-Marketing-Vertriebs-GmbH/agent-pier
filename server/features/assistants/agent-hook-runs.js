@@ -16,6 +16,7 @@ import { telegramMessages } from "../assistant-channels/telegram-messages.js";
 import {
   hostReady,
   openClawFrameEvent,
+  ownProcess,
   routineRunOf,
   runtimeFor,
 } from "./runtimes/runtime-for.js";
@@ -56,9 +57,11 @@ export class HookRuns {
   now() {
     return this.hooks.events.now();
   }
-  // The routines sub-port of the agents' runtime, read at each call.
-  get scheduler() {
-    return runtimeFor(null, this.assistants.runtime).routines;
+  // The routines sub-port of the runtime of `agent` (or its id), read at each call.
+  scheduler(agent) {
+    const read =
+      typeof agent === "string" ? this.assistants.store.getAssistant(agent) : agent;
+    return runtimeFor(read, this.assistants.runtime).routines;
   }
   /**
    * Creates and forces the event's job; throws when it could not be started (config
@@ -72,7 +75,7 @@ export class HookRuns {
       const agent = this.assistants.store.getAssistant(admitted.assistantId);
       if (!hook?.enabled || !hookEligible(agent))
         throw assistantProblem("unavailable", 503);
-      this.assistants.requireReady();
+      this.assistants.requireReady(agent);
       // Whether the run reads the agent's secrets is decided now. Without Secrets, a
       // run that reaches files past the file-tool guard (shell, coding, MCP) starts
       // only once the file is gone, and it stays away until its event settles; a file
@@ -92,7 +95,7 @@ export class HookRuns {
       const effective = effectiveRights(hook.rights, ceiling);
       const connection = await this.reminders.start();
       const conversation = await this.reminders.openMain(agent.id);
-      const job = await this.scheduler.add({
+      const job = await this.scheduler(agent).add({
         routine: {
           name: `Hook ${hook.name}`,
           marker: hookMarker(event.id),
@@ -130,14 +133,14 @@ export class HookRuns {
       });
       let ran;
       try {
-        ran = await this.scheduler.run({ id: job.id, force: true });
+        ran = await this.scheduler(agent).run({ id: job.id, force: true });
       } catch (error) {
-        await this.removeJob(job.id);
+        await this.removeJob(job.id, agent);
         throw error;
       }
       // A refused run is a failed start: the sender's retry must run.
       if (ran.refused) {
-        await this.removeJob(job.id);
+        await this.removeJob(job.id, agent);
         throw assistantProblem("unavailable", 503);
       }
       // A completion that never comes is settled by the sweep.
@@ -145,9 +148,10 @@ export class HookRuns {
       return events.get(event.id);
     });
   }
-  removeJob(id) {
+  // `agent`: the agent (or its id) whose runtime holds the job.
+  removeJob(id, agent) {
     return Promise.resolve()
-      .then(() => this.scheduler.remove({ id }))
+      .then(() => this.scheduler(agent).remove({ id }))
       .catch(() => {});
   }
   /** The completion webhook of an event's job. */
@@ -182,7 +186,7 @@ export class HookRuns {
     } catch {
       // The agent is gone: nothing to tell anyone, but the event and job settle.
       this.fail(event);
-      return this.removeJob(event.jobId);
+      return this.removeJob(event.jobId, null);
     }
     const ok = completion.status === "ok";
     const summary = typeof completion.summary === "string" ? completion.summary : "";
@@ -196,7 +200,8 @@ export class HookRuns {
       : null;
     // The hook deleted meanwhile: its event is a tombstone (HookEvents.forget) and
     // settles as it is, without a result or notice.
-    if (events.get(event.id)?.status !== "running") return this.removeJob(event.jobId);
+    if (events.get(event.id)?.status !== "running")
+      return this.removeJob(event.jobId, agent);
     const hook = store.get(event.hookId);
     const quiet = ok && silent(text);
     // What the hook may do now: paused or lost rights since it started notify nobody.
@@ -250,7 +255,7 @@ export class HookRuns {
           }),
         )
         .catch(() => {});
-    await this.removeJob(event.jobId);
+    await this.removeJob(event.jobId, agent);
     this.assistants.changed({ conversationId: conversation?.id });
   }
   /** A permanent member's result reaches its lead (agent-hook-reports.js). */
@@ -343,9 +348,7 @@ export class HookRuns {
     return this.assistants.admit(async () => {
       if (!hostReady(this.assistants.runtime)) return;
       const { events } = this.hooks;
-      const jobs = (await this.reminders.jobs(null)).filter(
-        (job) => hookEventOf(job) !== null,
-      );
+      const jobs = (await this.hookJobs()).filter((job) => hookEventOf(job) !== null);
       const running = (job) => Number.isFinite(job.runState?.runningAtMs);
       const live = new Set(jobs.filter(running).map(hookEventOf));
       let changed = false;
@@ -356,13 +359,30 @@ export class HookRuns {
       }
       for (const job of jobs) {
         if (running(job) || unsettled(events.get(hookEventOf(job)))) continue;
-        await this.removeJob(job.id);
+        await this.removeJob(job.id, job.owner);
       }
       // Tombstones of deleted hooks age out here (live hooks prune on admit).
       events.expire();
       if (changed) this.assistants.changed();
       this.schedule();
     });
+  }
+  /**
+   * Every agent's routines (OpenClaw's in one listing) with `owner`, the agent whose
+   * own runtime holds them (null for OpenClaw's): a Hermes agent's while its process
+   * set takes calls.
+   */
+  async hookJobs() {
+    const jobs = (await this.reminders.jobs(null)).map((job) => ({
+      ...job,
+      owner: null,
+    }));
+    for (const agent of this.assistants.store.listAssistants()) {
+      if (!ownProcess(agent) || !hostReady(this.assistants.runtime, agent)) continue;
+      const own = await this.reminders.jobs(agent).catch(() => []);
+      jobs.push(...own.map((job) => ({ ...job, owner: agent })));
+    }
+    return jobs;
   }
   /**
    * Sweeps again once the oldest event still unsettled can be stale: a run that a
@@ -384,6 +404,14 @@ export class HookRuns {
     clearTimeout(this.sweep);
     this.sweep = null;
   }
+  // The agent of an event while it exists, else null (its jobs ran on OpenClaw's).
+  ownerOf(event) {
+    try {
+      return this.assistants.store.getAssistant(event.assistantId);
+    } catch {
+      return null;
+    }
+  }
   /** Settles an event whose completion never came; its observed steps are kept. */
   fail(event) {
     this.hooks.events.patch(event.id, {
@@ -395,10 +423,11 @@ export class HookRuns {
   }
   /** A deleted hook: the jobs of its unsettled events (read before they are forgotten). */
   async cancel(hookId) {
-    const jobs = this.hooks.events
+    const events = this.hooks.events
       .unsettled()
-      .filter((event) => event.hookId === hookId && event.jobId)
-      .map((event) => event.jobId);
-    return Promise.all(jobs.map((id) => this.removeJob(id)));
+      .filter((event) => event.hookId === hookId && event.jobId);
+    return Promise.all(
+      events.map((event) => this.removeJob(event.jobId, this.ownerOf(event))),
+    );
   }
 }

@@ -3,7 +3,7 @@ import { hostConnection, hostReady, runtimeFor } from "./runtimes/runtime-for.js
 import { agentPierRoutine } from "./routine-definition.js";
 
 /**
- * Cron jobs an agent made itself in OpenClaw (its own `cron` tool), which AgentPier
+ * Cron jobs an agent made itself in its runtime (OpenClaw's `cron` tool), which AgentPier
  * never bound: every routine of AgentPier carries a marker of its own
  * (routine-definition.js: reminders, routines, check-ins and hook runs). Every archive pauses the agent's own
  * enabled jobs and remembers which (`ownJobs.paused`); every restore enables exactly
@@ -16,19 +16,21 @@ import { agentPierRoutine } from "./routine-definition.js";
 const ownJob = (job) => !agentPierRoutine(job);
 const code = (error) => error?.code ?? error?.name ?? "UNKNOWN";
 const merged = (...lists) => [...new Set(lists.flat())];
-// The agent's routines sub-port bound to the runtime's current connection.
-// A runtime without routines (Hermes, ADR 0006 step 5) holds no jobs of the agent.
+// The agent's routines sub-port bound to its runtime's current connection (a Hermes
+// agent's own process set). A runtime without routines holds no jobs of the agent.
 const schedules = (assistants, agent) =>
   runtimeFor(agent, assistants.runtime).capabilities().routines.available;
 const boundRoutines = (assistants, agent) =>
-  runtimeFor(agent, assistants.runtime).routines.on(hostConnection(assistants.runtime));
+  runtimeFor(agent, assistants.runtime).routines.on(
+    hostConnection(assistants.runtime, agent),
+  );
 
 /** The `ownJobs` field after pausing: every paused id, and `pending` if not done. */
 export async function pauseOwnJobs(assistants, agent) {
   const before = agent.ownJobs?.paused || [];
   if (!assistants.reminders || !schedules(assistants, agent))
     return agent.ownJobs ?? null;
-  if (!hostReady(assistants.runtime)) return { pending: "pause", paused: before };
+  if (!hostReady(assistants.runtime, agent)) return { pending: "pause", paused: before };
   // The jobs are paused on the connection checked here: a Gateway that replaced it
   // receives none of it, and the archive leaves the pause pending.
   const routines = boundRoutines(assistants, agent);
@@ -52,7 +54,7 @@ export async function resumeOwnJobs(assistants, agent) {
   const paused = agent.ownJobs?.paused || [];
   if (!paused.length || !schedules(assistants, agent))
     return paused.length ? agent.ownJobs : null;
-  if (!hostReady(assistants.runtime)) return { pending: "resume", paused };
+  if (!hostReady(assistants.runtime, agent)) return { pending: "resume", paused };
   const routines = boundRoutines(assistants, agent);
   const left = [...paused];
   try {

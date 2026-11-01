@@ -93,9 +93,11 @@ test(
     );
     assert.equal(listed.runtimeInfo.name, "Hermes Agent");
     assert.equal(listed.runtimeInfo.capabilities.approvals.available, true);
+    assert.equal(listed.runtimeInfo.capabilities.routines.available, true);
+    assert.equal(listed.runtimeInfo.capabilities.skills.available, true);
     assert.equal(
-      listed.runtimeInfo.capabilities.routines.reason,
-      "hermesNotYetSupported",
+      listed.runtimeInfo.capabilities.advancedSettings.reason,
+      "advancedSettingsUnsupported",
     );
     const home = fleet.sets.get(agent.runtimeAgentId).supervisor.agentPaths();
     assert.match(

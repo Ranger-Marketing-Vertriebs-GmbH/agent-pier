@@ -106,7 +106,9 @@ their dangerous commands reach the owner through the session's approval queue.
 `agent.disabled_toolsets` follows the agent's settings: `memory` (and
 `memory.memory_enabled`) with memory, `file` with memory or shell access, `web` with web
 search or fetch, `vision` with documents and `image_gen` with image creation. `browser`,
-`cronjob` and `computer_use` stay off until AgentPier serves them on Hermes.
+`computer_use` stay off until AgentPier serves them on Hermes; `cronjob`, the agent's own
+Hermes jobs, stays off because AgentPier sets up routines on the same scheduler
+([Routines](#routines)).
 
 ### Memory and instructions
 
@@ -224,8 +226,9 @@ agent placeholders for OpenClaw's workspace; a Hermes agent's resolved paths dif
 
 The compiler names what an agent wants that Hermes does not get yet, so the owner can see
 it: ChatGPT accounts, the browser, MCP servers it cannot compile (`mcp`, `mcpOAuth`),
-assigned skills Hermes cannot offer, PDF reading, routines, team tools and the extra
-folders on the shell's PATH. Routines, MCP, skills and Telegram
+assigned skills Hermes cannot offer, PDF reading, the agent's own routine tool (owner
+routines work, [Routines](#routines)), team tools and the extra folders on the shell's
+PATH. Routines, MCP, skills and Telegram
 follow in step 5 of the ADR's delivery order, teams and the browser in step 6. Hermes has
 no advanced settings in AgentPier yet: the capability reports
 `advancedSettingsUnsupported`.
@@ -251,17 +254,62 @@ enabled and installed (problem `hermesUnavailable` otherwise).
 | Hermes update (**Agents › Runtime**)     | All sets stop, the new release starts them, or rolls back   |
 
 The OpenClaw start never compiles Hermes agents, and OpenClaw's roster checks,
-approval resync and own-job pauses skip them. Their chats reconcile on their own
+approval resync skip them. Their chats reconcile on their own
 set's connection (`chat-reconcile.js`, `run-reconciler.js`), and the run events of
 every set reach the chat path and the event hub once (`agentRuntimeEvents`).
 
-| Capability                                        | Hermes                              |
-| ------------------------------------------------- | ----------------------------------- |
-| host, sessions, events, approvals, config, agents | available                           |
-| agentFiles, skills                                | available                           |
-| everyCommandApproval                              | available (unavailable on OpenClaw) |
-| routines, browser, models, channels               | `hermesNotYetSupported`             |
-| advancedSettings                                  | `advancedSettingsUnsupported`       |
+| Capability                                                  | Hermes                              |
+| ----------------------------------------------------------- | ----------------------------------- |
+| host, sessions, events, approvals, config, agents, routines | available                           |
+| agentFiles, skills                                          | available                           |
+| everyCommandApproval                                        | available (unavailable on OpenClaw) |
+| browser, models, channels                                   | `hermesNotYetSupported`             |
+| advancedSettings                                            | `advancedSettingsUnsupported`       |
+
+## Routines
+
+Reminders, routines, check-ins and hook runs of a Hermes agent run on the cron scheduler
+of its own messaging gateway (`runtimes/hermes/hermes-routines.js`, translation in
+`hermes-routine-jobs.js`). The adapter reaches the scheduler through the REST routes the
+gateway hosts (`/api/cron/jobs…`, `hermes_cli/web_routers/cron.py`): the RPC bridge's
+`agentpier.http` method takes a one-request `native-http` ticket from the gateway's
+owner-only control socket for each call (`hermes_cli/dashboard_auth/native_http.py`),
+so no ticket leaves the bridge. The gateway serves its home as the profile `default`.
+
+| Routine field                  | Hermes job                                                                               |
+| ------------------------------ | ---------------------------------------------------------------------------------------- |
+| name, prompt text              | `name`, `prompt` (Hermes trims it)                                                       |
+| schedule cron / at / every     | five-field expression, ISO time (`once`), `every <n>m` (whole minutes only)              |
+| prompt model `provider/model`  | `model` (the model id, on the agent's own connection)                                    |
+| enabled                        | `enabled`, through `pause` and `resume`                                                  |
+| marker, target, delivery, rest | the job's own `agentpier` field (Hermes keeps fields it does not know)                   |
+| run state                      | `next_run_at`, `fire_claim.at` (running), `last_run_at`, `last_status`, `failure_streak` |
+| runs                           | `GET …/runs`: each run's own stored session                                              |
+
+A job is created paused, given its `agentpier` field and only then resumed, so it never
+runs without AgentPier's marker. Hermes's forced run (`trigger`) resumes a paused job; a
+routine that was disabled (event routines, hook runs) is paused again right after it.
+The trigger answers once the run ended; a run still going after 15 seconds counts as
+queued. The delivery is always `local`: Hermes keeps the result, and the adapter hands
+it to AgentPier's completion webhook as OpenClaw does (`{ jobId, runAtMs, status,
+summary, error, deliveryStatus, sessionKey }`, with the webhook's token). It finds a
+finished run by the job's `last_run_at`, checked on each `cron.changed` event the
+gateway sends, after each forced run and every 15 seconds, and records what it delivered
+in `agentpier-routine-runs.json` in the agent's `HERMES_HOME`, so a restart delivers a run
+once more at most (AgentPier's receivers ignore a replay). The summary is the run's last
+reply, whole; Hermes's `[SILENT]` arrives as `NO_REPLY`. Hermes runs a routine in a
+session of its own and does not write its result into the target chat's transcript
+(`deliveryStatus: "not-delivered"`): AgentPier shows it in the chat, but a later turn of
+the agent does not see it. A run's session key is
+`agent:<runtimeAgentId>:hermes:cron:<job>:<session id>` (`routines.runOf`); the sessions
+sub-port reads its transcript.
+
+Hermes runs cron expressions in the agent's Hermes time zone, which is the time zone
+AgentPier passes to the process set; a routine's own time zone is kept with the job but
+does not move it. Hermes refuses dangerous commands in a routine run
+(`approvals.cron_mode: deny`, no one is there to answer); with every-command approval that
+is every command. The agent's own routine tool needs AgentPier's team tools, which come to
+Hermes with teams.
 
 ## Gateway protocol
 
@@ -284,6 +332,7 @@ relies on these:
 | Title a chat      | `llm.oneshot` with the `title_generation` task                                            |
 | Turn frames       | `message.start`, `message.delta`, `tool.*`, `message.complete`, each with `admission_id`  |
 | Approvals         | `approval.request` → `approval.respond`; `approval.settled`, `approval.cancelled`         |
+| Routines          | `agentpier.http` (the bridge) → `/api/cron/jobs…`; the event `cron.changed`               |
 
 Every refusal is code 4001 with its reason in `error.data.reason`; an unknown parameter
 is refused as `invalid_params`, so AgentPier sends only the parameters listed.
@@ -294,16 +343,16 @@ is refused as `invalid_params`, so AgentPier sends only the parameters listed.
 `tests/fixtures/hermes-golden/`. `tests/integration/hermes-config-check-contract.test.js`
 runs `hermes config check` on each compiled home and checks how Hermes reads it: the
 approval mode, the toolsets, the guard plugin, the model route and that the key stays out
-of child processes. The sessions, approvals, host and install contracts run the agent
-through the Hermes runtime, its supervised gateway and the RPC bridge, against the
-in-repo fake model. `tests/integration/hermes-files-contract.test.js` checks the agent's
-files: a memory entry written through the port reaches the agent's prompt, and an
-entry the agent adds with Hermes's `memory` tool comes back through it; an assigned
-bundled skill and a catalog skill reach the agent's skill index while an unassigned
-one stays out, and a skill the agent writes is reported as its own; a bound stdio MCP
-server's tool is offered and called, and its secret never reaches the agent's shell.
-Set
-`AGENTPIER_HERMES_CONTRACT_RUNTIME` to an installation made by
+of child processes. The sessions, approvals, routines, host and install contracts run
+the agent through the Hermes runtime, its supervised gateway and the RPC bridge, against
+the in-repo fake model; `hermes-agent-routines-contract.test.js` runs an owner's routines
+through AgentPier's routine routes. `tests/integration/hermes-files-contract.test.js`
+checks the agent's files: a memory entry written through the port reaches the agent's
+prompt, and an entry the agent adds with Hermes's `memory` tool comes back through it;
+an assigned bundled skill and a catalog skill reach the agent's skill index while an
+unassigned one stays out, and a skill the agent writes is reported as its own; a bound
+stdio MCP server's tool is offered and called, and its secret never reaches the agent's
+shell. Set `AGENTPIER_HERMES_CONTRACT_RUNTIME` to an installation made by
 `scripts/provision-hermes-contracts.mjs` (its `venv/bin/` holds `python` and
 `hermes`). The tests use a private `HOME` and `HERMES_HOME` and never touch
 `~/.hermes`.
