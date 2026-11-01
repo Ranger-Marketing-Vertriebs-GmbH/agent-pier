@@ -429,3 +429,48 @@ test("hop-by-hop response headers and those named in Connection stay with the up
   for (const name of ["x-private", "upgrade", "trailer", "proxy-authenticate"])
     assert.equal(answer.headers[name], undefined, name);
 });
+
+test("Connection tokens never strip the framing of a request body", async (t) => {
+  const upstream = await startUpstream(t);
+  const f = await previewFixture(t, { upstream });
+  const smuggled = `GET /smuggled HTTP/1.1\r\nHost: localhost:${upstream.port}\r\n\r\n`;
+  const raw = async (framing, body) => {
+    const socket = net.connect(f.slot, "127.0.0.1");
+    socket.write(
+      `GET /outer HTTP/1.1\r\nHost: ${f.host}\r\nCookie: ${f.owner}\r\n${framing}\r\n${body}`,
+    );
+    let text = "";
+    for await (const chunk of socket) text += chunk;
+    assert.match(text, /^HTTP\/1\.1 200/);
+  };
+  await raw(
+    `Content-Length: ${smuggled.length}\r\nConnection: close, content-length\r\n`,
+    smuggled,
+  );
+  await raw(
+    "Transfer-Encoding: chunked\r\nConnection: close, transfer-encoding, host\r\n",
+    `${smuggled.length.toString(16)}\r\n${smuggled}\r\n0\r\n\r\n`,
+  );
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  assert.deepEqual(
+    upstream.seen.map((entry) => [entry.url, entry.body, entry.headers.host]),
+    [
+      ["/outer", smuggled, `localhost:${upstream.port}`],
+      ["/outer", smuggled, `localhost:${upstream.port}`],
+    ],
+  );
+});
+
+test("an upgrade head carries no body framing", async (t) => {
+  const upstream = await startUpstream(t);
+  const f = await previewFixture(t, { upstream });
+  const socket = await openSocket(f.slot, {
+    host: f.host,
+    cookie: f.owner,
+    "content-length": "0",
+  });
+  socket.close();
+  const upgrade = upstream.seen.find((entry) => entry.upgrade);
+  assert.equal(upgrade.headers["content-length"], undefined);
+  assert.equal(upgrade.headers["transfer-encoding"], undefined);
+});

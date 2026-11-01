@@ -16,11 +16,15 @@ const hopByHop = new Set([
 const named = (part, name) => part.split("=")[0].trim() === name;
 
 /** Hop-by-hop names of a message: the fixed ones plus those its Connection header lists. */
+// Framing and Host are never the sender's to drop through a Connection token.
+const unscoped = new Set(["content-length", "transfer-encoding", "host"]);
 function connectionScoped(headers) {
   const names = new Set(hopByHop);
   for (const value of [].concat(headers.connection || []))
-    for (const name of String(value).split(","))
-      if (name.trim()) names.add(name.trim().toLowerCase());
+    for (const raw of String(value).split(",")) {
+      const name = raw.trim().toLowerCase();
+      if (name && !unscoped.has(name)) names.add(name);
+    }
   return names;
 }
 
@@ -64,12 +68,14 @@ export function upstreamHeaders(req, { target, previewOrigin }) {
   }
   const cookie = withoutSessionCookie(req.headers.cookie);
   if (cookie) headers.cookie = cookie;
-  // Node decodes a chunked body; it must go out framed again, never raw on a kept-alive
-  // socket where the dev server would read it as further requests.
-  if (req.headers["transfer-encoding"]) {
-    delete headers["content-length"];
-    headers["transfer-encoding"] = "chunked";
-  }
+  // Framing comes from the parsed request itself, after all filtering: Node decodes a
+  // chunked body, so it goes out chunked again; a sized body keeps its length. A body
+  // never goes out raw on a kept-alive socket, where it would read as further requests.
+  delete headers["content-length"];
+  delete headers["transfer-encoding"];
+  if (req.headers["transfer-encoding"]) headers["transfer-encoding"] = "chunked";
+  else if (req.headers["content-length"] !== undefined)
+    headers["content-length"] = req.headers["content-length"];
   headers.host = `localhost:${target}`;
   if (headers.origin === previewOrigin) headers.origin = local;
   if (headers.referer) headers.referer = rebase(headers.referer, previewOrigin, local);

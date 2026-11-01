@@ -187,3 +187,27 @@ test("a chunked request body stays chunked upstream; a sized one keeps its lengt
   assert.equal(sized["transfer-encoding"], undefined);
   assert.equal(sized["content-length"], "5");
 });
+
+test("Connection cannot name the framing or Host away", () => {
+  const options = { target: 5173, previewOrigin: "http://127.0.0.1:47100" };
+  const sized = upstreamHeaders(
+    req({
+      host: "127.0.0.1:47100",
+      connection: "content-length, host, transfer-encoding",
+      "content-length": "5",
+    }),
+    options,
+  );
+  assert.equal(sized["content-length"], "5");
+  assert.equal(sized.host, "localhost:5173");
+  const chunked = upstreamHeaders(
+    req({
+      host: "127.0.0.1:47100",
+      connection: "transfer-encoding",
+      "transfer-encoding": "chunked",
+    }),
+    options,
+  );
+  assert.equal(chunked["transfer-encoding"], "chunked");
+  assert.equal(chunked["content-length"], undefined);
+});

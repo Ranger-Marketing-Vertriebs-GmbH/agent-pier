@@ -162,6 +162,9 @@ export async function createPreviewListener({
       connection: "Upgrade",
       upgrade: req.headers.upgrade,
     };
+    // The socket is piped raw after the handshake: no body framing in its head.
+    delete headers["content-length"];
+    delete headers["transfer-encoding"];
     const upstream = net.connect({ host: address, port: preview.target });
     upgraded.add(socket);
     let stop = () => {};
