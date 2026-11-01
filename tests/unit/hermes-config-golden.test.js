@@ -33,12 +33,12 @@ test("every golden fixture has its scenario", () => {
   assert.deepEqual(names.sort(), Object.keys(hermesGoldenScenarios).sort());
 });
 
-test("the compiled home holds config.yaml, .env, SOUL.md and the guard plugin only", () => {
+test("the compiled home holds config.yaml, .env, SOUL.md and AgentPier's plugins only", () => {
   for (const name of Object.keys(hermesGoldenScenarios))
     for (const file of Object.keys(compiled(name).files))
       assert.match(
         file,
-        /^(?:config\.yaml|\.env|SOUL\.md|plugins\/agentpier-guard\/.+)$/,
+        /^(?:config\.yaml|\.env|SOUL\.md|plugins\/agentpier-(?:guard|deepgram)\/.+)$/,
       );
 });
 

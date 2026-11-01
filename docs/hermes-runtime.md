@@ -18,12 +18,13 @@ The Hermes compiler (`server/features/assistants/runtimes/hermes/hermes-compiler
 turns one agent's runtime-neutral desired state into these files of its home, and
 nothing else:
 
-| File                       | Content                                                          |
-| -------------------------- | ---------------------------------------------------------------- |
-| `config.yaml`              | Model, toolsets, approvals, memory, skills, MCP and defaults     |
-| `.env`                     | The model connection's key and the MCP servers' secrets          |
-| `SOUL.md`                  | The agent's instructions                                         |
-| `plugins/agentpier-guard/` | `plugin.yaml` and `__init__.py`, only for every-command approval |
+| File                          | Content                                                                                          |
+| ----------------------------- | ------------------------------------------------------------------------------------------------ |
+| `config.yaml`                 | Model, toolsets, approvals, memory, skills, MCP, plugins, the agent's bot and the defaults       |
+| `.env`                        | The model connection's key, the MCP servers' secrets, the agent's bot token and the Deepgram key |
+| `SOUL.md`                     | The agent's instructions                                                                         |
+| `plugins/agentpier-guard/`    | `plugin.yaml` and `__init__.py`, only for every-command approval                                 |
+| `plugins/agentpier-deepgram/` | `plugin.yaml` and `__init__.py`, only for a bot for other people with voice                      |
 
 The agent's memory (`memories/MEMORY.md`, `memories/USER.md`) and the `AGENTS.md` of
 its work folder are not compiled: they are read and written through the agentFiles
@@ -277,8 +278,9 @@ every set reach the chat path and the event hub once (`agentRuntimeEvents`).
 | agentFiles, skills                                          | available                           |
 | models                                                      | available (no ChatGPT accounts)     |
 | channels                                                    | available (the owner's Telegram)    |
+| channelBots                                                 | available (Hermes's own adapter)    |
 | everyCommandApproval                                        | available (unavailable on OpenClaw) |
-| browser, channelBots                                        | `hermesNotYetSupported`             |
+| browser                                                     | `hermesNotYetSupported`             |
 | advancedSettings                                            | `advancedSettingsUnsupported`       |
 
 ### Telegram
@@ -288,18 +290,41 @@ The owner's Telegram chat with a Hermes agent runs through AgentPier's own chann
 the bot, polls it, checks the allowed sender, transcribes voice notes with Deepgram,
 stages photos and files, hands each input to the agent's Hermes session like a web turn
 and sends the reply from its history through the outbox. Hermes's own Telegram adapter
-stays off (no `TELEGRAM_BOT_TOKEN` in the home), so one bot never has two pollers, and the
-channels sub-port (`hermes-channels.js`) names no account. Hermes's history rows carry no
+never polls the owner's bot: a bot id serves either the owner's AgentPier bot or one
+agent (`native-telegram-store.js`), so one bot never has two pollers. Hermes's history rows carry no
 run id; the sessions sub-port attributes the reply rows of the turns AgentPier submitted
 by their prompt text (`hermes-turns.js`), so delivery finds the reply of the run its
 input started.
 
-An agent's own bot for other people is the `channelBots` capability. OpenClaw runs those
-bots itself; on Hermes they would need its own Telegram adapter per agent, which has no
-Deepgram transcription and keeps other people's sessions outside AgentPier's channel
-layer. Until that is built Hermes reports `channelBots` unavailable, **Agents ›
-_agent_ › Channels** shows the bot settings disabled with the reason, and the server
-refuses a bot for a Hermes agent (`telegramSendersRuntime`). Files reach the paired chat
+An agent's own bot for other people (the `channelBots` capability, **Agents › _agent_ ›
+Channels › Telegram for other people**) runs on Hermes's own Telegram adapter in that
+agent's gateway (`hermes-config/telegram.js`). AgentPier keeps the token, the allowed
+people and the speech key as for OpenClaw ([qualification](assistant-telegram-senders-qualification.md));
+the agent's apply compiles them (`assistant-channels/telegram-senders-own.js`) and a
+changed home restarts only that agent's set, so no Gateway restart is asked for.
+
+| Setting                                                     | Effect                                                                 |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `.env` `TELEGRAM_BOT_TOKEN`                                 | Enables the adapter; Hermes strips it from every command and process   |
+| `platforms.telegram.extra.allow_from`                       | The allowed people's numeric ids                                       |
+| `dm_policy: allowlist`, `unauthorized_dm_behavior`          | Strangers get no reply and no pairing code                             |
+| `allowed_chats: ["0"]`, `guest_mode: false`                 | No group chat reaches the agent (`allow_from` alone admits groups)     |
+| `allow_admin_from: ["0"]`, `user_allowed_commands`          | Slash commands are admin-only and nobody is admin: only /help, /whoami |
+| `home_channel` chat `0`                                     | No "/sethome" prompt to each person; Hermes delivers nothing there     |
+| `stt.provider: agentpier-deepgram`                          | Voice notes go to AgentPier's Deepgram plugin with the speech settings |
+| `stt.enabled: false`                                        | Without a Deepgram key: no local or other cloud transcription          |
+| `agent.disabled_toolsets` + `session_search`, `connections` | No recall of the owner's conversations or connector accounts           |
+
+The Deepgram plugin registers a transcription provider (`agent/transcription_provider.py`)
+and calls `/v1/listen` as AgentPier's channel layer does: the speech settings' model and
+language (`auto` detects it), `smart_format`, "AgentPier" and the agent's name as key
+terms, `Token <key>`. The key is `AUXILIARY_AGENTPIER_DEEPGRAM_API_KEY`, which Hermes
+strips from child processes. Replies, voice and files go out as Hermes sends them
+(`MEDIA:` tags become native attachments). The channels sub-port reports the bot from the
+gateway's `gateway_state.json` (`platforms.telegram.state`). Other people's
+conversations stay in Hermes's sessions and belong to no AgentPier chat, as on
+OpenClaw. A person's very first message in a home that has no session yet gets Hermes's
+one-time introduction note. Files reach the paired chat
 when an agent shares them with `agentpier_share_file`; Hermes agents get that tool with
 AgentPier's team tools (step 6) and until then name a file's path in their reply.
 

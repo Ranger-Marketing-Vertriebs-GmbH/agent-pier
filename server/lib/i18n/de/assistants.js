@@ -336,7 +336,7 @@ export const assistants = {
   skillUnavailable:
     "Dieser Skill ist nicht als mitgelieferter OpenClaw-Skill verfügbar, oder ein gleichnamiger Skill in den Ordnern des Agenten würde an seiner Stelle laufen.",
   telegramSendersRuntime:
-    "Hermes-Agenten haben noch keinen eigenen Telegram-Bot für andere Personen. Der Telegram-Chat mit dir funktioniert.",
+    "Die Laufzeit dieses Agenten kann keinen eigenen Telegram-Bot für andere Personen betreiben. Der Telegram-Chat mit dir funktioniert.",
   telegramSendersShell:
     "Ein Agent mit eigenem Telegram-Bot für andere Personen darf keinen Shell-Zugriff haben. Schalte die Shell aus oder trenne zuerst den Bot.",
   telegramSendersStdio:

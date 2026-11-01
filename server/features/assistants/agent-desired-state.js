@@ -40,11 +40,22 @@ export const isDesiredState = (value) => built.has(value) && Array.isArray(value
  * starts with: its GitHub folder, its SSH agent's bin/), `mcp` (ids of the MCP
  * servers bound to it), `stdio` (one of them runs a local command), `instructions`
  * (its managed AGENTS.md) and `model` (its model connection: `{ ref, providerId,
- * provider, agentRuntime }`), the last two only for a live apply. Deeply frozen.
+ * provider, agentRuntime }`), the last two only for a live apply; `channelBot`, for
+ * a runtime that runs the agent's own Telegram bot in the agent's own process set
+ * (Hermes): `{ token, people, speech, apiRoot, deepgram }` as telegram-senders-own.js
+ * reads it, null for none, left out when unknown. Deeply frozen.
  */
 export function desiredAgent(
   profile,
-  { ssh = false, shellPath = [], mcp = [], stdio = false, instructions, model } = {},
+  {
+    ssh = false,
+    shellPath = [],
+    mcp = [],
+    stdio = false,
+    instructions,
+    model,
+    channelBot,
+  } = {},
 ) {
   const capabilities = personalCapabilities(profile);
   const released = releasedCapabilities(profile);
@@ -98,6 +109,9 @@ export function desiredAgent(
     ...agent,
     ...(instructions !== undefined && { instructions }),
     ...(model && { model: Object.freeze({ ...model }) }),
+    ...(channelBot !== undefined && {
+      channelBot: channelBot && frozen(structuredClone(channelBot)),
+    }),
   });
   built.add(desired);
   return desired;

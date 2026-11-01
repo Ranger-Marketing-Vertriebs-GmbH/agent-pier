@@ -15,15 +15,17 @@ import { hermesError } from "./hermes-rpc-client.js";
 
 // The sub-ports Hermes gets in later delivery steps (ADR 0006): reported, never hidden.
 const later = unavailable("hermesNotYetSupported");
-const laterPorts = ["browser", "channelBots"];
+const laterPorts = ["browser"];
 
 /**
  * What a Hermes agent offers (agent-runtime.js RUNTIME_CAPABILITIES): host,
  * sessions, events, approvals, config, agents, agentFiles (its memory,
  * instructions and AGENTS.md, hermes-files.js), skills (hermes-skills.js),
  * routines (its gateway's cron, hermes-routines.js), models (the agent's model
- * connection, hermes-models.js) and channels (the owner's Telegram through
- * AgentPier's channel layer, hermes-channels.js); every-command approval, which only
+ * connection, hermes-models.js), channels (the owner's Telegram through
+ * AgentPier's channel layer, hermes-channels.js) and channelBots (the agent's own bot
+ * for other people on Hermes's Telegram adapter, hermes-config/telegram.js);
+ * every-command approval, which only
  * Hermes has (ADR 0006 decision 5); the sub-ports of later steps report
  * `hermesNotYetSupported`, advanced settings `advancedSettingsUnsupported`.
  */

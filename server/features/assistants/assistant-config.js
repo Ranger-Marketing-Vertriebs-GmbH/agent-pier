@@ -237,6 +237,9 @@ export class AssistantConfig {
           provider: lease.provider,
           agentRuntime: lease.agentRuntime,
         },
+        // Its own Telegram bot for other people (assistant-channels/
+        // telegram-senders-own.js), wired by TelegramSenders; unknown without it.
+        channelBot: this.channelBot?.(assistant),
       });
       await runtime.config.apply({
         desired,

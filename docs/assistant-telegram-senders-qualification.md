@@ -75,6 +75,20 @@ allowPrivateNetwork: true`; production compiles Deepgram's public base URL and
   never sets it. The test seams (`apiRoot`, Deepgram base URL) are constructor
   options of `TelegramSenders`, never stored settings.
 
+## Hermes agents
+
+A Hermes agent's bot runs on Hermes's own Telegram adapter in the agent's own process
+set ([Hermes runtime](hermes-runtime.md#telegram)), with the same eligibility rules,
+store and speech settings. `tests/integration/hermes-telegram-bots-contract.test.js`
+(`AGENTPIER_HERMES_CONTRACT_RUNTIME`, loopback Bot API and Deepgram) verifies: an
+allowed person's message is answered in the same chat; a voice note reaches Deepgram
+with `Token <key>`, the speech settings' model and language, and the model gets the
+transcript; a stranger, a supergroup message and a slash command never reach the
+model (strangers and groups get no reply, the command is refused as admin-only);
+the owner's own session keeps working; neither the token nor the key appears in the
+gateway logs; and a disconnected bot is no longer polled. Allowed people and tokens
+apply by restarting only that agent's set, never live.
+
 ## Boundaries
 
 - Only personal agents without shell and without stdio MCP servers can own a bot;
