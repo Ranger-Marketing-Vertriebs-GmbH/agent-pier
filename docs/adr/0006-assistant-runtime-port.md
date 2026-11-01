@@ -164,8 +164,10 @@ state: the compiler preserves them and never produces duplicate keys.
 - **Models:** AgentPier injects connection keys through Hermes's secret source; Hermes
   never adopts logins it finds on the host.
 - **Toolchain:** Python 3.14 and `uv` are provisioned by the installation scripts and the
-  update path, pinned like the OpenClaw runtime lock. Hermes has no downgrade path:
-  rollback restores the snapshot taken before an update.
+  update path, pinned like the OpenClaw runtime lock. Hermes is pinned to a release
+  tag and the commit it names (the owner chose release `v0.22.5`, commit `bf0203a7`,
+  on 2026-11-01, over the `main` commit `a4994d4e` of the spike). Hermes has no
+  downgrade path: rollback restores the snapshot taken before an update.
 
 ### 5. Practical defaults for Hermes agents from the start
 

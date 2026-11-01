@@ -15,17 +15,48 @@ import {
 } from "../server/features/assistants/runtimes/hermes/hermes-manifest.js";
 
 const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
+const repository = "https://github.com/NousResearch/hermes-agent";
+
+/**
+ * The commit a release tag of Hermes names, from the repository itself
+ * (`git ls-remote`): an annotated tag's peeled commit, else the tag's own target.
+ */
+export async function hermesTagCommit(tag, execute) {
+  if (!/^v\d+\.\d+\.\d+$/.test(tag || ""))
+    throw Error("A release tag such as v0.22.5 is required.");
+  const { stdout } = await execute(
+    "git",
+    ["ls-remote", repository, `refs/tags/${tag}`, `refs/tags/${tag}^{}`],
+    {
+      timeout: 120000,
+      maxBuffer: 1024 * 1024,
+      env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+    },
+  );
+  const refs = Object.fromEntries(
+    String(stdout)
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => line.split(/\s+/).reverse()),
+  );
+  const commit = refs[`refs/tags/${tag}^{}`] || refs[`refs/tags/${tag}`];
+  if (!/^[0-9a-f]{40}$/.test(commit || "")) throw Error(`Hermes has no tag ${tag}.`);
+  return commit;
+}
 
 /**
  * Maintainer operation only: moves the Hermes pin (hermes-manifest.json) to another
- * commit, uv or CPython version and records every hash from the bytes it downloaded:
+ * release tag (or a bare commit), uv or CPython version and records every hash from
+ * the bytes it downloaded:
  * the source archive, pyproject.toml and uv.lock inside it, and each uv release
  * archive (checked against the `.sha256` file uv publishes beside it). Product
  * installation only ever consumes the reviewed manifest. See
  * docs/assistant-runtime-updates.md ("Hermes Agent runtime").
  */
 export async function refreshHermesRuntimeLock({
-  commit = hermesManifest.commit,
+  tag = hermesManifest.tag,
+  commit,
   uvVersion = hermesManifest.uvVersion,
   pythonVersion = hermesManifest.pythonVersion,
   extras = hermesManifest.extras,
@@ -33,6 +64,14 @@ export async function refreshHermesRuntimeLock({
   download = (url) => fetchDownload(url, fetch, 512 * 1024 * 1024),
   execute = promisify(execFile),
 }) {
+  // A tag pins the commit it names; a commit given beside it must be that commit.
+  if (tag) {
+    const tagged = await hermesTagCommit(tag, execute);
+    if (commit && commit !== tagged)
+      throw Error(`${tag} names ${tagged}, not ${commit}.`);
+    commit = tagged;
+  }
+  commit ??= hermesManifest.commit;
   if (!/^[0-9a-f]{40}$/.test(commit))
     throw Error("A full 40-character commit is required.");
   const archiveUrl = `https://codeload.github.com/NousResearch/hermes-agent/tar.gz/${commit}`;
@@ -68,8 +107,9 @@ export async function refreshHermesRuntimeLock({
       uvChecksums[target] = actual;
     }
     const manifest = validHermesManifest({
+      ...(tag ? { tag } : {}),
       commit,
-      version: commit.slice(0, 12),
+      version: tag ? tag.slice(1) : commit.slice(0, 12),
       releaseDate,
       archiveUrl,
       archiveSha256: hash(archive),
@@ -95,6 +135,7 @@ export async function refreshHermesRuntimeLock({
 if (isMainModule(import.meta.url)) {
   const options = {};
   const names = {
+    "--tag": "tag",
     "--commit": "commit",
     "--uv": "uvVersion",
     "--python": "pythonVersion",
@@ -103,9 +144,11 @@ if (isMainModule(import.meta.url)) {
   for (let i = 0; i < args.length; i += 2) {
     if (!names[args[i]] || !args[i + 1])
       throw Error(
-        "Usage: node scripts/refresh-hermes-runtime-lock.mjs [--commit <sha>] [--uv <version>] [--python <3.14.x>]",
+        "Usage: node scripts/refresh-hermes-runtime-lock.mjs [--tag <vX.Y.Z> | --commit <sha>] [--uv <version>] [--python <3.14.x>]",
       );
     options[names[args[i]]] = args[i + 1];
   }
+  // A bare commit pin drops the release tag; a tag alone resolves its commit.
+  if (options.commit && !options.tag) options.tag = null;
   console.log(JSON.stringify(await refreshHermesRuntimeLock(options), null, 2));
 }

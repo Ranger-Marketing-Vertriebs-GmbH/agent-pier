@@ -47,8 +47,10 @@ export function hermesInstallFixture(
     "hermes_cli/__init__.py": `__release_date__ = "${releaseDate}"\n`,
   });
   const uv = tarball(root, "uv-fake", { uv: "#!/bin/sh\n", uvx: "#!/bin/sh\n" });
+  // A pin of a bare commit: the shipped release tag names another one.
+  const { tag: _tag, ...shipped } = hermesManifest;
   const manifest = validHermesManifest({
-    ...hermesManifest,
+    ...shipped,
     commit,
     version: commit.slice(0, 12),
     releaseDate,

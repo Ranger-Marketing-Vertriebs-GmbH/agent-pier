@@ -432,13 +432,14 @@ This installs the runtime only; it does not enable or start a service.
 
 Hermes Agent is off until the owner opts in (`--with-hermes`, or
 `PUT /api/assistant-runtime/hermes`; agents cannot run on it yet). AgentPier then
-installs a pinned Hermes commit into `<data dir>/assistants/hermes/runtimes/`, about
-540 MB: the checksum-verified source archive, a pinned `uv` and the Python 3.14 that
-uv installs there, and the locked Python environment. No system Python, Homebrew
-Python or global `uv` is needed or used, and nothing is written to `~/.hermes` or
-`~/.local/bin`. Proxy settings apply as for the other downloads. A rerun of the
-installer with Hermes enabled, and every AgentPier start after an update that pins
-another commit, stages the new runtime in the background; details are in
+installs a pinned Hermes release (`v0.22.5`, by its commit) into
+`<data dir>/assistants/hermes/runtimes/`, about 540 MB: the checksum-verified source
+archive, a pinned `uv` and the Python 3.14 that uv installs there, and the locked
+Python environment. No system Python, Homebrew Python or global `uv` is needed or
+used, and nothing is written to `~/.hermes` or `~/.local/bin`. Proxy settings apply as
+for the other downloads. A rerun of the installer with Hermes enabled, and every
+AgentPier start after an update that pins another release, stages the new runtime in
+the background; details are in
 [assistant runtime updates](assistant-runtime-updates.md#hermes-agent-runtime).
 
 ### Toolchains for MCP server packages
