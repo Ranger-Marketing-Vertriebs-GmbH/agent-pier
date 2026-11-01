@@ -8,6 +8,7 @@ _(German)_ are not translated yet.
 | Guide                                                      | What it covers                                               |
 | ---------------------------------------------------------- | ------------------------------------------------------------ |
 | [Inbox](inbox.md)                                          | Everything waiting on you, answered in one place             |
+| [Views](views.md)                                          | Sessions and agent chats side by side in split views         |
 | [Providers and accounts](providers.md)                     | Provider connections, native CLI accounts and model catalogs |
 | [Continue with another account](session-account-switch.md) | Moving a session to another account                          |
 | [Reload and resume](session-reload.md)                     | Restarting a session onto the current CLI and release        |

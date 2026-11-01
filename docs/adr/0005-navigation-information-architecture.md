@@ -37,6 +37,10 @@ Organise by object, not by technology. The owner decided:
    even without agents, so its "+" stays reachable. The phone drawer now shows the group
    heads' icon buttons too, as 44px tap targets. The compact **+ New** menu remains in
    the phone header and on the collapsed sidebar.
+   _Amended 2026-11-01:_ the **Views** group (German **Ansichten**) sits between
+   **Inbox** and **Agents**: head, brand, **Inbox**, **Views**, **Agents**, **Sessions**,
+   host status. It exists only in windows wider than 1150 px; phones and narrower
+   windows keep the previous order. See [Views](../views.md).
 3. **Menu content in two groups with status hints:** **Work** (Overview, Projects,
    Pipelines, Files, Artifacts) and **Set up** (Agents, CLIs and extensions,
    Connections, Settings). Hints come only from data the app already has or reads once
