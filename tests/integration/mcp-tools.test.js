@@ -7,6 +7,7 @@ const execute = promisify(execFile);
 import { setup } from "../helpers/mcp-pipeline-fixture.js";
 import { PipelineEngine } from "../../server/features/pipelines/pipeline-engine.js";
 import { McpTools } from "../../server/features/mcp/tool-service.js";
+import { fixtureProjectScope } from "../helpers/fixture-project-scope.js";
 import { serverMessages } from "../../server/lib/i18n/de.js";
 
 test("MCP lists only granted projects/accounts and rejects cross-scope operations", async (t) => {
@@ -151,7 +152,7 @@ test("MCP duplicate concurrent starts and reconnection refer to one durable run"
   assert.equal(first.run.id, second.run.id);
   assert.equal(c.launches.length, 1);
   c.tools.close();
-  const reconnect = new McpTools(c.services);
+  const reconnect = new McpTools(c.services, { scope: fixtureProjectScope });
   t.after(() => reconnect.close());
   const replay = await reconnect.call("run_start", input, c.grant);
   assert.equal(replay.run.id, first.run.id);

@@ -18,6 +18,7 @@ import { ProviderCatalog } from "../../server/features/providers/provider-catalo
 import { ProviderConnections } from "../../server/features/providers/provider-connections.js";
 import { ProjectMemory } from "../../server/features/memory/project-memory.js";
 import { McpTools } from "../../server/features/mcp/tool-service.js";
+import { fixtureProjectScope } from "./fixture-project-scope.js";
 import { MutationBarrier } from "../../server/application/mutation-barrier.js";
 import { PipelineEngine } from "../../server/features/pipelines/pipeline-engine.js";
 
@@ -55,7 +56,7 @@ export async function e2eGraph(t, installed, { prefix }) {
     pipelines: pipelines.engine,
     assistantFeature: { enabled: true },
   };
-  host.mcpTools = new McpTools(host);
+  host.mcpTools = new McpTools(host, { scope: fixtureProjectScope });
   const graph = connectAssistantServices(constructAssistantGraph(host));
   // Every service the routes look up, host services included (the routes spread it).
   const services = { ...host, ...graph };

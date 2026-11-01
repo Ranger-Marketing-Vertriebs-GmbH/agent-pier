@@ -23,8 +23,13 @@ import {
 } from "./tool-policy.js";
 
 export class McpTools {
-  constructor(services) {
+  /**
+   * `scope` reads a project folder's current scope when a run starts (projectScope;
+   * test fixtures pass one that skips Git for folders outside every work tree).
+   */
+  constructor(services, { scope = projectScope } = {}) {
     this.services = services;
+    this.scope = scope;
     this.requests = new StartRequests(services.config.dataDir);
   }
   list(grant, context) {
@@ -124,7 +129,7 @@ export class McpTools {
     const previous = replay(grant, requestId, input);
     if (previous) return { previous };
     const project = this.services.memory.project(projectId);
-    const currentProject = await projectScope(project.cwd);
+    const currentProject = await this.scope(project.cwd);
     if (currentProject.id !== projectId)
       throw problem(
         "The registered project identity changed. Register and authorize the current project before starting a run.",

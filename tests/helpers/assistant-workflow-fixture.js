@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { channelFixture } from "./assistant-channel-fixture.js";
 import { ProjectMemory } from "../../server/features/memory/project-memory.js";
+import { fixtureProjectScope } from "./fixture-project-scope.js";
 import { McpTools } from "../../server/features/mcp/tool-service.js";
 import { MutationBarrier } from "../../server/application/mutation-barrier.js";
 import { AssistantWorkflows } from "../../server/features/assistants/assistant-workflows.js";
@@ -9,7 +10,8 @@ export async function workflowFixture(t) {
   const f = channelFixture(t),
     runs = new Map(),
     starts = [];
-  const memory = new ProjectMemory({ dataDir: f.dataDir });
+  // Plain folders register without Git, so setup never waits on a spawned git.
+  const memory = new ProjectMemory({ dataDir: f.dataDir, scope: fixtureProjectScope });
   const cwd = path.join(f.dataDir, "project");
   fs.mkdirSync(cwd);
   const project = await memory.register(cwd);
@@ -68,7 +70,7 @@ export async function workflowFixture(t) {
       },
     },
   };
-  services.mcpTools = new McpTools(services);
+  services.mcpTools = new McpTools(services, { scope: fixtureProjectScope });
   f.assistants.admit = async (fn) => fn();
   f.assistants.serialize = async (_key, fn) => fn();
   const contexts = new Map();

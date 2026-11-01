@@ -63,7 +63,11 @@ test("a folder swapped for a link or another folder is refused and the replaceme
   assert.deepEqual(fs.readdirSync(path.join(f.parent, "After-folder")), ["theirs"]);
   for (const link of ["After-link", "Before"])
     assert.equal(fs.readlinkSync(path.join(f.parent, link)), outside);
-  assert.equal(logged.mock.callCount(), 3);
+  // Only the rollback reports count: Node's deferred SQLite warning may land here too.
+  const rollbacks = logged.mock.calls.filter(({ arguments: [message] }) =>
+    String(message).startsWith("Agent project rollback"),
+  );
+  assert.equal(rollbacks.length, 3);
   assert.deepEqual(f.projectIds(), known);
   assert.deepEqual(f.workflows.access.get(f.id).projectIds, []);
 });

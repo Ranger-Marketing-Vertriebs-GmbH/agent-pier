@@ -53,16 +53,41 @@ export function projectId([kind, place, dev, ino], { known = true } = {}) {
   }
   return id;
 }
-export async function projectScope(cwd, options = {}) {
+/** The canonical path of a project folder; refuses invalid and missing folders. */
+function canonicalFolder(cwd) {
   if (typeof cwd !== "string" || !path.isAbsolute(cwd) || /[\x00-\x1f]/.test(cwd))
     throw failure(serverMessages.memory.invalidProjectDirectory);
-  let canonical;
   try {
-    canonical = fs.realpathSync(cwd);
+    const canonical = fs.realpathSync(cwd);
     if (!fs.statSync(canonical).isDirectory()) throw Error();
+    return canonical;
   } catch {
     throw failure(serverMessages.memory.projectDirectoryUnavailable, 404);
   }
+}
+/** The scope of a project whose identity is the folder (or Git directory) `common`. */
+function scopeOf(kind, common, root, options) {
+  const stat = fs.statSync(common, { bigint: true });
+  const parts = [kind, common, String(stat.dev), String(stat.ino)];
+  return {
+    id: projectId(parts, options),
+    name: path.basename(root),
+    cwd: root,
+    kind,
+    identity: JSON.stringify(parts),
+  };
+}
+/**
+ * The scope projectScope gives a folder outside every Git work tree, read without
+ * running Git. Only for callers that know the folder is no Git project (test
+ * fixtures); projectScope decides that by asking Git.
+ */
+export function directoryScope(cwd, options = {}) {
+  const canonical = canonicalFolder(cwd);
+  return scopeOf("directory", canonical, canonical, options);
+}
+export async function projectScope(cwd, options = {}) {
+  const canonical = canonicalFolder(cwd);
   let common = canonical,
     kind = "directory",
     root = canonical;
@@ -98,13 +123,5 @@ export async function projectScope(cwd, options = {}) {
     if (error.code !== "ENOENT" && !/not a git repository/i.test(error.stderr || ""))
       throw failure(serverMessages.memory.gitProjectUnidentified, 409);
   }
-  const stat = fs.statSync(common, { bigint: true });
-  const parts = [kind, common, String(stat.dev), String(stat.ino)];
-  return {
-    id: projectId(parts, options),
-    name: path.basename(root),
-    cwd: root,
-    kind,
-    identity: JSON.stringify(parts),
-  };
+  return scopeOf(kind, common, root, options);
 }
