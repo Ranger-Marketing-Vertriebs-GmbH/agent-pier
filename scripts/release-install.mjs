@@ -17,6 +17,7 @@ import { provisionInstallerRuntime } from "../server/features/assistants/runtime
 import { provisionInstallerToolchains } from "../server/features/mcp-packages/toolchain-provisioning.js";
 import { provisionAgentBrowser } from "../server/features/tools/chromium-provisioning.js";
 import { provisionRea } from "../server/features/tools/rea-provisioning.js";
+import { provisionInstallerHermes } from "../server/features/assistants/runtimes/hermes/hermes-provisioning.js";
 import { provisionGithubMcp } from "../server/features/tools/github-mcp-installer.js";
 export async function installRelease(options, dependencies = {}) {
   if (options.resume) return resumeSetup(options, dependencies);
@@ -34,6 +35,7 @@ async function installInitialRelease(
     withAssistants = false,
     withAgentBrowser = false,
     withRea = false,
+    withHermes = false,
   },
   {
     run,
@@ -48,6 +50,7 @@ async function installInitialRelease(
     agentBrowser = provisionAgentBrowser,
     rea = provisionRea,
     githubMcp = provisionGithubMcp,
+    hermes = provisionInstallerHermes,
   } = {},
 ) {
   if (
@@ -87,6 +90,8 @@ async function installInitialRelease(
   const reaResult = await rea({ dataDir, enable: withRea });
   // Keeps an installed GitHub MCP server for agents at the pinned version.
   const githubMcpResult = await githubMcp({ dataDir });
+  // The pinned Hermes Agent runtime on request, or when Hermes is already enabled.
+  const hermesResult = await hermes({ dataDir, enable: withHermes });
   const configuredEnv = {
     ...dependencies.env,
     AGENTPIER_INSTALL_ROOT: installRoot,
@@ -118,6 +123,7 @@ async function installInitialRelease(
     ...(browserResult ? { agentBrowser: browserResult } : {}),
     ...(reaResult ? { rea: reaResult } : {}),
     ...(githubMcpResult ? { githubMcp: githubMcpResult } : {}),
+    ...(hermesResult ? { hermesRuntime: hermesResult } : {}),
   };
 }
 export async function runInstaller(args, dependencies = {}) {
@@ -134,6 +140,7 @@ export async function runInstaller(args, dependencies = {}) {
         "--with-assistants",
         "--with-agent-browser",
         "--with-rea",
+        "--with-hermes",
       ].includes(key)
     )
       options[key] = true;
@@ -183,6 +190,7 @@ export async function runInstaller(args, dependencies = {}) {
       withAssistants: options["--with-assistants"] === true,
       withAgentBrowser: options["--with-agent-browser"] === true,
       withRea: options["--with-rea"] === true,
+      withHermes: options["--with-hermes"] === true,
     },
     dependencies,
   );

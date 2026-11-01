@@ -1,0 +1,18 @@
+{
+  "commit": "a4994d4ead8f9c915b485cec5689909b349a49df",
+  "version": "a4994d4ead8f",
+  "releaseDate": "2026.9.24",
+  "archiveUrl": "https://codeload.github.com/NousResearch/hermes-agent/tar.gz/a4994d4ead8f9c915b485cec5689909b349a49df",
+  "archiveSha256": "36db94c493b4944605596b7b89314c35536bca2b5884c31118ebc3100661ead4",
+  "pyprojectSha256": "8c9de0a63a81281a24c721f45051fe9fcf8e09ac6ea4ed4ac95e3b96f049b5e3",
+  "uvLockSha256": "e6d08c634c3f9a252a896135a9c30324776fa343ce68432e88d22f2968f257e2",
+  "extras": ["messaging"],
+  "pythonVersion": "3.14.10",
+  "uvVersion": "0.13.6",
+  "uvChecksums": {
+    "darwin-arm64": "60fbd5c8a1ed681845eea28d9d622fcde03c51e91a43465b64a1e17db1ed3472",
+    "darwin-x64": "63ba17fdda55ad1a230d4b37fc6017ffa10c23688c83818bd3bfdf914c652a02",
+    "linux-arm64": "229e194255c7958d86d56e8790d969a6f74736592133f0dfd0076f754c642c1d",
+    "linux-x64": "f29c3e94ffabd7e6f3ba521dba169a9b7ec12100bf3257087f0f24f6123f3645"
+  }
+}

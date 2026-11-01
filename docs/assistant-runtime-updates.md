@@ -511,3 +511,73 @@ by editing the lock by hand. That
 refresh is one reviewed change: it updates both lock files and the manifest digest,
 and the `Assistant runtime` workflow must pass with it. `.gitattributes` marks the
 lock as generated, so reviews show it collapsed.
+
+## Hermes Agent runtime
+
+Hermes Agent is the second agent runtime of the
+[agent runtime port](adr/0006-assistant-runtime-port.md) (decision 4). Agents do not
+run on it yet; this section covers its installation and updates. The owner opts in
+with `--with-hermes` or `PUT /api/assistant-runtime/hermes {"enabled": true}` (no UI
+yet); the opt-in is `hermes.enabled` in `<data>/assistants/settings.json`, beside the
+runtime switch. Enabling starts the installation in the background; disabling keeps
+the installation for the next opt-in.
+
+**The pin.** `server/features/assistants/runtimes/hermes/hermes-manifest.json` names a
+Git commit of `NousResearch/hermes-agent`, the SHA-256 of its source archive and of
+the `pyproject.toml` and `uv.lock` inside it, the extras (`messaging`, for the
+messaging gateway), the CPython version and a uv version with the SHA-256 of its
+release archive per platform (macOS and Linux, x64 and arm64). Hermes has no release
+of its own in the archive (`pyproject.toml` says `0.0.0`); the version AgentPier
+shows is the first 12 characters of the commit, and `hermes --version` reports the
+upstream release date it carries.
+
+**Installation** (`runtimes/hermes/hermes-install.js`, under its own installation
+lock in `<data>/assistants/hermes/runtimes/`): download uv and the source archive
+and check both hashes, unpack them, check the hashes of `pyproject.toml` and
+`uv.lock`, install the pinned CPython with `uv python install --no-bin` and build the
+environment with `uv sync --frozen --no-dev --extra messaging`. uv verifies every
+wheel against the hashes in `uv.lock` and the CPython download against the checksums
+built into the pinned uv release. uv runs with `UV_NO_CONFIG`, a private `HOME` and
+`TMPDIR`, `UV_PYTHON_PREFERENCE=only-managed` and its cache, CPython and tool folders
+inside AgentPier's folder; the only inherited variables are the proxy settings. No
+Python of the host, no `~/.hermes`, `~/.local/bin` or global uv configuration is used.
+An identity check runs the installed Python once (release date, CPython version and
+whether `tui_gateway` imports) and `hermes --version`, with a scratch `HERMES_HOME`.
+A `receipt.json` written last marks the installation complete; a folder without one
+is a crashed attempt and is replaced. The uv cache is removed afterwards. The
+installation needs about 540 MB (source 290 MB, environment 145 MB, CPython 75 MB,
+uv 27 MB on macOS arm64).
+
+**Updates.** At server start, and so after an AgentPier update, an enabled Hermes is
+installed when nothing is selected yet, or the newly pinned commit is staged beside
+the selected one as `<data>/assistants/hermes/candidate.json`; `assistants/hermes/runtime.json`
+does not change and the start does not wait. The installer and a rerun with Hermes
+enabled do the same. Activation and rollback use the same update journal as OpenClaw
+(`runtime-updates.js`), with Hermes's own journal, selection and snapshot under
+`<data>/assistants/hermes/` (`runtimes/hermes/hermes-lifecycle.js`,
+`createHermesUpdates`): the snapshot holds every Hermes agent's `HOME`, `HERMES_HOME`
+and work folder. Hermes has no downgrade path and migrates its own `config.yaml` when
+it starts, so there is no migration step; a failed validation restores the snapshot
+and the previous selection. Runtime retention keeps the installations a selection,
+candidate or backup names.
+
+**Refreshing the pin** (maintainers only):
+
+```sh
+node scripts/refresh-hermes-runtime-lock.mjs --commit <40-character sha> [--uv <version>] [--python <3.14.x>]
+```
+
+The script downloads the archive and each uv release archive, checks every uv archive
+against the `.sha256` file uv publishes beside it, refuses a commit whose
+`requires-python` excludes Python 3.14, and rewrites `hermes-manifest.json` with the
+recorded hashes. Run without arguments, it reproduces the shipped manifest byte for
+byte. Review the diff, then run the Hermes contracts.
+
+**Native Hermes contracts.** `node scripts/provision-hermes-contracts.mjs --data-dir
+<absolute dir> [--env-file <file>]` installs the pinned Hermes like `--with-hermes` and
+prints `AGENTPIER_HERMES_CONTRACT_RUNTIME=<installation>` (its `venv/bin/python`
+imports `tui_gateway`, `venv/bin/hermes` runs Hermes). The `Hermes contracts` job of
+the `Assistant runtime` workflow runs every
+`tests/integration/*hermes*-contract.test.js` with that variable set, on Linux x64 in
+pull requests and also on macOS arm64 and Linux arm64 otherwise; a skipped contract
+fails the job.

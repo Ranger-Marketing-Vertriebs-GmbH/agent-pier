@@ -28,6 +28,7 @@ import { provisionInstallerRuntime } from "../server/features/assistants/runtime
 import { provisionInstallerToolchains } from "../server/features/mcp-packages/toolchain-provisioning.js";
 import { provisionAgentBrowser } from "../server/features/tools/chromium-provisioning.js";
 import { provisionRea } from "../server/features/tools/rea-provisioning.js";
+import { provisionInstallerHermes } from "../server/features/assistants/runtimes/hermes/hermes-provisioning.js";
 import { provisionGithubMcp } from "../server/features/tools/github-mcp-installer.js";
 import { proxyEnvironment, proxyVariables } from "../server/lib/proxy-environment.js";
 const proxyKeys = [...proxyVariables, "NODE_USE_ENV_PROXY"];
@@ -94,6 +95,7 @@ export async function resumeSetup(
     agentBrowser = provisionAgentBrowser,
     rea = provisionRea,
     githubMcp = provisionGithubMcp,
+    hermes = provisionInstallerHermes,
   } = {},
 ) {
   let inspected = inspectSetup(options);
@@ -223,6 +225,8 @@ export async function resumeSetup(
     const reaResult = await rea({ dataDir, enable: options.withRea === true });
     // Keeps an installed GitHub MCP server for agents at the pinned version.
     const githubMcpResult = await githubMcp({ dataDir });
+    // The pinned Hermes Agent runtime on request, or when Hermes is already enabled.
+    const hermesResult = await hermes({ dataDir, enable: options.withHermes === true });
     if (options.service) {
       let serviceState = await inspectService(serviceInput);
       if (
@@ -277,6 +281,7 @@ export async function resumeSetup(
       ...(browserResult ? { agentBrowser: browserResult } : {}),
       ...(reaResult ? { rea: reaResult } : {}),
       ...(githubMcpResult ? { githubMcp: githubMcpResult } : {}),
+      ...(hermesResult ? { hermesRuntime: hermesResult } : {}),
     };
   } finally {
     unlock();

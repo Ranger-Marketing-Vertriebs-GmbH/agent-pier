@@ -207,6 +207,13 @@ follows at the next AgentPier start. Linux arm64 has no Ghidra build, so only Co
 installed there. Ghidra's native decompiler needs the usual system libraries;
 the installation names any that `ldd` cannot resolve.
 
+### Optional Hermes Agent
+
+`--with-hermes` installs the pinned Hermes Agent runtime on Linux x64 and arm64 as on
+macOS (see [installation](installation.md#hermes-agent-runtime)): uv's glibc build
+installs its own Python 3.14, so the distribution's Python is not used. About 540 MB
+under the data directory; no systemd unit of its own.
+
 ### Toolchains für MCP-Pakete
 
 Für MCP-Serverpakete aus npm und PyPI stellt AgentPier eigene, per SHA-256 geprüfte

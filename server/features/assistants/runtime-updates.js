@@ -33,7 +33,9 @@ async function availableBytes(directory) {
  * to the runtime (installing, the shipped version, migrating its state) goes through
  * the host sub-port of `runtime` (runtimes/agent-runtime.js). `stage`, `migrate` and
  * `stopMigration` replace host.install, host.migrate and host.stopMigration, and
- * `host` any other host method (tests).
+ * `host` any other host method (tests). A runtime without a supervisor of its own here
+ * (Hermes, runtimes/hermes/hermes-updates.js) passes its whole `host` and its `paths`
+ * (shaped like runtime-paths.js: root, home, state, workspaces, runtimes, tmp).
  */
 export class RuntimeUpdates {
   constructor({
@@ -48,6 +50,7 @@ export class RuntimeUpdates {
     migrate,
     stopMigration,
     host = {},
+    paths,
   }) {
     Object.assign(this, {
       dataDir,
@@ -59,13 +62,13 @@ export class RuntimeUpdates {
       onRolledBack,
     });
     this.host = {
-      ...runtimeFor(null, runtime).host,
+      ...(runtime ? runtimeFor(null, runtime).host : {}),
       ...(stage && { install: stage }),
       ...(migrate && { migrate }),
       ...(stopMigration && { stopMigration }),
       ...host,
     };
-    this.paths = runtimePaths(dataDir);
+    this.paths = paths || runtimePaths(dataDir);
     this.fence = ledgerFence(this.paths.root);
     this.file = path.join(this.paths.root, "update.json");
     this.selection = path.join(this.paths.root, "runtime.json");

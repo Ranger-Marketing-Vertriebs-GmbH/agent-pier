@@ -94,9 +94,12 @@ function committedAt(file) {
     return null;
   }
 }
+// An install record names its folder by the executable inside it: OpenClaw's Node,
+// Hermes's Python (runtimes/hermes/hermes-install.js).
 function runtimeIdentity(paths, descriptor) {
-  if (typeof descriptor?.nodePath !== "string") return null;
-  const relative = path.relative(paths.runtimes, path.resolve(descriptor.nodePath));
+  const executable = descriptor?.nodePath ?? descriptor?.pythonPath;
+  if (typeof executable !== "string") return null;
+  const relative = path.relative(paths.runtimes, path.resolve(executable));
   const name = relative.split(path.sep)[0];
   return relative.startsWith("..") || path.isAbsolute(relative) || !name ? null : name;
 }

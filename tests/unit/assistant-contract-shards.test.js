@@ -66,3 +66,18 @@ test("a contract without a measurement weighs the median", () => {
   );
   assert.throws(() => splitShards(0), /Invalid total/);
 });
+
+test("every contract gated on the Hermes runtime runs in the hermes-contracts job", () => {
+  // The job runs tests/integration/*hermes*-contract.test.js; anything else skips.
+  const dir = new URL("tests/integration/", root);
+  for (const name of fs.readdirSync(dir)) {
+    const source = fs.readFileSync(new URL(name, dir), "utf8");
+    if (!source.includes("process.env.AGENTPIER_HERMES_CONTRACT_RUNTIME")) continue;
+    assert.match(name, /hermes.*-contract\.test\.js$/, name);
+  }
+  const workflow = fs.readFileSync(
+    new URL(".github/workflows/assistant-runtime.yml", root),
+    "utf8",
+  );
+  assert.match(workflow, /-name '\*hermes\*-contract\.test\.js'/);
+});

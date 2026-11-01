@@ -60,6 +60,9 @@ and the server start retries the request. Every installer run brings the Ghidra 
 of an installed REA to the pinned versions. On an installed REA whose Ghidra was
 deliberately left off, `--with-rea` keeps that choice and downloads neither; add Ghidra
 in the REA dialog instead.
+`--with-hermes` enables Hermes Agent, the second agent runtime, and installs its pinned
+runtime in advance (see [Hermes Agent runtime](#hermes-agent-runtime)). A failed
+download never fails the installation; the result reports `hermesRuntime.status`.
 
 After an interruption, run the same command again. A matching existing setup is
 resumed; an AgentPier version that has already been updated is not downgraded.
@@ -424,6 +427,19 @@ migration described above.
 For isolated diagnostics, the same installer is available as
 `node scripts/install-assistant-runtime.mjs --data-dir /absolute/disposable/path`.
 This installs the runtime only; it does not enable or start a service.
+
+### Hermes Agent runtime
+
+Hermes Agent is off until the owner opts in (`--with-hermes`, or
+`PUT /api/assistant-runtime/hermes`; agents cannot run on it yet). AgentPier then
+installs a pinned Hermes commit into `<data dir>/assistants/hermes/runtimes/`, about
+540 MB: the checksum-verified source archive, a pinned `uv` and the Python 3.14 that
+uv installs there, and the locked Python environment. No system Python, Homebrew
+Python or global `uv` is needed or used, and nothing is written to `~/.hermes` or
+`~/.local/bin`. Proxy settings apply as for the other downloads. A rerun of the
+installer with Hermes enabled, and every AgentPier start after an update that pins
+another commit, stages the new runtime in the background; details are in
+[assistant runtime updates](assistant-runtime-updates.md#hermes-agent-runtime).
 
 ### Toolchains for MCP server packages
 

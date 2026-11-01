@@ -18,6 +18,8 @@ on:
       - "server/features/operations/releases.js"
       - "server/lib/storage.js"
       - "scripts/*assistant*.mjs"
+      - "scripts/*hermes*.mjs"
+      - "tests/**/*hermes*"
       - "scripts/assistant-contract-shards.json"
       - "tests/**/assistant*"
       - "tests/helpers/openclaw-dist-exports.js"
@@ -161,6 +163,48 @@ jobs:
             $files
       - name: Fail when a contract skipped instead of running
         run: grep -qx '# skipped 0' "$RUNNER_TEMP/native-contracts.tap"
+  # The pinned Hermes Agent runtime (runtimes/hermes/hermes-manifest.json), installed
+  # exactly like `--with-hermes`: uv, CPython and the locked environment. Every
+  # tests/integration/*hermes*-contract.test.js runs against it; none may skip.
+  hermes-contracts:
+    name: Hermes contracts (${{ matrix.runner }})
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: >-
+          ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-latest"]'
+          || '["ubuntu-latest","macos-latest","ubuntu-24.04-arm"]') }}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ">=22.23.4 <23"
+          cache: npm
+      - run: npm ci
+      # Only the immutable installation is cached; the data directory stays fresh.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/agentpier-hermes-contracts/assistants/hermes/runtimes
+          key: hermes-runtime-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('server/features/assistants/runtimes/hermes/hermes-manifest.json') }}
+      - name: Provision the pinned Hermes through the installer's --with-hermes step
+        run: >-
+          node scripts/provision-hermes-contracts.mjs
+          --data-dir "$RUNNER_TEMP/agentpier-hermes-contracts"
+          --env-file "$GITHUB_ENV"
+      # Simulated models only: no secrets reach the Hermes processes.
+      - name: Run the native Hermes contracts
+        run: |
+          files=$(find tests/integration -name '*hermes*-contract.test.js' | sort)
+          echo "$files"
+          if [ -z "$files" ]; then echo "No native Hermes contracts."; exit 0; fi
+          # shellcheck disable=SC2086
+          node --test --test-concurrency=1 \
+            --test-reporter=spec --test-reporter-destination=stdout \
+            --test-reporter=tap --test-reporter-destination="$RUNNER_TEMP/hermes-contracts.tap" \
+            $files
+          grep -qx '# skipped 0' "$RUNNER_TEMP/hermes-contracts.tap"
   # Installed users update from the runtime an older AgentPier release pinned
   # straight to the current pin; one entry per release line that is still a
   # rollback target. Keep `from` in step with runtimeManifest.rollbackTargets: the
