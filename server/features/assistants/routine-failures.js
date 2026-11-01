@@ -1,8 +1,8 @@
 import { redactSecrets, redactedMark } from "../../lib/secret-redaction.js";
 
 // Why a routine's (or reminder's) native run failed, from what OpenClaw records for
-// it (2026.10.7): a cron run entry's `error` and `errorReason`, or the job's
-// `state.lastError` and `state.lastErrorReason` (the failover reason: auth, billing,
+// it (2026.10.7): a run record's `error` and `errorReason`, or the routine's
+// `runState.lastError` and `runState.lastErrorReason` (the failover reason: auth, billing,
 // rate_limit, overloaded, timeout, model_not_found, server_error, …). `reason` is a
 // stable identifier the settings and the chat translate; `message` is OpenClaw's own
 // text for the details, secrets redacted and at most `failureMessageLimit` long. The
@@ -121,10 +121,13 @@ export function runFailure({ status, error, errorReason } = {}) {
   return { reason, ...(message ? { message } : {}) };
 }
 
-/** A job's last failed run (cron.list state), with how many failed in a row. */
+/**
+ * A routine's last failed run (its `runState`, routine-definition.js), with how many
+ * failed in a row.
+ */
 export function lastRunFailure(state) {
   const failure = runFailure({
-    status: state?.lastRunStatus ?? state?.lastStatus,
+    status: state?.lastStatus,
     error: state?.lastError,
     errorReason: state?.lastErrorReason,
   });
@@ -132,13 +135,13 @@ export function lastRunFailure(state) {
   return {
     ...failure,
     ...(Number.isSafeInteger(state.lastRunAtMs) ? { atMs: state.lastRunAtMs } : {}),
-    ...(Number.isSafeInteger(state.consecutiveErrors) && state.consecutiveErrors > 0
-      ? { consecutive: state.consecutiveErrors }
+    ...(Number.isSafeInteger(state.failuresInRow) && state.failuresInRow > 0
+      ? { consecutive: state.failuresInRow }
       : {}),
   };
 }
 
-/** One cron.runs entry as the run history shows it, with its failure's cause. */
+/** One routine run record as the run history shows it, with its failure's cause. */
 export function runEntry(r) {
   const failure = runFailure(r);
   return {

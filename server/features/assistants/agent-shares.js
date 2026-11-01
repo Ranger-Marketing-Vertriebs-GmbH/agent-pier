@@ -6,6 +6,7 @@ import { protectedDirs } from "./protected-dirs.js";
 import { routineOrigin } from "./routine-targets.js";
 import { ownerChat } from "./owner-shares.js";
 import { followUpTelegram } from "./follow-up-target.js";
+import { routineRunOf } from "./runtimes/runtime-for.js";
 
 /**
  * agentpier_share_file: an agent hands the owner a file from its own workspace.
@@ -171,8 +172,8 @@ export class AgentShares {
     }
     if (invocation.routine && !invocation.attemptId) {
       const { binding, conversation } = invocation.routine;
-      // The run session names the run (agent:<id>:cron:<job>:run:<run id>).
-      const run = /:run:([^:]+)$/i.exec(invocation.sessionKey || "")?.[1];
+      // The run session names the run (routines.runOf).
+      const run = routineRunOf(null, invocation.sessionKey)?.runId;
       return {
         conversation: a.store.getConversation(conversation.id),
         requestId: `routine:${run || binding.id}`,

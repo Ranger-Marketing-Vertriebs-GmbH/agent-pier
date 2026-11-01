@@ -2,7 +2,12 @@ import { detectAttachment } from "./agent-attachment-types.js";
 import { MAX_SHARE_BYTES } from "./agent-share-source.js";
 import { personalCapabilities } from "./native-capabilities.js";
 import { routineOrigin } from "./routine-targets.js";
-import { hostConnection, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
+import {
+  hostConnection,
+  hostReady,
+  routineRunOf,
+  runtimeFor,
+} from "./runtimes/runtime-for.js";
 
 // OpenClaw 2026.10.3 runs image_generate in the background. When the provider is
 // done, a completion turn of the same session writes an assistant message whose
@@ -127,13 +132,13 @@ export class GeneratedImages {
   }
   /**
    * A finished run in a session no conversation owns: a routine's own run session
-   * (agent:<id>:cron:<job>:run:<run>) copies into the chat its routine commits to,
+   * (routines.runOf) copies into the chat its routine commits to,
    * and to the Telegram chat it delivers to (native-routines.js runOrigin).
    */
   observeRun(event) {
     if (!["finished", "aborted", "failed"].includes(event?.kind)) return;
     const session = String(event.sessionKey || "");
-    const runtimeAgentId = /^agent:([^:]+):cron:/i.exec(session)?.[1];
+    const runtimeAgentId = routineRunOf(null, session)?.agentId;
     if (!runtimeAgentId || !this.s.routines?.runOrigin) return;
     const agent = this.s.store
       .listAssistants()

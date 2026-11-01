@@ -219,8 +219,12 @@ OpenClaw's interpreter, wrapper and package-manager lists); approval requests st
 arrive as run events. The `routines` sub-port drives OpenClaw's cron scheduler: it
 lists an agent's jobs page by page, adds, changes, removes and runs a job (a forced run
 answers whether it was queued or refused), lists a job's runs and reads whether the
-scheduler is on; the jobs themselves keep OpenClaw's fields, which reminders,
-routines, check-ins and hook runs still build and read. The `skills` sub-port reads an
+scheduler is on. Callers hand and receive AgentPier's own routine model
+(`routine-definition.js`: schedule, prompt, the agent, target, delivery, enabled,
+marker and run state); the adapter translates it into the cron jobs AgentPier
+always submitted (`openclaw-routine-jobs.js`) and tells which routine run a
+session key belongs to (`routines.runOf`), so no caller parses OpenClaw's
+`agent:<id>:cron:` keys. The `skills` sub-port reads an
 agent's skill status (`skills.status`) and tells a refusal for an agent OpenClaw has
 not created yet; the `browser` sub-port makes one call of OpenClaw's browser control
 API (`browser.request`) and opens the live view's screencast socket; the `models`

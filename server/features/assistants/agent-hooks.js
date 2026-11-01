@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { eventIdOf, HookEvents } from "./agent-hook-events.js";
-import { HookRuns, runSession } from "./agent-hook-runs.js";
+import { HookRuns } from "./agent-hook-runs.js";
 import { HookStore, newSecret } from "./agent-hook-store.js";
 import { HookHostRefusals } from "./agent-hook-host-refusals.js";
 import { payloadCut } from "./agent-hook-prompt.js";
@@ -25,7 +25,7 @@ import {
   telegramTarget,
 } from "./routine-targets.js";
 import { agentName } from "./reminder-audience.js";
-import { hostReady } from "./runtimes/runtime-for.js";
+import { hostReady, routineRunOf } from "./runtimes/runtime-for.js";
 
 const defaultHourlyLimit = 20;
 const createKeys = ["name", "sender", "instruction", "rights", "hourlyLimit"];
@@ -136,8 +136,8 @@ export class AgentHooks {
     if (!input || typeof input !== "object") throw assistantProblem("invalid");
     textValue(input.agentId, 4096);
     if (input.sessionKey !== undefined) textValue(input.sessionKey, 4096);
-    const match = runSession.exec(input.sessionKey ?? "");
-    const event = match && this.events.byJob(match[2]);
+    const run = routineRunOf(null, input.sessionKey);
+    const event = run && this.events.byJob(run.routineId);
     if (!event) return { allow: true };
     let agent;
     try {
@@ -446,11 +446,11 @@ export class AgentHooks {
    * hook.
    */
   runOrigin(agent, sessionKey, found) {
-    const match = runSession.exec(typeof sessionKey === "string" ? sessionKey : "");
-    if (!match || match[1].toLowerCase() !== agent?.runtimeAgentId?.toLowerCase())
+    const run = routineRunOf(agent, sessionKey);
+    if (!run || run.agentId.toLowerCase() !== agent?.runtimeAgentId?.toLowerCase())
       return null;
     // `found`: the session's event a caller already looked up (hookLockedTool).
-    const event = found ?? this.events.byJob(match[2]);
+    const event = found ?? this.events.byJob(run.routineId);
     if (event?.status !== "running" || event.assistantId !== agent.id) return null;
     const hook = this.store.get(event.hookId);
     if (!hook?.enabled || !hookEligible(agent)) return null;

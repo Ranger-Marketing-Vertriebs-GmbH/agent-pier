@@ -134,7 +134,7 @@ async function fixture(t, { login = false, routine = false, failAbort = null } =
           {
             id: "job-1",
             agentId: "main",
-            state: { runningAtMs: Date.parse("2026-10-30T09:00:00.000Z") },
+            runState: { runningAtMs: Date.parse("2026-10-30T09:00:00.000Z") },
           },
         ];
       },

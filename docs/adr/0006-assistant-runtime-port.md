@@ -93,7 +93,10 @@ OpenClaw's versions until the team plugin moves into the adapter).
 AgentPier describes each agent as data: instructions, model connection, tools and
 their grants, shell mode, MCP bindings, skills, web tools, browser, channels, routines.
 Each adapter compiles that model into its runtime's configuration (`openclaw.json`
-entries; Hermes `config.yaml`, `.env` and plugin folders). Keys a runtime writes itself
+entries; Hermes `config.yaml`, `.env` and plugin folders). Routines already have their
+neutral model (`server/features/assistants/routine-definition.js`); the routines
+sub-port takes and returns it, and each adapter translates it into its scheduler's
+jobs. Keys a runtime writes itself
 (Hermes writes `onboarding.seen.*`, `_config_version` and gateway flags) are runtime
 state: the compiler preserves them and never produces duplicate keys.
 

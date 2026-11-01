@@ -170,17 +170,20 @@
  *     "Always allow" writes for a request the runtime withheld it from:
  *     `{ kind: "paths", paths, writable }` or `{ kind: "once", reason, program }`.
  *   - on(connection), as sessions.on.
- * - routines: add, update, remove, run, list runs. Jobs are the runtime's own
- *   (`id`, `declarationKey`, `schedule`, `payload`, `enabled`, `updatedAtMs`, …).
- *   Async methods reject while the runtime is unreachable.
- *   - list({ agentId }): every job of the agent (of every agent without one),
+ * - routines: add, update, remove, run, list runs. Routines are AgentPier's own model
+ *   (../routine-definition.js: schedule, prompt, target, delivery, marker, …), which
+ *   the adapter translates into its scheduler's jobs and back. Async methods reject
+ *   while the runtime is unreachable.
+ *   - list({ agentId }): every routine of the agent (of every agent without one),
  *     disabled ones included; rejects (unavailable, 503) on a listing it cannot page.
- *   - add({ job }): the created job; update({ id, patch }): the job after it;
- *     remove({ id }).
+ *   - add({ routine }): the created routine; update({ id, patch }): the routine
+ *     after it, `patch` naming the fields that change; remove({ id }).
  *   - run({ id, force }): `{ queued, refused }`, whether the run was queued or the
- *     runtime refused it; `force` runs a disabled job or one not due.
- *   - runs({ id, limit }): `{ entries }`, the job's recent runs.
- *   - status(): `{ enabled }`, whether the scheduler runs jobs at all.
+ *     runtime refused it; `force` runs a disabled routine or one not due.
+ *   - runs({ id, limit }): `{ entries }`, the routine's recent run records.
+ *   - status(): `{ enabled }`, whether the scheduler runs routines at all.
+ *   - runOf(sessionKey): synchronously, the routine run a runtime session key
+ *     belongs to (`{ agentId, routineId, runId, routineSession }`), or null.
  *   - on(connection), as sessions.on.
  * - skills: per-agent skill status and eligibility
  *   - status({ agentId }): `{ skills: [{ name, source, eligible, … }] }` for the
