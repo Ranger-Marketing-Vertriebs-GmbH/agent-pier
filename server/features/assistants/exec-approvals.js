@@ -6,7 +6,12 @@ import { decideExec } from "./exec-decisions.js";
 import { commandHash, rememberedCommands } from "./exec-remembered.js";
 import { pairedChannel, telegramOf, telegramTarget } from "./routine-targets.js";
 import { followUpTelegram } from "./follow-up-target.js";
-import { hostConnection, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
+import {
+  hostConnection,
+  hostReady,
+  ownProcess,
+  runtimeFor,
+} from "./runtimes/runtime-for.js";
 
 // Exec approval requests from the Gateway become assistant actions awaiting the
 // owner (`payload.action: "exec"`), keyed by the Gateway's approval id. A request
@@ -319,7 +324,14 @@ export class ExecApprovals {
       `Assistant exec approval ${id} denied: ${reason} (agent ${text(request?.agentId, 100) || "-"}).`,
     );
     try {
-      await this.approvals().resolve({ id, decision: "deny" });
+      // The runtime that asked: a Hermes agent's own set, else the shared host.
+      const agent = this.w.a.store
+        .listAssistants()
+        .find((p) => p.runtimeAgentId === request?.agentId);
+      await runtimeFor(agent || null, this.runtime).approvals.resolve({
+        id,
+        decision: "deny",
+      });
     } catch (error) {
       // Unanswered, the Gateway falls back to deny when the request expires.
       this.log(`Assistant exec approval ${id}: deny failed (${error?.code || "ERROR"}).`);
@@ -385,6 +397,14 @@ export class ExecApprovals {
     this.expiryCheckAt = this.now();
     return this.guard("RESYNC", () => this.resync());
   }
+  // Whether action `a` belongs to an agent on its own process set (Hermes).
+  ownProcessAction(a) {
+    try {
+      return ownProcess(this.w.a.store.getAssistant(a.assistantId));
+    } catch {
+      return false;
+    }
+  }
   close() {
     this.closed = true;
     clearTimeout(this.retryTimer);
@@ -398,15 +418,15 @@ export class ExecApprovals {
       (i) => i && typeof i.id === "string" && (i.approvalKind ?? "exec") === "exec",
     );
     const live = new Set(items.map((i) => i.id));
-    const gone = this.w.store
-      .list()
-      .filter(
-        (a) =>
-          a.payload?.action === "exec" &&
-          !actionTerminal.has(a.state) &&
-          !live.has(a.payload.approvalId) &&
-          !this.deciding.has(a.payload.approvalId),
-      );
+    const gone = this.w.store.list().filter(
+      (a) =>
+        a.payload?.action === "exec" &&
+        // A Hermes agent's requests live on its own set, not this host's list.
+        !this.ownProcessAction(a) &&
+        !actionTerminal.has(a.state) &&
+        !live.has(a.payload.approvalId) &&
+        !this.deciding.has(a.payload.approvalId),
+    );
     const history = gone.length ? await this.history(connection) : new Map();
     // Each item on its own: one failure must not leave the others unanswered.
     for (const a of gone)

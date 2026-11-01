@@ -50,6 +50,7 @@ import {
   overridesFor,
 } from "../features/assistants/runtimes/openclaw/openclaw-config/overrides.js";
 import { RuntimeSupervisor } from "../features/assistants/runtimes/openclaw/runtime-supervisor.js";
+import { hermesAgentFleet, openClawProfiles } from "./hermes-wiring.js";
 import {
   AssistantMaintenance,
   needsAssistantMaintenance,
@@ -102,6 +103,8 @@ export function constructAssistantGraph(host, created = {}) {
     ["teamConfiguration", "maintenance", "beforeSpawn", "afterReady"],
   );
   const store = (created.store = new AssistantStore({ dataDir }));
+  // Hermes agents run in their own process sets (hermes-wiring.js).
+  const hermesFleet = hermesAgentFleet(assistantRuntime, { dataDir, store });
   const assistantModelAccounts = new AssistantModelAccounts({
     dataDir,
     runtime: assistantRuntime,
@@ -279,6 +282,7 @@ export function constructAssistantGraph(host, created = {}) {
   // Workflows and agent lifecycle find services by name: this graph's, else the host's.
   const scope = Object.assign(Object.create(host), {
     assistantRuntime,
+    hermesFleet,
     assistants,
     assistantTeams,
     assistantModelAccounts,
@@ -538,7 +542,8 @@ export function connectAssistantServices(graph) {
         connection: await bridge.start(),
         hostMaxConcurrent: teams.store.settings().hostMaxConcurrent,
         native: await reminders.start(),
-        profiles: store.listAssistants(),
+        // Hermes agents run in their own process sets, never in OpenClaw's.
+        profiles: openClawProfiles(store.listAssistants()),
         // Eligible agents with an SSH grant (assistant-access.js sshAgents).
         sshAgents: workflows.access.sshAgents(),
         // Read at each start; secrets reach only the compiled openclaw.json.
@@ -550,8 +555,12 @@ export function connectAssistantServices(graph) {
           workspaces: runtime.paths?.workspaces ?? null,
         }),
         // Each agent's GitHub folder on its shell PATH (agent-github.js shellPaths).
-        githubShell: workflows.github.shellPaths(store.listAssistants()),
-        sshShell: workflows.agentSsh?.shellPaths(store.listAssistants()),
+        githubShell: workflows.github.shellPaths(
+          openClawProfiles(store.listAssistants()),
+        ),
+        sshShell: workflows.agentSsh?.shellPaths(
+          openClawProfiles(store.listAssistants()),
+        ),
         webTools: {
           search: webSearch.resolve(),
           browser: webToolsChanges.detect(),

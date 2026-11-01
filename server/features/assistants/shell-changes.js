@@ -4,7 +4,12 @@ import { decideAudited } from "./approval-audit.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { decideExec } from "./exec-decisions.js";
 import { personalEligible, personalShell, shellLevels } from "./native-capabilities.js";
-import { hostConnection, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
+import {
+  hostConnection,
+  hostReady,
+  runtimeAccepts,
+  runtimeFor,
+} from "./runtimes/runtime-for.js";
 
 export const SHELL_CONFIRMATION_REQUIRED = "ASSISTANT_SHELL_CONFIRMATION_REQUIRED";
 // Retry delays of a failed live apply: doubling from one second to one minute.
@@ -102,6 +107,14 @@ export class ShellChanges {
    * Applies the stored level; returns whether the Gateway still lags behind.
    * `lowered` records whether the pending level is lower than the live one.
    */
+  // The agent `id`, or null once it is gone (its runtime is then the shared host's).
+  agentOf(id) {
+    try {
+      return this.a.store.getAssistant(id);
+    } catch {
+      return null;
+    }
+  }
   async apply(id, { lowered } = {}) {
     const mark = (state) => {
       const previous = this.pending.get(id);
@@ -112,7 +125,7 @@ export class ShellChanges {
         ...state,
       });
     };
-    if (!hostReady(this.a.runtime)) {
+    if (!runtimeAccepts(this.a.runtime, this.agentOf(id))) {
       // The next start compiles the store; until it answers nothing is live.
       // Only the backoff carries over; `lowered` follows the latest change.
       const { failures = 0, retryAt = 0 } = this.pending.get(id) || {};
@@ -177,7 +190,7 @@ export class ShellChanges {
     let denied = change.to === "off" ? await this.denyPending(id) : 0;
     let pending = await this.apply(id, { lowered: !change.raised });
     let aborted = false;
-    if (pending && !change.raised && hostReady(this.a.runtime)) {
+    if (pending && !change.raised && runtimeAccepts(this.a.runtime, this.agentOf(id))) {
       pending = await this.apply(id);
       if (pending) {
         await this.abortTurns(id);
@@ -194,8 +207,11 @@ export class ShellChanges {
   /** Aborts the agent's running turns through the Gateway; returns the count. */
   async abortTurns(id) {
     const a = this.a;
-    if (!hostReady(a.runtime)) return 0;
-    const sessions = runtimeFor(null, a.runtime).sessions.on(hostConnection(a.runtime));
+    const agent = this.agentOf(id);
+    if (!hostReady(a.runtime, agent)) return 0;
+    const sessions = runtimeFor(agent, a.runtime).sessions.on(
+      hostConnection(a.runtime, agent),
+    );
     let aborted = 0;
     for (const attempt of a.ledger.pending()) {
       try {

@@ -13,7 +13,12 @@ import { pairedChannel, telegramTarget } from "./routine-targets.js";
 import { agentName } from "./reminder-audience.js";
 import { hookReport } from "./agent-hook-reports.js";
 import { telegramMessages } from "../assistant-channels/telegram-messages.js";
-import { hostReady, routineRunOf, runtimeFor } from "./runtimes/runtime-for.js";
+import {
+  hostReady,
+  openClawFrameEvent,
+  routineRunOf,
+  runtimeFor,
+} from "./runtimes/runtime-for.js";
 import { chatTarget, hookEventOf, hookMarker } from "./routine-definition.js";
 
 // The routine a run session belongs to (routines.runOf), lower-cased.
@@ -327,7 +332,8 @@ export class HookRuns {
       return;
     if (event.sessionKey !== payload.sessionKey)
       this.hooks.events.patch(event.id, { sessionKey: payload.sessionKey });
-    this.steps.observe({ event: "agent", payload });
+    // The hub hands on OpenClaw's own frame; RunSteps reads the normalized event.
+    this.steps.observe(openClawFrameEvent({ event: "agent", payload }));
   }
   /**
    * On every Gateway ready: events whose completion was lost are failed, and hook jobs

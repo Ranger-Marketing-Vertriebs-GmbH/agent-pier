@@ -1,7 +1,7 @@
 import { assistantProblem } from "./assistant-validation.js";
 import { deletionCounts, purgeAgent } from "./agent-deletion.js";
 import { followArchive, settleOwnJobs } from "./agent-own-jobs.js";
-import { hostReady } from "./runtimes/runtime-for.js";
+import { hostReady, ownProcess, runtimeAccepts } from "./runtimes/runtime-for.js";
 
 const temporary = (m) => m.lifetime !== "permanent";
 // A failure as a stable code for the archive list and the log, never a message.
@@ -101,8 +101,9 @@ export class AgentLifecycle {
   // Archived agents hold no MCP servers and get their entry and check-ins again.
   async reconfigure(ids) {
     await this.teams?.applyMcp?.();
-    if (!hostReady(this.a.runtime)) return;
     for (const id of ids) {
+      // A Hermes agent's own set starts or stops with its apply (assistant-config.js).
+      if (!runtimeAccepts(this.a.runtime, this.a.store.getAssistant(id))) continue;
       await this.a.config.apply(id).catch(() => {});
       await this.a.reminders?.heartbeats?.sync(id).catch(() => {});
     }
@@ -237,7 +238,9 @@ export class AgentLifecycle {
       if (this.a.telegramSenders?.connected(id))
         throw assistantProblem("telegramSendersArchive", 409);
       // The Gateway removes its entry and native jobs (agent-deletion.js).
-      if (!hostReady(this.a.runtime)) throw assistantProblem("agentDeleteService", 503);
+      // A Hermes agent's own set is stopped and its folders removed without a host.
+      if (!ownProcess(agent) && !hostReady(this.a.runtime))
+        throw assistantProblem("agentDeleteService", 503);
       if (!agent.deletingAt) this.mark(agent, counts ?? (await this.count(agent)));
       await this.run(this.a.store.storedAssistant(id), "user");
     });

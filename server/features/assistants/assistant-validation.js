@@ -67,7 +67,9 @@ function validateAvatar(value) {
 }
 /** Whether a saved patch changes the agent's compiled entry, so it applies live. */
 export const recompiles = (patch) =>
-  ["capabilities", "skills", "browserVisible", "shopping"].some((key) => key in patch);
+  ["capabilities", "skills", "browserVisible", "shopping", "shellEveryCommand"].some(
+    (key) => key in patch,
+  );
 export function validateDefinition(input, partial = false) {
   if (
     !input ||
@@ -88,6 +90,7 @@ export function validateDefinition(input, partial = false) {
           "confirmInstructions",
           "avatar",
           "runtime",
+          "shellEveryCommand",
         ].includes(k),
     ) ||
     ("confirmInstructions" in input &&
@@ -103,6 +106,12 @@ export function validateDefinition(input, partial = false) {
   if ("shell" in input) {
     if (!shellLevels.includes(input.shell)) throw assistantProblem("invalid");
     result.shell = input.shell;
+  }
+  // "Every command" beside "With approval", where the runtime offers it (Hermes;
+  // checked against the agent's runtime by the service).
+  if ("shellEveryCommand" in input) {
+    if (typeof input.shellEveryCommand !== "boolean") throw assistantProblem("invalid");
+    result.shellEveryCommand = input.shellEveryCommand;
   }
   if ("browserVisible" in input) {
     if (typeof input.browserVisible !== "boolean") throw assistantProblem("invalid");

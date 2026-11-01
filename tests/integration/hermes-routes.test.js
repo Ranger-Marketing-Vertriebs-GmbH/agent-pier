@@ -49,3 +49,56 @@ test("the owner enables Hermes through the agent routes; runtime actions keep th
   });
   assert.equal((await disabled.json()).enabled, false);
 });
+
+test("Hermes agents need Hermes; every-command approval needs a runtime offering it", async (t) => {
+  const f = await applicationFixture(t, enabledAssistants);
+  const connection = f.application.providerConnections.create({
+    name: "Routes",
+    providerId: "openrouter",
+    apiKey: "private-route-key",
+  });
+  const body = {
+    name: "Agent",
+    model: { connectionId: connection.id, modelId: "openai/gpt-4.1-mini" },
+  };
+  const create = (extra) =>
+    f.request("/api/assistants", { method: "POST", body: { ...body, ...extra } });
+  // Hermes is off: no agent can choose it, and nothing can be updated.
+  const refused = await create({ runtime: "hermes" });
+  assert.equal(refused.status, 409);
+  assert.equal((await refused.json()).messageKey, "assistants.hermesUnavailable");
+  const update = await f.request("/api/assistant-runtime/hermes/update", {
+    method: "POST",
+    body: {},
+  });
+  assert.equal(update.status, 409);
+  // OpenClaw's "With approval" already asks for every command: no such option there.
+  const strict = await create({ shell: "approval", shellEveryCommand: true });
+  assert.equal(strict.status, 400);
+  assert.equal(
+    (await strict.json()).messageKey,
+    "assistants.shellEveryCommandUnsupported",
+  );
+  const agent = await (await create({})).json();
+  assert.equal(agent.runtime, "openclaw");
+  const listed = (await (await f.request("/api/assistants")).json()).assistants.find(
+    (a) => a.id === agent.id,
+  );
+  assert.deepEqual(listed.runtimeInfo.capabilities.everyCommandApproval, {
+    available: false,
+    reason: "approvalAsksEveryCommand",
+  });
+  const patched = await f.request(`/api/assistants/${agent.id}`, {
+    method: "PATCH",
+    body: { revision: agent.revision, shellEveryCommand: true },
+  });
+  assert.equal(patched.status, 400);
+  assert.equal(
+    (await patched.json()).messageKey,
+    "assistants.shellEveryCommandUnsupported",
+  );
+  const state = await (await f.request("/api/assistant-runtime/hermes")).json();
+  assert.equal(state.agents, 0);
+  assert.equal(state.updating, false);
+  assert.equal(typeof state.pythonVersion, "string");
+});

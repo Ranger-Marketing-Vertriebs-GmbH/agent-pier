@@ -2,7 +2,12 @@ import { sshLockNames } from "../ssh/ssh-execution-lock.js";
 import fs from "node:fs";
 import path from "node:path";
 import { agentProfileName } from "./browser-profile-names.js";
-import { hostConnection, runtimeFor } from "./runtimes/runtime-for.js";
+import {
+  hermesFleetOf,
+  hostConnection,
+  ownProcess,
+  runtimeFor,
+} from "./runtimes/runtime-for.js";
 
 /**
  * What a permanent delete of an archived agent removes (AGENTPIER-260), store by
@@ -263,7 +268,10 @@ export async function purgeAgent(services, agent, channelIds = []) {
   const { assistants, channels, mcpServers, paths, dataDir } = services;
   assertAgentIds(agent);
   await assistants.browsers?.stopAgent?.(agent.id).catch(() => {});
-  await removeFromGateway(assistants.runtime, agent.runtimeAgentId);
+  // A Hermes agent's process set stops and its HOME, HERMES_HOME and work folders
+  // go (hermes-fleet.js); OpenClaw's entry and jobs go through its Gateway.
+  if (ownProcess(agent)) await hermesFleetOf(assistants.runtime).remove(agent);
+  else await removeFromGateway(assistants.runtime, agent.runtimeAgentId);
   // Its Telegram channels with their inbox, pending outbox and follow-ups
   // (channels.sqlite); the ids were recorded with the mark, so a resume finds them.
   const own = (channels?.store.list() || []).filter((c) => c.assistantId === agent.id);

@@ -62,6 +62,15 @@
  *   - subscribeMessages({ key }): the session's messages reach this connection.
  *   - history({ sessionKey, limit, offset, messageId, maxChars }): `{ messages,
  *     sessionInfo, hasMore, sessionId }`.
+ *   Every message get and history answer carries, beside the runtime's own fields,
+ *   its normalized `entry`: `{ id, role, text, timestamp, runId, turnKey, internal,
+ *   compaction }`. `id` is the runtime's stable message id or null (callers then
+ *   derive one); `role` the runtime's role ("user", "assistant", "system", …); `text`
+ *   its text blocks joined; `timestamp` milliseconds, 0 when unknown; `runId` the run
+ *   that wrote it or null; `turnKey` the run id AgentPier sent the turn with (the
+ *   attempt id) when the runtime keeps it on the turn's user message, else null;
+ *   `internal` true for a user turn the runtime made itself, never the owner's words;
+ *   `compaction` null, or `{ id, tokensBefore, tokensAfter }` for a compaction marker.
  *   - downloadArtifact({ sessionKey, artifactId, maxBytes, timeoutMs }): `{ body }`;
  *     an error with `artifactRefusal` ("gone", "location", "size") never changes on
  *     a retry.
@@ -77,9 +86,29 @@
  *   - subscribe(listener): `listener(event)` for each event of the current connection;
  *     returns unsubscribe (a no-op without a connection). Once the host is ready
  *     again callers subscribe anew. `event` is `{ kind, sessionKey, runId, reason,
- *     event, payload }`: `kind` one of RUN_EVENT_KINDS, `reason` why a run failed
- *     (`"timeout"`) or null, and `event`/`payload` the runtime's own frame name and
- *     payload, which the reply text, tool steps and approvals are still read from.
+ *     reply, step, event, payload }`: `kind` one of RUN_EVENT_KINDS, `reason` why a
+ *     run failed (`"timeout"`) or null, and `event`/`payload` the runtime's own frame
+ *     name and payload (raw readers that remain runtime-specific).
+ *   - reply: null, or `{ text, delta, replace }` for an event carrying reply text:
+ *     `text` the whole reply so far when the event carries it (a snapshot), else
+ *     undefined; `delta` the appended text, else undefined; `replace` true when
+ *     `delta` is the whole text instead (chat-stream.js nextChatText).
+ *   - step: null, or the run's activity the event shows (run-steps.js):
+ *     `{ type: "tool", id, name, title, phase, failed }` (`phase` "start", "update"
+ *     or "end"; `title` a short summary the runtime gives of the call, or null;
+ *     `failed` whether an ended call failed), `{ type: "thinking" }`,
+ *     `{ type: "writing" }`, `{ type: "status", phase, attempt, of, reason }`
+ *     (`phase` "retrying" with its attempt of `of` and why, or "starting_model"),
+ *     `{ type: "lifecycle", phase }` ("start", "model", "waiting-approval" while an
+ *     approval of the run waits, "approval-resolved") and `{ type: "compaction",
+ *     phase }` ("start", "end").
+ *   - Approvals: an "approval.requested" event's payload is the normalized request
+ *     `{ id, request: { command, cwd, agentId, sessionKey, runId, allowedDecisions,
+ *     warningText? }, createdAtMs, expiresAtMs }` (`cwd` the folder the command runs
+ *     in or null, `allowedDecisions` among "allow-once", "allow-session",
+ *     "allow-always" and "deny"; runtime-specific fields ride along); approvals.list
+ *     answers the same items. "approval.resolved" names `{ id, decision, sessionKey,
+ *     runId, … }`.
  * - agents: the runtime-side agent. Its async methods reject while the runtime is
  *   unreachable; answers are the runtime's own fields.
  *   - list(): `{ agents: [{ id, … }] }`.
@@ -255,8 +284,15 @@ export const RUN_EVENT_KINDS = Object.freeze([
 
 // One capability per sub-port, and finer ones as ports grow: `advancedSettings`, the
 // owner's overrides of runtime settings beyond AgentPier's model (config.compiler
-// `advancedSettings`; OpenClaw has them, a runtime without reports it unavailable).
-export const RUNTIME_CAPABILITIES = Object.freeze([...RUNTIME_PORTS, "advancedSettings"]);
+// `advancedSettings`; OpenClaw has them, a runtime without reports it unavailable);
+// `everyCommandApproval`, a shell level beside "approval" on which every command asks
+// the owner (Hermes, whose "approval" asks only for dangerous commands; OpenClaw's
+// "approval" already asks for every command, so it reports the option unavailable).
+export const RUNTIME_CAPABILITIES = Object.freeze([
+  ...RUNTIME_PORTS,
+  "advancedSettings",
+  "everyCommandApproval",
+]);
 
 // The runtime of an agent that records none: every agent from before the field, and a
 // new agent created without a choice (ADR 0006, decision 1).

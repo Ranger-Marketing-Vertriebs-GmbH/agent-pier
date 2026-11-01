@@ -22,64 +22,62 @@ import { confirmFromTranscript } from "./run-confirmation.js";
 import { imageResultArtifact } from "./generated-images.js";
 import { fileRequest } from "./agent-share-store.js";
 import { hostConnection, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
-// A compaction marker (OpenClaw 2026.10.3: a system message with
-// `__openclaw.kind: "compaction"` and its token counts) is a chat note only where the
-// chat asks for it (`compactions`); every other reader sees the turns alone.
+// A compaction marker (the history entry's `compaction`, with its token counts) is a
+// chat note only where the chat asks for it (`compactions`); every other reader sees
+// the turns alone.
 const tokenCount = (n) => (Number.isFinite(n) && n >= 0 ? n : null);
-function compactionNote(m) {
-  const meta = m.__openclaw;
+function compactionNote(entry) {
   return {
-    id: `compaction:${meta.id}`,
+    id: `compaction:${entry.compaction.id}`,
     role: "event",
     event: "compaction",
-    tokensBefore: tokenCount(meta.tokensBefore),
-    tokensAfter: tokenCount(meta.tokensAfter),
-    timestamp: m.timestamp || 0,
+    tokensBefore: tokenCount(entry.compaction.tokensBefore),
+    tokensAfter: tokenCount(entry.compaction.tokensAfter),
+    timestamp: entry.timestamp || 0,
     runId: null,
   };
 }
+/**
+ * The chat's messages of a history page, read from each message's normalized
+ * `entry` (runtimes/agent-runtime.js sessions): the owner's and the agent's turns,
+ * and with `compactions` the compaction markers as notes.
+ */
 export function publicMessages(messages = [], { compactions = false } = {}) {
   const seen = new Set();
   return messages.flatMap((m) => {
+    const entry = m?.entry;
+    if (!entry || typeof entry !== "object") return [];
     if (
       compactions &&
-      m?.role === "system" &&
-      m.__openclaw?.kind === "compaction" &&
-      typeof m.__openclaw.id === "string" &&
-      !seen.has(`compaction:${m.__openclaw.id}`)
+      typeof entry.compaction?.id === "string" &&
+      !seen.has(`compaction:${entry.compaction.id}`)
     ) {
-      seen.add(`compaction:${m.__openclaw.id}`);
-      return [compactionNote(m)];
+      seen.add(`compaction:${entry.compaction.id}`);
+      return [compactionNote(entry)];
     }
-    if (!["user", "assistant"].includes(m.role)) return [];
-    // OpenClaw's own turns (2026.10.7 shows an exec completion's event turn in the
-    // history; 2026.10.3 hid its heartbeat) are never the owner's words.
-    if (m.role === "user" && m.provenance?.kind === "internal_system") return [];
-    const raw =
-      typeof m.content === "string"
-        ? m.content
-        : (m.content || [])
-            .filter((c) => c.type === "text")
-            .map((c) => c.text)
-            .join("\n");
-    const text = m.role === "user" ? shownTurnText(raw) : raw;
+    const role = entry.role;
+    if (!["user", "assistant"].includes(role)) return [];
+    // The runtime's own turns (an exec completion's event turn) are never the owner's.
+    if (role === "user" && entry.internal === true) return [];
+    const raw = typeof entry.text === "string" ? entry.text : "";
+    const text = role === "user" ? shownTurnText(raw) : raw;
     if (!text) return [];
     const id =
-      m.__openclaw?.id ||
+      entry.id ||
       createHash("sha256")
-        .update(JSON.stringify([m.role, m.timestamp, text]))
+        .update(JSON.stringify([role, entry.timestamp || null, text]))
         .digest("hex");
     if (seen.has(id)) return [];
     seen.add(id);
-    const key = m.role === "user" && turnKey(m);
+    const key = role === "user" && turnKey(m);
     const image = imageResultArtifact(m);
     return [
       {
         id,
-        role: m.role,
+        role,
         text,
-        timestamp: m.timestamp || 0,
-        runId: m.__openclaw?.runId || null,
+        timestamp: entry.timestamp || 0,
+        runId: entry.runId || null,
         // Internal: links the turn to its attempt (message-source.js), never served.
         ...(key && { turnKey: key }),
         // Internal: the image a background image turn delivers (imageResults).
@@ -171,6 +169,14 @@ function hideInternal(messages, requests, contexts, attempts) {
     }),
   };
 }
+// The agent of `conversation`, or null when it is gone (its runtime is then the host's).
+function agentOf(service, conversation) {
+  try {
+    return service.store.getAssistant(conversation.assistantId);
+  } catch {
+    return null;
+  }
+}
 /**
  * One message of a conversation read on its own with AgentPier's text limit
  * instead of OpenClaw's page default (8000 characters per message); null when
@@ -178,7 +184,9 @@ function hideInternal(messages, requests, contexts, attempts) {
  */
 export async function conversationMessage(service, id, messageId, { role } = {}) {
   const conversation = service.store.getConversation(id);
-  const connection = hostConnection(service.runtime);
+  // The runtime of the chat's agent: the shared host, or a Hermes agent's own set.
+  const agent = agentOf(service, conversation);
+  const connection = hostConnection(service.runtime, agent);
   const generation = service.runtime.generation;
   // Like a history page: no read while the runtime is swapped or recovering.
   const unsettled = () =>
@@ -186,10 +194,10 @@ export async function conversationMessage(service, id, messageId, { role } = {})
     service.recovering ||
     service.closed ||
     service.runtime.generation !== generation ||
-    hostConnection(service.runtime) !== connection;
-  if (!hostReady(service.runtime) || typeof messageId !== "string" || unsettled())
+    hostConnection(service.runtime, agent) !== connection;
+  if (!hostReady(service.runtime, agent) || typeof messageId !== "string" || unsettled())
     return null;
-  const page = await runtimeFor(null, service.runtime).sessions.on(connection).history({
+  const page = await runtimeFor(agent, service.runtime).sessions.on(connection).history({
     sessionKey: conversation.runtimeSessionKey,
     messageId,
     limit: 1,
@@ -233,19 +241,20 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
     nextBefore = null,
     stale = true,
     longChat = false;
-  const connection = hostConnection(service.runtime);
+  const agent = agentOf(service, conversation);
+  const connection = hostConnection(service.runtime, agent);
   const maintenanceEpoch = service.maintenanceEpoch || 0;
   const generation = service.runtime.generation;
   // A deleted user's chat never reads its native session back (user-release.js).
   const released = () => service.store.getConversation(id).userReleased;
   if (
-    hostReady(service.runtime) &&
+    hostReady(service.runtime, agent) &&
     !service.maintenance &&
     !service.recovering &&
     !released()
   ) {
     try {
-      const history = await runtimeFor(null, service.runtime)
+      const history = await runtimeFor(agent, service.runtime)
         .sessions.on(connection)
         .history({
           sessionKey: conversation.runtimeSessionKey,
@@ -272,7 +281,7 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
         service.closed ||
         (service.maintenanceEpoch || 0) !== maintenanceEpoch ||
         service.runtime.generation !== generation ||
-        hostConnection(service.runtime) !== connection ||
+        hostConnection(service.runtime, agent) !== connection ||
         released()
       )
         throw assistantProblem("unavailable", 503);

@@ -146,12 +146,12 @@ export class AgentChats {
           .listConversations({ deleted: true })
           .find((c) => c.assistantId === assistantId && c.openedBy === openedBy);
       if (opened) return opened;
-      service.requireReady();
+      service.requireReady(agent);
       await service.config.apply(assistantId);
       const id = randomUUID();
       // The session is subscribed on the connection that created it.
       const sessions = runtimeFor(agent, service.runtime).sessions.on(
-        hostConnection(service.runtime),
+        hostConnection(service.runtime, agent),
       );
       const created = await sessions.create(
         { agentId: agent.runtimeAgentId, label: `AgentPier ${agent.id} chat ${id}` },

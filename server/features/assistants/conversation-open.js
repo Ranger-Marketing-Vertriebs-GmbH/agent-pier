@@ -28,7 +28,7 @@ export async function openMainConversation(service, assistantId, { turn, userId 
   const context = userId === null ? { kind: "owner" } : { kind: "user", userId };
   if (turn) service.teams?.assertMemberTurn(assistantId, context);
   else if (agent.archivedAt) throw assistantProblem("active", 409);
-  service.requireReady();
+  service.requireReady(agent);
   await service.config.apply(assistantId);
   const assistant = service.store.getAssistant(assistantId);
   const label = `AgentPier ${assistant.id}${userId === null ? "" : ` ${userId}`}`;

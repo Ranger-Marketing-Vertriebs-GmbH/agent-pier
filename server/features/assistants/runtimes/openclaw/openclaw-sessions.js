@@ -10,16 +10,72 @@ const mediaPath = "/api/chat/media/outgoing/";
 const artifactRefusal = (reason, cause) =>
   Object.assign(new Error(`Artifact ${reason}.`), { artifactRefusal: reason, cause });
 
+// The delivery key OpenClaw 2026.10.3 stores a sessions.send turn with: `<run id>:user`,
+// at the top level and in `__openclaw` (message-source.js).
+function deliveryKey(message) {
+  const key = message.idempotencyKey ?? message.__openclaw?.idempotencyKey;
+  if (typeof key !== "string" || !key.endsWith(":user")) return null;
+  return key.slice(0, -":user".length) || null;
+}
+
+/**
+ * The port's history entry (agent-runtime.js sessions `entry`) of one OpenClaw
+ * message: its `__openclaw` id and run id, the text of its string content or text
+ * blocks (joined by line breaks), its delivery key, whether OpenClaw made the turn
+ * itself (provenance `internal_system`: 2026.10.7 shows an exec completion's event
+ * turn, 2026.10.3 hid its heartbeat), and a compaction marker's id and token counts
+ * (a system message with `__openclaw.kind: "compaction"`).
+ */
+export function openClawEntry(message) {
+  const m = message && typeof message === "object" ? message : {};
+  const meta = m.__openclaw && typeof m.__openclaw === "object" ? m.__openclaw : {};
+  const text =
+    typeof m.content === "string"
+      ? m.content
+      : (Array.isArray(m.content) ? m.content : [])
+          .filter((c) => c?.type === "text")
+          .map((c) => c.text)
+          .join("\n");
+  return {
+    id: meta.id || null,
+    role: m.role,
+    text,
+    timestamp: m.timestamp || 0,
+    runId: meta.runId || null,
+    turnKey: deliveryKey(m),
+    internal: m.role === "user" && m.provenance?.kind === "internal_system",
+    compaction:
+      m.role === "system" && meta.kind === "compaction" && typeof meta.id === "string"
+        ? { id: meta.id, tokensBefore: meta.tokensBefore, tokensAfter: meta.tokensAfter }
+        : null,
+  };
+}
+
+/** OpenClaw's messages, each with its port `entry` beside its own fields. */
+export const withOpenClawEntries = (messages) =>
+  Array.isArray(messages)
+    ? messages.map((m) =>
+        m && typeof m === "object" ? { ...m, entry: openClawEntry(m) } : m,
+      )
+    : messages;
+
+// A history or get answer whose messages carry their entries.
+const withEntries = (answer) =>
+  Array.isArray(answer?.messages)
+    ? { ...answer, messages: withOpenClawEntries(answer.messages) }
+    : answer;
+
 /**
  * The sessions sub-port over the supervisor's current Gateway client
  * (agent-runtime.js documents each method). `on(connection)` binds the same methods
  * to the client behind a handle of host.connection(): the supervisor closes a client
  * it replaces, so once a restart came between, a bound call rejects as a call on that
  * closed client always did (gatewayError UNAVAILABLE, status 503) and the new
- * Gateway receives nothing. `clientOf(connection)` finds that client. Session keys keep OpenClaw's own format
- * (`agent:<runtimeAgentId>:…`); AgentPier stores them as opaque strings. Answers are
- * OpenClaw's own: callers read the fields they always read (`session`, `messages`,
- * `sessionInfo`, …).
+ * Gateway receives nothing. `clientOf(connection)` finds that client. Session keys
+ * keep OpenClaw's own format (`agent:<runtimeAgentId>:…`); AgentPier stores them as
+ * opaque strings. Answers are OpenClaw's own: callers read the fields they always
+ * read (`session`, `messages`, `sessionInfo`, …), and every message of get and
+ * history carries its `entry` (openClawEntry).
  */
 export function openClawSessions(supervisor, clientOf) {
   return {
@@ -59,15 +115,16 @@ function sessionsOver(current) {
         ) || []
       );
     },
-    get: ({ key, limit, timeoutMs }) =>
-      call("sessions.get", { key, limit }, { timeoutMs }),
+    get: async ({ key, limit, timeoutMs }) =>
+      withEntries(await call("sessions.get", { key, limit }, { timeoutMs })),
     delete: ({ key, deleteTranscript }) =>
       call("sessions.delete", { key, deleteTranscript }),
     keepOpen: async ({ key }) => keepChatOpen(current(), key),
     reopenRefused: async ({ key, error }) => reopenRefusedChat(current(), key, error),
     compact: ({ key, timeoutMs }) => call("sessions.compact", { key }, { timeoutMs }),
     subscribeMessages: ({ key }) => call("sessions.messages.subscribe", { key }),
-    history: (params) => call("chat.history", historyParams(params)),
+    history: async (params) =>
+      withEntries(await call("chat.history", historyParams(params))),
     // The team plugin's count of the session's background commands, and of an
     // OpenClaw completion run under way (whose agent events carry no mark).
     async backgroundRunning({ key }) {

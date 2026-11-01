@@ -11,6 +11,7 @@ import { AssistantModels } from "../../server/features/assistants/assistant-mode
 import { normalizeOpenRouter } from "../../server/features/providers/catalog-normalization.js";
 import { AgentAttachments } from "../../server/features/assistants/agent-attachments.js";
 import { publicMessages } from "../../server/features/assistants/conversations.js";
+import { withOpenClawEntries } from "../../server/features/assistants/runtimes/openclaw/openclaw-sessions.js";
 import { withAttachments } from "../../server/features/assistants/attachment-history.js";
 import { ProviderConnections } from "../../server/features/providers/provider-connections.js";
 import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
@@ -185,7 +186,9 @@ test(
           sessionKey: chat.key,
           limit: 50,
         });
-        const [user] = publicMessages(history.messages).filter((m) => m.role === "user");
+        const [user] = publicMessages(withOpenClawEntries(history.messages)).filter(
+          (m) => m.role === "user",
+        );
         assert.equal(user.text, turn.message);
         assert.equal(user.turnKey, idempotencyKey);
         const shown = withAttachments(

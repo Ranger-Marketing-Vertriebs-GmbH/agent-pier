@@ -70,9 +70,24 @@ test("the runtime composes host, sessions, events, approvals and the compiler", 
   assert.equal(typeof runtime.config.compiler.compileHome, "function");
   const capabilities = runtime.capabilities();
   assert.deepEqual(Object.keys(capabilities).sort(), [...RUNTIME_CAPABILITIES].sort());
-  for (const name of ["host", "sessions", "events", "approvals", "config"])
+  for (const name of [
+    "host",
+    "sessions",
+    "events",
+    "approvals",
+    "config",
+    "agents",
+    "everyCommandApproval",
+  ])
     assert.equal(capabilities[name].available, true, name);
-  for (const name of ["agents", "routines", "browser", "models", "channels"])
+  for (const name of [
+    "agentFiles",
+    "routines",
+    "skills",
+    "browser",
+    "models",
+    "channels",
+  ])
     assert.deepEqual(capabilities[name], {
       available: false,
       reason: "hermesNotYetSupported",

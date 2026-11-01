@@ -80,7 +80,7 @@ export async function sendTurn(service, conversationId, input, trustedContext) {
     return { request, attempt: service.ledger.attemptFor(request.id) };
   }
   refuseClosedChat(service, conversation);
-  service.requireReady();
+  service.requireReady(service.store.getAssistant(conversation.assistantId));
   // When the person wrote it: a message first queued before a summary's notice
   // showed (and edited since) keeps that notice (long-chats.js settle).
   const queued = service.queued?.get(conversationId);
@@ -142,7 +142,7 @@ export async function sendTurn(service, conversationId, input, trustedContext) {
     );
     // Its connection, as the send and a retry after reopening go out on it alone.
     const sessions = runtimeFor(agent, service.runtime).sessions.on(
-      hostConnection(service.runtime),
+      hostConnection(service.runtime, agent),
     );
     const key = conversation.runtimeSessionKey;
     // OpenClaw acknowledges a send before it starts the run, so an acknowledgement

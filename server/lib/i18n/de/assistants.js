@@ -509,6 +509,10 @@ export const assistants = {
     "Wähle einen Schlüssel aus dem Projekt des Vorschlags oder einen neuen verwalteten Schlüssel.",
   runtimeUnknown: (runtime) =>
     `Die Laufzeit „${runtime}“ gibt es in diesem AgentPier nicht.`,
+  hermesUnavailable:
+    "Hermes Agent ist nicht bereit. Schalte Hermes unter Agenten › Laufzeit ein und warte, bis es installiert ist.",
+  shellEveryCommandUnsupported:
+    "„Jeder Befehl“ gibt es nur für Hermes-Agenten; bei OpenClaw fragt „Mit Freigabe“ schon vor jedem Befehl.",
   notFound: "Agent oder Unterhaltung nicht gefunden.",
   pipelineAccessChanged:
     "Die Pipeline oder eines ihrer Profile wurde seit der Freigabe geändert. Prüfe die aktuellen Einstellungen und speichere den Projekt- und Pipelinezugriff beim freigebenden Agenten erneut; bei geteiltem Zugriff ist das der leitende Agent. Fordere danach einen neuen Coding-Auftrag an.",

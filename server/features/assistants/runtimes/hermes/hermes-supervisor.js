@@ -191,7 +191,7 @@ export class HermesSupervisor extends EventEmitter {
     this.generationId = set.generation;
     let timeout;
     const ready = await Promise.race([
-      set.transport.ready.then(() => this.connect(set)),
+      set.transport.ready.then(() => this.connect(set, agent)),
       set.ended.then(() => false),
       new Promise(
         (resolve) =>
@@ -219,12 +219,14 @@ export class HermesSupervisor extends EventEmitter {
   }
   /**
    * The set's client once the bridge reported gateway.ready: true when it connected
-   * (Hermes knows it answers approvals), false when the channel closed first.
+   * (Hermes knows it answers approvals), false when the channel closed first. The
+   * agent's commands run in its workspace, which its approval requests name.
    */
-  async connect(set) {
+  async connect(set, agent) {
     set.client = createHermesClient(rpcTransport(set.transport), {
       agentId: this.agentId,
       timeoutMs: this.callTimeoutMs,
+      workspace: agent?.workspace,
     });
     try {
       await set.client.connect({ timeoutMs: this.readyTimeoutMs });

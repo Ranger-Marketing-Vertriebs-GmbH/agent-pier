@@ -38,7 +38,11 @@ test("a new agent records OpenClaw, or the known runtime it chose", (t) => {
   assert.equal(plain.runtime, "openclaw");
   const chosen = store.createAssistant({ name: "B", model, runtime: "openclaw" });
   assert.equal(store.getAssistant(chosen.id).runtime, "openclaw");
-  assert.throws(() => store.createAssistant({ name: "C", model, runtime: "hermes" }), {
+  assert.equal(
+    store.createAssistant({ name: "H", model, runtime: "hermes" }).runtime,
+    "hermes",
+  );
+  assert.throws(() => store.createAssistant({ name: "C", model, runtime: "mystery" }), {
     status: 400,
     key: "runtimeUnknown",
   });
@@ -51,7 +55,7 @@ test("a new agent records OpenClaw, or the known runtime it chose", (t) => {
     status: 400,
     key: "invalid",
   });
-  assert.equal(store.listAssistants().length, 2);
+  assert.equal(store.listAssistants().length, 3);
 });
 
 test("opening a store from before the field gives every agent OpenClaw", (t) => {
@@ -126,23 +130,32 @@ test("a team member runs on its lead's runtime unless one is set for it", (t) =>
 
 test("runtimeFor picks the adapter by the agent's runtime and refuses unknown ones", () => {
   assert.equal(DEFAULT_RUNTIME, "openclaw");
-  assert.deepEqual(RUNTIME_IDS, ["openclaw"]);
+  assert.deepEqual(RUNTIME_IDS, ["openclaw", "hermes"]);
   assert.equal(runtimeIdOf(null), "openclaw");
   assert.equal(runtimeIdOf({ id: "a" }), "openclaw");
   assert.equal(runtimeIdOf({ runtime: "hermes" }), "hermes");
   assert.equal(knownRuntime("openclaw"), true);
-  assert.equal(knownRuntime("hermes"), false);
+  assert.equal(knownRuntime("hermes"), true);
+  assert.equal(knownRuntime("mystery"), false);
   assert.equal(knownRuntime("constructor"), false);
   assert.equal(assertRuntime("openclaw"), "openclaw");
   const host = supervisor();
   assert.equal(runtimeFor({ runtime: "openclaw" }, host).id, "openclaw");
   assert.equal(runtimeFor({ runtime: "openclaw" }, host), runtimeFor(null, host));
+  // A Hermes agent runs on its own process set, one runtime per agent.
+  const hermes = runtimeFor({ runtime: "hermes", runtimeAgentId: "ap-h1" }, host);
+  assert.equal(hermes.id, "hermes");
+  assert.equal(runtimeFor({ runtime: "hermes", id: "h1" }, host), hermes);
+  assert.notEqual(
+    runtimeFor({ runtime: "hermes", runtimeAgentId: "ap-h2" }, host),
+    hermes,
+  );
   assert.throws(
-    () => runtimeFor({ runtime: "hermes" }, host),
+    () => runtimeFor({ runtime: "mystery" }, host),
     (error) => {
       assert.equal(error.status, 409);
       assert.equal(error.key, "runtimeUnknown");
-      assert.match(error.message, /„hermes“/);
+      assert.match(error.message, /„mystery“/);
       return true;
     },
   );
@@ -154,13 +167,31 @@ test("runtimeDetails names the runtime, its version and its capabilities", () =>
   assert.equal(details.name, "OpenClaw");
   assert.equal(details.version, "2026.10.3");
   assert.deepEqual(Object.keys(details.capabilities), [...RUNTIME_CAPABILITIES]);
-  assert.ok(Object.values(details.capabilities).every((c) => c.available === true));
+  // OpenClaw offers everything but the Hermes-only "Every command" level.
+  for (const [name, capability] of Object.entries(details.capabilities))
+    assert.deepEqual(
+      capability,
+      name === "everyCommandApproval"
+        ? { available: false, reason: "approvalAsksEveryCommand" }
+        : { available: true },
+      name,
+    );
+  const hermes = runtimeDetails(
+    { runtime: "hermes", runtimeAgentId: "ap-h" },
+    supervisor(),
+  );
+  assert.equal(hermes.name, "Hermes Agent");
+  assert.equal(hermes.version, null);
+  assert.deepEqual(hermes.capabilities.routines, {
+    available: false,
+    reason: "hermesNotYetSupported",
+  });
   // A stopped host has no running version; a stand-in without status none either.
   assert.equal(runtimeDetails(null, supervisor(null)).version, null);
   assert.equal(runtimeDetails(null, { client: null }).version, null);
   // A runtime this AgentPier lacks is shown with the reason, never hidden.
-  const missing = runtimeDetails({ runtime: "hermes" }, supervisor());
-  assert.equal(missing.name, "hermes");
+  const missing = runtimeDetails({ runtime: "mystery" }, supervisor());
+  assert.equal(missing.name, "mystery");
   assert.deepEqual(Object.keys(missing.capabilities), [...RUNTIME_CAPABILITIES]);
   for (const capability of Object.values(missing.capabilities))
     assert.deepEqual(capability, { available: false, reason: "runtimeUnknown" });

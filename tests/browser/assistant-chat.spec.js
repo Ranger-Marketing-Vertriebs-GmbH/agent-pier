@@ -3,6 +3,7 @@ import { baseURL } from "../helpers/browser.js";
 import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
 import { fixture } from "./providers-fixture.js";
 import { ChatStreams } from "../../server/features/assistants/chat-stream.js";
+import { openClawRunEvent } from "../../server/features/assistants/runtimes/openclaw/openclaw-events.js";
 import { agentEvent } from "../helpers/agent-feed-fake.js";
 
 const filler = Array.from({ length: 24 }, (_, n) => ({
@@ -294,7 +295,12 @@ test("a streamed reply grows across Gateway delta frames", async ({ page }) => {
     f,
     ["Noch", "Noch keine", "Noch keine neuen Meldungen."][i],
   ])) {
-    const text = streams.delta({ sessionKey: "s", runId: "r", state: "delta", ...frame });
+    const text = streams.delta(
+      openClawRunEvent({
+        event: "chat",
+        payload: { sessionKey: "s", runId: "r", state: "delta", ...frame },
+      }),
+    );
     await emit(page, { type: "delta", conversationId: "dinner", runId: "r", text });
     await expect(bubble).toHaveCount(1);
     await expect(content).toHaveText(expected);

@@ -38,11 +38,15 @@ test("the agent API takes an optional runtime and answers each agent's runtime",
   assert.equal(created.runtime, "openclaw");
 
   // A runtime this AgentPier lacks is refused with a translated, stable message.
-  const unknown = await call("POST", "/assistants", body({ runtime: "hermes" }));
+  const unknown = await call("POST", "/assistants", body({ runtime: "mystery" }));
   assert.equal(unknown.status, 400);
   const refusal = await unknown.json();
   assert.equal(refusal.messageKey, "assistants.runtimeUnknown");
-  assert.match(refusal.error, /hermes/);
+  assert.match(refusal.error, /mystery/);
+  // Hermes is known, but needs the owner's opt-in and its installation first.
+  const hermes = await call("POST", "/assistants", body({ runtime: "hermes" }));
+  assert.equal(hermes.status, 409);
+  assert.equal((await hermes.json()).messageKey, "assistants.hermesUnavailable");
   assert.equal(application.assistants.store.listAssistants().length, 2);
 
   const list = await (await call("GET", "/assistants")).json();
@@ -55,8 +59,14 @@ test("the agent API takes an optional runtime and answers each agent's runtime",
     assert.deepEqual(Object.keys(agent.runtimeInfo.capabilities), [
       ...RUNTIME_CAPABILITIES,
     ]);
-    for (const capability of Object.values(agent.runtimeInfo.capabilities))
-      assert.deepEqual(capability, { available: true });
+    // Everything but "Every command": OpenClaw's "With approval" asks for each.
+    for (const [name, capability] of Object.entries(agent.runtimeInfo.capabilities))
+      assert.deepEqual(
+        capability,
+        name === "everyCommandApproval"
+          ? { available: false, reason: "approvalAsksEveryCommand" }
+          : { available: true },
+      );
   }
 
   // The runtime stays the one chosen at creation.

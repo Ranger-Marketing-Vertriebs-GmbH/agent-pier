@@ -50,8 +50,18 @@ always sets `manual` or `off`. The guard plugin's `pre_tool_call` hook returns
 `{"action": "approve"}` for every `terminal` command, `execute_code` run and input sent
 to a running process. Its message carries the command itself, and its rule key hashes
 the exact text, so "always" allows that one command again and never every command.
-Every-command approval is a Hermes-only option that the desired state does not carry
-yet: a start names those agents explicitly.
+Every-command approval is a Hermes-only option: the agent's settings offer **Every
+command** beside **Dangerous commands** (`approval`) where the runtime reports the
+`everyCommandApproval` capability, and store it as `shell: "approval"` with
+`shellEveryCommand: true`. The desired state keeps AgentPier's three levels; the
+runtime passes the choice to the compiler (`strict`). OpenClaw reports the capability
+unavailable, because its "approval" already asks before every command. A dangerous
+command under every-command approval asks once: Hermes asks a plugin's question
+first and then runs its own dangerous-command check, so the guard leaves the shell
+commands Hermes flags as dangerous (`tools/approval_detection.py`) to that check,
+which asks with Hermes's reason. A plugin's question names the call only as
+`<terminal> (plugin approval rule)`; AgentPier shows the guard's message, the command
+itself, in the approval card.
 
 ### Model connection
 
@@ -102,6 +112,38 @@ team tools and the extra folders on the shell's PATH. Routines, MCP, skills and 
 follow in step 5 of the ADR's delivery order, teams and the browser in step 6. Hermes has
 no advanced settings in AgentPier yet: the capability reports
 `advancedSettingsUnsupported`.
+
+## Agents on Hermes
+
+`runtime-for.js` resolves an agent that records `runtime: "hermes"` to its own
+runtime in the Hermes fleet (`runtimes/hermes/hermes-fleet.js`), one supervised
+process set per agent, keyed by its runtime agent id. The fleet is attached to the
+OpenClaw supervisor that feature code passes around, so callers keep using
+`runtimeFor(agent, supervisor)`, `hostReady(supervisor, agent)` and
+`hostConnection(supervisor, agent)`; calls that know only a session key use
+`runtimeForSession`. Hermes agents may be created and started only while Hermes is
+enabled and installed (problem `hermesUnavailable` otherwise).
+
+| Event                                    | What happens to the agent's set                             |
+| ---------------------------------------- | ----------------------------------------------------------- |
+| Created, or a setting changed            | The apply writes its home; a changed home restarts the set  |
+| AgentPier starts, Hermes switched on     | Every Hermes agent that is not archived starts              |
+| Archived                                 | The set stops; restoring starts it again                    |
+| Deleted                                  | The set stops; its HOME, HERMES_HOME, work, tmp and logs go |
+| Hermes switched off, agents switched off | Every set stops                                             |
+| Hermes update (**Agents › Runtime**)     | All sets stop, the new release starts them, or rolls back   |
+
+The OpenClaw start never compiles Hermes agents, and OpenClaw's roster checks,
+approval resync and own-job pauses skip them. Their chats reconcile on their own
+set's connection (`chat-reconcile.js`, `run-reconciler.js`), and the run events of
+every set reach the chat path and the event hub once (`agentRuntimeEvents`).
+
+| Capability                                              | Hermes                              |
+| ------------------------------------------------------- | ----------------------------------- |
+| host, sessions, events, approvals, config, agents       | available                           |
+| everyCommandApproval                                    | available (unavailable on OpenClaw) |
+| agentFiles, routines, skills, browser, models, channels | `hermesNotYetSupported`             |
+| advancedSettings                                        | `advancedSettingsUnsupported`       |
 
 ## Gateway protocol
 

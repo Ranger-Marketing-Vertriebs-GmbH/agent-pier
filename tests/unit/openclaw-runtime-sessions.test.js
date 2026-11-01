@@ -158,6 +158,10 @@ test("OpenClaw frames read as normalized run events with the frame alongside", (
     [{ event: "exec.approval.resolved", payload: { id: "e" } }, "approval.resolved"],
     [{ event: "skills.changed", payload: {} }, "other"],
   ];
+  const steps = {
+    lifecycle: { type: "lifecycle", phase: "start" },
+    thinking: { type: "thinking" },
+  };
   for (const [frame, kind] of cases) {
     const payload = { ...frame.payload, sessionKey: "agent:a:1", runId: "r" };
     const event = openClawRunEvent({ ...frame, payload });
@@ -167,6 +171,12 @@ test("OpenClaw frames read as normalized run events with the frame alongside", (
       sessionKey: "agent:a:1",
       runId: "r",
       reason: kind === "failed" ? "timeout" : null,
+      // A chat frame without text places no reply; an agent frame names its step.
+      reply:
+        frame.event === "chat"
+          ? { text: undefined, delta: undefined, replace: false }
+          : null,
+      step: steps[frame.payload.stream] ?? null,
       event: frame.event,
       payload,
     });

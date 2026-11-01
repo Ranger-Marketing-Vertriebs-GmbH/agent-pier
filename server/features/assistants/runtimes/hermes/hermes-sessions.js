@@ -119,15 +119,50 @@ const describeRow = (link, key, row, sid) => ({
   running: !!sid && link.runs.busy(sid),
 });
 
-// Hermes's history rows, newest last, with OpenClaw's `content` beside its `text`.
+// User rows Hermes writes itself (tui_gateway/session_history.py display kinds): the
+// note that resumes a turn an interruption cut off is never the owner's words.
+const internalKinds = new Set(["auto_continue"]);
+
+/**
+ * The port's history entry (agent-runtime.js sessions `entry`) of a Hermes history
+ * row at `index` of the whole transcript. Hermes 0.22.5 sends `{ role, text,
+ * timestamp, row_id, display_kind, … }` (session.history, _history_to_messages): the
+ * durable `row_id` is its id (a row without one is named by its place), the
+ * timestamp is in seconds, and a row names neither its turn's run nor its submission.
+ */
+export function hermesEntry(row, index) {
+  const r = row && typeof row === "object" ? row : {};
+  const rowId = r.row_id;
+  const at = Number.isFinite(r.timestamp) && r.timestamp > 0 ? r.timestamp : 0;
+  return {
+    id:
+      (typeof rowId === "number" && Number.isFinite(rowId)) ||
+      (typeof rowId === "string" && rowId)
+        ? `row:${rowId}`
+        : `at:${index}`,
+    role: r.role,
+    text: typeof r.text === "string" ? r.text : "",
+    // Seconds; a value already in milliseconds is kept.
+    timestamp: at > 0 && at < 1e11 ? Math.round(at * 1000) : Math.round(at),
+    runId: null,
+    turnKey: null,
+    internal: r.role === "user" && internalKinds.has(r.display_kind),
+    compaction: null,
+  };
+}
+
+// Hermes's history rows, newest last, with OpenClaw's `content` beside its `text` and
+// the port's `entry`.
 const messagesOf = (answer, limit) => {
   const rows = Array.isArray(answer?.messages) ? answer.messages : [];
-  const kept = Number.isSafeInteger(limit) && limit > 0 ? rows.slice(-limit) : rows;
-  return kept.map((row) =>
-    typeof row?.text === "string"
-      ? { ...row, content: [{ type: "text", text: row.text }] }
-      : row,
-  );
+  const from =
+    Number.isSafeInteger(limit) && limit > 0 ? Math.max(0, rows.length - limit) : 0;
+  return rows.slice(from).map((row, i) => {
+    const entry = hermesEntry(row, from + i);
+    return typeof row?.text === "string"
+      ? { ...row, content: [{ type: "text", text: row.text }], entry }
+      : { ...(row && typeof row === "object" ? row : {}), entry };
+  });
 };
 
 const titleOf = (text) =>
@@ -292,6 +327,7 @@ function sessionsOver(current) {
                 ...m,
                 text: m.text.slice(0, maxChars),
                 content: [{ type: "text", text: m.text.slice(0, maxChars) }],
+                entry: { ...m.entry, text: m.text.slice(0, maxChars) },
                 truncated: true,
               }
             : m,

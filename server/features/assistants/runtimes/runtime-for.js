@@ -3,25 +3,72 @@ import { DEFAULT_RUNTIME, RUNTIME_CAPABILITIES, unavailable } from "./agent-runt
 import { createOpenClawRuntime } from "./openclaw/openclaw-runtime.js";
 import { openClawCompiler } from "./openclaw/openclaw-compiler.js";
 import { cronRunOf } from "./openclaw/openclaw-routine-jobs.js";
+import { hermesCompiler } from "./hermes/hermes-compiler.js";
+import { HermesFleet } from "./hermes/hermes-fleet.js";
+import { storedIdOf } from "./hermes/hermes-run-state.js";
 
 // The runtimes this AgentPier ships, by the id agents record (`agent.runtime`). Each
-// names its product, builds its adapter over the host it runs behind, and brings its
-// pure configuration compiler and the routine-run reader of its session keys; today
-// only OpenClaw, behind the OpenClaw supervisor.
+// names its product, resolves an agent's adapter behind the host it runs on, and
+// brings its pure configuration compiler and the routine-run reader of its session
+// keys. OpenClaw: one adapter over the OpenClaw supervisor that every OpenClaw agent
+// shares. Hermes Agent: one process set per agent (ADR 0006 decision 4), kept by the
+// Hermes fleet attached to that supervisor (attachHermesFleet); its routines come
+// later, so no session key of it belongs to a routine run yet.
 const registry = Object.freeze({
   openclaw: Object.freeze({
     name: "OpenClaw",
-    create: createOpenClawRuntime,
+    resolve: (supervisor) => {
+      let adapter = adapters.get(supervisor);
+      if (!adapter)
+        adapters.set(supervisor, (adapter = createOpenClawRuntime(supervisor)));
+      return adapter;
+    },
     compiler: openClawCompiler,
     runOf: cronRunOf,
   }),
+  hermes: Object.freeze({
+    name: "Hermes Agent",
+    resolve: (supervisor, agent) => hermesFleetOf(supervisor).runtimeOf(agent),
+    compiler: hermesCompiler,
+    runOf: () => null,
+  }),
 });
+
+/**
+ * OpenClaw's own frame (the gateway event hub's `agent` payloads) as a normalized
+ * run event, for readers of that hub such as agent-hook-runs.js.
+ */
+export { openClawRunEvent as openClawFrameEvent } from "./openclaw/openclaw-events.js";
 
 /** The runtime ids an agent may record, the default first. */
 export const RUNTIME_IDS = Object.freeze(Object.keys(registry));
 
-// One adapter per supervisor, so every caller of one host shares it.
+// One OpenClaw adapter per supervisor, so every caller of one host shares it.
 const adapters = new WeakMap();
+// The Hermes fleet of each supervisor. A supervisor without one (a test double, a
+// setup without Hermes) gets a fleet that never starts: its agents stay unavailable.
+const fleets = new WeakMap();
+
+/**
+ * Attaches the Hermes fleet (hermes/hermes-fleet.js) the composition root built to
+ * the OpenClaw `supervisor` every caller passes, so runtimeFor resolves Hermes agents
+ * through it. Returns the fleet.
+ */
+export function attachHermesFleet(supervisor, fleet) {
+  fleets.set(supervisor, fleet);
+  return fleet;
+}
+
+/** The Hermes fleet behind `supervisor` (an idle one when none was attached). */
+export function hermesFleetOf(supervisor) {
+  let fleet = fleets.get(supervisor);
+  if (!fleet) fleets.set(supervisor, (fleet = new HermesFleet({ dataDir: null })));
+  return fleet;
+}
+
+/** Whether Hermes agents may be created and run now: enabled and installed. */
+export const hermesAvailable = (supervisor) =>
+  !!supervisor && typeof supervisor === "object" && !!fleets.get(supervisor)?.available();
 
 /**
  * The runtime id `agent` records; an agent without one (and a missing agent) runs on
@@ -52,11 +99,49 @@ export function assertRuntime(id, status = 400) {
 export function runtimeFor(agent, supervisor) {
   if (!supervisor || typeof supervisor !== "object")
     throw new TypeError("runtimeFor needs the runtime supervisor.");
-  const { create } = registry[assertRuntime(runtimeIdOf(agent), 409)];
-  let adapter = adapters.get(supervisor);
-  if (!adapter) adapters.set(supervisor, (adapter = create(supervisor)));
-  return adapter;
+  return registry[assertRuntime(runtimeIdOf(agent), 409)].resolve(supervisor, agent);
 }
+
+/**
+ * The runtime that holds session `sessionKey`: a Hermes agent's for its keys
+ * (`agent:<runtimeAgentId>:hermes:<id>`), OpenClaw's otherwise. For callers that
+ * know a session but not its agent (reconciliation, aborts, history reads).
+ */
+export function runtimeForSession(sessionKey, supervisor) {
+  const hermes = hermesSessionAgent(sessionKey);
+  return hermes
+    ? runtimeFor({ runtime: "hermes", runtimeAgentId: hermes }, supervisor)
+    : runtimeFor(null, supervisor);
+}
+
+// The runtime agent id a Hermes session key names, or null.
+function hermesSessionAgent(sessionKey) {
+  const match = /^agent:([A-Za-z0-9][A-Za-z0-9_-]{0,63}):hermes:/.exec(
+    typeof sessionKey === "string" ? sessionKey : "",
+  );
+  return match && storedIdOf(match[1], sessionKey) ? match[1] : null;
+}
+
+/**
+ * Run events of every runtime agent behind `supervisor` that is not OpenClaw: the
+ * Hermes fleet's, subscribed once and followed across each set's restarts. OpenClaw's
+ * own events go through `runtimeFor(null, supervisor).events`, subscribed anew per
+ * connection.
+ */
+export const agentRuntimeEvents = (supervisor) => ({
+  subscribe: (listener) => hermesFleetOf(supervisor).subscribe(listener),
+});
+
+/** Whether `agent` runs on its own process set (Hermes) rather than the shared host. */
+export const ownProcess = (agent) => runtimeIdOf(agent) === "hermes";
+
+/**
+ * Whether a configuration change of `agent` can reach its runtime now: the shared
+ * OpenClaw host is ready, or for a Hermes agent Hermes is available (its apply starts
+ * the agent's own process set). False without a supervisor.
+ */
+export const runtimeAccepts = (supervisor, agent) =>
+  ownProcess(agent) ? hermesAvailable(supervisor) : hostReady(supervisor, agent);
 
 /**
  * What the agents list and an agent's settings show of its runtime: `{ id, name,

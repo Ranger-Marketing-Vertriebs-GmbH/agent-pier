@@ -79,12 +79,18 @@ export function contractAgent(agentId, { baseUrl }) {
  * no turn calls the model a second time; the compiled home is merged over it. The
  * process groups are guarded, so they end also when the test process exits early.
  */
-export async function startHermes(t, dirs, { agentId = "hermes-agent", model } = {}) {
+export async function startHermes(
+  t,
+  dirs,
+  { agentId = "hermes-agent", model, strict = false } = {},
+) {
   const { supervisor, runtime } = createHermesRuntime({
     dataDir: dirs.root,
     agentId,
     runtime: async () => contractRecord(),
     desired: () => contractAgent(agentId, model),
+    // Every-command approval (the guard plugin) when `strict`.
+    strict,
     readyTimeoutMs: 180000,
     callTimeoutMs: 60000,
   });

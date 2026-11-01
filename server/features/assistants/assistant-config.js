@@ -18,7 +18,7 @@ import {
   compiledSkillNames,
   pluginSkillReported,
 } from "./built-in-skills.js";
-import { compilerFor, runtimeFor } from "./runtimes/runtime-for.js";
+import { compilerFor, ownProcess, runtimeFor } from "./runtimes/runtime-for.js";
 import { desiredAgent } from "./agent-desired-state.js";
 // Bootstrap files the Gateway exposes besides AGENTS.md. AgentPier never creates
 // them (skipBootstrap), so any content is foreign and is neutralized. USER.md is
@@ -193,6 +193,42 @@ export class AssistantConfig {
       .then(() => this.syncSecrets?.(assistant.id))
       .catch(() => {});
   }
+  /**
+   * A Hermes agent (ADR 0006 decision 4): its own process set runs only its desired
+   * state, written into its home by the runtime's config sub-port, which starts the
+   * set or restarts it when the home changed; an archived agent's set stops. Tools
+   * beyond the shell, memory and web of step 4 come with later steps (the compiler
+   * names what is not mapped yet), so its instructions carry AgentPier's identity
+   * section only.
+   */
+  async applyOwnProcess(assistant, lease) {
+    const runtime = runtimeFor(assistant, this.runtime);
+    if (assistant.archivedAt) await runtime.host.stop();
+    else {
+      const desired = desiredAgent(assistant, {
+        instructions: assistantBootstrap(assistant, lease.display, {
+          memoryWritable: false,
+        }),
+        model: {
+          ref: lease.modelRef,
+          providerId: lease.providerId,
+          provider: lease.provider,
+          agentRuntime: lease.agentRuntime,
+        },
+      });
+      await runtime.config.apply({
+        desired,
+        strict: assistant.shell === "approval" && assistant.shellEveryCommand === true,
+      });
+    }
+    this.store.markEffective(assistant.id, assistant.revision);
+    this.onApplied?.(assistant.id);
+    return {
+      revision: assistant.revision,
+      effectiveRevision: assistant.revision,
+      status: "applied",
+    };
+  }
   apply(id) {
     const task = this.queue.catch(() => {}).then(() => this.applyOnce(id));
     this.queue = task;
@@ -214,6 +250,12 @@ export class AssistantConfig {
     assertWired(this);
     const assistant = this.store.getAssistant(id),
       lease = await this.models.resolve(assistant.model);
+    if (ownProcess(assistant))
+      try {
+        return await this.applyOwnProcess(assistant, lease);
+      } finally {
+        lease.release();
+      }
     const nativeReady = !!this.nativeReady?.();
     const capabilities = personalCapabilities(assistant);
     // The same availability the Gateway start compiled (webToolsAvailability).

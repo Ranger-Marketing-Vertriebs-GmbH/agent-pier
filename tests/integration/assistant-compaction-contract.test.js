@@ -16,6 +16,7 @@ import { GatewayEventHub } from "../../server/features/assistants/gateway-event-
 import { MemoryFlushes } from "../../server/features/assistants/memory-flushes.js";
 import { Compactions } from "../../server/features/assistants/compactions.js";
 import { publicMessages } from "../../server/features/assistants/conversations.js";
+import { withOpenClawEntries } from "../../server/features/assistants/runtimes/openclaw/openclaw-sessions.js";
 import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 
 // OpenClaw's compaction safeguard audits each summary for its five sections, the
@@ -284,9 +285,9 @@ test(
       sessionKey: created.key,
       limit: 100,
     });
-    const notes = publicMessages(history.messages, { compactions: true }).filter(
-      (m) => m.event === "compaction",
-    );
+    const notes = publicMessages(withOpenClawEntries(history.messages), {
+      compactions: true,
+    }).filter((m) => m.event === "compaction");
     assert.ok(notes.length >= 1, JSON.stringify(history.messages.map((m) => m.role)));
     assert.ok(
       notes.every((n) => n.tokensBefore > 0 && n.tokensAfter > 0),

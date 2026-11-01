@@ -60,6 +60,13 @@ test(
       assert.equal(request.agentId, agentId);
       assert.deepEqual(request.allowedDecisions, ["allow-once", "allow-session", "deny"]);
       assert.equal(request.warningText, "recursive delete");
+      // The command runs in the agent's workspace, and the run waits for the owner.
+      assert.equal(request.cwd, agent.workspace);
+      const phase = (name) =>
+        run.seen.some(
+          (e) => e.runId === runId && e.kind === "progress" && e.step?.phase === name,
+        );
+      assert.equal(phase("waiting-approval"), true);
       assert.deepEqual(
         (await approvals.list()).map((item) => item.id),
         [id],
@@ -69,6 +76,7 @@ test(
         (e) => e.kind === "approval.resolved" && e.payload.id === id,
       );
       assert.equal(resolved.payload.decision, decision);
+      assert.equal(phase("approval-resolved"), true);
       assert.equal((await run.until(endsRun(runId))).kind, "finished");
       const tool = run.seen.find(
         (e) =>
@@ -91,6 +99,61 @@ test(
         [allowed.id, "allowed", "allow-once"],
       ],
     );
+    assert.deepEqual(await approvals.list(), []);
+    run.unsubscribe();
+    await stop();
+    assert.deepEqual(await strayAfterStop(dirs), []);
+  },
+);
+
+test(
+  "Hermes contract: every-command approval asks once, also for a dangerous command",
+  options,
+  async (t) => {
+    const model = await startFakeModel();
+    t.after(() => model.close());
+    const dirs = hermesSandbox(t);
+    const { sessions, events, approvals, agent, stop } = await startHermes(t, dirs, {
+      agentId,
+      model,
+      strict: true,
+    });
+    const build = path.join(agent.workspace, "build");
+    fs.mkdirSync(build);
+    fs.writeFileSync(path.join(build, "x.txt"), "x");
+    const run = collectEvents(events);
+    const { key } = await sessions.create({ agentId, label: "Every command" });
+    // What the run saw, so a timeout names its step.
+    const trace = (runId) =>
+      JSON.stringify(
+        run.seen
+          .filter((e) => e.runId === runId)
+          .map((e) => [e.kind, e.event, e.payload?.request?.command ?? e.payload?.name]),
+      );
+    const ask = (runId, command) =>
+      asking(runId, command).catch((error) => {
+        error.message += ` (${runId}: ${trace(runId)})`;
+        throw error;
+      });
+    const asking = async (runId, command) => {
+      await sessions.send({
+        key,
+        turn: { message: `RUN: ${command}` },
+        idempotencyKey: runId,
+      });
+      const asked = await run.until(
+        (e) => e.kind === "approval.requested" && e.runId === runId,
+      );
+      assert.equal(asked.payload.request.command, command);
+      await approvals.resolve({ id: asked.payload.id, decision: "allow-once" });
+      assert.equal((await run.until(endsRun(runId))).kind, "finished");
+      return run.seen.filter((e) => e.kind === "approval.requested" && e.runId === runId);
+    };
+    // A harmless command asks too (the guard plugin), once.
+    assert.equal((await ask("ls", "ls -la")).length, 1);
+    // A dangerous one: the guard plugin and Hermes's own check end in one question.
+    assert.equal((await ask("rm", "rm -rf build")).length, 1);
+    assert.equal(fs.existsSync(build), false);
     assert.deepEqual(await approvals.list(), []);
     run.unsubscribe();
     await stop();

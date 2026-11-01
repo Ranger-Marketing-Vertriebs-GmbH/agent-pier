@@ -11,6 +11,7 @@ import { AssistantStore } from "../../server/features/assistants/assistant-store
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
 import { publicMessages } from "../../server/features/assistants/conversations.js";
+import { withOpenClawEntries } from "../../server/features/assistants/runtimes/openclaw/openclaw-sessions.js";
 import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 import { admissionDone } from "../../server/features/assistants/runtimes/openclaw/agent-admission.js";
 const dataDir = process.env.AGENTPIER_ASSISTANT_CONTRACT_DIR;
@@ -243,7 +244,7 @@ test(
       sessionKey: conversation.runtimeSessionKey,
       limit: 100,
     });
-    const rawTurn = publicMessages(rawPage.messages).find(
+    const rawTurn = publicMessages(withOpenClawEntries(rawPage.messages)).find(
       (m) => m.turnKey === longTurn.attempt.id,
     );
     assert.equal(rawTurn?.text, `${longText.slice(0, 8000)}\n...(truncated)...`);

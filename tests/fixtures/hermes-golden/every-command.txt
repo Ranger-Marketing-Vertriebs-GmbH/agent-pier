@@ -55,6 +55,14 @@ configuration change.
 
 import hashlib
 
+try:
+    # Hermes's own check (tools/approval.py check_dangerous_command) asks before the
+    # shell commands it flags as dangerous; the guard leaves those to it, so such a
+    # command asks the owner once, with Hermes's reason, instead of twice.
+    from tools.approval_detection import detect_dangerous_command as _dangerous
+except Exception:  # A Hermes without it: the guard asks for every command itself.
+    _dangerous = None
+
 # The argument that holds what the tool runs.
 _RUNS = {"terminal": "command", "execute_code": "code"}
 # process_manage actions that send input to a running process.
@@ -72,9 +80,18 @@ def _text(tool_name, args):
     return None
 
 
+def _flagged(tool_name, text):
+    if tool_name != "terminal" or _dangerous is None:
+        return False
+    try:
+        return bool(_dangerous(text)[0])
+    except Exception:
+        return False
+
+
 def _guard(tool_name="", args=None, **kwargs):
     text = _text(tool_name, args if isinstance(args, dict) else {})
-    if text is None:
+    if text is None or _flagged(tool_name, text):
         return None
     digest = hashlib.sha256(f"{tool_name}\0{text}".encode("utf-8")).hexdigest()[:32]
     shown = text if len(text) <= _SHOWN else text[:_SHOWN] + " …"

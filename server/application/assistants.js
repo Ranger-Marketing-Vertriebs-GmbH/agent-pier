@@ -10,7 +10,7 @@ import {
 } from "../features/assistants/assistant-feature.js";
 import { connectAssistantServices, constructAssistantGraph } from "./assistant-graph.js";
 import { recoverAssistantServices } from "./assistant-recovery.js";
-import { hostOf } from "../features/assistants/runtimes/runtime-for.js";
+import { hermesFleetOf, hostOf } from "../features/assistants/runtimes/runtime-for.js";
 import { assistantProblem } from "../features/assistants/assistant-validation.js";
 import { connectAgentSecrets } from "../features/secrets/agent-secrets.js";
 import {
@@ -143,6 +143,18 @@ export function startAssistantServices(
   };
   if (sshReady) sshReady.then(run);
   else run();
+  // Hermes agents run in their own process sets while Hermes is enabled and
+  // installed, independent of the OpenClaw runtime switch (hermes-fleet.js).
+  const startHermes = () => {
+    if (assistantAgentSsh?.closed || assistants.maintenance || assistants.closed) return;
+    const agents = assistants.store?.listAssistants?.() || [];
+    if (agents.some((agent) => agent.runtime === "hermes"))
+      hermesFleetOf(assistantRuntime)
+        .startAll(agents)
+        .catch(() => {});
+  };
+  if (sshReady) sshReady.then(startHermes);
+  else startHermes();
   // After an AgentPier update, the runtime it ships is prepared without blocking start.
   stageInBackground({ dataDir: config.dataDir });
 }
