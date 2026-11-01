@@ -139,8 +139,11 @@ state: the compiler preserves them and never produces duplicate keys.
   the current connection.
 - **Routines and Telegram** need Hermes's messaging gateway for that home. The
   supervised gateway is the home's owner anyway (below), so routines and Telegram run
-  in it. Hermes must never start a gateway of its own (the spike observed a detached,
-  self-started one). As built (AGENTPIER-335): the routines sub-port drives that
+  in it. The owner's Telegram chat goes through AgentPier's own channel layer into the
+  agent's session, as for OpenClaw (AGENTPIER-337); Hermes's Telegram adapter stays
+  off, and an agent's own bot for other people (`channelBots`) waits for it. Hermes
+  must never start a gateway of its own (the spike observed a detached, self-started
+  one). As built (AGENTPIER-335): the routines sub-port drives that
   gateway's cron through the REST routes it hosts, which the RPC bridge calls with a
   one-request ticket from the control socket, and delivers each run's result to
   AgentPier's completion webhook itself ([routines](../hermes-runtime.md#routines)).

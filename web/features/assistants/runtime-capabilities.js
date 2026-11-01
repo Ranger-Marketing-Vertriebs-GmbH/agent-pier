@@ -11,6 +11,8 @@ export const surfaceCapabilities = Object.freeze({
   memory: "agentFiles",
   models: "models",
   channels: "channels",
+  // An agent's own Telegram bot for other people, which the runtime runs itself.
+  telegramSenders: "channelBots",
 });
 
 // Every agent ran on OpenClaw before agents named their runtime (server DEFAULT_RUNTIME).

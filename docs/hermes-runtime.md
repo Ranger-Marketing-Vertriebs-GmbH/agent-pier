@@ -242,8 +242,7 @@ The compiler names what an agent wants that Hermes does not get yet, so the owne
 it: ChatGPT accounts, the browser, MCP servers it cannot compile (`mcp`, `mcpOAuth`),
 assigned skills Hermes cannot offer, PDF reading, the agent's own routine tool (owner
 routines work, [Routines](#routines)), team tools and the extra folders on the shell's
-PATH. Routines, MCP, skills and Telegram
-follow in step 5 of the ADR's delivery order, teams and the browser in step 6. Hermes has
+PATH. Teams and the browser follow in step 6 of the ADR's delivery order. Hermes has
 no advanced settings in AgentPier yet: the capability reports
 `advancedSettingsUnsupported`.
 
@@ -277,9 +276,32 @@ every set reach the chat path and the event hub once (`agentRuntimeEvents`).
 | host, sessions, events, approvals, config, agents, routines | available                           |
 | agentFiles, skills                                          | available                           |
 | models                                                      | available (no ChatGPT accounts)     |
+| channels                                                    | available (the owner's Telegram)    |
 | everyCommandApproval                                        | available (unavailable on OpenClaw) |
-| browser, channels                                           | `hermesNotYetSupported`             |
+| browser, channelBots                                        | `hermesNotYetSupported`             |
 | advancedSettings                                            | `advancedSettingsUnsupported`       |
+
+### Telegram
+
+The owner's Telegram chat with a Hermes agent runs through AgentPier's own channel layer
+(`server/features/assistant-channels/`), exactly as for OpenClaw agents: AgentPier pairs
+the bot, polls it, checks the allowed sender, transcribes voice notes with Deepgram,
+stages photos and files, hands each input to the agent's Hermes session like a web turn
+and sends the reply from its history through the outbox. Hermes's own Telegram adapter
+stays off (no `TELEGRAM_BOT_TOKEN` in the home), so one bot never has two pollers, and the
+channels sub-port (`hermes-channels.js`) names no account. Hermes's history rows carry no
+run id; the sessions sub-port attributes the reply rows of the turns AgentPier submitted
+by their prompt text (`hermes-turns.js`), so delivery finds the reply of the run its
+input started.
+
+An agent's own bot for other people is the `channelBots` capability. OpenClaw runs those
+bots itself; on Hermes they would need its own Telegram adapter per agent, which has no
+Deepgram transcription and keeps other people's sessions outside AgentPier's channel
+layer. Until that is built Hermes reports `channelBots` unavailable, **Agents ›
+_agent_ › Channels** shows the bot settings disabled with the reason, and the server
+refuses a bot for a Hermes agent (`telegramSendersRuntime`). Files reach the paired chat
+when an agent shares them with `agentpier_share_file`; Hermes agents get that tool with
+AgentPier's team tools (step 6) and until then name a file's path in their reply.
 
 ## Routines
 

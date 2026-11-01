@@ -12,7 +12,11 @@ import { TelegramClient } from "./telegram-client.js";
 import { patchTelegramAllowlists } from "./telegram-live.js";
 import { validPeople } from "./native-telegram-store.js";
 import { runtimeResolver } from "../assistants/runtimes/runtime-for.js";
-import { compilerFor, hostReady } from "../assistants/runtimes/runtime-for.js";
+import {
+  compilerFor,
+  hostReady,
+  ownProcess,
+} from "../assistants/runtimes/runtime-for.js";
 
 // The configuration compiler of the agents' runtime (config sub-port): the Telegram
 // sections a start compiles and how the running ones differ from them.
@@ -120,6 +124,12 @@ export class TelegramSenders {
     if (this.secretsGranted(assistantId))
       throw assistantProblem("telegramSendersSecrets", 409);
     if (this.mailGranted(assistantId)) throw assistantProblem("telegramSendersMail", 409);
+    // A runtime that runs no bots of its own (Hermes, hermes-channels.js).
+    if (
+      ownProcess(profile) &&
+      !this.runtimeFor(profile).capabilities().channelBots.available
+    )
+      throw assistantProblem("telegramSendersRuntime", 409);
     return profile;
   }
   /**
