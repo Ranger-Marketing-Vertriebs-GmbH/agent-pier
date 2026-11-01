@@ -199,9 +199,10 @@ export class AssistantConfig {
    * state, written into its home by the runtime's config sub-port, which starts the
    * set or restarts it when the home changed; an archived agent's set stops. Its
    * catalog skills are checked first (a tampered copy is restored, a damaged one left
-   * out) and offered from their live folders. Tools beyond the shell, memory, web
-   * and skills come with later steps (the compiler names what is not mapped yet), so
-   * its instructions carry AgentPier's identity section only.
+   * out) and offered from their live folders; its bound MCP servers come from the
+   * store (`ownMcp`, mcp-changes.js agentInputs). Tools beyond the shell, memory,
+   * web, skills and MCP come with later steps (the compiler names what is not mapped
+   * yet), so its instructions carry AgentPier's identity section only.
    */
   async applyOwnProcess(assistant, lease) {
     const runtime = runtimeFor(assistant, this.runtime);
@@ -220,7 +221,13 @@ export class AssistantConfig {
           .filter((name) => known.has(name) && !dropped.includes(name))
           .map((name) => [name, this.skillCatalog.livePath(name)]),
       );
+      const mcp = this.ownMcp?.(assistant) || { servers: [], inputs: undefined };
       const desired = desiredAgent(assistant, {
+        mcp: mcp.servers,
+        stdio: mcp.servers.some(
+          (id) =>
+            mcp.inputs?.servers.find((server) => server.id === id)?.transport === "stdio",
+        ),
         instructions: assistantBootstrap(assistant, lease.display, {
           memoryWritable: false,
         }),
@@ -235,6 +242,7 @@ export class AssistantConfig {
         desired,
         strict: assistant.shell === "approval" && assistant.shellEveryCommand === true,
         catalog,
+        mcp: mcp.inputs,
       });
     }
     this.store.markEffective(assistant.id, assistant.revision);

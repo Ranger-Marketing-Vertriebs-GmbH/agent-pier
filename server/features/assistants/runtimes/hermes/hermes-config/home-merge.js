@@ -73,10 +73,17 @@ function envValue(name, value) {
   return `'${text}'`;
 }
 
+// A name in `owned`: listed, or starting with an entry's text before a final "*".
+const ownedName = (owned, name) =>
+  owned.some((entry) =>
+    entry.endsWith("*") ? name.startsWith(entry.slice(0, -1)) : entry === name,
+  );
+
 /**
- * .env after AgentPier's values: every line of an `owned` name is dropped, each name
- * of `values` (all in `owned`) is written once where it first stood, or appended in
- * name order; comments and other names stay. Pure.
+ * .env after AgentPier's values: every line of an `owned` name (an entry ending in
+ * "*" owns every name it starts) is dropped, each name of `values` (all owned) is
+ * written once where it first stood, or appended in name order; comments and other
+ * names stay. Pure.
  */
 export function mergeEnv(existing, owned, values) {
   const lines = existing ? existing.replace(/\r?\n$/, "").split(/\r?\n/) : [];
@@ -84,7 +91,7 @@ export function mergeEnv(existing, owned, values) {
   const out = [];
   for (const line of lines) {
     const name = line.match(envLine)?.[1];
-    if (!name || !owned.includes(name)) {
+    if (!name || !ownedName(owned, name)) {
       out.push(line);
       continue;
     }

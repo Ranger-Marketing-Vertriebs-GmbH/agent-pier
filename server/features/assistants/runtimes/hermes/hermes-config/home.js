@@ -9,6 +9,7 @@ import {
 import { guardDirectory, guardFiles, guardPlugin } from "./guard-plugin.js";
 import { memoryLimits } from "./memory.js";
 import { skillEntries } from "./skills.js";
+import { mcpEntries, mcpEnvOwned } from "./mcp.js";
 
 // One agent's Hermes home (its own HERMES_HOME, ADR 0006 decision 4) compiled from
 // its desired state: config.yaml, .env, SOUL.md and the guard plugin, nothing else.
@@ -45,12 +46,15 @@ const practicalDefaults = [
 
 // What Hermes cannot take from the desired state yet, by reason id. `placed`: the
 // assigned skills the home offers (skills.js); any other is named as `skills`.
-function unsupportedOf(agent, level, model, placed) {
+// `mcp`: the compiled servers (mcp.js), null when the store was not read; a bound
+// server left out is named as `mcp`, an OAuth one as `mcpOAuth`.
+function unsupportedOf(agent, level, model, placed, mcp) {
   const grants = agent.tools.flatMap((grant) => grant.tools || []);
   return [
     ...(model?.unsupported ? [model.unsupported] : []),
     ...(agent.browser.wanted ? ["browser"] : []),
-    ...(agent.mcp.servers.length ? ["mcp"] : []),
+    ...((mcp ? mcp.skipped.length : agent.mcp.servers.length) ? ["mcp"] : []),
+    ...(mcp?.oauth.length ? ["mcpOAuth"] : []),
     ...(agent.skills.assigned.some((name) => !placed.includes(name)) ? ["skills"] : []),
     ...(agent.web.readPdfs ? ["readPdfs"] : []),
     ...(grants.includes("agentpier_reminder") ? ["routines"] : []),
@@ -69,15 +73,18 @@ function unsupportedOf(agent, level, model, placed) {
  * without `agent.instructions` SOUL.md does. `workspace`: the agent's folder, where
  * its commands start; `strict`: runtime agent ids on every-command approval;
  * `bundledSkills`: the names the installation bundles, `catalogSkills`: `{ [name]:
- * folder }` of catalog skills it may offer (skills.js).
+ * folder }` of catalog skills it may offer (skills.js); `mcp`: the MCP store's inputs
+ * (the desired state's host `mcp`), without which `mcp_servers` and its secrets in
+ * .env stay as they are (mcp.js).
  * Pure: the same inputs yield the same home.
  */
 export function compileHome(
   agent,
-  { workspace, strict = [], existing = {}, bundledSkills, catalogSkills } = {},
+  { workspace, strict = [], existing = {}, bundledSkills, catalogSkills, mcp } = {},
 ) {
   const level = shellLevel(agent, strict);
   const skills = skillEntries(agent, { bundled: bundledSkills, catalog: catalogSkills });
+  const servers = mcp === undefined ? null : mcpEntries(agent, mcp, { workspace });
   const guard = guardsEveryCommand(level);
   const model = agent.model ? modelSection(agent.model) : null;
   const config = [
@@ -96,12 +103,26 @@ export function compileHome(
     [["memory", "user_char_limit"], memoryLimits["USER.md"]],
     [["plugins", "enabled"], guard ? [guardPlugin] : []],
     ...skills.entries,
+    ...(servers
+      ? [
+          [
+            ["mcp_servers"],
+            Object.keys(servers.servers).length ? servers.servers : undefined,
+          ],
+        ]
+      : []),
     ...practicalDefaults,
   ];
-  const env = { owned: modelEnvNames, values: model?.env || {} };
+  // The model's key names while the model is known, the MCP names while the store is.
+  const env = {
+    owned: [...(model ? modelEnvNames : []), ...(servers ? [mcpEnvOwned] : [])],
+    values: { ...(model?.env || {}), ...(servers?.env || {}) },
+  };
   const files = {
     "config.yaml": mergeConfig(existing["config.yaml"], config),
-    ...(model && { ".env": mergeEnv(existing[".env"], env.owned, env.values) }),
+    ...(env.owned.length && {
+      ".env": mergeEnv(existing[".env"], env.owned, env.values),
+    }),
     ...(agent.instructions !== undefined && { "SOUL.md": String(agent.instructions) }),
     ...(guard && guardFiles),
   };
@@ -110,7 +131,9 @@ export function compileHome(
     files: Object.freeze(files),
     remove: Object.freeze(guard ? [] : [guardDirectory]),
     config: Object.freeze(config),
-    env: Object.freeze(model ? env : { owned: [], values: {} }),
-    unsupported: Object.freeze(unsupportedOf(agent, level, model, skills.placed)),
+    env: Object.freeze(env),
+    unsupported: Object.freeze(
+      unsupportedOf(agent, level, model, skills.placed, servers),
+    ),
   });
 }

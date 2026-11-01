@@ -533,7 +533,7 @@ keep running.
 release tag of `NousResearch/hermes-agent` and the commit it names (release `v0.22.5`,
 commit `bf0203a7`, since 2026-11-01), the SHA-256 of its source archive and of the
 `pyproject.toml` and `uv.lock` inside it, the extras (`messaging`, for the messaging
-gateway), the CPython version and a uv version with the SHA-256 of its release archive
+gateway, and `mcp`, for the agents' MCP servers), the CPython version and a uv version with the SHA-256 of its release archive
 per platform (macOS and Linux, x64 and arm64). The archive is the commit's, so a moved
 tag cannot change what is installed. Hermes carries no version of its own in the archive
 (`pyproject.toml` says `0.0.0`); the version AgentPier shows is the tag without its `v`
@@ -544,14 +544,15 @@ tag cannot change what is installed. Hermes carries no version of its own in the
 in `<data>/assistants/hermes/runtimes/`): download uv and the source archive and check
 both hashes, unpack them, check the hashes of `pyproject.toml` and `uv.lock`, install
 the pinned CPython with `uv python install --no-bin` and build the environment with
-`uv sync --frozen --no-dev --extra messaging`. uv verifies every wheel against the hashes
+`uv sync --frozen --no-dev --extra messaging --extra mcp`. uv verifies every wheel against the hashes
 in `uv.lock` and the CPython download against the checksums built into the pinned uv
 release. uv runs with `UV_NO_CONFIG`, a private `HOME` and `TMPDIR`,
 `UV_PYTHON_PREFERENCE=only-managed` and its cache, CPython and tool folders inside
 AgentPier's folder; the only inherited variables are the proxy settings. No Python of
 the host, no `~/.hermes`, `~/.local/bin` or global uv configuration is used. An identity
 check runs the installed Python once (release date, CPython version and whether the
-gateway discovery, gateway client and `websockets` modules the RPC bridge needs import)
+gateway discovery, gateway client and `websockets` modules the RPC bridge needs and the
+MCP SDK import)
 and `hermes --version`, with a scratch `HERMES_HOME`. A `receipt.json` written last
 marks the installation complete; a folder without one is a crashed attempt and is
 replaced. The uv cache is removed afterwards. The installation needs about 540 MB
@@ -559,7 +560,10 @@ replaced. The uv cache is removed afterwards. The installation needs about 540 M
 
 **Updates.** At server start, and so after an AgentPier update, an enabled Hermes is
 installed when nothing is selected yet, or the newly pinned commit is staged beside
-the selected one as `<data>/assistants/hermes/candidate.json`; `assistants/hermes/runtime.json`
+the selected one as `<data>/assistants/hermes/candidate.json`. An installation of the
+same release without an extra the pin added (the `mcp` extra) counts as outdated too:
+its folder name carries the extras, and **Agents › Runtime › Hermes Agent** offers
+**Update**; `assistants/hermes/runtime.json`
 does not change and the start does not wait. The installer and a rerun with Hermes
 enabled do the same. Activation and rollback use the same update journal as OpenClaw
 (`runtime-updates.js`), with Hermes's own journal, selection and snapshot under

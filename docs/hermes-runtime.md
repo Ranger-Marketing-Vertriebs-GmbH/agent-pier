@@ -20,8 +20,8 @@ nothing else:
 
 | File                       | Content                                                          |
 | -------------------------- | ---------------------------------------------------------------- |
-| `config.yaml`              | Model, toolsets, approvals, memory, skills, plugins and defaults |
-| `.env`                     | The model connection's key                                       |
+| `config.yaml`              | Model, toolsets, approvals, memory, skills, MCP and defaults     |
+| `.env`                     | The model connection's key and the MCP servers' secrets          |
 | `SOUL.md`                  | The agent's instructions                                         |
 | `plugins/agentpier-guard/` | `plugin.yaml` and `__init__.py`, only for every-command approval |
 
@@ -172,11 +172,60 @@ the home as Hermes reads them: each skill with its `origin` (`bundled`, `catalog
 misses on this host (`prerequisites.commands` on the agent's PATH, `platforms`,
 `required_environment_variables` in its `.env`).
 
+### MCP servers
+
+The MCP servers the owner binds to a Hermes agent under **Access** come from
+AgentPier's central MCP store, as for OpenClaw; the compiler (`hermes-config/mcp.js`)
+writes them into the agent's `mcp_servers`
+(`website/docs/reference/mcp-config-reference.md`, `tools/mcp_tool_config.py`):
+
+| Store                    | `mcp_servers.<name>`                                 |
+| ------------------------ | ---------------------------------------------------- |
+| Local command (stdio)    | `command`, `args`, `env`, `cwd`                      |
+| Streamable HTTP, SSE     | `url`, `headers`; `transport: sse` for SSE           |
+| Startup and tool timeout | `connect_timeout`, `timeout`                         |
+| Agent placeholders       | resolved to the agent's work folder (`terminal.cwd`) |
+
+Each agent has its own home, so a server keeps its stored name, and Hermes names its
+tools `mcp__<server>__<tool>`, other characters than letters, digits and `_` replaced by
+`_` and the name cut to 64 characters with a hash (`tools/mcp_tool_schema.py`
+`mcp_prefixed_tool_name`; Hermes's own guide still says `mcp_<server>_<tool>`): a
+server `my-api` offers `create-issue` as `mcp__my_api__create_issue`. Hermes offers
+MCP tools through its tool search (`tools.tool_search`, on by default,
+`website/docs/user-guide/features/tool-search.md`): the model sees `tool_search`,
+`tool_describe` and `tool_call` with a listing of the servers' tools and calls one
+through `tool_call`, which Hermes unwraps to the tool itself. AgentPier keeps that
+default. No secret stands
+in `config.yaml`: every environment value, header and URL is a reference
+(`${AUXILIARY_AGENTPIER_MCP<n>_<kind><m>_API_KEY}`) to the agent's `.env`, which Hermes
+resolves when it connects. Hermes strips such names from every command and process it
+starts, so the stdio server gets its configured value while the agent's shell never
+sees it. A secret with a quote or a line break cannot stand in `.env` literally; such a
+server is left out. Trust stays Hermes's default `full`, as on OpenClaw: a bound
+server's tools run without asking. No spend limit is set; AgentPier's store has no
+tool costs.
+
+A change of a Hermes agent's servers (a binding, an edited server or secret) applies
+that agent (`mcp-changes.js`), whether or not OpenClaw runs. The agent's set restarts:
+Hermes's gateway watches `config.yaml` and `reload.mcp` rediscovers servers, but a
+session's tool list stays frozen until its next start, so neither would reach the
+chats already open. The pinned installation includes Hermes's `mcp` extra (the MCP
+SDK); AgentPier keeps Hermes's lazy installs off, so an installation built before the
+extra was pinned is offered as an update.
+
+OAuth servers are not offered to Hermes agents: OpenClaw holds the login's tokens
+([MCP OAuth qualification](mcp-oauth-qualification.md)) and AgentPier keeps none of its
+own to hand over, while Hermes's own OAuth store would need a second login per agent
+inside Hermes. Binding one to a Hermes agent is refused (`oauthHermesUnsupported`), and
+the compiler names one bound before as `mcpOAuth`. The owner's server overview resolves
+agent placeholders for OpenClaw's workspace; a Hermes agent's resolved paths differ.
+
 ### Not mapped yet
 
 The compiler names what an agent wants that Hermes does not get yet, so the owner can see
-it: ChatGPT accounts, the browser, MCP servers, assigned skills Hermes cannot offer, PDF
-reading, routines, team tools and the extra folders on the shell's PATH. Routines, MCP, skills and Telegram
+it: ChatGPT accounts, the browser, MCP servers it cannot compile (`mcp`, `mcpOAuth`),
+assigned skills Hermes cannot offer, PDF reading, routines, team tools and the extra
+folders on the shell's PATH. Routines, MCP, skills and Telegram
 follow in step 5 of the ADR's delivery order, teams and the browser in step 6. Hermes has
 no advanced settings in AgentPier yet: the capability reports
 `advancedSettingsUnsupported`.
@@ -251,7 +300,9 @@ in-repo fake model. `tests/integration/hermes-files-contract.test.js` checks the
 files: a memory entry written through the port reaches the agent's prompt, and an
 entry the agent adds with Hermes's `memory` tool comes back through it; an assigned
 bundled skill and a catalog skill reach the agent's skill index while an unassigned
-one stays out, and a skill the agent writes is reported as its own. Set
+one stays out, and a skill the agent writes is reported as its own; a bound stdio MCP
+server's tool is offered and called, and its secret never reaches the agent's shell.
+Set
 `AGENTPIER_HERMES_CONTRACT_RUNTIME` to an installation made by
 `scripts/provision-hermes-contracts.mjs` (its `venv/bin/` holds `python` and
 `hermes`). The tests use a private `HOME` and `HERMES_HOME` and never touch

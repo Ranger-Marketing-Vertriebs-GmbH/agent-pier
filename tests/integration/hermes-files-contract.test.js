@@ -13,6 +13,11 @@ import {
   startHermes,
   strayAfterStop,
 } from "../helpers/hermes-native.js";
+import {
+  endStdioServers,
+  stdioMcpScript,
+  stdioRecords,
+} from "../helpers/mcp-test-servers.js";
 
 // The agent's files, skills and MCP servers as the pinned Hermes runs them through
 // AgentPier's Hermes runtime (hermes-native.js), with the in-repo fake model, whose
@@ -177,6 +182,81 @@ test(
     const own = after.find((s) => s.name === "owner-notes");
     assert.equal(own?.origin, "local");
     assert.equal(own.blockedByAgentFilter, false);
+    await stop();
+    assert.deepEqual(await strayAfterStop(dirs), []);
+  },
+);
+
+test(
+  "Hermes contract: a bound stdio MCP server's tool is callable, its secret stays out of the shell",
+  options,
+  async (t) => {
+    const { dirs, model } = await sandbox(t);
+    const hermes = await startHermes(t, dirs, { agentId, model });
+    const { runtime, agent, stop } = hermes;
+    const records = path.join(dirs.root, "mcp-calls.jsonl");
+    t.after(() => endStdioServers(records));
+    const secret = "hermes-mcp-secret-7";
+    const mcp = {
+      servers: [
+        {
+          id: "s1",
+          name: "fixture",
+          transport: "stdio",
+          command: process.execPath,
+          args: [stdioMcpScript, records],
+        },
+      ],
+      secrets: { s1: { env: { MCP_FIXTURE_SECRET: secret }, headers: {} } },
+    };
+    const applied = await runtime.config.apply({
+      desired: contractAgent(agentId, model, {}, { mcp: ["s1"] }),
+      mcp,
+    });
+    assert.equal(applied.restarted, true);
+    // The secret is in .env only; config.yaml names it by reference.
+    const config = fs.readFileSync(path.join(agent.hermesHome, "config.yaml"), "utf8");
+    assert.ok(!config.includes(secret));
+    assert.match(config, /MCP_FIXTURE_SECRET: \$\{AUXILIARY_AGENTPIER_MCP1_E1_API_KEY\}/);
+    // Hermes names the tool mcp__<server>__<tool> and offers MCP tools through its
+    // tool search bridge, which lists it; the agent calls it through tool_call.
+    const listed = (body) =>
+      (body.tools || []).some(
+        (tool) =>
+          tool.function?.name === "tool_search" &&
+          JSON.stringify(tool).includes("mcp__fixture__echo"),
+      );
+    const call = JSON.stringify({
+      calls: [{ name: "mcp__fixture__echo", arguments: { text: "quartz" } }],
+    });
+    const end = await turn(hermes, `CALL: tool_call ${call}`, "mcp-1");
+    assert.equal(end.kind, "finished");
+    assert.match(end.payload.text, /echo:quartz/);
+    assert.ok(
+      model.requests.some(({ body }) => listed(body)),
+      "the tool search lists the server's tool",
+    );
+    const calls = stdioRecords(records);
+    assert.ok(calls.some((entry) => entry.tool === "echo" && entry.text === "quartz"));
+    // The server got its secret; the agent's own shell does not see it.
+    assert.ok(
+      calls.some(
+        (entry) => entry.event === "start" && entry.env.MCP_FIXTURE_SECRET === "set",
+      ),
+    );
+    const shell = await turn(hermes, "RUN: env", "mcp-2");
+    assert.equal(shell.kind, "finished");
+    const results = model.requests.flatMap(({ body }) =>
+      (body.messages || [])
+        .filter((m) => m.role === "tool")
+        .map((m) => String(m.content)),
+    );
+    assert.ok(
+      results.some((content) => content.includes("HERMES_HOME")),
+      "env ran",
+    );
+    assert.ok(!results.some((content) => content.includes(secret)));
+    assert.ok(!results.some((content) => content.includes("AUXILIARY_AGENTPIER_MCP")));
     await stop();
     assert.deepEqual(await strayAfterStop(dirs), []);
   },

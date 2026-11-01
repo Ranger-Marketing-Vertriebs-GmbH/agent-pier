@@ -124,7 +124,8 @@ export function createHermesRuntime({ config, services = {} }) {
       ...state,
       error: state.error || updateError,
       updating: !!updating,
-      updateAvailable: state.installed && state.version !== state.targetVersion,
+      // A newer pin, or the same release with an extra it lacks (hermes-install.js).
+      updateAvailable: state.installed && !state.current,
       agents: hermesAgents(services).length,
     };
   };

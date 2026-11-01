@@ -28,19 +28,26 @@ const identityKeys = [
 /** True when two Hermes install records name the same installation. */
 export const sameHermesRuntime = (a, b) =>
   !!a && !!b && identityKeys.every((key) => a[key] === b[key]);
-/** True when a record is the commit, Python, uv and lock `manifest` pins. */
+// The extras of a manifest or record as one sorted key ("mcp+messaging").
+const extrasKey = (value) => [...(value?.extras || [])].sort().join("+");
+
+/**
+ * True when a record is the commit, Python, uv, lock and extras `manifest` pins: an
+ * installation built without an extra the pin added (`mcp`) is due for an update.
+ */
 export const shippedHermesRuntime = (record, manifest = hermesManifest) =>
   !!record &&
   record.version === manifest.version &&
   record.commit === manifest.commit &&
   record.pythonVersion === manifest.pythonVersion &&
   record.uvVersion === manifest.uvVersion &&
-  record.uvLockSha256 === manifest.uvLockSha256;
+  record.uvLockSha256 === manifest.uvLockSha256 &&
+  extrasKey(record) === extrasKey(manifest);
 
-/** The folder name of the installation `manifest` pins on `target`. */
+/** The folder name of the installation `manifest` pins on `target`, extras included. */
 export const hermesIdentity = (manifest, target) =>
   `${manifest.version}-py${manifest.pythonVersion}-uv${manifest.uvVersion}-${target}` +
-  `-lock${manifest.uvLockSha256.slice(0, 12)}`;
+  `-lock${manifest.uvLockSha256.slice(0, 12)}-${extrasKey(manifest)}`;
 
 function sha256(bytes, expected) {
   if (createHash("sha256").update(bytes).digest("hex") !== expected)
@@ -105,7 +112,7 @@ export function hermesInstallEnvironment({ paths, directory, scratch, environmen
  * Runs the installed Python once and reads what it ships: the release date of
  * hermes_cli, the CPython version, and whether what the RPC bridge
  * (hermes-rpc-bridge.py) needs imports: the gateway discovery and client, and
- * websockets.
+ * websockets; and the MCP SDK the agents' MCP servers need (the `mcp` extra).
  * HOME and HERMES_HOME point at a scratch folder, so nothing reaches `~/.hermes`.
  */
 export async function hermesIdentityCheck(
@@ -116,7 +123,7 @@ export async function hermesIdentityCheck(
   const probe =
     "import json, os, platform, hermes_cli, hermes_cli.gateway_client, " +
     "hermes_cli.gateway_runtime, hermes_cli.gateway_runtime_discovery, " +
-    "websockets.asyncio.client; " +
+    "websockets.asyncio.client, mcp.client.stdio; " +
     "os.write(1, (json.dumps({'releaseDate': hermes_cli.__release_date__, " +
     "'python': platform.python_version()}) + '\\n').encode())";
   const env = {

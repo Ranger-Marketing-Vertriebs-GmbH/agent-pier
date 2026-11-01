@@ -1,3 +1,4 @@
+import { createHmac, randomBytes } from "node:crypto";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { record } from "../extensions/mcp-config.js";
@@ -11,7 +12,12 @@ import {
   requireStdioConfirmation,
 } from "../mcp-servers/stdio-confirmation.js";
 import { requireLiteralValues } from "../mcp-servers/value-references.js";
-import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
+import {
+  hostReady,
+  ownProcess,
+  runtimeAccepts,
+  runtimeFor,
+} from "./runtimes/runtime-for.js";
 
 export { STDIO_CONFIRMATION_REQUIRED };
 
@@ -19,6 +25,8 @@ const messages = serverMessages.mcpServers;
 // Retry delays of a failed live apply: doubling from one second to one minute.
 const firstRetryMs = 1000;
 const lastRetryMs = 60000;
+// Per process: the fingerprints of a Hermes agent's inputs hold secrets' digests.
+const signatureKey = randomBytes(32);
 
 /**
  * Agent bindings of central MCP servers and their live application. OpenClaw
@@ -49,6 +57,8 @@ export class McpChanges {
     this.retryAt = 0;
     // Agents whose profile re-apply after a patch is still outstanding.
     this.stale = new Set();
+    // Each Hermes agent's inputs as its last apply here compiled them (agentSignature).
+    this.applied = new Map();
     // `{ [assistantId]: serverId[] }` members use through their lead, wired by the
     // graph (lead-shares.js mcpBindings).
     this.inherited = () => this.assistants.workflows?.shares?.mcpBindings() || {};
@@ -110,6 +120,9 @@ export class McpChanges {
       throw problem(messages.invalidRequest, 400);
     const current = new Set(this.servers.bindings("agent", profile.id));
     const added = [...new Set(ids)].filter((id) => !current.has(id));
+    // A Hermes agent gets no OAuth server: OpenClaw holds the login's tokens.
+    if (ownProcess(profile) && added.some((id) => this.servers.get(id).auth === "oauth"))
+      throw problem(messages.oauthHermesUnsupported, 409);
     const stdio = added.some((id) => this.servers.get(id).transport === "stdio");
     // A stdio server runs host commands; an agent with its own Telegram bot for other
     // people never gets one (like shell). Remote servers stay allowed.
@@ -120,6 +133,56 @@ export class McpChanges {
   }
   setBindings(id, ids) {
     this.servers.setBindings("agent", id, ids);
+  }
+  /**
+   * What a Hermes agent's apply compiles into its own home (assistant-config.js):
+   * `{ servers, inputs }`, its bound server ids (its own, inherited and managed ones)
+   * and the store's inputs (readMcpInputs). An unreadable store binds none.
+   */
+  agentInputs(profile) {
+    const inputs = readMcpInputs(this.servers, {
+      redirectUrl: this.redirectUrl(),
+      extra: this.extraInputs,
+      inherited: this.inherited,
+    });
+    const servers = mcpEligible(profile) ? inputs.bindings[profile.id] || [] : [];
+    return { servers: inputs.unreadable ? [] : servers, inputs };
+  }
+  // A secret-free fingerprint of what a Hermes agent's home compiles from the store.
+  agentSignature(profile) {
+    const { servers, inputs } = this.agentInputs(profile);
+    const bound = inputs.servers.filter((server) => servers.includes(server.id));
+    return createHmac("sha256", signatureKey)
+      .update(
+        JSON.stringify([
+          servers,
+          bound,
+          bound.map((server) => inputs.secrets[server.id] ?? null),
+        ]),
+      )
+      .digest("hex");
+  }
+  /**
+   * Applies each Hermes agent whose servers changed since its last apply here: its
+   * own process set compiles them into its home and restarts (assistant-config.js
+   * applyOwnProcess). Rethrows the first failure after trying the others.
+   */
+  async applyOwnProcess() {
+    const runtime = this.assistants.runtime;
+    let failure = null;
+    for (const profile of this.assistants.store.listAssistants()) {
+      if (!ownProcess(profile) || profile.archivedAt || !runtimeAccepts(runtime, profile))
+        continue;
+      const signature = this.agentSignature(profile);
+      if (this.applied.get(profile.id) === signature) continue;
+      try {
+        await this.assistants.config.apply(profile.id);
+        this.applied.set(profile.id, signature);
+      } catch (error) {
+        failure ??= error;
+      }
+    }
+    if (failure) throw failure;
   }
   list() {
     return this.servers.list();
@@ -292,9 +355,25 @@ export class McpChanges {
    * admission lock. Returns whether the Gateway was patched. Anything that keeps the
    * Gateway from converging leaves the change pending: no ready Gateway (its start
    * compiles the store), an unreadable store (never live-removes servers), a failed
-   * patch or a failed agent re-apply (rethrown).
+   * patch or a failed agent re-apply (rethrown). Hermes agents whose servers changed
+   * are applied before (applyOwnProcess).
    */
   async apply() {
+    // Hermes agents need no ready OpenClaw Gateway; a failure there stays pending
+    // and is rethrown once the Gateway had its turn.
+    let failure = null;
+    try {
+      await this.applyOwnProcess();
+    } catch (error) {
+      failure = error;
+    }
+    const patched = await this.applyGateway();
+    if (!failure) return patched;
+    this.failed(failure);
+    throw failure;
+  }
+  /** The OpenClaw Gateway's part of apply(). */
+  async applyGateway() {
     const runtime = this.assistants.runtime;
     const running = hostReady(runtime) && runtime.mcp;
     if (!running) {
