@@ -316,6 +316,30 @@ test("a later listener gets the held data, or the stale or refusal in its place"
   assert.deepEqual(late("inbox"), [{ type: "data", data: { n: 3 }, revision: 3 }]);
 });
 
+// AGENTPIER-339: a page that joins a topic whose server read failed (the agent
+// runtime's updates while the agent service is stopped) heard nothing and showed it
+// as loading forever; the start page's pipelines card waits for those sources.
+test("a later listener gets a failed server read while no data is held", (t) => {
+  const { fake, client } = start();
+  t.after(() => client.close());
+  client.subscribe("runtime.updates", () => {});
+  fake.last().hello();
+  const socket = fake.last();
+  socket.receive({ type: "error", topic: "runtime.updates" });
+  const late = () => {
+    const listener = recorder();
+    client.subscribe("runtime.updates", listener);
+    return listener.events;
+  };
+  // It reads the route itself, which shows the refusal.
+  assert.deepEqual(late(), [{ type: "error" }]);
+  socket.receive({ type: "state", topic: "runtime.updates", revision: 2, data: {} });
+  assert.deepEqual(late(), [{ type: "data", data: {}, revision: 2 }]);
+  // With data held, a failed read keeps it: the data is what a later listener gets.
+  socket.receive({ type: "error", topic: "runtime.updates" });
+  assert.deepEqual(late(), [{ type: "data", data: {}, revision: 2 }]);
+});
+
 test("a refusal is forgotten by the next connection, which subscribes again", async (t) => {
   const { fake, client } = start();
   t.after(() => client.close());
