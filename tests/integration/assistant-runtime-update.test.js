@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { provisionEnabledRuntime } from "../../server/features/assistants/runtime-install.js";
+import { provisionEnabledRuntime } from "../../server/features/assistants/runtimes/openclaw/runtime-install.js";
 
 test("enabled installation update preserves selection when provisioning fails", async (t) => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-update-"));
@@ -37,8 +37,8 @@ test("enabled installation update preserves selection when provisioning fails", 
 test("staging the selected manifest again records no candidate", async (t) => {
   const { assistantInstallFixture } =
     await import("../helpers/assistant-install-fixture.js");
-  const { ensureAssistantRuntime, stageAssistantRuntime } =
-    await import("../../server/features/assistants/runtime-install.js");
+  const { ensureAssistantRuntime, shippedRuntime, stageAssistantRuntime } =
+    await import("../../server/features/assistants/runtimes/openclaw/runtime-install.js");
   const { RuntimeUpdates } =
     await import("../../server/features/assistants/runtime-updates.js");
   const { dataDir, manifest, options } = assistantInstallFixture(t);
@@ -49,7 +49,11 @@ test("staging the selected manifest again records no candidate", async (t) => {
   assert.equal(fs.existsSync(candidate), false);
   const updates = new RuntimeUpdates({
     dataDir,
-    manifest,
+    // The fixture's manifest is the version this AgentPier ships.
+    host: {
+      target: () => manifest,
+      current: (record) => shippedRuntime(record, manifest),
+    },
     runtime: { status: () => ({ availability: "disabled" }) },
     maintenance: {},
     stage: () => stageAssistantRuntime(options),
@@ -72,7 +76,7 @@ test("a second process installing concurrently gets RUNTIME_BUSY until its lock 
   const { assistantInstallFixture } =
     await import("../helpers/assistant-install-fixture.js");
   const { stageAssistantRuntime } =
-    await import("../../server/features/assistants/runtime-install.js");
+    await import("../../server/features/assistants/runtimes/openclaw/runtime-install.js");
   const { processIdentity } = await import("../../server/lib/process-identity.js");
   const { dataDir, options } = assistantInstallFixture(t);
   const other = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], {
@@ -205,7 +209,7 @@ async function waitFor(ready, what) {
 async function liveDoctor(t, folder) {
   const { execFileSync } = await import("node:child_process");
   const { ownerRecord } =
-    await import("../../server/features/assistants/gateway-ownership.js");
+    await import("../../server/features/assistants/runtimes/openclaw/gateway-ownership.js");
   const entryPath = path.join(folder, "fake-doctor.mjs");
   const launcher = path.join(folder, "launch.mjs");
   const pids = path.join(folder, "pids");

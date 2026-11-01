@@ -8,7 +8,7 @@ import {
   migrateRuntimeState,
   removeMigrationLeftovers,
   stopDoctor,
-} from "../../server/features/assistants/runtime-doctor.js";
+} from "../../server/features/assistants/runtimes/openclaw/runtime-doctor.js";
 import { processIdentity } from "../../server/lib/process-identity.js";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
 import { runtimeEnvironment } from "../../server/features/assistants/runtime-config.js";

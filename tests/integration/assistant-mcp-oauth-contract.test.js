@@ -9,7 +9,7 @@ import path from "node:path";
 import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "../helpers/process-guard.js";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
-import { selectedAssistantRuntime } from "../../server/features/assistants/runtime-install.js";
+import { selectedAssistantRuntime } from "../../server/features/assistants/runtimes/openclaw/runtime-install.js";
 import { runtimeEnvironment } from "../../server/features/assistants/runtime-config.js";
 import { patchConfig } from "../../server/features/assistants/runtimes/openclaw/live-patch.js";
 import { assistantModelServer } from "../helpers/assistant-model-server.js";

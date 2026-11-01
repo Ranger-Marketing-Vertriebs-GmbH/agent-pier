@@ -6,7 +6,7 @@ updates:
     # in runtime-manifest.js; only scripts/refresh-assistant-runtime-lock.mjs updates
     # it (see docs/assistant-runtime-updates.md).
     exclude-paths:
-      - "server/features/assistants/runtime-lock/**"
+      - "server/features/assistants/runtimes/openclaw/runtime-lock/**"
     schedule:
       interval: weekly
       day: monday
@@ -32,7 +32,7 @@ updates:
   # exclude-paths does not cover its security updates. Ignore everything here;
   # alerts for this directory are resolved with refresh-assistant-runtime-lock.mjs.
   - package-ecosystem: npm
-    directory: /server/features/assistants/runtime-lock
+    directory: /server/features/assistants/runtimes/openclaw/runtime-lock
     schedule:
       interval: weekly
       day: monday

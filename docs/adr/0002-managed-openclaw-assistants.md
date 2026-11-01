@@ -497,7 +497,11 @@ executes):
 ## OpenClaw coupling and version requalification
 
 AgentPier depends on OpenClaw 2026.10.9 (qualified predecessors 2026.10.7, 2026.10.3, 2026.9.9 and 2026.9.8) at these
-points. A version bump must re-check each of them.
+points. A version bump must re-check each of them. File names are relative to
+`server/features/assistants/`; OpenClaw's own modules, among them
+`runtime-supervisor.js`, `runtime-manifest.js`, `runtime-install.js`,
+`runtime-doctor.js` and the `runtime-lock/` directory, live in the OpenClaw adapter,
+`runtimes/openclaw/` ([ADR 0006](0006-assistant-runtime-port.md)).
 
 | Coupling point                                                                                                                                                                                                                                                                   | Where                                                                                                                                           | What to re-check                                                                                                                                                                                                                                                                                                               |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -539,7 +543,8 @@ points. A version bump must re-check each of them.
 
 Requalification checklist for a version bump:
 
-1. Update the manifest and refresh the runtime lock with
+1. Update the manifest (`server/features/assistants/runtimes/openclaw/runtime-manifest.js`)
+   and refresh the runtime lock (`runtimes/openclaw/runtime-lock/`) with
    `scripts/refresh-assistant-runtime-lock.mjs` (one reviewed change).
 2. Update the plugin compatibility list (`rollbackTargets`) and keep the previous
    version as rollback target only if the cross-version test passes, and keep the

@@ -21,7 +21,7 @@ import {
   supervisorMcpCli,
 } from "../../server/features/mcp-servers/openclaw-mcp-cli.js";
 import { readMcpInputs } from "../../server/features/assistants/openclaw-config/mcp-servers.js";
-import { selectedAssistantRuntime } from "../../server/features/assistants/runtime-install.js";
+import { selectedAssistantRuntime } from "../../server/features/assistants/runtimes/openclaw/runtime-install.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { mcpServerRoutes } from "../../server/http/routes/mcp-servers.js";
 import {

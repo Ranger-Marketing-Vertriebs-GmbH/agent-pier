@@ -7,7 +7,7 @@ import plugin, {
   toolTimeouts,
 } from "../../server/features/assistants/team-plugin/index.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
-import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
+import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 
 function registered() {
   const tools = new Map();

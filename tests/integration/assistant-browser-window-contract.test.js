@@ -11,7 +11,7 @@ import { AssistantStore } from "../../server/features/assistants/assistant-store
 import { RequestLedger } from "../../server/features/assistants/request-ledger.js";
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { detectBrowser } from "../../server/features/assistants/browser-detection.js";
-import { selectedAssistantRuntime } from "../../server/features/assistants/runtime-install.js";
+import { selectedAssistantRuntime } from "../../server/features/assistants/runtimes/openclaw/runtime-install.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { agentProfileName } from "../../server/features/assistants/openclaw-config/browser-profiles.js";
 import { AgentBrowsers } from "../../server/features/assistants/agent-browsers.js";

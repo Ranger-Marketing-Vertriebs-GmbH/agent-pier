@@ -37,7 +37,7 @@ jobs:
         id: runtime
         run: >-
           node --input-type=module -e 'import { runtimeManifest as m } from
-          "./server/features/assistants/runtime-manifest.js";
+          "./server/features/assistants/runtimes/openclaw/runtime-manifest.js";
           console.log(`identity=${m.version}-node${m.nodeVersion}-${m.dependencyLockSha256}`)'
           >> "$GITHUB_OUTPUT"
       # Same cache key as assistant-runtime.yml: only the immutable installation.

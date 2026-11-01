@@ -3,7 +3,6 @@ import { runtimeFor } from "./runtimes/runtime-for.js";
 // Which agents the running runtime admitted, through the agents sub-port of the
 // runtime port. OpenClaw admits agents in the background after an unclean stop and
 // refuses some for the Gateway's lifetime (runtimes/openclaw/agent-admission.js).
-export { pendingAdmission } from "./runtimes/openclaw/agent-admission.js";
 
 // The agents sub-port behind the runtime supervisor `runtime`, or null without one.
 const agentsOf = (runtime) =>
@@ -18,6 +17,9 @@ export const noteRefusalOn = (runtime, error) => {
   const agents = agentsOf(runtime);
   return agents ? agents.noteRefusal({ error }) : (error?.admissionRefusal ?? null);
 };
+
+/** Whether `refusal` only says the runtime still admits the agent (agents.admitting). */
+export const admittingOn = (runtime, refusal) => !!agentsOf(runtime)?.admitting(refusal);
 
 /** Resolves once the runtime admitted or refused its agents (agents.admitted). */
 export const admissionDoneOn = (runtime) =>

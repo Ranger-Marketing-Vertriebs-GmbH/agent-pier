@@ -17,7 +17,31 @@
  *   - status(): `{ availability, sync, version, diagnostic }`, availability one of
  *     HOST_AVAILABILITY; version(): the running version or null.
  *   - subscribe(listener): calls `listener(status)` on each change; returns unsubscribe.
- *   - start(), stop(), restart(): promises that settle once the host got there.
+ *   - start(), stop(), restart(): promises that settle once the host got there;
+ *     assertStopped(): rejects while a process of the host still runs.
+ *   Install, update and rollback serve AgentPier's update journal
+ *   (runtime-updates.js), which owns the selection (`runtime.json`), the staged
+ *   candidate, maintenance and the snapshot; install records are opaque objects with
+ *   at least `version` and `nodeVersion`.
+ *   - install({ dataDir }): installs the version this AgentPier ships beside the
+ *     selected one; resolves its record. sameInstall(a, b): whether two records name
+ *     the same installation.
+ *   - target(): `{ version, nodeVersion }` this AgentPier ships; current(record):
+ *     whether a record is that version (install status: false means an update is
+ *     due). stageUpdate({ dataDir }): after an AgentPier update, installs the shipped
+ *     version in the background when it is due; the job, or null.
+ *   - migrate(paths, record, { onSpawn }): applies an update to the stopped state
+ *     (`paths`: runtime-paths.js); `onSpawn(handle)` hears a migration process
+ *     before it is awaited, so a rollback after a crash can stop it.
+ *   - stopMigration(handle): stops such a process before a rollback restores the
+ *     snapshot; clearMigration(paths): removes what a migration left beside it.
+ *   Restart reasons: AgentPier records why a saved change waits for a restart
+ *   (pending-restart.js); the host tells whether and when one is needed.
+ *   - restartNeeded(): synchronously, whether a change the running host cannot load
+ *     needs a restart now; false while stopped, as the next start loads it.
+ *   - generation(): synchronously, an id of the start that loaded the running
+ *     configuration, or null; a start of another generation loaded every change
+ *     saved before it.
  * - sessions: create, send, abort, wait, describe, list, delete, archive, history.
  *   Keys are the runtime's own session keys, kept by AgentPier as opaque strings.
  *   Every method returns a promise that rejects while the runtime is unreachable;
@@ -69,7 +93,8 @@
  *     true when there were any.
  *   - degraded(): synchronously, the runtime agent ids this connection refused;
  *     noteRefusal({ error }): records the admission refusal a call reported and
- *     returns it, or null.
+ *     returns it, or null; admitting(refusal): synchronously, whether such a refusal
+ *     only says the runtime still admits that agent (it may run once admitted).
  *   - on(connection): these methods bound to a connection, as sessions.on.
  * - agentFiles: instructions, memory and workspace files
  *   - get({ agentId, name }): `{ file: { content, hash, missing } }`.
@@ -158,7 +183,7 @@ export const RUNTIME_PORTS = Object.freeze([
   "channels",
 ]);
 
-// The availability states a runtime host reports (runtime-supervisor.js).
+// The availability states a runtime host reports (openclaw/runtime-supervisor.js).
 export const HOST_AVAILABILITY = Object.freeze([
   "disabled",
   "installing",

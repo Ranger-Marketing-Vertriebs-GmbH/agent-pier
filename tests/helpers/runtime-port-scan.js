@@ -50,6 +50,27 @@ export function gatewayMethods(sources) {
   return found;
 }
 
+// The port's public modules; every other module below runtimes/ belongs to an adapter.
+export const publicPortModules = [
+  `${portDirectory}agent-runtime.js`,
+  `${portDirectory}runtime-for.js`,
+];
+// Imports and re-exports, static and dynamic: `from "…"`, `import "…"`, `import("…")`.
+const specifier = /(?:\bfrom\s*|\bimport\s*\(?\s*)["'`](\.{1,2}\/[^"'`]+)["'`]/g;
+
+/** { file: [module, …] } for the adapter modules each file imports, sorted. */
+export function adapterImports(sources) {
+  const found = {};
+  for (const { file, text } of sources) {
+    const modules = [...text.matchAll(specifier)]
+      .map((m) => path.posix.join(path.posix.dirname(file), m[1]))
+      .filter((target) => target.startsWith(portDirectory))
+      .filter((target) => !publicPortModules.includes(target));
+    if (modules.length) found[file] = [...new Set(modules)].sort();
+  }
+  return found;
+}
+
 /** { file: count } for the files that reach the runtime's client. */
 export function clientAccesses(sources) {
   const found = {};

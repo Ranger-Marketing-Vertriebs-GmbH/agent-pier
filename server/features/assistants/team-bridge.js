@@ -38,7 +38,7 @@ import {
   attemptTurn,
   boundAttempts,
 } from "./session-bindings.js";
-import { hostReady } from "./runtimes/runtime-for.js";
+import { hostOf, hostReady } from "./runtimes/runtime-for.js";
 const leavingReady = new Set([
   "reconnecting",
   "stopping",
@@ -50,7 +50,7 @@ const leavingReady = new Set([
 // Memory and browser agents on a ready Gateway without a reported guard stay
 // read-only and without the browser; the runtime status says so.
 export function runtimeStatus(runtime, assistants, bridge) {
-  const state = runtime.status();
+  const state = hostOf(runtime).status();
   const needed = assistants.store.listAssistants().some(guardNeeded);
   return bridge?.guardPending(needed) && !state.diagnostic
     ? { ...state, diagnostic: "WRITE_GUARD_PENDING" }

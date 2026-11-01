@@ -1,6 +1,6 @@
 import path from "node:path";
 import { isMainModule } from "../server/lib/is-main-module.js";
-import { ensureAssistantRuntime } from "../server/features/assistants/runtime-install.js";
+import { ensureAssistantRuntime } from "../server/features/assistants/runtimes/openclaw/runtime-install.js";
 export { ensureAssistantRuntime };
 if (isMainModule(import.meta.url)) {
   if (

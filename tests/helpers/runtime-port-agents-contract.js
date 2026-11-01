@@ -150,6 +150,9 @@ export function agentsContract(name, make) {
     const refusal = { agentId, code: "agent-database-inspection-failed" };
     const error = Object.assign(new Error("refused"), { admissionRefusal: refusal });
     assert.deepEqual(agents.noteRefusal({ error }), refusal);
+    // A refusal that degrades the agent is no wait for its admission.
+    assert.equal(agents.admitting(refusal), false);
+    assert.equal(agents.admitting(null), false);
     const watch = config.watchAdoption(quiet);
     assert.equal(watch.watching, false);
     assert.equal(await watch.settle("a", "b"), true);
@@ -209,6 +212,7 @@ export function fakeAgentPorts({ reach, connection }) {
       admitted: async () => false,
       degraded: () => new Set(),
       noteRefusal: ({ error }) => error?.admissionRefusal ?? null,
+      admitting: () => false,
     },
     agentFiles: {
       get: ({ agentId, name }) =>
@@ -261,7 +265,14 @@ export function fakeAgentPorts({ reach, connection }) {
       watchAdoption: () => watcher(connection() !== null),
     },
   };
-  const sync = ["degraded", "noteRefusal", "watchAdoption", "settled", "admitted"];
+  const sync = [
+    "degraded",
+    "noteRefusal",
+    "admitting",
+    "watchAdoption",
+    "settled",
+    "admitted",
+  ];
   const closed = () =>
     Promise.reject(
       Object.assign(new Error("closed"), { code: "UNAVAILABLE", status: 503 }),

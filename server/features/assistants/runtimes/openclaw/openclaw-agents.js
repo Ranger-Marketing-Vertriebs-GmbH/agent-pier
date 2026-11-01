@@ -5,6 +5,7 @@ import {
   admissionDone,
   degradedAgents,
   noteRefusal,
+  pendingAdmission,
   settledAdmission,
 } from "./agent-admission.js";
 
@@ -57,6 +58,8 @@ function agentsOver(current) {
     degraded: () => new Set(degradedAgents(current())),
     // Records an admission refusal a call reported; returns it, or null.
     noteRefusal: ({ error }) => noteRefusal(current(), error),
+    // The refusal only says the Gateway still inspects the agent's database.
+    admitting: (refusal) => refusal?.code === pendingAdmission,
   };
 }
 

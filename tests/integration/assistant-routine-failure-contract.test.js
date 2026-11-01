@@ -8,7 +8,7 @@ import { AssistantConfig } from "../../server/features/assistants/assistant-conf
 import { NativeReminders } from "../../server/features/assistants/native-reminders.js";
 import { NativeRoutines } from "../../server/features/assistants/native-routines.js";
 import { withRoutineResults } from "../../server/features/assistants/routine-results.js";
-import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
+import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { channelFixture } from "../helpers/assistant-channel-fixture.js";

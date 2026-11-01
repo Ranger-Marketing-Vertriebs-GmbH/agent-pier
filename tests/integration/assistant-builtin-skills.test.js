@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { shellService } from "../helpers/assistant-shell-service.js";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
-import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
+import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 
 // AgentPier's built-in shopping skill through AssistantService and AssistantConfig,

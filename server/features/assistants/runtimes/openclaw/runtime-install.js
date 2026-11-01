@@ -1,17 +1,17 @@
-import { provisionTeamPlugin } from "./team-plugin-install.js";
+import { provisionTeamPlugin } from "../../team-plugin-install.js";
 import fs from "node:fs";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { download as fetchDownload } from "../operations/releases.js";
-import { readJSON, writePrivate } from "../../lib/storage.js";
+import { download as fetchDownload } from "../../../operations/releases.js";
+import { readJSON, writePrivate } from "../../../../lib/storage.js";
 import { readRuntimeLock, searchPluginPins } from "./runtime-lock.js";
 import { runtimeManifest } from "./runtime-manifest.js";
-import { runtimePaths, privateFolder } from "./runtime-paths.js";
-import { acquireInstallLock, withInstallLock } from "./runtime-install-lock.js";
-import { proxyEnvironment } from "./runtime-config.js";
-import { readAssistantFeature } from "./assistant-feature.js";
+import { runtimePaths, privateFolder } from "../../runtime-paths.js";
+import { acquireInstallLock, withInstallLock } from "../../runtime-install-lock.js";
+import { proxyEnvironment } from "../../runtime-config.js";
+import { readAssistantFeature } from "../../assistant-feature.js";
 
 const jobs = new Map();
 const executeFile = promisify(execFile);
@@ -27,6 +27,12 @@ const identityKeys = [
 export function sameRuntime(a, b) {
   return !!a && !!b && identityKeys.every((key) => a[key] === b[key]);
 }
+/** True when a runtime descriptor names the version, Node and lock `manifest` ships. */
+export const shippedRuntime = (runtime, manifest = runtimeManifest) =>
+  !!runtime &&
+  runtime.version === manifest.version &&
+  runtime.nodeVersion === manifest.nodeVersion &&
+  runtime.dependencyLockSha256 === manifest.dependencyLockSha256;
 // A candidate is recorded only when it differs from the selected runtime.
 function recordCandidate(root, result) {
   const file = path.join(root, "candidate.json");

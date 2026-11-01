@@ -9,7 +9,7 @@ import {
 import { validateOverride } from "./openclaw-config/overrides.js";
 import { restartRequired } from "./assistant-provider-synchronization.js";
 import { assistantProblem } from "./assistant-validation.js";
-import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
+import { hostOf, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 
 const reloadKinds = new Set(["hot", "none", "restart"]);
 
@@ -61,7 +61,7 @@ export class AdvancedConfig {
     }
   }
   gateway() {
-    const { availability, version: running } = this.runtime.status();
+    const { availability, version: running } = hostOf(this.runtime).status();
     const ready = availability === "ready" && hostReady(this.runtime);
     // Only a ready Gateway's own version applies. Otherwise the next start runs the
     // selected installation, which after a rollback differs from the version the

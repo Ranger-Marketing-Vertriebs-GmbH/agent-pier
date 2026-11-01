@@ -24,7 +24,7 @@ import {
   cleanupSetupTransients,
 } from "./setup-state.mjs";
 import { inspectSetupService } from "./setup-service.mjs";
-import { provisionInstallerRuntime } from "../server/features/assistants/runtime-provisioning.js";
+import { provisionInstallerRuntime } from "../server/features/assistants/runtimes/openclaw/runtime-provisioning.js";
 import { provisionInstallerToolchains } from "../server/features/mcp-packages/toolchain-provisioning.js";
 import { provisionAgentBrowser } from "../server/features/tools/chromium-provisioning.js";
 import { provisionRea } from "../server/features/tools/rea-provisioning.js";

@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  adapterImports,
   clientAccesses,
   gatewayMethods,
   portDirectory,
@@ -22,6 +23,31 @@ test("runtime rule clientAccess: no server file outside the port reaches the run
   assert.deepEqual(clientAccesses(sources), {}, hint);
 });
 
+// Composition roots construct the OpenClaw supervisor the port wraps (AGENTPIER-309).
+const compositionRoot = (file) =>
+  /^server\/application\/(?:[\w-]+-wiring|services|assistant-graph)\.js$/.test(file);
+// Importers of an adapter module that have no port method to go through. This list
+// may only shrink.
+const adapterImportAllowlist = {
+  // The MCP toolchains install the Node.js that OpenClaw's runtime manifest pins
+  // (one reviewed pin for both; mcp-toolchains.yml watches the manifest).
+  "server/features/mcp-packages/toolchain-manifest.js": [
+    `${portDirectory}openclaw/runtime-manifest.js`,
+  ],
+  // The team plugin is provisioned for the shipped OpenClaw version and its rollback
+  // targets; it moves into the adapter with team-plugin/ (ADR 0006, section 2).
+  "server/features/assistants/team-plugin-install.js": [
+    `${portDirectory}openclaw/runtime-manifest.js`,
+  ],
+};
+
+test("runtime rule adapterImports: only the port's public modules are imported", () => {
+  const found = Object.fromEntries(
+    Object.entries(adapterImports(sources)).filter(([file]) => !compositionRoot(file)),
+  );
+  assert.deepEqual(found, adapterImportAllowlist, hint);
+});
+
 test("the port directory itself is not scanned", () => {
   assert.ok(sources.length > 0);
   assert.equal(
@@ -41,6 +67,25 @@ test("OpenClaw's own modules live in the adapter", () => {
 
 test("the scanners recognise each kind of offender", () => {
   const scan = (text) => [{ file: "server/x.js", text }];
+  const feature = (text) => [{ file: "server/features/assistants/x.js", text }];
+  assert.deepEqual(
+    adapterImports(
+      feature(
+        'import { a } from "./runtimes/openclaw/a.js";\n' +
+          'export { b } from "./runtimes/openclaw/b.js";\n' +
+          'await import("./runtimes/openclaw/c.js");\n' +
+          'import "./runtimes/openclaw/d.js";\n' +
+          'import { runtimeFor } from "./runtimes/runtime-for.js";\n' +
+          'import { RUNTIME_PORTS } from "./runtimes/agent-runtime.js";\n' +
+          'import { x } from "./runtime-paths.js";',
+      ),
+    ),
+    {
+      "server/features/assistants/x.js": ["a", "b", "c", "d"].map(
+        (name) => `${portDirectory}openclaw/${name}.js`,
+      ),
+    },
+  );
   assert.deepEqual(
     gatewayMethods(
       scan(

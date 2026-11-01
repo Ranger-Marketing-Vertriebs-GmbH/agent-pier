@@ -14,7 +14,7 @@ import { CompletionRuns } from "../../server/features/assistants/completion-runs
 import { backgroundMethod } from "../../server/features/assistants/team-plugin/background-commands.js";
 import { continuationPrompt } from "../../server/features/assistants/goal-turns.js";
 import { nudgeDelayMs } from "../../server/features/assistants/work-goal-nudges.js";
-import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
+import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { channelFixture } from "../helpers/assistant-channel-fixture.js";
 import {

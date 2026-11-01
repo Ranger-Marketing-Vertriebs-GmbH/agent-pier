@@ -8,8 +8,8 @@ import { setupFixture } from "../helpers/setup-fixture.js";
 import {
   stageRuntimeInBackground,
   provisionInstallerRuntime,
-} from "../../server/features/assistants/runtime-provisioning.js";
-import { ensureAssistantRuntime } from "../../server/features/assistants/runtime-install.js";
+} from "../../server/features/assistants/runtimes/openclaw/runtime-provisioning.js";
+import { ensureAssistantRuntime } from "../../server/features/assistants/runtimes/openclaw/runtime-install.js";
 import {
   proxyVariables,
   runtimeEnvironment,

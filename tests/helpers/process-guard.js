@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { RuntimeSupervisor } from "../../server/features/assistants/runtime-supervisor.js";
+import { RuntimeSupervisor } from "../../server/features/assistants/runtimes/openclaw/runtime-supervisor.js";
 
 // Long-lived or signal-ignoring processes a test starts. Each is stopped in the
 // test's t.after (SIGTERM, then SIGKILL after a grace period), and whatever is still

@@ -12,7 +12,7 @@ import {
   constructAssistantGraph,
 } from "../../server/application/assistant-graph.js";
 import { assistantRoutes } from "../../server/http/routes/assistants.js";
-import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
+import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { ProviderCatalog } from "../../server/features/providers/provider-catalog.js";
 import { ProviderConnections } from "../../server/features/providers/provider-connections.js";

@@ -9,7 +9,7 @@ import { AssistantConfig } from "../../server/features/assistants/assistant-conf
 import { NativeReminders } from "../../server/features/assistants/native-reminders.js";
 import { NativeHeartbeats } from "../../server/features/assistants/native-heartbeats.js";
 import { NativeMemory } from "../../server/features/assistants/native-memory.js";
-import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
+import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { telegramMessages } from "../../server/features/assistant-channels/telegram-messages.js";
 import { channelFixture } from "../helpers/assistant-channel-fixture.js";

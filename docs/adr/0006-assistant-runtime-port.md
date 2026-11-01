@@ -71,6 +71,23 @@ runtime client or names a runtime method; its allowlist starts with today's file
 only shrink, as `tests/unit/ui-guide-rules.test.js` does for the UI. Step 1 of the
 delivery order emptied it: the rule is now absolute, without an allowlist.
 
+The host sub-port separates AgentPier's lifecycle from the runtime's. AgentPier keeps
+the update journal (`runtime-updates.js`: staging, maintenance, snapshot, validation,
+rollback, recovery), its blockers and retention, and the pending restart
+(`pending-restart.js`: why a saved change waits for a restart). The adapter installs
+its runtime (`install`, `sameInstall`), names the version it ships and whether an
+install record is it (`target`, `current`), stages an update in the background
+(`stageUpdate`), migrates stopped state to a new version and cleans up before a
+rollback (`migrate`, `stopMigration`, `clearMigration`), and tells whether a change
+needs a restart and which start loaded the running configuration (`restartNeeded`,
+`generation`). OpenClaw's supervisor, installer, manifest, dependency lock, Doctor
+migration and process ownership therefore live in `runtimes/openclaw/`. A second
+rule of the same test refuses imports of adapter modules from outside `runtimes/`:
+only `runtime-for.js` and `agent-runtime.js` are public, composition roots may
+construct the supervisor, and a shrink-only allowlist names the MCP toolchain
+manifest (it shares OpenClaw's Node pin) and the team plugin installer (it checks
+OpenClaw's versions until the team plugin moves into the adapter).
+
 ### 3. AgentPier owns a runtime-neutral desired state
 
 AgentPier describes each agent as data: instructions, model connection, tools and

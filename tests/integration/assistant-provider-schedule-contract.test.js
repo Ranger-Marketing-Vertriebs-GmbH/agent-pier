@@ -12,7 +12,7 @@ import { AssistantModels } from "../../server/features/assistants/assistant-mode
 import { AssistantProviderSynchronization } from "../../server/features/assistants/assistant-provider-synchronization.js";
 import { NativeReminders } from "../../server/features/assistants/native-reminders.js";
 import { ProviderConnections } from "../../server/features/providers/provider-connections.js";
-import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
+import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { assistantProviderServer } from "../helpers/assistant-provider-server.js";
 const installed = process.env.AGENTPIER_ASSISTANT_PROVIDER_RUNTIME;
 

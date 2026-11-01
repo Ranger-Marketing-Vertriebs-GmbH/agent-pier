@@ -6,7 +6,7 @@ import http from "node:http";
 import { pathToFileURL } from "node:url";
 import { chromium } from "@playwright/test";
 import { importOpenClawExports } from "../helpers/openclaw-dist-exports.js";
-import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
+import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { detectBrowser } from "../../server/features/assistants/browser-detection.js";
 import { webToolsSections } from "../../server/features/assistants/openclaw-config/web-tools.js";
 import { e2eGraph } from "../helpers/assistant-e2e-graph.js";

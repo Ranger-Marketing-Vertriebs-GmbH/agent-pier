@@ -5,19 +5,20 @@ import { titleFromTurn } from "./chat-titles.js";
 import { chatProblem } from "./agent-chats.js";
 import { confirmFromAck } from "./run-confirmation.js";
 import { memoryStep } from "./memory-write-policy.js";
-import { agentDegradedOn, noteRefusalOn, pendingAdmission } from "./agent-admission.js";
+import { admittingOn, agentDegradedOn, noteRefusalOn } from "./agent-admission.js";
 import { hostConnection, runtimeFor } from "./runtimes/runtime-for.js";
 
 /**
  * Why the Gateway refused a turn before running it, or null when it may run it: an
- * agent it has not admitted ("degraded", "starting"; agent-admission.js) or another
- * answer that it did nothing ("refused"). Only such an answer is definite; a timeout
- * or a lost connection leaves the outcome open (AGENTPIER-238).
+ * agent it has not admitted ("degraded", or "starting" while `admitting(refusal)`,
+ * agents.admitting; agent-admission.js) or another answer that it did nothing
+ * ("refused"). Only such an answer is definite; a timeout or a lost connection
+ * leaves the outcome open (AGENTPIER-238).
  */
-export function sendRefusal(error) {
+export function sendRefusal(error, admitting = () => false) {
   if (!error?.answered) return null;
   const refusal = error.admissionRefusal;
-  if (refusal) return refusal.code === pendingAdmission ? "starting" : "degraded";
+  if (refusal) return admitting(refusal) ? "starting" : "degraded";
   if (error.code === "INVALID_REQUEST") return "refused";
   return error.code === "UNAVAILABLE" && error.retryable === false ? "refused" : null;
 }
@@ -159,7 +160,9 @@ export async function sendTurn(service, conversationId, input, trustedContext) {
     service.ledger.transition(attempt.id, "accepted", { runtimeRunId: sent.runId });
   } catch (error) {
     noteRefusalOn(service.runtime, error);
-    const failure = sendRefusal(error);
+    const failure = sendRefusal(error, (refusal) =>
+      admittingOn(service.runtime, refusal),
+    );
     const code = typeof error?.code === "string" ? error.code : "UNKNOWN";
     // A refusal before any run ends the turn; its code is logged, never its text.
     if (failure) {

@@ -8,6 +8,14 @@ and without delaying the start. A first installation selects its initial runtime
 subsequent starts use the existing selection. No upstream updater
 or arbitrary version input is exposed.
 
+The update journal, maintenance, snapshot, blockers and retention are AgentPier's own
+(`server/features/assistants/runtime-update*.js`, `runtime-retention.js`). They reach
+OpenClaw only through the host sub-port of the
+[agent runtime port](adr/0006-assistant-runtime-port.md): installing, the shipped
+version, the Doctor migration and its cleanup are in the OpenClaw adapter
+(`runtimes/openclaw/`: `runtime-manifest.js`, `runtime-install.js`,
+`runtime-provisioning.js`, `runtime-doctor.js`, `openclaw-lifecycle.js`).
+
 **Agents › Runtime › OpenClaw updates** shows the current and target versions (the old address `/settings/assistants` opens this tab). Preparing the update
 does not interrupt work. Activation enters maintenance, checks assistant/channel/
 scheduled work, stops the owned Gateway, and creates a private snapshot before
@@ -310,6 +318,7 @@ Run the installer, activation, lifecycle and HTTP regression tests:
 
 ```sh
 node --test tests/unit/assistant-runtime-install.test.js \
+  tests/unit/openclaw-runtime-lifecycle.test.js \
   tests/integration/assistant-runtime-activation.test.js \
   tests/integration/assistant-runtime-update.test.js \
   tests/integration/assistant-runtime-lifecycle.test.js \
@@ -354,8 +363,10 @@ all separately downloaded package archives carry integrity checks.
 
 ## Locked dependency installation
 
-The runtime manifest pins OpenClaw, Node and the npm bundled with that Node archive.
-`runtime-lock/package.json` and `runtime-lock/package-lock.json` ship with AgentPier.
+The runtime manifest (`server/features/assistants/runtimes/openclaw/runtime-manifest.js`)
+pins OpenClaw, Node and the npm bundled with that Node archive.
+`runtime-lock/package.json` and `runtime-lock/package-lock.json`, beside it in the
+OpenClaw adapter, ship with AgentPier.
 Their combined SHA-256 (package bytes, a NUL separator, then lock bytes) is pinned in
 the manifest. The graph fixes registry tarball versions and SHA-512 integrities,
 including platform-specific optional packages. Bundled dependencies are covered by
@@ -482,7 +493,7 @@ outdated one the refresh is meant to replace. Those refreshes always resolve the
 whole graph. If OpenClaw pins the vulnerable package exactly, a refresh alone keeps
 it: first add the fixed version to the manifest's `dependencyOverrides` (see
 [Locked dependency installation](#locked-dependency-installation)). Copy both reviewed JSON files to
-`server/features/assistants/runtime-lock/`, update `dependencyLockSha256` in the
+`server/features/assistants/runtimes/openclaw/runtime-lock/`, update `dependencyLockSha256` in the
 manifest, and run unit checks plus the four native CI installations. A deliberate
 refresh may select newer transitive versions and change npm's bundled-package
 metadata; the committed lock, not rerunning the resolver, defines an installation.
@@ -490,7 +501,7 @@ When changing Node/OpenClaw, also update their checksums, npm version, plugin
 compatibility and qualified activation/rollback pairs. Never change private live
 runtime files to make qualification pass.
 
-Dependabot never updates `server/features/assistants/runtime-lock/`. The root npm
+Dependabot never updates `server/features/assistants/runtimes/openclaw/runtime-lock/`. The root npm
 entry excludes that path, and a dedicated entry for the directory ignores every
 dependency, which also stops security-update pull requests. If Dependabot edited that
 lock, the lock would no longer match the pinned digest, and every installation would

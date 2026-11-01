@@ -20,6 +20,10 @@ import {
 } from "./runtime-port-approvals-contract.js";
 import { fakeRoutinePorts, routinesContract } from "./runtime-port-routines-contract.js";
 import { fakeToolPorts, toolsContract } from "./runtime-port-tools-contract.js";
+import {
+  fakeLifecyclePorts,
+  lifecycleContract,
+} from "./runtime-port-lifecycle-contract.js";
 
 /**
  * The contract every agent runtime adapter meets (ADR 0006), so the OpenClaw adapter,
@@ -124,6 +128,7 @@ export function runtimePortContract(name, make) {
     assert.equal(typeof runtime.host.onDisconnect(null, () => {}), "function");
   });
 
+  lifecycleContract(name, make);
   sessionsContract(name, make, { kinds: RUN_EVENT_KINDS, tick });
   agentsContract(name, make);
   approvalsContract(name, make);
@@ -173,13 +178,18 @@ export function fakeRuntime({
   // A new connection on every start, none while not ready; each drop calls the
   // listeners of the connection it ended.
   let connection = unreachable ? null : {};
+  // One generation per start that connected, as a supervisor counts launches.
+  let generation = 1;
   const drops = new WeakMap();
   const move = (availability) => {
     Object.assign(state, { availability });
     if (availability !== "ready") {
       for (const listener of (connection && drops.get(connection)) || []) listener();
       connection = null;
-    } else connection ??= {};
+    } else if (!connection) {
+      connection = {};
+      generation++;
+    }
     for (const listener of listeners) listener({ ...state });
   };
   return defineAgentRuntime({
@@ -206,6 +216,10 @@ export function fakeRuntime({
         move("disabled");
         move("ready");
       },
+      ...fakeLifecyclePorts({
+        running: () => state.availability === "ready",
+        generation: () => generation,
+      }),
     },
     ...fakeSessionPorts({ reach, runFailure, connection: () => connection }),
     ...fakeAgentPorts({ reach, connection: () => connection }),

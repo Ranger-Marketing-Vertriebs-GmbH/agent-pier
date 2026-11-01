@@ -12,7 +12,7 @@ import { AssistantStore } from "../../server/features/assistants/assistant-store
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { AssistantModels } from "../../server/features/assistants/assistant-models.js";
 import { ProviderConnections } from "../../server/features/providers/provider-connections.js";
-import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
+import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 import { patchConfig } from "../../server/features/assistants/runtimes/openclaw/live-patch.js";
 import {

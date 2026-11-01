@@ -9,7 +9,7 @@ import { execFileSync } from "node:child_process";
 import net from "node:net";
 import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "../helpers/process-guard.js";
 import { runtimeEnvironment } from "../../server/features/assistants/runtime-config.js";
-import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
+import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { AssistantModelAccounts } from "../../server/features/assistants/model-accounts.js";
 import {
   accountModelId,

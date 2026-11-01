@@ -17,7 +17,7 @@ import {
 } from "../../server/features/assistants/agent-hook-rights.js";
 import { GatewayEventHub } from "../../server/features/assistants/gateway-event-hub.js";
 import { conversationHistory } from "../../server/features/assistants/conversations.js";
-import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
+import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { channelFixture } from "../helpers/assistant-channel-fixture.js";

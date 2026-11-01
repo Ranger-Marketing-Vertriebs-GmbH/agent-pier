@@ -10,7 +10,7 @@ import {
 } from "../features/assistants/assistant-feature.js";
 import { connectAssistantServices, constructAssistantGraph } from "./assistant-graph.js";
 import { recoverAssistantServices } from "./assistant-recovery.js";
-import { stageRuntimeInBackground } from "../features/assistants/runtime-provisioning.js";
+import { hostOf } from "../features/assistants/runtimes/runtime-for.js";
 import { assistantProblem } from "../features/assistants/assistant-validation.js";
 import { connectAgentSecrets } from "../features/secrets/agent-secrets.js";
 import {
@@ -113,7 +113,7 @@ export function startAssistantServices(
     assistantAgentSecrets,
     assistantAgentSsh,
   },
-  { stageInBackground = stageRuntimeInBackground } = {},
+  { stageInBackground = (options) => hostOf(assistantRuntime).stageUpdate(options) } = {},
 ) {
   if (!assistants) return;
   if (assistants.maintenance || assistantUpdates?.status().recoveryRequired) return;
@@ -136,7 +136,10 @@ export function startAssistantServices(
     !assistantUpdates?.status().recoveryRequired &&
     readJSON(path.join(assistantRuntime.paths.root, "settings.json"), {}).enabled;
   const run = () => {
-    if (startable()) assistantRuntime.start().catch(() => {});
+    if (startable())
+      hostOf(assistantRuntime)
+        .start()
+        .catch(() => {});
   };
   if (sshReady) sshReady.then(run);
   else run();

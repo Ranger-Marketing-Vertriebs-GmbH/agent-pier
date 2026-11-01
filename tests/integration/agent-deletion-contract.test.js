@@ -9,7 +9,7 @@ import { AssistantStore } from "../../server/features/assistants/assistant-store
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { AssistantModels } from "../../server/features/assistants/assistant-models.js";
 import { ProviderConnections } from "../../server/features/providers/provider-connections.js";
-import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
+import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { removeFromGateway } from "../../server/features/assistants/agent-deletion.js";
 
 // AGENTPIER-260 on the pinned runtime: a permanent delete removes the agent from the

@@ -3,12 +3,12 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
+import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { assistantInstallFixture } from "../helpers/assistant-install-fixture.js";
 import {
   ensureAssistantRuntime,
   provisionEnabledRuntime,
-} from "../../server/features/assistants/runtime-install.js";
+} from "../../server/features/assistants/runtimes/openclaw/runtime-install.js";
 
 function directory(t) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-install-"));
@@ -54,7 +54,7 @@ test("symlinked assistant storage cannot install into another location", async (
 
 test("runtime selection rejects symlinked executable ancestors", async (t) => {
   const { selectedAssistantRuntime } =
-    await import("../../server/features/assistants/runtime-install.js");
+    await import("../../server/features/assistants/runtimes/openclaw/runtime-install.js");
   const dataDir = directory(t),
     outside = directory(t);
   const root = path.join(dataDir, "assistants");
@@ -86,7 +86,7 @@ test("fresh enable uses private Node and reuses a verified installation on updat
   assert.ok(fs.existsSync(installed.nodePath));
   assert.ok(fs.existsSync(installed.entryPath));
   const { stageAssistantRuntime, selectedAssistantRuntime } =
-    await import("../../server/features/assistants/runtime-install.js");
+    await import("../../server/features/assistants/runtimes/openclaw/runtime-install.js");
   assert.equal(typeof stageAssistantRuntime, "function");
   const active = path.join(dataDir, "assistants", "runtime.json");
   const previous = { ...installed, version: "2026.9.9" };
@@ -121,7 +121,7 @@ test("fresh enable uses private Node and reuses a verified installation on updat
 test("a selection whose runtime directory vanished is reset and reinstalled", async (t) => {
   const { dataDir, options } = assistantInstallFixture(t);
   const { selectedAssistantRuntime } =
-    await import("../../server/features/assistants/runtime-install.js");
+    await import("../../server/features/assistants/runtimes/openclaw/runtime-install.js");
   const installed = await ensureAssistantRuntime(options);
   const directory = path.resolve(installed.entryPath, "../../../..");
   fs.rmSync(directory, { recursive: true });

@@ -31,7 +31,7 @@ test("every module the native check runs triggers the workflow", () => {
     "server/features/mcp-packages/cpython-relocation.js",
     "scripts/verify-mcp-toolchains.mjs",
     // The Node toolchain pin is the agent runtime's Node.
-    "server/features/assistants/runtime-manifest.js",
+    "server/features/assistants/runtimes/openclaw/runtime-manifest.js",
   ];
   for (const event of ["push", "pull_request"])
     for (const file of modules)

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import { setTimeout as delay } from "node:timers/promises";
-import { readJSON, writePrivate } from "../../lib/storage.js";
-import { processIdentity } from "../../lib/process-identity.js";
+import { readJSON, writePrivate } from "../../../../lib/storage.js";
+import { processIdentity } from "../../../../lib/process-identity.js";
 
 export const ownershipConflict = () =>
   Object.assign(Error("Assistant runtime ownership conflict."), {

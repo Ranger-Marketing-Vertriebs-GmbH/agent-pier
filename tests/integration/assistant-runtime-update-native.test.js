@@ -7,7 +7,7 @@ import path from "node:path";
 import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "../helpers/process-guard.js";
 import { RuntimeUpdates } from "../../server/features/assistants/runtime-updates.js";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
-import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
+import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { readJSON, writePrivate } from "../../server/lib/storage.js";
 import { AssistantMaintenance } from "../../server/features/assistants/assistant-maintenance.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";

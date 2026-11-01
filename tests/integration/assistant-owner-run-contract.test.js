@@ -15,7 +15,7 @@ import {
   completionRun,
 } from "../../server/features/assistants/completion-runs.js";
 import { completedProcesses } from "../../server/features/assistants/team-plugin/exec-processes.js";
-import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
+import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { channelFixture } from "../helpers/assistant-channel-fixture.js";
 import {

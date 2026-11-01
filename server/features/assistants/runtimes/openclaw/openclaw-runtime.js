@@ -3,6 +3,7 @@ import { openClawAgentFiles, openClawAgents } from "./openclaw-agents.js";
 import { openClawApprovals } from "./openclaw-approvals.js";
 import { openClawConfig } from "./openclaw-configuration.js";
 import { openClawEvents } from "./openclaw-events.js";
+import { openClawLifecycle } from "./openclaw-lifecycle.js";
 import { openClawBrowser } from "./openclaw-browser.js";
 import { openClawModels } from "./openclaw-models.js";
 import { openClawRoutines } from "./openclaw-routines.js";
@@ -62,7 +63,8 @@ export function createOpenClawRuntime(supervisor) {
 /**
  * The host sub-port over the supervisor: one Gateway per host, so every agent shares
  * it. `ready()` and `status()` answer synchronously, as callers check them inline;
- * lifecycle methods return the supervisor's promises.
+ * lifecycle methods return the supervisor's promises. Install, update, rollback and
+ * restart reasons come from openclaw-lifecycle.js.
  */
 function openClawHost(supervisor) {
   return {
@@ -84,12 +86,14 @@ function openClawHost(supervisor) {
     status: () => supervisor.status(),
     version: () => supervisor.status().version ?? null,
     // Calls `listener(status)` on every change; returns the unsubscribe function.
+    // A supervisor that emits no events (a test double) never calls it.
     subscribe(listener) {
-      supervisor.on("status", listener);
-      return () => supervisor.off("status", listener);
+      supervisor.on?.("status", listener);
+      return () => supervisor.off?.("status", listener);
     },
     start: (options) => supervisor.start(options),
     stop: (options) => supervisor.stop(options),
     restart: () => supervisor.restart(),
+    ...openClawLifecycle(supervisor),
   };
 }

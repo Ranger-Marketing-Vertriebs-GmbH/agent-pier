@@ -168,7 +168,7 @@ Executable evidence reuses the release-cleanup process checks: `/proc/<pid>/exe`
 on Linux, and on macOS `ps` or, for a titled process, its mapped image via `lsof`.
 
 A stop gives the Gateway a drain window of up to 60 s (`gatewayDrainMs` in
-`runtime-supervisor.js`) after SIGTERM before SIGKILL: OpenClaw stops admitting work
+`runtimes/openclaw/runtime-supervisor.js`) after SIGTERM before SIGKILL: OpenClaw stops admitting work
 and lets running turns and cron runs finish, and it exits by itself once drained.
 The readiness budget of the next start counts from its spawn, so a drain never
 shortens it. AgentPier's own shutdown keeps the 3 s grace, within the service
@@ -5316,7 +5316,7 @@ size in WebKit. The slim `Assistant runtime (queue)` workflow
 (`assistant-runtime-queue.yml`) runs in the merge queue only: it passes at once when
 no assistant runtime path changed and otherwise runs the core native contracts.
 
-Dependabot must never update `server/features/assistants/runtime-lock/`; the
+Dependabot must never update `server/features/assistants/runtimes/openclaw/runtime-lock/`; the
 exclusion and the refresh procedure for security alerts there are described in
 [runtime updates](assistant-runtime-updates.md). Changing the OpenClaw version
 follows the requalification checklist in

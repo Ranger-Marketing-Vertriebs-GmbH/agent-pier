@@ -3,8 +3,7 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { runtimePaths, privateFolder } from "./runtime-paths.js";
-import { sameRuntime, stageAssistantRuntime } from "./runtime-install.js";
-import { runtimeManifest } from "./runtime-manifest.js";
+import { runtimeFor } from "./runtimes/runtime-for.js";
 import { readJSON } from "../../lib/storage.js";
 import {
   durablePrivate,
@@ -15,11 +14,6 @@ import {
 } from "./runtime-update-snapshot.js";
 import { ledgerFence } from "./ledger-fence.js";
 import { blockerCodes, publicItem } from "./runtime-update-blockers.js";
-import {
-  migrateRuntimeState,
-  removeMigrationLeftovers,
-  stopDoctor,
-} from "./runtime-doctor.js";
 import {
   applyRetention,
   listBackups,
@@ -33,38 +27,44 @@ async function availableBytes(directory) {
   const stat = await fsp.statfs(directory);
   return stat.bavail * stat.bsize;
 }
-const matchesManifest = (selected, manifest) =>
-  !!selected &&
-  selected.version === manifest.version &&
-  selected.nodeVersion === manifest.nodeVersion &&
-  selected.dependencyLockSha256 === manifest.dependencyLockSha256;
+/**
+ * AgentPier's update journal for the runtime host: staging, the owner's activation in
+ * maintenance with a snapshot, validation, rollback and recovery. What is particular
+ * to the runtime (installing, the shipped version, migrating its state) goes through
+ * the host sub-port of `runtime` (runtimes/agent-runtime.js). `stage`, `migrate` and
+ * `stopMigration` replace host.install, host.migrate and host.stopMigration, and
+ * `host` any other host method (tests).
+ */
 export class RuntimeUpdates {
   constructor({
     dataDir,
     runtime,
     maintenance,
-    stage = stageAssistantRuntime,
+    stage,
     affected = () => ({ agents: 0, teamMembers: 0 }),
     isBlocked = () => false,
     freeSpace = availableBytes,
-    manifest = runtimeManifest,
     onRolledBack = () => {},
-    migrate = migrateRuntimeState,
-    stopMigration = stopDoctor,
+    migrate,
+    stopMigration,
+    host = {},
   }) {
     Object.assign(this, {
       dataDir,
       runtime,
       maintenance,
-      install: stage,
       affected,
       isBlocked,
       freeSpace,
-      manifest,
       onRolledBack,
-      migrate,
-      stopDoctor: stopMigration,
     });
+    this.host = {
+      ...runtimeFor(null, runtime).host,
+      ...(stage && { install: stage }),
+      ...(migrate && { migrate }),
+      ...(stopMigration && { stopMigration }),
+      ...host,
+    };
     this.paths = runtimePaths(dataDir);
     this.fence = ledgerFence(this.paths.root);
     this.file = path.join(this.paths.root, "update.json");
@@ -98,15 +98,16 @@ export class RuntimeUpdates {
   status() {
     const selected = readJSON(this.selection, null);
     const stored = readJSON(this.candidateFile, null);
-    const candidate = stored && !sameRuntime(stored, selected) ? stored : null;
+    const candidate = stored && !this.host.sameInstall(stored, selected) ? stored : null;
     const affected = this.affected();
+    const target = this.host.target();
     return {
       phase: this.journal.phase,
       currentVersion: selected?.version || null,
-      targetVersion: candidate?.version || this.manifest.version,
-      nodeVersion: candidate?.nodeVersion || this.manifest.nodeVersion,
+      targetVersion: candidate?.version || target.version,
+      nodeVersion: candidate?.nodeVersion || target.nodeVersion,
       candidateReady: !!candidate,
-      updateAvailable: !!candidate || !matchesManifest(selected, this.manifest),
+      updateAvailable: !!candidate || !this.host.current(selected),
       // The owner's agents; temporary team members are counted apart.
       affectedAssistants: affected.agents,
       affectedTeamMembers: affected.teamMembers,
@@ -158,8 +159,8 @@ export class RuntimeUpdates {
         blockerItems: [],
       });
       try {
-        const candidate = await this.install({ dataDir: this.dataDir });
-        if (sameRuntime(candidate, readJSON(this.selection, null))) {
+        const candidate = await this.host.install({ dataDir: this.dataDir });
+        if (this.host.sameInstall(candidate, readJSON(this.selection, null))) {
           // The selected runtime already is the qualified one: nothing to activate.
           fs.rmSync(this.candidateFile, { force: true });
           this.persist("idle");
@@ -189,7 +190,7 @@ export class RuntimeUpdates {
         throw failure("UPDATE_RECOVERY_REQUIRED", 409);
       const candidate = readJSON(this.candidateFile, null);
       const previous = readJSON(this.selection, null);
-      if (!candidate || !previous || sameRuntime(candidate, previous))
+      if (!candidate || !previous || this.host.sameInstall(candidate, previous))
         throw failure("UPDATE_NOT_STAGED", 409);
       // Refuse before maintenance or any copy when the backup cannot fit twice over.
       const estimate = await estimateSnapshotSize(this.paths);
@@ -197,7 +198,7 @@ export class RuntimeUpdates {
         this.persist(this.journal.phase, { diagnostic: "INSUFFICIENT_SPACE" });
         throw failure("INSUFFICIENT_SPACE", 507);
       }
-      const wasRunning = this.runtime.status().availability !== "disabled";
+      const wasRunning = this.host.status().availability !== "disabled";
       const id = randomUUID();
       this.journal = {
         phase: "staged",
@@ -228,10 +229,10 @@ export class RuntimeUpdates {
           await this.maintenance.leave();
           throw failure("UPDATE_BLOCKED", 409);
         }
-        await this.runtime.stop();
+        await this.host.stop();
         stopped = true;
         await this.maintenance.quiesce();
-        await this.runtime.assertStopped?.();
+        await this.host.assertStopped();
         const remaining = await this.maintenance.blockers();
         if (remaining.length) throw failure("UPDATE_BLOCKED", 409);
         this.fence.close();
@@ -258,19 +259,19 @@ export class RuntimeUpdates {
         }
         this.persist("activating", { backup: id });
         durablePrivate(this.selection, candidate);
-        // A new OpenClaw version migrates its stopped state (runtime-doctor.js); a
-        // crash meanwhile restores the snapshot like any unfinished activation.
+        // A new version migrates its stopped state (host.migrate: OpenClaw's Doctor);
+        // a crash meanwhile restores the snapshot like any unfinished activation.
         if (candidate.version !== previous.version) {
           this.persist("migrating");
           // Its identity is durable before it is awaited: a rollback after a crash
-          // stops a Doctor that outlived this process (stopDoctor).
-          await this.migrate(this.paths, candidate, {
+          // stops a migration that outlived this process (host.stopMigration).
+          await this.host.migrate(this.paths, candidate, {
             onSpawn: (doctor) => this.persist("migrating", { doctor }),
           });
           this.persist("migrating", { doctor: null });
         }
         await this.fence.validation(async () => {
-          await this.runtime.start();
+          await this.host.start();
           this.persist("validating");
           await this.maintenance.validate();
         });
@@ -282,7 +283,7 @@ export class RuntimeUpdates {
         this.persist("committed");
         markBackupSuccessful(this.paths, id);
         this.fence.open();
-        if (!wasRunning) await this.runtime.stop();
+        if (!wasRunning) await this.host.stop();
         await this.maintenance.leave();
         this.persist("complete");
         await this.retain();
@@ -323,11 +324,11 @@ export class RuntimeUpdates {
     const journal = this.journal;
     try {
       this.persist("rolling_back");
-      // Nothing may write under the restore: a Doctor left running goes first.
-      await this.stopDoctor(journal.doctor);
-      await this.runtime.stop();
+      // Nothing may write under the restore: a migration left running goes first.
+      await this.host.stopMigration(journal.doctor);
+      await this.host.stop();
       await this.maintenance.quiesce();
-      await this.runtime.assertStopped?.();
+      await this.host.assertStopped();
       let diagnostic = "UPDATE_ROLLED_BACK";
       if (journal.backup) {
         if (journal.backup !== journal.id || !/^[a-f0-9-]{36}$/.test(journal.backup))
@@ -346,15 +347,15 @@ export class RuntimeUpdates {
         // A credential revoked after the backup stays revoked: its key is gone.
         if (restored.credentialsWithheld)
           diagnostic = "UPDATE_ROLLED_BACK_LOGIN_REQUIRED";
-        // Doctor's captures lie beside state/, outside every restored tree.
-        removeMigrationLeftovers(this.paths);
+        // A migration's leftovers lie beside state/, outside every restored tree.
+        this.host.clearMigration(this.paths);
         // Before the Gateway starts on the restored state (MCP OAuth logouts).
         await this.onRolledBack({ createdAt: restored.createdAt });
       }
       this.fence.open();
       durablePrivate(this.selection, journal.previous);
       if (journal.wasRunning) {
-        await this.runtime.start();
+        await this.host.start();
         await this.maintenance.validate();
       }
       this.persist("rollback_committed", { diagnostic });
@@ -362,7 +363,7 @@ export class RuntimeUpdates {
       this.persist("rolled_back");
       await this.retain();
     } catch {
-      await this.runtime.stop();
+      await this.host.stop();
       if (this.journal.phase === "rollback_committed") {
         this.persist("rollback_committed", { diagnostic: "UPDATE_RESUME_REQUIRED" });
         throw failure("UPDATE_RESUME_REQUIRED");
@@ -395,7 +396,7 @@ export class RuntimeUpdates {
       }
       await this.maintenance.enter();
       if (this.journal.invalid || !this.journal.previous || !this.journal.candidate) {
-        await this.runtime.stop();
+        await this.host.stop();
         throw failure("UPDATE_RECOVERY_REQUIRED");
       }
       if (["committed", "rollback_committed"].includes(this.journal.phase)) {
@@ -405,7 +406,7 @@ export class RuntimeUpdates {
           markBackupSuccessful(this.paths, this.journal.backup);
         this.fence.open();
         if (this.journal.wasRunning) {
-          await this.runtime.start();
+          await this.host.start();
           await this.maintenance.validate();
         }
         await this.maintenance.leave();
