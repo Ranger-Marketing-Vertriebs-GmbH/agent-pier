@@ -12,6 +12,7 @@
  * header and the JPEG). `status` is "connecting", "live", "stopped" (no browser
  * runs), "blocked" (the page's address is not allowed) or "unavailable".
  */
+import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 import {
   Takeover,
   defaultCdpInput,
@@ -19,7 +20,6 @@ import {
   leaseMs,
   warnMs,
 } from "./browser-takeover.js";
-import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 
 const screencastOptions = { maxWidth: 1280, maxHeight: 1280, quality: 60 };
 // Viewers of one agent's browser at once (several tabs and devices of the owner).
@@ -230,8 +230,27 @@ class LiveStream {
     this.sent = text;
     for (const { viewer } of this.viewers) viewer.state(snapshot);
   }
+  // The agent watched, whose runtime runs its browser (a Hermes agent's own set).
+  agent() {
+    try {
+      return this.live.browsers.store?.getAssistant(this.id) ?? null;
+    } catch {
+      return null;
+    }
+  }
+  // Its browser sub-port and whether that runtime takes calls (AgentBrowsers).
+  port() {
+    const { browsers, runtime } = this.live;
+    return browsers.port
+      ? browsers.port(this.agent())
+      : runtimeFor(null, runtime).browser;
+  }
+  ready() {
+    const { browsers, runtime } = this.live;
+    return browsers.ready ? browsers.ready(this.agent()) : hostReady(runtime);
+  }
   request(method, path, body) {
-    return runtimeFor(null, this.live.runtime).browser.request({
+    return this.port().request({
       method,
       path,
       query: { profile: this.profile },
@@ -260,7 +279,7 @@ class LiveStream {
     this.busy = true;
     this.again = false;
     try {
-      const ready = hostReady(this.live.runtime);
+      const ready = this.ready();
       const view = ready ? this.live.browsers.viewProfile(this.id) : null;
       if (!view) {
         this.disconnect();
@@ -336,7 +355,7 @@ class LiveStream {
       ...(targetId ? { targetId } : {}),
     });
     if (this.stopped || !this.viewers.size || typeof ticket?.wsPath !== "string") return;
-    const ws = runtimeFor(null, this.live.runtime).browser.openStream({
+    const ws = this.port().openStream({
       path: ticket.wsPath,
     });
     this.upstream = ws;

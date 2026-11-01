@@ -184,9 +184,10 @@ test("runtimeDetails names the runtime, its version and its capabilities", () =>
   assert.equal(hermes.version, null);
   assert.deepEqual(hermes.capabilities.routines, { available: true });
   assert.deepEqual(hermes.capabilities.skills, { available: true });
-  assert.deepEqual(hermes.capabilities.browser, {
+  assert.deepEqual(hermes.capabilities.browser, { available: true });
+  assert.deepEqual(hermes.capabilities.advancedSettings, {
     available: false,
-    reason: "hermesNotYetSupported",
+    reason: "advancedSettingsUnsupported",
   });
   // A stopped host has no running version; a stand-in without status none either.
   assert.equal(runtimeDetails(null, supervisor(null)).version, null);

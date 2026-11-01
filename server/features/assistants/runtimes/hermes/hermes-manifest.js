@@ -7,7 +7,9 @@ import { fileURLToPath } from "node:url";
 // pyproject.toml and uv.lock inside it, the extras installed, uv's version with the
 // SHA-256 of each release archive, and the CPython version uv installs. uv verifies
 // every wheel against the hashes in uv.lock and its managed CPython download against
-// the checksums built into the pinned uv release.
+// the checksums built into the pinned uv release. `agentBrowser` is the agent-browser
+// release Hermes's own package lock (pm/lock.json) pins, with its npm archive and
+// SHA-256: Hermes's browser tools run it against the Chromium AgentPier starts.
 export const hermesManifestFile = fileURLToPath(
   new URL("./hermes-manifest.json", import.meta.url),
 );
@@ -47,13 +49,18 @@ export function validHermesManifest(manifest) {
     Object.keys(m.uvChecksums || {})
       .sort()
       .join() !== Object.keys(uvTargets).sort().join() ||
-    !Object.values(m.uvChecksums).every((v) => sha256.test(v))
+    !Object.values(m.uvChecksums).every((v) => sha256.test(v)) ||
+    !exact.test(m.agentBrowser?.version || "") ||
+    m.agentBrowser.url !==
+      `https://registry.npmjs.org/agent-browser/-/agent-browser-${m.agentBrowser.version}.tgz` ||
+    !sha256.test(m.agentBrowser.sha256 || "")
   )
     throw Error("Invalid Hermes runtime manifest.");
   return Object.freeze({
     ...m,
     extras: Object.freeze([...m.extras]),
     uvChecksums: Object.freeze({ ...m.uvChecksums }),
+    agentBrowser: Object.freeze({ ...m.agentBrowser }),
   });
 }
 

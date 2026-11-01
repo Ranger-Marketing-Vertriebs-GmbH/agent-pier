@@ -160,6 +160,49 @@ export async function hermesIdentityCheck(
   return found;
 }
 
+/**
+ * Puts the agent-browser binary the manifest pins into the installation's `tools/`
+ * (hermesExecutables `agentBrowser`), on Hermes's PATH: its npm archive, checked
+ * against the pinned SHA-256, holds one native binary per platform. Hermes's browser
+ * tools find it there (tools/browser_tool_install.py `_find_agent_browser`), so they
+ * never install it, nor the Chromium it would bring, at run time. Idempotent: a
+ * matching binary stays.
+ */
+export async function installAgentBrowser(
+  directory,
+  { manifest, target, download, run, scratch },
+) {
+  const { tools, agentBrowser } = hermesExecutables(directory);
+  const marker = path.join(tools, "agent-browser.json");
+  if (
+    fs.existsSync(agentBrowser) &&
+    readJSON(marker, null)?.sha256 === manifest.agentBrowser.sha256
+  )
+    return;
+  const bytes = await download(manifest.agentBrowser.url);
+  sha256(bytes, manifest.agentBrowser.sha256);
+  const archive = path.join(scratch, `${randomUUID()}.tgz`);
+  const unpacked = privateFolder(path.join(scratch, `agent-browser-${randomUUID()}`));
+  fs.writeFileSync(archive, bytes, { mode: 0o600 });
+  const member = `package/bin/agent-browser-${target}`;
+  await run("tar", ["-xzf", archive, "-C", unpacked, member], { timeout: 300000 });
+  const binary = path.join(unpacked, member);
+  regular(binary);
+  privateFolder(tools);
+  fs.copyFileSync(binary, agentBrowser);
+  fs.chmodSync(agentBrowser, 0o755);
+  writePrivate(marker, {
+    version: manifest.agentBrowser.version,
+    sha256: manifest.agentBrowser.sha256,
+  });
+}
+
+/** Whether the installation in `directory` holds the agent-browser `manifest` pins. */
+export const hasAgentBrowser = (directory, manifest = hermesManifest) =>
+  fs.existsSync(hermesExecutables(directory).agentBrowser) &&
+  readJSON(path.join(hermesExecutables(directory).tools, "agent-browser.json"), null)
+    ?.sha256 === manifest.agentBrowser.sha256;
+
 async function install({
   dataDir,
   platform = process.platform,
@@ -183,6 +226,26 @@ async function install({
       pythonVersion: manifest.pythonVersion,
       uvChecksum: manifest.uvChecksums[target],
     });
+    // An installation from before the browser gets its agent-browser now.
+    if (!hasAgentBrowser(directory, manifest)) {
+      const scratch = privateFolder(path.join(paths.tmp, `.install-${randomUUID()}`));
+      try {
+        await installAgentBrowser(directory, {
+          manifest,
+          target,
+          download,
+          scratch,
+          run: (file, args, options) =>
+            execute(file, args, { cwd: scratch, maxBuffer: 1024 * 1024, ...options }),
+        });
+      } catch (error) {
+        if (!error.code || !/^HERMES_/.test(error.code))
+          error.code = "HERMES_INSTALL_FAILED";
+        throw error;
+      } finally {
+        fs.rmSync(scratch, { recursive: true, force: true });
+      }
+    }
     return record;
   }
   // uv's environment holds absolute paths, so it is built in place; the receipt is
@@ -250,6 +313,7 @@ async function install({
     executable(record.pythonPath);
     executable(record.hermesPath);
     await hermesIdentityCheck(record, { scratch, execute, manifest });
+    await installAgentBrowser(directory, { manifest, target, download, run, scratch });
     writePrivate(receiptFile, {
       commit: manifest.commit,
       archiveSha256: manifest.archiveSha256,

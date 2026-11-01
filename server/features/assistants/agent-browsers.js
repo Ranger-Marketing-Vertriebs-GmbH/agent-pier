@@ -13,7 +13,7 @@ import {
   memberSlotName,
 } from "./browser-profile-names.js";
 import { BrowserWindowKeeper } from "./browser-window-keeper.js";
-import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
+import { hostReady, ownProcess, runtimeFor } from "./runtimes/runtime-for.js";
 
 export const visibleBrowserLimit = 3;
 
@@ -105,29 +105,62 @@ export class AgentBrowsers {
     clearInterval(this.timer);
     this.forget();
   }
-  /** The Gateway went away: its browsers went with it. */
+  /** The Gateway went away: its browsers went with it (a Hermes agent's stay). */
   forget() {
-    const had = this.running.size > 0;
-    for (const entry of this.running.values()) entry.keeper?.close();
-    this.running.clear();
+    let had = false;
+    for (const [name, entry] of [...this.running])
+      if (!entry.hermes) {
+        entry.keeper?.close();
+        this.running.delete(name);
+        had = true;
+      }
     if (had) this.onChange();
   }
+  /**
+   * Every profile by name: OpenClaw's compiled ones, and the own profile of each
+   * Hermes agent with the browser, whose Chromium AgentPier runs itself
+   * (runtimes/hermes/hermes-browser.js) once its port is chosen (`hermes: true`).
+   */
   profiles() {
-    return this.runtime?.webTools?.browserProfiles || {};
+    const profiles = { ...this.runtime?.webTools?.browserProfiles };
+    for (const assistant of this.store?.listAssistants?.() || []) {
+      const name = agentProfileName(assistant.id);
+      if (!ownProcess(assistant) || assistant.archivedAt || !name) continue;
+      if (!personalEligible(assistant) || inheritsFromLead(assistant)) continue;
+      if (!personalCapabilities(assistant).browser) continue;
+      const own = this.port(assistant).profile?.();
+      if (Number.isSafeInteger(own?.cdpPort))
+        profiles[name] = { ...own, agentId: assistant.id, hermes: true };
+    }
+    return profiles;
   }
   browserRoot() {
     return path.join(this.runtime.paths.state, "browser");
   }
-  /** The profile directory OpenClaw keeps for `name`. */
+  /** The profile directory OpenClaw (or AgentPier, for a Hermes agent) keeps for `name`. */
   profileDir(name) {
-    return path.join(this.browserRoot(), name);
+    const entry = this.runtime?.webTools?.browserProfiles?.[name]
+      ? null
+      : this.profiles()[name];
+    return entry?.directory || path.join(this.browserRoot(), name);
   }
-  ready() {
-    return hostReady(this.runtime);
+  /** Whether the runtime of `assistant` (OpenClaw's without one) takes calls. */
+  ready(assistant = null) {
+    return hostReady(this.runtime, assistant);
   }
-  // The browser sub-port of the agents' runtime, read at each call.
-  port() {
-    return runtimeFor(null, this.runtime).browser;
+  // The browser sub-port of `assistant`'s runtime (OpenClaw's without one).
+  port(assistant = null) {
+    return runtimeFor(assistant, this.runtime).browser;
+  }
+  // The agent a profile belongs to, for a Hermes agent's own profile; else null.
+  owner(name) {
+    const entry = this.profiles()[name];
+    if (!entry?.hermes) return null;
+    try {
+      return this.store.getAssistant(entry.agentId);
+    } catch {
+      return null;
+    }
   }
   /** The bridge's answer for a browser call: `{ allow, profile }` or `{ allow, reason }`. */
   async policy(input) {
@@ -145,10 +178,10 @@ export class AgentBrowsers {
       .trim()
       .toLowerCase();
     const deny = (reason) => ({ allow: false, reason });
-    if (!this.ready()) return deny("unavailable");
     const assistant = this.store
       .listAssistants()
       .find((a) => a.runtimeAgentId === input.agentId);
+    if (!this.ready(assistant || null)) return deny("unavailable");
     if (!assistant || !personalCapabilities(assistant).browser) return deny("notGranted");
     // Copying cookies from a system browser profile is never an agent's call.
     if (action === "importprofile") return deny("importBlocked");
@@ -170,11 +203,23 @@ export class AgentBrowsers {
       this.release(name);
       return { allow: true, profile: name };
     }
-    if (current) current.lastUse = this.now();
+    if (current && !entry.hermes) current.lastUse = this.now();
     else if (!nonLaunching.has(action)) {
       const reason = await this.admit(name, entry, assistant.id);
       if (reason) return deny(reason);
     }
+    // AgentPier launches a Hermes agent's Chromium itself before Hermes attaches.
+    if (entry.hermes)
+      try {
+        await this.port(assistant).request({
+          method: "POST",
+          path: "/start",
+          query: { profile: name },
+        });
+      } catch {
+        this.release(name);
+        return deny("unavailable");
+      }
     return { allow: true, profile: name };
   }
   /** Room and tracking for a browser about to launch; a refusal's reason or null. */
@@ -235,15 +280,15 @@ export class AgentBrowsers {
   }
   /** The owner starts the agent's browser from its live view, within the limits. */
   async ownerStart(id) {
-    if (!this.ready()) throw assistantProblem("unavailable", 409);
     const assistant = this.store.getAssistant(id);
+    if (!this.ready(assistant)) throw assistantProblem("unavailable", 409);
     if (!personalCapabilities(assistant).browser) throw assistantProblem("invalid");
     const name = this.profileOf(assistant);
     if (!name) throw assistantProblem("browserUnavailable", 409);
     const reason = await this.admit(name, this.profiles()[name], id);
     if (reason) throw assistantProblem("browserVisibleLimit", 409);
     // A cold launch takes about ten seconds, beyond the client's default budget.
-    await this.port().request({
+    await this.port(assistant).request({
       method: "POST",
       path: "/start",
       query: { profile: name },
@@ -256,11 +301,12 @@ export class AgentBrowsers {
    * its open tabs close, its profile stays, and the agent's next call starts it again.
    */
   async ownerStop(id) {
-    if (!this.ready()) throw assistantProblem("unavailable", 409);
+    const assistant = this.store.getAssistant(id);
+    if (!this.ready(assistant)) throw assistantProblem("unavailable", 409);
     const view = this.viewProfile(id);
     if (!view) throw assistantProblem("invalid");
     // Unlike the idle stop, a failure reaches the owner and the browser stays tracked.
-    await this.port().request({
+    await this.port(assistant).request({
       method: "POST",
       path: "/stop",
       query: { profile: view.name },
@@ -339,7 +385,12 @@ export class AgentBrowsers {
       current.lastUse = this.now();
       return;
     }
-    const record = { lastUse: this.now(), headless: entry.headless, assistantId };
+    const record = {
+      lastUse: this.now(),
+      headless: entry.headless,
+      assistantId,
+      hermes: !!entry.hermes,
+    };
     record.keeper = this.keeper(entry.cdpPort, {
       windows: !entry.headless,
       // A browser that ended (stopped elsewhere, crashed, never came up) is gone.
@@ -360,9 +411,10 @@ export class AgentBrowsers {
   }
   /** Stops the Gateway's browser for `name`; a failure leaves nothing running here. */
   async stop(name) {
+    const owner = this.owner(name);
     this.release(name);
-    if (!this.ready()) return;
-    await this.port()
+    if (!this.ready(owner)) return;
+    await this.port(owner)
       .request({ method: "POST", path: "/stop", query: { profile: name } })
       .catch(() => {});
   }

@@ -7,7 +7,7 @@
   "archiveSha256": "147a567a05402c2832ca12d7e0a33f48fc0e7f627018687cbae1f333dafff0c2",
   "pyprojectSha256": "92b3277631a516ad9ad569d839b4433f1f9ea47ceebf0aaeb7d7a5358bdecae2",
   "uvLockSha256": "97367c6bf21aa3711bae5aa0d0662d9a68585a03a2a9d11cd9b17393435c4f91",
-  "extras": ["messaging"],
+  "extras": ["messaging", "mcp"],
   "pythonVersion": "3.14.10",
   "uvVersion": "0.13.6",
   "uvChecksums": {
@@ -15,5 +15,10 @@
     "darwin-x64": "63ba17fdda55ad1a230d4b37fc6017ffa10c23688c83818bd3bfdf914c652a02",
     "linux-arm64": "229e194255c7958d86d56e8790d969a6f74736592133f0dfd0076f754c642c1d",
     "linux-x64": "f29c3e94ffabd7e6f3ba521dba169a9b7ec12100bf3257087f0f24f6123f3645"
+  },
+  "agentBrowser": {
+    "version": "0.26.0",
+    "url": "https://registry.npmjs.org/agent-browser/-/agent-browser-0.26.0.tgz",
+    "sha256": "8a48cf4110d7dc2c12c1c4d6d25e0babdfa31604b537f05df0dc835fe2f854bf"
   }
 }

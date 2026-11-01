@@ -50,10 +50,24 @@ export function hermesAgentFleet(supervisor, { dataDir, store }) {
 /**
  * What a Hermes agent's apply reads beside its record (AssistantConfig
  * applyOwnProcess): the team bridge its team plugin calls, started for it when the
- * OpenClaw start has not yet (TeamBridge.start is idempotent); none while it cannot.
+ * OpenClaw start has not yet (TeamBridge.start is idempotent), none while it cannot;
+ * and the browser app AgentPier launches its Chromium with, whether that app may
+ * open a window, and the owner's private-network setting (web-tools-changes.js).
  */
-export const hermesApplyWiring = ({ bridge }) => ({
-  hermesInputs: async () => ({ connection: await bridge.start().catch(() => null) }),
+export const hermesApplyWiring = ({ bridge, webTools }) => ({
+  hermesInputs: async () => {
+    const detected = webTools?.detect?.();
+    return {
+      connection: await bridge.start().catch(() => null),
+      browser: detected?.available
+        ? {
+            executablePath: detected.executablePath,
+            visible: detected.visible?.available === true,
+            allowPrivateNetwork: webTools.network().allowPrivateNetwork === true,
+          }
+        : null,
+    };
+  },
 });
 
 const stableCode = (error, fallback) =>

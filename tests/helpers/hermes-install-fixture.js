@@ -47,6 +47,11 @@ export function hermesInstallFixture(
     "hermes_cli/__init__.py": `__release_date__ = "${releaseDate}"\n`,
   });
   const uv = tarball(root, "uv-fake", { uv: "#!/bin/sh\n", uvx: "#!/bin/sh\n" });
+  // agent-browser's npm archive: one binary per platform below package/bin/.
+  const agentBrowser = tarball(root, "package", {
+    "bin/agent-browser-linux-x64": "#!/bin/sh\necho agent-browser\n",
+    "bin/agent-browser-darwin-arm64": "#!/bin/sh\necho agent-browser\n",
+  });
   // A pin of a bare commit: the shipped release tag names another one.
   const { tag: _tag, ...shipped } = hermesManifest;
   const manifest = validHermesManifest({
@@ -59,8 +64,12 @@ export function hermesInstallFixture(
     pyprojectSha256: sha(Buffer.from(pyproject)),
     uvLockSha256: sha(Buffer.from(lock)),
     uvChecksums: Object.fromEntries(Object.keys(uvTargets).map((key) => [key, sha(uv)])),
+    agentBrowser: { ...shipped.agentBrowser, sha256: sha(agentBrowser) },
   });
-  const files = new Map([[manifest.archiveUrl, source]]);
+  const files = new Map([
+    [manifest.archiveUrl, source],
+    [manifest.agentBrowser.url, agentBrowser],
+  ]);
   for (const target of Object.keys(uvTargets))
     files.set(uvArchiveUrl(manifest, target), uv);
   const tampered = new Map();

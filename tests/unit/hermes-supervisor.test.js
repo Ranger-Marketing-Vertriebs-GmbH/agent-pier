@@ -61,6 +61,8 @@ test("a start runs the foreground gateway and the RPC bridge in a private enviro
     start.env.PATH,
     [
       path.dirname(fake.runtime.pythonPath),
+      // The installation's tools/ with agent-browser (hermes-install.js).
+      path.join(fake.runtime.directory, "tools"),
       "/agentpier/tools/bin",
       "/usr/bin",
       "/bin",

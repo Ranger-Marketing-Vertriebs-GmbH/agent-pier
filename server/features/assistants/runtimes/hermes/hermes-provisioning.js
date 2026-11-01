@@ -5,6 +5,7 @@ import { privateFolder } from "../../runtime-paths.js";
 import { hermesManifest } from "./hermes-manifest.js";
 import {
   ensureHermesRuntime,
+  hasAgentBrowser,
   sameHermesRuntime,
   shippedHermesRuntime,
   stageHermesRuntime,
@@ -62,16 +63,18 @@ export const hermesRunnable = (dataDir) =>
 /**
  * True when Hermes is enabled and nothing selected or staged is the pinned runtime
  * this AgentPier ships: a fresh opt-in without an installation, or an AgentPier
- * update that pins another Hermes. Never creates storage.
+ * update that pins another Hermes; or when the pinned one lacks its agent-browser.
+ * Never creates storage.
  */
 export function hermesStagingDue(dataDir, manifest = hermesManifest) {
   if (!hermesEnabled(dataDir)) return false;
   if (!fs.existsSync(path.join(dataDir, "assistants"))) return true;
   const { selected, candidate } = records(dataDir);
-  return (
-    !shippedHermesRuntime(selected, manifest) &&
-    !shippedHermesRuntime(candidate, manifest)
-  );
+  // The pinned release installed before the browser lacks its agent-browser: the
+  // staging adds it in place (hermes-install.js installAgentBrowser).
+  if (shippedHermesRuntime(selected, manifest))
+    return !hasAgentBrowser(selected.directory, manifest);
+  return !shippedHermesRuntime(candidate, manifest);
 }
 
 /**

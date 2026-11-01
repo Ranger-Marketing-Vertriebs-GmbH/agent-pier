@@ -84,13 +84,17 @@ test("the runtime composes host, sessions, events, approvals, routines and the c
     "channels",
     "channelBots",
     "everyCommandApproval",
+    // On the Chromium AgentPier starts for the agent (hermes-browser.js).
+    "browser",
   ])
     assert.equal(capabilities[name].available, true, name);
-  for (const name of ["browser"])
-    assert.deepEqual(capabilities[name], {
-      available: false,
-      reason: "hermesNotYetSupported",
-    });
+  // Every sub-port is served; only advanced settings stay Hermes's gap.
+  for (const [name, capability] of Object.entries(capabilities))
+    if (name !== "advancedSettings") assert.equal(capability.available, true, name);
+  assert.deepEqual(capabilities.advancedSettings, {
+    available: false,
+    reason: "advancedSettingsUnsupported",
+  });
   // Unreachable while stopped, as every runtime's sub-ports are.
   await assert.rejects(
     runtime.sessions.create({ agentId: "agent-1" }),

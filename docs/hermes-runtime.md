@@ -121,10 +121,10 @@ their dangerous commands reach the owner through the session's approval queue.
 
 `agent.disabled_toolsets` follows the agent's settings: `memory` (and
 `memory.memory_enabled`) with memory, `file` with memory or shell access, `web` with web
-search or fetch, `vision` with documents and `image_gen` with image creation. `browser`,
-`computer_use` stay off until AgentPier serves them on Hermes; `cronjob`, the agent's own
-Hermes jobs, stays off because AgentPier sets up routines on the same scheduler
-([Routines](#routines)).
+search or fetch, `vision` with documents, `image_gen` with image creation and `browser`
+with the browser ([browser](#browser)). `computer_use` stays off until AgentPier serves
+it on Hermes; `cronjob`, the agent's own Hermes jobs, stays off because AgentPier sets
+up routines on the same scheduler ([Routines](#routines)).
 
 ### Memory and instructions
 
@@ -242,11 +242,11 @@ agent placeholders for OpenClaw's workspace; a Hermes agent's resolved paths dif
 ### Not mapped yet
 
 The compiler names what an agent wants that Hermes does not get yet, so the owner can see
-it: ChatGPT accounts, the browser, MCP servers it cannot compile (`mcp`, `mcpOAuth`),
-assigned skills Hermes cannot offer, PDF reading, the agent's own routine tool (owner
-routines work, [Routines](#routines)), team tools while no team bridge runs, and the
-extra folders on the shell's PATH. The browser follows in step 6 of the ADR's delivery
-order. Hermes has no advanced settings in AgentPier yet: the capability reports
+it: ChatGPT accounts, the browser while AgentPier knows no browser app, MCP servers it
+cannot compile (`mcp`, `mcpOAuth`), assigned skills Hermes cannot offer, PDF reading,
+the agent's own routine tool (owner routines work, [Routines](#routines)), team tools
+while no team bridge runs, and the extra folders on the shell's PATH. Hermes has no
+advanced settings in AgentPier yet: the capability reports
 `advancedSettingsUnsupported`.
 
 ## Teams
@@ -301,6 +301,52 @@ secrets, image and PDF checks have no Hermes counterpart yet, because Hermes age
 have none of those features in AgentPier. A compression that gives a Hermes session a
 new id ends its team tool calls until the chat is opened again.
 
+## Browser
+
+AgentPier starts and owns each Hermes agent's Chromium (`runtimes/hermes/hermes-browser.js`),
+as OpenClaw does for its agents, with the same browser app (`browser-detection.js`):
+the agent's own profile in `<data>/assistants/hermes/home/<agent>/agentpier-browser/`,
+a CDP port on `127.0.0.1` chosen once and kept, headless unless the agent's **Visible
+window** and a separate agent browser app allow a window, and the launch flags of
+OpenClaw's launches (mock keychain, no throttling). The compiled home turns the
+`browser` toolset on with:
+
+| Key                          | Value                                             |
+| ---------------------------- | ------------------------------------------------- |
+| `browser.backend`            | `off`: Hermes's own tools, not Browser Use        |
+| `browser.cdp_url`            | `http://127.0.0.1:<port>` of the agent's browser  |
+| `browser.allow_private_urls` | **Allow private networks for all agent browsers** |
+
+A CDP URL never launches a browser of Hermes's own and skips its Chromium checks and
+installs (`tools/browser_tool_session.py`, `tools/browser_tool_cloud.py`). Hermes's
+browser tools (`browser_navigate`, `browser_snapshot`, `browser_click`, …) run the
+agent-browser binary against that URL; the Hermes installation provisions the release
+Hermes's own package lock pins, so Hermes never installs it at run time
+([installation](assistant-runtime-updates.md#hermes-agent-runtime)). Hermes reads the
+URL at each call and opens one browser session per chat, closed at the end of each
+turn; the browser and its tabs stay.
+
+The team plugin's guard asks before every `browser_*` call
+([teams](#teams)): AgentPier's browser limits (`agent-browsers.js`) admit it, start
+the Chromium if it does not run, and refuse with the OpenClaw guard's reasons (the
+owner holds the browser, three visible browsers are in use, the browser is off). The
+idle stop after 15 minutes, the owner's start and stop, the live view and takeover work
+as on OpenClaw: the browser sub-port speaks the part of OpenClaw's browser control API
+they use (`GET /`, `POST /start`, `POST /stop`, `GET /tabs`, `POST /screencast`), and
+its screencast relays CDP's `Page.startScreencast` frames in OpenClaw's frame format.
+The browser stops with the agent's process set.
+
+Navigation policy: with **Allow private networks for all agent browsers** off, Hermes
+refuses private, loopback and link-local addresses before `browser_navigate`, after a
+redirect, before clicks and typing, and after snapshots (`tools/browser_tool.py`,
+`tools/url_safety.py`); cloud metadata addresses stay blocked even with it on, stricter
+than OpenClaw. Hermes reads the setting at its start; a change reaches the agent with
+its next apply, which restarts its process set. Gaps beside OpenClaw's policy: Hermes
+checks the page's top-level address only, not the requests a page makes, and
+`browser_scroll` is not checked. Temporary team members on Hermes have no browser yet
+(OpenClaw lends them a member slot); a Hermes agent's file uploads in the browser are
+not staged by AgentPier yet.
+
 ## Agents on Hermes
 
 `runtime-for.js` resolves an agent that records `runtime: "hermes"` to its own
@@ -333,8 +379,8 @@ every set reach the chat path and the event hub once (`agentRuntimeEvents`).
 | models                                                      | available (no ChatGPT accounts)     |
 | channels                                                    | available (the owner's Telegram)    |
 | channelBots                                                 | available (Hermes's own adapter)    |
+| browser                                                     | available (AgentPier's Chromium)    |
 | everyCommandApproval                                        | available (unavailable on OpenClaw) |
-| browser                                                     | `hermesNotYetSupported`             |
 | advancedSettings                                            | `advancedSettingsUnsupported`       |
 
 Teams have no capability of their own: a Hermes agent offers them as OpenClaw does.
@@ -545,7 +591,12 @@ previous release (`tests/fixtures/hermes-previous-manifest.json`, made with
 directory and updates an agent between them through AgentPier's Hermes update path: a
 failed validation restores the snapshot and the previous release, the next activation
 commits and the agent's chat is kept; a running turn blocks it until **Pause agents and
-update** stops it. Set `AGENTPIER_HERMES_CONTRACT_RUNTIME` to an installation made by
-`scripts/provision-hermes-contracts.mjs` (its `venv/bin/` holds `python` and
-`hermes`). The tests use a private `HOME` and `HERMES_HOME` and never touch
+update** stops it. The teams contract drives a Hermes lead's team tools (proposal, a
+member provisioned as a Hermes agent, a delegated task) and the guard's refusal of a
+read-only task's write; the browser contract opens a local page in the agent's
+AgentPier-owned Chromium with the installed browser app (skipped, with the reason,
+without one) and reads the live view's frames. Set `AGENTPIER_HERMES_CONTRACT_RUNTIME`
+to an installation made by `scripts/provision-hermes-contracts.mjs` (its `venv/bin/`
+holds `python` and `hermes`, its `tools/` agent-browser). The tests use a private
+`HOME` and `HERMES_HOME` and never touch
 `~/.hermes`.

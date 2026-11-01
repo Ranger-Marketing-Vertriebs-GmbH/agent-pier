@@ -52,12 +52,14 @@ const practicalDefaults = [
 // assigned skills the home offers (skills.js); any other is named as `skills`.
 // `mcp`: the compiled servers (mcp.js), null when the store was not read; a bound
 // server left out is named as `mcp`, an OAuth one as `mcpOAuth`. `team`: the team
-// plugin's files (team-plugin.js), without which team tools are named as `teams`.
-function unsupportedOf(agent, level, model, { placed, mcp, team }) {
+// plugin's files (team-plugin.js), without which team tools are named as `teams`;
+// `browser`: whether the agent browses on AgentPier's Chromium, else a wish for the
+// browser is named.
+function unsupportedOf(agent, level, model, { placed, mcp, team, browser }) {
   const grants = agent.tools.flatMap((grant) => grant.tools || []);
   return [
     ...(model?.unsupported ? [model.unsupported] : []),
-    ...(agent.browser.wanted ? ["browser"] : []),
+    ...(agent.browser.wanted && !browser ? ["browser"] : []),
     ...((mcp ? mcp.skipped.length : agent.mcp.servers.length) ? ["mcp"] : []),
     ...(mcp?.oauth.length ? ["mcpOAuth"] : []),
     ...(agent.skills.assigned.some((name) => !placed.includes(name)) ? ["skills"] : []),
@@ -83,7 +85,8 @@ function unsupportedOf(agent, level, model, { placed, mcp, team }) {
  * folder }` of catalog skills it may offer (skills.js); `mcp`: the MCP store's inputs
  * (the desired state's host `mcp`), without which `mcp_servers` and its secrets in
  * .env stay as they are (mcp.js); `connection`: the team bridge's `{ url, token }`
- * for the team plugin (team-plugin.js).
+ * for the team plugin (team-plugin.js); `browser`: `{ cdpUrl, allowPrivateNetwork }`
+ * of the Chromium AgentPier runs for the agent (hermes-browser.js), or none.
  * Pure: the same inputs yield the same home.
  */
 export function compileHome(
@@ -96,18 +99,22 @@ export function compileHome(
     catalogSkills,
     mcp,
     connection,
+    browser,
   } = {},
 ) {
   const level = shellLevel(agent, strict);
   const skills = skillEntries(agent, { bundled: bundledSkills, catalog: catalogSkills });
   const servers = mcp === undefined ? null : mcpEntries(agent, mcp, { workspace });
   const guard = guardsEveryCommand(level);
-  const team = teamPluginFiles(agent, { connection });
+  // The browser needs the agent's own setting, AgentPier's Chromium and the guard,
+  // which starts that Chromium and pins every call to it.
+  const browsing = !!(agent.browser.wanted && browser?.cdpUrl && connection);
+  const team = teamPluginFiles(agent, { connection, browser: browsing });
   const model = agent.model ? modelSection(agent.model) : null;
   // The agent's own bot, when the desired state knows it (an apply, not a bare start).
   const bot = agent.channelBot !== undefined ? channelBotHome(agent) : null;
   const toolsets = [
-    ...disabledToolsets(agent, level),
+    ...disabledToolsets(agent, level, { browser: browsing }),
     ...(bot?.senders ? senderLockedToolsets : []),
   ];
   const plugins = [
@@ -129,6 +136,18 @@ export function compileHome(
     // OpenClaw offers them, and the instructions name them directly.
     ...(team && teamTools(agent).length
       ? [[["tools", "tool_search", "enabled"], "off"]]
+      : []),
+    // Hermes's own browser tools (backend "off": not Browser Use) on AgentPier's
+    // Chromium: a CDP URL never launches a browser of Hermes's own
+    // (tools/browser_tool_session.py). Private and loopback addresses follow the
+    // owner's browser network setting, as on OpenClaw; cloud metadata addresses stay
+    // blocked either way (tools/url_safety.py).
+    ...(browsing
+      ? [
+          [["browser", "backend"], "off"],
+          [["browser", "cdp_url"], browser.cdpUrl],
+          [["browser", "allow_private_urls"], browser.allowPrivateNetwork === true],
+        ]
       : []),
     [["memory", "memory_enabled"], agent.memory],
     [["memory", "user_profile_enabled"], agent.memory],
@@ -180,7 +199,12 @@ export function compileHome(
     config: Object.freeze(config),
     env: Object.freeze(env),
     unsupported: Object.freeze(
-      unsupportedOf(agent, level, model, { placed: skills.placed, mcp: servers, team }),
+      unsupportedOf(agent, level, model, {
+        placed: skills.placed,
+        mcp: servers,
+        team,
+        browser: browsing,
+      }),
     ),
   });
 }
