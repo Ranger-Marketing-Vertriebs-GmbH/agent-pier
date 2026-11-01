@@ -45,6 +45,8 @@ export const actions = new Set([
   "mail",
   // The agent's own projects (agent-projects.js); owner turns only.
   "project",
+  // The agent's previews of a server it runs (agent-previews.js); owner turns only.
+  "preview",
   ...memberActions,
 ]);
 // The tool name behind a bridge action: agentpier_ssh, agentpier_team_<action>, ...
@@ -61,6 +63,7 @@ export const bridgeTool = (action) =>
     "coding_session",
     "mail",
     "project",
+    "preview",
   ].includes(action)
     ? `agentpier_${action}`
     : `agentpier_team_${action}`;
@@ -95,6 +98,7 @@ export const personalActions = new Set([
   "ssh_access",
   "coding_session",
   "mail",
+  "preview",
 ]);
 // What a temporary member reaches through its lead: reminders (created on the lead)
 // and SSH on the lead's grants, each only while it inherits them right now.

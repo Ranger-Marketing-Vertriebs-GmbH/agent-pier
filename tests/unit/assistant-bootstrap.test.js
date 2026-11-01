@@ -302,3 +302,36 @@ test("instructions list trusted hosts with their alias and send approval hosts t
       /Plain SSH|ssh proxmox-2/,
     );
 });
+
+test("the preview guidance appears only with the preview tool", () => {
+  const text = assistantBootstrap(assistant, {}, { previews: true });
+  assert.ok(
+    text.includes(
+      "\n## Previews\n- When you start a server for the owner to look at or test, call agentpier_preview (action open) with its port and give the owner the returned link instead of a localhost URL. Bind the server to 127.0.0.1 or localhost. Close it with action close when it is no longer needed.\n",
+    ),
+  );
+  assert.doesNotMatch(assistantBootstrap(assistant, {}), /agentpier_preview/);
+  assert.doesNotMatch(
+    assistantBootstrap(assistant, {}, { previews: false }),
+    /## Previews/,
+  );
+  // Agents never offered the tool get no section, whatever the option says.
+  for (const profile of [
+    { ...assistant, teamMemberId: "m1", lifetime: "task" },
+    { ...assistant, archivedAt: "2026-10-27T00:00:00.000Z" },
+    { ...assistant, userAccess: { mode: "own", members: [], released: [] } },
+  ])
+    assert.doesNotMatch(
+      assistantBootstrap(profile, {}, { previews: true }),
+      /## Previews/,
+    );
+  // A permanent member holds the tool and gets the section.
+  assert.match(
+    assistantBootstrap(
+      { ...assistant, teamMemberId: "m1", lifetime: "permanent" },
+      {},
+      { previews: true },
+    ),
+    /## Previews/,
+  );
+});

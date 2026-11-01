@@ -31,4 +31,7 @@ export const previews = {
       `The preview “${label}” stays open. Reload this page once the server is running again.`,
     unauthorized: "Sign-in to AgentPier required.",
   },
+  telegram: {
+    opened: (agent, label, url) => `${agent} opened the preview ${label}: ${url}`,
+  },
 };

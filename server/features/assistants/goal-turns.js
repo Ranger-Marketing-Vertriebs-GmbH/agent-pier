@@ -58,6 +58,11 @@ export function mayCreateProjects(agent, senderFacing = false) {
   return goalAgent(agent) && !agent.teamMemberId && !senderFacing;
 }
 
+/** Own agents and permanent members open previews; user and sender-facing agents never. */
+export function mayOpenPreviews(agent, senderFacing = false) {
+  return goalAgent(agent) && !senderFacing;
+}
+
 export function goalChat(agent, conversation) {
   return (
     goalAgent(agent) &&

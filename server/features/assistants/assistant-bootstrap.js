@@ -18,7 +18,7 @@ import {
   personalCapabilities,
 } from "./native-capabilities.js";
 import { teamGuidance } from "./team-guidance.js";
-import { goalAgent, mayCreateProjects } from "./goal-turns.js";
+import { goalAgent, mayCreateProjects, mayOpenPreviews } from "./goal-turns.js";
 import { aliasPattern } from "../ssh/ssh-agent-shared.js";
 
 // Tool texts and this guidance name the owner's settings by their English labels.
@@ -178,6 +178,13 @@ const projectGuidance = [
   "- Share it with your permanent team members with agentpier_team_grant (projects and coding), as with any of your projects.",
 ].join("\n");
 
+// Previews of servers the agent runs (agent-previews.js), while it holds
+// agentpier_preview (own agents and permanent members without a bot for other people).
+const previewGuidance = [
+  "## Previews",
+  "- When you start a server for the owner to look at or test, call agentpier_preview (action open) with its port and give the owner the returned link instead of a localhost URL. Bind the server to 127.0.0.1 or localhost. Close it with action close when it is no longer needed.",
+].join("\n");
+
 // The agent's granted secrets file (agent-secrets.js); names and values stay out.
 const secretsGuidance =
   "- Secrets the owner granted you are in `.agentpier/secrets.env` in your workspace. When a task needs them, load them in the same shell command with `set -a; . .agentpier/secrets.env; set +a`. Never print, log, commit or paste their values.";
@@ -188,7 +195,8 @@ const secretsGuidance =
 // agent receives at least one secret (AgentSecrets.entries). `codingSessions`: the
 // projects it may start coding sessions on, `[{ projectId, name }]`. `mailAccounts`:
 // its granted email accounts, `[{ accountId, name }]`. `projectCreation`: it holds
-// agentpier_project. `plainSsh`: `{ hosts: [{ name, alias }] }` of its SSH agent.
+// agentpier_project; `previews`: it holds agentpier_preview. `plainSsh`:
+// `{ hosts: [{ name, alias }] }` of its SSH agent.
 export function assistantBootstrap(
   assistant,
   display = {},
@@ -202,6 +210,7 @@ export function assistantBootstrap(
     codingSessions = [],
     mailAccounts = [],
     projectCreation = false,
+    previews = false,
     plainSsh = null,
   } = {},
 ) {
@@ -243,6 +252,7 @@ export function assistantBootstrap(
       : []),
     ...(mailAccounts.length && goalAgent(assistant) ? [mailGuidance(mailAccounts)] : []),
     ...(projectCreation && mayCreateProjects(assistant) ? [projectGuidance] : []),
+    ...(previews && mayOpenPreviews(assistant) ? [previewGuidance] : []),
     ...(personalCapabilities(assistant).browser ? [uploadGuidance] : []),
     // While the agent can create images: the capability with a ready ChatGPT account.
     ...(images && personalCapabilities(assistant).createImages

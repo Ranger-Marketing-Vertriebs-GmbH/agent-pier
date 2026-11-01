@@ -38,7 +38,8 @@
       "agentpier_ssh_access",
       "agentpier_coding_session",
       "agentpier_mail",
-      "agentpier_project"
+      "agentpier_project",
+      "agentpier_preview"
     ]
   },
   "configSchema": {
