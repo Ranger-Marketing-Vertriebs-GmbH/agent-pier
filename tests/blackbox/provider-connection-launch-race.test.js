@@ -22,7 +22,9 @@ const mutations = [
     expectedKey: "fixture-rotated-key",
   },
 ];
-async function fixture(t, fail = false) {
+// Per-test hang guard: the fixture awaits real events, never a wall-clock budget.
+const guard = { timeout: 30000 };
+async function fixture(t, fail = false, arrivalDelayMs = 0) {
   const f = await applicationFixture(t);
   const created = await f.request("/api/provider-connections", {
     method: "POST",
@@ -38,56 +40,94 @@ async function fixture(t, fail = false) {
     assert.equal(launch.env.ANTHROPIC_AUTH_TOKEN, secret);
     return { ...launch, command: "/bin/sh", args: ["-c", "sleep 30"] };
   };
-  let entered = false,
-    release;
+  let release, enter;
+  const entered = new Promise((resolve) => {
+    enter = resolve;
+  });
   const gate = new Promise((resolve) => {
     release = resolve;
   });
   const prepare = f.application.github.prepare.bind(f.application.github);
   f.application.github.prepare = async (input) => {
-    entered = true;
+    enter();
     await gate;
     if (fail)
       throw Object.assign(Error("Fixture launch preparation failed."), { status: 503 });
     return prepare(input);
   };
-  const starting = f.request("/api/sessions", {
-    method: "POST",
-    body: {
+  const body = {
+    tool: "claude",
+    providerConnectionId: connection.id,
+    providerModelId: f.application.providerCatalog.list({
+      providerId: "openrouter",
       tool: "claude",
-      providerConnectionId: connection.id,
-      providerModelId: f.application.providerCatalog.list({
-        providerId: "openrouter",
-        tool: "claude",
-      })[0].modelId,
-      cwd: f.home,
-    },
-  });
+    })[0].modelId,
+    cwd: f.home,
+  };
+  // A loaded host can delay the launch request arbitrarily; the delay forces that case.
+  const starting = (async () => {
+    if (arrivalDelayMs)
+      await new Promise((resolve) => setTimeout(resolve, arrivalDelayMs));
+    return f.request("/api/sessions", { method: "POST", body });
+  })();
   return {
     ...f,
     connection,
     release,
     starting,
     async ready() {
-      const deadline = Date.now() + 3000;
-      while (!entered && Date.now() < deadline)
-        await new Promise((resolve) => setTimeout(resolve, 10));
-      assert.equal(entered, true, "launch reached the controlled preparation boundary");
+      await entered;
     },
   };
 }
 for (const mutation of mutations)
-  test(`central connection ${mutation.name} is rejected until native launch finishes`, async (t) => {
-    const f = await fixture(t);
-    const endpoint = `/api/provider-connections/${f.connection.id}`;
-    try {
-      await f.ready();
-      const rejected = await f.request(endpoint, {
+  test(
+    `central connection ${mutation.name} is rejected until native launch finishes`,
+    guard,
+    async (t) => {
+      const f = await fixture(t);
+      const endpoint = `/api/provider-connections/${f.connection.id}`;
+      try {
+        await f.ready();
+        const rejected = await f.request(endpoint, {
+          method: mutation.method,
+          body: mutation.body,
+        });
+        assert.equal(rejected.status, 409);
+        assert.equal((await rejected.text()).includes(secret), false);
+        assert.equal(
+          f.application.providerConnections.secret(f.connection.id).apiKey,
+          secret,
+        );
+      } finally {
+        f.release();
+        await f.starting;
+      }
+      const launched = await f.starting;
+      assert.equal(launched.status, 201);
+      const session = await launched.json();
+      assert.equal(session.access.providerConnectionId, f.connection.id);
+      const accepted = await f.request(endpoint, {
         method: mutation.method,
         body: mutation.body,
       });
-      assert.equal(rejected.status, 409);
-      assert.equal((await rejected.text()).includes(secret), false);
+      assert.equal(accepted.status, mutation.status);
+      assert.equal(
+        f.application.providerConnections.secret(f.connection.id)?.apiKey ?? null,
+        mutation.expectedKey,
+      );
+    },
+  );
+
+test(
+  "failed native preparation releases the central connection mutation lease",
+  guard,
+  async (t) => {
+    const f = await fixture(t, true);
+    const endpoint = `/api/provider-connections/${f.connection.id}`;
+    try {
+      await f.ready();
+      assert.equal((await f.request(endpoint, { method: "DELETE" })).status, 409);
       assert.equal(
         f.application.providerConnections.secret(f.connection.id).apiKey,
         secret,
@@ -96,36 +136,25 @@ for (const mutation of mutations)
       f.release();
       await f.starting;
     }
-    const launched = await f.starting;
-    assert.equal(launched.status, 201);
-    const session = await launched.json();
-    assert.equal(session.access.providerConnectionId, f.connection.id);
-    const accepted = await f.request(endpoint, {
-      method: mutation.method,
-      body: mutation.body,
-    });
-    assert.equal(accepted.status, mutation.status);
-    assert.equal(
-      f.application.providerConnections.secret(f.connection.id)?.apiKey ?? null,
-      mutation.expectedKey,
-    );
-  });
+    assert.equal((await f.starting).status, 503);
+    assert.equal((await f.application.sessions.list()).length, 0);
+    assert.equal((await f.request(endpoint, { method: "DELETE" })).status, 204);
+  },
+);
 
-test("failed native preparation releases the central connection mutation lease", async (t) => {
-  const f = await fixture(t, true);
-  const endpoint = `/api/provider-connections/${f.connection.id}`;
-  try {
-    await f.ready();
-    assert.equal((await f.request(endpoint, { method: "DELETE" })).status, 409);
-    assert.equal(
-      f.application.providerConnections.secret(f.connection.id).apiKey,
-      secret,
-    );
-  } finally {
-    f.release();
-    await f.starting;
-  }
-  assert.equal((await f.starting).status, 503);
-  assert.equal((await f.application.sessions.list()).length, 0);
-  assert.equal((await f.request(endpoint, { method: "DELETE" })).status, 204);
-});
+test(
+  "a launch request that arrives late still meets the mutation lease",
+  guard,
+  async (t) => {
+    const f = await fixture(t, false, 3500);
+    const endpoint = `/api/provider-connections/${f.connection.id}`;
+    try {
+      await f.ready();
+      assert.equal((await f.request(endpoint, { method: "DELETE" })).status, 409);
+    } finally {
+      f.release();
+      await f.starting;
+    }
+    assert.equal((await f.starting).status, 201);
+  },
+);
