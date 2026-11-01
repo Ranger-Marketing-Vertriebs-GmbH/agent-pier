@@ -4,8 +4,21 @@ import { portAvailable } from "../pipelines/run-ports.js";
 import { readJSON, writePrivate } from "../../lib/storage.js";
 import { previewError } from "./preview-errors.js";
 
-// The port AgentPier listens on for a slot. Every caller goes through this function.
-export const listenerPort = (slot) => slot;
+// Tailscale Serve owns the slot port on the tailnet and forwards it to this loopback port.
+export const TAILSCALE_LISTENER_OFFSET = 1000;
+
+/**
+ * The port AgentPier listens on for a slot. Every caller goes through this function:
+ * the slot itself, or `slot + offset` while Tailscale Serve fronts the slot.
+ */
+export const listenerPort = (slot, { offset = 0 } = {}) => slot + offset;
+
+/**
+ * The listener offset of a config: Tailscale Serve registrations are active with a remote
+ * URL while network mode is off; network mode and loopback bind the slot itself.
+ */
+export const listenerOffset = (config = {}) =>
+  config.remoteUrl && !config.network?.enabled ? TAILSCALE_LISTENER_OFFSET : 0;
 
 const digest = (key) =>
   createHash("sha256").update(String(key)).digest("hex").slice(0, 16);
@@ -17,8 +30,14 @@ const digest = (key) =>
  * The sticky memory on disk holds only a hash of each key.
  */
 export class PreviewSlots {
-  constructor({ range, probe = portAvailable, file, forbidden = () => new Set() }) {
-    Object.assign(this, { range, probe, file, forbidden });
+  constructor({
+    range,
+    probe = portAvailable,
+    file,
+    forbidden = () => new Set(),
+    offset = 0,
+  }) {
+    Object.assign(this, { range, probe, file, forbidden, offset });
     this.reserved = new Set();
     this.order = this.slots(); // least recently used first
   }
@@ -47,7 +66,7 @@ export class PreviewSlots {
       this.reserved.add(slot);
       let accepted = false;
       try {
-        const free = await this.probe(listenerPort(slot));
+        const free = await this.probe(listenerPort(slot, { offset: this.offset }));
         if (free) this.remember(slot, key);
         accepted = Boolean(free);
       } finally {

@@ -11,7 +11,13 @@ import {
 } from "./preview-config.js";
 import { previewError } from "./preview-errors.js";
 import { createPreviewListener } from "./preview-proxy.js";
-import { listenerPort, PreviewSlots, slotsFile } from "./preview-slots.js";
+import { applyPreviewServe, removePreviewServe, serveView } from "./preview-serve.js";
+import {
+  listenerOffset,
+  listenerPort,
+  PreviewSlots,
+  slotsFile,
+} from "./preview-slots.js";
 import { forbiddenTarget, targetAddress } from "./preview-targets.js";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -19,6 +25,11 @@ const DAY = 24 * 60 * 60 * 1000;
 const controls = /[\u0000-\u001f\u007f]/;
 const invalid = () => previewError("PREVIEW_INVALID_INPUT", 400);
 const iso = (time) => new Date(time).toISOString();
+const noServe = () => ({ registered: [], failed: [], commands: [] });
+const rangeOf = (settings) => ({
+  start: settings.portRangeStart,
+  end: settings.portRangeEnd,
+});
 
 function checkedInput({ owner, port, label, path } = {}) {
   const session =
@@ -104,6 +115,9 @@ export class PreviewService extends EventEmitter {
     this.listeners = new Map(); // slot → listener
     this.binding = new Map(); // slot → bind in flight
     this.slots = null;
+    this.offset = 0; // listenerPort offset of the bound listeners (preview-slots.js)
+    this.serve = noServe(); // Tailscale Serve registrations of the last start
+    this.previousRange = null; // the range a running start replaces
     this.starting = null;
     this.stopped = false;
     this.queue = Promise.resolve();
@@ -181,6 +195,8 @@ export class PreviewService extends EventEmitter {
         await listener.close().catch(() => {});
       }
     const moved = before.portRangeStart !== start || before.portRangeEnd !== end;
+    if (before.enabled && !next.enabled) await this.unregister(rangeOf(before));
+    else if (before.enabled && moved) this.previousRange = rangeOf(before);
     if (!next.enabled || moved) {
       clearInterval(this.timer);
       this.slots = null;
@@ -210,8 +226,7 @@ export class PreviewService extends EventEmitter {
     }
   }
 
-  /** Binds every free slot and starts the idle sweep, once, while enabled. */
-  /** Serialized with open() and configure(), so a settings change never overlaps it. */
+  /** Binds every free slot and starts the idle sweep once while enabled; serialized. */
   start() {
     const run = this.queue.then(() => this.ensureStarted());
     this.queue = run.catch(() => {});
@@ -230,9 +245,19 @@ export class PreviewService extends EventEmitter {
   async run() {
     const settings = this.settings();
     if (!settings.enabled) return;
-    const range = { start: settings.portRangeStart, end: settings.portRangeEnd };
+    const range = rangeOf(settings);
+    const offset = listenerOffset(this.current());
+    if (offset !== this.offset) {
+      // Remote access changed since the last start: rebind at the new listener ports.
+      const stale = [...this.listeners.values()];
+      this.listeners.clear();
+      await Promise.all(stale.map((listener) => listener.close().catch(() => {})));
+      this.offset = offset;
+    }
+    await this.register(range);
     this.slots = new PreviewSlots({
       range,
+      offset,
       // A slot is free when its listener is ours or can be bound now.
       probe: (port) => this.bind(this.slotOf(port)),
       file: slotsFile(this.dataDir),
@@ -251,7 +276,44 @@ export class PreviewService extends EventEmitter {
   }
 
   slotOf(port) {
-    return this.slots.slots().find((slot) => listenerPort(slot) === port);
+    return this.slots.slots().find((slot) => this.portOf(slot) === port);
+  }
+
+  portOf(slot) {
+    return listenerPort(slot, { offset: this.offset });
+  }
+
+  /** With Tailscale, the slot port stays free for tailscaled unless Serve holds it. */
+  async slotFree(slot) {
+    if (!(await this.probe(this.portOf(slot)))) return false;
+    if (!this.offset || this.serve.registered.includes(slot)) return true;
+    return this.probe(slot);
+  }
+
+  /**
+   * The update path: every start registers the range with Tailscale Serve, idempotently,
+   * while a remote URL is set and network mode is off; other modes skip it.
+   */
+  async register(range) {
+    const previousRange = this.previousRange;
+    this.previousRange = null;
+    if (!this.offset || !this.tailscaleRun) return (this.serve = noServe());
+    this.serve = await applyPreviewServe({
+      run: this.tailscaleRun,
+      range,
+      previousRange,
+    });
+  }
+
+  async unregister(range) {
+    this.serve = noServe();
+    if (!listenerOffset(this.current()) || !this.tailscaleRun) return;
+    await removePreviewServe({ run: this.tailscaleRun, range });
+  }
+
+  /** The owner cannot reach a slot that Tailscale Serve does not forward. */
+  unreachable(slot) {
+    return listenerOffset(this.current()) > 0 && !this.serve.registered.includes(slot);
   }
 
   /** Whether the slot has our listener (binding it when the port is free). */
@@ -268,15 +330,18 @@ export class PreviewService extends EventEmitter {
   }
 
   async bindNow(slot) {
-    if (!(await this.probe(listenerPort(slot)))) return false;
+    if (!(await this.slotFree(slot))) return false;
+    const port = this.portOf(slot);
     try {
       const listener = await createPreviewListener({
         slot,
+        port,
         host: this.bindHost(),
         gate: previewGate({
           login: this.identity(),
           effective: this.effective,
           slot,
+          port,
           detected: this.detected(),
         }),
         resolve: (asked) => this.resolve(asked),
@@ -354,12 +419,18 @@ export class PreviewService extends EventEmitter {
     if (!(await this.alive({ owner }))) throw previewError("PREVIEW_NOT_FOUND", 404);
     const key = ownerKey(owner, port);
     let preview = [...this.previews.values()].find((entry) => entry.key === key);
+    if (preview && this.unreachable(preview.slot))
+      throw previewError("PREVIEW_UNAVAILABLE", 503);
     if (preview) {
       Object.assign(preview, { address, usedAt: this.now() });
       if (label !== undefined) preview.label = label;
       if (path !== undefined) preview.path = path;
     } else {
       const slot = await this.slots.allocate({ key: `${owner.project}\0${port}` });
+      if (this.unreachable(slot)) {
+        this.slots.release(slot);
+        throw previewError("PREVIEW_UNAVAILABLE", 503);
+      }
       const time = this.now();
       preview = {
         id: randomUUID(),
@@ -392,7 +463,7 @@ export class PreviewService extends EventEmitter {
   previewUrl({ slot, path = "/" }) {
     const current = this.current();
     let origin = `http://127.0.0.1:${slot}`;
-    if (current.remoteUrl)
+    if (listenerOffset(current))
       origin = `https://${new URL(current.remoteUrl).hostname}:${slot}`;
     else if (current.network?.enabled) {
       const [first] = networkUrls(current.network, slot, this.detected());
@@ -476,10 +547,10 @@ export class PreviewService extends EventEmitter {
       let state = "taken";
       if (used.has(port)) state = "preview";
       else if (this.listeners.has(port)) state = "free";
-      else if (await this.probe(listenerPort(port))) state = "free";
+      else if (await this.slotFree(port)) state = "free";
       slots.push({ port, state });
     }
-    return { settings, previews, slots, serve: null };
+    return { settings, previews, slots, serve: serveView(this.current(), this.serve) };
   }
 
   /** Closes listeners and their sockets; Tailscale Serve registrations stay. */

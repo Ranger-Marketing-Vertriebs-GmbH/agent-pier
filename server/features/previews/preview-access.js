@@ -17,10 +17,13 @@ export const previewConfig = (effective) =>
 /**
  * The trust branch of a preview request, by the same rules as AgentPier's own
  * `authorizeRequest`, with the slot port in place of AgentPier's: throws a 403 refusal.
+ * Loopback names the listener's own `port`; Tailscale and the network name the slot.
  */
-export function previewBranch(req, { slot, effective, detected = noNetwork }) {
+export function previewBranch(
+  req,
+  { slot, port = listenerPort(slot), effective, detected = noNetwork },
+) {
   const current = previewConfig(effective);
-  const port = listenerPort(slot);
   const host = req.headers.host;
   const loopback = loopbacks.includes(req.socket?.remoteAddress);
   const names = Object.keys(req.headers);
@@ -36,7 +39,7 @@ export function previewBranch(req, { slot, effective, detected = noNetwork }) {
   if (
     loopback &&
     current.remoteUrl &&
-    `${new URL(current.remoteUrl).hostname}:${port}` === host
+    `${new URL(current.remoteUrl).hostname}:${slot}` === host
   ) {
     // Funnel and tagged devices carry no identity and stay refused.
     const identity = req.headers["tailscale-user-login"];
@@ -44,7 +47,7 @@ export function previewBranch(req, { slot, effective, detected = noNetwork }) {
     return "tailscale";
   }
   const network = current.network;
-  if (network?.enabled && allowedNetworkHosts(network, port, detected).has(host)) {
+  if (network?.enabled && allowedNetworkHosts(network, slot, detected).has(host)) {
     if (tailscaleMarkers) throw refusal(403, "forbidden");
     return "network";
   }
@@ -68,9 +71,9 @@ export function signInUrl(branch, req, { effective, slot, path = "/" }) {
  * The gate of one slot: the host branch, then an owner session. Returns
  * `{ branch, principal, session }` or throws `{ status, page }`.
  */
-export function previewGate({ login, effective, slot, detected }) {
+export function previewGate({ login, effective, slot, port, detected }) {
   return (req) => {
-    const branch = previewBranch(req, { slot, effective, detected });
+    const branch = previewBranch(req, { slot, port, effective, detected });
     const token = sessionToken(req, login);
     if (!token)
       throw refusal(401, "signIn", {

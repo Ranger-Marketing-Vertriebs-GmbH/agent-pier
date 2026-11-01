@@ -12,6 +12,10 @@ const copy = {
     taken: "Used by another program",
     stop: "Stop",
     save: "Save",
+    notShared: "Not shared: 47101, 47102",
+    shared: "2 ports shared in your tailnet",
+    occupied: /Another Tailscale Serve entry uses 47102/,
+    copyCommands: "Copy commands",
   },
   "de-DE": {
     title: "Vorschauen",
@@ -21,6 +25,10 @@ const copy = {
     taken: "Von einem anderen Programm belegt",
     stop: "Beenden",
     save: "Speichern",
+    notShared: "Nicht freigegeben: 47101, 47102",
+    shared: "2 Ports im Tailnet freigegeben",
+    occupied: /Eine andere Tailscale-Serve-Freigabe nutzt 47102/,
+    copyCommands: "Befehle kopieren",
   },
 };
 
@@ -36,7 +44,12 @@ function view(state) {
           ? "taken"
           : "free",
     });
-  return { settings: state.settings, previews: state.previews, slots, serve: null };
+  return {
+    settings: state.settings,
+    previews: state.previews,
+    slots,
+    serve: state.serve ?? null,
+  };
 }
 
 async function previewsFixture(page, { locked = false } = {}) {
@@ -116,6 +129,40 @@ for (const locale of ["en-GB", "de-DE"])
         ).toBe(true);
       });
     });
+
+const command = "tailscale serve --bg --https=47101 http://127.0.0.1:48101";
+
+for (const locale of ["en-GB", "de-DE"])
+  test.describe(`preview Tailscale state ${locale}`, () => {
+    test.use({ locale });
+    test("shows the shared ports, or the failed ones with the commands to run", async ({
+      page,
+    }) => {
+      const text = copy[locale];
+      const state = await previewsFixture(page);
+      state.settings = { ...settings, enabled: true };
+      state.serve = {
+        registered: [47100],
+        failed: [
+          { port: 47101, reason: "denied" },
+          { port: 47102, reason: "occupied" },
+        ],
+        commands: [command],
+      };
+      await page.goto(baseURL + "/settings/remote");
+      const card = page.locator("article", {
+        has: page.getByRole("heading", { name: text.title, exact: true }),
+      });
+      await expect(card.getByText(text.notShared)).toBeVisible();
+      await expect(card.getByText(text.occupied)).toBeVisible();
+      await expect(card.locator("pre", { hasText: command })).toBeVisible();
+      await expect(card.getByRole("button", { name: text.copyCommands })).toBeVisible();
+      state.serve = { registered: [47100, 47101], failed: [], commands: [] };
+      await page.reload();
+      await expect(card.getByText(text.shared)).toBeVisible();
+      await expect(card.locator("pre")).toHaveCount(0);
+    });
+  });
 
 test.describe("plain network access", () => {
   test.use({ locale: "en-GB" });

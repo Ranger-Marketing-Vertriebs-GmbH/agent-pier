@@ -19,4 +19,17 @@ export const previewCopy = {
   activeTitle: "Aktive Vorschauen",
   saved: "Gespeichert.",
   loading: "Vorschauen werden geladen …",
+  serveTitle: "Tailscale",
+  serveRegistered: (count) =>
+    count === 1
+      ? "1 Port im Tailnet freigegeben"
+      : `${count} Ports im Tailnet freigegeben`,
+  serveFailed: (ports) => `Nicht freigegeben: ${ports}`,
+  serveCommandsHint:
+    "Führe diese Befehle auf dem AgentPier-Rechner aus und schalte Vorschauen danach aus und wieder ein.",
+  serveOccupied: (ports) =>
+    `Eine andere Tailscale-Serve-Freigabe nutzt ${ports}. Wähle einen anderen Portbereich.`,
+  serveNetwork:
+    "Der Netzwerkzugriff ist an: Vorschauen öffnen über die Netzwerkadressen, nicht über Tailscale.",
+  serveCopy: "Befehle kopieren",
 };
