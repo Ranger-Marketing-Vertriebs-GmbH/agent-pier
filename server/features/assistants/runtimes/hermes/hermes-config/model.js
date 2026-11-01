@@ -34,9 +34,30 @@ function keyHeaders(provider) {
 /**
  * Hermes's `model` section and .env secrets for `connection`, or
  * `{ unsupported }` naming why Hermes cannot use it: "modelAccount" for a ChatGPT
- * account (Hermes keeps its own Codex login and rotating refresh token, which
- * AgentPier never shares), "modelProtocol" for a transport other than Chat
- * Completions. Pure.
+ * account, "modelProtocol" for a transport other than Chat Completions. Pure.
+ *
+ * Every endpoint kind AgentPier offers agents (OpenAI, Azure OpenAI, Anthropic's
+ * and other vendors' OpenAI-compatible APIs, Ollama, llama.cpp, LM Studio, …) is a
+ * Chat Completions endpoint (assistant-provider-endpoint.js), compiled as
+ * `provider: custom` with `api_mode: chat_completions`; the explicit mode keeps
+ * Hermes from switching an api.openai.com or `/anthropic` URL to another wire
+ * protocol (agent/agent_init.py `_resolve_api_mode`, `_finalize_routing`). The
+ * endpoint's Chat Completions options need no key in Hermes v0.22.5:
+ * - maxTokensField: Hermes sends no output cap on an agent's turns (the gateway's
+ *   runtime carries no `max_tokens`, agent/transports/chat_completions.py
+ *   `_apply_max_tokens`); where it sends one it picks `max_completion_tokens` for
+ *   api.openai.com, Azure OpenAI and the GPT-4o/4.1/5 and o-series models itself
+ *   (run_agent.py `_max_tokens_param`).
+ * - streamUsage: Hermes asks for usage in the stream (`stream_options`) and repeats
+ *   the request without it for the rest of the session once an endpoint refuses it
+ *   (agent/chat_completion_helpers.py `_rejects_stream_options`).
+ *
+ * A ChatGPT account stays OpenClaw's: its OAuth profile lives in OpenClaw's auth
+ * store, which OpenClaw's Gateway refreshes; OpenAI rotates the refresh token on
+ * each refresh, so a copy in Hermes's home (its `openai-codex` provider refreshes
+ * on its own, hermes_cli/auth_codex.py) would sign one of the two out, and an
+ * access token alone expires without a way to renew it. Hermes agents therefore
+ * cannot choose ChatGPT accounts (assistant-models.js `runtimeAccount`).
  */
 export function modelSection(connection) {
   const provider = connection?.provider;

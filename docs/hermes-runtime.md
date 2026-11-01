@@ -75,9 +75,23 @@ itself, in the approval card.
 | Endpoint with an `api-key` header | the same, plus `extra_headers` referencing the key                     | `AUXILIARY_AGENTPIER_API_KEY` |
 | Local server without a key        | `provider: custom` without `key_env`                                   | none                          |
 | OpenRouter                        | `provider: openrouter`, `default`                                      | `OPENROUTER_API_KEY`          |
-| ChatGPT account                   | removed: not supported on Hermes yet                                   | none                          |
+| ChatGPT account                   | refused: Hermes agents cannot choose one                               | none                          |
 
-`api_mode` is always `chat_completions`. The key never appears in `config.yaml`. Hermes
+Every endpoint kind AgentPier offers agents (OpenAI, Azure OpenAI, Anthropic's and other
+vendors' OpenAI-compatible APIs, Ollama, llama.cpp, LM Studio) is a Chat Completions
+endpoint and compiles to `provider: custom`. `api_mode` is always `chat_completions`, so
+Hermes never switches an `api.openai.com` or `/anthropic` URL to another wire protocol
+(`agent/agent_init.py`). The endpoint's Chat Completions options need no key: Hermes
+sends no output cap on an agent's turn and picks `max_completion_tokens` itself where
+it sends one (`maxTokensField`), and it repeats a stream without `stream_options` once
+an endpoint refuses them (`streamUsage`). A ChatGPT account's OAuth profile stays in
+OpenClaw's store, which OpenClaw refreshes; OpenAI rotates the refresh token, so a copy
+in a Hermes home (Hermes's `openai-codex` provider refreshes on its own) would sign one
+of them out. AgentPier therefore lists ChatGPT accounts unavailable for Hermes agents
+and refuses one (`modelAccountRuntime`). The models sub-port (`hermes-models.js`)
+answers Hermes's model inventory of the home (`model.options`) and no accounts;
+sign-ins stay host-wide on OpenClaw. A model switch is a `config.apply` that restarts
+the agent's process set; AgentPier has no per-chat model. The key never appears in `config.yaml`. Hermes
 strips `AUXILIARY_*_API_KEY` and `OPENROUTER_API_KEY` from every command and process it
 starts, so the agent's own commands do not see the key. A model that accepts images sets
 `agent.image_input_mode: native`.
@@ -262,8 +276,9 @@ every set reach the chat path and the event hub once (`agentRuntimeEvents`).
 | ----------------------------------------------------------- | ----------------------------------- |
 | host, sessions, events, approvals, config, agents, routines | available                           |
 | agentFiles, skills                                          | available                           |
+| models                                                      | available (no ChatGPT accounts)     |
 | everyCommandApproval                                        | available (unavailable on OpenClaw) |
-| browser, models, channels                                   | `hermesNotYetSupported`             |
+| browser, channels                                           | `hermesNotYetSupported`             |
 | advancedSettings                                            | `advancedSettingsUnsupported`       |
 
 ## Routines

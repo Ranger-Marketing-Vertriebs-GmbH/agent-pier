@@ -8,19 +8,21 @@ import { hermesAgentFiles } from "./hermes-files.js";
 import { bundledSkillNames, hermesSkills } from "./hermes-skills.js";
 import { hermesEnvironment } from "./hermes-environment.js";
 import { hermesDeliveries, hermesRoutines } from "./hermes-routines.js";
+import { hermesModels } from "./hermes-models.js";
 import { hermesCompiler, hermesConfigCapabilities } from "./hermes-compiler.js";
 import { hermesError } from "./hermes-rpc-client.js";
 
 // The sub-ports Hermes gets in later delivery steps (ADR 0006): reported, never hidden.
 const later = unavailable("hermesNotYetSupported");
-const laterPorts = ["browser", "models", "channels"];
+const laterPorts = ["browser", "channels"];
 
 /**
  * What a Hermes agent offers (agent-runtime.js RUNTIME_CAPABILITIES): host,
  * sessions, events, approvals, config, agents, agentFiles (its memory,
- * instructions and AGENTS.md, hermes-files.js), skills (hermes-skills.js) and
- * routines (its gateway's cron, hermes-routines.js); every-command approval, which
- * only Hermes has (ADR 0006 decision 5); the sub-ports of later steps report
+ * instructions and AGENTS.md, hermes-files.js), skills (hermes-skills.js),
+ * routines (its gateway's cron, hermes-routines.js) and models (the agent's model
+ * connection, hermes-models.js); every-command approval, which only Hermes has
+ * (ADR 0006 decision 5); the sub-ports of later steps report
  * `hermesNotYetSupported`, advanced settings `advancedSettingsUnsupported`.
  */
 export const hermesCapabilities = Object.freeze({
@@ -138,6 +140,7 @@ export function createHermesRuntime({
         }).PATH.split(":"),
     }),
     routines: hermesRoutines(supervisor, { deliveries }),
+    models: hermesModels(supervisor),
     config: {
       compiler: hermesCompiler,
       async apply({

@@ -20,15 +20,36 @@ export function refuseRuntimeChoice(supervisor, input) {
     throw assistantProblem("hermesUnavailable", 409);
   if (input.shellEveryCommand === true && !ownProcess(input))
     throw assistantProblem("shellEveryCommandUnsupported", 400);
+  refuseModelChoice(input, input.model);
 }
 
-/** Refuses "Every command" for an agent whose runtime does not offer it (400). */
+/**
+ * Refuses a ChatGPT account (connection ids `openclaw:…`, model-accounts.js) as the
+ * model of an own-process agent (modelAccountRuntime, 400): the account's OAuth
+ * profile is OpenClaw's, and its refresh token is never shared with Hermes
+ * (runtimes/hermes/hermes-config/model.js).
+ */
+export function refuseModelChoice(agent, model) {
+  if (
+    ownProcess(agent) &&
+    typeof model?.connectionId === "string" &&
+    model.connectionId.startsWith("openclaw:")
+  )
+    throw assistantProblem("modelAccountRuntime", 400);
+}
+
+/**
+ * Refuses what an update of `agent` chooses that its runtime cannot run: "Every
+ * command" where the runtime does not offer it (400), and a model it cannot use
+ * (refuseModelChoice).
+ */
 export function refuseEveryCommand(supervisor, agent, changes) {
   if (
     changes.shellEveryCommand === true &&
     !runtimeFor(agent, supervisor).capabilities().everyCommandApproval.available
   )
     throw assistantProblem("shellEveryCommandUnsupported", 400);
+  refuseModelChoice(agent, changes.model);
 }
 
 /**

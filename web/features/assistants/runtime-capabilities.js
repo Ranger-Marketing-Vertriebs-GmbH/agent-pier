@@ -32,3 +32,18 @@ export const runtimeName = (assistant) =>
 /** "OpenClaw 2026.10.3", or the name alone while its version is unknown. */
 export const runtimeLabel = (assistant) =>
   [runtimeName(assistant), assistant?.runtimeInfo?.version].filter(Boolean).join(" ");
+
+/**
+ * The model connections an agent of runtime `runtimeId` may choose from `models`:
+ * a Hermes agent lists ChatGPT accounts unavailable (`runtimeAccount`), since their
+ * sign-in is OpenClaw's own and never shared with Hermes (server
+ * own-process-agents.js refuseModelChoice).
+ */
+export const modelsFor = (models, runtimeId) =>
+  runtimeId === "hermes"
+    ? models.map((m) =>
+        m.providerId === "openai-chatgpt"
+          ? { ...m, available: false, reason: "runtimeAccount" }
+          : m,
+      )
+    : models;
