@@ -114,3 +114,19 @@
 .split-pane-stale p {
   margin: 0;
 }
+/* A view's row in the sidebar: grid icon, name and pane count. */
+.views-sidebar-icon {
+  display: flex;
+  flex-shrink: 0;
+  justify-content: center;
+  width: 24px;
+  color: var(--text-meta);
+}
+.views-sidebar-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.views-sidebar-name strong {
+  min-width: 0;
+}

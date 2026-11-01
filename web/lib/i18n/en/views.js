@@ -1,4 +1,8 @@
 export const viewsCopy = {
+  group: "Views",
+  newView: "New view",
+  defaultName: (n) => `View ${n}`,
+  rowLabel: (name, n) => `${name}, ${n} panes`,
   openAlone: "Open alone",
   paneMenu: (name) => `More for ${name}`,
   removePane: (name) => `Remove ${name} from the view`,

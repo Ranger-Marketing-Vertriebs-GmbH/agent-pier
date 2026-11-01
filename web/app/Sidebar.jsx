@@ -18,6 +18,7 @@ import { agentsHubRoute } from "../features/assistants/hub-routes.js";
 import { codingRoute } from "../features/coding/routes.js";
 import SessionRow from "./SessionRow.jsx";
 import InboxEntry from "../features/inbox/InboxEntry.jsx";
+import ViewsSidebarGroup from "../features/views/ViewsSidebarGroup.jsx";
 // A link-styled icon button of a group head that navigates in-app.
 function HeadLink({ icon, label, route, navigate }) {
   return (
@@ -46,6 +47,8 @@ export default function Sidebar({
   collapse,
   collapseRef,
   select,
+  openSession = select,
+  openRoute = navigate,
   launch,
   installed,
   view,
@@ -167,10 +170,11 @@ export default function Sidebar({
         />
       </div>
       <div className="sidebar-scroll">
+        <ViewsSidebarGroup navigate={navigate} route={route} />
         {agentsEnabled && (
           <SidebarGroupActions.Provider value={groupActions}>
             <Suspense fallback={null}>
-              <AssistantSidebar navigate={navigate} route={route} />
+              <AssistantSidebar navigate={openRoute} route={route} />
             </Suspense>
           </SidebarGroupActions.Provider>
         )}
@@ -189,7 +193,7 @@ export default function Sidebar({
                   key={s.id}
                   session={s}
                   selected={selected === s.id && view === "workspace"}
-                  onSelect={select}
+                  onSelect={openSession}
                   names={names}
                 />
               ))

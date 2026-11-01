@@ -127,12 +127,13 @@ function explorerAnswer(session, rest, url) {
 }
 
 /**
- * Mocks the app for a split view; returns the controls: `views` (the stored list),
- * `writes` ({ method, id, body } per view write), `sessionPosts` (POST paths under
+ * Mocks the app for a split view (`views` replaces the one default view); returns the
+ * controls: `views` (the stored list; `POST /api/views` adds to it, refused from 30),
+ * `writes` ({ method, id?, body } per view write), `sessionPosts` (POST paths under
  * /api/sessions), `presence` (REST presence reports) and `sessions` (shown in
  * /api/state; replace it to drop a session).
  */
-export async function splitViewFixture(page, { language = "en", layout } = {}) {
+export async function splitViewFixture(page, { language = "en", layout, views } = {}) {
   await chatFixture(page, {
     language,
     assistants: [chatAssistant({ id: "a1" })],
@@ -141,7 +142,7 @@ export async function splitViewFixture(page, { language = "en", layout } = {}) {
   const at = "2026-11-01T10:00:00.000Z";
   const controls = {
     version: 1,
-    views: [
+    views: views ?? [
       {
         id: viewId,
         name: "Design review",
@@ -151,6 +152,7 @@ export async function splitViewFixture(page, { language = "en", layout } = {}) {
         usedAt: at,
       },
     ],
+    created: 0,
     writes: [],
     sessionPosts: [],
     presence: [],
@@ -204,6 +206,26 @@ export async function splitViewFixture(page, { language = "en", layout } = {}) {
       return route.fulfill({
         json: { version: controls.version, views: controls.views },
       });
+    if (path === "/api/views" && method === "POST") {
+      const body = request.postDataJSON();
+      controls.writes.push({ method, body });
+      if (controls.views.length >= 30)
+        return route.fulfill({
+          status: 400,
+          json: { error: "At most 30 views.", code: "VIEW_LIMIT" },
+        });
+      const now = new Date().toISOString();
+      const view = {
+        id: `v_new${String(++controls.created).padStart(13, "0")}`,
+        name: body.name,
+        layout: body.layout,
+        revision: 1,
+        createdAt: now,
+        usedAt: now,
+      };
+      controls.views = [...controls.views, view];
+      return route.fulfill({ status: 201, json: { version: ++controls.version, view } });
+    }
     const write = /^\/api\/views\/([^/]+)$/.exec(path);
     if (write) {
       if (controls.failRead)
