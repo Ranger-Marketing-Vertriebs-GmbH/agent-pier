@@ -10,6 +10,12 @@ import { fileURLToPath } from "node:url";
 const launchScript = fileURLToPath(
   new URL("../../server/features/requests/codex-launch.js", import.meta.url),
 );
+// Every case starts a chain of Node processes one after another (wrapper, keeper,
+// watchdog, native backend and its descendant); under a loaded parallel run each
+// start can take a second or more. The states below are awaited by polling, never
+// by a fixed sleep, so only a process that really outlives cleanup fails a case.
+const settleMs = 20_000;
+const caseTimeout = 3 * settleMs;
 const alive = (pid) => {
   try {
     process.kill(pid, 0);
@@ -21,7 +27,7 @@ const alive = (pid) => {
 for (const backendFails of [false, true])
   test(
     `Codex backend diagnostics stay out of the TUI (failure: ${backendFails})`,
-    { timeout: 8000 },
+    { timeout: caseTimeout },
     async (t) => {
       const dir = await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-codex-stderr-"));
       const cli = path.join(dir, "native.cjs");
@@ -107,18 +113,18 @@ if (process.argv.includes('app-server')) {
       }
     },
   );
-async function waitFor(check) {
-  const until = Date.now() + 4000;
+async function waitFor(check, message) {
+  const until = Date.now() + settleMs;
   while (Date.now() < until) {
     if (await check()) return;
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
-  assert.fail("Owned fixture did not reach the expected process state");
+  assert.fail(message);
 }
 for (const trigger of ["terminal-exit", "wrapper-term", "wrapper-kill", "keeper-kill"])
   test(
     `Codex backend descendants are quiescent after ${trigger}`,
-    { timeout: 8000 },
+    { timeout: caseTimeout },
     async (t) => {
       const dir = await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-codex-cleanup-"));
       const marker = path.join(dir, "descendant.pid"),
@@ -177,17 +183,17 @@ for (const trigger of ["terminal-exit", "wrapper-term", "wrapper-kill", "keeper-
       await waitFor(async () => {
         descendant = Number(await fs.readFile(marker, "utf8").catch(() => ""));
         return descendant > 0;
-      });
+      }, "Owned fixture did not reach the expected process state");
       if (trigger === "keeper-kill") {
         const keeperPid = Number(await fs.readFile(path.join(dir, "keeper.pid"), "utf8"));
         process.kill(keeperPid, "SIGKILL");
       } else if (trigger !== "terminal-exit")
         wrapper.kill(trigger === "wrapper-term" ? "SIGTERM" : "SIGKILL");
       await exited;
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-      assert.equal(
-        alive(descendant),
-        false,
+      // The descendant ignores SIGTERM and never exits by itself: only the owned
+      // group's SIGKILL ends it, so it outlives cleanup exactly when this times out.
+      await waitFor(
+        () => !alive(descendant),
         "no TERM-ignoring descendant may outlive cleanup",
       );
       assert.equal(alive(sentinel.pid), true, "unrelated process remains alive");
