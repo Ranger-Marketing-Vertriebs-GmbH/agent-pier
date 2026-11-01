@@ -37,7 +37,7 @@ export default function PreviewSettingsCard({ locked = false }) {
   }, [data, draft]);
   if (!data?.settings || !draft)
     return (
-      <article className="settings-card">
+      <article className="settings-card preview-settings">
         <h2>{copy.title}</h2>
         <p role="status">{copy.loading}</p>
       </article>
@@ -61,7 +61,7 @@ export default function PreviewSettingsCard({ locked = false }) {
     });
   const busy = action.busy;
   return (
-    <article className="settings-card">
+    <article className="settings-card preview-settings">
       <h2>{copy.title}</h2>
       <p>{copy.description}</p>
       <ListCard label={copy.title}>

@@ -117,3 +117,27 @@ test("configure refuses an invalid range and writes nothing", async (t) => {
   );
   assert.equal(f.application.previews.settings().enabled, false);
 });
+
+test("a settings change during the boot bind leaves no listener outside the new range", async (t) => {
+  const range = await freePortRange(6);
+  const old = { start: range.start, end: range.start + 2 };
+  const next = { start: range.start + 3, end: range.end };
+  const f = await app(t, settings(old));
+  const { previews } = f.application;
+  const booting = previews.start();
+  const changed = previews.configure(settings(next), { source: "user" });
+  await Promise.all([booting, changed]);
+  assert.deepEqual(await listening(old), [false, false, false]);
+  assert.deepEqual(await listening(next), [true, true, true]);
+});
+
+test("a failing apply restores the saved settings", async (t) => {
+  const range = await freePortRange(3);
+  const f = await app(t);
+  const { previews } = f.application;
+  previews.ensureStarted = () => Promise.reject(new Error("boom"));
+  await assert.rejects(previews.configure(settings(range), { source: "user" }), {
+    message: "boom",
+  });
+  assert.equal(previews.settings().enabled, false);
+});

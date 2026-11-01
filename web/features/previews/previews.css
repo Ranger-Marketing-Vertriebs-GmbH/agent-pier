@@ -14,7 +14,8 @@
   padding: 8px 0 4px;
 }
 
-.settings-card .list-card + .list-card,
-.settings-card .list-card + [role="alert"] + .list-card {
-  margin-top: 12px;
+/* The card's parts keep one rhythm; the page's reset leaves paragraphs without margin. */
+.preview-settings {
+  display: grid;
+  gap: var(--space-3);
 }
