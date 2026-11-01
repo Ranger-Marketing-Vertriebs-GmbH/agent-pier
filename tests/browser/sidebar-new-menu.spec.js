@@ -124,8 +124,12 @@ test.describe("the phone drawer", () => {
     for (const [group, role, name] of controls) {
       const control = head(page, group).getByRole(role, { name, exact: true });
       await expect(control, name).toBeVisible();
-      const box = await control.boundingBox();
-      expect(Math.min(box.width, box.height), name).toBeGreaterThanOrEqual(44);
+      // Layout size, not boundingBox(): the drawer slides in with a transform, and the
+      // transformed box can come back as 43.99998 while the control is exactly 44px.
+      const size = await control.evaluate((el) =>
+        Math.min(el.offsetWidth, el.offsetHeight),
+      );
+      expect(size, name).toBeGreaterThanOrEqual(44);
     }
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
