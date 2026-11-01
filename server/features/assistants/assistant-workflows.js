@@ -448,10 +448,11 @@ export class AssistantWorkflows {
   tick() {
     if (this.closed || this.a.maintenance) return Promise.resolve();
     if (!this.running) return this.pass();
-    return (this.again ??= this.running.then(() => {
+    const next = () => {
       this.again = null;
       return this.running ?? this.pass();
-    }));
+    };
+    return (this.again ??= this.running.then(next, next));
   }
   pass() {
     return (this.running = this.advance().finally(() => (this.running = null)));
