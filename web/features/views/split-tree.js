@@ -4,16 +4,26 @@ export const MAX_PANES = 6;
 export const PANE_HINT_FROM = 5;
 export const MIN_PANE = Object.freeze({ width: 280, height: 220 });
 
+const TABS = ["terminal", "chat", "files"];
 const isPane = (node) => node?.type === "pane";
 
 export const itemKey = (item) =>
-  item.kind === "session" ? `session:${item.id}` : `chat:${item.conversationId}`;
+  item.kind === "session"
+    ? `session:${item.id}`
+    : `chat:${item.assistantId}:${item.conversationId}`;
 
 /** A pane leaf; sessions carry a tab (default terminal), chats never do. */
 export function paneLeaf(item, tab) {
   return item.kind === "session"
-    ? { type: "pane", item, tab: tab ?? "terminal" }
-    : { type: "pane", item };
+    ? { type: "pane", item: { kind: "session", id: item.id }, tab: tab ?? "terminal" }
+    : {
+        type: "pane",
+        item: {
+          kind: "chat",
+          assistantId: item.assistantId,
+          conversationId: item.conversationId,
+        },
+      };
 }
 
 /** The panes in reading order. */
@@ -90,10 +100,8 @@ export function dropItem(layout, item, targetKey, side) {
   if (!layout) return paneLeaf(item);
   const key = itemKey(item);
   if (key === targetKey || findPane(layout, targetKey) === null) return layout;
-  const existingPath = findPane(layout, key);
-  const leaf = existingPath ? nodeAt(layout, existingPath) : paneLeaf(item);
-  const base = existingPath ? removePane(layout, key) : layout;
-  return insertAt(base, targetKey, side, leaf);
+  if (findPane(layout, key)) return movePane(layout, key, targetKey, side);
+  return insertAt(layout, targetKey, side, paneLeaf(item));
 }
 
 /** Move a pane next to another one; the centre swaps the two panes. */
@@ -115,6 +123,7 @@ export function movePane(layout, fromKey, toKey, side) {
 }
 
 export function setRatio(layout, path, ratio) {
+  if (!Number.isFinite(ratio)) return layout;
   const next = clampRatio(ratio);
   return updateAt(layout, path, (node) =>
     node.type === "split" && node.ratio !== next ? { ...node, ratio: next } : node,
@@ -122,6 +131,7 @@ export function setRatio(layout, path, ratio) {
 }
 
 export function setTab(layout, key, tab) {
+  if (!TABS.includes(tab)) return layout;
   const path = findPane(layout, key);
   if (!path) return layout;
   return updateAt(layout, path, (leaf) =>
