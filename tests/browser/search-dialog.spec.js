@@ -1,5 +1,6 @@
-// ⌘K search (handoff §5.9, AC-SR-1, AC-SR-2): the shortcut opens it except in a
-// terminal, the code editor or a text field; it finds areas, tabs, agents, old names
+// ⌘K search (handoff §5.9, AC-SR-1, AC-SR-2): the shortcut opens it, on Linux and
+// Windows except in a terminal, the code editor or a text field (quick-open.spec.js
+// covers macOS); it finds areas, tabs, agents, old names
 // and actions; arrows, Enter and Escape work; the sidebar button and the phone menu
 // row open the same dialog.
 import { test, expect } from "../helpers/browser-test.js";
@@ -9,7 +10,11 @@ import { explorerFixture } from "../helpers/file-explorer-browser.js";
 const dialog = (page) => page.getByRole("dialog", { name: "Suchen" });
 const field = (page) => dialog(page).getByRole("combobox");
 const options = (page) => dialog(page).getByRole("option");
-const shortcut = (page) => page.keyboard.press("ControlOrMeta+k");
+// ⌘K where the app sees macOS, else Ctrl+K.
+const shortcut = async (page) => {
+  const mac = await page.evaluate(() => /mac/i.test(navigator.platform));
+  await page.keyboard.press(mac ? "Meta+k" : "Control+k");
+};
 
 // Agents on with one agent, "Scout".
 async function agentsOn(page) {
@@ -258,7 +263,9 @@ test("in English the search speaks English and still finds German names", async 
   await expect(search).toBeVisible();
   await expect(search.getByRole("group", { name: "Pages" })).toBeVisible();
   await search
-    .getByRole("combobox", { name: "Search settings, agents or actions" })
+    .getByRole("combobox", {
+      name: "Search sessions, projects, agents, runs, settings or actions",
+    })
     .fill("Geheimnisse");
   await expect(search.getByRole("option").first()).toContainText("Connections › Secrets");
   await search.getByRole("combobox").fill("zzqqxx");
@@ -266,7 +273,22 @@ test("in English the search speaks English and still finds German names", async 
   await expect(search.getByRole("button", { name: "Clear search" })).toBeVisible();
 });
 
-test("the shortcut stays with text fields and the terminal", async ({ page }) => {
+// Ctrl+K as on Linux and Windows, where it is a typing key in those places.
+async function linux(page) {
+  await page.addInitScript(() => {
+    Object.defineProperty(Navigator.prototype, "platform", {
+      get: () => "Linux x86_64",
+      configurable: true,
+    });
+    Object.defineProperty(Navigator.prototype, "userAgentData", {
+      get: () => ({ platform: "Linux", brands: [], mobile: false }),
+      configurable: true,
+    });
+  });
+}
+
+test("Ctrl+K stays with text fields and the terminal", async ({ page }) => {
+  await linux(page);
   const session = {
     id: "search-terminal",
     name: "Suchtest",
@@ -322,7 +344,8 @@ test("the shortcut stays with text fields and the terminal", async ({ page }) =>
   await expect(dialog(page)).toHaveCount(0);
 });
 
-test("the shortcut stays with the code editor", async ({ page }) => {
+test("Ctrl+K stays with the code editor", async ({ page }) => {
+  await linux(page);
   await explorerFixture(page);
   const path = "/home/test/readme.txt";
   await page.route("**/api/files/text**", (route) =>

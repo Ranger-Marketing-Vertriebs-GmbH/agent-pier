@@ -41,7 +41,7 @@ export const bilingual = (read) => ({
   de: withLanguage("de", read),
   en: withLanguage("en", read),
 });
-const join = (...parts) => ({
+export const join = (...parts) => ({
   de: parts.map((part) => part.de).join(" › "),
   en: parts.map((part) => part.en).join(" › "),
 });
@@ -453,9 +453,13 @@ export function actionEntries() {
       bilingual(() => connectionsAreaCopy.sections[section]),
     );
   return [
-    action("new-session", () => commonCopy.newSession, bilingual(text.overview), {
-      action: "launch",
-    }),
+    action(
+      "new-session",
+      () => commonCopy.newSession,
+      bilingual(text.overview),
+      { action: "launch" },
+      { primary: true },
+    ),
     action(
       "new-agent",
       () => assistantCopy.create,
@@ -489,7 +493,7 @@ export function actionEntries() {
 }
 
 // Terms of an entry: its labels (weight 0), path and old names (1), extra words (2).
-function withTerms(entry) {
+export function withTerms(entry) {
   const terms = [
     ...termsOf(entry.label.de, 0),
     ...termsOf(entry.label.en, 0),

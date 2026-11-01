@@ -9,7 +9,10 @@ const list = (value, key) => {
 const named = (item, words = []) =>
   item && item.id && item.name ? { id: item.id, name: item.name, words } : null;
 
-/** `{ models, mcp, ssh, secrets, github }` lists of `{ id, name, words }`. */
+/**
+ * `{ models, mcp, ssh, secrets, github }` lists of `{ id, name, words }`, and the cloned
+ * `repositories` (`{ id, name, path }`) for the project results.
+ */
 export async function loadConnectionNames(request, { providerConnections } = {}) {
   const settle = (path) => request(path).catch(() => null);
   const [ssh, mcp, secrets, repositories] = await Promise.all([
@@ -32,5 +35,8 @@ export async function loadConnectionNames(request, { providerConnections } = {})
     ),
     secrets: clean(list(secrets, "secrets").map((item) => named(item))),
     github: clean(list(repositories, "credentials").map((item) => named(item))),
+    repositories: list(repositories, "projects")
+      .filter((item) => item?.id && item.name)
+      .map(({ id, name, path }) => ({ id, name, path: path || "" })),
   };
 }

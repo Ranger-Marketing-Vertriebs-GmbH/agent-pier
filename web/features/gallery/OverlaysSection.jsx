@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import AsyncForm from "../../components/AsyncForm.jsx";
+import CommandPalette from "../../components/CommandPalette.jsx";
 import ConfirmDialog from "../../components/ConfirmDialog.jsx";
 import ImageViewer from "../../components/ImageViewer.jsx";
 import Modal from "../../components/Modal.jsx";
@@ -12,6 +13,7 @@ import { commonCopy } from "../../lib/i18n/messages/common.js";
 import useMobileLayout from "../../lib/useMobileLayout.js";
 import { RowMenu, useRowMenu } from "../extensions/RowMenu.jsx";
 import { galleryCopy as copy } from "../../lib/i18n/messages/gallery.js";
+import { searchCopy } from "../../lib/i18n/messages/search.js";
 import { GallerySection, Specimen } from "./GallerySection.jsx";
 import { sampleImage } from "./gallery-fixtures.js";
 
@@ -114,6 +116,59 @@ function TypedConfirm({ close }) {
   );
 }
 
+// The quick-open palette with sample results; the caller filters, here by plain text.
+function PaletteSpecimen({ close }) {
+  const [query, setQuery] = useState("");
+  const sample = [
+    {
+      id: "recent",
+      label: searchCopy.groups.recent,
+      items: [1, 2].map((number) => ({
+        id: `entry-${number}`,
+        label: s().pageItem(number),
+        detail: s().sub,
+        icon: <Icon name="history" size={14} />,
+      })),
+    },
+    {
+      id: "actions",
+      label: searchCopy.groups.actions,
+      items: [
+        {
+          id: "add",
+          label: s().groupAction,
+          detail: s().label,
+          icon: <Icon name="plus" size={14} />,
+        },
+      ],
+    },
+  ];
+  const needle = query.trim().toLowerCase();
+  const groups = sample
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => item.label.toLowerCase().includes(needle)),
+    }))
+    .filter((group) => group.items.length);
+  const count = groups.reduce((sum, group) => sum + group.items.length, 0);
+  return (
+    <CommandPalette
+      title={s().commandPalette}
+      close={close}
+      query={query}
+      onQueryChange={setQuery}
+      groups={groups}
+      onChoose={close}
+      inputLabel={s().paletteInput}
+      placeholder={s().palettePlaceholder}
+      resultsLabel={searchCopy.resultsLabel}
+      status={needle ? searchCopy.matches(count) : ""}
+      empty={{ title: searchCopy.noResults(query.trim()), resetLabel: searchCopy.reset }}
+      keys={[searchCopy.keySelect, searchCopy.keyOpen, searchCopy.keyClose]}
+    />
+  );
+}
+
 function Overlay({ open, close }) {
   const body = <p>{s().dialogBody}</p>;
   if (open === "modal")
@@ -174,6 +229,7 @@ function Overlay({ open, close }) {
         onConfirm={close}
       />
     );
+  if (open === "commandPalette") return <PaletteSpecimen close={close} />;
   if (open === "sidePanel")
     return (
       <SidePanel title={s().sidePanel} subtitle={s().sub} close={close}>
@@ -215,6 +271,9 @@ export default function OverlaysSection() {
         {opener("asyncForm", s().asyncForm)}
         {opener("sidePanel", s().sidePanel)}
         {opener("imageViewer", s().imageViewer)}
+      </Specimen>
+      <Specimen label="CommandPalette" wide>
+        {opener("commandPalette", s().commandPalette)}
       </Specimen>
       <Specimen label="Sheet · UnsavedChangesSheet" wide>
         {opener("sheet", s().sheet)}

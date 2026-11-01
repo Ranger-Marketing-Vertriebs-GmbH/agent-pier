@@ -1,22 +1,29 @@
 // ⌘K search (handoff §5.9): the dialog, its groups and the names only search knows.
 export const searchCopy = {
   title: "Search",
-  inputLabel: "Search settings, agents or actions",
-  placeholder: "Search pages, agents or actions …",
+  inputLabel: "Search sessions, projects, agents, runs, settings or actions",
+  placeholder: "Search sessions, projects, settings or actions …",
   resultsLabel: "Search results",
   groups: {
-    pages: "Pages",
+    recent: "Recent",
+    sessions: "Sessions",
+    projects: "Projects",
+    chats: "Chats",
     agents: "In agents",
+    runs: "Pipelines",
+    inbox: "Inbox",
+    pages: "Pages",
     actions: "Actions",
   },
   matches: (count) => (count === 1 ? "1 match" : `${count} matches`),
   noResults: (query) => `Nothing found for “${query}”`,
   noResultsHint: "Try another term. Search also finds old names.",
   reset: "Clear search",
-  loadingConnections: "Loading connections …",
+  loadingMore: "Loading more results …",
   formerly: (name) => `formerly ${name}`,
   keySelect: "↑↓ select",
   keyOpen: "↵ open",
+  keyClose: "esc close",
   keyOldNames: "Also finds old names such as “Settings › Access › SSH accesses”",
   sshKeys: "SSH keys",
   // Subpages in an agent's settings.
@@ -40,6 +47,13 @@ export const searchCopy = {
     addModel: "Add model access",
     addSecret: "Add secret",
     addGithub: "Add GitHub access",
+    openInbox: "Open inbox",
+  },
+  // The search in a user's own app: her agents, their chats and pages, her account.
+  user: {
+    inputLabel: "Search your agents, chats or account",
+    placeholder: "Search your agents or account …",
+    chatWith: (name) => `Chat with ${name}`,
   },
   // Old names and paths, so searching for them finds the new place.
   aliases: {

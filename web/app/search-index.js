@@ -2,9 +2,31 @@
 // search-entries.js; every entry carries its labels in German and English and its old
 // names, so both languages and the old names match whatever the UI language is.
 
-export const searchGroups = ["pages", "agents", "actions"];
+// Result groups. A blank query shows the recent results, then the areas and actions in
+// this order; a query orders the groups by their best match, ties in this order.
+export const searchGroups = [
+  "recent",
+  "sessions",
+  "projects",
+  "chats",
+  "agents",
+  "runs",
+  "inbox",
+  "pages",
+  "actions",
+];
 // How many results a group shows; the rest is reached by a more precise query.
-export const groupLimits = { pages: 8, agents: 8, actions: 6 };
+export const groupLimits = {
+  recent: 6,
+  sessions: 6,
+  projects: 5,
+  chats: 5,
+  agents: 8,
+  runs: 6,
+  inbox: 5,
+  pages: 8,
+  actions: 6,
+};
 
 // Lower case without diacritics; "ß" reads "ss". Anything but letters and digits
 // separates words, so "SSH/SFTP-Zugänge" holds the words "ssh", "sftp", "zugange".
@@ -51,18 +73,56 @@ export function queryTokens(query) {
   return normal ? normal.split(" ") : [];
 }
 
+// Word starts of a normalized text: 0 and every position after a space.
+function wordStarts(text) {
+  const starts = [0];
+  for (let at = text.indexOf(" "); at >= 0; at = text.indexOf(" ", at + 1))
+    starts.push(at + 1);
+  return starts;
+}
+
+/**
+ * The fuzzy match of one token in a normalized text: its letters in order, starting
+ * at a word start, with at most as many skipped characters as the token is long
+ * ("sesion" finds "session", "nsess" finds "new session"). Returns the fewest skipped
+ * characters, or null. Tokens shorter than three letters never match fuzzily.
+ */
+export function fuzzyGaps(text, token) {
+  if (token.length < 3) return null;
+  let best = null;
+  for (const start of wordStarts(text)) {
+    if (text[start] !== token[0]) continue;
+    let at = start;
+    for (let index = 1; index < token.length && at >= 0; index += 1)
+      at = text.indexOf(token[index], at + 1);
+    if (at < 0) break;
+    const gaps = at - start + 1 - token.length;
+    if (gaps <= token.length && (best === null || gaps < best)) best = gaps;
+    if (best === 0) break;
+  }
+  return best;
+}
+
 // How well tokens match one term, lower is better, null when they do not: 0 exact,
-// 1 the term starts with the query, 2 every token starts a word, 4 every token occurs.
+// 1 the term starts with the query, 2 every token starts a word, 4 every token occurs,
+// 6 and more when a token only matches fuzzily (fewer skipped characters rank higher).
 function matchTerm(term, tokens, joined) {
   if (term.text === joined) return 0;
   if (term.text.startsWith(joined)) return 1;
   let rank = 2;
+  let gaps = 0;
   for (const token of tokens) {
     if (term.words.some((word) => word.startsWith(token))) continue;
-    if (!term.text.includes(token)) return null;
-    rank = 4;
+    if (term.text.includes(token)) {
+      rank = Math.max(rank, 4);
+      continue;
+    }
+    const fuzzy = fuzzyGaps(term.text, token);
+    if (fuzzy === null) return null;
+    rank = 6;
+    gaps += fuzzy;
   }
-  return rank;
+  return rank === 6 ? rank + Math.min(gaps, 9) / 10 : rank;
 }
 
 /** The best rank of an entry for the tokens, or null when it does not match. */
@@ -79,17 +139,32 @@ export function rankEntry(entry, tokens) {
   return best;
 }
 
+const byScore = (recent) => (a, b) =>
+  a.score - b.score ||
+  recent(a.entry) - recent(b.entry) ||
+  Number(!a.entry.suggested) - Number(!b.entry.suggested) ||
+  Number(!a.entry.primary) - Number(!b.entry.primary) ||
+  a.order - b.order;
+
 /**
- * The results for a query, grouped in `searchGroups` order: `[{ group, items }]`,
- * best match first within a group; on ties areas (`entry.suggested`) come first, then
- * the index order. A blank query shows the areas and actions.
+ * The results for a query, grouped: `[{ group, items }]`, best match first within a
+ * group; on ties recent results (`options.recent`, ids newest first) come first, then
+ * areas (`entry.suggested`), then the main actions (`entry.primary`), then the index
+ * order. Groups follow their best match,
+ * ties in `searchGroups` order. A blank query shows the recent results that still
+ * exist, then the areas and actions.
  */
-export function searchEntries(entries, query, limits = groupLimits) {
+export function searchEntries(entries, query, limits = groupLimits, options = {}) {
   const tokens = queryTokens(query);
+  const recentIds = (options.recent || []).filter((id) => typeof id === "string");
+  const recentAt = new Map(recentIds.map((id, at) => [id, at]));
+  const recent = (entry) => recentAt.get(entry.id) ?? recentIds.length;
   const found = new Map(searchGroups.map((group) => [group, []]));
   entries.forEach((entry, order) => {
     if (!tokens.length) {
-      if (entry.suggested) found.get(entry.group)?.push({ entry, score: 0, order });
+      if (recentAt.has(entry.id))
+        found.get("recent").push({ entry, score: 0, order: recent(entry) });
+      else if (entry.suggested) found.get(entry.group)?.push({ entry, score: 0, order });
       return;
     }
     const match = rankEntry(entry, tokens);
@@ -98,19 +173,20 @@ export function searchEntries(entries, query, limits = groupLimits) {
         .get(entry.group)
         ?.push({ entry, score: match.score, order, alias: match.term.alias || null });
   });
-  return searchGroups
-    .map((group) => ({
-      group,
-      items: found
+  const sections = searchGroups
+    .map((group, rank) => {
+      const items = found
         .get(group)
-        .sort(
-          (a, b) =>
-            a.score - b.score ||
-            Number(!a.entry.suggested) - Number(!b.entry.suggested) ||
-            a.order - b.order,
-        )
-        .slice(0, limits[group] ?? Infinity)
-        .map(({ entry, alias }) => ({ ...entry, alias })),
-    }))
+        .sort(byScore(recent))
+        .slice(0, limits[group] ?? Infinity);
+      return {
+        group,
+        rank,
+        best: items[0]?.score ?? Infinity,
+        items: items.map(({ entry, alias }) => ({ ...entry, alias: alias ?? null })),
+      };
+    })
     .filter((section) => section.items.length);
+  if (tokens.length) sections.sort((a, b) => a.best - b.best || a.rank - b.rank);
+  return sections.map(({ group, items }) => ({ group, items }));
 }

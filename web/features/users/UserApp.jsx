@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import UserHeader from "./UserHeader.jsx";
+import UserSearch from "./UserSearch.jsx";
 import MyAgentsPage from "./MyAgentsPage.jsx";
 import UserChatRoute from "./UserChatRoute.jsx";
 import UserAgentSettings from "./UserAgentSettings.jsx";
@@ -147,7 +148,13 @@ export default function UserApp({ status }) {
     );
   return (
     <AgentPathsContext value={userAgentPaths}>
-      <main className="user-app">{page}</main>
+      <UserSearch
+        agents={data.agents}
+        navigate={navigate}
+        scope={status.user?.id ? `user:${status.user.id}` : "user"}
+      >
+        <main className="user-app">{page}</main>
+      </UserSearch>
     </AgentPathsContext>
   );
 }

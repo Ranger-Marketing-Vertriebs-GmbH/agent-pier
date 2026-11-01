@@ -1,5 +1,6 @@
-// ⌘K / Ctrl+K guard (handoff §5.9, AC-SR-1): the shortcut per platform, and never
-// inside a terminal, the code editor or a text field other than the search's own.
+// ⌘K / Ctrl+K guard (handoff §5.9, AC-SR-1, AGENTPIER-224): the shortcut per platform;
+// ⌘K on macOS works everywhere, Ctrl+K elsewhere never inside a terminal (readline's
+// kill-line), the code editor or a text field other than the search's own.
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -87,16 +88,32 @@ test("buttons, checkboxes, the page and the search field do not", () => {
   assert.equal(ownsShortcut(null), false);
 });
 
-test("opening needs the shortcut outside a typing area and not handled yet", () => {
+test("Ctrl+K opens the search only outside typing areas", () => {
+  assert.equal(opensSearch(key({ ctrlKey: true }), false), true);
+  for (const target of [
+    element({ tag: "TEXTAREA", inside: [".xterm"] }),
+    element({ editable: true, inside: [".cm-editor"] }),
+    element({ tag: "INPUT" }),
+    element({ tag: "TEXTAREA" }),
+  ])
+    assert.equal(opensSearch(key({ ctrlKey: true, target }), false), false);
+});
+
+test("⌘K on macOS opens the search everywhere, as ⌘ types nothing", () => {
+  for (const target of [
+    element(),
+    element({ tag: "TEXTAREA", inside: [".xterm"] }),
+    element({ editable: true, inside: [".cm-editor"] }),
+    element({ tag: "INPUT" }),
+  ])
+    assert.equal(opensSearch(key({ metaKey: true, target }), true), true);
+  // Ctrl+K on macOS stays the text fields' and the terminal's kill-line.
+  assert.equal(opensSearch(key({ ctrlKey: true }), true), false);
+});
+
+test("opening needs a shortcut nobody handled yet", () => {
   assert.equal(opensSearch(key({ metaKey: true }), true), true);
-  assert.equal(
-    opensSearch(key({ metaKey: true, target: element({ inside: [".xterm"] }) }), true),
-    false,
-  );
-  assert.equal(
-    opensSearch(key({ ctrlKey: true, target: element({ tag: "INPUT" }) }), false),
-    false,
-  );
+  assert.equal(opensSearch(key({ ctrlKey: true, defaultPrevented: true }), false), false);
   assert.equal(opensSearch(key({ metaKey: true, defaultPrevented: true }), true), false);
 });
 
