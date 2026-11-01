@@ -131,7 +131,7 @@ Copyright (c) Astral Software Inc.) and the CPython build uv installs (Python
 Software Foundation License, with the licenses of its bundled libraries) into the
 data directory. Hermes's Python dependencies keep their own licenses inside that
 installation; their exact versions are those of the `uv.lock` in the pinned Hermes
-commit (`server/features/assistants/runtimes/hermes/hermes-manifest.json`).
+release (`server/features/assistants/runtimes/hermes/hermes-manifest.json`).
 
 ## Unicode upload-name data
 

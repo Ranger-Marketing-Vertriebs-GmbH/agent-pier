@@ -5,6 +5,13 @@ from source with `uv sync --frozen --python 3.14` (base 122 MiB venv, 162 MiB wi
 `messaging` extra). Platform: macOS arm64. This is recorded evidence, not a promise about
 later releases.
 
+Pinned release since 2026-11-01: AgentPier installs the Hermes release `v0.22.5`
+(commit `bf0203a7`) instead of `a4994d4e` (owner decision). The observations below
+stay those of the spike; [Hermes runtime](../hermes-runtime.md) records what was
+verified again against the pinned release, and
+[ADR 0006](../adr/0006-assistant-runtime-port.md) (decision 4, host as built) why
+AgentPier talks to each agent's messaging gateway rather than the stdio server.
+
 Goal: decide whether AgentPier can run Hermes **in parallel to OpenClaw, per assistant**,
 at feature parity, and with practical defaults from the start (not locked down first and
 relaxed later, as happened with OpenClaw).

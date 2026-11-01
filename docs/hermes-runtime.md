@@ -6,8 +6,11 @@ in its own supervised process set, its messaging gateway and AgentPier's RPC bri
 with its own `HERMES_HOME` inside AgentPier's private runtime folder
 ([processes](assistant-runtime-updates.md#hermes-agent-runtime)). This guide describes
 what AgentPier writes into that home, which defaults it sets and how it talks to the
-gateway. Key names were verified against Hermes `a4994d4e` (2026-10-31); the
-[spike](research/hermes-runtime-spike.md) records the hands-on evidence.
+gateway. AgentPier pins the Hermes release `v0.22.5` (commit `bf0203a7`, pinned
+release since 2026-11-01); key names, file references, the gateway protocol and the
+approval and event shapes below were verified against it. The
+[spike](research/hermes-runtime-spike.md), on the earlier `main` commit `a4994d4e`,
+records the hands-on evidence.
 
 ## Hermes configuration
 

@@ -1,7 +1,7 @@
 // What an agent's desired state allows, as Hermes toolsets to switch off
 // (`agent.disabled_toolsets`, website/docs/user-guide/configuration.md "Global
 // Toolset Disable": applied after every platform's tool list, per tool) and Hermes's
-// approval mode. Toolset names: toolsets.py at Hermes a4994d4e.
+// approval mode. Toolset names: toolsets.py at Hermes v0.22.5.
 
 // Shell levels: AgentPier's (native-capabilities.js shellLevels) and the stricter
 // Hermes-only one, every command asks (ADR 0006 decision 5).

@@ -10,7 +10,7 @@ import { guardDirectory, guardFiles, guardPlugin } from "./guard-plugin.js";
 
 // One agent's Hermes home (its own HERMES_HOME, ADR 0006 decision 4) compiled from
 // its desired state: config.yaml, .env, SOUL.md and the guard plugin, nothing else.
-// Key names verified against Hermes a4994d4e (hermes_cli/config_defaults.py unless
+// Key names verified against Hermes v0.22.5 (hermes_cli/config_defaults.py unless
 // named otherwise; docs/hermes-runtime.md lists them).
 
 /**
@@ -19,10 +19,10 @@ import { guardDirectory, guardFiles, guardPlugin } from "./guard-plugin.js";
  * installation, or rewrites the first turn.
  */
 const practicalDefaults = [
-  // Dangerous commands of invisible subagents reach the owner through the parent's
-  // approval queue under the stdio gateway (tui_gateway/server.py sets
-  // HERMES_GATEWAY_SESSION; tools/approval.py `_human_decision`); this fallback for a
-  // child without one denies instead of approving.
+  // Dangerous commands of invisible subagents reach the owner through the session's
+  // approval queue of the messaging gateway (tools/delegate_tool_config.py: gateway
+  // sessions resolve approvals per session; tools/approval.py `_human_decision`); this
+  // fallback for a child without one denies instead of approving.
   [["delegation", "subagent_auto_approve"], false],
   // Never search through third-party free tiers the owner did not choose.
   [["web", "keyless_fallback"], false],

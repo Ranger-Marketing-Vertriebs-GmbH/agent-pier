@@ -1,6 +1,6 @@
 // An agent's model connection (agent-desired-state.js `model`: { ref, providerId,
 // provider, agentRuntime }) as Hermes's `model` section and the secrets its .env
-// holds. Verified against Hermes a4994d4e: hermes_cli/runtime_provider_custom.py
+// holds. Verified against Hermes v0.22.5: hermes_cli/runtime_provider_custom.py
 // (`model.key_env` for a bare `provider: custom` route), hermes_cli/config.py
 // (`${VAR}` references in config values), cli-config.yaml.example (`model.default`,
 // `base_url`, `api_mode`, `context_length`, `extra_headers`).

@@ -25,9 +25,17 @@ import {
 const read = (file) => JSON.parse(fs.readFileSync(file, "utf8"));
 const root = (f) => path.join(f.dataDir, "assistants", "hermes");
 
-test("the shipped manifest pins a commit, its lock, uv per platform and CPython 3.14", () => {
+test("the shipped manifest pins a release, its commit and lock, uv per platform and CPython 3.14", () => {
+  assert.match(hermesManifest.tag, /^v\d+\.\d+\.\d+$/);
   assert.match(hermesManifest.commit, /^[0-9a-f]{40}$/);
-  assert.equal(hermesManifest.version, hermesManifest.commit.slice(0, 12));
+  // A release pin is named after its tag; a bare commit pin after the commit.
+  assert.equal(hermesManifest.version, hermesManifest.tag.slice(1));
+  const { tag: _tag, ...bare } = hermesManifest;
+  assert.throws(() => validHermesManifest(bare), /manifest/);
+  assert.equal(
+    validHermesManifest({ ...bare, version: bare.commit.slice(0, 12) }).version,
+    bare.commit.slice(0, 12),
+  );
   assert.match(hermesManifest.pythonVersion, /^3\.14\.\d+$/);
   assert.deepEqual(hermesManifest.extras, ["messaging"]);
   assert.deepEqual(Object.keys(hermesManifest.uvChecksums).sort(), [
@@ -46,6 +54,8 @@ test("the shipped manifest pins a commit, its lock, uv per platform and CPython 
     { uvChecksums: { "linux-x64": "0".repeat(64) } },
     { uvLockSha256: "nope" },
     { version: "other" },
+    { tag: "main" },
+    { tag: "v0.22" },
   ])
     assert.throws(
       () => validHermesManifest({ ...hermesManifest, ...broken }),
