@@ -1,6 +1,6 @@
 import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { componentsCopy } from "../lib/i18n/messages/components.js";
-import { MAX_RATIO, MIN_RATIO, clampRatio } from "./split-geometry.js";
+import { ratioBounds } from "./split-geometry.js";
 import "./split-layout.css";
 
 // Width of the divider hit area in pixels; panes are separated by exactly this gap.
@@ -8,32 +8,6 @@ const GAP = 8;
 const STEP = 0.05;
 const isSplit = (node) => node?.type === "split";
 const roundRatio = (value) => Math.round(value * 1000) / 1000;
-
-// Smallest size of a tree in pixels, with one divider gap per split.
-function need(node, minPane) {
-  if (!isSplit(node)) return { width: minPane.width, height: minPane.height };
-  const a = need(node.a, minPane),
-    b = need(node.b, minPane);
-  return node.dir === "row"
-    ? { width: a.width + GAP + b.width, height: Math.max(a.height, b.height) }
-    : { width: Math.max(a.width, b.width), height: a.height + GAP + b.height };
-}
-
-// Ratio range of a split whose box is `box`; the divider gap is not shared out.
-function boundsFor(node, box, minPane) {
-  const key = node.dir === "row" ? "width" : "height";
-  const avail = box[key] - GAP;
-  const ma = need(node.a, minPane)[key],
-    mb = need(node.b, minPane)[key];
-  if (avail <= 0 || ma + mb > avail) {
-    const ratio = clampRatio(ma / (ma + mb));
-    return { min: ratio, max: ratio };
-  }
-  return {
-    min: Math.max(MIN_RATIO, ma / avail),
-    max: Math.min(MAX_RATIO, 1 - mb / avail),
-  };
-}
 
 // Pixel rectangles of panes and dividers for a container of `size`; `preview` replaces
 // the ratio of one split while it is dragged.
@@ -46,7 +20,7 @@ function place(layout, size, minPane, keyOf, preview) {
       return;
     }
     const row = node.dir === "row";
-    const bounds = boundsFor(node, box, minPane);
+    const bounds = ratioBounds(node, box, minPane, GAP);
     const id = path.join("");
     const stored = preview?.id === id ? preview.ratio : node.ratio;
     const ratio = Math.min(bounds.max, Math.max(bounds.min, stored));

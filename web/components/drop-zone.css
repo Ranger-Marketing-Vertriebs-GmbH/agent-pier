@@ -4,8 +4,8 @@
   z-index: var(--z-overlay);
   display: grid;
   place-items: center;
-  background: var(--accent-faint);
-  border: 2px solid var(--accent-line);
+  background: var(--accent-soft);
+  border: 2px solid var(--accent);
   border-radius: var(--radius-md);
   pointer-events: none;
 }
@@ -25,4 +25,5 @@
   padding: var(--space-1) var(--space-3);
   color: var(--accent);
   font-size: 12px;
+  font-weight: 600;
 }

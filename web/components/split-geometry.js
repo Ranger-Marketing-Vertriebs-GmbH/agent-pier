@@ -64,23 +64,24 @@ export function dividerRects(node) {
   return out;
 }
 
-/** The smallest pixel size a tree needs so that every pane keeps `minPane`. */
-export function minSize(node, minPane) {
+/** The smallest pixel size a tree needs so that every pane keeps `minPane`; `gap` is the divider thickness. */
+export function minSize(node, minPane, gap = 0) {
   if (!isSplit(node)) return { width: minPane.width, height: minPane.height };
-  const a = minSize(node.a, minPane),
-    b = minSize(node.b, minPane);
+  const a = minSize(node.a, minPane, gap),
+    b = minSize(node.b, minPane, gap);
   return node.dir === "row"
-    ? { width: a.width + b.width, height: Math.max(a.height, b.height) }
-    : { width: Math.max(a.width, b.width), height: a.height + b.height };
+    ? { width: a.width + gap + b.width, height: Math.max(a.height, b.height) }
+    : { width: Math.max(a.width, b.width), height: a.height + gap + b.height };
 }
 
 /** The ratio range of a split in a container of `size` that keeps both sides usable. */
-export function ratioBounds(node, size, minPane) {
+export function ratioBounds(node, size, minPane, gap = 0) {
   const row = node.dir === "row";
-  const ma = minSize(node.a, minPane)[row ? "width" : "height"],
-    mb = minSize(node.b, minPane)[row ? "width" : "height"];
-  const total = size[row ? "width" : "height"];
-  if (ma + mb > total) {
+  const key = row ? "width" : "height";
+  const ma = minSize(node.a, minPane, gap)[key],
+    mb = minSize(node.b, minPane, gap)[key];
+  const total = size[key] - gap;
+  if (total <= 0 || ma + mb > total) {
     const ratio = clampRatio(ma / (ma + mb));
     return { min: ratio, max: ratio };
   }
@@ -90,8 +91,8 @@ export function ratioBounds(node, size, minPane) {
   };
 }
 
-export function fits(node, size, minPane) {
-  const need = minSize(node, minPane);
+export function fits(node, size, minPane, gap = 0) {
+  const need = minSize(node, minPane, gap);
   return need.width <= size.width && need.height <= size.height;
 }
 

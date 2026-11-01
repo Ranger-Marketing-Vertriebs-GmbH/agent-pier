@@ -127,3 +127,30 @@ test("zoneRect halves the rect for an edge and keeps it for the centre", () => {
   });
   assert.deepEqual(zoneRect(rect, "center"), rect);
 });
+
+const rowOf = (count) => {
+  let node = { id: "p0" };
+  for (let i = 1; i < count; i += 1)
+    node = { type: "split", dir: "row", ratio: 0.5, a: node, b: { id: `p${i}` } };
+  return node;
+};
+
+test("minSize adds one divider gap per split", () => {
+  assert.deepEqual(minSize(rowOf(6), MIN, 8), { width: 6 * 280 + 5 * 8, height: 220 });
+  assert.deepEqual(minSize(rowOf(6), MIN), { width: 6 * 280, height: 220 });
+});
+
+test("fits and ratioBounds account for the divider gap", () => {
+  const two = rowOf(2);
+  assert.equal(fits(two, { width: 568, height: 220 }, MIN, 8), true);
+  assert.equal(fits(two, { width: 567, height: 220 }, MIN, 8), false);
+  const { min, max } = ratioBounds(two, { width: 1008, height: 400 }, MIN, 8);
+  assert.equal(min, 280 / 1000);
+  assert.equal(max, 1 - 280 / 1000);
+});
+
+test("ratioBounds with a gap collapses to one ratio when the panes just fit", () => {
+  const { min, max } = ratioBounds(rowOf(2), { width: 500, height: 400 }, MIN, 8);
+  assert.equal(min, max);
+  assert.equal(min, 0.5);
+});

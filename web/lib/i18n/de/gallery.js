@@ -126,6 +126,7 @@ export const galleryCopy = {
     listDetail: "Beispieleinträge",
     detailFor: (name) => `Details zu ${name}`,
     paneName: (n) => `Bereich ${n}`,
+    dropHere: "Hier ablegen",
     dropHint: "Einen Bereich hierher ziehen",
     dropIdle: "Noch nichts abgelegt",
     dropped: (side) => `Auf der Seite ${side} abgelegt`,

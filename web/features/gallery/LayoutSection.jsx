@@ -37,7 +37,7 @@ function DropZoneSpecimen() {
   return (
     <div className="gallery-drop-zone" data-testid="drop-zone-specimen" {...handlers}>
       <span>{copy.sample.dropHint}</span>
-      <DropZoneOverlay side={side} />
+      <DropZoneOverlay side={side} label={copy.sample.dropHere} />
       <p className="gallery-drop-status" role="status">
         {dropped
           ? copy.sample.dropped(copy.sample.dropSides[dropped])
