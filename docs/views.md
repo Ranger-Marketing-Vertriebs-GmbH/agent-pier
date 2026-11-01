@@ -43,13 +43,17 @@ Drag the divider between two panes to resize them. Dividers keep the split ratio
 15 % and 85 % and stop where a pane would get smaller than 280 × 220 px, so a terminal
 always keeps at least 20 columns and 5 rows.
 
+Adding, moving and replacing panes works only by drag and drop for now; there is no
+keyboard-only way to do it yet. The pane menu (**Open alone**) and the **×** button work
+from the keyboard.
+
 The **×** on a pane header removes only that pane; the session or chat itself keeps
 running. The trash button in the view header (**Delete view**) deletes the whole view; AgentPier
 asks first, and sessions and chats stay as they are.
 
 ## Limits
 
-- At most 6 panes per view. From 5 panes the view shows the hint "5 of 6 panes"; a
+- At most 6 panes per view. From 5 panes the view shows the hint "5 of 6 panes";
   dragging another item over a full view shows "The view is full (at most 6 panes)."
 - At most 30 views.
 - View names have 1 to 60 characters.
