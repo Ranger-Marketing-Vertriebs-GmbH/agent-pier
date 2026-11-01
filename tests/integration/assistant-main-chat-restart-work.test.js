@@ -88,6 +88,13 @@ test("preview refuses users and member agents", async (t) => {
 
 test("preview counts every kind of running work and no other agent's", async (t) => {
   const { f, agent, anna, service, owner } = await seeded(t);
+  // The rows below are stand-ins the once-a-second background passes would settle
+  // when a slow run lets their timers fire (AGENTPIER-327): the goal pass ends a
+  // goal in a user agent's chat as ineligible, and the action pass turns a coding
+  // run without a pipeline run unknown. This test counts what the preview selects,
+  // so those passes stand still.
+  t.mock.method(service.teams.goals, "tick", async () => {});
+  t.mock.method(service.workflows, "tick", async () => {});
   const other = (
     await userAgent(f, {
       mode: "shared",
