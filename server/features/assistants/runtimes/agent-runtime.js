@@ -8,6 +8,9 @@
  * Sub-ports and their responsibility (methods are added port by port as callers move):
  * - host: install, start, stop, health, version, update, rollback, restart reasons
  * - sessions: create, send, abort, wait, describe, list, delete, archive, history
+ *   - create({ agentId, label }, { budgetMs, now, sleep }): resolves `{ key }` of a
+ *     new native session; rejects when the runtime cannot create it.
+ *   - subscribe({ key }): delivers the session's messages to AgentPier.
  * - events: normalized run events (started, text, tool step, approvals, finished)
  * - agents: the runtime-side agent (create, update, delete, list)
  * - agentFiles: instructions, memory and workspace files

@@ -1,4 +1,5 @@
 import { defineAgentRuntime } from "../agent-runtime.js";
+import { createGatewaySession } from "../../session-create.js";
 
 /**
  * The OpenClaw adapter of the agent runtime port (../agent-runtime.js) over the
@@ -11,9 +12,15 @@ import { defineAgentRuntime } from "../agent-runtime.js";
  * an unreachable Gateway.
  */
 export function createOpenClawRuntime(supervisor) {
-  const call = async (method, params) => supervisor.client.call(method, params);
+  const call = async (method, params, options) =>
+    supervisor.client.call(method, params, options);
   return defineAgentRuntime({
     id: "openclaw",
+    sessions: {
+      // Retries a session the Gateway has not created yet (session-create.js).
+      create: async (params, options) => createGatewaySession({ call }, params, options),
+      subscribe: ({ key }) => call("sessions.messages.subscribe", { key }),
+    },
     channels: {
       status: ({ probe = false } = {}) => call("channels.status", { probe }),
     },

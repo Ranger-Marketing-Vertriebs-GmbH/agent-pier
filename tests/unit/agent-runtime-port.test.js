@@ -20,6 +20,8 @@ function fakeSupervisor({ channels = {}, unreachable = false } = {}) {
     ready: true,
     async call(method, params) {
       calls.push([method, params]);
+      if (method === "sessions.create") return { key: `session:${params.label}` };
+      if (method === "sessions.messages.subscribe") return {};
       if (method !== "channels.status") throw new Error(`unexpected ${method}`);
       return { channelAccounts: structuredClone(channels) };
     },
@@ -44,6 +46,17 @@ test("the OpenClaw adapter calls channels.status on the current client", async (
   assert.deepEqual(supervisor.calls, [["channels.status", { probe: false }]]);
   assert.deepEqual(replaced.calls, [["channels.status", { probe: true }]]);
   assert.deepEqual(status.channelAccounts.telegram, [{ accountId: "a" }]);
+});
+
+test("the OpenClaw adapter creates and subscribes sessions on the current client", async () => {
+  const supervisor = fakeSupervisor();
+  const runtime = createOpenClawRuntime(supervisor);
+  const created = await runtime.sessions.create({ agentId: "agent-1", label: "main" });
+  await runtime.sessions.subscribe({ key: created.key });
+  assert.deepEqual(supervisor.calls, [
+    ["sessions.create", { agentId: "agent-1", label: "main" }],
+    ["sessions.messages.subscribe", { key: "session:main" }],
+  ]);
 });
 
 test("runtimeFor returns one OpenClaw adapter per supervisor for every agent", () => {
