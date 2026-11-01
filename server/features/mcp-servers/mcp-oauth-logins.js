@@ -6,14 +6,13 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { messageIdentity } from "../../lib/i18n/message-identity.js";
 import { problem } from "../../lib/storage.js";
-import { patchConfig } from "../assistants/openclaw-config/live-patch.js";
 import {
   mcpServerConfig,
   mcpServerSignature,
 } from "../assistants/openclaw-config/mcp-servers.js";
 import { oauthStatus } from "./openclaw-mcp-cli.js";
 import { oauthCallbackPath, oauthLoginUsable } from "./oauth-redirect.js";
-import { hostReady } from "../assistants/runtimes/runtime-for.js";
+import { hostReady, runtimeFor } from "../assistants/runtimes/runtime-for.js";
 
 const messages = serverMessages.mcpServers;
 export const pendingLoginMs = 10 * 60 * 1000;
@@ -381,11 +380,11 @@ export class McpOAuthLogins {
     try {
       await this.admit(async () => {
         if (!hostReady(runtime)) return;
-        await patchConfig(runtime.client, (config) => ({
-          patch: {
-            mcp: { sessionIdleTtlMs: nudgedIdleTtl(config.mcp?.sessionIdleTtlMs) },
-          },
-        }));
+        await runtimeFor(null, runtime).config.patch({
+          build: ({ mcp }) => ({
+            patch: { mcp: { sessionIdleTtlMs: nudgedIdleTtl(mcp?.sessionIdleTtlMs) } },
+          }),
+        });
       });
       return true;
     } catch (error) {

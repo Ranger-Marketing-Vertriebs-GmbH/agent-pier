@@ -101,6 +101,7 @@ export async function nativeFixture(t, { resolve = true, root = installed } = {}
   });
   await runtime.start();
   const config = new AssistantConfig({
+    runtime,
     client: runtime.client,
     store,
     models: {

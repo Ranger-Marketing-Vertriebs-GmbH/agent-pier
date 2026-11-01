@@ -1,8 +1,6 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { record } from "../extensions/mcp-config.js";
-import { patchConfig } from "./openclaw-config/live-patch.js";
-import { watchConfigAdoption } from "./openclaw-config/config-adoption.js";
 import {
   applyMcp,
   mcpEligible,
@@ -21,7 +19,7 @@ import {
   requireStdioConfirmation,
 } from "../mcp-servers/stdio-confirmation.js";
 import { requireLiteralValues } from "../mcp-servers/value-references.js";
-import { hostReady } from "./runtimes/runtime-for.js";
+import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 
 export { STDIO_CONFIRMATION_REQUIRED };
 
@@ -368,23 +366,28 @@ export class McpChanges {
       tools: { allow: [...nativeTools, ...(runtime.webTools?.tools || [])] },
     };
     const target = applyMcp(applyShell(global, shellSections({ profiles })), sections);
-    const adoption = watchConfigAdoption(runtime.client, this.adoption);
+    const { config: live } = runtimeFor(null, runtime);
+    const adoption = live.watchAdoption(this.adoption);
     try {
       adoption.mark();
-      const base = await patchConfig(runtime.client, (config) => {
-        const current = record(config.mcp?.servers) ? config.mcp.servers : {};
-        const servers = target.mcp?.servers || {};
-        const patch = { tools: { allow: target.tools.allow } };
-        if (Object.keys(current).length || Object.keys(servers).length)
-          patch.mcp = { servers: mergeDiff(current, servers) };
-        // A merge patch cannot shorten or drop an array; OpenClaw needs each one listed.
-        const arrays = Object.entries(current)
-          .filter(([name, server]) => pathName.test(name) && Array.isArray(server?.args))
-          .map(([name]) => `mcp.servers.${name}.args`);
-        return { patch, replacePaths: ["tools.allow", ...arrays] };
+      const base = await live.patch({
+        build: (config) => {
+          const current = record(config.mcp?.servers) ? config.mcp.servers : {};
+          const servers = target.mcp?.servers || {};
+          const patch = { tools: { allow: target.tools.allow } };
+          if (Object.keys(current).length || Object.keys(servers).length)
+            patch.mcp = { servers: mergeDiff(current, servers) };
+          // A merge patch cannot shorten or drop an array; OpenClaw needs each one listed.
+          const arrays = Object.entries(current)
+            .filter(
+              ([name, server]) => pathName.test(name) && Array.isArray(server?.args),
+            )
+            .map(([name]) => `mcp.servers.${name}.args`);
+          return { patch, replacePaths: ["tools.allow", ...arrays] };
+        },
       });
       // A turn admitted after the save must already see the changed MCP servers.
-      const written = await runtime.client.call("config.get", {});
+      const written = await live.get();
       await adoption.settle(base?.hash, written.hash);
     } finally {
       adoption.close();

@@ -43,6 +43,7 @@ test(
     const accounts = new AssistantModelAccounts({ dataDir, runtime });
     const models = new AssistantModels({ accounts, connections: { list: () => [] } });
     const config = new AssistantConfig({
+      runtime,
       client: { call: (...args) => runtime.client.call(...args) },
       models,
       store,

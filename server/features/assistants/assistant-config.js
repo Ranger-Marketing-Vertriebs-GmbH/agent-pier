@@ -22,11 +22,7 @@ import {
   compiledSkillNames,
   pluginSkillReported,
 } from "./built-in-skills.js";
-import { configWrite, patchConfig } from "./openclaw-config/live-patch.js";
-import { watchConfigAdoption } from "./openclaw-config/config-adoption.js";
-import { waitForAgentInRoster } from "./openclaw-config/agent-roster.js";
-import { settledAdmission } from "./agent-admission.js";
-import { agentCreateTimeoutMs } from "./runtimes/openclaw/gateway-client.js";
+import { runtimeFor } from "./runtimes/runtime-for.js";
 import { agentExec, shellSections, shellTools } from "./openclaw-config/shell.js";
 // Bootstrap files the Gateway exposes besides AGENTS.md. AgentPier never creates
 // them (skipBootstrap), so any content is foreign and is neutralized. USER.md is
@@ -51,6 +47,7 @@ function shellAllow(allow = [], wanted) {
 
 export class AssistantConfig {
   constructor({
+    runtime,
     client,
     models,
     store,
@@ -60,8 +57,11 @@ export class AssistantConfig {
     adoption = {},
     roster = {},
   }) {
-    // `roster`: waitForAgentInRoster options (timeoutMs, and a clock for tests).
+    // `roster`: agents.waitListed options (timeoutMs, and a clock for tests).
+    // `runtime`: the runtime supervisor; tests may hand only a Gateway client.
+    // `client` still serves skills.status until the skills sub-port takes it.
     Object.assign(this, {
+      runtime: runtime ?? { client },
       client,
       models,
       store,
@@ -172,15 +172,11 @@ export class AssistantConfig {
   // so instructions planted between turns never reach the next prompt.
   // `bootstrap` is the managed AGENTS.md content (owner instructions + guidance).
   async verifyBootstrap(assistant, bootstrap) {
+    const { agentFiles } = runtimeFor(assistant, this.runtime);
     for (const name of ["AGENTS.md", ...foreignBootstrap]) {
       const expected = name === "AGENTS.md" ? bootstrap : "";
       const read = async () =>
-        (
-          await this.client.call("agents.files.get", {
-            agentId: assistant.runtimeAgentId,
-            name,
-          })
-        ).file;
+        (await agentFiles.get({ agentId: assistant.runtimeAgentId, name })).file;
       const intact = (file) =>
         file?.missing === true
           ? name !== "AGENTS.md" || expected === ""
@@ -189,7 +185,7 @@ export class AssistantConfig {
             : file?.content === expected;
       const file = await read();
       if (intact(file)) continue;
-      await this.client.call("agents.files.set", {
+      await agentFiles.set({
         agentId: assistant.runtimeAgentId,
         name,
         content: expected,
@@ -349,6 +345,7 @@ export class AssistantConfig {
         ]),
       )
       .digest("hex");
+    const { agents, agentFiles, config } = runtimeFor(assistant, this.runtime);
     let adoption = null;
     try {
       if (
@@ -367,32 +364,29 @@ export class AssistantConfig {
         };
       }
       // Watched before the first write, so the commit cannot be announced unseen.
-      adoption = watchConfigAdoption(this.client, this.adoption);
-      const base = adoption.watching ? await this.client.call("config.get", {}) : {};
+      adoption = config.watchAdoption(this.adoption);
+      const base = adoption.watching ? await config.get() : {};
       if (lease.provider)
-        await patchConfig(this.client, () => ({
-          patch: { models: { providers: { [lease.providerId]: lease.provider } } },
-        }));
-      // agents.create and agents.update write the configuration (live-patch.js).
-      await settledAdmission(this.client);
-      const agents = await this.client.call("agents.list", {});
-      if (!agents.agents?.some((a) => a.id === assistant.runtimeAgentId)) {
-        const created = await configWrite(this.client, () =>
-          this.client.call(
-            "agents.create",
-            {
-              name: assistant.runtimeAgentId,
-              workspace: path.join(this.workspaces, assistant.id),
-              model: lease.modelRef,
-            },
-            { timeoutMs: agentCreateTimeoutMs },
-          ),
-        );
+        await config.patch({
+          build: () => ({
+            patch: { models: { providers: { [lease.providerId]: lease.provider } } },
+          }),
+        });
+      // agents.create and agents.update write the configuration: the roster is read
+      // once the runtime admitted its agents.
+      await agents.settled();
+      const roster = await agents.list();
+      if (!roster.agents?.some((a) => a.id === assistant.runtimeAgentId)) {
+        const created = await agents.create({
+          name: assistant.runtimeAgentId,
+          workspace: path.join(this.workspaces, assistant.id),
+          model: lease.modelRef,
+        });
         if (created.agentId !== assistant.runtimeAgentId)
           throw assistantProblem("conflict", 409);
       }
       // Profile creation commits before the Gateway's runtime roster reloads.
-      await waitForAgentInRoster(this.client, assistant.runtimeAgentId, this.roster);
+      await agents.waitListed({ agentId: assistant.runtimeAgentId, ...this.roster });
       await this.mirrorMemory(assistant, nativeReady && capabilities.memory);
       await this.deliverSecrets(assistant);
       // The Gateway's own view decides as well: a name it resolves to any other
@@ -408,103 +402,103 @@ export class AssistantConfig {
       if (nativeReady) await this.browserProfiles?.sync();
       // Events count from the last write on; agents.update always writes.
       adoption.mark();
-      await configWrite(this.client, () =>
-        this.client.call("agents.update", {
-          agentId: assistant.runtimeAgentId,
-          name: assistant.name,
-          model: lease.modelRef,
-        }),
-      );
+      await agents.update({
+        agentId: assistant.runtimeAgentId,
+        name: assistant.name,
+        model: lease.modelRef,
+      });
       if (this.teamReady || this.nativeReady || lease.agentRuntime) {
         adoption.mark();
-        await patchConfig(this.client, (config) => {
-          const agents = config.agents;
-          const arrayKey = Array.isArray(agents.entries) ? "entries" : "list";
-          const managed = !!(this.teamReady || this.nativeReady);
-          // Live writes keep the managed paths even before the Gateway reports readiness.
-          const configure = (entry = {}) =>
-            agentEntry(entry, assistant, {
-              teamsReady: !!this.teamReady?.(),
-              nativeReady,
-              guardProven: !!this.writeGuard?.(),
-              agentRuntime: lease.agentRuntime,
-              toolsManaged: managed,
-              memoryManaged: !!this.nativeReady,
-              available,
-              pathPrepend,
-              mcpTools,
-              senderFacing,
-              ssh,
-              shadowedSkills: shadowed,
-            });
-          const keyed = agents.entries && !Array.isArray(agents.entries);
-          const keyedEntry = () => {
-            const current = agents.entries[assistant.runtimeAgentId];
-            const next = configure(current);
-            // A merge patch keeps omitted keys: null removes a lowered level's
-            // override and keys the new level does not set (strictInlineEval).
-            const before = current?.tools?.exec;
-            if (managed && before && typeof before === "object")
-              next.tools = {
-                ...next.tools,
-                exec: next.tools.exec
-                  ? {
-                      ...Object.fromEntries(
-                        Object.keys(before).map((key) => [key, null]),
-                      ),
-                      ...next.tools.exec,
-                    }
-                  : null,
-              };
-            // A merge patch keeps an omitted list: null removes the last skill, and the
-            // hard lock's deny of an agent that is no user agent any more.
-            if (managed && Array.isArray(current?.skills) && !next.skills)
-              next.skills = null;
-            if (managed && Array.isArray(current?.tools?.deny) && !next.tools?.deny)
-              next.tools = { ...next.tools, deny: null };
-            return next;
-          };
-          const patch = keyed
-            ? { entries: { [assistant.runtimeAgentId]: keyedEntry() } }
-            : {
-                [arrayKey]: (agents[arrayKey] || []).map((a) =>
-                  a.id === assistant.runtimeAgentId ? configure(a) : a,
-                ),
-              };
-          if (this.hostCapacity)
-            patch.defaults = { maxConcurrent: this.hostCapacity() + 8 };
-          // OpenClaw refuses to drop array items unless their exact path is named:
-          // removing or changing the exec override drops pathPrepend entries.
-          const replacePaths = keyed
-            ? [
-                `agents.entries.${assistant.runtimeAgentId}.tools.allow`,
-                `agents.entries.${assistant.runtimeAgentId}.tools.exec.pathPrepend`,
-              ]
-            : [`agents.${arrayKey}`];
-          // A shorter or removed skill list drops array items as well.
-          if (keyed && Array.isArray(agents.entries[assistant.runtimeAgentId]?.skills))
-            replacePaths.push(`agents.entries.${assistant.runtimeAgentId}.skills`);
-          if (
-            keyed &&
-            Array.isArray(agents.entries[assistant.runtimeAgentId]?.tools?.deny)
-          )
-            replacePaths.push(`agents.entries.${assistant.runtimeAgentId}.tools.deny`);
-          const globalAllow = shellAllow(config.tools?.allow, shellGlobal);
-          if (globalAllow) replacePaths.push("tools.allow");
-          return {
-            patch: {
-              agents: patch,
-              ...(globalAllow && { tools: { allow: globalAllow } }),
-            },
-            replacePaths,
-          };
+        await config.patch({
+          build: (config) => {
+            const agents = config.agents;
+            const arrayKey = Array.isArray(agents.entries) ? "entries" : "list";
+            const managed = !!(this.teamReady || this.nativeReady);
+            // Live writes keep the managed paths even before the Gateway reports readiness.
+            const configure = (entry = {}) =>
+              agentEntry(entry, assistant, {
+                teamsReady: !!this.teamReady?.(),
+                nativeReady,
+                guardProven: !!this.writeGuard?.(),
+                agentRuntime: lease.agentRuntime,
+                toolsManaged: managed,
+                memoryManaged: !!this.nativeReady,
+                available,
+                pathPrepend,
+                mcpTools,
+                senderFacing,
+                ssh,
+                shadowedSkills: shadowed,
+              });
+            const keyed = agents.entries && !Array.isArray(agents.entries);
+            const keyedEntry = () => {
+              const current = agents.entries[assistant.runtimeAgentId];
+              const next = configure(current);
+              // A merge patch keeps omitted keys: null removes a lowered level's
+              // override and keys the new level does not set (strictInlineEval).
+              const before = current?.tools?.exec;
+              if (managed && before && typeof before === "object")
+                next.tools = {
+                  ...next.tools,
+                  exec: next.tools.exec
+                    ? {
+                        ...Object.fromEntries(
+                          Object.keys(before).map((key) => [key, null]),
+                        ),
+                        ...next.tools.exec,
+                      }
+                    : null,
+                };
+              // A merge patch keeps an omitted list: null removes the last skill, and the
+              // hard lock's deny of an agent that is no user agent any more.
+              if (managed && Array.isArray(current?.skills) && !next.skills)
+                next.skills = null;
+              if (managed && Array.isArray(current?.tools?.deny) && !next.tools?.deny)
+                next.tools = { ...next.tools, deny: null };
+              return next;
+            };
+            const patch = keyed
+              ? { entries: { [assistant.runtimeAgentId]: keyedEntry() } }
+              : {
+                  [arrayKey]: (agents[arrayKey] || []).map((a) =>
+                    a.id === assistant.runtimeAgentId ? configure(a) : a,
+                  ),
+                };
+            if (this.hostCapacity)
+              patch.defaults = { maxConcurrent: this.hostCapacity() + 8 };
+            // OpenClaw refuses to drop array items unless their exact path is named:
+            // removing or changing the exec override drops pathPrepend entries.
+            const replacePaths = keyed
+              ? [
+                  `agents.entries.${assistant.runtimeAgentId}.tools.allow`,
+                  `agents.entries.${assistant.runtimeAgentId}.tools.exec.pathPrepend`,
+                ]
+              : [`agents.${arrayKey}`];
+            // A shorter or removed skill list drops array items as well.
+            if (keyed && Array.isArray(agents.entries[assistant.runtimeAgentId]?.skills))
+              replacePaths.push(`agents.entries.${assistant.runtimeAgentId}.skills`);
+            if (
+              keyed &&
+              Array.isArray(agents.entries[assistant.runtimeAgentId]?.tools?.deny)
+            )
+              replacePaths.push(`agents.entries.${assistant.runtimeAgentId}.tools.deny`);
+            const globalAllow = shellAllow(config.tools?.allow, shellGlobal);
+            if (globalAllow) replacePaths.push("tools.allow");
+            return {
+              patch: {
+                agents: patch,
+                ...(globalAllow && { tools: { allow: globalAllow } }),
+              },
+              replacePaths,
+            };
+          },
         });
       }
-      const file = await this.client.call("agents.files.get", {
+      const file = await agentFiles.get({
         agentId: assistant.runtimeAgentId,
         name: "AGENTS.md",
       });
-      await this.client.call("agents.files.set", {
+      await agentFiles.set({
         agentId: assistant.runtimeAgentId,
         name: "AGENTS.md",
         content: bootstrap,
@@ -514,7 +508,7 @@ export class AssistantConfig {
             ? { expectedHash: file.file.hash }
             : {}),
       });
-      const effective = await this.client.call("config.get", {});
+      const effective = await config.get();
       const entries = effective.config?.agents?.entries;
       const entry = Array.isArray(entries)
         ? entries.find((a) => a.id === assistant.runtimeAgentId)
@@ -558,7 +552,7 @@ export class AssistantConfig {
       const model = (entry || legacy)?.model;
       if ((typeof model === "string" ? model : model?.primary) !== lease.modelRef)
         throw assistantProblem("conflict", 409);
-      const readback = await this.client.call("agents.files.get", {
+      const readback = await agentFiles.get({
         agentId: assistant.runtimeAgentId,
         name: "AGENTS.md",
       });

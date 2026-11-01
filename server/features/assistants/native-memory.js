@@ -6,6 +6,7 @@ import { memoryEnabled } from "./native-capabilities.js";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { leadMirrorDir } from "./member-memory.js";
 import { openInside } from "./project-open.js";
+import { runtimeFor } from "./runtimes/runtime-for.js";
 const names = new Set(["MEMORY.md", "USER.md"]);
 const projectFile = (file, name) => ({
   name,
@@ -208,9 +209,10 @@ export class NativeMemory {
     await a.config.apply(id);
     return agent;
   }
-  async call(method, input) {
+  // A call of the agentFiles sub-port (runtime-for.js) with its failure translated.
+  async call(agent, method, input) {
     try {
-      return await this.assistants.runtime.client.call(method, input);
+      return await runtimeFor(agent, this.assistants.runtime).agentFiles[method](input);
     } catch (error) {
       throw assistantProblem(
         error.code === "CONFLICT" ? "conflict" : "unavailable",
@@ -224,7 +226,7 @@ export class NativeMemory {
     return this.assistants.admit(async () => {
       if (!names.has(name)) throw assistantProblem("invalid");
       const agent = await this.prepare(id);
-      const result = await this.call("agents.files.get", {
+      const result = await this.call(agent, "get", {
         agentId: agent.runtimeAgentId,
         name,
       });
@@ -250,7 +252,7 @@ export class NativeMemory {
       )
         throw assistantProblem("invalid");
       const agent = await this.prepare(id);
-      const result = await this.call("agents.files.set", {
+      const result = await this.call(agent, "set", {
         agentId: agent.runtimeAgentId,
         ...input,
       });
@@ -262,11 +264,10 @@ export class NativeMemory {
     return this.assistants.admit(async () => {
       textValue(query, 1000);
       const agent = await this.prepare(id);
-      const result = await this.call("tools.invoke", {
-        name: "memory_search",
+      const result = await this.call(agent, "searchMemory", {
         agentId: agent.runtimeAgentId,
-        sessionKey: `agent:${agent.runtimeAgentId}:main`,
-        args: { query, maxResults: 12 },
+        query,
+        maxResults: 12,
       });
       const details = result.output?.details;
       if (!result.ok || !Array.isArray(details?.results))

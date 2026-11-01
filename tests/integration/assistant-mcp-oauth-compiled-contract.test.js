@@ -111,11 +111,11 @@ async function harness(t, { tool }) {
     store,
     models,
     workspaces: runtime.paths.workspaces,
+    runtime,
     client: { call: (...args) => runtime.client.call(...args) },
     hostCapacity: () => 4,
   });
   const assistants = new AssistantService({ store, runtime, config, models });
-
   // AgentPier's listener: the routes, and the port the redirect is compiled with.
   const app = express();
   const listener = await new Promise((resolve) => {

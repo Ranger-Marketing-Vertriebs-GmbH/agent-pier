@@ -191,12 +191,24 @@ live in the adapter. The `events` sub-port delivers normalized run events of the
 current connection (`started`, `text`, `tool`, `finished`, `aborted`, `failed`
 with a reason, and approvals passed through), each with OpenClaw's frame name and
 payload alongside: reply text, tool steps (`run-steps.js`) and approval details are
-still read from that payload. `tests/unit/runtime-port-rules.test.js`
+still read from that payload. The `agents` sub-port lists, creates, updates and
+deletes the runtime-side agent, waits until a new one is listed and reports which
+agents the current connection refused to admit; the `agentFiles` sub-port reads and
+writes an agent's workspace files over their expected hash and searches its memory;
+the `config` sub-port reads the live configuration with its hash, looks up whether a
+path reloads without a restart, applies a change built from the current
+configuration and watches until the Gateway adopted it. Each has `on(connection)`
+like `sessions`. OpenClaw's admission wait (`agent-admission.js`), the serialized
+configuration writes (`live-patch.js`), the adoption watch (`config-adoption.js`)
+and the roster wait (`agent-roster.js`) live in the adapter; the compiler in
+`openclaw-config/` still produces the configuration it applies.
+`tests/unit/runtime-port-rules.test.js`
 fails when server code outside `runtimes/` names a Gateway method in
 `.call()`/`.request()` or reaches `runtime.client`; its allowlist
 (`tests/fixtures/runtime-port-allowlist.json`) holds today's callers and may only
 shrink. `tests/helpers/runtime-port-contract.js` is the contract every adapter passes,
-the `host`, `sessions` and `events` sub-ports included.
+the `host`, `sessions`, `events`, `agents`, `agentFiles` and `config` sub-ports
+included.
 
 See [the user guide](agents.md), [the Gateway design](assistant-gateway.md) and
 [ADR 0002](adr/0002-managed-openclaw-assistants.md). The proposed

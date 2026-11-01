@@ -87,6 +87,7 @@ test(
     };
     await runtime.start();
     const config = new AssistantConfig({
+      runtime,
       client: runtime.client,
       models: routed,
       store,

@@ -1,5 +1,4 @@
 import { assistantProblem } from "./assistant-validation.js";
-import { patchConfig } from "./openclaw-config/live-patch.js";
 import fs from "node:fs";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -108,13 +107,15 @@ export class AssistantMaintenance {
     if (!client?.ready) throw assistantProblem("unavailable", 503);
     if (this.intent && (await client.call("cron.status", {})).enabled)
       throw assistantProblem("conflict", 409);
-    const roster = await client.call("agents.list", {});
+    // The roster and the sessions are read on the connection checked above.
+    const runtime = runtimeFor(null, s.assistantRuntime);
+    const roster = await runtime.agents.on(connection).list();
     for (const a of s.assistants.store.listAssistants()) {
       if (a.effectiveRevision && !roster.agents?.some((p) => p.id === a.runtimeAgentId))
         throw assistantProblem("conflict", 409);
     }
     // A deleted user's chat keeps its row, not its native session (user-release.js).
-    const sessions = runtimeFor(null, s.assistantRuntime).sessions.on(connection);
+    const sessions = runtime.sessions.on(connection);
     for (const c of s.assistants.store.listConversations())
       if (!c.userReleased) await sessions.describe({ key: c.runtimeSessionKey });
     if ((await this.blockers()).length) throw assistantProblem("active", 409);
@@ -169,9 +170,10 @@ export class AssistantMaintenance {
   }
   async setCron(enabled) {
     const runtime = this.s.assistantRuntime;
-    await patchConfig(runtime.client, (config) =>
-      config.cron?.enabled === enabled ? null : { patch: { cron: { enabled } } },
-    );
+    await runtimeFor(null, runtime).config.patch({
+      build: (config) =>
+        config.cron?.enabled === enabled ? null : { patch: { cron: { enabled } } },
+    });
     for (let attempt = 0; attempt < 100; attempt++) {
       try {
         if (

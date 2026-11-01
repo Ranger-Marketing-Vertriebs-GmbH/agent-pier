@@ -50,9 +50,41 @@
  *     event, payload }`: `kind` one of RUN_EVENT_KINDS, `reason` why a run failed
  *     (`"timeout"`) or null, and `event`/`payload` the runtime's own frame name and
  *     payload, which the reply text, tool steps and approvals are still read from.
- * - agents: the runtime-side agent (create, update, delete, list)
+ * - agents: the runtime-side agent. Its async methods reject while the runtime is
+ *   unreachable; answers are the runtime's own fields.
+ *   - list(): `{ agents: [{ id, … }] }`.
+ *   - create({ name, workspace, model }): `{ agentId }`; update({ agentId, name,
+ *     model }); delete({ agentId, deleteFiles }). Each is a configuration write: it
+ *     waits for settled() and runs after every earlier write of the connection.
+ *   - waitListed({ agentId, timeoutMs, … }): resolves once list() names the agent; a
+ *     new agent appears only after the runtime reloaded (problem agentLoading).
+ *   - settled(): resolves, never rejects, once the runtime admitted the agents it
+ *     prepares in the background; admitted(): once each was admitted or refused,
+ *     true when there were any.
+ *   - degraded(): synchronously, the runtime agent ids this connection refused;
+ *     noteRefusal({ error }): records the admission refusal a call reported and
+ *     returns it, or null.
+ *   - on(connection): these methods bound to a connection, as sessions.on.
  * - agentFiles: instructions, memory and workspace files
+ *   - get({ agentId, name }): `{ file: { content, hash, missing } }`.
+ *   - set({ agentId, name, content, expectedHash, expectedMissing }): writes only
+ *     over the expected hash (or absence) given.
+ *   - searchMemory({ agentId, query, maxResults }): `{ ok, output: { details:
+ *     { results } } }`.
+ *   - on(connection), as sessions.on.
  * - config: apply the compiled desired state; whether a restart is needed
+ *   - get(): `{ config, hash }`, the running configuration and its hash.
+ *   - lookup({ path }): the schema entry, `reloadKind` "hot", "none" or "restart"
+ *     telling whether a change there needs a restart.
+ *   - patch({ build, maxWaitMs, wait, now }): `build(config)` returns `{ patch,
+ *     replacePaths }` or null; applied over the hash it was computed from, after
+ *     every earlier write, waiting out a rate limit within `maxWaitMs` (problem
+ *     configBusy) and failing with conflict (409) when another write came between.
+ *     Resolves to the `{ config, hash }` it was built from, or null without change.
+ *   - watchAdoption({ timeoutMs, warn }): synchronously `{ watching, mark(),
+ *     settle(baseHash, writtenHash), close() }`: settle resolves once the runtime
+ *     runs the written configuration, or after the timeout.
+ *   - on(connection), as sessions.on.
  * - approvals: pending approvals, resolve, history, allowlist
  * - routines: add, update, remove, run, list runs
  * - skills: per-agent skill status and eligibility

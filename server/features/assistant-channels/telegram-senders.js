@@ -185,7 +185,7 @@ export class TelegramSenders {
       const desired = this.desired();
       const changes = telegramLiveChanges(started, desired);
       if (!changes) return false;
-      await patchTelegramAllowlists(runtime.client, changes, this.adoption);
+      await patchTelegramAllowlists(runtime, changes, this.adoption);
       // A restart meanwhile compiled the store itself and keeps its own snapshot.
       if (runtime.telegram === started) {
         if (runtime.telegramStarting === started) runtime.telegramStarting = desired;

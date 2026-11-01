@@ -1,18 +1,38 @@
 import { EventEmitter } from "node:events";
+import { createHash } from "node:crypto";
 import { gatewayError } from "../../server/features/assistants/runtimes/openclaw/gateway-protocol.js";
+import { mergePatch } from "./runtime-port-agents-contract.js";
+
+const sha256 = (text) => createHash("sha256").update(text, "utf8").digest("hex");
+const answered = (code) =>
+  Object.assign(new Error(code), { code, answered: true, status: 400 });
+
+/**
+ * What a Gateway keeps on disk across restarts: its agents, their workspace files
+ * and its configuration with a hash per write. One store serves every client a
+ * supervisor connects in turn.
+ */
+export const openClawStore = () => ({
+  agents: new Map(),
+  files: new Map(),
+  config: {},
+  writes: 0,
+});
 
 /**
  * A Gateway client that answers like OpenClaw 2026.10.3 for the runtime port's
  * contract (tests/unit/agent-runtime-port.test.js): channels, sessions and the
  * `agent`/`chat` frames of a run, which ends on later turns of the event loop,
- * finished or with a `chat` error of `errorKind: runFailure`. `calls` records each
- * call as [method, params, options?]. Once closed it refuses every call as
- * GatewayClient does.
+ * finished or with a `chat` error of `errorKind: runFailure`; agents, their files,
+ * memory search and the configuration, held in `store` (openClawStore), with a
+ * `config.changed` frame after each write. `calls` records each call as [method,
+ * params, options?]. Once closed it refuses every call as GatewayClient does.
  */
 export function openClawClientFake({
   channels = {},
   runFailure = null,
   calls = [],
+  store = openClawStore(),
 } = {}) {
   const frames = new EventEmitter();
   const sessions = new Map();
@@ -60,6 +80,7 @@ export function openClawClientFake({
       messages: [...(sessions.get(sessionKey)?.messages || [])],
     }),
     "agent.wait": ({ runId }) => ({ runId, status: runs.get(runId) || "timeout" }),
+    ...agentAnswers(store, frame),
   };
   return {
     ready: true,
@@ -82,5 +103,72 @@ export function openClawClientFake({
       return () => frames.off("event", listener);
     },
     frame,
+  };
+}
+
+// agents.*, agents.files.*, tools.invoke (memory_search) and config.* over `store`.
+function agentAnswers(store, frame) {
+  const hash = () => `h${store.writes}`;
+  const written = () => {
+    store.writes++;
+    frame("config.changed", { hash: hash() });
+  };
+  const file = (agentId, name) => {
+    const content = store.files.get(`${agentId}/${name}`);
+    return content === undefined
+      ? { name, missing: true }
+      : { name, content, hash: sha256(content) };
+  };
+  return {
+    "agents.list": () => ({ agents: [...store.agents.values()].map((a) => ({ ...a })) }),
+    "agents.create": ({ name, workspace, model }) => {
+      store.agents.set(name, { id: name, name, workspace, model });
+      written();
+      return { ok: true, agentId: name };
+    },
+    "agents.update": ({ agentId, name, model }) => {
+      if (!store.agents.has(agentId)) throw answered("INVALID_REQUEST");
+      Object.assign(store.agents.get(agentId), { name, model });
+      written();
+      return { ok: true };
+    },
+    "agents.delete": ({ agentId }) => {
+      const removed = store.agents.delete(agentId);
+      if (removed) written();
+      return { ok: removed };
+    },
+    "agents.files.get": ({ agentId, name }) => ({ file: file(agentId, name) }),
+    "agents.files.set": ({ agentId, name, content, expectedHash, expectedMissing }) => {
+      const current = file(agentId, name);
+      if (expectedMissing === true && !current.missing) throw answered("CONFLICT");
+      if (expectedHash !== undefined && current.hash !== expectedHash)
+        throw answered("CONFLICT");
+      store.files.set(`${agentId}/${name}`, content);
+      return { ok: true, file: file(agentId, name) };
+    },
+    "tools.invoke": ({ name, agentId, args }) => {
+      if (name !== "memory_search") throw answered("INVALID_REQUEST");
+      const results = [...store.files.entries()]
+        .filter(
+          ([key, text]) => key.startsWith(`${agentId}/`) && text.includes(args.query),
+        )
+        .slice(0, args.maxResults)
+        .map(([key, text]) => ({
+          path: key.slice(agentId.length + 1),
+          snippet: text,
+          startLine: 1,
+          endLine: 1,
+        }));
+      return { ok: true, output: { details: { results } } };
+    },
+    "config.get": () => ({ config: structuredClone(store.config), hash: hash() }),
+    "config.schema.lookup": ({ path }) => ({ path, reloadKind: "hot" }),
+    "config.patch": ({ baseHash, raw }) => {
+      // OpenClaw refuses a stale base hash with the generic INVALID_REQUEST.
+      if (baseHash !== hash()) throw answered("INVALID_REQUEST");
+      store.config = mergePatch(store.config, JSON.parse(raw));
+      written();
+      return { ok: true };
+    },
   };
 }

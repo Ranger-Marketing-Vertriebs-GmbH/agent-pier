@@ -1,5 +1,5 @@
 import { setTimeout as delay } from "node:timers/promises";
-import { assistantProblem } from "../assistant-validation.js";
+import { assistantProblem } from "../../assistant-validation.js";
 
 // OpenClaw 2026.9.8 answers agents.create once the profile is persisted; agents.list
 // reads the runtime config, which picks the agent up only after the Gateway's plugin

@@ -12,7 +12,7 @@ import { AssistantConfig } from "../../server/features/assistants/assistant-conf
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
 import { publicMessages } from "../../server/features/assistants/conversations.js";
 import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
-import { admissionDone } from "../../server/features/assistants/agent-admission.js";
+import { admissionDone } from "../../server/features/assistants/runtimes/openclaw/agent-admission.js";
 const dataDir = process.env.AGENTPIER_ASSISTANT_CONTRACT_DIR;
 // Five Gateway starts (initial, crash, recovery, stop/start): a passing hosted
 // macOS run already took 89 s, and the same runner type is often 30 % slower.
@@ -108,6 +108,7 @@ test(
       }),
     };
     const config = new AssistantConfig({
+      runtime,
       client: runtime.client,
       models,
       store,

@@ -1,10 +1,13 @@
 import { defineAgentRuntime } from "../agent-runtime.js";
+import { openClawAgentFiles, openClawAgents } from "./openclaw-agents.js";
+import { openClawConfig } from "./openclaw-configuration.js";
 import { openClawEvents } from "./openclaw-events.js";
 import { openClawSessions } from "./openclaw-sessions.js";
 
 // One opaque handle per Gateway client: a restart replaces the client, so the handle
 // tells callers whether an await crossed one. Shared by every adapter of a process.
-// The handle keeps its client, so calls bound to it (sessions.on) reach that client.
+// The handle keeps its client, so calls bound to it (`on(connection)` of sessions,
+// agents, agentFiles and config) reach that client.
 const connections = new WeakMap();
 const clients = new WeakMap();
 function connectionOf(client) {
@@ -36,6 +39,9 @@ export function createOpenClawRuntime(supervisor) {
     host: openClawHost(supervisor),
     sessions: openClawSessions(supervisor, clientOf),
     events: openClawEvents(supervisor),
+    agents: openClawAgents(supervisor, clientOf),
+    agentFiles: openClawAgentFiles(supervisor, clientOf),
+    config: openClawConfig(supervisor, clientOf),
     channels: {
       status: ({ probe = false } = {}) => call("channels.status", { probe }),
     },

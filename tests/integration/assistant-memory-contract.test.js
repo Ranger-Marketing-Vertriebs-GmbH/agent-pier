@@ -90,6 +90,7 @@ async function fixture(t) {
     }),
   };
   const config = new AssistantConfig({
+    runtime,
     client: runtime.client,
     store,
     models,

@@ -1,5 +1,5 @@
-import { assistantProblem } from "../assistant-validation.js";
-import { settledAdmission } from "../agent-admission.js";
+import { assistantProblem } from "../../assistant-validation.js";
+import { settledAdmission } from "./agent-admission.js";
 import { setTimeout as delay } from "node:timers/promises";
 
 // Every live OpenClaw configuration write goes through here, so a concurrent change

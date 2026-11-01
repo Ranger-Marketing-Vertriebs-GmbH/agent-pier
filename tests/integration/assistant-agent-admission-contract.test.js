@@ -14,13 +14,13 @@ import { AssistantModels } from "../../server/features/assistants/assistant-mode
 import { ProviderConnections } from "../../server/features/providers/provider-connections.js";
 import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
 import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
-import { patchConfig } from "../../server/features/assistants/openclaw-config/live-patch.js";
+import { patchConfig } from "../../server/features/assistants/runtimes/openclaw/live-patch.js";
 import {
   degradedAgents,
   noteRefusal,
   pendingAdmission,
   settledAdmission,
-} from "../../server/features/assistants/agent-admission.js";
+} from "../../server/features/assistants/runtimes/openclaw/agent-admission.js";
 import { sendRefusal } from "../../server/features/assistants/conversation-turns.js";
 
 // AGENTPIER-238 on the pinned runtime: after an unclean stop (a stale lease) the
@@ -101,6 +101,7 @@ test(
     await runtime.start();
     const configFor = () =>
       new AssistantConfig({
+        runtime,
         client: runtime.client,
         models,
         store,

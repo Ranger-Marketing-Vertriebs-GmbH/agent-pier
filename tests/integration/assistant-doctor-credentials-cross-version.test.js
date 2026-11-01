@@ -156,6 +156,7 @@ test(
       // voice provider `deepgram` does; model connections also get a new id.
       let apiKey = OLD_KEY;
       assistants.config = new AssistantConfig({
+        runtime,
         client: { call: (...args) => runtime.client.call(...args) },
         store,
         workspaces: runtime.paths.workspaces,

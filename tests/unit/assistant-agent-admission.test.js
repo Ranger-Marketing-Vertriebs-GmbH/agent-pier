@@ -7,12 +7,12 @@ import {
   degradedAgents,
   noteRefusal,
   settledAdmission,
-  withAdmission,
-} from "../../server/features/assistants/agent-admission.js";
+} from "../../server/features/assistants/runtimes/openclaw/agent-admission.js";
+import { withAdmission } from "../../server/features/assistants/agent-admission.js";
 import {
   configWrite,
   patchConfig,
-} from "../../server/features/assistants/openclaw-config/live-patch.js";
+} from "../../server/features/assistants/runtimes/openclaw/live-patch.js";
 import { sendRefusal } from "../../server/features/assistants/conversation-turns.js";
 
 const pending = (id) => ({

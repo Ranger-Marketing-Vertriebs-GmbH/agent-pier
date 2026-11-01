@@ -583,9 +583,10 @@ supersedes it, and OpenClaw never retries it: the agent stays refused
 `UNAVAILABLE`.
 
 AgentPier therefore never writes the configuration while an agent is pending
-(`agent-admission.js`). Every writer (`patchConfig` and `configWrite` in
-`live-patch.js`, which `AssistantConfig.apply` uses for `agents.create` and
-`agents.update` too) first waits, once per Gateway connection, until `agents.list`
+(`runtimes/openclaw/agent-admission.js`). Every writer (`patchConfig` and
+`configWrite` in `runtimes/openclaw/live-patch.js`, behind the runtime port's
+`config.patch` and its `agents.create`, `agents.update` and `agents.delete`) first
+waits, once per Gateway connection, until `agents.list`
 lists no pending agent. A roster read the Gateway cannot answer yet (`UNAVAILABLE`, a
 timeout) is asked again; a closed connection or a Gateway without this roster lets
 the write through (a closed connection fails it there). The wait ends after 120 s without progress: each agent admitted meanwhile

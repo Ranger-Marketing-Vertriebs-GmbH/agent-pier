@@ -45,6 +45,7 @@ test(
     const connections = new ProviderConnections({ dataDir });
     await runtime.start();
     const config = new AssistantConfig({
+      runtime,
       client: runtime.client,
       models: new AssistantModels({ connections }),
       store,
@@ -100,9 +101,9 @@ test(
     const state = path.join(runtime.paths.state, "agents", deleted.runtimeAgentId);
     const workspace = path.join(runtime.paths.workspaces, deleted.id);
     assert.ok(fs.existsSync(state));
-    await removeFromGateway(runtime.client, deleted.runtimeAgentId);
+    await removeFromGateway(runtime, deleted.runtimeAgentId);
     // Nothing left to remove: no second agents.delete.
-    await removeFromGateway(runtime.client, deleted.runtimeAgentId);
+    await removeFromGateway(runtime, deleted.runtimeAgentId);
     // Every cron job of the agent goes, OpenClaw's own heartbeat job too.
     assert.deepEqual(await jobs(deleted.runtimeAgentId), []);
     // AgentPier deletes the files itself; OpenClaw moved nothing into a trash folder.
