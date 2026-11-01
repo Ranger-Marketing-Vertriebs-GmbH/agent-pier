@@ -44,6 +44,7 @@
   font-size: var(--font-size-lg);
 }
 .user-header-back,
+.user-search-button,
 .user-menu-button {
   flex: none;
   width: var(--touch-target);

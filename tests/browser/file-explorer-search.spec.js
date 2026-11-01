@@ -86,7 +86,10 @@ test("English recursive search shows partial results and opens their containing 
   await page.getByLabel("Filename search", { exact: true }).fill("guide");
   await openDisclosure(page, ".explorer-search-options");
   await page.getByLabel("Match case", { exact: true }).check();
-  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await page
+    .locator(".explorer-search-form")
+    .getByRole("button", { name: "Search", exact: true })
+    .click();
   await expect.poll(() => f.operations.length).toBe(1);
   expect(f.operations[0]).toMatchObject({
     kind: "search",
@@ -144,7 +147,10 @@ test("mobile requested size keeps unknown and partial values truthful and search
   await expect(properties).toContainText("Some entries could not be accessed");
   await page.getByRole("button", { name: "Back to file list" }).click();
   await page.getByLabel("Filename search", { exact: true }).fill("txt");
-  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await page
+    .locator(".explorer-search-form")
+    .getByRole("button", { name: "Search", exact: true })
+    .click();
   const panel = page.getByRole("region", { name: "File jobs" });
   await panel.getByRole("button", { name: "Stop", exact: true }).click();
   await expect(panel).toContainText("Cancelled");
@@ -275,13 +281,19 @@ test("project-root search selection preserves an empty parent and scope replacem
   await selectEnglish(page);
   await page.goto(baseURL + "/sessions/search-scope/files");
   await page.getByLabel("Filename search", { exact: true }).fill("found");
-  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await page
+    .locator(".explorer-search-form")
+    .getByRole("button", { name: "Search", exact: true })
+    .click();
   await page.getByRole("button", { name: "found.txt", exact: true }).click();
   await openDisclosure(page, ".explorer-path-options");
   await expect(page.getByRole("textbox", { name: "Path", exact: true })).toHaveValue("");
   await expect(page).toHaveURL(/\/files\?file=found.txt$/);
   await expect(page.locator(".file-preview pre")).toHaveText("project root file");
-  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await page
+    .locator(".explorer-search-form")
+    .getByRole("button", { name: "Search", exact: true })
+    .click();
   await oldStarted.promise;
   session.cwd = "/fixture/two";
   await expect(page).toHaveURL(/\/sessions\/search-scope\/files$/, { timeout: 7000 });
@@ -290,7 +302,11 @@ test("project-root search selection preserves an empty parent and scope replacem
   );
   oldResponse.resolve();
   await page.getByLabel("Filename search", { exact: true }).fill("new query");
-  await expect(page.getByRole("button", { name: "Search", exact: true })).toBeEnabled();
+  await expect(
+    page
+      .locator(".explorer-search-form")
+      .getByRole("button", { name: "Search", exact: true }),
+  ).toBeEnabled();
   await expect(page.getByRole("region", { name: "File jobs" })).not.toContainText(
     "Completed",
   );

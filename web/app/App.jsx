@@ -158,6 +158,8 @@ function Application() {
   return (
     <AppSearch
       navigate={navigate}
+      select={select}
+      workspace={ready ? state : null}
       launch={launch}
       extensionProfileId={extensionProfileId}
       providerConnections={ready ? state.providerConnections : null}

@@ -6,6 +6,25 @@ import ListRow from "../../components/ListRow.jsx";
 import LogoutButton from "../login/LogoutButton.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { userAppCopy as copy } from "../../lib/i18n/messages/user-app.js";
+import { searchCopy } from "../../lib/i18n/messages/search.js";
+import useSearchDialog from "../../app/search-dialog.js";
+
+/** Opens her search (UserSearch.jsx); ⌘K / Ctrl+K opens the same. */
+export function UserSearchButton() {
+  const search = useSearchDialog();
+  return (
+    <button
+      type="button"
+      className="icon-button user-search-button"
+      aria-label={searchCopy.title}
+      title={searchCopy.title}
+      aria-haspopup="dialog"
+      onClick={() => search.open()}
+    >
+      <Icon name="search" />
+    </button>
+  );
+}
 
 /**
  * The user's way around her app: My agents, Account and Sign out, in a sheet. Her
@@ -80,6 +99,7 @@ export default function UserHeader({
         )}
       </div>
       {actions}
+      <UserSearchButton />
       <UserMenu navigate={navigate} />
     </header>
   );

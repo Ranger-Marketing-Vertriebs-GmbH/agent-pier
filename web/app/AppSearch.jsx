@@ -15,6 +15,7 @@ import { requestPageAction } from "./page-action.js";
 import { SearchDialogContext, openSearchEvent } from "./search-dialog.js";
 import { loadConnectionNames } from "./search-connections.js";
 import { isMacPlatform, opensSearch } from "./search-shortcut.js";
+import { readRecent, rememberRecent } from "../features/quick-open/recent-items.js";
 const SearchDialog = lazy(() => import("./SearchDialog.jsx"));
 
 // Connection names load on the first open and again when an open finds them older
@@ -22,12 +23,16 @@ const SearchDialog = lazy(() => import("./SearchDialog.jsx"));
 const connectionsMaxAge = 60_000;
 
 /**
- * The app's ⌘K search: provides `useSearchDialog().open` to the sidebar and the phone
- * menu, listens for the shortcut and the `agentpier:open-search` event, and performs
- * the chosen result (navigate, open a page's dialog, or the new session dialog).
+ * The app's ⌘K search: provides `useSearchDialog().open` to the sidebar, the phone
+ * header and menu, listens for the shortcut and the `agentpier:open-search` event, and
+ * performs the chosen result (navigate, open a session in its last view, open a
+ * page's dialog, or the new session dialog), which it keeps as a recent result.
+ * `workspace` is the loaded workspace state (sessions, accounts, tools) or null.
  */
 export default function AppSearch({
   navigate,
+  select,
+  workspace,
   launch,
   extensionProfileId,
   providerConnections,
@@ -38,7 +43,8 @@ export default function AppSearch({
   const [loading, setLoading] = useState(false);
   const loadedAt = useRef(0);
   const { enabled: agentsEnabled } = useAssistantFeature();
-  const { assistants } = useAssistants();
+  const { assistants, conversations } = useAssistants();
+  const [recent, setRecent] = useState(() => readRecent("owner"));
   const show = useCallback(() => setOpen(true), []);
   const context = useMemo(() => ({ open: show }), [show]);
   useEffect(() => {
@@ -72,8 +78,14 @@ export default function AppSearch({
   const close = useCallback(() => setOpen(false), []);
   const choose = (entry) => {
     const target = entry.target;
+    setRecent(rememberRecent("owner", entry.id));
     if (target.pending) requestPageAction(target.pending);
     setOpen(false);
+    if (target.session) {
+      const session = workspace?.sessions?.find((item) => item.id === target.session);
+      if (session) return select(session);
+      return navigate({ view: "workspace", sessionId: target.session, mode: null });
+    }
     if (target.action === "launch") return launch();
     if (target.extensions)
       return navigate(
@@ -93,8 +105,11 @@ export default function AppSearch({
             close={close}
             choose={choose}
             agents={assistants}
+            conversations={conversations}
             agentsEnabled={Boolean(agentsEnabled)}
             connections={connections}
+            workspace={workspace}
+            recent={recent}
             loading={loading && !connections}
           />
         </Suspense>

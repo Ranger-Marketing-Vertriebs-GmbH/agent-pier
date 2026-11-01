@@ -5,8 +5,8 @@
     transition: transform 0.2s;
   }
   .sidebar-head {
-    grid-template-columns: 1fr auto;
-    grid-template-areas: "brand menu";
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas: "brand search menu";
     gap: 10px;
     padding: 14px 14px 14px 18px;
   }
@@ -16,7 +16,18 @@
     font-size: 22px;
     letter-spacing: -1.2px;
   }
+  /* The narrowest drawers (264 px) shorten the name rather than scroll sideways. */
+  .sidebar-head .brand {
+    min-width: 0;
+  }
+  .sidebar-head .brand > span:not(.brand-symbol, .local-badge) {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .sidebar-head .brand-symbol {
+    flex: none;
     width: 28px;
     height: 28px;
     border-radius: 8px;
@@ -30,13 +41,14 @@
   .sidebar.open {
     transform: translateX(0);
   }
-  /* In the drawer search sits in the menu; the group heads keep their icon buttons
-     (agents page or CLIs, and "+") with a full tap target. */
+  /* The drawer keeps the search button beside the menu (and the search row in the
+     menu); the group heads keep their icon buttons (agents page or CLIs, and "+").
+     All with a full tap target. */
   .sidebar-collapse,
-  .sidebar-float,
-  .sidebar-head .sidebar-search {
+  .sidebar-float {
     display: none;
   }
+  .sidebar-head .sidebar-search,
   .sidebar-group-actions .icon-button {
     width: var(--touch-target);
     height: var(--touch-target);
@@ -62,7 +74,12 @@
     border-bottom: 1px solid #28292d;
     background: #16171b;
   }
+  /* With search, inbox and + beside it the name gives way on 320 px screens. */
   .mobile-brand {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     font:
       800 24px "Manrope",
       sans-serif;

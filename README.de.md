@@ -36,6 +36,13 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
   der Freigabe ([Eingang](docs/inbox.md#claude-code-approvals-and-plans)). Freigaben der
   CLIs lassen sich für eine Session oder ein Projekt merken, und nur lesende Befehle wie
   `git status` fragen nie ([gemerkte Freigaben](docs/inbox.md#remembered-and-default-approvals)).
+- **Schnellsuche:** ⌘K (macOS) oder Strg+K, am Handy die Such-Schaltfläche, findet
+  Sessions nach Name, Projekt, CLI oder Account, Projekte, Agenten und ihre Chats,
+  Pipeline-Läufe und -Definitionen, Einträge im Eingang, jede Seite und Einstellung
+  und Aktionen wie **Neue Session**, **Lauf starten** und **Eingang öffnen**; auch
+  Tippfehler treffen, zuletzt Geöffnetes steht oben, und ein eingeschränkter Benutzer
+  findet nur ihre eigenen Agenten
+  ([UI-Leitfaden](docs/ui-guide.md#sidebar-menu-and-search), auf Englisch).
 - **Pipelines mit Review:** wiederverwendbare Profile, isolierte Git-Worktrees,
   parallele Reviewer mit zusammengeführtem Ergebnis, begrenzte Review-Schleifen, Prüfungen, ein Risiko-Gate für heikle Pfade, ein Token-Budget je Lauf, eine Warteschlange je Projekt mit Limit für gleichzeitige Läufe und
   menschliche Freigabe, dazu eine eingebaute Software-Fabrik von der Spezifikation bis zum Pull Request
@@ -171,8 +178,8 @@ npm start
    **CLIs & Erweiterungen › Accounts** bei einer Coding-CLI an oder lege unter
    **Zugänge › Modell-Zugänge** einen Provider-Zugang an. Fehlende CLIs lassen sich in
    der Übersicht oder unter **CLIs & Erweiterungen › Installation** installieren.
-   **Suchen** (⌘K oder Strg+K) findet jede Seite, jeden Agenten und jede Aktion, auch
-   unter ihrem alten Namen.
+   **Suchen** (⌘K oder Strg+K) findet jede Session, jedes Projekt, jeden Lauf, jede
+   Seite, jeden Agenten und jede Aktion, auch unter ihrem alten Namen.
 3. Wähle **+** in der Gruppe **Sessions** der Seitenleiste (am Handy **+ › Session** in
    der Kopfzeile), eine CLI, einen Account und einen Projektordner und starte. Beim
    nächsten Mal wählt der Dialog die zuletzt gestartete CLI und ihren Account vor. Das

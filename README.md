@@ -33,6 +33,12 @@ and agents that work as a team.
   ([inbox](docs/inbox.md#claude-code-approvals-and-plans)). CLI approvals can be
   remembered for a session or project, and read-only commands such as `git status`
   never ask ([remembered approvals](docs/inbox.md#remembered-and-default-approvals)).
+- **Quick open:** ⌘K (macOS) or Ctrl+K, or the search button on a phone, finds
+  sessions by name, project, CLI or account, projects, agents and their chats, pipeline
+  runs and definitions, inbox items, every page and setting, and actions such as **New
+  session**, **Start run** and **Open inbox**; typos still match, recent results come
+  first, and a restricted user finds only her own agents
+  ([UI guide](docs/ui-guide.md#sidebar-menu-and-search)).
 - **Pipelines with review:** reusable profiles, isolated Git worktrees, parallel
   reviewers whose verdicts are joined, bounded review loops, checks, a risk gate for sensitive paths, a token budget per run, a run queue per project with a concurrency limit and human approval,
   plus a built-in software factory from spec to pull request
@@ -151,7 +157,7 @@ npm start
    **CLIs and extensions › Accounts**, or add a provider connection under
    **Connections › Model access**. Missing CLIs can be installed from the overview or
    under **CLIs and extensions › Installation**. **Search** (⌘K or Ctrl+K) finds every
-   page, agent and action, also by its old name.
+   session, project, run, page, agent and action, also by its old name.
 3. Choose **+** in the sidebar's **Sessions** group (on a phone, **+ › Session** in the
    header), pick a CLI, an account and a project folder, and start. Next time the
    dialog preselects the CLI and account you last started with. The native terminal

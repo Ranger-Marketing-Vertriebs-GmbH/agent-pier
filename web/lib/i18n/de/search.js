@@ -1,22 +1,29 @@
 // ⌘K-Suche (Handoff §5.9): Dialog, Gruppen und die Namen, die nur die Suche kennt.
 export const searchCopy = {
   title: "Suchen",
-  inputLabel: "Einstellung, Agent oder Aktion suchen",
-  placeholder: "Seite, Agent oder Aktion suchen …",
+  inputLabel: "Sessions, Projekte, Agenten, Läufe, Einstellungen oder Aktionen suchen",
+  placeholder: "Session, Projekt, Einstellung oder Aktion suchen …",
   resultsLabel: "Suchergebnisse",
   groups: {
-    pages: "Seiten",
+    recent: "Zuletzt geöffnet",
+    sessions: "Sessions",
+    projects: "Projekte",
+    chats: "Chats",
     agents: "An Agenten",
+    runs: "Pipelines",
+    inbox: "Eingang",
+    pages: "Seiten",
     actions: "Aktionen",
   },
   matches: (count) => (count === 1 ? "1 Treffer" : `${count} Treffer`),
   noResults: (query) => `Nichts gefunden für „${query}“`,
   noResultsHint: "Versuche einen anderen Begriff. Alte Namen findet die Suche auch.",
   reset: "Suche zurücksetzen",
-  loadingConnections: "Zugänge werden geladen …",
+  loadingMore: "Weitere Ergebnisse werden geladen …",
   formerly: (name) => `früher ${name}`,
   keySelect: "↑↓ wählen",
   keyOpen: "↵ öffnen",
+  keyClose: "esc schließen",
   keyOldNames: "Findet auch alte Namen wie „Einstellungen › Zugriff › SSH-Zugänge“",
   sshKeys: "SSH-Schlüssel",
   // Unterseiten in den Einstellungen eines Agenten.
@@ -40,6 +47,13 @@ export const searchCopy = {
     addModel: "Modell-Zugang hinzufügen",
     addSecret: "Geheimnis hinzufügen",
     addGithub: "GitHub-Zugang hinzufügen",
+    openInbox: "Eingang öffnen",
+  },
+  // Die Suche in der eigenen App eines Benutzers: ihre Agenten, deren Chats und Seiten, ihr Konto.
+  user: {
+    inputLabel: "Deine Agenten, Chats oder dein Konto suchen",
+    placeholder: "Agent oder Konto suchen …",
+    chatWith: (name) => `Chat mit ${name}`,
   },
   // Alte Namen und Pfade, damit Suchende den neuen Ort finden.
   aliases: {
