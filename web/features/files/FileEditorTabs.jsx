@@ -1,13 +1,15 @@
 import React from "react";
 import { fileEditorCopy as copy } from "../../lib/i18n/messages/file-editor.js";
+import { paneId, usePane } from "../../lib/pane-context.js";
 export default function FileEditorTabs({ tabs, activeId, activate, close }) {
+  const pane = usePane();
   return (
     <div className="file-editor-tabs" role="tablist" aria-label={copy.tabs}>
       {tabs.map((tab) => (
         <div className="file-editor-tab" key={tab.id}>
           <button
             role="tab"
-            id={`file-editor-tab-${tab.id}`}
+            id={paneId(pane, `file-editor-tab-${tab.id}`)}
             tabIndex={tab.id === activeId ? 0 : -1}
             aria-selected={tab.id === activeId}
             onKeyDown={(event) => {
@@ -28,7 +30,7 @@ export default function FileEditorTabs({ tabs, activeId, activate, close }) {
                 .querySelectorAll("[role='tab']")
                 [index].focus();
             }}
-            aria-controls="file-editor-panel"
+            aria-controls={paneId(pane, "file-editor-panel")}
             onClick={() => activate(tab.id)}
             title={`${copy.scopeLabel(tab.scope.kind, tab.scope.root)}: ${tab.path}`}
           >

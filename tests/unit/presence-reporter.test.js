@@ -5,7 +5,7 @@ import {
   startPresenceReporter,
 } from "../../web/features/notifications/presence-reporter.js";
 
-function page({ visible = true, focus = true } = {}) {
+function page({ visible = true, focus = true, routes } = {}) {
   const listeners = { doc: new Map(), win: new Map() };
   const target = (map) => ({
     addEventListener: (name, handler) => map.set(name, handler),
@@ -27,8 +27,18 @@ function page({ visible = true, focus = true } = {}) {
     now: () => state.now,
     setTimer: (fn) => (state.tick = fn),
     clearTimer: () => (state.tick = null),
+    ...(routes ? { routes } : {}),
   });
-  return { state, win, listeners, stop };
+  return {
+    state,
+    win,
+    listeners,
+    stop,
+    get sent() {
+      return state.sent;
+    },
+    tick: () => state.tick(),
+  };
 }
 
 test("a visible but unfocused window never reports its view", () => {
@@ -66,4 +76,27 @@ test("a focused window reports, and stops on blur or when hidden", () => {
   stop();
   assert.equal(state.tick, null);
   assert.equal(listeners.win.size + listeners.doc.size, 0);
+});
+
+test("a view reports every visible pane's route", () => {
+  const p = page({ routes: () => ["/sessions/s1", "/agents/a1/chats/c1"] });
+  assert.deepEqual(p.sent, ["/sessions/s1", "/agents/a1/chats/c1"]);
+  p.tick();
+  assert.equal(p.sent.length, 2); // unchanged within the heartbeat
+});
+
+test("a changed pane list reports at once and the heartbeat repeats every route", () => {
+  let routes = ["/sessions/s1", "/sessions/s2"];
+  const p = page({ routes: () => routes });
+  routes = ["/sessions/s1", "/sessions/s3"];
+  p.tick();
+  assert.deepEqual(p.sent.slice(2), ["/sessions/s1", "/sessions/s3"]);
+  p.state.now += heartbeatMs;
+  p.tick();
+  assert.deepEqual(p.sent.slice(4), ["/sessions/s1", "/sessions/s3"]);
+});
+
+test("a repeated route in the list is sent once", () => {
+  const p = page({ routes: () => ["/sessions/s1", "/sessions/s1"] });
+  assert.deepEqual(p.sent, ["/sessions/s1"]);
 });

@@ -7,6 +7,8 @@ import { filesCopy as copy } from "../../lib/i18n/messages/files.js";
 import Icon from "../../components/Icon.jsx";
 import { explorerLayoutCopy as layout } from "../../lib/i18n/messages/explorer-layout.js";
 import { writeClipboard } from "../../lib/clipboard.js";
+import useNarrow from "../../lib/useNarrow.js";
+import { breakpoints, mediaQueries } from "../../lib/breakpoints.js";
 
 function value(value) {
   return value === null || value === undefined || value === "" ? "—" : value;
@@ -29,8 +31,12 @@ export default function FileProperties({
   onSize,
 }) {
   const closeRef = useRef(null);
+  // Phone layout: the window's width, or the pane's inside a split view.
+  const phone = useNarrow(mediaQueries.phone, breakpoints.phone);
+  const phoneRef = useRef(phone);
+  phoneRef.current = phone;
   useEffect(() => {
-    if (window.matchMedia("(max-width: 700px)").matches) {
+    if (phoneRef.current) {
       closeRef.current?.focus({ preventScroll: true });
       closeRef.current?.closest(".file-explorer")?.scrollTo({ top: 0 });
     }

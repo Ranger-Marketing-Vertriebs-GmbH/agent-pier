@@ -8,10 +8,13 @@ import {
 } from "../../lib/navigation-guard.js";
 import {
   captureFileNavigationTab,
+  concernsScope,
   resolveFileNavigationTab,
 } from "./file-navigation-decision.js";
 
-export default function useFileNavigationGuard() {
+// `scope` names the pane this editor lives in; a request scoped to another pane (or,
+// for a guard without a scope, to any pane) passes without asking.
+export default function useFileNavigationGuard({ scope } = {}) {
   const store = useContext(FileEditorContext);
   const [snapshot, setSnapshot] = useState(store.getSnapshot);
   const [decision, setDecision] = useState(null);
@@ -22,6 +25,7 @@ export default function useFileNavigationGuard() {
       registerFileNavigationGuard(
         (request) =>
           new Promise((resolve) => {
+            if (!concernsScope(request, scope)) return resolve(true);
             const entries = store
               .getSnapshot()
               .tabs.filter(
@@ -41,7 +45,7 @@ export default function useFileNavigationGuard() {
             });
           }),
       ),
-    [store],
+    [scope, store],
   );
   // One shared listener warns before unload while any protector holds it.
   useEffect(() => (hasRetainedTabs ? holdUnloadWarning() : undefined), [hasRetainedTabs]);

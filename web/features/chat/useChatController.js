@@ -9,7 +9,7 @@ import { deliveryScope } from "./chat-draft.js";
 import { restoreScrollAnchor, scrollAnchor } from "./chat-scroll-anchor.js";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { chatAttachmentCopy as attachmentCopy } from "../../lib/i18n/messages/chat.js";
-import useMediaQuery from "../../lib/useMediaQuery.js";
+import useNarrow from "../../lib/useNarrow.js";
 export default function useChatController({ active, session, request, onConnection }) {
   const [error, setError] = useState(""),
     [sent, setSent] = useState(false),
@@ -28,7 +28,8 @@ export default function useChatController({ active, session, request, onConnecti
     setAttachments: delivery.setAttachments,
   });
   const { attachments, uploading } = attachmentState;
-  const compactTasks = useMediaQuery("(max-width: 900px)");
+  // Inside a split pane the pane's width decides.
+  const compactTasks = useNarrow("(max-width: 900px)", 900);
   const [tasksOpen, setTasksOpen] = useState(!compactTasks);
   // Crossing the breakpoint opens or closes the list to match the layout. A re-read
   // that finds the same side (a resize, a resubscribe) keeps the reader's choice.

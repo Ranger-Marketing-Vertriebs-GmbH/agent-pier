@@ -20,7 +20,11 @@ export default function useTerminalConnection({
   focusRef,
   onConnection,
   request,
+  // A pane that is not focused leaves the focus where it is (split views).
+  autoFocus = true,
 }) {
+  const autoFocusRef = useRef(autoFocus);
+  autoFocusRef.current = autoFocus;
   const container = useRef(null),
     terminalRef = useRef(null),
     [error, setError] = useState(""),
@@ -100,7 +104,7 @@ export default function useTerminalConnection({
     const input = (data) => {
       if (session.pipeline?.headless) return false;
       if (connection?.send(JSON.stringify({ type: "input", data }))) {
-        terminal.focus();
+        if (autoFocusRef.current) terminal.focus();
         return true;
       }
       setError(copy.input);
@@ -173,9 +177,10 @@ export default function useTerminalConnection({
     focusRef,
     request,
   ]);
+  // Focuses on mount, on a mode change and when its pane becomes the focused one.
   useEffect(() => {
-    if (mode === "terminal") terminalRef.current?.focus();
-  }, [mode]);
+    if (autoFocus && mode === "terminal") terminalRef.current?.focus();
+  }, [mode, autoFocus]);
 
   return {
     error,

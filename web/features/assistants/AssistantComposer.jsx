@@ -13,6 +13,7 @@ import { assistantAttachmentsCopy as attachCopy } from "../../lib/i18n/messages/
 import MemberMentionMenu from "./MemberMentionMenu.jsx";
 import useMemberMention from "./useMemberMention.js";
 import DictationButton from "../dictation/DictationButton.jsx";
+import { usePaneId } from "../../lib/pane-context.js";
 
 const maxHeight = 6 * 22;
 const optionsId = "assistant-composer-options";
@@ -55,6 +56,7 @@ export default function AssistantComposer({
   const mobile = useMobileLayout();
   const [optionsOpen, setOptionsOpen] = useState(false);
   const field = useRef(null);
+  const fieldId = usePaneId("assistant-message");
   const optionsButton = useRef(null);
   const picker = useRef(null);
   const ready = attachments.ids.join();
@@ -199,12 +201,12 @@ export default function AssistantComposer({
           onTakeBack={onTakeBack}
         />
         <AgentAttachmentTray attachments={attachments} />
-        <label className="sr-only" htmlFor="assistant-message">
+        <label className="sr-only" htmlFor={fieldId}>
           {copy.message}
         </label>
         <textarea
           ref={field}
-          id="assistant-message"
+          id={fieldId}
           value={text}
           maxLength={65536}
           rows={1}

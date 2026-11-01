@@ -3,6 +3,7 @@ import api from "../../lib/api.js";
 import { liveClient } from "../../lib/live/live-client.js";
 import { useInboxCount } from "../inbox/inbox-store.js";
 import { startPresenceReporter } from "./presence-reporter.js";
+import { presenceRoutes } from "./presence-routes.js";
 
 /**
  * Reports the visible, focused view while push devices are registered; `base` is
@@ -13,6 +14,8 @@ export function usePushPresence(enabled, base = "/notifications") {
     // Without a registered device nothing is pushed, so nothing needs reporting.
     if (!enabled) return undefined;
     return startPresenceReporter({
+      // A split view reports each visible pane; otherwise the address bar.
+      routes: () => presenceRoutes() ?? [window.location.pathname],
       // The live channel carries it while open (the server scopes it to the signed-in
       // person); REST is the fallback.
       send: (route) => {
