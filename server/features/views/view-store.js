@@ -56,6 +56,9 @@ export function sanitizeViews(raw) {
 /**
  * The owner's split views: named layouts of sessions and agent chats, one document per
  * data directory. `version` counts the writes; `revision` counts those of one view.
+ * `epoch` is random per instance (per server start, so also after a restore) and comes
+ * with every read and write answer: a browser adopts a document of another epoch even
+ * when its version is lower.
  */
 export class ViewStore {
   constructor({ dataDir, onChange = () => {}, now = () => new Date().toISOString() }) {
@@ -69,10 +72,11 @@ export class ViewStore {
       saved = undefined;
     }
     this.value = sanitizeViews(saved);
+    this.epoch = randomBytes(8).toString("hex");
   }
-  /** The current document (a copy). */
+  /** The current document (a copy) with this instance's epoch. */
   list() {
-    return structuredClone(this.value);
+    return { epoch: this.epoch, ...structuredClone(this.value) };
   }
   /** Writes `views` as the next version, then tells the listeners. */
   #save(views) {
@@ -95,7 +99,7 @@ export class ViewStore {
     while (this.value.views.some((view) => view.id === id));
     const view = { id, name, layout, revision: 1, createdAt: at, usedAt: at };
     const version = this.#save([...this.value.views, view]);
-    return { version, view: structuredClone(view) };
+    return { epoch: this.epoch, version, view: structuredClone(view) };
   }
   update(id, body) {
     if (
@@ -118,10 +122,11 @@ export class ViewStore {
       revision: current.revision + 1,
     };
     const version = this.#save(this.value.views.map((v) => (v === current ? view : v)));
-    return { version, view: structuredClone(view) };
+    return { epoch: this.epoch, version, view: structuredClone(view) };
   }
   remove(id) {
     if (!this.value.views.some((view) => view.id === id)) throw viewError("VIEW_UNKNOWN");
-    return { version: this.#save(this.value.views.filter((view) => view.id !== id)) };
+    const version = this.#save(this.value.views.filter((view) => view.id !== id));
+    return { epoch: this.epoch, version };
   }
 }

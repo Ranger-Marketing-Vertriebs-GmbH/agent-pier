@@ -83,7 +83,7 @@ export default function useViewsStore({ enabled }) {
     async (id) => {
       await run(
         () => deleteView(id),
-        ({ version }) => ({ version, removedId: id }),
+        (answer) => ({ ...answer, removedId: id }),
       );
     },
     [run],
@@ -103,6 +103,8 @@ export default function useViewsStore({ enabled }) {
       views: document.views,
       loaded: Boolean(live.data) || written,
       error: error || live.error || "",
+      // Reads the views again after a failed read.
+      retry: live.refresh,
       byId,
       create,
       rename,
@@ -118,6 +120,7 @@ export default function useViewsStore({ enabled }) {
       written,
       error,
       live.error,
+      live.refresh,
       byId,
       create,
       rename,

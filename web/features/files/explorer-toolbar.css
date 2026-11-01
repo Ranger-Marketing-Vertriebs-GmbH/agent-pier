@@ -204,3 +204,48 @@
     min-width: 7.5rem;
   }
 }
+
+/* In a split view's pane the explorer is as narrow as its pane, whatever the window:
+   its toolbar wraps as on phones, so every action stays reachable. */
+.session-workspace.in-pane .file-explorer {
+  container: pane-explorer / inline-size;
+}
+
+@container pane-explorer (max-width: 700px) {
+  .explorer-toolbar-primary {
+    flex-wrap: wrap;
+  }
+
+  .explorer-history {
+    order: 1;
+  }
+
+  .explorer-breadcrumbs {
+    order: 3;
+    flex-basis: 100%;
+  }
+
+  .explorer-toolbar-actions {
+    order: 2;
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    margin-left: 0;
+  }
+
+  .explorer-primary-actions {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .explorer-search-form {
+    flex-wrap: wrap;
+  }
+
+  .explorer-search-field {
+    flex: 1 1 180px;
+  }
+
+  .explorer-search-options {
+    flex-basis: 100%;
+  }
+}

@@ -218,6 +218,66 @@ for (const language of ["en", "de"]) {
       await expect(paneOf(page, S2).locator(".session-pane-offline")).toHaveCount(0);
     });
 
+    test("deleting a view asks about a pane's unsaved edits first", async ({ page }) => {
+      const controls = await splitViewFixture(page, { language });
+      await page.goto(viewURL);
+      const files = paneOf(page, S2);
+      await files.getByText("readme.txt", { exact: true }).click();
+      await files.getByRole("button", { name: text.open, exact: true }).click();
+      const editor = files.getByRole("textbox", { name: text.editor("readme.txt") });
+      await editor.fill("draft");
+      await page.getByRole("button", { name: text.deleteView, exact: true }).click();
+      const confirm = page.getByRole("dialog").filter({ hasText: "Design review" });
+      await confirm.getByRole("button", { name: text.deleteView, exact: true }).click();
+      await expect(page.getByRole("heading", { name: text.unsaved })).toBeVisible();
+      await page.getByRole("button", { name: text.cancel, exact: true }).click();
+      await expect(page).toHaveURL(viewURL);
+      await expect(editor).toHaveText("draft");
+      expect(controls.writes.filter((write) => write.method === "DELETE")).toEqual([]);
+    });
+
+    test("deleting a view without unsaved edits removes it and opens the start page", async ({
+      page,
+    }) => {
+      const controls = await splitViewFixture(page, { language });
+      await page.goto(viewURL);
+      await expect(page.locator(".split-pane")).toHaveCount(3);
+      await page.getByRole("button", { name: text.deleteView, exact: true }).click();
+      await page
+        .getByRole("dialog")
+        .getByRole("button", { name: text.deleteView, exact: true })
+        .click();
+      await expect(page).toHaveURL(`${baseURL}/`);
+      await expect
+        .poll(() => controls.writes.filter((write) => write.method === "DELETE"))
+        .toEqual([{ method: "DELETE", id: viewId, body: null }]);
+    });
+
+    test("a files pane keeps its toolbar inside the pane", async ({ page }) => {
+      await splitViewFixture(page, { language });
+      await page.goto(viewURL);
+      const files = paneOf(page, S2);
+      const actions = files.locator(".explorer-toolbar button:visible");
+      await expect(actions.first()).toBeVisible();
+      const pane = await files.boundingBox();
+      for (const box of await actions.evaluateAll((nodes) =>
+        nodes.map((node) => node.getBoundingClientRect().toJSON()),
+      )) {
+        expect(box.left).toBeGreaterThanOrEqual(pane.x - 1);
+        expect(box.right).toBeLessThanOrEqual(pane.x + pane.width + 1);
+      }
+    });
+
+    test("a failed views read offers a retry", async ({ page }) => {
+      const controls = await splitViewFixture(page, { language });
+      controls.failRead = true;
+      await page.goto(viewURL);
+      await expect(page.getByRole("alert")).toContainText("Views unavailable");
+      controls.failRead = false;
+      await page.getByRole("button", { name: text.retry, exact: true }).click();
+      await expect(page.locator(".split-pane")).toHaveCount(3);
+    });
+
     test("an unknown view is not found", async ({ page }) => {
       await splitViewFixture(page, { language });
       await page.goto(`${baseURL}/views/v_ffffffffffffffff`);

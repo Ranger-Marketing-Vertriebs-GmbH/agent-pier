@@ -11,6 +11,7 @@ import ErrorMessage from "../../components/ErrorMessage.jsx";
 import useMediaQuery from "../../lib/useMediaQuery.js";
 import { mediaQueries } from "../../lib/breakpoints.js";
 import { appCopy } from "../../lib/i18n/messages/app.js";
+import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { viewsCopy } from "../../lib/i18n/messages/views.js";
 import { setPresenceRoutes } from "../notifications/presence-routes.js";
 import { useViews } from "./views-context.js";
@@ -35,7 +36,7 @@ const keyOf = (leaf) => itemKey(leaf.item);
 const paneOf = (leaf) => ({ key: itemKey(leaf.item), item: leaf.item, tab: leaf.tab });
 
 /** A pane shown alone (below 1151 px): measured before its content renders. */
-function SinglePane({ render }) {
+function SinglePane({ paneKey, render }) {
   const root = useRef(null);
   const [size, setSize] = useState(null);
   useLayoutEffect(() => {
@@ -56,7 +57,11 @@ function SinglePane({ render }) {
   }, []);
   return (
     <div ref={root} className="split-single">
-      {size && <div className="split-pane">{render(size)}</div>}
+      {size && (
+        <div className="split-pane" data-pane-key={paneKey}>
+          {render(size)}
+        </div>
+      )}
     </div>
   );
 }
@@ -166,9 +171,18 @@ export default function SplitViewPage({
   if (!view)
     return (
       <div className="page">
-        <p className="loading" role="status">
-          {appCopy.workspaceLoading}
-        </p>
+        {views.error && !views.loaded ? (
+          <>
+            <ErrorMessage error={views.error} />
+            <button type="button" className="button secondary" onClick={views.retry}>
+              {commonCopy.retry}
+            </button>
+          </>
+        ) : (
+          <p className="loading" role="status">
+            {appCopy.workspaceLoading}
+          </p>
+        )}
       </div>
     );
   const first = firstPane(layout);
@@ -180,8 +194,8 @@ export default function SplitViewPage({
         paneCount={all.length}
         onRename={(name) => rename(view.id, name)}
         onDelete={async () => {
-          await remove(view.id);
-          navigate({ view: "workspace", sessionId: "" });
+          // Leaving first: the panes' unsaved documents ask before the view goes.
+          if (await navigate({ view: "workspace", sessionId: "" })) await remove(view.id);
         }}
       />
       <ErrorMessage error={views.error} />
@@ -203,6 +217,7 @@ export default function SplitViewPage({
           <div className="split-view-body">
             <SinglePane
               key={first.key}
+              paneKey={first.key}
               render={(size) =>
                 renderPane({ type: "pane", item: first.item, tab: first.tab }, size)
               }
