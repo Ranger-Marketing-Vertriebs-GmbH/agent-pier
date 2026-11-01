@@ -5,6 +5,7 @@ import useAsyncAction from "../../lib/useAsyncAction.js";
 import Modal from "../../components/Modal.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import Switch from "../../components/Switch.jsx";
+import PreviewSettingsCard from "../previews/PreviewSettingsCard.jsx";
 import { remoteCopy as copy } from "../../lib/i18n/messages/remote.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { formatMessageTime } from "../../lib/i18n/index.js";
@@ -202,6 +203,7 @@ export default function RemoteSettings() {
         {restart === "disconnected" && <p role="status">{copy.disconnected}</p>}
         <small>{copy.scriptHint}</small>
       </article>
+      <PreviewSettingsCard locked={locked} />
       {confirm && (
         <Modal title={copy.warningTitle} close={() => setConfirm(false)}>
           <div className="operations-form">

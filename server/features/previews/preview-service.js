@@ -3,7 +3,12 @@ import { randomUUID } from "node:crypto";
 import { portAvailable } from "../pipelines/run-ports.js";
 import { networkUrls } from "../remote/network-access.js";
 import { previewConfig, previewGate } from "./preview-access.js";
-import { readPreviewConfig, tailscaleHttpsPort } from "./preview-config.js";
+import {
+  normalizePreviewConfig,
+  readPreviewConfig,
+  tailscaleHttpsPort,
+  writePreviewConfig,
+} from "./preview-config.js";
 import { previewError } from "./preview-errors.js";
 import { createPreviewListener } from "./preview-proxy.js";
 import { listenerPort, PreviewSlots, slotsFile } from "./preview-slots.js";
@@ -108,13 +113,85 @@ export class PreviewService extends EventEmitter {
     return previewConfig(this.effective);
   }
 
-  settings() {
+  constraints() {
     const current = this.current();
-    return readPreviewConfig(this.dataDir, {
+    return {
       hostPort: current.port,
       pipelineRange: current.portRange,
       tailscaleHttpsPort: tailscaleHttpsPort(current.remoteUrl),
-    });
+    };
+  }
+
+  settings() {
+    return readPreviewConfig(this.dataDir, this.constraints());
+  }
+
+  /** A settings body validated like the saved config; PREVIEW_RANGE_INVALID otherwise. */
+  checked(raw) {
+    return normalizePreviewConfig(raw ?? undefined, this.constraints());
+  }
+
+  /**
+   * Saves new settings and applies them: switching off closes every preview and unbinds
+   * every slot; a new range closes the previews whose slot leaves it, unbinds those
+   * slots and binds the new ones. Serialized with open().
+   */
+  configure(next, { source = "user" } = {}) {
+    const run = this.queue.then(() => this.configuring(next, source));
+    this.queue = run.catch(() => {});
+    return run;
+  }
+
+  async configuring(raw, source) {
+    const next = this.checked(raw);
+    const before = this.settings();
+    writePreviewConfig(this.dataDir, next);
+    const { portRangeStart: start, portRangeEnd: end } = next;
+    const inside = (slot) => next.enabled && slot >= start && slot <= end;
+    for (const preview of [...this.previews.values()])
+      if (!inside(preview.slot))
+        await this.close(preview.id, {
+          reason: next.enabled ? "range" : "disabled",
+          source,
+        }).catch(() => {});
+    // A bind in flight settles first, so it cannot add a listener afterwards.
+    await Promise.allSettled([...this.binding.values()]);
+    for (const [slot, listener] of [...this.listeners])
+      if (!inside(slot)) {
+        this.listeners.delete(slot);
+        await listener.close().catch(() => {});
+      }
+    const moved = before.portRangeStart !== start || before.portRangeEnd !== end;
+    if (!next.enabled || moved) {
+      clearInterval(this.timer);
+      this.slots = null;
+    }
+    // A start that found previews off is memoized; enabling starts afresh.
+    if (!this.slots) this.starting = null;
+    await this.start();
+    this.recordSettings(next, source);
+    this.changed();
+    return this.view();
+  }
+
+  recordSettings(next, source) {
+    try {
+      this.audit?.append({
+        action: "setting.updated",
+        resourceType: "setting",
+        resourceId: "previews",
+        outcome: "success",
+        source,
+        details: {
+          enabled: next.enabled,
+          count: next.portRangeEnd - next.portRangeStart + 1,
+        },
+      });
+    } catch (error) {
+      console.error(
+        `AgentPier could not audit the preview settings: ${error?.code || "unknown error"}`,
+      );
+    }
   }
 
   /** Binds every free slot and starts the idle sweep, once, while enabled. */
@@ -137,6 +214,8 @@ export class PreviewService extends EventEmitter {
       probe: (port) => this.bind(this.slotOf(port)),
       file: slotsFile(this.dataDir),
     });
+    // Previews that stay open keep their slot across a range change.
+    for (const preview of this.previews.values()) this.slots.reserved.add(preview.slot);
     for (const slot of this.slots.slots()) await this.bind(slot);
     clearInterval(this.timer);
     if (this.stopped) return;

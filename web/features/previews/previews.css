@@ -13,3 +13,8 @@
   gap: 8px;
   padding: 8px 0 4px;
 }
+
+.settings-card .list-card + .list-card,
+.settings-card .list-card + [role="alert"] + .list-card {
+  margin-top: 12px;
+}
