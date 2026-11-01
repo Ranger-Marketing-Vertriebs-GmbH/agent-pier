@@ -39,7 +39,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: 24
+          node-version: ">=24.22.1 <25"
           cache: npm
       - run: npm ci --ignore-scripts
       - name: Plan the jobs
@@ -62,7 +62,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJSON(needs.select.outputs.backend || '[{"os":"ubuntu-latest","node":24}]') }}
+        include: ${{ fromJSON(needs.select.outputs.backend || '[{"os":"ubuntu-latest","node":24,"node-version":">=24.22.1 <25"}]') }}
     runs-on: ${{ matrix.os }}
     # Observed p90 11 min (macOS); one job once hung for 2 h without a limit.
     timeout-minutes: 25
@@ -81,7 +81,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: ${{ matrix.node }}
+          node-version: ${{ matrix.node-version }}
           cache: npm
       - name: Install terminal test prerequisite
         shell: bash

@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { inspectNodeVersions } from "./ci-node-versions.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const roots = ["server", "web", "scripts", "tests"];
@@ -21,10 +22,13 @@ function inspect(directory) {
   }
 }
 for (const name of roots) inspect(path.join(root, name));
+const nodeVersions = inspectNodeVersions(root);
+violations.push(...nodeVersions.violations);
 if (violations.length) {
   console.error(violations.join("\n"));
   process.exitCode = 1;
 } else
   console.log(
-    `Structure check passed: ${checked} source/test files, at most ${limit} lines each.`,
+    `Structure check passed: ${checked} source/test files, at most ${limit} lines each; ` +
+      `${nodeVersions.checked} setup-node versions at or above the engines floor.`,
   );

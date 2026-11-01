@@ -60,8 +60,8 @@ test("the command line writes the queue plan with --full and all suites for an u
       .sort(),
   );
   assert.deepEqual(JSON.parse(queue.outputs.backend), [
-    { os: "ubuntu-latest", node: 24 },
-    { os: "macos-latest", node: 24 },
+    { os: "ubuntu-latest", node: 24, "node-version": ">=24.22.1 <25" },
+    { os: "macos-latest", node: 24, "node-version": ">=24.22.1 <25" },
   ]);
   const unknown = plan(t, "--base", "0".repeat(40));
   assert.equal(unknown.status, 0, unknown.stderr);
