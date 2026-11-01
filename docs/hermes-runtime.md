@@ -352,7 +352,12 @@ prompt, and an entry the agent adds with Hermes's `memory` tool comes back throu
 an assigned bundled skill and a catalog skill reach the agent's skill index while an
 unassigned one stays out, and a skill the agent writes is reported as its own; a bound
 stdio MCP server's tool is offered and called, and its secret never reaches the agent's
-shell. Set `AGENTPIER_HERMES_CONTRACT_RUNTIME` to an installation made by
+shell. `hermes-update-contract.test.js` installs the
+previous release (`tests/fixtures/hermes-previous-manifest.json`, made with
+`scripts/refresh-hermes-runtime-lock.mjs`) and the pinned one into a disposable data
+directory and updates an agent between them through AgentPier's Hermes update path: a
+failed validation restores the snapshot and the previous release, the next activation
+commits and the agent's chat is kept. Set `AGENTPIER_HERMES_CONTRACT_RUNTIME` to an installation made by
 `scripts/provision-hermes-contracts.mjs` (its `venv/bin/` holds `python` and
 `hermes`). The tests use a private `HOME` and `HERMES_HOME` and never touch
 `~/.hermes`.
