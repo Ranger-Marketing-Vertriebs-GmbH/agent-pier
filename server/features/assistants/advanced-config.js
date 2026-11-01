@@ -7,10 +7,9 @@ import {
   settingBounds,
 } from "./openclaw-config/advanced-settings.js";
 import { validateOverride } from "./openclaw-config/overrides.js";
-import { patchConfig } from "./openclaw-config/live-patch.js";
 import { restartRequired } from "./assistant-provider-synchronization.js";
 import { assistantProblem } from "./assistant-validation.js";
-import { hostReady } from "./runtimes/runtime-for.js";
+import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 
 const reloadKinds = new Set(["hot", "none", "restart"]);
 
@@ -44,6 +43,10 @@ export class AdvancedConfig {
   }
   get runtime() {
     return this.assistants.runtime;
+  }
+  // The config sub-port of the runtime port (runtime-for.js).
+  get runtimeConfig() {
+    return runtimeFor(null, this.runtime).config;
   }
   // The version the next start runs: the selected installation (runtime.json), which
   // after a rollback is not the manifest's. Null when nothing is installed yet.
@@ -84,9 +87,7 @@ export class AdvancedConfig {
     const kinds = {};
     for (const { path: target } of advancedSettings) {
       try {
-        const found = await this.runtime.client.call("config.schema.lookup", {
-          path: target,
-        });
+        const found = await this.runtimeConfig.lookup({ path: target });
         kinds[target] = reloadKinds.has(found?.reloadKind) ? found.reloadKind : null;
       } catch (error) {
         // An unknown path is answered; anything else is not a fact about the schema.
@@ -100,7 +101,7 @@ export class AdvancedConfig {
   async effectiveConfig(gateway) {
     if (!gateway.ready) return null;
     try {
-      return (await this.runtime.client.call("config.get", {})).config || {};
+      return (await this.runtimeConfig.get()).config || {};
     } catch {
       return null;
     }
@@ -163,9 +164,9 @@ export class AdvancedConfig {
       await this.assistants.admit(async () => {
         // Validated by the Gateway too: a refused value is never stored.
         try {
-          await patchConfig(this.runtime.client, () => ({
-            patch: patchFor(setting.path, next),
-          }));
+          await this.runtimeConfig.patch({
+            build: () => ({ patch: patchFor(setting.path, next) }),
+          });
         } catch (error) {
           if (error?.key) throw error;
           if (error?.answered && error.code === "INVALID_REQUEST")

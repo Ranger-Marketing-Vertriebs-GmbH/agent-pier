@@ -119,6 +119,7 @@ for (const [variant, title] of Object.entries(variants))
         });
         await runtime.start();
         assistants.config = new AssistantConfig({
+          runtime,
           client: { call: (...args) => runtime.client.call(...args) },
           store,
           workspaces: runtime.paths.workspaces,

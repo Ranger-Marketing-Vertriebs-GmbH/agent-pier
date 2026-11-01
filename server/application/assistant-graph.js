@@ -114,19 +114,12 @@ export function constructAssistantGraph(host, created = {}) {
     accounts: assistantModelAccounts,
     catalog: host.providerCatalog,
   });
-  // The current Gateway client; a restart replaces it, so nothing binds to one.
-  const client = {
-    call: (...args) => assistantRuntime.client.call(...args),
-    // Absent without a client that delivers events, so nothing waits for them.
-    get subscribe() {
-      const current = assistantRuntime.client;
-      return typeof current?.subscribe === "function"
-        ? (listener) => current.subscribe(listener)
-        : undefined;
-    },
-  };
+  // The current Gateway client for skills.status, until the skills sub-port of the
+  // runtime port takes it; a restart replaces it, so nothing binds to one.
+  const client = { call: (...args) => assistantRuntime.client.call(...args) };
   const configuration = expectWiring(
     new AssistantConfig({
+      runtime: assistantRuntime,
       client,
       models,
       store,

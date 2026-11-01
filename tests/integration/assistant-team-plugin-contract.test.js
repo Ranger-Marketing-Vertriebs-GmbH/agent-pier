@@ -198,6 +198,7 @@ test(
     const config = new AssistantConfig({
       store,
       workspaces: runtime.paths.workspaces,
+      runtime,
       client: runtime.client,
       teamReady: () => bridge.status().ready,
       models: {

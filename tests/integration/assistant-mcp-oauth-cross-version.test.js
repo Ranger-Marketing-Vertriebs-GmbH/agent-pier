@@ -12,7 +12,7 @@ import { AssistantStore } from "../../server/features/assistants/assistant-store
 import { RequestLedger } from "../../server/features/assistants/request-ledger.js";
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { runtimeEnvironment } from "../../server/features/assistants/runtime-config.js";
-import { patchConfig } from "../../server/features/assistants/openclaw-config/live-patch.js";
+import { patchConfig } from "../../server/features/assistants/runtimes/openclaw/live-patch.js";
 import {
   defaultBusyRetryDelaysMs,
   leaseLocked,
@@ -112,6 +112,7 @@ test(
     const config = new AssistantConfig({
       store,
       workspaces: runtime.paths.workspaces,
+      runtime,
       client: { call: (...args) => runtime.client.call(...args) },
       hostCapacity: () => 4,
       models: {

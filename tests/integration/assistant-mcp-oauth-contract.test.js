@@ -11,7 +11,7 @@ import { AssistantStore } from "../../server/features/assistants/assistant-store
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { selectedAssistantRuntime } from "../../server/features/assistants/runtime-install.js";
 import { runtimeEnvironment } from "../../server/features/assistants/runtime-config.js";
-import { patchConfig } from "../../server/features/assistants/openclaw-config/live-patch.js";
+import { patchConfig } from "../../server/features/assistants/runtimes/openclaw/live-patch.js";
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
 import {
   authorize,
@@ -36,7 +36,6 @@ const options = {
     "set AGENTPIER_MCP_CONTRACT_RUNTIME and AGENTPIER_ASSISTANT_CONTRACT_DIR",
   timeout: contractTimeout(300000),
 };
-
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const mcpTools = (offered) => offered.filter((n) => n.includes("__")).sort();
 
@@ -92,6 +91,7 @@ async function harness(t) {
   const config = new AssistantConfig({
     store,
     workspaces: runtime.paths.workspaces,
+    runtime,
     client: runtime.client,
     hostCapacity: () => 4,
     models: {

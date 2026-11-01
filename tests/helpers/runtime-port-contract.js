@@ -9,6 +9,7 @@ import {
   defineAgentRuntime,
 } from "../../server/features/assistants/runtimes/agent-runtime.js";
 import { fakeSessionPorts, sessionsContract } from "./runtime-port-sessions-contract.js";
+import { agentsContract, fakeAgentPorts } from "./runtime-port-agents-contract.js";
 
 /**
  * The contract every agent runtime adapter meets (ADR 0006), so the OpenClaw adapter,
@@ -99,6 +100,7 @@ export function runtimePortContract(name, make) {
   });
 
   sessionsContract(name, make, { kinds: RUN_EVENT_KINDS, tick });
+  agentsContract(name, make);
 
   test(`${name}: channels.status() reports the channel accounts`, async (t) => {
     const runtime = await make({ channels: { telegram: [account] } });
@@ -165,6 +167,7 @@ export function fakeRuntime({
       },
     },
     ...fakeSessionPorts({ reach, runFailure, connection: () => connection }),
+    ...fakeAgentPorts({ reach, connection: () => connection }),
     channels: {
       status: () => reach(() => ({ channelAccounts: structuredClone(channels) })),
     },

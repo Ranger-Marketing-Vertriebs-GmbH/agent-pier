@@ -14,7 +14,7 @@ import {
 import {
   agentRosterTimeoutMs,
   waitForAgentInRoster,
-} from "../../server/features/assistants/openclaw-config/agent-roster.js";
+} from "../../server/features/assistants/runtimes/openclaw/agent-roster.js";
 import { serverMessages } from "../../server/lib/i18n/de.js";
 import { gatewayFixture } from "../helpers/assistant-gateway-fixture.js";
 

@@ -11,7 +11,7 @@ import { RequestLedger } from "../../server/features/assistants/request-ledger.j
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
-import { patchConfig } from "../../server/features/assistants/openclaw-config/live-patch.js";
+import { patchConfig } from "../../server/features/assistants/runtimes/openclaw/live-patch.js";
 import { GatewayEventHub } from "../../server/features/assistants/gateway-event-hub.js";
 import { MemoryFlushes } from "../../server/features/assistants/memory-flushes.js";
 import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
@@ -151,6 +151,7 @@ test(
     const config = new AssistantConfig({
       store,
       workspaces: runtime.paths.workspaces,
+      runtime,
       client: runtime.client,
       teamReady: () => bridge.status().ready,
       models: {

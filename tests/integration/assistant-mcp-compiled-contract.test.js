@@ -104,6 +104,7 @@ async function harness(t, { tool }) {
     store,
     models,
     workspaces: runtime.paths.workspaces,
+    runtime,
     client: { call: (...args) => runtime.client.call(...args) },
     hostCapacity: () => 4,
   });

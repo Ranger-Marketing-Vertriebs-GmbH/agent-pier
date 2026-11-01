@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { patchConfig } from "../../server/features/assistants/openclaw-config/live-patch.js";
+import { patchConfig } from "../../server/features/assistants/runtimes/openclaw/live-patch.js";
 
 function client(responses) {
   const calls = [];

@@ -164,6 +164,7 @@ test(
     await runtime.start();
     gatewayEvents.bind(runtime.client);
     const config = new AssistantConfig({
+      runtime,
       client: runtime.client,
       store: f.store,
       workspaces: runtime.paths.workspaces,

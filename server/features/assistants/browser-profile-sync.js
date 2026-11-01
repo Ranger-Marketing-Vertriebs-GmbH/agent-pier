@@ -1,9 +1,8 @@
-import { patchConfig } from "./openclaw-config/live-patch.js";
 import {
   browserProfilesPatch,
   nextBrowserProfiles,
 } from "./openclaw-config/browser-profiles.js";
-import { hostReady } from "./runtimes/runtime-for.js";
+import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 
 /**
  * Keeps the running Gateway's `browser.profiles` in step with the agents: the start
@@ -46,9 +45,9 @@ export class BrowserProfileSync {
     // again with the new profile on its next use.
     const changed = Object.keys(patch).filter((name) => name in current);
     for (const name of changed) await this.stop(name);
-    await patchConfig(this.runtime.client, () => ({
-      patch: { browser: { profiles: patch } },
-    }));
+    await runtimeFor(null, this.runtime).config.patch({
+      build: () => ({ patch: { browser: { profiles: patch } } }),
+    });
     if (this.runtime.webTools === running) running.browserProfiles = next;
     return Object.keys(patch);
   }

@@ -1,14 +1,7 @@
 {
   "gatewayMethods": {
     "server/application/skill-catalog-wiring.js": ["skills.status"],
-    "server/features/assistant-channels/telegram-live.js": ["config.get"],
-    "server/features/assistants/advanced-config.js": [
-      "config.get",
-      "config.schema.lookup"
-    ],
-    "server/features/assistants/agent-admission.js": ["agents.list"],
     "server/features/assistants/agent-browsers.js": ["browser.request"],
-    "server/features/assistants/agent-deletion.js": ["agents.delete", "agents.list"],
     "server/features/assistants/agent-hook-runs.js": [
       "cron.add",
       "cron.remove",
@@ -16,16 +9,8 @@
     ],
     "server/features/assistants/agent-own-jobs.js": ["cron.update"],
     "server/features/assistants/agent-skills.js": ["skills.status"],
-    "server/features/assistants/assistant-config.js": [
-      "agents.create",
-      "agents.files.get",
-      "agents.files.set",
-      "agents.list",
-      "agents.update",
-      "config.get",
-      "skills.status"
-    ],
-    "server/features/assistants/assistant-maintenance.js": ["agents.list", "cron.status"],
+    "server/features/assistants/assistant-config.js": ["skills.status"],
+    "server/features/assistants/assistant-maintenance.js": ["cron.status"],
     "server/features/assistants/browser-live-view.js": ["browser.request"],
     "server/features/assistants/exec-allowlist.js": [
       "exec.approvals.get",
@@ -42,7 +27,6 @@
       "exec.approvals.set"
     ],
     "server/features/assistants/lead-routines.js": ["cron.remove"],
-    "server/features/assistants/mcp-changes.js": ["config.get"],
     "server/features/assistants/model-account-catalog.js": ["models.list"],
     "server/features/assistants/model-account-login.js": [
       "models.authLogin",
@@ -59,11 +43,6 @@
       "cron.remove",
       "cron.update"
     ],
-    "server/features/assistants/native-memory.js": [
-      "agents.files.get",
-      "agents.files.set",
-      "tools.invoke"
-    ],
     "server/features/assistants/native-reminders.js": [
       "cron.add",
       "cron.list",
@@ -72,46 +51,32 @@
       "cron.update"
     ],
     "server/features/assistants/native-routines.js": ["cron.run", "cron.update"],
-    "server/features/assistants/openclaw-config/agent-roster.js": ["agents.list"],
-    "server/features/assistants/openclaw-config/live-patch.js": [
-      "config.get",
-      "config.patch"
-    ],
     "server/features/assistants/routine-edits.js": ["cron.update"],
     "server/features/users/user-release.js": ["cron.remove"],
     "server/http/routes/agent-skill-catalog.js": ["skills.status"]
   },
   "clientAccess": {
-    "server/application/assistant-graph.js": 2,
+    "server/application/assistant-graph.js": 1,
     "server/application/skill-catalog-wiring.js": 1,
-    "server/features/assistant-channels/telegram-senders.js": 1,
-    "server/features/assistants/advanced-config.js": 3,
-    "server/features/assistants/agent-admission.js": 1,
     "server/features/assistants/agent-browsers.js": 3,
-    "server/features/assistants/agent-deletion.js": 1,
     "server/features/assistants/agent-hook-runs.js": 1,
     "server/features/assistants/agent-own-jobs.js": 2,
     "server/features/assistants/agent-skills.js": 1,
-    "server/features/assistants/assistant-maintenance.js": 3,
+    "server/features/assistants/assistant-maintenance.js": 2,
     "server/features/assistants/browser-live-view.js": 3,
-    "server/features/assistants/browser-profile-sync.js": 1,
-    "server/features/assistants/dreaming-service.js": 1,
     "server/features/assistants/exec-allowlist.js": 1,
     "server/features/assistants/exec-approvals.js": 1,
     "server/features/assistants/exec-decisions.js": 1,
     "server/features/assistants/generated-titles.js": 1,
     "server/features/assistants/lead-routines.js": 1,
-    "server/features/assistants/mcp-changes.js": 3,
     "server/features/assistants/model-account-catalog.js": 1,
     "server/features/assistants/model-account-login.js": 2,
     "server/features/assistants/model-accounts.js": 3,
     "server/features/assistants/native-heartbeats.js": 3,
-    "server/features/assistants/native-memory.js": 1,
     "server/features/assistants/native-reminders.js": 6,
     "server/features/assistants/native-routines.js": 3,
     "server/features/assistants/routine-edits.js": 1,
     "server/features/assistants/work-goal-nudges.js": 1,
-    "server/features/mcp-servers/mcp-oauth-logins.js": 1,
     "server/features/users/user-release.js": 1,
     "server/http/routes/agent-skill-catalog.js": 1
   }

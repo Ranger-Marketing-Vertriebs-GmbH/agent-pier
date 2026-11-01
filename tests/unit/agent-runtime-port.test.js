@@ -14,11 +14,11 @@ import {
   runtimeResolver,
 } from "../../server/features/assistants/runtimes/runtime-for.js";
 import { fakeRuntime, runtimePortContract } from "../helpers/runtime-port-contract.js";
-import { openClawClientFake } from "../helpers/openclaw-client-fake.js";
+import { openClawClientFake, openClawStore } from "../helpers/openclaw-client-fake.js";
 
 // A supervisor whose Gateway client answers like OpenClaw, or none while it is down.
 // Its lifecycle moves availability as runtime-supervisor.js does; every start
-// connects a new client, as each launch does.
+// connects a new client, as each launch does, to the Gateway's one store.
 function fakeSupervisor({
   channels = {},
   unreachable = false,
@@ -26,7 +26,8 @@ function fakeSupervisor({
   runFailure = null,
 } = {}) {
   const calls = [];
-  const connect = () => openClawClientFake({ channels, runFailure, calls });
+  const store = openClawStore();
+  const connect = () => openClawClientFake({ channels, runFailure, calls, store });
   const supervisor = new EventEmitter();
   const state = {
     availability: unreachable ? "failed" : "ready",

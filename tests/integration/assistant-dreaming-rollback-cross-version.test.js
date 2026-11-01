@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { deleteNativeSession } from "../../server/features/assistants/chat-removal.js";
 import { dreamingSection } from "../../server/features/assistants/openclaw-config/dreaming.js";
-import { patchConfig } from "../../server/features/assistants/openclaw-config/live-patch.js";
+import { patchConfig } from "../../server/features/assistants/runtimes/openclaw/live-patch.js";
 import { contractTimeout } from "../helpers/contract-timeout.js";
 import {
   dreamingKey,

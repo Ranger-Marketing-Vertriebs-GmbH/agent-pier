@@ -81,6 +81,7 @@ export async function compiledShell(t, installed, { prefix, tool: custom }) {
     store,
     models,
     workspaces: runtime.paths.workspaces,
+    runtime,
     client: { call: (...args) => runtime.client.call(...args) },
     hostCapacity: () => 4,
   });

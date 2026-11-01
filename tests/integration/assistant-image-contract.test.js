@@ -14,7 +14,7 @@ import { ImagePolicy } from "../../server/features/assistants/image-policy.js";
 import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
-import { patchConfig } from "../../server/features/assistants/openclaw-config/live-patch.js";
+import { patchConfig } from "../../server/features/assistants/runtimes/openclaw/live-patch.js";
 import { channelFixture } from "../helpers/assistant-channel-fixture.js";
 import { fixtureModels } from "../helpers/assistant-proactivity-model.js";
 
@@ -185,6 +185,7 @@ test(
       timeoutMs: 180000,
     });
     f.assistants.config = new AssistantConfig({
+      runtime,
       client: runtime.client,
       store: f.store,
       workspaces: runtime.paths.workspaces,

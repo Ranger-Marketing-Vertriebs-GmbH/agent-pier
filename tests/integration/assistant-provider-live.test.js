@@ -95,6 +95,7 @@ test(
     const models = new AssistantModels({ connections });
     await runtime.start();
     const config = new AssistantConfig({
+      runtime,
       client: runtime.client,
       models,
       store,

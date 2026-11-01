@@ -11,7 +11,7 @@ import { RequestLedger } from "../../server/features/assistants/request-ledger.j
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { selectedAssistantRuntime } from "../../server/features/assistants/runtime-install.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
-import { patchConfig } from "../../server/features/assistants/openclaw-config/live-patch.js";
+import { patchConfig } from "../../server/features/assistants/runtimes/openclaw/live-patch.js";
 import { gatewayPath } from "../../server/features/assistants/runtime-config.js";
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
 import {
@@ -118,6 +118,7 @@ async function harness(t, { team }) {
   const config = new AssistantConfig({
     store,
     workspaces: runtime.paths.workspaces,
+    runtime,
     client: runtime.client,
     ...(team && { teamReady: () => bridge.status().ready }),
     hostCapacity: () => 4,

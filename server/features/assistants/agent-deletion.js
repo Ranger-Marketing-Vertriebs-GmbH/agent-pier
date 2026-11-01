@@ -2,7 +2,7 @@ import { sshLockNames } from "../ssh/ssh-execution-lock.js";
 import fs from "node:fs";
 import path from "node:path";
 import { agentProfileName } from "./openclaw-config/browser-profiles.js";
-import { configWrite } from "./openclaw-config/live-patch.js";
+import { hostConnection, runtimeFor } from "./runtimes/runtime-for.js";
 
 /**
  * What a permanent delete of an archived agent removes (AGENTPIER-260), store by
@@ -138,13 +138,14 @@ export async function deletionCounts({ assistants, paths }, agents) {
  * routines and check-ins, and jobs it made itself) and its exec approvals. Its files
  * stay for the purge below: with `deleteFiles` OpenClaw would move them into a trash
  * folder instead of deleting them. An agent the Gateway no longer lists is done.
+ * `runtime` is the runtime supervisor; both calls go through the agents sub-port.
  */
-export async function removeFromGateway(client, runtimeAgentId) {
-  const { agents = [] } = await client.call("agents.list", {});
+export async function removeFromGateway(runtime, runtimeAgentId) {
+  // The delete goes to the Gateway that listed the agent, never to a newer one.
+  const port = runtimeFor(null, runtime).agents.on(hostConnection(runtime));
+  const { agents = [] } = await port.list();
   if (agents.some((entry) => entry.id === runtimeAgentId))
-    await configWrite(client, () =>
-      client.call("agents.delete", { agentId: runtimeAgentId, deleteFiles: false }),
-    );
+    await port.delete({ agentId: runtimeAgentId, deleteFiles: false });
 }
 
 // Its rows in the agents' database, children before the rows they reference.
@@ -262,7 +263,7 @@ export async function purgeAgent(services, agent, channelIds = []) {
   const { assistants, channels, mcpServers, paths, dataDir } = services;
   assertAgentIds(agent);
   await assistants.browsers?.stopAgent?.(agent.id).catch(() => {});
-  await removeFromGateway(assistants.runtime.client, agent.runtimeAgentId);
+  await removeFromGateway(assistants.runtime, agent.runtimeAgentId);
   // Its Telegram channels with their inbox, pending outbox and follow-ups
   // (channels.sqlite); the ids were recorded with the mark, so a resume finds them.
   const own = (channels?.store.list() || []).filter((c) => c.assistantId === agent.id);

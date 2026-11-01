@@ -32,7 +32,7 @@ status names the reason:
 - `UPDATE_CONFIG_BUSY`: the Gateway refused the configuration write that pauses the
   scheduler. OpenClaw admits 30 `config.patch` a minute per connection and refuses
   the rest with the wait it asks for (`retryAfterMs`). Every live configuration
-  write (`live-patch.js`) waits that long and sends the patch once more, within one
+  write (`runtimes/openclaw/live-patch.js`) waits that long and sends the patch once more, within one
   minute in all; a wait beyond that fails at once instead of repeating the patch.
   Try again a minute later.
 - `UPDATE_PREPARE_FAILED`: another failure before the stop.

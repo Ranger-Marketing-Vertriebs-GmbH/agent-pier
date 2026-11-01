@@ -92,6 +92,37 @@ test("sessions and run events go through the port", () => {
   );
 });
 
+test("agents, agent files and config go through the port", () => {
+  // AGENTPIER-305: their callers name no Gateway method and reach no client.
+  const moved = [
+    "assistant-channels/telegram-live",
+    "assistant-channels/telegram-senders",
+    "mcp-servers/mcp-oauth-logins",
+    ...[
+      "advanced-config",
+      "agent-admission",
+      "agent-deletion",
+      "browser-profile-sync",
+      "dreaming-service",
+      "mcp-changes",
+      "native-memory",
+    ].map((name) => `assistants/${name}`),
+  ].map((name) => `server/features/${name}.js`);
+  const offenders = { ...gatewayMethods(sources), ...clientAccesses(sources) };
+  assert.deepEqual(
+    moved.filter((file) => offenders[file] || !sources.some((s) => s.file === file)),
+    [],
+  );
+  // Agent, file, memory search and config methods are named nowhere outside the port.
+  const ported = /^(?:agents\.|config\.|tools\.invoke$)/;
+  assert.deepEqual(
+    Object.entries(gatewayMethods(sources)).filter(([, methods]) =>
+      methods.some((method) => ported.test(method)),
+    ),
+    [],
+  );
+});
+
 test("readiness checks go through the host port", () => {
   // `runtime.client?.ready` outside runtimes/ is hostReady() (runtimes/runtime-for.js).
   const readiness = /[rR]untime\??\.client\??\.ready\b/;
