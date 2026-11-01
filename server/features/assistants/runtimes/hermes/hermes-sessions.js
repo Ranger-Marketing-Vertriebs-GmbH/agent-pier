@@ -68,6 +68,7 @@ async function attach(link, key) {
           link.runs.bind(key, snapshot.session_id, snapshot);
           // Questions still waiting in the session are asked again here.
           link.approvals.reopened(snapshot.session_id, snapshot.prompts);
+          link.questions.reopened(snapshot.session_id, snapshot.prompts);
           return snapshot.session_id;
         })
         .finally(() => pending.delete(key)),

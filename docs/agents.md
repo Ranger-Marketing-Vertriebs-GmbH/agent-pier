@@ -241,6 +241,10 @@ What works on Hermes today:
   ([Hermes runtime](hermes-runtime.md#routines)).
 - Hooks: an incoming event runs in the agent's main chat as on OpenClaw.
 - Long chats: the hint to summarise a long chat appears as on OpenClaw.
+- Questions: when the agent asks before it goes on, the chat shows **Question from
+  the agent** with its choices and a field for your own answer (**Send answer**); a
+  turn from Telegram asks there too, and your next message answers it. Hermes waits
+  up to an hour.
 - Telegram: pair the agent's bot under **Channels** as for OpenClaw; messages, voice
   notes (transcribed with Deepgram), photos and files reach the agent and its replies
   come back to the paired chat.

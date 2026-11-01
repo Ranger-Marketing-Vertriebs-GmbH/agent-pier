@@ -9,6 +9,7 @@ import {
 import useAgentConversationStream from "./useAgentConversationStream.js";
 import AssistantHeader from "./AssistantHeader.jsx";
 import AssistantChatActions from "./AssistantChatActions.jsx";
+import QuestionCard from "./QuestionCard.jsx";
 import ChatStrips from "./ChatStrips.jsx";
 import useAssistantActions from "./useAssistantActions.js";
 import { activityFor } from "./assistant-status.js";
@@ -531,6 +532,13 @@ export default function AssistantChat({
             ownActions={ownActions}
             notedMail={notedMail}
           />
+          {(view.live?.questions || []).map((question) => (
+            <QuestionCard
+              key={question.id}
+              conversationId={conversationId}
+              question={question}
+            />
+          ))}
         </div>
         <div
           className="assistant-announcer"

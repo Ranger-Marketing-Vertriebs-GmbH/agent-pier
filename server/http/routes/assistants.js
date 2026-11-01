@@ -222,6 +222,14 @@ function activeAssistantRoutes(services) {
     const result = await assistants.send(req.params.id, req.body);
     res.status(sendStatus(result)).json(result);
   });
+  // The owner's answer to a question the agent waits on (agent-questions.js).
+  router.post(
+    "/assistant-conversations/:id/questions/:questionId/answer",
+    async (req, res) =>
+      res.json(
+        await assistants.questions.answer(req.params.id, req.params.questionId, req.body),
+      ),
+  );
   // The message queued while the agent works; the history shows it to every tab.
   router.post("/assistant-conversations/:id/queued", (req, res) =>
     res.json(assistants.queue(req.params.id, req.body)),

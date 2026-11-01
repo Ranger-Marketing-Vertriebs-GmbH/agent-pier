@@ -1,6 +1,7 @@
 import { HermesRpcClient, hermesError } from "./hermes-rpc-client.js";
 import { HermesRuns } from "./hermes-run-state.js";
 import { HermesApprovalQueue } from "./hermes-approval-queue.js";
+import { HermesQuestionQueue } from "./hermes-questions.js";
 
 // One Hermes process set per agent (ADR 0006, section 4): its supervisor
 // (hermes-supervisor.js) runs the messaging gateway and the RPC bridge, wraps the
@@ -14,9 +15,10 @@ const states = new WeakMap();
 
 /**
  * A client over `transport` with what the sub-ports keep per connection: the session
- * keys and runs (hermes-run-state.js) and the approvals Hermes asks for
- * (hermes-approval-queue.js). Both listen from the first line on, so nothing the
- * process sends before connect() resolves is lost. `client.connect()` then waits for
+ * keys and runs (hermes-run-state.js), the approvals Hermes asks for
+ * (hermes-approval-queue.js) and its clarify questions (hermes-questions.js). All
+ * listen from the first line on, so nothing the process sends before connect()
+ * resolves is lost. `client.connect()` then waits for
  * the gateway. `workspace` is the folder the agent's commands run in, which its
  * approval requests name as `cwd`.
  */
@@ -26,7 +28,8 @@ export function createHermesClient(transport, { agentId, timeoutMs, workspace } 
   const client = new HermesRpcClient(transport, { timeoutMs });
   const runs = new HermesRuns(client, { agentId });
   const approvals = new HermesApprovalQueue(client, runs, { cwd: workspace });
-  states.set(client, Object.freeze({ agentId, runs, approvals }));
+  const questions = new HermesQuestionQueue(client, runs);
+  states.set(client, Object.freeze({ agentId, runs, approvals, questions }));
   return client;
 }
 

@@ -10,8 +10,7 @@ import { hermesError } from "./hermes-rpc-client.js";
 // `approval.cancelled { request_ids, reason }` withdraws those an interrupt or
 // teardown dropped. A session attached again lists what still waits (`prompts` of its
 // snapshot), which reopened() asks anew. Questions of the clarify tool
-// (`clarify.request`) are skipped at once (an empty answer) until AgentPier offers
-// them, so the agent goes on instead of waiting out Hermes's deadline.
+// (`clarify.request`) are hermes-questions.js's.
 //
 // The queue turns each into the exec approval OpenClaw's adapter produces (frame
 // `exec.approval.requested`, payload `{ id, request, createdAtMs, expiresAtMs }`), so
@@ -68,14 +67,12 @@ export class HermesApprovalQueue {
       this.requested(sid, payload, admission);
     else if (type === "approval.settled") this.settled(payload);
     else if (type === "approval.cancelled") this.cancelled(payload);
-    else if (type === "clarify.request") this.skip(sid, payload);
   }
 
   /** The approvals a snapshot of session `sid` lists as still waiting. */
   reopened(sid, prompts) {
     for (const prompt of Array.isArray(prompts) ? prompts : [])
       if (prompt?.kind === "approval") this.requested(sid, prompt, null);
-      else if (prompt?.kind === "clarify") this.skip(sid, prompt);
   }
 
   requested(sessionId, params, admission) {
@@ -184,22 +181,6 @@ export class HermesApprovalQueue {
       this.pending.delete(item.id);
       this.end(item, "cancelled", null, reason);
     }
-  }
-
-  // A clarify question this connection cannot ask the owner yet: skipped at once.
-  skip(sid, prompt) {
-    const promptId = text(prompt?.prompt_id, 200);
-    if (!promptId || !Number.isSafeInteger(prompt.execution_generation)) return;
-    this.client
-      .call("clarify.respond", {
-        session_id: text(sid, 200),
-        execution_generation: prompt.execution_generation,
-        prompt_id: promptId,
-        answer: "",
-      })
-      .catch(() => {
-        /* Answered elsewhere, or Hermes stopped waiting. */
-      });
   }
 
   end(item, status, decision, resolvedBy) {

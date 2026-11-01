@@ -312,6 +312,11 @@ export const assistants = {
   telegramVoiceTooLong: (minutes) =>
     `Sprachnachrichten dürfen höchstens ${minutes} min lang sein. Sende eine kürzere Nachricht oder schreibe sie als Text.`,
   telegramOpenInAgentPier: "In AgentPier öffnen",
+  telegramQuestion: (name, question) => `${name} fragt: ${question}`,
+  telegramQuestionChoices: "Antworte mit einer Nummer oder mit deiner eigenen Antwort.",
+  telegramQuestionAnswer: "Schreib deine Antwort als Nachricht.",
+  telegramQuestionAnswered: "Antwort an den Agenten geschickt.",
+  questionGone: "Der Agent wartet nicht mehr auf diese Antwort.",
   telegramQueueFull:
     "Die Warteschlange ist voll. Diese Nachricht wurde nicht angenommen; versuche es später erneut.",
   teamStartedBecause: (quote) => `Gestartet, weil du geschrieben hast: „${quote}“`,

@@ -198,6 +198,11 @@
  *   - allowAlwaysPlan(payload, { pathDirs, wrapperDirs }): synchronously, what
  *     "Always allow" writes for a request the runtime withheld it from:
  *     `{ kind: "paths", paths, writable }` or `{ kind: "once", reason, program }`.
+ *   - questions(), answer({ id, answer }): only on a runtime whose agent asks the
+ *     person in the chat (Hermes's clarify tool, hermes/hermes-questions.js): the
+ *     waiting questions and the answer, a choice's label or free text. They arrive
+ *     as run events of kind "other" (events "question.requested" and
+ *     "question.resolved"); a runtime without them never sends either.
  *   - on(connection), as sessions.on.
  * - routines: add, update, remove, run, list runs. Routines are AgentPier's own model
  *   (../routine-definition.js: schedule, prompt, target, delivery, marker, …), which

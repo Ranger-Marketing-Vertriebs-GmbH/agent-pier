@@ -327,8 +327,10 @@ export function conversationFeeds(service, options = {}) {
       // approvals only (user agents have no team members to delegate to).
       if (actions && isUserAgent(service.store.getAssistant(owner(id))))
         actions = actions.filter((a) => a.conversationId === id);
+      // The questions the agent waits on in this chat (agent-questions.js).
+      const questions = service.questions?.list(id) || [];
       // Without the workflows the chat reads its actions itself.
-      return actions ? { ...history, actions } : history;
+      return { ...history, ...(actions && { actions }), questions };
     },
     owner,
     request: (id, runId) => {

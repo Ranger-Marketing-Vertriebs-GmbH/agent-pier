@@ -2,6 +2,7 @@
 // beside the shared OpenClaw host, as AssistantService follows them: what a create or
 // update may choose, and the status and run events of each set.
 import { assistantProblem } from "./assistant-validation.js";
+import { AgentQuestions } from "./agent-questions.js";
 import {
   agentRuntimeEvents,
   hermesAvailable,
@@ -55,9 +56,12 @@ export function refuseEveryCommand(supervisor, agent, changes) {
 /**
  * Follows every own-process agent of `service`: a status change of its set refreshes
  * the agents list, and its run events reach `onEvent` (the chat path and the event
- * hub), subscribed once and kept across the set's restarts. Returns unsubscribe.
+ * hub), subscribed once and kept across the set's restarts; the questions its agents
+ * ask in their chats become `service.questions` (agent-questions.js). Returns
+ * unsubscribe.
  */
 export function followOwnProcesses(service, onEvent) {
+  service.questions = new AgentQuestions(service);
   const fleet = hermesFleetOf(service.runtime);
   const changed = () => !service.closed && service.changed();
   fleet.on("status", changed);
