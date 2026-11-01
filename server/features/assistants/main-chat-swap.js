@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { assistantProblem } from "./assistant-validation.js";
-import { runtimeFor } from "./runtimes/runtime-for.js";
+import { hostConnection, runtimeFor } from "./runtimes/runtime-for.js";
 import { channelPerson, mainConversation } from "./routine-targets.js";
 
 /**
@@ -52,9 +52,13 @@ async function swap(
 ) {
   const assistant = service.store.getAssistant(conversation.assistantId);
   const id = randomUUID();
-  const runtime = runtimeFor(assistant, service.runtime);
+  // The session is created and later subscribed on the connection current now: once
+  // the runtime replaced it, the subscribe rejects and the new connection hears nothing.
+  const sessions = runtimeFor(assistant, service.runtime).sessions.on(
+    hostConnection(service.runtime, assistant),
+  );
   // A runtime that could not create the session is unavailable, not a bad request.
-  const created = await runtime.sessions
+  const created = await sessions
     .create(
       {
         agentId: assistant.runtimeAgentId,
@@ -96,7 +100,7 @@ async function swap(
       conversationId: id,
       reason: "main-restarted",
     });
-    await runtime.sessions.subscribe({ key: created.key });
+    await sessions.subscribeMessages({ key: created.key });
   } catch (error) {
     throw unavailable(error, "finishing the swap");
   }

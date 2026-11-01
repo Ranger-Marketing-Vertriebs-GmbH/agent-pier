@@ -1,5 +1,5 @@
 import { assistantProblem } from "./assistant-validation.js";
-import { hostReady } from "./runtimes/runtime-for.js";
+import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 
 // Recovery after an attempt whose outcome is unknown: the owner acknowledges it, the
 // owned runtime restarts, and the attempt is marked reviewed so a new one may follow.
@@ -93,7 +93,7 @@ export async function abortAndReview(service, attempt) {
     service.ledger.getRequest(attempt.requestId).conversationId,
   );
   try {
-    await service.runtime.client.call("sessions.abort", {
+    await runtimeFor(null, service.runtime).sessions.abort({
       key: conversation.runtimeSessionKey,
       runId: attempt.runtimeRunId || attempt.id,
     });

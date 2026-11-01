@@ -9,7 +9,7 @@ import {
   telegramSendersGateway,
   transcript,
 } from "../helpers/assistant-telegram-senders-gateway.js";
-import { createGatewaySession } from "../../server/features/assistants/session-create.js";
+import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 
 // Qualifies OpenClaw 2026.9.8 for agents' own Telegram bots on AgentPier's compiled
 // path (openclaw-config/telegram-senders.js): per-account bindings, allowlists,

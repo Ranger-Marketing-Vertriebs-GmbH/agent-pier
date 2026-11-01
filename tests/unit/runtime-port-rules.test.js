@@ -49,6 +49,49 @@ test("the channels.status call moved into the port", () => {
   assert.equal(gatewayMethods(sources)[file], undefined);
 });
 
+test("sessions and run events go through the port", () => {
+  // AGENTPIER-304: their callers name no Gateway method and reach no client.
+  const moved = [
+    "assistant-channels/telegram-follow-ups",
+    ...[
+      "agent-chats",
+      "assistant-service",
+      "attempt-recovery",
+      "chat-reconcile",
+      "chat-removal",
+      "compaction-watch",
+      "conversation-open",
+      "conversation-turns",
+      "conversations",
+      "cron-result-text",
+      "gateway-event-hub",
+      "gateway-wiring",
+      "generated-images",
+      "long-chats",
+      "member-long-chats",
+      "run-reconciler",
+      "run-stall-guard",
+      "run-steps",
+      "runtime-update-resolution",
+      "shell-changes",
+      "team-provisioning",
+    ].map((name) => `assistants/${name}`),
+  ].map((name) => `server/features/${name}.js`);
+  const offenders = { ...gatewayMethods(sources), ...clientAccesses(sources) };
+  assert.deepEqual(
+    moved.filter((file) => offenders[file] || !sources.some((s) => s.file === file)),
+    [],
+  );
+  // Session methods are named nowhere outside the port any more.
+  const session = /^(?:sessions\.|chat\.history$|agent\.wait$|artifacts\.download$)/;
+  assert.deepEqual(
+    Object.entries(gatewayMethods(sources)).filter(([, methods]) =>
+      methods.some((method) => session.test(method)),
+    ),
+    [],
+  );
+});
+
 test("readiness checks go through the host port", () => {
   // `runtime.client?.ready` outside runtimes/ is hostReady() (runtimes/runtime-for.js).
   const readiness = /[rR]untime\??\.client\??\.ready\b/;

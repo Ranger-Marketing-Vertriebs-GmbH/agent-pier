@@ -19,7 +19,7 @@ import { agentProfileName } from "../../server/features/assistants/openclaw-conf
 import { AgentBrowsers } from "../../server/features/assistants/agent-browsers.js";
 import { BrowserProfileSync } from "../../server/features/assistants/browser-profile-sync.js";
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
-import { createGatewaySession } from "../../server/features/assistants/session-create.js";
+import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 import { AssistantProviderSynchronization } from "../../server/features/assistants/assistant-provider-synchronization.js";
 
 // Provisioned like the compiled contract (docs/assistant-web-tools-qualification.md).

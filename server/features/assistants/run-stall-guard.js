@@ -1,4 +1,4 @@
-import { hostReady } from "./runtimes/runtime-for.js";
+import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 // Ends a chat turn that hangs without a sign of life (AGENTPIER-184). OpenClaw
 // 2026.10.3 aborts a model stream that stays quiet (120 s for cloud models, retried a
 // few times, each retry an event), but a run stuck elsewhere, before its model call
@@ -50,7 +50,7 @@ async function endStalled(service, runId) {
   failures.set(runId, "stalled");
   if (failures.size > 64) failures.delete(failures.keys().next().value);
   try {
-    await service.runtime.client.call("sessions.abort", { key: sessionKey, runId });
+    await runtimeFor(null, service.runtime).sessions.abort({ key: sessionKey, runId });
   } catch (error) {
     if (failures.get(runId) === "stalled") failures.delete(runId);
     throw error;

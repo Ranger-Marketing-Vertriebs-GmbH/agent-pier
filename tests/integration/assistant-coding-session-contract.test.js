@@ -5,7 +5,7 @@ import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { contractTimeout } from "../helpers/contract-timeout.js";
 import { compiledShell } from "../helpers/assistant-shell-compiled.js";
-import { createGatewaySession } from "../../server/features/assistants/session-create.js";
+import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 import { routineTools } from "../../server/features/assistants/native-capabilities.js";
 import { ProjectMemory } from "../../server/features/memory/project-memory.js";
 import { lockedTools } from "../../server/features/users/user-agent-lock.js";

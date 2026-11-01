@@ -1,5 +1,6 @@
 import { setTimeout as delay } from "node:timers/promises";
 import { abortAndReview } from "./attempt-recovery.js";
+import { runtimeFor } from "./runtimes/runtime-for.js";
 
 // "Pause agents and update" (docs/assistant-runtime-updates.md#pause-agents-and-update):
 // inside maintenance, where nothing new starts, AgentPier resolves exactly the blocker
@@ -62,7 +63,7 @@ async function chatTurn(s, item) {
   const chat = a.store.getConversation(
     a.ledger.getRequest(attempt.requestId).conversationId,
   );
-  await a.runtime.client.call("sessions.abort", {
+  await runtimeFor(null, a.runtime).sessions.abort({
     key: chat.runtimeSessionKey,
     runId: attempt.runtimeRunId || attempt.id,
   });

@@ -12,7 +12,7 @@ import { AssistantWorkflows } from "../../server/features/assistants/assistant-w
 import { TeamService } from "../../server/features/assistants/team-service.js";
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
-import { createGatewaySession } from "../../server/features/assistants/session-create.js";
+import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 import { assistantModelServer } from "./assistant-model-server.js";
 import { listTree, ownerAccount } from "./assistant-shell-gateway.js";
 

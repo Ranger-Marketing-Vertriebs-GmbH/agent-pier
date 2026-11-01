@@ -13,7 +13,7 @@ import { RequestLedger } from "../../server/features/assistants/request-ledger.j
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { readJSON, writePrivate } from "../../server/lib/storage.js";
-import { createGatewaySession } from "../../server/features/assistants/session-create.js";
+import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 
 // OpenClaw 2026.10.7's Doctor copies every plain `models.providers.*.apiKey` into its
 // auth profile store, which the model request then prefers over openclaw.json. After

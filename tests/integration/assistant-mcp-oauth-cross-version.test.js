@@ -25,7 +25,7 @@ import {
   exchanged,
   oauthMcpServer,
 } from "../helpers/mcp-oauth-test-server.js";
-import { createGatewaySession } from "../../server/features/assistants/session-create.js";
+import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 
 // An MCP OAuth login made on the previous runtime keeps working after a runtime
 // update: the activation carries the stored client and tokens over, the candidate

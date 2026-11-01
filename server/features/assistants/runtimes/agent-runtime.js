@@ -8,15 +8,48 @@
  * Sub-ports and their responsibility (methods are added port by port as callers move):
  * - host: install, start, stop, health, version, update, rollback, restart reasons
  *   - ready(): true while the runtime takes calls; synchronous, as callers check inline.
+ *   - connection(): an opaque handle of the current connection, null without one; the
+ *     same value until the runtime replaces it, so a caller compares the handle from
+ *     before an await with the one after it to learn whether a restart came between.
  *   - status(): `{ availability, sync, version, diagnostic }`, availability one of
  *     HOST_AVAILABILITY; version(): the running version or null.
  *   - subscribe(listener): calls `listener(status)` on each change; returns unsubscribe.
  *   - start(), stop(), restart(): promises that settle once the host got there.
- * - sessions: create, send, abort, wait, describe, list, delete, archive, history
- *   - create({ agentId, label }, { budgetMs, now, sleep }): resolves `{ key }` of a
- *     new native session; rejects when the runtime cannot create it.
- *   - subscribe({ key }): delivers the session's messages to AgentPier.
- * - events: normalized run events (started, text, tool step, approvals, finished)
+ * - sessions: create, send, abort, wait, describe, list, delete, archive, history.
+ *   Keys are the runtime's own session keys, kept by AgentPier as opaque strings.
+ *   Every method returns a promise that rejects while the runtime is unreachable;
+ *   answers are the runtime's own fields as callers read them.
+ *   - create({ agentId, label }, { budgetMs, now, sleep }): `{ key }`, retried within
+ *     the budget while the runtime proves it created nothing; notCreated(error) is
+ *     true (synchronously) for such a refusal.
+ *   - send({ key, turn, idempotencyKey, onLate }): `{ runId }`; `onLate(ok)` hears
+ *     an acknowledgement that arrived after the call timed out.
+ *   - abort({ key, runId }); wait({ runId, waitMs, timeoutMs }): the run's outcome
+ *     (`status`, `stopReason`, …) after waiting up to `waitMs` for it.
+ *   - describe({ key }): `{ session }`; get({ key, limit, timeoutMs }): `{ messages }`;
+ *     list({ agentId, label }): the agent's sessions with that label (`[{ key }]`).
+ *   - delete({ key, deleteTranscript }); compact({ key, timeoutMs }).
+ *   - keepOpen({ key }): "reopened", "pinned", "open" or "missing"; the runtime's own
+ *     maintenance never archives the session then. reopenRefused({ key, error }):
+ *     whether a refused turn may go again because its archived session reopened.
+ *   - subscribeMessages({ key }): the session's messages reach this connection.
+ *   - history({ sessionKey, limit, offset, messageId, maxChars }): `{ messages,
+ *     sessionInfo, hasMore, sessionId }`.
+ *   - downloadArtifact({ sessionKey, artifactId, maxBytes, timeoutMs }): `{ body }`;
+ *     an error with `artifactRefusal` ("gone", "location", "size") never changes on
+ *     a retry.
+ *   - on(connection): the same methods (without `on`) bound to a handle of
+ *     host.connection(): while it is current they act as above; once the runtime
+ *     replaced that connection they reject (code "UNAVAILABLE", status 503) and the
+ *     new connection receives nothing. A caller that captured the connection before
+ *     an await uses this view for the calls after it.
+ * - events: normalized run events
+ *   - subscribe(listener): `listener(event)` for each event of the current connection;
+ *     returns unsubscribe (a no-op without a connection). Once the host is ready
+ *     again callers subscribe anew. `event` is `{ kind, sessionKey, runId, reason,
+ *     event, payload }`: `kind` one of RUN_EVENT_KINDS, `reason` why a run failed
+ *     (`"timeout"`) or null, and `event`/`payload` the runtime's own frame name and
+ *     payload, which the reply text, tool steps and approvals are still read from.
  * - agents: the runtime-side agent (create, update, delete, list)
  * - agentFiles: instructions, memory and workspace files
  * - config: apply the compiled desired state; whether a restart is needed
@@ -54,6 +87,21 @@ export const HOST_AVAILABILITY = Object.freeze([
   "reconnecting",
   "failed",
   "stopping",
+]);
+
+// The kinds of run events (events.subscribe). Approvals pass through; "progress" is any
+// other frame of a run (a sign of life), "other" a frame of no run.
+export const RUN_EVENT_KINDS = Object.freeze([
+  "started",
+  "text",
+  "tool",
+  "progress",
+  "finished",
+  "aborted",
+  "failed",
+  "approval.requested",
+  "approval.resolved",
+  "other",
 ]);
 
 // One capability per sub-port for now; finer capabilities join as ports grow.

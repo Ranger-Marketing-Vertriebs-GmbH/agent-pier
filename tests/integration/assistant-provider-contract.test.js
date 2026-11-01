@@ -11,7 +11,7 @@ import { AssistantModels } from "../../server/features/assistants/assistant-mode
 import { ProviderConnections } from "../../server/features/providers/provider-connections.js";
 import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
 import { assistantProviderServer } from "../helpers/assistant-provider-server.js";
-import { createGatewaySession } from "../../server/features/assistants/session-create.js";
+import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 
 // Reuse only immutable app/node binaries. Every state, account and config path is
 // freshly generated; this test never opens an installed runtime's user data.

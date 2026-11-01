@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { contractTimeout } from "../helpers/contract-timeout.js";
 import { compiledShell, confirmFull } from "../helpers/assistant-shell-compiled.js";
-import { createGatewaySession } from "../../server/features/assistants/session-create.js";
+import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 import { lockedTools } from "../../server/features/users/user-agent-lock.js";
 
 // The hard lock on restricted users' agents (AGENTPIER-180) against the pinned

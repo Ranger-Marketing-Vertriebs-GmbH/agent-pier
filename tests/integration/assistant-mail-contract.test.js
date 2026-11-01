@@ -7,7 +7,7 @@ import { contractTimeout } from "../helpers/contract-timeout.js";
 import { compiledShell } from "../helpers/assistant-shell-compiled.js";
 import { startFakeImap } from "../helpers/fake-imap-server.js";
 import { startFakeSmtp } from "../helpers/fake-smtp-server.js";
-import { createGatewaySession } from "../../server/features/assistants/session-create.js";
+import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 import { routineTools } from "../../server/features/assistants/native-capabilities.js";
 import { lockedTools } from "../../server/features/users/user-agent-lock.js";
 import { MailAccountStore } from "../../server/features/mail/mail-account-store.js";

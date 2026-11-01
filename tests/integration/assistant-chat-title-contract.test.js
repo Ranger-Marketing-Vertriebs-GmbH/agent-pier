@@ -12,7 +12,7 @@ import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { chatTitleMethod } from "../../server/features/assistants/team-plugin/chat-title.js";
-import { createGatewaySession } from "../../server/features/assistants/session-create.js";
+import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 
 // AGENTPIER-187 on the pinned Gateway: the product plugin's title method runs one
 // tool-less prompt on the asking agent's own model and leaves nothing in its

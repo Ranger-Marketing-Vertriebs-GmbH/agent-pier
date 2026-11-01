@@ -14,7 +14,7 @@ import { provisionTeamPlugin } from "../../server/features/assistants/team-plugi
 import { patchConfig } from "../../server/features/assistants/openclaw-config/live-patch.js";
 import { GatewayEventHub } from "../../server/features/assistants/gateway-event-hub.js";
 import { MemoryFlushes } from "../../server/features/assistants/memory-flushes.js";
-import { createGatewaySession } from "../../server/features/assistants/session-create.js";
+import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 
 // Answers owner turns with text; a pre-compaction memory flush appends one note to
 // the daily file the flush prompt names, then stays silent.

@@ -16,7 +16,7 @@ import { GatewayEventHub } from "../../server/features/assistants/gateway-event-
 import { MemoryFlushes } from "../../server/features/assistants/memory-flushes.js";
 import { Compactions } from "../../server/features/assistants/compactions.js";
 import { publicMessages } from "../../server/features/assistants/conversations.js";
-import { createGatewaySession } from "../../server/features/assistants/session-create.js";
+import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 
 // OpenClaw's compaction safeguard audits each summary for its five sections, the
 // literal identifiers and the latest ask, and rejects an ask of the retained turn

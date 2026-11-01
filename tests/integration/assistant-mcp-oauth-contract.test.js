@@ -25,7 +25,7 @@ import {
   leaseLocked,
   parseLoginOutput,
 } from "../../server/features/mcp-servers/openclaw-mcp-cli.js";
-import { createGatewaySession } from "../../server/features/assistants/session-create.js";
+import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 
 // Uses scripts/provision-assistant-contracts.mjs; see docs/mcp-oauth-qualification.md.
 const installed = process.env.AGENTPIER_MCP_CONTRACT_RUNTIME;

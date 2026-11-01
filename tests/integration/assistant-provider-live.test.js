@@ -9,7 +9,7 @@ import { AssistantConfig } from "../../server/features/assistants/assistant-conf
 import { AssistantModels } from "../../server/features/assistants/assistant-models.js";
 import { ProviderConnections } from "../../server/features/providers/provider-connections.js";
 import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
-import { createGatewaySession } from "../../server/features/assistants/session-create.js";
+import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 
 // Explicitly opt in: this makes real inference requests and may incur charges.
 // Only immutable binaries are reused; no installed account/state is imported.

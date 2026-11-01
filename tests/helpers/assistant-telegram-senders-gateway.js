@@ -17,7 +17,7 @@ import { TelegramSenders } from "../../server/features/assistant-channels/telegr
 import { SpeechConnections } from "../../server/features/speech/speech-connections.js";
 import { assistantModelServer } from "./assistant-model-server.js";
 import { fakeBotApi, fakeDeepgram } from "./assistant-telegram-fakes.js";
-import { createGatewaySession } from "../../server/features/assistants/session-create.js";
+import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 
 export const transcript = "please water the plants on friday";
 const fixtureModel = { connectionId: "fixture", modelId: "fixture-model" };

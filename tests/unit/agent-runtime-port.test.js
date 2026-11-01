@@ -14,21 +14,19 @@ import {
   runtimeResolver,
 } from "../../server/features/assistants/runtimes/runtime-for.js";
 import { fakeRuntime, runtimePortContract } from "../helpers/runtime-port-contract.js";
+import { openClawClientFake } from "../helpers/openclaw-client-fake.js";
 
 // A supervisor whose Gateway client answers like OpenClaw, or none while it is down.
-// Its lifecycle moves availability as runtime-supervisor.js does.
-function fakeSupervisor({ channels = {}, unreachable = false, version = null } = {}) {
+// Its lifecycle moves availability as runtime-supervisor.js does; every start
+// connects a new client, as each launch does.
+function fakeSupervisor({
+  channels = {},
+  unreachable = false,
+  version = null,
+  runFailure = null,
+} = {}) {
   const calls = [];
-  const client = {
-    ready: true,
-    async call(method, params) {
-      calls.push([method, params]);
-      if (method === "sessions.create") return { key: `session:${params.label}` };
-      if (method === "sessions.messages.subscribe") return {};
-      if (method !== "channels.status") throw new Error(`unexpected ${method}`);
-      return { channelAccounts: structuredClone(channels) };
-    },
-  };
+  const connect = () => openClawClientFake({ channels, runFailure, calls });
   const supervisor = new EventEmitter();
   const state = {
     availability: unreachable ? "failed" : "ready",
@@ -41,18 +39,20 @@ function fakeSupervisor({ channels = {}, unreachable = false, version = null } =
     supervisor.emit("status", { ...state });
   };
   return Object.assign(supervisor, {
-    client: unreachable ? null : client,
+    client: unreachable ? null : connect(),
     calls,
     lifecycle: [],
     status: () => ({ ...state }),
     async start(options) {
       supervisor.lifecycle.push(["start", options]);
       setState({ availability: "starting" });
-      supervisor.client = client;
+      supervisor.client = connect();
       setState({ availability: "ready", sync: "reconciling" });
     },
     async stop(options) {
       supervisor.lifecycle.push(["stop", options]);
+      // The supervisor closes the client it lets go (runtime-supervisor.js).
+      supervisor.client?.close?.();
       supervisor.client = null;
       setState({ availability: "stopping" });
       setState({ availability: "disabled", sync: "stale" });
@@ -82,17 +82,6 @@ test("the OpenClaw adapter calls channels.status on the current client", async (
   assert.deepEqual(supervisor.calls, [["channels.status", { probe: false }]]);
   assert.deepEqual(replaced.calls, [["channels.status", { probe: true }]]);
   assert.deepEqual(status.channelAccounts.telegram, [{ accountId: "a" }]);
-});
-
-test("the OpenClaw adapter creates and subscribes sessions on the current client", async () => {
-  const supervisor = fakeSupervisor();
-  const runtime = createOpenClawRuntime(supervisor);
-  const created = await runtime.sessions.create({ agentId: "agent-1", label: "main" });
-  await runtime.sessions.subscribe({ key: created.key });
-  assert.deepEqual(supervisor.calls, [
-    ["sessions.create", { agentId: "agent-1", label: "main" }],
-    ["sessions.messages.subscribe", { key: "session:main" }],
-  ]);
 });
 
 test("the OpenClaw host follows the supervisor's client and lifecycle", async () => {

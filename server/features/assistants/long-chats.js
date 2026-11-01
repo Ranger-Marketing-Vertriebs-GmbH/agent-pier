@@ -3,6 +3,7 @@ import { assistantProblem } from "./assistant-validation.js";
 import { refuseClosedChat } from "./conversation-turns.js";
 import { dispatchQueued } from "./queued-dispatch.js";
 import { MemoryStep } from "./memory-step.js";
+import { hostConnection, runtimeFor } from "./runtimes/runtime-for.js";
 import {
   answerCodeOf,
   compactOutcome,
@@ -257,13 +258,15 @@ export class LongChats {
     const service = this.service;
     const id = conversation.id;
     const sessionKey = conversation.runtimeSessionKey;
-    const client = service.runtime.client;
+    const connection = hostConnection(service.runtime);
+    // Every call of this summary goes to the Gateway it started on.
+    const sessions = runtimeFor(null, service.runtime).sessions.on(connection);
     const generation = service.runtime.generationId ?? null;
     const { answerMs, maxMs, lostMs, pollMs } = this.timing;
     const since = service.now?.() ?? Date.now();
     const alive = () =>
       !service.closed &&
-      service.runtime.client === client &&
+      hostConnection(service.runtime) === connection &&
       (service.runtime.generationId ?? null) === generation &&
       runningStates.has(service.runtime.status?.().availability);
     const warned = new Set();
@@ -344,7 +347,7 @@ export class LongChats {
       answer.resolve(stillRuns());
     };
     // Reads the newest marker first, so a later one shows the summary's success.
-    const baseline = readBaseline(client, sessionKey, warn);
+    const baseline = readBaseline(sessions, sessionKey, warn);
     const lost = guard((error) => {
       // The code only, never the text.
       console.warn(`Summarising chat ${id}: the call failed: ${reasonOf(error)}`);
@@ -355,7 +358,7 @@ export class LongChats {
         guard((before) => {
           if (settled) return;
           stopWatch = watchMarker({
-            client,
+            sessions,
             sessionKey,
             pollMs,
             baseline: before,
@@ -375,9 +378,7 @@ export class LongChats {
     // The upper bound, also when the client's own timeout never fires.
     later(() => finish("unknown"), maxMs);
     baseline
-      .then(() =>
-        client.call("sessions.compact", { key: sessionKey }, { timeoutMs: maxMs }),
-      )
+      .then(() => sessions.compact({ key: sessionKey, timeoutMs: maxMs }))
       .then(
         guard((result) => {
           const outcome = compactOutcome({ result });
@@ -453,7 +454,7 @@ export class LongChats {
     service.requireReady();
     let history;
     try {
-      history = await service.runtime.client.call("chat.history", {
+      history = await runtimeFor(null, service.runtime).sessions.history({
         sessionKey: conversation.runtimeSessionKey,
         limit: 1,
       });

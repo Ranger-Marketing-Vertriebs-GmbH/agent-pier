@@ -16,7 +16,7 @@ import {
   latestMarker,
   readBaseline,
 } from "../../server/features/assistants/compaction-watch.js";
-import { createGatewaySession } from "../../server/features/assistants/session-create.js";
+import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 
 // AGENTPIER-190: what long-chats.js and compaction-watch.js rely on for a summary
 // on request. Its `sessions.compact` answer says how it ended, a repeated one that

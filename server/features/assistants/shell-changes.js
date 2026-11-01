@@ -4,7 +4,7 @@ import { decideAudited } from "./approval-audit.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { decideExec } from "./exec-decisions.js";
 import { personalEligible, personalShell, shellLevels } from "./native-capabilities.js";
-import { hostReady } from "./runtimes/runtime-for.js";
+import { hostConnection, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 
 export const SHELL_CONFIRMATION_REQUIRED = "ASSISTANT_SHELL_CONFIRMATION_REQUIRED";
 // Retry delays of a failed live apply: doubling from one second to one minute.
@@ -193,16 +193,16 @@ export class ShellChanges {
   }
   /** Aborts the agent's running turns through the Gateway; returns the count. */
   async abortTurns(id) {
-    const a = this.a,
-      client = a.runtime.client;
-    if (!client?.ready) return 0;
+    const a = this.a;
+    if (!hostReady(a.runtime)) return 0;
+    const sessions = runtimeFor(null, a.runtime).sessions.on(hostConnection(a.runtime));
     let aborted = 0;
     for (const attempt of a.ledger.pending()) {
       try {
         const request = a.ledger.getRequest(attempt.requestId);
         const conversation = a.store.getConversation(request.conversationId);
         if (conversation.assistantId !== id) continue;
-        await client.call("sessions.abort", {
+        await sessions.abort({
           key: conversation.runtimeSessionKey,
           runId: attempt.runtimeRunId || attempt.id,
         });

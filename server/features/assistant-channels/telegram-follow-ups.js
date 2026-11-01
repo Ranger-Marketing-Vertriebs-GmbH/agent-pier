@@ -5,6 +5,11 @@ import {
 } from "../assistants/completion-runs.js";
 import { boundedText, completeMessage, withNote } from "../assistants/history-text.js";
 import { telegramMessages } from "./telegram-messages.js";
+import {
+  hostConnection,
+  hostReady,
+  runtimeFor,
+} from "../assistants/runtimes/runtime-for.js";
 
 /**
  * The replies of runs AgentPier did not start, for the owner's paired Telegram chat.
@@ -127,15 +132,15 @@ export class TelegramFollowUps {
     if (row.after?.some((id) => queued.has(id))) return;
     const expired = this.service.now() - row.endedAt >= followUpExpiryMs;
     if (!row.proven) {
-      const client = a.runtime?.client;
       let page = null;
-      if (client?.ready)
-        page = await client
-          .call(
-            "sessions.get",
-            { key: row.sessionKey, limit: completionTranscriptLimit },
-            { timeoutMs: 5000 },
-          )
+      if (hostReady(a.runtime))
+        page = await runtimeFor(null, a.runtime)
+          .sessions.on(hostConnection(a.runtime))
+          .get({
+            key: row.sessionKey,
+            limit: completionTranscriptLimit,
+            timeoutMs: 5000,
+          })
           .catch(() => null);
       if (signal.aborted) return;
       if (!page) return expired ? this.drop(row, "TRANSCRIPT_UNAVAILABLE") : undefined;

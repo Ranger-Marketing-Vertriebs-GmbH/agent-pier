@@ -10,7 +10,7 @@ import { GatewayClient } from "../../server/features/assistants/runtimes/opencla
 import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
 import { patchConfig } from "../../server/features/assistants/openclaw-config/live-patch.js";
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
-import { createGatewaySession } from "../../server/features/assistants/session-create.js";
+import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 
 const installed = process.env.AGENTPIER_NATIVE_INTERFACES_CONTRACT_RUNTIME;
 const options = {

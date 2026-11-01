@@ -14,7 +14,7 @@ import { ProviderConnections } from "../../server/features/providers/provider-co
 import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
 import { ChatStreams } from "../../server/features/assistants/chat-stream.js";
 import { GatewayClient } from "../../server/features/assistants/runtimes/openclaw/gateway-client.js";
-import { createGatewaySession } from "../../server/features/assistants/session-create.js";
+import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 
 const chunks = ["Noch", " keine", " neuen Meldungen."];
 const reply = chunks.join("");

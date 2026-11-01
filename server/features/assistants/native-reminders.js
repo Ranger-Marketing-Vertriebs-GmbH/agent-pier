@@ -548,7 +548,7 @@ export class NativeReminders {
    */
   resultText(binding, event, { key, limit } = {}) {
     return cronResultText({
-      client: this.assistants.runtime.client,
+      supervisor: this.assistants.runtime,
       agentId: this.assistants.store.getAssistant(binding.assistantId).runtimeAgentId,
       event,
       known:

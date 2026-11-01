@@ -27,3 +27,13 @@ export const hostReady = (supervisor, agent) =>
   !!supervisor &&
   typeof supervisor === "object" &&
   runtimeFor(agent, supervisor).host.ready();
+
+/**
+ * The current connection of the runtime of `agent` behind `supervisor`
+ * (host.connection()), or null without a supervisor. Compared across an await, it
+ * tells whether the runtime was replaced meanwhile.
+ */
+export const hostConnection = (supervisor, agent) =>
+  !!supervisor && typeof supervisor === "object"
+    ? runtimeFor(agent, supervisor).host.connection()
+    : null;

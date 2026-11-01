@@ -48,7 +48,7 @@ import { withAdmission } from "./agent-admission.js";
 import { chatCommand, isChatCommand } from "./chat-commands.js";
 import { templateProblem, templateRecord } from "../agency/agency-templates.js";
 import { auditProactivity, proactivityChange } from "./proactivity-changes.js";
-import { hostReady } from "./runtimes/runtime-for.js";
+import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 
 const pick = (value, keys) => Object.fromEntries(keys.map((k) => [k, value[k]]));
 export class AssistantService {
@@ -145,7 +145,7 @@ export class AssistantService {
     this.completionRuns.clear();
     this.compactions?.clear();
     this.bindEvents();
-    this.gatewayEvents.bind(this.runtime.client);
+    this.gatewayEvents.bind(runtimeFor(null, this.runtime).events);
   }
   bindEvents() {
     bindChatEvents(this);
@@ -551,7 +551,7 @@ export class AssistantService {
     const conversation = this.store.getConversation(
       this.ledger.getRequest(attempt.requestId).conversationId,
     );
-    await this.runtime.client.call("sessions.abort", {
+    await runtimeFor(null, this.runtime).sessions.abort({
       key: conversation.runtimeSessionKey,
       runId: attempt.runtimeRunId || attempt.id,
     });

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { problem } from "../../lib/storage.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { assistantProblem } from "./assistant-validation.js";
-import { createGatewaySession } from "./session-create.js";
+import { hostConnection, runtimeFor } from "./runtimes/runtime-for.js";
 import { mainConversation } from "./routine-targets.js";
 import { assertChatPerson, openMainConversation } from "./conversation-open.js";
 import { firstTurnTitle, setTitle } from "./chat-titles.js";
@@ -149,9 +149,11 @@ export class AgentChats {
       service.requireReady();
       await service.config.apply(assistantId);
       const id = randomUUID();
-      const client = service.runtime.client;
-      const created = await createGatewaySession(
-        client,
+      // The session is subscribed on the connection that created it.
+      const sessions = runtimeFor(agent, service.runtime).sessions.on(
+        hostConnection(service.runtime),
+      );
+      const created = await sessions.create(
         { agentId: agent.runtimeAgentId, label: `AgentPier ${agent.id} chat ${id}` },
         service.sessionCreate,
       );
@@ -163,7 +165,7 @@ export class AgentChats {
         ...(userId === null ? {} : { userId }),
         ...(openedBy && { openedBy }),
       });
-      await client.call("sessions.messages.subscribe", { key: created.key });
+      await sessions.subscribeMessages({ key: created.key });
       service.changed();
       return conversation;
     });

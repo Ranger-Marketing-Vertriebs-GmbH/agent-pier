@@ -23,7 +23,7 @@ import {
   stdioMcpScript,
   stdioRecords,
 } from "../helpers/mcp-test-servers.js";
-import { createGatewaySession } from "../../server/features/assistants/session-create.js";
+import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 
 // The installation provisioned by scripts/provision-assistant-contracts.mjs. Unlike
 // assistant-mcp-contract.test.js, which patches `mcp` by hand to qualify OpenClaw,

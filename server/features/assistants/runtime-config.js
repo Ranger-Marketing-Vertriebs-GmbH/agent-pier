@@ -314,7 +314,7 @@ export function compileOpenClawConfig({
   // Every AgentPier chat is a dashboard session, and OpenClaw archives those after 7
   // idle days; an archived session takes no turn. AgentPier keeps archive state for
   // its chats itself (agent-chats.js), so that trigger stays off. `pruneAfter` and
-  // `maxEntries` stay: pinning keeps the chats out of them (native-chat-archive.js).
+  // `maxEntries` stay: pinning keeps the chats out of them (runtimes/openclaw/native-chat-archive.js).
   config.session = {
     ...config.session,
     maintenance: { ...config.session?.maintenance, archiveDashboardAfter: false },

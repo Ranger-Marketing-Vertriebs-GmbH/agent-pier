@@ -1,4 +1,4 @@
-import { createGatewaySession, sessionNotCreated } from "./session-create.js";
+import { runtimeFor } from "./runtimes/runtime-for.js";
 
 export class TeamProvisioning {
   constructor({ teams, assistants }) {
@@ -13,17 +13,15 @@ export class TeamProvisioning {
     if (m.conversationId || !["provisioning", "provisioning_uncertain"].includes(m.phase))
       return m;
     if (m.stopRequested) return teams.write(m, { phase: "cancelled" });
-    const profile = a.store.getAssistant(m.assistantId).runtimeAgentId;
+    const agent = a.store.getAssistant(m.assistantId);
+    const profile = agent.runtimeAgentId;
     const label = `AgentPier member ${id}`;
     try {
       if (m.phase === "provisioning_uncertain" && m.provisionStep === "session") {
-        const listed = await a.runtime.client.call("sessions.list", {});
-        const matches =
-          listed.sessions?.filter(
-            (s) =>
-              s.label === label &&
-              (s.agentId === profile || s.key?.startsWith(`agent:${profile}:`)),
-          ) || [];
+        const matches = await runtimeFor(agent, a.runtime).sessions.list({
+          agentId: profile,
+          label,
+        });
         const current = this.interrupted(id);
         if (current || matches.length > 1) return current || teams.member(id);
         if (matches.length === 1) return this.adopt(id, matches[0].key);
@@ -43,15 +41,12 @@ export class TeamProvisioning {
   async createSession(id, agentId, label) {
     const { teams, assistants: a } = this;
     teams.write(teams.member(id), { phase: "provisioning", provisionStep: "session" });
+    const { sessions } = runtimeFor(null, a.runtime);
     let created;
     try {
-      created = await createGatewaySession(
-        a.runtime.client,
-        { agentId, label },
-        a.sessionCreate,
-      );
+      created = await sessions.create({ agentId, label }, a.sessionCreate);
     } catch (error) {
-      if (!sessionNotCreated(error)) throw error;
+      if (!sessions.notCreated(error)) throw error;
       // The Gateway answered that no session exists: the claim returns to the
       // queue and the next tick provisions the member again.
       const m = teams.member(id);
