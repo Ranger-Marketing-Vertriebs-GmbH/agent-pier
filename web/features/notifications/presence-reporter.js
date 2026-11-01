@@ -3,6 +3,8 @@
 // a view seen in the last 30 seconds; server/features/notifications/push-presence.js).
 // A window left open but unfocused (a desktop showing the inbox while the owner is
 // away with the phone) never reports, or it would silence the phone indefinitely.
+// A split view shows several sessions and chats at once, so `routes` lists one route
+// per visible pane; a single view reports the address bar.
 export const heartbeatMs = 15000;
 export const checkMs = 1000;
 
@@ -14,17 +16,19 @@ export function startPresenceReporter({
   now = Date.now,
   setTimer = setInterval,
   clearTimer = clearInterval,
+  routes = () => [win.location.pathname],
 }) {
   let last = { route: null, at: 0 };
   let focused = doc.hasFocus();
   const attending = () => focused && doc.visibilityState === "visible" && doc.hasFocus();
   const report = () => {
     if (!attending()) return;
-    const route = win.location.pathname;
+    const list = [...new Set(routes())];
+    const route = list.join("\n");
     const at = now();
     if (route === last.route && at - last.at < heartbeatMs) return;
     last = { route, at };
-    send(route);
+    for (const item of list) send(item);
   };
   // Coming back to a page counts at once; leaving it stops the reports.
   const resume = () => {

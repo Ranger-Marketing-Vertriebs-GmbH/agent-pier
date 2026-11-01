@@ -88,15 +88,17 @@ and while one is open the page behind it does not scroll (`web/components/forms.
 
 ### Breakpoints
 
-| Name   | Width    | CSS                                                        | JS (`web/lib/breakpoints.js`)                   |
-| ------ | -------- | ---------------------------------------------------------- | ----------------------------------------------- |
-| phone  | ≤ 700px  | `@media (max-width: 700px)`; above it `(min-width: 701px)` | `mediaQueries.phone`, `mediaQueries.abovePhone` |
-| tablet | ≤ 1150px | `@media (max-width: 1150px)`                               | `mediaQueries.tablet`                           |
-| wide   | ≥ 1500px | `@media (min-width: 1500px)`                               | `mediaQueries.wide`                             |
+| Name   | Width    | CSS                                                          | JS (`web/lib/breakpoints.js`)                     |
+| ------ | -------- | ------------------------------------------------------------ | ------------------------------------------------- |
+| phone  | ≤ 700px  | `@media (max-width: 700px)`; above it `(min-width: 701px)`   | `mediaQueries.phone`, `mediaQueries.abovePhone`   |
+| tablet | ≤ 1150px | `@media (max-width: 1150px)`; above it `(min-width: 1151px)` | `mediaQueries.tablet`, `mediaQueries.aboveTablet` |
+| wide   | ≥ 1500px | `@media (min-width: 1500px)`                                 | `mediaQueries.wide`                               |
 
 Media queries cannot read custom properties, so CSS repeats these numbers. JS uses
 `breakpoints` or `mediaQueries` from `web/lib/breakpoints.js` with `useMediaQuery`
-(`useMobileLayout` is the phone query). `(any-pointer: coarse)` is fine next to a
+(`useMobileLayout` is the phone query). A view that can render inside a split pane
+uses `useNarrow(query, maxWidth)` (`web/lib/useNarrow.js`): inside a pane the pane's
+width decides, elsewhere the media query. `(any-pointer: coarse)` is fine next to a
 width for touch rules.
 
 ## Components

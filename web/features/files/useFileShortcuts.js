@@ -71,11 +71,15 @@ export function useExplorerFileShortcuts(selection, clipboard, request, open) {
   });
 }
 
-export function useOwnedListAction(owner, setRequest) {
+// Focus returns inside this explorer only (a split view can show several): `root`
+// is a ref to the explorer element, else the explorer holding the request's origin.
+export function useOwnedListAction(owner, setRequest, root) {
   const currentOwner = useRef(owner);
   currentOwner.current = owner;
   return useCallback(
-    (kind, items, origin) =>
+    (kind, items, origin) => {
+      const explorer =
+        root?.current || origin?.closest?.(".file-explorer") || globalThis.document;
       setRequest({
         owner,
         kind,
@@ -91,13 +95,14 @@ export function useOwnedListAction(owner, setRequest) {
             return;
           if (origin?.isConnected) origin.focus();
           else
-            document
-              .querySelector(
+            explorer
+              ?.querySelector(
                 ".explorer-list .file-selection-checkbox, .explorer-list button",
               )
               ?.focus();
         },
-      }),
-    [owner, setRequest],
+      });
+    },
+    [owner, root, setRequest],
   );
 }

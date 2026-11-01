@@ -11,6 +11,8 @@ import TerminalUploads from "./TerminalUploads.jsx";
 import { terminalViewCopy as copy } from "../../lib/i18n/messages/terminal.js";
 import useTerminalConnection from "./useTerminalConnection.js";
 import useClaudeTerminalQuestions from "./useClaudeTerminalQuestions.js";
+import { usePane } from "../../lib/pane-context.js";
+
 export default function TerminalView({
   session,
   mode,
@@ -20,6 +22,7 @@ export default function TerminalView({
   onConnection,
   request,
 }) {
+  const pane = usePane();
   const { error, container, paste, pendingLink, openPendingLink, cancelPendingLink } =
     useTerminalConnection({
       session,
@@ -28,6 +31,7 @@ export default function TerminalView({
       focusRef,
       onConnection,
       request,
+      autoFocus: !pane || pane.focused,
     });
   const uploads = useTerminalUploads({ session, paste });
   const questionError = useClaudeTerminalQuestions({

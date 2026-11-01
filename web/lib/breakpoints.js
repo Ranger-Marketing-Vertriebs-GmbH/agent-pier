@@ -7,6 +7,7 @@ export const mediaQueries = Object.freeze({
   phone: `(max-width: ${breakpoints.phone}px)`,
   abovePhone: `(min-width: ${breakpoints.phone + 1}px)`,
   tablet: `(max-width: ${breakpoints.tablet}px)`,
+  aboveTablet: `(min-width: ${breakpoints.tablet + 1}px)`,
   wide: `(min-width: ${breakpoints.wide}px)`,
 });
 

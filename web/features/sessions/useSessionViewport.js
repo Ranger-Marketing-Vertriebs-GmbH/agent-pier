@@ -1,4 +1,11 @@
 import { useEffect } from "react";
+import { createViewportVariables } from "./viewport-variables.js";
+
+// One holder count for the whole page: several session views can be on screen at
+// once (one per pane), and the variables stay until the last of them unmounts.
+let variables = null;
+const shared = () =>
+  (variables ??= createViewportVariables(document.documentElement.style));
 
 export default function useSessionViewport(active) {
   useEffect(() => {
@@ -8,6 +15,7 @@ export default function useSessionViewport(active) {
     // Keep this query in sync with mobile-workspace.css.
     const media = window.matchMedia("(max-width: 700px), (any-pointer: coarse)");
     const style = document.documentElement.style;
+    const release = shared().acquire();
     const clear = () => {
       style.removeProperty("--session-viewport-height");
       style.removeProperty("--session-viewport-top");
@@ -34,7 +42,7 @@ export default function useSessionViewport(active) {
       window.removeEventListener("pageshow", update);
       document.removeEventListener("visibilitychange", update);
       media.removeEventListener("change", update);
-      clear();
+      release();
     };
   }, [active]);
 }

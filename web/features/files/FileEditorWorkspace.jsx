@@ -8,6 +8,7 @@ import { fileEditorCopy as copy } from "../../lib/i18n/messages/file-editor.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { liveClient } from "../../lib/live/live-client.js";
 import { followDocument } from "./file-document-watch.js";
+import { paneId, usePane } from "../../lib/pane-context.js";
 const FileEditor = lazy(() => import("./FileEditor.jsx"));
 const FileEditorConflict = lazy(() => import("./FileEditorConflict.jsx"));
 
@@ -30,6 +31,9 @@ export default function FileEditorWorkspace({
   const tab = editor.tabs.find((item) => item.id === editor.activeId);
   const searchRef = useRef(null);
   const openRef = useRef(null);
+  // Looked up inside this editor only: a split view can show several at once.
+  const sectionRef = useRef(null);
+  const pane = usePane();
   const [destination, setDestination] = useState("");
   const [replacement, setReplacement] = useState(null);
   const [targetError, setTargetError] = useState(null);
@@ -131,7 +135,7 @@ export default function FileEditorWorkspace({
       if (!accepted && origin.isConnected) origin.focus();
       else
         (
-          document.querySelector(
+          sectionRef.current?.querySelector(
             `.file-editor-tabs [role='tab'][aria-selected='true']`,
           ) || openRef.current
         )?.focus();
@@ -144,7 +148,7 @@ export default function FileEditorWorkspace({
       onClick={async () => {
         await editor.open(path);
         requestAnimationFrame(() =>
-          document.querySelector(".file-editor")?.scrollIntoView({ block: "nearest" }),
+          sectionRef.current?.scrollIntoView({ block: "nearest" }),
         );
       }}
     >
@@ -155,13 +159,13 @@ export default function FileEditorWorkspace({
     <>
       {openTarget ? createPortal(openButton, openTarget) : openButton}
       {editor.tabs.length > 0 && (
-        <section className="file-editor" aria-label={copy.title}>
+        <section ref={sectionRef} className="file-editor" aria-label={copy.title}>
           <FileEditorTabs {...editor} close={closeTab} />
           {tab && (
             <div
-              id="file-editor-panel"
+              id={paneId(pane, "file-editor-panel")}
               role="tabpanel"
-              aria-labelledby={`file-editor-tab-${tab.id}`}
+              aria-labelledby={paneId(pane, `file-editor-tab-${tab.id}`)}
             >
               <p className="file-editor-path">
                 {tab.path} · {copy.scopeLabel(tab.scope.kind, tab.scope.root)}
@@ -296,9 +300,11 @@ export default function FileEditorWorkspace({
                       saveAs();
                     }}
                   >
-                    <label htmlFor="file-editor-destination">{copy.destination}</label>
+                    <label htmlFor={paneId(pane, "file-editor-destination")}>
+                      {copy.destination}
+                    </label>
                     <input
-                      id="file-editor-destination"
+                      id={paneId(pane, "file-editor-destination")}
                       type="text"
                       value={destination}
                       onChange={(event) => {

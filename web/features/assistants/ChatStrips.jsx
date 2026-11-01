@@ -5,6 +5,7 @@ import AssistantMemberContext from "./AssistantMemberContext.jsx";
 import WorkGoalLine from "./WorkGoalLine.jsx";
 import PreviewStrip from "../previews/PreviewStrip.jsx";
 import useOnScreenKeyboard from "./useOnScreenKeyboard.js";
+import { usePaneId } from "../../lib/pane-context.js";
 import "./chat-strips.css";
 
 /**
@@ -26,7 +27,7 @@ export default function ChatStrips({
   navigate,
   onStopped,
 }) {
-  const keyboard = useOnScreenKeyboard("assistant-message");
+  const keyboard = useOnScreenKeyboard(usePaneId("assistant-message"));
   return (
     <div className="assistant-chat-strips" data-keyboard={keyboard || undefined}>
       <AssistantApprovalStrip

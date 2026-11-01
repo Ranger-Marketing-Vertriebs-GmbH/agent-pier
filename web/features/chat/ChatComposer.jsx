@@ -7,6 +7,8 @@ import useSlashCompletion from "./useSlashCompletion.js";
 import ChatAttachments from "./ChatAttachments.jsx";
 import DictationButton from "../dictation/DictationButton.jsx";
 import { enterKeyHint, sendHint, shouldSubmitOnEnter } from "./enter-submit.js";
+import useNarrow from "../../lib/useNarrow.js";
+import { breakpoints, mediaQueries } from "../../lib/breakpoints.js";
 export default function ChatComposer({
   submit,
   session,
@@ -26,6 +28,10 @@ export default function ChatComposer({
   const sendButton = useRef(null);
   const restoreFocus = useRef(false);
   const locked = busy || deliveryLocked;
+  // Phone layout: the window's width, or the pane's inside a split view.
+  const phone = useNarrow(mediaQueries.phone, breakpoints.phone);
+  const phoneRef = useRef(phone);
+  phoneRef.current = phone;
   const completion = useSlashCompletion({
     session,
     request,
@@ -43,18 +49,12 @@ export default function ChatComposer({
   });
   useLayoutEffect(() => {
     const element = input.current;
-    const media = window.matchMedia("(max-width: 700px)");
-    const resize = () => {
-      element.style.height = "";
-      if (media.matches) {
-        element.style.height = "auto";
-        element.style.height = `${Math.min(element.scrollHeight, 144)}px`;
-      }
-    };
-    resize();
-    media.addEventListener("change", resize);
-    return () => media.removeEventListener("change", resize);
-  }, [text]);
+    element.style.height = "";
+    if (phone) {
+      element.style.height = "auto";
+      element.style.height = `${Math.min(element.scrollHeight, 144)}px`;
+    }
+  }, [text, phone]);
   // Delivery only makes the field read-only, so Enter keeps focus. If the focus
   // still rests on the composer area when the lock lifts, hand it back.
   useEffect(() => {
@@ -62,7 +62,7 @@ export default function ChatComposer({
     restoreFocus.current = false;
     const active = document.activeElement;
     const idle = !active || active === document.body || active === sendButton.current;
-    const compact = touchInput || window.matchMedia("(max-width: 700px)").matches;
+    const compact = touchInput || phoneRef.current;
     if (idle && !compact && input.current && !input.current.disabled)
       input.current.focus({ preventScroll: true });
   }, [locked, touchInput]);

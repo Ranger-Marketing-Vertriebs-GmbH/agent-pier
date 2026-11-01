@@ -26,3 +26,10 @@ export function resolveFileNavigationTab(store, entry, { discard = false } = {})
   if (discard) store.close(entry.id, { discard: true });
   return { status: "resolved" };
 }
+
+/**
+ * Whether a navigation request concerns the editor of `scope`: requests without a
+ * pane scope concern every editor, a pane's request only that pane's editor.
+ */
+export const concernsScope = (request, scope) =>
+  !request?.paneScope || request.paneScope === scope;
