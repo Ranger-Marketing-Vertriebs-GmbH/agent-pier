@@ -148,6 +148,9 @@ test("open refuses AgentPier's own port, a port in the range and a closed port",
     { port: 3000, label: "a\nb" },
     { port: 3000, label: "A", path: "admin" },
     { port: 3000, label: "A", path: "//evil.example" },
+    { port: 3000, label: "A", path: "/\\evil//x" },
+    { port: 3000, label: "A", path: "/a\\b" },
+    { port: 3000, label: "A", path: "/.//evil" },
     { port: 3000, label: "A", path: `/${"x".repeat(2048)}` },
   ])
     await assert.rejects(previews.open({ owner, ...input }), {

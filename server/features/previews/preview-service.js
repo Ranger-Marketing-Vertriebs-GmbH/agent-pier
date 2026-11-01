@@ -49,10 +49,13 @@ function checkedInput({ owner, port, label, path } = {}) {
   if (path !== undefined) {
     if (typeof path !== "string" || path.length > 2048 || !/^\/(?!\/)/.test(path))
       throw invalid();
-    if (controls.test(path)) throw invalid();
+    // WHATWG URL parsing reads a backslash as a slash, so a path like /\x//y would become "//y".
+    if (controls.test(path) || path.includes("\\")) throw invalid();
     // Spaces and other raw characters leave the URL (and Markdown links) intact.
     const url = new URL(path, "http://x");
     path = url.pathname + url.search + url.hash;
+    // Dot segments ("/.//x") can also normalise into a protocol-relative path.
+    if (path.startsWith("//")) throw invalid();
   }
   return { owner, port, label, path };
 }
