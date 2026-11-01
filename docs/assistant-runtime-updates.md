@@ -561,6 +561,22 @@ it starts, so there is no migration step; a failed validation restores the snaps
 and the previous selection. Runtime retention keeps the installations a selection,
 candidate or backup names.
 
+**Processes.** Each Hermes agent runs as one supervised process set
+(`runtimes/hermes/hermes-supervisor.js`, host sub-port in `hermes-host.js`): the
+messaging gateway `hermes gateway run --external-supervisor`, which owns the agent's
+`HERMES_HOME`, and AgentPier's RPC bridge, which attaches to that gateway and carries
+its JSON-RPC over stdin and stdout (ADR 0006, decision 4, "host as built"). Both get
+an environment built from nothing: `HOME`, `HERMES_HOME`, `TMPDIR` and the XDG
+folders inside `<data>/assistants/hermes/{home,state,tmp}/<agent>/`, `PATH` with
+Hermes's environment, the folders AgentPier provides and the system folders, UTF-8,
+proxy settings and the time zone; no AgentPier token or owner credential. Each runs in
+its own process group; stopping ends both groups (TERM, then KILL after 10 seconds),
+then any gateway that owns the home without being the set's, and the control socket
+folder Hermes leaves in the temporary directory. A crash ends and restarts the set
+after 1, 2, 4, … up to 30 seconds; after five starts in a row that never got ready the
+agent's host reports `failed` until the next start. Logs are
+`<data>/assistants/hermes/logs/<agent>/gateway.log` and `rpc-bridge.log`.
+
 **Refreshing the pin** (maintainers only):
 
 ```sh
