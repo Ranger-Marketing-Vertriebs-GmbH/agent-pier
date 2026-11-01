@@ -265,27 +265,35 @@ function stallFirst(uploads, bytes = 4) {
     });
   };
 }
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// The stalled copies' time limit (copyMs) runs on mocked timers: it expires only
+// when a test ticks it, never because real file work was slow on a loaded machine.
+// Waiting for a copy's state therefore takes event-loop turns, not timeouts.
+const turn = () => new Promise((resolve) => setImmediate(resolve));
+async function until(check) {
+  while (!check()) await turn();
+}
+const copyClock = (t) => t.mock.timers.enable({ apis: ["setTimeout"] });
 
 test("a copy stalled halfway is cancelled, leaves nothing and frees its agent", async (t) => {
   const { project, uploads } = fixture(t, { limits: { ...uploadLimits, copyMs: 300 } });
+  copyClock(t);
   stallFirst(uploads);
   const stage = () => uploads.stage("agent-1", source(project, "episodes/episode 1.mp4"));
   const stalled = stage();
   stalled.catch(() => {});
   const own = path.join(uploads.namespace(), "agent-1");
+  const parts = () => (fs.existsSync(own) ? fs.readdirSync(own) : []);
   // Halfway: the partial copy exists and its bytes are reserved.
-  let partial = [];
-  for (let n = 0; n < 40 && !partial.length; n++) {
-    await sleep(10);
-    partial = fs.existsSync(own) ? fs.readdirSync(own) : [];
-  }
+  await until(() => uploads.inflight && parts().length);
+  const partial = parts();
   assert.equal(partial.length, 1);
+  await until(() => fs.readdirSync(path.join(own, partial[0])).length);
   assert.equal(fs.readdirSync(path.join(own, partial[0])).length, 1);
   assert.equal(uploads.inflight, 11);
   // A call queued behind it (with its own, later time limit) waits for its turn.
-  await sleep(100);
+  t.mock.timers.tick(100);
   const queued = stage();
+  t.mock.timers.tick(200);
   await assert.rejects(stalled, { key: "browserUploadSlow" });
   const next = await queued;
   assert.equal(fs.readFileSync(next.path, "utf8"), "video-bytes");
@@ -301,18 +309,23 @@ test("one agent's stalled copy holds only its own bytes, never other agents", as
   const { project, uploads } = fixture(t, {
     limits: { ...uploadLimits, copyMs: 300, totalBytes: 30 },
   });
+  copyClock(t);
   stallFirst(uploads);
   const stage = (id) => uploads.stage(id, source(project, "episodes/episode 1.mp4"));
+  let stalledDone = false;
   const stalled = stage("agent-1");
-  stalled.catch(() => {});
-  while (!uploads.inflight) await sleep(5);
-  // Another agent copies at once, its bytes counted with the stalled ones (11 + 11).
-  const started = Date.now();
+  stalled.catch(() => {}).finally(() => (stalledDone = true));
+  await until(() => uploads.inflight);
+  // Another agent copies at once, its bytes counted with the stalled ones (11 + 11):
+  // the stalled copy cannot end before its time limit is ticked, so a finished copy
+  // was never queued behind it.
   const other = await stage("agent-2");
-  assert.ok(Date.now() - started < 200, "not queued behind the stalled copy");
+  assert.equal(stalledDone, false, "not queued behind the stalled copy");
   assert.equal(fs.readFileSync(other.path, "utf8"), "video-bytes");
   // 11 held + 11 in flight + 11 would pass the total of 30.
   await assert.rejects(stage("agent-3"), { key: "browserUploadSpace" });
+  assert.equal(uploads.inflight, 11);
+  t.mock.timers.tick(300);
   await assert.rejects(stalled, { key: "browserUploadSlow" });
   assert.equal(uploads.inflight, 0);
   assert.equal(fs.readFileSync((await stage("agent-3")).path, "utf8"), "video-bytes");
