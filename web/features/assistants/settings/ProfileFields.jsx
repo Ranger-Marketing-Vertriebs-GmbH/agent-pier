@@ -7,6 +7,7 @@ import { assistantCopy as copy } from "../../../lib/i18n/messages/assistants.js"
 import AssistantModelFields from "../AssistantModelFields.jsx";
 import { connectionLabel } from "../connection-label.js";
 import AgentCapability from "./AgentCapability.jsx";
+import { modelsFor } from "../runtime-capabilities.js";
 
 /**
  * Whether the profile fields may be sent: the mounted form reports its own errors;
@@ -87,7 +88,7 @@ export default function ProfileFields({
             <div className="agent-field">
               <AssistantModelFields
                 key={modelKey}
-                models={models}
+                models={modelsFor(models, assistant?.runtimeInfo?.id)}
                 connectionId={connectionId}
                 modelId={modelId}
                 setConnection={(value) => draft.set("connectionId", value)}

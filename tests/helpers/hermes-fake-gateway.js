@@ -279,6 +279,12 @@ export function fakeHermesGateway(
       const row = stored(id, sid);
       if (row) ok(id, { last_prompt_tokens: 0, context_length: 0, ...row.stats });
     },
+    // gateway/session_config.py model_options: the home's model inventory.
+    "model.options": (id, params) =>
+      ok(id, {
+        providers: [{ slug: "custom", models: ["fake-1"] }],
+        refreshed: params.refresh === true,
+      }),
     "llm.oneshot": (id, { input }) =>
       ok(id, {
         text: `"About ${String(input).match(/<message>\n?(.*)/)?.[1] || "this"}"\n`,

@@ -215,8 +215,12 @@ What works on Hermes today:
   offer **Allow once**, **Always allow** (AgentPier remembers the exact command) and
   **Deny**. On OpenClaw, **With approval** already asks before every command, so it
   keeps its three levels.
-- The model connection (an OpenAI-compatible endpoint or OpenRouter) and the
-  instructions.
+- The model connection and the instructions. Every OpenAI-compatible endpoint
+  (OpenAI, Azure OpenAI, Anthropic and other vendors' compatible APIs, Ollama,
+  llama.cpp, LM Studio) and OpenRouter work; changing the model in **Profile**
+  restarts the agent's Hermes process with it. ChatGPT accounts are listed with
+  **ChatGPT accounts work with OpenClaw agents only**: their sign-in belongs to
+  OpenClaw, and AgentPier never shares its refresh token with Hermes.
 - Memory: **Remember information** gives the agent Hermes's own memory, a
   `MEMORY.md` of its notes and a `USER.md` about you, which the agent keeps with
   Hermes's memory tool. You read and edit both on the agent's memory page; Hermes
@@ -239,8 +243,7 @@ What works on Hermes today:
 - Long chats: the hint to summarise a long chat appears as on OpenClaw.
 
 What comes later, shown disabled with **Not available for Hermes agents yet.** in
-the agent's settings: the agent's own reminder and routine tool, the browser, ChatGPT
-sign-in, Telegram and other channels, teams and advanced runtime settings. Updates of
+the agent's settings: the agent's own reminder and routine tool, the browser, Telegram and other channels, teams and advanced runtime settings. Updates of
 Hermes itself appear in the **Hermes Agent** group (**Update**); the Hermes agents
 restart, and a failed start restores the previous installation. Work of Hermes agents
 still running blocks it and is listed there, with **Pause agents and update** as for

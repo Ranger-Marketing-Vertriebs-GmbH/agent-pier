@@ -114,10 +114,15 @@ export function duplicateFields(agent, policy, team, copyName) {
 /**
  * The draft fields for runtime `runtime` ("" lets the server choose OpenClaw). Only
  * Hermes asks before every command: elsewhere "Every command" becomes "With approval".
+ * A Hermes agent cannot use a ChatGPT account (runtime-capabilities.js modelsFor),
+ * so a chosen one is cleared.
  */
 export const withRuntime = (d, runtime) => ({
   runtime,
   ...(runtime !== "hermes" && d.shell === "every" ? { shell: "approval" } : {}),
+  ...(runtime === "hermes" && d.connectionId?.startsWith("openclaw:")
+    ? { connectionId: "", modelId: "" }
+    : {}),
 });
 
 /** Whether the draft holds any access grant (step 4). */

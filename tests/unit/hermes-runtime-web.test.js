@@ -12,7 +12,10 @@ import {
   shellChoice,
   shellFields,
 } from "../../web/features/assistants/shell-level.js";
-import { runtimeIdName } from "../../web/features/assistants/runtime-capabilities.js";
+import {
+  modelsFor,
+  runtimeIdName,
+} from "../../web/features/assistants/runtime-capabilities.js";
 import {
   capabilityPatch,
   capabilityServer,
@@ -172,4 +175,24 @@ test("the wizard keeps a runtime per draft and sends Hermes' shell choice", () =
   assert.equal(runtimeIdName(""), "OpenClaw");
   assert.equal(runtimeIdName("openclaw"), "OpenClaw");
   assert.equal(runtimeIdName("other"), "other");
+});
+
+test("a Hermes agent lists ChatGPT accounts unavailable and drops a chosen one", () => {
+  const models = [
+    { id: "openclaw:a", providerId: "openai-chatgpt", available: true },
+    { id: "c", providerId: "endpoint", available: true },
+  ];
+  assert.equal(modelsFor(models, "openclaw"), models);
+  assert.equal(modelsFor(models, undefined), models);
+  assert.deepEqual(modelsFor(models, "hermes"), [
+    { ...models[0], available: false, reason: "runtimeAccount" },
+    models[1],
+  ]);
+  const draft = { ...emptyDraft(), connectionId: "openclaw:a", modelId: "gpt-5" };
+  assert.deepEqual(withRuntime(draft, "hermes"), {
+    runtime: "hermes",
+    connectionId: "",
+    modelId: "",
+  });
+  assert.deepEqual(withRuntime(draft, ""), { runtime: "" });
 });

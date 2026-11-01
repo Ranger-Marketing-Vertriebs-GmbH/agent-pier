@@ -131,6 +131,7 @@ export const assistantWorkflowCopy = {
     unsupportedProtocol: "Endpunkt-Protokoll nicht unterstützt",
     credentialsRequired: "Zugangsdaten erforderlich",
     modelConfiguration: "Modell mit mindestens 4.000 Kontext-Token konfigurieren",
+    runtimeAccount: "Ein ChatGPT-Konto funktioniert nur mit OpenClaw-Agenten",
     unsupportedAuthentication:
       "Dieser Authentifizierungsheader wird von der Agent-Laufzeit nicht unterstützt",
   },

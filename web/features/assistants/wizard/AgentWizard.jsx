@@ -20,6 +20,7 @@ import { hubLists } from "../hub/agent-rows.js";
 import ConfirmationSheet from "../settings/ConfirmationSheet.jsx";
 import TemplatePicker from "../settings/TemplatePicker.jsx";
 import { hermesReady } from "../hermes-runtime.js";
+import { modelsFor } from "../runtime-capabilities.js";
 import useAssistants from "../useAssistants.js";
 import useHermesRuntime from "../useHermesRuntime.js";
 import CreationResult from "./CreationResult.jsx";
@@ -237,7 +238,7 @@ export default function AgentWizard({ route, navigate }) {
       error={startError || usersError}
     />
   ) : step === "identity" ? (
-    <StepIdentity d={d} set={set} models={models} />
+    <StepIdentity d={d} set={set} models={modelsFor(models, d.runtime)} />
   ) : step === "capabilities" ? (
     <StepCapabilities
       d={d}

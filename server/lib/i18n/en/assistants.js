@@ -486,6 +486,8 @@ export const assistants = {
     "Hermes Agent is not ready. Switch Hermes on under Agents › Runtime and wait until it is installed.",
   memoryTooLarge: (name, limit) =>
     `${name} is too long: Hermes allows at most ${limit} characters. Shorten or remove entries.`,
+  modelAccountRuntime:
+    "ChatGPT accounts work with OpenClaw agents only. Choose another model connection for a Hermes agent.",
   shellEveryCommandUnsupported:
     "“Every command” exists only for Hermes agents; on OpenClaw “With approval” already asks before every command.",
   notFound: "Agent or conversation not found.",

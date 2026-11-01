@@ -41,10 +41,17 @@ function answer(body) {
 }
 
 /**
- * Starts the model; resolves `{ baseUrl, requests, close() }`. Each answer reports
- * `promptTokens` prompt tokens (default 10).
+ * Starts the model; resolves `{ baseUrl, requests, close() }`. Each request records
+ * its `url`, `body` and `headers`; each answer reports `promptTokens` prompt tokens
+ * (default 10). `rejectStreamOptions` refuses a streamed request that asks for usage
+ * (`stream_options`) with a 400 naming the field, as strict endpoints do (an endpoint
+ * whose Chat Completions options turn streamUsage off).
  */
-export async function startFakeModel({ slowMs = 500, promptTokens = 10 } = {}) {
+export async function startFakeModel({
+  slowMs = 500,
+  promptTokens = 10,
+  rejectStreamOptions = false,
+} = {}) {
   const requests = [];
   const server = http.createServer((req, res) => {
     let raw = "";
@@ -62,7 +69,15 @@ export async function startFakeModel({ slowMs = 500, promptTokens = 10 } = {}) {
       } catch {
         /* An unreadable request is answered like an empty one. */
       }
-      requests.push({ url: req.url, body });
+      requests.push({ url: req.url, body, headers: { ...req.headers } });
+      if (rejectStreamOptions && body.stream && body.stream_options) {
+        res.writeHead(400, { "content-type": "application/json" });
+        return res.end(
+          JSON.stringify({
+            error: { message: "Unrecognized request argument: stream_options" },
+          }),
+        );
+      }
       const { reply, tool, slow } = answer(body);
       const model = body.model || "fake-1";
       const usage = {
