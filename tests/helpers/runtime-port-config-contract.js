@@ -56,20 +56,21 @@ const expectedOf = (desired) => ({
 });
 
 /**
- * The config sub-port's desired-state contract (ADR 0006, decision 3), for the
- * runtime port contract (runtime-port-contract.js): the compiler compiles AgentPier's
- * desired state (agent-desired-state.js) the same way every time without changing
- * it, an agent's desired state applied live reads back as applied until it changes,
- * and advanced settings exist exactly when the runtime offers the capability.
+ * The configuration compiler's contract (ADR 0006, decision 3), for every runtime's
+ * compiler with or without a host: it compiles AgentPier's desired state
+ * (agent-desired-state.js) the same way every time without changing it, and its
+ * advanced settings exist exactly when the runtime offers the capability. `make()`
+ * resolves `{ compiler, capabilities }` (the capabilities() map, or the part the
+ * config sub-port decides).
  */
-export function configContract(name, make) {
+export function compilerContract(name, make) {
   test(`${name}: the compiler compiles a desired state alike every time, leaving it as it was`, async () => {
-    const { config } = await make({});
+    const { compiler } = await make();
     const desired = desiredState({ ...plugin, profiles: [agent()] });
     const before = JSON.stringify(desired);
-    const first = config.compiler.compile({ desired, ...startFacts });
+    const first = compiler.compile({ desired, ...startFacts });
     assert.equal(typeof first, "object");
-    assert.deepEqual(config.compiler.compile({ desired, ...startFacts }), first);
+    assert.deepEqual(compiler.compile({ desired, ...startFacts }), first);
     assert.equal(JSON.stringify(desired), before);
     assert.ok(Object.isFrozen(desired) && Object.isFrozen(desired.agents[0]));
     // Another desired state compiles to another configuration.
@@ -77,10 +78,34 @@ export function configContract(name, make) {
       ...plugin,
       profiles: [agent({ capabilities: { memory: true } })],
     });
-    assert.notDeepEqual(
-      config.compiler.compile({ desired: memory, ...startFacts }),
-      first,
-    );
+    assert.notDeepEqual(compiler.compile({ desired: memory, ...startFacts }), first);
+  });
+
+  test(`${name}: advanced settings exist exactly when the runtime offers them`, async () => {
+    const { compiler, capabilities } = await make();
+    const { advancedSettings } = compiler;
+    if (!capabilities.advancedSettings.available) {
+      assert.equal(advancedSettings, undefined);
+      return;
+    }
+    assert.ok(advancedSettings.list.length > 0);
+    const [first] = advancedSettings.list;
+    assert.equal(advancedSettings.byPath(first.path), first);
+    assert.equal(advancedSettings.byId(first.id), first);
+    assert.throws(() => advancedSettings.validate("gateway.auth.token", "x"));
+  });
+}
+
+/**
+ * The config sub-port's desired-state contract (ADR 0006, decision 3), for the
+ * runtime port contract (runtime-port-contract.js): the compiler's contract
+ * (compilerContract), and an agent's desired state applied live reads back as
+ * applied until it changes.
+ */
+export function configContract(name, make) {
+  compilerContract(name, async () => {
+    const runtime = await make({});
+    return { compiler: runtime.config.compiler, capabilities: runtime.capabilities() };
   });
 
   test(`${name}: an agent's desired state applies live and reads back until it changes`, async () => {
@@ -104,20 +129,6 @@ export function configContract(name, make) {
     await config.apply({ desired: memory, state: () => ready });
     assert.equal(await applied(memory), true);
     assert.equal(await applied(plain), false);
-  });
-
-  test(`${name}: advanced settings exist exactly when the runtime offers them`, async () => {
-    const runtime = await make({});
-    const { advancedSettings } = runtime.config.compiler;
-    if (!runtime.capabilities().advancedSettings.available) {
-      assert.equal(advancedSettings, undefined);
-      return;
-    }
-    assert.ok(advancedSettings.list.length > 0);
-    const [first] = advancedSettings.list;
-    assert.equal(advancedSettings.byPath(first.path), first);
-    assert.equal(advancedSettings.byId(first.id), first);
-    assert.throws(() => advancedSettings.validate("gateway.auth.token", "x"));
   });
 }
 

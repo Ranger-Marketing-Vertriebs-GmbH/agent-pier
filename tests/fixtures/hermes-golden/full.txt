@@ -1,0 +1,48 @@
+==> .env <==
+OPENROUTER_API_KEY='sk-or-golden'
+==> SOUL.md <==
+# Agent a1
+
+You help the owner with their work.
+==> config.yaml <==
+model:
+  provider: openrouter
+  default: anthropic/claude-x
+  api_mode: chat_completions
+agent:
+  disabled_toolsets:
+    - browser
+    - computer_use
+    - cronjob
+    - web
+terminal:
+  backend: local
+  cwd: /golden/assistants/workspaces/ap-a1
+approvals:
+  mode: "off"
+memory:
+  memory_enabled: true
+  user_profile_enabled: true
+plugins:
+  enabled: []
+  auto_update_check_hours: 0
+delegation:
+  subagent_auto_approve: false
+web:
+  keyless_fallback: false
+auth:
+  adopt_external_logins: false
+onboarding:
+  profile_build: "off"
+updates:
+  check: false
+security:
+  allow_lazy_installs: false
+telemetry:
+  shared_metrics:
+    enabled: false
+    send: false
+==> (remove) <==
+plugins/agentpier-guard
+==> (unsupported) <==
+teams

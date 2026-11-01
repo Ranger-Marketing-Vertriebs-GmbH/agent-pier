@@ -1,0 +1,57 @@
+==> .env <==
+AUXILIARY_AGENTPIER_API_KEY='sk-golden-endpoint'
+==> SOUL.md <==
+# Agent a1
+
+You help the owner with their work.
+==> config.yaml <==
+model:
+  provider: custom
+  default: golden-1
+  base_url: https://golden.openai.azure.test/openai/v1
+  api_mode: chat_completions
+  key_env: AUXILIARY_AGENTPIER_API_KEY
+  extra_headers:
+    Authorization: ""
+    api-key: ${AUXILIARY_AGENTPIER_API_KEY}
+  context_length: 128000
+agent:
+  disabled_toolsets:
+    - browser
+    - code_execution
+    - computer_use
+    - cronjob
+    - image_gen
+    - terminal
+    - vision
+    - web
+terminal:
+  backend: local
+approvals:
+  mode: manual
+memory:
+  memory_enabled: true
+  user_profile_enabled: true
+plugins:
+  enabled: []
+  auto_update_check_hours: 0
+delegation:
+  subagent_auto_approve: false
+web:
+  keyless_fallback: false
+auth:
+  adopt_external_logins: false
+onboarding:
+  profile_build: "off"
+updates:
+  check: false
+security:
+  allow_lazy_installs: false
+telemetry:
+  shared_metrics:
+    enabled: false
+    send: false
+==> (remove) <==
+plugins/agentpier-guard
+==> (unsupported) <==
+teams

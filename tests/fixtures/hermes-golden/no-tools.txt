@@ -1,0 +1,43 @@
+==> config.yaml <==
+agent:
+  disabled_toolsets:
+    - browser
+    - code_execution
+    - computer_use
+    - cronjob
+    - file
+    - image_gen
+    - memory
+    - terminal
+    - vision
+    - web
+terminal:
+  backend: local
+approvals:
+  mode: manual
+memory:
+  memory_enabled: false
+  user_profile_enabled: false
+plugins:
+  enabled: []
+  auto_update_check_hours: 0
+delegation:
+  subagent_auto_approve: false
+web:
+  keyless_fallback: false
+auth:
+  adopt_external_logins: false
+onboarding:
+  profile_build: "off"
+updates:
+  check: false
+security:
+  allow_lazy_installs: false
+telemetry:
+  shared_metrics:
+    enabled: false
+    send: false
+==> (remove) <==
+plugins/agentpier-guard
+==> (unsupported) <==
+teams
