@@ -542,8 +542,10 @@ their Hermes session, unknown outcomes reviewed, routine runs waited for).
 release tag of `NousResearch/hermes-agent` and the commit it names (release `v0.22.5`,
 commit `bf0203a7`, since 2026-11-01), the SHA-256 of its source archive and of the
 `pyproject.toml` and `uv.lock` inside it, the extras (`messaging`, for the messaging
-gateway, and `mcp`, for the agents' MCP servers), the CPython version and a uv version with the SHA-256 of its release archive
-per platform (macOS and Linux, x64 and arm64). The archive is the commit's, so a moved
+gateway, and `mcp`, for the agents' MCP servers), the CPython version, a uv version
+with the SHA-256 of its release archive per platform (macOS and Linux, x64 and arm64),
+and the agent-browser release Hermes's package lock pins (`agentBrowser`). The archive
+is the commit's, so a moved
 tag cannot change what is installed. Hermes carries no version of its own in the archive
 (`pyproject.toml` says `0.0.0`); the version AgentPier shows is the tag without its `v`
 (`0.22.5`), or the first 12 characters of the commit for a pin of a bare commit, and
@@ -561,11 +563,16 @@ AgentPier's folder; the only inherited variables are the proxy settings. No Pyth
 the host, no `~/.hermes`, `~/.local/bin` or global uv configuration is used. An identity
 check runs the installed Python once (release date, CPython version and whether the
 gateway discovery, gateway client and `websockets` modules the RPC bridge needs and the
-MCP SDK import)
-and `hermes --version`, with a scratch `HERMES_HOME`. A `receipt.json` written last
-marks the installation complete; a folder without one is a crashed attempt and is
-replaced. The uv cache is removed afterwards. The installation needs about 540 MB
-(source 290 MB, environment 145 MB, CPython 75 MB, uv 27 MB on macOS arm64).
+MCP SDK import) and `hermes --version`, with a scratch `HERMES_HOME`. Then the
+agent-browser binary Hermes's browser tools run goes to `tools/agent-browser`, on the
+Hermes processes' PATH: the release Hermes's own package lock (`pm/lock.json`) pins,
+recorded in the manifest as `agentBrowser` (version, npm archive, SHA-256), checked and
+unpacked for the platform. A `receipt.json` written last marks the installation
+complete; a folder without one is a crashed attempt and is replaced. The uv cache is
+removed afterwards. The installation needs about 550 MB (source 290 MB, environment
+145 MB, CPython 75 MB, uv 27 MB, agent-browser 10 MB on macOS arm64). An installation
+from before the browser gets its agent-browser in place at the next server start
+(`hermesStagingDue`).
 
 **Updates.** At server start, and so after an AgentPier update, an enabled Hermes is
 installed when nothing is selected yet, or the newly pinned commit is staged beside
@@ -598,7 +605,8 @@ is connected; a stop or crash closes it, so a restart is a new connection and vi
 bound to the old one refuse. Both processes get an environment built from nothing:
 `HOME`, `HERMES_HOME`, `TMPDIR` and the XDG folders inside
 `<data>/assistants/hermes/{home,state,tmp}/<agent>/`, `PATH` with Hermes's environment,
-the folders AgentPier provides and the system folders, UTF-8, proxy settings and the
+the installation's `tools/` (agent-browser), the folders AgentPier provides and the
+system folders, UTF-8, proxy settings and the
 time zone; no AgentPier token or owner credential. Each runs in its own process group;
 stopping ends both groups (TERM, then KILL after 10 seconds), then any gateway that owns
 the home without being the set's, and the control socket folder Hermes leaves in the
@@ -616,8 +624,9 @@ node scripts/refresh-hermes-runtime-lock.mjs --tag <vX.Y.Z> [--uv <version>] [--
 `--tag` resolves the commit the release tag names with `git ls-remote` (an annotated
 tag's peeled commit); `--commit <40-character sha>` pins a bare commit instead, and both
 together must agree. The script downloads the archive and each uv release archive,
-checks every uv archive against the `.sha256` file uv publishes beside it, refuses a
-commit whose `requires-python` excludes Python 3.14, and rewrites `hermes-manifest.json`
+checks every uv archive against the `.sha256` file uv publishes beside it, reads the
+agent-browser pin from the archive's `pm/lock.json` and checks that archive against
+it, refuses a commit whose `requires-python` excludes Python 3.14, and rewrites `hermes-manifest.json`
 with the recorded hashes. Run without arguments, it reproduces the shipped manifest byte
 for byte. Review the diff, then run the Hermes contracts.
 

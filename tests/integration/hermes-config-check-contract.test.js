@@ -56,6 +56,7 @@ out = {
   "directive": list(get_pre_tool_call_directive("terminal", {"command": "ls -la /tmp"})),
   "adopt": config["auth"]["adopt_external_logins"],
   "keyless": config["web"]["keyless_fallback"],
+  "teamTools": sorted(n for n in __import__("tools.registry", fromlist=["registry"]).registry.get_all_tool_names() if n.startswith("agentpier_team_")),
 }
 if config.get("model"):
   route = resolve_runtime_provider()
@@ -117,11 +118,17 @@ for (const name of Object.keys(hermesGoldenScenarios))
     assert.equal(seen.toolsets.includes("terminal"), level !== "off");
     assert.equal(seen.toolsets.includes("delegation"), true);
     assert.equal(seen.toolsets.includes("browser"), false);
+    // The team plugin (team-plugin.js) loads with the team bridge and registers the
+    // agent's team tools, offered beside Hermes's own toolsets.
+    const team = !!scenario.connection;
     const voice = !!scenario.channelBot?.speech;
     assert.deepEqual(seen.guard, [
       ...(level === "every-command" ? ["agentpier-guard"] : []),
+      ...(team ? ["agentpier-team"] : []),
       ...(voice ? ["agentpier-deepgram"] : []),
     ]);
+    assert.equal(seen.teamTools.length > 0, team);
+    assert.equal(seen.toolsets.includes("agentpier"), team);
     // The Deepgram plugin registers its provider and finds its key.
     assert.deepEqual(seen.stt, voice ? ["agentpier-deepgram", true] : undefined);
     assert.deepEqual(

@@ -131,7 +131,10 @@ Copyright (c) Astral Software Inc.) and the CPython build uv installs (Python
 Software Foundation License, with the licenses of its bundled libraries) into the
 data directory. Hermes's Python dependencies keep their own licenses inside that
 installation; their exact versions are those of the `uv.lock` in the pinned Hermes
-release (`server/features/assistants/runtimes/hermes/hermes-manifest.json`).
+release (`server/features/assistants/runtimes/hermes/hermes-manifest.json`). With it
+comes the agent-browser binary Hermes's browser tools run (Apache-2.0,
+`vercel-labs/agent-browser`), the release Hermes's own package lock pins, from its npm
+archive.
 
 ## Unicode upload-name data
 

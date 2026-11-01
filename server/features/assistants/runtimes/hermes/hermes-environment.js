@@ -1,4 +1,5 @@
 import path from "node:path";
+import { hermesExecutables } from "./hermes-paths.js";
 import { proxyEnvironment } from "../../../../lib/proxy-environment.js";
 
 // Hermes treats these as launch policy or supervisor claims (its
@@ -10,7 +11,8 @@ const refused =
 /**
  * The environment of one Hermes agent's processes, built from nothing: its own HOME,
  * HERMES_HOME, TMPDIR and XDG folders inside AgentPier's Hermes folder, a minimal
- * PATH (Hermes's environment, the folders AgentPier provides, the system's), UTF-8,
+ * PATH (Hermes's environment, the installation's tools/ with agent-browser, the
+ * folders AgentPier provides, the system's), UTF-8,
  * and the host's proxy settings and time zone. Nothing else of AgentPier's own
  * environment reaches them (no AgentPier token, no owner credential); `extra` adds
  * variables a later configuration step supplies (model keys come through Hermes's
@@ -32,6 +34,7 @@ export function hermesEnvironment({
       });
   const folders = [
     path.dirname(runtime.pythonPath),
+    ...(runtime.directory ? [hermesExecutables(runtime.directory).tools] : []),
     ...pathPrepend.filter(
       (folder) => typeof folder === "string" && path.isAbsolute(folder),
     ),

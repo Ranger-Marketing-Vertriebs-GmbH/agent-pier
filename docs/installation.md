@@ -436,8 +436,9 @@ agents can then choose it as their runtime
 ([Choose the runtime](agents.md#choose-the-runtime)). AgentPier
 installs a pinned Hermes release (`v0.22.5`, by its commit) into
 `<data dir>/assistants/hermes/runtimes/`, about 540 MB: the checksum-verified source
-archive, a pinned `uv` and the Python 3.14 that uv installs there, and the locked
-Python environment. No system Python, Homebrew Python or global `uv` is needed or
+archive, a pinned `uv` and the Python 3.14 that uv installs there, the locked
+Python environment, and the agent-browser binary (about 10 MB) Hermes's browser tools
+drive the agents' Chromium with. No system Python, Homebrew Python or global `uv` is needed or
 used, and nothing is written to `~/.hermes` or `~/.local/bin`. Proxy settings apply as
 for the other downloads. A rerun of the installer with Hermes enabled, and every
 AgentPier start after an update that pins another release, stages the new runtime in

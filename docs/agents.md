@@ -258,14 +258,17 @@ What works on Hermes today:
   member; its members are Hermes agents too, each with its own chat (a member always
   runs on its lead's runtime). A member's task the owner did not ask for runs
   read-only, as on OpenClaw. Hermes's own invisible subagents stay on beside them.
+- The browser: AgentPier starts the agent's own Chromium for Hermes's browser tools,
+  with the same profile reset, **Visible browser**, live view and takeover as on
+  OpenClaw; private addresses follow **Allow private networks for all agent
+  browsers**.
 
 What comes later, shown disabled with **Not available for Hermes agents yet.** in
-the agent's settings: the agent's own reminder and routine tool, the browser and advanced runtime
-settings. Updates of Hermes itself appear in the **Hermes Agent**
-group (**Update**); the Hermes agents restart, and a failed start restores the
-previous installation. Work of Hermes agents still running blocks it and is listed
-there, with **Pause agents and update** as for OpenClaw. What AgentPier writes into a
-Hermes home is described in
+the agent's settings: the agent's own reminder and routine tool and advanced runtime
+settings. Updates of Hermes itself appear in the **Hermes Agent** group (**Update**);
+the Hermes agents restart, and a failed start restores the previous installation. Work
+of Hermes agents still running blocks it and is listed there, with **Pause agents and
+update** as for OpenClaw. What AgentPier writes into a Hermes home is described in
 [Hermes runtime](hermes-runtime.md).
 
 <a id="archive-and-delete"></a>

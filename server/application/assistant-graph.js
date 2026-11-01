@@ -471,7 +471,7 @@ export function connectAssistantServices(graph) {
   // Resolved at most once per process for applies before the first ready start.
   let fallbackOwner;
   wire(configuration, "configuration", {
-    ...hermesApplyWiring({ bridge }),
+    ...hermesApplyWiring({ bridge, webTools: webToolsChanges }),
     teamReady: () => bridge.status().ready,
     writeGuard: () => bridge.guardLive(),
     ...writeGuardWiring({

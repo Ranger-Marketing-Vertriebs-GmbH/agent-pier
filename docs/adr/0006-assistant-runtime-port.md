@@ -180,6 +180,9 @@ state: the compiler preserves them and never produces duplicate keys.
   ([teams on Hermes](../hermes-runtime.md#teams)).
 - **Browser:** AgentPier starts each Hermes agent's Chromium and passes
   `browser.cdp_url`, so live view and takeover use AgentPier's own CDP screencast.
+  Verified against v0.22.5: a CDP URL never launches Hermes's own browser; its browser
+  tools need the agent-browser binary, which the Hermes installation provisions
+  ([browser on Hermes](../hermes-runtime.md#browser)).
 - **Models:** AgentPier injects connection keys through Hermes's secret source; Hermes
   never adopts logins it finds on the host.
 - **Toolchain:** Python 3.14 and `uv` are provisioned by the installation scripts and the
@@ -241,5 +244,6 @@ Each step ships with its contract tests against a pinned runtime, as OpenClaw do
 - ~~Which Hermes command starts a detached gateway, and the setting that prevents
   it.~~ Answered in decision 4 (host as built): clients without an owner; no setting,
   the supervised owner prevents it.
-- Linux behaviour, real Telegram, Codex subscription login and browser CDP handoff.
+- Linux behaviour, real Telegram and Codex subscription login. (The browser CDP
+  handoff is answered in decision 4: Hermes attaches to AgentPier's Chromium.)
 - Moving an agent between runtimes, including history and memory.
