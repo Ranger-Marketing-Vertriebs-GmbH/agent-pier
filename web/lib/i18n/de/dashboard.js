@@ -151,6 +151,7 @@ export const startPageCopy = {
   pipelines: "Pipelines",
   allRuns: "Alle Läufe",
   noRuns: "Kein Lauf ist aktiv oder wartet.",
+  runsUnavailable: "Die Läufe konnten nicht geladen werden.",
   runStage: (stage, total) => `Stufe ${stage} von ${total}`,
   runsSummary: {
     running: (count) => `${count} ${count === 1 ? "läuft" : "laufen"}`,

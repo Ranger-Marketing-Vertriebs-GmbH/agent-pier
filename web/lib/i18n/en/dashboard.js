@@ -142,6 +142,7 @@ export const startPageCopy = {
   pipelines: "Pipelines",
   allRuns: "All runs",
   noRuns: "No run is active or waiting.",
+  runsUnavailable: "Runs could not be loaded.",
   runStage: (stage, total) => `Stage ${stage} of ${total}`,
   runsSummary: {
     running: (count) => `${count} running`,

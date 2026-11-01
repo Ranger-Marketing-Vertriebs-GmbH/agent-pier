@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   MENU_HINT_RUN_TOPICS,
   menuHintSources,
+  startRunSources,
 } from "../../web/app/menu-hint-sources.js";
 
 const loaded = (data) => ({ data, loading: false });
@@ -91,4 +92,42 @@ test("a failed source is null, never a zero", () => {
   });
   assert.equal(odd.running, null);
   assert.equal(odd.decisions, null);
+});
+
+// AGENTPIER-339: the start page's pipelines card stayed a skeleton while another
+// source (the connection problems) had not answered.
+test("the start page's run sources wait for nothing but their own topics", () => {
+  const parts = {
+    counts: loaded({ counts: { running: 0, "awaiting-human": 0, failed: 0 }, total: 0 }),
+    decisions: loaded(page()),
+    failed: loaded(page()),
+    running: loaded(page()),
+    problems: loading,
+    summary: loading,
+    updates: loading,
+  };
+  assert.equal(menuHintSources(parts), null);
+  assert.deepEqual(startRunSources(parts), {
+    lists: { decisions: [], failed: [], running: [] },
+    counts: { decisions: 0, failed: 0, running: 0 },
+  });
+});
+
+test("a run source is undefined while it loads and null once it failed", () => {
+  const failed = { data: null, loading: false, error: "down" };
+  assert.deepEqual(
+    startRunSources({
+      counts: loading,
+      decisions: loading,
+      failed: failed,
+      running: loaded({ runs: "nope" }),
+    }),
+    {
+      lists: { decisions: undefined, failed: null, running: null },
+      counts: undefined,
+    },
+  );
+  assert.equal(startRunSources({ counts: failed }).counts, null);
+  // A topic not followed (null) counts as loading: the start page follows them all.
+  assert.equal(startRunSources({ counts: null }).lists.running, undefined);
 });

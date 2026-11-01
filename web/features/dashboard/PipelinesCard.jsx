@@ -12,7 +12,7 @@ import {
   runUpdatedAt,
 } from "../pipelines/run-presentation.js";
 import { runTitle } from "../pipelines/run-title.js";
-import { runSegments, startRuns } from "./start-agents.js";
+import { runSegments, runsUnavailable, startRuns } from "./start-agents.js";
 import { spanText } from "./SessionsCard.jsx";
 
 const allRuns = { view: "pipelines" };
@@ -82,10 +82,11 @@ function SkeletonRuns({ count }) {
 
 /**
  * Up to three runs (running, awaiting a decision, failed) with their stages as a
- * segmented bar, and All runs. `runs` are the first pages the menu hint sources read;
- * null while unknown, when `shape` skeleton runs (the remembered number) hold their
- * place. Phones show a summary tile that links to Pipelines; `loading` while its
- * counts are unknown.
+ * segmented bar, and All runs. `runs` are the first pages of the three listings
+ * (startRunSources); until they are known `shape` skeleton runs (the remembered
+ * number) hold their place, and when every listing failed the card says so. Phones
+ * show a summary tile that links to Pipelines; `loading` while its counts are
+ * unknown, `unavailable` when they failed.
  */
 export default function PipelinesCard({
   runs,
@@ -94,8 +95,10 @@ export default function PipelinesCard({
   phone,
   shape = 1,
   loading = false,
+  unavailable = false,
 }) {
-  const picked = startRuns(runs);
+  const failed = !phone && runsUnavailable(runs);
+  const picked = failed ? [] : startRuns(runs);
   if (phone)
     return (
       <Link route={allRuns} navigate={navigate} className="start-card start-tile">
@@ -107,6 +110,8 @@ export default function PipelinesCard({
             <Skeleton width="90%" />
             <Skeleton width="50%" />
           </small>
+        ) : unavailable ? (
+          <small>{copy.runsUnavailable}</small>
         ) : (
           <small>
             {[
@@ -152,6 +157,8 @@ export default function PipelinesCard({
             </p>
           )}
         </>
+      ) : failed ? (
+        <p className="start-empty">{copy.runsUnavailable}</p>
       ) : picked.length === 0 ? (
         <p className="start-empty">{copy.noRuns}</p>
       ) : (

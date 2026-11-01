@@ -21,6 +21,31 @@ const countOf = (counts, status) => {
 };
 const runsOf = (listing) => (Array.isArray(listing?.runs) ? listing.runs : null);
 
+// A part's value while it loads (undefined), once it failed (null) or answered.
+const partOf = (part, value) =>
+  !part || part.loading ? undefined : part.data == null ? null : value(part.data);
+
+/**
+ * What the start page's pipelines card and phone tile show, from the same `parts` as
+ * menuHintSources, but each from its own sources only, so another source that is
+ * slow or never answers keeps no skeleton in place (AGENTPIER-339): `lists`, page 1
+ * of each status, and `counts` of running, decisions and failed. A value is undefined
+ * while its topic loads, null when it failed, never a zero.
+ */
+export function startRunSources(parts) {
+  const lists = {};
+  for (const key of Object.keys(MENU_HINT_RUN_TOPICS))
+    lists[key] = partOf(parts[key], runsOf);
+  return {
+    lists,
+    counts: partOf(parts.counts, (counts) => ({
+      decisions: countOf(counts, STATUS_OF.decisions),
+      failed: countOf(counts, STATUS_OF.failed),
+      running: countOf(counts, STATUS_OF.running),
+    })),
+  };
+}
+
 /**
  * The sources from the useLiveTopic results `parts` ({counts, decisions, failed,
  * running, problems, summary, updates}; a part that is not followed is null). Null
@@ -34,7 +59,7 @@ export function menuHintSources(parts) {
     decisions: countOf(counts, STATUS_OF.decisions),
     failed: countOf(counts, STATUS_OF.failed),
     running: countOf(counts, STATUS_OF.running),
-    // The first page of each listing, for the start page's pipelines card.
+    // The first page of each listing.
     runs: {
       decisions: runsOf(data("decisions")),
       failed: runsOf(data("failed")),

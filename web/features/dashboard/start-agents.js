@@ -81,15 +81,27 @@ export function recentFailures(list, now = Date.now()) {
   });
 }
 
+const listsOf = (runs) => [runs?.running, runs?.decisions, runs?.failed];
+
+/**
+ * Whether the pipelines card cannot show runs: every listing of `runs` failed (null),
+ * none still loads (undefined).
+ */
+export function runsUnavailable(runs) {
+  return listsOf(runs).every((list) => list === null);
+}
+
 /**
  * Up to `limit` runs for the pipelines card: running ones, then those awaiting a
  * decision, then those that failed in the last 24 hours, each newest first. `runs` are
- * the first pages of the three listings (null: not known); the result is null while
- * none is known.
+ * the first pages of the three listings (startRunSources: undefined while loading,
+ * null when failed); the result is null until each has answered, and while every one
+ * failed (runsUnavailable). An empty answer is an empty list, so the card says that
+ * no run is active.
  */
 export function startRuns(runs, limit = 3, now = Date.now()) {
-  if (!runs || [runs.running, runs.decisions, runs.failed].every((list) => !list))
-    return null;
+  const lists = listsOf(runs);
+  if (lists.includes(undefined) || !lists.some(Array.isArray)) return null;
   const all = [
     ...(runs.running || []),
     ...(runs.decisions || []),

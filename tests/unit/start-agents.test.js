@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   recentFailures,
   runSegments,
+  runsUnavailable,
   startAgents,
   startRuns,
 } from "../../web/features/dashboard/start-agents.js";
@@ -60,6 +61,27 @@ test("the pipelines card takes running, awaiting and failed runs, at most three"
     picked.map((item) => item.id),
     ["r2", "r1", "d1"],
   );
+});
+
+test("the pipelines card waits for every listing and tells failed from empty", () => {
+  const none = { running: [], decisions: [], failed: [] };
+  // No runs at all: an empty list, so the card shows its empty text.
+  assert.deepEqual(startRuns(none), []);
+  assert.equal(runsUnavailable(none), false);
+  // Still loading: unknown, never unavailable.
+  assert.equal(startRuns(undefined), null);
+  assert.equal(startRuns({ ...none, failed: undefined }), null);
+  assert.equal(runsUnavailable(undefined), false);
+  assert.equal(
+    runsUnavailable({ running: null, decisions: null, failed: undefined }),
+    false,
+  );
+  // Every listing failed: unavailable. One that answered still shows.
+  const down = { running: null, decisions: null, failed: null };
+  assert.equal(runsUnavailable(down), true);
+  assert.equal(startRuns(down), null);
+  assert.deepEqual(startRuns({ ...down, running: [] }), []);
+  assert.equal(runsUnavailable({ ...down, running: [] }), false);
 });
 
 test("a run's stages become passed, current, failed and open segments", () => {
