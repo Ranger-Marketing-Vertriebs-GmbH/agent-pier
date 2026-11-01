@@ -12,6 +12,7 @@ import {
  * returns an `AgentRuntime` whose backend reports `state`:
  * - `channels`: the channel accounts by channel, e.g. `{ telegram: [account] }`;
  * - `unreachable`: true when the backend cannot be reached at all.
+ * A reachable backend creates sessions keyed `session:<label>`.
  * Later tickets add a section per sub-port as its methods arrive.
  */
 export function runtimePortContract(name, make) {
@@ -55,6 +56,24 @@ export function runtimePortContract(name, make) {
     assert.ok(pending instanceof Promise);
     await assert.rejects(pending);
   });
+
+  test(`${name}: sessions.create() resolves the new session's key`, async (t) => {
+    const runtime = await make({});
+    if (!runtime.capabilities().sessions.available) return t.skip("no sessions");
+    const created = await runtime.sessions.create({ agentId: "agent-1", label: "one" });
+    assert.equal(created.key, "session:one");
+    await runtime.sessions.subscribe({ key: created.key });
+  });
+
+  test(`${name}: sessions reject while the runtime is unreachable`, async (t) => {
+    const runtime = await make({ unreachable: true });
+    if (!runtime.capabilities().sessions.available) return t.skip("no sessions");
+    const options = { budgetMs: 0 };
+    await assert.rejects(runtime.sessions.create({ agentId: "a", label: "x" }, options));
+    const pending = runtime.sessions.subscribe({ key: "session:x" });
+    assert.ok(pending instanceof Promise);
+    await assert.rejects(pending);
+  });
 }
 
 /** A runtime held in memory that meets the contract; feature tests can use it too. */
@@ -68,6 +87,10 @@ export function fakeRuntime({ channels = {}, unreachable = false } = {}) {
     id: "fake",
     channels: {
       status: () => reach(() => ({ channelAccounts: structuredClone(channels) })),
+    },
+    sessions: {
+      create: ({ label }) => reach(() => ({ key: `session:${label}` })),
+      subscribe: () => reach(() => ({})),
     },
   });
 }

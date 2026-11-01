@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { assistantProblem } from "./assistant-validation.js";
-import { createGatewaySession } from "./session-create.js";
+import { runtimeFor } from "./runtimes/runtime-for.js";
 import { channelPerson, mainConversation } from "./routine-targets.js";
 
 /**
@@ -52,15 +52,19 @@ async function swap(
 ) {
   const assistant = service.store.getAssistant(conversation.assistantId);
   const id = randomUUID();
-  const client = service.runtime.client;
-  // A Gateway that could not create the session is unavailable, not a bad request.
-  const created = await createGatewaySession(
-    client,
-    { agentId: assistant.runtimeAgentId, label: `AgentPier ${assistant.id} main ${id}` },
-    service.sessionCreate,
-  ).catch((error) => {
-    throw unavailable(error, "session create");
-  });
+  const runtime = runtimeFor(assistant, service.runtime);
+  // A runtime that could not create the session is unavailable, not a bad request.
+  const created = await runtime.sessions
+    .create(
+      {
+        agentId: assistant.runtimeAgentId,
+        label: `AgentPier ${assistant.id} main ${id}`,
+      },
+      service.sessionCreate,
+    )
+    .catch((error) => {
+      throw unavailable(error, "session create");
+    });
   if (!created?.key) throw assistantProblem("unavailable", 503);
   const { store } = service;
   store.db.exec("BEGIN IMMEDIATE");
@@ -92,7 +96,7 @@ async function swap(
       conversationId: id,
       reason: "main-restarted",
     });
-    await client.call("sessions.messages.subscribe", { key: created.key });
+    await runtime.sessions.subscribe({ key: created.key });
   } catch (error) {
     throw unavailable(error, "finishing the swap");
   }
