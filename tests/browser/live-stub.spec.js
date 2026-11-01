@@ -225,7 +225,8 @@ test("a sub whose have is not an object closes with 1008", async ({ page }) => {
 });
 
 // What the start page follows with agents off: the state, the inbox, the menu-hint
-// sources (web/app/useMenuHints.js) and the system status.
+// sources (web/app/useMenuHints.js), the system status and, wider than 1150 px, the
+// split views.
 const startTopics = [
   "state",
   "inbox",
@@ -236,6 +237,7 @@ const startTopics = [
   "connections.problems",
   "settings.summary",
   "system.status",
+  "views",
 ];
 
 test.describe("manual stub", () => {

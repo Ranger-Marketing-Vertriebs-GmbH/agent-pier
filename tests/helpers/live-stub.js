@@ -183,6 +183,8 @@ export async function stubLive(page, { mode = "rest" } = {}) {
     if (frame?.op === "sub" && valid && (frame.have === undefined || plain(frame.have)))
       return subscribe(socket, frame.topic);
     if (frame?.op === "unsub" && valid) return stopTopic(socket, frame.topic);
+    // A visible page names its view (or a split view's panes), as the server takes it.
+    if (frame?.op === "presence" && typeof frame.route === "string") return;
     // The server closes on anything else, so a client bug shows up in the spec.
     closeSocket(socket, 1008);
   };

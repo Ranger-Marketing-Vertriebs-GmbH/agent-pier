@@ -2,6 +2,7 @@ import React, { lazy, Suspense, useState } from "react";
 import Icon from "../../components/Icon.jsx";
 import ProviderMark from "../../components/ProviderMark.jsx";
 import Sheet from "../../components/Sheet.jsx";
+import StatusChip from "../../components/StatusChip.jsx";
 import StatusDot from "../../components/StatusDot.jsx";
 import { activityTone } from "../../components/status-tones.js";
 import { routePath } from "../../app/routes.js";
@@ -33,6 +34,8 @@ export default function SessionPaneHeader({
   pane,
   route,
   navigate,
+  // The terminal or chat connection; a lost one shows as a small "Disconnected" chip.
+  connection,
 }) {
   const menu = useRowMenu();
   const [artifactsOpen, setArtifactsOpen] = useState(false);
@@ -45,6 +48,7 @@ export default function SessionPaneHeader({
       label,
       run,
       disabled,
+      danger: id === "stop" || id === "remove",
     })),
     ...(coding
       ? [
@@ -78,6 +82,15 @@ export default function SessionPaneHeader({
               pulse={activity === "working"}
               label={activityLabel}
             />
+            {connection === "disconnected" && mode !== "files" && (
+              <span
+                className="session-pane-offline"
+                role="status"
+                title={copy.terminalTopbarDisconnected}
+              >
+                <StatusChip tone="error">{viewsCopy.disconnected}</StatusChip>
+              </span>
+            )}
           </div>
           <p title={session.cwd}>
             {session.repositoryName || folderName(session.cwd)} · {names[session.tool]}

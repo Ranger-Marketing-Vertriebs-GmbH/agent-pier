@@ -244,3 +244,18 @@ test("MCP wizard steps are allowlisted per item and survive a round trip", () =>
     "/connections?section=mcp-servers&item=s1",
   );
 });
+test("a split view has its own address", () => {
+  assert.deepEqual(
+    readRoute({ pathname: "/views/v_0123456789abcdef", search: "", hash: "" }),
+    { view: "split", viewId: "v_0123456789abcdef" },
+  );
+  assert.equal(
+    routePath({ view: "split", viewId: "v_0123456789abcdef" }),
+    "/views/v_0123456789abcdef",
+  );
+  assert.deepEqual(readRoute({ pathname: "/views/..", search: "", hash: "" }), {
+    view: "missing",
+  });
+  assert.deepEqual(read("/views"), { view: "missing" });
+  assert.deepEqual(read("/views/v_1/extra"), { view: "missing" });
+});

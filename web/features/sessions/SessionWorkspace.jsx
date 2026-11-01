@@ -108,6 +108,7 @@ export default function SessionWorkspace({
           pane={pane}
           route={route}
           navigate={navigate}
+          connection={connection}
         />
       ) : (
         <header className="session-heading">

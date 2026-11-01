@@ -197,6 +197,11 @@ export function readRoute(location) {
       extensionTab:
         profile[1] === "plugins" ? "plugins" : readExtensionTab(location.search),
     });
+  const split = /^\/views\/([^/]+)$/.exec(pathname);
+  if (split)
+    return idPattern.test(split[1])
+      ? { view: "split", viewId: split[1] }
+      : { view: "missing" };
   const session = /^\/sessions\/([^/]+)(?:\/(chat|reader|terminal|files))?$/.exec(
     pathname,
   );
@@ -358,6 +363,7 @@ function basePath(route) {
     return route.sessionId
       ? `/sessions/${encodeURIComponent(route.sessionId)}${route.mode ? `/${route.mode === "reader" ? "chat" : route.mode}` : ""}${route.mode === "files" ? explorerQuery(route) : ""}`
       : "/";
+  if (route.view === "split") return `/views/${encodeURIComponent(route.viewId)}`;
   if (route.view === "connections") return connectionsRoutePath(route);
   if (route.view === "coding") return codingRoutePath(route);
   return `/${route.view}`;
