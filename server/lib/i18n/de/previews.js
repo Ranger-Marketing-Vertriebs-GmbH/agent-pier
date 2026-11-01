@@ -11,6 +11,7 @@ export const previews = {
     "Vorschauen sind über Tailscale nicht erreichbar. Schalte Einstellungen › Fernzugriff › Vorschauen erneut ein oder führe `npm run tailscale` aus.",
   PREVIEW_INVALID_INPUT: "Prüfe die Vorschau-Angaben.",
   PREVIEW_NOT_FOUND: "Diese Vorschau existiert nicht mehr.",
+  accessRevoked: "AgentPier-Zugriff widerrufen oder Session nicht verfügbar.",
   PREVIEW_RANGE_INVALID:
     "Ungültiger Portbereich: erlaubt sind Ports von 1024 bis 65535, höchstens 50 Ports, ohne den Port von AgentPier, den Pipeline-Portbereich und den Tailscale-HTTPS-Port.",
   pages: {

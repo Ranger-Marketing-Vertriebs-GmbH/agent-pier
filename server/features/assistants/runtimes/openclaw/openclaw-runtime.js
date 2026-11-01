@@ -9,6 +9,7 @@ import { openClawModels } from "./openclaw-models.js";
 import { openClawRoutines } from "./openclaw-routines.js";
 import { openClawSkills } from "./openclaw-skills.js";
 import { openClawSessions } from "./openclaw-sessions.js";
+import { lastCdpOffset } from "../../openclaw-config/browser-profiles.js";
 
 // One opaque handle per Gateway client: a restart replaces the client, so the handle
 // tells callers whether an await crossed one. Shared by every adapter of a process.
@@ -28,6 +29,28 @@ function connectionOf(client) {
 }
 const clientOf = (connection) =>
   (connection && typeof connection === "object" && clients.get(connection)) || null;
+
+const portOf = (url) => {
+  try {
+    return Number(new URL(url).port) || null;
+  } catch {
+    return null;
+  }
+};
+
+/** The Gateway's loopback ports: its own, its CDP ports and the browser profiles'. */
+function loopbackPorts(supervisor) {
+  const ports = [];
+  const gateway = portOf(supervisor?.client?.url) ?? supervisor?.webTools?.port;
+  if (gateway) {
+    ports.push(gateway);
+    // OpenClaw's CDP ports: gateway + 11 up to + lastCdpOffset (web-tools.js).
+    for (let offset = 11; offset <= lastCdpOffset; offset++) ports.push(gateway + offset);
+  }
+  for (const profile of Object.values(supervisor?.webTools?.browserProfiles || {}))
+    ports.push(profile?.cdpPort);
+  return ports.filter((port) => Number.isInteger(port) && port > 0);
+}
 
 /**
  * The OpenClaw adapter of the agent runtime port (../agent-runtime.js) over the
@@ -94,6 +117,8 @@ function openClawHost(supervisor) {
     start: (options) => supervisor.start(options),
     stop: (options) => supervisor.stop(options),
     restart: () => supervisor.restart(),
+    // Synchronous: a preview checks its target against these ports on every open.
+    loopbackPorts: () => loopbackPorts(supervisor),
     ...openClawLifecycle(supervisor),
   };
 }

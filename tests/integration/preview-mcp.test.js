@@ -7,6 +7,7 @@ import { applicationFixture } from "../helpers/application.js";
 import { freePortRange } from "../helpers/preview-ports.js";
 import { send, startUpstream } from "../helpers/preview-proxy-fixture.js";
 import { issue, connect } from "../helpers/session-mcp.js";
+import { agentText } from "../../server/lib/i18n/agent-text.js";
 
 async function previewApp(t) {
   const range = await freePortRange(4);
@@ -152,7 +153,15 @@ test("a revoked grant refuses the next call and closes the preview", async (t) =
       undefined,
       context,
     ),
-    { status: 403, message: "AgentPier access revoked or session unavailable." },
+    (error) => {
+      assert.equal(error.status, 403);
+      // Agents read the English catalog text.
+      assert.equal(
+        agentText(error.message),
+        "AgentPier access revoked or session unavailable.",
+      );
+      return true;
+    },
   );
   assert.equal(f.application.previews.list().length, 0);
   const again = await client
