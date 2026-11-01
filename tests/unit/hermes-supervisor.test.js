@@ -3,12 +3,21 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
-import { alive, eventually, hermesFakeRuntime } from "../helpers/hermes-fake-runtime.js";
+import { setTimeout as delay } from "node:timers/promises";
+import { alive, hermesFakeRuntime } from "../helpers/hermes-fake-runtime.js";
+import { hangGuard } from "../helpers/hang-guard.js";
 import { HermesSupervisor } from "../../server/features/assistants/runtimes/hermes/hermes-supervisor.js";
 import { createHermesAgentHost } from "../../server/features/assistants/runtimes/hermes/hermes-host.js";
 import { clientOf } from "../../server/features/assistants/runtimes/hermes/hermes-connection.js";
 import { hermesEnvironment } from "../../server/features/assistants/runtimes/hermes/hermes-environment.js";
 import { HOST_AVAILABILITY } from "../../server/features/assistants/runtimes/agent-runtime.js";
+
+// Waits follow the processes' own progress: a loaded host stretches process starts
+// and exits without limit, so no wait has a wall-clock budget of its own, and a set
+// that never gets there fails on the test's hang guard.
+async function progress(check) {
+  while (!(await check())) await delay(25);
+}
 
 function supervised(t, fake, options = {}) {
   const { supervisor, host } = createHermesAgentHost({
@@ -111,130 +120,177 @@ test("stop ends both process groups, descendants included, and nothing stays", a
   assert.equal(host.restartNeeded(), false);
 });
 
-test("a crash ends the set and restarts it with a new connection and generation", async (t) => {
-  const fake = hermesFakeRuntime(t);
-  const { supervisor, host } = supervised(t, fake);
-  await host.start();
-  const first = { connection: host.connection(), generation: host.generation() };
-  const [gateway, bridge] = supervisor.pids();
-  const states = [];
-  host.subscribe((status) => states.push(status.availability));
-  process.kill(gateway, "SIGKILL");
-  await eventually(
-    () => host.ready() && host.connection() !== first.connection,
-    10000,
-    "restart",
-  );
-  assert.equal(alive(bridge), false);
-  assert.ok(states.includes("reconnecting"));
-  assert.equal(host.status().availability, "ready");
-  assert.equal(host.connected(first.connection), false);
-  assert.notEqual(host.generation(), first.generation);
-  assert.equal(fake.starts("agent-1").length, 2);
-  assert.ok(await supervisor.client.call("gateway.capabilities", {}));
-  assert.equal(clientOf(first.connection).closed, true);
-});
+test(
+  "a crash ends the set and restarts it with a new connection and generation",
+  hangGuard,
+  async (t) => {
+    const fake = hermesFakeRuntime(t);
+    const { supervisor, host } = supervised(t, fake);
+    await host.start();
+    const first = { connection: host.connection(), generation: host.generation() };
+    const [gateway, bridge] = supervisor.pids();
+    const states = [];
+    host.subscribe((status) => states.push(status.availability));
+    process.kill(gateway, "SIGKILL");
+    await progress(() => host.ready() && host.connection() !== first.connection);
+    assert.equal(alive(bridge), false);
+    assert.ok(states.includes("reconnecting"));
+    assert.equal(host.status().availability, "ready");
+    assert.equal(host.connected(first.connection), false);
+    assert.notEqual(host.generation(), first.generation);
+    assert.equal(fake.starts("agent-1").length, 2);
+    assert.ok(await supervisor.client.call("gateway.capabilities", {}));
+    assert.equal(clientOf(first.connection).closed, true);
+  },
+);
 
-test("a set that never gets ready backs off and gives up as failed", async (t) => {
-  const fake = hermesFakeRuntime(t);
-  fs.mkdirSync(fake.home("agent-1"), { recursive: true });
-  fake.flag("agent-1", "fake-gateway-exit");
-  const delays = [];
-  const timers = {
-    setTimeout: (fn, ms, ...args) => {
-      if (ms <= 80) delays.push(ms);
-      return setTimeout(fn, ms, ...args);
-    },
-    clearTimeout,
-  };
-  const { host } = supervised(t, fake, { maxFailures: 3, timers });
-  await assert.rejects(host.start(), { code: "HERMES_START_FAILED" });
-  await eventually(() => host.status().availability === "failed", 10000, "failed");
-  assert.equal(host.status().diagnostic, "HERMES_START_FAILED");
-  assert.deepEqual(delays.slice(0, 2), [20, 40]);
-  assert.equal(fake.starts("agent-1").length, 3);
-  // The owner's next start tries again, and works once the cause is gone.
-  fake.flag("agent-1", "fake-gateway-exit", false);
-  await host.start();
-  assert.equal(host.ready(), true);
-});
+test(
+  "a set that never gets ready backs off and gives up as failed",
+  hangGuard,
+  async (t) => {
+    const fake = hermesFakeRuntime(t);
+    fs.mkdirSync(fake.home("agent-1"), { recursive: true });
+    fake.flag("agent-1", "fake-gateway-exit");
+    const delays = [];
+    const timers = {
+      setTimeout: (fn, ms, ...args) => {
+        if (ms <= 80) delays.push(ms);
+        return setTimeout(fn, ms, ...args);
+      },
+      clearTimeout,
+    };
+    const { host } = supervised(t, fake, { maxFailures: 3, timers });
+    await assert.rejects(host.start(), { code: "HERMES_START_FAILED" });
+    await progress(() => host.status().availability === "failed");
+    assert.equal(host.status().diagnostic, "HERMES_START_FAILED");
+    assert.deepEqual(delays.slice(0, 2), [20, 40]);
+    assert.equal(fake.starts("agent-1").length, 3);
+    // The owner's next start tries again, and works once the cause is gone.
+    fake.flag("agent-1", "fake-gateway-exit", false);
+    await host.start();
+    assert.equal(host.ready(), true);
+  },
+);
 
-test("a bridge that never reports gateway.ready times out and ends the set", async (t) => {
-  const fake = hermesFakeRuntime(t);
-  fs.mkdirSync(fake.home("agent-1"), { recursive: true });
-  fake.flag("agent-1", "fake-bridge-silent");
-  const { supervisor, host } = supervised(t, fake, {
-    readyTimeoutMs: 1500,
-    maxFailures: 1,
-  });
-  await assert.rejects(host.start(), { code: "HERMES_START_TIMEOUT" });
-  assert.equal(host.status().availability, "failed");
-  assert.deepEqual(supervisor.pids(), []);
-  const [start] = fake.starts("agent-1");
-  assert.equal(alive(start.pid), false);
-});
+test(
+  "a bridge that never reports gateway.ready times out and ends the set",
+  hangGuard,
+  async (t) => {
+    const fake = hermesFakeRuntime(t);
+    fs.mkdirSync(fake.home("agent-1"), { recursive: true });
+    fake.flag("agent-1", "fake-bridge-silent");
+    // The ready timeout fires when the test says so: on a loaded host a 1.5 s timer ran
+    // out before the gateway had even started, and the test then proved nothing about a
+    // silent bridge. It fires once the gateway owns the home and the bridge is up.
+    const readyTimeoutMs = 1500;
+    let expire = null;
+    const held = Symbol("ready timeout");
+    const timers = {
+      setTimeout: (fn, ms, ...args) =>
+        ms === readyTimeoutMs
+          ? ((expire = () => fn(...args)), held)
+          : setTimeout(fn, ms, ...args),
+      clearTimeout: (timer) => (timer === held ? (expire = null) : clearTimeout(timer)),
+    };
+    const { supervisor, host } = supervised(t, fake, {
+      readyTimeoutMs,
+      maxFailures: 1,
+      timers,
+    });
+    const starting = host.start();
+    const locked = path.join(fake.home("agent-1"), "gateway.lock");
+    await progress(
+      () =>
+        expire &&
+        fs.existsSync(locked) &&
+        fake.starts("agent-1").length === 1 &&
+        fake.bridges("agent-1").length === 1,
+    );
+    const pids = supervisor.pids();
+    const grandchild = fake.grandchild("agent-1");
+    assert.equal(pids.length, 2);
+    assert.equal(host.ready(), false, "a silent bridge never makes the set ready");
+    expire();
+    await assert.rejects(starting, { code: "HERMES_START_TIMEOUT" });
+    assert.equal(host.status().availability, "failed");
+    assert.deepEqual(supervisor.pids(), []);
+    const [start] = fake.starts("agent-1");
+    assert.equal(start.pid, pids[0]);
+    for (const pid of pids) assert.equal(alive(pid), false, String(pid));
+    // The gateway's descendant is init's to reap once its group is killed.
+    await progress(() => !alive(grandchild));
+  },
+);
 
-test("a gateway Hermes started on its own for the home is ended before a start", async (t) => {
-  const fake = hermesFakeRuntime(t);
-  const { supervisor, host } = supervised(t, fake);
-  const agent = supervisor.agentPaths();
-  // What `hermes cron run` leaves when no owner runs: a detached gateway in its own session.
-  const stray = spawn(
-    process.execPath,
-    ["-e", "setInterval(() => {}, 1000)", "gateway", "run", "--idle-exit"],
-    {
+test(
+  "a gateway Hermes started on its own for the home is ended before a start",
+  hangGuard,
+  async (t) => {
+    const fake = hermesFakeRuntime(t);
+    const { supervisor, host } = supervised(t, fake);
+    const agent = supervisor.agentPaths();
+    // What `hermes cron run` leaves when no owner runs: a detached gateway in its own session.
+    const stray = spawn(
+      process.execPath,
+      ["-e", "setInterval(() => {}, 1000)", "gateway", "run", "--idle-exit"],
+      {
+        detached: true,
+        stdio: "ignore",
+      },
+    );
+    t.after(() => alive(stray.pid) && process.kill(stray.pid, "SIGKILL"));
+    fs.writeFileSync(
+      path.join(agent.hermesHome, "gateway.lock"),
+      JSON.stringify({
+        pid: stray.pid,
+        kind: "hermes-gateway",
+        hermes_home: agent.hermesHome,
+      }),
+    );
+    await host.start();
+    await progress(() => !alive(stray.pid));
+    // A lock naming another home, or a process that is no gateway, is left alone.
+    const other = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], {
       detached: true,
       stdio: "ignore",
-    },
-  );
-  t.after(() => alive(stray.pid) && process.kill(stray.pid, "SIGKILL"));
-  fs.writeFileSync(
-    path.join(agent.hermesHome, "gateway.lock"),
-    JSON.stringify({
-      pid: stray.pid,
-      kind: "hermes-gateway",
-      hermes_home: agent.hermesHome,
-    }),
-  );
-  await host.start();
-  await eventually(() => !alive(stray.pid), 5000, "stray gateway ended");
-  // A lock naming another home, or a process that is no gateway, is left alone.
-  const other = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], {
-    detached: true,
-    stdio: "ignore",
-  });
-  t.after(() => alive(other.pid) && process.kill(other.pid, "SIGKILL"));
-  fs.writeFileSync(
-    path.join(agent.hermesHome, "gateway.lock"),
-    JSON.stringify({ pid: other.pid, hermes_home: agent.hermesHome }),
-  );
-  await host.stop();
-  assert.equal(alive(other.pid), true);
-});
+    });
+    t.after(() => alive(other.pid) && process.kill(other.pid, "SIGKILL"));
+    fs.writeFileSync(
+      path.join(agent.hermesHome, "gateway.lock"),
+      JSON.stringify({ pid: other.pid, hermes_home: agent.hermesHome }),
+    );
+    await host.stop();
+    assert.equal(alive(other.pid), true);
+  },
+);
 
-test("stop during a start ends what the start spawned; a start waits for a stop", async (t) => {
-  const fake = hermesFakeRuntime(t);
-  let release;
-  const gate = new Promise((resolve) => (release = resolve));
-  const { supervisor, host } = supervised(t, fake, {
-    runtime: async () => (await gate, fake.runtime),
-  });
-  const starting = host.start();
-  await eventually(() => host.status().availability === "installing", 2000, "installing");
-  const stopping = host.stop();
-  release();
-  await Promise.all([starting, stopping]);
-  assert.equal(host.status().availability, "disabled");
-  assert.equal(fake.starts("agent-1").length, 0);
-  await host.start();
-  const pids = supervisor.pids();
-  const stopped = host.stop();
-  const restarted = host.start();
-  await stopped;
-  await restarted;
-  assert.equal(host.ready(), true);
-  for (const pid of pids) assert.equal(alive(pid), false);
-});
+test(
+  "stop during a start ends what the start spawned; a start waits for a stop",
+  hangGuard,
+  async (t) => {
+    const fake = hermesFakeRuntime(t);
+    let release;
+    const gate = new Promise((resolve) => (release = resolve));
+    const { supervisor, host } = supervised(t, fake, {
+      runtime: async () => (await gate, fake.runtime),
+    });
+    const starting = host.start();
+    await progress(() => host.status().availability === "installing");
+    const stopping = host.stop();
+    release();
+    await Promise.all([starting, stopping]);
+    assert.equal(host.status().availability, "disabled");
+    assert.equal(fake.starts("agent-1").length, 0);
+    await host.start();
+    const pids = supervisor.pids();
+    const stopped = host.stop();
+    const restarted = host.start();
+    await stopped;
+    await restarted;
+    assert.equal(host.ready(), true);
+    for (const pid of pids) assert.equal(alive(pid), false);
+  },
+);
 
 test("lifecycle: restart reasons follow the starts; Hermes migrates nothing itself", async (t) => {
   const fake = hermesFakeRuntime(t);
