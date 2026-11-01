@@ -4,24 +4,16 @@ import {
   personalCapabilities,
   personalEligible,
   releasedCapabilities,
-} from "../native-capabilities.js";
+} from "../../../native-capabilities.js";
+import {
+  agentProfileName,
+  memberSlotCount,
+  memberSlotName,
+} from "../../../browser-profile-names.js";
 
 // Verified against OpenClaw 2026.10.3: managed profiles keep their data below
-// <state>/browser/<name>/user-data, and a name is [a-z0-9][a-z0-9-]*, at most 64.
-const PROFILE_NAME = /^[a-z0-9][a-z0-9-]{0,63}$/;
-/** The persistent browser profile of a permanent agent. */
-export function agentProfileName(id) {
-  const name = `agent-${String(id).toLowerCase()}`;
-  return PROFILE_NAME.test(name) ? name : null;
-}
-/**
- * Temporary team members get a slot of their own for the time they exist; its data
- * is discarded when the member ends (agent-browsers.js). Slots exist per kind, so a
- * member follows its lead's visible setting without a Gateway restart.
- */
-export const memberSlotCount = 3;
-export const memberSlotName = (visible, index) =>
-  `${visible ? "member-visible" : "member"}-${index + 1}`;
+// <state>/browser/<name>/user-data; AgentPier names them (browser-profile-names.js).
+export { agentProfileName, memberSlotCount, memberSlotName };
 // OpenClaw's managed CDP range is gateway + 11 to + 110; + 11 is its own default
 // profile and + 12, + 13 the redefined "user" and "chrome" profiles. The member
 // slots hold fixed ports from + 14, the agents follow from + 20.
@@ -119,3 +111,6 @@ export function browserProfilesPatch(current = {}, next = {}) {
   for (const name of Object.keys(current)) if (!(name in next)) patch[name] = null;
   return Object.keys(patch).length ? patch : null;
 }
+
+/** The live `config.patch` for a browserProfilesPatch result. */
+export const browserLivePatch = (profiles) => ({ patch: { browser: { profiles } } });

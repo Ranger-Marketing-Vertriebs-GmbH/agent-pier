@@ -6,13 +6,13 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { messageIdentity } from "../../lib/i18n/message-identity.js";
 import { problem } from "../../lib/storage.js";
-import {
-  mcpServerConfig,
-  mcpServerSignature,
-} from "../assistants/openclaw-config/mcp-servers.js";
 import { oauthStatus } from "./openclaw-mcp-cli.js";
 import { oauthCallbackPath, oauthLoginUsable } from "./oauth-redirect.js";
-import { hostReady, runtimeFor } from "../assistants/runtimes/runtime-for.js";
+import {
+  compilerFor,
+  hostReady,
+  runtimeFor,
+} from "../assistants/runtimes/runtime-for.js";
 
 const messages = serverMessages.mcpServers;
 export const pendingLoginMs = 10 * 60 * 1000;
@@ -155,6 +155,7 @@ export class McpOAuthLogins {
    */
   current(definition) {
     const signature = this.runtime?.mcp?.serverSignatures?.[definition.name];
+    const { mcpServerConfig, mcpServerSignature } = compilerFor(null);
     const config = mcpServerConfig(definition, null, this.redirectUrl());
     return !!signature && !!config && signature === mcpServerSignature(config);
   }
@@ -185,7 +186,7 @@ export class McpOAuthLogins {
    * does not know has nothing to log out. Callers serialize by name.
    */
   async clearLogin(target) {
-    const server = mcpServerConfig(
+    const server = compilerFor(null).mcpServerConfig(
       { ...target, auth: "oauth" },
       null,
       this.redirectUrl() || `http://127.0.0.1${oauthCallbackPath}`,

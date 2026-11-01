@@ -5,7 +5,7 @@
 import { spawn as nodeSpawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { runtimeEnvironment } from "../assistants/runtime-config.js";
+import { compilerFor } from "../assistants/runtimes/runtime-for.js";
 import { namePattern } from "./command-resolution.js";
 
 export const mcpCliErrorCodes = Object.freeze([
@@ -464,7 +464,7 @@ export function sweepLogoutConfigs(stateDir) {
 
 /** The Gateway's private environment for the CLI, without the Gateway token. */
 export function cliEnvironment(paths, nodePath, parent = process.env) {
-  const env = runtimeEnvironment(paths, nodePath, parent);
+  const env = compilerFor(null).environment(paths, nodePath, parent);
   delete env.OPENCLAW_GATEWAY_TOKEN;
   return env;
 }

@@ -4,8 +4,8 @@ import {
   profileTools,
   routineTools,
 } from "../../server/features/assistants/native-capabilities.js";
-import { nativeTools } from "../../server/features/assistants/runtime-config.js";
-import { agentEntry } from "../../server/features/assistants/openclaw-config/agent-entry.js";
+import { nativeTools } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
+import { agentEntry } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/agent-entry.js";
 
 const agent = { id: "a", capabilities: {}, shell: "off" };
 

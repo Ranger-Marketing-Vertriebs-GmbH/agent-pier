@@ -6,7 +6,7 @@ import path from "node:path";
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { AssistantService } from "../../server/features/assistants/assistant-service.js";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
-import { compileOpenClawConfig } from "../../server/features/assistants/runtime-config.js";
+import { compileOpenClawConfig } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 
 // A Gateway double with OpenClaw's merge-patch rules: null deletes a key, and a
 // patch that drops array items needs the array's exact path in replacePaths.

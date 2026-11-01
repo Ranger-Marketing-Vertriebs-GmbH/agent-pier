@@ -7,7 +7,7 @@ import { runtimePaths } from "../../server/features/assistants/runtime-paths.js"
 import {
   canonicalAgentRoster,
   prepareRuntimeConfig,
-} from "../../server/features/assistants/runtime-config.js";
+} from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 import { readJSON } from "../../server/lib/storage.js";
 
 // OpenClaw 2026.10 refuses `agents.list` and boolean `default` markers at start

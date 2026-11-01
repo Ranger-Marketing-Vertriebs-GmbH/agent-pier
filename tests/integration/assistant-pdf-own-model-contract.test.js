@@ -12,7 +12,7 @@ import { AssistantConfig } from "../../server/features/assistants/assistant-conf
 import { PdfPolicy } from "../../server/features/assistants/pdf-policy.js";
 import { selectedAssistantRuntime } from "../../server/features/assistants/runtimes/openclaw/runtime-install.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
-import { hasDocumentExtract } from "../../server/features/assistants/openclaw-config/web-tools.js";
+import { hasDocumentExtract } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/web-tools.js";
 import { AssistantProviderSynchronization } from "../../server/features/assistants/assistant-provider-synchronization.js";
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
 import { textPdf } from "../helpers/text-pdf.js";

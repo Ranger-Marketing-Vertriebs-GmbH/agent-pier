@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mcpServerConfig } from "../../server/features/assistants/openclaw-config/mcp-servers.js";
+import { mcpServerConfig } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/mcp-servers.js";
 import { stdioGrants } from "../../server/features/mcp-servers/cli-grants.js";
 
 const packaged = (status) => ({

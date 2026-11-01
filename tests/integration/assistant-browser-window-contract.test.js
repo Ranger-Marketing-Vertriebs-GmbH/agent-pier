@@ -13,9 +13,9 @@ import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { detectBrowser } from "../../server/features/assistants/browser-detection.js";
 import { selectedAssistantRuntime } from "../../server/features/assistants/runtimes/openclaw/runtime-install.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
-import { agentProfileName } from "../../server/features/assistants/openclaw-config/browser-profiles.js";
+import { agentProfileName } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/browser-profiles.js";
 import { AgentBrowsers } from "../../server/features/assistants/agent-browsers.js";
-import { antiThrottlingArgs } from "../../server/features/assistants/openclaw-config/web-tools.js";
+import { antiThrottlingArgs } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/web-tools.js";
 
 // A visible agent browser in the state AgentPier leaves it in (AGENTPIER-240,
 // docs/assistant-web-tools-qualification.md "Visible window"), provisioned like the

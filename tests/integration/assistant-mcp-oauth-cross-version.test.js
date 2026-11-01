@@ -11,7 +11,7 @@ import { AssistantMaintenance } from "../../server/features/assistants/assistant
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
 import { RequestLedger } from "../../server/features/assistants/request-ledger.js";
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
-import { runtimeEnvironment } from "../../server/features/assistants/runtime-config.js";
+import { runtimeEnvironment } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 import { patchConfig } from "../../server/features/assistants/runtimes/openclaw/live-patch.js";
 import {
   defaultBusyRetryDelaysMs,

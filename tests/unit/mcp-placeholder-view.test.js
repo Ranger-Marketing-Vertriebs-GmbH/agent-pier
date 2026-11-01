@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { placeholderViews } from "../../server/features/assistants/mcp-placeholder-view.js";
-import { agentServerName } from "../../server/features/assistants/openclaw-config/mcp-servers.js";
+import { agentServerName } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/mcp-servers.js";
 
 const server = {
   id: "s1",

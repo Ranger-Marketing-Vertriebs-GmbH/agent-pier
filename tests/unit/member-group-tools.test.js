@@ -5,7 +5,7 @@ import {
   delegationTools,
   lockedTools,
 } from "../../server/features/assistants/native-capabilities.js";
-import { teamTools } from "../../server/features/assistants/runtime-config.js";
+import { teamTools } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 import {
   actions,
   bridgeTool,

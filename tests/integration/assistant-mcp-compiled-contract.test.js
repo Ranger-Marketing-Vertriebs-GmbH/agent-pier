@@ -12,7 +12,7 @@ import { TeamService } from "../../server/features/assistants/team-service.js";
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { McpChanges } from "../../server/features/assistants/mcp-changes.js";
 import { McpServerStore } from "../../server/features/mcp-servers/mcp-server-store.js";
-import { readMcpInputs } from "../../server/features/assistants/openclaw-config/mcp-servers.js";
+import { readMcpInputs } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/mcp-servers.js";
 import { selectedAssistantRuntime } from "../../server/features/assistants/runtimes/openclaw/runtime-install.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { assistantModelServer } from "../helpers/assistant-model-server.js";

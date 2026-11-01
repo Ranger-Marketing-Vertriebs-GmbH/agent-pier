@@ -5,7 +5,7 @@ import {
   telegramLivePatch,
   telegramSections,
   telegramSnapshot,
-} from "../../server/features/assistants/openclaw-config/telegram-senders.js";
+} from "../../server/features/assistants/runtimes/openclaw/openclaw-config/telegram-senders.js";
 
 const profile = (id) => ({
   id,

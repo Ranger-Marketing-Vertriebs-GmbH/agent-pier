@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
-import { prepareRuntimeConfig } from "../../server/features/assistants/runtime-config.js";
+import { prepareRuntimeConfig } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 import { readJSON } from "../../server/lib/storage.js";
 
 function fixture(t) {

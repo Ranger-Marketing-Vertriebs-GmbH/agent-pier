@@ -1,7 +1,3 @@
-import {
-  browserProfilesPatch,
-  nextBrowserProfiles,
-} from "./openclaw-config/browser-profiles.js";
 import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 
 /**
@@ -32,22 +28,21 @@ export class BrowserProfileSync {
   async syncOnce() {
     const running = hostReady(this.runtime) && this.runtime.webTools;
     if (!running?.availability?.browser) return [];
+    const { config } = runtimeFor(null, this.runtime);
     const current = running.browserProfiles || {};
-    const next = nextBrowserProfiles({
+    const next = config.compiler.nextBrowserProfiles({
       current,
       profiles: this.store.listAssistants(),
       visibleApp: running.visibleBrowser === true,
       port: running.port,
     });
-    const patch = browserProfilesPatch(current, next);
+    const patch = config.compiler.browserProfilesPatch(current, next);
     if (!patch) return [];
     // A browser whose profile goes or changes its window mode stops first; it starts
     // again with the new profile on its next use.
     const changed = Object.keys(patch).filter((name) => name in current);
     for (const name of changed) await this.stop(name);
-    await runtimeFor(null, this.runtime).config.patch({
-      build: () => ({ patch: { browser: { profiles: patch } } }),
-    });
+    await config.patch({ build: () => config.compiler.browserLivePatch(patch) });
     if (this.runtime.webTools === running) running.browserProfiles = next;
     return Object.keys(patch);
   }

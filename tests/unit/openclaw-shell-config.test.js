@@ -5,13 +5,13 @@ import { EventEmitter } from "node:events";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { compileOpenClawConfig } from "../../server/features/assistants/runtime-config.js";
+import { compileOpenClawConfig } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 import {
   gatewayPath,
   runtimeEnvironment,
-} from "../../server/features/assistants/runtime-config.js";
-import { agentEntry } from "../../server/features/assistants/openclaw-config/agent-entry.js";
-import { shellSections } from "../../server/features/assistants/openclaw-config/shell.js";
+} from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
+import { agentEntry } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/agent-entry.js";
+import { shellSections } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/shell.js";
 import {
   execShellScript,
   ownerShellEnvironment,

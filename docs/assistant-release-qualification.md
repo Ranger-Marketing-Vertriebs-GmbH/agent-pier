@@ -255,7 +255,7 @@ before activation; after commit there is no downgrade.
 - **Agent roster.** 2026.10.3 refuses an `agents.list` array and boolean `default`
   markers on agent entries with exit code 78 (`INVALID_CONFIG`); 2026.9.x only
   warned. A fresh configuration now writes `agents.entries: { main: {} }`, and
-  `canonicalAgentRoster()` in `runtime-config.js` converts a legacy list at every
+  `canonicalAgentRoster()` in `runtimes/openclaw/runtime-config.js` converts a legacy list at every
   compile: a roster of two or more agents gets `agents.ownership: "explicit"` with
   `agents.defaults.systemAgent` and `talk` on the former default agent. 2026.9.8,
   2026.9.9 and 2026.10.3 accept the result.

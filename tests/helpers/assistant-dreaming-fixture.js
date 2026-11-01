@@ -8,7 +8,7 @@ import { DatabaseSync } from "node:sqlite";
 import { promisify } from "node:util";
 import { setTimeout as delay } from "node:timers/promises";
 import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "./process-guard.js";
-import { runtimeEnvironment } from "../../server/features/assistants/runtime-config.js";
+import { runtimeEnvironment } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";

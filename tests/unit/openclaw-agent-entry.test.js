@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { agentEntry } from "../../server/features/assistants/openclaw-config/agent-entry.js";
+import { agentEntry } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/agent-entry.js";
 
 const assistant = {
   id: "a1",
@@ -63,7 +63,7 @@ test("a start and a live apply yield the same entry for the same runtime state",
   const { runtimePaths } =
     await import("../../server/features/assistants/runtime-paths.js");
   const { prepareRuntimeConfig } =
-    await import("../../server/features/assistants/runtime-config.js");
+    await import("../../server/features/assistants/runtimes/openclaw/runtime-config.js");
   const { readJSON } = await import("../../server/lib/storage.js");
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "equivalence-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));

@@ -7,7 +7,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "../helpers/process-guard.js";
-import { runtimeEnvironment } from "../../server/features/assistants/runtime-config.js";
+import { runtimeEnvironment } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { AssistantModelAccounts } from "../../server/features/assistants/model-accounts.js";
 import { AssistantModels } from "../../server/features/assistants/assistant-models.js";

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mcpStartSnapshot } from "../../server/features/assistants/openclaw-config/mcp-servers.js";
+import { mcpStartSnapshot } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/mcp-servers.js";
 import { TeamMcpBindings } from "../../server/features/assistants/team-mcp.js";
 import { mcpApplyFixture } from "../helpers/mcp-apply-fixture.js";
 

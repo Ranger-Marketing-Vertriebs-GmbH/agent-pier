@@ -1,4 +1,4 @@
-import { validTimeZone } from "../heartbeat-schedule.js";
+import { validTimeZone } from "../../../heartbeat-schedule.js";
 
 /**
  * The OpenClaw configuration paths the owner may change on the advanced settings

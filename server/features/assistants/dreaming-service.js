@@ -5,7 +5,6 @@ import {
   memoryEnabled,
   personalEligible,
 } from "./native-capabilities.js";
-import { dreamingSection } from "./openclaw-config/dreaming.js";
 import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 
 export const DREAMING_MEMORY_CONFIRMATION_REQUIRED =
@@ -17,7 +16,6 @@ export const DREAMING_AGENTS_BUSY = "ASSISTANT_DREAMING_AGENTS_BUSY";
  * follow their lead's memory and are never raised.
  */
 export const dreamingCovered = (agent) => personalEligible(agent);
-const dreamingPath = "plugins.entries.memory-core.config.dreaming";
 const named = ({ id, name }) => ({ id, name });
 
 /**
@@ -101,22 +99,10 @@ export class DreamingService {
     const runtime = this.assistants.runtime;
     if (!this.pending || !hostReady(runtime)) return;
     const wanted = this.settings.compiled();
-    const section = dreamingSection(wanted);
-    await runtimeFor(null, runtime).config.patch({
-      build: (config) =>
-        isDeepStrictEqual(
-          config.plugins?.entries?.["memory-core"]?.config?.dreaming,
-          section,
-        )
-          ? null
-          : {
-              patch: {
-                plugins: {
-                  entries: { "memory-core": { config: { dreaming: section } } },
-                },
-              },
-              replacePaths: [dreamingPath],
-            },
+    const { config } = runtimeFor(null, runtime);
+    // Patched only where the running dreaming section differs (the compiler's patch).
+    await config.patch({
+      build: (current) => config.compiler.dreamingPatch(current, wanted),
     });
     // A save while this ran stays pending for the next tick.
     if (isDeepStrictEqual(this.settings.compiled(), wanted)) this.pending = false;

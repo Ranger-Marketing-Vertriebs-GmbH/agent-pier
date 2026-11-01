@@ -12,7 +12,7 @@ import { TeamStore } from "../../server/features/assistants/team-store.js";
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
-import { teamTools } from "../../server/features/assistants/runtime-config.js";
+import { teamTools } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 import { memberTeamTools } from "../../server/features/assistants/native-capabilities.js";
 import plugin from "../../server/features/assistants/team-plugin/index.js";
 import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";

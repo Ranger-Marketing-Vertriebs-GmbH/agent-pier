@@ -7,13 +7,13 @@ import {
   personalShell,
   personalSkills,
 } from "./native-capabilities.js";
-import {
-  anyName,
-  shadowingSkillNames,
-  skillShadowRoots,
-} from "./openclaw-config/skill-shadows.js";
 import { assistantProblem, skillNamePattern } from "./assistant-validation.js";
-import { hostConnection, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
+import {
+  compilerFor,
+  hostConnection,
+  hostReady,
+  runtimeFor,
+} from "./runtimes/runtime-for.js";
 import { insideRoot } from "./skill-paths.js";
 
 // OpenClaw skills per agent (docs/assistant-gateway.md#skills). The owner switches
@@ -153,7 +153,7 @@ function catalogState({ record, entry, clash, shadowed, liveRoot, roots }) {
       ...emptySkill(name, "shadowed", roots),
       shadowedBy: clash === "bundled" ? "bundled" : "source",
     };
-  if (shadowed.has(name) || shadowed.has(anyName))
+  if (shadowed.has(name))
     return {
       ...sanitizeSkill(entry || record, roots),
       state: "shadowed",
@@ -258,7 +258,7 @@ export function skillCatalog({
       : entry
         ? entry.source !== bundledSource
           ? emptySkill(name, "shadowed", roots)
-          : shadowed.has(name) || shadowed.has(anyName)
+          : shadowed.has(name)
             ? { ...sanitizeSkill(entry, roots), state: "shadowed" }
             : sanitizeSkill(entry, roots)
         : emptySkill(name, "unavailable", roots);
@@ -322,7 +322,8 @@ export class AgentSkills {
       bundled: bundledSkillNames(entryPath),
       assistant,
       roots,
-      shadowed: root ? shadowingSkillNames(skillShadowRoots(root, assistant)) : new Set(),
+      // Names a skill in the agent's own folders would replace (the compiler's scan).
+      shadowed: root ? compilerFor(assistant).skillShadows(root, assistant) : new Set(),
       fallback: report?.fallback === true,
       catalog: this.catalogRecords(),
       liveRoot: this.catalog?.liveRoot,

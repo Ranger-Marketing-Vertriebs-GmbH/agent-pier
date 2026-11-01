@@ -11,7 +11,7 @@ import {
   createAssistantServices,
   startAssistantServices,
 } from "../../server/application/assistants.js";
-import { webToolsSnapshot } from "../../server/features/assistants/openclaw-config/web-tools.js";
+import { webToolsSnapshot } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/web-tools.js";
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { TeamService } from "../../server/features/assistants/team-service.js";
 import { AssistantService } from "../../server/features/assistants/assistant-service.js";

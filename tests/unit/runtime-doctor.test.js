@@ -11,7 +11,7 @@ import {
 } from "../../server/features/assistants/runtimes/openclaw/runtime-doctor.js";
 import { processIdentity } from "../../server/lib/process-identity.js";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
-import { runtimeEnvironment } from "../../server/features/assistants/runtime-config.js";
+import { runtimeEnvironment } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 import { readJSON, writePrivate } from "../../server/lib/storage.js";
 
 // A real executable: the recorded identity resolves its path.

@@ -1,11 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { compileOpenClawConfig } from "../../server/features/assistants/runtime-config.js";
+import { compileOpenClawConfig } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 import {
   webToolsAvailability,
   webToolsSections,
   webToolsSignatures,
-} from "../../server/features/assistants/openclaw-config/web-tools.js";
+} from "../../server/features/assistants/runtimes/openclaw/openclaw-config/web-tools.js";
 import {
   capabilityKeys,
   profileTools,

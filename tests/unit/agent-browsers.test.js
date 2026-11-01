@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { AgentBrowsers } from "../../server/features/assistants/agent-browsers.js";
-import { browserProfileMap } from "../../server/features/assistants/openclaw-config/browser-profiles.js";
+import { browserProfileMap } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/browser-profiles.js";
 import {
   browserCall,
   browserRefusals,

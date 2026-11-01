@@ -1,7 +1,7 @@
 import { sshLockNames } from "../ssh/ssh-execution-lock.js";
 import fs from "node:fs";
 import path from "node:path";
-import { agentProfileName } from "./openclaw-config/browser-profiles.js";
+import { agentProfileName } from "./browser-profile-names.js";
 import { hostConnection, runtimeFor } from "./runtimes/runtime-for.js";
 
 /**

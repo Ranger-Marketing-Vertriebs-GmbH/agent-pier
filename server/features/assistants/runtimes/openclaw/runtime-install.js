@@ -10,7 +10,7 @@ import { readRuntimeLock, searchPluginPins } from "./runtime-lock.js";
 import { runtimeManifest } from "./runtime-manifest.js";
 import { runtimePaths, privateFolder } from "../../runtime-paths.js";
 import { acquireInstallLock, withInstallLock } from "../../runtime-install-lock.js";
-import { proxyEnvironment } from "../../runtime-config.js";
+import { proxyEnvironment } from "./runtime-config.js";
 import { readAssistantFeature } from "../../assistant-feature.js";
 
 const jobs = new Map();

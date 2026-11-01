@@ -11,8 +11,8 @@ import {
   maxGatewayPort,
 } from "../../server/features/assistants/runtimes/openclaw/runtime-supervisor.js";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
-import { prepareRuntimeConfig } from "../../server/features/assistants/runtime-config.js";
-import { webToolsSections } from "../../server/features/assistants/openclaw-config/web-tools.js";
+import { prepareRuntimeConfig } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
+import { webToolsSections } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/web-tools.js";
 import { readJSON, writePrivate } from "../../server/lib/storage.js";
 
 test("create stores web capabilities as off and keeps memory and reminders", async (t) => {

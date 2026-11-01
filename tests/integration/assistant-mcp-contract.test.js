@@ -12,7 +12,7 @@ import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { selectedAssistantRuntime } from "../../server/features/assistants/runtimes/openclaw/runtime-install.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { patchConfig } from "../../server/features/assistants/runtimes/openclaw/live-patch.js";
-import { gatewayPath } from "../../server/features/assistants/runtime-config.js";
+import { gatewayPath } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
 import {
   endStdioServers,

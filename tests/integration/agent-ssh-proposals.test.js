@@ -18,7 +18,7 @@ import {
   profileTools,
   routineTools,
 } from "../../server/features/assistants/native-capabilities.js";
-import { nativeTools } from "../../server/features/assistants/runtime-config.js";
+import { nativeTools } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 import {
   actions,
   bridgeTool,

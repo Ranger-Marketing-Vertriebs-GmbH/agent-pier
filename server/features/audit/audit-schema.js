@@ -1,10 +1,7 @@
 import { userAuditDetails } from "./audit-actor.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
-import {
-  advancedSettingById,
-  auditableSettingValue,
-} from "../assistants/openclaw-config/advanced-settings.js";
+import { compilerFor } from "../assistants/runtimes/runtime-for.js";
 import { MCP_SERVER_ORIGINS } from "../mcp-servers/server-origins.js";
 import { sshAuditDetails } from "./audit-ssh-details.js";
 import { sftpAuditDetails } from "./audit-sftp-details.js";
@@ -389,10 +386,11 @@ export function auditEvent(input) {
   }
   // Advanced OpenClaw settings (advanced-config.js) name the setting and its old and
   // new value, kept only as that setting's own scalar type (null: unset).
-  if (input.resourceType === "setting" && advancedSettingById(details.setting)) {
+  const advanced = compilerFor(null).advancedSettings;
+  if (input.resourceType === "setting" && advanced.byId(details.setting)) {
     event.details.setting = details.setting;
     for (const key of ["from", "to"])
-      if (auditableSettingValue(details.setting, details[key]))
+      if (advanced.auditable(details.setting, details[key]))
         event.details[key] = details[key];
   }
   // An agent's archive and permanent delete (agent-lifecycle.js): what was lost as

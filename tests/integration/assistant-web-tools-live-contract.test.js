@@ -14,8 +14,8 @@ import { WebSearchSettings } from "../../server/features/assistants/web-search-s
 import { detectBrowser } from "../../server/features/assistants/browser-detection.js";
 import { selectedAssistantRuntime } from "../../server/features/assistants/runtimes/openclaw/runtime-install.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
-import { hasDocumentExtract } from "../../server/features/assistants/openclaw-config/web-tools.js";
-import { agentProfileName } from "../../server/features/assistants/openclaw-config/browser-profiles.js";
+import { hasDocumentExtract } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/web-tools.js";
+import { agentProfileName } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/browser-profiles.js";
 import { AgentBrowsers } from "../../server/features/assistants/agent-browsers.js";
 import { BrowserProfileSync } from "../../server/features/assistants/browser-profile-sync.js";
 import { assistantModelServer } from "../helpers/assistant-model-server.js";

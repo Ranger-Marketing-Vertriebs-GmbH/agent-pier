@@ -7,7 +7,7 @@ import {
   personalEligible,
   personalShell,
 } from "./native-capabilities.js";
-import { mcpEligible } from "./openclaw-config/mcp-servers.js";
+import { mcpEligible } from "../mcp-servers/mcp-inputs.js";
 import { isUserAgent } from "../users/user-access.js";
 import { hostReady } from "./runtimes/runtime-for.js";
 

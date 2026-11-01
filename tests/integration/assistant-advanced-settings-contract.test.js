@@ -11,11 +11,11 @@ import { AdvancedConfig } from "../../server/features/assistants/advanced-config
 import {
   OverrideStore,
   overridesFor,
-} from "../../server/features/assistants/openclaw-config/overrides.js";
+} from "../../server/features/assistants/runtimes/openclaw/openclaw-config/overrides.js";
 import {
   advancedSettings,
   advancedSettingsRuntime,
-} from "../../server/features/assistants/openclaw-config/advanced-settings.js";
+} from "../../server/features/assistants/runtimes/openclaw/openclaw-config/advanced-settings.js";
 import { migrateAssistants } from "../../server/features/assistants/assistant-schema.js";
 
 // The bundled runtime; the same variable as the native interfaces contract.

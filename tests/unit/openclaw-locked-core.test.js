@@ -4,8 +4,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
-import { prepareRuntimeConfig } from "../../server/features/assistants/runtime-config.js";
-import { isLockedPath } from "../../server/features/assistants/openclaw-config/locked-core.js";
+import { prepareRuntimeConfig } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
+import { isLockedPath } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/locked-core.js";
 import { readJSON } from "../../server/lib/storage.js";
 
 test("a drifted configuration is hardened again on the next start", (t) => {
@@ -54,7 +54,7 @@ test("skills.load is locked", () => {
 
 test("mcp, secrets and env are locked against overrides", async () => {
   const { validateOverride } =
-    await import("../../server/features/assistants/openclaw-config/overrides.js");
+    await import("../../server/features/assistants/runtimes/openclaw/openclaw-config/overrides.js");
   for (const target of [
     "mcp",
     "mcp.servers.host",

@@ -16,15 +16,15 @@ import {
   validateSkills,
 } from "../../server/features/assistants/assistant-validation.js";
 import { personalSkills } from "../../server/features/assistants/native-capabilities.js";
-import { agentEntry } from "../../server/features/assistants/openclaw-config/agent-entry.js";
-import { compileOpenClawConfig } from "../../server/features/assistants/runtime-config.js";
+import { agentEntry } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/agent-entry.js";
+import { compileOpenClawConfig } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 import {
   anyName,
   frontmatterName,
   shadowedSkills,
   shadowingSkillNames,
   skillShadowRoots,
-} from "../../server/features/assistants/openclaw-config/skill-shadows.js";
+} from "../../server/features/assistants/runtimes/openclaw/openclaw-config/skill-shadows.js";
 
 const none = { bins: [], anyBins: [], env: [], config: [], os: [] };
 const host = "/Users/owner/Library/AgentPier/assistants";

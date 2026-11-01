@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createHmac, randomBytes } from "node:crypto";
-import { capabilityTools } from "../native-capabilities.js";
+import { capabilityTools } from "../../../native-capabilities.js";
 import { browserProfileMap, compiledProfile } from "./browser-profiles.js";
 
 // Verified against OpenClaw 2026.10.3, see docs/assistant-web-tools-qualification.md.

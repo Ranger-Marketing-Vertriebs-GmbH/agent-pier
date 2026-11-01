@@ -1,4 +1,4 @@
-import { personalShell, shellTools } from "../native-capabilities.js";
+import { personalShell, shellTools } from "../../../native-capabilities.js";
 
 // Verified against OpenClaw 2026.10.3, see docs/assistant-shell-qualification.md.
 // `shellTools` (exec, process) are offered only to an agent with shell access.

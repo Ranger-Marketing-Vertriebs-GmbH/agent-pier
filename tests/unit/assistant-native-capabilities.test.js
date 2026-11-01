@@ -14,12 +14,12 @@ import {
   routineTools,
   senderLockedTools,
 } from "../../server/features/assistants/native-capabilities.js";
-import { agentEntry } from "../../server/features/assistants/openclaw-config/agent-entry.js";
+import { agentEntry } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/agent-entry.js";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
 import {
   nativeTools,
   prepareRuntimeConfig,
-} from "../../server/features/assistants/runtime-config.js";
+} from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 
 const OFF = {
   memory: false,

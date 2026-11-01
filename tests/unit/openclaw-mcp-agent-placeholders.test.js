@@ -7,8 +7,8 @@ import {
   agentServerName,
   mcpSections,
   mcpSnapshot,
-} from "../../server/features/assistants/openclaw-config/mcp-servers.js";
-import { safeAgentPath } from "../../server/features/assistants/openclaw-config/agent-folders.js";
+} from "../../server/features/assistants/runtimes/openclaw/openclaw-config/mcp-servers.js";
+import { safeAgentPath } from "../../server/features/assistants/agent-folders.js";
 
 const workspaces = "/data/assistants/workspaces";
 const a1 = { id: "a1", runtimeAgentId: "ap-a1", capabilities: {} };

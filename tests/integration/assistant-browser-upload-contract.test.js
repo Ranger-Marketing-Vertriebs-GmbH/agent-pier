@@ -14,7 +14,7 @@ import { AssistantConfig } from "../../server/features/assistants/assistant-conf
 import { detectBrowser } from "../../server/features/assistants/browser-detection.js";
 import { selectedAssistantRuntime } from "../../server/features/assistants/runtimes/openclaw/runtime-install.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
-import { agentProfileName } from "../../server/features/assistants/openclaw-config/browser-profiles.js";
+import { agentProfileName } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/browser-profiles.js";
 import { AgentBrowsers } from "../../server/features/assistants/agent-browsers.js";
 import { BrowserProfileSync } from "../../server/features/assistants/browser-profile-sync.js";
 import { AgentBrowserUploads } from "../../server/features/assistants/agent-browser-uploads.js";

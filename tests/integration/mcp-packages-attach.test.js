@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mcpServerConfig } from "../../server/features/assistants/openclaw-config/mcp-servers.js";
+import { mcpServerConfig } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/mcp-servers.js";
 import { packageService, preview, ref } from "../helpers/mcp-packages-service.js";
 
 /** What the CLIs and the agents get for server `name` right now. */

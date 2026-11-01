@@ -7,7 +7,7 @@ import { runtimePaths } from "../../server/features/assistants/runtime-paths.js"
 import {
   compileOpenClawConfig,
   prepareRuntimeConfig,
-} from "../../server/features/assistants/runtime-config.js";
+} from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 import { readJSON } from "../../server/lib/storage.js";
 test("team configuration advertises only managed delegation and removes retired bridge credentials", (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "team-config-"));

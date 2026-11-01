@@ -1,17 +1,8 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { record } from "../extensions/mcp-config.js";
-import {
-  applyMcp,
-  mcpEligible,
-  mcpSections,
-  mcpSnapshot,
-  readMcpInputs,
-  withInherited,
-} from "./openclaw-config/mcp-servers.js";
-import { applyShell, shellSections } from "./openclaw-config/shell.js";
+import { mcpEligible, readMcpInputs, withInherited } from "../mcp-servers/mcp-inputs.js";
 import { placeholderViews } from "./mcp-placeholder-view.js";
-import { nativeTools } from "./runtime-config.js";
 import { temporaryMember } from "./team-presentation.js";
 import {
   STDIO_CONFIRMATION_REQUIRED,
@@ -24,25 +15,9 @@ import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 export { STDIO_CONFIRMATION_REQUIRED };
 
 const messages = serverMessages.mcpServers;
-// Compiled server names; anything else cannot be addressed as a dotted path.
-const pathName = /^[A-Za-z][A-Za-z0-9_-]{0,29}$/;
 // Retry delays of a failed live apply: doubling from one second to one minute.
 const firstRetryMs = 1000;
 const lastRetryMs = 60000;
-
-/**
- * A JSON merge patch from `current` to `target`: keys `target` lacks become null.
- * Redacted secret values in `current` never equal the real ones, so they are
- * always rewritten.
- */
-function mergeDiff(current, target) {
-  const patch = {};
-  for (const key of Object.keys(current)) if (!(key in target)) patch[key] = null;
-  for (const [key, value] of Object.entries(target))
-    patch[key] =
-      record(value) && record(current[key]) ? mergeDiff(current[key], value) : value;
-  return patch;
-}
 
 /**
  * Agent bindings of central MCP servers and their live application. OpenClaw
@@ -357,35 +332,20 @@ export class McpChanges {
   }
   /** Patches when the compiled signature changed; marks agents whose globs changed. */
   async patch(runtime, running, profiles, inputs) {
-    const sections = mcpSections({ profiles, ...inputs });
-    const snapshot = mcpSnapshot(sections);
-    if (snapshot.signature === running.signature) return false;
-    // applyMcp on the start's global list: `mcp` and `tools.allow` as a start writes,
-    // including the shell tools while some agent has shell (they apply hot).
-    const global = {
-      tools: { allow: [...nativeTools, ...(runtime.webTools?.tools || [])] },
-    };
-    const target = applyMcp(applyShell(global, shellSections({ profiles })), sections);
     const { config: live } = runtimeFor(null, runtime);
+    // `mcp` and `tools.allow` as a start writes them, on the start's global list with
+    // its web tools, including the shell tools while some agent has shell (they
+    // apply hot).
+    const { snapshot, build } = live.compiler.mcpLive({
+      profiles,
+      inputs,
+      webTools: runtime.webTools,
+    });
+    if (snapshot.signature === running.signature) return false;
     const adoption = live.watchAdoption(this.adoption);
     try {
       adoption.mark();
-      const base = await live.patch({
-        build: (config) => {
-          const current = record(config.mcp?.servers) ? config.mcp.servers : {};
-          const servers = target.mcp?.servers || {};
-          const patch = { tools: { allow: target.tools.allow } };
-          if (Object.keys(current).length || Object.keys(servers).length)
-            patch.mcp = { servers: mergeDiff(current, servers) };
-          // A merge patch cannot shorten or drop an array; OpenClaw needs each one listed.
-          const arrays = Object.entries(current)
-            .filter(
-              ([name, server]) => pathName.test(name) && Array.isArray(server?.args),
-            )
-            .map(([name]) => `mcp.servers.${name}.args`);
-          return { patch, replacePaths: ["tools.allow", ...arrays] };
-        },
-      });
+      const base = await live.patch({ build });
       // A turn admitted after the save must already see the changed MCP servers.
       const written = await live.get();
       await adoption.settle(base?.hash, written.hash);

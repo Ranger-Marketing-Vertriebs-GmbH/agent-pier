@@ -3,7 +3,7 @@
 An agent can get its own Telegram bot for other people (AGENTPIER-26). OpenClaw
 runs the bot natively inside the agents' Gateway; AgentPier stores the token and the
 allowed people and compiles them at each Gateway start
-(`server/features/assistants/openclaw-config/telegram-senders.js`); changed allowed
+(`server/features/assistants/runtimes/openclaw/openclaw-config/telegram-senders.js`); changed allowed
 people reach the running Gateway live (AGENTPIER-52). The owner's own
 AgentPier bot (`server/features/assistant-channels/`) is unchanged and separate.
 

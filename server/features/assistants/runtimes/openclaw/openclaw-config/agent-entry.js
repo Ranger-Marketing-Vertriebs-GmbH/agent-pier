@@ -3,10 +3,10 @@ import {
   personalShell,
   profileTools,
   senderLockedTools,
-} from "../native-capabilities.js";
-import { compiledSkillNames } from "../built-in-skills.js";
+} from "../../../native-capabilities.js";
+import { compiledSkillNames } from "../../../built-in-skills.js";
 import { agentExec } from "./shell.js";
-import { lockedEntry } from "../../users/user-agent-lock.js";
+import { lockedEntry } from "../../../../users/user-agent-lock.js";
 
 // One definition for a Gateway start and a live apply: the same assistant and
 // runtime state always yield the same managed entry paths. `toolsManaged` and

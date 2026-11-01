@@ -4,8 +4,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { applicationFixture, enabledAssistants } from "../helpers/application.js";
 import { ownUserAgent } from "../helpers/user-agents.js";
-import { compileOpenClawConfig } from "../../server/features/assistants/runtime-config.js";
-import { readMcpInputs } from "../../server/features/assistants/openclaw-config/mcp-servers.js";
+import { compileOpenClawConfig } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
+import { readMcpInputs } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/mcp-servers.js";
 
 const json = (response) => response.json();
 const locked = async (response, label) => {

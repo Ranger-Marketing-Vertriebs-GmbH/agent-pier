@@ -3,9 +3,8 @@ import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { readJSON } from "../../lib/storage.js";
-import { configuredAgents } from "./openclaw-config/telegram-senders.js";
 import { openInsideSync } from "./project-open.js";
-import { runtimeEnvironment } from "./runtime-config.js";
+import { compilerFor } from "./runtimes/runtime-for.js";
 import { privateFolder } from "./runtime-paths.js";
 
 /*
@@ -151,7 +150,7 @@ export class DreamingBackups {
     const { enabled, hour, timeZone } = this.settings.get();
     if (!enabled || !inWindow(now, hour, timeZone)) return [];
     const taken = [];
-    for (const id of configuredAgents(readJSON(paths.config, null))) {
+    for (const id of compilerFor(null).configuredAgents(readJSON(paths.config, null))) {
       const agent = agents.get(id);
       if (!agent) continue;
       const newest = backupsIn(path.join(root, id)).at(-1);
@@ -184,7 +183,7 @@ export async function forgetDreamingSession(assistants, agent, sessionIds) {
     [descriptor.entryPath, ...args, ...sessions, "--json"],
     {
       cwd: paths.root,
-      env: runtimeEnvironment(paths, descriptor.nodePath),
+      env: compilerFor(agent).environment(paths, descriptor.nodePath),
       timeout: forgetTimeoutMs,
       maxBuffer: 4 * 1024 * 1024,
     },

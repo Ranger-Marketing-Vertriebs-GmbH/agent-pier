@@ -1,7 +1,7 @@
 import path from "node:path";
 import { bundledSkillNames } from "../features/assistants/agent-skills.js";
 import { builtInSkillNames } from "../features/assistants/built-in-skills.js";
-import { shadowingSkillNames } from "../features/assistants/openclaw-config/skill-shadows.js";
+import { shadowingSkillNames } from "../features/assistants/runtimes/openclaw/openclaw-config/skill-shadows.js";
 import { SkillCatalog } from "../features/skill-catalog/catalog-service.js";
 import { SkillCatalogStore } from "../features/skill-catalog/catalog-store.js";
 import { hostReady, runtimeFor } from "../features/assistants/runtimes/runtime-for.js";

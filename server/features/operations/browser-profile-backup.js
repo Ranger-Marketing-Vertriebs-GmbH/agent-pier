@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { agentProfileName } from "../assistants/openclaw-config/browser-profiles.js";
+import { agentProfileName } from "../assistants/browser-profile-names.js";
 import { sqliteSnapshotFileAsync } from "./snapshot.js";
 import { areaComponent, ensureSpace } from "./backup-components.js";
 

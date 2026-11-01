@@ -1,9 +1,8 @@
 import { detectBrowser } from "./browser-detection.js";
 import { restartRequired } from "./assistant-provider-synchronization.js";
 import { temporaryMember } from "./team-presentation.js";
-import { webToolsSignatures } from "./openclaw-config/web-tools.js";
 import { usedCapabilities } from "./native-capabilities.js";
-import { hostOf, hostReady } from "./runtimes/runtime-for.js";
+import { compilerFor, hostOf, hostReady } from "./runtimes/runtime-for.js";
 
 /**
  * The global web tool sections (the tools.allow additions, tools.web, the search
@@ -108,7 +107,7 @@ export class WebToolsChanges {
       pdf,
       browserAllowPrivateNetwork: this.network().allowPrivateNetwork,
     };
-    const now = webToolsSignatures({ webTools });
+    const now = compilerFor(null).webToolsSignatures({ webTools });
     return keys.some((key) => key in now && now[key] !== running.signatures?.[key]);
   }
   /** The profiles once `patch` is saved for `id`, as the store merges capabilities. */

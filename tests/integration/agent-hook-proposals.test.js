@@ -29,7 +29,7 @@ import {
   profileTools,
   routineTools,
 } from "../../server/features/assistants/native-capabilities.js";
-import { nativeTools } from "../../server/features/assistants/runtime-config.js";
+import { nativeTools } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 import { actionItem } from "../../server/features/inbox/inbox-items.js";
 import { inboxCopy as inboxEn } from "../../web/lib/i18n/en/inbox.js";
 import { inboxCopy as inboxDe } from "../../web/lib/i18n/de/inbox.js";

@@ -3,21 +3,21 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { compileOpenClawConfig } from "../../server/features/assistants/runtime-config.js";
+import { compileOpenClawConfig } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
 import {
   hasDocumentExtract,
   webToolsAvailability,
   webToolsSections,
   webToolsSignatures,
-} from "../../server/features/assistants/openclaw-config/web-tools.js";
+} from "../../server/features/assistants/runtimes/openclaw/openclaw-config/web-tools.js";
 import {
   capabilityKeys,
   guardGatedTools,
   personalCapabilities,
   profileTools,
 } from "../../server/features/assistants/native-capabilities.js";
-import { isLockedPath } from "../../server/features/assistants/openclaw-config/locked-core.js";
-import { applyOverrides } from "../../server/features/assistants/openclaw-config/overrides.js";
+import { isLockedPath } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/locked-core.js";
+import { applyOverrides } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/overrides.js";
 import { guardNeeded } from "../../server/features/assistants/write-guard-wait.js";
 import {
   pdfCall,
