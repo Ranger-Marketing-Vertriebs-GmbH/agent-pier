@@ -46,10 +46,25 @@ export function serveCommands(range) {
 
 const readStatus = async (run) => JSON.parse(await run(["serve", "status", "--json"]));
 
+/** A CLI killed by its timeout (or a signal): calling it again would hang as long. */
+const stalled = (error) => Boolean(error?.killed || error?.signal);
+
+/** Runs `args` unless the CLI stalled before; a stall is remembered in `state`. */
+async function attempt(run, args, state) {
+  if (state.stall) throw state.stall;
+  try {
+    return await run(args);
+  } catch (error) {
+    if (stalled(error)) state.stall = error;
+    throw error;
+  }
+}
+
 /**
  * Registers every slot of `range` with Tailscale Serve once, idempotently: an owned slot
  * stays, a slot another program uses is reported, never overwritten. Owned slots of
- * `previousRange` outside `range` are switched off. Never throws.
+ * `previousRange` outside `range` are switched off. After a timed-out call the remaining
+ * slots fail with their commands without another call. Never throws.
  */
 export async function applyPreviewServe({ run, range, previousRange = null }) {
   let status;
@@ -63,10 +78,11 @@ export async function applyPreviewServe({ run, range, previousRange = null }) {
       commands: serveCommands(range),
     };
   }
+  const state = {};
   const inside = new Set(slotsOf(range));
   for (const slot of slotsOf(previousRange))
     if (!inside.has(slot) && owned(status, slot))
-      await run(["serve", `--https=${slot}`, "off"]).catch(() => {});
+      await attempt(run, ["serve", `--https=${slot}`, "off"], state).catch(() => {});
   const registered = [];
   const failed = [];
   const commands = [];
@@ -75,7 +91,7 @@ export async function applyPreviewServe({ run, range, previousRange = null }) {
     else if (occupied(status, slot)) failed.push({ port: slot, reason: "occupied" });
     else
       try {
-        await run(["serve", "--bg", `--https=${slot}`, target(slot)]);
+        await attempt(run, ["serve", "--bg", `--https=${slot}`, target(slot)], state);
         registered.push(slot);
       } catch (error) {
         failed.push({ port: slot, reason: reasonOf(error) });
@@ -94,10 +110,11 @@ export async function removePreviewServe({ run, range }) {
   } catch {
     return { removed };
   }
+  const state = {};
   for (const slot of slotsOf(range))
     if (owned(status, slot))
       try {
-        await run(["serve", `--https=${slot}`, "off"]);
+        await attempt(run, ["serve", `--https=${slot}`, "off"], state);
         removed.push(slot);
       } catch {}
   return { removed };

@@ -182,3 +182,48 @@ test("runTailscale runs the CLI asynchronously with a 30 second timeout", async 
     /absolute path/,
   );
 });
+
+test("after a timed-out call the remaining slots fail with their commands, uncalled", async () => {
+  const calls = [];
+  const run = async (args) => {
+    calls.push(args);
+    if (args[1] === "status") return "{}";
+    // A CLI that hangs until runTailscale's timeout kills it.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    throw Object.assign(new Error("timed out"), { killed: true, signal: "SIGTERM" });
+  };
+  const range = { start: 47100, end: 47102 };
+  const result = await applyPreviewServe({ run, range });
+  assert.equal(writes(calls).length, 1);
+  assert.deepEqual(
+    result.failed.map((entry) => entry.port),
+    [47100, 47101, 47102],
+  );
+  assert.deepEqual(result.commands, serveCommands(range));
+  const status = {
+    Web: {
+      ...web(47100, "http://127.0.0.1:48100"),
+      ...web(47101, "http://127.0.0.1:48101"),
+    },
+  };
+  const removing = [];
+  await removePreviewServe({
+    run: async (args) => {
+      removing.push(args);
+      if (args[1] === "status") return JSON.stringify(status);
+      throw Object.assign(new Error("timed out"), { killed: true });
+    },
+    range,
+  });
+  assert.equal(writes(removing).length, 1);
+});
+
+test("runTailscale takes a shorter timeout", async () => {
+  let seen;
+  const execFile = (file, args, options, done) => {
+    seen = options.timeout;
+    done(null, "", "");
+  };
+  await runTailscale(["status"], { env: {}, execFile, timeout: 50 });
+  assert.equal(seen, 50);
+});

@@ -13,7 +13,7 @@ export const previews = {
   PREVIEW_NOT_FOUND: "Diese Vorschau existiert nicht mehr.",
   accessRevoked: "AgentPier-Zugriff widerrufen oder Session nicht verfügbar.",
   PREVIEW_RANGE_INVALID:
-    "Ungültiger Portbereich: erlaubt sind Ports von 1024 bis 65535, höchstens 50 Ports, ohne den Port von AgentPier, den Pipeline-Portbereich und den Tailscale-HTTPS-Port.",
+    "Ungültiger Portbereich: erlaubt sind Ports von 1024 bis 64535, höchstens 50 Ports, ohne den Port von AgentPier, den Pipeline-Portbereich und den Tailscale-HTTPS-Port, auch nicht 1000 Ports höher (die Tailscale-Listener).",
   pages: {
     bounceTitle: "Vorschau wird geöffnet …",
     bounceLink: "Weiter zur Vorschau",
