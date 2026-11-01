@@ -37,6 +37,7 @@ import useMediaQuery from "../lib/useMediaQuery.js";
 import { mediaQueries } from "../lib/breakpoints.js";
 import useViewsStore from "../features/views/useViewsStore.js";
 import { ViewsContext } from "../features/views/views-context.js";
+import useViewRouting from "../features/views/useViewRouting.js";
 const AgentsPage = lazy(() => import("../features/assistants/AgentsPage.jsx"));
 const ProjectsPage = lazy(() => import("../features/projects/ProjectsPage.jsx"));
 const CodingPage = lazy(() => import("../features/coding/CodingPage.jsx"));
@@ -129,13 +130,6 @@ function Application() {
     setMobileNav,
     setModal,
   });
-  // A tapped push notification opens its page here when the app is already open.
-  useNotificationOpen((url) => {
-    const next = readRoute(url);
-    if (next.view === "missing") return false;
-    navigate(next);
-    return true;
-  });
   // The page that shows the address: new areas render today's pages until they have
   // their own (route-screens.js); cross-links keep the address as their origin.
   const route = screenRoute(address);
@@ -143,6 +137,16 @@ function Application() {
   // Split views exist wider than 1150 px; a view's own address loads them anywhere.
   const viewsOffered = useMediaQuery(mediaQueries.aboveTablet);
   const views = useViewsStore({ enabled: viewsOffered || view === "split" });
+  // Sidebar rows, search results and notification taps focus an item already in a
+  // view instead of opening it alone (click rule); direct URL loads stay single.
+  const { openSession, openRoute } = useViewRouting({ navigate, select, route, views });
+  // A tapped push notification opens its page here when the app is already open.
+  useNotificationOpen((url) => {
+    const next = readRoute(url);
+    if (next.view === "missing") return false;
+    openRoute(next);
+    return true;
+  });
   const notFound =
     missing ||
     (view === "split" && views.loaded && !views.byId(route.viewId)
@@ -174,8 +178,8 @@ function Application() {
     });
   const content = (
     <AppSearch
-      navigate={navigate}
-      select={select}
+      navigate={openRoute}
+      select={openSession}
       workspace={ready ? state : null}
       launch={launch}
       extensionProfileId={extensionProfileId}
@@ -207,6 +211,8 @@ function Application() {
           {...{
             mobileNav,
             select,
+            openSession,
+            openRoute,
             launch,
             installed,
             view,
@@ -269,7 +275,7 @@ function Application() {
                   state={state}
                   ready={ready}
                   navigate={navigate}
-                  openRoute={navigate}
+                  openRoute={openRoute}
                   action={act}
                   autoResume={state.autoResumeInterrupted !== false}
                 />

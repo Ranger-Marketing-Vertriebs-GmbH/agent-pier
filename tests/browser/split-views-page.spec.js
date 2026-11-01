@@ -95,7 +95,7 @@ for (const language of ["en", "de"]) {
     test("the view name renames in place", async ({ page }) => {
       const controls = await splitViewFixture(page, { language });
       await page.goto(viewURL);
-      await page.getByRole("button", { name: "Design review" }).click();
+      await page.getByRole("button", { name: "Design review", exact: true }).click();
       const field = page.getByRole("textbox", { name: text.nameLabel });
       await field.fill("Shop");
       await field.press("Enter");
