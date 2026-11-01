@@ -38,6 +38,7 @@ import {
   attemptTurn,
   boundAttempts,
 } from "./session-bindings.js";
+import { hostReady } from "./runtimes/runtime-for.js";
 const leavingReady = new Set([
   "reconnecting",
   "stopping",
@@ -107,7 +108,7 @@ export class TeamBridge {
     if (
       this.closed ||
       record.generation !== this.generation() ||
-      !this.assistants.runtime.client?.ready
+      !hostReady(this.assistants.runtime)
     )
       throw assistantProblem("unavailable", 403);
     // Team tools and SSH are locked for user agents (user-agent-lock.js).
@@ -294,7 +295,7 @@ export class TeamBridge {
     for (const k of ["agentId", "sessionKey", "path"]) textValue(input[k], 4096);
     // The hook's run id (OpenClaw 2026.10.3 reports it); only flushes rely on it.
     if ("runId" in input) textValue(input.runId, 512);
-    if (this.closed || !this.assistants.runtime.client?.ready) return { allow: false };
+    if (this.closed || !hostReady(this.assistants.runtime)) return { allow: false };
     // A write of a turn whose send went unacknowledged proves it, as a tool call does.
     if (input.runId) confirmFromCall(this.assistants, input.sessionKey, input.runId);
     const settle = (allow) => {

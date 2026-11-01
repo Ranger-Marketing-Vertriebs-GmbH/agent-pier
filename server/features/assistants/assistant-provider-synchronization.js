@@ -3,6 +3,7 @@ import { temporaryMember } from "./team-presentation.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { destroyBackupKeys } from "./backup-credentials.js";
 import { personalCapabilities } from "./native-capabilities.js";
+import { hostReady } from "./runtimes/runtime-for.js";
 
 const blockedModel = { primary: "agentpier-unavailable/blocked", fallbacks: [] };
 const central = (profile) => !profile.model.connectionId.startsWith("openclaw:");
@@ -35,7 +36,7 @@ export class AssistantProviderSynchronization {
   // the Gateway actually consumes these references after restart.
   async prepare() {
     const a = this.assistants;
-    if (a.runtime.client?.ready) throw assistantProblem("active", 409);
+    if (hostReady(a.runtime)) throw assistantProblem("active", 409);
     const config = readJSON(a.runtime.paths.config, null);
     if (!config) return;
     const profiles = a.store.listAssistants();
@@ -124,7 +125,7 @@ export class AssistantProviderSynchronization {
   }
   async pauseBlocked({ duringMaintenance = false } = {}) {
     const a = this.assistants;
-    if (!a.runtime.client?.ready || (a.maintenance && !duringMaintenance)) return;
+    if (!hostReady(a.runtime) || (a.maintenance && !duringMaintenance)) return;
     try {
       for (const id of this.blocked) {
         if (!a.store.getAssistant(id).archivedAt) await a.reminders?.disable(id);

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import https from "node:https";
 import { WebSocketServer } from "ws";
-import { issueGatewayCertificate } from "../../server/features/assistants/gateway-tls.js";
+import { issueGatewayCertificate } from "../../server/features/assistants/runtimes/openclaw/gateway-tls.js";
 
 // Child-process stand-in for `openclaw gateway run`: reads the config the supervisor
 // prepared and serves the protocol-4 handshake over the configured TLS material.

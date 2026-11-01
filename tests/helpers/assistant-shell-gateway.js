@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "./process-guard.js";
-import { GatewayClient } from "../../server/features/assistants/gateway-client.js";
+import { GatewayClient } from "../../server/features/assistants/runtimes/openclaw/gateway-client.js";
 import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
 import { patchConfig } from "../../server/features/assistants/openclaw-config/live-patch.js";
 import { assistantModelServer } from "./assistant-model-server.js";

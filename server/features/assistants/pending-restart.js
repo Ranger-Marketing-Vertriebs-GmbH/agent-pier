@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { readJSON, writePrivate } from "../../lib/storage.js";
+import { hostReady } from "./runtimes/runtime-for.js";
 
 // How often a pending restart checks again whether nothing is busy any more.
 export const pendingRestartRetryMs = 15000;
@@ -89,7 +90,7 @@ export class PendingRestart {
   request(reason, affected = { agents: [], teamMembers: 0 }) {
     const runtime = this.assistants.runtime;
     const availability = runtime.status?.().availability;
-    if (availability ? availability === "disabled" : !runtime.client?.ready) return false;
+    if (availability ? availability === "disabled" : !hostReady(runtime)) return false;
     const state = this.state || {
       since: Date.now(),
       reasons: [],
@@ -158,7 +159,7 @@ export class PendingRestart {
       return this.attempt({ force });
     }
     // A stopped or starting Gateway compiles the changes when it starts.
-    if (!this.assistants.runtime.client?.ready) {
+    if (!hostReady(this.assistants.runtime)) {
       this.schedule(this.retryMs);
       return null;
     }

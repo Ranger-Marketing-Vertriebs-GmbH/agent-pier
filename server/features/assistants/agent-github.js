@@ -9,6 +9,7 @@ import {
 } from "./native-capabilities.js";
 import { mcpEligible } from "./openclaw-config/mcp-servers.js";
 import { isUserAgent } from "../users/user-access.js";
+import { hostReady } from "./runtimes/runtime-for.js";
 
 // GitHub access for agents through AgentPier's token profiles (AGENTPIER-129): the
 // official GitHub MCP server, bound per agent with its profile's token, and with shell
@@ -304,7 +305,7 @@ export class AgentGithub {
     // Agents that use GitHub now or did at the last refresh, and the ones named.
     const before = this.used || new Set();
     this.used = new Set(used.map((p) => p.id));
-    if (!this.w.a.runtime?.client?.ready) return;
+    if (!hostReady(this.w.a.runtime)) return;
     const targets = new Set([...this.used, ...before, ...(ids || [])]);
     for (const profile of profiles)
       if (targets.has(profile.id))

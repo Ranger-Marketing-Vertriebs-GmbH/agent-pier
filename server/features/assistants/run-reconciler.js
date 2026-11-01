@@ -1,5 +1,6 @@
 import { settleUnreviewable } from "./attempt-recovery.js";
 import { titleAfterReply } from "./generated-titles.js";
+import { hostReady } from "./runtimes/runtime-for.js";
 
 export function terminalState(result) {
   if (result.status === "ok")
@@ -17,7 +18,7 @@ function timedOut(service, runId, result) {
   );
 }
 export async function reconcileRuns(service) {
-  if (!service.runtime.client?.ready || service.closed) return;
+  if (!hostReady(service.runtime) || service.closed) return;
   for (const listed of service.ledger.unresolved()) {
     if (service.closed) return;
     // Its send decides first (conversation-turns.js).

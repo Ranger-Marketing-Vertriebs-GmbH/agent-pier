@@ -13,6 +13,7 @@ import {
 } from "../assistants/openclaw-config/mcp-servers.js";
 import { oauthStatus } from "./openclaw-mcp-cli.js";
 import { oauthCallbackPath, oauthLoginUsable } from "./oauth-redirect.js";
+import { hostReady } from "../assistants/runtimes/runtime-for.js";
 
 const messages = serverMessages.mcpServers;
 export const pendingLoginMs = 10 * 60 * 1000;
@@ -31,7 +32,6 @@ export const providerErrors = new Set([
   "server_error",
   "temporarily_unavailable",
 ]);
-
 /** A refusal or failure with a stable `code` and a German catalog message. */
 const failure = (message, code, status) =>
   Object.assign(problem(message, status), { code });
@@ -377,10 +377,10 @@ export class McpOAuthLogins {
    */
   async resetBackoff() {
     const runtime = this.runtime;
-    if (!runtime?.client?.ready || !runtime.mcp) return false;
+    if (!hostReady(runtime) || !runtime.mcp) return false;
     try {
       await this.admit(async () => {
-        if (!runtime.client?.ready) return;
+        if (!hostReady(runtime)) return;
         await patchConfig(runtime.client, (config) => ({
           patch: {
             mcp: { sessionIdleTtlMs: nudgedIdleTtl(config.mcp?.sessionIdleTtlMs) },

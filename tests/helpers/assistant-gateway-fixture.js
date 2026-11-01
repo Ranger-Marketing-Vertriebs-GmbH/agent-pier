@@ -3,7 +3,7 @@ import https from "node:https";
 import os from "node:os";
 import path from "node:path";
 import { WebSocketServer } from "ws";
-import { issueGatewayCertificate } from "../../server/features/assistants/gateway-tls.js";
+import { issueGatewayCertificate } from "../../server/features/assistants/runtimes/openclaw/gateway-tls.js";
 
 // Mirrors the managed Gateway transport: loopback WSS with a certificate whose
 // public half is written to a private file that the client pins.

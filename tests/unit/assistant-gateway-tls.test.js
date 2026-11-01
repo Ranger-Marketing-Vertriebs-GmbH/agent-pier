@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { X509Certificate } from "node:crypto";
-import { issueGatewayCertificate } from "../../server/features/assistants/gateway-tls.js";
+import { issueGatewayCertificate } from "../../server/features/assistants/runtimes/openclaw/gateway-tls.js";
 
 // Random serials whose leading byte is zero used to produce a non-minimal DER
 // INTEGER that OpenSSL rejects (ERR_OSSL_ASN1_ILLEGAL_PADDING), so about one start

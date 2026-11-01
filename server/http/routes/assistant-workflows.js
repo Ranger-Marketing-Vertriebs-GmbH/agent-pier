@@ -2,6 +2,7 @@ import { Router } from "express";
 import { assistantProblem } from "../../features/assistants/assistant-validation.js";
 import { messageIdentity } from "../../lib/i18n/message-identity.js";
 import { ownerActionList } from "../../features/users/approval-audience.js";
+import { hostReady } from "../../features/assistants/runtimes/runtime-for.js";
 export function assistantWorkflowRoutes({ assistants }) {
   const router = Router(),
     service = () => {
@@ -35,7 +36,7 @@ export function assistantWorkflowRoutes({ assistants }) {
       if (JSON.stringify(previous.github) !== JSON.stringify(saved.github))
         await service().github.refresh([req.params.id]);
       // Gaining the first or losing the last grant changes the agent's tool list.
-      if (before !== saved.sshAccesses.length > 0 && assistants.runtime?.client?.ready)
+      if (before !== saved.sshAccesses.length > 0 && hostReady(assistants.runtime))
         await assistants.config.apply(req.params.id).catch(() => {});
       res.json(saved);
     }),

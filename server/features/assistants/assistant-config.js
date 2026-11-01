@@ -26,7 +26,7 @@ import { configWrite, patchConfig } from "./openclaw-config/live-patch.js";
 import { watchConfigAdoption } from "./openclaw-config/config-adoption.js";
 import { waitForAgentInRoster } from "./openclaw-config/agent-roster.js";
 import { settledAdmission } from "./agent-admission.js";
-import { agentCreateTimeoutMs } from "./gateway-client.js";
+import { agentCreateTimeoutMs } from "./runtimes/openclaw/gateway-client.js";
 import { agentExec, shellSections, shellTools } from "./openclaw-config/shell.js";
 // Bootstrap files the Gateway exposes besides AGENTS.md. AgentPier never creates
 // them (skipBootstrap), so any content is foreign and is neutralized. USER.md is

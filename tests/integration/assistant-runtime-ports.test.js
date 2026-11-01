@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import tls from "node:tls";
 import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "../helpers/process-guard.js";
-import { issueGatewayCertificate } from "../../server/features/assistants/gateway-tls.js";
+import { issueGatewayCertificate } from "../../server/features/assistants/runtimes/openclaw/gateway-tls.js";
 
 // The Gateway port is drawn free and released (freePort), so another listener may
 // take it before the Gateway binds it: the team bridge's own listen(0) did on Linux

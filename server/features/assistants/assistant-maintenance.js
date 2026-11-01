@@ -8,6 +8,7 @@ import { durablePrivate } from "./runtime-update-snapshot.js";
 import { ledgerFence } from "./ledger-fence.js";
 import { blockerCodes, blockerItems } from "./runtime-update-blockers.js";
 import { confirmedAll, resolveItems } from "./runtime-update-resolution.js";
+import { hostReady } from "./runtimes/runtime-for.js";
 export function needsAssistantMaintenance(paths) {
   if (fs.existsSync(path.join(paths.root, "runtime-maintenance.json"))) return true;
   try {
@@ -59,7 +60,7 @@ export class AssistantMaintenance {
         a.workflows?.running,
       ].filter(Boolean),
     );
-    if (this.intent && this.s.assistantRuntime.client?.ready) await this.setCron(false);
+    if (this.intent && hostReady(this.s.assistantRuntime)) await this.setCron(false);
     await this.s.assistantChannels.pause();
     await this.quiesce();
   }
@@ -122,7 +123,7 @@ export class AssistantMaintenance {
     await this.s.assistantProviderSynchronization?.pauseBlocked({
       duringMaintenance: true,
     });
-    if (this.intent && this.s.assistantRuntime.client?.ready)
+    if (this.intent && hostReady(this.s.assistantRuntime))
       await this.setCron(this.intent.cronEnabled);
     if (this.file) {
       fs.rmSync(this.file, { force: true });
@@ -173,7 +174,7 @@ export class AssistantMaintenance {
     for (let attempt = 0; attempt < 100; attempt++) {
       try {
         if (
-          runtime.client?.ready &&
+          hostReady(runtime) &&
           (await runtime.client.call("cron.status", {})).enabled === enabled
         )
           return;

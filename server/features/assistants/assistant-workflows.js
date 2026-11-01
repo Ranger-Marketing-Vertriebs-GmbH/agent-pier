@@ -42,6 +42,7 @@ import { deliverCodingStart } from "./coding-start-follow-up.js";
 import { emitCompletion } from "./coding-completion.js";
 import { AgentCodingSessions } from "./coding-sessions/agent-coding-sessions.js";
 import { AgentProjects } from "./agent-projects.js";
+import { hostReady } from "./runtimes/runtime-for.js";
 // How long an expired exec action waits for the Gateway's own outcome.
 const execExpiryGraceMs = 60000;
 export class AssistantWorkflows {
@@ -493,7 +494,7 @@ export class AssistantWorkflows {
       if (
         a.expiresAt < Date.now() &&
         a.payload.action === "exec" &&
-        this.a.runtime?.client?.ready &&
+        hostReady(this.a.runtime) &&
         Date.now() < a.expiresAt + execExpiryGraceMs
       )
         return this.exec.expired();

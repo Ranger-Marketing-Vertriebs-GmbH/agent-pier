@@ -14,6 +14,7 @@ import { loopGuard } from "./agent-loop-guard.js";
 import { ownerChatCall } from "./owner-runs.js";
 import { notifyAgentProject } from "./agent-project-notes.js";
 import { mayCreateProjects } from "./goal-turns.js";
+import { hostReady } from "./runtimes/runtime-for.js";
 
 const run = promisify(execFile);
 const openFolder = constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW;
@@ -304,7 +305,7 @@ export class AgentProjects {
   // The new folder and coding guidance reach the agent; a failed apply converges later.
   refresh(agent) {
     const a = this.w.a;
-    if (!a.runtime?.client?.ready) return;
+    if (!hostReady(a.runtime)) return;
     Promise.resolve()
       .then(() => a.admit(() => a.config.apply(agent.id)))
       .catch(() => {});

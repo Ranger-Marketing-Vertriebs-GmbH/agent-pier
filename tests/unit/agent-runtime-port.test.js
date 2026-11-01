@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { EventEmitter } from "node:events";
 import {
   RUNTIME_PORTS,
   available,
@@ -8,13 +9,15 @@ import {
 } from "../../server/features/assistants/runtimes/agent-runtime.js";
 import { createOpenClawRuntime } from "../../server/features/assistants/runtimes/openclaw/openclaw-runtime.js";
 import {
+  hostReady,
   runtimeFor,
   runtimeResolver,
 } from "../../server/features/assistants/runtimes/runtime-for.js";
 import { fakeRuntime, runtimePortContract } from "../helpers/runtime-port-contract.js";
 
 // A supervisor whose Gateway client answers like OpenClaw, or none while it is down.
-function fakeSupervisor({ channels = {}, unreachable = false } = {}) {
+// Its lifecycle moves availability as runtime-supervisor.js does.
+function fakeSupervisor({ channels = {}, unreachable = false, version = null } = {}) {
   const calls = [];
   const client = {
     ready: true,
@@ -26,7 +29,40 @@ function fakeSupervisor({ channels = {}, unreachable = false } = {}) {
       return { channelAccounts: structuredClone(channels) };
     },
   };
-  return { client: unreachable ? null : client, calls };
+  const supervisor = new EventEmitter();
+  const state = {
+    availability: unreachable ? "failed" : "ready",
+    sync: "stale",
+    version,
+    diagnostic: unreachable ? "PROCESS_EXIT" : null,
+  };
+  const setState = (patch) => {
+    Object.assign(state, patch);
+    supervisor.emit("status", { ...state });
+  };
+  return Object.assign(supervisor, {
+    client: unreachable ? null : client,
+    calls,
+    lifecycle: [],
+    status: () => ({ ...state }),
+    async start(options) {
+      supervisor.lifecycle.push(["start", options]);
+      setState({ availability: "starting" });
+      supervisor.client = client;
+      setState({ availability: "ready", sync: "reconciling" });
+    },
+    async stop(options) {
+      supervisor.lifecycle.push(["stop", options]);
+      supervisor.client = null;
+      setState({ availability: "stopping" });
+      setState({ availability: "disabled", sync: "stale" });
+    },
+    async restart() {
+      supervisor.lifecycle.push(["restart"]);
+      await supervisor.stop();
+      await supervisor.start();
+    },
+  });
 }
 
 runtimePortContract("fake runtime", (state) => fakeRuntime(state));
@@ -57,6 +93,44 @@ test("the OpenClaw adapter creates and subscribes sessions on the current client
     ["sessions.create", { agentId: "agent-1", label: "main" }],
     ["sessions.messages.subscribe", { key: "session:main" }],
   ]);
+});
+
+test("the OpenClaw host follows the supervisor's client and lifecycle", async () => {
+  const supervisor = fakeSupervisor({ version: "2026.10.3" });
+  const { host } = createOpenClawRuntime(supervisor);
+  assert.equal(host.ready(), true);
+  // Readiness is the client's: a connected process whose client dropped is not ready.
+  supervisor.client = { ready: false };
+  assert.equal(host.ready(), false);
+  supervisor.client = null;
+  assert.equal(host.ready(), false);
+  const seen = [];
+  const unsubscribe = host.subscribe((status) => seen.push(status.availability));
+  await host.start({ automatic: true });
+  await host.stop({ urgent: true });
+  unsubscribe();
+  assert.equal(supervisor.listenerCount("status"), 0);
+  await host.restart();
+  assert.deepEqual(seen, ["starting", "ready", "stopping", "disabled"]);
+  assert.deepEqual(supervisor.lifecycle, [
+    ["start", { automatic: true }],
+    ["stop", { urgent: true }],
+    ["restart"],
+    ["stop", undefined],
+    ["start", undefined],
+  ]);
+  assert.equal(host.version(), "2026.10.3");
+  assert.equal(createOpenClawRuntime(fakeSupervisor()).host.version(), null);
+});
+
+test("hostReady answers for a supervisor, or false without one", () => {
+  assert.equal(hostReady(fakeSupervisor()), true);
+  assert.equal(hostReady(fakeSupervisor({ unreachable: true })), false);
+  assert.equal(hostReady(undefined), false);
+  assert.equal(hostReady(null), false);
+  // Feature tests pass bare stand-ins of the supervisor.
+  assert.equal(hostReady({ client: { ready: true } }), true);
+  assert.equal(hostReady({}), false);
 });
 
 test("runtimeFor returns one OpenClaw adapter per supervisor for every agent", () => {

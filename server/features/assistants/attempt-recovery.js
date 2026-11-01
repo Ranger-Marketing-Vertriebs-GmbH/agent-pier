@@ -1,4 +1,5 @@
 import { assistantProblem } from "./assistant-validation.js";
+import { hostReady } from "./runtimes/runtime-for.js";
 
 // Recovery after an attempt whose outcome is unknown: the owner acknowledges it, the
 // owned runtime restarts, and the attempt is marked reviewed so a new one may follow.
@@ -69,7 +70,7 @@ export async function settleUnreviewable(service, attempt, conversation) {
  * marked reviewed, and her chat shows its outcome as unknown. Never throws.
  */
 export async function settleUserTurns(service) {
-  if (!service.runtime.client?.ready || service.recovering) return;
+  if (!hostReady(service.runtime) || service.recovering) return;
   for (const attempt of service.ledger.unresolved()) {
     if (attempt.reviewedAt || !unknownOutcome(attempt)) continue;
     try {

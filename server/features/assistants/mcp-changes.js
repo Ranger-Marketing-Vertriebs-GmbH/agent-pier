@@ -21,6 +21,7 @@ import {
   requireStdioConfirmation,
 } from "../mcp-servers/stdio-confirmation.js";
 import { requireLiteralValues } from "../mcp-servers/value-references.js";
+import { hostReady } from "./runtimes/runtime-for.js";
 
 export { STDIO_CONFIRMATION_REQUIRED };
 
@@ -321,7 +322,7 @@ export class McpChanges {
    */
   async apply() {
     const runtime = this.assistants.runtime;
-    const running = runtime.client?.ready && runtime.mcp;
+    const running = hostReady(runtime) && runtime.mcp;
     if (!running) {
       this.pending = true;
       return false;

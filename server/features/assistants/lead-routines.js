@@ -7,6 +7,7 @@ import { routineReport } from "./lead-routine-reports.js";
 import { foreignOrigin } from "./owner-runs.js";
 import { loopGuard } from "./agent-loop-guard.js";
 import { isUserAgent } from "../users/user-access.js";
+import { hostReady } from "./runtimes/runtime-for.js";
 
 // What a lead may set up on one of its permanent members (AGENTPIER-175).
 export const isLeadRoutine = (binding) => binding?.createdBy === "lead";
@@ -305,7 +306,7 @@ export class LeadRoutines {
         this.routines.bindings.patch(binding.id, { state: "revoked", leadEnded: reason });
         this.audit(binding, { change: "remove", by: "system", reason });
       }
-    if (!ending.length || !this.assistants.runtime.client?.ready) return;
+    if (!ending.length || !hostReady(this.assistants.runtime)) return;
     await this.assistants
       .admit(async () => {
         for (const { agent, binding } of ending) {

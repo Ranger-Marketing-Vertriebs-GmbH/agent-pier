@@ -22,6 +22,7 @@ import { answerFields } from "./team-texts.js";
 import { deliverRequest, goalResult } from "./lead-request-delivery.js";
 import { applyTaskShare, taskShare } from "./lead-share-input.js";
 import { recordedTurn } from "./goal-turns.js";
+import { hostReady } from "./runtimes/runtime-for.js";
 // How long the ask tool holds the lead's turn for an answer. AgentPier runs agents
 // on OpenClaw's embedded harness, where a plugin tool call has no own timeout; its
 // stuck-session diagnostics only flag a call as long-running after two minutes, so
@@ -380,7 +381,7 @@ export class LeadRequests {
   }
   async pass() {
     const a = this.assistants;
-    if (this.closed || !a.runtime.client?.ready) return;
+    if (this.closed || !hostReady(a.runtime)) return;
     if (!(Date.now() - (this.prunedAt || 0) < pruneEveryMs)) {
       this.prunedAt = Date.now();
       if (this.store.prune()) a.changed();

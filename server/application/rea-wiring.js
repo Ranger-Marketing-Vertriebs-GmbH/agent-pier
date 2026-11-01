@@ -1,4 +1,5 @@
 import { ReaTool } from "../features/tools/rea-tool.js";
+import { hostReady } from "../features/assistants/runtimes/runtime-for.js";
 
 /**
  * Whether REA runs right now: a running coding session of a CLI its row is bound to
@@ -8,7 +9,7 @@ import { ReaTool } from "../features/tools/rea-tool.js";
 export async function reaInUse({ serverId, servers, sessions, assistants }) {
   if (!serverId) return false;
   const { clis, agents } = servers.targetsOf(serverId);
-  if (agents.length && assistants?.runtime?.client?.ready) return true;
+  if (agents.length && hostReady(assistants?.runtime)) return true;
   if (!clis.length) return false;
   const list = await sessions.list();
   return list.some(

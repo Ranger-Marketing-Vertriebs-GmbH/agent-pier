@@ -1,4 +1,5 @@
 import { personalEligible, personalSkills } from "./native-capabilities.js";
+import { hostReady } from "./runtimes/runtime-for.js";
 
 // Removing a skill from the agent skill catalog switches it off on every agent first
 // (agent-skill-catalog.js). Only the stored lists of eligible agents change: a
@@ -45,7 +46,7 @@ export async function switchOffEverywhere(assistants, name) {
   const changed = catalogUsers(assistants, name)
     .map(({ id }) => id)
     .filter((id) => strip(store, id, name));
-  if (changed.length && runtime.client?.ready)
+  if (changed.length && hostReady(runtime))
     for (const id of changed)
       await assistants.admit(() => config.apply(id)).catch(() => {});
   if (changed.length) assistants.changed?.();

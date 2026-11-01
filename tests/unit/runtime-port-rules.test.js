@@ -49,6 +49,15 @@ test("the channels.status call moved into the port", () => {
   assert.equal(gatewayMethods(sources)[file], undefined);
 });
 
+test("readiness checks go through the host port", () => {
+  // `runtime.client?.ready` outside runtimes/ is hostReady() (runtimes/runtime-for.js).
+  const readiness = /[rR]untime\??\.client\??\.ready\b/;
+  assert.deepEqual(
+    sources.filter(({ text }) => readiness.test(text)).map(({ file }) => file),
+    [],
+  );
+});
+
 test("the scanners recognise each kind of offender", () => {
   const scan = (text) => [{ file: "server/x.js", text }];
   assert.deepEqual(

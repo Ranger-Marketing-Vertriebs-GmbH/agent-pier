@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { GatewayClient } from "../../server/features/assistants/gateway-client.js";
+import { GatewayClient } from "../../server/features/assistants/runtimes/openclaw/gateway-client.js";
 
 test("a screencast path never leaves the Gateway's own host", () => {
   const client = new GatewayClient({

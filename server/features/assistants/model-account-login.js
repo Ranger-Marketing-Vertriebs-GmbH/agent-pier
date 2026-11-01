@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { assistantProblem } from "./assistant-validation.js";
+import { hostReady } from "./runtimes/runtime-for.js";
 const active = new Set(["starting", "awaiting_user"]);
 const loginUrl = "https://auth.openai.com/codex/device";
 // A failure this flow diagnosed itself, as opposed to a Gateway or transport error.
@@ -66,7 +67,7 @@ export class AssistantAccountLogin {
   }
   start() {
     if (this.attempt && active.has(this.attempt.status)) return this.status();
-    if (!this.runtime.client?.ready) throw assistantProblem("unavailable", 503);
+    if (!hostReady(this.runtime)) throw assistantProblem("unavailable", 503);
     const attempt = (this.attempt = {
       id: randomUUID(),
       status: "starting",

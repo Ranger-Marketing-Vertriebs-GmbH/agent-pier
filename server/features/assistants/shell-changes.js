@@ -4,6 +4,7 @@ import { decideAudited } from "./approval-audit.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { decideExec } from "./exec-decisions.js";
 import { personalEligible, personalShell, shellLevels } from "./native-capabilities.js";
+import { hostReady } from "./runtimes/runtime-for.js";
 
 export const SHELL_CONFIRMATION_REQUIRED = "ASSISTANT_SHELL_CONFIRMATION_REQUIRED";
 // Retry delays of a failed live apply: doubling from one second to one minute.
@@ -111,7 +112,7 @@ export class ShellChanges {
         ...state,
       });
     };
-    if (!this.a.runtime.client?.ready) {
+    if (!hostReady(this.a.runtime)) {
       // The next start compiles the store; until it answers nothing is live.
       // Only the backoff carries over; `lowered` follows the latest change.
       const { failures = 0, retryAt = 0 } = this.pending.get(id) || {};
@@ -147,7 +148,7 @@ export class ShellChanges {
   retry({ force = false } = {}) {
     if (this.retrying) return this.retrying;
     const a = this.a;
-    if (!this.pending.size || !a.runtime.client?.ready || a.closed || a.maintenance)
+    if (!this.pending.size || !hostReady(a.runtime) || a.closed || a.maintenance)
       return Promise.resolve();
     this.retrying = (async () => {
       for (const [id, state] of [...this.pending]) {
@@ -176,7 +177,7 @@ export class ShellChanges {
     let denied = change.to === "off" ? await this.denyPending(id) : 0;
     let pending = await this.apply(id, { lowered: !change.raised });
     let aborted = false;
-    if (pending && !change.raised && this.a.runtime.client?.ready) {
+    if (pending && !change.raised && hostReady(this.a.runtime)) {
       pending = await this.apply(id);
       if (pending) {
         await this.abortTurns(id);

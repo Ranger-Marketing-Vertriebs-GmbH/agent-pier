@@ -48,6 +48,7 @@ import { withAdmission } from "./agent-admission.js";
 import { chatCommand, isChatCommand } from "./chat-commands.js";
 import { templateProblem, templateRecord } from "../agency/agency-templates.js";
 import { auditProactivity, proactivityChange } from "./proactivity-changes.js";
+import { hostReady } from "./runtimes/runtime-for.js";
 
 const pick = (value, keys) => Object.fromEntries(keys.map((k) => [k, value[k]]));
 export class AssistantService {
@@ -368,8 +369,7 @@ export class AssistantService {
       // Saved first, so a request arriving now is denied (exec-approvals.js). A
       // failed live apply stays pending and is retried; never reported as live.
       if (shell) pending = (await this.shellChanges.settle(id, shell)) || pending;
-      else if (recompiles(patch) && this.runtime.client?.ready)
-        await this.config.apply(id);
+      else if (recompiles(patch) && hostReady(this.runtime)) await this.config.apply(id);
       pending = (await this.syncHeartbeat(id, patch)) || pending;
       if (queued) this.webTools.queue();
       this.changed();
@@ -398,7 +398,7 @@ export class AssistantService {
     // The restarted Gateway's ready reconciles check-ins; this save repeats it.
     await this.admit(() => this.syncHeartbeat(id, patch)).catch(() => {});
     if (!shell) {
-      if (this.runtime.client?.ready) await this.config.apply(id);
+      if (hostReady(this.runtime)) await this.config.apply(id);
       return this.withMcp(record);
     }
     // The restarted Gateway compiled the level; the apply confirms it.
@@ -463,7 +463,7 @@ export class AssistantService {
     });
   }
   requireReady() {
-    if (this.closed || this.recovering || !this.runtime.client?.ready)
+    if (this.closed || this.recovering || !hostReady(this.runtime))
       throw assistantProblem("unavailable", 503);
   }
   /**

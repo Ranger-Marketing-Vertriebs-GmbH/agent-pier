@@ -18,3 +18,12 @@ export function runtimeFor(agent, supervisor) {
 
 /** A resolver `(agent) => AgentRuntime` bound to the supervisor `supervisor()` returns. */
 export const runtimeResolver = (supervisor) => (agent) => runtimeFor(agent, supervisor());
+
+/**
+ * Whether the runtime host of `agent` behind `supervisor` takes calls now
+ * (host.ready()); false without a supervisor, as during setup or in a closed service.
+ */
+export const hostReady = (supervisor, agent) =>
+  !!supervisor &&
+  typeof supervisor === "object" &&
+  runtimeFor(agent, supervisor).host.ready();

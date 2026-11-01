@@ -2,6 +2,7 @@ import { assistantProblem } from "./assistant-validation.js";
 import { exact } from "./assistant-access.js";
 import { editableMember, leadsMember } from "./member-reach.js";
 import { directOrigin } from "./memory-write-policy.js";
+import { hostReady } from "./runtimes/runtime-for.js";
 
 const choices = ["now", "after_task"];
 // How long `now` waits for a summary without a memory step to report an end at once
@@ -210,7 +211,7 @@ export class MemberSummaries {
   async run(member) {
     if (!this.reachable(member) || this.ownerTalking(member)) return this.drop(member);
     if (this.teams.activeMember(member)) return;
-    if (!this.assistants.runtime.client?.ready) return;
+    if (!hostReady(this.assistants.runtime)) return;
     const status = await this.start(member);
     // Another summary or the chat's own work: it runs instead, or the next pass tries.
     if (status === "already") this.drop(member);

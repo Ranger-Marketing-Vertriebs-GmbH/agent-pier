@@ -8,8 +8,8 @@ import { createGatewaySession } from "../../session-create.js";
  * (tests/unit/runtime-port-rules.test.js).
  *
  * The supervisor's client is read at each call: a Gateway restart replaces it, so the
- * adapter never binds to one. Every method is async, so a missing client rejects like
- * an unreachable Gateway.
+ * adapter never binds to one. Every Gateway method is async, so a missing client
+ * rejects like an unreachable Gateway.
  */
 export function createOpenClawRuntime(supervisor) {
   const call = async (method, params, options) =>
@@ -21,8 +21,32 @@ export function createOpenClawRuntime(supervisor) {
       create: async (params, options) => createGatewaySession({ call }, params, options),
       subscribe: ({ key }) => call("sessions.messages.subscribe", { key }),
     },
+    host: openClawHost(supervisor),
     channels: {
       status: ({ probe = false } = {}) => call("channels.status", { probe }),
     },
   });
+}
+
+/**
+ * The host sub-port over the supervisor: one Gateway per host, so every agent shares
+ * it. `ready()` and `status()` answer synchronously, as callers check them inline;
+ * lifecycle methods return the supervisor's promises.
+ */
+function openClawHost(supervisor) {
+  return {
+    // The Gateway client is connected and authenticated: calls may go out now.
+    ready: () => !!supervisor.client?.ready,
+    // { availability, sync, version, diagnostic } as the supervisor reports it.
+    status: () => supervisor.status(),
+    version: () => supervisor.status().version ?? null,
+    // Calls `listener(status)` on every change; returns the unsubscribe function.
+    subscribe(listener) {
+      supervisor.on("status", listener);
+      return () => supervisor.off("status", listener);
+    },
+    start: (options) => supervisor.start(options),
+    stop: (options) => supervisor.stop(options),
+    restart: () => supervisor.restart(),
+  };
 }
