@@ -96,7 +96,10 @@ export function lifecycleFixture(t) {
     async jobs(agent) {
       if (fail.jobs.has(agent.runtimeAgentId))
         throw Object.assign(Error("Cron unavailable"), { code: "UNAVAILABLE" });
-      return cron.filter((j) => j.agentId === agent.runtimeAgentId);
+      // As the routines sub-port answers: AgentPier's routine model.
+      return cron
+        .filter((j) => j.agentId === agent.runtimeAgentId)
+        .map(({ declarationKey, ...j }) => ({ ...j, marker: declarationKey ?? null }));
     },
     heartbeats: {
       async sync(id) {

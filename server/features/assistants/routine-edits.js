@@ -1,10 +1,11 @@
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { exact, schedule } from "./reminder-input.js";
 import { runtimeFor } from "./runtimes/runtime-for.js";
+import { routineSchedule } from "./routine-definition.js";
 
 /**
  * Changes a routine's name, task or schedule in place (NativeRoutines.edit): the
- * binding's definition and its native job together, under the routine's revision.
+ * binding's definition and its native routine together, under the routine's revision.
  * A scheduled routine keeps a schedule (one time or cron); an event routine keeps
  * its event. `input.trigger`, when given, was already checked by the caller's own
  * rules (a lead's minimum interval) or is checked here like on creation.
@@ -46,8 +47,10 @@ export function editRoutine(routines, id, bindingId, input, assertCurrent = () =
       id: job.id,
       patch: {
         name: definition.name,
-        ...(input.trigger !== undefined ? { schedule: definition.schedule } : {}),
-        payload: want.payload,
+        ...(input.trigger !== undefined
+          ? { schedule: routineSchedule(definition.schedule) }
+          : {}),
+        prompt: want.prompt,
       },
     });
     routines.bindings.patch(bindingId, {

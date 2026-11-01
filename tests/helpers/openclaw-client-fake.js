@@ -281,7 +281,11 @@ function cronAnswers(cron) {
       const job = cron.jobs.get(id);
       if (!job || (mode !== "force" && !job.enabled))
         return { ok: true, ran: false, reason: job ? "not-due" : "not-found" };
-      cron.runs.set(id, [{ ts: Date.now(), status: "ok" }, ...(cron.runs.get(id) || [])]);
+      const earlier = cron.runs.get(id) || [];
+      // OpenClaw's run session: `agent:<agent>:cron:<job>:run:<session id>`.
+      const sessionKey = `agent:${job.agentId}:cron:${id}:run:run-${earlier.length + 1}`;
+      const at = Date.now();
+      cron.runs.set(id, [{ ts: at, runAtMs: at, status: "ok", sessionKey }, ...earlier]);
       return { ok: true, enqueued: true };
     },
     "cron.runs": ({ id, limit }) => ({

@@ -18,10 +18,14 @@ import {
 import { exact, schedule, updateInput } from "./reminder-input.js";
 import { invokeReminder } from "./reminder-tools.js";
 import { runtimeFor } from "./runtimes/runtime-for.js";
+import {
+  offeredSchedule,
+  reminderMarker,
+  routineSchedule,
+} from "./routine-definition.js";
 
 import { agentName, audienceOf, noTelegram, pushAudience } from "./reminder-audience.js";
 export { exact, schedule, updateInput } from "./reminder-input.js";
-const declaration = (binding) => `agentpier-reminder:${binding.id}`;
 // OpenClaw's silent-reply token; an empty summary is just as silent.
 const silent = (text) => !text.trim() || text.trim() === "NO_REPLY";
 const revoked = (binding) => ["revoked", "removed"].includes(binding.state);
@@ -68,13 +72,13 @@ export class NativeReminders {
   scheduler(agent) {
     return runtimeFor(agent, this.assistants.runtime).routines;
   }
-  // The cron jobs of `agent`, or of every agent for null.
+  // The routines (routine-definition.js) of `agent`, or of every agent for null.
   async jobs(agent) {
     return this.scheduler(agent).list({ agentId: agent?.runtimeAgentId });
   }
   find(binding, jobs) {
     binding = this.bindings.get(binding.id);
-    const job = jobs.find((j) => j.declarationKey === declaration(binding));
+    const job = jobs.find((j) => j.marker === reminderMarker(binding.id));
     if (job && binding.nativeId !== job.id)
       this.bindings.patch(binding.id, {
         nativeId: job.id,
@@ -105,18 +109,13 @@ export class NativeReminders {
               : binding.state === "rejected"
                 ? "failed"
                 : "unknown",
-      revision: job?.updatedAtMs ?? null,
-      schedule:
-        job?.schedule?.kind === "at"
-          ? { kind: "at", at: job.schedule.at }
-          : job?.schedule?.kind === "cron"
-            ? { kind: "cron", expr: job.schedule.expr, tz: job.schedule.tz }
-            : null,
-      nextRunAtMs: job?.state?.nextRunAtMs ?? null,
-      lastRunStatus: job?.state?.lastRunStatus ?? null,
-      lastDeliveryStatus: job?.state?.lastDeliveryStatus ?? null,
+      revision: job?.revision ?? null,
+      schedule: offeredSchedule(job?.schedule),
+      nextRunAtMs: job?.runState?.nextRunAtMs ?? null,
+      lastRunStatus: job?.runState?.lastStatus ?? null,
+      lastDeliveryStatus: job?.runState?.lastDeliveryStatus ?? null,
       // Why the last run failed (routine-failures.js), for the owner and the agent.
-      lastFailure: lastRunFailure(job?.state),
+      lastFailure: lastRunFailure(job?.runState),
       deliveryState: delivery?.state || null,
       reviewRequired: !job && unconfirmed(binding) && !this.creating.has(binding.id),
     };
@@ -208,19 +207,18 @@ export class NativeReminders {
   nativeEnabled() {
     return true;
   }
-  /** How a run executes and where its result goes; `to` is its completion webhook. */
+  /** Where a run executes, its prompt and where its result goes (`to`: webhook). */
   run(binding, values, to) {
     return {
-      sessionTarget: "isolated",
-      payload: {
-        kind: "agentTurn",
-        message: this.payload(values),
+      target: { kind: "own" },
+      prompt: {
+        text: this.payload(values),
         timeoutSeconds: 90,
-        lightContext: true,
+        fullContext: false,
         // A reminder returns its text verbatim: it needs no tool at all.
-        toolsAllow: [],
+        tools: [],
       },
-      delivery: { mode: "webhook", to },
+      delivery: { kind: "webhook", url: to },
     };
   }
   create(id, input, origin, assertCurrent = () => {}, metadata = {}) {
@@ -283,15 +281,15 @@ export class NativeReminders {
       this.creating.add(binding.id);
       try {
         const job = await this.scheduler(agent).add({
-          job: {
+          routine: {
             name: values.name,
-            declarationKey: declaration(binding),
+            marker: reminderMarker(binding.id),
             agentId: agent.runtimeAgentId,
             enabled: this.nativeEnabled(values),
-            deleteAfterRun: false,
-            schedule: values.schedule,
-            wakeMode: "now",
-            failureAlert: false,
+            keepAfterRun: true,
+            schedule: routineSchedule(values.schedule),
+            wakeNow: true,
+            alertOnFailure: false,
             ...this.run(
               this.bindings.get(binding.id),
               values,
@@ -351,7 +349,7 @@ export class NativeReminders {
         binding = this.owned(id, bindingId);
       if (revoked(binding)) throw assistantProblem("notFound", 404);
       const job = this.find(binding, await this.jobs(agent));
-      if (!job || job.updatedAtMs !== input.revision)
+      if (!job || job.revision !== input.revision)
         throw assistantProblem("conflict", 409);
       assertCurrent();
       if (input.telegram !== undefined) this.setTelegram(binding, input.telegram);
@@ -562,7 +560,7 @@ export class NativeReminders {
   }
   async runningJobs() {
     return (await this.jobs(null)).filter((job) =>
-      Number.isFinite(job.state?.runningAtMs),
+      Number.isFinite(job.runState?.runningAtMs),
     );
   }
   async disable(id) {

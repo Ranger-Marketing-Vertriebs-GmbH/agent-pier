@@ -1,8 +1,8 @@
 import { assistantProblem, textValue } from "./assistant-validation.js";
-import { runSession } from "./agent-hook-runs.js";
 import { ownMemoryTarget } from "./lead-request-writes.js";
 import { personalCapabilities, shellTools } from "./native-capabilities.js";
 import { isShared } from "../users/user-access.js";
+import { routineRunOf } from "./runtimes/runtime-for.js";
 
 /**
  * A hook run in the tool bridge (team-bridge.js). A hook run is an OpenClaw cron run
@@ -34,8 +34,8 @@ export function hookRun(bridge, { agentId, sessionKey }) {
 /** The hook event of a cron session whatever its status (also once settled), or null. */
 export function hookSession(bridge, { sessionKey }) {
   const events = bridge.assistants.routines?.hooks?.events;
-  const match = runSession.exec(typeof sessionKey === "string" ? sessionKey : "");
-  return (events && match && events.byJob(match[2])) || null;
+  const run = routineRunOf(null, sessionKey);
+  return (events && run && events.byJob(run.routineId)) || null;
 }
 
 /**

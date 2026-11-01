@@ -1,10 +1,11 @@
 import { assistantProblem } from "./assistant-validation.js";
 import { hostConnection, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
+import { agentPierRoutine } from "./routine-definition.js";
 
 /**
  * Cron jobs an agent made itself in OpenClaw (its own `cron` tool), which AgentPier
- * never bound: every job of AgentPier carries an `agentpier-` declaration key
- * (reminders, routines, check-ins and hook runs). Every archive pauses the agent's own
+ * never bound: every routine of AgentPier carries a marker of its own
+ * (routine-definition.js: reminders, routines, check-ins and hook runs). Every archive pauses the agent's own
  * enabled jobs and remembers which (`ownJobs.paused`); every restore enables exactly
  * those again. Both run for every archive path: agent-lifecycle.js and the team
  * lifecycle (team-service.js, through `followArchive`), so a lead's temporary members
@@ -12,7 +13,7 @@ import { hostConnection, hostReady, runtimeFor } from "./runtimes/runtime-for.js
  * part, stays `pending` with what was already paused and is settled at the next start
  * (`settleOwnJobs`). None of these throws: the archive or restore itself stands.
  */
-const ownJob = (job) => !String(job?.declarationKey || "").startsWith("agentpier-");
+const ownJob = (job) => !agentPierRoutine(job);
 const code = (error) => error?.code ?? error?.name ?? "UNKNOWN";
 const merged = (...lists) => [...new Set(lists.flat())];
 // The agent's routines sub-port bound to the runtime's current connection.

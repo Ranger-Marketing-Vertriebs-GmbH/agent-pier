@@ -1,5 +1,6 @@
 import { createOpenClawRuntime } from "./openclaw/openclaw-runtime.js";
 import { openClawCompiler } from "./openclaw/openclaw-compiler.js";
+import { cronRunOf } from "./openclaw/openclaw-routine-jobs.js";
 
 // One adapter per supervisor, so every caller of one host shares it.
 const adapters = new WeakMap();
@@ -51,3 +52,10 @@ export const hostConnection = (supervisor, agent) =>
   !!supervisor && typeof supervisor === "object"
     ? runtimeFor(agent, supervisor).host.connection()
     : null;
+
+/**
+ * The routine run a runtime session key of `agent` belongs to (routines.runOf), or
+ * null. It reads only the key, so it needs no supervisor; every agent runs on
+ * OpenClaw, as in runtimeFor.
+ */
+export const routineRunOf = (agent, sessionKey) => cronRunOf(sessionKey);

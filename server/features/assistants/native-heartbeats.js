@@ -15,11 +15,11 @@ import {
 import { agentName, agentPerson, pushAudience } from "./reminder-audience.js";
 import { isShared } from "../users/user-access.js";
 import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
+import { chatTarget, reminderMarker, routineSchedule } from "./routine-definition.js";
 
 export const heartbeatKind = "heartbeat";
 // OpenClaw's silent-reply token; an empty summary is just as silent.
 const silent = (text) => !text.trim() || text.trim() === "NO_REPLY";
-const declaration = (binding) => `agentpier-reminder:${binding.id}`;
 // Creation was submitted but not confirmed: the job may still surface.
 const unconfirmed = (binding) => ["pending", "unknown"].includes(binding.state);
 /** The check-in turn; a user's own agent checks in with her (`person`), not the owner. */
@@ -38,8 +38,8 @@ export function checkInPrompt(person) {
 }
 
 /**
- * Proactive check-ins ("heartbeat"): one native cron job per opted-in agent with
- * memory. It runs as a `current` job bound to the agent's main chat: a detached
+ * Proactive check-ins ("heartbeat"): one native routine per opted-in agent with
+ * memory. It runs as a routine targeting the agent's main chat: a detached
  * turn with full context (instructions, notes, the conversation's recent tail)
  * whose visible result OpenClaw commits into that conversation once no turn is
  * running there. The run's summary also returns over the reminder webhook
@@ -94,14 +94,13 @@ export class NativeHeartbeats {
   }
   job(settings, person = null) {
     return {
-      schedule: heartbeatSchedule(settings),
-      payload: {
-        kind: "agentTurn",
-        message: checkInPrompt(person),
+      schedule: routineSchedule(heartbeatSchedule(settings)),
+      prompt: {
+        text: checkInPrompt(person),
         timeoutSeconds: 120,
-        lightContext: false,
+        fullContext: true,
         // Memory is read, never written, in a run nobody watches.
-        toolsAllow: ["memory_search", "memory_get"],
+        tools: ["memory_search", "memory_get"],
       },
     };
   }
@@ -141,8 +140,8 @@ export class NativeHeartbeats {
         !keep &&
         current.state === "bound" &&
         job &&
-        job.sessionTarget === "current" &&
-        job.sessionKey === want.target.sessionKey;
+        job.target?.kind === "chat" &&
+        job.target.sessionKey === want.target.sessionKey;
       if (same) keep = { binding: current, job };
       else await this.retire(current, job, agent);
     }
@@ -162,7 +161,7 @@ export class NativeHeartbeats {
       job.enabled &&
       binding.deliveryEnabled !== false &&
       isDeepStrictEqual(job.schedule, definition.schedule) &&
-      isDeepStrictEqual(job.payload, definition.payload)
+      isDeepStrictEqual(job.prompt, definition.prompt)
     )
       return;
     await runtimeFor(agent, this.assistants.runtime).routines.update({
@@ -190,27 +189,19 @@ export class NativeHeartbeats {
     this.bindings.patch(binding.id, { state: "pending" });
     try {
       const job = await runtimeFor(agent, this.assistants.runtime).routines.add({
-        job: {
+        routine: {
           name: "AgentPier check-in",
-          declarationKey: declaration(binding),
+          marker: reminderMarker(binding.id),
           agentId: agent.runtimeAgentId,
           enabled: true,
-          deleteAfterRun: false,
+          keepAfterRun: true,
           ...definition,
           // Commits the visible result into this conversation after any running turn.
-          sessionTarget: "current",
-          sessionKey: target.sessionKey,
-          wakeMode: "now",
-          failureAlert: false,
-          // Announce is the session commit (no channels are configured); the
-          // completion webhook hands the result to AgentPier.
-          delivery: {
-            mode: "announce",
-            completionDestination: {
-              mode: "webhook",
-              to: `${connection.url}/complete/${binding.id}`,
-            },
-          },
+          target: chatTarget(target.sessionKey),
+          wakeNow: true,
+          alertOnFailure: false,
+          // The session commit; the completion webhook hands the result to AgentPier.
+          delivery: { kind: "chat", url: `${connection.url}/complete/${binding.id}` },
         },
       });
       if (!job?.id) throw assistantProblem("unavailable", 503);

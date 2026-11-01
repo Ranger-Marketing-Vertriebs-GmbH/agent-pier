@@ -111,15 +111,15 @@ test("no bounded message ever reveals a known token or exceeds the limit", () =>
   );
 });
 
-test("a job's state and a run entry carry the cause of their failure", () => {
+test("a routine's run state and a run record carry the cause of their failure", () => {
   assert.equal(lastRunFailure(undefined), null);
-  assert.equal(lastRunFailure({ lastRunStatus: "ok" }), null);
+  assert.equal(lastRunFailure({ lastStatus: "ok" }), null);
   assert.deepEqual(
     lastRunFailure({
-      lastRunStatus: "error",
+      lastStatus: "error",
       lastError: "cron: job interrupted by gateway restart",
       lastRunAtMs: 1000,
-      consecutiveErrors: 2,
+      failuresInRow: 2,
     }),
     {
       reason: "gateway-restart",

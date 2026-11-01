@@ -13,13 +13,11 @@ import { pairedChannel, telegramTarget } from "./routine-targets.js";
 import { agentName } from "./reminder-audience.js";
 import { hookReport } from "./agent-hook-reports.js";
 import { telegramMessages } from "../assistant-channels/telegram-messages.js";
-import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
+import { hostReady, routineRunOf, runtimeFor } from "./runtimes/runtime-for.js";
+import { chatTarget, hookEventOf, hookMarker } from "./routine-definition.js";
 
-const prefix = "agentpier-hook:";
-// A run's session (`agent:<agent>:cron:<job>`, per run `…:run:<id>`).
-export const runSession = /^agent:([^:]+):cron:([^:]+)(?::run:[^:]+)?$/i;
-const jobOf = (sessionKey) =>
-  runSession.exec(typeof sessionKey === "string" ? sessionKey : "")?.[2].toLowerCase();
+// The routine a run session belongs to (routines.runOf), lower-cased.
+const jobOf = (sessionKey) => routineRunOf(null, sessionKey)?.routineId.toLowerCase();
 // OpenClaw's silent-reply token; an empty reply is just as silent.
 const silent = (text) => !text?.trim() || text.trim() === "NO_REPLY";
 // A run times out after five minutes; an event unsettled for three times that lost
@@ -29,7 +27,7 @@ const sweepFloorMs = 60000;
 const unsettled = (event) => ["pending", "running"].includes(event?.status);
 
 /**
- * The runs of hook events: one disabled one-shot cron job per accepted event, forced
+ * The runs of hook events: one disabled one-shot routine per accepted event, forced
  * to run at once in the agent's main chat with only the hook's tools, and removed
  * after its completion webhook (`/hook-complete/<event row id>`). The completion is
  * recorded on the event (reply, the tool steps observed, what was notified) and, with
@@ -90,20 +88,19 @@ export class HookRuns {
       const connection = await this.reminders.start();
       const conversation = await this.reminders.openMain(agent.id);
       const job = await this.scheduler.add({
-        job: {
+        routine: {
           name: `Hook ${hook.name}`,
-          declarationKey: `${prefix}${event.id}`,
+          marker: hookMarker(event.id),
           agentId: agent.runtimeAgentId,
           enabled: false,
-          deleteAfterRun: false,
-          schedule: { kind: "cron", expr: "0 0 1 1 *", tz: "UTC" },
-          wakeMode: "now",
-          failureAlert: false,
-          sessionTarget: "current",
-          sessionKey: conversation.runtimeSessionKey,
-          payload: {
-            kind: "agentTurn",
-            message: hookPrompt({
+          keepAfterRun: true,
+          // Never due: the run is forced below.
+          schedule: { kind: "cron", expression: "0 0 1 1 *", timezone: "UTC" },
+          wakeNow: true,
+          alertOnFailure: false,
+          target: chatTarget(conversation.runtimeSessionKey),
+          prompt: {
+            text: hookPrompt({
               hook,
               payloadText: events.payload(event.id) ?? "",
               contentType: event.contentType,
@@ -111,17 +108,11 @@ export class HookRuns {
               secretsClosed: !early.secrets && this.hooks.ceiling(agent).secrets,
             }),
             timeoutSeconds: routineTimeoutSeconds,
-            lightContext: false,
-            toolsAllow: hookTools(effective, ceiling),
+            fullContext: true,
+            tools: hookTools(effective, ceiling),
           },
-          // Announce is the commit into the main chat; the webhook hands the result here.
-          delivery: {
-            mode: "announce",
-            completionDestination: {
-              mode: "webhook",
-              to: `${connection.url}/hook-complete/${event.id}`,
-            },
-          },
+          // Committed into the main chat; the webhook hands the result here.
+          delivery: { kind: "chat", url: `${connection.url}/hook-complete/${event.id}` },
         },
       });
       if (!job?.id) throw assistantProblem("unavailable", 503);
@@ -332,7 +323,7 @@ export class HookRuns {
       return;
     }
     if (
-      runSession.exec(payload.sessionKey)[1].toLowerCase() !==
+      routineRunOf(agent, payload.sessionKey).agentId.toLowerCase() !==
       agent?.runtimeAgentId?.toLowerCase()
     )
       return;
@@ -348,13 +339,11 @@ export class HookRuns {
     return this.assistants.admit(async () => {
       if (!hostReady(this.assistants.runtime)) return;
       const { events } = this.hooks;
-      const jobs = (await this.reminders.jobs(null)).filter((job) =>
-        job.declarationKey?.startsWith(prefix),
+      const jobs = (await this.reminders.jobs(null)).filter(
+        (job) => hookEventOf(job) !== null,
       );
-      const running = (job) => Number.isFinite(job.state?.runningAtMs);
-      const live = new Set(
-        jobs.filter(running).map((job) => job.declarationKey.slice(prefix.length)),
-      );
+      const running = (job) => Number.isFinite(job.runState?.runningAtMs);
+      const live = new Set(jobs.filter(running).map(hookEventOf));
       let changed = false;
       for (const event of events.unsettled()) {
         if (this.now() - event.receivedAt < staleMs || live.has(event.id)) continue;
@@ -362,11 +351,7 @@ export class HookRuns {
         changed = true;
       }
       for (const job of jobs) {
-        if (
-          running(job) ||
-          unsettled(events.get(job.declarationKey.slice(prefix.length)))
-        )
-          continue;
+        if (running(job) || unsettled(events.get(hookEventOf(job)))) continue;
         await this.removeJob(job.id);
       }
       // Tombstones of deleted hooks age out here (live hooks prune on admit).

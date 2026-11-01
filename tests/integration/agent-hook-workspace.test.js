@@ -7,7 +7,7 @@ import { leadShareFixture } from "../helpers/lead-share-fixture.js";
 import { setup as sftpSetup } from "../helpers/agent-sftp-fixture.js";
 import { hostId, otherHostId, sftpHostId } from "../helpers/agent-ssh-fixture.js";
 import { AgentHooks } from "../../server/features/assistants/agent-hooks.js";
-import { runSession } from "../../server/features/assistants/agent-hook-runs.js";
+import { routineRunOf } from "../../server/features/assistants/runtimes/runtime-for.js";
 import {
   effectiveRights,
   hookDefaults,
@@ -52,8 +52,8 @@ function hookRuns(f) {
       },
     },
     runOrigin(agent, sessionKey) {
-      const match = runSession.exec(sessionKey);
-      const event = match && service.events.byJob(match[2]);
+      const run = routineRunOf(agent, sessionKey);
+      const event = run && service.events.byJob(run.routineId);
       if (event?.status !== "running" || event.assistantId !== agent.id) return null;
       const hook = hooks.get(event.hookId);
       const ceiling = ceilingOf(agent);

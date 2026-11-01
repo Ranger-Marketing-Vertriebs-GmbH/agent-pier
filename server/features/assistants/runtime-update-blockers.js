@@ -275,13 +275,13 @@ async function routines(s, items) {
         job.id,
         {
           agent: agentOf(s, assistantId),
-          since: job.state?.runningAtMs,
+          since: job.runState?.runningAtMs,
           link: assistantId
             ? `/agents/${segment(assistantId)}/settings?tab=automation`
             : "/agents",
           resolution: "wait",
         },
-        [job.state?.runningAtMs ?? null],
+        [job.runState?.runningAtMs ?? null],
       ),
     );
   }

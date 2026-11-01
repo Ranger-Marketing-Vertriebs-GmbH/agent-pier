@@ -1,30 +1,29 @@
 import { publicMessages } from "./conversations.js";
 import { historyTextLimit } from "./history-text.js";
-import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
+import { hostReady, routineRunOf, runtimeFor } from "./runtimes/runtime-for.js";
 
 // OpenClaw (2026.10.3, pickSummaryFromOutput) caps the `summary` a cron run's
 // completion webhook carries at 2000 UTF-16 code units plus "…" (one less when the
-// cut would split a surrogate pair). The full reply stays in the job's session:
-// the run reports `agent:<agent>:cron:<job>:run:<id>`, whose transcript the job's
-// own key (`agent:<agent>:cron:<job>`) serves with `sessionId` <id> until the next
+// cut would split a surrogate pair). The full reply stays in the routine's session:
+// the run reports its run session, whose transcript the routine's own session
+// (routines.runOf `routineSession`) serves with `sessionId` <run id> until the next
 // run starts (see tests/integration/assistant-routine-contract.test.js).
 export const summaryCap = 2000;
 const capped = (summary) =>
   summary.endsWith("…") &&
   summary.length >= summaryCap &&
   summary.length <= summaryCap + 1;
-const runSession = /^(agent:([^:]+):cron:([^:]+)):run:([^:]+)$/i;
 /** The job's session key and the run's session id, if the run is this job's. */
 function runOf(sessionKey, agentId, jobId) {
-  const match = runSession.exec(typeof sessionKey === "string" ? sessionKey : "");
+  const run = routineRunOf(null, sessionKey);
   if (
-    !match ||
+    !run?.runId ||
     !agentId ||
-    match[2].toLowerCase() !== agentId.toLowerCase() ||
-    match[3].toLowerCase() !== String(jobId).toLowerCase()
+    run.agentId.toLowerCase() !== agentId.toLowerCase() ||
+    run.routineId.toLowerCase() !== String(jobId).toLowerCase()
   )
     return null;
-  return { jobSession: match[1], sessionId: match[4] };
+  return { jobSession: run.routineSession, sessionId: run.runId };
 }
 
 /**

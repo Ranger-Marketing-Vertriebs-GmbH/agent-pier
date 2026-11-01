@@ -8,15 +8,14 @@ import { editRoutine } from "./routine-edits.js";
 import { agentFailure } from "./routine-failures.js";
 import { runWarnings } from "./routine-results.js";
 import { agentPerson, audienceOf, boundTo, turnAudience } from "./reminder-audience.js";
-import { hostReady } from "./runtimes/runtime-for.js";
+import { hostReady, routineRunOf } from "./runtimes/runtime-for.js";
+import { chatTarget, sameRun } from "./routine-definition.js";
 export const permanentReasons = {
   400: "INVALID",
   403: "FORBIDDEN",
   404: "NOT_FOUND",
   409: "CONFLICT",
 };
-// A run's session (`agent:<agent>:cron:<job>`, per run `…:run:<id>`).
-const runSession = /^agent:([^:]+):cron:([^:]+)(?::run:[^:]+)?$/i;
 // Run settings, also the target existing jobs are brought to (reconcile).
 export const routineTimeoutSeconds = 300;
 /** A created routine without "May write" tells the agent so, in one sentence. */
@@ -27,19 +26,9 @@ export const readOnlyNote = (routine) =>
         note: "This routine can only read project folders. If it should change files, ask the owner to switch on 'May write' for it (agent settings, Automation, Routines).",
       }
     : routine;
-const destination = (delivery) => delivery?.completionDestination?.to ?? delivery?.to;
-// Compared field by field: OpenClaw may add its own payload fields.
-const current = (job, want) =>
-  job.sessionTarget === want.sessionTarget &&
-  (want.sessionTarget !== "current" || job.sessionKey === want.sessionKey) &&
-  Object.entries(want.payload).every(([key, value]) =>
-    isDeepStrictEqual(job.payload?.[key], value),
-  ) &&
-  job.delivery?.mode === want.delivery.mode &&
-  destination(job.delivery) === destination(want.delivery);
 
 /**
- * Routines: one native cron job per saved prompt. A run has the agent's own chat
+ * Routines: one native routine (routine-definition.js) per saved prompt. A run has the agent's own chat
  * tools (routineTools, intersected by OpenClaw with the agent's tools.allow) and
  * full context. It runs detached from the agent's main chat, so a live turn is
  * never disturbed, and OpenClaw commits its result into that conversation once no
@@ -112,18 +101,15 @@ export class NativeRoutines extends NativeReminders {
     const sessionKey = this.conversation(binding)?.runtimeSessionKey;
     if (!sessionKey) throw assistantProblem("unavailable", 503);
     return {
-      sessionTarget: "current",
-      sessionKey,
-      payload: {
-        kind: "agentTurn",
-        message: this.payload(values, binding),
+      target: chatTarget(sessionKey),
+      prompt: {
+        text: this.payload(values, binding),
         timeoutSeconds: routineTimeoutSeconds,
-        lightContext: false,
-        toolsAllow: [...routineTools],
+        fullContext: true,
+        tools: [...routineTools],
       },
-      // Announce is the commit into the conversation (no channels are configured);
-      // the completion webhook hands the result to AgentPier.
-      delivery: { mode: "announce", completionDestination: { mode: "webhook", to } },
+      // Committed into the conversation; the completion webhook hands it to AgentPier.
+      delivery: { kind: "chat", url: to },
     };
   }
   nativeEnabled(values) {
@@ -477,7 +463,7 @@ export class NativeRoutines extends NativeReminders {
         binding.definition,
         `${connection.url}/complete/${binding.id}`,
       );
-      if (current(job, want)) continue;
+      if (sameRun(job, want)) continue;
       await this.scheduler(agent).update({ id: job.id, patch: want });
       changed = true;
     }
@@ -502,9 +488,9 @@ export class NativeRoutines extends NativeReminders {
   }
   /** A run session's refusal (agent-ssh.js), shown with that run's result. */
   noteRefusal(sessionKey, note) {
-    const match = runSession.exec(typeof sessionKey === "string" ? sessionKey : "");
-    if (!match) return;
-    const key = match[2].toLowerCase();
+    const run = routineRunOf(null, sessionKey);
+    if (!run) return;
+    const key = run.routineId.toLowerCase();
     // The latest time counts: a stale note from an earlier run must not hide it.
     this.refusals.set(key, new Map(this.refusals.get(key)).set(note, Date.now()));
   }
@@ -513,15 +499,15 @@ export class NativeRoutines extends NativeReminders {
    * goes to; null for any other session. Exec approvals of a run are shown there.
    */
   runOrigin(assistant, sessionKey) {
-    const match = runSession.exec(typeof sessionKey === "string" ? sessionKey : "");
-    if (!match || match[1].toLowerCase() !== assistant.runtimeAgentId?.toLowerCase())
+    const run = routineRunOf(assistant, sessionKey);
+    if (!run || run.agentId.toLowerCase() !== assistant.runtimeAgentId?.toLowerCase())
       return null;
     const binding = this.bindings.list(assistant.id).find(
       (b) =>
         b.kind === "routine" &&
         b.state === "bound" &&
         b.routineEnabled !== false &&
-        b.nativeId?.toLowerCase() === match[2].toLowerCase() &&
+        b.nativeId?.toLowerCase() === run.routineId.toLowerCase() &&
         // A lead's routine counts only while its lead and member still belong.
         (!isLeadRoutine(b) || !this.lead.ended(b)),
     );
