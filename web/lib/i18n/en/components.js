@@ -53,3 +53,6 @@ export const capabilityGateCopy = {
       `${runtime} has no advanced settings in AgentPier yet.`,
   },
 };
+export const componentsCopy = {
+  splitDivider: "Resize panes",
+};

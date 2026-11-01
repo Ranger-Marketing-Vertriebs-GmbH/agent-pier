@@ -54,3 +54,6 @@ export const capabilityGateCopy = {
       `${runtime} hat in AgentPier noch keine erweiterten Einstellungen.`,
   },
 };
+export const componentsCopy = {
+  splitDivider: "Größe der Bereiche ändern",
+};

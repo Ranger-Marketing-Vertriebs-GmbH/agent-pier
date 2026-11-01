@@ -12,3 +12,4 @@ export const capabilityGateCopy = localizedCopy(
   de.capabilityGateCopy,
   en.capabilityGateCopy,
 );
+export const componentsCopy = localizedCopy(de.componentsCopy, en.componentsCopy);

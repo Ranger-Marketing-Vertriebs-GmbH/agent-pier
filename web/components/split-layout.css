@@ -1,0 +1,47 @@
+.split-layout {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.split-pane {
+  position: absolute;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.split-divider {
+  position: absolute;
+  z-index: 1;
+  touch-action: none;
+  outline: none;
+}
+.split-divider[aria-orientation="vertical"] {
+  cursor: col-resize;
+}
+.split-divider[aria-orientation="horizontal"] {
+  cursor: row-resize;
+}
+.split-divider::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  background: var(--line);
+  border-radius: 2px;
+}
+.split-divider[aria-orientation="vertical"]::after {
+  width: 2px;
+  height: 32px;
+}
+.split-divider[aria-orientation="horizontal"]::after {
+  width: 32px;
+  height: 2px;
+}
+.split-divider:hover::after,
+.split-divider:focus-visible::after,
+.split-divider[data-dragging="true"]::after {
+  background: var(--accent);
+}
