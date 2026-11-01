@@ -33,7 +33,10 @@ for (const locale of ["de-DE", "en-GB"]) {
       await page
         .getByRole("button", { name: en ? "Add host" : "Host hinzufügen" })
         .click();
-      await page.getByRole("button", { name: en ? "Save" : "Speichern" }).click();
+      await page
+        .getByRole("button", { name: en ? "Save" : "Speichern" })
+        .first()
+        .click();
       const put = state.calls
         .filter((c) => c.method === "PUT" && c.path === "/remote")
         .at(-1);
@@ -96,7 +99,10 @@ for (const locale of ["de-DE", "en-GB"]) {
       await page
         .getByRole("switch", { name: en ? "Network access" : "Netzwerkzugriff" })
         .click();
-      await page.getByRole("button", { name: en ? "Save" : "Speichern" }).click();
+      await page
+        .getByRole("button", { name: en ? "Save" : "Speichern" })
+        .first()
+        .click();
       const put = state.calls
         .filter((c) => c.method === "PUT" && c.path === "/remote")
         .at(-1);

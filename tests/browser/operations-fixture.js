@@ -176,6 +176,13 @@ export async function operationsFixture(page, { tool = "codex", session = {} } =
     else if (path === "/sandbox-profiles") result = { available: false, profiles: [] };
     else if (path.endsWith("/models"))
       result = { currentModel: null, picker: null, pending: false };
+    else if (path === "/previews" && method === "GET")
+      result = {
+        settings: { enabled: false, portRangeStart: 47100, portRangeEnd: 47109 },
+        previews: [],
+        slots: [],
+        serve: null,
+      };
     else if (path === "/remote" && method === "GET") result = state.remote;
     else if (path === "/remote" && method === "PUT") {
       state.remote.network.saved = body.network;
