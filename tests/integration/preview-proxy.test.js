@@ -1,8 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
+import net from "node:net";
 import { once } from "node:events";
 import { previews as de } from "../../server/lib/i18n/de/previews.js";
+import { refusal } from "../../server/features/previews/preview-access.js";
+import { createPreviewListener } from "../../server/features/previews/preview-proxy.js";
 import {
   agentPierPort,
   openSocket,
@@ -335,4 +338,94 @@ test("the agentpier_session cookie and tailscale headers never reach the upstrea
   }
   assert.equal(upstream.seen.length, 2);
   assert.equal(upstream.seen[1].headers.origin, `http://localhost:${upstream.port}`);
+});
+
+test("a chunked body is framed upstream and never read as a second request", async (t) => {
+  const upstream = await startUpstream(t);
+  const f = await previewFixture(t, { upstream });
+  const smuggled = `GET /smuggled HTTP/1.1\r\nHost: localhost:${upstream.port}\r\n\r\n`;
+  for (const method of ["GET", "POST"]) {
+    const socket = net.connect(f.slot, "127.0.0.1");
+    socket.write(
+      `${method} /outer HTTP/1.1\r\nHost: ${f.host}\r\nCookie: ${f.owner}\r\n` +
+        `Transfer-Encoding: chunked\r\nConnection: close\r\n\r\n` +
+        `${smuggled.length.toString(16)}\r\n${smuggled}\r\n0\r\n\r\n`,
+    );
+    let raw = "";
+    for await (const chunk of socket) raw += chunk;
+    assert.match(raw, /^HTTP\/1\.1 200/);
+  }
+  // A second request parsed from the body would arrive right after the first.
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  assert.deepEqual(
+    upstream.seen.map((entry) => [entry.method, entry.url, entry.body]),
+    [
+      ["GET", "/outer", smuggled],
+      ["POST", "/outer", smuggled],
+    ],
+  );
+});
+
+test("a plain config object works on the Tailscale branch for requests and upgrades", async (t) => {
+  const upstream = await startUpstream(t);
+  const f = await previewFixture(t, {
+    upstream,
+    plainConfig: true,
+    config: { remoteUrl: "https://box.tail.ts.net" },
+  });
+  const headers = {
+    host: `box.tail.ts.net:${f.slot}`,
+    cookie: f.owner,
+    "tailscale-user-login": "o@x",
+  };
+  assert.equal((await send(f.slot, { headers })).status, 200);
+  const socket = await openSocket(f.slot, headers);
+  socket.close();
+  assert.equal(upstream.seen.length, 2);
+  for (const seen of upstream.seen)
+    assert.equal(seen.headers["x-forwarded-proto"], "https");
+});
+
+test("an async gate is awaited on requests and upgrades and watch is required", async (t) => {
+  const upstream = await startUpstream(t);
+  let allow = false;
+  let session;
+  const gate = async () => {
+    await new Promise((resolve) => setImmediate(resolve));
+    if (!allow) throw refusal(403, "forbidden");
+    return { branch: "local", principal: { role: "owner" }, session };
+  };
+  const f = await previewFixture(t, { upstream, gate });
+  session = f.store.session(f.token);
+  assert.equal((await send(f.slot, { headers: { host: f.host } })).status, 403);
+  await assert.rejects(openSocket(f.slot, { host: f.host }), { status: 403 });
+  assert.equal(upstream.seen.length, 0);
+  allow = true;
+  assert.equal((await send(f.slot, { headers: { host: f.host } })).status, 200);
+  await assert.rejects(
+    createPreviewListener({ slot: f.slot, gate, resolve: () => null }),
+    /watch/,
+  );
+});
+
+test("hop-by-hop response headers and those named in Connection stay with the upstream", async (t) => {
+  const upstream = await startUpstream(t, {
+    handler: (req, res) => {
+      res.writeHead(200, {
+        connection: "x-private",
+        "x-private": "secret",
+        upgrade: "h2c",
+        trailer: "x-sum",
+        "proxy-authenticate": "Basic",
+        "x-app": "1",
+      });
+      res.end("ok");
+    },
+  });
+  const f = await previewFixture(t, { upstream });
+  const answer = await send(f.slot, { headers: { host: f.host, cookie: f.owner } });
+  assert.equal(answer.body, "ok");
+  assert.equal(answer.headers["x-app"], "1");
+  for (const name of ["x-private", "upgrade", "trailer", "proxy-authenticate"])
+    assert.equal(answer.headers[name], undefined, name);
 });

@@ -141,3 +141,49 @@ test("the page language follows Accept-Language", () => {
   assert.equal(pageLanguage(req({ "accept-language": "en-US,de;q=0.5" })), "en");
   assert.equal(pageLanguage(req({})), "en");
 });
+
+test("hop-by-hop headers and those named in Connection are dropped both ways", () => {
+  const options = { target: 5173, previewOrigin: "http://127.0.0.1:47100" };
+  const up = upstreamHeaders(
+    req({
+      host: "127.0.0.1:47100",
+      connection: "keep-alive, X-Secret",
+      "x-secret": "1",
+      te: "trailers",
+      "proxy-authorization": "Basic x",
+      "x-app": "1",
+    }),
+    options,
+  );
+  for (const name of ["connection", "x-secret", "te", "proxy-authorization"])
+    assert.equal(up[name], undefined, name);
+  assert.equal(up["x-app"], "1");
+  const down = downstreamHeaders(
+    {
+      connection: "close, x-private",
+      "x-private": "1",
+      upgrade: "h2c",
+      trailer: "x-sum",
+      "proxy-authenticate": "Basic",
+      "keep-alive": "timeout=5",
+      "x-app": "1",
+    },
+    options,
+  );
+  assert.deepEqual(down, { "x-app": "1" });
+});
+
+test("a chunked request body stays chunked upstream; a sized one keeps its length", () => {
+  const options = { target: 5173, previewOrigin: "http://127.0.0.1:47100" };
+  const chunked = upstreamHeaders(
+    req({ host: "127.0.0.1:47100", "transfer-encoding": "gzip, chunked" }),
+    options,
+  );
+  assert.equal(chunked["transfer-encoding"], "chunked");
+  const sized = upstreamHeaders(
+    req({ host: "127.0.0.1:47100", "content-length": "5" }),
+    options,
+  );
+  assert.equal(sized["transfer-encoding"], undefined);
+  assert.equal(sized["content-length"], "5");
+});

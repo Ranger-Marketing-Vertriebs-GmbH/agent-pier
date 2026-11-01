@@ -10,14 +10,16 @@ const noNetwork = { addresses: [], hostname: "" };
 export const refusal = (status, page, extra = {}) =>
   Object.assign(new Error(page), { status, page, ...extra });
 
-const config = (effective) => (typeof effective === "function" ? effective() : effective);
+/** The current config from `effective`: a function (the app's effective()) or an object. */
+export const previewConfig = (effective) =>
+  (typeof effective === "function" ? effective() : effective) || {};
 
 /**
  * The trust branch of a preview request, by the same rules as AgentPier's own
  * `authorizeRequest`, with the slot port in place of AgentPier's: throws a 403 refusal.
  */
 export function previewBranch(req, { slot, effective, detected = noNetwork }) {
-  const current = config(effective);
+  const current = previewConfig(effective);
   const port = listenerPort(slot);
   const host = req.headers.host;
   const loopback = loopbacks.includes(req.socket?.remoteAddress);
@@ -54,7 +56,7 @@ export function previewBranch(req, { slot, effective, detected = noNetwork }) {
  * host name the browser used for the preview (its cookie is then the one it sends here).
  */
 export function signInUrl(branch, req, { effective, slot, path = "/" }) {
-  const current = config(effective);
+  const current = previewConfig(effective);
   const origin =
     branch === "tailscale"
       ? new URL(current.remoteUrl).origin

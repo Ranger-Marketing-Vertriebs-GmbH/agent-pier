@@ -15,6 +15,15 @@ const hopByHop = new Set([
 
 const named = (part, name) => part.split("=")[0].trim() === name;
 
+/** Hop-by-hop names of a message: the fixed ones plus those its Connection header lists. */
+function connectionScoped(headers) {
+  const names = new Set(hopByHop);
+  for (const value of [].concat(headers.connection || []))
+    for (const name of String(value).split(","))
+      if (name.trim()) names.add(name.trim().toLowerCase());
+  return names;
+}
+
 /** A Cookie header without any agentpier_session value; null when nothing remains. */
 export function withoutSessionCookie(cookie) {
   if (typeof cookie !== "string") return null;
@@ -40,9 +49,10 @@ function rebase(value, from, to) {
 export function upstreamHeaders(req, { target, previewOrigin }) {
   const local = `http://localhost:${target}`;
   const headers = {};
+  const scoped = connectionScoped(req.headers);
   for (const [key, value] of Object.entries(req.headers)) {
     if (
-      hopByHop.has(key) ||
+      scoped.has(key) ||
       key === "host" ||
       key === "cookie" ||
       key === "forwarded" ||
@@ -54,6 +64,12 @@ export function upstreamHeaders(req, { target, previewOrigin }) {
   }
   const cookie = withoutSessionCookie(req.headers.cookie);
   if (cookie) headers.cookie = cookie;
+  // Node decodes a chunked body; it must go out framed again, never raw on a kept-alive
+  // socket where the dev server would read it as further requests.
+  if (req.headers["transfer-encoding"]) {
+    delete headers["content-length"];
+    headers["transfer-encoding"] = "chunked";
+  }
   headers.host = `localhost:${target}`;
   if (headers.origin === previewOrigin) headers.origin = local;
   if (headers.referer) headers.referer = rebase(headers.referer, previewOrigin, local);
@@ -71,8 +87,9 @@ export function upstreamHeaders(req, { target, previewOrigin }) {
  */
 export function downstreamHeaders(headers, { target, previewOrigin }) {
   const result = {};
+  const scoped = connectionScoped(headers);
   for (const [key, value] of Object.entries(headers)) {
-    if (key === "connection" || key === "keep-alive") continue;
+    if (scoped.has(key)) continue;
     result[key] = value;
   }
   if (result["set-cookie"]) {
