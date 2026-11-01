@@ -1,14 +1,24 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { as, chatFixture, sharedAgentOfTwo, userAgent } from "../helpers/user-chats.js";
+import {
+  as,
+  chatFixture,
+  holdBackgroundPasses,
+  sharedAgentOfTwo,
+  userAgent,
+} from "../helpers/user-chats.js";
 import { fixtureModel } from "../helpers/user-agents.js";
 import fs from "node:fs";
 import path from "node:path";
 
 // A shared agent of two users plus the owner's chat, one temporary member at work, one
-// permanent member idle and one turn running in a user's extra chat.
+// permanent member idle and one turn running in a user's extra chat. These and the
+// rows the tests add are stand-ins the background passes would settle (AGENTPIER-327:
+// the goal pass ends a goal in a user agent's chat as ineligible, the action pass turns
+// a coding run without a pipeline run unknown), so those passes stand still.
 async function seeded(t) {
   const { f, gateway } = await chatFixture(t);
+  holdBackgroundPasses(f);
   const { anna, ben, agent } = await sharedAgentOfTwo(f);
   const service = f.application.assistants;
   const owner = await (
@@ -88,13 +98,6 @@ test("preview refuses users and member agents", async (t) => {
 
 test("preview counts every kind of running work and no other agent's", async (t) => {
   const { f, agent, anna, service, owner } = await seeded(t);
-  // The rows below are stand-ins the once-a-second background passes would settle
-  // when a slow run lets their timers fire (AGENTPIER-327): the goal pass ends a
-  // goal in a user agent's chat as ineligible, and the action pass turns a coding
-  // run without a pipeline run unknown. This test counts what the preview selects,
-  // so those passes stand still.
-  t.mock.method(service.teams.goals, "tick", async () => {});
-  t.mock.method(service.workflows, "tick", async () => {});
   const other = (
     await userAgent(f, {
       mode: "shared",
@@ -164,9 +167,11 @@ const restart = (f, id) =>
 
 // The owner's own lead: a task member at work, an idle permanent member, a pending
 // proposal, a queued lead request, an open work goal, a pending approval and a turn
-// in an extra chat.
+// in an extra chat. All are stand-ins the background passes would advance (the
+// action pass settles a coding run before the restart cancels it), so they stand still.
 async function ownerLead(t) {
   const { f, gateway } = await chatFixture(t);
+  holdBackgroundPasses(f);
   const service = f.application.assistants;
   const agent = await (
     await f.request("/api/assistants", {

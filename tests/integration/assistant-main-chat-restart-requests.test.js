@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { chatFixture, sharedAgentOfTwo } from "../helpers/user-chats.js";
+import {
+  chatFixture,
+  holdBackgroundPasses,
+  sharedAgentOfTwo,
+} from "../helpers/user-chats.js";
 import { fixtureModel } from "../helpers/user-agents.js";
 import { mainConversation } from "../../server/features/assistants/routine-targets.js";
 
@@ -8,9 +12,12 @@ const restart = (f, id) =>
   f.request(`/api/assistants/${id}/main-chat-restart`, { method: "POST", body: {} });
 
 // The owner's lead with a temporary member (Scout) and a permanent member (Keeper)
-// that has its own chat with a turn running in it.
+// that has its own chat with a turn running in it. The team and the requests below
+// are stand-ins the background passes would advance (a waiting report delivered to the
+// old main chat), so those passes stand still and settleAndAdvance drives them.
 async function team(t) {
   const { f, gateway } = await chatFixture(t);
+  holdBackgroundPasses(f);
   const service = f.application.assistants;
   const agent = await (
     await f.request("/api/assistants", {
@@ -208,6 +215,7 @@ test("a coding session whose grant was revoked is stopped and never blocks the r
 
 test("a stray team proposal of a user agent is declined without blocking", async (t) => {
   const { f } = await chatFixture(t);
+  holdBackgroundPasses(f);
   const { agent } = await sharedAgentOfTwo(f);
   const service = f.application.assistants;
   await f.request(`/api/assistants/${agent.id}/conversations`, { method: "POST" });

@@ -94,6 +94,25 @@ export async function chatFixture(t, overrides = {}) {
   return { f, gateway };
 }
 
+/**
+ * Stops the agents' timed background passes: the team pass each second (scheduler,
+ * lead requests, work goals), the action pass with its coding sessions each second and
+ * the reconcile poll every two seconds. For fixtures that write stand-in rows those
+ * passes would settle once a slow run lets their timers fire (AGENTPIER-327, -333);
+ * the test then drives every pass it needs itself.
+ */
+export function holdBackgroundPasses(f) {
+  const service = f.application.assistants;
+  const timers = [
+    service.poll,
+    service.teams.poll,
+    service.workflows.timer,
+    service.workflows.sessions.timer,
+  ];
+  if (timers.some((timer) => !timer)) throw new Error("A background pass never started");
+  for (const timer of timers) clearInterval(timer);
+}
+
 /** Creates an agent for users through the owner's API. */
 export async function userAgent(f, userAccess, body = {}) {
   const response = await f.request("/api/user-agents", {
