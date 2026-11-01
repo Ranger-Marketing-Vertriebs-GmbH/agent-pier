@@ -2,8 +2,7 @@ import { isMainModule } from "../server/lib/is-main-module.js";
 import { serverMessages } from "../server/lib/i18n/de.js";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { loadConfig } from "../server/lib/config.js";
-import { writePrivate } from "../server/lib/storage.js";
+import { loadConfig, updateStoredConfig } from "../server/lib/config.js";
 export function selectServePort(status, localPort, { httpsPort } = {}) {
   if (
     httpsPort !== undefined &&
@@ -22,7 +21,7 @@ export function selectServePort(status, localPort, { httpsPort } = {}) {
   }
   throw new Error(serverMessages.scripts.httpsPortsOccupied);
 }
-function run(args) {
+function runTailscale(args) {
   const socket = process.env.AGENTPIER_TAILSCALE_SOCKET;
   if (socket && (!path.isAbsolute(socket) || /[\x00-\x1f]/.test(socket)))
     throw Error("Tailscale socket must be an absolute path.");
@@ -32,8 +31,12 @@ function run(args) {
     stdio: ["ignore", "pipe", "pipe"],
   });
 }
-function main() {
-  const config = loadConfig();
+/** Serves AgentPier over Tailscale and records the URL; `run` is injectable for tests. */
+export function configureTailscale({
+  config = loadConfig(),
+  run = runTailscale,
+  log = console.log,
+} = {}) {
   const status = JSON.parse(run(["status", "--json"]));
   if (status.BackendState !== "Running")
     throw new Error(serverMessages.scripts.tailscaleDisconnected);
@@ -47,20 +50,22 @@ function main() {
     httpsPort: selectedPort === undefined ? undefined : Number(selectedPort),
   });
   const remoteUrl = `https://${host}${port === 443 ? "" : `:${port}`}`;
-  console.log(
+  log(
     run(["serve", "--bg", `--https=${port}`, `http://127.0.0.1:${config.port}`]).trim(),
   );
-  writePrivate(path.join(config.dataDir, "config.json"), {
+  // Merge, never replace: network, pipelines and files settings must survive.
+  updateStoredConfig(config.dataDir, {
     port: config.port,
     remoteUrl,
     // Only this account may create the owner over Tailscale; everyone else signs in.
     ownerLogin: login,
   });
-  console.log(serverMessages.scripts.remoteAccessConfigured(remoteUrl));
+  log(serverMessages.scripts.remoteAccessConfigured(remoteUrl));
+  return remoteUrl;
 }
 if (isMainModule(import.meta.url))
   try {
-    main();
+    configureTailscale();
   } catch (e) {
     console.error(e.stderr?.toString().trim() || e.message);
     process.exitCode = 1;

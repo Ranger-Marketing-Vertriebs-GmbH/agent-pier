@@ -1,7 +1,7 @@
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { readJSON } from "./storage.js";
+import { readJSON, writePrivate } from "./storage.js";
 import { readFileLimits } from "../features/files/file-limits.js";
 import { normalizeNetworkConfig } from "./network-config.js";
 import { pipelineTiming } from "../features/pipelines/pipeline-timing.js";
@@ -11,11 +11,18 @@ export const projectDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../..",
 );
+const storedConfigFile = (dataDir) => path.join(dataDir, "config.json");
+/** Merges `patch` into the saved config.json so unrelated settings survive. */
+export function updateStoredConfig(dataDir, patch) {
+  const next = { ...readJSON(storedConfigFile(dataDir), {}), ...patch };
+  writePrivate(storedConfigFile(dataDir), next);
+  return next;
+}
 export function loadConfig() {
   const dataDir = path.resolve(
     process.env.AGENTPIER_DATA_DIR || path.join(projectDir, ".data"),
   );
-  const saved = readJSON(path.join(dataDir, "config.json"), {});
+  const saved = readJSON(storedConfigFile(dataDir), {});
   const network = normalizeNetworkConfig(saved.network);
   return {
     dataDir,
