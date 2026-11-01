@@ -527,7 +527,16 @@ When this AgentPier pins a newer release than the installed one, the group shows
 beside the selected one and activated through the update journal below; every Hermes
 agent's set stops, the snapshot is taken, the sets start on the new release, and a set
 that fails to start rolls the installation and the agents' homes back. OpenClaw agents
-keep running.
+keep running. Work of Hermes agents blocks the update as OpenClaw's work blocks its own
+(`runtimeBlockerItems` in `runtime-update-blockers.js`): a turn or chat summary running
+in a Hermes agent's chat (`ASSISTANT_WORK`) and a routine run under way on its scheduler
+(`SCHEDULED_WORK`); OpenClaw's work does not block it. A refused update reports
+`UPDATE_BLOCKED` with the items (`blockerItems` in `GET /api/assistant-runtime/hermes`),
+listed under the group, each opening where it is resolved, beside **Pause agents and
+update**: it reads the items again (`GET /api/assistant-runtime/hermes/update/blockers`)
+and sends `{ "resolveBlockers": true, "items": [...] }` to the update, which resolves
+exactly those items as [for OpenClaw](#pause-agents-and-update) (turns stopped through
+their Hermes session, unknown outcomes reviewed, routine runs waited for).
 
 **The pin.** `server/features/assistants/runtimes/hermes/hermes-manifest.json` names a
 release tag of `NousResearch/hermes-agent` and the commit it names (release `v0.22.5`,

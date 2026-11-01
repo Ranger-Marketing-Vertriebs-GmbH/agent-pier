@@ -1,6 +1,6 @@
 import { setTimeout as delay } from "node:timers/promises";
 import { abortAndReview } from "./attempt-recovery.js";
-import { runtimeFor } from "./runtimes/runtime-for.js";
+import { runtimeForSession } from "./runtimes/runtime-for.js";
 
 // "Pause agents and update" (docs/assistant-runtime-updates.md#pause-agents-and-update):
 // inside maintenance, where nothing new starts, AgentPier resolves exactly the blocker
@@ -47,7 +47,7 @@ function audit(s, item, verb, result, outcome = "success") {
   }
 }
 
-// A running turn is stopped through the Gateway like the owner's stop control
+// A running turn is stopped through its chat's runtime like the owner's stop control
 // (AssistantService.cancel); reconciliation does not run in maintenance, so the
 // attempt is recorded as cancelled once the Gateway took the abort. An unknown
 // outcome is reviewed the way a user's own review is: aborted, then marked reviewed.
@@ -63,7 +63,7 @@ async function chatTurn(s, item) {
   const chat = a.store.getConversation(
     a.ledger.getRequest(attempt.requestId).conversationId,
   );
-  await runtimeFor(null, a.runtime).sessions.abort({
+  await runtimeForSession(chat.runtimeSessionKey, a.runtime).sessions.abort({
     key: chat.runtimeSessionKey,
     runId: attempt.runtimeRunId || attempt.id,
   });

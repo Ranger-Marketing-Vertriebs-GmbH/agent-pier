@@ -170,7 +170,7 @@ export function RuntimeOn({ frame, feature, section }) {
       <RuntimeFeatureGroup draft={draft} feature={feature} />
       <RuntimeServiceGroup />
       <AssistantRuntimeUpdates onChange={refresh} navigate={frame.navigate} />
-      <RuntimeHermesGroup />
+      <RuntimeHermesGroup navigate={frame.navigate} />
       <section aria-labelledby={teamId}>
         <GroupLabel id={teamId} hint={teamCopy.concurrentHint}>
           {copy.runtime.teams}

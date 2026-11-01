@@ -144,6 +144,11 @@ state: the compiler preserves them and never produces duplicate keys.
   gateway's cron through the REST routes it hosts, which the RPC bridge calls with a
   one-request ticket from the control socket, and delivers each run's result to
   AgentPier's completion webhook itself ([routines](../hermes-runtime.md#routines)).
+  AGENTPIER-342 added the parity: routines in another time zone run as pinned jobs,
+  a result is written into its chat's history as a note through the bridge
+  (`agentpier.note`), and Hermes work blocks a Hermes update as OpenClaw's blocks its
+  own. Dangerous commands stay refused in routine runs on approval levels: Hermes's
+  cron has no one to ask (`approvals.cron_mode` is deny or approve).
 - **Host as built (AGENTPIER-329):** Hermes lets one process own a `HERMES_HOME`
   (`gateway.lock`), and `python -m tui_gateway.entry` refuses a home a gateway owns.
   Each Hermes agent therefore runs `hermes gateway run --external-supervisor` in the

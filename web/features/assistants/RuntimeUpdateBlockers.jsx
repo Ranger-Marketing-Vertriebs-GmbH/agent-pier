@@ -57,12 +57,19 @@ export function BlockerList({ items, navigate }) {
   );
 }
 
+/** OpenClaw's update: where the blockers are read and the activation goes. */
+const runtimeUpdate = {
+  blockers: `${endpoint}/blockers`,
+  activate: `${endpoint}/activate`,
+};
+
 /**
  * "Pause agents and update": reads what blocks the update now, lists what will happen
  * to each item and activates with exactly those items and revisions. Anything new or
  * changed since is left alone by the server, which then reports what remains.
+ * `endpoints` names another runtime's update (Hermes Agent's) than OpenClaw's.
  */
-export function PauseAndUpdate({ version, disabled, onDone }) {
+export function PauseAndUpdate({ version, disabled, onDone, endpoints = runtimeUpdate }) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState(null);
   const [error, setError] = useState("");
@@ -71,7 +78,7 @@ export function PauseAndUpdate({ version, disabled, onDone }) {
     let current = true;
     setItems(null);
     setError("");
-    api(`${endpoint}/blockers`)
+    api(endpoints.blockers)
       .then((data) => {
         if (!current) return;
         const list = Array.isArray(data?.items) ? data.items : null;
@@ -83,10 +90,10 @@ export function PauseAndUpdate({ version, disabled, onDone }) {
     return () => {
       current = false;
     };
-  }, [open]);
+  }, [open, endpoints.blockers]);
   async function confirm() {
     try {
-      await api(`${endpoint}/activate`, "POST", {
+      await api(endpoints.activate, "POST", {
         resolveBlockers: true,
         items: items.map(({ id, revision }) => ({ id, revision })),
       });

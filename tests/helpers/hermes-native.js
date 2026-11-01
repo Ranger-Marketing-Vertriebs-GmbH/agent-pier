@@ -45,7 +45,7 @@ export function hermesSandbox(t) {
  * The agent AgentPier would run, as its desired state reads it: shell on approval
  * (Hermes asks before dangerous commands), memory, and the fake model at `baseUrl` as
  * its model connection, with its key. `extra`: more fields of its stored record
- * (skills); `inputs`: what desiredAgent takes besides (its MCP server ids).
+ * (`shell`, skills); `inputs`: what desiredAgent takes besides (its MCP server ids).
  */
 export function contractAgent(agentId, { baseUrl }, extra = {}, inputs = {}) {
   const profile = {
@@ -53,9 +53,10 @@ export function contractAgent(agentId, { baseUrl }, extra = {}, inputs = {}) {
     name: `Agent ${agentId}`,
     runtimeAgentId: agentId,
     revision: 1,
-    shell: "approval",
     capabilities: { memory: true },
     ...extra,
+    // An extra `shell` left undefined keeps the default.
+    shell: extra.shell ?? "approval",
   };
   return desiredAgent(profile, {
     ...inputs,
@@ -77,7 +78,7 @@ export function contractAgent(agentId, { baseUrl }, extra = {}, inputs = {}) {
 
 /**
  * Starts the agent `agentId` in `dirs` through the Hermes runtime with `model` (the
- * fake model) and resolves `{ supervisor, runtime, sessions, events, approvals,
+ * fake model) and its shell level `shell` (default approval) and resolves `{ supervisor, runtime, sessions, events, approvals,
  * agent, stop() }` once its host is ready. Its home starts with compression off, so
  * no turn calls the model a second time; the compiled home is merged over it. The
  * process groups are guarded, so they end also when the test process exits early.
@@ -85,13 +86,13 @@ export function contractAgent(agentId, { baseUrl }, extra = {}, inputs = {}) {
 export async function startHermes(
   t,
   dirs,
-  { agentId = "hermes-agent", model, strict = false } = {},
+  { agentId = "hermes-agent", model, strict = false, shell } = {},
 ) {
   const { supervisor, runtime } = createHermesRuntime({
     dataDir: dirs.root,
     agentId,
     runtime: async () => contractRecord(),
-    desired: () => contractAgent(agentId, model),
+    desired: () => contractAgent(agentId, model, { shell }),
     // Every-command approval (the guard plugin) when `strict`.
     strict,
     readyTimeoutMs: 180000,

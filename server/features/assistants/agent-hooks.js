@@ -312,7 +312,9 @@ export class AgentHooks {
     const input = { eventId, payload: text, size, contentType, source };
     if (this.events.find(hook.id, eventId))
       return answer(200, "duplicate", this.events.admit(hook, input).event);
-    if (!hostReady(this.assistants.runtime)) return answer(503, "unavailable");
+    // The runtime of the hook's agent: a Hermes agent's own process set.
+    if (!hostReady(this.assistants.runtime, this.hookAgent(hook)))
+      return answer(503, "unavailable");
     const admitted = this.events.admit(hook, { ...input, test: source === "test" });
     const { event } = admitted;
     if (admitted.outcome === "duplicate") return answer(200, "duplicate", event);
@@ -331,6 +333,14 @@ export class AgentHooks {
       return answer(503, "unavailable");
     }
     return answer(202, "accepted", event);
+  }
+  // The agent a hook belongs to, or null (OpenClaw's host decides) once it is gone.
+  hookAgent(hook) {
+    try {
+      return this.assistants.store.getAssistant(hook.assistantId);
+    } catch {
+      return null;
+    }
   }
   /**
    * A delivery the endpoint refused before `deliver` (unauthorized, not-found,

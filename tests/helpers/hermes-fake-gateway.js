@@ -76,7 +76,9 @@ const refusal = (id, reason, data = {}) => ({
  * `admission_id` and `execution_generation` (status "error" with an error surface of
  * code `runFailure` when given), revision-fenced `session.mutate`, an
  * `approval.request` event per entry of `approvals` once the client declared server
- * requests, and the bridge's `agentpier.http` over the cron routes (hermes-fake-cron.js).
+ * requests, `session.stats` from a row's `stats` (set by a test), and the bridge's
+ * `agentpier.http` over the cron routes (hermes-fake-cron.js) and `agentpier.note`,
+ * which appends an `internal_notification` user row.
  */
 export function fakeHermesGateway(
   peer,
@@ -262,6 +264,21 @@ export function fakeHermesGateway(
           changed: () => event("cron.changed", "", {}),
         }),
       ),
+    "agentpier.note": (id, { session_id: sid, text }) => {
+      const row = store.rows.get(sid);
+      if (!row) return ok(id, { appended: false, reason: "not_found" });
+      row.messages.push({
+        role: "user",
+        text,
+        display_kind: "internal_notification",
+        row_id: row.messages.length + 1,
+      });
+      ok(id, { appended: true });
+    },
+    "session.stats": (id, { session_id: sid }) => {
+      const row = stored(id, sid);
+      if (row) ok(id, { last_prompt_tokens: 0, context_length: 0, ...row.stats });
+    },
     "llm.oneshot": (id, { input }) =>
       ok(id, {
         text: `"About ${String(input).match(/<message>\n?(.*)/)?.[1] || "this"}"\n`,
@@ -343,12 +360,13 @@ export function fakeHermesSupervisor({
  */
 export function hermesTestRuntime(
   supervisor,
-  { post = async () => ({ ok: true }) } = {},
+  { post = async () => ({ ok: true }), zone } = {},
 ) {
   const deliveries = new HermesRoutineDeliveries({
     supervisor,
     token: () => "t".repeat(64),
     post,
+    zone,
   });
   supervisor.deliveries = deliveries;
   supervisor.on("status", ({ availability }) =>
@@ -371,7 +389,7 @@ export function hermesTestRuntime(
     sessions: hermesSessions(supervisor),
     events: hermesEvents(supervisor),
     approvals: hermesApprovals(supervisor),
-    routines: hermesRoutines(supervisor, { deliveries }),
+    routines: hermesRoutines(supervisor, { deliveries, zone }),
   });
 }
 

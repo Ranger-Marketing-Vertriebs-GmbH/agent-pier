@@ -40,8 +40,11 @@ function answer(body) {
   return { reply: `ECHO: ${said.slice(-120)}`, slow: /SLOW/.test(said) };
 }
 
-/** Starts the model; resolves `{ baseUrl, requests, close() }`. */
-export async function startFakeModel({ slowMs = 500 } = {}) {
+/**
+ * Starts the model; resolves `{ baseUrl, requests, close() }`. Each answer reports
+ * `promptTokens` prompt tokens (default 10).
+ */
+export async function startFakeModel({ slowMs = 500, promptTokens = 10 } = {}) {
   const requests = [];
   const server = http.createServer((req, res) => {
     let raw = "";
@@ -62,7 +65,11 @@ export async function startFakeModel({ slowMs = 500 } = {}) {
       requests.push({ url: req.url, body });
       const { reply, tool, slow } = answer(body);
       const model = body.model || "fake-1";
-      const usage = { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 };
+      const usage = {
+        prompt_tokens: promptTokens,
+        completion_tokens: 5,
+        total_tokens: promptTokens + 5,
+      };
       if (!body.stream) {
         res.setHeader("content-type", "application/json");
         return res.end(

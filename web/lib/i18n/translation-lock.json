@@ -475,6 +475,7 @@
   "agents-hub:agentsHubCopy.runtime.hermes.enableSub": "de:ef809f912b39 en:bb8312ad1bab",
   "agents-hub:agentsHubCopy.runtime.hermes.errors.HERMES_PROVISIONING_FAILED": "de:1e140b22fd2a en:8ae9a1236756",
   "agents-hub:agentsHubCopy.runtime.hermes.errors.HERMES_UPDATE_FAILED": "de:e93989744d33 en:ebd72ecad1e9",
+  "agents-hub:agentsHubCopy.runtime.hermes.errors.UPDATE_BLOCKED": "de:5edff96c5a59 en:974ba3d722f1",
   "agents-hub:agentsHubCopy.runtime.hermes.hint": "de:c6628bf30467 en:6ecb25b54065",
   "agents-hub:agentsHubCopy.runtime.hermes.python": "de:32cd14fce50f en:32cd14fce50f",
   "agents-hub:agentsHubCopy.runtime.hermes.state": "de:630d1a734a83 en:a3b50c476732",

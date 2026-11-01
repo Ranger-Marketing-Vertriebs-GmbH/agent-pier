@@ -229,17 +229,22 @@ What works on Hermes today:
   servers with a token; their tools appear as `mcp__<server>__<tool>`. Servers with
   sign-in (OAuth) are not available for Hermes agents yet.
 - Reminders, routines and check-ins you set up in the agent's settings: they run
-  on the agent's own Hermes scheduler and their results show in its main chat as on
-  OpenClaw. The agent does not see a routine's result in later turns, a routine run
-  refuses commands that would need an approval, and Hermes runs schedules in the
-  server's time zone ([Hermes runtime](hermes-runtime.md#routines)).
+  on the agent's own Hermes scheduler in each routine's own time zone, their results
+  show in its main chat and the agent sees them in later turns, as on OpenClaw. With
+  **Full access** a routine run uses the shell as OpenClaw's does; with **Dangerous
+  commands** or **Every command** a routine run refuses the commands that would ask,
+  because Hermes cannot ask anyone during a routine run
+  ([Hermes runtime](hermes-runtime.md#routines)).
+- Hooks: an incoming event runs in the agent's main chat as on OpenClaw.
+- Long chats: the hint to summarise a long chat appears as on OpenClaw.
 
 What comes later, shown disabled with **Not available for Hermes agents yet.** in
 the agent's settings: the agent's own reminder and routine tool, the browser, ChatGPT
 sign-in, Telegram and other channels, teams and advanced runtime settings. Updates of
 Hermes itself appear in the **Hermes Agent** group (**Update**); the Hermes agents
-restart, and a failed start restores the previous installation. What AgentPier writes
-into a Hermes home is described in
+restart, and a failed start restores the previous installation. Work of Hermes agents
+still running blocks it and is listed there, with **Pause agents and update** as for
+OpenClaw. What AgentPier writes into a Hermes home is described in
 [Hermes runtime](hermes-runtime.md).
 
 <a id="archive-and-delete"></a>

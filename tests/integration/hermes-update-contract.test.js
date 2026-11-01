@@ -35,10 +35,11 @@ import {
 // (hermes-wiring.js: the fleet as the journal's host, its maintenance; runtime-updates.js):
 // the previous release (tests/fixtures/hermes-previous-manifest.json, v0.22.4) is
 // installed and selected in a disposable data directory and runs an agent with a chat;
-// staging installs the pinned release beside it; an activation whose validation fails
-// restores the snapshot and runs the agent on the previous release again, with its
-// home as before; the next activation commits, and the agent runs on the pinned
-// release with its chat. Both installations are built from their manifests (network:
+// staging installs the pinned release beside it; a turn still running blocks the
+// activation, and "Pause agents and update" stops it through Hermes; an activation
+// whose validation fails restores the snapshot and runs the agent on the previous
+// release again, with its home as before; the next activation commits, and the agent
+// runs on the pinned release with its chat. Both installations are built from their manifests (network:
 // GitHub, PyPI), like the contracts' provisioning; the fake model answers.
 const options = { skip: hermesSkip, timeout: contractTimeout(2400000) };
 const agentId = "update-agent";
@@ -78,9 +79,31 @@ test(
     dirs.stops.push(() => fleet.close());
     const supervisor = {};
     attachHermesFleet(supervisor, fleet);
-    const agent = { id: "a1", runtime: "hermes", runtimeAgentId: agentId };
+    const agent = {
+      id: "a1",
+      name: "Update agent",
+      runtime: "hermes",
+      runtimeAgentId: agentId,
+    };
+    // The chat's turns as AgentPier's ledger keeps them (one attempt per turn).
+    const chat = { id: "chat-1", assistantId: agent.id, runtimeSessionKey: null };
+    const attempts = [];
     const services = {
-      assistants: { runtime: supervisor, store: { listAssistants: () => [agent] } },
+      assistants: {
+        runtime: supervisor,
+        store: {
+          listAssistants: () => [agent],
+          getAssistant: () => agent,
+          getConversation: () => chat,
+        },
+        ledger: {
+          pending: () => attempts.filter((a) => a.state === "running"),
+          getRequest: () => ({ conversationId: chat.id }),
+          getAttempt: (id) => attempts.find((a) => a.id === id),
+          transition: (id, state) => (attempts.find((a) => a.id === id).state = state),
+        },
+        changed() {},
+      },
     };
     const set = () => fleet.sets.get(agentId).supervisor;
     const guard = () => {
@@ -113,6 +136,7 @@ test(
       assert.equal(end.kind, "finished");
     };
     await turn("before the update", "r1");
+    chat.runtimeSessionKey = key;
 
     let fail = true;
     const base = hermesUpdateMaintenance(services);
@@ -141,8 +165,37 @@ test(
     assert.equal(candidate.version, hermesManifest.version);
     assert.equal(readJSON(selection).version, previous.version);
 
-    // A failed validation restores the snapshot and the previous release.
-    await assert.rejects(updates.activate(), (e) => e.code === "UPDATE_ROLLED_BACK");
+    // A turn still running blocks the activation; nothing changed.
+    await runtime.sessions.send({
+      key,
+      turn: { message: "SLOW reply while the update waits" },
+      idempotencyKey: "slow",
+    });
+    attempts.push({
+      id: "t-slow",
+      requestId: "q",
+      state: "running",
+      runtimeRunId: "slow",
+    });
+    await assert.rejects(updates.activate(), (e) => e.code === "UPDATE_BLOCKED");
+    const { blockerItems } = updates.status();
+    assert.deepEqual(
+      blockerItems.map((i) => [i.code, i.kind, i.resolution, i.agent.name]),
+      [["ASSISTANT_WORK", "chat_turn", "stop", "Update agent"]],
+    );
+    assert.equal(readJSON(selection).version, previous.version);
+    assert.equal(runtime.host.ready(), true);
+
+    // "Pause agents and update" stops it through Hermes and goes on; a failed
+    // validation then restores the snapshot and the previous release.
+    await assert.rejects(
+      updates.activate({
+        resolveBlockers: true,
+        items: blockerItems.map(({ id, revision }) => ({ id, revision })),
+      }),
+      (e) => e.code === "UPDATE_ROLLED_BACK",
+    );
+    assert.equal(attempts[0].state, "cancelled");
     assert.equal(updates.status().phase, "rolled_back");
     assert.equal(readJSON(selection).version, previous.version);
     await eventually(() => runtime.host.ready(), 240000, "the rolled-back set");
@@ -152,6 +205,8 @@ test(
     assert.equal(fs.existsSync(marker), false);
     const kept = await runtime.sessions.history({ sessionKey: key, limit: 20 });
     assert.ok(kept.messages.some((m) => m.entry.text === "ECHO: before the update"));
+    // The stopped turn never finished its reply.
+    assert.ok(!kept.messages.some((m) => m.entry.text.endsWith(" tick".repeat(40))));
 
     // The next activation commits: the agent runs on the pinned release, its chat kept.
     await updates.activate();
@@ -163,8 +218,14 @@ test(
     assert.match(runningFrom(set().pids()), new RegExp(`/${hermesManifest.version}-py`));
     await turn("after the update", "r2");
     const after = await runtime.sessions.history({ sessionKey: key, limit: 20 });
+    // The stopped turn's partial reply aside, both answers are kept in order.
     assert.deepEqual(
-      after.messages.filter((m) => m.entry.role === "assistant").map((m) => m.entry.text),
+      after.messages
+        .filter(
+          (m) =>
+            m.entry.role === "assistant" && /^ECHO: (before|after) /.test(m.entry.text),
+        )
+        .map((m) => m.entry.text),
       ["ECHO: before the update", "ECHO: after the update"],
     );
     await fleet.close();

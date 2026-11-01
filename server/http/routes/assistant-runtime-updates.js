@@ -10,7 +10,7 @@ const shortText = (value) =>
   typeof value === "string" && value.length > 0 && value.length <= 300;
 // `{ resolveBlockers: true, items: [{ id, revision }] }`: the blocker items the owner
 // confirmed in "Pause agents and update", or null when the body is not exactly that.
-function resolution(body) {
+export function resolution(body) {
   const { resolveBlockers, items, ...rest } = body;
   if (
     resolveBlockers !== true ||

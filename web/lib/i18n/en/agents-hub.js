@@ -148,6 +148,8 @@ export const agentsHubCopy = {
           "Hermes Agent could not be installed. Switch it off and on to try again.",
         HERMES_UPDATE_FAILED:
           "The update failed. Hermes Agent keeps running on its previous version.",
+        UPDATE_BLOCKED:
+          "Hermes agents are still working. Open each item below, or pause the agents and update.",
       },
       unknownError: (code) => `Hermes Agent reported a problem (${code}).`,
       version: "Version",
