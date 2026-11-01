@@ -248,14 +248,20 @@ What works on Hermes today:
 - Telegram: pair the agent's bot under **Channels** as for OpenClaw; messages, voice
   notes (transcribed with Deepgram), photos and files reach the agent and its replies
   come back to the paired chat.
+- Telegram for other people: the agent's own bot (**Channels › Telegram for other
+  people**) works as for OpenClaw agents: the same rules (no shell, no SSH, no
+  secrets or email), allowed people by numeric ID, Deepgram voice notes with the
+  speech settings. Hermes runs the bot itself; saving a change restarts only this
+  agent, so adding or removing a person takes a few seconds. Each person's
+  conversation stays in Hermes, not in your chats, as on OpenClaw.
 
 What comes later, shown disabled with **Not available for Hermes agents yet.** in
-the agent's settings: the agent's own reminder and routine tool, the browser, the
-agent's own Telegram bot for other people, teams and advanced runtime settings.
-Updates of Hermes itself appear in the **Hermes Agent** group (**Update**); the Hermes
-agents restart, and a failed start restores the previous installation. Work of Hermes
-agents still running blocks it and is listed there, with **Pause agents and update**
-as for OpenClaw. What AgentPier writes into a Hermes home is described in
+the agent's settings: the agent's own reminder and routine tool, the browser, teams
+and advanced runtime settings. Updates of Hermes itself appear in the **Hermes Agent**
+group (**Update**); the Hermes agents restart, and a failed start restores the
+previous installation. Work of Hermes agents still running blocks it and is listed
+there, with **Pause agents and update** as for OpenClaw. What AgentPier writes into a
+Hermes home is described in
 [Hermes runtime](hermes-runtime.md).
 
 <a id="archive-and-delete"></a>

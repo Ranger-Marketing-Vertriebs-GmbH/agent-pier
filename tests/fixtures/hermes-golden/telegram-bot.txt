@@ -1,0 +1,207 @@
+==> .env <==
+AUXILIARY_AGENTPIER_API_KEY='sk-golden-endpoint'
+AUXILIARY_AGENTPIER_DEEPGRAM_API_KEY='dg-golden-key'
+TELEGRAM_BOT_TOKEN='123456:golden-bot-token'
+==> SOUL.md <==
+# Agent a1
+
+You help the owner with their work.
+==> config.yaml <==
+model:
+  provider: custom
+  default: golden-1
+  base_url: https://llm.example.test/v1
+  api_mode: chat_completions
+  key_env: AUXILIARY_AGENTPIER_API_KEY
+  context_length: 128000
+agent:
+  disabled_toolsets:
+    - browser
+    - code_execution
+    - computer_use
+    - connections
+    - cronjob
+    - image_gen
+    - session_search
+    - terminal
+    - vision
+    - web
+terminal:
+  backend: local
+approvals:
+  mode: manual
+memory:
+  memory_enabled: true
+  user_profile_enabled: true
+  memory_char_limit: 2200
+  user_char_limit: 1375
+plugins:
+  enabled:
+    - agentpier-deepgram
+  auto_update_check_hours: 0
+skills:
+  external_dirs: []
+platforms:
+  telegram:
+    enabled: true
+    home_channel:
+      platform: telegram
+      chat_id: "0"
+      name: AgentPier
+    extra:
+      allow_from:
+        - "1001"
+        - "1002"
+      dm_policy: allowlist
+      unauthorized_dm_behavior: ignore
+      allowed_chats:
+        - "0"
+      guest_mode: false
+      gateway_restart_notification: false
+      allow_admin_from:
+        - "0"
+      user_allowed_commands: []
+      group_allow_admin_from:
+        - "0"
+      group_user_allowed_commands: []
+stt:
+  enabled: true
+  provider: agentpier-deepgram
+  agentpier-deepgram:
+    model: nova-3
+    language: de
+    keyterms:
+      - AgentPier
+      - Agent a1
+delegation:
+  subagent_auto_approve: false
+web:
+  keyless_fallback: false
+auth:
+  adopt_external_logins: false
+onboarding:
+  profile_build: "off"
+updates:
+  check: false
+security:
+  allow_lazy_installs: false
+telemetry:
+  shared_metrics:
+    enabled: false
+    send: false
+==> plugins/agentpier-deepgram/__init__.py <==
+"""AgentPier: voice notes of this agent's Telegram bot, transcribed by Deepgram.
+
+Written by AgentPier into this agent's Hermes home; AgentPier replaces it on every
+configuration change. The key comes from AUXILIARY_AGENTPIER_DEEPGRAM_API_KEY.
+"""
+
+import json
+import os
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+
+from agent.transcription_provider import TranscriptionProvider
+
+_NAME = "agentpier-deepgram"
+_KEY = "AUXILIARY_AGENTPIER_DEEPGRAM_API_KEY"
+_TYPES = {".ogg": "audio/ogg", ".oga": "audio/ogg", ".opus": "audio/ogg",
+          ".mp3": "audio/mpeg", ".m4a": "audio/mp4", ".mp4": "audio/mp4",
+          ".wav": "audio/wav", ".webm": "audio/webm", ".flac": "audio/flac"}
+
+
+def _key():
+    try:
+        from agent.secret_scope import get_secret_str
+        value = get_secret_str(_KEY, "")
+    except Exception:
+        value = ""
+    return value or os.environ.get(_KEY, "")
+
+
+def _settings():
+    try:
+        from hermes_cli.config import load_config_readonly
+        section = ((load_config_readonly() or {}).get("stt") or {}).get(_NAME) or {}
+        return section if isinstance(section, dict) else {}
+    except Exception:
+        return {}
+
+
+def _failed(error):
+    return {"success": False, "transcript": "", "provider": _NAME, "error": error}
+
+
+class DeepgramProvider(TranscriptionProvider):
+    @property
+    def name(self):
+        return _NAME
+
+    @property
+    def display_name(self):
+        return "Deepgram (AgentPier)"
+
+    def is_available(self):
+        return bool(_key())
+
+    def default_model(self):
+        return "nova-3"
+
+    def transcribe(self, file_path, *, model=None, language=None, **extra):
+        key = _key()
+        if not key:
+            return _failed("No Deepgram key")
+        settings = _settings()
+        model = model or settings.get("model") or "nova-3"
+        language = language or settings.get("language") or "auto"
+        query = [("model", model), ("smart_format", "true")]
+        query.append(("detect_language", "true") if language == "auto" else ("language", language))
+        for term in settings.get("keyterms") or []:
+            if model.startswith("nova-3"):
+                query.append(("keyterm", str(term)))
+            elif model.startswith("nova-2"):
+                query.append(("keywords", str(term).replace(":", " ") + ":2"))
+        base = str(settings.get("base_url") or "https://api.deepgram.com/v1").rstrip("/")
+        url = base + "/listen?" + urllib.parse.urlencode(query)
+        kind = _TYPES.get(os.path.splitext(file_path)[1].lower(), "application/octet-stream")
+        try:
+            with open(file_path, "rb") as handle:
+                audio = handle.read()
+        except OSError:
+            return _failed("The recording cannot be read")
+        for attempt in range(4):
+            request = urllib.request.Request(url, data=audio, method="POST", headers={
+                "Authorization": "Token " + key, "Content-Type": kind})
+            try:
+                with urllib.request.urlopen(request, timeout=30) as response:
+                    body = json.loads(response.read() or b"{}")
+                break
+            except urllib.error.HTTPError as error:
+                if error.code == 429 and attempt < 3:
+                    time.sleep(2 ** attempt)
+                    continue
+                return _failed("Deepgram refused the recording (HTTP %d)" % error.code)
+            except Exception:
+                return _failed("Deepgram cannot be reached")
+        try:
+            transcript = body["results"]["channels"][0]["alternatives"][0]["transcript"]
+        except (KeyError, IndexError, TypeError):
+            transcript = ""
+        transcript = str(transcript or "").strip()
+        if not transcript:
+            return _failed("Deepgram heard no speech")
+        return {"success": True, "transcript": transcript, "provider": _NAME}
+
+
+def register(ctx):
+    ctx.register_transcription_provider(DeepgramProvider())
+==> plugins/agentpier-deepgram/plugin.yaml <==
+name: agentpier-deepgram
+version: "1"
+description: AgentPier transcribes voice notes with Deepgram
+==> (remove) <==
+plugins/agentpier-guard
+==> (unsupported) <==
+teams

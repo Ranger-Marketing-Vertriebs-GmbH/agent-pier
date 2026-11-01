@@ -52,7 +52,7 @@ test("Hermes replies are attributed to the turns AgentPier submitted", () => {
   assert.deepEqual(runs(turns.attribute("k", history)), Array(10).fill(null));
 });
 
-test("a Hermes agent's channels report no bot of its own; its own bots for others are refused", async () => {
+test("a Hermes agent without a bot reports no account; a runtime without channelBots is refused", async () => {
   const supervisor = fakeHermesSupervisor({ agentId: "ap-h" });
   const channels = hermesChannels(supervisor);
   await assert.rejects(
@@ -94,6 +94,6 @@ test("a Hermes agent's channels report no bot of its own; its own bots for other
     () => senders.eligible("h"),
     (e) => e.key === "telegramSendersRuntime" && e.status === 409,
   );
-  // OpenClaw runs them: its capability stays available.
+  // OpenClaw runs them, and so does Hermes now (its own adapter, AGENTPIER-341).
   assert.equal(runtimeFor(null, host).capabilities().channelBots.available, true);
 });

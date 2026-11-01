@@ -49,6 +49,8 @@ export async function fakeBotApi(bots) {
     const body = raw.toString();
     const url = new URL(req.url, "http://fake");
     const file = url.pathname.match(/^\/file\/bot([^/]+)\/(.+)$/);
+    // python-telegram-bot (Hermes) sends the token's colon percent-encoded.
+    if (file) file[1] = decodeURIComponent(file[1]);
     if (file) {
       calls.push({ token: file[1], method: "file", params: { path: file[2] } });
       const data = files.get(file[2]);

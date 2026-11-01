@@ -11,6 +11,13 @@ import { desiredState } from "../assistants/agent-desired-state.js";
 import { TelegramClient } from "./telegram-client.js";
 import { patchTelegramAllowlists } from "./telegram-live.js";
 import { validPeople } from "./native-telegram-store.js";
+import { recordSenderChange } from "./telegram-senders-audit.js";
+import {
+  applyOwnBots,
+  ownBotAgents,
+  ownBotRead,
+  ownBotStatus,
+} from "./telegram-senders-own.js";
 import { runtimeResolver } from "../assistants/runtimes/runtime-for.js";
 import {
   compilerFor,
@@ -90,6 +97,8 @@ export class TelegramSenders {
       runtimeFor,
     });
     this.configured = configured || this.configuredFromFile;
+    // An agent in its own process set compiles its bot at its apply (telegram-senders-own.js).
+    if (assistants?.config) assistants.config.channelBot = (p) => ownBotRead(this, p);
     this.adoption = { warn, timeoutMs: adoptionTimeoutMs };
     // Live allowlist patches run one at a time.
     this.live = Promise.resolve();
@@ -448,6 +457,7 @@ export class TelegramSenders {
       !telegramEligible(profile, this.stdioAgents(), this.sshAgents())
     )
       return { state: "inactive" };
+    if (ownProcess(profile)) return ownBotStatus(this, profile, bot);
     if (!hostReady(runtime) || !runtime.telegram) return { state: "stopped" };
     if (this.agentPending(bot.assistantId)) return { state: "pending" };
     // Neither running nor compiled by a restart: the agent has no Gateway entry yet
@@ -508,6 +518,7 @@ export class TelegramSenders {
       confirmed,
     );
     this.record(assistantId, current, saved, { token: !!identity });
+    void applyOwnBots(this, [assistantId]);
     return this.get(assistantId);
   }
   /** Removes the agent's bot; Telegram stops at the latest at the next start. */
@@ -520,6 +531,7 @@ export class TelegramSenders {
       confirmed,
     );
     this.record(assistantId, current, null);
+    void applyOwnBots(this, [assistantId]);
     return this.get(assistantId);
   }
   /**
@@ -544,7 +556,7 @@ export class TelegramSenders {
           }
         : null;
     }
-    return this.commit(
+    const saved = await this.commit(
       inputs,
       () => {
         if (keyChanged && (this.store.list().length || this.running()?.voice))
@@ -553,6 +565,8 @@ export class TelegramSenders {
       },
       confirmed,
     );
+    void applyOwnBots(this, ownBotAgents(this));
+    return saved;
   }
   /**
    * Brings the Gateway up to the stored bots: live for allowlists, otherwise by a
@@ -567,34 +581,7 @@ export class TelegramSenders {
     return { applied: live ? !this.differs() : !this.synchronization.pending };
   }
   /** One audit record per change; never a token, an id or a name. */
-  record(assistantId, before, after, { token = false } = {}) {
-    const changes = [];
-    if (!before) changes.push(["connected", after.people.length]);
-    else if (!after) changes.push(["disconnected", before.people.length]);
-    else {
-      if (before.botId !== after.botId) changes.push(["botReplaced", 0]);
-      else if (token) changes.push(["tokenReplaced", 0]);
-      const ids = (list) => new Set(list.map((p) => p.id));
-      const was = ids(before.people),
-        now = ids(after.people);
-      const added = [...now].filter((id) => !was.has(id)).length;
-      const removed = [...was].filter((id) => !now.has(id)).length;
-      if (added) changes.push(["peopleAdded", added]);
-      if (removed) changes.push(["peopleRemoved", removed]);
-      if (!changes.length) changes.push(["updated", 0]);
-    }
-    for (const [telegram, count] of changes)
-      try {
-        this.audit?.append({
-          action: "assistant.updated",
-          resourceType: "assistant",
-          resourceId: assistantId,
-          source: "user",
-          outcome: "success",
-          details: { kind: "telegram", telegram, count },
-        });
-      } catch (error) {
-        console.error("Telegram sender audit failed:", error?.message);
-      }
+  record(assistantId, before, after, options) {
+    recordSenderChange(this.audit, assistantId, before, after, options);
   }
 }

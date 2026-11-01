@@ -16,6 +16,8 @@ import {
   hermesGoldenScenarios,
 } from "../helpers/hermes-golden-scenarios.js";
 import { contractTimeout } from "../helpers/contract-timeout.js";
+import { telegramTokenEnv } from "../../server/features/assistants/runtimes/hermes/hermes-config/telegram.js";
+import { deepgramKeyEnv } from "../../server/features/assistants/runtimes/hermes/hermes-config/deepgram-plugin.js";
 
 // The compiled homes against the pinned Hermes (docs/hermes-runtime.md): `hermes
 // config check` accepts each, and Hermes reads them as AgentPier means them.
@@ -59,6 +61,11 @@ if config.get("model"):
   route = resolve_runtime_provider()
   out["route"] = [route["provider"], route["api_mode"], route["base_url"]]
   out["key"] = route.get("api_key") == os.environ.get(sys.argv[1])
+from agent.transcription_registry import get_provider as stt_provider
+stt = (config.get("stt") or {})
+if stt.get("enabled") and stt.get("provider"):
+  provider = stt_provider(stt["provider"])
+  out["stt"] = [stt["provider"], bool(provider and provider.is_available())]
 child = _sanitize_subprocess_env(dict(os.environ))
 out["leaked"] = sorted(k for k in child if k in sys.argv[1:])
 print(json.dumps(out))
@@ -96,7 +103,13 @@ for (const name of Object.keys(hermesGoldenScenarios))
     const keyEnv = provider?.baseUrl.includes("openrouter.ai")
       ? openRouterKeyEnv
       : endpointKeyEnv;
-    const keys = [keyEnv, keyEnv === endpointKeyEnv ? openRouterKeyEnv : endpointKeyEnv];
+    const keys = [
+      keyEnv,
+      keyEnv === endpointKeyEnv ? openRouterKeyEnv : endpointKeyEnv,
+      // The agent's own bot (AGENTPIER-341): its token and the Deepgram key.
+      telegramTokenEnv,
+      deepgramKeyEnv,
+    ];
     const { stdout } = await exec(bin("python"), ["-c", probe, ...keys]);
     const seen = JSON.parse(stdout.trim().split("\n").at(-1));
     const level = scenario.strict ? "every-command" : scenario.profile.shell || "off";
@@ -104,7 +117,13 @@ for (const name of Object.keys(hermesGoldenScenarios))
     assert.equal(seen.toolsets.includes("terminal"), level !== "off");
     assert.equal(seen.toolsets.includes("delegation"), true);
     assert.equal(seen.toolsets.includes("browser"), false);
-    assert.deepEqual(seen.guard, level === "every-command" ? ["agentpier-guard"] : []);
+    const voice = !!scenario.channelBot?.speech;
+    assert.deepEqual(seen.guard, [
+      ...(level === "every-command" ? ["agentpier-guard"] : []),
+      ...(voice ? ["agentpier-deepgram"] : []),
+    ]);
+    // The Deepgram plugin registers its provider and finds its key.
+    assert.deepEqual(seen.stt, voice ? ["agentpier-deepgram", true] : undefined);
     assert.deepEqual(
       seen.directive,
       level === "every-command" ? ["approve", "ls -la /tmp"] : [null, null],

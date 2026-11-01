@@ -166,6 +166,19 @@ export const hermesGoldenScenarios = {
       redirectUrl: null,
     },
   }),
+  // The agent's own Telegram bot for other people with Deepgram voice (AGENTPIER-341):
+  // Hermes's Telegram adapter, the access rules, the sender lock and the plugin.
+  "telegram-bot": () => ({
+    profile: agent({ capabilities: { memory: true } }),
+    model: models.bearer,
+    instructions,
+    channelBot: {
+      token: "123456:golden-bot-token",
+      tokenRevision: 1,
+      people: ["1001", "1002"],
+      speech: { apiKey: "dg-golden-key", model: "nova-3", language: "de" },
+    },
+  }),
   // Subagents stay on with their defaults; wishes Hermes cannot serve yet are named.
   "subagents-default": () => ({
     profile: agent({
@@ -180,11 +193,18 @@ export const hermesGoldenScenarios = {
 /** What hermesCompiler.compile takes for a scenario (`homes`: files found there). */
 export function goldenCompileInput(scenario, homes = {}) {
   const { profile, model: connection, instructions: text, workspace, strict } = scenario;
-  const { bundledSkills, catalogSkills, mcp } = scenario;
+  const { bundledSkills, catalogSkills, mcp, channelBot } = scenario;
   const servers = mcp?.bindings[profile.id] || [];
   const live =
     connection || text !== undefined
-      ? [desiredAgent(profile, { model: connection, instructions: text, mcp: servers })]
+      ? [
+          desiredAgent(profile, {
+            model: connection,
+            instructions: text,
+            mcp: servers,
+            channelBot,
+          }),
+        ]
       : [];
   return {
     desired: desiredState({ profiles: [profile], mcp }),

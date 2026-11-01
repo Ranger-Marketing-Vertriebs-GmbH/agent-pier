@@ -82,10 +82,11 @@ test("the runtime composes host, sessions, events, approvals, routines and the c
     "routines",
     "models",
     "channels",
+    "channelBots",
     "everyCommandApproval",
   ])
     assert.equal(capabilities[name].available, true, name);
-  for (const name of ["browser", "channelBots"])
+  for (const name of ["browser"])
     assert.deepEqual(capabilities[name], {
       available: false,
       reason: "hermesNotYetSupported",

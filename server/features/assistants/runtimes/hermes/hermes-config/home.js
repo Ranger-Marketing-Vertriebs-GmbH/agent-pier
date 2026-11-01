@@ -10,9 +10,11 @@ import { guardDirectory, guardFiles, guardPlugin } from "./guard-plugin.js";
 import { memoryLimits } from "./memory.js";
 import { skillEntries } from "./skills.js";
 import { mcpEntries, mcpEnvOwned } from "./mcp.js";
+import { channelBotEnvNames, channelBotHome, senderLockedToolsets } from "./telegram.js";
 
 // One agent's Hermes home (its own HERMES_HOME, ADR 0006 decision 4) compiled from
-// its desired state: config.yaml, .env, SOUL.md and the guard plugin, nothing else.
+// its desired state: config.yaml, .env, SOUL.md, the guard plugin and the Deepgram
+// plugin of its own Telegram bot (telegram.js), nothing else.
 // Key names verified against Hermes v0.22.5 (hermes_cli/config_defaults.py unless
 // named otherwise; docs/hermes-runtime.md lists them).
 
@@ -87,9 +89,16 @@ export function compileHome(
   const servers = mcp === undefined ? null : mcpEntries(agent, mcp, { workspace });
   const guard = guardsEveryCommand(level);
   const model = agent.model ? modelSection(agent.model) : null;
+  // The agent's own bot, when the desired state knows it (an apply, not a bare start).
+  const bot = agent.channelBot !== undefined ? channelBotHome(agent) : null;
+  const toolsets = [
+    ...disabledToolsets(agent, level),
+    ...(bot?.senders ? senderLockedToolsets : []),
+  ];
+  const plugins = [...(guard ? [guardPlugin] : []), ...(bot?.plugin ? [bot.plugin] : [])];
   const config = [
     ...(model ? [[["model"], model.section]] : []),
-    [["agent", "disabled_toolsets"], disabledToolsets(agent, level)],
+    [["agent", "disabled_toolsets"], [...new Set(toolsets)].sort()],
     ...(model
       ? [[["agent", "image_input_mode"], model.images ? "native" : undefined]]
       : []),
@@ -101,7 +110,7 @@ export function compileHome(
     // Hermes's defaults, written so the limit AgentPier checks edits against holds.
     [["memory", "memory_char_limit"], memoryLimits["MEMORY.md"]],
     [["memory", "user_char_limit"], memoryLimits["USER.md"]],
-    [["plugins", "enabled"], guard ? [guardPlugin] : []],
+    [["plugins", "enabled"], plugins],
     ...skills.entries,
     ...(servers
       ? [
@@ -111,12 +120,19 @@ export function compileHome(
           ],
         ]
       : []),
+    ...(bot ? bot.config : []),
     ...practicalDefaults,
   ];
-  // The model's key names while the model is known, the MCP names while the store is.
+  // .env names a part of the home owns only while the desired state knows that part:
+  // the model's key names while the model is known, the MCP names while the store is,
+  // the bot's while its settings are.
   const env = {
-    owned: [...(model ? modelEnvNames : []), ...(servers ? [mcpEnvOwned] : [])],
-    values: { ...(model?.env || {}), ...(servers?.env || {}) },
+    owned: [
+      ...(model ? modelEnvNames : []),
+      ...(servers ? [mcpEnvOwned] : []),
+      ...(bot ? channelBotEnvNames : []),
+    ],
+    values: { ...model?.env, ...servers?.env, ...bot?.env },
   };
   const files = {
     "config.yaml": mergeConfig(existing["config.yaml"], config),
@@ -125,11 +141,12 @@ export function compileHome(
     }),
     ...(agent.instructions !== undefined && { "SOUL.md": String(agent.instructions) }),
     ...(guard && guardFiles),
+    ...bot?.files,
   };
   return Object.freeze({
     runtimeAgentId: agent.runtimeAgentId,
     files: Object.freeze(files),
-    remove: Object.freeze(guard ? [] : [guardDirectory]),
+    remove: Object.freeze([...(guard ? [] : [guardDirectory]), ...(bot?.remove || [])]),
     config: Object.freeze(config),
     env: Object.freeze(env),
     unsupported: Object.freeze(
