@@ -11,6 +11,7 @@ export const previews = {
     "Previews are not reachable through Tailscale. Turn Settings › Remote access › Previews on again or run `npm run tailscale`.",
   PREVIEW_INVALID_INPUT: "Check the preview arguments.",
   PREVIEW_NOT_FOUND: "This preview no longer exists.",
+  accessRevoked: "AgentPier access revoked or session unavailable.",
   PREVIEW_RANGE_INVALID:
     "Invalid port range: ports 1024 to 65535, at most 50 ports, excluding AgentPier's port, the pipeline port range and the Tailscale HTTPS port.",
   pages: {

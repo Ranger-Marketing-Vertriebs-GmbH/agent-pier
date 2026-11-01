@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { problem } from "../../lib/storage.js";
+import { serverMessages } from "../../lib/i18n/de.js";
 import { previewError } from "./preview-errors.js";
 
 export const previewInstruction =
@@ -34,8 +35,7 @@ export function previewToolEntries(grant, context) {
   return grant.allResources && context?.sessionId ? Object.entries(previewTools) : [];
 }
 
-const unavailable = () =>
-  problem("AgentPier access revoked or session unavailable.", 403);
+const unavailable = () => problem(serverMessages.previews.accessRevoked, 403);
 const view = ({ id, url, port, label }) => ({ id, url, port, label });
 
 export async function callPreviewTool(services, name, input, context) {

@@ -3,7 +3,7 @@ import path from "node:path";
 import { PreviewService } from "../features/previews/preview-service.js";
 import { runTailscale } from "../features/remote/tailscale-cli.js";
 import { activeSessionGrant } from "../features/mcp/session-capability.js";
-import { lastCdpOffset } from "../features/assistants/openclaw-config/browser-profiles.js";
+import { runtimeFor } from "../features/assistants/runtimes/runtime-for.js";
 import { readJSON } from "../lib/storage.js";
 
 const read = (file) => {
@@ -50,15 +50,10 @@ export function internalPorts(services) {
   add(portOf(services.assistantTeams?.bridge?.connection?.url));
   // The Gateway's reminder and hook completions (reminder-webhook.js).
   add(portOf(services.assistantReminders?.webhook?.connection?.url));
-  const runtime = services.assistantRuntime;
-  const gateway = portOf(runtime?.client?.url) ?? runtime?.webTools?.port;
-  if (gateway) {
-    add(gateway);
-    // OpenClaw's CDP ports: gateway + 11 up to + lastCdpOffset (web-tools.js).
-    for (let offset = 11; offset <= lastCdpOffset; offset++) add(gateway + offset);
-  }
-  for (const profile of Object.values(runtime?.webTools?.browserProfiles || {}))
-    add(profile?.cdpPort);
+  // The Gateway, its CDP ports and the agent browsers, through the agent runtime port.
+  if (services.assistantRuntime)
+    for (const port of runtimeFor(null, services.assistantRuntime).host.loopbackPorts())
+      add(port);
   for (const entry of services.assistants?.browsers?.running?.values() || [])
     add(entry?.keeper?.cdpPort);
   for (const port of adapterPorts(services.sessions?.directory)) add(port);

@@ -145,7 +145,8 @@ export function mcpHttpRouter({ mcpAccess, mcpTools }) {
                     error: error.status
                       ? agentText(error.message)
                       : "MCP operation failed.",
-                    ...(error.status && /^[A-Z_]+$/.test(error.code)
+                    // Only preview errors carry their stable code; others stay as before.
+                    ...(error.status && /^PREVIEW_[A-Z_]+$/.test(error.code)
                       ? { code: error.code }
                       : {}),
                     status: error.status || 500,
