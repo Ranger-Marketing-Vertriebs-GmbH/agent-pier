@@ -18,7 +18,7 @@ import { agentProfileName } from "../../server/features/assistants/openclaw-conf
 import { AgentBrowsers } from "../../server/features/assistants/agent-browsers.js";
 import { BrowserProfileSync } from "../../server/features/assistants/browser-profile-sync.js";
 import { AgentBrowserUploads } from "../../server/features/assistants/agent-browser-uploads.js";
-import { createGatewaySession } from "../../server/features/assistants/session-create.js";
+import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 
 // A real browser upload through the pinned OpenClaw (docs/assistant-gateway.md
 // "Browser uploads"), provisioned like the web tools contracts.

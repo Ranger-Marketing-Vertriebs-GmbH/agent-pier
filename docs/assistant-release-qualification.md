@@ -268,7 +268,7 @@ before activation; after commit there is no downgrade.
   only the schedule qualification test helper needed it.
 - **Session creation.** `sessions.create` can answer `UNAVAILABLE` (retryable) after
   waiting about 20 seconds for the model catalog. `createGatewaySession` in
-  `server/features/assistants/session-create.js` retries an answered `UNAVAILABLE`
+  `server/features/assistants/runtimes/openclaw/session-create.js` retries an answered `UNAVAILABLE`
   that is `retryable` or carries the remote error class
   `SessionMutationFactsUnavailableError` (see below), pausing 500, 1000 and
   2000 ms within the 60-second budget. A team member whose creation still fails

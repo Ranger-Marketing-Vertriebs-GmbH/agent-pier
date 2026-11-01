@@ -2,7 +2,8 @@
 // events of the current connection (streamed replies, finished runs, generated
 // images). Extracted from assistant-service.js; `service` is the AssistantService.
 import { confirmFromEvent } from "./run-confirmation.js";
-import { admissionDone } from "./agent-admission.js";
+import { admissionDoneOn } from "./agent-admission.js";
+import { hostConnection, runtimeFor } from "./runtimes/runtime-for.js";
 
 /** The runtime status listener: readiness, failures and maintenance. */
 export function runtimeStatusHandler(service) {
@@ -38,9 +39,9 @@ export function runtimeStatusHandler(service) {
       // Once the Gateway admitted or refused its agents (agent-admission.js), the
       // list shows the refused ones and every chat subscribes again at once: one
       // refused while its agent was still being admitted is no session fault.
-      const client = service.runtime.client;
-      admissionDone(client).then((waited) => {
-        if (client !== service.runtime.client || service.maintenance) return;
+      const connection = hostConnection(service.runtime);
+      admissionDoneOn(service.runtime).then((waited) => {
+        if (connection !== hostConnection(service.runtime) || service.maintenance) return;
         service.changed();
         if (!waited) return;
         service.sessionFailures.clear();
@@ -60,8 +61,10 @@ export function runtimeStatusHandler(service) {
 }
 
 /**
- * Subscribes to the current client's events: streamed reply deltas for the open
- * chat, reconciliation after a run ends and the images a run left behind.
+ * Subscribes to the run events of the current connection (the runtime port's events,
+ * runtimes/agent-runtime.js): streamed reply deltas for the open chat, reconciliation
+ * after a run ends and the images a run left behind. The reply text (chat-streams.js)
+ * and the steps (run-steps.js) are still read from the runtime's own payload.
  */
 export function bindChatEvents(service) {
   service.unsubscribe?.();
@@ -69,11 +72,11 @@ export function bindChatEvents(service) {
   service.chatStreams.clear();
   service.feeds?.clearRuns();
   service.runSteps.reconnected();
-  service.unsubscribe = service.runtime.client?.subscribe((event) => {
-    const payload = event.payload;
-    if (!payload?.sessionKey) return;
+  service.unsubscribe = runtimeFor(null, service.runtime).events.subscribe((event) => {
+    const { payload, runId } = event;
+    if (!event.sessionKey) return;
     // The session key is indexed: every streamed delta looks its chat up.
-    const conversation = service.store.conversationOfSession(payload.sessionKey);
+    const conversation = service.store.conversationOfSession(event.sessionKey);
     // A routine's own run session may leave images too (generated-images.js).
     if (!conversation) return service.generatedImages.observeRun(event);
     // Any frame of the turn's run proves a send whose acknowledgement was lost.
@@ -82,27 +85,21 @@ export function bindChatEvents(service) {
     publishSteps(service, conversation, event);
     // Only a run's first frame carries the whole reply; later ones carry what was
     // appended. The chat's live feed always holds the reply so far.
-    const text =
-      event.event === "chat" && payload.state === "delta"
-        ? service.chatStreams.delta(payload)
-        : undefined;
-    if (text !== undefined) service.feeds?.stream(conversation.id, payload.runId, text);
-    if (event.event === "chat" && ["final", "aborted", "error"].includes(payload.state)) {
-      service.chatStreams.end(payload.runId);
-      service.runSteps.end(payload.runId);
+    const text = event.kind === "text" ? service.chatStreams.delta(payload) : undefined;
+    if (text !== undefined) service.feeds?.stream(conversation.id, runId, text);
+    if (["finished", "aborted", "failed"].includes(event.kind)) {
+      service.chatStreams.end(runId);
+      service.runSteps.end(runId);
       // Why it failed, for its turn (run-reconciler.js); kept for a few runs only.
-      if (payload.state === "error" && payload.errorKind === "timeout") {
+      if (event.kind === "failed" && event.reason === "timeout") {
         const failures = (service.runFailures ??= new Map());
-        failures.set(payload.runId, "timeout");
+        failures.set(runId, "timeout");
         if (failures.size > 64) failures.delete(failures.keys().next().value);
       }
       // A reply that ended the run while the stall guard aborted it is no stall.
-      if (
-        payload.state === "final" &&
-        service.runFailures?.get(payload.runId) === "stalled"
-      )
-        service.runFailures.delete(payload.runId);
-      service.feeds?.endRun(conversation.id, payload.runId);
+      if (event.kind === "finished" && service.runFailures?.get(runId) === "stalled")
+        service.runFailures.delete(runId);
+      service.feeds?.endRun(conversation.id, runId);
       // A run ending is activity, also one AgentPier did not send: a reminder, routine
       // or check-in delivered into the main chat (owner-privacy.js, agent-chats.js).
       // A released user's chat keeps no record of its use.

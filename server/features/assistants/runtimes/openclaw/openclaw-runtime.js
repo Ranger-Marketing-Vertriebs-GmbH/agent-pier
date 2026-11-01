@@ -1,5 +1,23 @@
 import { defineAgentRuntime } from "../agent-runtime.js";
-import { createGatewaySession } from "../../session-create.js";
+import { openClawEvents } from "./openclaw-events.js";
+import { openClawSessions } from "./openclaw-sessions.js";
+
+// One opaque handle per Gateway client: a restart replaces the client, so the handle
+// tells callers whether an await crossed one. Shared by every adapter of a process.
+// The handle keeps its client, so calls bound to it (sessions.on) reach that client.
+const connections = new WeakMap();
+const clients = new WeakMap();
+function connectionOf(client) {
+  if (!client || typeof client !== "object") return null;
+  let connection = connections.get(client);
+  if (!connection) {
+    connections.set(client, (connection = Object.freeze({})));
+    clients.set(connection, client);
+  }
+  return connection;
+}
+const clientOf = (connection) =>
+  (connection && typeof connection === "object" && clients.get(connection)) || null;
 
 /**
  * The OpenClaw adapter of the agent runtime port (../agent-runtime.js) over the
@@ -12,16 +30,12 @@ import { createGatewaySession } from "../../session-create.js";
  * rejects like an unreachable Gateway.
  */
 export function createOpenClawRuntime(supervisor) {
-  const call = async (method, params, options) =>
-    supervisor.client.call(method, params, options);
+  const call = async (method, params) => supervisor.client.call(method, params);
   return defineAgentRuntime({
     id: "openclaw",
-    sessions: {
-      // Retries a session the Gateway has not created yet (session-create.js).
-      create: async (params, options) => createGatewaySession({ call }, params, options),
-      subscribe: ({ key }) => call("sessions.messages.subscribe", { key }),
-    },
     host: openClawHost(supervisor),
+    sessions: openClawSessions(supervisor, clientOf),
+    events: openClawEvents(supervisor),
     channels: {
       status: ({ probe = false } = {}) => call("channels.status", { probe }),
     },
@@ -37,6 +51,8 @@ function openClawHost(supervisor) {
   return {
     // The Gateway client is connected and authenticated: calls may go out now.
     ready: () => !!supervisor.client?.ready,
+    // The current client's handle, or null: the same until the client is replaced.
+    connection: () => connectionOf(supervisor.client),
     // { availability, sync, version, diagnostic } as the supervisor reports it.
     status: () => supervisor.status(),
     version: () => supervisor.status().version ?? null,

@@ -91,15 +91,16 @@ export function latestMarker(history) {
   return m ? { id: String(m.__openclaw.id), at: Number(m.timestamp) || 0 } : null;
 }
 
-const readMarker = async (client, sessionKey) =>
-  latestMarker(await client.call("chat.history", { sessionKey, limit: 20 }));
+// `sessions` is the sessions sub-port of the chat's runtime (runtimes/agent-runtime.js).
+const readMarker = async (sessions, sessionKey) =>
+  latestMarker(await sessions.history({ sessionKey, limit: 20 }));
 
 /**
  * The newest marker before the summary starts: null for none, undefined when the
  * read failed (logged through `warn`).
  */
-export function readBaseline(client, sessionKey, warn) {
-  return readMarker(client, sessionKey).catch((error) => {
+export function readBaseline(sessions, sessionKey, warn) {
+  return readMarker(sessions, sessionKey).catch((error) => {
     warn("reading the history before it", error);
     return undefined;
   });
@@ -111,7 +112,7 @@ export function readBaseline(client, sessionKey, warn) {
  * once `alive()` is false. A failing read is passed to `warn`. Returns `stop()`.
  */
 export function watchMarker({
-  client,
+  sessions,
   sessionKey,
   pollMs,
   baseline,
@@ -129,7 +130,7 @@ export function watchMarker({
   const tick = async () => {
     if (stopped) return;
     if (!alive()) return end("interrupted");
-    const marker = await readMarker(client, sessionKey);
+    const marker = await readMarker(sessions, sessionKey);
     if (stopped || !marker) return;
     if (baseline === undefined ? marker.at >= since : marker.id !== baseline?.id)
       end("compacted");

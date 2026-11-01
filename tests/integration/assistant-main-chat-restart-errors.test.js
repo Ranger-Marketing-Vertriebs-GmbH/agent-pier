@@ -299,3 +299,48 @@ test("a permanent member whose row is gone is skipped", async (t) => {
   assert.deepEqual(body.members.restarted, []);
   assert.equal(body.chats[0].from, main.id);
 });
+
+test("a Gateway replaced during the create receives no subscribe", async (t) => {
+  const { f, gateway, service, agent, main } = await keptMember(t);
+  t.mock.method(console, "error", () => {});
+  const old = gateway.client;
+  const call = old.call;
+  // The restarted Gateway answers like the old one and records what reaches it.
+  const reached = [];
+  const replacement = Object.assign(Object.create(old), {
+    call: async (method, params, options) => {
+      reached.push({ method, params });
+      return call(method, params, options);
+    },
+  });
+  // The supervisor closes the client it replaces: calls on it reject from then on.
+  let replaced = false;
+  old.call = async (method, params, options) => {
+    if (replaced)
+      throw Object.assign(new Error("Gateway closed"), {
+        code: "UNAVAILABLE",
+        status: 503,
+      });
+    const answer = await call(method, params, options);
+    if (method === "sessions.create") {
+      replaced = true;
+      service.runtime.client = replacement;
+    }
+    return answer;
+  };
+  const res = await restart(f, agent.id);
+  assert.equal(res.status, 503, await res.clone().text());
+  assert.ok(service.store.getConversation(main.id).archivedAt);
+  const fresh = service.store
+    .listConversations()
+    .find((c) => c.assistantId === agent.id && c.main === true && !c.archivedAt);
+  assert.ok(fresh);
+  assert.equal(
+    reached.some(
+      (c) =>
+        c.method === "sessions.messages.subscribe" &&
+        c.params.key === fresh.runtimeSessionKey,
+    ),
+    false,
+  );
+});

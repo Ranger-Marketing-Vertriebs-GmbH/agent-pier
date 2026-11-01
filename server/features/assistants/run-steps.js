@@ -1,4 +1,6 @@
-// The live steps of an agent's running turn, from the Gateway's `agent` events
+// The live steps of an agent's running turn, from the runtime port's run events
+// (runtimes/agent-runtime.js events.subscribe), whose OpenClaw payload is still read
+// here: the Gateway's `agent` events
 // (OpenClaw 2026.10.3; tests/integration/assistant-run-steps-contract.test.js):
 // `item` frames of kind "tool" (phase start/update/end, `name`, `status`, a
 // `meta` summary), `thinking` and `assistant` deltas, `run_status` phases
@@ -65,7 +67,8 @@ export class RunSteps {
     }
   }
   /**
-   * Takes one Gateway frame. Returns `{ runId, sessionKey, changed }` for a frame of
+   * Takes one run event (its `event` name and `payload` are OpenClaw's frame, which
+   * tests pass as is). Returns `{ runId, sessionKey, changed }` for a frame of
    * a run (any one is a sign of life), or null.
    */
   observe(frame) {

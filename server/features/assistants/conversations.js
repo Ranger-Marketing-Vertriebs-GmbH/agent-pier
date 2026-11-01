@@ -21,6 +21,7 @@ import { completePage, historyReads, withoutMarks } from "./history-completion.j
 import { confirmFromTranscript } from "./run-confirmation.js";
 import { imageResultArtifact } from "./generated-images.js";
 import { fileRequest } from "./agent-share-store.js";
+import { hostConnection, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 // A compaction marker (OpenClaw 2026.10.3: a system message with
 // `__openclaw.kind: "compaction"` and its token counts) is a chat note only where the
 // chat asks for it (`compactions`); every other reader sees the turns alone.
@@ -177,7 +178,7 @@ function hideInternal(messages, requests, contexts, attempts) {
  */
 export async function conversationMessage(service, id, messageId, { role } = {}) {
   const conversation = service.store.getConversation(id);
-  const client = service.runtime.client;
+  const connection = hostConnection(service.runtime);
   const generation = service.runtime.generation;
   // Like a history page: no read while the runtime is swapped or recovering.
   const unsettled = () =>
@@ -185,9 +186,10 @@ export async function conversationMessage(service, id, messageId, { role } = {})
     service.recovering ||
     service.closed ||
     service.runtime.generation !== generation ||
-    service.runtime.client !== client;
-  if (!client?.ready || typeof messageId !== "string" || unsettled()) return null;
-  const page = await client.call("chat.history", {
+    hostConnection(service.runtime) !== connection;
+  if (!hostReady(service.runtime) || typeof messageId !== "string" || unsettled())
+    return null;
+  const page = await runtimeFor(null, service.runtime).sessions.on(connection).history({
     sessionKey: conversation.runtimeSessionKey,
     messageId,
     limit: 1,
@@ -231,18 +233,25 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
     nextBefore = null,
     stale = true,
     longChat = false;
-  const client = service.runtime.client;
+  const connection = hostConnection(service.runtime);
   const maintenanceEpoch = service.maintenanceEpoch || 0;
   const generation = service.runtime.generation;
   // A deleted user's chat never reads its native session back (user-release.js).
   const released = () => service.store.getConversation(id).userReleased;
-  if (client?.ready && !service.maintenance && !service.recovering && !released()) {
+  if (
+    hostReady(service.runtime) &&
+    !service.maintenance &&
+    !service.recovering &&
+    !released()
+  ) {
     try {
-      const history = await client.call("chat.history", {
-        sessionKey: conversation.runtimeSessionKey,
-        limit,
-        offset,
-      });
+      const history = await runtimeFor(null, service.runtime)
+        .sessions.on(connection)
+        .history({
+          sessionKey: conversation.runtimeSessionKey,
+          limit,
+          offset,
+        });
       if (released()) throw assistantProblem("notFound", 404);
       // Generated images on the page join the share store once (generated-images.js).
       service.generatedImages?.scan(conversation, history.messages || []);
@@ -263,7 +272,7 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
         service.closed ||
         (service.maintenanceEpoch || 0) !== maintenanceEpoch ||
         service.runtime.generation !== generation ||
-        service.runtime.client !== client ||
+        hostConnection(service.runtime) !== connection ||
         released()
       )
         throw assistantProblem("unavailable", 503);

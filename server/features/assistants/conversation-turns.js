@@ -3,10 +3,10 @@ import { memberLevel } from "../users/user-access.js";
 import { plainTurnText } from "./plain-turn-text.js";
 import { titleFromTurn } from "./chat-titles.js";
 import { chatProblem } from "./agent-chats.js";
-import { reopenRefusedChat } from "./native-chat-archive.js";
 import { confirmFromAck } from "./run-confirmation.js";
 import { memoryStep } from "./memory-write-policy.js";
-import { agentDegraded, noteRefusal, pendingAdmission } from "./agent-admission.js";
+import { agentDegradedOn, noteRefusalOn, pendingAdmission } from "./agent-admission.js";
+import { hostConnection, runtimeFor } from "./runtimes/runtime-for.js";
 
 /**
  * Why the Gateway refused a turn before running it, or null when it may run it: an
@@ -101,8 +101,8 @@ export async function sendTurn(service, conversationId, input, trustedContext) {
     throw assistantProblem("active", 409);
   service.teams?.assertMemberTurn(conversation.assistantId, context);
   // An agent the running Gateway refused takes no turn until it restarts.
-  const { runtimeAgentId } = service.store.getAssistant(conversation.assistantId);
-  if (agentDegraded(service.runtime.client, runtimeAgentId))
+  const agent = service.store.getAssistant(conversation.assistantId);
+  if (agentDegradedOn(service.runtime, agent.runtimeAgentId))
     throw assistantProblem("agentDegraded", 503);
   await service.config.apply(conversation.assistantId);
   service.teams?.assertMemberTurn(conversation.assistantId, context);
@@ -139,28 +139,26 @@ export async function sendTurn(service, conversationId, input, trustedContext) {
       conversation.assistantId,
       { byUser },
     );
-    const client = service.runtime.client;
+    // Its connection, as the send and a retry after reopening go out on it alone.
+    const sessions = runtimeFor(agent, service.runtime).sessions.on(
+      hostConnection(service.runtime),
+    );
+    const key = conversation.runtimeSessionKey;
     // OpenClaw acknowledges a send before it starts the run, so an acknowledgement
     // that arrives after the timeout proves the run (run-confirmation.js).
     const onLate = (ok) => {
       if (ok) confirmFromAck(service, attempt.id);
     };
-    const send = () =>
-      client.call(
-        "sessions.send",
-        { key: conversation.runtimeSessionKey, ...turn, idempotencyKey: attempt.id },
-        { onLate },
-      );
+    const send = () => sessions.send({ key, turn, idempotencyKey: attempt.id, onLate });
     // OpenClaw's maintenance may have archived the session natively; such a refusal
     // comes before any run, so the reopened chat takes the same turn.
     const sent = await send().catch(async (error) => {
-      if (!(await reopenRefusedChat(client, conversation.runtimeSessionKey, error)))
-        throw error;
+      if (!(await sessions.reopenRefused({ key, error }))) throw error;
       return send();
     });
     service.ledger.transition(attempt.id, "accepted", { runtimeRunId: sent.runId });
   } catch (error) {
-    noteRefusal(service.runtime.client, error);
+    noteRefusalOn(service.runtime, error);
     const failure = sendRefusal(error);
     const code = typeof error?.code === "string" ? error.code : "UNKNOWN";
     // A refusal before any run ends the turn; its code is logged, never its text.

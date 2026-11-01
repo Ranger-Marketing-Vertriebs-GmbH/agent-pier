@@ -1,11 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { setImmediate as tick } from "node:timers/promises";
 import {
   HOST_AVAILABILITY,
   RUNTIME_CAPABILITIES,
   RUNTIME_PORTS,
+  RUN_EVENT_KINDS,
   defineAgentRuntime,
 } from "../../server/features/assistants/runtimes/agent-runtime.js";
+import { fakeSessionPorts, sessionsContract } from "./runtime-port-sessions-contract.js";
 
 /**
  * The contract every agent runtime adapter meets (ADR 0006), so the OpenClaw adapter,
@@ -13,8 +16,8 @@ import {
  * returns an `AgentRuntime` whose backend reports `state`:
  * - `channels`: the channel accounts by channel, e.g. `{ telegram: [account] }`;
  * - `unreachable`: true when the backend cannot be reached at all;
- * - `version`: the version the host runs.
- * A reachable backend creates sessions keyed `session:<label>`.
+ * - `version`: the version the host runs;
+ * - `runFailure`: why every run fails (e.g. "timeout"), or none when runs finish.
  * Later tickets add a section per sub-port as its methods arrive.
  */
 export function runtimePortContract(name, make) {
@@ -82,6 +85,21 @@ export function runtimePortContract(name, make) {
     assert.equal(seen.length, before);
   });
 
+  test(`${name}: host.connection() names the connection until a restart`, async () => {
+    const runtime = await make({});
+    const first = runtime.host.connection();
+    assert.ok(first);
+    assert.equal(runtime.host.connection(), first);
+    await runtime.host.stop();
+    assert.equal(runtime.host.connection(), null);
+    await runtime.host.start();
+    assert.ok(runtime.host.connection());
+    assert.notEqual(runtime.host.connection(), first);
+    assert.equal((await make({ unreachable: true })).host.connection(), null);
+  });
+
+  sessionsContract(name, make, { kinds: RUN_EVENT_KINDS, tick });
+
   test(`${name}: channels.status() reports the channel accounts`, async (t) => {
     const runtime = await make({ channels: { telegram: [account] } });
     if (!runtime.capabilities().channels.available) return t.skip("no channels");
@@ -99,28 +117,15 @@ export function runtimePortContract(name, make) {
     assert.ok(pending instanceof Promise);
     await assert.rejects(pending);
   });
-
-  test(`${name}: sessions.create() resolves the new session's key`, async (t) => {
-    const runtime = await make({});
-    if (!runtime.capabilities().sessions.available) return t.skip("no sessions");
-    const created = await runtime.sessions.create({ agentId: "agent-1", label: "one" });
-    assert.equal(created.key, "session:one");
-    await runtime.sessions.subscribe({ key: created.key });
-  });
-
-  test(`${name}: sessions reject while the runtime is unreachable`, async (t) => {
-    const runtime = await make({ unreachable: true });
-    if (!runtime.capabilities().sessions.available) return t.skip("no sessions");
-    const options = { budgetMs: 0 };
-    await assert.rejects(runtime.sessions.create({ agentId: "a", label: "x" }, options));
-    const pending = runtime.sessions.subscribe({ key: "session:x" });
-    assert.ok(pending instanceof Promise);
-    await assert.rejects(pending);
-  });
 }
 
 /** A runtime held in memory that meets the contract; feature tests can use it too. */
-export function fakeRuntime({ channels = {}, unreachable = false, version = null } = {}) {
+export function fakeRuntime({
+  channels = {},
+  unreachable = false,
+  version = null,
+  runFailure = null,
+} = {}) {
   const reach = async (answer) => {
     if (unreachable)
       throw Object.assign(new Error("unreachable"), { code: "UNAVAILABLE" });
@@ -133,14 +138,19 @@ export function fakeRuntime({ channels = {}, unreachable = false, version = null
     version,
     diagnostic: null,
   };
+  // A new connection on every start, none while not ready.
+  let connection = unreachable ? null : {};
   const move = (availability) => {
     Object.assign(state, { availability });
+    if (availability !== "ready") connection = null;
+    else connection ??= {};
     for (const listener of listeners) listener({ ...state });
   };
   return defineAgentRuntime({
     id: "fake",
     host: {
       ready: () => state.availability === "ready",
+      connection: () => connection,
       status: () => ({ ...state }),
       version: () => state.version,
       subscribe(listener) {
@@ -154,12 +164,9 @@ export function fakeRuntime({ channels = {}, unreachable = false, version = null
         move("ready");
       },
     },
+    ...fakeSessionPorts({ reach, runFailure, connection: () => connection }),
     channels: {
       status: () => reach(() => ({ channelAccounts: structuredClone(channels) })),
-    },
-    sessions: {
-      create: ({ label }) => reach(() => ({ key: `session:${label}` })),
-      subscribe: () => reach(() => ({})),
     },
   });
 }

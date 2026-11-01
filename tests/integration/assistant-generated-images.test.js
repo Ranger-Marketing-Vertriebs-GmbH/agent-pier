@@ -4,6 +4,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { png, shareFixture, token } from "../helpers/agent-share-fixture.js";
 import { generatedImageRefs } from "../../server/features/assistants/generated-images.js";
 import { fromSince } from "../../server/features/users/owner-privacy.js";
+import { openClawRunEvent } from "../../server/features/assistants/runtimes/openclaw/openclaw-events.js";
 
 const task = "44e94c4f-bb9c-4e50-af0b-65f203e10a6e";
 const artifactId = "artifact_managed_image_ecfbf9d6-7803-4f03-aba7-70598bd85b98";
@@ -318,10 +319,12 @@ for (const shape of ["telegram", "legacy", "off"])
       results: { forConversation: () => [] },
     };
     f.setHistory(imageTurn("routine-run", Date.now() - 5000));
-    f.service.generatedImages.observeRun({
-      event: "chat",
-      payload: { sessionKey: session, state: "final", runId: "run-7" },
-    });
+    f.service.generatedImages.observeRun(
+      openClawRunEvent({
+        event: "chat",
+        payload: { sessionKey: session, state: "final", runId: "run-7" },
+      }),
+    );
     const [image] = await until(async () => {
       const found = await shared(f);
       return found.length ? found : null;
@@ -334,10 +337,12 @@ for (const shape of ["telegram", "legacy", "off"])
       shape === "off" ? [] : ["sendPhoto"],
     );
     // Any other session is left alone.
-    f.service.generatedImages.observeRun({
-      event: "chat",
-      payload: { sessionKey: "agent:ap-other:cron:x", state: "final" },
-    });
+    f.service.generatedImages.observeRun(
+      openClawRunEvent({
+        event: "chat",
+        payload: { sessionKey: "agent:ap-other:cron:x", state: "final" },
+      }),
+    );
     await delay(30);
     assert.equal(f.calls.length, 1);
   });

@@ -1,5 +1,5 @@
 import { assistantProblem } from "./assistant-validation.js";
-import { createGatewaySession } from "./session-create.js";
+import { runtimeFor } from "./runtimes/runtime-for.js";
 import { mainConversation } from "./routine-targets.js";
 import { isUserAgent, memberLevel } from "../users/user-access.js";
 
@@ -32,8 +32,8 @@ export async function openMainConversation(service, assistantId, { turn, userId 
   await service.config.apply(assistantId);
   const assistant = service.store.getAssistant(assistantId);
   const label = `AgentPier ${assistant.id}${userId === null ? "" : ` ${userId}`}`;
-  const created = await createGatewaySession(
-    service.runtime.client,
+  const { sessions } = runtimeFor(assistant, service.runtime);
+  const created = await sessions.create(
     { agentId: assistant.runtimeAgentId, label },
     service.sessionCreate,
   );
@@ -44,7 +44,7 @@ export async function openMainConversation(service, assistantId, { turn, userId 
     main: true,
     ...(userId === null ? {} : { userId }),
   });
-  await service.runtime.client.call("sessions.messages.subscribe", { key: created.key });
+  await sessions.subscribeMessages({ key: created.key });
   service.changed();
   return conversation;
 }

@@ -16,7 +16,7 @@ import { hasDocumentExtract } from "../../server/features/assistants/openclaw-co
 import { AssistantProviderSynchronization } from "../../server/features/assistants/assistant-provider-synchronization.js";
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
 import { textPdf } from "../helpers/text-pdf.js";
-import { createGatewaySession } from "../../server/features/assistants/session-create.js";
+import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 
 // OpenClaw takes a PDF model only from the global agents.defaults.pdfModel. AgentPier
 // compiles it explicitly without fallbacks (the owner's fallback or a placeholder),

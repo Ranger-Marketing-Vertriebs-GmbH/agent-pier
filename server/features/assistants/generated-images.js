@@ -2,7 +2,7 @@ import { detectAttachment } from "./agent-attachment-types.js";
 import { MAX_SHARE_BYTES } from "./agent-share-source.js";
 import { personalCapabilities } from "./native-capabilities.js";
 import { routineOrigin } from "./routine-targets.js";
-import { hostReady } from "./runtimes/runtime-for.js";
+import { hostConnection, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 
 // OpenClaw 2026.10.3 runs image_generate in the background. When the provider is
 // done, a completion turn of the same session writes an assistant message whose
@@ -14,7 +14,6 @@ import { hostReady } from "./runtimes/runtime-for.js";
 // that asked for it names the same task, so the image belongs to that turn's request.
 const artifactPattern = /^artifact_managed_image_[0-9a-f-]{36}$/;
 const taskPattern = /tool:image_generate:([0-9a-f-]{36})/;
-const mediaPath = "/api/chat/media/outgoing/";
 // Failed copies wait 1, 2, 4 … minutes, at most an hour; a newer page is read whole.
 const retryMs = 60000;
 const maxRetryMs = 3600000;
@@ -120,7 +119,7 @@ export class GeneratedImages {
   /** After a run of the conversation ended: its newest messages may hold images. */
   async observe(conversation, { session, origin } = {}) {
     if (this.idle) return;
-    const page = await this.s.runtime.client.call("chat.history", {
+    const page = await runtimeFor(null, this.s.runtime).sessions.history({
       sessionKey: session || conversation.runtimeSessionKey,
       limit: pageSize,
     });
@@ -132,13 +131,8 @@ export class GeneratedImages {
    * and to the Telegram chat it delivers to (native-routines.js runOrigin).
    */
   observeRun(event) {
-    const payload = event?.payload;
-    if (
-      event?.event !== "chat" ||
-      !["final", "aborted", "error"].includes(payload?.state)
-    )
-      return;
-    const session = String(payload.sessionKey || "");
+    if (!["finished", "aborted", "failed"].includes(event?.kind)) return;
+    const session = String(event.sessionKey || "");
     const runtimeAgentId = /^agent:([^:]+):cron:/i.exec(session)?.[1];
     if (!runtimeAgentId || !this.s.routines?.runOrigin) return;
     const agent = this.s.store
@@ -182,26 +176,17 @@ export class GeneratedImages {
       at: ref.timestamp,
     };
     try {
-      const client = this.s.runtime.client;
-      let download;
-      try {
-        download = await client.call(
-          "artifacts.download",
-          { sessionKey: session, artifactId: ref.artifactId },
-          { timeoutMs: 30000 },
-        );
-      } catch (error) {
-        // The Gateway no longer holds it: that does not change on a retry.
-        throw error?.answered && /not.?found/i.test(`${error.code} ${error.message}`)
-          ? permanent("gone")
-          : error;
-      }
-      if (typeof download?.url !== "string" || !download.url.startsWith(mediaPath))
-        throw permanent("location");
-      const { body } = await client
-        .download(download.url, { maxBytes: MAX_SHARE_BYTES })
+      // Gone, at a location not read, or too large: a retry changes nothing.
+      const { body } = await runtimeFor(agent, this.s.runtime)
+        .sessions.on(hostConnection(this.s.runtime))
+        .downloadArtifact({
+          sessionKey: session,
+          artifactId: ref.artifactId,
+          maxBytes: MAX_SHARE_BYTES,
+          timeoutMs: 30000,
+        })
         .catch((error) => {
-          throw error?.tooLarge ? permanent("size") : error;
+          throw error?.artifactRefusal ? permanent(error.artifactRefusal) : error;
         });
       // Only an image the bytes prove reaches the chat.
       if (detectAttachment(body, ref.name)?.kind !== "image") throw permanent("type");

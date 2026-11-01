@@ -3880,7 +3880,7 @@ archivedAt, lastActivityAt, busy}` (the owner's also `userId`), the main chat fi
   OpenClaw's maintenance would archive after 7 idle days, and a natively archived
   session takes no turn and no routine, reminder or check-in commit, so the compiled
   configuration sets `session.maintenance.archiveDashboardAfter: false`.
-- Native archiving (AGENTPIER-183, `server/features/assistants/native-chat-archive.js`):
+- Native archiving (AGENTPIER-183, `server/features/assistants/runtimes/openclaw/native-chat-archive.js`):
   OpenClaw still archives a session idle for `pruneAfter` (30 days by default, reason
   `age-retention`) or beyond `maxEntries` (`active-session-cap`), main chats included,
   and SQLite recovery can archive one (`restart-recovery`). Neither switch can be

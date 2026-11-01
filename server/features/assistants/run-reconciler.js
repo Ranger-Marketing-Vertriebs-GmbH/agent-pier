@@ -1,6 +1,6 @@
 import { settleUnreviewable } from "./attempt-recovery.js";
 import { titleAfterReply } from "./generated-titles.js";
-import { hostReady } from "./runtimes/runtime-for.js";
+import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 
 export function terminalState(result) {
   if (result.status === "ok")
@@ -36,11 +36,12 @@ export async function reconcileRuns(service) {
     try {
       // The pinned sessions.send contract uses the idempotency key as run identity.
       // Querying it is safe after a lost acknowledgement; sending it again is not.
-      const result = await service.runtime.client.call(
-        "agent.wait",
-        { runId: attempt.runtimeRunId || attempt.id, timeoutMs: 1 },
-        { timeoutMs: 3000 },
-      );
+      const { sessions } = runtimeFor(null, service.runtime);
+      const result = await sessions.wait({
+        runId: attempt.runtimeRunId || attempt.id,
+        waitMs: 1,
+        timeoutMs: 3000,
+      });
       const runId = result.runId || attempt.runtimeRunId;
       // A run the stall guard aborted fails as stalled, not cancelled (run-stall-guard.js).
       const stalled =
@@ -58,7 +59,7 @@ export async function reconcileRuns(service) {
               : {}),
         });
       else {
-        const described = await service.runtime.client.call("sessions.describe", {
+        const described = await sessions.describe({
           key: conversation.runtimeSessionKey,
         });
         // Only from the state this pass saw: a turn acknowledged or confirmed while

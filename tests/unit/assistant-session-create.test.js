@@ -9,7 +9,7 @@ import { sessionCreateTimeoutMs } from "../../server/features/assistants/runtime
 import {
   createGatewaySession,
   sessionNotCreated,
-} from "../../server/features/assistants/session-create.js";
+} from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 
 // Simulated time: sleeping advances the clock at once.
 function clock() {

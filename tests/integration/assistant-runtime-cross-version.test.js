@@ -14,7 +14,7 @@ import { NativeMemory } from "../../server/features/assistants/native-memory.js"
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { readJSON, writePrivate } from "../../server/lib/storage.js";
 import { assistantRoutineModel } from "../helpers/assistant-routine-model.js";
-import { createGatewaySession } from "../../server/features/assistants/session-create.js";
+import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 
 const previousRoot = process.env.AGENTPIER_ASSISTANT_PREVIOUS_RUNTIME;
 const candidateRoot = process.env.AGENTPIER_ASSISTANT_UPDATE_RUNTIME;

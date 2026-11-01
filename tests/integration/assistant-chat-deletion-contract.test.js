@@ -20,7 +20,7 @@ import {
   markArchivePurges,
 } from "../../server/features/assistants/chat-removal.js";
 import { deleteReleasedSessions } from "../../server/features/users/user-release.js";
-import { createGatewaySession } from "../../server/features/assistants/session-create.js";
+import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 
 // A deleted chat's text is gone from the pinned runtime (AGENTPIER-220): after
 // AgentPier's delete, no file the Gateway owns, no SQLite row (archive blobs

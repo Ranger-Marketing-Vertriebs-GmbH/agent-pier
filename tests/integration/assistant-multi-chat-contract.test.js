@@ -16,8 +16,8 @@ import { deletedTranscripts } from "../../server/features/assistants/chat-remova
 import {
   keepChatOpen,
   reopenRefusedChat,
-} from "../../server/features/assistants/native-chat-archive.js";
-import { createGatewaySession } from "../../server/features/assistants/session-create.js";
+} from "../../server/features/assistants/runtimes/openclaw/native-chat-archive.js";
+import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 
 // Several chats per agent (AGENTPIER-181) against the pinned runtime: AgentPier makes
 // one sessions.create session per chat and relies on what these tests pin.

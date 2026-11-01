@@ -143,6 +143,20 @@ function begin(
   state.done = done;
 }
 
+// The Gateway client behind the runtime supervisor `runtime`, or null. The agents
+// sub-port of the runtime port takes this over (docs/adr/0006-assistant-runtime-port.md).
+const clientOf = (runtime) => runtime?.client ?? null;
+
+/** agentDegraded for the Gateway the runtime supervisor `runtime` runs now. */
+export const agentDegradedOn = (runtime, runtimeAgentId) =>
+  agentDegraded(clientOf(runtime), runtimeAgentId);
+
+/** noteRefusal for the Gateway the runtime supervisor `runtime` runs now. */
+export const noteRefusalOn = (runtime, error) => noteRefusal(clientOf(runtime), error);
+
+/** admissionDone for the Gateway the runtime supervisor `runtime` runs now. */
+export const admissionDoneOn = (runtime) => admissionDone(clientOf(runtime));
+
 /** The runtime agent ids the Gateway behind `client` refused to admit. */
 export function degradedAgents(client) {
   return (client && admissions.get(client)?.degraded) || new Set();
@@ -170,7 +184,7 @@ export function noteRefusal(client, error) {
  * (chat-reconcile.js `sessionFailures`).
  */
 export function withAdmission(service, { assistants, conversations }) {
-  const refused = degradedAgents(service.runtime?.client);
+  const refused = degradedAgents(clientOf(service.runtime));
   const degraded = new Set(
     assistants.filter((a) => refused.has(a.runtimeAgentId)).map((a) => a.id),
   );

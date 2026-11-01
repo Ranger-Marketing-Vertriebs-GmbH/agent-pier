@@ -178,13 +178,25 @@ names the sub-ports (`host`, `sessions`, `events`, `agents`, `agentFiles`, `conf
 adapter in `runtimes/openclaw/`, which is the only place meant to call the Gateway
 client. The adapter's `host` sub-port wraps the supervisor: `ready()`, `status()` with
 the supervisor's availability states, `version()`, `subscribe()` and `start`/`stop`/
-`restart`; feature code checks readiness with `hostReady()` from `runtime-for.js`
-instead of reading `runtime.client.ready`. `tests/unit/runtime-port-rules.test.js`
+`restart`, plus `connection()`, a handle that changes when a restart replaces the
+Gateway client; feature code checks readiness with `hostReady()` and compares
+`hostConnection()` across an await, both from `runtime-for.js`, instead of reading
+`runtime.client`. The `sessions` sub-port creates, sends to, aborts, waits for,
+describes, lists, keeps open, compacts and deletes agent sessions, reads their history
+and downloads generated artifacts, with named parameters; `sessions.on(connection)`
+binds those calls to the connection a caller captured before an await, so they never
+reach a Gateway that replaced it; OpenClaw's session-create
+retries and native-archive handling (`session-create.js`, `native-chat-archive.js`)
+live in the adapter. The `events` sub-port delivers normalized run events of the
+current connection (`started`, `text`, `tool`, `finished`, `aborted`, `failed`
+with a reason, and approvals passed through), each with OpenClaw's frame name and
+payload alongside: reply text, tool steps (`run-steps.js`) and approval details are
+still read from that payload. `tests/unit/runtime-port-rules.test.js`
 fails when server code outside `runtimes/` names a Gateway method in
 `.call()`/`.request()` or reaches `runtime.client`; its allowlist
 (`tests/fixtures/runtime-port-allowlist.json`) holds today's callers and may only
 shrink. `tests/helpers/runtime-port-contract.js` is the contract every adapter passes,
-the `host` sub-port included.
+the `host`, `sessions` and `events` sub-ports included.
 
 See [the user guide](agents.md), [the Gateway design](assistant-gateway.md) and
 [ADR 0002](adr/0002-managed-openclaw-assistants.md). The proposed

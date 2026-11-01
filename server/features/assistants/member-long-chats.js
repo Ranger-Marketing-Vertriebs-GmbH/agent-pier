@@ -4,6 +4,7 @@ import { reappearsAt } from "./long-chats.js";
 import { editableMember } from "./member-reach.js";
 import { ownerTalking } from "./member-summaries.js";
 import { mainConversation } from "./routine-targets.js";
+import { hostConnection, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 
 /**
  * The table of lead hints, per member task chat: the size the lead was told at and
@@ -68,14 +69,16 @@ export class MemberLongChats {
     const a = this.assistants;
     if (!this.memberOf(conversationId)) return;
     if (ownerTalking(this, conversationId, this.now())) return;
-    const client = a.runtime.client;
-    if (!client?.ready || a.maintenance || a.recovering || a.closed) return;
+    const connection = hostConnection(a.runtime);
+    if (!hostReady(a.runtime) || a.maintenance || a.recovering || a.closed) return;
     const conversation = a.store.getConversation(conversationId);
     // OpenClaw 2026.10.3 reports the session's size with any history page.
-    const { sessionInfo: info } = await client.call("chat.history", {
-      sessionKey: conversation.runtimeSessionKey,
-      limit: 1,
-    });
+    const { sessionInfo: info } = await runtimeFor(null, a.runtime)
+      .sessions.on(connection)
+      .history({
+        sessionKey: conversation.runtimeSessionKey,
+        limit: 1,
+      });
     if (info?.totalTokensFresh !== true || !Number.isFinite(info.totalTokens)) return;
     const member = this.memberOf(conversationId);
     if (!member || this.summaryPending(member.id)) return;

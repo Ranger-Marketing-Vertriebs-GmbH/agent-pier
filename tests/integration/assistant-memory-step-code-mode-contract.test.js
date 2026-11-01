@@ -11,7 +11,7 @@ import { RequestLedger } from "../../server/features/assistants/request-ledger.j
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
-import { createGatewaySession } from "../../server/features/assistants/session-create.js";
+import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 import {
   MemoryStepWrites,
   memoryStepText,

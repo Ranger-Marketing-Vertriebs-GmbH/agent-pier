@@ -15,7 +15,7 @@ import { provisionTeamPlugin } from "../../server/features/assistants/team-plugi
 import { teamTools } from "../../server/features/assistants/runtime-config.js";
 import { memberTeamTools } from "../../server/features/assistants/native-capabilities.js";
 import plugin from "../../server/features/assistants/team-plugin/index.js";
-import { createGatewaySession } from "../../server/features/assistants/session-create.js";
+import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 
 test("plugin guard rejects a prepare response after native invocation retirement", async (t) => {
   let live = true,

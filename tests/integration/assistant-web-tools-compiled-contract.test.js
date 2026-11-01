@@ -25,7 +25,7 @@ import { AgentBrowsers } from "../../server/features/assistants/agent-browsers.j
 import { BrowserLiveView } from "../../server/features/assistants/browser-live-view.js";
 import { AssistantProviderSynchronization } from "../../server/features/assistants/assistant-provider-synchronization.js";
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
-import { createGatewaySession } from "../../server/features/assistants/session-create.js";
+import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 
 // The installation provisioned by scripts/provision-assistant-contracts.mjs: its data
 // directory yields the runtime descriptor, including the bundled search plugins.

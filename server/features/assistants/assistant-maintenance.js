@@ -8,7 +8,7 @@ import { durablePrivate } from "./runtime-update-snapshot.js";
 import { ledgerFence } from "./ledger-fence.js";
 import { blockerCodes, blockerItems } from "./runtime-update-blockers.js";
 import { confirmedAll, resolveItems } from "./runtime-update-resolution.js";
-import { hostReady } from "./runtimes/runtime-for.js";
+import { hostConnection, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 export function needsAssistantMaintenance(paths) {
   if (fs.existsSync(path.join(paths.root, "runtime-maintenance.json"))) return true;
   try {
@@ -103,7 +103,8 @@ export class AssistantMaintenance {
   }
   async validate() {
     const s = this.s,
-      client = s.assistantRuntime.client;
+      client = s.assistantRuntime.client,
+      connection = hostConnection(s.assistantRuntime);
     if (!client?.ready) throw assistantProblem("unavailable", 503);
     if (this.intent && (await client.call("cron.status", {})).enabled)
       throw assistantProblem("conflict", 409);
@@ -113,9 +114,9 @@ export class AssistantMaintenance {
         throw assistantProblem("conflict", 409);
     }
     // A deleted user's chat keeps its row, not its native session (user-release.js).
+    const sessions = runtimeFor(null, s.assistantRuntime).sessions.on(connection);
     for (const c of s.assistants.store.listConversations())
-      if (!c.userReleased)
-        await client.call("sessions.describe", { key: c.runtimeSessionKey });
+      if (!c.userReleased) await sessions.describe({ key: c.runtimeSessionKey });
     if ((await this.blockers()).length) throw assistantProblem("active", 409);
   }
   async leave() {

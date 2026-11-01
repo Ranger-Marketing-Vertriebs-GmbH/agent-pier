@@ -190,7 +190,7 @@ export class HookRuns {
     if (ok) textValue(summary, 65536, true);
     const text = ok
       ? await cronResultText({
-          client: this.client,
+          supervisor: this.assistants.runtime,
           agentId: agent.runtimeAgentId,
           event: { ...completion, summary },
         })

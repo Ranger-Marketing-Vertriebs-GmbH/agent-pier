@@ -3,6 +3,7 @@ import path from "node:path";
 import { RoutineResults } from "./routine-results.js";
 import { chatBusy, chatProblem } from "./agent-chats.js";
 import { assistantProblem } from "./assistant-validation.js";
+import { hostConnection, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 import { mainConversation } from "./routine-targets.js";
 import { archivedSessionIds, purgeTranscriptArchives } from "./transcript-archives.js";
 import { forgetDreamingSession } from "./dreaming-backups.js";
@@ -131,12 +132,15 @@ export async function forgetChat(assistants, conversation) {
  * session is gone.
  */
 export async function deleteNativeSession(assistants, conversation) {
-  const client = assistants.runtime.client;
-  if (!client?.ready) return false;
+  if (!hostReady(assistants.runtime)) return false;
+  // The delete goes to the Gateway that was asked first, never to a newer one.
+  const sessions = runtimeFor(null, assistants.runtime).sessions.on(
+    hostConnection(assistants.runtime),
+  );
   const sessionId = await nativeSessionId(assistants, conversation);
   if (sessionId === undefined) return false;
   try {
-    await client.call("sessions.delete", {
+    await sessions.delete({
       key: conversation.runtimeSessionKey,
       deleteTranscript: true,
     });
@@ -247,7 +251,7 @@ async function nativeSessionId(assistants, conversation) {
   try {
     sessionId =
       (
-        await assistants.runtime.client.call("sessions.describe", {
+        await runtimeFor(null, assistants.runtime).sessions.describe({
           key: conversation.runtimeSessionKey,
         })
       )?.session?.sessionId ?? null;

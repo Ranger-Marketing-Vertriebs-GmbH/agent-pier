@@ -16,7 +16,7 @@ import { AssistantConfig } from "../../server/features/assistants/assistant-conf
 import { NativeMemory } from "../../server/features/assistants/native-memory.js";
 import { assistantMemoryModel } from "../helpers/assistant-memory-model.js";
 import { stepPolicyBridge } from "../helpers/assistant-step-policy-bridge.js";
-import { createGatewaySession } from "../../server/features/assistants/session-create.js";
+import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 
 const installed = process.env.AGENTPIER_ASSISTANT_MEMORY_RUNTIME;
 const execute = promisify(execFile);

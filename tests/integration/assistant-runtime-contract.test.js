@@ -11,7 +11,7 @@ import { AssistantStore } from "../../server/features/assistants/assistant-store
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
 import { publicMessages } from "../../server/features/assistants/conversations.js";
-import { createGatewaySession } from "../../server/features/assistants/session-create.js";
+import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 import { admissionDone } from "../../server/features/assistants/agent-admission.js";
 const dataDir = process.env.AGENTPIER_ASSISTANT_CONTRACT_DIR;
 // Five Gateway starts (initial, crash, recovery, stop/start): a passing hosted

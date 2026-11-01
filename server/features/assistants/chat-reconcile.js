@@ -7,11 +7,14 @@ import * as queuedDispatch from "./queued-dispatch.js";
 import { reconcileRuns } from "./run-reconciler.js";
 import { reconciledChanges } from "./conversation-feeds.js";
 import { busyChats, chatBusy } from "./agent-chats.js";
-import { keepChatOpen } from "./native-chat-archive.js";
-import { noteRefusal } from "./agent-admission.js";
-import { hostReady } from "./runtimes/runtime-for.js";
+import { noteRefusalOn } from "./agent-admission.js";
+import { hostConnection, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 
 const sessionRetryMs = 60000;
+
+// The pass still runs on the connection it started on, and that connection takes calls.
+const stillOn = (service, connection) =>
+  hostConnection(service.runtime) === connection && hostReady(service.runtime);
 
 /**
  * Starts a pass, or joins the running one. `full` (the default: readiness,
@@ -49,7 +52,7 @@ export function reconcileChats(service, { full = true, chats = [] } = {}) {
  * session). A failure, a concurrent reset that changed the session id among them,
  * leaves the chat for the next pass and is logged once per connection.
  */
-async function keepOpen(service, client, c) {
+async function keepOpen(service, connection, c) {
   let current;
   try {
     current = service.store.storedConversation(c.id);
@@ -59,12 +62,14 @@ async function keepOpen(service, client, c) {
   // A chat deleted or released while the pass ran is left to its native delete.
   if (current.deletedAt || current.userReleased) return true;
   try {
-    await keepChatOpen(client, c.runtimeSessionKey);
+    await runtimeFor(null, service.runtime)
+      .sessions.on(connection)
+      .keepOpen({ key: c.runtimeSessionKey });
     service.keptOpen.add(c.id);
     service.keepOpenFailures?.delete(c.id);
     return true;
   } catch (error) {
-    if (service.runtime.client === client && client.ready) {
+    if (stillOn(service, connection)) {
       service.keepOpenFailures ??= new Set();
       if (!service.keepOpenFailures.has(c.id)) {
         service.keepOpenFailures.add(c.id);
@@ -84,10 +89,10 @@ async function pass(service) {
   const dirty = service.reconcileDirty;
   service.reconcileFull = false;
   service.reconcileDirty = new Set();
-  const client = service.runtime.client;
-  // Native subscriptions belong to one connection: a new client starts over.
-  if (service.subscribedOn !== client) {
-    service.subscribedOn = client;
+  const connection = hostConnection(service.runtime);
+  // Native subscriptions belong to one connection: a new one starts over.
+  if (service.subscribedOn !== connection) {
+    service.subscribedOn = connection;
     service.subscribed = new Set();
     service.keptOpen = new Set();
     service.keepOpenFailures = new Set();
@@ -113,9 +118,9 @@ async function pass(service) {
     // Once per connection, archived chats too: pinned, a chat stays out of OpenClaw's
     // maintenance (its entry cap and disk budget included), and one it archived anyway
     // takes turns and deliveries again (native-chat-archive.js).
-    if (!service.keptOpen.has(c.id) && !(await keepOpen(service, client, c))) {
+    if (!service.keptOpen.has(c.id) && !(await keepOpen(service, connection, c))) {
       // A dropped connection is not a session fault; the reconnect checks anew.
-      if (service.runtime.client !== client || !client.ready) break;
+      if (!stillOn(service, connection)) break;
     }
     const working = chatBusy(service, c.id, busy);
     // An archived chat takes no turn: no live read unless work still reports into it.
@@ -139,14 +144,16 @@ async function pass(service) {
     // A full pass subscribes every chat again, as after a Gateway restart.
     if (full || !subscribed) {
       try {
-        await client.call("sessions.messages.subscribe", { key: c.runtimeSessionKey });
+        await runtimeFor(null, service.runtime)
+          .sessions.on(connection)
+          .subscribeMessages({ key: c.runtimeSessionKey });
         service.subscribed.add(c.id);
         service.sessionFailures.delete(c.id);
       } catch (error) {
         // A dropped connection is not a session fault; the reconnect resubscribes.
-        if (service.runtime.client !== client || !client.ready) break;
+        if (!stillOn(service, connection)) break;
         // An agent the Gateway refused shows as such (agent-admission.js).
-        noteRefusal(client, error);
+        noteRefusalOn(service.runtime, error);
         service.subscribed.delete(c.id);
         service.sessionFailures.set(c.id, {
           diagnostic: "SESSION_UNAVAILABLE",

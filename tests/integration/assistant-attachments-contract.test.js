@@ -15,7 +15,7 @@ import { withAttachments } from "../../server/features/assistants/attachment-his
 import { ProviderConnections } from "../../server/features/providers/provider-connections.js";
 import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
-import { createGatewaySession } from "../../server/features/assistants/session-create.js";
+import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 
 // Opt-in: the pinned Gateway takes AgentPier's attachment shape, shows images to a
 // model that declares image input, and keeps the sent text for the chat history.

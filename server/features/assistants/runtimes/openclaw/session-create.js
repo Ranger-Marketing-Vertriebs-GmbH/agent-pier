@@ -1,5 +1,5 @@
 import { setTimeout as delay } from "node:timers/promises";
-import { sessionCreateTimeoutMs } from "./runtimes/openclaw/gateway-client.js";
+import { sessionCreateTimeoutMs } from "./gateway-client.js";
 
 // OpenClaw 2026.10.3 bounds sessions.create's wait for its model catalog to 20 s
 // (two thirds of its 30 s request timeout) and then answers UNAVAILABLE with

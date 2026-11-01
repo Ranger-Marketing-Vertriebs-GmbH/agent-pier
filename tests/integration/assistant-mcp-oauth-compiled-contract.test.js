@@ -30,7 +30,7 @@ import {
 } from "../../server/http/routes/mcp-oauth.js";
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
 import { approve, oauthMcpServer } from "../helpers/mcp-oauth-test-server.js";
-import { createGatewaySession } from "../../server/features/assistants/session-create.js";
+import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 
 // Uses scripts/provision-assistant-contracts.mjs. Unlike the hand-run OpenClaw CLI of
 // assistant-mcp-oauth-contract.test.js, this drives AgentPier's own path: the server
