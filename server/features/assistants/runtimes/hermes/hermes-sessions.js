@@ -120,8 +120,9 @@ const describeRow = (link, key, row, sid) => ({
 });
 
 // User rows Hermes writes itself (tui_gateway/session_history.py display kinds): the
-// note that resumes a turn an interruption cut off is never the owner's words.
-const internalKinds = new Set(["auto_continue"]);
+// note that resumes a turn an interruption cut off, and the notes of results no one
+// watched, routine results included (agentpier.note), are never the owner's words.
+const internalKinds = new Set(["auto_continue", "internal_notification"]);
 
 /**
  * The port's history entry (agent-runtime.js sessions `entry`) of a Hermes history
@@ -178,6 +179,33 @@ async function transcript(link, key, options) {
   const stored = storedIdOf(link.agentId, key);
   if (!stored) throw refused("unknown session key");
   return link.client.call("session.history", { session_id: stored }, options);
+}
+
+// How full the context of the session's last model call was, in OpenClaw's
+// `sessionInfo` terms (conversations.js longContext): `session.stats`
+// (gateway/session_usage.py) of the agent the gateway keeps for a session attached
+// here: `last_prompt_tokens` against `context_length`. A session not attached, or
+// whose agent the gateway let go (a restart, a compression), names no size.
+async function contextOf(link, key) {
+  const sid = link.runs.sidOf(key);
+  if (!sid) return {};
+  try {
+    const stats = await link.client.call(
+      "session.stats",
+      { session_id: sid },
+      { timeoutMs: 10000 },
+    );
+    const used = stats?.last_prompt_tokens;
+    const window = stats?.context_length;
+    if (!Number.isSafeInteger(used) || used <= 0) return {};
+    return {
+      totalTokens: used,
+      totalTokensFresh: true,
+      ...(Number.isSafeInteger(window) && window > 0 && { contextTokens: window }),
+    };
+  } catch {
+    return {};
+  }
 }
 
 function sessionsOver(current) {
@@ -334,7 +362,11 @@ function sessionsOver(current) {
         );
       return {
         messages,
-        sessionInfo: { key: sessionKey, count: answer?.count ?? total },
+        sessionInfo: {
+          key: sessionKey,
+          count: answer?.count ?? total,
+          ...(await contextOf(link, sessionKey)),
+        },
         hasMore: start > 0,
         sessionId: storedIdOf(link.agentId, sessionKey),
       };

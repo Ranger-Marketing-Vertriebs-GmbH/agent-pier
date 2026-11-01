@@ -5,6 +5,8 @@ import { applicationFixture, enabledAssistants } from "../helpers/application.js
 import { AgentHooks } from "../../server/features/assistants/agent-hooks.js";
 import { secretMatches } from "../../server/features/assistants/agent-hook-store.js";
 import { auditEvent } from "../../server/features/audit/audit-schema.js";
+import { attachHermesFleet } from "../../server/features/assistants/runtimes/runtime-for.js";
+import { makeHermesRuntime } from "../helpers/hermes-fake-gateway.js";
 
 const base = { name: "Zabbix", sender: "zabbix01" };
 
@@ -443,4 +445,22 @@ test("the graph reaches the service as assistantRoutines.hooks", async (t) => {
   const f = await applicationFixture(t, enabledAssistants);
   assert.ok(f.application.assistantRoutines.hooks instanceof AgentHooks);
   assert.ok(f.application.assistantReminders.heartbeats);
+});
+
+test("a Hermes agent's hook event runs on its own runtime while OpenClaw is down", async (t) => {
+  const f = hookFixture(t);
+  const agent = f.store.getAssistant(f.id);
+  rewrite(f, { ...agent, runtime: "hermes" });
+  const hermes = await makeHermesRuntime(agent.runtimeAgentId)();
+  attachHermesFleet(f.assistants.runtime, { runtimeOf: () => hermes });
+  // OpenClaw's host takes no calls.
+  f.assistants.runtime.client = { ready: false };
+  const { hook } = await f.hooks.create(f.id, base);
+  const accepted = await f.hooks.test(f.id, hook.id);
+  assert.equal(accepted.status, "accepted");
+  const jobs = await hermes.routines.list({ agentId: agent.runtimeAgentId });
+  assert.deepEqual(
+    jobs.map((job) => job.marker),
+    [`agentpier-hook:${f.hooks.events.last(hook.id).id}`],
+  );
 });

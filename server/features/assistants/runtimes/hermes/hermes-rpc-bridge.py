@@ -16,6 +16,15 @@ makes one call of the gateway's own REST API (the dashboard routes it hosts, suc
 request's id (`{ timedOut: true }` for a call still running after its `timeout`
 seconds). The ticket never leaves this process either.
 
+A second one, `agentpier.note { session_id, text }`, writes a routine's result into a
+session's history the way Hermes records a result no one watched
+(gateway/session_completion_notes.py) and mirrors a cron delivery
+(cron/scheduler_delivery.py): one user row of the display kind
+`internal_notification`, which every later turn of the session reads and no client
+shows as the owner's words, appended through Hermes's own SessionDB to the session's
+current compression segment. It answers `{ appended: true }`, or `{ appended: false,
+reason: "not_found" }` for a session that is gone.
+
 Run with the Hermes environment's own Python: python -I hermes-rpc-bridge.py [seconds].
 Exit codes: 0 when stdin closed, 2 when no ready owner appeared in time, 3 when the
 gateway refused the ticket, 4 when the gateway closed the channel.
@@ -34,6 +43,9 @@ _HTTP_METHODS = {"GET", "POST", "PUT", "DELETE"}
 _HTTP_TIMEOUT = 30
 _HTTP_MAX_TIMEOUT = 120
 _HTTP_MAX_BYTES = 16 * 1024 * 1024
+# A routine result as a note: at most this many characters.
+_NOTE_MAX_CHARS = 65536
+_LOCAL_METHODS = {"agentpier.http", "agentpier.note"}
 
 
 def _fail(code, message):
@@ -136,6 +148,27 @@ def rest_call(home, endpoint, params):
     return {"status": status, "body": body}
 
 
+def note_call(params):
+    """Appends one note row to a session's history; raises ValueError for a bad request."""
+    session_id, text = params.get("session_id"), params.get("text")
+    if (not isinstance(session_id, str) or not session_id or len(session_id) > 200
+            or not isinstance(text, str) or not text.strip() or len(text) > _NOTE_MAX_CHARS):
+        raise ValueError("invalid note")
+    from hermes_state_registry import acquire, release_or_close
+
+    db = acquire()
+    try:
+        if db.get_session(session_id) is None:
+            return {"appended": False, "reason": "not_found"}
+        # A compressed conversation goes on in its newest segment.
+        target = db.get_compression_tip(session_id) or session_id
+        db.append_message(session_id=target, role="user", content=text,
+                          display_kind="internal_notification")
+        return {"appended": True}
+    finally:
+        release_or_close(db)
+
+
 async def relay(home, endpoint, url, protocols):
     from websockets.asyncio.client import connect
     from hermes_cli.gateway_client import GATEWAY_WS_PROTOCOL
@@ -153,7 +186,10 @@ async def relay(home, endpoint, url, protocols):
         rid = request.get("id")
         try:
             params = request.get("params") if isinstance(request.get("params"), dict) else {}
-            result = await asyncio.to_thread(rest_call, home, endpoint, params)
+            if request.get("method") == "agentpier.note":
+                result = await asyncio.to_thread(note_call, params)
+            else:
+                result = await asyncio.to_thread(rest_call, home, endpoint, params)
             answer({"jsonrpc": "2.0", "id": rid, "result": result})
         except Exception as error:  # A failed call answers; it never ends the channel.
             reason = "invalid_params" if isinstance(error, ValueError) else "http_failed"
@@ -165,7 +201,7 @@ async def relay(home, endpoint, url, protocols):
             request = json.loads(line)
         except ValueError:
             return None
-        return request if isinstance(request, dict) and request.get("method") == "agentpier.http" else None
+        return request if isinstance(request, dict) and request.get("method") in _LOCAL_METHODS else None
 
     # Loopback only: never through the host's HTTP(S) proxy.
     async with connect(url, subprotocols=protocols, proxy=None, open_timeout=10,

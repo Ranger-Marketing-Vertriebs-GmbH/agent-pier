@@ -60,6 +60,8 @@ async function hermesRoutes(page, states, answers = {}) {
     const request = route.request();
     const path = new URL(request.url()).pathname;
     const method = request.method();
+    if (method === "GET" && answers[`GET ${path}`])
+      return route.fulfill({ json: answers[`GET ${path}`] });
     if (method === "GET") {
       const state = queue.length > 1 ? queue.shift() : queue[0];
       return route.fulfill(state ? { json: state } : { status: 404, json: {} });
@@ -124,6 +126,51 @@ test("an available update installs the pinned version; errors are named", async 
       "The update failed. Hermes Agent keeps running on its previous version.",
     ),
   ).toBeVisible({ timeout: 8000 });
+});
+
+test("work of Hermes agents that blocks the update is listed and can be paused", async ({
+  page,
+}) => {
+  await setup(page);
+  const outdated = { ...installed, targetVersion: "0.23.0", updateAvailable: true };
+  const turn = {
+    id: "chat_turn:t1",
+    code: "ASSISTANT_WORK",
+    kind: "chat_turn",
+    agent: { id: "home", name: "Hermes helper" },
+    since: "2026-11-01T10:00:00.000Z",
+    link: "/agents/home/chats/c1",
+    resolution: "stop",
+    revision: "r1",
+  };
+  const blocked = { ...outdated, error: "UPDATE_BLOCKED", blockerItems: [turn] };
+  const sent = await hermesRoutes(page, [blocked], {
+    "GET /api/assistant-runtime/hermes/update/blockers": { items: [turn] },
+    "POST /api/assistant-runtime/hermes/update": { ...outdated, updating: true },
+  });
+  await page.goto(baseURL + "/agents?tab=runtime");
+  const hermes = group(page);
+  await expect(
+    hermes.getByText(
+      "Hermes agents are still working. Open each item below, or pause the agents and update.",
+    ),
+  ).toBeVisible();
+  await expect(hermes.getByRole("link", { name: /Hermes helper/ })).toHaveAttribute(
+    "href",
+    "/agents/home/chats/c1",
+  );
+  await hermes.getByRole("button", { name: "Pause agents and update" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByText(/Hermes helper/)).toBeVisible();
+  await dialog.getByRole("button", { name: "Pause and update" }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(sent).toEqual([
+    [
+      "POST",
+      "/api/assistant-runtime/hermes/update",
+      { resolveBlockers: true, items: [{ id: "chat_turn:t1", revision: "r1" }] },
+    ],
+  ]);
 });
 
 test("an unknown error code falls back; a server without Hermes shows no group", async ({

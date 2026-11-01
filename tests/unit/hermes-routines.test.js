@@ -38,14 +38,18 @@ const routine = (extra = {}) => ({
 });
 
 test("a routine becomes a paused Hermes job with AgentPier's part beside it", () => {
-  assert.deepEqual(hermesCreate(routine({ prompt: { text: "Hi", model: "p/m-1" } })), {
-    name: "Inbox",
-    schedule: "0 9 * * *",
-    prompt: "Hi",
-    model: "m-1",
-    deliver: "local",
-    paused: true,
-  });
+  const berlin = { zone: "Europe/Berlin" };
+  assert.deepEqual(
+    hermesCreate(routine({ prompt: { text: "Hi", model: "p/m-1" } }), berlin),
+    {
+      name: "Inbox",
+      schedule: "0 9 * * *",
+      prompt: "Hi",
+      model: "m-1",
+      deliver: "local",
+      paused: true,
+    },
+  );
   assert.equal(hermesSchedule({ kind: "every", everyMs: 1800000 }), "every 30m");
   assert.equal(
     hermesSchedule({ kind: "at", at: "2026-11-02T09:00:00+01:00" }),

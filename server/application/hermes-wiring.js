@@ -7,6 +7,15 @@ import {
   hermesLifecycle,
 } from "../features/assistants/runtimes/hermes/hermes-lifecycle.js";
 import { HermesFleet } from "../features/assistants/runtimes/hermes/hermes-fleet.js";
+import {
+  blockerCodes,
+  publicItem,
+  runtimeBlockerItems,
+} from "../features/assistants/runtime-update-blockers.js";
+import {
+  confirmedAll,
+  resolveItems,
+} from "../features/assistants/runtime-update-resolution.js";
 import { hermesRunnable } from "../features/assistants/runtimes/hermes/hermes-provisioning.js";
 import {
   attachHermesFleet,
@@ -86,27 +95,48 @@ export function hermesUpdateHost(services) {
 }
 
 // No AgentPier maintenance is needed to swap Hermes: only Hermes agents stop, and a
-// failed start rolls the installation and their homes back to the snapshot.
-export const hermesUpdateMaintenance = (services) => ({
-  enter: async () => {},
-  leave: async () => {},
-  quiesce: async () => {},
-  blockers: async () => [],
-  async validate() {
-    for (const { runtime } of fleetOf(services)?.list() || [])
-      if (runtime.host.status().availability === "failed")
-        throw Object.assign(Error("HERMES_UPDATE_VALIDATION_FAILED"), {
-          code: "HERMES_UPDATE_VALIDATION_FAILED",
-        });
-  },
-});
+// failed start rolls the installation and their homes back to the snapshot. What
+// blocks it is the work of Hermes agents alone, as OpenClaw's update names it
+// (runtime-update-blockers.js runtimeBlockerItems): turns and chat summaries in their
+// chats and their routine runs under way. "Pause agents and update" resolves the
+// items the owner confirmed as for OpenClaw (runtime-update-resolution.js): turns
+// stopped, unknown outcomes reviewed, routine runs waited for.
+export function hermesUpdateMaintenance(services) {
+  const blockerItems = async ({ settle = true } = {}) => {
+    if (!services.assistants) return [];
+    if (settle) await services.assistants.settleUserTurns?.();
+    return runtimeBlockerItems(services, "hermes");
+  };
+  return {
+    enter: async () => {},
+    leave: async () => {},
+    quiesce: async () => {},
+    blockerItems,
+    blockers: async () => blockerCodes(await blockerItems()),
+    async resolve(confirmed, options) {
+      const items = await blockerItems();
+      if (!items.length || !confirmedAll(items, confirmed)) return items;
+      return resolveItems(services, items, () => blockerItems(), options);
+    },
+    async validate() {
+      for (const { runtime } of fleetOf(services)?.list() || [])
+        if (runtime.host.status().availability === "failed")
+          throw Object.assign(Error("HERMES_UPDATE_VALIDATION_FAILED"), {
+            code: "HERMES_UPDATE_VALIDATION_FAILED",
+          });
+    },
+  };
+}
 
 /**
  * The owner's Hermes Agent switch (ADR 0006): `state()`, `enable()` (records the
  * opt-in and installs the pinned runtime in the background; the Hermes agents start
  * once it is installed), `disable()` (their process sets stop), `update()` (installs
  * the pinned version beside the selected one and activates it through the update
- * journal, restarting the Hermes agents; a failed start rolls back), and `start()` at
+ * journal, restarting the Hermes agents; a failed start rolls back; work of Hermes
+ * agents blocks it, `{ resolveBlockers, items }` resolves the items the owner
+ * confirmed, `blockerPreview()` lists them and the state names those of the last
+ * refused update as `blockerItems`), and `start()` at
  * server start, which installs or stages the pinned runtime when Hermes is enabled
  * and this AgentPier pins one that is not installed yet (also after an AgentPier
  * update). `services` is the application's, read lazily: agent services exist only
@@ -118,11 +148,13 @@ export function createHermesRuntime({ config, services = {} }) {
   const base = hermes.state;
   let updating = null;
   let updateError = null;
+  let blocked = [];
   hermes.state = () => {
     const state = base();
     return {
       ...state,
       error: state.error || updateError,
+      blockerItems: blocked,
       updating: !!updating,
       // A newer pin, or the same release with an extra it lacks (hermes-install.js).
       updateAvailable: state.installed && !state.current,
@@ -149,21 +181,26 @@ export function createHermesRuntime({ config, services = {} }) {
     await fleetOf(services)?.stopAll();
     return hermes.state();
   };
-  hermes.update = async () => {
+  const journal = () =>
+    createHermesUpdates({
+      dataDir,
+      host: hermesUpdateHost(services),
+      maintenance: hermesUpdateMaintenance(services),
+    });
+  hermes.update = async (resolution) => {
     const state = hermes.state();
     if (updating || !state.enabled || !state.installed) return state;
     updateError = null;
+    blocked = [];
+    const updates = journal();
     updating = (async () => {
-      const updates = createHermesUpdates({
-        dataDir,
-        host: hermesUpdateHost(services),
-        maintenance: hermesUpdateMaintenance(services),
-      });
       await updates.stage();
-      if (updates.status().candidateReady) await updates.activate();
+      if (updates.status().candidateReady) await updates.activate(resolution);
     })()
       .catch((error) => {
         updateError = stableCode(error, "HERMES_UPDATE_FAILED");
+        // The work that refused it, as the owner resolves it.
+        if (updateError === "UPDATE_BLOCKED") blocked = updates.status().blockerItems;
       })
       .finally(() => {
         updating = null;
@@ -172,6 +209,10 @@ export function createHermesRuntime({ config, services = {} }) {
     return hermes.state();
   };
   hermes.updating = () => updating || Promise.resolve();
+  hermes.blockerPreview = async () =>
+    (await hermesUpdateMaintenance(services).blockerItems({ settle: false })).map(
+      publicItem,
+    );
   hermes.start = () => stageHermesInBackground({ dataDir });
   return hermes;
 }

@@ -6,17 +6,30 @@ import ListRow, { ToggleRow, unknownValue } from "../../../components/ListRow.js
 import StatusDot from "../../../components/StatusDot.jsx";
 import { agentsHubCopy } from "../../../lib/i18n/messages/agents-hub.js";
 import { assistantApi } from "../assistant-api.js";
+import {
+  BlockerList,
+  PauseAndUpdate,
+  blocksPause,
+  validBlockerItem,
+} from "../RuntimeUpdateBlockers.jsx";
 import { hermesBusy, hermesErrorText, hermesStatus } from "../hermes-runtime.js";
 import useHermesRuntime from "../useHermesRuntime.js";
 
 const copy = () => agentsHubCopy.runtime.hermes;
+// Hermes Agent's update, for "Pause agents and update".
+const hermesUpdate = {
+  blockers: "/assistant-runtime/hermes/update/blockers",
+  activate: "/assistant-runtime/hermes/update",
+};
 
 /**
  * Laufzeit › Hermes Agent: the second agent runtime. Its switch installs Hermes in the
  * background and its update installs the pinned version; both are immediate actions,
- * never part of the tab's draft. A server without Hermes (404) shows no group.
+ * never part of the tab's draft. Work of Hermes agents that refused the update is
+ * listed, each item opening where it is resolved, beside "Pause agents and update".
+ * A server without Hermes (404) shows no group.
  */
-export default function RuntimeHermesGroup() {
+export default function RuntimeHermesGroup({ navigate }) {
   const id = useId();
   const hermes = useHermesRuntime();
   const [busy, setBusy] = useState(false);
@@ -37,6 +50,10 @@ export default function RuntimeHermesGroup() {
   };
   const status = hermesStatus(state);
   const working = busy || hermesBusy(state);
+  const blockers =
+    state?.error === "UPDATE_BLOCKED" && Array.isArray(state.blockerItems)
+      ? state.blockerItems.filter(validBlockerItem)
+      : [];
   const statusText =
     status.kind === "error"
       ? hermesErrorText(state.error, copy().errors, copy().unknownError)
@@ -92,6 +109,17 @@ export default function RuntimeHermesGroup() {
                 >
                   {copy().update}
                 </button>
+                {!!blockers.length && (
+                  <PauseAndUpdate
+                    version={state.targetVersion || ""}
+                    disabled={working || blocksPause(blockers)}
+                    endpoints={hermesUpdate}
+                    onDone={async (message) => {
+                      setError(message);
+                      await hermes.load();
+                    }}
+                  />
+                )}
               </div>
             </ListRow>
           )}
@@ -101,6 +129,7 @@ export default function RuntimeHermesGroup() {
           />
         </ListCard>
       )}
+      {!!blockers.length && <BlockerList items={blockers} navigate={navigate} />}
     </section>
   );
 }

@@ -4,11 +4,14 @@ import { webhookToken } from "../../reminder-webhook.js";
 import { assistantProblem } from "../../assistant-validation.js";
 import { boundPort, reachable } from "./hermes-connection.js";
 import { hermesError } from "./hermes-rpc-client.js";
+import { storedIdOf } from "./hermes-run-state.js";
+import { processZone } from "./hermes-cron-zone.js";
 import {
   hermesCreate,
   hermesCronRunOf,
   hermesUpdates,
   metaField,
+  repinOf,
   routineMeta,
   routineOfJob,
   routineRun,
@@ -26,6 +29,9 @@ const callSeconds = 30;
 // Hermes's silent token (cron/scheduler_prompt.py) and AgentPier's.
 const silentToken = "[SILENT]";
 const agentPierSilent = "NO_REPLY";
+// The zone Hermes runs cron expressions in: the agent's processes share this one's
+// TZ (hermes-environment.js); a function, so it is read at each call.
+const zoneOf = (zone) => (typeof zone === "function" ? zone() : zone) || processZone();
 
 const refusal = (code, status, body) =>
   Object.assign(hermesError(code), {
@@ -92,11 +98,26 @@ async function listJobs(client) {
  * forced run (`trigger`) also resumes a paused job; a routine that was disabled is
  * paused again after it. Results reach AgentPier through HermesRoutineDeliveries.
  */
-export const hermesRoutines = (supervisor, { deliveries } = {}) =>
-  boundPort((current) => routinesOver(current, supervisor, deliveries), supervisor);
+export const hermesRoutines = (supervisor, { deliveries, zone } = {}) =>
+  boundPort((current) => routinesOver(current, supervisor, deliveries, zone), supervisor);
 
-function routinesOver(current, supervisor, deliveries) {
+/**
+ * Pins a job of a routine in its own time zone to its next occurrence when its pin
+ * passed or names another (repinOf); answers the job as it is then.
+ */
+export async function repinned(client, job, { zone, now = Date.now() } = {}) {
+  const pin = repinOf(job, { zone: zoneOf(zone), now });
+  if (!pin) return job;
+  return (
+    await hermesRest(client, "PUT", jobPath(job.id), {
+      body: { updates: { schedule: pin } },
+    })
+  ).body;
+}
+
+function routinesOver(current, supervisor, deliveries, zone) {
   const agentId = supervisor.agentId;
+  const timing = () => ({ zone: zoneOf(zone), now: Date.now() });
   const link = async () => reachable(current());
   const own = (routine) => {
     if (routine.agentId !== undefined && routine.agentId !== agentId)
@@ -118,7 +139,7 @@ function routinesOver(current, supervisor, deliveries) {
     async add({ routine }) {
       const { client } = await link();
       own(routine);
-      const create = hermesCreate(routine);
+      const create = hermesCreate(routine, timing());
       const { body: created } = await hermesRest(client, "POST", "/api/cron/jobs", {
         body: create,
       });
@@ -139,12 +160,13 @@ function routinesOver(current, supervisor, deliveries) {
       const meta = routineMeta(patch, old?.[metaField] || {});
       let job = (
         await hermesRest(client, "PUT", jobPath(id), {
-          body: { updates: hermesUpdates(patch, meta) },
+          body: { updates: hermesUpdates(patch, meta, timing()) },
         })
       ).body;
       if (typeof patch.enabled === "boolean" && patch.enabled !== job?.enabled)
         job = await toggle(client, id, patch.enabled);
-      return read(job);
+      // A pin that passed while the job was paused moves to the next occurrence.
+      return read(await repinned(client, job, { zone }));
     },
     async remove({ id }) {
       const { client } = await link();
@@ -219,9 +241,13 @@ async function runText(client, agentId, job) {
  * routine's URL with the webhook's token (reminder-webhook.js). A run is found by its
  * job's `last_run_at`, checked on every `cron.changed` event the gateway sends, after
  * each forced run and every `intervalMs`; what was delivered is kept in `file`, so a
- * restart of either side delivers each run once more at most. Hermes keeps the result
- * out of the target chat's own transcript (`deliveryStatus` "not-delivered"), so
- * AgentPier shows it beside the chat.
+ * restart of either side delivers each run once more at most. A run whose routine
+ * delivers into a chat (`chat` delivery to a `chat` target) is also written into that
+ * session's history as a note (`agentpier.note`, hermes-rpc-bridge.py), so the agent's
+ * later turns see it as OpenClaw's do; the note is no reply of the chat
+ * (`deliveryStatus` "not-delivered"), so AgentPier shows the result beside it. Each pass
+ * also pins the jobs of routines in their own time zone to their next occurrence
+ * (repinOf), in `zone`, the zone Hermes runs them in.
  */
 export class HermesRoutineDeliveries {
   constructor({
@@ -231,12 +257,16 @@ export class HermesRoutineDeliveries {
     post = fetch,
     intervalMs = 15000,
     timers = globalThis,
+    zone,
   }) {
-    Object.assign(this, { supervisor, file, token, post, intervalMs, timers });
+    Object.assign(this, { supervisor, file, token, post, intervalMs, timers, zone });
     this.client = null;
     this.timer = null;
     this.running = null;
     this.again = false;
+    // Runs (`<job>@<last_run_at>`) whose note this process wrote: a retried webhook
+    // writes it once.
+    this.notedRuns = new Set();
     this.onEvent = (params) => params?.type === "cron.changed" && this.check();
   }
 
@@ -312,19 +342,58 @@ export class HermesRoutineDeliveries {
         changed = true;
       }
     for (const job of jobs) {
+      // One job's failure leaves the others' pins and deliveries going.
+      await repinned(client, job, { zone: this.zone }).catch(() => {});
       const url = job[metaField]?.delivery?.url;
       if (typeof url !== "string" || !job.last_run_at) continue;
-      if (records[job.id]?.lastRunAt === job.last_run_at) continue;
-      // One job's failure leaves the others' deliveries going.
-      const status = await this.deliver(client, job, url).catch(() => null);
-      if (!status) continue;
-      records[job.id] = { lastRunAt: job.last_run_at, status };
+      const record = records[job.id];
+      if (record?.lastRunAt === job.last_run_at) {
+        // A note that could not be written yet is tried again while its run is the last.
+        if (record.note && !record.noted && (await this.note(client, record.note))) {
+          records[job.id] = {
+            lastRunAt: record.lastRunAt,
+            status: record.status,
+            noted: true,
+          };
+          changed = true;
+        }
+        continue;
+      }
+      const delivered = await this.deliver(client, job, url).catch(() => null);
+      if (!delivered) continue;
+      records[job.id] = { lastRunAt: job.last_run_at, ...delivered };
       changed = true;
     }
     if (changed) this.save(records);
   }
 
-  // Posts one run's completion; its delivery status, or null to try again later.
+  // The note of a run in its target chat's history (`{ session, text }`), or null
+  // for a run whose routine does not deliver into a chat or that has nothing to say.
+  noteOf(job, text) {
+    const meta = job[metaField] || {};
+    if (meta.delivery?.kind !== "chat" || meta.target?.kind !== "chat") return null;
+    const session = storedIdOf(this.supervisor.agentId, meta.target.sessionKey);
+    if (!session || !text.trim() || text.trim() === agentPierSilent) return null;
+    // The label Hermes gives a cron delivery it mirrors into a chat.
+    return { session, text: `[Cron delivery: ${job.name || job.id}]\n${text.trim()}` };
+  }
+
+  // Writes a note; whether it is done (written, or its session is gone).
+  async note(client, note) {
+    try {
+      const answer = await client.call(
+        "agentpier.note",
+        { session_id: note.session, text: note.text.slice(0, 65536) },
+        { timeoutMs: callSeconds * 1000 },
+      );
+      return answer?.appended === true || answer?.reason === "not_found";
+    } catch {
+      return false;
+    }
+  }
+
+  // Posts one run's completion after writing its note; `{ status, note, noted }`
+  // (the note kept while it is still to be written), or null to try again later.
   async deliver(client, job, url) {
     const agentId = this.supervisor.agentId;
     const ok = ["ok", "delivery_failed"].includes(job.last_status);
@@ -342,9 +411,16 @@ export class HermesRoutineDeliveries {
       deliveryStatus: "not-delivered",
       ...(sessionKey && { sessionKey }),
     };
-    if (!Number.isSafeInteger(event.runAtMs)) return "unknown";
+    if (!Number.isSafeInteger(event.runAtMs)) return { status: "unknown" };
     const token = this.token();
     if (!token) return null;
+    // In the chat's history before AgentPier learns of it: a turn the owner sends
+    // after the result appeared sees it.
+    const run = `${job.id}@${job.last_run_at}`;
+    const note = ok && !this.notedRuns.has(run) ? this.noteOf(job, text) : null;
+    const noted = note ? await this.note(client, note) : true;
+    if (note && noted) this.notedRuns.add(run);
+    const kept = noted ? {} : { note, noted: false };
     try {
       const response = await this.post(url, {
         method: "POST",
@@ -353,10 +429,10 @@ export class HermesRoutineDeliveries {
         signal: AbortSignal.timeout(20000),
       });
       // AgentPier answers 204; a refusal of this event never changes on a retry.
-      if (response.ok) return "delivered";
+      if (response.ok) return { status: "delivered", ...kept };
       return [408, 429].includes(response.status) || response.status >= 500
         ? null
-        : "rejected";
+        : { status: "rejected", ...kept };
     } catch {
       return null;
     }

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { hostReady } from "./runtimes/runtime-for.js";
+import { hostReady, runtimeFor, runtimeIdOf } from "./runtimes/runtime-for.js";
 
 // What blocks an agent runtime update, item by item (AssistantMaintenance.blockers).
 // Each item names its blocker code (kept for compatibility), what it is (`kind`), the
@@ -81,13 +81,15 @@ export const publicItem = ({ ref: _ref, ...visible }) => visible;
 export const blockerCodes = (items) =>
   blockerOrder.filter((code) => items.some((i) => i.code === code));
 
-function chatTurns(s, items) {
+// `chats(chat)`: whether a chat's work counts (every chat's for OpenClaw's update).
+function chatTurns(s, items, chats = () => true) {
   const a = s.assistants;
   for (const attempt of a.ledger.pending()) {
     const request = lookup(() => a.ledger.getRequest(attempt.requestId));
     const chat = request
       ? lookup(() => a.store.getConversation(request.conversationId))
       : null;
+    if (!chats(chat)) continue;
     items.push(
       item(
         "ASSISTANT_WORK",
@@ -106,9 +108,10 @@ function chatTurns(s, items) {
   // A history summarised on request runs in the Gateway too (long-chats.js).
   const long = a.longChats;
   if (!long?.runningFor?.()) return;
-  const chats = long.running instanceof Map ? [...long.running.keys()] : ["running"];
-  for (const id of chats) {
+  const running = long.running instanceof Map ? [...long.running.keys()] : ["running"];
+  for (const id of running) {
     const chat = lookup(() => a.store.getConversation(id));
+    if (!chats(chat)) continue;
     items.push(
       item(
         "ASSISTANT_WORK",
@@ -255,6 +258,27 @@ function workflows(s, items) {
   }
 }
 
+// One running routine run of `job` (an agent's routine) as an item.
+function routineRun(s, items, job, agents) {
+  const assistantId = agents.find((a) => a.runtimeAgentId === job.agentId)?.id;
+  items.push(
+    item(
+      "SCHEDULED_WORK",
+      "routine_run",
+      job.id,
+      {
+        agent: agentOf(s, assistantId),
+        since: job.runState?.runningAtMs,
+        link: assistantId
+          ? `/agents/${segment(assistantId)}/settings?tab=automation`
+          : "/agents",
+        resolution: "wait",
+      },
+      [job.runState?.runningAtMs ?? null],
+    ),
+  );
+}
+
 async function routines(s, items) {
   const reminders = s.assistantReminders;
   if (!hostReady(s.assistantRuntime) || !reminders) return;
@@ -266,25 +290,7 @@ async function routines(s, items) {
       ? [{ id: "running" }]
       : [];
   const agents = lookup(() => s.assistants.store.listAssistants()) || [];
-  for (const job of jobs) {
-    const assistantId = agents.find((a) => a.runtimeAgentId === job.agentId)?.id;
-    items.push(
-      item(
-        "SCHEDULED_WORK",
-        "routine_run",
-        job.id,
-        {
-          agent: agentOf(s, assistantId),
-          since: job.runState?.runningAtMs,
-          link: assistantId
-            ? `/agents/${segment(assistantId)}/settings?tab=automation`
-            : "/agents",
-          resolution: "wait",
-        },
-        [job.runState?.runningAtMs ?? null],
-      ),
-    );
-  }
+  for (const job of jobs) routineRun(s, items, job, agents);
 }
 
 /**
@@ -299,5 +305,30 @@ export async function blockerItems(s) {
   login(s, items);
   workflows(s, items);
   await routines(s, items);
+  return items;
+}
+
+/**
+ * What blocks an update of the runtime `runtimeId` alone (Hermes: only its agents'
+ * process sets stop): the turns and chat summaries running in the chats of its
+ * agents (ASSISTANT_WORK) and the routine runs under way on their own schedulers
+ * (SCHEDULED_WORK), as the same items. An agent whose set is not ready runs nothing.
+ */
+export async function runtimeBlockerItems(s, runtimeId) {
+  const a = s.assistants;
+  const agents = (lookup(() => a.store.listAssistants()) || []).filter(
+    (agent) => runtimeIdOf(agent) === runtimeId,
+  );
+  const ids = new Set(agents.map((agent) => agent.id));
+  const items = [];
+  chatTurns(s, items, (chat) => !!chat && ids.has(chat.assistantId));
+  for (const agent of agents) {
+    if (!hostReady(a.runtime, agent)) continue;
+    const listed = await runtimeFor(agent, a.runtime)
+      .routines.list({ agentId: agent.runtimeAgentId })
+      .catch(() => []);
+    for (const job of listed)
+      if (Number.isFinite(job.runState?.runningAtMs)) routineRun(s, items, job, agents);
+  }
   return items;
 }
