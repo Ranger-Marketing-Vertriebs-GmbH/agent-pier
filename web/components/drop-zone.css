@@ -1,0 +1,28 @@
+.drop-zone-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-overlay);
+  display: grid;
+  place-items: center;
+  background: var(--accent-faint);
+  border: 2px solid var(--accent-line);
+  border-radius: var(--radius-md);
+  pointer-events: none;
+}
+.drop-zone-overlay[data-side="left"] {
+  right: 50%;
+}
+.drop-zone-overlay[data-side="right"] {
+  left: 50%;
+}
+.drop-zone-overlay[data-side="top"] {
+  bottom: 50%;
+}
+.drop-zone-overlay[data-side="bottom"] {
+  top: 50%;
+}
+.drop-zone-label {
+  padding: var(--space-1) var(--space-3);
+  color: var(--accent);
+  font-size: 12px;
+}

@@ -125,6 +125,7 @@
   gap: var(--space-2);
 }
 .gallery-list-detail {
+  width: 100%;
   min-height: 160px;
 }
 @media (max-width: 700px) {
@@ -153,4 +154,31 @@
 }
 .gallery-skeleton-lines small {
   font-size: var(--font-size-xs);
+}
+.gallery-split {
+  height: 260px;
+}
+.gallery-split-pane {
+  display: grid;
+  height: 100%;
+  place-items: center;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+.gallery-drop-zone {
+  position: relative;
+  display: grid;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 160px;
+  place-content: center;
+  text-align: center;
+  background: var(--panel);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-md);
+}
+.gallery-drop-status {
+  margin: 0;
+  color: var(--muted);
 }
