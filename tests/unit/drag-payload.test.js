@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   PANE_MIME,
+  draggedPayload,
   hasPayload,
   readPayload,
   writePayload,
@@ -75,4 +76,27 @@ test("only drags carrying the pane MIME type are payload drags", () => {
   assert.equal(hasPayload(["application/x-agentpier-files"]), false);
   assert.equal(hasPayload([]), false);
   assert.equal(hasPayload(["text/plain", "application/x-agentpier-pane"]), true);
+});
+
+test("while a real drag hovers its data reads empty; the started payload stands in until dragend", () => {
+  const previous = globalThis.window;
+  globalThis.window = new EventTarget();
+  try {
+    const hidden = {
+      types: [],
+      setData(type) {
+        this.types.push(type);
+      },
+      getData: () => "",
+    };
+    writePayload(hidden, { pane: { viewId: "v_1", key: "session:s1" } });
+    assert.equal(readPayload(hidden), null);
+    assert.deepEqual(draggedPayload(hidden), {
+      pane: { viewId: "v_1", key: "session:s1" },
+    });
+    globalThis.window.dispatchEvent(new Event("dragend"));
+    assert.equal(draggedPayload(hidden), null);
+  } finally {
+    globalThis.window = previous;
+  }
 });

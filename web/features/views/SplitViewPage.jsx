@@ -30,7 +30,7 @@ import {
 } from "./split-tree.js";
 import ViewHeader from "./ViewHeader.jsx";
 import PaneHost from "./PaneHost.jsx";
-import useViewDrop from "./useViewDrop.js";
+import useViewDrop, { usePaneZone } from "./useViewDrop.js";
 import "./views.css";
 
 const FLASH_MS = 700;
@@ -39,14 +39,13 @@ const paneOf = (leaf) => ({ key: itemKey(leaf.item), item: leaf.item, tab: leaf.
 
 /** A pane's drop zones: edges split it, the centre replaces it. */
 function PaneDropTarget({ drop, paneKey, children }) {
-  const zone = drop.paneZone(paneKey);
+  const zone = usePaneZone(drop, paneKey);
   return (
     <div className="split-pane-drop" {...zone.handlers}>
       {children}
       <DropZoneOverlay
         side={zone.side}
-        label={drop.full ? viewsCopy.full : undefined}
-        title={drop.full ? viewsCopy.full : undefined}
+        label={drop.full && drop.adding ? viewsCopy.full : undefined}
       />
     </div>
   );
