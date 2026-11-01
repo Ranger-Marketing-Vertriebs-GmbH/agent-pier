@@ -32,6 +32,7 @@ const PipelineSessionRecovery = lazy(
 );
 const SessionMcpDialog = lazy(() => import("../mcp/SessionMcpDialog.jsx"));
 const SessionSshDialog = lazy(() => import("../ssh/SessionSshDialog.jsx"));
+const SessionPreviews = lazy(() => import("../previews/SessionPreviews.jsx"));
 const SessionArtifacts = lazy(() => import("../artifacts/SessionArtifacts.jsx"));
 const FileExplorer = lazy(() => import("../files/FileExplorer.jsx"));
 const TerminalView = lazy(() => import("../terminal/TerminalView.jsx"));
@@ -140,6 +141,11 @@ export default function SessionWorkspace({
             >
               <Icon name="refresh" />
             </button>
+          )}
+          {coding && (
+            <Suspense>
+              <SessionPreviews sessionId={session.id} />
+            </Suspense>
           )}
           {coding && (
             <details
