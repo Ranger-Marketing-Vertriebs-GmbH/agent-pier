@@ -23,15 +23,15 @@ const mainOf = (element) => element.closest("main") ?? element;
  * The single session view or agent chat as a drop target (wider than 1150 px): a
  * session or agent dragged onto one of its edges creates a view with both, the
  * dragged one on that side, and opens it. `item` is what the page shows (null: not a
- * pane item, no drop).
+ * pane item, no drop); `tab` is the tab a shown session is on, which its pane keeps.
  */
-export default function SingleViewDropTarget({ item, navigate, children }) {
+export default function SingleViewDropTarget({ item, tab, navigate, children }) {
   const offered = useViewsOffered();
   const store = useViews();
   const { assistants, conversations, refresh } = useAssistants();
   const [error, setError] = useState("");
   const latest = useRef({});
-  latest.current = { assistants, conversations, refresh, store, item };
+  latest.current = { assistants, conversations, refresh, store, item, tab };
   const active = Boolean(offered && item && store?.loaded);
 
   const differs = (dropped) => itemKey(dropped) !== itemKey(item);
@@ -51,7 +51,7 @@ export default function SingleViewDropTarget({ item, navigate, children }) {
     onDrop: async (side, data) => {
       const payload = draggedPayload(data);
       if (!payload || payload.pane) return;
-      const { store: views, item: shown } = latest.current;
+      const { store: views, item: shown, tab: shownTab } = latest.current;
       try {
         setError("");
         const dropped = await itemForPayload(payload, {
@@ -61,7 +61,7 @@ export default function SingleViewDropTarget({ item, navigate, children }) {
         if (itemKey(dropped) === itemKey(shown)) return;
         const view = await views.create({
           name: nextDefaultName(views.views, viewsCopy.defaultName),
-          layout: twoPaneLayout(shown, dropped, side),
+          layout: twoPaneLayout(shown, dropped, side, shownTab),
         });
         if (view) navigate({ view: "split", viewId: view.id });
       } catch (failure) {

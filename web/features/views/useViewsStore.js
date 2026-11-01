@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useLiveTopic from "../../lib/live/useLiveTopic.js";
 import { createView, deleteView, updateView } from "./views-api.js";
-import { adoptViews, normalizeViews, withPending, withWrite } from "./views-model.js";
-
-const empty = { version: 0, views: [] };
+import {
+  adoptViews,
+  normalizeViews,
+  unreadViews,
+  withPending,
+  withWrite,
+} from "./views-model.js";
 
 /**
  * The owner's split views, followed over the live topic `views` while `enabled`.
@@ -14,8 +18,8 @@ const empty = { version: 0, views: [] };
  */
 export default function useViewsStore({ enabled }) {
   const live = useLiveTopic(enabled ? "views" : null);
-  const confirmedRef = useRef(empty);
-  const [confirmed, setConfirmed] = useState(empty);
+  const confirmedRef = useRef(unreadViews);
+  const [confirmed, setConfirmed] = useState(unreadViews);
   const [written, setWritten] = useState(false);
   const [pending, setPending] = useState([]);
   const [error, setError] = useState("");
@@ -92,6 +96,11 @@ export default function useViewsStore({ enabled }) {
     (viewId, key) => setFocusRequest({ viewId, key, nonce: Symbol(key) }),
     [],
   );
+  // Clears a handled request, so returning to its view later does not replay it.
+  const consumeFocus = useCallback(
+    (nonce) => setFocusRequest((current) => (current?.nonce === nonce ? null : current)),
+    [],
+  );
 
   const document = useMemo(() => withPending(confirmed, pending), [confirmed, pending]);
   const byId = useCallback(
@@ -113,6 +122,7 @@ export default function useViewsStore({ enabled }) {
       remove,
       focusRequest,
       requestFocus,
+      consumeFocus,
     }),
     [
       document,
@@ -129,6 +139,7 @@ export default function useViewsStore({ enabled }) {
       remove,
       focusRequest,
       requestFocus,
+      consumeFocus,
     ],
   );
 }

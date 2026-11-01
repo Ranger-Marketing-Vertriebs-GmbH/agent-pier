@@ -5,6 +5,7 @@ import {
   itemRoute,
   placeItem,
   singleRoute,
+  tabOfMode,
 } from "../../web/features/views/click-rule.js";
 import { paneLeaf } from "../../web/features/views/split-tree.js";
 
@@ -99,4 +100,12 @@ test("an item in no view opens its single view", () => {
   assert.deepEqual(placeItem({ item: s1, views: [], currentViewId: "v_a" }), {
     kind: "single",
   });
+});
+
+test("a session view mode maps to its pane tab", () => {
+  assert.equal(tabOfMode("reader"), "chat");
+  assert.equal(tabOfMode("terminal"), "terminal");
+  assert.equal(tabOfMode("files"), "files");
+  assert.equal(tabOfMode(null), undefined);
+  assert.equal(tabOfMode("unknown"), undefined);
 });

@@ -39,9 +39,7 @@ function DropZoneSpecimen() {
       <span>{copy.sample.dropHint}</span>
       <DropZoneOverlay side={side} label={copy.sample.dropHere} />
       <p className="gallery-drop-status" role="status">
-        {dropped
-          ? copy.sample.dropped(copy.sample.dropSides[dropped])
-          : copy.sample.dropIdle}
+        {dropped ? copy.sample.dropped[dropped] : copy.sample.dropIdle}
       </p>
     </div>
   );

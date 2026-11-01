@@ -41,6 +41,12 @@ export function singleRoute(item, tab) {
   };
 }
 
+/** The pane tab of a session view mode (`reader` is the chat tab), or undefined. */
+export function tabOfMode(mode) {
+  if (mode === "reader") return "chat";
+  return mode === "terminal" || mode === "files" ? mode : undefined;
+}
+
 const usedTime = (view) => {
   const time = Date.parse(view.usedAt);
   return Number.isNaN(time) ? -Infinity : time;

@@ -7715,7 +7715,7 @@
   "views:viewsCopy.agentsOff": "de:be0c994d22c5 en:2fdefc598db2",
   "views:viewsCopy.chatDeleted": "de:5ef9dcd5f629 en:150baea42ed8",
   "views:viewsCopy.defaultName": "de:84b52cd4384f en:6319fda64a24",
-  "views:viewsCopy.deleteBody": "de:d34bf00fd16e en:771486d9bc8b",
+  "views:viewsCopy.deleteBody": "de:d34bf00fd16e en:89a0ba328cf2",
   "views:viewsCopy.deleteView": "de:5179a61c0aa5 en:0767ef858aa8",
   "views:viewsCopy.disconnected": "de:b0caf73f4640 en:04dfac3671b4",
   "views:viewsCopy.empty": "de:9a95ccf62d37 en:410313bb6049",
@@ -7730,7 +7730,7 @@
   "views:viewsCopy.removePane": "de:a32795c2809b en:f3078464b553",
   "views:viewsCopy.removeStale": "de:ece3828dcd94 en:ba0f204d8739",
   "views:viewsCopy.rename": "de:4c153dab010b en:870c267f199d",
-  "views:viewsCopy.rowLabel": "de:947ecca88548 en:05fadea64636",
+  "views:viewsCopy.rowLabel": "de:ca4110c28579 en:5636a10e46f1",
   "views:viewsCopy.sessionRemoved": "de:e5d981299f12 en:fed20b641ed2",
   "views:viewsCopy.shownInView": "de:5c2f189af332 en:85d5c4988cba",
   "work-goals:workGoalCopy.continuing": "de:c52b5dbacc6a en:a29b79f1d544",
@@ -7759,5 +7759,10 @@
   "gallery:galleryCopy.sample.dropSides.top": "de:67cb61fee442 en:28720365c5e7",
   "gallery:galleryCopy.sample.dropped": "de:be9095dda49f en:96de77aa4bf6",
   "gallery:galleryCopy.sample.paneName": "de:1395aef686a4 en:bf5cf3da54a2",
-  "gallery:galleryCopy.sample.dropHere": "de:77baddc8e092 en:dcff9506f5d5"
+  "gallery:galleryCopy.sample.dropHere": "de:77baddc8e092 en:dcff9506f5d5",
+  "gallery:galleryCopy.sample.dropped.bottom": "de:d717a39f6527 en:e1b418c5a12a",
+  "gallery:galleryCopy.sample.dropped.center": "de:abf5dc67f5be en:72f24ef353e2",
+  "gallery:galleryCopy.sample.dropped.left": "de:99d51c4c46ad en:b8f5a1de9a59",
+  "gallery:galleryCopy.sample.dropped.right": "de:c5549ed1a41e en:05478555397d",
+  "gallery:galleryCopy.sample.dropped.top": "de:25cfcd121abf en:cd31571e316c"
 }
