@@ -42,6 +42,17 @@ const chatLeaf = (assistantId, conversationId) => ({
   item: { kind: "chat", assistantId, conversationId },
 });
 const item = (id) => ({ item: { kind: "session", id } });
+// Six panes: row(col(s1, s2), row(col(s3, s4), col(s5, c1))).
+const sixPanes = () =>
+  split(
+    "row",
+    split("col", leaf.s1(), leaf.s2()),
+    split(
+      "row",
+      split("col", session("s3"), session("s4")),
+      split("col", session("s5"), leaf.c1()),
+    ),
+  );
 
 const text = {
   en: {
@@ -111,8 +122,12 @@ for (const language of ["en", "de"]) {
       await expect(sidebar(page).locator(".views-sidebar-item")).toHaveCount(1);
       await expect(page.locator(".session-workspace")).toBeVisible();
       const target = page.locator("main");
+      const zone = page.locator(".single-view-drop > .drop-zone-overlay");
+      await dragOver(target, "left", await paneTransfer(page, item("s2")));
+      await expect(zone).toHaveAttribute("data-side", "left");
+      await dragOver(target, "left", await paneTransfer(page, item("s1")));
+      await expect(zone).toHaveCount(0);
       await dropOn(target, "left", await paneTransfer(page, item("s1")));
-      await expect(page.locator(".single-view-drop > .drop-zone-overlay")).toHaveCount(0);
       expect(controls.writes.filter((write) => write.method === "POST")).toEqual([]);
     });
 
@@ -255,27 +270,29 @@ for (const language of ["en", "de"]) {
     test("a full view refuses a seventh pane", async ({ page }) => {
       const controls = await splitViewFixture(page, {
         language,
-        layout: split(
-          "row",
-          split("col", leaf.s1(), leaf.s2()),
-          split(
-            "row",
-            split("col", session("s3"), session("s4")),
-            split("col", session("s5"), leaf.c1()),
-          ),
-        ),
+        layout: sixPanes(),
       });
       controls.sessions = [sessions.s1, sessions.s2, s3, s4, s5, s6];
       await page.goto(viewURL);
       await expect(page.locator(".split-pane")).toHaveCount(6);
       await expect(page.getByText(t.hint, { exact: true })).toBeVisible();
-      await dropOn(paneOf(page, S1), "right", await paneTransfer(page, item("s6")));
-      await expect(overlay(page, S1)).toHaveCount(0);
-      await dragOver(paneOf(page, S1), "center", await paneTransfer(page, item("s6")));
+      const seventh = await paneTransfer(page, item("s6"));
+      await dragOver(paneOf(page, S1), "center", seventh);
       await expect(overlay(page, S1)).toHaveAttribute("data-side", "center");
-      await expect(overlay(page, S1)).toHaveAttribute("title", t.full);
-      await dragOver(paneOf(page, S1), "left", await paneTransfer(page, item("s6")));
+      await expect(overlay(page, S1)).toHaveText(t.full);
+      await dragOver(paneOf(page, S1), "right", seventh);
       await expect(overlay(page, S1)).toHaveCount(0);
+      await dragOver(paneOf(page, S1), "left", seventh);
+      await expect(overlay(page, S1)).toHaveCount(0);
+      await dropOn(paneOf(page, S1), "right", seventh);
+      // Moving a pane adds none: no "full" label.
+      await dragOver(
+        paneOf(page, S1),
+        "center",
+        await paneTransfer(page, { pane: { viewId, key: "session:s2" } }),
+      );
+      await expect(overlay(page, S1)).toHaveAttribute("data-side", "center");
+      await expect(overlay(page, S1)).toHaveText("");
       expect(layoutWrites(controls)).toEqual([]);
     });
 
@@ -476,8 +493,58 @@ test("a failed agent drop shows the error and keeps the layout", async ({ page }
   expect(layoutWrites(controls)).toEqual([]);
 });
 
+// A point 5 % from `side` of the locator's box (the centre for "center").
+async function pointAt(locator, side) {
+  const box = await locator.boundingBox();
+  const [fx, fy] = {
+    right: [0.95, 0.5],
+    bottom: [0.5, 0.95],
+    center: [0.5, 0.5],
+  }[side];
+  return [box.x + box.width * fx, box.y + box.height * fy];
+}
+
+// Real mouse drags: while hovering, the browser hides the drag data, so the zones
+// decide from the payload the drag started with.
+test("a real drag from the sidebar onto a full view offers only the centre", async ({
+  page,
+}) => {
+  const controls = await splitViewFixture(page, { layout: sixPanes() });
+  controls.sessions = [sessions.s1, sessions.s2, s3, s4, s5, s6];
+  await page.goto(viewURL);
+  await expect(page.locator(".split-pane")).toHaveCount(6);
+  const row = sessionRow(page, "Billing jobs");
+  await row.hover();
+  await page.mouse.down();
+  await page.mouse.move(...(await pointAt(paneOf(page, S1), "center")), { steps: 8 });
+  await expect(overlay(page, S1)).toHaveAttribute("data-side", "center");
+  await expect(overlay(page, S1)).toHaveText(text.en.full);
+  await page.mouse.move(...(await pointAt(paneOf(page, S1), "right")), { steps: 8 });
+  await expect(overlay(page, S1)).toHaveCount(0);
+  await page.mouse.up();
+  await expect(page.locator(".split-pane")).toHaveCount(6);
+  expect(layoutWrites(controls)).toEqual([]);
+});
+
+test("a real header drag moves a pane", async ({ page }) => {
+  const controls = await splitViewFixture(page, {
+    layout: split("row", leaf.s1(), leaf.c1()),
+  });
+  await page.goto(viewURL);
+  await expect(page.locator(".split-pane")).toHaveCount(2);
+  await paneOf(page, S1).locator(".session-pane-header h2").hover();
+  await page.mouse.down();
+  await page.mouse.move(...(await pointAt(paneOf(page, C1), "bottom")), { steps: 8 });
+  await expect(overlay(page, C1)).toHaveAttribute("data-side", "bottom");
+  await page.mouse.up();
+  await expect
+    .poll(() => layouts(controls))
+    .toEqual([split("col", leaf.c1(), leaf.s1())]);
+});
+
+// Also the screenshot of a drag over a pane edge: SPLIT_DRAG_SCREENSHOT names its
+// file, else it goes to the test's output folder.
 test("a desktop drag over a pane edge in English", async ({ page }) => {
-  test.skip(!process.env.SPLIT_DRAG_SCREENSHOT, "screenshot on demand");
   const controls = await splitViewFixture(page, {
     layout: split("row", leaf.s1(), leaf.c1()),
   });
@@ -487,5 +554,7 @@ test("a desktop drag over a pane edge in English", async ({ page }) => {
   await expect(paneOf(page, S1).locator(".xterm")).toBeVisible();
   await dragOver(paneOf(page, C1), "bottom", await paneTransfer(page, item("s2")));
   await expect(overlay(page, C1)).toHaveAttribute("data-side", "bottom");
-  await page.screenshot({ path: process.env.SPLIT_DRAG_SCREENSHOT });
+  await page.screenshot({
+    path: process.env.SPLIT_DRAG_SCREENSHOT || test.info().outputPath("split-drag.png"),
+  });
 });

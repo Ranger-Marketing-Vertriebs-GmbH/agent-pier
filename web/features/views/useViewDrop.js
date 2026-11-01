@@ -1,92 +1,36 @@
 import { useCallback, useRef, useState } from "react";
 import useDropZone from "../../components/useDropZone.js";
-import { SPLIT_GAP, fits } from "../../components/split-geometry.js";
 import { requestNavigation } from "../../lib/navigation-guard.js";
 import { assistantApi } from "../assistants/assistant-api.js";
-import { ownerChatsOf, resolveAgentChat } from "../assistants/agent-chat-target.js";
 import useAssistants from "../assistants/useAssistants.js";
 import { draggedPayload, hasPayload, writePayload } from "./drag-payload.js";
-import {
-  MAX_PANES,
-  MIN_PANE,
-  dropItem,
-  findPane,
-  itemKey,
-  movePane,
-  paneCount,
-} from "./split-tree.js";
+import { dropResult, hoverItemOf, itemForPayload } from "./drop-rules.js";
+import { MAX_PANES, dropItem, findPane, itemKey, paneCount } from "./split-tree.js";
 import { useViews } from "./views-context.js";
 
 // Stands for a dropped agent without a chat yet while hovering: a new pane.
 const NEW_PANE = Object.freeze({ kind: "session", id: "\u0000new" });
 const always = () => "center";
 
-/** The item an agent's drop lands as when it has a chat already, else null. */
-export function knownAgentItem(assistantId, assistants, conversations) {
-  const assistant = assistants.find((candidate) => candidate.id === assistantId);
-  const chat = assistant && ownerChatsOf(assistant, conversations)[0];
-  return chat ? { kind: "chat", assistantId, conversationId: chat.id } : null;
-}
-
 /**
- * The layout after dropping `payload` on the pane `key` at `side` (`item` resolves an
- * item or agent payload), or `layout` itself when the drop changes nothing or is
- * refused: an edge drop that would exceed MAX_PANES or not fit `stageSize`.
- */
-export function dropResult({ layout, viewId, payload, item, key, side, stageSize }) {
-  let next;
-  if (payload.pane) {
-    if (payload.pane.viewId !== viewId) return layout;
-    next = movePane(layout, payload.pane.key, key, side);
-  } else next = dropItem(layout, item, key, side);
-  if (next === layout || side === "center") return next;
-  if (paneCount(next) > MAX_PANES) return layout;
-  if (stageSize && !fits(next, stageSize, MIN_PANE, SPLIT_GAP)) return layout;
-  return next;
-}
-
-/**
- * Drag and drop in a split view: a zone per pane (edges split, the centre replaces;
- * an item already in the view moves, a pane header dragged onto another pane's centre
- * swaps the two), one on the empty view, and the header drag that moves a pane. A
- * dropped agent resolves to its chat (opened as a click on its row does); a failure
- * shows in `error` and leaves the layout. A centre drop that replaces a pane asks
- * that pane's unsaved-edits guard first.
+ * Drag and drop in a split view: zones per pane (`usePaneZone`; edges split, the
+ * centre replaces; an item already in the view moves, a pane header dragged onto
+ * another pane's centre swaps the two), one on the empty view, and the header drag
+ * that moves a pane. A dropped agent resolves to its chat (opened as a click on its
+ * row does); a failure shows in `error` and leaves the layout. A centre drop that
+ * replaces a pane asks that pane's unsaved-edits guard first. `adding` tells whether
+ * the drag under a pane would add one (for the "view is full" label).
  */
 export default function useViewDrop({ view, stageSize }) {
   const { setLayout } = useViews();
   const { assistants, conversations, refresh } = useAssistants();
   const [error, setError] = useState("");
+  const [adding, setAdding] = useState(false);
   const viewId = view?.id ?? "";
   const layout = view?.layout ?? null;
   // Values the handlers read when they run, after an await or from an old closure.
   const latest = useRef({});
   latest.current = { layout, stageSize, assistants, conversations, refresh };
-
-  const hoverItem = (payload) =>
-    payload.item ??
-    (payload.agent
-      ? (knownAgentItem(
-          payload.agent.assistantId,
-          latest.current.assistants,
-          latest.current.conversations,
-        ) ?? NEW_PANE)
-      : null);
-
-  const resolveItem = useCallback(async (payload) => {
-    if (payload.item) return payload.item;
-    const { assistants: list, conversations: chats, refresh: reload } = latest.current;
-    const assistantId = payload.agent.assistantId;
-    const assistant = list.find((candidate) => candidate.id === assistantId) ?? {
-      id: assistantId,
-    };
-    const conversationId = await resolveAgentChat(assistant, {
-      conversations: chats,
-      open: assistantApi.open,
-      refresh: reload,
-    });
-    return { kind: "chat", assistantId, conversationId };
-  }, []);
 
   const apply = useCallback(
     (next) => {
@@ -103,7 +47,10 @@ export default function useViewDrop({ view, stageSize }) {
       let item = null;
       if (!payload.pane) {
         try {
-          item = await resolveItem(payload);
+          item = await itemForPayload(payload, {
+            ...latest.current,
+            open: assistantApi.open,
+          });
           setError("");
         } catch (failure) {
           setError(failure.message);
@@ -138,7 +85,7 @@ export default function useViewDrop({ view, stageSize }) {
         commit: () => apply(result(latest.current.layout) || latest.current.layout),
       });
     },
-    [apply, resolveItem, viewId],
+    [apply, viewId],
   );
 
   const allowedOn = (key) => (side, data) => {
@@ -147,7 +94,8 @@ export default function useViewDrop({ view, stageSize }) {
     if (!payload) return true;
     if (payload.pane && payload.pane.viewId !== viewId) return false;
     const current = latest.current.layout;
-    const item = hoverItem(payload);
+    const item = payload.pane ? null : (hoverItemOf(payload, latest.current) ?? NEW_PANE);
+    setAdding(Boolean(item && !findPane(current, itemKey(item))));
     return (
       dropResult({
         layout: current,
@@ -161,14 +109,12 @@ export default function useViewDrop({ view, stageSize }) {
     );
   };
 
-  // A hook: call it in the body of the component that renders the pane `key`.
-  const paneZone = (key) =>
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    useDropZone({
-      accepts: hasPayload,
-      allowed: allowedOn(key),
-      onDrop: (side, data) => drop(draggedPayload(data), key, side),
-    });
+  // The options of the zone on pane `key` (see `usePaneZone`).
+  const zoneFor = (key) => ({
+    accepts: hasPayload,
+    allowed: allowedOn(key),
+    onDrop: (side, data) => drop(draggedPayload(data), key, side),
+  });
 
   const emptyZone = useDropZone({
     accepts: hasPayload,
@@ -183,10 +129,16 @@ export default function useViewDrop({ view, stageSize }) {
   );
 
   return {
-    paneZone,
+    zoneFor,
     emptyZone,
     onHeaderDragStart,
     full: paneCount(layout) >= MAX_PANES,
+    adding,
     error,
   };
+}
+
+/** The drop zone of the pane `key` in a view's drag and drop (`useViewDrop`). */
+export function usePaneZone(drop, key) {
+  return useDropZone(drop.zoneFor(key));
 }
