@@ -1,5 +1,5 @@
 import { assistantProblem } from "./assistant-validation.js";
-import { staleHash } from "./exec-decisions.js";
+import { hostConnection, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 import { allowAlwaysGroup, groupOf } from "./exec-allowlist-links.js";
 import { personalEligible } from "./native-capabilities.js";
 import { isRememberedId, rememberedCommands } from "./exec-remembered.js";
@@ -43,8 +43,9 @@ function present(entry, origin, ours, companions = []) {
 }
 
 /**
- * The agent's exec allowlist in the Gateway (`exec.approvals.get/set`, keyed by its
- * runtime agent id). Eligible agents only: temporary members never get shell.
+ * The agent's exec allowlist in the Gateway (the approvals sub-port's readAllowlist
+ * and writeAllowlist, keyed by its runtime agent id). Eligible agents only:
+ * temporary members never get shell.
  */
 export class ExecAllowlist {
   constructor(assistants) {
@@ -55,14 +56,16 @@ export class ExecAllowlist {
     if (!personalEligible(profile)) throw assistantProblem("invalid");
     return profile;
   }
-  client() {
-    const client = this.a.runtime.client;
-    if (this.a.closed || !client?.ready) throw assistantProblem("unavailable", 503);
-    return client;
+  // The approvals sub-port bound to the connection ready now: a removal reads and
+  // writes on one Gateway, never on one that replaced it meanwhile.
+  approvals() {
+    const runtime = this.a.runtime;
+    if (this.a.closed || !hostReady(runtime)) throw assistantProblem("unavailable", 503);
+    return runtimeFor(null, runtime).approvals.on(hostConnection(runtime));
   }
-  async read(client) {
+  async read(approvals) {
     try {
-      return await client.call("exec.approvals.get", {});
+      return await approvals.readAllowlist();
     } catch {
       throw assistantProblem("unavailable", 503);
     }
@@ -135,7 +138,7 @@ export class ExecAllowlist {
   }
   async list(id) {
     const profile = this.profile(id);
-    const current = await this.read(this.client());
+    const current = await this.read(this.approvals());
     return { entries: [...this.entries(profile, current?.file), ...this.remembered(id)] };
   }
   /**
@@ -146,14 +149,14 @@ export class ExecAllowlist {
   remove(id, entryId) {
     return this.a.admit(async () => {
       const profile = this.profile(id);
-      const client = this.client();
+      const approvals = this.approvals();
       // A remembered command lives in AgentPier, not in the Gateway.
       if (isRememberedId(entryId)) {
         if (!rememberedCommands(this.a.store.db).remove(id, entryId))
           throw assistantProblem("allowlistEntryNotFound", 404);
         this.audit(id, entryId, 0);
         this.a.changed();
-        const current = await this.read(client);
+        const current = await this.read(approvals);
         return {
           removed: entryId,
           companions: [],
@@ -161,7 +164,7 @@ export class ExecAllowlist {
         };
       }
       for (let attempt = 0; attempt < removeAttempts; attempt++) {
-        const current = await this.read(client);
+        const current = await this.read(approvals);
         const file = record(current?.file) ? current.file : {};
         const agent = record(file.agents?.[profile.runtimeAgentId])
           ? file.agents[profile.runtimeAgentId]
@@ -189,9 +192,9 @@ export class ExecAllowlist {
           },
         };
         try {
-          await client.call("exec.approvals.set", { baseHash: current.hash, file: next });
+          await approvals.writeAllowlist({ baseHash: current.hash, file: next });
         } catch (error) {
-          if (staleHash(error)) continue;
+          if (approvals.staleAllowlist(error)) continue;
           throw assistantProblem("unavailable", 503);
         }
         this.audit(id, entryId, companions.length);

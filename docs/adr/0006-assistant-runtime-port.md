@@ -65,8 +65,8 @@ a translated message.
 
 Adapters live in `server/features/assistants/runtimes/openclaw/` and
 `server/features/assistants/runtimes/hermes/`. `gateway-client.js`, `gateway-protocol.js`,
-`gateway-tls.js`, `openclaw-config/`, the team plugin and the OpenClaw contract tests
-move into the OpenClaw adapter. A unit test fails when code outside `runtimes/` calls a
+`gateway-tls.js`, `openclaw-config/`, `exec-allowlist-policy.js`, the team plugin and
+the OpenClaw contract tests move into the OpenClaw adapter. A unit test fails when code outside `runtimes/` calls a
 runtime client or names a runtime method; its allowlist starts with today's files and may
 only shrink, as `tests/unit/ui-guide-rules.test.js` does for the UI.
 

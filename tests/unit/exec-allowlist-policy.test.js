@@ -9,7 +9,7 @@ import {
   ownerWritable,
   resolveProgram,
   splitCommand,
-} from "../../server/features/assistants/exec-allowlist-policy.js";
+} from "../../server/features/assistants/runtimes/openclaw/exec-allowlist-policy.js";
 
 // Programs resolve to /bin/<name> unless unresolvable; /bin/own* are owner-writable.
 const resolve = (name) =>

@@ -3,6 +3,7 @@ import { assistantProblem } from "./assistant-validation.js";
 import { personalShell } from "./native-capabilities.js";
 import { temporaryMember } from "./team-presentation.js";
 import { rememberedCommands } from "./exec-remembered.js";
+import { hostConnection, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 
 // The owner's decision on an exec approval goes to the Gateway exactly once, for
 // the approval id the action was created from. OpenClaw withholds allow-always for
@@ -20,19 +21,15 @@ export function allowAlwaysByAgentPier(payload) {
 }
 
 const code = (error) => error?.code || error?.status || "ERROR";
-// A stale base hash is the one INVALID_REQUEST that a fresh read can fix.
-export const staleHash = (error) =>
-  error?.code === "INVALID_REQUEST" &&
-  /changed since last load/.test(error.remoteMessage);
 
 /**
  * Adds `{ id, pattern: <path> }` for each program to the agent's allowlist through
- * `exec.approvals.get/set`, in one write; each entry allows its program with any
- * arguments. Every allowlisted run changes the base hash, so a stale hash is
- * retried a few times, never more. OpenClaw keeps no command text on entries; the
- * action does.
+ * the approvals sub-port `approvals` (readAllowlist, writeAllowlist), in one write;
+ * each entry allows its program with any arguments. Every allowlisted run changes
+ * the base hash, so a stale hash is retried a few times, never more. OpenClaw keeps
+ * no command text on entries; the action does.
  */
-export async function writeExecAllowlistEntry(client, { agentId, paths }) {
+export async function writeExecAllowlistEntry(approvals, { agentId, paths }) {
   if (typeof agentId !== "string" || !agentId)
     return { written: false, code: "NO_AGENT" };
   if (
@@ -44,7 +41,7 @@ export async function writeExecAllowlistEntry(client, { agentId, paths }) {
   let last;
   for (let attempt = 0; attempt < allowlistAttempts; attempt++) {
     try {
-      const current = await client.call("exec.approvals.get", {});
+      const current = await approvals.readAllowlist();
       const file = current?.file && typeof current.file === "object" ? current.file : {};
       const agents = { ...file.agents },
         agent = { ...agents[agentId] };
@@ -61,7 +58,7 @@ export async function writeExecAllowlistEntry(client, { agentId, paths }) {
       }
       if (added.length) {
         agents[agentId] = { ...agent, allowlist: [...list, ...added] };
-        await client.call("exec.approvals.set", {
+        await approvals.writeAllowlist({
           baseHash: current?.hash,
           file: { version: 1, ...file, agents },
         });
@@ -69,15 +66,16 @@ export async function writeExecAllowlistEntry(client, { agentId, paths }) {
       return { written: true, entries };
     } catch (error) {
       last = error;
-      if (!staleHash(error)) break;
+      if (!approvals.staleAllowlist(error)) break;
     }
   }
   return { written: false, code: String(code(last)).slice(0, 60) };
 }
 
 /**
- * The plan stored when the request arrived (exec-allowlist-policy.js); an action
- * stored without one is allowed once only.
+ * The plan stored when the request arrived (approvals.allowAlwaysPlan,
+ * runtimes/openclaw/exec-allowlist-policy.js); an action stored without one is
+ * allowed once only.
  */
 export function execPlan(payload) {
   return payload?.allowAlwaysPlan?.kind
@@ -97,8 +95,11 @@ export async function decideExec(
   log = (l) => console.warn(l),
   { remembered = false } = {},
 ) {
-  const client = w.a.runtime?.client;
-  if (!client?.ready) throw assistantProblem("unavailable", 503);
+  if (!hostReady(w.a.runtime)) throw assistantProblem("unavailable", 503);
+  // The answer and the allowlist entry it allows go to the Gateway that asked.
+  const approvals = runtimeFor(null, w.a.runtime).approvals.on(
+    hostConnection(w.a.runtime),
+  );
   // Defence in depth: with shell off nothing may be allowed, whatever is pending.
   if (
     decision !== "deny" &&
@@ -123,7 +124,7 @@ export async function decideExec(
   w.exec.deciding.add(approvalId);
   try {
     try {
-      await client.call("exec.approval.resolve", { id: approvalId, decision: sent });
+      await approvals.resolve({ id: approvalId, decision: sent });
     } catch (error) {
       if (!error?.answered) {
         // The Gateway may have resolved it anyway (for example a timed-out reply);
@@ -140,7 +141,7 @@ export async function decideExec(
     if (fallback) {
       const plan = execPlan(action.payload);
       if (plan.kind === "paths") {
-        allowlist = await writeExecAllowlistEntry(client, {
+        allowlist = await writeExecAllowlistEntry(approvals, {
           agentId: action.payload.agentId,
           paths: plan.paths,
         });

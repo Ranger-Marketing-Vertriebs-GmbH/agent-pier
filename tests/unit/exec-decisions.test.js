@@ -7,6 +7,7 @@ import {
 import { notifyAction } from "../../server/features/assistants/assistant-action-notifications.js";
 import { markdownToTelegramHtml } from "../../server/features/assistant-channels/telegram-format.js";
 import { serverCatalogs } from "../../server/lib/i18n/catalogs.js";
+import { createOpenClawRuntime } from "../../server/features/assistants/runtimes/openclaw/openclaw-runtime.js";
 
 const stale = () =>
   Object.assign(Error("stale"), {
@@ -15,16 +16,17 @@ const stale = () =>
       "exec approvals changed since last load; re-run exec.approvals.get and retry",
   });
 
+// The approvals sub-port over a Gateway client that records its calls.
 function approvals({ file = { version: 1 }, set } = {}) {
   const calls = [];
-  return {
-    calls,
+  const client = {
     async call(method, params) {
       calls.push({ method, params });
       if (method === "exec.approvals.get") return { file, hash: `h${calls.length}` };
       return set(params);
     },
   };
+  return { ...createOpenClawRuntime({ client }).approvals, calls };
 }
 
 test("allow-always needs AgentPier's entry exactly when OpenClaw withholds it", () => {

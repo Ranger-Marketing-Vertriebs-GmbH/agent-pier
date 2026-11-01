@@ -117,7 +117,7 @@ autoAllowSkills: false }`.
   without asking.
 
 - **AgentPier's answer to a withheld allow-always** (`exec-decisions.js`,
-  `exec-allowlist-policy.js`). AgentPier resolves allow-once, then writes one
+  `runtimes/openclaw/exec-allowlist-policy.js`). AgentPier resolves allow-once, then writes one
   `{ id, pattern: <real path> }` entry per program of the command, in a single
   `exec.approvals.set`. Each entry allows its program with any arguments. The
   contract "AgentPier's program entries cover pipelines but never interpreters"

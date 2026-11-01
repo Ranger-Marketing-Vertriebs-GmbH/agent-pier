@@ -525,3 +525,24 @@ test("a resync resends the deny of a request that ended here unsent", async (t) 
   assert.equal(byId("open").state, "awaiting_approval");
   assert.equal(byId("off").state, "declined");
 });
+
+test("a reconcile whose Gateway was replaced asks the new one nothing", async (t) => {
+  const f = fixture(t);
+  f.client.emit("exec.approval.requested", { ...request(f.agent), id: "gone" });
+  await settle();
+  // The list answers while a restart replaces and closes the client it went to.
+  const fresh = gatewayClient({ "exec.approval.list": [] });
+  f.client.answers["exec.approval.list"] = () => {
+    f.w.a.runtime.client = fresh;
+    f.client.ready = false;
+    return [];
+  };
+  await f.exec.reconcile();
+  // The history of that pass came from neither Gateway; the action expired.
+  assert.deepEqual(fresh.calls, []);
+  assert.equal(
+    f.client.calls.some((c) => c.method === "approval.history"),
+    false,
+  );
+  assert.equal(f.w.store.list()[0].state, "expired");
+});

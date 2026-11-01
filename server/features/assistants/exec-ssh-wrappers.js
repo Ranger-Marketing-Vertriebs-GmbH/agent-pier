@@ -4,8 +4,8 @@ import path from "node:path";
 // "Always allow" for AgentPier's own SSH wrappers (owner A16): an agent's bin/ssh,
 // bin/scp and bin/sftp (agent-ssh-shell.js, ssh-session-config.js renderWrapper)
 // may be allowlisted, although ssh, scp and sftp count as interpreters
-// (exec-allowlist-policy.js). The agent socket's signing policy limits the hosts
-// AgentPier's keys reach. The entry allows any arguments (exec-decisions.js), so
+// (runtimes/openclaw/exec-allowlist-policy.js). The agent socket's signing policy
+// limits the hosts AgentPier's keys reach. The entry allows any arguments (exec-decisions.js), so
 // options that run local programs and sftp's !commands run too (owner A19: accepted).
 const wrapperNames = new Set(["ssh", "scp", "sftp"]);
 
