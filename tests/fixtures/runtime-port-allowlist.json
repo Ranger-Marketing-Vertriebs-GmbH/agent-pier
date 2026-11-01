@@ -12,20 +12,6 @@
     "server/features/assistants/assistant-config.js": ["skills.status"],
     "server/features/assistants/assistant-maintenance.js": ["cron.status"],
     "server/features/assistants/browser-live-view.js": ["browser.request"],
-    "server/features/assistants/exec-allowlist.js": [
-      "exec.approvals.get",
-      "exec.approvals.set"
-    ],
-    "server/features/assistants/exec-approvals.js": [
-      "approval.history",
-      "exec.approval.list",
-      "exec.approval.resolve"
-    ],
-    "server/features/assistants/exec-decisions.js": [
-      "exec.approval.resolve",
-      "exec.approvals.get",
-      "exec.approvals.set"
-    ],
     "server/features/assistants/lead-routines.js": ["cron.remove"],
     "server/features/assistants/model-account-catalog.js": ["models.list"],
     "server/features/assistants/model-account-login.js": [
@@ -64,9 +50,6 @@
     "server/features/assistants/agent-skills.js": 1,
     "server/features/assistants/assistant-maintenance.js": 2,
     "server/features/assistants/browser-live-view.js": 3,
-    "server/features/assistants/exec-allowlist.js": 1,
-    "server/features/assistants/exec-approvals.js": 1,
-    "server/features/assistants/exec-decisions.js": 1,
     "server/features/assistants/generated-titles.js": 1,
     "server/features/assistants/lead-routines.js": 1,
     "server/features/assistants/model-account-catalog.js": 1,

@@ -8,10 +8,11 @@ import { RequestLedger } from "../../server/features/assistants/request-ledger.j
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { writeExecAllowlistEntry } from "../../server/features/assistants/exec-decisions.js";
+import { createOpenClawRuntime } from "../../server/features/assistants/runtimes/openclaw/openclaw-runtime.js";
 import {
   allowAlwaysPlan,
   isInterpreter,
-} from "../../server/features/assistants/exec-allowlist-policy.js";
+} from "../../server/features/assistants/runtimes/openclaw/exec-allowlist-policy.js";
 import {
   answer,
   decide,
@@ -179,7 +180,7 @@ test("allow-once, allow-always, deny and the allowlist", options, async (t) => {
 });
 
 // AgentPier's answer to a withheld allow-always (exec-decisions.js): allow-once,
-// then one program-path entry per program where exec-allowlist-policy.js allows.
+// then one program-path entry per program where runtimes/openclaw/exec-allowlist-policy.js allows.
 test(
   "AgentPier's program entries cover pipelines but never interpreters",
   options,
@@ -218,10 +219,13 @@ test(
       });
       const written =
         plan.kind === "paths"
-          ? await writeExecAllowlistEntry(approver, {
-              agentId: request.agentId,
-              paths: plan.paths,
-            })
+          ? await writeExecAllowlistEntry(
+              createOpenClawRuntime({ client: approver }).approvals,
+              {
+                agentId: request.agentId,
+                paths: plan.paths,
+              },
+            )
           : null;
       await gw.settle(run);
       return { request, plan, written };

@@ -4,19 +4,23 @@ import { gatewayError } from "../../server/features/assistants/runtimes/openclaw
 import { mergePatch } from "./runtime-port-agents-contract.js";
 
 const sha256 = (text) => createHash("sha256").update(text, "utf8").digest("hex");
-const answered = (code) =>
-  Object.assign(new Error(code), { code, answered: true, status: 400 });
+const answered = (code, remoteMessage = code) =>
+  Object.assign(new Error(code), { code, answered: true, status: 400, remoteMessage });
 
 /**
  * What a Gateway keeps on disk across restarts: its agents, their workspace files
- * and its configuration with a hash per write. One store serves every client a
- * supervisor connects in turn.
+ * its configuration with a hash per write, the exec approvals still pending
+ * (`approvals`, as `exec.approval.list` items), how others ended and the exec
+ * allowlist file. One store serves every client a supervisor connects in turn.
  */
-export const openClawStore = () => ({
+export const openClawStore = ({ approvals = [] } = {}) => ({
   agents: new Map(),
   files: new Map(),
   config: {},
   writes: 0,
+  approvals: new Map(approvals.map((item) => [item.id, structuredClone(item)])),
+  ended: [],
+  allowlist: { file: { version: 1 }, writes: 0 },
 });
 
 /**
@@ -81,6 +85,7 @@ export function openClawClientFake({
     }),
     "agent.wait": ({ runId }) => ({ runId, status: runs.get(runId) || "timeout" }),
     ...agentAnswers(store, frame),
+    ...approvalAnswers(store),
   };
   return {
     ready: true,
@@ -168,6 +173,36 @@ function agentAnswers(store, frame) {
       if (baseHash !== hash()) throw answered("INVALID_REQUEST");
       store.config = mergePatch(store.config, JSON.parse(raw));
       written();
+      return { ok: true };
+    },
+  };
+}
+
+// exec.approval.list/resolve, approval.history and exec.approvals.get/set.
+function approvalAnswers(store) {
+  const statuses = { deny: "denied", "allow-once": "allowed", "allow-always": "allowed" };
+  const hash = () => `a${store.allowlist.writes}`;
+  return {
+    "exec.approval.list": () =>
+      [...store.approvals.values()].map((item) => structuredClone(item)),
+    "exec.approval.resolve": ({ id, decision }) => {
+      if (!store.approvals.delete(id)) throw answered("INVALID_REQUEST");
+      store.ended.push({ id, status: statuses[decision], decision });
+      return { ok: true };
+    },
+    "approval.history": () => ({ items: store.ended.map((item) => ({ ...item })) }),
+    "exec.approvals.get": () => ({
+      file: structuredClone(store.allowlist.file),
+      hash: hash(),
+    }),
+    "exec.approvals.set": ({ baseHash, file }) => {
+      if (baseHash !== hash())
+        throw answered(
+          "INVALID_REQUEST",
+          "exec approvals changed since last load; re-run exec.approvals.get and retry",
+        );
+      store.allowlist.file = structuredClone(file);
+      store.allowlist.writes++;
       return { ok: true };
     },
   };

@@ -85,7 +85,19 @@
  *     settle(baseHash, writtenHash), close() }`: settle resolves once the runtime
  *     runs the written configuration, or after the timeout.
  *   - on(connection), as sessions.on.
- * - approvals: pending approvals, resolve, history, allowlist
+ * - approvals: pending approvals, resolve, history, allowlist. Requests and their end
+ *   arrive as run events (events.subscribe, "approval.requested"/"approval.resolved").
+ *   Async methods reject while the runtime is unreachable; answers are the runtime's.
+ *   - list(): the pending requests, `[{ id, request, … }]`.
+ *   - resolve({ id, decision }): "allow-once", "allow-always" or "deny".
+ *   - history(): `{ items: [{ id, status, decision }] }`, how requests ended.
+ *   - readAllowlist(): `{ file, hash }`, the allowlist file with entries per runtime
+ *     agent id; writeAllowlist({ baseHash, file }) replaces it over that hash, and
+ *     staleAllowlist(error) tells (synchronously) a refusal a fresh read fixes.
+ *   - allowAlwaysPlan(payload, { pathDirs, wrapperDirs }): synchronously, what
+ *     "Always allow" writes for a request the runtime withheld it from:
+ *     `{ kind: "paths", paths, writable }` or `{ kind: "once", reason, program }`.
+ *   - on(connection), as sessions.on.
  * - routines: add, update, remove, run, list runs
  * - skills: per-agent skill status and eligibility
  * - browser: profiles, live view, input, takeover

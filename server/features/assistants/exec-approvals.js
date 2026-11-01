@@ -2,11 +2,11 @@ import { actionTerminal } from "./assistant-action-store.js";
 import { notifyAction } from "./assistant-action-notifications.js";
 import { personalShell } from "./native-capabilities.js";
 import { temporaryMember } from "./team-presentation.js";
-import { allowAlwaysPlan } from "./exec-allowlist-policy.js";
 import { decideExec } from "./exec-decisions.js";
 import { commandHash, rememberedCommands } from "./exec-remembered.js";
 import { pairedChannel, telegramOf, telegramTarget } from "./routine-targets.js";
 import { followUpTelegram } from "./follow-up-target.js";
+import { hostConnection, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 
 // Exec approval requests from the Gateway become assistant actions awaiting the
 // owner (`payload.action: "exec"`), keyed by the Gateway's approval id. A request
@@ -64,8 +64,21 @@ export class ExecApprovals {
     );
     hub.onReady(() => this.guard("RESYNC", () => this.resync()));
   }
-  get client() {
-    return this.w.a.runtime?.client;
+  get runtime() {
+    return this.w.a.runtime;
+  }
+  // The approvals sub-port (runtime-for.js), bound to `connection` when given.
+  approvals(connection) {
+    const { approvals } = runtimeFor(null, this.runtime);
+    return connection === undefined ? approvals : approvals.on(connection);
+  }
+  // Whether `connection` is the current one and ready: a replaced one never is.
+  live(connection) {
+    return (
+      !!connection &&
+      hostConnection(this.runtime) === connection &&
+      hostReady(this.runtime)
+    );
   }
   // Never lets a failure reach the event hub; the result is a settled promise.
   guard(phase, operation) {
@@ -194,7 +207,7 @@ export class ExecApprovals {
       ...(request.resolvedPath ? { resolvedPath: text(request.resolvedPath, 4096) } : {}),
       ...(request.warningText ? { warningText: text(request.warningText, 2000) } : {}),
       // OpenClaw's analysis decides how a withheld allow-always is answered
-      // (exec-allowlist-policy.js).
+      // (runtimes/openclaw/exec-allowlist-policy.js).
       ...execAnalysis(request.commandAnalysis),
     };
     // What "Always allow" will write, decided once now and shown to the owner;
@@ -214,7 +227,7 @@ export class ExecApprovals {
   // What "Always allow" writes for a request OpenClaw withheld it from.
   plan(payload, assistant) {
     const sshDirs = (assistant && this.w.agentSsh?.shellDirs(assistant)) || [];
-    return allowAlwaysPlan(payload, {
+    return runtimeFor(assistant, this.runtime).approvals.allowAlwaysPlan(payload, {
       // The agent's exec PATH: its GitHub directories (the managed gh) first, as
       // compiled (agent-github.js), its SSH agent's bin/ (agent-ssh-shell.js), then
       // the owner's.
@@ -306,7 +319,7 @@ export class ExecApprovals {
       `Assistant exec approval ${id} denied: ${reason} (agent ${text(request?.agentId, 100) || "-"}).`,
     );
     try {
-      await this.client.call("exec.approval.resolve", { id, decision: "deny" });
+      await this.approvals().resolve({ id, decision: "deny" });
     } catch (error) {
       // Unanswered, the Gateway falls back to deny when the request expires.
       this.log(`Assistant exec approval ${id}: deny failed (${error?.code || "ERROR"}).`);
@@ -332,7 +345,7 @@ export class ExecApprovals {
       return this.finish(action, "completed", decision);
     // A deny event looks the same for a person, an expiry and a restart; the
     // history tells them apart.
-    const record = (await this.history(this.client)).get(id);
+    const record = (await this.history(hostConnection(this.runtime))).get(id);
     this.finish(
       action,
       historyStates[record?.status] || this.denyState(action, p),
@@ -352,14 +365,13 @@ export class ExecApprovals {
       .catch(() => {})
       .then(() => this.reconcile());
     this.syncing = pass;
-    // A failed list is retried with backoff while the same client stays ready.
-    const client = this.client;
+    // A failed list is retried with backoff while the same connection stays ready.
+    const connection = hostConnection(this.runtime);
     pass.catch(() => {
       if (this.closed || attempt >= this.retries) return;
       this.retryTimer = setTimeout(
         () => {
-          if (this.client === client && client?.ready)
-            this.guard("RESYNC", () => this.resync(attempt + 1));
+          if (this.live(connection)) this.guard("RESYNC", () => this.resync(attempt + 1));
         },
         this.retryMs * 2 ** attempt,
       );
@@ -378,9 +390,10 @@ export class ExecApprovals {
     clearTimeout(this.retryTimer);
   }
   async reconcile() {
-    const client = this.client;
-    if (!client?.ready) return;
-    const listed = await client.call("exec.approval.list", {});
+    // The list and the history of one pass come from one Gateway.
+    const connection = hostConnection(this.runtime);
+    if (!this.live(connection)) return;
+    const listed = await this.approvals(connection).list();
     const items = (Array.isArray(listed) ? listed : []).filter(
       (i) => i && typeof i.id === "string" && (i.approvalKind ?? "exec") === "exec",
     );
@@ -394,7 +407,7 @@ export class ExecApprovals {
           !live.has(a.payload.approvalId) &&
           !this.deciding.has(a.payload.approvalId),
       );
-    const history = gone.length ? await this.history(client) : new Map();
+    const history = gone.length ? await this.history(connection) : new Map();
     // Each item on its own: one failure must not leave the others unanswered.
     for (const a of gone)
       await this.guard("RESYNC", () => {
@@ -425,11 +438,12 @@ export class ExecApprovals {
       return null;
     return this.deny(item.id, item.request, "ENDED");
   }
-  // How the Gateway ended requests AgentPier missed; empty when unavailable.
-  async history(client) {
+  // How the Gateway behind `connection` ended requests AgentPier missed; empty when
+  // that connection is not ready (or was replaced).
+  async history(connection) {
     try {
-      if (!client?.ready) return new Map();
-      const result = await client.call("approval.history", {});
+      if (!this.live(connection)) return new Map();
+      const result = await this.approvals(connection).history();
       return new Map(
         (Array.isArray(result?.items) ? result.items : []).map((i) => [i?.id, i]),
       );

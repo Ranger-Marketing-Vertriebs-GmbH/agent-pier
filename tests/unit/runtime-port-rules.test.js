@@ -123,6 +123,30 @@ test("agents, agent files and config go through the port", () => {
   );
 });
 
+test("shell approvals and the allowlist go through the port", () => {
+  // AGENTPIER-306: their callers name no Gateway method and reach no client.
+  const moved = ["exec-allowlist", "exec-approvals", "exec-decisions"].map(
+    (name) => `server/features/assistants/${name}.js`,
+  );
+  const offenders = { ...gatewayMethods(sources), ...clientAccesses(sources) };
+  assert.deepEqual(
+    moved.filter((file) => offenders[file] || !sources.some((s) => s.file === file)),
+    [],
+  );
+  const approval = /^(?:exec\.approval|approval\.)/;
+  assert.deepEqual(
+    Object.entries(gatewayMethods(sources)).filter(([, methods]) =>
+      methods.some((method) => approval.test(method)),
+    ),
+    [],
+  );
+  // OpenClaw's interpreter, wrapper and package-manager lists live in the adapter.
+  assert.equal(
+    sources.some(({ file }) => file.endsWith("/exec-allowlist-policy.js")),
+    false,
+  );
+});
+
 test("readiness checks go through the host port", () => {
   // `runtime.client?.ready` outside runtimes/ is hostReady() (runtimes/runtime-for.js).
   const readiness = /[rR]untime\??\.client\??\.ready\b/;

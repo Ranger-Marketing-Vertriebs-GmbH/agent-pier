@@ -10,6 +10,10 @@ import {
 } from "../../server/features/assistants/runtimes/agent-runtime.js";
 import { fakeSessionPorts, sessionsContract } from "./runtime-port-sessions-contract.js";
 import { agentsContract, fakeAgentPorts } from "./runtime-port-agents-contract.js";
+import {
+  approvalsContract,
+  fakeApprovalPorts,
+} from "./runtime-port-approvals-contract.js";
 
 /**
  * The contract every agent runtime adapter meets (ADR 0006), so the OpenClaw adapter,
@@ -18,7 +22,8 @@ import { agentsContract, fakeAgentPorts } from "./runtime-port-agents-contract.j
  * - `channels`: the channel accounts by channel, e.g. `{ telegram: [account] }`;
  * - `unreachable`: true when the backend cannot be reached at all;
  * - `version`: the version the host runs;
- * - `runFailure`: why every run fails (e.g. "timeout"), or none when runs finish.
+ * - `runFailure`: why every run fails (e.g. "timeout"), or none when runs finish;
+ * - `approvals`: the exec approval requests pending at the start.
  * Later tickets add a section per sub-port as its methods arrive.
  */
 export function runtimePortContract(name, make) {
@@ -101,6 +106,7 @@ export function runtimePortContract(name, make) {
 
   sessionsContract(name, make, { kinds: RUN_EVENT_KINDS, tick });
   agentsContract(name, make);
+  approvalsContract(name, make);
 
   test(`${name}: channels.status() reports the channel accounts`, async (t) => {
     const runtime = await make({ channels: { telegram: [account] } });
@@ -127,6 +133,7 @@ export function fakeRuntime({
   unreachable = false,
   version = null,
   runFailure = null,
+  approvals = [],
 } = {}) {
   const reach = async (answer) => {
     if (unreachable)
@@ -168,6 +175,7 @@ export function fakeRuntime({
     },
     ...fakeSessionPorts({ reach, runFailure, connection: () => connection }),
     ...fakeAgentPorts({ reach, connection: () => connection }),
+    ...fakeApprovalPorts({ reach, connection: () => connection, approvals }),
     channels: {
       status: () => reach(() => ({ channelAccounts: structuredClone(channels) })),
     },

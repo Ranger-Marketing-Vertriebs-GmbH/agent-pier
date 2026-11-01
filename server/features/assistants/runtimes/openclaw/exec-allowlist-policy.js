@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { sshWrapper } from "./exec-ssh-wrappers.js";
+import { sshWrapper } from "../../exec-ssh-wrappers.js";
 
 // When OpenClaw withholds allow-always, AgentPier's "Always allow" writes one
 // program-path entry (`{ id, pattern: <program> }`, any arguments) per program of

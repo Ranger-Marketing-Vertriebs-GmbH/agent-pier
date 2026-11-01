@@ -220,7 +220,7 @@ function notifyExec(w, action, phase, key, m) {
     text,
     path: actionPath(action),
     // allow-always is always offered; when OpenClaw withholds it, AgentPier
-    // writes program entries or allows once (exec-allowlist-policy.js).
+    // writes program entries or allows once (runtimes/openclaw/exec-allowlist-policy.js).
     actions:
       phase === "approval"
         ? [
