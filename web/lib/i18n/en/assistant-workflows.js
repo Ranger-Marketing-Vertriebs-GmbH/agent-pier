@@ -125,6 +125,14 @@ export const assistantWorkflowCopy = {
     skipped: "Skipped",
     "awaiting-human": "Waiting for your decision",
   },
+  question: {
+    title: "Question from the agent",
+    waiting: "Waiting for your answer",
+    answer: "Your answer",
+    send: "Send answer",
+    expires: (time) => `The agent waits until ${time}.`,
+    failed: "The answer could not be sent.",
+  },
   providerReasons: {
     unsupportedProvider: "Provider not supported for agents",
     unsupportedProtocol: "Endpoint protocol not supported",

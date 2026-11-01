@@ -19,6 +19,10 @@ function approvalsOver(current) {
   const queue = async () => reachable(current()).approvals;
   return {
     list: async () => (await queue()).list(),
+    // The clarify questions of the agent (hermes-questions.js) and their answers.
+    questions: async () => reachable(current()).questions.list(),
+    answer: async ({ id, answer }) =>
+      reachable(current()).questions.answer({ id, answer }),
     resolve: async ({ id, decision }) => (await queue()).resolve({ id, decision }),
     history: async () => (await queue()).history(),
     readAllowlist: async () => {

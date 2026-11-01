@@ -410,6 +410,8 @@ relies on these:
 | Routines          | `agentpier.http` (the bridge) → `/api/cron/jobs…`; the event `cron.changed`               |
 | Routine results   | `agentpier.note` (the bridge): a note row in the target chat's history                    |
 | Context size      | `session.stats { session_id }`: `last_prompt_tokens`, `context_length`                    |
+| Questions         | `clarify.request` → `clarify.respond`; `clarify.settled`, `approval.cancelled`            |
+| Sudo, secrets     | the `sudo` and `secret` requests, declined at once with `{ value: "" }`                   |
 
 A chat's history names how full its context was for the long-chat hint as OpenClaw's
 does (`sessionInfo.totalTokens`, `totalTokensFresh`, `contextTokens`): the
@@ -418,6 +420,21 @@ session (`gateway/session_usage.py`), read while the session is attached to
 AgentPier's connection. After a restart of the gateway or a compression the gateway
 lets that agent go and the size is unknown until the chat's next turn, as OpenClaw's
 is after a compaction (no hint meanwhile).
+
+When a Hermes agent calls its `clarify` tool, Hermes asks every connection attached to
+the session (`clarify.request`, one per question, with its choices; Hermes marks the
+first as recommended). The adapter (`hermes-questions.js`) publishes it as the run
+event `question.requested` and the run reports the phase `waiting-approval`;
+`agent-questions.js` shows it in the agent's chat as a card with the choices and a field
+for an own answer, and, when the turn came from the owner's paired Telegram chat, as a
+notice there, where the next message answers it (a number picks a choice). The answer
+goes back with `clarify.respond`. Hermes waits up to `agent.clarify_timeout` (an hour by
+default) and then tells the agent nobody answered; an interrupt withdraws the question
+(`approval.cancelled`). Questions are not stored: after a restart, the attached session
+lists what still waits and it is asked again. Hermes's `sudo` and `secret` requests ask
+for a sudo password or a secret's value, which AgentPier never hands out through a prompt
+(agents get the secrets the owner granted them): both are declined at once, so the agent
+goes on and says what it lacks.
 
 Every refusal is code 4001 with its reason in `error.data.reason`; an unknown parameter
 is refused as `invalid_params`, so AgentPier sends only the parameters listed.

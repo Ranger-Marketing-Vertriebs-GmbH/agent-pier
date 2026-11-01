@@ -169,8 +169,8 @@ test("an approval settled elsewhere or dropped ends without a decision", async (
   });
 });
 
-test("a session attached again asks what still waits; clarify questions are skipped", async () => {
-  const { peer, sessions, approvals } = await scripted((frame) => {
+test("a session attached again asks what still waits, questions too", async () => {
+  const { peer, sessions, approvals, events } = await scripted((frame) => {
     if (frame.method === "session.resume")
       return snapshot([
         prompt("p1"),
@@ -179,48 +179,115 @@ test("a session attached again asks what still waits; clarify questions are skip
     if (frame.method === "prompt.submit") return { admission_id: "ad1" };
     return {};
   });
+  const seen = [];
+  events.subscribe((e) => seen.push(e));
   await sessions.subscribeMessages({ key: `agent:${agentId}:hermes:s1` });
-  peer.send(
-    event("clarify.request", "s1", {
-      kind: "clarify",
-      prompt_id: "c2",
-      execution_generation: 1,
-      question: "Sure?",
-    }),
-  );
   await settle();
   assert.deepEqual(
     (await approvals.list()).map((i) => [i.id, i.request.sessionKey]),
     [["p1", `agent:${agentId}:hermes:s1`]],
   );
+  // The clarify question waits for the owner instead of an empty answer.
   assert.deepEqual(
-    peer.frames.filter((f) => f.method === "clarify.respond").map((f) => f.params),
-    [
-      { session_id: "s1", execution_generation: 1, prompt_id: "c1", answer: "" },
-      { session_id: "s1", execution_generation: 1, prompt_id: "c2", answer: "" },
-    ],
+    (await approvals.questions()).map((q) => [q.id, q.request.question]),
+    [["c1", "Which?"]],
   );
+  assert.equal(seen.find((e) => e.event === "question.requested").kind, "other");
+  assert.equal(peer.frames.filter((f) => f.method === "clarify.respond").length, 0);
 });
 
-test("questions the gateway asks as requests fail fast with -32601", async () => {
-  const { peer } = await scripted();
-  peer.send({
-    jsonrpc: "2.0",
-    id: "srq-s",
-    method: "secret",
-    params: { session_id: "s1" },
+test("a clarify question is answered by the owner; settled and cancelled ones end", async () => {
+  const { peer, sessions, approvals, events } = await scripted((frame) => {
+    if (frame.method === "session.create") return snapshot();
+    if (frame.method === "prompt.submit") return { admission_id: "ad1" };
+    if (frame.method === "clarify.respond") {
+      peer.send(event("clarify.settled", "s1", { prompt_id: frame.params.prompt_id }));
+      return { status: "resolved", prompt_id: frame.params.prompt_id };
+    }
+    return {};
   });
-  peer.send({
-    jsonrpc: "2.0",
-    id: "srq-u",
-    method: "sudo",
-    params: { session_id: "s1" },
-  });
+  const { key } = await sessions.create({ agentId });
+  const seen = [];
+  events.subscribe((e) => seen.push(e));
+  await sessions.send({ key, turn: { message: "plan it" }, idempotencyKey: "run-1" });
+  const ask = (id, extra = {}) =>
+    peer.send(
+      event(
+        "clarify.request",
+        "s1",
+        {
+          kind: "clarify",
+          prompt_id: id,
+          execution_generation: 1,
+          question: "Which stage?",
+          choices: ["staging", "prod"],
+          multi_select: false,
+          timeout_s: 600,
+          ...extra,
+        },
+        { admission_id: "ad1" },
+      ),
+    );
+  ask("c1");
   await settle();
+  const requested = seen.find((e) => e.event === "question.requested");
+  assert.equal(requested.sessionKey, key);
+  assert.equal(requested.runId, "run-1");
   assert.deepEqual(
-    peer.frames
-      .filter((f) => f.id === "srq-s" || f.id === "srq-u")
-      .map((f) => f.error.code),
-    [-32601, -32601],
+    { ...requested.payload.request, hermes: undefined },
+    {
+      question: "Which stage?",
+      choices: ["staging", "prod"],
+      multiSelect: false,
+      agentId,
+      sessionKey: key,
+      runId: "run-1",
+      hermes: undefined,
+    },
   );
+  assert.equal(requested.payload.expiresAtMs - requested.payload.createdAtMs, 600000);
+  // The run waits for the owner meanwhile.
+  assert.ok(seen.some((e) => e.step?.phase === "waiting-approval"));
+  await assert.rejects(approvals.answer({ id: "c1", answer: " " }), (e) => e.answered);
+  await approvals.answer({ id: "c1", answer: "prod" });
+  assert.deepEqual(peer.frames.find((f) => f.method === "clarify.respond").params, {
+    session_id: "s1",
+    execution_generation: 1,
+    prompt_id: "c1",
+    answer: "prod",
+  });
+  const ended = (id) =>
+    seen.find((e) => e.event === "question.resolved" && e.payload.id === id)?.payload
+      .status;
+  assert.equal(ended("c1"), "answered");
+  assert.deepEqual(await approvals.questions(), []);
+  await assert.rejects(approvals.answer({ id: "c1", answer: "prod" }), (e) => e.answered);
+  // Answered elsewhere or withdrawn by an interrupt.
+  ask("c2");
+  ask("c3");
+  await settle();
+  peer.send(event("clarify.settled", "s1", { prompt_id: "c2" }));
+  peer.send(
+    event("approval.cancelled", "s1", { request_ids: ["c3"], reason: "interrupt" }),
+  );
+  await settle();
+  assert.equal(ended("c2"), "cancelled");
+  assert.equal(ended("c3"), "cancelled");
+  assert.deepEqual(await approvals.questions(), []);
+});
+
+test("sudo and secret requests are declined at once; other requests fail fast", async () => {
+  const { peer } = await scripted();
+  for (const [id, method] of [
+    ["srq-s", "secret"],
+    ["srq-u", "sudo"],
+    ["srq-t", "theme.pick"],
+  ])
+    peer.send({ jsonrpc: "2.0", id, method, params: { session_id: "s1" } });
+  await settle();
+  const answer = (id) => peer.frames.find((f) => f.id === id);
+  // Hermes's own "declined": an empty value, never a password or a secret.
+  assert.deepEqual(answer("srq-s").result, { value: "" });
+  assert.deepEqual(answer("srq-u").result, { value: "" });
+  assert.equal(answer("srq-t").error.code, -32601);
 });

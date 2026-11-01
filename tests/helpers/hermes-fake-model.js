@@ -5,7 +5,10 @@ import http from "node:http";
 // process on a loopback port: no account, no network. The last user message decides:
 // - "RUN: <command>" asks for the `terminal` tool with that command;
 // - "CALL: <tool> <json arguments>" asks for any tool with those arguments;
-// - a tool result is answered "TOOL_DONE: <result>";
+// - "ASK: <question>" asks the person with the `clarify` tool, offering staging and
+//   prod;
+// - a clarify result is answered "ANSWERED: <the person's answer>", any other tool
+//   result "TOOL_DONE: <result>";
 // - "SLOW" streams the echo one word every `slowMs`, then 40 more ticks;
 // - anything else is answered "ECHO: <message>".
 const text = (content) =>
@@ -16,8 +19,13 @@ const text = (content) =>
 function answer(body) {
   const messages = body.messages || [];
   const last = messages[messages.length - 1] || {};
-  if (last.role === "tool")
-    return { reply: `TOOL_DONE: ${text(last.content).slice(0, 80)}` };
+  if (last.role === "tool") {
+    const result = text(last.content);
+    const answered = /"user_response":\s*"([^"]*)"/.exec(result);
+    return {
+      reply: answered ? `ANSWERED: ${answered[1]}` : `TOOL_DONE: ${result.slice(0, 80)}`,
+    };
+  }
   const said = text(last.content);
   const call = said.match(/CALL: (\S+) (.*)$/m);
   if (call)
@@ -26,6 +34,20 @@ function answer(body) {
         id: `call_${Date.now()}`,
         type: "function",
         function: { name: call[1], arguments: call[2] },
+      },
+    };
+  const ask = said.match(/ASK: (.*)$/m);
+  if (ask)
+    return {
+      tool: {
+        id: `call_${Date.now()}`,
+        type: "function",
+        function: {
+          name: "clarify",
+          arguments: JSON.stringify({
+            questions: [{ question: ask[1], choices: ["staging", "prod"] }],
+          }),
+        },
       },
     };
   const run = said.match(/RUN: (.*)$/m);

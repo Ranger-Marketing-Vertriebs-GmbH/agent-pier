@@ -131,10 +131,11 @@ state: the compiler preserves them and never produces duplicate keys.
   Approvals arrive as `approval.request` events and are answered with
   `approval.respond`; they become the exec approvals OpenClaw's adapter produces,
   offering allow once, allow for the session and deny. Hermes's `always` is never
-  offered, because it allows the whole pattern class for good. Until AgentPier offers
-  them, clarify questions are skipped at once and secret or sudo requests are answered
-  "method not found" (`-32601`), so the agent goes on instead of waiting out Hermes's
-  deadline. Gaps the adapter reports: artifact downloads, the exec allowlist (Hermes
+  offered, because it allows the whole pattern class for good. Clarify questions
+  (`clarify.request`) wait for the owner in the agent's chat and, for a turn from
+  Telegram, in the paired Telegram chat; the answer goes back with `clarify.respond`
+  (AGENTPIER-337). Secret and sudo requests are declined at once with Hermes's own
+  empty answer, so the agent goes on instead of waiting out Hermes's deadline. Gaps the adapter reports: artifact downloads, the exec allowlist (Hermes
   keeps it in `config.yaml`, which the compiler owns), and an approval history beyond
   the current connection.
 - **Routines and Telegram** need Hermes's messaging gateway for that home. The

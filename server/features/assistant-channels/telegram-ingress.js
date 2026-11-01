@@ -223,6 +223,8 @@ export class TelegramIngress {
       assistants.changed({ conversationId: channel.conversationId });
       return;
     }
+    // The owner's answer to a question the agent asked here (agent-questions.js).
+    if (await this.answerQuestion(channel, entry)) return;
     const existing = assistants.ledger
       .requests(channel.conversationId)
       .find((r) => r.clientRequestId === `telegram:${entry.id}`);
@@ -296,6 +298,41 @@ export class TelegramIngress {
       if (!again) await this.media.discard(channel, ledger.get(entry.id));
     }
     assistants.changed({ conversationId: channel.conversationId });
+  }
+  /**
+   * Answers the oldest question the agent asked in this chat with the input's text
+   * (a typed or transcribed message, never a forwarded one or a file). True when the
+   * input was the answer or must wait (the agent's runtime is away); false when no
+   * question waits or the agent stopped waiting, so it goes out as a turn.
+   */
+  async answerQuestion(channel, entry) {
+    const { ledger, assistants } = this.service;
+    const question =
+      typeof entry.text === "string" &&
+      entry.text.trim() &&
+      !entry.forwarded &&
+      !entry.media &&
+      assistants.questions?.waitingFor(channel.conversationId, {
+        channelId: channel.id,
+        chatId: entry.chatId,
+        userId: entry.userId,
+      });
+    if (!question) return false;
+    try {
+      await assistants.questions.answer(channel.conversationId, question.id, {
+        answer: entry.text,
+      });
+    } catch (error) {
+      return error?.status === 503;
+    }
+    ledger.patch(entry.id, { state: "delivered", diagnostic: null });
+    this.service.notice(channel, {
+      key: `question-answered:${entry.id}`,
+      kind: "question-answered",
+      text: telegramMessages(channel).telegramQuestionAnswered,
+    });
+    assistants.changed({ conversationId: channel.conversationId });
+    return true;
   }
   /**
    * Whether an album may go out: no item came for ALBUM_QUIET_MS, and a poll began
