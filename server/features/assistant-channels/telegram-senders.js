@@ -18,6 +18,7 @@ import {
 import { TelegramClient } from "./telegram-client.js";
 import { patchTelegramAllowlists } from "./telegram-live.js";
 import { validPeople } from "./native-telegram-store.js";
+import { runtimeResolver } from "../assistants/runtimes/runtime-for.js";
 
 // Telegram client failures the owner can act on; anything else is "unavailable".
 const clientProblems = {
@@ -64,6 +65,8 @@ export class TelegramSenders {
     notifications = null,
     // How long a live allowlist patch waits for the Gateway's adoption event.
     adoptionTimeoutMs,
+    // The agent runtime port of an agent (assistants/runtimes/runtime-for.js).
+    runtimeFor = runtimeResolver(() => assistants.runtime),
   }) {
     Object.assign(this, {
       assistants,
@@ -82,6 +85,7 @@ export class TelegramSenders {
       maxAttempts,
       warn,
       notifications,
+      runtimeFor,
     });
     this.configured = configured || this.configuredFromFile;
     this.adoption = { warn, timeoutMs: adoptionTimeoutMs };
@@ -442,7 +446,7 @@ export class TelegramSenders {
       return { state: "inactive" };
     let account;
     try {
-      const status = await runtime.client.call("channels.status", { probe: false });
+      const status = await this.runtimeFor(profile).channels.status({ probe: false });
       account = status?.channelAccounts?.telegram?.find(
         (a) => a.accountId === profile.runtimeAgentId,
       );

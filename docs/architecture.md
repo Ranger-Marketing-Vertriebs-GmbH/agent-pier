@@ -168,6 +168,19 @@ directly.
   to the coding CLIs, and OAuth logins (see below).
 - HTTP routes live in `server/http/routes/assistant*.js` and `mcp-*.js`.
 
+Feature code is moving behind an agent runtime port, so that agents can later run on
+another runtime than OpenClaw. `server/features/assistants/runtimes/agent-runtime.js`
+names the sub-ports (`host`, `sessions`, `events`, `agents`, `agentFiles`, `config`,
+`approvals`, `routines`, `skills`, `browser`, `models`, `channels`) and the
+`capabilities()` shape (per capability `available`, plus a reason id when it is not);
+`runtimes/runtime-for.js` resolves the runtime of an agent, today always the OpenClaw
+adapter in `runtimes/openclaw/`, which is the only place meant to call the Gateway
+client. `tests/unit/runtime-port-rules.test.js` fails when server code outside
+`runtimes/` names a Gateway method in `.call()`/`.request()` or reaches
+`runtime.client`; its allowlist (`tests/fixtures/runtime-port-allowlist.json`) holds
+today's callers and may only shrink. `tests/helpers/runtime-port-contract.js` is the
+contract every adapter passes.
+
 See [the user guide](agents.md), [the Gateway design](assistant-gateway.md) and
 [ADR 0002](adr/0002-managed-openclaw-assistants.md). The proposed
 [runtime port](adr/0006-assistant-runtime-port.md) moves this coupling behind one port so
