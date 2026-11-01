@@ -33,6 +33,13 @@ export const agentWizardCopy = {
     userLocks:
       "Agenten für Benutzer bekommen nur Chat. Shell, Coding, Pipelines, SSH, GitHub, Geheimnisse und Teams bleiben gesperrt.",
     copyName: (name) => `Kopie von ${name}`,
+    runtime: "Laufzeit",
+    runtimeHint: "Die Laufzeit, auf der der Agent läuft. Sie bleibt beim Agenten.",
+    openclawSub:
+      "Alle Fähigkeiten: Chats, Tools, Gedächtnis, Routinen, Skills, Browser und Kanäle.",
+    hermesSub:
+      "Heute Chats, Tools und Freigaben; Routinen, Skills, Gedächtnis, Browser und Kanäle folgen.",
+    duplicateRuntime: "Eine Kopie läuft auf der Laufzeit des duplizierten Agenten.",
   },
   identity: {
     noAccess: "Noch kein passender Zugang?",
@@ -117,6 +124,7 @@ export const agentWizardCopy = {
     profile: "Profil",
     template: "Vorlage",
     duplicate: "Kopie von",
+    runtime: "Laufzeit",
     access: "Zugriffe",
     noAccess: "keine",
     channels: "Kanäle & Routinen",

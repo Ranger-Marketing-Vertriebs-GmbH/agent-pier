@@ -282,6 +282,10 @@ export const assistantApi = {
       "DELETE",
     ),
   operate: (action) => api(`/assistant-runtime/${action}`, "POST", {}),
+  // Hermes Agent, the second agent runtime: its switch, install state and update.
+  hermes: (signal) => api("/assistant-runtime/hermes", "GET", undefined, signal),
+  setHermes: (enabled) => api("/assistant-runtime/hermes", "PUT", { enabled }),
+  updateHermes: () => api("/assistant-runtime/hermes/update", "POST", {}),
   // Runs a pending Gateway restart at once (pending-restart.js).
   restartPending: () => api("/assistant-runtime/pending-restart", "POST", {}),
 };

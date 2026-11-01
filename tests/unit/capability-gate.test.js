@@ -90,6 +90,40 @@ test("a lacking capability names the runtime and its translated reason", (t) => 
   assert.match(unavailableText(partial, "browser"), /„Hermes“/);
 });
 
+test("a Hermes agent names what it does not offer yet", (t) => {
+  t.after(() => setLanguage("de", { persist: false }));
+  const hermes = {
+    id: "hermes",
+    name: "Hermes Agent",
+    version: "0.22.5",
+    capabilities: {
+      ...all({ available: true }),
+      agentFiles: { available: false, reason: "hermesNotYetSupported" },
+      advancedSettings: { available: false, reason: "advancedSettingsUnsupported" },
+    },
+  };
+  setLanguage("en", { persist: false });
+  assert.equal(
+    unavailableText(hermes, surfaceCapabilities.memory),
+    "Not available for Hermes agents yet.",
+  );
+  assert.equal(
+    unavailableText(hermes, "advancedSettings"),
+    "Hermes Agent has no advanced settings in AgentPier yet.",
+  );
+  assert.equal(unavailableText(hermes, surfaceCapabilities.shell), "");
+  assert.equal(runtimeLabel({ runtimeInfo: hermes }), "Hermes Agent 0.22.5");
+  setLanguage("de", { persist: false });
+  assert.equal(
+    unavailableText(hermes, surfaceCapabilities.memory),
+    "Kommt bald für Hermes-Agenten.",
+  );
+  assert.equal(
+    unavailableText(hermes, "advancedSettings"),
+    "Hermes Agent hat in AgentPier noch keine erweiterten Einstellungen.",
+  );
+});
+
 test("an agent's runtime is named with its version once known", () => {
   assert.equal(runtimeName({ runtimeInfo: openClaw }), "OpenClaw");
   assert.equal(runtimeLabel({ runtimeInfo: openClaw }), "OpenClaw 2026.10.3");

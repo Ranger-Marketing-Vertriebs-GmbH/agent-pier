@@ -19,7 +19,9 @@ import { browserTimeZone } from "../heartbeat.js";
 import { hubLists } from "../hub/agent-rows.js";
 import ConfirmationSheet from "../settings/ConfirmationSheet.jsx";
 import TemplatePicker from "../settings/TemplatePicker.jsx";
+import { hermesReady } from "../hermes-runtime.js";
 import useAssistants from "../useAssistants.js";
+import useHermesRuntime from "../useHermesRuntime.js";
 import CreationResult from "./CreationResult.jsx";
 import StepAccess from "./StepAccess.jsx";
 import StepCapabilities from "./StepCapabilities.jsx";
@@ -35,6 +37,7 @@ import {
   forUserAgent,
   optionalSteps,
   stepProblem,
+  withRuntime,
   wizardSteps,
 } from "./wizard-draft.js";
 
@@ -77,6 +80,8 @@ export default function AgentWizard({ route, navigate }) {
   const [webSearchReady, setWebSearchReady] = useState(null);
   const [createError, setCreateError] = useState("");
   const creation = useWizardCreation();
+  // New agents may choose Hermes while it is switched on and installed.
+  const hermes = hermesReady(useHermesRuntime().state);
   const finished = useRef(false);
   const sources = hubLists(assistants);
   const duplicable = [...sources.own, ...sources.ofUsers];
@@ -118,19 +123,22 @@ export default function AgentWizard({ route, navigate }) {
       instructions: preview.instructions,
     });
   };
-  // Leaving a template takes its third-party name and instructions with it.
+  // Leaving a template takes its third-party name and instructions with it; leaving a
+  // duplicate its source and runtime. Blank and template keep the chosen runtime.
   const chooseStart = (start) =>
     set({
       start,
       ...(start !== "template" && d.template
         ? { template: null, name: "", instructions: "" }
         : {}),
-      ...(start !== "duplicate" ? { duplicateOf: "", runtime: "" } : {}),
+      ...(start !== "duplicate" && d.start === "duplicate"
+        ? { duplicateOf: "", ...withRuntime(d, "") }
+        : {}),
     });
   // Duplicate (5.3.1): the source's access record is read; the rest is listed.
   const duplicate = async (id) => {
     setStartError("");
-    if (!id) return set({ duplicateOf: "" });
+    if (!id) return set({ duplicateOf: "", ...withRuntime(d, "") });
     const agent = assistants.find((a) => a.id === id);
     if (!agent) return;
     try {
@@ -224,12 +232,20 @@ export default function AgentWizard({ route, navigate }) {
       onPickTemplate={() => setPicking(true)}
       onDuplicate={duplicate}
       onStart={chooseStart}
+      hermes={hermes}
+      onRuntime={(runtime) => set(withRuntime(d, runtime))}
       error={startError || usersError}
     />
   ) : step === "identity" ? (
     <StepIdentity d={d} set={set} models={models} />
   ) : step === "capabilities" ? (
-    <StepCapabilities d={d} set={set} runtime={runtime} models={models} />
+    <StepCapabilities
+      d={d}
+      set={set}
+      runtime={runtime}
+      models={models}
+      everyCommand={d.runtime === "hermes"}
+    />
   ) : step === "access" ? (
     <StepAccess d={d} set={set} navigate={navigate} />
   ) : step === "channels" ? (
@@ -242,6 +258,7 @@ export default function AgentWizard({ route, navigate }) {
       sourceName={assistants.find((a) => a.id === d.duplicateOf)?.name || ""}
       runtime={runtime}
       webSearchReady={webSearchReady}
+      runtimeShown={hermes || (Boolean(d.runtime) && d.runtime !== "openclaw")}
     />
   );
   const last = step === "review";

@@ -15,6 +15,15 @@ export const surfaceCapabilities = Object.freeze({
 
 // Every agent ran on OpenClaw before agents named their runtime (server DEFAULT_RUNTIME).
 const defaultRuntimeName = "OpenClaw";
+// The product names of the runtimes a new agent may choose (server runtimes/).
+const runtimeNames = Object.freeze({
+  openclaw: defaultRuntimeName,
+  hermes: "Hermes Agent",
+});
+
+/** The product name of runtime id `id`; "" (the server's default) is OpenClaw. */
+export const runtimeIdName = (id) =>
+  Object.hasOwn(runtimeNames, id || "openclaw") ? runtimeNames[id || "openclaw"] : id;
 
 /** The product name of the agent's runtime, as its settings show it. */
 export const runtimeName = (assistant) =>

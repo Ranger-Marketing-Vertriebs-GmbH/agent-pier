@@ -5,7 +5,7 @@ import { assistantCopy } from "../../../lib/i18n/messages/assistants.js";
 import { assistantSettingsCopy } from "../../../lib/i18n/messages/assistant-settings.js";
 import { assistantShellCopy } from "../../../lib/i18n/messages/assistant-shell.js";
 import { assistantGithubCopy } from "../../../lib/i18n/messages/assistant-github.js";
-import { shellLevel } from "../shell-level.js";
+import { offersEveryCommand, shellChoice } from "../shell-level.js";
 import { followsLeadModel } from "./agent-settings-fields.js";
 
 const copy = () => assistantSettingsCopy.glance;
@@ -23,7 +23,10 @@ export function identitySummary(assistant) {
 /** The switched-on capabilities, the shell level and the number of skills. */
 export function capabilitySummary(assistant) {
   const on = assistant.capabilities || {};
-  const shell = shellLevel(assistant);
+  const shell = shellChoice(assistant);
+  const levels = offersEveryCommand(assistant.runtimeInfo)
+    ? assistantShellCopy.everyCommand.levels
+    : assistantShellCopy.levels;
   const skills = (assistant.skills || []).length;
   const parts = [
     on.memory ? copy().memory : "",
@@ -32,7 +35,7 @@ export function capabilitySummary(assistant) {
     on.documents ? copy().documents : "",
     on.browser ? copy().browser : "",
     on.reminders ? copy().reminders : "",
-    shell !== "off" ? copy().shell(assistantShellCopy.levels[shell]) : "",
+    shell !== "off" ? copy().shell(levels[shell]) : "",
     skills ? copy().skills(skills) : "",
   ];
   return joined(parts) || copy().none;

@@ -3,6 +3,7 @@
 // the endpoint its settings tab uses and with the revision it reads right before.
 // A failed later step keeps the agent; nothing is ever sent again on its own.
 import { confirmationRequest } from "../../../lib/settings/save-chain.js";
+import { shellFields } from "../shell-level.js";
 import { switchKeys } from "./wizard-draft.js";
 
 const web = switchKeys.filter((key) => key !== "memory" && key !== "reminders");
@@ -54,7 +55,8 @@ export function createBody(d) {
     };
   // Always explicit: without a level the server starts the owner's agent "With
   // approval" (AGENTPIER-276), whatever the wizard showed.
-  return { ...body, shell: d.shell };
+  // Hermes tells "Every command" apart (shellEveryCommand); other runtimes get no field.
+  return { ...body, ...shellFields(d.shell, d.runtime === "hermes") };
 }
 
 const workAccess = (d, revision) =>

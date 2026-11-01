@@ -235,6 +235,9 @@ export async function operationsFixture(page, { tool = "codex", session = {} } =
     else if (path === "/users" && method === "GET") result = [];
     else if (path === "/assistant-web-search")
       result = { revision: 0, provider: "duckduckgo", ready: true };
+    // ... and whether Hermes Agent may be chosen: a server without it.
+    else if (path === "/assistant-runtime/hermes" && method === "GET")
+      return route.fulfill({ status: 404, json: { error: "Not in this fixture" } });
     else throw Error(`Unexpected operations fixture request ${method} ${path}`);
     await route.fulfill({ json: result });
   });

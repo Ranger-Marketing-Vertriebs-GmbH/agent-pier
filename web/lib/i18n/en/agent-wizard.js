@@ -33,6 +33,13 @@ export const agentWizardCopy = {
     userLocks:
       "Agents for users get chat only. Shell, coding, pipelines, SSH, GitHub, secrets and teams stay locked.",
     copyName: (name) => `Copy of ${name}`,
+    runtime: "Runtime",
+    runtimeHint: "The runtime the agent runs on. It stays with the agent.",
+    openclawSub:
+      "Every capability: chats, tools, memory, routines, skills, browser and channels.",
+    hermesSub:
+      "Chats, tools and approvals today; routines, skills, memory, browser and channels come later.",
+    duplicateRuntime: "A copy runs on the runtime of the agent it duplicates.",
   },
   identity: {
     noAccess: "No suitable access yet?",
@@ -117,6 +124,7 @@ export const agentWizardCopy = {
     profile: "Profile",
     template: "Template",
     duplicate: "Copy of",
+    runtime: "Runtime",
     access: "Access",
     noAccess: "none",
     channels: "Channels & routines",

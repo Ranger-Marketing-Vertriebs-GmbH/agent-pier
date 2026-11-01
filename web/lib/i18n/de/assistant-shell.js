@@ -11,6 +11,22 @@ export const assistantShellCopy = {
     approval: "Der Agent fragt dich vor jedem Befehl, der nicht immer erlaubt ist.",
     full: "Der Agent führt jeden Befehl aus, ohne dich zu fragen.",
   },
+  // Eine Laufzeit, die vor jedem Befehl fragen kann (Hermes), bietet vier Stufen.
+  everyCommand: {
+    levels: {
+      off: "Aus",
+      approval: "Gefährliche Befehle",
+      every: "Jeder Befehl",
+      full: "Voller Zugriff",
+    },
+    levelHints: {
+      off: "Der Agent kann keine neuen Befehle ausführen.",
+      approval:
+        "Befehle, die Hermes als gefährlich einstuft, fragen dich vorher; alles andere läuft.",
+      every: "Jeder Shell-Befehl und jede Python-Ausführung fragt dich vorher.",
+      full: "Der Agent führt jeden Befehl aus, ohne dich zu fragen.",
+    },
+  },
   offHint:
     "Ohne Shell-Zugriff funktionieren Skills und Tools nicht, die Kommandozeilenprogramme brauchen, zum Beispiel gh, git oder Mail-Programme.",
   warning:

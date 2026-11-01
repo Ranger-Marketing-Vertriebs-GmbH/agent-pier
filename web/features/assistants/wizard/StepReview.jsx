@@ -4,6 +4,7 @@ import ListRow from "../../../components/ListRow.jsx";
 import { agentWizardCopy } from "../../../lib/i18n/messages/agent-wizard.js";
 import { assistantGithubCopy as githubCopy } from "../../../lib/i18n/messages/assistant-github.js";
 import { connectionLabel } from "../connection-label.js";
+import { runtimeIdName } from "../runtime-capabilities.js";
 import { matchingProfile } from "./wizard-profiles.js";
 
 const copy = () => agentWizardCopy.review;
@@ -41,6 +42,7 @@ export default function StepReview({
   sourceName,
   runtime,
   webSearchReady,
+  runtimeShown = false,
 }) {
   const profile = matchingProfile(d);
   const connection = models.find((m) => m.id === d.connectionId);
@@ -58,6 +60,9 @@ export default function StepReview({
         <ListRow label={copy().for} value={d.owner ? ownerName : copy().me} />
         {d.template && <ListRow label={copy().template} value={d.template.name} />}
         {d.duplicateOf && <ListRow label={copy().duplicate} value={sourceName} />}
+        {runtimeShown && (
+          <ListRow label={copy().runtime} value={runtimeIdName(d.runtime)} />
+        )}
         <ListRow
           label={copy().model}
           value={copy().modelVia(
