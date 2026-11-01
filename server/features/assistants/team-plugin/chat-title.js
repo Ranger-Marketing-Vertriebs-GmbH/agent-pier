@@ -12,7 +12,8 @@ const replyLimit = 400;
 export const titleTimeoutMs = 30000;
 const reasoningLevels = ["off", "minimal", undefined];
 
-const system = [
+// The instruction both runtimes send with the title prompt (runtimes/hermes/hermes-sessions.js).
+export const titleSystemPrompt = [
   "You name chats. Reply with one title of 3 to 6 words for the conversation below,",
   "in the language of the person's message, in sentence case.",
   "No quotes, no emoji, no markdown, no trailing punctuation, nothing else.",
@@ -58,7 +59,7 @@ export function registerChatTitle(api) {
       const complete = (reasoning) =>
         api.runtime.llm.complete({
           agentId,
-          systemPrompt: system,
+          systemPrompt: titleSystemPrompt,
           messages: [{ role: "user", content: titlePrompt({ message, reply }) }],
           purpose: "agentpier.chat-title",
           maxTokens: 256,

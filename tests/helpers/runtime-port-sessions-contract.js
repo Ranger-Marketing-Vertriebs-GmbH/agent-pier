@@ -36,7 +36,9 @@ export function sessionsContract(name, make, { kinds, tick }) {
     assert.deepEqual(await sessions.list({ agentId, label: "another" }), []);
     const { session } = await sessions.describe({ key });
     assert.equal(typeof session.sessionId, "string");
-    assert.equal(await sessions.keepOpen({ key }), "pinned");
+    // A runtime whose maintenance may archive the session pins it first ("pinned");
+    // one that never archives on its own keeps it "open" from the start.
+    assert.ok(["pinned", "open"].includes(await sessions.keepOpen({ key })));
     assert.equal(await sessions.keepOpen({ key }), "open");
     assert.equal(await sessions.keepOpen({ key: `${key}:gone` }), "missing");
     await sessions.subscribeMessages({ key });

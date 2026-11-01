@@ -108,7 +108,18 @@ state: the compiler preserves them and never produces duplicate keys.
 - **Control over stdio JSON-RPC** (`python -m tui_gateway.entry`) of a process the
   supervisor starts. No network listener and no control-socket ticket a process of the
   agent could use. Approvals, clarify and secret questions arrive as requests from
-  Hermes and are answered by AgentPier.
+  Hermes and are answered by AgentPier; until AgentPier offers clarify and secret
+  questions, the adapter answers them "method not found" (`-32601`), so the agent
+  fails fast instead of waiting out Hermes's deadline.
+- **Sessions, run events and approvals** (`runtimes/hermes/`): session keys are
+  `agent:<runtimeAgentId>:hermes:<stored session id>`, and a call resumes the stored
+  session into the process when it is not live there, so keys survive a restart. A
+  turn's run id is its idempotency key, as with OpenClaw. Hermes's `approval` requests
+  become the exec approvals OpenClaw's adapter produces, offering allow once, allow
+  for the session and deny; Hermes's `always` is never offered, because it allows the
+  whole pattern class for good. Gaps the adapter reports: artifact downloads, the
+  exec allowlist (Hermes keeps it in `config.yaml`, which the compiler owns), and an
+  approval history beyond the current connection.
 - **Routines and Telegram** need Hermes's messaging gateway for that home. The adapter
   either runs it supervised next to the stdio process and attaches through the gateway
   listener, or schedules through AgentPier; the first implementation decides with a

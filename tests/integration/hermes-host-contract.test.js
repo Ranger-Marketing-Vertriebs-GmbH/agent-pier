@@ -141,7 +141,7 @@ test(
     );
     const complete = rpc.events.find((event) => event.type === "message.complete");
     assert.match(JSON.stringify(complete), /ECHO: hello contract/);
-    assert.ok(model.requests.some((url) => url.includes("/chat/completions")));
+    assert.ok(model.requests.some(({ url }) => url.includes("/chat/completions")));
 
     // What every Hermes client (`hermes cron run`, `hermes chat`, …) does first: it
     // finds the running owner and attaches; no second gateway is started.
