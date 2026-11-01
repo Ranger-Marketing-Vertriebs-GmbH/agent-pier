@@ -13,9 +13,12 @@ const pending = [
  * pending requests, the owner's answer and how requests ended, the allowlist file
  * written over its hash, a view bound to a replaced connection, and all of it while
  * the runtime is unreachable. `make({ approvals })` starts with those requests
- * pending.
+ * pending. `gaps` names capability gaps an adapter reports instead: "allowlist" (the
+ * allowlist methods refuse with code UNSUPPORTED, as Hermes's until its config
+ * sub-port owns the allowlist).
  */
-export function approvalsContract(name, make) {
+export function approvalsContract(name, make, { gaps = [] } = {}) {
+  const allowlist = !gaps.includes("allowlist");
   test(`${name}: approvals are listed, resolved and found in the history`, async () => {
     const { approvals } = await make({ approvals: pending });
     assert.deepEqual(
@@ -38,6 +41,13 @@ export function approvalsContract(name, make) {
 
   test(`${name}: the allowlist is written only over the hash it was read with`, async () => {
     const { approvals } = await make({});
+    if (!allowlist) {
+      const gap = (error) => error.code === "UNSUPPORTED" && !!error.unsupported;
+      await assert.rejects(approvals.readAllowlist(), gap);
+      await assert.rejects(approvals.writeAllowlist({ baseHash: "h", file: {} }), gap);
+      assert.equal(approvals.staleAllowlist(new Error("other")), false);
+      return;
+    }
     const before = await approvals.readAllowlist();
     assert.equal(typeof before.hash, "string");
     const file = {
@@ -76,7 +86,7 @@ export function approvalsContract(name, make) {
     const bound = runtime.approvals.on(runtime.host.connection());
     assert.equal((await bound.list()).length, 2);
     await runtime.host.restart();
-    const before = await runtime.approvals.readAllowlist();
+    const before = allowlist ? await runtime.approvals.readAllowlist() : { hash: "h" };
     await assert.rejects(bound.list(), unavailable);
     await assert.rejects(bound.resolve({ id: "a1", decision: "deny" }), unavailable);
     await assert.rejects(bound.history(), unavailable);
@@ -85,7 +95,9 @@ export function approvalsContract(name, make) {
       unavailable,
     );
     // The new connection received none of it.
-    assert.equal((await runtime.approvals.readAllowlist()).hash, before.hash);
+    if (allowlist)
+      assert.equal((await runtime.approvals.readAllowlist()).hash, before.hash);
+    else assert.deepEqual((await runtime.approvals.history()).items, []);
     assert.equal(bound.staleAllowlist(new Error("x")), false);
   });
 
