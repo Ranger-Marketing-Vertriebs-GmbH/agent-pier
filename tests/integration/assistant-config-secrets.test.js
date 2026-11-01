@@ -46,7 +46,7 @@ test("every apply delivers the agent's secrets first, and survives a failure", a
     },
   };
   const config = new AssistantConfig({
-    client,
+    runtime: { client },
     store,
     workspaces: dataDir,
     models: {
@@ -109,7 +109,7 @@ test("the bootstrap names the secrets file only while secrets are granted", asyn
     },
   };
   const config = new AssistantConfig({
-    client,
+    runtime: { client },
     store,
     workspaces: dataDir,
     models: {

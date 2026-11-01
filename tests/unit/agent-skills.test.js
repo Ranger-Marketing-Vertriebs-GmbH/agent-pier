@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {
+  AgentSkills,
   bundledSkillNames,
   sanitizeSkill,
   skillCatalog,
@@ -407,4 +408,46 @@ test("frontmatter names are read as YAML, and doubtful files shadow every name",
     "tmux",
     "weather",
   ]);
+});
+
+test("an agent the Gateway does not know yet reads the bundled skills on the same connection", async () => {
+  const unknown = Object.assign(Error("unknown"), {
+    code: "INVALID_REQUEST",
+    remoteMessage: 'unknown agent id "ap-1"',
+  });
+  const calls = [];
+  const runtime = {
+    client: {
+      ready: true,
+      call: async (method, params) => {
+        calls.push([method, params]);
+        if (params.agentId) throw unknown;
+        return { skills: [{ name: "weather" }] };
+      },
+    },
+  };
+  const skills = new AgentSkills({ store: {}, runtime });
+  assert.deepEqual(await skills.report({ runtimeAgentId: "ap-1" }), {
+    skills: [{ name: "weather" }],
+    fallback: true,
+  });
+  assert.deepEqual(calls, [
+    ["skills.status", { agentId: "ap-1" }],
+    ["skills.status", {}],
+  ]);
+  // A Gateway that replaced the one refusing the agent receives no fallback read.
+  const fresh = {
+    ready: true,
+    calls: [],
+    call: async (...args) => fresh.calls.push(args),
+  };
+  const old = runtime.client;
+  old.call = async () => {
+    runtime.client = fresh;
+    old.ready = false;
+    old.call = () => Promise.reject(Object.assign(Error("closed"), { status: 503 }));
+    throw unknown;
+  };
+  await assert.rejects(skills.report({ runtimeAgentId: "ap-1" }), { status: 503 });
+  assert.deepEqual(fresh.calls, []);
 });

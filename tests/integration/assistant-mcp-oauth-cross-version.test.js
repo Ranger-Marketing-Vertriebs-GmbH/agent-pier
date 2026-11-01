@@ -113,7 +113,6 @@ test(
       store,
       workspaces: runtime.paths.workspaces,
       runtime,
-      client: { call: (...args) => runtime.client.call(...args) },
       hostCapacity: () => 4,
       models: {
         resolve: () => ({

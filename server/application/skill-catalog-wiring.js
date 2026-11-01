@@ -4,6 +4,7 @@ import { builtInSkillNames } from "../features/assistants/built-in-skills.js";
 import { shadowingSkillNames } from "../features/assistants/openclaw-config/skill-shadows.js";
 import { SkillCatalog } from "../features/skill-catalog/catalog-service.js";
 import { SkillCatalogStore } from "../features/skill-catalog/catalog-store.js";
+import { hostReady, runtimeFor } from "../features/assistants/runtimes/runtime-for.js";
 
 // The source OpenClaw reports for skills from `skills.load.extraDirs`, which holds
 // only the catalog root (runtime-config.js).
@@ -23,11 +24,10 @@ export const globalSkillRoots = (root) => [
  * finds shadowed then).
  */
 export async function reportedSkillNames(runtime) {
-  const client = runtime.client;
-  if (!client?.ready) return null;
+  if (!hostReady(runtime)) return null;
   let report;
   try {
-    report = await client.call("skills.status", {});
+    report = await runtimeFor(null, runtime).skills.status();
   } catch {
     return null;
   }

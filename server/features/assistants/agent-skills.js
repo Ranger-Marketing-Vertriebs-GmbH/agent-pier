@@ -13,6 +13,7 @@ import {
   skillShadowRoots,
 } from "./openclaw-config/skill-shadows.js";
 import { assistantProblem, skillNamePattern } from "./assistant-validation.js";
+import { hostConnection, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 import { insideRoot } from "./skill-paths.js";
 
 // OpenClaw skills per agent (docs/assistant-gateway.md#skills). The owner switches
@@ -279,26 +280,24 @@ export function skillCatalog({
 // States a skill cannot be switched on in (catalogRow and skillCatalog).
 const refusedStates = ["shadowed", "unavailable", "needsSettings", "damaged"];
 
-// OpenClaw answers INVALID_REQUEST `unknown agent id "<id>"` (gateway-client.js keeps
-// the reason as remoteMessage).
-const unknownAgent = (error) =>
-  error?.code === "INVALID_REQUEST" && /unknown agent/i.test(error?.remoteMessage || "");
-
 /** Reads an agent's skills from the running Gateway and checks assignments. */
 export class AgentSkills {
   constructor({ store, runtime, roots = [os.homedir(), os.userInfo().homedir] }) {
     Object.assign(this, { store, runtime, roots });
   }
   async report(assistant) {
-    const client = this.runtime.client;
-    if (!client?.ready) throw assistantProblem("unavailable", 503);
+    if (!hostReady(this.runtime)) throw assistantProblem("unavailable", 503);
+    // Both reads go to the connection checked here.
+    const skills = runtimeFor(assistant, this.runtime).skills.on(
+      hostConnection(this.runtime),
+    );
     try {
-      return await client.call("skills.status", { agentId: assistant.runtimeAgentId });
+      return await skills.status({ agentId: assistant.runtimeAgentId });
     } catch (error) {
       // An agent the Gateway has not created yet (no apply so far) has no workspace
       // of its own; the bundled skills and their requirements are the same.
-      if (!unknownAgent(error)) throw error;
-      return { ...(await client.call("skills.status", {})), fallback: true };
+      if (!skills.unknownAgent(error)) throw error;
+      return { ...(await skills.status()), fallback: true };
     }
   }
   /** The catalog for an eligible agent; 400 for temporary members and archived ones. */

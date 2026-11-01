@@ -4,7 +4,7 @@ import {
   catalogUsers,
   switchOffEverywhere,
 } from "../../features/assistants/catalog-switches.js";
-import { hostReady } from "../../features/assistants/runtimes/runtime-for.js";
+import { hostReady, runtimeFor } from "../../features/assistants/runtimes/runtime-for.js";
 
 // The owner's agent skill catalog (skill-catalog-wiring.js). These routes are owner
 // only: route-access.js denies every path not listed for users.
@@ -71,7 +71,7 @@ export function catalogView(record, { entries, bundled, failed, agents } = {}) {
 async function reportedEntries(runtime) {
   if (!hostReady(runtime)) return null;
   try {
-    const report = await runtime.client.call("skills.status", {});
+    const report = await runtimeFor(null, runtime).skills.status();
     return Array.isArray(report?.skills) ? report.skills : null;
   } catch {
     return null;

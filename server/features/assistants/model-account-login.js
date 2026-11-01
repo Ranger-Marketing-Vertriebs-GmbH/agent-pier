@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { assistantProblem } from "./assistant-validation.js";
-import { hostReady } from "./runtimes/runtime-for.js";
+import { hostConnection, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 const active = new Set(["starting", "awaiting_user"]);
 const loginUrl = "https://auth.openai.com/codex/device";
 // A failure this flow diagnosed itself, as opposed to a Gateway or transport error.
@@ -73,32 +73,33 @@ export class AssistantAccountLogin {
       status: "starting",
       // Since when it waits, for the runtime update's blocker list.
       startedAt: new Date().toISOString(),
-      client: this.runtime.client,
+      // The sign-in runs on the connection it started on (runtimes/runtime-for.js):
+      // a Gateway that replaced it receives none of its steps.
+      connection: hostConnection(this.runtime),
     });
+    attempt.models = runtimeFor(null, this.runtime).models.on(attempt.connection);
     this.changed();
     attempt.task = this.run(attempt);
     return this.status();
   }
   async run(attempt) {
-    const client = attempt.client;
-    const disconnected = () => this.fail(attempt, "CONNECTION_LOST");
-    client.once("disconnected", disconnected);
+    const { connection, models } = attempt;
+    const { host } = runtimeFor(null, this.runtime);
+    const unsubscribe = host.onDisconnect(connection, () =>
+      this.fail(attempt, "CONNECTION_LOST"),
+    );
     const current = () =>
       this.attempt === attempt &&
       active.has(attempt.status) &&
-      this.runtime.client === client &&
-      client.ready;
+      hostConnection(this.runtime) === connection &&
+      host.connected(connection);
     try {
-      await client
-        .call(
-          "models.authLogin",
-          {
-            sessionId: attempt.id,
-            agentId: "main",
-            authChoice: "openai/openai-device-code",
-          },
-          { timeoutMs: 60000 },
-        )
+      await models
+        .login({
+          sessionId: attempt.id,
+          authChoice: "openai/openai-device-code",
+          timeoutMs: 60000,
+        })
         .catch((error) => {
           // An answered INVALID_REQUEST: the Gateway does not offer this login, for
           // example when its plugin allow list leaves out the OpenAI provider.
@@ -113,11 +114,11 @@ export class AssistantAccountLogin {
       const deadline = Date.now() + 15 * 60 * 1000;
       while (current()) {
         if (Date.now() > deadline) throw failure("LOGIN_EXPIRED");
-        const result = await client.call(
-          "wizard.next",
-          { sessionId: attempt.id, ...(answer ? { answer } : {}) },
-          { timeoutMs: Math.max(1, deadline - Date.now()) },
-        );
+        const result = await models.loginStep({
+          sessionId: attempt.id,
+          answer,
+          timeoutMs: Math.max(1, deadline - Date.now()),
+        });
         if (!current()) return;
         answer = undefined;
         if (result.done) {
@@ -181,14 +182,10 @@ export class AssistantAccountLogin {
         });
     } finally {
       this.fail(attempt, "CONNECTION_LOST");
-      client.off("disconnected", disconnected);
-      if (attempt.status !== "completed" && client.ready)
-        await client
-          .call(
-            "wizard.cancel",
-            { sessionId: attempt.id, closeInput: true },
-            { timeoutMs: 2000 },
-          )
+      unsubscribe();
+      if (attempt.status !== "completed" && host.connected(connection))
+        await models
+          .cancelLogin({ sessionId: attempt.id, timeoutMs: 2000 })
           .catch(() => {});
     }
   }
@@ -198,8 +195,8 @@ export class AssistantAccountLogin {
     if (active.has(attempt.status)) {
       attempt.status = "cancelled";
       this.changed();
-      await attempt.client
-        .call("wizard.cancel", { sessionId: id, closeInput: true }, { timeoutMs: 2000 })
+      await attempt.models
+        .cancelLogin({ sessionId: id, timeoutMs: 2000 })
         .catch(() => {});
     }
     return this.status(id);

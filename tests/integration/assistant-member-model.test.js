@@ -65,7 +65,7 @@ async function teamWith(t, lifetime, count = 1) {
   const g = gateway();
   const config = new AssistantConfig({
     store: f.store,
-    client: g,
+    runtime: { client: g },
     workspaces: workspaces(t),
     models: {
       resolve: async ({ connectionId, modelId }) => ({
@@ -105,7 +105,7 @@ test("an unavailable lead model fails the task member's apply like the lead's", 
   await f.assistants.update(parent.id, { model: second }, parent.revision);
   const config = new AssistantConfig({
     store: f.store,
-    client: gateway(),
+    runtime: { client: gateway() },
     workspaces: workspaces(t),
     models: {
       resolve: async (model) => {

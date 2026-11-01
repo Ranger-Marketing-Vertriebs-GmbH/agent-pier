@@ -181,7 +181,7 @@ test("a live apply raises and lowers shell with the global list in one patch", a
   started.agents.entries[other.runtimeAgentId].model = "c/m";
   const client = mergeGateway(started);
   const config = new AssistantConfig({
-    client,
+    runtime: { client },
     store,
     workspaces: dataDir,
     teamReady: () => true,
@@ -281,7 +281,7 @@ test("a live apply whose exec override did not stick is a conflict", async (t) =
     return call(method, { ...params, raw: JSON.stringify(patch) });
   };
   const config = new AssistantConfig({
-    client,
+    runtime: { client },
     store,
     workspaces: dataDir,
     teamReady: () => true,

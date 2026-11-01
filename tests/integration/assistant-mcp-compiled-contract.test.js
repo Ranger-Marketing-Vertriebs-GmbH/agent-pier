@@ -105,7 +105,6 @@ async function harness(t, { tool }) {
     models,
     workspaces: runtime.paths.workspaces,
     runtime,
-    client: { call: (...args) => runtime.client.call(...args) },
     hostCapacity: () => 4,
   });
   const assistants = new AssistantService({ store, runtime, config, models });

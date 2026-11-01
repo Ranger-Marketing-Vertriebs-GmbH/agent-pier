@@ -114,13 +114,9 @@ export function constructAssistantGraph(host, created = {}) {
     accounts: assistantModelAccounts,
     catalog: host.providerCatalog,
   });
-  // The current Gateway client for skills.status, until the skills sub-port of the
-  // runtime port takes it; a restart replaces it, so nothing binds to one.
-  const client = { call: (...args) => assistantRuntime.client.call(...args) };
   const configuration = expectWiring(
     new AssistantConfig({
       runtime: assistantRuntime,
-      client,
       models,
       store,
       workspaces: assistantRuntime.paths.workspaces,

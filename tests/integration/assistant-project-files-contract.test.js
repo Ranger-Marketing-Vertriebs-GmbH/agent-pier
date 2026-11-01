@@ -109,7 +109,6 @@ test(
     await runtime.start();
     const config = new AssistantConfig({
       runtime,
-      client: runtime.client,
       store: f.store,
       workspaces: runtime.paths.workspaces,
       models: fixtureModels(model),

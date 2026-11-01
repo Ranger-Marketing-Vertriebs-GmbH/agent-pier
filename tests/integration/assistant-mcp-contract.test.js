@@ -119,7 +119,7 @@ async function harness(t, { team }) {
     store,
     workspaces: runtime.paths.workspaces,
     runtime,
-    client: runtime.client,
+    runtime: { client: runtime.client },
     ...(team && { teamReady: () => bridge.status().ready }),
     hostCapacity: () => 4,
     models: {

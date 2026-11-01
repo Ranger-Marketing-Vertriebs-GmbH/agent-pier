@@ -48,7 +48,6 @@ function shellAllow(allow = [], wanted) {
 export class AssistantConfig {
   constructor({
     runtime,
-    client,
     models,
     store,
     workspaces,
@@ -58,11 +57,9 @@ export class AssistantConfig {
     roster = {},
   }) {
     // `roster`: agents.waitListed options (timeoutMs, and a clock for tests).
-    // `runtime`: the runtime supervisor; tests may hand only a Gateway client.
-    // `client` still serves skills.status until the skills sub-port takes it.
+    // `runtime`: the runtime supervisor.
     Object.assign(this, {
-      runtime: runtime ?? { client },
-      client,
+      runtime,
       models,
       store,
       workspaces,
@@ -102,8 +99,8 @@ export class AssistantConfig {
    */
   async verifySkills(assistant, names) {
     if (!names.length) return { skills: [], complete: true };
-    const report = await this.client
-      .call("skills.status", { agentId: assistant.runtimeAgentId })
+    const report = await runtimeFor(assistant, this.runtime)
+      .skills.status({ agentId: assistant.runtimeAgentId })
       .catch(() => null);
     if (!Array.isArray(report?.skills)) return { skills: [], complete: false };
     // A catalog that cannot be read names no skill: none of its copies compiles.

@@ -131,7 +131,7 @@ export function shellService(t, names = ["Home", "Other"]) {
     listCapabilities: () => [],
   };
   const config = new AssistantConfig({
-    client,
+    runtime: { client },
     store,
     models,
     workspaces: dataDir,

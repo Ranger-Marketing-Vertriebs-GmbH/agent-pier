@@ -32,7 +32,7 @@ test(
       listCapabilities: () => [],
     };
     const config = new AssistantConfig({
-      client: { call: (...args) => gw.client.call(...args) },
+      runtime: { client: { call: (...args) => gw.client.call(...args) } },
       store,
       models,
       workspaces: gw.runtime.paths.workspaces,

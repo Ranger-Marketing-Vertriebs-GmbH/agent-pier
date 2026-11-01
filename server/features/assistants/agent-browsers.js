@@ -13,7 +13,7 @@ import {
   memberSlotName,
 } from "./openclaw-config/browser-profiles.js";
 import { BrowserWindowKeeper } from "./browser-window-keeper.js";
-import { hostReady } from "./runtimes/runtime-for.js";
+import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 
 export const visibleBrowserLimit = 3;
 export const browserIdleMs = 15 * 60 * 1000;
@@ -110,6 +110,10 @@ export class AgentBrowsers {
   }
   ready() {
     return hostReady(this.runtime);
+  }
+  // The browser sub-port of the agents' runtime, read at each call.
+  port() {
+    return runtimeFor(null, this.runtime).browser;
   }
   /** The bridge's answer for a browser call: `{ allow, profile }` or `{ allow, reason }`. */
   async policy(input) {
@@ -225,11 +229,12 @@ export class AgentBrowsers {
     const reason = await this.admit(name, this.profiles()[name], id);
     if (reason) throw assistantProblem("browserVisibleLimit", 409);
     // A cold launch takes about ten seconds, beyond the client's default budget.
-    await this.runtime.client.request(
-      "browser.request",
-      { method: "POST", path: "/start", query: { profile: name } },
-      { timeoutMs: startTimeoutMs },
-    );
+    await this.port().request({
+      method: "POST",
+      path: "/start",
+      query: { profile: name },
+      timeoutMs: startTimeoutMs,
+    });
     return { profile: name };
   }
   /**
@@ -241,7 +246,7 @@ export class AgentBrowsers {
     const view = this.viewProfile(id);
     if (!view) throw assistantProblem("invalid");
     // Unlike the idle stop, a failure reaches the owner and the browser stays tracked.
-    await this.runtime.client.request("browser.request", {
+    await this.port().request({
       method: "POST",
       path: "/stop",
       query: { profile: view.name },
@@ -343,12 +348,8 @@ export class AgentBrowsers {
   async stop(name) {
     this.release(name);
     if (!this.ready()) return;
-    await this.runtime.client
-      .request("browser.request", {
-        method: "POST",
-        path: "/stop",
-        query: { profile: name },
-      })
+    await this.port()
+      .request({ method: "POST", path: "/stop", query: { profile: name } })
       .catch(() => {});
   }
   /** Idle stops, and the slots of members that ended. */

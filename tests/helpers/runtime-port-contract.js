@@ -8,13 +8,18 @@ import {
   RUN_EVENT_KINDS,
   defineAgentRuntime,
 } from "../../server/features/assistants/runtimes/agent-runtime.js";
-import { fakeSessionPorts, sessionsContract } from "./runtime-port-sessions-contract.js";
+import {
+  fakeSessionPorts,
+  sessionExtrasContract,
+  sessionsContract,
+} from "./runtime-port-sessions-contract.js";
 import { agentsContract, fakeAgentPorts } from "./runtime-port-agents-contract.js";
 import {
   approvalsContract,
   fakeApprovalPorts,
 } from "./runtime-port-approvals-contract.js";
 import { fakeRoutinePorts, routinesContract } from "./runtime-port-routines-contract.js";
+import { fakeToolPorts, toolsContract } from "./runtime-port-tools-contract.js";
 
 /**
  * The contract every agent runtime adapter meets (ADR 0006), so the OpenClaw adapter,
@@ -105,10 +110,26 @@ export function runtimePortContract(name, make) {
     assert.equal((await make({ unreachable: true })).host.connection(), null);
   });
 
+  test(`${name}: host.connected() tells whether a captured connection takes calls`, async () => {
+    const runtime = await make({});
+    const first = runtime.host.connection();
+    assert.equal(runtime.host.connected(first), true);
+    const unsubscribe = runtime.host.onDisconnect(first, () => {});
+    assert.equal(typeof unsubscribe, "function");
+    unsubscribe();
+    await runtime.host.restart();
+    assert.equal(runtime.host.connected(first), false);
+    assert.equal(runtime.host.connected(runtime.host.connection()), true);
+    assert.equal(runtime.host.connected(null), false);
+    assert.equal(typeof runtime.host.onDisconnect(null, () => {}), "function");
+  });
+
   sessionsContract(name, make, { kinds: RUN_EVENT_KINDS, tick });
   agentsContract(name, make);
   approvalsContract(name, make);
   routinesContract(name, make);
+  sessionExtrasContract(name, make);
+  toolsContract(name, make);
 
   test(`${name}: channels.status() reports the channel accounts`, async (t) => {
     const runtime = await make({ channels: { telegram: [account] } });
@@ -149,12 +170,16 @@ export function fakeRuntime({
     version,
     diagnostic: null,
   };
-  // A new connection on every start, none while not ready.
+  // A new connection on every start, none while not ready; each drop calls the
+  // listeners of the connection it ended.
   let connection = unreachable ? null : {};
+  const drops = new WeakMap();
   const move = (availability) => {
     Object.assign(state, { availability });
-    if (availability !== "ready") connection = null;
-    else connection ??= {};
+    if (availability !== "ready") {
+      for (const listener of (connection && drops.get(connection)) || []) listener();
+      connection = null;
+    } else connection ??= {};
     for (const listener of listeners) listener({ ...state });
   };
   return defineAgentRuntime({
@@ -162,6 +187,13 @@ export function fakeRuntime({
     host: {
       ready: () => state.availability === "ready",
       connection: () => connection,
+      connected: (handle) => !!handle && handle === connection,
+      onDisconnect(handle, listener) {
+        if (!handle) return () => {};
+        const listeners = drops.get(handle) || new Set();
+        drops.set(handle, listeners.add(listener));
+        return () => listeners.delete(listener);
+      },
       status: () => ({ ...state }),
       version: () => state.version,
       subscribe(listener) {
@@ -179,6 +211,7 @@ export function fakeRuntime({
     ...fakeAgentPorts({ reach, connection: () => connection }),
     ...fakeApprovalPorts({ reach, connection: () => connection, approvals }),
     ...fakeRoutinePorts({ reach, connection: () => connection }),
+    ...fakeToolPorts({ reach, connection: () => connection }),
     channels: {
       status: () => reach(() => ({ channelAccounts: structuredClone(channels) })),
     },

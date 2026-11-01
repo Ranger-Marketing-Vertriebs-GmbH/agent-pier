@@ -3,13 +3,17 @@ import { openClawAgentFiles, openClawAgents } from "./openclaw-agents.js";
 import { openClawApprovals } from "./openclaw-approvals.js";
 import { openClawConfig } from "./openclaw-configuration.js";
 import { openClawEvents } from "./openclaw-events.js";
+import { openClawBrowser } from "./openclaw-browser.js";
+import { openClawModels } from "./openclaw-models.js";
 import { openClawRoutines } from "./openclaw-routines.js";
+import { openClawSkills } from "./openclaw-skills.js";
 import { openClawSessions } from "./openclaw-sessions.js";
 
 // One opaque handle per Gateway client: a restart replaces the client, so the handle
 // tells callers whether an await crossed one. Shared by every adapter of a process.
 // The handle keeps its client, so calls bound to it (`on(connection)` of sessions,
-// agents, agentFiles, config, approvals and routines) reach that client.
+// agents, agentFiles, config, approvals, routines, skills, browser and models)
+// reach that client.
 const connections = new WeakMap();
 const clients = new WeakMap();
 function connectionOf(client) {
@@ -46,6 +50,9 @@ export function createOpenClawRuntime(supervisor) {
     config: openClawConfig(supervisor, clientOf),
     approvals: openClawApprovals(supervisor, clientOf),
     routines: openClawRoutines(supervisor, clientOf),
+    skills: openClawSkills(supervisor, clientOf),
+    browser: openClawBrowser(supervisor, clientOf),
+    models: openClawModels(supervisor, clientOf),
     channels: {
       status: ({ probe = false } = {}) => call("channels.status", { probe }),
     },
@@ -63,6 +70,16 @@ function openClawHost(supervisor) {
     ready: () => !!supervisor.client?.ready,
     // The current client's handle, or null: the same until the client is replaced.
     connection: () => connectionOf(supervisor.client),
+    // Whether the client behind `connection` still takes calls, current or not.
+    connected: (connection) => !!clientOf(connection)?.ready,
+    // Calls `listener()` once when the client behind `connection` disconnects;
+    // returns the unsubscribe function (a no-op without a client).
+    onDisconnect(connection, listener) {
+      const client = clientOf(connection);
+      if (!client) return () => {};
+      client.once("disconnected", listener);
+      return () => client.off("disconnected", listener);
+    },
     // { availability, sync, version, diagnostic } as the supervisor reports it.
     status: () => supervisor.status(),
     version: () => supervisor.status().version ?? null,

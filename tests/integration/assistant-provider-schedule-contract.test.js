@@ -41,7 +41,6 @@ test(
       models = new AssistantModels({ connections });
     const config = new AssistantConfig({
       runtime,
-      client: { call: (...args) => runtime.client.call(...args) },
       models,
       store,
       workspaces: runtime.paths.workspaces,
