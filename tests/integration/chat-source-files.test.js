@@ -9,6 +9,7 @@ import { ChatStore } from "../../server/features/chat/chat-store.js";
 import { ChatStreams } from "../../server/features/chat/chat-streams.js";
 import { ChatEvents } from "../../server/features/chat/chat-events.js";
 import { until } from "../helpers/adapter-process.js";
+import { hangGuard } from "../helpers/hang-guard.js";
 
 function fixture(t, { waiting = false, tool = "claude", extra = [], watch } = {}) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "chat-source-files-"));
@@ -183,30 +184,43 @@ test("only a child source changing updates the parent chat before recovery", asy
   assert.equal("sources" in f.values.at(-1).snapshot, false);
 });
 
-test("Claude subagent-only events still invalidate their parent's history", async (t) => {
-  const registrations = [];
-  // Inject the OS event boundary: FSEvents can delay notifications indefinitely
-  // on a busy host. Real-file/probe recovery is exercised independently above.
-  const f = fixture(t, {
-    watch: (file, options, listener) => {
-      const watcher = new EventEmitter();
-      watcher.unref = watcher.close = () => {};
-      registrations.push({ file, options, listener });
-      return watcher;
-    },
-  });
-  const subagents = path.join(path.dirname(f.file), "native-one", "subagents");
-  fs.mkdirSync(subagents, { recursive: true });
-  const child = path.join(subagents, "agent-child.jsonl");
-  fs.writeFileSync(child, "one");
-  await until(() => f.text() === "first" && f.idle());
-  await delay(80);
-  await until(f.idle);
-  const target = registrations.find((entry) => entry.file === subagents);
-  assert.ok(target, "the session's subagent directory is observed");
-  assert.equal(target.options.recursive, true);
-  const before = f.source.reads;
-  fs.appendFileSync(child, "two");
-  target.listener("change", path.basename(child));
-  await until(() => f.source.reads > before);
-});
+test(
+  "Claude subagent-only events still invalidate their parent's history",
+  hangGuard,
+  async (t) => {
+    const registrations = [];
+    // Inject the OS event boundary: FSEvents can delay notifications indefinitely
+    // on a busy host. Real-file/probe recovery is exercised independently above.
+    const f = fixture(t, {
+      watch: (file, options, listener) => {
+        const watcher = new EventEmitter();
+        watcher.unref = watcher.close = () => {};
+        registrations.push({ file, options, listener });
+        return watcher;
+      },
+    });
+    const subagents = path.join(path.dirname(f.file), "native-one", "subagents");
+    fs.mkdirSync(subagents, { recursive: true });
+    const child = path.join(subagents, "agent-child.jsonl");
+    fs.writeFileSync(child, "one");
+    // Every step below is in-process (the OS watch is injected), so the waits follow
+    // the stream's own progress instead of a wall-clock budget a loaded host can exhaust
+    // between two polls; a stream that never settles or never reads fails on the
+    // test's hang guard.
+    const settled = async (check = () => true) => {
+      while (!(check() && f.idle())) await delay(25);
+    };
+    await settled(() => f.text() === "first");
+    await delay(80);
+    await settled();
+    const target = registrations.find((entry) => entry.file === subagents);
+    assert.ok(target, "the session's subagent directory is observed");
+    assert.equal(target.options.recursive, true);
+    const before = f.source.reads;
+    fs.appendFileSync(child, "two");
+    target.listener("change", path.basename(child));
+    // Polled, not awaited as a promise: the stream's own timers are unref'd and would
+    // not keep the process alive until the read.
+    while (f.source.reads <= before) await delay(25);
+  },
+);
