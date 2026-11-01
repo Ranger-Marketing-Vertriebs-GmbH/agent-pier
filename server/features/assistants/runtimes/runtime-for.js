@@ -1,32 +1,106 @@
+import { assistantProblem } from "../assistant-validation.js";
+import { DEFAULT_RUNTIME, RUNTIME_CAPABILITIES, unavailable } from "./agent-runtime.js";
 import { createOpenClawRuntime } from "./openclaw/openclaw-runtime.js";
 import { openClawCompiler } from "./openclaw/openclaw-compiler.js";
 import { cronRunOf } from "./openclaw/openclaw-routine-jobs.js";
+
+// The runtimes this AgentPier ships, by the id agents record (`agent.runtime`). Each
+// names its product, builds its adapter over the host it runs behind, and brings its
+// pure configuration compiler and the routine-run reader of its session keys; today
+// only OpenClaw, behind the OpenClaw supervisor.
+const registry = Object.freeze({
+  openclaw: Object.freeze({
+    name: "OpenClaw",
+    create: createOpenClawRuntime,
+    compiler: openClawCompiler,
+    runOf: cronRunOf,
+  }),
+});
+
+/** The runtime ids an agent may record, the default first. */
+export const RUNTIME_IDS = Object.freeze(Object.keys(registry));
 
 // One adapter per supervisor, so every caller of one host shares it.
 const adapters = new WeakMap();
 
 /**
- * The agent runtime port (agent-runtime.js) that runs `agent`. Agents have no runtime
- * field yet, so every agent, and a missing one, runs on OpenClaw behind `supervisor`
- * (openclaw/runtime-supervisor.js). Once agents record `runtime`, this picks its
- * adapter.
+ * The runtime id `agent` records; an agent without one (and a missing agent) runs on
+ * DEFAULT_RUNTIME. A team member's read already carries its lead's (assistant-store.js).
+ */
+export const runtimeIdOf = (agent) =>
+  typeof agent?.runtime === "string" && agent.runtime ? agent.runtime : DEFAULT_RUNTIME;
+
+/** Whether this AgentPier has an adapter for runtime `id`. */
+export const knownRuntime = (id) => typeof id === "string" && Object.hasOwn(registry, id);
+
+/**
+ * `id` when it names a known runtime; otherwise the translated refusal
+ * `runtimeUnknown` (key "runtimeUnknown"), with `status` (400 for a request choosing
+ * it, 409 for a stored agent this AgentPier cannot run).
+ */
+export function assertRuntime(id, status = 400) {
+  if (!knownRuntime(id)) throw assistantProblem("runtimeUnknown", status, String(id));
+  return id;
+}
+
+/**
+ * The agent runtime port (agent-runtime.js) that runs `agent`, picked by the runtime
+ * it records (runtimeIdOf). OpenClaw runs behind `supervisor`
+ * (openclaw/runtime-supervisor.js). An agent recording a runtime this AgentPier lacks
+ * (a backup from a newer one) is refused with `runtimeUnknown` (409).
  */
 export function runtimeFor(agent, supervisor) {
   if (!supervisor || typeof supervisor !== "object")
     throw new TypeError("runtimeFor needs the runtime supervisor.");
+  const { create } = registry[assertRuntime(runtimeIdOf(agent), 409)];
   let adapter = adapters.get(supervisor);
-  if (!adapter) adapters.set(supervisor, (adapter = createOpenClawRuntime(supervisor)));
+  if (!adapter) adapters.set(supervisor, (adapter = create(supervisor)));
   return adapter;
 }
 
 /**
- * The configuration compiler of the runtime that runs `agent`: the pure part of its
- * config sub-port (agent-runtime.js `config.compiler`), the same object as
- * `runtimeFor(agent, supervisor).config.compiler`. It needs no host, so callers
- * without a supervisor (an audit record, a CLI environment) use it too. Every agent
- * runs on OpenClaw until agents record `runtime`.
+ * What the agents list and an agent's settings show of its runtime: `{ id, name,
+ * version, capabilities }`. `version` is the running version, or null while the host
+ * is stopped or unknown. A runtime this AgentPier lacks is shown, never hidden: its
+ * id as name and every capability unavailable with the reason `runtimeUnknown`.
  */
-export const compilerFor = (_agent) => openClawCompiler;
+export function runtimeDetails(agent, supervisor) {
+  const id = runtimeIdOf(agent);
+  if (!knownRuntime(id)) {
+    const missing = unavailable("runtimeUnknown");
+    const capabilities = Object.fromEntries(
+      RUNTIME_CAPABILITIES.map((name) => [name, missing]),
+    );
+    return { id, name: id, version: null, capabilities };
+  }
+  const { name } = registry[id];
+  if (!supervisor || typeof supervisor !== "object")
+    return { id, name, version: null, capabilities: {} };
+  const runtime = runtimeFor(agent, supervisor);
+  let version = null;
+  try {
+    version = runtime.host.version() ?? null;
+  } catch {
+    /* A host that cannot report its status has no known version. */
+  }
+  return { id, name, version, capabilities: runtime.capabilities() };
+}
+
+/**
+ * The configuration compiler of the runtime that runs `agent` (runtimeIdOf): the pure
+ * part of its config sub-port (agent-runtime.js `config.compiler`), the same object as
+ * `runtimeFor(agent, supervisor).config.compiler`. It needs no host, so callers
+ * without a supervisor (an audit record, a CLI environment) use it too; `null` means
+ * DEFAULT_RUNTIME. A runtime this AgentPier lacks is refused as in runtimeFor (409).
+ */
+export const compilerFor = (agent) =>
+  registry[assertRuntime(runtimeIdOf(agent), 409)].compiler;
+
+/** A copy of the agent view `agent` with its `runtimeInfo` (runtimeDetails). */
+export const withRuntime = (agent, supervisor) => ({
+  ...agent,
+  runtimeInfo: runtimeDetails(agent, supervisor),
+});
 
 /** A resolver `(agent) => AgentRuntime` bound to the supervisor `supervisor()` returns. */
 export const runtimeResolver = (supervisor) => (agent) => runtimeFor(agent, supervisor());
@@ -55,7 +129,10 @@ export const hostConnection = (supervisor, agent) =>
 
 /**
  * The routine run a runtime session key of `agent` belongs to (routines.runOf), or
- * null. It reads only the key, so it needs no supervisor; every agent runs on
- * OpenClaw, as in runtimeFor.
+ * null. It reads only the key, so it needs no supervisor; the runtime is the one
+ * `agent` records (runtimeIdOf), and a runtime this AgentPier lacks owns no run here.
  */
-export const routineRunOf = (agent, sessionKey) => cronRunOf(sessionKey);
+export const routineRunOf = (agent, sessionKey) => {
+  const id = runtimeIdOf(agent);
+  return knownRuntime(id) ? registry[id].runOf(sessionKey) : null;
+};

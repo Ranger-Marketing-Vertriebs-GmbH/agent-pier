@@ -57,6 +57,7 @@ const source = {
   id: "home",
   name: "Home",
   instructions: "Be kind.",
+  runtime: "openclaw",
   model: { connectionId: "router", modelId: "m1" },
   capabilities: { memory: true, webSearch: true, browser: true, createImages: false },
   shell: "approval",
@@ -92,6 +93,7 @@ const team = {
 test("duplicate copies exactly the fields of 5.3.1 and nothing else", () => {
   const copy = duplicateFields(source, policy, team, (name) => `Kopie von ${name}`);
   assert.deepEqual(copy, {
+    runtime: "openclaw",
     name: "Kopie von Home",
     instructions: "Be kind.",
     connectionId: "router",
@@ -169,6 +171,9 @@ test("the plan follows the draft; agents of users keep only folders and MCP", ()
     members: [{ userId: "u", level: "chat" }],
   });
   assert.equal("shell" in createBody(user), false);
+  // Without a duplicate's runtime the server picks its default.
+  assert.equal("runtime" in createBody(full), false);
+  assert.equal(createBody({ ...full, runtime: "openclaw" }).runtime, "openclaw");
   // Web tools come with the capabilities step, never with the create request.
   assert.equal(createBody(full).capabilities.webSearch, false);
 });

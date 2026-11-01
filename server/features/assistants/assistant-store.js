@@ -13,6 +13,8 @@ import { memberInheritance } from "./member-grants.js";
 import { sharedCapabilities } from "./lead-capability-shares.js";
 import { validateDefinition, assistantProblem } from "./assistant-validation.js";
 import { refuseLockedSettings } from "../users/user-agent-lock.js";
+import { DEFAULT_RUNTIME } from "./runtimes/agent-runtime.js";
+import { assertRuntime } from "./runtimes/runtime-for.js";
 
 // The message cache keeps a conversation's newest messages only. A history page holds
 // at most 100 messages; the chat's poll and every server-side reader ask for the
@@ -32,13 +34,24 @@ export function cachedWindow(messages) {
     total -= textLength(kept[start++]);
   return start ? kept.slice(start) : kept;
 }
-// A read resolves `inherited` (memberInheritance) and a permanent member's
-// `leadCapabilities` (lead-capability-shares.js); writes never persist them.
+// Marks a read whose `runtime` is its lead's: a team member records a runtime only
+// when one was set for it, and otherwise runs on its lead's (ADR 0006).
+const leadRuntime = Symbol("leadRuntime");
+// A read resolves `inherited` (memberInheritance), a permanent member's
+// `leadCapabilities` (lead-capability-shares.js) and a member's lead runtime; writes
+// never persist them.
 export const persisted = ({
   inherited: _inherited,
   leadCapabilities: _leadCapabilities,
+  [leadRuntime]: fromLead,
   ...record
-}) => record;
+}) => {
+  if (fromLead) delete record.runtime;
+  return record;
+};
+// An agent's read always names its runtime; one stored without runs on the default.
+const withRuntime = (record) =>
+  record.runtime ? record : { ...record, runtime: DEFAULT_RUNTIME };
 export class AssistantStore {
   constructor({ dataDir }) {
     // What the lead granted a temporary member, and whether its shell and SSH grants
@@ -61,6 +74,8 @@ export class AssistantStore {
     const record = {
       id,
       ...values,
+      // The runtime it runs on (ADR 0006); refused when this AgentPier lacks it.
+      runtime: assertRuntime(values.runtime ?? DEFAULT_RUNTIME),
       ...(origin?.template ? { template: origin.template } : {}),
       ...(origin?.userAccess ? { userAccess: origin.userAccess } : {}),
       revision: 1,
@@ -122,7 +137,7 @@ export class AssistantStore {
    */
   getAssistant(id) {
     const record = this.storedAssistant(id);
-    if (!record.teamMemberId) return record;
+    if (!record.teamMemberId) return withRuntime(record);
     let lead;
     try {
       lead = this.storedAssistant(record.parentAssistantId);
@@ -132,7 +147,14 @@ export class AssistantStore {
     return this.resolved(record, lead);
   }
   resolved(record, lead) {
-    const next = { ...record, model: effectiveModel(record, lead) };
+    const next = {
+      ...record,
+      model: effectiveModel(record, lead),
+      ...(!record.runtime && {
+        runtime: lead?.runtime || DEFAULT_RUNTIME,
+        [leadRuntime]: true,
+      }),
+    };
     if (record.lifetime === "permanent") {
       const shared = sharedCapabilities(this.db, record, lead);
       return Object.keys(shared).length ? { ...next, leadCapabilities: shared } : next;
@@ -178,7 +200,7 @@ export class AssistantStore {
       .map((r) => JSON.parse(r.body));
     const byId = new Map(records.map((r) => [r.id, r]));
     return records.map((r) =>
-      r.teamMemberId ? this.resolved(r, byId.get(r.parentAssistantId)) : r,
+      r.teamMemberId ? this.resolved(r, byId.get(r.parentAssistantId)) : withRuntime(r),
     );
   }
   /**

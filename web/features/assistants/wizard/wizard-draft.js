@@ -37,6 +37,8 @@ export function emptyDraft(timeZone = "UTC") {
     kind: "own",
     template: null,
     duplicateOf: "",
+    // The runtime a duplicate keeps; empty lets the server choose its default.
+    runtime: "",
     name: "",
     instructions: "",
     connectionId: "",
@@ -68,7 +70,7 @@ export function emptyDraft(timeZone = "UTC") {
 
 /**
  * What "Duplizieren" takes from an agent (handoff 5.3.1), and nothing else:
- * instructions (name "Kopie von <Name>"), model, capability switches, shell level,
+ * its runtime, instructions (name "Kopie von <Name>"), model, capability switches, shell level,
  * enabled bundled skills, access grants (projects with levels, pipelines and their
  * two switches, MCP servers, SSH with mode, GitHub level and token profile, secrets)
  * and the team policy. Memory, chats, attachments, Telegram, hooks, reminders,
@@ -78,6 +80,7 @@ export function emptyDraft(timeZone = "UTC") {
 export function duplicateFields(agent, policy, team, copyName) {
   const capabilities = agent.capabilities || {};
   return {
+    runtime: agent.runtime || "",
     name: copyName(agent.name || ""),
     instructions: agent.instructions || "",
     connectionId: agent.model?.connectionId || "",

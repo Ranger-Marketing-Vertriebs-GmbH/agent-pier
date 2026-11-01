@@ -2,7 +2,10 @@
 
 Agents are persistent assistants that keep their own chat, notes and tools. AgentPier
 runs them in one managed [OpenClaw](https://docs.openclaw.ai/) service on
-your host. This guide covers what you set up and where. The design and the exact
+your host. Each agent records the runtime it runs on, chosen when it is created and
+OpenClaw for every agent today; a team member runs on its lead's runtime
+([runtime port](adr/0006-assistant-runtime-port.md)). This guide covers what you set
+up and where. The design and the exact
 limits are in the [Gateway design](assistant-gateway.md),
 [model connections](assistant-model-connections.md) and
 [agent workflows](assistant-workflows.md).
@@ -180,7 +183,7 @@ names the template with its source, revision and license.
 
 **Duplicate** (in the wizard's first step, in the agent's **Overview › Manage** and in
 the ⋯ menu of its settings header) opens the wizard prefilled with "Copy of <name>":
-instructions, model, capability switches, shell level, enabled bundled skills, access
+runtime, instructions, model, capability switches, shell level, enabled bundled skills, access
 (projects with their levels, pipelines with their two switches, MCP servers, SSH with
 mode, GitHub level and token profile, secrets) and team policy. Memory, chats,
 attachments, Telegram, hooks, reminders, routines, always allowed commands, the

@@ -258,6 +258,10 @@ export const RUN_EVENT_KINDS = Object.freeze([
 // `advancedSettings`; OpenClaw has them, a runtime without reports it unavailable).
 export const RUNTIME_CAPABILITIES = Object.freeze([...RUNTIME_PORTS, "advancedSettings"]);
 
+// The runtime of an agent that records none: every agent from before the field, and a
+// new agent created without a choice (ADR 0006, decision 1).
+export const DEFAULT_RUNTIME = "openclaw";
+
 /** A capability the runtime offers. */
 export const available = () => Object.freeze({ available: true });
 
