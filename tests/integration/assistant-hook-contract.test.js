@@ -25,6 +25,7 @@ import {
   fixtureModels,
   proactivityModel,
 } from "../helpers/assistant-proactivity-model.js";
+import { cronJobs } from "../helpers/native-cron-jobs.js";
 
 // AGENTPIER-216 against the pinned Gateway: an incoming hook event wakes its agent.
 // AgentHooks.deliver creates one disabled cron job per event and forces its run in
@@ -260,7 +261,7 @@ test(
     assert.equal(event.status, "running");
     const declarationKey = `agentpier-hook:${event.id}`;
     const hookJobs = async () =>
-      (await reminders.jobs(null)).filter((j) => j.declarationKey === declarationKey);
+      (await cronJobs(runtime)).filter((j) => j.declarationKey === declarationKey);
     // The disabled one-shot job, forced at once (cron.run mode force enqueues it).
     const [job] = await hookJobs();
     t.diagnostic(`hook job=${json(job).slice(0, 1600)}`);
@@ -464,7 +465,7 @@ test(
       });
       assert.equal(answer.status, 202, `${name} accepted`);
       const started = hooks.events.find(stored.id, eventId);
-      const [readerJob] = (await reminders.jobs(null)).filter(
+      const [readerJob] = (await cronJobs(runtime)).filter(
         (j) => j.declarationKey === `agentpier-hook:${started.id}`,
       );
       assert.ok(readerJob.payload.toolsAllow.includes("read"), `${name} may read`);

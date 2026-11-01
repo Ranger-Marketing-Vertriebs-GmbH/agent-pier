@@ -24,6 +24,7 @@ import {
   fixtureModels,
   proactivityModel,
 } from "../helpers/assistant-proactivity-model.js";
+import { cronJobs } from "../helpers/native-cron-jobs.js";
 
 const installed = process.env.AGENTPIER_ASSISTANT_ROUTINE_RUNTIME;
 const long = { timeoutMs: 60000 };
@@ -215,12 +216,24 @@ test(
       telegram: true,
     });
     const jobId = reminders.bindings.get(routine.id).nativeId;
-    const job = async () => (await reminders.jobs(agent)).find((j) => j.id === jobId);
+    const job = async () =>
+      (await cronJobs(runtime, agent.runtimeAgentId)).find((j) => j.id === jobId);
     const created = await job();
     assert.equal(created.enabled, false);
     assert.equal(created.sessionTarget, "current");
     assert.equal(created.sessionKey, session.key);
     assert.deepEqual(created.payload.toolsAllow, routineTools);
+    // AgentPier reads the same job as its routine model (routine-definition.js).
+    const read = (await reminders.jobs(agent)).find((r) => r.id === jobId);
+    assert.deepEqual(
+      [read.marker, read.target, read.prompt.tools, read.prompt.fullContext],
+      [
+        created.declarationKey,
+        { kind: "chat", sessionKey: session.key },
+        routineTools,
+        true,
+      ],
+    );
 
     // Existing jobs are migrated in place: shape the job as #192 created it.
     await runtime.client.call(

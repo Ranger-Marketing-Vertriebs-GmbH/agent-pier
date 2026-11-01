@@ -16,6 +16,7 @@ import {
   fixtureModels,
   proactivityModel,
 } from "../helpers/assistant-proactivity-model.js";
+import { cronJobs } from "../helpers/native-cron-jobs.js";
 
 const installed = process.env.AGENTPIER_ASSISTANT_ROUTINE_RUNTIME;
 const long = { timeoutMs: 60000 };
@@ -149,7 +150,8 @@ test(
     const listed = async () =>
       (await routines.list(id)).routines.find((r) => r.id === routine.id);
     const jobId = reminders.bindings.get(routine.id).nativeId;
-    const job = async () => (await reminders.jobs(agent)).find((j) => j.id === jobId);
+    const job = async () =>
+      (await cronJobs(runtime, agent.runtimeAgentId)).find((j) => j.id === jobId);
 
     // 1. The Gateway restarts while a run waits on its model (the owner's case).
     assert.equal(

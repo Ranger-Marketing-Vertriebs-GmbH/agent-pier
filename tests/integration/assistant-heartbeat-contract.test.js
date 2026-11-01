@@ -18,6 +18,7 @@ import {
   fixtureModels,
   proactivityModel,
 } from "../helpers/assistant-proactivity-model.js";
+import { cronJobs } from "../helpers/native-cron-jobs.js";
 
 const installed = process.env.AGENTPIER_PROACTIVITY_CONTRACT_RUNTIME;
 const long = { timeoutMs: 60000 };
@@ -158,15 +159,19 @@ test(
     );
 
     await heartbeats.sync(id);
-    const [job] = (await reminders.jobs(agent)).filter((j) =>
+    const [job] = (await cronJobs(runtime, agent.runtimeAgentId)).filter((j) =>
       j.declarationKey?.startsWith("agentpier-reminder:"),
     );
     assert.equal(job.sessionTarget, "current");
     assert.equal(job.sessionKey, session.key);
     assert.ok(job.state.nextRunAtMs > Date.now(), "the hourly schedule is armed");
+    // AgentPier reads the same job as its routine model (routine-definition.js).
+    const read = (await reminders.jobs(agent)).find((r) => r.id === job.id);
+    assert.deepEqual(read.target, { kind: "chat", sessionKey: session.key });
+    assert.equal(read.runState.nextRunAtMs, job.state.nextRunAtMs);
     // OpenClaw's own per-agent heartbeat stays off (agents.defaults.heartbeat 0m).
     assert.ok(
-      (await reminders.jobs(agent))
+      (await cronJobs(runtime, agent.runtimeAgentId))
         .filter((j) => j.declarationKey === `heartbeat:${agent.runtimeAgentId}`)
         .every((j) => j.enabled === false),
     );
@@ -339,7 +344,7 @@ test(
     );
     await heartbeats.sync(id);
     assert.deepEqual(
-      (await reminders.jobs(f.store.getAssistant(id))).filter((j) =>
+      (await cronJobs(runtime, f.store.getAssistant(id).runtimeAgentId)).filter((j) =>
         j.declarationKey?.startsWith("agentpier-reminder:"),
       ),
       [],
