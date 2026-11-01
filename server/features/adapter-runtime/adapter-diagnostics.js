@@ -93,3 +93,18 @@ export function createDiagnosticsWriter({
     },
   };
 }
+
+/** `<id>.adapter-port.json`: the supervisor's loopback port for the server's checks. */
+export const adapterPortPath = (file) =>
+  file.replace(/\.adapter\.json$/, ".adapter-port.json");
+
+/**
+ * Records the supervisor's listener port next to the diagnostics, so the server can keep
+ * session previews off it (preview-wiring.js). Never throws.
+ */
+export function recordAdapterPort(file, port, generation = null) {
+  if (!file?.endsWith(".adapter.json") || !ownsDiagnostics(file, generation)) return;
+  try {
+    writePrivate(adapterPortPath(file), { port, generation });
+  } catch {}
+}

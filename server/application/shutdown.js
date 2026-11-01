@@ -39,6 +39,8 @@ export function createShutdown({ services, wss, server }) {
         ws.once("close", () => clearTimeout(timeout));
       }
     await services.artifacts?.close();
+    // Preview listeners and their sockets; Tailscale Serve registrations stay.
+    await services.previews?.shutdown();
     await services.files?.close();
     await services.autoResume?.close();
     await services.reload?.close();

@@ -1,0 +1,397 @@
+import { EventEmitter } from "node:events";
+import { randomUUID } from "node:crypto";
+import { portAvailable } from "../pipelines/run-ports.js";
+import { networkUrls } from "../remote/network-access.js";
+import { previewConfig, previewGate } from "./preview-access.js";
+import { readPreviewConfig, tailscaleHttpsPort } from "./preview-config.js";
+import { previewError } from "./preview-errors.js";
+import { createPreviewListener } from "./preview-proxy.js";
+import { listenerPort, PreviewSlots, slotsFile } from "./preview-slots.js";
+import { forbiddenTarget, targetAddress } from "./preview-targets.js";
+
+const DAY = 24 * 60 * 60 * 1000;
+// A label or path with a control character could forge lines in a log or a card.
+const controls = /[\u0000-\u001f\u007f]/;
+const invalid = () => previewError("PREVIEW_INVALID_INPUT", 400);
+const iso = (time) => new Date(time).toISOString();
+
+function checkedInput({ owner, port, label, path = "/" } = {}) {
+  const session =
+    owner?.kind === "session" && typeof owner.sessionId === "string" && owner.sessionId;
+  const agent =
+    owner?.kind === "agent" &&
+    typeof owner.assistantId === "string" &&
+    owner.assistantId &&
+    typeof owner.conversationId === "string" &&
+    owner.conversationId;
+  if (!session && !agent) throw invalid();
+  if (typeof owner.project !== "string" || !owner.project) throw invalid();
+  if (!Number.isInteger(port) || port < 1 || port > 65535) throw invalid();
+  if (label !== undefined) {
+    if (typeof label !== "string" || !label.trim() || label.length > 80) throw invalid();
+    if (controls.test(label)) throw invalid();
+  }
+  if (typeof path !== "string" || path.length > 2048 || !/^\/(?!\/)/.test(path))
+    throw invalid();
+  if (controls.test(path)) throw invalid();
+  return { owner, port, label, path };
+}
+
+/** The owner as the API shows it: never the project path. */
+const ownerView = (owner) =>
+  owner.kind === "session"
+    ? { kind: "session", sessionId: owner.sessionId }
+    : {
+        kind: "agent",
+        assistantId: owner.assistantId,
+        conversationId: owner.conversationId,
+      };
+
+/** One preview per (session or agent conversation, target port). */
+const ownerKey = (owner, port) =>
+  owner.kind === "session"
+    ? `session\0${owner.sessionId}\0${port}`
+    : `agent\0${owner.conversationId}\0${port}`;
+
+/**
+ * The previews of sessions and agents: a pool of slot ports, each with its own listener
+ * (preview-proxy.js) that forwards the owner's requests to one loopback dev server.
+ * Previews live in memory only; listeners stay bound on every free slot while previews
+ * are enabled and answer the idle page without one.
+ */
+export class PreviewService extends EventEmitter {
+  constructor({
+    dataDir,
+    effective,
+    bindHost = () => "127.0.0.1",
+    detected = () => undefined,
+    identity,
+    audit,
+    live = () => null,
+    sessionAlive = () => false,
+    agentAlive = () => false,
+    internalPorts = () => [],
+    probe = portAvailable,
+    tailscaleRun,
+    now = Date.now,
+    idleMs = DAY,
+  }) {
+    super();
+    Object.assign(this, {
+      dataDir,
+      effective,
+      bindHost,
+      detected,
+      identity,
+      audit,
+      live,
+      sessionAlive,
+      agentAlive,
+      internalPorts,
+      probe,
+      tailscaleRun,
+      now,
+      idleMs,
+    });
+    this.previews = new Map(); // id → preview
+    this.listeners = new Map(); // slot → listener
+    this.slots = null;
+    this.starting = null;
+    this.stopped = false;
+    this.queue = Promise.resolve();
+  }
+
+  current() {
+    return previewConfig(this.effective);
+  }
+
+  settings() {
+    const current = this.current();
+    return readPreviewConfig(this.dataDir, {
+      hostPort: current.port,
+      pipelineRange: current.portRange,
+      tailscaleHttpsPort: tailscaleHttpsPort(current.remoteUrl),
+    });
+  }
+
+  /** Binds every free slot and starts the idle sweep, once, while enabled. */
+  start() {
+    if (this.stopped) return Promise.resolve();
+    return (this.starting ??= this.run());
+  }
+
+  async run() {
+    const settings = this.settings();
+    if (!settings.enabled) return;
+    const range = { start: settings.portRangeStart, end: settings.portRangeEnd };
+    this.slots = new PreviewSlots({
+      range,
+      // A slot is free when its listener is ours or can be bound now.
+      probe: (port) => this.bind(this.slotOf(port)),
+      file: slotsFile(this.dataDir),
+    });
+    for (const slot of this.slots.slots()) await this.bind(slot);
+    clearInterval(this.timer);
+    this.timer = setInterval(
+      () => this.sweep().catch(() => {}),
+      Math.min(this.idleMs, 60_000),
+    );
+    this.timer.unref();
+    this.changed();
+  }
+
+  slotOf(port) {
+    return this.slots.slots().find((slot) => listenerPort(slot) === port);
+  }
+
+  /** Whether the slot has our listener (binding it when the port is free). */
+  async bind(slot) {
+    if (slot === undefined || this.stopped) return false;
+    if (this.listeners.has(slot)) return true;
+    if (!(await this.probe(listenerPort(slot)))) return false;
+    try {
+      const listener = await createPreviewListener({
+        slot,
+        host: this.bindHost(),
+        gate: previewGate({
+          login: this.identity(),
+          effective: this.effective,
+          slot,
+          detected: this.detected(),
+        }),
+        resolve: (asked) => this.resolve(asked),
+        touch: (preview) => (preview.usedAt = this.now()),
+        watch: (session, close) => this.identity().watch(session, close),
+        effective: this.effective,
+      });
+      if (this.stopped) {
+        await listener.close();
+        return false;
+      }
+      this.listeners.set(slot, listener);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** The open preview of a slot whose owner still runs; otherwise null (idle page). */
+  async resolve(slot) {
+    const preview = [...this.previews.values()].find((entry) => entry.slot === slot);
+    if (!preview) return null;
+    if (!(await this.alive(preview))) {
+      const reason = preview.owner.kind === "session" ? "session" : "conversation";
+      await this.close(preview.id, { reason, source: "system" }).catch(() => {});
+      return null;
+    }
+    return { preview, address: preview.address };
+  }
+
+  async alive({ owner }) {
+    try {
+      if (owner.kind === "session") return Boolean(this.sessionAlive(owner.sessionId));
+      return Boolean(
+        await this.agentAlive({
+          assistantId: owner.assistantId,
+          conversationId: owner.conversationId,
+        }),
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  /** Opens (or updates) the preview of an owner's target port. */
+  open(input) {
+    const run = this.queue.then(() => this.opening(input));
+    this.queue = run.catch(() => {});
+    return run;
+  }
+
+  async opening(input) {
+    if (!this.settings().enabled || this.stopped)
+      throw previewError("PREVIEW_DISABLED", 409);
+    const { owner, port, label, path } = checkedInput(input);
+    if (!this.slots) await this.start();
+    if (!this.slots) {
+      // Enabled after the start: bind now.
+      this.starting = null;
+      await this.start();
+    }
+    if (!this.slots) throw previewError("PREVIEW_DISABLED", 409);
+    const internal = new Set(this.internalPorts());
+    if (
+      forbiddenTarget(port, {
+        hostPort: this.current().port,
+        range: this.slots.range,
+        internal,
+      })
+    )
+      throw previewError("PREVIEW_PORT_FORBIDDEN", 403, port);
+    const address = await targetAddress(port);
+    if (!address) throw previewError("PREVIEW_NOT_LISTENING", 409, port);
+    const key = ownerKey(owner, port);
+    let preview = [...this.previews.values()].find((entry) => entry.key === key);
+    if (preview) {
+      Object.assign(preview, { address, path, usedAt: this.now() });
+      if (label !== undefined) preview.label = label;
+    } else {
+      const slot = await this.slots.allocate({ key: `${owner.project}\0${port}` });
+      const time = this.now();
+      preview = {
+        id: randomUUID(),
+        key,
+        slot,
+        target: port,
+        address,
+        label: label ?? String(port),
+        path,
+        owner: ownerView(owner),
+        createdAt: time,
+        usedAt: time,
+      };
+      this.previews.set(preview.id, preview);
+      this.record("preview.started", preview, {
+        reason: "tool",
+        source: owner.kind === "session" ? "mcp" : "agent",
+      });
+    }
+    this.changed();
+    return {
+      id: preview.id,
+      url: this.previewUrl(preview),
+      port: preview.target,
+      label: preview.label,
+    };
+  }
+
+  /** The address the owner opens: Tailscale, else the network, else loopback. */
+  previewUrl({ slot, path = "/" }) {
+    const current = this.current();
+    let origin = `http://127.0.0.1:${slot}`;
+    if (current.remoteUrl)
+      origin = `https://${new URL(current.remoteUrl).hostname}:${slot}`;
+    else if (current.network?.enabled) {
+      const [first] = networkUrls(current.network, slot, this.detected());
+      if (first) origin = first;
+    }
+    return `${origin}${path}`;
+  }
+
+  async close(id, { reason = "owner", source = "user" } = {}) {
+    const preview = this.previews.get(id);
+    if (!preview) throw previewError("PREVIEW_NOT_FOUND", 404);
+    this.previews.delete(id);
+    this.slots?.release(preview.slot);
+    this.record(reason === "expired" ? "preview.expired" : "preview.stopped", preview, {
+      reason,
+      source,
+    });
+    this.changed();
+    return { closed: true };
+  }
+
+  async closeWhere(match, reason) {
+    for (const preview of [...this.previews.values()])
+      if (match(preview.owner))
+        await this.close(preview.id, { reason, source: "system" }).catch(() => {});
+  }
+
+  closeSession(sessionId, reason = "session") {
+    return this.closeWhere((owner) => owner.sessionId === sessionId, reason);
+  }
+
+  closeConversation(conversationId, reason = "conversation") {
+    return this.closeWhere((owner) => owner.conversationId === conversationId, reason);
+  }
+
+  /** Ends agent previews idle for `idleMs` and previews whose owner is gone. */
+  async sweep() {
+    for (const preview of [...this.previews.values()]) {
+      if (!this.previews.has(preview.id)) continue;
+      const agent = preview.owner.kind === "agent";
+      if (agent && this.now() - preview.usedAt >= this.idleMs)
+        await this.close(preview.id, { reason: "expired", source: "system" });
+      else if (!(await this.alive(preview)))
+        await this.close(preview.id, {
+          reason: agent ? "conversation" : "session",
+          source: "system",
+        }).catch(() => {});
+    }
+  }
+
+  list({ sessionId, conversationId } = {}) {
+    return [...this.previews.values()]
+      .filter(
+        (preview) =>
+          (sessionId === undefined || preview.owner.sessionId === sessionId) &&
+          (conversationId === undefined ||
+            preview.owner.conversationId === conversationId),
+      )
+      .map((preview) => ({
+        id: preview.id,
+        slot: preview.slot,
+        target: preview.target,
+        label: preview.label,
+        path: preview.path,
+        owner: { ...preview.owner },
+        createdAt: iso(preview.createdAt),
+        lastUsedAt: iso(preview.usedAt),
+      }));
+  }
+
+  async view() {
+    const settings = this.settings();
+    const previews = this.list();
+    const used = new Set(previews.map((preview) => preview.slot));
+    const slots = [];
+    for (let port = settings.portRangeStart; port <= settings.portRangeEnd; port++) {
+      let state = "taken";
+      if (used.has(port)) state = "preview";
+      else if (this.listeners.has(port)) state = "free";
+      else if (await this.probe(listenerPort(port))) state = "free";
+      slots.push({ port, state });
+    }
+    return { settings, previews, slots, serve: null };
+  }
+
+  /** Closes listeners and their sockets; Tailscale Serve registrations stay. */
+  async shutdown() {
+    this.stopped = true;
+    clearInterval(this.timer);
+    const listeners = [...this.listeners.values()];
+    this.listeners.clear();
+    this.previews.clear();
+    await Promise.all(listeners.map((listener) => listener.close()));
+  }
+
+  /** Audit row: owner kind, target port, slot and reason; never a URL or header. */
+  record(action, preview, { reason, source }) {
+    try {
+      this.audit?.append({
+        action,
+        resourceType: "preview",
+        resourceId: preview.id,
+        ...(preview.owner.kind === "session"
+          ? { sessionId: preview.owner.sessionId }
+          : {}),
+        source,
+        outcome: "success",
+        details: {
+          kind: "preview",
+          owner: preview.owner.kind,
+          targetPort: preview.target,
+          slot: preview.slot,
+          reason,
+        },
+      });
+    } catch {
+      // A preview never fails on its audit row (e.g. an id the schema refuses).
+    }
+  }
+
+  changed() {
+    this.emit("changed");
+    this.live()?.invalidate?.("previews");
+  }
+}
