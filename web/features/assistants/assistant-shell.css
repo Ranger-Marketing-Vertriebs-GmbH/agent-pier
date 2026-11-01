@@ -14,7 +14,7 @@
   gap: 8px;
   min-width: 0;
 }
-.assistant-header-name h1 {
+.assistant-header-name :is(h1, h2) {
   min-width: 0;
 }
 .assistant-shell-chip {

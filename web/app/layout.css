@@ -421,12 +421,13 @@ main {
   .app.sidebar-collapsed main {
     padding-top: 52px;
   }
-  /* The session workspace is sized to the viewport, so it shifts sideways instead. */
-  .app.sidebar-collapsed main:has(.session-workspace) {
+  /* The session workspace is sized to the viewport, so it shifts sideways instead;
+     a session in a split view pane is sized by its pane and keeps this layout. */
+  .app.sidebar-collapsed main:has(.session-workspace:not(.in-pane)) {
     padding-top: 0;
   }
   /* Lift the heading so the session title row shares the toggle's centre line. */
-  .app.sidebar-collapsed .session-workspace {
+  .app.sidebar-collapsed .session-workspace:not(.in-pane) {
     padding-top: 8px;
   }
   .app.sidebar-collapsed .session-heading {

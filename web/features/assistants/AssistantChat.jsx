@@ -1,4 +1,3 @@
-import TeamApprovals from "./TeamApprovals.jsx";
 import { foldResultEvents, teamNotes, withTeamNotes } from "./team-notes.js";
 import useTranscriptScroll from "./useTranscriptScroll.js";
 import {
@@ -9,13 +8,12 @@ import {
 } from "./agent-history-view.js";
 import useAgentConversationStream from "./useAgentConversationStream.js";
 import AssistantHeader from "./AssistantHeader.jsx";
-import AssistantActionApprovals from "./AssistantActionApprovals.jsx";
+import AssistantChatActions from "./AssistantChatActions.jsx";
 import ChatStrips from "./ChatStrips.jsx";
 import useAssistantActions from "./useAssistantActions.js";
 import { activityFor } from "./assistant-status.js";
-import React, { memo, useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import AssistantComposer from "./AssistantComposer.jsx";
-import GoAheadButton from "./GoAheadButton.jsx";
 import useAgentAttachments from "./useAgentAttachments.js";
 import useFileDrop from "../../components/useFileDrop.js";
 import { assistantAttachmentsCopy } from "../../lib/i18n/messages/assistant-attachments.js";
@@ -49,8 +47,6 @@ import { sameTurn } from "./same-turn.js";
 import useTalk, { useTalkStatus } from "../talk/useTalk.js";
 import TalkButton from "../talk/TalkButton.jsx";
 import TalkBar from "../talk/TalkBar.jsx";
-// Streamed deltas re-render the chat on every token; the team approvals do not need to.
-const PendingTeams = memo(TeamApprovals);
 export default function AssistantChat({
   assistant,
   conversationId,
@@ -58,6 +54,7 @@ export default function AssistantChat({
   navigate,
   openNavigation,
   navigationOpen,
+  pane = null,
 }) {
   const {
     drafts,
@@ -115,7 +112,7 @@ export default function AssistantChat({
   // The newest reply that was already there on load is history, not news.
   const baseline = useRef(undefined);
   // Keeps the composer above the on-screen keyboard, as the session chat does.
-  useSessionViewport(true);
+  useSessionViewport(!pane);
   // The feed pushes every change of this chat; actions only await their request.
   const feed = useAgentConversationStream(conversationId, {
     initial: histories?.get(conversationId),
@@ -377,7 +374,7 @@ export default function AssistantChat({
       deliver({ clientRequestId: crypto.randomUUID(), text: spoken }, []),
   });
   return (
-    <section className="assistant-detail assistant-chat">
+    <section className={`assistant-detail assistant-chat${pane ? " in-pane" : ""}`}>
       <AssistantHeader
         assistant={assistant}
         variant="conversation"
@@ -387,6 +384,7 @@ export default function AssistantChat({
         attempt={active ? shownAttempt : null}
         member={member}
         compacting={compacting}
+        pane={pane}
         actions={
           talkShown && (
             <TalkButton
@@ -519,25 +517,18 @@ export default function AssistantChat({
               onRecover={recover}
             />
           </div>
-          <GoAheadButton
+          <AssistantChatActions
+            assistant={assistant}
+            member={member}
             latest={latest}
             available={available && !history.queued}
             busy={busy}
             onSend={(message) =>
               deliver({ clientRequestId: crypto.randomUUID(), text: message }, [])
             }
-          />
-          {!member && (
-            <PendingTeams
-              assistant={assistant}
-              navigate={navigate}
-              pushed={pushedActions}
-            />
-          )}
-          <AssistantActionApprovals
-            {...ownActions}
-            assistant={assistant}
-            go={navigate}
+            navigate={navigate}
+            pushedActions={pushedActions}
+            ownActions={ownActions}
             notedMail={notedMail}
           />
         </div>
