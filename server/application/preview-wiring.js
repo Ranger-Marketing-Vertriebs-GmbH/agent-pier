@@ -40,13 +40,15 @@ function adapterPorts(directory) {
 
 /**
  * AgentPier's own listeners a preview may never forward to: its HTTP port, the team
- * bridge, the Gateway with the agent browsers' CDP ports, and the session adapters.
+ * bridge, the reminder webhook, the Gateway with the agent browsers' CDP ports, and the session adapters.
  */
 export function internalPorts(services) {
   const ports = new Set();
   const add = (port) => Number.isInteger(port) && port > 0 && ports.add(port);
   add(services.effectiveConfig?.().port ?? services.config?.port);
   add(portOf(services.assistantTeams?.bridge?.connection?.url));
+  // The Gateway's reminder and hook completions (reminder-webhook.js).
+  add(portOf(services.assistantReminders?.webhook?.connection?.url));
   const runtime = services.assistantRuntime;
   const gateway = portOf(runtime?.client?.url) ?? runtime?.webTools?.port;
   if (gateway) {

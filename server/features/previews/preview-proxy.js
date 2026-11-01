@@ -77,6 +77,8 @@ export async function createPreviewListener({
   if (typeof watch !== "function")
     throw new TypeError("createPreviewListener needs watch(session, close)");
   const upgraded = new Set();
+  // Connections with a forwarded response in flight (SSE, long polls, downloads).
+  const forwarding = new Set();
   const previewOrigin = (req, branch) => {
     const remote = branch === "tailscale" && previewConfig(effective).remoteUrl;
     return `${remote ? new URL(remote).protocol : "http:"}//${req.headers.host}`;
@@ -111,7 +113,9 @@ export async function createPreviewListener({
       upstream.destroy();
       req.socket.destroy();
     });
+    forwarding.add(req.socket);
     res.once("close", () => {
+      forwarding.delete(req.socket);
       stop();
       if (!res.writableFinished) upstream.destroy();
     });
@@ -230,6 +234,10 @@ export async function createPreviewListener({
   });
   return {
     server,
+    // Ends every forwarded connection (the preview closed); the slot keeps listening.
+    drop: () => {
+      for (const socket of [...upgraded, ...forwarding]) socket.destroy();
+    },
     close: () =>
       new Promise((done) => {
         for (const socket of upgraded) socket.destroy();

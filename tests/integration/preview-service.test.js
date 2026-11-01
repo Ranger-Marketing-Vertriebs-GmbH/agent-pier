@@ -1,17 +1,22 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
+import http from "node:http";
 import net from "node:net";
+import { once } from "node:events";
 import path from "node:path";
 import { applicationFixture } from "../helpers/application.js";
 import { freePortRange } from "../helpers/preview-ports.js";
-import { send, startUpstream } from "../helpers/preview-proxy-fixture.js";
+import { openSocket, send, startUpstream } from "../helpers/preview-proxy-fixture.js";
 import { issue } from "../helpers/session-mcp.js";
 import { portAvailable } from "../../server/features/pipelines/run-ports.js";
 import { createPreviewService } from "../../server/application/preview-wiring.js";
 
-/** An app whose config enables previews on `count` free ports. */
-async function previewApp(t, { count = 4, enabled = true, before } = {}) {
+/**
+ * An app whose config enables previews on `count` free ports. Without `realOwners`
+ * every session counts as running, so tests can name sessions that tmux never ran.
+ */
+async function previewApp(t, { count = 4, enabled = true, before, realOwners } = {}) {
   const range = await freePortRange(count);
   const held = await before?.(range);
   const f = await applicationFixture(t, {
@@ -26,6 +31,7 @@ async function previewApp(t, { count = 4, enabled = true, before } = {}) {
     },
   });
   const previews = f.application.previews;
+  if (!realOwners) previews.sessionAlive = () => true;
   await previews.start();
   return { f, range, previews, held };
 }
@@ -88,6 +94,9 @@ test("open answers id, url, port and label; the same session and port reuse the 
   });
   assert.equal(again.id, first.id);
   assert.equal(again.label, "B");
+  // A re-open without a path keeps the one opened before.
+  assert.equal(again.url, first.url);
+  assert.equal(previews.list()[0].path, "/admin");
   assert.equal(previews.list().length, 1);
 });
 
@@ -178,8 +187,13 @@ test("the range full answers PREVIEW_RANGE_FULL", async (t) => {
 
 test("stopping, removing the session or revoking its MCP grant closes its previews", async (t) => {
   const upstream = await startUpstream(t);
-  const { f, previews } = await previewApp(t);
+  const { f, previews } = await previewApp(t, { realOwners: true });
   const sessions = f.application.sessions;
+  // A session without a live MCP grant opens nothing.
+  await assert.rejects(
+    previews.open({ owner: sessionOwner(f, "never-ran"), port: upstream.port }),
+    { code: "PREVIEW_NOT_FOUND", status: 404 },
+  );
   const stopped = await issue(f);
   const id = stopped.session.id;
   const opened = await previews.open({
@@ -196,8 +210,15 @@ test("stopping, removing the session or revoking its MCP grant closes its previe
   const idle = await through(f, slot);
   assert.equal(idle.status, 404);
 
-  // A preview of a stopped session (opened late) ends with the session's removal.
+  await assert.rejects(
+    previews.open({ owner: sessionOwner(f, id), port: upstream.port, label: "A" }),
+    { code: "PREVIEW_NOT_FOUND", status: 404 },
+  );
+  // A preview left from a race with the stop ends with the session's removal.
+  const realAlive = previews.sessionAlive;
+  previews.sessionAlive = () => true;
   await previews.open({ owner: sessionOwner(f, id), port: upstream.port, label: "A" });
+  previews.sessionAlive = realAlive;
   await sessions.remove(id);
   assert.deepEqual(previews.list({ sessionId: id }), []);
 
@@ -306,4 +327,39 @@ test("open, close and expire are audited without URLs or headers", async (t) => 
   assert.equal(stopped.details.reason, "tool");
   const text = JSON.stringify([started, stopped]);
   assert.doesNotMatch(text, /\?|token|secret|cookie|admin|127\.0\.0\.1/i);
+});
+
+test("closing a preview ends its WebSockets and event streams", async (t) => {
+  const upstream = await startUpstream(t, {
+    handler: (req, res) => {
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.write("data: first\n\n");
+    },
+  });
+  const { f, previews } = await previewApp(t, { realOwners: true });
+  const { session } = await issue(f);
+  await previews.open({ owner: sessionOwner(f, session.id), port: upstream.port });
+  const [{ slot }] = previews.list({ sessionId: session.id });
+  const host = `127.0.0.1:${slot}`;
+  const socket = await openSocket(slot, { host, cookie: f.cookie });
+  socket.on("error", () => {});
+  const socketClosed = new Promise((resolve) => socket.once("close", resolve));
+  const req = http.request({
+    host: "127.0.0.1",
+    port: slot,
+    path: "/events",
+    headers: { host, cookie: f.cookie },
+    agent: false,
+  });
+  req.on("error", () => {});
+  req.end();
+  const [res] = await once(req, "response");
+  res.on("error", () => {});
+  await once(res, "data");
+  // events.once would reject on the reset's error event; only the close matters.
+  const streamClosed = new Promise((resolve) => res.once("close", resolve));
+  await f.application.sessions.stop(session.id);
+  await socketClosed;
+  await streamClosed;
+  assert.equal(res.complete, false);
 });

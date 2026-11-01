@@ -15,7 +15,7 @@ const controls = /[\u0000-\u001f\u007f]/;
 const invalid = () => previewError("PREVIEW_INVALID_INPUT", 400);
 const iso = (time) => new Date(time).toISOString();
 
-function checkedInput({ owner, port, label, path = "/" } = {}) {
+function checkedInput({ owner, port, label, path } = {}) {
   const session =
     owner?.kind === "session" && typeof owner.sessionId === "string" && owner.sessionId;
   const agent =
@@ -31,9 +31,11 @@ function checkedInput({ owner, port, label, path = "/" } = {}) {
     if (typeof label !== "string" || !label.trim() || label.length > 80) throw invalid();
     if (controls.test(label)) throw invalid();
   }
-  if (typeof path !== "string" || path.length > 2048 || !/^\/(?!\/)/.test(path))
-    throw invalid();
-  if (controls.test(path)) throw invalid();
+  if (path !== undefined) {
+    if (typeof path !== "string" || path.length > 2048 || !/^\/(?!\/)/.test(path))
+      throw invalid();
+    if (controls.test(path)) throw invalid();
+  }
   return { owner, port, label, path };
 }
 
@@ -95,6 +97,7 @@ export class PreviewService extends EventEmitter {
     });
     this.previews = new Map(); // id → preview
     this.listeners = new Map(); // slot → listener
+    this.binding = new Map(); // slot → bind in flight
     this.slots = null;
     this.starting = null;
     this.stopped = false;
@@ -117,7 +120,11 @@ export class PreviewService extends EventEmitter {
   /** Binds every free slot and starts the idle sweep, once, while enabled. */
   start() {
     if (this.stopped) return Promise.resolve();
-    return (this.starting ??= this.run());
+    // A failed start is not kept: the next start or open tries again.
+    return (this.starting ??= this.run().catch((error) => {
+      this.starting = null;
+      throw error;
+    }));
   }
 
   async run() {
@@ -132,8 +139,9 @@ export class PreviewService extends EventEmitter {
     });
     for (const slot of this.slots.slots()) await this.bind(slot);
     clearInterval(this.timer);
+    if (this.stopped) return;
     this.timer = setInterval(
-      () => this.sweep().catch(() => {}),
+      () => (this.stopped ? undefined : this.sweep().catch(() => {})),
       Math.min(this.idleMs, 60_000),
     );
     this.timer.unref();
@@ -145,9 +153,19 @@ export class PreviewService extends EventEmitter {
   }
 
   /** Whether the slot has our listener (binding it when the port is free). */
-  async bind(slot) {
-    if (slot === undefined || this.stopped) return false;
-    if (this.listeners.has(slot)) return true;
+  bind(slot) {
+    if (slot === undefined || this.stopped) return Promise.resolve(false);
+    if (this.listeners.has(slot)) return Promise.resolve(true);
+    // start() and an open's allocation never bind the same slot twice.
+    if (!this.binding.has(slot))
+      this.binding.set(
+        slot,
+        this.bindNow(slot).finally(() => this.binding.delete(slot)),
+      );
+    return this.binding.get(slot);
+  }
+
+  async bindNow(slot) {
     if (!(await this.probe(listenerPort(slot)))) return false;
     try {
       const listener = await createPreviewListener({
@@ -230,11 +248,14 @@ export class PreviewService extends EventEmitter {
       throw previewError("PREVIEW_PORT_FORBIDDEN", 403, port);
     const address = await targetAddress(port);
     if (!address) throw previewError("PREVIEW_NOT_LISTENING", 409, port);
+    // A stopped session, a revoked grant or a deleted chat opens nothing.
+    if (!(await this.alive({ owner }))) throw previewError("PREVIEW_NOT_FOUND", 404);
     const key = ownerKey(owner, port);
     let preview = [...this.previews.values()].find((entry) => entry.key === key);
     if (preview) {
-      Object.assign(preview, { address, path, usedAt: this.now() });
+      Object.assign(preview, { address, usedAt: this.now() });
       if (label !== undefined) preview.label = label;
+      if (path !== undefined) preview.path = path;
     } else {
       const slot = await this.slots.allocate({ key: `${owner.project}\0${port}` });
       const time = this.now();
@@ -245,7 +266,7 @@ export class PreviewService extends EventEmitter {
         target: port,
         address,
         label: label ?? String(port),
-        path,
+        path: path ?? "/",
         owner: ownerView(owner),
         createdAt: time,
         usedAt: time,
@@ -282,6 +303,8 @@ export class PreviewService extends EventEmitter {
     const preview = this.previews.get(id);
     if (!preview) throw previewError("PREVIEW_NOT_FOUND", 404);
     this.previews.delete(id);
+    // Its WebSockets and streams end with it, before the slot can serve another.
+    this.listeners.get(preview.slot)?.drop?.();
     this.slots?.release(preview.slot);
     this.record(reason === "expired" ? "preview.expired" : "preview.stopped", preview, {
       reason,
@@ -311,7 +334,9 @@ export class PreviewService extends EventEmitter {
       if (!this.previews.has(preview.id)) continue;
       const agent = preview.owner.kind === "agent";
       if (agent && this.now() - preview.usedAt >= this.idleMs)
-        await this.close(preview.id, { reason: "expired", source: "system" });
+        await this.close(preview.id, { reason: "expired", source: "system" }).catch(
+          () => {},
+        );
       else if (!(await this.alive(preview)))
         await this.close(preview.id, {
           reason: agent ? "conversation" : "session",
@@ -385,8 +410,12 @@ export class PreviewService extends EventEmitter {
           reason,
         },
       });
-    } catch {
-      // A preview never fails on its audit row (e.g. an id the schema refuses).
+    } catch (error) {
+      // A preview (and a session stop closing it) never fails on its audit row; the
+      // log names the error code only, never a URL or header.
+      console.error(
+        `AgentPier could not audit a preview: ${error?.code || error?.status || "unknown error"}`,
+      );
     }
   }
 
