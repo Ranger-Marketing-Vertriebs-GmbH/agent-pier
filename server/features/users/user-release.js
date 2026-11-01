@@ -6,6 +6,7 @@ import {
   markArchivePurges,
 } from "../assistants/chat-removal.js";
 import { agentRemindersChanged } from "../assistants/live-topics.js";
+import { hostReady } from "../assistants/runtimes/runtime-for.js";
 
 /**
  * Everything of a deleted user's on the agents (UserAgents.releaseUser): her own
@@ -196,7 +197,7 @@ export async function retireReleased(services, agents) {
   if (!reminders) return;
   await assistants
     .admit(async () => {
-      if (!assistants.runtime.client?.ready) return;
+      if (!hostReady(assistants.runtime)) return;
       for (const agent of agents || assistants.store.listAssistants()) {
         const released = reminders.bindings
           .list(agent.id)

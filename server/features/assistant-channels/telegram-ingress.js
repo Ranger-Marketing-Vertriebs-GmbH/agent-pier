@@ -2,6 +2,7 @@ import { channelError } from "./telegram-client.js";
 import { queueLimit, serviceMessage } from "./channel-ledger.js";
 import { telegramMessages } from "./telegram-messages.js";
 import { TelegramMedia, mediaNotice } from "./telegram-media.js";
+import { hostReady } from "../assistants/runtimes/runtime-for.js";
 // A long poll that stayed open this long found nothing pending at Telegram.
 const POLL_OPEN_MS = 1000;
 // An album whose polls keep failing goes out with what it has after this long.
@@ -198,7 +199,7 @@ export class TelegramIngress {
     if (
       !channel.enabled ||
       !store.secret(id) ||
-      !assistants.runtime.client?.ready ||
+      !hostReady(assistants.runtime) ||
       this.service.closed
     )
       return;

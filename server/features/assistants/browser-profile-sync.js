@@ -3,6 +3,7 @@ import {
   browserProfilesPatch,
   nextBrowserProfiles,
 } from "./openclaw-config/browser-profiles.js";
+import { hostReady } from "./runtimes/runtime-for.js";
 
 /**
  * Keeps the running Gateway's `browser.profiles` in step with the agents: the start
@@ -30,7 +31,7 @@ export class BrowserProfileSync {
     return run;
   }
   async syncOnce() {
-    const running = this.runtime.client?.ready && this.runtime.webTools;
+    const running = hostReady(this.runtime) && this.runtime.webTools;
     if (!running?.availability?.browser) return [];
     const current = running.browserProfiles || {};
     const next = nextBrowserProfiles({

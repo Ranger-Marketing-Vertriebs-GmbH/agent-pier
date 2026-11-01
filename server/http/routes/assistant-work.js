@@ -3,6 +3,7 @@ import { assistantProblem } from "../../features/assistants/assistant-validation
 import { saveWork } from "../../features/assistants/assistant-work.js";
 import { followLead } from "../../features/assistants/member-follow.js";
 import { assistantErrors } from "./assistant-workflows.js";
+import { hostReady } from "../../features/assistants/runtimes/runtime-for.js";
 
 // The agent settings "Work" tab: workflow access and team policy in one save.
 export function assistantWorkRoutes({ assistants }) {
@@ -21,7 +22,7 @@ export function assistantWorkRoutes({ assistants }) {
         req.body,
       );
       // The next turn applies it anyway; a ready Gateway gets it now.
-      if (sshToolChanged && assistants.runtime?.client?.ready)
+      if (sshToolChanged && hostReady(assistants.runtime))
         await assistants.config.apply(req.params.id).catch(() => {});
       if (githubChanged) await assistants.workflows.github.refresh([req.params.id]);
       // Running members follow the shell and SSH setting at once.

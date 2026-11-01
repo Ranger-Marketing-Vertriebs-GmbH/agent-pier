@@ -13,7 +13,7 @@ import { AssistantModels } from "../../server/features/assistants/assistant-mode
 import { ProviderConnections } from "../../server/features/providers/provider-connections.js";
 import { runtimeManifest } from "../../server/features/assistants/runtime-manifest.js";
 import { ChatStreams } from "../../server/features/assistants/chat-stream.js";
-import { GatewayClient } from "../../server/features/assistants/gateway-client.js";
+import { GatewayClient } from "../../server/features/assistants/runtimes/openclaw/gateway-client.js";
 import { createGatewaySession } from "../../server/features/assistants/session-create.js";
 
 const chunks = ["Noch", " keine", " neuen Meldungen."];

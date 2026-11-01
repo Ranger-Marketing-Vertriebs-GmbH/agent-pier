@@ -12,6 +12,7 @@ import { redactSecrets } from "../../lib/secret-redaction.js";
 import { SshApprovals } from "./agent-ssh-approvals.js";
 import { AgentSftp, sftpActions } from "./agent-sftp.js";
 import { sftpPermits } from "./agent-sftp-policy.js";
+import { hostReady } from "./runtimes/runtime-for.js";
 
 // Agent SSH (docs/ssh-access.md, docs/adr/0003-agent-ssh-access.md): the bridge
 // hands an `agentpier_ssh` call here; AgentPier runs it in-process through the pinned
@@ -507,7 +508,7 @@ export class AgentSsh {
     this.w.a.changed();
     // An agent without grants loses agentpier_ssh; a failed apply converges later.
     for (const id of changed)
-      if (!this.w.access.hasSshGrants(id) && this.w.a.runtime?.client?.ready)
+      if (!this.w.access.hasSshGrants(id) && hostReady(this.w.a.runtime))
         Promise.resolve()
           .then(() => this.w.a.admit(() => this.w.a.config.apply(id)))
           .catch(() => {});

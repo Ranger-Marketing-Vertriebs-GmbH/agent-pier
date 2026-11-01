@@ -25,6 +25,7 @@ import {
   telegramTarget,
 } from "./routine-targets.js";
 import { agentName } from "./reminder-audience.js";
+import { hostReady } from "./runtimes/runtime-for.js";
 
 const defaultHourlyLimit = 20;
 const createKeys = ["name", "sender", "instruction", "rights", "hourlyLimit"];
@@ -311,7 +312,7 @@ export class AgentHooks {
     const input = { eventId, payload: text, size, contentType, source };
     if (this.events.find(hook.id, eventId))
       return answer(200, "duplicate", this.events.admit(hook, input).event);
-    if (!this.assistants.runtime.client?.ready) return answer(503, "unavailable");
+    if (!hostReady(this.assistants.runtime)) return answer(503, "unavailable");
     const admitted = this.events.admit(hook, { ...input, test: source === "test" });
     const { event } = admitted;
     if (admitted.outcome === "duplicate") return answer(200, "duplicate", event);

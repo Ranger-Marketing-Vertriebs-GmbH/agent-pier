@@ -2,6 +2,7 @@ import { detectAttachment } from "./agent-attachment-types.js";
 import { MAX_SHARE_BYTES } from "./agent-share-source.js";
 import { personalCapabilities } from "./native-capabilities.js";
 import { routineOrigin } from "./routine-targets.js";
+import { hostReady } from "./runtimes/runtime-for.js";
 
 // OpenClaw 2026.10.3 runs image_generate in the background. When the provider is
 // done, a completion turn of the same session writes an assistant message whose
@@ -79,7 +80,7 @@ export class GeneratedImages {
   }
   get idle() {
     const s = this.s;
-    return s.closed || s.maintenance || s.recovering || !s.runtime.client?.ready;
+    return s.closed || s.maintenance || s.recovering || !hostReady(s.runtime);
   }
   now() {
     return this.s.now?.() ?? Date.now();

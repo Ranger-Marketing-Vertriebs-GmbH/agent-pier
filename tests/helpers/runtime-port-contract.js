@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  HOST_AVAILABILITY,
   RUNTIME_CAPABILITIES,
   RUNTIME_PORTS,
   defineAgentRuntime,
@@ -11,7 +12,8 @@ import {
  * a fake and a future Hermes adapter are held to the same behaviour. `make(state)`
  * returns an `AgentRuntime` whose backend reports `state`:
  * - `channels`: the channel accounts by channel, e.g. `{ telegram: [account] }`;
- * - `unreachable`: true when the backend cannot be reached at all.
+ * - `unreachable`: true when the backend cannot be reached at all;
+ * - `version`: the version the host runs.
  * A reachable backend creates sessions keyed `session:<label>`.
  * Later tickets add a section per sub-port as its methods arrive.
  */
@@ -37,6 +39,47 @@ export function runtimePortContract(name, make) {
       if (value.available) assert.equal(value.reason, undefined, capability);
       else assert.match(value.reason, /^[a-zA-Z][\w.-]*$/, capability);
     }
+  });
+
+  test(`${name}: host.ready() answers synchronously whether calls may go out`, async () => {
+    assert.equal((await make({})).host.ready(), true);
+    assert.equal((await make({ unreachable: true })).host.ready(), false);
+  });
+
+  test(`${name}: host.status() reports a known availability and the version`, async () => {
+    const runtime = await make({ version: "2026.10.3" });
+    const status = runtime.host.status();
+    assert.ok(HOST_AVAILABILITY.includes(status.availability), status.availability);
+    assert.equal(status.availability, "ready");
+    assert.equal(status.version, "2026.10.3");
+    assert.equal(runtime.host.version(), "2026.10.3");
+    // A copy: changing it never changes the host's own state.
+    status.availability = "failed";
+    assert.equal(runtime.host.status().availability, "ready");
+    const down = (await make({ unreachable: true })).host.status();
+    assert.ok(HOST_AVAILABILITY.includes(down.availability), down.availability);
+    assert.notEqual(down.availability, "ready");
+  });
+
+  test(`${name}: host stop and start move availability and notify subscribers`, async () => {
+    const runtime = await make({ version: "2026.10.3" });
+    const seen = [];
+    const unsubscribe = runtime.host.subscribe((status) =>
+      seen.push(status.availability),
+    );
+    assert.equal(typeof unsubscribe, "function");
+    await runtime.host.stop();
+    assert.equal(runtime.host.ready(), false);
+    assert.equal(runtime.host.status().availability, "disabled");
+    await runtime.host.start();
+    assert.equal(runtime.host.ready(), true);
+    assert.equal(seen.at(-1), "ready");
+    assert.ok(seen.includes("disabled"), seen.join());
+    unsubscribe();
+    const before = seen.length;
+    await runtime.host.restart();
+    assert.equal(runtime.host.ready(), true);
+    assert.equal(seen.length, before);
   });
 
   test(`${name}: channels.status() reports the channel accounts`, async (t) => {
@@ -77,14 +120,40 @@ export function runtimePortContract(name, make) {
 }
 
 /** A runtime held in memory that meets the contract; feature tests can use it too. */
-export function fakeRuntime({ channels = {}, unreachable = false } = {}) {
+export function fakeRuntime({ channels = {}, unreachable = false, version = null } = {}) {
   const reach = async (answer) => {
     if (unreachable)
       throw Object.assign(new Error("unreachable"), { code: "UNAVAILABLE" });
     return answer();
   };
+  const listeners = new Set();
+  const state = {
+    availability: unreachable ? "failed" : "ready",
+    sync: "stale",
+    version,
+    diagnostic: null,
+  };
+  const move = (availability) => {
+    Object.assign(state, { availability });
+    for (const listener of listeners) listener({ ...state });
+  };
   return defineAgentRuntime({
     id: "fake",
+    host: {
+      ready: () => state.availability === "ready",
+      status: () => ({ ...state }),
+      version: () => state.version,
+      subscribe(listener) {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+      start: async () => move("ready"),
+      stop: async () => move("disabled"),
+      restart: async () => {
+        move("disabled");
+        move("ready");
+      },
+    },
     channels: {
       status: () => reach(() => ({ channelAccounts: structuredClone(channels) })),
     },

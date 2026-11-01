@@ -5,6 +5,7 @@ import { runtimePaths } from "./runtime-paths.js";
 import { assistantProblem } from "./assistant-validation.js";
 import { destroyBackupKeys } from "./backup-credentials.js";
 import { ModelAccountCatalog, accountModelId } from "./model-account-catalog.js";
+import { hostReady } from "./runtimes/runtime-for.js";
 const identity = (profileId) =>
   `openclaw:${createHash("sha256").update(profileId).digest("hex")}`;
 export class AssistantModelAccounts {
@@ -34,7 +35,7 @@ export class AssistantModelAccounts {
     this.leases = new Map();
   }
   requireReady() {
-    if (!this.runtime.client?.ready) throw assistantProblem("unavailable", 503);
+    if (!hostReady(this.runtime)) throw assistantProblem("unavailable", 503);
   }
   /**
    * Starts a background model list read once the cached one is stale. Only pages
@@ -56,8 +57,8 @@ export class AssistantModelAccounts {
       id: r.id,
       name: String(r.name || "ChatGPT").slice(0, 200),
       providerId: "openai-chatgpt",
-      status: this.runtime.client?.ready ? r.status : "offline",
-      available: !!this.runtime.client?.ready && ["ok", "expiring"].includes(r.status),
+      status: hostReady(this.runtime) ? r.status : "offline",
+      available: hostReady(this.runtime) && ["ok", "expiring"].includes(r.status),
       // The last known sign-in, also while the Gateway is away (imageReady).
       signedIn: ["ok", "expiring"].includes(r.status),
       ...this.catalog.account(r.profileId, { accounts: this.records.length }),
@@ -75,7 +76,7 @@ export class AssistantModelAccounts {
     return { models, modelCatalog };
   }
   async list() {
-    if (!this.runtime.client?.ready) return this.capabilities();
+    if (!hostReady(this.runtime)) return this.capabilities();
     const result = await this.runtime.client.call(
       "models.authStatus",
       { agentId: "main" },

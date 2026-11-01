@@ -8,6 +8,7 @@ import { editRoutine } from "./routine-edits.js";
 import { agentFailure } from "./routine-failures.js";
 import { runWarnings } from "./routine-results.js";
 import { agentPerson, audienceOf, boundTo, turnAudience } from "./reminder-audience.js";
+import { hostReady } from "./runtimes/runtime-for.js";
 export const permanentReasons = {
   400: "INVALID",
   403: "FORBIDDEN",
@@ -495,13 +496,13 @@ export class NativeRoutines extends NativeReminders {
   /** One agent outside any admission, after its chats changed; never retires a job. */
   resync(id) {
     return this.assistants.admit(async () => {
-      if (this.assistants.runtime.client?.ready) await this.sync(id);
+      if (hostReady(this.assistants.runtime)) await this.sync(id);
     });
   }
   /** Every agent with routines, outside any admission (Gateway ready, upgrade). */
   reconcile() {
     return this.assistants.admit(async () => {
-      if (!this.assistants.runtime.client?.ready) return;
+      if (!hostReady(this.assistants.runtime)) return;
       for (const agent of this.assistants.store.listAssistants()) {
         if (agent.archivedAt) continue;
         if (!this.bindings.list(agent.id).some((b) => b.kind === "routine")) continue;

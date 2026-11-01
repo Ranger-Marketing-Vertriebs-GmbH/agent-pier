@@ -4,6 +4,7 @@ import { personalCapabilities, personalEligible } from "./native-capabilities.js
 import { projectFileLevels } from "./member-grants.js";
 import { requestTerminal } from "./lead-request-store.js";
 import { shareNote } from "./lead-share-input.js";
+import { hostReady } from "./runtimes/runtime-for.js";
 
 const rank = (level) => projectFileLevels.indexOf(level);
 const lower = (a, b) => (rank(a) < 0 || rank(b) < 0 ? null : rank(a) < rank(b) ? a : b);
@@ -465,7 +466,7 @@ export class LeadShares {
   changed(memberAssistantId, rows, { quiet = false } = {}) {
     const a = this.w.a;
     if (rows.some((r) => r.kind === "mcp") && a.mcp) a.mcp.pending = true;
-    if (!quiet && a.runtime?.client?.ready)
+    if (!quiet && hostReady(a.runtime))
       Promise.resolve()
         .then(() => a.admit(() => a.config.apply(memberAssistantId)))
         .catch(() => {});

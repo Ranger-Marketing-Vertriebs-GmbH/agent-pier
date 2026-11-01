@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { X509Certificate, generateKeyPairSync, randomBytes, sign } from "node:crypto";
-import { privateFolder } from "./runtime-paths.js";
+import { privateFolder } from "../../runtime-paths.js";
 
 // Minimal DER writer: Node can sign but not issue X.509 certificates, and the
 // Gateway must not depend on an openssl binary being installed on the host.

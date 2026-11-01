@@ -4,6 +4,7 @@ import { assistantProblem } from "./assistant-validation.js";
 import { joinedText, validateQueueInput } from "./queued-messages.js";
 import { queuedCommandRefusal } from "./chat-commands.js";
 import { chatProblem } from "./agent-chats.js";
+import { hostReady } from "./runtimes/runtime-for.js";
 
 // A queued message that could have gone out for this long is not sent anymore (a
 // restored or long stopped host would otherwise deliver it days later).
@@ -110,7 +111,7 @@ export function pollQueued(service) {
  * published: a retry that leaves the message waiting is no news for the browsers.
  */
 export async function dispatchQueued(service, conversationId) {
-  if (service.closed || service.maintenance || !service.runtime.client?.ready) return;
+  if (service.closed || service.maintenance || !hostReady(service.runtime)) return;
   const now = service.now();
   const backoff = retriesOf(service);
   const pending = service.ledger.pending();

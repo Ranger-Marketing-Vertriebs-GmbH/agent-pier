@@ -1,3 +1,4 @@
+import { hostReady } from "./runtimes/runtime-for.js";
 // The model IDs a ChatGPT account can pin: resolve() turns one into
 // `openai/<modelId>@<profileId>`, so only bare IDs survive.
 export const accountModelId = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/;
@@ -98,7 +99,7 @@ export class ModelAccountCatalog {
     const outcome = this.#result?.outcomes.get(profileId);
     const models = this.#models(profileId);
     const modelCatalog =
-      !this.runtime.client?.ready ||
+      !hostReady(this.runtime) ||
       this.#failed ||
       this.#result?.stale ||
       (outcome !== undefined && outcome !== "ready") ||
@@ -126,7 +127,7 @@ export class ModelAccountCatalog {
    * openai discovery only a forced read can replace the Gateway's catalog.
    */
   ensure() {
-    if (this.loading || !this.runtime.client?.ready || !this.stale()) return;
+    if (this.loading || !hostReady(this.runtime) || !this.stale()) return;
     this.refresh({ force: !!this.#result?.stale }).catch(() => {});
   }
   /**

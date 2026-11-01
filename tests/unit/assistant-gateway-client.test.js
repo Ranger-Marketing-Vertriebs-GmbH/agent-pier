@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import net from "node:net";
-import { GatewayClient } from "../../server/features/assistants/gateway-client.js";
+import { GatewayClient } from "../../server/features/assistants/runtimes/openclaw/gateway-client.js";
 import { gatewayFixture } from "../helpers/assistant-gateway-fixture.js";
 test("TCP open is not authenticated readiness and RPCs preserve correlation", async (t) => {
   const fixture = await gatewayFixture({ delay: 50 });

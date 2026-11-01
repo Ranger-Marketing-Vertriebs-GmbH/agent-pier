@@ -40,6 +40,7 @@ import { runtimeView } from "../../features/assistants/runtime-view.js";
 import { replyRestartRequired } from "./restart-required.js";
 import { fromSince } from "../../features/users/owner-privacy.js";
 import { sendStatus } from "../../features/assistants/chat-commands.js";
+import { hostReady } from "../../features/assistants/runtimes/runtime-for.js";
 
 // Agent OAuth logins of MCP servers exist only while the agent services do; the
 // central list itself is a core route (mcp-servers.js). Agents for restricted users
@@ -280,7 +281,7 @@ function activeAssistantRoutes(services) {
       if (
         ["stop", "restart"].includes(action) &&
         (assistants.ledger.pending().length ||
-          (assistantRuntime.client?.ready && (await assistants.reminders?.hasRunning())))
+          (hostReady(assistantRuntime) && (await assistants.reminders?.hasRunning())))
       )
         throw assistantProblem("active", 409);
       writePrivate(path.join(assistantRuntime.paths.root, "settings.json"), {

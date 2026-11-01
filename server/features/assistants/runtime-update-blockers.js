@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { hostReady } from "./runtimes/runtime-for.js";
 
 // What blocks an agent runtime update, item by item (AssistantMaintenance.blockers).
 // Each item names its blocker code (kept for compatibility), what it is (`kind`), the
@@ -256,7 +257,7 @@ function workflows(s, items) {
 
 async function routines(s, items) {
   const reminders = s.assistantReminders;
-  if (!s.assistantRuntime.client?.ready || !reminders) return;
+  if (!hostReady(s.assistantRuntime) || !reminders) return;
   // Reminders and routines, but also check-ins, a lead's routines and jobs an agent
   // created itself (native-reminders.js runningJobs).
   const jobs = reminders.runningJobs

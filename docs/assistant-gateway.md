@@ -3864,7 +3864,7 @@ archivedAt, lastActivityAt, busy}` (the owner's also `userId`), the main chat fi
   failure, timeout or unusable answer keeps the first-message title and logs only the
   chat id and an error code (OpenClaw's own, such as `LLM_COMPLETION_TIMEOUT`, which
   the plugin answers as the whole message of an `UNAVAILABLE` error and
-  `gateway-client.js` keeps as `remoteCode`). Each chat is decided once: when its first
+  `runtimes/openclaw/gateway-client.js` keeps as `remoteCode`). Each chat is decided once: when its first
   written turn's run completes, AgentPier records `titleTried`, whether it asked or the
   turn had no reply or was forwarded; a failure is not retried on later turns, and
   later turns read nothing more. Chats named before this feature keep their titles.

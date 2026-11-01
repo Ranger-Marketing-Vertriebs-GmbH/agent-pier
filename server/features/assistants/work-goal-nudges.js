@@ -15,6 +15,7 @@ import {
 } from "./goal-turns.js";
 import { mainConversation } from "./routine-targets.js";
 import { backgroundMethod } from "./team-plugin/background-commands.js";
+import { hostReady } from "./runtimes/runtime-for.js";
 
 export const nudgeDelayMs = 90000;
 export const technicalFailureLimit = 3;
@@ -277,11 +278,7 @@ async function tickGoal(goals, goal) {
 function tickable(goals) {
   const a = goals.assistants;
   return (
-    !goals.closed &&
-    !a.closed &&
-    !a.maintenance &&
-    !a.recovering &&
-    !!a.runtime?.client?.ready
+    !goals.closed && !a.closed && !a.maintenance && !a.recovering && hostReady(a.runtime)
   );
 }
 

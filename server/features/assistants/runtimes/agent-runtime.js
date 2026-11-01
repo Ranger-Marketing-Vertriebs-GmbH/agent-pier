@@ -7,6 +7,11 @@
  *
  * Sub-ports and their responsibility (methods are added port by port as callers move):
  * - host: install, start, stop, health, version, update, rollback, restart reasons
+ *   - ready(): true while the runtime takes calls; synchronous, as callers check inline.
+ *   - status(): `{ availability, sync, version, diagnostic }`, availability one of
+ *     HOST_AVAILABILITY; version(): the running version or null.
+ *   - subscribe(listener): calls `listener(status)` on each change; returns unsubscribe.
+ *   - start(), stop(), restart(): promises that settle once the host got there.
  * - sessions: create, send, abort, wait, describe, list, delete, archive, history
  *   - create({ agentId, label }, { budgetMs, now, sleep }): resolves `{ key }` of a
  *     new native session; rejects when the runtime cannot create it.
@@ -38,6 +43,17 @@ export const RUNTIME_PORTS = Object.freeze([
   "browser",
   "models",
   "channels",
+]);
+
+// The availability states a runtime host reports (runtime-supervisor.js).
+export const HOST_AVAILABILITY = Object.freeze([
+  "disabled",
+  "installing",
+  "starting",
+  "ready",
+  "reconnecting",
+  "failed",
+  "stopping",
 ]);
 
 // One capability per sub-port for now; finer capabilities join as ports grow.

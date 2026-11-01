@@ -13,6 +13,7 @@ import {
   memberSlotName,
 } from "./openclaw-config/browser-profiles.js";
 import { BrowserWindowKeeper } from "./browser-window-keeper.js";
+import { hostReady } from "./runtimes/runtime-for.js";
 
 export const visibleBrowserLimit = 3;
 export const browserIdleMs = 15 * 60 * 1000;
@@ -108,7 +109,7 @@ export class AgentBrowsers {
     return path.join(this.browserRoot(), name);
   }
   ready() {
-    return !!this.runtime?.client?.ready;
+    return hostReady(this.runtime);
   }
   /** The bridge's answer for a browser call: `{ allow, profile }` or `{ allow, reason }`. */
   async policy(input) {

@@ -3,6 +3,7 @@ import { restartRequired } from "./assistant-provider-synchronization.js";
 import { temporaryMember } from "./team-presentation.js";
 import { webToolsSignatures } from "./openclaw-config/web-tools.js";
 import { usedCapabilities } from "./native-capabilities.js";
+import { hostReady } from "./runtimes/runtime-for.js";
 
 /**
  * The global web tool sections (the tools.allow additions, tools.web, the search
@@ -48,7 +49,7 @@ export class WebToolsChanges {
     const saved = this.network();
     const runtime = this.assistants.runtime;
     const active =
-      runtime.client?.ready &&
+      hostReady(runtime) &&
       runtime.webTools &&
       runtime.webTools.availability?.browser !== false
         ? runtime.webTools.browserAllowPrivateNetwork === true
@@ -94,7 +95,7 @@ export class WebToolsChanges {
     keys = [...usedCapabilities(profiles)],
   } = {}) {
     const runtime = this.assistants.runtime;
-    const running = runtime.client?.ready && runtime.webTools;
+    const running = hostReady(runtime) && runtime.webTools;
     if (!running) return false;
     // A restart detects the browser again, so the comparison does as well.
     const webTools = {

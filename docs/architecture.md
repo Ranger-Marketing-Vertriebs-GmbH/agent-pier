@@ -153,12 +153,13 @@ loopback WSS with a pinned certificate. The browser never reaches the Gateway
 directly.
 
 - `server/features/assistants/`: the runtime manifest, installation and update
-  lifecycle (`runtime-*.js`), the supervisor (`runtime-supervisor.js`), the Gateway
-  client, and the OpenClaw configuration compiler (`openclaw-config/`). The compiler
-  writes locked paths and AgentPier-owned settings, plus only the allow-listed
-  overrides from the advanced settings (`advanced-config.js`). The same directory
-  holds agent profiles and conversations, capabilities and skills, shell approvals and
-  the allowlist, teams (`team-*.js`, with the bundled `team-plugin/`), lead requests
+  lifecycle (`runtime-*.js`), the supervisor (`runtime-supervisor.js`), and the
+  OpenClaw configuration compiler (`openclaw-config/`). The Gateway transport
+  (`gateway-client.js`, `gateway-protocol.js`, `gateway-tls.js`) lives in the OpenClaw
+  adapter, `runtimes/openclaw/`. The compiler writes locked paths and AgentPier-owned
+  settings, plus only the allow-listed overrides from the advanced settings
+  (`advanced-config.js`). The same directory holds agent profiles and conversations,
+  capabilities and skills, shell approvals and the allowlist, teams (`team-*.js`, with the bundled `team-plugin/`), lead requests
   (`lead-request*.js`), agent SSH access (`agent-ssh*.js`), reminders, routines and check-ins (`native-*.js`) and chat
   attachments (`agent-attachments.js`, chunked videos in `agent-video-*.js`, the owner's
   usage, clear and verified folder removal in `agent-attachment-storage.js`).
@@ -175,11 +176,15 @@ names the sub-ports (`host`, `sessions`, `events`, `agents`, `agentFiles`, `conf
 `capabilities()` shape (per capability `available`, plus a reason id when it is not);
 `runtimes/runtime-for.js` resolves the runtime of an agent, today always the OpenClaw
 adapter in `runtimes/openclaw/`, which is the only place meant to call the Gateway
-client. `tests/unit/runtime-port-rules.test.js` fails when server code outside
-`runtimes/` names a Gateway method in `.call()`/`.request()` or reaches
-`runtime.client`; its allowlist (`tests/fixtures/runtime-port-allowlist.json`) holds
-today's callers and may only shrink. `tests/helpers/runtime-port-contract.js` is the
-contract every adapter passes.
+client. The adapter's `host` sub-port wraps the supervisor: `ready()`, `status()` with
+the supervisor's availability states, `version()`, `subscribe()` and `start`/`stop`/
+`restart`; feature code checks readiness with `hostReady()` from `runtime-for.js`
+instead of reading `runtime.client.ready`. `tests/unit/runtime-port-rules.test.js`
+fails when server code outside `runtimes/` names a Gateway method in
+`.call()`/`.request()` or reaches `runtime.client`; its allowlist
+(`tests/fixtures/runtime-port-allowlist.json`) holds today's callers and may only
+shrink. `tests/helpers/runtime-port-contract.js` is the contract every adapter passes,
+the `host` sub-port included.
 
 See [the user guide](agents.md), [the Gateway design](assistant-gateway.md) and
 [ADR 0002](adr/0002-managed-openclaw-assistants.md). The proposed

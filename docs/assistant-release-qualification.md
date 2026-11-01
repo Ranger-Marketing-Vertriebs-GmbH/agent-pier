@@ -536,7 +536,7 @@ installation, and an older AgentPier's team plugin refuses 2026.10.7.
   default 10 s call timeout on a slow Intel macOS runner (`TIMEOUT` in the first
   agent's creation). AgentPier and `scripts/verify-assistant-installation.mjs` now
   give `agents.create` its own 30 s budget (`agentCreateTimeoutMs` in
-  `gateway-client.js`); every other call keeps the default. The owner's create
+  `runtimes/openclaw/gateway-client.js`); every other call keeps the default. The owner's create
   request does not wait for it: the agent reaches the Gateway in its first apply.
 - **Contract helpers.** The multi-chat contract finds the session maintenance
   functions by their export clause (2026.10.7 moved them to another chunk); the

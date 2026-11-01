@@ -14,6 +14,7 @@ import {
 
 import { agentName, agentPerson, pushAudience } from "./reminder-audience.js";
 import { isShared } from "../users/user-access.js";
+import { hostReady } from "./runtimes/runtime-for.js";
 
 export const heartbeatKind = "heartbeat";
 // OpenClaw's silent-reply token; an empty summary is just as silent.
@@ -225,13 +226,13 @@ export class NativeHeartbeats {
   /** One agent outside any admission, after its pairing changed (channel-service.js). */
   resync(id) {
     return this.assistants.admit(async () => {
-      if (this.assistants.runtime.client?.ready) await this.sync(id);
+      if (hostReady(this.assistants.runtime)) await this.sync(id);
     });
   }
   /** Every agent with settings or a binding, outside any admission (ready, leave). */
   reconcile() {
     return this.assistants.admit(async () => {
-      if (!this.assistants.runtime.client?.ready) return;
+      if (!hostReady(this.assistants.runtime)) return;
       for (const agent of this.assistants.store.listAssistants()) {
         if (!agent.heartbeat?.enabled && !this.current(agent.id).length) continue;
         await this.sync(agent.id).catch(() => {});

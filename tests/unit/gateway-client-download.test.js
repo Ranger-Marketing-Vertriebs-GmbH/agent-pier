@@ -4,8 +4,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import https from "node:https";
-import { GatewayClient } from "../../server/features/assistants/gateway-client.js";
-import { issueGatewayCertificate } from "../../server/features/assistants/gateway-tls.js";
+import { GatewayClient } from "../../server/features/assistants/runtimes/openclaw/gateway-client.js";
+import { issueGatewayCertificate } from "../../server/features/assistants/runtimes/openclaw/gateway-tls.js";
 
 // A pinned HTTPS origin like the Gateway's, serving managed media by path.
 async function origin(t, pair = issueGatewayCertificate()) {

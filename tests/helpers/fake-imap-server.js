@@ -1,6 +1,6 @@
 import net from "node:net";
 import tls from "node:tls";
-import { issueGatewayCertificate } from "../../server/features/assistants/gateway-tls.js";
+import { issueGatewayCertificate } from "../../server/features/assistants/runtimes/openclaw/gateway-tls.js";
 import { commands, createMailbox } from "./fake-imap-mailbox.js";
 
 // An in-process IMAP server on 127.0.0.1 for tests: implicit TLS, STARTTLS or plain,

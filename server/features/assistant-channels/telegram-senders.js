@@ -19,6 +19,7 @@ import { TelegramClient } from "./telegram-client.js";
 import { patchTelegramAllowlists } from "./telegram-live.js";
 import { validPeople } from "./native-telegram-store.js";
 import { runtimeResolver } from "../assistants/runtimes/runtime-for.js";
+import { hostReady } from "../assistants/runtimes/runtime-for.js";
 
 // Telegram client failures the owner can act on; anything else is "unavailable".
 const clientProblems = {
@@ -180,7 +181,7 @@ export class TelegramSenders {
     const patch = async () => {
       const runtime = this.assistants.runtime;
       const started = runtime.telegram;
-      if (!runtime.client?.ready || !started) return false;
+      if (!hostReady(runtime) || !started) return false;
       const desired = this.desired();
       const changes = telegramLiveChanges(started, desired);
       if (!changes) return false;
@@ -360,7 +361,7 @@ export class TelegramSenders {
       this.assistants.changed?.();
       // A starting Gateway gets the lists once it answers (ready()). A failed patch
       // of a removed person falls back to the revocation restart (converge).
-      if (live && this.assistants.runtime.client?.ready) await this.converge();
+      if (live && hostReady(this.assistants.runtime)) await this.converge();
       return result;
     }
     // Saved now; the restart waits until nothing is busy (pending-restart.js). A
@@ -438,7 +439,7 @@ export class TelegramSenders {
       !telegramEligible(profile, this.stdioAgents(), this.sshAgents())
     )
       return { state: "inactive" };
-    if (!runtime.client?.ready || !runtime.telegram) return { state: "stopped" };
+    if (!hostReady(runtime) || !runtime.telegram) return { state: "stopped" };
     if (this.agentPending(bot.assistantId)) return { state: "pending" };
     // Neither running nor compiled by a restart: the agent has no Gateway entry yet
     // (its first apply creates it; then the bot is pending).

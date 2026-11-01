@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
 import { AssistantService } from "../../server/features/assistants/assistant-service.js";
-import { sessionCreateTimeoutMs } from "../../server/features/assistants/gateway-client.js";
+import { sessionCreateTimeoutMs } from "../../server/features/assistants/runtimes/openclaw/gateway-client.js";
 import {
   createGatewaySession,
   sessionNotCreated,

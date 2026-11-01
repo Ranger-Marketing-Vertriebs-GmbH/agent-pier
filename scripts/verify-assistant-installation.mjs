@@ -11,7 +11,7 @@ import {
   GatewayClient,
   agentCreateTimeoutMs,
   sessionCreateTimeoutMs,
-} from "../server/features/assistants/gateway-client.js";
+} from "../server/features/assistants/runtimes/openclaw/gateway-client.js";
 import { runtimePaths } from "../server/features/assistants/runtime-paths.js";
 import { waitForAgentInRoster } from "../server/features/assistants/openclaw-config/agent-roster.js";
 import { runtimeEnvironment } from "../server/features/assistants/runtime-config.js";

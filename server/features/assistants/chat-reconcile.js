@@ -9,6 +9,7 @@ import { reconciledChanges } from "./conversation-feeds.js";
 import { busyChats, chatBusy } from "./agent-chats.js";
 import { keepChatOpen } from "./native-chat-archive.js";
 import { noteRefusal } from "./agent-admission.js";
+import { hostReady } from "./runtimes/runtime-for.js";
 
 const sessionRetryMs = 60000;
 
@@ -33,7 +34,7 @@ export function reconcileChats(service, { full = true, chats = [] } = {}) {
       });
     return service.reconcileNext;
   }
-  if (!service.runtime.client?.ready || service.closed || service.maintenance)
+  if (!hostReady(service.runtime) || service.closed || service.maintenance)
     return Promise.resolve();
   service.reconciling = pass(service).finally(() => {
     service.reconciling = null;

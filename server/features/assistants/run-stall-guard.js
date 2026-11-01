@@ -1,3 +1,4 @@
+import { hostReady } from "./runtimes/runtime-for.js";
 // Ends a chat turn that hangs without a sign of life (AGENTPIER-184). OpenClaw
 // 2026.10.3 aborts a model stream that stays quiet (120 s for cloud models, retried a
 // few times, each retry an event), but a run stuck elsewhere, before its model call
@@ -14,11 +15,11 @@ const waiting = new Set(["model", "thinking", "writing", "retrying"]);
 
 /** One pass; runs during the service's poll. Never throws. */
 export async function guardStalledRuns(service) {
-  if (service.stallGuarding || !service.runtime.client?.ready || service.closed) return;
+  if (service.stallGuarding || !hostReady(service.runtime) || service.closed) return;
   service.stallGuarding = true;
   try {
     for (const [runId] of service.runSteps.list()) {
-      if (service.closed || !service.runtime.client?.ready) return;
+      if (service.closed || !hostReady(service.runtime)) return;
       if (!stalled(service, runId)) continue;
       await endStalled(service, runId).catch((error) =>
         console.error(`Stalled agent turn of run ${runId} not ended:`, error?.message),

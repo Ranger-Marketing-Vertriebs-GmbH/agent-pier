@@ -81,6 +81,7 @@ import { createFileServices } from "./files.js";
 import { OwnerInbox } from "../features/inbox/owner-inbox.js";
 
 import { createAssistantFeature } from "./assistants.js";
+import { hostReady } from "../features/assistants/runtimes/runtime-for.js";
 
 export async function createServices(config) {
   const mutationBarrier = new MutationBarrier();
@@ -560,7 +561,7 @@ export async function createServices(config) {
     const runtime = assistants?.runtime;
     const profiles = Object.values(runtime?.webTools?.browserProfiles || {});
     const compiled =
-      runtime?.client?.ready &&
+      hostReady(runtime) &&
       profiles.some((profile) => profile.agentId) &&
       runtime.webTools?.browserExecutable;
     return (
