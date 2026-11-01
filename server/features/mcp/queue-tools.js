@@ -72,42 +72,49 @@ function replayQueued(tools, grant, requestId, input) {
   return { item: null, run: tools.summary(run), replayed: true };
 }
 
+/** Adds a client's item to its project's queue; see McpTools.serialStart. */
+async function queueAdd(tools, args, grant, resolveGrant) {
+  const { pipelineId, projectId, task, baseBranch, tokenBudget, externalRef } = args;
+  const input = {
+    queued: true,
+    pipelineId,
+    projectId,
+    task,
+    baseBranch: baseBranch || null,
+    ...(tokenBudget !== undefined ? { tokenBudget } : {}),
+    externalRef: externalRef || null,
+  };
+  const checked = await tools.authorizeStart(args, grant, resolveGrant, input, (...a) =>
+    replayQueued(tools, ...a),
+  );
+  if (checked.previous) return checked.previous;
+  ({ grant } = checked);
+  const queue = tools.services.pipelineQueue;
+  const fields = { pipelineId, task, baseBranch, tokenBudget, externalRef };
+  // A refused item (a full queue, an invalid reference) leaves the request ID unused.
+  queue.check(projectId, fields);
+  const receipt = tools.requests.reserve(grant.id, args.requestId, input);
+  const item = queue.add(projectId, fields, {
+    id: receipt.runId,
+    // The scopes it had now bound what its grant may do when the item starts.
+    source: {
+      kind: "mcp",
+      grantId: grant.id,
+      clientId: grant.clientId,
+      scopes: [...grant.scopes],
+    },
+  });
+  tools.audit("pipeline.created", "pipeline", item.id, grant, projectId, {
+    kind: "queue",
+  });
+  return { item: summary(item, grant), replayed: false };
+}
+
 export const queueTools = {
-  async queue_add(tools, args, grant, resolveGrant) {
-    const { pipelineId, projectId, task, baseBranch, tokenBudget, externalRef } = args;
-    const input = {
-      queued: true,
-      pipelineId,
-      projectId,
-      task,
-      baseBranch: baseBranch || null,
-      ...(tokenBudget !== undefined ? { tokenBudget } : {}),
-      externalRef: externalRef || null,
-    };
-    const checked = await tools.authorizeStart(args, grant, resolveGrant, input, (...a) =>
-      replayQueued(tools, ...a),
+  queue_add(tools, args, grant, resolveGrant) {
+    return tools.serialStart(grant.id, args.requestId, () =>
+      queueAdd(tools, args, grant, resolveGrant),
     );
-    if (checked.previous) return checked.previous;
-    ({ grant } = checked);
-    const queue = tools.services.pipelineQueue;
-    const fields = { pipelineId, task, baseBranch, tokenBudget, externalRef };
-    // A refused item (a full queue, an invalid reference) leaves the request ID unused.
-    queue.check(projectId, fields);
-    const receipt = tools.requests.reserve(grant.id, args.requestId, input);
-    const item = queue.add(projectId, fields, {
-      id: receipt.runId,
-      // The scopes it had now bound what its grant may do when the item starts.
-      source: {
-        kind: "mcp",
-        grantId: grant.id,
-        clientId: grant.clientId,
-        scopes: [...grant.scopes],
-      },
-    });
-    tools.audit("pipeline.created", "pipeline", item.id, grant, projectId, {
-      kind: "queue",
-    });
-    return { item: summary(item, grant), replayed: false };
   },
   queue_list(tools, args, grant) {
     requireResource(grant, "projectIds", args.projectId);

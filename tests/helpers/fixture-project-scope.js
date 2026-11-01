@@ -10,11 +10,9 @@ import {
  * parent is a plain folder and gets its scope without spawning Git, so a fixture
  * never depends on Git answering within projectScope's time limit under a loaded
  * test run. Every other folder (a Git work tree, or a path that does not resolve)
- * goes through the real projectScope. Like a spawned Git, it answers in a later
- * event-loop turn: concurrent callers (duplicate MCP starts) resume one at a time.
+ * goes through the real projectScope.
  */
 export async function fixtureProjectScope(cwd, options) {
-  await new Promise((resolve) => setImmediate(resolve));
   let dir;
   try {
     dir = fs.realpathSync(cwd);
