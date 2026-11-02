@@ -120,3 +120,37 @@ test("keeps a user's own agent read only", async (t) => {
   assert.equal(put.status, 404);
   assert.equal(fs.readFileSync(path.join(root, note), "utf8"), "Bought milk");
 });
+
+test("owner delete refuses the lead mirror and the corpus", async (t) => {
+  const { f, id, root } = await setup(t);
+  for (const name of ["memory/lead/plan.md", "memory/.dreams/corpus.md", "DREAMS.md"]) {
+    const del = await f.request(
+      `/api/assistants/${id}/memory/notes?name=${encodeURIComponent(name)}`,
+      { method: "DELETE" },
+    );
+    assert.equal(del.status, 400, name);
+    assert.equal(fs.existsSync(path.join(root, name)), true, name);
+  }
+});
+
+test("saves a 100 KiB note and keeps the file mode", async (t) => {
+  const { id, root, memory } = await setup(t);
+  fs.chmodSync(path.join(root, note), 0o640);
+  const big = "x".repeat(100 * 1024);
+  const saved = await memory.writeNote(id, {
+    name: note,
+    content: big,
+    expectedHash: sha("Bought milk"),
+  });
+  assert.equal(saved.hash, sha(big));
+  assert.equal(fs.readFileSync(path.join(root, note), "utf8"), big);
+  assert.equal(fs.statSync(path.join(root, note)).mode & 0o777, 0o640);
+  await assert.rejects(
+    memory.writeNote(id, {
+      name: note,
+      content: "x".repeat(262145),
+      expectedHash: saved.hash,
+    }),
+    { status: 400 },
+  );
+});

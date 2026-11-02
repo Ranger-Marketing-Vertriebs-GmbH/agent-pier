@@ -22,7 +22,7 @@ export function assistantCapabilityRoutes(services) {
     res.json(await assistantMemory.writeNote(req.params.id, req.body)),
   );
   router.delete("/assistants/:id/memory/notes", async (req, res) => {
-    await assistantMemory.remove(req.params.id, req.query.name);
+    await assistantMemory.remove(req.params.id, req.query.name, { owner: true });
     res.status(204).end();
   });
   router.get("/assistants/:id/memory/files", async (req, res) =>

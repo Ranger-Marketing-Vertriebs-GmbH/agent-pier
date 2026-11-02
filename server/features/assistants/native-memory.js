@@ -188,12 +188,14 @@ export class NativeMemory {
    * their own agents' notes): 400 for MEMORY.md, USER.md or any other path, 404
    * when the note does not exist. Links are never followed.
    */
-  remove(id, name) {
+  // `owner` refuses what writeNote refuses (the lead's mirror, the corpus).
+  remove(id, name, { owner = false } = {}) {
     return this.assistants.admit(async () => {
       if (
         typeof name !== "string" ||
         !noteName.test(name) ||
-        name.split("/").includes("..")
+        name.split("/").includes("..") ||
+        (owner && !editableNote(name))
       )
         throw assistantProblem("invalid");
       const root = this.root(id),
@@ -229,7 +231,13 @@ export class NativeMemory {
       !/^[a-f0-9]{64}$/i.test(input.expectedHash || "")
     )
       throw assistantProblem("invalid");
-    textValue(input.content, 65536, true);
+    // The read limit applies in bytes, so every note that opens can be saved.
+    if (
+      typeof input.content !== "string" ||
+      input.content.includes("\0") ||
+      Buffer.byteLength(input.content) > maxNoteBytes
+    )
+      throw assistantProblem("invalid");
     const { name, content } = input;
     const root = this.root(id),
       file = path.join(root, name);
@@ -242,10 +250,11 @@ export class NativeMemory {
       if (error.code === "ENOENT") throw assistantProblem("conflict", 409);
       throw assistantProblem("invalid");
     }
-    let handle;
+    let handle, mode;
     try {
       handle = await openInside(real, constants.O_RDONLY);
       const stat = await handle.stat();
+      mode = stat.mode & 0o777;
       if (!stat.isFile() || stat.size > maxNoteBytes) throw Error("size");
       const current = await handle.readFile("utf8");
       if (
@@ -262,7 +271,8 @@ export class NativeMemory {
     }
     const temp = `${real}.${process.pid}.${Date.now()}.tmp`;
     try {
-      await fs.writeFile(temp, content, { flag: "wx" });
+      await fs.writeFile(temp, content, { flag: "wx", mode });
+      await fs.chmod(temp, mode);
       await fs.rename(temp, real);
     } catch {
       await fs.rm(temp, { force: true });
