@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { createHash, randomBytes } from "node:crypto";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { echoServer } from "./mcp-test-servers.js";
 
 // A local OAuth 2.1 authorization server and a protected Streamable HTTP MCP server
@@ -49,7 +50,6 @@ export async function oauthMcpServer({ expiresIn = 3600 } = {}) {
   const calls = [];
   let origin;
 
-  const resourceMetadataUrl = () => `${origin}/.well-known/oauth-protected-resource/mcp`;
   const issue = (clientId) => {
     const accessToken = `at-${random()}`;
     const refreshToken = `rt-${random()}`;
@@ -131,17 +131,43 @@ export async function oauthMcpServer({ expiresIn = 3600 } = {}) {
     res.writeHead(302, { location: target.href }).end();
   }
 
-  async function mcp(req, res) {
+  // The bearer of an unexpired access token, or null after answering 401.
+  function authorized(req, res, resource = "mcp") {
     const bearer = /^Bearer (.+)$/.exec(req.headers.authorization ?? "")?.[1];
     const grant = bearer && access.get(bearer);
     if (!grant || grant.expiresAt <= Date.now() || state.rejectTokens) {
-      log.push({ path: "/mcp", rejected: bearer ? "invalid" : "missing" });
+      log.push({ path: `/${resource}`, rejected: bearer ? "invalid" : "missing" });
       res.writeHead(401, {
-        "www-authenticate": `Bearer resource_metadata="${resourceMetadataUrl()}"`,
+        "www-authenticate": `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource/${resource}"`,
       });
       res.end();
+      return null;
+    }
+    return bearer;
+  }
+
+  // The legacy HTTP+SSE transport at /sse (GET stream) and /messages (POST).
+  const sseSessions = new Map();
+  async function sse(req, res, url) {
+    const bearer = authorized(req, res, "sse");
+    if (!bearer) return;
+    if (req.method === "GET" && url.pathname === "/sse") {
+      const transport = new SSEServerTransport("/messages", res);
+      sseSessions.set(transport.sessionId, transport);
+      res.on("close", () => sseSessions.delete(transport.sessionId));
+      await echoServer("oauth-sse-echo", (call) =>
+        calls.push({ ...call, bearer }),
+      ).connect(transport);
       return;
     }
+    const transport = sseSessions.get(url.searchParams.get("sessionId"));
+    if (req.method !== "POST" || !transport) return res.writeHead(404).end();
+    await transport.handlePostMessage(req, res);
+  }
+
+  async function mcp(req, res) {
+    const bearer = authorized(req, res);
+    if (!bearer) return;
     if (req.method !== "POST") {
       res.writeHead(405).end();
       return;
@@ -171,7 +197,8 @@ export async function oauthMcpServer({ expiresIn = 3600 } = {}) {
       const url = new URL(req.url, origin);
       if (url.pathname.startsWith("/.well-known/oauth-protected-resource"))
         return json(res, 200, {
-          resource: `${origin}/mcp`,
+          // Path-aware (RFC 9728): /sse for the SSE server, else /mcp.
+          resource: `${origin}/${url.pathname.endsWith("/sse") ? "sse" : "mcp"}`,
           authorization_servers: [origin],
           bearer_methods_supported: ["header"],
         });
@@ -193,6 +220,8 @@ export async function oauthMcpServer({ expiresIn = 3600 } = {}) {
       if (url.pathname === "/token" && req.method === "POST")
         return await token(req, res);
       if (url.pathname === "/mcp") return await mcp(req, res);
+      if (url.pathname === "/sse" || url.pathname === "/messages")
+        return await sse(req, res, url);
       res.writeHead(404).end();
     } catch {
       if (!res.headersSent) json(res, 500, { error: "server_error" });
@@ -203,6 +232,8 @@ export async function oauthMcpServer({ expiresIn = 3600 } = {}) {
   return {
     origin,
     url: `${origin}/mcp`,
+    // The same tools on the legacy HTTP+SSE transport.
+    sseUrl: `${origin}/sse`,
     state,
     log,
     calls,

@@ -2,6 +2,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { providerErrors } from "./mcp-oauth-logins.js";
 import { oauthLoginUsable } from "./oauth-redirect.js";
+import { proxyable } from "./mcp-inputs.js";
 
 const messages = serverMessages.mcpServers;
 const failure = (message, code, status) =>
@@ -11,12 +12,12 @@ const failure = (message, code, status) =>
  * MCP OAuth logins by holder, behind one interface (routes, McpChanges, the server
  * list):
  * - AgentPier (`agentpier`, mcp-oauth-agentpier.js) runs every new login of a
- *   Streamable HTTP server and holds its tokens; both runtimes then reach it through
+ *   remote server (Streamable HTTP or HTTP+SSE) and holds its tokens; both runtimes then reach it through
  *   the MCP proxy (mcp-proxy.js). Its first completed login also removes OpenClaw's
  *   own login of that server, so a server never has two refreshers.
  * - OpenClaw (`legacy`, McpOAuthLogins over its CLI) keeps the logins it made before,
- *   until the owner signs in again, and the logins of SSE servers, which the proxy
- *   does not carry.
+ *   until the owner signs in again: their status, logout and removal. Without
+ *   `agentpier` every login is OpenClaw's, as before.
  */
 export class McpOAuthHolders {
   constructor({
@@ -40,9 +41,9 @@ export class McpOAuthHolders {
       warn,
     });
   }
-  // A server whose login AgentPier runs: Streamable HTTP with OAuth.
+  // A server whose login AgentPier runs: a remote OAuth server the proxy carries.
   ours(server) {
-    return !!this.agentpier && server?.auth === "oauth" && server.transport === "http";
+    return !!this.agentpier && server?.auth === "oauth" && proxyable(server);
   }
   held(id) {
     return !!this.agentpier?.held(id);

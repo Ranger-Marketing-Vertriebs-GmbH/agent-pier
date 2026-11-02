@@ -54,7 +54,12 @@ async function setup(t, extra = {}) {
     FAKE_OPENCLAW_LOG: log,
     FAKE_OPENCLAW_STATE: "11111111-1111-4111-8111-111111111111",
   };
-  // OpenClaw's own login over its CLI, which SSE servers keep (mcp-oauth-holders.js).
+  // OpenClaw's own login over its CLI (mcp-oauth-holders.js `legacy`): the logins it
+  // made before AgentPier held them keep their status, logout, removal and rollback
+  // paths here. Without AgentPier's holder the routes drive OpenClaw's whole login,
+  // which qualifies those paths end to end; mcp-oauth-agentpier-routes.test.js covers
+  // AgentPier's own login.
+  f.application.assistantMcpOAuth.agentpier = null;
   const oauth = f.application.assistantMcpOAuth.legacy;
   oauth.cli = createMcpCli({
     runtime: { nodePath: process.execPath, entryPath: fakeEntry, cwd: f.root },
@@ -64,7 +69,7 @@ async function setup(t, extra = {}) {
     method: "POST",
     body: {
       name: "docs",
-      transport: "sse",
+      transport: "http",
       url: "https://mcp.example.com/v1",
       auth: "oauth",
     },
@@ -261,7 +266,12 @@ test("MCP logouts keep backup keys; a rollback queues them again", async (t) => 
   assert.equal(fs.existsSync(key), true);
   // The update rollback hook reaches the login service before the Gateway starts.
   await f.application.assistantUpdates.onRolledBack({ createdAt: since });
-  // OpenClaw's own login over its CLI, which SSE servers keep (mcp-oauth-holders.js).
+  // OpenClaw's own login over its CLI (mcp-oauth-holders.js `legacy`): the logins it
+  // made before AgentPier held them keep their status, logout, removal and rollback
+  // paths here. Without AgentPier's holder the routes drive OpenClaw's whole login,
+  // which qualifies those paths end to end; mcp-oauth-agentpier-routes.test.js covers
+  // AgentPier's own login.
+  f.application.assistantMcpOAuth.agentpier = null;
   const oauth = f.application.assistantMcpOAuth.legacy;
   clearTimeout(oauth.drainTimer);
   oauth.drainTimer = null;
@@ -283,7 +293,7 @@ test("deleting an OAuth server logs it out, or defers that with a warning", asyn
     method: "POST",
     body: {
       name: "docs",
-      transport: "sse",
+      transport: "http",
       url: "https://mcp.example.com/v1",
       auth: "oauth",
     },
