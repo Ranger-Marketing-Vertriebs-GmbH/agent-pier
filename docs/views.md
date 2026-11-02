@@ -39,6 +39,11 @@ Drag a session or agent row from the sidebar, or a pane by its header, over a pa
 | Centre of a pane | Replaces the pane's content with the dropped item           |
 | Pane header      | Moves the pane; dropped on a pane's centre it swaps the two |
 
+A dropped session opens on the tab it was last shown on in this browser tab (terminal,
+chat or files; shell and login sessions never open on chat), as it would on its own page.
+A tab chosen inside a pane is remembered the same way, so **Open alone** and the next
+drop land on it.
+
 Drag the divider between two panes to resize them. Dividers keep the split ratio between
 15 % and 85 % and stop where a pane would get smaller than 280 × 220 px, so a terminal
 always keeps at least 20 columns and 5 rows.

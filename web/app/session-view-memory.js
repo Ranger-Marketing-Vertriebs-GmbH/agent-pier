@@ -51,3 +51,12 @@ export class SessionViewMemory {
     return (coding(session) && this.preferred) || defaultSessionMode(session, mobile);
   }
 }
+
+let shared = null;
+/**
+ * The tab's one memory, shared by single-session navigation and split-view panes, so
+ * a session dropped into a view opens on the view it was last shown in, and a tab
+ * changed in a pane is where "Open alone" lands.
+ */
+export const sessionViewMemory = () =>
+  (shared ??= new SessionViewMemory(() => globalThis.sessionStorage));

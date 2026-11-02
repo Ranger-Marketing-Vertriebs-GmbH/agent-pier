@@ -24,14 +24,21 @@ const mainOf = (element) => element.closest("main") ?? element;
  * session or agent dragged onto one of its edges creates a view with both, the
  * dragged one on that side, and opens it. `item` is what the page shows (null: not a
  * pane item, no drop); `tab` is the tab a shown session is on, which its pane keeps.
+ * A dropped session opens on the tab it was last shown on (`sessions`: the workspace's).
  */
-export default function SingleViewDropTarget({ item, tab, navigate, children }) {
+export default function SingleViewDropTarget({
+  item,
+  tab,
+  sessions,
+  navigate,
+  children,
+}) {
   const offered = useViewsOffered();
   const store = useViews();
   const { assistants, conversations, refresh } = useAssistants();
   const [error, setError] = useState("");
   const latest = useRef({});
-  latest.current = { assistants, conversations, refresh, store, item, tab };
+  latest.current = { assistants, conversations, refresh, store, item, tab, sessions };
   const active = Boolean(offered && item && store?.loaded);
 
   const differs = (dropped) => itemKey(dropped) !== itemKey(item);

@@ -1,6 +1,9 @@
 // What a drop into a split view or onto a single view stands for and what it does to
-// a layout. Pure apart from `itemForPayload`, which may open an agent's chat.
+// a layout. Pure apart from `itemForPayload`, which may open an agent's chat and reads
+// the session view memory.
 import { SPLIT_GAP, fits } from "../../components/split-geometry.js";
+import { sessionViewMemory } from "../../app/session-view-memory.js";
+import { tabOfMode } from "./click-rule.js";
 import { ownerChatsOf, resolveAgentChat } from "../assistants/agent-chat-target.js";
 import { MAX_PANES, MIN_PANE, dropItem, movePane, paneCount } from "./split-tree.js";
 
@@ -19,15 +22,25 @@ export function hoverItemOf(payload, { assistants, conversations }) {
 }
 
 /**
- * The item a dropped session or agent payload lands as; an agent without a chat gets
- * one from `open(assistantId)` and the agents list is read again (`refresh`), as a
- * click on its row does.
+ * A session item with the tab its session was last shown on in this browser tab
+ * (`memory`: session-view-memory.js), so its new pane opens there; other items and
+ * unknown sessions as they are.
+ */
+export function withRememberedTab(item, sessions = [], memory = sessionViewMemory()) {
+  const session = item.kind === "session" && sessions.find(({ id }) => id === item.id);
+  return session ? { ...item, tab: tabOfMode(memory.mode(session, false)) } : item;
+}
+
+/**
+ * The item a dropped session or agent payload lands as; a session with its remembered
+ * tab (`withRememberedTab`); an agent without a chat gets one from `open(assistantId)`
+ * and the agents list is read again (`refresh`), as a click on its row does.
  */
 export async function itemForPayload(
   payload,
-  { assistants, conversations, refresh, open },
+  { assistants, conversations, refresh, open, sessions },
 ) {
-  if (payload.item) return payload.item;
+  if (payload.item) return withRememberedTab(payload.item, sessions);
   const { assistantId } = payload.agent;
   const assistant = assistants.find((candidate) => candidate.id === assistantId) ?? {
     id: assistantId,

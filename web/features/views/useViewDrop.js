@@ -21,7 +21,7 @@ const always = () => "center";
  * replaces a pane asks that pane's unsaved-edits guard first. `adding` tells whether
  * the drag under a pane would add one (for the "view is full" label).
  */
-export default function useViewDrop({ view, stageSize }) {
+export default function useViewDrop({ view, stageSize, sessions }) {
   const { setLayout } = useViews();
   const { assistants, conversations, refresh } = useAssistants();
   const [error, setError] = useState("");
@@ -30,7 +30,7 @@ export default function useViewDrop({ view, stageSize }) {
   const layout = view?.layout ?? null;
   // Values the handlers read when they run, after an await or from an old closure.
   const latest = useRef({});
-  latest.current = { layout, stageSize, assistants, conversations, refresh };
+  latest.current = { layout, stageSize, assistants, conversations, refresh, sessions };
 
   const apply = useCallback(
     (next) => {

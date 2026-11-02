@@ -174,7 +174,7 @@ export default function SplitViewPage({
     [state, ready, action, autoResume],
   );
   const [stageSize, setStageSize] = useState(null);
-  const drop = useViewDrop({ view, stageSize });
+  const drop = useViewDrop({ view, stageSize, sessions: state.sessions });
   const renderPane = (leaf, size, arranged = false) => {
     const pane = paneOf(leaf);
     const host = (
