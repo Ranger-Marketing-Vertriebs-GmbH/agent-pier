@@ -14,6 +14,9 @@ function retryLater(error) {
   if (error && typeof error === "object") error[transient] = true;
   return error;
 }
+// Server errors, and a timeout or throttling without a quota hint: worth another
+// attempt after the backoff. An exhausted quota names its wait and is reported.
+const transientStatus = (status) => status >= 500 || [408, 425, 429].includes(status);
 const failure = (message, code, status) =>
   Object.assign(problem(message, status), { code });
 const idleFailure = () =>
@@ -158,11 +161,15 @@ async function transfer(
       throw rangeFailure();
     }
     if (!response.ok) {
-      const error = problem(
-        serverMessages.releases.downloadFailed,
-        response.status === 404 ? 404 : 502,
+      // The upstream status names the failure in a test or an operator's report; it
+      // carries nothing of the request.
+      const error = Object.assign(
+        problem(
+          serverMessages.releases.downloadFailed,
+          response.status === 404 ? 404 : 502,
+        ),
+        { upstreamStatus: response.status },
       );
-      if (response.status >= 500) retryLater(error);
       // GitHub reports an exhausted API quota as 403 or 429.
       if (
         [403, 429].includes(response.status) &&
@@ -171,7 +178,7 @@ async function transfer(
       ) {
         error.rateLimited = true;
         error.retryAfter = retryAfterSeconds(response.headers);
-      }
+      } else if (transientStatus(response.status)) retryLater(error);
       throw error;
     }
     if (response.status === 206) {
