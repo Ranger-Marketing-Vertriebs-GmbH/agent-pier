@@ -125,6 +125,8 @@ export const assistantCopy = {
       "Erstellt und bearbeitet Bilder mit deinem ChatGPT-Konto (gpt-image-2) und gibt sie dir im Chat.",
     imagesUnavailable:
       "Verbinde unter Zugänge › Modell-Zugänge ein ChatGPT-Konto, um Bilder zu erstellen.",
+    imagesRuntimeUnavailable: (runtime) =>
+      `Für ${runtime}-Agenten noch nicht verfügbar: Bilder entstehen mit einem ChatGPT-Konto, das nur OpenClaw-Agenten nutzen können.`,
     browserUnavailable:
       "Auf diesem Rechner wurde kein unterstützter Browser gefunden. Installiere Chrome, Brave, Edge oder Chromium, um dies zu nutzen.",
     searchUnavailable:
