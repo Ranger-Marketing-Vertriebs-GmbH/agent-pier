@@ -17,13 +17,20 @@ import { channelPerson, mainConversation } from "./routine-targets.js";
  * has exactly one unarchived main chat. `onCommit(next)` runs as soon as that
  * transaction commits; whatever fails after it (the note, the subscribe) is 503 unless
  * it carries a status. Callers hold admission.
+ *
+ * `options`: the note opening the fresh chat (`reason`, `details`; memory-notes.js),
+ * whether the archived chat names it as its `successor` so late deliveries follow it
+ * (chat-successor.js; a model switch does, Restart main chat does not) and whether the
+ * fresh chat is `main`.
  */
-export function freshMainChat(service, conversation, onCommit) {
+export function freshMainChat(service, conversation, onCommit, options) {
   return swap(
     service,
     conversation,
     { ...(typeof conversation.userId === "string" && { userId: conversation.userId }) },
     onCommit,
+    undefined,
+    options,
   );
 }
 
@@ -32,7 +39,7 @@ export function freshMainChat(service, conversation, onCommit) {
  * one its lead's requests go to: the member row points at the fresh chat in the same
  * transaction. The member itself keeps running. Callers hold admission.
  */
-export function freshMemberChat(service, member, onCommit) {
+export function freshMemberChat(service, member, onCommit, options) {
   const teams = service.teams.store;
   return swap(
     service,
@@ -40,6 +47,7 @@ export function freshMemberChat(service, member, onCommit) {
     {},
     onCommit,
     (id) => teams.write(teams.member(member.id), { conversationId: id }),
+    options,
   );
 }
 
@@ -49,6 +57,7 @@ async function swap(
   owner,
   onCommit = () => {},
   linked = () => {},
+  { reason = "main-restarted", details, successor = false, main = true } = {},
 ) {
   const assistant = service.store.getAssistant(conversation.assistantId);
   const id = randomUUID();
@@ -77,12 +86,13 @@ async function swap(
     store.updateConversation(conversation.id, {
       main: false,
       archivedAt: new Date().toISOString(),
+      ...(successor && { successorId: id }),
     });
     next = store.saveConversation({
       id,
       assistantId: assistant.id,
       runtimeSessionKey: created.key,
-      main: true,
+      main,
       ...owner,
     });
     linked(id);
@@ -96,9 +106,10 @@ async function swap(
     service.feeds.end(conversation.id);
     // The note comes first: the swap has committed, whatever the subscribe does.
     service.memoryNotes.record({
-      key: `main-restarted:${id}`,
+      key: `${reason}:${id}`,
       conversationId: id,
-      reason: "main-restarted",
+      reason,
+      ...(details !== undefined && { details }),
     });
     await sessions.subscribeMessages({ key: created.key });
   } catch (error) {

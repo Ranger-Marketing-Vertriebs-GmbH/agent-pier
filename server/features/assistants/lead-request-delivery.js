@@ -52,8 +52,9 @@ export async function deliverRequest(requests, id) {
     )
       return;
     if (r.delivery !== "pending") r = requests.teams.write(r, { delivery: "pending" });
+    // A chat a model switch replaced is sent to as such: sendTurn notes the redirect.
     const sent = await a.send(
-      target.conversationId,
+      target.redirectedFrom ?? target.conversationId,
       {
         clientRequestId: target.clientRequestId,
         text: target.text,

@@ -4,6 +4,7 @@ import { runReply } from "./history-text.js";
 import { textValue, validateSendInput } from "./assistant-validation.js";
 import { readText, saveText, shortForm } from "./team-texts.js";
 import { synthesisPrompt } from "./team-synthesis.js";
+import { currentChatId, successorOf } from "./chat-successor.js";
 export { synthesisMaxChars, synthesisPrompt } from "./team-synthesis.js";
 export const memberTerminal = new Set(["completed", "failed", "cancelled"]);
 const codingRun = (a) => ({
@@ -22,10 +23,11 @@ const codingRun = (a) => ({
 export const reportText = (teams, team, entry) =>
   (entry.truncated && readText(teams.db, team.id, entry.memberId)) || entry.text || "";
 // A chat archived or deleted before its team reported (agent-chats.js keeps one with
-// open team work, but not one from before that rule) takes no result turn.
+// open team work, but not one from before that rule) takes no result turn; one a model
+// switch replaced hands it to its successor (chat-successor.js).
 function chatRemoved(assistants, conversationId) {
   try {
-    const chat = assistants.store.storedConversation(conversationId);
+    const chat = successorOf(assistants.store, conversationId);
     return !!(chat.deletedAt || chat.archivedAt);
   } catch {
     return false;
@@ -117,14 +119,12 @@ export class TeamResults {
       a.changed();
       return;
     }
+    // Sent to the parent chat as recorded: sendTurn follows its successor and notes it.
+    const parent = currentChatId(a.store, team.parentConversationId);
     if (
       a.ledger
         .pending()
-        .some(
-          (at) =>
-            a.ledger.getRequest(at.requestId).conversationId ===
-            team.parentConversationId,
-        )
+        .some((at) => a.ledger.getRequest(at.requestId).conversationId === parent)
     )
       return;
     const input = {

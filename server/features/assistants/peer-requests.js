@@ -3,6 +3,7 @@ import { editableMember, memberEnded } from "./member-reach.js";
 import { mainConversation } from "./routine-targets.js";
 import { endOutcome, peerFollowUp, peerLeadFollowUp } from "./lead-request-text.js";
 import { createPeerRequest, peerCaller, peerTarget } from "./peer-request-rules.js";
+import { currentChatId, successorOf } from "./chat-successor.js";
 
 /**
  * A member's questions and tasks for a sibling of the same lead (peer-request-rules.js
@@ -75,8 +76,11 @@ export class PeerRequests {
       if (sender.lifetime !== "permanent" && memberEnded.has(sender.phase)) return false;
       const store = this.assistants.store;
       if (store.getAssistant(r.fromAssistantId).archivedAt) return false;
-      const chat = store.getConversation(r.fromConversationId);
-      return !chat.archivedAt && chat.assistantId === r.fromAssistantId;
+      // A chat a model switch replaced: its successor takes it (chat-successor.js).
+      const chat = successorOf(store, r.fromConversationId);
+      return (
+        !chat.archivedAt && !chat.deletedAt && chat.assistantId === r.fromAssistantId
+      );
     } catch {
       return false;
     }
@@ -88,14 +92,17 @@ export class PeerRequests {
     // How a cancelled or failed request ended, for the chat's line.
     const outcome = endOutcome(r),
       how = outcome ? { outcome } : {};
-    if (r.resultTo !== "lead" && this.reachable(r))
+    if (r.resultTo !== "lead" && this.reachable(r)) {
+      const chat = currentChatId(this.assistants.store, r.fromConversationId);
       return {
-        conversationId: r.fromConversationId,
+        conversationId: chat,
+        ...(chat !== r.fromConversationId && { redirectedFrom: r.fromConversationId }),
         clientRequestId: `peer-request-result:${r.id}`,
         text: peerFollowUp(full),
         context: { kind: "peer-result", requestId: r.id, ...how },
         record: { deliveredTo: "member" },
       };
+    }
     // The lead acts on it like on any member result (member-result-writes.js).
     // The lead's main chat as it is now: one opened after the request still counts.
     return {
