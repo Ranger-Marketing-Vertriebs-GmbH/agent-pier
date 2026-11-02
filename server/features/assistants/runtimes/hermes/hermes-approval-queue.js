@@ -35,6 +35,10 @@ const decisionOf = { once: "allow-once", session: "allow-session", deny: "deny" 
 const decisionOrder = ["allow-once", "allow-session", "deny"];
 const statuses = { "allow-once": "allowed", "allow-session": "allowed", deny: "denied" };
 const text = (value, max) => (typeof value === "string" ? value.slice(0, max) : "");
+// How long a question AgentPier raises for a routine run waits for the owner
+// (Hermes's own approval timeout, approvals.timeout default).
+export const askTimeoutMs = 300000;
+let raised = 0;
 
 /** A refusal of a call Hermes would refuse too: answered, as OpenClaw's would be. */
 export const refused = (message) =>
@@ -58,8 +62,12 @@ export class HermesApprovalQueue {
     this.pending = new Map();
     this.ended = [];
     client.subscribe((params) => this.observe(params || {}));
-    // A closed connection answers nothing more; the new one asks again.
-    client.once("disconnected", () => this.pending.clear());
+    // A closed connection answers nothing more; the new one asks again. A question
+    // AgentPier raised itself (ask) is answered "no answer": its caller blocks.
+    client.once("disconnected", () => {
+      for (const item of this.pending.values()) if (item.settle) item.settle(null);
+      this.pending.clear();
+    });
   }
 
   observe({ type, session_id: sid, payload, admission_id: admission }) {
@@ -123,9 +131,64 @@ export class HermesApprovalQueue {
     this.phase(item, "waiting-approval", "approval.request");
   }
 
+  /**
+   * A question AgentPier raises for a run Hermes asks nobody in: a routine run, where
+   * Hermes clears every approval surface (tools/approval.py _presence), so the
+   * AgentPier guard plugin asks the owner through the team bridge instead
+   * (hermes-config/guard-plugin.js). Published like Hermes's own requests, so
+   * exec-approvals.js shows it in the routine's chat; resolves with the owner's
+   * decision ("allow-once" or "deny"), or null once it expired or the connection
+   * closed. `sessionKey`: the run's session key; `command`: what runs; `description`:
+   * Hermes's reason it is flagged, shown beside it.
+   */
+  ask({ sessionKey, command, description = "", timeoutMs = askTimeoutMs }) {
+    const id = `agentpier-${process.pid}-${Date.now()}-${++raised}`;
+    const createdAtMs = Date.now();
+    const item = {
+      id,
+      request: {
+        command: text(command, 32768),
+        cwd: this.cwd,
+        agentId: this.runs.agentId,
+        sessionKey: text(sessionKey, 4096),
+        runId: null,
+        allowedDecisions: ["allow-once", "deny"],
+        ...(description ? { warningText: text(description, 2000) } : {}),
+        hermes: { raisedBy: "agentpier", description: text(description, 2000) },
+      },
+      createdAtMs,
+      expiresAtMs: createdAtMs + timeoutMs,
+    };
+    const answer = new Promise((resolve) => {
+      item.settle = (decision) => {
+        clearTimeout(item.timer);
+        item.settle = null;
+        resolve(decision);
+      };
+    });
+    item.timer = setTimeout(() => {
+      if (!this.pending.has(id)) return;
+      this.pending.delete(id);
+      this.end(item, "expired", null, "timeout");
+      item.settle?.(null);
+    }, timeoutMs);
+    item.timer.unref?.();
+    this.pending.set(id, item);
+    this.publish("approval.requested", "exec.approval.requested", item, {
+      ...this.shown(item),
+      sessionKey: item.request.sessionKey,
+    });
+    return answer;
+  }
+
+  // An item as the frames and list() carry it: without its own settle and timer.
+  shown({ settle: _settle, timer: _timer, ...item }) {
+    return structuredClone(item);
+  }
+
   /** The pending requests, OpenClaw's exec.approval.list items. */
   list() {
-    return [...this.pending.values()].map((item) => structuredClone(item));
+    return [...this.pending.values()].map((item) => this.shown(item));
   }
 
   async resolve({ id, decision }) {
@@ -133,6 +196,13 @@ export class HermesApprovalQueue {
     if (!item) throw refused("unknown or expired approval id");
     if (!item.request.allowedDecisions.includes(decision))
       throw refused("decision not offered");
+    // A question AgentPier raised itself: the waiting guard takes the answer.
+    if (item.request.hermes.raisedBy === "agentpier") {
+      this.pending.delete(id);
+      this.end(item, statuses[decision], decision, "owner");
+      item.settle?.(decision);
+      return { ok: true, id, decision };
+    }
     const { sessionId, executionGeneration } = item.request.hermes;
     // Hermes announces the answer (approval.settled) before it acknowledges it.
     item.answering = true;

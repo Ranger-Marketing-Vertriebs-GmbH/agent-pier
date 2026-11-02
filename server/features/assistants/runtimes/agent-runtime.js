@@ -192,6 +192,9 @@
  *   - list(): the pending requests, `[{ id, request, … }]`.
  *   - resolve({ id, decision }): "allow-once", "allow-always" or "deny".
  *   - history(): `{ items: [{ id, status, decision }] }`, how requests ended.
+ *   - ask({ sessionKey, command, description }), optional (Hermes): raises a request
+ *     for a run the runtime asks nobody in (a routine run) and resolves with the
+ *     owner's decision, or null once it expired.
  *   - readAllowlist(): `{ file, hash }`, the allowlist file with entries per runtime
  *     agent id; writeAllowlist({ baseHash, file }) replaces it over that hash, and
  *     staleAllowlist(error) tells (synchronously) a refusal a fresh read fixes.

@@ -125,6 +125,7 @@ test("the writer merges into the home as Hermes left it, owner-only", (t) => {
     "SOUL.md",
     "config.yaml",
     "plugins/agentpier-guard/__init__.py",
+    "plugins/agentpier-guard/guard.json",
     "plugins/agentpier-guard/plugin.yaml",
   ]);
   assert.equal(mode(dir, "config.yaml"), 0o600);
