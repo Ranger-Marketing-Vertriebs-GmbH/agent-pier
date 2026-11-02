@@ -125,6 +125,8 @@ test("a launch carries OpenClaw's managed-browser flags, Linux ones on Linux", (
     "--disable-renderer-backgrounding",
     // A direct connection, as OpenClaw's managed browser.
     "--no-proxy-server",
+    // A blocked navigation's error page never reloads itself.
+    "--disable-auto-reload",
   ])
     assert.ok(linux.includes(flag), flag);
   assert.equal(linux.at(-1), "about:blank");

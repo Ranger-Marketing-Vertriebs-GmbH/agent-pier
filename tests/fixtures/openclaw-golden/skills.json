@@ -126,7 +126,8 @@
       "--use-mock-keychain",
       "--disable-backgrounding-occluded-windows",
       "--disable-renderer-backgrounding",
-      "--disable-background-timer-throttling"
+      "--disable-background-timer-throttling",
+      "--disable-auto-reload"
     ],
     "profiles": {
       "user": {

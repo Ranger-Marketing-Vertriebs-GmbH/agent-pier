@@ -3,6 +3,7 @@ import path from "node:path";
 import { createHmac, randomBytes } from "node:crypto";
 import { capabilityTools } from "../../../native-capabilities.js";
 import { browserProfileMap, compiledProfile } from "./browser-profiles.js";
+import { policyGuardArgs } from "../../../chromium-launch.js";
 
 // Verified against OpenClaw 2026.10.3, see docs/assistant-web-tools-qualification.md.
 export const imageModel = "openai/gpt-image-2";
@@ -132,8 +133,9 @@ export function webToolsSections({ profiles, webTools, port, only }) {
       executablePath: webTools.browser.executablePath,
       // OpenClaw uses the macOS keychain for a new profile it launches visibly, which
       // can prompt the owner; the mock keychain never does (ignored elsewhere).
-      // extraArgs is global, so every profile keeps the same cookie protection.
-      extraArgs: ["--use-mock-keychain", ...antiThrottlingArgs],
+      // extraArgs is global, so every profile keeps the same cookie protection, and
+      // no blocked navigation's error page reloads itself past the policy guard.
+      extraArgs: ["--use-mock-keychain", ...antiThrottlingArgs, ...policyGuardArgs],
       // The plugin adds implicit "user" (the signed-in Chrome) and "chrome"
       // (extension) profiles unless defined; both become isolated managed profiles.
       // CDP ports follow OpenClaw's range: first CDP port = gateway port + 11.

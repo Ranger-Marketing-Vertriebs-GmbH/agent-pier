@@ -279,12 +279,14 @@ browser: {
   allowSystemProfileImport: false,
   headless: true,
   executablePath: "<detected Chromium-based browser>",
-  // Since AGENTPIER-240 also the anti-throttling flags (see "Visible window").
+  // Since AGENTPIER-240 also the anti-throttling flags (see "Visible window"),
+  // since 2.15.0 no self-reloading error page (see "Reproducing the boundary").
   extraArgs: [
     "--use-mock-keychain",
     "--disable-backgrounding-occluded-windows",
     "--disable-renderer-backgrounding",
     "--disable-background-timer-throttling",
+    "--disable-auto-reload",
   ],
   profiles: {
     user: { driver: "openclaw", cdpPort: gatewayPort + 12 },
@@ -553,6 +555,15 @@ live models, user profiles, running Gateway configuration or deployment are used
 The exact-host cases qualify the runtime boundary; the broader global opt-in has
 separate acceptance cases in the same contract. Public-site compatibility here is a policy check with fixture DNS, not a
 live public-site browser test.
+
+The browser launches with the `extraArgs` AgentPier compiles. OpenClaw's navigation
+guard removes its request route as soon as a denied navigation fails and closes the
+blocked tab afterwards. Chromium's network error page reloads itself about a second
+later; when closing the tab took longer (seen on a busy macOS runner), the reload
+reached the private address unchecked. Every agent browser therefore starts with
+`--disable-auto-reload` (`policyGuardArgs` in `chromium-launch.js`, also for Hermes
+and the launch check), and the contract keeps an aborted navigation's error page open
+without a route for three seconds and counts no request.
 
 ### Requirements for a future exact-host solution
 

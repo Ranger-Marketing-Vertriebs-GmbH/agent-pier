@@ -84,6 +84,7 @@ test("every agent with the browser gets its own persistent profile and CDP port"
     "--disable-backgrounding-occluded-windows",
     "--disable-renderer-backgrounding",
     "--disable-background-timer-throttling",
+    "--disable-auto-reload",
   ]);
   assert.equal(browser.executablePath, brave);
   for (const profile of Object.values(browser.profiles))

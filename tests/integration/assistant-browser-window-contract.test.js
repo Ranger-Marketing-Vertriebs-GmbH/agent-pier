@@ -16,6 +16,7 @@ import { provisionTeamPlugin } from "../../server/features/assistants/team-plugi
 import { agentProfileName } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/browser-profiles.js";
 import { AgentBrowsers } from "../../server/features/assistants/agent-browsers.js";
 import { antiThrottlingArgs } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/web-tools.js";
+import { policyGuardArgs } from "../../server/features/assistants/chromium-launch.js";
 
 // A visible agent browser in the state AgentPier leaves it in (AGENTPIER-240,
 // docs/assistant-web-tools-qualification.md "Visible window"), provisioned like the
@@ -253,7 +254,8 @@ test(
     assert.equal(await page.evaluate(heavyPage), 400);
     // OpenClaw 2026.10.7 accepts AgentPier's extraArgs and launches with them.
     const args = browserArguments(entry.cdpPort).split(" ");
-    for (const flag of antiThrottlingArgs) assert.ok(args.includes(flag), flag);
+    for (const flag of [...antiThrottlingArgs, ...policyGuardArgs])
+      assert.ok(args.includes(flag), flag);
 
     const check = async (label) => {
       assert.equal(await page.evaluate("document.visibilityState"), "visible", label);

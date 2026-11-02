@@ -234,10 +234,21 @@ test(
       assert.ok(!process.env.CI, "CI requires a Chromium browser");
       return t.skip("no Chromium browser");
     }
+    const compile = (enabled) =>
+      webToolsSections({
+        profiles: [],
+        port: 20000,
+        webTools: {
+          browser: { available: true, executablePath },
+          browserAllowPrivateNetwork: enabled,
+        },
+      }).browser;
+    // With the flags AgentPier compiles for OpenClaw's managed browser.
     const browser = await chromium.launch({
       executablePath,
       headless: true,
       chromiumSandbox: true,
+      args: compile(false).extraArgs,
     });
     t.after(() => browser.close());
     let blockedRequests = 0;
@@ -265,6 +276,17 @@ test(
       /private|internal/i,
     );
     assert.equal(blockedRequests, 0, "default policy blocks a direct private navigation");
+    // The guard removes its request route as soon as the navigation fails and closes
+    // the blocked tab after that. Chromium's error page reloads itself about a second
+    // later unless the browser was launched without auto reload, which reached the
+    // private address unchecked whenever the close took longer (a busy CI runner).
+    const kept = await browser.newPage();
+    await kept.route("**", (route) => route.abort());
+    await assert.rejects(kept.goto(`${blocked}/destination`, { timeout: 10000 }));
+    await kept.unroute("**");
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    assert.equal(blockedRequests, 0, "an aborted navigation's error page stays put");
+    await kept.close();
     // Only this disposable fixture explicitly trusts a loopback literal. No product
     // configuration is written. The localhost hostname is never allowed.
     const ssrfPolicy = { allowedHostnames: ["127.0.0.1"] };
@@ -290,21 +312,12 @@ test(
       blockedRequests > 0,
       "the redirect target was reached before the result was denied",
     );
-    const compile = (enabled) =>
-      webToolsSections({
-        profiles: [],
-        port: 20000,
-        webTools: {
-          browser: { available: true, executablePath },
-          browserAllowPrivateNetwork: enabled,
-        },
-      }).browser.ssrfPolicy;
     // Each permanent agent still has its own browser context. Both get the same
     // global permission; neither receives the other context's cookies.
     for (let index = 0; index < 2; index++) {
       const context = await browser.newContext();
       const agentPage = await context.newPage();
-      const allowed = { ...opts, page: agentPage, ssrfPolicy: compile(true) };
+      const allowed = { ...opts, page: agentPage, ssrfPolicy: compile(true).ssrfPolicy };
       const loaded = await native.gotoPageWithNavigationGuard({
         ...allowed,
         url: `${source}/`,
@@ -323,7 +336,7 @@ test(
       native.gotoPageWithNavigationGuard({
         ...opts,
         page: await browser.newPage(),
-        ssrfPolicy: compile(false),
+        ssrfPolicy: compile(false).ssrfPolicy,
         url: `${blocked}/destination`,
       }),
       /private|internal/i,
