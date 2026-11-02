@@ -6,6 +6,7 @@ import { agentWizardCopy } from "../../../lib/i18n/messages/agent-wizard.js";
 import { assistantPdfCopy as pdfCopy } from "../../../lib/i18n/messages/assistant-pdf.js";
 import { assistantCopy } from "../../../lib/i18n/messages/assistants.js";
 import { assistantApi } from "../assistant-api.js";
+import { imagesFor, runtimeIdName } from "../runtime-capabilities.js";
 import { ShellGroup } from "../settings/CapabilityGroups.jsx";
 import LockedNotice from "../settings/LockedNotice.jsx";
 import ConnectModelSheet from "./ConnectModelSheet.jsx";
@@ -63,13 +64,17 @@ export default function StepCapabilities({ d, set, runtime, models, everyCommand
   useEffect(() => {
     loadServices();
   }, []);
-  const images = models.some(
-    (m) => m.providerId === "openai-chatgpt" && (m.signedIn ?? m.available) === true,
-  );
+  // A Hermes agent needs a ChatGPT login AgentPier holds (runtime-capabilities.js).
+  const imageState = imagesFor(models, { runtimeInfo: { id: d.runtime || "openclaw" } });
   const reasons = {
     webSearch: search && search.ready === false ? personal().searchUnavailable : "",
     browser: runtime?.browser?.available === false ? personal().browserUnavailable : "",
-    createImages: images ? "" : personal().imagesUnavailable,
+    createImages:
+      imageState === "ready"
+        ? ""
+        : imageState === "move"
+          ? personal().imagesRuntimeMove(runtimeIdName(d.runtime))
+          : personal().imagesUnavailable,
   };
   // "hier einrichten" rows: [sheet, shown, label]. The PDF model is optional (a
   // fallback for models without images), so it is offered while none is chosen.

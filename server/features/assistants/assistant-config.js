@@ -236,6 +236,7 @@ export class AssistantConfig {
       // Its SSH grant, shell PATH and what its AgentPier tools reach, as OpenClaw's.
       const own = await ownProcessInputs(this, assistant, {
         tools: !!inputs.connection,
+        images: !!(inputs.modelProxy && inputs.imageLogin),
       });
       const desired = desiredAgent(assistant, {
         ssh: own.ssh,
@@ -274,6 +275,7 @@ export class AssistantConfig {
         browser: inputs.browser,
         web: inputs.web,
         modelProxy: inputs.modelProxy,
+        imageLogin: inputs.imageLogin,
       });
     }
     this.store.markEffective(assistant.id, assistant.revision);

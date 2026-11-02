@@ -26,9 +26,15 @@ import {
 //   fail-closed) asks the bridge before a team member changes a file (`write_file`,
 //   `patch`), before a file call that names the attachments/ or .agentpier/ folder
 //   (`read_file`, `search_files`, `vision_analyze`, the writes) and before every
-//   browser call (`browser_*`); no answer blocks the call. Invisible subagents (`delegate_task`) run under a session of
+//   browser call (`browser_*`) and image creation (`image_generate`); no answer
+//   blocks the call. Invisible subagents (`delegate_task`) run under a session of
 //   their own; the `subagent_start` hook maps it to the parent's, so the guard judges
 //   a subagent's call as its parent's. Team tools stay with the parent's own session.
+// - Images: a `transform_tool_result` hook (model_tools.py) copies an image Hermes
+//   created (agent/image_gen_provider.py `save_b64_image`, below the home's
+//   cache/generated/images/) into the agent's folder and shares it into the chat with
+//   agentpier_share_file, as OpenClaw's generated images reach the chat
+//   (generated-images.js): the agent does nothing for it.
 //
 // The bridge's address and token change with every AgentPier start. They live in
 // bridge.json, which the plugin reads at each call, so a new one needs no restart.
@@ -71,6 +77,9 @@ const browserUpload = Object.freeze({
   },
 });
 
+/** The folder of the agent's own folder its generated images are shared from. */
+export const generatedImagesFolder = "generated-images";
+
 /** The folder below HERMES_HOME that holds built-in skill `name`. */
 export const teamSkillFolder = (name) => `${teamDirectory}/skills/${name}`;
 
@@ -89,6 +98,7 @@ cannot answer fails, and the guard then blocks the tool.
 import json
 import os
 import re
+import shutil
 import threading
 import urllib.error
 import urllib.request
@@ -300,7 +310,8 @@ def _guard(tool_name="", args=None, session_id=None, task_id=None, **_):
     browser = tool_name.startswith("browser_") and settings.get("browser")
     member_write = tool_name in _WRITES and bool(settings.get("guardWrites"))
     folder = tool_name in _FILES and _names_folder(args)
-    if not browser and not member_write and not folder:
+    image = tool_name == "image_generate" and bool(settings.get("images"))
+    if not browser and not member_write and not folder and not image:
         return None
     try:
         root = _root(session_id)
@@ -331,6 +342,53 @@ def _subagent(parent_session_id=None, child_session_id=None, **_):
     if isinstance(parent_session_id, str) and isinstance(child_session_id, str):
         with _LOCK:
             _PARENTS[child_session_id] = parent_session_id
+
+
+# Where Hermes saves the images it creates (agent/image_gen_provider.py).
+_GENERATED = os.path.join(os.path.dirname(os.path.dirname(_DIR)), "cache", "generated", "images")
+_SHARE = _tool({"action": "share_file", "timeoutMs": 30000})
+
+
+def _image_result(tool_name="", result=None, session_id=None, task_id=None, **_):
+    # Hands an image Hermes created to the chat as a file of the agent's own folder.
+    images = _read("tools.json").get("images")
+    if tool_name != "image_generate" or not images or not isinstance(result, str):
+        return None
+    try:
+        answer = json.loads(result)
+        if not isinstance(answer, dict) or answer.get("success") is not True:
+            return None
+        source = os.path.realpath(str(answer.get("image") or ""))
+        if not source.startswith(os.path.realpath(_GENERATED) + os.sep):
+            return None
+        if not os.path.isfile(source):
+            return None
+        name = os.path.basename(source)
+        os.makedirs(os.path.join(images["folder"], images["share"]), mode=0o700, exist_ok=True)
+        target = os.path.join(images["folder"], images["share"], name)
+        shutil.copyfile(source, target)
+    except Exception:
+        return None
+    relative = images["share"] + "/" + name
+    try:
+        shared = json.loads(_SHARE({"path": relative}, session_id=_root(session_id), task_id=task_id))
+    except Exception:
+        shared = {"error": _UNAVAILABLE}
+    answer["image"] = target
+    if isinstance(shared, dict) and shared.get("status") == "shared":
+        answer["note"] = (
+            "AgentPier handed this image over in this chat. "
+            + str(shared.get("note") or "")
+            + " Do not share it again with agentpier_share_file."
+        ).strip()
+    else:
+        error = shared.get("error") if isinstance(shared, dict) else None
+        answer["note"] = (
+            "AgentPier could not hand this image over ("
+            + str(error or _UNAVAILABLE)
+            + "). Share " + relative + " with agentpier_share_file."
+        )
+    return json.dumps(answer)
 
 
 def _upload(args, session_id=None, task_id=None, **_):
@@ -377,6 +435,8 @@ def register(ctx):
         )
     ctx.register_hook("pre_tool_call", _guard)
     ctx.register_hook("subagent_start", _subagent)
+    if settings.get("images"):
+        ctx.register_hook("transform_tool_result", _image_result)
 `;
 
 // The bridge action a tool name stands for, or null (team-plugin/index.js toolName).
@@ -409,13 +469,15 @@ export function teamTools(agent) {
  * The plugin's files for `agent` (a desiredAgent), by path inside the home, or null
  * when it needs none. `connection`: the team bridge's `{ url, token }`, without which
  * the agent gets neither tools nor the guard; `browser`: whether it uses the browser;
- * `skills`: the built-in skills it gets (skills.js builtInOffered), copied here.
+ * `skills`: the built-in skills it gets (skills.js builtInOffered), copied here;
+ * `images`: `{ folder }`, the agent's own folder, while it creates images (images.js),
+ * which its generated images are copied into before they are shared.
  * A team member's file changes ask the bridge (guardWrites), as the OpenClaw guard
  * does for every agent; an own agent's stay Hermes's own.
  */
 export function teamPluginFiles(
   agent,
-  { connection, browser = false, skills = [] } = {},
+  { connection, browser = false, skills = [], images = null } = {},
 ) {
   if (!connection?.url || !connection?.token) return null;
   const tools = teamTools(agent).map(({ name, action }) => ({
@@ -432,6 +494,9 @@ export function teamPluginFiles(
     guardWrites,
     browser: !!browser,
     ...(browser && { browserUpload }),
+    ...(images?.folder && {
+      images: { folder: images.folder, share: generatedImagesFolder },
+    }),
   };
   const bridge = {
     url: connection.url,

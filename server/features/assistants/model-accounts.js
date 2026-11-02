@@ -105,6 +105,16 @@ export class AssistantModelAccounts {
   imageReady() {
     return this.records.some((r) => signedIn(r.status));
   }
+  /**
+   * The ChatGPT login a Hermes agent creates images with (hermes-config/images.js):
+   * one AgentPier holds, signed in at its last read, since only those reach Hermes
+   * through the runtime proxy; the one the agent chats with (`preferred`, its
+   * connection id) first. Its profile id, or null.
+   */
+  heldImageLogin(preferred) {
+    const held = this.#held().filter((r) => signedIn(r.status));
+    return (held.find((r) => r.id === preferred) || held[0])?.profileId ?? null;
+  }
   /** Synchronous: the cached model lists, never a Gateway read. */
   capabilities() {
     const ready = hostReady(this.runtime);

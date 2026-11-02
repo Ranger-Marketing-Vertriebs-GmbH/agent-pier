@@ -92,6 +92,7 @@ export function createHermesRuntime({
       mcp: inputs.mcp,
       connection: inputs.connection,
       modelProxy: inputs.modelProxy,
+      imageLogin: inputs.imageLogin,
       // The owner's web search settings, once the installation (ddgs) is known.
       web:
         inputs.web && installed
@@ -210,11 +211,12 @@ export function createHermesRuntime({
         browser: settings,
         web,
         modelProxy,
+        imageLogin,
       }) {
         latest = {
           desired: read,
           strict: !!everyCommand,
-          inputs: { catalog, mcp, connection, web, modelProxy },
+          inputs: { catalog, mcp, connection, web, modelProxy, imageLogin },
           browser: settings,
         };
         // The agent's shell PATH starts with its GitHub folder and its SSH agent's

@@ -139,11 +139,9 @@ their dangerous commands reach the owner through the session's approval queue.
 `agent.disabled_toolsets` follows the agent's settings: `memory` (and
 `memory.memory_enabled`) with memory, `file` with memory, shell access or PDF reading,
 `web` with web search or fetch ([web search](#web-search)), `vision` with documents and
-`browser` with the browser ([browser](#browser)). `image_gen` stays off: AgentPier
-creates images through the owner's ChatGPT account, which Hermes agents cannot use yet
-(AGENTPIER-340), and Hermes's own `image_generate` needs a FAL or Nous key AgentPier
-does not hold (`tools/image_generation_tool.py`); the agent's **Create images** switch
-says so. `computer_use` stays off until AgentPier serves it on Hermes; `cronjob`, the
+`browser` with the browser ([browser](#browser)); `image_gen` with image creation through
+a ChatGPT login AgentPier holds ([images](#images)), never on a FAL or Nous key AgentPier
+does not hold (`tools/image_generation_tool.py`). `computer_use` stays off until AgentPier serves it on Hermes; `cronjob`, the
 agent's own Hermes jobs, stays off because AgentPier sets up routines on the same
 scheduler ([Routines](#routines)).
 
@@ -327,8 +325,9 @@ its set runs (`mcp-placeholder-view.js`).
 The compiler names what an agent wants that Hermes does not get yet: ChatGPT logins
 OpenClaw still holds, the browser while AgentPier knows no browser app, MCP servers it
 cannot compile (`mcp`, `mcpOAuth`), assigned skills Hermes cannot offer, a web search
-provider it cannot serve (`webSearch`), image creation (`createImages`) and AgentPier's
-tools while no team bridge runs (`teams`). Hermes has no advanced settings in AgentPier
+provider it cannot serve (`webSearch`), image creation without a ChatGPT login
+AgentPier holds, its proxy or the team bridge (`createImages`) and AgentPier's tools
+while no team bridge runs (`teams`). Hermes has no advanced settings in AgentPier
 yet: the capability reports `advancedSettingsUnsupported`.
 
 ## Teams
@@ -378,7 +377,8 @@ The `agentpier-team` profile plugin carries both parts of the OpenClaw team plug
 - **Guard.** A `pre_tool_call` hook asks the bridge (`/hermes-guard`,
   `hermes-tool-guard.js`) before a team member's `write_file` or `patch`, before a file
   call (`read_file`, `search_files`, `vision_analyze`, the writes) whose arguments name
-  `attachments/` or `.agentpier/`, and before every browser call. It applies the
+  `attachments/` or `.agentpier/`, before every browser call and before every
+  `image_generate` ([images](#images)). It applies the
   OpenClaw guard's rules (`team-plugin/tool-guard.js`, `secrets-guard.js`): an
   attachment is read only from the chat it was sent in (`/attachment-policy`), the
   secrets file not in a hook run without the hook's Secrets switch; a member's file
@@ -401,8 +401,9 @@ guard judges its file changes and browser calls as the parent's.
 
 Beside OpenClaw's guard: memory steps are OpenClaw's (Hermes keeps its memory itself);
 restricted users' locked tools are compiled away (toolsets, [Toolsets](#toolsets))
-rather than refused at run time; image and PDF checks have nothing to check, as Hermes
-agents create no images and read PDFs with `read_file`.
+rather than refused at run time; image creation passes the same image policy
+([images](#images)); PDF checks have nothing to check, as Hermes agents read PDFs with
+`read_file`.
 
 ## Browser
 
@@ -477,6 +478,54 @@ then only files staged for this agent, `browser-upload-staging.js`), sets the fi
 the page's file field over CDP (`DOM.setFileInputFiles` on the agent's own Chromium,
 `hermes-browser-files.js`; `selector`, by default the first `input[type=file]`, and
 `urlContains` when several pages are open) and records the upload for the owner.
+
+## Images
+
+A Hermes agent with **Create images** creates and edits images with gpt-image-2
+through a ChatGPT login AgentPier holds, as an OpenClaw agent does with
+`image_generate` (`hermes-config/images.js`). Hermes v0.22.5 bundles the image
+backend `openai-codex` (`plugins/image_gen/openai-codex/`, a bundled backend
+plugin Hermes loads without `plugins.enabled`): it posts to the Codex backend's own
+`images/generations` and `images/edits` endpoints with the Codex credential Hermes
+resolves for every Codex call (`agent/auxiliary_client.py`
+`_resolve_codex_credential_and_base`: `HERMES_CODEX_BASE_URL` wins, the token comes
+from the `openai-codex` pool row of `auth.json`). The compiled home therefore holds:
+
+| Key or file                   | Value                                                                        |
+| ----------------------------- | ---------------------------------------------------------------------------- |
+| `agent.disabled_toolsets`     | without `image_gen`                                                          |
+| `image_gen.provider`          | `openai-codex`                                                               |
+| `HERMES_CODEX_BASE_URL`       | `<proxy>/chatgpt/codex` in `.env`                                            |
+| `auth.json` `openai-codex`    | AgentPier's `api_key` row with the proxy credential for this agent and login |
+| `agentpier-team` `tools.json` | `images`: the agent's folder, which its generated images are shared from     |
+
+An agent that chats with a ChatGPT login AgentPier holds uses that login's row and URL
+([model connection](#model-connection)); any other agent gets a row of its own for
+the login AgentPier picks (`model-accounts.js` `heldImageLogin`: a held login
+signed in at its last read, the agent's own first). `openai-codex` is no step of
+Hermes's auxiliary chain (`_get_provider_chain`), so that row never carries the
+agent's model or auxiliary calls. The runtime proxy forwards `POST
+/chatgpt/codex/images/generations` and `/images/edits` with the login's token,
+`ChatGPT-Account-Id` and residency header (`chatgpt-proxy.js`), and only while the
+agent may create images now and the login is its model or the one AgentPier picked
+for it (`proxy-access.js`). The home never holds OpenAI's tokens. A login OpenClaw
+still holds never reaches Hermes: the switch then says to move the login to
+AgentPier (`imagesRuntimeMove`), and the compiler names `createImages`.
+
+Every call passes the team plugin's guard first (`hermes-tool-guard.js`
+`imageGuard`), with OpenClaw's rules (`image-policy.js`): the agent must hold
+**Create images** now, a reference from the web needs **Read web pages**, and each
+generation writes an `assistant.executed` audit event with `kind:
+"image-generation"`, never the prompt. A local reference (`image_url`,
+`reference_image_urls`) must be an absolute path inside the agent's own folder, also
+once resolved, and never an attachment of another chat or its secrets folder; Hermes
+reads it itself and would send any file it can read to OpenAI, and it resolves a
+relative path against its own process. Hermes's tool waits for the image (no
+background task). The plugin's `transform_tool_result` hook copies the image Hermes
+saved below `cache/generated/images/` into `generated-images/` of the agent's folder
+and shares it into the chat with `agentpier_share_file`, also to the owner's
+Telegram chat when the turn came from there; the tool result tells the agent so. The
+agent's instructions name image creation as for OpenClaw.
 
 ## Agents on Hermes
 
@@ -737,7 +786,7 @@ AGENTPIER-344, logins from AGENTPIER-340).
 | Web fetch                                                  | `web_fetch`                         | AgentPier's `agentpier-fetch`                       | Private networks always refused                              |
 | Read images                                                | `view_image`                        | `vision` toolset                                    |                                                              |
 | Read PDFs                                                  | `pdf` with the PDF model            | `read_file` text layer                              | Scanned pages not read                                       |
-| Create images                                              | ChatGPT account                     | Not available                                       | Switch disabled with the reason; AGENTPIER-340               |
+| Create images                                              | ChatGPT account                     | ChatGPT login AgentPier holds                       | [Images](#images)                                            |
 | Attachments, video                                         | `attachments/` in the workspace     | The same folder, its work folder                    | Named by path; inline images not sent                        |
 | Browser                                                    | AgentPier's Chromium                | AgentPier's Chromium                                | [Browser](#browser)                                          |
 | Browser for task members                                   | Member slot                         | Own Chromium under the slot limit                   |                                                              |
@@ -779,7 +828,10 @@ command in routine runs on full access and on approval (asked, allowed, denied).
 member's own Chromium; `hermes-browser-upload-contract.test.js` fills a local page's
 file field with a staged file and refuses an unstaged one;
 `hermes-user-agent-lock-contract.test.js` forces a restricted user's agent to call each
-locked tool and finds each refused.
+locked tool and finds each refused; `hermes-images-contract.test.js` creates an image
+with a ChatGPT login AgentPier holds through the runtime proxy and a fake Codex backend
+(the login's token only upstream, one audited generation, the image shared into the
+chat) and refuses a reference outside the agent's folder.
 `tests/integration/hermes-files-contract.test.js` checks the agent's files: a memory
 entry written through the port reaches the agent's prompt, and an entry the agent adds
 with Hermes's `memory` tool comes back through it; an assigned bundled skill and a

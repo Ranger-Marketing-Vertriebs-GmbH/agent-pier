@@ -112,7 +112,17 @@ export function modelSection(connection, { modelProxy } = {}) {
   };
 }
 
-// The pool row of the proxy credential (hermes-config/home-merge.js mergeAuth).
+/** The openai-codex pool row of a proxy credential (home-merge.js mergeAuth). */
+export const codexPoolRow = (baseUrl, credential) => ({
+  id: "agentpier",
+  label: "AgentPier",
+  auth_type: "api_key",
+  priority: 0,
+  source: agentPierPoolSource,
+  access_token: credential,
+  base_url: baseUrl,
+});
+
 function chatgptSection({ profileId, modelId, holder }, modelProxy) {
   const credential = modelProxy?.credentialFor?.(profileId);
   if (holder !== "agentpier" || !modelProxy?.url || !credential)
@@ -121,15 +131,7 @@ function chatgptSection({ profileId, modelId, holder }, modelProxy) {
   return {
     section: { provider: "openai-codex", default: modelId },
     env: { [codexBaseEnv]: baseUrl },
-    auth: {
-      id: "agentpier",
-      label: "AgentPier",
-      auth_type: "api_key",
-      priority: 0,
-      source: agentPierPoolSource,
-      access_token: credential,
-      base_url: baseUrl,
-    },
+    auth: codexPoolRow(baseUrl, credential),
     // OpenAI's ChatGPT models see images.
     images: true,
   };

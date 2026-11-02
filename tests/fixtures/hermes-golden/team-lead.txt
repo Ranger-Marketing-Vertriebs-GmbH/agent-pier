@@ -67,6 +67,7 @@ cannot answer fails, and the guard then blocks the tool.
 import json
 import os
 import re
+import shutil
 import threading
 import urllib.error
 import urllib.request
@@ -278,7 +279,8 @@ def _guard(tool_name="", args=None, session_id=None, task_id=None, **_):
     browser = tool_name.startswith("browser_") and settings.get("browser")
     member_write = tool_name in _WRITES and bool(settings.get("guardWrites"))
     folder = tool_name in _FILES and _names_folder(args)
-    if not browser and not member_write and not folder:
+    image = tool_name == "image_generate" and bool(settings.get("images"))
+    if not browser and not member_write and not folder and not image:
         return None
     try:
         root = _root(session_id)
@@ -309,6 +311,53 @@ def _subagent(parent_session_id=None, child_session_id=None, **_):
     if isinstance(parent_session_id, str) and isinstance(child_session_id, str):
         with _LOCK:
             _PARENTS[child_session_id] = parent_session_id
+
+
+# Where Hermes saves the images it creates (agent/image_gen_provider.py).
+_GENERATED = os.path.join(os.path.dirname(os.path.dirname(_DIR)), "cache", "generated", "images")
+_SHARE = _tool({"action": "share_file", "timeoutMs": 30000})
+
+
+def _image_result(tool_name="", result=None, session_id=None, task_id=None, **_):
+    # Hands an image Hermes created to the chat as a file of the agent's own folder.
+    images = _read("tools.json").get("images")
+    if tool_name != "image_generate" or not images or not isinstance(result, str):
+        return None
+    try:
+        answer = json.loads(result)
+        if not isinstance(answer, dict) or answer.get("success") is not True:
+            return None
+        source = os.path.realpath(str(answer.get("image") or ""))
+        if not source.startswith(os.path.realpath(_GENERATED) + os.sep):
+            return None
+        if not os.path.isfile(source):
+            return None
+        name = os.path.basename(source)
+        os.makedirs(os.path.join(images["folder"], images["share"]), mode=0o700, exist_ok=True)
+        target = os.path.join(images["folder"], images["share"], name)
+        shutil.copyfile(source, target)
+    except Exception:
+        return None
+    relative = images["share"] + "/" + name
+    try:
+        shared = json.loads(_SHARE({"path": relative}, session_id=_root(session_id), task_id=task_id))
+    except Exception:
+        shared = {"error": _UNAVAILABLE}
+    answer["image"] = target
+    if isinstance(shared, dict) and shared.get("status") == "shared":
+        answer["note"] = (
+            "AgentPier handed this image over in this chat. "
+            + str(shared.get("note") or "")
+            + " Do not share it again with agentpier_share_file."
+        ).strip()
+    else:
+        error = shared.get("error") if isinstance(shared, dict) else None
+        answer["note"] = (
+            "AgentPier could not hand this image over ("
+            + str(error or _UNAVAILABLE)
+            + "). Share " + relative + " with agentpier_share_file."
+        )
+    return json.dumps(answer)
 
 
 def _upload(args, session_id=None, task_id=None, **_):
@@ -355,6 +404,8 @@ def register(ctx):
         )
     ctx.register_hook("pre_tool_call", _guard)
     ctx.register_hook("subagent_start", _subagent)
+    if settings.get("images"):
+        ctx.register_hook("transform_tool_result", _image_result)
 ==> plugins/agentpier-team/bridge.json <==
 {
   "url": "http://127.0.0.1:43210",

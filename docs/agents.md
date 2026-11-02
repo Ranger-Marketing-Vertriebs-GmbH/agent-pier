@@ -240,8 +240,9 @@ What works on Hermes today:
 - Web: web search uses the provider you chose (DuckDuckGo, Brave or Perplexity through
   OpenRouter) and web fetch reads pages directly, never private addresses. **Read
   images** and **Read PDFs** work (PDFs by their text; scanned pages are not read).
-  **Create images** is shown disabled: images come from a ChatGPT account, which Hermes
-  agents cannot use yet.
+  **Create images** works with a ChatGPT login AgentPier holds (one OpenClaw holds needs
+  **Move this ChatGPT login to AgentPier** first); the image appears in the chat as a
+  file the agent shared, and in its `generated-images` folder.
 - AgentPier's own tools: attachments you send (also videos), sharing files with you
   (also to your paired Telegram chat), the agent's own reminders and routines, hook
   proposals, project folders and new projects, SSH and SSH access requests, GitHub,
@@ -284,8 +285,7 @@ What works on Hermes today:
 - Backups keep a Hermes agent's keys and conversations sealed like OpenClaw's
   ([backups](backups.md#hermes-agents)); dreaming is OpenClaw's.
 
-What comes later, shown disabled in the agent's settings: image creation and advanced
-runtime settings; the full comparison is in
+What comes later, shown disabled in the agent's settings: advanced runtime settings; the full comparison is in
 [Hermes runtime](hermes-runtime.md#parity-with-openclaw-agents). Updates of Hermes itself appear in the **Hermes Agent** group (**Update**);
 the Hermes agents restart, and a failed start restores the previous installation. Work
 of Hermes agents still running blocks it and is listed there, with **Pause agents and

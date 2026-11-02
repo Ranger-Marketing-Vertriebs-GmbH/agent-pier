@@ -121,8 +121,8 @@ export const assistantCopy = {
       "Creates and edits images with your ChatGPT account (gpt-image-2) and hands them to you in the chat.",
     imagesUnavailable:
       "Connect a ChatGPT account under Connections › Model access to create images.",
-    imagesRuntimeUnavailable: (runtime) =>
-      `Not available for ${runtime} agents yet: images are created with a ChatGPT account, which only OpenClaw agents can use.`,
+    imagesRuntimeMove: (runtime) =>
+      `${runtime} agents create images with a ChatGPT login AgentPier holds. Move your ChatGPT login to AgentPier under Connections › Model access.`,
     browserUnavailable:
       "No supported browser found on this computer. Install Chrome, Brave, Edge or Chromium to use this.",
     searchUnavailable:

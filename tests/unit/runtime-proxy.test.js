@@ -34,12 +34,16 @@ async function fixture(t) {
   });
   const proxy = new RuntimeProxy({ dataDir, warn: () => {} });
   const allowed = new Set(["agent-a"]);
+  const asked = [];
   proxy.route(
     "chatgpt",
     chatgptRoute({
       vault,
       upstream: codex.url,
-      authorize: (agentId) => allowed.has(agentId),
+      authorize: (agentId, _profileId, how) => {
+        asked.push(how);
+        return allowed.has(agentId);
+      },
       warn: () => {},
     }),
   );
@@ -73,6 +77,7 @@ async function fixture(t) {
     call,
     profileId,
     allowed,
+    asked,
   };
 }
 
@@ -177,4 +182,35 @@ test("the proxy keeps its port and key across restarts and listens on loopback o
   // A slow stream is not cut off by a request timeout.
   assert.equal(again.server.requestTimeout, 0);
   assert.equal(again.server.headersTimeout, 30_000);
+});
+
+test("the Codex images endpoints pass through for image creation only", async (t) => {
+  const { call, codex, vault, profileId, asked } = await fixture(t);
+  const response = await call("/chatgpt/codex/images/generations", {
+    body: { prompt: "a red square", model: "gpt-image-2", n: 1 },
+    headers: { "x-codex-image-turn-id": "turn-1" },
+  });
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(typeof body.data[0].b64_json, "string");
+  const [request] = codex.requests;
+  assert.equal(request.url, "/backend-api/codex/images/generations");
+  assert.equal(
+    request.headers.authorization,
+    `Bearer ${vault.accessOf(profileId).access}`,
+  );
+  assert.equal(request.headers["chatgpt-account-id"], "acct-fixture");
+  assert.equal(request.headers["x-codex-image-turn-id"], "turn-1");
+  assert.equal((await call("/chatgpt/codex/images/edits", { body: {} })).status, 200);
+  assert.deepEqual(asked, [{ images: true }, { images: true }]);
+  // Only POST, and only these two paths.
+  assert.equal(
+    (await call("/chatgpt/codex/images/generations", { method: "GET" })).status,
+    404,
+  );
+  assert.equal(
+    (await call("/chatgpt/codex/images/variations", { body: {} })).status,
+    404,
+  );
+  assert.equal(codex.requests.length, 2);
 });
