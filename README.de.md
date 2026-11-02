@@ -11,9 +11,9 @@ Pipelines mit Review und Agenten, die als Team arbeiten.
 
 Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
 
-![AgentPier mit einem Agenten-Chat, einem Teammitglied und Coding-Sessions in der Seitenleiste](docs/screenshots/agentpier-agent-chat-desktop.png)
+![Eine geteilte Ansicht mit einem Claude-Code-Terminal, einem Codex-Session-Chat und einem Agenten-Chat nebeneinander](docs/screenshots/split-view-desktop.png)
 
-<img src="docs/screenshots/agentpier-agent-chat-phone.png" alt="Derselbe Agenten-Chat auf einem Handy" width="260">
+<img src="docs/screenshots/agentpier-agent-chat-phone.png" alt="Ein Agenten-Chat auf einem Handy" width="260">
 
 ## Was du bekommst
 
@@ -42,13 +42,15 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
   und Aktionen wie **Neue Session**, **Lauf starten** und **Eingang öffnen**; auch
   Tippfehler treffen, zuletzt Geöffnetes steht oben, und ein eingeschränkter Benutzer
   findet nur die eigenen Agenten
-  ([UI-Leitfaden](docs/ui-guide.md#sidebar-menu-and-search), auf Englisch).
+  ([UI-Leitfaden](docs/ui-guide.md#sidebar-menu-and-search), auf Englisch;
+  [Screenshot](docs/screenshots/search-desktop.png)).
 - **Geteilte Ansichten:** zeigen bis zu sechs Sessions und Agenten-Chats nebeneinander,
   in einem Fenster breiter als 1150 px; eine Ansicht entsteht mit **+** in der
   Seitenleistengruppe **Ansichten** oder durch Ziehen eines zweiten Eintrags auf eine
   Session oder einen Agenten-Chat. Bereiche teilen, ersetzen, verschieben und in der
   Größe ändern geht per Drag and Drop; die Ansichten bleiben auf dem Host gespeichert
-  ([Ansichten](docs/views.md), auf Englisch).
+  ([Ansichten](docs/views.md), auf Englisch;
+  [Screenshot](docs/screenshots/split-view-desktop.png)).
 - **Pipelines mit Review:** wiederverwendbare Profile, isolierte Git-Worktrees,
   parallele Reviewer mit zusammengeführtem Ergebnis, begrenzte Review-Schleifen, Prüfungen, ein Risiko-Gate für heikle Pfade, ein Token-Budget je Lauf, eine Warteschlange je Projekt mit Limit für gleichzeitige Läufe und
   menschliche Freigabe, dazu eine eingebaute Software-Fabrik von der Spezifikation bis zum Pull Request

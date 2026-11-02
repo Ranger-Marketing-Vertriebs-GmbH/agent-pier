@@ -9,9 +9,9 @@ and agents that work as a team.
 [Deutsch](README.de.md) · [Docs index](docs/README.md) ·
 [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [License](LICENSE)
 
-![AgentPier with an agent chat, a team member and coding sessions in the sidebar](docs/screenshots/agentpier-agent-chat-desktop.png)
+![A split view with a Claude Code terminal, a Codex session chat and an agent chat side by side](docs/screenshots/split-view-desktop.png)
 
-<img src="docs/screenshots/agentpier-agent-chat-phone.png" alt="The same agent chat on a phone" width="260">
+<img src="docs/screenshots/agentpier-agent-chat-phone.png" alt="An agent chat on a phone" width="260">
 
 ## What you get
 
@@ -38,11 +38,13 @@ and agents that work as a team.
   runs and definitions, inbox items, every page and setting, and actions such as **New
   session**, **Start run** and **Open inbox**; typos still match, recent results come
   first, and a restricted user finds only their own agents
-  ([UI guide](docs/ui-guide.md#sidebar-menu-and-search)).
+  ([UI guide](docs/ui-guide.md#sidebar-menu-and-search),
+  [screenshot](docs/screenshots/search-desktop.png)).
 - **Split views:** show up to six sessions and agent chats side by side in a window wider
   than 1150 px; create a view with **+** in the sidebar group **Views** or by dragging a
   second item onto a session or an agent chat, split, replace, move and resize panes by
-  drag and drop, and keep views saved on the host ([views](docs/views.md)).
+  drag and drop, and keep views saved on the host ([views](docs/views.md),
+  [screenshot](docs/screenshots/split-view-desktop.png)).
 - **Pipelines with review:** reusable profiles, isolated Git worktrees, parallel
   reviewers whose verdicts are joined, bounded review loops, checks, a risk gate for sensitive paths, a token budget per run, a run queue per project with a concurrency limit and human approval,
   plus a built-in software factory from spec to pull request
