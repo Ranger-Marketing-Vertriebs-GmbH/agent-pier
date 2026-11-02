@@ -21,6 +21,9 @@ export const userApi = {
   compact: (conversationId) => api(`${chat(conversationId)}/compact`, "POST", {}),
   dismissLongChat: (conversationId) =>
     api(`${chat(conversationId)}/long-chat-dismissal`, "POST", {}),
+  // The hint in an older chat that began on another model (useModelHint.js).
+  dismissModelHint: (conversationId) =>
+    api(`${chat(conversationId)}/model-hint-dismissal`, "POST", {}),
   deleteChat: (conversationId) => api(chat(conversationId), "DELETE", { confirm: true }),
   history: (conversationId, before) =>
     api(

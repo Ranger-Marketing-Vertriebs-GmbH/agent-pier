@@ -39,7 +39,7 @@ export function fromSince(history, since) {
   const dated = messages.map((m) => time(m.timestamp)).filter((at) => at > 0);
   const reachesSince = !dated.length || Math.min(...dated) <= sinceMs;
   // How long her chat is counts what she wrote before, too: not his to know.
-  const { longChat: _longChat, ...rest } = history;
+  const { longChat: _longChat, modelHint: _modelHint, ...rest } = history;
   return {
     ...rest,
     // A file a turn shared or an image it asked for answers its request, whenever it

@@ -216,6 +216,13 @@ export const assistantApi = {
       "POST",
       {},
     ),
+  // The hint in an older chat that began on another model (useModelHint.js).
+  dismissModelHint: (id) =>
+    api(
+      `/assistant-conversations/${encodeURIComponent(id)}/model-hint-dismissal`,
+      "POST",
+      {},
+    ),
   deleteChat: (id) =>
     api(`/assistant-conversations/${encodeURIComponent(id)}`, "DELETE", {
       confirm: true,

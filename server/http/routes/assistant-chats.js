@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { assistantProblem } from "../../features/assistants/assistant-validation.js";
 import { chatProblem } from "../../features/assistants/agent-chats.js";
+import { dismissModelHint } from "../../features/assistants/model-hints.js";
 import {
   restartMainChats,
   restartPreview,
@@ -99,6 +100,9 @@ export function assistantChatRoutes({ assistants, ownerPrivacy, audit }) {
   });
   router.post("/assistant-conversations/:id/long-chat-dismissal", async (req, res) =>
     res.json(await assistants.longChats.dismiss(req.params.id)),
+  );
+  router.post("/assistant-conversations/:id/model-hint-dismissal", (req, res) =>
+    res.json(dismissModelHint(assistants, req.params.id)),
   );
   router.delete("/assistant-conversations/:id", async (req, res) => {
     confirmDelete(req.body);

@@ -32,7 +32,8 @@ function phaseText(view) {
  * a summary the person asked for outside a turn ("memory" while its memory step runs
  * first), `compactOutcome` how one ended that outlived its request, and
  * `memoryNotSaved` that its memory step saved nothing (server long-chats.js).
- * `onStop`, `onRetry`, `onRecover` and `longChatActions` (useLongChat) are null where
+ * a chat that began on another model family shows `modelHint` with New chat and
+ * Dismiss (`modelHintActions`, useModelHint). `onStop`, `onRetry`, `onRecover` and `longChatActions` (useLongChat) are null where
  * the chat cannot act.
  */
 export default function AgentRunState({
@@ -46,6 +47,8 @@ export default function AgentRunState({
   steps,
   longChat,
   longChatActions = null,
+  modelHint = false,
+  modelHintActions = null,
   busy,
   onStop,
   onRetry,
@@ -200,6 +203,29 @@ export default function AgentRunState({
               </button>
             </div>
           )}
+        </div>
+      )}
+      {modelHint && modelHintActions && !active && !compacting && (
+        <div className="assistant-notice assistant-model-hint" role="status">
+          <p>{copy.modelHint}</p>
+          <div className="assistant-run-actions">
+            <button
+              type="button"
+              className="button primary"
+              disabled={busy || modelHintActions.busy}
+              onClick={modelHintActions.newChat}
+            >
+              {copy.modelHintNewChat}
+            </button>
+            <button
+              type="button"
+              className="button secondary"
+              disabled={busy || modelHintActions.busy}
+              onClick={modelHintActions.dismiss}
+            >
+              {copy.modelHintDismiss}
+            </button>
+          </div>
         </div>
       )}
     </>

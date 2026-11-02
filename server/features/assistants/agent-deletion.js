@@ -40,6 +40,7 @@ export const agentTables = [
   "assistant_routine_results",
   "assistant_routine_events",
   "assistant_long_chat_dismissals",
+  "assistant_model_hint_dismissals",
   "assistant_member_long_chats",
   "assistant_reminder_bindings",
   "assistant_hooks",
@@ -179,6 +180,7 @@ function removeRows(db, id) {
       "assistant_memory_notes",
       "assistant_routine_results",
       "assistant_long_chat_dismissals",
+      "assistant_model_hint_dismissals",
     ])
       remove(db, table, `conversation_id IN (${chats})`, id);
     remove(

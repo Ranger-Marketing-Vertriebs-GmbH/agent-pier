@@ -12,6 +12,7 @@ const agentPierPrivateTables = [
   "agent_attachments",
   "assistant_actions",
   "assistant_long_chat_dismissals",
+  "assistant_model_hint_dismissals",
   "assistant_member_long_chats",
   "assistant_memory_notes",
   "assistant_routine_events",

@@ -35,6 +35,7 @@ import { takeBack } from "./queued-message.js";
 import useAwaitingConfirmation from "./unconfirmed-turn.js";
 import AgentRunState from "./AgentRunState.jsx";
 import useLongChat from "./useLongChat.js";
+import useModelHint, { openOwnerChat } from "./useModelHint.js";
 import SummariseConfirm from "./SummariseConfirm.jsx";
 import summariseAction from "./chats/summarise-action.js";
 import { memoryStepTurn, stepsOf, useRetry } from "./run-steps.js";
@@ -351,6 +352,11 @@ export default function AssistantChat({
     refresh,
     onError: setError,
   });
+  const modelHint = useModelHint(assistantApi, conversationId, assistant.id, {
+    refresh,
+    onError: setError,
+    open: openOwnerChat(navigate, assistant.id, reloadList),
+  });
   const summarise = summariseAction({
     shown: !readOnly && !assistant.archivedAt,
     longChat,
@@ -510,6 +516,8 @@ export default function AssistantChat({
               steps={stepsOf(feed.steps, latest?.attempt)}
               longChat={history.longChat}
               longChatActions={available ? longChat : null}
+              modelHint={history.modelHint}
+              modelHintActions={available ? modelHint : null}
               busy={busy}
               onStop={readOnly ? null : stop}
               onRetry={available && !queued && !ownStep ? retry : null}

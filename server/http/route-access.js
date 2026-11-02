@@ -42,7 +42,7 @@ export const userRoutes = [
   {
     method: "POST",
     pattern:
-      /^\/api\/me\/conversations\/[^/]+\/(?:archive|restore|compact|long-chat-dismissal)$/,
+      /^\/api\/me\/conversations\/[^/]+\/(?:archive|restore|compact|long-chat-dismissal|model-hint-dismissal)$/,
   },
   { method: "GET", pattern: /^\/api\/me\/conversations\/[^/]+\/messages$/ },
   { method: "POST", pattern: /^\/api\/me\/conversations\/[^/]+\/messages$/ },
