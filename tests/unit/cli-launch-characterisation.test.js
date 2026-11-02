@@ -7,6 +7,10 @@ import {
   AccountStore,
   cleanEnvironment,
 } from "../../server/features/accounts/account-store.js";
+import { ProviderConnections } from "../../server/features/providers/provider-connections.js";
+import { ProviderCatalog } from "../../server/features/providers/provider-catalog.js";
+import { ProviderAccess } from "../../server/features/providers/provider-access.js";
+import { statusArgs } from "../../server/features/accounts/auth-status.js";
 import { resumeLaunch } from "../../server/application/session-reload-launch.js";
 
 // Oracle for the CLI-definition refactor: launch lines and per-account
@@ -18,6 +22,7 @@ const MODES = {
   opencode: ["default", "auto"],
   shell: ["default"],
 };
+const CLI_VERSION = "2.2.0";
 const SESSION_ID = "00000000-0000-4000-8000-000000000001";
 
 function scrub(value, root) {
@@ -52,7 +57,7 @@ async function record(root, accounts, account, mode, login) {
     { [account.tool]: executable },
     login,
     mode,
-    { cliVersion: "9.9.9" },
+    { cliVersion: CLI_VERSION },
   );
   return {
     command: scrub(launch.command, root),
@@ -61,17 +66,105 @@ async function record(root, accounts, account, mode, login) {
   };
 }
 
+const model = (modelId, contextTokens) => ({
+  modelId,
+  label: modelId,
+  contextTokens,
+  outputTokens: null,
+  source: "manual",
+  contextEdited: true,
+});
+const ENDPOINT = {
+  preset: "custom",
+  openaiBaseUrl: "http://127.0.0.1:11434/v1",
+  anthropicBaseUrl: "http://127.0.0.1:11434",
+  protocols: { messages: true, responses: true, chatCompletions: true },
+  authHeader: null,
+  models: [model("qwen3", 32768), model("llama", 65536)],
+  lastTest: null,
+};
+
+/** The Codex config AgentPier writes for a provider launch is part of the launch. */
+function codexConfig(env, root) {
+  return scrub(fs.readFileSync(path.join(env.CODEX_HOME, "config.toml"), "utf8"), root);
+}
+
+async function recordProviders(root, accounts, connections, catalog, result) {
+  const run = async (name, account, modelId) => {
+    const executable = path.join(root, "fixture-bin", account.tool);
+    const launch = await accounts.command(
+      account.id,
+      { [account.tool]: executable },
+      false,
+      "default",
+      {
+        cliVersion: CLI_VERSION,
+        ...(modelId ? { modelId } : {}),
+      },
+    );
+    result.providers[name] = {
+      command: scrub(launch.command, root),
+      args: launch.args.map((arg) => scrub(arg, root)),
+      env: recordEnv(launch.env, root),
+      ...(launch.env.CODEX_HOME ? { codexConfig: codexConfig(launch.env, root) } : {}),
+    };
+  };
+  const selections = {
+    openrouter: { modelId: "anthropic/claude-sonnet-4.6" },
+    zai: { modelId: "glm-5.3" },
+    "zai-coding-plan": { modelId: "glm-5.3" },
+  };
+  for (const tool of ["codex", "claude", "opencode"])
+    for (const [id, selection] of Object.entries(selections)) {
+      const provider = {
+        id,
+        ...selection,
+        ...(tool === "codex" && id !== "openrouter" ? { responsesAccess: true } : {}),
+      };
+      const account = accounts.create({
+        name: `Provider ${id}`,
+        tool,
+        apiKey: "fixture-provider-key",
+        provider,
+      });
+      await run(`${tool}/${id}`, account);
+    }
+  const access = new ProviderAccess({ accounts, connections, providerCatalog: catalog });
+  const connection = connections.create({
+    name: "GPU box",
+    providerId: "endpoint",
+    endpoint: ENDPOINT,
+    apiKey: "fixture-endpoint-key",
+  });
+  for (const tool of ["codex", "claude", "opencode"]) {
+    const account = access.resolve({
+      tool,
+      providerConnectionId: connection.id,
+      providerModelId: "qwen3",
+    }).account;
+    await run(`${tool}/endpoint`, account);
+    await run(`${tool}/endpoint/model-override`, account, "llama");
+  }
+  const plain = accounts.create({ name: "Model", tool: "codex" });
+  await run("codex/managed/model-override", plain, "fixture-model");
+}
+
 async function build() {
   const root = fs.realpathSync(
     fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-characterisation-")),
   );
   try {
+    const dataDir = path.join(root, "data");
+    const providerCatalog = new ProviderCatalog({ dataDir });
+    const connections = new ProviderConnections({ dataDir });
     const accounts = new AccountStore({
-      dataDir: path.join(root, "data"),
+      dataDir,
       home: root,
       uid: () => 501,
+      providerCatalog,
+      providerConnections: connections,
     });
-    const result = { launches: {}, resume: {}, apiKeyEnv: {} };
+    const result = { launches: {}, providers: {}, resume: {}, apiKeyEnv: {} };
     for (const [tool, modes] of Object.entries(MODES)) {
       const kinds = { local: accounts.get(`local-${tool}`) };
       if (tool !== "shell") {
@@ -101,6 +194,7 @@ async function build() {
           );
       }
     }
+    await recordProviders(root, accounts, connections, providerCatalog, result);
     for (const tool of ["codex", "claude", "opencode"]) {
       const launch = { command: "/bin/x", args: ["--base"], env: {} };
       result.resume[tool] = resumeLaunch(tool, launch, SESSION_ID).args;
@@ -116,11 +210,7 @@ async function build() {
 
 test("launch args and env per CLI and mode stay as recorded", async () => {
   const actual = await build();
-  actual.authStatusArgs = {
-    claude: ["auth", "status", "--json"],
-    codex: ["login", "status"],
-    opencode: ["auth", "list"],
-  };
+  actual.authStatusArgs = statusArgs;
   if (process.env.UPDATE_FIXTURE === "1") {
     fs.writeFileSync(FIXTURE, JSON.stringify(actual, null, 2) + "\n");
     return;

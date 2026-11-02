@@ -3,7 +3,7 @@ import { promisify, stripVTControlCharacters } from "node:util";
 const execute = promisify(execFile);
 // CLI status probes that run at once across accounts; more wait their turn.
 export const MAX_AUTH_PROBES = 3;
-const statusArgs = {
+export const statusArgs = {
   claude: ["auth", "status", "--json"],
   codex: ["login", "status"],
   opencode: ["auth", "list"],

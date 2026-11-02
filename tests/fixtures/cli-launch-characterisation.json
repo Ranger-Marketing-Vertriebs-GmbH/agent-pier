@@ -397,6 +397,434 @@
       }
     }
   },
+  "providers": {
+    "codex/openrouter": {
+      "command": "<root>/fixture-bin/codex",
+      "args": [
+        "-c",
+        "model=\"anthropic/claude-sonnet-4.6\"",
+        "-c",
+        "model_provider=\"openrouter\"",
+        "-c",
+        "cli_auth_credentials_store=\"file\"",
+        "-c",
+        "mcp_oauth_credentials_store=\"file\"",
+        "-c",
+        "model_providers={\"openrouter\"={\"name\"=\"OpenRouter\",\"wire_api\"=\"responses\",\"base_url\"=\"https://openrouter.ai/api/v1\",\"auth\"={\"command\"=\"sh\",\"args\"=[\"-c\",\"printf '%s' \\\"$OPENROUTER_API_KEY\\\"\"]}}}",
+        "-c",
+        "model_context_window=1000000",
+        "--model",
+        "anthropic/claude-sonnet-4.6"
+      ],
+      "env": {
+        "CODEX_HOME": "<root>/data/profiles/<account>/providers/openrouter/codex",
+        "HOME": "<root>",
+        "OPENROUTER_API_KEY": "fixture-provider-key",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      },
+      "codexConfig": "model = \"anthropic/claude-sonnet-4.6\"\nmodel_provider = \"openrouter\"\ncli_auth_credentials_store = \"file\"\nmcp_oauth_credentials_store = \"file\"\nmodel_context_window = 1000000\n\n[model_providers.openrouter]\nname = \"OpenRouter\"\nwire_api = \"responses\"\nbase_url = \"https://openrouter.ai/api/v1\"\n\n[model_providers.openrouter.auth]\ncommand = \"sh\"\nargs = [ \"-c\", \"printf '%s' \\\"$OPENROUTER_API_KEY\\\"\" ]\n"
+    },
+    "codex/zai": {
+      "command": "<root>/fixture-bin/codex",
+      "args": [
+        "-c",
+        "model=\"glm-5.3\"",
+        "-c",
+        "model_provider=\"zai\"",
+        "-c",
+        "cli_auth_credentials_store=\"file\"",
+        "-c",
+        "mcp_oauth_credentials_store=\"file\"",
+        "-c",
+        "model_providers={\"zai\"={\"name\"=\"Z.ai\",\"wire_api\"=\"responses\",\"base_url\"=\"https://api.z.ai/api/v1\",\"env_key\"=\"ZAI_API_KEY\"}}",
+        "-c",
+        "model_catalog_json=\"<root>/data/profiles/<account>/providers/zai/codex/models.json\"",
+        "-c",
+        "model_context_window=1048576",
+        "-c",
+        "model_reasoning_effort=\"high\"",
+        "--model",
+        "glm-5.3"
+      ],
+      "env": {
+        "CODEX_HOME": "<root>/data/profiles/<account>/providers/zai/codex",
+        "HOME": "<root>",
+        "ZAI_API_KEY": "fixture-provider-key",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      },
+      "codexConfig": "model = \"glm-5.3\"\nmodel_provider = \"zai\"\ncli_auth_credentials_store = \"file\"\nmcp_oauth_credentials_store = \"file\"\nmodel_catalog_json = \"<root>/data/profiles/<account>/providers/zai/codex/models.json\"\nmodel_context_window = 1048576\nmodel_reasoning_effort = \"high\"\n\n[model_providers.zai]\nname = \"Z.ai\"\nwire_api = \"responses\"\nbase_url = \"https://api.z.ai/api/v1\"\nenv_key = \"ZAI_API_KEY\"\n"
+    },
+    "codex/zai-coding-plan": {
+      "command": "<root>/fixture-bin/codex",
+      "args": [
+        "-c",
+        "model=\"glm-5.3\"",
+        "-c",
+        "model_provider=\"zai-coding-plan\"",
+        "-c",
+        "cli_auth_credentials_store=\"file\"",
+        "-c",
+        "mcp_oauth_credentials_store=\"file\"",
+        "-c",
+        "model_providers={\"zai-coding-plan\"={\"name\"=\"Z.ai\",\"wire_api\"=\"responses\",\"base_url\"=\"https://api.z.ai/api/v1\",\"env_key\"=\"ZAI_API_KEY\"}}",
+        "-c",
+        "model_catalog_json=\"<root>/data/profiles/<account>/providers/zai-coding-plan/codex/models.json\"",
+        "-c",
+        "model_context_window=1048576",
+        "-c",
+        "model_reasoning_effort=\"high\"",
+        "--model",
+        "glm-5.3"
+      ],
+      "env": {
+        "CODEX_HOME": "<root>/data/profiles/<account>/providers/zai-coding-plan/codex",
+        "HOME": "<root>",
+        "ZAI_API_KEY": "fixture-provider-key",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      },
+      "codexConfig": "model = \"glm-5.3\"\nmodel_provider = \"zai-coding-plan\"\ncli_auth_credentials_store = \"file\"\nmcp_oauth_credentials_store = \"file\"\nmodel_catalog_json = \"<root>/data/profiles/<account>/providers/zai-coding-plan/codex/models.json\"\nmodel_context_window = 1048576\nmodel_reasoning_effort = \"high\"\n\n[model_providers.zai-coding-plan]\nname = \"Z.ai\"\nwire_api = \"responses\"\nbase_url = \"https://api.z.ai/api/v1\"\nenv_key = \"ZAI_API_KEY\"\n"
+    },
+    "claude/openrouter": {
+      "command": "<root>/fixture-bin/claude",
+      "args": ["--model", "anthropic/claude-sonnet-4.6[1m]"],
+      "env": {
+        "ANTHROPIC_API_KEY": "",
+        "ANTHROPIC_AUTH_TOKEN": "fixture-provider-key",
+        "ANTHROPIC_BASE_URL": "https://openrouter.ai/api",
+        "ANTHROPIC_CUSTOM_MODEL_OPTION": "anthropic/claude-sonnet-4.6[1m]",
+        "ANTHROPIC_CUSTOM_MODEL_OPTION_NAME": "Claude Sonnet 4.6",
+        "ANTHROPIC_DEFAULT_FABLE_MODEL": "anthropic/claude-sonnet-4.6[1m]",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "anthropic/claude-sonnet-4.6[1m]",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "anthropic/claude-sonnet-4.6[1m]",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "anthropic/claude-sonnet-4.6[1m]",
+        "ANTHROPIC_MODEL": "anthropic/claude-sonnet-4.6[1m]",
+        "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY": "1",
+        "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "32000",
+        "CLAUDE_CODE_SUBAGENT_MODEL": "anthropic/claude-sonnet-4.6[1m]",
+        "CLAUDE_CONFIG_DIR": "<root>/data/profiles/<account>/providers/openrouter/claude",
+        "CLAUDE_SECURESTORAGE_CONFIG_DIR": "<root>/data/profiles/<account>/providers/openrouter/claude",
+        "HOME": "<root>",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      }
+    },
+    "claude/zai": {
+      "command": "<root>/fixture-bin/claude",
+      "args": ["--model", "glm-5.3"],
+      "env": {
+        "ANTHROPIC_API_KEY": "",
+        "ANTHROPIC_AUTH_TOKEN": "fixture-provider-key",
+        "ANTHROPIC_BASE_URL": "https://api.z.ai/api/anthropic",
+        "ANTHROPIC_CUSTOM_MODEL_OPTION": "glm-5.3",
+        "ANTHROPIC_CUSTOM_MODEL_OPTION_NAME": "GLM-5.3",
+        "ANTHROPIC_DEFAULT_FABLE_MODEL": "glm-5.3",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-5.3",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.3",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.3",
+        "ANTHROPIC_MODEL": "glm-5.3",
+        "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "1000000",
+        "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "32000",
+        "CLAUDE_CODE_SUBAGENT_MODEL": "glm-5.3",
+        "CLAUDE_CONFIG_DIR": "<root>/data/profiles/<account>/providers/zai/claude",
+        "CLAUDE_SECURESTORAGE_CONFIG_DIR": "<root>/data/profiles/<account>/providers/zai/claude",
+        "HOME": "<root>",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      }
+    },
+    "claude/zai-coding-plan": {
+      "command": "<root>/fixture-bin/claude",
+      "args": ["--model", "glm-5.3"],
+      "env": {
+        "ANTHROPIC_API_KEY": "",
+        "ANTHROPIC_AUTH_TOKEN": "fixture-provider-key",
+        "ANTHROPIC_BASE_URL": "https://api.z.ai/api/anthropic",
+        "ANTHROPIC_CUSTOM_MODEL_OPTION": "glm-5.3",
+        "ANTHROPIC_CUSTOM_MODEL_OPTION_NAME": "GLM-5.3",
+        "ANTHROPIC_DEFAULT_FABLE_MODEL": "glm-5.3",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-5.3",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.3",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.3",
+        "ANTHROPIC_MODEL": "glm-5.3",
+        "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "1000000",
+        "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "32000",
+        "CLAUDE_CODE_SUBAGENT_MODEL": "glm-5.3",
+        "CLAUDE_CONFIG_DIR": "<root>/data/profiles/<account>/providers/zai-coding-plan/claude",
+        "CLAUDE_SECURESTORAGE_CONFIG_DIR": "<root>/data/profiles/<account>/providers/zai-coding-plan/claude",
+        "HOME": "<root>",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      }
+    },
+    "opencode/openrouter": {
+      "command": "<root>/fixture-bin/opencode",
+      "args": ["--model", "openrouter/anthropic/claude-sonnet-4.6"],
+      "env": {
+        "HOME": "<root>",
+        "OPENCODE_CONFIG_CONTENT": "{\"$schema\":\"https://opencode.ai/config.json\",\"model\":\"openrouter/anthropic/claude-sonnet-4.6\",\"provider\":{\"openrouter\":{\"options\":{\"apiKey\":\"{env:OPENROUTER_API_KEY}\"},\"models\":{\"anthropic/claude-sonnet-4.6\":{\"name\":\"Claude Sonnet 4.6\",\"limit\":{\"context\":1000000,\"output\":128000}}}}}}",
+        "OPENROUTER_API_KEY": "fixture-provider-key",
+        "XDG_CACHE_HOME": "<root>/data/profiles/<account>/providers/openrouter/cache",
+        "XDG_CONFIG_HOME": "<root>/data/profiles/<account>/providers/openrouter/config",
+        "XDG_DATA_HOME": "<root>/data/profiles/<account>/providers/openrouter/data",
+        "XDG_STATE_HOME": "<root>/data/profiles/<account>/providers/openrouter/state",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      }
+    },
+    "opencode/zai": {
+      "command": "<root>/fixture-bin/opencode",
+      "args": ["--model", "zai/glm-5.3"],
+      "env": {
+        "HOME": "<root>",
+        "OPENCODE_CONFIG_CONTENT": "{\"$schema\":\"https://opencode.ai/config.json\",\"model\":\"zai/glm-5.3\",\"provider\":{\"zai\":{\"options\":{\"apiKey\":\"{env:ZHIPU_API_KEY}\"},\"models\":{\"glm-5.3\":{\"name\":\"GLM-5.3\",\"limit\":{\"context\":1000000,\"output\":131072}}}}}}",
+        "XDG_CACHE_HOME": "<root>/data/profiles/<account>/providers/zai/cache",
+        "XDG_CONFIG_HOME": "<root>/data/profiles/<account>/providers/zai/config",
+        "XDG_DATA_HOME": "<root>/data/profiles/<account>/providers/zai/data",
+        "XDG_STATE_HOME": "<root>/data/profiles/<account>/providers/zai/state",
+        "ZHIPU_API_KEY": "fixture-provider-key",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      }
+    },
+    "opencode/zai-coding-plan": {
+      "command": "<root>/fixture-bin/opencode",
+      "args": ["--model", "zai-coding-plan/glm-5.3"],
+      "env": {
+        "HOME": "<root>",
+        "OPENCODE_CONFIG_CONTENT": "{\"$schema\":\"https://opencode.ai/config.json\",\"model\":\"zai-coding-plan/glm-5.3\",\"provider\":{\"zai-coding-plan\":{\"options\":{\"apiKey\":\"{env:ZHIPU_API_KEY}\"},\"models\":{\"glm-5.3\":{\"name\":\"GLM-5.3\",\"limit\":{\"context\":1000000,\"output\":131072}}}}}}",
+        "XDG_CACHE_HOME": "<root>/data/profiles/<account>/providers/zai-coding-plan/cache",
+        "XDG_CONFIG_HOME": "<root>/data/profiles/<account>/providers/zai-coding-plan/config",
+        "XDG_DATA_HOME": "<root>/data/profiles/<account>/providers/zai-coding-plan/data",
+        "XDG_STATE_HOME": "<root>/data/profiles/<account>/providers/zai-coding-plan/state",
+        "ZHIPU_API_KEY": "fixture-provider-key",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      }
+    },
+    "codex/endpoint": {
+      "command": "<root>/fixture-bin/codex",
+      "args": [
+        "-c",
+        "model=\"qwen3\"",
+        "-c",
+        "model_provider=\"agentpier-endpoint\"",
+        "-c",
+        "cli_auth_credentials_store=\"file\"",
+        "-c",
+        "mcp_oauth_credentials_store=\"file\"",
+        "-c",
+        "model_context_window=32768",
+        "-c",
+        "model_catalog_json=\"<root>/data/profiles/<account>/providers/endpoint/codex/models.json\"",
+        "-c",
+        "model_providers={\"agentpier-endpoint\"={\"name\"=\"GPU box\",\"wire_api\"=\"responses\",\"requires_openai_auth\"=false,\"base_url\"=\"http://127.0.0.1:11434/v1\",\"env_key\"=\"AGENTPIER_ENDPOINT_API_KEY\"}}",
+        "--model",
+        "qwen3"
+      ],
+      "env": {
+        "AGENTPIER_ENDPOINT_API_KEY": "fixture-endpoint-key",
+        "CODEX_HOME": "<root>/data/profiles/<account>/providers/endpoint/codex",
+        "HOME": "<root>",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      },
+      "codexConfig": "model = \"qwen3\"\nmodel_provider = \"agentpier-endpoint\"\ncli_auth_credentials_store = \"file\"\nmcp_oauth_credentials_store = \"file\"\nmodel_context_window = 32768\nmodel_catalog_json = \"<root>/data/profiles/<account>/providers/endpoint/codex/models.json\"\n\n[model_providers.agentpier-endpoint]\nname = \"GPU box\"\nwire_api = \"responses\"\nrequires_openai_auth = false\nbase_url = \"http://127.0.0.1:11434/v1\"\nenv_key = \"AGENTPIER_ENDPOINT_API_KEY\"\n"
+    },
+    "codex/endpoint/model-override": {
+      "command": "<root>/fixture-bin/codex",
+      "args": [
+        "-c",
+        "model=\"llama\"",
+        "-c",
+        "model_provider=\"agentpier-endpoint\"",
+        "-c",
+        "cli_auth_credentials_store=\"file\"",
+        "-c",
+        "mcp_oauth_credentials_store=\"file\"",
+        "-c",
+        "model_context_window=65536",
+        "-c",
+        "model_catalog_json=\"<root>/data/profiles/<account>/providers/endpoint/codex/models.json\"",
+        "-c",
+        "model_providers={\"agentpier-endpoint\"={\"name\"=\"GPU box\",\"wire_api\"=\"responses\",\"requires_openai_auth\"=false,\"base_url\"=\"http://127.0.0.1:11434/v1\",\"env_key\"=\"AGENTPIER_ENDPOINT_API_KEY\"}}",
+        "--model",
+        "llama"
+      ],
+      "env": {
+        "AGENTPIER_ENDPOINT_API_KEY": "fixture-endpoint-key",
+        "CODEX_HOME": "<root>/data/profiles/<account>/providers/endpoint/codex",
+        "HOME": "<root>",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      },
+      "codexConfig": "model = \"llama\"\nmodel_provider = \"agentpier-endpoint\"\ncli_auth_credentials_store = \"file\"\nmcp_oauth_credentials_store = \"file\"\nmodel_context_window = 65536\nmodel_catalog_json = \"<root>/data/profiles/<account>/providers/endpoint/codex/models.json\"\n\n[model_providers.agentpier-endpoint]\nname = \"GPU box\"\nwire_api = \"responses\"\nrequires_openai_auth = false\nbase_url = \"http://127.0.0.1:11434/v1\"\nenv_key = \"AGENTPIER_ENDPOINT_API_KEY\"\n"
+    },
+    "claude/endpoint": {
+      "command": "<root>/fixture-bin/claude",
+      "args": ["--model", "qwen3"],
+      "env": {
+        "ANTHROPIC_API_KEY": "",
+        "ANTHROPIC_AUTH_TOKEN": "fixture-endpoint-key",
+        "ANTHROPIC_BASE_URL": "http://127.0.0.1:11434",
+        "ANTHROPIC_CUSTOM_MODEL_OPTION": "qwen3",
+        "ANTHROPIC_CUSTOM_MODEL_OPTION_NAME": "qwen3",
+        "ANTHROPIC_DEFAULT_FABLE_MODEL": "qwen3",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "qwen3",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "qwen3",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "qwen3",
+        "ANTHROPIC_MODEL": "qwen3",
+        "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1",
+        "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "32768",
+        "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "8192",
+        "CLAUDE_CODE_SUBAGENT_MODEL": "qwen3",
+        "CLAUDE_CONFIG_DIR": "<root>/data/profiles/<account>/providers/endpoint/claude",
+        "CLAUDE_SECURESTORAGE_CONFIG_DIR": "<root>/data/profiles/<account>/providers/endpoint/claude",
+        "HOME": "<root>",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      }
+    },
+    "claude/endpoint/model-override": {
+      "command": "<root>/fixture-bin/claude",
+      "args": ["--model", "llama"],
+      "env": {
+        "ANTHROPIC_API_KEY": "",
+        "ANTHROPIC_AUTH_TOKEN": "fixture-endpoint-key",
+        "ANTHROPIC_BASE_URL": "http://127.0.0.1:11434",
+        "ANTHROPIC_CUSTOM_MODEL_OPTION": "llama",
+        "ANTHROPIC_CUSTOM_MODEL_OPTION_NAME": "llama",
+        "ANTHROPIC_DEFAULT_FABLE_MODEL": "llama",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "llama",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "llama",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "llama",
+        "ANTHROPIC_MODEL": "llama",
+        "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1",
+        "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "65536",
+        "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "16384",
+        "CLAUDE_CODE_SUBAGENT_MODEL": "llama",
+        "CLAUDE_CONFIG_DIR": "<root>/data/profiles/<account>/providers/endpoint/claude",
+        "CLAUDE_SECURESTORAGE_CONFIG_DIR": "<root>/data/profiles/<account>/providers/endpoint/claude",
+        "HOME": "<root>",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      }
+    },
+    "opencode/endpoint": {
+      "command": "<root>/fixture-bin/opencode",
+      "args": ["--model", "agentpier-endpoint/qwen3"],
+      "env": {
+        "AGENTPIER_ENDPOINT_API_KEY": "fixture-endpoint-key",
+        "HOME": "<root>",
+        "OPENCODE_CONFIG_CONTENT": "{\"$schema\":\"https://opencode.ai/config.json\",\"model\":\"agentpier-endpoint/qwen3\",\"provider\":{\"agentpier-endpoint\":{\"npm\":\"@ai-sdk/openai-compatible\",\"name\":\"GPU box\",\"options\":{\"baseURL\":\"http://127.0.0.1:11434/v1\",\"apiKey\":\"{env:AGENTPIER_ENDPOINT_API_KEY}\"},\"models\":{\"qwen3\":{\"name\":\"qwen3\",\"limit\":{\"context\":32768,\"output\":8192}}}}}}",
+        "XDG_CACHE_HOME": "<root>/data/profiles/<account>/providers/endpoint/cache",
+        "XDG_CONFIG_HOME": "<root>/data/profiles/<account>/providers/endpoint/config",
+        "XDG_DATA_HOME": "<root>/data/profiles/<account>/providers/endpoint/data",
+        "XDG_STATE_HOME": "<root>/data/profiles/<account>/providers/endpoint/state",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      }
+    },
+    "opencode/endpoint/model-override": {
+      "command": "<root>/fixture-bin/opencode",
+      "args": ["--model", "agentpier-endpoint/llama"],
+      "env": {
+        "AGENTPIER_ENDPOINT_API_KEY": "fixture-endpoint-key",
+        "HOME": "<root>",
+        "OPENCODE_CONFIG_CONTENT": "{\"$schema\":\"https://opencode.ai/config.json\",\"model\":\"agentpier-endpoint/llama\",\"provider\":{\"agentpier-endpoint\":{\"npm\":\"@ai-sdk/openai-compatible\",\"name\":\"GPU box\",\"options\":{\"baseURL\":\"http://127.0.0.1:11434/v1\",\"apiKey\":\"{env:AGENTPIER_ENDPOINT_API_KEY}\"},\"models\":{\"llama\":{\"name\":\"llama\",\"limit\":{\"context\":65536,\"output\":16384}}}}}}",
+        "XDG_CACHE_HOME": "<root>/data/profiles/<account>/providers/endpoint/cache",
+        "XDG_CONFIG_HOME": "<root>/data/profiles/<account>/providers/endpoint/config",
+        "XDG_DATA_HOME": "<root>/data/profiles/<account>/providers/endpoint/data",
+        "XDG_STATE_HOME": "<root>/data/profiles/<account>/providers/endpoint/state",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      }
+    },
+    "codex/managed/model-override": {
+      "command": "<root>/fixture-bin/codex",
+      "args": [
+        "-c",
+        "cli_auth_credentials_store=\"file\"",
+        "-c",
+        "mcp_oauth_credentials_store=\"file\"",
+        "--model",
+        "fixture-model"
+      ],
+      "env": {
+        "CODEX_HOME": "<root>/data/profiles/<account>/codex",
+        "HOME": "<root>",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      },
+      "codexConfig": "cli_auth_credentials_store = \"file\"\nmcp_oauth_credentials_store = \"file\"\n"
+    }
+  },
   "resume": {
     "codex": ["--base", "resume", "00000000-0000-4000-8000-000000000001"],
     "claude": ["--base", "--resume", "00000000-0000-4000-8000-000000000001"],
