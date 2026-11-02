@@ -345,7 +345,8 @@ The information architecture is recorded in
 - **Views group** (`web/features/views/ViewsSidebarGroup.jsx`): between **Inbox** and
   **Agents**, shown only wider than 1150 px. Its head has one "+" (**New view**); each
   view row shows the name and pane count. Sessions and agent chats shown in the current
-  view carry a marker ("Shown in this view"). Behavior: [Views](views.md).
+  view carry a marker ("Shown in this view"). Behavior: [Views](views.md);
+  [screenshot of a view](screenshots/split-view-desktop.png).
 - **Menu popover** (`web/app/SidebarMenu.jsx`, model in `web/app/sidebar-menu-model.js`):
   the only place for areas, in two groups. **Work**: Overview, Projects, Pipelines, Files,
   Artifacts. **Set up**: Agents, CLIs and extensions, Connections, Settings. Below them

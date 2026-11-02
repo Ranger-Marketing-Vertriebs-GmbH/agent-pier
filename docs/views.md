@@ -8,6 +8,8 @@ same ones.
 Views exist only in a window wider than 1150 px. On a phone and in a narrow window the
 sidebar has no **Views** group (see "Narrow windows" below).
 
+![The view "Design review" with a Claude Code terminal, a Codex session chat and an agent chat side by side; the sidebar lists the views "Design review" and "Release day"](screenshots/split-view-desktop.png)
+
 ## What a view is
 
 A view has a name (1 to 60 characters) and one to six panes. A pane is either a session
@@ -43,6 +45,11 @@ A dropped session opens on the tab it was last shown on in this browser tab (ter
 chat or files; shell and login sessions never open on chat), as it would on its own page.
 A tab chosen inside a pane is remembered the same way, so **Open alone** and the next
 drop land on it.
+
+While you drag, a highlighted overlay shows the side the item will take, or the whole
+pane when it would replace it:
+
+![The session "Docs site" dragged onto the right edge of the agent chat pane; the overlay marks the right half where the new pane will go](screenshots/split-view-drop-desktop.png)
 
 Drag the divider between two panes to resize them. Dividers keep the split ratio between
 15 % and 85 % and stop where a pane would get smaller than 280 × 220 px, so a terminal
