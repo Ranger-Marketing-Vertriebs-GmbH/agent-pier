@@ -10,6 +10,10 @@ import {
   hermesUpdateScope,
   openClawUpdateScope,
 } from "../../server/features/assistants/runtime-update-scope.js";
+import {
+  createUpdateSnapshot,
+  restoreUpdateSnapshot,
+} from "../../server/features/assistants/runtime-update-snapshot.js";
 import { destroyBackupKeys } from "../../server/features/assistants/backup-credentials.js";
 import { readJSON, writePrivate } from "../../server/lib/storage.js";
 
@@ -117,4 +121,44 @@ test("a Hermes rollback restores its agents' workspaces and leaves OpenClaw's", 
   assert.equal(read(work("herm", "notes.md")), "herm before");
   assert.equal(read(work("herm", "stray.md")), null);
   assert.equal(read(work("claw", "notes.md")), "claw newer");
+});
+
+test("a Hermes update snapshot seals each home's keys and a restore unseals them", async (t) => {
+  const { hermes } = setup(t);
+  t.after(() => destroyBackupKeys?.(hermes.root));
+  const home = path.join(hermes.state, "ap-herm");
+  const secret = "sk-hermes-secret-0123456789";
+  write(path.join(home, ".env"), `AUXILIARY_AGENTPIER_API_KEY=${secret}\n`);
+  write(path.join(home, "auth.json"), JSON.stringify({ token: secret }));
+  write(path.join(home, "backups", "env-1", ".env"), `OPENROUTER_API_KEY=${secret}\n`);
+  write(path.join(home, "config.yaml"), "model: {}\n");
+  const directory = path.join(
+    hermes.root,
+    "backups",
+    "8a5b0c1e-0000-4000-8000-000000000001",
+  );
+  const manifest = await createUpdateSnapshot(hermes, directory, {
+    previous: { version: "1.0.0" },
+  });
+  for (const file of [".env", "auth.json", "backups/env-1/.env"])
+    assert.ok(manifest.sealed.includes(`state/ap-herm/${file}`), file);
+  const plain = (dir) =>
+    fs
+      .readdirSync(dir, { recursive: true })
+      .map((name) => path.join(dir, name))
+      .filter((file) => fs.statSync(file).isFile())
+      .some((file) => fs.readFileSync(file).includes(secret));
+  assert.equal(plain(path.join(directory, "payload")), false);
+  // A failed update changes the home; the restore brings the keys back.
+  fs.writeFileSync(path.join(home, ".env"), "AUXILIARY_AGENTPIER_API_KEY=changed\n");
+  fs.rmSync(path.join(home, "auth.json"));
+  const restored = await restoreUpdateSnapshot(hermes, directory);
+  assert.equal(restored.credentialsWithheld, false);
+  assert.equal(read(path.join(home, ".env")), `AUXILIARY_AGENTPIER_API_KEY=${secret}\n`);
+  assert.equal(read(path.join(home, "auth.json")), JSON.stringify({ token: secret }));
+  assert.equal(
+    read(path.join(home, "backups", "env-1", ".env")),
+    `OPENROUTER_API_KEY=${secret}\n`,
+  );
+  assert.equal(read(path.join(home, "config.yaml")), "model: {}\n");
 });

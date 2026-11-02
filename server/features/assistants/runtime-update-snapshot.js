@@ -40,6 +40,16 @@ const workspaceTrees = new Set(["workspaces", "agentWorkspaces"]);
  * one runtime must never revert, or remove, the other's agents' files. Without a
  * scope a tree is the journal's whole.
  */
+// A Hermes home's credentials (hermes-paths.js state/<agent>/): its .env with the
+// model, MCP, bot and speech keys and every copy of it, auth.json with Hermes's own
+// logins, and Hermes's own backups of the home, which hold .env copies. Sealed like
+// a host backup's (backup-credentials.js isCredentialFile, operations/
+// hermes-backup-paths.js), so no snapshot holds a key in plain text.
+const hermesCredential = /^state\/[^/]+\/(\.env(\.[^/]*)?|auth\.json|backups\/.+)$/;
+/** Whether a snapshot of `paths` seals the file `relative` as a credential. */
+const credentialOf = (paths) => (relative) =>
+  (typeof paths.agentWorkspaces === "string" && hermesCredential.test(relative)) ||
+  isCredentialFile(relative);
 const owns = (scope, tree, name) =>
   typeof scope?.[tree] === "function" ? !!scope[tree](name) : true;
 // Only Gateway home/state databases can hold credential tables; workspace files,
@@ -203,7 +213,7 @@ async function sealEntry(source, destination, context, relative, stat) {
     const result = sealConfig(text, context.key, aad);
     await fsp.writeFile(destination, result.text, { mode: 0o600, flag: "wx" });
     if (result.sealed) context.sealed.push(relative);
-  } else if (isCredentialFile(relative)) {
+  } else if (context.credential(relative)) {
     const data = seal(context.key, aad, await fsp.readFile(source));
     await fsp.writeFile(destination + sealedSuffix, data, { mode: 0o600, flag: "wx" });
     context.sealed.push(relative);
@@ -211,7 +221,7 @@ async function sealEntry(source, destination, context, relative, stat) {
     if (await sealDatabase(source, destination, { ...context, aad }))
       context.sealed.push(relative);
   } else return copyFile(source, destination, stat.mode);
-  await syncAsync(destination + (isCredentialFile(relative) ? sealedSuffix : ""));
+  await syncAsync(destination + (context.credential(relative) ? sealedSuffix : ""));
 }
 async function digestTree(directory, excluded) {
   const hash = createHash("sha256");
@@ -366,6 +376,7 @@ export async function createUpdateSnapshot(
     omittedDependencies: [],
     progress: onProgress,
     scope,
+    credential: credentialOf(paths),
   };
   const ledgers = ledgerState(paths.root);
   for (const name of treesOf(paths))
@@ -460,7 +471,7 @@ export async function restoreUpdateSnapshot(
       const result = unsealConfig(await fsp.readFile(live, "utf8"), key, aad);
       await fsp.writeFile(live, result.text, { mode: 0o600 });
       withheld ||= result.withheld;
-    } else if (!isCredentialFile(relative)) {
+    } else if (!credentialOf(paths)(relative)) {
       const sidecar = path.join(payload, relative + sealedSuffix);
       withheld ||= !(await unsealDatabase(live, sidecar, key, aad));
     } else if (key) {
