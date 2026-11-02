@@ -273,6 +273,10 @@ export const assistantCopy = {
   accountConnect: "ChatGPT verbinden",
   accountCheck: "Verbindung prüfen",
   accountDisconnect: "Abmelden",
+  accountHeldByOpenClaw:
+    "Diese Anmeldung hält OpenClaw und erneuert sie selbst. Verschiebe sie zu AgentPier, damit AgentPier sie erneuert und auch Hermes-Agenten sie nutzen können. Deine Agenten behalten ihre Einstellungen.",
+  accountMove: "Diese ChatGPT-Anmeldung zu AgentPier verschieben",
+  accountMoved: "Die Anmeldung hält jetzt AgentPier.",
   accountVerified: "Verbindung bestätigt",
   accountCheckFailed:
     "Verbindung konnte nicht bestätigt werden. Versuche es erneut oder melde dich neu an.",

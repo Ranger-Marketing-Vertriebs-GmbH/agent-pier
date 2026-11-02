@@ -251,7 +251,8 @@
  *     AgentPier-held ChatGPT login as the runtime's own access-only profile (no
  *     refresh token), written while the runtime runs or not; `{ reloaded }`.
  *   - readStored({ profileId }): the runtime's own stored credential of a profile,
- *     for the one move of a login it holds to AgentPier, or null.
+ *     or null; takeStored({ profileId }) reads it and drops its refresh token in
+ *     one step, for the one move of a login it holds to AgentPier.
  *   - on(connection), as sessions.on.
  * - channels: channel status
  *   - status({ probe }): resolves `{ channelAccounts: { telegram: [account] } }`,

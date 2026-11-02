@@ -2,6 +2,7 @@ import { boundPort } from "./openclaw-agents.js";
 import {
   readStoredProfile,
   removeAccessProfile,
+  takeStoredProfile,
   writeAccessProfile,
 } from "./openclaw-access-profiles.js";
 
@@ -22,8 +23,10 @@ const agentId = "main";
  *   running Gateway (`models.authRefresh`). Resolves `{ reloaded }`.
  * - removeAccess({ profileId }): removes it, then reloads a running Gateway.
  * - readStored({ profileId }): OpenClaw's own stored credential of the profile,
- *   refresh token included, or null; only for the one move of a login to AgentPier,
- *   while no OpenClaw refresh can run.
+ *   refresh token included, or null.
+ * - takeStored({ profileId }): the same, and in the same transaction the profile
+ *   loses its refresh token (the one move of a login to AgentPier); reloads a
+ *   running Gateway. Resolves `{ credential, reloaded }`.
  */
 export const openClawModels = (supervisor, clientOf) =>
   boundPort((current) => modelsOver(current, supervisor), supervisor, clientOf);
@@ -70,5 +73,9 @@ function modelsOver(current, supervisor) {
     },
     readStored: async ({ profileId }) =>
       readStoredProfile(supervisor.paths.state, profileId),
+    takeStored: async ({ profileId }) => {
+      const credential = takeStoredProfile(supervisor.paths.state, profileId);
+      return { credential, reloaded: credential ? await reload("update") : false };
+    },
   };
 }

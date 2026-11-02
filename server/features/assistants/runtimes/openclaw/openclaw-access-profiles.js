@@ -214,3 +214,27 @@ export function readStoredProfile(stateDir, profileId) {
   });
   return found;
 }
+
+/**
+ * The one move of a ChatGPT login OpenClaw holds to AgentPier: in one transaction,
+ * reads OpenClaw's stored credential of `profileId` (refresh token included) and
+ * leaves the profile access-only, so OpenClaw can never redeem that refresh token
+ * again. Returns the credential as it was, or null for no such profile.
+ */
+export function takeStoredProfile(stateDir, profileId) {
+  let taken = null;
+  transact(
+    stateDir,
+    (store) => {
+      const profile = store.profiles[profileId];
+      if (profile === undefined) return undefined;
+      replaceable(profile);
+      taken = { ...profile };
+      if (typeof profile.refresh !== "string" || !profile.refresh) return undefined;
+      const { refresh: _refresh, authFlow: _flow, ...rest } = profile;
+      return { ...store, profiles: { ...store.profiles, [profileId]: rest } };
+    },
+    { write: true },
+  );
+  return taken;
+}

@@ -60,6 +60,12 @@ export function assistantAccountRoutes({
       res.json(await accounts.refreshModels(req.params.id));
     },
   );
+  // "Move this ChatGPT login to AgentPier": the owner's explicit action, never automatic.
+  router.post("/assistant-model-accounts/:id/move", async (req, res) => {
+    const moved = await assistants.admit(() => accounts.move(req.params.id));
+    assistants.changed();
+    res.json({ accounts: moved });
+  });
   router.delete("/assistant-model-accounts/:id", async (req, res) =>
     res.json({ accounts: await assistants.logoutAccount(accounts, req.params.id) }),
   );
