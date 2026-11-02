@@ -194,6 +194,7 @@
       "image_generate"
     ],
     "toolSearch": false,
+    "codeMode": false,
     "exec": {
       "mode": "deny"
     },

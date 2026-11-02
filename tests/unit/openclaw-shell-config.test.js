@@ -84,6 +84,7 @@ test("without an agent with shell only the global deny floor is added", () => {
   assert.deepEqual(plain.tools, {
     allow: ["session_status"],
     toolSearch: false,
+    codeMode: false,
     exec: { mode: "deny" },
     sessions: { visibility: "agent" },
   });
