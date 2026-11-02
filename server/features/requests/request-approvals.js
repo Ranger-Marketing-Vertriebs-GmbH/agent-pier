@@ -5,6 +5,8 @@ import { problem } from "../../lib/storage.js";
 import { requestCopy as copy } from "../../lib/i18n/de/requests.js";
 import { projectScope } from "../memory/project-scope.js";
 import { shellSegments, programKey } from "./shell-command.js";
+import { isCodingCli } from "../clis/catalog.js";
+import { cliDriver } from "../clis/drivers.js";
 import {
   DEFAULT_ALLOWED,
   defaultCommand,
@@ -22,12 +24,9 @@ import {
 // with their session; project rules
 // apply to every session whose folder belongs to the project (memory/project-scope).
 
-// The shell tool of each CLI; its requests carry a command line.
-const shellTools = {
-  claude: "Bash",
-  codex: "item/commandExecution/requestApproval",
-  opencode: "bash",
-};
+// The shell tool of each CLI (its driver's shellToolName); its requests carry a
+// command line.
+const shellTool = (cli) => (isCodingCli(cli) ? cliDriver(cli).shellToolName : undefined);
 // Requests that grant more than one call (Codex sandbox permissions) or are not
 // tool calls at all are never remembered.
 const unremembered = new Set([
@@ -99,7 +98,7 @@ export class RequestApprovals {
       !allowOnce(entry)
     )
       return null;
-    if (shellTools[cli] !== tool) {
+    if (shellTool(cli) !== tool) {
       const target = entry.subject.path;
       if (typeof target === "string" && touchesSecret([target]))
         return { cli, tool, needs: [{ command: target }], builtIn: false };
@@ -239,7 +238,7 @@ function validRule(rule) {
     text(rule.id) &&
     scopes.includes(rule.scope) &&
     text(rule.target) &&
-    Object.hasOwn(shellTools, rule.cli) &&
+    isCodingCli(rule.cli) &&
     text(rule.tool) &&
     (rule.program === undefined || text(rule.program, 400)) &&
     (rule.command === undefined || text(rule.command, 8000))

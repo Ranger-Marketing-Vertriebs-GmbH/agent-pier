@@ -1,13 +1,10 @@
 import fs from "node:fs/promises";
 import { randomBytes } from "node:crypto";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { claudeHookVersion, writeClaudeHooks } from "./claude-runtime.js";
+import { claudeHookVersion } from "./claude-runtime.js";
 import { addGrant } from "../nono/sandbox-grants.js";
-import { ADAPTER_URL_PLACEHOLDER } from "../providers/adapter-launch.js";
-import { addClaudeBridge } from "../claude-mod/claude-mod-launch.js";
 import { isCodingCli } from "../clis/catalog.js";
-const moduleFile = (name) => fileURLToPath(new URL(name, import.meta.url));
+import { cliDriver } from "../clis/drivers.js";
 export async function prepareRequests(
   broker,
   { id, account, cwd, launch, purpose, headless } = {},
@@ -41,81 +38,16 @@ export async function prepareRequests(
   );
   // Every tool reaches the broker over its socket and reads the launch file and
   // hook payloads the broker directory holds.
-  let baseGrants = [
+  const grants = [
     { access: "allow", path: broker.directory },
     { access: "socket", path: broker.socketPath },
   ];
-  const grant = (prepared, grants) =>
-    grants.reduce((granted, item) => addGrant(granted, item), prepared);
-  if (account.tool === "codex") {
-    const wrapper = moduleFile("./codex-launch.js");
-    // codex-launch.js starts Codex from the request file, which the launcher never
-    // rewrites. The launcher substitutes env values, so the wrapper learns the bound
-    // adapter origin from this variable and replaces the placeholder in Codex argv.
-    if (args.some((arg) => String(arg).includes(ADAPTER_URL_PLACEHOLDER)))
-      env.AGENTPIER_ADAPTER_URL = ADAPTER_URL_PLACEHOLDER;
-    return grant(
-      {
-        ...launch,
-        command: process.execPath,
-        args: [wrapper, file],
-        env,
-        nativeRequests: { enabled: true, version: 1 },
-      },
-      // This wrapper replaces the launch command outright, so it must be runnable.
-      // The nono adapter grants whatever `launch.command` names by then, which is
-      // the wrapper's interpreter rather than Codex, so the original executable
-      // is declared here: codex-launch.js starts it again from the request file
-      // for both the backend and the TUI.
-      [
-        ...baseGrants,
-        { access: "read", path: launch.command },
-        { access: "read", path: process.execPath },
-        { access: "read", path: wrapper },
-      ],
-    );
-  }
-  if (account.tool === "claude") {
-    const directory = path.join(broker.directory, `${id}.claude`);
-    await fs.mkdir(path.join(directory, ".claude-plugin"), {
-      recursive: true,
-      mode: 0o700,
-    });
-    await fs.mkdir(path.join(directory, "hooks"), { recursive: true, mode: 0o700 });
-    await fs.writeFile(
-      path.join(directory, ".claude-plugin/plugin.json"),
-      JSON.stringify({ name: "agentpier-requests", version: "1.0.0" }),
-      { mode: 0o600 },
-    );
-    await writeClaudeHooks(broker.directory, id);
-    args.push("--plugin-dir", directory);
-    // Live turn, text and tool reports from inside Claude Code (claude-mod/).
-    baseGrants = [
-      ...baseGrants,
-      ...(await addClaudeBridge(broker, id, { launch, args, env })),
-    ];
-  }
-  if (account.tool === "opencode") {
-    const configFile =
-      env.OPENCODE_TUI_CONFIG || path.join(broker.directory, `${id}.tui.json`);
-    const parent = await fs.realpath(path.dirname(configFile));
-    const dataDir = await fs.realpath(path.dirname(broker.directory));
-    if (parent !== dataDir && !parent.startsWith(dataDir + path.sep))
-      throw Error("Native TUI configuration is not owned by this launch");
-    const info = await fs.lstat(configFile).catch((error) => {
-      if (error.code !== "ENOENT") throw error;
-    });
-    if (info && !info.isFile()) throw Error("Unsafe native TUI configuration");
-    const config = info ? JSON.parse(await fs.readFile(configFile, "utf8")) : {};
-    config.plugin = [
-      ...(config.plugin || []),
-      pathToFileURL(moduleFile("./opencode-plugin.js")).href,
-    ];
-    await fs.writeFile(configFile, JSON.stringify(config), { mode: 0o600 });
-    env.OPENCODE_TUI_CONFIG = configFile;
-  }
-  return grant(
-    { ...launch, args, env, nativeRequests: { enabled: true, version: 1 } },
-    baseGrants,
-  );
+  const prepared = (await cliDriver(account.tool).prepareRequests(
+    { broker, id, file, args, env, grants },
+    launch,
+  )) ?? { ...launch, args, env };
+  return grants.reduce((granted, item) => addGrant(granted, item), {
+    ...prepared,
+    nativeRequests: { enabled: true, version: 1 },
+  });
 }
