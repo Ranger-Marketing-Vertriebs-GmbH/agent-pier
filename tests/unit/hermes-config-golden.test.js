@@ -106,12 +106,24 @@ test("a lead and a member get the team plugin with their own team tools", () => 
   assert.deepEqual(
     member.settings.tools.map((tool) => tool.name),
     [
+      // AgentPier's own tools, as a permanent member holds them on OpenClaw.
+      "agentpier_coding_session",
+      "agentpier_goal",
+      "agentpier_mail",
+      "agentpier_preview",
+      "agentpier_share_file",
+      "agentpier_ssh_access",
       "agentpier_team_peer_ask",
       "agentpier_team_peer_delegate",
       "agentpier_team_peers",
       "agentpier_team_report",
+      "agentpier_workspace",
     ],
   );
+  // A staged browser upload copies up to 8 GiB before the workspace call answers.
+  const workspace = member.settings.tools.find((t) => t.name === "agentpier_workspace");
+  assert.equal(workspace.stageTimeoutMs, 300000);
+  assert.ok(lead.settings.tools.some((t) => t.name === "agentpier_share_file"));
   assert.equal(member.settings.guardWrites, true);
   // Without the bridge the tools are named as not served yet.
   assert.ok(compiled("subagents-default").unsupported.includes("teams"));

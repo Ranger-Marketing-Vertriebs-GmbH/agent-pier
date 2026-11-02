@@ -142,11 +142,16 @@ test("removing an agent stops its set and deletes its Hermes folders", async (t)
   const paths = sets.runtimeOf(agent).host;
   assert.equal(paths.ready(), true);
   const root = path.join(fake.dataDir, "assistants/hermes");
-  for (const name of ["home", "state", "workspaces"])
+  for (const name of ["home", "state"])
     assert.equal(fs.existsSync(path.join(root, name, "ap-gone")), true, name);
+  // It works in AgentPier's own agent workspace, as an OpenClaw agent does.
+  const work = path.join(fake.dataDir, "assistants/workspaces/gone");
+  assert.equal(fs.existsSync(work), true);
+  assert.equal(sets.workspaceOf(agent), work);
   await sets.remove(agent);
   for (const name of ["home", "state", "workspaces", "tmp", "logs"])
     assert.equal(fs.existsSync(path.join(root, name, "ap-gone")), false, name);
+  assert.equal(fs.existsSync(work), false);
   assert.equal(sets.known("ap-gone"), null);
 });
 

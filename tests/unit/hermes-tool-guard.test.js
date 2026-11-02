@@ -7,6 +7,7 @@ import { hermesGuard } from "../../server/features/assistants/hermes-tool-guard.
 import { attachHermesFleet } from "../../server/features/assistants/runtimes/runtime-for.js";
 import { HermesFleet } from "../../server/features/assistants/runtimes/hermes/hermes-fleet.js";
 import {
+  attachmentRefusal,
   browserRefusals,
   writeRefusals,
 } from "../../server/features/assistants/team-plugin/tool-guard.js";
@@ -32,15 +33,22 @@ function guardBridge(t, { allow = true, browser = { allow: true } } = {}) {
       calls.push(["browser", input]);
       return browser;
     },
+    attachmentPolicy: (input) => {
+      calls.push(["attachments", input]);
+      return { allow: input.files.every((file) => file === "mine.png") };
+    },
+    callingChat: () => ({}),
   };
-  const workspace = path.join(dataDir, "assistants", "hermes", "workspaces", "ap-m1");
+  const workspace = path.join(dataDir, "assistants", "workspaces", "m1");
   return { bridge, calls, workspace };
 }
+// A member's file change (the plugin's guardWrites) names itself as such.
 const call = (toolName, args, extra = {}) => ({
   agentId: "ap-m1",
   sessionKey: "agent:ap-m1:hermes:s1",
   toolName,
   args,
+  ...(["write_file", "patch"].includes(toolName) && { memberWrite: true }),
   ...extra,
 });
 
@@ -85,7 +93,7 @@ test("a write the turn may not make, or outside the folder, is refused", async (
   for (const [args, message] of [
     [{ path: "../ap-other/x.md" }, writeRefusals.outside],
     [{ path: "/etc/hosts" }, writeRefusals.outside],
-    [{ path: path.join(workspace, "..", "ap-other", "x") }, writeRefusals.outside],
+    [{ path: path.join(workspace, "..", "other", "x") }, writeRefusals.outside],
     [{ path: "AGENTS.md" }, writeRefusals.bootstrap],
     [{ path: "skills/x/SKILL.md" }, writeRefusals.bootstrap],
     [{}, writeRefusals.outside],
@@ -100,6 +108,7 @@ test("a write the turn may not make, or outside the folder, is refused", async (
       agentId: "ap-m1",
       toolName: "write_file",
       args: { path: "a" },
+      memberWrite: true,
     }),
     { allow: false, message: writeRefusals.unauthorized },
   );
@@ -137,6 +146,78 @@ test("browser calls follow AgentBrowsers' answer; other tools pass", async (t) =
     false,
   );
   await assert.rejects(hermesGuard(bridge, { ...call("x", {}), extra: 1 }), {
+    key: "invalid",
+  });
+});
+
+test("a file call naming attachments/ or the secrets folder asks as OpenClaw's guard", async (t) => {
+  const { bridge, calls, workspace } = guardBridge(t);
+  // An own agent's call: no member write, only the folder rules.
+  const own = (toolName, args) => ({ ...call(toolName, args), memberWrite: undefined });
+  const strip = ({ memberWrite: _memberWrite, ...input }) => input;
+  assert.deepEqual(
+    await hermesGuard(bridge, strip(own("read_file", { path: "attachments/mine.png" }))),
+    { allow: true },
+  );
+  assert.deepEqual(
+    await hermesGuard(
+      bridge,
+      strip(
+        own("vision_analyze", { image_url: path.join(workspace, "attachments/x.png") }),
+      ),
+    ),
+    { allow: false, message: attachmentRefusal },
+  );
+  assert.deepEqual(
+    calls.map(([kind, input]) => [kind, input.files]),
+    [
+      ["attachments", ["mine.png"]],
+      ["attachments", ["x.png"]],
+    ],
+  );
+  // Without a session no chat is known: attachments stay closed.
+  assert.equal(
+    (
+      await hermesGuard(bridge, {
+        agentId: "ap-m1",
+        toolName: "read_file",
+        args: { path: "attachments/mine.png" },
+      })
+    ).allow,
+    false,
+  );
+  // The secrets folder is readable outside a hook run without its Secrets switch.
+  assert.deepEqual(
+    await hermesGuard(
+      bridge,
+      strip(own("read_file", { path: ".agentpier/secrets.env" })),
+    ),
+    { allow: true },
+  );
+  // An own agent's write outside a folder rule is Hermes's own.
+  assert.deepEqual(
+    await hermesGuard(bridge, strip(own("write_file", { path: "/etc/x" }))),
+    { allow: true },
+  );
+});
+
+test("after a compression the guard finds the chat by its earlier segment", async (t) => {
+  const { bridge, calls } = guardBridge(t);
+  bridge.assistants.store = {
+    listConversations: () => [
+      { assistantId: "m1", runtimeSessionKey: "agent:ap-m1:hermes:s1" },
+    ],
+  };
+  const input = {
+    agentId: "ap-m1",
+    sessionKey: "agent:ap-m1:hermes:s1-tip",
+    segments: ["agent:ap-m1:hermes:s1"],
+    toolName: "read_file",
+    args: { path: "attachments/mine.png" },
+  };
+  assert.deepEqual(await hermesGuard(bridge, input), { allow: true });
+  assert.equal(calls[0][1].sessionKey, "agent:ap-m1:hermes:s1");
+  await assert.rejects(hermesGuard(bridge, { ...input, segments: "x" }), {
     key: "invalid",
   });
 });

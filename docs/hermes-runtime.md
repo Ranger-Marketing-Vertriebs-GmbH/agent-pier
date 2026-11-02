@@ -26,6 +26,7 @@ nothing else:
 | `plugins/agentpier-guard/`    | `plugin.yaml` and `__init__.py`, only for every-command approval                                 |
 | `plugins/agentpier-team/`     | AgentPier's team tools and tool guard ([teams](#teams))                                          |
 | `plugins/agentpier-deepgram/` | `plugin.yaml` and `__init__.py`, only for a bot for other people with voice                      |
+| `plugins/agentpier-web/`      | `plugin.yaml`, `__init__.py`, `web.json`: web fetch and Perplexity search ([web](#web-search))   |
 
 The agent's memory (`memories/MEMORY.md`, `memories/USER.md`) and the `AGENTS.md` of
 its work folder are not compiled: they are read and written through the agentFiles
@@ -120,11 +121,66 @@ their dangerous commands reach the owner through the session's approval queue.
 ### Toolsets
 
 `agent.disabled_toolsets` follows the agent's settings: `memory` (and
-`memory.memory_enabled`) with memory, `file` with memory or shell access, `web` with web
-search or fetch, `vision` with documents, `image_gen` with image creation and `browser`
-with the browser ([browser](#browser)). `computer_use` stays off until AgentPier serves
-it on Hermes; `cronjob`, the agent's own Hermes jobs, stays off because AgentPier sets
-up routines on the same scheduler ([Routines](#routines)).
+`memory.memory_enabled`) with memory, `file` with memory, shell access or PDF reading,
+`web` with web search or fetch ([web search](#web-search)), `vision` with documents and
+`browser` with the browser ([browser](#browser)). `image_gen` stays off: AgentPier
+creates images through the owner's ChatGPT account, which Hermes agents cannot use yet
+(AGENTPIER-340), and Hermes's own `image_generate` needs a FAL or Nous key AgentPier
+does not hold (`tools/image_generation_tool.py`); the agent's **Create images** switch
+says so. `computer_use` stays off until AgentPier serves it on Hermes; `cronjob`, the
+agent's own Hermes jobs, stays off because AgentPier sets up routines on the same
+scheduler ([Routines](#routines)).
+
+An agent of restricted users also loses `delegation`, `session_search` and
+`connections`, Hermes's counterparts of the subagent and session tools OpenClaw locks
+for it (`native-capabilities.js` `lockedTools`); its shell is off through its shell
+level. PDFs: Hermes's `read_file` extracts a PDF's text layer itself
+(`tools/file_tools.py`), so **Read PDFs** keeps the file tools on; scanned pages are
+not read with a model as OpenClaw's `pdf` tool does, and the PDF model setting does
+not apply.
+
+### Work folder
+
+A Hermes agent AgentPier made (`ap-<id>`) works in AgentPier's own agent workspace
+`<data>/assistants/workspaces/<id>`, the folder an OpenClaw agent works in
+(`hermes-paths.js` `hermesWorkspace`): `terminal.cwd`, chat attachments
+(`attachments/`), its secrets file (`.agentpier/secrets.env`), files it shares, browser
+upload staging and SFTP transfers all use that one folder. Its shell PATH starts with
+its GitHub folder and its SSH agent's `bin/`, as on OpenClaw; Hermes's commands inherit
+the gateway's PATH (`tools/environments/local.py`), so a change restarts the agent's
+set.
+
+### Web search
+
+Hermes's `web_search` and `web_extract` (the `web` toolset; `search` holds `web_search`
+alone) run on the backends `web.search_backend` and `web.extract_backend` name
+(`tools/web_tools.py`). The compiler (`hermes-config/web.js`) maps the owner's web
+search setting:
+
+| Provider                      | Hermes backend                                              | `.env`                                   |
+| ----------------------------- | ----------------------------------------------------------- | ---------------------------------------- |
+| DuckDuckGo                    | `ddgs` (the installation's `ddgs` extra)                    | none                                     |
+| Brave                         | `brave-free`                                                | `BRAVE_SEARCH_API_KEY`                   |
+| Perplexity through OpenRouter | `agentpier-perplexity` (AgentPier's `agentpier-web` plugin) | `AUXILIARY_AGENTPIER_WEB_SEARCH_API_KEY` |
+
+Hermes's own Perplexity backend calls Perplexity's Search API (`POST /search`), which
+OpenRouter does not serve. AgentPier's plugin therefore asks `perplexity/sonar-pro`
+through OpenRouter's chat completions, as OpenClaw's Perplexity plugin does, and returns
+the answer with its citations. Hermes strips both keys from every command and process it
+starts (`tools/environments/local_env_policy.py`). A provider Hermes cannot serve (no
+key, or DuckDuckGo on an installation without ddgs) is named as `webSearch` and its tool
+is withheld (`search` in `agent.disabled_toolsets`). `web.keyless_fallback` stays off. A
+changed setting applies each Hermes agent that searches; its set restarts when its home
+changed.
+
+Web fetch is AgentPier's own as well: no Hermes extract backend fetches a page itself
+(each one is a third-party service). The plugin's `agentpier-fetch` reads the page
+directly (at most 5 redirects, 5 MB, 30 s, HTML as text) through Hermes's connect-time
+SSRF guard (`tools/url_safety.py`) with private, loopback, link-local and metadata
+addresses always refused, at every connect and redirect, as OpenClaw's `web_fetch` does,
+whatever **Allow private networks for all agent browsers** says. An agent with web
+search but no web fetch keeps that backend pinned, and it refuses every page
+(`web.json`), because Hermes offers `web_extract` together with `web_search`.
 
 ### Memory and instructions
 
@@ -164,18 +220,23 @@ Hermes seeds every skill it bundles into the home's `skills/` folder
 `skills.external_dirs`, unless `skills.disabled` names it (`agent/skill_utils.py`).
 The compiler (`hermes-config/skills.js`) writes:
 
-| Key                    | Value                                                                  |
-| ---------------------- | ---------------------------------------------------------------------- |
-| `skills.disabled`      | Every bundled skill the owner did not switch on, except `hermes-agent` |
-| `skills.external_dirs` | The live folder of each catalog skill the owner switched on            |
+| Key                    | Value                                                                     |
+| ---------------------- | ------------------------------------------------------------------------- |
+| `skills.disabled`      | Every bundled skill the owner did not switch on, except `hermes-agent`    |
+| `skills.external_dirs` | Each switched-on catalog skill's live folder; the built-in skills' copies |
 
-`hermes-agent` is essential to Hermes and cannot be switched off. Catalog skills are
+`hermes-agent` is essential to Hermes and cannot be switched off; the skills page lists
+it as on without a switch (state `essential`). Catalog skills are
 checked before each apply (a tampered copy is restored from the catalog's store, a
 damaged one is left out) and offered from their folders in the catalog's live copy; a
 skill of the same name in the home wins over an external one, so such a catalog skill
 shows as replaced. An assigned name Hermes neither bundles nor finds in the catalog is
-named as `skills` (below). AgentPier's built-in skills (shopping) need the browser and
-are not offered yet.
+named as `skills` (below). AgentPier's built-in skills (shopping, `built-in-skills.js`)
+need the browser and come with it: the team plugin's folder carries a copy
+(`plugins/agentpier-team/skills/<name>/SKILL.md`) and `skills.external_dirs` names it
+relative to HERMES_HOME (`agent/skill_utils.py` `get_external_skills_dirs`). The skills
+report names such a skill `builtIn`, so the skills page leaves it to the **Shopping**
+switch.
 
 Skills the agent writes itself (`skill_manage`) or installs inside Hermes stay on:
 practical default, owner's choice. Nothing names them, so Hermes offers them, and
@@ -237,17 +298,17 @@ OAuth servers are not offered to Hermes agents: OpenClaw holds the login's token
 own to hand over, while Hermes's own OAuth store would need a second login per agent
 inside Hermes. Binding one to a Hermes agent is refused (`oauthHermesUnsupported`), and
 the compiler names one bound before as `mcpOAuth`. The owner's server overview resolves
-agent placeholders for OpenClaw's workspace; a Hermes agent's resolved paths differ.
+a Hermes agent's placeholders in its work folder and names its entry by the server's
+name, active while its set runs (`mcp-placeholder-view.js`).
 
 ### Not mapped yet
 
-The compiler names what an agent wants that Hermes does not get yet, so the owner can see
-it: ChatGPT accounts, the browser while AgentPier knows no browser app, MCP servers it
-cannot compile (`mcp`, `mcpOAuth`), assigned skills Hermes cannot offer, PDF reading,
-the agent's own routine tool (owner routines work, [Routines](#routines)), team tools
-while no team bridge runs, and the extra folders on the shell's PATH. Hermes has no
-advanced settings in AgentPier yet: the capability reports
-`advancedSettingsUnsupported`.
+The compiler names what an agent wants that Hermes does not get yet: ChatGPT accounts,
+the browser while AgentPier knows no browser app, MCP servers it cannot compile (`mcp`,
+`mcpOAuth`), assigned skills Hermes cannot offer, a web search provider it cannot serve
+(`webSearch`), image creation (`createImages`) and AgentPier's tools while no team
+bridge runs (`teams`). Hermes has no advanced settings in AgentPier yet: the capability
+reports `advancedSettingsUnsupported`.
 
 ## Teams
 
@@ -262,24 +323,45 @@ migration (ADR 0006).
 
 The `agentpier-team` profile plugin carries both parts of the OpenClaw team plugin:
 
-- **Tools.** The plugin registers the agent's team tools with `ctx.register_tool` under
-  their OpenClaw names (`agentpier_team_propose`, `agentpier_team_delegate`, …; a
-  member gets `agentpier_team_peers`, `agentpier_team_peer_ask`,
-  `agentpier_team_peer_delegate` and `agentpier_team_report`), with the same
-  descriptions and schemas (`team-plugin/index.js`). A plugin tool's handler receives
+- **Tools.** The plugin registers the agent's AgentPier tools with `ctx.register_tool`
+  under their OpenClaw names, with the same descriptions and schemas
+  (`team-plugin/index.js`): its team tools (`agentpier_team_propose`,
+  `agentpier_team_delegate`, …; a member gets `agentpier_team_peers`,
+  `agentpier_team_peer_ask`, `agentpier_team_peer_delegate` and
+  `agentpier_team_report`) and AgentPier's own tools as its grants name them
+  (`native-capabilities.js` `toolGrants`): `agentpier_reminder`, `agentpier_routine`,
+  `agentpier_hook`, `agentpier_workspace` (project folders, coding requests, browser
+  upload staging), `agentpier_share_file`, `agentpier_ssh`, `agentpier_ssh_access`,
+  `agentpier_goal`, `agentpier_coding_session`, `agentpier_mail`, `agentpier_project`
+  and `agentpier_preview`. A restricted user's agent holds what OpenClaw's holds (no
+  team, SSH, goal, mail, project or preview tools). The bridge serves and checks every
+  call as it does OpenClaw's. A plugin tool answers text only, so a project image
+  (`agentpier_workspace` `image_view`) comes back without its data, with a note to read
+  the file instead. A plugin tool's handler receives
   the calling session's id, the stored session id the session keys carry, and runs
   under the tool call's id (`model_tools.py` `handle_function_call`,
   `tools/approval_context.py`); an MCP call carries neither (`tools/mcp_tool_handlers.py`
   sends only the arguments), so the team tools are no MCP server. Each call takes a
   ticket for its session from the bridge (`/prepare`) and waits inside the tool for the
-  answer (`/invoke`): an ask or a proposal waits up to about two minutes, beyond Hermes's
-  30-second hook timeout. Hermes's Tool Search would put plugin tools behind its
+  answer (`/invoke`): an ask or a proposal waits up to about two minutes, a staged
+  browser upload up to five. A routine or hook run's session
+  (`cron_<job>_<YYYYmmdd_HHMMSS>`, `cron/scheduler.py`) is keyed by its job
+  (`agent:<agent>:hermes:cron:<job>:<session>`, `hermes-routine-jobs.js`), so the bridge
+  binds its calls to that run as on OpenClaw. A compression continues a chat in a new
+  stored session (its parent ends with `compression`); the plugin walks those parents
+  through Hermes's shared `SessionDB` (`hermes_state_registry`) and tries the chat's
+  earlier segments, so tool calls and the guard keep finding the chat AgentPier keys by
+  an older id. Hermes's Tool Search would put plugin tools behind its
   `tool_search` bridge (`tools/tool_search.py`); an agent with team tools gets
   `tools.tool_search.enabled: off`, so they are offered directly, as on OpenClaw.
 - **Guard.** A `pre_tool_call` hook asks the bridge (`/hermes-guard`,
-  `hermes-tool-guard.js`) before a team member's `write_file` or `patch` and before
-  every browser call. It applies the OpenClaw guard's rules (`team-plugin/tool-guard.js`):
-  a file change stays inside the agent's own folder, never touches an instruction file
+  `hermes-tool-guard.js`) before a team member's `write_file` or `patch`, before a file
+  call (`read_file`, `search_files`, `vision_analyze`, the writes) whose arguments name
+  `attachments/` or `.agentpier/`, and before every browser call. It applies the
+  OpenClaw guard's rules (`team-plugin/tool-guard.js`, `secrets-guard.js`): an
+  attachment is read only from the chat it was sent in (`/attachment-policy`), the
+  secrets file not in a hook run without the hook's Secrets switch; a member's file
+  change stays inside its own folder, never touches an instruction file
   (`AGENTS.md`, `SOUL.md`, skill folders, …) and is allowed only as the bridge allows
   the turn, so a task the owner did not ask for runs read-only. The hook answers within
   10 seconds; no answer blocks the call (Hermes blocks a hook that fails or outlasts its
@@ -296,10 +378,10 @@ runs under a session of its own, which no AgentPier turn is bound to, so its tea
 calls are refused; the plugin's `subagent_start` hook maps it to its parent, so the
 guard judges its file changes and browser calls as the parent's.
 
-Gaps beside OpenClaw's guard: memory steps, restricted users' locked tools, attachment,
-secrets, image and PDF checks have no Hermes counterpart yet, because Hermes agents
-have none of those features in AgentPier. A compression that gives a Hermes session a
-new id ends its team tool calls until the chat is opened again.
+Beside OpenClaw's guard: memory steps are OpenClaw's (Hermes keeps its memory itself);
+restricted users' locked tools are compiled away (toolsets, [Toolsets](#toolsets))
+rather than refused at run time; image and PDF checks have nothing to check, as Hermes
+agents create no images and read PDFs with `read_file`.
 
 ## Browser
 
@@ -344,11 +426,22 @@ refuses private, loopback and link-local addresses before `browser_navigate`, af
 redirect, before clicks and typing, and after snapshots (`tools/browser_tool.py`,
 `tools/url_safety.py`); cloud metadata addresses stay blocked even with it on, stricter
 than OpenClaw. Hermes reads the setting at its start; a change reaches the agent with
-its next apply, which restarts its process set. Gaps beside OpenClaw's policy: Hermes
-checks the page's top-level address only, not the requests a page makes, and
-`browser_scroll` is not checked. Temporary team members on Hermes have no browser yet
-(OpenClaw lends them a member slot); a Hermes agent's file uploads in the browser are
-not staged by AgentPier yet.
+its next apply, which restarts its process set. Like OpenClaw's policy, Hermes checks
+the addresses the browser goes to, not the requests a page makes: neither is a network
+firewall. `browser_scroll` cannot change the address, and the next snapshot or action
+is checked again.
+
+A temporary team member whose lead grants the browser (`desiredAgent`
+`browser.borrowed`) runs its own AgentPier Chromium in its own home. It shows a window
+as its lead's would, and is held as one of the member slots of its kind (at most three
+headless and three visible at once, `agent-browsers.js` `ownMemberSlot`), as OpenClaw
+lends a slot. When the member ends, its browser stops and its profile is removed; a
+promoted member keeps both as its own.
+
+File uploads: Hermes v0.22.5's browser tools have no upload (`tools/browser_tool.py`
+offers navigate, snapshot, click, type, scroll, back, press, images, vision and
+console), so a Hermes agent cannot fill a page's file field. `agentpier_workspace`
+`browser_upload_stage` still stages a file, for nothing on Hermes to use yet.
 
 ## Agents on Hermes
 
@@ -415,6 +508,7 @@ changed home restarts only that agent's set, so no Gateway restart is asked for.
 | `dm_policy: allowlist`, `unauthorized_dm_behavior`          | Strangers get no reply and no pairing code                             |
 | `allowed_chats: ["0"]`, `guest_mode: false`                 | No group chat reaches the agent (`allow_from` alone admits groups)     |
 | `allow_admin_from: ["0"]`, `user_allowed_commands`          | Slash commands are admin-only and nobody is admin: only /help, /whoami |
+| `platforms.telegram.extra.fallback_ips`                     | Hermes's seed Bot API addresses: no DNS-over-HTTPS lookups             |
 | `home_channel` chat `0`                                     | No "/sethome" prompt to each person; Hermes delivers nothing there     |
 | `stt.provider: agentpier-deepgram`                          | Voice notes go to AgentPier's Deepgram plugin with the speech settings |
 | `stt.enabled: false`                                        | Without a Deepgram key: no local or other cloud transcription          |
@@ -428,10 +522,16 @@ strips from child processes. Replies, voice and files go out as Hermes sends the
 (`MEDIA:` tags become native attachments). The channels sub-port reports the bot from the
 gateway's `gateway_state.json` (`platforms.telegram.state`). Other people's
 conversations stay in Hermes's sessions and belong to no AgentPier chat, as on
-OpenClaw. A person's very first message in a home that has no session yet gets Hermes's
-one-time introduction note. Files reach the paired chat
-when an agent shares them with `agentpier_share_file`; the Hermes team plugin does not
-carry that tool yet, so Hermes agents name a file's path in their reply.
+OpenClaw. Hermes appends a one-time "introduce yourself" note to the first message a
+person sends while the home has no other session (`gateway/run_turn_prepare.py`), and
+no setting turns it off; the RPC bridge therefore seeds an archived, empty session
+(`agentpier-first-contact`) in a home without any at its start, so a person writing to
+the agent's bot never gets it. Without a configured list Hermes's adapter asks Google's
+and Cloudflare's DNS-over-HTTPS resolvers for `api.telegram.org` at each connect;
+AgentPier compiles Hermes's own seed addresses as `platforms.telegram.extra.fallback_ips`,
+so no lookup goes to a third party, IPv4 is still tried before the dual-stack host name,
+and the host name stays the last path through the system resolver. Files reach the owner's paired chat when an agent shares them with
+`agentpier_share_file`, as on OpenClaw.
 
 ## Routines
 
@@ -481,8 +581,8 @@ appended through Hermes's own `SessionDB` to the session's current compression s
 Hermes sends the row to the model and never the kind; AgentPier's chat view leaves it
 out (`entry.internal`), because AgentPier already shows the result beside the chat
 (`deliveryStatus: "not-delivered"`: the note is no reply of the agent). A note is written
-once per run; one that failed is tried again while its run is the job's last. A note
-that arrives while a turn of that chat runs lands before that turn's reply.
+once per run; one that failed is tried again while its run is the job's last. A note for a chat whose turn runs or waits on AgentPier's connection is kept until that
+turn ended and then written, after its reply.
 
 **Time zones.** Hermes matches every cron expression in the time zone of the agent's
 processes (`cron/jobs.py compute_next_run`, `hermes_time`: `HERMES_TIMEZONE` or
@@ -503,18 +603,27 @@ five-field expression (numbers, names, `*`, ranges, steps, lists).
 
 **Dangerous commands in routine runs.** With **Full access** (`approvals.mode: off`)
 Hermes runs every command of a routine run, as OpenClaw does. With **Dangerous
-commands** or **Every command**, OpenClaw asks the owner in the chat the routine
-reports to and the run waits. Hermes cannot: in a cron run it clears every approval
-surface (`tools/approval.py _presence`, `HERMES_CRON_SESSION`) and decides by
-`approvals.cron_mode`, which knows only `deny` and `approve`. AgentPier keeps
-Hermes's default `deny`, so the owner's choice to be asked is never answered by
-running the command unasked: a command Hermes flags as dangerous, and with
-every-command approval every shell command and Python run, is refused in a routine
-run, and the run reports Hermes's refusal (`BLOCKED: …`) to the agent, which goes on
-without it. Commands Hermes does not flag run on **Dangerous commands**.
+commands** or **Every command**, the owner is asked in the chat the routine reports to
+(and its Telegram chat), and the run waits, as on OpenClaw. Hermes itself asks nobody in
+a cron run: it clears every approval surface (`tools/approval.py _presence`,
+`HERMES_CRON_SESSION`) and decides by `approvals.cron_mode`. AgentPier therefore sets
+`cron_mode: approve` and lets the `agentpier-guard` plugin ask instead. Its
+`pre_tool_call` hook asks AgentPier's team bridge (`/hermes-approval`,
+`hermes-routine-approvals.js`) and waits up to five minutes
+(`plugins.hook_callback_timeout: 330`, within Hermes's 600 s). It asks before each
+action that mode would otherwise let through: a command Hermes flags as dangerous
+(`tools/approval_detection.py`), every `execute_code` run, a write to the SSH client
+config, and with every-command approval every other shell command and process input.
+AgentPier raises the question through the agent's approvals sub-port (`approvals.ask`),
+so it appears like Hermes's own approvals. An allow lets the call run; a denial, no
+answer within five minutes, or no bridge blocks it, and the run reports the refusal
+(`BLOCKED: …`) to the agent. Hardline commands stay blocked by Hermes's own floor.
+Without the team bridge the home keeps Hermes's default `cron_mode: deny`, which
+refuses those commands unasked. A cron run is no AgentPier-tracked run, so it shows no
+`waiting-approval` phase.
 
-The agent's own routine tool needs AgentPier's team tools, which come to Hermes with
-teams.
+The agent's own reminder and routine tools (`agentpier_reminder`, `agentpier_routine`)
+come with the team plugin ([teams](#teams)) and schedule on the same Hermes cron.
 
 ## Gateway protocol
 
@@ -547,9 +656,10 @@ A chat's history names how full its context was for the long-chat hint as OpenCl
 does (`sessionInfo.totalTokens`, `totalTokensFresh`, `contextTokens`): the
 `last_prompt_tokens` and `context_length` of the agent the gateway keeps for the
 session (`gateway/session_usage.py`), read while the session is attached to
-AgentPier's connection. After a restart of the gateway or a compression the gateway
-lets that agent go and the size is unknown until the chat's next turn, as OpenClaw's
-is after a compaction (no hint meanwhile).
+AgentPier's connection. Hermes keeps that agent only in the gateway's memory and stores no prompt size, so
+after a gateway restart the size read last for the chat stands until its next model call
+(its history is unchanged); after a compression AgentPier asked for, the size is unknown
+until the next turn, as OpenClaw's is after a compaction (no hint meanwhile).
 
 When a Hermes agent calls its `clarify` tool, Hermes asks every connection attached to
 the session (`clarify.request`, one per question, with its choices; Hermes marks the
@@ -569,6 +679,53 @@ goes on and says what it lacks.
 Every refusal is code 4001 with its reason in `error.data.reason`; an unknown parameter
 is refused as `invalid_params`, so AgentPier sends only the parameters listed.
 
+## Parity with OpenClaw agents
+
+What AgentPier offers an OpenClaw agent and how a Hermes agent gets it (audit of
+AGENTPIER-344). Logins (ChatGPT accounts, MCP OAuth) are AGENTPIER-340's.
+
+| Feature                                                    | OpenClaw                            | Hermes                                              | Notes                                                        |
+| ---------------------------------------------------------- | ----------------------------------- | --------------------------------------------------- | ------------------------------------------------------------ |
+| Chats, streaming, tool steps, history                      | Gateway sessions                    | Gateway sessions over the RPC bridge                | [Gateway protocol](#gateway-protocol)                        |
+| Chat titles, queued messages                               | While the Gateway is ready          | While the agent's set is ready                      | Independent of OpenClaw                                      |
+| Chat deletion, user release                                | Session, archives, dreaming copies  | Session and transcript (`session.mutate delete`)    | Retried at the set's next ready                              |
+| Long chats                                                 | Compaction, context size            | Compression, `session.stats`                        |                                                              |
+| Model connection                                           | Every connection                    | Every connection but ChatGPT accounts               | AGENTPIER-340                                                |
+| Shell levels                                               | Off, approval (every command), full | Off, dangerous commands, every command, full        | [Shell levels](#shell-levels)                                |
+| Routine runs on an asking level                            | Ask the owner                       | Ask the owner through the guard                     | [Routines](#routines)                                        |
+| Always allow                                               | OpenClaw's allowlist                | AgentPier remembers the exact command               | Allowlist page is OpenClaw's                                 |
+| Memory                                                     | Files, memory steps, Dream Diary    | `MEMORY.md`, `USER.md`, Hermes's own review         | No memory step                                               |
+| Dreaming                                                   | memory-core                         | Not offered                                         | Memory stays the owner's switch                              |
+| Skills                                                     | Bundled, catalog, shopping          | Bundled, catalog, shopping, self-written            | `hermes-agent` always on                                     |
+| MCP servers                                                | stdio, HTTP, OAuth                  | stdio, HTTP                                         | OAuth: AGENTPIER-340                                         |
+| Web search                                                 | DuckDuckGo, Brave, Perplexity       | `ddgs`, `brave-free`, AgentPier's Perplexity plugin | [Web search](#web-search)                                    |
+| Web fetch                                                  | `web_fetch`                         | AgentPier's `agentpier-fetch`                       | Private networks always refused                              |
+| Read images                                                | `view_image`                        | `vision` toolset                                    |                                                              |
+| Read PDFs                                                  | `pdf` with the PDF model            | `read_file` text layer                              | Scanned pages not read                                       |
+| Create images                                              | ChatGPT account                     | Not available                                       | Switch disabled with the reason; AGENTPIER-340               |
+| Attachments, video                                         | `attachments/` in the workspace     | The same folder, its work folder                    | Named by path; inline images not sent                        |
+| Browser                                                    | AgentPier's Chromium                | AgentPier's Chromium                                | [Browser](#browser)                                          |
+| Browser for task members                                   | Member slot                         | Own Chromium under the slot limit                   |                                                              |
+| Browser uploads                                            | Staged files                        | No upload tool in Hermes                            |                                                              |
+| Reminders, routines, hooks (agent's tools)                 | Team plugin                         | Hermes team plugin                                  | Same bridge                                                  |
+| Owner's routines, check-ins, hooks                         | OpenClaw cron                       | Hermes cron                                         | [Routines](#routines)                                        |
+| Workspace, projects, project files                         | `agentpier_workspace`               | The same                                            | Project images come back as a note                           |
+| Share files, to Telegram                                   | `agentpier_share_file`              | The same                                            |                                                              |
+| Secrets for agents                                         | `.agentpier/secrets.env`            | The same file                                       | Hook-run read guard                                          |
+| SSH, SSH access                                            | `agentpier_ssh`, plain aliases      | The same; SSH agent's `bin/` on PATH                | PATH change restarts the set                                 |
+| GitHub                                                     | `gh` folder, MCP server             | The same                                            |                                                              |
+| Work goals, coding sessions, mail, previews                | Team plugin                         | Hermes team plugin                                  |                                                              |
+| Teams, lead requests, member grants, lead shares, mentions | Team plugin                         | Hermes team plugin                                  | Members run on the lead's runtime                            |
+| Invisible subagents                                        | `sessions_spawn`                    | `delegate_task`                                     |                                                              |
+| Questions to the owner                                     | —                                   | `clarify`                                           |                                                              |
+| Restricted users' locked tools                             | Refused at run time                 | Toolsets compiled off                               |                                                              |
+| Telegram (owner's chat)                                    | AgentPier channel layer             | The same                                            |                                                              |
+| Telegram for other people                                  | OpenClaw's adapter                  | Hermes's adapter                                    | A people change restarts the agent                           |
+| Backups                                                    | Sealed credentials and history      | Sealed `.env`, `auth.json` and history              | [Backups](backups.md#hermes-agents)                          |
+| Access and approval audit                                  | AgentPier                           | AgentPier                                           |                                                              |
+| Advanced settings                                          | Available                           | `advancedSettingsUnsupported`                       |                                                              |
+| Updates                                                    | OpenClaw update                     | Hermes update                                       | [Updates](assistant-runtime-updates.md#hermes-agent-runtime) |
+
 ## Contract tests
 
 `tests/unit/hermes-config-golden.test.js` compares the compiled homes with
@@ -579,9 +736,12 @@ of child processes. The sessions, approvals, routines, host and install contract
 the agent through the Hermes runtime, its supervised gateway and the RPC bridge, against
 the in-repo fake model; `hermes-agent-routines-contract.test.js` runs an owner's routines
 through AgentPier's routine routes, `hermes-agent-hooks-contract.test.js` a hook event
-through AgentPier's hook routes, and `hermes-routine-parity-contract.test.js` a routine
-in another time zone, a result the next turn reads, the long-chat size and a dangerous
-command in routine runs on full access and on approval.
+through AgentPier's hook routes, and `hermes-routine-parity-contract.test.js` a routine in another time zone, a result the next turn reads, a result that waits for a
+running turn's reply, the long-chat size (also after a gateway restart) and a dangerous
+command in routine runs on full access and on approval (asked, allowed, denied).
+`hermes-own-tools-contract.test.js` shares a file of the agent's work folder with
+`agentpier_share_file`; `hermes-member-browser-contract.test.js` opens a page in a task
+member's own Chromium.
 `tests/integration/hermes-files-contract.test.js` checks the agent's files: a memory
 entry written through the port reaches the agent's prompt, and an entry the agent adds
 with Hermes's `memory` tool comes back through it; an assigned bundled skill and a

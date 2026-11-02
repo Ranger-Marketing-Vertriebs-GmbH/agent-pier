@@ -5,13 +5,18 @@ import { privateFolder } from "../../runtime-paths.js";
  * AgentPier's private Hermes folder, `<data>/assistants/hermes/`, shaped like
  * runtime-paths.js so the update journal (runtime-updates.js) snapshots and restores
  * it: `home`, `state` and `workspaces` hold one folder per agent (its HOME, its
- * HERMES_HOME and its work directory), `runtimes` the pinned installations, `tmp` and
- * `logs` per-agent scratch and process logs. Never `~/.hermes`, never a global Python.
+ * HERMES_HOME and, for an id AgentPier did not make, its work directory), `runtimes`
+ * the pinned installations, `tmp` and `logs` per-agent scratch and process logs.
+ * `agentWorkspaces` is AgentPier's own agent workspace root (runtime-paths.js
+ * `workspaces`), shared with OpenClaw agents. Never `~/.hermes`, never a global Python.
  */
 export function hermesPaths(dataDir) {
   const assistants = privateFolder(path.join(dataDir, "assistants"));
   const root = privateFolder(path.join(assistants, "hermes"));
-  const paths = { root };
+  const paths = {
+    root,
+    agentWorkspaces: privateFolder(path.join(assistants, "workspaces")),
+  };
   for (const name of ["home", "state", "workspaces", "logs", "runtimes", "tmp"])
     paths[name] = privateFolder(path.join(root, name));
   return paths;
@@ -25,15 +30,30 @@ const agentId = (id) => {
 };
 
 /**
+ * The work folder of runtime agent id `id` below `paths` (hermesPaths), not created:
+ * an agent AgentPier made (`ap-<assistant id>`, assistant-store.js) works in its own
+ * agent workspace `<data>/assistants/workspaces/<assistant id>`, the folder OpenClaw
+ * agents work in, so its chat attachments, shared files, secrets and transfers are
+ * where its commands run; any other id in `hermes/workspaces/<id>`.
+ */
+export function hermesWorkspace(paths, id) {
+  const name = agentId(id);
+  return /^ap-[A-Za-z0-9-]{1,100}$/.test(name)
+    ? path.join(paths.agentWorkspaces, name.slice(3))
+    : path.join(paths.workspaces, name);
+}
+
+/**
  * One agent's private folders (created 0700): `home` (HOME), `hermesHome`
- * (HERMES_HOME), `workspace` (its work directory), `tmp` (TMPDIR) and `logs`.
+ * (HERMES_HOME), `workspace` (its work directory, hermesWorkspace), `tmp` (TMPDIR)
+ * and `logs`.
  */
 export function hermesAgentPaths(paths, id) {
   const name = agentId(id);
   return {
     home: privateFolder(path.join(paths.home, name)),
     hermesHome: privateFolder(path.join(paths.state, name)),
-    workspace: privateFolder(path.join(paths.workspaces, name)),
+    workspace: privateFolder(hermesWorkspace(paths, name)),
     tmp: privateFolder(path.join(paths.tmp, name)),
     logs: privateFolder(path.join(paths.logs, name)),
   };

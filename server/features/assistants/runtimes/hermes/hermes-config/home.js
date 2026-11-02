@@ -34,6 +34,18 @@ import {
 // named otherwise; docs/hermes-runtime.md lists them).
 
 /**
+ * Hermes's counterparts of the tools an agent of restricted users never holds on
+ * OpenClaw (native-capabilities.js lockedTools): subagents (`delegation`, as
+ * sessions_spawn), other chats (`session_search`, as the sessions tools) and connector
+ * accounts (`connections`). Its shell is off through its shell level already.
+ */
+export const userLockedToolsets = Object.freeze([
+  "connections",
+  "delegation",
+  "session_search",
+]);
+
+/**
  * Practical defaults (ADR 0006 decision 5): AgentPier turns off only what touches
  * credentials, sends data off the host without the owner's choice, changes the
  * installation, or rewrites the first turn.
@@ -69,7 +81,6 @@ const practicalDefaults = [
 // `browser`: whether the agent browses on AgentPier's Chromium, else a wish for the
 // browser is named.
 function unsupportedOf(agent, level, model, { placed, mcp, team, browser }) {
-  const grants = agent.tools.flatMap((grant) => grant.tools || []);
   return [
     ...(model?.unsupported ? [model.unsupported] : []),
     ...((agent.browser.wanted || agent.browser.borrowed) && !browser ? ["browser"] : []),
@@ -79,11 +90,8 @@ function unsupportedOf(agent, level, model, { placed, mcp, team, browser }) {
     // Image creation runs through the owner's ChatGPT account, which Hermes agents
     // cannot use yet.
     ...(agent.web.createImages ? ["createImages"] : []),
-    ...(grants.includes("agentpier_reminder") ? ["routines"] : []),
-    ...(!team && agent.tools.some((grant) => grant.needs?.includes("teams"))
-      ? ["teams"]
-      : []),
-    ...(level !== "off" && agent.shell.pathPrepend.length ? ["shellPath"] : []),
+    // AgentPier's own and team tools come with the team plugin and its bridge.
+    ...(!team && teamTools(agent).length ? ["teams"] : []),
   ];
 }
 
@@ -155,6 +163,7 @@ export function compileHome(
   const toolsets = [
     ...disabledToolsets(agent, level, { browser: browsing }),
     ...(bot?.senders ? senderLockedToolsets : []),
+    ...(agent.locked ? userLockedToolsets : []),
     ...(webPart?.toolsets || []),
   ];
   const plugins = [
