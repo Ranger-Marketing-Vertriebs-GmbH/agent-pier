@@ -24,11 +24,15 @@ const sameModel = (a, b) =>
  * What saving `after` over `before` (assistant records) switches, or null when the
  * model stays. `agents` are the agent and each temporary member that follows its
  * model; `fresh` is the owner's `freshChats`, by default whether the family changes.
- * Refuses a `freshChats` that is not a boolean.
+ * `followLead` puts a temporary member back on its lead's model. Refuses a
+ * `freshChats` that is not a boolean.
  */
-export function planSwitch(service, before, after, { freshChats } = {}) {
+export function planSwitch(service, before, given, options) {
+  const { freshChats, followLead } = options || {};
   if (freshChats !== undefined && typeof freshChats !== "boolean")
     throw assistantProblem("invalid");
+  const after =
+    followLead === true ? { ...given, model: leadModel(service, before) } : given;
   if (!after?.model || sameModel(before.model, after.model)) return null;
   const followers = before.teamMemberId
     ? []
@@ -50,6 +54,16 @@ export function planSwitch(service, before, after, { freshChats } = {}) {
     from: before.model,
     to: after.model,
   };
+}
+
+// The model of a temporary member's lead, the one it follows; none when unreadable.
+function leadModel(service, member) {
+  if (!temporaryMember(member)) return member.model;
+  try {
+    return service.store.getAssistant(member.parentAssistantId).model;
+  } catch {
+    return member.model;
+  }
 }
 
 // The conversations with a turn under way.

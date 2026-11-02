@@ -341,3 +341,48 @@ test("a save through a Gateway restart starts the fresh chats too", async (t) =>
   assert.ok(saved.freshChats.chats.some((c) => c.from === main.id));
   assert.ok(service.store.getConversation(main.id).archivedAt);
 });
+
+// The task member done with its task and on a model of its own, `modelId` at the
+// lead's connection.
+async function ownModelMember(t, modelId) {
+  const s = await team(t);
+  const { service, lead, teams } = s;
+  const scout = s.teams.write(teams.member(s.scout.id), { phase: "completed" });
+  const record = service.store.getAssistant(scout.assistantId);
+  service.store.updateAssistant(
+    scout.assistantId,
+    { model: model(lead, modelId) },
+    record.revision,
+  );
+  assert.equal(service.store.getAssistant(scout.assistantId).ownModel, true);
+  return { ...s, scout };
+}
+
+test("following the lead again onto another family swaps the member's chat", async (t) => {
+  const { f, service, lead, main, teams, scout } = await ownModelMember(
+    t,
+    "anthropic/claude-sonnet-4.6",
+  );
+  const { freshChats } = await save(f, service, scout.assistantId, { followLead: true });
+  assert.deepEqual(service.store.getAssistant(scout.assistantId).model, lead.model);
+  assert.equal(freshChats.chats.length, 1);
+  const [{ assistantId, from, to }] = freshChats.chats;
+  assert.equal(assistantId, scout.assistantId);
+  assert.equal(from, scout.conversationId);
+  assert.equal(teams.member(scout.id).conversationId, to);
+  assert.equal(service.store.getConversation(main.id).archivedAt ?? null, null);
+  const [note] = service.memoryNotes.forConversation(to);
+  assert.deepEqual(note.details, {
+    from: "anthropic/claude-sonnet-4.6",
+    to: "openai/gpt-4.1-mini",
+  });
+});
+
+test("following the lead again within the family keeps the member's chat", async (t) => {
+  const { f, service, lead, scout } = await ownModelMember(t, "openai/gpt-5");
+  const body = await save(f, service, scout.assistantId, { followLead: true });
+  assert.equal(body.freshChats, undefined);
+  assert.deepEqual(service.store.getAssistant(scout.assistantId).model, lead.model);
+  const chat = service.store.getConversation(scout.conversationId);
+  assert.equal(chat.archivedAt ?? null, null);
+});
