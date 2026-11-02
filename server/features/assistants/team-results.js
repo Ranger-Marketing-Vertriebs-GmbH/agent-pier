@@ -33,6 +33,16 @@ function chatRemoved(assistants, conversationId) {
     return false;
   }
 }
+// The chat a member's run ran in; none without its attempt or a readable request.
+function runChat(assistants, attempt) {
+  try {
+    return attempt
+      ? assistants.ledger.getRequest(attempt.requestId).conversationId
+      : null;
+  } catch {
+    return null;
+  }
+}
 export class TeamResults {
   constructor({ teams, assistants }) {
     Object.assign(this, { teams, assistants });
@@ -53,9 +63,7 @@ export class TeamResults {
       let reply = { text: "", cut: false };
       if (m.phase === "completed") {
         // The chat the run ran in, though a model switch may have replaced it since.
-        const chat = attempt
-          ? a.ledger.getRequest(attempt.requestId).conversationId
-          : m.conversationId;
+        const chat = runChat(a, attempt) ?? m.conversationId;
         const history = await a.history(chat);
         if (!history.stale) reply = await runReply(a, chat, history.messages, attempt);
       }

@@ -192,6 +192,46 @@ test("a member report never matches a history message without run identity", asy
   assert.equal(written.resultBatch[0].reportAvailable, false);
 });
 
+test("a member report whose request row is gone is read from the member's chat", async () => {
+  let written;
+  const read = [];
+  const results = new TeamResults({
+    teams: {
+      get: () => ({ id: "team" }),
+      members: () => [
+        {
+          id: "m",
+          name: "M",
+          role: "R",
+          phase: "completed",
+          attemptId: "a",
+          conversationId: "member-chat",
+        },
+      ],
+      write: (_team, value) => (written = value),
+    },
+    assistants: {
+      ledger: {
+        getAttempt: () => ({ id: "a", requestId: "gone", runtimeRunId: null }),
+        getRequest: () => {
+          throw Object.assign(new Error("not found"), { status: 404 });
+        },
+      },
+      history: async (id) => {
+        read.push(id);
+        return {
+          stale: false,
+          messages: [{ role: "assistant", text: "Done", runId: "a" }],
+        };
+      },
+      changed() {},
+    },
+  });
+  await results.collect("team");
+  assert.deepEqual(read, ["member-chat"]);
+  assert.equal(written.resultBatch[0].text, "Done");
+});
+
 test("an archived parent skips synthesis once and never retries it", async (t) => {
   const f = teamFixture(t),
     { team, attempt, parent, chat } = await f.proposal({ count: 1 });
