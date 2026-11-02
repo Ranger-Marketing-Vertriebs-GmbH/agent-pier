@@ -168,7 +168,7 @@ export default function MemoryPage({ assistant, onBack, readOnly: locked = false
           {copy.notes}
           <textarea
             rows={9}
-            maxLength={65536}
+            maxLength={editable ? 262144 : 65536}
             disabled={!file || busy || (!savable && !readOnly)}
             readOnly={readOnly}
             value={file ? draft.values.content : ""}
