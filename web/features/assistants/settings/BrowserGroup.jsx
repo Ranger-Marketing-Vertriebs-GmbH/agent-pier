@@ -52,6 +52,16 @@ export default function BrowserGroup({
   const window = browser?.visible;
   const reason = window && !window.available ? copy[window.reason] || copy.noApp : "";
   const on = draft.values.browserVisible === true;
+  // A browser app that does not start (browser-launch-check.js), with what helps.
+  const launch = browser?.launch;
+  const launchHint = launch
+    ? [
+        copy.launchProblem[launch.problem] || copy.launchProblem.crashed,
+        launch.usable && browser.name ? copy.launchFallback(browser.name) : "",
+      ]
+        .filter(Boolean)
+        .join(" ")
+    : "";
   const reset = async () => {
     setConfirming(false);
     try {
@@ -77,6 +87,9 @@ export default function BrowserGroup({
             disabled={draft.saving || (Boolean(reason) && !on)}
             onChange={(next) => draft.set("browserVisible", next)}
           />
+        )}
+        {!archived && owner && launch && (
+          <ListRow label={copy.launchTitle(launch.name)} sub={launchHint} />
         )}
         {!archived && owner && <BrowserInstall browser={browser} refresh={refresh} />}
         {!archived && owner && (

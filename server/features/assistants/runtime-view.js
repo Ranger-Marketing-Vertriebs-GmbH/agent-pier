@@ -18,7 +18,7 @@ export function browserStatus(webTools) {
   // Whether AgentPier can install its own agent browser on this host.
   const installable = !chromiumUnavailable(process.platform, process.arch);
   try {
-    const { available, name, visible, managed } = webTools?.detect() || {};
+    const { available, name, visible, managed, launch } = webTools?.detect() || {};
     // Whether agents may get a visible window, and why not ("noApp", "noDisplay").
     const window = visible?.available
       ? { available: true }
@@ -35,6 +35,9 @@ export function browserStatus(webTools) {
       ...(available ? { available: true, name } : { available: false }),
       visible: window,
       managed: !!managed,
+      // An app that does not start (browser-launch-check.js): its name, the problem
+      // and whether another app starts in its place.
+      ...(launch && { launch }),
       installable,
       restartNeeded,
       network: webTools?.networkStatus?.(),

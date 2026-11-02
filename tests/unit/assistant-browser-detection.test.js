@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  browserCandidates,
   detectBrowser,
   hasDisplay,
 } from "../../server/features/assistants/browser-detection.js";
@@ -84,4 +85,92 @@ test("an unsupported platform reports no browser", () => {
     detectBrowser({ platform: "win32", exists: () => true, home: "C:\\Users\\x" }),
     { available: false, visible: { available: false, reason: "noApp" } },
   );
+});
+
+test("on Linux an app that does not start is passed over for the next one", () => {
+  const installed = new Set(["/usr/bin/chromium", "/usr/bin/google-chrome"]);
+  const base = {
+    platform: "linux",
+    exists: (p) => installed.has(p),
+    home: "/home/x",
+    env: { DISPLAY: ":0" },
+  };
+  // Not yet checked: the separate agent app stays first.
+  assert.equal(detectBrowser(base).executablePath, "/usr/bin/chromium");
+  const found = detectBrowser({
+    ...base,
+    launch: (p) =>
+      p === "/usr/bin/chromium" ? { ok: false, problem: "sandbox" } : { ok: true },
+  });
+  assert.deepEqual(found, {
+    available: true,
+    name: "Chrome",
+    executablePath: "/usr/bin/google-chrome",
+    // Chrome is the owner's browser: no visible window with it.
+    visible: { available: false, reason: "noApp" },
+    launch: { name: "Chromium", problem: "sandbox", usable: true },
+  });
+});
+
+test("when no app starts the first stays chosen and the problem is reported", () => {
+  const found = detectBrowser({
+    platform: "linux",
+    exists: (p) => p === "/usr/bin/chromium",
+    home: "/home/x",
+    env: {},
+    launch: () => ({ ok: false, problem: "crashed" }),
+  });
+  assert.equal(found.available, true);
+  assert.equal(found.executablePath, "/usr/bin/chromium");
+  assert.deepEqual(found.launch, { name: "Chromium", problem: "crashed", usable: false });
+});
+
+test("a failure of a later app than the chosen one is not reported", () => {
+  const installed = new Set(["/usr/bin/chromium", "/usr/bin/google-chrome"]);
+  const found = detectBrowser({
+    platform: "linux",
+    exists: (p) => installed.has(p),
+    home: "/home/x",
+    env: {},
+    launch: (p) =>
+      p === "/usr/bin/google-chrome" ? { ok: false, problem: "missing" } : { ok: true },
+  });
+  assert.equal(found.executablePath, "/usr/bin/chromium");
+  assert.equal(found.launch, undefined);
+});
+
+test("the launch check gets every installed app once, in the detection order", () => {
+  const installed = new Set([
+    "/managed/chrome",
+    "/usr/bin/chromium",
+    "/usr/bin/google-chrome",
+    "/usr/bin/brave-browser",
+  ]);
+  assert.deepEqual(
+    browserCandidates({
+      platform: "linux",
+      exists: (p) => installed.has(p),
+      home: "/home/x",
+      managed: "/managed/chrome",
+    }),
+    [
+      "/managed/chrome",
+      "/usr/bin/brave-browser",
+      "/usr/bin/chromium",
+      "/usr/bin/google-chrome",
+    ],
+  );
+  const managed = detectBrowser({
+    platform: "linux",
+    exists: (p) => installed.has(p),
+    home: "/home/x",
+    env: { DISPLAY: ":0" },
+    managed: "/managed/chrome",
+    launch: (p) =>
+      p === "/managed/chrome" ? { ok: false, problem: "sandbox" } : undefined,
+  });
+  assert.equal(managed.executablePath, "/usr/bin/brave-browser");
+  assert.equal(managed.managed, undefined);
+  assert.deepEqual(managed.visible, { available: true });
+  assert.equal(managed.launch.name, "Chrome for Testing");
 });

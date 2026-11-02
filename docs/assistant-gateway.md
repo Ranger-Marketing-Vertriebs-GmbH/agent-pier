@@ -2085,7 +2085,10 @@ below). `detectBrowser()` prefers that managed build, then looks in the platform
 standard locations for a browser app of the agents' own (Brave, then Chromium, then
 Chrome for Testing) before Chrome, Brave, Edge or Chromium in general; the compiled
 `browser` block names that one executable for every agent profile, so a profile is
-always opened by the same app. The block:
+always opened by the same app. On Linux each app is first checked to start, sandbox on
+(`browser-launch-check.js`); one that cannot, such as a Chromium without a sandbox
+helper under Ubuntu 23.10+'s AppArmor limit, is passed over and the agent's browser
+settings name it and the cause ([Linux](linux.md#optional-assistants)). The block:
 
 - uses only OpenClaw-managed profiles (`driver: "openclaw"`). OpenClaw's implicit
   `user` profile (which attaches to the signed-in system browser) and `chrome`

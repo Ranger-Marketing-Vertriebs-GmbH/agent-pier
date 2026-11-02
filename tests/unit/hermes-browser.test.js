@@ -123,6 +123,8 @@ test("a launch carries OpenClaw's managed-browser flags, Linux ones on Linux", (
     "--password-store=basic",
     "--use-mock-keychain",
     "--disable-renderer-backgrounding",
+    // A direct connection, as OpenClaw's managed browser.
+    "--no-proxy-server",
   ])
     assert.ok(linux.includes(flag), flag);
   assert.equal(linux.at(-1), "about:blank");
@@ -151,6 +153,21 @@ test("a launch carries OpenClaw's managed-browser flags, Linux ones on Linux", (
   );
   assert.deepEqual(
     chromiumEnvironment({ directory: "/agent", platform: "darwin", env: { A: "1" } }),
+    { A: "1" },
+  );
+  // The proxy variables OpenClaw drops from its managed browser's environment.
+  assert.deepEqual(
+    chromiumEnvironment({
+      directory: "/agent",
+      platform: "darwin",
+      env: {
+        A: "1",
+        HTTP_PROXY: "http://p",
+        https_proxy: "http://p",
+        ALL_PROXY: "socks5://p",
+        no_proxy: "localhost",
+      },
+    }),
     { A: "1" },
   );
 });

@@ -413,8 +413,16 @@ a CDP port on `127.0.0.1` chosen once and kept, headless unless the agent's **Vi
 window** and a separate agent browser app allow a window, and the launch flags of
 OpenClaw's managed launches (mock keychain and basic password store, no sync or crash
 bubbles, no throttling; headless without the GPU; on Linux without `/dev/shm`, with
-Chromium's config and cache homes beside the profile unless set). The sandbox always
-stays on. The compiled home turns the
+Chromium's config and cache homes beside the profile unless set). Like OpenClaw's
+managed browser it connects directly: `--no-proxy-server`, and the proxy variables
+(`HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY`, also lowercase) are dropped
+from its environment, because **Allow private networks for all agent browsers** is
+checked against the address a page resolves to, which a proxy would hide (only the browser's
+environment changes). The sandbox always stays on: on Linux the app is first
+checked to start (`browser-launch-check.js`), one that cannot (such as a Chromium
+without a sandbox helper under Ubuntu's AppArmor limit) is passed over for the next,
+and the agent's browser settings name the cause ([Linux](linux.md#optional-assistants)).
+The compiled home turns the
 `browser` toolset on with:
 
 | Key                          | Value                                             |

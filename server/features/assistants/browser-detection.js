@@ -15,6 +15,8 @@ const candidates = {
       ["Edge", "Microsoft Edge.app/Contents/MacOS/Microsoft Edge"],
       ["Chromium", "Chromium.app/Contents/MacOS/Chromium"],
     ]),
+  // Google Chrome first: its package installs the setuid sandbox helper and an
+  // AppArmor profile, so it starts where Ubuntu 23.10+ restricts user namespaces.
   linux: () => [
     ["Chrome", "/usr/bin/google-chrome"],
     ["Chrome", "/usr/bin/google-chrome-stable"],
@@ -51,12 +53,57 @@ export function hasDisplay(platform = process.platform, env = process.env) {
 }
 
 /**
+ * The installed browser apps in their order of preference: the managed Chrome for
+ * Testing, the separate agent apps, then any other Chromium-based browser. Each entry
+ * is `{ name, executablePath, agent, managed }`; an app appears once.
+ */
+function installed({ platform, exists, home, managed }) {
+  const found = (list, agent) =>
+    (list[platform]?.(home) || [])
+      .filter(([, executablePath]) => exists(executablePath))
+      .map(([name, executablePath]) => ({ name, executablePath, agent }));
+  const all = [
+    ...(managed && exists(managed)
+      ? [
+          {
+            name: "Chrome for Testing",
+            executablePath: managed,
+            agent: true,
+            managed: true,
+          },
+        ]
+      : []),
+    ...found(agentCandidates, true),
+    ...found(candidates, false),
+  ];
+  return all.filter(
+    (entry, index) =>
+      all.findIndex((other) => other.executablePath === entry.executablePath) === index,
+  );
+}
+
+/** The executables detectBrowser chooses from, in its order (for the launch check). */
+export function browserCandidates({
+  platform = process.platform,
+  exists = fs.existsSync,
+  home = os.homedir(),
+  managed = null,
+} = {}) {
+  return installed({ platform, exists, home, managed }).map((e) => e.executablePath);
+}
+
+/**
  * AgentPier installs no browser; OpenClaw drives an installed one with its own
  * isolated profiles. The Gateway runs with a private HOME, so the path is explicit.
  * A separate agent app (Brave, Chromium, Chrome for Testing) is preferred for every
  * agent profile, so one profile is always opened by the same app. `visible` says
  * whether agents may get a visible window: only with that separate app and a
  * display; otherwise `reason` is "noApp" or "noDisplay".
+ *
+ * `launch(executablePath)` answers what the launch check knows of an app
+ * (browser-launch-check.js): an app known not to start is passed over for the next
+ * one. `launch` then names the first such app and its problem, with `usable: false`
+ * when no app starts (the first one stays chosen, so its error reaches the agent).
  */
 export function detectBrowser({
   platform = process.platform,
@@ -66,17 +113,21 @@ export function detectBrowser({
   // The managed Chrome for Testing AgentPier installed (chromium-installer.js); it
   // comes first, being the agents' own app by construction.
   managed = null,
+  launch = () => undefined,
 } = {}) {
-  const first = (list) =>
-    (list[platform]?.(home) || []).find(([, executablePath]) => exists(executablePath));
-  const agent =
-    managed && exists(managed)
-      ? ["Chrome for Testing", managed, true]
-      : first(agentCandidates);
-  const any = agent || first(candidates);
-  if (!any) return { available: false, visible: { available: false, reason: "noApp" } };
-  const [name, executablePath, isManaged] = any;
-  const visible = !agent
+  const all = installed({ platform, exists, home, managed });
+  if (!all.length)
+    return { available: false, visible: { available: false, reason: "noApp" } };
+  const problemOf = (entry) => {
+    const known = launch(entry.executablePath);
+    return known?.ok === false ? known.problem || "crashed" : null;
+  };
+  const starting = all.find((entry) => !problemOf(entry));
+  const chosen = starting || all[0];
+  // The first app passed over (or the chosen one, when none starts).
+  const failed = all.slice(0, all.indexOf(chosen) + 1).find(problemOf);
+  const { name, executablePath } = chosen;
+  const visible = !chosen.agent
     ? { available: false, reason: "noApp" }
     : hasDisplay(platform, env)
       ? { available: true }
@@ -86,6 +137,9 @@ export function detectBrowser({
     name,
     executablePath,
     visible,
-    ...(isManaged && { managed: true }),
+    ...(chosen.managed && { managed: true }),
+    ...(failed && {
+      launch: { name: failed.name, problem: problemOf(failed), usable: !!starting },
+    }),
   };
 }

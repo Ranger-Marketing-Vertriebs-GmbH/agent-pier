@@ -334,6 +334,27 @@ for (const [label, use] of [
       await expect(page.locator(".assistant-shell-chip.browser")).toHaveCount(0);
     });
 
+    test("a browser app that cannot start names the cause and what helps", async ({
+      page,
+    }) => {
+      await setup(page, {
+        assistant: { capabilities: { browser: true } },
+        browser: {
+          available: true,
+          name: "Chrome",
+          visible: { available: false, reason: "noApp" },
+          launch: { name: "Chromium", problem: "sandbox", usable: true },
+        },
+      });
+      await page.goto(baseURL + settingsPath("capabilities"));
+      await expect(page.getByText("Chromium does not start")).toBeVisible();
+      const hint = page.getByText("The system blocks the browser's sandbox");
+      await expect(hint).toBeVisible();
+      await expect(hint).toContainText("Install Google Chrome");
+      await expect(hint).toContainText("docs/linux.md");
+      await expect(hint).toContainText("The agents use Chrome instead.");
+    });
+
     test("web search is explained while the provider is not configured", async ({
       page,
     }) => {

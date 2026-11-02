@@ -24,8 +24,7 @@ import { PdfModelSettings } from "../features/assistants/pdf-model-settings.js";
 import { DreamingSettings } from "../features/assistants/dreaming-settings.js";
 import { DreamingService } from "../features/assistants/dreaming-service.js";
 import { DreamingBackups } from "../features/assistants/dreaming-backups.js";
-import { detectBrowser } from "../features/assistants/browser-detection.js";
-import { managedChromium } from "../features/tools/chromium-installer.js";
+import { agentBrowserDetection } from "../features/assistants/agent-browser-detection.js";
 import { AgentBrowsers, agentRunning } from "../features/assistants/agent-browsers.js";
 import { BrowserProfileSync } from "../features/assistants/browser-profile-sync.js";
 import { PendingRestart, updateBlocked } from "../features/assistants/pending-restart.js";
@@ -90,9 +89,8 @@ const overrideStore = (store) =>
 export function constructAssistantGraph(host, created = {}) {
   const { config, providerConnections, audit } = host;
   const { dataDir } = config;
-  // The managed browser AgentPier installs (Chrome for Testing) comes first.
-  const detectAgentBrowser = () =>
-    detectBrowser({ managed: managedChromium(path.join(dataDir, "clis"))?.executable });
+  // The agents' browser app: the managed one first, one that does not start passed over.
+  const agentBrowser = agentBrowserDetection(path.join(dataDir, "clis"));
   const assistantRuntime = expectWiring(
     new RuntimeSupervisor({
       dataDir,
@@ -350,7 +348,8 @@ export function constructAssistantGraph(host, created = {}) {
     assistants,
     webSearch: assistantWebSearch,
     synchronization: assistantProviderSynchronization,
-    detect: detectAgentBrowser,
+    detect: agentBrowser.detect,
+    prepare: agentBrowser.prepare,
     // A signed-in ChatGPT account lets agents create images (model-accounts.js).
     images: () => ({ ready: assistantModelAccounts.imageReady() }),
     pdfModel: assistantPdfModel,
@@ -531,9 +530,10 @@ export function connectAssistantServices(graph) {
       await proxy.start().catch(() => null);
       // Failed OAuth logouts are retried before the start compiles.
       await mcpChanges.drainLogouts();
-      // AgentPier's desired state for the start, read from the stores now; the
-      // adapter compiles it (agent-desired-state.js).
+      // The start's desired state, read from the stores now (agent-desired-state.js).
       const openClaw = openClawProfiles(store.listAssistants());
+      // The browser app is checked to start before detection chooses it (Linux).
+      await webToolsChanges.prepareBrowser();
       return desiredState({
         directory: installed.teamPlugin.directory,
         connection: await bridge.start(),

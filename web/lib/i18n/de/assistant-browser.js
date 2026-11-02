@@ -27,6 +27,16 @@ export const assistantBrowserCopy = {
     "Für sichtbare Fenster braucht der Agent eine eigene Browser-App, nicht deinen Chrome. Installiere sie hier mit „Browser installieren“ oder selbst Brave oder Chromium; danach den Agentendienst neu starten.",
   noDisplay:
     "Auf diesem Rechner gibt es keinen Bildschirm (DISPLAY oder WAYLAND_DISPLAY fehlt). Der Browser läuft deshalb unsichtbar.",
+  launchTitle: (name) => `${name} startet nicht`,
+  launchProblem: {
+    sandbox:
+      "Das System blockiert die Sandbox des Browsers: Ab Ubuntu 23.10 beschränkt AppArmor unprivilegierte User-Namespaces. Installiere Google Chrome oder erlaube dem Browser User-Namespaces mit einem AppArmor-Profil (siehe docs/linux.md) und starte danach den Agentendienst neu. AgentPier schaltet die Sandbox nie ab.",
+    missing:
+      "Die Browser-App fehlt oder lässt sich nicht ausführen. Installiere sie erneut und starte danach den Agentendienst neu.",
+    crashed:
+      "Die Browser-App beendet sich gleich beim Start. Prüfe, ob ihre Systembibliotheken installiert sind (siehe docs/linux.md), und starte danach den Agentendienst neu.",
+  },
+  launchFallback: (name) => `Die Agenten nutzen stattdessen ${name}.`,
   profile:
     "Der Browser behält seine Anmeldungen und Cookies in einem eigenen Profil dieses Agenten, getrennt von deinen Browserprofilen.",
   running: "Browser läuft",

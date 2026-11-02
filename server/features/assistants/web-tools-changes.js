@@ -22,6 +22,8 @@ export class WebToolsChanges {
     webSearch,
     synchronization,
     detect = detectBrowser,
+    // Checks that the browser apps detect() chooses from start (browser-launch-check.js).
+    prepare = async () => {},
     images = () => ({ ready: false }),
     pdfModel = null,
     browserNetwork = null,
@@ -32,11 +34,23 @@ export class WebToolsChanges {
       webSearch,
       synchronization,
       detect,
+      prepareLaunch: prepare,
       images,
       pdfModel,
       browserNetwork,
       audit,
     });
+  }
+  /**
+   * Checks, before a start reads detect(), that the agent browser app starts; one
+   * that cannot is passed over and named in the browser status. Never throws.
+   */
+  async prepareBrowser() {
+    try {
+      await this.prepareLaunch();
+    } catch {
+      /* Detection then chooses as without the check. */
+    }
   }
   /** What a start compiles for PDF reading: `{ ready, connectionId, modelId }`. */
   pdf() {
