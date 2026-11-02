@@ -357,7 +357,10 @@ test("a sign-in in progress neither blocks an update nor is cancelled by one", a
   // the owner without the Gateway, and its tokens reach OpenClaw at the next start.
   const s = await fixture(t, { login: true });
   const items = await s.updates.blockerPreview();
-  assert.equal(items.find((i) => i.kind === "login"), undefined);
+  assert.equal(
+    items.find((i) => i.kind === "login"),
+    undefined,
+  );
   assert.equal(s.loginCancels(), 0);
   assert.equal(s.calls.filter((c) => c.method === "wizard.cancel").length, 0);
 });
