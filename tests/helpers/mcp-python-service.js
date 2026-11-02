@@ -9,6 +9,7 @@ import { pypiIndexFixture } from "./pypi-index-fixture.js";
 import { CentralMcpChanges } from "../../server/features/mcp-servers/central-changes.js";
 import { McpPackages } from "../../server/features/mcp-packages/mcp-packages.js";
 import { ensureToolchain } from "../../server/features/mcp-packages/toolchains.js";
+import { download } from "../../server/features/operations/releases.js";
 
 const executeFile = promisify(execFile);
 
@@ -37,19 +38,10 @@ export async function pinnedSetuptools() {
   const ok = (bytes) =>
     createHash("sha256").update(bytes).digest("hex") === setuptools.sha256;
   if (fs.existsSync(file) && ok(fs.readFileSync(file))) return file;
-  let bytes;
-  for (let attempt = 0; ; attempt++) {
-    try {
-      const response = await fetch(setuptools.url);
-      if (!response.ok) throw Error(`setuptools download failed: ${response.status}`);
-      bytes = Buffer.from(await response.arrayBuffer());
-      break;
-    } catch (error) {
-      // files.pythonhosted.org hiccups must not fail the gated build tests.
-      if (attempt >= 2) throw error;
-      await new Promise((resolve) => setTimeout(resolve, 1000 * 2 ** attempt));
-    }
-  }
+  // The product's download retries network failures (a runner's DNS outage answers
+  // ENOTFOUND for several seconds) and server errors; five retries back off for 31 s
+  // in all, so an unreachable host still fails the gated tests within a minute.
+  const bytes = await download(setuptools.url, fetch, 16 << 20, { retries: 5 });
   if (!ok(bytes)) throw Error("setuptools checksum mismatch");
   fs.mkdirSync(sharedToolchains, { recursive: true });
   const partial = `${file}.${process.pid}.partial`;
