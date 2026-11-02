@@ -14,7 +14,7 @@ import {
   recordedTurn,
 } from "./goal-turns.js";
 import { mainConversation } from "./routine-targets.js";
-import { hostReady, runtimeForSession } from "./runtimes/runtime-for.js";
+import { anyHostReady, hostReady, runtimeForSession } from "./runtimes/runtime-for.js";
 
 export const nudgeDelayMs = 90000;
 export const technicalFailureLimit = 3;
@@ -249,6 +249,8 @@ async function tickGoal(goals, goal) {
     return goals.end(goal, "ended", { reasonCode: "archived" });
   if (!goalChat(agent, conversation))
     return goals.end(goal, "ended", { reasonCode: "ineligible" });
+  // Its agent's own runtime (OpenClaw, or a Hermes agent's set) must take turns.
+  if (!hostReady(a.runtime, agent)) return;
   await reviewInterrupted(goals, goal);
   goal = evaluate(goals, goal);
   if (goal.state !== "open") return;
@@ -279,7 +281,11 @@ async function tickGoal(goals, goal) {
 function tickable(goals) {
   const a = goals.assistants;
   return (
-    !goals.closed && !a.closed && !a.maintenance && !a.recovering && hostReady(a.runtime)
+    !goals.closed &&
+    !a.closed &&
+    !a.maintenance &&
+    !a.recovering &&
+    anyHostReady(a.runtime)
   );
 }
 

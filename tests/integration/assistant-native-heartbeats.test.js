@@ -423,3 +423,35 @@ test("an unconfirmed binding whose job is not listed yet stays tracked", async (
   assert.equal(f.jobs.size, 0);
   assert.equal(f.reminders.bindings.get(binding.id).state, "removed");
 });
+
+test("a Hermes agent's check-in reaches the owner from its noted, uncommitted run", async (t) => {
+  const f = setup(t);
+  await f.heartbeats.sync(f.id);
+  const binding = f.reminders.bindings.get(f.reminders.bindings.list(f.id)[0].id);
+  // The agent runs on Hermes, whose set notes the run in the chat's history and
+  // reports it "not-delivered" (runtimes/hermes/hermes-routines.js).
+  const body = f.store.getAssistant(f.id);
+  f.store.db
+    .prepare("UPDATE assistants SET body=? WHERE id=?")
+    .run(JSON.stringify({ ...body, runtime: "hermes" }), f.id);
+  const event = (runAtMs, extra = {}) => ({
+    jobId: binding.nativeId,
+    runAtMs,
+    status: "ok",
+    summary: "Your parcel arrives today.",
+    deliveryStatus: "not-delivered",
+    ...extra,
+  });
+  assert.equal((await f.deliver(binding.id, event(7))).status, 204);
+  const outbox = f.service.outbox.all(f.channel.id);
+  assert.equal(outbox.length, 1);
+  assert.equal(outbox[0].kind, "heartbeat");
+  assert.deepEqual(
+    f.pushes.map((p) => p.kind),
+    ["agent-checkin"],
+  );
+  // A failed Hermes run carries Hermes's error, never a reply: it stays unsent.
+  const failed = event(8, { status: "error", summary: undefined, error: "boom" });
+  assert.equal((await f.deliver(binding.id, failed)).status, 204);
+  assert.equal(f.service.outbox.all(f.channel.id).length, 1);
+});

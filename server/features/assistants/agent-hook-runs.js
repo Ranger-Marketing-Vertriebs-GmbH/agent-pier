@@ -14,6 +14,7 @@ import { agentName } from "./reminder-audience.js";
 import { hookReport } from "./agent-hook-reports.js";
 import { telegramMessages } from "../assistant-channels/telegram-messages.js";
 import {
+  anyHostReady,
   hostReady,
   openClawFrameEvent,
   ownProcess,
@@ -341,19 +342,26 @@ export class HookRuns {
     this.steps.observe(openClawFrameEvent({ event: "agent", payload }));
   }
   /**
-   * On every Gateway ready: events whose completion was lost are failed, and hook jobs
-   * of missing or settled events are removed unless they still run.
+   * On every Gateway ready, and whenever a Hermes agent's own set became ready: events
+   * whose completion was lost are failed, and hook jobs of missing or settled events
+   * are removed unless they still run. Only runtimes that take calls are read: an
+   * event waits while the runtime its job runs on is away (`listed`).
    */
   reconcile() {
     return this.assistants.admit(async () => {
-      if (!hostReady(this.assistants.runtime)) return;
+      const supervisor = this.assistants.runtime;
+      if (!anyHostReady(supervisor)) return;
+      const shared = hostReady(supervisor);
       const { events } = this.hooks;
-      const jobs = (await this.hookJobs()).filter((job) => hookEventOf(job) !== null);
+      const jobs = (await this.hookJobs(shared)).filter(
+        (job) => hookEventOf(job) !== null,
+      );
       const running = (job) => Number.isFinite(job.runState?.runningAtMs);
       const live = new Set(jobs.filter(running).map(hookEventOf));
       let changed = false;
       for (const event of events.unsettled()) {
         if (this.now() - event.receivedAt < staleMs || live.has(event.id)) continue;
+        if (!this.listed(event, shared)) continue;
         this.fail(event);
         changed = true;
       }
@@ -367,16 +375,23 @@ export class HookRuns {
       this.schedule();
     });
   }
+  // Whether the jobs of `event`'s agent were read: a live Hermes agent's while its
+  // own set takes calls, every other's (OpenClaw's, a gone agent's) while OpenClaw does.
+  listed(event, shared) {
+    const owner = this.ownerOf(event);
+    return owner && ownProcess(owner) && !owner.archivedAt
+      ? hostReady(this.assistants.runtime, owner)
+      : shared;
+  }
   /**
-   * Every agent's routines (OpenClaw's in one listing) with `owner`, the agent whose
-   * own runtime holds them (null for OpenClaw's): a Hermes agent's while its process
-   * set takes calls.
+   * Every agent's routines (OpenClaw's in one listing, while `shared`: its Gateway
+   * takes calls) with `owner`, the agent whose own runtime holds them (null for
+   * OpenClaw's): a Hermes agent's while its process set takes calls.
    */
-  async hookJobs() {
-    const jobs = (await this.reminders.jobs(null)).map((job) => ({
-      ...job,
-      owner: null,
-    }));
+  async hookJobs(shared = true) {
+    const jobs = shared
+      ? (await this.reminders.jobs(null)).map((job) => ({ ...job, owner: null }))
+      : [];
     for (const agent of this.assistants.store.listAssistants()) {
       if (!ownProcess(agent) || !hostReady(this.assistants.runtime, agent)) continue;
       const own = await this.reminders.jobs(agent).catch(() => []);

@@ -12,7 +12,7 @@ import { redactSecrets } from "../../lib/secret-redaction.js";
 import { SshApprovals } from "./agent-ssh-approvals.js";
 import { AgentSftp, sftpActions } from "./agent-sftp.js";
 import { sftpPermits } from "./agent-sftp-policy.js";
-import { hostReady } from "./runtimes/runtime-for.js";
+import { runtimeAccepts } from "./runtimes/runtime-for.js";
 
 // Agent SSH (docs/ssh-access.md, docs/adr/0003-agent-ssh-access.md): the bridge
 // hands an `agentpier_ssh` call here; AgentPier runs it in-process through the pinned
@@ -508,7 +508,10 @@ export class AgentSsh {
     this.w.a.changed();
     // An agent without grants loses agentpier_ssh; a failed apply converges later.
     for (const id of changed)
-      if (!this.w.access.hasSshGrants(id) && hostReady(this.w.a.runtime))
+      if (
+        !this.w.access.hasSshGrants(id) &&
+        runtimeAccepts(this.w.a.runtime, agentOf(this.w.a, id))
+      )
         Promise.resolve()
           .then(() => this.w.a.admit(() => this.w.a.config.apply(id)))
           .catch(() => {});
@@ -520,5 +523,14 @@ export class AgentSsh {
     this.closed = true;
     for (const child of this.children) child.kill("SIGKILL");
     this.sftp.close();
+  }
+}
+
+// The agent `id` while it exists, else null (its runtime is then OpenClaw's).
+function agentOf(a, id) {
+  try {
+    return a.store.getAssistant(id);
+  } catch {
+    return null;
   }
 }

@@ -14,7 +14,7 @@ import { loopGuard } from "./agent-loop-guard.js";
 import { ownerChatCall } from "./owner-runs.js";
 import { notifyAgentProject } from "./agent-project-notes.js";
 import { mayCreateProjects } from "./goal-turns.js";
-import { hostReady } from "./runtimes/runtime-for.js";
+import { runtimeAccepts } from "./runtimes/runtime-for.js";
 
 const run = promisify(execFile);
 const openFolder = constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW;
@@ -305,7 +305,8 @@ export class AgentProjects {
   // The new folder and coding guidance reach the agent; a failed apply converges later.
   refresh(agent) {
     const a = this.w.a;
-    if (!hostReady(a.runtime)) return;
+    // Its own runtime: OpenClaw's Gateway, or a Hermes agent's set.
+    if (!runtimeAccepts(a.runtime, agent)) return;
     Promise.resolve()
       .then(() => a.admit(() => a.config.apply(agent.id)))
       .catch(() => {});

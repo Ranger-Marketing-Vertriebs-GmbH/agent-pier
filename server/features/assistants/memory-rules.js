@@ -2,6 +2,7 @@ import { assistantProblem } from "./assistant-validation.js";
 import { dreamingCovered } from "./dreaming-service.js";
 import { memoryEnabled, webCapabilityKeys } from "./native-capabilities.js";
 import { lacksMemory } from "./proactivity-changes.js";
+import { ownProcess } from "./runtimes/runtime-for.js";
 
 /**
  * Why a save may not leave the agent without memory, as a message key, or null. While
@@ -36,7 +37,8 @@ export function withDefaultMemory(input) {
 export function newCapabilities(input, dreaming) {
   const capabilities = { ...withDefaultMemory(input).capabilities };
   for (const key of webCapabilityKeys) if (key in capabilities) capabilities[key] = false;
-  if (dreaming && capabilities.memory === false)
+  // Dreaming is OpenClaw's: a new Hermes agent may start without memory.
+  if (dreaming && capabilities.memory === false && !ownProcess(input))
     throw assistantProblem("dreamingMemoryRequired", 409);
   return capabilities;
 }

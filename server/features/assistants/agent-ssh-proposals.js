@@ -14,7 +14,7 @@ import {
   removeVerifiedHost,
 } from "../ssh/ssh-verified-host.js";
 import { nameValue } from "../../lib/storage.js";
-import { hostReady } from "./runtimes/runtime-for.js";
+import { runtimeAccepts } from "./runtimes/runtime-for.js";
 
 /**
  * An agent's proposal of a new SSH access (tool `agentpier_ssh_access`, reached
@@ -282,7 +282,7 @@ async function decide(w, action, decision, input) {
   }
   audit(w, "ssh.accepted", action, { accessId: host.id, mode });
   // The first grant gives the agent agentpier_ssh; a failed apply converges later.
-  if (!held && hostReady(w.a.runtime))
+  if (!held && runtimeAccepts(w.a.runtime, agent))
     Promise.resolve()
       .then(() => w.a.admit(() => w.a.config.apply(agent.id)))
       .catch(() => {});
