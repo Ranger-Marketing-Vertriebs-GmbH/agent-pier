@@ -41,6 +41,7 @@ import { McpServerStore } from "../features/mcp-servers/mcp-server-store.js";
 import { SpeechConnections } from "../features/speech/speech-connections.js";
 import { AssistantModelAccounts } from "../features/assistants/model-accounts.js";
 import { AssistantAccountLogin } from "../features/assistants/model-account-login.js";
+import { ChatGptVault } from "../features/model-logins/chatgpt-vault.js";
 import { AssistantStore } from "../features/assistants/assistant-store.js";
 import { AssistantModels } from "../features/assistants/assistant-models.js";
 import { AssistantConfig } from "../features/assistants/assistant-config.js";
@@ -110,12 +111,15 @@ export function constructAssistantGraph(host, created = {}) {
   const store = (created.store = new AssistantStore({ dataDir }));
   // Hermes agents run in their own process sets (hermes-wiring.js).
   const hermesFleet = hermesAgentFleet(assistantRuntime, { dataDir, store });
+  // AgentPier's ChatGPT logins, the only refresher of their tokens.
+  const chatgptVault = (created.chatgptVault = new ChatGptVault({ dataDir }));
   const assistantModelAccounts = new AssistantModelAccounts({
     dataDir,
     runtime: assistantRuntime,
+    vault: chatgptVault,
   });
   const assistantModelLogin = new AssistantAccountLogin({
-    runtime: assistantRuntime,
+    vault: chatgptVault,
     accounts: assistantModelAccounts,
   });
   const models = new AssistantModels({
@@ -573,6 +577,8 @@ export function connectAssistantServices(graph) {
     maintenance: () => assistants.maintenance,
     beforeSpawn: () => synchronization.prepare(),
     afterReady: async () => {
+      // Before the first run: OpenClaw's profiles of AgentPier's ChatGPT logins.
+      await graph.assistantModelAccounts.syncAll();
       await synchronization.pauseBlocked();
       // Changes since this start converge; not awaited (a start may run admitted).
       mcpChanges.ready();

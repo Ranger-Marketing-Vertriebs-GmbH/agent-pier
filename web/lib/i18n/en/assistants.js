@@ -282,12 +282,14 @@ export const assistantCopy = {
   },
   loginFailure: {
     LOGIN_UNAVAILABLE:
-      "The agent service does not offer the ChatGPT sign-in right now. Restart the agent service and try again.",
+      "OpenAI does not offer the sign-in with a code right now. Try again later.",
     UNSUPPORTED_LOGIN_STEP: "The sign-in asked for a step AgentPier does not support.",
     LOGIN_EXPIRED: "The code expired before the sign-in was completed.",
     CONNECTION_LOST: "The connection to the agent service was lost.",
     LOGIN_FAILED:
-      "The agent service ended the sign-in with an error. Details are in the AgentPier log.",
+      "OpenAI ended the sign-in with an error. Details are in the AgentPier log.",
+    NETWORK:
+      "AgentPier could not reach OpenAI. Check this computer’s internet connection and try again.",
   },
   accountStatus: {
     ok: "Connected",

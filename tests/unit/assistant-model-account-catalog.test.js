@@ -8,7 +8,6 @@ import {
   parseModelsList,
 } from "../../server/features/assistants/model-account-catalog.js";
 import { AssistantModelAccounts } from "../../server/features/assistants/model-accounts.js";
-import { AssistantAccountLogin } from "../../server/features/assistants/model-account-login.js";
 
 const profileId = "openai:fixture@example.invalid";
 const listed = (models, extra = {}) => ({
@@ -380,20 +379,13 @@ test("accounts expose cached models synchronously; only the pages start reads", 
 });
 
 test("a sign-in during a page's background read still forces a rediscovery", async (t) => {
-  const { accounts, runtime, lists, held, state } = accountsFixture(t, { hold: true });
+  const { accounts, lists, held, state } = accountsFixture(t, { hold: true });
   await accounts.list();
   // The agents page loads: the stale cache starts an unforced read.
   accounts.ensureModels();
   assert.equal(lists().length, 1);
-  const login = new AssistantAccountLogin({
-    runtime,
-    accounts,
-    warn: () => {},
-  });
-  login.start();
-  for (let i = 0; i < 200 && login.status().status !== "completed"; i++)
-    await new Promise((resolve) => setTimeout(resolve, 5));
-  assert.equal(login.status().status, "completed");
+  // What a completed sign-in calls (model-account-login.js).
+  await accounts.signedIn("openai:fixture@example.invalid");
   assert.equal(lists().length, 1, "the forced read waits for the running one");
   state.hold = false;
   held.shift()();

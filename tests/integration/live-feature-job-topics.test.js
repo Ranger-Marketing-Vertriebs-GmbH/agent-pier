@@ -278,38 +278,34 @@ test("SSH assignments signal their session, a revoked host every session", async
   assert.deepEqual(signals, ["session-one", null, "session-one"]);
 });
 
-// An AssistantAccountLogin whose Gateway answers `steps`, then waits.
-function loginFixture(steps) {
-  const client = Object.assign(new EventEmitter(), { ready: true });
-  client.call = async (method, params) => {
-    if (method === "models.authLogin") return { sessionId: params.sessionId };
-    if (method === "wizard.cancel") return { status: "cancelled" };
-    return steps.length ? steps.shift() : new Promise(() => {});
+// An AssistantAccountLogin whose device sign-in shows a code, then waits for
+// `confirmed` (never, by default) before it hands out tokens.
+function loginFixture(confirmed = new Promise(() => {})) {
+  let done = false;
+  confirmed.then(() => (done = true));
+  const vault = { save: () => "openai:owner@example.invalid", auth: {} };
+  vault.auth = {
+    startDevice: async () => ({
+      deviceAuthId: "d",
+      userCode: "ABCD-EFGHI",
+      intervalMs: 5,
+    }),
+    pollDevice: async () =>
+      done ? { access: "private", refresh: "private", expires: Date.now() + 1e6 } : null,
   };
   return new AssistantAccountLogin({
-    runtime: { client },
-    accounts: { list: async () => [] },
+    vault,
+    accounts: { signedIn: async () => {} },
     warn: () => {},
   });
 }
-
-const deviceStep = {
-  done: false,
-  step: {
-    id: "device",
-    type: "progress",
-    externalUrl: "https://auth.openai.com/codex/device",
-    deviceCode: { code: "ABCD-EFGHI", expiresInMinutes: 15 },
-    access_token: "private",
-  },
-};
 
 test("job.chatgpt-login pushes each change of the attempt and nothing secret", async (t) => {
   // The sign-in ends only once the code was pushed: no reliance on how long the
   // login waits between wizard steps.
   let finish;
   const finished = new Promise((resolve) => (finish = resolve));
-  const login = loginFixture([deviceStep, finished]);
+  const login = loginFixture(finished);
   const hub = fastHub(t);
   const services = { assistantModelLogin: login };
   defineJobTopic(hub, chatgptLoginJob(services));
@@ -330,7 +326,7 @@ test("job.chatgpt-login pushes each change of the attempt and nothing secret", a
     "status",
     "url",
   ]);
-  finish({ done: true, status: "done" });
+  finish();
   const done = await live.next((frame) => frame.data?.status === "completed");
   assert.deepEqual(done.data, login.status(attempt.id));
   // A new attempt is pushed under its own id.
@@ -347,7 +343,7 @@ test("job.chatgpt-login refusals are expected and a failing listener is logged",
   const services = { assistantModelLogin: null };
   defineJobTopic(hub, chatgptLoginJob(services));
   assert.equal((await subscribe(hub, "job.chatgpt-login:current").next()).type, "error");
-  const login = loginFixture([]);
+  const login = loginFixture();
   login.onChange = () => {
     throw new Error("listener");
   };
@@ -367,7 +363,7 @@ test("job.chatgpt-login follows the agent services being switched on and off", a
   defineJobTopic(hub, chatgptLoginJob(services));
   const live = subscribe(hub, "job.chatgpt-login:current");
   assert.equal((await live.next()).type, "error");
-  const login = loginFixture([deviceStep]);
+  const login = loginFixture();
   login.start();
   services.assistantModelLogin = login;
   events.emit("started");
