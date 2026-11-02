@@ -122,6 +122,10 @@ import {
 export async function createApplication(config) {
   const app = express();
   const server = http.createServer(app);
+  // Start hooks run in order once the server listens, from a single listener: with
+  // Node's own and listen()'s callback, one listener per hook passed the warning limit.
+  const whenListening = [];
+  server.once("listening", () => whenListening.forEach((start) => start()));
   const services = await createServices(config);
   services.login = new LoginStore(config);
   services.users = new UserStore({
@@ -215,7 +219,7 @@ export async function createApplication(config) {
     }
     return { ...config, port, network, networkHosts: services.networkState.hosts };
   };
-  server.once("listening", effective);
+  whenListening.push(effective);
   services.effectiveConfig = effective;
   services.instanceId = instanceId;
   Object.assign(services, createMcpServices(services, effective));
@@ -231,8 +235,8 @@ export async function createApplication(config) {
     services,
     operations: services.operations,
   });
-  server.once("listening", () => services.releaseMigration.resumeAfterActivation());
-  server.once("listening", () => services.mcpAccess.initialize());
+  whenListening.push(() => services.releaseMigration.resumeAfterActivation());
+  whenListening.push(() => services.mcpAccess.initialize());
   // The daily update check (update-checker.js); test fixtures switch it off.
   services.updateChecker = new UpdateChecker({
     releases: services.operations.releases,
@@ -271,8 +275,7 @@ export async function createApplication(config) {
         `AgentPier could not measure the storage cleanup: ${error?.code || "unknown error"}`,
       ),
   });
-  // One listener for both monitors keeps the server below the listener warning limit.
-  server.once("listening", () => {
+  whenListening.push(() => {
     services.githubTokenMonitor.start();
     if (config.updateCheck !== false) services.updateChecker.start();
     services.systemStatus.start();
@@ -287,12 +290,10 @@ export async function createApplication(config) {
         ),
       );
   });
-  server.once("listening", () =>
-    stageToolchainsInBackground({ dataDir: config.dataDir }),
-  );
+  whenListening.push(() => stageToolchainsInBackground({ dataDir: config.dataDir }));
   // Marks installs a restart interrupted as failed and prunes in the background.
   // REA's sweep and server-start update follow once the package records settled.
-  server.once("listening", () => {
+  whenListening.push(() => {
     let started;
     try {
       started = services.mcpPackages?.start();
@@ -305,7 +306,7 @@ export async function createApplication(config) {
       .catch(() => {})
       .then(() => services.rea?.start());
   });
-  server.once("listening", () => {
+  whenListening.push(() => {
     const report = (error) =>
       console.error(
         `AgentPier could not resume interrupted sessions: ${error?.code || error?.message || "unknown error"}`,
@@ -313,9 +314,9 @@ export async function createApplication(config) {
     services.sessions.onInterrupted = () => services.autoResume.notify().catch(report);
     services.autoResume.initialize().catch(report);
   });
-  server.once("listening", () => services.assistantFeature.start());
+  whenListening.push(() => services.assistantFeature.start());
   // Installs or stages the pinned Hermes runtime when the owner enabled Hermes.
-  server.once("listening", () => services.hermesRuntime?.start());
+  whenListening.push(() => services.hermesRuntime?.start());
   app.disable("x-powered-by");
   app.use(securityHeaders);
   app.use(buildHeader(buildIdentity(config.buildDocument)));
