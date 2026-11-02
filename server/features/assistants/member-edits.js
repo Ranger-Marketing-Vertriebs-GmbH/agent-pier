@@ -4,11 +4,13 @@ import { exact } from "./assistant-access.js";
 import { leadsMember } from "./member-reach.js";
 import { memberModelInput, validateMemberModel } from "./member-models.js";
 import {
+  effectiveModel,
   extraEnd,
   extraSection,
   extraStart,
   temporaryMember,
 } from "./team-presentation.js";
+import { afterSwitch, planSwitch, swapNow } from "./model-switch.js";
 import { dropText, readText, saveText } from "./team-texts.js";
 
 // The fields a lead may change, in the order notes and the audit name them.
@@ -130,7 +132,9 @@ export class MemberEdits {
     Object.assign(this, { teams, assistants, audit, onChanged });
   }
   async update(inv, input) {
-    exact(input, ["memberId", ...editFields, "model"]);
+    exact(input, ["memberId", ...editFields, "model", "freshChat"]);
+    if ("freshChat" in input && typeof input.freshChat !== "boolean")
+      throw assistantProblem("invalid");
     if (!("model" in input)) return this.updateNow(inv, input);
     // Who may change it comes first: no model is resolved for a member the lead
     // cannot edit (updateNow checks it all again after the awaits).
@@ -161,8 +165,8 @@ export class MemberEdits {
     return { ...ids(model), display };
   }
   // `chosen` is the checked model of the call (update), with the one it replaces.
-  updateNow(inv, input, chosen = null) {
-    exact(input, ["memberId", ...editFields, ...(chosen ? ["model"] : [])]);
+  async updateNow(inv, input, chosen = null) {
+    exact(input, ["memberId", ...editFields, ...(chosen ? ["model"] : []), "freshChat"]);
     const changes = {};
     for (const key of editFields)
       if (key in input)
@@ -203,6 +207,17 @@ export class MemberEdits {
       to: chosen.display,
     };
     if (!changed.length) return { status: "unchanged", memberId: member.id, changed };
+    // A move to another model family starts the member in a fresh chat, unless the
+    // lead says otherwise (model-switch.js); it is planned before anything changes.
+    const plan =
+      model &&
+      planSwitch(
+        a,
+        { ...agent, model: effectiveModel(agent, lead) },
+        { ...agent, model },
+        { freshChats: input.freshChat },
+      );
+    const freshChat = !!plan?.fresh;
     const instructions =
       "instructions" in changes
         ? changes.instructions
@@ -222,7 +237,7 @@ export class MemberEdits {
         at: new Date().toISOString(),
         by: "lead",
         edited: changed,
-        ...(models ? { model: models } : {}),
+        ...(models ? { model: models, freshChat } : {}),
       };
       // What the change replaced, for the owner alone (replacedInstructions).
       if (instructions !== agent.instructions) {
@@ -242,6 +257,7 @@ export class MemberEdits {
       changed,
       previousName: member.name,
       models,
+      freshChat,
     });
     this.onChanged(next);
     a.changed?.();
@@ -250,7 +266,23 @@ export class MemberEdits {
       memberId: member.id,
       changed,
       effective: "next_turn",
+      ...(model ? { freshChat: await this.freshChat(plan) } : {}),
+      // Task 6: the memory review adds memoryReview: "waits_for_owner" here.
     };
+  }
+  /**
+   * The member's chat swapped for a fresh one when the switch starts fresh chats, in
+   * admission (the bridge holds none): "started", or "waits_for_turn" while a turn
+   * runs in it (deferred-swaps.js swaps it once it is free); "off" without one.
+   */
+  async freshChat(plan) {
+    if (!plan?.fresh) return "off";
+    const a = this.assistants;
+    const result = await a
+      .admit(() => swapNow(a, plan))
+      .catch(() => swapNow(a, plan, { hold: true }));
+    await afterSwitch(a, plan, result);
+    return result.deferred.length ? "waits_for_turn" : "started";
   }
   // Model changes name their ids only, never the owner's connection names.
   record(lead, member, changed, models) {
@@ -274,7 +306,7 @@ export class MemberEdits {
     }
   }
   // One settled row per chat, the member's and the lead's (actionNotes).
-  note(lead, member, conversation, inv, { changed, previousName, models }) {
+  note(lead, member, conversation, inv, { changed, previousName, models, freshChat }) {
     const store = this.assistants.workflows?.store;
     if (!store) return;
     const at = Date.now();
@@ -285,7 +317,7 @@ export class MemberEdits {
       ...(previousName !== member.name ? { previousName } : {}),
       teamId: member.teamId,
       edited: changed,
-      ...(models ? { model: models } : {}),
+      ...(models ? { model: models, freshChat } : {}),
     };
     for (const [assistantId, conversationId] of [
       [member.assistantId, member.conversationId],

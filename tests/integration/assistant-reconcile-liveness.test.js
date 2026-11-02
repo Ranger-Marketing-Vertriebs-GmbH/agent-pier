@@ -177,7 +177,10 @@ test("a member report never matches a history message without run identity", asy
       write: (_team, value) => (written = value),
     },
     assistants: {
-      ledger: { getAttempt: () => ({ id: "a", runtimeRunId: null }) },
+      ledger: {
+        getAttempt: () => ({ id: "a", requestId: "r", runtimeRunId: null }),
+        getRequest: () => ({ id: "r", conversationId: "c" }),
+      },
       history: async () => ({
         stale: false,
         messages: [{ role: "assistant", text: "Another run", runId: null }],

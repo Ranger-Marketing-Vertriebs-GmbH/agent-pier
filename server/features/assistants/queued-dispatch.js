@@ -5,6 +5,7 @@ import { joinedText, validateQueueInput } from "./queued-messages.js";
 import { queuedCommandRefusal } from "./chat-commands.js";
 import { chatProblem } from "./agent-chats.js";
 import { anyHostReady, hostReady } from "./runtimes/runtime-for.js";
+import { deferredSwaps } from "./deferred-swaps.js";
 
 // A queued message that could have gone out for this long is not sent anymore (a
 // restored or long stopped host would otherwise deliver it days later).
@@ -98,9 +99,13 @@ const outcome = (error) => {
   return { error: serverMessages.http.internalError };
 };
 
-/** Called by the service's poll: retries messages that wait without a turn ending. */
+/**
+ * Called by the service's poll: retries messages that wait without a turn ending,
+ * then swaps the chats a model switch holds once they are free (deferred-swaps.js).
+ */
 export function pollQueued(service) {
   if (service.queued.waiting().length) dispatchQueued(service).catch(() => {});
+  if (!service.closed) void deferredSwaps(service).tick();
 }
 
 /**

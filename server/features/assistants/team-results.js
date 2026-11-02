@@ -52,9 +52,12 @@ export class TeamResults {
       const attempt = m.attemptId ? a.ledger.getAttempt(m.attemptId) : null;
       let reply = { text: "", cut: false };
       if (m.phase === "completed") {
-        const history = await a.history(m.conversationId);
-        if (!history.stale)
-          reply = await runReply(a, m.conversationId, history.messages, attempt);
+        // The chat the run ran in, though a model switch may have replaced it since.
+        const chat = attempt
+          ? a.ledger.getRequest(attempt.requestId).conversationId
+          : m.conversationId;
+        const history = await a.history(chat);
+        if (!history.stale) reply = await runReply(a, chat, history.messages, attempt);
       }
       // The record keeps an excerpt; a longer report gets its own row.
       const short = shortForm(reply.text);
