@@ -140,6 +140,7 @@
       "view_image"
     ],
     "toolSearch": false,
+    "codeMode": false,
     "exec": {
       "mode": "deny"
     },

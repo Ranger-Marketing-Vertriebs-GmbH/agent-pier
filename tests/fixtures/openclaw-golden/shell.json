@@ -246,6 +246,7 @@
       "process"
     ],
     "toolSearch": false,
+    "codeMode": false,
     "exec": {
       "mode": "deny"
     },

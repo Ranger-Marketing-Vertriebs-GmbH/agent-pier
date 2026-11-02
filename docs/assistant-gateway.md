@@ -1591,8 +1591,10 @@ was compacted and the plan was gone. Four rules close that gap:
   (on a shared agent into its shared memory, see [Agents of restricted
   users](#agents-of-restricted-users)). `memoryStepWrite` admits only `write`/`edit` to
   the agent's own `MEMORY.md` or `memory/…` (never `memory/lead/`) and the toolPolicy
-  and every bridge action refuse the session's other tools. In OpenClaw Code Mode the
-  model sees only `exec` and `wait`; the step hook (`stepPolicy`, `memory-step-tools.js`)
+  and every bridge action refuse the session's other tools. AgentPier compiles Code
+  Mode off (`tools.codeMode: false`), but OpenClaw still forces it on a turn it resumes
+  from a Code Mode checkpoint after a restart, such as one begun before an update. In
+  OpenClaw Code Mode the model sees only `exec` and `wait`; the step hook (`stepPolicy`, `memory-step-tools.js`)
   admits an `exec` only with the host-set hook `toolKind: "code_mode_exec"` (a shell
   `exec` carries none) and `wait`. `exec` is also one of OpenClaw's locked core tools,
   whose own hook (`lockedToolCall`) forwards the kind to `/tool-policy`; during a memory
@@ -1601,8 +1603,9 @@ was compacted and the plan was gone. Four rules close that gap:
   restricted users runs no cell at all). Every tool call from the cell passes the step
   hook and the bridge's write guard on its own (OpenClaw wraps the cell's catalog tools
   in `before_tool_call`), so it reaches only the step's memory tools;
-  `assistant-memory-step-code-mode-contract.test.js` saves a day note from a cell on the
-  pinned runtime and sees a write outside the memory refused inside the cell.
+  `assistant-memory-step-code-mode-contract.test.js` switches Code Mode on, saves a day
+  note from a cell on the pinned runtime and sees a write outside the memory refused
+  inside the cell.
   The cell's own JavaScript is no tool call: it runs in OpenClaw's executor, by default
   Node `node:vm` in a worker, which OpenClaw documents as no security boundary (its
   QuickJS executor isolates more), and its `store()`/`load()` meet no hook. `wait` is
@@ -4472,6 +4475,19 @@ calls.
 `"all"` lets session tools reach other agents' transcripts. Teams do not use
 OpenClaw session tools (members run in their own sessions and report through the
 AgentPier bridge), and the team plugin contract passes with it.
+
+`tools.toolSearch` and `tools.codeMode` are `false` on every Gateway, so the model is
+offered each granted tool directly. OpenClaw 2026.10 engages Code Mode while
+`tools.codeMode` is absent (`"auto"`) for models whose catalog entry prefers it, such
+as ChatGPT's: the model then sees only `exec` and `wait`, and a tool called from the
+JavaScript cell returns only its `details`, never its text content. The browser's
+`snapshot` puts the page into that content, so an agent in Code Mode saw only the
+snapshot's statistics and could not work a page; the text results of AgentPier's own
+tools would be lost the same way. Both paths are locked (`tools`), and every start
+removes an agent's own `tools.codeMode` and any `models.<ref>.codeMode` in an agent
+entry or `agents.defaults`, which OpenClaw ranks above the global switch.
+`assistant-browser-snapshot-contract.test.js` proves on the pinned runtime that a
+Code Mode preferred model is offered the browser and receives the page text.
 
 <a id="dreaming-is-not-offered"></a>
 

@@ -73,6 +73,7 @@
       "agentpier_team_report"
     ],
     "toolSearch": false,
+    "codeMode": false,
     "exec": {
       "mode": "deny"
     },

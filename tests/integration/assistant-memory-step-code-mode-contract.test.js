@@ -12,6 +12,7 @@ import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
+import { patchConfig } from "../../server/features/assistants/runtimes/openclaw/live-patch.js";
 import {
   MemoryStepWrites,
   memoryStepText,
@@ -178,7 +179,7 @@ test(
                 name: "Fixture",
                 contextWindow: 32768,
                 maxTokens: 4096,
-                // The catalog flag that engages Code Mode under its default "auto".
+                // The catalog flag ChatGPT's models carry, which "auto" engages.
                 compat: { codeMode: "preferred" },
               },
             ],
@@ -192,6 +193,11 @@ test(
     for (let n = 0; n < 200 && !bridge.guardLive(); n++)
       await new Promise((r) => setTimeout(r, 50));
     assert.equal(bridge.guardLive(), true, "the started Gateway reports its guard");
+    // AgentPier compiles Code Mode off (runtime-config.js), so the catalog flag alone
+    // no longer engages it. OpenClaw still forces a Code Mode surface on a turn it
+    // resumes from a Code Mode checkpoint after a restart (forceCodeModeTools), such as
+    // one begun before an update; the guards must hold then, so this switches it on.
+    await patchConfig(runtime.client, () => ({ patch: { tools: { codeMode: true } } }));
     await config.apply(agent.id);
     const workspace = path.join(runtime.paths.workspaces, agent.id);
     const created = await createGatewaySession(runtime.client, {

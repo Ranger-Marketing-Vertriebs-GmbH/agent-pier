@@ -70,6 +70,17 @@ export const nativeTools = [
   "agentpier_preview",
 ];
 
+/**
+ * Removes an agent's (`tools.codeMode`) or a model's (`models.<ref>.codeMode`) own
+ * Code Mode activation from an agent entry or `agents.defaults`; OpenClaw ranks both
+ * above the global `tools.codeMode` that AgentPier compiles off.
+ */
+function withoutCodeMode(owner) {
+  if (owner?.tools && typeof owner.tools === "object") delete owner.tools.codeMode;
+  for (const model of Object.values(owner?.models || {}))
+    if (model && typeof model === "object") delete model.codeMode;
+}
+
 function freshDefaults(paths) {
   const hardened = hardenedDefaults();
   return {
@@ -213,15 +224,25 @@ export function compileOpenClawConfig({
   // agent without its own override gets (openclaw-config/shell.js).
   // Session tools reach only the calling agent's own sessions; OpenClaw's default
   // "all" would let one agent read another's transcripts.
+  // Code Mode stays off: OpenClaw 2026.10 engages it while `codeMode` is absent ("auto")
+  // for catalog-preferred models such as ChatGPT's. The model then sees only `exec` and
+  // `wait`, and a tool called from the cell returns only its `details`, never its text
+  // content: a browser snapshot's page structure and the text results of AgentPier's
+  // own tools would not reach the model.
   config.tools = {
     allow: enabled ? teamTools : ["session_status"],
     toolSearch: false,
+    codeMode: false,
     exec: { mode: "deny" },
     sessions: { visibility: "agent" },
   };
-  // Only a profile compiled below can regain shell grants.
-  for (const entry of Object.values(config.agents.entries || config.agents.list || {}))
+  // Only a profile compiled below can regain shell grants; no agent or model setting
+  // turns Code Mode back on, as OpenClaw lets either outrank `tools.codeMode`.
+  withoutCodeMode(config.agents.defaults);
+  for (const entry of Object.values(config.agents.entries || config.agents.list || {})) {
     withoutShell(entry);
+    withoutCodeMode(entry);
+  }
   config.plugins = {
     slots: { memory: "none" },
     ...(enabled

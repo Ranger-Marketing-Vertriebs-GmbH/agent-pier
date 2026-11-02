@@ -39,6 +39,7 @@
       "session_status"
     ],
     "toolSearch": false,
+    "codeMode": false,
     "exec": {
       "mode": "deny"
     },
