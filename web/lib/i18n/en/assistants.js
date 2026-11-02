@@ -122,7 +122,7 @@ export const assistantCopy = {
     imagesUnavailable:
       "Connect a ChatGPT account under Connections › Model access to create images.",
     imagesRuntimeMove: (runtime) =>
-      `${runtime} agents create images with a ChatGPT login AgentPier holds. Move your ChatGPT login to AgentPier under Connections › Model access.`,
+      `Agents on ${runtime} create images with a ChatGPT login AgentPier holds. Move your ChatGPT login to AgentPier under Connections › Model access.`,
     browserUnavailable:
       "No supported browser found on this computer. Install Chrome, Brave, Edge or Chromium to use this.",
     searchUnavailable:
