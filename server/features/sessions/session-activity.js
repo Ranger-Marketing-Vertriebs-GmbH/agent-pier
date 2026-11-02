@@ -3,6 +3,8 @@ import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { promisify, stripVTControlCharacters } from "node:util";
 import { parseModelPicker } from "../models/model-parser.js";
+import { isCodingCli } from "../clis/catalog.js";
+import { cliDriver } from "../clis/drivers.js";
 import { hookQuietMs, hookStaleMs, mergeActivity } from "./session-activity-merge.js";
 const execute = promisify(execFile);
 const labels = {
@@ -17,9 +19,6 @@ const result = (state, extra = {}) => ({
   label: labels[state],
   ...extra,
 });
-const border = (line) => /^\s*[─━]{8,}\s*$/.test(line);
-const agentRow =
-  /^\s*◯\s+\S[^\n]*(?:\s{2,}\d+[hms](?:\s+\d+[ms]){0,2}|\s+\d+[hms](?:\s+\d+[ms]){0,2}\s+·\s+↓\s+[\d.]+[kKmM]?\s+tokens)\s*$/;
 /** Recognize only current native chrome near the composer, never transcript text. */
 export function parseSessionActivity(tool, raw) {
   if (typeof raw !== "string" || raw.length > 256 * 1024) return result("unknown");
@@ -44,104 +43,14 @@ export function parseSessionActivity(tool, raw) {
     /(?:esc to (?:cancel|deny|go back)|escape to cancel)/i.test(last)
   )
     return result("waiting");
-  if (
-    tool === "opencode" &&
-    /enter\s+confirm/i.test(tail) &&
-    /Allow once\s+Allow always\s+Reject/.test(tail)
-  )
-    return result("waiting");
-  if (tool === "opencode") {
-    const prompt = lines.findLastIndex((line) => /┃\s+[^·\n]+·\s+\S/.test(line));
-    if (prompt < 0 || prompt < lines.length - 12) return result("unknown");
-    if (/\S[^\n]*\S[ \t]{2,}esc\s*$/.test(tail)) return result("unknown");
-    if (/\besc\s+(?:again to )?interrupt\b/.test(last))
-      return result("working", { evidence: last });
-    if (/\bctrl\+p\s+commands\b/.test(last)) return result("idle");
-    return result("unknown");
-  }
-  if (!["claude", "codex"].includes(tool)) return result("unknown");
-  const prompt = lines.findLastIndex((line) => /^\s*[❯›](?:\s|$)/.test(line));
-  if (prompt < 0 || (tool === "codex" && prompt < lines.length - 10))
-    return result("unknown");
-  const footer = lines.slice(prompt + 1).join("\n");
-  if (
-    !/(?:for shortcuts|context left|context window|gpt-|codex-|auto mode|manual mode|shift\+tab|bypass permissions|Opus|Sonnet|Haiku)/i.test(
-      footer,
-    )
-  )
-    return result("unknown");
-  if (/Input disabled\.|Viewing sub-agent/i.test(lines.slice(prompt).join("\n")))
-    return result("unknown");
-  if (tool === "codex") {
-    let index = prompt - 1;
-    while (index >= 0 && !lines[index].trim()) index--;
-    const status = lines[index]?.trim() || "";
-    const styled = /\x1b\[(?:\d+;)*2(?:;\d+)*m/.test(original[index] || "");
-    if (
-      /^(?:[•●◦◉◌⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]\s+[^\n]{1,140}|(?:Working|Thinking|Running|Reconnecting|Waiting for background terminal)[^\n]{0,100})\(\d+(?:h\s+\d+m\s+\d+s|m\s+\d+s|s)\s+[•·]\s+esc to interrupt\)/.test(
-        status,
-      ) &&
-      styled
-    )
-      return result("working", { evidence: status });
-    if (/esc to interrupt/.test(status)) return result("unknown");
-    return result("idle");
-  }
-  // Claude keeps the composer between rules, with live task controls below it.
-  const lowerBorder = lines.findIndex(
-    (line, index) => index > prompt && index < prompt + 8 && border(line),
-  );
-  if (!border(lines[prompt - 1] || "") || lowerBorder < 0) return result("unknown");
-  const nativeFooter = lines.slice(lowerBorder + 1).join("\n");
-  // Narrow panes clip the footer hint, so the task panel header counts too.
-  const panel = lines.findIndex(
-    (line, index) => index > lowerBorder && /^\s*⏺\s+main\s*$/.test(line),
-  );
-  // The shell counter lasts for the task's lifetime and does not animate.
-  if (/(?:^|·\s+)[1-9]\d*\s+shells?(?:\s+·|$)/m.test(nativeFooter))
-    return result("working");
-  if (panel >= 0 || /↓ to manage/.test(nativeFooter)) {
-    // Narrow rows replace the description column with a token counter.
-    const agents = original.filter(
-      (line, index) =>
-        index > lowerBorder &&
-        agentRow.test(lines[index]) &&
-        /\x1b\[(?:\d+;)*38;/.test(line),
-    );
-    if (agents.length) return result("working", { evidence: agents.join("\n") });
-    // Listed agents in a layout this parser does not know must not read as ready.
-    if (panel >= 0 && lines.some((line, index) => index > panel && /^\s*◯\s/.test(line)))
-      return result("unknown");
-  }
-  // The task panel may push the composer up; measure from where the panel starts.
-  if (prompt < (panel >= 0 ? panel : lines.length) - 10) return result("unknown");
-  // Newer Claude versions expose interruption in the footer and may omit the
-  // spinner timer or place effort/queued-input rows between it and the composer.
-  if (/\besc to interrupt\b/i.test(nativeFooter)) {
-    const status = lines.findLastIndex(
-      (line, index) =>
-        index < prompt - 1 &&
-        index >= prompt - 12 &&
-        /^[✻✽✶✳✢·*]\s+[^\n]{1,120}…/.test(line.trim()) &&
-        /\x1b\[(?:\d+;)*38;/.test(original[index] || ""),
-    );
-    // Preserve color animation too: tool waits can leave the visible text fixed.
-    return result("working", {
-      evidence: status >= 0 ? original[status] : nativeFooter,
-    });
-  }
-  // Older modes expose a timed animated row directly above the composer.
-  let index = prompt - 2;
-  while (index >= 0 && !lines[index].trim()) index--;
-  const status = lines[index]?.trim() || "";
-  if (
-    /^[✻✽✶✳✢·*]\s+[^\n]{1,120}…\s*\(\d+(?:h\s+\d+m\s+\d+s|m\s+\d+s|s)\s*[·•]/.test(
-      status,
-    ) &&
-    /\x1b\[(?:\d+;)*38;/.test(original[index] || "")
-  )
-    return result("working", { evidence: status, animated: true });
-  return result("idle");
+  if (!isCodingCli(tool)) return result("unknown");
+  const { state, ...extra } = cliDriver(tool).tui.activity({
+    lines,
+    original,
+    last,
+    tail,
+  });
+  return result(state, extra);
 }
 export class SessionActivity {
   constructor({

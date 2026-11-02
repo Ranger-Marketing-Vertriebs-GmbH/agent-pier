@@ -3,6 +3,7 @@ import { access, stat } from "node:fs/promises";
 import { constants } from "node:fs";
 import path from "node:path";
 import { problem } from "../lib/storage.js";
+import { cliDefinition, isCodingCli } from "../features/clis/catalog.js";
 import { providerId } from "../features/chat/provider-history.js";
 
 export function resumeLaunch(tool, launch, nativeId) {
@@ -21,10 +22,8 @@ export function resumeLaunch(tool, launch, nativeId) {
     )
   )
     throw problem(serverMessages.sessionReload.conflictingNativeSelection, 409);
-  if (tool === "codex") args.push("resume", nativeId);
-  else if (tool === "claude") args.push("--resume", nativeId);
-  else if (tool === "opencode") args.push("--session", nativeId);
-  else throw problem(serverMessages.sessionReload.notReloadable, 409);
+  if (!isCodingCli(tool)) throw problem(serverMessages.sessionReload.notReloadable, 409);
+  args.push(...cliDefinition(tool).resumeArgs(nativeId));
   return { ...launch, args };
 }
 export async function validateReloadLaunch(launch, cwd) {

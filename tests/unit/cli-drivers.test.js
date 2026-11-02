@@ -180,3 +180,24 @@ test("history watchRoots name the folders a chat without sources discovers", () 
     ["/p/data/opencode"],
   );
 });
+
+test("every driver provides the tui functions", () => {
+  const openKeys = {
+    codex: [{ type: "/model" }, { pauseMs: 250 }, { keys: ["Enter"] }],
+    claude: [{ keys: ["M-p"] }],
+    opencode: [{ keys: ["C-x", "m"] }],
+  };
+  for (const id of CODING_CLI_IDS) {
+    const { tui } = cliDriver(id);
+    assert.ok(Object.isFrozen(tui), `${id}.tui is frozen`);
+    for (const method of ["activity", "composer", "limitWarning"])
+      assert.equal(typeof tui[method], "function", `${id}.tui.${method}`);
+    for (const method of ["parse", "current", "promptReady", "unsupported"])
+      assert.equal(
+        typeof tui.modelPicker[method],
+        "function",
+        `${id}.tui.modelPicker.${method}`,
+      );
+    assert.deepEqual(tui.modelPicker.openKeys, openKeys[id]);
+  }
+});

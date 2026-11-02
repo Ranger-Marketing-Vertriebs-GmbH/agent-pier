@@ -13,6 +13,9 @@ import * as opencodeRequests from "./opencode/requests.js";
 import * as codexHistory from "./codex/history.js";
 import * as claudeHistory from "./claude/history.js";
 import * as opencodeHistory from "./opencode/history.js";
+import * as codexTui from "./codex/tui.js";
+import * as claudeTui from "./claude/tui.js";
+import * as opencodeTui from "./opencode/tui.js";
 
 const profiles = { codex, claude, opencode };
 const sessions = {
@@ -30,6 +33,7 @@ const histories = {
   claude: claudeHistory,
   opencode: opencodeHistory,
 };
+const tuis = { codex: codexTui, claude: claudeTui, opencode: opencodeTui };
 const drivers = new Map();
 
 /**
@@ -56,6 +60,15 @@ const drivers = new Map();
  *   a full read, readReloadContext(history, session, id), normalize(records),
  *   observe(records), watchRoots(env, home, cwd): folders to watch while a chat has
  *   no known sources, slashCommands(scan, env, cwd): discovers custom commands.
+ * tui: reads the CLI's terminal screen (see `<id>/tui.js`).
+ *   activity({ lines, original, last, tail }): { state, evidence?, animated? } for
+ *   the composer region once shared dialog checks found nothing to answer.
+ *   composer({ raw, lines, row, line, plain, pane }): { state, text } of the draft.
+ *   modelPicker: openKeys (steps of { keys } | { type } | { pauseMs }),
+ *   parse(raw): the native picker or null, current(raw): the model it shows,
+ *   promptReady(raw): whether the picker may be opened, unsupported(raw): a picker
+ *   AgentPier must not drive.
+ *   limitWarning({ raw, pane, styled, lines }): visible native limit warnings.
  */
 export function cliDriver(id) {
   const definition = cliDefinition(id);
@@ -82,6 +95,17 @@ export function cliDriver(id) {
           observe: histories[id].observe,
           watchRoots: histories[id].watchRoots,
           slashCommands: histories[id].slashCommands,
+        }),
+        tui: Object.freeze({
+          activity: tuis[id].activity,
+          composer: tuis[id].composer,
+          limitWarning: tuis[id].limitWarning,
+          modelPicker: Object.freeze({
+            ...tuis[id].modelPicker,
+            openKeys: Object.freeze(
+              tuis[id].modelPicker.openKeys.map((step) => Object.freeze({ ...step })),
+            ),
+          }),
         }),
         parseAuthStatus(stdout, exitCode, stderr = "") {
           const state = profile.parseAuthStatus(stdout, stderr, exitCode);

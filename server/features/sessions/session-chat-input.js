@@ -20,10 +20,11 @@ import {
   claudeImageDraft,
   claudeImageMessage,
 } from "./claude-image-paste.js";
-import { claudePlaceholder, colorlessScreen } from "./claude-composer.js";
 import { nativeFreshInput } from "./native-prompt.js";
 import { claudeFreshInput } from "./claude-prompt.js";
 import { isCodingCli } from "../clis/catalog.js";
+import { cliDriver } from "../clis/drivers.js";
+import { clean, unknownComposer as unknown } from "../clis/tui-screen.js";
 
 export function normalizeChatText(text) {
   if (typeof text !== "string" || !text || text.length > 32000)
@@ -118,9 +119,6 @@ export function supportsDirectChat(tool) {
   return isCodingCli(tool);
 }
 
-const unknown = () => ({ state: "unknown", text: null });
-const clean = (text) => text.replace(/\x1b\[[0-9;:]*m/g, "");
-
 /** A visible substring never establishes the contents of a wrapped/collapsed draft. */
 export function inspectChatComposer(tool, raw, pane = {}) {
   if (typeof raw !== "string" || !Number.isInteger(pane.cursorY)) return unknown();
@@ -128,97 +126,15 @@ export function inspectChatComposer(tool, raw, pane = {}) {
   const row = pane.cursorY;
   const line = lines[row];
   if (line === undefined || !Number.isInteger(pane.cursorX)) return unknown();
-  const plain = clean(line);
-  if (tool === "codex") {
-    if (
-      !line.startsWith("\x1b[1m›\x1b[0m ") ||
-      clean(lines[row + 1] || "").trim() ||
-      !/^  .+ · .+/.test(clean(lines[row + 2] || ""))
-    )
-      return unknown();
-    if (/^\x1b\[1m›\x1b\[0m \x1b\[2m[^\x1b]+\x1b\[0m$/.test(line))
-      return pane.cursorX === 2 ? { state: "empty", text: "" } : unknown();
-    const text = plain.slice(2);
-    if (
-      !text ||
-      /\[Pasted|[\x00-\x1f\x7f-\x9f]/.test(text) ||
-      plain.length >= pane.width - 1 ||
-      pane.cursorX !== plain.length
-    )
-      return unknown();
-    return { state: "text", text };
-  }
-  if (tool === "claude") {
-    const border = "─".repeat(pane.width || 0);
-    if (
-      !border ||
-      clean(lines[row - 1] || "") !== border ||
-      clean(lines[row + 1] || "") !== border ||
-      !plain.startsWith("❯ ")
-    )
-      return unknown();
-    if (
-      pane.cursorX === 2 &&
-      (plain === "❯ " ||
-        (plain === "❯  " && /\x1b\[7m(?:\x1b\[39m)? /.test(line)) ||
-        claudePlaceholder(line, pane, { footer: lines[row + 2], screen: raw }))
-    )
-      return { state: "empty", text: "" };
-    // Claude's own cursor cell, or the native terminal cursor after plain text.
-    // Colored Claude resets the prompt character's color first; NO_COLOR and
-    // FORCE_COLOR=0 emit no styling besides the cursor cell.
-    const reset = colorlessScreen(raw) ? "" : "\x1b[39m";
-    const draft = line.startsWith(`${reset}❯`)
-      ? (/^❯ ([^\x1b]+)\x1b\[7m \x1b\[0m$/.exec(line.slice(reset.length))?.[1] ??
-        /^❯[ \u00a0]([^\x1b]+)$/.exec(line.slice(reset.length))?.[1])
-      : undefined;
-    if (
-      draft &&
-      !/\[Pasted|[\x00-\x1f\x7f-\x9f]/.test(draft) &&
-      pane.cursorX === 2 + draft.length &&
-      pane.cursorX < pane.width - 1
-    )
-      return { state: "text", text: draft };
-    return unknown();
-  }
-  if (tool === "opencode") {
-    const prefix = /^( *)┃  /.exec(plain);
-    if (!prefix) return unknown();
-    const indent = prefix[1];
-    const blank = (value) => clean(value || "").trimEnd() === `${indent}┃`;
-    if (
-      !blank(lines[row - 1]) ||
-      !blank(lines[row + 1]) ||
-      !clean(lines[row + 2] || "").startsWith(`${indent}┃  `) ||
-      !/^[^·\x00-\x1f\x7f-\x9f]+ · \S/.test(
-        clean(lines[row + 2] || "").slice(indent.length + 3),
-      ) ||
-      !clean(lines[row + 3] || "").startsWith(`${indent}╹▀▀▀`)
-    )
-      return unknown();
-    const start = indent.length + 3;
-    const draft = /\x1b\[38;2;238;238;238m([^\x1b]+)\x1b\[38;2;255;255;255m/.exec(
-      line,
-    )?.[1];
-    if (
-      draft &&
-      !/\[Pasted|[\x00-\x1f\x7f-\x9f]/.test(draft) &&
-      pane.cursorX === start + draft.length &&
-      plain.slice(start, start + draft.length) === draft &&
-      /^ *$/.test(plain.slice(start + draft.length)) &&
-      pane.cursorX < pane.width - 1
-    )
-      return { state: "text", text: draft };
-    if (pane.cursorX !== start) return unknown();
-    const content = plain.slice(start).trimEnd();
-    if (
-      !content ||
-      (content.startsWith("Ask anything… ") &&
-        line.includes("\x1b[38;2;128;128;128mAsk anything… "))
-    )
-      return { state: "empty", text: "" };
-  }
-  return unknown();
+  if (!isCodingCli(tool)) return unknown();
+  return cliDriver(tool).tui.composer({
+    raw,
+    lines,
+    row,
+    line,
+    plain: clean(line),
+    pane,
+  });
 }
 
 export function assertChatComposerReady(tool, raw, pane) {
