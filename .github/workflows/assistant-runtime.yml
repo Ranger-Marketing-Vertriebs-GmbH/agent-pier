@@ -193,6 +193,32 @@ jobs:
           node scripts/provision-hermes-contracts.mjs
           --data-dir "$RUNNER_TEMP/agentpier-hermes-contracts"
           --env-file "$GITHUB_ENV"
+      # The browser contract drives the agent's own Chromium headless with the runner's
+      # preinstalled Google Chrome, as the web tools contract above does. AgentPier's
+      # detection would pick the image's /usr/bin/chromium, an unpacked snapshot
+      # without a sandbox helper, which Ubuntu 24.04's AppArmor user namespace limit
+      # stops at launch. The sandbox stays on; a runner without Chrome fails here.
+      - name: Locate the browser for the Hermes browser contract
+        run: |
+          for candidate in /usr/bin/google-chrome "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"; do
+            if [ -x "$candidate" ]; then
+              echo "AGENTPIER_TEST_BROWSER_PATH=$candidate" >> "$GITHUB_ENV"
+              exit 0
+            fi
+          done
+          if [ "$RUNNER_OS" = Linux ] && [ "$RUNNER_ARCH" = ARM64 ]; then
+            npx playwright install --with-deps chromium
+            if sysctl -n kernel.apparmor_restrict_unprivileged_userns >/dev/null 2>&1; then
+              sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+            fi
+            chromium=$(node -p 'require("@playwright/test").chromium.executablePath()')
+            if [ -x "$chromium" ]; then
+              echo "AGENTPIER_TEST_BROWSER_PATH=$chromium" >> "$GITHUB_ENV"
+              exit 0
+            fi
+          fi
+          echo "::error::No Google Chrome on this runner for the Hermes browser contract."
+          exit 1
       # Simulated models only: no secrets reach the Hermes processes.
       - name: Run the native Hermes contracts
         run: |

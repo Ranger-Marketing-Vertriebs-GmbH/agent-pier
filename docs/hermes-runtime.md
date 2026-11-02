@@ -308,7 +308,10 @@ as OpenClaw does for its agents, with the same browser app (`browser-detection.j
 the agent's own profile in `<data>/assistants/hermes/home/<agent>/agentpier-browser/`,
 a CDP port on `127.0.0.1` chosen once and kept, headless unless the agent's **Visible
 window** and a separate agent browser app allow a window, and the launch flags of
-OpenClaw's launches (mock keychain, no throttling). The compiled home turns the
+OpenClaw's managed launches (mock keychain and basic password store, no sync or crash
+bubbles, no throttling; headless without the GPU; on Linux without `/dev/shm`, with
+Chromium's config and cache homes beside the profile unless set). The sandbox always
+stays on. The compiled home turns the
 `browser` toolset on with:
 
 | Key                          | Value                                             |
@@ -594,9 +597,14 @@ commits and the agent's chat is kept; a running turn blocks it until **Pause age
 update** stops it. The teams contract drives a Hermes lead's team tools (proposal, a
 member provisioned as a Hermes agent, a delegated task) and the guard's refusal of a
 read-only task's write; the browser contract opens a local page in the agent's
-AgentPier-owned Chromium with the installed browser app (skipped, with the reason,
-without one) and reads the live view's frames. Set `AGENTPIER_HERMES_CONTRACT_RUNTIME`
-to an installation made by `scripts/provision-hermes-contracts.mjs` (its `venv/bin/`
+AgentPier-owned Chromium with the installed browser app, or the one
+`AGENTPIER_TEST_BROWSER_PATH` names (skipped, with the reason, without one; with `CI`
+set it fails instead), and reads the live view's frames. The `hermes-contracts` job
+exports that variable from the runner's Google Chrome as the `native-contracts` job
+does ([web tools qualification](assistant-web-tools-qualification.md)): the Ubuntu
+image's `/usr/bin/chromium`, which the detection prefers, is an unpacked snapshot
+without a sandbox helper that AppArmor's user namespace limit stops at launch.
+Set `AGENTPIER_HERMES_CONTRACT_RUNTIME` to an installation made by `scripts/provision-hermes-contracts.mjs` (its `venv/bin/`
 holds `python` and `hermes`, its `tools/` agent-browser). The tests use a private
 `HOME` and `HERMES_HOME` and never touch
 `~/.hermes`.
