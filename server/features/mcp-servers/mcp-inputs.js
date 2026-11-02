@@ -92,14 +92,17 @@ export function withInherited(bindings, inherited) {
 
 /**
  * The OAuth servers whose login AgentPier holds (mcp-oauth-agentpier.js) as plain
- * Streamable HTTP servers: the proxy's `/mcp/<id>` URL with the proxy credential of
+ * HTTP servers of their own transport: the proxy's `/mcp/<id>` URL with the proxy credential of
  * that server as their `Authorization` header (mcp-proxy.js). Both runtimes compile
  * them like any server with headers and never see an OAuth token. Pure.
  */
+/** Transports the MCP proxy carries: Streamable HTTP and the legacy HTTP+SSE. */
+export const proxyable = (server) => ["http", "sse"].includes(server?.transport);
+
 export function proxiedServers(inputs, proxy) {
   if (!proxy?.url || inputs.unreadable) return inputs;
   inputs.servers = inputs.servers.map((server) => {
-    if (server.auth !== "oauth" || server.transport !== "http" || !proxy.held(server.id))
+    if (server.auth !== "oauth" || !proxyable(server) || !proxy.held(server.id))
       return server;
     if (Object.hasOwn(inputs.secrets, server.id))
       inputs.secrets[server.id] = {

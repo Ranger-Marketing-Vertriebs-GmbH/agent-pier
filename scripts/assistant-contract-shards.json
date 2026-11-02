@@ -124,6 +124,6 @@
     "tests/integration/assistant-mail-attachments-contract.test.js": 30,
     "tests/integration/assistant-project-contract.test.js": 40,
     "tests/integration/assistant-chatgpt-access-contract.test.js": 25,
-    "tests/integration/assistant-mcp-proxy-contract.test.js": 20
+    "tests/integration/assistant-mcp-proxy-contract.test.js": 40
   }
 }

@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { AgentPierMcpOAuth } from "../../server/features/mcp-servers/mcp-oauth-agentpier.js";
 import { McpOAuthHolders } from "../../server/features/mcp-servers/mcp-oauth-holders.js";
 import { mcpRoute } from "../../server/features/mcp-servers/mcp-proxy.js";
@@ -15,14 +16,14 @@ import { approve, oauthMcpServer } from "../helpers/mcp-oauth-test-server.js";
 const redirectUrl = "http://127.0.0.1:4380/api/mcp-servers/oauth/callback";
 
 /** AgentPier's MCP OAuth and proxy around one fake OAuth MCP server. */
-async function agentPierMcp(t, { legacy = {}, everConnected = false } = {}) {
+async function agentPierMcp(t, { legacy = {}, everConnected = false, sse = false } = {}) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-oauth-agentpier-"));
   const oauth = await oauthMcpServer();
   const server = {
     id: "srv-1",
     name: "docs",
-    url: oauth.url,
-    transport: "http",
+    url: sse ? oauth.sseUrl : oauth.url,
+    transport: sse ? "sse" : "http",
     auth: "oauth",
     oauthScope: null,
   };
@@ -89,10 +90,19 @@ async function agentPierMcp(t, { legacy = {}, everConnected = false } = {}) {
       secrets,
     } = compiled();
     const client = new Client({ name: "runtime", version: "1" });
+    const headers = secrets[server.id].headers;
     await client.connect(
-      new StreamableHTTPClientTransport(new URL(entry.url), {
-        requestInit: { headers: secrets[server.id].headers },
-      }),
+      sse
+        ? new SSEClientTransport(new URL(entry.url), {
+            requestInit: { headers },
+            eventSourceInit: {
+              fetch: (url, init) =>
+                fetch(url, { ...init, headers: { ...init?.headers, ...headers } }),
+            },
+          })
+        : new StreamableHTTPClientTransport(new URL(entry.url), {
+            requestInit: { headers },
+          }),
     );
     t.after(() => client.close().catch(() => {}));
     return client;
@@ -215,4 +225,30 @@ test("a server OpenClaw still holds stays OpenClaw's and is marked for a new log
   assert.equal(compiled().servers[0].auth, "oauth");
   await holders.beforeRemove(server.id);
   assert.deepEqual(calls.at(-1), ["legacy-beforeRemove", "srv-1"]);
+});
+
+test("an SSE server's stream and messages pass the proxy; its endpoint stays behind it", async (t) => {
+  const { oauth, login, compiled, connect, holders, server } = await agentPierMcp(t, {
+    sse: true,
+  });
+  assert.equal(holders.ours(server), true, "AgentPier logs in to SSE servers too");
+  assert.deepEqual(await login(), { serverId: "srv-1", result: "connected" });
+  const {
+    servers: [entry],
+  } = compiled();
+  assert.equal(entry.transport, "sse");
+  assert.match(entry.url, /\/mcp\/srv-1$/);
+  const client = await connect();
+  const result = await client.callTool({ name: "echo", arguments: { text: "over-sse" } });
+  assert.match(JSON.stringify(result.content), /over-sse/);
+  // The message went through the proxy with AgentPier's token.
+  assert.match(oauth.calls.at(-1).bearer, /^at-/);
+  // An expired token on the stream's messages: renewed once and replayed.
+  oauth.expireAccessTokens();
+  const again = await client.callTool({ name: "echo", arguments: { text: "renewed" } });
+  assert.match(JSON.stringify(again.content), /renewed/);
+  assert.deepEqual(
+    oauth.log.filter((e) => e.path === "/token").map((e) => e.grant),
+    ["authorization_code", "refresh_token"],
+  );
 });
