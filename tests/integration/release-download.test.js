@@ -186,6 +186,51 @@ test("network failures are retried", async () => {
   assert.equal(calls, 3);
 });
 
+test("a DNS outage is retried and an unknown host fails after the retries", async () => {
+  const lookup = (code) =>
+    new TypeError("fetch failed", {
+      cause: Object.assign(Error(`getaddrinfo ${code} files.pythonhosted.org`), {
+        code,
+        syscall: "getaddrinfo",
+      }),
+    });
+  let calls = 0;
+  const bytes = await download(
+    "https://fixture.invalid/dns",
+    async () => {
+      calls++;
+      if (calls === 1) throw lookup("EAI_AGAIN");
+      if (calls === 2) throw lookup("ENOTFOUND");
+      return new Response("resolved");
+    },
+    1024,
+    quick,
+  );
+  assert.equal(bytes.toString(), "resolved");
+  assert.equal(calls, 3);
+  // A host that never resolves: the bounded retries, then the lookup error itself.
+  const delays = [];
+  let attempts = 0;
+  await assert.rejects(
+    download(
+      "https://fixture.invalid/gone",
+      async () => {
+        attempts++;
+        throw lookup("ENOTFOUND");
+      },
+      1024,
+      { ...quick, retries: 5, retryDelay: (attempt) => (delays.push(attempt), 1) },
+    ),
+    (error) => {
+      assert.ok(error instanceof TypeError);
+      assert.equal(error.cause.code, "ENOTFOUND");
+      return true;
+    },
+  );
+  assert.equal(attempts, 6);
+  assert.deepEqual(delays, [0, 1, 2, 3, 4]);
+});
+
 test("a proxy on a Node without env-proxy support fails fast with a stable code", async () => {
   const { messageIdentity } = await import("../../server/lib/i18n/message-identity.js");
   for (const nodeVersion of ["22.13.0", "22.20.9", "23.11.0"]) {
