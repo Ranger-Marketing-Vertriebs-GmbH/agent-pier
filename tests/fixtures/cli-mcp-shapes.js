@@ -139,3 +139,46 @@ export const cases = [
 
 // `auth_status` of `codex mcp list --json` for an OAuth server, logged in or not.
 export const codexAuthStatus = { loggedIn: "o_auth", loggedOut: "not_logged_in" };
+
+// The servers a session launch adds next to the CLI's own configuration, and what
+// cliDriver(cli).addMcpServer() makes of them, one after the other, on an empty launch
+// (tests/unit/cli-session-config.test.js). Claude Code gets one plugin per server.
+export const sessionServers = [
+  { name: "agentpier_one", command, args: ["--flag"] },
+  { name: "agentpier_two", command, args: [], env: { TOKEN: "env-value" } },
+];
+export const sessionShapes = {
+  codex: {
+    args: [
+      "-c",
+      `mcp_servers.agentpier_one={"command"="${command}","args"=["--flag"]}`,
+      "-c",
+      `mcp_servers.agentpier_two={"command"="${command}","args"=[],"env"={"TOKEN"="env-value"}}`,
+    ],
+    env: {},
+  },
+  claude: {
+    mcpJson: [
+      { mcpServers: { agentpier_one: { command, args: ["--flag"] } } },
+      {
+        mcpServers: {
+          agentpier_two: { command, args: [], env: { TOKEN: "env-value" } },
+        },
+      },
+    ],
+  },
+  opencode: {
+    args: [],
+    config: {
+      mcp: {
+        agentpier_one: { type: "local", command: [command, "--flag"], enabled: true },
+        agentpier_two: {
+          type: "local",
+          command: [command],
+          environment: { TOKEN: "env-value" },
+          enabled: true,
+        },
+      },
+    },
+  },
+};
