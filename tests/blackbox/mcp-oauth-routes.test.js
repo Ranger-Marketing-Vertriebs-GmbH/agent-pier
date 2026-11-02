@@ -54,7 +54,8 @@ async function setup(t, extra = {}) {
     FAKE_OPENCLAW_LOG: log,
     FAKE_OPENCLAW_STATE: "11111111-1111-4111-8111-111111111111",
   };
-  const oauth = f.application.assistantMcpOAuth;
+  // OpenClaw's own login over its CLI, which SSE servers keep (mcp-oauth-holders.js).
+  const oauth = f.application.assistantMcpOAuth.legacy;
   oauth.cli = createMcpCli({
     runtime: { nodePath: process.execPath, entryPath: fakeEntry, cwd: f.root },
     environment: () => env,
@@ -63,7 +64,7 @@ async function setup(t, extra = {}) {
     method: "POST",
     body: {
       name: "docs",
-      transport: "http",
+      transport: "sse",
       url: "https://mcp.example.com/v1",
       auth: "oauth",
     },
@@ -260,7 +261,8 @@ test("MCP logouts keep backup keys; a rollback queues them again", async (t) => 
   assert.equal(fs.existsSync(key), true);
   // The update rollback hook reaches the login service before the Gateway starts.
   await f.application.assistantUpdates.onRolledBack({ createdAt: since });
-  const oauth = f.application.assistantMcpOAuth;
+  // OpenClaw's own login over its CLI, which SSE servers keep (mcp-oauth-holders.js).
+  const oauth = f.application.assistantMcpOAuth.legacy;
   clearTimeout(oauth.drainTimer);
   oauth.drainTimer = null;
   assert.deepEqual(
@@ -281,7 +283,7 @@ test("deleting an OAuth server logs it out, or defers that with a warning", asyn
     method: "POST",
     body: {
       name: "docs",
-      transport: "http",
+      transport: "sse",
       url: "https://mcp.example.com/v1",
       auth: "oauth",
     },
