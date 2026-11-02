@@ -301,7 +301,7 @@ export class AssistantService {
    */
   // `queue: false` (a user's own switch) refuses a change that needs a restart.
   async update(id, input, revision, { confirmed, outcome = {}, queue = true } = {}) {
-    const { freshChats, ...given } = input || {};
+    const { freshChats: _fresh, ...given } = input || {};
     const { mcpServers, confirmStdio, confirmShell, confirmFull, followLead, ...body } =
       given;
     const binds = mcpServers !== undefined;
@@ -355,7 +355,7 @@ export class AssistantService {
       const dreaming = this.dreaming?.enabled();
       const memoryKey = memoryRequirement(current, patch, { dreaming });
       if (memoryKey) throw assistantProblem(memoryKey, 409);
-      const plan = planSwitch(this, current, { ...current, ...patch }, { freshChats });
+      const plan = planSwitch(this, current, { ...current, ...patch }, input);
       // Refuses ineligible agents and unconfirmed stdio servers before any change.
       if (binds)
         outcome.stdioAdded = this.mcp.checkBindings(current, mcpServers, confirmStdio);
