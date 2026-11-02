@@ -13,6 +13,7 @@ import {
 } from "../mcp-servers/stdio-confirmation.js";
 import { requireLiteralValues } from "../mcp-servers/value-references.js";
 import {
+  agentWorkspace,
   hostReady,
   ownProcess,
   runtimeAccepts,
@@ -200,6 +201,14 @@ export class McpChanges {
         bindings: withInherited(this.servers.bindingsByTarget("agent"), this.inherited),
         workspaces: runtime?.paths?.workspaces ?? null,
         running: runtime?.mcp ?? null,
+        // A Hermes agent's servers resolve in its own work folder.
+        ownRuntime: (profile) =>
+          ownProcess(profile)
+            ? {
+                workspace: agentWorkspace(runtime, profile),
+                ready: hostReady(runtime, profile),
+              }
+            : null,
       });
     } catch {
       return list;
