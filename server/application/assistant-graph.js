@@ -1,3 +1,4 @@
+import { openClawUpdateScope } from "../features/assistants/runtime-update-scope.js";
 import path from "node:path";
 import { ImagePolicy } from "../features/assistants/image-policy.js";
 import { NativeRoutines } from "../features/assistants/native-routines.js";
@@ -309,6 +310,8 @@ export function constructAssistantGraph(host, created = {}) {
       updateBlocked(scope.assistantProviderSynchronization, assistants.pendingRestart),
     // MCP OAuth logins cleared since the snapshot are logged out again.
     onRolledBack: ({ createdAt }) => scope.assistantMcpOAuth?.afterRollback(createdAt),
+    // Hermes agents' folders of the shared workspace root stay theirs.
+    scope: () => openClawUpdateScope(store),
     affected: () => {
       const profiles = store.listAssistants();
       const members = profiles.filter(temporaryMember).length;
