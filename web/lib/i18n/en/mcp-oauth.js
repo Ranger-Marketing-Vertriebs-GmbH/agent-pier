@@ -31,6 +31,10 @@ export const mcpOAuthCopy = {
     "The previous login is still being removed. Until then the server is not active; logging in removes it first.",
   logoutDeferred:
     "Saved. The previous OAuth login could not be removed right now; AgentPier retries in the background.",
+  openClawHeld:
+    "OpenClaw holds this login. Log in again so that AgentPier holds it: Hermes agents can then use this server too, and AgentPier renews the login.",
+  loginAgain: "Log in again",
+  loginAgainNamed: (name) => `Log in to ${name} again`,
   unknownHint:
     "The login status cannot be read right now, for example while the agent runtime is not running.",
   statusLabel: (status) => `Login status: ${status}`,
@@ -76,6 +80,8 @@ export const mcpOAuthCopy = {
     "runtime-unavailable": "The agent runtime is not available.",
     "server-unknown":
       "The server is not active yet. Assign it to an agent and wait until the agent runtime is running.",
+    "oauth-failed":
+      "The login could not be completed. Details are in the AgentPier log. Start the login again.",
     "cli-failed": "Completing the login failed. Please try again.",
     unavailable:
       "AgentPier could not complete the login right now, for example during a backup or restore. Start the login again.",

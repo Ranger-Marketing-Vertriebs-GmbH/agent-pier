@@ -39,12 +39,23 @@ export function mcpEligible(profile) {
  * member's own bindings, placeholder servers per member included.
  * `extra(names)` adds servers AgentPier manages itself in the same shape (the agents'
  * GitHub servers, agent-github.js mcpInputs); `names` are the store's, which win.
+ * `proxy` (`{ url, credentialFor(serverId), held(serverId) }`): AgentPier's MCP proxy;
+ * an OAuth server whose login AgentPier holds compiles through it (proxiedServers).
  */
 export function readMcpInputs(
   store,
-  { redirectUrl = null, extra = null, workspaces = null, inherited = null } = {},
+  {
+    redirectUrl = null,
+    extra = null,
+    workspaces = null,
+    inherited = null,
+    proxy = null,
+  } = {},
 ) {
-  const inputs = readStoreInputs(store, redirectUrl, inherited);
+  const inputs = proxiedServers(
+    readStoreInputs(store, redirectUrl, inherited, proxy),
+    proxy,
+  );
   // Agent placeholders resolve below the Gateway's workspace root; each resolved
   // path is checked on disk at every compile (agent-folders.js).
   Object.assign(inputs, { workspaces, pathCheck: safeAgentPath });
@@ -79,7 +90,33 @@ export function withInherited(bindings, inherited) {
   return out;
 }
 
-function readStoreInputs(store, redirectUrl, inherited) {
+/**
+ * The OAuth servers whose login AgentPier holds (mcp-oauth-agentpier.js) as plain
+ * Streamable HTTP servers: the proxy's `/mcp/<id>` URL with the proxy credential of
+ * that server as their `Authorization` header (mcp-proxy.js). Both runtimes compile
+ * them like any server with headers and never see an OAuth token. Pure.
+ */
+export function proxiedServers(inputs, proxy) {
+  if (!proxy?.url || inputs.unreadable) return inputs;
+  inputs.servers = inputs.servers.map((server) => {
+    if (server.auth !== "oauth" || server.transport !== "http" || !proxy.held(server.id))
+      return server;
+    if (Object.hasOwn(inputs.secrets, server.id))
+      inputs.secrets[server.id] = {
+        headers: { Authorization: `Bearer ${proxy.credentialFor(server.id)}` },
+        env: {},
+      };
+    return {
+      ...server,
+      auth: "headers",
+      oauthScope: null,
+      url: `${proxy.url}/mcp/${server.id}`,
+    };
+  });
+  return inputs;
+}
+
+function readStoreInputs(store, redirectUrl, inherited, proxy) {
   const inputs = {
     servers: [],
     bindings: {},
@@ -92,15 +129,15 @@ function readStoreInputs(store, redirectUrl, inherited) {
     // An OAuth server whose old login still awaits its logout is left out, like an
     // unbound one, until that logout went through (McpOAuthLogins.drain).
     const deferred = store.deferredLogouts?.() || [];
-    inputs.servers = store
-      .definitions()
-      .filter(
-        (s) =>
-          !(
-            s.auth === "oauth" &&
-            deferred.some((t) => t.name === s.name && t.url === s.url)
-          ),
-      );
+    inputs.servers = store.definitions().filter(
+      (s) =>
+        !(
+          s.auth === "oauth" &&
+          // A proxied server never uses OpenClaw's old login of its name and URL.
+          !(proxy?.url && s.transport === "http" && proxy.held(s.id)) &&
+          deferred.some((t) => t.name === s.name && t.url === s.url)
+        ),
+    );
     inputs.bindings = withInherited(store.bindingsByTarget("agent"), inherited);
   } catch {
     return { servers: [], bindings: {}, secrets: {}, unreadable: true, redirectUrl };

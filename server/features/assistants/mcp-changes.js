@@ -42,6 +42,7 @@ export class McpChanges {
     servers,
     redirectUrl = () => null,
     oauth = null,
+    proxy = () => null,
     now = Date.now,
     warn = console.warn,
     adoptionTimeoutMs,
@@ -49,7 +50,8 @@ export class McpChanges {
     // `redirectUrl()`: the OAuth redirect URL OAuth servers compile with, read at
     // each compile so a changed AgentPier origin hot-applies. `oauth`
     // (McpOAuthLogins) logs a server out before a change would orphan its login.
-    Object.assign(this, { assistants, servers, redirectUrl, oauth, now, warn });
+    // `proxy()`: AgentPier's MCP proxy for the logins it holds (mcp-inputs.js).
+    Object.assign(this, { assistants, servers, redirectUrl, oauth, proxy, now, warn });
     this.adoption = { warn, timeoutMs: adoptionTimeoutMs };
     // Whether the running Gateway may lag behind the store. Set by every apply that
     // could not finish; the team scheduler's tick and each Gateway start retry it.
@@ -121,9 +123,6 @@ export class McpChanges {
       throw problem(messages.invalidRequest, 400);
     const current = new Set(this.servers.bindings("agent", profile.id));
     const added = [...new Set(ids)].filter((id) => !current.has(id));
-    // A Hermes agent gets no OAuth server: OpenClaw holds the login's tokens.
-    if (ownProcess(profile) && added.some((id) => this.servers.get(id).auth === "oauth"))
-      throw problem(messages.oauthHermesUnsupported, 409);
     const stdio = added.some((id) => this.servers.get(id).transport === "stdio");
     // A stdio server runs host commands; an agent with its own Telegram bot for other
     // people never gets one (like shell). Remote servers stay allowed.
@@ -145,6 +144,7 @@ export class McpChanges {
       redirectUrl: this.redirectUrl(),
       extra: this.extraInputs,
       inherited: this.inherited,
+      proxy: this.proxy(),
     });
     const servers = mcpEligible(profile) ? inputs.bindings[profile.id] || [] : [];
     return { servers: inputs.unreadable ? [] : servers, inputs };
@@ -400,6 +400,7 @@ export class McpChanges {
         workspaces: runtime.paths?.workspaces ?? null,
         // Servers members use through their lead (lead-shares.js).
         inherited: this.inherited,
+        proxy: this.proxy(),
       });
       if (inputs.unreadable) {
         this.failed({ code: "MCP_STORE_UNREADABLE" });

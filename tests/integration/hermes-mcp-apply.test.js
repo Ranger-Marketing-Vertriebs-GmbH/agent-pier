@@ -62,7 +62,7 @@ test("a change of a Hermes agent's servers applies that agent, once per change",
   assert.equal(f.changes.pending, true);
 });
 
-test("a Hermes agent cannot be bound to an OAuth server", async (t) => {
+test("a Hermes agent can be bound to an OAuth server: AgentPier's login reaches it", async (t) => {
   const f = hermesFixture(t);
   const oauth = f.servers.create({
     name: "linear",
@@ -70,10 +70,8 @@ test("a Hermes agent cannot be bound to an OAuth server", async (t) => {
     url: "https://mcp.linear.example/mcp",
     auth: "oauth",
   });
-  assert.throws(
-    () => f.changes.checkBindings(f.hermes, [oauth.id]),
-    (error) => error.status === 409 && /OAuth/.test(error.message),
-  );
+  // Through AgentPier's MCP proxy once AgentPier holds the login (mcp-inputs.js).
+  assert.equal(f.changes.checkBindings(f.hermes, [oauth.id]), false);
   const home = f.agent("Home");
   assert.equal(f.changes.checkBindings(home, [oauth.id]), false);
 });

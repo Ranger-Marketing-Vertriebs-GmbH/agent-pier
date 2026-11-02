@@ -94,6 +94,17 @@ export function McpOAuthActions({ server, oauth }) {
           {busy ? copy.loggingIn : copy.login}
         </button>
       )}
+      {status === "connected" && server.oauthHolder === "openclaw" && (
+        <button
+          type="button"
+          className="button secondary"
+          aria-label={copy.loginAgainNamed(server.name)}
+          disabled={!!oauth.busy}
+          onClick={() => oauth.login(server)}
+        >
+          {busy ? copy.loggingIn : copy.loginAgain}
+        </button>
+      )}
       {canLogout && (
         <button
           type="button"

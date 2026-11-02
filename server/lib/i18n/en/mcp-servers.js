@@ -20,8 +20,6 @@ export const mcpServers = Object.freeze({
     "A stdio server runs a command with your rights and without a sandbox. Please confirm.",
   stdioTelegramSenders:
     "Agents with their own Telegram bot for other people cannot use stdio servers: these run commands on this computer. Remote servers stay possible; disconnect the bot first to use a stdio server.",
-  oauthHermesUnsupported:
-    "Hermes agents cannot use MCP servers with sign-in (OAuth) yet: OpenClaw holds the sign-in. Use a server with a token or a local server.",
   agentNotEligible:
     "MCP servers cannot be assigned to this agent: temporary team members receive them through the team approval, archived agents not at all.",
   oauthNotOAuth: "This server does not sign in with OAuth.",

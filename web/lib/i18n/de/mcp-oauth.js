@@ -32,6 +32,10 @@ export const mcpOAuthCopy = {
     "Die vorherige Anmeldung wird noch entfernt. Bis dahin ist der Server nicht aktiv; eine neue Anmeldung entfernt sie zuerst.",
   logoutDeferred:
     "Gespeichert. Die vorherige OAuth-Anmeldung ließ sich gerade nicht entfernen; AgentPier versucht es im Hintergrund erneut.",
+  openClawHeld:
+    "Diese Anmeldung hält OpenClaw. Melde dich erneut an, damit AgentPier sie hält: Dann können auch Hermes-Agenten diesen Server nutzen, und AgentPier erneuert die Anmeldung.",
+  loginAgain: "Erneut anmelden",
+  loginAgainNamed: (name) => `Erneut bei ${name} anmelden`,
   unknownHint:
     "Der Anmeldestatus lässt sich gerade nicht lesen, zum Beispiel solange die Agenten-Laufzeit nicht läuft.",
   statusLabel: (status) => `Anmeldestatus: ${status}`,
@@ -83,6 +87,8 @@ export const mcpOAuthCopy = {
     "runtime-unavailable": "Die Agenten-Laufzeit ist nicht verfügbar.",
     "server-unknown":
       "Der Server ist noch nicht aktiv. Weise ihn einem Agenten zu und warte, bis die Agenten-Laufzeit läuft.",
+    "oauth-failed":
+      "Die Anmeldung konnte nicht abgeschlossen werden. Details stehen im AgentPier-Protokoll. Starte die Anmeldung erneut.",
     "cli-failed":
       "Der Abschluss der Anmeldung ist fehlgeschlagen. Bitte erneut versuchen.",
     unavailable:
