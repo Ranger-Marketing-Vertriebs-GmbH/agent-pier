@@ -38,7 +38,7 @@ test("the compiled home holds config.yaml, .env, SOUL.md and AgentPier's plugins
     for (const file of Object.keys(compiled(name).files))
       assert.match(
         file,
-        /^(?:config\.yaml|\.env|SOUL\.md|plugins\/agentpier-(?:guard|team|deepgram)\/.+)$/,
+        /^(?:config\.yaml|\.env|SOUL\.md|plugins\/agentpier-(?:guard|team|deepgram|web)\/.+)$/,
       );
 });
 
@@ -58,14 +58,21 @@ test("shell levels map to Hermes's approval model and toolsets", () => {
     assert.ok(!shellTools.some((t) => c.agent.disabled_toolsets.includes(t)), name);
     assert.deepEqual(
       c.plugins.enabled,
-      name === "every-command" ? ["agentpier-guard"] : [],
+      name === "every-command"
+        ? ["agentpier-guard"]
+        : name === "shell-approval"
+          ? ["agentpier-web"]
+          : [],
     );
   }
   assert.deepEqual(compiled("shell-approval").remove, [
     "plugins/agentpier-guard",
     "plugins/agentpier-team",
   ]);
-  assert.deepEqual(compiled("every-command").remove, ["plugins/agentpier-team"]);
+  assert.deepEqual(compiled("every-command").remove, [
+    "plugins/agentpier-team",
+    "plugins/agentpier-web",
+  ]);
 });
 
 test("a lead and a member get the team plugin with their own team tools", () => {

@@ -17,6 +17,7 @@ import { memoryLimits } from "./memory.js";
 import { builtInOffered, skillEntries } from "./skills.js";
 import { mcpEntries, mcpEnvOwned } from "./mcp.js";
 import { channelBotEnvNames, channelBotHome, senderLockedToolsets } from "./telegram.js";
+import { webDirectory, webEnvNames, webHome } from "./web.js";
 import {
   teamDirectory,
   teamPlugin,
@@ -100,7 +101,9 @@ function unsupportedOf(agent, level, model, { placed, mcp, team, browser }) {
  * (the desired state's host `mcp`), without which `mcp_servers` and its secrets in
  * .env stay as they are (mcp.js); `connection`: the team bridge's `{ url, token }`
  * for the team plugin (team-plugin.js); `browser`: `{ cdpUrl, allowPrivateNetwork }`
- * of the Chromium AgentPier runs for the agent (hermes-browser.js), or none.
+ * of the Chromium AgentPier runs for the agent (hermes-browser.js), or none; `web`:
+ * `{ search, ddgs }` for its web search and fetch (web.js webHome), without which
+ * the search backend and its key stay as they are.
  * Pure: the same inputs yield the same home.
  */
 export function compileHome(
@@ -114,6 +117,7 @@ export function compileHome(
     mcp,
     connection,
     browser,
+    web,
   } = {},
 ) {
   const level = shellLevel(agent, strict);
@@ -146,14 +150,18 @@ export function compileHome(
   const model = agent.model ? modelSection(agent.model) : null;
   // The agent's own bot, when the desired state knows it (an apply, not a bare start).
   const bot = agent.channelBot !== undefined ? channelBotHome(agent) : null;
+  // Web search and fetch (web.js); the search backend while the apply names `web`.
+  const webPart = webHome(agent, web);
   const toolsets = [
     ...disabledToolsets(agent, level, { browser: browsing }),
     ...(bot?.senders ? senderLockedToolsets : []),
+    ...(webPart?.toolsets || []),
   ];
   const plugins = [
     ...(guard ? [guardPlugin] : []),
     ...(team ? [teamPlugin] : []),
     ...(bot?.plugin ? [bot.plugin] : []),
+    ...(webPart ? [webPart.plugin] : []),
   ];
   const config = [
     ...(model ? [[["model"], model.section]] : []),
@@ -202,6 +210,7 @@ export function compileHome(
         ]
       : []),
     ...(bot ? bot.config : []),
+    ...(webPart?.config || []),
     ...practicalDefaults,
   ];
   // .env names a part of the home owns only while the desired state knows that part:
@@ -212,8 +221,11 @@ export function compileHome(
       ...(model ? modelEnvNames : []),
       ...(servers ? [mcpEnvOwned] : []),
       ...(bot ? channelBotEnvNames : []),
+      // The web key names while the apply names the web settings, so a key the
+      // agent no longer uses goes.
+      ...(web && typeof web === "object" ? webEnvNames : []),
     ],
-    values: { ...model?.env, ...servers?.env, ...bot?.env },
+    values: { ...model?.env, ...servers?.env, ...bot?.env, ...webPart?.env.values },
   };
   const files = {
     "config.yaml": mergeConfig(existing["config.yaml"], config),
@@ -223,6 +235,7 @@ export function compileHome(
     ...(agent.instructions !== undefined && { "SOUL.md": String(agent.instructions) }),
     ...(guard && guardFiles({ everyCommand: guardsEveryCommand(level), cronAsks })),
     ...bot?.files,
+    ...webPart?.files,
     ...team,
   };
   return Object.freeze({
@@ -232,6 +245,7 @@ export function compileHome(
       ...(guard ? [] : [guardDirectory]),
       ...(team ? [] : [teamDirectory]),
       ...(bot?.remove || []),
+      ...(webPart ? [] : [webDirectory]),
     ]),
     config: Object.freeze(config),
     env: Object.freeze(env),
@@ -241,7 +255,7 @@ export function compileHome(
         mcp: servers,
         team,
         browser: browsing,
-      }),
+      }).concat(webPart?.unsupported || []),
     ),
   });
 }

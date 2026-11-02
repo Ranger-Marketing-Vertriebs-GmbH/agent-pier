@@ -75,6 +75,8 @@ export const hermesGoldenScenarios = {
     model: models.bearer,
     instructions,
     workspace: goldenWorkspace,
+    // The owner's Brave key: Hermes's brave-free backend, AgentPier's web fetch.
+    web: { search: { provider: "brave", key: "golden-brave-key" }, ddgs: false },
   }),
   // The stricter option: the guard plugin asks before every command.
   "every-command": () => ({
@@ -216,7 +218,7 @@ const bridgeConnection = { url: "http://127.0.0.1:43210", token: "golden-bridge-
 /** What hermesCompiler.compile takes for a scenario (`homes`: files found there). */
 export function goldenCompileInput(scenario, homes = {}) {
   const { profile, model: connection, instructions: text, workspace, strict } = scenario;
-  const { bundledSkills, catalogSkills, mcp, channelBot } = scenario;
+  const { bundledSkills, catalogSkills, mcp, channelBot, web } = scenario;
   const servers = mcp?.bindings[profile.id] || [];
   const bridge = scenario.connection;
   const live =
@@ -242,6 +244,7 @@ export function goldenCompileInput(scenario, homes = {}) {
     strictShell: strict || [],
     bundledSkills,
     catalogSkills,
+    web,
   };
 }
 

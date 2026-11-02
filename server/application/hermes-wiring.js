@@ -52,7 +52,8 @@ export function hermesAgentFleet(supervisor, { dataDir, store }) {
  * applyOwnProcess): the team bridge its team plugin calls, started for it when the
  * OpenClaw start has not yet (TeamBridge.start is idempotent), none while it cannot;
  * and the browser app AgentPier launches its Chromium with, whether that app may
- * open a window, and the owner's private-network setting (web-tools-changes.js).
+ * open a window, and the owner's private-network setting (web-tools-changes.js); and
+ * the owner's web search settings (hermes-config/web.js).
  */
 export const hermesApplyWiring = ({ bridge, webTools }) => ({
   hermesInputs: async () => {
@@ -66,6 +67,8 @@ export const hermesApplyWiring = ({ bridge, webTools }) => ({
             allowPrivateNetwork: webTools.network().allowPrivateNetwork === true,
           }
         : null,
+      // The owner's web search provider and its key (web-search-settings.js resolve).
+      web: webTools?.webSearch ? { search: webTools.webSearch.resolve() } : undefined,
     };
   },
 });

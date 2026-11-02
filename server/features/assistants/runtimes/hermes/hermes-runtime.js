@@ -14,6 +14,7 @@ import { hermesChannels } from "./hermes-channels.js";
 import { hermesCompiler, hermesConfigCapabilities } from "./hermes-compiler.js";
 import { hermesError } from "./hermes-rpc-client.js";
 import { liveTeamFiles } from "./hermes-config/team-plugin.js";
+import { ddgsInstalled } from "./hermes-config/web.js";
 import { HermesBrowser } from "./hermes-browser.js";
 
 /**
@@ -90,6 +91,11 @@ export function createHermesRuntime({
       catalogSkills: inputs.catalog,
       mcp: inputs.mcp,
       connection: inputs.connection,
+      // The owner's web search settings, once the installation (ddgs) is known.
+      web:
+        inputs.web && installed
+          ? { search: inputs.web.search, ddgs: ddgsInstalled(installed) }
+          : undefined,
       // A port is chosen only for an agent that wants the browser, its own or the
       // one its lead granted it as a temporary member.
       browser:
@@ -201,11 +207,12 @@ export function createHermesRuntime({
         mcp,
         connection,
         browser: settings,
+        web,
       }) {
         latest = {
           desired: read,
           strict: !!everyCommand,
-          inputs: { catalog, mcp, connection },
+          inputs: { catalog, mcp, connection, web },
           browser: settings,
         };
         const { availability } = supervisor.status();

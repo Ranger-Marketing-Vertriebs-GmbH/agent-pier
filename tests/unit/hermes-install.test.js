@@ -37,7 +37,7 @@ test("the shipped manifest pins a release, its commit and lock, uv per platform 
     bare.commit.slice(0, 12),
   );
   assert.match(hermesManifest.pythonVersion, /^3\.14\.\d+$/);
-  assert.deepEqual(hermesManifest.extras, ["messaging", "mcp"]);
+  assert.deepEqual(hermesManifest.extras, ["ddgs", "messaging", "mcp"]);
   assert.deepEqual(Object.keys(hermesManifest.uvChecksums).sort(), [
     "darwin-arm64",
     "darwin-x64",
@@ -79,7 +79,7 @@ test("an installation verifies both archives and the lock, then selects itself",
     shippedHermesRuntime({ ...record, extras: ["messaging"] }, f.manifest),
     false,
   );
-  assert.match(record.directory, /-mcp\+messaging$/);
+  assert.match(record.directory, /-ddgs\+mcp\+messaging$/);
   assert.deepEqual(read(path.join(root(f), "runtime.json")), record);
   assert.equal(fs.existsSync(path.join(root(f), "candidate.json")), false);
   const receipt = read(path.join(directory, "receipt.json"));
@@ -110,6 +110,8 @@ test("uv runs locked, offline from host Pythons and inside AgentPier's folder", 
     "sync",
     "--frozen",
     "--no-dev",
+    "--extra",
+    "ddgs",
     "--extra",
     "messaging",
     "--extra",
