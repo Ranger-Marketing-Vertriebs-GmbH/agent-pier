@@ -6,6 +6,11 @@
 // folder was replaced (checked on every `rename` or nameless event it reports), is
 // closed and its listeners are called, so they watch again.
 //
+// Only Linux reports a rename of the watched path itself solely when it is deleted.
+// macOS FSEvents reports an in-place write to a watched file, and a late "created"
+// of a watched folder, the same way: elsewhere the path is checked first, and while
+// it is still the same one the event is passed on as any other.
+//
 // Linux inotify does not follow a path: deleting the watched folder sends
 // IN_DELETE_SELF and IN_IGNORED, which Node reports as a `rename` naming the folder
 // itself (or not at all), and the watch is dead even if a folder of that name comes
@@ -22,8 +27,13 @@ export const foldName = (name) => String(name).normalize("NFC").toLowerCase();
 const ANY = "\0any";
 
 export class DirectoryWatchers {
-  constructor({ watch = fs.watch, maxDirectories = 256 } = {}) {
+  constructor({
+    watch = fs.watch,
+    maxDirectories = 256,
+    platform = process.platform,
+  } = {}) {
     this.watch = watch;
+    this.platform = platform;
     this.maxDirectories = maxDirectories;
     this.folders = new Map();
   }
@@ -92,12 +102,23 @@ export class DirectoryWatchers {
       named &&
       foldName(filename) === foldName(path.basename(folder.directory))
     ) {
-      if (this.folders.get(folder.id) === folder) this.failed(folder);
+      if (this.platform === "linux") {
+        if (this.folders.get(folder.id) === folder) this.failed(folder);
+        return;
+      }
+      this.verify(folder).then((same) => {
+        if (same && this.folders.get(folder.id) === folder)
+          this.deliver(folder, type, filename);
+      });
       return;
     }
     // A folder removed or replaced may leave its handle silent: any rename or
     // nameless event checks that the folder is still the same.
     if ((type === "rename" || !named) && folder.identity) this.verify(folder);
+    this.deliver(folder, type, filename);
+  }
+  deliver(folder, type, filename) {
+    const named = filename !== null && filename !== undefined;
     const records = named
       ? new Set([
           ...(folder.names.get(foldName(filename)) || []),
@@ -112,18 +133,21 @@ export class DirectoryWatchers {
       }
     }
   }
+  /** Whether the watched path is still there (and the same one); fails it if not. */
   async verify(folder) {
     let same = false;
     try {
       const stat = await fsp.lstat(folder.directory, { bigint: true });
       const birth = await folder.birth;
       same =
-        `${stat.dev}:${stat.ino}` === folder.identity &&
-        (!birth || !stat.birthtimeNs || stat.birthtimeNs === birth);
+        !folder.identity ||
+        (`${stat.dev}:${stat.ino}` === folder.identity &&
+          (!birth || !stat.birthtimeNs || stat.birthtimeNs === birth));
     } catch {
       same = false;
     }
     if (!same && this.folders.get(folder.id) === folder) this.failed(folder);
+    return same;
   }
   failed(folder) {
     const records = this.records(folder);
