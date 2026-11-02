@@ -440,8 +440,14 @@ promoted member keeps both as its own.
 
 File uploads: Hermes v0.22.5's browser tools have no upload (`tools/browser_tool.py`
 offers navigate, snapshot, click, type, scroll, back, press, images, vision and
-console), so a Hermes agent cannot fill a page's file field. `agentpier_workspace`
-`browser_upload_stage` still stages a file, for nothing on Hermes to use yet.
+console), so an agent with AgentPier's browser gets `agentpier_browser_upload`
+(`hermes-browser-upload.js`). The agent stages a file as on OpenClaw
+(`agentpier_workspace` `browser_upload_stage`) and passes the returned `uploadPath`;
+AgentPier checks the call as OpenClaw's browser upload (the agent's browser limits,
+then only files staged for this agent, `browser-upload-staging.js`), sets the files on
+the page's file field over CDP (`DOM.setFileInputFiles` on the agent's own Chromium,
+`hermes-browser-files.js`; `selector`, by default the first `input[type=file]`, and
+`urlContains` when several pages are open) and records the upload for the owner.
 
 ## Agents on Hermes
 
@@ -741,7 +747,8 @@ running turn's reply, the long-chat size (also after a gateway restart) and a da
 command in routine runs on full access and on approval (asked, allowed, denied).
 `hermes-own-tools-contract.test.js` shares a file of the agent's work folder with
 `agentpier_share_file`; `hermes-member-browser-contract.test.js` opens a page in a task
-member's own Chromium.
+member's own Chromium; `hermes-browser-upload-contract.test.js` fills a local page's
+file field with a staged file and refuses an unstaged one.
 `tests/integration/hermes-files-contract.test.js` checks the agent's files: a memory
 entry written through the port reaches the agent's prompt, and an entry the agent adds
 with Hermes's `memory` tool comes back through it; an assigned bundled skill and a

@@ -48,6 +48,29 @@ const shippedSkill = (name) =>
     "utf8",
   );
 const skillTexts = new Map();
+// Hermes's browser tools have no upload (tools/browser_tool.py), so an agent with
+// AgentPier's browser gets this tool (hermes-browser-upload.js).
+const browserUpload = Object.freeze({
+  name: "agentpier_browser_upload",
+  description:
+    "Put files into a file field (input type=file) of a page open in your browser, as a person choosing files would. First call agentpier_workspace with action browser_upload_stage for each file (path, and projectId for a project folder) and pass the uploadPath values it returns as paths, unchanged; nothing else can be uploaded, and a staged file expires after six hours. selector: a CSS selector of the file field (default: the page's first input[type=file]). urlContains: part of the page's address when several pages are open. Then take a snapshot and submit the form with your browser tools.",
+  parameters: {
+    type: "object",
+    properties: {
+      paths: {
+        type: "array",
+        minItems: 1,
+        maxItems: 20,
+        items: { type: "string", minLength: 1, maxLength: 4096 },
+      },
+      selector: { type: "string", minLength: 1, maxLength: 1000 },
+      urlContains: { type: "string", minLength: 1, maxLength: 2000 },
+    },
+    required: ["paths"],
+    additionalProperties: false,
+  },
+});
+
 /** The folder below HERMES_HOME that holds built-in skill `name`. */
 export const teamSkillFolder = (name) => `${teamDirectory}/skills/${name}`;
 
@@ -310,8 +333,36 @@ def _subagent(parent_session_id=None, child_session_id=None, **_):
             _PARENTS[child_session_id] = parent_session_id
 
 
+def _upload(args, session_id=None, task_id=None, **_):
+    # Fills a page's file field in this agent's AgentPier browser with files
+    # AgentPier staged for it; AgentPier checks and audits every call.
+    try:
+        key = _session_key(_root(session_id), task_id)
+        args = args if isinstance(args, dict) else {}
+        body = {"agentId": _read("bridge.json")["agentId"], "paths": args.get("paths")}
+        if key:
+            body["sessionKey"] = key
+        for name in ("selector", "urlContains"):
+            if isinstance(args.get(name), str):
+                body[name] = args[name]
+        return json.dumps(_post("/hermes-browser-upload", body, 30))
+    except _Refused as refusal:
+        return json.dumps({"error": str(refusal)})
+    except Exception:
+        return json.dumps({"error": _UNAVAILABLE})
+
+
 def register(ctx):
     settings = _read("tools.json")
+    upload = settings.get("browserUpload")
+    if upload:
+        ctx.register_tool(
+            name=upload["name"],
+            toolset="agentpier",
+            schema=upload,
+            handler=_upload,
+            description=upload["description"],
+        )
     for tool in settings.get("tools", []):
         ctx.register_tool(
             name=tool["name"],
@@ -376,7 +427,12 @@ export function teamPluginFiles(
     ...(action === "workspace" && { stageTimeoutMs: browserStageTimeoutMs }),
   }));
   const guardWrites = agent.team.memberOf !== null;
-  const settings = { tools, guardWrites, browser: !!browser };
+  const settings = {
+    tools,
+    guardWrites,
+    browser: !!browser,
+    ...(browser && { browserUpload }),
+  };
   const bridge = {
     url: connection.url,
     token: connection.token,

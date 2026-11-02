@@ -274,8 +274,8 @@ What works on Hermes today:
 - The browser: AgentPier starts the agent's own Chromium for Hermes's browser tools,
   with the same profile reset, **Visible browser**, live view and takeover as on
   OpenClaw; private addresses follow **Allow private networks for all agent
-  browsers**. A task member with the browser gets one of its own. Hermes's browser
-  tools cannot upload files into a page yet.
+  browsers**. A task member with the browser gets one of its own, and file uploads
+  into a page work with files AgentPier staged, as on OpenClaw.
 - Agents of restricted users keep OpenClaw's limits: no shell, no subagents, no other
   chats.
 - Backups keep a Hermes agent's keys and conversations sealed like OpenClaw's

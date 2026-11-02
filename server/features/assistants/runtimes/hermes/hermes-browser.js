@@ -5,6 +5,7 @@ import { spawn as spawnProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { EventEmitter } from "node:events";
 import { privateFolder, readJSON, writePrivate } from "../../../../lib/storage.js";
+import { setFileInputFiles, uploadTab } from "./hermes-browser-files.js";
 
 // Chromium flags of every agent browser AgentPier launches for Hermes, as OpenClaw
 // launches its managed profiles (openclaw dist chrome-*.mjs
@@ -284,6 +285,18 @@ export class HermesBrowser {
       return {
         tabs: (await this.tabs()).map(({ socket: _s, ...tab }) => tab),
       };
+    // A file field filled with files AgentPier staged (hermes-browser-files.js).
+    if (method === "POST" && route === "/set-files") {
+      const files = Array.isArray(body?.files) ? body.files.map(String) : [];
+      if (!files.length || typeof body?.selector !== "string" || !body.selector)
+        throw problem("BROWSER_INVALID");
+      const tab = uploadTab(await this.tabs(), body);
+      return setFileInputFiles(
+        tab,
+        { selector: body.selector, files },
+        this.WebSocketImpl,
+      );
+    }
     if (method === "POST" && route === "/screencast") {
       const pages = (await this.tabs()).filter(
         (tab) => tab.type === "page" && tab.socket,
