@@ -9,7 +9,7 @@ import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 import { moveAccount } from "./model-account-move.js";
 import { scrubBackupProfile } from "./runtime-update-scrub.js";
 // Account ids keep their first prefix: agents' saved selections name them.
-const identity = (profileId) =>
+export const accountIdOf = (profileId) =>
   `openclaw:${createHash("sha256").update(profileId).digest("hex")}`;
 const signedIn = (status) => ["ok", "expiring"].includes(status);
 // Store refusals that only mean OpenClaw has not been set up (yet): nothing to write.
@@ -39,7 +39,7 @@ export class AssistantModelAccounts {
     const saved = readJSON(this.file, []);
     this.records = Array.isArray(saved)
       ? saved.filter(
-          (r) => typeof r.profileId === "string" && r.id === identity(r.profileId),
+          (r) => typeof r.profileId === "string" && r.id === accountIdOf(r.profileId),
         )
       : [];
     // Retain only non-secret identities after logout so pre-spawn preparation can
@@ -51,7 +51,9 @@ export class AssistantModelAccounts {
     const identities = readJSON(this.identitiesFile, []);
     this.identities = new Map(
       [...(Array.isArray(identities) ? identities : []), ...this.records]
-        .filter((r) => typeof r?.profileId === "string" && r.id === identity(r.profileId))
+        .filter(
+          (r) => typeof r?.profileId === "string" && r.id === accountIdOf(r.profileId),
+        )
         .map((r) => [r.id, r.profileId]),
     );
     this.leases = new Map();
@@ -69,7 +71,7 @@ export class AssistantModelAccounts {
   // The vault's logins as account records.
   #held() {
     return (this.vault?.list() || []).map((login) => ({
-      id: identity(login.profileId),
+      id: accountIdOf(login.profileId),
       profileId: login.profileId,
       name: String(login.name).slice(0, 200),
       status: login.status === "ok" ? "ok" : "invalid",
@@ -143,7 +145,7 @@ export class AssistantModelAccounts {
             !heldIds.has(p.profileId),
         )
         .map((p) => ({
-          id: identity(p.profileId),
+          id: accountIdOf(p.profileId),
           profileId: p.profileId,
           name: String(p.displayName || p.email || "ChatGPT").slice(0, 200),
           status: ["ok", "expiring", "expired", "missing", "invalid"].includes(p.status)

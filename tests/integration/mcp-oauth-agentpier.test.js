@@ -53,7 +53,12 @@ async function agentPierMcp(t, { legacy = {}, everConnected = false } = {}) {
   const proxy = new RuntimeProxy({ dataDir, warn: () => {} });
   proxy.route(
     "mcp",
-    mcpRoute({ servers: { definition: servers.get }, oauth: agentpier }),
+    mcpRoute({
+      servers: { definition: servers.get },
+      oauth: agentpier,
+      // Stands in for proxy-access.js: only agent-a is bound to srv-1.
+      authorize: (serverId, consumer) => serverId === "srv-1" && consumer === "agent-a",
+    }),
   );
   const url = await proxy.start();
   t.after(async () => {
@@ -74,7 +79,7 @@ async function agentPierMcp(t, { legacy = {}, everConnected = false } = {}) {
       { servers: [server], secrets: { [server.id]: { headers: {}, env: {} } } },
       {
         url,
-        credentialFor: (id) => proxy.credential(["mcp", id]),
+        credentialFor: (id) => proxy.credential(["mcp", id, "agent-a"]),
         held: (id) => agentpier.held(id),
       },
     );
@@ -152,6 +157,17 @@ test("runtimes reach the server through the proxy with its credential only", asy
   assert.ok(tools.some((tool) => tool.name === "echo"));
   const result = await client.callTool({ name: "echo", arguments: { text: "hi" } });
   assert.match(JSON.stringify(result.content), /hi/);
+  // Another agent's credential for the same server is refused.
+  const other = await fetch(entry.url, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${proxy.credential(["mcp", "srv-1", "agent-b"])}`,
+      "content-type": "application/json",
+      accept: "application/json, text/event-stream",
+    },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+  });
+  assert.equal(other.status, 403);
   // The MCP server saw AgentPier's OAuth token, never the proxy credential.
   const call = oauth.calls.at(-1);
   assert.match(call.bearer, /^at-/);
@@ -176,7 +192,7 @@ test("an expired token is renewed once and replayed; a revoked login asks for a 
   const refused = await fetch(`${url}/mcp/srv-1`, {
     method: "POST",
     headers: {
-      authorization: `Bearer ${proxy.credential(["mcp", "srv-1"])}`,
+      authorization: `Bearer ${proxy.credential(["mcp", "srv-1", "agent-a"])}`,
       "content-type": "application/json",
       accept: "application/json, text/event-stream",
     },

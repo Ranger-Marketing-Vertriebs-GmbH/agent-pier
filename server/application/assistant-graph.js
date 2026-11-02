@@ -107,7 +107,7 @@ export function constructAssistantGraph(host, created = {}) {
   const hermesFleet = hermesAgentFleet(assistantRuntime, { dataDir, store });
   // AgentPier's ChatGPT logins and the loopback proxy the runtimes use them through.
   const { runtimeProxy, assistantModelAccounts, assistantModelLogin } = loginServices(
-    { dataDir, store, runtime: assistantRuntime },
+    { dataDir, runtime: assistantRuntime },
     created,
   );
   const models = new AssistantModels({
@@ -553,7 +553,7 @@ export function connectAssistantServices(graph) {
           inherited: mcpChanges.inherited,
           // Agent placeholders resolve below the Gateway's own workspace root.
           workspaces: runtime.paths?.workspaces ?? null,
-          proxy: mcpChanges.proxy(),
+          proxy: mcpChanges.proxy("openclaw"),
         }),
         // Each agent's GitHub folder on its shell PATH (agent-github.js shellPaths).
         githubShell: workflows.github.shellPaths(openClaw),
