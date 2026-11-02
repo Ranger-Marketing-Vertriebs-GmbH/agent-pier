@@ -6,7 +6,7 @@ import {
   fixtureFetch,
 } from "../helpers/application.js";
 
-test("assistant account API requires authentication, origin and a running owned Gateway", async (t) => {
+test("assistant account API requires authentication and origin; the sign-in needs no Gateway", async (t) => {
   const { application, url } = await applicationFixture(t, enabledAssistants);
   const endpoint = url + "/api/assistant-model-accounts";
   assert.equal((await fetch(endpoint)).status, 401);
@@ -19,7 +19,22 @@ test("assistant account API requires authentication, origin and a running owned 
     headers: { origin: url, "content-type": "application/json" },
     body: "{}",
   };
-  assert.equal((await fixtureFetch(login, options)).status, 503);
+  // AgentPier runs the device sign-in itself; the fixture's issuer is never reached
+  // because the attempt is cancelled at once.
+  application.assistantModelLogin.auth = {
+    startDevice: () => new Promise(() => {}),
+  };
+  const started = await fixtureFetch(login, options);
+  assert.equal(started.status, 202);
+  const { id } = await started.json();
+  assert.equal(
+    (
+      await (
+        await fixtureFetch(`${login}/${id}`, { ...options, method: "DELETE" })
+      ).json()
+    ).status,
+    "cancelled",
+  );
   assert.equal(
     (
       await fixtureFetch(login, {
