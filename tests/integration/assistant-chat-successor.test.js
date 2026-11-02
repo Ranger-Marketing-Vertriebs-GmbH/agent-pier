@@ -272,3 +272,59 @@ test("a peer's answer follows the asking member's successor chat", async (t) => 
   assert.equal(target.conversationId, fresh.id);
   assert.equal(target.redirectedFrom, main.id);
 });
+
+const allRequests = (service, ids, clientRequestId) =>
+  ids.flatMap((id) =>
+    service.ledger.requests(id).filter((r) => r.clientRequestId === clientRequestId),
+  );
+const endTurns = (service) => {
+  for (const a of service.ledger.pending()) service.ledger.transition(a.id, "completed");
+};
+
+test("a lead-request result accepted before a second switch is delivered once", async (t) => {
+  const s = await agentWithMain(t);
+  const { service, gateway, main } = s;
+  completedRequest(s, { id: "req-3" });
+  const second = await modelSwitch(service, main.id);
+  await service.teams.requests.deliver("req-3");
+  assert.equal(service.ledger.requests(second.id).length, 1);
+  // The process stopped before the delivery's bookkeeping was written.
+  const r = service.teams.requests.store.get("req-3");
+  service.teams.store.write(r, {
+    delivery: "pending",
+    resultAttemptId: undefined,
+    resultState: undefined,
+  });
+  endTurns(service);
+  const third = await modelSwitch(service, second.id);
+  await service.teams.requests.deliver("req-3");
+  const ids = [main.id, second.id, third.id];
+  const [accepted, ...more] = allRequests(service, ids, "lead-request-result:req-3");
+  assert.deepEqual(more, []);
+  assert.equal(accepted.conversationId, second.id);
+  const after = service.teams.requests.store.get("req-3");
+  assert.equal(after.delivery, "sent");
+  assert.equal(after.resultAttemptId, service.ledger.attemptFor(accepted.id).id);
+  assert.equal(sentTo(gateway, service, third.id).length, 0);
+  assert.equal(sentTo(gateway, service, second.id).length, 1);
+  assert.deepEqual(notes(service, third.id), ["model-switched"]);
+});
+
+test("a follow-up accepted before a second switch is adopted, not sent again", async (t) => {
+  const { service, gateway, main } = await agentWithMain(t);
+  const input = { clientRequestId: "ssh-result:a5", text: "SSH result" };
+  const context = { kind: "ssh-result", actionId: "a5" };
+  const second = await modelSwitch(service, main.id);
+  const first = await service.send(main.id, input, context);
+  assert.equal(first.request.conversationId, second.id);
+  endTurns(service);
+  const third = await modelSwitch(service, second.id);
+  const again = await service.send(main.id, input, context);
+  assert.equal(again.request.id, first.request.id);
+  assert.equal(
+    allRequests(service, [main.id, second.id, third.id], input.clientRequestId).length,
+    1,
+  );
+  assert.equal(sentTo(gateway, service, third.id).length, 0);
+  assert.deepEqual(notes(service, third.id), ["model-switched"]);
+});

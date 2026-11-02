@@ -21,19 +21,45 @@ const live = (chat) => !chat.archivedAt && !chat.deletedAt;
  * 404, as `storedConversation` answers.
  */
 export function successorOf(store, conversationId) {
-  const start = store.storedConversation(conversationId);
-  const seen = new Set([start.id]);
-  let chat = start;
-  for (let hop = 0; hop < longestLine && !live(chat) && chat.successorId; hop++) {
-    if (seen.has(chat.successorId)) break;
+  const line = successorLine(store, conversationId);
+  const last = line.at(-1);
+  return live(last) ? last : line[0];
+}
+
+// The chat and its successors up to the first live one, bounded and cycle-checked.
+function successorLine(store, conversationId) {
+  const line = [store.storedConversation(conversationId)];
+  const seen = new Set([line[0].id]);
+  for (let hop = 0; hop < longestLine; hop++) {
+    const chat = line.at(-1);
+    if (live(chat) || !chat.successorId || seen.has(chat.successorId)) break;
     seen.add(chat.successorId);
     try {
-      chat = store.storedConversation(chat.successorId);
+      line.push(store.storedConversation(chat.successorId));
     } catch {
       break;
     }
   }
-  return live(chat) ? chat : start;
+  return line;
+}
+
+/**
+ * The first chat along `conversationId`'s line whose ledger already accepted
+ * `clientRequestId`, or null: a delivery accepted in a chat that was switched again
+ * before its bookkeeping was written is adopted there, never sent a second time (the
+ * ledger dedupes per chat only).
+ */
+export function acceptingChat(store, ledger, conversationId, clientRequestId) {
+  let line;
+  try {
+    line = successorLine(store, conversationId);
+  } catch {
+    return null;
+  }
+  const found = line.find((chat) =>
+    ledger.requests(chat.id).some((r) => r.clientRequestId === clientRequestId),
+  );
+  return found?.id ?? null;
 }
 
 /**
@@ -60,16 +86,16 @@ export const currentChatId = (store, conversationId) =>
  * Where a follow-up for `asked` goes: `conversationId`, its current chat, and
  * `redirectedFrom` when that is a successor, to send to the old chat, which notes the
  * redirect (sendTurn). `lost` is the turn already accepted under `clientRequestId`
- * (recordedTurn); one the old chat accepted before the switch stays there.
+ * (recordedTurn) in the first chat of the line that holds it (acceptingChat), which
+ * then stays the target.
  */
 export function followUpChat(teams, store, asked, clientRequestId) {
   if (!asked) return { conversationId: asked, lost: null };
-  const there = recordedTurn(teams, asked, clientRequestId);
-  const conversationId = there ? asked : currentChatId(store, asked);
-  if (conversationId === asked) return { conversationId, lost: there };
+  const holder = acceptingChat(store, teams.ledger, asked, clientRequestId);
+  const conversationId = holder ?? currentChatId(store, asked);
   return {
     conversationId,
-    redirectedFrom: asked,
-    lost: recordedTurn(teams, conversationId, clientRequestId),
+    ...(conversationId !== asked && { redirectedFrom: asked }),
+    lost: holder ? recordedTurn(teams, holder, clientRequestId) : null,
   };
 }
