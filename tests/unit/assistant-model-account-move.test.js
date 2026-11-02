@@ -93,8 +93,9 @@ test("moving a login OpenClaw holds hands its refresh token to AgentPier once", 
   const snapshot = randomUUID();
   await createBackupKey(root, snapshot);
   await accounts.move(account.id);
-  // A rollback can no longer unseal OpenClaw's old copy of the refresh token.
-  assert.equal(readBackupKey(root, snapshot), null);
+  // Snapshots keep their keys: rollback stays possible (scrubbed instead, see
+  // assistant-model-account-move-backups.test.js).
+  assert.ok(readBackupKey(root, snapshot));
   const stored = read().profiles[profileId];
   assert.equal(stored.refresh, undefined);
   assert.equal(stored.access, pair.access_token);

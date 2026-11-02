@@ -1,6 +1,6 @@
 import path from "node:path";
 import { assistantProblem } from "./assistant-validation.js";
-import { destroyBackupKeys } from "./backup-credentials.js";
+import { scrubBackupProfile } from "./runtime-update-scrub.js";
 import { tokenIdentity } from "../model-logins/chatgpt-auth.js";
 
 /**
@@ -8,9 +8,11 @@ import { tokenIdentity } from "../model-logins/chatgpt-auth.js";
  * login OpenClaw holds (model-accounts.js holder "openclaw"). Never automatic.
  *
  * 1. Refused while an agent run uses the account (409): the account must be idle.
- * 2. Every update backup key is destroyed first (backup-credentials.js): a
- *    snapshot taken before still holds OpenClaw's copy of the refresh token, and a
- *    rollback must never bring back a second refresher.
+ * 2. Every update snapshot taken before is rewritten without the profile's refresh
+ *    token (runtime-update-scrub.js), so a rollback stays possible and never brings
+ *    back a second refresher; a part it cannot rewrite restores without credentials.
+ *    Before every Gateway start AgentPier writes its access-only profile again
+ *    (model-accounts.js syncAll), also over whatever a restore brought back.
  * 3. In one transaction on OpenClaw's own store, the refresh token is read once and
  *    the profile left access-only (models sub-port takeStored); OpenClaw's refresh
  *    claim re-reads the store under its lock, so it never redeems the old token
@@ -24,7 +26,7 @@ export async function moveAccount(accounts, id) {
   if (accounts.leases.has(id)) throw assistantProblem("active", 409);
   const record = accounts.record(id);
   if (accounts.holderOf(id) !== "openclaw") throw assistantProblem("invalid", 400);
-  destroyBackupKeys(path.dirname(accounts.file));
+  await scrubBackupProfile(path.dirname(accounts.file), record.profileId);
   let taken;
   try {
     taken = await accounts.port().takeStored({ profileId: record.profileId });

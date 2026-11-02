@@ -7,6 +7,7 @@ import { destroyBackupKeys } from "./backup-credentials.js";
 import { ModelAccountCatalog, accountModelId } from "./model-account-catalog.js";
 import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 import { moveAccount } from "./model-account-move.js";
+import { scrubBackupProfile } from "./runtime-update-scrub.js";
 // Account ids keep their first prefix: agents' saved selections name them.
 const identity = (profileId) =>
   `openclaw:${createHash("sha256").update(profileId).digest("hex")}`;
@@ -247,8 +248,11 @@ export class AssistantModelAccounts {
     if (this.leases.has(id)) throw assistantProblem("active", 409);
     const record = this.record(id);
     if (this.#holder(record) === "agentpier") {
-      // Before forgetting: an update backup must never resurrect a refresher.
-      destroyBackupKeys(path.dirname(this.file));
+      // Update snapshots keep their credentials, without this profile: a rollback
+      // never brings the logged-out account back (runtime-update-scrub.js).
+      await scrubBackupProfile(path.dirname(this.file), record.profileId, {
+        remove: true,
+      });
       this.vault.remove(record.profileId);
       await this.sync(record.profileId);
       return this.list();

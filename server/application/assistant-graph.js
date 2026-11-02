@@ -574,7 +574,11 @@ export function connectAssistantServices(graph) {
       });
     },
     maintenance: () => assistants.maintenance,
-    beforeSpawn: () => synchronization.prepare(),
+    beforeSpawn: async () => {
+      // Over whatever a rollback restored: AgentPier's logins stay access-only.
+      await graph.assistantModelAccounts.syncAll();
+      return synchronization.prepare();
+    },
     afterReady: async () => {
       // Before the first run: OpenClaw's profiles of AgentPier's ChatGPT logins.
       await graph.assistantModelAccounts.syncAll();

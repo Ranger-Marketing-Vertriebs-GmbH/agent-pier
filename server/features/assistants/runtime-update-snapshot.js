@@ -223,7 +223,7 @@ async function sealEntry(source, destination, context, relative, stat) {
   } else return copyFile(source, destination, stat.mode);
   await syncAsync(destination + (context.credential(relative) ? sealedSuffix : ""));
 }
-async function digestTree(directory, excluded) {
+export async function digestTree(directory, excluded) {
   const hash = createHash("sha256");
   async function visit(file, relative) {
     const stat = await fsp.lstat(file);
@@ -460,11 +460,18 @@ export async function restoreUpdateSnapshot(
   await returnDependencies(paths, directory, held);
   const key = readBackupKey(paths.root, id);
   let withheld = false;
-  // A folder kept as the other runtime's has none of the snapshot's files.
+  // A folder kept as the other runtime's has none of the snapshot's files; parts a
+  // login move could not rewrite (runtime-update-scrub.js) keep their credentials
+  // out of the restore.
   const kept = new Set(context.skipped);
+  const scrubbed = new Set(manifest.withheldSealed || []);
   for (const relative of manifest.sealed || []) {
     const [tree, ...rest] = relative.split("/");
     if (!treesOf(paths).includes(tree) || kept.has(join(tree, rest[0] ?? ""))) continue;
+    if (scrubbed.has(relative)) {
+      withheld = true;
+      continue;
+    }
     const live = path.join(paths[tree], ...rest);
     const aad = `${id}\0${relative}`;
     if (isConfigFile(relative)) {
