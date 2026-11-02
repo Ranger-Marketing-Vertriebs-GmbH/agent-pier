@@ -39,7 +39,7 @@ const names = {
 /**
  * Memory and reminders switches; the saved-notes row opens the memory editor. It shows
  * no count: MEMORY.md and USER.md are not files of the `memory/` listing. While
- * dreaming is on, a permanent agent (and a new one) keeps its memory on.
+ * dreaming is on, a permanent OpenClaw agent (and a new one) keeps its memory on.
  */
 // `notes` false hides the notes link (a user's own agent before her opt-in).
 export function MemoryGroup({ assistant, draft, go, notes = true }) {
@@ -48,7 +48,10 @@ export function MemoryGroup({ assistant, draft, go, notes = true }) {
   const saved = Boolean(assistant) && assistant.capabilities?.memory === true;
   const { dreaming } = useDreaming();
   const permanent = !assistant || (isPersonal(assistant) && !assistant.archivedAt);
-  const locked = dreaming?.enabled === true && permanent && draft.values.memory === true;
+  // Dreaming is OpenClaw's: a Hermes agent's memory stays its own switch.
+  const dreams = (assistant?.runtimeInfo?.id || draft.values.runtime) !== "hermes";
+  const locked =
+    dreaming?.enabled === true && permanent && dreams && draft.values.memory === true;
   return (
     <section aria-labelledby={id}>
       <GroupLabel id={id} hint={`${copy.capabilityHint} ${copy.memoryHint}`}>

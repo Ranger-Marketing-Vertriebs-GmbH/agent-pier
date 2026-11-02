@@ -1,5 +1,10 @@
 import { assistantProblem } from "./assistant-validation.js";
-import { hostOf, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
+import {
+  anyHostReady,
+  hostOf,
+  hostReady,
+  runtimeForSession,
+} from "./runtimes/runtime-for.js";
 
 // Recovery after an attempt whose outcome is unknown: the owner acknowledges it, the
 // owned runtime restarts, and the attempt is marked reviewed so a new one may follow.
@@ -17,14 +22,16 @@ export async function recoverAttempt(service, id, input) {
   if (service.recovering) throw assistantProblem("active", 409);
   service.recovering = true;
   try {
+    // The runtime of the attempt's agent: OpenClaw's Gateway, or a Hermes agent's set.
+    const host = hostOf(service.runtime, attemptAgent(service, attempt));
     // Confirm the owned process has exited before permitting another delivery.
-    await hostOf(service.runtime).stop({ urgent: true });
+    await host.stop({ urgent: true });
     await Promise.allSettled(
       [...service.locks.values(), service.reconciling].filter(Boolean),
     );
     const current = service.ledger.getAttempt(id);
     if (["uncertain", "interrupted"].includes(current.state)) service.ledger.review(id);
-    await hostOf(service.runtime).start();
+    await host.start();
     service.changed();
     return service.ledger.getAttempt(id);
   } finally {
@@ -70,17 +77,31 @@ export async function settleUnreviewable(service, attempt, conversation) {
  * marked reviewed, and her chat shows its outcome as unknown. Never throws.
  */
 export async function settleUserTurns(service) {
-  if (!hostReady(service.runtime) || service.recovering) return;
+  if (!anyHostReady(service.runtime) || service.recovering) return;
   for (const attempt of service.ledger.unresolved()) {
     if (attempt.reviewedAt || !unknownOutcome(attempt)) continue;
     try {
       const { conversationId } = service.ledger.getRequest(attempt.requestId);
       if (typeof service.store.getConversation(conversationId).userId !== "string")
         continue;
+      // Only the runtime holding her session can abort its run.
+      if (!hostReady(service.runtime, attemptAgent(service, attempt))) continue;
       await abortAndReview(service, attempt);
     } catch {
       /* Still pending: the maintenance reports it as running work. */
     }
+  }
+}
+
+// The agent whose chat the attempt belongs to; null (OpenClaw's) when it is gone.
+function attemptAgent(service, attempt) {
+  try {
+    const { conversationId } = service.ledger.getRequest(attempt.requestId);
+    return service.store.getAssistant(
+      service.store.getConversation(conversationId).assistantId,
+    );
+  } catch {
+    return null;
   }
 }
 
@@ -93,7 +114,11 @@ export async function abortAndReview(service, attempt) {
     service.ledger.getRequest(attempt.requestId).conversationId,
   );
   try {
-    await runtimeFor(null, service.runtime).sessions.abort({
+    // The runtime holding the chat's session (a Hermes agent's set, else OpenClaw).
+    await runtimeForSession(
+      conversation.runtimeSessionKey,
+      service.runtime,
+    ).sessions.abort({
       key: conversation.runtimeSessionKey,
       runId: attempt.runtimeRunId || attempt.id,
     });

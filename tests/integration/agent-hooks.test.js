@@ -464,3 +464,31 @@ test("a Hermes agent's hook event runs on its own runtime while OpenClaw is down
     [`agentpier-hook:${f.hooks.events.last(hook.id).id}`],
   );
 });
+
+test("a Hermes agent's lost hook events and stray jobs settle while OpenClaw is down", async (t) => {
+  const f = hookFixture(t);
+  const agent = f.store.getAssistant(f.id);
+  rewrite(f, { ...agent, runtime: "hermes" });
+  const hermes = await makeHermesRuntime(agent.runtimeAgentId)();
+  attachHermesFleet(f.assistants.runtime, {
+    runtimeOf: () => hermes,
+    list: () => [{ runtime: hermes }],
+  });
+  f.assistants.runtime.client = { ready: false };
+  const { hook } = await f.hooks.create(f.id, base);
+  // Received 16 minutes ago; the set restarted and its job is gone.
+  const now = f.hooks.events.now;
+  f.hooks.events.now = () => Date.now() - 16 * 60000;
+  await f.hooks.test(f.id, hook.id);
+  f.hooks.events.now = now;
+  const event = f.hooks.events.last(hook.id);
+  for (const job of await hermes.routines.list({ agentId: agent.runtimeAgentId }))
+    await hermes.routines.remove({ id: job.id });
+  await f.hooks.runs.reconcile();
+  assert.equal(f.hooks.events.get(event.id).status, "failed");
+  // OpenClaw was never asked for its jobs.
+  assert.equal(
+    f.calls.some((c) => c.method === "cron.list"),
+    false,
+  );
+});

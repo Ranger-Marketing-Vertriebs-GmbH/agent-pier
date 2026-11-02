@@ -4,7 +4,7 @@ import { assistantProblem } from "./assistant-validation.js";
 import { joinedText, validateQueueInput } from "./queued-messages.js";
 import { queuedCommandRefusal } from "./chat-commands.js";
 import { chatProblem } from "./agent-chats.js";
-import { hostReady } from "./runtimes/runtime-for.js";
+import { anyHostReady, hostReady } from "./runtimes/runtime-for.js";
 
 // A queued message that could have gone out for this long is not sent anymore (a
 // restored or long stopped host would otherwise deliver it days later).
@@ -105,13 +105,13 @@ export function pollQueued(service) {
 
 /**
  * Sends every waiting queued message whose conversation is idle: no unresolved
- * attempt (an uncertain or interrupted one waits for its review), a ready service and
- * an agent that is not archived. Each goes through the normal owner send with its own
+ * attempt (an uncertain or interrupted one waits for its review), a ready runtime of
+ * its agent (OpenClaw, or a Hermes agent's own set) and an agent that is not archived. Each goes through the normal owner send with its own
  * delivery key, so the ledger dedupes a repeated dispatch. Only real changes are
  * published: a retry that leaves the message waiting is no news for the browsers.
  */
 export async function dispatchQueued(service, conversationId) {
-  if (service.closed || service.maintenance || !hostReady(service.runtime)) return;
+  if (service.closed || service.maintenance || !anyHostReady(service.runtime)) return;
   const now = service.now();
   const backoff = retriesOf(service);
   const pending = service.ledger.pending();
@@ -132,11 +132,11 @@ export async function dispatchQueued(service, conversationId) {
   for (const m of service.queued.waiting()) {
     if (conversationId && m.conversationId !== conversationId) continue;
     const conversation = service.store.getConversation(m.conversationId);
-    if (
-      busy.has(m.conversationId) ||
-      conversation.archivedAt ||
-      service.store.getAssistant(conversation.assistantId).archivedAt
-    ) {
+    const agent = service.store.getAssistant(conversation.assistantId);
+    // Its agent's own runtime (OpenClaw, or a Hermes agent's set) must take turns; an
+    // archived agent's set is stopped, and its message waits as blocked below.
+    if (!agent.archivedAt && !hostReady(service.runtime, agent)) continue;
+    if (busy.has(m.conversationId) || conversation.archivedAt || agent.archivedAt) {
       service.queued.blocked(m);
       continue;
     }

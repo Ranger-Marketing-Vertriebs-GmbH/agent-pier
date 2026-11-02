@@ -397,6 +397,20 @@ export class ExecApprovals {
     this.expiryCheckAt = this.now();
     return this.guard("RESYNC", () => this.resync());
   }
+  /**
+   * Whether the runtime that holds action `a`'s request takes calls: its agent's own
+   * (OpenClaw's Gateway, or a Hermes agent's set, which reports how its request ended
+   * itself, hermes-approval-queue.js).
+   */
+  reachable(a) {
+    let agent = null;
+    try {
+      agent = this.w.a.store.getAssistant(a.assistantId);
+    } catch {
+      /* A gone agent's request was OpenClaw's. */
+    }
+    return hostReady(this.runtime, agent);
+  }
   // Whether action `a` belongs to an agent on its own process set (Hermes).
   ownProcessAction(a) {
     try {

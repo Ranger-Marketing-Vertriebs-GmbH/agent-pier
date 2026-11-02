@@ -3,7 +3,12 @@ import path from "node:path";
 import { RoutineResults } from "./routine-results.js";
 import { chatBusy, chatProblem } from "./agent-chats.js";
 import { assistantProblem } from "./assistant-validation.js";
-import { hostConnection, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
+import {
+  hostConnection,
+  hostReady,
+  ownProcess,
+  runtimeFor,
+} from "./runtimes/runtime-for.js";
 import { mainConversation } from "./routine-targets.js";
 import { archivedSessionIds, purgeTranscriptArchives } from "./transcript-archives.js";
 import { forgetDreamingSession } from "./dreaming-backups.js";
@@ -136,12 +141,21 @@ export async function forgetChat(assistants, conversation) {
  * session is gone.
  */
 export async function deleteNativeSession(assistants, conversation) {
-  if (!hostReady(assistants.runtime)) return false;
-  // The delete goes to the Gateway that was asked first, never to a newer one.
-  const sessions = runtimeFor(null, assistants.runtime).sessions.on(
-    hostConnection(assistants.runtime),
+  const agent = agentOf(assistants, conversation.assistantId);
+  // A Hermes agent's chat lives in its own process set; a gone agent's on OpenClaw.
+  const owner = agent && ownProcess(agent) ? agent : null;
+  // A deleted Hermes agent's set went with its home, transcripts included.
+  if (!agent && hermesKey.test(conversation.runtimeSessionKey || "")) {
+    assistants.store.updateConversation(conversation.id, { nativeDeletePending: false });
+    await forgetChat(assistants, conversation);
+    return true;
+  }
+  if (!hostReady(assistants.runtime, owner)) return false;
+  // The delete goes to the runtime that was asked first, never to a newer one.
+  const sessions = runtimeFor(owner, assistants.runtime).sessions.on(
+    hostConnection(assistants.runtime, owner),
   );
-  const sessionId = await nativeSessionId(assistants, conversation);
+  const sessionId = await nativeSessionId(assistants, conversation, sessions);
   if (sessionId === undefined) return false;
   try {
     await sessions.delete({
@@ -151,8 +165,9 @@ export async function deleteNativeSession(assistants, conversation) {
   } catch {
     return false;
   }
-  const agent = agentOf(assistants, conversation.assistantId);
-  const state = assistants.runtime.paths?.state;
+  // OpenClaw's transcript archives and dreaming copies; Hermes deletes its transcript
+  // with the session and keeps no dreaming copies.
+  const state = owner ? null : assistants.runtime.paths?.state;
   // Every id the chat's key had: the live one and those its archives still name (a
   // reset's earlier ids, or the only id left when the Gateway no longer knows the
   // session). Read before the purge removes them; dreaming forgets each.
@@ -192,7 +207,7 @@ export async function deleteNativeSession(assistants, conversation) {
   // Dreaming's copies of the chat go too, dreaming on or off: earlier nights may have
   // read it. One after another in the background, never under admission; a failure
   // is logged without content and leaves the deletion standing.
-  if (sessionIds.size && agent)
+  if (sessionIds.size && agent && !owner)
     assistants.dreamingForgets = (assistants.dreamingForgets || Promise.resolve())
       .then(() => forgetDreamingSession(assistants, agent, [...sessionIds]))
       .catch(() =>
@@ -201,6 +216,24 @@ export async function deleteNativeSession(assistants, conversation) {
   assistants.store.updateConversation(conversation.id, { nativeDeletePending: false });
   await forgetChat(assistants, conversation);
   return true;
+}
+
+// A Hermes agent's session key (runtimes/hermes/hermes-run-state.js sessionKeyOf).
+const hermesKey = /^agent:[A-Za-z0-9][A-Za-z0-9_-]{0,63}:hermes:/;
+
+/**
+ * The deletes of `agent`'s chats a stopped process set kept (Hermes): retried once its
+ * set is ready again, as deleteReleasedSessions retries OpenClaw's at each start.
+ * Never throws.
+ */
+export async function deletePendingSessions(assistants, agent) {
+  try {
+    for (const conversation of assistants.store.listConversations({ deleted: true }))
+      if (conversation.nativeDeletePending && conversation.assistantId === agent.id)
+        await deleteNativeSession(assistants, conversation);
+  } catch {
+    /* Retried at the next ready. */
+  }
 }
 
 export const archivePurgeMarker = "transcript-archive-purge";
@@ -248,14 +281,14 @@ export function markArchivePurges(store) {
 // The native session's id: the one recorded on the chat, else described and recorded
 // now. Null when the Gateway knows no session for the chat (nothing to archive), and
 // undefined when it could not say: the deletion waits for the next try then.
-async function nativeSessionId(assistants, conversation) {
+async function nativeSessionId(assistants, conversation, sessions) {
   const recorded = assistants.store.storedConversation(conversation.id).nativeSessionId;
   if (typeof recorded === "string" && recorded) return recorded;
   let sessionId;
   try {
     sessionId =
       (
-        await runtimeFor(null, assistants.runtime).sessions.describe({
+        await sessions.describe({
           key: conversation.runtimeSessionKey,
         })
       )?.session?.sessionId ?? null;

@@ -75,12 +75,13 @@ async function nameChat(service, conversation, request, attempt) {
   );
   const message = clip(first.text);
   if (!reply || !message) return tried();
-  if (!hostReady(service.runtime)) return;
+  // The chat's agent's own runtime titles it (a Hermes agent's set, else OpenClaw).
+  const agent = service.store.getAssistant(conversation.assistantId);
+  if (!hostReady(service.runtime, agent)) return;
   tried();
   titling.add(id);
   let title;
   try {
-    const agent = service.store.getAssistant(conversation.assistantId);
     const result = await runtimeFor(agent, service.runtime).sessions.title({
       agentId: agent.runtimeAgentId,
       message,

@@ -14,7 +14,7 @@ import {
 
 import { agentName, agentPerson, pushAudience } from "./reminder-audience.js";
 import { isShared } from "../users/user-access.js";
-import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
+import { hostReady, ownProcess, runtimeFor } from "./runtimes/runtime-for.js";
 import { chatTarget, reminderMarker, routineSchedule } from "./routine-definition.js";
 
 export const heartbeatKind = "heartbeat";
@@ -271,9 +271,12 @@ export class NativeHeartbeats {
     if (!this.accepts(binding)) return;
     if (event.status !== "ok") return this.failed(binding, event);
     if (typeof event.summary !== "string" || silent(event.summary)) return;
-    // Only a check-in OpenClaw committed to the conversation counts: an owner's
-    // reply must find it there (a lost commit is in the run history).
-    if (event.deliveryStatus !== "delivered") return;
+    // Only a check-in committed to the conversation counts: an owner's reply must
+    // find it there (a lost commit is in the run history). OpenClaw commits it; a
+    // Hermes agent's set writes it into the chat's history as a note before it reports
+    // the run "not-delivered" (runtimes/hermes/hermes-routines.js), so the result is
+    // shown beside the chat as its routines' are.
+    if (event.deliveryStatus !== "delivered" && !this.noted(binding)) return;
     textValue(event.summary, 65536);
     const key = `native-heartbeat:${event.jobId}:${event.runAtMs}`;
     const { outbox } = this.reminders.channels;
@@ -326,6 +329,15 @@ export class NativeHeartbeats {
         )
         .catch(() => {});
     this.assistants.changed({ conversationId: recorded?.conversation.id });
+  }
+  // Whether the binding's agent runs on its own process set (Hermes), whose check-in
+  // results reach the chat as notes rather than as OpenClaw's commit.
+  noted(binding) {
+    try {
+      return ownProcess(this.assistants.store.getAssistant(binding.assistantId));
+    } catch {
+      return false;
+    }
   }
   /**
    * A failed check-in is not news for the owner: no Telegram, no push; its run

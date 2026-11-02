@@ -1,4 +1,4 @@
-import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
+import { anyHostReady, runtimeForSession } from "./runtimes/runtime-for.js";
 // Ends a chat turn that hangs without a sign of life (AGENTPIER-184). OpenClaw
 // 2026.10.3 aborts a model stream that stays quiet (120 s for cloud models, retried a
 // few times, each retry an event), but a run stuck elsewhere, before its model call
@@ -15,12 +15,12 @@ const waiting = new Set(["model", "thinking", "writing", "retrying"]);
 
 /** One pass; runs during the service's poll. Never throws. */
 export async function guardStalledRuns(service) {
-  if (service.stallGuarding || !hostReady(service.runtime) || service.closed) return;
+  if (service.stallGuarding || !anyHostReady(service.runtime) || service.closed) return;
   service.stallGuarding = true;
   try {
     for (const [runId] of service.runSteps.list()) {
-      if (service.closed || !hostReady(service.runtime)) return;
-      if (!stalled(service, runId)) continue;
+      if (service.closed || !anyHostReady(service.runtime)) return;
+      if (!stalled(service, runId) || !sessionReady(service, runId)) continue;
       await endStalled(service, runId).catch((error) =>
         console.error(`Stalled agent turn of run ${runId} not ended:`, error?.message),
       );
@@ -37,6 +37,17 @@ function stalled(service, runId) {
   return Boolean(run?.live && waiting.has(run.phase) && run.quietMs >= stallAbortMs);
 }
 
+// Whether the runtime holding the run's session (a Hermes agent's set, else OpenClaw)
+// takes calls: only that one can abort it.
+function sessionReady(service, runId) {
+  const { sessionKey } = service.runSteps.state(runId) || {};
+  try {
+    return runtimeForSession(sessionKey, service.runtime).host.ready();
+  } catch {
+    return false;
+  }
+}
+
 async function endStalled(service, runId) {
   const { sessionKey } = service.runSteps.state(runId);
   const conversation = service.store.conversationOfSession(sessionKey);
@@ -50,7 +61,10 @@ async function endStalled(service, runId) {
   failures.set(runId, "stalled");
   if (failures.size > 64) failures.delete(failures.keys().next().value);
   try {
-    await runtimeFor(null, service.runtime).sessions.abort({ key: sessionKey, runId });
+    await runtimeForSession(sessionKey, service.runtime).sessions.abort({
+      key: sessionKey,
+      runId,
+    });
   } catch (error) {
     if (failures.get(runId) === "stalled") failures.delete(runId);
     throw error;
