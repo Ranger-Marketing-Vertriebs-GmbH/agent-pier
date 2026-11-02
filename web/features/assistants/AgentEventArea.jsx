@@ -12,7 +12,7 @@ import { formatTimestamp, locale } from "../../lib/i18n/index.js";
 import { hookCopy } from "../../lib/i18n/messages/assistant-hooks.js";
 import { agentRunStepsCopy as stepsCopy } from "../../lib/i18n/messages/agent-run-steps.js";
 import { assistantWorkflowCopy as workflowCopy } from "../../lib/i18n/messages/assistant-workflows.js";
-import { memoryNoteCopy } from "../../lib/i18n/messages/assistant-memory-notes.js";
+import { memoryNoteText } from "./memory-note-text.js";
 import { routineCopy } from "../../lib/i18n/messages/assistant-routines.js";
 import { toolName } from "./AgentRunState.jsx";
 import RouteLink from "./RouteLink.jsx";
@@ -180,7 +180,7 @@ function RunNotes({ notes }) {
           <SftpRunNote key={note.id} note={note} />
         ) : (
           <p key={note.id} className="activity-row-note">
-            {memoryNoteCopy.reasons[note.reason] || memoryNoteCopy.unknown}
+            {memoryNoteText(note)}
           </p>
         ),
       )}

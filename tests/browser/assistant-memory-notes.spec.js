@@ -58,7 +58,7 @@ const copy = {
   ],
 };
 
-async function setup(page, language) {
+async function setup(page, language, list = messages) {
   await fixture(page);
   await page.addInitScript((language) => {
     localStorage.setItem("agentpier-language", language);
@@ -94,7 +94,8 @@ async function setup(page, language) {
       };
     else if (p === "/api/assistant-runtime")
       body = { availability: "ready", sync: "current" };
-    else if (p.endsWith("/messages")) body = { messages, requests: [], stale: false };
+    else if (p.endsWith("/messages"))
+      body = { messages: list, requests: [], stale: false };
     else if (p === "/api/assistants/home") body = assistant;
     await route.fulfill({ json: body });
   });
@@ -135,3 +136,22 @@ for (const language of ["en", "de"])
       followUp[language],
     );
   });
+
+test("shows the model switch note with both models", async ({ page }) => {
+  await setup(page, "en", [
+    { id: "q", role: "user", text: "Hello", timestamp: 1 },
+    { id: "a", role: "assistant", text: "Hi", timestamp: 1.5 },
+    {
+      ...note("model-switched", 2),
+      details: { from: "GPT-4.1 mini", to: "Claude Sonnet" },
+    },
+    { ...note("redirected", 3), id: "memory-note:redirected" },
+    { ...note("model-switched", 4), id: "memory-note:broken" },
+  ]);
+  const notes = page.locator("[data-memory-note]");
+  await expect(notes).toHaveText([
+    "The model changed from GPT-4.1 mini to Claude Sonnet. This chat starts fresh; memory, files and settings stay.",
+    "This result was started in the previous chat.",
+    "Memory not saved.",
+  ]);
+});

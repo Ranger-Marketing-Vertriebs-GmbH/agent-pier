@@ -17,6 +17,9 @@ export const memoryNoteCopy = {
     "shared-write": "Applies to everyone who uses this agent.",
     "main-restarted":
       "The owner restarted the main chat. The previous one is under archived chats.",
+    "model-switched": (from, to) =>
+      `The model changed from ${from} to ${to}. This chat starts fresh; memory, files and settings stay.`,
+    redirected: "This result was started in the previous chat.",
   },
   unknown: "Memory not saved.",
 };
