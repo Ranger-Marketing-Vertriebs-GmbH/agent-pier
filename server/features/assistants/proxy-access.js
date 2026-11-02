@@ -1,5 +1,6 @@
 import { withInherited } from "../mcp-servers/mcp-inputs.js";
 import { ownProcess } from "./runtimes/runtime-for.js";
+import { personalCapabilities } from "./native-capabilities.js";
 
 // Who may use a credential of AgentPier's runtime proxy (model-logins/
 // runtime-proxy.js), decided at every request from the current store, so a changed
@@ -7,7 +8,10 @@ import { ownProcess } from "./runtimes/runtime-for.js";
 // it at once. The credential names its scope; this decides whether that scope still
 // holds:
 // - ["chatgpt", agentId, profileId]: the Hermes agent `agentId` exists, is active,
-//   belongs to an active user (if any) and its current model is that ChatGPT login.
+//   belongs to an active user (if any) and its current model is that ChatGPT login;
+//   the Codex images endpoints only while it may create images now, with that login
+//   as its model or as the one AgentPier chose for its images (model-accounts.js
+//   heldImageLogin).
 // - ["mcp", serverId, agentId]: the Hermes agent is such an agent and bound to the
 //   server (its own bindings or those it uses through its lead).
 // - ["mcp", serverId, "openclaw"]: the Gateway's one entry (OpenClaw's `mcp.servers`
@@ -16,7 +20,8 @@ import { ownProcess } from "./runtimes/runtime-for.js";
 //   every server with headers.
 
 /**
- * `assistants`: the AssistantService (`store`, `userActive(userId)`, `workflows`);
+ * `assistants`: the AssistantService (`store`, `userActive(userId)`, `workflows`,
+ * `accounts`: the model accounts);
  * `servers`: the MCP server store; `accountIdOf(profileId)`: the account id agents
  * select for a ChatGPT profile (model-accounts.js).
  */
@@ -44,9 +49,16 @@ export function proxyAccess({ assistants, servers, accountIdOf }) {
     return (agent) => (bindings[agent.id] || []).includes(serverId);
   };
   return {
-    chatgpt(agentId, profileId) {
+    chatgpt(agentId, profileId, { images = false } = {}) {
       const agent = hermesAgent(agentId);
-      return !!agent && agent.model?.connectionId === accountIdOf(profileId);
+      if (!agent) return false;
+      const model = agent.model?.connectionId === accountIdOf(profileId);
+      if (!images) return model;
+      return (
+        personalCapabilities(agent).createImages === true &&
+        (model ||
+          assistants.accounts?.heldImageLogin?.(agent.model?.connectionId) === profileId)
+      );
     },
     mcp(serverId, consumer) {
       const bound = boundTo(serverId);

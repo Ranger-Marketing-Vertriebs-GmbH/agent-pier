@@ -84,8 +84,9 @@ export function MemoryGroup({ assistant, draft, go, notes = true }) {
 }
 
 /** Web switches with today's availability rules and the search provider reference. */
-// `images` is false while no ChatGPT account can create images; `imagesRuntime` names
-// the agent's runtime when it cannot use one at all (Hermes, runtime-capabilities.js).
+// `images` is false while no ChatGPT login the agent can use creates images;
+// `imagesRuntime` names the agent's runtime when only logins OpenClaw holds are signed
+// in and the runtime needs one AgentPier holds (Hermes, runtime-capabilities.js).
 export function WebGroup({
   draft,
   browser,
@@ -116,7 +117,7 @@ export function WebGroup({
     browser: browser?.available === false ? copy.browserUnavailable : "",
     webSearch: search && search.ready === false ? copy.searchUnavailable : "",
     createImages: imagesRuntime
-      ? copy.imagesRuntimeUnavailable(imagesRuntime)
+      ? copy.imagesRuntimeMove(imagesRuntime)
       : images === false
         ? copy.imagesUnavailable
         : "",

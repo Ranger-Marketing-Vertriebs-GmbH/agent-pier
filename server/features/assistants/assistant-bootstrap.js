@@ -135,10 +135,13 @@ const uploadGuidance = [
 
 // Generated images reach the chat's person without the agent (generated-images.js):
 // on an agent of users that is the user who asked, never the owner.
-const imageGuidance = (userAgent) =>
+// `inline`: the tool waits for its image (Hermes), instead of a background task.
+const imageGuidance = (userAgent, inline) =>
   [
     "## Images",
-    "- image_generate creates and edits images through the owner's ChatGPT account. It runs in the background: end your turn with a short note, the image follows as its own message.",
+    inline
+      ? "- image_generate creates and edits images through the owner's ChatGPT account and returns once the image is ready."
+      : "- image_generate creates and edits images through the owner's ChatGPT account. It runs in the background: end your turn with a short note, the image follows as its own message.",
     `- AgentPier hands every generated image to ${userAgent ? "the person who asked for it" : "the owner"} in this chat, and to Telegram when the request came from there. Do not share it again with agentpier_share_file.`,
   ].join("\n");
 
@@ -256,7 +259,7 @@ export function assistantBootstrap(
     ...(personalCapabilities(assistant).browser ? [uploadGuidance] : []),
     // While the agent can create images: the capability with a ready ChatGPT account.
     ...(images && personalCapabilities(assistant).createImages
-      ? [imageGuidance(Boolean(assistant.userAccess))]
+      ? [imageGuidance(Boolean(assistant.userAccess), images === "inline")]
       : []),
     ...(lead ? [lead] : []),
   ].join("\n\n");

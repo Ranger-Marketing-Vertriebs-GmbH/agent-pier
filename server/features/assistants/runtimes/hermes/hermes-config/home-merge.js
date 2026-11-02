@@ -40,6 +40,8 @@ function readConfig(text) {
 function setPath(root, path, value) {
   let node = root;
   for (const key of path.slice(0, -1)) {
+    // Removing a key below a section that is not there leaves the file as it is.
+    if (!isMap(node[key]) && value === undefined) return;
     if (!isMap(node[key])) node[key] = {};
     node = node[key];
   }

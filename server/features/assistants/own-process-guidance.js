@@ -8,10 +8,16 @@ import { mayCreateProjects, mayOpenPreviews } from "./goal-turns.js";
  * project folders, GitHub, plain ssh aliases, its secrets file, coding sessions,
  * email accounts, project creation and previews. AgentPier's own tools reach a Hermes
  * agent through the team plugin and its bridge (`tools`: the bridge runs), so
- * without it none of that guidance is given. Memory is Hermes's own and image creation
- * is not served, so neither is named. Never fails the apply.
+ * without it none of that guidance is given. Memory is Hermes's own, so it is not
+ * named; image creation is, while its images reach the chat through the team plugin
+ * (`images`: a ChatGPT login AgentPier holds serves them, hermes-config/images.js).
+ * Never fails the apply.
  */
-export async function ownProcessInputs(config, assistant, { tools = false } = {}) {
+export async function ownProcessInputs(
+  config,
+  assistant,
+  { tools = false, images = false } = {},
+) {
   const senderFacing = !!config.senderFacing?.(assistant);
   const ssh = !!config.sshGranted?.(assistant);
   const shellPath = [
@@ -28,7 +34,8 @@ export async function ownProcessInputs(config, assistant, { tools = false } = {}
     projectFolders: (tools && config.projectFolders?.(assistant)) || [],
     github: (tools && config.github?.(assistant)) || null,
     plainSsh: plainSsh || null,
-    images: false,
+    // Hermes's image_generate waits for its image (no background task).
+    images: tools && images ? "inline" : false,
     secrets: !!config.secretsGranted?.(assistant),
     codingSessions: (tools && config.codingSessions?.(assistant)) || [],
     mailAccounts: (tools && config.mailAccounts?.(assistant)) || [],

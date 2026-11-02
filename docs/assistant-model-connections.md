@@ -151,8 +151,9 @@ The runtimes get access only:
   usage, embeddings) stay on the profile. Without a refresh token OpenClaw reports
   the profile as `expiring` within 24 hours of its expiry; AgentPier counts that as
   signed in.
-- **Hermes** reaches the account through AgentPier's model proxy, see
-  [Hermes runtime](hermes-runtime.md#model-connection). Hermes never depends on a running
+- **Hermes** reaches the account through AgentPier's model proxy, for chat and for
+  **Create images**, see [Hermes runtime](hermes-runtime.md#model-connection) and
+  [images](hermes-runtime.md#images). Hermes never depends on a running
   OpenClaw: while the Gateway is not running, AgentPier reads a held login's model
   list itself from the Codex backend (`/codex/models` with the login's token), so the
   model picker works on a Hermes-only setup.
@@ -169,8 +170,10 @@ server + agent), which rotating the key revokes. Every request is checked agains
 the current store (`proxy-access.js`): a ChatGPT credential works only while that
 Hermes agent exists, is not archived, belongs to an active user (if any) and its
 current model is that login, so a changed model, an archived or deleted agent or a
-disabled user revokes it at once. `/chatgpt/codex/responses`, its compact
-variant and `/chatgpt/codex/models` go to `https://chatgpt.com/backend-api/codex`
+disabled user revokes it at once; the images endpoints
+(`/chatgpt/codex/images/generations`, `/images/edits`) also while the agent may create
+images now and AgentPier picked that login for its images. `/chatgpt/codex/responses`,
+its compact variant and `/chatgpt/codex/models` go to `https://chatgpt.com/backend-api/codex`
 with the account's token, `ChatGPT-Account-Id` and the residency header; SSE streams
 pass unbuffered. A 401 renews the login once and replays the request. A login that
 needs a new sign-in answers `401 agentpier_login_required`, a failed renewal `503`

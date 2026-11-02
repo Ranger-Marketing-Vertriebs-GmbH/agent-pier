@@ -55,7 +55,8 @@ export function hermesAgentFleet(supervisor, { dataDir, store }) {
  * and the browser app AgentPier launches its Chromium with, whether that app may
  * open a window, and the owner's private-network setting (web-tools-changes.js); the
  * owner's web search settings (hermes-config/web.js); and the model proxy
- * (model-logins/runtime-proxy.js) for a ChatGPT login.
+ * (model-logins/runtime-proxy.js) for a ChatGPT login, and the login AgentPier holds
+ * that the agent creates images with through it (model-accounts.js heldImageLogin).
  */
 export const hermesApplyWiring = ({ bridge, webTools, proxy }) => ({
   hermesInputs: async (assistant) => {
@@ -70,6 +71,10 @@ export const hermesApplyWiring = ({ bridge, webTools, proxy }) => ({
         credentialFor: (profileId) =>
           proxy.credential(["chatgpt", assistant.runtimeAgentId, profileId]),
       },
+      imageLogin: url
+        ? (bridge.assistants?.accounts?.heldImageLogin?.(assistant.model?.connectionId) ??
+          null)
+        : null,
       connection: await bridge.start().catch(() => null),
       browser: detected?.available
         ? {

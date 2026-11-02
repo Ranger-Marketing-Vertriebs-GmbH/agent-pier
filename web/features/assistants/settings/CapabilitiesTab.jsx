@@ -1,5 +1,5 @@
 import React from "react";
-import { runtimeLacksImages, runtimeName } from "../runtime-capabilities.js";
+import { imagesFor, runtimeName } from "../runtime-capabilities.js";
 import ListCard from "../../../components/ListCard.jsx";
 import ListRow from "../../../components/ListRow.jsx";
 import { routePath } from "../../../app/routes.js";
@@ -54,11 +54,9 @@ const conflictLabels = {
  */
 export default function CapabilitiesTab({ assistant, page, go, navigate }) {
   const { refresh, runtime, models = [] } = useAssistants();
-  // Images come from a signed-in ChatGPT account (server model-accounts.js).
-  // Its last known status counts, as on the server, also while the service is away.
-  const images = models.some(
-    (m) => m.providerId === "openai-chatgpt" && (m.signedIn ?? m.available) === true,
-  );
+  // Images come from a signed-in ChatGPT login the agent's runtime can use.
+  const imageState = imagesFor(models, assistant);
+  const images = imageState === "ready";
   const personal = isPersonal(assistant);
   // A user's own agent: its notes and browser are hers (hidden, or read only).
   const own = ownContent(assistant);
@@ -148,7 +146,7 @@ export default function CapabilitiesTab({ assistant, page, go, navigate }) {
           draft={draft}
           browser={runtime?.browser}
           images={images}
-          imagesRuntime={runtimeLacksImages(assistant) ? runtimeName(assistant) : ""}
+          imagesRuntime={imageState === "move" ? runtimeName(assistant) : ""}
           navigate={navigate}
         />
       )}

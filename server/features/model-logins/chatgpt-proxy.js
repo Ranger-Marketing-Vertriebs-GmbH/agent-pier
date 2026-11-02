@@ -11,8 +11,11 @@ import { forwardHeaders, proxyError, readBody } from "./runtime-proxy.js";
 // `x-openai-internal-codex-residency`. Streams (SSE) pass through unbuffered.
 
 export const codexUpstream = "https://chatgpt.com/backend-api";
-// What Hermes calls: the Responses stream, its compaction and the model catalog.
+// What Hermes calls: the Responses stream, its compaction and the model catalog;
+// and, for image creation, the Codex images endpoints (Hermes v0.22.5
+// plugins/image_gen/openai-codex: POST images/generations, images/edits).
 const paths = /^codex\/(responses(\/compact)?|models)$/;
+const imagePaths = /^codex\/images\/(generations|edits)$/;
 // Never forwarded from the runtime: identity the proxy sets, cookies, and the
 // response encodings it accepts (fetch negotiates and decodes its own).
 const dropped = [
@@ -35,8 +38,9 @@ const responseDropped = new Set([
 const loginCodes = new Set(["RELOGIN", "LOGIN_MISSING"]);
 
 /**
- * The route handler. `authorize(agentId, profileId)`: whether the agent may still use
- * the login (an agent removed since its credential was minted may not).
+ * The route handler. `authorize(agentId, profileId, { images })`: whether the agent
+ * may still use the login (an agent removed since its credential was minted may
+ * not), for its model or, with `images`, to create images.
  */
 export function chatgptRoute({
   vault,
@@ -47,9 +51,10 @@ export function chatgptRoute({
 }) {
   return async (req, res, { scope, rest, search }) => {
     const [, agentId, profileId] = scope;
-    if (!paths.test(rest) || !["GET", "POST"].includes(req.method))
+    const images = imagePaths.test(rest) && req.method === "POST";
+    if (!images && (!paths.test(rest) || !["GET", "POST"].includes(req.method)))
       return proxyError(res, 404, "not_found", "Unknown ChatGPT route.");
-    if (!profileId || !(await authorize(agentId, profileId)))
+    if (!profileId || !(await authorize(agentId, profileId, { images })))
       return proxyError(
         res,
         403,

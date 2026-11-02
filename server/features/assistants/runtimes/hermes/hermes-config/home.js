@@ -18,6 +18,7 @@ import { builtInOffered, skillEntries } from "./skills.js";
 import { mcpEntries, mcpEnvOwned } from "./mcp.js";
 import { channelBotEnvNames, channelBotHome, senderLockedToolsets } from "./telegram.js";
 import { webDirectory, webEnvNames, webHome } from "./web.js";
+import { imageHome } from "./images.js";
 import {
   teamDirectory,
   teamPlugin,
@@ -79,17 +80,17 @@ const practicalDefaults = [
 // server left out is named as `mcp`, an OAuth one as `mcpOAuth`. `team`: the team
 // plugin's files (team-plugin.js), without which team tools are named as `teams`;
 // `browser`: whether the agent browses on AgentPier's Chromium, else a wish for the
-// browser is named.
-function unsupportedOf(agent, level, model, { placed, mcp, team, browser }) {
+// browser is named; `images`: whether it creates images (images.js), else a wish for
+// them is named.
+function unsupportedOf(agent, level, model, { placed, mcp, team, browser, images }) {
   return [
     ...(model?.unsupported ? [model.unsupported] : []),
     ...((agent.browser.wanted || agent.browser.borrowed) && !browser ? ["browser"] : []),
     ...((mcp ? mcp.skipped.length : agent.mcp.servers.length) ? ["mcp"] : []),
     ...(mcp?.oauth.length ? ["mcpOAuth"] : []),
     ...(agent.skills.assigned.some((name) => !placed.includes(name)) ? ["skills"] : []),
-    // Image creation runs through the owner's ChatGPT account, which Hermes agents
-    // cannot use yet.
-    ...(agent.web.createImages ? ["createImages"] : []),
+    // Images need a ChatGPT login AgentPier holds, its proxy and the guard.
+    ...(agent.web.createImages && !images ? ["createImages"] : []),
     // AgentPier's own and team tools come with the team plugin and its bridge.
     ...(!team && teamTools(agent).length ? ["teams"] : []),
   ];
@@ -113,7 +114,9 @@ function unsupportedOf(agent, level, model, { placed, mcp, team, browser }) {
  * `{ search, ddgs }` for its web search and fetch (web.js webHome), without which
  * the search backend and its key stay as they are; `modelProxy`: `{ url,
  * credentialFor(profileId) }` of AgentPier's model proxy for this agent, through
- * which a ChatGPT account is reached (model.js).
+ * which a ChatGPT account is reached (model.js); `imageLogin`: the profile id of the
+ * ChatGPT login AgentPier holds that the agent creates images with (images.js), or
+ * none.
  * Pure: the same inputs yield the same home.
  */
 export function compileHome(
@@ -129,6 +132,7 @@ export function compileHome(
     browser,
     web,
     modelProxy,
+    imageLogin,
   } = {},
 ) {
   const level = shellLevel(agent, strict);
@@ -143,10 +147,20 @@ export function compileHome(
   );
   // Built-in skills (shopping) need the browser, so they come with the team plugin.
   const builtIn = builtInOffered(agent, browsing);
+  const model = agent.model ? modelSection(agent.model, { modelProxy }) : null;
+  // Image creation through the proxy, every call checked by the team plugin's guard.
+  const imagePart = imageHome(agent, {
+    model,
+    modelProxy,
+    imageLogin,
+    guarded: !!(connection?.url && connection?.token),
+  });
+  const images = !!imagePart && !imagePart.unsupported;
   const team = teamPluginFiles(agent, {
     connection,
     browser: browsing,
     skills: builtIn,
+    images: images && workspace ? { folder: workspace } : null,
   });
   // Routine runs on an asking level ask the owner through the team bridge, which the
   // team plugin's bridge.json names (guard-plugin.js); Hermes's cron gate then lets
@@ -158,13 +172,12 @@ export function compileHome(
     catalog: catalogSkills,
     builtIn: Object.fromEntries(builtIn.map((name) => [name, teamSkillFolder(name)])),
   });
-  const model = agent.model ? modelSection(agent.model, { modelProxy }) : null;
   // The agent's own bot, when the desired state knows it (an apply, not a bare start).
   const bot = agent.channelBot !== undefined ? channelBotHome(agent) : null;
   // Web search and fetch (web.js); the search backend while the apply names `web`.
   const webPart = webHome(agent, web);
   const toolsets = [
-    ...disabledToolsets(agent, level, { browser: browsing }),
+    ...disabledToolsets(agent, level, { browser: browsing, images }),
     ...(bot?.senders ? senderLockedToolsets : []),
     ...(agent.locked ? userLockedToolsets : []),
     ...(webPart?.toolsets || []),
@@ -223,6 +236,7 @@ export function compileHome(
       : []),
     ...(bot ? bot.config : []),
     ...(webPart?.config || []),
+    [["image_gen", "provider"], images ? "openai-codex" : undefined],
     ...practicalDefaults,
   ];
   // .env names a part of the home owns only while the desired state knows that part:
@@ -236,18 +250,29 @@ export function compileHome(
       // The web key names while the apply names the web settings, so a key the
       // agent no longer uses goes.
       ...(web && typeof web === "object" ? webEnvNames : []),
+      // The Codex URL of an image row (images.js) while the model is unknown.
+      ...(images && imagePart.env ? Object.keys(imagePart.env) : []),
     ],
-    values: { ...model?.env, ...servers?.env, ...bot?.env, ...webPart?.env.values },
+    values: {
+      ...model?.env,
+      ...servers?.env,
+      ...bot?.env,
+      ...webPart?.env.values,
+      ...(images && imagePart.env),
+    },
   };
+  // The proxy's pool row: the ChatGPT model's, else the image login's (images.js).
+  const authKnown = !!model || (images && !!imagePart.auth);
+  const authRow = model?.auth || (images && imagePart.auth) || null;
   const files = {
     "config.yaml": mergeConfig(existing["config.yaml"], config),
     ...(env.owned.length && {
       ".env": mergeEnv(existing[".env"], env.owned, env.values),
     }),
     // The model proxy's pool row while the model is known (model.js `auth`).
-    ...(model &&
-      mergeAuth(existing["auth.json"], model.auth || null) !== undefined && {
-        "auth.json": mergeAuth(existing["auth.json"], model.auth || null),
+    ...(authKnown &&
+      mergeAuth(existing["auth.json"], authRow) !== undefined && {
+        "auth.json": mergeAuth(existing["auth.json"], authRow),
       }),
     ...(agent.instructions !== undefined && { "SOUL.md": String(agent.instructions) }),
     ...(guard && guardFiles({ everyCommand: guardsEveryCommand(level), cronAsks })),
@@ -267,13 +292,14 @@ export function compileHome(
     config: Object.freeze(config),
     env: Object.freeze(env),
     // The auth.json pool row a writer merges again (null: AgentPier's row goes).
-    auth: model ? (model.auth ?? null) : undefined,
+    auth: authKnown ? authRow : undefined,
     unsupported: Object.freeze(
       unsupportedOf(agent, level, model, {
         placed: skills.placed,
         mcp: servers,
         team,
         browser: browsing,
+        images,
       }).concat(webPart?.unsupported || []),
     ),
   });

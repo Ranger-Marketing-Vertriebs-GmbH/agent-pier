@@ -6,6 +6,7 @@ import {
   attachmentTargets,
   browserRefusals,
   classifyWrite,
+  imageRefusals,
   writeRefusals,
   writeTargets,
 } from "./team-plugin/tool-guard.js";
@@ -102,9 +103,69 @@ async function folderRefusal(bridge, input, agent, call) {
   return null;
 }
 
+// Hermes's image_generate (tools/image_generation_tool.py) takes a source image
+// (`image_url`) and references (`reference_image_urls`): web addresses, data URLs or
+// local paths, which the openai-codex backend reads itself and sends to OpenAI.
+const imageReferences = (args) => [
+  ...(args.image_url === undefined ? [] : [args.image_url]),
+  ...(args.reference_image_urls === undefined
+    ? []
+    : Array.isArray(args.reference_image_urls)
+      ? args.reference_image_urls
+      : [null]),
+];
+const within = (root, target) => {
+  const relative = path.relative(root, target);
+  return !!relative && !relative.startsWith("..") && !path.isAbsolute(relative);
+};
+const scheme = (value) => /^[a-z][a-z0-9+.-]*:/i.test(value.trim());
+// Hermes resolves a relative path against its own process, not the work folder.
+const localRefusal =
+  "Give reference images as absolute paths to files in your work folder, or as web addresses.";
+
+// An image_generate call, as OpenClaw's guard judges it (tool-guard.js imageCall,
+// image-policy.js): the agent may create images now, a web reference needs Read web
+// pages, a local one is a file of its own folder (never its attachments from another
+// chat or its secrets); each generation is audited.
+async function imageGuard(bridge, input, agent, args) {
+  const references = imageReferences(args);
+  if (references.some((value) => typeof value !== "string" || !value.trim()))
+    return deny(imageRefusals.reference);
+  const local = references.filter((value) => !scheme(value));
+  const folders = local.length ? rootsOf(bridge, agent) : null;
+  for (const value of local) {
+    if (!path.isAbsolute(value) || !folders) return deny(localRefusal);
+    const own = folders.workspace;
+    let real = null;
+    let realOwn = own;
+    try {
+      realOwn = fs.realpathSync(own);
+      real = fs.realpathSync(value);
+    } catch {
+      /* A missing file fails in Hermes; its spelled path is judged. */
+    }
+    // The path as spelled, and for an existing file as resolved, stays in its folder.
+    if (!within(own, value) && !within(realOwn, value)) return deny(localRefusal);
+    if (real && !within(realOwn, real)) return deny(localRefusal);
+    const refusal = await folderRefusal(bridge, input, agent, {
+      toolName: "image",
+      params: { image: value },
+    });
+    if (refusal) return deny(refusal);
+  }
+  const policy = bridge.assistants.imagePolicy?.check({
+    agentId: input.agentId,
+    ...(input.sessionKey && { sessionKey: input.sessionKey }),
+    remote: references.some((value) => scheme(value) && !/^data:/i.test(value.trim())),
+  });
+  if (policy?.allow === true) return { allow: true };
+  return deny(imageRefusals[policy?.reason] || imageRefusals.unavailable);
+}
+
 /**
  * The Hermes team plugin's guard (runtimes/hermes/hermes-config/team-plugin.js) asks
- * here before a Hermes agent's browser call, before a file call that names its
+ * here before a Hermes agent's browser call, before its image_generate call
+ * (imageGuard), before a file call that names its
  * attachments/ or secrets folder, and before a team member's file change
  * (`memberWrite`), with the rules the OpenClaw tool guard applies
  * (team-plugin/tool-guard.js): the browser runs on the agent's own AgentPier profile
@@ -152,6 +213,7 @@ export async function hermesGuard(bridge, input) {
       ? { allow: true }
       : deny(browserRefusals[policy.reason] || browserRefusals.unavailable);
   }
+  if (input.toolName === "image_generate") return imageGuard(bridge, input, agent, args);
   const read = readCall(input.toolName, args);
   const call = writeCall(input.toolName, args);
   const refusal = await folderRefusal(bridge, input, agent, read || call || {});

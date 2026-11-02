@@ -51,7 +51,17 @@ export const modelsFor = (models, runtimeId) =>
     : models;
 
 /**
- * Whether the agent's runtime cannot create images: AgentPier creates them through a
- * ChatGPT account, whose sign-in Hermes agents cannot use (modelsFor).
+ * Whether the agent can create images with `models`: AgentPier creates them through a
+ * signed-in ChatGPT login (server model-accounts.js), its last known status counting
+ * also while the service is away. A Hermes agent reaches only a login AgentPier holds,
+ * through its model proxy (server hermes-config/images.js). "ready", "move" (only
+ * logins OpenClaw holds are signed in) or "none".
  */
-export const runtimeLacksImages = (assistant) => assistant?.runtimeInfo?.id === "hermes";
+export function imagesFor(models, assistant) {
+  const signedIn = models.filter(
+    (m) => m.providerId === "openai-chatgpt" && (m.signedIn ?? m.available) === true,
+  );
+  if (assistant?.runtimeInfo?.id !== "hermes") return signedIn.length ? "ready" : "none";
+  if (signedIn.some((m) => m.holder === "agentpier")) return "ready";
+  return signedIn.length ? "move" : "none";
+}

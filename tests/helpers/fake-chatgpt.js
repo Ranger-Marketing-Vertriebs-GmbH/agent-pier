@@ -118,9 +118,15 @@ function lastUserText(body) {
   return content.map((part) => part?.text || "").join("") || String(user?.content || "");
 }
 
+// A 1×1 PNG, what the fake images endpoints create.
+export const fakePng =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
 /**
  * A Codex backend (`/backend-api/codex/responses`, `/backend-api/codex/models`): it
  * streams "CODEX: <last user text>" as Responses SSE events, one write per event.
+ * Its images endpoints (`images/generations`, `images/edits`) answer one fakePng as
+ * the Codex images API does (`data[0].b64_json`).
  * `reject`: access tokens it answers 401 to (a revoked token). `requests` records
  * method, URL, headers and parsed body.
  */
@@ -155,6 +161,19 @@ export async function startFakeCodex({ models = ["gpt-5.4"] } = {}) {
             supported_in_api: true,
             visibility: "list",
           })),
+        }),
+      );
+    }
+    if (/^\/backend-api\/codex\/images\/(generations|edits)$/.test(req.url)) {
+      res.writeHead(200, {
+        "content-type": "application/json",
+        "x-codex-imagegen-request-id": "img-fixture",
+      });
+      return res.end(
+        JSON.stringify({
+          data: [{ b64_json: fakePng }],
+          quality: "medium",
+          size: "1024x1024",
         }),
       );
     }
