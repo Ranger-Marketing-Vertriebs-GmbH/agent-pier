@@ -159,6 +159,11 @@ export class AssistantModelAccounts {
     writePrivate(this.file, this.records);
     return this.capabilities();
   }
+  /** "agentpier", "openclaw", or null for an account this AgentPier does not know. */
+  holderOf(id) {
+    if (this.#held().some((r) => r.id === id)) return "agentpier";
+    return this.records.some((r) => r.id === id) ? "openclaw" : null;
+  }
   record(id) {
     const record = this.records.find((r) => r.id === id);
     if (!record) throw assistantProblem("provider");

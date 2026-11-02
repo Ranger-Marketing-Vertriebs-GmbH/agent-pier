@@ -4,6 +4,7 @@ import { fakeHermesSupervisor } from "../helpers/hermes-fake-gateway.js";
 import { connectionOf } from "../../server/features/assistants/runtimes/hermes/hermes-connection.js";
 import { hermesModels } from "../../server/features/assistants/runtimes/hermes/hermes-models.js";
 import { modelSection } from "../../server/features/assistants/runtimes/hermes/hermes-config/model.js";
+import { mergeAuth } from "../../server/features/assistants/runtimes/hermes/hermes-config/home-merge.js";
 import {
   refuseEveryCommand,
   refuseRuntimeChoice,
@@ -65,7 +66,7 @@ test("Hermes compiles no ChatGPT account and needs no Chat Completions options",
   assert.equal(JSON.stringify(section.section).includes("max_tokens"), false);
 });
 
-test("a Hermes agent cannot choose a ChatGPT account; OpenClaw agents still can", () => {
+test("a Hermes agent cannot choose a ChatGPT login OpenClaw holds; one AgentPier holds it can", () => {
   const supervisor = {};
   attachHermesFleet(supervisor, { available: () => true, runtimeOf: () => null });
   const account = { connectionId: "openclaw:abc", modelId: "gpt-5" };
@@ -85,4 +86,87 @@ test("a Hermes agent cannot choose a ChatGPT account; OpenClaw agents still can"
     () => refuseEveryCommand(supervisor, { runtime: "hermes" }, { model: account }),
     refused,
   );
+  const accounts = {
+    holderOf: (id) => (id === "openclaw:abc" ? "agentpier" : "openclaw"),
+  };
+  assert.doesNotThrow(() =>
+    refuseRuntimeChoice(supervisor, { runtime: "hermes", model: account }, accounts),
+  );
+  assert.throws(
+    () =>
+      refuseEveryCommand(
+        supervisor,
+        { runtime: "hermes" },
+        { model: { connectionId: "openclaw:old", modelId: "gpt-5" } },
+        accounts,
+      ),
+    refused,
+  );
+});
+
+test("a ChatGPT login AgentPier holds compiles to the openai-codex provider behind the proxy", () => {
+  const modelProxy = {
+    url: "http://127.0.0.1:4999",
+    credentialFor: (profileId) => `apx1.cred-${profileId}`,
+  };
+  const chatgpt = { profileId: "openai:o@example.invalid", modelId: "gpt-5.4" };
+  const held = modelSection(
+    { chatgpt: { ...chatgpt, holder: "agentpier" } },
+    { modelProxy },
+  );
+  assert.deepEqual(held.section, { provider: "openai-codex", default: "gpt-5.4" });
+  assert.deepEqual(held.env, {
+    HERMES_CODEX_BASE_URL: "http://127.0.0.1:4999/chatgpt/codex",
+  });
+  assert.equal(held.auth.auth_type, "api_key");
+  assert.equal(held.auth.access_token, "apx1.cred-openai:o@example.invalid");
+  assert.equal(held.auth.source, "manual:agentpier");
+  assert.equal(held.images, true);
+  // OpenClaw's own login, or no proxy: nothing Hermes could reach.
+  for (const [connection, options] of [
+    [{ chatgpt: { ...chatgpt, holder: "openclaw" } }, { modelProxy }],
+    [{ chatgpt: { ...chatgpt, holder: "agentpier" } }, {}],
+  ])
+    assert.deepEqual(modelSection(connection, options), { unsupported: "modelAccount" });
+});
+
+test("auth.json keeps Hermes's own rows and status and replaces only AgentPier's row", () => {
+  const entry = {
+    id: "agentpier",
+    auth_type: "api_key",
+    source: "manual:agentpier",
+    access_token: "apx1.a",
+    base_url: "http://127.0.0.1:1/chatgpt/codex",
+  };
+  assert.equal(mergeAuth(undefined, null), undefined);
+  const first = JSON.parse(mergeAuth(undefined, entry));
+  assert.deepEqual(first.credential_pool["openai-codex"], [entry]);
+  assert.equal(first.version, 1);
+  const hermes = {
+    version: 1,
+    providers: { nous: { token: "x" } },
+    active_provider: "nous",
+    credential_pool: {
+      "openai-codex": [
+        { ...entry, last_status: "ok" },
+        { id: "own", source: "device_code" },
+      ],
+    },
+  };
+  const text = JSON.stringify(hermes);
+  // Hermes's status on the same row is no change.
+  assert.equal(mergeAuth(text, entry), text);
+  const renewed = JSON.parse(mergeAuth(text, { ...entry, access_token: "apx1.b" }));
+  assert.equal(renewed.credential_pool["openai-codex"][0].access_token, "apx1.b");
+  assert.deepEqual(renewed.credential_pool["openai-codex"][1], {
+    id: "own",
+    source: "device_code",
+  });
+  assert.deepEqual(renewed.providers, hermes.providers);
+  assert.equal(renewed.active_provider, "nous");
+  const removed = JSON.parse(mergeAuth(text, null));
+  assert.deepEqual(removed.credential_pool["openai-codex"], [
+    { id: "own", source: "device_code" },
+  ]);
+  assert.equal(mergeAuth("not json", entry), "not json");
 });

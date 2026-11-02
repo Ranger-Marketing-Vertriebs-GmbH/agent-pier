@@ -1,4 +1,4 @@
-import { mergeConfig, mergeEnv } from "./home-merge.js";
+import { mergeAuth, mergeConfig, mergeEnv } from "./home-merge.js";
 import { modelEnvNames, modelSection } from "./model.js";
 import {
   approvalMode,
@@ -111,7 +111,9 @@ function unsupportedOf(agent, level, model, { placed, mcp, team, browser }) {
  * for the team plugin (team-plugin.js); `browser`: `{ cdpUrl, allowPrivateNetwork }`
  * of the Chromium AgentPier runs for the agent (hermes-browser.js), or none; `web`:
  * `{ search, ddgs }` for its web search and fetch (web.js webHome), without which
- * the search backend and its key stay as they are.
+ * the search backend and its key stay as they are; `modelProxy`: `{ url,
+ * credentialFor(profileId) }` of AgentPier's model proxy for this agent, through
+ * which a ChatGPT account is reached (model.js).
  * Pure: the same inputs yield the same home.
  */
 export function compileHome(
@@ -126,6 +128,7 @@ export function compileHome(
     connection,
     browser,
     web,
+    modelProxy,
   } = {},
 ) {
   const level = shellLevel(agent, strict);
@@ -155,7 +158,7 @@ export function compileHome(
     catalog: catalogSkills,
     builtIn: Object.fromEntries(builtIn.map((name) => [name, teamSkillFolder(name)])),
   });
-  const model = agent.model ? modelSection(agent.model) : null;
+  const model = agent.model ? modelSection(agent.model, { modelProxy }) : null;
   // The agent's own bot, when the desired state knows it (an apply, not a bare start).
   const bot = agent.channelBot !== undefined ? channelBotHome(agent) : null;
   // Web search and fetch (web.js); the search backend while the apply names `web`.
@@ -241,6 +244,11 @@ export function compileHome(
     ...(env.owned.length && {
       ".env": mergeEnv(existing[".env"], env.owned, env.values),
     }),
+    // The model proxy's pool row while the model is known (model.js `auth`).
+    ...(model &&
+      mergeAuth(existing["auth.json"], model.auth || null) !== undefined && {
+        "auth.json": mergeAuth(existing["auth.json"], model.auth || null),
+      }),
     ...(agent.instructions !== undefined && { "SOUL.md": String(agent.instructions) }),
     ...(guard && guardFiles({ everyCommand: guardsEveryCommand(level), cronAsks })),
     ...bot?.files,
@@ -258,6 +266,8 @@ export function compileHome(
     ]),
     config: Object.freeze(config),
     env: Object.freeze(env),
+    // The auth.json pool row a writer merges again (null: AgentPier's row goes).
+    auth: model ? (model.auth ?? null) : undefined,
     unsupported: Object.freeze(
       unsupportedOf(agent, level, model, {
         placed: skills.placed,

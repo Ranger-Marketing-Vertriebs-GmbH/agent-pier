@@ -57,6 +57,8 @@ export const assistantServiceNames = [
   "assistantAgentSsh",
   // Skills the owner adds for agents (skill-catalog-wiring.js).
   "assistantSkillCatalog",
+  // The loopback proxy to AgentPier's logins (model-logins/runtime-proxy.js).
+  "assistantRuntimeProxy",
 ];
 
 /**
@@ -95,6 +97,7 @@ export function createAssistantServices(options) {
       created.channels || created.speech,
       created.assistants || created.store,
       created.chatgptVault,
+      created.runtimeProxy,
     ].filter(Boolean);
     let released = Promise.resolve();
     for (const service of closers)
@@ -204,11 +207,13 @@ export function createAssistantFeature(services) {
       assistantAgentSsh,
       assistantSkillCatalog,
       assistantModelAccounts,
+      assistantRuntimeProxy,
     } = services;
     recovered = false;
     // One refresher per login: a vault of a released graph never renews again.
     assistantModelAccounts?.close();
     assistantModelAccounts?.vault?.close();
+    await assistantRuntimeProxy?.close().catch(() => {});
     assistantAgentSecrets?.close();
     // Sockets close; folders and tokens stay for the next start (disable removes them).
     await assistantAgentSsh?.close().catch(() => {});

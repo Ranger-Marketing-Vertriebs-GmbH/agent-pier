@@ -1,3 +1,5 @@
+import { agentPierPoolSource } from "./home-merge.js";
+
 // An agent's model connection (agent-desired-state.js `model`: { ref, providerId,
 // provider, agentRuntime }) as Hermes's `model` section and the secrets its .env
 // holds. Verified against Hermes v0.22.5: hermes_cli/runtime_provider_custom.py
@@ -14,8 +16,17 @@
 export const endpointKeyEnv = "AUXILIARY_AGENTPIER_API_KEY";
 // OpenRouter's own key name, which Hermes's provider reads and strips alike.
 export const openRouterKeyEnv = "OPENROUTER_API_KEY";
+// The Codex backend URL Hermes's openai-codex provider uses instead of chatgpt.com
+// (hermes_cli/runtime_provider.py `_pool_entry_mode_and_url`: it wins over every
+// credential's own URL, also on a credential rotation, credential_pool.py
+// `runtime_base_url`).
+export const codexBaseEnv = "HERMES_CODEX_BASE_URL";
 // Every .env name the compiler owns: a connection that no longer needs one removes it.
-export const modelEnvNames = Object.freeze([endpointKeyEnv, openRouterKeyEnv]);
+export const modelEnvNames = Object.freeze([
+  endpointKeyEnv,
+  openRouterKeyEnv,
+  codexBaseEnv,
+]);
 
 const openRouterUrl = "https://openrouter.ai/api/v1";
 const reference = (name) => `\${${name}}`;
@@ -52,14 +63,22 @@ function keyHeaders(provider) {
  *   the request without it for the rest of the session once an endpoint refuses it
  *   (agent/chat_completion_helpers.py `_rejects_stream_options`).
  *
- * A ChatGPT account stays OpenClaw's: its OAuth profile lives in OpenClaw's auth
- * store, which OpenClaw's Gateway refreshes; OpenAI rotates the refresh token on
- * each refresh, so a copy in Hermes's home (its `openai-codex` provider refreshes
- * on its own, hermes_cli/auth_codex.py) would sign one of the two out, and an
- * access token alone expires without a way to renew it. Hermes agents therefore
- * cannot choose ChatGPT accounts (assistant-models.js `runtimeAccount`).
+ * A ChatGPT account (`connection.chatgpt`, model-accounts.js) runs on Hermes's own
+ * `openai-codex` provider, which keeps the Codex request shaping on (agent/
+ * codex_responses_adapter.py `is_codex_backend` is true for that provider whatever
+ * its URL; a plain `provider: custom` drops `api_mode: codex_responses` for a host
+ * other than OpenAI's, runtime_provider.py `_resolve_plain_custom_api_mode`). Its
+ * requests go to AgentPier's model proxy (`modelProxy.url`, HERMES_CODEX_BASE_URL),
+ * which holds the account's tokens, and carry only the proxy's credential for this
+ * agent, as an `api_key` row of Hermes's credential pool in auth.json (`auth`,
+ * home-merge.js mergeAuth): Hermes refreshes only `oauth` rows that have a refresh
+ * token (agent/credential_pool.py), so it never redeems anything; OpenAI's refresh
+ * token stays with AgentPier, the only refresher. A login OpenClaw still holds
+ * (`holder: "openclaw"`) has no such proxy access until the owner moves it to
+ * AgentPier: "modelAccount".
  */
-export function modelSection(connection) {
+export function modelSection(connection, { modelProxy } = {}) {
+  if (connection?.chatgpt) return chatgptSection(connection.chatgpt, modelProxy);
   const provider = connection?.provider;
   if (!provider) return { unsupported: "modelAccount" };
   if (provider.api !== "openai-completions") return { unsupported: "modelProtocol" };
@@ -90,5 +109,28 @@ export function modelSection(connection) {
     env: provider.apiKey ? { [endpointKeyEnv]: provider.apiKey } : {},
     // Hermes sends images natively only to models it knows see them.
     images: Array.isArray(model.input) && model.input.includes("image"),
+  };
+}
+
+// The pool row of the proxy credential (hermes-config/home-merge.js mergeAuth).
+function chatgptSection({ profileId, modelId, holder }, modelProxy) {
+  const credential = modelProxy?.credentialFor?.(profileId);
+  if (holder !== "agentpier" || !modelProxy?.url || !credential)
+    return { unsupported: "modelAccount" };
+  const baseUrl = `${modelProxy.url}/chatgpt/codex`;
+  return {
+    section: { provider: "openai-codex", default: modelId },
+    env: { [codexBaseEnv]: baseUrl },
+    auth: {
+      id: "agentpier",
+      label: "AgentPier",
+      auth_type: "api_key",
+      priority: 0,
+      source: agentPierPoolSource,
+      access_token: credential,
+      base_url: baseUrl,
+    },
+    // OpenAI's ChatGPT models see images.
+    images: true,
   };
 }

@@ -494,7 +494,7 @@ export const assistants = {
   memoryTooLarge: (name, limit) =>
     `${name} is too long: Hermes allows at most ${limit} characters. Shorten or remove entries.`,
   modelAccountRuntime:
-    "ChatGPT accounts work with OpenClaw agents only. Choose another model connection for a Hermes agent.",
+    "OpenClaw still holds this ChatGPT login. Move it to AgentPier under Connections › Model access to use it with a Hermes agent.",
   shellEveryCommandUnsupported:
     "“Every command” exists only for Hermes agents; on OpenClaw “With approval” already asks before every command.",
   notFound: "Agent or conversation not found.",

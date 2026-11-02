@@ -234,7 +234,7 @@ export default function AgentWizard({ route, navigate }) {
       onDuplicate={duplicate}
       onStart={chooseStart}
       hermes={hermes}
-      onRuntime={(runtime) => set(withRuntime(d, runtime))}
+      onRuntime={(runtime) => set(withRuntime(d, runtime, models))}
       error={startError || usersError}
     />
   ) : step === "identity" ? (

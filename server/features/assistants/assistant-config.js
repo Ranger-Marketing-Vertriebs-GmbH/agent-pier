@@ -258,6 +258,8 @@ export class AssistantConfig {
           providerId: lease.providerId,
           provider: lease.provider,
           agentRuntime: lease.agentRuntime,
+          // A ChatGPT login: the profile the model proxy reaches (model-accounts.js).
+          ...(lease.chatgpt && { chatgpt: lease.chatgpt }),
         },
         // Its own Telegram bot for other people (assistant-channels/
         // telegram-senders-own.js), wired by TelegramSenders; unknown without it.
@@ -271,6 +273,7 @@ export class AssistantConfig {
         connection: inputs.connection,
         browser: inputs.browser,
         web: inputs.web,
+        modelProxy: inputs.modelProxy,
       });
     }
     this.store.markEffective(assistant.id, assistant.revision);

@@ -53,13 +53,22 @@ export function hermesAgentFleet(supervisor, { dataDir, store }) {
  * applyOwnProcess): the team bridge its team plugin calls, started for it when the
  * OpenClaw start has not yet (TeamBridge.start is idempotent), none while it cannot;
  * and the browser app AgentPier launches its Chromium with, whether that app may
- * open a window, and the owner's private-network setting (web-tools-changes.js); and
- * the owner's web search settings (hermes-config/web.js).
+ * open a window, and the owner's private-network setting (web-tools-changes.js); the
+ * owner's web search settings (hermes-config/web.js); and the model proxy
+ * (model-logins/runtime-proxy.js) for a ChatGPT login.
  */
-export const hermesApplyWiring = ({ bridge, webTools }) => ({
-  hermesInputs: async () => {
+export const hermesApplyWiring = ({ bridge, webTools, proxy }) => ({
+  hermesInputs: async (assistant) => {
     const detected = webTools?.detect?.();
+    // AgentPier's model proxy, through which the agent reaches a ChatGPT login
+    // AgentPier holds, with a credential for this agent and that login alone.
+    const url = proxy ? await proxy.start().catch(() => null) : null;
     return {
+      modelProxy: url && {
+        url,
+        credentialFor: (profileId) =>
+          proxy.credential(["chatgpt", assistant.runtimeAgentId, profileId]),
+      },
       connection: await bridge.start().catch(() => null),
       browser: detected?.available
         ? {
