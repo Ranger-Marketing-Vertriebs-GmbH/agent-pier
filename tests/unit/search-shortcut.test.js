@@ -9,6 +9,8 @@ import {
   opensSearch,
   ownsShortcut,
 } from "../../web/app/search-shortcut.js";
+import { sidebarCopy as deSidebar } from "../../web/lib/i18n/de/app.js";
+import { sidebarCopy as enSidebar } from "../../web/lib/i18n/en/app.js";
 import { requestPageAction, takePageAction } from "../../web/app/page-action.js";
 
 // A minimal element: `inside` lists the selectors `closest` finds an ancestor for.
@@ -125,4 +127,17 @@ test("a page action is taken once and expires", () => {
   requestPageAction("ssh-add", 1000);
   assert.equal(takePageAction("ssh-add", 60_000), false, "an old request expired");
   assert.equal(takePageAction("ssh-add", 60_001), false);
+});
+
+test("the search button names the platform's shortcut in both languages", () => {
+  const label = (browser) => [
+    enSidebar.search[isMacPlatform(browser) ? "mac" : "other"],
+    deSidebar.search[isMacPlatform(browser) ? "mac" : "other"],
+  ];
+  assert.deepEqual(label({ platform: "MacIntel" }), ["Search (⌘K)", "Suchen (⌘K)"]);
+  assert.deepEqual(label({ userAgentData: { platform: "Linux" }, platform: "Linux" }), [
+    "Search (Ctrl+K)",
+    "Suchen (Strg+K)",
+  ]);
+  assert.deepEqual(label({ platform: "Win32" }), ["Search (Ctrl+K)", "Suchen (Strg+K)"]);
 });

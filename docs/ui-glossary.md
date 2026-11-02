@@ -45,7 +45,7 @@ The sidebar holds views, agents and sessions; every other area is in the **Menü
 | CLIs and extensions tabs          | Installation · Accounts · Erweiterungen · AgentPier als MCP                      | Installation · Accounts · Extensions · AgentPier as MCP                        |
 | Settings tabs                     | Allgemein · App & Benachrichtigungen · Benutzer · Fernzugriff · Betrieb          | General · App and notifications · Users · Remote access · Operations           |
 | Wizard capability profiles (risk) | Gesprächspartner · Rechercheur · Assistent · Operator (gering / mittel / hoch)   | Conversation partner · Researcher · Assistant · Operator (low / medium / high) |
-| Search                            | Suchen (⌘K)                                                                      | Search (⌘K)                                                                    |
+| Search                            | Suchen (⌘K auf macOS, sonst Strg+K)                                              | Search (⌘K on macOS, elsewhere Ctrl+K)                                         |
 
 Old names (Accounts as a page, Erweiterungen › Agenten, Einstellungen › Zugriff,
 Arbeitsbereich, Agentendienst as a settings page, the agent tabs Profil, Arbeit,

@@ -289,14 +289,20 @@ test("the sidebar head and the group heads offer their icon buttons", async ({
         .sort((a, b) => Math.round(a.box.top - b.box.top) || a.box.left - b.box.left)
         .map(({ node }) => node.getAttribute("aria-label") || node.textContent.trim()),
     );
+  // The shortcut is the platform's: ⌘K on macOS, Strg+K (Ctrl+K) elsewhere.
+  const shortcut = await page.evaluate(() =>
+    /mac/i.test(navigator.userAgentData?.platform || navigator.platform)
+      ? "⌘K"
+      : "Strg+K",
+  );
   expect(names).toEqual([
     "Navigation einklappen",
-    "Suchen (⌘K)",
+    `Suchen (${shortcut})`,
     "Menü",
     "AgentPier Startseite",
   ]);
   // The search button opens the ⌘K search (search-dialog.spec.js covers it in full).
-  await head.getByRole("button", { name: "Suchen (⌘K)" }).click();
+  await head.getByRole("button", { name: `Suchen (${shortcut})` }).click();
   await expect(page.getByRole("dialog", { name: "Suchen" })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog", { name: "Suchen" })).toHaveCount(0);
@@ -333,7 +339,9 @@ test.describe("English", () => {
     await hintSources(page);
     await page.goto(baseURL);
     await expect(
-      page.locator(".sidebar-head").getByRole("button", { name: "Search (⌘K)" }),
+      page
+        .locator(".sidebar-head")
+        .getByRole("button", { name: /^Search \((⌘K|Ctrl\+K)\)$/ }),
     ).toBeVisible();
     await expect(
       page.locator(".sessions-group").getByRole("link", { name: "CLIs and extensions" }),
