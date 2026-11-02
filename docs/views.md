@@ -83,6 +83,12 @@ Exceptions:
 To open an item alone regardless of the rule, use **Open alone** (German: **Einzeln
 öffnen**) in the pane's menu.
 
+## Inside a pane
+
+A pane up to 900 px wide shows its session's chat like a narrow window: **Tasks**
+opens the task list as a drawer on the pane's left edge, inside the pane, while the other
+panes stay usable. Escape, its **×** or a click outside it closes it.
+
 ## Unsaved edits
 
 A file editor with unsaved edits asks before its pane closes, before another item
