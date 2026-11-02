@@ -234,7 +234,7 @@ export class AssistantService {
       shellChange({ shell: base }, input, { confirmShell, confirmFull });
       // Skills are assigned once the agent exists (agent-skills.js).
       if (input.skills?.length) throw assistantProblem("invalid");
-      refuseRuntimeChoice(this.runtime, input);
+      refuseRuntimeChoice(this.runtime, input, this.accounts);
       const lease = await this.models.resolve(input.model || {});
       lease.release();
       // Memory on by default, web capabilities off (memory-rules.js).
@@ -311,7 +311,7 @@ export class AssistantService {
       const current = this.store.getAssistant(id);
       if (current.revision !== revision) throw assistantProblem("conflict", 409);
       refuseLockedSettings(current, changes);
-      refuseEveryCommand(this.runtime, current, changes);
+      refuseEveryCommand(this.runtime, current, changes, this.accounts);
       // A form sends every field; only the ones that differ are a change, so an
       // unchanged name or model never holds back lowering the shell level.
       patch = withoutUnchanged(body, changes, current);

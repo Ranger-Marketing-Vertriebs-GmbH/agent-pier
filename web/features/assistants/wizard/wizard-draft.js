@@ -117,10 +117,13 @@ export function duplicateFields(agent, policy, team, copyName) {
  * A Hermes agent cannot use a ChatGPT account (runtime-capabilities.js modelsFor),
  * so a chosen one is cleared.
  */
-export const withRuntime = (d, runtime) => ({
+export const withRuntime = (d, runtime, models = []) => ({
   runtime,
   ...(runtime !== "hermes" && d.shell === "every" ? { shell: "approval" } : {}),
-  ...(runtime === "hermes" && d.connectionId?.startsWith("openclaw:")
+  // A Hermes agent keeps a chosen ChatGPT login only when AgentPier holds it.
+  ...(runtime === "hermes" &&
+  d.connectionId?.startsWith("openclaw:") &&
+  models.find((m) => m.id === d.connectionId)?.holder !== "agentpier"
     ? { connectionId: "", modelId: "" }
     : {}),
 });

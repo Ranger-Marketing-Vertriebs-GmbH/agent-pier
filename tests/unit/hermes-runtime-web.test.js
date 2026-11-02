@@ -178,17 +178,34 @@ test("the wizard keeps a runtime per draft and sends Hermes' shell choice", () =
   assert.equal(runtimeIdName("other"), "other");
 });
 
-test("a Hermes agent lists ChatGPT accounts unavailable and drops a chosen one", () => {
+test("a Hermes agent lists ChatGPT logins OpenClaw holds unavailable and drops a chosen one", () => {
+  const held = {
+    id: "openclaw:b",
+    providerId: "openai-chatgpt",
+    holder: "agentpier",
+    available: true,
+  };
   const models = [
     { id: "openclaw:a", providerId: "openai-chatgpt", available: true },
     { id: "c", providerId: "endpoint", available: true },
+    held,
   ];
   assert.equal(modelsFor(models, "openclaw"), models);
   assert.equal(modelsFor(models, undefined), models);
   assert.deepEqual(modelsFor(models, "hermes"), [
     { ...models[0], available: false, reason: "runtimeAccount" },
     models[1],
+    held,
   ]);
+  // A login AgentPier holds stays chosen.
+  assert.deepEqual(
+    withRuntime(
+      { ...emptyDraft(), connectionId: "openclaw:b", modelId: "gpt-5" },
+      "hermes",
+      models,
+    ),
+    { runtime: "hermes" },
+  );
   const draft = { ...emptyDraft(), connectionId: "openclaw:a", modelId: "gpt-5" };
   assert.deepEqual(withRuntime(draft, "hermes"), {
     runtime: "hermes",

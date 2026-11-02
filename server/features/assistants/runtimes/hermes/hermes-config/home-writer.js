@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { privateFolder, writePrivateText } from "../../../../../lib/storage.js";
-import { mergeConfig, mergeEnv } from "./home-merge.js";
+import { mergeAuth, mergeConfig, mergeEnv } from "./home-merge.js";
 
 const unsafe = (where) => () =>
   Object.assign(new Error(`Unsafe Hermes home folder: ${where}`), {
@@ -51,13 +51,19 @@ export function writeHermesHome(folder, home) {
   const next = (relative, current) => {
     if (relative === "config.yaml") return mergeConfig(current, home.config);
     if (relative === ".env") return mergeEnv(current, home.env.owned, home.env.values);
+    if (relative === "auth.json" && home.auth !== undefined)
+      return mergeAuth(current, home.auth);
     return home.files[relative];
   };
-  for (const relative of Object.keys(home.files)) {
+  // auth.json also when the compile had none to show: a row AgentPier wrote before
+  // goes once the model no longer needs it.
+  const names = Object.keys(home.files);
+  if (home.auth !== undefined && !names.includes("auth.json")) names.push("auth.json");
+  for (const relative of names) {
     const file = inside(dir, relative);
     const current = readText(file);
     const text = next(relative, current);
-    if (text === current) continue;
+    if (text === current || text === undefined) continue;
     folderFor(dir, file);
     writePrivateText(file, text);
     changed.push(relative);

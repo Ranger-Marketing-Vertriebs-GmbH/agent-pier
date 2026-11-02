@@ -16,25 +16,27 @@ import {
  * while Hermes is not enabled and installed (hermesUnavailable, 409), and "Every
  * command" on a runtime without it (shellEveryCommandUnsupported, 400).
  */
-export function refuseRuntimeChoice(supervisor, input) {
+export function refuseRuntimeChoice(supervisor, input, accounts) {
   if (ownProcess(input) && !hermesAvailable(supervisor))
     throw assistantProblem("hermesUnavailable", 409);
   if (input.shellEveryCommand === true && !ownProcess(input))
     throw assistantProblem("shellEveryCommandUnsupported", 400);
-  refuseModelChoice(input, input.model);
+  refuseModelChoice(input, input.model, accounts);
 }
 
 /**
- * Refuses a ChatGPT account (connection ids `openclaw:…`, model-accounts.js) as the
- * model of an own-process agent (modelAccountRuntime, 400): the account's OAuth
- * profile is OpenClaw's, and its refresh token is never shared with Hermes
- * (runtimes/hermes/hermes-config/model.js).
+ * Refuses a ChatGPT login OpenClaw still holds (connection ids `openclaw:…`,
+ * model-accounts.js holder "openclaw") as the model of an own-process agent
+ * (modelAccountRuntime, 400): only a login AgentPier holds is reachable through its
+ * model proxy (runtimes/hermes/hermes-config/model.js); OpenClaw's own refresh token
+ * is never shared.
  */
-export function refuseModelChoice(agent, model) {
+export function refuseModelChoice(agent, model, accounts) {
   if (
     ownProcess(agent) &&
     typeof model?.connectionId === "string" &&
-    model.connectionId.startsWith("openclaw:")
+    model.connectionId.startsWith("openclaw:") &&
+    accounts?.holderOf(model.connectionId) !== "agentpier"
   )
     throw assistantProblem("modelAccountRuntime", 400);
 }
@@ -44,13 +46,13 @@ export function refuseModelChoice(agent, model) {
  * command" where the runtime does not offer it (400), and a model it cannot use
  * (refuseModelChoice).
  */
-export function refuseEveryCommand(supervisor, agent, changes) {
+export function refuseEveryCommand(supervisor, agent, changes, accounts) {
   if (
     changes.shellEveryCommand === true &&
     !runtimeFor(agent, supervisor).capabilities().everyCommandApproval.available
   )
     throw assistantProblem("shellEveryCommandUnsupported", 400);
-  refuseModelChoice(agent, changes.model);
+  refuseModelChoice(agent, changes.model, accounts);
 }
 
 /**

@@ -103,3 +103,47 @@ export function mergeEnv(existing, owned, values) {
     if (!written.has(name)) out.push(`${name}=${envValue(name, values[name])}`);
   return out.length ? `${out.join("\n")}\n` : "";
 }
+
+// The credential pool row AgentPier owns in a home's auth.json: Hermes's
+// `openai-codex` provider with the model proxy's credential (hermes-config/model.js).
+export const agentPierPoolSource = "manual:agentpier";
+const poolProvider = "openai-codex";
+// What decides a row's use; Hermes's own status fields on it (last_status, …) stay.
+const poolIdentity = ["auth_type", "access_token", "base_url", "source"];
+
+/**
+ * auth.json with AgentPier's pool row `entry` for openai-codex, or without it for
+ * `entry` null; every other key and row Hermes keeps there stays. Returns `existing`
+ * unchanged when nothing differs, undefined when there is no file and nothing to
+ * write. A file that is no JSON object is Hermes's to repair: left as it is. Pure.
+ */
+export function mergeAuth(existing, entry) {
+  let store = {};
+  if (existing !== undefined) {
+    try {
+      store = JSON.parse(existing);
+    } catch {
+      return existing;
+    }
+    if (!isMap(store)) return existing;
+  } else if (!entry) return undefined;
+  const pool = isMap(store.credential_pool) ? { ...store.credential_pool } : {};
+  const rows = Array.isArray(pool[poolProvider]) ? pool[poolProvider] : [];
+  const ours = rows.find((row) => row?.source === agentPierPoolSource);
+  const others = rows.filter((row) => row?.source !== agentPierPoolSource);
+  const same = !!entry && !!ours && poolIdentity.every((key) => ours[key] === entry[key]);
+  if (same || (!entry && !ours)) return existing;
+  const next = entry ? [entry, ...others] : others;
+  if (next.length) pool[poolProvider] = next;
+  else delete pool[poolProvider];
+  return `${JSON.stringify(
+    {
+      version: 1,
+      ...store,
+      providers: isMap(store.providers) ? store.providers : {},
+      credential_pool: pool,
+    },
+    null,
+    2,
+  )}\n`;
+}

@@ -109,3 +109,108 @@ export async function startFakeChatgptOAuth({
       }),
   };
 }
+
+// The text of the last user item of a Responses request.
+function lastUserText(body) {
+  const items = Array.isArray(body?.input) ? body.input : [];
+  const user = items.filter((item) => item?.role === "user").at(-1);
+  const content = Array.isArray(user?.content) ? user.content : [];
+  return content.map((part) => part?.text || "").join("") || String(user?.content || "");
+}
+
+/**
+ * A Codex backend (`/backend-api/codex/responses`, `/backend-api/codex/models`): it
+ * streams "CODEX: <last user text>" as Responses SSE events, one write per event.
+ * `reject`: access tokens it answers 401 to (a revoked token). `requests` records
+ * method, URL, headers and parsed body.
+ */
+export async function startFakeCodex({ models = ["gpt-5.4"] } = {}) {
+  const requests = [];
+  const reject = new Set();
+  const server = http.createServer(async (req, res) => {
+    const text = await readBody(req);
+    let body = null;
+    try {
+      body = text ? JSON.parse(text) : null;
+    } catch {
+      body = null;
+    }
+    requests.push({ method: req.method, url: req.url, headers: req.headers, body });
+    const token = String(req.headers.authorization || "").replace(/^Bearer /, "");
+    if (reject.has(token)) {
+      res.writeHead(401, {
+        "content-type": "application/json",
+        "www-authenticate": "Bearer",
+      });
+      return res.end(JSON.stringify({ error: { code: "token_expired" } }));
+    }
+    if (req.url.startsWith("/backend-api/codex/models")) {
+      res.writeHead(200, { "content-type": "application/json" });
+      return res.end(
+        JSON.stringify({
+          models: models.map((slug) => ({
+            slug,
+            display_name: slug,
+            context_window: 272000,
+            supported_in_api: true,
+            visibility: "list",
+          })),
+        }),
+      );
+    }
+    if (req.url !== "/backend-api/codex/responses") {
+      res.writeHead(404);
+      return res.end();
+    }
+    const reply = `CODEX: ${lastUserText(body)}`;
+    const id = `resp_${randomBytes(4).toString("hex")}`;
+    const item = {
+      id: `msg_${randomBytes(4).toString("hex")}`,
+      type: "message",
+      role: "assistant",
+      status: "completed",
+      content: [{ type: "output_text", text: reply, annotations: [] }],
+    };
+    res.writeHead(200, {
+      "content-type": "text/event-stream",
+      "cache-control": "no-cache",
+    });
+    const events = [
+      { type: "response.created", response: { id, status: "in_progress" } },
+      {
+        type: "response.output_item.added",
+        output_index: 0,
+        item: { ...item, status: "in_progress", content: [] },
+      },
+      {
+        type: "response.output_text.delta",
+        output_index: 0,
+        item_id: item.id,
+        delta: reply,
+      },
+      { type: "response.output_item.done", output_index: 0, item },
+      {
+        type: "response.completed",
+        response: {
+          id,
+          status: "completed",
+          usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 },
+        },
+      },
+    ];
+    for (const event of events)
+      res.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
+    res.end();
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  return {
+    url: `http://127.0.0.1:${server.address().port}/backend-api`,
+    requests,
+    reject,
+    close: () =>
+      new Promise((resolve) => {
+        server.closeAllConnections?.();
+        server.close(resolve);
+      }),
+  };
+}

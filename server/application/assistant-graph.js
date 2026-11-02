@@ -42,6 +42,8 @@ import { SpeechConnections } from "../features/speech/speech-connections.js";
 import { AssistantModelAccounts } from "../features/assistants/model-accounts.js";
 import { AssistantAccountLogin } from "../features/assistants/model-account-login.js";
 import { ChatGptVault } from "../features/model-logins/chatgpt-vault.js";
+import { RuntimeProxy } from "../features/model-logins/runtime-proxy.js";
+import { chatgptRoute } from "../features/model-logins/chatgpt-proxy.js";
 import { AssistantStore } from "../features/assistants/assistant-store.js";
 import { AssistantModels } from "../features/assistants/assistant-models.js";
 import { AssistantConfig } from "../features/assistants/assistant-config.js";
@@ -118,6 +120,19 @@ export function constructAssistantGraph(host, created = {}) {
     runtime: assistantRuntime,
     vault: chatgptVault,
   });
+  // The loopback proxy runtimes reach AgentPier's logins through (Hermes: ChatGPT).
+  const runtimeProxy = (created.runtimeProxy = new RuntimeProxy({ dataDir }));
+  runtimeProxy.route(
+    "chatgpt",
+    chatgptRoute({
+      vault: chatgptVault,
+      // Only a Hermes agent that still exists uses its credential.
+      authorize: (agentId) =>
+        store
+          .listAssistants()
+          .some((a) => a.runtimeAgentId === agentId && a.runtime === "hermes"),
+    }),
+  );
   const assistantModelLogin = new AssistantAccountLogin({
     vault: chatgptVault,
     accounts: assistantModelAccounts,
@@ -413,6 +428,7 @@ export function constructAssistantGraph(host, created = {}) {
     configuration,
     bridge,
     maintenance,
+    assistantRuntimeProxy: runtimeProxy,
   };
 }
 
@@ -478,7 +494,11 @@ export function connectAssistantServices(graph) {
   // Resolved at most once per process for applies before the first ready start.
   let fallbackOwner;
   wire(configuration, "configuration", {
-    ...hermesApplyWiring({ bridge, webTools: webToolsChanges }),
+    ...hermesApplyWiring({
+      bridge,
+      webTools: webToolsChanges,
+      proxy: graph.assistantRuntimeProxy,
+    }),
     teamReady: () => bridge.status().ready,
     writeGuard: () => bridge.guardLive(),
     ...writeGuardWiring({
