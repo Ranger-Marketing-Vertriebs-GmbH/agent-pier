@@ -28,7 +28,11 @@ test(
     const dirs = hermesSandbox(t);
     const model = await startFakeModel();
     t.after(() => model.close());
-    const login = await agentPierMcpLogin(t, dirs.root);
+    // Only this agent may use its credential (proxy-access.js stand-in).
+    const login = await agentPierMcpLogin(t, dirs.root, {
+      consumer: agentId,
+      authorize: (serverId, consumer) => serverId === "srv-1" && consumer === agentId,
+    });
     const hermes = await startHermes(t, dirs, { agentId, model });
     const { runtime, agent, sessions, events, stop } = hermes;
     const applied = await runtime.config.apply({

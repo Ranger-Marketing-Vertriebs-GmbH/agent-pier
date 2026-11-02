@@ -7,7 +7,9 @@ import { approve, oauthMcpServer } from "./mcp-oauth-test-server.js";
 // An OAuth MCP server (mcp-oauth-test-server.js) whose login AgentPier made and holds
 // in `dataDir`, behind AgentPier's MCP proxy, as the native contracts of both runtimes
 // use it. `inputs` are the store inputs a runtime compiles (mcp-inputs.js
-// proxiedServers): the proxy URL and its credential, never an OAuth token.
+// proxiedServers): the proxy URL and the credential of `consumer` (a Hermes agent's
+// runtime id or "openclaw"), never an OAuth token; `authorize(serverId, consumer)`
+// stands in for proxy-access.js.
 export async function agentPierMcpLogin(
   t,
   dataDir,
@@ -42,7 +44,7 @@ export async function agentPierMcpLogin(
     { servers: [server], bindings: {}, secrets: { [id]: { headers: {}, env: {} } } },
     {
       url,
-      credentialFor: (serverId) => proxy.credential(["mcp", serverId]),
+      credentialFor: (serverId) => proxy.credential(["mcp", serverId, consumer]),
       held: (serverId) => agentpier.held(serverId),
     },
   );

@@ -24,16 +24,25 @@ const responseDropped = new Set([
 
 /**
  * `servers.definition(id)`: the stored definition (unredacted URL) or null;
- * `oauth`: AgentPierMcpOAuth.
+ * `oauth`: AgentPierMcpOAuth; `authorize(serverId, consumer)`: whether the
+ * credential's agent (or the OpenClaw Gateway) may still use the server.
  */
-export function mcpRoute({ servers, oauth, fetch: fetchImpl = globalThis.fetch }) {
+export function mcpRoute({
+  servers,
+  oauth,
+  authorize = () => false,
+  fetch: fetchImpl = globalThis.fetch,
+}) {
   return async (req, res, { scope, rest, search }) => {
-    const serverId = scope[1];
+    const [, serverId, consumer] = scope;
     if (rest !== serverId || !["GET", "POST", "DELETE"].includes(req.method))
       return proxyError(res, 404, "not_found", "Unknown MCP route.");
     const server = servers.definition(serverId);
     if (!server || server.auth !== "oauth" || !oauth.held(serverId))
       return proxyError(res, 404, "not_found", "Unknown MCP server.");
+    // Only the agents bound to this server (proxy-access.js), checked per request.
+    if (!consumer || !(await authorize(serverId, consumer)))
+      return proxyError(res, 403, "forbidden", "This agent may not use this MCP server.");
     let body;
     try {
       body = req.method === "POST" ? await readBody(req) : undefined;

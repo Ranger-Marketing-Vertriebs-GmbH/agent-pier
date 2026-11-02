@@ -50,7 +50,8 @@ export class McpChanges {
     // `redirectUrl()`: the OAuth redirect URL OAuth servers compile with, read at
     // each compile so a changed AgentPier origin hot-applies. `oauth`
     // (McpOAuthLogins) logs a server out before a change would orphan its login.
-    // `proxy()`: AgentPier's MCP proxy for the logins it holds (mcp-inputs.js).
+    // `proxy(consumer)`: AgentPier's MCP proxy for the logins it holds, with the
+    // credentials of a Hermes agent or of the OpenClaw Gateway (mcp-inputs.js).
     Object.assign(this, { assistants, servers, redirectUrl, oauth, proxy, now, warn });
     this.adoption = { warn, timeoutMs: adoptionTimeoutMs };
     // Whether the running Gateway may lag behind the store. Set by every apply that
@@ -144,7 +145,8 @@ export class McpChanges {
       redirectUrl: this.redirectUrl(),
       extra: this.extraInputs,
       inherited: this.inherited,
-      proxy: this.proxy(),
+      // The agent's own proxy credentials (proxy-access.js).
+      proxy: this.proxy(profile.runtimeAgentId),
     });
     const servers = mcpEligible(profile) ? inputs.bindings[profile.id] || [] : [];
     return { servers: inputs.unreadable ? [] : servers, inputs };
@@ -400,7 +402,7 @@ export class McpChanges {
         workspaces: runtime.paths?.workspaces ?? null,
         // Servers members use through their lead (lead-shares.js).
         inherited: this.inherited,
-        proxy: this.proxy(),
+        proxy: this.proxy("openclaw"),
       });
       if (inputs.unreadable) {
         this.failed({ code: "MCP_STORE_UNREADABLE" });
