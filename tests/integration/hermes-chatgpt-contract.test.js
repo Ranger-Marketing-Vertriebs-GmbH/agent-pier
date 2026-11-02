@@ -17,6 +17,8 @@ import { ChatGptAuth } from "../../server/features/model-logins/chatgpt-auth.js"
 import { ChatGptVault } from "../../server/features/model-logins/chatgpt-vault.js";
 import { RuntimeProxy } from "../../server/features/model-logins/runtime-proxy.js";
 import { chatgptRoute } from "../../server/features/model-logins/chatgpt-proxy.js";
+import { CodexCatalog } from "../../server/features/model-logins/codex-catalog.js";
+import { AssistantModelAccounts } from "../../server/features/assistants/model-accounts.js";
 
 // A ChatGPT login AgentPier holds, used by the pinned Hermes through AgentPier's
 // model proxy (hermes-config/model.js): Hermes runs its own openai-codex provider
@@ -71,13 +73,35 @@ test(
       email: "owner@example.invalid",
     });
     const proxy = new RuntimeProxy({ dataDir: dirs.root, warn: () => {} });
-    proxy.route("chatgpt", chatgptRoute({ vault, upstream: codex.url, warn: () => {} }));
+    proxy.route(
+      "chatgpt",
+      chatgptRoute({
+        vault,
+        upstream: codex.url,
+        // Stands in for proxy-access.js: this agent on this login only.
+        authorize: (id, login) => id === agentId && login === profileId,
+        warn: () => {},
+      }),
+    );
     const url = await proxy.start();
     t.after(async () => {
       await proxy.close();
       vault.close();
       await Promise.all([model.close(), codex.close(), issuer.close()]);
     });
+    // No OpenClaw runs in this contract: the model picker's list comes from Codex.
+    const accounts = new AssistantModelAccounts({
+      dataDir: dirs.root,
+      runtime: {},
+      vault,
+      warn: () => {},
+      codex: new CodexCatalog({ vault, upstream: codex.url, warn: () => {} }),
+    });
+    t.after(() => accounts.close());
+    const [account] = await accounts.list();
+    assert.deepEqual((await accounts.refreshModels(account.id)).models, [
+      { modelId, label: modelId },
+    ]);
     const hermes = await startHermes(t, dirs, { agentId, model });
     const { runtime, sessions, events, agent } = hermes;
     const applied = await runtime.config.apply({
