@@ -264,6 +264,7 @@ export class AssistantConfig {
         mcp: mcp.inputs,
         connection: inputs.connection,
         browser: inputs.browser,
+        web: inputs.web,
       });
     }
     this.store.markEffective(assistant.id, assistant.revision);

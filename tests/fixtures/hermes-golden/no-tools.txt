@@ -44,5 +44,6 @@ telemetry:
 ==> (remove) <==
 plugins/agentpier-guard
 plugins/agentpier-team
+plugins/agentpier-web
 ==> (unsupported) <==
 teams

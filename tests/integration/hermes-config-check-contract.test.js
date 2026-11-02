@@ -18,6 +18,10 @@ import {
 import { contractTimeout } from "../helpers/contract-timeout.js";
 import { telegramTokenEnv } from "../../server/features/assistants/runtimes/hermes/hermes-config/telegram.js";
 import { deepgramKeyEnv } from "../../server/features/assistants/runtimes/hermes/hermes-config/deepgram-plugin.js";
+import {
+  braveKeyEnv,
+  perplexityKeyEnv,
+} from "../../server/features/assistants/runtimes/hermes/hermes-config/web.js";
 
 // The compiled homes against the pinned Hermes (docs/hermes-runtime.md): `hermes
 // config check` accepts each, and Hermes reads them as AgentPier means them.
@@ -67,6 +71,16 @@ stt = (config.get("stt") or {})
 if stt.get("enabled") and stt.get("provider"):
   provider = stt_provider(stt["provider"])
   out["stt"] = [stt["provider"], bool(provider and provider.is_available())]
+from tools import web_tools
+web_tools._ensure_web_plugins_loaded()
+from agent.web_search_registry import get_provider as web_provider
+web = config.get("web") or {}
+out["web"] = [web.get("search_backend"), web.get("extract_backend")]
+if web.get("search_backend"):
+  out["search"] = bool(web_provider(web["search_backend"]) and web_tools._is_backend_available(web["search_backend"]))
+fetch = web_provider("agentpier-fetch")
+if fetch and web.get("extract_backend"):
+  out["fetch"] = [page.get("error", "") for page in fetch.extract(["http://127.0.0.1:9/", "http://169.254.169.254/latest/"])]
 child = _sanitize_subprocess_env(dict(os.environ))
 out["leaked"] = sorted(k for k in child if k in sys.argv[1:])
 print(json.dumps(out))
@@ -110,6 +124,9 @@ for (const name of Object.keys(hermesGoldenScenarios))
       // The agent's own bot (AGENTPIER-341): its token and the Deepgram key.
       telegramTokenEnv,
       deepgramKeyEnv,
+      // The owner's web search keys (hermes-config/web.js).
+      braveKeyEnv,
+      perplexityKeyEnv,
     ];
     const { stdout } = await exec(bin("python"), ["-c", probe, ...keys]);
     const seen = JSON.parse(stdout.trim().split("\n").at(-1));
@@ -122,11 +139,29 @@ for (const name of Object.keys(hermesGoldenScenarios))
     // agent's team tools, offered beside Hermes's own toolsets.
     const team = !!scenario.connection;
     const voice = !!scenario.channelBot?.speech;
-    assert.deepEqual(seen.guard, [
-      ...(level === "every-command" ? ["agentpier-guard"] : []),
-      ...(team ? ["agentpier-team"] : []),
-      ...(voice ? ["agentpier-deepgram"] : []),
-    ]);
+    const { webSearch, webFetch } = scenario.profile.capabilities || {};
+    const web = !!(webSearch || webFetch);
+    assert.deepEqual(
+      seen.guard.sort(),
+      [
+        ...(level === "every-command" ? ["agentpier-guard"] : []),
+        ...(team ? ["agentpier-team"] : []),
+        ...(voice ? ["agentpier-deepgram"] : []),
+        ...(web ? ["agentpier-web"] : []),
+      ].sort(),
+    );
+    // Web search on the owner's provider and AgentPier's own web fetch, which
+    // refuses private and metadata addresses whatever the browser setting says.
+    if (web) {
+      assert.equal(seen.web[1], "agentpier-fetch");
+      if (scenario.web?.search?.provider === "brave") {
+        assert.equal(seen.web[0], "brave-free");
+        assert.equal(seen.search, true);
+      }
+      assert.equal(seen.fetch.length, 2);
+      for (const error of seen.fetch) assert.match(error, /private|internal|Blocked/);
+      assert.equal(seen.toolsets.includes("web"), true);
+    } else assert.deepEqual(seen.web, ["", ""]);
     assert.equal(seen.teamTools.length > 0, team);
     assert.equal(seen.toolsets.includes("agentpier"), team);
     // The Deepgram plugin registers its provider and finds its key.

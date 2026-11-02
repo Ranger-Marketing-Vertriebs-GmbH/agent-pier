@@ -542,7 +542,7 @@ their Hermes session, unknown outcomes reviewed, routine runs waited for).
 release tag of `NousResearch/hermes-agent` and the commit it names (release `v0.22.5`,
 commit `bf0203a7`, since 2026-11-01), the SHA-256 of its source archive and of the
 `pyproject.toml` and `uv.lock` inside it, the extras (`messaging`, for the messaging
-gateway, and `mcp`, for the agents' MCP servers), the CPython version, a uv version
+gateway, `mcp`, for the agents' MCP servers, and `ddgs`, for DuckDuckGo web search), the CPython version, a uv version
 with the SHA-256 of its release archive per platform (macOS and Linux, x64 and arm64),
 and the agent-browser release Hermes's package lock pins (`agentBrowser`). The archive
 is the commit's, so a moved
@@ -555,7 +555,7 @@ tag cannot change what is installed. Hermes carries no version of its own in the
 in `<data>/assistants/hermes/runtimes/`): download uv and the source archive and check
 both hashes, unpack them, check the hashes of `pyproject.toml` and `uv.lock`, install
 the pinned CPython with `uv python install --no-bin` and build the environment with
-`uv sync --frozen --no-dev --extra messaging --extra mcp`. uv verifies every wheel against the hashes
+`uv sync --frozen --no-dev --extra ddgs --extra messaging --extra mcp`. uv verifies every wheel against the hashes
 in `uv.lock` and the CPython download against the checksums built into the pinned uv
 release. uv runs with `UV_NO_CONFIG`, a private `HOME` and `TMPDIR`,
 `UV_PYTHON_PREFERENCE=only-managed` and its cache, CPython and tool folders inside
@@ -577,7 +577,7 @@ from before the browser gets its agent-browser in place at the next server start
 **Updates.** At server start, and so after an AgentPier update, an enabled Hermes is
 installed when nothing is selected yet, or the newly pinned commit is staged beside
 the selected one as `<data>/assistants/hermes/candidate.json`. An installation of the
-same release without an extra the pin added (the `mcp` extra) counts as outdated too:
+same release without an extra the pin added (the `mcp` or `ddgs` extra) counts as outdated too:
 its folder name carries the extras, and **Agents › Runtime › Hermes Agent** offers
 **Update**; `assistants/hermes/runtime.json`
 does not change and the start does not wait. The installer and a rerun with Hermes

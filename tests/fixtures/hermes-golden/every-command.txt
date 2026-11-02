@@ -309,5 +309,6 @@ version: "1"
 description: AgentPier asks the owner before shell commands and Python runs
 ==> (remove) <==
 plugins/agentpier-team
+plugins/agentpier-web
 ==> (unsupported) <==
 teams

@@ -1069,4 +1069,5 @@ description: AgentPier team tools and tool guard
 }
 ==> (remove) <==
 plugins/agentpier-guard
+plugins/agentpier-web
 ==> (unsupported) <==

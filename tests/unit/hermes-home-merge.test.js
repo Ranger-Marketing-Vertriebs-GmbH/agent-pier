@@ -79,7 +79,9 @@ test("a merge keeps Hermes's keys, replaces AgentPier's and writes each key once
     files[".env"],
     "# Per-profile secrets for this Hermes profile.\n" +
       "TELEGRAM_BOT_TOKEN=123:abc\n" +
-      "AUXILIARY_AGENTPIER_API_KEY='sk-golden-endpoint'\n",
+      "AUXILIARY_AGENTPIER_API_KEY='sk-golden-endpoint'\n" +
+      // The owner's Brave key for web search (hermes-config/web.js).
+      "BRAVE_SEARCH_API_KEY='golden-brave-key'\n",
   );
 });
 

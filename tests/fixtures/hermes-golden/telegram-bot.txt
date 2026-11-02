@@ -204,5 +204,6 @@ description: AgentPier transcribes voice notes with Deepgram
 ==> (remove) <==
 plugins/agentpier-guard
 plugins/agentpier-team
+plugins/agentpier-web
 ==> (unsupported) <==
 teams

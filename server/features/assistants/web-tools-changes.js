@@ -2,7 +2,8 @@ import { detectBrowser } from "./browser-detection.js";
 import { restartRequired } from "./assistant-provider-synchronization.js";
 import { temporaryMember } from "./team-presentation.js";
 import { usedCapabilities } from "./native-capabilities.js";
-import { compilerFor, hostOf, hostReady } from "./runtimes/runtime-for.js";
+import { compilerFor, hostOf, hostReady, ownProcess } from "./runtimes/runtime-for.js";
+import { desiredAgent } from "./agent-desired-state.js";
 
 /**
  * The global web tool sections (the tools.allow additions, tools.web, the search
@@ -155,8 +156,17 @@ export class WebToolsChanges {
   restart(operation, { beforeChange } = {}) {
     return this.synchronization.restartGateway(operation, { beforeChange });
   }
-  /** Saves the web search settings; a changed provider or key needs a restart. */
-  async saveSearch(input, { confirmed = false } = {}) {
+  /**
+   * Saves the web search settings; a changed provider or key needs a Gateway restart.
+   * Hermes agents that search take the new settings with an apply of their own
+   * (runtimes/hermes/hermes-config/web.js), which restarts only a changed home.
+   */
+  async saveSearch(input, options) {
+    const saved = await this.saveGatewaySearch(input, options);
+    this.applySearchAgents();
+    return saved;
+  }
+  async saveGatewaySearch(input, { confirmed = false } = {}) {
     if (!this.differs({ search: this.webSearch.preview(input) }))
       return this.webSearch.save(input);
     if (this.pending) {
@@ -166,6 +176,20 @@ export class WebToolsChanges {
     }
     this.confirm(confirmed);
     return this.restart(() => this.webSearch.save(input));
+  }
+  /** Applies every Hermes agent that searches the web; failures retry with its next apply. */
+  applySearchAgents() {
+    const { store, config } = this.assistants;
+    if (typeof config?.apply !== "function") return;
+    for (const profile of store.listAssistants())
+      if (
+        ownProcess(profile) &&
+        !profile.archivedAt &&
+        desiredAgent(profile).web.webSearch
+      )
+        Promise.resolve()
+          .then(() => config.apply(profile.id))
+          .catch(() => {});
   }
   /** Saves the PDF model; a change for agents that read PDFs needs a restart. */
   async savePdfModel(input, { confirmed = false } = {}) {
