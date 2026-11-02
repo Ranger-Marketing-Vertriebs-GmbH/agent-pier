@@ -34,7 +34,7 @@ export const guardsEveryCommand = (level) => level === everyCommand;
  * The Hermes toolsets the agent may not use, sorted. `delegation` (invisible
  * subagents) and the rest of Hermes's own toolsets stay on. `browser` only with the
  * Chromium AgentPier runs for the agent (`browser`, ADR 0006 decision 4). Not yet
- * mapped and therefore off: `cronjob` (the agent's own Hermes jobs, which bypass the
+ * mapped and therefore off: `image_gen` (no image provider for Hermes), `cronjob` (the agent's own Hermes jobs, which bypass the
  * routines AgentPier sets up on the same scheduler) and `computer_use` (desktop
  * control AgentPier has no setting for).
  */
@@ -46,12 +46,17 @@ export function disabledToolsets(agent, level, { browser = false } = {}) {
     "computer_use",
     "cronjob",
     ...(shell ? [] : ["terminal", "code_execution"]),
-    // OpenClaw grants file tools with memory or the shell (native-capabilities.js).
-    ...(shell || agent.memory ? [] : ["file"]),
+    // OpenClaw grants file tools with memory or the shell (native-capabilities.js);
+    // Hermes reads a PDF's text with read_file (tools/file_tools.py), so reading PDFs
+    // needs them too.
+    ...(shell || agent.memory || web.readPdfs ? [] : ["file"]),
     ...(agent.memory ? [] : ["memory"]),
     ...(web.webSearch || web.webFetch ? [] : ["web"]),
     ...(web.documents ? [] : ["vision"]),
-    ...(web.createImages ? [] : ["image_gen"]),
+    // AgentPier creates images through the owner's ChatGPT account, which Hermes
+    // agents cannot use yet; Hermes's own image_generate needs a FAL or Nous key
+    // AgentPier does not hold (tools/image_generation_tool.py), so it stays off.
+    "image_gen",
   ];
   return [...new Set(off)].sort();
 }

@@ -69,7 +69,9 @@ function unsupportedOf(agent, level, model, { placed, mcp, team, browser }) {
     ...((mcp ? mcp.skipped.length : agent.mcp.servers.length) ? ["mcp"] : []),
     ...(mcp?.oauth.length ? ["mcpOAuth"] : []),
     ...(agent.skills.assigned.some((name) => !placed.includes(name)) ? ["skills"] : []),
-    ...(agent.web.readPdfs ? ["readPdfs"] : []),
+    // Image creation runs through the owner's ChatGPT account, which Hermes agents
+    // cannot use yet.
+    ...(agent.web.createImages ? ["createImages"] : []),
     ...(grants.includes("agentpier_reminder") ? ["routines"] : []),
     ...(!team && agent.tools.some((grant) => grant.needs?.includes("teams"))
       ? ["teams"]

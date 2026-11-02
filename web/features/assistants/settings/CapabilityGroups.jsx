@@ -84,8 +84,16 @@ export function MemoryGroup({ assistant, draft, go, notes = true }) {
 }
 
 /** Web switches with today's availability rules and the search provider reference. */
-// `images` is false while no ChatGPT account can create images.
-export function WebGroup({ draft, browser, images, creating = false, navigate }) {
+// `images` is false while no ChatGPT account can create images; `imagesRuntime` names
+// the agent's runtime when it cannot use one at all (Hermes, runtime-capabilities.js).
+export function WebGroup({
+  draft,
+  browser,
+  images,
+  imagesRuntime = "",
+  creating = false,
+  navigate,
+}) {
   const id = useId();
   const crossLink = useCrossLink();
   const copy = assistantCopy.personal;
@@ -107,7 +115,11 @@ export function WebGroup({ draft, browser, images, creating = false, navigate })
   const missing = {
     browser: browser?.available === false ? copy.browserUnavailable : "",
     webSearch: search && search.ready === false ? copy.searchUnavailable : "",
-    createImages: images === false ? copy.imagesUnavailable : "",
+    createImages: imagesRuntime
+      ? copy.imagesRuntimeUnavailable(imagesRuntime)
+      : images === false
+        ? copy.imagesUnavailable
+        : "",
   };
   const provider = search?.provider
     ? (settingsCopy.searchProviders[search.provider] ?? search.provider)

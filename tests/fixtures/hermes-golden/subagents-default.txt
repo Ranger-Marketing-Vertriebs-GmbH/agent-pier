@@ -58,6 +58,5 @@ plugins/agentpier-team
 ==> (unsupported) <==
 browser
 skills
-readPdfs
 routines
 teams

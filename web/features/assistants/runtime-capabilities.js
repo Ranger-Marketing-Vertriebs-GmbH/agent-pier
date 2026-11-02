@@ -49,3 +49,9 @@ export const modelsFor = (models, runtimeId) =>
           : m,
       )
     : models;
+
+/**
+ * Whether the agent's runtime cannot create images: AgentPier creates them through a
+ * ChatGPT account, whose sign-in Hermes agents cannot use (modelsFor).
+ */
+export const runtimeLacksImages = (assistant) => assistant?.runtimeInfo?.id === "hermes";

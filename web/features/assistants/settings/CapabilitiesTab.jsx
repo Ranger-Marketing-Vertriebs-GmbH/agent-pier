@@ -1,4 +1,5 @@
 import React from "react";
+import { runtimeLacksImages, runtimeName } from "../runtime-capabilities.js";
 import ListCard from "../../../components/ListCard.jsx";
 import ListRow from "../../../components/ListRow.jsx";
 import { routePath } from "../../../app/routes.js";
@@ -147,6 +148,7 @@ export default function CapabilitiesTab({ assistant, page, go, navigate }) {
           draft={draft}
           browser={runtime?.browser}
           images={images}
+          imagesRuntime={runtimeLacksImages(assistant) ? runtimeName(assistant) : ""}
           navigate={navigate}
         />
       )}
