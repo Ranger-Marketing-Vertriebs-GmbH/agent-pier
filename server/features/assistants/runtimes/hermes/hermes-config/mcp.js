@@ -121,8 +121,10 @@ function entryOf(server, secrets, n, { workspace, pathCheck }) {
  * The `mcp_servers` section and .env values of `agent`'s bound servers: `{ servers,
  * env, skipped, oauth }`. `mcp`: the store's inputs (`servers`, `secrets`,
  * `pathCheck`); `workspace`: the agent's work folder. Servers keep the store's order.
- * An OAuth server is left out (`oauth`): its tokens are OpenClaw's, held for its
- * login, and AgentPier keeps none to hand to Hermes (docs/hermes-runtime.md#mcp-servers);
+ * An OAuth server whose login AgentPier holds arrives as a plain HTTP server to
+ * AgentPier's MCP proxy (mcp-inputs.js proxiedServers) and compiles like any other;
+ * one whose login OpenClaw still holds is left out (`oauth`), as its tokens are
+ * OpenClaw's until the owner signs in again (docs/hermes-runtime.md#mcp-servers);
  * any other server that cannot be compiled is `skipped`. Pure.
  */
 export function mcpEntries(agent, mcp, { workspace } = {}) {

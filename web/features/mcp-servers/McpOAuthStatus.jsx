@@ -47,6 +47,9 @@ export default function McpOAuthStatus({ server }) {
 /** What the status means for the owner: the token's expiry or why it is unknown. */
 export function McpOAuthStatusHint({ server }) {
   const status = oauthStatusOf(server);
+  // A login OpenClaw made before AgentPier held them: a new login moves it.
+  if (status === "connected" && server.oauthHolder === "openclaw")
+    return <p className="mcp-hint">{copy.openClawHeld}</p>;
   if (status === "connected" && server.oauthExpiresAt) {
     const time = expiry(server.oauthExpiresAt);
     return time ? <p className="mcp-hint">{copy.expires(time)}</p> : null;

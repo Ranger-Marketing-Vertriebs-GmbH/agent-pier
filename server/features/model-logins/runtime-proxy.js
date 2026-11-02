@@ -156,6 +156,8 @@ export class RuntimeProxy {
       this.warn("AgentPier's runtime proxy moved to a new port.");
       await listen(0);
     }
+    // The proxy serves the runtimes AgentPier runs; it never keeps a process alive.
+    server.unref();
     this.server = server;
     this.port = server.address().port;
     if (this.port !== this.savedPort) this.#persist((this.savedPort = this.port));

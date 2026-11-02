@@ -39,11 +39,6 @@ import { readMcpInputs } from "../features/mcp-servers/mcp-inputs.js";
 import { desiredState } from "../features/assistants/agent-desired-state.js";
 import { McpServerStore } from "../features/mcp-servers/mcp-server-store.js";
 import { SpeechConnections } from "../features/speech/speech-connections.js";
-import { AssistantModelAccounts } from "../features/assistants/model-accounts.js";
-import { AssistantAccountLogin } from "../features/assistants/model-account-login.js";
-import { ChatGptVault } from "../features/model-logins/chatgpt-vault.js";
-import { RuntimeProxy } from "../features/model-logins/runtime-proxy.js";
-import { chatgptRoute } from "../features/model-logins/chatgpt-proxy.js";
 import { AssistantStore } from "../features/assistants/assistant-store.js";
 import { AssistantModels } from "../features/assistants/assistant-models.js";
 import { AssistantConfig } from "../features/assistants/assistant-config.js";
@@ -72,11 +67,8 @@ import { AdvancedConfig } from "../features/assistants/advanced-config.js";
 import { resolveShellOwner } from "../features/assistants/exec-shell.js";
 import { McpChanges } from "../features/assistants/mcp-changes.js";
 import { oauthRedirect } from "../features/mcp-servers/oauth-redirect.js";
-import { McpOAuthLogins } from "../features/mcp-servers/mcp-oauth-logins.js";
-import {
-  supervisorMcpCli,
-  sweepLogoutConfigs,
-} from "../features/mcp-servers/openclaw-mcp-cli.js";
+import { loginServices, mcpOAuthServices } from "./login-wiring.js";
+import { sweepLogoutConfigs } from "../features/mcp-servers/openclaw-mcp-cli.js";
 import {
   expectWiring,
   requireReferences,
@@ -113,30 +105,11 @@ export function constructAssistantGraph(host, created = {}) {
   const store = (created.store = new AssistantStore({ dataDir }));
   // Hermes agents run in their own process sets (hermes-wiring.js).
   const hermesFleet = hermesAgentFleet(assistantRuntime, { dataDir, store });
-  // AgentPier's ChatGPT logins, the only refresher of their tokens.
-  const chatgptVault = (created.chatgptVault = new ChatGptVault({ dataDir }));
-  const assistantModelAccounts = new AssistantModelAccounts({
-    dataDir,
-    runtime: assistantRuntime,
-    vault: chatgptVault,
-  });
-  // The loopback proxy runtimes reach AgentPier's logins through (Hermes: ChatGPT).
-  const runtimeProxy = (created.runtimeProxy = new RuntimeProxy({ dataDir }));
-  runtimeProxy.route(
-    "chatgpt",
-    chatgptRoute({
-      vault: chatgptVault,
-      // Only a Hermes agent that still exists uses its credential.
-      authorize: (agentId) =>
-        store
-          .listAssistants()
-          .some((a) => a.runtimeAgentId === agentId && a.runtime === "hermes"),
-    }),
+  // AgentPier's ChatGPT logins and the loopback proxy the runtimes use them through.
+  const { runtimeProxy, assistantModelAccounts, assistantModelLogin } = loginServices(
+    { dataDir, store, runtime: assistantRuntime },
+    created,
   );
-  const assistantModelLogin = new AssistantAccountLogin({
-    vault: chatgptVault,
-    accounts: assistantModelAccounts,
-  });
   const models = new AssistantModels({
     connections: providerConnections,
     accounts: assistantModelAccounts,
@@ -394,23 +367,26 @@ export function constructAssistantGraph(host, created = {}) {
   });
   // Logout configs a killed CLI run left behind (they can name a server URL).
   sweepLogoutConfigs(assistantRuntime.paths.state);
-  const assistantMcpOAuth = new McpOAuthLogins({
-    cli: supervisorMcpCli(assistantRuntime),
-    servers: assistantMcpServers,
+  // MCP OAuth logins: OpenClaw's earlier ones, AgentPier's own behind the proxy.
+  const mcpOAuth = mcpOAuthServices({
+    dataDir,
     runtime: assistantRuntime,
-    admit: (operation) => assistants.admit(operation),
+    servers: assistantMcpServers,
+    assistants,
+    runtimeProxy,
     redirectUrl: () => oauthRedirect(host.effectiveConfig?.() || config),
-    // Called under admission by a login start; assistantMcpChanges is built below.
-    reapply: () => assistantMcpChanges.apply(),
-    onFreed: () => assistants.admit(() => assistantMcpChanges.apply()),
     remoteUrl: () => (host.effectiveConfig?.() || config).remoteUrl,
+    // assistantMcpChanges is built below.
+    reapply: () => assistantMcpChanges.apply(),
   });
+  const assistantMcpOAuth = mcpOAuth.oauth;
   const assistantMcpChanges = new McpChanges({
     assistants,
     servers: assistantMcpServers,
     // Read at each compile: the listener port is known only after listen.
     redirectUrl: () => oauthRedirect(host.effectiveConfig?.() || config),
     oauth: assistantMcpOAuth,
+    proxy: mcpOAuth.proxy,
   });
   Object.assign(scope, {
     assistantWorkflows,
@@ -554,6 +530,8 @@ export function connectAssistantServices(graph) {
         });
       // Members' MCP bindings follow their records before the start compiles them.
       teams.mcp.sync();
+      // The MCP proxy's address goes into the compile (mcp-inputs.js proxiedServers).
+      await graph.assistantRuntimeProxy.start().catch(() => null);
       // Failed OAuth logouts are retried before the start compiles.
       await mcpChanges.drainLogouts();
       // AgentPier's desired state for the start, read from the stores now; the
@@ -575,6 +553,7 @@ export function connectAssistantServices(graph) {
           inherited: mcpChanges.inherited,
           // Agent placeholders resolve below the Gateway's own workspace root.
           workspaces: runtime.paths?.workspaces ?? null,
+          proxy: mcpChanges.proxy(),
         }),
         // Each agent's GitHub folder on its shell PATH (agent-github.js shellPaths).
         githubShell: workflows.github.shellPaths(openClaw),

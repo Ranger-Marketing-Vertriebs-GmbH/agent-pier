@@ -38,6 +38,7 @@
     "tests/integration/assistant-mcp-compiled-contract.test.js",
     "tests/integration/assistant-mcp-oauth-contract.test.js",
     "tests/integration/assistant-mcp-oauth-compiled-contract.test.js",
+    "tests/integration/assistant-mcp-proxy-contract.test.js",
     "tests/integration/assistant-heartbeat-contract.test.js",
     "tests/integration/assistant-dreaming-contract.test.js",
     "tests/integration/assistant-dreaming-scope-contract.test.js",
@@ -122,6 +123,7 @@
     "tests/integration/assistant-mail-contract.test.js": 125,
     "tests/integration/assistant-mail-attachments-contract.test.js": 30,
     "tests/integration/assistant-project-contract.test.js": 40,
-    "tests/integration/assistant-chatgpt-access-contract.test.js": 12
+    "tests/integration/assistant-chatgpt-access-contract.test.js": 12,
+    "tests/integration/assistant-mcp-proxy-contract.test.js": 20
   }
 }
