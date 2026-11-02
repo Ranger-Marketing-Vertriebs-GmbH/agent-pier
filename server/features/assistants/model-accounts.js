@@ -129,12 +129,13 @@ export class AssistantModelAccounts {
   }
   /** Rereads the Gateway's model list now; the account must exist. */
   async refreshModels(id) {
-    const record = this.record(id);
-    if (this.#codexList(record, hostReady(this.runtime))) {
-      await this.codex.refresh(record.profileId).catch(() => {});
-      return this.codex.account(record.profileId);
+    const held = this.records.find((r) => r.id === id);
+    if (held && this.#codexList(held, hostReady(this.runtime))) {
+      await this.codex.refresh(held.profileId).catch(() => {});
+      return this.codex.account(held.profileId);
     }
     this.requireReady();
+    const record = this.record(id);
     // A failed read is reported as the account's list state, never as an upstream error.
     await this.catalog.refresh({ force: true }).catch(() => {});
     const { models, modelCatalog } = this.catalog.account(record.profileId, {
