@@ -1,9 +1,9 @@
 import { assistantProblem } from "./assistant-validation.js";
-import { mainConversation } from "./routine-targets.js";
 import { cancelTurns, restartScope, runningWork, stopWork } from "./restart-work.js";
 import {
   freshMainChat,
   freshMemberChat,
+  mainChats,
   moveChannels,
   resyncDeliveries,
 } from "./main-chat-swap.js";
@@ -14,22 +14,6 @@ function restartable(service, assistantId) {
   if (agent.teamMemberId) throw assistantProblem("invalid");
   if (agent.archivedAt) throw assistantProblem("active", 409);
   return agent;
-}
-
-// Each person's main chat with the agent: the owner's and every user's.
-function mainChats(service, assistantId) {
-  const persons = new Set(
-    service.store
-      .listConversations()
-      .filter(
-        (c) =>
-          c.assistantId === assistantId && c.channel === "agentpier" && !c.archivedAt,
-      )
-      .map((c) => c.userId ?? null),
-  );
-  return [...persons]
-    .map((userId) => mainConversation(service.store, assistantId, userId))
-    .filter(Boolean);
 }
 
 /**

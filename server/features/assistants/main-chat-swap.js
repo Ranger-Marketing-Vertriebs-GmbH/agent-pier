@@ -126,6 +126,22 @@ function unavailable(error, step) {
   return Object.assign(assistantProblem("unavailable", 503), { cause: error });
 }
 
+// Each person's main chat with the agent: the owner's and every user's.
+export function mainChats(service, assistantId) {
+  const persons = new Set(
+    service.store
+      .listConversations()
+      .filter(
+        (c) =>
+          c.assistantId === assistantId && c.channel === "agentpier" && !c.archivedAt,
+      )
+      .map((c) => c.userId ?? null),
+  );
+  return [...persons]
+    .map((userId) => mainConversation(service.store, assistantId, userId))
+    .filter(Boolean);
+}
+
 /**
  * Points every Telegram channel of the agent whose chat was archived at its person's
  * main chat. Idempotent; callers hold admission, right after the swap.

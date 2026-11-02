@@ -36,6 +36,7 @@ import { AgentSkills } from "./agent-skills.js";
 import { followLead } from "./member-follow.js";
 import { assistantActivity } from "./assistant-activity.js";
 import { temporaryMember } from "./team-presentation.js";
+import { agentTurnPending, planSwitch, swapNow, switched } from "./model-switch.js";
 import { ChatStreams } from "./chat-stream.js";
 import { conversationFeeds } from "./conversation-feeds.js";
 import { RunSteps } from "./run-steps.js";
@@ -300,8 +301,9 @@ export class AssistantService {
    */
   // `queue: false` (a user's own switch) refuses a change that needs a restart.
   async update(id, input, revision, { confirmed, outcome = {}, queue = true } = {}) {
+    const { freshChats, ...given } = input || {};
     const { mcpServers, confirmStdio, confirmShell, confirmFull, followLead, ...body } =
-      input || {};
+      given;
     const binds = mcpServers !== undefined;
     let shell = null,
       patch = body;
@@ -337,24 +339,12 @@ export class AssistantService {
         !binds &&
         Object.keys(patch).every((k) => k === "shell");
       const member = this.teams?.store.find(id);
-      if (
+      // A working member, or any turn of the agent under way (model-switch.js).
+      const active =
         !lowersOnly &&
-        member?.kind === "member" &&
-        this.teams.store.activeMember(member)
-      )
-        throw assistantProblem("active", 409);
-      if (
-        !lowersOnly &&
-        this.ledger
-          .pending()
-          .some(
-            (a) =>
-              this.store.getConversation(
-                this.ledger.getRequest(a.requestId).conversationId,
-              ).assistantId === id,
-          )
-      )
-        throw assistantProblem("active", 409);
+        ((member?.kind === "member" && this.teams.store.activeMember(member)) ||
+          agentTurnPending(this, id));
+      if (active) throw assistantProblem("active", 409);
       if (patch.model) {
         const lease = await this.models.resolve(patch.model);
         lease.release();
@@ -365,6 +355,7 @@ export class AssistantService {
       const dreaming = this.dreaming?.enabled();
       const memoryKey = memoryRequirement(current, patch, { dreaming });
       if (memoryKey) throw assistantProblem(memoryKey, 409);
+      const plan = planSwitch(this, current, { ...current, ...patch }, { freshChats });
       // Refuses ineligible agents and unconfirmed stdio servers before any change.
       if (binds)
         outcome.stdioAdded = this.mcp.checkBindings(current, mcpServers, confirmStdio);
@@ -382,11 +373,12 @@ export class AssistantService {
       if (restart && !queued) {
         this.webTools.confirm(confirmed);
         // Reminders are switched off inside the restart, once no blocker can refuse.
-        return { restart, disableReminders };
+        return { restart, disableReminders, plan };
       }
       if (disableReminders) await this.reminders?.disable(id);
       const record = this.store.updateAssistant(id, patch, revision, { followLead });
       auditProactivity(this.audit, id, proactivityChange(current, patch));
+      const swapped = await swapNow(this, plan);
       let pending = false;
       if (binds) {
         this.mcp.setBindings(id, mcpServers);
@@ -402,9 +394,16 @@ export class AssistantService {
       pending = (await this.syncHeartbeat(id, patch)) || pending;
       if (queued) this.webTools.queue();
       this.changed();
-      return { record, pending };
+      return { record, pending, plan, swapped };
     });
-    if (!restart.restart) return this.withPending(restart.record, restart.pending);
+    let { plan, swapped } = restart;
+    if (!restart.restart)
+      return switched(
+        this,
+        plan,
+        swapped,
+        this.withPending(restart.record, restart.pending),
+      );
     // Maintenance drains the admission lock, so the restart runs outside admit() and
     // the decision above may be stale by now. A save that slipped in between fails
     // the revision check in updateAssistant after the restart, which is harmless:
@@ -426,12 +425,14 @@ export class AssistantService {
     );
     // The restarted Gateway's ready reconciles check-ins; this save repeats it.
     await this.admit(() => this.syncHeartbeat(id, patch)).catch(() => {});
+    swapped = await this.admit(() => swapNow(this, plan));
     if (!shell) {
       if (runtimeAccepts(this.runtime, before)) await this.config.apply(id);
-      return this.withMcp(record);
+      return switched(this, plan, swapped, this.withMcp(record));
     }
     // The restarted Gateway compiled the level; the apply confirms it.
-    return this.withPending(record, await this.shellChanges.settle(id, shell));
+    const settled = await this.shellChanges.settle(id, shell);
+    return switched(this, plan, swapped, this.withPending(record, settled));
   }
   /**
    * Converges the agent's check-in job after a saved heartbeat or capability change
