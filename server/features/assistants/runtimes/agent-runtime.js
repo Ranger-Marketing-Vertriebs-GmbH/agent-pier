@@ -224,8 +224,9 @@
  *     agent's workspace, or the bundled and host-wide skills without one; rejects
  *     while unreachable. unknownAgent(error): synchronously, whether the runtime
  *     refused it for an agent it has not created yet. An entry may name its
- *     `origin`: "bundled", "catalog" (AgentPier's catalog copy) or "local" (a skill
- *     the agent wrote or installed in the runtime itself); without one (OpenClaw)
+ *     `origin`: "bundled", "catalog" (AgentPier's catalog copy), "builtIn"
+ *     (AgentPier's own, built-in-skills.js) or "local" (a skill the agent wrote or
+ *     installed in the runtime itself); without one (OpenClaw)
  *     agent-skills.js reads the runtime's `source`.
  *   - on(connection), as sessions.on.
  * - browser: profiles, live view, input, takeover

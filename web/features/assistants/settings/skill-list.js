@@ -50,9 +50,15 @@ export function statusText(skill, copy, runtime = "OpenClaw") {
 }
 
 /**
+ * Whether the runtime offers a skill without AgentPier's switch: one the agent wrote
+ * itself there, or one the runtime needs (Hermes's hermes-agent).
+ */
+export const alwaysOn = (skill) => ["selfWritten", "essential"].includes(skill.state);
+
+/**
  * A switched-off skill that cannot be used is not offered; one that is on can go. A
- * skill the agent wrote itself in its runtime is on there without a switch here.
+ * skill that is always on in its runtime has no switch here.
  */
 export const skillLocked = (skill, on) =>
-  skill.state === "selfWritten" ||
+  alwaysOn(skill) ||
   (!on && ["shadowed", "unavailable", "needsSettings", "damaged"].includes(skill.state));

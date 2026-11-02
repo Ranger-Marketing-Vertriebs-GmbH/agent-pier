@@ -6,6 +6,7 @@ import { boundPort } from "./hermes-connection.js";
 import { hermesExecutables } from "./hermes-paths.js";
 import { readHermesConfig } from "./hermes-config/home-merge.js";
 import { essentialSkills } from "./hermes-config/skills.js";
+import { teamDirectory } from "./hermes-config/team-plugin.js";
 
 // What Hermes offers one agent of its skills (hermes-config/skills.js), read from the
 // installation and the agent's home as Hermes reads them (v0.22.5): bundled skills in
@@ -159,8 +160,8 @@ const onPath = (bin, folders) =>
 
 /**
  * One skill as the skills sub-port reports it, in the fields agent-skills.js reads:
- * `origin` ("bundled", "catalog" or "local", a skill the agent wrote or installed in
- * Hermes), `blockedByAgentFilter` (`skills.disabled` names it), what it requires
+ * `origin` ("bundled", "catalog", "builtIn" or "local", a skill the agent wrote or installed in
+ * Hermes), `essential` (a bundled skill Hermes always offers), `blockedByAgentFilter` (`skills.disabled` names it), what it requires
  * (prerequisites.commands as `bins`, required_environment_variables as `env`,
  * `platforms` as `os`) and what of it is missing on this host.
  */
@@ -184,12 +185,15 @@ function entryOf(skill, origin, { disabled, env, folders, platform }) {
     config: [],
     os: incompatible ? wanted : [],
   };
-  const blocked = disabled.has(skill.name) && !essentialSkills.includes(skill.name);
+  const essential = essentialSkills.includes(skill.name);
+  const blocked = disabled.has(skill.name) && !essential;
   return {
     name: skill.name,
     description: typeof meta.description === "string" ? meta.description : "",
     source: `hermes-${origin}`,
     origin,
+    // Hermes needs it: always offered, never switched (hermes-config/skills.js).
+    ...(essential && origin === "bundled" && { essential: true }),
     filePath: skill.file,
     eligible: !incompatible && !Object.values(missing).some((names) => names.length),
     disabled: false,
@@ -232,8 +236,14 @@ export function skillReport(
     add(skill, bundled.has(skill.name) || seeded.has(skill.name) ? "bundled" : "local");
   // A bundled skill not seeded yet (before the first start) is still Hermes's.
   for (const skill of bundled.values()) if (!seen.has(skill.name)) add(skill, "bundled");
-  for (const dir of list(config.skills?.external_dirs))
-    for (const skill of scanSkills(dir)) add(skill, "catalog");
+  // Hermes reads a relative folder below HERMES_HOME; AgentPier's built-in skills
+  // stand in the team plugin's folder there (hermes-config/skills.js builtInOffered).
+  const plugin = path.join(agent.hermesHome, teamDirectory);
+  for (const entry of list(config.skills?.external_dirs)) {
+    const dir = path.resolve(agent.hermesHome, entry);
+    const builtIn = dir.startsWith(plugin + path.sep);
+    for (const skill of scanSkills(dir)) add(skill, builtIn ? "builtIn" : "catalog");
+  }
   return { skills };
 }
 

@@ -7,16 +7,20 @@ import { assistantApi } from "./assistant-api.js";
 import RestartConfirmation from "./RestartConfirmation.jsx";
 import useLiveTopic from "../../lib/live/useLiveTopic.js";
 import { restartRequired } from "../provider-connections/restart-confirmation.js";
+import { runtimeIdName } from "./runtime-capabilities.js";
 
 const telegramUserId = /^[1-9]\d{0,19}$/;
+// A runtime that runs the bot in the agent's own processes (Hermes) reads the people
+// at its start: a change restarts that agent, where OpenClaw applies it live.
+const restartsOnPeople = (runtime) => runtime?.id === "hermes";
 
 /**
  * The agent's own Telegram bot for other people: its token (written here, never
- * shown again), the people it admits and its state. Changed people apply live; any
- * other change the running agent service was not started with (a bot, a token)
+ * shown again), the people it admits and its state. Changed people apply live on
+ * OpenClaw and restart the agent on Hermes (`runtime`: its runtimeInfo); any other change the running agent service was not started with (a bot, a token)
  * restarts it once the owner confirms.
  */
-export default function TelegramSendersSettings({ assistantId }) {
+export default function TelegramSendersSettings({ assistantId, runtime = null }) {
   const copy = telegramSendersCopy;
   const [token, setToken] = useState(""),
     [draft, setDraft] = useState([]),
@@ -165,7 +169,11 @@ export default function TelegramSendersSettings({ assistantId }) {
             </>
           )}
           <h3>{copy.people}</h3>
-          <p className="assistant-note">{copy.peopleHint}</p>
+          <p className="assistant-note">
+            {restartsOnPeople(runtime)
+              ? copy.peopleHintRestart(runtimeIdName(runtime.id))
+              : copy.peopleHint}
+          </p>
           {people.length ? (
             <ul className="assistant-telegram-people">
               {people.map((person) => (

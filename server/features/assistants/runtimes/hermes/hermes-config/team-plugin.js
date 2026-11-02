@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import { fileURLToPath } from "node:url";
 import { definitions, toolTimeouts } from "../../../team-plugin/index.js";
 
 // The AgentPier team plugin of a Hermes agent (ADR 0006 decision 4): AgentPier's team
@@ -30,6 +32,19 @@ export const teamDirectory = `plugins/${teamPlugin}`;
 export const liveTeamFiles = Object.freeze([`${teamDirectory}/bridge.json`]);
 
 const prefix = "agentpier_team_";
+
+// AgentPier's built-in skills ship with the OpenClaw team plugin (built-in-skills.js);
+// a Hermes home carries its own copy inside this plugin's folder.
+const shippedSkill = (name) =>
+  fs.readFileSync(
+    fileURLToPath(
+      new URL(`../../../team-plugin/skills/${name}/SKILL.md`, import.meta.url),
+    ),
+    "utf8",
+  );
+const skillTexts = new Map();
+/** The folder below HERMES_HOME that holds built-in skill `name`. */
+export const teamSkillFolder = (name) => `${teamDirectory}/skills/${name}`;
 
 const manifest = `name: ${teamPlugin}
 version: "1"
@@ -229,11 +244,15 @@ export function teamTools(agent) {
 /**
  * The plugin's files for `agent` (a desiredAgent), by path inside the home, or null
  * when it needs none. `connection`: the team bridge's `{ url, token }`, without which
- * the agent gets neither tools nor the guard; `browser`: whether it uses the browser.
+ * the agent gets neither tools nor the guard; `browser`: whether it uses the browser;
+ * `skills`: the built-in skills it gets (skills.js builtInOffered), copied here.
  * A team member's file changes ask the bridge (guardWrites), as the OpenClaw guard
  * does for every agent; an own agent's stay Hermes's own.
  */
-export function teamPluginFiles(agent, { connection, browser = false } = {}) {
+export function teamPluginFiles(
+  agent,
+  { connection, browser = false, skills = [] } = {},
+) {
   if (!connection?.url || !connection?.token) return null;
   const tools = teamTools(agent).map(({ name, action }) => ({
     name,
@@ -250,7 +269,14 @@ export function teamPluginFiles(agent, { connection, browser = false } = {}) {
     token: connection.token,
     agentId: agent.runtimeAgentId,
   };
+  const skillFiles = Object.fromEntries(
+    skills.map((name) => {
+      if (!skillTexts.has(name)) skillTexts.set(name, shippedSkill(name));
+      return [`${teamSkillFolder(name)}/SKILL.md`, skillTexts.get(name)];
+    }),
+  );
   return {
+    ...skillFiles,
     [`${teamDirectory}/plugin.yaml`]: manifest,
     [`${teamDirectory}/__init__.py`]: source,
     [`${teamDirectory}/tools.json`]: `${JSON.stringify(settings, null, 2)}\n`,

@@ -141,7 +141,10 @@ export default function ChannelsTab({ assistant, page, go, navigate }) {
           ) : (
             isPersonal(assistant) && (
               <AgentCapability assistant={assistant} surface="telegramSenders">
-                <TelegramSendersSettings assistantId={assistant.id} />
+                <TelegramSendersSettings
+                  assistantId={assistant.id}
+                  runtime={assistant.runtimeInfo}
+                />
               </AgentCapability>
             )
           )}
