@@ -555,7 +555,9 @@ tag cannot change what is installed. Hermes carries no version of its own in the
 `hermes --version` reports the upstream release date it carries.
 
 **Installation** (`runtimes/hermes/hermes-install.js`, under its own installation lock
-in `<data>/assistants/hermes/runtimes/`): download uv and the source archive and check
+in `<data>/assistants/hermes/runtimes/`): download uv and the source archive (each
+retried up to three times after 1, 2 and 4 seconds on a network failure, a stalled
+transfer, a server error, or a 408, 425 or 429 without a quota hint) and check
 both hashes, unpack them, check the hashes of `pyproject.toml` and `uv.lock`, install
 the pinned CPython with `uv python install --no-bin` and build the environment with
 `uv sync --frozen --no-dev --extra ddgs --extra messaging --extra mcp`. uv verifies every wheel against the hashes

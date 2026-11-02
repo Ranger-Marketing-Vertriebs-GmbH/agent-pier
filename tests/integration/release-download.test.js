@@ -302,6 +302,41 @@ test("server errors are retried with backoff, client errors are not", async (t) 
   assert.equal(calls, 1);
 });
 
+test("a timeout or throttling without a quota hint is retried, a refusal is not", async (t) => {
+  const answers = {
+    "/408": [408, 200],
+    "/425": [425, 200],
+    "/429": [429, 429, 200],
+    "/403": [403, 200],
+    "/quota": [429, 200],
+  };
+  const calls = {};
+  const fetchImpl = await fakeServer(t, (req, res) => {
+    const status = answers[req.url][(calls[req.url] = (calls[req.url] ?? 0) + 1) - 1];
+    if (status === 200) return res.end(payload);
+    res.writeHead(status, req.url === "/quota" ? { "retry-after": "120" } : {}).end();
+  });
+  const options = { idleTimeout: 1000, retryDelay: () => 1 };
+  for (const route of ["/408", "/425", "/429"])
+    assert.deepEqual(
+      await download(`https://fixture.invalid${route}`, fetchImpl, 1 << 20, options),
+      payload,
+      route,
+    );
+  assert.deepEqual(calls, { "/408": 2, "/425": 2, "/429": 3 });
+  // A refusal and an exhausted quota fail at once and name the upstream status.
+  await assert.rejects(
+    download("https://fixture.invalid/403", fetchImpl, 1 << 20, options),
+    { status: 502, upstreamStatus: 403 },
+  );
+  await assert.rejects(
+    download("https://fixture.invalid/quota", fetchImpl, 1 << 20, options),
+    { status: 502, upstreamStatus: 429, rateLimited: true, retryAfter: 120 },
+  );
+  assert.equal(calls["/403"], 1);
+  assert.equal(calls["/quota"], 1);
+});
+
 test("the default backoff grows between the three retries", async () => {
   const { downloadRetryDelay } =
     await import("../../server/features/operations/releases.js");
