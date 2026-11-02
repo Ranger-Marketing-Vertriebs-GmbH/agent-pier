@@ -5380,3 +5380,15 @@ follows the requalification checklist in
 - Plain-language team authorization has the accepted limits described under Visible
   teams. Rollback or restore after a credential revocation needs a new login, and
   works on the same host only (see [runtime updates](assistant-runtime-updates.md)).
+- **Generated images in the delivery turn.** OpenClaw 2026.10.9 loads the images a
+  prompt names only from the agent's workspace while `tools.fs.workspaceOnly` is on,
+  and offers no setting for further folders. The `image_generate` completion turn
+  names the image in `state/media/tool-image-generation/`, so a vision model gets the
+  turn without the picture, and the Gateway logs that the local media path "is not
+  under an allowed directory". Delivery is unaffected (OpenClaw sends the media,
+  AgentPier copies the artifact), and `view_image` still reads the shared media
+  folder. Switching `workspaceOnly` off is not an option.
+- **Allowlist warnings from memory search.** AgentPier's own memory search calls
+  `memory_search` through `tools.invoke`, where OpenClaw builds only Gateway-scope
+  tools. The Gateway then logs once that `read`, `write`, `edit`, `view_image` and
+  `pdf` are unknown entries; agent turns build these tools under the same names.

@@ -524,8 +524,11 @@ relative path against its own process. Hermes's tool waits for the image (no
 background task). The plugin's `transform_tool_result` hook copies the image Hermes
 saved below `cache/generated/images/` into `generated-images/` of the agent's folder
 and shares it into the chat with `agentpier_share_file`, also to the owner's
-Telegram chat when the turn came from there; the tool result tells the agent so. The
-agent's instructions name image creation as for OpenClaw.
+Telegram chat when the turn came from there; the tool result tells the agent so.
+Hermes's own media delivery into an AgentPier chat (`gateway/session_local.py`
+`LocalSessionAdapter`) has no image send in v0.22.5, so Hermes logs a
+`send_image_file fallback` warning; the image reaches the chat through the share
+above. The agent's instructions name image creation as for OpenClaw.
 
 ## Agents on Hermes
 
