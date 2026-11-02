@@ -44,4 +44,7 @@ shell or SSH grants wait for the owner's approval. See
 Complete initial user setup before sharing permitted network access. Use the
 documented private remote-access configuration and protect the machine and its
 backups. Credentials are stored in private files and are not automatically
-encrypted at rest. See [login](docs/login.md) and [remote access](docs/remote-access.md).
+encrypted at rest. AgentPier holds the agents' ChatGPT and MCP OAuth logins itself
+(`<data>/model-logins/`, owner-only) and is their only refresher; the agent runtimes
+get an access token (OpenClaw's ChatGPT profile) or a credential for AgentPier's
+loopback proxy, never a refresh token. See [login](docs/login.md) and [remote access](docs/remote-access.md).

@@ -185,6 +185,18 @@ state: the compiler preserves them and never produces duplicate keys.
   ([browser on Hermes](../hermes-runtime.md#browser)).
 - **Models:** AgentPier injects connection keys through Hermes's secret source; Hermes
   never adopts logins it finds on the host.
+- **Logins (decided 2026-11-02):** account logins are runtime-neutral and AgentPier's:
+  one login per account, never one per agent. AgentPier holds and is the only
+  refresher of ChatGPT/Codex and MCP OAuth tokens; no refresh token is ever shared
+  between two refreshers. OpenClaw gets an access-only ChatGPT profile in its own store
+  (it never refreshes one without a refresh token and keeps every ChatGPT feature);
+  Hermes reaches ChatGPT, and both runtimes reach OAuth MCP servers, through
+  AgentPier's loopback proxy with a per-scope credential. Hermes never depends on a
+  running OpenClaw. Logins OpenClaw made before keep working until the owner moves
+  them explicitly (ChatGPT: **Move this ChatGPT login to AgentPier**; MCP: **Log in
+  again**); nothing migrates on its own
+  ([model connections](../assistant-model-connections.md#chatgpt-logins-held-by-agentpier),
+  [MCP](../mcp.md#oauth-logins-held-by-agentpier)).
 - **Toolchain:** Python 3.14 and `uv` are provisioned by the installation scripts and the
   update path, pinned like the OpenClaw runtime lock. Hermes is pinned to a release
   tag and the commit it names (the owner chose release `v0.22.5`, commit `bf0203a7`,
@@ -244,6 +256,9 @@ Each step ships with its contract tests against a pinned runtime, as OpenClaw do
 - ~~Which Hermes command starts a detached gateway, and the setting that prevents
   it.~~ Answered in decision 4 (host as built): clients without an owner; no setting,
   the supervised owner prevents it.
-- Linux behaviour, real Telegram and Codex subscription login. (The browser CDP
+- Linux behaviour and real Telegram. A real ChatGPT account on an access-only
+  OpenClaw profile (chat, image_generate, transcription, realtime, usage, embeddings)
+  and whether OpenClaw clears a 401 or usage cooldown when AgentPier writes a new
+  token are still to be verified with the owner. (The browser CDP
   handoff is answered in decision 4: Hermes attaches to AgentPier's Chromium.)
 - Moving an agent between runtimes, including history and memory.

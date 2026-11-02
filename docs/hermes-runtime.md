@@ -78,7 +78,8 @@ itself, in the approval card.
 | Endpoint with an `api-key` header | the same, plus `extra_headers` referencing the key                     | `AUXILIARY_AGENTPIER_API_KEY` |
 | Local server without a key        | `provider: custom` without `key_env`                                   | none                          |
 | OpenRouter                        | `provider: openrouter`, `default`                                      | `OPENROUTER_API_KEY`          |
-| ChatGPT account                   | refused: Hermes agents cannot choose one                               | none                          |
+| ChatGPT login AgentPier holds     | `provider: openai-codex`, `default`; pool row in `auth.json`           | `HERMES_CODEX_BASE_URL`       |
+| ChatGPT login OpenClaw holds      | refused until moved to AgentPier                                       | none                          |
 
 Every endpoint kind AgentPier offers agents (OpenAI, Azure OpenAI, Anthropic's and other
 vendors' OpenAI-compatible APIs, Ollama, llama.cpp, LM Studio) is a Chat Completions
@@ -87,13 +88,26 @@ Hermes never switches an `api.openai.com` or `/anthropic` URL to another wire pr
 (`agent/agent_init.py`). The endpoint's Chat Completions options need no key: Hermes
 sends no output cap on an agent's turn and picks `max_completion_tokens` itself where
 it sends one (`maxTokensField`), and it repeats a stream without `stream_options` once
-an endpoint refuses them (`streamUsage`). A ChatGPT account's OAuth profile stays in
-OpenClaw's store, which OpenClaw refreshes; OpenAI rotates the refresh token, so a copy
-in a Hermes home (Hermes's `openai-codex` provider refreshes on its own) would sign one
-of them out. AgentPier therefore lists ChatGPT accounts unavailable for Hermes agents
-and refuses one (`modelAccountRuntime`). The models sub-port (`hermes-models.js`)
-answers Hermes's model inventory of the home (`model.options`) and no accounts;
-sign-ins stay host-wide on OpenClaw. A model switch is a `config.apply` that restarts
+an endpoint refuses them (`streamUsage`).
+
+A ChatGPT login AgentPier holds ([model connections](assistant-model-connections.md#chatgpt-logins-held-by-agentpier))
+runs on Hermes's own `openai-codex` provider, which keeps the Codex request shaping on
+whatever its URL (`agent/codex_responses_adapter.py` `is_codex_backend`; a plain
+`provider: custom` drops `api_mode: codex_responses` for a host other than OpenAI's,
+`hermes_cli/runtime_provider.py`). `HERMES_CODEX_BASE_URL` in `.env` points it at
+AgentPier's model proxy (`<proxy>/chatgpt/codex`); it wins over every credential's own
+URL, also when Hermes rotates credentials (`credential_pool.py` `runtime_base_url`).
+The credential is the proxy's, for this agent and this login only, as an `api_key` row
+(`source: manual:agentpier`) of Hermes's credential pool in `auth.json`; the writer
+replaces only that row and keeps Hermes's own rows and status fields. Hermes refreshes
+only `oauth` rows with a refresh token, so it never redeems anything, and the proxy adds
+the account's token, `ChatGPT-Account-Id` and residency header that Hermes leaves out
+for a non-JWT credential (`agent/codex_headers.py`). The home never holds an OpenAI
+token, and Hermes needs no running OpenClaw. A login OpenClaw still holds is listed
+unavailable and refused (`runtimeAccount`, `modelAccountRuntime`) until the owner moves
+it to AgentPier. The models sub-port (`hermes-models.js`) answers Hermes's model
+inventory of the home (`model.options`) and no accounts; sign-ins stay host-wide in
+AgentPier. A model switch is a `config.apply` that restarts
 the agent's process set; AgentPier has no per-chat model. The key never appears in `config.yaml`. Hermes
 strips `AUXILIARY_*_API_KEY` and `OPENROUTER_API_KEY` from every command and process it
 starts, so the agent's own commands do not see the key. A model that accepts images sets
@@ -295,22 +309,24 @@ chats already open. The pinned installation includes Hermes's `mcp` extra (the M
 SDK); AgentPier keeps Hermes's lazy installs off, so an installation built before the
 extra was pinned is offered as an update.
 
-OAuth servers are not offered to Hermes agents: OpenClaw holds the login's tokens
-([MCP OAuth qualification](mcp-oauth-qualification.md)) and AgentPier keeps none of its
-own to hand over, while Hermes's own OAuth store would need a second login per agent
-inside Hermes. Binding one to a Hermes agent is refused (`oauthHermesUnsupported`), and
-the compiler names one bound before as `mcpOAuth`. The owner's server overview resolves
-a Hermes agent's placeholders in its work folder and names its entry by the server's
-name, active while its set runs (`mcp-placeholder-view.js`).
+An OAuth server whose login AgentPier holds ([MCP](mcp.md#oauth-logins-held-by-agentpier))
+reaches a Hermes agent as a plain Streamable HTTP server: the URL of AgentPier's MCP
+proxy (`<proxy>/mcp/<server id>`) and the proxy credential of that server as its
+`Authorization` header, both by reference to `.env`. Hermes runs no OAuth flow of its
+own and never holds the tokens. A server whose login OpenClaw still holds (or an SSE
+server, which the proxy does not carry) is left out and named `mcpOAuth` until the
+owner logs in again. The owner's server overview resolves a Hermes agent's
+placeholders in its work folder and names its entry by the server's name, active while
+its set runs (`mcp-placeholder-view.js`).
 
 ### Not mapped yet
 
-The compiler names what an agent wants that Hermes does not get yet: ChatGPT accounts,
-the browser while AgentPier knows no browser app, MCP servers it cannot compile (`mcp`,
-`mcpOAuth`), assigned skills Hermes cannot offer, a web search provider it cannot serve
-(`webSearch`), image creation (`createImages`) and AgentPier's tools while no team
-bridge runs (`teams`). Hermes has no advanced settings in AgentPier yet: the capability
-reports `advancedSettingsUnsupported`.
+The compiler names what an agent wants that Hermes does not get yet: ChatGPT logins
+OpenClaw still holds, the browser while AgentPier knows no browser app, MCP servers it
+cannot compile (`mcp`, `mcpOAuth`), assigned skills Hermes cannot offer, a web search
+provider it cannot serve (`webSearch`), image creation (`createImages`) and AgentPier's
+tools while no team bridge runs (`teams`). Hermes has no advanced settings in AgentPier
+yet: the capability reports `advancedSettingsUnsupported`.
 
 ## Teams
 
@@ -480,7 +496,7 @@ every set reach the chat path and the event hub once (`agentRuntimeEvents`).
 | ----------------------------------------------------------- | ----------------------------------- |
 | host, sessions, events, approvals, config, agents, routines | available                           |
 | agentFiles, skills                                          | available                           |
-| models                                                      | available (no ChatGPT accounts)     |
+| models                                                      | available (no account sign-ins)     |
 | channels                                                    | available (the owner's Telegram)    |
 | channelBots                                                 | available (Hermes's own adapter)    |
 | browser                                                     | available (AgentPier's Chromium)    |
@@ -690,7 +706,7 @@ is refused as `invalid_params`, so AgentPier sends only the parameters listed.
 ## Parity with OpenClaw agents
 
 What AgentPier offers an OpenClaw agent and how a Hermes agent gets it (audit of
-AGENTPIER-344). Logins (ChatGPT accounts, MCP OAuth) are AGENTPIER-340's.
+AGENTPIER-344, logins from AGENTPIER-340).
 
 | Feature                                                    | OpenClaw                            | Hermes                                              | Notes                                                        |
 | ---------------------------------------------------------- | ----------------------------------- | --------------------------------------------------- | ------------------------------------------------------------ |
@@ -698,14 +714,14 @@ AGENTPIER-344). Logins (ChatGPT accounts, MCP OAuth) are AGENTPIER-340's.
 | Chat titles, queued messages                               | While the Gateway is ready          | While the agent's set is ready                      | Independent of OpenClaw                                      |
 | Chat deletion, user release                                | Session, archives, dreaming copies  | Session and transcript (`session.mutate delete`)    | Retried at the set's next ready                              |
 | Long chats                                                 | Compaction, context size            | Compression, `session.stats`                        |                                                              |
-| Model connection                                           | Every connection                    | Every connection but ChatGPT accounts               | AGENTPIER-340                                                |
+| Model connection                                           | Every connection                    | Every connection; ChatGPT logins AgentPier holds    | [Model connection](#model-connection)                        |
 | Shell levels                                               | Off, approval (every command), full | Off, dangerous commands, every command, full        | [Shell levels](#shell-levels)                                |
 | Routine runs on an asking level                            | Ask the owner                       | Ask the owner through the guard                     | [Routines](#routines)                                        |
 | Always allow                                               | OpenClaw's allowlist                | AgentPier remembers the exact command               | Allowlist page is OpenClaw's                                 |
 | Memory                                                     | Files, memory steps, Dream Diary    | `MEMORY.md`, `USER.md`, Hermes's own review         | No memory step                                               |
 | Dreaming                                                   | memory-core                         | Not offered                                         | Memory stays the owner's switch                              |
 | Skills                                                     | Bundled, catalog, shopping          | Bundled, catalog, shopping, self-written            | `hermes-agent` always on                                     |
-| MCP servers                                                | stdio, HTTP, OAuth                  | stdio, HTTP                                         | OAuth: AGENTPIER-340                                         |
+| MCP servers                                                | stdio, HTTP, OAuth                  | stdio, HTTP, OAuth logins AgentPier holds           | [MCP servers](#mcp-servers)                                  |
 | Web search                                                 | DuckDuckGo, Brave, Perplexity       | `ddgs`, `brave-free`, AgentPier's Perplexity plugin | [Web search](#web-search)                                    |
 | Web fetch                                                  | `web_fetch`                         | AgentPier's `agentpier-fetch`                       | Private networks always refused                              |
 | Read images                                                | `view_image`                        | `vision` toolset                                    |                                                              |
@@ -759,6 +775,10 @@ with Hermes's `memory` tool comes back through it; an assigned bundled skill and
 catalog skill reach the agent's skill index while an unassigned one stays out, and a
 skill the agent writes is reported as its own; a bound stdio MCP server's tool is
 offered and called, and its secret never reaches the agent's shell.
+`hermes-chatgpt-contract.test.js` runs turns on a ChatGPT login AgentPier holds through
+the model proxy against a fake Codex backend and issuer (no token in the home, one
+renewal by AgentPier after a 401), and `hermes-mcp-proxy-contract.test.js` calls an
+AgentPier-held OAuth MCP server's tool through the MCP proxy.
 `hermes-update-contract.test.js` installs the
 previous release (`tests/fixtures/hermes-previous-manifest.json`, made with
 `scripts/refresh-hermes-runtime-lock.mjs`) and the pinned one into a disposable data
