@@ -59,5 +59,4 @@ plugins/agentpier-web
 ==> (unsupported) <==
 browser
 skills
-routines
 teams

@@ -1,14 +1,20 @@
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
-import { definitions, toolTimeouts } from "../../../team-plugin/index.js";
+import {
+  browserStageTimeoutMs,
+  definitions,
+  toolName,
+  toolTimeouts,
+} from "../../../team-plugin/index.js";
 
 // The AgentPier team plugin of a Hermes agent (ADR 0006 decision 4): AgentPier's team
 // tools and its tool guard in one Hermes profile plugin (website/docs/user-guide/
 // features/plugins.md). Both answer through AgentPier's team bridge (team-bridge.js),
 // as the OpenClaw team plugin does (../../../team-plugin/).
 //
-// - Tools: `ctx.register_tool` with the OpenClaw names (agentpier_team_*), so the
-//   agent's instructions name them alike. A plugin tool's handler receives the calling
+// - Tools: `ctx.register_tool` with the OpenClaw names (AgentPier's own agentpier_*
+//   tools and the team tools agentpier_team_*), so the agent's instructions name
+//   them alike. A plugin tool's handler receives the calling
 //   session's `session_id` (Hermes v0.22.5 model_tools.py `handle_function_call`; the
 //   stored session id the session keys carry, tui_gateway/agent_factory.py) and runs
 //   under the tool call's id (tools/approval_context.py `_approval_tool_call_id`). An
@@ -16,10 +22,11 @@ import { definitions, toolTimeouts } from "../../../team-plugin/index.js";
 //   arguments), so the tools are no MCP server. A call prepares a ticket for its
 //   session and waits inside the tool for the answer: asks and proposals wait up to
 //   about two minutes, beyond Hermes's 30-second hook timeout.
-// - Guard: a `pre_tool_call` hook (hermes_cli/plugins.py `invoke_lifecycle_hook`, 30
-//   s timeout, fail-closed) asks the bridge before a team member changes a file
-//   (`write_file`, `patch`) and before every browser call (`browser_*`); no answer
-//   blocks the call. Invisible subagents (`delegate_task`) run under a session of
+// - Guard: a `pre_tool_call` hook (hermes_cli/plugins.py `invoke_lifecycle_hook`,
+//   fail-closed) asks the bridge before a team member changes a file (`write_file`,
+//   `patch`), before a file call that names the attachments/ or .agentpier/ folder
+//   (`read_file`, `search_files`, `vision_analyze`, the writes) and before every
+//   browser call (`browser_*`); no answer blocks the call. Invisible subagents (`delegate_task`) run under a session of
 //   their own; the `subagent_start` hook maps it to the parent's, so the guard judges
 //   a subagent's call as its parent's. Team tools stay with the parent's own session.
 //
@@ -30,8 +37,6 @@ export const teamPlugin = "agentpier-team";
 export const teamDirectory = `plugins/${teamPlugin}`;
 /** Home paths whose change the running gateway reads without a restart. */
 export const liveTeamFiles = Object.freeze([`${teamDirectory}/bridge.json`]);
-
-const prefix = "agentpier_team_";
 
 // AgentPier's built-in skills ship with the OpenClaw team plugin (built-in-skills.js);
 // a Hermes home carries its own copy inside this plugin's folder.
@@ -60,6 +65,7 @@ cannot answer fails, and the guard then blocks the tool.
 
 import json
 import os
+import re
 import threading
 import urllib.error
 import urllib.request
@@ -74,6 +80,8 @@ _OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 _PARENTS = {}
 _LOCK = threading.Lock()
 _WRITES = ("write_file", "patch")
+# File tools whose paths may name the agent's attachments/ or secrets folder.
+_FILES = ("read_file", "search_files", "vision_analyze") + _WRITES
 
 
 class _Refused(Exception):
@@ -118,10 +126,53 @@ def _post(endpoint, body, timeout):
         raise _Refused(_UNAVAILABLE)
 
 
-def _session_key(session_id):
+# A routine run's tool calls carry its task id cron:<job>:<execution>
+# (cron/scheduler.py); older runs named their session cron_<job>_<YYYYmmdd_HHMMSS>.
+# AgentPier keys such a run by its job (hermes-routine-jobs.js runSessionKey).
+_CRON_TASK = re.compile(r"^cron:([A-Za-z0-9_-]{1,64}):")
+_CRON = re.compile(r"^cron_([A-Za-z0-9-]{1,64})_[0-9]{8}_[0-9]{6}$")
+
+
+def _job(session_id, task_id):
+    match = _CRON_TASK.match(task_id or "") or _CRON.match(session_id or "")
+    return match.group(1) if match else None
+
+
+def _session_key(session_id, task_id=None):
     if not isinstance(session_id, str) or not session_id:
         return None
-    return "agent:" + _read("bridge.json")["agentId"] + ":hermes:" + session_id
+    prefix = "agent:" + _read("bridge.json")["agentId"] + ":hermes:"
+    job = _job(session_id, task_id)
+    if job:
+        return prefix + "cron:" + job + ":" + session_id
+    return prefix + session_id
+
+
+def _segments(session_id):
+    # A compression continues a chat in a new stored session (end_reason
+    # "compression" on its parent); AgentPier may still key the chat by an earlier
+    # segment until it is opened again. Newest first, through compressions only (never
+    # a subagent's parent), read through Hermes's shared SessionDB in this process.
+    ids = [session_id]
+    try:
+        from hermes_state_registry import acquire, release_or_close
+
+        db = acquire()
+        try:
+            current = session_id
+            for _ in range(200):
+                row = db.get_session(current)
+                parent = row.get("parent_session_id") if row else None
+                above = db.get_session(parent) if parent else None
+                if not above or above.get("end_reason") != "compression" or parent in ids:
+                    break
+                ids.append(parent)
+                current = parent
+        finally:
+            release_or_close(db)
+    except Exception:
+        pass
+    return ids
 
 
 def _root(session_id):
@@ -145,32 +196,63 @@ def _call_id():
     return "hermes-" + uuid.uuid4().hex
 
 
-def _tool(action, timeout):
-    def handler(args, session_id=None, **_):
+def _timeout(tool, args):
+    if tool["action"] == "workspace" and args.get("action") == "browser_upload_stage":
+        return tool["stageTimeoutMs"] / 1000
+    return tool["timeoutMs"] / 1000
+
+
+def _shown(action, result):
+    # A project image (workspace image_view) is named, never returned as base64 text:
+    # a plugin tool answers text only.
+    if (
+        action == "workspace"
+        and isinstance(result, dict)
+        and isinstance(result.get("data"), str)
+        and isinstance(result.get("mimeType"), str)
+    ):
+        result = {key: value for key, value in result.items() if key != "data"}
+        result["note"] = "Image content is not shown to this agent; read the file instead."
+    return json.dumps(result)
+
+
+def _tool(tool):
+    action = tool["action"]
+
+    def handler(args, session_id=None, task_id=None, **_):
         try:
-            key = _session_key(session_id)
-            if key is None:
+            if _session_key(session_id) is None:
                 raise _Refused(_UNAVAILABLE)
-            prepared = _post(
-                "/prepare",
-                {
-                    "agentId": _read("bridge.json")["agentId"],
-                    "sessionKey": key,
-                    "toolCallId": _call_id(),
-                    "action": action,
-                },
-                10,
-            )
+            call_id = _call_id()
+            if _job(session_id, task_id):
+                keys = [_session_key(session_id, task_id)]
+            else:
+                keys = [_session_key(sid) for sid in _segments(session_id)]
+            prepared = None
+            for index, key in enumerate(keys):
+                try:
+                    prepared = _post(
+                        "/prepare",
+                        {
+                            "agentId": _read("bridge.json")["agentId"],
+                            "sessionKey": key,
+                            "toolCallId": call_id,
+                            "action": action,
+                        },
+                        10,
+                    )
+                    break
+                except _Refused:
+                    # The chat's earlier segment, as AgentPier may still key it.
+                    if index == len(keys) - 1:
+                        raise
+            args = args if isinstance(args, dict) else {}
             result = _post(
                 "/invoke",
-                {
-                    "ticket": prepared["ticket"],
-                    "action": action,
-                    "input": args if isinstance(args, dict) else {},
-                },
-                timeout,
+                {"ticket": prepared["ticket"], "action": action, "input": args},
+                _timeout(tool, args),
             )
-            return json.dumps(result)
+            return _shown(action, result)
         except _Refused as refusal:
             return json.dumps({"error": str(refusal)})
         except Exception:
@@ -179,20 +261,38 @@ def _tool(action, timeout):
     return handler
 
 
-def _guard(tool_name="", args=None, session_id=None, **_):
+def _names_folder(args):
+    # A cheap first look: only a call whose arguments name attachments/ or .agentpier/
+    # in some spelling asks AgentPier, which resolves the paths itself.
+    try:
+        text = json.dumps(args).lower()
+    except Exception:
+        return True
+    return "attachments" in text or ".agentpier" in text or "%" in text
+
+
+def _guard(tool_name="", args=None, session_id=None, task_id=None, **_):
     settings = _read("tools.json")
+    args = args if isinstance(args, dict) else {}
     browser = tool_name.startswith("browser_") and settings.get("browser")
-    if not browser and not (tool_name in _WRITES and settings.get("guardWrites")):
+    member_write = tool_name in _WRITES and bool(settings.get("guardWrites"))
+    folder = tool_name in _FILES and _names_folder(args)
+    if not browser and not member_write and not folder:
         return None
     try:
-        key = _session_key(_root(session_id))
+        root = _root(session_id)
+        key = _session_key(root, task_id)
+        cron = _job(root, task_id)
+        earlier = [_session_key(sid) for sid in _segments(root)[1:]] if key and not cron else []
         answer = _post(
             "/hermes-guard",
             {
                 "agentId": _read("bridge.json")["agentId"],
                 **({"sessionKey": key} if key else {}),
+                **({"segments": earlier[:20]} if earlier else {}),
                 "toolName": tool_name,
-                "args": args if isinstance(args, dict) else {},
+                "args": args,
+                **({"memberWrite": True} if member_write else {}),
             },
             10,
         )
@@ -221,23 +321,36 @@ def register(ctx):
                 "description": tool["description"],
                 "parameters": tool["parameters"],
             },
-            handler=_tool(tool["action"], tool["timeoutMs"] / 1000),
+            handler=_tool(tool),
             description=tool["description"],
         )
     ctx.register_hook("pre_tool_call", _guard)
     ctx.register_hook("subagent_start", _subagent)
 `;
 
-/** The team tools of `agent` (a desiredAgent) as `{ name, action }`, sorted. */
+// The bridge action a tool name stands for, or null (team-plugin/index.js toolName).
+const actionOf = (name) => {
+  const action = name.replace(/^agentpier_(?:team_)?/, "");
+  return action !== name &&
+    Object.hasOwn(definitions, action) &&
+    toolName(action) === name
+    ? action
+    : null;
+};
+
+/**
+ * AgentPier's bridge tools of `agent` (a desiredAgent) as `{ name, action }`, sorted:
+ * its team tools and AgentPier's own tools (reminders, routines, hooks, workspace,
+ * file sharing, SSH, goals, coding sessions, mail, projects, previews), as its grants
+ * name them (native-capabilities.js toolGrants, which already leaves out what a user
+ * agent may not hold). The bridge checks every call as it does OpenClaw's.
+ */
 export function teamTools(agent) {
-  if (agent.locked || agent.archived) return [];
-  const names = agent.tools
-    .filter((grant) => grant.needs?.includes("teams"))
-    .flatMap((grant) => grant.tools || [])
-    .filter((name) => name.startsWith(prefix));
+  if (agent.archived) return [];
+  const names = agent.tools.flatMap((grant) => grant.tools || []);
   return [...new Set(names)]
-    .map((name) => ({ name, action: name.slice(prefix.length) }))
-    .filter(({ action }) => Object.hasOwn(definitions, action))
+    .map((name) => ({ name, action: actionOf(name) }))
+    .filter(({ action }) => action)
     .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 }
 
@@ -260,9 +373,9 @@ export function teamPluginFiles(
     description: definitions[action].description,
     parameters: definitions[action].parameters,
     timeoutMs: toolTimeouts[action] ?? 10000,
+    ...(action === "workspace" && { stageTimeoutMs: browserStageTimeoutMs }),
   }));
   const guardWrites = agent.team.memberOf !== null;
-  if (!tools.length && !guardWrites && !browser) return null;
   const settings = { tools, guardWrites, browser: !!browser };
   const bridge = {
     url: connection.url,

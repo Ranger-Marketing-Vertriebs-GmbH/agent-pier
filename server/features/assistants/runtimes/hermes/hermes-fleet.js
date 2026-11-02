@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { EventEmitter } from "node:events";
 import { createHermesRuntime } from "./hermes-runtime.js";
-import { hermesPaths } from "./hermes-paths.js";
+import { hermesPaths, hermesWorkspace } from "./hermes-paths.js";
 
 // Agent ids that may name a Hermes folder (hermes-paths.js agentId).
 const folderId = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
@@ -89,7 +89,7 @@ export class HermesFleet extends EventEmitter {
   workspaceOf(agent) {
     const agentId = hermesAgentIdOf(agent);
     if (!this.dataDir || !folderId.test(agentId || "")) return null;
-    return path.join(hermesPaths(this.dataDir).workspaces, agentId);
+    return hermesWorkspace(hermesPaths(this.dataDir), agentId);
   }
 
   /** The runtimes made so far, by runtime agent id. */
@@ -180,6 +180,8 @@ export class HermesFleet extends EventEmitter {
     const paths = hermesPaths(this.dataDir);
     for (const name of ["home", "state", "workspaces", "tmp", "logs"])
       fs.rmSync(path.join(paths[name], agentId), { recursive: true, force: true });
+    // Its work folder, AgentPier's agent workspace (hermes-paths.js hermesWorkspace).
+    fs.rmSync(hermesWorkspace(paths, agentId), { recursive: true, force: true });
   }
 
   async close() {

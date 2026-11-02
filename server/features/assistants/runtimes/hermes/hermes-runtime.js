@@ -215,6 +215,13 @@ export function createHermesRuntime({
           inputs: { catalog, mcp, connection, web },
           browser: settings,
         };
+        // The agent's shell PATH starts with its GitHub folder and its SSH agent's
+        // bin/ (desired shell.pathPrepend); the gateway's PATH is its commands', read
+        // at its start (tools/environments/local.py), so a change restarts the set.
+        const pathPrepend = [...(read?.shell?.pathPrepend || [])];
+        const pathChanged =
+          JSON.stringify(pathPrepend) !== JSON.stringify(supervisor.pathPrepend || []);
+        supervisor.pathPrepend = pathPrepend;
         const { availability } = supervisor.status();
         if (!isRunning(availability)) {
           await supervisor.start();
@@ -227,7 +234,8 @@ export function createHermesRuntime({
           latest.inputs,
           settings,
         );
-        const restart = changed.some((file) => !liveTeamFiles.includes(file));
+        const restart =
+          pathChanged || changed.some((file) => !liveTeamFiles.includes(file));
         if (restart) await supervisor.restart();
         else await supervisor.start();
         return { written: changed, restarted: restart };

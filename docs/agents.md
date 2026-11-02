@@ -228,16 +228,29 @@ What works on Hermes today:
   chat. Memory search looks through both files.
 - Skills: switch on Hermes's bundled skills and skills from the skill catalog on the
   agent's skills page; the bundled skills you leave off stay off. Skills the agent
-  writes itself in Hermes stay on and are listed there without a switch.
+  writes itself in Hermes, and Hermes's own `hermes-agent`, stay on and are listed there
+  without a switch. **Shopping** works with the browser as on OpenClaw.
 - MCP servers: bind servers of the MCP store under **Access**, local commands and
   servers with a token; their tools appear as `mcp__<server>__<tool>`. Servers with
-  sign-in (OAuth) are not available for Hermes agents yet.
+  sign-in (OAuth) are not available for Hermes agents yet. Agent placeholders resolve
+  in the agent's own folder.
+- Web: web search uses the provider you chose (DuckDuckGo, Brave or Perplexity through
+  OpenRouter) and web fetch reads pages directly, never private addresses. **Read
+  images** and **Read PDFs** work (PDFs by their text; scanned pages are not read).
+  **Create images** is shown disabled: images come from a ChatGPT account, which Hermes
+  agents cannot use yet.
+- AgentPier's own tools: attachments you send (also videos), sharing files with you
+  (also to your paired Telegram chat), the agent's own reminders and routines, hook
+  proposals, project folders and new projects, SSH and SSH access requests, GitHub,
+  secrets, work goals, coding sessions, email and previews work as on OpenClaw. The
+  agent works in the same kind of folder as an OpenClaw agent, so its attachments,
+  secrets and transfers are where its commands run.
 - Reminders, routines and check-ins you set up in the agent's settings: they run
   on the agent's own Hermes scheduler in each routine's own time zone, their results
   show in its main chat and the agent sees them in later turns, as on OpenClaw. With
   **Full access** a routine run uses the shell as OpenClaw's does; with **Dangerous
-  commands** or **Every command** a routine run refuses the commands that would ask,
-  because Hermes cannot ask anyone during a routine run
+  commands** or **Every command** a routine run asks you before the commands that ask
+  and waits up to five minutes
   ([Hermes runtime](hermes-runtime.md#routines)).
 - Hooks: an incoming event runs in the agent's main chat as on OpenClaw.
 - Long chats: the hint to summarise a long chat appears as on OpenClaw.
@@ -261,11 +274,16 @@ What works on Hermes today:
 - The browser: AgentPier starts the agent's own Chromium for Hermes's browser tools,
   with the same profile reset, **Visible browser**, live view and takeover as on
   OpenClaw; private addresses follow **Allow private networks for all agent
-  browsers**.
+  browsers**. A task member with the browser gets one of its own. Hermes's browser
+  tools cannot upload files into a page yet.
+- Agents of restricted users keep OpenClaw's limits: no shell, no subagents, no other
+  chats.
+- Backups keep a Hermes agent's keys and conversations sealed like OpenClaw's
+  ([backups](backups.md#hermes-agents)); dreaming is OpenClaw's.
 
-What comes later, shown disabled with **Not available for Hermes agents yet.** in
-the agent's settings: the agent's own reminder and routine tool and advanced runtime
-settings. Updates of Hermes itself appear in the **Hermes Agent** group (**Update**);
+What comes later, shown disabled in the agent's settings: image creation and advanced
+runtime settings; the full comparison is in
+[Hermes runtime](hermes-runtime.md#parity-with-openclaw-agents). Updates of Hermes itself appear in the **Hermes Agent** group (**Update**);
 the Hermes agents restart, and a failed start restores the previous installation. Work
 of Hermes agents still running blocks it and is listed there, with **Pause agents and
 update** as for OpenClaw. What AgentPier writes into a Hermes home is described in

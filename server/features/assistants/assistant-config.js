@@ -12,6 +12,7 @@ import { assistantProblem } from "./assistant-validation.js";
 import { assertWired } from "./service-wiring.js";
 import { mayCreateProjects, mayOpenPreviews } from "./goal-turns.js";
 import { assistantBootstrap } from "./assistant-bootstrap.js";
+import { ownProcessInputs } from "./own-process-guidance.js";
 import { mirrorLeadMemory } from "./member-memory.js";
 import { needsSettings, ownCopy } from "./agent-skills.js";
 import {
@@ -201,9 +202,8 @@ export class AssistantConfig {
    * catalog skills are checked first (a tampered copy is restored, a damaged one left
    * out) and offered from their live folders; its bound MCP servers come from the
    * store (`ownMcp`, mcp-changes.js agentInputs); the team bridge its team plugin
-   * calls comes from `hermesInputs`. Tools the compiler cannot map yet are named as
-   * unsupported, so its instructions carry AgentPier's identity section and, for a
-   * lead, its team only.
+   * calls comes from `hermesInputs`; its SSH grant, shell PATH and the guidance on
+   * what its AgentPier tools reach from `ownProcessInputs` (own-process-guidance.js).
    */
   async applyOwnProcess(assistant, lease) {
     const runtime = runtimeFor(assistant, this.runtime);
@@ -233,7 +233,13 @@ export class AssistantConfig {
         } catch {
           team = null;
         }
+      // Its SSH grant, shell PATH and what its AgentPier tools reach, as OpenClaw's.
+      const own = await ownProcessInputs(this, assistant, {
+        tools: !!inputs.connection,
+      });
       const desired = desiredAgent(assistant, {
+        ssh: own.ssh,
+        shellPath: own.shellPath,
         // A temporary member's browser window follows its lead's setting.
         lead: assistant.parentAssistantId
           ? this.store.listAssistants().find((p) => p.id === assistant.parentAssistantId)
@@ -244,7 +250,7 @@ export class AssistantConfig {
             mcp.inputs?.servers.find((server) => server.id === id)?.transport === "stdio",
         ),
         instructions: assistantBootstrap(assistant, lease.display, {
-          memoryWritable: false,
+          ...own.guidance,
           team: team && { ...team, listed: false },
         }),
         model: {
