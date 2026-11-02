@@ -41,6 +41,8 @@ export async function setupAssistantSettings(page, options = {}) {
     reminders: options.reminders || [],
     routines: options.routines || [],
     memory: options.memory || {},
+    // ChatGPT logins of the agents; each names its holder (agentpier or openclaw).
+    chatgptAccounts: options.chatgptAccounts || [],
     memorySaves: [],
     channelDelay: 0,
     actionDelay: options.actionDelay || 0,
@@ -171,7 +173,7 @@ export async function setupAssistantSettings(page, options = {}) {
       });
     }
     if (path === "/api/assistant-model-accounts")
-      return route.fulfill({ json: { accounts: [] } });
+      return route.fulfill({ json: { accounts: state.chatgptAccounts } });
     if (path === "/api/assistant-speech")
       return route.fulfill({
         json: { revision: 0, model: "nova-3", language: "auto", hasSecret: false },

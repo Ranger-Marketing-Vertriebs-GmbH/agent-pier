@@ -79,8 +79,24 @@ test("the action history follows its live topic, without reads of its own", asyn
   expect(state.counts.actions).toBe(0);
 });
 
+// A ChatGPT login OpenClaw still holds needs the agent service; one AgentPier holds
+// works without it.
+const openclawLogin = {
+  id: "openclaw:openai-codex:team",
+  name: "Team ChatGPT",
+  status: "ok",
+  holder: "openclaw",
+};
+const agentpierLogin = {
+  id: "openclaw:openai-codex:own",
+  name: "Own ChatGPT",
+  status: "ok",
+  holder: "agentpier",
+};
+const stoppedRuntime = { availability: "failed", sync: "stale" };
+
 test("links to Accounts and Settings navigate inside the app", async ({ page }) => {
-  await setup(page, { runtime: { availability: "failed", sync: "stale" } });
+  await setup(page, { runtime: stoppedRuntime, chatgptAccounts: [openclawLogin] });
   await page.goto(baseURL + settingsPath("telegram"));
   await page.evaluate(() => (window.__marker = "same-document"));
   await page.getByRole("link", { name: /^Speech recognition · Deepgram/ }).click();
@@ -90,10 +106,24 @@ test("links to Accounts and Settings navigate inside the app", async ({ page }) 
   );
   await expect(page.getByLabel("Deepgram API key")).toBeVisible();
   expect(await page.evaluate(() => window.__marker)).toBe("same-document");
-  const panel = await openAccountItem(page, "ChatGPT for agents");
+  const panel = await openAccountItem(page, "Team ChatGPT");
+  await expect(panel.getByText("Service offline")).toBeVisible();
   await panel.getByRole("link", { name: "Agents › Runtime" }).click();
   await expect(page).toHaveURL(/\/agents\?tab=runtime&returnTo=%2Fconnections%3F/);
   expect(await page.evaluate(() => window.__marker)).toBe("same-document");
+});
+
+test("a ChatGPT login AgentPier holds needs no agent service link", async ({ page }) => {
+  await setup(page, { runtime: stoppedRuntime, chatgptAccounts: [agentpierLogin] });
+  await page.goto(baseURL + "/connections?section=models");
+  const panel = await openAccountItem(page, "Own ChatGPT");
+  await expect(panel.getByText("Connected")).toBeVisible();
+  await expect(panel.getByRole("button", { name: "Check connection" })).toBeEnabled();
+  await expect(panel.getByRole("link", { name: "Agents › Runtime" })).toHaveCount(0);
+  // Signing in anew runs in AgentPier too, so the "+ ChatGPT" entry needs no link.
+  const login = await openAccountItem(page, "ChatGPT for agents");
+  await expect(login.getByRole("button", { name: "Connect ChatGPT" })).toBeEnabled();
+  await expect(login.getByRole("link", { name: "Agents › Runtime" })).toHaveCount(0);
 });
 
 for (const [language, locale] of [

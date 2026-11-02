@@ -208,15 +208,23 @@ test("Accounts on desktop keeps the origin for the whole visit", async ({ page }
 });
 
 test("chained cross-links lead back through every origin", async ({ page }) => {
-  await setup(page, { runtime: { availability: "failed", sync: "stale" } });
+  // Only a login OpenClaw still holds links to the agent service while it is stopped.
+  await setup(page, {
+    runtime: { availability: "failed", sync: "stale" },
+    chatgptAccounts: [
+      { id: "openclaw:team", name: "Team ChatGPT", status: "ok", holder: "openclaw" },
+    ],
+  });
   await page.goto(baseURL + settingsPath("telegram"));
   await page.getByRole("link", { name: copy.en.speech }).click();
-  const panel = await openAccountItem(page, "ChatGPT for agents");
+  const panel = await openAccountItem(page, "Team ChatGPT");
   await panel.getByRole("link", { name: copy.en.runtime }).click();
   await expect(page).toHaveURL(/\/agents\?tab=runtime&returnTo=/);
   await page.reload();
   await back(page, "Back to Connections").click();
-  await expect(page).toHaveURL(/\/connections\?section=models&item=chatgpt&returnTo=/);
+  await expect(page).toHaveURL(
+    /\/connections\?section=models&item=openclaw%3Ateam&returnTo=/,
+  );
   await back(page, copy.en.backToAgent).click();
   await expect(page).toHaveURL(/\/agents\/home\/settings\?tab=channels$/);
 });
