@@ -161,7 +161,10 @@ running migration. A same-version runtime change (a new Node or lock) runs no
 migration.
 
 The snapshot covers Gateway home, state and workspaces, plus all AgentPier SQLite
-ledgers under the assistant root. Gateway home/state files that start with the SQLite header are copied with
+ledgers under the assistant root. The workspace root is shared with Hermes agents
+(`<data>/assistants/workspaces/<id>`): the snapshot leaves their folders out, and a
+rollback removes and restores only the OpenClaw agents' folders, so a Hermes agent
+keeps what it wrote meanwhile (`runtime-update-scope.js`). Gateway home/state files that start with the SQLite header are copied with
 `VACUUM INTO`, so each copy is self-contained; every other file, including any
 database in a workspace, is copied byte for byte. Metadata records the previous and candidate runtimes,
 schema-sensitive ledger digests, each ledger table's highest row at the fence and
@@ -585,7 +588,10 @@ enabled do the same. Activation and rollback use the same update journal as Open
 (`runtime-updates.js`), with Hermes's own journal, selection and snapshot under
 `<data>/assistants/hermes/` (`runtimes/hermes/hermes-lifecycle.js`,
 `createHermesUpdates`): the snapshot holds every Hermes agent's `HOME`, `HERMES_HOME`
-and work folder. Hermes has no downgrade path and migrates its own `config.yaml` when
+and work folder (its folder of the shared workspace root, and no OpenClaw agent's;
+a rollback leaves those as they are). Each home's `.env`, `auth.json` and Hermes's
+own `.env` backups are sealed with the snapshot's key, as in a host backup, and a
+restore unseals them. Hermes has no downgrade path and migrates its own `config.yaml` when
 it starts, so there is no migration step; a failed validation restores the snapshot
 and the previous selection. A native contract (`tests/integration/hermes-update-contract.test.js`)
 updates an agent from the previous release to the pinned one this way, a rollback first
