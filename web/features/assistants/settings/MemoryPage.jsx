@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
+import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
 import ErrorMessage from "../../../components/ErrorMessage.jsx";
 import SaveBar from "../../../components/SaveBar.jsx";
 import UnsavedChangesSheet from "../../../components/UnsavedChangesSheet.jsx";
@@ -29,7 +30,8 @@ export default function MemoryPage({ assistant, onBack, readOnly: locked = false
     [results, setResults] = useState(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
-    [reload, setReload] = useState(0);
+    [reload, setReload] = useState(0),
+    [deleting, setDeleting] = useState(false);
   const fetchNotes = useCallback(
     (offset) => assistantApi.memoryFiles(assistantId, offset),
     [assistantId],
@@ -51,16 +53,31 @@ export default function MemoryPage({ assistant, onBack, readOnly: locked = false
   const diaries = notes.filter((note) => note.diary);
   const agentNotes = notes.filter((note) => !note.diary);
   const diary = diaries.some((note) => note.name === name);
-  const readOnly = locked || diary || Boolean(file?.readOnly);
+  // A day note under memory/ is rewritten (and deleted) by the owner; a user's own
+  // agent under her opt-in (`locked`) and the diary stay read only.
+  const editable = !locked && !diary && file?.editable === true;
+  const readOnly = locked || diary || (Boolean(file?.readOnly) && !editable);
   const savable = Boolean(file) && !readOnly && Boolean(file.missing || file.hash);
   const draft = useTabDraft({ server: { content: file?.content ?? "" } });
   const steps = savable
-    ? [memoryStep({ assistantId, name, file, label: copy.memory })]
+    ? [
+        memoryStep({
+          assistantId,
+          name,
+          file,
+          label: copy.memory,
+          ...(editable ? { saveMemory: assistantApi.saveMemoryNote } : {}),
+        }),
+      ]
     : [];
   const save = async () => {
     const result = await draft.save(steps);
     if (result.status === "saved" && result.results.memory)
-      setFile(result.results.memory);
+      setFile(
+        editable
+          ? { ...file, ...result.results.memory, content: draft.values.content }
+          : result.results.memory,
+      );
     // Changed elsewhere (409 "assistants.conflict"): read the note's current hash and
     // content without touching the draft, so "Reload" shows the newer note and
     // "Overwrite anyway" saves against the newer hash instead of failing again.
@@ -85,6 +102,13 @@ export default function MemoryPage({ assistant, onBack, readOnly: locked = false
     setName(nextName);
     setNextName(null);
   };
+  async function removeNote() {
+    await assistantApi.removeMemoryNote(assistantId, name);
+    draft.reset();
+    setDeleting(false);
+    setName("MEMORY.md");
+    setReload((n) => n + 1);
+  }
   async function search(event) {
     event.preventDefault();
     setBusy(true);
@@ -159,7 +183,12 @@ export default function MemoryPage({ assistant, onBack, readOnly: locked = false
             ` ${dreamingCopy.diaryTruncated(formatBytes(file.size, locale))}`}
         </p>
       ) : (
-        readOnly && !locked && <p className="assistant-note">{copy.agentNotesHint}</p>
+        !locked &&
+        (editable ? (
+          <p className="assistant-note">{copy.editableNotesHint}</p>
+        ) : (
+          readOnly && <p className="assistant-note">{copy.agentNotesHint}</p>
+        ))
       )}
       <div className="assistant-actions">
         {!readOnly && (
@@ -170,6 +199,16 @@ export default function MemoryPage({ assistant, onBack, readOnly: locked = false
             onClick={() => draft.set("content", "")}
           >
             {copy.clearNotes}
+          </button>
+        )}
+        {editable && (
+          <button
+            type="button"
+            className="button secondary"
+            disabled={busy || draft.saving}
+            onClick={() => setDeleting(true)}
+          >
+            {copy.deleteNote}
           </button>
         )}
         <button
@@ -184,7 +223,9 @@ export default function MemoryPage({ assistant, onBack, readOnly: locked = false
           {copy.reload}
         </button>
       </div>
-      {!locked && !diary && <p className="assistant-note">{copy.clearHint}</p>}
+      {!locked && !diary && !editable && (
+        <p className="assistant-note">{copy.clearHint}</p>
+      )}
       <form className="list-card agent-fields" onSubmit={search}>
         <label className="agent-field">
           {copy.searchMemory}
@@ -214,6 +255,16 @@ export default function MemoryPage({ assistant, onBack, readOnly: locked = false
         onOverwrite={save}
         saveLabel={copy.saveNotes}
       />
+      {deleting && (
+        <ConfirmDialog
+          destructive
+          title={copy.deleteNoteTitle(name)}
+          body={copy.deleteNoteBody}
+          confirmLabel={copy.deleteNote}
+          onConfirm={removeNote}
+          onCancel={() => setDeleting(false)}
+        />
+      )}
       <UnsavedChangesSheet {...sheet} />
       <UnsavedChangesSheet
         open={nextName !== null}

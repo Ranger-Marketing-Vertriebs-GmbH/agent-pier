@@ -18,6 +18,13 @@ export const assistantApi = {
     ),
   saveMemory: (id, input) =>
     api(`/assistants/${encodeURIComponent(id)}/memory`, "PUT", input),
+  saveMemoryNote: (id, input) =>
+    api(`/assistants/${encodeURIComponent(id)}/memory/notes`, "PUT", input),
+  removeMemoryNote: (id, name) =>
+    api(
+      `/assistants/${encodeURIComponent(id)}/memory/notes?name=${encodeURIComponent(name)}`,
+      "DELETE",
+    ),
   searchMemory: (id, query) =>
     api(
       `/assistants/${encodeURIComponent(id)}/memory/search?q=${encodeURIComponent(query)}`,

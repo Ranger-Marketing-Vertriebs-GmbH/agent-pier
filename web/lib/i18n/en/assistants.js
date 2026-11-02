@@ -151,6 +151,12 @@ export const assistantCopy = {
     agentNotes: "Notes written by the agent",
     agentNotesHint:
       "The agent writes these notes itself. They are shown read-only here; ask the agent to change them.",
+    editableNotesHint:
+      "The agent also writes and reads this note. Your changes apply to its next reading.",
+    deleteNote: "Delete note",
+    deleteNoteTitle: (name) => `Delete note "${name}"?`,
+    deleteNoteBody:
+      "The note is removed from the agent's memory. This does not delete messages from chat history.",
     notes: "Saved notes",
     saveNotes: "Save notes",
     clearNotes: "Clear draft",

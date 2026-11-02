@@ -22,6 +22,13 @@ const noteName = /^memory\/(?:[A-Za-z0-9][\w.-]*\/){0,3}[A-Za-z0-9][\w.-]*\.md$/
 const diaryName = "DREAMS.md";
 // Dreaming's raw corpus; it is never listed, read or searched.
 const corpusFolder = /(^|\/)memory\/\.dreams(\/|$)/;
+// Notes the owner may rewrite: not the diary, the lead's mirrored copy or the corpus.
+const editableNote = (name) =>
+  typeof name === "string" &&
+  noteName.test(name) &&
+  !name.split("/").includes("..") &&
+  !name.startsWith(`${leadMirrorDir}/`) &&
+  !corpusFolder.test(name);
 // The memory view lists notes newest first in pages of `pageSize` (AGENTPIER-234:
 // dreaming adds three a night). A folder is read up to `maxNotes` notes, a bound on
 // the work of one listing; notes beyond it stay out of the view, not out of memory.
@@ -163,6 +170,9 @@ export class NativeMemory {
         content,
         missing: false,
         readOnly: true,
+        // A day note can be rewritten from the memory page (writeNote); the diary
+        // and the lead's mirrored notes cannot.
+        ...(editableNote(name) ? { editable: true } : {}),
         hash: createHash("sha256").update(content).digest("hex"),
         ...(truncated ? { truncated: true, size: stat.size } : {}),
       };
@@ -200,6 +210,66 @@ export class NativeMemory {
       }
       this.assistants.changed();
     });
+  }
+  /**
+   * Rewrites one note under memory/ (the owner edits day notes on the memory page):
+   * 400 for any other name (MEMORY.md, USER.md, the diary, the lead's mirror, the
+   * corpus), 409 when the note is gone or its content no longer has `expectedHash`.
+   * The file is replaced atomically (temp file and rename); links are never followed.
+   */
+  writeNote(id, input) {
+    return this.assistants.admit(() => this.writeNoteNow(id, input));
+  }
+  // The same write for a caller that already holds the service's admission.
+  async writeNoteNow(id, input) {
+    if (
+      !input ||
+      Object.keys(input).some((k) => !["name", "content", "expectedHash"].includes(k)) ||
+      !editableNote(input.name) ||
+      !/^[a-f0-9]{64}$/i.test(input.expectedHash || "")
+    )
+      throw assistantProblem("invalid");
+    textValue(input.content, 65536, true);
+    const { name, content } = input;
+    const root = this.root(id),
+      file = path.join(root, name);
+    let real;
+    try {
+      await assertRealDirectories(root);
+      real = await fs.realpath(file);
+      if (real !== path.join(await fs.realpath(root), name)) throw Error("link");
+    } catch (error) {
+      if (error.code === "ENOENT") throw assistantProblem("conflict", 409);
+      throw assistantProblem("invalid");
+    }
+    let handle;
+    try {
+      handle = await openInside(real, constants.O_RDONLY);
+      const stat = await handle.stat();
+      if (!stat.isFile() || stat.size > maxNoteBytes) throw Error("size");
+      const current = await handle.readFile("utf8");
+      if (
+        createHash("sha256").update(current).digest("hex") !==
+        input.expectedHash.toLowerCase()
+      )
+        throw assistantProblem("conflict", 409);
+    } catch (error) {
+      if (error.status) throw error;
+      if (error.code === "ENOENT") throw assistantProblem("conflict", 409);
+      throw assistantProblem("invalid");
+    } finally {
+      await handle?.close();
+    }
+    const temp = `${real}.${process.pid}.${Date.now()}.tmp`;
+    try {
+      await fs.writeFile(temp, content, { flag: "wx" });
+      await fs.rename(temp, real);
+    } catch {
+      await fs.rm(temp, { force: true });
+      throw assistantProblem("unavailable", 503);
+    }
+    this.assistants.changed();
+    return { name, hash: createHash("sha256").update(content).digest("hex") };
   }
   async prepare(id) {
     const a = this.assistants;

@@ -17,6 +17,14 @@ export function assistantCapabilityRoutes(services) {
   router.put("/assistants/:id/memory", async (req, res) =>
     res.json(await assistantMemory.write(req.params.id, req.body)),
   );
+  // A day note under memory/ is rewritten against its hash, or deleted, by the owner.
+  router.put("/assistants/:id/memory/notes", async (req, res) =>
+    res.json(await assistantMemory.writeNote(req.params.id, req.body)),
+  );
+  router.delete("/assistants/:id/memory/notes", async (req, res) => {
+    await assistantMemory.remove(req.params.id, req.query.name);
+    res.status(204).end();
+  });
   router.get("/assistants/:id/memory/files", async (req, res) =>
     res.json(
       await assistantMemory.files(req.params.id, {

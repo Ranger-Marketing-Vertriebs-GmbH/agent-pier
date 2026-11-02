@@ -566,6 +566,12 @@ information** on, AgentPier tells the agent to write durable facts and plans to
 never to say it saved something unless the write succeeded. Before a conversation
 is shortened, the agent gets one last chance to append to the day note.
 
+**Memory** in the agent's settings edits `MEMORY.md` and `USER.md` and also the day
+notes under `memory/`: pick a note under **Notes written by the agent**, change it and
+press **Save notes**, or press **Delete note** and confirm. A save fails with a conflict
+notice when the agent changed the note meanwhile. The Dream Diary and the lead agent's
+copied notes stay read-only, and a user's own agent stays read-only for you.
+
 When you press **Summarize now** ([long chats](#what-the-agent-is-doing)), AgentPier
 first gives the agent a hidden memory step in that chat, because no automatic last
 chance comes before a summary you ask for. See below.
