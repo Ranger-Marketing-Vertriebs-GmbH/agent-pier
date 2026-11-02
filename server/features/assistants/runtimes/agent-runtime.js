@@ -247,6 +247,11 @@
  *   - login({ sessionId, authChoice, timeoutMs }) starts a sign-in wizard;
  *     loginStep({ sessionId, answer, timeoutMs }) answers its step and resolves the
  *     next (`{ done, status, step }`); cancelLogin({ sessionId, timeoutMs }).
+ *   - writeAccess({ profileId, credential }), removeAccess({ profileId }): an
+ *     AgentPier-held ChatGPT login as the runtime's own access-only profile (no
+ *     refresh token), written while the runtime runs or not; `{ reloaded }`.
+ *   - readStored({ profileId }): the runtime's own stored credential of a profile,
+ *     for the one move of a login it holds to AgentPier, or null.
  *   - on(connection), as sessions.on.
  * - channels: channel status
  *   - status({ probe }): resolves `{ channelAccounts: { telegram: [account] } }`,
