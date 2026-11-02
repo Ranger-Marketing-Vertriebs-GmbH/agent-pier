@@ -7,7 +7,7 @@ import { confirmFromAck } from "./run-confirmation.js";
 import { memoryStep } from "./memory-write-policy.js";
 import { admittingOn, agentDegradedOn, noteRefusalOn } from "./agent-admission.js";
 import { hostConnection, runtimeFor } from "./runtimes/runtime-for.js";
-import { redirectedTo } from "./chat-successor.js";
+import { acceptingChat, redirectedTo } from "./chat-successor.js";
 
 /**
  * Why the Gateway refused a turn before running it, or null when it may run it: an
@@ -59,24 +59,29 @@ export function refuseClosedChat(service, conversation) {
  * and staged attachments, then delivered once through `sessions.send`. A retry with
  * the same client request id returns the accepted request and never sends again.
  * A turn for a chat a model switch replaced goes to its successor (chat-successor.js)
- * with a note there, unless the old chat accepted it already.
+ * with a note there, unless a chat along that line accepted it already.
  */
 export async function sendTurn(service, conversationId, input, trustedContext) {
   validateSendInput(input);
   const target = redirectedTo(service.store, conversationId);
-  if (
-    target &&
-    !service.ledger
-      .requests(conversationId)
-      .some((r) => r.clientRequestId === input.clientRequestId)
-  ) {
-    // One note per delivery: a retry keeps the first (memory-notes.js).
-    service.memoryNotes.record({
-      key: `redirected:${input.clientRequestId}`,
-      conversationId: target,
-      reason: "redirected",
-    });
-    return sendTurn(service, target, input, trustedContext);
+  if (target) {
+    // A chat along the line that accepted it already keeps it (acceptingChat).
+    const holder = acceptingChat(
+      service.store,
+      service.ledger,
+      conversationId,
+      input.clientRequestId,
+    );
+    if (holder !== conversationId) {
+      // One note per delivery: a retry keeps the first (memory-notes.js).
+      if (!holder)
+        service.memoryNotes.record({
+          key: `redirected:${input.clientRequestId}`,
+          conversationId: target,
+          reason: "redirected",
+        });
+      return sendTurn(service, holder ?? target, input, trustedContext);
+    }
   }
   const conversation = service.store.getConversation(conversationId);
   const context = {
