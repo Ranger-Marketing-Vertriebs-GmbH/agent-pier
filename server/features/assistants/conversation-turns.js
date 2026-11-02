@@ -8,6 +8,7 @@ import { memoryStep } from "./memory-write-policy.js";
 import { admittingOn, agentDegradedOn, noteRefusalOn } from "./agent-admission.js";
 import { hostConnection, runtimeFor } from "./runtimes/runtime-for.js";
 import { acceptingChat, redirectedTo } from "./chat-successor.js";
+import { recordFamily } from "./model-hints.js";
 
 /**
  * Why the Gateway refused a turn before running it, or null when it may run it: an
@@ -129,6 +130,7 @@ export async function sendTurn(service, conversationId, input, trustedContext) {
   if (agentDegradedOn(service.runtime, agent.runtimeAgentId))
     throw assistantProblem("agentDegraded", 503);
   await service.config.apply(conversation.assistantId);
+  recordFamily(service, conversation);
   service.teams?.assertMemberTurn(conversation.assistantId, context);
   // Applied while the write guard was still missing: the turn runs read-only.
   const readOnly = !!service.config.writeGuardPending?.(

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { chatDeleted, confirmDelete, renameTitle } from "./assistant-chats.js";
+import { dismissModelHint } from "../../features/assistants/model-hints.js";
 import {
   archiveChat,
   deleteChat,
@@ -49,6 +50,10 @@ export function meChatRoutes({ assistants, userScope, audit }) {
   router.post("/me/conversations/:id/long-chat-dismissal", async (req, res) => {
     const { id } = userScope.conversationOf(req.principal, req.params.id);
     res.json(await assistants.longChats.dismiss(id));
+  });
+  router.post("/me/conversations/:id/model-hint-dismissal", (req, res) => {
+    const { id } = userScope.conversationOf(req.principal, req.params.id);
+    res.json(dismissModelHint(assistants, id));
   });
   router.delete("/me/conversations/:id", async (req, res) => {
     const { id } = userScope.conversationOf(req.principal, req.params.id);

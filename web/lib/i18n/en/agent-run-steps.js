@@ -57,6 +57,10 @@ export const agentRunStepsCopy = {
   },
   longChat:
     "This chat is long. After a pause the first reply takes longer, and older details are easier to miss.",
+  // The hint in an older chat whose last turns ran on another model family.
+  modelHint: "This chat began with another model. Its history can affect the answers.",
+  modelHintNewChat: "New chat",
+  modelHintDismiss: "Dismiss",
   summarise: "Summarize now",
   dismiss: "Hide",
   // Summarize now asks first: the summary cannot be undone (AGENTPIER-295).

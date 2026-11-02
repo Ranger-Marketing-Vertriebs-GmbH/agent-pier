@@ -3,6 +3,7 @@ import { assistantProblem } from "./assistant-validation.js";
 import { refuseClosedChat } from "./conversation-turns.js";
 import { dispatchQueued } from "./queued-dispatch.js";
 import { MemoryStep } from "./memory-step.js";
+import { ModelHints } from "./model-hints.js";
 import { hostConnection, ownProcess, runtimeFor } from "./runtimes/runtime-for.js";
 import {
   answerCodeOf,
@@ -93,6 +94,8 @@ export class LongChats {
     this.timing = { ...compactTiming };
     this.db = service.store.db;
     this.db.exec(dismissalTable);
+    // The sibling hint for an older chat that began on another model family.
+    this.modelHints = new ModelHints(this.db);
   }
   /** Whether the chat's history is being summarised on request now. */
   compacting(conversationId) {
@@ -516,5 +519,6 @@ export class LongChats {
     this.db
       .prepare("DELETE FROM assistant_long_chat_dismissals WHERE conversation_id=?")
       .run(conversationId);
+    this.modelHints.forget(conversationId);
   }
 }

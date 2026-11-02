@@ -21,6 +21,7 @@ import { completePage, historyReads, withoutMarks } from "./history-completion.j
 import { confirmFromTranscript } from "./run-confirmation.js";
 import { imageResultArtifact } from "./generated-images.js";
 import { fileRequest } from "./agent-share-store.js";
+import { modelHintShown } from "./model-hints.js";
 import { hostConnection, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 // A compaction marker (the history entry's `compaction`, with its token counts) is a
 // chat note only where the chat asks for it (`compactions`); every other reader sees
@@ -387,6 +388,7 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
       ? { compactOutcome: service.longChats.outcome(id) }
       : {}),
     ...(longChat ? { longChat } : {}),
+    ...(offset === 0 && modelHintShown(service, conversation) ? { modelHint: true } : {}),
   };
 }
 

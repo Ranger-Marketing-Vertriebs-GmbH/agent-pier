@@ -26,6 +26,7 @@ import { ReadOnlyComposer } from "../assistants/chats/ChatStates.jsx";
 import AgentRunState from "../assistants/AgentRunState.jsx";
 import { memoryStepTurn, stepsOf } from "../assistants/run-steps.js";
 import useLongChat from "../assistants/useLongChat.js";
+import useModelHint from "../assistants/useModelHint.js";
 import SummariseConfirm from "../assistants/SummariseConfirm.jsx";
 import { userApi } from "./user-api.js";
 
@@ -67,6 +68,11 @@ export default function UserChat({
   const longChat = useLongChat(userApi, conversationId, {
     refresh: chat.refresh,
     onError: chat.setError,
+  });
+  const modelHint = useModelHint(userApi, conversationId, agent.id, {
+    refresh: chat.refresh,
+    onError: chat.setError,
+    open: (created) => onCreated(created.id),
   });
   useLayoutEffect(() => {
     const element = output.current;
@@ -215,6 +221,8 @@ export default function UserChat({
               steps={stepsOf(chat.feed.steps, latest?.attempt)}
               longChat={history.longChat}
               longChatActions={chat.available ? longChat : null}
+              modelHint={history.modelHint}
+              modelHintActions={chat.available ? modelHint : null}
               busy={chat.busy}
               onStop={readOnly ? null : chat.stop}
               onRetry={

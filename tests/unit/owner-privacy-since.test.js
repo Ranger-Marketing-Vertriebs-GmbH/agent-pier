@@ -134,8 +134,14 @@ test("a chat file names the request it came with or answers", () => {
 });
 
 test("the long-chat hint stays hers: it counts what she wrote before since", () => {
-  const page = { messages: [said("new", 5)], requests: [], longChat: true };
+  const page = {
+    messages: [said("new", 5)],
+    requests: [],
+    longChat: true,
+    modelHint: true,
+  };
   assert.equal("longChat" in fromSince(page, since), false);
+  assert.equal("modelHint" in fromSince(page, since), false);
   assert.equal(fromSince(page, null).longChat, true);
 });
 
