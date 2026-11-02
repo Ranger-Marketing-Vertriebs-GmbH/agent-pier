@@ -1,5 +1,6 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
+import { cliDriver } from "../clis/drivers.js";
 import {
   parseModelPicker,
   currentModel,
@@ -97,13 +98,10 @@ export class ModelController {
         throw problem(serverMessages.models.checkActionOrDraft, 409);
       this.state(id, tool, raw);
       this.pending.add(id);
-      if (tool === "claude") await tx.keys(["M-p"]);
-      else if (tool === "opencode") await tx.keys(["C-x", "m"]);
-      else {
-        await tx.type("/model");
-        // Codex coalesces rapid keystrokes as a paste burst, including a following Enter.
-        await sleep(250);
-        await tx.keys(["Enter"]);
+      for (const step of cliDriver(tool).tui.modelPicker.openKeys) {
+        if (step.type) await tx.type(step.type);
+        if (step.pauseMs) await sleep(step.pauseMs);
+        if (step.keys) await tx.keys(step.keys);
       }
       const result = this.state(id, tool, await this.wait(tx, (menu) => !!menu));
       if (!result.picker) result.notice = serverMessages.models.nativePickerNotRecognized;
