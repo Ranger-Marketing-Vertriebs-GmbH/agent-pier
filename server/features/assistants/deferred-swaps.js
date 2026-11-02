@@ -1,4 +1,4 @@
-import { memberEnded } from "./member-reach.js";
+import { editableMember } from "./member-reach.js";
 import { resyncDeliveries } from "./main-chat-swap.js";
 import { chatFree, moveChannelsOf, swapChat } from "./model-switch.js";
 
@@ -8,7 +8,7 @@ import { chatFree, moveChannelsOf, swapChat } from "./model-switch.js";
  * row, so a restart keeps it, and swapped with the switch's note as soon as it is
  * free; a turn is never cut for it. A held chat that was archived, deleted or already
  * replaced since, whose agent was archived, or whose member moved to another chat or
- * finished its task (a temporary one) is dropped; after a day the swap is given up.
+ * can no longer be reached by its lead (member-reach.js) is dropped; after a day the swap is given up.
  * The service's poll ticks it (queued-dispatch.js pollQueued).
  */
 const giveUpAfterMs = 24 * 60 * 60 * 1000;
@@ -138,8 +138,8 @@ export class DeferredSwaps {
       if (!memberId) return conversation.main === true ? conversation : null;
       const member = teams.store.member(memberId);
       if (member.archivedAt || member.conversationId !== conversationId) return null;
-      // A temporary member whose task ended first needs no swap.
-      if (member.lifetime !== "permanent" && memberEnded.has(member.phase)) return null;
+      // A finished task member its lead can still reach keeps its held swap.
+      if (!editableMember(member, member.parentAssistantId)) return null;
       return conversation;
     } catch {
       return null; // The chat, its agent or the member row went away.

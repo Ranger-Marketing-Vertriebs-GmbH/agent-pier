@@ -142,7 +142,7 @@ test("a running member turn finishes in the old chat and the swap follows", asyn
 });
 
 test("a deferred swap survives a service restart", async (t) => {
-  const { f, lead, teams, keeper, update, service: before } = await leadTeam(t);
+  const { f, lead, keeper, update, service: before } = await leadTeam(t);
   const turn = running(before, keeper.conversationId);
   await update(keeper.id, { model: otherFamily(lead) });
   await f.restart();
@@ -160,7 +160,22 @@ test("a deferred swap survives a service restart", async (t) => {
     member.conversationId,
   );
   assert.deepEqual(swaps.list(), []);
-  assert.ok(teams);
+});
+
+test("a task member that finishes while its swap is held still gets a fresh chat", async (t) => {
+  const { service, lead, teams, scout, update } = await leadTeam(t);
+  const turn = running(service, scout.conversationId);
+  const result = await update(scout.id, { model: otherFamily(lead) });
+  assert.equal(result.freshChat, "waits_for_turn");
+  // Its turn ends its task; the lead can still reach it in its chat.
+  service.ledger.transition(turn.id, "completed");
+  teams.write(teams.member(scout.id), { phase: "completed", attemptId: turn.id });
+  const swaps = deferredSwaps(service);
+  await swaps.tick();
+  const fresh = teams.member(scout.id).conversationId;
+  assert.notEqual(fresh, scout.conversationId);
+  assert.equal(service.store.getConversation(scout.conversationId).successorId, fresh);
+  assert.deepEqual(swaps.list(), []);
 });
 
 test("a held chat archived meanwhile is dropped; one held a day is given up", async (t) => {
