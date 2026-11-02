@@ -6,13 +6,22 @@ import { randomBytes } from "node:crypto";
 import { EventEmitter } from "node:events";
 import { privateFolder, readJSON, writePrivate } from "../../../../lib/storage.js";
 
-// Chromium flags of every agent browser AgentPier launches for Hermes, as OpenClaw's
-// own launches carry them (openclaw-config/web-tools.js): no first-run UI, the mock
-// keychain (a visible launch never prompts the owner) and no throttling of a window
-// the owner rarely looks at.
+// Chromium flags of every agent browser AgentPier launches for Hermes, as OpenClaw
+// launches its managed profiles (openclaw dist chrome-*.mjs
+// buildOpenClawChromeLaunchArgs, plus the extraArgs of openclaw-config/web-tools.js):
+// no first-run UI, sync or crash bubbles, the basic password store and the mock
+// keychain (a visible launch never prompts the owner for a keyring) and no throttling
+// of a window the owner rarely looks at.
 const launchArgs = [
   "--no-first-run",
   "--no-default-browser-check",
+  "--disable-sync",
+  "--disable-background-networking",
+  "--disable-component-update",
+  "--disable-features=Translate,MediaRouter",
+  "--disable-session-crashed-bubble",
+  "--hide-crash-restore-bubble",
+  "--password-store=basic",
   "--use-mock-keychain",
   "--disable-backgrounding-occluded-windows",
   "--disable-renderer-backgrounding",
@@ -24,6 +33,40 @@ const ticketMs = 30000;
 const commandTimeoutMs = 5000;
 
 const problem = (code) => Object.assign(Error(code), { code });
+
+/**
+ * The command line of one launch, as OpenClaw's: headless without the GPU and, on
+ * Linux, without /dev/shm (small in containers). The sandbox is never switched off.
+ */
+export function chromiumArgs({ port, userData, headless, platform = process.platform }) {
+  return [
+    `--remote-debugging-port=${port}`,
+    "--remote-debugging-address=127.0.0.1",
+    `--user-data-dir=${userData}`,
+    ...launchArgs,
+    ...(headless ? ["--headless=new", "--disable-gpu"] : []),
+    ...(platform === "linux" ? ["--disable-dev-shm-usage"] : []),
+    "about:blank",
+  ];
+}
+
+/**
+ * The launch environment: AgentPier's, with Chromium's Linux config and cache homes
+ * beside the agent's profile unless set, as OpenClaw keeps them in its own folder.
+ */
+export function chromiumEnvironment({
+  directory,
+  platform = process.platform,
+  env = process.env,
+}) {
+  if (platform !== "linux") return { ...env };
+  const state = path.join(directory, "chromium-state");
+  return {
+    ...env,
+    XDG_CONFIG_HOME: env.XDG_CONFIG_HOME || state,
+    XDG_CACHE_HOME: env.XDG_CACHE_HOME || state,
+  };
+}
 
 /** A free loopback TCP port, as the system hands one out. */
 export function freePort() {
@@ -77,9 +120,17 @@ export class HermesBrowser {
     spawn = spawnProcess,
     fetch = globalThis.fetch,
     WebSocketImpl = globalThis.WebSocket,
+    platform = process.platform,
   }) {
     // `directory`: the folder, or a function answering it (read when first needed).
-    Object.assign(this, { place: directory, settings, spawn, fetch, WebSocketImpl });
+    Object.assign(this, {
+      place: directory,
+      settings,
+      spawn,
+      fetch,
+      WebSocketImpl,
+      platform,
+    });
     this.child = null;
     this.starting = null;
     this.tickets = new Map();
@@ -137,17 +188,20 @@ export class HermesBrowser {
     // A browser of an earlier AgentPier run (one that crashed) still holds the port
     // and the profile: it is asked to close over CDP before the new one starts.
     await this.closeStray(port);
+    const { platform } = this;
     const child = this.spawn(
       settings.executablePath,
-      [
-        `--remote-debugging-port=${port}`,
-        "--remote-debugging-address=127.0.0.1",
-        `--user-data-dir=${this.userData}`,
-        ...launchArgs,
-        ...(settings.headless === false ? [] : ["--headless=new"]),
-        "about:blank",
-      ],
-      { detached: true, stdio: "ignore" },
+      chromiumArgs({
+        port,
+        userData: this.userData,
+        headless: settings.headless !== false,
+        platform,
+      }),
+      {
+        detached: true,
+        stdio: "ignore",
+        env: chromiumEnvironment({ directory: this.directory, platform }),
+      },
     );
     child.on?.("error", () => {});
     child.once?.("exit", () => {

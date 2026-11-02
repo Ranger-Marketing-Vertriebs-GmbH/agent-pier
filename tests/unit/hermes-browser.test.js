@@ -4,7 +4,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { EventEmitter } from "node:events";
-import { HermesBrowser } from "../../server/features/assistants/runtimes/hermes/hermes-browser.js";
+import {
+  HermesBrowser,
+  chromiumArgs,
+  chromiumEnvironment,
+} from "../../server/features/assistants/runtimes/hermes/hermes-browser.js";
 import { compileHome } from "../../server/features/assistants/runtimes/hermes/hermes-config/home.js";
 import { readHermesConfig } from "../../server/features/assistants/runtimes/hermes/hermes-config/home-merge.js";
 import { desiredAgent } from "../../server/features/assistants/agent-desired-state.js";
@@ -92,6 +96,8 @@ test("the agent's Chromium launches once on its own port and profile", async (t)
   assert.ok(launch.args.includes(`--user-data-dir=${path.join(directory, "user-data")}`));
   assert.ok(launch.args.includes("--headless=new"));
   assert.equal(launch.options.detached, true);
+  assert.ok(launch.args.includes("--disable-gpu"));
+  assert.equal(typeof launch.options.env.PATH, "string");
   assert.deepEqual(await browser.request({ method: "GET", path: "/" }), {
     running: true,
   });
@@ -105,6 +111,48 @@ test("the agent's Chromium launches once on its own port and profile", async (t)
     ],
   );
   assert.ok(tabs.every((tab) => !("socket" in tab)));
+});
+
+test("a launch carries OpenClaw's managed-browser flags, Linux ones on Linux", () => {
+  const base = { port: 41234, userData: "/agent/user-data" };
+  const linux = chromiumArgs({ ...base, headless: true, platform: "linux" });
+  for (const flag of [
+    "--headless=new",
+    "--disable-gpu",
+    "--disable-dev-shm-usage",
+    "--password-store=basic",
+    "--use-mock-keychain",
+    "--disable-renderer-backgrounding",
+  ])
+    assert.ok(linux.includes(flag), flag);
+  assert.equal(linux.at(-1), "about:blank");
+  // The sandbox is never switched off.
+  assert.ok(!linux.some((arg) => /sandbox|zygote/.test(arg)));
+  const mac = chromiumArgs({ ...base, headless: false, platform: "darwin" });
+  assert.ok(!mac.includes("--headless=new"));
+  assert.ok(!mac.includes("--disable-gpu"));
+  assert.ok(!mac.includes("--disable-dev-shm-usage"));
+  // Linux config and cache homes stay beside the profile unless set.
+  assert.deepEqual(
+    chromiumEnvironment({ directory: "/agent", platform: "linux", env: { PATH: "/b" } }),
+    {
+      PATH: "/b",
+      XDG_CONFIG_HOME: "/agent/chromium-state",
+      XDG_CACHE_HOME: "/agent/chromium-state",
+    },
+  );
+  assert.equal(
+    chromiumEnvironment({
+      directory: "/agent",
+      platform: "linux",
+      env: { XDG_CACHE_HOME: "/c" },
+    }).XDG_CACHE_HOME,
+    "/c",
+  );
+  assert.deepEqual(
+    chromiumEnvironment({ directory: "/agent", platform: "darwin", env: { A: "1" } }),
+    { A: "1" },
+  );
 });
 
 test("a screencast ticket opens once and relays frames in OpenClaw's format", async (t) => {

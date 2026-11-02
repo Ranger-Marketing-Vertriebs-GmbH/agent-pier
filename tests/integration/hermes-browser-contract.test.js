@@ -17,7 +17,24 @@ import { readHermesConfig } from "../../server/features/assistants/runtimes/herm
 // and opens a local test page with its own browser tool and the provisioned
 // agent-browser, and the owner's live view gets frames of that page over
 // AgentPier's CDP screencast. The in-repo fake model drives the tool call.
-const browser = detectBrowser();
+// AgentPier's own detection, unless the environment names the browser to drive (CI:
+// the runner's Google Chrome, as for the OpenClaw web tools contract; the Ubuntu
+// image's /usr/bin/chromium, which the detection prefers, is an unpacked snapshot
+// without a sandbox helper, which AppArmor's user namespace limit stops at once).
+const named = process.env.AGENTPIER_TEST_BROWSER_PATH;
+const browser = named
+  ? {
+      available: fs.existsSync(named),
+      name: "Test",
+      executablePath: named,
+      visible: { available: false, reason: "noApp" },
+    }
+  : detectBrowser();
+// CI must exercise the browser; a missing one is a runner problem, not a skip.
+if (process.env.CI && !hermesSkip && !browser.available)
+  throw Error(
+    "No Chromium-based browser for the Hermes browser contract: install one or set AGENTPIER_TEST_BROWSER_PATH.",
+  );
 const options = {
   skip:
     hermesSkip ||
@@ -42,6 +59,7 @@ test(
     t.after(() => model.close());
     const app = await hermesFleetApp(t, model);
     const { assistants, fleet } = app;
+    if (named) app.f.application.assistantWebTools.detect = () => browser;
     // A local page is a private address: the owner allows those for agent browsers.
     const network = await json(await app.f.request("/api/assistant-browser-network"));
     await json(
