@@ -2,7 +2,7 @@ import path from "node:path";
 import { readJSON, writePrivate } from "../../../../lib/storage.js";
 import { webhookToken } from "../../reminder-webhook.js";
 import { assistantProblem } from "../../assistant-validation.js";
-import { boundPort, reachable } from "./hermes-connection.js";
+import { boundPort, reachable, stateOf } from "./hermes-connection.js";
 import { hermesError } from "./hermes-rpc-client.js";
 import { storedIdOf } from "./hermes-run-state.js";
 import { processZone } from "./hermes-cron-zone.js";
@@ -245,10 +245,27 @@ async function runText(client, agentId, job) {
  * delivers into a chat (`chat` delivery to a `chat` target) is also written into that
  * session's history as a note (`agentpier.note`, hermes-rpc-bridge.py), so the agent's
  * later turns see it as OpenClaw's do; the note is no reply of the chat
- * (`deliveryStatus` "not-delivered"), so AgentPier shows the result beside it. Each pass
+ * (`deliveryStatus` "not-delivered"), so AgentPier shows the result beside it; while a
+ * turn of that chat runs, the note waits for its end (chatBusy). Each pass
  * also pins the jobs of routines in their own time zone to their next occurrence
  * (repinOf), in `zone`, the zone Hermes runs them in.
  */
+// The gateway events after which a pass runs: a cron change, and the end of a turn
+// whose chat a note may wait for.
+const turnEnds = new Set(["cron.changed", "message.complete", "error"]);
+
+/**
+ * Whether a turn of the chat `key` names is under way or queued on `client`'s
+ * connection (hermes-run-state.js): Hermes writes a turn's reply rows when the turn
+ * ends, so a note written meanwhile would stand before that reply in the history.
+ */
+export function chatBusy(client, key) {
+  const runs = stateOf(client)?.runs;
+  const sid = typeof key === "string" ? runs?.sidOf(key) : null;
+  const turn = sid ? runs.turns.get(sid) : null;
+  return !!turn && (turn.current !== null || turn.open.size > 0 || turn.queue.length > 0);
+}
+
 export class HermesRoutineDeliveries {
   constructor({
     supervisor,
@@ -267,7 +284,8 @@ export class HermesRoutineDeliveries {
     // Runs (`<job>@<last_run_at>`) whose note this process wrote: a retried webhook
     // writes it once.
     this.notedRuns = new Set();
-    this.onEvent = (params) => params?.type === "cron.changed" && this.check();
+    // A turn's end may free a note that waited for it (busy).
+    this.onEvent = (params) => turnEnds.has(params?.type) && this.check();
   }
 
   records() {
@@ -375,11 +393,18 @@ export class HermesRoutineDeliveries {
     const session = storedIdOf(this.supervisor.agentId, meta.target.sessionKey);
     if (!session || !text.trim() || text.trim() === agentPierSilent) return null;
     // The label Hermes gives a cron delivery it mirrors into a chat.
-    return { session, text: `[Cron delivery: ${job.name || job.id}]\n${text.trim()}` };
+    return {
+      session,
+      key: meta.target.sessionKey,
+      text: `[Cron delivery: ${job.name || job.id}]\n${text.trim()}`,
+    };
   }
 
-  // Writes a note; whether it is done (written, or its session is gone).
+  // Writes a note; whether it is done (written, or its session is gone). A note for a
+  // chat whose turn runs waits for that turn's end (chatBusy): it is kept with its
+  // run and written by a later pass, after the turn's reply.
   async note(client, note) {
+    if (chatBusy(client, note.key)) return false;
     try {
       const answer = await client.call(
         "agentpier.note",

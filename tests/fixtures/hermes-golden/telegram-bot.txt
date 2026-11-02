@@ -64,6 +64,9 @@ platforms:
       group_allow_admin_from:
         - "0"
       group_user_allowed_commands: []
+      fallback_ips:
+        - 149.154.166.110
+        - 149.154.167.220
 stt:
   enabled: true
   provider: agentpier-deepgram
