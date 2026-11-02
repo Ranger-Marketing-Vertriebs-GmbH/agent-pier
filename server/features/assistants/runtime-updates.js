@@ -51,6 +51,7 @@ export class RuntimeUpdates {
     stopMigration,
     host = {},
     paths,
+    scope = () => undefined,
   }) {
     Object.assign(this, {
       dataDir,
@@ -60,6 +61,9 @@ export class RuntimeUpdates {
       isBlocked,
       freeSpace,
       onRolledBack,
+      // Which agent folders of a shared workspace root are this runtime's
+      // (runtime-update-scope.js); read at each snapshot and restore.
+      scope,
     });
     this.host = {
       ...(runtime ? runtimeFor(null, runtime).host : {}),
@@ -196,7 +200,7 @@ export class RuntimeUpdates {
       if (!candidate || !previous || this.host.sameInstall(candidate, previous))
         throw failure("UPDATE_NOT_STAGED", 409);
       // Refuse before maintenance or any copy when the backup cannot fit twice over.
-      const estimate = await estimateSnapshotSize(this.paths);
+      const estimate = await estimateSnapshotSize(this.paths, { scope: this.scope() });
       if ((await this.freeSpace(this.paths.root)) < 2 * estimate) {
         this.persist(this.journal.phase, { diagnostic: "INSUFFICIENT_SPACE" });
         throw failure("INSUFFICIENT_SPACE", 507);
@@ -251,6 +255,7 @@ export class RuntimeUpdates {
             backup,
             { previous, candidate, createdAt: Date.now() },
             {
+              scope: this.scope(),
               onProgress: (bytes) => {
                 this.progress.copiedBytes += bytes;
                 this.changed();
@@ -344,6 +349,7 @@ export class RuntimeUpdates {
           this.paths,
           backup,
           journal.validationWrites || [],
+          { scope: this.scope() },
         );
         if (JSON.stringify(restored.previous) !== JSON.stringify(journal.previous))
           throw Error("Snapshot runtime mismatch.");

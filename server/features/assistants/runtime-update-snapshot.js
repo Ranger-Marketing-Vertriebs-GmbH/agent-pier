@@ -24,7 +24,24 @@ import {
   unsealDatabase,
 } from "./backup-credentials.js";
 
-const trees = ["home", "state", "workspaces"];
+const baseTrees = ["home", "state", "workspaces"];
+// The trees of `paths`: a Hermes journal's paths also name AgentPier's shared agent
+// workspace root (hermes-paths.js agentWorkspaces), where its agents work.
+const treesOf = (paths) => [
+  ...baseTrees,
+  ...(typeof paths.agentWorkspaces === "string" ? ["agentWorkspaces"] : []),
+];
+// Agent workspace trees, whose top-level folders belong to one agent each.
+const workspaceTrees = new Set(["workspaces", "agentWorkspaces"]);
+/**
+ * Which top-level folders of a workspace tree a journal owns: `scope[tree](name)`,
+ * when given, says whether folder `name` belongs to an agent of this journal's
+ * runtime. The shared root holds both runtimes' agents (ADR 0006), and a rollback of
+ * one runtime must never revert, or remove, the other's agents' files. Without a
+ * scope a tree is the journal's whole.
+ */
+const owns = (scope, tree, name) =>
+  typeof scope?.[tree] === "function" ? !!scope[tree](name) : true;
 // Only Gateway home/state databases can hold credential tables; workspace files,
 // including user databases, are copied byte for byte.
 const sealedTrees = new Set(["home", "state"]);
@@ -33,7 +50,8 @@ const sqliteHeader = Buffer.from("SQLite format 3\0");
 // often most of its files, and the agent installs them again after a rollback.
 const isDependencyFolder = (relative, stat) =>
   stat.isDirectory() &&
-  relative.startsWith("workspaces/") &&
+  workspaceTrees.has(relative.split("/")[0]) &&
+  relative.includes("/") &&
   path.posix.basename(relative) === "node_modules";
 // Entries count like estimateSnapshotSize: a file by its size, anything else 4 KiB.
 const entrySize = (stat) => (stat.isFile() ? stat.size : 4096);
@@ -127,6 +145,9 @@ async function copyEntry(source, destination, context, relative) {
       const skip = new Set(databases.flatMap((name) => journals.map((s) => name + s)));
       for (const name of names) {
         if (skip.has(name) || (!context.sealing && name.endsWith(sealedSuffix))) continue;
+        // Another runtime's agent's folder in the shared workspace root.
+        if (workspaceTrees.has(relative) && !owns(context.scope, relative, name))
+          continue;
         // A delivered secrets file is derived; the next sync writes it again.
         if (context.sealing && agentSecretMember.test(join(relative, name))) continue;
         await copyEntry(
@@ -145,6 +166,31 @@ async function copyEntry(source, destination, context, relative) {
   } catch (error) {
     throw failed(relative, error);
   }
+}
+// A scoped workspace tree is restored folder by folder: this journal's agents'
+// folders as the snapshot held them (a newer one of its own goes), every other
+// runtime's agents' folders as they are now. A tree the snapshot lacks (written
+// before the shared root existed) restores no folder.
+async function restoreOwned(live, saved, context, tree) {
+  privateFolder(live);
+  for (const name of await fsp.readdir(live))
+    if (owns(context.scope, tree, name))
+      await fsp.rm(path.join(live, name), { recursive: true, force: true });
+  const names = await fsp.readdir(saved).catch(() => []);
+  for (const name of names.sort()) {
+    if (await fsp.lstat(path.join(live, name)).catch(() => null)) {
+      // The other runtime's folder of the same name: never replaced.
+      context.skipped.push(join(tree, name));
+      continue;
+    }
+    await copyEntry(
+      path.join(saved, name),
+      path.join(live, name),
+      context,
+      join(tree, name),
+    );
+  }
+  await syncAsync(live);
 }
 async function sealEntry(source, destination, context, relative, stat) {
   const aad = `${context.id}\0${relative}`;
@@ -280,7 +326,7 @@ function ledgerState(root, exclusions = [], fence = null) {
   return { digests, fence: fences };
 }
 /** Bytes a snapshot of the current trees and ledgers will occupy, at most. */
-export async function estimateSnapshotSize(paths) {
+export async function estimateSnapshotSize(paths, { scope } = {}) {
   let total = 0;
   async function visit(file, relative) {
     const stat = await fsp.lstat(file).catch(() => null);
@@ -288,9 +334,10 @@ export async function estimateSnapshotSize(paths) {
     total += entrySize(stat);
     if (stat.isDirectory())
       for (const name of await fsp.readdir(file))
-        await visit(path.join(file, name), join(relative, name));
+        if (!workspaceTrees.has(relative) || owns(scope, relative, name))
+          await visit(path.join(file, name), join(relative, name));
   }
-  for (const name of trees) await visit(paths[name], name);
+  for (const name of treesOf(paths)) await visit(paths[name], name);
   for (const name of fs.readdirSync(paths.root).filter((n) => n.endsWith(".sqlite")))
     for (const suffix of ["", ...journals])
       await visit(path.join(paths.root, name + suffix), `ledgers/${name}${suffix}`);
@@ -301,7 +348,7 @@ export async function createUpdateSnapshot(
   paths,
   directory,
   metadata,
-  { onProgress } = {},
+  { onProgress, scope } = {},
 ) {
   privateFolder(directory);
   const payload = privateFolder(path.join(directory, "payload"));
@@ -318,9 +365,10 @@ export async function createUpdateSnapshot(
     omitDependencies: true,
     omittedDependencies: [],
     progress: onProgress,
+    scope,
   };
   const ledgers = ledgerState(paths.root);
-  for (const name of trees)
+  for (const name of treesOf(paths))
     await copyEntry(paths[name], path.join(payload, name), context, name);
   const ledgerFolder = privateFolder(path.join(payload, "ledgers"));
   for (const name of Object.keys(ledgers.digests)) {
@@ -374,7 +422,12 @@ export async function verifyUpdateSnapshot(paths, directory, exclusions = []) {
     throw Error("Update restore boundary no longer matches.");
   return manifest;
 }
-export async function restoreUpdateSnapshot(paths, directory, exclusions = []) {
+export async function restoreUpdateSnapshot(
+  paths,
+  directory,
+  exclusions = [],
+  { scope } = {},
+) {
   const manifest = await verifyUpdateSnapshot(paths, directory, exclusions);
   const payload = path.join(directory, "payload");
   const id = path.basename(directory);
@@ -382,18 +435,25 @@ export async function restoreUpdateSnapshot(paths, directory, exclusions = []) {
   // an open database or erase a newly recorded effect to make rollback succeed.
   const context = { sealing: false, excludedLinks: [], skipped: [] };
   const held = await holdDependencies(paths, directory, manifest.omittedDependencies);
-  for (const name of trees) {
+  for (const name of treesOf(paths)) {
     const live = await fsp.lstat(paths[name]).catch(() => null);
     if (live && (!live.isDirectory() || !owned(live))) throw failed(name);
+    const saved = path.join(payload, name);
+    if (workspaceTrees.has(name) && typeof scope?.[name] === "function") {
+      await restoreOwned(paths[name], saved, Object.assign(context, { scope }), name);
+      continue;
+    }
     await fsp.rm(paths[name], { recursive: true, force: true });
-    await copyEntry(path.join(payload, name), paths[name], context, name);
+    await copyEntry(saved, paths[name], context, name);
   }
   await returnDependencies(paths, directory, held);
   const key = readBackupKey(paths.root, id);
   let withheld = false;
+  // A folder kept as the other runtime's has none of the snapshot's files.
+  const kept = new Set(context.skipped);
   for (const relative of manifest.sealed || []) {
     const [tree, ...rest] = relative.split("/");
-    if (!trees.includes(tree)) continue;
+    if (!treesOf(paths).includes(tree) || kept.has(join(tree, rest[0] ?? ""))) continue;
     const live = path.join(paths[tree], ...rest);
     const aad = `${id}\0${relative}`;
     if (isConfigFile(relative)) {

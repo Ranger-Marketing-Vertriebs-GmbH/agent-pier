@@ -10,13 +10,16 @@ import path from "node:path";
  * so a rollback repeated after a crash finds what an earlier attempt moved.
  */
 const uid = process.getuid?.();
+// The workspace trees a snapshot may omit dependencies from (runtime-update-snapshot.js).
+const trees = ["workspaces", "agentWorkspaces"];
 const valid = (relative) =>
   typeof relative === "string" &&
-  relative.startsWith("workspaces/") &&
+  trees.includes(relative.split("/")[0]) &&
+  relative.includes("/") &&
   path.posix.basename(relative) === "node_modules" &&
   !relative.split("/").some((part) => !part || part === "." || part === "..");
 const live = (paths, relative) =>
-  path.join(paths.workspaces, ...relative.split("/").slice(1));
+  path.join(paths[relative.split("/")[0]], ...relative.split("/").slice(1));
 const ownFolder = (stat) =>
   !!stat && stat.isDirectory() && (uid === undefined || stat.uid === uid);
 function report(relative, error) {

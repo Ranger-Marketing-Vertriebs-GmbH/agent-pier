@@ -1,3 +1,4 @@
+import { hermesUpdateScope } from "../features/assistants/runtime-update-scope.js";
 import {
   createHermesSwitch,
   stageHermesInBackground,
@@ -212,6 +213,8 @@ export function createHermesRuntime({ config, services = {} }) {
       dataDir,
       host: hermesUpdateHost(services),
       maintenance: hermesUpdateMaintenance(services),
+      // Its agents' folders of the shared workspace root, and no other's.
+      scope: () => hermesUpdateScope(services.assistants?.store),
     });
   hermes.update = async (resolution) => {
     const state = hermes.state();
