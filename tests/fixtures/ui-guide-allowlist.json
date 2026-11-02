@@ -22,7 +22,7 @@
     "web/features/assistants/browser/agent-browser.css": 6,
     "web/features/chat/chat-images.css": 10,
     "web/features/chat/chat-reset.css": 5,
-    "web/features/chat/chat.css": 51,
+    "web/features/chat/chat.css": 50,
     "web/features/chat/mobile-chat.css": 6,
     "web/features/chat/observability.css": 2,
     "web/features/chat/slash-completion.css": 8,
