@@ -7,7 +7,9 @@
 .chat-container[hidden] {
   display: none;
 }
+/* The reading column: messages, tools, images and the composer share its width. */
 .chat-layout {
+  --chat-column: 820px;
   position: relative;
   isolation: isolate;
   display: flex;
@@ -132,12 +134,12 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 30px clamp(18px, 4vw, 60px);
+  padding: 30px max(clamp(18px, 4vw, 60px), (100% - var(--chat-column)) / 2);
   scrollbar-width: thin;
   scrollbar-color: #3d3e42 transparent;
 }
 .chat-message {
-  max-width: 820px;
+  max-width: var(--chat-column);
   margin: 0 auto 32px;
   font-size: 14px;
   line-height: 1.75;
@@ -222,7 +224,7 @@
   color: #adaeb2;
 }
 .chat-tool {
-  max-width: 820px;
+  max-width: var(--chat-column);
   margin: 0 auto 20px;
   border: 1px solid #2c2d31;
   border-radius: 9px;
@@ -258,7 +260,7 @@
   position: relative;
   flex: none;
   min-width: 0;
-  margin: 0 clamp(14px, 3vw, 34px) 20px;
+  margin: 0 max(clamp(14px, 3vw, 34px), (100% - var(--chat-column)) / 2) 20px;
 }
 .chat-composer {
   margin: 0 !important;
@@ -272,7 +274,7 @@
   font-size: 12px;
   line-height: 1.7;
   color: #9e9fa3;
-  max-width: 820px;
+  max-width: var(--chat-column, 820px);
   margin: 0 auto 20px;
 }
 .chat-empty {
@@ -338,7 +340,7 @@
     padding: 20px 14px;
   }
   .chat-messages {
-    padding: 24px;
+    padding: 24px max(24px, (100% - var(--chat-column)) / 2);
   }
   .chat-context {
     padding: 13px 18px;
