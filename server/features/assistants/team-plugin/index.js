@@ -240,7 +240,7 @@ export const definitions = {
   },
   member_update: {
     description:
-      "Change one of your own members: a task member (working on its task, or finished but still reachable for your questions and tasks) or a permanent member; not once archived. You may change its name, role, assignment, an extraInstructions section appended to its instructions (empty removes it), or instructions to replace its whole instructions. Role and assignment replace those lines in its current instructions. model moves it to a model from agentpier_team_models (connectionId and modelId); one the owner cannot run now is refused, and a task member keeps it even when your own model changes. Takes effect from the member's next turn, also in the owner's chats with a permanent member. The owner sees every change, with the instructions it replaced.",
+      "Change one of your own members: a task member (working on its task, or finished but still reachable for your questions and tasks) or a permanent member; not once archived. You may change its name, role, assignment, an extraInstructions section appended to its instructions (empty removes it), or instructions to replace its whole instructions. Role and assignment replace those lines in its current instructions. model moves it to a model from agentpier_team_models (connectionId and modelId); one the owner cannot run now is refused, and a task member keeps it even when your own model changes. Takes effect from the member's next turn, also in the owner's chats with a permanent member. freshChat starts the member in a fresh chat with model (by default when the model family changes); a turn under way finishes in its old chat first. The owner sees every change, with the instructions it replaced.",
     parameters: schema(
       {
         memberId: text(100),
@@ -250,6 +250,11 @@ export const definitions = {
         extraInstructions: { type: "string", maxLength: 8192 },
         instructions: text(65536),
         model: schema({ connectionId: text(200), modelId: text(256) }),
+        freshChat: {
+          type: "boolean",
+          description:
+            "Start the member in a fresh chat (default: when the model family changes).",
+        },
       },
       ["memberId"],
     ),

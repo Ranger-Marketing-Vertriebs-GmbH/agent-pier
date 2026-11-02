@@ -3,13 +3,14 @@ import assert from "node:assert/strict";
 import {
   as,
   chatFixture,
-  holdBackgroundPasses,
   pairedTelegram,
   sharedAgentOfTwo,
   userAgent,
 } from "../helpers/user-chats.js";
 import { signedInUser } from "../helpers/users.js";
 import { fixtureModel } from "../helpers/user-agents.js";
+import { switchTeam as team } from "../helpers/model-switch-team.js";
+import { deferredSwaps } from "../../server/features/assistants/deferred-swaps.js";
 
 // OpenRouter names the family before the slash: the fixture runs openai/gpt-4.1-mini.
 const model = (agent, modelId) => ({ connectionId: agent.model.connectionId, modelId });
@@ -43,71 +44,6 @@ async function shared(t) {
   await service.openConversation(agent.id, { userId: ben.user.id });
   const annaExtra = await service.chats.create(agent.id, { userId: anna.user.id });
   return { f, gateway, agent, service, store: service.store, annaExtra };
-}
-
-// The owner's lead with its main chat, a permanent member done with its task and a
-// temporary member at work; each member has its chat. The background passes stand
-// still, so the stand-in team rows stay as written.
-async function team(t, { ownModel = false } = {}) {
-  const { f, gateway } = await chatFixture(t);
-  holdBackgroundPasses(f);
-  const service = f.application.assistants;
-  const lead = await (
-    await f.request("/api/assistants", {
-      method: "POST",
-      body: { name: "Lead", instructions: "", model: fixtureModel(f) },
-    })
-  ).json();
-  const main = await (
-    await f.request(`/api/assistants/${lead.id}/conversations`, { method: "POST" })
-  ).json();
-  const teams = service.teams.store;
-  const request = service.ledger.accept(main.id, { clientRequestId: "team", text: "Go" });
-  teams.recordContext(request.id, { kind: "owner", teamAllowed: true });
-  const attempt = service.ledger.recordAttempt(request.id);
-  const proposed = teams.propose({
-    operationId: "team-call",
-    parentAttemptId: attempt.id,
-    objective: "Research",
-    members: [
-      { name: "Scout", role: "Research", assignment: "Look around" },
-      { name: "Keeper", role: "Notes", assignment: "Keep notes" },
-    ],
-  });
-  if (proposed.phase === "awaiting_approval")
-    teams.decide(
-      proposed.id,
-      { revision: proposed.revision, decision: "approve" },
-      { kind: "owner" },
-    );
-  teams.reserve(proposed.id);
-  service.ledger.transition(attempt.id, "completed");
-  const chatOf = (m) =>
-    service.store.saveConversation({
-      assistantId: m.assistantId,
-      runtimeSessionKey: `member-${m.name}`,
-    });
-  let [scout, keeper] = teams.members(proposed.id);
-  scout = teams.write(scout, { conversationId: chatOf(scout).id, phase: "running" });
-  keeper = teams.write(keeper, {
-    conversationId: chatOf(keeper).id,
-    lifetime: "permanent",
-    phase: "completed",
-  });
-  service.store.db
-    .prepare(
-      "UPDATE assistants SET body=json_set(body,'$.lifetime','permanent') WHERE id=?",
-    )
-    .run(keeper.assistantId);
-  if (ownModel) {
-    const record = service.store.getAssistant(scout.assistantId);
-    service.store.updateAssistant(
-      scout.assistantId,
-      { model: record.model },
-      record.revision,
-    );
-  }
-  return { f, gateway, service, lead, main, teams, scout, keeper };
 }
 
 test("a family switch gives every person a fresh main chat and moves Telegram and routines", async (t) => {
@@ -269,13 +205,40 @@ test("following temporary members get fresh chats with the lead", async (t) => {
 });
 
 test("a follower's chat that is not free is deferred, not swapped", async (t) => {
-  const { f, service, lead, scout } = await team(t);
+  const { f, service, lead, scout, teams } = await team(t);
   service.queued.put(scout.conversationId, { text: "Later", attachments: [] });
   const { freshChats } = await save(f, service, lead.id, { model: otherFamily(lead) });
   assert.deepEqual(freshChats.deferred, [scout.conversationId]);
   assert.ok(freshChats.chats.every((c) => c.assistantId === lead.id));
   const chat = service.store.getConversation(scout.conversationId);
   assert.equal(chat.archivedAt ?? null, null);
+  // Held, and swapped once the queued message is gone.
+  const swaps = deferredSwaps(service);
+  await swaps.tick();
+  assert.equal(teams.member(scout.id).conversationId, scout.conversationId);
+  service.queued.take(scout.conversationId);
+  await swaps.tick();
+  const fresh = teams.member(scout.id).conversationId;
+  assert.equal(service.store.getConversation(scout.conversationId).successorId, fresh);
+  assert.deepEqual(swaps.list(), []);
+});
+
+test("an owner's main chat with a message queued is swapped once it is free", async (t) => {
+  const { f, service, lead, main } = await team(t);
+  service.queued.put(main.id, { text: "Later", attachments: [] });
+  const { freshChats } = await save(f, service, lead.id, { model: otherFamily(lead) });
+  assert.deepEqual(freshChats.deferred, [main.id]);
+  assert.equal(service.store.getConversation(main.id).archivedAt ?? null, null);
+  service.queued.take(main.id);
+  await deferredSwaps(service).tick();
+  const old = service.store.getConversation(main.id);
+  assert.ok(old.archivedAt);
+  const [next] = mains(service.store, lead.id);
+  assert.equal(old.successorId, next.id);
+  assert.deepEqual(
+    service.memoryNotes.forConversation(next.id).map((n) => n.reason),
+    ["model-switched"],
+  );
 });
 
 test("the owner switching a member swaps the member's chat only", async (t) => {

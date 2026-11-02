@@ -8,6 +8,7 @@ import {
   moveChannels,
   resyncDeliveries,
 } from "./main-chat-swap.js";
+import { deferredSwaps } from "./deferred-swaps.js";
 
 /**
  * A model switch: when an agent moves to another model family (or the owner asks for
@@ -125,14 +126,31 @@ function chatsOf(service, assistantId) {
 }
 
 /**
+ * Swaps one chat of `assistantId` with the switch's note (`details`, both model
+ * names): a team member's own chat when `memberId` names its row, else a person's
+ * main chat. `landed(next)` runs once the swap committed (main-chat-swap.js); a
+ * failure before it leaves the chat as it was. Callers hold admission.
+ */
+export function swapChat(service, { conversation, memberId, details }, landed) {
+  const options = { reason: "model-switched", details, successor: true };
+  return memberId
+    ? freshMemberChat(service, service.teams.store.member(memberId), landed, {
+        ...options,
+        main: conversation.main === true,
+      })
+    : freshMainChat(service, conversation, landed, { ...options, main: true });
+}
+
+/**
  * Swaps the chats of every agent in `plan` that are free now and returns them, each
  * `{ assistantId, userId, from, to }`, with the ids of the chats that are not free in
- * `deferred` (their swap is completed by deferred-swaps.js once they are). A swap
+ * `deferred`: deferred-swaps.js holds those and swaps each once it is free. A swap
  * that failed before it committed leaves its chat as it was and is deferred too; one
  * that failed after (its note or subscribe) is logged, its chat already replaced. The
- * model is saved already, so nothing here throws. Callers hold admission.
+ * model is saved already, so nothing here throws. Callers hold admission, unless
+ * `hold` defers every chat without swapping any (no admission needed).
  */
-export async function swapNow(service, plan) {
+export async function swapNow(service, plan, { hold = false } = {}) {
   const result = { chats: [], deferred: [] };
   if (!plan?.fresh) return result;
   const details = {
@@ -142,11 +160,15 @@ export async function swapNow(service, plan) {
   for (const assistantId of plan.agents) {
     let swapped = false;
     for (const { c, member } of chatsOf(service, assistantId)) {
-      if (!chatFree(service, c.id)) {
+      const swap = { assistantId, memberId: member?.id, details };
+      const defer = () => {
         result.deferred.push(c.id);
+        deferredSwaps(service).add(c.id, swap);
+      };
+      if (hold || !chatFree(service, c.id)) {
+        defer();
         continue;
       }
-      const options = { reason: "model-switched", details, successor: true };
       const landed = (next) => {
         swapped = true;
         result.chats.push({
@@ -157,25 +179,24 @@ export async function swapNow(service, plan) {
         });
       };
       try {
-        await (member
-          ? freshMemberChat(service, member, landed, {
-              ...options,
-              main: c.main === true,
-            })
-          : freshMainChat(service, c, landed, { ...options, main: true }));
+        await swapChat(service, { ...swap, conversation: c }, landed);
       } catch (error) {
-        if (!result.chats.some((s) => s.from === c.id)) result.deferred.push(c.id);
+        if (!result.chats.some((s) => s.from === c.id)) defer();
         console.error("Model switch: a chat was not swapped:", error?.message);
       }
     }
-    if (swapped)
-      try {
-        moveChannels(service, assistantId);
-      } catch (error) {
-        console.error("Model switch: Telegram was not moved:", error?.message);
-      }
+    if (swapped) moveChannelsOf(service, assistantId);
   }
   return result;
+}
+
+/** Points the agent's Telegram channels at its new main chats; logs a failure. */
+export function moveChannelsOf(service, assistantId) {
+  try {
+    moveChannels(service, assistantId);
+  } catch (error) {
+    console.error("Model switch: Telegram was not moved:", error?.message);
+  }
 }
 
 /**
