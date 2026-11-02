@@ -37,7 +37,9 @@ async function blockingProxy(t) {
     sockets.add(socket);
     socket.on("close", () => sockets.delete(socket));
     socket.once("data", (chunk) => {
-      tunnels.push(chunk.toString("latin1").split("\r\n")[0]);
+      // The host of "CONNECT host:port HTTP/1.1", compared exactly below.
+      const target = chunk.toString("latin1").split("\r\n")[0].split(" ")[1] || "";
+      tunnels.push(target.replace(/:\d+$/, "").toLowerCase());
       socket.end("HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\n\r\n");
     });
     socket.on("error", () => {});
@@ -160,10 +162,7 @@ test(
       )
       .catch(() => {});
     t.diagnostic(`probe=${JSON.stringify(probe)} tunnels=${JSON.stringify(tunnels)}`);
-    assert.ok(
-      !tunnels.some((line) => line.includes("auth.openai.com")),
-      "OpenClaw never tried to refresh",
-    );
+    assert.ok(!tunnels.includes("auth.openai.com"), "OpenClaw never tried to refresh");
     const after = storedProfile(runtime.paths);
     assert.equal(after.access, near.access, "no refresh fence replaced the token");
     assert.equal(after.refresh, undefined);
@@ -253,7 +252,7 @@ test(
     assert.equal(moved.id, account.id);
     assert.equal(moved.holder, "agentpier");
     assert.ok(["ok", "expiring"].includes((await statusOf(runtime.client)).status));
-    assert.ok(!tunnels.some((line) => line.includes("auth.openai.com")));
+    assert.ok(!tunnels.includes("auth.openai.com"));
     assert.equal(issuer.state.refreshes, 0);
 
     // A rollback to the pre-move snapshot keeps its credentials but brings back no

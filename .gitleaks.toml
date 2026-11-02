@@ -103,3 +103,21 @@ condition = "AND"
 paths = ['''(^|/)tests/unit/audit-ssh-details\.test\.js$''']
 regexTarget = "line"
 regexes = ['''(?m)^\s*keyBlob: "AAAAC3NzaC1lZDI1NTE5",$''']
+
+# The update snapshot tests plant a synthetic Hermes key to prove snapshots seal
+# it and scope it per runtime. Keep file and line exact.
+[[allowlists]]
+description = "Exact synthetic Hermes key in the update snapshot scope and scrub test"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''(^|/)tests/unit/assistant-update-snapshot-scope-scrub\.test\.js$''']
+regexTarget = "line"
+regexes = ['''(?m)^\s*const secret = "sk-hermes-secret-0123456789";$''']
+
+[[allowlists]]
+description = "Exact synthetic Hermes key in the runtime update scope test"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''(^|/)tests/integration/assistant-runtime-update-scope\.test\.js$''']
+regexTarget = "line"
+regexes = ['''(?m)^\s*const secret = "sk-hermes-secret-0123456789";$''']
