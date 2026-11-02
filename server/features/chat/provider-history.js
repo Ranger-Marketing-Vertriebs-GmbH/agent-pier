@@ -21,6 +21,7 @@ import {
   normalizeCodexRecords,
   normalizeOpenCode,
 } from "./history-parsers.js";
+import { cliDriver } from "../clis/drivers.js";
 const execute = promisify(execFile);
 const MAX_HISTORY = 64 * 1024 * 1024;
 export function providerId(value) {
@@ -210,7 +211,7 @@ export class ProviderHistory {
   }
   async claudeDirectory(session) {
     const env = this.environment(session);
-    const root = env.CLAUDE_CONFIG_DIR || path.join(env.HOME || this.home, ".claude");
+    const root = cliDriver("claude").configRoot(env, this.home);
     const slug = session.cwd.replace(/[^a-zA-Z0-9]/g, "-");
     const projects = path.join(root, "projects");
     let directories = [path.join(projects, slug)];
@@ -508,7 +509,7 @@ export class ProviderHistory {
       const result = { ...normalizeCodex(full), observability: observeCodex(full) };
       if (thread.path) {
         const env = this.environment(session),
-          root = env.CODEX_HOME || path.join(env.HOME, ".codex");
+          root = cliDriver("codex").configRoot(env, env.HOME);
         try {
           const records = await readJsonLines(await inside(thread.path, root));
           const meta = records.find((r) => r?.type === "session_meta")?.payload;
@@ -537,7 +538,7 @@ export class ProviderHistory {
   async codexRolloutIdentity(session, file) {
     if (session.tool !== "codex") return null;
     const env = this.environment(session),
-      root = env.CODEX_HOME || path.join(env.HOME, ".codex");
+      root = cliDriver("codex").configRoot(env, env.HOME);
     const verified = await inside(file, root);
     const handle = await fs.open(verified, "r");
     try {

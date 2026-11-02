@@ -3,6 +3,7 @@ import path from "node:path";
 import os from "node:os";
 import { parse } from "smol-toml";
 import { tomlValue } from "../../lib/launch-serialization.js";
+import { cliDriver } from "../clis/drivers.js";
 
 const valueOptions = new Set([
   "-c",
@@ -97,7 +98,7 @@ export function remoteLaunchArgs(args, { env = process.env, cwd = process.cwd() 
   }
   if (!directories.length) return { terminal, overrides };
   let config = {};
-  const home = env.CODEX_HOME || path.join(env.HOME || os.homedir(), ".codex");
+  const home = cliDriver("codex").configRoot(env, os.homedir());
   try {
     config = parse(fs.readFileSync(path.join(home, "config.toml"), "utf8"));
   } catch (error) {

@@ -11,6 +11,8 @@ export function configRoot(env, home) {
   return env.CODEX_HOME || path.join(env.HOME || home, ".codex");
 }
 
+export const dataRoot = configRoot;
+
 export function parseAuthStatus(stdout, stderr, exitCode) {
   const output = stripVTControlCharacters(`${stdout || ""}\n${stderr || ""}`);
   if (exitCode === 0 && /^Logged in using .+/m.test(output)) return "authenticated";

@@ -10,7 +10,7 @@ test("every coding CLI has a driver with profileEnv, configRoot, parseAuthStatus
   for (const id of CODING_CLI_IDS) {
     const driver = cliDriver(id);
     assert.equal(driver.definition.id, id);
-    for (const method of ["profileEnv", "configRoot", "parseAuthStatus"])
+    for (const method of ["profileEnv", "configRoot", "dataRoot", "parseAuthStatus"])
       assert.equal(typeof driver[method], "function", `${id}.${method}`);
   }
   assert.throws(() => cliDriver("shell"), TypeError);
@@ -31,8 +31,33 @@ test("configRoot honours the override variable and falls back to the home defaul
   for (const [id, [env, override, fallback]] of Object.entries(cases)) {
     assert.equal(cliDriver(id).configRoot(env, home), override);
     assert.equal(cliDriver(id).configRoot({}, home), fallback);
-    assert.equal(cliDriver(id).configRoot({ HOME: "/h2" }, home).startsWith("/h2"), true);
   }
+  assert.equal(cliDriver("codex").configRoot({ HOME: "/h2" }, home), "/h2/.codex");
+  assert.equal(cliDriver("claude").configRoot({ HOME: "/h2" }, home), "/h2/.claude");
+  assert.equal(
+    cliDriver("opencode").configRoot({ HOME: "/h2" }, home),
+    "/h2/.config/opencode",
+  );
+});
+
+test("dataRoot honours the data override and falls back to the home default", () => {
+  const home = "/home/u";
+  assert.equal(cliDriver("codex").dataRoot({ CODEX_HOME: "/x" }, home), "/x");
+  assert.equal(cliDriver("codex").dataRoot({ HOME: "/h2" }, home), "/h2/.codex");
+  assert.equal(cliDriver("claude").dataRoot({ CLAUDE_CONFIG_DIR: "/x" }, home), "/x");
+  assert.equal(cliDriver("claude").dataRoot({}, home), "/home/u/.claude");
+  assert.equal(
+    cliDriver("opencode").dataRoot({ XDG_DATA_HOME: "/x/data" }, home),
+    "/x/data/opencode",
+  );
+  assert.equal(
+    cliDriver("opencode").dataRoot({ XDG_CONFIG_HOME: "/x/cfg" }, home),
+    "/home/u/.local/share/opencode",
+  );
+  assert.equal(
+    cliDriver("opencode").dataRoot({ HOME: "/h2" }, home),
+    "/h2/.local/share/opencode",
+  );
 });
 
 test("profileEnv isolates each CLI under the account root", () => {
@@ -52,7 +77,11 @@ test("profileEnv isolates each CLI under the account root", () => {
       XDG_STATE_HOME: path.join(root, "state"),
       XDG_CACHE_HOME: path.join(root, "cache"),
     });
-    assert.ok(fs.statSync(path.join(root, "cache")).isDirectory());
+    for (const dir of ["codex", "claude", "config", "data", "state", "cache"]) {
+      const stat = fs.statSync(path.join(root, dir));
+      assert.ok(stat.isDirectory(), dir);
+      assert.equal(stat.mode & 0o777, 0o700, dir);
+    }
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

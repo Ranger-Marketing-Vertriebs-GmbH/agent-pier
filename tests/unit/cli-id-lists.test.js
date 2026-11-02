@@ -53,3 +53,61 @@ function offenders(dir, exclude) {
 test("no inline coding-CLI id arrays outside server/features/clis", () => {
   assert.deepEqual(offenders("server", "server/features/clis/"), []);
 });
+
+// Remaining mentions of a CLI's config variables or home folders, one reason each.
+// Files may only be removed from this list.
+const ROOT_ALLOWED = {
+  "server/features/tools/rea-environment.js":
+    "REA scrubs and re-pins the whole environment; it is not a config-root lookup",
+  "server/features/chat/slash-discovery-claude.js":
+    "project-level .claude folder under the session cwd, not the account root",
+  "server/features/assistants/project-paths.js":
+    "project-relative folder names, not the account root",
+  "server/features/assistants/project-config-lock.js": "project-relative .claude folder",
+  "server/features/assistants/chromium-launch.js": "Chromium's own XDG_CONFIG_HOME",
+  "server/features/assistants/runtimes/hermes/hermes-environment.js":
+    "Hermes agent environment, not a coding CLI",
+  "server/features/assistants/runtimes/hermes/hermes-install.js":
+    "Hermes installer scratch environment",
+  "server/features/repositories/repository-store.js": "git scratch environment",
+  "server/features/operations/releases.js":
+    "scrubbed environment names for release builds",
+  "server/features/operations/profile-allowlist.js": "backup allowlist of file names",
+  "server/features/pipelines/artifact-reader.js": "ignored file names in pipelines",
+  "server/features/providers/provider-launch.js":
+    "writes into the profile env that profileEnv() just produced",
+  "server/features/providers/endpoint-launch.js":
+    "writes into the profile env that profileEnv() just produced",
+  "server/features/accounts/account-store.js":
+    "writes into the profile env that profileEnv() just produced",
+  "server/features/requests/request-launch.js":
+    "needs to know whether the Claude override is set (trust file)",
+  "server/features/requests/request-broker.js": "bridge plugin folder names",
+  "server/features/extensions/extension-store.js":
+    ".claude.json sits in the override folder only when the override is set",
+  "server/features/cli-profiles/configuration.js":
+    ".claude.json sits in the override folder only when the override is set",
+  "server/features/tools/native-installer.js": "nono install dir, not a coding CLI",
+  "server/features/claude-mod/claude-mod-launch.js": "mod bridge folder names",
+  "server/features/memory/memory-integration.js": "plugin manifest folder name",
+  "server/features/plugins/plugin-store.js": "initial boundary folder name per tool",
+  "server/features/assistants/assistant-provider-endpoint.js": ".local host suffix",
+  "server/lib/i18n/de/scripts.js": "message text",
+};
+
+test("no config-root fallbacks outside the CLI drivers", () => {
+  const pattern =
+    /\b(CLAUDE_CONFIG_DIR|CODEX_HOME|XDG_(CONFIG|DATA)_HOME)\b|"\.(claude|codex|config|local)"|["'`]\.claude\.json["'`]/;
+  const found = [];
+  for (const file of sourceFiles(path.join(ROOT, "server"))) {
+    const rel = path.relative(ROOT, file);
+    if (rel.startsWith("server/features/clis/") || rel in ROOT_ALLOWED) continue;
+    fs.readFileSync(file, "utf8")
+      .split("\n")
+      .forEach((line, index) => {
+        if (/^\s*(\/\/|\*|\/\*)/.test(line)) return;
+        if (pattern.test(line)) found.push(`${rel}:${index + 1}: ${line.trim()}`);
+      });
+  }
+  assert.deepEqual(found, []);
+});

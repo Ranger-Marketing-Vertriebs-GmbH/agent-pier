@@ -11,6 +11,8 @@ export function configRoot(env, home) {
   return env.CLAUDE_CONFIG_DIR || path.join(env.HOME || home, ".claude");
 }
 
+export const dataRoot = configRoot;
+
 export function parseAuthStatus(stdout) {
   const status = JSON.parse(stdout);
   if (status.loggedIn === true) return "authenticated";

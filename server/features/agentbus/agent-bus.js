@@ -23,6 +23,7 @@ import { classifyProjectFolder, runWorktreeRoot } from "../memory/project-folder
 
 import { AGENTBUS_VERSION as VERSION, trustedPeers } from "./agentbus-runtime.js";
 import { resolveAgentBusInterpreter } from "./agentbus-launch-identity.js";
+import { cliDriver } from "../clis/drivers.js";
 
 const adapters = fileURLToPath(new URL("./", import.meta.url));
 
@@ -108,11 +109,9 @@ export class AgentBus {
           ? resolveAgentBusInterpreter(launch.command, originalEnv)
           : null,
       node: process.execPath,
-      codexHome:
-        originalEnv.CODEX_HOME || path.join(originalEnv.HOME || this.home, ".codex"),
+      codexHome: cliDriver("codex").configRoot(originalEnv, this.home),
       claudeSessionsDir: path.join(
-        originalEnv.CLAUDE_CONFIG_DIR ||
-          path.join(originalEnv.HOME || this.home, ".claude"),
+        cliDriver("claude").configRoot(originalEnv, this.home),
         "sessions",
       ),
       createdAt: new Date().toISOString(),

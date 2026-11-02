@@ -10,6 +10,7 @@ import { record, publicMcp, safePath, readConfig } from "./mcp-config.js";
 import { skillDigest } from "./skill-digest.js";
 import { writeSkillFiles } from "./skill-files.js";
 import { SkillPreviews } from "./skill-previews.js";
+import { cliDriver } from "../clis/drivers.js";
 // The stable scopeKey lets browsers translate the scope; scope keeps the German label.
 const skillScope = (scopeKey) => ({
   scope: serverMessages.extensions[scopeKey],
@@ -56,7 +57,7 @@ export class ExtensionsStore {
       ...skillScope("sharedUserSkillScope"),
     };
     if (account.tool === "codex") {
-      const dir = env.CODEX_HOME || path.join(this.home, ".codex");
+      const dir = cliDriver("codex").configRoot({ ...env, HOME: this.home }, this.home);
       return {
         account,
         boundary,
@@ -87,7 +88,7 @@ export class ExtensionsStore {
       };
     }
     if (account.tool === "claude") {
-      const dir = env.CLAUDE_CONFIG_DIR || path.join(this.home, ".claude");
+      const dir = cliDriver("claude").configRoot({ ...env, HOME: this.home }, this.home);
       const target = {
         path: path.join(dir, "skills"),
         boundary,
@@ -108,10 +109,7 @@ export class ExtensionsStore {
         sources: [target],
       };
     }
-    const dir = path.join(
-      env.XDG_CONFIG_HOME || path.join(this.home, ".config"),
-      "opencode",
-    );
+    const dir = cliDriver("opencode").configRoot({ ...env, HOME: this.home }, this.home);
     const target = {
       path: path.join(dir, "skills"),
       boundary,

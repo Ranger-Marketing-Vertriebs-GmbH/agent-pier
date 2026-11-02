@@ -5,6 +5,7 @@ import { problem } from "../../lib/storage.js";
 import { DiscoveryScan } from "./slash-discovery-files.js";
 import { discoverClaude } from "./slash-discovery-claude.js";
 import { discoverCodex, discoverOpenCode } from "./slash-discovery-others.js";
+import { cliDriver } from "../clis/drivers.js";
 
 // The slash commands a session's CLI offers beyond its built-ins (the chat keeps the
 // built-in list itself). Discovery reads the account's config folder and the session's
@@ -12,16 +13,15 @@ import { discoverCodex, discoverOpenCode } from "./slash-discovery-others.js";
 
 const discoverers = {
   claude: {
-    root: (env) => env.CLAUDE_CONFIG_DIR || path.join(env.HOME, ".claude"),
+    root: (env) => cliDriver("claude").configRoot(env, env.HOME),
     discover: discoverClaude,
   },
   codex: {
-    root: (env) => env.CODEX_HOME || path.join(env.HOME, ".codex"),
+    root: (env) => cliDriver("codex").configRoot(env, env.HOME),
     discover: discoverCodex,
   },
   opencode: {
-    root: (env) =>
-      path.join(env.XDG_CONFIG_HOME || path.join(env.HOME, ".config"), "opencode"),
+    root: (env) => cliDriver("opencode").configRoot(env, env.HOME),
     discover: discoverOpenCode,
   },
 };

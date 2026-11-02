@@ -13,6 +13,7 @@ import {
   historyValidator,
 } from "./session-transfer-files.js";
 import { cliDefinition, codingCliIds } from "../features/clis/catalog.js";
+import { cliDriver } from "../features/clis/drivers.js";
 
 const fail = (message) => problem(message, 409);
 const missing = (error) => error.code === "ENOENT";
@@ -100,9 +101,8 @@ export async function prepareAccountTransfer(
   id,
 ) {
   providerId(id);
-  const key = session.tool === "codex" ? "CODEX_HOME" : "CLAUDE_CONFIG_DIR";
-  const home = (env) =>
-    env[key] || path.join(env.HOME, session.tool === "codex" ? ".codex" : ".claude");
+  const driver = cliDriver(session.tool === "codex" ? "codex" : "claude");
+  const home = (env) => driver.configRoot(env, env.HOME);
   const source = await fs.realpath(home(accounts.environment(session.accountId)));
   const targetPath = home(accounts.environment(account.id));
   // AccountStore creates managed roots; a local CLI may not have run yet.

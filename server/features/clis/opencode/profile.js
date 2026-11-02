@@ -24,6 +24,13 @@ export function configRoot(env, home) {
   );
 }
 
+export function dataRoot(env, home) {
+  return path.join(
+    env.XDG_DATA_HOME || path.join(env.HOME || home, ".local", "share"),
+    "opencode",
+  );
+}
+
 export function parseAuthStatus(stdout, stderr, exitCode) {
   const output = stripVTControlCharacters(`${stdout || ""}\n${stderr || ""}`);
   if (exitCode !== 0) return "unknown";
