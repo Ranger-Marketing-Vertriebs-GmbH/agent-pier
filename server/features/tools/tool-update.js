@@ -4,6 +4,7 @@ import path from "node:path";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { stripVTControlCharacters } from "node:util";
 import { problem } from "../../lib/storage.js";
+import { cliDefinition, codingCliIds } from "../clis/catalog.js";
 import {
   nativeDestination,
   nativeInstallers,
@@ -16,9 +17,9 @@ import {
  * update re-runs that installer, which resolves the latest release again.
  */
 export const updateCommands = {
-  codex: ["update"],
-  claude: ["update"],
-  opencode: ["upgrade", "--method", "curl"],
+  ...Object.fromEntries(
+    codingCliIds().map((id) => [id, [...cliDefinition(id).updateArgs]]),
+  ),
   nono: null,
 };
 const unmanaged = () => problem(serverMessages.tools.nativeUpdateRequired, 409);
