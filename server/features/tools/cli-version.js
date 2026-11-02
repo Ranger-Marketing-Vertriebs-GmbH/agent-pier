@@ -4,20 +4,19 @@ import { spawn } from "node:child_process";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { planToolUpdate } from "./tool-update.js";
+import { cliDefinition, cliName, codingCliIds } from "../clis/catalog.js";
 
 /**
  * The oldest release of each coding CLI that AgentPier starts sessions with. These
  * are the versions its launch flags, history parsers, model menus and update
  * commands were verified against (docs/cli-updates.md explains each one). A CLI
  * without an entry is never blocked. The table moves into the CLI definition
- * record later, so it stays the only place that names these versions.
+ * record's `minVersion`; this table is a view of those records.
  */
-export const MINIMUM_CLI_VERSIONS = Object.freeze({
-  codex: "0.153.4",
-  claude: "2.1.263",
-  opencode: "1.18.29",
-});
-const CLI_NAMES = { codex: "Codex", claude: "Claude Code", opencode: "OpenCode" };
+export const MINIMUM_CLI_VERSIONS = Object.freeze(
+  Object.fromEntries(codingCliIds().map((id) => [id, cliDefinition(id).minVersion])),
+);
+const CLI_NAMES = Object.fromEntries(codingCliIds().map((id) => [id, cliName(id)]));
 
 const triple = (version) => {
   const match = /^(\d+)\.(\d+)\.(\d+)/.exec(typeof version === "string" ? version : "");

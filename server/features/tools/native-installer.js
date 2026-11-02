@@ -2,26 +2,15 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { problem } from "../../lib/storage.js";
+import { cliDefinition, codingCliIds } from "../clis/catalog.js";
 
 export const nativeInstallers = {
-  codex: {
-    url: "https://chatgpt.com/codex/install.sh",
-    shell: "/bin/sh",
-    args: [],
-    directory: ".local/bin",
-  },
-  claude: {
-    url: "https://claude.ai/install.sh",
-    shell: "/bin/bash",
-    args: [],
-    directory: ".local/bin",
-  },
-  opencode: {
-    url: "https://opencode.ai/install",
-    shell: "/bin/bash",
-    args: ["--no-modify-path"],
-    directory: ".opencode/bin",
-  },
+  ...Object.fromEntries(
+    codingCliIds().map((id) => {
+      const { url, shell, args, directory } = cliDefinition(id).nativeInstaller;
+      return [id, { url, shell, args: [...args], directory }];
+    }),
+  ),
   // The official script resolves the latest GitHub release for the platform,
   // verifies its SHA-256 against the release's own SHA256SUMS.txt, and installs
   // the single `nono` binary. Left to itself it prefers `/usr/local/bin` and

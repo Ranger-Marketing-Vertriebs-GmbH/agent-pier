@@ -19,6 +19,7 @@ import { toolBinDirectories } from "./tool-paths.js";
 import { problem, readJSON, writePrivate } from "../../lib/storage.js";
 import { planToolUpdate, updateCommands, updateTool } from "./tool-update.js";
 import { run } from "./tool-run.js";
+import { cliDefinition, codingCliIds } from "../clis/catalog.js";
 export { run };
 import {
   chromiumUnavailable,
@@ -30,21 +31,12 @@ import {
 import { chromiumManifest } from "./chromium-manifest.js";
 import { logFailure } from "../mcp-packages/package-install-job.js";
 const catalog = {
-  codex: {
-    name: "Codex",
-    packageName: "@openai/codex",
-    documentation: "https://learn.chatgpt.com/docs/codex/cli",
-  },
-  claude: {
-    name: "Claude Code",
-    packageName: "@anthropic-ai/claude-code",
-    documentation: "https://code.claude.com/docs/en/setup",
-  },
-  opencode: {
-    name: "OpenCode",
-    packageName: "opencode-ai",
-    documentation: "https://opencode.ai/docs/",
-  },
+  ...Object.fromEntries(
+    codingCliIds().map((id) => {
+      const { name, npmPackage, docsUrl } = cliDefinition(id);
+      return [id, { name, packageName: npmPackage, documentation: docsUrl }];
+    }),
+  ),
   gh: {
     name: "GitHub CLI",
     packageName: "cli/cli",

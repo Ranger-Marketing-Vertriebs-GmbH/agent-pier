@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
-export const toolIds = ["codex", "claude", "opencode", "gh"];
+import { codingCliIds } from "../clis/catalog.js";
+export const toolIds = [...codingCliIds(), "gh"];
 export function toolBinDirectories(dataDir) {
   return dataDir ? toolIds.map((id) => path.join(dataDir, "clis", id, "bin")) : [];
 }
