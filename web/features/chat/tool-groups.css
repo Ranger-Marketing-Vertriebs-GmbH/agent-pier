@@ -1,6 +1,6 @@
 /* A run of tool rows in a session chat as one ActivityGroup (ChatTranscript.jsx). */
 .chat-tool-group {
-  max-width: 820px;
+  max-width: var(--chat-column);
   margin: 0 auto 20px;
 }
 .chat-tool-group > .activity-row-body > .chat-tool {

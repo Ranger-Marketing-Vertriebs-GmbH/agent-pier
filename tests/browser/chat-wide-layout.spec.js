@@ -1,5 +1,6 @@
-// The session chat in a split pane: the task list of a pane opens as a drawer inside
-// that pane, not over the whole window.
+// The session chat on a wide window and in a split pane: one reading column for the
+// messages, the user's bubble and the composer; the task list of a pane opens as a
+// drawer inside that pane, not over the whole window.
 import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import {
@@ -50,6 +51,23 @@ async function fixture(page, layout) {
 
 const box = (locator) => locator.boundingBox();
 const near = (actual, expected) => expect(Math.abs(actual - expected)).toBeLessThan(2);
+
+test("on a wide window the bubble and the composer share the messages' column", async ({
+  page,
+}) => {
+  await fixture(page);
+  await page.goto(`${baseURL}/sessions/s1/chat`);
+  const reply = page.locator(".chat-message:not(.user)").first();
+  await expect(reply).toContainText("billing/totals.js");
+  const column = await box(reply);
+  expect(column.width).toBe(820);
+  const bubble = await box(page.locator(".chat-message.user").first());
+  near(bubble.x + bubble.width, column.x + column.width);
+  const composer = await box(page.locator(".chat-compose-area"));
+  near(composer.x, column.x);
+  near(composer.x + composer.width, column.x + column.width);
+  await shoot(page, "chat-wide-column");
+});
 
 test("a pane's task list opens as a drawer inside the pane and closes on Escape", async ({
   page,
