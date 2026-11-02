@@ -22,6 +22,7 @@ import { assistantSkillRoutes } from "./assistant-skills.js";
 import { agentSkillCatalogRoutes } from "./agent-skill-catalog.js";
 import { userAgentRoutes } from "./user-agents.js";
 import { assistantChatRoutes } from "./assistant-chats.js";
+import { modelSwitchPreview } from "../../features/assistants/model-switch-preview.js";
 import { assistantTalkRoutes } from "./assistant-talk.js";
 import { assistantLifecycleRoutes } from "./assistant-lifecycle.js";
 import {
@@ -152,6 +153,10 @@ function activeAssistantRoutes(services) {
       source: "user",
     });
     res.status(201).json(result);
+  });
+  // Whether a model change switches the model family (owner only, booleans only).
+  router.get("/assistants/:id/model-switch", (req, res) => {
+    res.json(modelSwitchPreview(assistants, req.params.id, req.query));
   });
   router.patch("/assistants/:id", async (req, res) => {
     const { revision, confirmRestart, ...patch } = req.body;

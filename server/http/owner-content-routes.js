@@ -123,6 +123,8 @@ export const ownerMetadataRoutes = new Set([
   "POST /api/assistants/:id/main-chat-restart",
   "POST /api/assistants/:id/restore",
   "GET /api/assistants/:id/deletion",
+  // Booleans about a model change, no content (model-switch-preview.js).
+  "GET /api/assistants/:id/model-switch",
 ]);
 
 /** Paths of routes that belong to one agent or one of its chats, turns or files. */
