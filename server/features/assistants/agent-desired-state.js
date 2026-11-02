@@ -43,7 +43,8 @@ export const isDesiredState = (value) => built.has(value) && Array.isArray(value
  * provider, agentRuntime }`), the last two only for a live apply; `channelBot`, for
  * a runtime that runs the agent's own Telegram bot in the agent's own process set
  * (Hermes): `{ token, people, speech, apiRoot, deepgram }` as telegram-senders-own.js
- * reads it, null for none, left out when unknown. Deeply frozen.
+ * reads it, null for none, left out when unknown; `lead`, a temporary member's lead's
+ * record, whose window setting its borrowed browser follows. Deeply frozen.
  */
 export function desiredAgent(
   profile,
@@ -55,6 +56,7 @@ export function desiredAgent(
     instructions,
     model,
     channelBot,
+    lead = null,
   } = {},
 ) {
   const capabilities = personalCapabilities(profile);
@@ -89,7 +91,12 @@ export function desiredAgent(
       // Its own setting, or one its user may switch herself (released).
       wanted:
         eligible && !inherits && (capabilities.browser || released.includes("browser")),
-      visible: browserVisible(profile),
+      // A temporary member's browser its lead granted: OpenClaw lends it a member
+      // slot at run time (agent-browsers.js), a runtime of its own process set
+      // (Hermes) gives it a browser of its own for the member's lifetime.
+      borrowed: inherits && capabilities.browser === true,
+      // A borrowed browser shows a window as its lead's would (`lead`).
+      visible: inherits ? browserVisible(lead) : browserVisible(profile),
       profile: agentProfileName(profile.id),
     },
     channels: {
@@ -157,6 +164,9 @@ export function desiredState(inputs = {}) {
       ],
       mcp: bindings[profile.id] || [],
       stdio: stdio.has(profile.id),
+      lead: profile.parentAssistantId
+        ? profiles.find((p) => p.id === profile.parentAssistantId) || null
+        : null,
     }),
   );
   const { bindings: _bindings, ...servers } = mcp || {};

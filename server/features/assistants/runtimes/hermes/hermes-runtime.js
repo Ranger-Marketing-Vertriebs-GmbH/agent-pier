@@ -90,9 +90,10 @@ export function createHermesRuntime({
       catalogSkills: inputs.catalog,
       mcp: inputs.mcp,
       connection: inputs.connection,
-      // A port is chosen only for an agent that wants the browser.
+      // A port is chosen only for an agent that wants the browser, its own or the
+      // one its lead granted it as a temporary member.
       browser:
-        settings?.executablePath && read.browser.wanted
+        settings?.executablePath && (read.browser.wanted || read.browser.borrowed)
           ? {
               cdpUrl: `http://127.0.0.1:${await browser.port()}`,
               allowPrivateNetwork: settings.allowPrivateNetwork === true,

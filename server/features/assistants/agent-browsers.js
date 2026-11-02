@@ -87,6 +87,8 @@ export class AgentBrowsers {
     this.running = new Map();
     // Temporary member id -> slot name; `releasing` slots are being discarded.
     this.slots = new Map();
+    // Slots that are a Hermes member's own browser -> { directory, headless }.
+    this.ownSlots = new Map();
     this.releasing = new Set();
     this.onChange = () => {};
     this.generation = runtime?.generation;
@@ -119,18 +121,26 @@ export class AgentBrowsers {
   /**
    * Every profile by name: OpenClaw's compiled ones, and the own profile of each
    * Hermes agent with the browser, whose Chromium AgentPier runs itself
-   * (runtimes/hermes/hermes-browser.js) once its port is chosen (`hermes: true`).
+   * (runtimes/hermes/hermes-browser.js) once its port is chosen (`hermes: true`). A
+   * Hermes temporary member's is the browser its lead granted it (`member: true`),
+   * driven only while it holds a member slot (profileOf).
    */
   profiles() {
     const profiles = { ...this.runtime?.webTools?.browserProfiles };
     for (const assistant of this.store?.listAssistants?.() || []) {
       const name = agentProfileName(assistant.id);
       if (!ownProcess(assistant) || assistant.archivedAt || !name) continue;
-      if (!personalEligible(assistant) || inheritsFromLead(assistant)) continue;
+      const member = inheritsFromLead(assistant);
+      if (!member && !personalEligible(assistant)) continue;
       if (!personalCapabilities(assistant).browser) continue;
       const own = this.port(assistant).profile?.();
       if (Number.isSafeInteger(own?.cdpPort))
-        profiles[name] = { ...own, agentId: assistant.id, hermes: true };
+        profiles[name] = {
+          ...own,
+          agentId: assistant.id,
+          hermes: true,
+          ...(member && { member: true }),
+        };
     }
     return profiles;
   }
@@ -322,6 +332,7 @@ export class AgentBrowsers {
     }
     const held = this.slots.get(assistant.id);
     if (held && profiles[held]) return held;
+    if (ownProcess(assistant)) return this.ownMemberSlot(assistant, profiles);
     let lead = null;
     try {
       lead = this.store.getAssistant(assistant.parentAssistantId);
@@ -339,6 +350,41 @@ export class AgentBrowsers {
       }
     }
     return null;
+  }
+  /**
+   * A Hermes temporary member's slot: its own Chromium (in its own home, which goes
+   * with the member), held under the member-slot limit of its kind, so at most
+   * `memberSlotCount` headless and as many visible member browsers exist at once, as
+   * on OpenClaw. Null while that many are held.
+   */
+  ownMemberSlot(assistant, profiles) {
+    const name = agentProfileName(assistant.id);
+    const entry = name && profiles[name];
+    if (!entry?.member) return null;
+    const held = [...this.slots.values(), ...this.releasing].filter(
+      (slot) =>
+        this.ownSlots.has(slot) && this.ownSlots.get(slot).headless === entry.headless,
+    );
+    if (held.length >= memberSlotCount) return null;
+    this.slots.set(assistant.id, name);
+    this.ownSlots.set(name, { directory: entry.directory, headless: entry.headless });
+    return name;
+  }
+  /**
+   * A Hermes member's slot after the member ended: a promoted member keeps its
+   * browser and logins, its own from now on; any other end stops the browser and
+   * discards its profile, as an OpenClaw member slot's data is.
+   */
+  async releaseOwnSlot(member, slot) {
+    const { directory } = this.ownSlots.get(slot);
+    this.ownSlots.delete(slot);
+    if (member && personalEligible(member) && !inheritsFromLead(member)) return;
+    this.release(slot);
+    if (member && this.ready(member))
+      await this.port(member)
+        .request({ method: "POST", path: "/stop", query: { profile: slot } })
+        .catch(() => {});
+    if (directory) removeProfile(directory);
   }
   /**
    * Makes room for one more visible browser and calls `reserve` in the same
@@ -440,6 +486,10 @@ export class AgentBrowsers {
       this.releasing.add(slot);
       this.slots.delete(memberId);
       try {
+        if (this.ownSlots.has(slot)) {
+          await this.releaseOwnSlot(member, slot);
+          continue;
+        }
         await this.stop(slot);
         const target =
           member && personalEligible(member) ? agentProfileName(member.id) : null;

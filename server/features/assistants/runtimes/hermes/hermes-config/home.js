@@ -65,7 +65,7 @@ function unsupportedOf(agent, level, model, { placed, mcp, team, browser }) {
   const grants = agent.tools.flatMap((grant) => grant.tools || []);
   return [
     ...(model?.unsupported ? [model.unsupported] : []),
-    ...(agent.browser.wanted && !browser ? ["browser"] : []),
+    ...((agent.browser.wanted || agent.browser.borrowed) && !browser ? ["browser"] : []),
     ...((mcp ? mcp.skipped.length : agent.mcp.servers.length) ? ["mcp"] : []),
     ...(mcp?.oauth.length ? ["mcpOAuth"] : []),
     ...(agent.skills.assigned.some((name) => !placed.includes(name)) ? ["skills"] : []),
@@ -113,7 +113,12 @@ export function compileHome(
   const guard = guardsEveryCommand(level);
   // The browser needs the agent's own setting, AgentPier's Chromium and the guard,
   // which starts that Chromium and pins every call to it.
-  const browsing = !!(agent.browser.wanted && browser?.cdpUrl && connection);
+  // A temporary member's browser is the one its lead granted (`borrowed`).
+  const browsing = !!(
+    (agent.browser.wanted || agent.browser.borrowed) &&
+    browser?.cdpUrl &&
+    connection
+  );
   // Built-in skills (shopping) need the browser, so they come with the team plugin.
   const builtIn = builtInOffered(agent, browsing);
   const team = teamPluginFiles(agent, {
