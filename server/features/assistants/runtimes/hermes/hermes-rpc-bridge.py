@@ -25,6 +25,17 @@ shows as the owner's words, appended through Hermes's own SessionDB to the sessi
 current compression segment. It answers `{ appended: true }`, or `{ appended: false,
 reason: "not_found" }` for a session that is gone.
 
+At its start the bridge makes sure the home has a session: Hermes appends a one-time
+"very first message ever, introduce yourself" note to the first message a person sends
+on a messaging platform while the home has no other session
+(gateway/run_turn_prepare.py `_hmwa_first_contact_notes`, agent/onboarding.py
+PLAIN_INTRO_NOTE), and no config key turns that plain note off. An agent whose first
+message comes from a person writing to its own Telegram bot would otherwise greet that
+stranger with it. The seed is one archived, ended session without messages
+(`agentpier-first-contact`), which Hermes counts (SessionDB.session_count_ge counts
+archived sessions) and never lists or sweeps (the empty-session sweep skips archived
+ones).
+
 Run with the Hermes environment's own Python: python -I hermes-rpc-bridge.py [seconds].
 Exit codes: 0 when stdin closed, 2 when no ready owner appeared in time, 3 when the
 gateway refused the ticket, 4 when the gateway closed the channel.
@@ -169,6 +180,26 @@ def note_call(params):
         release_or_close(db)
 
 
+# The session that tells Hermes this home has been talked to before.
+_SEED_SESSION = "agentpier-first-contact"
+
+
+def seed_first_contact():
+    """Writes the seed session into a home without any session; True when it wrote it."""
+    from hermes_state_registry import acquire, release_or_close
+
+    db = acquire()
+    try:
+        if db.session_count_ge(1):
+            return False
+        db.create_session(_SEED_SESSION, "agentpier")
+        db.end_session(_SEED_SESSION, "agentpier_seed")
+        db.set_session_archived(_SEED_SESSION, True, notify=False)
+        return True
+    finally:
+        release_or_close(db)
+
+
 async def relay(home, endpoint, url, protocols):
     from websockets.asyncio.client import connect
     from hermes_cli.gateway_client import GATEWAY_WS_PROTOCOL
@@ -246,6 +277,11 @@ def main():
     seconds = float(sys.argv[1]) if len(sys.argv) > 1 else 60.0
     home = get_hermes_home().resolve()
     endpoint = owner(home, time.monotonic() + seconds)
+    try:
+        seed_first_contact()
+    except Exception as error:  # Never keeps the channel from opening.
+        sys.stderr.write(f"[agentpier-hermes-bridge] seed failed: {type(error).__name__}\n")
+        sys.stderr.flush()
     url, protocols = ticket_target(home, endpoint)
     code = asyncio.run(relay(home, endpoint, url, protocols))
     if code:

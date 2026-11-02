@@ -35,6 +35,13 @@ const bot = {
 const home = (fields, channelBot, existing) =>
   compileHome(desiredAgent(profile(fields), { channelBot }), { existing });
 
+test("a production bot names fixed fallback addresses and the real Bot API", () => {
+  const extra = readHermesConfig(home({}, bot).files["config.yaml"]).platforms.telegram
+    .extra;
+  assert.deepEqual(extra.fallback_ips, ["149.154.166.110", "149.154.167.220"]);
+  assert.equal(extra.base_url, undefined);
+});
+
 test("a bot compiles Hermes's Telegram adapter, its access rules and Deepgram", () => {
   const compiled = home(
     {},
@@ -49,7 +56,8 @@ test("a bot compiles Hermes's Telegram adapter, its access rules and Deepgram", 
   assert.deepEqual(extra.allowed_chats, ["0"]);
   assert.equal(extra.guest_mode, false);
   assert.equal(config.platforms.telegram.home_channel.chat_id, "0");
-  assert.deepEqual(extra.fallback_ips, ["149.154.167.220"]);
+  // Hermes's own seed addresses: no DNS-over-HTTPS lookup at Google or Cloudflare.
+  assert.deepEqual(extra.fallback_ips, ["149.154.166.110", "149.154.167.220"]);
   assert.deepEqual(extra.allow_admin_from, ["0"]);
   assert.equal(extra.base_url, "http://127.0.0.1:9/bot");
   assert.equal(extra.base_file_url, "http://127.0.0.1:9/file/bot");

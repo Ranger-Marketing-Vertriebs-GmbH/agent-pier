@@ -43,7 +43,9 @@ const missing = (error) => error?.answered === true && error.reason === "not_fou
 export function hermesSessions(supervisor) {
   // The turns AgentPier submitted, shared by every view (hermes-turns.js).
   const turns = new HermesTurns();
-  return boundPort((current) => sessionsOver(current, turns), supervisor);
+  // The last context size read per session key, beyond one connection (contextOf).
+  const sizes = new Map();
+  return boundPort((current) => sessionsOver(current, turns, sizes), supervisor);
 }
 
 // Attaches the session behind `key` to this connection; resolves its session id.
@@ -195,11 +197,16 @@ async function transcript(link, key, options) {
 // How full the context of the session's last model call was, in OpenClaw's
 // `sessionInfo` terms (conversations.js longContext): `session.stats`
 // (gateway/session_usage.py) of the agent the gateway keeps for a session attached
-// here: `last_prompt_tokens` against `context_length`. A session not attached, or
-// whose agent the gateway let go (a restart, a compression), names no size.
-async function contextOf(link, key) {
+// here: `last_prompt_tokens` against `context_length`. Hermes keeps that agent only
+// in the gateway's memory (gateway/session_controls.py `stats`: no agent, no size)
+// and stores no prompt size in its SessionDB, so after a gateway restart the size
+// read last for the key (`sizes`, kept per agent beyond one connection) stands until
+// the session's next model call: the history it measured is unchanged. A compression
+// AgentPier asked for (compact) or a deletion forgets it; a size never read is none.
+async function contextOf(link, key, sizes) {
   const sid = link.runs.sidOf(key);
-  if (!sid) return {};
+  const known = () => sizes.get(key) ?? {};
+  if (!sid) return known();
   try {
     const stats = await link.client.call(
       "session.stats",
@@ -208,18 +215,20 @@ async function contextOf(link, key) {
     );
     const used = stats?.last_prompt_tokens;
     const window = stats?.context_length;
-    if (!Number.isSafeInteger(used) || used <= 0) return {};
-    return {
+    if (!Number.isSafeInteger(used) || used <= 0) return known();
+    const size = {
       totalTokens: used,
       totalTokensFresh: true,
       ...(Number.isSafeInteger(window) && window > 0 && { contextTokens: window }),
     };
+    sizes.set(key, size);
+    return size;
   } catch {
-    return {};
+    return known();
   }
 }
 
-function sessionsOver(current, turns) {
+function sessionsOver(current, turns, sizes = new Map()) {
   const reach = async () => reachable(current());
   return {
     async create({ agentId, label, idempotencyKey }, options = {}) {
@@ -381,7 +390,7 @@ function sessionsOver(current, turns) {
         sessionInfo: {
           key: sessionKey,
           count: answer?.count ?? total,
-          ...(await contextOf(link, sessionKey)),
+          ...(await contextOf(link, sessionKey, sizes)),
         },
         hasMore: start > 0,
         sessionId: storedIdOf(link.agentId, sessionKey),
@@ -399,6 +408,7 @@ function sessionsOver(current, turns) {
         if (deleteTranscript !== false) {
           link.runs.unbind(key);
           turns.forget(key);
+          sizes.delete(key);
         }
         return receipt;
       } catch (error) {
@@ -423,6 +433,8 @@ function sessionsOver(current, turns) {
     reopenRefused: async () => false,
     async compact({ key, timeoutMs }) {
       const link = await reach();
+      // The compressed history is shorter: its size is unknown until the next call.
+      sizes.delete(key);
       return mutate(link, key, "compress", {}, { fenced: true, timeoutMs });
     },
     // A session's events reach every connection attached to it: attaching here is

@@ -15,7 +15,15 @@ import {
   routineRunOf,
   runtimeForSession,
 } from "../../server/features/assistants/runtimes/runtime-for.js";
-import { makeHermesRuntime } from "../helpers/hermes-fake-gateway.js";
+import { makeHermesRuntime, memoryTransport } from "../helpers/hermes-fake-gateway.js";
+import {
+  createHermesClient,
+  stateOf,
+} from "../../server/features/assistants/runtimes/hermes/hermes-connection.js";
+import {
+  HermesRoutineDeliveries,
+  chatBusy,
+} from "../../server/features/assistants/runtimes/hermes/hermes-routines.js";
 
 const routine = (extra = {}) => ({
   name: "Inbox",
@@ -209,4 +217,44 @@ test("a run's result reaches AgentPier's webhook once, and a disabled routine st
   const [after] = await routines.list();
   assert.equal(after.runState.lastDeliveryStatus, "delivered");
   assert.equal(posted.length, 1);
+});
+
+test("a routine's note for a chat waits for the end of that chat's running turn", async () => {
+  const { transport } = memoryTransport();
+  const client = createHermesClient(transport, { agentId: "ap-1", timeoutMs: 200 });
+  const notes = [];
+  // The bridge's answer to agentpier.note (hermes-rpc-bridge.py).
+  client.call = async (method, params) => {
+    notes.push({ method, ...params });
+    return { appended: true };
+  };
+  const key = "agent:ap-1:hermes:local-1";
+  const { runs } = stateOf(client);
+  runs.bind(key, "live-1");
+  const deliveries = new HermesRoutineDeliveries({ supervisor: { agentId: "ap-1" } });
+  const job = {
+    id: "j1",
+    name: "Inbox",
+    agentpier: { delivery: { kind: "chat" }, target: { kind: "chat", sessionKey: key } },
+  };
+  const note = deliveries.noteOf(job, "Three new mails");
+  assert.deepEqual(note, {
+    session: "local-1",
+    key,
+    text: "[Cron delivery: Inbox]\nThree new mails",
+  });
+  // A turn of the chat runs: the note is not written before its reply.
+  runs.turn("live-1").current = "run-1";
+  assert.equal(chatBusy(client, key), true);
+  assert.equal(await deliveries.note(client, note), false);
+  assert.deepEqual(notes, []);
+  // Once it ended, the next pass writes it.
+  runs.turn("live-1").current = null;
+  assert.equal(chatBusy(client, key), false);
+  assert.equal(await deliveries.note(client, note), true);
+  assert.deepEqual(notes, [
+    { method: "agentpier.note", session_id: "local-1", text: note.text },
+  ]);
+  // A chat this connection never attached has no turn here.
+  assert.equal(chatBusy(client, "agent:ap-1:hermes:other"), false);
 });

@@ -208,7 +208,7 @@ test("a routine's result is written into its chat's history as a note the agent 
   assert.equal(again.messages.length, history.messages.length);
 });
 
-test("a Hermes chat names its last model call's context while its agent is kept", async () => {
+test("a Hermes chat names its last model call's context, across a gateway restart", async () => {
   const { supervisor, runtime } = await started();
   const { key } = await runtime.sessions.create({ agentId: "ap-1", label: "Main" });
   const before = await runtime.sessions.history({ sessionKey: key });
@@ -223,8 +223,15 @@ test("a Hermes chat names its last model call's context while its agent is kept"
     totalTokensFresh: true,
     contextTokens: 128000,
   });
-  // After a restart the session is attached again only by its next turn.
+  // After a restart the gateway keeps no agent for the session (and the session is
+  // attached again only by its next turn): the size read last stands until then.
   await supervisor.restart();
+  row.stats = { last_prompt_tokens: 0, context_length: 0 };
   const restarted = await runtime.sessions.history({ sessionKey: key });
-  assert.equal(restarted.sessionInfo.totalTokens, undefined);
+  assert.equal(restarted.sessionInfo.totalTokens, 90000);
+  assert.equal(restarted.sessionInfo.contextTokens, 128000);
+  // A compression AgentPier asked for makes the size unknown again.
+  await runtime.sessions.compact({ key }).catch(() => {});
+  const compacted = await runtime.sessions.history({ sessionKey: key });
+  assert.equal(compacted.sessionInfo.totalTokens, undefined);
 });

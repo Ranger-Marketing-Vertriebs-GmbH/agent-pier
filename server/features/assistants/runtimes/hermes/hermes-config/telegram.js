@@ -34,8 +34,14 @@ export const channelBotEnvNames = Object.freeze([telegramTokenEnv, deepgramKeyEn
 // accounts (toolsets.py `session_search`, `connections`), as OpenClaw's agents with a
 // bot get no session tools.
 export const senderLockedToolsets = Object.freeze(["connections", "session_search"]);
-// One of Hermes's own seed addresses for api.telegram.org (telegram_network.py).
-const testFallbackIp = "149.154.167.220";
+// Hermes's own seed IPv4 addresses for api.telegram.org (plugins/platforms/telegram/
+// telegram_network.py SEED_FALLBACK_IPS). Without a configured list the adapter asks
+// Google's and Cloudflare's DNS-over-HTTPS resolvers for the host at every connect
+// (adapter.py, discover_fallback_ips): a lookup at a third party the owner did not
+// choose. A fixed list skips it and keeps what the fallback is for: IPv4 literals
+// tried before the dual-stack host name, so a blackholed IPv6 path cannot pin the
+// adapter's start. The host name stays the last path, with the system's resolver.
+export const telegramFallbackIps = Object.freeze(["149.154.166.110", "149.154.167.220"]);
 // No Telegram user has this id: it turns command gating on with no admin.
 const nobody = "0";
 
@@ -76,12 +82,12 @@ export function channelBotHome(agent) {
           user_allowed_commands: [],
           group_allow_admin_from: [nobody],
           group_user_allowed_commands: [],
+          // No DNS-over-HTTPS lookups at third parties (telegramFallbackIps); the
+          // fallback applies to api.telegram.org only, so a test's loopback API too.
+          fallback_ips: [...telegramFallbackIps],
           ...(bot.apiRoot && {
             base_url: `${bot.apiRoot}/bot`,
             base_file_url: `${bot.apiRoot}/file/bot`,
-            // A fixed fallback list, so a test never asks DNS-over-HTTPS resolvers
-            // for api.telegram.org; the fallback applies to that host only.
-            fallback_ips: [testFallbackIp],
           }),
         },
       }

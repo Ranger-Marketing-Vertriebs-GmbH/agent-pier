@@ -86,6 +86,9 @@ test(
       120000,
       "the answer to Alice",
     );
+    // Alice's first message is the home's first on a platform: Hermes's one-time
+    // "introduce yourself" note stays out, as the bridge seeded a session.
+    assert.equal(said(model, "very first message ever"), false);
 
     // A voice note is transcribed by Deepgram with the speech settings and AgentPier's key.
     api.voice(token, alice, "voice-1", Buffer.from("OggS fake voice note"));

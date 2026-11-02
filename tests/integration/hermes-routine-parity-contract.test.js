@@ -11,6 +11,7 @@ import {
   collectEvents,
   hermesSandbox,
   hermesSkip,
+  contractAgent,
   startHermes,
   strayAfterStop,
 } from "../helpers/hermes-native.js";
@@ -26,9 +27,10 @@ import {
 // (AGENTPIER_HERMES_CONTRACT_RUNTIME): a routine in another time zone than the agent's
 // processes is due at its own zone's time; a routine's result is written into its
 // chat's history, where the agent's next turn reads it; a dangerous command in a
-// routine run runs with full shell access and is refused on approval levels (Hermes's
-// cron cannot ask anyone); and a chat names how full its context is for the long-chat
-// hint. Results go to a completion webhook of the test with the sandbox's token.
+// routine run runs with full shell access and on approval levels asks the owner
+// through AgentPier's team bridge (refused without it: Hermes's cron asks no one); a result arriving during a turn of its chat follows that
+// turn's reply; and a chat names how full its context is for the long-chat hint, also
+// after a gateway restart. Results go to a completion webhook of the test with the sandbox's token.
 const options = { skip: hermesSkip, timeout: contractTimeout(900000) };
 const agentId = "hermes-agent";
 const token = "b".repeat(64);
@@ -178,19 +180,126 @@ test(
     assert.equal(sessionInfo.contextTokens, 128000);
     assert.equal(longContext(sessionInfo), true);
 
+    // A result that arrives while a turn of its chat runs follows that turn's reply.
+    const slow = await sessions.send({
+      key,
+      turn: { message: "SLOW reply while the routine reports" },
+      idempotencyKey: "slow-turn",
+    });
+    await seen.until((e) => e.runId === slow.runId && e.kind === "text", 120000);
+    const reported = hook.received.filter((e) => e.jobId === into.id).length;
+    await routines.run({ id: into.id, force: true });
+    await eventually(
+      () => hook.received.filter((e) => e.jobId === into.id).length > reported,
+      240000,
+      "the second routine completion",
+    );
+    const slowEnd = await seen.until(endsRun(slow.runId), 240000);
+    assert.equal(slowEnd.kind, "finished");
+    let rows = [];
+    await eventually(
+      async () =>
+        (rows = (await sessions.history({ sessionKey: key })).messages).filter(
+          (m) => m.display_kind === "internal_notification",
+        ).length === 2,
+      120000,
+      "the second note",
+    );
+    const reply = rows.findIndex((m) => m.role === "assistant" && /SLOW/.test(m.text));
+    const second = rows.findLastIndex((m) => m.display_kind === "internal_notification");
+    assert.ok(
+      reply >= 0 && second > reply,
+      `the note stands after the turn's reply: ${JSON.stringify(
+        rows.map((m) => [m.role, m.display_kind ?? null, String(m.text).slice(0, 40)]),
+      )}`,
+    );
+
+    // After a gateway restart the size read last stands until the next model call.
+    await supervisor.restart();
+    let after = null;
+    await eventually(
+      async () => (after = await sessions.history({ sessionKey: key }).catch(() => null)),
+      120000,
+      "the chat after the restart",
+    );
+    assert.equal(after.sessionInfo.totalTokens, 100000);
+    assert.equal(longContext(after.sessionInfo), true);
+
     for (const id of [zoned.id, into.id]) await routines.remove({ id });
     await stop();
     assert.deepEqual(await strayAfterStop(dirs), []);
   },
 );
 
-// One routine run of `command` under shell level `shell`: its completion.
-async function runCommand(t, shell, command) {
+// AgentPier's team bridge as far as the guard plugin's question needs it
+// (hermes-routine-approvals.js, unit-tested there): `/hermes-approval` asks through the
+// agent's approvals sub-port and waits for the answer `decide` gives the request.
+async function approvalBridge(t, runtime, decide) {
+  const bridgeToken = "c".repeat(64);
+  const asked = [];
+  const server = http.createServer((req, res) => {
+    let raw = "";
+    req.on("data", (chunk) => (raw += chunk));
+    req.on("end", async () => {
+      const input = JSON.parse(raw || "null");
+      if (
+        req.url !== "/hermes-approval" ||
+        req.headers.authorization !== `Bearer ${bridgeToken}`
+      )
+        return res.writeHead(404).end("{}");
+      asked.push(input);
+      const decision = await runtime.approvals.ask({
+        sessionKey: input.sessionKey,
+        command: input.command,
+        description: input.description,
+      });
+      res.end(
+        JSON.stringify(
+          decision === "allow-once"
+            ? { allow: true }
+            : { allow: false, message: "BLOCKED: the owner denied this command." },
+        ),
+      );
+    });
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+  // The owner answers each request as it appears, on the connection the set has
+  // once it runs with the bridge (a restart opens a new one).
+  const answer = () =>
+    t.after(
+      runtime.events.subscribe((e) => {
+        if (e.kind === "approval.requested")
+          runtime.approvals
+            .resolve({ id: e.payload.id, decision: decide(e.payload) })
+            .catch(() => {});
+      }),
+    );
+  return {
+    asked,
+    answer,
+    connection: { url: `http://127.0.0.1:${server.address().port}`, token: bridgeToken },
+  };
+}
+
+// One routine run of `command` under shell level `shell`: its completion. `decide`:
+// with it the agent has AgentPier's team bridge and the owner answers its question.
+async function runCommand(t, shell, command, decide) {
   const model = await startFakeModel();
   t.after(() => model.close());
   const dirs = hermesSandbox(t);
   const hook = await webhook(t, dirs);
   const started = await startHermes(t, dirs, { agentId, model, shell });
+  let bridge = null;
+  if (decide) {
+    bridge = await approvalBridge(t, started.runtime, decide);
+    await started.runtime.config.apply({
+      desired: contractAgent(agentId, model, { shell }),
+      connection: bridge.connection,
+    });
+    await eventually(() => started.runtime.host.ready(), 180000, "the restarted set");
+    bridge.answer();
+  }
   const victim = path.join(started.agent.workspace, "victim");
   fs.mkdirSync(path.join(victim, "inner"), { recursive: true });
   const { routines } = started.runtime;
@@ -211,7 +320,7 @@ async function runCommand(t, shell, command) {
   const removed = !fs.existsSync(victim);
   await started.stop();
   assert.deepEqual(await strayAfterStop(dirs), []);
-  return { done, removed };
+  return { done, removed, asked: bridge?.asked ?? [], jobId: job.id };
 }
 
 test(
@@ -223,10 +332,30 @@ test(
     assert.equal(full.done.status, "ok");
     assert.match(full.done.summary, /^TOOL_DONE: /);
     assert.equal(full.removed, true);
-    // On approval no one can answer a cron run's question: Hermes refuses it.
-    const asked = await runCommand(t, "approval", "rm -rf victim");
-    assert.equal(asked.done.status, "ok");
-    assert.match(asked.done.summary, /BLOCKED/);
-    assert.equal(asked.removed, false);
+    // Without AgentPier's bridge no one can answer a cron run's question: Hermes
+    // refuses it (approvals.cron_mode deny).
+    const unasked = await runCommand(t, "approval", "rm -rf victim");
+    assert.equal(unasked.done.status, "ok");
+    assert.match(unasked.done.summary, /BLOCKED/);
+    assert.equal(unasked.removed, false);
+    // With it the guard asks the owner, as OpenClaw does: an allow runs it ...
+    const allowed = await runCommand(t, "approval", "rm -rf victim", () => "allow-once");
+    assert.equal(allowed.asked.length, 1);
+    assert.equal(allowed.asked[0].command, "rm -rf victim");
+    assert.equal(allowed.asked[0].kind, "command");
+    assert.match(
+      allowed.asked[0].sessionKey,
+      new RegExp(`^agent:${agentId}:hermes:cron:${allowed.jobId}:[^:]+$`),
+    );
+    assert.match(allowed.done.summary, /^TOOL_DONE: /);
+    assert.equal(allowed.removed, true);
+    // ... a denial refuses it, and a harmless command asks nobody.
+    const denied = await runCommand(t, "approval", "rm -rf victim", () => "deny");
+    assert.equal(denied.asked.length, 1);
+    assert.match(denied.done.summary, /BLOCKED/);
+    assert.equal(denied.removed, false);
+    const harmless = await runCommand(t, "approval", "ls victim", () => "deny");
+    assert.deepEqual(harmless.asked, []);
+    assert.match(harmless.done.summary, /^TOOL_DONE: /);
   },
 );
