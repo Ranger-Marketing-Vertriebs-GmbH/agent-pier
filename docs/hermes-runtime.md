@@ -134,7 +134,9 @@ scheduler ([Routines](#routines)).
 An agent of restricted users also loses `delegation`, `session_search` and
 `connections`, Hermes's counterparts of the subagent and session tools OpenClaw locks
 for it (`native-capabilities.js` `lockedTools`); its shell is off through its shell
-level. PDFs: Hermes's `read_file` extracts a PDF's text layer itself
+level. A tool of a disabled toolset is neither offered nor run: Hermes answers a
+model that names one anyway with `Tool '<name>' does not exist`
+(`hermes-user-agent-lock-contract.test.js`). PDFs: Hermes's `read_file` extracts a PDF's text layer itself
 (`tools/file_tools.py`), so **Read PDFs** keeps the file tools on; scanned pages are
 not read with a model as OpenClaw's `pdf` tool does, and the PDF model setting does
 not apply.
@@ -748,7 +750,9 @@ command in routine runs on full access and on approval (asked, allowed, denied).
 `hermes-own-tools-contract.test.js` shares a file of the agent's work folder with
 `agentpier_share_file`; `hermes-member-browser-contract.test.js` opens a page in a task
 member's own Chromium; `hermes-browser-upload-contract.test.js` fills a local page's
-file field with a staged file and refuses an unstaged one.
+file field with a staged file and refuses an unstaged one;
+`hermes-user-agent-lock-contract.test.js` forces a restricted user's agent to call each
+locked tool and finds each refused.
 `tests/integration/hermes-files-contract.test.js` checks the agent's files: a memory
 entry written through the port reaches the agent's prompt, and an entry the agent adds
 with Hermes's `memory` tool comes back through it; an assigned bundled skill and a

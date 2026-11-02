@@ -6,6 +6,9 @@ import http from "node:http";
 // - "RUN: <command>" asks for the `terminal` tool with that command;
 // - "CALL: <tool> <JSON arguments>" asks for that tool, when the request offers it
 //   (an auxiliary call without tools, such as a chat title, gets the echo);
+// - "FORCE: <tool> <JSON arguments>" asks for that tool whether or not the request
+//   offers it, as a model that names a tool it was not given would, when the request
+//   offers any tool;
 // - "ASK: <question>" asks the person with the `clarify` tool, offering staging and
 //   prod;
 // - a clarify result is answered "ANSWERED: <the person's answer>", any other tool
@@ -36,6 +39,15 @@ function answer(body) {
         id: `call_${Date.now()}`,
         type: "function",
         function: { name: call[1], arguments: call[2] },
+      },
+    };
+  const forced = said.match(/FORCE: (\S+) (.*)$/m);
+  if (forced && offered.length)
+    return {
+      tool: {
+        id: `call_${Date.now()}`,
+        type: "function",
+        function: { name: forced[1], arguments: forced[2] },
       },
     };
   const ask = said.match(/ASK: (.*)$/m);
