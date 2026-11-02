@@ -1,4 +1,9 @@
 import { boundPort } from "./openclaw-agents.js";
+import {
+  readStoredProfile,
+  removeAccessProfile,
+  writeAccessProfile,
+} from "./openclaw-access-profiles.js";
 
 // OpenClaw keeps model accounts host-wide, under its default agent.
 const agentId = "main";
@@ -9,12 +14,28 @@ const agentId = "main";
  * `models.authStatus` `{ providers }`, `models.probe` `{ status }`, wizard steps
  * `{ done, status, step }`); `timeoutMs` bounds the call, `probeTimeoutMs` the probe
  * OpenClaw runs.
+ *
+ * AgentPier-held ChatGPT logins (model-logins/chatgpt-vault.js) reach OpenClaw as
+ * access-only profiles (openclaw-access-profiles.js), written into its store whether
+ * or not the Gateway runs:
+ * - writeAccess({ profileId, credential }): writes the profile, then reloads a
+ *   running Gateway (`models.authRefresh`). Resolves `{ reloaded }`.
+ * - removeAccess({ profileId }): removes it, then reloads a running Gateway.
+ * - readStored({ profileId }): OpenClaw's own stored credential of the profile,
+ *   refresh token included, or null; only for the one move of a login to AgentPier,
+ *   while no OpenClaw refresh can run.
  */
 export const openClawModels = (supervisor, clientOf) =>
-  boundPort(modelsOver, supervisor, clientOf);
+  boundPort((current) => modelsOver(current, supervisor), supervisor, clientOf);
 
-function modelsOver(current) {
+function modelsOver(current, supervisor) {
   const call = async (...args) => current().call(...args);
+  const reload = async (operation) => {
+    const client = current();
+    if (!client?.ready) return false;
+    await client.call("models.authRefresh", { operation, agentId }, { timeoutMs: 30000 });
+    return true;
+  };
   return {
     catalog: ({ provider, refresh, timeoutMs }) =>
       call(
@@ -39,5 +60,15 @@ function modelsOver(current) {
       call("wizard.next", { sessionId, ...(answer ? { answer } : {}) }, { timeoutMs }),
     cancelLogin: ({ sessionId, timeoutMs }) =>
       call("wizard.cancel", { sessionId, closeInput: true }, { timeoutMs }),
+    writeAccess: async ({ profileId, credential }) => {
+      writeAccessProfile(supervisor.paths.state, profileId, credential);
+      return { reloaded: await reload("update") };
+    },
+    removeAccess: async ({ profileId }) => {
+      removeAccessProfile(supervisor.paths.state, profileId);
+      return { reloaded: await reload("logout") };
+    },
+    readStored: async ({ profileId }) =>
+      readStoredProfile(supervisor.paths.state, profileId),
   };
 }
