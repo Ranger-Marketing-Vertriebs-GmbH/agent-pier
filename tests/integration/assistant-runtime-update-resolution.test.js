@@ -352,41 +352,14 @@ test("pausing agents resolves each confirmed blocker without resending and activ
   assert.equal(readJSON(runtimePaths(s.f.dataDir).config).cron.enabled, true);
 });
 
-test("a sign-in in progress is never cancelled and nothing else is touched", async (t) => {
+test("a sign-in in progress neither blocks an update nor is cancelled by one", async (t) => {
+  // AgentPier runs the ChatGPT sign-in itself (model-account-login.js): it waits for
+  // the owner without the Gateway, and its tokens reach OpenClaw at the next start.
   const s = await fixture(t, { login: true });
   const items = await s.updates.blockerPreview();
-  const login = items.find((i) => i.kind === "login");
-  assert.deepEqual(
-    {
-      code: login.code,
-      resolution: login.resolution,
-      link: login.link,
-      since: login.since,
-    },
-    {
-      code: "ACCOUNT_LOGIN",
-      resolution: "none",
-      link: "/connections?section=models&item=chatgpt",
-      since: "2026-10-30T08:00:00.000Z",
-    },
-  );
-  await assert.rejects(
-    s.updates.activate({ resolveBlockers: true, items: await s.confirm() }),
-    { code: "UPDATE_BLOCKED" },
-  );
+  assert.equal(items.find((i) => i.kind === "login"), undefined);
   assert.equal(s.loginCancels(), 0);
   assert.equal(s.calls.filter((c) => c.method === "wizard.cancel").length, 0);
-  assert.deepEqual(aborts(s.calls), []);
-  assert.equal(s.a.ledger.getAttempt(s.running.id).state, "running");
-  assert.equal(s.f.service.ledger.get(s.stuck.id).state, "model_reviewed");
-  assert.deepEqual(s.teamStops, []);
-  assert.deepEqual(s.audit, []);
-  const status = s.updates.status();
-  assert.equal(status.phase, "staged");
-  assert.equal(status.diagnostic, "UPDATE_BLOCKED");
-  assert.ok(status.blockers.includes("ACCOUNT_LOGIN"));
-  assert.ok(status.blockerItems.some((i) => i.id === login.id));
-  assert.equal(s.a.maintenance, false);
 });
 
 test("an item that changed after the dialog opened leaves everything untouched", async (t) => {

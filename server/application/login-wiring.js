@@ -77,6 +77,8 @@ export function mcpOAuthServices({
     remoteUrl,
     reapply,
   });
+  // Renewals reach OpenClaw's store outside maintenance only (model-accounts.js sync).
+  assistants.accounts.paused = () => !!assistants.maintenance;
   // Who may use a proxy credential, decided per request (proxy-access.js).
   const access = proxyAccess({ assistants, servers, accountIdOf });
   runtimeProxy.route(

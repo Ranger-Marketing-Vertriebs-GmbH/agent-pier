@@ -201,3 +201,24 @@ test("a login OpenClaw holds keeps its holder and needs the Gateway", async (t) 
   assert.equal(accounts.capabilities()[0].available, false);
   await assert.rejects(accounts.resolve(account.id, "gpt-6-astra"), { status: 503 });
 });
+
+test("during maintenance a renewal waits for the next Gateway spawn", async (t) => {
+  const { accounts, vault, read } = await heldFixture(t, { ready: false });
+  let maintenance = true;
+  accounts.paused = () => maintenance;
+  const profileId = vault.save({
+    access: "first-access",
+    refresh: "held-refresh",
+    expires: Date.now() + 3600_000,
+    email: "owner@example.invalid",
+  });
+  await accounts.sync(profileId);
+  assert.equal(read()?.profiles?.[profileId], undefined, "not written while paused");
+  // The spawn's syncAll writes it, maintenance or not.
+  await accounts.syncAll();
+  assert.equal(read().profiles[profileId].access, "first-access");
+  maintenance = false;
+  vault.save({ ...vault.records.get(profileId), access: "second-access" }, { profileId });
+  await accounts.sync(profileId);
+  assert.equal(read().profiles[profileId].access, "second-access");
+});
