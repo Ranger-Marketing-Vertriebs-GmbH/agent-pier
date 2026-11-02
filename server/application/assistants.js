@@ -94,6 +94,7 @@ export function createAssistantServices(options) {
       created.mcpServers,
       created.channels || created.speech,
       created.assistants || created.store,
+      created.chatgptVault,
     ].filter(Boolean);
     let released = Promise.resolve();
     for (const service of closers)
@@ -202,8 +203,12 @@ export function createAssistantFeature(services) {
       assistantAgentSecrets,
       assistantAgentSsh,
       assistantSkillCatalog,
+      assistantModelAccounts,
     } = services;
     recovered = false;
+    // One refresher per login: a vault of a released graph never renews again.
+    assistantModelAccounts?.close();
+    assistantModelAccounts?.vault?.close();
     assistantAgentSecrets?.close();
     // Sockets close; folders and tokens stay for the next start (disable removes them).
     await assistantAgentSsh?.close().catch(() => {});

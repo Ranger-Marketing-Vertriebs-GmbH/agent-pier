@@ -21,7 +21,8 @@ export default function ChatgptAccountDetail({
 }) {
   const account = entry.record;
   const { runtime, refresh } = useAssistants();
-  const ready = runtime.availability === "ready";
+  // A login AgentPier holds works without the agent service; OpenClaw's own needs it.
+  const ready = account.holder === "agentpier" || runtime.availability === "ready";
   const { reloadChatgpt } = data;
   const reload = useCallback(async () => {
     await reloadChatgpt();

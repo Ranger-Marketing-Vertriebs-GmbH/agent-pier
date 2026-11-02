@@ -289,13 +289,15 @@ export const assistantCopy = {
   },
   loginFailure: {
     LOGIN_UNAVAILABLE:
-      "Der Agentendienst bietet die ChatGPT-Anmeldung derzeit nicht an. Starte den Agentendienst neu und versuche es erneut.",
+      "OpenAI bietet die Anmeldung mit Code derzeit nicht an. Versuche es später erneut.",
     UNSUPPORTED_LOGIN_STEP:
       "Die Anmeldung verlangte einen Schritt, den AgentPier nicht unterstützt.",
     LOGIN_EXPIRED: "Der Code ist abgelaufen, bevor die Anmeldung abgeschlossen wurde.",
     CONNECTION_LOST: "Die Verbindung zum Agentendienst wurde unterbrochen.",
     LOGIN_FAILED:
-      "Der Agentendienst hat die Anmeldung mit einem Fehler beendet. Details stehen im AgentPier-Protokoll.",
+      "OpenAI hat die Anmeldung mit einem Fehler beendet. Details stehen im AgentPier-Protokoll.",
+    NETWORK:
+      "AgentPier konnte OpenAI nicht erreichen. Prüfe die Internetverbindung dieses Computers und versuche es erneut.",
   },
   accountStatus: {
     ok: "Verbunden",

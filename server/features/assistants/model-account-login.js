@@ -1,16 +1,20 @@
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { assistantProblem } from "./assistant-validation.js";
-import { hostConnection, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
+import { chatgptLoginUrl, deviceLoginMs } from "../model-logins/chatgpt-auth.js";
 const active = new Set(["starting", "awaiting_user"]);
-const loginUrl = "https://auth.openai.com/codex/device";
-// A failure this flow diagnosed itself, as opposed to a Gateway or transport error.
-const failure = (code, details) =>
-  Object.assign(Error(), { code, diagnosed: true, ...details });
+// A failure this flow diagnosed itself, as opposed to a network or upstream error.
+const diagnosedCodes = new Set([
+  "LOGIN_UNAVAILABLE",
+  "LOGIN_FAILED",
+  "LOGIN_EXPIRED",
+  "UNSUPPORTED_LOGIN_STEP",
+  "NETWORK",
+]);
 
 /**
- * The Gateway's reason for the log: no device code, bearer value or token-like run
- * survives, and control characters are dropped.
+ * A reason for the log: no device code, bearer value or token-like run survives,
+ * and control characters are dropped.
  */
 export function loginReason(text, code) {
   if (typeof text !== "string" || !text) return "";
@@ -24,9 +28,16 @@ export function loginReason(text, code) {
     .slice(0, 300);
 }
 
+/**
+ * The owner's ChatGPT sign-in, run by AgentPier itself: OpenAI's device-code flow
+ * (model-logins/chatgpt-auth.js), its tokens kept in AgentPier's vault
+ * (model-logins/chatgpt-vault.js), the only refresher. No runtime takes part, so
+ * a sign-in works while OpenClaw is stopped; `accounts.signedIn(profileId)` then
+ * hands the runtimes their access (model-accounts.js).
+ */
 export class AssistantAccountLogin {
-  constructor({ runtime, accounts, warn = console.warn }) {
-    Object.assign(this, { runtime, accounts, warn });
+  constructor({ accounts, vault, auth = vault?.auth, warn = console.warn }) {
+    Object.assign(this, { accounts, vault, auth, warn });
     // Called after every change of the attempt status() reports (assigned by the
     // wiring: the live `job.chatgpt-login` topic).
     this.onChange = null;
@@ -44,11 +55,10 @@ export class AssistantAccountLogin {
     if (!active.has(attempt.status)) return;
     attempt.status = "failed";
     attempt.diagnostic = diagnostic;
+    attempt.abort.abort();
     this.changed();
     const details = [
-      /^[A-Z_]{1,60}$/.test(error?.gatewayCode) && `Gateway ${error.gatewayCode}`,
-      error?.wizardStatus && `wizard ${error.wizardStatus}`,
-      error?.stepType && `step ${loginReason(String(error.stepType)).slice(0, 40)}`,
+      Number.isInteger(error?.status) && `HTTP ${error.status}`,
       loginReason(error?.reason, attempt.code),
     ].filter(Boolean);
     this.warn(
@@ -61,132 +71,68 @@ export class AssistantAccountLogin {
     return {
       id: attemptId,
       status,
-      ...(active.has(status) ? { code, url, expiresAt } : {}),
+      ...(active.has(status) && code ? { code, url, expiresAt } : {}),
       ...(diagnostic ? { diagnostic } : {}),
     };
   }
   start() {
     if (this.attempt && active.has(this.attempt.status)) return this.status();
-    if (!hostReady(this.runtime)) throw assistantProblem("unavailable", 503);
+    if (!this.vault || !this.auth) throw assistantProblem("unavailable", 503);
     const attempt = (this.attempt = {
       id: randomUUID(),
       status: "starting",
       // Since when it waits, for the runtime update's blocker list.
       startedAt: new Date().toISOString(),
-      // The sign-in runs on the connection it started on (runtimes/runtime-for.js):
-      // a Gateway that replaced it receives none of its steps.
-      connection: hostConnection(this.runtime),
+      abort: new AbortController(),
     });
-    attempt.models = runtimeFor(null, this.runtime).models.on(attempt.connection);
     this.changed();
     attempt.task = this.run(attempt);
     return this.status();
   }
   async run(attempt) {
-    const { connection, models } = attempt;
-    const { host } = runtimeFor(null, this.runtime);
-    const unsubscribe = host.onDisconnect(connection, () =>
-      this.fail(attempt, "CONNECTION_LOST"),
-    );
-    const current = () =>
-      this.attempt === attempt &&
-      active.has(attempt.status) &&
-      hostConnection(this.runtime) === connection &&
-      host.connected(connection);
+    const { signal } = attempt.abort;
+    const current = () => this.attempt === attempt && active.has(attempt.status);
     try {
-      await models
-        .login({
-          sessionId: attempt.id,
-          authChoice: "openai/openai-device-code",
-          timeoutMs: 60000,
-        })
-        .catch((error) => {
-          // An answered INVALID_REQUEST: the Gateway does not offer this login, for
-          // example when its plugin allow list leaves out the OpenAI provider.
-          throw failure(
-            error.answered && error.code === "INVALID_REQUEST"
-              ? "LOGIN_UNAVAILABLE"
-              : "LOGIN_FAILED",
-            { gatewayCode: error.code, reason: error.remoteMessage },
-          );
-        });
-      let answer;
-      const deadline = Date.now() + 15 * 60 * 1000;
-      while (current()) {
-        if (Date.now() > deadline) throw failure("LOGIN_EXPIRED");
-        const result = await models.loginStep({
-          sessionId: attempt.id,
-          answer,
-          timeoutMs: Math.max(1, deadline - Date.now()),
+      const device = await this.auth.startDevice({ signal });
+      if (!current()) return;
+      const deadline = Date.now() + deviceLoginMs;
+      Object.assign(attempt, {
+        code: device.userCode,
+        url: chatgptLoginUrl,
+        expiresAt: new Date(deadline).toISOString(),
+        status: "awaiting_user",
+      });
+      this.changed();
+      let tokens = null;
+      while (!tokens) {
+        await delay(device.intervalMs, undefined, { signal });
+        if (!current()) return;
+        if (Date.now() > deadline)
+          throw Object.assign(Error(), { code: "LOGIN_EXPIRED" });
+        // A network hiccup while the owner confirms is retried at the next poll.
+        tokens = await this.auth.pollDevice({ ...device, signal }).catch((error) => {
+          if (error?.code === "NETWORK") return null;
+          throw error;
         });
         if (!current()) return;
-        answer = undefined;
-        if (result.done) {
-          if (result.status !== "done")
-            throw failure("LOGIN_FAILED", {
-              wizardStatus: String(result.status).slice(0, 40),
-              reason: result.error,
-            });
-          await this.accounts.list();
-          // The new account's model list loads in the background.
-          this.accounts.catalog?.refresh({ force: true }).catch(() => {});
-          if (current()) {
-            attempt.status = "completed";
-            this.changed();
-          }
-          return;
-        }
-        const step = result.step;
-        if (!step) {
-          await delay(250);
-          continue;
-        }
-        if (step.sensitive)
-          throw failure("UNSUPPORTED_LOGIN_STEP", { stepType: step.type });
-        if (step.externalUrl) {
-          if (step.externalUrl !== loginUrl)
-            throw failure("UNSUPPORTED_LOGIN_STEP", { stepType: step.type });
-          attempt.url = loginUrl;
-          this.changed();
-        }
-        if (step.deviceCode) {
-          if (!/^[A-Z0-9]{4,8}-[A-Z0-9]{4,8}$/.test(step.deviceCode.code))
-            throw failure("UNSUPPORTED_LOGIN_STEP", { stepType: step.type });
-          attempt.code = step.deviceCode.code;
-          attempt.url = loginUrl;
-          attempt.expiresAt = new Date(
-            Date.now() + Math.min(step.deviceCode.expiresInMinutes || 15, 15) * 60000,
-          ).toISOString();
-          attempt.status = "awaiting_user";
-          this.changed();
-        }
-        if (step.type === "progress") {
-          await delay(250);
-          continue;
-        }
-        if (["note", "action"].includes(step.type)) answer = { stepId: step.id };
-        else if (
-          step.type === "select" &&
-          step.initialValue === "keep" &&
-          step.options?.some((o) => o.value === "keep")
-        )
-          answer = { stepId: step.id, value: "keep" };
-        else throw failure("UNSUPPORTED_LOGIN_STEP", { stepType: step.type });
       }
+      // Saved before anything uses it: from here on AgentPier holds the login.
+      const profileId = this.vault.save(tokens);
+      await this.accounts
+        .signedIn?.(profileId)
+        .catch(() =>
+          this.warn("The new ChatGPT login reaches the runtimes at their next start."),
+        );
+      if (!current()) return;
+      attempt.status = "completed";
+      this.changed();
     } catch (error) {
-      if (error.diagnosed) this.fail(attempt, error.code, error);
-      else
-        this.fail(attempt, "LOGIN_FAILED", {
-          gatewayCode: error.code,
-          reason: error.remoteMessage,
-        });
-    } finally {
-      this.fail(attempt, "CONNECTION_LOST");
-      unsubscribe();
-      if (attempt.status !== "completed" && host.connected(connection))
-        await models
-          .cancelLogin({ sessionId: attempt.id, timeoutMs: 2000 })
-          .catch(() => {});
+      if (!current()) return;
+      this.fail(
+        attempt,
+        diagnosedCodes.has(error?.code) ? error.code : "LOGIN_FAILED",
+        error,
+      );
     }
   }
   async cancel(id) {
@@ -194,10 +140,8 @@ export class AssistantAccountLogin {
     const attempt = this.attempt;
     if (active.has(attempt.status)) {
       attempt.status = "cancelled";
+      attempt.abort.abort();
       this.changed();
-      await attempt.models
-        .cancelLogin({ sessionId: id, timeoutMs: 2000 })
-        .catch(() => {});
     }
     return this.status(id);
   }

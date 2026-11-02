@@ -3,14 +3,15 @@ import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import AccountDetail from "../accounts/AccountDetail.jsx";
 import { accountItemTitle } from "../accounts/accounts-items.js";
-import ChatgptOfflineNote from "./ChatgptOfflineNote.jsx";
 import useAssistants from "./useAssistants.js";
 import useChatgptLogin from "./useChatgptLogin.js";
 
-/** "+ ChatGPT": the device-code login for agents (code, open link, cancel, resume). */
-export default function ChatgptLoginDetail({ entry, data, navigate }) {
-  const { runtime, refresh } = useAssistants();
-  const ready = runtime.availability === "ready";
+/**
+ * "+ ChatGPT": the device-code login for agents (code, open link, cancel, resume).
+ * AgentPier runs it itself, so it works while the agent service is stopped.
+ */
+export default function ChatgptLoginDetail({ entry, data }) {
+  const { refresh } = useAssistants();
   const { reloadChatgpt } = data;
   const reload = useCallback(async () => {
     await reloadChatgpt();
@@ -22,7 +23,6 @@ export default function ChatgptLoginDetail({ entry, data, navigate }) {
     <AccountDetail title={accountItemTitle(entry)}>
       <p className="accounts-note">{copy.accountsDescription}</p>
       <ErrorMessage error={login.error} />
-      {!ready && <ChatgptOfflineNote navigate={navigate} />}
       {attempt && (
         <div className="accounts-confirmation" role="status">
           <p>{copy.loginStatus[attempt.status] || copy.loginStatus.failed}</p>
@@ -67,7 +67,7 @@ export default function ChatgptLoginDetail({ entry, data, navigate }) {
         <button
           type="button"
           className="button primary"
-          disabled={!ready || login.busy}
+          disabled={login.busy}
           onClick={login.start}
         >
           {login.busy ? copy.loading : copy.accountConnect}

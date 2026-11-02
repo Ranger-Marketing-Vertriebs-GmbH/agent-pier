@@ -106,21 +106,18 @@ test("a failed sign-in names its reason", async ({ page }) => {
   await expect(panel.getByText("Sign-in failed. Please try again.")).toBeVisible();
   await expect(
     panel.getByText(
-      "The agent service does not offer the ChatGPT sign-in right now. Restart the agent service and try again.",
+      "OpenAI does not offer the sign-in with a code right now. Try again later.",
     ),
   ).toBeVisible();
 });
-test("offline account UI links to assistant service and selected ChatGPT account saves", async ({
+test("the sign-in works while the agent service is offline and a selected ChatGPT account saves", async ({
   page,
 }) => {
   const state = await setup(page, false);
   await page.goto(baseURL + "/accounts");
   const panel = await openAccountItem(page, "ChatGPT for agents");
-  await expect(panel.getByRole("button", { name: "Connect ChatGPT" })).toBeDisabled();
-  await expect(panel.getByRole("link", { name: "Agents › Runtime" })).toHaveAttribute(
-    "href",
-    /^\/agents\?tab=runtime&returnTo=%2Fconnections%3F/,
-  );
+  // AgentPier runs the sign-in itself: it needs no running agent service.
+  await expect(panel.getByRole("button", { name: "Connect ChatGPT" })).toBeEnabled();
   state.accounts = [{ id: "openclaw:test", name: "Personal ChatGPT", available: true }];
   let saved;
   await page.route("**/api/assistants", async (route) => {
