@@ -188,6 +188,24 @@ profile agentpier-chrome "/home/*/.local/share/agentpier/clis/.packages/chromium
 with `sysctl kernel.apparmor_restrict_unprivileged_userns=0` (persisted in
 `/etc/sysctl.d/`), which weakens a hardening for every program. Then install again.
 
+The same limit stops other Chromium builds without a setuid sandbox helper, such as an
+unpacked Chromium snapshot at `/usr/bin/chromium` (the GitHub Ubuntu 24.04 image ships
+one): it aborts with "No usable sandbox!". Google Chrome's package brings the helper and
+an AppArmor profile and starts. On Linux AgentPier therefore starts each browser app
+once, headless and with the sandbox on, before the agents first need it (at the agent
+service's start and when a Hermes agent's settings apply), and remembers the result
+until the executable changes; an app that failed is checked again a minute later at
+the earliest, so a new AppArmor profile counts after **Restart agent service**. An app
+that does not start is passed over for the next one in the order (the managed Chrome for
+Testing, Brave, Chromium, then Google Chrome, Edge), for OpenClaw's managed browser and
+the Hermes agents' browsers alike. The agent's browser settings then name the app and
+the cause: the sandbox is blocked, the executable is missing, or it quits at start
+(often missing system libraries), with what to do. With the sandbox blocked: install
+Google Chrome (then agents run headless with it, as it is not a separate agent app), or
+allow user namespaces for that browser with an AppArmor profile like the one above
+(with the browser's path). When no app starts, the agents keep the first one and their
+browser tool answers only that the browser is not available.
+
 The assistant runtime installer pins Linux arm64 and x64 packages. The deterministic
 native contracts run on Ubuntu x64 in CI (`native-contracts` job), and nightly and
 before a release on Ubuntu arm64 too, but Linux assistant

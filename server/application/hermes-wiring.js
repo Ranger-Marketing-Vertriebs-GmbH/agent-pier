@@ -59,6 +59,7 @@ export function hermesAgentFleet(supervisor, { dataDir, store }) {
  */
 export const hermesApplyWiring = ({ bridge, webTools, proxy }) => ({
   hermesInputs: async (assistant) => {
+    await webTools?.prepareBrowser?.();
     const detected = webTools?.detect?.();
     // AgentPier's model proxy, through which the agent reaches a ChatGPT login
     // AgentPier holds, with a credential for this agent and that login alone.

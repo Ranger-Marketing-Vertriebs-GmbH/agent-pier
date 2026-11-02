@@ -27,6 +27,16 @@ export const assistantBrowserCopy = {
     "Visible windows need a browser app of the agent's own, not your Chrome. Install it here with “Install browser”, or install Brave or Chromium yourself, then restart the agent service.",
   noDisplay:
     "This computer has no display (DISPLAY or WAYLAND_DISPLAY is missing), so the browser runs invisibly.",
+  launchTitle: (name) => `${name} does not start`,
+  launchProblem: {
+    sandbox:
+      "The system blocks the browser's sandbox: from Ubuntu 23.10, AppArmor restricts unprivileged user namespaces. Install Google Chrome or allow the browser user namespaces with an AppArmor profile (see docs/linux.md), then restart the agent service. AgentPier never switches the sandbox off.",
+    missing:
+      "The browser app is missing or cannot be run. Install it again, then restart the agent service.",
+    crashed:
+      "The browser app quits as soon as it starts. Check that its system libraries are installed (see docs/linux.md), then restart the agent service.",
+  },
+  launchFallback: (name) => `The agents use ${name} instead.`,
   profile:
     "The browser keeps its sign-ins and cookies in a profile of this agent's own, apart from your browser profiles.",
   running: "Browser running",
