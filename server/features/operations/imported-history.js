@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { readFile } from "./files.js";
 import { problem } from "../../lib/storage.js";
+import { isCodingCli } from "../clis/catalog.js";
 const directory = (file) => {
   try {
     const stat = fs.lstatSync(file);
@@ -51,7 +52,7 @@ export class ImportedHistory {
                 !Number.isFinite(value.ts)
               )
                 continue;
-              const tool = ["codex", "claude", "opencode"].includes(value.from?.runtime)
+              const tool = isCodingCli(value.from?.runtime)
                 ? value.from.runtime
                 : "unknown";
               items.set(value.id, {

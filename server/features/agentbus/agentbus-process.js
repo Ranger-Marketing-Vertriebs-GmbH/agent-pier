@@ -5,6 +5,7 @@ import { promisify } from "node:util";
 import { pidStart } from "../../../vendor/agentbus/core/proc.js";
 
 import { interpreterExecutable, processArgv } from "./agentbus-process-argv.js";
+import { isCodingCli } from "../clis/catalog.js";
 
 const exec = promisify(execFile);
 const validPid = (value) => Number.isSafeInteger(value) && value > 1;
@@ -108,7 +109,7 @@ export async function resolveAgentBusProcess({ session, launch, claimedPid, sess
       session?.status !== "running" ||
       !session.id ||
       launch?.id !== session.id ||
-      !["codex", "claude", "opencode"].includes(launch.tool) ||
+      !isCodingCli(launch.tool) ||
       (session.tool && session.tool !== launch.tool) ||
       typeof launch.command !== "string" ||
       !launch.command

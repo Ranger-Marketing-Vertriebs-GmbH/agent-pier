@@ -18,6 +18,7 @@ import {
 } from "./session-capability.js";
 import { addGrant } from "../nono/sandbox-grants.js";
 import { reboundProjectIds } from "../memory/project-rebind.js";
+import { isCodingCli } from "../clis/catalog.js";
 
 const fields = {
   projectIds: "projects",
@@ -118,11 +119,7 @@ export class SessionMcp {
     }
     const choices = this.validate(selection);
     if (!choices) return launch;
-    if (
-      purpose === "login" ||
-      pipeline ||
-      !["codex", "claude", "opencode"].includes(account.tool)
-    )
+    if (purpose === "login" || pipeline || !isCodingCli(account.tool))
       throw problem(serverMessages.sessions.toolsStandaloneOnly);
     await this.ready;
     const projectIds = [...choices.projectIds];

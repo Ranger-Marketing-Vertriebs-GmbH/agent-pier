@@ -1,3 +1,4 @@
+import { codingCliIds } from "../../clis/catalog.js";
 // agentpier_coding_session (coding-sessions/agent-coding-sessions.js). A wait holds
 // the call for up to 100 seconds, so its timeout is index.js toolTimeouts.
 const text = (maxLength) => ({ type: "string", minLength: 1, maxLength });
@@ -28,7 +29,7 @@ export const codingSessionDefinition = {
         },
         requestId: text(100),
         projectId: text(100),
-        tool: { type: "string", enum: ["claude", "codex", "opencode"] },
+        tool: { type: "string", enum: codingCliIds().sort() },
         accountId: text(100),
         providerConnectionId: text(100),
         providerModelId: text(256),

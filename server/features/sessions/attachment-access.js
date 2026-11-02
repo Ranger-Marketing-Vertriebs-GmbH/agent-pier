@@ -6,6 +6,7 @@ import {
   accountAttachmentDirectory,
   attachmentDirectory,
 } from "../chat/chat-attachments.js";
+import { isCodingCli } from "../clis/catalog.js";
 
 const REFERENCE_ALIAS = "agentpier-attachments";
 
@@ -61,7 +62,7 @@ export function grantAttachmentAccess({
   launch,
   profile,
 }) {
-  if (!["claude", "codex", "opencode"].includes(tool)) return null;
+  if (!isCodingCli(tool)) return null;
   const directory = attachmentDirectory(dataDir, accountId, sessionId);
   if (tool === "opencode") {
     if (!grantOpenCode(profile, accountAttachmentDirectory(dataDir, accountId)))

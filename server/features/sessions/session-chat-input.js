@@ -23,6 +23,7 @@ import {
 import { claudePlaceholder, colorlessScreen } from "./claude-composer.js";
 import { nativeFreshInput } from "./native-prompt.js";
 import { claudeFreshInput } from "./claude-prompt.js";
+import { isCodingCli } from "../clis/catalog.js";
 
 export function normalizeChatText(text) {
   if (typeof text !== "string" || !text || text.length > 32000)
@@ -114,7 +115,7 @@ export async function writeChatTuiInput(
 // Native release validation is separate from transport and screen characterization.
 // Enable a tool only after docs/direct-chat-tui-validation.md records its busy matrix.
 export function supportsDirectChat(tool) {
-  return ["codex", "claude", "opencode"].includes(tool);
+  return isCodingCli(tool);
 }
 
 const unknown = () => ({ state: "unknown", text: null });
@@ -238,7 +239,7 @@ async function currentChatSession(manager, id) {
     throw problem(serverMessages.sessions.reloading, 409);
   if (session.status !== "running") throw problem(serverMessages.sessions.stopped, 409);
   assertInteractiveSession(session);
-  if (session.purpose || !["codex", "claude", "opencode"].includes(session.tool))
+  if (session.purpose || !isCodingCli(session.tool))
     throw problem(serverMessages.sessionInput.unsupported, 409);
   return session;
 }

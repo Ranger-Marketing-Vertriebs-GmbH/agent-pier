@@ -10,10 +10,11 @@ import { SSH_HINT_ENV } from "../ssh/ssh-hook.js";
 import { createSshProjectBinding } from "../ssh/ssh-project-scope.js";
 import { writeSecretFile } from "./secret-format.js";
 import { SECRETS_FILE_ENV } from "./secrets-hint.js";
+import { codingCliIds } from "../clis/catalog.js";
 
 export const MAX_SESSION_SECRETS = 50;
 const sessionId = /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/;
-const tools = ["codex", "claude", "opencode", "shell"];
+const tools = [...codingCliIds(), "shell"];
 const hookScript = fileURLToPath(new URL("../ssh/ssh-hook.js", import.meta.url));
 
 const fail = (message, status, code) => Object.assign(problem(message, status), { code });

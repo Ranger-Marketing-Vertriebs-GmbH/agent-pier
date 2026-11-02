@@ -1,16 +1,15 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import fs from "node:fs";
 import { problem } from "../../lib/storage.js";
+import { cliName, codingCliIds } from "../clis/catalog.js";
 
 /**
  * Backup errors name the component they come from: a CLI profile by its name and
  * CLI, everything else by its area. `kind` is "unreadable" or "linked".
  */
-export const toolNames = Object.freeze({
-  codex: "Codex",
-  claude: "Claude Code",
-  opencode: "OpenCode",
-});
+export const toolNames = Object.freeze(
+  Object.fromEntries(codingCliIds().map((id) => [id, cliName(id)])),
+);
 const profileKinds = {
   unreadable: "profileUnreadable",
   // Profiles skip links instead of failing; one found while streaming is unreadable.

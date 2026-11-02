@@ -10,6 +10,7 @@ import { randomUUID } from "node:crypto";
 import { access, stat } from "node:fs/promises";
 import { constants } from "node:fs";
 import path from "node:path";
+import { isCodingCli } from "../clis/catalog.js";
 
 /** The secrets binding a session keeps (session-secrets.js): ids only, never values. */
 function sessionSecretsRecord({ projectId, assignedIds }) {
@@ -63,7 +64,7 @@ export async function buildSessionLaunch(manager, options) {
   const input = nativeInput(options);
   const startedBy = startedByRecord(options.startedBy);
   const name = validName(options.name);
-  if (!["codex", "claude", "opencode", "shell"].includes(tool))
+  if (!(isCodingCli(tool) || tool === "shell"))
     throw failure(serverMessages.sessions.invalidTool);
   if (
     tool === "shell" &&

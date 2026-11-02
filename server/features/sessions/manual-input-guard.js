@@ -1,6 +1,7 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { inspectChatComposer } from "./session-chat-input.js";
 import { problem } from "../../lib/storage.js";
+import { isCodingCli } from "../clis/catalog.js";
 
 // Track the input stream, not individual WebSocket frames. Only retain protocol
 // state (never user text); OSC replies and paste markers can cross frame boundaries.
@@ -57,7 +58,7 @@ function inputAction(state, text) {
 
 /** A successful PTY write is not proof that the native editor has rendered it. */
 export async function recordManualInput(manager, session, text, state = {}) {
-  if (session.purpose || !["codex", "claude", "opencode"].includes(session.tool)) return;
+  if (session.purpose || !isCodingCli(session.tool)) return;
   const pending = manager.pendingTerminalInput;
   const action = inputAction(state, text);
   // Explicit submit/cancel/clear ends the unsent input, even if a long draft was

@@ -18,6 +18,7 @@ import { readJSON, writePrivate, problem } from "../../lib/storage.js";
 import { safePath } from "../extensions/mcp-config.js";
 import { fingerprint, synchronize } from "./synchronization.js";
 import { seedBundledSkills } from "./bundled-skills.js";
+import { isCodingCli } from "../clis/catalog.js";
 
 export class SharedCliProfiles {
   constructor({ accounts }) {
@@ -27,7 +28,7 @@ export class SharedCliProfiles {
   }
   resolve(id) {
     const account = this.accounts.get(id);
-    if (!["codex", "claude", "opencode"].includes(account.tool))
+    if (!isCodingCli(account.tool))
       throw problem(serverMessages.cliProfiles.shellNoExtensions, 409);
     return `local-${account.tool}`;
   }

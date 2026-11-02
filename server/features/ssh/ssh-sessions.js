@@ -7,6 +7,7 @@ import { shellQuote } from "../../lib/launch-serialization.js";
 
 import { validateSshProjectBinding } from "./ssh-project-scope.js";
 import { sshProblem } from "./ssh-errors.js";
+import { isCodingCli } from "../clis/catalog.js";
 
 const client = fileURLToPath(new URL("../../ssh.mjs", import.meta.url));
 
@@ -43,7 +44,7 @@ function isEligible(session) {
     session.status === "running" &&
     session.purpose !== "login" &&
     !session.pipeline?.headless &&
-    ["codex", "claude", "opencode", "shell"].includes(session.tool),
+    (isCodingCli(session.tool) || session.tool === "shell"),
   );
 }
 function eligible(session) {

@@ -7,6 +7,7 @@ import {
   directorySettings,
   normaliseBaseUrl,
 } from "../mcp-directory/directory-settings.js";
+import { isCodingCli } from "../clis/catalog.js";
 
 export class Preferences {
   constructor({ dataDir, home, accounts }) {
@@ -40,7 +41,7 @@ export class Preferences {
   }
   eligible(account, tool) {
     return (
-      ["codex", "claude", "opencode"].includes(tool) &&
+      isCodingCli(tool) &&
       account.tool === tool &&
       ["local", "managed"].includes(account.kind) &&
       !account.provider &&
@@ -52,7 +53,7 @@ export class Preferences {
       throw problem(serverMessages.settings.invalidDefaultAccounts);
     const next = { ...this.get().defaultAccountIds };
     for (const [tool, id] of Object.entries(changes)) {
-      if (!["codex", "claude", "opencode"].includes(tool))
+      if (!isCodingCli(tool))
         throw problem(serverMessages.settings.defaultAccountRequiresCodingCli);
       if (id === null) {
         delete next[tool];

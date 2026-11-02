@@ -4,6 +4,7 @@ import { watchChatSources } from "./chat-source-watch.js";
 import { ChatSourceWatchPool } from "./chat-source-watch-pool.js";
 import { probeChatSources } from "./chat-source-probe.js";
 import { ReplyStreams } from "./reply-streams.js";
+import { isCodingCli } from "../clis/catalog.js";
 
 /** One serialized source reader per watched session, shared by all browser tabs. */
 export class ChatStreams {
@@ -188,7 +189,7 @@ export class ChatStreams {
         !entry.unwatchInput &&
         Date.now() >= (entry.inputRetryAt || 0) &&
         session.status === "running" &&
-        ["claude", "codex", "opencode"].includes(session.tool) &&
+        isCodingCli(session.tool) &&
         !session.purpose &&
         this.sessions.tmuxPath
       ) {

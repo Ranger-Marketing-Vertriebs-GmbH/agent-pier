@@ -6,17 +6,13 @@ import { claudeHookVersion, writeClaudeHooks } from "./claude-runtime.js";
 import { addGrant } from "../nono/sandbox-grants.js";
 import { ADAPTER_URL_PLACEHOLDER } from "../providers/adapter-launch.js";
 import { addClaudeBridge } from "../claude-mod/claude-mod-launch.js";
+import { isCodingCli } from "../clis/catalog.js";
 const moduleFile = (name) => fileURLToPath(new URL(name, import.meta.url));
 export async function prepareRequests(
   broker,
   { id, account, cwd, launch, purpose, headless } = {},
 ) {
-  if (
-    purpose === "login" ||
-    headless ||
-    !["codex", "claude", "opencode"].includes(account?.tool)
-  )
-    return launch;
+  if (purpose === "login" || headless || !isCodingCli(account?.tool)) return launch;
   const token = randomBytes(32).toString("hex");
   const file = broker.file(id);
   const args = [...(launch.args || [])];

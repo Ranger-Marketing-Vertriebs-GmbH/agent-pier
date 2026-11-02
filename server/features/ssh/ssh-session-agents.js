@@ -21,6 +21,7 @@ import {
   storedToken,
 } from "./ssh-session-agent-files.js";
 import { readSessionAliases, sessionFolder } from "./ssh-session-config.js";
+import { codingCliIds } from "../clis/catalog.js";
 
 // The session's generated ssh_config and its agent socket, for hints and fallbacks.
 export const SSH_CONFIG_ENV = "AGENTPIER_SSH_CONFIG";
@@ -28,7 +29,7 @@ export const SSH_AGENT_SOCK_ENV = "AGENTPIER_SSH_AUTH_SOCK";
 
 const sessionOwner = (id) => ({ kind: "session", id });
 
-const codingTools = new Set(["codex", "claude", "opencode"]);
+const codingTools = new Set(codingCliIds());
 
 // Coding sessions also reach key-only SFTP hosts without a folder natively; a shell
 // session neither lists nor inherits SFTP hosts (ssh-sessions.js).

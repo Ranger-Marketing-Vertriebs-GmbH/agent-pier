@@ -1,12 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
+import { cliName, codingCliIds } from "../clis/catalog.js";
 
 // Doctor checks for protocol adapter sessions. Reads counters and fixed enums from
 // `sessions/<id>.adapter.json` only; a snapshot of another launch generation is ignored.
 // Running sessions are always reported. A stopped session is reported only while its
 // current generation records a recent adapter failure (a failed start ends the session,
 // so it is never seen running); older failures are history and stay out of the report.
-const TOOLS = { claude: "Claude Code", codex: "Codex", opencode: "OpenCode" };
+const TOOLS = Object.fromEntries(codingCliIds().map((id) => [id, cliName(id)]));
 // Counter maps: only numeric leaves under short identifier-like keys survive.
 const COUNTER_KEYS = [
   "restarts",
