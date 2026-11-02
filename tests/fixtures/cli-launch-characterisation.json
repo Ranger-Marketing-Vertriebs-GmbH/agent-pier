@@ -1,0 +1,415 @@
+{
+  "launches": {
+    "codex/local/default": {
+      "command": "<root>/fixture-bin/codex",
+      "args": [],
+      "env": {
+        "HOME": "<root>",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      }
+    },
+    "codex/local/yolo": {
+      "command": "<root>/fixture-bin/codex",
+      "args": ["--yolo"],
+      "env": {
+        "HOME": "<root>",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      }
+    },
+    "codex/managed/default": {
+      "command": "<root>/fixture-bin/codex",
+      "args": [
+        "-c",
+        "cli_auth_credentials_store=\"file\"",
+        "-c",
+        "mcp_oauth_credentials_store=\"file\""
+      ],
+      "env": {
+        "CODEX_HOME": "<root>/data/profiles/<account>/codex",
+        "HOME": "<root>",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      }
+    },
+    "codex/managed/yolo": {
+      "command": "<root>/fixture-bin/codex",
+      "args": [
+        "--yolo",
+        "-c",
+        "cli_auth_credentials_store=\"file\"",
+        "-c",
+        "mcp_oauth_credentials_store=\"file\""
+      ],
+      "env": {
+        "CODEX_HOME": "<root>/data/profiles/<account>/codex",
+        "HOME": "<root>",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      }
+    },
+    "codex/managed/login": {
+      "command": "<root>/fixture-bin/codex",
+      "args": [
+        "login",
+        "--device-auth",
+        "-c",
+        "cli_auth_credentials_store=\"file\"",
+        "-c",
+        "mcp_oauth_credentials_store=\"file\""
+      ],
+      "env": {
+        "CODEX_HOME": "<root>/data/profiles/<account>/codex",
+        "HOME": "<root>",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      }
+    },
+    "codex/managed-api-key/default": {
+      "command": "<root>/fixture-bin/codex",
+      "args": [
+        "-c",
+        "cli_auth_credentials_store=\"file\"",
+        "-c",
+        "mcp_oauth_credentials_store=\"file\""
+      ],
+      "env": {
+        "CODEX_HOME": "<root>/data/profiles/<account>/codex",
+        "HOME": "<root>",
+        "OPENAI_API_KEY": "fixture-key",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      }
+    },
+    "codex/managed-api-key/yolo": {
+      "command": "<root>/fixture-bin/codex",
+      "args": [
+        "--yolo",
+        "-c",
+        "cli_auth_credentials_store=\"file\"",
+        "-c",
+        "mcp_oauth_credentials_store=\"file\""
+      ],
+      "env": {
+        "CODEX_HOME": "<root>/data/profiles/<account>/codex",
+        "HOME": "<root>",
+        "OPENAI_API_KEY": "fixture-key",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      }
+    },
+    "claude/local/default": {
+      "command": "<root>/fixture-bin/claude",
+      "args": [],
+      "env": {
+        "HOME": "<root>",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      }
+    },
+    "claude/local/auto": {
+      "command": "<root>/fixture-bin/claude",
+      "args": ["--permission-mode", "auto"],
+      "env": {
+        "HOME": "<root>",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      }
+    },
+    "claude/local/bypass": {
+      "command": "<root>/fixture-bin/claude",
+      "args": ["--dangerously-skip-permissions"],
+      "env": {
+        "HOME": "<root>",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      }
+    },
+    "claude/managed/default": {
+      "command": "<root>/fixture-bin/claude",
+      "args": [],
+      "env": {
+        "CLAUDE_CONFIG_DIR": "<root>/data/profiles/<account>/claude",
+        "CLAUDE_SECURESTORAGE_CONFIG_DIR": "<root>/data/profiles/<account>/claude",
+        "HOME": "<root>",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      }
+    },
+    "claude/managed/auto": {
+      "command": "<root>/fixture-bin/claude",
+      "args": ["--permission-mode", "auto"],
+      "env": {
+        "CLAUDE_CONFIG_DIR": "<root>/data/profiles/<account>/claude",
+        "CLAUDE_SECURESTORAGE_CONFIG_DIR": "<root>/data/profiles/<account>/claude",
+        "HOME": "<root>",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      }
+    },
+    "claude/managed/bypass": {
+      "command": "<root>/fixture-bin/claude",
+      "args": ["--dangerously-skip-permissions"],
+      "env": {
+        "CLAUDE_CONFIG_DIR": "<root>/data/profiles/<account>/claude",
+        "CLAUDE_SECURESTORAGE_CONFIG_DIR": "<root>/data/profiles/<account>/claude",
+        "HOME": "<root>",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      }
+    },
+    "claude/managed/login": {
+      "command": "<root>/fixture-bin/claude",
+      "args": [],
+      "env": {
+        "CLAUDE_CONFIG_DIR": "<root>/data/profiles/<account>/claude",
+        "CLAUDE_SECURESTORAGE_CONFIG_DIR": "<root>/data/profiles/<account>/claude",
+        "HOME": "<root>",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      }
+    },
+    "claude/managed-api-key/default": {
+      "command": "<root>/fixture-bin/claude",
+      "args": [],
+      "env": {
+        "ANTHROPIC_API_KEY": "fixture-key",
+        "CLAUDE_CONFIG_DIR": "<root>/data/profiles/<account>/claude",
+        "CLAUDE_SECURESTORAGE_CONFIG_DIR": "<root>/data/profiles/<account>/claude",
+        "HOME": "<root>",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      }
+    },
+    "claude/managed-api-key/auto": {
+      "command": "<root>/fixture-bin/claude",
+      "args": ["--permission-mode", "auto"],
+      "env": {
+        "ANTHROPIC_API_KEY": "fixture-key",
+        "CLAUDE_CONFIG_DIR": "<root>/data/profiles/<account>/claude",
+        "CLAUDE_SECURESTORAGE_CONFIG_DIR": "<root>/data/profiles/<account>/claude",
+        "HOME": "<root>",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      }
+    },
+    "claude/managed-api-key/bypass": {
+      "command": "<root>/fixture-bin/claude",
+      "args": ["--dangerously-skip-permissions"],
+      "env": {
+        "ANTHROPIC_API_KEY": "fixture-key",
+        "CLAUDE_CONFIG_DIR": "<root>/data/profiles/<account>/claude",
+        "CLAUDE_SECURESTORAGE_CONFIG_DIR": "<root>/data/profiles/<account>/claude",
+        "HOME": "<root>",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      }
+    },
+    "opencode/local/default": {
+      "command": "<root>/fixture-bin/opencode",
+      "args": [],
+      "env": {
+        "HOME": "<root>",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      }
+    },
+    "opencode/local/auto": {
+      "command": "<root>/fixture-bin/opencode",
+      "args": ["--auto"],
+      "env": {
+        "HOME": "<root>",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      }
+    },
+    "opencode/managed/default": {
+      "command": "<root>/fixture-bin/opencode",
+      "args": [],
+      "env": {
+        "HOME": "<root>",
+        "XDG_CACHE_HOME": "<root>/data/profiles/<account>/cache",
+        "XDG_CONFIG_HOME": "<root>/data/profiles/<account>/config",
+        "XDG_DATA_HOME": "<root>/data/profiles/<account>/data",
+        "XDG_STATE_HOME": "<root>/data/profiles/<account>/state",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      }
+    },
+    "opencode/managed/auto": {
+      "command": "<root>/fixture-bin/opencode",
+      "args": ["--auto"],
+      "env": {
+        "HOME": "<root>",
+        "XDG_CACHE_HOME": "<root>/data/profiles/<account>/cache",
+        "XDG_CONFIG_HOME": "<root>/data/profiles/<account>/config",
+        "XDG_DATA_HOME": "<root>/data/profiles/<account>/data",
+        "XDG_STATE_HOME": "<root>/data/profiles/<account>/state",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      }
+    },
+    "opencode/managed/login": {
+      "command": "<root>/fixture-bin/opencode",
+      "args": ["auth", "login"],
+      "env": {
+        "HOME": "<root>",
+        "XDG_CACHE_HOME": "<root>/data/profiles/<account>/cache",
+        "XDG_CONFIG_HOME": "<root>/data/profiles/<account>/config",
+        "XDG_DATA_HOME": "<root>/data/profiles/<account>/data",
+        "XDG_STATE_HOME": "<root>/data/profiles/<account>/state",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      }
+    },
+    "opencode/managed-api-key/default": {
+      "command": "<root>/fixture-bin/opencode",
+      "args": [],
+      "env": {
+        "HOME": "<root>",
+        "OPENAI_API_KEY": "fixture-key",
+        "XDG_CACHE_HOME": "<root>/data/profiles/<account>/cache",
+        "XDG_CONFIG_HOME": "<root>/data/profiles/<account>/config",
+        "XDG_DATA_HOME": "<root>/data/profiles/<account>/data",
+        "XDG_STATE_HOME": "<root>/data/profiles/<account>/state",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      }
+    },
+    "opencode/managed-api-key/auto": {
+      "command": "<root>/fixture-bin/opencode",
+      "args": ["--auto"],
+      "env": {
+        "HOME": "<root>",
+        "OPENAI_API_KEY": "fixture-key",
+        "XDG_CACHE_HOME": "<root>/data/profiles/<account>/cache",
+        "XDG_CONFIG_HOME": "<root>/data/profiles/<account>/config",
+        "XDG_DATA_HOME": "<root>/data/profiles/<account>/data",
+        "XDG_STATE_HOME": "<root>/data/profiles/<account>/state",
+        "PATH_added": [
+          "<root>/data/clis/codex/bin",
+          "<root>/data/clis/claude/bin",
+          "<root>/data/clis/opencode/bin",
+          "<root>/data/clis/gh/bin"
+        ]
+      }
+    },
+    "shell/local/default": {
+      "command": "/bin/sh",
+      "args": ["-l"],
+      "env": {
+        "HOME": "<root>",
+        "SHELL": "/bin/sh",
+        "PATH_added": []
+      }
+    }
+  },
+  "resume": {
+    "codex": ["--base", "resume", "00000000-0000-4000-8000-000000000001"],
+    "claude": ["--base", "--resume", "00000000-0000-4000-8000-000000000001"],
+    "opencode": ["--base", "--session", "00000000-0000-4000-8000-000000000001"]
+  },
+  "apiKeyEnv": {
+    "codex": ["OPENAI_API_KEY"],
+    "claude": ["ANTHROPIC_API_KEY"],
+    "opencode": ["OPENAI_API_KEY"]
+  },
+  "authStatusArgs": {
+    "claude": ["auth", "status", "--json"],
+    "codex": ["login", "status"],
+    "opencode": ["auth", "list"]
+  }
+}
