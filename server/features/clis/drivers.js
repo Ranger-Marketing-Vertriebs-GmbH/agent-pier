@@ -11,6 +11,7 @@ const drivers = new Map();
 /**
  * profileEnv(root): variables isolating one account under `root`.
  * configRoot(env, home): where the CLI keeps its config for `env`.
+ * dataRoot(env, home): where it keeps its data (history, databases).
  * parseAuthStatus(stdout, exitCode, stderr): { signedIn, state }.
  */
 export function cliDriver(id) {
@@ -23,6 +24,7 @@ export function cliDriver(id) {
         definition,
         profileEnv: profile.profileEnv,
         configRoot: profile.configRoot,
+        dataRoot: profile.dataRoot,
         parseAuthStatus(stdout, exitCode, stderr = "") {
           const state = profile.parseAuthStatus(stdout, stderr, exitCode);
           return { signedIn: state === "authenticated", state };

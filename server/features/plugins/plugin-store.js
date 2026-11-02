@@ -30,6 +30,7 @@ import {
   marketplaceRow,
   pluginRow,
 } from "./plugin-schema.js";
+import { cliDriver } from "../clis/drivers.js";
 export class PluginStore {
   constructor({
     accounts,
@@ -94,12 +95,7 @@ export class PluginStore {
           );
     safePath(initialRoot, boundary);
     const env = this.accounts.environment(id);
-    const root =
-      account.tool === "codex"
-        ? env.CODEX_HOME || path.join(env.HOME, ".codex")
-        : account.tool === "claude"
-          ? env.CLAUDE_CONFIG_DIR || path.join(env.HOME, ".claude")
-          : path.join(env.XDG_CONFIG_HOME || path.join(env.HOME, ".config"), "opencode");
+    const root = cliDriver(account.tool).configRoot(env, env.HOME);
     safePath(root, boundary);
     for (const file of account.tool === "opencode"
       ? [
@@ -121,7 +117,10 @@ export class PluginStore {
         account.kind === "managed" &&
         fs.lstatSync(path.join(root, file), { throwIfNoEntry: false })?.isSymbolicLink()
       ) {
-        const expected = path.join(this.home, ".codex", "plugins");
+        const expected = path.join(
+          cliDriver("codex").configRoot({}, this.home),
+          "plugins",
+        );
         safePath(expected, this.home);
         if (path.resolve(root, fs.readlinkSync(path.join(root, file))) !== expected)
           throw problem(serverMessages.plugins.linkedConfigReadOnly, 409);

@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ChatSourceWatchPool } from "./chat-source-watch-pool.js";
+import { cliDriver } from "../clis/drivers.js";
 
 /** Observe only this chat's sources; never recursively watch an entire profile. */
 export function watchChatSources(
@@ -22,15 +23,7 @@ export function watchChatSources(
   const env = accounts.environment(session.accountId);
   const forSession = (name) => path.basename(name).startsWith(session.id + ".");
   const always = () => true;
-  const root =
-    session.tool === "claude"
-      ? env.CLAUDE_CONFIG_DIR || path.join(env.HOME || home, ".claude")
-      : session.tool === "codex"
-        ? env.CODEX_HOME || path.join(env.HOME || home, ".codex")
-        : path.join(
-            env.XDG_DATA_HOME || path.join(env.HOME || home, ".local/share"),
-            "opencode",
-          );
+  const root = cliDriver(session.tool).dataRoot(env, home);
   const reconcile = async () => {
     if (closed) return;
     const targets = [

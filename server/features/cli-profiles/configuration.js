@@ -4,20 +4,16 @@ import { stringify as toml } from "smol-toml";
 import { applyEdits, modify } from "jsonc-parser";
 import { parseForESLint } from "toml-eslint-parser";
 import { readConfig, atomicText } from "../extensions/mcp-config.js";
+import { cliDriver } from "../clis/drivers.js";
 
 export function profileLocation(accounts, id) {
   const account = accounts.get(id),
     env = accounts.environment(id);
   const boundary = account.kind === "managed" ? accounts.profile(id) : accounts.home;
-  const root =
-    account.tool === "codex"
-      ? env.CODEX_HOME || path.join(accounts.home, ".codex")
-      : account.tool === "claude"
-        ? env.CLAUDE_CONFIG_DIR || path.join(accounts.home, ".claude")
-        : path.join(
-            env.XDG_CONFIG_HOME || path.join(accounts.home, ".config"),
-            "opencode",
-          );
+  const root = cliDriver(account.tool).configRoot(
+    { ...env, HOME: accounts.home },
+    accounts.home,
+  );
   return { account, root, boundary, env };
 }
 export function documents(location) {

@@ -4,6 +4,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { createRequire } from "node:module";
 import { detectTools } from "../accounts/account-store.js";
+import { cliDriver } from "../clis/drivers.js";
 const execute = promisify(execFile);
 const pidValue = (value) =>
   Number.isSafeInteger(Number(value)) && Number(value) > 1 ? Number(value) : null;
@@ -194,7 +195,7 @@ export async function resolveCodexProcess(
   }
   if (!found.length) return null;
   const root = await fs
-    .realpath(env.CODEX_HOME || path.join(env.HOME, ".codex"))
+    .realpath(cliDriver("codex").configRoot(env, env.HOME))
     .catch(() => null);
   if (!root) return null;
   // A remote TUI and its owned app-server sit at different depths. Only the
