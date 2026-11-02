@@ -13,7 +13,7 @@ import { approve, oauthMcpServer } from "./mcp-oauth-test-server.js";
 export async function agentPierMcpLogin(
   t,
   dataDir,
-  { name = "docs", id = "srv-1" } = {},
+  { name = "docs", id = "srv-1", consumer = "openclaw", authorize = () => true } = {},
 ) {
   const oauth = await oauthMcpServer();
   const server = { id, name, url: oauth.url, transport: "http", auth: "oauth" };
@@ -24,6 +24,7 @@ export async function agentPierMcpLogin(
     mcpRoute({
       servers: { definition: (s) => (s === id ? server : null) },
       oauth: agentpier,
+      authorize,
     }),
   );
   const url = await proxy.start();
