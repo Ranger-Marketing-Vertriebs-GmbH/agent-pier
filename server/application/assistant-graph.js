@@ -453,6 +453,7 @@ export function connectAssistantServices(graph) {
     store,
     configuration,
     bridge,
+    assistantRuntimeProxy: proxy,
   } = graph;
   wire(teams, "assistantTeams", { bridge });
   wire(assistants, "assistants", {
@@ -470,11 +471,7 @@ export function connectAssistantServices(graph) {
   // Resolved at most once per process for applies before the first ready start.
   let fallbackOwner;
   wire(configuration, "configuration", {
-    ...hermesApplyWiring({
-      bridge,
-      webTools: webToolsChanges,
-      proxy: graph.assistantRuntimeProxy,
-    }),
+    ...hermesApplyWiring({ bridge, webTools: webToolsChanges, proxy }),
     teamReady: () => bridge.status().ready,
     writeGuard: () => bridge.guardLive(),
     ...writeGuardWiring({
@@ -531,7 +528,7 @@ export function connectAssistantServices(graph) {
       // Members' MCP bindings follow their records before the start compiles them.
       teams.mcp.sync();
       // The MCP proxy's address goes into the compile (mcp-inputs.js proxiedServers).
-      await graph.assistantRuntimeProxy.start().catch(() => null);
+      await proxy.start().catch(() => null);
       // Failed OAuth logouts are retried before the start compiles.
       await mcpChanges.drainLogouts();
       // AgentPier's desired state for the start, read from the stores now; the
