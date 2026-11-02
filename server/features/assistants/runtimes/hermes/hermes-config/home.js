@@ -3,10 +3,16 @@ import { modelEnvNames, modelSection } from "./model.js";
 import {
   approvalMode,
   disabledToolsets,
+  everyCommand,
   guardsEveryCommand,
   shellLevel,
 } from "./tools.js";
-import { guardDirectory, guardFiles, guardPlugin } from "./guard-plugin.js";
+import {
+  guardDirectory,
+  guardFiles,
+  guardHookTimeoutS,
+  guardPlugin,
+} from "./guard-plugin.js";
 import { memoryLimits } from "./memory.js";
 import { builtInOffered, skillEntries } from "./skills.js";
 import { mcpEntries, mcpEnvOwned } from "./mcp.js";
@@ -112,7 +118,6 @@ export function compileHome(
 ) {
   const level = shellLevel(agent, strict);
   const servers = mcp === undefined ? null : mcpEntries(agent, mcp, { workspace });
-  const guard = guardsEveryCommand(level);
   // The browser needs the agent's own setting, AgentPier's Chromium and the guard,
   // which starts that Chromium and pins every call to it.
   // A temporary member's browser is the one its lead granted (`borrowed`).
@@ -128,6 +133,11 @@ export function compileHome(
     browser: browsing,
     skills: builtIn,
   });
+  // Routine runs on an asking level ask the owner through the team bridge, which the
+  // team plugin's bridge.json names (guard-plugin.js); Hermes's cron gate then lets
+  // through only what the guard let through (`approvals.cron_mode: approve`).
+  const cronAsks = !!team && ["approval", everyCommand].includes(level);
+  const guard = guardsEveryCommand(level) || cronAsks;
   const skills = skillEntries(agent, {
     bundled: bundledSkills,
     catalog: catalogSkills,
@@ -154,6 +164,8 @@ export function compileHome(
     [["terminal", "backend"], "local"],
     ...(workspace ? [[["terminal", "cwd"], workspace]] : []),
     [["approvals", "mode"], approvalMode(level)],
+    // Hermes's own default `deny` without the guard's question (tools/approval.py).
+    [["approvals", "cron_mode"], cronAsks ? "approve" : undefined],
     // Hermes's Tool Search would put plugin tools behind its tool_search bridge
     // (tools/tool_search.py is_deferrable_tool_name); the team tools stay at hand, as
     // OpenClaw offers them, and the instructions name them directly.
@@ -178,6 +190,8 @@ export function compileHome(
     [["memory", "memory_char_limit"], memoryLimits["MEMORY.md"]],
     [["memory", "user_char_limit"], memoryLimits["USER.md"]],
     [["plugins", "enabled"], plugins],
+    // The guard's question waits for the owner (hermes_cli/plugins.py, at most 600 s).
+    [["plugins", "hook_callback_timeout"], cronAsks ? guardHookTimeoutS : undefined],
     ...skills.entries,
     ...(servers
       ? [
@@ -207,7 +221,7 @@ export function compileHome(
       ".env": mergeEnv(existing[".env"], env.owned, env.values),
     }),
     ...(agent.instructions !== undefined && { "SOUL.md": String(agent.instructions) }),
-    ...(guard && guardFiles),
+    ...(guard && guardFiles({ everyCommand: guardsEveryCommand(level), cronAsks })),
     ...bot?.files,
     ...team,
   };
