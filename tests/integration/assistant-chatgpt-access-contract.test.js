@@ -29,6 +29,8 @@ import { ChatGptVault } from "../../server/features/model-logins/chatgpt-vault.j
 // attempt would show as a CONNECT to auth.openai.com.
 const installed = process.env.AGENTPIER_ASSISTANT_PROVIDER_RUNTIME;
 const profileId = "openai:access-contract@example.invalid";
+// OpenAI's token endpoint host: a refresh attempt would CONNECT to it.
+const refreshHost = "auth.openai.com";
 
 async function blockingProxy(t) {
   const tunnels = [];
@@ -162,7 +164,10 @@ test(
       )
       .catch(() => {});
     t.diagnostic(`probe=${JSON.stringify(probe)} tunnels=${JSON.stringify(tunnels)}`);
-    assert.ok(!tunnels.includes("auth.openai.com"), "OpenClaw never tried to refresh");
+    assert.ok(
+      tunnels.every((host) => host !== refreshHost),
+      "OpenClaw never tried to refresh",
+    );
     const after = storedProfile(runtime.paths);
     assert.equal(after.access, near.access, "no refresh fence replaced the token");
     assert.equal(after.refresh, undefined);
@@ -252,7 +257,7 @@ test(
     assert.equal(moved.id, account.id);
     assert.equal(moved.holder, "agentpier");
     assert.ok(["ok", "expiring"].includes((await statusOf(runtime.client)).status));
-    assert.ok(!tunnels.includes("auth.openai.com"));
+    assert.ok(tunnels.every((host) => host !== refreshHost));
     assert.equal(issuer.state.refreshes, 0);
 
     // A rollback to the pre-move snapshot keeps its credentials but brings back no
