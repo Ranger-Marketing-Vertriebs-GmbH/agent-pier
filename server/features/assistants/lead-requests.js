@@ -21,7 +21,7 @@ import { runReply } from "./history-text.js";
 import { answerFields } from "./team-texts.js";
 import { deliverRequest, goalResult } from "./lead-request-delivery.js";
 import { applyTaskShare, taskShare } from "./lead-share-input.js";
-import { recordedTurn } from "./goal-turns.js";
+import { followUpChat } from "./chat-successor.js";
 import { anyHostReady } from "./runtimes/runtime-for.js";
 // How long the ask tool holds the lead's turn for an answer. AgentPier runs agents
 // on OpenClaw's embedded harness, where a plugin tool call has no own timeout; its
@@ -546,7 +546,10 @@ export class LeadRequests {
   }
   /** The member's reply in this run (runReply); null while its history is stale. */
   async reply(r, attempt) {
-    const chat = this.teams.member(r.memberId).conversationId;
+    // The chat the run ran in, though a model switch may have replaced it since.
+    const chat = attempt
+      ? this.assistants.ledger.getRequest(attempt.requestId).conversationId
+      : this.teams.member(r.memberId).conversationId;
     const history = await this.assistants.history(chat);
     if (history.stale) return null;
     return runReply(this.assistants, chat, history.messages, attempt);
@@ -559,7 +562,7 @@ export class LeadRequests {
   deliveryTarget(r) {
     if (r.fromMemberId && this.peers) return this.peers.target(r);
     const report = r.origin?.kind === "member-report";
-    const conversationId =
+    const asked =
       report && this.reports ? this.reports.conversationId(r) : r.parentConversationId;
     // How a cancelled or failed request ended, for the chat's line (AssistantChat.jsx).
     const outcome = endOutcome(r),
@@ -567,11 +570,15 @@ export class LeadRequests {
       clientRequestId = `lead-request-result:${r.id}`;
     // A follow-up accepted before a crash lost its bookkeeping goes again as it was
     // recorded, a goal turn or not, whatever the goal's state is now.
-    const lost = conversationId
-      ? recordedTurn(this.teams, conversationId, clientRequestId)
-      : null;
+    const { lost, ...chat } = followUpChat(
+      this.teams,
+      this.assistants.store,
+      asked,
+      clientRequestId,
+    );
+    const { conversationId } = chat;
     return {
-      conversationId,
+      ...chat,
       clientRequestId,
       text: lost?.request.text ?? followUp({ ...r, answer: this.store.answer(r) }),
       context: result,

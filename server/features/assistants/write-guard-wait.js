@@ -92,10 +92,12 @@ export function orderedTurn(service, conversationId, wait, start) {
  */
 export function noteReadOnlyTurn(service, conversationId, context, result) {
   if (!result?.readOnly || !ownTurn(context)) return;
+  // The chat that took the turn: a replaced chat's successor (chat-successor.js).
+  const chat = result.request.conversationId ?? conversationId;
   const added = service.memoryNotes.record({
     key: `guard-pending:${result.request.id}`,
-    conversationId,
+    conversationId: chat,
     reason: "guard-pending",
   });
-  if (added) service.changed({ conversationId });
+  if (added) service.changed({ conversationId: chat });
 }
