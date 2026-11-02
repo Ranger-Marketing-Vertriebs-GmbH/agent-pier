@@ -113,8 +113,9 @@ restart; enabling a different account requires an explicit agent model change.
 A lost logout acknowledgement leaves the service in maintenance for recovery rather
 than resuming uncertain state. Existing conversations and native memory are retained.
 Logging out a login AgentPier holds removes it from AgentPier's vault and its
-access-only profile from OpenClaw's store, also while the agent service is stopped;
-neither revokes anything at OpenAI.
+access-only profile from OpenClaw's store, also while the agent service is stopped,
+and removes the profile from every update snapshot (backup keys stay); neither
+revokes anything at OpenAI.
 
 ## ChatGPT logins held by AgentPier
 
@@ -152,13 +153,23 @@ The runtimes get access only:
   signed in.
 - **Hermes** reaches the account through AgentPier's model proxy, see
   [Hermes runtime](hermes-runtime.md#model-connection). Hermes never depends on a running
-  OpenClaw.
+  OpenClaw: while the Gateway is not running, AgentPier reads a held login's model
+  list itself from the Codex backend (`/codex/models` with the login's token), so the
+  model picker works on a Hermes-only setup.
+
+A sign-in waiting for the owner does not hold back an agent runtime update. During
+maintenance (an update, its snapshot or a rollback) renewals and new sign-ins reach
+OpenClaw's store at the next Gateway spawn instead.
 
 The model proxy is a listener of its own on `127.0.0.1` (port and key in
 `<data>/model-logins/proxy.json`, stable across restarts), never AgentPier's web
 port, so remote access cannot reach it; browser requests are refused. A runtime
 holds only an HMAC credential for one scope (`chatgpt` + agent + profile, or one MCP
-server), which rotating the key revokes. `/chatgpt/codex/responses`, its compact
+server + agent), which rotating the key revokes. Every request is checked against
+the current store (`proxy-access.js`): a ChatGPT credential works only while that
+Hermes agent exists, is not archived, belongs to an active user (if any) and its
+current model is that login, so a changed model, an archived or deleted agent or a
+disabled user revokes it at once. `/chatgpt/codex/responses`, its compact
 variant and `/chatgpt/codex/models` go to `https://chatgpt.com/backend-api/codex`
 with the account's token, `ChatGPT-Account-Id` and the residency header; SSE streams
 pass unbuffered. A 401 renews the login once and replays the request. A login that
@@ -173,8 +184,13 @@ by OpenClaw, until the owner moves it: the account's detail shows **Move this
 ChatGPT login to AgentPier**. Nothing moves on its own. The move is refused while a
 run uses the account, works with the agent service running or stopped, and:
 
-1. destroys every update backup key first, so a rollback can never unseal
-   OpenClaw's old copy of the refresh token and bring back a second refresher;
+1. rewrites every update snapshot taken before so it no longer holds the profile's
+   refresh token: the sealed credential rows are unsealed, the token removed and the
+   rows sealed again with the snapshot's own key, so rollbacks stay possible and none
+   brings back a second refresher. A part that cannot be rewritten safely is kept
+   but marked (`withheldSealed`); a restore leaves its credentials out. Before every
+   Gateway spawn AgentPier writes its access-only profiles again, also over whatever
+   a restore brought back;
 2. reads the refresh token once and leaves OpenClaw's profile access-only in the
    same transaction (a profile in the middle of an OpenClaw refresh is refused);
 3. stores the tokens in AgentPier's vault under the same profile id.

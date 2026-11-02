@@ -5,8 +5,8 @@
 > ([MCP](mcp.md#oauth-logins-held-by-agentpier)); OpenClaw then compiles a plain HTTP
 > server and runs no OAuth flow. What this page qualifies, OpenClaw's own login over
 > its CLI, still applies to the logins OpenClaw made before (until the owner logs in
-> again), to SSE servers, and to removing OpenClaw's old login when AgentPier's
-> replaces it. The proxy path is qualified by
+> again: their status, logout, removal and rollback) and to removing OpenClaw's old
+> login when AgentPier's replaces it. The proxy path is qualified by
 > `tests/integration/assistant-mcp-proxy-contract.test.js`,
 > `tests/integration/hermes-mcp-proxy-contract.test.js` and
 > `tests/integration/mcp-oauth-agentpier.test.js`.

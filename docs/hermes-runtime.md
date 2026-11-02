@@ -103,7 +103,9 @@ replaces only that row and keeps Hermes's own rows and status fields. Hermes ref
 only `oauth` rows with a refresh token, so it never redeems anything, and the proxy adds
 the account's token, `ChatGPT-Account-Id` and residency header that Hermes leaves out
 for a non-JWT credential (`agent/codex_headers.py`). The home never holds an OpenAI
-token, and Hermes needs no running OpenClaw. A login OpenClaw still holds is listed
+token, and Hermes needs no running OpenClaw: without the Gateway, AgentPier reads
+the login's model list from the Codex backend itself. The credential works only while
+this agent's current model is that login. A login OpenClaw still holds is listed
 unavailable and refused (`runtimeAccount`, `modelAccountRuntime`) until the owner moves
 it to AgentPier. The models sub-port (`hermes-models.js`) answers Hermes's model
 inventory of the home (`model.options`) and no accounts; sign-ins stay host-wide in
@@ -313,9 +315,10 @@ An OAuth server whose login AgentPier holds ([MCP](mcp.md#oauth-logins-held-by-a
 reaches a Hermes agent as a plain Streamable HTTP server: the URL of AgentPier's MCP
 proxy (`<proxy>/mcp/<server id>`) and the proxy credential of that server as its
 `Authorization` header, both by reference to `.env`. Hermes runs no OAuth flow of its
-own and never holds the tokens. A server whose login OpenClaw still holds (or an SSE
-server, which the proxy does not carry) is left out and named `mcpOAuth` until the
-owner logs in again. The owner's server overview resolves a Hermes agent's
+own and never holds the tokens; an SSE server goes through the proxy the same way.
+The credential is this agent's own and works only while the agent is bound to the
+server. A server whose login OpenClaw still holds is left out and named `mcpOAuth`
+until the owner logs in again. The owner's server overview resolves a Hermes agent's
 placeholders in its work folder and names its entry by the server's name, active while
 its set runs (`mcp-placeholder-view.js`).
 
