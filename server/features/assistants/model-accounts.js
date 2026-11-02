@@ -273,7 +273,7 @@ export class AssistantModelAccounts {
       });
       this.vault.remove(record.profileId);
       this.codex?.forget(record.profileId);
-      await this.sync(record.profileId);
+      await this.sync(record.profileId, { force: true });
       return this.list();
     }
     this.requireReady();
@@ -303,9 +303,13 @@ export class AssistantModelAccounts {
    * does not exist yet (OpenClaw never started) is no change, the next Gateway start
    * writes it (syncAll).
    */
-  sync(profileId) {
+  sync(profileId, { force = false } = {}) {
     const run = async () => {
       if (!this.vault) return;
+      // While maintenance (a runtime update, its snapshot or rollback) owns OpenClaw's
+      // state, a renewal or a new sign-in is written at the next Gateway spawn
+      // (syncAll) instead of into a store being copied or replaced.
+      if (!force && this.paused?.()) return;
       const access = this.vault.accessOf(profileId);
       const known = this.vault.has(profileId);
       if (known && !access) return; // A rejected renewal: OpenClaw's token runs out.
@@ -328,7 +332,8 @@ export class AssistantModelAccounts {
   }
   /** Writes every held login into OpenClaw's store (Gateway start, runtime update). */
   async syncAll() {
-    for (const login of this.vault?.list() || []) await this.sync(login.profileId);
+    for (const login of this.vault?.list() || [])
+      await this.sync(login.profileId, { force: true });
   }
   close() {
     this.unsubscribe?.();

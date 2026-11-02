@@ -58,6 +58,6 @@ export async function moveAccount(accounts, id) {
   );
   // Renewed now when due; OpenClaw's profile follows the vault (sync).
   await accounts.vault.credential(record.profileId).catch(() => {});
-  await accounts.sync(record.profileId);
+  await accounts.sync(record.profileId, { force: true });
   return accounts.list();
 }

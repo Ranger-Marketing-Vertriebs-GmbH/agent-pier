@@ -11,6 +11,7 @@ export const blockerOrder = [
   "ASSISTANT_WORK",
   "TEAM_WORK",
   "CHANNEL_WORK",
+  // No longer produced: AgentPier's own ChatGPT sign-in needs no Gateway.
   "ACCOUNT_LOGIN",
   "WORKFLOW_WORK",
   "SCHEDULED_WORK",
@@ -205,25 +206,6 @@ function channels(s, items) {
   }
 }
 
-function login(s, items) {
-  const attempt = s.assistantModelLogin?.attempt;
-  if (!["starting", "awaiting_user"].includes(attempt?.status)) return;
-  items.push(
-    item(
-      "ACCOUNT_LOGIN",
-      "login",
-      attempt.id,
-      {
-        agent: null,
-        since: attempt.startedAt,
-        link: "/connections?section=models&item=chatgpt",
-        resolution: "none",
-      },
-      [attempt.status],
-    ),
-  );
-}
-
 // An approved action not yet started is cancelled, an agent's coding run through its
 // pipeline's cancel; an unknown outcome is reviewed. A command, transfer or email that
 // executes right now is waited for: AgentPier cannot take it back halfway.
@@ -302,7 +284,6 @@ export async function blockerItems(s) {
   chatTurns(s, items);
   teams(s, items);
   channels(s, items);
-  login(s, items);
   workflows(s, items);
   await routines(s, items);
   return items;
