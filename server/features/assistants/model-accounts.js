@@ -6,6 +6,7 @@ import { assistantProblem } from "./assistant-validation.js";
 import { destroyBackupKeys } from "./backup-credentials.js";
 import { ModelAccountCatalog, accountModelId } from "./model-account-catalog.js";
 import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
+import { moveAccount } from "./model-account-move.js";
 // Account ids keep their first prefix: agents' saved selections name them.
 const identity = (profileId) =>
   `openclaw:${createHash("sha256").update(profileId).digest("hex")}`;
@@ -261,6 +262,10 @@ export class AssistantModelAccounts {
       timeoutMs: 60000,
     });
     return this.list();
+  }
+  /** Moves a login OpenClaw holds to AgentPier, on the owner's request. */
+  move(id) {
+    return moveAccount(this, id);
   }
   /** A new sign-in was saved to the vault: OpenClaw gets its profile, the list updates. */
   async signedIn(profileId) {

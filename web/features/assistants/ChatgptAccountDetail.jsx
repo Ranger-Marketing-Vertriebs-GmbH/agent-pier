@@ -63,9 +63,33 @@ export default function ChatgptAccountDetail({
           }
         />
       </ListCard>
+      {account.holder === "openclaw" && (
+        <>
+          <p className="accounts-note">{copy.accountHeldByOpenClaw}</p>
+          <button
+            type="button"
+            className="button secondary"
+            // Also while the agent service is stopped: no OpenClaw refresh can run.
+            disabled={busy || active}
+            onClick={() =>
+              perform(async () => {
+                await assistantApi.moveAccount(account.id);
+                setCheck("moved");
+                await reload();
+              })
+            }
+          >
+            {copy.accountMove}
+          </button>
+        </>
+      )}
       {check && (
         <p role="status" className="accounts-note">
-          {check === "ok" ? copy.accountVerified : copy.accountCheckFailed}
+          {check === "moved"
+            ? copy.accountMoved
+            : check === "ok"
+              ? copy.accountVerified
+              : copy.accountCheckFailed}
         </p>
       )}
       <button

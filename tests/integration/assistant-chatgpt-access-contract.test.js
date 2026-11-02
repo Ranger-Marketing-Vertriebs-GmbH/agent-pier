@@ -9,7 +9,13 @@ import { DatabaseSync } from "node:sqlite";
 import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "../helpers/process-guard.js";
 import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { runtimeFor } from "../../server/features/assistants/runtimes/runtime-for.js";
-import { fakeAccess } from "../helpers/fake-chatgpt.js";
+import { execFileSync } from "node:child_process";
+import { fakeAccess, startFakeChatgptOAuth } from "../helpers/fake-chatgpt.js";
+import { locateOpenClawExports } from "../helpers/openclaw-dist-exports.js";
+import { runtimeEnvironment } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
+import { AssistantModelAccounts } from "../../server/features/assistants/model-accounts.js";
+import { ChatGptAuth } from "../../server/features/model-logins/chatgpt-auth.js";
+import { ChatGptVault } from "../../server/features/model-logins/chatgpt-vault.js";
 
 // An AgentPier-held ChatGPT login as the pinned OpenClaw sees it: an access-only
 // OAuth profile (openclaw-access-profiles.js). Synthetic tokens only, and nothing
@@ -173,5 +179,72 @@ test(
     // 4. Removed by AgentPier's logout: OpenClaw lists the profile no more.
     await models.removeAccess({ profileId });
     assert.equal(await statusOf(runtime.client), undefined);
+  },
+);
+
+test(
+  "a login the pinned OpenClaw made itself moves to AgentPier once, on request, and stays usable",
+  { skip: !installed, timeout: contractTimeout(240000) },
+  async (t) => {
+    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "assistant-move-contract-"));
+    const app = path.join(installed, "app/node_modules/openclaw");
+    const nodePath = path.join(installed, "node/bin/node");
+    const runtime = new RuntimeSupervisor({
+      dataDir,
+      install: async () => ({
+        version: runtimeManifest.version,
+        nodePath,
+        entryPath: path.join(app, "openclaw.mjs"),
+      }),
+    });
+    const tunnels = await blockingProxy(t);
+    const issuer = await startFakeChatgptOAuth();
+    const vault = new ChatGptVault({
+      dataDir,
+      auth: new ChatGptAuth({ issuer: issuer.url }),
+      schedule: false,
+      warn: () => {},
+    });
+    const accounts = new AssistantModelAccounts({ dataDir, runtime, vault });
+    t.after(async () => {
+      try {
+        accounts.close();
+        vault.close();
+        await issuer.close();
+        await runtime.stop();
+      } finally {
+        fs.rmSync(dataDir, { recursive: true, force: true });
+      }
+    });
+    await runtime.start();
+    await runtime.stop();
+    // OpenClaw's own writer, as its login would have stored the profile.
+    const access = fakeAccess({ email: "access-contract@example.invalid" });
+    const writer = locateOpenClawExports(app, ["upsertAuthProfile"]).upsertAuthProfile;
+    const code = `import {${writer.alias} as upsert} from ${JSON.stringify(writer.path)};
+      upsert({ profileId: ${JSON.stringify(profileId)}, credential: {type:'oauth',
+        provider:'openai', access:${JSON.stringify(access)}, refresh:'SYNTHETIC_REFRESH',
+        expires:Date.now()+86400000, email:'access-contract@example.invalid'} });`;
+    execFileSync(nodePath, ["--input-type=module", "-e", code], {
+      env: runtimeEnvironment(runtime.paths, nodePath),
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: contractTimeout(30000),
+    });
+    await runtime.start();
+    const [account] = await accounts.list();
+    assert.equal(account.holder, "openclaw");
+    assert.equal(storedProfile(runtime.paths).refresh, "SYNTHETIC_REFRESH");
+
+    await accounts.move(account.id);
+    const stored = storedProfile(runtime.paths);
+    assert.equal(stored.refresh, undefined, "OpenClaw keeps no refresh token");
+    assert.equal(stored.access, access);
+    assert.equal(vault.records.get(profileId).refresh, "SYNTHETIC_REFRESH");
+    const [moved] = await accounts.list();
+    assert.equal(moved.id, account.id);
+    assert.equal(moved.holder, "agentpier");
+    assert.ok(["ok", "expiring"].includes((await statusOf(runtime.client)).status));
+    assert.ok(!tunnels.some((line) => line.includes("auth.openai.com")));
+    assert.equal(issuer.state.refreshes, 0);
   },
 );

@@ -267,6 +267,10 @@ export const assistantCopy = {
   accountConnect: "Connect ChatGPT",
   accountCheck: "Check connection",
   accountDisconnect: "Disconnect",
+  accountHeldByOpenClaw:
+    "OpenClaw holds this login and renews it itself. Move it to AgentPier so that AgentPier renews it and Hermes agents can use it too. Your agents keep their settings.",
+  accountMove: "Move this ChatGPT login to AgentPier",
+  accountMoved: "The login is now held by AgentPier.",
   accountVerified: "Connection verified",
   accountCheckFailed: "Connection could not be verified. Try again or sign in again.",
   loginInstructions: "Enter this code on the OpenAI sign-in page.",
