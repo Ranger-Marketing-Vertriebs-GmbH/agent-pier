@@ -23,7 +23,8 @@ import { insideRoot } from "./skill-paths.js";
 // the owner's agent skill catalog (skill-catalog/) are assignable: never ClawHub or
 // workspace skills. A Hermes agent's skills compile into its own home
 // (runtimes/hermes/hermes-config/skills.js); its report names each skill's origin, and
-// a skill it wrote or installed in Hermes itself is listed as on (`selfWritten`).
+// a skill it wrote or installed in Hermes itself is listed as on (`selfWritten`), as
+// is a bundled skill Hermes always offers (`essential`, hermes-agent).
 
 const bundledSource = "openclaw-bundled";
 /** The source OpenClaw reports for skills from skills.load.extraDirs: the catalog. */
@@ -277,19 +278,22 @@ export function skillCatalog({
       : entry
         ? originOf(entry) === "local"
           ? { ...sanitizeSkill(entry, roots), state: "selfWritten" }
-          : originOf(entry) !== "bundled"
-            ? emptySkill(name, "shadowed", roots)
-            : shadowed.has(name)
-              ? { ...sanitizeSkill(entry, roots), state: "shadowed" }
-              : sanitizeSkill(entry, roots)
+          : entry.essential === true && originOf(entry) === "bundled"
+            ? { ...sanitizeSkill(entry, roots), state: "essential" }
+            : originOf(entry) !== "bundled"
+              ? emptySkill(name, "shadowed", roots)
+              : shadowed.has(name)
+                ? { ...sanitizeSkill(entry, roots), state: "shadowed" }
+                : sanitizeSkill(entry, roots)
         : emptySkill(name, "unavailable", roots);
     return {
       ...base,
       assigned: on,
       // The runtime confirms it offers the skill to this agent's next turn; one the
-      // agent wrote itself is always offered.
+      // agent wrote itself, or one the runtime needs, is always offered.
       active:
         base.state === "selfWritten" ||
+        base.state === "essential" ||
         (on &&
           !fallback &&
           base.state === "ready" &&
@@ -318,6 +322,7 @@ const refusedStates = [
   "needsSettings",
   "damaged",
   "selfWritten",
+  "essential",
 ];
 
 /** Reads an agent's skills from the running Gateway and checks assignments. */

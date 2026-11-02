@@ -6,13 +6,21 @@ import { ToggleRow } from "../../../components/ListRow.jsx";
 import { assistantSkillsCopy as copy } from "../../../lib/i18n/messages/assistant-skills.js";
 import { assistantApi } from "../assistant-api.js";
 import { toggleId } from "./agent-settings-fields.js";
-import { skillFilters, skillLocked, statusText, visibleSkills } from "./skill-list.js";
+import {
+  alwaysOn,
+  skillFilters,
+  skillLocked,
+  statusText,
+  visibleSkills,
+} from "./skill-list.js";
 import { runtimeName } from "../runtime-capabilities.js";
 import SubpageHeader from "./SubpageHeader.jsx";
 import "../agent-skills.css";
 
 function SkillDetails({ skill, shellOff, on, runtime }) {
-  const tone = ["ready", "selfWritten"].includes(skill.state) ? "ok" : "warn";
+  const tone = ["ready", "selfWritten", "essential"].includes(skill.state)
+    ? "ok"
+    : "warn";
   return (
     <>
       {skill.description && (
@@ -126,8 +134,9 @@ export default function SkillsPage({ assistant, draft, onBack }) {
       {skills.length > 0 && (
         <ListCard label={copy.title} className="agent-skills-list">
           {skills.map((skill) => {
-            // A skill the agent wrote itself is on in its runtime, without a switch.
-            const checked = skill.state === "selfWritten" || on.includes(skill.name);
+            // A skill the agent wrote itself, or one its runtime needs, is on there
+            // without a switch.
+            const checked = alwaysOn(skill) || on.includes(skill.name);
             return (
               <ToggleRow
                 key={skill.name}

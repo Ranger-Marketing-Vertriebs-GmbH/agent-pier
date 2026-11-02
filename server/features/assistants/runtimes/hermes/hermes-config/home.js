@@ -8,10 +8,16 @@ import {
 } from "./tools.js";
 import { guardDirectory, guardFiles, guardPlugin } from "./guard-plugin.js";
 import { memoryLimits } from "./memory.js";
-import { skillEntries } from "./skills.js";
+import { builtInOffered, skillEntries } from "./skills.js";
 import { mcpEntries, mcpEnvOwned } from "./mcp.js";
 import { channelBotEnvNames, channelBotHome, senderLockedToolsets } from "./telegram.js";
-import { teamDirectory, teamPlugin, teamPluginFiles, teamTools } from "./team-plugin.js";
+import {
+  teamDirectory,
+  teamPlugin,
+  teamPluginFiles,
+  teamSkillFolder,
+  teamTools,
+} from "./team-plugin.js";
 
 // One agent's Hermes home (its own HERMES_HOME, ADR 0006 decision 4) compiled from
 // its desired state: config.yaml, .env, SOUL.md, the guard plugin, the team plugin
@@ -103,13 +109,23 @@ export function compileHome(
   } = {},
 ) {
   const level = shellLevel(agent, strict);
-  const skills = skillEntries(agent, { bundled: bundledSkills, catalog: catalogSkills });
   const servers = mcp === undefined ? null : mcpEntries(agent, mcp, { workspace });
   const guard = guardsEveryCommand(level);
   // The browser needs the agent's own setting, AgentPier's Chromium and the guard,
   // which starts that Chromium and pins every call to it.
   const browsing = !!(agent.browser.wanted && browser?.cdpUrl && connection);
-  const team = teamPluginFiles(agent, { connection, browser: browsing });
+  // Built-in skills (shopping) need the browser, so they come with the team plugin.
+  const builtIn = builtInOffered(agent, browsing);
+  const team = teamPluginFiles(agent, {
+    connection,
+    browser: browsing,
+    skills: builtIn,
+  });
+  const skills = skillEntries(agent, {
+    bundled: bundledSkills,
+    catalog: catalogSkills,
+    builtIn: Object.fromEntries(builtIn.map((name) => [name, teamSkillFolder(name)])),
+  });
   const model = agent.model ? modelSection(agent.model) : null;
   // The agent's own bot, when the desired state knows it (an apply, not a bare start).
   const bot = agent.channelBot !== undefined ? channelBotHome(agent) : null;

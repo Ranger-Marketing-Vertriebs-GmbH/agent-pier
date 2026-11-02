@@ -25,6 +25,8 @@ export const telegramSendersCopy = {
   people: "Erlaubte Personen",
   peopleHint:
     "Nur diese Telegram-Nutzer können dem Bot schreiben. Frage jede Person nach ihrer numerischen Telegram-Nutzer-ID, zum Beispiel über @userinfobot. Benutzernamen funktionieren nicht. Hinzugefügte oder entfernte Personen gelten sofort, ohne den Agentendienst neu zu starten, solange mindestens eine Person auf der Liste bleibt.",
+  peopleHintRestart: (runtime) =>
+    `Nur diese Telegram-Nutzer können dem Bot schreiben. Frage jede Person nach ihrer numerischen Telegram-Nutzer-ID, zum Beispiel über @userinfobot. Benutzernamen funktionieren nicht. Hinzugefügte oder entfernte Personen starten diesen Agenten in ${runtime} sofort neu; eine Antwort, die er gerade schreibt, bricht dabei ab.`,
   noPeople: "Noch kann niemand dem Bot schreiben. Füge mindestens eine Person hinzu.",
   personId: "Telegram-Nutzer-ID",
   personName: "Person",

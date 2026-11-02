@@ -10,6 +10,8 @@ import {
   skillReport,
 } from "../../server/features/assistants/runtimes/hermes/hermes-skills.js";
 import { skillEntries } from "../../server/features/assistants/runtimes/hermes/hermes-config/skills.js";
+import { compileHome } from "../../server/features/assistants/runtimes/hermes/hermes-config/home.js";
+import { readHermesConfig } from "../../server/features/assistants/runtimes/hermes/hermes-config/home-merge.js";
 import { connectionOf } from "../../server/features/assistants/runtimes/hermes/hermes-connection.js";
 import { desiredAgent } from "../../server/features/assistants/agent-desired-state.js";
 import { skillCatalog } from "../../server/features/assistants/agent-skills.js";
@@ -172,4 +174,75 @@ test("the skills port answers for its own agent only, while the set is ready", a
   // Before any start the installation is unknown: nothing to report.
   const early = hermesSkills(supervisor, { installed: () => null });
   await assert.rejects(early.status({ agentId: "ap-a1" }), unavailable);
+});
+
+test("hermes-agent is always on and the shopping skill comes from the team plugin", (t) => {
+  const { record, agent, root } = setup(t);
+  // AgentPier's built-in skill in the home's team plugin, named relative to the home.
+  skill(
+    path.join(
+      agent.hermesHome,
+      "plugins",
+      "agentpier-team",
+      "skills",
+      "agentpier-shopping",
+    ),
+    "agentpier-shopping",
+  );
+  fs.writeFileSync(
+    path.join(agent.hermesHome, "config.yaml"),
+    "skills:\n  disabled: [findmy, hermes-agent]\n" +
+      "  external_dirs: [plugins/agentpier-team/skills/agentpier-shopping]\n",
+  );
+  const report = skillReport(agent, record, { folders: ["/bin"], platform: "darwin" });
+  const reported = Object.fromEntries(report.skills.map((s) => [s.name, s]));
+  assert.equal(reported["agentpier-shopping"].origin, "builtIn");
+  assert.equal(reported["hermes-agent"].essential, true);
+  assert.equal(reported["hermes-agent"].blockedByAgentFilter, false);
+  const page = skillCatalog({
+    report,
+    bundled: new Set(
+      report.skills.filter((s) => s.origin === "bundled").map((s) => s.name),
+    ),
+    assistant: { id: "a1", runtimeAgentId: "ap-a1", skills: [] },
+    liveRoot: path.join(root, "catalog"),
+  });
+  const byName = Object.fromEntries(page.skills.map((s) => [s.name, s]));
+  // Hermes needs it: on without AgentPier's switch.
+  assert.equal(byName["hermes-agent"].state, "essential");
+  assert.equal(byName["hermes-agent"].active, true);
+  assert.equal(skillLocked(byName["hermes-agent"], true), true);
+  // The built-in skill has its own switch (Shopping), not a row on this page.
+  assert.equal(byName["agentpier-shopping"], undefined);
+});
+
+test("a Hermes agent with the browser and memory gets the shopping skill", () => {
+  const profile = {
+    id: "a1",
+    runtimeAgentId: "ap-a1",
+    revision: 1,
+    capabilities: { browser: true, memory: true },
+  };
+  const options = {
+    connection: { url: "http://127.0.0.1:4100", token: "t" },
+    browser: { cdpUrl: "http://127.0.0.1:41234", allowPrivateNetwork: false },
+  };
+  const file = "plugins/agentpier-team/skills/agentpier-shopping/SKILL.md";
+  const home = compileHome(desiredAgent(profile), options);
+  assert.match(home.files[file], /^---\nname: agentpier-shopping\n/);
+  const config = readHermesConfig(home.files["config.yaml"]);
+  assert.deepEqual(config.skills.external_dirs, [
+    "plugins/agentpier-team/skills/agentpier-shopping",
+  ]);
+  // Switched off, or without the browser: neither the copy nor the folder.
+  for (const other of [
+    compileHome(desiredAgent({ ...profile, shopping: false }), options),
+    compileHome(desiredAgent(profile), { connection: options.connection }),
+  ]) {
+    assert.equal(other.files[file], undefined);
+    assert.deepEqual(
+      readHermesConfig(other.files["config.yaml"]).skills.external_dirs,
+      [],
+    );
+  }
 });
