@@ -186,6 +186,31 @@ left out. Backups from before this change archived OpenClaw's default profile
 publicly, caches included: a restore brings the profile back, leaves the caches out
 and reports their number as `cachesLeftOut`.
 
+### Hermes agents
+
+A Hermes agent's data lies below `assistants/hermes/` ([Hermes runtime](hermes-runtime.md)):
+its HERMES_HOME (`state/<runtime agent>/`), its HOME (`home/<runtime agent>/`) and,
+for agents without the `ap-<id>` form, a work folder of its own (`workspaces/`).
+
+- Public, so a restore brings back working agents: each home's `config.yaml`,
+  `SOUL.md`, `skills/`, `plugins/` (without the team bridge's per-start
+  `bridge.json`), its routines (`cron/jobs.json`) and their delivery record
+  (`agentpier-routine-runs.json`).
+- Credentials, only sealed with **Include encrypted credentials** and otherwise left
+  out like OpenClaw's: each home's `.env` (model, MCP, bot and speech keys) and
+  `auth.json`. Without them a restored agent gets its keys back with its next
+  configuration apply; until then the restore reports the agents as needing login.
+- Private content, sealed with **Include history** and a passphrase: everything
+  else of a home (session databases such as `state.db`, memories, routine output,
+  pairing and platform state), the agent's HOME and its own work folder.
+- The agent's browser profile (`home/<runtime agent>/agentpier-browser/user-data`)
+  goes only sealed, like OpenClaw's agent profiles below.
+- Never archived: the installations (`runtimes/`), `logs/`, `tmp/`, uv's cache, the
+  runtime selection (`runtime.json`, `candidate.json`; a restored instance installs
+  the pinned release again), and what a gateway keeps for itself in a home (`logs/`,
+  `cache/`, `runtime/`, `state/`, Hermes's own `backups/`, `gateway_state.json`,
+  heartbeats, lock files).
+
 ## SFTP hosts in backups
 
 SSH hosts, SSH keys and session grants are never part of a backup (see

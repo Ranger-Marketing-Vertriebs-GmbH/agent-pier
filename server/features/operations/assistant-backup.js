@@ -37,6 +37,7 @@ import {
   isRuntimeOnly,
 } from "./private-content.js";
 import { stripOpenClawRows, stripPrivateRows } from "./private-tables.js";
+import { isHermesBrowserTree, isHermesExcluded } from "./hermes-backup-paths.js";
 import { CapturePlan } from "./capture-plan.js";
 import { areaComponent } from "./backup-components.js";
 import { stagePath } from "./stage-path.js";
@@ -130,6 +131,7 @@ const restorable = (relative) => {
   return (
     !excludedFolders.has(top) &&
     !excludedFiles.has(relative) &&
+    !isHermesExcluded(relative) &&
     (catalogSkill.test(relative) || !volatile.test(relative)) &&
     !catalogStaging.test(relative) &&
     (ownNames(relative) || !legacyVolatileTree.test(relative))
@@ -142,6 +144,7 @@ const restorable = (relative) => {
 const included = (relative) =>
   restorable(relative) &&
   !browserTree.test(relative) &&
+  !isHermesBrowserTree(relative) &&
   !isRuntimeOnly(relative) &&
   !agentSecretMember.test(relative) &&
   (ownNames(relative) || shared(relative) || !volatileTree.test(relative));
