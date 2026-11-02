@@ -2126,6 +2126,10 @@ settings name it and the cause ([Linux](linux.md#optional-assistants)). The bloc
   owner from the service context. The cookies of every profile are then encrypted with
   Chromium's fixed mock key, as they already were for OpenClaw's headless profiles,
   so the profile folders count as credentials (see backups below);
+- passes `--disable-auto-reload` through the global `extraArgs`
+  (`policyGuardArgs`): the error page of a navigation the policy blocked would
+  otherwise reload itself about a second later, after OpenClaw's guard has let go of
+  the tab, and reach the blocked address before the tab closes;
 - leaves `ssrfPolicy` unset by default, blocking direct navigation to loopback and
   private networks. This is not a browser-wide firewall: redirect rejection can
   occur after a request reached its target. `browser.noSandbox` is never set.

@@ -5,7 +5,17 @@ import path from "node:path";
 // dist chrome-*.mjs buildOpenClawChromeLaunchArgs, plus the extraArgs of
 // openclaw-config/web-tools.js): no first-run UI, sync or crash bubbles, the basic
 // password store and the mock keychain (a visible launch never prompts the owner for
-// a keyring), no throttling of a window the owner rarely looks at, and no proxy.
+// a keyring), no throttling of a window the owner rarely looks at, no proxy and no
+// self-reloading error page (policyGuardArgs).
+/**
+ * A navigation the private-network policy aborts leaves Chromium's network error page,
+ * which reloads itself about a second later. OpenClaw removes its request guard as soon
+ * as the navigation fails, so a reload before the blocked tab closes reached the private
+ * address unchecked (assistant-browser-host-policy-contract). Without auto reload the
+ * error page stays an error page.
+ */
+export const policyGuardArgs = ["--disable-auto-reload"];
+
 const launchArgs = [
   "--no-first-run",
   "--no-default-browser-check",
@@ -23,6 +33,7 @@ const launchArgs = [
   // OpenClaw's managed browser connects directly: the private-network navigation
   // policy checks the address a page resolves to, which a proxy would hide.
   "--no-proxy-server",
+  ...policyGuardArgs,
 ];
 
 // The proxy variables OpenClaw drops from its managed browser's environment

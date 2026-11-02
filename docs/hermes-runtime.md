@@ -413,7 +413,7 @@ the agent's own profile in `<data>/assistants/hermes/home/<agent>/agentpier-brow
 a CDP port on `127.0.0.1` chosen once and kept, headless unless the agent's **Visible
 window** and a separate agent browser app allow a window, and the launch flags of
 OpenClaw's managed launches (mock keychain and basic password store, no sync or crash
-bubbles, no throttling; headless without the GPU; on Linux without `/dev/shm`, with
+bubbles, no throttling, no self-reloading error page; headless without the GPU; on Linux without `/dev/shm`, with
 Chromium's config and cache homes beside the profile unless set). Like OpenClaw's
 managed browser it connects directly: `--no-proxy-server`, and the proxy variables
 (`HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY`, also lowercase) are dropped

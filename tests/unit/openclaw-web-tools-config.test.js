@@ -292,6 +292,7 @@ test("the browser block uses only the isolated profile without JavaScript evalua
       "--disable-backgrounding-occluded-windows",
       "--disable-renderer-backgrounding",
       "--disable-background-timer-throttling",
+      "--disable-auto-reload",
     ],
     profiles: {
       user: { driver: "openclaw", cdpPort: port + 12 },
