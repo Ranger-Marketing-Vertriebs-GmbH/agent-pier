@@ -14,7 +14,7 @@ import {
   hasColumns,
   openDatabase,
 } from "./readonly-sqlite.js";
-import { cliDriver } from "../clis/drivers.js";
+import { dataRoot as openCodeDataRoot } from "../clis/opencode/profile.js";
 
 const PAGE_MESSAGES = 50;
 const SCAN_PARTS = 200;
@@ -26,7 +26,7 @@ const tooLarge = () => problem(serverMessages.chat.historyTooLarge, 413);
 
 async function databaseFile(history, session) {
   const env = history.environment(session);
-  const data = cliDriver("opencode").dataRoot(env, history.home);
+  const data = openCodeDataRoot(env, history.home);
   // The containment boundary is the XDG data folder, one level above OpenCode's own.
   const root = path.dirname(data);
   if (env.OPENCODE_DB === ":memory:") return null;

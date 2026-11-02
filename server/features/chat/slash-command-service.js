@@ -3,39 +3,22 @@ import path from "node:path";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { DiscoveryScan } from "./slash-discovery-files.js";
-import { discoverClaude } from "./slash-discovery-claude.js";
-import { discoverCodex, discoverOpenCode } from "./slash-discovery-others.js";
 import { cliDriver } from "../clis/drivers.js";
+import { isCodingCli } from "../clis/catalog.js";
 
 // The slash commands a session's CLI offers beyond its built-ins (the chat keeps the
 // built-in list itself). Discovery reads the account's config folder and the session's
 // project folder; a result is reused until one of the paths it read changes.
 
-const discoverers = {
-  claude: {
-    root: (env) => cliDriver("claude").configRoot(env, env.HOME),
-    discover: discoverClaude,
-  },
-  codex: {
-    root: (env) => cliDriver("codex").configRoot(env, env.HOME),
-    discover: discoverCodex,
-  },
-  opencode: {
-    root: (env) => cliDriver("opencode").configRoot(env, env.HOME),
-    discover: discoverOpenCode,
-  },
-};
-
 /** One discovery without a cache: the deduplicated entries and the paths it read. */
 export async function discoverSlashCommands({ tool, env, cwd }) {
-  const discoverer = discoverers[tool];
-  if (!discoverer || !env?.HOME) return { commands: [], watched: [] };
+  if (!isCodingCli(tool) || !env?.HOME) return { commands: [], watched: [] };
   const scan = new DiscoveryScan();
-  const root = discoverer.root(env);
-  await discoverer.discover(scan, {
-    root,
-    cwd: typeof cwd === "string" && path.isAbsolute(cwd) ? cwd : null,
-  });
+  await cliDriver(tool).history.slashCommands(
+    scan,
+    env,
+    typeof cwd === "string" && path.isAbsolute(cwd) ? cwd : null,
+  );
   const seen = new Set();
   const commands = scan.entries.filter((entry) => {
     const key = entry.name.toLowerCase();
@@ -74,7 +57,7 @@ export class SlashCommandService {
   /** The discovered commands of a running coding-CLI session. */
   async list(sessionId) {
     const session = await this.sessions.get(sessionId);
-    if (!Object.hasOwn(discoverers, session.tool) || session.purpose === "login")
+    if (!isCodingCli(session.tool) || session.purpose === "login")
       throw problem(serverMessages.chat.slashCommandsUnavailable, 409);
     const account = this.accounts.get(session.accountId);
     if (account.tool !== session.tool)

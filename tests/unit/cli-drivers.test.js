@@ -5,6 +5,16 @@ import os from "node:os";
 import path from "node:path";
 import { CODING_CLI_IDS } from "../../server/features/clis/catalog.js";
 import { cliDriver } from "../../server/features/clis/drivers.js";
+import {
+  normalizeClaude,
+  normalizeCodex,
+  normalizeOpenCode,
+} from "../../server/features/chat/history-parsers.js";
+import {
+  observeClaude,
+  observeCodex,
+  observeOpenCode,
+} from "../../server/features/chat/chat-observability.js";
 
 test("every coding CLI has a driver with profileEnv, configRoot, parseAuthStatus", () => {
   for (const id of CODING_CLI_IDS) {
@@ -118,4 +128,55 @@ test("every driver provides prepareRequests, shellToolName and startupDialogs", 
     for (const handler of Object.values(driver.startupDialogs))
       assert.equal(typeof handler, "function");
   }
+});
+
+test("every driver provides the history methods", () => {
+  const methods = [
+    "list",
+    "read",
+    "readPage",
+    "readReloadContext",
+    "normalize",
+    "observe",
+    "watchRoots",
+    "slashCommands",
+  ];
+  for (const id of CODING_CLI_IDS) {
+    const { history } = cliDriver(id);
+    assert.ok(Object.isFrozen(history), `${id}.history is frozen`);
+    for (const method of methods)
+      assert.equal(typeof history[method], "function", `${id}.history.${method}`);
+  }
+  const normalize = {
+    codex: normalizeCodex,
+    claude: normalizeClaude,
+    opencode: normalizeOpenCode,
+  };
+  const observe = {
+    codex: observeCodex,
+    claude: observeClaude,
+    opencode: observeOpenCode,
+  };
+  for (const id of CODING_CLI_IDS) {
+    assert.equal(cliDriver(id).history.normalize, normalize[id]);
+    assert.equal(cliDriver(id).history.observe, observe[id]);
+  }
+});
+
+test("history watchRoots name the folders a chat without sources discovers", () => {
+  const env = { CODEX_HOME: "/p/codex", CLAUDE_CONFIG_DIR: "/p/claude" };
+  assert.deepEqual(cliDriver("codex").history.watchRoots(env, "/h", "/w/a"), [
+    "/p/codex/sessions",
+    "/p/codex/archived_sessions",
+  ]);
+  assert.deepEqual(cliDriver("claude").history.watchRoots(env, "/h", "/w/a.b"), [
+    "/p/claude/projects/-w-a-b",
+  ]);
+  assert.deepEqual(cliDriver("claude").history.watchRoots(env, "/h", undefined), [
+    "/p/claude/projects",
+  ]);
+  assert.deepEqual(
+    cliDriver("opencode").history.watchRoots({ XDG_DATA_HOME: "/p/data" }, "/h", "/w"),
+    ["/p/data/opencode"],
+  );
 });

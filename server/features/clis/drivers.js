@@ -10,6 +10,9 @@ import * as opencodeSession from "./opencode/session-config.js";
 import * as codexRequests from "./codex/requests.js";
 import * as claudeRequests from "./claude/requests.js";
 import * as opencodeRequests from "./opencode/requests.js";
+import * as codexHistory from "./codex/history.js";
+import * as claudeHistory from "./claude/history.js";
+import * as opencodeHistory from "./opencode/history.js";
 
 const profiles = { codex, claude, opencode };
 const sessions = {
@@ -21,6 +24,11 @@ const requests = {
   codex: codexRequests,
   claude: claudeRequests,
   opencode: opencodeRequests,
+};
+const histories = {
+  codex: codexHistory,
+  claude: claudeHistory,
+  opencode: opencodeHistory,
 };
 const drivers = new Map();
 
@@ -41,6 +49,13 @@ const drivers = new Map();
  * shellToolName: the tool whose requests carry a shell command line.
  * startupDialogs: { [presentation]: answer(broker, entry, choice) } for the startup
  *   dialogs AgentPier answers in the terminal itself.
+ * history: reads the CLI's own chat history. `history` in each call is the
+ *   ProviderHistory that owns the shared state (clients, caches, running jobs).
+ *   list(history, session), read(history, session, id),
+ *   readPage(history, session, id, state): the native page or null for a page over
+ *   a full read, readReloadContext(history, session, id), normalize(records),
+ *   observe(records), watchRoots(env, home, cwd): folders to watch while a chat has
+ *   no known sources, slashCommands(scan, env, cwd): discovers custom commands.
  */
 export function cliDriver(id) {
   const definition = cliDefinition(id);
@@ -58,6 +73,16 @@ export function cliDriver(id) {
         prepareRequests: requests[id].prepareRequests,
         shellToolName: requests[id].shellToolName,
         startupDialogs: Object.freeze({ ...requests[id].startupDialogs }),
+        history: Object.freeze({
+          list: histories[id].list,
+          read: histories[id].read,
+          readPage: histories[id].readPage,
+          readReloadContext: histories[id].readReloadContext,
+          normalize: histories[id].normalize,
+          observe: histories[id].observe,
+          watchRoots: histories[id].watchRoots,
+          slashCommands: histories[id].slashCommands,
+        }),
         parseAuthStatus(stdout, exitCode, stderr = "") {
           const state = profile.parseAuthStatus(stdout, stderr, exitCode);
           return { signedIn: state === "authenticated", state };
