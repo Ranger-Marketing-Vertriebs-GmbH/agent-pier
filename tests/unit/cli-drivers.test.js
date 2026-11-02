@@ -98,3 +98,24 @@ test("parseAuthStatus reads each CLI's status output", () => {
   assert.equal(parse("opencode", "└  0 credentials\n", 0).state, "unauthenticated");
   assert.equal(parse("opencode", "└  1 credential\n", 1).state, "unknown");
 });
+
+test("every driver provides prepareRequests, shellToolName and startupDialogs", () => {
+  const shells = {
+    codex: "item/commandExecution/requestApproval",
+    claude: "Bash",
+    opencode: "bash",
+  };
+  const dialogs = {
+    codex: ["codexHookTrust"],
+    claude: ["claudeFolderTrust", "claudeStartupPrompt"],
+    opencode: [],
+  };
+  for (const id of CODING_CLI_IDS) {
+    const driver = cliDriver(id);
+    assert.equal(typeof driver.prepareRequests, "function", `${id}.prepareRequests`);
+    assert.equal(driver.shellToolName, shells[id]);
+    assert.deepEqual(Object.keys(driver.startupDialogs), dialogs[id]);
+    for (const handler of Object.values(driver.startupDialogs))
+      assert.equal(typeof handler, "function");
+  }
+});

@@ -1,6 +1,5 @@
-import { answerFolderTrust } from "./claude-folder-trust.js";
-import { refreshStartupPrompts, answerStartupPrompt } from "./claude-startup-prompts.js";
-import { answerHookTrust, hookLaunchIdentity } from "./codex-hook-trust.js";
+import { refreshStartupPrompts } from "./claude-startup-prompts.js";
+import { hookLaunchIdentity } from "./codex-hook-trust.js";
 import fs from "node:fs/promises";
 import { writeFileSync, renameSync } from "node:fs";
 import path from "node:path";
@@ -20,6 +19,8 @@ import { RequestNotices } from "./request-notices.js";
 import { inboxEntry, sessionEntry } from "./request-views.js";
 import { RequestApprovals } from "./request-approvals.js";
 import { answerDecision, autoAnswer, deliver } from "./request-delivery.js";
+import { CODING_CLI_IDS } from "../clis/catalog.js";
+import { cliDriver } from "../clis/drivers.js";
 export { terminalNoticeMs } from "./request-notices.js";
 // A prompt already answered, changed or gone; names who claimed it when known.
 const stale = (entry) =>
@@ -465,11 +466,11 @@ export class RequestBroker {
     if (remembered) answer = { choice: this.approvals.nativeChoice(entry) };
     if (entry.local && entry.presentation !== "codexHookTrust" && handoff)
       return this.list(sessionId);
-    const local = {
-      codexHookTrust: answerHookTrust,
-      claudeFolderTrust: answerFolderTrust,
-      claudeStartupPrompt: answerStartupPrompt,
-    }[entry.presentation];
+    // Startup dialogs AgentPier answers in the terminal itself (each CLI's driver).
+    const local = Object.assign(
+      {},
+      ...CODING_CLI_IDS.map((cli) => cliDriver(cli).startupDialogs),
+    )[entry.presentation];
     entry.claimedBy = by.actor;
     if (local && !handoff) {
       entry.status = "responding";

@@ -7,12 +7,20 @@ import * as opencode from "./opencode/profile.js";
 import * as codexSession from "./codex/session-config.js";
 import * as claudeSession from "./claude/session-config.js";
 import * as opencodeSession from "./opencode/session-config.js";
+import * as codexRequests from "./codex/requests.js";
+import * as claudeRequests from "./claude/requests.js";
+import * as opencodeRequests from "./opencode/requests.js";
 
 const profiles = { codex, claude, opencode };
 const sessions = {
   codex: codexSession,
   claude: claudeSession,
   opencode: opencodeSession,
+};
+const requests = {
+  codex: codexRequests,
+  claude: claudeRequests,
+  opencode: opencodeRequests,
 };
 const drivers = new Map();
 
@@ -27,6 +35,12 @@ const drivers = new Map();
  * addReminder(launch, { name, script, plugin, folder, invalid }): adds a start hook
  *   (Codex hook `name` running `script`, a SessionStart hook in the Claude plugin
  *   `folder`, or the OpenCode `plugin` URL).
+ * prepareRequests({ broker, id, file, args, env, grants }, launch): starts the CLI's
+ *   approval relay, changing `args`, `env` and `grants` in place; may return the
+ *   launch that replaces `{ ...launch, args, env }` (Codex's wrapper).
+ * shellToolName: the tool whose requests carry a shell command line.
+ * startupDialogs: { [presentation]: answer(broker, entry, choice) } for the startup
+ *   dialogs AgentPier answers in the terminal itself.
  */
 export function cliDriver(id) {
   const definition = cliDefinition(id);
@@ -41,6 +55,9 @@ export function cliDriver(id) {
         dataRoot: profile.dataRoot,
         addMcpServer: sessions[id].addMcpServer,
         addReminder: sessions[id].addReminder,
+        prepareRequests: requests[id].prepareRequests,
+        shellToolName: requests[id].shellToolName,
+        startupDialogs: Object.freeze({ ...requests[id].startupDialogs }),
         parseAuthStatus(stdout, exitCode, stderr = "") {
           const state = profile.parseAuthStatus(stdout, stderr, exitCode);
           return { signedIn: state === "authenticated", state };
