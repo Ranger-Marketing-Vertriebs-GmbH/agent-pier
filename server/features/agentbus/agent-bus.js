@@ -149,11 +149,14 @@ export class AgentBus {
         ],
       ]),
     );
+    const server = {
+      name: "agentpier_agentbus",
+      command: process.execPath,
+      args: [mcp],
+      env: bridgeEnv,
+    };
     if (selected.tool === "codex") {
-      args.push(
-        "-c",
-        `mcp_servers.agentpier_agentbus=${toml({ command: process.execPath, args: [mcp], env: bridgeEnv })}`,
-      );
+      cliDriver("codex").addMcpServer({ args, env }, server);
       // Codex loads hooks independently from each active config layer. The session layer
       // adds these definitions; it does not replace user/project hooks or their trust.
       for (const [event, definitions] of Object.entries(hooks))
@@ -162,23 +165,17 @@ export class AgentBus {
       const plugin = path.join(home, "adapters", id);
       ensureDir(path.join(plugin, ".claude-plugin"));
       ensureDir(path.join(plugin, "hooks"));
-      writeJsonAtomic(path.join(plugin, ".claude-plugin/plugin.json"), {
-        name: "agentpier-agentbus",
-        version: "1.0.0",
-        description: "AgentBus for this AgentPier session",
-        license: "MIT",
-      });
       writeJsonAtomic(path.join(plugin, "hooks/hooks.json"), { hooks });
-      writeJsonAtomic(path.join(plugin, ".mcp.json"), {
-        mcpServers: {
-          agentpier_agentbus: {
-            command: process.execPath,
-            args: [mcp],
-            env: bridgeEnv,
-          },
+      cliDriver("claude").addMcpServer({ args, env }, server, {
+        plugin: () => plugin,
+        manifest: {
+          name: "agentpier-agentbus",
+          version: "1.0.0",
+          description: "AgentBus for this AgentPier session",
+          license: "MIT",
         },
+        write: writeJsonAtomic,
       });
-      args.push("--plugin-dir", plugin);
     } else if (selected.tool === "opencode") {
       let config = {};
       try {

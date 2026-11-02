@@ -2,7 +2,8 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { writePrivate, privateDirectory, problem } from "../../lib/storage.js";
-import { tomlValue } from "../../lib/launch-serialization.js";
+import { cliDriver } from "../clis/drivers.js";
+import { inlineConfig } from "../clis/opencode/session-config.js";
 import { addGrant } from "../nono/sandbox-grants.js";
 const main = fileURLToPath(new URL("./session-stdio.js", import.meta.url));
 
@@ -20,45 +21,25 @@ export function sessionMcpLaunch(launch, tool, folder, capability, socketPath) {
     )
   )
     throw problem(serverMessages.mcp.reservedSessionMcpName, 409);
-  if (tool === "codex")
-    args.push("-c", `mcp_servers.agentpier_session=${tomlValue(command)}`);
-  else if (tool === "claude") {
-    const plugin = privateDirectory(path.join(folder, "plugin"));
-    writePrivate(path.join(plugin, ".claude-plugin", "plugin.json"), {
-      name: "agentpier-session",
-      version: "1.0.0",
-      description: "Session-scoped AgentPier tools.",
-    });
-    writePrivate(path.join(plugin, ".mcp.json"), {
-      mcpServers: { agentpier_session: command },
-    });
-    args.push("--plugin-dir", plugin);
-  } else {
-    let config;
+  if (tool === "opencode")
     try {
-      config = JSON.parse(env.OPENCODE_CONFIG_CONTENT || "{}");
-      if (
-        !config ||
-        typeof config !== "object" ||
-        Array.isArray(config) ||
-        (config.mcp !== undefined &&
-          (!config.mcp || typeof config.mcp !== "object" || Array.isArray(config.mcp))) ||
-        Object.hasOwn(config.mcp || {}, "agentpier_session")
-      )
-        throw Error();
+      if (Object.hasOwn(inlineConfig(env).mcp || {}, "agentpier_session")) throw Error();
     } catch {
       throw problem(serverMessages.mcp.invalidOpenCodeMcpConfig, 409);
     }
-    config.mcp = {
-      ...config.mcp,
-      agentpier_session: {
-        type: "local",
-        command: [command.command, ...command.args],
-        enabled: true,
+  cliDriver(tool).addMcpServer(
+    { args, env },
+    { name: "agentpier_session", ...command },
+    {
+      plugin: () => privateDirectory(path.join(folder, "plugin")),
+      manifest: {
+        name: "agentpier-session",
+        version: "1.0.0",
+        description: "Session-scoped AgentPier tools.",
       },
-    };
-    env.OPENCODE_CONFIG_CONTENT = JSON.stringify(config);
-  }
+      write: writePrivate,
+    },
+  );
   // The CLI spawns this stdio bridge itself; only here is its script path in hand.
   return addGrant({ ...launch, args, env }, { access: "read", path: main });
 }

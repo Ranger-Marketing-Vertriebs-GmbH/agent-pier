@@ -4,8 +4,16 @@ import { cliDefinition } from "./catalog.js";
 import * as codex from "./codex/profile.js";
 import * as claude from "./claude/profile.js";
 import * as opencode from "./opencode/profile.js";
+import * as codexSession from "./codex/session-config.js";
+import * as claudeSession from "./claude/session-config.js";
+import * as opencodeSession from "./opencode/session-config.js";
 
 const profiles = { codex, claude, opencode };
+const sessions = {
+  codex: codexSession,
+  claude: claudeSession,
+  opencode: opencodeSession,
+};
 const drivers = new Map();
 
 /**
@@ -13,6 +21,12 @@ const drivers = new Map();
  * configRoot(env, home): where the CLI keeps its config for `env`.
  * dataRoot(env, home): where it keeps its data (history, databases).
  * parseAuthStatus(stdout, exitCode, stderr): { signedIn, state }.
+ * addMcpServer(launch, { name, command, args, env? }, claude?): adds a stdio MCP
+ *   server to the launch's own `args`/`env` (Claude Code also needs `{ plugin,
+ *   manifest, write }`).
+ * addReminder(launch, { name, script, plugin, folder, invalid }): adds a start hook
+ *   (Codex hook `name` running `script`, a SessionStart hook in the Claude plugin
+ *   `folder`, or the OpenCode `plugin` URL).
  */
 export function cliDriver(id) {
   const definition = cliDefinition(id);
@@ -25,6 +39,8 @@ export function cliDriver(id) {
         profileEnv: profile.profileEnv,
         configRoot: profile.configRoot,
         dataRoot: profile.dataRoot,
+        addMcpServer: sessions[id].addMcpServer,
+        addReminder: sessions[id].addReminder,
         parseAuthStatus(stdout, exitCode, stderr = "") {
           const state = profile.parseAuthStatus(stdout, stderr, exitCode);
           return { signedIn: state === "authenticated", state };

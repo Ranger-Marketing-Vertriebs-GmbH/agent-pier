@@ -8,13 +8,13 @@ import { issueCapability, revokeCapability } from "./memory-capability.js";
 import {
   failure,
   identifier,
-  record,
   privateFolder,
   writePrivateJson,
 } from "./memory-validation.js";
-import { tomlValue } from "../../lib/launch-serialization.js";
 import { addGrant } from "../nono/sandbox-grants.js";
 import { isCodingCli } from "../clis/catalog.js";
+import { cliDriver } from "../clis/drivers.js";
+import { inlineConfig } from "../clis/opencode/session-config.js";
 const main = fileURLToPath(new URL("./memory-mcp.js", import.meta.url));
 export class MemoryIntegration {
   constructor({ dataDir, accounts, memory }) {
@@ -36,11 +36,10 @@ export class MemoryIntegration {
     const args = [...(launch.args || [])],
       env = { ...launch.env };
     await this.ready;
-    let config;
     if (selected.tool === "opencode") {
+      let config;
       try {
-        config = record(JSON.parse(env.OPENCODE_CONFIG_CONTENT || "{}"));
-        if (config.mcp !== undefined) record(config.mcp);
+        config = inlineConfig(env);
       } catch {
         throw failure(serverMessages.common.invalidTemporaryOpenCodeConfig, 409);
       }
@@ -74,37 +73,25 @@ export class MemoryIntegration {
       ],
     };
     try {
-      if (selected.tool === "codex")
-        args.push("-c", `mcp_servers.agentpier_memory=${tomlValue(command)}`);
-      else if (selected.tool === "claude") {
-        const plugin = privateFolder(path.join(folder, "plugin"));
-        privateFolder(path.join(plugin, ".claude-plugin"));
-        writePrivateJson(path.join(plugin, ".claude-plugin", "plugin.json"), {
-          name: "agentpier-memory",
-          version: "1.0.0",
-          description: "Scope-bound project memory for this AgentPier session.",
-        });
-        writePrivateJson(path.join(plugin, ".mcp.json"), {
-          mcpServers: { agentpier_memory: command },
-        });
-        args.push("--plugin-dir", plugin);
-      } else {
-        config.mcp = {
-          ...config.mcp,
-          agentpier_memory: {
-            type: "local",
-            command: [command.command, ...command.args],
-            enabled: true,
+      const plugin = path.join(folder, "plugin");
+      cliDriver(selected.tool).addMcpServer(
+        { args, env },
+        { name: "agentpier_memory", ...command },
+        {
+          plugin: () => {
+            privateFolder(plugin);
+            privateFolder(path.join(plugin, ".claude-plugin"));
+            return plugin;
           },
-        };
-        env.OPENCODE_CONFIG_CONTENT = JSON.stringify(config);
-      }
-      prepareMemoryDiscovery({
-        tool: selected.tool,
-        folder: selected.tool === "claude" ? path.join(folder, "plugin") : folder,
-        args,
-        env,
-      });
+          manifest: {
+            name: "agentpier-memory",
+            version: "1.0.0",
+            description: "Scope-bound project memory for this AgentPier session.",
+          },
+          write: writePrivateJson,
+        },
+      );
+      prepareMemoryDiscovery({ tool: selected.tool, folder: plugin, args, env });
       this.accounts?.get(selected.id);
       const prepared = {
         ...launch,

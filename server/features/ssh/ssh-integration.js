@@ -4,7 +4,6 @@ import { pidStart } from "../../../vendor/agentbus/core/proc.js";
 import { fileURLToPath } from "node:url";
 import { randomBytes, randomUUID } from "node:crypto";
 import { privateDirectory, writePrivate, readJSON, problem } from "../../lib/storage.js";
-import { tomlValue } from "../../lib/launch-serialization.js";
 import { capabilityFile, authorizeSsh, revokeSsh } from "./ssh-capability.js";
 import { sshManagementSocket } from "./ssh-management-client.js";
 import { createSshProjectBinding } from "./ssh-project-scope.js";
@@ -12,6 +11,8 @@ import { prepareSshDiscovery } from "./ssh-discovery.js";
 import { SFTP_HINT_ENV } from "./ssh-hook.js";
 import { addGrant } from "../nono/sandbox-grants.js";
 import { isCodingCli } from "../clis/catalog.js";
+import { cliDriver } from "../clis/drivers.js";
+import { inlineConfig } from "../clis/opencode/session-config.js";
 const main = fileURLToPath(new URL("./ssh-mcp.js", import.meta.url));
 const supported = (session) =>
   isCodingCli(session?.tool) &&
@@ -48,18 +49,10 @@ export class SshIntegration {
       throw problem(serverMessages.ssh.unsupportedAccount);
     const args = [...(launch.args || [])],
       env = { ...launch.env };
-    let config;
     if (selected.tool === "opencode") {
+      let config;
       try {
-        config = JSON.parse(env.OPENCODE_CONFIG_CONTENT || "{}");
-        if (
-          !config ||
-          Array.isArray(config) ||
-          typeof config !== "object" ||
-          (config.mcp !== undefined &&
-            (!config.mcp || typeof config.mcp !== "object" || Array.isArray(config.mcp)))
-        )
-          throw Error();
+        config = inlineConfig(env);
       } catch {
         throw problem(serverMessages.common.invalidTemporaryOpenCodeConfig, 409);
       }
@@ -113,36 +106,21 @@ export class SshIntegration {
       args: [main, "--data-dir", this.dataDir, "--capability", credentialFile],
     };
     try {
-      if (selected.tool === "codex")
-        args.push("-c", `mcp_servers.agentpier_ssh=${tomlValue(command)}`);
-      else if (selected.tool === "claude") {
-        const plugin = privateDirectory(path.join(folder, "plugin"));
-        writePrivate(path.join(plugin, ".claude-plugin", "plugin.json"), {
-          name: "agentpier-ssh",
-          version: "1.0.0",
-          description: "Assigned SSH hosts for this session.",
-        });
-        writePrivate(path.join(plugin, ".mcp.json"), {
-          mcpServers: { agentpier_ssh: command },
-        });
-        args.push("--plugin-dir", plugin);
-      } else {
-        config.mcp = {
-          ...config.mcp,
-          agentpier_ssh: {
-            type: "local",
-            command: [command.command, ...command.args],
-            enabled: true,
+      const plugin = path.join(folder, "plugin");
+      cliDriver(selected.tool).addMcpServer(
+        { args, env },
+        { name: "agentpier_ssh", ...command },
+        {
+          plugin: () => privateDirectory(plugin),
+          manifest: {
+            name: "agentpier-ssh",
+            version: "1.0.0",
+            description: "Assigned SSH hosts for this session.",
           },
-        };
-        env.OPENCODE_CONFIG_CONTENT = JSON.stringify(config);
-      }
-      prepareSshDiscovery({
-        tool: selected.tool,
-        folder: selected.tool === "claude" ? path.join(folder, "plugin") : folder,
-        args,
-        env,
-      });
+          write: writePrivate,
+        },
+      );
+      prepareSshDiscovery({ tool: selected.tool, folder: plugin, args, env });
       // The CLI spawns the SSH MCP server itself and it reads its generation
       // credential out of the capability folder.
       return [
