@@ -6,6 +6,7 @@ import {
   isCredentialFile,
   sealedSuffix,
 } from "../assistants/backup-credentials.js";
+import { isPrivateHermesTree } from "./hermes-backup-paths.js";
 
 /**
  * Private content beside the histories (docs/backups.md): agent chats, channel
@@ -33,8 +34,12 @@ const isAgentDatabaseCopy = (name, isAssistantMember) =>
 // there are private as a whole.
 const privateTree =
   /^(workspaces|memory-backups|shares|state\/media|state\/memory|state\/agents\/[^/]+\/sessions)(\/|$)/;
-/** Whether `relative` (below assistants/) is or lies in a private folder. */
-export const isPrivateAssistantTree = (relative) => privateTree.test(relative);
+/**
+ * Whether `relative` (below assistants/) is or lies in a private folder, Hermes's
+ * included (hermes-backup-paths.js).
+ */
+export const isPrivateAssistantTree = (relative) =>
+  privateTree.test(relative) || isPrivateHermesTree(relative);
 // What a restore needs of OpenClaw's state folder in public: its configuration and
 // copies, plugin skills, credential files (sealed in place, backup-credentials.js)
 // and each agent's configuration folder. Anything else below state/, including what
@@ -43,7 +48,7 @@ const publicState =
   /^state\/(openclaw\.json(\.[^/]+)?|plugin-skills\/.+|credentials\/.+|agents\/[^/]+\/agent\/.+)$/;
 /** Whether file `relative` (below assistants/) is private content. */
 export const isPrivateAssistantPath = (relative) =>
-  privateTree.test(relative) ||
+  isPrivateAssistantTree(relative) ||
   (relative.startsWith("state/") && !publicState.test(relative));
 /**
  * Runtime-only state below assistants/: OpenClaw's lock and temporary folders and
@@ -67,7 +72,7 @@ export function isPrivateContentPath(name, isAssistantMember) {
   if (!name.startsWith("assistants/") || !isAssistantMember(name)) return false;
   const relative = name.slice("assistants/".length);
   return (
-    (privateTree.test(relative) || relative.startsWith("state/")) &&
+    (isPrivateAssistantTree(relative) || relative.startsWith("state/")) &&
     !isConfigFile(relative) &&
     !isCredentialFile(relative) &&
     !relative.endsWith(sealedSuffix)
