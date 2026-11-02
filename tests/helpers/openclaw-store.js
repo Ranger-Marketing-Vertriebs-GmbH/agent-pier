@@ -7,10 +7,11 @@ import { DatabaseSync } from "node:sqlite";
 // contract assistant-chatgpt-access-contract pins them on the real runtime): the
 // state database's machine state, or the main agent's own database. Returns `{
 // stateDir, read }`; `read()` parses the store row.
-export function openClawStore(t, { layout = "state-db", store, owner } = {}) {
-  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-store-"));
-  t.after(() => fs.rmSync(stateDir, { recursive: true, force: true }));
-  fs.mkdirSync(path.join(stateDir, "state"));
+export function openClawStore(t, { layout = "state-db", store, owner, at } = {}) {
+  // `at`: an existing state folder (a runtime's `paths.state`) instead of a new one.
+  const stateDir = at || fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-store-"));
+  if (!at) t.after(() => fs.rmSync(stateDir, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(stateDir, "state"), { recursive: true });
   const shared = new DatabaseSync(path.join(stateDir, "state", "openclaw.sqlite"));
   shared.exec(
     "CREATE TABLE config_machine_state (state_key TEXT PRIMARY KEY, value_json TEXT NOT NULL, updated_at_ms INTEGER NOT NULL) STRICT",
