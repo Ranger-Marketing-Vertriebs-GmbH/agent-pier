@@ -60,3 +60,41 @@ test("without a workspace root the agents are listed as unavailable", () => {
   assert.equal(view.agentFolders[0].status, "unavailable");
   assert.deepEqual(view.agentFolders[0].values, []);
 });
+
+test("a Hermes agent's placeholders resolve in its own work folder", () => {
+  const hermes = { id: "a4", name: "Herm", runtimeAgentId: "ap-a4", runtime: "hermes" };
+  const own = (profile) =>
+    profile.id === "a4" ? { workspace: "/h/a4/work", ready: true } : null;
+  const [view] = placeholderViews([server], {
+    profiles: [hermes],
+    bindings: { a4: ["s1"] },
+    workspaces: "/w",
+    running: { servers: [] },
+    ownRuntime: own,
+  });
+  assert.deepEqual(view.agentFolders, [
+    {
+      id: "a4",
+      name: "Herm",
+      // Each Hermes home keeps the server's stored name.
+      entry: "voice",
+      status: "active",
+      values: [
+        { field: "args", index: 1, value: "--out=/h/a4/work/out" },
+        { field: "env", name: "BASE", value: "/h/a4/work/attachments" },
+      ],
+    },
+  ]);
+  const [stopped] = placeholderViews([server], {
+    profiles: [hermes],
+    bindings: { a4: ["s1"] },
+    ownRuntime: () => ({ workspace: "/h/a4/work", ready: false }),
+  });
+  assert.equal(stopped.agentFolders[0].status, "pending");
+  const [unknown] = placeholderViews([server], {
+    profiles: [hermes],
+    bindings: { a4: ["s1"] },
+    ownRuntime: () => ({ workspace: null, ready: false }),
+  });
+  assert.equal(unknown.agentFolders[0].status, "unavailable");
+});
