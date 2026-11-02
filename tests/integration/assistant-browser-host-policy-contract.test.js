@@ -36,10 +36,16 @@ test(
       model: { connectionId: connection.id, modelId: "fixture-model" },
       capabilities: { memory: false, reminders: false, browser: true },
     });
+    // Every request counts, so the page names its icon inline: Chromium's favicon
+    // fetch otherwise lands a few milliseconds after the opened tab's answer, and on a
+    // busy machine after `before` below was read.
     let requests = 0;
     const target = await listen(t, "127.0.0.1", (_req, res) => {
       requests++;
-      res.end("private gateway fixture");
+      res.setHeader("content-type", "text/html");
+      res.end(
+        '<html><head><link rel="icon" href="data:,"></head><body>private gateway fixture</body></html>',
+      );
     });
     await h.start();
     const profile = agentProfileName(agent.id);
@@ -72,7 +78,7 @@ test(
     await request("POST", "/start");
     const tab = await request("POST", "/tabs/open", { url: target });
     assert.ok(tab.targetId);
-    assert.ok(requests > 0);
+    assert.equal(requests, 1, "the opened tab loads its document only");
     const before = requests;
     await h.http("PUT", "/assistant-browser-network", {
       revision: 1,
