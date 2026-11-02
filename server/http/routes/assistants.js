@@ -167,6 +167,7 @@ function activeAssistantRoutes(services) {
       // The owner confirms a Gateway restart for new global web tool sections;
       // `confirmStdio` in the patch confirms binding a stdio MCP server;
       // `confirmShell` and `confirmFull` confirm raising the shell level.
+      // `freshChats` overrides whether a model switch starts fresh chats.
       result = await assistants.update(req.params.id, patch, revision, {
         confirmed: confirmRestart === true,
         outcome,
