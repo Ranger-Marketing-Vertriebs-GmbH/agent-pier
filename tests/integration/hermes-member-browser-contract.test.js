@@ -6,9 +6,8 @@ import path from "node:path";
 import { contractTimeout } from "../helpers/contract-timeout.js";
 import { startFakeModel } from "../helpers/hermes-fake-model.js";
 import { eventually } from "../helpers/hermes-fake-runtime.js";
-import { hermesSkip, strayAfterStop } from "../helpers/hermes-native.js";
+import { hermesContractBrowser, strayAfterStop } from "../helpers/hermes-native.js";
 import { hermesFleetApp, json } from "../helpers/hermes-app.js";
-import { detectBrowser } from "../../server/features/assistants/browser-detection.js";
 import { readHermesConfig } from "../../server/features/assistants/runtimes/hermes/hermes-config/home-merge.js";
 
 // A temporary team member's browser on the pinned Hermes
@@ -16,11 +15,10 @@ import { readHermesConfig } from "../../server/features/assistants/runtimes/herm
 // with the browser grants it to a task member, the member's home turns Hermes's
 // browser tools on, and a delegated task opens a local page in the member's own
 // AgentPier-owned Chromium, held as a member slot (agent-browsers.js ownMemberSlot).
-const browser = detectBrowser();
+// The browser app: hermesContractBrowser (hermes-native.js).
+const contractBrowser = hermesContractBrowser();
 const options = {
-  skip:
-    hermesSkip ||
-    (!browser.available && "no Chrome, Chromium, Brave or Edge on this machine"),
+  skip: contractBrowser.skip,
   timeout: contractTimeout(1500000),
 };
 
@@ -44,6 +42,7 @@ test(
     const model = await startFakeModel();
     t.after(() => model.close());
     const app = await hermesFleetApp(t, model);
+    contractBrowser.use(app);
     const { assistants, fleet } = app;
     // The local page is a private address: the owner allows those for agent browsers.
     const network = await json(await app.f.request("/api/assistant-browser-network"));

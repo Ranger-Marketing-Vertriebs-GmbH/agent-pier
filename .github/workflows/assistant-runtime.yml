@@ -193,8 +193,9 @@ jobs:
           node scripts/provision-hermes-contracts.mjs
           --data-dir "$RUNNER_TEMP/agentpier-hermes-contracts"
           --env-file "$GITHUB_ENV"
-      # The browser contract drives the agent's own Chromium headless with the runner's
-      # preinstalled Google Chrome, as the web tools contract above does. AgentPier's
+      # The browser, upload and member browser contracts drive the agents' own Chromium
+      # headless with the runner's preinstalled Google Chrome (Playwright's Chromium on
+      # the Linux arm64 image), as the web tools contract above does. AgentPier's
       # detection would pick the image's /usr/bin/chromium, an unpacked snapshot
       # without a sandbox helper, which Ubuntu 24.04's AppArmor user namespace limit
       # stops at launch. The sandbox stays on; a runner without Chrome fails here.

@@ -6,9 +6,8 @@ import path from "node:path";
 import { contractTimeout } from "../helpers/contract-timeout.js";
 import { startFakeModel } from "../helpers/hermes-fake-model.js";
 import { eventually } from "../helpers/hermes-fake-runtime.js";
-import { hermesSkip, strayAfterStop } from "../helpers/hermes-native.js";
+import { hermesContractBrowser, strayAfterStop } from "../helpers/hermes-native.js";
 import { hermesFleetApp, json } from "../helpers/hermes-app.js";
-import { detectBrowser } from "../../server/features/assistants/browser-detection.js";
 import { readHermesConfig } from "../../server/features/assistants/runtimes/hermes/hermes-config/home-merge.js";
 
 // The browser of a Hermes agent on the pinned Hermes (AGENTPIER_HERMES_CONTRACT_RUNTIME)
@@ -17,28 +16,10 @@ import { readHermesConfig } from "../../server/features/assistants/runtimes/herm
 // and opens a local test page with its own browser tool and the provisioned
 // agent-browser, and the owner's live view gets frames of that page over
 // AgentPier's CDP screencast. The in-repo fake model drives the tool call.
-// AgentPier's own detection, unless the environment names the browser to drive (CI:
-// the runner's Google Chrome, as for the OpenClaw web tools contract; the Ubuntu
-// image's /usr/bin/chromium, which the detection prefers, is an unpacked snapshot
-// without a sandbox helper, which AppArmor's user namespace limit stops at once).
-const named = process.env.AGENTPIER_TEST_BROWSER_PATH;
-const browser = named
-  ? {
-      available: fs.existsSync(named),
-      name: "Test",
-      executablePath: named,
-      visible: { available: false, reason: "noApp" },
-    }
-  : detectBrowser();
-// CI must exercise the browser; a missing one is a runner problem, not a skip.
-if (process.env.CI && !hermesSkip && !browser.available)
-  throw Error(
-    "No Chromium-based browser for the Hermes browser contract: install one or set AGENTPIER_TEST_BROWSER_PATH.",
-  );
+// The browser app: hermesContractBrowser (hermes-native.js).
+const contractBrowser = hermesContractBrowser();
 const options = {
-  skip:
-    hermesSkip ||
-    (!browser.available && "no Chrome, Chromium, Brave or Edge on this machine"),
+  skip: contractBrowser.skip,
   timeout: contractTimeout(900000),
 };
 
@@ -59,7 +40,7 @@ test(
     t.after(() => model.close());
     const app = await hermesFleetApp(t, model);
     const { assistants, fleet } = app;
-    if (named) app.f.application.assistantWebTools.detect = () => browser;
+    contractBrowser.use(app);
     // A local page is a private address: the owner allows those for agent browsers.
     const network = await json(await app.f.request("/api/assistant-browser-network"));
     await json(

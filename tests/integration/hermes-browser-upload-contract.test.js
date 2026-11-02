@@ -6,9 +6,8 @@ import path from "node:path";
 import { contractTimeout } from "../helpers/contract-timeout.js";
 import { startFakeModel } from "../helpers/hermes-fake-model.js";
 import { eventually } from "../helpers/hermes-fake-runtime.js";
-import { hermesSkip, strayAfterStop } from "../helpers/hermes-native.js";
+import { hermesContractBrowser, strayAfterStop } from "../helpers/hermes-native.js";
 import { hermesFleetApp, json } from "../helpers/hermes-app.js";
-import { detectBrowser } from "../../server/features/assistants/browser-detection.js";
 import { readHermesConfig } from "../../server/features/assistants/runtimes/hermes/hermes-config/home-merge.js";
 import { browserRefusals } from "../../server/features/assistants/team-plugin/tool-guard.js";
 
@@ -19,11 +18,10 @@ import { browserRefusals } from "../../server/features/assistants/team-plugin/to
 // agentpier_browser_upload, which AgentPier sets over CDP in the agent's
 // AgentPier-owned Chromium; a path AgentPier did not stage is refused. The in-repo
 // fake model drives every tool call.
-const browser = detectBrowser();
+// The browser app: hermesContractBrowser (hermes-native.js).
+const contractBrowser = hermesContractBrowser();
 const options = {
-  skip:
-    hermesSkip ||
-    (!browser.available && "no Chrome, Chromium, Brave or Edge on this machine"),
+  skip: contractBrowser.skip,
   timeout: contractTimeout(900000),
 };
 
@@ -45,6 +43,7 @@ test(
     const model = await startFakeModel();
     t.after(() => model.close());
     const app = await hermesFleetApp(t, model);
+    contractBrowser.use(app);
     const { fleet } = app;
     const network = await json(await app.f.request("/api/assistant-browser-network"));
     await json(

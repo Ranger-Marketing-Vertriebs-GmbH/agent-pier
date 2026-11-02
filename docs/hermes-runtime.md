@@ -851,11 +851,14 @@ commits and the agent's chat is kept; a running turn blocks it until **Pause age
 update** stops it. The teams contract drives a Hermes lead's team tools (proposal, a
 member provisioned as a Hermes agent, a delegated task) and the guard's refusal of a
 read-only task's write; the browser contract opens a local page in the agent's
-AgentPier-owned Chromium with the installed browser app, or the one
-`AGENTPIER_TEST_BROWSER_PATH` names (skipped, with the reason, without one; with `CI`
-set it fails instead), and reads the live view's frames. The `hermes-contracts` job
-exports that variable from the runner's Google Chrome as the `native-contracts` job
-does ([web tools qualification](assistant-web-tools-qualification.md)): the Ubuntu
+AgentPier-owned Chromium and reads the live view's frames, the upload contract fills a
+page's file field, and the member browser contract browses in a task member's own
+Chromium. All three use the installed browser app, or the one
+`AGENTPIER_TEST_BROWSER_PATH` names (`hermesContractBrowser` in
+`tests/helpers/hermes-native.js`; skipped, with the reason, without one; with `CI` set
+they fail instead). The `hermes-contracts` job exports that variable from the runner's
+Google Chrome, or Playwright's Chromium on the Linux arm64 image without Chrome, as the
+`native-contracts` job does ([web tools qualification](assistant-web-tools-qualification.md)): the Ubuntu
 image's `/usr/bin/chromium`, which the detection prefers, is an unpacked snapshot
 without a sandbox helper that AppArmor's user namespace limit stops at launch.
 Set `AGENTPIER_HERMES_CONTRACT_RUNTIME` to an installation made by `scripts/provision-hermes-contracts.mjs` (its `venv/bin/`
