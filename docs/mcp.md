@@ -369,6 +369,40 @@ command is such a runner.
   show a reference row with the number of central servers bound to that CLI, linking to
   **Connections › MCP servers**.
 
+### OAuth logins held by AgentPier
+
+An agent's OAuth login of a Streamable HTTP server (**Log in** in the server list)
+is AgentPier's own: AgentPier runs the flow with the MCP SDK (`auth()`: protected
+resource metadata, authorization server discovery, dynamic client registration as the
+public client `AgentPier`, PKCE S256 and the `resource` indicator) and returns to the
+existing callback `<origin>/api/mcp-servers/oauth/callback`. The registration and the
+tokens live in `<data>/model-logins/mcp-oauth.json` (owner-only); AgentPier is their only
+refresher, 30 seconds before expiry and once on a 401, and a refused refresh token
+shows **Login required**. Neither runtime ever holds the tokens:
+
+- AgentPier's MCP proxy (a loopback listener of its own, the same one as the
+  [ChatGPT proxy](assistant-model-connections.md#chatgpt-logins-held-by-agentpier))
+  serves `/mcp/<server id>` as a Streamable HTTP passthrough: `POST`, `GET` (the
+  server's SSE stream) and `DELETE`, with `Mcp-Session-Id`, `Mcp-Protocol-Version`,
+  `Last-Event-ID` and `Accept`. It injects the current access token, renews and replays
+  a request once on a 401, and strips `WWW-Authenticate`, so no runtime starts an OAuth
+  flow of its own.
+- OpenClaw and Hermes compile such a server as a plain HTTP server with the proxy URL
+  and a proxy credential for that server alone as its `Authorization` header
+  (`mcp-inputs.js` `proxiedServers`). Hermes agents can therefore bind OAuth servers.
+
+A login OpenClaw made before this change stays exactly as it was, refreshed by
+OpenClaw, until the owner logs in again: such a connected server shows **Log in
+again** with a note that OpenClaw holds the login. The new login is AgentPier's; when it
+completes, OpenClaw's own login of that server is removed (retried in the background if
+its CLI fails), both runtimes recompile and OpenClaw's MCP backoff is reset. SSE
+servers keep OpenClaw's login: the proxy does not carry that transport, and Hermes
+agents do not get them (`mcpOAuth`). A logout removes AgentPier's tokens and keeps the
+server AgentPier's; a rename, a new URL or scope, or a switch to headers needs a new
+login. The native contracts `assistant-mcp-proxy-contract.test.js` (OpenClaw) and
+`hermes-mcp-proxy-contract.test.js` call a fake OAuth MCP server's tool through the
+proxy, renew an expired token once and check that only AgentPier registered a client.
+
 ### Servers a member uses through its lead
 
 A lead agent can share any of your MCP servers with its permanent members (not only

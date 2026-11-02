@@ -218,9 +218,11 @@ What works on Hermes today:
 - The model connection and the instructions. Every OpenAI-compatible endpoint
   (OpenAI, Azure OpenAI, Anthropic and other vendors' compatible APIs, Ollama,
   llama.cpp, LM Studio) and OpenRouter work; changing the model in **Profile**
-  restarts the agent's Hermes process with it. ChatGPT accounts are listed with
-  **ChatGPT accounts work with OpenClaw agents only**: their sign-in belongs to
-  OpenClaw, and AgentPier never shares its refresh token with Hermes.
+  restarts the agent's Hermes process with it. A ChatGPT account works too: AgentPier
+  holds its sign-in and Hermes reaches it through AgentPier's model proxy, without the
+  tokens. A ChatGPT login OpenClaw made before is listed with **Move this ChatGPT login
+  to AgentPier to use it with Hermes agents** until you move it under **Connections ›
+  Model access**.
 - Memory: **Remember information** gives the agent Hermes's own memory, a
   `MEMORY.md` of its notes and a `USER.md` about you, which the agent keeps with
   Hermes's memory tool. You read and edit both on the agent's memory page; Hermes
@@ -232,8 +234,9 @@ What works on Hermes today:
   without a switch. **Shopping** works with the browser as on OpenClaw.
 - MCP servers: bind servers of the MCP store under **Access**, local commands and
   servers with a token; their tools appear as `mcp__<server>__<tool>`. Servers with
-  sign-in (OAuth) are not available for Hermes agents yet. Agent placeholders resolve
-  in the agent's own folder.
+  sign-in (OAuth) work once AgentPier holds their login; one OpenClaw signed in to
+  before needs **Log in again** first ([MCP](mcp.md#oauth-logins-held-by-agentpier)).
+  Agent placeholders resolve in the agent's own folder.
 - Web: web search uses the provider you chose (DuckDuckGo, Brave or Perplexity through
   OpenRouter) and web fetch reads pages directly, never private addresses. **Read
   images** and **Read PDFs** work (PDFs by their text; scanned pages are not read).
@@ -787,7 +790,7 @@ it up. An agent of users gets project folders only; the other groups show a lock
 - **MCP servers:** the central servers bound to this agent, each with its status and
   **Open** (its entry under **Connections › MCP servers**). Add servers there; the MCP
   wizard's **Connect** step can bind them to agents directly. OAuth servers
-  are signed in from AgentPier ([MCP](mcp.md#central-mcp-servers-in-the-coding-clis)).
+  are signed in from AgentPier, which holds the login ([MCP](mcp.md#oauth-logins-held-by-agentpier)).
   A local server can also be installed from an npm or PyPI package under **Connections ›
   MCP servers** ([MCP](mcp.md#installing-a-server-package)). A local server's path setting
   can use an [agent placeholder](mcp.md#agent-placeholders) such as

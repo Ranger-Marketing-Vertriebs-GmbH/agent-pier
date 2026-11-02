@@ -1,5 +1,16 @@
 # MCP OAuth qualification
 
+> **Scope since AgentPier holds MCP logins.** New OAuth logins of Streamable HTTP
+> servers are AgentPier's own and reach both runtimes through AgentPier's MCP proxy
+> ([MCP](mcp.md#oauth-logins-held-by-agentpier)); OpenClaw then compiles a plain HTTP
+> server and runs no OAuth flow. What this page qualifies, OpenClaw's own login over
+> its CLI, still applies to the logins OpenClaw made before (until the owner logs in
+> again), to SSE servers, and to removing OpenClaw's old login when AgentPier's
+> replaces it. The proxy path is qualified by
+> `tests/integration/assistant-mcp-proxy-contract.test.js`,
+> `tests/integration/hermes-mcp-proxy-contract.test.js` and
+> `tests/integration/mcp-oauth-agentpier.test.js`.
+
 An opt-in contract checks how OpenClaw 2026.9.8 authorizes remote MCP servers with
 OAuth (AGENTPIER-37), driven the way AgentPier drives it: the `openclaw` CLI run
 against the private state of an isolated Gateway that `RuntimeSupervisor` starts in

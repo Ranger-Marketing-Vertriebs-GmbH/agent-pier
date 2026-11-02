@@ -112,3 +112,90 @@ private non-secret identity after logout. Missing accounts stay unavailable afte
 restart; enabling a different account requires an explicit agent model change.
 A lost logout acknowledgement leaves the service in maintenance for recovery rather
 than resuming uncertain state. Existing conversations and native memory are retained.
+Logging out a login AgentPier holds removes it from AgentPier's vault and its
+access-only profile from OpenClaw's store, also while the agent service is stopped;
+neither revokes anything at OpenAI.
+
+## ChatGPT logins held by AgentPier
+
+A ChatGPT account is one login per account, host-wide, never one per agent.
+AgentPier holds it: **Connections › Model access › ChatGPT for agents** runs
+OpenAI's device-code sign-in from AgentPier itself (public Codex client,
+`/api/accounts/deviceauth/usercode`, polling, `/oauth/token`), shows the code and
+`https://auth.openai.com/codex/device`, and works while the agent service is
+stopped. The tokens go into AgentPier's vault, `<data>/model-logins/chatgpt.json`
+(owner-only, `0600` in a `0700` folder, outside the agent runtime's update
+snapshots), and never into a response, a log or a runtime's configuration.
+
+AgentPier is the only refresher (OpenAI rotates the refresh token; a second
+refresher signs both out with `refresh_token_reused`): one renewal at a time per
+login, saved before anything uses it, 30 minutes before expiry or at half the
+lifetime when that comes first, again when a token is used within ten minutes of its
+expiry, and once when an upstream answers 401. `refresh_token_reused`,
+`invalid_grant` and their siblings mark the login **Sign-in required**.
+
+The runtimes get access only:
+
+- **OpenClaw** gets an access-only OAuth profile (`type: "oauth"`,
+  `provider: "openai"`, `access`, `expires`, `accountId`, `email`, `displayName`,
+  `chatgptPlanType`; no `refresh`, no `authFlow`) under the same profile id, so
+  `openai/<model>@<profile>` selections stay as they are. AgentPier writes it into
+  OpenClaw's own auth profile store (the state database's machine state, or the
+  main agent's database on older layouts) in one `BEGIN IMMEDIATE` transaction that
+  changes only that profile, refuses unknown layouts and shapes, and then calls
+  `models.authRefresh { operation: "update", agentId: "main" }`; it writes again on
+  every renewal and every Gateway start. With a usable token OpenClaw never
+  refreshes, and without a refresh token its refresh claim gives up quietly, so all
+  of OpenClaw's ChatGPT features (chat, `image_generate`, transcription, realtime,
+  usage, embeddings) stay on the profile. Without a refresh token OpenClaw reports
+  the profile as `expiring` within 24 hours of its expiry; AgentPier counts that as
+  signed in.
+- **Hermes** reaches the account through AgentPier's model proxy, see
+  [Hermes runtime](hermes-runtime.md#model-connection). Hermes never depends on a running
+  OpenClaw.
+
+The model proxy is a listener of its own on `127.0.0.1` (port and key in
+`<data>/model-logins/proxy.json`, stable across restarts), never AgentPier's web
+port, so remote access cannot reach it; browser requests are refused. A runtime
+holds only an HMAC credential for one scope (`chatgpt` + agent + profile, or one MCP
+server), which rotating the key revokes. `/chatgpt/codex/responses`, its compact
+variant and `/chatgpt/codex/models` go to `https://chatgpt.com/backend-api/codex`
+with the account's token, `ChatGPT-Account-Id` and the residency header; SSE streams
+pass unbuffered. A 401 renews the login once and replays the request. A login that
+needs a new sign-in answers `401 agentpier_login_required`, a failed renewal `503`
+with `Retry-After`; other answers (429 with its headers, 5xx) pass through without
+`WWW-Authenticate` or cookies.
+
+### Logins OpenClaw made before
+
+A ChatGPT login OpenClaw made before this change stays exactly as it was, refreshed
+by OpenClaw, until the owner moves it: the account's detail shows **Move this
+ChatGPT login to AgentPier**. Nothing moves on its own. The move is refused while a
+run uses the account, works with the agent service running or stopped, and:
+
+1. destroys every update backup key first, so a rollback can never unseal
+   OpenClaw's old copy of the refresh token and bring back a second refresher;
+2. reads the refresh token once and leaves OpenClaw's profile access-only in the
+   same transaction (a profile in the middle of an OpenClaw refresh is refused);
+3. stores the tokens in AgentPier's vault under the same profile id.
+
+Until it is moved, Hermes agents cannot choose that account (`runtimeAccount`,
+`modelAccountRuntime`).
+
+### Verification
+
+`tests/unit/chatgpt-vault.test.js`, `assistant-model-account-login.test.js`,
+`assistant-model-accounts.test.js`, `assistant-model-account-move.test.js`,
+`openclaw-access-profiles.test.js` and `runtime-proxy.test.js` use a fake OpenAI
+issuer and Codex backend. The native contract
+`tests/integration/assistant-chatgpt-access-contract.test.js` runs the pinned
+OpenClaw (`AGENTPIER_ASSISTANT_PROVIDER_RUNTIME`) with synthetic tokens behind a
+proxy stub that blocks every outgoing connection: the access-only profile is
+accepted, a profile within OpenClaw's five-minute margin is never refreshed (no
+request to `auth.openai.com`, no fence), a renewed token is adopted without a
+restart, and a profile OpenClaw's own writer stored moves to AgentPier.
+
+Still to verify with the owner on a real account (a separate AgentPier instance with
+its own data): the five OpenClaw features above on an access-only profile, and
+whether a 401 or a usage-probe cooldown OpenClaw records for a profile clears when
+AgentPier writes a new token.
