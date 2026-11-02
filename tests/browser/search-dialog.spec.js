@@ -242,7 +242,9 @@ test("Escape closes the search and returns the focus; the sidebar button opens i
   await expect(dialog(page)).toHaveCount(0);
   await expect(menu).toBeFocused();
   // AC-SR-2: the sidebar search button opens the same dialog.
-  const button = page.locator(".sidebar").getByRole("button", { name: "Suchen (⌘K)" });
+  const button = page
+    .locator(".sidebar")
+    .getByRole("button", { name: /^Suchen \((⌘K|Strg\+K)\)$/ });
   await button.click();
   await expect(dialog(page)).toBeVisible();
   await field(page).fill("Fernzugriff");

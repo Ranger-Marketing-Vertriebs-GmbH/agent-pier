@@ -12,6 +12,7 @@ import useMobileLayout from "../lib/useMobileLayout.js";
 import SidebarMenu from "./SidebarMenu.jsx";
 import SidebarGroup, { SidebarGroupActions } from "./SidebarGroup.jsx";
 import useSearchDialog from "./search-dialog.js";
+import { isMacPlatform } from "./search-shortcut.js";
 import { routePath } from "./routes.js";
 import { assistantCopy } from "../lib/i18n/messages/assistants.js";
 import { agentsHubRoute } from "../features/assistants/hub-routes.js";
@@ -133,8 +134,8 @@ export default function Sidebar({
         <button
           type="button"
           className="icon-button sidebar-search"
-          aria-label={copy.search}
-          title={copy.search}
+          aria-label={copy.search[isMacPlatform() ? "mac" : "other"]}
+          title={copy.search[isMacPlatform() ? "mac" : "other"]}
           onClick={() => search.open()}
         >
           <Icon name="search" size={16} />

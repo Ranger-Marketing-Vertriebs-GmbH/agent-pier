@@ -287,7 +287,7 @@ test.describe("phone", () => {
     await header.getByRole("button", { name: "Open navigation" }).click();
     const button = page
       .locator(".sidebar-head")
-      .getByRole("button", { name: "Search (⌘K)" });
+      .getByRole("button", { name: "Search (Ctrl+K)" });
     const box = await button.boundingBox();
     expect(box.width).toBeGreaterThanOrEqual(44);
     expect(box.height).toBeGreaterThanOrEqual(44);

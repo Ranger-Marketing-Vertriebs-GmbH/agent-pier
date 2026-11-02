@@ -47,7 +47,8 @@ export const sidebarCopy = {
   remoteLink: "Remote öffnen",
   menu: "Menü",
   closeMenu: "Menü schließen",
-  search: "Suchen (⌘K)",
+  // Die Such-Schaltfläche nennt das Kürzel der Plattform (search-shortcut.js).
+  search: { mac: "Suchen (⌘K)", other: "Suchen (Strg+K)" },
   searchRow: "Suchen",
   workGroup: "Arbeiten",
   setupGroup: "Einrichten",

@@ -329,7 +329,7 @@ On a phone: [drawer with the menu](screenshots/navigation-menu-phone.png). Searc
 The information architecture is recorded in
 [ADR 0005](adr/0005-navigation-information-architecture.md).
 
-- **Sidebar** (`web/app/Sidebar.jsx`): head (collapse, **Search (⌘K)**, **Menu**), brand
+- **Sidebar** (`web/app/Sidebar.jsx`): head (collapse, **Search (⌘K)** on macOS or **Search (Ctrl+K)** elsewhere, **Menu**), brand
   with the LOCAL badge, **Inbox**, the **Views** group (only wider than 1150 px), the
   **Agents** group, the **Sessions** group and the host status. It belongs to agents and sessions; never add a permanent list of
   areas to it. Group heads carry two icon buttons each: Agents → **Manage all agents**
