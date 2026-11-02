@@ -293,6 +293,7 @@ function Application() {
                   // A single agent chat takes a dragged session or agent into a new view.
                   <SingleViewDropTarget
                     item={route.agentSettings ? null : itemFromRoute(route)}
+                    sessions={state.sessions}
                     navigate={navigate}
                   >
                     <AgentsPage
@@ -428,6 +429,7 @@ function Application() {
                   key={activeSession.id}
                   item={{ kind: "session", id: activeSession.id }}
                   tab={tabOfMode(sessionMode)}
+                  sessions={state.sessions}
                   navigate={navigate}
                 >
                   <SessionWorkspace

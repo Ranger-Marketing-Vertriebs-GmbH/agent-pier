@@ -1,7 +1,7 @@
 import { extensionProfiles } from "../features/extensions/sharedProfiles.js";
 import { useWorkspaceNavigationCopy as copy } from "../lib/i18n/messages/app.js";
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { SessionViewMemory } from "./session-view-memory.js";
+import { sessionViewMemory } from "./session-view-memory.js";
 import { canonicalRoute, readRoute, routePath } from "./routes.js";
 import { projectsRoute } from "../features/projects/routes.js";
 import { connectionsRoute } from "../features/connections/routes.js";
@@ -21,9 +21,7 @@ export default function useWorkspaceNavigation({ state, ready, setMobileNav, set
   const view = route.view,
     selected = route.sessionId || "";
   const profileMemory = useRef("");
-  const [sessionViews] = useState(
-    () => new SessionViewMemory(() => window.sessionStorage),
-  );
+  const sessionViews = sessionViewMemory();
   const index = useRef(
     Number.isSafeInteger(window.history.state?.[navigationIndex])
       ? window.history.state[navigationIndex]

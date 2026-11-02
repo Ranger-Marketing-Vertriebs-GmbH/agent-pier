@@ -1,6 +1,7 @@
 import React, { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { appCopy } from "../../lib/i18n/messages/app.js";
 import { viewsCopy } from "../../lib/i18n/messages/views.js";
+import { sessionViewMemory } from "../../app/session-view-memory.js";
 import { paneTarget } from "./pane-navigation.js";
 import StalePane from "./StalePane.jsx";
 
@@ -44,7 +45,10 @@ export default function SessionPane({
     request(next, () => {
       setRoute(next);
       const nextTab = tabOf(next.mode || "terminal");
-      if (nextTab !== tab) actions.setTab(pane.key, nextTab);
+      if (nextTab === tab) return;
+      actions.setTab(pane.key, nextTab);
+      // "Open alone" and the next drop of this session land on the same tab.
+      if (session) sessionViewMemory().remember(session, modeOf(nextTab));
     });
   const navigate = (next) => {
     const target = paneTarget(pane.item, next);

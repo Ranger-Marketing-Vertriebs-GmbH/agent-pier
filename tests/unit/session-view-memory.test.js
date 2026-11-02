@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { SessionViewMemory } from "../../web/app/session-view-memory.js";
+import {
+  SessionViewMemory,
+  sessionViewMemory,
+} from "../../web/app/session-view-memory.js";
 const first = { id: "first", tool: "codex", createdAt: "today" };
 const second = { id: "second", tool: "claude" };
 
@@ -50,4 +53,9 @@ test("unavailable or corrupt storage does not break view memory", () => {
     memory.remember(first, "reader");
     assert.equal(memory.mode(first, false), "reader");
   }
+});
+
+test("navigation and split-view panes share one memory per browser tab", () => {
+  assert.equal(sessionViewMemory(), sessionViewMemory());
+  assert.ok(sessionViewMemory() instanceof SessionViewMemory);
 });

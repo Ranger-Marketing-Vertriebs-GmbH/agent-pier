@@ -12,10 +12,17 @@ export const itemKey = (item) =>
     ? `session:${item.id}`
     : `chat:${item.assistantId}:${item.conversationId}`;
 
-/** A pane leaf; sessions carry a tab (default terminal), chats never do. */
+/**
+ * A pane leaf; sessions carry a tab (`tab`, else the item's own, else terminal), chats
+ * never do.
+ */
 export function paneLeaf(item, tab) {
   return item.kind === "session"
-    ? { type: "pane", item: { kind: "session", id: item.id }, tab: tab ?? "terminal" }
+    ? {
+        type: "pane",
+        item: { kind: "session", id: item.id },
+        tab: tab ?? item.tab ?? "terminal",
+      }
     : {
         type: "pane",
         item: {

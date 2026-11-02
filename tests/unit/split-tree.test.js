@@ -45,6 +45,13 @@ test("constants and leaves", () => {
   assert.deepEqual(paneLeaf(c1, "files"), { type: "pane", item: c1 });
   assert.deepEqual(paneLeaf(s1), { type: "pane", item: s1, tab: "terminal" });
   assert.deepEqual(paneLeaf(s1, "files"), { type: "pane", item: s1, tab: "files" });
+  // A dropped item's remembered tab (drop-rules.js) stays on the leaf, not the item.
+  assert.deepEqual(paneLeaf({ ...s1, tab: "chat" }), {
+    type: "pane",
+    item: s1,
+    tab: "chat",
+  });
+  assert.equal(paneLeaf({ ...s1, tab: "chat" }, "files").tab, "files");
 });
 
 test("queries", () => {
@@ -217,4 +224,12 @@ test("operations never mutate their input", () => {
   assert.doesNotThrow(() => setRatio(frozen, [], 0.3));
   assert.doesNotThrow(() => setTab(frozen, "session:s1", "files"));
   assert.doesNotThrow(() => dropItem(frozen, s2, "session:s1", "left"));
+});
+
+test("a dropped session lands on its remembered tab, in a view and a new two-pane view", () => {
+  const layout = dropItem(paneLeaf(s1), { ...s2, tab: "chat" }, "session:s1", "right");
+  assert.deepEqual(layout.b, { type: "pane", item: s2, tab: "chat" });
+  assert.equal(dropItem(null, { ...s2, tab: "files" }).tab, "files");
+  const fresh = twoPaneLayout(s1, { ...s2, tab: "chat" }, "right", "files");
+  assert.deepEqual([fresh.a.tab, fresh.b.tab], ["files", "chat"]);
 });

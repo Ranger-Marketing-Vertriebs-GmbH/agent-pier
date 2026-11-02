@@ -4,7 +4,9 @@ import {
   dropResult,
   hoverItemOf,
   itemForPayload,
+  withRememberedTab,
 } from "../../web/features/views/drop-rules.js";
+import { SessionViewMemory } from "../../web/app/session-view-memory.js";
 
 const pane = (id) => ({ type: "pane", item: { kind: "session", id }, tab: "terminal" });
 const split = (dir, a, b, ratio = 0.5) => ({ type: "split", dir, ratio, a, b });
@@ -138,4 +140,29 @@ test("a dropped agent without a chat opens one", async () => {
     await itemForPayload({ item: item("s1") }, { open: () => assert.fail() }),
     item("s1"),
   );
+});
+
+test("a dropped session carries the tab it was last shown on; shells never get chat", async () => {
+  const memory = new SessionViewMemory(() => null);
+  const claude = { id: "s1", tool: "claude", createdAt: "t" },
+    shell = { id: "s2", tool: "shell" },
+    login = { id: "s3", tool: "codex", purpose: "login" };
+  const sessions = [claude, shell, login];
+  assert.deepEqual(withRememberedTab(item("s1"), sessions, memory), {
+    ...item("s1"),
+    tab: "terminal",
+  });
+  memory.remember(claude, "reader");
+  assert.equal(withRememberedTab(item("s1"), sessions, memory).tab, "chat");
+  assert.equal(withRememberedTab(item("s2"), sessions, memory).tab, "terminal");
+  assert.equal(withRememberedTab(item("s3"), sessions, memory).tab, "terminal");
+  memory.remember(shell, "files");
+  assert.equal(withRememberedTab(item("s2"), sessions, memory).tab, "files");
+  // Unknown sessions and chats stay as dragged.
+  assert.deepEqual(withRememberedTab(item("gone"), sessions, memory), item("gone"));
+  const chat = { kind: "chat", assistantId: "a", conversationId: "c" };
+  assert.equal(withRememberedTab(chat, sessions, memory), chat);
+  // itemForPayload hands sessions through the tab's shared memory.
+  const dropped = await itemForPayload({ item: item("s1") }, { sessions });
+  assert.ok(["terminal", "chat", "files"].includes(dropped.tab));
 });
