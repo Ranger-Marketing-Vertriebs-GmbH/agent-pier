@@ -42,13 +42,23 @@ async function setup(page, reminders = []) {
       body = {
         files: [{ name: "memory/MEMORY.md", size: 14, modifiedAt: "2026-10-10" }],
       };
-    else if (url.searchParams.get("name") === "memory/MEMORY.md")
+    else if (url.pathname.endsWith("/memory/notes")) {
+      if (method === "PUT") {
+        state.noteSaved = route.request().postDataJSON();
+        body = { name: "memory/MEMORY.md", hash: "d".repeat(64) };
+      } else {
+        state.noteRemoved = url.searchParams.get("name");
+        await route.fulfill({ status: 204 });
+        return;
+      }
+    } else if (url.searchParams.get("name") === "memory/MEMORY.md")
       body = {
         name: "memory/MEMORY.md",
         content: "User likes tea",
         hash: "c".repeat(64),
         missing: false,
         readOnly: true,
+        editable: state.editableNote === true,
       };
     else if (url.pathname.endsWith("/memory")) {
       if (method === "PUT") state.saved = route.request().postDataJSON();
@@ -169,4 +179,32 @@ test("notes the agent wrote under memory/ are shown read-only", async ({ page })
   await expect(
     memory.getByRole("button", { name: "Save notes", exact: true }),
   ).toHaveCount(0);
+});
+test("English memory page edits and deletes a day note", async ({ page }) => {
+  const state = await setup(page);
+  state.editableNote = true;
+  await page.goto(baseURL + settingsPath("capabilities", "memory"));
+  const memory = page
+    .locator("section")
+    .filter({ has: page.getByRole("heading", { name: "Memory", exact: true }) })
+    .last();
+  await page.getByLabel("Note type").selectOption("memory/MEMORY.md");
+  await expect(page.getByLabel("Saved notes")).toHaveValue("User likes tea");
+  await expect(page.getByLabel("Saved notes")).not.toHaveAttribute("readonly", "");
+  await page.getByLabel("Saved notes").fill("User likes green tea");
+  await memory.getByRole("button", { name: "Save notes", exact: true }).click();
+  await expect
+    .poll(() => state.noteSaved)
+    .toEqual({
+      name: "memory/MEMORY.md",
+      content: "User likes green tea",
+      expectedHash: "c".repeat(64),
+    });
+  await memory.getByRole("button", { name: "Delete note", exact: true }).click();
+  await expect(page.getByText('Delete note "memory/MEMORY.md"?')).toBeVisible();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Delete note", exact: true })
+    .click();
+  await expect.poll(() => state.noteRemoved).toBe("memory/MEMORY.md");
 });
