@@ -21,6 +21,9 @@ export const memoryNoteCopy = {
     "shared-write": "Gilt für alle, die diesen Agenten nutzen.",
     "main-restarted":
       "Der Besitzer hat den Hauptchat neu begonnen. Der vorherige ist unter den archivierten Chats.",
+    "model-switched": (from, to) =>
+      `Das Modell wurde von ${from} auf ${to} gewechselt. Dieser Chat beginnt neu; Gedächtnis, Dateien und Einstellungen bleiben erhalten.`,
+    redirected: "Dieses Ergebnis wurde im vorherigen Chat gestartet.",
   },
   unknown: "Gedächtnis nicht gespeichert.",
 };

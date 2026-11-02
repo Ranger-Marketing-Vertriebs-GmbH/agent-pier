@@ -62,3 +62,34 @@ test("flush day notes follow calendar days across daylight saving changes", asyn
   // An unknown zone falls back to the host's instead of failing.
   assert.equal(flushDates(Date.now(), "Not/AZone").length, 2);
 });
+
+test("keeps the switch's model names", () => {
+  const notes = new MemoryNotes(new DatabaseSync(":memory:"), () => 5);
+  assert.equal(
+    notes.record({
+      key: "s",
+      conversationId: "c",
+      reason: "model-switched",
+      details: { from: " Old ", to: "New" },
+    }),
+    true,
+  );
+  notes.record({ key: "r", conversationId: "c", reason: "redirected" });
+  const [switched, redirected] = notes.forConversation("c");
+  assert.deepEqual(switched.details, { from: "Old", to: "New" });
+  assert.equal("details" in redirected, false);
+});
+
+test("refuses details on other reasons", () => {
+  const notes = new MemoryNotes(new DatabaseSync(":memory:"));
+  const bad = (reason, details) => () =>
+    notes.record({ key: "x", conversationId: "c", reason, details });
+  assert.throws(bad("flush", { from: "a", to: "b" }));
+  assert.throws(bad("redirected", { from: "a", to: "b" }));
+  assert.throws(bad("model-switched"));
+  assert.throws(bad("model-switched", { from: "a" }));
+  assert.throws(bad("model-switched", { from: "a", to: 2 }));
+  assert.throws(bad("model-switched", { from: "a", to: "  " }));
+  assert.throws(bad("model-switched", { from: "a", to: "x".repeat(201) }));
+  assert.doesNotThrow(bad("model-switched", { from: "a", to: "x".repeat(200) }));
+});

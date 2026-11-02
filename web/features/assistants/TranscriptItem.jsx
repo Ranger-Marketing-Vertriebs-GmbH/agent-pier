@@ -12,7 +12,7 @@ import MemberGrantNote from "./MemberGrantNote.jsx";
 import WorkGoalNote from "./WorkGoalNote.jsx";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import { routineCopy } from "../../lib/i18n/messages/assistant-routines.js";
-import { memoryNoteCopy } from "../../lib/i18n/messages/assistant-memory-notes.js";
+import { memoryNoteText } from "./memory-note-text.js";
 import { leadRequestCopy } from "../../lib/i18n/messages/lead-requests.js";
 import { compactionNoteText } from "./compaction-note.js";
 import { failureText } from "./routine-failure-text.js";
@@ -74,7 +74,7 @@ export default function TranscriptItem({
     </p>
   ) : m.event === "memory-note" ? (
     <p className="assistant-note assistant-event" data-memory-note={m.reason}>
-      {memoryNoteCopy.reasons[m.reason] || memoryNoteCopy.unknown}
+      {memoryNoteText(m)}
     </p>
   ) : m.event === "peer-request" ? (
     <p className="assistant-note assistant-event" data-peer-note={m.phase}>
