@@ -1,5 +1,5 @@
 import path from "node:path";
-import { privateDirectory } from "../../lib/storage.js";
+import { cliDriver } from "../clis/drivers.js";
 import { ADAPTER_URL_PLACEHOLDER } from "./adapter-launch.js";
 
 export function providerEnvironment(
@@ -24,13 +24,12 @@ export function providerEnvironment(
   const directory = path.join(root, "providers", account.provider.id);
   const key = secret?.apiKey?.trim() || null;
   if (account.tool === "codex") {
-    env.CODEX_HOME = privateDirectory(path.join(directory, "codex"));
+    Object.assign(env, cliDriver("codex").profileEnv(directory));
     if (adapterRoute) {
       if (adapterToken) env[description.auth.keyEnv] = adapterToken;
     } else if (key) env[description.auth.keyEnv] = key;
   } else if (account.tool === "claude") {
-    env.CLAUDE_CONFIG_DIR = privateDirectory(path.join(directory, "claude"));
-    env.CLAUDE_SECURESTORAGE_CONFIG_DIR = env.CLAUDE_CONFIG_DIR;
+    Object.assign(env, cliDriver("claude").profileEnv(directory));
     if (adapterRoute) {
       // The launcher substitutes the placeholder once the adapter is bound; the CLI only
       // ever holds the session token, never the upstream key.
@@ -58,13 +57,7 @@ export function providerEnvironment(
       }
     }
   } else if (account.tool === "opencode") {
-    for (const [name, folder] of Object.entries({
-      XDG_CONFIG_HOME: "config",
-      XDG_DATA_HOME: "data",
-      XDG_STATE_HOME: "state",
-      XDG_CACHE_HOME: "cache",
-    }))
-      env[name] = privateDirectory(path.join(directory, folder));
+    Object.assign(env, cliDriver("opencode").profileEnv(directory));
     if (key) env[description.auth.keyEnv] = key;
   }
   return env;

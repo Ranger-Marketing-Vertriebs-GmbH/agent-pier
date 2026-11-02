@@ -31,19 +31,12 @@ import {
   problem,
   nameValue,
 } from "../../lib/storage.js";
-import { CODING_CLI_IDS, cliName } from "../clis/catalog.js";
+import { CODING_CLI_IDS, cliDefinition, cliName, isCodingCli } from "../clis/catalog.js";
+import { cliDriver } from "../clis/drivers.js";
 const TOOLS = CODING_CLI_IDS.map((id) => ({ id, name: cliName(id) }));
 const SHELL = { id: "shell", name: "Shell" };
-const LAUNCH_ARGS = {
-  codex: { default: [], yolo: ["--yolo"] },
-  claude: {
-    default: [],
-    auto: ["--permission-mode", "auto"],
-    bypass: ["--dangerously-skip-permissions"],
-  },
-  opencode: { default: [], auto: ["--auto"] },
-  shell: { default: ["-l"] },
-};
+const launchModes = (tool) =>
+  tool === "shell" ? { default: ["-l"] } : cliDefinition(tool).launchModes;
 function shellPath(file) {
   return (
     typeof file === "string" &&
@@ -342,23 +335,9 @@ export class AccountStore {
         launchTarget(account, endpoint),
       );
     }
-    if (account.tool === "codex")
-      env.CODEX_HOME = privateDirectory(path.join(root, "codex"));
-    if (account.tool === "claude") {
-      env.CLAUDE_CONFIG_DIR = privateDirectory(path.join(root, "claude"));
-      env.CLAUDE_SECURESTORAGE_CONFIG_DIR = env.CLAUDE_CONFIG_DIR;
-    }
-    if (account.tool === "opencode")
-      for (const [k, dir] of Object.entries({
-        XDG_CONFIG_HOME: "config",
-        XDG_DATA_HOME: "data",
-        XDG_STATE_HOME: "state",
-        XDG_CACHE_HOME: "cache",
-      }))
-        env[k] = privateDirectory(path.join(root, dir));
-    if (secret?.apiKey)
-      env[account.tool === "claude" ? "ANTHROPIC_API_KEY" : "OPENAI_API_KEY"] =
-        secret.apiKey;
+    if (isCodingCli(account.tool))
+      Object.assign(env, cliDriver(account.tool).profileEnv(root));
+    if (secret?.apiKey) env[cliDefinition(account.tool).apiKeyEnv] = secret.apiKey;
     return env;
   }
   /** Overrides for every Codex process of a managed account, including side channels. */
@@ -424,7 +403,7 @@ export class AccountStore {
       throw problem(serverMessages.accounts.providerProfileNoOAuth, 409);
     if (
       typeof launchMode !== "string" ||
-      !Object.hasOwn(LAUNCH_ARGS[account.tool], launchMode)
+      !Object.hasOwn(launchModes(account.tool), launchMode)
     )
       throw problem(serverMessages.accounts.invalidLaunchMode);
     if (login && launchMode !== "default")
@@ -447,12 +426,8 @@ export class AccountStore {
         ? null
         : await this.cliVersion(account, command, cliVersion);
     const args = login
-      ? {
-          codex: ["login", "--device-auth"],
-          claude: [],
-          opencode: ["auth", "login"],
-        }[account.tool]
-      : [...LAUNCH_ARGS[account.tool][launchMode]];
+      ? [...cliDefinition(account.tool).loginArgs]
+      : [...launchModes(account.tool)[launchMode]];
     let launch = {
       command,
       args,

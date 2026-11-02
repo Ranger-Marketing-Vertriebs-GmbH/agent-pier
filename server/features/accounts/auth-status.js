@@ -1,13 +1,13 @@
 import { execFile } from "node:child_process";
-import { promisify, stripVTControlCharacters } from "node:util";
+import { promisify } from "node:util";
+import { CODING_CLI_IDS, cliDefinition } from "../clis/catalog.js";
+import { cliDriver } from "../clis/drivers.js";
 const execute = promisify(execFile);
 // CLI status probes that run at once across accounts; more wait their turn.
 export const MAX_AUTH_PROBES = 3;
-export const statusArgs = {
-  claude: ["auth", "status", "--json"],
-  codex: ["login", "status"],
-  opencode: ["auth", "list"],
-};
+export const statusArgs = Object.fromEntries(
+  [...CODING_CLI_IDS].sort().map((id) => [id, cliDefinition(id).authStatusArgs]),
+);
 
 /** Read native authentication state without exposing the CLI's credential metadata. */
 export class AccountAuthStatus {
@@ -93,23 +93,11 @@ export class AccountAuthStatus {
         stderr = error.stderr;
         exitCode = error.code;
       }
-      if (account.tool === "claude") {
-        const status = JSON.parse(stdout);
-        if (status.loggedIn === true) result.state = "authenticated";
-        if (status.loggedIn === false) result.state = "unauthenticated";
-      } else {
-        const output = stripVTControlCharacters(`${stdout || ""}\n${stderr || ""}`);
-        if (account.tool === "codex") {
-          if (exitCode === 0 && /^Logged in using .+/m.test(output))
-            result.state = "authenticated";
-          if (exitCode === 1 && /^Not logged in\s*$/m.test(output))
-            result.state = "unauthenticated";
-        } else if (exitCode === 0) {
-          const count = output.match(/^\s*└\s+(\d+) credentials?\s*$/m);
-          if (count)
-            result.state = Number(count[1]) > 0 ? "authenticated" : "unauthenticated";
-        }
-      }
+      result.state = cliDriver(account.tool).parseAuthStatus(
+        stdout,
+        exitCode,
+        stderr,
+      ).state;
     } catch {
       // A missing binary, unknown CLI version or timeout is not a logout result.
     } finally {
