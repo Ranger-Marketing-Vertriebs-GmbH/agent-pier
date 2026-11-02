@@ -1,5 +1,6 @@
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { taskPanelCopy as copy } from "../../lib/i18n/messages/chat.js";
+import { usePane } from "../../lib/pane-context.js";
 import SubagentList from "./SubagentList.jsx";
 import React, { useEffect, useRef } from "react";
 const taskLabels = {
@@ -23,20 +24,39 @@ export default function Tasks({
   active,
 }) {
   const dialog = useRef(null);
+  // In a split pane the drawer stays inside its pane: non-modal, so the other panes
+  // keep working, and it closes on Escape and a press outside it itself.
+  const modal = !usePane();
+  const shown = compact && open && active;
   useEffect(() => {
     if (!compact || !dialog.current) return;
     const element = dialog.current;
-    if (open && active && !element.open) element.showModal();
-    else if ((!open || !active) && element.open) element.close();
+    if (shown && !element.open) modal ? element.showModal() : element.show();
+    else if (!shown && element.open) element.close();
     return () => {
       if (element.open) element.close();
     };
-  }, [compact, open, active]);
+  }, [compact, shown, modal]);
   const dismiss = () => {
     // Remove modal inertness before returning focus to the explicit opener.
     if (dialog.current?.open) dialog.current.close();
     close();
   };
+  const latestDismiss = useRef(dismiss);
+  latestDismiss.current = dismiss;
+  useEffect(() => {
+    if (modal || !shown) return;
+    const pressOutside = (event) => {
+      const target = event.target;
+      if (dialog.current?.contains(target)) return;
+      // The toggle closes it itself; closing here as well would reopen it.
+      if (target.closest?.("[aria-controls]")?.getAttribute("aria-controls") === id)
+        return;
+      latestDismiss.current();
+    };
+    document.addEventListener("pointerdown", pressOutside, true);
+    return () => document.removeEventListener("pointerdown", pressOutside, true);
+  }, [modal, shown, id]);
   const completed = tasks.filter((task) => task.status === "completed").length;
   const content = (
     <>
@@ -86,6 +106,14 @@ export default function Tasks({
       id={id}
       className="chat-tasks task-drawer"
       aria-label={commonCopy.taskList}
+      // Non-modal: focusable itself, so a click on its text keeps Escape working.
+      tabIndex={modal ? undefined : -1}
+      onKeyDown={(event) => {
+        if (modal || event.key !== "Escape") return;
+        event.preventDefault();
+        event.stopPropagation();
+        dismiss();
+      }}
       onCancel={(event) => {
         event.preventDefault();
         dismiss();
