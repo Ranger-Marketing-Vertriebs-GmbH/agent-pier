@@ -8,6 +8,7 @@ import { ModelAccountCatalog, accountModelId } from "./model-account-catalog.js"
 import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 import { moveAccount } from "./model-account-move.js";
 import { scrubBackupProfile } from "./runtime-update-scrub.js";
+import { CodexCatalog } from "../model-logins/codex-catalog.js";
 // Account ids keep their first prefix: agents' saved selections name them.
 export const accountIdOf = (profileId) =>
   `openclaw:${createHash("sha256").update(profileId).digest("hex")}`;
@@ -30,11 +31,14 @@ export class AssistantModelAccounts {
     runtime,
     vault = null,
     catalog = new ModelAccountCatalog({ runtime }),
+    codex = vault && new CodexCatalog({ vault, onChange: () => this.catalog.onChange() }),
     warn = console.warn,
   }) {
     Object.assign(this, { runtime, vault, warn });
-    // Model lists live in memory only; the Gateway is the source of truth.
+    // Model lists live in memory only; the Gateway is the source of truth. Without a
+    // running Gateway, AgentPier reads a held login's list from Codex (`codex`).
     this.catalog = catalog;
+    this.codex = codex || null;
     this.file = path.join(runtimePaths(dataDir).root, "model-accounts.json");
     const saved = readJSON(this.file, []);
     this.records = Array.isArray(saved)
@@ -86,7 +90,13 @@ export class AssistantModelAccounts {
    * that show the lists call this; runs, checks and logouts never read models.
    */
   ensureModels() {
-    if (this.records.length) this.catalog.ensure();
+    if (!this.records.length) return;
+    if (hostReady(this.runtime)) return this.catalog.ensure();
+    this.codex?.ensure(this.#held().map((r) => r.profileId));
+  }
+  // The list a held login shows while the Gateway is away comes from Codex.
+  #codexList(record, ready) {
+    return !ready && this.codex && this.#holder(record) === "agentpier";
   }
   /**
    * Whether a ChatGPT account is signed in, from the last account read (kept across
@@ -111,14 +121,20 @@ export class AssistantModelAccounts {
         available: live && signedIn(r.status),
         // The last known sign-in, also while the Gateway is away (imageReady).
         signedIn: signedIn(r.status),
-        ...this.catalog.account(r.profileId, { accounts: this.records.length }),
+        ...(this.#codexList(r, ready)
+          ? this.codex.account(r.profileId)
+          : this.catalog.account(r.profileId, { accounts: this.records.length })),
       };
     });
   }
   /** Rereads the Gateway's model list now; the account must exist. */
   async refreshModels(id) {
-    this.requireReady();
     const record = this.record(id);
+    if (this.#codexList(record, hostReady(this.runtime))) {
+      await this.codex.refresh(record.profileId).catch(() => {});
+      return this.codex.account(record.profileId);
+    }
+    this.requireReady();
     // A failed read is reported as the account's list state, never as an upstream error.
     await this.catalog.refresh({ force: true }).catch(() => {});
     const { models, modelCatalog } = this.catalog.account(record.profileId, {
@@ -256,6 +272,7 @@ export class AssistantModelAccounts {
         remove: true,
       });
       this.vault.remove(record.profileId);
+      this.codex?.forget(record.profileId);
       await this.sync(record.profileId);
       return this.list();
     }
