@@ -10,6 +10,11 @@ import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "../helpers/proces
 import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { runtimeFor } from "../../server/features/assistants/runtimes/runtime-for.js";
 import { execFileSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import {
+  createUpdateSnapshot,
+  restoreUpdateSnapshot,
+} from "../../server/features/assistants/runtime-update-snapshot.js";
 import { fakeAccess, startFakeChatgptOAuth } from "../helpers/fake-chatgpt.js";
 import { locateOpenClawExports } from "../helpers/openclaw-dist-exports.js";
 import { runtimeEnvironment } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
@@ -230,6 +235,10 @@ test(
       stdio: ["ignore", "pipe", "pipe"],
       timeout: contractTimeout(30000),
     });
+    // An update snapshot of the pinned runtime's state, taken before the move.
+    const snapshotDir = path.join(runtime.paths.root, "backups", randomUUID());
+    fs.mkdirSync(path.dirname(snapshotDir), { recursive: true, mode: 0o700 });
+    await createUpdateSnapshot(runtime.paths, snapshotDir, { version: "contract" });
     await runtime.start();
     const [account] = await accounts.list();
     assert.equal(account.holder, "openclaw");
@@ -246,5 +255,16 @@ test(
     assert.ok(["ok", "expiring"].includes((await statusOf(runtime.client)).status));
     assert.ok(!tunnels.some((line) => line.includes("auth.openai.com")));
     assert.equal(issuer.state.refreshes, 0);
+
+    // A rollback to the pre-move snapshot keeps its credentials but brings back no
+    // second refresher; OpenClaw starts and still lists the profile.
+    await runtime.stop();
+    const restored = await restoreUpdateSnapshot(runtime.paths, snapshotDir);
+    assert.equal(restored.credentialsWithheld, false);
+    assert.equal(storedProfile(runtime.paths).refresh, undefined);
+    assert.equal(storedProfile(runtime.paths).access, access);
+    await runtime.start();
+    assert.ok(["ok", "expiring"].includes((await statusOf(runtime.client)).status));
+    assert.equal(vault.records.get(profileId).refresh, "SYNTHETIC_REFRESH");
   },
 );
