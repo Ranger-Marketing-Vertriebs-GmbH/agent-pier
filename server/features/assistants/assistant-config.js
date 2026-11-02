@@ -234,6 +234,10 @@ export class AssistantConfig {
           team = null;
         }
       const desired = desiredAgent(assistant, {
+        // A temporary member's browser window follows its lead's setting.
+        lead: assistant.parentAssistantId
+          ? this.store.listAssistants().find((p) => p.id === assistant.parentAssistantId)
+          : null,
         mcp: mcp.servers,
         stdio: mcp.servers.some(
           (id) =>

@@ -34,7 +34,12 @@ test("an agent's desired state names what AgentPier wants of it, frozen", () => 
   assert.equal(agent.memory, true);
   assert.deepEqual(agent.skills.assigned, ["weather"]);
   assert.deepEqual(agent.mcp, { eligible: true, servers: ["s1", "s2"] });
-  assert.deepEqual(agent.browser, { wanted: true, visible: true, profile: "agent-a1" });
+  assert.deepEqual(agent.browser, {
+    wanted: true,
+    borrowed: false,
+    visible: true,
+    profile: "agent-a1",
+  });
   assert.equal(agent.web.webFetch, true);
   assert.equal(agent.web.webSearch, false);
   // Shell or an SSH grant keep a bot for other people away.
