@@ -8,7 +8,7 @@ import {
   openDatabase,
   unchangedDatabase,
 } from "./readonly-sqlite.js";
-import { cliDriver } from "../clis/drivers.js";
+import { configRoot as codexConfigRoot } from "../clis/codex/profile.js";
 
 const BLOCK = 64 * 1024;
 const MAX_TAIL = 8 * 1024 * 1024;
@@ -109,7 +109,7 @@ export class CodexChildUsage {
   }
   async read(history, session, threadId, { sources = [] } = {}) {
     const env = history.environment(session);
-    const root = cliDriver("codex").configRoot(env, history.home);
+    const root = codexConfigRoot(env, history.home);
     const file = path.join(root, "state_5.sqlite");
     let location, rows, db;
     try {

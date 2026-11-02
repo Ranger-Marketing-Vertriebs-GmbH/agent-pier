@@ -1,97 +1,16 @@
-import { readOpenCodePage } from "./opencode-history-page.js";
-import { reconcileCodexTail } from "./codex-live-tail.js";
-import { readClaudePage } from "./claude-history-page.js";
-import { normalizeCodex, normalizeCodexRecords } from "./history-parsers.js";
-import { observeCodex } from "./chat-observability.js";
-import { problem } from "../../lib/storage.js";
-import { serverMessages } from "../../lib/i18n/de.js";
+import { legacyPage, splitPage } from "./history-page-split.js";
+import { cliDriver } from "../clis/drivers.js";
+import { isCodingCli } from "../clis/catalog.js";
 
-const PAGE_MESSAGES = 50;
+/**
+ * One page of a chat: the CLI's own page when its driver reads one, otherwise a
+ * page over the remaining messages or over a full read.
+ */
 export async function readHistoryPage(history, session, id, state = null) {
-  if (session.tool === "claude" && !state?.legacy)
-    return readClaudePage(history, session, id, state);
-  if (session.tool === "opencode" && !state?.legacy) {
-    const page = await readOpenCodePage(history, session, id, state);
-    if (page) return page;
-  }
+  const page = isCodingCli(session.tool)
+    ? await cliDriver(session.tool).history.readPage(history, session, id, state)
+    : null;
+  if (page) return page;
   if (state?.remaining?.length) return splitPage(state.remaining, state.continuation);
-  if (session.tool !== "codex" || state?.legacy)
-    return legacyPage(await history.read(session, id), state);
-  const { thread } = await history.codexRequest(session, (client) =>
-    client.request("thread/read", { threadId: id, includeTurns: false }),
-  );
-  if (thread?.cwd !== session.cwd)
-    throw problem(serverMessages.chat.historyProjectMismatch, 409);
-  let page;
-  try {
-    page = await history.codexRequest(session, (client) =>
-      client.request("thread/turns/list", {
-        threadId: id,
-        limit: 10,
-        itemsView: "full",
-        sortDirection: "desc",
-        ...(state?.cursor ? { cursor: state.cursor } : {}),
-      }),
-    );
-  } catch (error) {
-    if (error.status !== 409 || state?.cursor) throw error;
-    return legacyPage(await history.read(session, id), state);
-  }
-  let full = { ...thread, turns: [...(page.data || [])].reverse() };
-  if (!state) full = await reconcileCodexTail(history, session, full);
-  const content = normalizeCodex(full);
-  const childSources = [];
-  const [records, children] = await Promise.all([
-    !state && history.codexMetadata
-      ? history.codexMetadata.read(history, session, full).catch(
-          // API history remains available when supplemental metadata is unavailable.
-          () => [],
-        )
-      : [],
-    !state && history.codexChildren
-      ? history.codexChildren.read(history, session, id, { sources: childSources }).catch(
-          // Child usage is supplemental.
-          () => null,
-        )
-      : null,
-  ]);
-  try {
-    if (records.some((record) => record.payload?.name === "update_plan"))
-      content.tasks = normalizeCodexRecords(records).tasks;
-  } catch {
-    /* Plans stay as reported by the API when metadata cannot be normalized. */
-  }
-  return {
-    ...content,
-    observability: {
-      ...observeCodex(full, records),
-      ...(children ? { subagentUsage: children } : {}),
-      ...(full.tailUnavailable ? { stale: true } : {}),
-    },
-    ...splitPage(content.messages, page.nextCursor ? { cursor: page.nextCursor } : null),
-    // The rollout the CLI appends to, for the chat's source probe.
-    ...(!state && typeof thread.path === "string"
-      ? { sources: [thread.path, ...childSources] }
-      : {}),
-  };
-}
-function splitPage(messages, continuation) {
-  const start = Math.max(0, messages.length - PAGE_MESSAGES);
-  return {
-    messages: messages.slice(start),
-    next: start ? { remaining: messages.slice(0, start), continuation } : continuation,
-  };
-}
-
-function legacyPage(content, state) {
-  const end = state?.before
-    ? content.messages.findIndex((message) => message.id === state.before)
-    : content.messages.length;
-  if (end < 0) throw problem(serverMessages.chat.sessionHistoryMismatch, 409);
-  const start = Math.max(0, end - PAGE_MESSAGES);
-  return {
-    ...content,
-    messages: content.messages.slice(start, end),
-    next: start ? { before: content.messages[start].id, legacy: true } : null,
-  };
+  return legacyPage(await history.read(session, id), state);
 }

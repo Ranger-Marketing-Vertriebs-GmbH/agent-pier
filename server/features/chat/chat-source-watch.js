@@ -23,7 +23,7 @@ export function watchChatSources(
   const env = accounts.environment(session.accountId);
   const forSession = (name) => path.basename(name).startsWith(session.id + ".");
   const always = () => true;
-  const root = cliDriver(session.tool).dataRoot(env, home);
+  const { history } = cliDriver(session.tool);
   const reconcile = async () => {
     if (closed) return;
     const targets = [
@@ -51,18 +51,7 @@ export function watchChatSources(
       // Only unresolved/legacy histories need discovery. `discover()` holds it back
       // until a provider read completed, so a slow first read or a saved snapshot
       // served during a running read never arms recursive watches.
-      const directories =
-        session.tool === "codex"
-          ? [path.join(root, "sessions"), path.join(root, "archived_sessions")]
-          : session.tool === "claude"
-            ? [
-                path.join(
-                  root,
-                  "projects",
-                  (session.cwd || "").replace(/[^a-zA-Z0-9]/g, "-"),
-                ),
-              ]
-            : [root];
+      const directories = history.watchRoots(env, home, session.cwd);
       for (const file of directories)
         targets.push({ file, directory: true, recursive: true, accepts: always });
     }
