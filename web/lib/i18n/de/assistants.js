@@ -126,7 +126,7 @@ export const assistantCopy = {
     imagesUnavailable:
       "Verbinde unter Zugänge › Modell-Zugänge ein ChatGPT-Konto, um Bilder zu erstellen.",
     imagesRuntimeMove: (runtime) =>
-      `${runtime}-Agenten erstellen Bilder mit einer ChatGPT-Anmeldung, die AgentPier hält. Verschiebe deine ChatGPT-Anmeldung unter Zugänge › Modell-Zugänge zu AgentPier.`,
+      `Agenten auf ${runtime} erstellen Bilder mit einer ChatGPT-Anmeldung, die AgentPier hält. Verschiebe deine ChatGPT-Anmeldung unter Zugänge › Modell-Zugänge zu AgentPier.`,
     browserUnavailable:
       "Auf diesem Rechner wurde kein unterstützter Browser gefunden. Installiere Chrome, Brave, Edge oder Chromium, um dies zu nutzen.",
     searchUnavailable:
