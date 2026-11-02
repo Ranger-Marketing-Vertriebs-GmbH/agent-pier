@@ -84,7 +84,11 @@ function agentFilesOver(current) {
         ...(expectedHash !== undefined && { expectedHash }),
         ...(expectedMissing !== undefined && { expectedMissing }),
       }),
-    // OpenClaw's memory_search tool in the agent's main session.
+    // OpenClaw's memory_search tool in the agent's main session. tools.invoke builds
+    // only the Gateway's own tools (2026.10.9 tools-invoke-shared: no file tools, and
+    // no view_image or pdf without an agent directory) yet checks the full allowlists,
+    // so the Gateway logs once that read, write, edit, view_image and pdf are unknown
+    // there. An agent's turns build them all; the names are OpenClaw's own.
     searchMemory: ({ agentId, query, maxResults }) =>
       call("tools.invoke", {
         name: "memory_search",
