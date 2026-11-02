@@ -311,8 +311,36 @@ def _subagent(parent_session_id=None, child_session_id=None, **_):
             _PARENTS[child_session_id] = parent_session_id
 
 
+def _upload(args, session_id=None, task_id=None, **_):
+    # Fills a page's file field in this agent's AgentPier browser with files
+    # AgentPier staged for it; AgentPier checks and audits every call.
+    try:
+        key = _session_key(_root(session_id), task_id)
+        args = args if isinstance(args, dict) else {}
+        body = {"agentId": _read("bridge.json")["agentId"], "paths": args.get("paths")}
+        if key:
+            body["sessionKey"] = key
+        for name in ("selector", "urlContains"):
+            if isinstance(args.get(name), str):
+                body[name] = args[name]
+        return json.dumps(_post("/hermes-browser-upload", body, 30))
+    except _Refused as refusal:
+        return json.dumps({"error": str(refusal)})
+    except Exception:
+        return json.dumps({"error": _UNAVAILABLE})
+
+
 def register(ctx):
     settings = _read("tools.json")
+    upload = settings.get("browserUpload")
+    if upload:
+        ctx.register_tool(
+            name=upload["name"],
+            toolset="agentpier",
+            schema=upload,
+            handler=_upload,
+            description=upload["description"],
+        )
     for tool in settings.get("tools", []):
         ctx.register_tool(
             name=tool["name"],
