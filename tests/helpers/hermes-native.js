@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { desiredAgent } from "../../server/features/assistants/agent-desired-state.js";
+import { detectBrowser } from "../../server/features/assistants/browser-detection.js";
 import { createHermesRuntime } from "../../server/features/assistants/runtimes/hermes/hermes-runtime.js";
 import { hermesExecutables } from "../../server/features/assistants/runtimes/hermes/hermes-paths.js";
 import { guardProcess } from "./process-guard.js";
@@ -19,6 +20,40 @@ import { guardProcess } from "./process-guard.js";
 
 export const hermesRuntime = process.env.AGENTPIER_HERMES_CONTRACT_RUNTIME || "";
 export const hermesSkip = !hermesRuntime && "set AGENTPIER_HERMES_CONTRACT_RUNTIME";
+
+/**
+ * The browser app of the Hermes browser contracts: AgentPier's own detection, unless
+ * the environment names the browser to drive (CI: the runner's Google Chrome, or
+ * Playwright's Chromium on the Linux arm64 image, which has no Chrome; the Ubuntu
+ * image's /usr/bin/chromium, which the detection prefers, is an unpacked snapshot
+ * without a sandbox helper, which AppArmor's user namespace limit stops at once).
+ * CI must exercise the browser; a missing one is a runner problem, not a skip.
+ */
+export function hermesContractBrowser() {
+  const named = process.env.AGENTPIER_TEST_BROWSER_PATH;
+  const browser = named
+    ? {
+        available: fs.existsSync(named),
+        name: "Test",
+        executablePath: named,
+        visible: { available: false, reason: "noApp" },
+      }
+    : detectBrowser();
+  if (process.env.CI && !hermesSkip && !browser.available)
+    throw Error(
+      "No Chromium-based browser for the Hermes browser contracts: install one or set AGENTPIER_TEST_BROWSER_PATH.",
+    );
+  return {
+    browser,
+    skip:
+      hermesSkip ||
+      (!browser.available && "no Chrome, Chromium, Brave or Edge on this machine"),
+    /** Makes a Hermes app (hermes-app.js) drive the named browser. */
+    use(app) {
+      if (named) app.f.application.assistantWebTools.detect = () => browser;
+    },
+  };
+}
 
 /** The install record of the contract installation, as hermes-install.js writes it. */
 export function contractRecord(directory = hermesRuntime) {
