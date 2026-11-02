@@ -2,6 +2,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { accountSwitchTargets } from "../../application/session-account-transfer.js";
 import { validId } from "./session-validation.js";
 import { problem } from "../../lib/storage.js";
+import { isCodingCli } from "../clis/catalog.js";
 
 const failureMessage =
   "Die Session konnte nicht neu geladen werden. Die bisherige Unterhaltung bleibt für einen erneuten Versuch erhalten.";
@@ -70,7 +71,7 @@ export class SessionReload {
     const { sessions, bindings, activity } = this.services;
     const session = await sessions.get(id);
     const supported =
-      ["codex", "claude", "opencode"].includes(session.tool) &&
+      isCodingCli(session.tool) &&
       !session.purpose &&
       !session.pipeline &&
       !session.imported?.historyOnly;

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { MAX_TOKEN_BUDGET } from "../pipelines/run-budget.js";
+import { codingCliIds } from "../clis/catalog.js";
 const id = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/);
 const page = z.number().int().min(1).max(100000).optional();
 const query = z.string().max(200).optional();
@@ -23,7 +24,7 @@ export const toolSchemas = {
   models_list: tool(
     "catalog:read",
     "Search catalog models for an authorized central provider connection and coding CLI.",
-    { ...list, connectionId: id, tool: z.enum(["codex", "claude", "opencode"]) },
+    { ...list, connectionId: id, tool: z.enum(codingCliIds()) },
   ),
   profiles_list: tool("catalog:read", "List accessible pipeline task profiles.", list),
   profile_get: tool("catalog:read", "Read one accessible profile and its revision.", {

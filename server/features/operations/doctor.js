@@ -14,6 +14,7 @@ import { validateEndpoint } from "../providers/endpoint-config.js";
 import { toolRoutes } from "../providers/endpoint-routing.js";
 import { adapterSessionChecks } from "./adapter-doctor.js";
 import { nodeCheckStatus } from "../../lib/node-support.js";
+import { codingCliIds } from "../clis/catalog.js";
 const execute = promisify(execFile);
 // English remedy text for CLI and API readers; the UI translates the stable remedy id.
 const REMEDIES = {
@@ -88,7 +89,7 @@ export class Doctor {
     for (const [id, command, args, required] of [
       ["tmux", "tmux", ["-V"], true],
       ["git", "git", ["--version"], true],
-      ...["codex", "claude", "opencode"].map((id) => [
+      ...codingCliIds().map((id) => [
         `cli.${id}`,
         tools.find((t) => t.id === id)?.path || id,
         ["--version"],

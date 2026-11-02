@@ -13,6 +13,7 @@ import { validateReloadLaunch } from "../../application/session-reload-launch.js
 import { reloadedProvider } from "./provider-configuration.js";
 import { readTmuxServer } from "./tmux-server-identity.js";
 import { sessionSshAgentRecord } from "./session-ssh-agent-record.js";
+import { isCodingCli } from "../clis/catalog.js";
 
 const launcher = fileURLToPath(new URL("../../terminal-launcher.js", import.meta.url));
 
@@ -29,7 +30,7 @@ export function blocksTerminalInput(session) {
 export async function replaceSession(manager, id, prepare, beforeStop) {
   const session = await manager.metadata(id);
   if (
-    !["codex", "claude", "opencode"].includes(session.tool) ||
+    !isCodingCli(session.tool) ||
     session.purpose ||
     session.pipeline ||
     session.imported?.historyOnly

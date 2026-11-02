@@ -11,9 +11,10 @@ import { createSshProjectBinding } from "./ssh-project-scope.js";
 import { prepareSshDiscovery } from "./ssh-discovery.js";
 import { SFTP_HINT_ENV } from "./ssh-hook.js";
 import { addGrant } from "../nono/sandbox-grants.js";
+import { isCodingCli } from "../clis/catalog.js";
 const main = fileURLToPath(new URL("./ssh-mcp.js", import.meta.url));
 const supported = (session) =>
-  ["codex", "claude", "opencode"].includes(session?.tool) &&
+  isCodingCli(session?.tool) &&
   session.purpose !== "login" &&
   !session.pipeline?.headless;
 export class SshIntegration {

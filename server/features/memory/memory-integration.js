@@ -14,6 +14,7 @@ import {
 } from "./memory-validation.js";
 import { tomlValue } from "../../lib/launch-serialization.js";
 import { addGrant } from "../nono/sandbox-grants.js";
+import { isCodingCli } from "../clis/catalog.js";
 const main = fileURLToPath(new URL("./memory-mcp.js", import.meta.url));
 export class MemoryIntegration {
   constructor({ dataDir, accounts, memory }) {
@@ -30,11 +31,7 @@ export class MemoryIntegration {
     if (account?.tool === "shell" || purpose === "login") return launch;
     identifier(id);
     const selected = this.accounts ? this.accounts.get(account.id) : account;
-    if (
-      !selected ||
-      !["codex", "claude", "opencode"].includes(selected.tool) ||
-      selected.tool !== account.tool
-    )
+    if (!selected || !isCodingCli(selected.tool) || selected.tool !== account.tool)
       throw failure(serverMessages.memory.unsupportedAccount);
     const args = [...(launch.args || [])],
       env = { ...launch.env };

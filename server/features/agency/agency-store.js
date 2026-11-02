@@ -142,7 +142,7 @@ export class AgencyStore {
   }
   /**
    * Which CLIs hold each installed entry (Coding › Unteragenten records), for the
-   * agents hub's Vorlagen list: `{ "<entry id>": ["claude", "codex"] }`. Only ids
+   * agents hub's Vorlagen list: `{ "<entry id>": [<cli id>, ...] }`. Only ids
    * and CLI names; no catalog read, no paths.
    */
   installedTools() {

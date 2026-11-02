@@ -6,6 +6,7 @@ import {
   resolveCapabilities,
 } from "../protocol-adapter/capabilities.js";
 import { TOOL_PROTOCOL } from "./provider-definitions.js";
+import { codingCliIds } from "../clis/catalog.js";
 
 const messages = serverMessages.providers;
 export const PROTOCOLS = Object.freeze(["messages", "responses", "chatCompletions"]);
@@ -106,7 +107,9 @@ export function resolveRoute(endpoint, tool, { adapterAuto = ADAPTER_AUTO_ROUTES
 
 export const toolRoutes = (endpoint) =>
   Object.fromEntries(
-    ["claude", "codex", "opencode"].map((tool) => [tool, resolveRoute(endpoint, tool)]),
+    codingCliIds()
+      .sort()
+      .map((tool) => [tool, resolveRoute(endpoint, tool)]),
   );
 
 export const routeBaseUrl = (endpoint, route) =>

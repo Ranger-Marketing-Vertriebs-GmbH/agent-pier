@@ -21,6 +21,7 @@ import { notificationAuditDetails } from "./audit-notification-details.js";
 import { runtimeUpdateAuditDetails } from "./audit-runtime-update-details.js";
 import { restartAuditDetails } from "./audit-restart-details.js";
 import { previewAuditDetails } from "./audit-preview-details.js";
+import { codingCliIds, isCodingCli } from "../clis/catalog.js";
 const memberGrantKeys = new Set([
   "memory",
   "reminders",
@@ -143,7 +144,7 @@ export function auditEvent(input) {
     event.details.stagedIds = details.stagedIds
       .filter((id) => typeof id === "string" && /^[a-f0-9][a-f0-9-]{0,63}$/.test(id))
       .slice(0, 100);
-  if (["codex", "claude", "opencode", "shell", "gh"].includes(details.tool))
+  if ([...codingCliIds(), "shell", "gh"].includes(details.tool))
     event.details.tool = details.tool;
   if (
     [
@@ -373,9 +374,7 @@ export function auditEvent(input) {
   // was adopted from the CLIs; never an entry or a value.
   if (input.resourceType === "mcp") {
     if (Array.isArray(details.clis))
-      event.details.clis = details.clis.filter((cli) =>
-        ["claude", "codex", "opencode"].includes(cli),
-      );
+      event.details.clis = details.clis.filter((cli) => isCodingCli(cli));
     if (["overwrite", "adopt"].includes(details.resolution))
       event.details.resolution = details.resolution;
     if (typeof details.adopted === "boolean") event.details.adopted = details.adopted;

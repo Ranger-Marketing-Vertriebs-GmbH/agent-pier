@@ -25,6 +25,7 @@ import {
   searchEntries,
 } from "./memory-search.js";
 import os from "node:os";
+import { isCodingCli } from "../clis/catalog.js";
 const selection = `SELECT ${entryColumns} FROM entries e JOIN revisions r ON r.entry_id=e.id`;
 function source(value) {
   if (value?.kind === "assistant")
@@ -34,7 +35,7 @@ function source(value) {
       actionId: identifier(value.actionId),
     };
   if (value?.kind === "user") return { kind: "user" };
-  if (value?.kind === "session" && ["codex", "claude", "opencode"].includes(value.tool))
+  if (value?.kind === "session" && isCodingCli(value.tool))
     return {
       kind: "session",
       sessionId: identifier(value.sessionId),

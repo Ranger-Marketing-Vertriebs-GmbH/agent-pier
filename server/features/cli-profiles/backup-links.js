@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { readJSON } from "../../lib/storage.js";
 import { assetDirectories } from "./assets.js";
+import { isCodingCli } from "../clis/catalog.js";
 
 // Logical backups omit external native profiles. Recognize only the exact links
 // produced by sharing; other symbolic links still fail the backup boundary check.
@@ -10,8 +11,7 @@ export function sharedAssetLinks(dataDir, home) {
   const accounts = readJSON(path.join(dataDir, "accounts.json"), []);
   const links = new Set();
   for (const account of accounts) {
-    if (!state[account.id] || !["codex", "claude", "opencode"].includes(account.tool))
-      continue;
+    if (!state[account.id] || !isCodingCli(account.tool)) continue;
     const native = account.tool === "opencode" ? "config/opencode" : account.tool;
     const relative = account.provider
       ? path.join("providers", account.provider.id, native)

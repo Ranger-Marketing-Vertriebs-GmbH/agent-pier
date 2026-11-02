@@ -18,8 +18,11 @@ import { isUserAgent } from "../users/user-access.js";
 import { processCwds } from "./workspace-processes.js";
 import { cleanupProblem } from "./cleanup-problem.js";
 import { BackgroundMeasure } from "./background-measure.js";
+import { cliDefinition, codingCliIds } from "../clis/catalog.js";
 
-const TOOLS = ["claude", "codex"];
+const TOOLS = codingCliIds().filter(
+  (id) => cliDefinition(id).capabilities.storageCleanup,
+);
 const safeId = (id) =>
   typeof id === "string" && /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/.test(id) ? id : undefined;
 const busyTeam = ["completed", "failed", "cancelled"];

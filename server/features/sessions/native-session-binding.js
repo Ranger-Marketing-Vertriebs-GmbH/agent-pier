@@ -30,6 +30,7 @@ import {
 } from "./native-session-activity.js";
 import { claudeInterruptAt } from "./claude-interrupt.js";
 import { maxReplyText, pushNative } from "../requests/native-push.js";
+import { isCodingCli } from "../clis/catalog.js";
 
 const modulePath = fileURLToPath(import.meta.url);
 // Claude Code added the MessageDisplay hook event in this release.
@@ -122,10 +123,7 @@ export class NativeSessionBinding {
     if (purpose === "login" || account?.tool === "shell")
       return { ...launch, nativeBinding: { enabled: false, version: 1 } };
     const selected = this.accounts.get(account?.id);
-    if (
-      selected.tool !== account.tool ||
-      !["claude", "codex", "opencode"].includes(account.tool)
-    )
+    if (selected.tool !== account.tool || !isCodingCli(account.tool))
       throw problem(serverMessages.common.invalidCliProfile);
     const file = this.file(id);
     const canonical = fs.realpathSync(cwd);

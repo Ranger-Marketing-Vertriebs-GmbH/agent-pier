@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
+import { codingCliIds } from "../clis/catalog.js";
 import { mcpUrl, nativeMcp, record, values } from "../extensions/mcp-config.js";
 import { namePattern } from "./command-resolution.js";
 import { nativeTimeoutKeys, nativeTimeouts, timeoutsFromNative } from "./mcp-timeouts.js";
@@ -9,7 +10,7 @@ import { hasReference, referenceNames } from "./value-references.js";
 import { usesAgentPlaceholders } from "./agent-placeholders.js";
 
 /** The coding CLIs a central server can be bound to: the `cli` binding target ids. */
-export const clis = ["claude", "codex", "opencode"];
+export const clis = codingCliIds().sort(); // alphabetical, as the form lists them
 
 /**
  * Whether `cli` can run `server` (a definition or a public server). Codex has no SSE;

@@ -12,6 +12,7 @@ import {
   stageFile,
   historyValidator,
 } from "./session-transfer-files.js";
+import { cliDefinition, codingCliIds } from "../features/clis/catalog.js";
 
 const fail = (message) => problem(message, 409);
 const missing = (error) => error.code === "ENOENT";
@@ -67,7 +68,9 @@ async function collect(root, relative, files, optional = false) {
 
 export function canSwitchAccount(session) {
   return (
-    ["codex", "claude"].includes(session.tool) &&
+    codingCliIds()
+      .filter((id) => cliDefinition(id).capabilities.accountTransfer)
+      .includes(session.tool) &&
     !session.purpose &&
     !session.pipeline &&
     !session.imported?.historyOnly &&

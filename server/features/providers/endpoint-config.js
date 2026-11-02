@@ -7,6 +7,7 @@ import {
   validateAdapterCapabilities,
   validateRouting,
 } from "./endpoint-routing.js";
+import { codingCliIds } from "../clis/catalog.js";
 
 const messages = serverMessages.providers;
 export const FORBIDDEN_HEADERS = new Set([
@@ -233,7 +234,7 @@ export function endpointOrigins(endpoint) {
 }
 
 export function endpointTools(endpoint) {
-  return ["codex", "claude", "opencode"].filter((tool) => resolveRoute(endpoint, tool));
+  return codingCliIds().filter((tool) => resolveRoute(endpoint, tool));
 }
 
 export function fallbackOutputTokens(contextTokens, outputTokens) {

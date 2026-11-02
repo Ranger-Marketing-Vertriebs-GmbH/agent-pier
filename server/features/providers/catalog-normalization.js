@@ -1,4 +1,5 @@
 import { validModelId } from "./provider-definitions.js";
+import { codingCliIds } from "../clis/catalog.js";
 
 export const tokenLimit = (value) =>
   Number.isSafeInteger(value) && value > 0 && value <= 10000000 ? value : null;
@@ -50,7 +51,7 @@ export function normalizeOpenRouter(payload, fetchedAt) {
           inputPerMTok: perMillion(model.pricing?.prompt),
           outputPerMTok: perMillion(model.pricing?.completion),
         },
-        tools: ["codex", "claude", "opencode"],
+        tools: codingCliIds(),
         source: "https://openrouter.ai/api/v1/models",
         fetchedAt: timestamp(fetchedAt),
         capabilities: {
@@ -84,10 +85,7 @@ export function normalizeZai(payload, providerId, fetchedAt) {
         contextTokens: tokenLimit(model.limit?.context),
         routingContextTokens: null,
         outputTokens: tokenLimit(model.limit?.output),
-        tools:
-          model.id === "glm-5.3"
-            ? ["codex", "claude", "opencode"]
-            : ["claude", "opencode"],
+        tools: model.id === "glm-5.3" ? codingCliIds() : ["claude", "opencode"],
         source: "https://models.dev/api.json",
         fetchedAt: timestamp(fetchedAt),
         capabilities: { toolCalling: true, reasoning: model.reasoning === true },

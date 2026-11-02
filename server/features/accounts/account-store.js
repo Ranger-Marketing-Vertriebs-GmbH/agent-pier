@@ -31,11 +31,8 @@ import {
   problem,
   nameValue,
 } from "../../lib/storage.js";
-const TOOLS = [
-  { id: "codex", name: "Codex" },
-  { id: "claude", name: "Claude Code" },
-  { id: "opencode", name: "OpenCode" },
-];
+import { CODING_CLI_IDS, cliName } from "../clis/catalog.js";
+const TOOLS = CODING_CLI_IDS.map((id) => ({ id, name: cliName(id) }));
 const SHELL = { id: "shell", name: "Shell" };
 const LAUNCH_ARGS = {
   codex: { default: [], yolo: ["--yolo"] },

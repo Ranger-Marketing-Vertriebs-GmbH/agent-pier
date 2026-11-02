@@ -1,5 +1,6 @@
 import { hiddenCharacterSource } from "../assistants/agent-ssh-text.js";
 import { mailHtmlState } from "../assistants/mail/agent-mail-send-input.js";
+import { cliName, codingCliIds } from "../clis/catalog.js";
 
 // What waits for the owner, as uniform inbox items. Each item names where it comes
 // from and links back there; answering always goes through that source's own
@@ -135,7 +136,7 @@ const visibleText = (value) =>
     hiddenAll,
     (c) => `[U+${c.codePointAt(0).toString(16).toUpperCase().padStart(4, "0")}]`,
   );
-const toolNames = { claude: "Claude Code", codex: "Codex", opencode: "OpenCode" };
+const toolNames = Object.fromEntries(codingCliIds().map((id) => [id, cliName(id)]));
 const actionTitle = (a) => {
   const p = a.payload || {};
   if (p.action === "coding_start") return p.task;

@@ -1,13 +1,12 @@
 import { readSandboxProfiles } from "../../nono/nono-profiles.js";
+import { cliName, codingCliIds } from "../../clis/catalog.js";
 
 /** The coding CLIs an agent may start; never a shell. */
-export const codingTools = ["claude", "codex", "opencode"];
+export const codingTools = codingCliIds().sort(); // alphabetical, as before
 /** Their product names, as session names and approval texts show them. */
-export const codingToolNames = Object.freeze({
-  claude: "Claude Code",
-  codex: "Codex",
-  opencode: "OpenCode",
-});
+export const codingToolNames = Object.freeze(
+  Object.fromEntries(codingCliIds().map((id) => [id, cliName(id)])),
+);
 /** Launch modes per CLI, as the session dialog offers them (account-store.js). */
 export const launchModes = Object.freeze({
   codex: ["default", "yolo"],

@@ -1,8 +1,9 @@
 import { setTimeout as sleep } from "node:timers/promises";
+import { isCodingCli } from "../clis/catalog.js";
 
 export function isNativeSlashCommand(tool, text) {
   return (
-    ["codex", "claude", "opencode"].includes(tool) &&
+    isCodingCli(tool) &&
     /^\/[a-z][a-z0-9_:-]*(?: +[^\r\n]*)?$/i.test(text) &&
     ![...text].some((character) => {
       const code = character.codePointAt(0);

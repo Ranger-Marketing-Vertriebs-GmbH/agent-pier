@@ -20,6 +20,7 @@ import {
   runGitCredentialCommand,
   validId,
 } from "./session-git-credential.js";
+import { isCodingCli } from "../clis/catalog.js";
 export { gitCredential, runGitCredentialCommand };
 const disabledConfig = "agentpier-disabled";
 // Runs after our helper for each selected host. git consults it only when ours
@@ -182,10 +183,7 @@ export class GithubCredentials {
   }
   async prepare({ id, account, cwd, launch, purpose, replace = false } = {}) {
     // Login sessions only sign a CLI in.
-    if (
-      purpose === "login" ||
-      !["claude", "codex", "opencode", "shell"].includes(account?.tool)
-    )
+    if (purpose === "login" || !(isCodingCli(account?.tool) || account?.tool === "shell"))
       return launch;
     const canonical = fs.realpathSync(cwd);
     const selections = this.selections(canonical);

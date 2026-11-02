@@ -1,8 +1,9 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { endpointModel } from "./endpoint-config.js";
+import { CODING_CLI_IDS } from "../clis/catalog.js";
 
-const TOOLS = ["codex", "claude", "opencode"];
+const TOOLS = CODING_CLI_IDS;
 const ZAI_ENDPOINTS = {
   messages: "https://api.z.ai/api/anthropic",
   responses: "https://api.z.ai/api/v1",
