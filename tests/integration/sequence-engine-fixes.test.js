@@ -362,3 +362,35 @@ test("a failed fetch of the PR branch skips the pass until the forge limit", asy
   assert.equal(f.items()[0].needsOwner.reason, "forgeUnreachable");
   assert.equal(f.notified.length, 1);
 });
+
+test("a live session without a PR parks after 30 quiet minutes", async (t) => {
+  const f = await sequenceFixture(t);
+  const engine = f.build({ activity: idleSince(T0 + 5 * MIN) });
+  f.append([KEY, "acme/app#13"]);
+  await engine.run();
+  f.clock.now = T0 + 30 * MIN;
+  await passes(engine);
+  assert.equal(f.items()[0].state, "running");
+  f.clock.now = T0 + 36 * MIN;
+  await engine.run();
+  assert.equal(f.items()[0].state, "needs-owner");
+  assert.equal(f.items()[0].needsOwner.reason, "noPullRequest");
+  assert.equal(f.notified.length, 1);
+  assert.equal(f.items()[1].state, "waiting");
+});
+
+test("a working session without a PR parks after six hours", async (t) => {
+  const f = await sequenceFixture(t);
+  const engine = f.build({
+    activity: { read: async () => ({ state: "working", since: null }) },
+  });
+  f.append([KEY]);
+  await engine.run();
+  f.clock.now = T0 + 359 * MIN;
+  await engine.run();
+  assert.equal(f.items()[0].state, "running");
+  f.clock.now = T0 + 361 * MIN;
+  await engine.run();
+  assert.equal(f.items()[0].needsOwner.reason, "noPullRequest");
+  assert.equal(f.notified.length, 1);
+});

@@ -10,7 +10,7 @@ import { ticketQueueChanged } from "./live-topics.js";
 import { TicketSequenceStore } from "./sequence-store.js";
 import { TicketSequenceEngine, codeOf } from "./sequence-engine.js";
 import { repairDefaults } from "./sequence-fixes.js";
-import { worktreeName } from "./sequence-start.js";
+import { findSession, worktreeName } from "./sequence-start.js";
 import { canonicalKey, sequenceInput } from "./ticket-start-input.js";
 import { TicketWorktrees } from "./ticket-worktree.js";
 
@@ -26,6 +26,7 @@ const RESET = {
   armedHead: null,
   refused: null,
   starting: false,
+  watchSince: null,
 };
 
 /** An item as the browser sees it: no start options, folders or forge internals. */
@@ -154,6 +155,17 @@ export class TicketSequenceService {
     return this.withItem(projectId, itemId, async (project, item) => {
       if (item.state !== "needs-owner") throw problem(copy.itemBusy, 409);
       let next = item;
+      // The ticket's session still runs without a PR: it is watched again (its start
+      // resumed: the task goes out under the same delivery id), never launched twice.
+      if (!item.pr && item.kind === "session" && (await this.liveSession(item))) {
+        this.store.patch(project.id, item.id, {
+          ...RESET,
+          state: "running",
+          starting: true,
+          watchSince: this.now(),
+        });
+        return;
+      }
       if (item.pr) {
         const snapshot = await this.readPr(project, item);
         if (prVerdict(snapshot).status !== "closed") {
@@ -179,6 +191,11 @@ export class TicketSequenceService {
         worktree,
       });
     });
+  }
+
+  async liveSession(item) {
+    if (!item.sessionId) return null;
+    return findSession(this.engine, item);
   }
 
   /**
@@ -222,11 +239,14 @@ export class TicketSequenceService {
     });
   }
 
-  /** Removes an item that is not being worked on; an armed pull request is disarmed. */
+  /**
+   * Removes an item; an armed pull request is disarmed. A running item may go too: its
+   * session or run stays, and nobody watches or merges its pull request afterwards.
+   * An item awaiting its merge is parked or marked done first.
+   */
   remove(projectId, itemId) {
     return this.withItem(projectId, itemId, async (project, item) => {
-      if (item.state === "running" || item.state === "awaiting-merge")
-        throw problem(copy.itemBusy, 409);
+      if (item.state === "awaiting-merge") throw problem(copy.itemBusy, 409);
       if (this.mayBeArmed(item)) await this.disarm(project, item);
       this.store.remove(project.id, item.id);
     });

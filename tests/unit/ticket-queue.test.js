@@ -40,7 +40,7 @@ test("queueItemActions offers what the server accepts per state", () => {
     queueItemActions(
       item("running", { sessionId: "s1", pr: { number: 3, url: "https://x/pr/3" } }),
     ),
-    ["open-session", "open-pr"],
+    ["remove", "open-session", "open-pr"],
   );
   assert.deepEqual(
     queueItemActions(item("awaiting-merge", { kind: "pipeline", runId: "r1" })),
@@ -56,15 +56,11 @@ test("queueItemActions offers what the server accepts per state", () => {
     "remove",
     "open-run",
   ]);
-  // Retry only for a parked item; Remove never while it is worked on.
+  // Retry only for a parked item; Remove never while it awaits its merge.
   for (const state of QUEUE_STATES) {
     const actions = queueItemActions(item(state));
     assert.equal(actions.includes("retry"), state === "needs-owner", state);
-    assert.equal(
-      actions.includes("remove"),
-      state !== "running" && state !== "awaiting-merge",
-      state,
-    );
+    assert.equal(actions.includes("remove"), state !== "awaiting-merge", state);
   }
   // A pull request link opens only over http(s).
   assert.deepEqual(

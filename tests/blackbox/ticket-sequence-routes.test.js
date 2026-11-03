@@ -140,8 +140,6 @@ test("retry, done and remove follow the state rules", async (t) => {
     assert.equal(refused.status, 409, action);
     assert.equal(refused.body.error, copy.itemBusy);
   }
-  const busy = await call(`${queue}/${first.id}`, { method: "DELETE" });
-  assert.equal(busy.status, 409);
   // A waiting ticket cannot be retried, but marked done or removed.
   assert.equal(
     (await call(`${queue}/${second.id}/retry`, { method: "POST" })).status,
@@ -171,6 +169,31 @@ test("retry, done and remove follow the state rules", async (t) => {
   const missing = await call(`${queue}/${first.id}/done`, { method: "POST" });
   assert.equal(missing.status, 404);
   assert.equal(missing.body.error, copy.itemNotFound);
+});
+
+test("remove takes a running item out, never one awaiting its merge", async (t) => {
+  const { f, project, call, queue } = await sequenceApp(t);
+  const store = f.application.ticketSequenceStore;
+  const added = await call(queue, {
+    method: "POST",
+    body: body(["acme/app#12", "acme/app#13"]),
+  });
+  const [first, second] = added.body.queue.items;
+  store.patch(project.id, first.id, { state: "running", sessionId: "s1" });
+  const removed = await call(`${queue}/${first.id}`, { method: "DELETE" });
+  assert.equal(removed.status, 200);
+  assert.deepEqual(
+    removed.body.queue.items.map((item) => item.id),
+    [second.id],
+  );
+  store.patch(project.id, second.id, { state: "running", sessionId: "s2" });
+  store.patch(project.id, second.id, {
+    state: "awaiting-merge",
+    pr: { number: 3, url: "https://github.com/acme/app/pull/3", headRef: "t" },
+  });
+  const busy = await call(`${queue}/${second.id}`, { method: "DELETE" });
+  assert.equal(busy.status, 409);
+  assert.equal(busy.body.error, copy.itemBusy);
 });
 
 test("responses never contain the token", async (t) => {
