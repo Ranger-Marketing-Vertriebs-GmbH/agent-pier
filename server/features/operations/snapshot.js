@@ -191,6 +191,7 @@ export function capture({
     addJson("provider-connections.json");
     addJson("repositories.json");
     addJson("ticket-sources.json");
+    addJson("ticket-rules.json");
     addJson("preferences.json");
     addJson("project-groups.json");
     addJson("views.json");
