@@ -188,7 +188,8 @@ export class TicketWorktrees {
     };
   }
 
-  async createRepair({ projectPath, headRef, name }) {
+  /** `suffix` (e.g. the failing head) tells several repairs of one item apart. */
+  async createRepair({ projectPath, headRef, name, suffix = "" }) {
     gitRef(headRef);
     const projectRoot = await this.#root(projectPath);
     const cwd = await this.#fence(projectRoot, safeName(name));
@@ -200,7 +201,8 @@ export class TicketWorktrees {
     if (!refreshed.fetched)
       throw problem(serverMessages.pipelineWorkspaces.originRefreshFailed, 409);
     const base = await resolveBase(projectRoot, `refs/remotes/origin/${headRef}`);
-    const branch = `ticket-repair/${idSlug(name.split("-").pop())}`;
+    const tail = slug(suffix).slice(0, 12);
+    const branch = `ticket-repair/${idSlug(name.split("-").pop())}${tail ? `-${tail}` : ""}`;
     // A leftover branch whose worktree is gone must not block the repair.
     await git(projectRoot, ["worktree", "prune"]);
     await this.#add(projectRoot, cwd, branch, base.sha, { reset: true });

@@ -98,6 +98,8 @@ function item(value) {
       failed: Number.isInteger(rounds.failed) && rounds.failed > 0 ? rounds.failed : 0,
       lastSha: optText(rounds.lastSha, 100) ?? null,
       lastReview: optText(rounds.lastReview, 100) ?? null,
+      // When AgentPier last told a session (or started a repair) to fix the PR.
+      lastActionAt: number(rounds.lastActionAt) ?? null,
     },
   };
   if (number(value.startedAt) !== undefined) out.startedAt = value.startedAt;
@@ -243,7 +245,7 @@ export class TicketSequenceStore {
         state: "waiting",
         id: randomUUID(),
         addedAt: this.now(),
-        rounds: { failed: 0, lastSha: null, lastReview: null },
+        rounds: { failed: 0, lastSha: null, lastReview: null, lastActionAt: null },
       });
       if (!checked) throw problem(copy.invalidSequence);
       added.push(checked);
