@@ -4,10 +4,12 @@ import { randomUUID } from "node:crypto";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { writePrivate, readJSON, problem } from "../../lib/storage.js";
 import { TICKET_SOURCE_IDS, labelKey } from "./ticket.js";
+import { ruleLabel } from "./rule-input.js";
 
 const copy = serverMessages.tickets;
 export const MAX_RULES = 20;
 export const MAX_PICKUPS = 5000;
+const VERSION = 1;
 const MAX_OPTION_BYTES = 8192;
 
 const plain = (value) => !!value && typeof value === "object" && !Array.isArray(value);
@@ -41,8 +43,9 @@ function options(value) {
 function rule(value) {
   if (!plain(value) || !idText(value.id, 100) || !idText(value.projectId)) return null;
   if (!TICKET_SOURCE_IDS.includes(value.source)) return null;
-  if (!idText(value.label, 50) || !["session", "pipeline"].includes(value.kind))
-    return null;
+  // Labels are checked as ruleInput() checks them, so a hand-edited file matches too.
+  const label = ruleLabel(value.label);
+  if (!label || !["session", "pipeline"].includes(value.kind)) return null;
   const checkedOptions = options(value.options);
   if (!checkedOptions || typeof value.paused !== "boolean") return null;
   const createdAt = stamp(value.createdAt) ?? 0;
@@ -50,7 +53,7 @@ function rule(value) {
     id: value.id,
     projectId: value.projectId,
     source: value.source,
-    label: value.label,
+    label,
     kind: value.kind,
     options: checkedOptions,
     paused: value.paused,
@@ -100,6 +103,10 @@ export class TicketRuleStore {
       (saved.pickups !== undefined && !Array.isArray(saved.pickups))
     )
       damaged = true;
+    // A file a newer AgentPier wrote stays untouched: dropping its pickups would queue
+    // tickets again, so the server refuses to start until that version runs again.
+    if (!damaged && saved.version !== undefined && saved.version !== VERSION)
+      throw new Error(`Unsupported ticket rule storage version: ${saved.version}`);
     if (damaged) {
       fs.renameSync(this.file, `${this.file}.corrupt-${this.now()}`);
       saved = {};
@@ -135,7 +142,7 @@ export class TicketRuleStore {
   }
   save() {
     writePrivate(this.file, {
-      version: 1,
+      version: VERSION,
       rules: this.list,
       pickups: [...this.picks.values()],
     });

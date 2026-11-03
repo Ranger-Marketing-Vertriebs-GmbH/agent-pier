@@ -20,6 +20,7 @@ import {
   ruleCappedText,
   ruleErrorText,
   rulesPath,
+  ruleState,
   ruleTone,
 } from "./ticket-rules.js";
 
@@ -55,9 +56,7 @@ function RuleRow({ rule, pipelines, busy, onEdit, onToggle, onDelete }) {
         }}
       >
         <span className="project-ticket-chip">
-          <StatusChip tone={ruleTone(rule)}>
-            {error ? copy.failing : rule.paused ? copy.paused : copy.active}
-          </StatusChip>
+          <StatusChip tone={ruleTone(rule)}>{copy[ruleState(rule)]}</StatusChip>
         </span>
       </ListRow>
       <RowMenu
@@ -82,11 +81,14 @@ function RuleRow({ rule, pipelines, busy, onEdit, onToggle, onDelete }) {
  * with its source, what it starts, its pickups and its error, and Add, Edit, Pause or
  * Resume and Delete. A rule queues every open ticket with its label once, the ones
  * labelled before it existed too. `written` is the topic's, so a change stays busy
- * until the pushed list shows it.
+ * until the pushed list shows it. A failed read (`loadError`) shows its error with
+ * `retry` in place of the list.
  */
 export default function TicketRules({
   projectId,
   view,
+  loadError,
+  retry,
   written,
   sources,
   state,
@@ -100,12 +102,15 @@ export default function TicketRules({
     rules.some((rule) => rule.kind === "pipeline") ? "/pipelines" : null,
   );
   const open = () => setEditing({});
+  // A failed read still lets the owner add a rule: the server checks duplicates and the
+  // rule limit itself, and the dialog's save reads the list again.
+  const failed = !view && Boolean(loadError);
   usePageAction(
     "ticket-rule-add",
     open,
-    Boolean(view && (sources.github || sources.plane)),
+    Boolean((view || failed) && (sources.github || sources.plane)),
   );
-  if (!view) return null;
+  if (!view && !failed) return null;
   const onToggle = (rule) =>
     action.run(async () => {
       await api(
@@ -123,7 +128,14 @@ export default function TicketRules({
       >
         {copy.title}
       </GroupLabel>
-      {rules.length ? (
+      {failed ? (
+        <div className="repository-load-error">
+          <ErrorMessage error={copy.loadFailed} />
+          <button type="button" className="button secondary" onClick={() => retry?.()}>
+            {commonCopy.retry}
+          </button>
+        </div>
+      ) : rules.length ? (
         <ListCard labelledBy="project-ticket-rules-heading">
           {rules.map((rule) => (
             <RuleRow

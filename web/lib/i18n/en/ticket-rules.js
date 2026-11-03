@@ -15,13 +15,14 @@ export const ticketRulesCopy = {
   paused: "Paused",
   active: "Active",
   failing: "Error",
+  loadFailed: "The label rules could not be loaded.",
   fromRule: (label) => `From label rule "${label}"`,
   fromDeletedRule: "From a deleted label rule",
   capped: {
     github:
       "Only the newest 300 open issues are checked; older issues with this label are not picked up.",
     plane:
-      "Only the first 500 work items are checked; tickets with this label beyond them are not picked up.",
+      "Only 500 work items, closed ones included, are checked; tickets with this label beyond them are not picked up.",
   },
   errors: {
     labelGone: "The label does not exist in the ticket source.",

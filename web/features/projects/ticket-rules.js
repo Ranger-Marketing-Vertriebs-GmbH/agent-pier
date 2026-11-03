@@ -10,9 +10,17 @@ export function rulesPath(projectId, ruleId) {
   return ruleId ? `${base}/${encodeURIComponent(ruleId)}` : base;
 }
 
-/** The StatusChip tone of a rule: an error first, then paused. */
-export const ruleTone = (rule) =>
-  rule?.status?.error ? "error" : rule?.paused ? "warning" : "neutral";
+/**
+ * The state a rule's StatusChip shows: paused first, since a paused rule reads nothing
+ * and its last error (still in the sub line) is not current; then an error.
+ */
+export const ruleState = (rule) =>
+  rule?.paused ? "paused" : rule?.status?.error ? "failing" : "active";
+
+const TONES = { paused: "warning", failing: "error", active: "neutral" };
+
+/** The StatusChip tone of a rule's state. */
+export const ruleTone = (rule) => TONES[ruleState(rule)];
 
 const RULE_CODES = ["labelGone", "queueFull", "notConnected", "projectGone"];
 

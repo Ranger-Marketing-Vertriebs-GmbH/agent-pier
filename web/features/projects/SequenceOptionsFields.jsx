@@ -15,7 +15,7 @@ import { launchModeCopy } from "../sessions/launch-mode-copy.js";
 import { defaultLaunchMode, launchModes } from "../sessions/launch-modes.js";
 import "./project-tickets.css";
 
-export { launchStart, default as useSequenceOptions } from "./sequence-options.js";
+export { default as useSequenceOptions } from "./useSequenceOptions.js";
 
 // CLI, access (account or connection with its model) and launch mode of one session.
 function SessionFields({ access, mode, setMode, sandbox = true }) {

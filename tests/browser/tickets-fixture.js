@@ -83,7 +83,8 @@ export const noRules = { rules: [] };
 // (a value or a function) answers GET …/queue; `queueAction({method, path, body})`
 // answers the queue's writes (POST …/queue, …/retry, …/done, DELETE), which are
 // recorded in `queueCalls` (with `query` when the URL has one); without it they answer the current queue.
-// `rules` (a value or a function) answers GET …/rules, the `tickets.rules` topic's
+// `rules` (a value or a function; one with a `status` is the whole answer) answers
+// GET …/rules, the `tickets.rules` topic's
 // route; `ruleAction({method, path, body})` answers POST, PUT and DELETE …/rules, which
 // are recorded in `ruleCalls`; without it they answer 201 `{ rule }`, 200 or 204.
 export async function ticketsFixture(
@@ -149,7 +150,9 @@ export async function ticketsFixture(
       }
       if (url.pathname.startsWith("/api/tickets/projects/m1/rules")) {
         if (method === "GET") {
-          await route.fulfill({ json: currentRules() });
+          // A value with a `status` is the whole answer, e.g. a failed read.
+          const value = currentRules();
+          await route.fulfill(value?.status ? value : { json: value });
           return true;
         }
         const call = {

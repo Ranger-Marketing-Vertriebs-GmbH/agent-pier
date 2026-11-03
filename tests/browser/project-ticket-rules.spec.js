@@ -268,6 +268,44 @@ test("rule error shows on the row", async ({ page }) => {
   ).toBeVisible();
 });
 
+test("a paused rule shows Paused and keeps its last error", async ({ page }) => {
+  await ticketsFixture(page, {
+    rules: {
+      rules: [
+        rule("r1", "agent", {
+          paused: true,
+          status: { checkedAt: 1, error: { code: "labelGone" } },
+        }),
+      ],
+    },
+  });
+  await page.goto(base + "/projects/m1?tab=tickets");
+  const card = rulesCard(page);
+  await expect(card.getByText("Paused", { exact: true })).toBeVisible();
+  await expect(card.getByText("Error", { exact: true })).toHaveCount(0);
+  await expect(
+    card.getByText(
+      "Session · 0 tickets picked up · The label does not exist in the ticket source.",
+    ),
+  ).toBeVisible();
+});
+
+test("a failed rules read shows an error with Try again", async ({ page }) => {
+  let failing = true;
+  await ticketsFixture(page, {
+    rules: () =>
+      failing ? { status: 500, json: { error: "down" } } : { rules: [agent] },
+  });
+  await page.goto(base + "/projects/m1?tab=tickets");
+  await expect(page.getByText("The label rules could not be loaded.")).toBeVisible();
+  // Adding stays possible: the server checks duplicates and the limit itself.
+  await expect(page.getByRole("button", { name: "Add label rule" })).toBeVisible();
+  failing = false;
+  await page.getByRole("button", { name: "Try again" }).click();
+  await expect(rulesCard(page).getByText("agent · GitHub")).toBeVisible();
+  await expect(page.getByText("The label rules could not be loaded.")).toHaveCount(0);
+});
+
 test("a capped pass shows a neutral hint per source", async ({ page }) => {
   const capped = { checkedAt: 1, error: null, capped: true };
   await ticketsFixture(page, {
@@ -285,7 +323,9 @@ test("a capped pass shows a neutral hint per source", async ({ page }) => {
       "Session · 0 tickets picked up · Only the newest 300 open issues are checked; older issues with this label are not picked up.",
     ),
   ).toBeVisible();
-  await expect(card.getByText(/Only the first 500 work items are checked/)).toBeVisible();
+  await expect(
+    card.getByText(/Only 500 work items, closed ones included, are checked/),
+  ).toBeVisible();
   // Not an error: both rules stay active.
   await expect(card.getByText("Active", { exact: true })).toHaveCount(2);
   await expect(card.getByText("Error", { exact: true })).toHaveCount(0);

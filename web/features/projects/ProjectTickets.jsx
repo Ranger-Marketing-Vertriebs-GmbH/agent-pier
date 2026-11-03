@@ -310,6 +310,8 @@ export default function ProjectTickets({
         <TicketRules
           projectId={projectId}
           view={rules.data}
+          loadError={rules.error}
+          retry={rules.refresh}
           written={rules.written}
           sources={connected}
           state={launchState}

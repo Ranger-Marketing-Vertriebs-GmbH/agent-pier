@@ -192,3 +192,41 @@ test("rules are sorted by createdAt", () => {
     ["b", "a"],
   );
 });
+
+test("labels are checked and trimmed on load", () => {
+  const dir = dataDir();
+  const store = new TicketRuleStore({ dataDir: dir });
+  const made = store.create("p1", input("agent"));
+  const file = path.join(dir, "ticket-rules.json");
+  const saved = JSON.parse(fs.readFileSync(file, "utf8"));
+  saved.rules = [
+    { ...made, label: "  agent  " },
+    { ...made, id: "b", label: "a,b" },
+    { ...made, id: "c", label: "bad\u0007" },
+    { ...made, id: "d", label: "   " },
+    { ...made, id: "e", label: "AGENT" },
+  ];
+  fs.writeFileSync(file, JSON.stringify(saved));
+  const logs = [];
+  const again = new TicketRuleStore({ dataDir: dir, log: (m) => logs.push(m) });
+  assert.deepEqual(
+    again.allRules().map((r) => r.label),
+    ["agent"],
+  );
+  // "AGENT" clashes with the trimmed "agent" and is dropped with the three invalid ones.
+  assert.deepEqual(logs, ["ticket-rules: dropped-invalid count=4"]);
+});
+
+test("a file of an unknown version is refused and left untouched", () => {
+  const dir = dataDir();
+  const file = path.join(dir, "ticket-rules.json");
+  const content = JSON.stringify({ version: 2, rules: [], pickups: [] });
+  fs.writeFileSync(file, content);
+  assert.throws(
+    () => new TicketRuleStore({ dataDir: dir }),
+    /Unsupported ticket rule storage version: 2/,
+  );
+  assert.equal(fs.readFileSync(file, "utf8"), content);
+  fs.writeFileSync(file, JSON.stringify({ rules: [], pickups: [] }));
+  assert.deepEqual(new TicketRuleStore({ dataDir: dir }).allRules(), []);
+});
