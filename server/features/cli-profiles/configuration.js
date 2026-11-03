@@ -38,12 +38,10 @@ export function documents(location) {
         keys: ["enabledPlugins", "extraKnownMarketplaces"],
       },
     ];
-  return ["config.json", "opencode.json", "opencode.jsonc", "tui.json", "tui.jsonc"].map(
-    (name) => ({
-      file: path.join(root, name),
-      keys: name.startsWith("tui.") ? ["plugin"] : ["mcp", "plugin", "agent"],
-    }),
-  );
+  return cliDriver("opencode").profileFiles.configFiles.map((name) => ({
+    file: path.join(root, name),
+    keys: name.startsWith("tui.") ? ["plugin"] : ["mcp", "plugin", "agent"],
+  }));
 }
 export function readShared(location) {
   const output = {};

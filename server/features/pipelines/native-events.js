@@ -1,3 +1,5 @@
+import { cliDriver } from "../clis/drivers.js";
+
 const count = (value) => (Number.isSafeInteger(value) && value >= 0 ? value : undefined);
 const message = (value) => (typeof value === "string" ? value.slice(0, 2000) : undefined);
 const identity = (value) =>
@@ -8,13 +10,8 @@ const identity = (value) =>
 export function reduceNativeEvent(tool, previous, event) {
   const state = { ...previous };
   if (!event || typeof event !== "object") return state;
-  const nativeId = identity(
-    tool === "codex"
-      ? event.thread_id
-      : tool === "claude"
-        ? event.session_id
-        : event.sessionID,
-  );
+  const events = cliDriver(tool).pipeline.events;
+  const nativeId = identity(events.nativeId(event));
   if (nativeId) {
     if (state.nativeId && state.nativeId !== nativeId)
       return {
@@ -26,9 +23,7 @@ export function reduceNativeEvent(tool, previous, event) {
   }
   if (state.result === "failed") return state;
   const failed =
-    event.type === "error" ||
-    event.type === "turn.failed" ||
-    (tool === "claude" && event.type === "result" && event.is_error === true);
+    event.type === "error" || event.type === "turn.failed" || events.failed(event);
   if (failed) {
     state.result = "failed";
     const errorCode =
@@ -44,23 +39,10 @@ export function reduceNativeEvent(tool, previous, event) {
       "The native CLI reported an error.";
     return state;
   }
-  // A new OpenCode step after a final one means the turn continues.
-  if (tool === "opencode" && event.type === "step_start") delete state.result;
-  else if (tool === "opencode" && event.type === "step_finish") {
-    const tokens = event.part?.tokens;
-    if (
-      tokens &&
-      (count(tokens.input) !== undefined || count(tokens.output) !== undefined)
-    )
-      state.usage = {
-        inputTokens: (state.usage?.inputTokens || 0) + (count(tokens.input) || 0),
-        outputTokens: (state.usage?.outputTokens || 0) + (count(tokens.output) || 0),
-      };
-    if (event.part?.reason === "stop") state.result = "completed";
-  } else if (
-    (tool === "codex" && event.type === "turn.completed") ||
-    (tool === "claude" && event.type === "result")
-  ) {
+  // OpenCode reports usage and completion per step, the others once per turn.
+  if (events.progress(state, event)) {
+    // The step changed `state`.
+  } else if (events.completed(event)) {
     state.result = "completed";
     const usage = event.usage;
     if (

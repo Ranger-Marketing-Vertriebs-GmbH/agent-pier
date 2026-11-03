@@ -16,6 +16,15 @@ import * as opencodeHistory from "./opencode/history.js";
 import * as codexTui from "./codex/tui.js";
 import * as claudeTui from "./claude/tui.js";
 import * as opencodeTui from "./opencode/tui.js";
+import * as codexPipeline from "./codex/pipeline.js";
+import * as claudePipeline from "./claude/pipeline.js";
+import * as opencodePipeline from "./opencode/pipeline.js";
+import * as codexPlugins from "./codex/plugins.js";
+import * as claudePlugins from "./claude/plugins.js";
+import * as opencodePlugins from "./opencode/plugins.js";
+import * as codexFiles from "./codex/profile-files.js";
+import * as claudeFiles from "./claude/profile-files.js";
+import * as opencodeFiles from "./opencode/profile-files.js";
 
 const profiles = { codex, claude, opencode };
 const sessions = {
@@ -34,6 +43,24 @@ const histories = {
   opencode: opencodeHistory,
 };
 const tuis = { codex: codexTui, claude: claudeTui, opencode: opencodeTui };
+const pipelines = {
+  codex: codexPipeline,
+  claude: claudePipeline,
+  opencode: opencodePipeline,
+};
+const plugins = { codex: codexPlugins, claude: claudePlugins, opencode: opencodePlugins };
+const profileFiles = { codex: codexFiles, claude: claudeFiles, opencode: opencodeFiles };
+// Freezes plain objects and arrays; regular expressions stay as they are.
+const frozen = (value) => {
+  if (Array.isArray(value)) return Object.freeze(value.map(frozen));
+  if (value && Object.getPrototypeOf(value) === Object.prototype)
+    return Object.freeze(
+      Object.fromEntries(
+        Object.entries(value).map(([key, child]) => [key, frozen(child)]),
+      ),
+    );
+  return value;
+};
 const drivers = new Map();
 
 /**
@@ -69,6 +96,17 @@ const drivers = new Map();
  *   promptReady(raw): whether the picker may be opened, unsupported(raw): a picker
  *   AgentPier must not drive.
  *   limitWarning({ raw, pane, styled, lines }): visible native limit warnings.
+ * pipeline: a pipeline turn's command line and events (see `<id>/pipeline.js`).
+ *   command({ args, mode, sessionId, resumeNativeId, headless, claudeDefault }):
+ *   { args, permissions }, sessionArgs(sessionId), promptArgs(prompt), and
+ *   events: nativeId(event), failed(event), progress(state, event), completed(event).
+ * plugins: plugin management (see `<id>/plugins.js`). inventory(store, ctx,
+ *   selected), selection(action, input), actionArgs(action, selection),
+ *   configFolders, catalogFiles, catalogInstall, cliList (CLIs listing plugins with
+ *   `plugin list`), removeFromConfig(ctx, id, recheck) (OpenCode's config-file
+ *   plugins).
+ * profileFiles: { roots, credentials, backupAllowlist, configFiles } (see
+ *   `codex/profile-files.js`).
  */
 export function cliDriver(id) {
   const definition = cliDefinition(id);
@@ -107,6 +145,14 @@ export function cliDriver(id) {
             ),
           }),
         }),
+        pipeline: Object.freeze({
+          command: pipelines[id].command,
+          sessionArgs: pipelines[id].sessionArgs,
+          promptArgs: pipelines[id].promptArgs,
+          events: Object.freeze({ ...pipelines[id].events }),
+        }),
+        plugins: frozen({ ...plugins[id] }),
+        profileFiles: frozen({ ...profileFiles[id] }),
         parseAuthStatus(stdout, exitCode, stderr = "") {
           const state = profile.parseAuthStatus(stdout, stderr, exitCode);
           return { signedIn: state === "authenticated", state };
