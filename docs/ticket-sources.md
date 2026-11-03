@@ -208,6 +208,34 @@ The ticket waits for you when:
 - GitHub cannot be read for 30 minutes in a row. Shorter outages and rate limits only
   delay the next read.
 
+### Owner actions
+
+A ticket that waits for you blocks the rest of its sequence until you act on it:
+
+- **Retry** starts the fix counters, the merge memory and the 30-minute clocks again.
+  An open (or meanwhile merged) pull request is watched again. Otherwise the ticket
+  starts afresh: a new pipeline run, or a new session. A session ticket reuses the
+  folder of its last attempt under `.worktrees/` when that folder is a clean worktree
+  still on the ticket's branch. When the folder has local changes, another branch, or
+  was never recorded as the ticket's worktree, Retry is refused: check the folder and
+  remove it first, because AgentPier never deletes it.
+- **Mark done** moves the sequence on. It writes nothing to GitHub or Plane. A waiting
+  ticket can be marked done too.
+- **Remove** takes a waiting, parked or done ticket out of the sequence. A parked pull
+  request that AgentPier may merge is disarmed first: auto-merge is turned off, or the
+  pull request leaves the merge queue. When GitHub cannot be read, Remove is refused.
+
+A ticket that is running or waiting for its merge cannot be retried, marked done or
+removed. These actions never overlap with AgentPier's own work on the sequence: each
+one waits for a running step and is followed by the next step at once.
+
+The sequence lives in `ticket-sequences.json` in the data directory. It is runtime
+state like the pipeline run queue and is not part of backups. The Tickets tab follows
+it on the owner-only live topic `tickets.queue:<projectId>`, which is signalled on
+every saved change. The routes are `GET` and `POST /api/tickets/projects/:projectId/queue`,
+`POST …/queue/:itemId/retry`, `POST …/queue/:itemId/done` and
+`DELETE …/queue/:itemId`.
+
 ## Planned
 
 Not available yet: starting several tickets as a sequence, rules that pick tickets by

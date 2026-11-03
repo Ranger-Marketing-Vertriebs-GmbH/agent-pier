@@ -1809,6 +1809,7 @@
   "tickets.ticketQueued": "de:872247899885 en:c369f0abe5f4",
   "tickets.tokenRequired": "de:dd1413724fe8 en:b1e9ca48aa3e",
   "tickets.tokenRequiredForAddress": "de:0f84f2f19301 en:e88bffae601a",
+  "tickets.worktreeLeftover": "de:71730e80da73 en:158b2b18d98c",
   "tools.alreadyInstalled": "de:5a0651420eb5 en:b8471fa373ce",
   "tools.archiveCliNotRegular": "de:8a365edf476d en:aed75949c80d",
   "tools.archiveCliOrLicenseMissing": "de:a008a25fe292 en:8bc06f6fd1ff",

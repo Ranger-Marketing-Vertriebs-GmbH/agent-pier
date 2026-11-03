@@ -52,6 +52,8 @@ export async function createPipelineServices(services) {
       pipelineListsChanged(services.live, before, run, pipelineRunCounts.listed(run.id));
       // A run that finished or parked may free a slot of its project's queue.
       pipelineQueue?.changed();
+      // A ticket sequence whose head waits for this run steps at once.
+      services.ticketSequences?.runChanged(run);
     },
     // A deleted run leaves the store without a save: its topic, the queue item that
     // started it, the counts and the lists that showed it still learn it.
@@ -59,6 +61,7 @@ export async function createPipelineServices(services) {
       pipelineRunChanged(services.live, pipelineQueue, { id });
       agentRunChanged(services, id);
       pipelineListsChanged(services.live, pipelineRunCounts.forget(id), null);
+      services.ticketSequences?.runChanged({ id });
     },
   });
   let pipelineQueue;

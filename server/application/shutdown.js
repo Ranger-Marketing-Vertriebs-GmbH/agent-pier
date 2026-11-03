@@ -12,6 +12,9 @@ export function createShutdown({ services, wss, server }) {
       ws.once("close", () => clearTimeout(timeout));
     }
     services.live?.close();
+    // Ticket sequences stop first: their steps launch sessions, queue pipeline runs and
+    // deliver chat text, so none may run while those services close.
+    const sequencesClosed = services.ticketSequenceEngine?.close();
     // npm and uv run in their own process groups and must not outlive AgentPier: their
     // stop starts first, so its bound (McpPackages#close) ends well before the forced
     // exit in server/index.js. It is awaited before the server store closes, because
@@ -20,6 +23,7 @@ export function createShutdown({ services, wss, server }) {
     // Talk sessions and dictations end before the speech connection they use closes.
     services.talk?.close();
     services.dictation?.close();
+    await sequencesClosed;
     // Closes only the assistant services that the opt-in actually created.
     await services.assistantFeature?.close();
     services.chatStreams?.close();

@@ -26,6 +26,8 @@ export const tickets = Object.freeze({
   itemNotFound: "The queued ticket was not found.",
   itemBusy: "This ticket is being worked on right now.",
   githubRequired: "Ticket sequences need a GitHub repository for this project.",
+  worktreeLeftover:
+    "The folder of the last attempt is still in .worktrees/ and has local changes or another branch. Check and remove the folder, then retry.",
   source: Object.freeze({
     unauthorized: "The ticket source rejected the credentials. Please check the token.",
     forbidden: "The ticket source token has no permission for this.",
