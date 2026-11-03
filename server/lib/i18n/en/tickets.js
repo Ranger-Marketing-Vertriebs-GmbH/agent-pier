@@ -7,6 +7,9 @@ export const tickets = Object.freeze({
   invalidWorkspace: "The workspace slug of the ticket source is invalid.",
   invalidToken: "The ticket source token is invalid.",
   tokenRequired: "A token is required for the ticket source.",
+  tokenRequiredForAddress:
+    "Enter the API key again: the saved key stays with the old address of the ticket source.",
+  invalidLabel: "The GitHub label must have 1 to 50 characters and no comma.",
   invalidLink: "The ticket source link of the project is invalid.",
   invalidStart: "The ticket start is invalid.",
   startNotFound: "The ticket start was not found.",

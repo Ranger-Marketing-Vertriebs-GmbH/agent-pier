@@ -50,7 +50,7 @@ function labelValue(value) {
     value.trim().length > 50 ||
     /[\x00-\x1f\x7f,]/.test(value)
   )
-    throw problem(serverMessages.tickets.invalidLink);
+    throw problem(serverMessages.tickets.invalidLabel);
   return value.trim();
 }
 function planeLink(value) {
@@ -192,6 +192,10 @@ export class TicketStore {
         workspaceSlug === undefined ? item.workspaceSlug : slugValue(workspaceSlug),
     };
     const secret = token === undefined || token === null ? "" : tokenValue(token);
+    // The saved key belongs to its host: a new origin needs the key again, so the old
+    // one never goes to an address it was not entered for.
+    if (!secret && new URL(next.baseUrl).origin !== new URL(item.baseUrl).origin)
+      throw problem(serverMessages.tickets.tokenRequiredForAddress);
     if (secret) writePrivate(this.secretFile(id), { token: secret });
     Object.assign(item, next);
     this.save();

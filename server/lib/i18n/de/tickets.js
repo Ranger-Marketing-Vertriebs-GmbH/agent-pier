@@ -7,6 +7,10 @@ export const tickets = Object.freeze({
   invalidWorkspace: "Der Workspace-Kürzel der Ticketquelle ist ungültig.",
   invalidToken: "Der Token der Ticketquelle ist ungültig.",
   tokenRequired: "Für die Ticketquelle ist ein Token erforderlich.",
+  tokenRequiredForAddress:
+    "Gib den API-Schlüssel erneut ein: Der gespeicherte Schlüssel bleibt bei der alten Adresse der Ticketquelle.",
+  invalidLabel:
+    "Das GitHub-Label muss 1 bis 50 Zeichen haben und darf kein Komma enthalten.",
   invalidLink: "Die Ticketquellen-Zuordnung des Projekts ist ungültig.",
   invalidStart: "Der Ticketstart ist ungültig.",
   startNotFound: "Der Ticketstart wurde nicht gefunden.",

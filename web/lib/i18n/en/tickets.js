@@ -23,6 +23,8 @@ export const planeConnectionsCopy = {
   workspaceHelp: "The part after the address in your Plane URL, for example my-team.",
   apiKey: "API key",
   apiKeyKeep: "Saved. Leave blank to keep the key.",
+  apiKeyNewAddress:
+    "The address changed: enter the API key again. The saved key is only sent to its own address.",
   apiKeyPlaceholder: "Plane API key",
   apiKeyHelp:
     "Create it in Plane under Profile settings › Personal access tokens. It is stored on this computer and never shown again.",
@@ -31,8 +33,9 @@ export const planeConnectionsCopy = {
 // By `TicketSourceError` code: a source's list error and a failed write-back. The
 // start refusals (already started, being started) arrive as translated server messages.
 export const ticketErrorCopy = {
-  unauthorized: "The ticket source rejected the credentials. Please check the API key.",
-  forbidden: "The API key has no permission for this.",
+  unauthorized:
+    "The ticket source rejected the credentials. Please check the token or API key.",
+  forbidden: "The token or API key has no permission for this.",
   notFound: "The ticket source did not find the request.",
   rateLimited: "The ticket source is limiting requests right now. Try again later.",
   unavailable: "The ticket source is currently unavailable.",
@@ -67,7 +70,8 @@ export const projectTicketsCopy = {
   startedStateAuto: "Plane's first started state",
   startedStateHelp: "The state a work item moves to when it starts.",
   githubLabel: "GitHub label for started issues",
-  githubLabelHelp: "Added to an issue when it starts. GitHub creates a missing label.",
+  githubLabelHelp:
+    "Added to an issue when it starts. GitHub creates a missing label. At most 50 characters, no comma.",
   disconnect: "Disconnect Plane project",
   label: "Label",
   allLabels: "All labels",

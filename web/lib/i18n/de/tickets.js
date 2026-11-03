@@ -23,6 +23,8 @@ export const planeConnectionsCopy = {
   workspaceHelp: "Der Teil nach der Adresse in deiner Plane-URL, zum Beispiel mein-team.",
   apiKey: "API-Schlüssel",
   apiKeyKeep: "Gespeichert. Leer lassen, um den Schlüssel zu behalten.",
+  apiKeyNewAddress:
+    "Die Adresse hat sich geändert: Gib den API-Schlüssel erneut ein. Der gespeicherte Schlüssel geht nur an seine eigene Adresse.",
   apiKeyPlaceholder: "Plane-API-Schlüssel",
   apiKeyHelp:
     "Erstelle ihn in Plane unter Profileinstellungen › Persönliche Zugriffstoken. Er wird auf diesem Rechner gespeichert und nie wieder angezeigt.",
@@ -32,8 +34,8 @@ export const planeConnectionsCopy = {
 // Zurückschreiben. Die Startablehnungen kommen als übersetzte Servermeldungen.
 export const ticketErrorCopy = {
   unauthorized:
-    "Die Ticketquelle hat die Zugangsdaten abgelehnt. Bitte prüfe den API-Schlüssel.",
-  forbidden: "Der API-Schlüssel hat dafür keine Berechtigung.",
+    "Die Ticketquelle hat die Zugangsdaten abgelehnt. Bitte prüfe das Token oder den API-Schlüssel.",
+  forbidden: "Das Token oder der API-Schlüssel hat dafür keine Berechtigung.",
   notFound: "Die Ticketquelle hat die Anfrage nicht gefunden.",
   rateLimited:
     "Die Ticketquelle begrenzt gerade die Anfragen. Versuche es später erneut.",
@@ -70,7 +72,7 @@ export const projectTicketsCopy = {
   startedStateHelp: "Der Status, in den ein Work Item beim Start wechselt.",
   githubLabel: "GitHub-Label für gestartete Issues",
   githubLabelHelp:
-    "Wird beim Start an ein Issue gehängt. GitHub legt ein fehlendes Label an.",
+    "Wird beim Start an ein Issue gehängt. GitHub legt ein fehlendes Label an. Höchstens 50 Zeichen, kein Komma.",
   disconnect: "Plane-Projekt trennen",
   label: "Label",
   allLabels: "Alle Labels",

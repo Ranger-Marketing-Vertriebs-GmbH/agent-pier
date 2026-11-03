@@ -252,10 +252,16 @@ export class TicketService {
         !UUID.test(wanted.planeProjectId)
       )
         throw problem(copy.invalidLink);
-      // Identifier and name come from Plane, never from the request.
-      const found = (await this.planeProjects(wanted.connectionId)).find(
-        (item) => item.id === wanted.planeProjectId,
-      );
+      // Identifier and name come from Plane, never from the request; an unchanged link
+      // keeps the saved ones, so a Plane outage does not block the GitHub label.
+      const same =
+        current.plane?.connectionId === wanted.connectionId &&
+        current.plane?.planeProjectId === wanted.planeProjectId;
+      const found = same
+        ? { ...current.plane, id: current.plane.planeProjectId }
+        : (await this.planeProjects(wanted.connectionId)).find(
+            (item) => item.id === wanted.planeProjectId,
+          );
       if (!found) throw problem(copy.invalidLink);
       plane = {
         connectionId: wanted.connectionId,
@@ -497,5 +503,7 @@ export function createTicketServices(services) {
     live: () => services.live,
     fetchImpl: config.ticketFetch ?? globalThis.fetch,
   });
+  // The GitHub source of every project view reads the repository credentials.
+  services.repositories.onChange = () => services.live?.invalidate("tickets.project");
   return { ticketStore, tickets };
 }

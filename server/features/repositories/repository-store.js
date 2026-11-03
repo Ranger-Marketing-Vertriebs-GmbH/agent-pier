@@ -186,6 +186,9 @@ export class RepositoryStore {
     // Aborts token checks still waiting for GitHub when the server stops.
     this.checks = new AbortController();
     this.fetchImpl = fetchImpl;
+    // Called after a credential, its host default or a cloned project's selection
+    // changes (the Tickets tab's GitHub source reads them; createTicketServices).
+    this.onChange = null;
     this.file = path.join(this.dataDir, "repositories.json");
     this.secretDir = privateDirectory(path.join(this.dataDir, "repository-secrets"));
     const saved = readJSON(this.file, { credentials: [], projects: [] });
@@ -267,6 +270,7 @@ export class RepositoryStore {
     this.credentials.push(item);
     this.setAgentDefault(item, selected);
     this.save();
+    this.onChange?.();
     return { ...item };
   }
   updateCredential(id, { name, host, token, agentDefault, commitIdentity } = {}) {
@@ -293,6 +297,7 @@ export class RepositoryStore {
     else if (identity === null) delete item.commitIdentity;
     this.setAgentDefault(item, selected);
     this.save();
+    this.onChange?.();
     return { ...item };
   }
   removeCredential(id) {
@@ -302,6 +307,7 @@ export class RepositoryStore {
     this.credentials = this.credentials.filter((entry) => entry.id !== item.id);
     this.materializeDefaults();
     this.save();
+    this.onChange?.();
   }
   /** Checks the saved token against the host's API and keeps the result, never the token. */
   async checkCredential(id, { signal } = {}) {
@@ -520,6 +526,7 @@ export class RepositoryStore {
         this.projects = this.projects.filter((item) => item.id !== project.id);
         throw problem(serverMessages.repositories.clonedProjectSaveFailed);
       }
+      this.onChange?.();
       return { ...project };
     } catch (error) {
       // Check ownership again: never remove a pre-existing or replaced path.

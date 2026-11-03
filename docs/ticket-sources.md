@@ -37,8 +37,9 @@ Add a Plane connection under **Connections › Ticket sources › Add Plane conn
 
 The API key is stored on this computer in `ticket-source-secrets/<id>.json` (file
 `0600`, folder `0700`). It never reaches the browser, logs, error messages, ticket
-comments or the audit log; the edit dialog keeps it when the field is left blank. A
-connection can be deleted once no project links to it.
+comments or the audit log; the edit dialog keeps it when the field is left blank, unless
+the **API URL** moves to another host: then the key has to be entered again, so the saved
+one never goes to the new address. A connection can be deleted once no project links to it.
 
 ### Linking a project
 
@@ -50,8 +51,8 @@ source dialog:
 - **In progress state**: shown when the Plane project has more than one state in the
   `started` group. **Plane's first started state** uses the `started` state with the
   lowest sequence.
-- **GitHub label for started issues**: default `in progress`. GitHub creates a missing
-  label.
+- **GitHub label for started issues**: default `in progress`, at most 50 characters and
+  no comma. GitHub creates a missing label.
 - **Disconnect Plane project** removes the Plane link and keeps the GitHub label.
 
 A project known only to AgentBus first needs its folder registered; the tab offers
@@ -63,10 +64,10 @@ The tab lists open GitHub issues (pull requests left out) and open Plane work it
 (items in the `completed` and `cancelled` groups left out), newest change first. A
 **Label** filter narrows the list; its choices are the labels of all open tickets. A
 **Source** switch (**All**, **GitHub**, **Plane**) appears when both sources are
-connected. **Refresh** reads the trackers again. A source that fails shows its reason
+connected. **Refresh** reads the project's sources and the trackers again. A source that fails shows its reason
 in a line above the list (for example a rejected API key) while the other source still
 loads. Without any connected source, the tab links to **Connections › GitHub
-connections** and **Connections › Ticket sources**.
+connections** and **Connections › Ticket sources** and still offers **Refresh**.
 
 Each ticket's ⋯ menu offers **Start session**, **Start pipeline run**, **Open in
 GitHub** or **Open in Plane** and, once started, **Open session** or **Open pipeline
@@ -123,7 +124,9 @@ and the session list adds the key.
 
 The tab follows the live topic `tickets.project:<projectId>` (the project's source
 links and start records) and the Connections page follows `tickets.connections`; both
-are owner-only and change on every write of the ticket service. The ticket list itself
+are owner-only and change on every write of the ticket service. Adding, editing or
+deleting a GitHub token profile, changing the profile a host uses, and cloning a
+repository signal every project's topic too. The ticket list itself
 is a REST read when the tab opens, when a source changes and on **Refresh**, never on
 a timer. See [Architecture](architecture.md#live-channel).
 
@@ -140,10 +143,13 @@ again. See [Backups](backups.md).
 - GitHub lists at most 300 open issues (three pages), Plane at most 500 open work items
   (five pages); the label filter applies within those.
 - Every tracker request times out after 15 seconds and reads at most 4 MiB.
+- AgentPier follows no redirect, so a token never goes to another address. A renamed or
+  transferred GitHub repository therefore reads as "cannot be reached" until the
+  project's git remote names the new address.
 - Plane needs the `work-items` API (`/api/v1/…/work-items/`); older self-hosted Plane
   releases without it answer "not found".
 - The GitHub part of the tab does not refresh on its own when the project's git remote
-  or the token profile selected for its host changes; choose **Refresh**.
+  changes (AgentPier does not watch it); choose **Refresh**.
 - All ticket routes are owner-only; restricted users have no Tickets tab.
 
 ## Planned

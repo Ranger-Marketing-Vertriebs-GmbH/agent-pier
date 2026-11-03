@@ -50,6 +50,28 @@ test("a Plane connection keeps its token in a private file only", (t) => {
   assert.throws(() => store.connection("missing"), { status: 404 });
 });
 
+test("a new address origin needs the API key again; a new path does not", (t) => {
+  const { store, dataDir } = fixture(t);
+  const saved = store.createConnection({
+    name: "Plane",
+    baseUrl: "https://plane.example.com",
+    workspaceSlug: "acme",
+    token: "plane-secret",
+  });
+  for (const token of [undefined, null, ""])
+    assert.throws(
+      () => store.updateConnection(saved.id, { baseUrl: "https://evil.example", token }),
+      { status: 400, message: /API/ },
+    );
+  assert.equal(store.connection(saved.id).baseUrl, "https://plane.example.com");
+  store.updateConnection(saved.id, { baseUrl: "https://plane.example.com/plane" });
+  assert.equal(store.token(saved.id), "plane-secret");
+  store.updateConnection(saved.id, { baseUrl: "https://other.example", token: "new" });
+  const reopened = new TicketStore({ dataDir });
+  assert.equal(reopened.connection(saved.id).baseUrl, "https://other.example");
+  assert.equal(reopened.token(saved.id), "new");
+});
+
 test("refuses plain http off loopback, userinfo, query and bad slugs or tokens", (t) => {
   const { store } = fixture(t);
   for (const baseUrl of [
@@ -115,10 +137,11 @@ test("project links default to no Plane and the 'in progress' label", (t) => {
     new TicketStore({ dataDir }).projectLink("p1").github.inProgressLabel,
     "doing",
   );
-  assert.throws(
-    () => store.setProjectLink("p1", "/repo", { github: { inProgressLabel: "a,b" } }),
-    { status: 400 },
-  );
+  for (const inProgressLabel of ["a,b", "x".repeat(51)])
+    assert.throws(
+      () => store.setProjectLink("p1", "/repo", { github: { inProgressLabel } }),
+      { status: 400, message: /GitHub-Label/ },
+    );
   assert.throws(
     () =>
       store.setProjectLink("p1", "/repo", {

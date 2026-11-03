@@ -110,6 +110,9 @@ test("actual authenticated HTTPS clone isolates inherited Git config and stores 
     host: fixture.origin,
     token: "private-fixture-token",
   });
+  // A cloned project selects its credential for its folder (the Tickets tab's source).
+  let changes = 0;
+  store.onChange = () => changes++;
   const pending = store.clone({
     credentialId: credential.id,
     url: `${fixture.origin}/repo.git`,
@@ -126,6 +129,7 @@ test("actual authenticated HTTPS clone isolates inherited Git config and stores 
     { status: 409 },
   );
   const project = await pending;
+  assert.equal(changes, 1);
   assert.equal(
     fs.readFileSync(path.join(project.path, "README.md"), "utf8"),
     "Authentic HTTPS fixture content\n",
