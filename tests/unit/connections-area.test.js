@@ -42,6 +42,7 @@ test("services are a category only while agents are on", () => {
     "mail",
     "secrets",
     "github",
+    "tickets",
   ]);
   assert.equal(visibleSections(false).includes("services"), false);
   assert.equal(visibleSections(null).includes("services"), false);
@@ -89,8 +90,15 @@ test("category counts use loaded lists, then problem totals, and never fake a ze
     secrets: { count: null, flagged: null },
     // A real zero stays zero.
     github: { count: 0, flagged: 0 },
+    // Plane connections are counted from their list only, and carry no problems.
+    tickets: { count: null, flagged: null },
   });
   assert.equal(problemTotal(counts), 6);
+  assert.equal(
+    categoryCounts({ problems, lists: { tickets: [{ id: "t1" }] }, agentsEnabled: true })
+      .tickets.count,
+    1,
+  );
   const off = categoryCounts({
     problems,
     lists: { connections: [{ id: "c1" }], chatgpt: null },

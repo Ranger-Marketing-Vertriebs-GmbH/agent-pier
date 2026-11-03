@@ -47,6 +47,7 @@ export const searchCopy = {
     addModel: "Add model access",
     addSecret: "Add secret",
     addGithub: "Add GitHub access",
+    addPlane: "Add Plane connection",
     openInbox: "Open inbox",
   },
   // The search in a user's own app: the user's agents, their chats and pages, the account.
@@ -62,6 +63,7 @@ export const searchCopy = {
     settingsSsh: "Settings › Access › SSH accesses",
     settingsSecrets: "Settings › Access › Secrets",
     settingsGithub: "Settings › Access › GitHub connections",
+    planeConnections: "Plane connections",
     settingsMcp: "Settings › Access › MCP & access",
     settingsWorkspace: "Settings › Workspace",
     workspace: "Workspace",

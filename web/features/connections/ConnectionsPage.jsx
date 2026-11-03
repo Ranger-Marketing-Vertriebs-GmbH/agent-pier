@@ -12,6 +12,7 @@ import useAccountUsage from "../accounts/useAccountUsage.js";
 import useAccountsData from "../accounts/useAccountsData.js";
 import useNarrowViewport from "../accounts/useNarrowViewport.js";
 import { useMcpOAuth } from "../mcp-servers/McpOAuthLogin.jsx";
+import useLiveTopic from "../../lib/live/useLiveTopic.js";
 import useSshCatalog from "../ssh/useSshCatalog.js";
 import ConnectionCategories from "./ConnectionCategories.jsx";
 import ConnectionsContent from "./ConnectionsContent.jsx";
@@ -87,6 +88,10 @@ export default function ConnectionsPage({
   const usage = useConnectionsResource("/connections/usage", signature);
   const problems = useConnectionsResource("/connections/problems", signature);
   const mail = useConnectionsResource("/mail/accounts", agentsEnabled);
+  const ticketSources = useLiveTopic("tickets.connections", "/ticket-connections");
+  const planeConnections = Array.isArray(ticketSources.data?.connections)
+    ? ticketSources.data.connections
+    : null;
   const mailAccounts = Array.isArray(mail.data?.accounts) ? mail.data.accounts : null;
   const { reload: reloadUsage } = usage;
   const { reload: reloadProblems } = problems;
@@ -133,6 +138,7 @@ export default function ConnectionsPage({
       mcpServers: data.mcpServers,
       ssh: catalog.accessesLoaded ? catalog.accesses : null,
       mail: mailAccounts,
+      tickets: planeConnections,
     },
     agentsEnabled: agentsEnabled === true,
   });

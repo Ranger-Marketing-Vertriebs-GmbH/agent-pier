@@ -47,6 +47,7 @@ export const searchCopy = {
     addModel: "Modell-Zugang hinzufügen",
     addSecret: "Geheimnis hinzufügen",
     addGithub: "GitHub-Zugang hinzufügen",
+    addPlane: "Plane-Zugang hinzufügen",
     openInbox: "Eingang öffnen",
   },
   // Die Suche in der eigenen App eines Benutzers: die eigenen Agenten, deren Chats und Seiten, das Konto.
@@ -62,6 +63,7 @@ export const searchCopy = {
     settingsSsh: "Einstellungen › Zugriff › SSH-Zugänge",
     settingsSecrets: "Einstellungen › Zugriff › Geheimnisse",
     settingsGithub: "Einstellungen › Zugriff › GitHub-Zugänge",
+    planeConnections: "Plane-Zugänge",
     settingsMcp: "Einstellungen › Zugriff › MCP & Zugriffe",
     settingsWorkspace: "Einstellungen › Arbeitsbereich",
     workspace: "Arbeitsbereich",

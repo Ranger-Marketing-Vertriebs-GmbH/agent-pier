@@ -228,24 +228,26 @@ export function pageEntries() {
       { route: connectionsRoute() },
       { aliases: [alias("accounts"), alias("settingsAccess")] },
     ),
-    ...["models", "services", "mcp-servers", "ssh", "secrets", "github"].map((section) =>
-      pageEntry(
-        `connections-${section}`,
-        () => connectionsAreaCopy.sections[section],
-        connections,
-        { route: connectionsRoute(section) },
-        {
-          agentsOnly: section === "services",
-          aliases: {
-            models: [alias("accountsModels")],
-            services: [alias("accountsServices")],
-            "mcp-servers": [alias("accountsMcp")],
-            ssh: [alias("settingsSsh"), alias("sshAccesses")],
-            secrets: [alias("settingsSecrets")],
-            github: [alias("settingsGithub")],
-          }[section],
-        },
-      ),
+    ...["models", "services", "mcp-servers", "ssh", "secrets", "github", "tickets"].map(
+      (section) =>
+        pageEntry(
+          `connections-${section}`,
+          () => connectionsAreaCopy.sections[section],
+          connections,
+          { route: connectionsRoute(section) },
+          {
+            agentsOnly: section === "services",
+            aliases: {
+              models: [alias("accountsModels")],
+              services: [alias("accountsServices")],
+              "mcp-servers": [alias("accountsMcp")],
+              ssh: [alias("settingsSsh"), alias("sshAccesses")],
+              secrets: [alias("settingsSecrets")],
+              github: [alias("settingsGithub")],
+              tickets: [alias("planeConnections")],
+            }[section],
+          },
+        ),
     ),
     pageEntry(
       "connections-ssh-keys",
@@ -484,6 +486,10 @@ export function actionEntries() {
     action("add-secret", () => searchCopy.actions.addSecret, inSection("secrets"), {
       route: connectionsRoute("secrets"),
       pending: "secret-add",
+    }),
+    action("add-plane", () => searchCopy.actions.addPlane, inSection("tickets"), {
+      route: connectionsRoute("tickets"),
+      pending: "plane-add",
     }),
     action("add-github", () => searchCopy.actions.addGithub, inSection("github"), {
       route: connectionsRoute("github"),
