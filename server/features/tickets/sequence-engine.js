@@ -439,9 +439,11 @@ export class TicketSequenceEngine {
     if (item.armedHead && item.armedHead === head) {
       // Red checks: the fix rounds push a new head, which may be armed once more.
       if (verdict.checks === "failed") return false;
-      // A head that failed its checks may have been dropped for them (a merge queue
-      // does); once a re-run turns it green it may be armed again.
-      if (item.rounds?.lastSha !== head) return this.park(ctx, item, "mergeDisarmed");
+      // A merge queue drops a head whose checks failed; once a re-run turns it green
+      // it may be queued again. Auto-merge stays on through red checks on GitHub, so
+      // an auto-merge found off was turned off by a person: that is respected.
+      if (item.armed !== "queue" || item.rounds?.lastSha !== head)
+        return this.park(ctx, item, "mergeDisarmed");
       item = this.save(ctx, item, { armedHead: null, armed: null });
     }
     if (item.refused?.headSha === head) {
