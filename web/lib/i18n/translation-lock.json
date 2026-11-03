@@ -5581,7 +5581,7 @@
   "notifications:notificationCopy.events.session-waiting": "de:92fc68b8e5fa en:c8dfbac93099",
   "notifications:notificationCopy.events.telegram": "de:6a7f0151c6ff en:b505cd6b4a80",
   "notifications:notificationCopy.events.ticket-needs-owner": "de:a111623aee78 en:b7df8b3d6df5",
-  "notifications:notificationCopy.events.ticket-rule-failed": "de:954383cba929 en:7ceca2825199",
+  "notifications:notificationCopy.events.ticket-rule-failed": "de:029640604959 en:62bea9e2eb23",
   "notifications:notificationCopy.events.update-available": "de:eb19be2c2707 en:ff8b555d818f",
   "notifications:notificationCopy.events.update-failed": "de:d305b1e8a36d en:e58282fd73fb",
   "notifications:notificationCopy.eventsGroup": "de:39ad234261d7 en:8d14f6e72de8",

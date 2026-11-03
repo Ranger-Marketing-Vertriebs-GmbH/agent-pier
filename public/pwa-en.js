@@ -103,9 +103,9 @@ self.agentPierNotificationCopyEn = {
       name: "Ticket needs you",
     },
     "ticket-rule-failed": {
-      title: "AgentPier: A label rule cannot read its tickets",
-      body: "A label rule of a project cannot read its tickets. Open the Tickets tab to see why.",
-      name: "Label rule failed",
+      title: "AgentPier: A label rule needs attention",
+      body: "A label rule of a project failed. Open the Tickets tab to see why.",
+      name: "Label rule needs attention",
     },
     "update-available": {
       title: "AgentPier: Update available",
