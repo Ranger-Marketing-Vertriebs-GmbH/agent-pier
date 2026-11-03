@@ -18,6 +18,10 @@ export const pipelineWorkspaces = Object.freeze({
     "The Git operation failed. Check the selected repository, branch, and credentials.",
   invalidGitReference: "Invalid Git reference.",
   gitReferenceNotCommit: "The Git reference is not a commit.",
+  originBaseUnavailable:
+    "The remote origin branch is missing or cannot be resolved. No worktree was created.",
+  originRefreshFailed:
+    "The origin remote could not be refreshed. No worktree was created.",
   ownershipMismatch: "Workspace ownership does not match.",
   worktreeDirectoryUnsafe: "The owned worktree directory is unsafe.",
   worktreeExists: "The run worktree already exists.",
