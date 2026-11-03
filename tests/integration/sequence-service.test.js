@@ -244,6 +244,43 @@ test("mark done and remove of an armed PR are refused while GitHub is unreachabl
   assert.equal(f.items()[0].state, "needs-owner");
 });
 
+test("the view lists sessions for the repair defaults at most once a minute", async (t) => {
+  const f = await sequenceFixture(t);
+  f.append([KEY]);
+  let lists = 0;
+  const sessions = {
+    list: async () => {
+      lists += 1;
+      return f.sessionsApi.list();
+    },
+  };
+  const owner = new TicketSequenceService({
+    store: f.store,
+    engine: f.engine,
+    tickets: f.tickets,
+    sessions,
+    worktrees: f.worktrees,
+    now: () => f.clock.now,
+  });
+  f.sessions.push({
+    id: "s-old",
+    tool: "claude",
+    accountId: "a9",
+    cwd: f.repoPath,
+    status: "running",
+    createdAt: new Date(f.clock.now).toISOString(),
+  });
+  const first = await owner.view("p1");
+  assert.deepEqual(first.defaults.repair, { tool: "claude", accountId: "a9" });
+  await owner.view("p1");
+  f.clock.now += 59_000;
+  await owner.view("p1");
+  assert.equal(lists, 1);
+  f.clock.now += 2_000;
+  await owner.view("p1");
+  assert.equal(lists, 2);
+});
+
 test("owner actions wait for a running step and step the queue after them", async (t) => {
   const f = await sequenceFixture(t);
   f.append([KEY]);

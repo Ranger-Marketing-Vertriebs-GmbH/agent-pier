@@ -15,6 +15,7 @@ import { canonicalKey, sequenceInput } from "./ticket-start-input.js";
 import { TicketWorktrees } from "./ticket-worktree.js";
 
 const copy = serverMessages.tickets;
+const REPAIR_CACHE_MS = 60_000;
 const FRESH_ROUNDS = { failed: 0, lastSha: null, lastReview: null, lastActionAt: null };
 // What Retry clears on every path: the park, the fix counters and the merge memory.
 const RESET = {
@@ -61,16 +62,30 @@ export function publicItem(item) {
 export class TicketSequenceService {
   constructor({ store, engine, tickets, sessions, worktrees, now = Date.now }) {
     Object.assign(this, { store, engine, tickets, sessions, worktrees, now });
+    this.repairCache = new Map();
   }
 
   async view(projectId) {
     const project = this.tickets.resolveProject(projectId);
     const items = this.store.queue(project.id)?.items ?? [];
-    let repair = null;
-    try {
-      repair = await repairDefaults(this.sessions, project.path);
-    } catch {}
+    const repair = await this.repairDefaults(project.path);
     return { queue: { items: items.map(publicItem) }, defaults: { repair } };
+  }
+
+  /**
+   * The repair settings a new pipeline sequence would fall back to. Listing sessions
+   * reads every stored session, and the topic reads the view after every saved change,
+   * so the answer is kept for REPAIR_CACHE_MS per project folder.
+   */
+  async repairDefaults(projectPath) {
+    const cached = this.repairCache.get(projectPath);
+    if (cached && this.now() - cached.at < REPAIR_CACHE_MS) return cached.value;
+    let value = null;
+    try {
+      value = await repairDefaults(this.sessions, projectPath);
+    } catch {}
+    this.repairCache.set(projectPath, { at: this.now(), value });
+    return value;
   }
 
   async add(projectId, input) {
