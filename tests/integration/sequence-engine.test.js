@@ -339,3 +339,18 @@ test("changes requested after enqueue dequeues", async (t) => {
   assert.equal(pull.inMergeQueue, false);
   assert.equal(f.items()[0].armed, null);
 });
+
+test("a nudge from an action's first synchronous tick returns a promise", async (t) => {
+  const f = await sequenceFixture(t);
+  let nudged;
+  const result = await f.engine.exclusive("p1", () => {
+    nudged = f.engine.nudge("p1");
+    return "done";
+  });
+  assert.equal(result, "done");
+  assert.equal(typeof nudged?.then, "function");
+  await nudged;
+  while (f.engine.locks.size)
+    await Promise.all([...f.engine.locks.values()].map((lock) => lock.promise));
+  assert.equal(f.engine.locks.size, 0);
+});

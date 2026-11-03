@@ -165,7 +165,8 @@ export class TicketSequenceEngine {
     const running = this.locks.get(projectId);
     if (running) {
       running.again = true;
-      return running.promise;
+      // A nudge from the lock's own first synchronous tick comes before its promise.
+      return running.promise ?? Promise.resolve();
     }
     // Registered before the loop starts: a loop that ends without waiting (an owner
     // action is queued) must not leave a finished lock behind.
