@@ -8,20 +8,22 @@ import {
 } from "../../server/features/assistants/memory-archive.js";
 
 // A service whose agent runs on `runtime`, with its memory files in `files` and a
-// write that `fail` may refuse.
+// write that `fail` may refuse; with `applied` the write lands before it fails.
 function stub(runtime, files) {
   const service = {
     store: { db: new DatabaseSync(":memory:"), getAssistant: (id) => ({ id, runtime }) },
     audit: { events: [], append: (event) => service.audit.events.push(event) },
     fail: null,
+    applied: false,
     nativeMemory: {
       read: async (_id, name) =>
         name in files
           ? { content: files[name], missing: false, hash: `h${files[name].length}` }
           : { content: "", missing: true, hash: null },
       write: async (_id, { name, content }) => {
-        if (service.fail) throw service.fail;
+        if (service.fail && !service.applied) throw service.fail;
         files[name] = content;
+        if (service.fail) throw service.fail;
       },
       writeNote: async () => {
         throw new Error("no notes");
@@ -76,7 +78,7 @@ test("a Hermes restore past Hermes's limit is refused and stays archived", async
   assert.equal(memoryArchiveOf(service).list("a1").length, 1);
 });
 
-test("a failed write keeps the entry in its file and out of the archive", async () => {
+test("a write that failed unapplied keeps the entry in its file only", async () => {
   const files = { "MEMORY.md": "- Keep.\n- Archive me.\n" };
   const service = stub("openclaw", files);
   service.fail = Object.assign(new Error("down"), { status: 503 });
@@ -87,6 +89,69 @@ test("a failed write keeps the entry in its file and out of the archive", async 
   assert.equal(files["MEMORY.md"], "- Keep.\n- Archive me.\n");
   assert.deepEqual(memoryArchiveOf(service).list("a1"), []);
   assert.deepEqual(service.audit.events, []);
+});
+
+test("write applied but answered 503 keeps the entry in the archive", async () => {
+  const files = { "MEMORY.md": "- Keep.\n- Archive me.\n" };
+  const service = stub("openclaw", files);
+  service.fail = Object.assign(new Error("timeout"), { status: 503 });
+  service.applied = true;
+  await assert.rejects(
+    archiveEntries(service, "a1", [{ file: "MEMORY.md", entry: "Archive me." }], meta),
+    { status: 503 },
+  );
+  assert.equal(files["MEMORY.md"], "- Keep.\n");
+  assert.deepEqual(
+    memoryArchiveOf(service)
+      .list("a1")
+      .map((e) => e.text),
+    ["Archive me."],
+  );
+});
+
+test("an unreadable file after a failed write keeps the archive rows", async () => {
+  const files = { "MEMORY.md": "- Archive me.\n" };
+  const service = stub("openclaw", files);
+  service.fail = Object.assign(new Error("down"), { status: 503 });
+  const read = service.nativeMemory.read;
+  let reads = 0;
+  service.nativeMemory.read = async (...args) => {
+    if (reads++) throw Object.assign(new Error("down"), { status: 503 });
+    return read(...args);
+  };
+  await assert.rejects(
+    archiveEntries(service, "a1", [{ file: "MEMORY.md", entry: "Archive me." }], meta),
+    { status: 503 },
+  );
+  assert.equal(memoryArchiveOf(service).list("a1").length, 1);
+});
+
+test("a refused write drops the rows and reports the entry", async () => {
+  const files = { "MEMORY.md": "- Archive me.\n" };
+  const service = stub("openclaw", files);
+  service.fail = Object.assign(new Error("changed"), { status: 409 });
+  service.applied = false;
+  assert.deepEqual(
+    await archiveEntries(
+      service,
+      "a1",
+      [{ file: "MEMORY.md", entry: "Archive me." }],
+      meta,
+    ),
+    { archived: 0, changed: ["Archive me."] },
+  );
+  assert.deepEqual(memoryArchiveOf(service).list("a1"), []);
+});
+
+test("identical copies are removed together and archived as one row", async () => {
+  const files = { "MEMORY.md": "- Twice.\n- Keep.\n- Twice.\n" };
+  const service = stub("openclaw", files);
+  assert.deepEqual(
+    await archiveEntries(service, "a1", [{ file: "MEMORY.md", entry: "Twice." }], meta),
+    { archived: 1, changed: [] },
+  );
+  assert.equal(files["MEMORY.md"], "- Keep.\n");
+  assert.equal(memoryArchiveOf(service).list("a1").length, 1);
 });
 
 test("refuses files that are no memory file of the agent", async () => {
