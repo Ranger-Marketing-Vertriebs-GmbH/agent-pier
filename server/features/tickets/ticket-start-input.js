@@ -80,8 +80,8 @@ export function startInput(input) {
 }
 
 /** Repair-session settings of a pipeline sequence: a small allowlist of plain values. */
-function repairInput(value) {
-  if (!plainObject(value)) throw problem(copy.invalidSequence);
+function repairInput(value, invalid) {
+  if (!plainObject(value)) throw invalid();
   const out = {};
   for (const [name, entry] of Object.entries(value)) {
     if (
@@ -90,16 +90,37 @@ function repairInput(value) {
       entry.length > 300 ||
       /[\x00-\x1f\x7f]/.test(entry)
     )
-      throw problem(copy.invalidSequence);
+      throw invalid();
     out[name] = entry;
   }
-  if (out.tool !== undefined && !isCodingCli(out.tool))
-    throw problem(copy.invalidSequence);
+  if (out.tool !== undefined && !isCodingCli(out.tool)) throw invalid();
   if (
     out.launchMode !== undefined &&
     (!out.tool || !Object.hasOwn(cliDefinition(out.tool).launchModes, out.launchMode))
   )
-    throw problem(copy.invalidSequence);
+    throw invalid();
+  return out;
+}
+
+/**
+ * The settings shared by every ticket of a sequence or rule: kind, merge permission and
+ * the session, pipeline and repair choices. `invalid` makes the caller's problem.
+ */
+export function sequenceOptionsInput(input, invalid) {
+  if (!plainObject(input)) throw invalid();
+  const { kind, allowMerge } = input;
+  if (typeof allowMerge !== "boolean") throw invalid();
+  if (input.repair !== undefined && kind !== "pipeline") throw invalid();
+  let body;
+  try {
+    body = startInput({ ...input, source: TICKET_SOURCE_IDS[0], key: "o/r#1" });
+  } catch {
+    throw invalid();
+  }
+  const out = { kind: body.kind, allowMerge };
+  if (body.session) out.session = body.session;
+  if (body.pipeline) out.pipeline = body.pipeline;
+  if (input.repair !== undefined) out.repair = repairInput(input.repair, invalid);
   return out;
 }
 
@@ -107,15 +128,13 @@ function repairInput(value) {
 export function sequenceInput(input) {
   const invalid = () => problem(copy.invalidSequence);
   if (!plainObject(input)) throw invalid();
-  const { tickets, kind, allowMerge, again } = input;
+  const { tickets, again } = input;
   if (!Array.isArray(tickets) || tickets.length < 1 || tickets.length > MAX_TICKETS)
     throw invalid();
-  if (typeof allowMerge !== "boolean") throw invalid();
   if (again !== undefined && typeof again !== "boolean") throw invalid();
-  if (input.repair !== undefined && kind !== "pipeline") throw invalid();
+  const options = sequenceOptionsInput(input, invalid);
   const seen = new Set();
   const listed = [];
-  let body = null;
   for (const entry of tickets) {
     if (!plainObject(entry)) throw invalid();
     let checked;
@@ -128,11 +147,6 @@ export function sequenceInput(input) {
     if (seen.has(id)) throw invalid();
     seen.add(id);
     listed.push({ source: checked.source, key: checked.key });
-    body = checked;
   }
-  const out = { tickets: listed, kind: body.kind, allowMerge, again: again === true };
-  if (body.session) out.session = body.session;
-  if (body.pipeline) out.pipeline = body.pipeline;
-  if (input.repair !== undefined) out.repair = repairInput(input.repair);
-  return out;
+  return { tickets: listed, ...options, again: again === true };
 }
