@@ -128,6 +128,8 @@ test("every driver provides prepareRequests, shellToolName and startupDialogs", 
     for (const handler of Object.values(driver.startupDialogs))
       assert.equal(typeof handler, "function");
   }
+  const ids = CODING_CLI_IDS.flatMap((id) => Object.keys(cliDriver(id).startupDialogs));
+  assert.equal(new Set(ids).size, ids.length, "startupDialogs ids are unique");
 });
 
 test("every driver provides the history methods", () => {
