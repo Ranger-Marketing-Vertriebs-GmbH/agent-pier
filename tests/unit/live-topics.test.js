@@ -4,6 +4,12 @@ import { liveTopics, readTopicValue, topicInfo } from "../../web/lib/live/live-t
 import { liveEnvironment } from "../../web/lib/live/live-environment.js";
 import { userRoutes } from "../../server/http/route-access.js";
 import { ME_TOPICS } from "../../server/features/users/live-me-topics.js";
+import {
+  ticketConnectionsChanged,
+  ticketConnectionsTopic,
+  ticketsProjectChanged,
+  ticketsProjectTopic,
+} from "../../server/features/tickets/live-topics.js";
 
 test("topicInfo resolves registered topics and their REST path", () => {
   const requests = topicInfo("session.requests:abc");
@@ -303,4 +309,40 @@ test("the AgentBus signal takes a project or none; the sign-in state is sampled"
     ["state", "/accounts/local-codex/auth-status", 30000, true],
   );
   assert.equal(topicInfo("account.auth"), null);
+});
+
+test("ticket topics are owner only and read the service", async () => {
+  const view = { project: { id: "p1", path: "/p" }, sources: {}, starts: [] };
+  const connections = { connections: [] };
+  const read = [];
+  const services = {
+    tickets: {
+      projectView: async (id) => (read.push(id), view),
+      connectionsView: () => connections,
+    },
+  };
+  const project = ticketsProjectTopic(services);
+  assert.equal(project.name, "tickets.project");
+  assert.equal(project.mode, "state");
+  assert.equal(project.authorize({ role: "user" }), false);
+  assert.equal(project.authorize(undefined), false);
+  assert.equal(project.authorize({ role: "owner" }), true);
+  assert.equal(project.param.test("p1"), true);
+  assert.equal(project.param.test("../p1"), false);
+  assert.deepEqual(await project.read({ role: "owner" }, "p1"), view);
+  assert.deepEqual(read, ["p1"]);
+  const list = ticketConnectionsTopic(services);
+  assert.equal(list.name, "tickets.connections");
+  assert.equal(list.authorize({ role: "user" }), false);
+  assert.deepEqual(await list.read({ role: "owner" }), connections);
+  const signals = [];
+  const hub = { invalidate: (...args) => signals.push(args) };
+  ticketsProjectChanged(hub, "p1");
+  ticketConnectionsChanged(hub);
+  ticketsProjectChanged(null, "p1");
+  assert.deepEqual(signals, [
+    ["tickets.project", "p1"],
+    ["tickets.connections"],
+    ["tickets.project"],
+  ]);
 });
