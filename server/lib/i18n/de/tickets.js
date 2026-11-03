@@ -23,6 +23,10 @@ export const tickets = Object.freeze({
   taskNotDelivered:
     "Die Aufgabe konnte der neuen Session nicht übergeben werden; die Session wurde beendet.",
   invalidSequence: "Die Ticketfolge ist ungültig.",
+  invalidRule: "Die Ticketregel ist ungültig.",
+  ruleNotFound: "Die Ticketregel wurde nicht gefunden.",
+  tooManyRules: "Dieses Repository hat zu viele Ticketregeln.",
+  ruleExists: "Für diese Quelle und dieses Label gibt es schon eine Regel.",
   sequenceFull: "Die Ticketwarteschlange dieses Repositorys ist voll.",
   ticketQueued: "Dieses Ticket ist bereits eingereiht.",
   itemNotFound: "Das eingereihte Ticket wurde nicht gefunden.",

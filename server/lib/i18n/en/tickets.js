@@ -21,6 +21,10 @@ export const tickets = Object.freeze({
   taskNotDelivered:
     "The task could not be handed to the new session; the session was stopped.",
   invalidSequence: "The ticket sequence is invalid.",
+  invalidRule: "The ticket rule is invalid.",
+  ruleNotFound: "The ticket rule was not found.",
+  tooManyRules: "This repository has too many ticket rules.",
+  ruleExists: "A rule for this source and label already exists.",
   sequenceFull: "The ticket queue of this repository is full.",
   ticketQueued: "This ticket is already queued.",
   itemNotFound: "The queued ticket was not found.",
