@@ -274,3 +274,32 @@ test("armedHead and refused round-trip; invalid values are dropped", () => {
   assert.equal(cleared.armedHead, null);
   assert.equal(cleared.refused, undefined);
 });
+
+test("freeSlots counts the active items left before the queue is full", () => {
+  const store = new TicketSequenceStore({ dataDir: dataDir() });
+  assert.equal(store.freeSlots("p1"), 200);
+  const { items } = store.append("p1", "/repo", [entry(1), entry(2), entry(3)]);
+  finish(store, items[0].id);
+  assert.equal(store.freeSlots("p1"), 198);
+  store.append(
+    "p1",
+    "/repo",
+    Array.from({ length: 198 }, (_, i) => entry(i + 10)),
+  );
+  assert.equal(store.freeSlots("p1"), 0);
+});
+
+test("contains tells an active item from a done one and from none", () => {
+  const store = new TicketSequenceStore({ dataDir: dataDir() });
+  const { items } = store.append("p1", "/repo", [entry(1), entry(2)]);
+  finish(store, items[0].id);
+  assert.equal(store.contains("p1", "github", "o/r#1"), "done");
+  assert.equal(store.contains("p1", "github", "o/r#2"), "active");
+  assert.equal(store.contains("p1", "github", "o/r#3"), null);
+  assert.equal(store.contains("p1", "plane", "o/r#2"), null);
+  assert.equal(store.contains("other", "github", "o/r#2"), null);
+  // A ticket queued again after its done item: the active one wins.
+  store.append("p1", "/repo", [entry(1)]);
+  assert.equal(store.contains("p1", "github", "o/r#1"), "active");
+  assert.equal(store.find("p1", "github", "o/r#1").state, "waiting");
+});
