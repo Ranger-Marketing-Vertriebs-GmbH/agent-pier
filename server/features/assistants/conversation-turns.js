@@ -33,6 +33,14 @@ function usersAgent(service, conversation) {
   }
 }
 
+// A person's own message (the owner's, a user's or one through Telegram), not a
+// delivery AgentPier sends on its own (results, follow-ups, goal turns).
+const personsMessage = (context) =>
+  ["owner", "user", "telegram"].includes(context?.kind) &&
+  !context.goal &&
+  !context.result &&
+  !context.actor;
+
 /**
  * Refuses a chat that takes no turns. A deleted or disabled user's chat, or one of a
  * user who left the agent, takes none: not from her Telegram bot, a reminder or
@@ -59,8 +67,9 @@ export function refuseClosedChat(service, conversation) {
  * the caller: the request is accepted in the ledger together with its trusted context
  * and staged attachments, then delivered once through `sessions.send`. A retry with
  * the same client request id returns the accepted request and never sends again.
- * A turn for a chat a model switch replaced goes to its successor (chat-successor.js)
- * with a note there, unless a chat along that line accepted it already.
+ * A turn for a chat a model switch replaced goes to its successor (chat-successor.js),
+ * unless a chat along that line accepted it already; a delivery that is no person's
+ * own message gets a note there.
  */
 export async function sendTurn(service, conversationId, input, trustedContext) {
   validateSendInput(input);
@@ -75,7 +84,7 @@ export async function sendTurn(service, conversationId, input, trustedContext) {
     );
     if (holder !== conversationId) {
       // One note per delivery: a retry keeps the first (memory-notes.js).
-      if (!holder)
+      if (!holder && !personsMessage(trustedContext))
         service.memoryNotes.record({
           key: `redirected:${input.clientRequestId}`,
           conversationId: target,

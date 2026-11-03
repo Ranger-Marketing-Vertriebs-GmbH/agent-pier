@@ -128,6 +128,34 @@ test("defaults off for the same family and hides again with the old model", asyn
   expect(state.updates[0].freshChats).toBe(false);
 });
 
+test("a late preview for an earlier model does not overwrite the current one", async ({
+  page,
+}) => {
+  await setup(page);
+  await previewRoute(page, { json: { familyChanged: false, freshChatsDefault: false } });
+  // The preview for "first" settles only after the next one, whatever the abort says.
+  await page.addInitScript(() => {
+    const fetch = window.fetch.bind(window);
+    window.fetch = (url, options) => {
+      if (!String(url).includes("modelId=first")) return fetch(url, options);
+      window.firstAsked = true;
+      return new Promise((resolve) => {
+        window.answerFirst = () =>
+          resolve(Response.json({ familyChanged: true, freshChatsDefault: true }));
+      });
+    };
+  });
+  await page.goto(baseURL + settingsPath("identity"));
+  await model(page).fill("first");
+  await page.waitForFunction(() => window.firstAsked === true);
+  await model(page).fill("second");
+  await expect(fresh(page)).not.toBeChecked();
+  await page.evaluate(() => window.answerFirst());
+  // Let the late answer land, then the choice still is the current model's.
+  await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 200)));
+  await expect(fresh(page)).not.toBeChecked();
+});
+
 test("a failed preview defaults the switch to on", async ({ page }) => {
   await setup(page);
   await previewRoute(page, { status: 500, json: { error: "boom" } });

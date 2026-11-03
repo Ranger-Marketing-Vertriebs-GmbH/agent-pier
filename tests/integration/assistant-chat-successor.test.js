@@ -153,6 +153,24 @@ test("an SSH follow-up follows the successor", async (t) => {
   assert.deepEqual(notes(service, fresh.id), ["model-switched", "redirected"]);
 });
 
+test("the owner's message from a stale view follows the successor without a note", async (t) => {
+  const { service, gateway, main } = await agentWithMain(t);
+  const fresh = await modelSwitch(service, main.id);
+  const sent = await service.send(main.id, { clientRequestId: "owner-1", text: "Hi" });
+  assert.equal(sent.request.conversationId, fresh.id);
+  assert.equal(sentTo(gateway, service, fresh.id).length, 1);
+  assert.deepEqual(notes(service, fresh.id), ["model-switched"]);
+  // A goal turn is AgentPier's own delivery, sent as the owner: it keeps the note.
+  for (const a of service.ledger.pending()) service.ledger.transition(a.id, "completed");
+  const goal = { id: "g1", anchorRequestId: sent.request.id, title: "Goal" };
+  await service.send(
+    main.id,
+    { clientRequestId: "goal-1", text: "Go on" },
+    { kind: "owner", goal },
+  );
+  assert.deepEqual(notes(service, fresh.id), ["model-switched", "redirected"]);
+});
+
 test("a follow-up accepted in the old chat before the switch is not sent again", async (t) => {
   const { service, gateway, main } = await agentWithMain(t);
   const input = { clientRequestId: "ssh-result:a2", text: "SSH result" };

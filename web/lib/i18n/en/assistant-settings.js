@@ -13,6 +13,8 @@ export const assistantSettingsCopy = {
   freshChats: {
     label: "Start fresh chats",
     hint: "New main chats for everyone using this agent; the old ones stay readable. Nothing running stops.",
+    memberHint:
+      "A new chat for this team member; the old one stays readable. Nothing running stops.",
   },
   overviewGroups: {
     glance: "At a glance",

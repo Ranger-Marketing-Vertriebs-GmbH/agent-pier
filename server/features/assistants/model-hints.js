@@ -1,7 +1,7 @@
 import { modelFamily } from "./model-family.js";
 import { refuseClosedChat } from "./conversation-turns.js";
 
-/** The table of dismissed model hints, per chat and person (private: private-tables.js). */
+/** The table of dismissed model hints, per chat and person (private-tables.js). */
 export const modelHintTable =
   "CREATE TABLE IF NOT EXISTS assistant_model_hint_dismissals (conversation_id TEXT NOT NULL, person TEXT NOT NULL, from_family TEXT NOT NULL, to_family TEXT NOT NULL, dismissed_at TEXT NOT NULL, PRIMARY KEY(conversation_id, person))";
 
@@ -19,7 +19,7 @@ export class ModelHints {
     this.db = db;
     db.exec(modelHintTable);
   }
-  /** Whether the person is shown the hint for a chat that began on `conversation.family`. */
+  /** Whether the person sees the hint for a chat that began on `conversation.family`. */
   shown(conversation, currentFamily, personId = personOf(conversation)) {
     const from = conversation.family;
     if (typeof from !== "string" || !from || from === currentFamily) return false;

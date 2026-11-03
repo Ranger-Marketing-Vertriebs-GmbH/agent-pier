@@ -280,11 +280,11 @@ export class MemberEdits {
    * runs in it (deferred-swaps.js swaps it once it is free); "off" without one.
    */
   async freshChat(plan) {
-    if (!plan?.fresh) return "off";
+    if (!plan) return "off";
     const a = this.assistants;
-    const result = await a
-      .admit(() => swapNow(a, plan))
-      .catch(() => swapNow(a, plan, { hold: true }));
+    // Also records the families of the member's chats when it swaps none (swapNow).
+    const result = await swapNow(a, plan, { admit: true });
+    if (!plan.fresh) return "off";
     await afterSwitch(a, plan, result);
     return result.deferred.length ? "waits_for_turn" : "started";
   }

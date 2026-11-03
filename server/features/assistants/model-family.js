@@ -22,13 +22,17 @@ const prefixOf = (modelId) => {
   return at > 0 ? modelId.slice(0, at) : null;
 };
 
-/** `connections.get(id).providerId` names the provider; an unreadable one is unknown. */
-export function modelFamily({ connectionId, modelId } = {}, connections) {
+/**
+ * `connections.get(id).providerId` names the provider; an unreadable one is unknown,
+ * and so is a missing model.
+ */
+export function modelFamily(model, connections) {
+  const { connectionId, modelId } = model ?? {};
   if (typeof connectionId === "string" && connectionId.startsWith("openclaw:"))
     return "openai";
   let providerId;
   try {
-    providerId = connections.get(connectionId)?.providerId;
+    providerId = connections?.get(connectionId)?.providerId;
   } catch {
     /* An unknown connection is a family of its own. */
   }

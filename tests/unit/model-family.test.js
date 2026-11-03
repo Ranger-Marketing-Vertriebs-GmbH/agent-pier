@@ -52,3 +52,11 @@ test("same model is unchanged", () => {
     false,
   );
 });
+
+test("a missing model is a family of its own on either side", () => {
+  assert.equal(modelFamily(null, connections), "unknown:undefined");
+  assert.equal(modelFamily(undefined, connections), "unknown:undefined");
+  assert.equal(familyChanged(null, chatgpt, connections), true);
+  assert.equal(familyChanged(chatgpt, null, connections), true);
+  assert.equal(familyChanged(null, null, connections), false);
+});

@@ -2,8 +2,9 @@ import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 
 // The owner's inbox with one item of every source: a CLI question (session alpha), a
 // CLI approval (session beta), a pipeline gate, an agent's shell command and a team
-// proposal; with `memoryReview` also the memory review card after a model switch. Answers go to each source's own endpoint and remove the item, as the
-// server would; the inbox list then reports a new revision.
+// proposal; with `memoryReview` also the memory review card after a model switch.
+// Answers go to each source's own endpoint and remove the item, as the server would;
+// the inbox list then reports a new revision.
 const created = (minutes) => new Date(Date.now() - minutes * 60000).toISOString();
 
 export async function inboxFixture(

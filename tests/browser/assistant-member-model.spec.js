@@ -147,6 +147,13 @@ test("a permanent member's profile offers its own model", async ({ page }) => {
   await expect(page.getByRole("switch", { name: "Follow the lead's model" })).toHaveCount(
     0,
   );
+  // A new model swaps the member's own chat only, and the hint says so.
+  await page.getByLabel("Model ID", { exact: true }).fill("anthropic/claude-sonnet-5");
+  await expect(page.getByRole("switch", { name: "Start fresh chats" })).toBeVisible();
+  await expect(page.locator("#fresh-chats-hint")).toHaveText(
+    "A new chat for this team member; the old one stays readable. Nothing running stops.",
+  );
+  await page.getByLabel("Model ID", { exact: true }).fill("openai/gpt-4.1-mini");
   // The member card with its provenance sits in the Overview.
   await page.getByRole("tab", { name: "Overview", exact: true }).click();
   await expect(

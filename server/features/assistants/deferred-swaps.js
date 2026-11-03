@@ -8,7 +8,8 @@ import { chatFree, moveChannelsOf, swapChat } from "./model-switch.js";
  * row, so a restart keeps it, and swapped with the switch's note as soon as it is
  * free; a turn is never cut for it. A held chat that was archived, deleted or already
  * replaced since, whose agent was archived, or whose member moved to another chat or
- * can no longer be reached by its lead (member-reach.js) is dropped; after a day the swap is given up.
+ * can no longer be reached by its lead (member-reach.js) is dropped; after a day the
+ * swap is given up.
  * The service's poll ticks it (queued-dispatch.js pollQueued).
  */
 const giveUpAfterMs = 24 * 60 * 60 * 1000;

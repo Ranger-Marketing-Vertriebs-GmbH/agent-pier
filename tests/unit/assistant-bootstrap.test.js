@@ -112,7 +112,8 @@ test("memory off: no memory guidance, for leads and members alike", () => {
 test("bootstrap tells the agent not to store its own refusals", () => {
   const sentence =
     "- Do not record your own refusals or limits you set yourself as rules or notes; record the owner's rules, decisions and facts.";
-  // Also the guidance of an agent on its own process (Hermes): memory not writable by AgentPier.
+  // Also the guidance of an agent on its own process (Hermes), whose memory AgentPier
+  // does not write.
   for (const options of [{}, { memoryWritable: false }])
     assert.ok(assistantBootstrap(memoryOn, {}, options).includes(sentence));
   assert.ok(!assistantBootstrap(assistant, {}).includes(sentence), "no memory, no line");

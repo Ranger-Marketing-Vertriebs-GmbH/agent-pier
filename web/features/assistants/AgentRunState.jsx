@@ -33,8 +33,8 @@ function phaseText(view) {
  * first), `compactOutcome` how one ended that outlived its request, and
  * `memoryNotSaved` that its memory step saved nothing (server long-chats.js).
  * a chat that began on another model family shows `modelHint` with New chat and
- * Dismiss (`modelHintActions`, useModelHint). `onStop`, `onRetry`, `onRecover` and `longChatActions` (useLongChat) are null where
- * the chat cannot act.
+ * Dismiss (`modelHintActions`, useModelHint). `onStop`, `onRetry`, `onRecover` and
+ * `longChatActions` (useLongChat) are null where the chat cannot act.
  */
 export default function AgentRunState({
   attempt,

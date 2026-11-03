@@ -5,7 +5,7 @@ import { parseReview } from "./memory-review-answer.js";
 import { reviewInput, reviewInstructions } from "./memory-review-prompt.js";
 import { runtimeFor, runtimeIdOf } from "./runtimes/runtime-for.js";
 import { memoryReviewInputLimit } from "./team-plugin/memory-review.js";
-import { recordReviews } from "./memory-reviews.js";
+import { ownerDecides, recordReviews } from "./memory-reviews.js";
 
 /**
  * The memory review after a model switch with fresh chats (model-switch.js): the
@@ -16,8 +16,8 @@ import { recordReviews } from "./memory-reviews.js";
  */
 
 // The most input one review sends, file headers and entry ids included, within the
-// plugin's limit. MEMORY.md and USER.md go first, then the notes newest first; a file that
-// does not fit whole stays out and the review says `truncated`.
+// plugin's limit. MEMORY.md and USER.md go first, then the notes newest first; a file
+// that does not fit whole stays out and the review says `truncated`.
 export const reviewBudget = Math.min(60000, memoryReviewInputLimit);
 const rootFiles = ["MEMORY.md", "USER.md"];
 
@@ -101,7 +101,8 @@ export class MemoryReview {
       add(name, (await this.memory.read(agent.id, name)).content);
     if (runtime === "hermes") return { files, truncated };
     for (const note of await this.notes(agent)) {
-      // A UTF-8 byte is at most one character: a note far beyond the room is not read.
+      // The room counts UTF-16 units, each at most three UTF-8 bytes of the file: a
+      // note of more than three bytes per unit of room left cannot fit, unread.
       if (note.size / 3 > left) {
         truncated = true;
         continue;
@@ -130,10 +131,16 @@ export class MemoryReview {
 // The reviews under way per service, for memoryReviewsSettled.
 const running = new WeakMap();
 
-/** Whether agent `assistantId` has memory to review (its memory capability). */
+/**
+ * Whether agent `assistantId` has memory to review (its memory capability) and the
+ * owner decides on it (memory-reviews.js): a user's own agent is not reviewed.
+ */
 export function reviewsMemory(service, assistantId) {
   try {
-    return memoryEnabled(service.store.getAssistant(assistantId));
+    return (
+      memoryEnabled(service.store.getAssistant(assistantId)) &&
+      ownerDecides(service, assistantId)
+    );
   } catch {
     return false;
   }

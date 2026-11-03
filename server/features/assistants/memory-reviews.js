@@ -13,8 +13,9 @@ import { mainConversation } from "./routine-targets.js";
  * applies; until then nothing changes. Only the owner sees and decides it: never a
  * lead (no team tool or status names it), never a user of a shared agent (her app has
  * no route to it), never for a user's own agent, whose memory the owner does not
- * change. A later switch of the same agents replaces its card; a decided card is gone. Private
- * (operations/private-tables.js) and removed with its agents (agent-deletion.js).
+ * change. A later switch of the same agents replaces its card; a decided card is gone.
+ * Private (operations/private-tables.js) and removed with its agents
+ * (agent-deletion.js).
  */
 export const memoryReviewsTable =
   "CREATE TABLE IF NOT EXISTS assistant_memory_reviews (id TEXT PRIMARY KEY, body TEXT NOT NULL)";
@@ -66,9 +67,17 @@ const agentOf = (service, id) => {
     return null;
   }
 };
-// The owner decides on his own agents and shared ones, not on a user's own agent.
-const ownersToDecide = (agent) =>
-  Boolean(agent) && !agent.archivedAt && agent.userAccess?.mode !== "own";
+const usersOwn = (agent) => agent?.userAccess?.mode === "own";
+// The owner decides on his own agents and shared ones, not on a user's own agent nor
+// on a member whose lead is one.
+const ownersToDecide = (service, agent) =>
+  Boolean(agent) &&
+  !agent.archivedAt &&
+  !usersOwn(agent) &&
+  !(agent.parentAssistantId && usersOwn(agentOf(service, agent.parentAssistantId)));
+/** Whether the owner decides a memory review of agent `id`, so it runs at all. */
+export const ownerDecides = (service, id) =>
+  ownersToDecide(service, agentOf(service, id));
 // The agent whose chat the card shows in: the agent, or for a member its lead.
 const chatAgentOf = (service, id) => {
   const agent = agentOf(service, id);
@@ -98,7 +107,7 @@ async function noticeFailed(service, assistantId) {
  */
 export async function recordReviews(service, plan, reviews) {
   const store = memoryReviewsOf(service);
-  const owned = reviews.filter((r) => ownersToDecide(agentOf(service, r.assistantId)));
+  const owned = reviews.filter((r) => ownerDecides(service, r.assistantId));
   const found = owned
     .map((r) => ({
       assistantId: r.assistantId,
@@ -152,7 +161,7 @@ export async function recordReviews(service, plan, reviews) {
 function project(service, review) {
   const agents = review.agents
     .map((a) => ({ ...a, agent: agentOf(service, a.assistantId) }))
-    .filter((a) => ownersToDecide(a.agent))
+    .filter((a) => ownersToDecide(service, a.agent))
     .map(({ agent, ...a }) => ({ ...a, name: agent.name }));
   if (!agents.length) return null;
   let conversationId = review.conversationId;

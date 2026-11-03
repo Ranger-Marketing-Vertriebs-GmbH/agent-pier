@@ -12,6 +12,8 @@ export const assistantSettingsCopy = {
   freshChats: {
     label: "Neue Chats beginnen",
     hint: "Neue Hauptchats für alle, die diesen Agenten nutzen; die alten bleiben lesbar. Laufende Arbeit wird nicht gestoppt.",
+    memberHint:
+      "Ein neuer Chat für dieses Teammitglied; der alte bleibt lesbar. Laufende Arbeit wird nicht gestoppt.",
   },
   backToAgents: "Zurück zu Agenten",
   overviewGroups: {

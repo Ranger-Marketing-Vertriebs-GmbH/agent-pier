@@ -425,7 +425,7 @@ export class AssistantService {
     );
     // The restarted Gateway's ready reconciles check-ins; this save repeats it.
     await this.admit(() => this.syncHeartbeat(id, patch)).catch(() => {});
-    swapped = await this.admit(() => swapNow(this, plan));
+    swapped = await swapNow(this, plan, { admit: true });
     if (!shell) {
       if (runtimeAccepts(this.runtime, before)) await this.config.apply(id);
       return switched(this, plan, swapped, this.withMcp(record));

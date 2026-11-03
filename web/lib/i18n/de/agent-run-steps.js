@@ -58,7 +58,8 @@ export const agentRunStepsCopy = {
   },
   longChat:
     "Dieser Chat ist lang. Nach Pausen dauert die erste Antwort länger, und ältere Details gehen leichter unter.",
-  // Der Hinweis in einem älteren Chat, dessen letzte Antworten ein Modell einer anderen Familie gab.
+  // Der Hinweis in einem älteren Chat, dessen letzte Antworten ein Modell einer anderen
+  // Familie gab.
   modelHint:
     "Dieser Chat hat mit einem anderen Modell begonnen. Sein Verlauf kann die Antworten beeinflussen.",
   modelHintNewChat: "Neuer Chat",
