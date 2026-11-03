@@ -210,10 +210,70 @@ test("in English the queue reads in English", async ({ page }) => {
     name: "Remove acme/app#7 from the queue?",
   });
   await expect(
-    confirm.getByText(/Its session, pull request and tracker entry stay/),
+    confirm.getByText(/Its session, run, pull request and tracker entry stay/),
   ).toBeVisible();
   await expect(
     confirm.getByRole("button", { name: "Remove", exact: true }),
+  ).toBeVisible();
+});
+
+test("an unreadable PR asks once more, then sends force", async ({ page }) => {
+  const armed = { ...parked, options: { allowMerge: true } };
+  const { queueCalls } = await ticketsFixture(page, {
+    queue: queueOf(armed),
+    queueAction: (call) =>
+      call.query === "?force=true"
+        ? {
+            status: 200,
+            json: {
+              ...queueOf(),
+              unchecked: { key: armed.key, pr: { number: 12, url: armed.pr.url } },
+            },
+          }
+        : {
+            status: 409,
+            json: {
+              error: "GitHub war nicht lesbar.",
+              messageKey: "tickets.prUnreadable",
+            },
+          },
+  });
+  await page.goto(base + "/projects/m1?tab=tickets");
+  await queueMenu(page, "acme/app#7").click();
+  await page.getByRole("menuitem", { name: "Aus der Warteschlange entfernen" }).click();
+  const confirm = page.getByRole("dialog", {
+    name: "acme/app#7 aus der Warteschlange entfernen?",
+  });
+  await confirm.getByRole("button", { name: "Entfernen", exact: true }).click();
+  await expect(confirm.getByText(/Pull Request #12 nicht abschalten/)).toBeVisible();
+  await confirm.getByRole("button", { name: "Trotzdem fortfahren" }).click();
+  await expect(confirm).toHaveCount(0);
+  expect(queueCalls.map((call) => [call.method, call.path, call.query])).toEqual([
+    ["DELETE", "/tickets/projects/m1/queue/i1", undefined],
+    ["DELETE", "/tickets/projects/m1/queue/i1", "?force=true"],
+  ]);
+  await expect(
+    page.getByText(/acme\/app#7 wurde entfernt\. Prüfe Pull Request #12 auf GitHub/),
+  ).toBeVisible();
+});
+
+test("a done item shows an unchecked PR", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
+  await ticketsFixture(page, {
+    queue: queueOf(
+      item("i8", "AP-8", "Forced", "done", {
+        doneBy: "owner",
+        prUnchecked: true,
+        pr: { number: 22, url: "https://github.com/acme/app/pull/22" },
+      }),
+    ),
+  });
+  await page.goto(base + "/projects/m1?tab=tickets");
+  const card = queueCard(page);
+  await expect(
+    card.getByText(
+      "Check pull request #22 on GitHub: auto-merge or the merge queue may still be on.",
+    ),
   ).toBeVisible();
 });
 

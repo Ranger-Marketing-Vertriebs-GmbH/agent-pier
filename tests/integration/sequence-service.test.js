@@ -252,16 +252,52 @@ test("mark done of a PR merged by hand needs no disarm", async (t) => {
   assert.equal(mutations(f, "disablePullRequestAutoMerge").length, 0);
 });
 
-test("mark done and remove of an armed PR are refused while GitHub is unreachable", async (t) => {
+test("mark done and remove of an armed PR need a confirmation while GitHub is unreadable", async (t) => {
+  const failures = {};
+  const f = await sequenceFixture(t, { failures });
+  await awaitingMerge(f, { allowMerge: true, pull: { contexts: PENDING } });
+  const [first, second] = f.items();
+  park(f, first.id, "idle");
+  failures["POST /graphql"] = 503;
+  for (const action of ["markDone", "remove"])
+    await assert.rejects(service(f)[action]("p1", first.id), {
+      status: 409,
+      message: copy.prUnreadable,
+    });
+  assert.equal(f.items()[0].state, "needs-owner");
+  const done = await service(f).markDone("p1", first.id, { force: true });
+  assert.equal(done.queue.items[0].state, "done");
+  assert.equal(done.queue.items[0].prUnchecked, true);
+  assert.equal(f.items()[0].prUnchecked, true);
+  await settled(f);
+  // A token that is gone for good: Remove goes on once confirmed and names the PR.
+  f.tickets.repositories.token = () => null;
+  const item = f.items().find((entry) => entry.id === second.id);
+  park(f, item.id, "githubRequired", {
+    pr: { number: 31, url: "https://github.com/acme/app/pull/31", headRef: "x" },
+  });
+  await assert.rejects(service(f).remove("p1", second.id), { status: 409 });
+  const removed = await service(f).remove("p1", second.id, { force: true });
+  assert.deepEqual(removed.unchecked, {
+    key: "acme/app#13",
+    pr: { number: 31, url: "https://github.com/acme/app/pull/31" },
+  });
+  assert.equal(
+    removed.queue.items.some((entry) => entry.id === second.id),
+    false,
+  );
+});
+
+test("retry while GitHub is unreadable watches the PR again", async (t) => {
   const failures = {};
   const f = await sequenceFixture(t, { failures });
   await awaitingMerge(f, { allowMerge: true, pull: { contexts: PENDING } });
   const [first] = f.items();
-  park(f, first.id, "idle");
+  park(f, first.id, "forgeUnreachable");
   failures["POST /graphql"] = 503;
-  for (const action of ["markDone", "remove"])
-    await assert.rejects(service(f)[action]("p1", first.id), { status: 502 });
-  assert.equal(f.items()[0].state, "needs-owner");
+  const view = await service(f).retry("p1", first.id);
+  assert.equal(view.queue.items[0].state, "awaiting-merge");
+  assert.equal(f.launched.length, 1);
 });
 
 test("the view lists sessions for the repair defaults at most once a minute", async (t) => {

@@ -59,11 +59,17 @@ export function ticketRoutes(services) {
   router.post(`${queue}/:itemId/retry`, async (req, res) =>
     res.json(await ticketSequences.retry(req.params.projectId, req.params.itemId)),
   );
+  // `?force=true`: the owner confirmed to go on although GitHub could not be read.
+  const force = (req) => ({ force: req.query.force === "true" });
   router.post(`${queue}/:itemId/done`, async (req, res) =>
-    res.json(await ticketSequences.markDone(req.params.projectId, req.params.itemId)),
+    res.json(
+      await ticketSequences.markDone(req.params.projectId, req.params.itemId, force(req)),
+    ),
   );
   router.delete(`${queue}/:itemId`, async (req, res) =>
-    res.json(await ticketSequences.remove(req.params.projectId, req.params.itemId)),
+    res.json(
+      await ticketSequences.remove(req.params.projectId, req.params.itemId, force(req)),
+    ),
   );
   return router;
 }

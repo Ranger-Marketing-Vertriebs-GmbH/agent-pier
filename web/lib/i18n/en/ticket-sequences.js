@@ -45,6 +45,13 @@ export const ticketQueueCopy = {
   removeTitle: (key) => `Remove ${key} from the queue?`,
   removeBody:
     "The ticket leaves the sequence. Its session, run, pull request and tracker entry stay; AgentPier no longer watches them.",
+  unreadableBody: (number) =>
+    `GitHub could not be read, so AgentPier cannot turn off auto-merge or the merge queue for pull request #${number}. It may still merge. Go on anyway and check the pull request on GitHub.`,
+  confirmAnyway: "Go on anyway",
+  prUnchecked: (number) =>
+    `Check pull request #${number} on GitHub: auto-merge or the merge queue may still be on.`,
+  removedUnchecked: (key, number) =>
+    `${key} was removed. Check pull request #${number} on GitHub: auto-merge or the merge queue may still be on.`,
 };
 
 // Selecting tickets in the list and the dialog that starts them as a sequence.

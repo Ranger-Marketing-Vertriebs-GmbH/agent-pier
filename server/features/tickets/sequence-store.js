@@ -151,6 +151,8 @@ function item(value) {
     };
   if (number(value.doneAt) !== undefined) out.doneAt = value.doneAt;
   if (value.doneBy === "merge" || value.doneBy === "owner") out.doneBy = value.doneBy;
+  // Marked done while GitHub could not be read: its PR may still be armed.
+  if (value.prUnchecked === true) out.prUnchecked = true;
   if (
     plain(value.writeBack) &&
     ["pending", "done", "failed"].includes(value.writeBack.state)

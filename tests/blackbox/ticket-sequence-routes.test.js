@@ -196,6 +196,37 @@ test("remove takes a running item out, never one awaiting its merge", async (t) 
   assert.equal(busy.body.error, copy.itemBusy);
 });
 
+test("done and remove go on with force=true when the PR cannot be read", async (t) => {
+  const { f, project, call, queue } = await sequenceApp(t);
+  const store = f.application.ticketSequenceStore;
+  const added = await call(queue, {
+    method: "POST",
+    body: body(["acme/app#12", "acme/app#13"], { allowMerge: true }),
+  });
+  const pr = { number: 3, url: "https://github.com/acme/app/pull/3", headRef: "t" };
+  for (const item of added.body.queue.items) {
+    store.patch(project.id, item.id, { state: "running", sessionId: "s1" });
+    store.patch(project.id, item.id, { state: "awaiting-merge", pr });
+    store.patch(project.id, item.id, {
+      state: "needs-owner",
+      needsOwner: { reason: "forgeUnreachable", at: 1 },
+    });
+  }
+  const [first, second] = added.body.queue.items;
+  // The fake GitHub serves issues only: every pull request read fails.
+  const refused = await call(`${queue}/${first.id}/done`, { method: "POST" });
+  assert.equal(refused.status, 409);
+  assert.equal(refused.body.error, copy.prUnreadable);
+  const done = await call(`${queue}/${first.id}/done?force=true`, { method: "POST" });
+  assert.equal(done.status, 200);
+  assert.equal(done.body.queue.items[0].prUnchecked, true);
+  const kept = await call(`${queue}/${second.id}`, { method: "DELETE" });
+  assert.equal(kept.status, 409);
+  const removed = await call(`${queue}/${second.id}?force=true`, { method: "DELETE" });
+  assert.equal(removed.status, 200);
+  assert.equal(removed.body.unchecked.pr.number, 3);
+});
+
 test("responses never contain the token", async (t) => {
   const { f, project, call, queue, responses } = await sequenceApp(t);
   const added = await call(queue, { method: "POST", body: body(["acme/app#12"]) });

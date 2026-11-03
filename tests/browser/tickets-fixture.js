@@ -81,7 +81,7 @@ export const emptyQueue = { queue: { items: [] }, defaults: { repair: null } };
 // remote ticket list and `start` each POST …/start. `queue`
 // (a value or a function) answers GET …/queue; `queueAction({method, path, body})`
 // answers the queue's writes (POST …/queue, …/retry, …/done, DELETE), which are
-// recorded in `queueCalls`; without it they answer the current queue.
+// recorded in `queueCalls` (with `query` when the URL has one); without it they answer the current queue.
 export async function ticketsFixture(
   page,
   { view = connectedView, list = ticketList, start, queue = emptyQueue, queueAction },
@@ -123,6 +123,7 @@ export async function ticketsFixture(
           method,
           path: url.pathname.slice("/api".length),
           body: route.request().postDataJSON() ?? undefined,
+          ...(url.search ? { query: url.search } : {}),
         };
         queueCalls.push(call);
         const answer = queueAction?.(call, queueCalls.length) ?? {

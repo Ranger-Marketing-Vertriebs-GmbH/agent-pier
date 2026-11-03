@@ -30,6 +30,8 @@ export const tickets = Object.freeze({
   githubRequired: "Ticketfolgen brauchen ein GitHub-Repository für dieses Projekt.",
   worktreeLeftover:
     "Der Ordner des letzten Versuchs liegt noch unter .worktrees/ und ist nicht sauber oder auf einem anderen Branch. Bitte den Ordner prüfen und entfernen, dann erneut versuchen.",
+  prUnreadable:
+    "GitHub war nicht lesbar, deshalb kann AgentPier Auto-Merge oder die Merge-Queue für diesen Pull Request nicht abschalten. Bestätige, um trotzdem fortzufahren, und prüfe den Pull Request dann auf GitHub.",
   source: Object.freeze({
     unauthorized: "Die Ticketquelle hat den Zugang abgelehnt. Bitte den Token prüfen.",
     forbidden: "Der Token der Ticketquelle hat dafür keine Berechtigung.",
