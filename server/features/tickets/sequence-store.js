@@ -317,6 +317,27 @@ export class TicketSequenceStore {
     }
     this.changed(projectId);
   }
+  /** How many more items the queue takes before it is full. */
+  freeSlots(projectId) {
+    const items = this.byProject.get(projectId)?.items ?? [];
+    return Math.max(0, MAX_ACTIVE - items.filter(isActive).length);
+  }
+  /**
+   * "active" when the ticket waits or runs in the queue, "done" when only a done item
+   * holds it (until that is pruned), null otherwise.
+   */
+  contains(projectId, source, key) {
+    const found = this.find(projectId, source, key);
+    if (!found) return null;
+    return isActive(found) ? "active" : "done";
+  }
+  /** The ticket's item, the active one before a done one; null when there is none. */
+  find(projectId, source, key) {
+    const items = this.byProject.get(projectId)?.items ?? [];
+    const mine = items.filter((entry) => same(entry, { source, key }));
+    const found = mine.find(isActive) ?? mine.at(-1);
+    return found ? structuredClone(found) : null;
+  }
   /** The first item that is not done; a needs-owner head blocks the whole queue. */
   head(projectId) {
     const found = this.byProject.get(projectId)?.items.find(isActive);
