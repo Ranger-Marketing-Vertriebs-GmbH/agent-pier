@@ -29,7 +29,7 @@ const planeItem = (n, extra = {}) => ({
 
 async function setup(
   t,
-  { githubFailures = {}, planeFailures = {}, tool = "claude", deliver } = {},
+  { githubFailures = {}, planeFailures = {}, tool = "claude", deliver, taken } = {},
 ) {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "ap-ticket-svc-")));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -119,6 +119,7 @@ async function setup(
         hubSignals.push(param === undefined ? name : `${name}:${param}`),
     }),
     fetchImpl: github.fetchImpl,
+    ...(taken ? { taken } : {}),
   });
   const linkPlane = (id = "p1") =>
     service.setSources(id, {
@@ -452,3 +453,62 @@ for (const [name, deliver] of [
     assert.deepEqual(stopped, ["s1"]);
     assert.equal(launched.length, 2);
   });
+
+test("manual start of a rule-queued ticket is refused, also with again", async (t) => {
+  const asked = [];
+  const { service, launched } = await setup(t, {
+    taken: (...args) => (asked.push(args), "queued"),
+  });
+  for (const again of [false, true])
+    await assert.rejects(
+      service.start("p1", {
+        source: "github",
+        key: "ACME/App#7",
+        kind: "session",
+        session: {},
+        again,
+      }),
+      { status: 409, message: serverMessages.tickets.ticketQueued },
+    );
+  assert.equal(launched.length, 0);
+  // The canonical key, as the queue and the pickups spell it.
+  assert.deepEqual(asked[0], ["p1", "github", "acme/app#7"]);
+});
+
+test("manual start of a picked ticket needs again", async (t) => {
+  const { service, launched } = await setup(t, { taken: () => "picked" });
+  const start = (again) =>
+    service.start("p1", {
+      source: "github",
+      key: "acme/app#7",
+      kind: "session",
+      session: {},
+      again,
+    });
+  await assert.rejects(start(false), {
+    status: 409,
+    message: serverMessages.tickets.alreadyStarted,
+  });
+  assert.equal(launched.length, 0);
+  await assert.doesNotReject(start(true));
+  assert.equal(launched.length, 1);
+});
+
+test("a manual start in flight is visible to rules and sequences", async (t) => {
+  let during = null;
+  const { service } = await setup(t, {
+    deliver: () => {
+      during = service.isStarting("p1", "github", "acme/app#7");
+      return { status: "handed-off" };
+    },
+  });
+  assert.equal(service.isStarting("p1", "github", "acme/app#7"), false);
+  await service.start("p1", {
+    source: "github",
+    key: "acme/app#7",
+    kind: "session",
+    session: {},
+  });
+  assert.equal(during, true);
+  assert.equal(service.isStarting("p1", "github", "acme/app#7"), false);
+});

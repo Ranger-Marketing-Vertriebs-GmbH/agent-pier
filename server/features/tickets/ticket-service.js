@@ -52,6 +52,9 @@ export class TicketService {
     fetchImpl = globalThis.fetch,
     sources = ticketSources,
     now = Date.now,
+    // "queued" while a sequence holds the ticket, "picked" once a rule took it, else
+    // null; bound late to the sequence and rule stores.
+    taken = () => null,
   }) {
     Object.assign(this, {
       store,
@@ -67,8 +70,14 @@ export class TicketService {
       fetchImpl,
       sources,
       now,
+      taken,
     });
     this.starting = new Set();
+  }
+
+  /** A manual start of this ticket is in flight (see start). */
+  isStarting(projectId, source, key) {
+    return this.starting.has(`${projectId}:${source}:${key}`);
   }
 
   resolveProject(projectId) {
@@ -286,7 +295,14 @@ export class TicketService {
     if (this.starting.has(lock)) throw problem(copy.alreadyStarting, 409);
     this.starting.add(lock);
     try {
-      if (this.store.findStart(project.id, checked.source, key) && !checked.again)
+      // Checked in the same tick as the lock: a rule or a sequence that appends the
+      // ticket later sees the lock (isStarting) and leaves it alone.
+      const taken = this.taken(project.id, checked.source, key);
+      if (taken === "queued") throw problem(copy.ticketQueued, 409);
+      if (
+        !checked.again &&
+        (taken === "picked" || this.store.findStart(project.id, checked.source, key))
+      )
         throw problem(copy.alreadyStarted, 409);
       const ticket = await source.get(access, key);
       const ref = ticketRef(ticket);
