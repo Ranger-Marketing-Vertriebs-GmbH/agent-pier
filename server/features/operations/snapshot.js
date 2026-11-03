@@ -190,6 +190,7 @@ export function capture({
     );
     addJson("provider-connections.json");
     addJson("repositories.json");
+    addJson("ticket-sources.json");
     addJson("preferences.json");
     addJson("project-groups.json");
     addJson("views.json");
@@ -348,6 +349,14 @@ export function capture({
             path.join(dataDir, "repository-secrets"),
             "repository-secrets",
             areaComponent("repositoryCredentials"),
+            notSecret,
+          ),
+        ),
+        ...sealed(
+          secrets.tree(
+            path.join(dataDir, "ticket-source-secrets"),
+            "ticket-source-secrets",
+            areaComponent("ticketSourceCredentials"),
             notSecret,
           ),
         ),

@@ -1,5 +1,15 @@
 /** English messages of the ticket sources (GitHub issues, Plane work items). */
 export const tickets = Object.freeze({
+  connectionNotFound: "The ticket source connection was not found.",
+  connectionInUse: "A project still uses this connection.",
+  invalidBaseUrl:
+    "The ticket source address must start with https:// (http:// only for localhost) and must not contain credentials, a query or a fragment.",
+  invalidWorkspace: "The workspace slug of the ticket source is invalid.",
+  invalidToken: "The ticket source token is invalid.",
+  tokenRequired: "A token is required for the ticket source.",
+  invalidLink: "The ticket source link of the project is invalid.",
+  invalidStart: "The ticket start is invalid.",
+  startNotFound: "The ticket start was not found.",
   source: Object.freeze({
     unauthorized: "The ticket source rejected the credentials. Please check the token.",
     forbidden: "The ticket source token has no permission for this.",
