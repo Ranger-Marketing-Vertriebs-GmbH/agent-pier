@@ -174,6 +174,8 @@ export class PluginStore {
       update: cliList.update,
       install: true,
     };
+    // Builds `claudeMarketplaceRemovalNotice` or `codexActivationNotice` from the
+    // CLI's `noteCode`; keep both keys in the server messages.
     result.note += serverMessages.plugins[`${cliList.noteCode}Notice`];
     result.noteCodes.push(cliList.noteCode);
     return result;
