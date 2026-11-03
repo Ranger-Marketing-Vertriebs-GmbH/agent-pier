@@ -194,3 +194,68 @@ test("RepositoryStore#token reads the saved token only", (t) => {
   assert.equal(store.token("missing"), null);
   assert.equal(store.token("../repositories"), null);
 });
+
+const PR = "https://github.com/acme/app/pull/9";
+
+test("github markDone closes an open issue, drops the label and comments", async (t) => {
+  const fake = await fakeGithub(t, {
+    issues: [githubIssue(7, { labels: [{ name: "in progress" }] })],
+  });
+  const access = accessFor(fake);
+  const ticket = await githubSource.get(access, "acme/app#7");
+  fake.calls.length = 0;
+  const done = await githubSource.markDone(access, ticket, { prUrl: PR });
+  assert.deepEqual(done, { state: "done" });
+  assert.deepEqual(
+    fake.calls.map((c) => [c.method, c.path, c.body]),
+    [
+      ["GET", "/repos/acme/app/issues/7", undefined],
+      [
+        "PATCH",
+        "/repos/acme/app/issues/7",
+        { state: "closed", state_reason: "completed" },
+      ],
+      ["DELETE", "/repos/acme/app/issues/7/labels/in%20progress", undefined],
+      [
+        "POST",
+        "/repos/acme/app/issues/7/comments",
+        { body: "Done: merged in https://github.com/acme/app/pull/9." },
+      ],
+    ],
+  );
+});
+
+test("github markDone on a closed issue only drops the label and comments", async (t) => {
+  const fake = await fakeGithub(t, { issues: [githubIssue(7, { state: "closed" })] });
+  const access = accessFor(fake);
+  const ticket = await githubSource.get(access, "acme/app#7");
+  fake.calls.length = 0;
+  await githubSource.markDone(access, ticket, { prUrl: PR });
+  assert.deepEqual(
+    fake.calls.map((c) => c.method),
+    ["GET", "DELETE", "POST"],
+  );
+});
+
+test("github markDone ignores a missing label", async (t) => {
+  const fake = await fakeGithub(t, {
+    issues: [githubIssue(7)],
+    failures: { "DELETE /repos/acme/app/issues/7/labels/in%20progress": 404 },
+  });
+  const access = accessFor(fake);
+  const ticket = await githubSource.get(access, "acme/app#7");
+  assert.deepEqual(await githubSource.markDone(access, ticket, { prUrl: PR }), {
+    state: "done",
+  });
+  assert.equal(fake.calls.at(-1).method, "POST");
+});
+
+test("markDone comments omit a bad PR url and never contain the AgentPier address", async (t) => {
+  const fake = await fakeGithub(t, { issues: [githubIssue(7)] });
+  const access = accessFor(fake);
+  const ticket = await githubSource.get(access, "acme/app#7");
+  await githubSource.markDone(access, ticket, { prUrl: "javascript:alert(1)" });
+  const body = fake.calls.at(-1).body.body;
+  assert.equal(body, "Done in AgentPier.");
+  assert.doesNotMatch(body, /127\.0\.0\.1|localhost|agentpier\.[a-z]/i);
+});

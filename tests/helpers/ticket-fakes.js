@@ -37,6 +37,17 @@ export async function fakeGithub(t, { issues = [], failures = {} } = {}) {
         const issue = issues.find((item) => item.number === Number(one[3]));
         return issue ? send(200, issue) : send(404, { message: "Not Found" });
       }
+      if (req.method === "PATCH" && one) {
+        const issue = issues.find((item) => item.number === Number(one[3]));
+        if (!issue) return send(404, { message: "Not Found" });
+        Object.assign(issue, JSON.parse(raw || "{}"));
+        return send(200, issue);
+      }
+      if (
+        req.method === "DELETE" &&
+        /^\/repos\/[^/]+\/[^/]+\/issues\/\d+\/labels\/[^/]+$/.test(url.pathname)
+      )
+        return send(200, []);
       if (req.method === "POST" && /\/issues\/\d+\/(labels|comments)$/.test(url.pathname))
         return send(200, []);
       send(404, { message: "Not Found" });

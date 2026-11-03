@@ -1,4 +1,4 @@
-import { cleanTicket } from "../ticket.js";
+import { cleanTicket, httpUrl } from "../ticket.js";
 import { requestJson, TicketSourceError } from "../http-json.js";
 
 const NAME = /^[A-Za-z0-9_.-]{1,100}$/;
@@ -125,6 +125,32 @@ export const githubSource = {
     await call(access, `${base}/comments`, {
       method: "POST",
       body: { body: `Started in AgentPier (${noun}).` },
+      signal,
+    });
+    return { state: "done" };
+  },
+  async markDone(access, ticket, { prUrl, label = "in progress", signal } = {}) {
+    const base = `${repoPath(access)}/issues/${encodeURIComponent(ticket.number)}`;
+    const { data } = await call(access, base, { signal });
+    if (!data || typeof data !== "object") throw new TicketSourceError("invalidResponse");
+    if (data.state !== "closed")
+      await call(access, base, {
+        method: "PATCH",
+        body: { state: "closed", state_reason: "completed" },
+        signal,
+      });
+    try {
+      await call(access, `${base}/labels/${encodeURIComponent(label)}`, {
+        method: "DELETE",
+        signal,
+      });
+    } catch (error) {
+      if (error?.code !== "notFound") throw error;
+    }
+    const url = httpUrl(prUrl);
+    await call(access, `${base}/comments`, {
+      method: "POST",
+      body: { body: url ? `Done: merged in ${url}.` : "Done in AgentPier." },
       signal,
     });
     return { state: "done" };

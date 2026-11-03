@@ -48,7 +48,7 @@ function cutAt(value, limit) {
   return value.slice(0, end);
 }
 
-function httpUrl(value) {
+export function httpUrl(value) {
   try {
     const url = new URL(String(value ?? ""));
     return url.protocol === "http:" || url.protocol === "https:" ? url.href : "";
