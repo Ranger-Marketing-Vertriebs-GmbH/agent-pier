@@ -20,6 +20,7 @@ const definition = {
   },
   defaultLaunchMode: "auto",
   unattendedModes: ["bypass"],
+  unattendedArgs: ["bypassPermissions"],
   loginArgs: [],
   authStatusArgs: ["auth", "status", "--json"],
   apiKeyEnv: "ANTHROPIC_API_KEY",

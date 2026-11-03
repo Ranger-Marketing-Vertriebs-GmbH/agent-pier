@@ -1,3 +1,5 @@
+import { cliDefinition, isCodingCli } from "../clis/catalog.js";
+
 // Claude Code delivers a cross-session message automatically only when the sender's
 // attested permission class matches its own; otherwise it holds the message for
 // manual approval. AgentPier attests the class the sending session was launched
@@ -8,10 +10,10 @@ export function permissionClass(session) {
   if (session.pipeline?.headless === true) return "bypass";
   const mode = session.launchMode;
   const args = Array.isArray(session.permissionArgs) ? session.permissionArgs : [];
+  const tool = session.tool;
   const bypass =
-    (session.tool === "claude" &&
-      (mode === "bypass" || args.includes("bypassPermissions"))) ||
-    (session.tool === "codex" && mode === "yolo") ||
-    (session.tool === "opencode" && (mode === "auto" || args.includes("--auto")));
+    isCodingCli(tool) &&
+    (cliDefinition(tool).unattendedModes.includes(mode) ||
+      args.some((arg) => cliDefinition(tool).unattendedArgs.includes(arg)));
   return bypass ? "bypass" : "prompting";
 }

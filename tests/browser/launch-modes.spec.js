@@ -301,4 +301,7 @@ test("unattended modes carry a warning and say when memory preselected them", as
   await mode.selectOption("bypass");
   await expect(note).toHaveClass(/launch-mode-warning/);
   await expect(note).not.toContainText(remembered);
+  await page.getByLabel("CLI", { exact: true }).selectOption("opencode");
+  await expect(mode).toHaveValue("auto");
+  await expect(note).toHaveClass(/launch-mode-warning/);
 });

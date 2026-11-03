@@ -41,7 +41,12 @@ test("definitions carry every required field", () => {
       assert.equal(typeof d.nativeInstaller[key], "string");
     assert.ok(Array.isArray(d.nativeInstaller.args));
     assert.ok(Array.isArray(d.updateArgs));
-    for (const key of ["unattendedModes", "loginArgs", "authStatusArgs"])
+    for (const key of [
+      "unattendedModes",
+      "unattendedArgs",
+      "loginArgs",
+      "authStatusArgs",
+    ])
       assert.ok(Array.isArray(d[key]), `${id}.${key}`);
     assert.ok(Array.isArray(d.launchModes.default));
     assert.ok(d.defaultLaunchMode in d.launchModes || d.defaultLaunchMode === "default");
@@ -133,5 +138,16 @@ test("MCP transport capabilities and login commands per CLI", () => {
   assert.deepEqual(
     CODING_CLI_IDS.map((id) => cliDefinition(id).mcpLoginCommand("x")),
     ["codex mcp login x", "/mcp", "opencode mcp auth x"],
+  );
+});
+
+test("unattended modes and arguments per coding CLI", () => {
+  assert.deepEqual(
+    CODING_CLI_IDS.map((id) => cliDefinition(id).unattendedModes),
+    [["yolo"], ["bypass"], ["auto"]],
+  );
+  assert.deepEqual(
+    CODING_CLI_IDS.map((id) => cliDefinition(id).unattendedArgs),
+    [[], ["bypassPermissions"], ["--auto"]],
   );
 });

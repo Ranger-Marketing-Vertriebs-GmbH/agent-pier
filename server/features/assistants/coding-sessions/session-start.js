@@ -1,5 +1,6 @@
 import { deliverCodingStart } from "../coding-start-follow-up.js";
 import path from "node:path";
+import { cliDefinition, isCodingCli } from "../../clis/catalog.js";
 import { randomUUID } from "node:crypto";
 import { serverMessages } from "../../../lib/i18n/de.js";
 import { digest } from "../assistant-access.js";
@@ -34,8 +35,6 @@ const optionKeys = [
   "agentbus",
 ];
 const invalid = () => assistantProblem("invalid");
-// Launch modes in which the CLI runs commands without asking.
-const unattendedModes = new Set(["bypass", "yolo"]);
 const text = (value, max) =>
   typeof value === "string" &&
   value.trim().length > 0 &&
@@ -108,7 +107,9 @@ export function launchSummary(options, offered, connection) {
   const launchMode = options.launchMode ?? launchDefaults.launchMode[options.tool];
   return {
     launchMode,
-    unattended: unattendedModes.has(launchMode),
+    unattended:
+      isCodingCli(options.tool) &&
+      cliDefinition(options.tool).unattendedModes.includes(launchMode),
     account:
       offered.accounts.find((a) => a.id === options.accountId)?.name ??
       options.accountId ??

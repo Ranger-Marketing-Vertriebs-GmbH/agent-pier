@@ -49,7 +49,8 @@ home, or the owning service (for example the `ProviderHistory` instance for `his
 | `minVersion`               | Minimum version for sessions (see [CLI updates](cli-updates.md#minimum-cli-versions)) |
 | `launchModes`              | `{ mode: args }`; `default` is always present                                         |
 | `defaultLaunchMode`        | The mode new accounts start in                                                        |
-| `unattendedModes`          | Modes that skip every approval                                                        |
+| `unattendedModes`          | Modes that skip every approval (Codex `yolo`, Claude `bypass`, OpenCode `auto`)       |
+| `unattendedArgs`           | Permission arguments that make a session unattended (AgentBus permission class)       |
 | `loginArgs`                | Sign-in command (`[]`: the CLI signs in inside its own TUI)                           |
 | `authStatusArgs`           | Command whose output `parseAuthStatus` reads                                          |
 | `apiKeyEnv`                | Variable for API-key accounts                                                         |

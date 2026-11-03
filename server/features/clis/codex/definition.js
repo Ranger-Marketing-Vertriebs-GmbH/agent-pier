@@ -16,6 +16,7 @@ const definition = {
   launchModes: { default: [], yolo: ["--yolo"] },
   defaultLaunchMode: "yolo",
   unattendedModes: ["yolo"],
+  unattendedArgs: [],
   loginArgs: ["login", "--device-auth"],
   authStatusArgs: ["login", "status"],
   apiKeyEnv: "OPENAI_API_KEY",

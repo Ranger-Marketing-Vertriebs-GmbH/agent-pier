@@ -154,7 +154,6 @@ const BRANCH_BUDGET = {
   "server/features/accounts/auth-status.js": 1,
   "server/features/agentbus/agent-bus.js": 6,
   "server/features/agentbus/agentbus-broker.js": 9,
-  "server/features/agentbus/agentbus-permission-class.js": 3,
   "server/features/agentbus/agentbus-process.js": 3,
   "server/features/chat/chat-delivery-recovery.js": 3,
   "server/features/chat/chat-source-watch.js": 1,
