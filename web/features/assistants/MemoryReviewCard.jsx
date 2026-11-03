@@ -18,12 +18,8 @@ const entriesOf = (review) => review.agents.flatMap((a) => a.entries);
  */
 export default function MemoryReviewCard({ review, onApplied }) {
   const [choices, setChoices] = useState(() =>
-    Object.fromEntries(
-      entriesOf(review).map((e) => [
-        e.id,
-        e.recommendation === "keep" ? "keep" : "archive",
-      ]),
-    ),
+    // Every entry on the card is a model limit: Archive is preselected.
+    Object.fromEntries(entriesOf(review).map((e) => [e.id, "archive"])),
   );
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");

@@ -188,9 +188,13 @@ test("Apply archives the chosen entries and keeps the rest", async (t) => {
   const status = await (await f.request(`/api/inbox/memory-review/${review.id}`)).json();
   assert.equal(status.state, "done");
   assert.equal(status.decision, "apply");
-  const [answered] = service.audit.list({ action: "assistant.answered" }).events;
+  // The Apply that succeeded names the agent; the refused ones above failed.
+  const answered = service.audit
+    .list({ action: "assistant.answered" })
+    .events.find((e) => e.outcome === "success");
   assert.equal(answered.details.kind, "memory-review");
   assert.equal(answered.details.actionId, review.id);
+  assert.equal(answered.resourceId, agent.id);
   assert.doesNotMatch(JSON.stringify(service.audit.list({}).events), entryText);
 });
 
@@ -242,11 +246,13 @@ test("a lead never sees the card", async (t) => {
   const leadView = JSON.stringify([result, service.teams.list()]);
   assert.doesNotMatch(leadView, entryText);
   assert.equal(leadView.includes(review.id), false);
-  const history = service.ledger
-    .listRequests?.(main.id)
-    ?.map((r) => r.text)
-    .join(" ");
-  assert.doesNotMatch(history || "", entryText);
+  // Nor does its chat: the history route and the requests of the lead's turns.
+  const res = await f.request(`/api/assistant-conversations/${main.id}/messages`);
+  assert.equal(res.status, 200);
+  const history = await res.text();
+  assert.ok(history.includes("Edit"), "the lead's own turn is in its history");
+  assert.doesNotMatch(history, entryText);
+  assert.doesNotMatch(JSON.stringify(service.ledger.requests(main.id)), entryText);
 });
 
 test("a user of a shared agent never sees it", async (t) => {

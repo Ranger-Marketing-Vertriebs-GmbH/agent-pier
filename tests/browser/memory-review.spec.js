@@ -19,8 +19,15 @@ const review = {
       name: "Home assistant",
       entries: [
         { id: "e1", file: "MEMORY.md", entry: refusal, kind: "model-limit" },
-        { id: "e2", file: "memory/2026-11-02.md", entry: phishing, kind: "model-limit" },
-      ].map((e) => ({ ...e, recommendation: "archive" })),
+        {
+          id: "e2",
+          file: "memory/2026-11-02.md",
+          entry: phishing,
+          kind: "model-limit",
+          // The model's own advice does not change the default.
+          recommendation: "keep",
+        },
+      ].map((e) => ({ recommendation: "archive", ...e })),
     },
   ],
 };
@@ -79,6 +86,7 @@ test("a review with findings waits in the owner's chat and applies his choices",
   // Archive is chosen for every entry; the owner keeps the second one.
   const choice = (file) => card.getByRole("radiogroup", { name: `Entry in ${file}` });
   await expect(choice("MEMORY.md").getByLabel("Archive")).toBeChecked();
+  await expect(choice("memory/2026-11-02.md").getByLabel("Archive")).toBeChecked();
   await choice("memory/2026-11-02.md").getByText("Keep").click();
   await card.getByRole("button", { name: "Apply", exact: true }).click();
   await expect
