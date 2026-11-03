@@ -1,4 +1,8 @@
-import { cliName, codingCliIds } from "../../../server/features/clis/catalog.js";
+import {
+  cliDefinition,
+  cliName,
+  codingCliIds,
+} from "../../../server/features/clis/catalog.js";
 const docs = {
   codex: "https://learn.chatgpt.com/docs/extend/mcp?surface=cli",
   claude: "https://code.claude.com/docs/en/mcp",
@@ -22,36 +26,7 @@ export function mcpEndpoint(value) {
   }
 }
 const shellQuote = (value) => "'" + value.replaceAll("'", "'\\''") + "'";
-export function setupSteps(cli, endpoint) {
-  const url = shellQuote(endpoint);
-  if (cli === "claude")
-    return [
-      ["add", `claude mcp add --transport http --scope user agentpier ${url}`],
-      ["login", "/mcp"],
-      ["check", "claude mcp get agentpier\nclaude mcp list"],
-      ["remove", "claude mcp remove --scope user agentpier"],
-    ];
-  if (cli === "opencode")
-    return [
-      [
-        "add",
-        JSON.stringify(
-          {
-            $schema: "https://opencode.ai/config.json",
-            mcp: { agentpier: { type: "remote", url: endpoint, enabled: true } },
-          },
-          null,
-          2,
-        ),
-      ],
-      ["login", "opencode mcp auth agentpier"],
-      ["check", "opencode mcp list\nopencode mcp debug agentpier"],
-      ["remove", "opencode mcp logout agentpier"],
-    ];
-  return [
-    ["add", `codex mcp add agentpier --url ${url}`],
-    ["login", "codex mcp login agentpier --oauth-client-registration dcr"],
-    ["check", "codex mcp get agentpier\ncodex mcp list"],
-    ["remove", "codex mcp logout agentpier\ncodex mcp remove agentpier"],
-  ];
-}
+/** `{ steps, removeNote? }` of `cli`'s MCP setup, from its definition. */
+export const setupPlan = (cli, endpoint) =>
+  cliDefinition(cli).mcpSetup({ endpoint, quoted: shellQuote(endpoint) });
+export const setupSteps = (cli, endpoint) => setupPlan(cli, endpoint).steps;

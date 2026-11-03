@@ -1,7 +1,7 @@
 import React from "react";
 import CopyButton from "../../components/CopyButton.jsx";
 import { mcpCopy as copy } from "../../lib/i18n/messages/mcp.js";
-import { clients, mcpEndpoint, setupSteps } from "./setup.js";
+import { clients, mcpEndpoint, setupPlan } from "./setup.js";
 function CopyBlock({ label, value, button = copy.copy(label) }) {
   return (
     <div className="mcp-command">
@@ -24,6 +24,7 @@ function CopyBlock({ label, value, button = copy.copy(label) }) {
 export default function McpSetup({ config, cli, navigate }) {
   const endpoint = config.available && mcpEndpoint(config.mcpUrl);
   const local = endpoint && new URL(endpoint).protocol === "http:";
+  const plan = endpoint ? setupPlan(cli, endpoint) : null;
   return (
     <section className="mcp-card" aria-labelledby="mcp-setup-title">
       <h2 id="mcp-setup-title">{copy.setup}</h2>
@@ -75,12 +76,11 @@ export default function McpSetup({ config, cli, navigate }) {
           <div id="mcp-cli-panel" role="tabpanel" aria-labelledby={`mcp-tab-${cli}`}>
             <p>{copy[`${cli}Hint`]}</p>
             <p>{copy.connectionHint}</p>
-            {setupSteps(cli, endpoint).map(([id, value]) => {
-              const label =
-                cli === "codex" && id === "login" ? copy.retryLogin : copy[id];
-              // The OpenCode entry is JSON for opencode.json; every other step is a command.
+            {plan.steps.map(({ id, value, kind, label: labelKey }) => {
+              const label = copy[labelKey ?? id];
+              // A "config" step is JSON for a config file; every other step is a command.
               const button =
-                cli === "opencode" && id === "add"
+                kind === "config"
                   ? copy.copyConfiguration(label)
                   : copy.copyCommand(label);
               return (
@@ -92,7 +92,7 @@ export default function McpSetup({ config, cli, navigate }) {
                 />
               );
             })}
-            {cli === "opencode" && <p>{copy.opencodeRemove}</p>}
+            {plan.removeNote && <p>{copy[plan.removeNote]}</p>}
             <p>{copy.revokeHint}</p>
             <a href={clients[cli].docs} target="_blank" rel="noreferrer">
               {copy.docs} · {clients[cli].name}

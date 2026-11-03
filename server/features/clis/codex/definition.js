@@ -29,7 +29,27 @@ const definition = {
     mcpOAuth: true,
     imagePaste: false,
     rateLimits: true,
+    mcpSse: false,
+    mcpStdioCwd: true,
   },
+  mcpLoginCommand: (name) => `codex mcp login ${name}`,
+  mcpSetup: ({ quoted }) => ({
+    steps: [
+      { id: "add", value: `codex mcp add agentpier --url ${quoted}`, kind: "command" },
+      {
+        id: "login",
+        value: "codex mcp login agentpier --oauth-client-registration dcr",
+        kind: "command",
+        label: "retryLogin",
+      },
+      { id: "check", value: "codex mcp get agentpier\ncodex mcp list", kind: "command" },
+      {
+        id: "remove",
+        value: "codex mcp logout agentpier\ncodex mcp remove agentpier",
+        kind: "command",
+      },
+    ],
+  }),
   pipeline: { permissionModes: ["untrusted", "on-request", "never"] },
 };
 

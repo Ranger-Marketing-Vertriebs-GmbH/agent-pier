@@ -2,7 +2,7 @@
 //   /coding/clis?tab=install|accounts|extensions|mcp
 //   /coding/clis/extensions[/:profileId]?tab=skills|plugins|marketplaces|subagents[&install=<entry>]
 import { accountItemPattern } from "../accounts/routes.js";
-import { codingCliIds } from "../../../server/features/clis/catalog.js";
+import { CODING_CLI_IDS, codingCliIds } from "../../../server/features/clis/catalog.js";
 
 export const codingTabs = ["install", "accounts", "extensions", "mcp"];
 export const defaultCodingTab = "install";
@@ -12,6 +12,8 @@ export const defaultCodingExtensionTab = "skills";
 // Older names: the extensions page called subagents "agents"; MCP moved to Zugänge.
 const legacyExtensionTabs = { agents: "subagents", mcp: "skills" };
 export const mcpClis = codingCliIds();
+/** The CLI the MCP setup opens on: the first coding CLI; it needs no `?cli=`. */
+export const DEFAULT_MCP_CLI = CODING_CLI_IDS[0];
 const profilePattern = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/;
 const authorizationPattern = /^[A-Za-z0-9_-]{1,200}$/;
 // An Agency catalog entry id (path segments joined by "__", see server/features/agency).
@@ -32,7 +34,7 @@ export function readCodingMcpQuery(search) {
   const page = query.get("page") || "1";
   return {
     mcpAuthorization: authorizationPattern.test(authorization) ? authorization : "",
-    mcpCli: mcpClis.includes(query.get("cli")) ? query.get("cli") : "codex",
+    mcpCli: mcpClis.includes(query.get("cli")) ? query.get("cli") : DEFAULT_MCP_CLI,
     mcpPage: /^[1-9]\d{0,4}$/.test(page) ? Number(page) : 1,
   };
 }
@@ -94,7 +96,7 @@ export function codingRoutePath(route) {
     query.set("item", route.item);
   if (tab === "mcp") {
     if (route.mcpAuthorization) query.set("authorization", route.mcpAuthorization);
-    if (route.mcpCli && route.mcpCli !== "codex") query.set("cli", route.mcpCli);
+    if (route.mcpCli && route.mcpCli !== DEFAULT_MCP_CLI) query.set("cli", route.mcpCli);
     if (route.mcpPage > 1) query.set("page", String(route.mcpPage));
   }
   return `/coding/clis${query.size ? `?${query}` : ""}`;
