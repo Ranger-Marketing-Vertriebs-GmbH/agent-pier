@@ -26,6 +26,7 @@ _(German)_ are not translated yet.
 | [SFTP access](sftp-access.md)                              | SFTP hosts and file transfers for agents and coding CLIs     |
 | [Secrets](secrets.md)                                      | Tokens for agents and coding sessions, delivered as files    |
 | [GitHub connections](github-agents.md)                     | Tokens for clones and pull requests                          |
+| [Ticket sources](ticket-sources.md)                        | GitHub issues and Plane work items started from a project    |
 | [Shared CLI extensions](shared-cli-extensions.md)          | CLI skills, plugins, marketplaces and subagents (Agency)     |
 | [Codex context](codex-context.md)                          | Codex context windows and model status                       |
 | [Sandboxed sessions](sandbox.md)                           | The optional nono sandbox for CLI sessions                   |

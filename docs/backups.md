@@ -11,7 +11,9 @@ passphrase on stdin) leaves out all histories and private content.
 Always, as public (unencrypted) members:
 
 - Saved split views (`views.json`), restored as saved ([Views](views.md)).
-- Accounts, provider connections, repositories, preferences, the project groups of the
+- Accounts, provider connections, repositories, ticket sources (`ticket-sources.json`:
+  Plane connections without their API keys, project links and ticket start records),
+  preferences, the project groups of the
   projects page (`project-groups.json`; a restore with a project mapping moves their
   folder paths along), pipeline definitions, the port from `config.json`.
 - Project memory as a consistent SQLite snapshot (without capabilities), the audit
@@ -166,7 +168,9 @@ scrypt-derived key):
 
 - Each managed profile's `secret.json` (API key) and the allowlisted login and
   configuration files of its CLI (table below).
-- Provider connection keys, repository credentials and MCP server values.
+- Provider connection keys, repository credentials, the API keys of Plane connections
+  (`ticket-source-secrets/`; a restore without them lists each Plane connection as
+  needing its key again) and MCP server values.
 - The restricted users' password salts and hashes (`users/credentials.json`).
 - SFTP hosts that sign in with a password, together with their passwords (see "SFTP
   hosts in backups").

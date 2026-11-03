@@ -30,6 +30,9 @@ write**). It edits the same access as each agent's **Access** tab; see
 [agent access from the project](assistant-workflows.md#agent-access-from-the-project).
 An unregistered folder offers to register it first.
 
+The **Tickets** tab lists the open GitHub issues and Plane work items of the project
+and starts one as a session or a pipeline run; see [Ticket sources](ticket-sources.md).
+
 The **Approvals** tab lists the CLI approvals remembered for the project and for its
 sessions, and removes them; see
 [remembered approvals](inbox.md#remembered-and-default-approvals).

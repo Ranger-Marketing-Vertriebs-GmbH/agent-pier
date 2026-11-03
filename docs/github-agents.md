@@ -54,6 +54,10 @@ For a selected host, AgentPier replaces the helper list of `credential.https://<
 
 The helper reads the git credential protocol as git 2.46 and later sends it: multi-valued attributes such as `capability[]` and `wwwauth[]` are skipped and no capabilities are announced; duplicate single attributes such as `host` or `protocol` reject the request. The helper starts through `server/github-credentials.js` and loads only Node built-ins and small local modules, no npm packages.
 
+### Tickets
+
+A project's **Tickets** tab reads the repository's open issues with the token profile selected for the host of its `origin` remote, and on a start adds the project's "in progress" label and a comment with a link to the session or run. Listing needs **Issues: read**; the write-back needs **Issues: write** (fine-grained token) or the `repo` scope (classic token; `public_repo` for public repositories). Without write access the start still succeeds and the ticket shows **Write-back failed**. See [Ticket sources](ticket-sources.md).
+
 <a id="ssh-remotes"></a>
 
 ### SSH remotes
