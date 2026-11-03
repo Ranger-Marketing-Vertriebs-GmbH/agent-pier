@@ -209,6 +209,36 @@ test("unreachable source sets the code on the rule and pushes once per error kin
   for (const line of f.logs) assert.doesNotMatch(line, /gh-token|http|acme/);
 });
 
+test("an owner edit during the push is not overwritten by the old error", async (t) => {
+  const f = await ruleMonitorFixture(t);
+  f.net.down = true;
+  const moved = f.rules.create("p1", ruleInput());
+  let edit;
+  const notifications = {
+    notify: async (input) => {
+      f.notified.push(input);
+      edit();
+    },
+  };
+  // Relabelled while the push is sent: the store reset its status, which stays.
+  edit = () => f.rules.update("p1", moved.id, ruleInput({ label: "ready" }));
+  await f.monitor({ notifications }).run();
+  assert.equal(f.notified.length, 1);
+  assert.deepEqual(f.status(moved.id), { checkedAt: null, error: null, notified: null });
+  // An edit that keeps source and label keeps the status, so the error is written.
+  const kept = f.rules.create("p1", ruleInput({ label: "other" }));
+  edit = () =>
+    f.rules.update(
+      "p1",
+      kept.id,
+      ruleInput({ label: "other", options: { allowMerge: true, session: SESSION } }),
+    );
+  f.rules.remove("p1", moved.id);
+  await f.monitor({ notifications }).run();
+  assert.equal(f.status(kept.id).error.code, "unreachable");
+  assert.equal(f.status(kept.id).notified, "unreachable");
+});
+
 test("label gone sets labelGone", async (t) => {
   const f = await ruleMonitorFixture(t, {
     issues: [labelledIssue(1, "bug")],
