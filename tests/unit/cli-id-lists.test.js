@@ -154,8 +154,6 @@ const BRANCH_BUDGET = {
   "server/application/session-transfer-files.js": 2,
   "server/features/accounts/account-store.js": 5,
   "server/features/accounts/auth-status.js": 1,
-  "server/features/agency/agency-store.js": 1,
-  "server/features/agency/source.js": 2,
   "server/features/agentbus/agent-bus.js": 6,
   "server/features/agentbus/agentbus-broker.js": 9,
   "server/features/agentbus/agentbus-permission-class.js": 3,

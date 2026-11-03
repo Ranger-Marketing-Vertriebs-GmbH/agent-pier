@@ -169,3 +169,26 @@ test("an unknown CLI has no MCP codec", () => {
     TypeError,
   );
 });
+
+test("native agent files per CLI", async () => {
+  const { nativeAgent } = await import("../../server/features/agency/source.js");
+  const agent = { name: "A", description: "D", body: "B" };
+  const tail = "B\n\nSource: src\nLicense: MIT (see AGENCY-LICENSE.txt).\n";
+  assert.equal(
+    nativeAgent("codex", agent, "src"),
+    `name = "A"\ndescription = "D"\ndeveloper_instructions = "B\\n\\nSource: src\\nLicense: MIT (see AGENCY-LICENSE.txt).\\n"\n`,
+  );
+  assert.equal(
+    nativeAgent("claude", agent, "src"),
+    `---\nname: A\ndescription: D\nmodel: inherit\n---\n\n${tail}`,
+  );
+  assert.equal(
+    nativeAgent("opencode", agent, "src"),
+    `---\nname: A\ndescription: D\nmode: subagent\n---\n\n${tail}`,
+  );
+  assert.deepEqual(cliDriver("codex").profileFiles.agents, {
+    format: "toml",
+    frontmatter: {},
+  });
+  assert.throws(() => nativeAgent("gemini", agent, "src"), TypeError);
+});

@@ -85,3 +85,5 @@ export function extensions({ env, home, account, boundary, shared, skillScope })
     ],
   };
 }
+// See codex/profile-files.js.
+export const agents = { format: "markdown", frontmatter: { mode: "subagent" } };

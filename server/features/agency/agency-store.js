@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { readJSON, writePrivate, problem } from "../../lib/storage.js";
+import { cliDriver } from "../clis/drivers.js";
 import { safePath } from "../extensions/mcp-config.js";
 import { profileLocation } from "../cli-profiles/configuration.js";
 import {
@@ -193,7 +194,7 @@ export class AgencyStore {
       tool = location.account.tool;
     if (this.closed) throw problem(serverMessages.agency.stopping, 503);
     const directory = path.join(location.root, "agents");
-    const filename = `agency-${agent.id.replaceAll("__", "-").slice(0, 160)}-${digest(agent.id).slice(0, 8)}.${tool === "codex" ? "toml" : "md"}`;
+    const filename = `agency-${agent.id.replaceAll("__", "-").slice(0, 160)}-${digest(agent.id).slice(0, 8)}.${cliDriver(tool).profileFiles.agents.format === "toml" ? "toml" : "md"}`;
     const file = path.join(directory, filename);
     safePath(file, location.boundary);
     const records = readJSON(this.file, []);

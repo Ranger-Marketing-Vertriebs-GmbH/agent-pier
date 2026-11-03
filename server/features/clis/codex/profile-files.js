@@ -72,3 +72,5 @@ export function extensions({ env, home, boundary, shared, skillScope, sharedProf
     ],
   };
 }
+// How the CLI stores an Agency agent: a TOML file or a markdown file with this front matter.
+export const agents = { format: "toml", frontmatter: {} };

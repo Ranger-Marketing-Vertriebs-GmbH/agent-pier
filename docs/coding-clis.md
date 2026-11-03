@@ -88,7 +88,8 @@ from `launchModes` (`server/features/accounts/account-store.js`).
   and `createIfMissing`), `extensions(args)` (config files, key, skill target and sources
   of the extensions page; `args` carries `env`, `home`, `account`, `boundary`, `shared`,
   `skillScope` and `sharedProfiles`), `assetDirectories` (extra shared asset folders) and
-  `nativeFolder` (the CLI's folder below a profile; the home folder is `"." + nativeFolder`).
+  `nativeFolder` (the CLI's folder below a profile; the home folder is `"." + nativeFolder`). `agents` (`{ format: "toml" | "markdown", frontmatter }`) is how
+  the Agency page writes a native agent file: TOML, or markdown with that front matter.
 
 **Session launch**
 
