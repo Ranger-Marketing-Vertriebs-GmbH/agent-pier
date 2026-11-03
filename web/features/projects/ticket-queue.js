@@ -40,6 +40,7 @@ export function queueItemActions(item) {
   if (item.state === "needs-owner" || item.state === "waiting") actions.push("done");
   if (item.state !== "awaiting-merge") actions.push("remove");
   if (item.sessionId) actions.push("open-session");
+  if (item.repair?.sessionId) actions.push("open-repair");
   if (item.runId) actions.push("open-run");
   if (item.pr?.url && webUrl(item.pr.url)) actions.push("open-pr");
   return actions;
