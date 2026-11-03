@@ -21,7 +21,7 @@ const noteName = /^memory\/(?:[A-Za-z0-9][\w.-]*\/){0,3}[A-Za-z0-9][\w.-]*\.md$/
 // OpenClaw's Dream Diary: a file in the workspace root, shown read-only.
 const diaryName = "DREAMS.md";
 // Dreaming's raw corpus; it is never listed, read or searched.
-const corpusFolder = /(^|\/)memory\/\.dreams(\/|$)/;
+export const corpusFolder = /(^|\/)memory\/\.dreams(\/|$)/;
 // Notes the owner may rewrite: not the diary, the lead's mirrored copy or the corpus.
 const editableNote = (name) =>
   typeof name === "string" &&

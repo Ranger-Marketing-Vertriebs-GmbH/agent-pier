@@ -731,6 +731,7 @@ relies on these:
 | Compress, archive | `session.mutate { operation, payload, request_id, expected_revision, … }`                 |
 | Delete            | `session.mutate` with `delete` and `expected_generation`                                  |
 | Title a chat      | `llm.oneshot` with the `title_generation` task                                            |
+| Review memory     | `llm.oneshot` with the `memory_review` task, no `session_id`                              |
 | Turn frames       | `message.start`, `message.delta`, `tool.*`, `message.complete`, each with `admission_id`  |
 | Approvals         | `approval.request` → `approval.respond`; `approval.settled`, `approval.cancelled`         |
 | Routines          | `agentpier.http` (the bridge) → `/api/cron/jobs…`; the event `cron.changed`               |
@@ -738,6 +739,21 @@ relies on these:
 | Context size      | `session.stats { session_id }`: `last_prompt_tokens`, `context_length`                    |
 | Questions         | `clarify.request` → `clarify.respond`; `clarify.settled`, `approval.cancelled`            |
 | Sudo, secrets     | the `sudo` and `secret` requests, declined at once with `{ value: "" }`                   |
+
+After a model switch with fresh chats, AgentPier reviews the agent's `MEMORY.md` and
+`USER.md` on its new model (`memory-review.js`) with one `llm.oneshot` call: the
+review task as `instructions`, the two files as `input`, `max_tokens` 4000 and no
+`session_id`, so no chat history goes with it. Checked against the pinned Hermes
+v0.22.5: a one-shot without a session runs its `task` on the route
+`auxiliary.<task>` configures, and AgentPier compiles no `auxiliary.memory_review`, so
+Hermes takes its `auto` route, the agent's main provider and model from its own
+`config.yaml` (`tui_gateway/methods_session.py` `llm.oneshot`,
+`agent/auxiliary_client.py` `_resolve_task_provider_model`, `_resolve_auto_route`,
+`_main_route_target`; only `title_generation` may opt into a faster model). Reading the
+memory applies the agent's configuration first, so the review runs on the new model.
+Limit: Hermes's one-shot has a fixed 60-second request timeout (`agent/oneshot.py`
+`run_oneshot`) that a caller cannot raise, where OpenClaw's review gets 120 seconds; a
+slow model's review fails and the owner is told the memory could not be reviewed.
 
 A chat's history names how full its context was for the long-chat hint as OpenClaw's
 does (`sessionInfo.totalTokens`, `totalTokensFresh`, `contextTokens`): the

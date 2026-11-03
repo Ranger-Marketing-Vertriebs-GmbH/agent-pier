@@ -249,9 +249,9 @@ export function constructAssistantGraph(host, created = {}) {
   // Every image_generate and pdf call is checked through the bridge (pdf-policy.js).
   assistants.imagePolicy = new ImagePolicy({ assistants });
   assistants.pdfPolicy = assistantPdfModel.policy(assistants);
-  const assistantMemory = new NativeMemory(assistants, {
+  const assistantMemory = (assistants.nativeMemory = new NativeMemory(assistants, {
     workspaces: assistantRuntime.paths.workspaces,
-  });
+  }));
   const assistantReminders = new NativeReminders({
     assistants,
     channels: assistantChannels,

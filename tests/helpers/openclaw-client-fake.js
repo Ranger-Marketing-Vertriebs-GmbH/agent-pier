@@ -101,6 +101,7 @@ export function openClawClientFake({
     },
     "agentpier.backgroundCommands": () => ({ running: 0, completing: 0 }),
     "agentpier.chatTitle": ({ message }) => ({ title: `About ${message}` }),
+    "agentpier.memoryReview": () => ({ text: "[]" }),
   };
   // The browser control service of this Gateway process (`browser.request`).
   const browser = { running: false };

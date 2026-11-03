@@ -9,6 +9,7 @@ import {
   resyncDeliveries,
 } from "./main-chat-swap.js";
 import { deferredSwaps } from "./deferred-swaps.js";
+import { startMemoryReviews } from "./memory-review.js";
 
 /**
  * A model switch: when an agent moves to another model family (or the owner asks for
@@ -200,10 +201,13 @@ export function moveChannelsOf(service, assistantId) {
 }
 
 /**
- * The memory review after a switch with fresh chats; added by memory-review.js
- * (Task 6). Until then it does nothing.
+ * Starts the memory review of each agent of a switch with fresh chats whose memory
+ * is on, on its new model (memory-review.js), and returns at once: the review runs
+ * on its own and only reads.
  */
-export async function reviewAfterSwitch() {}
+export async function reviewAfterSwitch(service, plan) {
+  startMemoryReviews(service, plan);
+}
 
 /**
  * After the swaps, outside admission: routines and check-ins of each agent follow its

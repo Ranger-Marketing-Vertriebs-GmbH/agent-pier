@@ -11,6 +11,7 @@ import {
   temporaryMember,
 } from "./team-presentation.js";
 import { afterSwitch, planSwitch, swapNow } from "./model-switch.js";
+import { reviewsMemory } from "./memory-review.js";
 import { dropText, readText, saveText } from "./team-texts.js";
 
 // The fields a lead may change, in the order notes and the audit name them.
@@ -267,7 +268,10 @@ export class MemberEdits {
       changed,
       effective: "next_turn",
       ...(model ? { freshChat: await this.freshChat(plan) } : {}),
-      // Task 6: the memory review adds memoryReview: "waits_for_owner" here.
+      // The member's memory is reviewed on its new model; the owner decides.
+      ...(plan?.fresh && reviewsMemory(a, agent.id)
+        ? { memoryReview: "waits_for_owner" }
+        : {}),
     };
   }
   /**

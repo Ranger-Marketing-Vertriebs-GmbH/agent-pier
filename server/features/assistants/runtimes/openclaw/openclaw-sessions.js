@@ -2,6 +2,10 @@ import { createGatewaySession, sessionNotCreated } from "./session-create.js";
 import { keepChatOpen, reopenRefusedChat } from "./native-chat-archive.js";
 import { backgroundMethod } from "../../team-plugin/background-commands.js";
 import { chatTitleMethod, titleTimeoutMs } from "../../team-plugin/chat-title.js";
+import {
+  memoryReviewMethod,
+  memoryReviewTimeoutMs,
+} from "../../team-plugin/memory-review.js";
 
 // Where OpenClaw serves an artifact's bytes once artifacts.download located it.
 const mediaPath = "/api/chat/media/outgoing/";
@@ -138,6 +142,14 @@ function sessionsOver(current) {
         chatTitleMethod,
         { agentId, message, reply },
         { timeoutMs: titleTimeoutMs + 5000 },
+      ),
+    // The team plugin's memory review on the agent's own model: `{ text }`, outside
+    // any session (team-plugin/memory-review.js).
+    reviewMemory: ({ agentId, instructions, input }) =>
+      call(
+        memoryReviewMethod,
+        { agentId, instructions, input },
+        { timeoutMs: memoryReviewTimeoutMs + 5000 },
       ),
     async downloadArtifact({ sessionKey, artifactId, maxBytes, timeoutMs }) {
       // One connection for both steps: a location names a file of that Gateway.
