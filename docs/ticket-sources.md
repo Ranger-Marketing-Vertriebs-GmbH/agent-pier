@@ -115,8 +115,9 @@ After the start, AgentPier marks the ticket:
 - **GitHub**: adds the project's label (default `in progress`) and comments
   `Started in AgentPier (session).` or `Started in AgentPier (pipeline run).`
 - **Plane**: moves the work item to the chosen **In progress state**, or Plane's first
-  state in the `started` group (an item that already is in a `started` state stays),
-  and comments `Started in AgentPier (session).` or `Started in AgentPier (pipeline run).`
+  state in the `started` group (an item that already is in a `started` state stays;
+  AgentPier compares the state's id, so a state of another group with the same name
+  does not count), and comments `Started in AgentPier (session).` or `Started in AgentPier (pipeline run).`
 
 The comments are in English because they live in the tracker. They name AgentPier and
 the kind but carry no address: on a public GitHub repository an AgentPier URL in a
@@ -430,7 +431,8 @@ to the tracker:
   removes the project's "in progress" label (a label that is gone is fine) and comments
   `Done: merged in <pull request URL>.`
 - **Plane**: moves the work item to the first state of the `completed` group (by
-  sequence), unless it is in a completed state already, and comments
+  sequence), unless it is in a completed state already (compared by the state's id),
+  and comments
   `Done: merged in <pull request URL>.`
 
 The comment names only the pull request, never an AgentPier address. When the tracker

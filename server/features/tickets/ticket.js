@@ -94,6 +94,10 @@ export function cleanTicket(raw = {}) {
     state: text(typeof raw.state === "string" ? raw.state : "").trim(),
     updatedAt: String(raw.updatedAt ?? ""),
   };
+  // Plane's state id: "already started" and "already done" compare it, since two
+  // states may share a name.
+  const stateId = text(typeof raw.stateId === "string" ? raw.stateId : "").trim();
+  if (stateId) ticket.stateId = stateId.slice(0, 100);
   if (truncated) ticket.truncated = true;
   return ticket;
 }

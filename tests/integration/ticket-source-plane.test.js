@@ -308,3 +308,34 @@ test("plane hasLabel matches label names case-insensitively", async (t) => {
   assert.equal(await planeSource.hasLabel(access, " AGENT "), true);
   assert.equal(await planeSource.hasLabel(access, "other"), false);
 });
+
+test("plane started and done checks compare state ids, names only without an id", async (t) => {
+  const states = [
+    // An unstarted state that shares its name with the started one.
+    { id: "s-ip-todo", name: "In progress", group: "unstarted", sequence: 1 },
+    { id: "s-ip", name: "In progress", group: "started", sequence: 2 },
+    { id: "s-done-todo", name: "Done", group: "started", sequence: 3 },
+    { id: "s-done", name: "Done", group: "completed", sequence: 4 },
+  ];
+  const { fake, access } = await setup(t, {
+    states,
+    items: [item(1, { state: "s-ip-todo" }), item(2, { state: "s-done-todo" })],
+  });
+  const { tickets } = await planeSource.list(access, {});
+  const one = tickets.find((ticket) => ticket.number === 1);
+  const two = tickets.find((ticket) => ticket.number === 2);
+  assert.equal(one.stateId, "s-ip-todo");
+  assert.equal((await planeSource.get(access, "AP-2")).stateId, "s-done-todo");
+  const patches = () =>
+    fake.calls.filter((c) => c.method === "PATCH").map((c) => c.body.state);
+  await planeSource.markInProgress(access, one, { kind: "session" });
+  await planeSource.markDone(access, two, { prUrl: PR });
+  assert.deepEqual(patches(), ["s-ip", "s-done"]);
+  // A ticket read without a state id falls back to the name.
+  fake.calls.length = 0;
+  const { stateId: _one, ...byName } = one;
+  const { stateId: _two, ...doneByName } = two;
+  await planeSource.markInProgress(access, byName, { kind: "session" });
+  await planeSource.markDone(access, doneByName, { prUrl: PR });
+  assert.deepEqual(patches(), []);
+});
