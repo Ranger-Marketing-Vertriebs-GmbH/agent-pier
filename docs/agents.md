@@ -356,6 +356,11 @@ end and how many permanent members start fresh, and the work that will be cancel
 counts per kind. Tick **I understand this cannot be undone** to enable **Restart main
 chats and stop work**.
 
+A switch to another model already gives every main chat of the agent a fresh start
+without stopping anything (see [Identity](#identity)); **Restart main chat** is the full
+reset on top of that and the way to start over without changing the model. It cancels
+work, ends temporary members and does not wait for a running turn.
+
 The restart:
 
 - stops all work of the agent and its direct members: running turns in every chat
@@ -437,6 +442,38 @@ from and whether its instructions changed since it was created. A temporary memb
 tab then shows the lead's model. Switch it off to pick a model of its own; switch it on
 again to follow the lead. A permanent member, and a temporary member with a model of
 its own, also shows whether its model changed since it took it over from the lead.
+
+When you pick another model and save, the field **Start fresh chats** appears. Its
+hint reads "New main chats for everyone using this agent; the old ones stay readable.
+Nothing running stops." The switch is on by default when the new model comes from
+another maker (the model family: `openai`, `x-ai`, `anthropic`, `google`, and so on;
+for OpenRouter the part of the model ID before the slash, a ChatGPT account counts as
+`openai`, an endpoint connection forms a family of its own unless its model ID carries
+a known maker prefix) and off for another model of the same maker. Change it for this
+save if you want the other behavior. With it on, saving keeps the model as usual and
+replaces the main chat of you and of each user of the agent with a fresh one, so the
+history of the previous model never reaches the new one. The old chats are archived
+and stay readable; Telegram, routines and check-ins move to the new chats, and the new
+chat opens with the quiet note "The model changed from … to …. This chat starts fresh;
+memory, files and settings stay." Unlike [Restart main chat](#restart-the-main-chat)
+nothing else stops: running work is not cancelled, members keep working, other agents
+are untouched. A main chat in which a turn runs, a message waits, an approval is open
+or a summary runs is swapped as soon as it is free (for at most a day); a turn is never
+cut for it. Temporary members that follow the model of the agent get the same
+treatment. A member you switch in its own Identity tab gets a fresh chat of its own
+likewise.
+
+Work that still reports into a replaced chat is not lost. A member's result, a lead's
+answer and the follow-up of an SSH, SFTP or mail action reach your current main chat
+instead, with the note "This result was started in the previous chat."
+
+Other chats you started (not the main chat) are not replaced. When one of them began on
+another model family, it shows a hint above the composer: "This chat began with another
+model. Its history can affect the answers." with **New chat** and **Dismiss**. Each
+person dismisses it for themselves, once per change of family.
+
+A switch with fresh chats also has the new model review the agent's memory; see
+[Memory](#memory).
 
 ### Capabilities
 
@@ -566,6 +603,10 @@ information** on, AgentPier tells the agent to write durable facts and plans to
 never to say it saved something unless the write succeeded. Before a conversation
 is shortened, the agent gets one last chance to append to the day note.
 
+AgentPier also tells the agent not to record its own refusals or limits it set itself
+as rules or notes: only your rules, decisions and facts belong in memory. The same
+rule is part of the memory step before **Summarize now**.
+
 **Memory** in the agent's settings edits `MEMORY.md` and `USER.md` and also the day
 notes under `memory/`: pick a note under **Notes written by the agent**, change it and
 press **Save notes**, or press **Delete note** and confirm. A save fails with a conflict
@@ -574,7 +615,7 @@ copied notes stay read-only, and a user's own agent stays read-only for you.
 
 After a model switch with fresh chats, the agent's new model reviews its memory. When
 it finds entries that only record what an earlier model refused or set itself as a
-limit, you get one card per switch, in the inbox under **Agents** and in your main chat
+limit, you get one card per switch (titled **Memory after the model switch**), in the inbox under **Agents** and in your main chat
 of the agent (for a team member in your main chat of its lead). It lists each entry
 with its file and **Archive** (preselected) or **Keep**; **Apply** carries out your
 choices, and until then the memory stays as it is. Only you see and decide the card,
@@ -922,7 +963,8 @@ Every member row and chat header shows the model the member actually runs on:
 - **Permanent members** have their own model. A member kept with **Keep as permanent
   agent** takes over the lead's model of that moment; later changes to the lead do not
   affect it. Change it in the member's Identity tab; its lead can change it too (see
-  below). A lead's own assignment is not shown as "changed since taken over".
+  below). A change to another model family starts the member in a fresh chat, see
+  [Identity](#identity). A lead's own assignment is not shown as "changed since taken over".
 
 The lead decides what each temporary member gets, and can only give what it has
 itself: web search, web pages, browser, images, skills, its MCP servers, a read-only
@@ -1000,6 +1042,14 @@ A lead also talks to its members directly:
   member's task chat, if it has one), as a history entry with the old and new model
   and in the audit log. If an assigned model stops working, the member's turns fail
   visibly; it does not fall back to another model.
+
+  When a member moves to another model family, its chat starts fresh and the member
+  keeps working: the lead's `agentpier_team_member_update` has an optional `freshChat`
+  (default: on for another family, off for the same one). A running turn is never cut;
+  the fresh chat starts when the turn is over, and the member's role and assignment
+  stay in its instructions. The new model reviews the member's memory, but only you see
+  and decide the result (see [Memory](#memory)); the lead is only told that it waits
+  for you.
 
 - It can **ask** any of its members a question and **delegate** a task to any member,
   permanent or temporary (not archived). The answer comes back to the lead, and to Telegram when the request came
@@ -1539,7 +1589,8 @@ title starts an empty chat right away; the earlier one stays in the list. The �
 row offers **Rename**, **Archive** and **Delete** (**Delete now** removes the chat and
 its transcript). Your main chat is the one reminders, routines, check-ins and Telegram
 deliver into: it is renamed only, and archived and replaced only by
-[Restart main chat](#restart-the-main-chat). A new chat is first named after your first message;
+[Restart main chat](#restart-the-main-chat) or by a [model switch with fresh
+chats](#identity). A new chat is first named after your first message;
 once the agent has answered it, the agent's own model gives it a short title of three to
 six words in your language. Your own name always wins, and clearing it brings the
 generated title back. A chat stays usable however long it sits idle; only
