@@ -78,13 +78,16 @@ function toTicket(access, item, { states, labelNames }) {
   const identifier = access.identifier;
   const key = `${identifier}-${item.sequence_id}`;
   let state = "";
+  let stateId = "";
   let group = "";
   if (item.state && typeof item.state === "object") {
     state = String(item.state.name ?? "");
+    stateId = typeof item.state.id === "string" ? item.state.id : "";
     group = String(item.state.group ?? "");
   } else if (typeof item.state === "string") {
     const known = states?.find((s) => s.id === item.state);
     state = known?.name ?? "";
+    stateId = item.state;
     group = known?.group ?? "";
   }
   const labels = (Array.isArray(item.labels) ? item.labels : []).map((label) =>
@@ -102,9 +105,18 @@ function toTicket(access, item, { states, labelNames }) {
     url: `${planeWebUrl(access.baseUrl)}/${access.workspaceSlug}/browse/${key}/`,
     labels,
     state,
+    stateId,
     updatedAt: item.updated_at,
   });
   return { ticket, group };
+}
+
+// Whether the ticket is in one of `states`: by state id, by name only for a ticket
+// read without one.
+function inStates(states, ticket) {
+  return ticket.stateId
+    ? states.some((s) => s.id === ticket.stateId)
+    : states.some((s) => s.name === ticket.state);
 }
 
 export const planeSource = {
@@ -172,8 +184,7 @@ export const planeSource = {
     if (!started.length) throw new TicketSourceError("invalidResponse");
     const target = started.find((s) => s.id === access.inProgressStateId) ?? started[0];
     const base = `${projectPath(access)}/work-items/${encodeURIComponent(ticket.id)}/`;
-    const alreadyStarted = started.some((s) => s.name === ticket.state);
-    if (!alreadyStarted)
+    if (!inStates(started, ticket))
       await call(access, base, { method: "PATCH", body: { state: target.id }, signal });
     const noun = kind === "session" ? "session" : "pipeline run";
     await call(access, `${base}comments/`, {
@@ -190,7 +201,7 @@ export const planeSource = {
       .sort((a, b) => a.sequence - b.sequence);
     if (!completed.length) throw new TicketSourceError("invalidResponse");
     const base = `${projectPath(access)}/work-items/${encodeURIComponent(ticket.id)}/`;
-    if (!completed.some((s) => s.name === ticket.state))
+    if (!inStates(completed, ticket))
       await call(access, base, {
         method: "PATCH",
         body: { state: completed[0].id },
