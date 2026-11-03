@@ -182,11 +182,16 @@ export class TicketSequenceService {
     throw problem(copy.worktreeLeftover, 409);
   }
 
-  /** The owner finished the ticket elsewhere: the queue moves on, the tracker stays. */
+  /**
+   * The owner finished the ticket elsewhere: the queue moves on, the tracker stays. A
+   * pull request AgentPier may have armed is disarmed first, since nobody watches it
+   * afterwards (it must not merge past a later "changes requested").
+   */
   markDone(projectId, itemId) {
     return this.withItem(projectId, itemId, async (project, item) => {
       if (item.state !== "needs-owner" && item.state !== "waiting")
         throw problem(copy.itemBusy, 409);
+      if (this.mayBeArmed(item)) await this.disarm(project, item);
       this.store.patch(project.id, item.id, {
         state: "done",
         doneBy: "owner",
@@ -201,10 +206,17 @@ export class TicketSequenceService {
     return this.withItem(projectId, itemId, async (project, item) => {
       if (item.state === "running" || item.state === "awaiting-merge")
         throw problem(copy.itemBusy, 409);
-      if (item.state === "needs-owner" && item.pr && item.options.allowMerge)
-        await this.disarm(project, item);
+      if (this.mayBeArmed(item)) await this.disarm(project, item);
       this.store.remove(project.id, item.id);
     });
+  }
+
+  /**
+   * A parked item whose PR AgentPier may merge. The engine saves `armed`/`armedHead`
+   * only after the arm call, so an unrecorded arm is possible and GitHub is read.
+   */
+  mayBeArmed(item) {
+    return item.state === "needs-owner" && !!item.pr && item.options.allowMerge;
   }
 
   /** Turns GitHub's auto-merge off or takes the PR out of the merge queue. */
