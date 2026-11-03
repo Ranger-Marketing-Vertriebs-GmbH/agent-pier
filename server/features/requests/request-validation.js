@@ -1,6 +1,6 @@
 import { problem } from "../../lib/storage.js";
 import { requestCopy as copy } from "../../lib/i18n/de/requests.js";
-import { previewLimit, notesLimit } from "./native-questions.js";
+import { previewLimit, notesLimit } from "./question-limits.js";
 import { planLimit } from "./claude-permission.js";
 const invalid = () => problem(copy.invalid, 400);
 export const validSession = (id) =>
