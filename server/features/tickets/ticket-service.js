@@ -80,6 +80,12 @@ export class TicketService {
       taken,
     });
     this.starting = new Set();
+    this.writeBacks = new Set();
+  }
+
+  /** Resolves once every write-back of a manual start that is under way has ended. */
+  async settled() {
+    while (this.writeBacks.size) await Promise.all([...this.writeBacks]);
   }
 
   /** A manual start of this ticket is in flight (see start). */
@@ -345,7 +351,7 @@ export class TicketService {
         );
       }
       const targetId = result.session?.id ?? result.run?.id;
-      let start = this.store.addStart({
+      const start = this.store.addStart({
         projectId: project.id,
         source: ticket.source,
         key: ticket.key,
@@ -356,7 +362,12 @@ export class TicketService {
         writeBack: { state: "pending" },
       });
       ticketsProjectChanged(this.live(), project.id);
-      start = await this.writeBack(start, { source, access, link, ticket });
+      // "In progress" is written after the start is answered: the record shows
+      // `writeBack: pending`, then done or failed through tickets.project.
+      const written = this.writeBack(start, { source, access, link, ticket })
+        .catch(() => {})
+        .finally(() => this.writeBacks.delete(written));
+      this.writeBacks.add(written);
       return { start, ...result };
     } finally {
       this.starting.delete(lock);

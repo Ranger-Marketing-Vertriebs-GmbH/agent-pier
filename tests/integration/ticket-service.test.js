@@ -190,7 +190,8 @@ test("a refusing tracker reads as its code next to the other source", async (t) 
 });
 
 test("a session start launches, sends the task and marks the ticket in progress", async (t) => {
-  const { service, launched, sent, github, hubSignals, projectPath } = await setup(t);
+  const { service, launched, sent, github, hubSignals, projectPath, store } =
+    await setup(t);
   const result = await service.start("p1", {
     source: "github",
     key: "acme/app#7",
@@ -210,7 +211,10 @@ test("a session start launches, sends the task and marks the ticket in progress"
   assert.match(sent[0].text, /^Work on ticket acme\/app#7/);
   assert.equal(sent[0].id, "s1");
   assert.equal(sent[0].submit, true);
-  assert.equal(result.start.writeBack.state, "done");
+  // Answered before the tracker is written.
+  assert.equal(result.start.writeBack.state, "pending");
+  await service.settled();
+  assert.equal(store.starts("p1")[0].writeBack.state, "done");
   assert.equal(result.start.targetId, "s1");
   assert.equal(result.session.id, "s1");
   const label = github.calls.find((c) => c.path === "/repos/acme/app/issues/7/labels");
@@ -231,12 +235,13 @@ test("the project's own in-progress label is used", async (t) => {
     kind: "session",
     session: {},
   });
+  await service.settled();
   const label = github.calls.find((c) => c.path === "/repos/acme/app/issues/7/labels");
   assert.deepEqual(label.body, { labels: ["doing"] });
 });
 
 test("a pipeline start passes the ticket to the engine", async (t) => {
-  const { service, engineStarts, plane, linkPlane, projectPath } = await setup(t);
+  const { service, engineStarts, plane, linkPlane, projectPath, store } = await setup(t);
   await linkPlane();
   const result = await service.start("p1", {
     source: "plane",
@@ -249,7 +254,8 @@ test("a pipeline start passes the ticket to the engine", async (t) => {
   assert.equal(engineStarts[0].input.pipelineId, "review");
   assert.match(engineStarts[0].input.task, /^Work on ticket AP-3/);
   assert.equal(result.start.targetId, result.run.id);
-  assert.equal(result.start.writeBack.state, "done");
+  await service.settled();
+  assert.equal(store.starts("p1")[0].writeBack.state, "done");
   const patch = plane.calls.find((c) => c.method === "PATCH");
   assert.deepEqual(patch.body, { state: "s-prog" });
   const comment = plane.calls.find((c) => c.path.endsWith("/comments/"));
@@ -272,7 +278,8 @@ test("write-back failure keeps the start", async (t) => {
     kind: "session",
     session: {},
   });
-  assert.deepEqual(result.start.writeBack, { state: "failed", code: "forbidden" });
+  assert.deepEqual(result.start.writeBack, { state: "pending" });
+  await service.settled();
   assert.equal(launched.length, 1);
   assert.deepEqual(store.starts("p1")[0].writeBack, {
     state: "failed",
@@ -459,7 +466,8 @@ for (const [name, deliver] of [
     );
     const retried = await start();
     assert.equal(retried.start.targetId, "s2");
-    assert.equal(retried.start.writeBack.state, "done");
+    await service.settled();
+    assert.equal(store.starts("p1")[0].writeBack.state, "done");
     assert.deepEqual(stopped, ["s1"]);
     assert.equal(launched.length, 2);
   });
@@ -548,4 +556,28 @@ test("a missing Plane workspace is a 409, a missing Plane project a 404", async 
     status: 502,
     code: "unavailable",
   });
+});
+
+test("the start answers before the tracker write and signals its outcome", async (t) => {
+  const { service, store, hubSignals } = await setup(t);
+  let release;
+  const held = new Promise((resolve) => (release = resolve));
+  const mark = service.sources.github.markInProgress;
+  t.mock.method(service.sources.github, "markInProgress", async (...args) => {
+    await held;
+    return mark.apply(service.sources.github, args);
+  });
+  const result = await service.start("p1", {
+    source: "github",
+    key: "acme/app#7",
+    kind: "session",
+    session: {},
+  });
+  assert.deepEqual(result.start.writeBack, { state: "pending" });
+  assert.deepEqual(store.starts("p1")[0].writeBack, { state: "pending" });
+  const signals = hubSignals.length;
+  release();
+  await service.settled();
+  assert.deepEqual(store.starts("p1")[0].writeBack, { state: "done" });
+  assert.ok(hubSignals.slice(signals).includes("tickets.project:p1"));
 });

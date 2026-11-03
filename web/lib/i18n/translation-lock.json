@@ -7764,6 +7764,7 @@
   "tickets:projectTicketsCopy.writeBackDetail": "de:dda1c054e6b2 en:75a54febaaa9",
   "tickets:projectTicketsCopy.writeBackFailed": "de:f4818967622c en:f0fe1474185d",
   "tickets:ticketErrorCopy.forbidden": "de:26e251df3894 en:85150df2ac83",
+  "tickets:ticketErrorCopy.interrupted": "de:fbb004d95434 en:c78b4ac9f6cf",
   "tickets:ticketErrorCopy.invalidResponse": "de:d7d263135617 en:8c35a9232d61",
   "tickets:ticketErrorCopy.notConnected": "de:623e0bb3c10f en:84fc11687cc3",
   "tickets:ticketErrorCopy.notFound": "de:7c73cf3af3eb en:0313b371fdb0",

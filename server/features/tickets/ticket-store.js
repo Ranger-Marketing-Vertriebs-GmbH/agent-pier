@@ -127,6 +127,10 @@ export class TicketStore {
     this.connections = Array.isArray(saved.connections) ? saved.connections : [];
     this.projects = Array.isArray(saved.projects) ? saved.projects : [];
     this.startRecords = Array.isArray(saved.starts) ? saved.starts : [];
+    // An "In progress" write-back cut off by a restart never finishes on its own.
+    for (const record of this.startRecords)
+      if (record?.writeBack?.state === "pending")
+        record.writeBack = { state: "failed", code: "interrupted" };
   }
   save() {
     writePrivate(this.file, {
