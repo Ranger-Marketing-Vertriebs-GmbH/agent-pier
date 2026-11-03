@@ -52,6 +52,7 @@ export const ticketQueueCopy = {
     `Check pull request #${number} on GitHub: auto-merge or the merge queue may still be on.`,
   removedUnchecked: (key, number) =>
     `${key} was removed. Check pull request #${number} on GitHub: auto-merge or the merge queue may still be on.`,
+  doneWriteBackFailed: (message) => `Merged, but not marked done: ${message}`,
 };
 
 // Selecting tickets in the list and the dialog that starts them as a sequence.

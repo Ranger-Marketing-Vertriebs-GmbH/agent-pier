@@ -257,10 +257,15 @@ test("an unreadable PR asks once more, then sends force", async ({ page }) => {
   ).toBeVisible();
 });
 
-test("a done item shows an unchecked PR", async ({ page }) => {
+test("a done item shows a failed write-back and an unchecked PR", async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
   await ticketsFixture(page, {
     queue: queueOf(
+      item("i7", "AP-7", "Merged", "done", {
+        doneBy: "merge",
+        pr: { number: 21, url: "https://github.com/acme/app/pull/21" },
+        writeBack: { state: "failed", code: "unauthorized" },
+      }),
       item("i8", "AP-8", "Forced", "done", {
         doneBy: "owner",
         prUnchecked: true,
@@ -270,6 +275,9 @@ test("a done item shows an unchecked PR", async ({ page }) => {
   });
   await page.goto(base + "/projects/m1?tab=tickets");
   const card = queueCard(page);
+  await expect(
+    card.getByText(/^Merged, but not marked done: The ticket source rejected/),
+  ).toBeVisible();
   await expect(
     card.getByText(
       "Check pull request #22 on GitHub: auto-merge or the merge queue may still be on.",
