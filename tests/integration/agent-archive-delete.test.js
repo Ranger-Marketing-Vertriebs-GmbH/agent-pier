@@ -201,6 +201,7 @@ test("delete removes every store of the agent and keeps everything else", async 
     "attachments",
     "notes",
     "memoryArchive",
+    "memoryReviews",
     "routineResults",
     "hookEvents",
     "leadShares",

@@ -60,6 +60,7 @@ test("by default only what needs the owner and what went wrong notifies", () => 
     "agent-routine": false,
     "agent-reminder": true,
     "agent-hook-throttled": true,
+    "agent-memory-review-failed": true,
     "session-limited": true,
     "session-resume-failed": true,
     "update-available": false,

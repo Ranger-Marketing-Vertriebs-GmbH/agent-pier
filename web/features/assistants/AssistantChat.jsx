@@ -529,6 +529,7 @@ export default function AssistantChat({
           <AssistantChatActions
             assistant={assistant}
             member={member}
+            conversationId={conversationId}
             latest={latest}
             available={available && !history.queued}
             busy={busy}

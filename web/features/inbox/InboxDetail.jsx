@@ -12,6 +12,7 @@ import {
 import {
   InboxActionDetail,
   InboxGateDetail,
+  InboxMemoryReviewDetail,
   InboxRequestDetail,
   InboxTeamDetail,
   InboxUnresolvedDetail,
@@ -24,6 +25,7 @@ const details = {
   gate: InboxGateDetail,
   action: InboxActionDetail,
   team: InboxTeamDetail,
+  "memory-review": InboxMemoryReviewDetail,
   unresolved: InboxUnresolvedDetail,
 };
 

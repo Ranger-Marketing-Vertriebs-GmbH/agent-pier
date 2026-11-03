@@ -29,6 +29,8 @@ export const pushEventDefaults = Object.freeze({
   "agent-reminder": true,
   // Later events wait unprocessed until the hour is over: a problem to fix.
   "agent-hook-throttled": true,
+  // The owner checks the memory himself, from its page.
+  "agent-memory-review-failed": true,
   "session-limited": true,
   "session-resume-failed": true,
   "update-available": false,

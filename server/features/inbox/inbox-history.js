@@ -8,6 +8,7 @@ const audited = {
   approval: ["request.answered", "request.handed-off", "request.expired"],
   action: ["assistant.answered"],
   team: ["assistant.answered"],
+  "memory-review": ["assistant.answered"],
   gate: [
     "pipeline.updated",
     "pipeline.overridden",

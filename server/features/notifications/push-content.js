@@ -124,6 +124,8 @@ export function pushLink(event) {
   if (event.kind === "update-available" || event.kind === "update-failed")
     return "/settings/updates";
   if (event.kind === "test") return "/settings/notifications";
+  if (event.kind === "agent-memory-review-failed")
+    return `/agents/${segment(event.assistantId)}/settings?tab=capabilities&page=memory`;
   if (event.kind === "telegram-revocation")
     return event.assistantId
       ? `/agents/${segment(event.assistantId)}/settings`

@@ -25,6 +25,7 @@ export const inboxCopy = {
     gate: "Pipeline-Gate",
     action: "Agenten-Anfrage",
     team: "Team-Vorschlag",
+    "memory-review": "Gedächtnisprüfung",
     unresolved: "Ungeklärte Arbeit",
   },
   kinds: {
@@ -36,6 +37,7 @@ export const inboxCopy = {
     hook_proposal: "Hook-Vorschlag",
     ssh_access: "SSH-Zugangsvorschlag",
     mail_send: "E-Mail zum Senden",
+    "memory-review": "Gedächtnis nach einem Modellwechsel",
     mail_forward: "E-Mail zum Weiterleiten",
     gate: "Freigabe einer Stufe",
     decision: "Entscheidung zu einer Stufe",
@@ -93,6 +95,7 @@ export const inboxCopy = {
     approve: "Genehmigt",
     decline: "Abgelehnt",
     review: "Geprüft",
+    apply: "Angewendet",
     "allow-once": "Einmal erlaubt",
     "allow-always": "Immer erlaubt",
     "allow-session": "Für diese Session erlaubt",

@@ -572,9 +572,21 @@ press **Save notes**, or press **Delete note** and confirm. A save fails with a 
 notice when the agent changed the note meanwhile. The Dream Diary and the lead agent's
 copied notes stay read-only, and a user's own agent stays read-only for you.
 
+After a model switch with fresh chats, the agent's new model reviews its memory. When
+it finds entries that only record what an earlier model refused or set itself as a
+limit, you get one card per switch, in the inbox under **Agents** and in your main chat
+of the agent (for a team member in your main chat of its lead). It lists each entry
+with its file and **Archive** (preselected) or **Keep**; **Apply** carries out your
+choices, and until then the memory stays as it is. Only you see and decide the card,
+also when a lead switched a member's model; a lead and the users of a shared agent
+never see it, and a user's own agent gets none. A later switch of the same agent
+replaces an undecided card. When the review fails, a push notice **Memory not reviewed
+after a model switch** opens the agent's memory page.
+
 Entries you archive after a model switch's memory review leave the agent's memory
 files and are kept, word for word, in AgentPier, where the agent never reads them;
-**Restore** puts one back at the end of its file. An entry the agent changed
+**Archive** at the end of the memory page lists them read only with their file, date
+and switch; **Restore** puts one back at the end of its file at once. An entry the agent changed
 meanwhile stays where it is. Archived entries can still be in dreaming's raw
 material (the session corpus and recall store under `memory/.dreams/` and
 OpenClaw's own state), which AgentPier leaves alone.

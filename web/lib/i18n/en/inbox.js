@@ -25,6 +25,7 @@ export const inboxCopy = {
     gate: "Pipeline gate",
     action: "Agent request",
     team: "Team proposal",
+    "memory-review": "Memory review",
     unresolved: "Unresolved work",
   },
   kinds: {
@@ -36,6 +37,7 @@ export const inboxCopy = {
     hook_proposal: "Hook proposal",
     ssh_access: "SSH access proposal",
     mail_send: "Email to send",
+    "memory-review": "Memory after a model switch",
     mail_forward: "Email to forward",
     gate: "Stage approval",
     decision: "Stage decision",
@@ -93,6 +95,7 @@ export const inboxCopy = {
     approve: "Approved",
     decline: "Declined",
     review: "Reviewed",
+    apply: "Applied",
     "allow-once": "Allowed once",
     "allow-always": "Always allowed",
     "allow-session": "Allowed for this session",

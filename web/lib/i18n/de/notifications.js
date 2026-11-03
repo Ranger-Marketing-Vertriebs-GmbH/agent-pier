@@ -90,6 +90,7 @@ export const notificationCopy = {
     "agent-reminder": "Erinnerung, um die du einen Agenten gebeten hast",
     "agent-routine": "Routine- oder Hook-Ergebnis",
     "agent-hook-throttled": "Hook-Limit erreicht",
+    "agent-memory-review-failed": "Gedächtnis nach einem Modellwechsel nicht geprüft",
     "session-limited": "Session hat ihr Nutzungslimit erreicht",
     "session-resume-failed": "Session konnte nicht fortgesetzt werden",
     "update-available": "Update verfügbar",

@@ -29,6 +29,17 @@ export const assistantApi = {
     api(
       `/assistants/${encodeURIComponent(id)}/memory/search?q=${encodeURIComponent(query)}`,
     ),
+  // Entries archived from the agent's memory after a model switch, and putting one back.
+  memoryArchive: (id) => api(`/assistants/${encodeURIComponent(id)}/memory/archive`),
+  restoreArchived: (id, entryId) =>
+    api(
+      `/assistants/${encodeURIComponent(id)}/memory/archive/${encodeURIComponent(entryId)}/restore`,
+      "POST",
+    ),
+  // The owner's cards after a model switch's memory review (memory-reviews.js).
+  memoryReviews: () => api("/assistant-memory-reviews"),
+  decideMemoryReview: (id, input) =>
+    api(`/assistant-memory-reviews/${encodeURIComponent(id)}/decision`, "POST", input),
   reminders: (id) => api(`/assistants/${encodeURIComponent(id)}/reminders`),
   createReminder: (id, input) =>
     api(`/assistants/${encodeURIComponent(id)}/reminders`, "POST", input),

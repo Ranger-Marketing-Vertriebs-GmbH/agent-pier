@@ -59,6 +59,7 @@ const events = {
   "agent-routine": [{ assistantId: "a1", conversationId: "c1" }],
   "agent-reminder": [{ assistantId: "a1", conversationId: "c1" }],
   "agent-hook-throttled": [{ assistantId: "a1", conversationId: "c1" }],
+  "agent-memory-review-failed": [{ assistantId: "a1", label: "Scout" }],
   "telegram-revocation": [{ assistantId: "a1" }, {}],
   "github-token": [{}],
   "disk-space": [{}],

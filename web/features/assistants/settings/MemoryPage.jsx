@@ -13,11 +13,13 @@ import { memoryStep } from "./agent-settings-steps.js";
 import useAgentDraftGuard from "./useAgentDraftGuard.js";
 import useMemoryNotes from "./useMemoryNotes.js";
 import ConflictNotice from "./ConflictNotice.jsx";
+import MemoryArchiveList from "./MemoryArchiveList.jsx";
 import SubpageHeader from "./SubpageHeader.jsx";
 
 /**
  * The agent's two root notes (editable, saved against the loaded hash), its Dream
- * Diary and its own notes under memory/ (read only), plus a search over all of them.
+ * Diary and its own notes under memory/ (read only), plus a search over all of them
+ * and the archive of entries taken out after a model switch (MemoryArchiveList).
  * `readOnly` (a user's own agent under her opt-in) shows every note read only.
  */
 export default function MemoryPage({ assistant, onBack, readOnly: locked = false }) {
@@ -249,6 +251,14 @@ export default function MemoryPage({ assistant, onBack, readOnly: locked = false
           <p className="assistant-memory-text">{result.snippet}</p>
         </article>
       ))}
+      <MemoryArchiveList
+        assistantId={assistantId}
+        locked={locked}
+        onRestored={() => {
+          // The note shown is read again, unless the owner is editing it.
+          if (!draft.dirty) setReload((n) => n + 1);
+        }}
+      />
       <SaveBar
         draft={draft}
         onSave={save}

@@ -184,6 +184,18 @@ const rows = [
     { view: "agents", assistantId: "a1", conversationId: "main" },
   ],
   [
+    "agent-memory-review-failed",
+    { assistantId: "a1" },
+    "/agents/a1/settings?tab=capabilities&page=memory",
+    {
+      view: "agents",
+      assistantId: "a1",
+      agentSettings: true,
+      agentTab: "capabilities",
+      agentPage: "memory",
+    },
+  ],
+  [
     "telegram-revocation",
     { assistantId: "a1" },
     "/agents/a1/settings",
