@@ -99,6 +99,17 @@ export const githubSource = {
     const tickets = label ? open.filter((ticket) => ticket.labels.includes(label)) : open;
     return { tickets, labels };
   },
+  async hasLabel(access, label, { signal } = {}) {
+    try {
+      await call(access, `${repoPath(access)}/labels/${encodeURIComponent(label)}`, {
+        signal,
+      });
+      return true;
+    } catch (error) {
+      if (error?.code === "notFound") return false;
+      throw error;
+    }
+  },
   async get(access, key, { signal } = {}) {
     const match = /^([^/#]+)\/([^/#]+)#([1-9]\d{0,8})$/.exec(String(key ?? ""));
     if (

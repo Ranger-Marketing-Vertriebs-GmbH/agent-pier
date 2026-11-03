@@ -289,3 +289,10 @@ test("plane markDone escapes the URL and never contains the AgentPier address", 
   assert.match(html, /a=1&amp;b=%222%22/);
   assert.doesNotMatch(html, /127\.0\.0\.1|localhost|agentpier\.[a-z]/i);
 });
+
+test("plane hasLabel matches label names case-insensitively", async (t) => {
+  const { access } = await setup(t, { labels: [{ id: "l-1", name: "Agent" }] });
+  assert.equal(await planeSource.hasLabel(access, "agent"), true);
+  assert.equal(await planeSource.hasLabel(access, " AGENT "), true);
+  assert.equal(await planeSource.hasLabel(access, "other"), false);
+});

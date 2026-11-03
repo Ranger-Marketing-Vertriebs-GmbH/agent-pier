@@ -259,3 +259,19 @@ test("markDone comments omit a bad PR url and never contain the AgentPier addres
   assert.equal(body, "Done in AgentPier.");
   assert.doesNotMatch(body, /127\.0\.0\.1|localhost|agentpier\.[a-z]/i);
 });
+
+test("github hasLabel true for an existing label, false on 404", async (t) => {
+  const fake = await fakeGithub(t, { labels: ["agent"] });
+  assert.equal(await githubSource.hasLabel(accessFor(fake), "Agent"), true);
+  assert.equal(await githubSource.hasLabel(accessFor(fake), "gone"), false);
+});
+
+test("github hasLabel rethrows unavailable", async (t) => {
+  const fake = await fakeGithub(t, {
+    labels: ["agent"],
+    failures: { "GET /repos/acme/app/labels/agent": 503 },
+  });
+  await assert.rejects(githubSource.hasLabel(accessFor(fake), "agent"), {
+    code: "unavailable",
+  });
+});

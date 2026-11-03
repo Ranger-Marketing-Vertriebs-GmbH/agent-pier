@@ -1,5 +1,11 @@
 export const TICKET_SOURCE_IDS = Object.freeze(["github", "plane"]);
 
+/** The one spelling every rule label comparison uses. */
+export const labelKey = (name) =>
+  String(name ?? "")
+    .trim()
+    .toLowerCase();
+
 export const BODY_LIMIT = 16000;
 const TITLE_LIMIT = 500;
 const LABEL_LIMIT = 100;
