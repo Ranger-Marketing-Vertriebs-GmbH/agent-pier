@@ -59,6 +59,8 @@ export async function requestJson({
       headers: sent,
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: combined,
+      // A redirect would carry the API key header to another origin.
+      redirect: "error",
     });
     if (response.status < 200 || response.status > 299) {
       await response.body?.cancel?.().catch(() => {});

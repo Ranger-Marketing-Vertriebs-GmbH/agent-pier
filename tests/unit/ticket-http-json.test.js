@@ -87,3 +87,22 @@ test("a JSON body is parsed and sent with its content type", async () => {
   assert.equal(seen.headers["Content-Type"], "application/json");
   assert.equal(seen.body, '{"a":1}');
 });
+
+test("redirects are refused so headers never leave the origin", async () => {
+  let seen;
+  await requestJson({
+    url: "https://h/x",
+    fetchImpl: async (url, init) => {
+      seen = init;
+      return new Response("{}", { status: 200 });
+    },
+  });
+  assert.equal(seen.redirect, "error");
+  const error = await requestJson({
+    url: "https://h/x",
+    fetchImpl: async () => {
+      throw new TypeError("fetch failed: unexpected redirect");
+    },
+  }).catch((e) => e);
+  assert.equal(error.code, "unreachable");
+});
