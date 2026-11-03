@@ -31,11 +31,11 @@ test("sequenceInput accepts a pipeline sequence with a repair session", () => {
     base({
       kind: "pipeline",
       pipeline: { pipelineId: "p1" },
-      repair: { tool: "claude", launchMode: "normal" },
+      repair: { tool: "claude", launchMode: "auto" },
     }),
   );
   assert.deepEqual(out.pipeline, { pipelineId: "p1" });
-  assert.deepEqual(out.repair, { tool: "claude", launchMode: "normal" });
+  assert.deepEqual(out.repair, { tool: "claude", launchMode: "auto" });
 });
 
 test("sequenceInput rejects", () => {
@@ -56,4 +56,35 @@ test("sequenceInput rejects", () => {
 test("sequenceInput accepts 50 tickets", () => {
   const tickets = Array.from({ length: 50 }, (_, i) => ticket(i + 1));
   assert.equal(sequenceInput(base({ tickets })).tickets.length, 50);
+});
+
+test("sequenceInput checks repair tool and launch mode against the CLIs", () => {
+  const pipe = (repair) =>
+    base({ kind: "pipeline", pipeline: { pipelineId: "p" }, repair });
+  assert.ok(sequenceInput(pipe({ tool: "codex" })));
+  rejects(pipe({ tool: "vim" }));
+  rejects(pipe({ tool: "claude", launchMode: "turbo" }));
+  rejects(pipe({ launchMode: "auto" }));
+});
+
+test("sequenceInput checks the pipeline base branch and token budget", () => {
+  const pipe = (pipeline) =>
+    base({ kind: "pipeline", pipeline: { pipelineId: "p", ...pipeline } });
+  const out = sequenceInput(pipe({ baseBranch: "main", tokenBudget: 1000 }));
+  assert.deepEqual(out.pipeline, {
+    pipelineId: "p",
+    baseBranch: "main",
+    tokenBudget: 1000,
+  });
+  for (const bad of [
+    { baseBranch: 5 },
+    { baseBranch: "" },
+    { baseBranch: "x".repeat(201) },
+    { baseBranch: "a\nb" },
+    { tokenBudget: "5" },
+    { tokenBudget: 0 },
+    { tokenBudget: 1.5 },
+    { tokenBudget: 1e13 },
+  ])
+    rejects(pipe(bad));
 });

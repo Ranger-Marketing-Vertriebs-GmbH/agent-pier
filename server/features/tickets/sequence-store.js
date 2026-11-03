@@ -13,6 +13,13 @@ export const SEQUENCE_STATES = [
   "needs-owner",
   "done",
 ];
+const NEXT_STATES = {
+  waiting: ["running"],
+  running: ["awaiting-merge", "needs-owner"],
+  "awaiting-merge": ["done", "needs-owner", "running"],
+  "needs-owner": ["running", "waiting", "done"],
+  done: [],
+};
 const MAX_ACTIVE = 200;
 const MAX_DONE = 50;
 const MAX_OPTION_BYTES = 8192;
@@ -149,10 +156,17 @@ export class TicketSequenceStore {
     this.log = log;
     this.file = path.join(dataDir, "ticket-sequences.json");
     let saved;
+    let damaged = false;
     try {
       saved = readJSON(this.file, {});
     } catch (error) {
       if (!(error instanceof SyntaxError)) throw error;
+      damaged = true;
+    }
+    // Valid JSON of the wrong shape is as unusable as broken JSON.
+    if (!plain(saved) || (saved.queues !== undefined && !plain(saved.queues)))
+      damaged = true;
+    if (damaged) {
       // A damaged file starts empty; the unreadable copy is kept for the owner.
       fs.renameSync(this.file, `${this.file}.corrupt-${this.now()}`);
       saved = {};
@@ -178,7 +192,7 @@ export class TicketSequenceStore {
         items: pruned(items),
       });
     }
-    if (dropped) this.log("ticket-sequences: dropped-invalid");
+    if (dropped) this.log(`ticket-sequences: dropped-invalid count=${dropped}`);
   }
   save() {
     const queues = {};
@@ -186,10 +200,11 @@ export class TicketSequenceStore {
     writePrivate(this.file, { version: 1, queues });
   }
   queue(projectId) {
-    return this.byProject.get(projectId) ?? null;
+    const queue = this.byProject.get(projectId);
+    return queue ? structuredClone(queue) : null;
   }
   queues() {
-    return [...this.byProject.values()];
+    return structuredClone([...this.byProject.values()]);
   }
   /** Appends new items (waiting) behind the existing ones; all or nothing. */
   append(projectId, repoPath, items) {
@@ -207,6 +222,7 @@ export class TicketSequenceStore {
         state: "waiting",
         origin: { kind: "manual" },
         ...entry,
+        state: "waiting",
         id: randomUUID(),
         addedAt: this.now(),
         rounds: { failed: 0, lastSha: null, lastReview: null },
@@ -227,29 +243,27 @@ export class TicketSequenceStore {
       else this.byProject.delete(projectId);
       throw error;
     }
-    return next;
-  }
-  find(projectId, itemId) {
-    const found = this.byProject.get(projectId)?.items.find((e) => e.id === itemId);
-    if (!found) throw problem(copy.itemNotFound, 404);
-    return found;
+    return structuredClone(next);
   }
   patch(projectId, itemId, patch) {
     const queue = this.byProject.get(projectId);
     const index = queue?.items.findIndex((entry) => entry.id === itemId) ?? -1;
     if (index < 0) throw problem(copy.itemNotFound, 404);
-    const before = queue.items[index];
-    const checked = item({ ...before, ...patch, id: before.id });
+    const before = queue.items;
+    const current = before[index];
+    const state = patch?.state ?? current.state;
+    if (state !== current.state && !NEXT_STATES[current.state].includes(state))
+      throw problem(copy.invalidSequence, 409);
+    const checked = item({ ...current, ...patch, id: current.id });
     if (!checked) throw problem(copy.invalidSequence);
-    queue.items[index] = checked;
-    queue.items = pruned(queue.items);
+    queue.items = pruned(before.map((entry, i) => (i === index ? checked : entry)));
     try {
       this.save();
     } catch (error) {
-      queue.items[index] = before;
+      queue.items = before;
       throw error;
     }
-    return checked;
+    return structuredClone(checked);
   }
   remove(projectId, itemId) {
     const queue = this.byProject.get(projectId);
@@ -266,6 +280,7 @@ export class TicketSequenceStore {
   }
   /** The first item that is not done; a needs-owner head blocks the whole queue. */
   head(projectId) {
-    return this.byProject.get(projectId)?.items.find(isActive) ?? null;
+    const found = this.byProject.get(projectId)?.items.find(isActive);
+    return found ? structuredClone(found) : null;
   }
 }
