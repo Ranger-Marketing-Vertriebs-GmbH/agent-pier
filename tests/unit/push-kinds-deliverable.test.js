@@ -68,6 +68,7 @@ const events = {
   "update-available": [{ label: "2.13.0" }],
   "update-failed": [{}],
   "ticket-needs-owner": [{ projectId: "p1" }],
+  "ticket-rule-failed": [{ projectId: "p1" }],
   test: [{}],
 };
 
@@ -136,6 +137,19 @@ test("a ticket notice opens the project's Tickets tab and drops any session", ()
   assert.throws(() =>
     pushEvent({ kind: "ticket-needs-owner", eventId: "t1", projectId: "../x" }),
   );
+});
+
+test("ticket-rule-failed requires projectId and opens the Tickets tab", () => {
+  const kind = "ticket-rule-failed";
+  assert.throws(() => pushEvent({ kind, eventId: "r1" }));
+  assert.throws(() => pushEvent({ kind, eventId: "r1", projectId: "../x" }));
+  const event = pushEvent({ kind, eventId: "r1", projectId: "p1", sessionId: "s1" });
+  assert.equal(event.sessionId, undefined);
+  assert.equal(event.projectId, "p1");
+  const payload = buildPayload(event, defaultPreferences());
+  assert.equal(payload.link, "/projects/p1?tab=tickets");
+  assert.equal(payload.tag, "tickets:p1");
+  assert.equal(worker.target({ kind, projectId: "p1" }), payload.link);
 });
 
 test("agent chat notices collapse by their chat's tag", () => {

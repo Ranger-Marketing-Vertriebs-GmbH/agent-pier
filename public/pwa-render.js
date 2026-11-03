@@ -21,7 +21,10 @@
   function target(data) {
     if (typeof data?.link === "string" && linkPattern.test(data.link)) return data.link;
     if (data?.kind === "github-token") return "/connections?section=github";
-    if (data?.kind === "ticket-needs-owner" && validId(data?.projectId))
+    if (
+      (data?.kind === "ticket-needs-owner" || data?.kind === "ticket-rule-failed") &&
+      validId(data?.projectId)
+    )
       return `/projects/${data.projectId}?tab=tickets`;
     if (data?.kind === "disk-space") return "/";
     if (data?.kind === "update-available" || data?.kind === "update-failed")

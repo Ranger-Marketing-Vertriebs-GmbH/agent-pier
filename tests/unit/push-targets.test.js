@@ -228,6 +228,12 @@ const rows = [
     { view: "projects", projectId: "p1", projectTab: "tickets" },
   ],
   [
+    "ticket-rule-failed",
+    { projectId: "p1" },
+    "/projects/p1?tab=tickets",
+    { view: "projects", projectId: "p1", projectTab: "tickets" },
+  ],
+  [
     "test",
     {},
     "/settings/notifications",

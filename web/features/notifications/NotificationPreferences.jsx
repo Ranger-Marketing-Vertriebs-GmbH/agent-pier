@@ -32,6 +32,7 @@ export const eventGroups = [
       "session-resume-failed",
       "agent-hook-throttled",
       "agent-memory-review-failed",
+      "ticket-rule-failed",
       "update-failed",
     ],
   ],

@@ -37,6 +37,8 @@ export const pushEventDefaults = Object.freeze({
   "update-failed": true,
   // The ticket sequence of a project waits for the owner.
   "ticket-needs-owner": true,
+  // A label rule of a project cannot read its tickets (rule-monitor.js).
+  "ticket-rule-failed": true,
   telegram: false,
 });
 export const pushEvents = Object.keys(pushEventDefaults);
