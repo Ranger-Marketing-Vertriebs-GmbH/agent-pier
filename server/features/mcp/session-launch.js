@@ -3,7 +3,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { writePrivate, privateDirectory, problem } from "../../lib/storage.js";
 import { cliDriver } from "../clis/drivers.js";
-import { inlineConfig } from "../clis/opencode/session-config.js";
 import { addGrant } from "../nono/sandbox-grants.js";
 const main = fileURLToPath(new URL("./session-stdio.js", import.meta.url));
 
@@ -21,12 +20,11 @@ export function sessionMcpLaunch(launch, tool, folder, capability, socketPath) {
     )
   )
     throw problem(serverMessages.mcp.reservedSessionMcpName, 409);
-  if (tool === "opencode")
-    try {
-      if (Object.hasOwn(inlineConfig(env).mcp || {}, "agentpier_session")) throw Error();
-    } catch {
-      throw problem(serverMessages.mcp.invalidOpenCodeMcpConfig, 409);
-    }
+  try {
+    if (cliDriver(tool).inlineMcpNames(env).includes("agentpier_session")) throw Error();
+  } catch {
+    throw problem(serverMessages.mcp.invalidOpenCodeMcpConfig, 409);
+  }
   cliDriver(tool).addMcpServer(
     { args, env },
     { name: "agentpier_session", ...command },

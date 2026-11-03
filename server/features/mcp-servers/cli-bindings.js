@@ -1,6 +1,7 @@
 import os from "node:os";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
+import { cliDefinition } from "../clis/catalog.js";
 import { record } from "../extensions/mcp-config.js";
 import { addGrant } from "../nono/sandbox-grants.js";
 import { adoptFinds, changeRefusal, patchFromNative } from "./cli-adoption.js";
@@ -136,7 +137,7 @@ export class CliMcpBindings {
     for (const cli of clis) {
       const mine = oauth.filter((server) => inEffect(results[cli], server.id));
       if (!mine.length) continue;
-      const codex = cli === "codex" && this.oauthStatus;
+      const codex = cliDefinition(cli).capabilities.mcpOAuth && this.oauthStatus;
       const known = codex ? await this.oauthStatus.codex() : {};
       const managed = codex ? this.oauthStatus.accountStates() : null;
       out[cli] = Object.fromEntries(

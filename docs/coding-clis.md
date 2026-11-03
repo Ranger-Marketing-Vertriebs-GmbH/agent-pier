@@ -60,8 +60,8 @@ home, or the owning service (for example the `ProviderHistory` instance for `his
 | `capabilities`             | `accountTransfer`, `transcriptCleanup`, `storageCleanup`, `mcpOAuth`, `imagePaste`    |
 | `pipeline.permissionModes` | Permission modes a pipeline profile may choose                                        |
 
-`accountTransfer`, `transcriptCleanup` and `storageCleanup` are read by their consumers.
-`mcpOAuth` and `imagePaste` are declared; consumers still branch on the id
+`accountTransfer`, `transcriptCleanup`, `storageCleanup` and `mcpOAuth` are read by their
+consumers. `imagePaste` is declared; consumers still branch on the id
 (counted in the branch budget of `tests/unit/cli-id-lists.test.js`).
 
 `server/features/tools/` derives the minimum-version table (`MINIMUM_CLI_VERSIONS` in
@@ -100,6 +100,9 @@ from `launchModes` (`server/features/accounts/account-store.js`).
 - `addMcpServer(launch, { name, command, args, env? }, claude?)`: adds a stdio MCP
   server to the launch's `args`/`env`. Claude Code also needs
   `{ pluginFolder, manifest, write }`.
+- `inlineMcpNames(env)`: the MCP server names the launch environment already holds inline
+  (OpenCode's `OPENCODE_CONFIG_CONTENT`, which throws when invalid; `[]` for the others).
+  The session, memory and SSH launches reject their reserved names with it.
 - `addReminder(launch, { name, script, pluginUrl, folder, invalid })`: adds a start hook (a
   Codex hook `name` running `script`, a SessionStart hook in the Claude plugin `folder`,
   or the OpenCode `pluginUrl`).

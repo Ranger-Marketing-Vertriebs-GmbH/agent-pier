@@ -1,12 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { mcpCliCopy as copy } from "../../lib/i18n/messages/mcp-cli.js";
+import { cliDefinition, isCodingCli } from "../../../server/features/clis/catalog.js";
 import { names } from "../../lib/providers.js";
 import { cliApi } from "./cli-api.js";
 import McpCodexAccounts from "./McpCodexAccounts.jsx";
 import StdioConfirmation from "./StdioConfirmation.jsx";
 import { stdioConfirmationRequired } from "./stdio-confirmation.js";
 
+const mcpOAuth = (cli) => isCodingCli(cli) && cliDefinition(cli).capabilities.mcpOAuth;
 const statusText = (state) =>
   state.status === "error"
     ? copy.errorWithReason(copy.reasons[state.reason] || copy.reasons.failed)
@@ -15,7 +17,7 @@ const statusText = (state) =>
 // A command starting with "/" (Claude Code's /mcp) is opened in the CLI, not run in a shell.
 // The first Codex line is the owner's own profile; managed accounts follow below it.
 function oauthText(cli, oauth) {
-  if (cli === "codex")
+  if (mcpOAuth(cli))
     return oauth.state === "connected"
       ? copy.oauthConnectedCodex
       : oauth.state === "login-required"
@@ -103,7 +105,7 @@ export default function McpCliStatus({ server, onChanged }) {
               {state.oauth && (
                 <span className="mcp-hint">{oauthText(cli, state.oauth)}</span>
               )}
-              {state.oauth && cli === "codex" && (
+              {state.oauth && mcpOAuth(cli) && (
                 <McpCodexAccounts
                   server={server}
                   oauth={state.oauth}
