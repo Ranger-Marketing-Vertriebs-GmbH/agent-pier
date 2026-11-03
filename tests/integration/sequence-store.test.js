@@ -198,7 +198,6 @@ test("only legal state transitions are accepted", () => {
       status: 409,
       message: serverMessages.tickets.invalidSequence,
     });
-  refuses("done");
   refuses("awaiting-merge");
   to("running");
   refuses("waiting");
@@ -209,10 +208,15 @@ test("only legal state transitions are accepted", () => {
   to("waiting");
   to("running");
   to("needs-owner");
+  to("awaiting-merge");
+  to("needs-owner");
   to("done");
   for (const state of ["waiting", "running", "awaiting-merge", "needs-owner"])
     refuses(state);
   assert.equal(store.queue("p1").items[0].state, "done");
+  // The owner may mark a waiting ticket done.
+  const waiting = store.append("p1", "/repo", [entry(2)]).items.at(-1);
+  store.patch("p1", waiting.id, { state: "done" });
 });
 
 test("valid JSON of the wrong shape is kept aside like a corrupt file", () => {

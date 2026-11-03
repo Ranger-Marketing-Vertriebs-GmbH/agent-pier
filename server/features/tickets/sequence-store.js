@@ -13,11 +13,13 @@ export const SEQUENCE_STATES = [
   "needs-owner",
   "done",
 ];
+// The owner may mark a waiting ticket done, and Retry returns a parked ticket with an
+// open pull request to awaiting-merge.
 const NEXT_STATES = {
-  waiting: ["running"],
+  waiting: ["running", "done"],
   running: ["awaiting-merge", "needs-owner"],
   "awaiting-merge": ["done", "needs-owner", "running"],
-  "needs-owner": ["running", "waiting", "done"],
+  "needs-owner": ["running", "waiting", "awaiting-merge", "done"],
   done: [],
 };
 const MAX_ACTIVE = 200;
@@ -168,9 +170,11 @@ function pruned(items) {
  * only appended at the end; a rule (PR 3) and the owner write to the same order.
  */
 export class TicketSequenceStore {
-  constructor({ dataDir, now = Date.now, log = () => {} }) {
+  constructor({ dataDir, now = Date.now, log = () => {}, onChange = () => {} }) {
     this.now = now;
     this.log = log;
+    // Called with the project id after every saved change (the tickets.queue topic).
+    this.onChange = onChange;
     this.file = path.join(dataDir, "ticket-sequences.json");
     let saved;
     let damaged = false;
@@ -219,6 +223,11 @@ export class TicketSequenceStore {
     for (const [projectId, queue] of this.byProject) queues[projectId] = queue;
     writePrivate(this.file, { version: 1, queues });
   }
+  changed(projectId) {
+    try {
+      this.onChange(projectId);
+    } catch {}
+  }
   queue(projectId) {
     const queue = this.byProject.get(projectId);
     return queue ? structuredClone(queue) : null;
@@ -263,6 +272,7 @@ export class TicketSequenceStore {
       else this.byProject.delete(projectId);
       throw error;
     }
+    this.changed(projectId);
     return structuredClone(next);
   }
   patch(projectId, itemId, patch) {
@@ -283,6 +293,7 @@ export class TicketSequenceStore {
       queue.items = before;
       throw error;
     }
+    this.changed(projectId);
     return structuredClone(checked);
   }
   remove(projectId, itemId) {
@@ -297,6 +308,7 @@ export class TicketSequenceStore {
       queue.items = before;
       throw error;
     }
+    this.changed(projectId);
   }
   /** The first item that is not done; a needs-owner head blocks the whole queue. */
   head(projectId) {
