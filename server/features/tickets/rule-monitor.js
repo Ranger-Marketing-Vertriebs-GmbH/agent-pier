@@ -72,7 +72,8 @@ export class TicketRuleMonitor {
     this.controller = new AbortController();
   }
   get enabled() {
-    return this.intervalMs > 0 && !this.closed;
+    // A rule file this version cannot use leaves the rules off (rule-store.js).
+    return this.intervalMs > 0 && !this.closed && !this.rules.locked;
   }
   start() {
     if (!this.enabled || this.timer) return;

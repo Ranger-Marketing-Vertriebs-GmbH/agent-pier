@@ -27,6 +27,8 @@ export const tickets = Object.freeze({
   ruleNotFound: "Die Label-Regel wurde nicht gefunden.",
   tooManyRules: "Dieses Projekt hat schon 20 Label-Regeln.",
   ruleExists: "Für diese Quelle und dieses Label gibt es schon eine Regel.",
+  rulesLocked:
+    "Die Label-Regeln sind aus und schreibgeschützt: Ihre Datei stammt von einer neueren AgentPier-Version oder ist nicht lesbar.",
   sequenceFull: "Die Ticketwarteschlange dieses Repositorys ist voll.",
   ticketQueued: "Dieses Ticket ist bereits eingereiht.",
   itemNotFound: "Das eingereihte Ticket wurde nicht gefunden.",

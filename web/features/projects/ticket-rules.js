@@ -56,3 +56,13 @@ export function ruleBody(rule, patch = {}) {
     ...patch,
   };
 }
+
+/**
+ * The error of a rule file the server keeps off and read-only (`view.locked`): written
+ * by a newer AgentPier version, or unreadable.
+ */
+export function lockedText(locked) {
+  return locked?.code === "unsupportedVersion"
+    ? ticketRulesCopy.locked.newerVersion
+    : ticketRulesCopy.locked.unreadable;
+}

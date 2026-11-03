@@ -16,6 +16,12 @@ export const ticketRulesCopy = {
   active: "Active",
   failing: "Error",
   loadFailed: "The label rules could not be loaded.",
+  locked: {
+    newerVersion:
+      "Label rules were saved by a newer AgentPier version. They are off and read-only until that version runs again.",
+    unreadable:
+      "The label rules file cannot be read. Rules are off and read-only until the file can be read and AgentPier restarts.",
+  },
   fromRule: (label) => `From label rule "${label}"`,
   fromDeletedRule: "From a deleted label rule",
   capped: {

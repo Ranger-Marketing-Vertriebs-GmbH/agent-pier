@@ -176,7 +176,13 @@ export async function mapProjects(directory, projectMap = {}) {
   // status belongs to the old host and starts over.
   const rulesFile = path.join(directory, "ticket-rules.json"),
     ticketRules = readJson(rulesFile, null);
-  if (ticketRules && typeof ticketRules === "object") {
+  // A file of another version stays as it is: the rule store loads it off and read-only
+  // (rule-store.js), and its shape is not this version's to rewrite.
+  if (
+    ticketRules &&
+    typeof ticketRules === "object" &&
+    (ticketRules.version === undefined || ticketRules.version === 1)
+  ) {
     const byId = (id) => mappings.find((m) => m.from === id)?.to || id;
     if (Array.isArray(ticketRules.rules))
       ticketRules.rules = ticketRules.rules.map((rule) => ({

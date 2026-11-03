@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import fs from "node:fs";
+import path from "node:path";
 import { applicationFixture } from "../helpers/application.js";
 import { signedInUser } from "../helpers/users.js";
 import { fakeGithub, githubIssue } from "../helpers/ticket-fakes.js";
@@ -198,4 +200,31 @@ test("rules survive an application restart", async (t) => {
   const read = await call(rules);
   assert.equal(read.status, 200);
   assert.deepEqual(read.body, { rules: [body.rule] });
+});
+
+test("a rule file of a newer version keeps the server up with the rules read-only", async (t) => {
+  const { f, call, rules } = await ruleApp(t);
+  const { body } = await call(rules, { method: "POST", body: ruleBody() });
+  const file = path.join(f.dataDir, "ticket-rules.json");
+  const saved = JSON.parse(fs.readFileSync(file, "utf8"));
+  const content = JSON.stringify({ ...saved, version: 2 });
+  fs.writeFileSync(file, content);
+  await f.restart();
+  const read = await call(rules);
+  assert.equal(read.status, 200);
+  assert.deepEqual(read.body, {
+    rules: [],
+    locked: { code: "unsupportedVersion", version: 2 },
+  });
+  for (const [path_, method, body_] of [
+    [rules, "POST", ruleBody({ label: "other" })],
+    [`${rules}/${body.rule.id}`, "PUT", ruleBody({ paused: true })],
+    [`${rules}/${body.rule.id}`, "DELETE"],
+  ]) {
+    const refused = await call(path_, { method, body: body_ });
+    assert.equal(refused.status, 409);
+    assert.equal(refused.body.code, "TICKET_RULES_LOCKED");
+    assert.equal(refused.body.error, copy.rulesLocked);
+  }
+  assert.equal(fs.readFileSync(file, "utf8"), content);
 });

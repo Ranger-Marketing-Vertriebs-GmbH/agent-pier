@@ -17,6 +17,7 @@ import { RowMenu, useRowMenu } from "../extensions/RowMenu.jsx";
 import LabelRuleDialog from "./LabelRuleDialog.jsx";
 import {
   ruleBody,
+  lockedText,
   ruleCappedText,
   ruleErrorText,
   rulesPath,
@@ -27,7 +28,7 @@ import {
 const sourceName = (source) =>
   source === "plane" ? projectTicketsCopy.plane : projectTicketsCopy.github;
 
-function RuleRow({ rule, pipelines, busy, onEdit, onToggle, onDelete }) {
+function RuleRow({ rule, pipelines, busy, locked, onEdit, onToggle, onDelete }) {
   const menu = useRowMenu();
   const pipeline =
     rule.kind === "pipeline" &&
@@ -49,29 +50,35 @@ function RuleRow({ rule, pipelines, busy, onEdit, onToggle, onDelete }) {
         label={name}
         sub={sub}
         disabled={busy}
-        menu={{
-          label: copy.rowActions(rule.label),
-          expanded: menu.open,
-          onClick: menu.toggle,
-        }}
+        menu={
+          locked
+            ? undefined
+            : {
+                label: copy.rowActions(rule.label),
+                expanded: menu.open,
+                onClick: menu.toggle,
+              }
+        }
       >
         <span className="project-ticket-chip">
           <StatusChip tone={ruleTone(rule)}>{copy[ruleState(rule)]}</StatusChip>
         </span>
       </ListRow>
-      <RowMenu
-        label={copy.rowActions(rule.label)}
-        state={menu}
-        items={[
-          { id: "edit", label: commonCopy.edit, run: () => onEdit(rule) },
-          {
-            id: "pause",
-            label: rule.paused ? copy.resume : copy.pause,
-            run: () => onToggle(rule),
-          },
-          { id: "delete", label: commonCopy.delete, run: () => onDelete(rule) },
-        ]}
-      />
+      {!locked && (
+        <RowMenu
+          label={copy.rowActions(rule.label)}
+          state={menu}
+          items={[
+            { id: "edit", label: commonCopy.edit, run: () => onEdit(rule) },
+            {
+              id: "pause",
+              label: rule.paused ? copy.resume : copy.pause,
+              run: () => onToggle(rule),
+            },
+            { id: "delete", label: commonCopy.delete, run: () => onDelete(rule) },
+          ]}
+        />
+      )}
     </div>
   );
 }
@@ -82,7 +89,8 @@ function RuleRow({ rule, pipelines, busy, onEdit, onToggle, onDelete }) {
  * Resume and Delete. A rule queues every open ticket with its label once, the ones
  * labelled before it existed too. `written` is the topic's, so a change stays busy
  * until the pushed list shows it. A failed read (`loadError`) shows its error with
- * `retry` in place of the list.
+ * `retry` in place of the list. A rule file the server cannot use (`view.locked`) shows
+ * one error and the rules without Add, Edit, Pause or Delete.
  */
 export default function TicketRules({
   projectId,
@@ -95,6 +103,8 @@ export default function TicketRules({
   defaults,
 }) {
   const rules = view?.rules || [];
+  // The rule file is off and read-only on the server (rule-store.js): no changes.
+  const locked = Boolean(view?.locked);
   const [editing, setEditing] = useState(null);
   const [deleting, setDeleting] = useState(null);
   const action = useAsyncAction();
@@ -108,7 +118,7 @@ export default function TicketRules({
   usePageAction(
     "ticket-rule-add",
     open,
-    Boolean((view || failed) && (sources.github || sources.plane)),
+    Boolean((view || failed) && !locked && (sources.github || sources.plane)),
   );
   if (!view && !failed) return null;
   const onToggle = (rule) =>
@@ -124,10 +134,11 @@ export default function TicketRules({
     <section className="project-ticket-queue">
       <GroupLabel
         id="project-ticket-rules-heading"
-        action={{ label: copy.add, onClick: open }}
+        action={locked ? undefined : { label: copy.add, onClick: open }}
       >
         {copy.title}
       </GroupLabel>
+      {locked && <ErrorMessage error={lockedText(view.locked)} />}
       {failed ? (
         <div className="repository-load-error">
           <ErrorMessage error={copy.loadFailed} />
@@ -143,6 +154,7 @@ export default function TicketRules({
               rule={rule}
               pipelines={pipelines.data?.pipelines || []}
               busy={action.busy}
+              locked={locked}
               onEdit={(item) => setEditing({ rule: item })}
               onToggle={onToggle}
               onDelete={setDeleting}

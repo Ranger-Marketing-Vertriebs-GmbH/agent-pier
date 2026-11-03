@@ -617,6 +617,15 @@ mapping moves rules and pickups to the new project id and resets each rule's sta
 the restored host starts with fresh checks and never queues a picked-up ticket again.
 See [Backups](backups.md).
 
+A `ticket-rules.json` written by a newer AgentPier version (after a downgrade, or a
+restore of a newer backup), or one that cannot be read, never stops the server. The
+rules are then off and read-only: no pass runs, every change is refused
+(`TICKET_RULES_LOCKED`, 409), the file stays as it is, and the **Label rules** section
+shows the reason without **Add**, **Edit**, **Pause** or **Delete**. The server logs
+one line, such as `AgentPier ticket-rules: unsupported version=2, rules disabled`.
+Running the newer version again, or making the file readable and restarting, turns the
+rules back on with their pickups.
+
 ### Routes and live updates
 
 The Tickets tab follows the owner-only live topic `tickets.rules:<projectId>`, which
