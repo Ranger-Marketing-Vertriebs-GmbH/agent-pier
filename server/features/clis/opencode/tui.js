@@ -167,3 +167,80 @@ export const modelPicker = {
 
 /** OpenCode shows no limit warnings AgentPier relays. */
 export const limitWarning = () => [];
+
+/** `{ styled, lines, row, pane, hashes }`: the hashes of OpenCode's QUEUED prompts. */
+export function queuedInputs({ styled, lines, row, pane, hashes }) {
+  const values = [];
+  for (let i = 1; i < row - 3; i++) {
+    if (!/^\s*┃\s+QUEUED\s*$/.test(lines[i]) || !/\x1b\[1m/.test(styled[i])) continue;
+    const match = styled[i - 1].match(
+      /\x1b\[38;2;238;238;238m([^\x1b]+)\x1b\[38;2;255;255;255m/,
+    );
+    if (
+      match &&
+      /^\s*┃\s*$/.test(lines[i - 2] || "") &&
+      /^\s*┃\s*$/.test(lines[i + 1] || "")
+    )
+      values.push(match[1]);
+  }
+  return hashes(values, pane);
+}
+
+/**
+ * `{ raw, pane }`: the prompt box at the cursor (`empty` or `draft` with its `rows`),
+ * `dialog` for a permission or selection dialog, otherwise `unknown`.
+ */
+export function promptState({ raw, pane }) {
+  const rows = raw.split("\n").slice(0, pane.height);
+  const lines = rows.map(clean);
+  const cursor = pane.cursorY;
+  const footer = lines
+    .filter((row) => row.trim())
+    .slice(-5)
+    .join(" ");
+  const dialog =
+    lines.slice(-14).some((row) => /^ *┃ +△ Permission required *$/.test(row)) ||
+    (/┃/.test(footer) &&
+      /enter\s+confirm/.test(footer) &&
+      /Allow once|Reject|select/.test(footer)) ||
+    rows.some((row) => /\x1b\[1m/.test(row) && /^ +\S.* +esc *$/.test(clean(row)));
+  const unreadable = () => (dialog ? { state: "dialog" } : { state: "unknown" });
+  // Prefer the active prompt to old permission output in the transcript.
+  const prefix = /^( *)┃  /.exec(lines[cursor] || "");
+  if (!prefix) return unreadable();
+  const indent = prefix[1];
+  const border = `${indent}┃`;
+  let top = cursor,
+    bottom = cursor;
+  while (
+    top > 0 &&
+    lines[top - 1].startsWith(border) &&
+    lines[top - 1].trimEnd() !== border
+  )
+    top--;
+  while (
+    bottom + 1 < lines.length &&
+    lines[bottom + 1].startsWith(border) &&
+    lines[bottom + 1].trimEnd() !== border
+  )
+    bottom++;
+  if (
+    lines[top - 1]?.trimEnd() !== border ||
+    lines[bottom + 1]?.trimEnd() !== border ||
+    !lines[bottom + 2]?.startsWith(`${border}  `) ||
+    !/ · \S/.test(lines[bottom + 2]) ||
+    !lines[bottom + 3]?.startsWith(`${indent}╹▀▀▀`)
+  )
+    return unreadable();
+  const content = lines
+    .slice(top, bottom + 1)
+    .map((row) => row.slice(indent.length + 3).trimEnd());
+  const placeholder =
+    top === bottom &&
+    pane.cursorX === indent.length + 3 &&
+    (!content[0] || rows[top].includes("\x1b[38;2;128;128;128mAsk anything… "));
+  return { state: placeholder ? "empty" : "draft", rows: content };
+}
+
+/** OpenCode recognizes a paste holding exactly one bare image path. */
+export const images = { pathText: (file) => file };

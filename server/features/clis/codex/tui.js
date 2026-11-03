@@ -1,6 +1,7 @@
 // How AgentPier reads the Codex terminal: activity, composer, model picker and
 // limit warnings. Pure screen parsing; the shared callers dispatch here.
 import { currentCodexModel, codexModelFooter } from "../../models/codex-model-parser.js";
+import { hookTrustScreen } from "../../requests/codex-hook-trust.js";
 import {
   clean,
   nativePromptRow,
@@ -178,3 +179,91 @@ export function limitWarning({ styled, lines }) {
   }
   return warnings;
 }
+
+/**
+ * `{ styled, lines, row, pane, hashes }`: the hashes of the inputs Codex queued
+ * after the next tool call; incomplete, wrapped or restyled rows read as none.
+ */
+export function queuedInputs({ styled, lines, row, pane, hashes }) {
+  const values = [];
+  let end = row - 1;
+  while (end >= 0 && !lines[end].trim()) end--;
+  let start = end;
+  while (start >= 0 && /^  ↳ .+/.test(lines[start])) start--;
+  let header = start;
+  while (header >= Math.max(0, start - 3) && !styled[header].startsWith("\x1b[2m• "))
+    header--;
+  if (
+    header < 0 ||
+    !/^• Messages to be submitted after next tool call \(press esc to interrupt and send immediately\)$/.test(
+      lines
+        .slice(header, start + 1)
+        .map((line) => line.trim())
+        .join(" "),
+    ) ||
+    !styled[header]?.startsWith("\x1b[2m• ")
+  )
+    return [];
+  for (let i = start + 1; i <= end; i++) {
+    if (!/^\x1b\[2m  ↳ [^\x1b]+\x1b\[0m$/.test(styled[i])) return [];
+    values.push(lines[i].slice(4));
+  }
+  return hashes(values, pane);
+}
+
+/**
+ * `{ raw, pane }`: the native prompt box Codex draws (`empty` or `draft` with its
+ * `rows`), `dialog` for a native selector, or undefined when neither shows.
+ */
+export function promptState({ raw, pane }) {
+  const rows = raw.split("\n").slice(0, pane.height);
+  const lines = rows.map(clean);
+  const cursor = pane.cursorY;
+  const start = rows.findLastIndex(
+    (row, i) => i <= cursor && /^\x1b\[1m›\x1b\[0m /.test(row),
+  );
+  if (start >= 0) {
+    const footer = lines.findLastIndex(
+      (row, i) => i > start && /^  .+ · .+/.test(row) && !lines[i - 1]?.trim(),
+    );
+    const end = footer - 2;
+    if (
+      cursor >= start &&
+      cursor <= end &&
+      lines
+        .slice(start + 1, end + 1)
+        .every((row) => !row.trim() || row.startsWith("  ")) &&
+      !lines[end + 1]?.trim() &&
+      /^  .+ · .+/.test(lines[end + 2] || "")
+    ) {
+      const content = lines.slice(start, end + 1).map((row) => row.slice(2));
+      const placeholder =
+        start === end &&
+        pane.cursorX === 2 &&
+        /^\x1b\[1m›\x1b\[0m \x1b\[2m[^\x1b]+\x1b\[0m$/.test(rows[start]);
+      return { state: placeholder ? "empty" : "draft", rows: content };
+    }
+  }
+  // Native selectors end with this footer; a normal composer above wins.
+  const bottom = lines
+    .filter((row) => row.trim())
+    .slice(-4)
+    .join("\n");
+  if (
+    /\b(?:enter|esc)\b.*(?:select|confirm|continue|cancel|back|quit|deny|reject)/i.test(
+      bottom,
+    )
+  )
+    return { state: "dialog" };
+  return undefined;
+}
+
+/** Codex wraps a pasted line without a newline: the rows joined end with the text. */
+export const promptProof = (rows, text) =>
+  rows.join("").endsWith(text.replaceAll("\n", ""));
+
+/** The hook review screen holds input until AgentPier answers it. */
+export const blockingScreen = (raw) => hookTrustScreen(raw);
+
+/** Codex tokenizes bare paths on spaces; a quoted path remains one image. */
+export const images = { pathText: (file) => JSON.stringify(file) };

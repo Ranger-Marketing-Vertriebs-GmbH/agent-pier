@@ -160,3 +160,62 @@ test("a dialog before image one leaves the journal reserved", async () => {
   );
   assert.deepEqual(phases, []);
 });
+
+test("image pastes keep their per-CLI order, path text and waits", async () => {
+  const { writeChatImages } =
+    await import("../../server/features/sessions/chat-image-input.js");
+  const record = async (tool) => {
+    const events = [];
+    await writeChatImages({
+      manager: {
+        target: (id) => `ap-${id}`,
+        tmux: async (args) => (events.push(`capture ${args.at(-1)}`), "0|0|80|24\n"),
+      },
+      session: { id: "s1", tool },
+      images: { images: ["/att/a b.png", "/att/c.png"], text: "Describe" },
+      imageTimeoutMs: 0,
+      initialImages: 0,
+      onPhase: async (phase) => events.push(`phase ${phase}`),
+      onNotice: async (code) => events.push(`notice ${code}`),
+      onDialog: async () => events.push("dialog"),
+      pastePrefix: () => "",
+      paste: async (text) => events.push(`paste ${text}`),
+    });
+    return events;
+  };
+  const tail = [
+    "notice CHAT_IMAGES_MAYBE_MISSING",
+    "phase text-intent",
+    "paste Describe",
+    "phase pasted",
+  ];
+  const single = (first, second) => [
+    "dialog",
+    "phase paste-intent",
+    `paste ${first}`,
+    "capture ap-s1:0.0",
+    "dialog",
+    `paste ${second}`,
+    "capture ap-s1:0.0",
+    "phase images-pasted",
+    ...tail,
+  ];
+  assert.deepEqual(await record("codex"), single('"/att/a b.png"', '"/att/c.png"'));
+  assert.deepEqual(await record("opencode"), single("/att/a b.png", "/att/c.png"));
+  assert.deepEqual(await record("claude"), [
+    "phase paste-intent",
+    "paste /att/a b.png\n/att/c.png",
+    "phase images-pasted",
+    "capture ap-s1:0.0",
+    ...tail,
+  ]);
+});
+
+test("a CLI without a native prompt box and a non-coding tool read unknown", () => {
+  const frame = {
+    raw: "\x1b[1m›\x1b[0m hi\n",
+    pane: { cursorX: 4, cursorY: 0, height: 2 },
+  };
+  for (const tool of ["claude", "shell", undefined])
+    assert.deepEqual(nativePromptState(tool, frame), { state: "unknown" });
+});

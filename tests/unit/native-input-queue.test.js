@@ -182,3 +182,9 @@ test("claude 2.1.x queue: unindented rows, blank separators and the send-now hin
     [],
   );
 });
+
+test("a non-coding tool has no native queue", () => {
+  const pane = { cursorX: 2, cursorY: 1, width: 80, height: 3 };
+  for (const tool of ["shell", "login", undefined])
+    assert.deepEqual(nativeInputQueue(tool, "\n❯ \n", pane), []);
+});

@@ -131,6 +131,18 @@ const drivers = new Map();
  *   AgentPier must not drive, resolveDisplayed?(displayed, { observed, fallback,
  *   models, identifier, unavailable }): the reload model behind a displayed name.
  *   limitWarning({ raw, pane, styled, lines }): visible native limit warnings.
+ *   queuedInputs({ raw, styled, lines, row, pane, hashes }): `hashes(values, pane,
+ *   limit?)` of the inputs the CLI shows as queued (`row` is the cursor row).
+ *   promptState?({ raw, pane }): the native prompt box, { state: "empty" | "draft",
+ *   rows } or { state: "dialog" | "unknown" }; undefined reads as unknown.
+ *   promptProof?(rows, text): whether the draft rows show `text` in a form other
+ *   than its lines (Codex joins wrapped rows).
+ *   blockingScreen?(raw, { cwd, started }): a screen that holds chat input as a
+ *   pending request (Codex hook review, Claude Code startup dialogs).
+ *   images: { pathText(file): the paste of one image path, wait?(manager, session,
+ *   count, { timeoutMs, exact }): the chips wait (default waitForNativeImages),
+ *   draft?(composer, message, { text }), chipsOnly?(raw, pane, count): the chip
+ *   drafts of a CLI with `capabilities.imagePaste` }.
  * pipeline: a pipeline turn's command line and events (see `<id>/pipeline.js`).
  *   command({ args, mode, sessionId, resumeNativeId, headless, claudeDefault }):
  *   { args, permissions }, sessionArgs(sessionId), promptArgs(prompt), and
@@ -200,6 +212,11 @@ export function cliDriver(id) {
           activity: tuis[id].activity,
           composer: tuis[id].composer,
           limitWarning: tuis[id].limitWarning,
+          queuedInputs: tuis[id].queuedInputs,
+          promptState: tuis[id].promptState,
+          promptProof: tuis[id].promptProof,
+          blockingScreen: tuis[id].blockingScreen,
+          images: frozen({ ...tuis[id].images }),
           modelPicker: Object.freeze({
             ...tuis[id].modelPicker,
             openKeys: Object.freeze(

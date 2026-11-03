@@ -2,9 +2,7 @@ import { writeChatImages } from "./chat-image-input.js";
 import { nativeComposerImages, nativeImageDraft } from "./native-image-paste.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { assertManualInputSettled } from "./manual-input-guard.js";
-import { startupScreen } from "../requests/claude-startup-prompts.js";
 import { requestPendingProblem } from "../../application/request-input-guard.js";
-import { hookTrustScreen } from "../requests/codex-hook-trust.js";
 import { readFile, realpath } from "node:fs/promises";
 import path from "node:path";
 import { pidStart } from "../../../vendor/agentbus/core/proc.js";
@@ -15,14 +13,13 @@ import { isNativeSlashCommand, sendSlashCommand } from "./session-slash-command.
 import { problem } from "../../lib/storage.js";
 import { SESSION_PREFIX } from "./tmux-naming.js";
 import {
-  claudeChipsOnly,
   claudeComposerImages,
   claudeImageDraft,
   claudeImageMessage,
 } from "./claude-image-paste.js";
 import { nativeFreshInput } from "./native-prompt.js";
 import { claudeFreshInput } from "./claude-prompt.js";
-import { isCodingCli } from "../clis/catalog.js";
+import { cliDefinition, isCodingCli } from "../clis/catalog.js";
 import { cliDriver } from "../clis/drivers.js";
 import { clean, unknownComposer as unknown } from "../clis/tui-screen.js";
 
@@ -320,10 +317,12 @@ export function withChatInput(manager, id, operation) {
       const fresh = await chatInputSnapshot(manager, current);
       assertManualInputSettled(manager, id, fresh);
       if (!active) throw problem(serverMessages.sessionInput.transactionEnded, 409);
+      // A native blocking screen (hook review, startup dialog) waits as a request.
       if (
-        (current.tool === "codex" && hookTrustScreen(fresh.raw)) ||
-        (current.tool === "claude" &&
-          startupScreen(fresh.raw, current.cwd, { started: fresh.nativeStarted }))
+        cliDriver(current.tool).tui.blockingScreen?.(fresh.raw, {
+          cwd: current.cwd,
+          started: fresh.nativeStarted,
+        })
       )
         throw requestPendingProblem();
       if (fresh.generation !== initial.generation)
@@ -350,7 +349,8 @@ export function withChatInput(manager, id, operation) {
           const inspectComposer = submitOnly || resume ? !proven : !freshInput;
           // Claude dialogs swallow a paste and take Enter as their confirmation.
           // Each native adapter prepares drafts and guards dialogs.
-          const claude = session.tool === "claude";
+          const chips = cliDefinition(session.tool).capabilities.imagePaste;
+          const imageRules = cliDriver(session.tool).tui.images;
           const replace = !submitOnly && !resume;
           const snapshot = () => check(null, false);
           const notices = new Set();
@@ -384,13 +384,13 @@ export function withChatInput(manager, id, operation) {
                 : (composer) => composer.state === "empty";
             // Chips of a held message, also wrapped over several rows.
             chipsOnly = (fresh) =>
-              claude
-                ? claudeImageDraft(fresh.composer, message) ||
-                  claudeChipsOnly(fresh.raw, fresh.pane, message.images.length)
+              chips
+                ? imageRules.draft(fresh.composer, message) ||
+                  imageRules.chipsOnly(fresh.raw, fresh.pane, message.images.length)
                 : nativeImageDraft(session.tool, fresh, message);
             promptInput =
               (replace || proven) &&
-              (claude ? claudeFreshInput : nativeFreshInput)({
+              (chips ? claudeFreshInput : nativeFreshInput)({
                 tool: session.tool,
                 manager,
                 session,
@@ -409,13 +409,13 @@ export function withChatInput(manager, id, operation) {
               await sleep(150);
               manager.pendingTerminalInput.delete(id);
             }
-            let current = await check(matches, inspectComposer && (!replace || !claude));
-            if (message && !claude)
+            let current = await check(matches, inspectComposer && (!replace || !chips));
+            if (message && !chips)
               matches = (_composer, fresh) =>
                 nativeImageDraft(session.tool, fresh, message, {
                   text: submitOnly ? message.text : "",
                 });
-            if (submitOnly && !claude)
+            if (submitOnly && !chips)
               await promptInput.beforeResubmit(options.promptProof, matches);
             // Replacing a draft already writes keys; never repeat it in this transaction.
             attempted = true;
@@ -423,7 +423,7 @@ export function withChatInput(manager, id, operation) {
             else if (freshInput && (typed || current.composer.state === "text"))
               await notice("CHAT_APPENDED_TO_DRAFT");
             if (replace)
-              initialImages = claude
+              initialImages = chips
                 ? claudeComposerImages(current.raw, current.pane)
                 : nativeComposerImages(session.tool, current.raw, current.pane);
           } finally {
