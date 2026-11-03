@@ -10,7 +10,7 @@ import * as prForge from "./pr-forge.js";
 import { prVerdict } from "./pr-status.js";
 import { ticketQueueChanged } from "./live-topics.js";
 import { resumeStart, startItem } from "./sequence-start.js";
-import { isTransient } from "./sequence-reasons.js";
+import { isTransient, timedCalls } from "./sequence-reasons.js";
 import {
   FORGE_LIMIT_MS,
   IDLE_LIMIT_MS,
@@ -85,12 +85,17 @@ export class TicketSequenceEngine {
     now = Date.now,
     intervalMs = 60_000,
     initialDelayMs = 5_000,
+    stepTimeoutMs = 2 * 60_000,
     onError = (error, step) =>
       console.error(`AgentPier ticket sequence ${step} failed: ${codeOf(error)}`),
   }) {
     Object.assign(this, { store, tickets, worktrees, forge, launch, chatDelivery });
     Object.assign(this, { sessions, activity, runQueue, pipelines, notifications });
     Object.assign(this, { live, now, intervalMs, initialDelayMs, onError });
+    Object.assign(
+      this,
+      timedCalls({ launch, chatDelivery, sessions, ms: stepTimeoutMs }),
+    );
     this.closed = false;
     this.controller = new AbortController();
     // projectId → { promise, again }: one step loop per queue at a time.
@@ -98,7 +103,6 @@ export class TicketSequenceEngine {
     // projectId → owner actions waiting for the lock: a step loop ends at its next step
     // boundary for them, and the action's own steps carry on afterwards.
     this.waiting = new Map();
-    this.pass = null;
     this.timer = null;
     this.interval = null;
   }
@@ -128,23 +132,20 @@ export class TicketSequenceEngine {
     clearInterval(this.interval);
     this.timer = this.interval = null;
     this.controller.abort();
-    const pending = [this.pass, ...[...this.locks.values()].map((lock) => lock.promise)];
-    await Promise.allSettled(pending.filter(Boolean));
+    await Promise.allSettled([...this.locks.values()].map((lock) => lock.promise));
   }
 
-  /** One pass over every queue; a pass that is still running is joined, not repeated. */
+  /**
+   * One pass over every queue, side by side: a queue whose step still runs gets one
+   * more loop after it (advance), the others step at once, so a slow step of one repo
+   * never holds up another.
+   */
   run() {
     if (this.closed) return Promise.resolve();
-    if (this.pass) return this.pass;
-    this.pass = (async () => {
-      for (const queue of this.store.queues()) {
-        if (this.closed) break;
-        await this.advance(queue.projectId);
-      }
-    })().finally(() => {
-      this.pass = null;
-    });
-    return this.pass;
+    const queues = this.store.queues();
+    return Promise.allSettled(queues.map((queue) => this.advance(queue.projectId))).then(
+      () => {},
+    );
   }
 
   /** Schedules steps for one queue; nudges during a running loop coalesce into one more. */

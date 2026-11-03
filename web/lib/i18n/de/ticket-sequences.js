@@ -31,6 +31,8 @@ export const ticketQueueCopy = {
     repairUnconfigured:
       "Für die Reparatur-Session fehlen Einstellungen einer Coding-Session.",
     repairFailed: "Die Reparatur-Session konnte nicht starten.",
+    stepTimedOut:
+      "Das Starten der Session oder eine Nachricht an sie hat länger als 2 Minuten gedauert.",
     other: "AgentPier braucht deine Entscheidung.",
   },
   pullRequest: (number) => `Pull Request #${number}`,

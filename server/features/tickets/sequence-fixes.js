@@ -10,7 +10,7 @@ import { sessionScope } from "../chat/chat-delivery.js";
 import { keyToken } from "./pr-status.js";
 import { ticketRef } from "./ticket.js";
 import { checksNotice, repairTask, reviewNotice } from "./ticket-task.js";
-import { isTransient } from "./sequence-reasons.js";
+import { isTimedOut, isTransient } from "./sequence-reasons.js";
 import { stableUuid } from "./sequence-start.js";
 
 export const IDLE_LIMIT_MS = 1_800_000;
@@ -140,7 +140,10 @@ export async function findWorker(engine, item) {
   return { exists: true, state, since, session, adopted };
 }
 
-/** Sends `text` with an id derived from `seed`; a resent copy is dropped as a duplicate. */
+/**
+ * Sends `text` with an id derived from `seed`; a resent copy is dropped as a duplicate.
+ * A delivery that timed out is thrown, so the caller parks the ticket.
+ */
 async function deliver(engine, session, seed, text) {
   try {
     const receipt = await engine.chatDelivery.send(session.id, {
@@ -153,6 +156,7 @@ async function deliver(engine, session, seed, text) {
     engine.onError(Object.assign(new Error(), { code: "notDelivered" }), "fix-deliver");
   } catch (error) {
     if (error?.status === 409) return true;
+    if (isTimedOut(error)) throw error;
     engine.onError(error, "fix-deliver");
   }
   return false;
@@ -241,12 +245,18 @@ export async function applyFix(engine, ctx, item, decision, verdict, worker = MI
   if (decision.action === "notify") {
     if (worker.adopted) return startRepair(engine, ctx, item, decision, verdict, worker);
     if (live(worker))
-      await deliver(
-        engine,
-        worker.session,
-        `ticket-seq-notice:${item.id}:${verdict.headSha}:${decision.notice.checks}:${decision.notice.review}`,
-        noticeText(item, decision.notice, verdict),
-      );
+      try {
+        await deliver(
+          engine,
+          worker.session,
+          `ticket-seq-notice:${item.id}:${verdict.headSha}:${decision.notice.checks}:${decision.notice.review}`,
+          noticeText(item, decision.notice, verdict),
+        );
+      } catch (error) {
+        engine.onError(error, "fix-deliver");
+        engine.park(ctx, item, "stepTimedOut");
+        return { item, stop: true };
+      }
     return { item: engine.save(ctx, item, { rounds: decision.rounds }) };
   }
   if (decision.action === "repair")
@@ -316,7 +326,7 @@ async function startRepair(engine, ctx, item, decision, verdict, worker) {
     engine.park(
       ctx,
       engine.save(ctx, saved, { rounds: decision.rounds }),
-      "repairFailed",
+      isTimedOut(error) ? "stepTimedOut" : "repairFailed",
     );
     return { item: saved, stop: true };
   }

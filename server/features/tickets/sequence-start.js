@@ -10,7 +10,7 @@ import { keyToken } from "./pr-status.js";
 import { ticketRef } from "./ticket.js";
 import { sequenceSessionTask, ticketTask } from "./ticket-task.js";
 import { ticketsProjectChanged } from "./live-topics.js";
-import { isTransient } from "./sequence-reasons.js";
+import { isTimedOut, isTransient } from "./sequence-reasons.js";
 
 const copy = serverMessages.tickets;
 const DELIVERING = new Set(["pending", "handed-off", "uncertain"]);
@@ -85,7 +85,7 @@ export async function startItem(engine, ctx, item) {
     engine.save(ctx, saved, { starting: false });
   } catch (error) {
     engine.onError(error, "start");
-    return engine.park(ctx, saved, "startFailed");
+    return engine.park(ctx, saved, isTimedOut(error) ? "stepTimedOut" : "startFailed");
   }
   return false;
 }
@@ -142,13 +142,17 @@ async function deliverTask(engine, ctx, item, session, ticket) {
     // 409: this delivery id already carries a task (an earlier copy of the ticket).
     if (error?.status === 409) return true;
     engine.onError(error, "deliver");
-    receipt = null;
+    receipt = isTimedOut(error) ? { status: "timedOut" } : null;
   }
   if (DELIVERING.has(receipt?.status)) return true;
   await Promise.resolve()
     .then(() => engine.sessions?.stop?.(session.id))
     .catch(() => {});
-  engine.park(ctx, item, "taskNotDelivered");
+  engine.park(
+    ctx,
+    item,
+    receipt?.status === "timedOut" ? "stepTimedOut" : "taskNotDelivered",
+  );
   return false;
 }
 
@@ -220,7 +224,7 @@ export async function resumeStart(engine, ctx, item) {
     saved = engine.save(ctx, saved, { starting: false });
   } catch (error) {
     engine.onError(error, "start");
-    return engine.park(ctx, saved, "startFailed");
+    return engine.park(ctx, saved, isTimedOut(error) ? "stepTimedOut" : "startFailed");
   }
   return true;
 }
