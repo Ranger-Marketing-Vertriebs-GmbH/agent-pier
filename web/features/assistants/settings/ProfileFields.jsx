@@ -109,7 +109,10 @@ export default function ProfileFields({
               aria-describedby="fresh-chats-hint"
             />
             <p id="fresh-chats-hint" className="assistant-note" role="note">
-              {settingsCopy.freshChats.hint}
+              {/* A team member's switch swaps its own chat only (model-switch.js). */}
+              {assistant?.teamMemberId
+                ? settingsCopy.freshChats.memberHint
+                : settingsCopy.freshChats.hint}
             </p>
           </div>
         )}

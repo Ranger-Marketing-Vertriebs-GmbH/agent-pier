@@ -6,8 +6,9 @@
 
 // AgentPier's agent databases (assistants.sqlite, channels.sqlite): conversations,
 // requests and their attempts, cached messages, attachment and share indexes, queued
-// messages, routine results, memory notes, archived memory entries and memory reviews, hidden long-chat
-// and model hints, leads' long-chat notes, action history and Telegram messages.
+// messages, routine results, memory notes, archived memory entries and memory
+// reviews, hidden long-chat and model hints, leads' long-chat notes, action history and
+// Telegram messages.
 const agentPierPrivateTables = [
   "agent_attachments",
   "assistant_actions",

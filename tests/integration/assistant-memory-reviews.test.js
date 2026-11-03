@@ -277,11 +277,17 @@ test("a user of a shared agent never sees it", async (t) => {
     assert.doesNotMatch(await res.text(), entryText);
   }
   assert.equal((await reviewsOf(f)).length, 1);
-  // A user's own agent is hers: no card for the owner.
+  // A user's own agent is hers: no review runs and no card shows for the owner.
   const own = await ownUserAgent(f, { username: "Cleo", body: { capabilities } });
   writeNote(service, own.agent.id);
-  const [[hers]] = await switchModel(f, service, own.agent.id, families[0]);
-  assert.equal(hers.status, "found");
+  const asked = [];
+  const call = gateway.client.call;
+  gateway.client.call = (method, ...rest) => {
+    asked.push(method);
+    return call(method, ...rest);
+  };
+  assert.deepEqual(await switchModel(f, service, own.agent.id, families[0]), []);
+  assert.equal(asked.includes(memoryReviewMethod), false);
   assert.deepEqual(
     (await reviewsOf(f)).map((r) => r.assistantId),
     [agent.id],

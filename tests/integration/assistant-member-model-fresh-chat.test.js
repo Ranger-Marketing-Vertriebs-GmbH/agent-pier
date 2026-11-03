@@ -89,6 +89,26 @@ test("a member with memory waits for the owner's review of it", async (t) => {
   assert.equal(review.assistantId, keeper.assistantId);
 });
 
+test("a member of a user's own lead is not reviewed and reports no review", async (t) => {
+  const { service, lead, keeper, update } = await leadTeam(t);
+  const store = service.store;
+  const withMemory = { capabilities: { memory: true, reminders: false } };
+  store.updateAssistant(
+    keeper.assistantId,
+    withMemory,
+    store.getAssistant(keeper.assistantId).revision,
+  );
+  // As if the lead had become a user's own agent (user-agent-lock.js forbids a team).
+  const userAccess = { mode: "own", members: [{ userId: "u1", level: "extended" }] };
+  store.db
+    .prepare("UPDATE assistants SET body=? WHERE id=?")
+    .run(JSON.stringify({ ...store.getAssistant(lead.id), userAccess }), lead.id);
+  const result = await update(keeper.id, { model: otherFamily(lead) });
+  assert.equal(result.freshChat, "started");
+  assert.equal("memoryReview" in result, false);
+  assert.deepEqual(await memoryReviewsSettled(service), []);
+});
+
 test("freshChat false keeps it", async (t) => {
   const { service, lead, teams, keeper, update } = await leadTeam(t);
   const result = await update(keeper.id, { model: otherFamily(lead), freshChat: false });

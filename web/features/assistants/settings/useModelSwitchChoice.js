@@ -20,7 +20,11 @@ export default function useModelSwitchChoice(draft, assistantId) {
     const controller = new AbortController();
     assistantApi
       .modelSwitchPreview(assistantId, { connectionId, modelId }, controller.signal)
-      .then((preview) => set("freshChats", preview?.freshChatsDefault !== false))
+      .then((preview) => {
+        // A late answer for a model the draft has left since sets nothing.
+        if (!controller.signal.aborted)
+          set("freshChats", preview?.freshChatsDefault !== false);
+      })
       .catch(() => {
         if (!controller.signal.aborted) set("freshChats", true);
       });

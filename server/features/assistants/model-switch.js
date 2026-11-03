@@ -1,5 +1,5 @@
 import { assistantProblem } from "./assistant-validation.js";
-import { familyChanged } from "./model-family.js";
+import { familyChanged, modelFamily } from "./model-family.js";
 import { effectiveModel, temporaryMember } from "./team-presentation.js";
 import {
   freshMainChat,
@@ -149,10 +149,16 @@ export function swapChat(service, { conversation, memberId, details }, landed) {
  * that failed before it committed leaves its chat as it was and is deferred too; one
  * that failed after (its note or subscribe) is logged, its chat already replaced. The
  * model is saved already, so nothing here throws. Callers hold admission, unless
- * `hold` defers every chat without swapping any (no admission needed).
+ * `hold` defers every chat without swapping any (no admission needed) or `admit`
+ * takes it here: when admission refuses (maintenance, shutdown), every chat is held.
  */
-export async function swapNow(service, plan, { hold = false } = {}) {
+export async function swapNow(service, plan, { hold = false, admit = false } = {}) {
+  if (admit)
+    return service
+      .admit(() => swapNow(service, plan))
+      .catch(() => swapNow(service, plan, { hold: true }));
   const result = { chats: [], deferred: [] };
+  stampFamilies(service, plan);
   if (!plan?.fresh) return result;
   const details = {
     from: await modelName(service, plan.from),
@@ -189,6 +195,26 @@ export async function swapNow(service, plan, { hold = false } = {}) {
     if (swapped) moveChannelsOf(service, assistantId);
   }
   return result;
+}
+
+/**
+ * At a family switch, a chat that took no turn since before the release has no
+ * `family` (recordFamily, model-hints.js): each unarchived chat of the switched
+ * agents other than a main chat gets the family it ran on so far, so the hint shows
+ * there. Never throws: the hint is a courtesy.
+ */
+function stampFamilies(service, plan) {
+  try {
+    const connections = service.models.connections;
+    if (!plan || !familyChanged(plan.from, plan.to, connections)) return;
+    const family = modelFamily(plan.from, connections);
+    const agents = new Set(plan.agents);
+    for (const c of service.store.listConversations())
+      if (agents.has(c.assistantId) && !c.archivedAt && c.main !== true && !c.family)
+        service.store.updateConversation(c.id, { family });
+  } catch (error) {
+    console.error("Model switch: chat families were not recorded:", error?.message);
+  }
 }
 
 /** Points the agent's Telegram channels at its new main chats; logs a failure. */

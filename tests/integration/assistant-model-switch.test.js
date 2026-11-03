@@ -305,6 +305,34 @@ test("a save through a Gateway restart starts the fresh chats too", async (t) =>
   assert.ok(service.store.getConversation(main.id).archivedAt);
 });
 
+test("a save through a Gateway restart holds the chats when admission refuses", async (t) => {
+  const { service, lead, main } = await team(t);
+  service.webTools = {
+    differs: () => true,
+    profilesWith: () => service.store.listAssistants(),
+    confirm: () => {},
+    // The service goes into maintenance once the model is saved.
+    restart: async (operation) => {
+      const saved = operation();
+      service.maintenance = true;
+      return saved;
+    },
+  };
+  const { revision } = service.store.getAssistant(lead.id);
+  const saved = await service.update(
+    lead.id,
+    { model: otherFamily(lead), browserVisible: true },
+    revision,
+    { confirmed: true },
+  );
+  service.maintenance = false;
+  assert.deepEqual(service.store.getAssistant(lead.id).model, otherFamily(lead));
+  assert.deepEqual(saved.freshChats.chats, []);
+  assert.ok(saved.freshChats.deferred.includes(main.id));
+  assert.ok(!service.store.getConversation(main.id).archivedAt);
+  assert.ok(deferredSwaps(service).get(main.id));
+});
+
 // The task member done with its task and on a model of its own, `modelId` at the
 // lead's connection.
 async function ownModelMember(t, modelId) {

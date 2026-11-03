@@ -109,3 +109,21 @@ test("a user never sees the owner's dismissal state", async (t) => {
   assert.equal("modelHint" in ownerView, false);
   assert.equal((await read(annaRequest, annas.id)).modelHint, true);
 });
+
+test("an older chat that never took a turn since the upgrade shows the hint after a family switch", async (t) => {
+  const { f, service, agent, annaRequest, extra } = await shared(t);
+  const chat = await extra(annaRequest);
+  // A chat from before the release: no family recorded.
+  assert.equal(service.store.getConversation(chat.id).family, undefined);
+  const { revision } = service.store.getAssistant(agent.id);
+  const saved = await f.request(`/api/assistants/${agent.id}`, {
+    method: "PATCH",
+    body: {
+      revision,
+      model: { ...agent.model, modelId: "anthropic/claude-sonnet-4.6" },
+    },
+  });
+  assert.equal(saved.status, 200, await saved.clone().text());
+  assert.equal(service.store.getConversation(chat.id).family, "openai");
+  assert.equal((await read(annaRequest, chat.id)).modelHint, true);
+});
