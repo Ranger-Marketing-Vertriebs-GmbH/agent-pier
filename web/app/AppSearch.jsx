@@ -11,6 +11,7 @@ import api from "../lib/api.js";
 import useAssistants from "../features/assistants/useAssistants.js";
 import useAssistantFeature from "../features/assistants/useAssistantFeature.js";
 import { codingRoute } from "../features/coding/routes.js";
+import { projectsRoute } from "../features/projects/routes.js";
 import { requestPageAction } from "./page-action.js";
 import { SearchDialogContext, openSearchEvent } from "./search-dialog.js";
 import { loadConnectionNames } from "./search-connections.js";
@@ -34,6 +35,7 @@ export default function AppSearch({
   select,
   workspace,
   launch,
+  route,
   extensionProfileId,
   providerConnections,
   children,
@@ -87,6 +89,14 @@ export default function AppSearch({
       return navigate({ view: "workspace", sessionId: target.session, mode: null });
     }
     if (target.action === "launch") return launch();
+    if (target.action === "start-tickets")
+      return navigate(
+        projectsRoute(
+          route?.view === "projects" && route.projectId
+            ? { projectId: route.projectId, projectTab: "tickets" }
+            : {},
+        ),
+      );
     if (target.extensions)
       return navigate(
         codingRoute("extensions", {

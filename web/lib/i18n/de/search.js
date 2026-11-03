@@ -50,6 +50,7 @@ export const searchCopy = {
     addGithub: "GitHub-Zugang hinzufügen",
     addPlane: "Plane-Zugang hinzufügen",
     openInbox: "Eingang öffnen",
+    startTickets: "Tickets starten",
   },
   // Die Suche in der eigenen App eines Benutzers: die eigenen Agenten, deren Chats und Seiten, das Konto.
   user: {
@@ -59,6 +60,7 @@ export const searchCopy = {
   },
   // Alte Namen und Pfade, damit Suchende den neuen Ort finden.
   aliases: {
+    ticketSequence: "Ticketfolge",
     menuAgents: "Menü › Agenten",
     settingsAccess: "Einstellungen › Zugriff",
     settingsSsh: "Einstellungen › Zugriff › SSH-Zugänge",

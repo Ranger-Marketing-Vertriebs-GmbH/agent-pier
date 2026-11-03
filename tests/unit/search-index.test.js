@@ -245,6 +245,20 @@ test("actions open the right dialog or page", () => {
   assert.equal(action("Add Plane connection").target.pending, "plane-add");
 });
 
+test("Start tickets is an action that opens the ticket selection", () => {
+  const target = { action: "start-tickets", pending: "tickets-sequence" };
+  for (const query of [
+    "Start tickets",
+    "Tickets starten",
+    "ticket sequence",
+    "Ticketfolge",
+  ]) {
+    const top = first(query);
+    assert.equal(top.id, "action:start-tickets", query);
+    assert.deepEqual(top.target, target, query);
+  }
+});
+
 test("a blank query suggests the areas and the actions", () => {
   const groups = searchEntries(index, "", { pages: 99, agents: 99, actions: 99 });
   assert.deepEqual(

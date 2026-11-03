@@ -491,6 +491,13 @@ export function actionEntries() {
       route: connectionsRoute("tickets"),
       pending: "plane-add",
     }),
+    action(
+      "start-tickets",
+      () => searchCopy.actions.startTickets,
+      bilingual(text.projects),
+      { action: "start-tickets", pending: "tickets-sequence" },
+      { aliases: [bilingual(alias("ticketSequence"))] },
+    ),
     action("add-github", () => searchCopy.actions.addGithub, inSection("github"), {
       route: connectionsRoute("github"),
       pending: "github-add",

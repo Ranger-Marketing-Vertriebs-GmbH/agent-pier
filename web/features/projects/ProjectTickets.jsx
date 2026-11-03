@@ -9,6 +9,7 @@ import ReferenceRow from "../../components/ReferenceRow.jsx";
 import SearchSelect from "../../components/SearchSelect.jsx";
 import Segment from "../../components/Segment.jsx";
 import StatusChip from "../../components/StatusChip.jsx";
+import { usePageAction } from "../../app/page-action.js";
 import api from "../../lib/api.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import {
@@ -201,6 +202,12 @@ export default function ProjectTickets({
     projectId,
     view ? JSON.stringify(view.sources) : "",
     version,
+  );
+  // The ⌘K action "Start tickets" turns selection mode on once the list is there.
+  usePageAction(
+    "tickets-sequence",
+    () => setSelecting(true),
+    Boolean(list.data?.tickets?.length),
   );
   const connected = sourceStates(view);
   const both = connected.github && connected.plane;
