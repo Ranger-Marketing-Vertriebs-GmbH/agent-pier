@@ -403,10 +403,12 @@ export class TicketSequenceEngine {
     // A session that stopped, went quiet for IDLE_LIMIT_MS or worked for NO_PR_LIMIT_MS
     // (from its start, or from the Retry that resumed it) without a PR: the owner looks.
     const now = this.now();
+    // The idle clock starts again at a Retry, like the six-hour one.
+    const idleSince = Math.max(worker.since ?? -Infinity, item.watchSince ?? -Infinity);
     const quiet =
       worker.state === "idle" &&
-      Number.isFinite(worker.since) &&
-      now - worker.since >= IDLE_LIMIT_MS;
+      Number.isFinite(idleSince) &&
+      now - idleSince >= IDLE_LIMIT_MS;
     const since = item.watchSince ?? item.startedAt;
     const late = Number.isFinite(since) && now - since >= NO_PR_LIMIT_MS;
     if (worker.state === "stopped" || quiet || late)
