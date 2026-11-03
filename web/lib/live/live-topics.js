@@ -60,6 +60,12 @@ export const liveTopics = Object.freeze({
     path: (id) => `/tickets/projects/${encodeURIComponent(id)}/queue`,
     interval: 30000,
   }),
+  // The project's label rules with their pickups and poll status, pushed per change.
+  "tickets.rules": Object.freeze({
+    mode: "state",
+    path: (id) => `/tickets/projects/${encodeURIComponent(id)}/rules`,
+    interval: 30000,
+  }),
   "pipeline.run": Object.freeze({
     mode: "state",
     path: under("/pipeline-runs"),

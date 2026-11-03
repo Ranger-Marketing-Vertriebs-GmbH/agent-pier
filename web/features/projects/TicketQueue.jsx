@@ -8,6 +8,7 @@ import StatusChip from "../../components/StatusChip.jsx";
 import api from "../../lib/api.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { ticketQueueCopy as copy } from "../../lib/i18n/messages/ticket-sequences.js";
+import { ticketRulesCopy } from "../../lib/i18n/messages/ticket-rules.js";
 import { ticketErrorCopy } from "../../lib/i18n/messages/tickets.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import { RowMenu, useRowMenu } from "../extensions/RowMenu.jsx";
@@ -40,7 +41,14 @@ function itemSub(item) {
     .join(" · ");
 }
 
-function QueueRow({ item, busy, onAction }) {
+// The rule an item came from, once the rules are known; nothing for a manual start.
+function originText(item, rules) {
+  if (item.origin?.kind !== "rule" || !rules) return "";
+  const rule = rules.find((entry) => entry.id === item.origin.ruleId);
+  return rule ? ticketRulesCopy.fromRule(rule.label) : ticketRulesCopy.fromDeletedRule;
+}
+
+function QueueRow({ item, rules, busy, onAction }) {
   const menu = useRowMenu();
   const labels = {
     retry: copy.retry,
@@ -56,7 +64,7 @@ function QueueRow({ item, busy, onAction }) {
     label: labels[action],
     run: () => onAction(item, action),
   }));
-  const sub = itemSub(item);
+  const sub = [originText(item, rules), itemSub(item)].filter(Boolean).join(" · ");
   return (
     <div className="row-menu-anchor">
       <ListRow
@@ -91,7 +99,7 @@ function QueueRow({ item, busy, onAction }) {
  * GitHub cannot be read (the PR may stay armed). `written` is the topic's, so an action
  * stays busy until the pushed change shows.
  */
-export default function TicketQueue({ projectId, view, written, onNavigate }) {
+export default function TicketQueue({ projectId, view, written, rules, onNavigate }) {
   const items = view?.queue?.items || [];
   const action = useAsyncAction();
   const [confirming, setConfirming] = useState(null);
@@ -142,7 +150,13 @@ export default function TicketQueue({ projectId, view, written, onNavigate }) {
       <GroupLabel id="project-ticket-queue-heading">{copy.title}</GroupLabel>
       <ListCard labelledBy="project-ticket-queue-heading">
         {items.map((item) => (
-          <QueueRow key={item.id} item={item} busy={action.busy} onAction={onAction} />
+          <QueueRow
+            key={item.id}
+            item={item}
+            rules={rules}
+            busy={action.busy}
+            onAction={onAction}
+          />
         ))}
       </ListCard>
       <ErrorMessage error={action.error} />

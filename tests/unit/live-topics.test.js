@@ -49,6 +49,12 @@ test("topicInfo resolves registered topics and their REST path", () => {
   );
   assert.equal(topicInfo("tickets.queue:m1").mode, "state");
   assert.equal(topicInfo("tickets.queue"), null);
+  assert.equal(
+    topicInfo("tickets.rules:m 1").path("m 1"),
+    "/tickets/projects/m%201/rules",
+  );
+  assert.equal(topicInfo("tickets.rules:m1").mode, "state");
+  assert.equal(topicInfo("tickets.rules"), null);
   assert.equal(topicInfo("pipeline.run"), null);
 });
 
