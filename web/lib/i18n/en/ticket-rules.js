@@ -44,7 +44,8 @@ export const labelRuleDialogCopy = {
   titleEdit: "Edit label rule",
   source: "Source",
   label: "Label",
-  labelHint: "Exact label name; existing open tickets with it are picked up too.",
+  labelHint:
+    "The label's name; case and spaces around it don't matter. Open tickets that already carry it are picked up too.",
   allowMergeWarning:
     "Anyone who can set this label can get the work on their ticket merged. Use a label only trusted people can set.",
   intro: "Each ticket the rule picks up joins the queue and runs with these settings.",
