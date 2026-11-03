@@ -25,6 +25,13 @@ const definition = {
   authStatusArgs: ["auth", "status", "--json"],
   apiKeyEnv: "ANTHROPIC_API_KEY",
   resumeArgs: (sessionId) => ["--resume", sessionId],
+  // How the chat shows one AskUserQuestion question.
+  questionView: (q) => ({
+    multiple: q.multiSelect === true,
+    allowOther: true,
+    previews: true,
+    notes: true,
+  }),
   configFormat: "json",
   protocol: "messages",
   capabilities: {

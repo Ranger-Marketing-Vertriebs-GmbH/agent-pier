@@ -21,6 +21,13 @@ const definition = {
   authStatusArgs: ["auth", "list"],
   apiKeyEnv: "OPENAI_API_KEY",
   resumeArgs: (sessionId) => ["--session", sessionId],
+  // How the chat shows one OpenCode question.
+  questionView: (q) => ({
+    multiple: q.multiple === true,
+    allowOther: q.custom !== false,
+    previews: false,
+    notes: false,
+  }),
   configFormat: "jsonc",
   protocol: "chatCompletions",
   capabilities: {

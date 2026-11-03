@@ -1,18 +1,7 @@
-import { isCodingCli } from "../clis/catalog.js";
-import { question as codexQuestion } from "../clis/codex/requests.js";
-import { question as claudeQuestion } from "../clis/claude/requests.js";
-import { question as opencodeQuestion } from "../clis/opencode/requests.js";
+import { cliDefinition, isCodingCli } from "../clis/catalog.js";
 import { previewLimit, notesLimit } from "./question-limits.js";
 
 export { previewLimit, notesLimit };
-
-// Each CLI's question view lives in `<id>/requests.js`; this module sits on the driver
-// import graph, so it does not go through drivers.js.
-const questionViews = {
-  codex: codexQuestion,
-  claude: claudeQuestion,
-  opencode: opencodeQuestion,
-};
 
 // Claude's native dialog withholds (and never annotates) previews longer than this.
 const nativePreviewLimit = 2000;
@@ -29,7 +18,9 @@ const plainView = { multiple: false, allowOther: true, previews: false, notes: f
 
 export function questionsView(questions, tool) {
   return questions.map((question, index) => {
-    const view = isCodingCli(tool) ? questionViews[tool](question) : plainView;
+    const view = isCodingCli(tool)
+      ? cliDefinition(tool).questionView(question)
+      : plainView;
     return {
       id: `q${index}`,
       header: question.header || "",

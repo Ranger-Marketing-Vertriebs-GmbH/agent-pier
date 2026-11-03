@@ -7,14 +7,6 @@ import { answerStartupPrompt } from "../../requests/claude-startup-prompts.js";
 
 export const shellToolName = "Bash";
 
-/** How the chat shows one AskUserQuestion question. */
-export const question = (q) => ({
-  multiple: q.multiSelect === true,
-  allowOther: true,
-  previews: true,
-  notes: true,
-});
-
 /** What the launch file records about the hooks and Claude's trust file. */
 export const launchRecord = (env) => ({
   claudeHookVersion,
