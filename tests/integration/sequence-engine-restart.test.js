@@ -274,3 +274,44 @@ test("close aborts a pending forge read and resolves within 1 s", async (t) => {
   await pass;
   assert.equal(f.items()[0].state, "awaiting-merge");
 });
+
+test("a resumed pipeline start skips outages but parks other failures", async (t) => {
+  const f = await sequenceFixture(t);
+  f.append([KEY], { kind: "pipeline" });
+  const [item] = f.items();
+  f.store.patch("p1", item.id, {
+    state: "running",
+    starting: true,
+    startedAt: T0,
+    runId: "11111111-1111-4111-8111-111111111111",
+  });
+  const add = f.runQueue.add;
+  f.runQueue.add = () => {
+    throw Object.assign(new Error("closed"), { status: 503 });
+  };
+  const engine = f.build({ restart: true });
+  await engine.run();
+  assert.equal(f.items()[0].state, "running");
+  assert.equal(f.items()[0].starting, true);
+  f.pipelines.get = async () => {
+    throw new TypeError("broken");
+  };
+  f.runQueue.add = add;
+  await engine.run();
+  assert.equal(f.items()[0].state, "needs-owner");
+  assert.equal(f.items()[0].needsOwner.reason, "startFailed");
+  assert.equal(f.notified.length, 1);
+});
+
+test("a failing nudge from runChanged is reported, not left unhandled", async (t) => {
+  const f = await sequenceFixture(t);
+  f.append([KEY], { kind: "pipeline" });
+  await f.engine.run();
+  const { runId } = f.items()[0];
+  f.engine.steps = async () => {
+    throw new Error("boom");
+  };
+  f.engine.runChanged({ id: runId });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.ok(f.errors.some((entry) => entry.step === "nudge"));
+});
