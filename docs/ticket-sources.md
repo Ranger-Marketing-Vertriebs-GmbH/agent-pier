@@ -154,8 +154,8 @@ sequences live in `ticket-sequences.json`, which backups leave out. Label rules 
 tickets they picked up live in `ticket-rules.json`, which backups carry as a public
 member (see [Label rules](#label-rules)). Backups carry
 `ticket-sources.json` as a public member and the API keys only sealed with **Include encrypted
-credentials**; a restore without them lists each Plane connection as needing its key
-again. See [Backups](backups.md).
+credentials**; a restore without them lists each Plane connection by name as needing
+its key again. See [Backups](backups.md).
 
 ## Limits
 

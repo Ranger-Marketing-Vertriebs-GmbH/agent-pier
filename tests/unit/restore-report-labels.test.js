@@ -54,3 +54,19 @@ test("a restore report shows yes or no instead of raw booleans", (t) => {
   assert.equal(reportValue("credentialsRestored", true), "Ja");
   assert.equal(reportValue("credentialsRestored", false), "Nein");
 });
+
+test("a restore report names a Plane connection that needs its key by name", (t) => {
+  t.after(() => setLanguage("de"));
+  setLanguage("en");
+  assert.equal(
+    needsLoginLabel("ticket-source:c1:Plane: Work"),
+    "Plane connection Plane: Work (enter the API key again)",
+  );
+  // An entry without a name keeps its id.
+  assert.equal(needsLoginLabel("ticket-source:c1"), "ticket-source:c1");
+  setLanguage("de");
+  assert.equal(
+    needsLoginLabel("ticket-source:c1:Plane"),
+    "Plane-Verbindung Plane (API-Schlüssel neu eingeben)",
+  );
+});

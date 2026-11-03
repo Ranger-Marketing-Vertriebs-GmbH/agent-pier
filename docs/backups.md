@@ -177,8 +177,9 @@ scrypt-derived key):
 - Each managed profile's `secret.json` (API key) and the allowlisted login and
   configuration files of its CLI (table below).
 - Provider connection keys, repository credentials, the API keys of Plane connections
-  (`ticket-source-secrets/`; a restore without them lists each Plane connection as
-  needing its key again) and MCP server values.
+  (`ticket-source-secrets/`; a restore without them lists each Plane connection by
+  name as needing its key again, "Plane connection <name> (enter the API key again)")
+  and MCP server values.
 - The restricted users' password salts and hashes (`users/credentials.json`).
 - SFTP hosts that sign in with a password, together with their passwords (see "SFTP
   hosts in backups").

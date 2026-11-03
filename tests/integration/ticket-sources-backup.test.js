@@ -54,7 +54,7 @@ for (const encrypted of [false, true])
     assert.equal(restored.token(id), encrypted ? "plane-secret" : null);
     assert.equal(restored.listConnections()[0].hasSecret, encrypted);
     assert.equal(
-      report.credentialsNeedingLogin.includes(`ticket-source:${id}`),
+      report.credentialsNeedingLogin.includes(`ticket-source:${id}:Plane`),
       !encrypted,
     );
   });

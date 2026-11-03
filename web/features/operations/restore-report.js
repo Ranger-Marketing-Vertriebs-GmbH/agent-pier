@@ -5,6 +5,9 @@ export function needsLoginLabel(entry) {
   if (typeof entry !== "string") return entry;
   if (entry.startsWith("user:")) return copy.needsUserPassword(entry.slice(5));
   if (entry.startsWith("mcp:")) return copy.needsMcpServerValues(entry.slice(4));
+  // `ticket-source:<id>:<name>`; an id without a name stays as it is.
+  const ticketSource = /^ticket-source:[^:]+:(.+)$/.exec(entry);
+  if (ticketSource) return copy.needsTicketSourceKey(ticketSource[1]);
   if (entry.startsWith("mcp-address:"))
     return copy.needsMcpServerAddress(entry.slice("mcp-address:".length));
   return entry;

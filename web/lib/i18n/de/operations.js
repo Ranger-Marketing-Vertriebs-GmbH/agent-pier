@@ -141,6 +141,7 @@ export const operationsCopy = {
   no: "Nein",
   needsLogin: "Erneute Anmeldung erforderlich",
   needsMcpServerValues: (name) => `MCP-Server ${name} (Werte neu eingeben)`,
+  needsTicketSourceKey: (name) => `Plane-Verbindung ${name} (API-Schlüssel neu eingeben)`,
   needsUserPassword: (name) => `Benutzer ${name} (neues Passwort vergeben)`,
   needsMcpServerAddress: (name) =>
     `MCP-Server ${name} (Token in der Adresse neu eingeben)`,
