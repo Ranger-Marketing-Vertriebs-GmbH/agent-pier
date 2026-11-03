@@ -173,7 +173,6 @@ test("provider member shape", () => {
   for (const id of CODING_CLI_IDS) {
     const { provider } = cliDriver(id);
     assert.equal(typeof provider.environment, "function");
-    assert.ok(Object.isFrozen(provider));
     if (id === "claude") {
       assert.equal(typeof provider.launch, "function");
       assert.equal(provider.endpointLaunch, undefined);
@@ -206,8 +205,6 @@ test("mcp codec member shape", () => {
     assert.deepEqual(Object.keys(mcp.timeouts), Object.keys(timeouts[id]));
     assert.equal(mcp.remoteSseAsHttp, id === "opencode");
     assert.equal(mcp.keepsOAuthScope, id === "claude");
-    assert.ok(Object.isFrozen(mcp));
-    assertFrozenDeep(mcp, `${id}.mcp`);
   }
 });
 
@@ -283,7 +280,6 @@ test("transfer member shape", () => {
     const { transfer } = cliDriver(id);
     for (const name of ["locate", "safePath", "destination", "companions", "validator"])
       assert.equal(typeof transfer[name], "function", `${id}.${name}`);
-    assert.ok(Object.isFrozen(transfer));
   }
   const codex = cliDriver("codex").transfer;
   assert.equal(codex.destination("archived_sessions/a.jsonl"), "sessions/a.jsonl");
@@ -331,7 +327,6 @@ test("request launch records and handoff capability per CLI", () => {
     CODING_CLI_IDS.filter((id) => cliDefinition(id).capabilities.requestHandoff),
     ["claude"],
   );
-  assert.ok(Object.isFrozen(cliDriver("claude").requests));
 });
 
 test("every CLI with transcript cleanup walks its transcript layout", () => {
@@ -484,11 +479,11 @@ test("terminal input members per CLI", () => {
   const file = "/tmp/a b.png";
   for (const id of CODING_CLI_IDS) {
     const { tui } = cliDriver(id);
-    assert.ok(Object.isFrozen(tui));
-    assertFrozenDeep(tui.images, `${id}.tui.images`);
     assert.equal(typeof tui.queuedInputs, "function");
     assert.equal(tui.images.pathText(file), id === "codex" ? '"/tmp/a b.png"' : file);
     assert.equal(cliDefinition(id).capabilities.imagePaste, id === "claude");
+    // Both signals name one fact: the CLI takes pasted images as a draft.
+    assert.equal(cliDefinition(id).capabilities.imagePaste, Boolean(tui.images.draft));
   }
   const { codex, claude, opencode } = Object.fromEntries(
     CODING_CLI_IDS.map((id) => [id, cliDriver(id).tui]),

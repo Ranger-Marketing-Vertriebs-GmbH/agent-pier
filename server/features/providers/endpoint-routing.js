@@ -11,6 +11,8 @@ import { cliDefinition, codingCliIds } from "../clis/catalog.js";
 const messages = serverMessages.providers;
 export const PROTOCOLS = Object.freeze(["messages", "responses", "chatCompletions"]);
 export const ROUTE_MODES = Object.freeze(["native", "adapter", "sdk"]);
+// Per-CLI route tables (mirrored in web/features/provider-connections/endpoint-routes.js).
+// A CLI without an entry is refused by validateRouting and gets no endpoint route.
 export const ROUTE_CHOICES = Object.freeze({
   claude: ["auto", "native", "adapter:responses", "adapter:chatCompletions", "off"],
   codex: ["auto", "native", "adapter:messages", "adapter:chatCompletions", "off"],

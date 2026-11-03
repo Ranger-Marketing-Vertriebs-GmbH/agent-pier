@@ -1,5 +1,5 @@
 import { readSandboxProfiles } from "../../nono/nono-profiles.js";
-import { cliName, codingCliIds } from "../../clis/catalog.js";
+import { cliDefinition, cliName, codingCliIds } from "../../clis/catalog.js";
 
 /** The coding CLIs an agent may start; never a shell. */
 export const codingTools = codingCliIds().sort(); // alphabetical, as before
@@ -7,15 +7,15 @@ export const codingTools = codingCliIds().sort(); // alphabetical, as before
 export const codingToolNames = Object.freeze(
   Object.fromEntries(codingCliIds().map((id) => [id, cliName(id)])),
 );
-/** Launch modes per CLI, as the session dialog offers them (account-store.js). */
-export const launchModes = Object.freeze({
-  codex: ["default", "yolo"],
-  claude: ["default", "auto", "bypass"],
-  opencode: ["default", "auto"],
-});
+const perCli = (read) =>
+  Object.freeze(
+    Object.fromEntries(codingCliIds().map((id) => [id, read(cliDefinition(id))])),
+  );
+/** Launch modes per CLI, as the session dialog offers them (the CLI definitions). */
+export const launchModes = perCli((d) => Object.keys(d.launchModes));
 /** What an agent's start uses for every option it leaves out. */
 export const launchDefaults = Object.freeze({
-  launchMode: Object.freeze({ codex: "yolo", claude: "auto", opencode: "auto" }),
+  launchMode: perCli((d) => d.defaultLaunchMode),
   agentbus: true,
   agentpierTools: true,
 });

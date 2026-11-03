@@ -3,7 +3,14 @@
 // tests/unit/endpoint-routes-parity.test.js) so the dialog shows routes before saving.
 import { cliDefinition, codingCliIds } from "../../../server/features/clis/catalog.js";
 export const ROUTE_TOOLS = codingCliIds().sort();
-export const NATIVE_SOURCE = { claude: "messages", codex: "responses" };
+/** The wire protocol each native-routed CLI speaks; SDK-routed CLIs have none. */
+export const NATIVE_SOURCE = Object.fromEntries(
+  ROUTE_TOOLS.filter((id) => !cliDefinition(id).capabilities.endpointSdkRouting).map(
+    (id) => [id, cliDefinition(id).protocol],
+  ),
+);
+// Per-CLI route tables, mirrored on the server and pinned by the parity test. A new CLI
+// needs an entry in both, or validateRouting refuses it and it gets no endpoint route.
 export const ROUTE_CHOICES = {
   claude: ["auto", "native", "adapter:responses", "adapter:chatCompletions", "off"],
   codex: ["auto", "native", "adapter:messages", "adapter:chatCompletions", "off"],
