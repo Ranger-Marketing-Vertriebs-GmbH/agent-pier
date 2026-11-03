@@ -60,7 +60,6 @@ export const searchCopy = {
   },
   // Old names and paths, so searching for them finds the new place.
   aliases: {
-    ticketSequence: "Ticket sequence",
     menuAgents: "Menu › Agents",
     settingsAccess: "Settings › Access",
     settingsSsh: "Settings › Access › SSH accesses",
