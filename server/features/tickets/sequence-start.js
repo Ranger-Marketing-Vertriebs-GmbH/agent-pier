@@ -59,7 +59,7 @@ export async function startItem(engine, ctx, item) {
         item.options.pipeline?.baseBranch ??
         (await engine.forge.defaultBranch(ctx.github, engine.signal()));
     } catch (error) {
-      return engine.skip(error, "default-branch");
+      return engine.forgeFailed(ctx, item, error, "default-branch");
     }
   }
   if (engine.closed) return false;
@@ -67,6 +67,7 @@ export async function startItem(engine, ctx, item) {
     state: "running",
     starting: true,
     startedAt: engine.now(),
+    forgeFailingSince: null,
   });
   try {
     saved =
