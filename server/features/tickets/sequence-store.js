@@ -32,6 +32,8 @@ const optText = (value, max) =>
   typeof value === "string" && value ? value.slice(0, max) : undefined;
 const number = (value) => (Number.isFinite(value) ? value : undefined);
 const isActive = (item) => item.state !== "done";
+// How far an active item got; a queue merge keeps the copy that got further.
+const PROGRESS = { waiting: 0, "needs-owner": 1, running: 2, "awaiting-merge": 3 };
 const same = (a, b) => a.source === b.source && a.key === b.key;
 
 function origin(value) {
@@ -318,18 +320,25 @@ export class TicketSequenceStore {
     this.changed(projectId);
   }
   /**
-   * Moves a project's queue to the project it became, behind the items already there;
-   * an item whose ticket is active in both stays only once.
+   * Moves a project's queue to the project it became, behind the items already there.
+   * A ticket active in both stays once: the copy that is further along (awaiting merge,
+   * then running, then parked, then waiting) in the target's place; on a tie the
+   * target's copy.
    */
   moveProject(fromId, toId) {
     const queue = this.byProject.get(fromId);
     if (fromId === toId || !queue) return;
     const target = this.byProject.get(toId);
-    const kept = target?.items ?? [];
-    const items = queue.items.filter(
-      (entry) =>
-        !(isActive(entry) && kept.some((other) => isActive(other) && same(other, entry))),
-    );
+    let kept = target?.items ?? [];
+    const items = [];
+    for (const entry of queue.items) {
+      const twin = isActive(entry)
+        ? kept.find((other) => isActive(other) && same(other, entry))
+        : null;
+      if (!twin) items.push(entry);
+      else if (PROGRESS[entry.state] > PROGRESS[twin.state])
+        kept = kept.map((other) => (other === twin ? entry : other));
+    }
     this.byProject.delete(fromId);
     this.byProject.set(toId, {
       projectId: toId,
