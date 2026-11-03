@@ -16,6 +16,8 @@ export const tickets = Object.freeze({
   alreadyStarting: "Dieses Ticket wird gerade gestartet.",
   alreadyStarted:
     "Dieses Ticket wurde bereits gestartet. Zum erneuten Start bitte ausdrücklich bestätigen.",
+  taskNotDelivered:
+    "Die Aufgabe konnte der neuen Session nicht übergeben werden; die Session wurde beendet.",
   source: Object.freeze({
     unauthorized: "Die Ticketquelle hat den Zugang abgelehnt. Bitte den Token prüfen.",
     forbidden: "Der Token der Ticketquelle hat dafür keine Berechtigung.",

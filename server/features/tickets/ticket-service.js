@@ -17,6 +17,7 @@ const GITHUB_KEY = /^([A-Za-z0-9_.-]{1,100})\/([A-Za-z0-9_.-]{1,100})#([1-9]\d{0
 const PLANE_KEY = /^[A-Z0-9]{1,12}-[1-9]\d{0,8}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SOURCE_CODES = new Set(Object.keys(copy.source));
+const DELIVERING = new Set(["pending", "handed-off", "uncertain"]);
 
 const plainObject = (value) =>
   !!value && typeof value === "object" && !Array.isArray(value);
@@ -85,6 +86,7 @@ export class TicketService {
     gitRemotes,
     launch,
     chatDelivery,
+    sessions,
     pipelines,
     live = () => null,
     fetchImpl = globalThis.fetch,
@@ -99,6 +101,7 @@ export class TicketService {
       gitRemotes,
       launch,
       chatDelivery,
+      sessions,
       pipelines,
       live,
       fetchImpl,
@@ -346,12 +349,7 @@ export class TicketService {
             },
           },
         );
-        await this.chatDelivery.send(session.id, {
-          deliveryId: randomUUID(),
-          deliveryScope: sessionScope(session),
-          text: ticketTask(ticket, { kind: "session" }),
-          submit: true,
-        });
+        await this.deliverTask(session, ticket);
         result.session = session;
       } else {
         result.run = await this.pipelines.start(
@@ -380,6 +378,36 @@ export class TicketService {
     } finally {
       this.starting.delete(lock);
     }
+  }
+
+  /**
+   * Sends the task to the new session. A session the task cannot reach is stopped and
+   * the start fails without a record, so a retry starts cleanly.
+   */
+  async deliverTask(session, ticket) {
+    let receipt;
+    try {
+      receipt = await this.chatDelivery.send(session.id, {
+        deliveryId: randomUUID(),
+        deliveryScope: sessionScope(session),
+        text: ticketTask(ticket, { kind: "session" }),
+        submit: true,
+      });
+    } catch (error) {
+      await this.stopSession(session.id);
+      throw error;
+    }
+    // Pending and uncertain deliveries may still reach the CLI; rejected ones never do.
+    if (!DELIVERING.has(receipt?.status)) {
+      await this.stopSession(session.id);
+      throw problem(copy.taskNotDelivered, 502);
+    }
+  }
+
+  async stopSession(id) {
+    await Promise.resolve()
+      .then(() => this.sessions?.stop(id))
+      .catch(() => {});
   }
 
   /** Marks the ticket in progress; a refusal is recorded, never thrown. */
@@ -463,6 +491,7 @@ export function createTicketServices(services) {
     gitRemotes: services.gitRemotes,
     launch: (...args) => services.launch(...args),
     chatDelivery: services.chatDelivery,
+    sessions: { stop: (...args) => services.sessions.stop(...args) },
     pipelines: { start: (...args) => services.pipelines.start(...args) },
     live: () => services.live,
     fetchImpl: config.ticketFetch ?? globalThis.fetch,

@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { TicketStore } from "../../server/features/tickets/ticket-store.js";
 import { TicketService } from "../../server/features/tickets/ticket-service.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 import { fakeGithub, fakePlane, githubIssue } from "../helpers/ticket-fakes.js";
 
 const planeProjectId = "11111111-1111-4111-8111-111111111111";
@@ -29,7 +30,7 @@ const planeItem = (n, extra = {}) => ({
 
 async function setup(
   t,
-  { githubFailures = {}, planeFailures = {}, tool = "claude" } = {},
+  { githubFailures = {}, planeFailures = {}, tool = "claude", deliver } = {},
 ) {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "ap-ticket-svc-")));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -64,6 +65,7 @@ async function setup(
   const sent = [];
   const engineStarts = [];
   const hubSignals = [];
+  const stopped = [];
   let sessionCount = 0;
   const service = new TicketService({
     store,
@@ -100,7 +102,13 @@ async function setup(
       launched.push({ body, login, trusted, session });
       return session;
     },
-    chatDelivery: { send: async (id, body) => sent.push({ id, ...body }) },
+    chatDelivery: {
+      async send(id, body) {
+        sent.push({ id, ...body });
+        return deliver ? deliver(sent.length) : { status: "handed-off" };
+      },
+    },
+    sessions: { stop: async (id) => stopped.push(id) },
     pipelines: {
       async start(input, options) {
         engineStarts.push({ input, options });
@@ -127,6 +135,7 @@ async function setup(
     sent,
     engineStarts,
     hubSignals,
+    stopped,
     projectPath,
     linkPlane,
   };
@@ -289,7 +298,11 @@ test("a ticket starts once unless again", async (t) => {
   const refused = [a, b].filter((r) => r.status === "rejected");
   assert.equal(refused.length, 1);
   assert.equal(refused[0].reason.status, 409);
-  await assert.rejects(start(), { status: 409 });
+  assert.equal(refused[0].reason.message, serverMessages.tickets.alreadyStarting);
+  await assert.rejects(start(), {
+    status: 409,
+    message: serverMessages.tickets.alreadyStarted,
+  });
   await assert.doesNotReject(start({ again: true }));
   assert.equal(launched.length, 2);
 });
@@ -387,3 +400,35 @@ test("Plane projects and states are read with the saved token", async (t) => {
   assert.ok(hubSignals.includes("tickets.connections"));
   assert.ok(hubSignals.includes("tickets.project"));
 });
+
+for (const [name, deliver] of [
+  [
+    "a thrown delivery",
+    (n) => {
+      if (n === 1) throw Object.assign(new Error("delivery failed"), { status: 409 });
+      return { status: "handed-off" };
+    },
+  ],
+  ["a rejected receipt", (n) => ({ status: n === 1 ? "rejected" : "pending" })],
+])
+  test(`${name} stops the session and leaves no start`, async (t) => {
+    const { service, store, stopped, github, launched } = await setup(t, { deliver });
+    const start = () =>
+      service.start(
+        "p1",
+        { source: "github", key: "acme/app#7", kind: "session", session: {} },
+        { linkBase },
+      );
+    await assert.rejects(start());
+    assert.deepEqual(stopped, ["s1"]);
+    assert.equal(store.starts("p1").length, 0);
+    assert.equal(
+      github.calls.some((c) => c.method === "POST"),
+      false,
+    );
+    const retried = await start();
+    assert.equal(retried.start.targetId, "s2");
+    assert.equal(retried.start.writeBack.state, "done");
+    assert.deepEqual(stopped, ["s1"]);
+    assert.equal(launched.length, 2);
+  });
