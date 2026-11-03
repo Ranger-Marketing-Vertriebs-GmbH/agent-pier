@@ -240,6 +240,12 @@ export class RepositoryStore {
   secretFile(id) {
     return path.join(this.secretDir, `${id}.json`);
   }
+  /** Server-internal: the saved token of one credential, never routed. */
+  token(id) {
+    if (!/^[A-Za-z0-9-]{1,64}$/.test(String(id))) return null;
+    const token = readJSON(this.secretFile(String(id)), null)?.token;
+    return typeof token === "string" && token ? token : null;
+  }
   createCredential({ name, host, token, agentDefault, commitIdentity } = {}) {
     const identity = identityValue(commitIdentity);
     name = nameValue(name);
