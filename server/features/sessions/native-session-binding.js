@@ -199,10 +199,6 @@ export class NativeSessionBinding {
     return readNativeActivity(this.directory, session);
   }
   /**
-   * The activity report, ended like a hook would when Claude's transcript shows an
-   * Esc interrupt after a reported running turn (Claude Code sends no hook for it).
-   */
-  /**
    * The activity report as the CLI's driver reads it (Claude Code ends a running turn
    * its transcript shows as interrupted with Esc, which sends no hook).
    */

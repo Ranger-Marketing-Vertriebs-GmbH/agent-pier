@@ -132,8 +132,8 @@ const drivers = new Map();
  *   folders to watch while a chat has no known sources, slashCommands(scan, env,
  *   cwd): discovers custom commands, transcriptFiles(home): the transcript walk
  *   plan of a CLI with `capabilities.transcriptCleanup`, models?(history, session):
- *   the models its picker can display (Codex). normalize and observe take what the CLI's own
- *   reader produced, so their arguments differ: Codex normalize(thread) and
+ *   the models its picker can display (Codex). normalize and observe take what the
+ *   CLI's own reader produced, so their arguments differ: Codex normalize(thread) and
  *   observe(thread, records), Claude Code normalize(records) and observe(records),
  *   OpenCode normalize(exported) and observe(exported).
  * tui: reads the CLI's terminal screen (see `<id>/tui.js`).
@@ -201,87 +201,77 @@ export function cliDriver(id) {
   const definition = cliDefinition(id);
   if (!drivers.has(id)) {
     const profile = profiles[id];
-    drivers.set(
-      id,
-      Object.freeze({
-        definition,
-        profileEnv: profile.profileEnv,
-        configRoot: profile.configRoot,
-        dataRoot: profile.dataRoot,
-        addMcpServer: sessions[id].addMcpServer,
-        addSessionHooks: sessions[id].addSessionHooks,
-        addPluginFolder: sessions[id].addPluginFolder,
-        addReminder: sessions[id].addReminder,
-        runtimeInterpreter: sessions[id].runtimeInterpreter,
-        inlineMcpNames: sessions[id].inlineMcpNames,
-        grantDirectory: sessions[id].grantDirectory,
-        prepareRequests: requests[id].prepareRequests,
-        shellToolName: requests[id].shellToolName,
-        requests: frozen({
-          launchRecord: requests[id].launchRecord,
-        }),
-        startupDialogs: Object.freeze({ ...requests[id].startupDialogs }),
-        history: Object.freeze({
-          list: histories[id].list,
-          read: histories[id].read,
-          readPage: histories[id].readPage,
-          readReloadContext: histories[id].readReloadContext,
-          normalize: histories[id].normalize,
-          observe: histories[id].observe,
-          watchRoots: histories[id].watchRoots,
-          slashCommands: histories[id].slashCommands,
-          transcriptFiles: histories[id].transcriptFiles,
-          models: histories[id].models,
-        }),
-        tui: Object.freeze({
-          activity: tuis[id].activity,
-          composer: tuis[id].composer,
-          limitWarning: tuis[id].limitWarning,
-          queuedInputs: tuis[id].queuedInputs,
-          promptState: tuis[id].promptState,
-          promptProof: tuis[id].promptProof,
-          blockingScreen: tuis[id].blockingScreen,
-          images: frozen({ ...tuis[id].images }),
-          modelPicker: Object.freeze({
-            ...tuis[id].modelPicker,
-            openKeys: Object.freeze(
-              tuis[id].modelPicker.openKeys.map((step) => Object.freeze({ ...step })),
-            ),
-          }),
-        }),
-        pipeline: Object.freeze({
-          command: pipelines[id].command,
-          sessionArgs: pipelines[id].sessionArgs,
-          promptArgs: pipelines[id].promptArgs,
-          events: Object.freeze({ ...pipelines[id].events }),
-        }),
-        plugins: frozen({ ...plugins[id] }),
-        profileFiles: frozen({ ...profileFiles[id] }),
-        mcp: frozen({
-          toNative: mcps[id].toNative,
-          fromNative: mcps[id].fromNative,
-          timeouts: mcps[id].timeouts,
-          remoteSseAsHttp: mcps[id].remoteSseAsHttp,
-          keepsOAuthScope: mcps[id].keepsOAuthScope,
-        }),
-        provider: frozen({ ...providers[id] }),
-        binding: frozen({
-          idOptional: bindings[id].idOptional,
-          addHooks: bindings[id].addHooks,
-          resolve: bindings[id].resolve,
-          reportedActivity: bindings[id].reportedActivity,
-          hookActivity: bindings[id].hookActivity,
-        }),
-        credentials: profile.credentials ? frozen({ ...profile.credentials }) : null,
-        transfer: definition.capabilities.accountTransfer
-          ? frozen({ ...transfers[id] })
-          : null,
-        parseAuthStatus(stdout, exitCode, stderr = "") {
-          const state = profile.parseAuthStatus(stdout, stderr, exitCode);
-          return { signedIn: state === "authenticated", state };
-        },
-      }),
-    );
+    // One deep freeze over every member: no caller can change another's driver.
+    const members = frozen({
+      profileEnv: profile.profileEnv,
+      configRoot: profile.configRoot,
+      dataRoot: profile.dataRoot,
+      addMcpServer: sessions[id].addMcpServer,
+      addSessionHooks: sessions[id].addSessionHooks,
+      addPluginFolder: sessions[id].addPluginFolder,
+      addReminder: sessions[id].addReminder,
+      runtimeInterpreter: sessions[id].runtimeInterpreter,
+      inlineMcpNames: sessions[id].inlineMcpNames,
+      grantDirectory: sessions[id].grantDirectory,
+      prepareRequests: requests[id].prepareRequests,
+      shellToolName: requests[id].shellToolName,
+      requests: { launchRecord: requests[id].launchRecord },
+      startupDialogs: { ...requests[id].startupDialogs },
+      history: {
+        list: histories[id].list,
+        read: histories[id].read,
+        readPage: histories[id].readPage,
+        readReloadContext: histories[id].readReloadContext,
+        normalize: histories[id].normalize,
+        observe: histories[id].observe,
+        watchRoots: histories[id].watchRoots,
+        slashCommands: histories[id].slashCommands,
+        transcriptFiles: histories[id].transcriptFiles,
+        models: histories[id].models,
+      },
+      tui: {
+        activity: tuis[id].activity,
+        composer: tuis[id].composer,
+        limitWarning: tuis[id].limitWarning,
+        queuedInputs: tuis[id].queuedInputs,
+        promptState: tuis[id].promptState,
+        promptProof: tuis[id].promptProof,
+        blockingScreen: tuis[id].blockingScreen,
+        images: { ...tuis[id].images },
+        modelPicker: { ...tuis[id].modelPicker },
+      },
+      pipeline: {
+        command: pipelines[id].command,
+        sessionArgs: pipelines[id].sessionArgs,
+        promptArgs: pipelines[id].promptArgs,
+        events: { ...pipelines[id].events },
+      },
+      plugins: { ...plugins[id] },
+      profileFiles: { ...profileFiles[id] },
+      mcp: {
+        toNative: mcps[id].toNative,
+        fromNative: mcps[id].fromNative,
+        timeouts: mcps[id].timeouts,
+        remoteSseAsHttp: mcps[id].remoteSseAsHttp,
+        keepsOAuthScope: mcps[id].keepsOAuthScope,
+      },
+      provider: { ...providers[id] },
+      binding: {
+        idOptional: bindings[id].idOptional,
+        addHooks: bindings[id].addHooks,
+        resolve: bindings[id].resolve,
+        reportedActivity: bindings[id].reportedActivity,
+        hookActivity: bindings[id].hookActivity,
+      },
+      credentials: profile.credentials ? { ...profile.credentials } : null,
+      transfer: definition.capabilities.accountTransfer ? { ...transfers[id] } : null,
+      parseAuthStatus(stdout, exitCode, stderr = "") {
+        const state = profile.parseAuthStatus(stdout, stderr, exitCode);
+        return { signedIn: state === "authenticated", state };
+      },
+    });
+    // The definition is the catalog's own frozen record, kept by identity.
+    drivers.set(id, Object.freeze({ definition, ...members }));
   }
   return drivers.get(id);
 }

@@ -27,7 +27,7 @@ for (const tool of ["claude", "codex"])
       accountId: "account",
       sessionId: "session",
       launch,
-      profile: null,
+      profile: () => null,
     });
     const expected = attachmentDirectory(f.dataDir, "account", "session");
     assert.equal(granted.directory, expected);
@@ -50,7 +50,7 @@ test("a Codex YOLO session keeps its unsandboxed launch instead of workspace-wri
     accountId: "account",
     sessionId: "session",
     launch,
-    profile: null,
+    profile: () => null,
   });
   assert.equal(launch.args.includes('sandbox_mode="workspace-write"'), false);
   assert.equal(launch.args.includes("--add-dir"), true);
@@ -65,7 +65,7 @@ test("opencode sessions receive an account-scoped references entry and no flag",
     accountId: "account",
     sessionId: "session",
     launch,
-    profile: f.profile,
+    profile: () => f.profile,
   });
   assert.equal(granted.directory, attachmentDirectory(f.dataDir, "account", "session"));
   assert.deepEqual(launch.args, ["--existing"]);
@@ -94,7 +94,7 @@ test("an existing opencode configuration keeps its unrelated fields and gains on
       accountId: "account",
       sessionId,
       launch: { args: [] },
-      profile: f.profile,
+      profile: () => f.profile,
     });
   const config = JSON.parse(
     fs.readFileSync(path.join(f.profile.root, "opencode.json"), "utf8"),
@@ -113,7 +113,7 @@ test("opencode sessions with no profile receive no grant and no directory", (t) 
     accountId: "account",
     sessionId: "session",
     launch,
-    profile: null,
+    profile: () => null,
   });
   assert.equal(granted, null);
   assert.deepEqual(launch.args, ["--existing"]);
@@ -133,7 +133,7 @@ test("a malformed opencode.json aborts the grant, not the launch", (t) => {
     accountId: "account",
     sessionId: "session",
     launch,
-    profile: f.profile,
+    profile: () => f.profile,
   });
   assert.equal(granted, null);
   assert.deepEqual(launch.args, ["--existing"]);
@@ -155,7 +155,7 @@ test("a symlinked opencode.json (the standard dotfiles pattern) aborts the grant
     accountId: "account",
     sessionId: "session",
     launch,
-    profile: f.profile,
+    profile: () => f.profile,
   });
   assert.equal(granted, null);
   assert.deepEqual(launch.args, ["--existing"]);
@@ -178,7 +178,7 @@ test("duplicate JSON keys in opencode.json abort the grant, not the launch", (t)
     accountId: "account",
     sessionId: "session",
     launch,
-    profile: f.profile,
+    profile: () => f.profile,
   });
   assert.equal(granted, null);
   assert.deepEqual(launch.args, ["--existing"]);
@@ -197,7 +197,7 @@ test("a second launch with an already-correct references entry writes nothing", 
     accountId: "account",
     sessionId: "first",
     launch,
-    profile: f.profile,
+    profile: () => f.profile,
   });
   const file = path.join(f.profile.root, "opencode.json");
   const before = fs.readFileSync(file, "utf8");
@@ -208,7 +208,7 @@ test("a second launch with an already-correct references entry writes nothing", 
     accountId: "account",
     sessionId: "second",
     launch: { args: [] },
-    profile: f.profile,
+    profile: () => f.profile,
   });
   assert.equal(fs.readFileSync(file, "utf8"), before);
   assert.equal(fs.statSync(file).mtimeNs, mtimeBefore);
@@ -226,7 +226,7 @@ test("a stale references entry (e.g. after dataDir changed) is corrected", (t) =
     accountId: "account",
     sessionId: "session",
     launch: { args: [] },
-    profile: f.profile,
+    profile: () => f.profile,
   });
   const config = JSON.parse(
     fs.readFileSync(path.join(f.profile.root, "opencode.json"), "utf8"),
@@ -252,7 +252,7 @@ for (const tool of ["claude", "codex"])
       accountId: "account",
       sessionId: "session",
       launch,
-      profile: null,
+      profile: () => null,
     });
     assert.equal(granted, null);
     assert.deepEqual(launch.args, ["--existing"]);
@@ -270,7 +270,7 @@ test("opencode: a directory failure after a successful config write still yields
     accountId: "account",
     sessionId: "session",
     launch,
-    profile: f.profile,
+    profile: () => f.profile,
   });
   assert.equal(granted, null);
   assert.deepEqual(launch.args, ["--existing"]);
@@ -292,7 +292,7 @@ test("shell sessions receive no grant at all", (t) => {
       accountId: "account",
       sessionId: "session",
       launch,
-      profile: null,
+      profile: () => null,
     }),
     null,
   );

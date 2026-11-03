@@ -14,6 +14,8 @@ import {
   centralFromNative,
   cliEntry,
 } from "../../server/features/mcp-servers/cli-native.js";
+import { hookScreen } from "../fixtures/requests/codex-hook-trust.js";
+import { themeScreen } from "../fixtures/requests/claude-startup-prompts.js";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const DRIVERS = path.join(ROOT, "server/features/clis/drivers.js");
@@ -91,12 +93,13 @@ function assertFrozenDeep(value, label) {
   }
 }
 
-test("every new driver member is frozen", () => {
+test("every driver member of every CLI is frozen all the way down", () => {
   for (const id of CODING_CLI_IDS) {
     const driver = cliDriver(id);
-    assertFrozenDeep(driver.profileFiles, `${id}.profileFiles`);
-    assert.ok(Object.isFrozen(driver.profileFiles.assetDirectories));
-    assertFrozenDeep(driver.binding, `${id}.binding`);
+    assertFrozenDeep(driver, id);
+    assert.equal(driver.definition, cliDefinition(id));
+    for (const step of driver.tui.modelPicker.openKeys)
+      if (step.keys) assert.ok(Object.isFrozen(step.keys), `${id} openKeys keys`);
   }
 });
 
@@ -377,7 +380,7 @@ test("grantDirectory adds each CLI's attachment grant like the launch did", () =
     const granted = cliDriver(id).grantDirectory(launch, "/att/s1", {
       reload,
       ensure: () => (ensured++, ok),
-      profile: null,
+      profile: () => null,
       accountDirectory: "/att",
     });
     return { granted, args: launch.args, ensured };
@@ -466,7 +469,6 @@ test("session id, reload model and credential members per CLI", () => {
       assert.equal(cliDriver("opencode").tui.modelPicker.resolveDisplayed, undefined);
       const { credentials } = cliDriver("codex");
       assertFrozenDeep(credentials, "codex.credentials");
-      assert.ok(Object.isFrozen(credentials));
       assert.deepEqual(credentials.args(), [
         "-c",
         'cli_auth_credentials_store="file"',
@@ -484,7 +486,6 @@ test("terminal input members per CLI", () => {
     const { tui } = cliDriver(id);
     assert.ok(Object.isFrozen(tui));
     assertFrozenDeep(tui.images, `${id}.tui.images`);
-    assert.ok(Object.isFrozen(tui.images));
     assert.equal(typeof tui.queuedInputs, "function");
     assert.equal(tui.images.pathText(file), id === "codex" ? '"/tmp/a b.png"' : file);
     assert.equal(cliDefinition(id).capabilities.imagePaste, id === "claude");
@@ -511,6 +512,11 @@ test("terminal input members per CLI", () => {
   // An empty or unrelated screen blocks nothing.
   assert.ok(!codex.blockingScreen("", { cwd: "/tmp", started: true }));
   assert.ok(!claude.blockingScreen("", { cwd: "/tmp", started: true }));
+  // A real hook review and a real startup dialog block the chat input.
+  assert.ok(codex.blockingScreen(hookScreen(), { cwd: "/tmp", started: true }));
+  assert.ok(
+    claude.blockingScreen(themeScreen(), { cwd: "/fixture/project", started: false }),
+  );
   assert.equal(
     codex.promptState({ raw: "", pane: { cursorY: 0, height: 1 } }),
     undefined,

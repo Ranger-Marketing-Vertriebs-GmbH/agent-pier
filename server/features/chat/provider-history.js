@@ -104,7 +104,7 @@ export class ProviderHistory {
     }
   }
   readCodexModels(session) {
-    return codexHistory.readModels(this, session);
+    return codexHistory.requestModelList(this, session);
   }
   async opencode(session, args) {
     const env = this.environment(session);

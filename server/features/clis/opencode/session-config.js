@@ -84,8 +84,8 @@ export function inlineMcpNames(env) {
 /**
  * Grants the chat attachments through the account's references entry (see
  * attachments.js), which covers every session of the account, then creates the
- * session `directory` with `ensure()`. `profile` is the profile location, or a
- * function returning it. A reload finds the entry in place and changes nothing.
+ * session `directory` with `ensure()`. `profile` is a function returning the profile
+ * location, read only here. A reload finds the entry in place and changes nothing.
  */
 export function grantDirectory(
   launch,
@@ -93,6 +93,5 @@ export function grantDirectory(
   { reload, ensure, profile, accountDirectory },
 ) {
   if (reload) return true;
-  const location = typeof profile === "function" ? profile() : profile;
-  return grantOpenCode(location, accountDirectory) && ensure();
+  return grantOpenCode(profile(), accountDirectory) && ensure();
 }

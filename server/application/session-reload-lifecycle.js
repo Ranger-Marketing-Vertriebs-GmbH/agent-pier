@@ -33,12 +33,12 @@ export function createReloadLifecycle(services) {
       throw problem(serverMessages.sessionReload.modelSelectionPending, 409);
     const displayedModel = live?.currentModel;
     // The CLI's own model list, when it names the models its picker displays.
-    const readModels = isCodingCli(session.tool)
+    const pickerModels = isCodingCli(session.tool)
       ? cliDriver(session.tool).history.models
       : undefined;
     let listed;
-    if (readModels && displayedModel) {
-      listed = await readModels(history, session);
+    if (pickerModels && displayedModel) {
+      listed = await pickerModels(history, session);
       if (session.provider?.label)
         listed = [
           ...(listed || []),
