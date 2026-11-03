@@ -6,7 +6,8 @@ import { gitInitRebind, sameFolder } from "../features/memory/project-rebind.js"
  * Keeps a running session's project when its plain folder became the root of its
  * own Git work tree. The plain-directory project moves to the Git identity: memory
  * entries and session capabilities, SSH keys, hosts and receipts, artifact records,
- * pipeline verification steps, queue settings and queue items, secrets, and the SSH and
+ * pipeline verification steps, queue settings and queue items, ticket links, ticket
+ * sequences and label rules, secrets, and the SSH and
  * secrets project binding of every session launched
  * in that folder. Agent grants and unstarted approvals of the older project are dropped,
  * never moved. The Git identity must not own memory or SSH access of its own (for
@@ -43,6 +44,8 @@ export class ProjectRebind {
     this.sessionWaitMs = 2000;
     this.definitions = null;
     this.runQueue = null;
+    // The ticket links, sequences and label rules (tickets/project-moves.js).
+    this.tickets = null;
   }
   /**
    * `found` (see gitInitRebind) with the plain-folder project of a recorded move.
@@ -88,6 +91,7 @@ export class ProjectRebind {
       this.artifacts.ownsProject(fromId) ||
       Boolean(this.definitions?.hasVerification(fromId)) ||
       Boolean(this.runQueue?.ownsProject(fromId)) ||
+      Boolean(this.tickets?.ownsProject(fromId)) ||
       this.assistantsHold(fromId)
     );
   }
@@ -127,6 +131,7 @@ export class ProjectRebind {
     await this.artifacts.moveProject(fromId, scope.id);
     this.definitions?.moveVerification(fromId, scope.id);
     this.runQueue?.moveProject(fromId, scope.id);
+    await this.tickets?.moveProject(fromId, scope.id);
     this.revokeAssistants(fromId, scope.id);
     const rebound = await this.rebindSessions(fromId, scope, launch);
     this.moveSecrets(fromId, scope.id);
@@ -167,6 +172,7 @@ export class ProjectRebind {
       await this.artifacts.moveProject(fromId, scope.id);
       this.definitions?.moveVerification(fromId, scope.id);
       this.runQueue?.moveProject(fromId, scope.id);
+      await this.tickets?.moveProject(fromId, scope.id);
       this.revokeAssistants(fromId, scope.id);
       const rebound = await this.rebindSessions(fromId, scope, null);
       this.moveSecrets(fromId, scope.id);

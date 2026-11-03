@@ -317,6 +317,36 @@ export class TicketSequenceStore {
     }
     this.changed(projectId);
   }
+  /**
+   * Moves a project's queue to the project it became, behind the items already there;
+   * an item whose ticket is active in both stays only once.
+   */
+  moveProject(fromId, toId) {
+    const queue = this.byProject.get(fromId);
+    if (fromId === toId || !queue) return;
+    const target = this.byProject.get(toId);
+    const kept = target?.items ?? [];
+    const items = queue.items.filter(
+      (entry) =>
+        !(isActive(entry) && kept.some((other) => isActive(other) && same(other, entry))),
+    );
+    this.byProject.delete(fromId);
+    this.byProject.set(toId, {
+      projectId: toId,
+      repoPath: target?.repoPath ?? queue.repoPath,
+      items: pruned([...kept, ...items]),
+    });
+    try {
+      this.save();
+    } catch (error) {
+      this.byProject.set(fromId, queue);
+      if (target) this.byProject.set(toId, target);
+      else this.byProject.delete(toId);
+      throw error;
+    }
+    this.changed(fromId);
+    this.changed(toId);
+  }
   /** How many more items the queue takes before it is full. */
   freeSlots(projectId) {
     const items = this.byProject.get(projectId)?.items ?? [];

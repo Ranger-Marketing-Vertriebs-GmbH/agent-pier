@@ -285,6 +285,42 @@ export class TicketRuleStore {
         )),
     );
   }
+  /** Whether a rule or a pickup still names the project; never while locked. */
+  ownsProject(projectId) {
+    return (
+      !this.locked &&
+      (this.list.some((e) => e.projectId === projectId) ||
+        [...this.picks.values()].some((p) => p.projectId === projectId))
+    );
+  }
+  /**
+   * Moves a project's rules and pickups to the project it became. A rule whose source
+   * and label the new project already has, or beyond its rule limit, is dropped; its
+   * pickups move all the same, so no ticket is queued twice. A locked file stays.
+   */
+  moveProject(fromId, toId) {
+    if (fromId === toId || !this.ownsProject(fromId)) return;
+    this.commit(toId, () => {
+      let count = this.list.filter((e) => e.projectId === toId).length;
+      const moved = [];
+      for (const entry of this.list) {
+        if (entry.projectId !== fromId) moved.push(entry);
+        else if (count < MAX_RULES && !this.exists(toId, entry)) {
+          moved.push({ ...entry, projectId: toId });
+          count += 1;
+        }
+      }
+      this.list = moved;
+      for (const [id, p] of [...this.picks]) {
+        if (p.projectId !== fromId) continue;
+        this.picks.delete(id);
+        const next = pickupId(toId, p.source, p.key);
+        if (!this.picks.has(next)) this.picks.set(next, { ...p, projectId: toId });
+      }
+      this.cap(toId);
+    });
+    this.changed(fromId);
+  }
   setStatus(projectId, ruleId, next) {
     const index = this.list.findIndex(
       (e) => e.projectId === projectId && e.id === ruleId,
