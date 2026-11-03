@@ -6884,6 +6884,7 @@
   "requests:requestCopy.title": "de:8a61c5cb4aba en:ad1d4d879a56",
   "requests:requestCopy.unknown": "de:12edbe8c2689 en:c2f7455504f2",
   "search:searchCopy.actions.addGithub": "de:628d7c6e7220 en:a4ebb057125c",
+  "search:searchCopy.actions.addLabelRule": "de:7fead2b6ffe0 en:277b685a96c9",
   "search:searchCopy.actions.addMcp": "de:2d6042ad70ba en:0e3e58f90d67",
   "search:searchCopy.actions.addModel": "de:8e6370a0601a en:dbb409c1f358",
   "search:searchCopy.actions.addPlane": "de:f9f6302cd5ac en:5f957a3cb50f",

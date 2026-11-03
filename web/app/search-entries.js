@@ -497,6 +497,12 @@ export function actionEntries() {
       bilingual(text.projects),
       { action: "start-tickets", pending: "tickets-sequence" },
     ),
+    action(
+      "add-label-rule",
+      () => searchCopy.actions.addLabelRule,
+      bilingual(text.projects),
+      { action: "add-label-rule", pending: "ticket-rule-add" },
+    ),
     action("add-github", () => searchCopy.actions.addGithub, inSection("github"), {
       route: connectionsRoute("github"),
       pending: "github-add",

@@ -89,7 +89,7 @@ export default function AppSearch({
       return navigate({ view: "workspace", sessionId: target.session, mode: null });
     }
     if (target.action === "launch") return launch();
-    if (target.action === "start-tickets")
+    if (target.action === "start-tickets" || target.action === "add-label-rule")
       return navigate(
         projectsRoute(
           route?.view === "projects" && route.projectId
