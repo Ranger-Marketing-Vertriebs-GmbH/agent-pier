@@ -25,6 +25,7 @@ export const searchCopy = {
   keyOpen: "↵ open",
   keyClose: "esc close",
   keyOldNames: "Also finds old names such as “Settings › Access › SSH accesses”",
+  projectTickets: "Tickets",
   sshKeys: "SSH keys",
   // Subpages in an agent's settings.
   agentPages: {

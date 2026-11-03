@@ -25,6 +25,7 @@ export const searchCopy = {
   keyOpen: "↵ öffnen",
   keyClose: "esc schließen",
   keyOldNames: "Findet auch alte Namen wie „Einstellungen › Zugriff › SSH-Zugänge“",
+  projectTickets: "Tickets",
   sshKeys: "SSH-Schlüssel",
   // Unterseiten in den Einstellungen eines Agenten.
   agentPages: {

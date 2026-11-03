@@ -198,8 +198,24 @@ test("sessions are found by name, project, CLI and account and open themselves",
   assert.equal(hit.meta.en, "Claude Code · Firmenkonto");
 });
 
+test("a project's Tickets tab is found by project name", () => {
+  const hit = find("billing tickets").find((item) => item.id === "project-tickets:p1");
+  assert.equal(pathOf(hit), "/projects/p1?tab=tickets");
+  assert.equal(hit.path.en, "Projects › billing-api");
+  assert.equal(
+    pathOf(find("landing issues").find((item) => item.id === "project-tickets:r2")),
+    "/projects/r2?tab=tickets",
+  );
+  assert.equal(
+    find("billing tickets").filter((i) => i.id === "project-tickets:p0").length,
+    0,
+  );
+});
+
 test("projects are listed once per folder and open on the projects page", () => {
-  const projects = find("billing").filter((item) => item.group === "projects");
+  const projects = find("billing").filter(
+    (item) => item.group === "projects" && item.id.startsWith("project:"),
+  );
   assert.deepEqual(
     projects.map((item) => pathOf(item)),
     ["/projects/p1"],
