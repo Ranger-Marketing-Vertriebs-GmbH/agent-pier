@@ -41,3 +41,8 @@ export function ticketConnectionsChanged(hub) {
   hub?.invalidate("tickets.connections");
   hub?.invalidate("tickets.project");
 }
+
+/** Signals the ticket sequence queue topic of `projectId` on `hub`. */
+export function ticketQueueChanged(hub, projectId) {
+  if (typeof projectId === "string") hub?.invalidate("tickets.queue", projectId);
+}
