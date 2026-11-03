@@ -4,6 +4,9 @@
 // change and on Refresh). `tickets.connections` is the value GET /api/ticket-connections
 // answers. TicketService signals both after every write of its own; a connection
 // change also signals every project, whose view names the connection.
+// `tickets.queue:<projectId>` is the value GET /api/tickets/projects/:projectId/queue
+// answers: the project's ticket sequence. The sequence store signals it after every
+// saved change, whoever wrote it (the engine, an owner action, a rule).
 
 const PROJECT_PARAM = /^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$/;
 const owner = (principal) => principal?.role === "owner";
@@ -28,6 +31,18 @@ export function ticketConnectionsTopic(services) {
     authorize: owner,
     scopeKey: () => "owner",
     read: () => services.tickets.connectionsView(),
+  };
+}
+
+/** The `tickets.queue` topic definition for LiveHub#define. */
+export function ticketsQueueTopic(services) {
+  return {
+    name: "tickets.queue",
+    mode: "state",
+    param: PROJECT_PARAM,
+    authorize: owner,
+    scopeKey: () => "owner",
+    read: (_principal, projectId) => services.ticketSequences.view(projectId),
   };
 }
 
