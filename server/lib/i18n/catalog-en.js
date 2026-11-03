@@ -48,6 +48,7 @@ import { audit } from "./en/audit.js";
 import { users } from "./en/users.js";
 import { storageCleanup } from "./en/storage-cleanup.js";
 import { rea } from "./en/rea.js";
+import { tickets } from "./en/tickets.js";
 
 // English counterpart of catalog-de.js with identical keys.
 export const englishServerMessages = Object.freeze({
@@ -79,6 +80,7 @@ export const englishServerMessages = Object.freeze({
   users,
   storageCleanup,
   rea,
+  tickets,
   accounts,
   agentbus,
   artifacts,
