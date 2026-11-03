@@ -99,9 +99,13 @@ test("an Enterprise remote maps to its /api/v3 base", () => {
 test("stops after three pages", async (t) => {
   const issues = Array.from({ length: 400 }, (_, i) => githubIssue(i + 1));
   const fake = await fakeGithub(t, { issues });
-  const { tickets } = await githubSource.list(accessFor(fake), {});
+  const { tickets, truncated } = await githubSource.list(accessFor(fake), {});
   assert.equal(tickets.length, 300);
   assert.equal(fake.calls.length, 3);
+  // A full third page: more open issues may exist than were read.
+  assert.equal(truncated, true);
+  const few = await fakeGithub(t, { issues: issues.slice(0, 250) });
+  assert.equal((await githubSource.list(accessFor(few), {})).truncated, false);
 });
 
 test("maps the issue fields and reports tracker failures by code", async (t) => {

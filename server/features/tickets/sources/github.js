@@ -79,6 +79,8 @@ export const githubSource = {
   id: "github",
   async list(access, { label, signal } = {}) {
     const open = [];
+    // A full last page: more open issues may exist than were read.
+    let truncated = false;
     for (let page = 1; page <= MAX_PAGES; page += 1) {
       const query = `state=open&per_page=${PAGE_SIZE}&page=${page}`;
       const { data } = await call(access, `${repoPath(access)}/issues?${query}`, {
@@ -90,6 +92,7 @@ export const githubSource = {
           open.push(toTicket(access, issue));
       }
       if (data.length < PAGE_SIZE) break;
+      if (page === MAX_PAGES) truncated = true;
     }
     // Labels come from every open issue so the filter keeps its choices.
     const names = new Set(open.flatMap((ticket) => ticket.labels));
@@ -97,7 +100,7 @@ export const githubSource = {
       a.localeCompare(b, "en", { sensitivity: "base" }),
     );
     const tickets = label ? open.filter((ticket) => ticket.labels.includes(label)) : open;
-    return { tickets, labels };
+    return { tickets, labels, truncated };
   },
   async hasLabel(access, label, { signal } = {}) {
     try {

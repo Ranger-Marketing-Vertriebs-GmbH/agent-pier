@@ -22,6 +22,8 @@ function status(value) {
   if (plain(value.error) && idText(value.error.code, 64))
     out.error = { code: value.error.code, since: stamp(value.error.since) ?? 0 };
   if (idText(value.notified, 64)) out.notified = value.notified;
+  // The last successful pass read only the first pages of the source (rule-monitor.js).
+  if (value.capped === true) out.capped = true;
   return out;
 }
 function options(value) {

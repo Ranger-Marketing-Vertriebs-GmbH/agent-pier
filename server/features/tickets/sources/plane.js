@@ -28,8 +28,9 @@ function projectPath(access) {
   return `${slugPath(access)}/projects/${encodeURIComponent(access.projectId)}`;
 }
 
-// Reads a cursor-paginated collection; also accepts a bare array.
-async function readPages(access, path, query, signal) {
+// Reads a cursor-paginated collection; also accepts a bare array. `out.truncated` is
+// set when more pages were left than MAX_PAGES allows.
+async function readPages(access, path, query, signal, out = {}) {
   const rows = [];
   let cursor = "";
   for (let page = 0; page < MAX_PAGES; page += 1) {
@@ -45,6 +46,7 @@ async function readPages(access, path, query, signal) {
       throw new TicketSourceError("invalidResponse");
     rows.push(...data.results);
     if (!data.next_page_results || !data.next_cursor) break;
+    if (page === MAX_PAGES - 1) out.truncated = true;
     cursor = String(data.next_cursor);
   }
   return rows;
@@ -112,11 +114,13 @@ export const planeSource = {
       readStates(access, signal),
       readLabelNames(access, signal),
     ]);
+    const read = { truncated: false };
     const items = await readPages(
       access,
       `${projectPath(access)}/work-items/`,
       "&expand=state,labels",
       signal,
+      read,
     );
     const open = [];
     for (const item of items) {
@@ -130,7 +134,7 @@ export const planeSource = {
       a.localeCompare(b, "en", { sensitivity: "base" }),
     );
     const tickets = label ? open.filter((ticket) => ticket.labels.includes(label)) : open;
-    return { tickets, labels };
+    return { tickets, labels, truncated: read.truncated };
   },
   async hasLabel(access, label, { signal } = {}) {
     const wanted = labelKey(label);

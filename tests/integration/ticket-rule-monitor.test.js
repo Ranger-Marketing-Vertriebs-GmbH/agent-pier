@@ -234,6 +234,23 @@ test("a label that exists without tickets is fine", async (t) => {
   assert.ok(f.status(rule.id).checkedAt > 0);
 });
 
+test("a read cut off at the cap succeeds flagged capped, never labelGone", async (t) => {
+  // 350 open issues: the read stops at 300, so #340 with the label is never seen.
+  const issues = Array.from({ length: 350 }, (_, i) =>
+    i + 1 === 340 ? labelledIssue(340, "agent") : labelledIssue(i + 1),
+  );
+  const f = await ruleMonitorFixture(t, { issues });
+  const rule = f.rules.create("p1", ruleInput());
+  await f.monitor().run();
+  assert.equal(f.status(rule.id).error, null);
+  assert.equal(f.status(rule.id).capped, true);
+  assert.ok(f.status(rule.id).checkedAt > 0);
+  const small = await ruleMonitorFixture(t, { issues: [labelledIssue(1, "agent")] });
+  const other = small.rules.create("p1", ruleInput());
+  await small.monitor().run();
+  assert.equal(small.status(other.id).capped, undefined);
+});
+
 test("queue full sets queueFull and appends the rest next pass", async (t) => {
   const f = await ruleMonitorFixture(t, {
     issues: [1, 2, 3].map((n) => labelledIssue(n, "agent")),

@@ -63,6 +63,18 @@ test("lists only open items across cursors with label names", async (t) => {
   assert.equal(tickets[0].url, `${fake.baseUrl}/acme/browse/AP-1/`);
   assert.equal(tickets[0].body, "Body 1");
   assert.deepEqual(labels, ["backend", "bug"]);
+  assert.equal((await planeSource.list(access, {})).truncated, false);
+});
+
+test("a read that stops at five pages says it is truncated", async (t) => {
+  const many = Array.from({ length: 501 }, (_, i) => item(i + 1));
+  const { fake, access } = await setup(t, { items: many });
+  const read = await planeSource.list(access, {});
+  assert.equal(read.tickets.length, 500);
+  assert.equal(read.truncated, true);
+  assert.equal(fake.calls.filter((c) => /\/work-items\/\?/.test(c.path)).length, 5);
+  const { access: exact } = await setup(t, { items: many.slice(0, 500) });
+  assert.equal((await planeSource.list(exact, {})).truncated, false);
 });
 
 test("ids are mapped to state and label names when not expanded", async (t) => {

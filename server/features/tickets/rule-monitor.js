@@ -137,7 +137,7 @@ export class TicketRuleMonitor {
       reads.set(
         rule.source,
         this.tickets.sources[rule.source].list(accesses[rule.source], { signal }).then(
-          ({ tickets }) => ({ tickets }),
+          ({ tickets, truncated }) => ({ tickets, truncated: truncated === true }),
           (error) => ({ code: sourceCode(error) }),
         ),
       );
@@ -164,10 +164,16 @@ export class TicketRuleMonitor {
         await this.fail(current, read.code);
         continue;
       }
-      await this.check(project, current, access, read.tickets);
+      await this.check(project, current, access, read);
     }
   }
-  async check(project, rule, access, tickets) {
+  /**
+   * `read.truncated`: the source has more open tickets than a read takes (300 GitHub
+   * issues, 500 Plane work items). The pass still succeeds, flagged `capped`, because
+   * labelled tickets beyond the cap were not seen; `labelGone` still comes only from
+   * hasLabel, which asks for the label itself.
+   */
+  async check(project, rule, access, { tickets, truncated }) {
     const label = labelKey(rule.label);
     const matches = tickets
       .filter((ticket) => (ticket.labels ?? []).map(labelKey).includes(label))
@@ -189,16 +195,17 @@ export class TicketRuleMonitor {
         return;
       }
       if (this.closed) return;
-      return found ? this.succeed(rule) : this.fail(rule, "labelGone");
+      return found ? this.succeed(rule, truncated) : this.fail(rule, "labelGone");
     }
     const { full } = await this.sequences.appendFromRule(project, rule.id, matches);
-    return full ? this.fail(rule, "queueFull") : this.succeed(rule);
+    return full ? this.fail(rule, "queueFull") : this.succeed(rule, truncated);
   }
-  succeed(rule) {
+  succeed(rule, capped = false) {
     this.rules.setStatus(rule.projectId, rule.id, {
       checkedAt: this.now(),
       error: null,
       notified: null,
+      ...(capped ? { capped: true } : {}),
     });
   }
   async fail(rule, code) {
