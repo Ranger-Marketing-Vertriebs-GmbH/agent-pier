@@ -258,6 +258,19 @@ test("New run and Open inbox are actions", () => {
   assert.equal(pathOf(action("Eingang öffnen")), "/inbox");
 });
 
+test("Start tickets is an owner action only, not in the user's search", () => {
+  const owners = buildSearchIndex({ agents: [], connections: null, agentsEnabled: true });
+  const action = (query) => flat(searchEntries(owners, query))[0];
+  assert.equal(action("Start tickets").id, "action:start-tickets");
+  assert.equal(action("Tickets starten").id, "action:start-tickets");
+  assert.equal(action("ticket sequence").id, "action:start-tickets");
+  const users = buildUserSearchIndex({ agents: [{ id: "lumi", name: "Lumi" }] });
+  assert.equal(
+    users.some((item) => item.id === "action:start-tickets"),
+    false,
+  );
+});
+
 test("a source not loaded yet adds nothing", () => {
   const entries = workspaceEntries({}, { agentsEnabled: true });
   assert.deepEqual([...new Set(entries.map((item) => item.group))], ["actions"]);

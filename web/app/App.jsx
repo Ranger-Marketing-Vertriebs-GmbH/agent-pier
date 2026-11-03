@@ -191,6 +191,7 @@ function Application() {
       select={openSession}
       workspace={ready ? state : null}
       launch={launch}
+      route={route}
       extensionProfileId={extensionProfileId}
       providerConnections={ready ? state.providerConnections : null}
     >
