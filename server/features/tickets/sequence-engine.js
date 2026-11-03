@@ -167,7 +167,10 @@ export class TicketSequenceEngine {
       running.again = true;
       return running.promise;
     }
+    // Registered before the loop starts: a loop that ends without waiting (an owner
+    // action is queued) must not leave a finished lock behind.
     const lock = { again: true, promise: null };
+    this.locks.set(projectId, lock);
     lock.promise = (async () => {
       try {
         while (lock.again && !this.closed && !this.waiting.get(projectId)) {
@@ -175,10 +178,9 @@ export class TicketSequenceEngine {
           await this.steps(projectId);
         }
       } finally {
-        this.locks.delete(projectId);
+        this.release(projectId, lock);
       }
     })();
-    this.locks.set(projectId, lock);
     return lock.promise;
   }
 
@@ -200,6 +202,7 @@ export class TicketSequenceEngine {
     let settle;
     const outcome = new Promise((resolve) => (settle = resolve));
     const lock = { again: false, promise: null };
+    this.locks.set(projectId, lock);
     lock.promise = (async () => {
       try {
         try {
@@ -214,13 +217,16 @@ export class TicketSequenceEngine {
           await this.steps(projectId);
         }
       } finally {
-        this.locks.delete(projectId);
+        this.release(projectId, lock);
       }
     })();
-    this.locks.set(projectId, lock);
     const { value, error } = await outcome;
     if (error) throw error;
     return value;
+  }
+
+  release(projectId, lock) {
+    if (this.locks.get(projectId) === lock) this.locks.delete(projectId);
   }
 
   async steps(projectId) {

@@ -396,6 +396,26 @@ test("an owner action waits for one step, not the whole step loop", async (t) =>
   assert.ok(order.filter((entry) => entry === "step").length > 2);
 });
 
+test("a nudge while an owner action waits leaves no finished lock behind", async (t) => {
+  const f = await sequenceFixture(t);
+  // An owner action waits for the lock: the nudge's loop ends at once.
+  f.engine.waiting.set("p1", 1);
+  await f.engine.nudge("p1");
+  f.engine.waiting.delete("p1");
+  assert.equal(f.engine.locks.size, 0);
+  // Two actions in a row, with a nudge of the first in between, both run.
+  let release;
+  const gate = new Promise((resolve) => (release = resolve));
+  const first = f.engine.exclusive("p1", () => gate);
+  const second = f.engine.exclusive("p1", async () => "second");
+  first.then(() => f.engine.nudge("p1"));
+  release();
+  await first;
+  assert.equal(await second, "second");
+  await settled(f);
+  assert.equal(f.engine.locks.size, 0);
+});
+
 test("retry of a live session without a PR watches it again, never launches twice", async (t) => {
   const f = await sequenceFixture(t);
   const engine = f.build({
