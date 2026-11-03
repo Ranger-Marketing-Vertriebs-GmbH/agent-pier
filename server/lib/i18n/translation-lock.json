@@ -1168,6 +1168,8 @@
   "pipelineWorkspaces.invalidPullRequestUrl": "de:820578b01cd5 en:af7ed4844f62",
   "pipelineWorkspaces.noRemote": "de:586e641cad2b en:846d54183bfc",
   "pipelineWorkspaces.noRemoteForPullRequest": "de:43cbf256e51e en:20566bd248ac",
+  "pipelineWorkspaces.originBaseUnavailable": "de:a946f1116a70 en:5de3a66d3dd7",
+  "pipelineWorkspaces.originRefreshFailed": "de:592e0307b185 en:a2b60e27c2d0",
   "pipelineWorkspaces.ownershipIdentityChanged": "de:33076c5e4bea en:7ab86fb338f0",
   "pipelineWorkspaces.ownershipMismatch": "de:84d0cd194a14 en:4592319b9011",
   "pipelineWorkspaces.ownershipPathChanged": "de:61683274b4d2 en:7b1e65274e26",

@@ -87,6 +87,7 @@ export class TicketWorktrees {
     );
   }
 
+  /** Refreshes origin; `fetched` is false when there is no origin or no credentials. */
   async #fetch(projectRoot, args) {
     const origin = await git(projectRoot, ["remote", "get-url", "origin"]).catch(
       () => null,
@@ -98,41 +99,70 @@ export class TicketWorktrees {
       );
       return { fetched: true };
     } catch {
-      return {
-        fetched: false,
-        fetchWarning:
-          "Origin could not be refreshed; the local origin reference was used.",
-      };
+      return { fetched: false, fetchWarning: "originRefreshFailed" };
     }
   }
 
+  async #hasRemoteRef(projectRoot, name) {
+    return git(projectRoot, [
+      "rev-parse",
+      "--verify",
+      "--quiet",
+      `refs/remotes/origin/${name}^{commit}`,
+    ]).then(
+      () => true,
+      () => false,
+    );
+  }
+
+  /** Remote default branch only: `origin/HEAD`, then `main`, then `master`. */
   async #defaultBranch(projectRoot) {
     const head = await git(projectRoot, [
       "symbolic-ref",
       "--short",
       "refs/remotes/origin/HEAD",
     ]).catch(() => "");
-    if (head.startsWith("origin/")) return head.slice(7);
-    for (const name of ["main", "master"]) {
-      const found = await git(projectRoot, [
-        "rev-parse",
-        "--verify",
-        "--quiet",
-        `refs/remotes/origin/${name}`,
-      ]).then(
-        () => true,
-        () => false,
-      );
-      if (found) return name;
-    }
-    return undefined;
+    if (
+      head.startsWith("origin/") &&
+      (await this.#hasRemoteRef(projectRoot, head.slice(7)))
+    )
+      return head.slice(7);
+    for (const name of ["main", "master"])
+      if (await this.#hasRemoteRef(projectRoot, name)) return name;
+    throw problem(serverMessages.pipelineWorkspaces.originBaseUnavailable, 409);
   }
 
-  async #add(projectRoot, cwd, branch, sha) {
+  async #base(projectRoot, baseBranch) {
+    const name = baseBranch ? gitRef(baseBranch) : await this.#defaultBranch(projectRoot);
+    if (!(await this.#hasRemoteRef(projectRoot, name)))
+      throw problem(serverMessages.pipelineWorkspaces.originBaseUnavailable, 409);
+    return resolveBase(projectRoot, name);
+  }
+
+  async #takenBranches(projectRoot) {
+    const listed = await git(projectRoot, [
+      "for-each-ref",
+      "--format=%(refname)",
+      "refs/heads",
+      "refs/remotes/origin",
+    ]);
+    return new Set(
+      listed
+        .split("\n")
+        .map((ref) =>
+          ref.replace(/^refs\/heads\//, "").replace(/^refs\/remotes\/origin\//, ""),
+        )
+        .filter(Boolean),
+    );
+  }
+
+  async #add(projectRoot, cwd, branch, sha, { reset = false } = {}) {
     try {
-      await git(projectRoot, ["worktree", "add", "--no-track", "-b", branch, cwd, sha], {
-        timeout: 60000,
-      });
+      await git(
+        projectRoot,
+        ["worktree", "add", "--no-track", reset ? "-B" : "-b", branch, cwd, sha],
+        { timeout: 60000 },
+      );
     } catch (error) {
       await git(projectRoot, ["worktree", "remove", cwd], { timeout: 60000 }).catch(
         () => {},
@@ -145,12 +175,8 @@ export class TicketWorktrees {
     const projectRoot = await this.#root(projectPath);
     const cwd = await this.#fence(projectRoot, safeName(name));
     const { fetchWarning } = await this.#fetch(projectRoot, ["--prune"]);
-    const base = await resolveBase(
-      projectRoot,
-      baseBranch || (await this.#defaultBranch(projectRoot)),
-    );
-    const listed = await git(projectRoot, ["for-each-ref", "--format=%(refname:short)"]);
-    const branch = ticketBranchName(ticket, new Set(listed.split("\n")));
+    const base = await this.#base(projectRoot, baseBranch);
+    const branch = ticketBranchName(ticket, await this.#takenBranches(projectRoot));
     await this.#add(projectRoot, cwd, branch, base.sha);
     return {
       cwd,
@@ -166,13 +192,18 @@ export class TicketWorktrees {
     gitRef(headRef);
     const projectRoot = await this.#root(projectPath);
     const cwd = await this.#fence(projectRoot, safeName(name));
-    await this.#fetch(projectRoot, [
+    const refreshed = await this.#fetch(projectRoot, [
       "--prune",
       `+refs/heads/${headRef}:refs/remotes/origin/${headRef}`,
     ]);
+    // A repair never starts from a ref that was not just fetched.
+    if (!refreshed.fetched)
+      throw problem(serverMessages.pipelineWorkspaces.originRefreshFailed, 409);
     const base = await resolveBase(projectRoot, `refs/remotes/origin/${headRef}`);
     const branch = `ticket-repair/${idSlug(name.split("-").pop())}`;
-    await this.#add(projectRoot, cwd, branch, base.sha);
+    // A leftover branch whose worktree is gone must not block the repair.
+    await git(projectRoot, ["worktree", "prune"]);
+    await this.#add(projectRoot, cwd, branch, base.sha, { reset: true });
     return { cwd, projectRoot, branch, headRef };
   }
 
