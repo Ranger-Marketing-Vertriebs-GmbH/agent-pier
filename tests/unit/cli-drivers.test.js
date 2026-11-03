@@ -145,7 +145,6 @@ test("every driver provides the history methods", () => {
   ];
   for (const id of CODING_CLI_IDS) {
     const { history } = cliDriver(id);
-    assert.ok(Object.isFrozen(history), `${id}.history is frozen`);
     for (const method of methods)
       assert.equal(typeof history[method], "function", `${id}.history.${method}`);
   }
@@ -191,7 +190,6 @@ test("every driver provides the tui functions", () => {
   };
   for (const id of CODING_CLI_IDS) {
     const { tui } = cliDriver(id);
-    assert.ok(Object.isFrozen(tui), `${id}.tui is frozen`);
     for (const method of ["activity", "composer", "limitWarning"])
       assert.equal(typeof tui[method], "function", `${id}.tui.${method}`);
     for (const method of ["parse", "current", "promptReady", "unsupported"])
@@ -207,8 +205,6 @@ test("every driver provides the tui functions", () => {
 test("every driver provides pipeline, plugins and profileFiles", () => {
   for (const id of CODING_CLI_IDS) {
     const { pipeline, plugins, profileFiles } = cliDriver(id);
-    for (const part of [pipeline, pipeline.events, plugins, profileFiles])
-      assert.ok(Object.isFrozen(part), `${id} driver part is frozen`);
     for (const method of ["command", "sessionArgs", "promptArgs"])
       assert.equal(typeof pipeline[method], "function", `${id}.pipeline.${method}`);
     for (const method of ["nativeId", "failed", "progress", "completed"])

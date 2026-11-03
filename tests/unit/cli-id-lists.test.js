@@ -74,6 +74,43 @@ test("every allowed coding-CLI id array still exists", () => {
   );
 });
 
+// Files with an object literal keyed by two or more CLI ids: per-CLI maps a new CLI must
+// extend (listed under "Adding a coding CLI" in docs/coding-clis.md). May only shrink.
+const MAP_ALLOWED = new Set([
+  "server/features/assistants/agent-skills.js", // OpenClaw bundled skill names
+  "server/features/pipelines/standalone-profile.js", // ask-first permission per CLI
+  "server/features/providers/adapter-launch.js", // CLIENT_PROTOCOL
+  "server/features/providers/endpoint-routing.js", // ROUTE_CHOICES, DEFAULT_ROUTING
+  "server/features/providers/provider-definitions.js", // provider key variables
+  "server/features/tools/native-installer.js", // installer redirects
+  "web/components/ProviderMark.jsx", // glyph sizes
+  "web/features/chat/slash-commands.js",
+  "web/features/dashboard/ToolGrid.jsx",
+  "web/features/mcp/setup.js",
+  "web/features/provider-connections/endpoint-routes.js", // mirrors endpoint-routing.js
+  "web/features/sessions/launch-preferences.js", // a shape comment
+]);
+const ID_KEY = IDS.map((id) => new RegExp(`(?:^|[{,\\s])(["']?)${id}\\1\\s*:`));
+
+function mapFiles(dir, exclude) {
+  return sourceFiles(path.join(ROOT, dir))
+    .map((file) => [path.relative(ROOT, file), fs.readFileSync(file, "utf8")])
+    .filter(([rel, text]) => !rel.startsWith(exclude) && hasIdMap(text))
+    .map(([rel]) => rel);
+}
+const hasIdMap = (text) =>
+  [...text.matchAll(/\{[^{}]*\}/g)].some(
+    (m) => ID_KEY.filter((key) => key.test(m[0])).length >= 2,
+  );
+
+test("objects keyed by coding-CLI ids stay on the allowlist, which only shrinks", () => {
+  const found = [
+    ...mapFiles("server", "server/features/clis/"),
+    ...mapFiles("web", "web/lib/i18n/"),
+  ].sort();
+  assert.deepEqual(found, [...MAP_ALLOWED].sort(), "read per-CLI facts from the catalog");
+});
+
 // Remaining mentions of a CLI's config variables or home folders, one reason each.
 // Files may only be removed from this list; a file that no longer mentions one
 // fails the test, so remove its entry in the same change.

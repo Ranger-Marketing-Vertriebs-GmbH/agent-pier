@@ -73,7 +73,9 @@ const bindings = {
   claude: claudeBinding,
   opencode: opencodeBinding,
 };
-// Freezes plain objects and arrays; regular expressions stay as they are.
+// Freezes copies of plain objects and arrays; regular expressions stay as they are. A
+// member is therefore not the module's own export: later changes to that export do not
+// reach the driver (no module changes its exports today).
 const frozen = (value) => {
   if (Array.isArray(value)) return Object.freeze(value.map(frozen));
   if (value && Object.getPrototypeOf(value) === Object.prototype)
