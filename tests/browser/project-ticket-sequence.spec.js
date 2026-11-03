@@ -1,6 +1,6 @@
 import { test, expect } from "../helpers/browser-test.js";
 import { baseURL as base } from "../helpers/browser.js";
-import { ticketsFixture } from "./tickets-fixture.js";
+import { ticketList, ticketsFixture } from "./tickets-fixture.js";
 
 const item = (id, key, title, state, extra = {}) => ({
   id,
@@ -335,6 +335,56 @@ test("a pipeline sequence sends the repair settings, prefilled from defaults", a
       launchMode: "default",
     },
   });
+});
+
+test("repair defaults that arrive after the dialog opened still fill it", async ({
+  page,
+  liveStub,
+}) => {
+  let current = queueOf();
+  await ticketsFixture(page, { queue: () => current });
+  await page.goto(base + "/projects/m1?tab=tickets");
+  await selectTickets(page, ["acme/app#9"]);
+  await page.getByRole("button", { name: "Als Folge starten (1)" }).click();
+  const dialog = page.getByRole("dialog", { name: "1 Ticket als Folge starten" });
+  await dialog.getByRole("radio", { name: "Pipeline-Lauf" }).check();
+  const repair = dialog.getByRole("group", { name: "Reparatur-Session" });
+  await expect(repair.getByLabel("Natives Modell (optional)")).toHaveValue("");
+  current = {
+    ...queueOf(),
+    defaults: {
+      repair: {
+        tool: "codex",
+        accountId: "local-codex",
+        nativeModelId: "gpt-5.1",
+        launchMode: "default",
+      },
+    },
+  };
+  await liveStub.reread("tickets.queue:m1");
+  await expect(repair.getByLabel("Natives Modell (optional)")).toHaveValue("gpt-5.1");
+  await expect(
+    repair.getByText(/Vorbelegt mit der neuesten Coding-Session/),
+  ).toBeVisible();
+});
+
+test("a selected ticket that a refresh no longer lists is deselected with a notice", async ({
+  page,
+}) => {
+  let list = ticketList;
+  await ticketsFixture(page, { list: () => list });
+  await page.goto(base + "/projects/m1?tab=tickets");
+  await selectTickets(page, ["acme/app#7", "AP-3"]);
+  await expect(page.getByRole("button", { name: "Als Folge starten (2)" })).toBeVisible();
+  list = {
+    ...ticketList,
+    tickets: ticketList.tickets.filter((ticket) => ticket.key !== "AP-3"),
+  };
+  await page.getByRole("button", { name: "Aktualisieren" }).click();
+  await expect(
+    page.getByText("Nicht mehr in der Liste und daher abgewählt: AP-3."),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Als Folge starten (1)" })).toBeVisible();
 });
 
 test("already started tickets offer Start again", async ({ page }) => {

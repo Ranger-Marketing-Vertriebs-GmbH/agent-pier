@@ -9,10 +9,21 @@ export class TicketSourceError extends Error {
   }
 }
 
-function codeForStatus(status, headers) {
+// GitHub answers both rate limits with 403 at times: the primary one empties
+// x-ratelimit-remaining, the secondary one sends retry-after or names itself in the body.
+const SECONDARY_LIMIT = /secondary rate limit/i;
+const ERROR_BODY_BYTES = 64 * 1024;
+
+async function forbiddenCode(response) {
+  const { headers } = response;
+  if (headers.get("x-ratelimit-remaining") === "0" || headers.has("retry-after"))
+    return "rateLimited";
+  const text = await readLimited(response, ERROR_BODY_BYTES).catch(() => "");
+  return SECONDARY_LIMIT.test(text) ? "rateLimited" : "forbidden";
+}
+
+function codeForStatus(status) {
   if (status === 401) return "unauthorized";
-  if (status === 403)
-    return headers.get("x-ratelimit-remaining") === "0" ? "rateLimited" : "forbidden";
   if (status === 404) return "notFound";
   if (status === 429) return "rateLimited";
   if (status >= 500) return "unavailable";
@@ -62,9 +73,11 @@ export async function requestJson({
       // A redirect would carry the API key header to another origin.
       redirect: "error",
     });
+    if (response.status === 403)
+      throw new TicketSourceError(await forbiddenCode(response));
     if (response.status < 200 || response.status > 299) {
       await response.body?.cancel?.().catch(() => {});
-      throw new TicketSourceError(codeForStatus(response.status, response.headers));
+      throw new TicketSourceError(codeForStatus(response.status));
     }
     const raw = await readLimited(response, maxBytes);
     let data = null;

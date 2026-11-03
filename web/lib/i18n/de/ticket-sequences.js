@@ -53,6 +53,7 @@ export const ticketSequenceStartCopy = {
   select: "Tickets auswählen",
   selectTicket: (key) => `${key} auswählen`,
   startSelected: (count) => `Als Folge starten (${count})`,
+  deselected: (keys) => `Nicht mehr in der Liste und daher abgewählt: ${keys}.`,
   title: (count) =>
     count === 1 ? "1 Ticket als Folge starten" : `${count} Tickets als Folge starten`,
   order: (keys) =>

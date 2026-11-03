@@ -7,8 +7,9 @@
   const linkPattern = new RegExp(
     `^/(?:|inbox(?:/(?:question|approval|gate|action|team)/${id})?|sessions/${id}/chat|pipelines/runs/${id}|agents(?:/${id}/(?:settings(?:\\?tab=capabilities&page=memory)?|chats/${id}))?|projects/${id}\\?tab=tickets|connections\\?section=github|settings/(?:github|notifications|updates))$`,
   );
-  // The grouping tags of push-content.js pushSource: a session, run, agent chat or agent.
-  const tagPattern = new RegExp(`^(?:(?:session|agent|chat|run):)?${id}$`);
+  // The grouping tags of push-content.js pushSource: a session, run, agent chat, agent
+  // or a project's ticket sequences.
+  const tagPattern = new RegExp(`^(?:(?:session|agent|chat|run|tickets):)?${id}$`);
   const validId = (value) =>
     typeof value === "string" && new RegExp(`^${id}$`).test(value);
   const text = (value, limit) =>

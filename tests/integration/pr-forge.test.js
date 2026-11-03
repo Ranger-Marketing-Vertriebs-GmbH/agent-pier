@@ -388,11 +388,35 @@ test("partial graphql errors keep usable data", async (t) => {
     pulls: [githubPull(1)],
     graphqlErrors: [{ type: "FORBIDDEN", path: ["repository", "mergeQueue"] }],
   });
-  const access = accessFor(fake);
-  const pr = await readPullRequest(access, 1);
+  const pr = await readPullRequest(accessFor(fake), 1);
   assert.equal(pr.number, 1);
-  await enableAutoMerge(access, pr);
-  assert.equal(fake.pulls[0].autoMerge, true);
+  assert.equal(pr.repo.mergeQueue, false);
+});
+
+test("partial graphql errors on other fields become invalidResponse", async (t) => {
+  for (const extra of [
+    { type: "FORBIDDEN", path: ["repository", "pullRequest", "reviewDecision"] },
+    { type: "FORBIDDEN", message: "no path" },
+  ]) {
+    const fake = await fakeGithubPulls(t, {
+      pulls: [githubPull(1)],
+      graphqlErrors: [{ type: "FORBIDDEN", path: ["repository", "mergeQueue"] }, extra],
+    });
+    const access = accessFor(fake);
+    await assert.rejects(readPullRequest(access, 1), { code: "invalidResponse" });
+  }
+  const fake = await fakeGithubPulls(t, {
+    pulls: [githubPull(1)],
+    graphqlErrors: [{ type: "FORBIDDEN", path: ["enablePullRequestAutoMerge"] }],
+  });
+  await assert.rejects(
+    enableAutoMerge(accessFor(fake), {
+      id: "PR_1",
+      headSha: "a".repeat(40),
+      repo: { defaultMergeMethod: "MERGE" },
+    }),
+    { code: "invalidResponse" },
+  );
 });
 
 test("a missing repository maps to notFound", async (t) => {

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import AnchoredSelect from "../../components/AnchoredSelect.jsx";
 import AsyncForm from "../../components/AsyncForm.jsx";
 import ListCard from "../../components/ListCard.jsx";
@@ -23,15 +23,22 @@ import {
   launchModes,
   rememberedLaunchMode,
 } from "../sessions/launch-modes.js";
-import useLaunchAccess from "../sessions/useLaunchAccess.js";
+import useLaunchAccess, { launchAccesses } from "../sessions/useLaunchAccess.js";
 import { startRefusal } from "./ticket-list.js";
 import { queueItemPath } from "./ticket-queue.js";
 import "./project-tickets.css";
 
 // The repo's last-used coding session settings (the queue view's `defaults.repair`)
-// as the launch-access hook's starting choice; null when its CLI is not installed.
+// as the launch-access hook's starting choice; null unless its CLI is installed and
+// its account or connection is still there for that CLI.
 function repairStart(state, repair) {
-  if (!repair?.tool || !state.tools.some((tool) => tool.id === repair.tool)) return null;
+  if (!repair?.tool) return null;
+  if (!state.tools.some((tool) => tool.id === repair.tool && tool.installed)) return null;
+  const { accounts, connections } = launchAccesses(state, repair.tool);
+  const known = repair.providerConnectionId
+    ? connections.some((connection) => connection.id === repair.providerConnectionId)
+    : accounts.some((account) => account.id === repair.accountId);
+  if (!known) return null;
   return {
     config: {
       providerConnectionId: repair.providerConnectionId,
@@ -40,6 +47,10 @@ function repairStart(state, repair) {
     },
   };
 }
+
+// What the owner can change in the repair fields; equal snapshots mean untouched.
+const repairChoice = (access, mode) =>
+  [access.tool, access.accessId, access.modelId, access.nativeModelId, mode].join("\n");
 
 // CLI, access (account or connection with its model) and launch mode of one session.
 function SessionFields({ access, mode, setMode, sandbox = true }) {
@@ -106,16 +117,18 @@ export default function SequenceStartDialog({
   onStarted,
 }) {
   // Sequences run coding CLIs only.
-  const launchState = {
+  const codingState = {
     accounts: [],
     providerConnections: [],
     ...state,
     tools: (state?.tools || []).filter((item) => isCodingCli(item.id)),
   };
-  const [repairDefaults] = useState(() => repairStart(launchState, defaults?.repair));
-  const session = useLaunchAccess(launchState);
+  const [repairDefaults, setRepairDefaults] = useState(() =>
+    repairStart(codingState, defaults?.repair),
+  );
+  const session = useLaunchAccess(codingState);
   const repair = useLaunchAccess(
-    launchState,
+    codingState,
     repairDefaults ? defaults.repair.tool : undefined,
     repairDefaults,
   );
@@ -128,6 +141,26 @@ export default function SequenceStartDialog({
       ? defaults.repair.launchMode
       : defaultLaunchMode(repair.tool),
   );
+  // Defaults that arrive after the dialog opened (the queue view loads on its own)
+  // still fill the repair fields, unless the owner already changed them.
+  const [untouched] = useState(() => repairChoice(repair, repairMode));
+  const lateDefaults = repairDefaults ? null : repairStart(codingState, defaults?.repair);
+  useEffect(() => {
+    if (!lateDefaults || repairChoice(repair, repairMode) !== untouched) return;
+    const { config } = lateDefaults;
+    repair.chooseTool(defaults.repair.tool);
+    repair.chooseAccess(
+      config.providerConnectionId
+        ? `provider:${config.providerConnectionId}`
+        : config.accountId,
+    );
+    repair.setModel(config.models.default);
+    repair.setNativeModel(config.models.default);
+    setRepairMode(defaults.repair.launchMode || defaultLaunchMode(defaults.repair.tool));
+    setRepairDefaults(lateDefaults);
+    // Runs once the defaults turn usable; the snapshot check guards owner edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [Boolean(lateDefaults)]);
   const [pipelineId, setPipelineId] = useState("");
   const [allowMerge, setAllowMerge] = useState(false);
   const [again, setAgain] = useState(false);
