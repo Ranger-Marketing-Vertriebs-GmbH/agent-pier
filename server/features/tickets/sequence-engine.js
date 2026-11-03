@@ -64,8 +64,9 @@ export class TicketSequenceEngine {
     this.timer = setTimeout(() => {
       this.timer = null;
       if (this.closed) return;
-      this.run();
-      this.interval = setInterval(() => this.run(), this.intervalMs);
+      const tick = () => this.run().catch((error) => this.onError(error, "pass"));
+      tick();
+      this.interval = setInterval(tick, this.intervalMs);
       this.interval.unref?.();
     }, this.initialDelayMs);
     this.timer.unref?.();
