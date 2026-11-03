@@ -19,7 +19,7 @@ import { RequestNotices } from "./request-notices.js";
 import { inboxEntry, sessionEntry } from "./request-views.js";
 import { RequestApprovals } from "./request-approvals.js";
 import { answerDecision, autoAnswer, deliver } from "./request-delivery.js";
-import { CODING_CLI_IDS } from "../clis/catalog.js";
+import { CODING_CLI_IDS, isCodingCli, cliDefinition } from "../clis/catalog.js";
 import { cliDriver } from "../clis/drivers.js";
 export { terminalNoticeMs } from "./request-notices.js";
 // A prompt already answered, changed or gone; names who claimed it when known.
@@ -450,7 +450,10 @@ export class RequestBroker {
       // native side reports stale if it already consumed the answer.
       !(
         entry.status === "pending" ||
-        (handoff && entry.status === "unknown" && entry.source === "claude")
+        (handoff &&
+          entry.status === "unknown" &&
+          isCodingCli(entry.source) &&
+          cliDefinition(entry.source).capabilities.requestHandoff)
       ) ||
       entry.revision !== input?.expectedRevision ||
       (!entry.local && entry.socket.destroyed)

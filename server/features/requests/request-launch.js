@@ -1,7 +1,5 @@
 import fs from "node:fs/promises";
 import { randomBytes } from "node:crypto";
-import path from "node:path";
-import { claudeHookVersion } from "./claude-runtime.js";
 import { addGrant } from "../nono/sandbox-grants.js";
 import { isCodingCli } from "../clis/catalog.js";
 import { cliDriver } from "../clis/drivers.js";
@@ -27,10 +25,7 @@ export async function prepareRequests(
       cwd,
       token,
       socketPath: broker.socketPath,
-      ...(account.tool === "claude" ? { claudeHookVersion } : {}),
-      ...(account.tool === "claude" && path.isAbsolute(env.CLAUDE_CONFIG_DIR || "")
-        ? { claudeTrustFile: path.join(env.CLAUDE_CONFIG_DIR, ".claude.json") }
-        : {}),
+      ...(cliDriver(account.tool).requests.launchRecord?.(env) ?? {}),
       command: launch.command,
       args,
     }),

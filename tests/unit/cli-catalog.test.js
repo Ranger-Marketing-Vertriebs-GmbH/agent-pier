@@ -60,6 +60,7 @@ test("definitions carry every required field", () => {
       "mcpSse",
       "endpointSdkRouting",
       "mcpStdioCwd",
+      "requestHandoff",
     ]);
     for (const value of Object.values(d.capabilities))
       assert.equal(typeof value, "boolean");

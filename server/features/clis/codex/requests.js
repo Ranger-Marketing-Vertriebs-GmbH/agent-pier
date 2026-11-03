@@ -2,6 +2,14 @@ import { fileURLToPath } from "node:url";
 import { ADAPTER_URL_PLACEHOLDER } from "../../providers/adapter-launch.js";
 import { answerHookTrust } from "../../requests/codex-hook-trust.js";
 
+/** How the chat shows one app-server question. */
+export const question = (q) => ({
+  multiple: false,
+  allowOther: q.isOther === true || !q.options?.length,
+  previews: false,
+  notes: false,
+});
+
 export const shellToolName = "item/commandExecution/requestApproval";
 export const startupDialogs = { codexHookTrust: answerHookTrust };
 

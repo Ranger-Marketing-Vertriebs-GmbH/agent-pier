@@ -199,3 +199,40 @@ test("free text repeating a selected label is merged instead of failing the answ
     { status: 400 },
   );
 });
+
+test("questions view per CLI", () => {
+  const q = [
+    {
+      question: "Which?",
+      options: [{ label: "A", preview: "p" }],
+      multiSelect: true,
+      multiple: true,
+      custom: false,
+      isOther: false,
+    },
+    { question: "Free?" },
+  ];
+  const pick = (tool) =>
+    questionsView(q, tool).map(({ multiple, allowOther, notes, options }) => ({
+      multiple,
+      allowOther,
+      notes,
+      preview: options[0]?.preview,
+    }));
+  assert.deepEqual(pick("claude"), [
+    { multiple: true, allowOther: true, notes: true, preview: "p" },
+    { multiple: false, allowOther: true, notes: true, preview: undefined },
+  ]);
+  assert.deepEqual(pick("opencode"), [
+    { multiple: true, allowOther: false, notes: undefined, preview: undefined },
+    { multiple: false, allowOther: true, notes: undefined, preview: undefined },
+  ]);
+  assert.deepEqual(pick("codex"), [
+    { multiple: false, allowOther: false, notes: undefined, preview: undefined },
+    { multiple: false, allowOther: true, notes: undefined, preview: undefined },
+  ]);
+  assert.deepEqual(pick("shell"), [
+    { multiple: false, allowOther: true, notes: undefined, preview: undefined },
+    { multiple: false, allowOther: true, notes: undefined, preview: undefined },
+  ]);
+});

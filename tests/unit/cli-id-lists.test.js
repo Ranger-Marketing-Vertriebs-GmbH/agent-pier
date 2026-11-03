@@ -98,8 +98,6 @@ const ROOT_ALLOWED = {
     "writes into the profile env that profileEnv() just produced",
   "server/features/accounts/account-store.js":
     "writes into the profile env that profileEnv() just produced",
-  "server/features/requests/request-launch.js":
-    "needs to know whether the Claude override is set (trust file)",
   "server/features/requests/request-broker.js": "bridge plugin folder names",
   "server/features/tools/native-installer.js": "nono install dir, not a coding CLI",
   "server/features/assistants/assistant-provider-endpoint.js": ".local host suffix",
@@ -170,11 +168,8 @@ const BRANCH_BUDGET = {
   "server/features/requests/claude-runtime.js": 2,
   "server/features/requests/claude-startup-prompts.js": 1,
   "server/features/requests/codex-hook-trust.js": 1,
-  "server/features/requests/native-questions.js": 6,
   "server/features/requests/request-approvals.js": 1,
-  "server/features/requests/request-broker.js": 5,
-  "server/features/requests/request-launch.js": 2,
-  "server/features/requests/request-notices.js": 1,
+  "server/features/requests/request-broker.js": 4,
   "server/features/secrets/session-secrets.js": 1,
   "server/features/sessions/attachment-access.js": 2,
   "server/features/sessions/chat-image-input.js": 4,
@@ -197,8 +192,7 @@ const BRANCH_BUDGET = {
   "web/features/plugins/CatalogAccount.jsx": 1,
   "web/features/providers/ProviderModelDetails.jsx": 1,
   "web/features/providers/ProviderModelPicker.jsx": 1,
-  "web/features/requests/NativeRequest.jsx": 2,
-  "web/features/terminal/useClaudeTerminalQuestions.js": 2,
+  "web/features/requests/NativeRequest.jsx": 1,
 };
 
 const GUIDANCE =

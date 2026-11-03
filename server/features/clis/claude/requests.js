@@ -1,11 +1,27 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { writeClaudeHooks } from "../../requests/claude-runtime.js";
+import { writeClaudeHooks, claudeHookVersion } from "../../requests/claude-runtime.js";
 import { addClaudeBridge } from "../../claude-mod/claude-mod-launch.js";
 import { answerFolderTrust } from "../../requests/claude-folder-trust.js";
 import { answerStartupPrompt } from "../../requests/claude-startup-prompts.js";
 
 export const shellToolName = "Bash";
+
+/** How the chat shows one AskUserQuestion question. */
+export const question = (q) => ({
+  multiple: q.multiSelect === true,
+  allowOther: true,
+  previews: true,
+  notes: true,
+});
+
+/** What the launch file records about the hooks and Claude's trust file. */
+export const launchRecord = (env) => ({
+  claudeHookVersion,
+  ...(path.isAbsolute(env.CLAUDE_CONFIG_DIR || "")
+    ? { claudeTrustFile: path.join(env.CLAUDE_CONFIG_DIR, ".claude.json") }
+    : {}),
+});
 export const startupDialogs = {
   claudeFolderTrust: answerFolderTrust,
   claudeStartupPrompt: answerStartupPrompt,
