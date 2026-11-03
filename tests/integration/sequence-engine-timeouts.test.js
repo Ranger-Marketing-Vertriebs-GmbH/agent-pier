@@ -3,7 +3,8 @@
 // Fake sessions, chat delivery and GitHub only.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { KEY, sequenceFixture } from "../helpers/sequence-fixture.js";
+import { githubPull } from "../helpers/ticket-fakes.js";
+import { GREEN, KEY, git, sequenceFixture } from "../helpers/sequence-fixture.js";
 
 const OTHER = "acme/app#20";
 const queueP2 = (f) =>
@@ -94,4 +95,34 @@ test("one pass steps every queue even while another queue's step runs", async (t
   release();
   await until(() => f.items()[0].sessionId);
   assert.equal(f.launched.filter((l) => l.body.name.startsWith(KEY)).length, 1);
+});
+
+test("a repair session whose task delivery timed out is stopped and parked", async (t) => {
+  const f = await sequenceFixture(t);
+  const repairs = () => f.launched.filter((l) => l.body.name.endsWith("· repair"));
+  const send = f.chatDelivery.send;
+  f.chatDelivery.send = function (id, body) {
+    if (repairs().some((l) => l.session.id === id)) return new Promise(() => {});
+    return send.call(this, id, body);
+  };
+  const engine = f.build({ stepTimeoutMs: 100 });
+  git(f.repoPath, "push", "origin", "HEAD:refs/heads/agentpier/run-1");
+  const red = [{ ...GREEN[0], conclusion: "FAILURE" }];
+  f.forge.pulls.push(githubPull(30, { headRef: "agentpier/run-1", contexts: red }));
+  f.append([KEY], {
+    kind: "pipeline",
+    options: { repair: { tool: "claude", accountId: "a1" } },
+  });
+  await engine.run();
+  const { runId } = f.items()[0];
+  f.runs.set(runId, {
+    id: runId,
+    status: "running",
+    pullRequestUrl: "https://github.com/acme/app/pull/30",
+  });
+  await engine.run();
+  const [item] = f.items();
+  assert.equal(repairs().length, 1);
+  assert.equal(item.needsOwner?.reason, "stepTimedOut");
+  assert.equal((await f.sessionsApi.get(repairs()[0].session.id)).status, "stopped");
 });
