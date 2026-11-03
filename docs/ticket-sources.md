@@ -407,6 +407,11 @@ A ticket waits for you (**Needs you**) with one of these reasons:
 | GitHub could not be reached for 30 minutes. (`forgeUnreachable`)                                   | Reading GitHub, or fetching the pull request branch for a repair, failed for 30 minutes in a row. Shorter outages and rate limits only delay the next read. When the last failure was missing or refused access, the reason is `githubRequired`. |
 | No coding session settings for the repair session. (`repairUnconfigured`)                          | A pipeline ticket needs a repair, but the sequence has no **Repair session** settings and the project has no coding session to copy them from.                                                                                                   |
 | The repair session could not start. (`repairFailed`)                                               | The repair worktree or session could not be created, or the pull request branch has characters outside `A-Z a-z 0-9 . _ / -`.                                                                                                                    |
+| Starting the session or sending it a message took longer than 2 minutes. (`stepTimedOut`)          | Launching the ticket's or the repair session, or delivering the task or a fix request to it, did not answer within 2 minutes. A task that did not arrive stops the session; a session that starts after the 2 minutes is stopped as well.        |
+
+Every sequence of a project steps on its own: a slow launch, delivery or tracker read
+in one project never holds up the sequences of other projects, and a launch or delivery
+that hangs is cut off after 2 minutes (`stepTimedOut`).
 
 ### Owner actions
 

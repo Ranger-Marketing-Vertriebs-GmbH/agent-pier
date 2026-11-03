@@ -29,6 +29,8 @@ export const ticketQueueCopy = {
     forgeUnreachable: "GitHub could not be reached for 30 minutes.",
     repairUnconfigured: "No coding session settings for the repair session.",
     repairFailed: "The repair session could not start.",
+    stepTimedOut:
+      "Starting the session or sending it a message took longer than 2 minutes.",
     other: "AgentPier needs your decision.",
   },
   pullRequest: (number) => `Pull request #${number}`,
