@@ -111,7 +111,7 @@ export class SshIntegration {
         { args, env },
         { name: "agentpier_ssh", ...command },
         {
-          plugin: () => privateDirectory(plugin),
+          pluginFolder: () => privateDirectory(plugin),
           manifest: {
             name: "agentpier-ssh",
             version: "1.0.0",

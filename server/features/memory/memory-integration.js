@@ -78,7 +78,7 @@ export class MemoryIntegration {
         { args, env },
         { name: "agentpier_memory", ...command },
         {
-          plugin: () => {
+          pluginFolder: () => {
             privateFolder(plugin);
             privateFolder(path.join(plugin, ".claude-plugin"));
             return plugin;

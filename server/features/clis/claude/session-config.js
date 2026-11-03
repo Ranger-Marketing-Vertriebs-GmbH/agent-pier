@@ -17,9 +17,9 @@ import {
 export function addMcpServer(
   launch,
   { name, command, args, env },
-  { plugin, manifest, write },
+  { pluginFolder, manifest, write },
 ) {
-  const folder = plugin();
+  const folder = pluginFolder();
   write(path.join(folder, ".claude-plugin", "plugin.json"), manifest);
   write(path.join(folder, ".mcp.json"), {
     mcpServers: { [name]: { command, args, ...(env ? { env } : {}) } },

@@ -5,7 +5,7 @@ import { cliDriver } from "../clis/drivers.js";
 import { failure } from "../memory/memory-validation.js";
 
 const script = fileURLToPath(new URL("./ssh-hook.js", import.meta.url));
-const plugin = new URL("./ssh-opencode.js", import.meta.url).href;
+const pluginUrl = new URL("./ssh-opencode.js", import.meta.url).href;
 
 // Called with the launch's private args/env copies and the existing Claude plugin folder.
 export function prepareSshDiscovery({ tool, folder, args, env }) {
@@ -17,6 +17,6 @@ export function prepareSshDiscovery({ tool, folder, args, env }) {
     });
   cliDriver(tool).addReminder(
     { args, env },
-    { name: "SSH", script, plugin, folder, invalid },
+    { name: "SSH", script, pluginUrl, folder, invalid },
   );
 }

@@ -53,7 +53,7 @@ test("Claude Code gets one --plugin-dir per server with its manifest and .mcp.js
   const plugins = sessionServers.map((server, index) => {
     const plugin = path.join(root, `plugin-${index}`);
     cliDriver("claude").addMcpServer(launch, server, {
-      plugin: () => plugin,
+      pluginFolder: () => plugin,
       manifest: manifest(`agentpier-${index}`),
       write: writePrivate,
     });
@@ -81,7 +81,7 @@ test("addReminder wires one start hook per CLI", (t) => {
   const reminder = (folder) => ({
     name: "MEMORY",
     script: "/opt/agentpier/memory-hook.js",
-    plugin: "file:///opt/agentpier/memory-opencode.js",
+    pluginUrl: "file:///opt/agentpier/memory-opencode.js",
     folder,
     invalid: () => new Error("invalid"),
   });

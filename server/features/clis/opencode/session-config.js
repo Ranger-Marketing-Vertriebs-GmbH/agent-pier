@@ -29,10 +29,10 @@ export function addMcpServer(launch, { name, command, args, env }) {
 }
 
 /**
- * Adds the `plugin` module URL to the configuration's plugins once. `invalid()` builds
+ * Adds the `pluginUrl` module URL to the configuration's plugins once. `invalid()` builds
  * the error for a configuration or plugin list that is not valid.
  */
-export function addReminder(launch, { plugin, invalid }) {
+export function addReminder(launch, { pluginUrl, invalid }) {
   let config;
   try {
     config = JSON.parse(launch.env.OPENCODE_CONFIG_CONTENT || "{}");
@@ -46,6 +46,6 @@ export function addReminder(launch, { plugin, invalid }) {
   } catch {
     throw invalid();
   }
-  config.plugin = [...new Set([...(config.plugin || []), plugin])];
+  config.plugin = [...new Set([...(config.plugin || []), pluginUrl])];
   launch.env.OPENCODE_CONFIG_CONTENT = JSON.stringify(config);
 }
