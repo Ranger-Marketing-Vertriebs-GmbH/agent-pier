@@ -118,6 +118,21 @@ function item(value) {
     };
   if (value.armed === "auto" || value.armed === "queue") out.armed = value.armed;
   else if (value.armed === null) out.armed = null;
+  // The head AgentPier armed last: it never arms the same head twice.
+  const armedHead = optText(value.armedHead, 100);
+  if (armedHead) out.armedHead = armedHead;
+  else if (value.armedHead === null) out.armedHead = null;
+  if (
+    plain(value.refused) &&
+    typeof value.refused.headSha === "string" &&
+    ["arm", "merge"].includes(value.refused.what)
+  )
+    out.refused = {
+      headSha: value.refused.headSha.slice(0, 100),
+      what: value.refused.what,
+      code: text(value.refused.code, 64),
+    };
+  else if (value.refused === null) out.refused = null;
   if (value.forgeFailingSince === null || number(value.forgeFailingSince) !== undefined)
     out.forgeFailingSince = value.forgeFailingSince;
   if (plain(value.needsOwner) && typeof value.needsOwner.reason === "string")
@@ -182,6 +197,9 @@ export class TicketSequenceStore {
       const items = [];
       for (const entry of Array.isArray(queue.items) ? queue.items : []) {
         const checked = item(entry);
+        // A "Done" write-back cut off by a restart never finishes on its own.
+        if (checked?.state === "done" && checked.writeBack?.state === "pending")
+          checked.writeBack = { state: "failed", code: "interrupted" };
         if (checked && !items.some((other) => other.id === checked.id))
           items.push(checked);
         else dropped += 1;
