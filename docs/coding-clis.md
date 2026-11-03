@@ -19,7 +19,8 @@ coding CLIs. They stay outside the catalog; tables that also cover them, such as
 | `<id>/definition.js`      | browser, Node | The definition record (pure data, frozen)                                |
 | `drivers.js`              | Node          | `cliDriver(id)`: assembles and freezes each driver                       |
 | `<id>/profile.js`         | Node          | `profileEnv`, `configRoot`, `dataRoot`, `parseAuthStatus`, `credentials` |
-| `<id>/session-config.js`  | Node          | `addMcpServer`, `addReminder`, `grantDirectory`                          |
+| `<id>/session-config.js`  | Node          | `addMcpServer`, `addSessionHooks`, `addReminder`, `grantDirectory`       |
+| `<id>/binding.js`         | Node          | The `binding` members (native session binding)                           |
 | `<id>/requests.js`        | Node          | `prepareRequests`, `shellToolName`, `startupDialogs`, `launchRecord`     |
 | `<id>/history.js`         | Node          | The `history` members                                                    |
 | `<id>/tui.js`             | Node          | The `tui` members; shared screen helpers live in `tui-screen.js`         |
@@ -121,6 +122,18 @@ directory, key, description, adapterRoute, adapterToken })` returns the launch
 - `inlineMcpNames(env)`: the MCP server names the launch environment already holds inline
   (OpenCode's `OPENCODE_CONFIG_CONTENT`, which throws when invalid; `[]` for the others).
   The session, memory and SSH launches reject their reserved names with it.
+- `addSessionHooks(launch, options)`: adds a session integration (AgentBus). `options`
+  holds `name`, `script`, `events`, `server`, `pluginFolder`, `manifest`, `write`,
+  `pluginUrl`, `invalid` and `quote`. It adds one hook per event of `events`
+  (`{ [event]: timeoutSeconds }`) running `script` with the event name, plus its MCP
+  `server`. Codex adds the server and one `-c hooks.<event>=` override per
+  event under the managed hook `name`; Claude Code writes `hooks/hooks.json` into the
+  plugin from `pluginFolder()` and adds the server with `manifest`; OpenCode appends
+  `pluginUrl` to `OPENCODE_CONFIG_CONTENT.plugin` (its plugin bridges hooks and tools)
+  and throws `invalid()` for a malformed configuration.
+- `addPluginFolder?(launch, { folder, manifest, write })`: makes `folder` a plugin of the
+  launch and returns it (Claude Code), so `addReminder` has a plugin to write into; the
+  session secrets hint uses it.
 - `addReminder(launch, { name, script, pluginUrl, folder, invalid })`: adds a start hook (a
   Codex hook `name` running `script`, a SessionStart hook in the Claude plugin `folder`,
   or the OpenCode `pluginUrl`).
@@ -139,6 +152,26 @@ directory, key, description, adapterRoute, adapterToken })` returns the launch
   released to the CLI's own terminal dialog.
 - `startupDialogs`: `{ [presentation]: answer(broker, entry, choice) }` for the startup
   dialogs AgentPier answers in the terminal.
+
+**Native session binding** (`binding`; which native thread a session belongs to)
+
+- `idOptional`: a hook may record a launch before the CLI names its session (OpenCode).
+- `addHooks(launch, options)`: `options` holds `id`, `directory`, `script`,
+  `cliVersion`, `atLeast`, `pluginUrl`, `ensureDir`, `write`, `quote` and `fail`. It
+  adds the hooks that run `script --record`. Codex merges them into existing
+  `-c hooks.SessionStart=`/`hooks.UserPromptSubmit=` overrides; Claude
+  Code adds `--session-id` (unless the launch resumes or names one) and the identity,
+  activity and (from 2.1.152) live reply plugins below `directory`; OpenCode writes a
+  TUI config with the `pluginUrl` plugin. `fail(key)` builds the session problem `key`.
+- `resolve?(binding, session, { forInput, receipt, resolveProcess })`: the thread of the
+  running process, or `null` to use the hook receipt (Codex, through its app-server
+  history).
+- `reportedActivity?(binding, session, activity)`: the reported activity, ended when the
+  transcript shows an Esc interrupt (Claude Code).
+- `hookActivity?(payload)`: the activity a hook payload reports, or `null` (Claude Code).
+
+A tool without a driver (`shell`) and login sessions get no binding: `prepare` and
+`resolve` return before any member is used.
 
 **History** (`history`; each call gets the owning `ProviderHistory` as `history`)
 

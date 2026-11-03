@@ -96,6 +96,7 @@ test("every new driver member is frozen", () => {
     const driver = cliDriver(id);
     assertFrozenDeep(driver.profileFiles, `${id}.profileFiles`);
     assert.ok(Object.isFrozen(driver.profileFiles.assetDirectories));
+    assertFrozenDeep(driver.binding, `${id}.binding`);
   }
 });
 

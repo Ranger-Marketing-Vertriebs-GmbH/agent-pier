@@ -1,15 +1,10 @@
 import { isMainModule } from "../../lib/is-main-module.js";
-import { codexHookCommand } from "../../lib/codex-hook-command.js";
 import { serverMessages } from "../../lib/i18n/de.js";
-import {
-  shellQuote as quote,
-  tomlValue as toml,
-} from "../../lib/launch-serialization.js";
+import { shellQuote as quote } from "../../lib/launch-serialization.js";
 import fs from "node:fs";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { parse as parseToml } from "smol-toml";
 import { problem } from "../../lib/storage.js";
 import { providerId } from "../chat/provider-history.js";
 import {
@@ -22,19 +17,17 @@ import { atLeast } from "../tools/cli-version.js";
 import { findRuntimePid } from "../../../vendor/agentbus/hooks/register.js";
 import { resolveCodexProcess } from "./native-session-process.js";
 import { addGrant } from "../nono/sandbox-grants.js";
-import {
-  claudeHookActivity,
-  readNativeActivity,
-  recordClaudeInterrupt,
-  recordNativeActivity,
-} from "./native-session-activity.js";
-import { claudeInterruptAt } from "./claude-interrupt.js";
+import { readNativeActivity, recordNativeActivity } from "./native-session-activity.js";
 import { maxReplyText, pushNative } from "../requests/native-push.js";
 import { isCodingCli } from "../clis/catalog.js";
+import { cliDriver } from "../clis/drivers.js";
+
+export { MESSAGE_DISPLAY_VERSION } from "../clis/claude/binding.js";
 
 const modulePath = fileURLToPath(import.meta.url);
-// Claude Code added the MessageDisplay hook event in this release.
-export const MESSAGE_DISPLAY_VERSION = "2.1.152";
+// The binding members of a coding CLI's driver; other tools (shell) have none.
+const NO_BINDING = Object.freeze({ idOptional: false });
+const bindingOf = (tool) => (isCodingCli(tool) ? cliDriver(tool).binding : NO_BINDING);
 const validId = (id) =>
   typeof id === "string" && /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(id);
 
@@ -67,7 +60,7 @@ export function recordNativeSession(
     throw problem(serverMessages.sessions.invalidNativeBindingKey);
   const id = data?.session_id ?? data?.sessionId ?? data?.thread_id ?? null;
   if (id !== null) providerId(id);
-  else if (launch.tool !== "opencode")
+  else if (!bindingOf(launch.tool).idOptional)
     throw problem(serverMessages.sessions.nativeSessionIdMissing);
   if (fs.realpathSync(data?.cwd || launch.cwd) !== launch.cwd)
     throw problem(serverMessages.sessions.nativeProjectMismatch);
@@ -142,106 +135,23 @@ export class NativeSessionBinding {
       AGENTPIER_NATIVE_BINDING_TOKEN: token,
     };
     const args = [...(launch.args || [])];
-    const hook = {
-      hooks: [
-        {
-          type: "command",
-          command:
-            account.tool === "codex"
-              ? codexHookCommand(env, "BINDING", modulePath, ["--record"])
-              : [process.execPath, modulePath, "--record"].map(quote).join(" "),
-          timeout: 5,
-        },
-      ],
-    };
-    if (account.tool === "codex")
-      for (const event of ["SessionStart", "UserPromptSubmit"]) {
-        const key = `hooks.${event}=`;
-        let index = -1;
-        for (let i = 0; i < args.length; i++)
-          if (args[i].startsWith(key) && ["-c", "--config"].includes(args[i - 1]))
-            index = i;
-        if (index >= 0) {
-          let entries;
-          try {
-            entries = parseToml(args[index]).hooks[event];
-          } catch {
-            throw problem(serverMessages.sessions.codexHooksCannotBeMerged, 409);
-          }
-          if (!Array.isArray(entries))
-            throw problem(serverMessages.sessions.unknownCodexHookFormat, 409);
-          args[index] = key + toml([...entries, hook]);
-        } else args.push("-c", key + toml([hook]));
-      }
-    if (account.tool === "claude") {
-      if (!args.includes("--session-id") && !args.includes("--resume"))
-        args.push("--session-id", id);
-      // Capture /clear and native resume events as well as the explicitly assigned launch ID.
-      const directory = path.join(this.directory, `${id}.claude`);
-      ensureDir(path.join(directory, ".claude-plugin"));
-      ensureDir(path.join(directory, "hooks"));
-      writeJsonAtomic(path.join(directory, ".claude-plugin/plugin.json"), {
-        name: "agentpier-reader",
-        version: "1.0.0",
-        description: "Native session identity for the AgentPier reader",
-      });
-      writeJsonAtomic(path.join(directory, "hooks/hooks.json"), {
-        hooks: { SessionStart: [hook], UserPromptSubmit: [hook] },
-      });
-      args.push("--plugin-dir", directory);
-      // Activity hooks live in their own plugin: a Claude Code release that rejects
-      // a newer event must not lose the identity hooks above.
-      const activity = path.join(this.directory, `${id}.claude-activity`);
-      ensureDir(path.join(activity, ".claude-plugin"));
-      ensureDir(path.join(activity, "hooks"));
-      writeJsonAtomic(path.join(activity, ".claude-plugin/plugin.json"), {
-        name: "agentpier-activity",
-        version: "1.0.0",
-        description: "Native session activity for AgentPier",
-      });
-      const observe = { hooks: [{ ...hook.hooks[0], async: true }] };
-      writeJsonAtomic(path.join(activity, "hooks/hooks.json"), {
-        hooks: {
-          Stop: [observe],
-          StopFailure: [observe],
-          PermissionRequest: [observe],
-          PreToolUse: [{ matcher: "AskUserQuestion", ...observe }],
-          Elicitation: [observe],
-          SessionEnd: [observe],
-        },
-      });
-      args.push("--plugin-dir", activity);
-      // Live reply text, in a plugin of its own: a release without MessageDisplay
-      // must not lose the hooks above, and an unknown version keeps today's chat.
-      // Asynchronous, so the TUI never waits for AgentPier to show a line.
-      if (atLeast(launch.cliVersion, MESSAGE_DISPLAY_VERSION)) {
-        const stream = path.join(this.directory, `${id}.claude-stream`);
-        ensureDir(path.join(stream, ".claude-plugin"));
-        ensureDir(path.join(stream, "hooks"));
-        writeJsonAtomic(path.join(stream, ".claude-plugin/plugin.json"), {
-          name: "agentpier-stream",
-          version: "1.0.0",
-          description: "Live reply text for the AgentPier chat",
-        });
-        writeJsonAtomic(path.join(stream, "hooks/hooks.json"), {
-          hooks: { MessageDisplay: [observe] },
-        });
-        args.push("--plugin-dir", stream);
-      }
-    }
-    if (account.tool === "opencode") {
-      if (env.OPENCODE_TUI_CONFIG)
-        throw problem(serverMessages.sessions.temporaryTuiConfigConflict, 409);
-      const config = path.join(this.directory, `${id}.tui.json`);
-      writeJsonAtomic(config, {
-        plugin: [
-          pathToFileURL(
-            fileURLToPath(new URL("./native-session-opencode.js", import.meta.url)),
-          ).href,
-        ],
-      });
-      env.OPENCODE_TUI_CONFIG = config;
-    }
+    cliDriver(account.tool).binding.addHooks(
+      { args, env },
+      {
+        id,
+        directory: this.directory,
+        script: modulePath,
+        cliVersion: launch.cliVersion,
+        atLeast,
+        pluginUrl: pathToFileURL(
+          fileURLToPath(new URL("./native-session-opencode.js", import.meta.url)),
+        ).href,
+        ensureDir,
+        write: writeJsonAtomic,
+        quote,
+        fail: (key) => problem(serverMessages.sessions[key], 409),
+      },
+    );
     writeJsonAtomic(file, {
       id,
       accountId: selected.id,
@@ -266,33 +176,12 @@ export class NativeSessionBinding {
   async resolve(session, { forInput = false } = {}) {
     const receipt = this.verifiedReceipt(session);
     if (session.tool === "shell" || session.purpose === "login") return null;
-    if (session.tool === "codex" && this.accounts && this.sessions && this.history) {
-      const cacheKey = JSON.stringify([
-        session.id,
-        session.accountId,
-        session.cwd,
-        session.status,
-      ]);
-      const cached = this.processCache.get(cacheKey);
-      if (!forInput && cached && Date.now() - cached.time < 2000) {
-        if (cached.value) return cached.value;
-      } else {
-        let value = null;
-        try {
-          value = await resolveCodexProcess(session, {
-            sessions: this.sessions,
-            accounts: this.accounts,
-            history: this.history,
-            ...this.processOptions,
-            verifyRuntime: receipt
-              ? (pid) => pid === receipt.pid && pidStart(pid) === receipt.pidStart
-              : undefined,
-          });
-        } catch {}
-        this.processCache.set(cacheKey, { time: Date.now(), value });
-        if (value) return value;
-      }
-    }
+    const value = await bindingOf(session.tool).resolve?.(this, session, {
+      forInput,
+      receipt,
+      resolveProcess: resolveCodexProcess,
+    });
+    if (value) return value;
     if (forInput) return null;
     return receipt
       ? {
@@ -313,25 +202,14 @@ export class NativeSessionBinding {
    * The activity report, ended like a hook would when Claude's transcript shows an
    * Esc interrupt after a reported running turn (Claude Code sends no hook for it).
    */
+  /**
+   * The activity report as the CLI's driver reads it (Claude Code ends a running turn
+   * its transcript shows as interrupted with Esc, which sends no hook).
+   */
   async reportedActivity(session) {
     const activity = this.activity(session);
-    if (
-      session?.tool !== "claude" ||
-      !this.history ||
-      !["working", "waiting"].includes(activity?.state)
-    )
-      return activity;
-    try {
-      const id = (await this.resolve(session))?.id;
-      if (!id) return activity;
-      const file = await this.history.claudeFile(session, id);
-      const at = await claudeInterruptAt(file, activity.at);
-      if (at === null) return activity;
-      recordClaudeInterrupt(this.file(session.id), at);
-      return this.activity(session);
-    } catch {
-      return activity;
-    }
+    const report = bindingOf(session?.tool).reportedActivity;
+    return report ? report(this, session, activity) : activity;
   }
   verifiedReceipt(session) {
     try {
@@ -418,10 +296,8 @@ export async function runNativeSessionHook({
     }
   try {
     // Codex reports its turns through the app-server proxy instead.
-    const activity =
-      readJson(env.AGENTPIER_NATIVE_BINDING_FILE).tool === "claude"
-        ? claudeHookActivity(payload)
-        : null;
+    const { tool } = readJson(env.AGENTPIER_NATIVE_BINDING_FILE);
+    const activity = bindingOf(tool).hookActivity?.(payload) ?? null;
     if (activity) recordNativeActivity({ ...activity, at }, env);
   } catch (error) {
     warn(error);

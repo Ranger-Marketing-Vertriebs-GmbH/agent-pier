@@ -11,6 +11,7 @@ import { createSshProjectBinding } from "../ssh/ssh-project-scope.js";
 import { writeSecretFile } from "./secret-format.js";
 import { SECRETS_FILE_ENV } from "./secrets-hint.js";
 import { codingCliIds } from "../clis/catalog.js";
+import { cliDriver } from "../clis/drivers.js";
 
 export const MAX_SESSION_SECRETS = 50;
 const sessionId = /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/;
@@ -104,16 +105,22 @@ export class SessionSecrets {
     // (ssh-hook.js). Prepare runs again on a reload, so a later secret gets it then.
     if (entries.length && account.tool !== "shell" && launch.sshTools?.enabled !== true) {
       env[SSH_HINT_ENV] = "0";
-      let plugin = folder;
-      if (account.tool === "claude") {
-        plugin = path.join(folder, "plugin");
-        writePrivate(path.join(plugin, ".claude-plugin", "plugin.json"), {
-          name: "agentpier-secrets",
-          version: "1.0.0",
-          description: "The start hint naming this session's secrets file.",
-        });
-        args.push("--plugin-dir", plugin);
-      }
+      // A CLI whose start hooks live in a plugin (Claude Code) gets one of its own.
+      const addPluginFolder = cliDriver(account.tool).addPluginFolder;
+      const plugin = addPluginFolder
+        ? addPluginFolder(
+            { args, env },
+            {
+              folder: path.join(folder, "plugin"),
+              manifest: {
+                name: "agentpier-secrets",
+                version: "1.0.0",
+                description: "The start hint naming this session's secrets file.",
+              },
+              write: writePrivate,
+            },
+          )
+        : folder;
       prepareSshDiscovery({ tool: account.tool, folder: plugin, args, env });
       grants.push(
         { access: "read", path: process.execPath },

@@ -33,6 +33,9 @@ import * as claudeProvider from "./claude/provider.js";
 import * as opencodeProvider from "./opencode/provider.js";
 import * as codexTransfer from "./codex/transfer.js";
 import * as claudeTransfer from "./claude/transfer.js";
+import * as codexBinding from "./codex/binding.js";
+import * as claudeBinding from "./claude/binding.js";
+import * as opencodeBinding from "./opencode/binding.js";
 
 const profiles = { codex, claude, opencode };
 const sessions = {
@@ -65,6 +68,11 @@ const providers = {
   opencode: opencodeProvider,
 };
 const transfers = { codex: codexTransfer, claude: claudeTransfer };
+const bindings = {
+  codex: codexBinding,
+  claude: claudeBinding,
+  opencode: opencodeBinding,
+};
 // Freezes plain objects and arrays; regular expressions stay as they are.
 const frozen = (value) => {
   if (Array.isArray(value)) return Object.freeze(value.map(frozen));
@@ -98,6 +106,13 @@ const drivers = new Map();
  *   entrypoint (Claude Code), or null; absent for CLIs that run natively.
  * inlineMcpNames(env): the MCP server names the launch environment already holds
  *   inline (OpenCode's OPENCODE_CONFIG_CONTENT, throws when invalid; others `[]`).
+ * addSessionHooks(launch, { name, script, events, server, pluginFolder, manifest, write,
+ *   pluginUrl, invalid, quote }): adds a session integration's hooks
+ *   (`events: { [event]: timeoutSeconds }`, each running `script` with the event) and its
+ *   MCP `server`: Codex `-c hooks.<event>=` overrides with the managed hook `name`, a
+ *   Claude Code plugin from `pluginFolder()`, or the OpenCode `pluginUrl` (no server).
+ * addPluginFolder?(launch, { folder, manifest, write }): makes `folder` a plugin of the
+ *   launch and returns it (Claude Code), so addReminder has a plugin to write into.
  * addReminder(launch, { name, script, pluginUrl, folder, invalid }): adds a start hook
  *   (Codex hook `name` running `script`, a SessionStart hook in the Claude plugin
  *   `folder`, or the OpenCode `pluginUrl`).
@@ -167,6 +182,14 @@ const drivers = new Map();
  *   catalogLaunch(result, ctx) do, for an endpoint and a catalog provider. `ctx` is
  *   { account, description, endpoint, secret, connectionName, selection, model,
  *   metadata, env, cliVersion, adapterRoute, endpointKind }; each returns `result`.
+ * binding: the native session binding (see `<id>/binding.js`). idOptional: a hook may
+ *   record a launch before the CLI names its session (OpenCode). addHooks(launch, { id,
+ *   directory, script, cliVersion, atLeast, pluginUrl, ensureDir, write, quote, fail }):
+ *   adds the hooks running `script --record`. resolve?(binding, session, { forInput,
+ *   receipt, resolveProcess }): the thread of the running process, or null for the
+ *   receipt (Codex). reportedActivity?(binding, session, activity): the activity report
+ *   corrected from the transcript (Claude Code). hookActivity?(payload): the activity a
+ *   hook payload reports, or null (Claude Code).
  * transfer: moving a session between accounts; null unless the definition has
  *   `capabilities.accountTransfer` (see `<id>/transfer.js`). `fail(key)` builds the
  *   session transfer problem named `key`. locate({ history, session, id, fail }):
@@ -186,6 +209,8 @@ export function cliDriver(id) {
         configRoot: profile.configRoot,
         dataRoot: profile.dataRoot,
         addMcpServer: sessions[id].addMcpServer,
+        addSessionHooks: sessions[id].addSessionHooks,
+        addPluginFolder: sessions[id].addPluginFolder,
         addReminder: sessions[id].addReminder,
         runtimeInterpreter: sessions[id].runtimeInterpreter,
         inlineMcpNames: sessions[id].inlineMcpNames,
@@ -240,6 +265,13 @@ export function cliDriver(id) {
           keepsOAuthScope: mcps[id].keepsOAuthScope,
         }),
         provider: frozen({ ...providers[id] }),
+        binding: frozen({
+          idOptional: bindings[id].idOptional,
+          addHooks: bindings[id].addHooks,
+          resolve: bindings[id].resolve,
+          reportedActivity: bindings[id].reportedActivity,
+          hookActivity: bindings[id].hookActivity,
+        }),
         credentials: profile.credentials ? frozen({ ...profile.credentials }) : null,
         transfer: definition.capabilities.accountTransfer
           ? frozen({ ...transfers[id] })
