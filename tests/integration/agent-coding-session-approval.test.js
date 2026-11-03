@@ -119,4 +119,11 @@ test("a waiting start keeps what the owner approves: mode, account, access, sand
   const c = await sharedStart(f, { tool: "codex", launchMode: "default" });
   assert.equal(c.launch.unattended, false);
   assert.doesNotMatch(approvalText(c, "en"), /unattended/);
+  // OpenCode's default mode `auto` is unattended; Claude's `auto` is not.
+  const d = await sharedStart(f, { tool: "opencode" });
+  assert.equal(d.launch.launchMode, "auto");
+  assert.equal(d.launch.unattended, true);
+  assert.match(approvalText(d, "en"), /Launch mode: auto \(unattended/);
+  const e = await sharedStart(f, { tool: "claude", launchMode: "auto" });
+  assert.equal(e.launch.unattended, false);
 });
