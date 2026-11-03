@@ -2,8 +2,9 @@
 // CLIs & extensions › Installation shows every action; the start page's compact rows
 // show one primary action and put the others into a ⋯ menu.
 import { utilityPages } from "../../lib/providers.js";
+import { codingCliIds } from "../../../server/features/clis/catalog.js";
 
-const CLI_UPDATES = ["codex", "claude", "opencode", "nono"];
+const CLI_UPDATES = [...codingCliIds(), "nono"];
 
 export const updateRequired = (tool) => tool.versionStatus === "update-required";
 // REA updates through its own dialog, so it shows an optional update badge instead.

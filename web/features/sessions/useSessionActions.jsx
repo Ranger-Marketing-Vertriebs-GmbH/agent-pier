@@ -3,6 +3,7 @@ import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { mcpCopy } from "../../lib/i18n/messages/mcp.js";
 import { sessionReloadCopy } from "../../lib/i18n/messages/sessions.js";
 import { sshCopy } from "../../lib/i18n/messages/ssh.js";
+import { cliDefinition, isCodingCli } from "../../../server/features/clis/catalog.js";
 
 const SessionReloadDialog = lazy(() => import("./SessionReloadDialog.jsx"));
 const SessionMcpDialog = lazy(() => import("../mcp/SessionMcpDialog.jsx"));
@@ -44,7 +45,8 @@ export default function useSessionActions({ session, action, reloadable, openTer
     });
   if (
     reloadable &&
-    ["codex", "claude"].includes(session.tool) &&
+    isCodingCli(session.tool) &&
+    cliDefinition(session.tool).capabilities.accountTransfer &&
     !session.provider &&
     !session.access?.providerConnectionId
   )

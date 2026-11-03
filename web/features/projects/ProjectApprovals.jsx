@@ -10,8 +10,9 @@ import { projectApprovalsCopy as copy } from "../../lib/i18n/messages/projects.j
 import { requestCopy } from "../../lib/i18n/messages/requests.js";
 import { RegisterHint } from "./ProjectRuns.jsx";
 import "./project-agents.css";
+import { cliName, codingCliIds } from "../../../server/features/clis/catalog.js";
 
-const cliNames = { claude: "Claude Code", codex: "Codex", opencode: "OpenCode" };
+const cliNames = Object.fromEntries(codingCliIds().map((id) => [id, cliName(id)]));
 
 /** What a rule allows: its program (`git push`), its exact command (`cat .env`) or its tool. */
 const allowed = (rule) =>

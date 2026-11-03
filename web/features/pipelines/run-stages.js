@@ -1,9 +1,13 @@
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import { isVerifying } from "./VerificationStatus.jsx";
 import { effectiveNodeStatus, nodeStatusLabel } from "./run-codes.js";
+import {
+  cliName as catalogName,
+  codingCliIds,
+} from "../../../server/features/clis/catalog.js";
 
 // CLI product names are not translated.
-const cliNames = { codex: "Codex", claude: "Claude Code", opencode: "OpenCode" };
+const cliNames = Object.fromEntries(codingCliIds().map((id) => [id, catalogName(id)]));
 export const cliName = (tool) => cliNames[tool] || tool || "";
 
 export const stageName = (node) =>

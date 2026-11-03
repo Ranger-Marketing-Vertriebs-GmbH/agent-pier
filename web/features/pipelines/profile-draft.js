@@ -1,16 +1,7 @@
-export const permissionModes = {
-  claude: [
-    "default",
-    "manual",
-    "acceptEdits",
-    "plan",
-    "auto",
-    "dontAsk",
-    "bypassPermissions",
-  ],
-  codex: ["untrusted", "on-request", "never"],
-  opencode: ["ask", "auto"],
-};
+import { cliDefinition, codingCliIds } from "../../../server/features/clis/catalog.js";
+export const permissionModes = Object.fromEntries(
+  codingCliIds().map((id) => [id, [...cliDefinition(id).pipeline.permissionModes]]),
+);
 export function blankProfile(account) {
   return {
     name: "",

@@ -1,6 +1,7 @@
 // Mirrors cliSupport in server/features/mcp-servers/cli-native.js so the form can
 // explain a disabled CLI; the server decides (400 MCP_CLI_*_UNSUPPORTED).
-export const clis = ["claude", "codex", "opencode"];
+import { codingCliIds } from "../../../server/features/clis/catalog.js";
+export const clis = codingCliIds().sort();
 // `agentPlaceholders`: the server (or the draft, see cliTarget) uses agent
 // placeholders, which no CLI gets (MCP_CLI_PLACEHOLDER_UNSUPPORTED).
 export function cliSupport(cli, server) {

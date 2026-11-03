@@ -1,16 +1,14 @@
-// Launch modes the dialog offers per CLI, in display order after "default".
-// They mirror LAUNCH_ARGS in server/features/accounts/account-store.js.
-const MODES = {
-  codex: ["yolo"],
-  claude: ["auto", "bypass"],
-  opencode: ["auto"],
-};
-const DEFAULTS = { codex: "yolo", claude: "auto", opencode: "auto" };
+import { cliDefinition, isCodingCli } from "../../../server/features/clis/catalog.js";
+
+// Launch modes the dialog offers per CLI, in display order after "default"; the
+// catalog holds them (server/features/clis/<id>/definition.js).
 const storageKey = "agentpier.launch-modes";
 
 /** Non-default modes the CLI accepts; empty for Shell and unknown tools. */
 export function launchModes(tool) {
-  return Object.hasOwn(MODES, tool) ? MODES[tool] : [];
+  return isCodingCli(tool)
+    ? Object.keys(cliDefinition(tool).launchModes).filter((mode) => mode !== "default")
+    : [];
 }
 
 function valid(tool, mode) {
@@ -28,7 +26,7 @@ function readRemembered() {
 
 /** Today's built-in preselection, independent of anything remembered. */
 export function defaultLaunchMode(tool) {
-  return Object.hasOwn(DEFAULTS, tool) ? DEFAULTS[tool] : "default";
+  return isCodingCli(tool) ? cliDefinition(tool).defaultLaunchMode : "default";
 }
 
 /**
@@ -43,14 +41,12 @@ export function rememberedLaunchMode(tool) {
 
 /** Modes that drop the CLI's approval prompts; the dialog marks them as a warning. */
 export function unattendedLaunchMode(tool, mode) {
-  return (
-    (tool === "codex" && mode === "yolo") || (tool === "claude" && mode === "bypass")
-  );
+  return isCodingCli(tool) && cliDefinition(tool).unattendedModes.includes(mode);
 }
 
 /** Called after a successful launch, so a rejected attempt is not remembered. */
 export function rememberLaunchMode(tool, mode) {
-  if (!Object.hasOwn(MODES, tool) || !valid(tool, mode)) return;
+  if (!isCodingCli(tool) || !valid(tool, mode)) return;
   try {
     localStorage.setItem(
       storageKey,
