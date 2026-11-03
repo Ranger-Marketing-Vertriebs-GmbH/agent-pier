@@ -188,18 +188,62 @@ export class TicketWorktrees {
     };
   }
 
+  /**
+   * Fetches the PR branch. A repair never starts from a ref that was not just fetched;
+   * the failure carries the code `repairFetchFailed`, so the engine counts it as a
+   * forge outage instead of a final error.
+   */
+  async #fetchHead(projectRoot, headRef) {
+    const refreshed = await this.#fetch(projectRoot, [
+      "--prune",
+      `+refs/heads/${headRef}:refs/remotes/origin/${headRef}`,
+    ]);
+    if (!refreshed.fetched)
+      throw Object.assign(
+        problem(serverMessages.pipelineWorkspaces.originRefreshFailed, 409),
+        { code: "repairFetchFailed" },
+      );
+  }
+
+  /**
+   * Moves an earlier repair worktree to the fetched PR branch for another repair. Only
+   * a clean worktree of this repository on a `branchPrefix` branch whose commits are
+   * all on the PR branch qualifies; anything else is left for the owner (false).
+   */
+  async reuseRepair({ projectPath, cwd, headRef, branchPrefix }) {
+    gitRef(headRef);
+    const found = await this.inspect({ projectPath, name: path.basename(cwd) });
+    if (
+      !found.exists ||
+      !found.worktree ||
+      !found.clean ||
+      found.cwd !== cwd ||
+      !found.branch.startsWith(branchPrefix)
+    )
+      return false;
+    const projectRoot = await this.#root(projectPath);
+    await this.#fetchHead(projectRoot, headRef);
+    const target = `refs/remotes/origin/${headRef}`;
+    const contained = await git(cwd, [
+      "merge-base",
+      "--is-ancestor",
+      "HEAD",
+      target,
+    ]).then(
+      () => true,
+      () => false,
+    );
+    if (!contained) return false;
+    await git(cwd, ["merge", "--ff-only", "--quiet", target], { timeout: 60000 });
+    return true;
+  }
+
   /** `suffix` (e.g. the failing head) tells several repairs of one item apart. */
   async createRepair({ projectPath, headRef, name, suffix = "" }) {
     gitRef(headRef);
     const projectRoot = await this.#root(projectPath);
     const cwd = await this.#fence(projectRoot, safeName(name));
-    const refreshed = await this.#fetch(projectRoot, [
-      "--prune",
-      `+refs/heads/${headRef}:refs/remotes/origin/${headRef}`,
-    ]);
-    // A repair never starts from a ref that was not just fetched.
-    if (!refreshed.fetched)
-      throw problem(serverMessages.pipelineWorkspaces.originRefreshFailed, 409);
+    await this.#fetchHead(projectRoot, headRef);
     const base = await resolveBase(projectRoot, `refs/remotes/origin/${headRef}`);
     const tail = slug(suffix).slice(0, 12);
     const branch = `ticket-repair/${idSlug(name.split("-").pop())}${tail ? `-${tail}` : ""}`;

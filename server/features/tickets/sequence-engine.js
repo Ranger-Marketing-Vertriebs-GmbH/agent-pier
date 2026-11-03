@@ -393,7 +393,7 @@ export class TicketSequenceEngine {
       return this.forgeFailed(ctx, item, error, "read-pr");
     }
     if (this.closed) return false;
-    let saved = this.forgeOk(ctx, item);
+    let saved = item;
     if (!item.pr.headRef && snapshot.headRef)
       saved = this.save(ctx, item, {
         pr: { ...item.pr, headRef: snapshot.headRef, url: item.pr.url || snapshot.url },
@@ -403,7 +403,8 @@ export class TicketSequenceEngine {
     if (verdict.status === "closed") return this.park(ctx, saved, "prClosed");
     const fixed = await fixStep(this, ctx, saved, verdict);
     if (fixed.stop || this.closed) return false;
-    saved = fixed.item;
+    // Cleared only after the fix step: its fetch of the PR branch counts as a read too.
+    saved = this.forgeOk(ctx, fixed.item);
     if (!saved.options.allowMerge) return false;
     try {
       return await this.mergeStep(ctx, saved, snapshot, verdict);

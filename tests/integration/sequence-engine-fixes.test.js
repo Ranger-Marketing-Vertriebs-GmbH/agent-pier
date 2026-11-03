@@ -283,3 +283,82 @@ test("an auto-merge turned off while red is not armed again after a green re-run
   assert.equal(f.items()[0].needsOwner.reason, "mergeDisarmed");
   assert.equal(f.notified.length, 1);
 });
+
+const FRESH = { failed: 0, lastSha: null, lastReview: null, lastActionAt: null };
+const stopRepair = (f) => {
+  const found = f.sessions.find((entry) => entry.id === f.items()[0].repair.sessionId);
+  found.status = "stopped";
+};
+
+test("Retry on an unchanged head reuses the clean repair worktree", async (t) => {
+  const f = await sequenceFixture(t);
+  await pipelinePr(f, { repair: { tool: "claude", accountId: "a1" } });
+  const first = f.items()[0].repair;
+  stopRepair(f);
+  // What Retry leaves on an open PR: fresh counters, the old repair kept.
+  f.store.patch("p1", f.items()[0].id, { rounds: FRESH });
+  await passes(f.engine);
+  assert.equal(repairs(f).length, 2);
+  assert.equal(repairs(f)[1].body.cwd, first.cwd);
+  const [item] = f.items();
+  assert.equal(item.state, "awaiting-merge");
+  assert.equal(item.repair.cwd, first.cwd);
+  assert.notEqual(item.repair.sessionId, first.sessionId);
+});
+
+test("a repair worktree with local changes is kept; the next repair gets its own", async (t) => {
+  const f = await sequenceFixture(t);
+  await pipelinePr(f, { repair: { tool: "claude", accountId: "a1" } });
+  const first = f.items()[0].repair;
+  fs.writeFileSync(path.join(first.cwd, "wip.txt"), "unfinished\n");
+  stopRepair(f);
+  f.store.patch("p1", f.items()[0].id, { rounds: FRESH });
+  await passes(f.engine);
+  assert.equal(repairs(f).length, 2);
+  const second = f.items()[0].repair;
+  assert.notEqual(second.cwd, first.cwd);
+  assert.match(path.basename(second.cwd), /^repair-12-a{7}-2-[a-z0-9]{1,8}$/);
+  assert.notEqual(
+    git(second.cwd, "branch", "--show-current"),
+    git(first.cwd, "branch", "--show-current"),
+  );
+  assert.equal(fs.readFileSync(path.join(first.cwd, "wip.txt"), "utf8"), "unfinished\n");
+  assert.equal(f.items()[0].state, "awaiting-merge");
+});
+
+test("a new review on a head whose repair session ended starts another repair", async (t) => {
+  const f = await sequenceFixture(t);
+  const pull = await pipelinePr(f, { repair: { tool: "claude", accountId: "a1" } });
+  stopRepair(f);
+  pull.reviewDecision = "CHANGES_REQUESTED";
+  await passes(f.engine);
+  assert.equal(repairs(f).length, 2);
+  const task = f.sent.at(-1);
+  assert.equal(task.id, f.items()[0].repair.sessionId);
+  assert.match(task.text, /A review requested changes\./);
+  assert.equal(f.items()[0].state, "awaiting-merge");
+  assert.equal(f.items()[0].rounds.failed, 1);
+});
+
+test("a failed fetch of the PR branch skips the pass until the forge limit", async (t) => {
+  const f = await sequenceFixture(t);
+  const pull = await pipelinePr(f, {
+    repair: { tool: "claude", accountId: "a1" },
+    pull: { contexts: GREEN },
+  });
+  git(f.repoPath, "remote", "set-url", "origin", path.join(f.root, "missing.git"));
+  pull.contexts = RED;
+  await passes(f.engine);
+  assert.equal(repairs(f).length, 0);
+  assert.equal(f.items()[0].state, "awaiting-merge");
+  assert.equal(f.items()[0].forgeFailingSince, T0);
+  assert.ok(f.errors.some((entry) => entry.code === "repairFetchFailed"));
+  f.clock.now = T0 + 20 * MIN;
+  await passes(f.engine);
+  assert.equal(f.items()[0].state, "awaiting-merge");
+  f.clock.now = T0 + 31 * MIN;
+  await f.engine.run();
+  assert.equal(f.items()[0].state, "needs-owner");
+  assert.equal(f.items()[0].needsOwner.reason, "forgeUnreachable");
+  assert.equal(f.notified.length, 1);
+});

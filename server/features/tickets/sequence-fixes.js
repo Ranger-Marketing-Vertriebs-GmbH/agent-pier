@@ -164,8 +164,18 @@ function noticeText(item, notice, verdict) {
   return lines.join("\n");
 }
 
-/** The repair worktree folder: `repair-<key>-<sha7>-<id8>`, only [a-z0-9-]. */
-function repairName(item, sha) {
+const idPart = (item) =>
+  String(item.id)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "")
+    .slice(0, 8);
+const MAX_REPAIR_FOLDERS = 50;
+
+/**
+ * The repair worktree folder: `repair-<key>-<sha7>-<id8>`, with `-<n>` before the id
+ * from the second attempt on the same head; only [a-z0-9-].
+ */
+function repairName(item, sha, attempt = 1) {
   const token = String(keyToken(item) || "ticket")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -175,11 +185,41 @@ function repairName(item, sha) {
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "")
     .slice(0, 7);
-  const id = String(item.id)
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "")
-    .slice(0, 8);
-  return `repair-${token || "ticket"}-${head || "head"}-${id || "x"}`;
+  const n = attempt > 1 ? `-${attempt}` : "";
+  return `repair-${token || "ticket"}-${head || "head"}${n}-${idPart(item) || "x"}`;
+}
+
+/**
+ * The folder for a repair: the earlier repair worktree when it is clean and holds no
+ * commits outside the PR branch, else a new worktree in the first free folder.
+ */
+async function repairFolder(engine, ctx, item, sha) {
+  const { worktrees } = engine;
+  const projectPath = ctx.project.path;
+  const headRef = item.pr.headRef;
+  if (
+    item.repair?.cwd &&
+    (await worktrees.reuseRepair({
+      projectPath,
+      cwd: item.repair.cwd,
+      headRef,
+      branchPrefix: `ticket-repair/${idPart(item) || "x"}`,
+    }))
+  )
+    return item.repair.cwd;
+  for (let attempt = 1; attempt <= MAX_REPAIR_FOLDERS; attempt += 1) {
+    const name = repairName(item, sha, attempt);
+    if ((await worktrees.inspect({ projectPath, name })).exists) continue;
+    const head = sha.slice(0, 7);
+    const tree = await worktrees.createRepair({
+      projectPath,
+      headRef,
+      name,
+      suffix: attempt > 1 ? `${head}-${attempt}` : head,
+    });
+    return tree.cwd;
+  }
+  throw problem(serverMessages.pipelineWorkspaces.worktreeExists, 409);
 }
 
 /**
@@ -230,19 +270,10 @@ async function startRepair(engine, ctx, item, decision, verdict, worker) {
         );
         return { item: saved, stop: true };
       }
-      // A restart between creating the worktree and launching reuses the worktree.
-      let cwd =
-        saved.repair?.sha === sha && !saved.repair.sessionId ? saved.repair.cwd : "";
-      if (!cwd || !(await engine.worktrees.exists(cwd))) {
-        const tree = await engine.worktrees.createRepair({
-          projectPath: ctx.project.path,
-          headRef: saved.pr.headRef,
-          name: repairName(saved, sha),
-          suffix: sha.slice(0, 7),
-        });
-        cwd = tree.cwd;
-        saved = engine.save(ctx, saved, { repair: { sessionId: "", cwd, sha } });
-      }
+      // An earlier repair worktree (also one a restart cut off before its launch) is
+      // reused when it is clean; otherwise the repair gets a folder of its own.
+      const cwd = await repairFolder(engine, ctx, saved, sha);
+      saved = engine.save(ctx, saved, { repair: { sessionId: "", cwd, sha } });
       session = await engine.launch(
         { ...body, cwd, name: `${ticket.key} · repair`.slice(0, 100) },
         false,
@@ -263,6 +294,11 @@ async function startRepair(engine, ctx, item, decision, verdict, worker) {
       rounds: decision.rounds,
     });
   } catch (error) {
+    // The PR branch could not be fetched: an outage the 30-minute forge clock bounds.
+    if (error?.code === "repairFetchFailed") {
+      engine.forgeFailed(ctx, saved, error, "repair");
+      return { item: saved, stop: true };
+    }
     if (isTransient(error)) {
       engine.skip(error, "repair");
       return { item: saved, stop: true };
