@@ -151,8 +151,10 @@ export class TicketSequenceService {
    * item itself keeps the next pass from appending again, and that pass records the
    * missing pickup.
    */
-  async appendFromRule(project, ruleId, tickets) {
+  async appendFromRule(project, ruleId, tickets, { signal } = {}) {
     const outcome = await this.engine.exclusive(project.id, async () => {
+      // The monitor (its signal) or the engine closed while the lock was awaited.
+      if (signal?.aborted || this.engine.closed) return { added: [], full: false };
       const rule = this.rules.rule(project.id, ruleId);
       if (!rule || rule.paused) return { added: [], full: false };
       const label = labelKey(rule.label);
