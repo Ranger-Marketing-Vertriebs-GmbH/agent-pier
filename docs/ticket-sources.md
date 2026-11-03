@@ -233,11 +233,14 @@ A ticket that waits for you blocks the rest of its sequence until you act on it:
   still on the ticket's branch. When the folder has local changes, another branch, or
   was never recorded as the ticket's worktree, Retry is refused: check the folder and
   remove it first, because AgentPier never deletes it.
-- **Mark done** moves the sequence on. It writes nothing to GitHub or Plane. A waiting
-  ticket can be marked done too.
+- **Mark done** moves the sequence on. It writes nothing to the ticket in GitHub or
+  Plane. A parked pull request that AgentPier may merge is disarmed first, as with
+  **Remove**, because nobody watches it afterwards; a pull request you merged yourself
+  needs nothing. A waiting ticket can be marked done too.
 - **Remove** takes a waiting, parked or done ticket out of the sequence. A parked pull
   request that AgentPier may merge is disarmed first: auto-merge is turned off, or the
-  pull request leaves the merge queue. When GitHub cannot be read, Remove is refused.
+  pull request leaves the merge queue. When GitHub cannot be read, Remove and Mark done
+  are refused for such a ticket.
 
 A ticket that is running or waiting for its merge cannot be retried, marked done or
 removed. These actions never overlap with AgentPier's own work on the sequence: each

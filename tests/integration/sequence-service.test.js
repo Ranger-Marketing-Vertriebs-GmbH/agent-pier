@@ -204,6 +204,46 @@ test("remove of a parked armed PR turns auto-merge off", async (t) => {
   );
 });
 
+test("mark done of a parked armed PR turns auto-merge off", async (t) => {
+  const f = await sequenceFixture(t);
+  const pull = await awaitingMerge(f, { allowMerge: true, pull: { contexts: PENDING } });
+  assert.equal(pull.autoMerge, true);
+  const [first] = f.items();
+  park(f, first.id, "idle");
+  const view = await service(f).markDone("p1", first.id);
+  assert.equal(view.queue.items[0].state, "done");
+  assert.equal(pull.autoMerge, false);
+  assert.equal(mutations(f, "disablePullRequestAutoMerge").length, 1);
+  assert.equal(
+    f.sourceCalls.some((call) => call.name === "markDone"),
+    false,
+  );
+});
+
+test("mark done of a PR merged by hand needs no disarm", async (t) => {
+  const f = await sequenceFixture(t);
+  const pull = await awaitingMerge(f, { allowMerge: true, pull: { contexts: PENDING } });
+  const [first] = f.items();
+  park(f, first.id, "idle");
+  pull.state = "MERGED";
+  pull.autoMerge = false;
+  await service(f).markDone("p1", first.id);
+  assert.equal(f.items()[0].state, "done");
+  assert.equal(mutations(f, "disablePullRequestAutoMerge").length, 0);
+});
+
+test("mark done and remove of an armed PR are refused while GitHub is unreachable", async (t) => {
+  const failures = {};
+  const f = await sequenceFixture(t, { failures });
+  await awaitingMerge(f, { allowMerge: true, pull: { contexts: PENDING } });
+  const [first] = f.items();
+  park(f, first.id, "idle");
+  failures["POST /graphql"] = 503;
+  for (const action of ["markDone", "remove"])
+    await assert.rejects(service(f)[action]("p1", first.id), { status: 502 });
+  assert.equal(f.items()[0].state, "needs-owner");
+});
+
 test("owner actions wait for a running step and step the queue after them", async (t) => {
   const f = await sequenceFixture(t);
   f.append([KEY]);
