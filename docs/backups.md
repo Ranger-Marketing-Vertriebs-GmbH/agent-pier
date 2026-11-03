@@ -14,7 +14,11 @@ Always, as public (unencrypted) members:
 - Accounts, provider connections, repositories, ticket sources (`ticket-sources.json`:
   Plane connections without their API keys, project links and ticket start records;
   the ticket sequences in `ticket-sequences.json` are runtime state like the pipeline
-  run queue and are never archived),
+  run queue and are never archived), label rules (`ticket-rules.json`: the rules with
+  their run settings and the tickets they picked up; a restore moves both to the
+  mapped project and resets each rule's poll status, and the pickups keep the restored
+  host from queueing those tickets again; see
+  [Label rules](ticket-sources.md#label-rules)),
   preferences, the project groups of the
   projects page (`project-groups.json`; a restore with a project mapping moves their
   folder paths along), pipeline definitions, the port from `config.json`.

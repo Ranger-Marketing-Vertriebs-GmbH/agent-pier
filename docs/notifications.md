@@ -186,6 +186,7 @@ until you switch it on:
 |                 | Session could not be resumed                       | On      | [Resuming interrupted sessions](session-reload.md) failed for a session after AgentPier's terminal server was lost; once per interruption; opens the session's chat                                                                                                                                                                                                                        |
 |                 | Hook limit reached                                 | On      | An [agent hook](assistant-workflows.md#agent-hooks) received more events in an hour than it may wake its agent for; later events are only recorded and wait unprocessed, so raise the limit or fix the sender; opens the agent's chat. Follows **Routine or hook result** on a device set up before it existed                                                                             |
 |                 | Memory not reviewed after a model switch           | On      | After a [model switch](agents.md#memory), the new model could not review the agent's memory (it refused, timed out or answered unreadably twice); opens the agent's memory page. The switch stays                                                                                                                                                                                          |
+|                 | A label rule cannot read its tickets               | On      | A [label rule](ticket-sources.md#errors-and-notifications) failed (label gone, queue full, source disconnected, tracker error); once per rule and error kind until a pass succeeds; names neither rule nor ticket; opens the project's Tickets tab. Grouped per project, apart from ticket sequence notices                                                                                |
 |                 | Update failed                                      | On      | Downloading and checking, activating or rolling back a version failed (also when the activation helper failed while AgentPier restarted); once per attempt, within a day; opens the updates                                                                                                                                                                                                |
 | For information | Response ready                                     | Off     | A session finished its reply to a prompt you sent, in the terminal or in AgentPier's chat. For Claude Code, a turn Claude started itself (a background task's or subagent's notification, a peer or channel message) does not notify; Codex and OpenCode do not report who started a turn, so every finished turn notifies                                                                 |
 |                 | Session ended                                      | Off     | A session stopped                                                                                                                                                                                                                                                                                                                                                                          |
@@ -196,7 +197,8 @@ until you switch it on:
 |                 | Also what Telegram delivered                       | Off     | Check-ins, reminders, routine and hook results that also went to the agent's paired Telegram chat; while off, Telegram alone tells you about them                                                                                                                                                                                                                                          |
 
 **Session reached its usage limit**, **Session could not be resumed**, **A ticket
-sequence waits for you**, **Update available** and **Update failed** go to the owner's
+sequence waits for you**, **A label rule cannot read its tickets**, **Update
+available** and **Update failed** go to the owner's
 devices only, never to a
 restricted user's or to Telegram. AgentPier has no reliable signal for a session that is stuck, so it does not
 guess one; only the CLI's own limit report notifies. AgentPier checks for updates on its own a few minutes after it starts and then once a day ([updates](operations.md#installer-and-exact-commands)); only this automatic check notifies, a check someone starts with **Check for updates** never does, and a failed check notifies nobody.
@@ -248,8 +250,8 @@ urgency.
 **Grouping and quiet**:
 
 - **Group by session, agent or run** (on by default): a new notification from the same
-  session, agent or pipeline run (or about the same project's ticket sequence) replaces
-  the older one instead of stacking. A
+  session, agent or pipeline run (or about the same project's ticket sequence, or its
+  label rules, each grouped on its own) replaces the older one instead of stacking. A
   replacement that waits for you (a question or an approval) alerts again; others
   replace it silently.
 - **Quiet hours** (off by default, 22:00 to 07:00 when switched on): the server holds

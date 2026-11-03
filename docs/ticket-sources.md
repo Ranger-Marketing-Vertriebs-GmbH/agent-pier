@@ -5,7 +5,8 @@ work items of a linked Plane project. A ticket starts as a session or a pipeline
 AgentPier then marks the ticket "In progress" in the tracker and comments that it was
 started, and shows the ticket on the session and the run. Several tickets can start as
 a [sequence](#ticket-sequences) that AgentPier works through one at a time, watching
-each pull request until it is merged.
+each pull request until it is merged, and [label rules](#label-rules) add every ticket
+with a label to that sequence on their own.
 
 ## Setup
 
@@ -128,8 +129,9 @@ and the session list adds the key.
 ## Live updates
 
 The tab follows the live topic `tickets.project:<projectId>` (the project's source
-links and start records) and `tickets.queue:<projectId>` (its
-[sequence](#live-updates-and-routes)), and the Connections page follows
+links and start records), `tickets.queue:<projectId>` (its
+[sequence](#live-updates-and-routes)) and `tickets.rules:<projectId>` (its
+[label rules](#routes-and-live-updates)), and the Connections page follows
 `tickets.connections`; all are owner-only and change on every write of the ticket service. Adding, editing or
 deleting a GitHub token profile, changing the profile a host uses, and cloning a
 repository signal every project's topic too. The ticket list itself
@@ -140,7 +142,9 @@ a timer. See [Architecture](architecture.md#live-channel).
 
 Plane connections, project links and start records live in `ticket-sources.json` in
 the data directory (at most 500 start records; the oldest are dropped). Ticket
-sequences live in `ticket-sequences.json`, which backups leave out. Backups carry
+sequences live in `ticket-sequences.json`, which backups leave out. Label rules and the
+tickets they picked up live in `ticket-rules.json`, which backups carry as a public
+member (see [Label rules](#label-rules)). Backups carry
 `ticket-sources.json` as a public member and the API keys only sealed with **Include encrypted
 credentials**; a restore without them lists each Plane connection as needing its key
 again. See [Backups](backups.md).
@@ -489,9 +493,137 @@ The Tickets tab follows the sequence on the owner-only live topic
   session, or 30 minutes without GitHub.
 - The sequence is runtime state like the pipeline run queue: it is not part of
   [backups](backups.md).
+- [Label rules](#label-rules) append to the same queue and count towards its 200
+  tickets that are not done.
 
-## Planned
+## Label rules
 
-Rules that add tickets to a sequence by label are not available yet. Until then, a
-pipeline run queue item can carry the ticket key as **External reference**
-([Pipelines](pipelines.md#run-queue)).
+A label rule adds every open ticket that carries a label to the project's
+[sequence](#ticket-sequences), once. AgentPier checks the rules on the server every 10
+minutes, so labelling an issue `agent` in GitHub, or a work item in Plane, is enough to
+queue it; nothing has to stay open in the browser. Like sequences, rules need GitHub
+for the pull requests, also for Plane tickets.
+
+### Adding a rule
+
+The **Label rules** section of the Tickets tab sits below the queue while a source is
+connected. **Add label rule**, in the section or through ⌘K/Ctrl+K (**Add label
+rule**, which opens the current project's Tickets tab, or the Projects page when no
+project is open), opens a dialog with:
+
+- **Source**: **GitHub** or **Plane**, a choice only while both are connected.
+- **Label**: the label's name, up to 50 characters, without commas or control
+  characters. The match ignores case and surrounding spaces.
+- **Run as**, **Repair session** and **Allow merge** (off by default), as in the
+  [sequence dialog](#starting-a-sequence): every ticket the rule picks up runs with
+  these settings.
+- **Paused**: a paused rule picks up nothing until you resume it.
+
+Each row shows the label and source, what the tickets run as, **Allow merge** when it
+is on, how many tickets the rule picked up, and its state: **Active**, **Paused** or
+**Error**. A paused rule shows **Paused** even when its last pass failed; the error
+text stays in the row until the next successful pass. The row's ⋯ menu offers **Edit**,
+**Pause** or **Resume**, and **Delete**. A project has at most 20 rules, and one source
+and label (ignoring case) have at most one rule. Saving a rule that is not paused
+starts a pass right away.
+
+- **Edit** replaces the whole rule. A new source or label clears the rule's error; the
+  tickets it picked up stay picked up.
+- **Pause** stops the rule's reads. Tickets it already queued stay in the queue.
+- **Delete** asks first. The rule's tickets stay in the queue and stay picked up, so a
+  new rule with the same label never queues them again.
+
+A queue row that came from a rule says **From label rule "<label>"**, or **From a
+deleted label rule**.
+
+### How a rule picks tickets
+
+Each pass reads every connected source of a project once, for all its rules that are
+not paused, and keeps the open tickets that carry a rule's label: GitHub issues (pull
+requests left out) and Plane work items outside the `completed` and `cancelled`
+groups. Tickets that carried the label before the rule existed count too. New tickets
+are appended at the end of the queue, oldest first (by ticket number), and the
+sequence starts them in turn like tickets you added yourself. Rules of a project are
+checked in the order they were created.
+
+A pass reads at most 300 open GitHub issues, the newest (three pages of 100), and
+500 Plane work items, closed ones included, before the closed ones are dropped (five
+pages of 100). Labelled tickets beyond that are not seen in that pass. When a read
+stops at that cap, the row adds a hint ("Only the newest 300 open issues are
+checked; …" or "Only 500 work items, closed ones included, are checked; …"). This is
+not an error and sends no notification.
+
+The queue holds at most 200 tickets that are not done. When a rule finds more new
+tickets than there is room for, it appends what fits and shows **The queue is full**;
+the next pass after room is free picks up the rest.
+
+### Dedupe
+
+A rule picks up a ticket once. AgentPier records each pickup (source, key, rule and
+queue item) in `ticket-rules.json` and never appends that ticket from a rule again,
+also when the label stays on the ticket after its queue item is done and pruned, after
+its start record is dropped, after the rule is deleted, or when a second rule with
+another label matches it. A ticket that is already in the queue, was started from the
+⋯ menu or is being started right now is not appended either; a queued or started one
+is recorded as picked up as well, so it stays skipped once those records are gone.
+Removing a picked-up ticket from the queue does not make it eligible again.
+
+The rule is read again just before the append: a rule deleted, paused or moved to
+another source or label while its source was read appends nothing. Appends run inside
+the queue's lock, so a rule and a manual start of the same ticket never both win.
+
+A manual start of a picked-up ticket follows the [single start](#starting-a-ticket)
+rules: while the ticket is in the queue and not done, a start or a sequence with it is
+refused (`ticketQueued`); afterwards it counts as started before and needs **Start
+again**.
+
+AgentPier keeps the 5,000 most recent pickups per project; beyond that the oldest are
+dropped first, and such a ticket could be picked up again if it still carries the
+label.
+
+### Errors and notifications
+
+A pass that fails sets the rule to **Error** with its reason: the label does not
+exist in the ticket source (asked of the tracker itself, so a capped read never reports
+it), the queue is full, the source or GitHub is no longer connected, the project no
+longer exists, or the tracker's own failure (credentials rejected, not found, rate
+limited, unreachable). The rule's status holds only a failure code and its start,
+never a token, URL or ticket text. The next successful pass clears the error.
+
+The first failure of each kind sends a push notification of the kind **A label rule
+cannot read its tickets** (group **Problems**, on by default; see
+[Notifications](notifications.md)). It names neither the rule nor the ticket, and a tap
+opens the project's Tickets tab. A source that stays down for many passes notifies
+once; a later failure of another kind, or of the same kind after a successful pass,
+notifies again. These notices group per project apart from **A ticket sequence waits
+for you**, so neither replaces the other on a device. They go to the owner's devices
+only.
+
+### Interval
+
+The first pass runs 30 seconds after AgentPier starts, then every 10 minutes, and once
+more right after a rule is added, edited or resumed. A pass still running is joined,
+never overlapped, and a shutdown aborts the reads under way. The interval can be set in
+the data directory's `config.json`: `"ticketRules": { "intervalMinutes": 10 }`, a whole
+number from 1 to 1440. An invalid value keeps 10 minutes; a change applies at the next
+server start.
+
+### Data and backups
+
+Rules, their status and their pickups live in `ticket-rules.json` in the data
+directory. Backups carry it as a public member: the rules with their run settings
+(account and connection ids, no credentials) and the pickups. A restore with a project
+mapping moves rules and pickups to the new project id and resets each rule's status, so
+the restored host starts with fresh checks and never queues a picked-up ticket again.
+See [Backups](backups.md).
+
+### Routes and live updates
+
+The Tickets tab follows the owner-only live topic `tickets.rules:<projectId>`, which
+carries `GET /api/tickets/projects/:projectId/rules` and is signalled on every saved
+change of a rule, its status or its pickups. The browser never polls the rules; the
+server polls the trackers. The routes are `GET` and `POST
+/api/tickets/projects/:projectId/rules`, `PUT …/rules/:ruleId` (a full replace,
+`paused` included) and `DELETE …/rules/:ruleId`; all are owner-only. A rule needs its
+source connected and a GitHub token profile for the project's host (`githubRequired`
+otherwise). See [Architecture](architecture.md#live-channel).
