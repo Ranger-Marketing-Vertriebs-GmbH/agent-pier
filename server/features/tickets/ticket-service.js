@@ -11,11 +11,10 @@ import { ticketSources } from "./sources/index.js";
 import { githubApiBase } from "../repositories/github-token-check.js";
 import { parseGithubRemote } from "./sources/github.js";
 import { TicketStore } from "./ticket-store.js";
+import { GITHUB_KEY, startInput } from "./ticket-start-input.js";
 import { ticketConnectionsChanged, ticketsProjectChanged } from "./live-topics.js";
 
 const copy = serverMessages.tickets;
-const GITHUB_KEY = /^([A-Za-z0-9_.-]{1,100})\/([A-Za-z0-9_.-]{1,100})#([1-9]\d{0,8})$/;
-const PLANE_KEY = /^[A-Z0-9]{1,12}-[1-9]\d{0,8}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SOURCE_CODES = new Set(Object.keys(copy.source));
 const DELIVERING = new Set(["pending", "handed-off", "uncertain"]);
@@ -31,38 +30,6 @@ const failureCode = (error) =>
   error instanceof TicketSourceError && SOURCE_CODES.has(error.code)
     ? error.code
     : "invalidResponse";
-
-function startInput(input) {
-  const invalid = () => problem(copy.invalidStart);
-  if (!plainObject(input)) throw invalid();
-  const { source, key, kind, again } = input;
-  if (!TICKET_SOURCE_IDS.includes(source)) throw invalid();
-  if (kind !== "session" && kind !== "pipeline") throw invalid();
-  if (
-    typeof key !== "string" ||
-    !(source === "github" ? GITHUB_KEY : PLANE_KEY).test(key)
-  )
-    throw invalid();
-  if (again !== undefined && typeof again !== "boolean") throw invalid();
-  const checked = { source, key, kind, again: again === true };
-  if (kind === "session") {
-    const session = input.session ?? {};
-    if (!plainObject(session)) throw invalid();
-    // The project decides the folder; the server alone hands over the ticket.
-    const { cwd: _cwd, ticket: _ticket, ...rest } = session;
-    checked.session = rest;
-  } else {
-    const pipeline = input.pipeline;
-    if (!plainObject(pipeline) || typeof pipeline.pipelineId !== "string")
-      throw invalid();
-    checked.pipeline = { pipelineId: pipeline.pipelineId };
-    if (pipeline.baseBranch !== undefined)
-      checked.pipeline.baseBranch = pipeline.baseBranch;
-    if (pipeline.tokenBudget !== undefined)
-      checked.pipeline.tokenBudget = pipeline.tokenBudget;
-  }
-  return checked;
-}
 
 /**
  * A project's ticket sources: reads tickets fresh from GitHub and Plane, starts one as
