@@ -317,19 +317,6 @@ export class TicketSequenceStore {
     }
     this.changed(projectId);
   }
-  /** Drops a project's whole queue, once the project itself is gone. */
-  removeProject(projectId) {
-    const queue = this.byProject.get(projectId);
-    if (!queue) return;
-    this.byProject.delete(projectId);
-    try {
-      this.save();
-    } catch (error) {
-      this.byProject.set(projectId, queue);
-      throw error;
-    }
-    this.changed(projectId);
-  }
   /** How many more items the queue takes before it is full. */
   freeSlots(projectId) {
     const items = this.byProject.get(projectId)?.items ?? [];

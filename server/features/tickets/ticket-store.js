@@ -205,9 +205,17 @@ export class TicketStore {
     this.save();
     return this.publicConnection(item);
   }
-  removeConnection(id) {
+  /**
+   * `known(projectId)`: whether the project still exists. A link of a project that is
+   * not known now does not keep the connection in use; it stays as it is.
+   */
+  removeConnection(id, { known = () => true } = {}) {
     const item = this.find(id);
-    if (this.projects.some((link) => link.plane?.connectionId === id))
+    if (
+      this.projects.some(
+        (link) => link.plane?.connectionId === id && known(link.projectId),
+      )
+    )
       throw problem(serverMessages.tickets.connectionInUse, 409);
     this.connections = this.connections.filter((entry) => entry !== item);
     this.save();
@@ -248,32 +256,6 @@ export class TicketStore {
     this.projects = [...this.projects.filter((e) => e.projectId !== projectId), link];
     this.save();
     return this.projectLink(projectId);
-  }
-  /** Every project id with a link or a start record. */
-  projectIds() {
-    return new Set([
-      ...this.projects.map((link) => link.projectId),
-      ...this.startRecords.map((record) => record.projectId),
-    ]);
-  }
-  /** Drops a project's link and start records; false when it had none. */
-  forgetProject(projectId) {
-    const projects = this.projects.filter((link) => link.projectId !== projectId);
-    const starts = this.startRecords.filter((record) => record.projectId !== projectId);
-    if (
-      projects.length === this.projects.length &&
-      starts.length === this.startRecords.length
-    )
-      return false;
-    const before = [this.projects, this.startRecords];
-    [this.projects, this.startRecords] = [projects, starts];
-    try {
-      this.save();
-    } catch (error) {
-      [this.projects, this.startRecords] = before;
-      throw error;
-    }
-    return true;
   }
   starts(projectId) {
     return this.startRecords
