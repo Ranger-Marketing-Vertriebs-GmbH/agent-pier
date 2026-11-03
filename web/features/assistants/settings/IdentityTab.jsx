@@ -9,6 +9,7 @@ import useAssistants from "../useAssistants.js";
 import { assistantApi } from "../assistant-api.js";
 import { followsLeadModel, profileServer } from "./agent-settings-fields.js";
 import { profileStep } from "./agent-settings-steps.js";
+import useModelSwitchChoice from "./useModelSwitchChoice.js";
 import useAgentDraftGuard from "./useAgentDraftGuard.js";
 import ConflictNotice from "./ConflictNotice.jsx";
 import ConfirmationSheet from "./ConfirmationSheet.jsx";
@@ -21,6 +22,7 @@ const conflictLabels = {
   connectionId: () => copy.connection,
   modelId: () => copy.model,
   followLead: () => copy.team.followLeadModelChoice,
+  freshChats: () => settingsCopy.freshChats.label,
 };
 
 /**
@@ -33,6 +35,7 @@ export default function IdentityTab({ assistant, navigate }) {
     server: profileServer(assistant),
     revisions: { assistant: assistant.revision },
   });
+  useModelSwitchChoice(draft, assistant.id);
   const label = settingsCopy.tabs.identity;
   const member = followsLeadModel(assistant);
   const leadModel = member

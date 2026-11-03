@@ -65,6 +65,7 @@ const memoryGuidance = (member, writable, task, lead) =>
     "- Write durable facts, decisions and plans to `MEMORY.md` (curated, keep it tidy) and day-to-day notes to `memory/YYYY-MM-DD.md` with the write or edit tool.",
     "- Write as soon as the user shares something worth keeping, not later in the conversation.",
     '- Never say "saved", "noted" or "I\'ll remember" unless a write succeeded in this turn. If a write is refused or fails, say plainly that it was not saved.',
+    `- Do not record your own refusals or limits you set yourself as rules or notes; record the owner's rules, decisions and facts.`,
     ...(member && !task
       ? [
           "- When your team lead asks or delegates something to you, memory is read-only in that turn: do not try to write it, and tell the lead it was not saved.",

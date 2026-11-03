@@ -12,6 +12,7 @@ export const memoryStepText =
   "AgentPier memory step: this chat is about to be summarised, and the summary drops its details. " +
   "Write what you must keep to your own memory now: lasting facts and decisions to MEMORY.md, " +
   "today's notes to memory/YYYY-MM-DD.md. Store no credentials and no transcripts. " +
+  "Do not record your own refusals or limits you set yourself as rules or notes; record the owner's rules, decisions and facts. " +
   "Do nothing else, then answer in one short line.";
 export const memoryStepLimitMs = 5 * 60_000;
 // After an abort, how long the step waits for the session's run to end.

@@ -9,6 +9,10 @@ export const assistantSettingsCopy = {
     automation: "Automatisierung",
     channels: "Kanäle",
   },
+  freshChats: {
+    label: "Neue Chats beginnen",
+    hint: "Neue Hauptchats für alle, die diesen Agenten nutzen; die alten bleiben lesbar. Laufende Arbeit wird nicht gestoppt.",
+  },
   backToAgents: "Zurück zu Agenten",
   overviewGroups: {
     glance: "Auf einen Blick",
