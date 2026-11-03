@@ -235,3 +235,57 @@ test("planeWebUrl maps Plane Cloud's API host to the app host", () => {
   assert.equal(planeWebUrl("https://plane.example.com"), "https://plane.example.com");
   assert.equal(ticketSources.plane, planeSource);
 });
+
+const PR = "https://github.com/acme/app/pull/9";
+const DONE_STATES = [
+  { id: "B", name: "Shipped", group: "completed", sequence: 2 },
+  { id: "A", name: "Done", group: "completed", sequence: 1 },
+  { id: "S", name: "Started", group: "started", sequence: 3 },
+];
+
+test("plane markDone moves to the first completed state and comments", async (t) => {
+  const { fake, access } = await setup(t, {
+    states: DONE_STATES,
+    items: [item(1, { state: "S" })],
+  });
+  const [ticket] = (await planeSource.list(access, {})).tickets;
+  const done = await planeSource.markDone(access, ticket, { prUrl: PR });
+  assert.deepEqual(done, { state: "done" });
+  const base = `/api/v1/workspaces/acme/projects/${projectId}/work-items/${ticket.id}/`;
+  assert.deepEqual(
+    fake.calls.filter((c) => c.method !== "GET").map((c) => [c.method, c.path, c.body]),
+    [
+      ["PATCH", base, { state: "A" }],
+      [
+        "POST",
+        `${base}comments/`,
+        { comment_html: "<p>Done: merged in https://github.com/acme/app/pull/9.</p>" },
+      ],
+    ],
+  );
+});
+
+test("plane markDone skips the state change when already completed", async (t) => {
+  const { fake, access } = await setup(t, {
+    states: DONE_STATES,
+    items: [item(1, { state: "B" })],
+  });
+  const ticket = await planeSource.get(access, "AP-1");
+  await planeSource.markDone(access, ticket, { prUrl: PR });
+  assert.deepEqual(
+    fake.calls.filter((c) => c.method !== "GET").map((c) => c.method),
+    ["POST"],
+  );
+});
+
+test("plane markDone escapes the URL and never contains the AgentPier address", async (t) => {
+  const { fake, access } = await setup(t, {
+    states: DONE_STATES,
+    items: [item(1, { state: "S" })],
+  });
+  const [ticket] = (await planeSource.list(access, {})).tickets;
+  await planeSource.markDone(access, ticket, { prUrl: `${PR}?a=1&b="2"` });
+  const html = fake.calls.at(-1).body.comment_html;
+  assert.match(html, /a=1&amp;b=%222%22/);
+  assert.doesNotMatch(html, /127\.0\.0\.1|localhost|agentpier\.[a-z]/i);
+});

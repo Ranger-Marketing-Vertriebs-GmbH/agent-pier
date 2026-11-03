@@ -1,4 +1,4 @@
-import { cleanTicket, htmlToText } from "../ticket.js";
+import { cleanTicket, htmlToText, httpUrl } from "../ticket.js";
 import { requestJson, TicketSourceError } from "../http-json.js";
 
 const PAGE_SIZE = 100;
@@ -170,6 +170,34 @@ export const planeSource = {
     await call(access, `${base}comments/`, {
       method: "POST",
       body: { comment_html: `<p>Started in AgentPier (${noun}).</p>` },
+      signal,
+    });
+    return { state: "done" };
+  },
+  async markDone(access, ticket, { prUrl, signal } = {}) {
+    const states = await readStates(access, signal);
+    const completed = states
+      .filter((s) => s.group === "completed")
+      .sort((a, b) => a.sequence - b.sequence);
+    if (!completed.length) throw new TicketSourceError("invalidResponse");
+    const base = `${projectPath(access)}/work-items/${encodeURIComponent(ticket.id)}/`;
+    if (!completed.some((s) => s.name === ticket.state))
+      await call(access, base, {
+        method: "PATCH",
+        body: { state: completed[0].id },
+        signal,
+      });
+    const url = httpUrl(prUrl);
+    const escaped = url
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+    await call(access, `${base}comments/`, {
+      method: "POST",
+      body: {
+        comment_html: `<p>${url ? `Done: merged in ${escaped}.` : "Done in AgentPier."}</p>`,
+      },
       signal,
     });
     return { state: "done" };
