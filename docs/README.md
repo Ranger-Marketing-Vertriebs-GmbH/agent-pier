@@ -73,6 +73,7 @@ _(German)_ are not translated yet.
 | [ADR 0004](adr/0004-restricted-users.md)                    | Restricted users                                        |
 | [ADR 0005](adr/0005-navigation-information-architecture.md) | Navigation: sidebar, menu, Connections, agent tabs      |
 | [ADR 0006](adr/0006-assistant-runtime-port.md)              | Agent runtime port: OpenClaw and Hermes side by side    |
+| [Coding CLIs](coding-clis.md)                               | CLI definitions, drivers and how to add a CLI           |
 | [Protocol adapter](protocol-adapter.md)                     | How custom endpoints are adapted to each CLI's protocol |
 | [Startup loading](startup-loading.md)                       | The startup screen shown before the app loads           |
 | [Chat observability](chat-observability.md)                 | Chat context and subagent observations                  |

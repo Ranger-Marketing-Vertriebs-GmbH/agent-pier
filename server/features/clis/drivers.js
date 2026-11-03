@@ -64,6 +64,8 @@ const frozen = (value) => {
 const drivers = new Map();
 
 /**
+ * The driver of one coding CLI; docs/coding-clis.md describes every member.
+ * definition: the browser-safe record from `<id>/definition.js`.
  * profileEnv(root): variables isolating one account under `root`.
  * configRoot(env, home): where the CLI keeps its config for `env`.
  * dataRoot(env, home): where it keeps its data (history, databases).
@@ -84,9 +86,12 @@ const drivers = new Map();
  *   ProviderHistory that owns the shared state (clients, caches, running jobs).
  *   list(history, session), read(history, session, id),
  *   readPage(history, session, id, state): the native page or null for a page over
- *   a full read, readReloadContext(history, session, id), normalize(records),
- *   observe(records), watchRoots(env, home, cwd): folders to watch while a chat has
- *   no known sources, slashCommands(scan, env, cwd): discovers custom commands.
+ *   a full read, readReloadContext(history, session, id), watchRoots(env, home, cwd):
+ *   folders to watch while a chat has no known sources, slashCommands(scan, env,
+ *   cwd): discovers custom commands. normalize and observe take what the CLI's own
+ *   reader produced, so their arguments differ: Codex normalize(thread) and
+ *   observe(thread, records), Claude Code normalize(records) and observe(records),
+ *   OpenCode normalize(exported) and observe(exported).
  * tui: reads the CLI's terminal screen (see `<id>/tui.js`).
  *   activity({ lines, original, last, tail }): { state, evidence?, animated? } for
  *   the composer region once shared dialog checks found nothing to answer.

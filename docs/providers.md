@@ -249,6 +249,8 @@ Refresh requests use fixed public endpoints, no account credentials, a 15-second
 
 Create `ProviderConnections({ dataDir })`, then pass it and the shared catalog into `AccountStore({ dataDir, home, providerCatalog, providerConnections })`. `ProviderAccess({ accounts, connections, providerCatalog })` resolves native or central access before the shared session lifecycle prepares its integrations. The account store validates selections and automatically applies native adapters in `command()`. `prepareProviderLaunch(account, secret, launch, { root, catalog, cliVersion? })` is the underlying adapter boundary for isolated tests. Its return value preserves launch fields and adds public `.provider` metadata.
 
+Per-CLI facts the provider launch relies on live in the CLI definitions and drivers under `server/features/clis/`: `apiKeyEnv` and the custom-endpoint `protocol` in each definition, and the account isolation (`profileEnv`) and config folder (`configRoot`) in each driver. See [coding CLIs](coding-clis.md).
+
 ## Verification
 
 Provider tests cover the nine CLI/service combinations, exact IDs/endpoints, entitlement and version restrictions, profile isolation, key rotation/removal, persistence, malformed metadata, and stale catalog behavior. Property checks use reproducible fast-check seeds. Tests parse generated TOML/JSON and require no real key or inference request.
