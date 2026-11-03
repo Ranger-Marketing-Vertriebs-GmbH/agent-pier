@@ -77,7 +77,9 @@ async function reviewed(t, answers, { withMemory = true } = {}) {
 }
 
 test("a switch reviews memory without chat history", async (t) => {
-  const { service, agent, reviews, settled } = await reviewed(t, [spikeAnswers.gptWhole]);
+  const { service, agent, reviews, settled } = await reviewed(t, [
+    spikeAnswers.grokCurly,
+  ]);
   // One call on the agent's model: the task and the memory files, nothing else.
   assert.equal(reviews.length, 1);
   const [request] = reviews;

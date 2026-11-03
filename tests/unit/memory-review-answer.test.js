@@ -11,8 +11,8 @@ const archived = (review) =>
   review.entries.filter((e) => e.recommendation === "archive").map((e) => e.entry);
 
 test("keeps verbatim matches", () => {
-  const review = parseReview(spikeAnswers.gptWhole, spikeFiles);
-  // GPT quoted the three long limits by their start: each starts one entry only.
+  // Grok's third answer quoted every entry whole (with typographic quotes).
+  const review = parseReview(spikeAnswers.grokCurly, spikeFiles);
   assert.equal(review.dropped, 0);
   assert.equal(review.entries.length, 10);
   // The entry is the file's own text, as the archive finds it again.
@@ -28,9 +28,6 @@ test("keeps verbatim matches", () => {
 });
 
 test("curly quotes for straight ones, a list marker and spacing still match", () => {
-  const review = parseReview(spikeAnswers.grokCurly, spikeFiles);
-  assert.equal(review.dropped, 0);
-  assert.equal(archived(review).length, 5);
   const marked = JSON.stringify([
     {
       file: "MEMORY.md",
@@ -42,18 +39,45 @@ test("curly quotes for straight ones, a list marker and spacing still match", ()
   assert.equal(parseReview(marked, spikeFiles).entries.length, 1);
 });
 
-test("an entry's unique start names it; a shared or short start does not", () => {
-  // GPT's first answer quoted only the start of each entry.
-  const starts = parseReview(spikeAnswers.gptStarts, spikeFiles);
-  assert.equal(starts.dropped, 0);
-  assert.equal(archived(starts).length, 5);
-  assert.ok(starts.entries[0].entry.endsWith("; Antworten auf Deutsch."));
-  const quote = (entry) =>
-    JSON.stringify([{ file: "MEMORY.md", entry, kind: "fact", recommendation: "keep" }]);
+const quote = (entry) =>
+  JSON.stringify([{ file: "MEMORY.md", entry, kind: "fact", recommendation: "keep" }]);
+
+test("an entry's unique start of half its length at a word's end names it", () => {
+  const review = parseReview(quote("Der Besitzer schreibt auf Deutsch;"), spikeFiles);
+  assert.deepEqual(
+    review.entries.map((e) => e.entry),
+    ["Der Besitzer schreibt auf Deutsch; Antworten auf Deutsch."],
+  );
   // Two limits start with these words, and two words are too few.
   assert.equal(parseReview(quote("Keine Keylogger,"), spikeFiles).dropped, 1);
-  assert.equal(parseReview(quote("Keine Keylogger, kein"), spikeFiles).entries.length, 1);
   assert.equal(parseReview(quote("Vorgabe des"), spikeFiles).dropped, 1);
+});
+
+test("a start cut mid-word names no entry", () => {
+  const files = [{ name: "MEMORY.md", content: "- Never send emails without asking.\n" }];
+  assert.equal(parseReview(quote("Never send e"), files).dropped, 1);
+  assert.equal(parseReview(quote("Never send emails without"), files).entries.length, 1);
+});
+
+test("a few words of a long owner rule name no entry", () => {
+  // Three words, the only start of the rule, yet under half of it.
+  assert.equal(parseReview(quote("Der Besitzer möchte"), spikeFiles).dropped, 1);
+});
+
+test("the spike's starts under half an entry are dropped", () => {
+  // GPT 2 quoted two limits by 44 % and 45 % of their text; Grok 3 quoted all whole.
+  const whole = parseReview(spikeAnswers.gptWhole, spikeFiles);
+  assert.equal(whole.dropped, 2);
+  assert.equal(archived(whole).length, 3);
+  // GPT 1 quoted starts only: four limits (44, 36, 45, 45 %) and an owner rule
+  // (34 %) fall under half; one limit (67 %) and four other entries stay.
+  const starts = parseReview(spikeAnswers.gptStarts, spikeFiles);
+  assert.equal(starts.dropped, 5);
+  assert.deepEqual(archived(starts), [
+    "Anfrage nach einem Python-Keylogger für den eigenen Mac (Tippverhalten) abgelehnt.",
+  ]);
+  // Each kept entry is the file's whole entry.
+  assert.ok(starts.entries[0].entry.endsWith("; Antworten auf Deutsch."));
 });
 
 test("drops an entry that is not in the file", () => {
@@ -111,13 +135,13 @@ test("returns null on malformed JSON", () => {
 });
 
 test("finds the array after a lead-in, reasoning or a code fence", () => {
-  const wrapped = `<think>[not this]</think>Here it is:\n\`\`\`json\n${spikeAnswers.gptWhole}\n\`\`\`\nDone [1].`;
+  const wrapped = `<think>[not this]</think>Here it is:\n\`\`\`json\n${spikeAnswers.grokCurly}\n\`\`\`\nDone [1].`;
   assert.equal(parseReview(wrapped, spikeFiles).entries.length, 10);
   assert.deepEqual(parseReview("[]", spikeFiles), { entries: [], dropped: 0 });
 });
 
 test("classifies an owner rule under a Limits heading as kept", () => {
-  const review = parseReview(spikeAnswers.gptWhole, spikeFiles);
+  const review = parseReview(spikeAnswers.grokCurly, spikeFiles);
   const rule = review.entries.find((e) => e.entry.includes("vor 9 Uhr"));
   assert.deepEqual(rule, {
     file: "MEMORY.md",
