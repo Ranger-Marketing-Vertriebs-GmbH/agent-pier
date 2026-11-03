@@ -13,8 +13,8 @@ export function ticketRoutes(services) {
   router.put("/ticket-connections/:id", (req, res) =>
     res.json({ connection: tickets.updateConnection(req.params.id, req.body ?? {}) }),
   );
-  router.delete("/ticket-connections/:id", (req, res) => {
-    tickets.removeConnection(req.params.id);
+  router.delete("/ticket-connections/:id", async (req, res) => {
+    await tickets.removeConnection(req.params.id);
     res.status(204).end();
   });
   router.get("/ticket-connections/:id/projects", async (req, res) =>

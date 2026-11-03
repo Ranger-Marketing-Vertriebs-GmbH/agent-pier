@@ -21,6 +21,7 @@ import { createTicketSequenceServices } from "./sequence-service.js";
 import { TicketRuleStore } from "./rule-store.js";
 import { TicketRuleMonitor, ticketRuleTiming } from "./rule-monitor.js";
 import { TicketRuleService } from "./rule-service.js";
+import { ticketProjectData } from "./gone-projects.js";
 
 const copy = serverMessages.tickets;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -62,6 +63,8 @@ export class TicketService {
     // "queued" while a sequence holds the ticket, "picked" once a rule took it, else
     // null; bound late to the sequence and rule stores.
     taken = () => null,
+    // The project ids of the queues and rules, and how to drop them (bound late).
+    projectData = { ids: () => [], forget: async () => {} },
   }) {
     Object.assign(this, {
       store,
@@ -78,6 +81,7 @@ export class TicketService {
       sources,
       now,
       taken,
+      projectData,
     });
     this.starting = new Set();
     this.writeBacks = new Set();
@@ -465,9 +469,37 @@ export class TicketService {
     return connection;
   }
 
-  removeConnection(id) {
+  /** Links of projects that are gone never keep a connection in use. */
+  async removeConnection(id) {
+    await this.forgetGoneProjects();
     this.store.removeConnection(id);
     ticketConnectionsChanged(this.live());
+  }
+
+  /** True only when the project is known to be gone: any other failure keeps it. */
+  isGone(projectId) {
+    try {
+      this.resolveProject(projectId);
+      return false;
+    } catch (error) {
+      return error?.status === 404;
+    }
+  }
+
+  /**
+   * Drops the ticket data of every project that no longer exists (removed, or merged
+   * or rebound to another id): its source link, start records, queue, label rules and
+   * pickups. Runs at start-up and before a Plane connection is removed.
+   */
+  async forgetGoneProjects() {
+    const ids = new Set([...this.store.projectIds(), ...this.projectData.ids()]);
+    const gone = [...ids].filter((id) => this.isGone(id));
+    for (const id of gone) {
+      this.store.forgetProject(id);
+      await this.projectData.forget(id);
+      ticketsProjectChanged(this.live(), id);
+    }
+    return gone;
   }
 }
 
@@ -503,6 +535,11 @@ export function createTicketServices(services) {
     rules: ticketRuleStore,
   });
   const { ticketSequenceStore, ticketSequences } = sequences;
+  tickets.projectData = ticketProjectData({
+    rules: ticketRuleStore,
+    store: ticketSequenceStore,
+    engine: sequences.ticketSequenceEngine,
+  });
   tickets.taken = (projectId, source, key) =>
     ticketSequenceStore.contains(projectId, source, key) === "active"
       ? "queued"
