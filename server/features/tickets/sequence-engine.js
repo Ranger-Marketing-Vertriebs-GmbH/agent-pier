@@ -55,6 +55,9 @@ export class TicketSequenceEngine {
     this.controller = new AbortController();
     // projectId → { promise, again }: one step loop per queue at a time.
     this.locks = new Map();
+    // projectId → owner actions waiting for the lock: a step loop ends at its next step
+    // boundary for them, and the action's own steps carry on afterwards.
+    this.waiting = new Map();
     this.pass = null;
     this.timer = null;
     this.interval = null;
@@ -127,7 +130,7 @@ export class TicketSequenceEngine {
     const lock = { again: true, promise: null };
     lock.promise = (async () => {
       try {
-        while (lock.again && !this.closed) {
+        while (lock.again && !this.closed && !this.waiting.get(projectId)) {
           lock.again = false;
           await this.steps(projectId);
         }
@@ -145,8 +148,15 @@ export class TicketSequenceEngine {
    * as soon as the action ends; the steps that follow keep the lock.
    */
   async exclusive(projectId, action) {
-    for (let held = this.locks.get(projectId); held; held = this.locks.get(projectId))
-      await held.promise;
+    this.waiting.set(projectId, (this.waiting.get(projectId) ?? 0) + 1);
+    try {
+      for (let held = this.locks.get(projectId); held; held = this.locks.get(projectId))
+        await held.promise;
+    } finally {
+      const left = this.waiting.get(projectId) - 1;
+      if (left > 0) this.waiting.set(projectId, left);
+      else this.waiting.delete(projectId);
+    }
     let settle;
     const outcome = new Promise((resolve) => (settle = resolve));
     const lock = { again: false, promise: null };
@@ -176,7 +186,11 @@ export class TicketSequenceEngine {
   async steps(projectId) {
     // PRs merged in this loop: a read that still says open never merges twice.
     const merged = new Set();
-    for (let count = 0; count < MAX_STEPS && !this.closed; count += 1) {
+    for (
+      let count = 0;
+      count < MAX_STEPS && !this.closed && !this.waiting.get(projectId);
+      count += 1
+    ) {
       const queue = this.store.queue(projectId);
       const item = this.store.head(projectId);
       if (!queue || !item || item.state === "needs-owner") return;
