@@ -215,6 +215,8 @@ function checkedChoices(review, input) {
  */
 export function decideReview(service, id, input, origin) {
   const store = memoryReviewsOf(service);
+  // Read before the decision: a decided card is gone when the audit names its agent.
+  const chatAgentId = store.get(id)?.chatAgentId;
   return decideAudited(
     service.audit,
     {
@@ -223,7 +225,7 @@ export function decideReview(service, id, input, origin) {
       decision: "apply",
       revision: input?.revision,
       kind: "memory-review",
-      assistantId: () => store.get(id)?.chatAgentId,
+      assistantId: () => chatAgentId,
     },
     async () => {
       const review = store.get(id);
@@ -258,13 +260,17 @@ export function decideReview(service, id, input, origin) {
         store.remove(id);
         return result;
       } catch (error) {
-        // What was archived stays archived; the agents not done stay on the card.
-        if (left.length < shown.agents.length)
-          store.save({
-            ...review,
-            agents: left.map(({ name: _name, ...a }) => a),
-            revision: review.revision + 1,
-          });
+        // What was archived stays archived; the agents not done stay on the card, as
+        // far as the card still holds them (a newer switch may have shrunk or replaced
+        // it meanwhile; a card gone is not made again).
+        const current = store.get(id);
+        if (current && left.length < shown.agents.length) {
+          const open = new Set(left.map((a) => a.assistantId));
+          const agents = current.agents.filter((a) => open.has(a.assistantId));
+          if (agents.length)
+            store.save({ ...current, agents, revision: current.revision + 1 });
+          else store.remove(id);
+        }
         throw error;
       } finally {
         deciding.delete(id);
