@@ -179,9 +179,10 @@ test("allowMerge with a merge queue enqueues once", async (t) => {
   assert.equal(f.items()[0].armed, "queue");
 });
 
-test("allowMerge with auto-merge enables it once", async (t) => {
+test("allowMerge with auto-merge enables it once while GitHub blocks the PR", async (t) => {
   const f = await sequenceFixture(t);
-  const pull = await awaitingMerge(f, { allowMerge: true });
+  const pending = [{ ...GREEN[0], status: "IN_PROGRESS", conclusion: null }];
+  const pull = await awaitingMerge(f, { allowMerge: true, pull: { contexts: pending } });
   for (let n = 0; n < 3; n += 1) await f.engine.run();
   assert.equal(mutations(f, "enablePullRequestAutoMerge").length, 1);
   assert.equal(merges(f).length, 0);
@@ -314,7 +315,8 @@ test("never merges with red required checks or changes requested", async (t) => 
 
 test("changes requested after auto-merge disarms it", async (t) => {
   const f = await sequenceFixture(t);
-  const pull = await awaitingMerge(f, { allowMerge: true });
+  const pending = [{ ...GREEN[0], status: "IN_PROGRESS", conclusion: null }];
+  const pull = await awaitingMerge(f, { allowMerge: true, pull: { contexts: pending } });
   await f.engine.run();
   assert.equal(pull.autoMerge, true);
   pull.reviewDecision = "CHANGES_REQUESTED";

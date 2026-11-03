@@ -314,7 +314,9 @@ test("merge sends the head sha", async (t) => {
 });
 
 test("auto-merge, enqueue and their reversals send their mutations", async (t) => {
-  const fake = await fakeGithubPulls(t, { pulls: [githubPull(8)] });
+  const fake = await fakeGithubPulls(t, {
+    pulls: [githubPull(8, { mergeStateStatus: "BLOCKED" })],
+  });
   const access = accessFor(fake);
   const pr = await readPullRequest(access, 8);
   fake.calls.length = 0;

@@ -17,6 +17,31 @@ export { PARK_REASONS } from "./sequence-reasons.js";
 
 const refusalReason = (what) => (what === "arm" ? "armRefused" : "mergeRefused");
 
+// GitHub blocks the merge for now (pending checks or reviews, or a branch behind its
+// base): the states in which it accepts auto-merge. A mergeable PR is merged directly.
+const ARMABLE_STATES = new Set(["BLOCKED", "BEHIND"]);
+
+/**
+ * How this pass may merge an open PR without changes requested: "queue" (green counted
+ * checks and reviews; a merge queue refuses direct merges), "merge" (mergeable now),
+ * "auto" (GitHub blocks it, enforces at least one required check and none has failed)
+ * or null (wait). Without a required check GitHub's auto-merge would ignore CI, so
+ * AgentPier waits until every check passes and merges directly.
+ */
+function mergeHow(snapshot, verdict, green) {
+  if (snapshot.repo.mergeQueue) return green ? "queue" : null;
+  if (verdict.mergeReady) return "merge";
+  const enforced = snapshot.checks.some((check) => check.required);
+  if (
+    snapshot.repo.autoMergeAllowed &&
+    enforced &&
+    verdict.checks !== "failed" &&
+    ARMABLE_STATES.has(snapshot.mergeStateStatus)
+  )
+    return "auto";
+  return null;
+}
+
 const copy = serverMessages.tickets;
 // Steps one advance may take: start, find the PR, merge, the next ticket's start…
 const MAX_STEPS = 12;
@@ -428,9 +453,9 @@ export class TicketSequenceEngine {
   }
 
   /**
-   * Arms the PR (merge queue, else auto-merge) or merges it when GitHub can do neither.
-   * GitHub enforces required checks and reviews for armed PRs; a direct merge only
-   * happens when the verdict says ready, and only for the head it saw. Each head is
+   * Merges the PR when GitHub reports it mergeable now, else arms it (merge queue, or
+   * auto-merge while GitHub blocks it) so GitHub merges it once it may. A direct merge
+   * happens only when the verdict says ready, and only for the head it saw. Each head is
    * armed at most once: a head found disarmed on GitHub (the owner, or a merge queue
    * that dropped it) is never armed again, and a refusal is never retried on it.
    */
@@ -461,18 +486,14 @@ export class TicketSequenceEngine {
         return this.park(ctx, item, "mergeDisarmed");
       item = this.save(ctx, item, { armedHead: null, armed: null });
     }
-    if (item.refused?.headSha === head) {
-      const ready = item.refused.what === "arm" ? green : verdict.mergeReady;
-      return ready ? this.park(ctx, item, refusalReason(item.refused.what)) : false;
-    }
-    const how = snapshot.repo.mergeQueue
-      ? "queue"
-      : snapshot.repo.autoMergeAllowed
-        ? "auto"
-        : null;
-    // A merge queue refuses a PR whose checks are not green yet.
-    if (how === "queue" && !green) return false;
-    if (!how && (!verdict.mergeReady || ctx.merged?.has(item.id))) return false;
+    const how = mergeHow(snapshot, verdict, green);
+    if (!how || (how === "merge" && ctx.merged?.has(item.id))) return false;
+    const what = how === "merge" ? "merge" : "arm";
+    // Auto-merge is armed while checks or reviews are pending; once they pass, a head
+    // GitHub refused to arm waits for nothing more and goes to the owner.
+    const ready = how === "auto" ? green : true;
+    if (item.refused?.headSha === head && item.refused.what === what)
+      return ready ? this.park(ctx, item, refusalReason(what)) : false;
     try {
       if (how === "queue") await this.forge.enqueue(ctx.github, snapshot);
       else if (how === "auto") await this.forge.enableAutoMerge(ctx.github, snapshot);
@@ -480,14 +501,12 @@ export class TicketSequenceEngine {
     } catch (error) {
       if (isTransient(error)) return this.skip(error, "merge");
       this.onError(error, "merge");
-      const what = how ? "arm" : "merge";
       const saved = this.save(ctx, item, {
         refused: { headSha: head, what, code: codeOf(error) },
       });
-      const ready = how ? green : verdict.mergeReady;
       return ready ? this.park(ctx, saved, refusalReason(what)) : false;
     }
-    if (how) {
+    if (how !== "merge") {
       this.save(ctx, item, { armed: how, armedHead: head });
       return false;
     }
