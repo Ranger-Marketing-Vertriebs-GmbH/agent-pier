@@ -651,9 +651,10 @@ neither the rule nor the ticket, and a tap opens the project's Tickets tab. Push
 grouped per project and source: while rules of one source in a project fail, the
 first failure pushes once, and further failing rules of that source, other error kinds
 and a source that stays down for many passes send nothing more. Once every rule of
-that source has had a successful pass, the next failure notifies again. These notices
-group per project apart from **A ticket sequence waits for you**, so neither replaces
-the other on a device. They go to the owner's devices only.
+that source has had a successful pass, the next failure notifies again. On a device
+these notices group per project and ticket source, apart from **A ticket sequence
+waits for you**, so a GitHub rule failure never replaces a Plane one and neither
+replaces a waiting sequence. They go to the owner's devices only.
 
 ### Interval
 

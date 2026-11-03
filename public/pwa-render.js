@@ -8,9 +8,9 @@
     `^/(?:|inbox(?:/(?:question|approval|gate|action|team)/${id})?|sessions/${id}/chat|pipelines/runs/${id}|agents(?:/${id}/(?:settings(?:\\?tab=capabilities&page=memory)?|chats/${id}))?|projects/${id}\\?tab=tickets|connections\\?section=github|settings/(?:github|notifications|updates))$`,
   );
   // The grouping tags of push-content.js pushSource: a session, run, agent chat, agent
-  // or a project's ticket sequences or label rules.
+  // or a project's ticket sequences, or its label rules of one ticket source.
   const tagPattern = new RegExp(
-    `^(?:(?:session|agent|chat|run|tickets|ticket-rules):)?${id}$`,
+    `^(?:(?:(?:session|agent|chat|run|tickets|ticket-rules):)?${id}|ticket-rules:${id}:(?:github|plane))$`,
   );
   const validId = (value) =>
     typeof value === "string" && new RegExp(`^${id}$`).test(value);

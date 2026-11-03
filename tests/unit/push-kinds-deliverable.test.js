@@ -68,7 +68,7 @@ const events = {
   "update-available": [{ label: "2.13.0" }],
   "update-failed": [{}],
   "ticket-needs-owner": [{ projectId: "p1" }],
-  "ticket-rule-failed": [{ projectId: "p1" }],
+  "ticket-rule-failed": [{ projectId: "p1" }, { projectId: "p1", ticketSource: "plane" }],
   test: [{}],
 };
 
@@ -210,4 +210,21 @@ test("update notices open the updates and replace each other; session notices th
     buildPayload(limited, { ...defaultPreferences(), level: "preview" }).preview,
     "You've hit your limit · resets 4pm",
   );
+});
+
+test("ticket-rule-failed groups per project and ticket source on a device", () => {
+  const kind = "ticket-rule-failed";
+  assert.throws(() =>
+    pushEvent({ kind, eventId: "r1", projectId: "p1", ticketSource: "gitlab" }),
+  );
+  const tags = ["github", "plane"].map((ticketSource) => {
+    const event = pushEvent({ kind, eventId: "r1", projectId: "p1", ticketSource });
+    assert.equal(event.ticketSource, ticketSource);
+    const payload = buildPayload(event, defaultPreferences());
+    assert.equal(payload.tag, `ticket-rules:p1:${ticketSource}`);
+    // The service worker keeps the tag, so one source never replaces the other.
+    assert.equal(worker.options(payload).tag, payload.tag);
+    return payload.tag;
+  });
+  assert.notEqual(tags[0], tags[1]);
 });
