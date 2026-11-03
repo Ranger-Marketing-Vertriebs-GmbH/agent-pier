@@ -28,7 +28,6 @@ const definition = {
     storageCleanup: true,
     mcpOAuth: true,
     imagePaste: false,
-    rateLimits: true,
     mcpSse: false,
     mcpStdioCwd: true,
   },

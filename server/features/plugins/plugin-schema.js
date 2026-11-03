@@ -140,7 +140,7 @@ export function marketplaceRow(item, tool) {
 export function pluginRow(item, tool, installed) {
   const id = string(item.pluginId || item.id);
   const parts = id.split("@");
-  const scope = string(item.scope) || (tool === "codex" ? "user" : "user");
+  const scope = string(item.scope) || "user";
   return {
     id,
     name: string(item.name) || parts[0],

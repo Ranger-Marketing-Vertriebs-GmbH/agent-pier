@@ -39,28 +39,28 @@ home, or the owning service (for example the `ProviderHistory` instance for `his
 
 ## Definition
 
-| Field                      | Meaning                                                                                          |
-| -------------------------- | ------------------------------------------------------------------------------------------------ |
-| `id`, `name`, `shortName`  | Id, full name (`Claude Code`) and short name (`Claude`)                                          |
-| `docsUrl`                  | Official installation and update guide                                                           |
-| `npmPackage`               | The npm package of older AgentPier-managed installations                                         |
-| `nativeInstaller`          | `{ url, shell, args, directory }` of the official install script                                 |
-| `updateArgs`               | Arguments of the CLI's own update command                                                        |
-| `minVersion`               | Minimum version for sessions (see [CLI updates](cli-updates.md#minimum-cli-versions))            |
-| `launchModes`              | `{ mode: args }`; `default` is always present                                                    |
-| `defaultLaunchMode`        | The mode new accounts start in                                                                   |
-| `unattendedModes`          | Modes that skip every approval                                                                   |
-| `loginArgs`                | Sign-in command (`[]`: the CLI signs in inside its own TUI)                                      |
-| `authStatusArgs`           | Command whose output `parseAuthStatus` reads                                                     |
-| `apiKeyEnv`                | Variable for API-key accounts                                                                    |
-| `resumeArgs(sessionId)`    | Arguments that resume a native session                                                           |
-| `configFormat`             | Format of the CLI's config files: `toml`, `json` (no comments) or `jsonc`                        |
-| `protocol`                 | Custom-endpoint protocol: `responses`, `messages` or `chatCompletions`                           |
-| `capabilities`             | `accountTransfer`, `transcriptCleanup`, `storageCleanup`, `mcpOAuth`, `imagePaste`, `rateLimits` |
-| `pipeline.permissionModes` | Permission modes a pipeline profile may choose                                                   |
+| Field                      | Meaning                                                                               |
+| -------------------------- | ------------------------------------------------------------------------------------- |
+| `id`, `name`, `shortName`  | Id, full name (`Claude Code`) and short name (`Claude`)                               |
+| `docsUrl`                  | Official installation and update guide                                                |
+| `npmPackage`               | The npm package of older AgentPier-managed installations                              |
+| `nativeInstaller`          | `{ url, shell, args, directory }` of the official install script                      |
+| `updateArgs`               | Arguments of the CLI's own update command                                             |
+| `minVersion`               | Minimum version for sessions (see [CLI updates](cli-updates.md#minimum-cli-versions)) |
+| `launchModes`              | `{ mode: args }`; `default` is always present                                         |
+| `defaultLaunchMode`        | The mode new accounts start in                                                        |
+| `unattendedModes`          | Modes that skip every approval                                                        |
+| `loginArgs`                | Sign-in command (`[]`: the CLI signs in inside its own TUI)                           |
+| `authStatusArgs`           | Command whose output `parseAuthStatus` reads                                          |
+| `apiKeyEnv`                | Variable for API-key accounts                                                         |
+| `resumeArgs(sessionId)`    | Arguments that resume a native session                                                |
+| `configFormat`             | Format of the CLI's config files: `toml`, `json` (no comments) or `jsonc`             |
+| `protocol`                 | Custom-endpoint protocol: `responses`, `messages` or `chatCompletions`                |
+| `capabilities`             | `accountTransfer`, `transcriptCleanup`, `storageCleanup`, `mcpOAuth`, `imagePaste`    |
+| `pipeline.permissionModes` | Permission modes a pipeline profile may choose                                        |
 
 `accountTransfer`, `transcriptCleanup` and `storageCleanup` are read by their consumers.
-`mcpOAuth`, `imagePaste` and `rateLimits` are declared; consumers still branch on the id
+`mcpOAuth` and `imagePaste` are declared; consumers still branch on the id
 (counted in the branch budget of `tests/unit/cli-id-lists.test.js`).
 
 `server/features/tools/` derives the minimum-version table (`MINIMUM_CLI_VERSIONS` in

@@ -62,7 +62,6 @@ export class UploadedImageInput {
   }
   async decorate(session, messages, directory) {
     if (
-      session.tool !== "codex" ||
       !directory ||
       !messages.some((message) => message.role === "user" && message.imageInput)
     )

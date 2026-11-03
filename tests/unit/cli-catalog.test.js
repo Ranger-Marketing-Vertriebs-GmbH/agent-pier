@@ -52,7 +52,6 @@ test("definitions carry every required field", () => {
       "storageCleanup",
       "mcpOAuth",
       "imagePaste",
-      "rateLimits",
       "mcpSse",
       "mcpStdioCwd",
     ]);
@@ -101,10 +100,6 @@ test("capabilities match today's partial lists", () => {
   assert.deepEqual(
     CODING_CLI_IDS.filter((id) => caps(id).imagePaste),
     ["claude"],
-  );
-  assert.deepEqual(
-    CODING_CLI_IDS.filter((id) => caps(id).rateLimits),
-    ["codex"],
   );
 });
 
