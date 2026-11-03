@@ -117,6 +117,8 @@ export class TicketSequenceEngine {
     this.timer = setTimeout(() => {
       this.timer = null;
       if (this.closed) return;
+      // From here on a nudge may step queues; before it only the first pass does.
+      this.started = true;
       const tick = () => this.run().catch((error) => this.onError(error, "pass"));
       tick();
       this.interval = setInterval(tick, this.intervalMs);
@@ -189,9 +191,10 @@ export class TicketSequenceEngine {
   /**
    * Runs an owner action (Retry, Mark done, Remove) on one queue while no step of that
    * queue runs, and steps the queue right after it. Resolves with the action's result
-   * as soon as the action ends; the steps that follow keep the lock.
+   * as soon as the action ends; the steps that follow keep the lock. `step: false`
+   * skips them: the queue is only nudged afterwards, once the engine has started.
    */
-  async exclusive(projectId, action) {
+  async exclusive(projectId, action, { step = true } = {}) {
     this.waiting.set(projectId, (this.waiting.get(projectId) ?? 0) + 1);
     try {
       for (let held = this.locks.get(projectId); held; held = this.locks.get(projectId))
@@ -209,18 +212,20 @@ export class TicketSequenceEngine {
       try {
         try {
           settle({ value: await action() });
-          lock.again = true;
+          if (step) lock.again = true;
         } catch (error) {
           // A refused action changed nothing; only nudges that came in step the queue.
           settle({ error });
         }
-        while (lock.again && !this.closed) {
+        while (step && lock.again && !this.closed) {
           lock.again = false;
           await this.steps(projectId);
         }
       } finally {
         this.release(projectId, lock);
       }
+      if (!step && this.started)
+        this.nudge(projectId).catch((e) => this.onError(e, "nudge"));
     })();
     const { value, error } = await outcome;
     if (error) throw error;
