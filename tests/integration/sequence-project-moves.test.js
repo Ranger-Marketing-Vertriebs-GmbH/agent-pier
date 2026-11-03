@@ -57,3 +57,38 @@ test("a move after the engine started nudges the moved queue", async (t) => {
   await movesFor(f, engine).moveProject("p9", "p1");
   await until(() => f.launched.length === 1);
 });
+
+test("a ticket active in both queues keeps the copy that is further along", async (t) => {
+  const f = await sequenceFixture(t);
+  const engine = f.build({ intervalMs: 60_000, initialDelayMs: 0 });
+  // p9 runs #12 with a session and waits for #14; p1 has #12 and #14 waiting, plus #13.
+  f.store.append("p9", f.repoPath, [entry(KEY), entry("acme/app#14")]);
+  const running = f.store.queue("p9").items[0];
+  f.store.patch("p9", running.id, { state: "running", sessionId: "s-live" });
+  f.store.append("p1", f.repoPath, [
+    entry(KEY),
+    entry("acme/app#13"),
+    entry("acme/app#14"),
+  ]);
+  const waiting14 = f.store.queue("p1").items[2];
+  await movesFor(f, engine).moveProject("p9", "p1");
+  const items = f.items();
+  assert.deepEqual(
+    items.map((item) => [item.key, item.state]),
+    [
+      [KEY, "running"],
+      ["acme/app#13", "waiting"],
+      ["acme/app#14", "waiting"],
+    ],
+  );
+  // The running copy replaced the waiting one; on a tie the target's copy stays.
+  assert.equal(items[0].id, running.id);
+  assert.equal(items[0].sessionId, "s-live");
+  assert.equal(items[2].id, waiting14.id);
+  for (const key of [KEY, "acme/app#13", "acme/app#14"])
+    assert.equal(
+      items.filter((item) => item.key === key && item.state !== "done").length,
+      1,
+    );
+  assert.equal(f.launched.length, 0);
+});
