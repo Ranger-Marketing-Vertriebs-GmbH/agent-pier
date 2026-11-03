@@ -3896,8 +3896,9 @@ archivedAt, lastActivityAt, busy}` (the owner's also `userId`), the main chat fi
   characters. The change reaches open lists as a `conversation` event; owner privacy hides a generated
   title exactly like any other.
 - Memory review after a model switch (`server/features/assistants/memory-review.js`):
-  when a switch starts fresh chats, each agent of the switch whose memory is on (the
-  switched agent and each temporary member that follows it) has its memory read by its
+  when a switch starts fresh chats, each agent of the switch whose memory is on and on
+  which the owner decides (not a user's own agent or a member of one; the switched
+  agent and each temporary member that follows it) has its memory read by its
   new model, in the background after the save. The input is `MEMORY.md`, `USER.md` and
   the agent's notes under `memory/` (not `memory/lead/`, `DREAMS.md` or
   `memory/.dreams/`), each as `=== <file>` and its text with every entry led by an id
@@ -3956,6 +3957,8 @@ archivedAt, lastActivityAt, busy}` (the owner's also `userId`), the main chat fi
   reason `model-switched` and both model names; the archived chat records the new one
   as `successorId`. A chat that is not free, or whose swap failed before it committed,
   goes into `DeferredSwaps` (table `assistant_deferred_swaps`, private in backups),
+  as does every chat of a save through a Gateway restart or a lead's member edit when
+  admission refuses (`swapNow(…, { admit: true })`),
   which the service's poll swaps once it is free; it is dropped when the chat, the
   agent or the member is gone or reassigned, and given up after 24 hours (a failed swap
   retries after one minute). Nothing is cancelled, no member ends. After the swaps
@@ -3967,10 +3970,13 @@ archivedAt, lastActivityAt, busy}` (the owner's also `userId`), the main chat fi
   `successorId` line (`redirectedTo`, `followUpChat`, at most 20 hops, cycle-checked)
   and deliver to the newest live chat; a delivery already accepted in a chat of the
   line is adopted there and not sent again. The fresh chat gets the quiet note
-  `redirected` ("This result was started in the previous chat."), once per delivery.
+  `redirected` ("This result was started in the previous chat."), once per delivery;
+  a person's own message (owner, user or Telegram, not a goal turn) is redirected
+  without it.
   Chats archived by the owner, by Restart main chat or by deletion have no successor.
 - Model hint dismissals: an older chat (not a main chat) records the model family its
-  turns run on (`family`); when it differs from the agent's current family the
+  turns run on (`family`), and a family switch stamps the earlier family on the
+  switched agents' unarchived non-main chats that have none yet (`swapNow`); when it differs from the agent's current family the
   conversation history carries `modelHint: true` for its person (owner privacy hides
   it from the owner for a user's chat like `longChat`). `POST
 /api/assistant-conversations/:id/model-hint-dismissal` (owner) and `POST
