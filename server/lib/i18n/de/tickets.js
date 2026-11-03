@@ -24,6 +24,7 @@ export const tickets = Object.freeze({
     "Die Aufgabe konnte der neuen Session nicht übergeben werden; die Session wurde beendet.",
   invalidSequence: "Die Ticketfolge ist ungültig.",
   invalidRule: "Die Label-Regel ist ungültig.",
+  invalidRuleLabel: "Das Label braucht 1 bis 50 Zeichen, ohne Kommas und Steuerzeichen.",
   ruleNotFound: "Die Label-Regel wurde nicht gefunden.",
   tooManyRules: "Dieses Projekt hat schon 20 Label-Regeln.",
   ruleExists: "Für diese Quelle und dieses Label gibt es schon eine Regel.",
@@ -34,6 +35,8 @@ export const tickets = Object.freeze({
   itemNotFound: "Das eingereihte Ticket wurde nicht gefunden.",
   itemBusy: "Dieses Ticket wird gerade bearbeitet.",
   githubRequired: "Ticketfolgen brauchen ein GitHub-Repository für dieses Projekt.",
+  ruleGithubRequired:
+    "Label-Regeln brauchen ein GitHub-Repository für dieses Projekt, auch für Plane-Tickets.",
   worktreeLeftover:
     "Der Ordner des letzten Versuchs liegt noch unter .worktrees/ und ist nicht sauber oder auf einem anderen Branch. Bitte den Ordner prüfen und entfernen, dann erneut versuchen.",
   prUnreadable:

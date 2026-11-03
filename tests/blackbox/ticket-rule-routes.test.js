@@ -145,9 +145,6 @@ test("create refuses an invalid body with 400 and the de message", async (t) => 
   for (const body of [
     ruleBody({ allowMerge: undefined }),
     ruleBody({ allowMerge: "false" }),
-    ruleBody({ label: "" }),
-    ruleBody({ label: "a,b" }),
-    ruleBody({ label: "x".repeat(51) }),
     ruleBody({ source: "jira" }),
     ruleBody({ paused: "yes" }),
     ruleBody({ kind: "robot" }),
@@ -156,6 +153,12 @@ test("create refuses an invalid body with 400 and the de message", async (t) => 
     const refused = await call(rules, { method: "POST", body });
     assert.equal(refused.status, 400, JSON.stringify(body));
     assert.equal(refused.body.error, copy.invalidRule);
+  }
+  // A bad label says what a label may hold.
+  for (const label of ["", "a,b", "x".repeat(51)]) {
+    const refused = await call(rules, { method: "POST", body: ruleBody({ label }) });
+    assert.equal(refused.status, 400, label);
+    assert.equal(refused.body.error, copy.invalidRuleLabel);
   }
   assert.deepEqual(f.application.ticketRuleStore.allRules(), []);
 });
