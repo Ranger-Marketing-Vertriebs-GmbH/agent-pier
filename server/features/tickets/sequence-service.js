@@ -13,6 +13,7 @@ import { repairDefaults } from "./sequence-fixes.js";
 import { findSession, worktreeName } from "./sequence-start.js";
 import { canonicalKey, sequenceInput } from "./ticket-start-input.js";
 import { TicketWorktrees } from "./ticket-worktree.js";
+import { labelKey } from "./ticket.js";
 
 const copy = serverMessages.tickets;
 const REPAIR_CACHE_MS = 60_000;
@@ -62,8 +63,9 @@ export function publicItem(item) {
 }
 
 export class TicketSequenceService {
-  constructor({ store, engine, tickets, sessions, worktrees, now = Date.now }) {
-    Object.assign(this, { store, engine, tickets, sessions, worktrees, now });
+  constructor({ store, engine, tickets, sessions, worktrees, rules, now = Date.now }) {
+    // `rules` is the TicketRuleStore: its pickups keep a ticket from starting twice.
+    Object.assign(this, { store, engine, tickets, sessions, worktrees, rules, now });
     this.repairCache = new Map();
   }
 
@@ -100,13 +102,19 @@ export class TicketSequenceService {
       if (!access) throw new TicketSourceError("notConnected");
       return { source, key: canonicalKey(source, key, access), access };
     });
-    if (
-      !checked.again &&
-      wanted.some(({ source, key }) =>
-        this.tickets.store.findStart(project.id, source, key),
-      )
-    )
-      throw problem(copy.alreadyStarted, 409);
+    const refuse = () => {
+      for (const { source, key } of wanted) {
+        if (this.tickets.isStarting(project.id, source, key))
+          throw problem(copy.alreadyStarting, 409);
+        if (
+          !checked.again &&
+          (this.tickets.store.findStart(project.id, source, key) ||
+            this.rules?.picked(project.id, source, key))
+        )
+          throw problem(copy.alreadyStarted, 409);
+      }
+    };
+    refuse();
     const entries = [];
     for (const { source, key, access } of wanted) {
       const ticket = await this.tickets.sources[source].get(access, key);
@@ -125,9 +133,93 @@ export class TicketSequenceService {
         },
       });
     }
+    // Again right before the append, in the same tick: a manual start or a rule may
+    // have taken a ticket while the tracker was read. The store refuses queued ones.
+    refuse();
     this.store.append(project.id, project.path, entries);
     this.engine.nudge(project.id).catch((error) => this.engine.onError(error, "nudge"));
     return this.view(project.id);
+  }
+
+  /**
+   * Appends the tickets a rule found, in the given order, inside the queue's lock. The
+   * rule is read again there: a rule deleted, paused or moved to another label while
+   * its source was read appends nothing for its old state. A ticket that was picked,
+   * queued (done included), started or is being started is skipped. Pickups are written
+   * only after the append; when that write fails, the queue item itself keeps the next
+   * pass from appending again, and that pass records the missing pickup.
+   */
+  async appendFromRule(project, ruleId, tickets) {
+    const outcome = await this.engine.exclusive(project.id, async () => {
+      const rule = this.rules.rule(project.id, ruleId);
+      if (!rule || rule.paused) return { added: [], full: false };
+      const label = labelKey(rule.label);
+      const fresh = [];
+      const repaired = [];
+      for (const ticket of tickets) {
+        if (ticket?.source !== rule.source || typeof ticket.key !== "string") continue;
+        if (!(ticket.labels ?? []).some((name) => labelKey(name) === label)) continue;
+        if (fresh.some((other) => other.key === ticket.key)) continue;
+        const { source, key } = ticket;
+        if (this.rules.picked(project.id, source, key)) continue;
+        const queued = this.store.find(project.id, source, key);
+        if (queued) {
+          if (queued.origin.kind === "rule")
+            repaired.push({
+              source,
+              key,
+              ruleId: queued.origin.ruleId,
+              itemId: queued.id,
+              at: queued.addedAt,
+            });
+          continue;
+        }
+        if (this.tickets.store.findStart(project.id, source, key)) continue;
+        if (this.tickets.isStarting(project.id, source, key)) continue;
+        fresh.push(ticket);
+      }
+      const chosen = fresh.slice(0, this.store.freeSlots(project.id));
+      const full = chosen.length < fresh.length;
+      let items = [];
+      if (chosen.length) {
+        const queue = this.store.append(
+          project.id,
+          project.path,
+          chosen.map((ticket) => ({
+            source: ticket.source,
+            key: ticket.key,
+            title: ticket.title,
+            url: ticket.url,
+            kind: rule.kind,
+            origin: { kind: "rule", ruleId: rule.id },
+            options: rule.options,
+          })),
+        );
+        // Appended items are active and last; pruning drops done items only.
+        items = queue.items.slice(-chosen.length);
+      }
+      const at = this.now();
+      const pickups = [
+        ...repaired,
+        ...items.map((item) => ({
+          source: item.source,
+          key: item.key,
+          ruleId: rule.id,
+          itemId: item.id,
+          at,
+        })),
+      ];
+      try {
+        this.rules.addPickups(project.id, pickups);
+      } catch (error) {
+        this.engine.onError(error, "rule-pickups");
+      }
+      return { added: items.map((item) => item.key), full };
+    });
+    // The lock already steps the queue after the append; this coalesces into it.
+    if (outcome.added.length)
+      this.engine.nudge(project.id).catch((error) => this.engine.onError(error, "nudge"));
+    return outcome;
   }
 
   /** A pipeline run changed (PipelineEngine onChange). */
