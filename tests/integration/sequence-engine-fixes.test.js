@@ -266,3 +266,20 @@ test("a merge queue that drops a red head re-arms it once a re-run is green", as
   assert.equal(f.items()[0].state, "awaiting-merge");
   assert.equal(f.notified.length, 0);
 });
+
+test("an auto-merge turned off while red is not armed again after a green re-run", async (t) => {
+  const f = await sequenceFixture(t);
+  const pending = [{ ...GREEN[0], status: "IN_PROGRESS", conclusion: null }];
+  const pull = await awaitingMerge(f, { allowMerge: true, pull: { contexts: pending } });
+  assert.equal(pull.autoMerge, true);
+  pull.autoMerge = false;
+  pull.contexts = RED;
+  await passes(f.engine);
+  assert.equal(f.items()[0].state, "awaiting-merge");
+  pull.contexts = GREEN;
+  await passes(f.engine);
+  assert.equal(mutations(f, "enablePullRequestAutoMerge").length, 1);
+  assert.equal(f.items()[0].state, "needs-owner");
+  assert.equal(f.items()[0].needsOwner.reason, "mergeDisarmed");
+  assert.equal(f.notified.length, 1);
+});
