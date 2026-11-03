@@ -178,3 +178,84 @@ test("start records are per project, newest first, capped at 500", (t) => {
     status: 400,
   });
 });
+
+test("secret files are only reachable for well-formed connection ids", (t) => {
+  const { dataDir, store } = fixture(t);
+  fs.writeFileSync(
+    path.join(dataDir, "ticket-sources.json"),
+    JSON.stringify({
+      version: 1,
+      connections: [
+        {
+          id: "../../evil",
+          name: "x",
+          baseUrl: "https://h",
+          workspaceSlug: "a",
+          createdAt: 1,
+        },
+      ],
+    }),
+  );
+  const crafted = new TicketStore({ dataDir });
+  const outside = path.join(dataDir, "evil.json");
+  fs.writeFileSync(outside, "keep");
+  assert.throws(() => crafted.updateConnection("../../evil", { token: "t" }), {
+    status: 404,
+  });
+  assert.throws(() => crafted.removeConnection("../../evil"), { status: 404 });
+  assert.equal(fs.readFileSync(outside, "utf8"), "keep");
+  assert.equal(store.token("../../evil"), null);
+});
+
+test("a failed save leaves no secret file behind", (t) => {
+  const { dataDir, store } = fixture(t);
+  store.save = () => {
+    throw new Error("disk full");
+  };
+  assert.throws(() => store.createConnection(valid), /disk full/);
+  assert.deepEqual(fs.readdirSync(path.join(dataDir, "ticket-source-secrets")), []);
+  assert.equal(store.listConnections().length, 0);
+});
+
+test("updateConnection and project links validate their input", (t) => {
+  const { store } = fixture(t);
+  const { id } = store.createConnection(valid);
+  for (const patch of [
+    { name: "" },
+    { baseUrl: "http://plane.example.com" },
+    { workspaceSlug: "../x" },
+    { token: "a\nb" },
+  ])
+    assert.throws(() => store.updateConnection(id, patch), { status: 400 });
+  assert.throws(() => store.updateConnection("missing", {}), { status: 404 });
+  assert.equal(store.connection(id).baseUrl, "https://api.plane.so");
+  for (const repoPath of ["", null, 5, "/a\0b"])
+    assert.throws(() => store.setProjectLink("p1", repoPath, {}), { status: 400 });
+  assert.throws(() => store.setProjectLink("", "/repo", {}), { status: 400 });
+});
+
+test("a corrupt ticket-sources.json loads empty and is kept aside", (t) => {
+  const { dataDir } = fixture(t);
+  const file = path.join(dataDir, "ticket-sources.json");
+  fs.writeFileSync(file, "{ not json");
+  const store = new TicketStore({ dataDir, now: () => 42 });
+  assert.deepEqual(store.listConnections(), []);
+  assert.equal(fs.readFileSync(`${file}.corrupt-42`, "utf8"), "{ not json");
+  store.createConnection(valid);
+  assert.equal(new TicketStore({ dataDir }).listConnections().length, 1);
+  fs.writeFileSync(file, "[]");
+  assert.deepEqual(new TicketStore({ dataDir }).listConnections(), []);
+});
+
+test("start records use the injected clock", (t) => {
+  const { dataDir } = fixture(t);
+  const store = new TicketStore({ dataDir, now: () => 777 });
+  const record = store.addStart({
+    projectId: "p",
+    source: "github",
+    key: "o/r#1",
+    kind: "session",
+    targetId: "s",
+  });
+  assert.equal(record.startedAt, 777);
+});

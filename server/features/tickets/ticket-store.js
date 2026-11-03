@@ -73,7 +73,7 @@ function planeLink(value) {
     inProgressStateId: value.inProgressStateId ?? null,
   };
 }
-function startRecord(value) {
+function startRecord(value, now = Date.now) {
   const invalid = () => problem(serverMessages.tickets.invalidStart);
   if (!value || typeof value !== "object") throw invalid();
   const text = (field, max) => {
@@ -94,7 +94,7 @@ function startRecord(value) {
     url: typeof value.url === "string" ? value.url.slice(0, 2048) : "",
     kind: value.kind,
     targetId: text("targetId", 200),
-    startedAt: Number.isFinite(value.startedAt) ? value.startedAt : Date.now(),
+    startedAt: Number.isFinite(value.startedAt) ? value.startedAt : now(),
     writeBack: {
       state: writeBack.state,
       ...(typeof writeBack.code === "string" && writeBack.code
@@ -114,7 +114,16 @@ export class TicketStore {
     this.now = now;
     this.file = path.join(dataDir, "ticket-sources.json");
     this.secretDir = privateDirectory(path.join(dataDir, "ticket-source-secrets"));
-    const saved = readJSON(this.file, {});
+    let saved;
+    try {
+      saved = readJSON(this.file, {});
+    } catch (error) {
+      if (!(error instanceof SyntaxError)) throw error;
+      // A damaged file starts empty; the unreadable copy is kept for the owner.
+      fs.renameSync(this.file, `${this.file}.corrupt-${this.now()}`);
+      saved = {};
+    }
+    if (!saved || typeof saved !== "object" || Array.isArray(saved)) saved = {};
     this.connections = Array.isArray(saved.connections) ? saved.connections : [];
     this.projects = Array.isArray(saved.projects) ? saved.projects : [];
     this.startRecords = Array.isArray(saved.starts) ? saved.starts : [];
@@ -128,6 +137,8 @@ export class TicketStore {
     });
   }
   secretFile(id) {
+    if (typeof id !== "string" || !connectionId.test(id))
+      throw problem(serverMessages.tickets.connectionNotFound, 404);
     return path.join(this.secretDir, `${id}.json`);
   }
   publicConnection(item) {
@@ -163,7 +174,13 @@ export class TicketStore {
     const item = { id: randomUUID(), ...checked, createdAt: this.now() };
     writePrivate(this.secretFile(item.id), { token: secret });
     this.connections.push(item);
-    this.save();
+    try {
+      this.save();
+    } catch (error) {
+      this.connections.pop();
+      fs.rmSync(this.secretFile(item.id), { force: true });
+      throw error;
+    }
     return this.publicConnection(item);
   }
   updateConnection(id, { name, baseUrl, workspaceSlug, token } = {}) {
@@ -233,7 +250,7 @@ export class TicketStore {
     return this.starts(projectId).find((r) => r.source === source && r.key === key);
   }
   addStart(record) {
-    const saved = startRecord(record);
+    const saved = startRecord(record, this.now);
     this.startRecords.push(saved);
     if (this.startRecords.length > MAX_STARTS)
       this.startRecords = [...this.startRecords]
@@ -246,12 +263,15 @@ export class TicketStore {
     const index = this.startRecords.findIndex((record) => record.id === id);
     if (index < 0) throw problem(serverMessages.tickets.startNotFound, 404);
     const current = this.startRecords[index];
-    const next = startRecord({
-      ...current,
-      writeBack: patch.writeBack ?? current.writeBack,
-      title: patch.title ?? current.title,
-      targetId: patch.targetId ?? current.targetId,
-    });
+    const next = startRecord(
+      {
+        ...current,
+        writeBack: patch.writeBack ?? current.writeBack,
+        title: patch.title ?? current.title,
+        targetId: patch.targetId ?? current.targetId,
+      },
+      this.now,
+    );
     this.startRecords[index] = next;
     this.save();
     return next;

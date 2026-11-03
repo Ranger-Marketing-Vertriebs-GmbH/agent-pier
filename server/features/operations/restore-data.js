@@ -156,11 +156,19 @@ export async function mapProjects(directory, projectMap = {}) {
   }
   const ticketsFile = path.join(directory, "ticket-sources.json"),
     ticketSources = readJson(ticketsFile, null);
-  if (ticketSources?.projects?.length) {
-    ticketSources.projects = ticketSources.projects.map((link) => ({
-      ...link,
-      repoPath: mappings.find((m) => m.oldCwd === link.repoPath)?.cwd || link.repoPath,
-    }));
+  if (ticketSources && typeof ticketSources === "object") {
+    const byId = (id) => mappings.find((m) => m.from === id)?.to || id;
+    if (Array.isArray(ticketSources.projects))
+      ticketSources.projects = ticketSources.projects.map((link) => ({
+        ...link,
+        projectId: byId(link.projectId),
+        repoPath: mappings.find((m) => m.oldCwd === link.repoPath)?.cwd || link.repoPath,
+      }));
+    if (Array.isArray(ticketSources.starts))
+      ticketSources.starts = ticketSources.starts.map((start) => ({
+        ...start,
+        projectId: byId(start.projectId),
+      }));
     atomic(ticketsFile, ticketSources);
   }
   restoreArtifacts(directory, mappings);
