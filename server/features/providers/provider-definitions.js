@@ -1,7 +1,7 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { endpointModel } from "./endpoint-config.js";
-import { CODING_CLI_IDS } from "../clis/catalog.js";
+import { CODING_CLI_IDS, cliDefinition } from "../clis/catalog.js";
 
 const TOOLS = CODING_CLI_IDS;
 const ZAI_ENDPOINTS = {
@@ -63,11 +63,12 @@ export const CATALOG_PROVIDERS = Object.freeze(
     Object.entries(PROVIDERS).filter(([, value]) => value.kind === "catalog"),
   ),
 );
-export const TOOL_PROTOCOL = Object.freeze({
-  claude: "messages",
-  codex: "responses",
-  opencode: "chatCompletions",
-});
+// Alphabetical key order (claude, codex, opencode) is kept from the former literal map.
+export const TOOL_PROTOCOL = Object.freeze(
+  Object.fromEntries(
+    [...CODING_CLI_IDS].sort().map((id) => [id, cliDefinition(id).protocol]),
+  ),
+);
 
 export function providerDefinition(id) {
   if (typeof id !== "string" || !Object.hasOwn(PROVIDERS, id))
