@@ -77,7 +77,7 @@ test("owner creates, lists, edits, pauses and deletes a rule", async (t) => {
   assert.equal(rule.paused, false);
   assert.equal(rule.picked, 0);
   assert.deepEqual(rule.options, { allowMerge: false, session: SESSION });
-  assert.deepEqual(rule.status, { checkedAt: null, error: null });
+  assert.deepEqual(rule.status, { checkedAt: null, error: null, capped: false });
   assert.equal("notified" in rule.status, false);
   assert.equal("projectId" in rule, false);
   assert.equal(requested.mock.callCount(), 1);

@@ -8,7 +8,9 @@ const copy = serverMessages.tickets;
 /**
  * A label rule as the owner routes and the `tickets.rules` topic show it: its options in
  * full (the dialog edits them, they hold no secret), how many tickets it picked up and
- * its poll status as a code. Whether an error was already pushed stays on the server.
+ * its poll status as a code. `capped`: the last pass read only the first open tickets
+ * of a large source, so labelled ones beyond them were not seen. Whether an error was
+ * already pushed stays on the server.
  */
 function publicRule(rule, picked) {
   return {
@@ -21,7 +23,11 @@ function publicRule(rule, picked) {
     createdAt: rule.createdAt,
     updatedAt: rule.updatedAt,
     picked,
-    status: { checkedAt: rule.status.checkedAt, error: rule.status.error },
+    status: {
+      checkedAt: rule.status.checkedAt,
+      error: rule.status.error,
+      capped: rule.status.capped === true,
+    },
   };
 }
 
