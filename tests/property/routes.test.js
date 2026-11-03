@@ -48,6 +48,7 @@ test("generated projects AgentBus links retain the project and pagination indepe
         messagePage: page,
         pipelineStatus: "",
         pipelinePage: 1,
+        ticketLabel: "",
       };
       assert.deepEqual(parse(routePath(route)), route);
     }),
@@ -99,6 +100,7 @@ test("generated projects knowledge links retain repository scope, Unicode search
           messagePage: 1,
           pipelineStatus: "",
           pipelinePage: 1,
+          ticketLabel: "",
         };
         assert.deepEqual(parse(routePath(route)), route);
       },
