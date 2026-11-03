@@ -7,7 +7,10 @@ import { fixtureModel } from "../helpers/user-agents.js";
 import { spikeAnswers, spikeFiles } from "../fixtures/memory-review-spike.js";
 import { memoryReviewMethod } from "../../server/features/assistants/team-plugin/memory-review.js";
 import { memoryReviewsSettled } from "../../server/features/assistants/memory-review.js";
-import { reviewInstructions } from "../../server/features/assistants/memory-review-prompt.js";
+import {
+  reviewInput,
+  reviewInstructions,
+} from "../../server/features/assistants/memory-review-prompt.js";
 
 // OpenRouter names the family before the slash: the fixture runs openai/gpt-4.1-mini.
 const otherFamily = (agent) => ({
@@ -77,17 +80,19 @@ async function reviewed(t, answers, { withMemory = true } = {}) {
 }
 
 test("a switch reviews memory without chat history", async (t) => {
-  const { service, agent, reviews, settled } = await reviewed(t, [
-    spikeAnswers.grokCurly,
-  ]);
+  const { service, agent, reviews, settled } = await reviewed(t, [spikeAnswers.grok]);
   // One call on the agent's model: the task and the memory files, nothing else.
   assert.equal(reviews.length, 1);
   const [request] = reviews;
   assert.deepEqual(Object.keys(request).sort(), ["agentId", "input", "instructions"]);
   assert.equal(request.agentId, service.store.getAssistant(agent.id).runtimeAgentId);
   assert.equal(request.instructions, reviewInstructions);
-  assert.ok(request.input.startsWith("=== MEMORY.md\n# Memory\n"));
-  assert.ok(request.input.includes("\n\n=== memory/2026-11-02.md\n# 2026-11-02\n"));
+  // Each entry carries the id the answer names it by.
+  assert.ok(request.input.startsWith("=== MEMORY.md\n# Memory\n\n- [M1] Der Besitzer"));
+  assert.ok(
+    request.input.includes("\n\n=== memory/2026-11-02.md\n# 2026-11-02\n\n- [N1.1] "),
+  );
+  assert.equal(request.input, reviewInput(spikeFiles));
   for (const absent of ["keylogger for my Mac", "Dream diary", "lead's memory", "Corpus"])
     assert.equal(request.input.includes(absent), false, absent);
   // The five limits the earlier model set itself are found; owner rules stay.
@@ -110,7 +115,7 @@ test("a switch reviews memory without chat history", async (t) => {
 test("one malformed answer is asked again", async (t) => {
   const { reviews, settled } = await reviewed(t, [
     spikeAnswers.grokUnescaped,
-    spikeAnswers.grokCurly,
+    spikeAnswers.grok,
   ]);
   assert.equal(reviews.length, 2);
   assert.deepEqual(reviews[1], reviews[0]);

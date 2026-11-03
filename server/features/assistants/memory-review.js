@@ -14,13 +14,11 @@ import { memoryReviewInputLimit } from "./team-plugin/memory-review.js";
  * decides (onReviewResults).
  */
 
-// The most input one review sends, file headers included, within the plugin's
-// limit. MEMORY.md and USER.md go first, then the notes newest first; a file that
+// The most input one review sends, file headers and entry ids included, within the
+// plugin's limit. MEMORY.md and USER.md go first, then the notes newest first; a file that
 // does not fit whole stays out and the review says `truncated`.
 export const reviewBudget = Math.min(60000, memoryReviewInputLimit);
 const rootFiles = ["MEMORY.md", "USER.md"];
-// The room a file takes in the input besides its text (reviewInput).
-const framing = (name) => `=== ${name}\n\n\n`.length;
 
 // A note of the agent's own: not the Dream Diary, the lead's mirrored memory
 // (reviewed with the lead) or dreaming's corpus.
@@ -56,7 +54,7 @@ export class MemoryReview {
       const request = {
         agentId: agent.runtimeAgentId,
         instructions: reviewInstructions,
-        input: reviewInput(files),
+        input: reviewInput(files, runtimeIdOf(agent)),
       };
       const ask = async () =>
         parseReview(
@@ -84,21 +82,23 @@ export class MemoryReview {
   // The memory files with text, as much as the budget holds: `{ files, truncated }`.
   // Hermes keeps its memory in MEMORY.md and USER.md alone.
   async files(agent) {
+    const runtime = runtimeIdOf(agent);
     const files = [];
     let left = reviewBudget;
     let truncated = false;
+    // A file goes in when the whole input with it, as sent, fits.
     const add = (name, content) => {
       if (!content.trim()) return;
-      const size = content.length + framing(name);
-      if (size > left) truncated = true;
+      const size = reviewInput([...files, { name, content }], runtime).length;
+      if (size > reviewBudget) truncated = true;
       else {
         files.push({ name, content });
-        left -= size;
+        left = reviewBudget - size;
       }
     };
     for (const name of rootFiles)
       add(name, (await this.memory.read(agent.id, name)).content);
-    if (runtimeIdOf(agent) === "hermes") return { files, truncated };
+    if (runtime === "hermes") return { files, truncated };
     for (const note of await this.notes(agent)) {
       // A UTF-8 byte is at most one character: a note far beyond the room is not read.
       if (note.size / 3 > left) {
