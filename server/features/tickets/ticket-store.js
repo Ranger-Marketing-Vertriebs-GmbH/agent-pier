@@ -249,6 +249,32 @@ export class TicketStore {
     this.save();
     return this.projectLink(projectId);
   }
+  /** Every project id with a link or a start record. */
+  projectIds() {
+    return new Set([
+      ...this.projects.map((link) => link.projectId),
+      ...this.startRecords.map((record) => record.projectId),
+    ]);
+  }
+  /** Drops a project's link and start records; false when it had none. */
+  forgetProject(projectId) {
+    const projects = this.projects.filter((link) => link.projectId !== projectId);
+    const starts = this.startRecords.filter((record) => record.projectId !== projectId);
+    if (
+      projects.length === this.projects.length &&
+      starts.length === this.startRecords.length
+    )
+      return false;
+    const before = [this.projects, this.startRecords];
+    [this.projects, this.startRecords] = [projects, starts];
+    try {
+      this.save();
+    } catch (error) {
+      [this.projects, this.startRecords] = before;
+      throw error;
+    }
+    return true;
+  }
   starts(projectId) {
     return this.startRecords
       .filter((record) => record.projectId === projectId)

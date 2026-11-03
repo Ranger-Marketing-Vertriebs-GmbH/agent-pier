@@ -278,6 +278,14 @@ export async function createApplication(config) {
   });
   whenListening.push(() => {
     services.githubTokenMonitor.start();
+    // Drops the ticket links, queues and rules of projects removed since the last run.
+    services.tickets
+      .forgetGoneProjects()
+      .catch((error) =>
+        console.error(
+          `AgentPier could not clean up the tickets of removed projects: ${error?.code || "unknown error"}`,
+        ),
+      );
     // Resumes the saved ticket sequences and watches their pull requests every 60 s.
     services.ticketSequenceEngine.start();
     // Polls the label rules 30 s after start-up, then every 10 min (config.ticketRules).
