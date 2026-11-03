@@ -66,6 +66,7 @@ test("by default only what needs the owner and what went wrong notifies", () => 
     "update-available": false,
     "update-failed": true,
     "ticket-needs-owner": true,
+    "ticket-rule-failed": true,
     telegram: false,
   });
   const now = Date.UTC(2026, 9, 31, 12);
@@ -223,6 +224,15 @@ test("a ticket needing the owner notifies by default and is held by quiet hours"
   const kind = "ticket-needs-owner";
   assert.equal(wantsEvent(quiet("22:00", "07:00"), { kind }, utc("23:30")), false);
   assert.equal(wantsEvent(defaultPreferences(), { kind }, utc("12:00")), true);
+});
+
+test("ticket-rule-failed defaults on and is not held by quiet hours", () => {
+  const kind = "ticket-rule-failed";
+  assert.equal(defaultPreferences().events[kind], true);
+  assert.equal(wantsEvent(defaultPreferences(), { kind }, utc("12:00")), true);
+  const off = defaultPreferences();
+  off.events[kind] = false;
+  assert.equal(wantsEvent(off, { kind }, utc("12:00")), false);
 });
 
 test("a device receives only the events it chose", () => {

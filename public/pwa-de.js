@@ -102,6 +102,11 @@ self.agentPierNotificationCopy = {
       body: "Eine Ticketfolge wartet auf dich.",
       name: "Ticket braucht dich",
     },
+    "ticket-rule-failed": {
+      title: "AgentPier: Eine Label-Regel findet ihre Tickets nicht",
+      body: "Eine Label-Regel eines Projekts kann ihre Tickets nicht lesen. Öffne den Tab Tickets, um den Grund zu sehen.",
+      name: "Label-Regel fehlgeschlagen",
+    },
     "update-available": {
       title: "AgentPier: Update verfügbar",
       body: "Eine neue AgentPier-Version ist verfügbar. Öffne die Updates, um sie zu installieren.",

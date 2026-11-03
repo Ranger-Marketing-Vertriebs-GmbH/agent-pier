@@ -89,6 +89,8 @@ export const pushKinds = [
   "update-failed",
   // A ticket sequence is parked and waits for the owner (needs-owner).
   "ticket-needs-owner",
+  // A label rule cannot read its tickets; one notice per error kind until it clears.
+  "ticket-rule-failed",
   "test",
 ];
 export const inboxItemTypes = ["question", "approval", "gate", "action", "team"];
@@ -116,6 +118,9 @@ const agentKinds = [
   "agent-approval",
 ];
 
+// Kinds about one project's tickets; a notice opens its Tickets tab.
+const ticketKinds = ["ticket-needs-owner", "ticket-rule-failed"];
+
 // Kinds about no session, run or agent.
 const idlessKinds = [
   "test",
@@ -131,7 +136,7 @@ export function pushPayload(input) {
   const payload = { kind: input.kind, eventId: pushId(input.eventId) };
   if (input.kind === "telegram-revocation") {
     if (input.assistantId !== undefined) payload.assistantId = pushId(input.assistantId);
-  } else if (input.kind === "ticket-needs-owner")
+  } else if (ticketKinds.includes(input.kind))
     payload.projectId = pushId(input.projectId);
   else if (input.kind.startsWith("pipeline-")) payload.runId = pushId(input.runId);
   else if (agentKinds.includes(input.kind)) {

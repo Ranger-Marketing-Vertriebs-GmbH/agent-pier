@@ -94,6 +94,7 @@ export const notificationCopy = {
     "session-limited": "Session hat ihr Nutzungslimit erreicht",
     "session-resume-failed": "Session konnte nicht fortgesetzt werden",
     "ticket-needs-owner": "Eine Ticketfolge wartet auf dich",
+    "ticket-rule-failed": "Eine Label-Regel findet ihre Tickets nicht",
     "update-available": "Update verfügbar",
     "update-failed": "Update fehlgeschlagen",
     telegram: "Auch was Telegram schon zugestellt hat",

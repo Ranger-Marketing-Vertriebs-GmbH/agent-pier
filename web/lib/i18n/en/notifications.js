@@ -92,6 +92,7 @@ export const notificationCopy = {
     "session-limited": "Session reached its usage limit",
     "session-resume-failed": "Session could not be resumed",
     "ticket-needs-owner": "A ticket sequence waits for you",
+    "ticket-rule-failed": "A label rule cannot read its tickets",
     "update-available": "Update available",
     "update-failed": "Update failed",
     telegram: "Also what Telegram delivered",

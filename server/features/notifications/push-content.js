@@ -123,7 +123,7 @@ export function pushLink(event) {
   if (event.kind === "disk-space") return "/";
   if (event.kind === "update-available" || event.kind === "update-failed")
     return "/settings/updates";
-  if (event.kind === "ticket-needs-owner")
+  if (event.kind === "ticket-needs-owner" || event.kind === "ticket-rule-failed")
     return `/projects/${segment(event.projectId)}?tab=tickets`;
   if (event.kind === "test") return "/settings/notifications";
   if (event.kind === "agent-memory-review-failed")
@@ -149,7 +149,8 @@ export function pushSource(event) {
   if (event.kind === "update-available" || event.kind === "update-failed")
     return "updates";
   // A project's newer "ticket needs you" notice replaces its older one.
-  if (event.kind === "ticket-needs-owner") return `tickets:${event.projectId}`;
+  if (event.kind === "ticket-needs-owner" || event.kind === "ticket-rule-failed")
+    return `tickets:${event.projectId}`;
   if (event.sessionId) return `session:${event.sessionId}`;
   if (event.runId) return `run:${event.runId}`;
   if (event.assistantId && event.conversationId && event.kind !== "telegram-revocation")
