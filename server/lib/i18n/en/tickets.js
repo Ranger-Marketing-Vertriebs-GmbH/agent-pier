@@ -15,6 +15,8 @@ export const tickets = Object.freeze({
   codingCliRequired: "A ticket can only be started with a coding CLI.",
   alreadyStarting: "This ticket is being started right now.",
   alreadyStarted: "This ticket was already started. Confirm to start it again.",
+  taskNotDelivered:
+    "The task could not be handed to the new session; the session was stopped.",
   source: Object.freeze({
     unauthorized: "The ticket source rejected the credentials. Please check the token.",
     forbidden: "The ticket source token has no permission for this.",
