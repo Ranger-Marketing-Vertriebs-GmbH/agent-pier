@@ -223,8 +223,13 @@ sessions and other projects' sequences go on as usual. A pipeline ticket waits i
 project's [run queue](pipelines.md#run-queue) like any other item, so the project's
 **Concurrent runs** limit applies to it.
 
-Each row's ⋯ menu offers **Open session** or **Open run**, **Open pull request** once
+Each row's ⋯ menu offers **Open session** or **Open run**, **Open repair session** while
+a pipeline ticket has a [repair session](#fix-attempts), **Open pull request** once
 there is one, and the [owner actions](#owner-actions).
+
+A done row names what is left open: a failed ["Done" write-back](#write-back-done)
+("Merged, but not marked done: …"), or a pull request that may still be armed because
+you marked the ticket done while GitHub could not be read.
 
 ### Worktrees and branches
 
@@ -240,7 +245,9 @@ the repository's `.git/info/exclude`; it never edits `.gitignore`.
 
 The session's task is the ticket, quoted as untrusted text as for a single start (see
 [The task text](#the-task-text)), plus its branch and base: commit there, push the
-branch, open a pull request against the base and keep fixing it until it is merged.
+branch, open a pull request against the base, then watch the checks and reviews and fix
+problems. The task tells the session not to merge the pull request or turn on
+auto-merge itself: AgentPier merges it when the sequence allows it.
 The session is named `<key> · <title>`. Sessions of a sequence run with AgentBus and
 AgentPier's tools and without SSH accesses.
 
@@ -258,8 +265,10 @@ you no longer need them.
   ticket's branch, from this repository (not a fork), opened no earlier than five
   minutes before the ticket started. An older pull request of an earlier attempt or a
   branch that merely looks similar never counts. While there is none, the ticket stays
-  **Running**; when its session has stopped or is gone, the ticket waits for you
-  (`sessionEnded`).
+  **Running**. It waits for you (`noPullRequest`) when its session has stopped, has
+  been idle for 30 minutes, or has run for six hours without a pull request (counted
+  from the start, or from the **Retry** that resumed it); when its session is gone, it
+  waits for you with `sessionEnded`.
 - **Pipeline tickets**: the pull request the run reports. A run that completes without
   one, or with one in another repository, waits for you (`noPullRequest`); a failed or
   cancelled run, or a queue item you deleted, waits for you too (`runFailed`).
@@ -274,15 +283,26 @@ AgentPier merges a sequence's pull requests itself only when the sequence allows
 It arms each pull request head at most once:
 
 - In a repository with a merge queue, it adds the pull request to the queue once the
-  counted checks are green.
-- Otherwise, it enables auto-merge, even while checks are still running.
-- When the repository has neither, it merges directly once the pull request is ready,
-  and only the head it checked.
+  counted checks are green and no review blocks it.
+- Otherwise, when GitHub reports the pull request mergeable now (see the direct merge
+  below), AgentPier merges it directly, and only the head it checked.
+- While GitHub blocks the merge (merge state `BLOCKED` or `BEHIND`, for pending checks
+  or a missing review), AgentPier enables auto-merge when the repository allows it,
+  the pull request has at least one required check and none of the counted checks
+  has failed. GitHub then merges once its rules pass.
+- Without a required check, GitHub's auto-merge would ignore the CI, so AgentPier does
+  not arm it: it waits until every check is green and the reviews allow it, then merges
+  directly. A failing check therefore never merges, even after an approval.
 
 AgentPier never re-arms a head that was disarmed on GitHub, for example by you or by a
 merge queue that dropped the pull request. The ticket then waits for you, and so does
 the rest of the sequence. If GitHub refuses to arm or merge a head that is otherwise
-ready, the ticket also waits for you.
+ready, the ticket also waits for you. A head GitHub refused to arm is still merged
+directly once it becomes mergeable.
+
+A parked ticket keeps an armed pull request armed: GitHub may still merge it, for
+example after a re-run of its checks turns green. The ticket then stays **Needs you**
+until you choose **Retry**, which sees the merge and moves the sequence on.
 
 AgentPier reads each pull request about once a minute. When a review requests changes,
 AgentPier turns auto-merge off or removes the pull request from the merge queue on its
@@ -336,34 +356,37 @@ session hears about it once per new head.
 
 A ticket waits for you (**Needs you**) with one of these reasons:
 
-| Reason                                                                    | When                                                                                                                                                                                                  |
-| ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The project has no GitHub access. (`githubRequired`)                      | The project's GitHub host has no token profile.                                                                                                                                                       |
-| The ticket source is no longer connected. (`sourceUnavailable`)           | The ticket's GitHub or Plane source was disconnected.                                                                                                                                                 |
-| The ticket could not be found. (`ticketUnavailable`)                      | The tracker no longer has the ticket.                                                                                                                                                                 |
-| The ticket could not be started. (`startFailed`)                          | The worktree, the session or the run could not be created (for example no remote default branch, or a folder that exists).                                                                            |
-| AgentPier restarted while starting this ticket. (`startInterrupted`)      | A restart cut a start off before AgentPier knew its session or run, and no session of the ticket runs in its worktree. AgentPier never launches a second one on its own.                              |
-| The task did not reach the session. (`taskNotDelivered`)                  | The session started but did not take its task; AgentPier stops it.                                                                                                                                    |
-| The session ended without a pull request. (`sessionEnded`)                | The ticket's session stopped or is gone and no pull request exists.                                                                                                                                   |
-| The pipeline run failed. (`runFailed`)                                    | The run failed or was cancelled, its queue item failed, or the item is gone.                                                                                                                          |
-| The work ended without a pull request. (`noPullRequest`)                  | The run completed without a pull request, or with one outside this repository.                                                                                                                        |
-| The pull request was closed without merging. (`prClosed`)                 | Someone closed the pull request.                                                                                                                                                                      |
-| Auto-merge or the merge queue was turned off on GitHub. (`mergeDisarmed`) | A head AgentPier armed was disarmed on GitHub (see [Merging](#merging)).                                                                                                                              |
-| GitHub refused auto-merge or the merge queue. (`armRefused`)              | GitHub refused to arm a head that is otherwise ready.                                                                                                                                                 |
-| GitHub refused the merge. (`mergeRefused`)                                | GitHub refused the direct merge of a ready head.                                                                                                                                                      |
-| The pull request stayed red for 30 minutes. (`idle`)                      | Checks failed or changes were requested, and the session that should fix it was idle, stopped or gone for 30 minutes, counted from the later of the last fix request and the start of the idle phase. |
-| Checks failed three times. (`failedRounds`)                               | The counted checks of a third head failed.                                                                                                                                                            |
-| GitHub could not be reached for 30 minutes. (`forgeUnreachable`)          | Reading GitHub, or fetching the pull request branch for a repair, failed for 30 minutes in a row. Shorter outages and rate limits only delay the next read.                                           |
-| No coding session settings for the repair session. (`repairUnconfigured`) | A pipeline ticket needs a repair, but the sequence has no **Repair session** settings and the project has no coding session to copy them from.                                                        |
-| The repair session could not start. (`repairFailed`)                      | The repair worktree or session could not be created.                                                                                                                                                  |
+| Reason                                                                                             | When                                                                                                                                                                                                                                             |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| GitHub access is missing or was refused. (`githubRequired`)                                        | The project's GitHub host has no token profile, or GitHub answered 401 or 403 (not a rate limit). A running or waiting-for-merge ticket parks only after 30 minutes of this, like `forgeUnreachable`.                                            |
+| The ticket source is no longer connected. (`sourceUnavailable`)                                    | The ticket's GitHub or Plane source was disconnected.                                                                                                                                                                                            |
+| The ticket could not be found. (`ticketUnavailable`)                                               | The tracker no longer has the ticket.                                                                                                                                                                                                            |
+| The ticket could not be started. (`startFailed`)                                                   | The worktree, the session or the run could not be created (for example no remote default branch, or a folder that exists).                                                                                                                       |
+| AgentPier restarted while starting this ticket. (`startInterrupted`)                               | A restart cut a start off before AgentPier knew its session or run, and no session of the ticket runs in its worktree. AgentPier never launches a second one on its own.                                                                         |
+| The task did not reach the session. (`taskNotDelivered`)                                           | The session started but did not take its task; AgentPier stops it.                                                                                                                                                                               |
+| The session ended without a pull request. (`sessionEnded`)                                         | The ticket's session is gone and no pull request exists.                                                                                                                                                                                         |
+| The pipeline run failed. (`runFailed`)                                                             | The run failed or was cancelled, its queue item failed, or the item is gone.                                                                                                                                                                     |
+| No pull request: the work ended, stayed quiet for 30 minutes or ran for 6 hours. (`noPullRequest`) | The run completed without a pull request, or with one outside this repository; or the ticket's session stopped, was idle for 30 minutes or ran for six hours without one.                                                                        |
+| The pull request was closed without merging. (`prClosed`)                                          | Someone closed the pull request.                                                                                                                                                                                                                 |
+| Auto-merge or the merge queue was turned off on GitHub. (`mergeDisarmed`)                          | A head AgentPier armed was disarmed on GitHub (see [Merging](#merging)).                                                                                                                                                                         |
+| GitHub refused auto-merge or the merge queue. (`armRefused`)                                       | GitHub refused to arm a head that is otherwise ready.                                                                                                                                                                                            |
+| GitHub refused the merge. (`mergeRefused`)                                                         | GitHub refused the direct merge of a ready head.                                                                                                                                                                                                 |
+| The pull request stayed red for 30 minutes. (`idle`)                                               | Checks failed or changes were requested, and the session that should fix it was idle, stopped or gone for 30 minutes, counted from the later of the last fix request and the start of the idle phase.                                            |
+| Checks failed three times. (`failedRounds`)                                                        | The counted checks of a third head failed.                                                                                                                                                                                                       |
+| GitHub could not be reached for 30 minutes. (`forgeUnreachable`)                                   | Reading GitHub, or fetching the pull request branch for a repair, failed for 30 minutes in a row. Shorter outages and rate limits only delay the next read. When the last failure was missing or refused access, the reason is `githubRequired`. |
+| No coding session settings for the repair session. (`repairUnconfigured`)                          | A pipeline ticket needs a repair, but the sequence has no **Repair session** settings and the project has no coding session to copy them from.                                                                                                   |
+| The repair session could not start. (`repairFailed`)                                               | The repair worktree or session could not be created, or the pull request branch has characters outside `A-Z a-z 0-9 . _ / -`.                                                                                                                    |
 
 ### Owner actions
 
 A ticket that waits for you blocks the rest of its sequence until you act on it:
 
 - **Retry** starts the fix counters, the merge memory and the 30-minute clocks again.
-  An open (or meanwhile merged) pull request is watched again. Otherwise the ticket
-  starts afresh: a new pipeline run, or a new session.
+  An open (or meanwhile merged) pull request is watched again, also when GitHub cannot
+  be read right now. A session ticket whose session still runs without a pull request
+  is watched again too, with a new six-hour clock; AgentPier never launches a second
+  session for it. Otherwise the ticket starts afresh: a new pipeline run, or a new
+  session.
   - After a pull request was closed unmerged, the new session gets a new worktree under
     `.worktrees/` (its folder ends in `-a2`, `-a3`…) on a new branch (`…-2`, `-3`…)
     from the freshly fetched default branch. The folder and branch of the closed
@@ -376,13 +399,19 @@ A ticket that waits for you blocks the rest of its sequence until you act on it:
   Plane. A parked pull request that AgentPier may merge is disarmed first, as with
   **Remove**, because nobody watches it afterwards; a pull request you merged yourself
   needs nothing. A waiting ticket can be marked done too.
-- **Remove** takes a waiting, parked or done ticket out of the sequence. A parked pull
-  request that AgentPier may merge is disarmed first: auto-merge is turned off, or the
-  pull request leaves the merge queue. When GitHub cannot be read, Remove and Mark done
-  are refused for such a ticket.
+- **Remove** takes a waiting, running, parked or done ticket out of the sequence. A
+  running ticket's session or run keeps going, but AgentPier no longer watches or merges
+  its pull request. A parked pull request that AgentPier may merge is disarmed first:
+  auto-merge is turned off, or the pull request leaves the merge queue.
 
-A ticket that is running or waiting for its merge cannot be retried, marked done or
-removed. These actions never overlap with AgentPier's own work on the sequence: each
+When GitHub cannot be read for such a pull request (an outage, a token that is gone, a
+renamed or deleted repository), Mark done and Remove ask once more: auto-merge or the
+merge queue may still be on, and the pull request may still merge. **Go on anyway**
+finishes the action without disarming; the done ticket, or a line after Remove, then
+asks you to check the pull request on GitHub.
+
+A running ticket cannot be retried or marked done, and a ticket waiting for its merge
+cannot be retried, marked done or removed. These actions never overlap with AgentPier's own work on the sequence: each
 one waits for a running step and is followed by the next step at once.
 
 ### Write-back "Done"
@@ -399,7 +428,7 @@ to the tracker:
 
 The comment names only the pull request, never an AgentPier address. When the tracker
 refuses (for example a token without write access), the ticket stays done, the sequence
-moves on and nothing is retried. **Mark done** writes nothing to the tracker.
+moves on and nothing is retried; the queue row shows that the write-back failed. **Mark done** writes nothing to the tracker.
 
 ### Notifications
 
