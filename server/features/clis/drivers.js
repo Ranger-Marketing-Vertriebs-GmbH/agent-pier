@@ -28,6 +28,8 @@ import * as opencodeFiles from "./opencode/profile-files.js";
 import * as codexMcp from "./codex/mcp.js";
 import * as claudeMcp from "./claude/mcp.js";
 import * as opencodeMcp from "./opencode/mcp.js";
+import * as codexTransfer from "./codex/transfer.js";
+import * as claudeTransfer from "./claude/transfer.js";
 
 const profiles = { codex, claude, opencode };
 const sessions = {
@@ -54,6 +56,7 @@ const pipelines = {
 const plugins = { codex: codexPlugins, claude: claudePlugins, opencode: opencodePlugins };
 const profileFiles = { codex: codexFiles, claude: claudeFiles, opencode: opencodeFiles };
 const mcps = { codex: codexMcp, claude: claudeMcp, opencode: opencodeMcp };
+const transfers = { codex: codexTransfer, claude: claudeTransfer };
 // Freezes plain objects and arrays; regular expressions stay as they are.
 const frozen = (value) => {
   if (Array.isArray(value)) return Object.freeze(value.map(frozen));
@@ -122,6 +125,12 @@ const drivers = new Map();
  *   unsupported, record, fail }` passed in; timeouts: { [nativeKey]: { field, scale } }
  *   in read and write order; remoteSseAsHttp: its `remote` cannot tell SSE from HTTP;
  *   keepsOAuthScope: its native form has no OAuth scope.
+ * transfer: moving a session between accounts; null unless the definition has
+ *   `capabilities.accountTransfer` (see `<id>/transfer.js`). `fail(key)` builds the
+ *   session transfer problem named `key`. locate({ history, session, id, fail }):
+ *   { file, historyMode }, safePath(relative, file, id), destination(entry),
+ *   companions(relative, id): extra optional paths to copy, and
+ *   validator({ session, id, historyMode, fail }): { record(record), finish() }.
  */
 export function cliDriver(id) {
   const definition = cliDefinition(id);
@@ -175,6 +184,9 @@ export function cliDriver(id) {
           remoteSseAsHttp: mcps[id].remoteSseAsHttp,
           keepsOAuthScope: mcps[id].keepsOAuthScope,
         }),
+        transfer: definition.capabilities.accountTransfer
+          ? frozen({ ...transfers[id] })
+          : null,
         parseAuthStatus(stdout, exitCode, stderr = "") {
           const state = profile.parseAuthStatus(stdout, stderr, exitCode);
           return { signedIn: state === "authenticated", state };

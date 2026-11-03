@@ -192,3 +192,49 @@ test("native agent files per CLI", async () => {
   });
   assert.throws(() => nativeAgent("gemini", agent, "src"), TypeError);
 });
+
+test("account transfer refuses a CLI without a transfer driver", async () => {
+  const { prepareAccountTransfer } =
+    await import("../../server/application/session-account-transfer.js");
+  const { serverMessages } = await import("../../server/lib/i18n/de.js");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "transfer-driver-"));
+  try {
+    const environment = (id) => ({
+      HOME: root,
+      XDG_DATA_HOME: path.join(root, id, "data"),
+      XDG_CONFIG_HOME: path.join(root, id, "config"),
+    });
+    const id = "11111111-1111-4111-8111-111111111111";
+    await assert.rejects(
+      prepareAccountTransfer(
+        { accounts: { environment }, history: {} },
+        { tool: "opencode", accountId: "a", cwd: root },
+        { id: "b", tool: "opencode" },
+        id,
+      ),
+      (error) => error.message === serverMessages.sessionTransfer.notTransferable,
+    );
+    assert.deepEqual(fs.readdirSync(root), []);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("transfer member shape", () => {
+  assert.equal(cliDriver("opencode").transfer, null);
+  for (const id of ["codex", "claude"]) {
+    const { transfer } = cliDriver(id);
+    for (const name of ["locate", "safePath", "destination", "companions", "validator"])
+      assert.equal(typeof transfer[name], "function", `${id}.${name}`);
+    assert.ok(Object.isFrozen(transfer));
+  }
+  const codex = cliDriver("codex").transfer;
+  assert.equal(codex.destination("archived_sessions/a.jsonl"), "sessions/a.jsonl");
+  assert.deepEqual(codex.companions("sessions/a.jsonl", "x"), []);
+  const claude = cliDriver("claude").transfer;
+  assert.equal(claude.destination("projects/p/a.jsonl"), "projects/p/a.jsonl");
+  assert.deepEqual(claude.companions("projects/p/x.jsonl", "x"), [
+    "projects/p/x",
+    path.join("file-history", "x"),
+  ]);
+});
