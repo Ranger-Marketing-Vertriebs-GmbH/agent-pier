@@ -180,9 +180,13 @@ next read. In a repository without required reviews, GitHub can therefore merge 
 armed pull request in the up to 60 seconds before that read. Require reviews in the
 branch protection if a "changes requested" review must always stop a merge.
 
-A head that was disarmed while its checks failed is the exception: a merge queue drops
-such a pull request, so AgentPier arms that head again once a re-run of its checks is
-green.
+A head that a merge queue dropped while its checks failed is the exception: AgentPier
+queues that head again once a re-run of its checks is green. AgentPier cannot tell
+whether you or the queue removed a red pull request, so it re-queues it in both cases.
+Auto-merge is different: GitHub keeps it on through failed checks, so auto-merge found
+off was turned off by a person, and the ticket waits for you. When a merge queue drops a
+pull request because its merge-group build failed while the pull request's own checks
+are green, the ticket also waits for you (`mergeDisarmed`).
 
 ### Fix attempts
 
@@ -197,6 +201,16 @@ asks for a fix once per pull request head:
   (CLI, account, launch mode), or else those of the newest coding session in the
   project folder. Later failures go to the same repair session while it runs.
 
+Repair worktrees are named `.worktrees/repair-<key>-<sha7>-<id8>`, with a `-2`, `-3` …
+before the item id when one head needs another repair. A later repair reuses the
+earlier worktree when it is clean and holds no commits beyond the pull request branch;
+otherwise that worktree stays untouched and the repair gets a new folder. AgentPier
+never removes repair worktrees or their `ticket-repair/…` branches: remove them with
+`git worktree remove` and `git branch -D` once the ticket is done.
+
+A review that requests changes stays in force until the reviewer reviews again, so the
+session hears about it once per new head.
+
 The ticket waits for you when:
 
 - the checks of a third head fail,
@@ -205,8 +219,8 @@ The ticket waits for you when:
   the idle phase),
 - a pipeline ticket needs a repair but the sequence has no repair settings and the
   project has no coding session to copy them from, or the repair session cannot start,
-- GitHub cannot be read for 30 minutes in a row. Shorter outages and rate limits only
-  delay the next read.
+- GitHub cannot be read, or the pull request branch cannot be fetched for a repair,
+  for 30 minutes in a row. Shorter outages and rate limits only delay the next read.
 
 ### Owner actions
 
