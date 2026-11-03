@@ -135,6 +135,34 @@ test("appendFromRule skips tickets of another source, without the label, or list
   assert.deepEqual(result.added, ["acme/app#4"]);
 });
 
+test("appendFromRule does nothing once the monitor or the engine has closed", async (t) => {
+  const { f, rules, service, project } = await setup(t);
+  f.append(["acme/app#1"]);
+  parkHead(f);
+  const rule = rules.create("p1", ruleInput());
+  // The monitor closes while the append waits for the queue's lock.
+  const controller = new AbortController();
+  const release = holdLock(f);
+  const pending = service.appendFromRule(project, rule.id, [labelled(5)], {
+    signal: controller.signal,
+  });
+  controller.abort();
+  release();
+  assert.deepEqual(await pending, { added: [], full: false });
+  f.engine.closed = true;
+  assert.deepEqual(await service.appendFromRule(project, rule.id, [labelled(6)]), {
+    added: [],
+    full: false,
+  });
+  f.engine.closed = false;
+  await settled(f);
+  assert.deepEqual(
+    f.store.queue("p1").items.map((item) => item.key),
+    ["acme/app#1"],
+  );
+  assert.equal(rules.pickupCount("p1", rule.id), 0);
+});
+
 test("appendFromRule skips a rule deleted or paused during the read", async (t) => {
   for (const change of ["remove", "pause", "relabel"]) {
     const { f, rules, append } = await setup(t);

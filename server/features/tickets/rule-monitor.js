@@ -197,7 +197,10 @@ export class TicketRuleMonitor {
       if (this.closed) return;
       return found ? this.succeed(rule, truncated) : this.fail(rule, "labelGone");
     }
-    const { full } = await this.sequences.appendFromRule(project, rule.id, matches);
+    const { full } = await this.sequences.appendFromRule(project, rule.id, matches, {
+      signal: this.controller.signal,
+    });
+    if (this.closed) return;
     return full ? this.fail(rule, "queueFull") : this.succeed(rule, truncated);
   }
   succeed(rule, capped = false) {

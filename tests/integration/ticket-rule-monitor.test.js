@@ -239,6 +239,28 @@ test("an owner edit during the push is not overwritten by the old error", async 
   assert.equal(f.status(kept.id).notified, "unreachable");
 });
 
+test("a pass hands its abort signal to appendFromRule and writes nothing after close", async (t) => {
+  const f = await ruleMonitorFixture(t, { issues: [labelledIssue(1, "agent")] });
+  const rule = f.rules.create("p1", ruleInput());
+  let monitor;
+  const signals = [];
+  const sequences = {
+    appendFromRule: async (project, ruleId, tickets, options) => {
+      signals.push(options?.signal);
+      const closing = monitor.close();
+      const result = await f.sequences.appendFromRule(project, ruleId, tickets, options);
+      await closing;
+      return result;
+    },
+  };
+  monitor = f.monitor({ sequences });
+  await monitor.run();
+  assert.equal(signals.length, 1);
+  assert.equal(signals[0].aborted, true);
+  assert.deepEqual(f.items(), []);
+  assert.equal(f.status(rule.id).checkedAt, null);
+});
+
 test("label gone sets labelGone", async (t) => {
   const f = await ruleMonitorFixture(t, {
     issues: [labelledIssue(1, "bug")],
