@@ -1,22 +1,21 @@
 import { isCodingCli } from "../clis/catalog.js";
-// This module is on the driver import graph (a request hook reaches it), so it reads
-// each CLI's question view from `<id>/requests.js` instead of drivers.js.
 import { question as codexQuestion } from "../clis/codex/requests.js";
 import { question as claudeQuestion } from "../clis/claude/requests.js";
 import { question as opencodeQuestion } from "../clis/opencode/requests.js";
+import { previewLimit, notesLimit } from "./question-limits.js";
 
-// Read at call time: claude/requests.js reaches this module again through its imports.
+export { previewLimit, notesLimit };
+
+// Each CLI's question view lives in `<id>/requests.js`; this module sits on the driver
+// import graph, so it does not go through drivers.js.
 const questionViews = {
-  codex: (question) => codexQuestion(question),
-  claude: (question) => claudeQuestion(question),
-  opencode: (question) => opencodeQuestion(question),
+  codex: codexQuestion,
+  claude: claudeQuestion,
+  opencode: opencodeQuestion,
 };
 
-// The chat shows previews as plain text; longer previews are cut to keep requests bounded.
-export const previewLimit = 8000;
 // Claude's native dialog withholds (and never annotates) previews longer than this.
 const nativePreviewLimit = 2000;
-export const notesLimit = 8000;
 
 const previewText = (option) =>
   typeof option.preview === "string" && option.preview.trim()

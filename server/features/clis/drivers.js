@@ -96,8 +96,7 @@ const drivers = new Map();
  * prepareRequests({ broker, id, file, args, env, grants }, launch): starts the CLI's
  *   approval relay, changing `args`, `env` and `grants` in place; may return the
  *   launch that replaces `{ ...launch, args, env }` (Codex's wrapper).
- * requests: { question(q): { multiple, allowOther, previews, notes } for one native
- *   question, launchRecord?(env): extra fields of the launch file (Claude Code's hook
+ * requests: { launchRecord?(env): extra fields of the launch file (Claude Code's hook
  *   version and trust file) }.
  * shellToolName: the tool whose requests carry a shell command line.
  * startupDialogs: { [presentation]: answer(broker, entry, choice) } for the startup
@@ -170,7 +169,6 @@ export function cliDriver(id) {
         prepareRequests: requests[id].prepareRequests,
         shellToolName: requests[id].shellToolName,
         requests: frozen({
-          question: requests[id].question,
           launchRecord: requests[id].launchRecord,
         }),
         startupDialogs: Object.freeze({ ...requests[id].startupDialogs }),

@@ -117,9 +117,10 @@ directory, key, description, adapterRoute, adapterToken })` returns the launch
   approval relay, changing `args`, `env` and `grants` in place; may return a replacement
   launch (Codex's wrapper).
 - `shellToolName`: the tool whose requests carry a shell command line.
-- `requests`: `question(q)` gives `{ multiple, allowOther, previews, notes }` for one native
-  question; `launchRecord?(env)` adds fields to the launch file (Claude Code's hook
-  version and trust file). `capabilities.requestHandoff`: an uncertain request can be
+- `requests`: `launchRecord?(env)` adds fields to the launch file (Claude Code's hook
+  version and trust file). `<id>/requests.js` also exports `question(q)`, the chat view
+  `{ multiple, allowOther, previews, notes }` of one native question, read by
+  `native-questions.js` directly (it is on the driver import graph). `capabilities.requestHandoff`: an uncertain request can be
   released to the CLI's own terminal dialog.
 - `startupDialogs`: `{ [presentation]: answer(broker, entry, choice) }` for the startup
   dialogs AgentPier answers in the terminal.

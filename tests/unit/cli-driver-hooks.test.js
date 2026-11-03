@@ -48,6 +48,39 @@ test("drivers.js is not reachable from its own imports", () => {
   assert.deepEqual(cyclic, [], "a module on the driver import graph imports drivers.js");
 });
 
+// Cycles that predate the guard and are safe (function declarations used at call time).
+// The list may only shrink.
+const KNOWN_CYCLES = new Set([
+  "server/features/providers/endpoint-config.js server/features/providers/provider-definitions.js",
+  "server/features/providers/endpoint-config.js server/features/providers/endpoint-routing.js server/features/providers/provider-definitions.js",
+]);
+
+test("the driver import graph has no new cycle", () => {
+  const graph = importGraph(DRIVERS);
+  const state = new Map();
+  const stack = [];
+  const cycles = [];
+  const visit = (file) => {
+    if (state.get(file) === 2) return;
+    if (state.get(file) === 1) {
+      const loop = [...stack.slice(stack.indexOf(file)), file];
+      const members = [...new Set(loop.map((item) => path.relative(ROOT, item)))];
+      cycles.push(members.sort().join(" "));
+      return;
+    }
+    state.set(file, 1);
+    stack.push(file);
+    for (const next of graph.get(file) || []) visit(next);
+    stack.pop();
+    state.set(file, 2);
+  };
+  visit(DRIVERS);
+  assert.deepEqual(
+    cycles.filter((cycle) => !KNOWN_CYCLES.has(cycle)),
+    [],
+  );
+});
+
 // Plain objects and arrays must be frozen all the way down; regular expressions and
 // functions stay as they are.
 function assertFrozenDeep(value, label) {
