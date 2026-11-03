@@ -1,4 +1,7 @@
 // See codex/profile-files.js.
+import path from "node:path";
+import { configRoot } from "./profile.js";
+
 export const roots = ["claude"];
 export const credentials = ["claude/.credentials.json"];
 export const backupAllowlist = {
@@ -22,3 +25,37 @@ export const backupAllowlist = {
   },
 };
 export const configFiles = ["settings.json"];
+export const sharedDocuments = (root, env) => [
+  {
+    file: env.CLAUDE_CONFIG_DIR
+      ? path.join(root, ".claude.json")
+      : path.join(path.dirname(root), ".claude.json"),
+    keys: ["mcpServers"],
+    createIfMissing: true,
+  },
+  {
+    file: path.join(root, "settings.json"),
+    keys: ["enabledPlugins", "extraKnownMarketplaces"],
+    createIfMissing: true,
+  },
+];
+export const assetDirectories = [];
+export const nativeFolder = "claude";
+export function extensions({ env, home, account, boundary, skillScope }) {
+  const dir = configRoot({ ...env, HOME: home }, home);
+  const target = {
+    path: path.join(dir, "skills"),
+    boundary,
+    ...skillScope(account.kind === "managed" ? "claudeProfileScope" : "claudeUserScope"),
+  };
+  return {
+    files: [
+      env.CLAUDE_CONFIG_DIR
+        ? path.join(dir, ".claude.json")
+        : path.join(home, ".claude.json"),
+    ],
+    key: "mcpServers",
+    target,
+    sources: [target],
+  };
+}

@@ -110,8 +110,8 @@ const drivers = new Map();
  *   configFolders, catalogFiles, catalogInstall, cliList (CLIs listing plugins with
  *   `plugin list`), removeFromConfig(ctx, id, recheck) (OpenCode's config-file
  *   plugins).
- * profileFiles: { roots, credentials, backupAllowlist, configFiles } (see
- *   `codex/profile-files.js`).
+ * profileFiles: { roots, credentials, backupAllowlist, configFiles, sharedDocuments,
+ *   extensions, assetDirectories, nativeFolder } (see `codex/profile-files.js`).
  */
 export function cliDriver(id) {
   const definition = cliDefinition(id);

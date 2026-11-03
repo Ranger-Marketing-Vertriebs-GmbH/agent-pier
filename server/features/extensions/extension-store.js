@@ -56,86 +56,18 @@ export class ExtensionsStore {
       boundary: this.home,
       ...skillScope("sharedUserSkillScope"),
     };
-    if (account.tool === "codex") {
-      const dir = cliDriver("codex").configRoot({ ...env, HOME: this.home }, this.home);
-      return {
-        account,
-        boundary,
-        files: [path.join(dir, "config.toml")],
-        key: "mcp_servers",
-        target: this.sharedProfiles
-          ? {
-              path: path.join(dir, "skills"),
-              boundary,
-              ...skillScope("codexProfileSkillScope"),
-            }
-          : shared,
-        sources: [
-          shared,
-          {
-            path: path.join(dir, "skills"),
-            boundary,
-            ...skillScope("codexProfileSkillScope"),
-            readOnly: !this.sharedProfiles,
-          },
-          {
-            path: "/etc/codex/skills",
-            boundary: "/etc/codex",
-            ...skillScope("systemReadOnlyScope"),
-            readOnly: true,
-          },
-        ],
-      };
-    }
-    if (account.tool === "claude") {
-      const dir = cliDriver("claude").configRoot({ ...env, HOME: this.home }, this.home);
-      const target = {
-        path: path.join(dir, "skills"),
-        boundary,
-        ...skillScope(
-          account.kind === "managed" ? "claudeProfileScope" : "claudeUserScope",
-        ),
-      };
-      return {
-        account,
-        boundary,
-        files: [
-          env.CLAUDE_CONFIG_DIR
-            ? path.join(dir, ".claude.json")
-            : path.join(this.home, ".claude.json"),
-        ],
-        key: "mcpServers",
-        target,
-        sources: [target],
-      };
-    }
-    const dir = cliDriver("opencode").configRoot({ ...env, HOME: this.home }, this.home);
-    const target = {
-      path: path.join(dir, "skills"),
-      boundary,
-      ...skillScope(
-        account.kind === "managed" ? "openCodeProfileScope" : "openCodeUserScope",
-      ),
-    };
     return {
       account,
       boundary,
-      // MCP servers sit in the config files; the TUI files hold no `mcp` key.
-      files: cliDriver("opencode")
-        .profileFiles.configFiles.filter((name) => !name.startsWith("tui."))
-        .map((name) => path.join(dir, name)),
-      key: "mcp",
-      target,
-      sources: [
-        target,
-        { ...shared, readOnly: true },
-        {
-          path: path.join(this.home, ".claude/skills"),
-          boundary: this.home,
-          scope: "Claude-kompatibel · geteilt",
-          readOnly: true,
-        },
-      ],
+      ...cliDriver(account.tool).profileFiles.extensions({
+        env,
+        home: this.home,
+        account,
+        boundary,
+        shared,
+        skillScope,
+        sharedProfiles: Boolean(this.sharedProfiles),
+      }),
     };
   }
   configs(locations) {

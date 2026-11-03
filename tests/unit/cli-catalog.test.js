@@ -36,6 +36,7 @@ test("definitions carry every required field", () => {
       "apiKeyEnv",
     ])
       assert.equal(typeof d[key], "string", `${id}.${key}`);
+    assert.ok(["toml", "json", "jsonc"].includes(d.configFormat), `${id}.configFormat`);
     for (const key of ["url", "shell", "directory"])
       assert.equal(typeof d.nativeInstaller[key], "string");
     assert.ok(Array.isArray(d.nativeInstaller.args));

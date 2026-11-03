@@ -53,6 +53,7 @@ home, or the owning service (for example the `ProviderHistory` instance for `his
 | `authStatusArgs`           | Command whose output `parseAuthStatus` reads                                                     |
 | `apiKeyEnv`                | Variable for API-key accounts                                                                    |
 | `resumeArgs(sessionId)`    | Arguments that resume a native session                                                           |
+| `configFormat`             | Format of the CLI's config files: `toml`, `json` (no comments) or `jsonc`                        |
 | `protocol`                 | Custom-endpoint protocol: `responses`, `messages` or `chatCompletions`                           |
 | `capabilities`             | `accountTransfer`, `transcriptCleanup`, `storageCleanup`, `mcpOAuth`, `imagePaste`, `rateLimits` |
 | `pipeline.permissionModes` | Permission modes a pipeline profile may choose                                                   |
@@ -83,6 +84,11 @@ from `launchModes` (`server/features/accounts/account-store.js`).
 - `parseAuthStatus(stdout, exitCode, stderr)`: `{ signedIn, state }`.
 - `profileFiles`: `{ roots, credentials, backupAllowlist, configFiles }`, the profile
   folders, credential files, per-folder backup rules and editable config files.
+  Also `sharedDocuments(root, env)` (the config documents profiles share, with their keys
+  and `createIfMissing`), `extensions(args)` (config files, key, skill target and sources
+  of the extensions page; `args` carries `env`, `home`, `account`, `boundary`, `shared`,
+  `skillScope` and `sharedProfiles`), `assetDirectories` (extra shared asset folders) and
+  `nativeFolder` (the CLI's folder below a profile; the home folder is `"." + nativeFolder`).
 
 **Session launch**
 

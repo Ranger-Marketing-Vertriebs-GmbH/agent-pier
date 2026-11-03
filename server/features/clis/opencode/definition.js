@@ -20,6 +20,7 @@ const definition = {
   authStatusArgs: ["auth", "list"],
   apiKeyEnv: "OPENAI_API_KEY",
   resumeArgs: (sessionId) => ["--session", sessionId],
+  configFormat: "jsonc",
   protocol: "chatCompletions",
   capabilities: {
     accountTransfer: false,

@@ -4,6 +4,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { safePath, readConfig, atomicText } from "../extensions/mcp-config.js";
 import { merge } from "./configuration.js";
+import { cliDriver } from "../clis/drivers.js";
 import { problem, readJSON, writePrivate } from "../../lib/storage.js";
 
 export function assetDirectories(tool) {
@@ -12,7 +13,7 @@ export function assetDirectories(tool) {
     "agents",
     "commands",
     "plugins",
-    ...(tool === "codex" ? [".tmp/marketplaces"] : tool === "opencode" ? ["plugin"] : []),
+    ...cliDriver(tool).profileFiles.assetDirectories,
   ];
 }
 function rewrite(value, source, target) {
