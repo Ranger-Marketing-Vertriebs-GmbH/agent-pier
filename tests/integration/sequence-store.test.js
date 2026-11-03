@@ -233,3 +233,40 @@ test("queue and head return copies", () => {
   assert.equal(store.queue("p1").items[0].state, "waiting");
   assert.equal(store.head("p1").title, "Ticket 1");
 });
+
+test("a done item whose write-back was cut off loads as failed (interrupted)", () => {
+  const dir = dataDir();
+  const store = new TicketSequenceStore({ dataDir: dir });
+  const [first, second] = store.append("p1", "/repo", [entry(1), entry(2)]).items;
+  finish(store, first.id, { doneBy: "merge", writeBack: { state: "pending" } });
+  finish(store, second.id, { doneBy: "merge", writeBack: { state: "done" } });
+  const again = new TicketSequenceStore({ dataDir: dir });
+  const [one, two] = again.queue("p1").items;
+  assert.deepEqual(one.writeBack, { state: "failed", code: "interrupted" });
+  assert.deepEqual(two.writeBack, { state: "done" });
+});
+
+test("armedHead and refused round-trip; invalid values are dropped", () => {
+  const dir = dataDir();
+  const store = new TicketSequenceStore({ dataDir: dir });
+  const [item] = store.append("p1", "/repo", [entry(1)]).items;
+  walk(store, item.id, "running", "awaiting-merge");
+  store.patch("p1", item.id, {
+    armed: "auto",
+    armedHead: "a".repeat(40),
+    refused: { headSha: "b".repeat(40), what: "merge", code: "invalidResponse" },
+  });
+  const loaded = new TicketSequenceStore({ dataDir: dir }).queue("p1").items[0];
+  assert.equal(loaded.armedHead, "a".repeat(40));
+  assert.deepEqual(loaded.refused, {
+    headSha: "b".repeat(40),
+    what: "merge",
+    code: "invalidResponse",
+  });
+  const cleared = store.patch("p1", item.id, {
+    armedHead: null,
+    refused: { headSha: "c", what: "other" },
+  });
+  assert.equal(cleared.armedHead, null);
+  assert.equal(cleared.refused, undefined);
+});
