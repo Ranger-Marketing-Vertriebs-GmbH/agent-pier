@@ -1,7 +1,7 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { endpointModel } from "./endpoint-config.js";
-import { CODING_CLI_IDS, cliDefinition } from "../clis/catalog.js";
+import { CODING_CLI_IDS, cliDefinition, isCodingCli } from "../clis/catalog.js";
 
 const TOOLS = CODING_CLI_IDS;
 const ZAI_ENDPOINTS = {
@@ -114,7 +114,10 @@ export function validateProviderSelection(value, tool, catalog, { endpoint } = {
     return { id: value.id, modelId: value.modelId };
   }
   catalog.get(value.id, value.modelId, { tool });
-  const requiresResponses = tool === "codex" && definition.responsesGate;
+  const requiresResponses =
+    isCodingCli(tool) &&
+    cliDefinition(tool).protocol === "responses" &&
+    definition.responsesGate;
   if (requiresResponses && value.responsesAccess !== true)
     throw problem(serverMessages.providers.zaiCodexRequiresResponses);
   if (!requiresResponses && value.responsesAccess !== undefined)

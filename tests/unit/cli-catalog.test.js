@@ -58,6 +58,7 @@ test("definitions carry every required field", () => {
       "mcpOAuth",
       "imagePaste",
       "mcpSse",
+      "endpointSdkRouting",
       "mcpStdioCwd",
     ]);
     for (const value of Object.values(d.capabilities))

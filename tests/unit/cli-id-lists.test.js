@@ -94,8 +94,6 @@ const ROOT_ALLOWED = {
   "server/features/operations/releases.js":
     "scrubbed environment names for release builds",
   "server/features/pipelines/artifact-reader.js": "ignored file names in pipelines",
-  "server/features/providers/provider-launch.js":
-    "writes into the profile env that profileEnv() just produced",
   "server/features/providers/endpoint-launch.js":
     "writes into the profile env that profileEnv() just produced",
   "server/features/accounts/account-store.js":
@@ -165,16 +163,9 @@ const BRANCH_BUDGET = {
   "server/features/mcp-servers/codex-mcp-logins.js": 2,
   "server/features/models/model-controller.js": 1,
   "server/features/pipelines/native-profile.js": 1,
-  "server/features/pipelines/profile-validation.js": 1,
   "server/features/plugins/codex-catalog.js": 4,
   "server/features/plugins/plugin-schema.js": 2,
   "server/features/plugins/plugin-store.js": 1,
-  "server/features/providers/endpoint-routing.js": 1,
-  "server/features/providers/provider-access.js": 1,
-  "server/features/providers/provider-connections.js": 1,
-  "server/features/providers/provider-definitions.js": 1,
-  "server/features/providers/provider-environment.js": 3,
-  "server/features/providers/provider-launch.js": 5,
   "server/features/requests/claude-folder-trust.js": 2,
   "server/features/requests/claude-runtime.js": 2,
   "server/features/requests/claude-startup-prompts.js": 1,
@@ -204,11 +195,8 @@ const BRANCH_BUDGET = {
   "web/features/extensions/ExtensionWorkspace.jsx": 1,
   "web/features/extensions/workspace-model.js": 1,
   "web/features/plugins/CatalogAccount.jsx": 1,
-  "web/features/provider-connections/EndpointRouting.jsx": 1,
-  "web/features/provider-connections/endpoint-routes.js": 2,
   "web/features/providers/ProviderModelDetails.jsx": 1,
   "web/features/providers/ProviderModelPicker.jsx": 1,
-  "web/features/providers/useAccountProvider.js": 1,
   "web/features/requests/NativeRequest.jsx": 2,
   "web/features/terminal/useClaudeTerminalQuestions.js": 2,
 };

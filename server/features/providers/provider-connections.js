@@ -10,6 +10,7 @@ import {
   inheritAdapterSettings,
   validateEndpoint,
 } from "./endpoint-config.js";
+import { cliDefinition } from "../clis/catalog.js";
 import { toolRoutes } from "./endpoint-routing.js";
 const validId = (id) => typeof id === "string" && /^[a-f0-9-]{36}$/.test(id);
 function read(file, fallback) {
@@ -115,7 +116,7 @@ export class ProviderConnections {
         ? endpointTools(record.endpoint)
         : definition.tools.filter(
             (tool) =>
-              tool !== "codex" ||
+              cliDefinition(tool).protocol !== "responses" ||
               !definition.responsesGate ||
               record.responsesAccess === true,
           ),

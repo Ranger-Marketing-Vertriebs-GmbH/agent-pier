@@ -34,6 +34,7 @@ const definition = {
     mcpOAuth: false,
     imagePaste: true,
     mcpSse: true,
+    endpointSdkRouting: false,
     mcpStdioCwd: false,
   },
   mcpLoginCommand: () => "/mcp",

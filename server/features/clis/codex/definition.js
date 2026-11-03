@@ -30,6 +30,7 @@ const definition = {
     mcpOAuth: true,
     imagePaste: false,
     mcpSse: false,
+    endpointSdkRouting: false,
     mcpStdioCwd: true,
   },
   mcpLoginCommand: (name) => `codex mcp login ${name}`,

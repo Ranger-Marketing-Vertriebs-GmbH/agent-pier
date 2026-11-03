@@ -1,5 +1,6 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
+import { cliDefinition, isCodingCli } from "../clis/catalog.js";
 import { providerDefinition, validateProviderSelection } from "./provider-definitions.js";
 export class ProviderAccess {
   constructor({ accounts, connections, providerCatalog, preferences }) {
@@ -37,7 +38,9 @@ export class ProviderAccess {
       {
         id: connection.providerId,
         modelId: body.providerModelId,
-        ...(source.tool === "codex" && definition.responsesGate
+        ...(isCodingCli(source.tool) &&
+        cliDefinition(source.tool).protocol === "responses" &&
+        definition.responsesGate
           ? { responsesAccess: connection.responsesAccess }
           : {}),
       },

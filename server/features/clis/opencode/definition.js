@@ -30,6 +30,7 @@ const definition = {
     mcpOAuth: false,
     imagePaste: false,
     mcpSse: true,
+    endpointSdkRouting: true,
     mcpStdioCwd: true,
   },
   mcpLoginCommand: (name) => `opencode mcp auth ${name}`,
