@@ -59,3 +59,5 @@ export function extensions({ env, home, account, boundary, skillScope }) {
     sources: [target],
   };
 }
+// See codex/profile-files.js.
+export const agents = { format: "markdown", frontmatter: { model: "inherit" } };

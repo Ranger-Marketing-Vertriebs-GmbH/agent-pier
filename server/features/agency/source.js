@@ -2,6 +2,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { parseDocument, stringify as yaml } from "yaml";
 import { stringify as toml } from "smol-toml";
 import { problem } from "../../lib/storage.js";
+import { cliDriver } from "../clis/drivers.js";
 export const repository = "msitarzewski/agency-agents";
 export const sourceUrl = `https://github.com/${repository}`;
 const excluded = new Set([".github", "examples", "integrations", "scripts"]);
@@ -79,12 +80,13 @@ export function parseAgent(text) {
   };
 }
 export function nativeAgent(tool, agent, source) {
+  const { format, frontmatter } = cliDriver(tool).profileFiles.agents;
   const body = `${agent.body}\n\nSource: ${source}\nLicense: MIT (see AGENCY-LICENSE.txt).\n`;
-  if (tool === "codex")
+  if (format === "toml")
     return toml({
       name: agent.name,
       description: agent.description,
       developer_instructions: body,
     });
-  return `---\n${yaml({ name: agent.name, description: agent.description, ...(tool === "opencode" ? { mode: "subagent" } : { model: "inherit" }) })}---\n\n${body}`;
+  return `---\n${yaml({ name: agent.name, description: agent.description, ...frontmatter })}---\n\n${body}`;
 }

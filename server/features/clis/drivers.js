@@ -115,7 +115,7 @@ const drivers = new Map();
  *   `plugin list`), removeFromConfig(ctx, id, recheck) (OpenCode's config-file
  *   plugins).
  * profileFiles: { roots, credentials, backupAllowlist, configFiles, sharedDocuments,
- *   extensions, assetDirectories, nativeFolder } (see `codex/profile-files.js`).
+ *   extensions, assetDirectories, nativeFolder, agents } (see `codex/profile-files.js`).
  * mcp: the CLI's native MCP entry (see `<id>/mcp.js`). toNative(entry): the native
  *   entry of a central server; fromNative(entry, shape): the central fields of a native
  *   entry, with the parse helpers `shape = { stdio, remote, extra, strings,
