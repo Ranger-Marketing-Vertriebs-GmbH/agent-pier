@@ -10,6 +10,11 @@ import * as prForge from "./pr-forge.js";
 import { prVerdict } from "./pr-status.js";
 import { ticketQueueChanged } from "./live-topics.js";
 import { findSession, resumeStart, startItem } from "./sequence-start.js";
+import { isTransient } from "./sequence-reasons.js";
+
+export { PARK_REASONS } from "./sequence-reasons.js";
+
+const refusalReason = (what) => (what === "arm" ? "armRefused" : "mergeRefused");
 
 const copy = serverMessages.tickets;
 // Steps one advance may take: start, find the PR, merge, the next ticket's start…
@@ -108,7 +113,7 @@ export class TicketSequenceEngine {
     if (!run?.id) return;
     for (const queue of this.store.queues())
       if (this.store.head(queue.projectId)?.runId === run.id)
-        void this.nudge(queue.projectId);
+        this.nudge(queue.projectId).catch((error) => this.onError(error, "nudge"));
   }
 
   advance(projectId) {
@@ -346,32 +351,62 @@ export class TicketSequenceEngine {
   /**
    * Arms the PR (merge queue, else auto-merge) or merges it when GitHub can do neither.
    * GitHub enforces required checks and reviews for armed PRs; a direct merge only
-   * happens when the verdict says ready, and only for the head it saw.
+   * happens when the verdict says ready, and only for the head it saw. Each head is
+   * armed at most once: a head found disarmed on GitHub (the owner, or a merge queue
+   * that dropped it) is never armed again, and a refusal is never retried on it.
    */
   async mergeStep(ctx, item, snapshot, verdict) {
+    const head = snapshot.headSha;
     const armedNow = snapshot.inMergeQueue ? "queue" : snapshot.autoMerge ? "auto" : null;
     if (verdict.changesRequested) {
       if (snapshot.inMergeQueue) await this.forge.dequeue(ctx.github, snapshot);
       if (snapshot.autoMerge) await this.forge.disableAutoMerge(ctx.github, snapshot);
-      if (armedNow || item.armed) this.save(ctx, item, { armed: null });
+      // AgentPier's own disarm: the head may be armed again once the review allows it.
+      if (armedNow || item.armed || item.armedHead)
+        this.save(ctx, item, { armed: null, armedHead: null });
       return false;
     }
     if (armedNow) {
-      if (item.armed !== armedNow) this.save(ctx, item, { armed: armedNow });
+      if (item.armed !== armedNow || item.armedHead !== head)
+        this.save(ctx, item, { armed: armedNow, armedHead: head });
       return false;
     }
-    if (snapshot.repo.mergeQueue) {
-      await this.forge.enqueue(ctx.github, snapshot);
-      this.save(ctx, item, { armed: "queue" });
+    const green = verdict.checks === "passed" && !verdict.reviewBlocks;
+    if (item.armedHead && item.armedHead === head) {
+      // Red checks: the fix rounds push a new head, which may be armed once more.
+      if (verdict.checks === "failed") return false;
+      return this.park(ctx, item, "mergeDisarmed");
+    }
+    if (item.refused?.headSha === head) {
+      const ready = item.refused.what === "arm" ? green : verdict.mergeReady;
+      return ready ? this.park(ctx, item, refusalReason(item.refused.what)) : false;
+    }
+    const how = snapshot.repo.mergeQueue
+      ? "queue"
+      : snapshot.repo.autoMergeAllowed
+        ? "auto"
+        : null;
+    // A merge queue refuses a PR whose checks are not green yet.
+    if (how === "queue" && !green) return false;
+    if (!how && (!verdict.mergeReady || ctx.merged?.has(item.id))) return false;
+    try {
+      if (how === "queue") await this.forge.enqueue(ctx.github, snapshot);
+      else if (how === "auto") await this.forge.enableAutoMerge(ctx.github, snapshot);
+      else await this.forge.mergePullRequest(ctx.github, snapshot);
+    } catch (error) {
+      if (isTransient(error)) return this.skip(error, "merge");
+      this.onError(error, "merge");
+      const what = how ? "arm" : "merge";
+      const saved = this.save(ctx, item, {
+        refused: { headSha: head, what, code: codeOf(error) },
+      });
+      const ready = how ? green : verdict.mergeReady;
+      return ready ? this.park(ctx, saved, refusalReason(what)) : false;
+    }
+    if (how) {
+      this.save(ctx, item, { armed: how, armedHead: head });
       return false;
     }
-    if (snapshot.repo.autoMergeAllowed) {
-      await this.forge.enableAutoMerge(ctx.github, snapshot);
-      this.save(ctx, item, { armed: "auto" });
-      return false;
-    }
-    if (!verdict.mergeReady || ctx.merged?.has(item.id)) return false;
-    await this.forge.mergePullRequest(ctx.github, snapshot);
     ctx.merged?.add(item.id);
     // Read again at once: the merged PR finishes the ticket in this pass.
     return true;
