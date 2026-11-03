@@ -135,6 +135,10 @@
   min-height: 0;
   overflow: auto;
   padding: 30px max(clamp(18px, 4vw, 60px), (100% - var(--chat-column)) / 2);
+  padding-right: max(
+    clamp(18px, 4vw, 60px),
+    (100% - var(--chat-column)) / 2 - var(--chat-scrollbar, 0px)
+  );
   scrollbar-width: thin;
   scrollbar-color: #3d3e42 transparent;
 }
@@ -341,6 +345,10 @@
   }
   .chat-messages {
     padding: 24px max(24px, (100% - var(--chat-column)) / 2);
+    padding-right: max(
+      24px,
+      (100% - var(--chat-column)) / 2 - var(--chat-scrollbar, 0px)
+    );
   }
   .chat-context {
     padding: 13px 18px;
