@@ -1,4 +1,4 @@
-import { cleanTicket, httpUrl } from "../ticket.js";
+import { cleanTicket, httpUrl, labelKey } from "../ticket.js";
 import { requestJson, TicketSourceError } from "../http-json.js";
 
 const NAME = /^[A-Za-z0-9_.-]{1,100}$/;
@@ -75,32 +75,53 @@ function repoPath(access) {
   return `/repos/${encodeURIComponent(access.owner)}/${encodeURIComponent(access.repo)}`;
 }
 
+// Reads up to MAX_PAGES pages of open issues, `labels=<name>` when a label is given.
+// `truncated`: the last page was full, so more open issues may exist than were read.
+async function readOpen(access, label, signal) {
+  const open = [];
+  let truncated = false;
+  const filter = label ? `&labels=${encodeURIComponent(label)}` : "";
+  for (let page = 1; page <= MAX_PAGES; page += 1) {
+    const query = `state=open&per_page=${PAGE_SIZE}&page=${page}${filter}`;
+    const { data } = await call(access, `${repoPath(access)}/issues?${query}`, {
+      signal,
+    });
+    if (!Array.isArray(data)) throw new TicketSourceError("invalidResponse");
+    for (const issue of data) {
+      if (issue && !issue.pull_request && Number.isInteger(issue.number))
+        open.push(toTicket(access, issue));
+    }
+    if (data.length < PAGE_SIZE) break;
+    if (page === MAX_PAGES) truncated = true;
+  }
+  return { open, truncated };
+}
+
 export const githubSource = {
   id: "github",
-  async list(access, { label, signal } = {}) {
-    const open = [];
-    // A full last page: more open issues may exist than were read.
-    let truncated = false;
-    for (let page = 1; page <= MAX_PAGES; page += 1) {
-      const query = `state=open&per_page=${PAGE_SIZE}&page=${page}`;
-      const { data } = await call(access, `${repoPath(access)}/issues?${query}`, {
-        signal,
-      });
-      if (!Array.isArray(data)) throw new TicketSourceError("invalidResponse");
-      for (const issue of data) {
-        if (issue && !issue.pull_request && Number.isInteger(issue.number))
-          open.push(toTicket(access, issue));
-      }
-      if (data.length < PAGE_SIZE) break;
-      if (page === MAX_PAGES) truncated = true;
-    }
-    // Labels come from every open issue so the filter keeps its choices.
-    const names = new Set(open.flatMap((ticket) => ticket.labels));
+  /**
+   * Open issues; with `label`, GitHub filters them itself, so labelled issues beyond the
+   * newest 300 open ones are found. `labels` lists the labels of the newest open issues
+   * unfiltered, so the Tickets tab's filter keeps its choices; `choices: false` skips
+   * that read (label rules need no choices). `truncated` describes the ticket read.
+   */
+  async list(access, { label, signal, choices = true } = {}) {
+    // GitHub reads a comma as "all of these labels": such a name is filtered here.
+    const server = label && !label.includes(",") ? label : undefined;
+    const [read, all] = await Promise.all([
+      readOpen(access, server, signal),
+      label && choices && server ? readOpen(access, undefined, signal) : null,
+    ]);
+    const unfiltered = all ?? (server ? null : read);
+    const names = new Set((unfiltered?.open ?? []).flatMap((ticket) => ticket.labels));
     const labels = [...names].sort((a, b) =>
       a.localeCompare(b, "en", { sensitivity: "base" }),
     );
-    const tickets = label ? open.filter((ticket) => ticket.labels.includes(label)) : open;
-    return { tickets, labels, truncated };
+    const wanted = labelKey(label);
+    const tickets = label
+      ? read.open.filter((ticket) => ticket.labels.some((l) => labelKey(l) === wanted))
+      : read.open;
+    return { tickets, labels, truncated: read.truncated };
   },
   async hasLabel(access, label, { signal } = {}) {
     try {

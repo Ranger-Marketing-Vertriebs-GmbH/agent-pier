@@ -38,8 +38,8 @@ const number = (key) => Number(/(\d+)$/.exec(key)?.[1] ?? 0);
 
 /**
  * Polls the label rules of every project and appends each newly labelled ticket to the
- * project's ticket sequence. A pass reads every connected source once per project, for
- * all its rules, and hands the matches to TicketSequenceService.appendFromRule, which
+ * project's ticket sequence. A pass reads GitHub once per rule label (GitHub filters by
+ * label) and Plane once per project for all its rules, and hands the matches to TicketSequenceService.appendFromRule, which
  * dedupes them. A failure is shown on the rule (a code only) and notifies the owner
  * once per error kind until a successful pass clears the kinds already pushed.
  */
@@ -131,16 +131,23 @@ export class TicketRuleMonitor {
     const { link: _link, ...accesses } = await this.tickets.accesses(project);
     if (this.closed) return;
     const signal = this.controller.signal;
-    // Each source a rule needs is read once, without a label, for all its rules.
+    // GitHub filters by label itself, so it is read once per label; Plane has no such
+    // filter and is read once, without a label, for all its rules.
+    const readKey = (rule) =>
+      rule.source === "github" ? `github:${labelKey(rule.label)}` : rule.source;
     const reads = new Map();
     for (const rule of list) {
-      if (!accesses.github || !accesses[rule.source] || reads.has(rule.source)) continue;
+      const key = readKey(rule);
+      if (!accesses.github || !accesses[rule.source] || reads.has(key)) continue;
+      const label = rule.source === "github" ? rule.label.trim() : undefined;
       reads.set(
-        rule.source,
-        this.tickets.sources[rule.source].list(accesses[rule.source], { signal }).then(
-          ({ tickets, truncated }) => ({ tickets, truncated: truncated === true }),
-          (error) => ({ code: sourceCode(error) }),
-        ),
+        key,
+        this.tickets.sources[rule.source]
+          .list(accesses[rule.source], { label, choices: false, signal })
+          .then(
+            ({ tickets, truncated }) => ({ tickets, truncated: truncated === true }),
+            (error) => ({ code: sourceCode(error) }),
+          ),
       );
     }
     for (const rule of list) {
@@ -150,7 +157,7 @@ export class TicketRuleMonitor {
         await this.fail(rule, "notConnected");
         continue;
       }
-      const read = await reads.get(rule.source);
+      const read = await reads.get(readKey(rule));
       if (this.closed) return;
       // Deleted, paused or moved to another label or source while the source was read.
       const current = this.rules.rule(projectId, rule.id);
@@ -170,7 +177,7 @@ export class TicketRuleMonitor {
   }
   /**
    * `read.truncated`: the source has more open tickets than a read takes (300 GitHub
-   * issues, 500 Plane work items). The pass still succeeds, flagged `capped`, because
+   * issues with the rule's label, 500 Plane work items of any label). The pass still succeeds, flagged `capped`, because
    * labelled tickets beyond the cap were not seen; `labelGone` still comes only from
    * hasLabel, which asks for the label itself.
    */
