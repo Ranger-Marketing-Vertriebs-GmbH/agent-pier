@@ -1,3 +1,4 @@
+import { cliDefinition, isCodingCli } from "../../../server/features/clis/catalog.js";
 import { deliveryMatches } from "./chat-draft.js";
 import { deliveryContentMatches, queuedImagesUnique } from "./delivery-content.js";
 
@@ -61,7 +62,8 @@ export function nativeDeliveryStates(items, messages, input, tool, live = true) 
       fresh &&
       nativeMatch &&
       !ambiguousImage &&
-      (tool !== "opencode" || message.inputConsumed === true)
+      (!(isCodingCli(tool) && cliDefinition(tool).capabilities.pluginBridge) ||
+        message.inputConsumed === true)
     )
       states.set(item.id, { state: "nativeAccepted", messageId });
   }

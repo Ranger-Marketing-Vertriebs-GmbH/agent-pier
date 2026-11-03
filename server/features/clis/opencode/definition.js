@@ -44,6 +44,7 @@ const definition = {
     keychainCredentials: false,
     transcriptIndex: false,
     npmPlugins: true,
+    pluginBridge: true,
     clearResetsBinding: false,
   },
   mcpLoginCommand: (name) => `opencode mcp auth ${name}`,

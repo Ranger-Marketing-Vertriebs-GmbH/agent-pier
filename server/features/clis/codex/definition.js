@@ -44,6 +44,7 @@ const definition = {
     keychainCredentials: false,
     transcriptIndex: true,
     npmPlugins: false,
+    pluginBridge: false,
     clearResetsBinding: true,
   },
   mcpLoginCommand: (name) => `codex mcp login ${name}`,

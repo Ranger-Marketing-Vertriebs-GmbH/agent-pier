@@ -65,6 +65,7 @@ test("definitions carry every required field", () => {
       "keychainCredentials",
       "transcriptIndex",
       "npmPlugins",
+      "pluginBridge",
       "clearResetsBinding",
     ]);
     for (const value of Object.values(d.capabilities))
@@ -123,6 +124,7 @@ test("hook trust, keychain, transcript index, npm plugin and clear flags", () =>
   assert.deepEqual(flag("transcriptIndex"), ["codex"]);
   assert.deepEqual(flag("npmPlugins"), ["opencode"]);
   assert.deepEqual(flag("clearResetsBinding"), ["codex"]);
+  assert.deepEqual(flag("pluginBridge"), ["opencode"]);
 });
 
 test("resumeArgs reproduce the session reload launch", () => {

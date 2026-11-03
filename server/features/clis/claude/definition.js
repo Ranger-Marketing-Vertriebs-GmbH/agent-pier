@@ -48,6 +48,7 @@ const definition = {
     keychainCredentials: true,
     transcriptIndex: false,
     npmPlugins: false,
+    pluginBridge: false,
     clearResetsBinding: false,
   },
   mcpLoginCommand: () => "/mcp",
