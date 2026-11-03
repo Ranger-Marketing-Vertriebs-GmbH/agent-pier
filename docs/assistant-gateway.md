@@ -3907,6 +3907,24 @@ archivedAt, lastActivityAt, busy}` (the owner's also `userId`), the main chat fi
   JSON array. Nothing is written and no entry text is logged. A lead's
   `agentpier_team_member_update` that moves a member with memory into a fresh chat
   answers `memoryReview: "waits_for_owner"`.
+- Memory archive (`server/features/assistants/memory-archive.js`): `archiveEntries`
+  moves entries the owner chose (`[{ file, entry }]` from the review) out of
+  `MEMORY.md`, `USER.md` or an editable note under `memory/` into AgentPier's
+  `assistant_memory_archive` table (private in backups, removed with the agent),
+  verbatim with file, time, the switch's models and the review id. Per file it reads
+  with the hash, removes each matching entry with its own line break (a Hermes block
+  with one separator; headings and everything else stay byte for byte), commits the
+  archive rows, then writes against the hash; a refused or failed write deletes those
+  rows again, and an entry that is no longer in the file or whose file changed (409)
+  comes back in `changed`. Nothing calls it without the owner.
+  `GET /assistants/:id/memory/archive` lists
+  `{ entries: [{ id, file, text, archivedAt, switch }] }`;
+  `POST /assistants/:id/memory/archive/:entryId/restore` appends the entry to its
+  file (`- ` list item, a `§` block on Hermes within Hermes's limit, 409
+  `memoryTooLarge` otherwise; 409 when a note is gone) and answers
+  `{ restored: true, file }`. Both are owner-only agent content; the activity log records
+  `assistant.memory-archived` and `assistant.memory-restored` with `count` and
+  `files` only.
 - Archive and restore: `POST …/conversations/:id/archive|restore` (owner under
   `/api/assistant-conversations`, user under `/api/me/conversations`). An archived chat
   leaves the list, stays readable, and refuses turns, queued messages, uploads and

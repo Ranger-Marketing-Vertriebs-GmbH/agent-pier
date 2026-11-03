@@ -1,6 +1,10 @@
 import { Router } from "express";
 import { ownerBinding, ownerPerson } from "./binding-scope.js";
 import { memoryOffset } from "../../features/assistants/native-memory.js";
+import {
+  archivedEntries,
+  restoreEntry,
+} from "../../features/assistants/memory-archive.js";
 export function assistantCapabilityRoutes(services) {
   const { assistants, assistantMemory, assistantReminders } = services;
   const router = Router();
@@ -34,6 +38,13 @@ export function assistantCapabilityRoutes(services) {
   );
   router.get("/assistants/:id/memory/search", async (req, res) =>
     res.json(await assistantMemory.search(req.params.id, req.query.q)),
+  );
+  // Entries the owner archived from the agent's memory, and putting one back.
+  router.get("/assistants/:id/memory/archive", (req, res) =>
+    res.json(archivedEntries(assistants, req.params.id)),
+  );
+  router.post("/assistants/:id/memory/archive/:entryId/restore", async (req, res) =>
+    res.json(await restoreEntry(assistants, req.params.id, req.params.entryId)),
   );
   router.get("/assistants/:id/reminders", async (req, res) =>
     res.json(

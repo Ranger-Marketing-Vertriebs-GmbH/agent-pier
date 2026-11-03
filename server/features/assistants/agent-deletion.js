@@ -37,6 +37,7 @@ export const agentTables = [
   "queued_messages",
   "agent_attachments",
   "assistant_memory_notes",
+  "assistant_memory_archive",
   "assistant_routine_results",
   "assistant_routine_events",
   "assistant_long_chat_dismissals",
@@ -217,6 +218,8 @@ function removeRows(db, id) {
       id,
       id,
     );
+    // The entries archived from its memory (memory-archive.js).
+    remove(db, "assistant_memory_archive", "assistant_id=?", id);
     // Its remembered shell commands (exec-remembered.js).
     remove(db, "assistant_exec_commands", "assistant_id=?", id);
     // Grants: projects, SSH, secrets and GitHub.

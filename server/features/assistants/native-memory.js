@@ -23,7 +23,7 @@ const diaryName = "DREAMS.md";
 // Dreaming's raw corpus; it is never listed, read or searched.
 export const corpusFolder = /(^|\/)memory\/\.dreams(\/|$)/;
 // Notes the owner may rewrite: not the diary, the lead's mirrored copy or the corpus.
-const editableNote = (name) =>
+export const editableNote = (name) =>
   typeof name === "string" &&
   noteName.test(name) &&
   !name.split("/").includes("..") &&

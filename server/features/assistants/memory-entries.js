@@ -71,3 +71,43 @@ function markdown(content) {
     end,
   }));
 }
+
+/**
+ * `content` without every entry whose text is one of `texts` (memoryEntries), for the
+ * archive (memory-archive.js). An entry goes with its own line break, a Hermes block
+ * with one separator; everything else, headings and blank lines included, stays
+ * byte for byte. A removed last entry takes the line break or separator before it,
+ * so the file ends as it did.
+ */
+export function withoutEntries(runtime, file, content, texts) {
+  const text = String(content ?? "");
+  const wanted = new Set(texts);
+  const hermes = runtime === "hermes";
+  const separator = hermes ? hermesEntryDelimiter : "\n";
+  const first = bom(text);
+  const spans = memoryEntries(runtime, file, text)
+    .filter((entry) => wanted.has(entry.text))
+    .map(({ start, end }) => {
+      // From the start of the entry's line (Hermes: its block) to past its separator.
+      const before = text.lastIndexOf(separator, start - (hermes ? separator.length : 1));
+      const from = before < 0 ? first : Math.max(first, before + separator.length);
+      const next = text.indexOf(separator, end);
+      return [from, next < 0 ? text.length : next + separator.length];
+    });
+  // Adjacent entries join, so a removed run is one span.
+  const merged = [];
+  for (const span of spans)
+    if (merged.length && span[0] <= merged.at(-1)[1])
+      merged.at(-1)[1] = Math.max(merged.at(-1)[1], span[1]);
+    else merged.push(span);
+  const last = merged.at(-1);
+  // The last entry without a separator of its own takes the one before it.
+  if (last && last[1] === text.length && !text.endsWith(separator) && last[0] > first) {
+    last[0] -= separator.length;
+    if (!hermes && text[last[0] - 1] === "\r") last[0]--;
+  }
+  let result = text;
+  for (const [from, to] of merged.reverse())
+    result = result.slice(0, from) + result.slice(to);
+  return result;
+}

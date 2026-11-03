@@ -7,6 +7,8 @@ import { writeAssistantFeature } from "../../server/features/assistants/assistan
 import { RunStore } from "../../server/features/pipelines/run-store.js";
 import { dismissalTable } from "../../server/features/assistants/long-chats.js";
 import { memberLongChatTable } from "../../server/features/assistants/member-long-chats.js";
+import { modelHintTable } from "../../server/features/assistants/model-hints.js";
+import { MemoryArchive } from "../../server/features/assistants/memory-archive.js";
 
 // Private content beside the histories (AGENTPIER-110): agent chats, channel
 // messages, workspaces and attachments, pipeline history and unpinned artifacts.
@@ -114,6 +116,15 @@ export function privateContentFixture(t) {
   store.db
     .prepare("INSERT INTO assistant_member_long_chats VALUES (?,?,?,?,?,?,?,?)")
     .run("c1", "m1", 150000, 200000, "sent", 0, 0, "2026-10-21T10:00:00.000Z");
+  // A hidden model hint and an archived memory entry are private as well.
+  store.db.exec(modelHintTable);
+  store.db
+    .prepare("INSERT INTO assistant_model_hint_dismissals VALUES (?,?,?,?,?)")
+    .run("c1", "owner", "openai", "anthropic", "2026-11-02T10:00:00.000Z");
+  new MemoryArchive(store.db).archive("home", [{ file: "MEMORY.md", text: marker }], {
+    switch: null,
+    reviewId: null,
+  });
   store.close();
   writeAssistantFeature(dataDir, { enabled: true });
   const channels = new DatabaseSync(path.join(assistants, "channels.sqlite"));
