@@ -64,6 +64,7 @@ export const sessionWorkspaceCopy = {
   chatNotice: "Terminal wird geladen …",
   keyboardToolbarAriaLabel: "Terminal-Tastatur",
   startedByAgent: (name) => `Gestartet von Agent ${name}`,
+  ticket: (label) => `Ticket: ${label}`,
   sessionFooterLabel: "Die Session läuft bei geschlossenem Browser weiter.",
 };
 

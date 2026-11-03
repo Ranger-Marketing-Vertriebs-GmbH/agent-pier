@@ -58,6 +58,7 @@ export default function SessionRow({
           {location && ` · ${location}`}
           {session.startedBy?.kind === "agent" &&
             ` · ${sessionListCopy.agentBadge(session.startedBy.name)}`}
+          {session.ticket?.key && ` · ${session.ticket.key}`}
           {session.sandbox && ` · ${sandboxBadge(session)}`}
         </small>
         {inView && <span className="visually-hidden">{viewsCopy.shownInView}</span>}

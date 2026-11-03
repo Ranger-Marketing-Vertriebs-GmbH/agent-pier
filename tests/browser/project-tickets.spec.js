@@ -1,6 +1,7 @@
 import { test, expect } from "../helpers/browser-test.js";
 import { baseURL as base } from "../helpers/browser.js";
 import { hubFixture } from "./projects-fixture.js";
+import { pipelinesFixture } from "./pipelines-fixture.js";
 
 const connectedView = {
   project: { id: "m1", path: "/work/agent-pier" },
@@ -272,4 +273,43 @@ test("without sources the tab links to Connections", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Label", exact: true })).toHaveCount(0);
   await page.getByRole("link", { name: /GitHub-Zugänge/ }).click();
   await expect(page).toHaveURL(/\/connections\?section=github$/);
+});
+
+const ticketRef = {
+  source: "github",
+  key: "acme/app#7",
+  title: "Fix login",
+  url: "https://github.com/acme/app/issues/7",
+};
+
+test("a session and a pipeline run show their ticket as a link", async ({ page }) => {
+  const state = await pipelinesFixture(page);
+  state.sessions.push({
+    id: "ticketed",
+    name: "Ticket worker",
+    tool: "codex",
+    accountId: "local-codex",
+    cwd: "/fixture/project",
+    status: "running",
+    ticket: ticketRef,
+  });
+  state.runs.push({
+    id: "run-one",
+    status: "running",
+    task: "Fix it",
+    pipelineName: "Build",
+    cwd: "/fixture/project",
+    currentNodeId: "build",
+    nodes: [{ id: "build", status: "running" }],
+    actions: [],
+    ticket: ticketRef,
+  });
+  await page.goto(base + "/sessions/ticketed/chat");
+  const sessionLink = page.getByRole("link", { name: "Ticket: acme/app#7 · Fix login" });
+  await expect(sessionLink).toHaveAttribute("href", ticketRef.url);
+  await expect(sessionLink).toHaveAttribute("rel", "noopener noreferrer");
+  await page.goto(base + "/pipelines/runs/run-one");
+  await expect(
+    page.getByRole("link", { name: "Ticket: acme/app#7 · Fix login" }),
+  ).toHaveAttribute("href", ticketRef.url);
 });

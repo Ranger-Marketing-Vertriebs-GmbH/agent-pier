@@ -62,6 +62,7 @@ export const sessionWorkspaceCopy = {
   chatNotice: "Loading terminal …",
   keyboardToolbarAriaLabel: "Terminal keyboard",
   startedByAgent: (name) => `Started by agent ${name}`,
+  ticket: (label) => `Ticket: ${label}`,
   sessionFooterLabel: "The session keeps running when the browser is closed.",
 };
 
