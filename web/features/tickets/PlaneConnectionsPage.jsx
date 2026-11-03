@@ -9,7 +9,6 @@ import api from "../../lib/api.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { connectionsAreaCopy } from "../../lib/i18n/messages/connections-area.js";
 import { planeConnectionsCopy as copy } from "../../lib/i18n/messages/tickets.js";
-import useLiveTopic from "../../lib/live/useLiveTopic.js";
 import { RowMenu, useRowMenu } from "../extensions/RowMenu.jsx";
 import PlaneConnectionDialog from "./PlaneConnectionDialog.jsx";
 
@@ -47,28 +46,17 @@ function ConnectionRow({ connection, onEdit, onRemove }) {
 }
 
 /**
- * Connections › Ticket sources: the Plane connections (add, edit, delete). The list
- * follows the `tickets.connections` live topic, or the `live` reader of a parent that
- * already follows it; the API key never reaches the browser.
+ * Connections › Ticket sources: the Plane connections (add, edit, delete). `live` is the
+ * parent's reader of the `tickets.connections` live topic; the API key never reaches
+ * the browser.
  */
-export default function PlaneConnectionsPage({
-  only,
-  emptyState,
-  onChanged,
-  live: shared,
-} = {}) {
-  const own = useLiveTopic(shared ? null : "tickets.connections", "/ticket-connections");
-  const live = shared ?? own;
+export default function PlaneConnectionsPage({ emptyState, onChanged, live }) {
   const [modal, setModal] = useState(null);
   const [removing, setRemoving] = useState(null);
   const connections = live.data?.connections;
   const ready = Array.isArray(connections);
-  usePageAction("plane-add", () => setModal({}), !only && ready);
-  const shown = ready
-    ? only
-      ? connections.filter((item) => item.id === only)
-      : connections
-    : [];
+  usePageAction("plane-add", () => setModal({}), ready);
+  const shown = ready ? connections : [];
   const empty = ready && !connections.length && emptyState;
   const changed = async (deletedId) => {
     await live.written().catch(() => {});
@@ -80,7 +68,7 @@ export default function PlaneConnectionsPage({
         <div>
           <p>{copy.description}</p>
         </div>
-        {!only && !empty && (
+        {!empty && (
           <button
             className="button primary"
             disabled={!ready}

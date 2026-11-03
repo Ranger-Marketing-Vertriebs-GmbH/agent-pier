@@ -160,7 +160,7 @@ export default function PlaneLinkDialog({ projectId, view, onNavigate, close }) 
             {copy.githubLabel}
             <input
               value={label}
-              maxLength={100}
+              maxLength={50}
               required
               aria-describedby="plane-link-label-help"
               onChange={(event) => setLabel(event.target.value)}

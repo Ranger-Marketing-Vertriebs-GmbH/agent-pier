@@ -83,7 +83,7 @@ function TicketRow({ ticket, start, onStart, onOpen }) {
   );
 }
 
-function NoSources({ onNavigate }) {
+function NoSources({ onNavigate, refresh }) {
   const github = connectionsRoute("github"),
     tickets = connectionsRoute("tickets");
   return (
@@ -91,6 +91,7 @@ function NoSources({ onNavigate }) {
       <p className="project-empty">
         <strong>{copy.noSources}</strong> {copy.noSourcesBody}
       </p>
+      <div className="project-tickets-toolbar">{refresh}</div>
       <ReferenceRow
         title={copy.githubReference}
         sub={copy.githubReferenceSub}
@@ -194,6 +195,21 @@ export default function ProjectTickets({
     if (kind === "session") onLaunch(project.path, target);
     else setRunTicket(target);
   };
+  // Refresh re-reads the whole view (the sources too, e.g. after a git remote change)
+  // and the remote ticket list.
+  const refresh = (
+    <button
+      type="button"
+      className="button secondary compact"
+      disabled={list.loading}
+      onClick={() => {
+        live.refresh();
+        setVersion((value) => value + 1);
+      }}
+    >
+      {commonCopy.refresh}
+    </button>
+  );
   const onStart = (ticket, kind) =>
     startOf(view?.starts, ticket)
       ? setConfirming({ ticket, kind })
@@ -214,7 +230,7 @@ export default function ProjectTickets({
       {live.error && !view && <ErrorMessage error={copy.loadFailed} />}
       {live.loading && !view && <p role="status">{copy.loading}</p>}
       {view && !connected.github && !connected.plane && (
-        <NoSources onNavigate={onNavigate} />
+        <NoSources onNavigate={onNavigate} refresh={refresh} />
       )}
       {view && (connected.github || connected.plane) && (
         <>
@@ -247,14 +263,7 @@ export default function ProjectTickets({
                 ]}
               />
             )}
-            <button
-              type="button"
-              className="button secondary compact"
-              disabled={list.loading}
-              onClick={() => setVersion((value) => value + 1)}
-            >
-              {commonCopy.refresh}
-            </button>
+            {refresh}
           </div>
           {errors.map((error) => (
             <ErrorMessage

@@ -87,7 +87,7 @@ async function ticketsFixture(page, { view = connectedView, list = ticketList, s
         return true;
       }
       if (url.pathname === "/api/tickets/projects/m1") {
-        await route.fulfill({ json: view });
+        await route.fulfill({ json: typeof view === "function" ? view() : view });
         return true;
       }
       if (url.pathname === "/api/tickets/projects/m1/tickets") {
@@ -129,7 +129,9 @@ test("the Tickets tab lists, filters and starts a ticket as a pipeline run", asy
   await expect(page.getByText("Gestartet", { exact: true })).toBeVisible();
   await expect(page.getByText("Zurückschreiben fehlgeschlagen")).toBeVisible();
   await expect(
-    page.getByText(/nicht als in Arbeit markiert: Der API-Schlüssel hat dafür keine/),
+    page.getByText(
+      /nicht als in Arbeit markiert: Das Token oder der API-Schlüssel hat dafür keine/,
+    ),
   ).toBeVisible();
 
   // The label filter keeps its value in the address.
@@ -144,13 +146,15 @@ test("the Tickets tab lists, filters and starts a ticket as a pipeline run", asy
   await expect(page.getByText("AP-4 Refused item")).toHaveCount(0);
   await page.getByRole("radio", { name: "Alle" }).check();
 
-  // Refresh reads the list again; no timer does.
-  const reads = () =>
-    calls.filter((call) => call.path === "/api/tickets/projects/m1/tickets" && !call.stub)
-      .length;
-  const before = reads();
+  // Refresh reads the list and the view (sources included) again; no timer does.
+  const reads = (path) => () =>
+    calls.filter((call) => call.path === path && !call.stub).length;
+  const listReads = reads("/api/tickets/projects/m1/tickets");
+  const viewReads = reads("/api/tickets/projects/m1");
+  const [before, viewsBefore] = [listReads(), viewReads()];
   await page.getByRole("button", { name: "Aktualisieren" }).click();
-  await expect.poll(reads).toBe(before + 1);
+  await expect.poll(listReads).toBe(before + 1);
+  await expect.poll(viewReads).toBe(viewsBefore + 1);
 
   // A started ticket asks before it starts again.
   await menuOf(page, "acme/app#9").click();
@@ -228,7 +232,7 @@ test("in English the tab, menu and errors read in English", async ({ page }) => 
     "true",
   );
   await expect(
-    page.getByText("Plane: The API key has no permission for this."),
+    page.getByText("Plane: The token or API key has no permission for this."),
   ).toBeVisible();
   await expect(page.getByText("Started", { exact: true })).toBeVisible();
   await expect(page.getByRole("group", { name: "Ticket sources" })).toBeVisible();
@@ -258,19 +262,27 @@ test("in English the tab, menu and errors read in English", async ({ page }) => 
 });
 
 test("without sources the tab links to Connections", async ({ page }) => {
-  await ticketsFixture(page, {
-    view: {
-      ...connectedView,
-      sources: {
-        github: { state: "notConnected", inProgressLabel: "in progress" },
-        plane: { state: "notConnected" },
-      },
-      starts: [],
+  let current = {
+    ...connectedView,
+    sources: {
+      github: { state: "notConnected", inProgressLabel: "in progress" },
+      plane: { state: "notConnected" },
     },
-  });
+    starts: [],
+  };
+  await ticketsFixture(page, { view: () => current });
   await page.goto(base + "/projects/m1?tab=tickets");
   await expect(page.getByText("Keine Ticketquelle verbunden")).toBeVisible();
   await expect(page.getByRole("button", { name: "Label", exact: true })).toHaveCount(0);
+  // Refresh re-reads the sources too, e.g. after the git remote changed.
+  current = connectedView;
+  await page.getByRole("button", { name: "Aktualisieren" }).click();
+  await expect(page.getByText("acme/app#7 Fix the login")).toBeVisible();
+  current = { ...current, sources: { ...current.sources }, starts: [] };
+  current.sources.github = { state: "notConnected", inProgressLabel: "in progress" };
+  current.sources.plane = { state: "notConnected" };
+  await page.getByRole("button", { name: "Aktualisieren" }).click();
+  await expect(page.getByText("Keine Ticketquelle verbunden")).toBeVisible();
   await page.getByRole("link", { name: /GitHub-Zugänge/ }).click();
   await expect(page).toHaveURL(/\/connections\?section=github$/);
 });

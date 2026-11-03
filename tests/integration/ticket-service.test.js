@@ -378,6 +378,25 @@ test("Plane project identifier and name come from Plane, not the request", async
   assert.equal(cleared.sources.plane.state, "notConnected");
 });
 
+test("an unchanged Plane link saves without asking Plane", async (t) => {
+  const planeFailures = {};
+  const { service, connection, store, linkPlane } = await setup(t, { planeFailures });
+  await linkPlane();
+  planeFailures["GET /api/v1/workspaces/acme/projects/"] = 503;
+  const view = await service.setSources("p1", {
+    plane: { connectionId: connection.id, planeProjectId, inProgressStateId: null },
+    github: { inProgressLabel: "doing" },
+  });
+  assert.equal(view.sources.plane.identifier, "AP");
+  assert.equal(store.projectLink("p1").github.inProgressLabel, "doing");
+  await assert.rejects(
+    service.setSources("p1", {
+      plane: { connectionId: connection.id, planeProjectId: otherPlaneProjectId },
+    }),
+    { status: 502 },
+  );
+});
+
 test("an unknown project answers 404", async (t) => {
   const { service } = await setup(t);
   await assert.rejects(service.projectView("nope"), { status: 404 });

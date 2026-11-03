@@ -1,15 +1,28 @@
-import React from "react";
+import React, { useState } from "react";
 import AsyncForm from "../../components/AsyncForm.jsx";
 import Modal from "../../components/Modal.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import api from "../../lib/api.js";
 import { planeConnectionsCopy as copy } from "../../lib/i18n/messages/tickets.js";
 
+const originOf = (value) => {
+  try {
+    return new URL(value).origin;
+  } catch {
+    return value;
+  }
+};
+
 /**
  * Add or edit a Plane connection. The API key is sent only when typed: editing with a
- * blank key keeps the saved one, and the key never comes back from the server.
+ * blank key keeps the saved one, and the key never comes back from the server. A new
+ * address origin needs the key again (the server refuses a blank one).
  */
 export default function PlaneConnectionDialog({ connection, close, saved }) {
+  const [baseUrl, setBaseUrl] = useState(connection?.baseUrl || "https://api.plane.so");
+  const moved =
+    Boolean(connection) && originOf(baseUrl.trim()) !== originOf(connection.baseUrl);
+  const keep = connection?.hasSecret && !moved;
   return (
     <Modal
       title={connection ? copy.edit : copy.add}
@@ -54,7 +67,8 @@ export default function PlaneConnectionDialog({ connection, close, saved }) {
           <input
             name="baseUrl"
             required
-            defaultValue={connection?.baseUrl || "https://api.plane.so"}
+            value={baseUrl}
+            onChange={(event) => setBaseUrl(event.target.value)}
             autoCapitalize="none"
             spellCheck={false}
           />
@@ -77,14 +91,14 @@ export default function PlaneConnectionDialog({ connection, close, saved }) {
           <input
             name="token"
             type="password"
-            required={!connection?.hasSecret}
+            required={!keep}
             autoComplete="new-password"
             spellCheck={false}
-            placeholder={connection?.hasSecret ? copy.apiKeyKeep : copy.apiKeyPlaceholder}
+            placeholder={keep ? copy.apiKeyKeep : copy.apiKeyPlaceholder}
           />
         </label>
         <p className="field-description">
-          {connection?.hasSecret ? copy.apiKeyKeep : copy.apiKeyHelp}
+          {keep ? copy.apiKeyKeep : moved ? copy.apiKeyNewAddress : copy.apiKeyHelp}
         </p>
       </AsyncForm>
     </Modal>

@@ -160,3 +160,31 @@ test("a restricted user reaches no ticket route", async (t) => {
   assert.ok([403, 404].includes(start.status));
   assert.deepEqual(f.application.ticketStore.listConnections(), []);
 });
+
+test("GitHub credential writes signal every project's Tickets tab", async (t) => {
+  const f = await applicationFixture(t);
+  const signals = [];
+  const hub = f.application.live;
+  const invalidate = hub.invalidate.bind(hub);
+  t.mock.method(hub, "invalidate", (name, param) => {
+    signals.push([name, param]);
+    return invalidate(name, param);
+  });
+  const ticketSignals = () => signals.filter(([name]) => name === "tickets.project");
+  const created = await f.request("/api/git-credentials", {
+    method: "POST",
+    body: { name: "Work", host: "github.com", token: "github-secret" },
+  });
+  assert.equal(created.status, 201);
+  const { id } = await created.json();
+  assert.deepEqual(ticketSignals(), [["tickets.project", undefined]]);
+  const updated = await f.request(`/api/git-credentials/${id}`, {
+    method: "PATCH",
+    body: { name: "Work 2", agentDefault: true },
+  });
+  assert.equal(updated.status, 200);
+  assert.equal(ticketSignals().length, 2);
+  const removed = await f.request(`/api/git-credentials/${id}`, { method: "DELETE" });
+  assert.equal(removed.status, 204);
+  assert.equal(ticketSignals().length, 3);
+});

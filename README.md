@@ -101,9 +101,9 @@ and agents that work as a team.
   ([shopping](docs/shopping.md)).
 - **Connections:** model access (provider connections for OpenRouter, Z.ai, Azure OpenAI,
   local models with Ollama or llama.cpp and any compatible endpoint, and ChatGPT for agents),
-  services for agents, MCP servers, SSH/SFTP accesses, email accounts, secrets,
-  GitHub connections and ticket sources (Plane) in one place, created once and granted where they are used, each with **Used by**
-  ([providers](docs/providers.md)). Native CLI accounts, skills, plugins and subagents
+  services for agents, MCP servers, SSH/SFTP accesses, email accounts, secrets and
+  GitHub connections in one place, created once and granted where they are used, each with **Used by**
+  ([providers](docs/providers.md)), plus ticket sources (Plane) for a project's **Tickets** tab. Native CLI accounts, skills, plugins and subagents
   are under **CLIs and extensions** ([shared CLI extensions](docs/shared-cli-extensions.md)).
 - **Files and knowledge:** a file explorer, private artifacts, shared project memory
   and AgentBus between sessions ([files](docs/file-explorer.md),
