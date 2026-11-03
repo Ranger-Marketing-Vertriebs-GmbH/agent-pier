@@ -1,7 +1,7 @@
 import { hubFixture } from "./projects-fixture.js";
 
 // The ticket routes of project m1 for the Tickets tab specs: the project view, the
-// remote ticket list, single starts and the ticket sequence queue.
+// remote ticket list, single starts, the ticket sequence queue and the label rules.
 export const connectedView = {
   project: { id: "m1", path: "/work/agent-pier" },
   sources: {
@@ -76,19 +76,33 @@ export const ticketList = {
 };
 
 export const emptyQueue = { queue: { items: [] }, defaults: { repair: null } };
+export const noRules = { rules: [] };
 
 // Answers the ticket routes of project m1; `list` (a value or a function) answers the
 // remote ticket list and `start` each POST …/start. `queue`
 // (a value or a function) answers GET …/queue; `queueAction({method, path, body})`
 // answers the queue's writes (POST …/queue, …/retry, …/done, DELETE), which are
 // recorded in `queueCalls` (with `query` when the URL has one); without it they answer the current queue.
+// `rules` (a value or a function) answers GET …/rules, the `tickets.rules` topic's
+// route; `ruleAction({method, path, body})` answers POST, PUT and DELETE …/rules, which
+// are recorded in `ruleCalls`; without it they answer 201 `{ rule }`, 200 or 204.
 export async function ticketsFixture(
   page,
-  { view = connectedView, list = ticketList, start, queue = emptyQueue, queueAction },
+  {
+    view = connectedView,
+    list = ticketList,
+    start,
+    queue = emptyQueue,
+    queueAction,
+    rules = noRules,
+    ruleAction,
+  },
 ) {
   const posts = [];
   const queueCalls = [];
+  const ruleCalls = [];
   const currentQueue = () => (typeof queue === "function" ? queue() : queue);
+  const currentRules = () => (typeof rules === "function" ? rules() : rules);
   const calls = await hubFixture(page, {
     intercept: async (route, url, method) => {
       // The launch dialog's own reads.
@@ -133,8 +147,30 @@ export async function ticketsFixture(
         await route.fulfill(answer);
         return true;
       }
+      if (url.pathname.startsWith("/api/tickets/projects/m1/rules")) {
+        if (method === "GET") {
+          await route.fulfill({ json: currentRules() });
+          return true;
+        }
+        const call = {
+          method,
+          path: url.pathname.slice("/api".length),
+          body: route.request().postDataJSON() ?? undefined,
+        };
+        ruleCalls.push(call);
+        const answer =
+          ruleAction?.(call, ruleCalls.length) ??
+          (method === "DELETE"
+            ? { status: 204, body: "" }
+            : {
+                status: method === "POST" ? 201 : 200,
+                json: { rule: { id: "new", ...call.body } },
+              });
+        await route.fulfill(answer);
+        return true;
+      }
       return false;
     },
   });
-  return { posts, calls, queueCalls };
+  return { posts, calls, queueCalls, ruleCalls };
 }

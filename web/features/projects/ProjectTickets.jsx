@@ -24,10 +24,12 @@ import NewRunDialog from "../pipelines/NewRunDialog.jsx";
 import ProjectTicketSources from "./ProjectTicketSources.jsx";
 import SequenceStartDialog from "./SequenceStartDialog.jsx";
 import TicketQueue from "./TicketQueue.jsx";
+import TicketRules from "./TicketRules.jsx";
 import { RegisterHint } from "./ProjectRuns.jsx";
 import { pipelineRunRoute } from "./routes.js";
 import { sourceStates, startOf, startRoute, visibleTickets } from "./ticket-list.js";
 import { queueItemPath } from "./ticket-queue.js";
+import { rulesPath } from "./ticket-rules.js";
 import "./project-tickets.css";
 
 const enc = encodeURIComponent;
@@ -166,7 +168,8 @@ function useTicketList(projectId, sourcesKey, version) {
  * items with a label filter, and the start of one ticket as a session (the launch
  * dialog) or a pipeline run. The server reads the ticket text itself; the browser
  * sends only source and key. A started ticket asks before it starts again. The
- * project's ticket sequence shows above the list while it has items.
+ * project's ticket sequence shows above the list while it has items, its label rules
+ * below the sequence while a source is connected.
  */
 export default function ProjectTickets({
   project,
@@ -189,6 +192,11 @@ export default function ProjectTickets({
   const queue = useLiveTopic(
     registered ? `tickets.queue:${projectId}` : null,
     queueItemPath(projectId),
+  );
+  // The label rules; the queue names the rule a ticket came from.
+  const rules = useLiveTopic(
+    registered ? `tickets.rules:${projectId}` : null,
+    rulesPath(projectId),
   );
   const [version, setVersion] = useState(0);
   const [source, setSource] = useState("");
@@ -295,8 +303,19 @@ export default function ProjectTickets({
         projectId={projectId}
         view={queue.data}
         written={queue.written}
+        rules={rules.data?.rules}
         onNavigate={onNavigate}
       />
+      {view && (connected.github || connected.plane) && (
+        <TicketRules
+          projectId={projectId}
+          view={rules.data}
+          written={rules.written}
+          sources={connected}
+          state={launchState}
+          defaults={queue.data?.defaults}
+        />
+      )}
       {live.error && !view && <ErrorMessage error={copy.loadFailed} />}
       {live.loading && !view && <p role="status">{copy.loading}</p>}
       {view && !connected.github && !connected.plane && (
