@@ -145,9 +145,11 @@ export class TicketSequenceService {
    * Appends the tickets a rule found, in the given order, inside the queue's lock. The
    * rule is read again there: a rule deleted, paused or moved to another label while
    * its source was read appends nothing for its old state. A ticket that was picked,
-   * queued (done included), started or is being started is skipped. Pickups are written
-   * only after the append; when that write fails, the queue item itself keeps the next
-   * pass from appending again, and that pass records the missing pickup.
+   * queued (done included), started or is being started is skipped; a queued or started
+   * one gets a pickup, so it stays skipped once its queue item or start record is
+   * pruned. Pickups are written only after the append; when that write fails, the queue
+   * item itself keeps the next pass from appending again, and that pass records the
+   * missing pickup.
    */
   async appendFromRule(project, ruleId, tickets) {
     const outcome = await this.engine.exclusive(project.id, async () => {
@@ -162,19 +164,31 @@ export class TicketSequenceService {
         if (fresh.some((other) => other.key === ticket.key)) continue;
         const { source, key } = ticket;
         if (this.rules.picked(project.id, source, key)) continue;
+        // A queue item of any origin or a start record already holds the ticket: it
+        // is recorded as picked, so it stays skipped after either record is pruned.
         const queued = this.store.find(project.id, source, key);
         if (queued) {
-          if (queued.origin.kind === "rule")
-            repaired.push({
-              source,
-              key,
-              ruleId: queued.origin.ruleId,
-              itemId: queued.id,
-              at: queued.addedAt,
-            });
+          repaired.push({
+            source,
+            key,
+            ruleId: queued.origin.kind === "rule" ? queued.origin.ruleId : rule.id,
+            itemId: queued.id,
+            at: queued.addedAt,
+          });
           continue;
         }
-        if (this.tickets.store.findStart(project.id, source, key)) continue;
+        const started = this.tickets.store.findStart(project.id, source, key);
+        if (started) {
+          // `itemId` names the start record here.
+          repaired.push({
+            source,
+            key,
+            ruleId: rule.id,
+            itemId: started.id,
+            at: started.startedAt,
+          });
+          continue;
+        }
         if (this.tickets.isStarting(project.id, source, key)) continue;
         fresh.push(ticket);
       }

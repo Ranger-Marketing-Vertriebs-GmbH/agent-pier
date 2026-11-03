@@ -223,6 +223,50 @@ test("pickup write failure after append does not duplicate on next pass", async 
   assert.deepEqual((await append(rule.id, [labelled(2)])).added, []);
 });
 
+test("a ticket queued by hand or started stays skipped after both records are pruned", async (t) => {
+  const { f, rules, append } = await setup(t);
+  // A manual queue item for #1 (parked) and a start record for #2.
+  f.append(["acme/app#1"]);
+  parkHead(f);
+  const [manual] = f.items();
+  const start = f.ticketStore.addStart({
+    projectId: "p1",
+    source: "github",
+    key: "acme/app#2",
+    title: "Two",
+    url: "",
+    kind: "session",
+    targetId: "s0",
+    writeBack: { state: "done" },
+  });
+  // Created after both: the first pass records them as picked.
+  const rule = rules.create("p1", ruleInput());
+  assert.deepEqual(await append(rule.id, [labelled(1), labelled(2)]), {
+    added: [],
+    full: false,
+  });
+  assert.deepEqual(rules.picked("p1", "github", "acme/app#1"), {
+    projectId: "p1",
+    source: "github",
+    key: "acme/app#1",
+    ruleId: rule.id,
+    itemId: manual.id,
+    at: manual.addedAt,
+  });
+  assert.equal(rules.picked("p1", "github", "acme/app#2").itemId, start.id);
+  // Both records pruned (done and over the caps): the pickups alone still block them.
+  f.store.patch("p1", manual.id, { state: "done", doneBy: "owner", doneAt: 2 });
+  f.store.remove("p1", manual.id);
+  f.ticketStore.startRecords = [];
+  f.ticketStore.save();
+  assert.equal(f.ticketStore.findStart("p1", "github", "acme/app#2"), undefined);
+  assert.deepEqual(await append(rule.id, [labelled(1), labelled(2)]), {
+    added: [],
+    full: false,
+  });
+  assert.deepEqual(f.items(), []);
+});
+
 test("two rules matching one ticket append it once", async (t) => {
   const { f, rules, append } = await setup(t);
   f.append(["acme/app#1"]);
