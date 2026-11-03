@@ -11,6 +11,7 @@ import { prVerdict } from "./pr-status.js";
 import { ticketQueueChanged } from "./live-topics.js";
 import { findSession, resumeStart, startItem } from "./sequence-start.js";
 import { isTransient } from "./sequence-reasons.js";
+import { FORGE_LIMIT_MS, fixStep } from "./sequence-fixes.js";
 
 export { PARK_REASONS } from "./sequence-reasons.js";
 
@@ -226,6 +227,31 @@ export class TicketSequenceEngine {
     return false;
   }
 
+  /**
+   * A GitHub read failed: skipped like any blip, but failures for FORGE_LIMIT_MS in a
+   * row (counted from the first one) park the queue with `forgeUnreachable`.
+   */
+  forgeFailed(ctx, item, error, step) {
+    this.skip(error, step);
+    if (this.closed) return false;
+    const current = this.current(ctx, item);
+    const since = current.forgeFailingSince;
+    if (!Number.isFinite(since)) {
+      this.save(ctx, current, { forgeFailingSince: this.now() });
+      return false;
+    }
+    if (this.now() - since >= FORGE_LIMIT_MS)
+      return this.park(ctx, current, "forgeUnreachable");
+    return false;
+  }
+
+  /** A GitHub read succeeded: the failure clock starts again at the next failure. */
+  forgeOk(ctx, item) {
+    return Number.isFinite(item.forgeFailingSince)
+      ? this.save(ctx, item, { forgeFailingSince: null })
+      : item;
+  }
+
   async readTicket(ctx, item) {
     try {
       return { ticket: await ctx.source.get(ctx.access, item.key, this.signal()) };
@@ -270,8 +296,9 @@ export class TicketSequenceEngine {
           })
         : null;
     } catch (error) {
-      return this.skip(error, "find-pr");
+      return this.forgeFailed(ctx, item, error, "find-pr");
     }
+    item = this.forgeOk(ctx, item);
     if (found) return this.foundPr(ctx, item, found);
     let session;
     try {
@@ -329,10 +356,10 @@ export class TicketSequenceEngine {
         this.signal(),
       );
     } catch (error) {
-      return this.skip(error, "read-pr");
+      return this.forgeFailed(ctx, item, error, "read-pr");
     }
     if (this.closed) return false;
-    let saved = item;
+    let saved = this.forgeOk(ctx, item);
     if (!item.pr.headRef && snapshot.headRef)
       saved = this.save(ctx, item, {
         pr: { ...item.pr, headRef: snapshot.headRef, url: item.pr.url || snapshot.url },
@@ -340,6 +367,9 @@ export class TicketSequenceEngine {
     const verdict = prVerdict(snapshot);
     if (verdict.status === "merged") return this.finish(ctx, saved, snapshot);
     if (verdict.status === "closed") return this.park(ctx, saved, "prClosed");
+    const fixed = await fixStep(this, ctx, saved, verdict);
+    if (fixed.stop || this.closed) return false;
+    saved = fixed.item;
     if (!saved.options.allowMerge) return false;
     try {
       return await this.mergeStep(ctx, saved, snapshot, verdict);
@@ -375,7 +405,10 @@ export class TicketSequenceEngine {
     if (item.armedHead && item.armedHead === head) {
       // Red checks: the fix rounds push a new head, which may be armed once more.
       if (verdict.checks === "failed") return false;
-      return this.park(ctx, item, "mergeDisarmed");
+      // A head that failed its checks may have been dropped for them (a merge queue
+      // does); once a re-run turns it green it may be armed again.
+      if (item.rounds?.lastSha !== head) return this.park(ctx, item, "mergeDisarmed");
+      item = this.save(ctx, item, { armedHead: null, armed: null });
     }
     if (item.refused?.headSha === head) {
       const ready = item.refused.what === "arm" ? green : verdict.mergeReady;
