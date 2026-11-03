@@ -191,6 +191,7 @@ test("profile drafts send name, instructions and the model together", () => {
     connectionId: "router",
     modelId: "model",
     followLead: false,
+    freshChats: null,
   });
   assert.deepEqual(profilePatch({ ...server, modelId: "other" }), {
     name: "Home",
@@ -203,6 +204,7 @@ test("profile drafts send name, instructions and the model together", () => {
     connectionId: "",
     modelId: "",
     followLead: false,
+    freshChats: null,
   });
 });
 

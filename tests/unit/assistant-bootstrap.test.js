@@ -4,6 +4,7 @@ import {
   assistantBootstrap,
   germanSettingLabels,
 } from "../../server/features/assistants/assistant-bootstrap.js";
+import { memoryStepText } from "../../server/features/assistants/memory-step.js";
 import { loadCatalogs } from "../../scripts/i18n-translation-lock.mjs";
 
 const assistant = {
@@ -106,6 +107,16 @@ test("memory off: no memory guidance, for leads and members alike", () => {
     assert.doesNotMatch(text, /## Memory/);
     assert.doesNotMatch(text, /MEMORY\.md/);
   }
+});
+
+test("bootstrap tells the agent not to store its own refusals", () => {
+  const sentence =
+    "- Do not record your own refusals or limits you set yourself as rules or notes; record the owner's rules, decisions and facts.";
+  // Also the guidance of an agent on its own process (Hermes): memory not writable by AgentPier.
+  for (const options of [{}, { memoryWritable: false }])
+    assert.ok(assistantBootstrap(memoryOn, {}, options).includes(sentence));
+  assert.ok(!assistantBootstrap(assistant, {}).includes(sentence), "no memory, no line");
+  assert.match(memoryStepText, /Do not record your own refusals or limits/);
 });
 
 test("memory on without writes: the agent is told memory is read-only right now", () => {

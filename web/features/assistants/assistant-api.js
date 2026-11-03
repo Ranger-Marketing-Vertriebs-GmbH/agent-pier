@@ -36,6 +36,14 @@ export const assistantApi = {
       `/assistants/${encodeURIComponent(id)}/memory/archive/${encodeURIComponent(entryId)}/restore`,
       "POST",
     ),
+  // What switching the agent to this model does: { familyChanged, freshChatsDefault }.
+  modelSwitchPreview: (id, model, signal) =>
+    api(
+      `/assistants/${encodeURIComponent(id)}/model-switch?connectionId=${encodeURIComponent(model.connectionId)}&modelId=${encodeURIComponent(model.modelId)}`,
+      "GET",
+      undefined,
+      signal,
+    ),
   // The owner's cards after a model switch's memory review (memory-reviews.js).
   memoryReviews: () => api("/assistant-memory-reviews"),
   decideMemoryReview: (id, input) =>

@@ -71,6 +71,71 @@ test("the profile bar shows the apply note and saves name, instructions and mode
   await expect(saveBar(page)).toHaveCount(0);
 });
 
+// The preview endpoint answers with the family rule's default; `calls` records asks.
+async function previewRoute(page, answer) {
+  const calls = [];
+  await page.route("**/api/assistants/home/model-switch?*", (route) => {
+    calls.push(new URL(route.request().url()).searchParams.get("modelId"));
+    return route.fulfill(answer);
+  });
+  return calls;
+}
+const model = (page) => page.getByRole("textbox", { name: "Model ID", exact: true });
+const fresh = (page) => page.getByRole("switch", { name: "Start fresh chats" });
+
+test("offers fresh chats on a family switch and sends the choice", async ({ page }) => {
+  const state = await setup(page, { applyUpdates: true });
+  const calls = await previewRoute(page, {
+    json: { familyChanged: true, freshChatsDefault: true },
+  });
+  await page.goto(baseURL + settingsPath("identity"));
+  await expect(fresh(page)).toHaveCount(0);
+  await model(page).fill("other-family");
+  await expect(fresh(page)).toBeChecked();
+  await expect(
+    page.getByText(
+      "New main chats for everyone using this agent; the old ones stay readable. Nothing running stops.",
+    ),
+  ).toBeVisible();
+  expect(calls.at(-1)).toBe("other-family");
+  await fresh(page).uncheck();
+  await saveBar(page).getByRole("button", { name: "Save agent" }).click();
+  await expect.poll(() => state.updates.length).toBe(1);
+  expect(state.updates[0]).toMatchObject({
+    model: { connectionId: "router", modelId: "other-family" },
+    freshChats: false,
+  });
+  await expect(fresh(page)).toHaveCount(0);
+});
+
+test("defaults off for the same family and hides again with the old model", async ({
+  page,
+}) => {
+  const state = await setup(page, { applyUpdates: true });
+  await previewRoute(page, {
+    json: { familyChanged: false, freshChatsDefault: false },
+  });
+  await page.goto(baseURL + settingsPath("identity"));
+  await model(page).fill("sibling");
+  await expect(fresh(page)).not.toBeChecked();
+  await model(page).fill("model");
+  await expect(fresh(page)).toHaveCount(0);
+  await expect(saveBar(page)).toHaveCount(0);
+  await model(page).fill("sibling");
+  await expect(fresh(page)).not.toBeChecked();
+  await saveBar(page).getByRole("button", { name: "Save agent" }).click();
+  await expect.poll(() => state.updates.length).toBe(1);
+  expect(state.updates[0].freshChats).toBe(false);
+});
+
+test("a failed preview defaults the switch to on", async ({ page }) => {
+  await setup(page);
+  await previewRoute(page, { status: 500, json: { error: "boom" } });
+  await page.goto(baseURL + settingsPath("identity"));
+  await model(page).fill("other");
+  await expect(fresh(page)).toBeChecked();
+});
+
 test("Capabilities saves its switches; MCP servers are granted and saved in Access", async ({
   page,
 }) => {

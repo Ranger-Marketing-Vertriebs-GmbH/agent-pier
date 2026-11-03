@@ -10,6 +10,10 @@ export const assistantSettingsCopy = {
     channels: "Channels",
   },
   backToAgents: "Back to agents",
+  freshChats: {
+    label: "Start fresh chats",
+    hint: "New main chats for everyone using this agent; the old ones stay readable. Nothing running stops.",
+  },
   overviewGroups: {
     glance: "At a glance",
     glanceHint: "What this agent can do and use. Each row opens its tab.",

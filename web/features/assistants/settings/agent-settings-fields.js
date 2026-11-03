@@ -41,6 +41,7 @@ export const profileKeys = [
   "connectionId",
   "modelId",
   "followLead",
+  "freshChats",
 ];
 export const heartbeatKeys = [
   "heartbeatEnabled",
@@ -272,6 +273,8 @@ export const profileServer = (assistant) => ({
   connectionId: assistant?.model?.connectionId || "",
   modelId: assistant?.model?.modelId || "",
   followLead: followsLeadModel(assistant) && assistant.ownModel !== true,
+  // The owner's choice for a model change (null: none, or the model is unchanged).
+  freshChats: null,
 });
 /** Following the lead sends `followLead` instead of a model of its own. */
 export const profilePatch = (values) => ({
@@ -279,7 +282,12 @@ export const profilePatch = (values) => ({
   instructions: values.instructions,
   ...(values.followLead
     ? { followLead: true }
-    : { model: { connectionId: values.connectionId, modelId: values.modelId } }),
+    : {
+        model: { connectionId: values.connectionId, modelId: values.modelId },
+        ...(typeof values.freshChats === "boolean"
+          ? { freshChats: values.freshChats }
+          : {}),
+      }),
 });
 
 export const capabilityServer = (assistant) => ({

@@ -4,6 +4,7 @@ import Switch from "../../../components/Switch.jsx";
 import { routePath } from "../../../app/routes.js";
 import { useCrossLink } from "../../../app/cross-link.js";
 import { assistantCopy as copy } from "../../../lib/i18n/messages/assistants.js";
+import { assistantSettingsCopy as settingsCopy } from "../../../lib/i18n/messages/assistant-settings.js";
 import AssistantModelFields from "../AssistantModelFields.jsx";
 import { connectionLabel } from "../connection-label.js";
 import AgentCapability from "./AgentCapability.jsx";
@@ -96,6 +97,21 @@ export default function ProfileFields({
               />
             </div>
           </AgentCapability>
+        )}
+        {/* Offered while the drafted model differs from the saved one (the draft
+            field is null otherwise, useModelSwitchChoice.js). */}
+        {typeof draft.values.freshChats === "boolean" && (
+          <div className="agent-field">
+            <Switch
+              label={settingsCopy.freshChats.label}
+              checked={draft.values.freshChats}
+              onChange={(value) => draft.set("freshChats", value)}
+              aria-describedby="fresh-chats-hint"
+            />
+            <p id="fresh-chats-hint" className="assistant-note" role="note">
+              {settingsCopy.freshChats.hint}
+            </p>
+          </div>
         )}
       </div>
       {/* A member that follows its lead chooses no connection of its own. */}
