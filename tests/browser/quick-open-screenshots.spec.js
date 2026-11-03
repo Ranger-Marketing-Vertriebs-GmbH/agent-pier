@@ -42,8 +42,14 @@ async function workspaceFixture(page) {
       "agentpier-search-recent:owner",
       JSON.stringify(["session:billing", "chat:c2", "run:run-42"]),
     );
+    // macOS on every runner, so ⌘K opens the palette (search-shortcut.js).
+    const data = { platform: "macOS", brands: [], mobile: false };
     Object.defineProperty(Navigator.prototype, "platform", {
       get: () => "MacIntel",
+      configurable: true,
+    });
+    Object.defineProperty(Navigator.prototype, "userAgentData", {
+      get: () => data,
       configurable: true,
     });
   });
