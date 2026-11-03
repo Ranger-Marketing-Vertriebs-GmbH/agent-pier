@@ -180,6 +180,7 @@ until you switch it on:
 |                 | Pipeline waiting at a gate                         | On      | A pipeline waits at a human gate                                                                                                                                                                                                                                                                                                                                                           |
 |                 | Agent approval (shell, SSH, tasks, team proposals) | On      | An agent waits for approval of a shell or SSH command, an SFTP transfer, an email to send, a coding task or coding session start, a memory entry, a team member's permission, a hook or an SSH access proposal, or proposes a team                                                                                                                                                         |
 |                 | Reminder you asked an agent for                    | On      | A [reminder](agents.md#routines-reminders-and-check-ins) you asked an agent for is due (or failed); opens the agent's chat. Follows **Routine or hook result** on a device set up before it existed                                                                                                                                                                                        |
+|                 | A ticket sequence waits for you                    | On      | A [ticket sequence](ticket-sources.md#when-a-ticket-needs-you) stopped and waits for your decision (for example checks failed three times, or the pull request was closed); names neither the ticket nor the reason; opens the project's Tickets tab. A newer notice of the same project replaces the older one                                                                            |
 | Problems        | Pipeline failed                                    | On      | A pipeline run failed (a cancelled run does not notify)                                                                                                                                                                                                                                                                                                                                    |
 |                 | Session reached its usage limit                    | On      | A session's CLI ended a turn at its rate limit or usage quota (Claude Code's `StopFailure` with `rate_limit` or `billing_error`, a Codex turn failed with `usageLimitExceeded`); once per occurrence until a turn succeeds again; opens the session's chat. **With preview** shows the CLI's own limit message, which names the reset time                                                 |
 |                 | Session could not be resumed                       | On      | [Resuming interrupted sessions](session-reload.md) failed for a session after AgentPier's terminal server was lost; once per interruption; opens the session's chat                                                                                                                                                                                                                        |
@@ -194,8 +195,9 @@ until you switch it on:
 |                 | Update available                                   | Off     | The daily update check (a few minutes after AgentPier starts, then once a day) found a newer version on your channel; once per version, never for a version **Check for updates** under **Settings › Operations › Updates** already showed; opens the updates. Without it, the menu's **Settings** hint, the start page and **Settings › Operations › Updates** still show the new version |
 |                 | Also what Telegram delivered                       | Off     | Check-ins, reminders, routine and hook results that also went to the agent's paired Telegram chat; while off, Telegram alone tells you about them                                                                                                                                                                                                                                          |
 
-**Session reached its usage limit**, **Session could not be resumed**, **Update
-available** and **Update failed** go to the owner's devices only, never to a
+**Session reached its usage limit**, **Session could not be resumed**, **A ticket
+sequence waits for you**, **Update available** and **Update failed** go to the owner's
+devices only, never to a
 restricted user's or to Telegram. AgentPier has no reliable signal for a session that is stuck, so it does not
 guess one; only the CLI's own limit report notifies. AgentPier checks for updates on its own a few minutes after it starts and then once a day ([updates](operations.md#installer-and-exact-commands)); only this automatic check notifies, a check someone starts with **Check for updates** never does, and a failed check notifies nobody.
 
@@ -246,7 +248,8 @@ urgency.
 **Grouping and quiet**:
 
 - **Group by session, agent or run** (on by default): a new notification from the same
-  session, agent or pipeline run replaces the older one instead of stacking. A
+  session, agent or pipeline run (or about the same project's ticket sequence) replaces
+  the older one instead of stacking. A
   replacement that waits for you (a question or an approval) alerts again; others
   replace it silently.
 - **Quiet hours** (off by default, 22:00 to 07:00 when switched on): the server holds

@@ -50,8 +50,10 @@ and agents that work as a team.
   plus a built-in software factory from spec to pull request
   ([pipelines](docs/pipelines.md#software-factory)).
 - **Tickets:** a project's **Tickets** tab lists open GitHub issues and Plane work items,
-  starts one as a session or a pipeline run, marks it "In progress" with a link back and
-  shows it on the session or run ([ticket sources](docs/ticket-sources.md)).
+  starts one as a session or a pipeline run, marks it "In progress" and shows it on the
+  session or run, or starts several as a sequence that AgentPier works through one at a
+  time, watching each pull request until it is merged, asking for fixes and, when
+  allowed, merging it ([ticket sources](docs/ticket-sources.md)).
 - **Agents and teams:** persistent agents whose leads ask and delegate to their
   members on request, by suggestion or on their own and share their project folders,
   coding projects and MCP servers with them or set up routines on them that report

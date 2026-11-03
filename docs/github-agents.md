@@ -56,7 +56,7 @@ The helper reads the git credential protocol as git 2.46 and later sends it: mul
 
 ### Tickets
 
-A project's **Tickets** tab reads the repository's open issues with the token profile selected for the host of its `origin` remote, and on a start adds the project's "in progress" label and a comment with a link to the session or run. Listing needs **Issues: read**; the write-back needs **Issues: write** (fine-grained token) or the `repo` scope (classic token; `public_repo` for public repositories). Without write access the start still succeeds and the ticket shows **Write-back failed**. See [Ticket sources](ticket-sources.md).
+A project's **Tickets** tab reads the repository's open issues with the token profile selected for the host of its `origin` remote, and on a start adds the project's "in progress" label and a comment that names AgentPier but carries no address. Listing needs **Issues: read**; the write-back needs **Issues: write** (fine-grained token) or the `repo` scope (classic token; `public_repo` for public repositories). Without write access the start still succeeds and the ticket shows **Write-back failed**. [Ticket sequences](ticket-sources.md#ticket-sequences) use the same profile to find, watch and merge pull requests and to close the issue when its pull request merged; they also need **Pull requests: read and write**, **Contents: write** (merge and push) and **Checks** and **Commit statuses: read** (fine-grained), or `repo` (classic); see [GitHub permissions](ticket-sources.md#github-permissions). See [Ticket sources](ticket-sources.md).
 
 <a id="ssh-remotes"></a>
 

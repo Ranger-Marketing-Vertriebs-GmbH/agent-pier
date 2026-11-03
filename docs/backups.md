@@ -12,7 +12,9 @@ Always, as public (unencrypted) members:
 
 - Saved split views (`views.json`), restored as saved ([Views](views.md)).
 - Accounts, provider connections, repositories, ticket sources (`ticket-sources.json`:
-  Plane connections without their API keys, project links and ticket start records),
+  Plane connections without their API keys, project links and ticket start records;
+  the ticket sequences in `ticket-sequences.json` are runtime state like the pipeline
+  run queue and are never archived),
   preferences, the project groups of the
   projects page (`project-groups.json`; a restore with a project mapping moves their
   folder paths along), pipeline definitions, the port from `config.json`.

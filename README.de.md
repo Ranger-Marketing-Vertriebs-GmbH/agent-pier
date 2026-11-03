@@ -56,8 +56,10 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
   menschliche Freigabe, dazu eine eingebaute Software-Fabrik von der Spezifikation bis zum Pull Request
   ([Pipelines](docs/pipelines.md#software-factory)).
 - **Tickets:** der Tab **Tickets** eines Projekts listet offene GitHub-Issues und
-  Plane-Work-Items, startet eines als Session oder Pipeline-Lauf, setzt es mit Rücklink
-  auf „In Arbeit“ und zeigt es an der Session oder am Lauf
+  Plane-Work-Items, startet eines als Session oder Pipeline-Lauf, setzt es auf „In
+  Arbeit“ und zeigt es an der Session oder am Lauf, oder startet mehrere als Folge, die
+  AgentPier nacheinander abarbeitet: Es beobachtet jeden Pull Request bis zum Merge,
+  fordert Korrekturen an und merged ihn, wenn erlaubt
   ([Ticketquellen](docs/ticket-sources.md), auf Englisch).
 - **Agenten und Teams:** dauerhafte Agenten, deren Leads ihre Mitglieder fragen und
   ihnen Aufgaben übergeben, auf Anfrage, als Vorschlag oder selbstständig, und ihre
