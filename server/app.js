@@ -280,6 +280,8 @@ export async function createApplication(config) {
     services.githubTokenMonitor.start();
     // Resumes the saved ticket sequences and watches their pull requests every 60 s.
     services.ticketSequenceEngine.start();
+    // Polls the label rules 30 s after start-up, then every 10 min (config.ticketRules).
+    services.ticketRuleMonitor.start();
     if (config.updateCheck !== false) services.updateChecker.start();
     services.systemStatus.start();
     // Finishes node_modules deletions a restart interrupted (cleanup-dependencies.js).

@@ -14,6 +14,8 @@ export function createShutdown({ services, wss, server }) {
     services.live?.close();
     // Ticket sequences stop first: their steps launch sessions, queue pipeline runs and
     // deliver chat text, so none may run while those services close.
+    // The rule monitor appends to them, so it stops before them (at most 1 s).
+    await services.ticketRuleMonitor?.close();
     const sequencesClosed = services.ticketSequenceEngine?.close();
     // npm and uv run in their own process groups and must not outlive AgentPier: their
     // stop starts first, so its bound (McpPackages#close) ends well before the forced
