@@ -8,8 +8,14 @@ import {
   discardAttachmentAccess,
 } from "../features/sessions/attachment-access.js";
 import { profileLocation } from "../features/cli-profiles/configuration.js";
+import { cliDefinition, isCodingCli } from "../features/clis/catalog.js";
 import { addGrant } from "../features/nono/sandbox-grants.js";
 import { prepareSessionSshAgent } from "../features/ssh/ssh-agent-launch.js";
+
+// A CLI that takes AgentPier's session id as its own (Claude Code's --session-id), so
+// the chat binds to it from the start; the shell and the others do not.
+const pinsSessionId = (tool) => isCodingCli(tool) && !!cliDefinition(tool).sessionIdArgs;
+
 export function createSessionLifecycle(services) {
   const {
     config,
@@ -166,8 +172,8 @@ export function createSessionLifecycle(services) {
       launch = await services.cliMcp.prepare({ account, launch });
     if (!login) sharedProfiles?.prepare(account, launch);
     const id = trusted.id || randomUUID();
-    if (!login && account.tool === "claude" && !trusted.transformLaunch)
-      launch.args.push("--session-id", id);
+    if (!login && pinsSessionId(account.tool) && !trusted.transformLaunch)
+      launch.args.push(...cliDefinition(account.tool).sessionIdArgs(id));
     const attachments =
       login || account.tool === "shell" || trusted.pipeline?.headless
         ? null
@@ -177,8 +183,8 @@ export function createSessionLifecycle(services) {
             accountId: account.id,
             sessionId: id,
             launch,
-            profile:
-              account.tool === "opencode" ? profileLocation(accounts, account.id) : null,
+            // Read only by a CLI that grants through its profile (OpenCode).
+            profile: () => profileLocation(accounts, account.id),
           });
     // grantAttachmentAccess returns the attachment record, not a launch, and is the
     // last step that edits launch.args in place, so the grant is declared here.
@@ -324,7 +330,7 @@ export function createSessionLifecycle(services) {
       } catch {}
       throw error;
     }
-    if (!login && account.tool === "claude") chat.initialize(session, id, "automatic");
+    if (!login && pinsSessionId(account.tool)) chat.initialize(session, id, "automatic");
     return session;
   }
   return {

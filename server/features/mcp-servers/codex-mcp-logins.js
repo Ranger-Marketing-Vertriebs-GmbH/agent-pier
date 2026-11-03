@@ -42,7 +42,7 @@ function authorization(text) {
 
 export class CodexMcpLogins {
   /**
-   * - `accounts`: AccountStore (`get`, `environment`, `codexCredentialArgs`, `home`).
+   * - `accounts`: AccountStore (`get`, `environment`, `credentialArgs`, `home`).
    * - `servers`: McpServerStore (`get`, `bindings`).
    * - `tools()`: detected CLIs; the installed Codex runs the login.
    * - `prepare(account)`: writes the central servers into the account (as a session
@@ -203,7 +203,7 @@ export class CodexMcpLogins {
     return this.spawn(
       file,
       [
-        ...this.accounts.codexCredentialArgs(accountId),
+        ...this.accounts.credentialArgs(accountId),
         "-c",
         `mcp_oauth_callback_url=${tomlValue(base)}`,
         "mcp",

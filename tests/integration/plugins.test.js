@@ -86,7 +86,7 @@ for (const tool of ["codex", "claude"])
     const { accounts, store, calls } = setup(t);
     const account = accounts.create({ name: "Fixture", tool });
     // Managed Codex commands keep both credential stores in the account profile.
-    const stores = accounts.codexCredentialArgs(account.id);
+    const stores = accounts.credentialArgs(account.id);
     assert.equal(stores.length, tool === "codex" ? 4 : 0);
     const list = await store.list(account.id);
     assert.equal(list.available, true);

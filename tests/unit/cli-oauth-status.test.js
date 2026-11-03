@@ -133,7 +133,7 @@ const managed = {
     { id: "a2", name: "Private", tool: "codex", kind: "managed" },
     { id: "c1", name: "Claude", tool: "claude", kind: "managed" },
   ],
-  codexCredentialArgs: (id) =>
+  credentialArgs: (id) =>
     id === "local-codex" ? [] : ["-c", 'mcp_oauth_credentials_store="file"'],
 };
 

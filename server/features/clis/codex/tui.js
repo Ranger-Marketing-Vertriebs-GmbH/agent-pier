@@ -110,6 +110,39 @@ function promptReady(raw) {
   return chars.length === 0 || chars.every((x) => x.dim);
 }
 
+/**
+ * The model behind the name the picker displays, for a reload: a listed label or id
+ * (`models` from history.models), else "<name> <effort>" with a reasoning effort.
+ * Without a list only an exact id that `observed` or `fallback` confirms counts.
+ */
+function resolveDisplayed(
+  displayedModel,
+  { observed, fallback: fallbackModel, models: codexModels, identifier, unavailable },
+) {
+  const lookup = (name) => {
+    const matches = new Set(
+      (codexModels || [])
+        .filter((model) => model.label === name || model.modelId === name)
+        .map((model) => identifier(model.modelId))
+        .filter(Boolean),
+    );
+    if (matches.size > 1) throw unavailable();
+    if (matches.size) return [...matches][0];
+    const exact = identifier(name);
+    if (exact && (!codexModels || exact === observed || exact === fallbackModel))
+      return exact;
+    return undefined;
+  };
+  const exact = lookup(displayedModel);
+  if (exact) return { modelId: exact };
+  const codex = /^(.*?) (none|minimal|low|medium|high|xhigh|max|ultra)(?: effort)?$/.exec(
+    displayedModel,
+  );
+  const modelId = codex && lookup(codex[1]);
+  if (modelId) return { modelId, reasoningEffort: codex[2] };
+  return undefined;
+}
+
 export const modelPicker = {
   // Codex coalesces rapid keystrokes as a paste burst, including a following Enter.
   openKeys: [{ type: "/model" }, { pauseMs: 250 }, { keys: ["Enter"] }],
@@ -117,6 +150,7 @@ export const modelPicker = {
   current: (raw) => currentCodexModel(plain(raw)),
   promptReady,
   unsupported: () => false,
+  resolveDisplayed,
 };
 
 // Native Codex warning cell (0.157.x). Require its bold/color styling and glyph,

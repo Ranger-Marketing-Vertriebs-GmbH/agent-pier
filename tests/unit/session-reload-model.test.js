@@ -66,7 +66,7 @@ test("Claude known display decorators retain independently observed extended con
 test("Codex native display capitalization preserves the canonical OpenAI model on reload", () => {
   assert.deepEqual(
     resolve("codex", "GPT-6-Astra max", "gpt-6-astra", {
-      codexModels: [{ modelId: "gpt-6-astra", label: "GPT-6-Astra" }],
+      models: [{ modelId: "gpt-6-astra", label: "GPT-6-Astra" }],
     }),
     {
       modelId: "gpt-6-astra",
@@ -75,7 +75,7 @@ test("Codex native display capitalization preserves the canonical OpenAI model o
   );
   assert.deepEqual(
     resolve("codex", "GPT-6.1-Sol", "gpt-6-astra", {
-      codexModels: [{ modelId: "gpt-6.1-sol", label: "GPT-6.1-Sol" }],
+      models: [{ modelId: "gpt-6.1-sol", label: "GPT-6.1-Sol" }],
     }),
     {
       modelId: "gpt-6.1-sol",
@@ -88,7 +88,7 @@ test("Codex native display capitalization preserves the canonical OpenAI model o
 });
 
 test("Codex reload resolves display labels through exact native catalog entries", () => {
-  const codexModels = [
+  const models = [
     { modelId: "probe", label: "Probe" },
     { modelId: "Vendor/CaseSensitive", label: "GPT Custom" },
     { modelId: "gpt-Provider/CaseSensitive", label: "Provider" },
@@ -99,7 +99,7 @@ test("Codex reload resolves display labels through exact native catalog entries"
     ["Provider ultra", "gpt-Provider/CaseSensitive", "ultra"],
     ["gpt-Provider/CaseSensitive", "gpt-Provider/CaseSensitive", undefined],
   ]) {
-    assert.deepEqual(resolve("codex", displayed, "old-model", { codexModels }), {
+    assert.deepEqual(resolve("codex", displayed, "old-model", { models }), {
       modelId: expected,
       ...(effort ? { reasoningEffort: effort } : {}),
     });
@@ -114,19 +114,28 @@ test("Codex reload rejects ambiguous or unknown display labels without guessing 
   assert.throws(
     () =>
       resolve("codex", "Shared max", "one", {
-        codexModels: [
+        models: [
           { modelId: "one", label: "Shared" },
           { modelId: "two", label: "Shared" },
         ],
       }),
     notPreserved,
   );
-  assert.throws(
-    () => resolve("codex", "Unknown", "one", { codexModels: [] }),
-    notPreserved,
-  );
+  assert.throws(() => resolve("codex", "Unknown", "one", { models: [] }), notPreserved);
   assert.equal(
-    resolve("codex", "unlisted-exact", "unlisted-exact", { codexModels: [] }).modelId,
+    resolve("codex", "unlisted-exact", "unlisted-exact", { models: [] }).modelId,
     "unlisted-exact",
   );
+});
+
+test("a tool without a picker resolver keeps an exact displayed id only", () => {
+  for (const tool of ["shell", "opencode"]) {
+    assert.deepEqual(resolve(tool, "anthropic/claude-6", "other"), {
+      modelId: "anthropic/claude-6",
+    });
+    assert.throws(() => resolve(tool, "Opus 4.6", "claude-opus-4-6"), notPreserved);
+  }
+  assert.deepEqual(resolve("shell", undefined, "observed-id"), {
+    modelId: "observed-id",
+  });
 });

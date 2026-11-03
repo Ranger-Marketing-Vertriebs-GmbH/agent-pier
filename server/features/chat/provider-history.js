@@ -85,7 +85,7 @@ export class ProviderHistory {
         this.executable("codex"),
         env,
         this.home,
-        this.accounts.codexCredentialArgs(session.accountId),
+        this.accounts.credentialArgs(session.accountId),
       );
       this.codexClients.set(key, client);
     }

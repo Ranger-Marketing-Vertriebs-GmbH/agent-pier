@@ -21,6 +21,10 @@ const definition = {
   authStatusArgs: ["auth", "list"],
   apiKeyEnv: "OPENAI_API_KEY",
   resumeArgs: (sessionId) => ["--session", sessionId],
+  // Arguments that pin the native session id to AgentPier's own at launch, or null.
+  sessionIdArgs: null,
+  // The CLI's own operating-system sandbox mode for an attachment grant, or null.
+  nativeSandbox: null,
   // How the chat shows one OpenCode question.
   questionView: (q) => ({
     multiple: q.multiple === true,

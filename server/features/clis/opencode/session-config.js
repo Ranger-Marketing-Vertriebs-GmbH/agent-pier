@@ -1,5 +1,6 @@
 // How a session launch hands OpenCode an extra MCP server or start hint: entries in the
 // inline configuration OPENCODE_CONFIG_CONTENT, merged with what it already holds.
+import { grantOpenCode } from "./attachments.js";
 
 const isRecord = (value) => value && typeof value === "object" && !Array.isArray(value);
 
@@ -53,4 +54,20 @@ export function addReminder(launch, { pluginUrl, invalid }) {
 /** Names of the MCP servers the inline configuration holds; throws when it is invalid. */
 export function inlineMcpNames(env) {
   return Object.keys(inlineConfig(env).mcp || {});
+}
+
+/**
+ * Grants the chat attachments through the account's references entry (see
+ * attachments.js), which covers every session of the account, then creates the
+ * session `directory` with `ensure()`. `profile` is the profile location, or a
+ * function returning it. A reload finds the entry in place and changes nothing.
+ */
+export function grantDirectory(
+  launch,
+  directory,
+  { reload, ensure, profile, accountDirectory },
+) {
+  if (reload) return true;
+  const location = typeof profile === "function" ? profile() : profile;
+  return grantOpenCode(location, accountDirectory) && ensure();
 }

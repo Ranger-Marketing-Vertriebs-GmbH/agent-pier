@@ -74,3 +74,13 @@ export function inlineMcpNames() {
 export function runtimeInterpreter(command, env) {
   return resolveAgentBusInterpreter(command, env);
 }
+
+/**
+ * Adds the chat attachment `directory` with --add-dir. A first launch creates it with
+ * `ensure()` first and grants nothing when that fails; a reload re-adds it as is.
+ */
+export function grantDirectory(launch, directory, { reload, ensure }) {
+  if (!reload && !ensure()) return false;
+  launch.args.push("--add-dir", directory);
+  return true;
+}

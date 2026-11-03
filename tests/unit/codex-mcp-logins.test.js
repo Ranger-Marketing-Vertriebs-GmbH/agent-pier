@@ -40,7 +40,7 @@ function setup(options = {}) {
       return found;
     },
     environment: (id) => ({ CODEX_HOME: `/data/profiles/${id}/codex` }),
-    codexCredentialArgs: () => ["-c", 'mcp_oauth_credentials_store="file"'],
+    credentialArgs: () => ["-c", 'mcp_oauth_credentials_store="file"'],
   };
   const timers = [];
   const settled = [];

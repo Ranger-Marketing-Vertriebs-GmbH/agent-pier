@@ -241,7 +241,7 @@ test("Codex reload catalog reads are scoped, paginated and return only model ide
   const calls = [];
   history.codexClientFactory = (_command, env, _cwd, configArgs) => {
     assert.equal(env.CODEX_HOME, accounts.environment(account.id).CODEX_HOME);
-    assert.deepEqual(configArgs, accounts.codexCredentialArgs(account.id));
+    assert.deepEqual(configArgs, accounts.credentialArgs(account.id));
     assert.equal(configArgs.length, 4);
     return {
       request: async (method, params) => {

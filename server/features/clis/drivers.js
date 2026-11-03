@@ -85,6 +85,12 @@ const drivers = new Map();
  * configRoot(env, home): where the CLI keeps its config for `env`.
  * dataRoot(env, home): where it keeps its data (history, databases).
  * parseAuthStatus(stdout, exitCode, stderr): { signedIn, state }.
+ * credentials: null, or (Codex) { seedProfile(root, { apiKey, providerSelected }),
+ *   storeApiKey(root, apiKey, { providerSelected }), args(), pin(launch, profileDir) }:
+ *   a managed account's credential stores.
+ * grantDirectory(launch, directory, { reload, ensure, profile, accountDirectory }):
+ *   grants the chat attachment folder (`--add-dir`, Codex's sandbox, or OpenCode's
+ *   profile reference); returns whether it did.
  * addMcpServer(launch, { name, command, args, env? }, claude?): adds a stdio MCP
  *   server to the launch's own `args`/`env` (Claude Code also needs `{ pluginFolder,
  *   manifest, write }`).
@@ -110,7 +116,8 @@ const drivers = new Map();
  *   a full read, readReloadContext(history, session, id), watchRoots(env, home, cwd):
  *   folders to watch while a chat has no known sources, slashCommands(scan, env,
  *   cwd): discovers custom commands, transcriptFiles(home): the transcript walk
- *   plan of a CLI with `capabilities.transcriptCleanup`. normalize and observe take what the CLI's own
+ *   plan of a CLI with `capabilities.transcriptCleanup`, models?(history, session):
+ *   the models its picker can display (Codex). normalize and observe take what the CLI's own
  *   reader produced, so their arguments differ: Codex normalize(thread) and
  *   observe(thread, records), Claude Code normalize(records) and observe(records),
  *   OpenCode normalize(exported) and observe(exported).
@@ -121,7 +128,8 @@ const drivers = new Map();
  *   modelPicker: openKeys (steps of { keys } | { type } | { pauseMs }),
  *   parse(raw): the native picker or null, current(raw): the model it shows,
  *   promptReady(raw): whether the picker may be opened, unsupported(raw): a picker
- *   AgentPier must not drive.
+ *   AgentPier must not drive, resolveDisplayed?(displayed, { observed, fallback,
+ *   models, identifier, unavailable }): the reload model behind a displayed name.
  *   limitWarning({ raw, pane, styled, lines }): visible native limit warnings.
  * pipeline: a pipeline turn's command line and events (see `<id>/pipeline.js`).
  *   command({ args, mode, sessionId, resumeNativeId, headless, claudeDefault }):
@@ -169,6 +177,7 @@ export function cliDriver(id) {
         addReminder: sessions[id].addReminder,
         runtimeInterpreter: sessions[id].runtimeInterpreter,
         inlineMcpNames: sessions[id].inlineMcpNames,
+        grantDirectory: sessions[id].grantDirectory,
         prepareRequests: requests[id].prepareRequests,
         shellToolName: requests[id].shellToolName,
         requests: frozen({
@@ -185,6 +194,7 @@ export function cliDriver(id) {
           watchRoots: histories[id].watchRoots,
           slashCommands: histories[id].slashCommands,
           transcriptFiles: histories[id].transcriptFiles,
+          models: histories[id].models,
         }),
         tui: Object.freeze({
           activity: tuis[id].activity,
@@ -213,6 +223,7 @@ export function cliDriver(id) {
           keepsOAuthScope: mcps[id].keepsOAuthScope,
         }),
         provider: frozen({ ...providers[id] }),
+        credentials: profile.credentials ? frozen({ ...profile.credentials }) : null,
         transfer: definition.capabilities.accountTransfer
           ? frozen({ ...transfers[id] })
           : null,

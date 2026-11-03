@@ -363,3 +363,116 @@ test("runtimeInterpreter resolves a Node shebang for Claude Code only", () => {
   assert.equal(cliDriver("codex").runtimeInterpreter, undefined);
   assert.equal(cliDriver("opencode").runtimeInterpreter, undefined);
 });
+
+const SANDBOX = ["-c", 'sandbox_mode="workspace-write"'];
+
+test("grantDirectory adds each CLI's attachment grant like the launch did", () => {
+  const grant = (
+    id,
+    { reload = false, launchMode = "default", args = [], ok = true },
+  ) => {
+    const launch = { args: [...args], launchMode };
+    let ensured = 0;
+    const granted = cliDriver(id).grantDirectory(launch, "/att/s1", {
+      reload,
+      ensure: () => (ensured++, ok),
+      profile: null,
+      accountDirectory: "/att",
+    });
+    return { granted, args: launch.args, ensured };
+  };
+  const add = ["--add-dir", "/att/s1"];
+  for (const reload of [false, true]) {
+    const ensured = reload ? 0 : 1;
+    assert.deepEqual(grant("claude", { reload }), { granted: true, args: add, ensured });
+    assert.deepEqual(grant("claude", { reload, launchMode: "bypass" }), {
+      granted: true,
+      args: add,
+      ensured,
+    });
+    assert.deepEqual(grant("codex", { reload }), {
+      granted: true,
+      args: [...add, ...SANDBOX],
+      ensured,
+    });
+    assert.deepEqual(grant("codex", { reload, launchMode: "yolo" }), {
+      granted: true,
+      args: add,
+      ensured,
+    });
+  }
+  // A first launch always pins the sandbox; a reload only when it is missing.
+  assert.deepEqual(grant("codex", { args: SANDBOX }).args, [
+    ...SANDBOX,
+    ...add,
+    ...SANDBOX,
+  ]);
+  assert.deepEqual(grant("codex", { reload: true, args: SANDBOX }).args, [
+    ...SANDBOX,
+    ...add,
+  ]);
+  for (const id of ["claude", "codex"])
+    assert.deepEqual(grant(id, { ok: false }), { granted: false, args: [], ensured: 1 });
+  // OpenCode: no profile, no grant and no directory; a reload changes nothing.
+  assert.deepEqual(grant("opencode", {}), { granted: false, args: [], ensured: 0 });
+  assert.deepEqual(grant("opencode", { reload: true }), {
+    granted: true,
+    args: [],
+    ensured: 0,
+  });
+});
+
+test("OpenCode grants attachments through its profile, read lazily", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-grant-"));
+  const launch = { args: [], env: {}, launchMode: "default" };
+  let reads = 0;
+  const granted = cliDriver("opencode").grantDirectory(launch, "/att/s1", {
+    reload: false,
+    ensure: () => true,
+    profile: () => (reads++, { root, boundary: root }),
+    accountDirectory: "/att",
+  });
+  assert.equal(granted, true);
+  assert.equal(reads, 1);
+  assert.deepEqual(launch.args, []);
+  assert.deepEqual(
+    JSON.parse(fs.readFileSync(path.join(root, "opencode.json"), "utf8")).references,
+    { "agentpier-attachments": { path: "/att" } },
+  );
+  let lazy = 0;
+  for (const id of ["claude", "codex"])
+    cliDriver(id).grantDirectory({ args: [] }, "/att/s1", {
+      reload: false,
+      ensure: () => true,
+      profile: () => lazy++,
+    });
+  assert.equal(lazy, 0);
+});
+
+test("session id, reload model and credential members per CLI", () => {
+  assert.deepEqual(cliDefinition("claude").sessionIdArgs("s1"), ["--session-id", "s1"]);
+  assert.equal(cliDefinition("codex").sessionIdArgs, null);
+  assert.equal(cliDefinition("opencode").sessionIdArgs, null);
+  const history = { readCodexModels: async (session) => [session.id] };
+  return cliDriver("codex")
+    .history.models(history, { id: "s1" })
+    .then((models) => {
+      assert.deepEqual(models, ["s1"]);
+      assert.equal(cliDriver("claude").history.models, undefined);
+      assert.equal(cliDriver("opencode").history.models, undefined);
+      for (const id of ["codex", "claude"])
+        assert.equal(typeof cliDriver(id).tui.modelPicker.resolveDisplayed, "function");
+      assert.equal(cliDriver("opencode").tui.modelPicker.resolveDisplayed, undefined);
+      const { credentials } = cliDriver("codex");
+      assertFrozenDeep(credentials, "codex.credentials");
+      assert.ok(Object.isFrozen(credentials));
+      assert.deepEqual(credentials.args(), [
+        "-c",
+        'cli_auth_credentials_store="file"',
+        "-c",
+        'mcp_oauth_credentials_store="file"',
+      ]);
+      assert.equal(cliDriver("claude").credentials, null);
+      assert.equal(cliDriver("opencode").credentials, null);
+    });
+});

@@ -96,8 +96,6 @@ const ROOT_ALLOWED = {
   "server/features/pipelines/artifact-reader.js": "ignored file names in pipelines",
   "server/features/providers/endpoint-launch.js":
     "writes into the profile env that profileEnv() just produced",
-  "server/features/accounts/account-store.js":
-    "writes into the profile env that profileEnv() just produced",
   "server/features/requests/request-broker.js": "bridge plugin folder names",
   "server/features/tools/native-installer.js": "nono install dir, not a coding CLI",
   "server/features/assistants/assistant-provider-endpoint.js": ".local host suffix",
@@ -143,11 +141,7 @@ test("every file allowed to mention a config root still does", () => {
 // over its count fails, and so does a file under it or one that no longer
 // branches, so lower or remove its entry in the change that removed the branch.
 const BRANCH_BUDGET = {
-  "server/application/session-lifecycle.js": 3,
-  "server/application/session-reload-lifecycle.js": 3,
-  "server/application/session-reload-model.js": 2,
-  "server/features/accounts/account-store.js": 5,
-  "server/features/accounts/auth-status.js": 1,
+  "server/features/accounts/account-store.js": 1,
   "server/features/agentbus/agent-bus.js": 4,
   "server/features/agentbus/agentbus-broker.js": 4,
   "server/features/chat/chat-delivery-recovery.js": 3,
@@ -169,14 +163,12 @@ const BRANCH_BUDGET = {
   "server/features/requests/request-approvals.js": 1,
   "server/features/requests/request-broker.js": 4,
   "server/features/secrets/session-secrets.js": 1,
-  "server/features/sessions/attachment-access.js": 2,
   "server/features/sessions/chat-image-input.js": 4,
   "server/features/sessions/native-prompt.js": 3,
   "server/features/sessions/native-session-binding.js": 8,
   "server/features/sessions/native-session-process.js": 3,
   "server/features/sessions/session-chat-input.js": 4,
   "server/features/sessions/session-slash-command.js": 1,
-  "server/lib/sandbox.js": 1,
   "web/components/ProviderMark.jsx": 3,
   "web/features/chat/NativeDeliveryBadge.jsx": 1,
   "web/features/extensions/ExtensionWorkspace.jsx": 1,

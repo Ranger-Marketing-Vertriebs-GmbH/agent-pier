@@ -51,7 +51,7 @@ test("Codex logins are brokered per account and routed by state", options, async
       home: homes.a1.home,
       get: (id) => ({ id, name: id, tool: "codex", kind: "managed" }),
       environment: (id) => homes[id].env,
-      codexCredentialArgs: () => codexArgs(),
+      credentialArgs: () => codexArgs(),
     },
     servers: {
       get: () => ({ id: "s1", name: "probe", transport: "http", auth: "oauth" }),

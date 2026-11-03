@@ -21,6 +21,10 @@ const definition = {
   authStatusArgs: ["login", "status"],
   apiKeyEnv: "OPENAI_API_KEY",
   resumeArgs: (sessionId) => ["resume", sessionId],
+  // Arguments that pin the native session id to AgentPier's own at launch, or null.
+  sessionIdArgs: null,
+  // The CLI's own operating-system sandbox mode for an attachment grant, or null.
+  nativeSandbox: "workspace-write",
   // How the chat shows one app-server question.
   questionView: (q) => ({
     multiple: false,

@@ -10,11 +10,6 @@ import { validateProviderSelection } from "../providers/provider-definitions.js"
 import { resolveEndpointTarget } from "../providers/endpoint-address.js";
 import { resolveRoute, routeBaseUrl } from "../providers/endpoint-routing.js";
 import { providerEnvironment } from "../providers/provider-environment.js";
-import {
-  codexCredentialStoreArgs,
-  codexCredentialStoreConfig,
-  pinCodexCredentialStores,
-} from "../providers/codex-credential-stores.js";
 import { launchTarget } from "../providers/launch-description.js";
 import { prepareProviderLaunch } from "../providers/provider-launch.js";
 import { addGrant } from "../nono/sandbox-grants.js";
@@ -143,6 +138,8 @@ export function detectTools(
   const shell = resolveShell(env);
   return [...coding, { ...SHELL, installed: !!shell, path: shell }];
 }
+// The driver's credential stores of a coding CLI, or null (other CLIs, the shell).
+const credentialsOf = (tool) => (isCodingCli(tool) ? cliDriver(tool).credentials : null);
 function removeCodexApiKey(root) {
   const file = path.join(root, "codex/auth.json");
   const auth = readJSON(file, null);
@@ -244,14 +241,10 @@ export class AccountStore {
     };
     const root = privateDirectory(path.join(this.dataDir, "profiles", a.id));
     if (key) writePrivate(path.join(root, "secret.json"), { apiKey: key });
-    if (tool === "codex") {
-      const dir = privateDirectory(path.join(root, "codex"));
-      fs.writeFileSync(path.join(dir, "config.toml"), codexCredentialStoreConfig(), {
-        mode: 0o600,
-      });
-      if (key && !selection)
-        writePrivate(path.join(dir, "auth.json"), { OPENAI_API_KEY: key });
-    }
+    credentialsOf(tool)?.seedProfile(root, {
+      apiKey: key,
+      providerSelected: !!selection,
+    });
     this.accounts.push(a);
     this.save();
     this.environment(a.id);
@@ -286,10 +279,7 @@ export class AccountStore {
     if (removeApiKey || selection) removeCodexApiKey(root);
     if (key) {
       writePrivate(path.join(root, "secret.json"), { apiKey: key });
-      if (a.tool === "codex" && !selection)
-        writePrivate(path.join(root, "codex/auth.json"), {
-          OPENAI_API_KEY: key,
-        });
+      credentialsOf(a.tool)?.storeApiKey(root, key, { providerSelected: !!selection });
       a.hasSecret = true;
     }
     a.name = name;
@@ -340,12 +330,14 @@ export class AccountStore {
     if (secret?.apiKey) env[cliDefinition(account.tool).apiKeyEnv] = secret.apiKey;
     return env;
   }
-  /** Overrides for every Codex process of a managed account, including side channels. */
-  codexCredentialArgs(id) {
+  /**
+   * Credential-store overrides for every CLI process of a managed account, including
+   * side channels (Codex's file stores); `[]` for a CLI without them.
+   */
+  credentialArgs(id) {
     const account = this.get(id);
-    return account.kind === "managed" && account.tool === "codex"
-      ? codexCredentialStoreArgs()
-      : [];
+    const credentials = credentialsOf(account.tool);
+    return account.kind === "managed" && credentials ? credentials.args() : [];
   }
   async cliVersion(account, command, known) {
     const options = {
@@ -454,12 +446,10 @@ export class AccountStore {
       // Logins and work sessions both write credentials. Every plain managed launch
       // repairs the file stores an older account may lack and overrides them on the
       // command line, which also outranks a trusted project's `.codex/config.toml`.
-      if (account.kind === "managed" && account.tool === "codex") {
-        pinCodexCredentialStores(
-          path.join(launch.env.CODEX_HOME, "config.toml"),
-          this.profile(id),
-        );
-        launch.args.push(...this.codexCredentialArgs(id));
+      const credentials = credentialsOf(account.tool);
+      if (account.kind === "managed" && credentials) {
+        credentials.pin(launch, this.profile(id));
+        launch.args.push(...this.credentialArgs(id));
       }
       if (modelId) launch.args.push("--model", modelId);
       return launch;

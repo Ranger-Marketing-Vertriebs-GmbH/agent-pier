@@ -25,6 +25,10 @@ const definition = {
   authStatusArgs: ["auth", "status", "--json"],
   apiKeyEnv: "ANTHROPIC_API_KEY",
   resumeArgs: (sessionId) => ["--resume", sessionId],
+  // Arguments that pin the native session id to AgentPier's own at launch, or null.
+  sessionIdArgs: (sessionId) => ["--session-id", sessionId],
+  // The CLI's own operating-system sandbox mode for an attachment grant, or null.
+  nativeSandbox: null,
   // How the chat shows one AskUserQuestion question.
   questionView: (q) => ({
     multiple: q.multiSelect === true,

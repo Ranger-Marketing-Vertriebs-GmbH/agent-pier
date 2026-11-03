@@ -13,22 +13,23 @@ coding CLIs. They stay outside the catalog; tables that also cover them, such as
 
 ## Layout
 
-| File                      | Runs in       | Holds                                                                |
-| ------------------------- | ------------- | -------------------------------------------------------------------- |
-| `catalog.js`              | browser, Node | Ids in list order, `cliDefinition`, `cliName`, `isCodingCli`         |
-| `<id>/definition.js`      | browser, Node | The definition record (pure data, frozen)                            |
-| `drivers.js`              | Node          | `cliDriver(id)`: assembles and freezes each driver                   |
-| `<id>/profile.js`         | Node          | `profileEnv`, `configRoot`, `dataRoot`, `parseAuthStatus`            |
-| `<id>/session-config.js`  | Node          | `addMcpServer`, `addReminder`                                        |
-| `<id>/requests.js`        | Node          | `prepareRequests`, `shellToolName`, `startupDialogs`, `launchRecord` |
-| `<id>/history.js`         | Node          | The `history` members                                                |
-| `<id>/tui.js`             | Node          | The `tui` members; shared screen helpers live in `tui-screen.js`     |
-| `<id>/pipeline.js`        | Node          | The `pipeline` members                                               |
-| `<id>/plugins.js`         | Node          | The `plugins` members                                                |
-| `<id>/profile-files.js`   | Node          | The `profileFiles` members                                           |
-| `<id>/provider.js`        | Node          | The `provider` members (provider environment and launch)             |
-| `<id>/transfer.js`        | Node          | The `transfer` members (Codex and Claude Code only)                  |
-| `codex/history-client.js` | Node          | Codex's read-only app-server client for its history                  |
+| File                      | Runs in       | Holds                                                                    |
+| ------------------------- | ------------- | ------------------------------------------------------------------------ |
+| `catalog.js`              | browser, Node | Ids in list order, `cliDefinition`, `cliName`, `isCodingCli`             |
+| `<id>/definition.js`      | browser, Node | The definition record (pure data, frozen)                                |
+| `drivers.js`              | Node          | `cliDriver(id)`: assembles and freezes each driver                       |
+| `<id>/profile.js`         | Node          | `profileEnv`, `configRoot`, `dataRoot`, `parseAuthStatus`, `credentials` |
+| `<id>/session-config.js`  | Node          | `addMcpServer`, `addReminder`, `grantDirectory`                          |
+| `<id>/requests.js`        | Node          | `prepareRequests`, `shellToolName`, `startupDialogs`, `launchRecord`     |
+| `<id>/history.js`         | Node          | The `history` members                                                    |
+| `<id>/tui.js`             | Node          | The `tui` members; shared screen helpers live in `tui-screen.js`         |
+| `<id>/pipeline.js`        | Node          | The `pipeline` members                                                   |
+| `<id>/plugins.js`         | Node          | The `plugins` members                                                    |
+| `<id>/profile-files.js`   | Node          | The `profileFiles` members                                               |
+| `<id>/provider.js`        | Node          | The `provider` members (provider environment and launch)                 |
+| `<id>/transfer.js`        | Node          | The `transfer` members (Codex and Claude Code only)                      |
+| `codex/history-client.js` | Node          | Codex's read-only app-server client for its history                      |
+| `opencode/attachments.js` | Node          | OpenCode's attachment `references` entry (`grantDirectory`)              |
 
 `catalog.js` imports only the definitions, and neither imports Node modules or anything
 outside `clis/`: the web app bundles them (`web/features/**` imports
@@ -57,6 +58,8 @@ home, or the owning service (for example the `ProviderHistory` instance for `his
 | `apiKeyEnv`                | Variable for API-key accounts                                                                                                                                                                                                         |
 | `resumeArgs(sessionId)`    | Arguments that resume a native session                                                                                                                                                                                                |
 | `questionView(q)`          | Chat view `{ multiple, allowOther, previews, notes }` of one native question                                                                                                                                                          |
+| `sessionIdArgs(id)`        | Arguments that make AgentPier's session id the native one at launch (Claude Code `--session-id`), or `null`                                                                                                                           |
+| `nativeSandbox`            | The CLI's own sandbox mode for a session (Codex `workspace-write`, published as `AGENTRUNNER_SANDBOX`), or `null`                                                                                                                     |
 | `configFormat`             | Format of the CLI's config files: `toml`, `json` (no comments) or `jsonc`                                                                                                                                                             |
 | `protocol`                 | Custom-endpoint protocol: `responses`, `messages` or `chatCompletions`                                                                                                                                                                |
 | `capabilities`             | `accountTransfer`, `transcriptCleanup`, `storageCleanup`, `mcpOAuth`, `imagePaste`, `endpointSdkRouting`, `requestHandoff`, `hookTrust`, `keychainCredentials`, `transcriptIndex`, `npmPlugins`, `pluginBridge`, `clearResetsBinding` |
@@ -87,6 +90,12 @@ from `launchModes` (`server/features/accounts/account-store.js`).
 - `dataRoot(env, home)`: where it keeps history and databases (OpenCode:
   `XDG_DATA_HOME/opencode`; the others: `configRoot`).
 - `parseAuthStatus(stdout, exitCode, stderr)`: `{ signedIn, state }`.
+- `credentials`: `null`, or (Codex) how a managed account keeps its credentials:
+  `seedProfile(root, { apiKey, providerSelected })` for a new account,
+  `storeApiKey(root, apiKey, { providerSelected })` for a rotated key, `args()` (the
+  command-line overrides every process of the account takes, read through
+  `AccountStore.credentialArgs(id)`) and `pin(launch, profileDir)` (repairs the file
+  stores before a plain launch).
 - `provider`: how the CLI runs against a provider connection. `environment(env, {
 directory, key, description, adapterRoute, adapterToken })` returns the launch
   environment; `launch(result, ctx)` (Claude Code) or `endpointLaunch` and `catalogLaunch`
@@ -117,6 +126,12 @@ directory, key, description, adapterRoute, adapterToken })` returns the launch
 - `prepareRequests({ broker, id, file, args, env, grants }, launch)`: starts the
   approval relay, changing `args`, `env` and `grants` in place; may return a replacement
   launch (Codex's wrapper).
+- `grantDirectory(launch, directory, { reload, ensure, profile, accountDirectory })`:
+  grants the session's chat attachment folder and returns whether it did. Claude Code and
+  Codex add `--add-dir` after `ensure()` created the folder (a reload skips `ensure`);
+  Codex also pins its sandbox unless the mode is `yolo` (on a reload only when the launch
+  lacks it). OpenCode writes an account-wide `references` entry into the profile
+  (`profile`: the location or a function returning it) and changes nothing on a reload.
 - `shellToolName`: the tool whose requests carry a shell command line.
 - `requests`: `launchRecord?(env)` adds fields to the launch file (Claude Code's hook
   version and trust file). `capabilities.requestHandoff`: an uncertain request can be
@@ -136,6 +151,8 @@ directory, key, description, adapterRoute, adapterToken })` returns the launch
 - `watchRoots(env, home, cwd)`: folders to watch while a chat has no known sources.
 - `slashCommands(scan, env, cwd)`: discovers custom slash commands.
 - `transcriptFiles(home)`: the transcript walk plan (steps of `{ folder, depth, pattern, companion, perFolder? }`) of a CLI with `capabilities.transcriptCleanup`.
+- `models?(history, session)`: the models the CLI's picker can display (Codex), which a
+  reload uses to read the displayed model back.
 
 **Terminal** (`tui`)
 
@@ -145,7 +162,10 @@ directory, key, description, adapterRoute, adapterToken })` returns the launch
 - `modelPicker`: `openKeys` (steps of `{ keys }`, `{ type }` or `{ pauseMs }`),
   `parse(raw)` (the picker or `null`), `current(raw)` (the model shown),
   `promptReady(raw)` (whether the picker may be opened), `unsupported(raw)` (a picker
-  AgentPier must not drive).
+  AgentPier must not drive), and `resolveDisplayed?(displayed, options)`: the
+  `{ modelId, reasoningEffort? }` behind the displayed name on a reload, or `undefined`
+  when it cannot be kept. `options` holds `observed`, `fallback`, `models`, `identifier`
+  and `unavailable`. Without it (OpenCode) only an exact model id is kept.
 - `limitWarning({ raw, pane, styled, lines })`: visible native limit warnings.
 
 **Pipelines** (`pipeline`)

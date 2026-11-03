@@ -3,7 +3,8 @@ import {
   accountSwitchTargets,
   prepareAccountTransfer,
 } from "./session-account-transfer.js";
-import { codexSandboxArguments } from "../lib/sandbox.js";
+import { isCodingCli } from "../features/clis/catalog.js";
+import { cliDriver } from "../features/clis/drivers.js";
 import { resolveReloadModel } from "./session-reload-model.js";
 import { resumeLaunch, validateReloadLaunch } from "./session-reload-launch.js";
 import { currentModel } from "../features/models/model-parser.js";
@@ -31,12 +32,16 @@ export function createReloadLifecycle(services) {
     if (live?.pending)
       throw problem(serverMessages.sessionReload.modelSelectionPending, 409);
     const displayedModel = live?.currentModel;
-    let codexModels;
-    if (session.tool === "codex" && displayedModel) {
-      codexModels = await history.readCodexModels(session);
+    // The CLI's own model list, when it names the models its picker displays.
+    const readModels = isCodingCli(session.tool)
+      ? cliDriver(session.tool).history.models
+      : undefined;
+    let listed;
+    if (readModels && displayedModel) {
+      listed = await readModels(history, session);
       if (session.provider?.label)
-        codexModels = [
-          ...(codexModels || []),
+        listed = [
+          ...(listed || []),
           {
             label: session.provider.label,
             modelId: session.provider.requestedModelId || session.provider.cliModelId,
@@ -46,7 +51,7 @@ export function createReloadLifecycle(services) {
     const { modelId, reasoningEffort } = resolveReloadModel({
       tool: session.tool,
       displayedModel,
-      codexModels,
+      models: listed,
       observedModel: content.observability?.context?.modelId,
       fallbackModel:
         session.nativeModelId ||
@@ -74,16 +79,12 @@ export function createReloadLifecycle(services) {
         throw problem(serverMessages.sessionReload.providerChanged, 409);
     } else if (launch.provider)
       throw problem(serverMessages.sessionReload.accessModeChanged, 409);
-    if (session.attachments?.directory && session.tool !== "opencode") {
-      launch.args.push("--add-dir", session.attachments.directory);
-      const sandbox = codexSandboxArguments();
-      if (
-        session.tool === "codex" &&
-        launch.launchMode !== "yolo" &&
-        !launch.args.includes(sandbox[1])
-      )
-        launch.args.push(...sandbox);
-    }
+    // The attachment directory exists already; the driver re-adds its grant
+    // (OpenCode's account-wide config reference needs nothing).
+    if (session.attachments?.directory && isCodingCli(session.tool))
+      cliDriver(session.tool).grantDirectory(launch, session.attachments.directory, {
+        reload: true,
+      });
     // Same declaration as the first launch: a reloaded session re-runs the adapter
     // chain, so it would otherwise keep every adapter grant but lose its
     // attachments. opencode reaches them through its own config reference rather
