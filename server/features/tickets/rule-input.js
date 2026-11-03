@@ -20,7 +20,7 @@ export function ruleInput(input) {
   const { source, label, paused } = input;
   if (!TICKET_SOURCE_IDS.includes(source)) throw invalid();
   const checkedLabel = ruleLabel(label);
-  if (!checkedLabel) throw invalid();
+  if (!checkedLabel) throw problem(copy.invalidRuleLabel);
   if (paused !== undefined && typeof paused !== "boolean") throw invalid();
   const { kind, ...options } = sequenceOptionsInput(input, invalid);
   return { source, label: checkedLabel, kind, paused: paused === true, options };

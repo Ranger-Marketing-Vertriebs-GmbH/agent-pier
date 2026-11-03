@@ -97,7 +97,7 @@ test("ruleCappedText names the cap of the rule's source", () => {
   assert.equal(ruleCappedText(capped), de.ticketRulesCopy.capped.github);
   assert.match(ruleCappedText(capped), /300/);
   assert.match(ruleCappedText({ ...capped, source: "plane" }), /500/);
-  assert.match(en.ticketRulesCopy.capped.github, /300 open issues/);
+  assert.match(en.ticketRulesCopy.capped.github, /300 open issues and pull requests/);
   assert.match(en.ticketRulesCopy.capped.plane, /500 work items/);
 });
 

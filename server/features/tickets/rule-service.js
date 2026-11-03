@@ -2,8 +2,16 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { TicketSourceError } from "./http-json.js";
 import { ruleInput } from "./rule-input.js";
+import { labelKey } from "./ticket.js";
 
 const copy = serverMessages.tickets;
+// JSON with sorted keys, so two spellings of the same options compare equal.
+const canonical = (value) =>
+  JSON.stringify(value, (_key, item) =>
+    item && typeof item === "object" && !Array.isArray(item)
+      ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b)))
+      : item,
+  );
 
 /**
  * A label rule as the owner routes and the `tickets.rules` topic show it: its options in
@@ -54,7 +62,7 @@ export class TicketRuleService {
     const project = this.tickets.resolveProject(projectId);
     const { link: _link, ...accesses } = await this.tickets.accesses(project);
     if (!accesses[checked.source]) throw new TicketSourceError("notConnected");
-    if (!accesses.github) throw problem(copy.githubRequired, 409);
+    if (!accesses.github) throw problem(copy.ruleGithubRequired, 409);
     return project;
   }
 
@@ -67,10 +75,21 @@ export class TicketRuleService {
     return this.public(project.id, made);
   }
 
-  /** A full replace, `paused` included: Pause and Resume send the saved rule. */
+  /**
+   * A full replace, `paused` included: Pause and Resume send the saved rule. A change of
+   * `paused` alone needs no connected source, so a failing rule can still be paused.
+   */
   async update(projectId, ruleId, input) {
     this.rules.refuseLocked();
     const checked = ruleInput(input);
+    const saved = this.rules.rule(projectId, ruleId);
+    const same = (rule) =>
+      canonical([rule.source, labelKey(rule.label), rule.kind, rule.options]);
+    if (saved && same(saved) === same(checked)) {
+      const made = this.rules.update(projectId, ruleId, checked);
+      if (!made.paused) this.monitor?.request();
+      return this.public(projectId, made);
+    }
     const project = await this.connected(projectId, checked);
     const made = this.rules.update(project.id, ruleId, checked);
     if (!made.paused) this.monitor?.request();

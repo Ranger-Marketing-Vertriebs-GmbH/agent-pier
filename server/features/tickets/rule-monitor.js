@@ -196,6 +196,15 @@ export class TicketRuleMonitor {
         return;
       }
       if (this.closed) return;
+      // Edited while the tracker was asked: the answer is about the old label.
+      const current = this.rules.rule(rule.projectId, rule.id);
+      if (
+        !current ||
+        current.paused ||
+        current.source !== rule.source ||
+        labelKey(current.label) !== labelKey(rule.label)
+      )
+        return;
       return found ? this.succeed(rule, truncated) : this.fail(rule, "labelGone");
     }
     const { full } = await this.sequences.appendFromRule(project, rule.id, matches, {

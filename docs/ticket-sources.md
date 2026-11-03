@@ -537,7 +537,8 @@ starts a pass right away.
 
 - **Edit** replaces the whole rule. A new source or label clears the rule's error; the
   tickets it picked up stay picked up.
-- **Pause** stops the rule's reads. Tickets it already queued stay in the queue.
+- **Pause** stops the rule's reads. Tickets it already queued stay in the queue. Pause
+  and Resume work while the rule's source is not connected, too.
 - **Delete** asks first. The rule's tickets stay in the queue and stay picked up, so a
   new rule with the same label never queues them again.
 
@@ -554,11 +555,12 @@ are appended at the end of the queue, oldest first (by ticket number), and the
 sequence starts them in turn like tickets you added yourself. Rules of a project are
 checked in the order they were created.
 
-A pass reads at most 300 open GitHub issues, the newest (three pages of 100), and
+A pass reads at most 300 open GitHub issues and pull requests, the newest (three pages
+of 100; pull requests count towards the 300 and are then left out), and
 500 Plane work items, closed ones included, before the closed ones are dropped (five
 pages of 100). Labelled tickets beyond that are not seen in that pass. When a read
-stops at that cap, the row adds a hint ("Only the newest 300 open issues are
-checked; …" or "Only 500 work items, closed ones included, are checked; …"). This is
+stops at that cap, the row adds a hint ("Only the newest 300 open issues and pull
+requests are checked; …" or "Only 500 work items, closed ones included, are checked; …"). This is
 not an error and sends no notification.
 
 The queue holds at most 200 tickets that are not done. When a rule finds more new
@@ -587,7 +589,12 @@ again**.
 
 AgentPier keeps the 5,000 most recent pickups per project; beyond that the oldest are
 dropped first, and such a ticket could be picked up again if it still carries the
-label.
+label. A damaged `ticket-rules.json` is kept aside as `ticket-rules.json.corrupt-<time>`
+and the rules start empty, pickups included: once you add the rules again, labelled
+open tickets whose queue items and start records are gone are queued again.
+
+The **N tickets picked up** count of a rule includes tickets it found already in the
+queue or started by hand, which it records as picked up so they stay skipped.
 
 ### Errors and notifications
 
@@ -648,5 +655,5 @@ change of a rule, its status or its pickups. The browser never polls the rules; 
 server polls the trackers. The routes are `GET` and `POST
 /api/tickets/projects/:projectId/rules`, `PUT …/rules/:ruleId` (a full replace,
 `paused` included) and `DELETE …/rules/:ruleId`; all are owner-only. A rule needs its
-source connected and a GitHub token profile for the project's host (`githubRequired`
-otherwise). See [Architecture](architecture.md#live-channel).
+source connected and a GitHub token profile for the project's host
+(`ruleGithubRequired` otherwise); a change of `paused` alone needs neither. See [Architecture](architecture.md#live-channel).

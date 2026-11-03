@@ -53,10 +53,15 @@ test("ruleInput refuses repair on a session rule", () => {
 });
 
 test("ruleInput refuses labels with a comma, control characters or 51 characters", () => {
-  rejects(base({ label: "a,b" }));
-  rejects(base({ label: "a\nb" }));
-  rejects(base({ label: "x".repeat(51) }));
-  rejects(base({ label: "   " }));
+  const refusesLabel = (label) =>
+    assert.throws(() => ruleInput(base({ label })), {
+      message: serverMessages.tickets.invalidRuleLabel,
+      status: 400,
+    });
+  refusesLabel("a,b");
+  refusesLabel("a\nb");
+  refusesLabel("x".repeat(51));
+  refusesLabel("   ");
   assert.equal(ruleInput(base({ label: "x".repeat(50) })).label.length, 50);
 });
 

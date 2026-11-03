@@ -309,6 +309,20 @@ test("a label that exists without tickets is fine", async (t) => {
   assert.ok(f.status(rule.id).checkedAt > 0);
 });
 
+test("a label edited while the tracker is asked records no labelGone", async (t) => {
+  const f = await ruleMonitorFixture(t, { issues: [labelledIssue(1, "bug")] });
+  const rule = f.rules.create("p1", ruleInput());
+  const github = f.tickets.sources.github;
+  t.mock.method(github, "hasLabel", async () => {
+    f.rules.update("p1", rule.id, ruleInput({ label: "ready" }));
+    return false;
+  });
+  await f.monitor().run();
+  assert.equal(github.hasLabel.mock.callCount(), 1);
+  assert.equal(f.status(rule.id).error, null);
+  assert.deepEqual(f.notified, []);
+});
+
 test("a read cut off at the cap succeeds flagged capped, never labelGone", async (t) => {
   // 350 open issues: the read stops at 300, so #340 with the label is never seen.
   const issues = Array.from({ length: 350 }, (_, i) =>

@@ -6,6 +6,7 @@ import path from "node:path";
 import { TicketRuleStore } from "../../server/features/tickets/rule-store.js";
 import { ruleInput } from "../../server/features/tickets/rule-input.js";
 import { TicketRuleMonitor } from "../../server/features/tickets/rule-monitor.js";
+import { TicketRuleService } from "../../server/features/tickets/rule-service.js";
 
 const dirs = [];
 const dataDir = () => {
@@ -256,4 +257,31 @@ test("a file that cannot be read loads off and read-only", () => {
   assert.deepEqual(logs, ["ticket-rules: unreadable code=EISDIR, rules disabled"]);
   assert.throws(() => store.create("p1", input("agent")), { status: 409 });
   assert.ok(fs.statSync(path.join(dir, "ticket-rules.json")).isDirectory());
+});
+
+test("pause and resume need no connected source, other edits do", async () => {
+  const store = new TicketRuleStore({ dataDir: dataDir() });
+  const made = store.create("p1", input("agent"));
+  const service = new TicketRuleService({
+    rules: store,
+    tickets: {
+      resolveProject: () => {
+        throw Object.assign(new Error("gone"), { status: 404 });
+      },
+    },
+  });
+  const body = (extra) => ({
+    source: "github",
+    label: "agent",
+    kind: "session",
+    session: { tool: "claude" },
+    allowMerge: false,
+    ...extra,
+  });
+  const paused = await service.update("p1", made.id, body({ paused: true }));
+  assert.equal(paused.paused, true);
+  await assert.rejects(service.update("p1", made.id, body({ label: "ready" })), {
+    status: 404,
+  });
+  assert.equal(store.rule("p1", made.id).label, "agent");
 });

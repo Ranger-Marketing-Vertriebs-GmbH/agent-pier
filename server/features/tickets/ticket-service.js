@@ -493,6 +493,8 @@ export function createTicketServices(services) {
         ? "picked"
         : null;
   // Fixtures override the timing, e.g. `{ intervalMs: 0 }` turns rule polling off.
+  // loadConfig already normalises config.ticketRules; the defaults cover a config
+  // built without it.
   const ticketRuleMonitor = new TicketRuleMonitor({
     rules: ticketRuleStore,
     tickets,

@@ -22,6 +22,8 @@ export const tickets = Object.freeze({
     "The task could not be handed to the new session; the session was stopped.",
   invalidSequence: "The ticket sequence is invalid.",
   invalidRule: "The label rule is invalid.",
+  invalidRuleLabel:
+    "The label needs 1 to 50 characters, without commas or control characters.",
   ruleNotFound: "The label rule was not found.",
   tooManyRules: "This project already has 20 label rules.",
   ruleExists: "A rule for this source and label already exists.",
@@ -32,6 +34,8 @@ export const tickets = Object.freeze({
   itemNotFound: "The queued ticket was not found.",
   itemBusy: "This ticket is being worked on right now.",
   githubRequired: "Ticket sequences need a GitHub repository for this project.",
+  ruleGithubRequired:
+    "Label rules need a GitHub repository for this project, also for Plane tickets.",
   worktreeLeftover:
     "The folder of the last attempt is still in .worktrees/ and has local changes or another branch. Check and remove the folder, then retry.",
   prUnreadable:
