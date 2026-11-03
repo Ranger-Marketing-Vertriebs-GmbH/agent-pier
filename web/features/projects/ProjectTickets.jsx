@@ -19,9 +19,11 @@ import { connectionsRoute, connectionsRoutePath } from "../connections/routes.js
 import { RowMenu, useRowMenu } from "../extensions/RowMenu.jsx";
 import NewRunDialog from "../pipelines/NewRunDialog.jsx";
 import ProjectTicketSources from "./ProjectTicketSources.jsx";
+import TicketQueue from "./TicketQueue.jsx";
 import { RegisterHint } from "./ProjectRuns.jsx";
 import { pipelineRunRoute } from "./routes.js";
 import { sourceStates, startOf, startRoute, visibleTickets } from "./ticket-list.js";
+import { queueItemPath } from "./ticket-queue.js";
 import "./project-tickets.css";
 
 const enc = encodeURIComponent;
@@ -145,7 +147,8 @@ function useTicketList(projectId, sourcesKey, version) {
  * A project's Tickets tab: its ticket sources, the open GitHub issues and Plane work
  * items with a label filter, and the start of one ticket as a session (the launch
  * dialog) or a pipeline run. The server reads the ticket text itself; the browser
- * sends only source and key. A started ticket asks before it starts again.
+ * sends only source and key. A started ticket asks before it starts again. The
+ * project's ticket sequence shows above the list while it has items.
  */
 export default function ProjectTickets({
   project,
@@ -164,6 +167,10 @@ export default function ProjectTickets({
     `/tickets/projects/${enc(projectId)}`,
   );
   const view = live.data;
+  const queue = useLiveTopic(
+    registered ? `tickets.queue:${projectId}` : null,
+    queueItemPath(projectId),
+  );
   const [version, setVersion] = useState(0);
   const [source, setSource] = useState("");
   const [confirming, setConfirming] = useState(null);
@@ -227,6 +234,12 @@ export default function ProjectTickets({
   return (
     <div className="project-tickets">
       <ProjectTicketSources view={view} projectId={projectId} onNavigate={onNavigate} />
+      <TicketQueue
+        projectId={projectId}
+        view={queue.data}
+        written={queue.written}
+        onNavigate={onNavigate}
+      />
       {live.error && !view && <ErrorMessage error={copy.loadFailed} />}
       {live.loading && !view && <p role="status">{copy.loading}</p>}
       {view && !connected.github && !connected.plane && (
