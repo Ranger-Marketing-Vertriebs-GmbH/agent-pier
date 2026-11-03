@@ -41,7 +41,7 @@ const number = (key) => Number(/(\d+)$/.exec(key)?.[1] ?? 0);
  * project's ticket sequence. A pass reads every connected source once per project, for
  * all its rules, and hands the matches to TicketSequenceService.appendFromRule, which
  * dedupes them. A failure is shown on the rule (a code only) and notifies the owner
- * once per error kind until a successful pass clears it.
+ * once per error kind until a successful pass clears the kinds already pushed.
  */
 export class TicketRuleMonitor {
   constructor({
@@ -218,13 +218,16 @@ export class TicketRuleMonitor {
     const same = status.error?.code === code;
     const since = same ? status.error.since : this.now();
     if (!same) this.log(`AgentPier could not poll a label rule: ${code}`);
+    // Every code pushed since the last successful pass, so codes that alternate (a
+    // tracker flipping between 5xx and timeouts) push once each, not on every pass.
+    const pushed = status.notified ?? [];
     const next = {
       checkedAt: this.now(),
       error: { code, since },
-      notified: status.notified,
+      notified: pushed,
     };
-    if (status.notified !== code) {
-      // One notice per rule, error kind and episode; a repeated pass reuses the id.
+    if (!pushed.includes(code)) {
+      // One notice per rule, error kind and episode.
       const eventId = createHash("sha256")
         .update(`ticket-rule:${rule.id}:${code}:${since}`)
         .digest("hex")
@@ -238,7 +241,7 @@ export class TicketRuleMonitor {
       } catch (error) {
         this.onError(error);
       }
-      next.notified = code;
+      next.notified = [...pushed, code];
       // An owner edit during the push that deleted, paused or moved the rule reset its
       // status: the old error must not come back over it.
       const after = this.rules.rule(rule.projectId, rule.id);

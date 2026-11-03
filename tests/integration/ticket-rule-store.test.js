@@ -146,7 +146,7 @@ test("pickups are capped at 5000 per project, oldest dropped", () => {
 test("changing the label clears status error and notified", () => {
   const store = new TicketRuleStore({ dataDir: dataDir() });
   const made = store.create("p1", input("agent"));
-  const status = { checkedAt: 5, error: { code: "auth", since: 4 }, notified: "auth" };
+  const status = { checkedAt: 5, error: { code: "auth", since: 4 }, notified: ["auth"] };
   store.setStatus("p1", made.id, status);
   const same = store.update("p1", made.id, input("agent", { paused: true }));
   assert.deepEqual(same.status, status);

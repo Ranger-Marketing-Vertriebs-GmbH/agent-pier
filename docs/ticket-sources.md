@@ -594,8 +594,8 @@ The first failure of each kind sends a push notification of the kind **A label r
 cannot read its tickets** (group **Problems**, on by default; see
 [Notifications](notifications.md)). It names neither the rule nor the ticket, and a tap
 opens the project's Tickets tab. A source that stays down for many passes notifies
-once; a later failure of another kind, or of the same kind after a successful pass,
-notifies again. These notices group per project apart from **A ticket sequence waits
+once, and failures that alternate between kinds notify once per kind; a failure of a
+kind not yet sent, or of any kind after a successful pass, notifies again. These notices group per project apart from **A ticket sequence waits
 for you**, so neither replaces the other on a device. They go to the owner's devices
 only.
 
