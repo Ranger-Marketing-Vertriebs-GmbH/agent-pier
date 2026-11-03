@@ -166,6 +166,10 @@ again. See [Backups](backups.md).
 - The GitHub part of the tab does not refresh on its own when the project's git remote
   changes (AgentPier does not watch it); choose **Refresh**.
 - All ticket routes are owner-only; restricted users have no Tickets tab.
+- Tracker failures answer `502` with the failure's reason, except "not found": a
+  ticket the tracker does not know (start, add to the queue) or a Plane project that
+  is gone answers `404`, a Plane workspace that the connection's slug does not name
+  answers `409`, and a source that is not connected answers `409` too.
 
 ## Ticket sequences
 

@@ -6,7 +6,7 @@ import { isCodingCli } from "../clis/catalog.js";
 import { sessionScope } from "../chat/chat-delivery.js";
 import { TICKET_SOURCE_IDS, ticketRef } from "./ticket.js";
 import { ticketTask } from "./ticket-task.js";
-import { TicketSourceError } from "./http-json.js";
+import { TicketSourceError, refineNotFound } from "./http-json.js";
 import { ticketSources } from "./sources/index.js";
 import { githubApiBase } from "../repositories/github-token-check.js";
 import { parseGithubRemote } from "./sources/github.js";
@@ -311,7 +311,9 @@ export class TicketService {
         (taken === "picked" || this.store.findStart(project.id, checked.source, key))
       )
         throw problem(copy.alreadyStarted, 409);
-      const ticket = await source.get(access, key);
+      const ticket = await source
+        .get(access, key)
+        .catch((error) => Promise.reject(refineNotFound(error, copy.ticketNotFound)));
       const ref = ticketRef(ticket);
       const result = {};
       if (checked.kind === "session") {
@@ -418,17 +420,21 @@ export class TicketService {
 
   async planeProjects(connectionId) {
     const { connection: _connection, ...access } = this.connectionAccess(connectionId);
-    return this.sources.plane.projects(access);
+    try {
+      return await this.sources.plane.projects(access);
+    } catch (error) {
+      // The connection's workspace slug names no workspace: a setting to fix.
+      throw refineNotFound(error, copy.workspaceNotFound, 409);
+    }
   }
 
   async planeStates(connectionId, planeProjectId) {
     if (typeof planeProjectId !== "string" || !UUID.test(planeProjectId))
       throw problem(copy.invalidLink);
     const { connection: _connection, ...access } = this.connectionAccess(connectionId);
-    const states = await this.sources.plane.states({
-      ...access,
-      projectId: planeProjectId,
-    });
+    const states = await this.sources.plane
+      .states({ ...access, projectId: planeProjectId })
+      .catch((error) => Promise.reject(refineNotFound(error, copy.planeProjectNotFound)));
     return states.map(({ id, name, group }) => ({ id, name, group }));
   }
 

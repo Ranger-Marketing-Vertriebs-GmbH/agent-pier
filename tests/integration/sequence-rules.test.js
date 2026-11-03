@@ -3,6 +3,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { serverMessages } from "../../server/lib/i18n/de.js";
+import { TicketSourceError } from "../../server/features/tickets/http-json.js";
 import { TicketRuleStore } from "../../server/features/tickets/rule-store.js";
 import { TicketSequenceService } from "../../server/features/tickets/sequence-service.js";
 import { issueTicket, sequenceFixture } from "../helpers/sequence-fixture.js";
@@ -426,4 +427,17 @@ test("sequence add refuses a ticket the owner started while the tracker was read
   await manual;
   assert.equal(f.items().length, 1);
   assert.equal(f.launched.length, 1);
+});
+
+test("sequence add of a ticket the tracker does not know is a 404", async (t) => {
+  const { f, service } = await setup(t);
+  f.tickets.sources.github.get = async () => {
+    throw new TicketSourceError("notFound");
+  };
+  await assert.rejects(service.add("p1", addInput(["acme/app#5"])), {
+    status: 404,
+    code: "notFound",
+    message: copy.ticketNotFound,
+  });
+  assert.equal(f.items().length, 0);
 });

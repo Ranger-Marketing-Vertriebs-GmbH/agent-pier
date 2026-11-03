@@ -57,6 +57,7 @@ test("connection routes never answer or log the token", async (t) => {
   assert.equal(updated.body.connection.name, "Plane 2");
   const refused = await call(`/api/ticket-connections/${id}/projects`);
   assert.equal(refused.status, 502);
+  assert.equal(refused.body.messageKey, "tickets.source.unauthorized");
   assert.ok(fetched.some((url) => url.startsWith(plane.baseUrl)));
   // With the token the fake accepts, the projects and states come through.
   await call(`/api/ticket-connections/${id}`, {
