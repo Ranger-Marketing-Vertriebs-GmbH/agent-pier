@@ -154,6 +154,15 @@ export async function mapProjects(directory, projectMap = {}) {
     }));
     atomic(repositoriesFile, repositories);
   }
+  const ticketsFile = path.join(directory, "ticket-sources.json"),
+    ticketSources = readJson(ticketsFile, null);
+  if (ticketSources?.projects?.length) {
+    ticketSources.projects = ticketSources.projects.map((link) => ({
+      ...link,
+      repoPath: mappings.find((m) => m.oldCwd === link.repoPath)?.cwd || link.repoPath,
+    }));
+    atomic(ticketsFile, ticketSources);
+  }
   restoreArtifacts(directory, mappings);
   return mappings.map(({ scope: _scope, ...mapping }) => mapping);
 }

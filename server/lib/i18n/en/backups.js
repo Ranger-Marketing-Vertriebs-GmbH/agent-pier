@@ -75,6 +75,8 @@ export const backups = Object.freeze({
       "Provider connection keys: A file is not a regular, owned file and cannot be backed up.",
     repositoryCredentials:
       "Repository credentials: A file is not a regular, owned file and cannot be backed up.",
+    ticketSourceCredentials:
+      "Ticket source credentials: A file is not a regular, owned file and cannot be backed up.",
     applicationData:
       "Application data: A file is not a regular, owned file and cannot be backed up.",
   }),
@@ -88,6 +90,8 @@ export const backups = Object.freeze({
       "Provider connection keys: Contains a symbolic link and cannot be backed up.",
     repositoryCredentials:
       "Repository credentials: Contains a symbolic link and cannot be backed up.",
+    ticketSourceCredentials:
+      "Ticket source credentials: Contains a symbolic link and cannot be backed up.",
     applicationData:
       "Application data: Contains a symbolic link and cannot be backed up.",
   }),

@@ -1,5 +1,15 @@
 /** German messages of the ticket sources (GitHub issues, Plane work items). */
 export const tickets = Object.freeze({
+  connectionNotFound: "Die Ticketquellen-Verbindung wurde nicht gefunden.",
+  connectionInUse: "Die Verbindung wird noch von einem Projekt verwendet.",
+  invalidBaseUrl:
+    "Die Adresse der Ticketquelle muss mit https:// beginnen (http:// nur für localhost) und darf weder Zugangsdaten, Parameter noch Anker enthalten.",
+  invalidWorkspace: "Der Workspace-Kürzel der Ticketquelle ist ungültig.",
+  invalidToken: "Der Token der Ticketquelle ist ungültig.",
+  tokenRequired: "Für die Ticketquelle ist ein Token erforderlich.",
+  invalidLink: "Die Ticketquellen-Zuordnung des Projekts ist ungültig.",
+  invalidStart: "Der Ticketstart ist ungültig.",
+  startNotFound: "Der Ticketstart wurde nicht gefunden.",
   source: Object.freeze({
     unauthorized: "Die Ticketquelle hat den Zugang abgelehnt. Bitte den Token prüfen.",
     forbidden: "Der Token der Ticketquelle hat dafür keine Berechtigung.",

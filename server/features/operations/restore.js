@@ -46,9 +46,9 @@ const lineBased = /\.(?:jsonl|screen)$/;
 
 // Older backups archived AgentPier's own histories as public members.
 const publicPath =
-  /^(artifacts\/(?:index\.json|generations\/[a-f0-9-]{36}\/\d{1,3})|accounts\.json|provider-connections\.json|repositories\.json|preferences\.json|project-groups\.json|views\.json|config\.json|pipelines\/definitions\.json|memory\/memory\.sqlite|mcp-servers\/servers\.sqlite|pipeline-runs\/runs\.sqlite|audit\/events\.json|users\/users\.json|sessions\/[A-Za-z0-9_-]+\.(json|screen|events\.jsonl|outcome\.json)|chat\/[A-Za-z0-9_.-]+\.json|imported-history\/agentbus\/[a-f0-9]{64}\/inbox\/.+)$/;
+  /^(artifacts\/(?:index\.json|generations\/[a-f0-9-]{36}\/\d{1,3})|accounts\.json|provider-connections\.json|repositories\.json|ticket-sources\.json|preferences\.json|project-groups\.json|views\.json|config\.json|pipelines\/definitions\.json|memory\/memory\.sqlite|mcp-servers\/servers\.sqlite|pipeline-runs\/runs\.sqlite|audit\/events\.json|users\/users\.json|sessions\/[A-Za-z0-9_-]+\.(json|screen|events\.jsonl|outcome\.json)|chat\/[A-Za-z0-9_.-]+\.json|imported-history\/agentbus\/[a-f0-9]{64}\/inbox\/.+)$/;
 const secretPath =
-  /^((?:repository-secrets|provider-connection-secrets)\/[A-Za-z0-9_-]+\.json|mcp-server-secrets\/servers\.json|users\/credentials\.json|ssh\/sftp-hosts\.json|secrets\/secrets\.json|mail\/accounts\.json)$/;
+  /^((?:repository-secrets|provider-connection-secrets|ticket-source-secrets)\/[A-Za-z0-9_-]+\.json|mcp-server-secrets\/servers\.json|users\/credentials\.json|ssh\/sftp-hosts\.json|secrets\/secrets\.json|mail\/accounts\.json)$/;
 // Version 1 capsules carried whole profile folders.
 const legacyProfilePath = /^profiles\/[A-Za-z0-9_-]+\/.+$/;
 /** Whether `name` may be restored as a public (or, with `credentials`, sealed) member. */
@@ -395,6 +395,12 @@ export class Restore {
       for (const credential of repositories.credentials || [])
         if (!restored.has(`repository-secrets/${credential.id}.json`))
           credentialsNeedingLogin.push(`repository:${credential.id}`);
+      const ticketSources = readJson(path.join(stage, "ticket-sources.json"), {
+        connections: [],
+      });
+      for (const connection of ticketSources.connections || [])
+        if (!restored.has(`ticket-source-secrets/${connection.id}.json`))
+          credentialsNeedingLogin.push(`ticket-source:${connection.id}`);
       credentialsNeedingLogin.push(...mcpServersNeedingValues);
       for (const name of usersNeedingPassword)
         credentialsNeedingLogin.push(`user:${name}`);

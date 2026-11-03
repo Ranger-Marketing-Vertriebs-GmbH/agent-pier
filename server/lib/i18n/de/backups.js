@@ -86,6 +86,8 @@ export const backups = Object.freeze({
       "Keys der Provider-Zugänge: Eine Datei ist keine reguläre, eigene Datei und kann nicht gesichert werden.",
     repositoryCredentials:
       "Repository-Zugangsdaten: Eine Datei ist keine reguläre, eigene Datei und kann nicht gesichert werden.",
+    ticketSourceCredentials:
+      "Zugangsdaten der Ticketquellen: Eine Datei ist keine reguläre, eigene Datei und kann nicht gesichert werden.",
     applicationData:
       "Anwendungsdaten: Eine Datei ist keine reguläre, eigene Datei und kann nicht gesichert werden.",
   }),
@@ -103,6 +105,8 @@ export const backups = Object.freeze({
       "Keys der Provider-Zugänge: Enthält einen symbolischen Link und kann nicht gesichert werden.",
     repositoryCredentials:
       "Repository-Zugangsdaten: Enthält einen symbolischen Link und kann nicht gesichert werden.",
+    ticketSourceCredentials:
+      "Zugangsdaten der Ticketquellen: Enthält einen symbolischen Link und kann nicht gesichert werden.",
     applicationData:
       "Anwendungsdaten: Enthält einen symbolischen Link und kann nicht gesichert werden.",
   }),
