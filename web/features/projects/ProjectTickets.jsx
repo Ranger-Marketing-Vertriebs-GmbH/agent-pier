@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import Checkbox from "../../components/Checkbox.jsx";
 import ConfirmDialog from "../../components/ConfirmDialog.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import GroupLabel from "../../components/GroupLabel.jsx";
@@ -14,11 +15,13 @@ import {
   projectTicketsCopy as copy,
   ticketErrorCopy,
 } from "../../lib/i18n/messages/tickets.js";
+import { ticketSequenceStartCopy as sequenceCopy } from "../../lib/i18n/messages/ticket-sequences.js";
 import useLiveTopic from "../../lib/live/useLiveTopic.js";
 import { connectionsRoute, connectionsRoutePath } from "../connections/routes.js";
 import { RowMenu, useRowMenu } from "../extensions/RowMenu.jsx";
 import NewRunDialog from "../pipelines/NewRunDialog.jsx";
 import ProjectTicketSources from "./ProjectTicketSources.jsx";
+import SequenceStartDialog from "./SequenceStartDialog.jsx";
 import TicketQueue from "./TicketQueue.jsx";
 import { RegisterHint } from "./ProjectRuns.jsx";
 import { pipelineRunRoute } from "./routes.js";
@@ -29,8 +32,9 @@ import "./project-tickets.css";
 const enc = encodeURIComponent;
 const sourceName = (source) => (source === "plane" ? copy.plane : copy.github);
 const codeText = (code) => ticketErrorCopy[code] || ticketErrorCopy.invalidResponse;
+const ticketId = (ticket) => `${ticket.source}\n${ticket.key}`;
 
-function TicketRow({ ticket, start, onStart, onOpen }) {
+function TicketRow({ ticket, start, onStart, onOpen, selected }) {
   const menu = useRowMenu();
   const failed = start?.writeBack?.state === "failed";
   const sub = [
@@ -72,6 +76,19 @@ function TicketRow({ ticket, start, onStart, onOpen }) {
           onClick: menu.toggle,
         }}
       >
+        {selected && (
+          <span className="project-ticket-chip">
+            <Checkbox
+              label={
+                <span className="visually-hidden">
+                  {sequenceCopy.selectTicket(ticket.key)}
+                </span>
+              }
+              checked={selected.checked}
+              onChange={selected.onChange}
+            />
+          </span>
+        )}
         {start && (
           <span className="project-ticket-chip">
             <StatusChip tone={failed ? "error" : "ok"}>
@@ -155,6 +172,7 @@ export default function ProjectTickets({
   route,
   onNavigate,
   onLaunch,
+  launchState,
   home,
   reloadHub,
 }) {
@@ -175,6 +193,10 @@ export default function ProjectTickets({
   const [source, setSource] = useState("");
   const [confirming, setConfirming] = useState(null);
   const [runTicket, setRunTicket] = useState(null);
+  // Selection mode: the chosen tickets (source + key) and the open sequence dialog.
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState(() => new Set());
+  const [sequencing, setSequencing] = useState(false);
   const list = useTicketList(
     projectId,
     view ? JSON.stringify(view.sources) : "",
@@ -191,6 +213,21 @@ export default function ProjectTickets({
   const errors = (list.data?.errors || []).filter(
     (error) => error.code !== "notConnected" || connected[error.source],
   );
+  // The selected tickets in list order, also those a filter hides right now.
+  const chosen = (list.data?.tickets || []).filter((ticket) =>
+    selected.has(ticketId(ticket)),
+  );
+  const toggle = (ticket, on) =>
+    setSelected((current) => {
+      const next = new Set(current);
+      if (on) next.add(ticketId(ticket));
+      else next.delete(ticketId(ticket));
+      return next;
+    });
+  const endSelection = () => {
+    setSelecting(false);
+    setSelected(new Set());
+  };
   const begin = (ticket, kind, again) => {
     const target = {
       projectId,
@@ -277,6 +314,34 @@ export default function ProjectTickets({
               />
             )}
             {refresh}
+            {selecting ? (
+              <>
+                <button
+                  type="button"
+                  className="button primary compact"
+                  disabled={!chosen.length}
+                  onClick={() => setSequencing(true)}
+                >
+                  {sequenceCopy.startSelected(chosen.length)}
+                </button>
+                <button
+                  type="button"
+                  className="button secondary compact"
+                  onClick={endSelection}
+                >
+                  {commonCopy.cancel}
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="button secondary compact"
+                disabled={!list.data?.tickets?.length}
+                onClick={() => setSelecting(true)}
+              >
+                {sequenceCopy.select}
+              </button>
+            )}
           </div>
           {errors.map((error) => (
             <ErrorMessage
@@ -298,6 +363,12 @@ export default function ProjectTickets({
                   start={startOf(view.starts, ticket)}
                   onStart={onStart}
                   onOpen={(start) => onNavigate(startRoute(start))}
+                  selected={
+                    selecting && {
+                      checked: selected.has(ticketId(ticket)),
+                      onChange: (on) => toggle(ticket, on),
+                    }
+                  }
                 />
               ))}
             </ListCard>
@@ -313,6 +384,20 @@ export default function ProjectTickets({
           onConfirm={() => {
             setConfirming(null);
             begin(confirming.ticket, confirming.kind, true);
+          }}
+        />
+      )}
+      {sequencing && (
+        <SequenceStartDialog
+          projectId={projectId}
+          tickets={chosen}
+          state={launchState}
+          defaults={queue.data?.defaults}
+          close={() => setSequencing(false)}
+          onStarted={async () => {
+            await queue.written();
+            setSequencing(false);
+            endSelection();
           }}
         />
       )}

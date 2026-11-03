@@ -47,3 +47,28 @@ export const ticketQueueCopy = {
   removeBody:
     "Das Ticket verlässt die Folge. Seine Session, sein Pull Request und der Eintrag im Tracker bleiben.",
 };
+
+// Tickets in der Liste auswählen und der Dialog, der sie als Folge startet.
+export const ticketSequenceStartCopy = {
+  select: "Tickets auswählen",
+  selectTicket: (key) => `${key} auswählen`,
+  startSelected: (count) => `Als Folge starten (${count})`,
+  title: (count) =>
+    count === 1 ? "1 Ticket als Folge starten" : `${count} Tickets als Folge starten`,
+  order: (keys) =>
+    `AgentPier bearbeitet sie nacheinander in dieser Reihenfolge: ${keys}.`,
+  runAs: "Starten als",
+  session: "Session",
+  pipeline: "Pipeline-Lauf",
+  pipelineLabel: "Pipeline",
+  searchPipelines: "Pipelines durchsuchen",
+  choosePipeline: "Pipeline wählen",
+  noPipelines: "Es gibt noch keine Pipelines.",
+  repair: "Reparatur-Session",
+  repairHint: "Startet, wenn Checks fehlschlagen oder Änderungen angefordert werden.",
+  repairDefaults: "Vorbelegt mit der neuesten Coding-Session in diesem Projekt.",
+  allowMerge: "Merge erlauben",
+  allowMergeHint:
+    "AgentPier merged jeden Pull Request per Auto-Merge oder Merge-Queue oder selbst, sobald die Pflicht-Checks grün sind. Nie an fehlschlagenden Checks oder angeforderten Änderungen vorbei.",
+  start: "Folge starten",
+};

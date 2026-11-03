@@ -177,6 +177,7 @@ export default function ProjectsPage({
       route={route}
       onNavigate={onNavigate}
       sessions={state.sessions}
+      launchState={state}
       select={select}
       onLaunch={onLaunch}
       mobile={mobile}

@@ -41,6 +41,7 @@ export default function ProjectDetail({
   route,
   onNavigate,
   sessions: allSessions,
+  launchState,
   select,
   onLaunch,
   mobile,
@@ -208,6 +209,7 @@ export default function ProjectDetail({
           route={route}
           onNavigate={onNavigate}
           onLaunch={onLaunch}
+          launchState={launchState}
           home={home}
           reloadHub={reloadHub}
         />

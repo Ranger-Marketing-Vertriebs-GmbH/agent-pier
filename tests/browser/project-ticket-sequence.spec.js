@@ -216,3 +216,180 @@ test("in English the queue reads in English", async ({ page }) => {
     confirm.getByRole("button", { name: "Remove", exact: true }),
   ).toBeVisible();
 });
+
+// "Start as sequence": selection in the ticket list, then the sequence dialog.
+const startedView = (body) =>
+  queueOf(
+    ...body.tickets.map((entry, index) =>
+      item(`n${index}`, entry.key, `Ticket ${entry.key}`, index ? "waiting" : "running"),
+    ),
+  );
+
+async function selectTickets(page, keys, lang = "de") {
+  await page
+    .getByRole("button", { name: lang === "de" ? "Tickets auswählen" : "Select tickets" })
+    .click();
+  for (const key of keys)
+    await page
+      .getByRole("checkbox", {
+        name: lang === "de" ? `${key} auswählen` : `Select ${key}`,
+        exact: true,
+      })
+      .check();
+}
+
+test("selecting two tickets and starting a session sequence posts both keys in list order with allowMerge false", async ({
+  page,
+}) => {
+  let current = queueOf();
+  const { queueCalls } = await ticketsFixture(page, {
+    queue: () => current,
+    queueAction: (call) => {
+      current = startedView(call.body);
+      return { status: 201, json: current };
+    },
+  });
+  await page.goto(base + "/projects/m1?tab=tickets");
+  await expect(page.getByText("acme/app#7 Fix the login")).toBeVisible();
+  // Selected in reverse; the sequence keeps the list order.
+  await selectTickets(page, ["AP-3", "acme/app#7"]);
+  await page.getByRole("button", { name: "Als Folge starten (2)" }).click();
+  const dialog = page.getByRole("dialog", { name: "2 Tickets als Folge starten" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText(/Reihenfolge: acme\/app#7, AP-3\./)).toBeVisible();
+  await expect(dialog.getByRole("radio", { name: "Session" })).toBeChecked();
+  await expect(dialog.getByRole("switch", { name: "Merge erlauben" })).not.toBeChecked();
+  await dialog.getByRole("button", { name: "Folge starten" }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(queueCalls).toHaveLength(1);
+  const [{ method, path, body }] = queueCalls;
+  expect({ method, path }).toEqual({
+    method: "POST",
+    path: "/tickets/projects/m1/queue",
+  });
+  expect(body).toMatchObject({
+    tickets: [
+      { source: "github", key: "acme/app#7" },
+      { source: "plane", key: "AP-3" },
+    ],
+    kind: "session",
+    allowMerge: false,
+    again: false,
+    session: { tool: "codex", accountId: "local-codex", launchMode: "yolo" },
+  });
+  expect(body.session.cwd).toBeUndefined();
+  expect(body.repair).toBeUndefined();
+  // The queue follows the topic; the selection ends.
+  await expect(queueCard(page).getByText("acme/app#7 Ticket acme/app#7")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Tickets auswählen" })).toBeVisible();
+  await expect(page.getByRole("checkbox")).toHaveCount(0);
+});
+
+test("a pipeline sequence sends the repair settings, prefilled from defaults", async ({
+  page,
+}) => {
+  const { queueCalls } = await ticketsFixture(page, {
+    queue: {
+      queue: { items: [] },
+      defaults: {
+        repair: {
+          tool: "codex",
+          accountId: "local-codex",
+          nativeModelId: "gpt-5.1",
+          launchMode: "default",
+        },
+      },
+    },
+    queueAction: (call) => ({ status: 201, json: startedView(call.body) }),
+  });
+  await page.goto(base + "/projects/m1?tab=tickets");
+  await selectTickets(page, ["acme/app#9"]);
+  await page.getByRole("button", { name: "Als Folge starten (1)" }).click();
+  const dialog = page.getByRole("dialog", { name: "1 Ticket als Folge starten" });
+  await dialog.getByRole("radio", { name: "Pipeline-Lauf" }).check();
+  // No pipeline chosen yet: the start stays off.
+  await expect(dialog.getByRole("button", { name: "Folge starten" })).toBeDisabled();
+  await dialog.getByRole("button", { name: "Pipeline", exact: true }).click();
+  await page.getByRole("option", { name: "Entwicklungsablauf" }).click();
+  const repair = dialog.getByRole("group", { name: "Reparatur-Session" });
+  await expect(repair.getByText(/Startet, wenn Checks fehlschlagen/)).toBeVisible();
+  await expect(
+    repair.getByText(/Vorbelegt mit der neuesten Coding-Session/),
+  ).toBeVisible();
+  await expect(repair.getByLabel("Natives Modell (optional)")).toHaveValue("gpt-5.1");
+  // The repair session takes no sandbox profile.
+  await expect(repair.getByText("Sandbox-Profil")).toHaveCount(0);
+  await dialog.getByRole("switch", { name: "Merge erlauben" }).check();
+  await dialog.getByRole("button", { name: "Folge starten" }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(queueCalls[0].body).toEqual({
+    tickets: [{ source: "github", key: "acme/app#9" }],
+    kind: "pipeline",
+    allowMerge: true,
+    again: false,
+    pipeline: { pipelineId: "p1" },
+    repair: {
+      tool: "codex",
+      accountId: "local-codex",
+      nativeModelId: "gpt-5.1",
+      launchMode: "default",
+    },
+  });
+});
+
+test("already started tickets offer Start again", async ({ page }) => {
+  const { queueCalls } = await ticketsFixture(page, {
+    queueAction: (call, count) =>
+      count === 1
+        ? {
+            status: 409,
+            json: {
+              error:
+                "Dieses Ticket wurde schon gestartet. Bestätige, um es erneut zu starten.",
+              messageKey: "tickets.alreadyStarted",
+            },
+          }
+        : { status: 201, json: startedView(call.body) },
+  });
+  await page.goto(base + "/projects/m1?tab=tickets");
+  await selectTickets(page, ["acme/app#7", "acme/app#9"]);
+  await page.getByRole("button", { name: "Als Folge starten (2)" }).click();
+  const dialog = page.getByRole("dialog", { name: "2 Tickets als Folge starten" });
+  await dialog.getByRole("button", { name: "Folge starten" }).click();
+  await expect(dialog.getByText(/wurde schon gestartet/)).toBeVisible();
+  await dialog.getByRole("button", { name: "Erneut starten" }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(queueCalls.map((call) => call.body.again)).toEqual([false, true]);
+});
+
+test("in English the selection and the sequence dialog read in English", async ({
+  page,
+}) => {
+  await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
+  await ticketsFixture(page, {});
+  await page.goto(base + "/projects/m1?tab=tickets");
+  await selectTickets(page, ["acme/app#7", "AP-3"], "en");
+  await page.getByRole("button", { name: "Start as sequence (2)" }).click();
+  const dialog = page.getByRole("dialog", { name: "Start 2 tickets as a sequence" });
+  await expect(
+    dialog.getByText(
+      "AgentPier works through them one at a time, in this order: acme/app#7, AP-3.",
+    ),
+  ).toBeVisible();
+  await expect(dialog.getByRole("radio", { name: "Pipeline run" })).toBeVisible();
+  await expect(
+    dialog.getByText(/merges each pull request through auto-merge or the merge queue/),
+  ).toBeVisible();
+  await dialog.getByRole("radio", { name: "Pipeline run" }).check();
+  await expect(dialog.getByRole("group", { name: "Repair session" })).toBeVisible();
+  await expect(
+    dialog.getByText("Starts when checks fail or changes are requested."),
+  ).toBeVisible();
+  await expect(dialog.getByRole("switch", { name: "Allow merge" })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Start sequence" })).toBeDisabled();
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toHaveCount(0);
+  // Cancel in the toolbar ends the selection.
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await expect(page.getByRole("checkbox")).toHaveCount(0);
+});
