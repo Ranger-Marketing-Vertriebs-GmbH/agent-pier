@@ -4,7 +4,7 @@
 // never interleave with a step; the engine steps the queue right after each of them.
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
-import { TicketSourceError } from "./http-json.js";
+import { TicketSourceError, refineNotFound } from "./http-json.js";
 import { prVerdict } from "./pr-status.js";
 import { ticketQueueChanged } from "./live-topics.js";
 import { TicketSequenceStore } from "./sequence-store.js";
@@ -117,7 +117,9 @@ export class TicketSequenceService {
     refuse();
     const entries = [];
     for (const { source, key, access } of wanted) {
-      const ticket = await this.tickets.sources[source].get(access, key);
+      const ticket = await this.tickets.sources[source]
+        .get(access, key)
+        .catch((error) => Promise.reject(refineNotFound(error, copy.ticketNotFound)));
       entries.push({
         source,
         key: ticket.key,

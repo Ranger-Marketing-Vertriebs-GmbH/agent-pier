@@ -1,12 +1,27 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 
+// The HTTP status a source failure answers with: a missing ticket or project is the
+// client's 404, a missing connection a 409, every other tracker failure a 502.
+const STATUS = { notConnected: 409, notFound: 404 };
+
+/**
+ * A ticket source failure. `message` and `status` override the default ones of the
+ * code where the caller knows more, e.g. that a 404 means a missing Plane workspace.
+ */
 export class TicketSourceError extends Error {
-  constructor(code) {
-    super(serverMessages.tickets.source[code]);
+  constructor(code, { message, status } = {}) {
+    super(message ?? serverMessages.tickets.source[code]);
     this.name = "TicketSourceError";
     this.code = code;
-    this.status = code === "notConnected" ? 409 : 502;
+    this.status = status ?? STATUS[code] ?? 502;
   }
+}
+
+/** A tracker's notFound with the caller's message and status; other errors unchanged. */
+export function refineNotFound(error, message, status = 404) {
+  return error instanceof TicketSourceError && error.code === "notFound"
+    ? new TicketSourceError("notFound", { message, status })
+    : error;
 }
 
 // GitHub answers both rate limits with 403 at times: the primary one empties

@@ -14,6 +14,10 @@ export const tickets = Object.freeze({
   invalidLink: "Die Ticketquellen-Zuordnung des Projekts ist ungültig.",
   invalidStart: "Der Ticketstart ist ungültig.",
   startNotFound: "Der Ticketstart wurde nicht gefunden.",
+  ticketNotFound: "Das Ticket wurde in der Ticketquelle nicht gefunden.",
+  planeProjectNotFound: "Das Plane-Projekt wurde nicht gefunden.",
+  workspaceNotFound:
+    "Plane kennt den Workspace dieser Verbindung nicht. Bitte das Workspace-Kürzel prüfen.",
   projectNotFound: "Das Projekt wurde nicht gefunden.",
   invalidFilter: "Der Ticketfilter ist ungültig.",
   codingCliRequired: "Ein Ticket kann nur mit einem Coding-CLI gestartet werden.",

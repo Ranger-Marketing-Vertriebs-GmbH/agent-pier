@@ -20,7 +20,7 @@ test("statuses map to codes without leaking the request", async () => {
     }).catch((e) => e);
     assert.ok(error instanceof TicketSourceError);
     assert.equal(error.code, code);
-    assert.equal(error.status, 502);
+    assert.equal(error.status, code === "notFound" ? 404 : 502);
     assert.doesNotMatch(`${error.message} ${error.stack}`, /secret-token|https:\/\/h/);
   }
 });

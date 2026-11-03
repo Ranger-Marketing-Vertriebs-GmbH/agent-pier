@@ -330,7 +330,17 @@ test("a key of another repository or Plane project is refused before any launch"
       kind: "session",
       session: {},
     }),
-    { status: 502, code: "notFound" },
+    { status: 404, code: "notFound", message: serverMessages.tickets.ticketNotFound },
+  );
+  // A ticket the tracker answers 404 for is missing too.
+  await assert.rejects(
+    service.start("p1", {
+      source: "github",
+      key: "acme/app#99",
+      kind: "session",
+      session: {},
+    }),
+    { status: 404, code: "notFound", message: serverMessages.tickets.ticketNotFound },
   );
   await assert.rejects(
     service.start("p1", {
@@ -511,4 +521,31 @@ test("a manual start in flight is visible to rules and sequences", async (t) => 
   });
   assert.equal(during, true);
   assert.equal(service.isStarting("p1", "github", "acme/app#7"), false);
+});
+
+test("a missing Plane workspace is a 409, a missing Plane project a 404", async (t) => {
+  const planeFailures = {};
+  const { service, connection } = await setup(t, { planeFailures });
+  planeFailures["GET /api/v1/workspaces/acme/projects/"] = 404;
+  await assert.rejects(service.planeProjects(connection.id), {
+    status: 409,
+    code: "notFound",
+    message: serverMessages.tickets.workspaceNotFound,
+  });
+  await assert.rejects(
+    service.setSources("p1", { plane: { connectionId: connection.id, planeProjectId } }),
+    { status: 409, message: serverMessages.tickets.workspaceNotFound },
+  );
+  planeFailures[`GET /api/v1/workspaces/acme/projects/${planeProjectId}/states/`] = 404;
+  await assert.rejects(service.planeStates(connection.id, planeProjectId), {
+    status: 404,
+    code: "notFound",
+    message: serverMessages.tickets.planeProjectNotFound,
+  });
+  // Other tracker failures keep their 502.
+  planeFailures[`GET /api/v1/workspaces/acme/projects/${planeProjectId}/states/`] = 503;
+  await assert.rejects(service.planeStates(connection.id, planeProjectId), {
+    status: 502,
+    code: "unavailable",
+  });
 });

@@ -13,6 +13,10 @@ export const tickets = Object.freeze({
   invalidLink: "The ticket source link of the project is invalid.",
   invalidStart: "The ticket start is invalid.",
   startNotFound: "The ticket start was not found.",
+  ticketNotFound: "The ticket was not found in the ticket source.",
+  planeProjectNotFound: "The Plane project was not found.",
+  workspaceNotFound:
+    "Plane does not know this connection's workspace. Please check the workspace slug.",
   projectNotFound: "The project was not found.",
   invalidFilter: "The ticket filter is invalid.",
   codingCliRequired: "A ticket can only be started with a coding CLI.",
