@@ -168,6 +168,7 @@ export function githubPull(number, extra = {}) {
     headRef: `ticket/${number}-work`,
     headSha: String(number).padStart(40, "a"),
     headRepo: "acme/app",
+    author: { login: "dev", type: "User" },
     baseRef: "main",
     state: "OPEN",
     createdAt: "2026-11-03T10:00:00Z",
@@ -183,9 +184,14 @@ export function githubPull(number, extra = {}) {
 
 // Fake GitHub pull request API (REST + GraphQL) on 127.0.0.1 over an in-memory `pulls`
 // array of githubPull objects. `repo` sets repository merge settings; `failures` maps
-// "METHOD /path" to an HTTP status, or to a body sent with 200 (e.g. GraphQL errors).
+// "METHOD /path" to an HTTP status, or to a body sent with 200 (e.g. GraphQL errors);
+// `graphqlErrors` are added to every GraphQL answer next to its data (partial errors).
+// The pull list honours `head=<owner>:<branch>`.
 // REST paths may carry the GHE prefix /api/v3; GraphQL answers on /graphql and /api/graphql.
-export async function fakeGithubPulls(t, { pulls = [], repo = {}, failures = {} } = {}) {
+export async function fakeGithubPulls(
+  t,
+  { pulls = [], repo = {}, failures = {}, graphqlErrors = null } = {},
+) {
   const settings = {
     autoMergeAllowed: true,
     defaultMergeMethod: "SQUASH",
@@ -199,6 +205,7 @@ export async function fakeGithubPulls(t, { pulls = [], repo = {}, failures = {} 
     html_url: `https://github.com/acme/app/pull/${pull.number}`,
     state: pull.state === "OPEN" ? "open" : "closed",
     created_at: pull.createdAt,
+    user: pull.author,
     head: {
       ref: pull.headRef,
       sha: pull.headSha,
@@ -278,13 +285,21 @@ export async function fakeGithubPulls(t, { pulls = [], repo = {}, failures = {} 
       const failure = failures[`${req.method} ${url.pathname}`];
       if (typeof failure === "number") return send(failure, { message: "failure" });
       if (failure) return send(200, failure);
-      if (req.method === "POST" && (path === "/graphql" || path === "/api/graphql"))
-        return send(200, graphql(body ?? {}));
+      if (req.method === "POST" && (path === "/graphql" || path === "/api/graphql")) {
+        const answer = graphql(body ?? {});
+        if (graphqlErrors) answer.errors = [...(answer.errors ?? []), ...graphqlErrors];
+        return send(200, answer);
+      }
       if (req.method === "GET" && /^\/repos\/[^/]+\/[^/]+$/.test(path))
         return send(200, { default_branch: settings.defaultBranch });
       if (req.method === "GET" && /^\/repos\/[^/]+\/[^/]+\/pulls$/.test(path)) {
         const size = Number(url.searchParams.get("per_page") || 30);
-        const sorted = [...pulls].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+        const head = url.searchParams.get("head");
+        const sorted = [...pulls]
+          .filter(
+            (pull) => !head || `${pull.headRepo?.split("/")[0]}:${pull.headRef}` === head,
+          )
+          .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
         return send(200, sorted.slice(0, size).map(restPull));
       }
       const merge = /^\/repos\/[^/]+\/[^/]+\/pulls\/(\d+)\/merge$/.exec(path);

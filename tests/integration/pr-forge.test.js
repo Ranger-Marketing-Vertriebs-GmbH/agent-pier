@@ -42,11 +42,13 @@ test("graphqlUrl", () => {
   );
 });
 
-test("findPullRequest prefers the exact head branch", async (t) => {
+const at = (minutes) => new Date(Date.parse(SINCE) + minutes * 60_000).toISOString();
+
+test("findPullRequest looks the exact head branch up by head query", async (t) => {
   const fake = await fakeGithubPulls(t, {
     pulls: [
-      githubPull(5, { headRef: "ticket/12-fix", createdAt: "2026-11-03T10:00:00Z" }),
-      githubPull(6, { headRef: "other/12", createdAt: "2026-11-03T11:00:00Z" }),
+      githubPull(5, { headRef: "ticket/12-fix", createdAt: at(60) }),
+      githubPull(6, { headRef: "other/12", createdAt: at(120) }),
     ],
   });
   const access = accessFor(fake);
@@ -60,15 +62,42 @@ test("findPullRequest prefers the exact head branch", async (t) => {
     url: "https://github.com/acme/app/pull/5",
     headRef: "ticket/12-fix",
   });
+  assert.equal(fake.calls.length, 1);
   const query = new URL(fake.calls[0].path, "http://x").searchParams;
+  assert.equal(query.get("head"), "acme:ticket/12-fix");
   assert.equal(query.get("state"), "all");
   assert.equal(query.get("sort"), "created");
   assert.equal(query.get("direction"), "desc");
   assert.equal(query.get("per_page"), "50");
   assert.equal(fake.calls[0].authorization, `Bearer ${TOKEN}`);
-  // Without the exact branch the newest key match wins.
+  // Without a known branch (pipeline run) the newest key match wins.
   const byKey = await findPullRequest(access, { key: "acme/app#12", since: SINCE });
   assert.equal(byKey.number, 6);
+  assert.equal(new URL(fake.calls[1].path, "http://x").searchParams.get("head"), null);
+});
+
+test("a known branch never falls back to the key search", async (t) => {
+  const fake = await fakeGithubPulls(t, {
+    pulls: [githubPull(6, { headRef: "feature/12-x", createdAt: at(60) })],
+  });
+  const access = accessFor(fake);
+  const pr = await findPullRequest(access, {
+    key: "acme/app#12",
+    branch: "ticket/12-fix",
+    since: SINCE,
+  });
+  assert.equal(pr, null);
+  assert.equal(fake.calls.length, 1);
+  // The exact head is found even beyond the latest 50 pull requests.
+  for (let n = 100; n < 160; n += 1)
+    fake.pulls.push(githubPull(n, { headRef: `other/${n}`, createdAt: at(200) }));
+  fake.pulls.push(githubPull(7, { headRef: "ticket/12-fix", createdAt: at(30) }));
+  const found = await findPullRequest(access, {
+    key: "acme/app#12",
+    branch: "ticket/12-fix",
+    since: SINCE,
+  });
+  assert.equal(found.number, 7);
 });
 
 test("findPullRequest ignores older and look-alike branches", async (t) => {
@@ -79,23 +108,59 @@ test("findPullRequest ignores older and look-alike branches", async (t) => {
         state: "CLOSED",
         createdAt: "2026-11-01T10:00:00Z",
       }),
-      githubPull(4, { headRef: "fix-120", createdAt: "2026-11-03T10:00:00Z" }),
+      githubPull(4, { headRef: "fix-120", createdAt: at(60) }),
       githubPull(5, {
         headRef: "ticket/12-fork",
         headRepo: "mallory/app",
-        createdAt: "2026-11-03T10:30:00Z",
+        createdAt: at(70),
+      }),
+      githubPull(8, {
+        headRef: "dependabot/npm_and_yarn/lodash-4.17.12",
+        author: { login: "dependabot[bot]", type: "Bot" },
+        createdAt: at(80),
+      }),
+      githubPull(9, { headRef: "renovate/node-12.x", createdAt: at(81) }),
+      githubPull(10, { headRef: "release/12", createdAt: at(82) }),
+      githubPull(11, {
+        headRef: "ticket/12-bot",
+        author: { login: "helper[bot]", type: "User" },
+        createdAt: at(83),
+      }),
+      githubPull(12, {
+        headRef: "12-bot",
+        author: { login: "ci", type: "Bot" },
+        createdAt: at(84),
       }),
     ],
   });
   const access = accessFor(fake);
-  const ticket = { key: "acme/app#12", branch: "ticket/12-old", since: SINCE };
+  const ticket = { key: "acme/app#12", since: SINCE };
   assert.equal(await findPullRequest(access, ticket), null);
-  fake.pulls.push(
-    githubPull(7, { headRef: "feature/12-x", createdAt: "2026-11-03T11:00:00Z" }),
-  );
+  fake.pulls.push(githubPull(7, { headRef: "feature/12-x", createdAt: at(90) }));
   const pr = await findPullRequest(access, ticket);
   assert.equal(pr.number, 7);
   assert.equal(pr.headRef, "feature/12-x");
+  // The same rules hold for the exact branch: an older attempt's PR is ignored.
+  assert.equal(
+    await findPullRequest(access, { ...ticket, branch: "ticket/12-old" }),
+    null,
+  );
+});
+
+test("findPullRequest tolerates five minutes of clock skew", async (t) => {
+  const fake = await fakeGithubPulls(t, {
+    pulls: [githubPull(5, { headRef: "ticket/12-fix", createdAt: at(-4) })],
+  });
+  const access = accessFor(fake);
+  const query = { key: "acme/app#12", branch: "ticket/12-fix", since: SINCE };
+  assert.equal((await findPullRequest(access, query)).number, 5);
+  assert.equal(
+    (await findPullRequest(access, { ...query, branch: undefined })).number,
+    5,
+  );
+  fake.pulls[0].createdAt = at(-6);
+  assert.equal(await findPullRequest(access, query), null);
+  assert.equal(await findPullRequest(access, { ...query, branch: undefined }), null);
 });
 
 test("pullRequestByUrl accepts only this repository", () => {
@@ -150,6 +215,13 @@ test("readPullRequest maps checks, reviews and repository merge settings", async
             conclusion: "SKIPPED",
             isRequired: false,
           },
+          {
+            __typename: "CheckRun",
+            name: "old",
+            status: "COMPLETED",
+            conclusion: "STALE",
+            isRequired: false,
+          },
           { __typename: "StatusContext", context: "ci/legacy", state: "ERROR" },
           { __typename: "StatusContext", context: "ci/wait", state: "EXPECTED" },
         ],
@@ -175,6 +247,7 @@ test("readPullRequest maps checks, reviews and repository merge settings", async
       { name: "e2e", state: "pending", required: true },
       { name: "lint", state: "failure", required: false },
       { name: "docs", state: "success", required: false },
+      { name: "old", state: "failure", required: false },
       { name: "ci/legacy", state: "failure", required: false },
       { name: "ci/wait", state: "pending", required: false },
     ],
@@ -288,9 +361,12 @@ test("graphql errors become invalidResponse", async (t) => {
   assert.equal(error.code, "invalidResponse");
   assert.doesNotMatch(error.message, new RegExp(TOKEN));
   assert.doesNotMatch(String(error.stack), new RegExp(TOKEN));
-  await assert.rejects(enableAutoMerge(access, { id: "PR_1", headSha: "a", repo: {} }), {
-    code: "invalidResponse",
-  });
+  await assert.rejects(
+    enableAutoMerge(access, { id: "PR_1", headSha: "a".repeat(40), repo: {} }),
+    {
+      code: "invalidResponse",
+    },
+  );
 });
 
 test("graphql rate limits and HTTP failures keep their codes", async (t) => {
@@ -305,4 +381,40 @@ test("graphql rate limits and HTTP failures keep their codes", async (t) => {
   await assert.rejects(findPullRequest(accessFor(down), { key: "acme/app#1" }), {
     code: "unauthorized",
   });
+});
+
+test("partial graphql errors keep usable data", async (t) => {
+  const fake = await fakeGithubPulls(t, {
+    pulls: [githubPull(1)],
+    graphqlErrors: [{ type: "FORBIDDEN", path: ["repository", "mergeQueue"] }],
+  });
+  const access = accessFor(fake);
+  const pr = await readPullRequest(access, 1);
+  assert.equal(pr.number, 1);
+  await enableAutoMerge(access, pr);
+  assert.equal(fake.pulls[0].autoMerge, true);
+});
+
+test("a missing repository maps to notFound", async (t) => {
+  const fake = await fakeGithubPulls(t, {
+    failures: {
+      "POST /graphql": {
+        data: { repository: null },
+        errors: [{ type: "NOT_FOUND", path: ["repository"] }],
+      },
+    },
+  });
+  await assert.rejects(readPullRequest(accessFor(fake), 1), { code: "notFound" });
+});
+
+test("arming and merging refuse a missing head sha", async (t) => {
+  const fake = await fakeGithubPulls(t, { pulls: [githubPull(1)] });
+  const access = accessFor(fake);
+  const pr = { ...(await readPullRequest(access, 1)), headSha: "" };
+  fake.calls.length = 0;
+  for (const action of [enableAutoMerge, enqueue, mergePullRequest])
+    await assert.rejects(action(access, pr), { code: "invalidResponse" });
+  assert.equal(fake.calls.length, 0);
+  assert.equal(fake.pulls[0].autoMerge, false);
+  assert.equal(fake.pulls[0].state, "OPEN");
 });

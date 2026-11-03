@@ -8,6 +8,7 @@ import { httpUrl, plainLine } from "./ticket.js";
 const MAX_CHECKS = 100;
 const CHECK_NAME_LIMIT = 80;
 const REF_LIMIT = 255;
+const SHA = /^[0-9a-f]{40,64}$/i;
 const MERGE_METHODS = new Set(["MERGE", "SQUASH", "REBASE"]);
 const SUCCESS = new Set(["SUCCESS", "NEUTRAL", "SKIPPED"]);
 const FAILURE = new Set([
@@ -46,7 +47,19 @@ function rest(access, path, options = {}) {
   });
 }
 
-async function graphql(access, query, variables, { signal } = {}) {
+function graphqlError(errors) {
+  // GraphQL reports rate limits and missing repositories with HTTP 200.
+  if (errors.some((error) => error?.type === "RATE_LIMITED")) return "rateLimited";
+  if (errors.some((error) => error?.type === "NOT_FOUND")) return "notFound";
+  return "invalidResponse";
+}
+
+/**
+ * Runs a GraphQL request. With errors, the data is still used when `usable(data)` says
+ * the fields the caller needs are present (a partial error, e.g. one field the token may
+ * not read); otherwise the errors decide the code.
+ */
+async function graphql(access, query, variables, { signal, usable } = {}) {
   const { data } = await requestJson({
     fetchImpl: access.fetchImpl,
     url: graphqlUrl(access.apiBase),
@@ -56,14 +69,12 @@ async function graphql(access, query, variables, { signal } = {}) {
     signal,
   });
   if (!data || typeof data !== "object") throw new TicketSourceError("invalidResponse");
-  if (Array.isArray(data.errors) && data.errors.length > 0) {
-    // GraphQL reports rate limits with HTTP 200; keep them apart from real failures.
-    const limited = data.errors.some((error) => error?.type === "RATE_LIMITED");
-    throw new TicketSourceError(limited ? "rateLimited" : "invalidResponse");
-  }
-  if (!data.data || typeof data.data !== "object")
-    throw new TicketSourceError("invalidResponse");
-  return data.data;
+  const result = data.data && typeof data.data === "object" ? data.data : null;
+  const errors = Array.isArray(data.errors) ? data.errors : [];
+  if (errors.length > 0 && !(result && usable?.(result)))
+    throw new TicketSourceError(graphqlError(errors));
+  if (!result) throw new TicketSourceError("invalidResponse");
+  return result;
 }
 
 function sameName(a, b) {
@@ -77,9 +88,17 @@ function fromThisRepo(access, pull) {
   );
 }
 
+// GitHub's clock and the host's may differ; a PR opened right after the start still counts.
+const SINCE_TOLERANCE_MS = 5 * 60_000;
+
 function created(pull) {
   const time = Date.parse(pull?.created_at ?? "");
   return Number.isFinite(time) ? time : null;
+}
+
+function byBot(pull) {
+  const user = pull?.user;
+  return user?.type === "Bot" || /\[bot\]$/i.test(String(user?.login ?? ""));
 }
 
 function found(pull) {
@@ -90,17 +109,21 @@ function found(pull) {
   };
 }
 
-/**
- * The ticket's pull request: the exact head branch first, else the newest pull request
- * whose head names the ticket key. Both must come from this repository (not a fork) and,
- * when `since` is given, be created at or after it, so an older attempt's PR never counts.
- */
-export async function findPullRequest(access, { key, branch, since, signal } = {}) {
-  const query = "state=all&sort=created&direction=desc&per_page=50";
-  const { data } = await rest(access, `${repoPath(access)}/pulls?${query}`, { signal });
+async function listPulls(access, { head, since, signal }) {
+  const params = new URLSearchParams({
+    state: "all",
+    sort: "created",
+    direction: "desc",
+    per_page: "50",
+  });
+  if (head) params.set("head", `${access.owner}:${head}`);
+  const { data } = await rest(access, `${repoPath(access)}/pulls?${params}`, { signal });
   if (!Array.isArray(data)) throw new TicketSourceError("invalidResponse");
-  const after = since === undefined || since === null ? null : new Date(since).getTime();
-  const candidates = data.filter((pull) => {
+  const after =
+    since === undefined || since === null
+      ? null
+      : new Date(since).getTime() - SINCE_TOLERANCE_MS;
+  return data.filter((pull) => {
     if (!pull || !Number.isInteger(pull.number) || typeof pull.head?.ref !== "string")
       return false;
     if (!fromThisRepo(access, pull)) return false;
@@ -108,12 +131,28 @@ export async function findPullRequest(access, { key, branch, since, signal } = {
     const time = created(pull);
     return time !== null && Number.isFinite(after) && time >= after;
   });
+}
+
+/**
+ * The ticket's pull request, from this repository only (not a fork) and, when `since` is
+ * given, created no earlier than it (less a clock tolerance), so an older attempt's PR
+ * never counts.
+ * - `branch` known (AgentPier created it): only the PR with exactly that head, looked up
+ *   with a `head=` query that does not depend on paging. No key search.
+ * - Otherwise (a pipeline run whose PR link is unknown): the newest PR among the latest 50
+ *   whose head names the key (`branchMatchesKey`) and whose author is not a bot.
+ */
+export async function findPullRequest(access, { key, branch, since, signal } = {}) {
   if (branch) {
-    const exact = candidates.find((pull) => pull.head.ref === branch);
-    if (exact) return found(exact);
+    const pulls = await listPulls(access, { head: branch, since, signal });
+    const exact = pulls.find((pull) => pull.head.ref === branch);
+    return exact ? found(exact) : null;
   }
   if (!key) return null;
-  const match = candidates.find((pull) => branchMatchesKey(pull.head.ref, { key }));
+  const pulls = await listPulls(access, { since, signal });
+  const match = pulls.find(
+    (pull) => !byBot(pull) && branchMatchesKey(pull.head.ref, { key }),
+  );
   return match ? found(match) : null;
 }
 
@@ -162,7 +201,9 @@ function checkState(node) {
   if (node.__typename === "CheckRun") {
     if (node.status !== "COMPLETED") return "pending";
     if (SUCCESS.has(node.conclusion)) return "success";
-    return FAILURE.has(node.conclusion) ? "failure" : "pending";
+    return FAILURE.has(node.conclusion) || node.conclusion === "STALE"
+      ? "failure"
+      : "pending";
   }
   if (SUCCESS.has(node.state)) return "success";
   return FAILURE.has(node.state) ? "failure" : "pending";
@@ -192,7 +233,10 @@ function word(value) {
 
 export async function readPullRequest(access, number, { signal } = {}) {
   const variables = { owner: access.owner, repo: access.repo, n: Number(number) };
-  const data = await graphql(access, PULL_QUERY, variables, { signal });
+  const data = await graphql(access, PULL_QUERY, variables, {
+    signal,
+    usable: (result) => Boolean(result.repository?.pullRequest?.id),
+  });
   const repository = data.repository;
   const pull = repository?.pullRequest;
   if (!repository || !pull) throw new TicketSourceError("notFound");
@@ -209,7 +253,7 @@ export async function readPullRequest(access, number, { signal } = {}) {
       access,
       QUEUE_QUERY,
       { owner: access.owner, repo: access.repo, branch: baseRef },
-      { signal },
+      { signal, usable: (result) => Boolean(result.repository) },
     );
     mergeQueue = Boolean(queue.repository?.mergeQueue?.id);
   }
@@ -220,7 +264,7 @@ export async function readPullRequest(access, number, { signal } = {}) {
     url: httpUrl(pull.url),
     state,
     headRef: plainLine(pull.headRefName, REF_LIMIT),
-    headSha: /^[0-9a-f]{40,64}$/i.test(pull.headRefOid ?? "") ? pull.headRefOid : "",
+    headSha: SHA.test(pull.headRefOid ?? "") ? pull.headRefOid : "",
     baseRef,
     mergeable: word(pull.mergeable),
     mergeStateStatus: word(pull.mergeStateStatus),
@@ -242,22 +286,29 @@ async function mutate(access, mutation, input) {
     access,
     `mutation($input: ${mutation.input}!) { ${mutation.name}(input: $input) { clientMutationId } }`,
     { input },
+    { usable: (result) => Boolean(result[mutation.name]) },
   );
 }
 
-export function enableAutoMerge(access, pr) {
+// Arming without the head the verdict saw could merge a later, unchecked push.
+function headOid(pr) {
+  if (!SHA.test(pr?.headSha ?? "")) throw new TicketSourceError("invalidResponse");
+  return pr.headSha;
+}
+
+export async function enableAutoMerge(access, pr) {
   return mutate(
     access,
     { name: "enablePullRequestAutoMerge", input: "EnablePullRequestAutoMergeInput" },
     {
       pullRequestId: pr.id,
       mergeMethod: pr.repo.defaultMergeMethod,
-      expectedHeadOid: pr.headSha,
+      expectedHeadOid: headOid(pr),
     },
   );
 }
 
-export function disableAutoMerge(access, pr) {
+export async function disableAutoMerge(access, pr) {
   return mutate(
     access,
     { name: "disablePullRequestAutoMerge", input: "DisablePullRequestAutoMergeInput" },
@@ -265,15 +316,15 @@ export function disableAutoMerge(access, pr) {
   );
 }
 
-export function enqueue(access, pr) {
+export async function enqueue(access, pr) {
   return mutate(
     access,
     { name: "enqueuePullRequest", input: "EnqueuePullRequestInput" },
-    { pullRequestId: pr.id, expectedHeadOid: pr.headSha },
+    { pullRequestId: pr.id, expectedHeadOid: headOid(pr) },
   );
 }
 
-export function dequeue(access, pr) {
+export async function dequeue(access, pr) {
   return mutate(
     access,
     { name: "dequeuePullRequest", input: "DequeuePullRequestInput" },
@@ -283,10 +334,10 @@ export function dequeue(access, pr) {
 
 /** Merges exactly the head the verdict saw; GitHub refuses when the head moved. */
 export async function mergePullRequest(access, pr) {
-  if (!pr.headSha) throw new TicketSourceError("invalidResponse");
+  const sha = headOid(pr);
   await rest(access, `${repoPath(access)}/pulls/${encodeURIComponent(pr.number)}/merge`, {
     method: "PUT",
-    body: { sha: pr.headSha, merge_method: pr.repo.defaultMergeMethod.toLowerCase() },
+    body: { sha, merge_method: pr.repo.defaultMergeMethod.toLowerCase() },
   });
 }
 

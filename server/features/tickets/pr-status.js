@@ -1,7 +1,9 @@
 // Pure verdict over a pull request snapshot from pr-forge.js.
 
-const MERGE_READY_STATES = new Set(["CLEAN", "HAS_HOOKS"]);
-const SEPARATOR = "[/_.-]";
+// UNSTABLE: mergeable, only a check outside the counted (required) ones is not green.
+const MERGE_READY_STATES = new Set(["CLEAN", "HAS_HOOKS", "UNSTABLE"]);
+// Branches that name versions, releases or reverts, never a ticket's work.
+const FOREIGN_PREFIXES = new Set(["release", "releases", "dependabot", "renovate"]);
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -59,13 +61,19 @@ export function keyToken(ticket) {
   return key;
 }
 
-/** True when the branch names the ticket, with separators (or the ends) as boundaries. */
+/**
+ * True when the branch names the ticket: the last path segment starts with the key as a
+ * whole token (followed by its end, "-" or "_"; "." is no boundary, so "node-12.x" or
+ * "4.17.12" never match #12). Release, dependency-bot and revert branches never match.
+ */
 export function branchMatchesKey(branch, ticket) {
   const token = keyToken(ticket);
-  if (!token || typeof branch !== "string") return false;
-  const pattern = new RegExp(
-    `(?:^|${SEPARATOR})${escapeRegExp(token)}(?:$|${SEPARATOR})`,
-    "i",
-  );
-  return pattern.test(branch);
+  if (!token || typeof branch !== "string" || !branch) return false;
+  const segments = branch.split("/");
+  const first = segments[0].toLowerCase();
+  // GitHub names a revert branch "revert-<pr>-<original branch>".
+  if (first.startsWith("revert-")) return false;
+  if (segments.length > 1 && FOREIGN_PREFIXES.has(first)) return false;
+  const last = segments.at(-1);
+  return new RegExp(`^${escapeRegExp(token)}(?:$|[-_])`, "i").test(last);
 }
