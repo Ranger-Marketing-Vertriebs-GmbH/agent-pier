@@ -43,6 +43,8 @@ export const ticketErrorCopy = {
   unreachable: "Die Ticketquelle ist nicht erreichbar.",
   invalidResponse: "Die Ticketquelle hat eine unerwartete Antwort geliefert.",
   notConnected: "Die Ticketquelle ist für dieses Projekt nicht verbunden.",
+  // Ein Rückschreiben, das ein Neustart von AgentPier abgebrochen hat.
+  interrupted: "AgentPier wurde neu gestartet, bevor die Ticketquelle aktualisiert war.",
 };
 
 // Der Tickets-Tab eines Projekts: seine Quellen, die Ticketliste und die Zeilenaktionen.

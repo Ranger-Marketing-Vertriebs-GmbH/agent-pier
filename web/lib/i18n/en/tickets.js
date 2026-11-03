@@ -42,6 +42,8 @@ export const ticketErrorCopy = {
   unreachable: "The ticket source cannot be reached.",
   invalidResponse: "The ticket source returned an unexpected response.",
   notConnected: "The ticket source is not connected for this project.",
+  // A write-back cut off by a restart of AgentPier.
+  interrupted: "AgentPier restarted before the ticket source was updated.",
 };
 
 // The Tickets tab of a project: its sources, the ticket list and the row actions.

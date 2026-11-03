@@ -282,3 +282,27 @@ test("start records use the injected clock", (t) => {
   });
   assert.equal(record.startedAt, 777);
 });
+
+test("a write-back cut off by a restart reads as failed: interrupted", (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "ap-ticket-wb-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const store = new TicketStore({ dataDir });
+  const base = {
+    projectId: "p1",
+    source: "github",
+    title: "T",
+    url: "",
+    kind: "session",
+    targetId: "s1",
+  };
+  store.addStart({ ...base, key: "acme/app#1", writeBack: { state: "pending" } });
+  store.addStart({ ...base, key: "acme/app#2", writeBack: { state: "done" } });
+  const reloaded = new TicketStore({ dataDir });
+  assert.deepEqual(reloaded.findStart("p1", "github", "acme/app#1").writeBack, {
+    state: "failed",
+    code: "interrupted",
+  });
+  assert.deepEqual(reloaded.findStart("p1", "github", "acme/app#2").writeBack, {
+    state: "done",
+  });
+});

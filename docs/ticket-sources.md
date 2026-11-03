@@ -110,7 +110,12 @@ request (`Closes #<n>` for GitHub, the key for Plane).
 
 ### Write-back "In progress"
 
-After the start, AgentPier marks the ticket:
+After the start, AgentPier marks the ticket. A single start is answered first; the
+write-back follows, so a slow tracker never delays the session or run. Its start record
+shows the write-back as `pending` until the tracker answers, then `done` or `failed`
+through the live topic `tickets.project:<projectId>`. A write-back cut off by a restart
+of AgentPier reads as failed (`interrupted`, "AgentPier restarted before the ticket
+source was updated") and is not repeated.
 
 - **GitHub**: adds the project's label (default `in progress`) and comments
   `Started in AgentPier (session).` or `Started in AgentPier (pipeline run).`
