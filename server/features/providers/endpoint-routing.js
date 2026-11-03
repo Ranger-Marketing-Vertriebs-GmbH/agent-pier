@@ -6,7 +6,7 @@ import {
   resolveCapabilities,
 } from "../protocol-adapter/capabilities.js";
 import { TOOL_PROTOCOL } from "./provider-definitions.js";
-import { codingCliIds } from "../clis/catalog.js";
+import { cliDefinition, codingCliIds } from "../clis/catalog.js";
 
 const messages = serverMessages.providers;
 export const PROTOCOLS = Object.freeze(["messages", "responses", "chatCompletions"]);
@@ -85,7 +85,7 @@ const enabled = (endpoint, source) =>
 export function resolveRoute(endpoint, tool, { adapterAuto = ADAPTER_AUTO_ROUTES } = {}) {
   const choice = endpoint?.routing?.[tool] ?? "auto";
   if (choice === "off" || !Object.hasOwn(ROUTE_CHOICES, tool)) return null;
-  if (tool === "opencode") {
+  if (cliDefinition(tool).capabilities.endpointSdkRouting) {
     const source =
       choice === "auto" ? OPENCODE_ORDER.find((s) => enabled(endpoint, s)) : choice;
     if (!source || !enabled(endpoint, source)) return null;

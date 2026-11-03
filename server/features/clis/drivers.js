@@ -28,6 +28,9 @@ import * as opencodeFiles from "./opencode/profile-files.js";
 import * as codexMcp from "./codex/mcp.js";
 import * as claudeMcp from "./claude/mcp.js";
 import * as opencodeMcp from "./opencode/mcp.js";
+import * as codexProvider from "./codex/provider.js";
+import * as claudeProvider from "./claude/provider.js";
+import * as opencodeProvider from "./opencode/provider.js";
 import * as codexTransfer from "./codex/transfer.js";
 import * as claudeTransfer from "./claude/transfer.js";
 
@@ -56,6 +59,11 @@ const pipelines = {
 const plugins = { codex: codexPlugins, claude: claudePlugins, opencode: opencodePlugins };
 const profileFiles = { codex: codexFiles, claude: claudeFiles, opencode: opencodeFiles };
 const mcps = { codex: codexMcp, claude: claudeMcp, opencode: opencodeMcp };
+const providers = {
+  codex: codexProvider,
+  claude: claudeProvider,
+  opencode: opencodeProvider,
+};
 const transfers = { codex: codexTransfer, claude: claudeTransfer };
 // Freezes plain objects and arrays; regular expressions stay as they are.
 const frozen = (value) => {
@@ -127,6 +135,13 @@ const drivers = new Map();
  *   unsupported, record, fail }` passed in; timeouts: { [nativeKey]: { field, scale } }
  *   in read and write order; remoteSseAsHttp: its `remote` cannot tell SSE from HTTP;
  *   keepsOAuthScope: its native form has no OAuth scope.
+ * provider: running against a provider connection (see `<id>/provider.js`).
+ *   environment(env, { directory, key, description, adapterRoute, adapterToken }): the
+ *   launch environment with the provider variables, `env` itself. launch(result, ctx)
+ *   configures the whole launch (Claude Code); otherwise endpointLaunch(result, ctx) and
+ *   catalogLaunch(result, ctx) do, for an endpoint and a catalog provider. `ctx` is
+ *   { account, description, endpoint, secret, connectionName, selection, model,
+ *   metadata, env, cliVersion, adapterRoute, endpointKind }; each returns `result`.
  * transfer: moving a session between accounts; null unless the definition has
  *   `capabilities.accountTransfer` (see `<id>/transfer.js`). `fail(key)` builds the
  *   session transfer problem named `key`. locate({ history, session, id, fail }):
@@ -187,6 +202,7 @@ export function cliDriver(id) {
           remoteSseAsHttp: mcps[id].remoteSseAsHttp,
           keepsOAuthScope: mcps[id].keepsOAuthScope,
         }),
+        provider: frozen({ ...providers[id] }),
         transfer: definition.capabilities.accountTransfer
           ? frozen({ ...transfers[id] })
           : null,

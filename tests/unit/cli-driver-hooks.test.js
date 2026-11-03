@@ -132,6 +132,26 @@ test("native folders and config formats per CLI", () => {
   );
 });
 
+test("provider member shape", () => {
+  for (const id of CODING_CLI_IDS) {
+    const { provider } = cliDriver(id);
+    assert.equal(typeof provider.environment, "function");
+    assert.ok(Object.isFrozen(provider));
+    if (id === "claude") {
+      assert.equal(typeof provider.launch, "function");
+      assert.equal(provider.endpointLaunch, undefined);
+    } else {
+      assert.equal(provider.launch, undefined);
+      assert.equal(typeof provider.endpointLaunch, "function");
+      assert.equal(typeof provider.catalogLaunch, "function");
+    }
+  }
+  assert.deepEqual(
+    CODING_CLI_IDS.map((id) => cliDefinition(id).capabilities.endpointSdkRouting),
+    [false, false, true],
+  );
+});
+
 test("mcp codec member shape", () => {
   const timeouts = {
     codex: {

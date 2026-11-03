@@ -1,7 +1,7 @@
 // web/features/provider-connections/endpoint-routes.js
 // Mirrors server/features/providers/endpoint-routing.js (pinned by
 // tests/unit/endpoint-routes-parity.test.js) so the dialog shows routes before saving.
-import { codingCliIds } from "../../../server/features/clis/catalog.js";
+import { cliDefinition, codingCliIds } from "../../../server/features/clis/catalog.js";
 export const ROUTE_TOOLS = codingCliIds().sort();
 export const NATIVE_SOURCE = { claude: "messages", codex: "responses" };
 export const ROUTE_CHOICES = {
@@ -25,14 +25,14 @@ const enabled = (endpoint, source) => unavailable(endpoint, source) === null;
 /** The source a choice names, or null for "auto" and "off". */
 export function choiceSource(tool, choice) {
   if (choice === "auto" || choice === "off") return null;
-  if (tool === "opencode") return choice;
+  if (cliDefinition(tool).capabilities.endpointSdkRouting) return choice;
   return choice === "native" ? NATIVE_SOURCE[tool] : choice.slice("adapter:".length);
 }
 
 export function resolveDraftRoute(endpoint, tool) {
   const choice = endpoint?.routing?.[tool] ?? "auto";
   if (choice === "off" || !ROUTE_CHOICES[tool]) return null;
-  if (tool === "opencode") {
+  if (cliDefinition(tool).capabilities.endpointSdkRouting) {
     const source =
       choice === "auto" ? OPENCODE_ORDER.find((s) => enabled(endpoint, s)) : choice;
     if (!source || !enabled(endpoint, source)) return null;

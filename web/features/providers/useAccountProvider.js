@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { cliDefinition, isCodingCli } from "../../../server/features/clis/catalog.js";
 import api from "../../lib/api.js";
 import useProviderCatalog from "./useProviderCatalog.js";
 
@@ -39,7 +40,11 @@ export default function useAccountProvider(account, tool) {
     setQuery("");
   }
   const selectedModel = catalog.models.find((model) => model.modelId === modelId);
-  const requiresResponses = tool === "codex" && providerId && providerId !== "openrouter";
+  const requiresResponses =
+    isCodingCli(tool) &&
+    cliDefinition(tool).protocol === "responses" &&
+    providerId &&
+    providerId !== "openrouter";
   const changed =
     providerId !== (account?.provider?.id || "") ||
     Boolean(

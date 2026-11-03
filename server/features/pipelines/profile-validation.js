@@ -5,7 +5,7 @@ import {
   providerDefinition,
   validateProviderSelection,
 } from "../providers/provider-definitions.js";
-import { cliDefinition, codingCliIds } from "../clis/catalog.js";
+import { cliDefinition, codingCliIds, isCodingCli } from "../clis/catalog.js";
 
 export const PERMISSION_MODES = Object.freeze(
   Object.fromEntries(
@@ -62,7 +62,9 @@ export function profileConnection(config, accounts) {
   if (!connection.tools.includes(config.cliTool))
     throw problem(serverMessages.pipelineProfiles.connectionUnsupported);
   const gate =
-    config.cliTool === "codex" && providerDefinition(connection.providerId).responsesGate;
+    isCodingCli(config.cliTool) &&
+    cliDefinition(config.cliTool).protocol === "responses" &&
+    providerDefinition(connection.providerId).responsesGate;
   for (const modelId of config.models.available)
     validateProviderSelection(
       {

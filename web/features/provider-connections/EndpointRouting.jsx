@@ -1,5 +1,6 @@
 import React, { useId } from "react";
 import AnchoredSelect from "../../components/AnchoredSelect.jsx";
+import { cliDefinition } from "../../../server/features/clis/catalog.js";
 import { names } from "../../lib/providers.js";
 import { connectionCopy } from "../../lib/i18n/messages/connections.js";
 import { resolveDraftRoute, routeOptions, ROUTE_TOOLS } from "./endpoint-routes.js";
@@ -11,7 +12,7 @@ function choiceLabel(tool, option) {
   if (option.choice === "auto") return copy.auto;
   if (option.choice === "off") return copy.off;
   const protocol = protocolShortName(option.source);
-  if (tool === "opencode") return copy.sdk(protocol);
+  if (cliDefinition(tool).capabilities.endpointSdkRouting) return copy.sdk(protocol);
   return option.choice === "native" ? copy.native(protocol) : copy.adapter(protocol);
 }
 
