@@ -3,7 +3,8 @@ import path from "node:path";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { codingCliIds } from "../clis/catalog.js";
-import { mcpUrl, nativeMcp, record, values } from "../extensions/mcp-config.js";
+import { cliDriver } from "../clis/drivers.js";
+import { mcpUrl, record, values } from "../extensions/mcp-config.js";
 import { namePattern } from "./command-resolution.js";
 import { nativeTimeoutKeys, nativeTimeouts, timeoutsFromNative } from "./mcp-timeouts.js";
 import { hasReference, referenceNames } from "./value-references.js";
@@ -53,7 +54,7 @@ export function requireCliSupport(targets, server) {
   }
 }
 
-/** nativeMcp's input for a stored definition and its secrets. */
+/** The input of `mcp.toNative` for a stored definition and its secrets. */
 export function cliInput(definition, secrets) {
   return {
     transport: definition.transport,
@@ -87,7 +88,7 @@ const wellFormed = (value) =>
  */
 export function cliEntry(cli, definition, secrets) {
   const entry = {
-    ...nativeMcp(cli, cliInput(definition, secrets)),
+    ...cliDriver(cli).mcp.toNative(cliInput(definition, secrets)),
     ...nativeTimeouts(cli, definition),
   };
   if (!wellFormed(entry)) throw new Error("MCP entry has no UTF-8 form");
@@ -157,57 +158,6 @@ function remote(transport, url, headers, oauthScope) {
     secrets: { headers: oauth ? {} : { ...values(headers ?? {}, true) }, env: {} },
   };
 }
-function fromClaude(entry) {
-  const extra = extraOf("claude");
-  const type = entry.type ?? (entry.command !== undefined ? "stdio" : undefined);
-  if (type === "stdio") {
-    const keys = extra(entry, ["type", "command", "args", "env"]);
-    return keys.length
-      ? unsupported(keys)
-      : stdio(entry.command, entry.args ?? [], entry.env);
-  }
-  if (type === "http" || type === "sse") {
-    const keys = extra(entry, ["type", "url", "headers"]);
-    return keys.length ? unsupported(keys) : remote(type, entry.url, entry.headers);
-  }
-  return unsupported(["type"]);
-}
-function fromCodex(entry) {
-  const extra = extraOf("codex");
-  if (entry.enabled === false) return unsupported(["enabled"]);
-  if (entry.command !== undefined) {
-    const keys = extra(entry, ["command", "args", "env", "cwd", "enabled"]);
-    return keys.length
-      ? unsupported(keys)
-      : stdio(entry.command, entry.args ?? [], entry.env, entry.cwd ?? null);
-  }
-  const keys = extra(entry, ["url", "http_headers", "scopes", "enabled"]);
-  if (keys.length) return unsupported(keys);
-  if (entry.scopes === undefined) return remote("http", entry.url, entry.http_headers);
-  if (!strings(entry.scopes) || !entry.scopes.length || entry.http_headers !== undefined)
-    return unsupported(["scopes"]);
-  return remote("http", entry.url, {}, entry.scopes.join(" "));
-}
-function fromOpenCode(entry) {
-  const extra = extraOf("opencode");
-  if (entry.enabled === false) return unsupported(["enabled"]);
-  if (entry.type === "local") {
-    const keys = extra(entry, ["type", "command", "environment", "cwd", "enabled"]);
-    if (keys.length) return unsupported(keys);
-    if (!Array.isArray(entry.command) || !entry.command.length) fail();
-    const [command, ...args] = entry.command;
-    return stdio(command, args, entry.environment, entry.cwd ?? null);
-  }
-  if (entry.type !== "remote") return unsupported(["type"]);
-  const keys = extra(entry, ["type", "url", "headers", "oauth", "enabled"]);
-  if (keys.length) return unsupported(keys);
-  if (entry.oauth === undefined) return remote("http", entry.url, entry.headers);
-  if (!record(entry.oauth) || extra(entry.oauth, ["scope"]).length || entry.headers)
-    return unsupported(["oauth"]);
-  if (entry.oauth.scope !== undefined && typeof entry.oauth.scope !== "string") fail();
-  return remote("http", entry.url, {}, entry.oauth.scope ?? "");
-}
-
 /**
  * Where a parsed entry refers to the CLI's environment or a file instead of holding
  * the value: field names (`command`, `args`, `cwd`, `url`) and header or environment
@@ -225,12 +175,16 @@ function references({ definition, secrets }) {
 }
 
 function parse(cli, entry) {
-  const parsed =
-    cli === "claude"
-      ? fromClaude(entry)
-      : cli === "codex"
-        ? fromCodex(entry)
-        : fromOpenCode(entry);
+  const shape = {
+    stdio,
+    remote,
+    extra: extraOf(cli),
+    strings,
+    unsupported,
+    record,
+    fail,
+  };
+  const parsed = cliDriver(cli).mcp.fromNative(entry, shape);
   if (!parsed.ok) return parsed;
   const timeouts = timeoutsFromNative(cli, entry);
   if (timeouts.key) return unsupported([timeouts.key]);

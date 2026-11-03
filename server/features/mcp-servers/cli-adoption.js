@@ -1,8 +1,9 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
+import { cliDriver } from "../clis/drivers.js";
 import { record } from "../extensions/mcp-config.js";
 import { ENV_REFERENCES, adoptFailure } from "./cli-status.js";
-import { publicTimeouts, timeoutFields } from "./mcp-timeouts.js";
+import { publicTimeouts } from "./mcp-timeouts.js";
 
 const messages = serverMessages.mcpServers;
 // Only a stable error code is logged, never a message, path or value.
@@ -137,12 +138,14 @@ export function patchFromNative(server, cli, parsed) {
   if (!parsed?.ok) throw changeRefusal(parsed);
   const { definition, secrets } = parsed;
   const transport =
-    cli === "opencode" && server.transport === "sse" && definition.transport === "http"
+    cliDriver(cli).mcp.remoteSseAsHttp &&
+    server.transport === "sse" &&
+    definition.transport === "http"
       ? "sse"
       : definition.transport;
   if (transport !== server.transport) throw problem(messages.cliChangeNotAdoptable, 409);
   // Only the timeouts the CLI can express and the edit changed.
-  const expressed = cli === "codex" ? timeoutFields : ["toolTimeoutSec"];
+  const expressed = Object.values(cliDriver(cli).mcp.timeouts).map(({ field }) => field);
   const timeouts = Object.fromEntries(
     expressed
       .filter((field) => (definition[field] ?? null) !== (server[field] ?? null))
@@ -176,7 +179,7 @@ export function patchFromNative(server, cli, parsed) {
     ...(auth === "oauth"
       ? {
           oauthScope:
-            (cli === "claude" && server.auth === "oauth"
+            (cliDriver(cli).mcp.keepsOAuthScope && server.auth === "oauth"
               ? server.oauthScope
               : definition.oauthScope) ?? "",
         }

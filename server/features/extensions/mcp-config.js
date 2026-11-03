@@ -59,57 +59,6 @@ export function mcpUrl(value) {
     throw problem(serverMessages.extensions.mcpUrlCredentialsForbidden);
   return url.href;
 }
-/**
- * A server in a CLI's native form (docs/cli-mcp-qualification.md). OAuth servers carry
- * no static headers: Claude Code and OpenCode run the login when the server asks,
- * Codex with `codex mcp login`. Codex and OpenCode start a stdio command in its
- * working directory; Claude Code does not (MCP_CLI_CWD_UNSUPPORTED applies to it only).
- */
-export function nativeMcp(tool, entry) {
-  if (entry.transport === "stdio") {
-    if (tool === "opencode")
-      return {
-        type: "local",
-        command: [entry.command, ...entry.args],
-        environment: entry.env,
-        ...(entry.cwd ? { cwd: entry.cwd } : {}),
-        enabled: true,
-      };
-    return {
-      ...(tool === "claude" ? { type: "stdio" } : {}),
-      command: entry.command,
-      args: entry.args,
-      env: entry.env,
-      ...(tool === "codex" && entry.cwd ? { cwd: entry.cwd } : {}),
-    };
-  }
-  const oauth = entry.auth === "oauth";
-  // No header map at all when there are none: then a header server without headers
-  // and an OAuth server read the same in Claude Code and Codex, as they behave.
-  const headers =
-    !oauth && Object.keys(entry.headers || {}).length ? entry.headers : null;
-  if (tool === "codex") {
-    if (!oauth) return { url: entry.url, ...(headers ? { http_headers: headers } : {}) };
-    const scopes = (entry.oauthScope || "").split(/\s+/).filter(Boolean);
-    return { url: entry.url, ...(scopes.length ? { scopes } : {}) };
-  }
-  if (tool === "claude")
-    return {
-      type: entry.transport === "sse" ? "sse" : "http",
-      url: entry.url,
-      ...(headers ? { headers } : {}),
-    };
-  return {
-    type: "remote",
-    url: entry.url,
-    ...(oauth
-      ? { oauth: entry.oauthScope ? { scope: entry.oauthScope } : {} }
-      : headers
-        ? { headers }
-        : {}),
-    enabled: true,
-  };
-}
 export function publicMcp(name, entry, source) {
   let origin = "";
   try {
