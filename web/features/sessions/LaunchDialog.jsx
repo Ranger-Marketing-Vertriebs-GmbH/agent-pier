@@ -28,16 +28,11 @@ import {
   unattendedLaunchMode,
 } from "./launch-modes.js";
 import { rememberLaunchChoice } from "./launch-preferences.js";
+import { launchModeCopy } from "./launch-mode-copy.js";
 import { ticketStartCopy } from "../../lib/i18n/messages/tickets.js";
 import { startRefusal, ticketStartPath } from "../projects/ticket-list.js";
 import { isCodingCli } from "../../../server/features/clis/catalog.js";
-const modeCopy = (tool, mode) =>
-  ({
-    "codex:yolo": [copy.codexYoloOption, copy.codexYoloDescription],
-    "claude:auto": [copy.claudeAutoOption, copy.claudeAutoDescription],
-    "claude:bypass": [copy.claudeBypassOption, copy.claudeBypassDescription],
-    "opencode:auto": [copy.opencodeAutoOption, copy.opencodeAutoDescription],
-  })[`${tool}:${mode}`] || [mode, ""];
+const modeCopy = launchModeCopy;
 export default function LaunchDialog({
   state,
   tool,

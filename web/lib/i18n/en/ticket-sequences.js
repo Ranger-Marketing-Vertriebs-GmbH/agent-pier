@@ -45,3 +45,27 @@ export const ticketQueueCopy = {
   removeBody:
     "The ticket leaves the sequence. Its session, pull request and tracker entry stay.",
 };
+
+// Selecting tickets in the list and the dialog that starts them as a sequence.
+export const ticketSequenceStartCopy = {
+  select: "Select tickets",
+  selectTicket: (key) => `Select ${key}`,
+  startSelected: (count) => `Start as sequence (${count})`,
+  title: (count) =>
+    count === 1 ? "Start 1 ticket as a sequence" : `Start ${count} tickets as a sequence`,
+  order: (keys) => `AgentPier works through them one at a time, in this order: ${keys}.`,
+  runAs: "Run as",
+  session: "Session",
+  pipeline: "Pipeline run",
+  pipelineLabel: "Pipeline",
+  searchPipelines: "Search pipelines",
+  choosePipeline: "Choose a pipeline",
+  noPipelines: "There are no pipelines yet.",
+  repair: "Repair session",
+  repairHint: "Starts when checks fail or changes are requested.",
+  repairDefaults: "Prefilled from the newest coding session in this project.",
+  allowMerge: "Allow merge",
+  allowMergeHint:
+    "AgentPier merges each pull request through auto-merge or the merge queue, or itself once required checks pass. Never past failing checks or requested changes.",
+  start: "Start sequence",
+};

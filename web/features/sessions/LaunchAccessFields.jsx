@@ -9,12 +9,14 @@ export default function LaunchAccessFields({
   access,
   onAccessChange,
   taskProfileSelected = false,
+  sandbox = true,
 }) {
   const modelHelpId = useId(),
     rememberedId = useId();
   const accessRemembered = access.accessRemembered && !taskProfileSelected;
   const sandboxDisabled = !access.sandboxAvailable || taskProfileSelected;
-  const sandboxFields = (
+  // `sandbox={false}` leaves the sandbox out, for a launch that cannot carry one.
+  const sandboxFields = sandbox && (
     <fieldset>
       <legend>{launchCopy.sandboxSection}</legend>
       <label>
@@ -41,7 +43,7 @@ export default function LaunchAccessFields({
       )}
     </fieldset>
   );
-  if (access.tool === "shell") return sandboxFields;
+  if (access.tool === "shell") return sandboxFields || null;
   return (
     <>
       <label>
