@@ -5,6 +5,7 @@ import { applyEdits, modify } from "jsonc-parser";
 import { parseForESLint } from "toml-eslint-parser";
 import { readConfig, atomicText } from "../extensions/mcp-config.js";
 import { cliDriver } from "../clis/drivers.js";
+import { cliDefinition } from "../clis/catalog.js";
 
 export function profileLocation(accounts, id) {
   const account = accounts.get(id),
@@ -18,30 +19,7 @@ export function profileLocation(accounts, id) {
 }
 export function documents(location) {
   const { account, root, env } = location;
-  if (account.tool === "codex")
-    return [
-      {
-        file: path.join(root, "config.toml"),
-        keys: ["mcp_servers", "plugins", "marketplaces", "skills", "agents"],
-      },
-    ];
-  if (account.tool === "claude")
-    return [
-      {
-        file: env.CLAUDE_CONFIG_DIR
-          ? path.join(root, ".claude.json")
-          : path.join(path.dirname(root), ".claude.json"),
-        keys: ["mcpServers"],
-      },
-      {
-        file: path.join(root, "settings.json"),
-        keys: ["enabledPlugins", "extraKnownMarketplaces"],
-      },
-    ];
-  return cliDriver("opencode").profileFiles.configFiles.map((name) => ({
-    file: path.join(root, name),
-    keys: name.startsWith("tui.") ? ["plugin"] : ["mcp", "plugin", "agent"],
-  }));
+  return cliDriver(account.tool).profileFiles.sharedDocuments(root, env);
 }
 export function readShared(location) {
   const output = {};
@@ -103,7 +81,7 @@ export function writeFields(file, boundary, tool, additions) {
   )
     return;
   let next = before.text || "{}\n";
-  if (tool === "codex") {
+  if (cliDefinition(tool).configFormat === "toml") {
     next = before.text;
     const nodes = parseForESLint(next).ast.body[0].body;
     const ranges = nodes
@@ -135,12 +113,7 @@ export function writeFields(file, boundary, tool, additions) {
 export function applyShared(location, values) {
   const docs = documents(location);
   for (const doc of docs) {
-    if (
-      location.account.tool === "opencode" &&
-      !fs.existsSync(doc.file) &&
-      !["opencode.jsonc", "tui.jsonc"].includes(path.basename(doc.file))
-    )
-      continue;
+    if (!doc.createIfMissing && !fs.existsSync(doc.file)) continue;
     const additions = Object.fromEntries(
       doc.keys.map((key) => [
         key,

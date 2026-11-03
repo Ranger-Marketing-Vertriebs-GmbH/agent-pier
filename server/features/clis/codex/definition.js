@@ -20,6 +20,7 @@ const definition = {
   authStatusArgs: ["login", "status"],
   apiKeyEnv: "OPENAI_API_KEY",
   resumeArgs: (sessionId) => ["resume", sessionId],
+  configFormat: "toml",
   protocol: "responses",
   capabilities: {
     accountTransfer: true,

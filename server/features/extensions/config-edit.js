@@ -3,6 +3,7 @@ import { problem } from "../../lib/storage.js";
 import { createScanner, findNodeAtLocation } from "jsonc-parser";
 import { stringify as stringifyToml } from "smol-toml";
 import { parseForESLint } from "toml-eslint-parser";
+import { cliDefinition } from "../clis/catalog.js";
 import {
   configParses,
   jsonTree,
@@ -246,7 +247,7 @@ export function editConfigResult(config, tool, key, name, entry) {
   let actual;
   try {
     after =
-      tool === "codex"
+      cliDefinition(tool).configFormat === "toml"
         ? editToml(config.text, key, name, entry)
         : editJson(config.text, key, name, entry, tool, treeOf(config));
     actual = parseNative(after, tool);

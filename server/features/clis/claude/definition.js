@@ -24,6 +24,7 @@ const definition = {
   authStatusArgs: ["auth", "status", "--json"],
   apiKeyEnv: "ANTHROPIC_API_KEY",
   resumeArgs: (sessionId) => ["--resume", sessionId],
+  configFormat: "json",
   protocol: "messages",
   capabilities: {
     accountTransfer: true,

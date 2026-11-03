@@ -1,5 +1,6 @@
 import { parseTree } from "jsonc-parser";
 import { parse as parseToml } from "smol-toml";
+import { cliDefinition } from "../clis/catalog.js";
 
 /**
  * How often a native configuration was parsed: `reads` full parses of a file read,
@@ -8,10 +9,10 @@ import { parse as parseToml } from "smol-toml";
  */
 export const configParses = { reads: 0, edits: 0 };
 
-const options = (tool) => ({
-  allowTrailingComma: tool === "opencode",
-  disallowComments: tool === "claude",
-});
+const options = (tool) => {
+  const format = cliDefinition(tool).configFormat;
+  return { allowTrailingComma: format === "jsonc", disallowComments: format === "json" };
+};
 
 /** The JSON tree of `text` for `tool`, or an Error on any syntax error. */
 export function jsonTree(text, tool) {
@@ -45,7 +46,8 @@ export function jsonValue(node) {
 /** `{ data, tree }` for a native configuration text; `tree` only for JSON. */
 export function parseNative(text, tool) {
   if (!text.trim()) return { data: {}, tree: null };
-  if (tool === "codex") return { data: parseToml(text), tree: null };
+  if (cliDefinition(tool).configFormat === "toml")
+    return { data: parseToml(text), tree: null };
   const tree = jsonTree(text, tool);
   return { data: jsonValue(tree), tree };
 }

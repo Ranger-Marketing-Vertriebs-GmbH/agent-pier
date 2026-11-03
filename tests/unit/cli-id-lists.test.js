@@ -103,10 +103,6 @@ const ROOT_ALLOWED = {
   "server/features/requests/request-launch.js":
     "needs to know whether the Claude override is set (trust file)",
   "server/features/requests/request-broker.js": "bridge plugin folder names",
-  "server/features/extensions/extension-store.js":
-    ".claude.json sits in the override folder only when the override is set",
-  "server/features/cli-profiles/configuration.js":
-    ".claude.json sits in the override folder only when the override is set",
   "server/features/tools/native-installer.js": "nono install dir, not a coding CLI",
   "server/features/assistants/assistant-provider-endpoint.js": ".local host suffix",
   "server/lib/i18n/de/scripts.js": "message text",
@@ -170,12 +166,7 @@ const BRANCH_BUDGET = {
   "server/features/chat/context-window.js": 1,
   "server/features/chat/native-input-queue.js": 3,
   "server/features/chat/uploaded-image-input.js": 1,
-  "server/features/cli-profiles/assets.js": 2,
-  "server/features/cli-profiles/backup-links.js": 2,
-  "server/features/cli-profiles/configuration.js": 6,
-  "server/features/extensions/config-edit.js": 1,
-  "server/features/extensions/config-parse.js": 3,
-  "server/features/extensions/extension-store.js": 2,
+  "server/features/cli-profiles/configuration.js": 2,
   "server/features/extensions/mcp-config.js": 5,
   "server/features/mcp-servers/cli-adoption.js": 3,
   "server/features/mcp-servers/cli-bindings.js": 1,
