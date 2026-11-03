@@ -41,6 +41,19 @@ export const liveTopics = Object.freeze({
   previews: Object.freeze({ mode: "state", path: () => "/previews", interval: 5000 }),
   // The owner's split views (server/features/views/live-topics.js), pushed per write.
   views: Object.freeze({ mode: "state", path: () => "/views", interval: 30000 }),
+  // The owner's ticket sources (server/features/tickets/live-topics.js): the Plane
+  // connections, and one project's source links and start records. The remote ticket
+  // list is no topic; the Tickets tab reads it on open and on Refresh.
+  "tickets.connections": Object.freeze({
+    mode: "state",
+    path: () => "/ticket-connections",
+    interval: 30000,
+  }),
+  "tickets.project": Object.freeze({
+    mode: "state",
+    path: under("/tickets/projects"),
+    interval: 30000,
+  }),
   "pipeline.run": Object.freeze({
     mode: "state",
     path: under("/pipeline-runs"),

@@ -223,6 +223,12 @@ test("connection names are found by name and host and open their entry", () => {
   );
 });
 
+test("the ticket sources are a connections page, also found by their Plane name", () => {
+  assert.equal(pathOf(first("Ticketquellen")), "/connections?section=tickets");
+  assert.equal(pathOf(first("Ticket sources")), "/connections?section=tickets");
+  assert.equal(pathOf(first("Plane connections")), "/connections?section=tickets");
+});
+
 test("actions open the right dialog or page", () => {
   const action = (query) => results(query).find((item) => item.group === "actions");
   assert.deepEqual(action("Neue Session").target, { action: "launch" });
@@ -235,6 +241,8 @@ test("actions open the right dialog or page", () => {
   );
   assert.equal(action("Geheimnis hinzufügen").target.pending, "secret-add");
   assert.equal(action("GitHub-Zugang hinzufügen").target.pending, "github-add");
+  assert.equal(action("Plane-Zugang hinzufügen").target.pending, "plane-add");
+  assert.equal(action("Add Plane connection").target.pending, "plane-add");
 });
 
 test("a blank query suggests the areas and the actions", () => {

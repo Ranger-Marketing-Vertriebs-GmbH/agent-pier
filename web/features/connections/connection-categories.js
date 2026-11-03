@@ -77,6 +77,7 @@ export function categoryCounts({ problems, lists = {}, agentsEnabled }) {
     mail: length(lists.mail) ?? total("mail"),
     secrets: length(lists.secrets) ?? total("secrets"),
     github: length(lists.github) ?? total("github"),
+    tickets: length(lists.tickets),
   };
   // Model problems also name native CLI accounts' checks; only shown entries count.
   const shownModels = new Set([

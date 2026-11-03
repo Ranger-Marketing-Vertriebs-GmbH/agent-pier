@@ -16,6 +16,7 @@ export const connectionSections = [
   "mail",
   "secrets",
   "github",
+  "tickets",
 ];
 // Categories whose items and MCP wizard steps follow the Accounts subpage rules.
 export const accountConnectionSections = ["models", "services", "mcp-servers"];

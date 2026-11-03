@@ -113,8 +113,8 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
 - **Zugänge:** Modell-Zugänge (Provider-Zugänge für OpenRouter, Z.ai, Azure OpenAI,
   lokale Modelle mit Ollama oder llama.cpp und jeden kompatiblen Endpunkt sowie ChatGPT
   für Agenten), Dienste für
-  Agenten, MCP-Server, SSH/SFTP-Zugänge, E-Mail-Zugänge, Geheimnisse und
-  GitHub-Zugänge an einer Stelle, einmal angelegt und dort gewährt, wo sie gebraucht werden, jeweils mit
+  Agenten, MCP-Server, SSH/SFTP-Zugänge, E-Mail-Zugänge, Geheimnisse,
+  GitHub-Zugänge und Ticketquellen (Plane) an einer Stelle, einmal angelegt und dort gewährt, wo sie gebraucht werden, jeweils mit
   **Benutzt von** ([Provider](docs/providers.md)). Native CLI-Accounts, Skills,
   Plugins und Unteragenten liegen unter **CLIs & Erweiterungen**
   ([geteilte CLI-Erweiterungen](docs/shared-cli-extensions.md), auf Englisch).
