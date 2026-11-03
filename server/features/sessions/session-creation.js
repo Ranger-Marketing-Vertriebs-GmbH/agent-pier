@@ -11,6 +11,7 @@ import { access, stat } from "node:fs/promises";
 import { constants } from "node:fs";
 import path from "node:path";
 import { isCodingCli } from "../clis/catalog.js";
+import { validTicketRef } from "../tickets/ticket.js";
 
 /** The secrets binding a session keeps (session-secrets.js): ids only, never values. */
 function sessionSecretsRecord({ projectId, assignedIds }) {
@@ -63,6 +64,11 @@ export async function buildSessionLaunch(manager, options) {
   const pipeline = pipelineIdentity(options.pipeline);
   const input = nativeInput(options);
   const startedBy = startedByRecord(options.startedBy);
+  let ticket;
+  if (options.ticket !== undefined) {
+    ticket = validTicketRef(options.ticket);
+    if (!ticket) throw failure(serverMessages.sessions.invalidOptions);
+  }
   const name = validName(options.name);
   if (!(isCodingCli(tool) || tool === "shell"))
     throw failure(serverMessages.sessions.invalidTool);
@@ -157,6 +163,7 @@ export async function buildSessionLaunch(manager, options) {
     ...(adapter ? { adapterGeneration: adapter.generation } : {}),
     ...(pipeline ? { pipeline } : {}),
     ...(startedBy ? { startedBy } : {}),
+    ...(ticket ? { ticket } : {}),
     ...(options.launchMode ? { launchMode: options.launchMode } : {}),
     ...(options.purpose === "login" ? { purpose: "login" } : {}),
     ...(options.agentbus
