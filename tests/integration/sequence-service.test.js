@@ -8,6 +8,7 @@ import { worktreeName } from "../../server/features/tickets/sequence-start.js";
 import {
   KEY,
   awaitingMerge,
+  git,
   forgeMutations as mutations,
   issueTicket,
   sequenceFixture,
@@ -78,10 +79,19 @@ test("retry with an open PR watches it again with fresh counters", async (t) => 
   assert.equal(mutations(f, "enablePullRequestAutoMerge").length, 1);
 });
 
-test("retry with a closed PR starts afresh in the clean worktree of the last attempt", async (t) => {
+test("retry with a closed PR starts afresh on a new branch from the default branch", async (t) => {
   const f = await sequenceFixture(t);
   const pull = await awaitingMerge(f);
   const [first] = f.items();
+  // The closed attempt left a commit; main moved on meanwhile.
+  fs.writeFileSync(path.join(first.worktree.cwd, "attempt.txt"), "one\n");
+  git(first.worktree.cwd, "add", ".");
+  git(first.worktree.cwd, "commit", "-m", "attempt");
+  fs.writeFileSync(path.join(f.root, "seed", "b.txt"), "b\n");
+  git(path.join(f.root, "seed"), "add", ".");
+  git(path.join(f.root, "seed"), "commit", "-m", "second");
+  git(path.join(f.root, "seed"), "push", "origin", "HEAD:main");
+  const main = git(path.join(f.root, "seed"), "rev-parse", "HEAD");
   pull.state = "CLOSED";
   await f.engine.run();
   assert.equal(f.items()[0].needsOwner.reason, "prClosed");
@@ -89,12 +99,22 @@ test("retry with a closed PR starts afresh in the clean worktree of the last att
   await settled(f);
   const [item] = f.items();
   assert.equal(f.launched.length, 2);
-  assert.equal(f.launched[1].body.cwd, first.worktree.cwd);
   assert.equal(item.state, "running");
   assert.equal(item.pr, undefined);
+  assert.equal(item.attempt, 2);
   assert.equal(item.sessionId, f.launched[1].session.id);
-  assert.deepEqual(item.worktree, first.worktree);
+  assert.notEqual(item.worktree.cwd, first.worktree.cwd);
+  assert.equal(f.launched[1].body.cwd, item.worktree.cwd);
+  assert.equal(item.worktree.branch, `${first.worktree.branch}-2`);
+  assert.equal(git(item.worktree.cwd, "rev-parse", "HEAD"), main);
+  // The closed attempt's folder and commit stay for the owner.
+  assert.equal(fs.existsSync(path.join(first.worktree.cwd, "attempt.txt")), true);
+  assert.equal(
+    git(first.worktree.cwd, "symbolic-ref", "--short", "HEAD"),
+    first.worktree.branch,
+  );
   assert.equal(f.sent.length, 2);
+  assert.ok(f.sent[1].text.includes(item.worktree.branch));
 });
 
 test("retry refuses a leftover worktree with local changes", async (t) => {
