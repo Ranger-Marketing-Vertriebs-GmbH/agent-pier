@@ -180,6 +180,34 @@ next read. In a repository without required reviews, GitHub can therefore merge 
 armed pull request in the up to 60 seconds before that read. Require reviews in the
 branch protection if a "changes requested" review must always stop a merge.
 
+A head that was disarmed while its checks failed is the exception: a merge queue drops
+such a pull request, so AgentPier arms that head again once a re-run of its checks is
+green.
+
+### Fix attempts
+
+When the counted checks of a pull request fail, or a review requests changes, AgentPier
+asks for a fix once per pull request head:
+
+- A session ticket's own session gets a message naming the pull request and the failed
+  checks.
+- A pipeline ticket gets a repair session in its own worktree under `.worktrees/`, on a
+  local `ticket-repair/…` branch started from the pull request branch. The session
+  pushes its fix to the pull request branch. It uses the sequence's repair settings
+  (CLI, account, launch mode), or else those of the newest coding session in the
+  project folder. Later failures go to the same repair session while it runs.
+
+The ticket waits for you when:
+
+- the checks of a third head fail,
+- the pull request stays red for 30 minutes while the session that should fix it is
+  idle, stopped or gone (counted from the later of the last message and the start of
+  the idle phase),
+- a pipeline ticket needs a repair but the sequence has no repair settings and the
+  project has no coding session to copy them from, or the repair session cannot start,
+- GitHub cannot be read for 30 minutes in a row. Shorter outages and rate limits only
+  delay the next read.
+
 ## Planned
 
 Not available yet: starting several tickets as a sequence, rules that pick tickets by
