@@ -6,6 +6,7 @@ export const pipelineQueue = Object.freeze({
     "The base branch may be at most 300 characters long and contain no control characters.",
   invalidExternalRef:
     "The external reference may be at most 120 characters long and contain only letters, digits, spaces and . _ : # / -.",
+  invalidTicket: "The ticket of this item is not valid.",
   full: "This project's queue is full: at most 200 items may wait.",
   notWaiting: "Only waiting items can be moved.",
   invalidMove: "An item can only be moved up or down.",

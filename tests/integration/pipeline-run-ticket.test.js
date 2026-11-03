@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { fixture } from "../helpers/pipeline-engine.js";
+import { RunQueue } from "../../server/features/pipelines/run-queue.js";
 
 const ticket = {
   source: "plane",
@@ -59,4 +60,63 @@ test("a run saved before tickets existed loads without a ticket", async (t) => {
   db.close();
   await f.restart();
   assert.equal(f.engine.get(run.id).ticket ?? null, null);
+});
+
+// A queue over the synthetic engine of one project ("project").
+function queueFixture(t) {
+  let queue;
+  const f = fixture(t, { options: { onChange: () => queue?.changed() } });
+  f.definitions.getQueueSettings = (projectId) => ({
+    projectId,
+    limit: 5,
+    countParked: false,
+  });
+  queue = new RunQueue({
+    dataDir: f.dir,
+    engine: f.engine,
+    definitions: f.definitions,
+    projects: (id) => ({ id, cwd: f.dir }),
+    pollIntervalMs: 0,
+  });
+  t.after(() => queue.close());
+  return { f, queue };
+}
+
+test("a ticket-sequence queue item starts its run with the ticket", async (t) => {
+  const { f, queue } = queueFixture(t);
+  const item = queue.add(
+    "project",
+    { pipelineId: "definition", task: "x", externalRef: "AP-12" },
+    {
+      id: "3f2b8c1e-0000-4000-8000-000000000001",
+      source: { kind: "ticket-sequence", ticket },
+    },
+  );
+  await queue.changed();
+  assert.deepEqual(f.engine.get(item.id).ticket, ticket);
+  assert.equal(queue.view("project").items[0].state, "started");
+  assert.deepEqual(queue.view("project").items[0].source.ticket, ticket);
+});
+
+test("an invalid ticket on a queue item is refused", async (t) => {
+  const { queue } = queueFixture(t);
+  for (const bad of [undefined, null, { ...ticket, source: "jira" }, { key: "x" }])
+    assert.throws(
+      () =>
+        queue.add(
+          "project",
+          { pipelineId: "definition", task: "x" },
+          { source: { kind: "ticket-sequence", ticket: bad } },
+        ),
+      { status: 400 },
+    );
+  assert.equal(queue.view("project").items.length, 0);
+});
+
+test("user items still start without a ticket", async (t) => {
+  const { f, queue } = queueFixture(t);
+  const item = queue.add("project", { pipelineId: "definition", task: "x" });
+  await queue.changed();
+  assert.equal(f.engine.get(item.id).ticket, null);
+  assert.equal(queue.view("project").items[0].state, "started");
 });

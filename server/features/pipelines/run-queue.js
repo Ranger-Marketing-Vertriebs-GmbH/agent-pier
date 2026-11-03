@@ -5,6 +5,7 @@ import { QueueStore } from "./queue-store.js";
 import { itemsToStart } from "./queue-policy.js";
 import { runId } from "./run-store.js";
 import { tokenBudgetValue } from "./run-budget.js";
+import { validTicketRef } from "../tickets/ticket.js";
 
 const copy = serverMessages.pipelineQueue;
 // Waiting items per project, and started items kept to show their runs.
@@ -149,6 +150,12 @@ export class RunQueue {
    */
   add(projectId, input = {}, { id, source = { kind: "user" } } = {}) {
     const checked = this.check(projectId, input);
+    // Only the server queues a ticket sequence item; its ticket is checked and normalised.
+    if (source?.kind === "ticket-sequence") {
+      const ticket = validTicketRef(source.ticket);
+      if (!ticket) throw problem(copy.invalidTicket);
+      source = { ...source, ticket };
+    }
     const item = this.store.insert({
       id: id === undefined ? randomUUID() : runId(id),
       projectId,
@@ -410,7 +417,13 @@ export class RunQueue {
           ...(item.baseBranch ? { baseBranch: item.baseBranch } : {}),
           ...(item.tokenBudget !== null ? { tokenBudget: item.tokenBudget } : {}),
         },
-        { id: item.id, expectedProjectId: item.projectId },
+        {
+          id: item.id,
+          expectedProjectId: item.projectId,
+          ...(item.source?.kind === "ticket-sequence"
+            ? { ticket: item.source.ticket }
+            : {}),
+        },
       );
     } catch (error) {
       // A shutdown keeps the claim; the next start of AgentPier resumes it.
