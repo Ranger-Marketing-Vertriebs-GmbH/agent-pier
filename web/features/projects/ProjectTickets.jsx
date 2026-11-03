@@ -19,6 +19,7 @@ import { connectionsRoute, connectionsRoutePath } from "../connections/routes.js
 import { RowMenu, useRowMenu } from "../extensions/RowMenu.jsx";
 import NewRunDialog from "../pipelines/NewRunDialog.jsx";
 import ProjectTicketSources from "./ProjectTicketSources.jsx";
+import { RegisterHint } from "./ProjectRuns.jsx";
 import { pipelineRunRoute } from "./routes.js";
 import { sourceStates, startOf, startRoute, visibleTickets } from "./ticket-list.js";
 import "./project-tickets.css";
@@ -145,10 +146,20 @@ function useTicketList(projectId, sourcesKey, version) {
  * dialog) or a pipeline run. The server reads the ticket text itself; the browser
  * sends only source and key. A started ticket asks before it starts again.
  */
-export default function ProjectTickets({ project, route, onNavigate, onLaunch, home }) {
+export default function ProjectTickets({
+  project,
+  route,
+  onNavigate,
+  onLaunch,
+  home,
+  reloadHub,
+}) {
   const projectId = project.id;
+  // A project known only to AgentBus has no folder the ticket routes resolve; it gets
+  // the register hint and reads nothing.
+  const registered = Boolean(project.memoryId || project.repositoryId);
   const live = useLiveTopic(
-    `tickets.project:${projectId}`,
+    registered ? `tickets.project:${projectId}` : null,
     `/tickets/projects/${enc(projectId)}`,
   );
   const view = live.data;
@@ -187,10 +198,20 @@ export default function ProjectTickets({ project, route, onNavigate, onLaunch, h
     startOf(view?.starts, ticket)
       ? setConfirming({ ticket, kind })
       : begin(ticket, kind, false);
+  if (!registered)
+    return (
+      <RegisterHint
+        project={project}
+        onNavigate={onNavigate}
+        reloadHub={reloadHub}
+        text={copy.unregistered}
+        tab="tickets"
+      />
+    );
   return (
     <div className="project-tickets">
       <ProjectTicketSources view={view} projectId={projectId} onNavigate={onNavigate} />
-      {live.error && !view && <ErrorMessage error={live.error} />}
+      {live.error && !view && <ErrorMessage error={copy.loadFailed} />}
       {live.loading && !view && <p role="status">{copy.loading}</p>}
       {view && !connected.github && !connected.plane && (
         <NoSources onNavigate={onNavigate} />

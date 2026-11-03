@@ -313,3 +313,33 @@ test("a session and a pipeline run show their ticket as a link", async ({ page }
     page.getByRole("link", { name: "Ticket: acme/app#7 · Fix login" }),
   ).toHaveAttribute("href", ticketRef.url);
 });
+
+test("a project known only to AgentBus shows the register hint and reads no tickets", async ({
+  page,
+}) => {
+  const calls = await hubFixture(page, {
+    intercept: async (route, url) => {
+      if (url.pathname !== "/api/agentbus") return false;
+      await route.fulfill({
+        json: {
+          version: "test",
+          projects: [{ id: "b2", name: "bus-only", cwd: "/work/bus-only", sessions: [] }],
+        },
+      });
+      return true;
+    },
+  });
+  await page.goto(base + "/projects/b2?tab=tickets");
+  await expect(page.getByRole("tab", { name: "Tickets" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(
+    page.getByText("Tickets gehören zu einem Projektordner.", { exact: false }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Projekt hinzufügen" }).click();
+  await expect(page).toHaveURL(/\/projects\/m3\?tab=tickets$/);
+  expect(
+    calls.filter((call) => call.path.startsWith("/api/tickets/projects/b2")),
+  ).toEqual([]);
+});

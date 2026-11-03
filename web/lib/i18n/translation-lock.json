@@ -7659,6 +7659,7 @@
   "tickets:projectTicketsCopy.startedState": "de:980836bc4aa8 en:ab0b58764719",
   "tickets:projectTicketsCopy.startedStateAuto": "de:cd4f7e79eaf3 en:e7a92b34345b",
   "tickets:projectTicketsCopy.startedStateHelp": "de:be2df09f3d1b en:e80b96fb4a9c",
+  "tickets:projectTicketsCopy.unregistered": "de:082812365032 en:8f1795e480cb",
   "tickets:projectTicketsCopy.writeBackDetail": "de:dda1c054e6b2 en:75a54febaaa9",
   "tickets:projectTicketsCopy.writeBackFailed": "de:f4818967622c en:f0fe1474185d",
   "tickets:ticketErrorCopy.forbidden": "de:22337c1820f2 en:fbcf5300ff9c",
