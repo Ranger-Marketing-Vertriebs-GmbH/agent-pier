@@ -10,6 +10,7 @@ import { keyToken } from "./pr-status.js";
 import { ticketRef } from "./ticket.js";
 import { sequenceSessionTask, ticketTask } from "./ticket-task.js";
 import { ticketsProjectChanged } from "./live-topics.js";
+import { isTransient } from "./sequence-reasons.js";
 
 const copy = serverMessages.tickets;
 const DELIVERING = new Set(["pending", "handed-off", "uncertain"]);
@@ -230,11 +231,11 @@ export async function findSession(engine, item) {
 
 async function resumeRun(engine, ctx, item) {
   if (!item.runId) return engine.park(ctx, item, "startInterrupted");
-  // The reserved run id: queued once, the queue refuses or keeps the same item.
-  const known = engine.runQueue.find(item.runId) || (await engine.readRun(item.runId));
   const { ticket, stop } = await engine.readTicket(ctx, item);
   if (!ticket) return stop;
   try {
+    // The reserved run id: queued once, the queue refuses or keeps the same item.
+    const known = engine.runQueue.find(item.runId) || (await engine.readRun(item.runId));
     if (!known) {
       const baseBranch =
         item.options.pipeline?.baseBranch ??
@@ -244,8 +245,8 @@ async function resumeRun(engine, ctx, item) {
     await recordStart(engine, ctx, item, ticket);
     engine.save(ctx, item, { starting: false });
   } catch (error) {
-    if (error?.status === undefined || error.status >= 500)
-      return engine.skip(error, "start");
+    // Only a forge or server that may recover skips the pass; anything else is final.
+    if (isTransient(error)) return engine.skip(error, "start");
     engine.onError(error, "start");
     return engine.park(ctx, item, "startFailed");
   }
