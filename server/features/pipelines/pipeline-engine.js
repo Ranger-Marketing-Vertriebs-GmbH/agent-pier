@@ -4,6 +4,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { problem } from "../../lib/storage.js";
 import { RunStore, runId } from "./run-store.js";
+import { validTicketRef } from "../tickets/ticket.js";
 import { runListView } from "./run-list-view.js";
 import {
   compileSnapshot,
@@ -164,11 +165,11 @@ export class PipelineEngine {
       }
     return { stageRunsLast7Days: attempts.size };
   }
-  async start(input = {}, { id: reservedId, expectedProjectId } = {}) {
+  async start(input = {}, { id: reservedId, expectedProjectId, ticket } = {}) {
     const { pipelineId, cwd, task, baseBranch, tokenBudget } = input;
     if (this.mutationBarrier && !this.mutationBarrier.hasLease())
       return this.mutationBarrier.run(() =>
-        this.start(input, { id: reservedId, expectedProjectId }),
+        this.start(input, { id: reservedId, expectedProjectId, ticket }),
       );
     if (this.closed || this.closing)
       throw problem(serverMessages.pipelines.engineClosed, 503);
@@ -179,6 +180,11 @@ export class PipelineEngine {
       !task.trim() ||
       Buffer.byteLength(task) > 65536
     )
+      throw problem(serverMessages.pipelines.workingDirectoryAndTaskRequired);
+    // Only the server hands over a ticket; the input's own `ticket` is never read.
+    const ticketRef =
+      ticket === undefined || ticket === null ? null : validTicketRef(ticket);
+    if (ticket !== undefined && ticket !== null && !ticketRef)
       throw problem(serverMessages.pipelines.workingDirectoryAndTaskRequired);
     // A budget given at the start replaces the definition's for this run.
     const budget = tokenBudgetValue(tokenBudget);
@@ -201,6 +207,7 @@ export class PipelineEngine {
       cwd,
       baseBranch: baseBranch ?? null,
       projectId: null,
+      ticket: ticketRef,
       ...(expectedProjectId !== undefined
         ? { expectedProjectId: runId(expectedProjectId) }
         : {}),

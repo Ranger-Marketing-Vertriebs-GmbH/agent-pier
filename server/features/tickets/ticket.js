@@ -82,3 +82,22 @@ export function ticketRef(ticket) {
     url: ticket.url ?? "",
   };
 }
+
+/** A ticket reference a session or run keeps, or null when it is not a valid one. */
+export function validTicketRef(value) {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    !TICKET_SOURCE_IDS.includes(value.source) ||
+    typeof value.key !== "string" ||
+    !value.key ||
+    value.key.length > 200 ||
+    typeof value.title !== "string" ||
+    value.title.length > 200 ||
+    typeof value.url !== "string" ||
+    value.url.length > 2000 ||
+    (value.url !== "" && httpUrl(value.url) === "")
+  )
+    return null;
+  return { source: value.source, key: value.key, title: value.title, url: value.url };
+}
