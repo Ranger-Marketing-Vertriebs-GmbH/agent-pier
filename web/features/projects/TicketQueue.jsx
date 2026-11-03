@@ -45,6 +45,7 @@ function QueueRow({ item, busy, onAction }) {
     done: copy.markDone,
     remove: copy.remove,
     "open-session": copy.openSession,
+    "open-repair": copy.openRepairSession,
     "open-run": copy.openRun,
     "open-pr": copy.openPullRequest,
   };
@@ -119,6 +120,8 @@ export default function TicketQueue({ projectId, view, written, onNavigate }) {
   const onAction = (item, name) => {
     if (name === "open-session")
       onNavigate({ view: "workspace", sessionId: item.sessionId });
+    else if (name === "open-repair")
+      onNavigate({ view: "workspace", sessionId: item.repair.sessionId });
     else if (name === "open-run") onNavigate(pipelineRunRoute(item.runId));
     else if (name === "open-pr")
       window.open(item.pr.url, "_blank", "noopener,noreferrer");

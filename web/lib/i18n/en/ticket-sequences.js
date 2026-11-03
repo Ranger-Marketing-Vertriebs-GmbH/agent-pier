@@ -37,6 +37,7 @@ export const ticketQueueCopy = {
   markDone: "Mark done",
   remove: "Remove from queue",
   openSession: "Open session",
+  openRepairSession: "Open repair session",
   openRun: "Open run",
   openPullRequest: "Open pull request",
   doneTitle: (key) => `Mark ${key} as done?`,

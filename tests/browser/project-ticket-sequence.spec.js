@@ -29,6 +29,7 @@ const fullQueue = queueOf(
   item("i3", "acme/app#9", "Started issue", "awaiting-merge", {
     kind: "pipeline",
     runId: "r9",
+    repair: { sessionId: "s9" },
     pr: { number: 14, url: "https://github.com/acme/app/pull/14" },
   }),
   item("i4", "AP-4", "Refused item", "done"),
@@ -74,6 +75,9 @@ test("the queue shows states and a reason", async ({ page }) => {
   await page.keyboard.press("Escape");
   await queueMenu(page, "acme/app#9").click();
   await expect(page.getByRole("menuitem", { name: "Lauf öffnen" })).toBeVisible();
+  await expect(
+    page.getByRole("menuitem", { name: "Reparatur-Session öffnen" }),
+  ).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Erneut versuchen" })).toHaveCount(0);
   await expect(
     page.getByRole("menuitem", { name: "Aus der Warteschlange entfernen" }),

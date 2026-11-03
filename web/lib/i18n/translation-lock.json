@@ -7598,6 +7598,7 @@
   "ticket-sequences:ticketQueueCopy.doneWriteBackFailed": "de:e3daa81b1d78 en:eb6df5de9d05",
   "ticket-sequences:ticketQueueCopy.markDone": "de:9bdb90554e41 en:95acc4a22bde",
   "ticket-sequences:ticketQueueCopy.openPullRequest": "de:401e0e02ef06 en:439996522e21",
+  "ticket-sequences:ticketQueueCopy.openRepairSession": "de:bfc7fa3337cc en:7edb1df107b8",
   "ticket-sequences:ticketQueueCopy.openRun": "de:1d27eb49c692 en:95fe7393c85e",
   "ticket-sequences:ticketQueueCopy.openSession": "de:6637f9764e54 en:b205bb47f81a",
   "ticket-sequences:ticketQueueCopy.prUnchecked": "de:2586f8645c47 en:7fcdc1dcd8fd",

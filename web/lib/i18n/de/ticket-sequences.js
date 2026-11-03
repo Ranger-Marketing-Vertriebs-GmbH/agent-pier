@@ -39,6 +39,7 @@ export const ticketQueueCopy = {
   markDone: "Als erledigt markieren",
   remove: "Aus der Warteschlange entfernen",
   openSession: "Session öffnen",
+  openRepairSession: "Reparatur-Session öffnen",
   openRun: "Lauf öffnen",
   openPullRequest: "Pull Request öffnen",
   doneTitle: (key) => `${key} als erledigt markieren?`,

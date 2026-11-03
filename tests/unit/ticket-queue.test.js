@@ -52,6 +52,16 @@ test("queueItemActions offers what the server accepts per state", () => {
     ),
     ["retry", "done", "remove", "open-session", "open-pr"],
   );
+  assert.deepEqual(
+    queueItemActions(
+      item("awaiting-merge", {
+        kind: "pipeline",
+        runId: "r1",
+        repair: { sessionId: "s9" },
+      }),
+    ),
+    ["open-repair", "open-run"],
+  );
   assert.deepEqual(queueItemActions(item("done", { runId: "r1", kind: "pipeline" })), [
     "remove",
     "open-run",
