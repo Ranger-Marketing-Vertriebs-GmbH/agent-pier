@@ -21,6 +21,13 @@ const definition = {
   authStatusArgs: ["login", "status"],
   apiKeyEnv: "OPENAI_API_KEY",
   resumeArgs: (sessionId) => ["resume", sessionId],
+  // How the chat shows one app-server question.
+  questionView: (q) => ({
+    multiple: false,
+    allowOther: q.isOther === true || !q.options?.length,
+    previews: false,
+    notes: false,
+  }),
   configFormat: "toml",
   protocol: "responses",
   capabilities: {
