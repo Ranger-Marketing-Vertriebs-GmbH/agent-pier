@@ -153,17 +153,23 @@ export class TicketSequenceService {
   retry(projectId, itemId) {
     return this.withItem(projectId, itemId, async (project, item) => {
       if (item.state !== "needs-owner") throw problem(copy.itemBusy, 409);
+      let next = item;
       if (item.pr) {
         const snapshot = await this.readPr(project, item);
         if (prVerdict(snapshot).status !== "closed") {
           this.store.patch(project.id, item.id, { ...RESET, state: "awaiting-merge" });
           return;
         }
+        // A PR closed unmerged: the next attempt starts on a new branch from the
+        // freshly fetched default branch, in a new folder; the old one stays.
+        const { worktree: _old, ...rest } = item;
+        next = { ...rest, attempt: (item.attempt ?? 1) + 1 };
       }
       const worktree =
-        item.kind === "session" ? await this.leftover(project, item) : null;
+        next.kind === "session" ? await this.leftover(project, next) : null;
       this.store.patch(project.id, item.id, {
         ...RESET,
+        ...(next.attempt ? { attempt: next.attempt } : {}),
         state: "waiting",
         sessionId: null,
         runId: null,

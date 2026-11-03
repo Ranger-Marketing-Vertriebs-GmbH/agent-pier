@@ -23,7 +23,10 @@ export function stableUuid(seed) {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-5${hex.slice(13, 16)}-${variant}${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
 }
 
-/** The worktree folder of an item: `ticket-<key>-<id8>`, only [a-z0-9-]. */
+/**
+ * The worktree folder of an item: `ticket-<key>-<id8>`, only [a-z0-9-]; a later attempt
+ * (Retry after a closed PR) adds `-a<n>`, so the earlier folder stays untouched.
+ */
 export function worktreeName(item) {
   const token = String(keyToken(item) || "ticket")
     .toLowerCase()
@@ -34,7 +37,9 @@ export function worktreeName(item) {
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "")
     .slice(0, 8);
-  return `ticket-${token || "ticket"}-${id || "x"}`;
+  const attempt =
+    Number.isInteger(item.attempt) && item.attempt > 1 ? `-a${item.attempt}` : "";
+  return `ticket-${token || "ticket"}-${id || "x"}${attempt}`;
 }
 
 function sessionName(ticket) {

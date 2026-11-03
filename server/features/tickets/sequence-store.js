@@ -112,6 +112,9 @@ function item(value) {
   const tree = worktree(value.worktree);
   if (tree) out.worktree = tree;
   if (value.starting === true) out.starting = true;
+  // The attempt a Retry after a closed PR started; it names a new worktree folder.
+  if (Number.isInteger(value.attempt) && value.attempt > 1 && value.attempt <= 1000)
+    out.attempt = value.attempt;
   const request = pr(value.pr);
   if (request) out.pr = request;
   if (plain(value.repair) && typeof value.repair.sessionId === "string")

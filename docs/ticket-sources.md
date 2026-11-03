@@ -228,11 +228,15 @@ A ticket that waits for you blocks the rest of its sequence until you act on it:
 
 - **Retry** starts the fix counters, the merge memory and the 30-minute clocks again.
   An open (or meanwhile merged) pull request is watched again. Otherwise the ticket
-  starts afresh: a new pipeline run, or a new session. A session ticket reuses the
-  folder of its last attempt under `.worktrees/` when that folder is a clean worktree
-  still on the ticket's branch. When the folder has local changes, another branch, or
-  was never recorded as the ticket's worktree, Retry is refused: check the folder and
-  remove it first, because AgentPier never deletes it.
+  starts afresh: a new pipeline run, or a new session.
+  - After a pull request was closed unmerged, the new session gets a new worktree under
+    `.worktrees/` (its folder ends in `-a2`, `-a3`…) on a new branch (`…-2`, `-3`…)
+    from the freshly fetched default branch. The folder and branch of the closed
+    attempt stay for you to inspect; AgentPier never deletes them.
+  - In every other case a session ticket reuses the folder of its last attempt when
+    that folder is a clean worktree still on the ticket's branch. When the folder has
+    local changes, another branch, or was never recorded as the ticket's worktree,
+    Retry is refused: check the folder and remove it first.
 - **Mark done** moves the sequence on. It writes nothing to the ticket in GitHub or
   Plane. A parked pull request that AgentPier may merge is disarmed first, as with
   **Remove**, because nobody watches it afterwards; a pull request you merged yourself
