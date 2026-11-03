@@ -1,0 +1,104 @@
+import { serverMessages } from "../../lib/i18n/de.js";
+import { problem } from "../../lib/storage.js";
+import { TICKET_SOURCE_IDS } from "./ticket.js";
+
+const copy = serverMessages.tickets;
+export const GITHUB_KEY =
+  /^([A-Za-z0-9_.-]{1,100})\/([A-Za-z0-9_.-]{1,100})#([1-9]\d{0,8})$/;
+export const PLANE_KEY = /^[A-Z0-9]{1,12}-[1-9]\d{0,8}$/;
+
+const MAX_TICKETS = 50;
+const REPAIR_KEYS = [
+  "tool",
+  "accountId",
+  "providerConnectionId",
+  "providerModelId",
+  "nativeModelId",
+  "launchMode",
+];
+
+export const plainObject = (value) =>
+  !!value && typeof value === "object" && !Array.isArray(value);
+
+export function startInput(input) {
+  const invalid = () => problem(copy.invalidStart);
+  if (!plainObject(input)) throw invalid();
+  const { source, key, kind, again } = input;
+  if (!TICKET_SOURCE_IDS.includes(source)) throw invalid();
+  if (kind !== "session" && kind !== "pipeline") throw invalid();
+  if (
+    typeof key !== "string" ||
+    !(source === "github" ? GITHUB_KEY : PLANE_KEY).test(key)
+  )
+    throw invalid();
+  if (again !== undefined && typeof again !== "boolean") throw invalid();
+  const checked = { source, key, kind, again: again === true };
+  if (kind === "session") {
+    const session = input.session ?? {};
+    if (!plainObject(session)) throw invalid();
+    // The project decides the folder; the server alone hands over the ticket.
+    const { cwd: _cwd, ticket: _ticket, ...rest } = session;
+    checked.session = rest;
+  } else {
+    const pipeline = input.pipeline;
+    if (!plainObject(pipeline) || typeof pipeline.pipelineId !== "string")
+      throw invalid();
+    checked.pipeline = { pipelineId: pipeline.pipelineId };
+    if (pipeline.baseBranch !== undefined)
+      checked.pipeline.baseBranch = pipeline.baseBranch;
+    if (pipeline.tokenBudget !== undefined)
+      checked.pipeline.tokenBudget = pipeline.tokenBudget;
+  }
+  return checked;
+}
+
+/** Repair-session settings of a pipeline sequence: a small allowlist of plain values. */
+function repairInput(value) {
+  if (!plainObject(value)) throw problem(copy.invalidSequence);
+  const out = {};
+  for (const [name, entry] of Object.entries(value)) {
+    if (
+      !REPAIR_KEYS.includes(name) ||
+      typeof entry !== "string" ||
+      entry.length > 300 ||
+      /[\x00-\x1f\x7f]/.test(entry)
+    )
+      throw problem(copy.invalidSequence);
+    out[name] = entry;
+  }
+  return out;
+}
+
+/** The body of "start these tickets as a sequence", checked once for the whole list. */
+export function sequenceInput(input) {
+  const invalid = () => problem(copy.invalidSequence);
+  if (!plainObject(input)) throw invalid();
+  const { tickets, kind, allowMerge, again } = input;
+  if (!Array.isArray(tickets) || tickets.length < 1 || tickets.length > MAX_TICKETS)
+    throw invalid();
+  if (typeof allowMerge !== "boolean") throw invalid();
+  if (again !== undefined && typeof again !== "boolean") throw invalid();
+  if (input.repair !== undefined && kind !== "pipeline") throw invalid();
+  const seen = new Set();
+  const listed = [];
+  let body = null;
+  for (const entry of tickets) {
+    if (!plainObject(entry)) throw invalid();
+    let checked;
+    try {
+      checked = startInput({ ...input, source: entry.source, key: entry.key });
+    } catch {
+      throw invalid();
+    }
+    const id = `${checked.source}\n${checked.key}`;
+    if (seen.has(id)) throw invalid();
+    seen.add(id);
+    listed.push({ source: checked.source, key: checked.key });
+    body = checked;
+  }
+  const out = { tickets: listed, kind: body.kind, allowMerge, again: again === true };
+  if (body.session) out.session = body.session;
+  if (body.pipeline) out.pipeline = body.pipeline;
+  if (input.repair !== undefined) out.repair = repairInput(input.repair);
+  return out;
+}

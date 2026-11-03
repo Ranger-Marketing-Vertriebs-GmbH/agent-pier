@@ -20,6 +20,12 @@ export const tickets = Object.freeze({
   alreadyStarted: "This ticket was already started. Confirm to start it again.",
   taskNotDelivered:
     "The task could not be handed to the new session; the session was stopped.",
+  invalidSequence: "The ticket sequence is invalid.",
+  sequenceFull: "The ticket queue of this repository is full.",
+  ticketQueued: "This ticket is already queued.",
+  itemNotFound: "The queued ticket was not found.",
+  itemBusy: "This ticket is being worked on right now.",
+  githubRequired: "Ticket sequences need a GitHub repository for this project.",
   source: Object.freeze({
     unauthorized: "The ticket source rejected the credentials. Please check the token.",
     forbidden: "The ticket source token has no permission for this.",
