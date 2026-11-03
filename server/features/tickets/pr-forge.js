@@ -54,12 +54,18 @@ function graphqlError(errors) {
   return "invalidResponse";
 }
 
+// A field path without list indexes, e.g. "repository.mergeQueue".
+function fieldPath(error) {
+  if (!Array.isArray(error?.path)) return null;
+  return error.path.filter((part) => typeof part === "string").join(".");
+}
+
 /**
- * Runs a GraphQL request. With errors, the data is still used when `usable(data)` says
- * the fields the caller needs are present (a partial error, e.g. one field the token may
- * not read); otherwise the errors decide the code.
+ * Runs a GraphQL request. Errors that concern only `optional` fields (paths such as
+ * "repository.mergeQueue", which a token may not be allowed to read) leave the data in
+ * use; any other error decides the code.
  */
-async function graphql(access, query, variables, { signal, usable } = {}) {
+async function graphql(access, query, variables, { signal, optional = [] } = {}) {
   const { data } = await requestJson({
     fetchImpl: access.fetchImpl,
     url: graphqlUrl(access.apiBase),
@@ -71,7 +77,8 @@ async function graphql(access, query, variables, { signal, usable } = {}) {
   if (!data || typeof data !== "object") throw new TicketSourceError("invalidResponse");
   const result = data.data && typeof data.data === "object" ? data.data : null;
   const errors = Array.isArray(data.errors) ? data.errors : [];
-  if (errors.length > 0 && !(result && usable?.(result)))
+  const tolerated = (error) => optional.includes(fieldPath(error));
+  if (errors.length > 0 && !(result && errors.every(tolerated)))
     throw new TicketSourceError(graphqlError(errors));
   if (!result) throw new TicketSourceError("invalidResponse");
   return result;
@@ -235,7 +242,7 @@ export async function readPullRequest(access, number, { signal } = {}) {
   const variables = { owner: access.owner, repo: access.repo, n: Number(number) };
   const data = await graphql(access, PULL_QUERY, variables, {
     signal,
-    usable: (result) => Boolean(result.repository?.pullRequest?.id),
+    optional: ["repository.mergeQueue"],
   });
   const repository = data.repository;
   const pull = repository?.pullRequest;
@@ -253,7 +260,7 @@ export async function readPullRequest(access, number, { signal } = {}) {
       access,
       QUEUE_QUERY,
       { owner: access.owner, repo: access.repo, branch: baseRef },
-      { signal, usable: (result) => Boolean(result.repository) },
+      { signal, optional: ["repository.mergeQueue"] },
     );
     mergeQueue = Boolean(queue.repository?.mergeQueue?.id);
   }
@@ -286,7 +293,6 @@ async function mutate(access, mutation, input) {
     access,
     `mutation($input: ${mutation.input}!) { ${mutation.name}(input: $input) { clientMutationId } }`,
     { input },
-    { usable: (result) => Boolean(result[mutation.name]) },
   );
 }
 

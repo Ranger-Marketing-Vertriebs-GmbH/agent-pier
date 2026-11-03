@@ -121,6 +121,17 @@ test("a ticket notice opens the project's Tickets tab and drops any session", ()
     worker.target({ kind: "ticket-needs-owner", projectId: "p1" }),
     payload.link,
   );
+  // Repeated notices of one project collapse into one; blocking ones alert again.
+  assert.equal(payload.tag, "tickets:p1");
+  assert.equal(payload.renotify, true);
+  const options = worker.options(payload);
+  assert.equal(options.tag, "tickets:p1");
+  assert.equal(options.data.group, "tickets:p1");
+  const other = buildPayload(
+    { ...event, eventId: "t2", projectId: "p2" },
+    defaultPreferences(),
+  );
+  assert.equal(other.tag, "tickets:p2");
   assert.throws(() => pushEvent({ kind: "ticket-needs-owner", eventId: "t1" }));
   assert.throws(() =>
     pushEvent({ kind: "ticket-needs-owner", eventId: "t1", projectId: "../x" }),

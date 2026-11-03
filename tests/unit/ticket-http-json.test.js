@@ -34,6 +34,32 @@ test("a 403 with an empty rate limit is rateLimited", async () => {
   assert.equal(error.code, "rateLimited");
 });
 
+test("GitHub's secondary rate limit on a 403 is rateLimited", async () => {
+  const answers = [
+    () => new Response("", { status: 403, headers: { "retry-after": "60" } }),
+    () =>
+      new Response(
+        JSON.stringify({ message: "You have exceeded a secondary rate limit." }),
+        { status: 403 },
+      ),
+  ];
+  for (const answer of answers) {
+    const error = await requestJson({
+      url: "https://h/x",
+      fetchImpl: async () => answer(),
+    }).catch((e) => e);
+    assert.equal(error.code, "rateLimited");
+  }
+  const error = await requestJson({
+    url: "https://h/x",
+    fetchImpl: async () =>
+      new Response(JSON.stringify({ message: "Resource not accessible" }), {
+        status: 403,
+      }),
+  }).catch((e) => e);
+  assert.equal(error.code, "forbidden");
+});
+
 test("a hanging server times out as unreachable", async () => {
   const error = await requestJson({
     url: "https://h/x",

@@ -77,7 +77,8 @@ export const ticketList = {
 
 export const emptyQueue = { queue: { items: [] }, defaults: { repair: null } };
 
-// Answers the ticket routes of project m1; `start` answers each POST …/start. `queue`
+// Answers the ticket routes of project m1; `list` (a value or a function) answers the
+// remote ticket list and `start` each POST …/start. `queue`
 // (a value or a function) answers GET …/queue; `queueAction({method, path, body})`
 // answers the queue's writes (POST …/queue, …/retry, …/done, DELETE), which are
 // recorded in `queueCalls`; without it they answer the current queue.
@@ -100,7 +101,7 @@ export async function ticketsFixture(
         return true;
       }
       if (url.pathname === "/api/tickets/projects/m1/tickets") {
-        await route.fulfill({ json: list });
+        await route.fulfill({ json: typeof list === "function" ? list() : list });
         return true;
       }
       if (url.pathname === "/api/tickets/projects/m1/start" && method === "POST") {

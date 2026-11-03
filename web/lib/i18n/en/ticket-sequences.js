@@ -51,6 +51,7 @@ export const ticketSequenceStartCopy = {
   select: "Select tickets",
   selectTicket: (key) => `Select ${key}`,
   startSelected: (count) => `Start as sequence (${count})`,
+  deselected: (keys) => `No longer in the list, so no longer selected: ${keys}.`,
   title: (count) =>
     count === 1 ? "Start 1 ticket as a sequence" : `Start ${count} tickets as a sequence`,
   order: (keys) => `AgentPier works through them one at a time, in this order: ${keys}.`,

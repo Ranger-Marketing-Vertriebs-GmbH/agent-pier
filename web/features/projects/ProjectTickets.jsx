@@ -198,11 +198,23 @@ export default function ProjectTickets({
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState(() => new Set());
   const [sequencing, setSequencing] = useState(false);
+  // Keys of selected tickets that a refresh no longer lists, so they were deselected.
+  const [dropped, setDropped] = useState([]);
   const list = useTicketList(
     projectId,
     view ? JSON.stringify(view.sources) : "",
     version,
   );
+  useEffect(() => {
+    if (!list.data) return;
+    const listed = new Set((list.data.tickets || []).map(ticketId));
+    const gone = [...selected].filter((id) => !listed.has(id));
+    if (!gone.length) return;
+    setSelected(new Set([...selected].filter((id) => listed.has(id))));
+    setDropped(gone.map((id) => id.slice(id.indexOf("\n") + 1)));
+    // Only a new list deselects; toggling a ticket never does.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [list.data]);
   // The ⌘K action "Start tickets" turns selection mode on once the list is there.
   usePageAction(
     "tickets-sequence",
@@ -234,6 +246,7 @@ export default function ProjectTickets({
   const endSelection = () => {
     setSelecting(false);
     setSelected(new Set());
+    setDropped([]);
   };
   const begin = (ticket, kind, again) => {
     const target = {
@@ -357,6 +370,11 @@ export default function ProjectTickets({
             />
           ))}
           <ErrorMessage error={list.error} />
+          {selecting && dropped.length > 0 && (
+            <p role="status" className="field-description">
+              {sequenceCopy.deselected(dropped.join(", "))}
+            </p>
+          )}
           {list.loading && !list.data && <p role="status">{copy.loading}</p>}
           {list.data && !tickets.length && (
             <p className="project-empty">{label ? copy.noMatches : copy.noTickets}</p>
