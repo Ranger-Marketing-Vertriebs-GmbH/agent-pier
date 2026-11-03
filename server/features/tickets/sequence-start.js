@@ -129,7 +129,11 @@ async function deliverTask(engine, ctx, item, session, ticket) {
   let receipt;
   try {
     receipt = await engine.chatDelivery.send(session.id, {
-      deliveryId: stableUuid(`ticket-seq-task:${item.id}`),
+      // A Retry that resumed the session sends the task anew (its own id); a restart
+      // within one attempt repeats the same id, so the task arrives once per attempt.
+      deliveryId: stableUuid(
+        `ticket-seq-task:${item.id}${item.watchSince ? `:${item.watchSince}` : ""}`,
+      ),
       deliveryScope: sessionScope(session),
       text,
       submit: true,

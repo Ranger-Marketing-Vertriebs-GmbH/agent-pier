@@ -7,6 +7,7 @@ import { TicketSequenceService } from "../../server/features/tickets/sequence-se
 import { worktreeName } from "../../server/features/tickets/sequence-start.js";
 import {
   KEY,
+  T0,
   awaitingMerge,
   git,
   forgeMutations as mutations,
@@ -428,4 +429,46 @@ test("retry of a live session without a PR watches it again, never launches twic
   f.clock.now += 3_600_000;
   await engine.run();
   assert.equal(f.items()[0].state, "running");
+});
+
+test("retry of an idle session without a PR restarts its idle clock and resends the task", async (t) => {
+  const f = await sequenceFixture(t);
+  // Idle since the start: no activity resets its clock.
+  const engine = f.build({
+    activity: {
+      read: async () => ({ state: "idle", since: new Date(T0).toISOString() }),
+    },
+  });
+  f.append([KEY]);
+  await engine.run();
+  f.clock.now = T0 + 31 * 60_000;
+  await engine.run();
+  const [first] = f.items();
+  assert.equal(first.needsOwner.reason, "noPullRequest");
+  const tasks = () => f.sent.filter((entry) => entry.text.includes("<ticket>"));
+  assert.equal(tasks().length, 1);
+  const owner = new TicketSequenceService({
+    store: f.store,
+    engine,
+    tickets: f.tickets,
+    sessions: f.sessionsApi,
+    worktrees: f.worktrees,
+    now: () => f.clock.now,
+  });
+  await owner.retry("p1", first.id);
+  while (engine.locks.size)
+    await Promise.all([...engine.locks.values()].map((lock) => lock.promise));
+  assert.equal(f.launched.length, 1);
+  assert.equal(tasks().length, 2);
+  assert.notEqual(tasks()[1].deliveryId, tasks()[0].deliveryId);
+  assert.equal(tasks()[1].id, first.sessionId);
+  const retriedAt = f.clock.now;
+  f.clock.now = retriedAt + 29 * 60_000;
+  await engine.run();
+  assert.equal(f.items()[0].state, "running");
+  assert.equal(f.notified.length, 1);
+  f.clock.now = retriedAt + 31 * 60_000;
+  await engine.run();
+  assert.equal(f.items()[0].needsOwner.reason, "noPullRequest");
+  assert.equal(f.notified.length, 2);
 });

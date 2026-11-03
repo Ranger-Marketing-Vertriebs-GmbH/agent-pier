@@ -223,24 +223,28 @@ test("in English the queue reads in English", async ({ page }) => {
 
 test("an unreadable PR asks once more, then sends force", async ({ page }) => {
   const armed = { ...parked, options: { allowMerge: true } };
+  const waiting = item("i2", "AP-3", "Add export", "waiting");
+  let current = queueOf(armed, waiting);
   const { queueCalls } = await ticketsFixture(page, {
-    queue: queueOf(armed),
-    queueAction: (call) =>
-      call.query === "?force=true"
-        ? {
-            status: 200,
-            json: {
-              ...queueOf(),
-              unchecked: { key: armed.key, pr: { number: 12, url: armed.pr.url } },
-            },
-          }
-        : {
-            status: 409,
-            json: {
-              error: "GitHub war nicht lesbar.",
-              messageKey: "tickets.prUnreadable",
-            },
+    queue: () => current,
+    queueAction: (call) => {
+      if (call.query !== "?force=true")
+        return {
+          status: 409,
+          json: {
+            error: "GitHub war nicht lesbar.",
+            messageKey: "tickets.prUnreadable",
           },
+        };
+      current = queueOf(waiting);
+      return {
+        status: 200,
+        json: {
+          ...current,
+          unchecked: { key: armed.key, pr: { number: 12, url: armed.pr.url } },
+        },
+      };
+    },
   });
   await page.goto(base + "/projects/m1?tab=tickets");
   await queueMenu(page, "acme/app#7").click();
@@ -256,9 +260,13 @@ test("an unreadable PR asks once more, then sends force", async ({ page }) => {
     ["DELETE", "/tickets/projects/m1/queue/i1", undefined],
     ["DELETE", "/tickets/projects/m1/queue/i1", "?force=true"],
   ]);
-  await expect(
-    page.getByText(/acme\/app#7 wurde entfernt\. Prüfe Pull Request #12 auf GitHub/),
-  ).toBeVisible();
+  const note = page.getByText(
+    /acme\/app#7 wurde entfernt\. Prüfe Pull Request #12 auf GitHub/,
+  );
+  await expect(note).toBeVisible();
+  await page.getByRole("button", { name: "Schließen", exact: true }).click();
+  await expect(note).toHaveCount(0);
+  await expect(queueCard(page).getByText("AP-3 Add export")).toBeVisible();
 });
 
 test("a done item shows a failed write-back and an unchecked PR", async ({ page }) => {

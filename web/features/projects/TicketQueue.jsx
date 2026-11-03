@@ -23,6 +23,8 @@ const codeText = (code) =>
 const unreadable = (error) =>
   error?.status === 409 && error.messageKey === "tickets.prUnreadable";
 
+const queueKey = (items) => items.map((item) => `${item.id}:${item.state}`).join(",");
+
 /** The detail line of an item: why it waits, its PR, or what a "done" left open. */
 function itemSub(item) {
   if (item.state === "needs-owner") return reasonText(item.needsOwner?.reason);
@@ -93,7 +95,9 @@ export default function TicketQueue({ projectId, view, written, onNavigate }) {
   const items = view?.queue?.items || [];
   const action = useAsyncAction();
   const [confirming, setConfirming] = useState(null);
-  const [notice, setNotice] = useState("");
+  // A note after a forced Remove; it lasts until the queue changes or is dismissed.
+  const [notice, setNotice] = useState(null);
+  const noticeText = notice && notice.queue === queueKey(items) ? notice.text : "";
   const send = async (item, name, force = false) => {
     const query = force ? "?force=true" : "";
     const result = await (name === "remove"
@@ -114,7 +118,11 @@ export default function TicketQueue({ projectId, view, written, onNavigate }) {
       throw error;
     }
     if (result?.unchecked?.pr?.number)
-      setNotice(copy.removedUnchecked(result.unchecked.key, result.unchecked.pr.number));
+      setNotice({
+        text: copy.removedUnchecked(result.unchecked.key, result.unchecked.pr.number),
+        // The queue the Remove left; any later change of it clears the note.
+        queue: queueKey(result.queue?.items || []),
+      });
     setConfirming(null);
   };
   const onAction = (item, name) => {
@@ -128,7 +136,7 @@ export default function TicketQueue({ projectId, view, written, onNavigate }) {
     else if (name === "retry") action.run(() => send(item, "retry"));
     else setConfirming({ item, name });
   };
-  if (!items.length && !notice) return null;
+  if (!items.length && !noticeText) return null;
   return (
     <section className="project-ticket-queue">
       <GroupLabel id="project-ticket-queue-heading">{copy.title}</GroupLabel>
@@ -138,7 +146,18 @@ export default function TicketQueue({ projectId, view, written, onNavigate }) {
         ))}
       </ListCard>
       <ErrorMessage error={action.error} />
-      <ErrorMessage error={notice} />
+      {noticeText && (
+        <div className="project-ticket-queue-notice">
+          <ErrorMessage error={noticeText} />
+          <button
+            type="button"
+            className="button secondary"
+            onClick={() => setNotice(null)}
+          >
+            {commonCopy.close}
+          </button>
+        </div>
+      )}
       {confirming && (
         <ConfirmDialog
           title={
