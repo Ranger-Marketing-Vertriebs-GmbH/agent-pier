@@ -78,6 +78,24 @@ test("ids are mapped to state and label names when not expanded", async (t) => {
   );
 });
 
+test("a state id missing from the states list keeps the item open without a name", async (t) => {
+  const items = [item(1, { state: "s-unknown" }), item(2, { state: "s-done" })];
+  const { access } = await setup(t, { items, ids: true });
+  const { tickets } = await planeSource.list(access, {});
+  assert.deepEqual(
+    tickets.map((x) => [x.key, x.state]),
+    [["AP-1", ""]],
+  );
+  const one = await planeSource.get(access, "AP-1");
+  assert.equal(one.state, "");
+});
+
+test("get accepts an item whose labels are not a list", async (t) => {
+  const { access } = await setup(t, { items: [item(1, { labels: null })] });
+  const ticket = await planeSource.get(access, "AP-1");
+  assert.deepEqual(ticket.labels, []);
+});
+
 test("a label filter keeps items carrying that label name", async (t) => {
   const items = [item(1, { labels: ["l-bug"] }), item(2, { labels: ["l-be"] })];
   const { access } = await setup(t, { items });

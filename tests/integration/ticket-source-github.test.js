@@ -6,6 +6,7 @@ import {
   parseGithubRemote,
 } from "../../server/features/tickets/sources/github.js";
 import { ticketSources } from "../../server/features/tickets/sources/index.js";
+import { githubApiBase } from "../../server/features/repositories/github-token-check.js";
 import { fakeGithub, githubIssue } from "../helpers/ticket-fakes.js";
 import { setup } from "../helpers/repositories.js";
 
@@ -67,19 +68,32 @@ test("drops pull requests and follows pages", async (t) => {
   assert.deepEqual(labels, ["bug", "feature"]);
 });
 
-test("a label filter is sent to GitHub", async (t) => {
+test("a label filter keeps the labels of every open issue", async (t) => {
   const fake = await fakeGithub(t, {
     issues: [
       githubIssue(1, { labels: [{ name: "bug" }] }),
       githubIssue(2, { labels: [{ name: "feature" }] }),
     ],
   });
-  const { tickets } = await githubSource.list(accessFor(fake), { label: "bug" });
+  const { tickets, labels } = await githubSource.list(accessFor(fake), { label: "bug" });
   assert.deepEqual(
     tickets.map((item) => item.key),
     ["acme/app#1"],
   );
-  assert.match(fake.calls[0].path, /&labels=bug$/);
+  assert.deepEqual(labels, ["bug", "feature"]);
+  assert.equal(
+    fake.calls[0].path,
+    "/repos/acme/app/issues?state=open&per_page=100&page=1",
+  );
+});
+
+test("an Enterprise remote maps to its /api/v3 base", () => {
+  const remote = parseGithubRemote("git@ghe.example.com:acme/app.git");
+  assert.equal(githubApiBase(remote.host), "https://ghe.example.com/api/v3");
+  assert.equal(
+    githubApiBase(parseGithubRemote("https://github.com/acme/app").host),
+    "https://api.github.com",
+  );
 });
 
 test("stops after three pages", async (t) => {
@@ -148,12 +162,29 @@ test("in progress adds the label and a link comment", async (t) => {
   await githubSource.markInProgress(access, ticket, {
     link: "http://127.0.0.1:4380/pipelines/runs/r1",
     kind: "run",
-    label: "in progress",
   });
+  assert.deepEqual(fake.calls.at(-2).body, { labels: ["in progress"] });
   assert.equal(
     fake.calls.at(-1).body.body,
     "Started in AgentPier: [pipeline run](http://127.0.0.1:4380/pipelines/runs/r1)",
   );
+});
+
+test("a refused label write fails markInProgress without commenting", async (t) => {
+  const fake = await fakeGithub(t, {
+    issues: [githubIssue(7)],
+    failures: { "POST /repos/acme/app/issues/7/labels": 403 },
+  });
+  const access = accessFor(fake);
+  const ticket = await githubSource.get(access, "acme/app#7");
+  await assert.rejects(
+    githubSource.markInProgress(access, ticket, {
+      link: "http://127.0.0.1:4380/sessions/s1",
+      kind: "session",
+    }),
+    { code: "forbidden" },
+  );
+  assert.ok(!fake.calls.some((c) => c.path.endsWith("/comments")));
 });
 
 test("RepositoryStore#token reads the saved token only", (t) => {

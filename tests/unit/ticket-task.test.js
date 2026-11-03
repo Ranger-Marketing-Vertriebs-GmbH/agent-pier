@@ -4,6 +4,7 @@ import {
   cleanTicket,
   htmlToText,
   ticketRef,
+  validTicketRef,
 } from "../../server/features/tickets/ticket.js";
 import { ticketTask } from "../../server/features/tickets/ticket-task.js";
 
@@ -135,4 +136,18 @@ test("the cut never splits a surrogate pair", () => {
 
 test("more HTML entities decode once", () => {
   assert.equal(htmlToText("a&nbsp;b &#x27;c&#39; &amp;lt;"), "a b 'c' &lt;");
+});
+
+test("validTicketRef stores the normalised URL", () => {
+  const ref = validTicketRef({
+    source: "github",
+    key: "o/r#7",
+    title: "Fix it",
+    url: "HTTPS://GitHub.com/o/r/issues/7",
+  });
+  assert.equal(ref.url, "https://github.com/o/r/issues/7");
+  assert.equal(
+    validTicketRef({ source: "plane", key: "AP-1", title: "", url: "" }).url,
+    "",
+  );
 });

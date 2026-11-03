@@ -8,7 +8,8 @@ import { TICKET_SOURCE_IDS, ticketRef } from "./ticket.js";
 import { ticketTask } from "./ticket-task.js";
 import { TicketSourceError } from "./http-json.js";
 import { ticketSources } from "./sources/index.js";
-import { parseGithubRemote, resolveGithubApiBase } from "./sources/github.js";
+import { githubApiBase } from "../repositories/github-token-check.js";
+import { parseGithubRemote } from "./sources/github.js";
 import { TicketStore } from "./ticket-store.js";
 import { ticketConnectionsChanged, ticketsProjectChanged } from "./live-topics.js";
 
@@ -156,7 +157,7 @@ export class TicketService {
       host: remote.host,
       owner: remote.owner,
       repo: remote.repo,
-      apiBase: resolveGithubApiBase(remote.host),
+      apiBase: githubApiBase(remote.host),
       token,
       fetchImpl: this.fetchImpl,
       credential: { id: credential.id, name: credential.name },

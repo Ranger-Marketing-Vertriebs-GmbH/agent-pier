@@ -9,6 +9,7 @@ export function TicketsCategory({ shared }) {
   return (
     <CategorySection title={copy.sections.tickets}>
       <PlaneConnectionsPage
+        live={shared.ticketSources}
         onChanged={shared.reloadAll}
         emptyState={(openAdd) => (
           <EmptyCategory

@@ -174,6 +174,7 @@ export default function ConnectionsPage({
     reloadAll,
     catalog,
     mail,
+    ticketSources,
     lists: {
       ssh: { state: ssh[0], dispatch: ssh[1] },
       mcp: { state: mcp[0], dispatch: mcp[1] },
