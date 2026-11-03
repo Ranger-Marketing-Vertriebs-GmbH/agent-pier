@@ -6,6 +6,7 @@ export const pipelineQueue = Object.freeze({
     "Der Basis-Branch darf höchstens 300 Zeichen lang sein und keine Steuerzeichen enthalten.",
   invalidExternalRef:
     "Die externe Referenz darf höchstens 120 Zeichen lang sein und nur Buchstaben, Ziffern, Leerzeichen und . _ : # / - enthalten.",
+  invalidTicket: "Das Ticket des Eintrags ist ungültig.",
   full: "Die Warteschlange dieses Projekts ist voll: Höchstens 200 Einträge dürfen warten.",
   notWaiting: "Nur wartende Einträge lassen sich verschieben.",
   invalidMove: "Ein Eintrag lässt sich nur nach oben oder unten verschieben.",
