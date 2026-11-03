@@ -285,3 +285,18 @@ test("pause and resume need no connected source, other edits do", async () => {
   });
   assert.equal(store.rule("p1", made.id).label, "agent");
 });
+
+test("a project move drops rules over the limit and logs how many", () => {
+  const logs = [];
+  const store = new TicketRuleStore({ dataDir: dataDir(), log: (m) => logs.push(m) });
+  for (let n = 0; n < 18; n += 1) store.create("new", input(`n${n}`));
+  for (let n = 0; n < 4; n += 1) store.create("old", input(`o${n}`));
+  // Also a duplicate label: dropped, but not counted as over the limit.
+  store.create("old", input("n0"));
+  store.addPickups("old", [pick(1)]);
+  store.moveProject("old", "new");
+  assert.equal(store.rules("new").length, 20);
+  assert.deepEqual(store.rules("old"), []);
+  assert.ok(store.picked("new", "github", "o/r#1"));
+  assert.deepEqual(logs, ["ticket-rules: move dropped-over-limit count=2"]);
+});

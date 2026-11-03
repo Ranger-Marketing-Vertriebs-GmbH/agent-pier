@@ -302,14 +302,18 @@ export class TicketRuleStore {
     if (fromId === toId || !this.ownsProject(fromId)) return;
     this.commit(toId, () => {
       let count = this.list.filter((e) => e.projectId === toId).length;
+      let overLimit = 0;
       const moved = [];
       for (const entry of this.list) {
         if (entry.projectId !== fromId) moved.push(entry);
-        else if (count < MAX_RULES && !this.exists(toId, entry)) {
+        else if (this.exists(toId, entry)) continue;
+        else if (count >= MAX_RULES) overLimit += 1;
+        else {
           moved.push({ ...entry, projectId: toId });
           count += 1;
         }
       }
+      if (overLimit) this.log(`ticket-rules: move dropped-over-limit count=${overLimit}`);
       this.list = moved;
       for (const [id, p] of [...this.picks]) {
         if (p.projectId !== fromId) continue;
