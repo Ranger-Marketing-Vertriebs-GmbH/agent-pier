@@ -62,3 +62,88 @@ export function githubIssue(number, extra = {}) {
     ...extra,
   };
 }
+
+// Fake Plane API on 127.0.0.1. Checks `X-API-Key` (token "plane-token"), paginates with
+// `per_page`/`cursor` and expands state/labels when `expand` is requested. `failures` maps
+// "METHOD /path" (query ignored) to an HTTP status. `ids: true` keeps ids even with expand.
+export async function fakePlane(
+  t,
+  {
+    projects = [],
+    states = [],
+    labels = [],
+    items = [],
+    failures = {},
+    ids = false,
+  } = {},
+) {
+  const calls = [];
+  const paged = (url, rows) => {
+    const size = Number(url.searchParams.get("per_page") || 20);
+    const start = Number(url.searchParams.get("cursor") || 0);
+    const next = start + size;
+    return {
+      results: rows.slice(start, next),
+      next_cursor: String(next),
+      next_page_results: next < rows.length,
+      total_count: rows.length,
+    };
+  };
+  const server = http.createServer((req, res) => {
+    const chunks = [];
+    req.on("data", (chunk) => chunks.push(chunk));
+    req.on("end", () => {
+      const url = new URL(req.url, "http://127.0.0.1");
+      const raw = Buffer.concat(chunks).toString("utf8");
+      calls.push({
+        method: req.method,
+        path: req.url,
+        body: raw ? JSON.parse(raw) : undefined,
+        apiKey: req.headers["x-api-key"],
+      });
+      const send = (status, data) => {
+        res.writeHead(status, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(data));
+      };
+      if (req.headers["x-api-key"] !== "plane-token") return send(401, {});
+      const failure = failures[`${req.method} ${url.pathname}`];
+      if (failure) return send(failure, { error: "failure" });
+      const expand = (item) =>
+        url.searchParams.has("expand") && !ids
+          ? {
+              ...item,
+              state: states.find((s) => s.id === item.state) ?? item.state,
+              labels: (item.labels ?? []).map(
+                (id) => labels.find((l) => l.id === id) ?? id,
+              ),
+            }
+          : item;
+      const base = /^\/api\/v1\/workspaces\/([^/]+)\//.exec(url.pathname);
+      if (!base) return send(404, {});
+      const rest = url.pathname.slice(base[0].length);
+      if (req.method === "GET" && rest === "projects/")
+        return send(200, paged(url, projects));
+      let match = /^projects\/([^/]+)\/(states|labels|work-items)\/$/.exec(rest);
+      if (req.method === "GET" && match) {
+        const rows = { states, labels, "work-items": items }[match[2]];
+        const shown = match[2] === "work-items" ? rows.map(expand) : rows;
+        return send(200, paged(url, shown));
+      }
+      match = /^work-items\/([A-Z0-9]+)-(\d+)\/$/.exec(rest);
+      if (req.method === "GET" && match) {
+        const item = items.find((i) => i.sequence_id === Number(match[2]));
+        return item ? send(200, expand(item)) : send(404, {});
+      }
+      if (
+        (req.method === "PATCH" && /^projects\/[^/]+\/work-items\/[^/]+\/$/.test(rest)) ||
+        (req.method === "POST" &&
+          /^projects\/[^/]+\/work-items\/[^/]+\/comments\/$/.test(rest))
+      )
+        return send(200, {});
+      send(404, {});
+    });
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+  return { baseUrl: `http://127.0.0.1:${server.address().port}`, calls };
+}
