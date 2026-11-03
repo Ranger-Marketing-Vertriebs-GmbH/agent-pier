@@ -278,6 +278,8 @@ export async function createApplication(config) {
   });
   whenListening.push(() => {
     services.githubTokenMonitor.start();
+    // Resumes the saved ticket sequences and watches their pull requests every 60 s.
+    services.ticketSequenceEngine.start();
     if (config.updateCheck !== false) services.updateChecker.start();
     services.systemStatus.start();
     // Finishes node_modules deletions a restart interrupted (cleanup-dependencies.js).

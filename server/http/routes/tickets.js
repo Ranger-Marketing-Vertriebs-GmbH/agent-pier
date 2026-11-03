@@ -4,7 +4,7 @@ import { publicSession } from "../../features/sessions/session-public.js";
 // Owner-only like every /api route outside /api/me (route-access.js). Responses carry
 // connection metadata and failure codes, never a token.
 export function ticketRoutes(services) {
-  const { tickets } = services;
+  const { tickets, ticketSequences } = services;
   const router = Router();
   router.get("/ticket-connections", (req, res) => res.json(tickets.connectionsView()));
   router.post("/ticket-connections", (req, res) =>
@@ -49,5 +49,21 @@ export function ticketRoutes(services) {
         result.session ? { ...result, session: publicSession(result.session) } : result,
       );
   });
+  const queue = "/tickets/projects/:projectId/queue";
+  router.get(queue, async (req, res) =>
+    res.json(await ticketSequences.view(req.params.projectId)),
+  );
+  router.post(queue, async (req, res) =>
+    res.status(201).json(await ticketSequences.add(req.params.projectId, req.body)),
+  );
+  router.post(`${queue}/:itemId/retry`, async (req, res) =>
+    res.json(await ticketSequences.retry(req.params.projectId, req.params.itemId)),
+  );
+  router.post(`${queue}/:itemId/done`, async (req, res) =>
+    res.json(await ticketSequences.markDone(req.params.projectId, req.params.itemId)),
+  );
+  router.delete(`${queue}/:itemId`, async (req, res) =>
+    res.json(await ticketSequences.remove(req.params.projectId, req.params.itemId)),
+  );
   return router;
 }

@@ -28,6 +28,8 @@ export const tickets = Object.freeze({
   itemNotFound: "Das eingereihte Ticket wurde nicht gefunden.",
   itemBusy: "Dieses Ticket wird gerade bearbeitet.",
   githubRequired: "Ticketfolgen brauchen ein GitHub-Repository für dieses Projekt.",
+  worktreeLeftover:
+    "Der Ordner des letzten Versuchs liegt noch unter .worktrees/ und ist nicht sauber oder auf einem anderen Branch. Bitte den Ordner prüfen und entfernen, dann erneut versuchen.",
   source: Object.freeze({
     unauthorized: "Die Ticketquelle hat den Zugang abgelehnt. Bitte den Token prüfen.",
     forbidden: "Der Token der Ticketquelle hat dafür keine Berechtigung.",

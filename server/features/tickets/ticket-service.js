@@ -11,8 +11,9 @@ import { ticketSources } from "./sources/index.js";
 import { githubApiBase } from "../repositories/github-token-check.js";
 import { parseGithubRemote } from "./sources/github.js";
 import { TicketStore } from "./ticket-store.js";
-import { GITHUB_KEY, startInput } from "./ticket-start-input.js";
+import { canonicalKey, startInput } from "./ticket-start-input.js";
 import { ticketConnectionsChanged, ticketsProjectChanged } from "./live-topics.js";
+import { createTicketSequenceServices } from "./sequence-service.js";
 
 const copy = serverMessages.tickets;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -279,16 +280,8 @@ export class TicketService {
     const access = accesses[checked.source];
     if (!access) throw new TicketSourceError("notConnected");
     const source = this.sources[checked.source];
-    let key = checked.key;
     // One spelling per issue, so the lock and the start records see the same key.
-    if (checked.source === "github") {
-      const [, owner, repo, number] = GITHUB_KEY.exec(key);
-      if (
-        owner.toLowerCase() === access.owner.toLowerCase() &&
-        repo.toLowerCase() === access.repo.toLowerCase()
-      )
-        key = `${access.owner}/${access.repo}#${number}`;
-    }
+    const key = canonicalKey(checked.source, checked.key, access);
     const lock = `${project.id}:${checked.source}:${key}`;
     if (this.starting.has(lock)) throw problem(copy.alreadyStarting, 409);
     this.starting.add(lock);
@@ -438,7 +431,10 @@ export class TicketService {
   }
 }
 
-/** The ticket store and service of the application; launch and pipelines bind late. */
+/**
+ * The ticket store and service of the application, and the ticket sequences built on
+ * them (sequence-service.js); launch, pipelines and the run queue bind late.
+ */
 export function createTicketServices(services) {
   const { config } = services;
   const ticketStore = new TicketStore({ dataDir: config.dataDir });
@@ -457,5 +453,5 @@ export function createTicketServices(services) {
   });
   // The GitHub source of every project view reads the repository credentials.
   services.repositories.onChange = () => services.live?.invalidate("tickets.project");
-  return { ticketStore, tickets };
+  return { ticketStore, tickets, ...createTicketSequenceServices(services, { tickets }) };
 }

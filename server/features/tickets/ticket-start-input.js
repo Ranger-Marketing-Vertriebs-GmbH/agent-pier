@@ -19,6 +19,16 @@ const REPAIR_KEYS = [
   "launchMode",
 ];
 
+/** One spelling per GitHub issue of the project's repository, so records and locks match. */
+export function canonicalKey(source, key, access) {
+  if (source !== "github") return key;
+  const [, owner, repo, number] = GITHUB_KEY.exec(key);
+  return owner.toLowerCase() === access.owner.toLowerCase() &&
+    repo.toLowerCase() === access.repo.toLowerCase()
+    ? `${access.owner}/${access.repo}#${number}`
+    : key;
+}
+
 export const plainObject = (value) =>
   !!value && typeof value === "object" && !Array.isArray(value);
 
