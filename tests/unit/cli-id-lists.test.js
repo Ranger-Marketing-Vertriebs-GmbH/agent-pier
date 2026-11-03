@@ -147,11 +147,9 @@ test("every file allowed to mention a config root still does", () => {
 // over its count fails, and so does a file under it or one that no longer
 // branches, so lower or remove its entry in the change that removed the branch.
 const BRANCH_BUDGET = {
-  "server/application/session-account-transfer.js": 5,
   "server/application/session-lifecycle.js": 3,
   "server/application/session-reload-lifecycle.js": 3,
   "server/application/session-reload-model.js": 2,
-  "server/application/session-transfer-files.js": 2,
   "server/features/accounts/account-store.js": 5,
   "server/features/accounts/auth-status.js": 1,
   "server/features/agentbus/agent-bus.js": 6,

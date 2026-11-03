@@ -26,6 +26,7 @@ coding CLIs. They stay outside the catalog; tables that also cover them, such as
 | `<id>/pipeline.js`        | Node          | The `pipeline` members                                           |
 | `<id>/plugins.js`         | Node          | The `plugins` members                                            |
 | `<id>/profile-files.js`   | Node          | The `profileFiles` members                                       |
+| `<id>/transfer.js`        | Node          | The `transfer` members (Codex and Claude Code only)              |
 | `codex/history-client.js` | Node          | Codex's read-only app-server client for its history              |
 
 `catalog.js` imports only the definitions, and neither imports Node modules or anything
@@ -82,6 +83,8 @@ from `launchModes` (`server/features/accounts/account-store.js`).
 - `dataRoot(env, home)`: where it keeps history and databases (OpenCode:
   `XDG_DATA_HOME/opencode`; the others: `configRoot`).
 - `parseAuthStatus(stdout, exitCode, stderr)`: `{ signedIn, state }`.
+- `transfer`: `null` unless `capabilities.accountTransfer`; otherwise how a session moves
+  between accounts: `locate`, `safePath`, `destination`, `companions` and `validator`.
 - `profileFiles`: `{ roots, credentials, backupAllowlist, configFiles }`, the profile
   folders, credential files, per-folder backup rules and editable config files.
   Also `sharedDocuments(root, env)` (the config documents profiles share, with their keys

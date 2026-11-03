@@ -101,7 +101,10 @@ export async function prepareAccountTransfer(
   id,
 ) {
   providerId(id);
-  const driver = cliDriver(session.tool === "codex" ? "codex" : "claude");
+  const driver = cliDriver(session.tool);
+  if (!driver.transfer) throw fail(serverMessages.sessionTransfer.notTransferable);
+  const { transfer } = driver;
+  const failKey = (key) => fail(serverMessages.sessionTransfer[key]);
   const home = (env) => driver.configRoot(env, env.HOME);
   const source = await fs.realpath(home(accounts.environment(session.accountId)));
   const targetPath = home(accounts.environment(account.id));
@@ -109,40 +112,21 @@ export async function prepareAccountTransfer(
   await fs.mkdir(targetPath, { recursive: true, mode: 0o700 });
   const target = await fs.realpath(targetPath);
   if (source === target) throw fail(serverMessages.sessionTransfer.sharedStorage);
-  let file;
-  let historyMode;
-  if (session.tool === "claude") file = await history.claudeFile(session, id);
-  else {
-    const client = history.codex(session);
-    const { thread } = await client.request("thread/read", {
-      threadId: id,
-      includeTurns: false,
-    });
-    if (thread?.id !== id || thread?.cwd !== session.cwd || !thread.path)
-      throw fail(serverMessages.sessionTransfer.notTransferable);
-    historyMode = thread.historyMode || "legacy";
-    if (!["legacy", "paginated"].includes(historyMode))
-      throw fail(serverMessages.sessionTransfer.codexStorageUnsupported);
-    file = thread.path;
-  }
+  const { file, historyMode } = await transfer.locate({
+    history,
+    session,
+    id,
+    fail: failKey,
+  });
   const relative = relativeTo(source, file);
-  if (
-    session.tool === "codex"
-      ? !/^(sessions|archived_sessions)\//.test(relative) ||
-        !path.basename(file).endsWith(`-${id}.jsonl`)
-      : !relative.startsWith(`projects${path.sep}`) ||
-        path.basename(file) !== `${id}.jsonl`
-  )
+  if (!transfer.safePath(relative, file, id))
     throw fail(serverMessages.sessionTransfer.unsafePath);
-  const destination = (entry) =>
-    session.tool === "codex" ? entry.replace(/^archived_sessions\//, "sessions/") : entry;
+  const destination = transfer.destination;
   async function snapshot() {
     const files = [];
     await collect(source, relative, files);
-    if (session.tool === "claude") {
-      await collect(source, relative.slice(0, -6), files, true);
-      await collect(source, path.join("file-history", id), files, true);
-    }
+    for (const extra of transfer.companions(relative, id))
+      await collect(source, extra, files, true);
     const entries = [];
     for (const entry of files) {
       const input = await checked(source, entry);

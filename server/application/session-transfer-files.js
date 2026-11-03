@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { pipeline } from "node:stream/promises";
 import { problem } from "../lib/storage.js";
 import { serverMessages } from "../lib/i18n/de.js";
+import { cliDriver } from "../features/clis/drivers.js";
 
 const fail = (key) => problem(serverMessages.sessionTransfer[key], 409);
 const MAX_RECORD = 64 * 1024 * 1024;
@@ -120,23 +121,5 @@ export async function stageFile(source, temp, expected) {
 }
 
 export function historyValidator(session, id, historyMode) {
-  let meta,
-    ordinal = 0;
-  return {
-    record(record) {
-      if (session.tool === "codex") {
-        if (!meta && record.type === "session_meta") meta = record.payload;
-        if (historyMode === "paginated" && record.ordinal !== ordinal)
-          throw fail("notPortable");
-      } else if (!meta && record.sessionId && record.cwd && !record.isSidechain)
-        meta = record;
-      ordinal++;
-    },
-    finish() {
-      if ((meta?.id || meta?.sessionId) !== id || meta.cwd !== session.cwd)
-        throw fail("identityMismatch");
-      if (session.tool === "codex" && (meta.history_mode || "legacy") !== historyMode)
-        throw fail("notPortable");
-    },
-  };
+  return cliDriver(session.tool).transfer.validator({ session, id, historyMode, fail });
 }
