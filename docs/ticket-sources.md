@@ -167,7 +167,8 @@ and pickups) is kept under its project id. When a project gets a new id, because
 plain folder became a Git work tree or because you merged an older duplicate row into
 it, the ticket data moves with the rest of the project:
 
-- the source link (a link the new project already has wins);
+- the source link, merged field by field: the new project's Plane link when it has
+  one, else the old one, and its GitHub label unless that is the default;
 - the start records;
 - the sequence, behind the new project's items. A ticket queued in both stays once,
   as the copy that got further (awaiting merge, then running, then waiting for you,

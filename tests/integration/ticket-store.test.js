@@ -306,3 +306,32 @@ test("a write-back cut off by a restart reads as failed: interrupted", (t) => {
     state: "done",
   });
 });
+
+test("a project move merges the source links field by field", (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "ap-ticket-move-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const store = new TicketStore({ dataDir });
+  const { id } = store.createConnection(valid);
+  const plane = {
+    connectionId: id,
+    planeProjectId: "11111111-1111-4111-8111-111111111111",
+    identifier: "AP",
+    name: "AgentPier",
+  };
+  // The old row has the Plane link and a label; the new one only the default label.
+  store.setProjectLink("old", "/repo", { plane, github: { inProgressLabel: "doing" } });
+  store.setProjectLink("new", "/repo2", {});
+  store.moveProject("old", "new");
+  const moved = store.projectLink("new");
+  assert.equal(moved.plane.connectionId, id);
+  assert.equal(moved.github.inProgressLabel, "doing");
+  assert.equal(moved.repoPath, "/repo2");
+  assert.equal(store.projectLink("old").plane, null);
+  assert.equal(store.projects.filter((link) => link.projectId === "new").length, 1);
+  // The new row's own values win where it has them.
+  store.setProjectLink("old", "/repo", { github: { inProgressLabel: "wip" } });
+  store.setProjectLink("new", "/repo2", { github: { inProgressLabel: "busy" } });
+  store.moveProject("old", "new");
+  assert.equal(store.projectLink("new").plane, null);
+  assert.equal(store.projectLink("new").github.inProgressLabel, "busy");
+});
