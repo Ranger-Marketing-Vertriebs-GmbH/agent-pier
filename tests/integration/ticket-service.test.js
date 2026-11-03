@@ -10,7 +10,6 @@ import { fakeGithub, fakePlane, githubIssue } from "../helpers/ticket-fakes.js";
 
 const planeProjectId = "11111111-1111-4111-8111-111111111111";
 const otherPlaneProjectId = "22222222-2222-4222-8222-222222222222";
-const linkBase = "http://127.0.0.1:4380";
 const STATES = [
   { id: "s-todo", name: "Todo", group: "unstarted", sequence: 1 },
   { id: "s-prog", name: "In progress", group: "started", sequence: 10 },
@@ -191,16 +190,12 @@ test("a refusing tracker reads as its code next to the other source", async (t) 
 
 test("a session start launches, sends the task and marks the ticket in progress", async (t) => {
   const { service, launched, sent, github, hubSignals, projectPath } = await setup(t);
-  const result = await service.start(
-    "p1",
-    {
-      source: "github",
-      key: "acme/app#7",
-      kind: "session",
-      session: { accountId: "a1", cwd: "/elsewhere", ticket: { key: "forged" } },
-    },
-    { linkBase },
-  );
+  const result = await service.start("p1", {
+    source: "github",
+    key: "acme/app#7",
+    kind: "session",
+    session: { accountId: "a1", cwd: "/elsewhere", ticket: { key: "forged" } },
+  });
   assert.equal(launched[0].body.cwd, projectPath);
   assert.equal(launched[0].body.ticket, undefined);
   assert.equal(launched[0].body.name, "acme/app#7 · Fix login");
@@ -221,21 +216,20 @@ test("a session start launches, sends the task and marks the ticket in progress"
   assert.deepEqual(label.body, { labels: ["in progress"] });
   assert.equal(label.authorization, "Bearer gh-token");
   const comment = github.calls.find((c) => c.path.endsWith("/issues/7/comments"));
-  assert.equal(
-    comment.body.body,
-    `Started in AgentPier: [session](${linkBase}/sessions/s1)`,
-  );
+  assert.equal(comment.body.body, "Started in AgentPier (session).");
+  assert.doesNotMatch(comment.body.body, /https?:|\/\/|localhost|127\.0\.0\.1/);
   assert.ok(hubSignals.includes("tickets.project:p1"));
 });
 
 test("the project's own in-progress label is used", async (t) => {
   const { service, github } = await setup(t);
   await service.setSources("p1", { github: { inProgressLabel: "doing" } });
-  await service.start(
-    "p1",
-    { source: "github", key: "acme/app#7", kind: "session", session: {} },
-    { linkBase },
-  );
+  await service.start("p1", {
+    source: "github",
+    key: "acme/app#7",
+    kind: "session",
+    session: {},
+  });
   const label = github.calls.find((c) => c.path === "/repos/acme/app/issues/7/labels");
   assert.deepEqual(label.body, { labels: ["doing"] });
 });
@@ -243,16 +237,12 @@ test("the project's own in-progress label is used", async (t) => {
 test("a pipeline start passes the ticket to the engine", async (t) => {
   const { service, engineStarts, plane, linkPlane, projectPath } = await setup(t);
   await linkPlane();
-  const result = await service.start(
-    "p1",
-    {
-      source: "plane",
-      key: "AP-3",
-      kind: "pipeline",
-      pipeline: { pipelineId: "review", task: "forged", cwd: "/elsewhere" },
-    },
-    { linkBase },
-  );
+  const result = await service.start("p1", {
+    source: "plane",
+    key: "AP-3",
+    kind: "pipeline",
+    pipeline: { pipelineId: "review", task: "forged", cwd: "/elsewhere" },
+  });
   assert.deepEqual(engineStarts[0].options.ticket.key, "AP-3");
   assert.equal(engineStarts[0].input.cwd, projectPath);
   assert.equal(engineStarts[0].input.pipelineId, "review");
@@ -262,7 +252,11 @@ test("a pipeline start passes the ticket to the engine", async (t) => {
   const patch = plane.calls.find((c) => c.method === "PATCH");
   assert.deepEqual(patch.body, { state: "s-prog" });
   const comment = plane.calls.find((c) => c.path.endsWith("/comments/"));
-  assert.match(comment.body.comment_html, /\/pipelines\/runs\/run-1/);
+  assert.equal(comment.body.comment_html, "<p>Started in AgentPier (pipeline run).</p>");
+  assert.doesNotMatch(
+    comment.body.comment_html,
+    /https?:|\/\/|href|localhost|127\.0\.0\.1/,
+  );
 });
 
 test("write-back failure keeps the start", async (t) => {
@@ -271,11 +265,12 @@ test("write-back failure keeps the start", async (t) => {
   });
   const logged = [];
   t.mock.method(console, "error", (...args) => logged.push(args.join(" ")));
-  const result = await service.start(
-    "p1",
-    { source: "github", key: "acme/app#7", kind: "session", session: {} },
-    { linkBase },
-  );
+  const result = await service.start("p1", {
+    source: "github",
+    key: "acme/app#7",
+    kind: "session",
+    session: {},
+  });
   assert.deepEqual(result.start.writeBack, { state: "failed", code: "forbidden" });
   assert.equal(launched.length, 1);
   assert.deepEqual(store.starts("p1")[0].writeBack, {
@@ -289,11 +284,13 @@ test("write-back failure keeps the start", async (t) => {
 test("a ticket starts once unless again", async (t) => {
   const { service, launched } = await setup(t);
   const start = (extra = {}) =>
-    service.start(
-      "p1",
-      { source: "github", key: "acme/app#7", kind: "session", session: {}, ...extra },
-      { linkBase },
-    );
+    service.start("p1", {
+      source: "github",
+      key: "acme/app#7",
+      kind: "session",
+      session: {},
+      ...extra,
+    });
   const [a, b] = await Promise.allSettled([start(), start({ key: "ACME/App#7" })]);
   const refused = [a, b].filter((r) => r.status === "rejected");
   assert.equal(refused.length, 1);
@@ -310,11 +307,12 @@ test("a ticket starts once unless again", async (t) => {
 test("a shell account cannot start a ticket session", async (t) => {
   const { service, sent, store } = await setup(t, { tool: "shell" });
   await assert.rejects(
-    service.start(
-      "p1",
-      { source: "github", key: "acme/app#7", kind: "session", session: {} },
-      { linkBase },
-    ),
+    service.start("p1", {
+      source: "github",
+      key: "acme/app#7",
+      kind: "session",
+      session: {},
+    }),
     { status: 400 },
   );
   assert.equal(sent.length, 0);
@@ -325,19 +323,21 @@ test("a key of another repository or Plane project is refused before any launch"
   const { service, launched, engineStarts, linkPlane } = await setup(t);
   await linkPlane();
   await assert.rejects(
-    service.start(
-      "p1",
-      { source: "github", key: "other/repo#7", kind: "session", session: {} },
-      { linkBase },
-    ),
+    service.start("p1", {
+      source: "github",
+      key: "other/repo#7",
+      kind: "session",
+      session: {},
+    }),
     { status: 502, code: "notFound" },
   );
   await assert.rejects(
-    service.start(
-      "p1",
-      { source: "plane", key: "XY-3", kind: "pipeline", pipeline: { pipelineId: "x" } },
-      { linkBase },
-    ),
+    service.start("p1", {
+      source: "plane",
+      key: "XY-3",
+      kind: "pipeline",
+      pipeline: { pipelineId: "x" },
+    }),
     { code: "notFound" },
   );
   for (const bad of [
@@ -347,7 +347,7 @@ test("a key of another repository or Plane project is refused before any launch"
     { source: "github", key: "a/b#1", kind: "session", again: "yes" },
     { source: "github", key: "a/b#1", kind: "pipeline", pipeline: {} },
   ])
-    await assert.rejects(service.start("p1", bad, { linkBase }), { status: 400 });
+    await assert.rejects(service.start("p1", bad), { status: 400 });
   assert.equal(launched.length, 0);
   assert.equal(engineStarts.length, 0);
 });
@@ -433,11 +433,12 @@ for (const [name, deliver] of [
   test(`${name} stops the session and leaves no start`, async (t) => {
     const { service, store, stopped, github, launched } = await setup(t, { deliver });
     const start = () =>
-      service.start(
-        "p1",
-        { source: "github", key: "acme/app#7", kind: "session", session: {} },
-        { linkBase },
-      );
+      service.start("p1", {
+        source: "github",
+        key: "acme/app#7",
+        kind: "session",
+        session: {},
+      });
     await assert.rejects(start());
     assert.deepEqual(stopped, ["s1"]);
     assert.equal(store.starts("p1").length, 0);

@@ -4,7 +4,7 @@ import { publicSession } from "../../features/sessions/session-public.js";
 // Owner-only like every /api route outside /api/me (route-access.js). Responses carry
 // connection metadata and failure codes, never a token.
 export function ticketRoutes(services) {
-  const { tickets, config } = services;
+  const { tickets } = services;
   const router = Router();
   router.get("/ticket-connections", (req, res) => res.json(tickets.connectionsView()));
   router.post("/ticket-connections", (req, res) =>
@@ -42,12 +42,7 @@ export function ticketRoutes(services) {
     ),
   );
   router.post("/tickets/projects/:projectId/start", async (req, res) => {
-    // Links in the tracker point at the remote address when there is one, else at
-    // the origin the browser used (security.js verified it for this POST).
-    const linkBase = config.remoteUrl
-      ? new URL(config.remoteUrl).origin
-      : req.headers.origin;
-    const result = await tickets.start(req.params.projectId, req.body, { linkBase });
+    const result = await tickets.start(req.params.projectId, req.body);
     res
       .status(201)
       .json(
