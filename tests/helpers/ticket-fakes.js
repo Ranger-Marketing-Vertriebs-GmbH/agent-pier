@@ -173,13 +173,47 @@ export function githubPull(number, extra = {}) {
     state: "OPEN",
     createdAt: "2026-11-03T10:00:00Z",
     mergeable: "MERGEABLE",
-    mergeStateStatus: "CLEAN",
+    // null: derived from the checks and the review decision, like GitHub does.
+    mergeStateStatus: null,
     reviewDecision: null,
     autoMerge: false,
     inMergeQueue: false,
     contexts: [],
     ...extra,
   };
+}
+
+// The merge states in which GitHub merges at once and refuses to arm auto-merge.
+const MERGEABLE = new Set(["CLEAN", "HAS_HOOKS", "UNSTABLE"]);
+
+function checkDone(node) {
+  if (node.__typename === "CheckRun")
+    return node.status !== "COMPLETED"
+      ? "pending"
+      : ["SUCCESS", "NEUTRAL", "SKIPPED"].includes(node.conclusion)
+        ? "success"
+        : "failure";
+  return node.state === "SUCCESS"
+    ? "success"
+    : node.state === "PENDING"
+      ? "pending"
+      : "failure";
+}
+
+/**
+ * The PR's merge state: its own when set, else GitHub's rule of thumb: BLOCKED while a
+ * required check is not green or a review is missing or requests changes, UNSTABLE when
+ * only another check is not green, CLEAN otherwise.
+ */
+export function mergeState(pull) {
+  if (pull.mergeStateStatus) return pull.mergeStateStatus;
+  const contexts = pull.contexts ?? [];
+  if (contexts.some((node) => node.isRequired && checkDone(node) !== "success"))
+    return "BLOCKED";
+  if (["REVIEW_REQUIRED", "CHANGES_REQUESTED"].includes(pull.reviewDecision))
+    return "BLOCKED";
+  if (contexts.some((node) => checkDone(node) !== "success")) return "UNSTABLE";
+  return "CLEAN";
 }
 
 // Fake GitHub pull request API (REST + GraphQL) on 127.0.0.1 over an in-memory `pulls`
@@ -222,7 +256,7 @@ export async function fakeGithubPulls(
     headRefOid: pull.headSha,
     baseRefName: pull.baseRef,
     mergeable: pull.mergeable,
-    mergeStateStatus: pull.mergeStateStatus,
+    mergeStateStatus: mergeState(pull),
     reviewDecision: pull.reviewDecision,
     isInMergeQueue: pull.inMergeQueue,
     autoMergeRequest: pull.autoMerge ? { enabledAt: "2026-11-03T10:05:00Z" } : null,
@@ -239,6 +273,11 @@ export async function fakeGithubPulls(
       const input = variables.input ?? {};
       const pull = byId(input.pullRequestId ?? input.id);
       if (!pull) return { errors: [{ type: "NOT_FOUND", message: "no pull" }] };
+      // GitHub refuses auto-merge on a PR that can merge right away.
+      if (mutation === "enablePullRequestAutoMerge" && MERGEABLE.has(mergeState(pull)))
+        return {
+          errors: [{ type: "UNPROCESSABLE", message: "Pull request is in clean status" }],
+        };
       if (mutation === "enablePullRequestAutoMerge") pull.autoMerge = true;
       else if (mutation === "disablePullRequestAutoMerge") pull.autoMerge = false;
       else if (mutation === "enqueuePullRequest") pull.inMergeQueue = true;
@@ -306,7 +345,8 @@ export async function fakeGithubPulls(
       if (req.method === "PUT" && merge) {
         const pull = pulls.find((item) => item.number === Number(merge[1]));
         if (!pull) return send(404, { message: "Not Found" });
-        if (pull.state !== "OPEN") return send(405, { message: "not mergeable" });
+        if (pull.state !== "OPEN" || !MERGEABLE.has(mergeState(pull)))
+          return send(405, { message: "not mergeable" });
         if (body?.sha !== pull.headSha) return send(409, { message: "head moved" });
         pull.state = "MERGED";
         return send(200, { merged: true, sha: "f".repeat(40) });

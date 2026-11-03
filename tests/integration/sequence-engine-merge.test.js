@@ -3,8 +3,10 @@ import assert from "node:assert/strict";
 import * as prForge from "../../server/features/tickets/pr-forge.js";
 import { TicketSourceError } from "../../server/features/tickets/http-json.js";
 import { PARK_REASONS } from "../../server/features/tickets/sequence-engine.js";
+import { githubPull } from "../helpers/ticket-fakes.js";
 import {
   GREEN,
+  KEY,
   awaitingMerge,
   forgeMerges as merges,
   forgeMutations as mutations,
@@ -107,7 +109,7 @@ test("a refused auto-merge on a pending head is recorded, never retried, and par
   const pull = await awaitingMerge(f, {
     engine,
     allowMerge: true,
-    pull: { contexts: PENDING },
+    pull: { contexts: PENDING, reviewDecision: "REVIEW_REQUIRED" },
   });
   await passes(engine);
   assert.equal(calls.length, 1);
@@ -118,10 +120,95 @@ test("a refused auto-merge on a pending head is recorded, never retried, and par
     code: "invalidResponse",
   });
   pull.contexts = GREEN;
+  pull.reviewDecision = "APPROVED";
+  // Approved and green but still blocked (another rule): nothing is left to wait for.
+  pull.mergeStateStatus = "BLOCKED";
   await engine.run();
   assert.equal(calls.length, 1);
   assert.equal(f.items()[0].needsOwner.reason, "armRefused");
   assert.equal(f.notified.length, 1);
+});
+
+test("a PR GitHub refused to arm is merged directly once it is mergeable", async (t) => {
+  const f = await sequenceFixture(t);
+  const { forge, calls } = refusingForge("enableAutoMerge", "invalidResponse");
+  const engine = f.build({ forge });
+  const pull = await awaitingMerge(f, {
+    engine,
+    allowMerge: true,
+    pull: { contexts: PENDING },
+  });
+  assert.equal(calls.length, 1);
+  pull.contexts = GREEN;
+  await engine.run();
+  assert.equal(merges(f).length, 1);
+  assert.equal(merges(f)[0].body.sha, pull.headSha);
+  assert.equal(f.items()[0].state, "done");
+});
+
+test("a PR that is mergeable now is merged directly, not armed", async (t) => {
+  // An unprotected repo with auto-merge allowed, green at the first read.
+  const f = await sequenceFixture(t);
+  f.append([KEY, "acme/app#13"], { allowMerge: true });
+  await f.engine.run();
+  const pull = githubPull(30, { headRef: f.items()[0].worktree.branch, contexts: GREEN });
+  f.forge.pulls.push(pull);
+  await f.engine.run();
+  assert.equal(mutations(f, "enablePullRequestAutoMerge").length, 0);
+  assert.equal(merges(f).length, 1);
+  assert.equal(merges(f)[0].body.sha, pull.headSha);
+  assert.equal(f.items()[0].state, "done");
+  assert.equal(f.items()[0].refused, undefined);
+});
+
+test("the fake forge refuses auto-merge on a mergeable PR, like GitHub", async (t) => {
+  const f = await sequenceFixture(t);
+  const pull = await awaitingMerge(f);
+  const access = (await f.tickets.accesses({ id: "p1", path: f.repoPath })).github;
+  const snapshot = await prForge.readPullRequest(access, pull.number);
+  assert.equal(snapshot.mergeStateStatus, "CLEAN");
+  await assert.rejects(prForge.enableAutoMerge(access, snapshot), {
+    code: "invalidResponse",
+  });
+  assert.equal(pull.autoMerge, false);
+});
+
+test("reviews required but no required checks: red CI never merges, even approved", async (t) => {
+  const f = await sequenceFixture(t);
+  const ci = [{ ...GREEN[0], isRequired: false }];
+  const pull = await awaitingMerge(f, {
+    allowMerge: true,
+    pull: {
+      contexts: [{ ...ci[0], status: "IN_PROGRESS", conclusion: null }],
+      reviewDecision: "REVIEW_REQUIRED",
+    },
+  });
+  await passes(f.engine);
+  // GitHub's auto-merge would ignore the CI here: AgentPier does not arm it.
+  assert.equal(mutations(f, "enablePullRequestAutoMerge").length, 0);
+  pull.contexts = [{ ...ci[0], conclusion: "FAILURE" }];
+  await f.engine.run();
+  pull.reviewDecision = "APPROVED";
+  await passes(f.engine);
+  assert.equal(merges(f).length, 0);
+  assert.equal(mutations(f, "enablePullRequestAutoMerge").length, 0);
+  assert.equal(f.items()[0].state, "awaiting-merge");
+  // A green re-run of the approved PR merges it directly.
+  pull.contexts = ci;
+  await f.engine.run();
+  assert.equal(merges(f).length, 1);
+  assert.equal(f.items()[0].state, "done");
+});
+
+test("auto-merge is not armed while a required check has failed", async (t) => {
+  const f = await sequenceFixture(t);
+  await awaitingMerge(f, {
+    allowMerge: true,
+    pull: { contexts: RED, reviewDecision: "REVIEW_REQUIRED" },
+  });
+  await passes(f.engine);
+  assert.equal(mutations(f, "enablePullRequestAutoMerge").length, 0);
+  assert.equal(merges(f).length, 0);
 });
 
 test("a refused enqueue of a ready head parks with armRefused", async (t) => {
