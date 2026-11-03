@@ -473,6 +473,9 @@ export async function fixture(page, { account, session } = {}) {
     // Connections counts the email accounts; fixtures have none.
     if (path === "/api/mail/accounts" && method === "GET")
       return route.fulfill({ json: { accounts: [], presets: {} } });
+    // ... and its Plane connections (Ticket sources); fixtures have none.
+    if (path === "/api/ticket-connections" && method === "GET")
+      return route.fulfill({ json: { connections: [] } });
     // The start page follows the live `inbox` topic; nothing waits here.
     if (path === "/api/inbox" && method === "GET")
       return route.fulfill({

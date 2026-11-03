@@ -404,12 +404,7 @@ function Application() {
                   defaultCwd={state.defaultCwd}
                   state={state}
                   select={select}
-                  onLaunch={(cwd) =>
-                    setModal({
-                      type: "launch",
-                      cwd,
-                    })
-                  }
+                  onLaunch={(cwd, ticket) => setModal({ type: "launch", cwd, ticket })}
                 />
               ) : view === "connections" ? (
                 <ConnectionsPage

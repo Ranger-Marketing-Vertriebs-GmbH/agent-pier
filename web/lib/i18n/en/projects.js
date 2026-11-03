@@ -21,6 +21,7 @@ export const projectsHubCopy = {
   tabKnowledge: "Knowledge",
   tabAgentBus: "AgentBus",
   tabRuns: "Runs",
+  tabTickets: "Tickets",
   notFound: "Project not found",
   notFoundDescription:
     "This project no longer exists. Choose another project from the list.",
