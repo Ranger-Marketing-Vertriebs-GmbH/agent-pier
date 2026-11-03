@@ -209,7 +209,8 @@ export class TicketRuleMonitor {
     });
   }
   async fail(rule, code) {
-    const status = this.rules.rule(rule.projectId, rule.id)?.status ?? rule.status;
+    const before = this.rules.rule(rule.projectId, rule.id) ?? rule;
+    const { status } = before;
     const same = status.error?.code === code;
     const since = same ? status.error.since : this.now();
     if (!same) this.log(`AgentPier could not poll a label rule: ${code}`);
@@ -234,6 +235,16 @@ export class TicketRuleMonitor {
         this.onError(error);
       }
       next.notified = code;
+      // An owner edit during the push that deleted, paused or moved the rule reset its
+      // status: the old error must not come back over it.
+      const after = this.rules.rule(rule.projectId, rule.id);
+      if (
+        !after ||
+        after.paused ||
+        after.source !== before.source ||
+        labelKey(after.label) !== labelKey(before.label)
+      )
+        return;
     }
     this.rules.setStatus(rule.projectId, rule.id, next);
   }
