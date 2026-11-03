@@ -461,16 +461,21 @@ are untouched. A main chat in which a turn runs, a message waits, an approval is
 or a summary runs is swapped as soon as it is free (for at most a day); a turn is never
 cut for it. Temporary members that follow the model of the agent get the same
 treatment. A member you switch in its own Identity tab gets a fresh chat of its own
-likewise.
+likewise; there the hint reads "A new chat for this team member; the old one stays
+readable. Nothing running stops."
 
 Work that still reports into a replaced chat is not lost. A member's result, a lead's
 answer and the follow-up of an SSH, SFTP or mail action reach your current main chat
-instead, with the note "This result was started in the previous chat."
+instead, with the note "This result was started in the previous chat." A message you
+send from a replaced chat still open somewhere else goes to the new chat too, without
+that note.
 
 Other chats you started (not the main chat) are not replaced. When one of them began on
 another model family, it shows a hint above the composer: "This chat began with another
 model. Its history can affect the answers." with **New chat** and **Dismiss**. Each
-person dismisses it for themselves, once per change of family.
+person dismisses it for themselves, once per change of family. A chat that took no
+turn since before this hint existed counts as begun on the model the agent used until
+the switch.
 
 A switch with fresh chats also has the new model review the agent's memory; see
 [Memory](#memory).
@@ -620,7 +625,7 @@ of the agent (for a team member in your main chat of its lead). It lists each en
 with its file and **Archive** (preselected) or **Keep**; **Apply** carries out your
 choices, and until then the memory stays as it is. Only you see and decide the card,
 also when a lead switched a member's model; a lead and the users of a shared agent
-never see it, and a user's own agent gets none. A later switch of the same agent
+never see it, and a user's own agent (or a member of one) is not reviewed. A later switch of the same agent
 replaces an undecided card. When the review fails, a push notice **Memory not reviewed
 after a model switch** opens the agent's memory page.
 
