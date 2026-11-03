@@ -49,6 +49,15 @@ function mergeHow(snapshot, verdict, green) {
 }
 
 const copy = serverMessages.tickets;
+// GitHub access that is gone or refused (a 403 rate limit is `rateLimited`).
+const ACCESS_CODES = new Set([
+  "githubRequired",
+  "notConnected",
+  "unauthorized",
+  "forbidden",
+]);
+const noGithub = () =>
+  Object.assign(problem(copy.githubRequired, 409), { code: "githubRequired" });
 // Steps one advance may take: start, find the PR, merge, the next ticket's start…
 const MAX_STEPS = 12;
 
@@ -308,7 +317,8 @@ export class TicketSequenceEngine {
 
   /**
    * A GitHub read failed: skipped like any blip, but failures for FORGE_LIMIT_MS in a
-   * row (counted from the first one) park the queue with `forgeUnreachable`.
+   * row (counted from the first one) park the queue: with `githubRequired` when the
+   * last one was missing or refused access, else with `forgeUnreachable`.
    */
   forgeFailed(ctx, item, error, step) {
     this.skip(error, step);
@@ -320,7 +330,11 @@ export class TicketSequenceEngine {
       return false;
     }
     if (this.now() - since >= FORGE_LIMIT_MS)
-      return this.park(ctx, current, "forgeUnreachable");
+      return this.park(
+        ctx,
+        current,
+        ACCESS_CODES.has(error?.code) ? "githubRequired" : "forgeUnreachable",
+      );
     return false;
   }
 
@@ -357,7 +371,7 @@ export class TicketSequenceEngine {
   // ── running: wait for the pull request ───────────────────────────────────────
 
   async watchRun(ctx, item) {
-    if (!ctx.github) return this.skip(problem(copy.githubRequired, 409), "watch");
+    if (!ctx.github) return this.forgeFailed(ctx, item, noGithub(), "watch");
     return item.kind === "session"
       ? this.watchSession(ctx, item)
       : this.watchPipeline(ctx, item);
@@ -437,7 +451,7 @@ export class TicketSequenceEngine {
   // ── awaiting-merge: watch, arm or merge ──────────────────────────────────────
 
   async watchPr(ctx, item) {
-    if (!ctx.github) return this.skip(problem(copy.githubRequired, 409), "watch");
+    if (!ctx.github) return this.forgeFailed(ctx, item, noGithub(), "watch");
     let snapshot;
     try {
       snapshot = await this.forge.readPullRequest(

@@ -7602,7 +7602,7 @@
   "ticket-sequences:ticketQueueCopy.reasons.armRefused": "de:cd8495df2e46 en:13d58779f872",
   "ticket-sequences:ticketQueueCopy.reasons.failedRounds": "de:ddf9b18f8b4b en:f09609f5559e",
   "ticket-sequences:ticketQueueCopy.reasons.forgeUnreachable": "de:80cd4c0a7d68 en:d11d0a9aa008",
-  "ticket-sequences:ticketQueueCopy.reasons.githubRequired": "de:c0efd8269006 en:1631b7a59511",
+  "ticket-sequences:ticketQueueCopy.reasons.githubRequired": "de:bb78ef74d1d6 en:a96361653be9",
   "ticket-sequences:ticketQueueCopy.reasons.idle": "de:285819118e44 en:00fde5e6fb9d",
   "ticket-sequences:ticketQueueCopy.reasons.mergeDisarmed": "de:3b79fc7fa277 en:848937b3272e",
   "ticket-sequences:ticketQueueCopy.reasons.mergeRefused": "de:3d7dcc6c7794 en:333f7fc2eb16",

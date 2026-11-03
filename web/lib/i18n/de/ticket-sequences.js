@@ -11,7 +11,7 @@ export const ticketQueueCopy = {
     done: "Erledigt",
   },
   reasons: {
-    githubRequired: "Das Projekt hat keinen GitHub-Zugang.",
+    githubRequired: "Der GitHub-Zugang fehlt oder wurde abgelehnt.",
     sourceUnavailable: "Die Ticketquelle ist nicht mehr verbunden.",
     ticketUnavailable: "Das Ticket wurde nicht gefunden.",
     startFailed: "Das Ticket konnte nicht gestartet werden.",

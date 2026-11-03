@@ -248,7 +248,46 @@ test("a forge success resets the failure clock", async (t) => {
   assert.equal(f.items()[0].state, "awaiting-merge");
   f.clock.now = T0 + 56 * MIN;
   await f.engine.run();
-  assert.equal(f.items()[0].needsOwner.reason, "forgeUnreachable");
+  // A 403 that is no rate limit: the token lost its access.
+  assert.equal(f.items()[0].needsOwner.reason, "githubRequired");
+});
+
+test("a rejected token parks with githubRequired after 30 minutes", async (t) => {
+  const failures = {};
+  const f = await sequenceFixture(t, { failures });
+  await awaitingMerge(f);
+  failures["POST /graphql"] = 401;
+  await f.engine.run();
+  f.clock.now = T0 + 20 * MIN;
+  await f.engine.run();
+  assert.equal(f.items()[0].state, "awaiting-merge");
+  f.clock.now = T0 + 31 * MIN;
+  await f.engine.run();
+  assert.equal(f.items()[0].needsOwner.reason, "githubRequired");
+  assert.equal(f.notified.length, 1);
+});
+
+test("a token profile that is gone parks running and awaiting tickets", async (t) => {
+  for (const awaiting of [false, true]) {
+    const f = await sequenceFixture(t);
+    if (awaiting) await awaitingMerge(f);
+    else {
+      f.append([KEY, "acme/app#13"]);
+      await f.engine.run();
+    }
+    const state = f.items()[0].state;
+    f.tickets.repositories.token = () => null;
+    await f.engine.run();
+    assert.equal(f.items()[0].forgeFailingSince, T0);
+    f.clock.now = T0 + 29 * MIN;
+    await f.engine.run();
+    assert.equal(f.items()[0].state, state);
+    f.clock.now = T0 + 31 * MIN;
+    await f.engine.run();
+    assert.equal(f.items()[0].needsOwner.reason, "githubRequired", state);
+    assert.equal(f.notified.length, 1);
+    assert.equal(f.items()[1].state, "waiting");
+  }
 });
 
 test("a merge queue that drops a red head re-arms it once a re-run is green", async (t) => {
