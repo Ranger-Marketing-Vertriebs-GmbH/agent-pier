@@ -123,9 +123,7 @@ export class CliOAuthStatus {
     const tool = this.tools().find((item) => item.id === "codex" && item.installed);
     if (!tool) return {};
     const args = [
-      ...(accountId === "local-codex"
-        ? []
-        : this.accounts.codexCredentialArgs(accountId)),
+      ...(accountId === "local-codex" ? [] : this.accounts.credentialArgs(accountId)),
       "mcp",
       "list",
       "--json",

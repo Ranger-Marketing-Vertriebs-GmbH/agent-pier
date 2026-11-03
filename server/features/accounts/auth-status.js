@@ -75,9 +75,7 @@ export class AccountAuthStatus {
       let exitCode = 0;
       try {
         const args = [
-          ...(account.tool === "codex"
-            ? this.accounts.codexCredentialArgs(account.id)
-            : []),
+          ...this.accounts.credentialArgs(account.id),
           ...statusArgs[account.tool],
         ];
         ({ stdout, stderr } = await execute(tool.path, args, {

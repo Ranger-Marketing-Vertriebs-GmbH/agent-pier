@@ -112,7 +112,7 @@ export class PluginStore {
       boundary,
       cwd,
       env,
-      configArgs: this.accounts.codexCredentialArgs(id),
+      configArgs: this.accounts.credentialArgs(id),
       command: this.resolveTool(account.tool, env),
     };
   }

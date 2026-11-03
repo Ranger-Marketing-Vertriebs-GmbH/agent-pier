@@ -189,12 +189,35 @@ function promptReady(raw) {
   return true; // Alt+P preserves even a non-empty native draft.
 }
 
+/**
+ * The model behind the name the picker displays, for a reload: an exact id, else a
+ * label such as "Opus 4.7 (1M context)" that the `observed` model id confirms.
+ */
+function resolveDisplayed(displayedModel, { observed, identifier }) {
+  const exact = identifier(displayedModel);
+  if (exact) return { modelId: exact };
+  const claude =
+    /^(Opus|Sonnet|Haiku) (\d+(?:\.\d+)?)( \(1M context\))?( \(default\))?$/i.exec(
+      displayedModel,
+    );
+  if (claude && observed) {
+    const canonical = `claude-${claude[1].toLowerCase()}-${claude[2].replaceAll(".", "-")}`;
+    const extended = observed.endsWith("[1m]");
+    const base = extended ? observed.slice(0, -4) : observed;
+    const date = base.startsWith(canonical + "-") ? base.slice(canonical.length + 1) : "";
+    if ((base === canonical || /^\d{8}$/.test(date)) && (!claude[3] || extended))
+      return { modelId: observed };
+  }
+  return undefined;
+}
+
 export const modelPicker = {
   openKeys: [{ keys: ["M-p"] }],
   parse: parsePicker,
   current: currentModel,
   promptReady,
   unsupported: unsupportedPicker,
+  resolveDisplayed,
 };
 
 const claudeLimit =

@@ -61,14 +61,14 @@ for (const [mode, login, expected] of [
       (await accounts.command(account.id, { codex }, login, mode)).args,
       expected,
     );
-    assert.deepEqual(accounts.codexCredentialArgs(account.id), OVERRIDES);
+    assert.deepEqual(accounts.credentialArgs(account.id), OVERRIDES);
   });
 
 test("only managed Codex accounts receive credential store overrides", async (t) => {
   const { accounts } = fixture(t);
   const claude = accounts.create({ name: "Claude", tool: "claude" });
-  assert.deepEqual(accounts.codexCredentialArgs("local-codex"), []);
-  assert.deepEqual(accounts.codexCredentialArgs(claude.id), []);
+  assert.deepEqual(accounts.credentialArgs("local-codex"), []);
+  assert.deepEqual(accounts.credentialArgs(claude.id), []);
 });
 
 for (const login of [false, true])

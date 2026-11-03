@@ -1,4 +1,5 @@
 import { tomlValue } from "./launch-serialization.js";
+import { cliDefinition, isCodingCli } from "../features/clis/catalog.js";
 
 /**
  * Codex is the only native CLI AgentPier launches inside an operating-system
@@ -22,9 +23,10 @@ export function codexSandboxArguments() {
  * sandbox profile, so it wins over Codex's own sandbox mode. Without one,
  * Claude and OpenCode run under the host user's own file permissions, so
  * "none" is the honest value for them rather than a mode borrowed from
- * Codex's vocabulary.
+ * Codex's vocabulary. The CLI's own mode is its definition's `nativeSandbox`; a
+ * tool that is no coding CLI (the shell) runs unconfined as well.
  */
 export function runSandbox(tool, nonoProfile = null) {
   if (nonoProfile) return "nono";
-  return tool === "codex" ? CODEX_SANDBOX_MODE : "none";
+  return (isCodingCli(tool) && cliDefinition(tool).nativeSandbox) || "none";
 }

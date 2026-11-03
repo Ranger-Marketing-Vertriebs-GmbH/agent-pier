@@ -30,6 +30,14 @@ export function transcriptFiles(home) {
   }));
 }
 
+/**
+ * The models the picker can display, for the reload model lookup. Goes through the
+ * history service (`readCodexModels`), which owns the app-server client.
+ */
+export function models(history, session) {
+  return history.readCodexModels(session);
+}
+
 export async function readModels(history, session) {
   return history.codexRequest(session, async (client) => {
     const models = [],
