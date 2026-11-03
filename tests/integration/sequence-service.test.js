@@ -335,3 +335,26 @@ test("owner actions wait for a running step and step the queue after them", asyn
   await settled(f);
   assert.equal(steps.length, 2);
 });
+
+test("an owner action waits for one step, not the whole step loop", async (t) => {
+  const f = await sequenceFixture(t);
+  f.append([KEY]);
+  let release;
+  const gate = new Promise((resolve) => (release = resolve));
+  const order = [];
+  t.mock.method(f.engine, "step", async () => {
+    order.push("step");
+    if (order.length === 1) await gate;
+    return true;
+  });
+  const running = f.engine.nudge("p1");
+  await new Promise((resolve) => setImmediate(resolve));
+  const action = f.engine.exclusive("p1", async () => order.push("action"));
+  release();
+  await action;
+  await running;
+  // The loop stopped after its running step; the action's own steps came after it.
+  assert.deepEqual(order.slice(0, 2), ["step", "action"]);
+  await settled(f);
+  assert.ok(order.filter((entry) => entry === "step").length > 2);
+});
