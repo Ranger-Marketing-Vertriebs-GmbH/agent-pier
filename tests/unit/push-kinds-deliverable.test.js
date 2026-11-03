@@ -148,7 +148,17 @@ test("ticket-rule-failed requires projectId and opens the Tickets tab", () => {
   assert.equal(event.projectId, "p1");
   const payload = buildPayload(event, defaultPreferences());
   assert.equal(payload.link, "/projects/p1?tab=tickets");
-  assert.equal(payload.tag, "tickets:p1");
+  // Its own group: a rule failure never replaces a sequence that waits for the owner.
+  assert.equal(payload.tag, "ticket-rules:p1");
+  assert.equal(payload.renotify, undefined);
+  const options = worker.options(payload);
+  assert.equal(options.tag, "ticket-rules:p1");
+  assert.equal(options.data.group, "ticket-rules:p1");
+  const waiting = buildPayload(
+    pushEvent({ kind: "ticket-needs-owner", eventId: "t1", projectId: "p1" }),
+    defaultPreferences(),
+  );
+  assert.notEqual(waiting.tag, payload.tag);
   assert.equal(worker.target({ kind, projectId: "p1" }), payload.link);
 });
 

@@ -140,17 +140,18 @@ export function pushLink(event) {
 }
 
 /**
- * Where an event comes from: one session, agent chat, agent, run or project's ticket
- * sequences, or null. Agents
+ * Where an event comes from: one session, agent chat, agent, run, project's ticket
+ * sequences or project's label rules, or null. Agents
  * hold several chats, so an event of one chat is its chat's, not the whole agent's.
  */
 export function pushSource(event) {
   // A newer update notice replaces the older one.
   if (event.kind === "update-available" || event.kind === "update-failed")
     return "updates";
-  // A project's newer "ticket needs you" notice replaces its older one.
-  if (event.kind === "ticket-needs-owner" || event.kind === "ticket-rule-failed")
-    return `tickets:${event.projectId}`;
+  // A project's newer "ticket needs you" notice replaces its older one. Label rule
+  // failures group apart, so they never replace a sequence that waits for the owner.
+  if (event.kind === "ticket-needs-owner") return `tickets:${event.projectId}`;
+  if (event.kind === "ticket-rule-failed") return `ticket-rules:${event.projectId}`;
   if (event.sessionId) return `session:${event.sessionId}`;
   if (event.runId) return `run:${event.runId}`;
   if (event.assistantId && event.conversationId && event.kind !== "telegram-revocation")
