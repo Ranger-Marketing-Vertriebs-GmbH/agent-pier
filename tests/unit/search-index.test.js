@@ -247,10 +247,7 @@ test("actions open the right dialog or page", () => {
 
 test("Start tickets is an action that opens the ticket selection", () => {
   const target = { action: "start-tickets", pending: "tickets-sequence" };
-  for (const query of [
-    "Start tickets",
-    "Tickets starten",
-  ]) {
+  for (const query of ["Start tickets", "Tickets starten"]) {
     const top = first(query);
     assert.equal(top.id, "action:start-tickets", query);
     assert.deepEqual(top.target, target, query);
