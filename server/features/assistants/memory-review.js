@@ -160,7 +160,11 @@ export function startMemoryReviews(service, plan) {
       return reviews;
     })
     .catch((error) => {
-      console.error("Memory review results were not handed on:", error?.message);
+      // The code only: the results hold entry text.
+      console.error(
+        "Memory review results were not handed on:",
+        error?.code ?? error?.name,
+      );
       return [];
     })
     .finally(() => set.delete(done));

@@ -44,14 +44,20 @@ const comparable = (text) =>
     .trim();
 
 // The entry `quoted` names: the one it equals, else the only one it starts, in at
-// least three words. In the spike (2026-11-02) both models quoted the start of the
-// longer entries that hold quotation marks, though asked for the whole text.
+// least three words, ending at a word's end and covering at least half of it. The
+// owner's card archives the entry returned, so a start cut mid-word or a few words
+// of a long rule name none. In the spike (2026-11-02) both models quoted the start of
+// the longer entries that hold quotation marks, though asked for the whole text.
+const wordEnd = /[\s\p{P}]/u;
 function entryOf(entries, quoted) {
   const same = entries.find((e) => e.key === quoted);
   if (same) return same;
   if (quoted.split(" ").length < 3) return null;
   const starts = entries.filter((e) => e.key.startsWith(quoted));
-  return starts.length === 1 ? starts[0] : null;
+  if (starts.length !== 1) return null;
+  const [entry] = starts;
+  const ends = wordEnd.test(entry.key[quoted.length]);
+  return ends && quoted.length * 2 >= entry.key.length ? entry : null;
 }
 
 /**
