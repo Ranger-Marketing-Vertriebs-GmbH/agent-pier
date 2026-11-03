@@ -68,7 +68,7 @@ test("drops pull requests and follows pages", async (t) => {
   assert.deepEqual(labels, ["bug", "feature"]);
 });
 
-test("a label filter keeps the labels of every open issue", async (t) => {
+test("a label filter asks GitHub and keeps the labels of every open issue", async (t) => {
   const fake = await fakeGithub(t, {
     issues: [
       githubIssue(1, { labels: [{ name: "bug" }] }),
@@ -81,10 +81,39 @@ test("a label filter keeps the labels of every open issue", async (t) => {
     ["acme/app#1"],
   );
   assert.deepEqual(labels, ["bug", "feature"]);
-  assert.equal(
-    fake.calls[0].path,
+  assert.deepEqual(fake.calls.map((c) => c.path).sort(), [
     "/repos/acme/app/issues?state=open&per_page=100&page=1",
+    "/repos/acme/app/issues?state=open&per_page=100&page=1&labels=bug",
+  ]);
+});
+
+test("a filtered read finds labelled issues beyond the newest 300", async (t) => {
+  const issues = Array.from({ length: 400 }, (_, i) =>
+    githubIssue(i + 1, i + 1 > 350 ? { labels: [{ name: "Ready to go" }] } : {}),
   );
+  const fake = await fakeGithub(t, { issues });
+  const read = await githubSource.list(accessFor(fake), {
+    label: "ready to go",
+    choices: false,
+  });
+  assert.equal(read.tickets.length, 50);
+  assert.equal(read.truncated, false);
+  assert.deepEqual(read.labels, []);
+  assert.deepEqual(
+    fake.calls.map((c) => c.path),
+    ["/repos/acme/app/issues?state=open&per_page=100&page=1&labels=ready%20to%20go"],
+  );
+  // A comma would mean "all of these labels" to GitHub: filtered here instead.
+  const comma = await fakeGithub(t, {
+    issues: [githubIssue(1, { labels: [{ name: "a,b" }] }), githubIssue(2)],
+  });
+  const both = await githubSource.list(accessFor(comma), { label: "a,b" });
+  assert.deepEqual(
+    both.tickets.map((item) => item.number),
+    [1],
+  );
+  assert.deepEqual(both.labels, ["a,b"]);
+  assert.equal(comma.calls.length, 1);
 });
 
 test("an Enterprise remote maps to its /api/v3 base", () => {

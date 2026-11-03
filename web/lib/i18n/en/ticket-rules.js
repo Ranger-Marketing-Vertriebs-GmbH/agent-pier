@@ -26,7 +26,7 @@ export const ticketRulesCopy = {
   fromDeletedRule: "From a deleted label rule",
   capped: {
     github:
-      "Only the newest 300 open issues and pull requests are checked; older issues with this label are not picked up.",
+      "Only the newest 300 open issues and pull requests with this label are checked; older ones are not picked up.",
     plane:
       "Only 500 work items, closed ones included, are checked; tickets with this label beyond them are not picked up.",
   },

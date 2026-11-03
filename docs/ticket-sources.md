@@ -66,7 +66,9 @@ that.
 
 The tab lists open GitHub issues (pull requests left out) and open Plane work items
 (items in the `completed` and `cancelled` groups left out), newest change first. A
-**Label** filter narrows the list; its choices are the labels of all open tickets. A
+**Label** filter narrows the list; its choices are the labels of the open tickets the
+unfiltered list reads. GitHub filters by the label itself, so a filtered list also finds
+labelled issues older than the newest 300 open ones. A
 **Source** switch (**All**, **GitHub**, **Plane**) appears when both sources are
 connected. **Refresh** reads the project's sources and the trackers again. A source that fails shows its reason
 in a line above the list (for example a rejected API key) while the other source still
@@ -152,7 +154,8 @@ again. See [Backups](backups.md).
 ## Limits
 
 - GitHub lists at most 300 open issues (three pages), Plane at most 500 open work items
-  (five pages); the label filter applies within those.
+  (five pages). A GitHub label filter asks GitHub for that label and reads up to 300
+  issues with it; a Plane label filter applies within the 500 work items.
 - Every tracker request times out after 15 seconds and reads at most 4 MiB.
 - AgentPier follows no redirect, so a token never goes to another address. A renamed or
   transferred GitHub repository therefore reads as "cannot be reached" until the
@@ -547,20 +550,22 @@ deleted label rule**.
 
 ### How a rule picks tickets
 
-Each pass reads every connected source of a project once, for all its rules that are
-not paused, and keeps the open tickets that carry a rule's label: GitHub issues (pull
+Each pass reads GitHub once per label of the project's rules that are not paused
+(GitHub filters by the label itself) and Plane once for all of them, and keeps the
+open tickets that carry a rule's label: GitHub issues (pull
 requests left out) and Plane work items outside the `completed` and `cancelled`
 groups. Tickets that carried the label before the rule existed count too. New tickets
 are appended at the end of the queue, oldest first (by ticket number), and the
 sequence starts them in turn like tickets you added yourself. Rules of a project are
 checked in the order they were created.
 
-A pass reads at most 300 open GitHub issues and pull requests, the newest (three pages
-of 100; pull requests count towards the 300 and are then left out), and
-500 Plane work items, closed ones included, before the closed ones are dropped (five
-pages of 100). Labelled tickets beyond that are not seen in that pass. When a read
-stops at that cap, the row adds a hint ("Only the newest 300 open issues and pull
-requests are checked; …" or "Only 500 work items, closed ones included, are checked; …"). This is
+A pass reads at most 300 open GitHub issues and pull requests with the rule's label,
+the newest (three pages of 100; pull requests count towards the 300 and are then left
+out), and 500 Plane work items of any label, closed ones included, before the closed
+ones are dropped (five pages of 100). Labelled tickets beyond that are not seen in that
+pass. When a read stops at that cap, the row adds a hint ("Only the newest 300 open
+issues and pull requests with this label are checked; …" or "Only 500 work items,
+closed ones included, are checked; …"). This is
 not an error and sends no notification.
 
 The queue holds at most 200 tickets that are not done. When a rule finds more new

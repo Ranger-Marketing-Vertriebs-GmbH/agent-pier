@@ -1,7 +1,8 @@
 import http from "node:http";
 
 // Fake GitHub issues API on 127.0.0.1. `issues` are raw GitHub issue objects;
-// `failures` maps "METHOD /path" (query ignored) to an HTTP status; `labels` (names)
+// `failures` maps "METHOD /path" (query ignored) to an HTTP status; the issue list honours
+// `labels=<name>` (one name, any case); `labels` (names)
 // serves GET /repos/:o/:r/labels/:name case-insensitively.
 export async function fakeGithub(t, { issues = [], failures = {}, labels = [] } = {}) {
   const calls = [];
@@ -30,7 +31,14 @@ export async function fakeGithub(t, { issues = [], failures = {}, labels = [] } 
         const size = Number(url.searchParams.get("per_page") || 30);
         const open = issues
           .filter((issue) => issue.state !== "closed")
-          .filter((issue) => !label || issue.labels?.some((l) => l.name === label));
+          // GitHub matches label names regardless of case.
+          .filter(
+            (issue) =>
+              !label ||
+              issue.labels?.some(
+                (l) => l.name.trim().toLowerCase() === label.trim().toLowerCase(),
+              ),
+          );
         return send(200, open.slice((page - 1) * size, page * size));
       }
       const label = /^\/repos\/[^/]+\/[^/]+\/labels\/([^/]+)$/.exec(url.pathname);

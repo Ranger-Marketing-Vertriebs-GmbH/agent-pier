@@ -113,7 +113,7 @@ test("two rules matching one ticket append it once", async (t) => {
   await f.monitor().run();
   assert.deepEqual(f.keys(), ["acme/app#1"]);
   assert.deepEqual(f.items()[0].origin, { kind: "rule", ruleId: agent.id });
-  assert.equal(f.listCalls().github, 1);
+  assert.equal(f.listCalls().github, 2);
 });
 
 test("paused rules are not polled", async (t) => {
@@ -125,7 +125,7 @@ test("paused rules are not polled", async (t) => {
   assert.equal(f.status(rule.id).checkedAt, null);
 });
 
-test("one list call per source per project for several rules", async (t) => {
+test("one GitHub read per label and one Plane read per project", async (t) => {
   const f = await ruleMonitorFixture(t, {
     issues: [labelledIssue(1, "agent"), labelledIssue(2, "bug")],
     planeItems: [planeItem(4, ["l-agent"])],
@@ -135,7 +135,12 @@ test("one list call per source per project for several rules", async (t) => {
   f.rules.create("p1", ruleInput({ source: "plane" }));
   f.rules.create("p1", ruleInput({ source: "plane", label: "bug" }));
   await f.monitor().run();
-  assert.deepEqual(f.listCalls(), { github: 1, plane: 1 });
+  assert.deepEqual(f.listCalls(), { github: 3, plane: 1 });
+  const queries = f.github.calls
+    .filter((c) => /\/issues\?/.test(c.path))
+    .map((c) => new URL(c.path, "http://x").searchParams.get("labels"))
+    .sort();
+  assert.deepEqual(queries, ["agent", "ai", "bug"]);
   assert.deepEqual(f.keys(), ["acme/app#1", "acme/app#2", "AP-4"]);
 });
 
@@ -323,17 +328,33 @@ test("a label edited while the tracker is asked records no labelGone", async (t)
   assert.deepEqual(f.notified, []);
 });
 
-test("a read cut off at the cap succeeds flagged capped, never labelGone", async (t) => {
-  // 350 open issues: the read stops at 300, so #340 with the label is never seen.
+test("GitHub finds a labelled issue beyond the newest 300 open ones", async (t) => {
+  // 350 open issues: an unfiltered read would stop at 300 and miss #340.
   const issues = Array.from({ length: 350 }, (_, i) =>
     i + 1 === 340 ? labelledIssue(340, "agent") : labelledIssue(i + 1),
   );
   const f = await ruleMonitorFixture(t, { issues });
   const rule = f.rules.create("p1", ruleInput());
   await f.monitor().run();
+  assert.deepEqual(f.keys(), ["acme/app#340"]);
+  assert.equal(f.status(rule.id).capped, undefined);
+  assert.equal(f.listCalls().github, 1);
+});
+
+test("a read cut off at the cap succeeds flagged capped, never labelGone", async (t) => {
+  // 350 labelled entries: the filtered read stops at 300 pull requests and never sees
+  // the issues behind them.
+  const issues = Array.from({ length: 350 }, (_, i) => ({
+    ...labelledIssue(i + 1, "agent"),
+    ...(i < 340 ? { pull_request: {} } : {}),
+  }));
+  const f = await ruleMonitorFixture(t, { issues });
+  const rule = f.rules.create("p1", ruleInput());
+  await f.monitor().run();
   assert.equal(f.status(rule.id).error, null);
   assert.equal(f.status(rule.id).capped, true);
   assert.ok(f.status(rule.id).checkedAt > 0);
+  assert.deepEqual(f.items(), []);
   const small = await ruleMonitorFixture(t, { issues: [labelledIssue(1, "agent")] });
   const other = small.rules.create("p1", ruleInput());
   await small.monitor().run();

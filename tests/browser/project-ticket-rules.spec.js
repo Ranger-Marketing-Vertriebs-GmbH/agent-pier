@@ -328,7 +328,7 @@ test("a capped pass shows a neutral hint per source", async ({ page }) => {
   const card = rulesCard(page);
   await expect(
     card.getByText(
-      "Session · 0 tickets picked up · Only the newest 300 open issues and pull requests are checked; older issues with this label are not picked up.",
+      "Session · 0 tickets picked up · Only the newest 300 open issues and pull requests with this label are checked; older ones are not picked up.",
     ),
   ).toBeVisible();
   await expect(
