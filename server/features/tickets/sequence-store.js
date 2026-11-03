@@ -105,6 +105,8 @@ function item(value) {
     },
   };
   if (number(value.startedAt) !== undefined) out.startedAt = value.startedAt;
+  // When a Retry resumed watching a live session without a PR (its no-PR clock).
+  if (number(value.watchSince) !== undefined) out.watchSince = value.watchSince;
   const sessionId = optText(value.sessionId, 200);
   if (sessionId) out.sessionId = sessionId;
   const runId = optText(value.runId, 200);

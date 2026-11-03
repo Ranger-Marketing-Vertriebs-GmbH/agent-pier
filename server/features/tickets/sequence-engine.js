@@ -9,9 +9,15 @@ import { problem } from "../../lib/storage.js";
 import * as prForge from "./pr-forge.js";
 import { prVerdict } from "./pr-status.js";
 import { ticketQueueChanged } from "./live-topics.js";
-import { findSession, resumeStart, startItem } from "./sequence-start.js";
+import { resumeStart, startItem } from "./sequence-start.js";
 import { isTransient } from "./sequence-reasons.js";
-import { FORGE_LIMIT_MS, fixStep } from "./sequence-fixes.js";
+import {
+  FORGE_LIMIT_MS,
+  IDLE_LIMIT_MS,
+  NO_PR_LIMIT_MS,
+  findWorker,
+  fixStep,
+} from "./sequence-fixes.js";
 
 export { PARK_REASONS } from "./sequence-reasons.js";
 
@@ -373,13 +379,24 @@ export class TicketSequenceEngine {
     }
     item = this.forgeOk(ctx, item);
     if (found) return this.foundPr(ctx, item, found);
-    let session;
+    let worker;
     try {
-      session = await findSession(this, item);
+      worker = await findWorker(this, item);
     } catch (error) {
       return this.skip(error, "sessions");
     }
-    if (!session) return this.park(ctx, item, "sessionEnded");
+    if (!worker.exists) return this.park(ctx, item, "sessionEnded");
+    // A session that stopped, went quiet for IDLE_LIMIT_MS or worked for NO_PR_LIMIT_MS
+    // (from its start, or from the Retry that resumed it) without a PR: the owner looks.
+    const now = this.now();
+    const quiet =
+      worker.state === "idle" &&
+      Number.isFinite(worker.since) &&
+      now - worker.since >= IDLE_LIMIT_MS;
+    const since = item.watchSince ?? item.startedAt;
+    const late = Number.isFinite(since) && now - since >= NO_PR_LIMIT_MS;
+    if (worker.state === "stopped" || quiet || late)
+      return this.park(ctx, item, "noPullRequest");
     return false;
   }
 

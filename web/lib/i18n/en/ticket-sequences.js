@@ -18,7 +18,8 @@ export const ticketQueueCopy = {
     taskNotDelivered: "The task did not reach the session.",
     sessionEnded: "The session ended without a pull request.",
     runFailed: "The pipeline run failed.",
-    noPullRequest: "The work ended without a pull request.",
+    noPullRequest:
+      "No pull request: the work ended, stayed quiet for 30 minutes or ran for 6 hours.",
     prClosed: "The pull request was closed without merging.",
     mergeDisarmed: "Auto-merge or the merge queue was turned off on GitHub.",
     armRefused: "GitHub refused auto-merge or the merge queue.",
@@ -43,7 +44,7 @@ export const ticketQueueCopy = {
     "The sequence moves on to the next ticket. Nothing is written to the ticket in GitHub or Plane.",
   removeTitle: (key) => `Remove ${key} from the queue?`,
   removeBody:
-    "The ticket leaves the sequence. Its session, pull request and tracker entry stay.",
+    "The ticket leaves the sequence. Its session, run, pull request and tracker entry stay; AgentPier no longer watches them.",
 };
 
 // Selecting tickets in the list and the dialog that starts them as a sequence.

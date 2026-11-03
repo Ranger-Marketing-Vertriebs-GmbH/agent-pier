@@ -72,6 +72,7 @@ export async function startItem(engine, ctx, item) {
     state: "running",
     starting: true,
     startedAt: engine.now(),
+    watchSince: null,
     forgeFailingSince: null,
   });
   try {

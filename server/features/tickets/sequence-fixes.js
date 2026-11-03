@@ -16,6 +16,8 @@ import { stableUuid } from "./sequence-start.js";
 export const IDLE_LIMIT_MS = 1_800_000;
 export const MAX_FAILED_ROUNDS = 3;
 export const FORGE_LIMIT_MS = 1_800_000;
+// A running ticket session that has opened no pull request after this long parks.
+export const NO_PR_LIMIT_MS = 6 * 3_600_000;
 
 const copy = serverMessages.tickets;
 const DELIVERING = new Set(["pending", "handed-off", "uncertain"]);

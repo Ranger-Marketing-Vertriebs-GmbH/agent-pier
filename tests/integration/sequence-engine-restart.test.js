@@ -55,11 +55,20 @@ test("a failed queue start parks with runFailed", async (t) => {
   await assertParked(f, "runFailed");
 });
 
-test("ended session parks the queue and notifies once", async (t) => {
+test("a session that stopped without a PR parks the queue and notifies once", async (t) => {
   const f = await sequenceFixture(t);
   f.append([KEY, "acme/app#13"]);
   await f.engine.run();
   f.sessions[0].status = "stopped";
+  await f.engine.run();
+  await assertParked(f, "noPullRequest");
+});
+
+test("a session that is gone parks with sessionEnded", async (t) => {
+  const f = await sequenceFixture(t);
+  f.append([KEY, "acme/app#13"]);
+  await f.engine.run();
+  f.sessions.length = 0;
   await f.engine.run();
   await assertParked(f, "sessionEnded");
 });

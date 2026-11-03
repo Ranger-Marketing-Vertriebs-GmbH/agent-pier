@@ -124,7 +124,7 @@ test("retry refuses a leftover worktree with local changes", async (t) => {
   const [first] = f.items();
   f.sessions[0].status = "stopped";
   await f.engine.run();
-  assert.equal(f.items()[0].needsOwner.reason, "sessionEnded");
+  assert.equal(f.items()[0].needsOwner.reason, "noPullRequest");
   fs.writeFileSync(path.join(first.worktree.cwd, "notes.txt"), "draft\n");
   await assert.rejects(service(f).retry("p1", first.id), {
     status: 409,
@@ -357,4 +357,39 @@ test("an owner action waits for one step, not the whole step loop", async (t) =>
   assert.deepEqual(order.slice(0, 2), ["step", "action"]);
   await settled(f);
   assert.ok(order.filter((entry) => entry === "step").length > 2);
+});
+
+test("retry of a live session without a PR watches it again, never launches twice", async (t) => {
+  const f = await sequenceFixture(t);
+  const engine = f.build({
+    activity: { read: async () => ({ state: "working", since: null }) },
+  });
+  f.append([KEY]);
+  await engine.run();
+  f.clock.now += 7 * 3_600_000;
+  await engine.run();
+  const [first] = f.items();
+  assert.equal(first.needsOwner.reason, "noPullRequest");
+  const owner = new TicketSequenceService({
+    store: f.store,
+    engine,
+    tickets: f.tickets,
+    sessions: f.sessionsApi,
+    worktrees: f.worktrees,
+    now: () => f.clock.now,
+  });
+  const view = await owner.retry("p1", first.id);
+  assert.equal(view.queue.items[0].state, "running");
+  while (engine.locks.size)
+    await Promise.all([...engine.locks.values()].map((lock) => lock.promise));
+  const [item] = f.items();
+  assert.equal(f.launched.length, 1);
+  assert.equal(item.sessionId, first.sessionId);
+  assert.equal(item.starting, undefined);
+  assert.equal(item.watchSince, f.clock.now);
+  assert.equal(item.state, "running");
+  // The resumed watch has its own clock.
+  f.clock.now += 3_600_000;
+  await engine.run();
+  assert.equal(f.items()[0].state, "running");
 });

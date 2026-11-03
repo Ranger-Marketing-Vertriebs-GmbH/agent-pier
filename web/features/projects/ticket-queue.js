@@ -32,13 +32,13 @@ const webUrl = (value) => {
 
 /**
  * The actions of a queue item, in menu order. Retry is for a parked item only; Mark
- * done for a parked or waiting one; Remove for every item nobody works on.
+ * done for a parked or waiting one; Remove for every item but one awaiting its merge.
  */
 export function queueItemActions(item) {
   const actions = [];
   if (item.state === "needs-owner") actions.push("retry");
   if (item.state === "needs-owner" || item.state === "waiting") actions.push("done");
-  if (item.state !== "running" && item.state !== "awaiting-merge") actions.push("remove");
+  if (item.state !== "awaiting-merge") actions.push("remove");
   if (item.sessionId) actions.push("open-session");
   if (item.runId) actions.push("open-run");
   if (item.pr?.url && webUrl(item.pr.url)) actions.push("open-pr");

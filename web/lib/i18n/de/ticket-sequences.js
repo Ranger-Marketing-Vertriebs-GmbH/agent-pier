@@ -19,7 +19,8 @@ export const ticketQueueCopy = {
     taskNotDelivered: "Die Aufgabe hat die Session nicht erreicht.",
     sessionEnded: "Die Session endete ohne Pull Request.",
     runFailed: "Der Pipeline-Lauf ist fehlgeschlagen.",
-    noPullRequest: "Die Arbeit endete ohne Pull Request.",
+    noPullRequest:
+      "Kein Pull Request: Die Arbeit endete, blieb 30 Minuten still oder lief 6 Stunden.",
     prClosed: "Der Pull Request wurde ohne Merge geschlossen.",
     mergeDisarmed: "Auto-Merge oder die Merge-Queue wurde auf GitHub abgeschaltet.",
     armRefused: "GitHub hat Auto-Merge oder die Merge-Queue abgelehnt.",
@@ -45,7 +46,7 @@ export const ticketQueueCopy = {
     "Die Folge geht zum nächsten Ticket weiter. In GitHub oder Plane wird nichts am Ticket geändert.",
   removeTitle: (key) => `${key} aus der Warteschlange entfernen?`,
   removeBody:
-    "Das Ticket verlässt die Folge. Seine Session, sein Pull Request und der Eintrag im Tracker bleiben.",
+    "Das Ticket verlässt die Folge. Seine Session, sein Lauf, sein Pull Request und der Eintrag im Tracker bleiben; AgentPier beobachtet sie nicht mehr.",
 };
 
 // Tickets in der Liste auswählen und der Dialog, der sie als Folge startet.
