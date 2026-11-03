@@ -614,8 +614,14 @@ Rules, their status and their pickups live in `ticket-rules.json` in the data
 directory. Backups carry it as a public member: the rules with their run settings
 (account and connection ids, no credentials) and the pickups. A restore with a project
 mapping moves rules and pickups to the new project id and resets each rule's status, so
-the restored host starts with fresh checks and never queues a picked-up ticket again.
-See [Backups](backups.md).
+the restored host starts with fresh checks. See [Backups](backups.md).
+
+The queue (`ticket-sequences.json`) is not in backups, so a restore keeps only the
+pickups of tickets that have a start record in the restored `ticket-sources.json` and
+drops the ones that point to a queue item. Those tickets were waiting in the old
+host's queue; the first pass on the restored host queues them again if they are still
+open and carry the label. A ticket that already ran stays skipped through its start
+record, and a finished one is closed in the tracker, which a rule never picks up.
 
 A `ticket-rules.json` written by a newer AgentPier version (after a downgrade, or a
 restore of a newer backup), or one that cannot be read, never stops the server. The

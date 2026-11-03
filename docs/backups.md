@@ -16,8 +16,10 @@ Always, as public (unencrypted) members:
   the ticket sequences in `ticket-sequences.json` are runtime state like the pipeline
   run queue and are never archived), label rules (`ticket-rules.json`: the rules with
   their run settings and the tickets they picked up; a restore moves both to the
-  mapped project and resets each rule's poll status, and the pickups keep the restored
-  host from queueing those tickets again; see
+  mapped project and resets each rule's poll status; it keeps the pickups of tickets
+  with a restored start record, which stay skipped, and drops the pickups of queue
+  items, since the queue is not archived, so the first pass queues those open tickets
+  again; see
   [Label rules](ticket-sources.md#label-rules)),
   preferences, the project groups of the
   projects page (`project-groups.json`; a restore with a project mapping moves their

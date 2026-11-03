@@ -120,12 +120,25 @@ const RULE = {
   allowMerge: false,
   session: { tool: "claude" },
 };
-/** A rule with a pickup and a failed, already pushed poll status. */
+/**
+ * A rule with a failed, already pushed poll status and two pickups: #7 names a start
+ * record, #9 a queue item, which backups do not carry.
+ */
 function seedRule(dataDir, projectId) {
+  const tickets = new TicketStore({ dataDir });
+  tickets.addStart({
+    id: "start-7",
+    projectId,
+    source: "github",
+    key: "acme/app#7",
+    kind: "session",
+    targetId: "s1",
+  });
   const rules = new TicketRuleStore({ dataDir });
   const rule = rules.create(projectId, ruleInput(RULE));
   rules.addPickups(projectId, [
-    { source: "github", key: "acme/app#7", ruleId: rule.id, itemId: "i1", at: 5 },
+    { source: "github", key: "acme/app#7", ruleId: rule.id, itemId: "start-7", at: 5 },
+    { source: "github", key: "acme/app#9", ruleId: rule.id, itemId: "item-9", at: 6 },
   ]);
   rules.setStatus(projectId, rule.id, {
     checkedAt: 9,
@@ -163,6 +176,13 @@ for (const encrypted of [false, true])
     assert.deepEqual(back.status, RESET);
     assert.equal(restored.picked("p1", "github", "acme/app#7").ruleId, rule.id);
     assert.equal(restored.picked("p1", "github", "acme/app#8"), null);
+    // The queue item behind #9 is not restored, so its pickup is dropped and the next
+    // pass queues it again; #7 stays picked through its restored start record.
+    assert.equal(restored.picked("p1", "github", "acme/app#9"), null);
+    assert.equal(
+      new TicketStore({ dataDir: target }).findStart("p1", "github", "acme/app#7").id,
+      "start-7",
+    );
   });
 
 test("a restore with a project mapping moves rules and pickups to the new project id and resets status", async (t) => {

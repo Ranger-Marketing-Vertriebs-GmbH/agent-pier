@@ -171,9 +171,12 @@ export async function mapProjects(directory, projectMap = {}) {
       }));
     atomic(ticketsFile, ticketSources);
   }
-  // Label rules and their pickups move with the project; the pickups keep a restored
-  // host from queueing every ticket that still carries its label again. A rule's poll
-  // status belongs to the old host and starts over.
+  // Label rules and their pickups move with the project. A rule's poll status belongs
+  // to the old host and starts over. The queue (ticket-sequences.json) is not archived,
+  // so a pickup of a queue item would skip a ticket that never ran here: only the
+  // pickups of a restored start record stay, and the next pass queues the rest again
+  // unless a start record holds them. Finished tickets are closed in the tracker, and a
+  // rule picks up open tickets only.
   const rulesFile = path.join(directory, "ticket-rules.json"),
     ticketRules = readJson(rulesFile, null);
   // A file of another version stays as it is: the rule store loads it off and read-only
@@ -190,11 +193,17 @@ export async function mapProjects(directory, projectMap = {}) {
         projectId: byId(rule?.projectId),
         status: { checkedAt: null, error: null, notified: null },
       }));
+    const started = new Set(
+      (Array.isArray(ticketSources?.starts) ? ticketSources.starts : []).map(
+        (start) => start?.id,
+      ),
+    );
     if (Array.isArray(ticketRules.pickups))
-      ticketRules.pickups = ticketRules.pickups.map((pickup) => ({
-        ...pickup,
-        projectId: byId(pickup?.projectId),
-      }));
+      ticketRules.pickups = ticketRules.pickups
+        .filter(
+          (pickup) => typeof pickup?.itemId === "string" && started.has(pickup.itemId),
+        )
+        .map((pickup) => ({ ...pickup, projectId: byId(pickup.projectId) }));
     atomic(rulesFile, ticketRules);
   }
   restoreArtifacts(directory, mappings);
