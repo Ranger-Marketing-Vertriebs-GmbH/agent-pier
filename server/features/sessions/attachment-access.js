@@ -33,8 +33,8 @@ export function grantAttachmentAccess({
 }) {
   if (!isCodingCli(tool)) return null;
   const directory = attachmentDirectory(dataDir, accountId, sessionId);
-  // `profile` is the profile location or a function returning it; only a CLI that
-  // grants through its profile reads it. The driver adds its grant to launch.args.
+  // `profile` is a function returning the profile location; only a CLI that grants
+  // through its profile calls it. The driver adds its grant to launch.args.
   const granted = cliDriver(tool).grantDirectory(launch, directory, {
     reload: false,
     ensure: () => ensureAttachmentDirectory(directory),

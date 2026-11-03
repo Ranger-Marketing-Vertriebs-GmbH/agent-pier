@@ -38,7 +38,8 @@ export function models(history, session) {
   return history.readCodexModels(session);
 }
 
-export async function readModels(history, session) {
+/** Lists the app-server's models (`model/list`, every page) for readCodexModels. */
+export async function requestModelList(history, session) {
   return history.codexRequest(session, async (client) => {
     const models = [],
       cursors = new Set();
