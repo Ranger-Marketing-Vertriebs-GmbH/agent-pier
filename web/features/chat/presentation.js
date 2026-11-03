@@ -1,5 +1,4 @@
-export const providerNames = {
-  claude: "Claude",
-  codex: "Codex",
-  opencode: "OpenCode",
-};
+import { cliDefinition, codingCliIds } from "../../../server/features/clis/catalog.js";
+export const providerNames = Object.fromEntries(
+  codingCliIds().map((id) => [id, cliDefinition(id).shortName]),
+);

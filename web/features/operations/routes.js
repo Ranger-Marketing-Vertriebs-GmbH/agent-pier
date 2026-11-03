@@ -1,3 +1,4 @@
+import { isCodingCli } from "../../../server/features/clis/catalog.js";
 export const sections = new Set([
   "assistants",
   // Nested below the agent service (now Agenten › Laufzeit › Erweitert).
@@ -80,9 +81,7 @@ export function readSettingsRoute(pathname, search) {
           mcpAuthorization: /^[A-Za-z0-9_-]{1,200}$/.test(authorization)
             ? authorization
             : "",
-          mcpCli: ["codex", "claude", "opencode"].includes(query.get("cli"))
-            ? query.get("cli")
-            : "codex",
+          mcpCli: isCodingCli(query.get("cli")) ? query.get("cli") : "codex",
           mcpPage: /^[1-9]\d{0,4}$/.test(rawPage) ? Number(rawPage) : 1,
         }
       : {}),

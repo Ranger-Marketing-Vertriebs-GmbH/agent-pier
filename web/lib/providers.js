@@ -1,8 +1,7 @@
+import { cliName, codingCliIds } from "../../server/features/clis/catalog.js";
 import { commonCopy } from "./i18n/messages/common.js";
 export const names = {
-  codex: "Codex",
-  claude: "Claude Code",
-  opencode: "OpenCode",
+  ...Object.fromEntries(codingCliIds().map((id) => [id, cliName(id)])),
   shell: "Shell",
   gh: "GitHub CLI",
   nono: "nono",

@@ -27,7 +27,7 @@ function sourceFiles(dir) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) out.push(...sourceFiles(full));
-    else if (entry.name.endsWith(".js")) out.push(full);
+    else if (/\.jsx?$/.test(entry.name)) out.push(full);
   }
   return out;
 }
@@ -52,6 +52,10 @@ function offenders(dir, exclude) {
 
 test("no inline coding-CLI id arrays outside server/features/clis", () => {
   assert.deepEqual(offenders("server", "server/features/clis/"), []);
+});
+
+test("no inline coding-CLI id arrays in the web app", () => {
+  assert.deepEqual(offenders("web", "web/lib/i18n/"), []);
 });
 
 // Remaining mentions of a CLI's config variables or home folders, one reason each.

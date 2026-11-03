@@ -4,8 +4,9 @@ import {
   mergeSlashCommands,
   slashMatches,
 } from "./slash-commands.js";
+import { codingCliIds } from "../../../server/features/clis/catalog.js";
 
-const discoveryTools = new Set(["claude", "codex", "opencode"]);
+const discoveryTools = new Set(codingCliIds());
 // The server checks for changes itself; a page asks again after this long.
 const refreshMs = 30000;
 // Discovered commands per session, shared by every chat of this page.

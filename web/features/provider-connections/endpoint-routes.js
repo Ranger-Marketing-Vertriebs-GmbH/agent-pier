@@ -1,7 +1,8 @@
 // web/features/provider-connections/endpoint-routes.js
 // Mirrors server/features/providers/endpoint-routing.js (pinned by
 // tests/unit/endpoint-routes-parity.test.js) so the dialog shows routes before saving.
-export const ROUTE_TOOLS = ["claude", "codex", "opencode"];
+import { codingCliIds } from "../../../server/features/clis/catalog.js";
+export const ROUTE_TOOLS = codingCliIds().sort();
 export const NATIVE_SOURCE = { claude: "messages", codex: "responses" };
 export const ROUTE_CHOICES = {
   claude: ["auto", "native", "adapter:responses", "adapter:chatCompletions", "off"],
@@ -57,7 +58,7 @@ export const routeOptions = (endpoint, tool) =>
 
 export const adapterSources = (endpoint) => {
   const used = new Set(
-    ["claude", "codex"]
+    Object.keys(NATIVE_SOURCE)
       .map((tool) => resolveDraftRoute(endpoint, tool))
       .filter((route) => route?.mode === "adapter")
       .map((route) => route.source),

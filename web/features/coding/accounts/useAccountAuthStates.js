@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import api from "../../../lib/api.js";
 import { liveClient } from "../../../lib/live/live-client.js";
 import { startLiveTopic } from "../../../lib/live/live-topic-reader.js";
+import { codingCliIds } from "../../../../server/features/clis/catalog.js";
 
-const followedTools = ["claude", "codex", "opencode"];
+const followedTools = codingCliIds();
 
 // Only native CLI logins without a stored key have a sign-in state to read.
 const followed = (account) =>

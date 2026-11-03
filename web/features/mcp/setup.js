@@ -1,8 +1,12 @@
-export const clients = {
-  codex: { name: "Codex", docs: "https://learn.chatgpt.com/docs/extend/mcp?surface=cli" },
-  claude: { name: "Claude Code", docs: "https://code.claude.com/docs/en/mcp" },
-  opencode: { name: "OpenCode", docs: "https://opencode.ai/docs/mcp-servers/" },
+import { cliName, codingCliIds } from "../../../server/features/clis/catalog.js";
+const docs = {
+  codex: "https://learn.chatgpt.com/docs/extend/mcp?surface=cli",
+  claude: "https://code.claude.com/docs/en/mcp",
+  opencode: "https://opencode.ai/docs/mcp-servers/",
 };
+export const clients = Object.fromEntries(
+  codingCliIds().map((id) => [id, { name: cliName(id), docs: docs[id] }]),
+);
 export function mcpEndpoint(value) {
   try {
     const url = new URL(value);

@@ -4,6 +4,7 @@ import ProviderMark from "../../components/ProviderMark.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { galleryCopy as copy } from "../../lib/i18n/messages/gallery.js";
 import { GallerySection, Specimen } from "./GallerySection.jsx";
+import { cliDefinition, codingCliIds } from "../../../server/features/clis/catalog.js";
 
 const variants = ["primary", "secondary", "danger", "destructive", "text"];
 
@@ -50,12 +51,14 @@ export default function ActionsSection() {
         </ul>
       </Specimen>
       <Specimen label={`ProviderMark · ${copy.variants.providerMarks}`}>
-        {["codex", "claude", "opencode", "terminal"].map((tool) => (
+        {[...codingCliIds(), "terminal"].map((tool) => (
           <ProviderMark key={tool} tool={tool} label={tool} />
         ))}
-        {["codex", "claude"].map((tool) => (
-          <ProviderMark key={`${tool}-small`} tool={tool} small />
-        ))}
+        {codingCliIds()
+          .filter((tool) => cliDefinition(tool).capabilities.accountTransfer)
+          .map((tool) => (
+            <ProviderMark key={`${tool}-small`} tool={tool} small />
+          ))}
       </Specimen>
     </GallerySection>
   );

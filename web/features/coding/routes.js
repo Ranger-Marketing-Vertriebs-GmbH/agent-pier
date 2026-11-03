@@ -2,6 +2,7 @@
 //   /coding/clis?tab=install|accounts|extensions|mcp
 //   /coding/clis/extensions[/:profileId]?tab=skills|plugins|marketplaces|subagents[&install=<entry>]
 import { accountItemPattern } from "../accounts/routes.js";
+import { codingCliIds } from "../../../server/features/clis/catalog.js";
 
 export const codingTabs = ["install", "accounts", "extensions", "mcp"];
 export const defaultCodingTab = "install";
@@ -10,7 +11,7 @@ export const codingExtensionTabs = ["skills", "plugins", "marketplaces", "subage
 export const defaultCodingExtensionTab = "skills";
 // Older names: the extensions page called subagents "agents"; MCP moved to Zugänge.
 const legacyExtensionTabs = { agents: "subagents", mcp: "skills" };
-export const mcpClis = ["codex", "claude", "opencode"];
+export const mcpClis = codingCliIds();
 const profilePattern = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/;
 const authorizationPattern = /^[A-Za-z0-9_-]{1,200}$/;
 // An Agency catalog entry id (path segments joined by "__", see server/features/agency).
