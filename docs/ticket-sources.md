@@ -2,8 +2,8 @@
 
 A project's **Tickets** tab lists the open GitHub issues of its repository and the open
 work items of a linked Plane project. One ticket at a time starts as a session or a
-pipeline run; AgentPier then marks the ticket "In progress" in the tracker, with a link
-back to the session or run, and shows the ticket on the session and the run.
+pipeline run; AgentPier then marks the ticket "In progress" in the tracker and comments
+that it was started, and shows the ticket on the session and the run.
 
 ## Setup
 
@@ -106,14 +106,15 @@ request (`Closes #<n>` for GitHub, the key for Plane).
 After the start, AgentPier marks the ticket:
 
 - **GitHub**: adds the project's label (default `in progress`) and comments
-  `Started in AgentPier: [session](<link>)` or `[pipeline run](<link>)`.
+  `Started in AgentPier (session).` or `Started in AgentPier (pipeline run).`
 - **Plane**: moves the work item to the chosen **In progress state**, or Plane's first
   state in the `started` group (an item that already is in a `started` state stays),
-  and comments `Started in AgentPier: session` or `pipeline run` with the link.
+  and comments `Started in AgentPier (session).` or `Started in AgentPier (pipeline run).`
 
-The comments are in English because they live in the tracker. The link uses the
-origin of the configured remote URL, else the address the browser used, and points to
-`/sessions/<id>` or `/pipelines/runs/<id>`. When the tracker refuses the write-back
+The comments are in English because they live in the tracker. They name AgentPier and
+the kind but carry no address: on a public GitHub repository an AgentPier URL in a
+comment would be visible to anyone. The link between ticket and session or run lives
+only inside AgentPier. When the tracker refuses the write-back
 (for example a token without write access), the session or run keeps running and the
 ticket shows **Write-back failed** with the reason; nothing is retried.
 

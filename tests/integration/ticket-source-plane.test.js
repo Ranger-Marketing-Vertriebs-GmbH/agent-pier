@@ -133,7 +133,6 @@ test("in progress moves to the first started state and comments", async (t) => {
   const { fake, access } = await setup(t, { items: [item(1)] });
   const [ticket] = (await planeSource.list(access, {})).tickets;
   await planeSource.markInProgress(access, ticket, {
-    link: "http://h/pipelines/runs/r1",
     kind: "pipeline",
   });
   const writes = fake.calls.filter((c) => c.method !== "GET");
@@ -145,27 +144,19 @@ test("in progress moves to the first started state and comments", async (t) => {
       [
         "POST",
         `${base}comments/`,
-        {
-          comment_html:
-            '<p>Started in AgentPier: <a href="http://h/pipelines/runs/r1">pipeline run</a></p>',
-        },
+        { comment_html: "<p>Started in AgentPier (pipeline run).</p>" },
       ],
     ],
   );
 });
 
-test("the comment link is escaped", async (t) => {
+test("the comments name AgentPier and the kind but carry no address", async (t) => {
   const { fake, access } = await setup(t, { items: [item(1)] });
   const [ticket] = (await planeSource.list(access, {})).tickets;
-  await planeSource.markInProgress(access, ticket, {
-    link: 'http://h/s?a=1&b="2"<x>',
-    kind: "session",
-  });
+  await planeSource.markInProgress(access, ticket, { kind: "session" });
   const post = fake.calls.find((c) => c.method === "POST");
-  assert.equal(
-    post.body.comment_html,
-    '<p>Started in AgentPier: <a href="http://h/s?a=1&amp;b=&quot;2&quot;&lt;x&gt;">session</a></p>',
-  );
+  assert.equal(post.body.comment_html, "<p>Started in AgentPier (session).</p>");
+  assert.doesNotMatch(post.body.comment_html, /https?:|\/\/|href|localhost|127\.0\.0\.1/);
 });
 
 test("a configured started state wins; an item already started is not patched", async (t) => {
@@ -174,7 +165,6 @@ test("a configured started state wins; an item already started is not patched", 
   const { tickets } = await planeSource.list(access, {});
   const configured = { ...access, inProgressStateId: "s-late" };
   await planeSource.markInProgress(configured, tickets[0], {
-    link: "http://h/s",
     kind: "session",
   });
   assert.deepEqual(
@@ -183,7 +173,6 @@ test("a configured started state wins; an item already started is not patched", 
   );
   fake.calls.length = 0;
   await planeSource.markInProgress(access, tickets[1], {
-    link: "http://h/s",
     kind: "session",
   });
   assert.deepEqual(
@@ -200,10 +189,9 @@ test("a refused write maps to a source error", async (t) => {
     },
   });
   const [ticket] = (await planeSource.list(access, {})).tickets;
-  await assert.rejects(
-    planeSource.markInProgress(access, ticket, { link: "http://h/s", kind: "session" }),
-    { code: "forbidden" },
-  );
+  await assert.rejects(planeSource.markInProgress(access, ticket, { kind: "session" }), {
+    code: "forbidden",
+  });
 });
 
 test("a wrong token reads as unauthorized", async (t) => {
@@ -236,7 +224,7 @@ test("a project without a started state fails as invalidResponse", async (t) => 
     planeSource.markInProgress(
       access,
       { id: "uuid-1", state: "Todo" },
-      { link: "x", kind: "session" },
+      { kind: "session" },
     ),
     { code: "invalidResponse" },
   );

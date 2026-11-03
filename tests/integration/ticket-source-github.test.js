@@ -138,12 +138,11 @@ test("get refuses a pull request and a key of another repository", async (t) => 
   assert.equal(fake.calls.length, 2);
 });
 
-test("in progress adds the label and a link comment", async (t) => {
+test("in progress adds the label and a comment without a link", async (t) => {
   const fake = await fakeGithub(t, { issues: [githubIssue(7)] });
   const access = accessFor(fake);
   const ticket = await githubSource.get(access, "acme/app#7");
   const done = await githubSource.markInProgress(access, ticket, {
-    link: "http://127.0.0.1:4380/sessions/s1",
     kind: "session",
     label: "in progress",
   });
@@ -155,19 +154,17 @@ test("in progress adds the label and a link comment", async (t) => {
       [
         "POST",
         "/repos/acme/app/issues/7/comments",
-        { body: "Started in AgentPier: [session](http://127.0.0.1:4380/sessions/s1)" },
+        { body: "Started in AgentPier (session)." },
       ],
     ],
   );
   await githubSource.markInProgress(access, ticket, {
-    link: "http://127.0.0.1:4380/pipelines/runs/r1",
     kind: "run",
   });
   assert.deepEqual(fake.calls.at(-2).body, { labels: ["in progress"] });
-  assert.equal(
-    fake.calls.at(-1).body.body,
-    "Started in AgentPier: [pipeline run](http://127.0.0.1:4380/pipelines/runs/r1)",
-  );
+  assert.equal(fake.calls.at(-1).body.body, "Started in AgentPier (pipeline run).");
+  for (const call of fake.calls.filter((c) => c.path.endsWith("/comments")))
+    assert.doesNotMatch(call.body.body, /https?:|\/\/|localhost|127\.0\.0\.1/);
 });
 
 test("a refused label write fails markInProgress without commenting", async (t) => {
@@ -179,7 +176,6 @@ test("a refused label write fails markInProgress without commenting", async (t) 
   const ticket = await githubSource.get(access, "acme/app#7");
   await assert.rejects(
     githubSource.markInProgress(access, ticket, {
-      link: "http://127.0.0.1:4380/sessions/s1",
       kind: "session",
     }),
     { code: "forbidden" },

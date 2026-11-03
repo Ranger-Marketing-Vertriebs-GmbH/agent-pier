@@ -105,14 +105,6 @@ function toTicket(access, item, { states, labelNames }) {
   return { ticket, group };
 }
 
-function escapeHtml(value) {
-  return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
 export const planeSource = {
   id: "plane",
   async list(access, { label, signal } = {}) {
@@ -163,7 +155,7 @@ export const planeSource = {
       labelNames = await readLabelNames(access, signal);
     return toTicket(access, data, { states, labelNames }).ticket;
   },
-  async markInProgress(access, ticket, { link, kind, signal } = {}) {
+  async markInProgress(access, ticket, { kind, signal } = {}) {
     const states = await readStates(access, signal);
     const started = states
       .filter((s) => s.group === "started")
@@ -177,9 +169,7 @@ export const planeSource = {
     const noun = kind === "session" ? "session" : "pipeline run";
     await call(access, `${base}comments/`, {
       method: "POST",
-      body: {
-        comment_html: `<p>Started in AgentPier: <a href="${escapeHtml(link)}">${noun}</a></p>`,
-      },
+      body: { comment_html: `<p>Started in AgentPier (${noun}).</p>` },
       signal,
     });
     return { state: "done" };

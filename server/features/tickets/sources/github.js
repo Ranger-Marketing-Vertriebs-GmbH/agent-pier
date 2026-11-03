@@ -114,11 +114,7 @@ export const githubSource = {
       throw new TicketSourceError("notFound");
     return toTicket(access, data);
   },
-  async markInProgress(
-    access,
-    ticket,
-    { link, kind, label = "in progress", signal } = {},
-  ) {
+  async markInProgress(access, ticket, { kind, label = "in progress", signal } = {}) {
     const base = `${repoPath(access)}/issues/${encodeURIComponent(ticket.number)}`;
     await call(access, `${base}/labels`, {
       method: "POST",
@@ -128,7 +124,7 @@ export const githubSource = {
     const noun = kind === "session" ? "session" : "pipeline run";
     await call(access, `${base}/comments`, {
       method: "POST",
-      body: { body: `Started in AgentPier: [${noun}](${link})` },
+      body: { body: `Started in AgentPier (${noun}).` },
       signal,
     });
     return { state: "done" };

@@ -64,15 +64,6 @@ function startInput(input) {
   return checked;
 }
 
-function linkOrigin(value) {
-  try {
-    const url = new URL(String(value ?? ""));
-    return url.protocol === "http:" || url.protocol === "https:" ? url.origin : "";
-  } catch {
-    return "";
-  }
-}
-
 /**
  * A project's ticket sources: reads tickets fresh from GitHub and Plane, starts one as
  * a session or a pipeline run with a server-built task and moves it to "in progress".
@@ -314,7 +305,7 @@ export class TicketService {
     return { tickets: tickets.sort(byUpdatedDesc), labels: sortNames(labels), errors };
   }
 
-  async start(projectId, input, { linkBase } = {}) {
+  async start(projectId, input) {
     const checked = startInput(input);
     const project = this.resolveProject(projectId);
     const { link, ...accesses } = await this.accesses(project);
@@ -380,7 +371,7 @@ export class TicketService {
         writeBack: { state: "pending" },
       });
       ticketsProjectChanged(this.live(), project.id);
-      start = await this.writeBack(start, { source, access, link, ticket, linkBase });
+      start = await this.writeBack(start, { source, access, link, ticket });
       return { start, ...result };
     } finally {
       this.starting.delete(lock);
@@ -418,16 +409,10 @@ export class TicketService {
   }
 
   /** Marks the ticket in progress; a refusal is recorded, never thrown. */
-  async writeBack(start, { source, access, link, ticket, linkBase }) {
-    const base = linkOrigin(linkBase);
-    const target =
-      start.kind === "session"
-        ? `${base}/sessions/${encodeURIComponent(start.targetId)}`
-        : `${base}/pipelines/runs/${encodeURIComponent(start.targetId)}`;
+  async writeBack(start, { source, access, link, ticket }) {
     let writeBack;
     try {
       await source.markInProgress(access, ticket, {
-        link: target,
         kind: start.kind,
         label: link.github.inProgressLabel,
       });
