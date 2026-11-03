@@ -43,8 +43,10 @@ The API key is stored on this computer in `ticket-source-secrets/<id>.json` (fil
 `0600`, folder `0700`). It never reaches the browser, logs, error messages, ticket
 comments or the audit log; the edit dialog keeps it when the field is left blank, unless
 the **API URL** moves to another host: then the key has to be entered again, so the saved
-one never goes to the new address. A connection can be deleted once no project links to it;
-links of removed projects do not count (see [Removed projects](#removed-projects)).
+one never goes to the new address. A connection can be deleted once no project links to it.
+A link of a project id that AgentPier does not know now (see
+[Projects that move or disappear](#projects-that-move-or-disappear)) does not count and
+stays as it is.
 
 ### Linking a project
 
@@ -158,18 +160,14 @@ member (see [Label rules](#label-rules)). Backups carry
 credentials**; a restore without them lists each Plane connection by name as needing
 its key again. See [Backups](backups.md).
 
-## Removed projects
+## Projects that move or disappear
 
-When a project no longer exists in AgentPier (removed, or merged or moved to another
-project id), its ticket data has no Tickets tab left to show it. AgentPier drops it: the
-project's source link, its start records, its ticket sequence and its label rules with
-their pickups. This runs once when AgentPier starts and again right before a Plane
-connection is deleted, so the link of a removed project never keeps a connection in use.
-A project counts as removed only when it is neither registered nor a cloned repository;
-when the project list cannot be read, everything stays. Sessions and runs a dropped
-sequence started keep running as ordinary sessions and runs; nothing is merged for them
-any more. Between two such clean-ups a label rule of a removed project shows **The
-project no longer exists**.
+A project's ticket data (its source link, start records, ticket sequence, label rules
+and pickups) is kept under its project id. AgentPier never deletes it on its own: not
+at start-up, and not when the project list cannot be read or does not know the id. A
+label rule of a project that is not known shows **The project no longer exists** and
+picks up nothing. AgentPier has no action that removes a project, so nothing deletes
+this data.
 
 ## Limits
 

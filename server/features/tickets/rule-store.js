@@ -285,25 +285,6 @@ export class TicketRuleStore {
         )),
     );
   }
-  /** Every project id with a rule or a pickup. */
-  projectIds() {
-    return new Set([
-      ...this.list.map((e) => e.projectId),
-      ...[...this.picks.values()].map((p) => p.projectId),
-    ]);
-  }
-  /**
-   * Drops a project's rules and pickups, once the project itself is gone. A locked file
-   * stays as it is (see the constructor).
-   */
-  removeProject(projectId) {
-    if (this.locked || !this.projectIds().has(projectId)) return;
-    this.commit(projectId, () => {
-      this.list = this.list.filter((e) => e.projectId !== projectId);
-      for (const [id, p] of this.picks)
-        if (p.projectId === projectId) this.picks.delete(id);
-    });
-  }
   setStatus(projectId, ruleId, next) {
     const index = this.list.findIndex(
       (e) => e.projectId === projectId && e.id === ruleId,
