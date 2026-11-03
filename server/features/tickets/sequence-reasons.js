@@ -19,6 +19,7 @@ export const PARK_REASONS = Object.freeze([
   "failedRounds",
   "forgeUnreachable",
   "repairUnconfigured",
+  "repairFailed",
 ]);
 
 const TRANSIENT_CODES = new Set(["unavailable", "unreachable", "rateLimited"]);
