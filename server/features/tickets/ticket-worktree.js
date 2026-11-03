@@ -209,6 +209,39 @@ export class TicketWorktrees {
     return { cwd, projectRoot, branch, headRef };
   }
 
+  /**
+   * What is left at `<repo>/.worktrees/<name>`: whether anything is there, and for a
+   * worktree of this repository its branch and whether it has local changes.
+   */
+  async inspect({ projectPath, name }) {
+    const projectRoot = await this.#root(projectPath);
+    const cwd = path.join(projectRoot, fenceName, safeName(name));
+    if (!(await this.exists(cwd, true))) return { cwd, exists: false };
+    const entry = await fs.lstat(cwd);
+    if (!entry.isDirectory() || entry.isSymbolicLink())
+      return { cwd, exists: true, worktree: false };
+    try {
+      const top = await fs.realpath(
+        (await git(cwd, ["rev-parse", "--show-toplevel"])).trim(),
+      );
+      const common = async (dir) =>
+        fs.realpath(
+          (
+            await git(dir, ["rev-parse", "--path-format=absolute", "--git-common-dir"])
+          ).trim(),
+        );
+      if (top !== cwd || (await common(cwd)) !== (await common(projectRoot)))
+        return { cwd, exists: true, worktree: false };
+      const branch = (
+        await git(cwd, ["symbolic-ref", "--quiet", "--short", "HEAD"]).catch(() => "")
+      ).trim();
+      const status = await git(cwd, ["status", "--porcelain", "--untracked-files=all"]);
+      return { cwd, exists: true, worktree: true, branch, clean: !status.trim() };
+    } catch {
+      return { cwd, exists: true, worktree: false };
+    }
+  }
+
   async exists(cwd, anyEntry = false) {
     try {
       const entry = await fs.lstat(cwd);

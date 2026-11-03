@@ -139,6 +139,40 @@ export class TicketSequenceEngine {
     return lock.promise;
   }
 
+  /**
+   * Runs an owner action (Retry, Mark done, Remove) on one queue while no step of that
+   * queue runs, and steps the queue right after it. Resolves with the action's result
+   * as soon as the action ends; the steps that follow keep the lock.
+   */
+  async exclusive(projectId, action) {
+    for (let held = this.locks.get(projectId); held; held = this.locks.get(projectId))
+      await held.promise;
+    let settle;
+    const outcome = new Promise((resolve) => (settle = resolve));
+    const lock = { again: false, promise: null };
+    lock.promise = (async () => {
+      try {
+        try {
+          settle({ value: await action() });
+          lock.again = true;
+        } catch (error) {
+          // A refused action changed nothing; only nudges that came in step the queue.
+          settle({ error });
+        }
+        while (lock.again && !this.closed) {
+          lock.again = false;
+          await this.steps(projectId);
+        }
+      } finally {
+        this.locks.delete(projectId);
+      }
+    })();
+    this.locks.set(projectId, lock);
+    const { value, error } = await outcome;
+    if (error) throw error;
+    return value;
+  }
+
   async steps(projectId) {
     // PRs merged in this loop: a read that still says open never merges twice.
     const merged = new Set();

@@ -85,19 +85,24 @@ export async function startItem(engine, ctx, item) {
 }
 
 async function launchSession(engine, ctx, item, ticket) {
-  const tree = await engine.worktrees.createSession({
-    projectPath: ctx.project.path,
-    ticket,
-    name: worktreeName(item),
-  });
-  const baseRef = tree.baseRef.startsWith(REMOTE_PREFIX)
-    ? tree.baseRef.slice(REMOTE_PREFIX.length)
-    : tree.baseRef;
-  let saved = engine.save(ctx, item, {
-    worktree: { cwd: tree.cwd, branch: tree.branch, baseRef },
-  });
+  let saved = item;
+  // Retry keeps the worktree of an earlier attempt only when it is clean and still on
+  // its branch (sequence-service.js); a folder that is gone is created again.
+  if (!(item.worktree?.cwd && (await engine.worktrees.exists(item.worktree.cwd)))) {
+    const tree = await engine.worktrees.createSession({
+      projectPath: ctx.project.path,
+      ticket,
+      name: worktreeName(item),
+    });
+    const baseRef = tree.baseRef.startsWith(REMOTE_PREFIX)
+      ? tree.baseRef.slice(REMOTE_PREFIX.length)
+      : tree.baseRef;
+    saved = engine.save(ctx, item, {
+      worktree: { cwd: tree.cwd, branch: tree.branch, baseRef },
+    });
+  }
   const session = await engine.launch(
-    { ...item.options.session, cwd: tree.cwd, name: sessionName(ticket) },
+    { ...item.options.session, cwd: saved.worktree.cwd, name: sessionName(ticket) },
     false,
     { ticket: ticketRef(ticket), validateAccount },
   );
