@@ -88,7 +88,15 @@ test("add rule sends allowMerge false by default and the chosen label", async ({
   );
   await expect(dialog.getByRole("radio", { name: "GitHub" })).toBeChecked();
   await expect(dialog.getByRole("radio", { name: "Session" })).toBeChecked();
-  await expect(dialog.getByRole("switch", { name: "Allow merge" })).not.toBeChecked();
+  const merge = dialog.getByRole("switch", { name: "Allow merge" });
+  await expect(merge).not.toBeChecked();
+  // Allow merge warns while it is on: whoever sets the label can get work merged.
+  const warning = dialog.getByText(/^Anyone who can set this label can get the work/);
+  await expect(warning).toHaveCount(0);
+  await merge.click();
+  await expect(warning).toBeVisible();
+  await merge.click();
+  await expect(warning).toHaveCount(0);
   await expect(dialog.getByRole("switch", { name: "Paused" })).not.toBeChecked();
   // No label yet: nothing to save.
   await expect(dialog.getByRole("button", { name: "Save rule" })).toBeDisabled();

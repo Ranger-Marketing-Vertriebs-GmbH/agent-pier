@@ -13,8 +13,9 @@ import "./project-tickets.css";
 
 /**
  * Adds a label rule to `projectId`, or edits `rule`: the source (a choice only while
- * both are connected), the exact label, the options every picked-up ticket runs with
- * ("Allow merge" off by default) and Paused. `onSaved` awaits the pushed change.
+ * both are connected), the label (case and outer spaces ignored), the options every
+ * picked-up ticket runs with ("Allow merge" off by default, with a warning while on)
+ * and Paused. `onSaved` awaits the pushed change.
  */
 export default function LabelRuleDialog({
   projectId,
@@ -86,7 +87,7 @@ export default function LabelRuleDialog({
             {copy.labelHint}
           </small>
         </div>
-        <SequenceOptionsFields {...fieldProps} />
+        <SequenceOptionsFields {...fieldProps} mergeWarning={copy.allowMergeWarning} />
         <ListCard label={copy.paused}>
           <ToggleRow
             label={copy.paused}
