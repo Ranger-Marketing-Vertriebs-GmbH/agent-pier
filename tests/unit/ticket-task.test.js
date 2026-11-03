@@ -8,6 +8,7 @@ import {
 } from "../../server/features/tickets/ticket.js";
 import {
   checksNotice,
+  NO_MERGE_LINE,
   repairTask,
   reviewNotice,
   sequenceSessionTask,
@@ -180,7 +181,10 @@ test("the sequence task names the worktree branch and keeps the framing", () => 
     text,
     /You are in your own git worktree on branch `ticket\/7-fix-login`, created from `main`\. Commit there, push this branch and open a pull request against `main`\.\n/,
   );
-  assert.match(text, /watch the pull request until it is merged/);
+  assert.match(text, /watch the checks and reviews and fix problems/);
+  assert.doesNotMatch(text, /until it is merged/);
+  assert.ok(text.includes(NO_MERGE_LINE));
+  assert.match(NO_MERGE_LINE, /^Do not merge the pull request yourself/);
   assert.doesNotMatch(text, /Work on a new branch/);
   assert.match(text, /"Closes #7"\.$/);
 });
@@ -197,8 +201,9 @@ test("the repair task lists failed checks and the push command", () => {
   assert.match(text, /\nA review requested changes\.\n/);
   assert.match(
     text,
-    /git push origin HEAD:ticket\/7-fix`\. Do not open a new pull request\.$/,
+    /git push origin HEAD:ticket\/7-fix`\. Do not open a new pull request\.\n/,
   );
+  assert.ok(text.endsWith(`\n${NO_MERGE_LINE}`));
   const plain = repairTask(sample(), { prUrl: "u", headRef: "h", failed: [] });
   assert.doesNotMatch(plain, /Failed checks|requested changes/);
 });

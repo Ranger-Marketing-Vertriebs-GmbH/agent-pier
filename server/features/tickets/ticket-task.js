@@ -25,6 +25,9 @@ function oneLine(value, limit = 120) {
 }
 
 const MAX_CHECK_NAMES = 5;
+// Only AgentPier merges, and only when the owner allows it for the sequence.
+export const NO_MERGE_LINE =
+  "Do not merge the pull request yourself and do not turn on auto-merge; AgentPier merges it when the owner allows it.";
 
 function checkNames(failed) {
   const names = (Array.isArray(failed) ? failed : []).map((name) => oneLine(name, 80));
@@ -71,7 +74,8 @@ export function sequenceSessionTask(ticket, { branch, baseBranch }) {
   return [
     ...ticketBlock(ticket),
     `You are in your own git worktree on branch \`${oneLine(branch)}\`, created from \`${base}\`. Commit there, push this branch and open a pull request against \`${base}\`.`,
-    "After opening it, watch the pull request until it is merged: fix failed checks and requested changes yourself and push again. AgentPier will also tell you here when checks fail.",
+    "After opening it, watch the checks and reviews and fix problems: fix failed checks and requested changes yourself and push again. AgentPier will also tell you here when checks fail.",
+    NO_MERGE_LINE,
     referenceLine(ticket),
   ].join("\n");
 }
@@ -83,6 +87,7 @@ export function repairTask(ticket, { prUrl, headRef, failed, changesRequested })
   if (changesRequested) lines.push("A review requested changes.");
   lines.push(
     `Fix them in this worktree and push with \`git push origin HEAD:${oneLine(headRef)}\`. Do not open a new pull request.`,
+    NO_MERGE_LINE,
   );
   return lines.join("\n");
 }
