@@ -42,6 +42,7 @@ export default function PlaneLinkDialog({ projectId, view, onNavigate, close }) 
   );
   const started = (states.data?.states || []).filter((item) => item.group === "started");
   const disconnect = useAsyncAction();
+  const [saving, setSaving] = useState(false);
   const path = `/tickets/projects/${enc(projectId)}/sources`;
   const connectionsLink = connectionsRoute("tickets");
   return (
@@ -61,7 +62,12 @@ export default function PlaneLinkDialog({ projectId, view, onNavigate, close }) 
                   ? stateId
                   : null,
             };
-          await api(path, "PUT", body);
+          setSaving(true);
+          try {
+            await api(path, "PUT", body);
+          } finally {
+            setSaving(false);
+          }
           close();
         }}
       >
@@ -169,7 +175,7 @@ export default function PlaneLinkDialog({ projectId, view, onNavigate, close }) 
             <button
               type="button"
               className="button secondary"
-              disabled={disconnect.busy}
+              disabled={disconnect.busy || saving}
               onClick={() =>
                 disconnect.run(async () => {
                   await api(path, "PUT", { plane: null });

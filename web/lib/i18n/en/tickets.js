@@ -74,6 +74,7 @@ export const projectTicketsCopy = {
   searchLabels: "Search labels",
   source: "Source",
   allSources: "All",
+  unregistered: "Tickets belong to a project folder. Add the folder to use its tickets.",
   loading: "Loading tickets …",
   loadFailed: "The ticket sources of this project could not be loaded.",
   sourceError: (source, message) => `${source}: ${message}`,

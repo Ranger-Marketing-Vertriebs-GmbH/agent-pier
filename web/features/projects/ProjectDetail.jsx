@@ -209,6 +209,7 @@ export default function ProjectDetail({
           onNavigate={onNavigate}
           onLaunch={onLaunch}
           home={home}
+          reloadHub={reloadHub}
         />
       )}
     </div>

@@ -5,13 +5,19 @@ import ListRow from "../../components/ListRow.jsx";
 import { projectTicketsCopy as copy } from "../../lib/i18n/messages/tickets.js";
 import PlaneLinkDialog from "./PlaneLinkDialog.jsx";
 
+function hostName(host) {
+  try {
+    return new URL(host).host;
+  } catch {
+    return "";
+  }
+}
+
 function githubSub(github) {
   if (github?.state !== "connected") return copy.githubNotConnected;
-  return copy.githubConnected(
-    github.repo,
-    github.credential?.name,
-    github.inProgressLabel,
-  );
+  // A token profile without a name is named by its host.
+  const credential = github.credential?.name || hostName(github.host) || copy.github;
+  return copy.githubConnected(github.repo, credential, github.inProgressLabel);
 }
 
 function planeSub(plane) {
