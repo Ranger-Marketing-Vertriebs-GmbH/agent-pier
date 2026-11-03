@@ -1,4 +1,5 @@
 import { isCodingCli } from "../../../server/features/clis/catalog.js";
+import { DEFAULT_MCP_CLI } from "../coding/routes.js";
 export const sections = new Set([
   "assistants",
   // Nested below the agent service (now Agenten › Laufzeit › Erweitert).
@@ -81,7 +82,7 @@ export function readSettingsRoute(pathname, search) {
           mcpAuthorization: /^[A-Za-z0-9_-]{1,200}$/.test(authorization)
             ? authorization
             : "",
-          mcpCli: isCodingCli(query.get("cli")) ? query.get("cli") : "codex",
+          mcpCli: isCodingCli(query.get("cli")) ? query.get("cli") : DEFAULT_MCP_CLI,
           mcpPage: /^[1-9]\d{0,4}$/.test(rawPage) ? Number(rawPage) : 1,
         }
       : {}),
@@ -118,7 +119,7 @@ export function settingsRoutePath(route) {
     query.set("tab", route.settingsTab);
   if (section === "mcp") {
     if (route.mcpAuthorization) query.set("authorization", route.mcpAuthorization);
-    if (route.mcpCli && route.mcpCli !== "codex") query.set("cli", route.mcpCli);
+    if (route.mcpCli && route.mcpCli !== DEFAULT_MCP_CLI) query.set("cli", route.mcpCli);
     if (route.mcpPage > 1) query.set("page", String(route.mcpPage));
   } else if (section === "audit") {
     if (route.auditPage > 1) query.set("page", String(route.auditPage));

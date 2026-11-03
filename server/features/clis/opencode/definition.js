@@ -29,7 +29,34 @@ const definition = {
     mcpOAuth: false,
     imagePaste: false,
     rateLimits: false,
+    mcpSse: true,
+    mcpStdioCwd: true,
   },
+  mcpLoginCommand: (name) => `opencode mcp auth ${name}`,
+  mcpSetup: ({ endpoint }) => ({
+    steps: [
+      {
+        id: "add",
+        value: JSON.stringify(
+          {
+            $schema: "https://opencode.ai/config.json",
+            mcp: { agentpier: { type: "remote", url: endpoint, enabled: true } },
+          },
+          null,
+          2,
+        ),
+        kind: "config",
+      },
+      { id: "login", value: "opencode mcp auth agentpier", kind: "command" },
+      {
+        id: "check",
+        value: "opencode mcp list\nopencode mcp debug agentpier",
+        kind: "command",
+      },
+      { id: "remove", value: "opencode mcp logout agentpier", kind: "command" },
+    ],
+    removeNote: "opencodeRemove",
+  }),
   pipeline: { permissionModes: ["ask", "auto"] },
 };
 

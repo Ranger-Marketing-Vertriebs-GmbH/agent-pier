@@ -33,7 +33,30 @@ const definition = {
     mcpOAuth: false,
     imagePaste: true,
     rateLimits: false,
+    mcpSse: true,
+    mcpStdioCwd: false,
   },
+  mcpLoginCommand: () => "/mcp",
+  mcpSetup: ({ quoted }) => ({
+    steps: [
+      {
+        id: "add",
+        value: `claude mcp add --transport http --scope user agentpier ${quoted}`,
+        kind: "command",
+      },
+      { id: "login", value: "/mcp", kind: "command" },
+      {
+        id: "check",
+        value: "claude mcp get agentpier\nclaude mcp list",
+        kind: "command",
+      },
+      {
+        id: "remove",
+        value: "claude mcp remove --scope user agentpier",
+        kind: "command",
+      },
+    ],
+  }),
   pipeline: {
     permissionModes: [
       "default",

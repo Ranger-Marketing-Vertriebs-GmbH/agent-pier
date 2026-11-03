@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
-import { codingCliIds } from "../clis/catalog.js";
+import { cliDefinition, codingCliIds } from "../clis/catalog.js";
 import { cliDriver } from "../clis/drivers.js";
 import { mcpUrl, record, values } from "../extensions/mcp-config.js";
 import { namePattern } from "./command-resolution.js";
@@ -16,7 +16,8 @@ export const clis = codingCliIds().sort(); // alphabetical, as the form lists th
 /**
  * Whether `cli` can run `server` (a definition or a public server). Codex has no SSE;
  * Claude Code does not start a stdio command in a working directory, Codex and OpenCode
- * do (docs/cli-mcp-qualification.md): MCP_CLI_CWD_UNSUPPORTED applies to Claude Code only.
+ * do (docs/cli-mcp-qualification.md). Both facts are definition capabilities
+ * (`mcpSse`, `mcpStdioCwd`).
  * No CLI gets a server with agent placeholders (docs/mcp.md#agent-placeholders): its
  * one configuration serves every session. `agentPlaceholders` marks a stored server;
  * a raw input is judged by its own arguments, working directory and environment.
@@ -24,9 +25,10 @@ export const clis = codingCliIds().sort(); // alphabetical, as the form lists th
 export function cliSupport(cli, server) {
   if (server.agentPlaceholders === true || usesAgentPlaceholders(server, server.env))
     return { supported: false, reason: "placeholder" };
-  if (cli === "codex" && server.transport === "sse")
+  const { mcpSse, mcpStdioCwd } = cliDefinition(cli).capabilities;
+  if (!mcpSse && server.transport === "sse")
     return { supported: false, reason: "transport" };
-  if (cli === "claude" && server.transport === "stdio" && server.cwd)
+  if (!mcpStdioCwd && server.transport === "stdio" && server.cwd)
     return { supported: false, reason: "cwd" };
   return { supported: true };
 }

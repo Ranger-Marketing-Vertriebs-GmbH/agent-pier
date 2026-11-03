@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { cliDefinition } from "../clis/catalog.js";
 
 const execute = promisify(execFile);
 // `auth_status` of `codex mcp list --json` (docs/cli-mcp-qualification.md).
@@ -8,9 +9,7 @@ const statusTtlMs = 30000;
 
 /** The command that logs server `name` in, in the CLI itself. */
 export function loginCommand(cli, name) {
-  if (cli === "claude") return "/mcp";
-  if (cli === "codex") return `codex mcp login ${name}`;
-  return `opencode mcp auth ${name}`;
+  return cliDefinition(cli).mcpLoginCommand(name);
 }
 
 // Only a stable error code is logged, never the CLI's output, a message or a path.

@@ -53,6 +53,8 @@ test("definitions carry every required field", () => {
       "mcpOAuth",
       "imagePaste",
       "rateLimits",
+      "mcpSse",
+      "mcpStdioCwd",
     ]);
     for (const value of Object.values(d.capabilities))
       assert.equal(typeof value, "boolean");
@@ -121,4 +123,20 @@ test("unknown id throws", () => {
     assert.equal(isCodingCli(id), false);
     assert.throws(() => cliDefinition(id), TypeError);
   }
+});
+
+test("MCP transport capabilities and login commands per CLI", () => {
+  const caps = (id) => cliDefinition(id).capabilities;
+  assert.deepEqual(
+    CODING_CLI_IDS.map((id) => [caps(id).mcpSse, caps(id).mcpStdioCwd]),
+    [
+      [false, true],
+      [true, false],
+      [true, true],
+    ],
+  );
+  assert.deepEqual(
+    CODING_CLI_IDS.map((id) => cliDefinition(id).mcpLoginCommand("x")),
+    ["codex mcp login x", "/mcp", "opencode mcp auth x"],
+  );
 });
