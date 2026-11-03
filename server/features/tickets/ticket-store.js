@@ -265,16 +265,28 @@ export class TicketStore {
     );
   }
   /**
-   * Moves a project's link and start records to the project it became. A link the
-   * new project already has wins; the old one is dropped then.
+   * Moves a project's link and start records to the project it became. When both have
+   * a link they merge field by field, the new project's value winning: its Plane link
+   * when it has one, else the old one; its GitHub label unless it is the default.
    */
   moveProject(fromId, toId) {
     if (fromId === toId || !this.ownsProject(fromId)) return;
-    const taken = this.projects.some((link) => link.projectId === toId);
+    const from = this.projects.find((link) => link.projectId === fromId);
+    const to = this.projects.find((link) => link.projectId === toId);
     const before = [this.projects, this.startRecords];
-    this.projects = this.projects
-      .filter((link) => !(link.projectId === fromId && taken))
-      .map((link) => (link.projectId === fromId ? { ...link, projectId: toId } : link));
+    const label = (link) => link?.github?.inProgressLabel || DEFAULT_LABEL;
+    const merged = from && {
+      projectId: toId,
+      repoPath: to?.repoPath ?? from.repoPath,
+      plane: to?.plane ?? from.plane ?? null,
+      github: {
+        inProgressLabel: label(to) !== DEFAULT_LABEL ? label(to) : label(from),
+      },
+    };
+    this.projects = [
+      ...this.projects.filter((link) => link !== from && link !== to),
+      ...(merged ? [merged] : to ? [to] : []),
+    ];
     this.startRecords = this.startRecords.map((record) =>
       record.projectId === fromId ? { ...record, projectId: toId } : record,
     );
