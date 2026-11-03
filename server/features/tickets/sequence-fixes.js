@@ -323,6 +323,11 @@ async function startRepair(engine, ctx, item, decision, verdict, worker) {
       return { item: saved, stop: true };
     }
     engine.onError(error, "repair");
+    // A repair session whose task never arrived is stopped, like a ticket's session.
+    if (isTimedOut(error) && session)
+      await Promise.resolve()
+        .then(() => engine.sessions?.stop?.(session.id))
+        .catch(() => {});
     engine.park(
       ctx,
       engine.save(ctx, saved, { rounds: decision.rounds }),
