@@ -23,7 +23,14 @@ function status(value) {
   out.checkedAt = stamp(value.checkedAt);
   if (plain(value.error) && idText(value.error.code, 64))
     out.error = { code: value.error.code, since: stamp(value.error.since) ?? 0 };
-  if (idText(value.notified, 64)) out.notified = value.notified;
+  // The codes already pushed in the current failure episode; a string is the older
+  // spelling of one code.
+  const codes =
+    (typeof value.notified === "string" ? [value.notified] : value.notified) ?? [];
+  if (Array.isArray(codes)) {
+    const kept = [...new Set(codes.filter((code) => idText(code, 64)))].slice(0, 16);
+    if (kept.length) out.notified = kept;
+  }
   // The last successful pass read only the first pages of the source (rule-monitor.js).
   if (value.capped === true) out.capped = true;
   return out;

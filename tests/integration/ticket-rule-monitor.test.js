@@ -184,7 +184,7 @@ test("unreachable source sets the code on the rule and pushes once per error kin
   });
   assert.match(f.notified[0].eventId, /^[0-9a-f]{64}$/);
   assert.deepEqual(f.status(rule.id).error, { code: "unreachable", since });
-  assert.equal(f.status(rule.id).notified, "unreachable");
+  assert.deepEqual(f.status(rule.id).notified, ["unreachable"]);
   assert.deepEqual(f.logs, ["AgentPier could not poll a label rule: unreachable"]);
   assert.deepEqual(f.items(), []);
   // Recovery clears the error and the notice.
@@ -207,6 +207,29 @@ test("unreachable source sets the code on the rule and pushes once per error kin
   assert.equal(f.notified.length, 3);
   assert.equal(f.status(rule.id).error.code, "unauthorized");
   for (const line of f.logs) assert.doesNotMatch(line, /gh-token|http|acme/);
+});
+
+test("error codes that alternate push once each until a successful pass", async (t) => {
+  const f = await ruleMonitorFixture(t, { issues: [labelledIssue(1, "agent")] });
+  const rule = f.rules.create("p1", ruleInput());
+  const monitor = f.monitor();
+  const flip = async (code) => {
+    f.net.down = code === "unreachable";
+    if (code === "unavailable") f.githubFailures["GET /repos/acme/app/issues"] = 503;
+    else delete f.githubFailures["GET /repos/acme/app/issues"];
+    await monitor.run();
+    assert.equal(f.status(rule.id).error.code, code);
+  };
+  for (const code of ["unavailable", "unreachable", "unavailable", "unreachable"])
+    await flip(code);
+  assert.equal(f.notified.length, 2);
+  assert.deepEqual(f.status(rule.id).notified, ["unavailable", "unreachable"]);
+  f.net.down = false;
+  delete f.githubFailures["GET /repos/acme/app/issues"];
+  await monitor.run();
+  assert.equal(f.status(rule.id).notified, null);
+  await flip("unavailable");
+  assert.equal(f.notified.length, 3);
 });
 
 test("an owner edit during the push is not overwritten by the old error", async (t) => {
@@ -236,7 +259,7 @@ test("an owner edit during the push is not overwritten by the old error", async 
   f.rules.remove("p1", moved.id);
   await f.monitor({ notifications }).run();
   assert.equal(f.status(kept.id).error.code, "unreachable");
-  assert.equal(f.status(kept.id).notified, "unreachable");
+  assert.deepEqual(f.status(kept.id).notified, ["unreachable"]);
 });
 
 test("a pass hands its abort signal to appendFromRule and writes nothing after close", async (t) => {
