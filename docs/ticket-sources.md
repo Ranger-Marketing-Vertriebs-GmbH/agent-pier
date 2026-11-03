@@ -163,11 +163,18 @@ its key again. See [Backups](backups.md).
 ## Projects that move or disappear
 
 A project's ticket data (its source link, start records, ticket sequence, label rules
-and pickups) is kept under its project id. AgentPier never deletes it on its own: not
-at start-up, and not when the project list cannot be read or does not know the id. A
-label rule of a project that is not known shows **The project no longer exists** and
-picks up nothing. AgentPier has no action that removes a project, so nothing deletes
-this data.
+and pickups) is kept under its project id. When a project gets a new id, because its
+plain folder became a Git work tree or because you merged an older duplicate row into
+it, the ticket data moves with the rest of the project: the source link (a link the
+new project already has wins), the start records, the sequence (behind the new
+project's items; a ticket queued in both stays once) and the label rules with their
+pickups (a rule whose source and label the new project already has is dropped, its
+pickups move). An interrupted move finishes on the next start.
+
+AgentPier never deletes ticket data on its own: not at start-up, and not when the
+project list cannot be read or does not know the id. A label rule of a project that
+is not known shows **The project no longer exists** and picks up nothing. AgentPier has
+no action that removes a project, so nothing deletes this data.
 
 ## Limits
 

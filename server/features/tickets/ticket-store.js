@@ -257,6 +257,34 @@ export class TicketStore {
     this.save();
     return this.projectLink(projectId);
   }
+  /** Whether a link or a start record still names the project. */
+  ownsProject(projectId) {
+    return (
+      this.projects.some((link) => link.projectId === projectId) ||
+      this.startRecords.some((record) => record.projectId === projectId)
+    );
+  }
+  /**
+   * Moves a project's link and start records to the project it became. A link the
+   * new project already has wins; the old one is dropped then.
+   */
+  moveProject(fromId, toId) {
+    if (fromId === toId || !this.ownsProject(fromId)) return;
+    const taken = this.projects.some((link) => link.projectId === toId);
+    const before = [this.projects, this.startRecords];
+    this.projects = this.projects
+      .filter((link) => !(link.projectId === fromId && taken))
+      .map((link) => (link.projectId === fromId ? { ...link, projectId: toId } : link));
+    this.startRecords = this.startRecords.map((record) =>
+      record.projectId === fromId ? { ...record, projectId: toId } : record,
+    );
+    try {
+      this.save();
+    } catch (error) {
+      [this.projects, this.startRecords] = before;
+      throw error;
+    }
+  }
   starts(projectId) {
     return this.startRecords
       .filter((record) => record.projectId === projectId)

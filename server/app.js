@@ -63,6 +63,7 @@ import { readStampHeader } from "./lib/read-stamp.js";
 import { createSessionLifecycle } from "./application/session-lifecycle.js";
 import { createPipelineServices } from "./application/pipelines.js";
 import { cleanUpProjects } from "./application/project-cleanup.js";
+import { ticketProjectMoves } from "./features/tickets/project-moves.js";
 import { ProjectDuplicates } from "./application/project-duplicates.js";
 import { pipelineDefinitionRoutes } from "./http/routes/pipeline-definitions.js";
 import { pipelineRunRoutes } from "./http/routes/pipeline-runs.js";
@@ -183,6 +184,13 @@ export async function createApplication(config) {
   Object.assign(services, await createPipelineServices(services));
   services.projectRebind.definitions = services.pipelineDefinitions;
   services.projectRebind.runQueue = services.pipelineQueue;
+  services.projectRebind.tickets = ticketProjectMoves({
+    ticketStore: services.ticketStore,
+    rules: services.ticketRuleStore,
+    store: services.ticketSequenceStore,
+    engine: services.ticketSequenceEngine,
+    live: () => services.live,
+  });
   services.projectDuplicates = new ProjectDuplicates(services);
   await services.projectDuplicates.resume();
   // A failed one-off cleanup keeps no marker, so the next start retries it.
