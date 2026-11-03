@@ -16,13 +16,14 @@ export const ticketRulesCopy = {
   paused: "Pausiert",
   active: "Aktiv",
   failing: "Fehler",
+  loadFailed: "Die Label-Regeln konnten nicht geladen werden.",
   fromRule: (label) => `Aus der Label-Regel „${label}“`,
   fromDeletedRule: "Aus einer gelöschten Label-Regel",
   capped: {
     github:
       "Nur die neuesten 300 offenen Issues werden geprüft; ältere Issues mit diesem Label werden nicht übernommen.",
     plane:
-      "Nur die ersten 500 Work Items werden geprüft; Tickets mit diesem Label dahinter werden nicht übernommen.",
+      "Nur 500 Work Items, geschlossene eingeschlossen, werden geprüft; Tickets mit diesem Label dahinter werden nicht übernommen.",
   },
   errors: {
     labelGone: "Das Label gibt es in der Ticketquelle nicht.",

@@ -5,6 +5,7 @@ import {
   ruleCappedText,
   ruleErrorText,
   rulesPath,
+  ruleState,
   ruleTone,
 } from "../../web/features/projects/ticket-rules.js";
 import { ruleInput } from "../../server/features/tickets/rule-input.js";
@@ -33,12 +34,16 @@ test("rulesPath encodes the project and the rule", () => {
   assert.equal(rulesPath("a/b", "r 1"), "/tickets/projects/a%2Fb/rules/r%201");
 });
 
-test("ruleTone maps paused and error", () => {
+test("ruleTone and ruleState put paused before an error", () => {
   assert.equal(ruleTone(rule), "neutral");
   assert.equal(ruleTone({ ...rule, paused: true }), "warning");
   const failed = { ...rule, status: { checkedAt: 5, error: { code: "x", since: 1 } } };
   assert.equal(ruleTone(failed), "error");
-  assert.equal(ruleTone({ ...failed, paused: true }), "error");
+  assert.equal(ruleState(failed), "failing");
+  // A paused rule reads nothing, so its last error is not its state.
+  assert.equal(ruleTone({ ...failed, paused: true }), "warning");
+  assert.equal(ruleState({ ...failed, paused: true }), "paused");
+  assert.equal(ruleState(rule), "active");
 });
 
 test("ruleErrorText falls back to source codes", () => {
