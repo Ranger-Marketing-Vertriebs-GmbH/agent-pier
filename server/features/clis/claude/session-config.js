@@ -63,3 +63,8 @@ export function addReminder(launch, { script, folder, invalid }) {
     hooks: { ...hooks, SessionStart: [...(hooks.SessionStart || []), hook] },
   });
 }
+
+/** Names of the MCP servers the launch environment already holds inline: none. */
+export function inlineMcpNames() {
+  return [];
+}

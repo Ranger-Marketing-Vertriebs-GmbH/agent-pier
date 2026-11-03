@@ -2,6 +2,7 @@
 // `oauth` (connected or error), `server` (its id) and an optional stable `reason`; a
 // brokered Codex login adds `cli=codex` and `account` (the managed account's id).
 // The route keeps it while the address is normalized to a plain /accounts.
+import { cliDefinition, isCodingCli } from "../../../server/features/clis/catalog.js";
 import { mcpOAuthCopy as copy } from "../../lib/i18n/messages/mcp-oauth.js";
 
 const results = new Set(["connected", "error"]);
@@ -17,11 +18,15 @@ export function readMcpOAuthResult(search) {
   const server = query.get("server") || "";
   const reason = query.get("reason") || "";
   const account = query.get("account") || "";
-  const codex = query.get("cli") === "codex" && accountId.test(account);
+  const cli = query.get("cli");
+  const brokered =
+    isCodingCli(cli) &&
+    cliDefinition(cli).capabilities.mcpOAuth &&
+    accountId.test(account);
   return {
     mcpOAuth: {
       result,
-      ...(codex ? { cli: "codex", accountId: account } : {}),
+      ...(brokered ? { cli, accountId: account } : {}),
       ...(serverId.test(server) ? { serverId: server } : {}),
       ...(result === "error" && reasonCode.test(reason) ? { reason } : {}),
     },

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { mcpOAuthCopy as copy } from "../../lib/i18n/messages/mcp-oauth.js";
 import { assistantApi } from "../assistants/assistant-api.js";
 import { oauthStatusOf } from "./McpOAuthStatus.jsx";
+import { cliDefinition, isCodingCli } from "../../../server/features/clis/catalog.js";
 import { codexResultText } from "./codex-login.js";
 import { authorizationTarget, oauthResultText } from "./oauth-result.js";
 
@@ -129,7 +130,7 @@ export function McpOAuthResultBanner({ result, servers, onDismiss }) {
       role={success ? "status" : "alert"}
     >
       <p>
-        {result.cli === "codex"
+        {isCodingCli(result.cli) && cliDefinition(result.cli).capabilities.mcpOAuth
           ? codexResultText(result, servers)
           : oauthResultText(result, servers, window.location.origin)}
       </p>

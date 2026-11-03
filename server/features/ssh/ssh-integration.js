@@ -12,7 +12,6 @@ import { SFTP_HINT_ENV } from "./ssh-hook.js";
 import { addGrant } from "../nono/sandbox-grants.js";
 import { isCodingCli } from "../clis/catalog.js";
 import { cliDriver } from "../clis/drivers.js";
-import { inlineConfig } from "../clis/opencode/session-config.js";
 const main = fileURLToPath(new URL("./ssh-mcp.js", import.meta.url));
 const supported = (session) =>
   isCodingCli(session?.tool) &&
@@ -49,16 +48,14 @@ export class SshIntegration {
       throw problem(serverMessages.ssh.unsupportedAccount);
     const args = [...(launch.args || [])],
       env = { ...launch.env };
-    if (selected.tool === "opencode") {
-      let config;
-      try {
-        config = inlineConfig(env);
-      } catch {
-        throw problem(serverMessages.common.invalidTemporaryOpenCodeConfig, 409);
-      }
-      if (Object.hasOwn(config.mcp || {}, "agentpier_ssh"))
-        throw problem(serverMessages.ssh.reservedMcpName, 409);
+    let names;
+    try {
+      names = cliDriver(selected.tool).inlineMcpNames(env);
+    } catch {
+      throw problem(serverMessages.common.invalidTemporaryOpenCodeConfig, 409);
     }
+    if (names.includes("agentpier_ssh"))
+      throw problem(serverMessages.ssh.reservedMcpName, 409);
     if (
       args.some(
         (arg) => typeof arg === "string" && arg.startsWith("mcp_servers.agentpier_ssh="),

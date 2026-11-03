@@ -37,3 +37,8 @@ export function addReminder(launch, { name, script, invalid }) {
     args[index] = key + tomlValue([...entries, hook]);
   }
 }
+
+/** Names of the MCP servers the launch environment already holds inline: none. */
+export function inlineMcpNames() {
+  return [];
+}

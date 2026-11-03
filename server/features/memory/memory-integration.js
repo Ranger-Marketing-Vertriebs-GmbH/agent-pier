@@ -14,7 +14,6 @@ import {
 import { addGrant } from "../nono/sandbox-grants.js";
 import { isCodingCli } from "../clis/catalog.js";
 import { cliDriver } from "../clis/drivers.js";
-import { inlineConfig } from "../clis/opencode/session-config.js";
 const main = fileURLToPath(new URL("./memory-mcp.js", import.meta.url));
 export class MemoryIntegration {
   constructor({ dataDir, accounts, memory }) {
@@ -36,16 +35,14 @@ export class MemoryIntegration {
     const args = [...(launch.args || [])],
       env = { ...launch.env };
     await this.ready;
-    if (selected.tool === "opencode") {
-      let config;
-      try {
-        config = inlineConfig(env);
-      } catch {
-        throw failure(serverMessages.common.invalidTemporaryOpenCodeConfig, 409);
-      }
-      if (Object.hasOwn(config.mcp || {}, "agentpier_memory"))
-        throw failure(serverMessages.memory.reservedMcpName, 409);
+    let names;
+    try {
+      names = cliDriver(selected.tool).inlineMcpNames(env);
+    } catch {
+      throw failure(serverMessages.common.invalidTemporaryOpenCodeConfig, 409);
     }
+    if (names.includes("agentpier_memory"))
+      throw failure(serverMessages.memory.reservedMcpName, 409);
     if (
       args.some(
         (arg) =>

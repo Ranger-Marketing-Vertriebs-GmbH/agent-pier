@@ -250,3 +250,14 @@ test("Claude messages pass image decoration unchanged", async () => {
   );
   assert.equal(out, messages);
 });
+
+test("inlineMcpNames per CLI", () => {
+  const env = { OPENCODE_CONFIG_CONTENT: '{"mcp":{"a":{}}}' };
+  assert.deepEqual(cliDriver("opencode").inlineMcpNames(env), ["a"]);
+  assert.deepEqual(cliDriver("opencode").inlineMcpNames({}), []);
+  assert.throws(() =>
+    cliDriver("opencode").inlineMcpNames({ OPENCODE_CONFIG_CONTENT: "{" }),
+  );
+  for (const id of ["codex", "claude"])
+    assert.deepEqual(cliDriver(id).inlineMcpNames(env), []);
+});

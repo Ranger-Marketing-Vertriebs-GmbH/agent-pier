@@ -116,3 +116,13 @@ test("the login tab is cut off from AgentPier", () => {
     null,
   );
 });
+
+test("a Claude result never carries the brokered Codex login", () => {
+  assert.deepEqual(
+    readMcpOAuthResult("?oauth=connected&server=s1&cli=claude&account=a-1"),
+    { mcpOAuth: { result: "connected", serverId: "s1" } },
+  );
+  assert.deepEqual(readMcpOAuthResult("?oauth=connected&cli=shell&account=a-1"), {
+    mcpOAuth: { result: "connected" },
+  });
+});

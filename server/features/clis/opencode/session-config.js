@@ -49,3 +49,8 @@ export function addReminder(launch, { pluginUrl, invalid }) {
   config.plugin = [...new Set([...(config.plugin || []), pluginUrl])];
   launch.env.OPENCODE_CONFIG_CONTENT = JSON.stringify(config);
 }
+
+/** Names of the MCP servers the inline configuration holds; throws when it is invalid. */
+export function inlineMcpNames(env) {
+  return Object.keys(inlineConfig(env).mcp || {});
+}
