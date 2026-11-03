@@ -153,6 +153,33 @@ again. See [Backups](backups.md).
   changes (AgentPier does not watch it); choose **Refresh**.
 - All ticket routes are owner-only; restricted users have no Tickets tab.
 
+## Ticket sequences
+
+Ticket sequences work through a project's tickets one at a time and watch each pull
+request until it merges. The full guide is still to come.
+
+### Merging
+
+AgentPier merges a sequence's pull requests itself only when the sequence allows it.
+It arms each pull request head at most once:
+
+- In a repository with a merge queue, it adds the pull request to the queue once the
+  counted checks are green.
+- Otherwise, it enables auto-merge, even while checks are still running.
+- When the repository has neither, it merges directly once the pull request is ready,
+  and only the head it checked.
+
+AgentPier never re-arms a head that was disarmed on GitHub, for example by you or by a
+merge queue that dropped the pull request. The ticket then waits for you, and so does
+the rest of the sequence. If GitHub refuses to arm or merge a head that is otherwise
+ready, the ticket also waits for you.
+
+AgentPier reads each pull request about once a minute. When a review requests changes,
+AgentPier turns auto-merge off or removes the pull request from the merge queue on its
+next read. In a repository without required reviews, GitHub can therefore merge an
+armed pull request in the up to 60 seconds before that read. Require reviews in the
+branch protection if a "changes requested" review must always stop a merge.
+
 ## Planned
 
 Not available yet: starting several tickets as a sequence, rules that pick tickets by
