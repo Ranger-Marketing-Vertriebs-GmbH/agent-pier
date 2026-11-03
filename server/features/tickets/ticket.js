@@ -25,11 +25,19 @@ const ENTITIES = {
   "&nbsp;": " ",
 };
 
+// Strips tags until none is left, so nested fragments such as "<scr<b>ipt>" cannot
+// reassemble into a tag. The result is plain text; entities are decoded last, in one
+// pass, so "&amp;lt;" stays the literal text "&lt;".
 export function htmlToText(html) {
-  return String(html ?? "")
+  let text = String(html ?? "")
     .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/(p|li)\s*>/gi, "\n")
-    .replace(/<[^>]*>/g, "")
+    .replace(/<\/(p|li)\s*>/gi, "\n");
+  let previous;
+  do {
+    previous = text;
+    text = text.replace(/<[^<>]*>/g, "");
+  } while (text !== previous);
+  return text
     .replace(/&(?:amp|lt|gt|quot|#39|#x27|nbsp);/g, (entity) => ENTITIES[entity])
     .trim();
 }
