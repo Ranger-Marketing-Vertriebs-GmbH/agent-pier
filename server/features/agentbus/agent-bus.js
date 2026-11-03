@@ -24,6 +24,7 @@ import { classifyProjectFolder, runWorktreeRoot } from "../memory/project-folder
 import { AGENTBUS_VERSION as VERSION, trustedPeers } from "./agentbus-runtime.js";
 import { resolveAgentBusInterpreter } from "./agentbus-launch-identity.js";
 import { cliDriver } from "../clis/drivers.js";
+import { cliDefinition, isCodingCli } from "../clis/catalog.js";
 
 const adapters = fileURLToPath(new URL("./", import.meta.url));
 
@@ -282,7 +283,8 @@ export class AgentBus {
         ...(session.status === "running" && !registered && !reloadRequired
           ? {
               reason:
-                session.tool === "codex"
+                isCodingCli(session.tool) &&
+                cliDefinition(session.tool).capabilities.hookTrust
                   ? serverMessages.agentbus.codexRegistrationPending
                   : serverMessages.agentbus.nativeRegistrationPending,
             }

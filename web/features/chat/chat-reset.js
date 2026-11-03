@@ -1,3 +1,5 @@
+import { cliDefinition, isCodingCli } from "../../../server/features/clis/catalog.js";
+
 /** A handoff requests a reset; only a fresh native identity confirms it. */
 export function resetPresentation(reset, data, restartGeneration = 0) {
   if (!reset || reset.restartGeneration !== restartGeneration) return null;
@@ -13,7 +15,8 @@ export function resetPresentation(reset, data, restartGeneration = 0) {
 
 export function clearContext(text, context, messages) {
   if (
-    context.tool !== "codex" ||
+    !isCodingCli(context.tool) ||
+    !cliDefinition(context.tool).capabilities.clearResetsBinding ||
     !/^\/clear *$/.test(text) ||
     typeof context.providerSessionId !== "string" ||
     !context.providerSessionId

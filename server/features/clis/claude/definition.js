@@ -37,6 +37,11 @@ const definition = {
     endpointSdkRouting: false,
     mcpStdioCwd: false,
     requestHandoff: true,
+    hookTrust: false,
+    keychainCredentials: true,
+    transcriptIndex: false,
+    npmPlugins: false,
+    clearResetsBinding: false,
   },
   mcpLoginCommand: () => "/mcp",
   mcpSetup: ({ quoted }) => ({

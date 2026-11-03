@@ -16,6 +16,26 @@ import { configRoot, dataRoot } from "./profile.js";
 export const normalize = normalizeClaude;
 export const observe = observeClaude;
 
+const transcriptName =
+  /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl$/i;
+
+/**
+ * The transcript walk below one config home: steps of { folder, depth, pattern,
+ * companion, perFolder? }. Claude Code keeps projects/<cwd slug>/<id>.jsonl with a
+ * session folder (<id>/) beside each file.
+ */
+export function transcriptFiles(home) {
+  return [
+    {
+      folder: path.join(home, "projects"),
+      perFolder: true,
+      depth: 0,
+      pattern: transcriptName,
+      companion: true,
+    },
+  ];
+}
+
 const slug = (cwd) => (cwd || "").replace(/[^a-zA-Z0-9]/g, "-");
 
 export async function directory(history, session) {

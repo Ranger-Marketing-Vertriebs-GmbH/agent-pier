@@ -10,6 +10,7 @@ import { forgetCachedChat } from "../features/chat/chat-session-cache.js";
 import ToolInstaller from "../features/tools/ToolInstaller.jsx";
 import ReaDialog from "../features/tools/ReaDialog.jsx";
 import { toolInstallerCopy } from "../lib/i18n/messages/tools.js";
+import { cliDefinition, isCodingCli } from "../../server/features/clis/catalog.js";
 export default function AppDialogs({
   modal,
   state,
@@ -138,7 +139,10 @@ export default function AppDialogs({
                       removeTool: copy.confirmCopyRemoveTool(modal.item.name),
                       deleteAccount: copy.confirmCopyDeleteAccount(
                         modal.item.name,
-                        modal.item.tool === "claude" ? copy.keychainRetention : "",
+                        isCodingCli(modal.item.tool) &&
+                          cliDefinition(modal.item.tool).capabilities.keychainCredentials
+                          ? copy.keychainRetention
+                          : "",
                       ),
                       login: copy.confirmCopyLogin(modal.item.name),
                     }[modal.type]

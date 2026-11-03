@@ -6,6 +6,7 @@ import path from "node:path";
 import { privateDirectory, readJSON, writePrivate, problem } from "../../lib/storage.js";
 import { providerId } from "./provider-history.js";
 import { MAX_OBSERVED_CHILDREN } from "./codex-child-usage.js";
+import { cliDefinition, isCodingCli } from "../clis/catalog.js";
 
 const LIVE_HISTORY_TIMEOUT = 1500;
 
@@ -380,7 +381,7 @@ export class ChatStore {
         messages: [],
         tasks: [],
         notice:
-          session.tool === "codex"
+          isCodingCli(session.tool) && cliDefinition(session.tool).capabilities.hookTrust
             ? serverMessages.chat.codexBindingPending
             : serverMessages.chat.nativeBindingPending,
       };
