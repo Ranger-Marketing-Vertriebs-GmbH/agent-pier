@@ -4,6 +4,8 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { TicketStore } from "../../server/features/tickets/ticket-store.js";
+import { TicketRuleStore } from "../../server/features/tickets/rule-store.js";
+import { ruleInput } from "../../server/features/tickets/rule-input.js";
 import { Backup } from "../../server/features/operations/backup.js";
 import { ProjectMemory } from "../../server/features/memory/project-memory.js";
 import { Restore } from "../../server/features/operations/restore.js";
@@ -109,4 +111,90 @@ test("a project mapping moves ticket links and starts to the new project id", as
   assert.equal(restored.starts(scope.id).length, 0);
   restored.setProjectLink(newId, destination, { plane: null });
   restored.removeConnection(id);
+});
+
+const RULE = {
+  source: "github",
+  label: "agent",
+  kind: "session",
+  allowMerge: false,
+  session: { tool: "claude" },
+};
+/** A rule with a pickup and a failed, already pushed poll status. */
+function seedRule(dataDir, projectId) {
+  const rules = new TicketRuleStore({ dataDir });
+  const rule = rules.create(projectId, ruleInput(RULE));
+  rules.addPickups(projectId, [
+    { source: "github", key: "acme/app#7", ruleId: rule.id, itemId: "i1", at: 5 },
+  ]);
+  rules.setStatus(projectId, rule.id, {
+    checkedAt: 9,
+    error: { code: "unauthorized", since: 8 },
+    notified: "unauthorized",
+  });
+  return rule;
+}
+const RESET = { checkedAt: null, error: null, notified: null };
+
+for (const encrypted of [false, true])
+  test(`ticket rules and pickups survive a backup and restore (${encrypted})`, async (t) => {
+    const temporary = await fs.realpath(
+      await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-rule-backup-")),
+    );
+    t.after(() => fs.rm(temporary, { recursive: true, force: true }));
+    const dataDir = path.join(temporary, "data"),
+      target = path.join(temporary, "restored");
+    const rule = seedRule(dataDir, "p1");
+    const passphrase = "ticket rule backup fixture phrase";
+    const backup = await new Backup({ dataDir }).create({
+      withCredentials: encrypted,
+      ...(encrypted ? { passphrase } : {}),
+    });
+    await new Restore({ dataDir }).apply({
+      archive: backup.file,
+      targetDataDir: target,
+      ...(encrypted ? { passphrase } : {}),
+    });
+    const restored = new TicketRuleStore({ dataDir: target });
+    const [back] = restored.rules("p1");
+    assert.equal(back.id, rule.id);
+    assert.equal(back.label, "agent");
+    assert.deepEqual(back.options, rule.options);
+    assert.deepEqual(back.status, RESET);
+    assert.equal(restored.picked("p1", "github", "acme/app#7").ruleId, rule.id);
+    assert.equal(restored.picked("p1", "github", "acme/app#8"), null);
+  });
+
+test("a restore with a project mapping moves rules and pickups to the new project id and resets status", async (t) => {
+  const root = await fs.realpath(
+    await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-rule-map-")),
+  );
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  const source = path.join(root, "source"),
+    target = path.join(root, "target"),
+    project = path.join(root, "project"),
+    destination = path.join(root, "destination");
+  await fs.mkdir(project);
+  await fs.mkdir(destination);
+  const memory = new ProjectMemory({ dataDir: source });
+  t.after(() => memory.close());
+  const scope = await memory.register(project);
+  const rule = seedRule(source, scope.id);
+  const backup = await new Backup({ dataDir: source, home: root }).create();
+  const report = await new Restore({ dataDir: source }).apply({
+    archive: backup.file,
+    targetDataDir: target,
+    projectMap: { [scope.id]: destination },
+  });
+  const newId = report.projectMappings[0].to;
+  assert.notEqual(newId, scope.id);
+  const restored = new TicketRuleStore({ dataDir: target });
+  assert.deepEqual(restored.rules(scope.id), []);
+  const [moved] = restored.rules(newId);
+  assert.equal(moved.id, rule.id);
+  assert.equal(moved.projectId, newId);
+  assert.deepEqual(moved.status, RESET);
+  assert.equal(restored.picked(newId, "github", "acme/app#7").ruleId, rule.id);
+  assert.equal(restored.picked(scope.id, "github", "acme/app#7"), null);
+  assert.equal(restored.pickupCount(newId, rule.id), 1);
 });

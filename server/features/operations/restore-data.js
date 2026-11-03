@@ -171,6 +171,26 @@ export async function mapProjects(directory, projectMap = {}) {
       }));
     atomic(ticketsFile, ticketSources);
   }
+  // Label rules and their pickups move with the project; the pickups keep a restored
+  // host from queueing every ticket that still carries its label again. A rule's poll
+  // status belongs to the old host and starts over.
+  const rulesFile = path.join(directory, "ticket-rules.json"),
+    ticketRules = readJson(rulesFile, null);
+  if (ticketRules && typeof ticketRules === "object") {
+    const byId = (id) => mappings.find((m) => m.from === id)?.to || id;
+    if (Array.isArray(ticketRules.rules))
+      ticketRules.rules = ticketRules.rules.map((rule) => ({
+        ...rule,
+        projectId: byId(rule?.projectId),
+        status: { checkedAt: null, error: null, notified: null },
+      }));
+    if (Array.isArray(ticketRules.pickups))
+      ticketRules.pickups = ticketRules.pickups.map((pickup) => ({
+        ...pickup,
+        projectId: byId(pickup?.projectId),
+      }));
+    atomic(rulesFile, ticketRules);
+  }
   restoreArtifacts(directory, mappings);
   return mappings.map(({ scope: _scope, ...mapping }) => mapping);
 }
