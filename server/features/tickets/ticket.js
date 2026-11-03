@@ -48,6 +48,16 @@ function cutAt(value, limit) {
   return value.slice(0, end);
 }
 
+/** One line of untrusted forge text: control characters and newlines removed, capped. */
+export function plainLine(value, limit) {
+  return cutAt(
+    text(value)
+      .replace(/[\t\n]/g, " ")
+      .trim(),
+    limit,
+  );
+}
+
 export function httpUrl(value) {
   try {
     const url = new URL(String(value ?? ""));

@@ -158,3 +158,156 @@ export async function fakePlane(
   t.after(() => new Promise((resolve) => server.close(resolve)));
   return { baseUrl: `http://127.0.0.1:${server.address().port}`, calls };
 }
+
+// A pull request for fakeGithubPulls. `contexts` are GraphQL check nodes
+// (CheckRun: name/status/conclusion/isRequired; StatusContext: context/state/isRequired).
+export function githubPull(number, extra = {}) {
+  return {
+    number,
+    id: `PR_${number}`,
+    headRef: `ticket/${number}-work`,
+    headSha: String(number).padStart(40, "a"),
+    headRepo: "acme/app",
+    baseRef: "main",
+    state: "OPEN",
+    createdAt: "2026-11-03T10:00:00Z",
+    mergeable: "MERGEABLE",
+    mergeStateStatus: "CLEAN",
+    reviewDecision: null,
+    autoMerge: false,
+    inMergeQueue: false,
+    contexts: [],
+    ...extra,
+  };
+}
+
+// Fake GitHub pull request API (REST + GraphQL) on 127.0.0.1 over an in-memory `pulls`
+// array of githubPull objects. `repo` sets repository merge settings; `failures` maps
+// "METHOD /path" to an HTTP status, or to a body sent with 200 (e.g. GraphQL errors).
+// REST paths may carry the GHE prefix /api/v3; GraphQL answers on /graphql and /api/graphql.
+export async function fakeGithubPulls(t, { pulls = [], repo = {}, failures = {} } = {}) {
+  const settings = {
+    autoMergeAllowed: true,
+    defaultMergeMethod: "SQUASH",
+    defaultBranch: "main",
+    mergeQueues: [],
+    ...repo,
+  };
+  const calls = [];
+  const restPull = (pull) => ({
+    number: pull.number,
+    html_url: `https://github.com/acme/app/pull/${pull.number}`,
+    state: pull.state === "OPEN" ? "open" : "closed",
+    created_at: pull.createdAt,
+    head: {
+      ref: pull.headRef,
+      sha: pull.headSha,
+      repo: pull.headRepo ? { full_name: pull.headRepo } : null,
+    },
+    base: { ref: pull.baseRef },
+  });
+  const graphPull = (pull) => ({
+    id: pull.id,
+    number: pull.number,
+    url: `https://github.com/acme/app/pull/${pull.number}`,
+    state: pull.state,
+    headRefName: pull.headRef,
+    headRefOid: pull.headSha,
+    baseRefName: pull.baseRef,
+    mergeable: pull.mergeable,
+    mergeStateStatus: pull.mergeStateStatus,
+    reviewDecision: pull.reviewDecision,
+    isInMergeQueue: pull.inMergeQueue,
+    autoMergeRequest: pull.autoMerge ? { enabledAt: "2026-11-03T10:05:00Z" } : null,
+    commits: {
+      nodes: [{ commit: { statusCheckRollup: { contexts: { nodes: pull.contexts } } } }],
+    },
+  });
+  const queue = (branch) =>
+    settings.mergeQueues.includes(branch) ? { id: `MQ_${branch}` } : null;
+  const graphql = ({ query, variables = {} }) => {
+    const byId = (id) => pulls.find((pull) => pull.id === id);
+    const mutation = /^\s*mutation/.test(query) ? /\{\s*(\w+)\(/.exec(query)?.[1] : null;
+    if (mutation) {
+      const input = variables.input ?? {};
+      const pull = byId(input.pullRequestId ?? input.id);
+      if (!pull) return { errors: [{ type: "NOT_FOUND", message: "no pull" }] };
+      if (mutation === "enablePullRequestAutoMerge") pull.autoMerge = true;
+      else if (mutation === "disablePullRequestAutoMerge") pull.autoMerge = false;
+      else if (mutation === "enqueuePullRequest") pull.inMergeQueue = true;
+      else if (mutation === "dequeuePullRequest") pull.inMergeQueue = false;
+      else return { errors: [{ message: "unknown mutation" }] };
+      return { data: { [mutation]: { clientMutationId: null } } };
+    }
+    if (query.includes("pullRequest(number")) {
+      const pull = pulls.find((item) => item.number === variables.n);
+      return {
+        data: {
+          repository: {
+            autoMergeAllowed: settings.autoMergeAllowed,
+            viewerDefaultMergeMethod: settings.defaultMergeMethod,
+            defaultBranchRef: { name: settings.defaultBranch },
+            mergeQueue: queue(settings.defaultBranch),
+            pullRequest: pull ? graphPull(pull) : null,
+          },
+        },
+      };
+    }
+    if (query.includes("mergeQueue(branch"))
+      return { data: { repository: { mergeQueue: queue(variables.branch) } } };
+    return { errors: [{ message: "unknown query" }] };
+  };
+  const server = http.createServer((req, res) => {
+    const chunks = [];
+    req.on("data", (chunk) => chunks.push(chunk));
+    req.on("end", () => {
+      const url = new URL(req.url, "http://127.0.0.1");
+      const path = url.pathname.replace(/^\/api\/v3(?=\/)/, "");
+      const raw = Buffer.concat(chunks).toString("utf8");
+      const body = raw ? JSON.parse(raw) : undefined;
+      calls.push({
+        method: req.method,
+        path: req.url,
+        body,
+        authorization: req.headers.authorization,
+      });
+      const send = (status, data) => {
+        res.writeHead(status, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(data));
+      };
+      const failure = failures[`${req.method} ${url.pathname}`];
+      if (typeof failure === "number") return send(failure, { message: "failure" });
+      if (failure) return send(200, failure);
+      if (req.method === "POST" && (path === "/graphql" || path === "/api/graphql"))
+        return send(200, graphql(body ?? {}));
+      if (req.method === "GET" && /^\/repos\/[^/]+\/[^/]+$/.test(path))
+        return send(200, { default_branch: settings.defaultBranch });
+      if (req.method === "GET" && /^\/repos\/[^/]+\/[^/]+\/pulls$/.test(path)) {
+        const size = Number(url.searchParams.get("per_page") || 30);
+        const sorted = [...pulls].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+        return send(200, sorted.slice(0, size).map(restPull));
+      }
+      const merge = /^\/repos\/[^/]+\/[^/]+\/pulls\/(\d+)\/merge$/.exec(path);
+      if (req.method === "PUT" && merge) {
+        const pull = pulls.find((item) => item.number === Number(merge[1]));
+        if (!pull) return send(404, { message: "Not Found" });
+        if (pull.state !== "OPEN") return send(405, { message: "not mergeable" });
+        if (body?.sha !== pull.headSha) return send(409, { message: "head moved" });
+        pull.state = "MERGED";
+        return send(200, { merged: true, sha: "f".repeat(40) });
+      }
+      send(404, { message: "Not Found" });
+    });
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  const fetchImpl = (url, init) =>
+    fetch(
+      String(url)
+        .replace("https://api.github.com", origin)
+        .replace("https://ghe.example", origin),
+      init,
+    );
+  return { origin, fetchImpl, calls, pulls };
+}
