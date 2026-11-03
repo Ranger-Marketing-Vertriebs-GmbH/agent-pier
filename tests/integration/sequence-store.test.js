@@ -14,6 +14,13 @@ const dataDir = () => {
 };
 test.after(() => dirs.forEach((dir) => fs.rmSync(dir, { recursive: true, force: true })));
 
+const walk = (store, id, ...states) =>
+  states.forEach((state) => store.patch("p1", id, { state }));
+const finish = (store, id, extra = {}) => {
+  walk(store, id, "running", "awaiting-merge");
+  return store.patch("p1", id, { state: "done", ...extra });
+};
+
 const entry = (n, extra = {}) => ({
   source: "github",
   key: `o/r#${n}`,
@@ -47,8 +54,9 @@ test("patch persists and head skips done items; needs-owner head blocks", () => 
   const dir = dataDir();
   const store = new TicketSequenceStore({ dataDir: dir });
   const { items } = store.append("p1", "/repo", [entry(1), entry(2)]);
-  store.patch("p1", items[0].id, { state: "done", doneBy: "merge", doneAt: 9 });
+  finish(store, items[0].id, { doneBy: "merge", doneAt: 9 });
   assert.equal(store.head("p1").key, "o/r#2");
+  walk(store, items[1].id, "running");
   store.patch("p1", items[1].id, {
     state: "needs-owner",
     needsOwner: { reason: "closed", at: 1 },
@@ -75,7 +83,7 @@ test("rejects an active duplicate but allows one whose earlier item is done", ()
     status: 409,
   });
   assert.equal(store.queue("p1").items.length, 1);
-  store.patch("p1", items[0].id, { state: "done" });
+  finish(store, items[0].id);
   store.append("p1", "/repo", [entry(1)]);
   assert.equal(store.queue("p1").items.length, 2);
 });
@@ -128,7 +136,7 @@ test("prunes done items to 50", () => {
     "/repo",
     Array.from({ length: 10 }, (_, n) => entry(n + 51)),
   );
-  for (const i of items) store.patch("p1", i.id, { state: "done" });
+  for (const i of items) finish(store, i.id);
   store.append("p1", "/repo", [entry(100)]);
   const queue = store.queue("p1").items;
   assert.equal(queue.filter((i) => i.state === "done").length, 50);
@@ -153,5 +161,75 @@ test("a corrupt file loads empty and is kept; invalid items are dropped", () => 
   const lines = [];
   const loaded = new TicketSequenceStore({ dataDir: dir, log: (l) => lines.push(l) });
   assert.equal(loaded.queue("p1").items.length, 1);
-  assert.deepEqual(lines, ["ticket-sequences: dropped-invalid"]);
+  assert.deepEqual(lines, ["ticket-sequences: dropped-invalid count=1"]);
+});
+
+test("a failed save after pruning restores the previous items", () => {
+  const store = new TicketSequenceStore({ dataDir: dataDir() });
+  const { items } = store.append(
+    "p1",
+    "/repo",
+    Array.from({ length: 52 }, (_, n) => entry(n + 1)),
+  );
+  // Walk 51 items through the legal path to done (51st prunes the oldest).
+  for (const i of items.slice(0, 50)) {
+    store.patch("p1", i.id, { state: "running" });
+    store.patch("p1", i.id, { state: "awaiting-merge" });
+    store.patch("p1", i.id, { state: "done" });
+  }
+  const last = items[50];
+  store.patch("p1", last.id, { state: "running" });
+  store.patch("p1", last.id, { state: "awaiting-merge" });
+  const before = store.queue("p1").items;
+  store.save = () => {
+    throw new Error("disk full");
+  };
+  assert.throws(() => store.patch("p1", last.id, { state: "done" }), /disk full/);
+  assert.deepEqual(store.queue("p1").items, before);
+});
+
+test("only legal state transitions are accepted", () => {
+  const store = new TicketSequenceStore({ dataDir: dataDir() });
+  const { items } = store.append("p1", "/repo", [entry(1)]);
+  const id = items[0].id;
+  const to = (state) => store.patch("p1", id, { state });
+  const refuses = (state) =>
+    assert.throws(() => to(state), {
+      status: 409,
+      message: serverMessages.tickets.invalidSequence,
+    });
+  refuses("done");
+  refuses("awaiting-merge");
+  to("running");
+  refuses("waiting");
+  to("awaiting-merge");
+  to("running");
+  to("awaiting-merge");
+  to("needs-owner");
+  to("waiting");
+  to("running");
+  to("needs-owner");
+  to("done");
+  for (const state of ["waiting", "running", "awaiting-merge", "needs-owner"])
+    refuses(state);
+  assert.equal(store.queue("p1").items[0].state, "done");
+});
+
+test("valid JSON of the wrong shape is kept aside like a corrupt file", () => {
+  const dir = dataDir();
+  const file = path.join(dir, "ticket-sequences.json");
+  fs.writeFileSync(file, "[]");
+  const store = new TicketSequenceStore({ dataDir: dir, now: () => 7 });
+  assert.deepEqual(store.queues(), []);
+  assert.equal(fs.readFileSync(`${file}.corrupt-7`, "utf8"), "[]");
+});
+
+test("queue and head return copies", () => {
+  const store = new TicketSequenceStore({ dataDir: dataDir() });
+  store.append("p1", "/repo", [entry(1)]);
+  store.queue("p1").items[0].state = "done";
+  store.head("p1").title = "changed";
+  store.queues()[0].items.length = 0;
+  assert.equal(store.queue("p1").items[0].state, "waiting");
+  assert.equal(store.head("p1").title, "Ticket 1");
 });

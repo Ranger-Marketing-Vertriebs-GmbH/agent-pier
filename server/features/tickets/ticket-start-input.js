@@ -1,6 +1,7 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { TICKET_SOURCE_IDS } from "./ticket.js";
+import { cliDefinition, isCodingCli } from "../clis/catalog.js";
 
 const copy = serverMessages.tickets;
 export const GITHUB_KEY =
@@ -8,6 +9,7 @@ export const GITHUB_KEY =
 export const PLANE_KEY = /^[A-Z0-9]{1,12}-[1-9]\d{0,8}$/;
 
 const MAX_TICKETS = 50;
+const MAX_TOKEN_BUDGET = 1e12;
 const REPAIR_KEYS = [
   "tool",
   "accountId",
@@ -44,10 +46,25 @@ export function startInput(input) {
     if (!plainObject(pipeline) || typeof pipeline.pipelineId !== "string")
       throw invalid();
     checked.pipeline = { pipelineId: pipeline.pipelineId };
-    if (pipeline.baseBranch !== undefined)
+    if (pipeline.baseBranch !== undefined) {
+      if (
+        typeof pipeline.baseBranch !== "string" ||
+        !pipeline.baseBranch ||
+        pipeline.baseBranch.length > 200 ||
+        /[\x00-\x1f\x7f]/.test(pipeline.baseBranch)
+      )
+        throw invalid();
       checked.pipeline.baseBranch = pipeline.baseBranch;
-    if (pipeline.tokenBudget !== undefined)
+    }
+    if (pipeline.tokenBudget !== undefined) {
+      if (
+        !Number.isSafeInteger(pipeline.tokenBudget) ||
+        pipeline.tokenBudget < 1 ||
+        pipeline.tokenBudget > MAX_TOKEN_BUDGET
+      )
+        throw invalid();
       checked.pipeline.tokenBudget = pipeline.tokenBudget;
+    }
   }
   return checked;
 }
@@ -66,6 +83,13 @@ function repairInput(value) {
       throw problem(copy.invalidSequence);
     out[name] = entry;
   }
+  if (out.tool !== undefined && !isCodingCli(out.tool))
+    throw problem(copy.invalidSequence);
+  if (
+    out.launchMode !== undefined &&
+    (!out.tool || !Object.hasOwn(cliDefinition(out.tool).launchModes, out.launchMode))
+  )
+    throw problem(copy.invalidSequence);
   return out;
 }
 
