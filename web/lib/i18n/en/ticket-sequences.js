@@ -10,7 +10,7 @@ export const ticketQueueCopy = {
     done: "Done",
   },
   reasons: {
-    githubRequired: "The project has no GitHub access.",
+    githubRequired: "GitHub access is missing or was refused.",
     sourceUnavailable: "The ticket source is no longer connected.",
     ticketUnavailable: "The ticket could not be found.",
     startFailed: "The ticket could not be started.",
