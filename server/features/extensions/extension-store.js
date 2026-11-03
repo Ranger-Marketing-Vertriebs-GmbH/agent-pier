@@ -120,9 +120,10 @@ export class ExtensionsStore {
     return {
       account,
       boundary,
-      files: ["config.json", "opencode.json", "opencode.jsonc"].map((name) =>
-        path.join(dir, name),
-      ),
+      // MCP servers sit in the config files; the TUI files hold no `mcp` key.
+      files: cliDriver("opencode")
+        .profileFiles.configFiles.filter((name) => !name.startsWith("tui."))
+        .map((name) => path.join(dir, name)),
       key: "mcp",
       target,
       sources: [

@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { isDeepStrictEqual } from "node:util";
 import { problem } from "../../lib/storage.js";
 import { nativeCommand } from "./native-command.js";
+import { cliDriver } from "../clis/drivers.js";
 import { profileConnection } from "./profile-validation.js";
 
 export function accountConfiguration(account) {
@@ -119,14 +120,13 @@ export function profileCommand({
 }) {
   const tool = profile.config.cliTool,
     mode = profile.config.permissions.mode;
+  // Looked up after nativeCommand checked the tool and mode.
+  const pipeline = () => cliDriver(tool).pipeline;
   const result =
     useLaunchPermissions && !headless
       ? {
           ...launch,
-          args: [
-            ...launch.args,
-            ...(tool === "claude" ? ["--session-id", sessionId] : []),
-          ],
+          args: [...launch.args, ...pipeline().sessionArgs(sessionId)],
         }
       : nativeCommand({
           tool,
@@ -141,7 +141,6 @@ export function profileCommand({
             : {}),
         });
   if (headless) return { ...result, initialInput: prompt, nativeObservation: true };
-  if (prompt)
-    result.args.push(...(tool === "opencode" ? ["--prompt", prompt] : ["--", prompt]));
+  if (prompt) result.args.push(...pipeline().promptArgs(prompt));
   return result;
 }

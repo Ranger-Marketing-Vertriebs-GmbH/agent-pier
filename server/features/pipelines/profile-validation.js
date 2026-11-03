@@ -5,20 +5,13 @@ import {
   providerDefinition,
   validateProviderSelection,
 } from "../providers/provider-definitions.js";
+import { cliDefinition, codingCliIds } from "../clis/catalog.js";
 
-export const PERMISSION_MODES = Object.freeze({
-  claude: [
-    "default",
-    "manual",
-    "acceptEdits",
-    "plan",
-    "auto",
-    "dontAsk",
-    "bypassPermissions",
-  ],
-  codex: ["untrusted", "on-request", "never"],
-  opencode: ["ask", "auto"],
-});
+export const PERMISSION_MODES = Object.freeze(
+  Object.fromEntries(
+    codingCliIds().map((id) => [id, cliDefinition(id).pipeline.permissionModes]),
+  ),
+);
 export const PROFILE_PHASES = [
   "refinement",
   "planning",

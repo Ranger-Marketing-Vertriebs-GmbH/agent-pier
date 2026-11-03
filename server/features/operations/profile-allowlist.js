@@ -1,3 +1,6 @@
+import { codingCliIds } from "../clis/catalog.js";
+import { cliDriver } from "../clis/drivers.js";
+
 /**
  * What a host backup takes from a managed CLI profile (docs/backups.md). Everything
  * is named here; a file or folder a CLI adds later (caches, logs, telemetry, plugin
@@ -12,88 +15,17 @@
  * Paths are relative to a native root inside `profiles/<account>/` or
  * `profiles/<account>/providers/<provider>/`.
  */
-export const nativeRoots = Object.freeze({
-  codex: ["codex"],
-  claude: ["claude"],
-  opencode: ["config/opencode", "data/opencode"],
-});
-const rules = {
-  codex: {
-    credentialFiles: [
-      "auth.json",
-      "config.toml",
-      ".credentials.json",
-      "AGENTS.md",
-      "AGENTS.override.md",
-    ],
-    credentialTrees: ["prompts", "skills", "agents", "commands", "rules"],
-    // Skills Codex installs itself on every start.
-    excludedTrees: ["skills/.system"],
-    historyFiles: ["history.jsonl", "session_index.jsonl"],
-    historyTrees: ["sessions", "archived_sessions", "generated_images"],
-    sqlite: /^thread_history[A-Za-z0-9_.-]*\.sqlite$/,
-  },
-  claude: {
-    credentialFiles: [
-      ".claude.json",
-      ".credentials.json",
-      "settings.json",
-      "settings.local.json",
-      "CLAUDE.md",
-      "plugins/installed_plugins.json",
-      "plugins/known_marketplaces.json",
-      "plugins/config.json",
-    ],
-    // Hook scripts that settings.json runs; executable bits are not restored.
-    credentialTrees: ["agents", "commands", "skills", "output-styles", "hooks"],
-    excludedTrees: [],
-    historyFiles: ["history.jsonl"],
-    historyTrees: ["projects", "todos", "file-history"],
-    sqlite: null,
-  },
-  "config/opencode": {
-    credentialFiles: [
-      "opencode.json",
-      "opencode.jsonc",
-      "config.json",
-      "tui.json",
-      "tui.jsonc",
-      "AGENTS.md",
-    ],
-    credentialTrees: [
-      "agent",
-      "agents",
-      "command",
-      "commands",
-      "mode",
-      "modes",
-      "skill",
-      "skills",
-      "tool",
-      "tools",
-      "plugin",
-      "plugins",
-    ],
-    excludedTrees: [],
-    historyFiles: [],
-    historyTrees: [],
-    sqlite: null,
-  },
-  "data/opencode": {
-    credentialFiles: ["auth.json", "mcp-auth.json"],
-    credentialTrees: [],
-    excludedTrees: [],
-    historyFiles: [],
-    historyTrees: ["storage"],
-    sqlite: /^opencode\.db$/,
-  },
-};
+export const nativeRoots = Object.freeze(
+  Object.fromEntries(codingCliIds().map((id) => [id, cliDriver(id).profileFiles.roots])),
+);
+const rules = Object.assign(
+  {},
+  ...codingCliIds().map((id) => cliDriver(id).profileFiles.backupAllowlist),
+);
 // Files whose presence means a restored profile is still logged in.
-const loginFiles = {
-  codex: ["codex/auth.json"],
-  claude: ["claude/.credentials.json"],
-  opencode: ["data/opencode/auth.json"],
-};
+const loginFiles = Object.fromEntries(
+  codingCliIds().map((id) => [id, cliDriver(id).profileFiles.credentials]),
+);
 // Never captured anywhere inside an allowed tree.
 const excludedSegment =
   /^(?:node_modules|cache|\.cache|\.git|logs?|tmp|\.tmp)$|\.before-sharing/;

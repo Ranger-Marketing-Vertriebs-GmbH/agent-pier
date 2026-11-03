@@ -1,36 +1,24 @@
-import {
-  catalogAccount,
-  catalogMetadata,
-  codexInventory,
-  remoteMarketplace,
-} from "./codex-catalog.js";
+import { catalogAccount, catalogMetadata, remoteMarketplace } from "./codex-catalog.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { executePluginCommand } from "./plugin-process.js";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { randomUUID, createHash } from "node:crypto";
-
-import { modify, applyEdits } from "jsonc-parser";
 import { detectTools } from "../accounts/account-store.js";
 import { problem } from "../../lib/storage.js";
 import {
   object,
-  npmPattern,
-  npmName,
-  npmVersion,
-  selector,
   marketName,
-  npmSpec,
   marketSource,
   safePath,
-  configFile,
+  selector,
   redacted,
   marketplaceRow,
   pluginRow,
 } from "./plugin-schema.js";
 import { cliDriver } from "../clis/drivers.js";
+import { isCodingCli } from "../clis/catalog.js";
 export class PluginStore {
   constructor({
     accounts,
@@ -86,30 +74,21 @@ export class PluginStore {
     if (account.kind === "managed")
       for (const directory of ["codex", "claude", "config", "data", "state", "cache"])
         safePath(path.join(cwd, directory), boundary);
+    const driver = cliDriver(account.tool);
+    // The config root the profile starts with: its first native root, or the home one.
     const initialRoot =
       account.kind === "managed"
-        ? path.join(cwd, account.tool === "opencode" ? "config/opencode" : account.tool)
-        : path.join(
-            this.home,
-            account.tool === "opencode" ? ".config/opencode" : `.${account.tool}`,
-          );
+        ? path.join(cwd, driver.profileFiles.roots[0])
+        : driver.configRoot({}, this.home);
     safePath(initialRoot, boundary);
     const env = this.accounts.environment(id);
-    const root = cliDriver(account.tool).configRoot(env, env.HOME);
+    const root = driver.configRoot(env, env.HOME);
     safePath(root, boundary);
-    for (const file of account.tool === "opencode"
-      ? [
-          "config.json",
-          "opencode.json",
-          "opencode.jsonc",
-          "tui.json",
-          "tui.jsonc",
-          "plugins",
-          "plugin",
-        ]
-      : account.tool === "codex"
-        ? ["config.toml", "plugins", ...(catalog ? ["auth.json"] : [])]
-        : ["settings.json", "plugins"])
+    for (const file of [
+      ...driver.profileFiles.configFiles,
+      ...driver.plugins.configFolders,
+      ...(catalog ? driver.plugins.catalogFiles : []),
+    ])
       if (
         catalog &&
         file === "plugins" &&
@@ -167,91 +146,14 @@ export class PluginStore {
       throw problem(serverMessages.plugins.unsupportedCliJson, 409);
     }
   }
-  opencodeInventory(ctx) {
-    const files = [
-      "config.json",
-      "opencode.json",
-      "opencode.jsonc",
-      "tui.json",
-      "tui.jsonc",
-    ]
-      .map((name) => configFile(path.join(ctx.root, name), ctx.boundary))
-      .filter(Boolean);
-    const entries = new Map();
-    for (const file of files)
-      for (const item of file.data.plugin || []) {
-        const spec =
-          typeof item === "string"
-            ? item
-            : Array.isArray(item) && typeof item[0] === "string"
-              ? item[0]
-              : null;
-        if (!spec) throw problem(serverMessages.plugins.unsupportedEntryFormat, 409);
-        const npm = npmPattern.test(spec);
-        if (!entries.has(spec))
-          entries.set(spec, {
-            id: npm
-              ? spec
-              : `external:${createHash("sha256").update(spec).digest("hex").slice(0, 24)}`,
-            name: npm ? npmName(spec) : serverMessages.plugins.externalPlugin,
-            description: npm
-              ? serverMessages.plugins.globalPackageScope
-              : serverMessages.plugins.externalSourceScope,
-            version: npm ? npmVersion(spec) : null,
-            enabled: true,
-            marketplace: "",
-            scope: "global",
-            removable: npm,
-          });
-      }
-    for (const directory of ["plugin", "plugins"]) {
-      const folder = path.join(ctx.root, directory);
-      safePath(folder, ctx.boundary);
-      let children;
-      try {
-        children = fs.readdirSync(folder, { withFileTypes: true });
-      } catch (error) {
-        if (error.code === "ENOENT") continue;
-        throw error;
-      }
-      for (const child of children)
-        if (
-          /\.(?:js|ts|mjs|cjs)$/.test(child.name) &&
-          (child.isFile() || child.isSymbolicLink())
-        ) {
-          const id = `file:${directory}/${child.name}`;
-          entries.set(id, {
-            id,
-            name: child.name,
-            description: serverMessages.plugins.automaticLocalPlugin,
-            version: null,
-            enabled: true,
-            marketplace: "",
-            scope: "global",
-            removable: false,
-          });
-        }
-    }
-    return { files, installed: [...entries.values()] };
-  }
   inventory(ctx, selected = ctx) {
-    return ctx.tool === "codex"
-      ? codexInventory(this, ctx, selected)
-      : this.nativeInventory(ctx);
+    return cliDriver(ctx.tool).plugins.inventory(this, ctx, selected);
   }
+  /** The inventory of a CLI that lists its plugins with `plugin list`. */
   async nativeInventory(ctx) {
     const result = this.empty(ctx);
     if (!ctx.command) return result;
-    if (ctx.tool === "opencode") {
-      result.installed = this.opencodeInventory(ctx).installed;
-      const help = await this.execute(ctx, ["--help"]);
-      result.capabilities.install = /plugin\s+<module>/.test(help);
-      result.note = serverMessages.plugins.openCodeConfigurationNotice;
-      result.noteCodes = ["openCodeConfiguration"];
-      if (!result.capabilities.install)
-        result.reason = serverMessages.plugins.openCodeInstallerUnavailable;
-      return result;
-    }
+    const { cliList } = cliDriver(ctx.tool).plugins;
     const list = await this.json(ctx, ["plugin", "list", "--json", "--available"]);
     if (!object(list) || !Array.isArray(list.installed) || !Array.isArray(list.available))
       throw problem(serverMessages.plugins.unsupportedPluginList, 409);
@@ -268,16 +170,12 @@ export class PluginStore {
     result.marketplaces = rows.map((item) => marketplaceRow(item, ctx.tool));
     result.capabilities = {
       marketplaces: true,
-      enable: ctx.tool === "claude",
-      update: ctx.tool === "claude",
+      enable: cliList.enable,
+      update: cliList.update,
       install: true,
     };
-    if (ctx.tool === "claude")
-      result.note += serverMessages.plugins.claudeMarketplaceRemovalNotice;
-    else result.note += serverMessages.plugins.codexActivationNotice;
-    result.noteCodes.push(
-      ctx.tool === "claude" ? "claudeMarketplaceRemoval" : "codexActivation",
-    );
+    result.note += serverMessages.plugins[`${cliList.noteCode}Notice`];
+    result.noteCodes.push(cliList.noteCode);
     return result;
   }
   async list(id, selectedId) {
@@ -339,14 +237,9 @@ export class PluginStore {
       return { action, source: marketSource(input.source) };
     if (action.startsWith("marketplace-"))
       return { action, marketplace: marketName(input.marketplace) };
-    if (tool === "opencode")
-      return {
-        action,
-        ...(action === "install"
-          ? { source: npmSpec(input.source || input.pluginId) }
-          : { pluginId: npmSpec(input.pluginId) }),
-      };
-    return { action, pluginId: selector(input.pluginId) };
+    // A shell account is refused later, when its context is resolved.
+    if (!isCodingCli(tool)) return { action, pluginId: selector(input.pluginId) };
+    return cliDriver(tool).plugins.selection(action, input);
   }
   async mutate(id, input) {
     if (this.sharedProfiles) id = this.sharedProfiles.resolve(id);
@@ -371,13 +264,14 @@ export class PluginStore {
           .map(([key]) => this.reads.get(key)),
       );
       const ctx = this.context(id);
+      const { plugins } = cliDriver(ctx.tool);
       const selected = catalogAccount(this, ctx, selectedId);
       if (!ctx.command) throw problem(serverMessages.common.cliNotInstalled, 409);
       const list = await this.inventory(ctx, selected || ctx);
       const execution = remote ? selected : ctx;
       this.cache.set(selected ? JSON.stringify([id, selected.id]) : id, list);
       this.accounts.get(id);
-      const { action, pluginId, source, marketplace } = value;
+      const { action, pluginId, marketplace } = value;
       if (action.startsWith("marketplace-")) {
         if (!list.capabilities.marketplaces)
           throw problem(serverMessages.plugins.marketplacesUnsupported, 409);
@@ -397,7 +291,7 @@ export class PluginStore {
           (action === "update" && !list.capabilities.update)
         )
           throw problem(serverMessages.plugins.actionUnsupported, 409);
-        if (action === "install" && ctx.tool !== "opencode") {
+        if (action === "install" && plugins.catalogInstall) {
           if (!list.catalog.some((item) => item.id === pluginId))
             throw problem(serverMessages.plugins.catalogPluginNotFound, 404);
           if (list.installed.some((item) => item.id === pluginId))
@@ -408,37 +302,9 @@ export class PluginStore {
           if (!match.removable) throw problem(serverMessages.plugins.readOnly, 409);
         }
       }
-      if (ctx.tool === "opencode" && action === "remove") {
-        this.removeOpenCode(ctx, pluginId);
-      } else {
-        let args;
-        if (ctx.tool === "opencode") args = ["plugin", source, "--global"];
-        else if (action.startsWith("marketplace-")) {
-          const operation = action.slice(12);
-          args = [
-            "plugin",
-            "marketplace",
-            ctx.tool === "codex" && operation === "update" ? "upgrade" : operation,
-            source || marketplace,
-            ...(ctx.tool === "codex"
-              ? ["--json"]
-              : ["add", "remove"].includes(operation)
-                ? ["--scope", "user"]
-                : []),
-          ];
-        } else if (ctx.tool === "codex")
-          args = ["plugin", action === "install" ? "add" : "remove", pluginId, "--json"];
-        else
-          args = [
-            "plugin",
-            action === "remove" ? "uninstall" : action,
-            pluginId,
-            "--scope",
-            "user",
-            ...(action === "remove" ? ["--keep-data"] : []),
-          ];
-        await this.execute(execution, args, true);
-      }
+      if (plugins.removeFromConfig && action === "remove")
+        plugins.removeFromConfig(ctx, pluginId, () => this.accounts.get(ctx.id));
+      else await this.execute(execution, plugins.actionArgs(action, value), true);
       this.accounts.get(id);
       if (selected) this.accounts.get(selected.id);
       this.cache.clear();
@@ -450,58 +316,6 @@ export class PluginStore {
       this.locks.delete(id);
       this.sharedProfiles?.busy.delete(id);
       this.changed(id);
-    }
-  }
-  removeOpenCode(ctx, id) {
-    const { files, installed } = this.opencodeInventory(ctx);
-    if (!installed.some((item) => item.id === id && item.removable))
-      throw problem(serverMessages.plugins.missingOrReadOnly, 404);
-    if (
-      installed.some(
-        (item) => item.removable && item.id !== id && npmName(item.id) === npmName(id),
-      )
-    )
-      throw problem(serverMessages.plugins.multipleVersionsConfigured, 409);
-    const edits = files
-      .filter((file) =>
-        (file.data.plugin || []).some(
-          (item) => (Array.isArray(item) ? item[0] : item) === id,
-        ),
-      )
-      .map((file) => {
-        let next = file.text;
-        for (let index = file.data.plugin.length - 1; index >= 0; index--)
-          if (
-            (Array.isArray(file.data.plugin[index])
-              ? file.data.plugin[index][0]
-              : file.data.plugin[index]) === id
-          )
-            next = applyEdits(
-              next,
-              modify(next, ["plugin", index], undefined, {
-                formattingOptions: { insertSpaces: true, tabSize: 2 },
-              }),
-            );
-        return { ...file, next };
-      });
-    // Validate every document before writing, and preserve unrelated JSONC text.
-    for (const edit of edits) {
-      safePath(edit.file, ctx.boundary);
-      if (fs.readFileSync(edit.file, "utf8") !== edit.text)
-        throw problem(serverMessages.plugins.configChanged, 409);
-    }
-    this.accounts.get(ctx.id);
-    for (const edit of edits) {
-      safePath(edit.file, ctx.boundary);
-      if (fs.readFileSync(edit.file, "utf8") !== edit.text)
-        throw problem(serverMessages.plugins.configChanged, 409);
-      const temporary = `${edit.file}.agentpier-${randomUUID()}`;
-      try {
-        fs.writeFileSync(temporary, edit.next, { mode: 0o600, flag: "wx" });
-        fs.renameSync(temporary, edit.file);
-      } finally {
-        fs.rmSync(temporary, { force: true });
-      }
     }
   }
   async close() {

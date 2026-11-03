@@ -201,3 +201,73 @@ test("every driver provides the tui functions", () => {
     assert.deepEqual(tui.modelPicker.openKeys, openKeys[id]);
   }
 });
+
+test("every driver provides pipeline, plugins and profileFiles", () => {
+  for (const id of CODING_CLI_IDS) {
+    const { pipeline, plugins, profileFiles } = cliDriver(id);
+    for (const part of [pipeline, pipeline.events, plugins, profileFiles])
+      assert.ok(Object.isFrozen(part), `${id} driver part is frozen`);
+    for (const method of ["command", "sessionArgs", "promptArgs"])
+      assert.equal(typeof pipeline[method], "function", `${id}.pipeline.${method}`);
+    for (const method of ["nativeId", "failed", "progress", "completed"])
+      assert.equal(typeof pipeline.events[method], "function", `${id}.events.${method}`);
+    for (const method of ["inventory", "selection", "actionArgs"])
+      assert.equal(typeof plugins[method], "function", `${id}.plugins.${method}`);
+    for (const list of ["roots", "credentials", "configFiles"])
+      assert.ok(Array.isArray(profileFiles[list]), `${id}.profileFiles.${list}`);
+    assert.deepEqual(Object.keys(profileFiles.backupAllowlist), profileFiles.roots);
+  }
+  const files = (id) => cliDriver(id).profileFiles;
+  assert.deepEqual(files("codex").credentials, ["codex/auth.json"]);
+  assert.deepEqual(files("claude").credentials, ["claude/.credentials.json"]);
+  assert.deepEqual(files("opencode").credentials, ["data/opencode/auth.json"]);
+  assert.deepEqual(files("opencode").roots, ["config/opencode", "data/opencode"]);
+  assert.deepEqual(files("codex").configFiles, ["config.toml"]);
+  assert.deepEqual(files("claude").configFiles, ["settings.json"]);
+  assert.deepEqual(files("opencode").configFiles, [
+    "config.json",
+    "opencode.json",
+    "opencode.jsonc",
+    "tui.json",
+    "tui.jsonc",
+  ]);
+  const args = (id, ...rest) => cliDriver(id).plugins.actionArgs(...rest);
+  assert.deepEqual(args("codex", "install", { pluginId: "p@m" }), [
+    "plugin",
+    "add",
+    "p@m",
+    "--json",
+  ]);
+  assert.deepEqual(args("claude", "remove", { pluginId: "p@m" }), [
+    "plugin",
+    "uninstall",
+    "p@m",
+    "--scope",
+    "user",
+    "--keep-data",
+  ]);
+  assert.deepEqual(args("codex", "marketplace-update", { marketplace: "m" }), [
+    "plugin",
+    "marketplace",
+    "upgrade",
+    "m",
+    "--json",
+  ]);
+  assert.deepEqual(args("opencode", "install", { source: "pkg@1" }), [
+    "plugin",
+    "pkg@1",
+    "--global",
+  ]);
+  const prompt = (id) => cliDriver(id).pipeline.promptArgs("hi");
+  assert.deepEqual(prompt("opencode"), ["--prompt", "hi"]);
+  assert.deepEqual(prompt("codex"), ["--", "hi"]);
+  assert.deepEqual(cliDriver("claude").pipeline.sessionArgs("s1"), [
+    "--session-id",
+    "s1",
+  ]);
+  assert.deepEqual(cliDriver("codex").pipeline.sessionArgs("s1"), []);
+  const nativeId = (id, event) => cliDriver(id).pipeline.events.nativeId(event);
+  assert.equal(nativeId("codex", { thread_id: "t" }), "t");
+  assert.equal(nativeId("claude", { session_id: "s" }), "s");
+  assert.equal(nativeId("opencode", { sessionID: "o" }), "o");
+});

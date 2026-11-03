@@ -72,7 +72,6 @@ const ROOT_ALLOWED = {
   "server/features/repositories/repository-store.js": "git scratch environment",
   "server/features/operations/releases.js":
     "scrubbed environment names for release builds",
-  "server/features/operations/profile-allowlist.js": "backup allowlist of file names",
   "server/features/pipelines/artifact-reader.js": "ignored file names in pipelines",
   "server/features/providers/provider-launch.js":
     "writes into the profile env that profileEnv() just produced",
@@ -90,7 +89,6 @@ const ROOT_ALLOWED = {
   "server/features/tools/native-installer.js": "nono install dir, not a coding CLI",
   "server/features/claude-mod/claude-mod-launch.js": "mod bridge folder names",
   "server/features/memory/memory-integration.js": "plugin manifest folder name",
-  "server/features/plugins/plugin-store.js": "initial boundary folder name per tool",
   "server/features/assistants/assistant-provider-endpoint.js": ".local host suffix",
   "server/lib/i18n/de/scripts.js": "message text",
 };
