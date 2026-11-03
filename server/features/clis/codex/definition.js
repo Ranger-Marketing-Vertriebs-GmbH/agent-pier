@@ -32,6 +32,7 @@ const definition = {
     mcpSse: false,
     endpointSdkRouting: false,
     mcpStdioCwd: true,
+    requestHandoff: false,
   },
   mcpLoginCommand: (name) => `codex mcp login ${name}`,
   mcpSetup: ({ quoted }) => ({

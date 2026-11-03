@@ -281,3 +281,18 @@ test("inlineMcpNames per CLI", () => {
   for (const id of ["codex", "claude"])
     assert.deepEqual(cliDriver(id).inlineMcpNames(env), []);
 });
+
+test("request launch records and handoff capability per CLI", () => {
+  const abs = { CLAUDE_CONFIG_DIR: "/tmp/cfg" };
+  const record = cliDriver("claude").requests.launchRecord;
+  assert.equal(record({}).claudeHookVersion, 2);
+  assert.equal("claudeTrustFile" in record({ CLAUDE_CONFIG_DIR: "rel" }), false);
+  assert.equal(record(abs).claudeTrustFile, "/tmp/cfg/.claude.json");
+  for (const id of ["codex", "opencode"])
+    assert.equal(cliDriver(id).requests.launchRecord, undefined);
+  assert.deepEqual(
+    CODING_CLI_IDS.filter((id) => cliDefinition(id).capabilities.requestHandoff),
+    ["claude"],
+  );
+  assert.ok(Object.isFrozen(cliDriver("claude").requests));
+});

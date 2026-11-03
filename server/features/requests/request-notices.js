@@ -3,6 +3,8 @@
 // `terminalNoticeMs` on its own, and a timer reports that fade like every other
 // change, so a pushed request list drops it without anyone reading again.
 
+import { isCodingCli, cliDefinition } from "../clis/catalog.js";
+
 export const terminalNoticeMs = 10 * 60 * 1000;
 
 export class RequestNotices {
@@ -19,7 +21,10 @@ export class RequestNotices {
   /** Claude now shows its own approval dialog; chat must not just go blank. */
   terminal(entry) {
     if (
-      entry?.source !== "claude" ||
+      !(
+        isCodingCli(entry?.source) &&
+        cliDefinition(entry.source).capabilities.requestHandoff
+      ) ||
       entry.kind !== "permission" ||
       entry.presentation ||
       entry.local

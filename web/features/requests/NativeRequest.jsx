@@ -6,13 +6,18 @@ import { requestCopy as copy } from "../../lib/i18n/messages/requests.js";
 import QuestionDialog from "./QuestionDialog.jsx";
 import ClaudePlan from "./ClaudePlan.jsx";
 import { touchRequest, settleNotice } from "./request-interaction.js";
+import { isCodingCli, cliDefinition } from "../../../server/features/clis/catalog.js";
 import "./requests.css";
+
+const handoffSource = (source) =>
+  isCodingCli(source) && cliDefinition(source).capabilities.requestHandoff;
 export default function NativeRequest({ request, updated, openTerminal }) {
   const action = useAsyncAction(),
     pending = request.status === "pending",
     // After an uncertain delivery the answer may not have arrived; the
     // terminal is the only safe way on, so keep the handoff reachable.
-    releasable = pending || (request.status === "unknown" && request.source === "claude"),
+    releasable =
+      pending || (request.status === "unknown" && handoffSource(request.source)),
     hookTrust = request.presentation === "codexHookTrust",
     folderTrust = request.presentation === "claudeFolderTrust",
     legacyQuestion = request.presentation === "claudeLegacyQuestion",

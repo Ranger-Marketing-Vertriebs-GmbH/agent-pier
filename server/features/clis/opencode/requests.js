@@ -2,6 +2,14 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+/** How the chat shows one OpenCode question. */
+export const question = (q) => ({
+  multiple: q.multiple === true,
+  allowOther: q.custom !== false,
+  previews: false,
+  notes: false,
+});
+
 export const shellToolName = "bash";
 export const startupDialogs = {};
 

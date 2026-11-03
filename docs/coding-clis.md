@@ -13,22 +13,22 @@ coding CLIs. They stay outside the catalog; tables that also cover them, such as
 
 ## Layout
 
-| File                      | Runs in       | Holds                                                            |
-| ------------------------- | ------------- | ---------------------------------------------------------------- |
-| `catalog.js`              | browser, Node | Ids in list order, `cliDefinition`, `cliName`, `isCodingCli`     |
-| `<id>/definition.js`      | browser, Node | The definition record (pure data, frozen)                        |
-| `drivers.js`              | Node          | `cliDriver(id)`: assembles and freezes each driver               |
-| `<id>/profile.js`         | Node          | `profileEnv`, `configRoot`, `dataRoot`, `parseAuthStatus`        |
-| `<id>/session-config.js`  | Node          | `addMcpServer`, `addReminder`                                    |
-| `<id>/requests.js`        | Node          | `prepareRequests`, `shellToolName`, `startupDialogs`             |
-| `<id>/history.js`         | Node          | The `history` members                                            |
-| `<id>/tui.js`             | Node          | The `tui` members; shared screen helpers live in `tui-screen.js` |
-| `<id>/pipeline.js`        | Node          | The `pipeline` members                                           |
-| `<id>/plugins.js`         | Node          | The `plugins` members                                            |
-| `<id>/profile-files.js`   | Node          | The `profileFiles` members                                       |
-| `<id>/provider.js`        | Node          | The `provider` members (provider environment and launch)         |
-| `<id>/transfer.js`        | Node          | The `transfer` members (Codex and Claude Code only)              |
-| `codex/history-client.js` | Node          | Codex's read-only app-server client for its history              |
+| File                      | Runs in       | Holds                                                                            |
+| ------------------------- | ------------- | -------------------------------------------------------------------------------- |
+| `catalog.js`              | browser, Node | Ids in list order, `cliDefinition`, `cliName`, `isCodingCli`                     |
+| `<id>/definition.js`      | browser, Node | The definition record (pure data, frozen)                                        |
+| `drivers.js`              | Node          | `cliDriver(id)`: assembles and freezes each driver                               |
+| `<id>/profile.js`         | Node          | `profileEnv`, `configRoot`, `dataRoot`, `parseAuthStatus`                        |
+| `<id>/session-config.js`  | Node          | `addMcpServer`, `addReminder`                                                    |
+| `<id>/requests.js`        | Node          | `prepareRequests`, `shellToolName`, `startupDialogs`, `question`, `launchRecord` |
+| `<id>/history.js`         | Node          | The `history` members                                                            |
+| `<id>/tui.js`             | Node          | The `tui` members; shared screen helpers live in `tui-screen.js`                 |
+| `<id>/pipeline.js`        | Node          | The `pipeline` members                                                           |
+| `<id>/plugins.js`         | Node          | The `plugins` members                                                            |
+| `<id>/profile-files.js`   | Node          | The `profileFiles` members                                                       |
+| `<id>/provider.js`        | Node          | The `provider` members (provider environment and launch)                         |
+| `<id>/transfer.js`        | Node          | The `transfer` members (Codex and Claude Code only)                              |
+| `codex/history-client.js` | Node          | Codex's read-only app-server client for its history                              |
 
 `catalog.js` imports only the definitions, and neither imports Node modules or anything
 outside `clis/`: the web app bundles them (`web/features/**` imports
@@ -40,26 +40,26 @@ home, or the owning service (for example the `ProviderHistory` instance for `his
 
 ## Definition
 
-| Field                      | Meaning                                                                                                  |
-| -------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `id`, `name`, `shortName`  | Id, full name (`Claude Code`) and short name (`Claude`)                                                  |
-| `docsUrl`                  | Official installation and update guide                                                                   |
-| `npmPackage`               | The npm package of older AgentPier-managed installations                                                 |
-| `nativeInstaller`          | `{ url, shell, args, directory }` of the official install script                                         |
-| `updateArgs`               | Arguments of the CLI's own update command                                                                |
-| `minVersion`               | Minimum version for sessions (see [CLI updates](cli-updates.md#minimum-cli-versions))                    |
-| `launchModes`              | `{ mode: args }`; `default` is always present                                                            |
-| `defaultLaunchMode`        | The mode new accounts start in                                                                           |
-| `unattendedModes`          | Modes that skip every approval (Codex `yolo`, Claude `bypass`, OpenCode `auto`)                          |
-| `unattendedArgs`           | Permission arguments that make a session unattended (AgentBus permission class)                          |
-| `loginArgs`                | Sign-in command (`[]`: the CLI signs in inside its own TUI)                                              |
-| `authStatusArgs`           | Command whose output `parseAuthStatus` reads                                                             |
-| `apiKeyEnv`                | Variable for API-key accounts                                                                            |
-| `resumeArgs(sessionId)`    | Arguments that resume a native session                                                                   |
-| `configFormat`             | Format of the CLI's config files: `toml`, `json` (no comments) or `jsonc`                                |
-| `protocol`                 | Custom-endpoint protocol: `responses`, `messages` or `chatCompletions`                                   |
-| `capabilities`             | `accountTransfer`, `transcriptCleanup`, `storageCleanup`, `mcpOAuth`, `imagePaste`, `endpointSdkRouting` |
-| `pipeline.permissionModes` | Permission modes a pipeline profile may choose                                                           |
+| Field                      | Meaning                                                                                                                    |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `id`, `name`, `shortName`  | Id, full name (`Claude Code`) and short name (`Claude`)                                                                    |
+| `docsUrl`                  | Official installation and update guide                                                                                     |
+| `npmPackage`               | The npm package of older AgentPier-managed installations                                                                   |
+| `nativeInstaller`          | `{ url, shell, args, directory }` of the official install script                                                           |
+| `updateArgs`               | Arguments of the CLI's own update command                                                                                  |
+| `minVersion`               | Minimum version for sessions (see [CLI updates](cli-updates.md#minimum-cli-versions))                                      |
+| `launchModes`              | `{ mode: args }`; `default` is always present                                                                              |
+| `defaultLaunchMode`        | The mode new accounts start in                                                                                             |
+| `unattendedModes`          | Modes that skip every approval (Codex `yolo`, Claude `bypass`, OpenCode `auto`)                                            |
+| `unattendedArgs`           | Permission arguments that make a session unattended (AgentBus permission class)                                            |
+| `loginArgs`                | Sign-in command (`[]`: the CLI signs in inside its own TUI)                                                                |
+| `authStatusArgs`           | Command whose output `parseAuthStatus` reads                                                                               |
+| `apiKeyEnv`                | Variable for API-key accounts                                                                                              |
+| `resumeArgs(sessionId)`    | Arguments that resume a native session                                                                                     |
+| `configFormat`             | Format of the CLI's config files: `toml`, `json` (no comments) or `jsonc`                                                  |
+| `protocol`                 | Custom-endpoint protocol: `responses`, `messages` or `chatCompletions`                                                     |
+| `capabilities`             | `accountTransfer`, `transcriptCleanup`, `storageCleanup`, `mcpOAuth`, `imagePaste`, `endpointSdkRouting`, `requestHandoff` |
+| `pipeline.permissionModes` | Permission modes a pipeline profile may choose                                                                             |
 
 `accountTransfer`, `transcriptCleanup`, `storageCleanup`, `mcpOAuth` and
 `endpointSdkRouting` (the CLI reaches a custom endpoint through its own SDK providers, so
@@ -117,6 +117,10 @@ directory, key, description, adapterRoute, adapterToken })` returns the launch
   approval relay, changing `args`, `env` and `grants` in place; may return a replacement
   launch (Codex's wrapper).
 - `shellToolName`: the tool whose requests carry a shell command line.
+- `requests`: `question(q)` gives `{ multiple, allowOther, previews, notes }` for one native
+  question; `launchRecord?(env)` adds fields to the launch file (Claude Code's hook
+  version and trust file). `capabilities.requestHandoff`: an uncertain request can be
+  released to the CLI's own terminal dialog.
 - `startupDialogs`: `{ [presentation]: answer(broker, entry, choice) }` for the startup
   dialogs AgentPier answers in the terminal.
 

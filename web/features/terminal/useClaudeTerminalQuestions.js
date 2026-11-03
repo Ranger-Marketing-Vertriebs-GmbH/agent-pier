@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { requestCopy as copy } from "../../lib/i18n/messages/requests.js";
 import { recentlyUsedElsewhere, settleNotice } from "../requests/request-interaction.js";
+import { isCodingCli, cliDefinition } from "../../../server/features/clis/catalog.js";
 import useSessionRequests from "../requests/useSessionRequests.js";
+
+const handoffSource = (source) =>
+  isCodingCli(source) && cliDefinition(source).capabilities.requestHandoff;
 
 // Hook-owned entries only: questions, legacy questions and plain tool approvals.
 // Local startup/trust prompts are not hook invocations.
 const hookOwned = (entry) =>
-  entry.source === "claude" &&
+  handoffSource(entry.source) &&
   (entry.kind === "question" ||
     entry.presentation === "claudeLegacyQuestion" ||
     (entry.kind === "permission" && !entry.presentation));
@@ -21,7 +25,7 @@ export default function useClaudeTerminalQuestions({ session, active, request })
   const [error, setError] = useState("");
   const enabled = Boolean(
     active &&
-    session.tool === "claude" &&
+    handoffSource(session.tool) &&
     session.status === "running" &&
     session.nativeRequests?.enabled &&
     session.purpose !== "login" &&
