@@ -71,11 +71,11 @@ const drivers = new Map();
  * dataRoot(env, home): where it keeps its data (history, databases).
  * parseAuthStatus(stdout, exitCode, stderr): { signedIn, state }.
  * addMcpServer(launch, { name, command, args, env? }, claude?): adds a stdio MCP
- *   server to the launch's own `args`/`env` (Claude Code also needs `{ plugin,
+ *   server to the launch's own `args`/`env` (Claude Code also needs `{ pluginFolder,
  *   manifest, write }`).
- * addReminder(launch, { name, script, plugin, folder, invalid }): adds a start hook
+ * addReminder(launch, { name, script, pluginUrl, folder, invalid }): adds a start hook
  *   (Codex hook `name` running `script`, a SessionStart hook in the Claude plugin
- *   `folder`, or the OpenCode `plugin` URL).
+ *   `folder`, or the OpenCode `pluginUrl`).
  * prepareRequests({ broker, id, file, args, env, grants }, launch): starts the CLI's
  *   approval relay, changing `args`, `env` and `grants` in place; may return the
  *   launch that replaces `{ ...launch, args, env }` (Codex's wrapper).

@@ -31,7 +31,7 @@ export function sessionMcpLaunch(launch, tool, folder, capability, socketPath) {
     { args, env },
     { name: "agentpier_session", ...command },
     {
-      plugin: () => privateDirectory(path.join(folder, "plugin")),
+      pluginFolder: () => privateDirectory(path.join(folder, "plugin")),
       manifest: {
         name: "agentpier-session",
         version: "1.0.0",

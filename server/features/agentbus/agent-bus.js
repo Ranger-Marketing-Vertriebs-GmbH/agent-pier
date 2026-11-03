@@ -167,7 +167,7 @@ export class AgentBus {
       ensureDir(path.join(plugin, "hooks"));
       writeJsonAtomic(path.join(plugin, "hooks/hooks.json"), { hooks });
       cliDriver("claude").addMcpServer({ args, env }, server, {
-        plugin: () => plugin,
+        pluginFolder: () => plugin,
         manifest: {
           name: "agentpier-agentbus",
           version: "1.0.0",

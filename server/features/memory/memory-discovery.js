@@ -5,7 +5,7 @@ import { cliDriver } from "../clis/drivers.js";
 import { failure } from "./memory-validation.js";
 
 const script = fileURLToPath(new URL("./memory-hook.js", import.meta.url));
-const plugin = new URL("./memory-opencode.js", import.meta.url).href;
+const pluginUrl = new URL("./memory-opencode.js", import.meta.url).href;
 
 // Called with the launch's private args/env copies and the existing Claude plugin folder.
 export function prepareMemoryDiscovery({ tool, folder, args, env }) {
@@ -17,6 +17,6 @@ export function prepareMemoryDiscovery({ tool, folder, args, env }) {
     });
   cliDriver(tool).addReminder(
     { args, env },
-    { name: "MEMORY", script, plugin, folder, invalid },
+    { name: "MEMORY", script, pluginUrl, folder, invalid },
   );
 }
