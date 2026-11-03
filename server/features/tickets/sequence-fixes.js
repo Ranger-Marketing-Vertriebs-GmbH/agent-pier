@@ -254,8 +254,15 @@ export async function applyFix(engine, ctx, item, decision, verdict, worker = MI
   return { item };
 }
 
+// A PR branch the repair task may name in its push command: no shell metacharacters.
+const SAFE_REF = /^[A-Za-z0-9._/-]{1,255}$/;
+
 async function startRepair(engine, ctx, item, decision, verdict, worker) {
   const sha = verdict.headSha || "";
+  if (!SAFE_REF.test(item.pr?.headRef ?? "")) {
+    engine.park(ctx, engine.save(ctx, item, { rounds: decision.rounds }), "repairFailed");
+    return { item, stop: true };
+  }
   const { ticket } = await engine.readTicket(ctx, item);
   if (!ticket) return { item, stop: true };
   let saved = item;

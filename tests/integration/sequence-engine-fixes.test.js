@@ -433,3 +433,14 @@ test("a working session without a PR parks after six hours", async (t) => {
   assert.equal(f.items()[0].needsOwner.reason, "noPullRequest");
   assert.equal(f.notified.length, 1);
 });
+
+test("a PR branch with shell metacharacters never reaches a repair task", async (t) => {
+  const f = await sequenceFixture(t);
+  await pipelinePr(f, {
+    repair: { tool: "codex", accountId: "a9" },
+    pull: { headRef: "x$(id)" },
+  });
+  assert.equal(repairs(f).length, 0);
+  assert.equal(f.items()[0].needsOwner.reason, "repairFailed");
+  assert.equal(f.notified.length, 1);
+});
