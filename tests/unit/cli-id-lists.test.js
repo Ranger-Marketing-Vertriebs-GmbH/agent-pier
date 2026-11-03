@@ -16,6 +16,8 @@ const ALLOWED = new Set([
   'server/features/plugins/plugin-store.js: ["codex", "claude", "config", "data", "state", "cache"]',
   // Catalog tool lists of models that Codex cannot serve.
   'server/features/providers/catalog-normalization.js: ["claude", "opencode"]',
+  // The OpenClaw team plugin ships alone into OpenClaw and cannot import the catalog.
+  'server/features/assistants/team-plugin/coding-session-tool.js: ["claude", "codex", "opencode"]',
 ]);
 
 function sourceFiles(dir) {
