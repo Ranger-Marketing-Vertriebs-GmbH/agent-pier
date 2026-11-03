@@ -21,6 +21,8 @@ Keep business rules in their feature service. HTTP handlers validate transport s
 
 First-party identifiers and comments are English. German product text lives in explicit locale dictionaries. Native protocol names, recorded CLI text and parser examples retain their original spelling.
 
+Each coding CLI (Codex, Claude Code, OpenCode) is described in `server/features/clis/`: a browser-safe definition record that the web app also imports, and a Node-only driver for profiles, launch additions, approval relay, history, terminal reading, pipelines, plugins and profile files. Features ask the catalog and the drivers instead of branching on the CLI id; `tests/unit/cli-id-lists.test.js` keeps the remaining branches from growing. See [coding CLIs](coding-clis.md).
+
 ## Settings pages
 
 Agent settings, Accounts, Settings, Extensions and Projects share one page pattern

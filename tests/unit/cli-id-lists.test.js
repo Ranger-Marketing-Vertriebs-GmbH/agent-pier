@@ -7,17 +7,13 @@ const ROOT = new URL("../../", import.meta.url).pathname;
 const IDS = ["codex", "claude", "opencode"];
 
 // Lists that mix ids for a reason no capability describes. Each entry is
-// "<file>: <literal as written>" and may only shrink.
+// "<file>: <literal as written>" and may only shrink; an entry that no longer
+// matches fails the test below, so remove it in the change that removes the list.
 const ALLOWED = new Set([
   // Managed profile directories: codex and claude have their own, OpenCode uses
   // config/data/state/cache.
   'server/features/extensions/extension-store.js: ["codex", "claude", "config", "data", "state", "cache"]',
   'server/features/plugins/plugin-store.js: ["codex", "claude", "config", "data", "state", "cache"]',
-  // Terminal-activity detection shares one prompt parser for Claude Code and Codex.
-  'server/features/sessions/session-activity.js: ["claude", "codex"]',
-  // Native limit warnings are parsed for Codex and Claude Code; the catalog's
-  // rateLimits capability means something else (Claude Code has it off).
-  'server/features/chat/native-limit-warnings.js: ["codex", "claude"]',
   // Catalog tool lists of models that Codex cannot serve.
   'server/features/providers/catalog-normalization.js: ["claude", "opencode"]',
 ]);
@@ -33,7 +29,7 @@ function sourceFiles(dir) {
 }
 
 /** Array literals (no nested brackets) that contain two or more coding CLI ids. */
-function offenders(dir, exclude) {
+function offenders(dir, exclude, used = new Set()) {
   const found = [];
   for (const file of sourceFiles(path.join(ROOT, dir))) {
     const rel = path.relative(ROOT, file);
@@ -42,7 +38,11 @@ function offenders(dir, exclude) {
     for (const match of text.matchAll(/\[[^\][]*\]/g)) {
       const hits = IDS.filter((id) => new RegExp(`(["'\`])${id}\\1`).test(match[0]));
       if (hits.length < 2) continue;
-      if (ALLOWED.has(`${rel}: ${match[0]}`)) continue;
+      const key = `${rel}: ${match[0]}`;
+      if (ALLOWED.has(key)) {
+        used.add(key);
+        continue;
+      }
       const line = text.slice(0, match.index).split("\n").length;
       found.push(`${rel}:${line}`);
     }
@@ -58,8 +58,20 @@ test("no inline coding-CLI id arrays in the web app", () => {
   assert.deepEqual(offenders("web", "web/lib/i18n/"), []);
 });
 
+test("every allowed coding-CLI id array still exists", () => {
+  const used = new Set();
+  offenders("server", "server/features/clis/", used);
+  offenders("web", "web/lib/i18n/", used);
+  assert.deepEqual(
+    [...ALLOWED].filter((entry) => !used.has(entry)),
+    [],
+    "remove allowlist entries that no longer match",
+  );
+});
+
 // Remaining mentions of a CLI's config variables or home folders, one reason each.
-// Files may only be removed from this list.
+// Files may only be removed from this list; a file that no longer mentions one
+// fails the test, so remove its entry in the same change.
 const ROOT_ALLOWED = {
   "server/features/tools/rea-environment.js":
     "REA scrubs and re-pins the whole environment; it is not a config-root lookup",
@@ -91,25 +103,153 @@ const ROOT_ALLOWED = {
   "server/features/cli-profiles/configuration.js":
     ".claude.json sits in the override folder only when the override is set",
   "server/features/tools/native-installer.js": "nono install dir, not a coding CLI",
-  "server/features/claude-mod/claude-mod-launch.js": "mod bridge folder names",
-  "server/features/memory/memory-integration.js": "plugin manifest folder name",
   "server/features/assistants/assistant-provider-endpoint.js": ".local host suffix",
   "server/lib/i18n/de/scripts.js": "message text",
 };
 
+const ROOT_PATTERN =
+  /\b(CLAUDE_CONFIG_DIR|CODEX_HOME|XDG_(CONFIG|DATA)_HOME)\b|"\.(claude|codex|config|local)"|["'`]\.claude\.json["'`]/;
+
+function rootMentions(file) {
+  const rel = path.relative(ROOT, file);
+  return fs
+    .readFileSync(file, "utf8")
+    .split("\n")
+    .flatMap((line, index) =>
+      /^\s*(\/\/|\*|\/\*)/.test(line) || !ROOT_PATTERN.test(line)
+        ? []
+        : [`${rel}:${index + 1}: ${line.trim()}`],
+    );
+}
+
 test("no config-root fallbacks outside the CLI drivers", () => {
-  const pattern =
-    /\b(CLAUDE_CONFIG_DIR|CODEX_HOME|XDG_(CONFIG|DATA)_HOME)\b|"\.(claude|codex|config|local)"|["'`]\.claude\.json["'`]/;
   const found = [];
   for (const file of sourceFiles(path.join(ROOT, "server"))) {
     const rel = path.relative(ROOT, file);
     if (rel.startsWith("server/features/clis/") || rel in ROOT_ALLOWED) continue;
-    fs.readFileSync(file, "utf8")
-      .split("\n")
-      .forEach((line, index) => {
-        if (/^\s*(\/\/|\*|\/\*)/.test(line)) return;
-        if (pattern.test(line)) found.push(`${rel}:${index + 1}: ${line.trim()}`);
-      });
+    found.push(...rootMentions(file));
   }
   assert.deepEqual(found, []);
+});
+
+test("every file allowed to mention a config root still does", () => {
+  const dead = Object.keys(ROOT_ALLOWED).filter((rel) => {
+    const file = path.join(ROOT, rel);
+    return !fs.existsSync(file) || rootMentions(file).length === 0;
+  });
+  assert.deepEqual(dead, [], "remove allowlist entries that no longer match");
+});
+
+// Branch budget: comparisons with a coding CLI id ("=== \"codex\"", "!== \"claude\"", …)
+// outside the CLI drivers, counted per file. New per-CLI behaviour belongs in
+// server/features/clis/, so the budget may only shrink. The counts are exact: a file
+// over its count fails, and so does a file under it or one that no longer
+// branches, so lower or remove its entry in the change that removed the branch.
+const BRANCH_BUDGET = {
+  "server/application/session-account-transfer.js": 5,
+  "server/application/session-lifecycle.js": 3,
+  "server/application/session-reload-lifecycle.js": 3,
+  "server/application/session-reload-model.js": 2,
+  "server/application/session-transfer-files.js": 2,
+  "server/features/accounts/account-store.js": 5,
+  "server/features/accounts/auth-status.js": 1,
+  "server/features/agency/agency-store.js": 1,
+  "server/features/agency/source.js": 2,
+  "server/features/agentbus/agent-bus.js": 6,
+  "server/features/agentbus/agentbus-broker.js": 9,
+  "server/features/agentbus/agentbus-permission-class.js": 3,
+  "server/features/agentbus/agentbus-process.js": 3,
+  "server/features/chat/chat-delivery-recovery.js": 3,
+  "server/features/chat/chat-source-watch.js": 1,
+  "server/features/chat/chat-store.js": 1,
+  "server/features/chat/context-window.js": 1,
+  "server/features/chat/native-input-queue.js": 3,
+  "server/features/chat/uploaded-image-input.js": 1,
+  "server/features/cli-profiles/assets.js": 2,
+  "server/features/cli-profiles/backup-links.js": 2,
+  "server/features/cli-profiles/configuration.js": 6,
+  "server/features/extensions/config-edit.js": 1,
+  "server/features/extensions/config-parse.js": 3,
+  "server/features/extensions/extension-store.js": 2,
+  "server/features/extensions/mcp-config.js": 5,
+  "server/features/mcp-servers/cli-adoption.js": 3,
+  "server/features/mcp-servers/cli-bindings.js": 1,
+  "server/features/mcp-servers/cli-native.js": 4,
+  "server/features/mcp-servers/cli-oauth-status.js": 4,
+  "server/features/mcp-servers/codex-mcp-logins.js": 2,
+  "server/features/mcp-servers/mcp-timeouts.js": 3,
+  "server/features/mcp/session-launch.js": 1,
+  "server/features/memory/memory-integration.js": 1,
+  "server/features/models/model-controller.js": 1,
+  "server/features/pipelines/native-profile.js": 1,
+  "server/features/pipelines/profile-validation.js": 1,
+  "server/features/plugins/codex-catalog.js": 4,
+  "server/features/plugins/plugin-schema.js": 3,
+  "server/features/plugins/plugin-store.js": 1,
+  "server/features/providers/endpoint-routing.js": 1,
+  "server/features/providers/provider-access.js": 1,
+  "server/features/providers/provider-connections.js": 1,
+  "server/features/providers/provider-definitions.js": 1,
+  "server/features/providers/provider-environment.js": 3,
+  "server/features/providers/provider-launch.js": 5,
+  "server/features/requests/claude-folder-trust.js": 2,
+  "server/features/requests/claude-runtime.js": 2,
+  "server/features/requests/claude-startup-prompts.js": 1,
+  "server/features/requests/codex-hook-trust.js": 1,
+  "server/features/requests/native-questions.js": 6,
+  "server/features/requests/request-approvals.js": 1,
+  "server/features/requests/request-broker.js": 5,
+  "server/features/requests/request-launch.js": 2,
+  "server/features/requests/request-notices.js": 1,
+  "server/features/secrets/session-secrets.js": 1,
+  "server/features/sessions/attachment-access.js": 2,
+  "server/features/sessions/chat-image-input.js": 4,
+  "server/features/sessions/native-prompt.js": 3,
+  "server/features/sessions/native-session-binding.js": 8,
+  "server/features/sessions/native-session-process.js": 3,
+  "server/features/sessions/session-chat-input.js": 4,
+  "server/features/sessions/session-slash-command.js": 1,
+  "server/features/ssh/ssh-integration.js": 1,
+  "server/features/system-status/cleanup-transcripts.js": 1,
+  "server/features/system-status/storage-cleanup.js": 1,
+  "server/lib/sandbox.js": 1,
+  "web/app/AppDialogs.jsx": 1,
+  "web/components/ProviderMark.jsx": 3,
+  "web/features/chat/NativeDeliveryBadge.jsx": 1,
+  "web/features/chat/chat-reset.js": 1,
+  "web/features/chat/native-delivery-state.js": 1,
+  "web/features/coding/routes.js": 1,
+  "web/features/dashboard/CleanupTranscripts.jsx": 1,
+  "web/features/extensions/ExtensionWorkspace.jsx": 1,
+  "web/features/extensions/workspace-model.js": 1,
+  "web/features/mcp-servers/McpCliStatus.jsx": 2,
+  "web/features/mcp-servers/McpOAuthLogin.jsx": 1,
+  "web/features/mcp-servers/cli-support.js": 2,
+  "web/features/mcp-servers/oauth-result.js": 1,
+  "web/features/mcp/McpSetup.jsx": 3,
+  "web/features/mcp/setup.js": 2,
+  "web/features/operations/routes.js": 1,
+  "web/features/plugins/CatalogAccount.jsx": 1,
+  "web/features/provider-connections/EndpointRouting.jsx": 1,
+  "web/features/provider-connections/endpoint-routes.js": 2,
+  "web/features/providers/ProviderModelDetails.jsx": 1,
+  "web/features/providers/ProviderModelPicker.jsx": 1,
+  "web/features/providers/useAccountProvider.js": 1,
+  "web/features/requests/NativeRequest.jsx": 2,
+  "web/features/terminal/useClaudeTerminalQuestions.js": 2,
+};
+
+const BRANCH =
+  /[!=]==\s*(["'`])(codex|claude|opencode)\1|(["'`])(codex|claude|opencode)\3\s*[!=]==/g;
+
+test("tool-id equality branches outside server/features/clis only shrink", () => {
+  const counts = {};
+  for (const dir of ["server", "web"])
+    for (const file of sourceFiles(path.join(ROOT, dir))) {
+      const rel = path.relative(ROOT, file);
+      if (rel.startsWith("server/features/clis/")) continue;
+      const count = [...fs.readFileSync(file, "utf8").matchAll(BRANCH)].length;
+      if (count) counts[rel] = count;
+    }
+  assert.deepEqual(counts, BRANCH_BUDGET);
 });
