@@ -47,6 +47,13 @@ export const ticketQueueCopy = {
   removeTitle: (key) => `${key} aus der Warteschlange entfernen?`,
   removeBody:
     "Das Ticket verlässt die Folge. Seine Session, sein Lauf, sein Pull Request und der Eintrag im Tracker bleiben; AgentPier beobachtet sie nicht mehr.",
+  unreadableBody: (number) =>
+    `GitHub war nicht lesbar, deshalb kann AgentPier Auto-Merge oder die Merge-Queue für Pull Request #${number} nicht abschalten. Er kann noch gemergt werden. Fahre trotzdem fort und prüfe den Pull Request auf GitHub.`,
+  confirmAnyway: "Trotzdem fortfahren",
+  prUnchecked: (number) =>
+    `Prüfe Pull Request #${number} auf GitHub: Auto-Merge oder die Merge-Queue ist vielleicht noch an.`,
+  removedUnchecked: (key, number) =>
+    `${key} wurde entfernt. Prüfe Pull Request #${number} auf GitHub: Auto-Merge oder die Merge-Queue ist vielleicht noch an.`,
 };
 
 // Tickets in der Liste auswählen und der Dialog, der sie als Folge startet.

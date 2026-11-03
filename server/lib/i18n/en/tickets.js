@@ -28,6 +28,8 @@ export const tickets = Object.freeze({
   githubRequired: "Ticket sequences need a GitHub repository for this project.",
   worktreeLeftover:
     "The folder of the last attempt is still in .worktrees/ and has local changes or another branch. Check and remove the folder, then retry.",
+  prUnreadable:
+    "GitHub could not be read, so AgentPier cannot turn off auto-merge or the merge queue for this pull request. Confirm to go on anyway, then check the pull request on GitHub.",
   source: Object.freeze({
     unauthorized: "The ticket source rejected the credentials. Please check the token.",
     forbidden: "The ticket source token has no permission for this.",

@@ -1794,6 +1794,7 @@
   "tickets.invalidWorkspace": "de:8d8e53a4af74 en:1e34f35a3184",
   "tickets.itemBusy": "de:a704f2fd9b81 en:6b31c5e25641",
   "tickets.itemNotFound": "de:629fa4abe69c en:5449dff0441f",
+  "tickets.prUnreadable": "de:e33937422764 en:9b9466369e54",
   "tickets.projectNotFound": "de:d2ab70272380 en:0c459e156114",
   "tickets.sequenceFull": "de:e7a8cb29d595 en:0ca62adf53f4",
   "tickets.source.forbidden": "de:20ad6aaea5dd en:b88091a7291c",

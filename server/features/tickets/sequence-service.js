@@ -57,6 +57,7 @@ export function publicItem(item) {
   if (item.repair?.sessionId) out.repair = { sessionId: item.repair.sessionId };
   if (item.needsOwner) out.needsOwner = { ...item.needsOwner };
   if (item.writeBack) out.writeBack = { ...item.writeBack };
+  if (item.prUnchecked) out.prUnchecked = true;
   return out;
 }
 
@@ -167,8 +168,9 @@ export class TicketSequenceService {
         return;
       }
       if (item.pr) {
-        const snapshot = await this.readPr(project, item);
-        if (prVerdict(snapshot).status !== "closed") {
+        // An unreadable PR is watched again: the engine's forge clock bounds the wait.
+        const snapshot = await this.readPr(project, item).catch(() => null);
+        if (!snapshot || prVerdict(snapshot).status !== "closed") {
           this.store.patch(project.id, item.id, { ...RESET, state: "awaiting-merge" });
           return;
         }
@@ -223,33 +225,56 @@ export class TicketSequenceService {
   /**
    * The owner finished the ticket elsewhere: the queue moves on, the tracker stays. A
    * pull request AgentPier may have armed is disarmed first, since nobody watches it
-   * afterwards (it must not merge past a later "changes requested").
+   * afterwards (it must not merge past a later "changes requested"). When GitHub cannot
+   * be read, only `force` (the owner confirmed) goes on; the item then records that its
+   * PR may still be armed.
    */
-  markDone(projectId, itemId) {
+  markDone(projectId, itemId, { force = false } = {}) {
     return this.withItem(projectId, itemId, async (project, item) => {
       if (item.state !== "needs-owner" && item.state !== "waiting")
         throw problem(copy.itemBusy, 409);
-      if (this.mayBeArmed(item)) await this.disarm(project, item);
+      const unchecked = await this.disarmOrForce(project, item, force);
       this.store.patch(project.id, item.id, {
         state: "done",
         doneBy: "owner",
         doneAt: this.now(),
         starting: false,
+        ...(unchecked ? { prUnchecked: true } : {}),
       });
     });
   }
 
   /**
-   * Removes an item; an armed pull request is disarmed. A running item may go too: its
-   * session or run stays, and nobody watches or merges its pull request afterwards.
-   * An item awaiting its merge is parked or marked done first.
+   * Removes an item; an armed pull request is disarmed (or, with `force`, left as it may
+   * be when GitHub cannot be read). A running item may go too: its session or run stays,
+   * and nobody watches or merges its pull request afterwards. An item awaiting its merge
+   * is parked or marked done first.
    */
-  remove(projectId, itemId) {
-    return this.withItem(projectId, itemId, async (project, item) => {
+  async remove(projectId, itemId, { force = false } = {}) {
+    let unchecked = null;
+    const view = await this.withItem(projectId, itemId, async (project, item) => {
       if (item.state === "awaiting-merge") throw problem(copy.itemBusy, 409);
-      if (this.mayBeArmed(item)) await this.disarm(project, item);
+      if (await this.disarmOrForce(project, item, force))
+        unchecked = { key: item.key, pr: { number: item.pr.number, url: item.pr.url } };
       this.store.remove(project.id, item.id);
     });
+    return unchecked ? { ...view, unchecked } : view;
+  }
+
+  /**
+   * Disarms a PR AgentPier may have armed. True when GitHub could not be read or
+   * refused and the owner confirmed to go on; without `force` that refuses the action.
+   */
+  async disarmOrForce(project, item, force) {
+    if (!this.mayBeArmed(item)) return false;
+    try {
+      await this.disarm(project, item);
+      return false;
+    } catch (error) {
+      if (!force) throw problem(copy.prUnreadable, 409);
+      this.engine.onError(error, "owner-disarm");
+      return true;
+    }
   }
 
   /**
