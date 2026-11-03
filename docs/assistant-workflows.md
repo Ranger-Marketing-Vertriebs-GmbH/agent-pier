@@ -393,11 +393,11 @@ shared access instead of the agent's own session grant still waits for your appr
 in the agent's chat and sends the **Agent approval** push. Pipeline approvals are
 configured separately and are unchanged by this switch. The card and the
 Telegram approval show what the session would launch with: the project and CLI, the base
-branch, the launch mode (`bypass`, `yolo` and OpenCode `auto` are flagged as unattended, because the CLI
-then runs commands without asking), the account or provider connection and model, how
-many secrets and SSH accesses it receives, the sandbox profile, and whether the
-AgentPier tools and AgentBus are on. Forwarded messages, messages of other users and
-command-completion turns cannot start or steer sessions.
+branch, the launch mode (`bypass`, `yolo` and OpenCode `auto` are flagged as unattended,
+because the CLI then runs commands without asking), the account or provider connection
+and model, how many secrets and SSH accesses it receives, the sandbox profile, and
+whether the AgentPier tools and AgentBus are on. Forwarded messages, messages of other
+users and command-completion turns cannot start or steer sessions.
 
 **Actions.** `options` lists what the agent may pick: accounts, provider connections and
 models, launch modes, secrets, SSH accesses and sandbox profiles. `start` launches a
