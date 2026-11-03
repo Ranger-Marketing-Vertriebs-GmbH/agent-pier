@@ -53,6 +53,9 @@ test("a long body is cut, control characters and HTML go", () => {
     /\[The ticket text was cut at 16000 characters\.\]/,
   );
   assert.equal(htmlToText("<p>a &amp; b</p><p>c<br>d</p>"), "a & b\nc\nd");
+  // Nested fragments cannot reassemble into a tag, and an escaped entity stays text.
+  assert.equal(htmlToText("<scr<b>ipt>alert(1)</scr</b>ipt>"), "alert(1)");
+  assert.equal(htmlToText("&amp;lt;b&amp;gt;"), "&lt;b&gt;");
   assert.equal(
     cleanTicket({
       source: "github",
