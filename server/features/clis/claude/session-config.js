@@ -2,6 +2,7 @@
 // folder passed with --plugin-dir.
 import fs from "node:fs";
 import path from "node:path";
+import { resolveAgentBusInterpreter } from "../../agentbus/agentbus-launch-identity.js";
 import { shellQuote } from "../../../lib/launch-serialization.js";
 import {
   privateFolder,
@@ -67,4 +68,9 @@ export function addReminder(launch, { script, folder, invalid }) {
 /** Names of the MCP servers the launch environment already holds inline: none. */
 export function inlineMcpNames() {
   return [];
+}
+
+/** The Node interpreter behind an installed JavaScript entrypoint, or null. */
+export function runtimeInterpreter(command, env) {
+  return resolveAgentBusInterpreter(command, env);
 }

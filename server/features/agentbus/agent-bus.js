@@ -22,7 +22,6 @@ import { addGrant } from "../nono/sandbox-grants.js";
 import { classifyProjectFolder, runWorktreeRoot } from "../memory/project-folders.js";
 
 import { AGENTBUS_VERSION as VERSION, trustedPeers } from "./agentbus-runtime.js";
-import { resolveAgentBusInterpreter } from "./agentbus-launch-identity.js";
 import { cliDriver } from "../clis/drivers.js";
 import { cliDefinition, isCodingCli } from "../clis/catalog.js";
 
@@ -106,9 +105,8 @@ export class AgentBus {
       tool: selected.tool,
       command: launch.command,
       runtimeInterpreter:
-        selected.tool === "claude"
-          ? resolveAgentBusInterpreter(launch.command, originalEnv)
-          : null,
+        cliDriver(selected.tool).runtimeInterpreter?.(launch.command, originalEnv) ??
+        null,
       node: process.execPath,
       codexHome: cliDriver("codex").configRoot(originalEnv, this.home),
       claudeSessionsDir: path.join(

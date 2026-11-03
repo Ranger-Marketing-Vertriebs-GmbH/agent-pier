@@ -356,3 +356,10 @@ test("every CLI with transcript cleanup walks its transcript layout", () => {
     ],
   );
 });
+
+test("runtimeInterpreter resolves a Node shebang for Claude Code only", () => {
+  assert.equal(typeof cliDriver("claude").runtimeInterpreter, "function");
+  assert.equal(cliDriver("claude").runtimeInterpreter("/nonexistent/claude", {}), null);
+  assert.equal(cliDriver("codex").runtimeInterpreter, undefined);
+  assert.equal(cliDriver("opencode").runtimeInterpreter, undefined);
+});

@@ -88,6 +88,8 @@ const drivers = new Map();
  * addMcpServer(launch, { name, command, args, env? }, claude?): adds a stdio MCP
  *   server to the launch's own `args`/`env` (Claude Code also needs `{ pluginFolder,
  *   manifest, write }`).
+ * runtimeInterpreter?(command, env): the Node interpreter behind an installed JavaScript
+ *   entrypoint (Claude Code), or null; absent for CLIs that run natively.
  * inlineMcpNames(env): the MCP server names the launch environment already holds
  *   inline (OpenCode's OPENCODE_CONFIG_CONTENT, throws when invalid; others `[]`).
  * addReminder(launch, { name, script, pluginUrl, folder, invalid }): adds a start hook
@@ -165,6 +167,7 @@ export function cliDriver(id) {
         dataRoot: profile.dataRoot,
         addMcpServer: sessions[id].addMcpServer,
         addReminder: sessions[id].addReminder,
+        runtimeInterpreter: sessions[id].runtimeInterpreter,
         inlineMcpNames: sessions[id].inlineMcpNames,
         prepareRequests: requests[id].prepareRequests,
         shellToolName: requests[id].shellToolName,

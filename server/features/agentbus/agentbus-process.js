@@ -5,9 +5,11 @@ import { promisify } from "node:util";
 import { pidStart } from "../../../vendor/agentbus/core/proc.js";
 
 import { interpreterExecutable, processArgv } from "./agentbus-process-argv.js";
-import { isCodingCli } from "../clis/catalog.js";
+import { cliDefinition, isCodingCli } from "../clis/catalog.js";
 
 const exec = promisify(execFile);
+const pluginBridge = (id) =>
+  isCodingCli(id) && cliDefinition(id).capabilities.pluginBridge;
 const validPid = (value) => Number.isSafeInteger(value) && value > 1;
 
 function reject() {
@@ -66,7 +68,7 @@ async function runtimePid(chain, launch, claimedPid) {
   for (const entry of chain) {
     if (
       !launch.runtimeInterpreter &&
-      launch.tool !== "opencode" &&
+      !pluginBridge(launch.tool) &&
       entry.pid === claimedPid
     )
       continue;
@@ -96,8 +98,8 @@ async function runtimePid(chain, launch, claimedPid) {
     } else if (names.has(path.basename(executable))) candidates.push(entry);
   }
   if (candidates.length !== 1) reject();
-  if (launch.tool !== "opencode" && candidates[0].pid === claimedPid) reject();
-  if (launch.tool === "opencode" && candidates[0].pid !== claimedPid) reject();
+  if (!pluginBridge(launch.tool) && candidates[0].pid === claimedPid) reject();
+  if (pluginBridge(launch.tool) && candidates[0].pid !== claimedPid) reject();
   return candidates[0].pid;
 }
 
