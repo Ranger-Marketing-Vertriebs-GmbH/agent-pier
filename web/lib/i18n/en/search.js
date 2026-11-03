@@ -50,6 +50,7 @@ export const searchCopy = {
     addGithub: "Add GitHub access",
     addPlane: "Add Plane connection",
     openInbox: "Open inbox",
+    addLabelRule: "Add label rule",
     startTickets: "Start tickets",
   },
   // The search in a user's own app: the user's agents, their chats and pages, the account.

@@ -254,6 +254,15 @@ test("Start tickets is an action that opens the ticket selection", () => {
   }
 });
 
+test("Add label rule is an action that opens the rule dialog", () => {
+  const target = { action: "add-label-rule", pending: "ticket-rule-add" };
+  for (const query of ["Add label rule", "Label-Regel hinzufügen"]) {
+    const top = first(query);
+    assert.equal(top.id, "action:add-label-rule", query);
+    assert.deepEqual(top.target, target, query);
+  }
+});
+
 test("a blank query suggests the areas and the actions", () => {
   const groups = searchEntries(index, "", { pages: 99, agents: 99, actions: 99 });
   assert.deepEqual(
