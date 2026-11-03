@@ -91,6 +91,7 @@ export const notificationCopy = {
     "agent-memory-review-failed": "Memory not reviewed after a model switch",
     "session-limited": "Session reached its usage limit",
     "session-resume-failed": "Session could not be resumed",
+    "ticket-needs-owner": "A ticket sequence waits for you",
     "update-available": "Update available",
     "update-failed": "Update failed",
     telegram: "Also what Telegram delivered",

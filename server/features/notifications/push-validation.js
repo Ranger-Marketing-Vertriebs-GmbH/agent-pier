@@ -87,6 +87,8 @@ export const pushKinds = [
   "update-available",
   // Staging, activating or rolling back a release failed.
   "update-failed",
+  // A ticket sequence is parked and waits for the owner (needs-owner).
+  "ticket-needs-owner",
   "test",
 ];
 export const inboxItemTypes = ["question", "approval", "gate", "action", "team"];
@@ -129,7 +131,9 @@ export function pushPayload(input) {
   const payload = { kind: input.kind, eventId: pushId(input.eventId) };
   if (input.kind === "telegram-revocation") {
     if (input.assistantId !== undefined) payload.assistantId = pushId(input.assistantId);
-  } else if (input.kind.startsWith("pipeline-")) payload.runId = pushId(input.runId);
+  } else if (input.kind === "ticket-needs-owner")
+    payload.projectId = pushId(input.projectId);
+  else if (input.kind.startsWith("pipeline-")) payload.runId = pushId(input.runId);
   else if (agentKinds.includes(input.kind)) {
     payload.assistantId = pushId(input.assistantId);
     // The chat it was written to; the notice opens it.
@@ -186,7 +190,7 @@ export function pushEvent(input) {
 }
 
 const linkPattern =
-  /^\/(?:|inbox(?:\/(?:question|approval|gate|action|team)\/[A-Za-z0-9_-]{1,120})?|sessions\/[A-Za-z0-9_-]{1,120}\/chat|pipelines\/runs\/[A-Za-z0-9_-]{1,120}|agents(?:\/[A-Za-z0-9_-]{1,120}\/(?:settings(?:\?tab=capabilities&page=memory)?|chats\/[A-Za-z0-9_-]{1,120}))?|connections\?section=github|settings\/(?:github|notifications|updates))$/;
+  /^\/(?:|inbox(?:\/(?:question|approval|gate|action|team)\/[A-Za-z0-9_-]{1,120})?|sessions\/[A-Za-z0-9_-]{1,120}\/chat|pipelines\/runs\/[A-Za-z0-9_-]{1,120}|agents(?:\/[A-Za-z0-9_-]{1,120}\/(?:settings(?:\?tab=capabilities&page=memory)?|chats\/[A-Za-z0-9_-]{1,120}))?|projects\/[A-Za-z0-9_-]{1,120}\?tab=tickets|connections\?section=github|settings\/(?:github|notifications|updates))$/;
 
 const itemPattern =
   /^\/inbox\/(?:question|approval|gate|action|team)\/[A-Za-z0-9_-]{1,120}$/;

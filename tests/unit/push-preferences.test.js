@@ -65,6 +65,7 @@ test("by default only what needs the owner and what went wrong notifies", () => 
     "session-resume-failed": true,
     "update-available": false,
     "update-failed": true,
+    "ticket-needs-owner": true,
     telegram: false,
   });
   const now = Date.UTC(2026, 9, 31, 12);
@@ -215,6 +216,13 @@ test("quiet hours hold blocking items unless the device lets them through", () =
   // System warnings and the test always arrive.
   for (const kind of ["disk-space", "github-token", "telegram-revocation", "test"])
     assert.equal(wantsEvent(held, { kind }, night), true, kind);
+});
+
+test("a ticket needing the owner notifies by default and is held by quiet hours", () => {
+  assert.equal(defaultPreferences().events["ticket-needs-owner"], true);
+  const kind = "ticket-needs-owner";
+  assert.equal(wantsEvent(quiet("22:00", "07:00"), { kind }, utc("23:30")), false);
+  assert.equal(wantsEvent(defaultPreferences(), { kind }, utc("12:00")), true);
 });
 
 test("a device receives only the events it chose", () => {

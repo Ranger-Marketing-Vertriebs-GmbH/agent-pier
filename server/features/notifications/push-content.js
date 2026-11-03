@@ -123,6 +123,8 @@ export function pushLink(event) {
   if (event.kind === "disk-space") return "/";
   if (event.kind === "update-available" || event.kind === "update-failed")
     return "/settings/updates";
+  if (event.kind === "ticket-needs-owner")
+    return `/projects/${segment(event.projectId)}?tab=tickets`;
   if (event.kind === "test") return "/settings/notifications";
   if (event.kind === "agent-memory-review-failed")
     return `/agents/${segment(event.assistantId)}/settings?tab=capabilities&page=memory`;

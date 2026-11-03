@@ -97,6 +97,11 @@ self.agentPierNotificationCopy = {
       body: "Eine Session konnte nicht automatisch fortgesetzt werden. Öffne sie, um sie neu zu starten.",
       name: "Session nicht fortgesetzt",
     },
+    "ticket-needs-owner": {
+      title: "AgentPier: Ein Ticket braucht dich",
+      body: "Eine Ticketfolge wartet auf dich.",
+      name: "Ticket braucht dich",
+    },
     "update-available": {
       title: "AgentPier: Update verfügbar",
       body: "Eine neue AgentPier-Version ist verfügbar. Öffne die Updates, um sie zu installieren.",

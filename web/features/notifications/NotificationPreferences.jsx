@@ -21,6 +21,7 @@ export const eventGroups = [
       "pipeline-gate",
       "agent-approval",
       "agent-reminder",
+      "ticket-needs-owner",
     ],
   ],
   [
