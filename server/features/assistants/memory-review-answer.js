@@ -1,14 +1,15 @@
-import { memoryEntries } from "./memory-entries.js";
+import { reviewEntries } from "./memory-review-prompt.js";
 
 // What a memory review answer may say (memory-review-prompt.js).
 const kinds = new Set(["model-limit", "owner-rule", "fact"]);
 const recommendations = new Set(["archive", "keep"]);
 
-// The first JSON array of the text: from its first "[" to the bracket that closes
+// The first JSON array of the text: from its first "[" that opens an object or
+// closes at once (not an id such as [M1] in a lead-in) to the bracket that closes
 // it, strings respected. Reasoning a model writes into its text goes first.
 function firstArray(text) {
   const plain = String(text ?? "").replace(/<think>[\s\S]*?(<\/think>|$)/giu, "");
-  const from = plain.indexOf("[");
+  const from = plain.search(/\[\s*[{\]]/u);
   if (from < 0) return null;
   let depth = 0;
   let quoted = false;
@@ -31,81 +32,39 @@ function firstArray(text) {
   return null;
 }
 
-// An entry as the review compares it: models swap straight and typographic quotes,
-// add a list marker or change spacing, never the words.
-const listMarker = /^\s*(?:[-*+]|\d{1,9}[.)])\s+/;
-const comparable = (text) =>
-  String(text)
-    .normalize("NFC")
-    .replace(listMarker, "")
-    .replace(/[„“”‟″«»"]/gu, '"')
-    .replace(/[‚‘’‛′']/gu, "'")
-    .replace(/\s+/gu, " ")
-    .trim();
-
-// The entry `quoted` names: the one it equals, else the only one it starts, in at
-// least three words, ending at a word's end and covering at least half of it. The
-// owner's card archives the entry returned, so a start cut mid-word or a few words
-// of a long rule name none. In the spike (2026-11-02) both models quoted the start of
-// the longer entries that hold quotation marks, though asked for the whole text.
-const wordEnd = /[\s\p{P}]/u;
-function entryOf(entries, quoted) {
-  const same = entries.find((e) => e.key === quoted);
-  if (same) return same;
-  if (quoted.split(" ").length < 3) return null;
-  const starts = entries.filter((e) => e.key.startsWith(quoted));
-  if (starts.length !== 1) return null;
-  const [entry] = starts;
-  const ends = wordEnd.test(entry.key[quoted.length]);
-  return ends && quoted.length * 2 >= entry.key.length ? entry : null;
-}
-
 /**
- * The entries of a review answer `text` that name an entry of the reviewed `files`
- * (`[{ name, content }]` of an agent on `runtime`, memory-entries.js): `{ entries:
- * [{ file, entry, kind, recommendation }], dropped }`, each `entry` the file's own
- * whole text (the answer may quote its unique start, entryOf), each entry once;
- * `dropped` counts the items that named no entry of their file or carried an
- * unknown kind or recommendation. Null when the text holds no
- * readable JSON array (a refusal, an unescaped quote): the caller asks once more.
+ * The entries of a review answer `text` for the reviewed `files` (`[{ name, content
+ * }]` of an agent on `runtime`), each item naming an entry by the id the input gave
+ * it (memory-review-prompt.js): `{ entries: [{ file, entry, kind, recommendation }],
+ * dropped }`, `entry` the file's exact entry text. `dropped` counts the items with
+ * an id the review did not send or named before, or an unknown kind or
+ * recommendation. Null when the text holds no readable JSON array (a refusal, a
+ * broken answer): the caller asks once more.
  */
 export function parseReview(text, files, runtime = "openclaw") {
   const items = firstArray(text);
   if (!items) return null;
-  const known = new Map();
-  const entriesOf = (file) => {
-    if (!known.has(file.name))
-      known.set(
-        file.name,
-        memoryEntries(runtime, file.name, file.content).map((e) => ({
-          ...e,
-          key: comparable(e.text),
-        })),
-      );
-    return known.get(file.name);
-  };
-  const entries = [];
+  const byId = new Map(reviewEntries(files, runtime).map((e) => [e.id, e]));
   const seen = new Set();
+  const entries = [];
   let dropped = 0;
   for (const item of items) {
-    const file = files.find((f) => f.name === item?.file);
-    const quoted = typeof item?.entry === "string" && comparable(item.entry);
-    const match =
-      file &&
-      quoted &&
-      kinds.has(item.kind) &&
-      recommendations.has(item.recommendation) &&
-      entryOf(entriesOf(file), quoted);
-    if (!match) {
+    const id =
+      typeof item?.id === "string" ? item.id.trim().replace(/^\[(.*)\]$/u, "$1") : "";
+    const known = byId.get(id);
+    if (
+      !known ||
+      seen.has(id) ||
+      !kinds.has(item.kind) ||
+      !recommendations.has(item.recommendation)
+    ) {
       dropped++;
       continue;
     }
-    const id = `${file.name}\n${match.start}`;
-    if (seen.has(id)) continue;
     seen.add(id);
     entries.push({
-      file: file.name,
-      entry: match.text,
+      file: known.file,
+      entry: known.entry,
       kind: item.kind,
       recommendation: item.recommendation,
     });
