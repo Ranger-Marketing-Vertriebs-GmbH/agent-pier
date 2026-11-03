@@ -198,3 +198,27 @@ test("a restore with a project mapping moves rules and pickups to the new projec
   assert.equal(restored.picked(scope.id, "github", "acme/app#7"), null);
   assert.equal(restored.pickupCount(newId, rule.id), 1);
 });
+
+test("a restored rule file of a newer version stays untouched and loads read-only", async (t) => {
+  const temporary = await fs.realpath(
+    await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-rule-version-")),
+  );
+  t.after(() => fs.rm(temporary, { recursive: true, force: true }));
+  const dataDir = path.join(temporary, "data"),
+    target = path.join(temporary, "restored");
+  seedRule(dataDir, "p1");
+  const file = path.join(dataDir, "ticket-rules.json");
+  const saved = JSON.parse(await fs.readFile(file, "utf8"));
+  const content = JSON.stringify({ ...saved, version: 2 });
+  await fs.writeFile(file, content);
+  const backup = await new Backup({ dataDir }).create();
+  await new Restore({ dataDir }).apply({ archive: backup.file, targetDataDir: target });
+  const restoredFile = path.join(target, "ticket-rules.json");
+  assert.deepEqual(
+    JSON.parse(await fs.readFile(restoredFile, "utf8")),
+    JSON.parse(content),
+  );
+  const restored = new TicketRuleStore({ dataDir: target, log: () => {} });
+  assert.deepEqual(restored.locked, { code: "unsupportedVersion", version: 2 });
+  assert.deepEqual(restored.allRules(), []);
+});

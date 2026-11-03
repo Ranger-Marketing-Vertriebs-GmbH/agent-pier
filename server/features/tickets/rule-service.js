@@ -43,7 +43,10 @@ export class TicketRuleService {
 
   view(projectId) {
     const project = this.tickets.resolveProject(projectId);
-    return { rules: this.rules.rules(project.id).map((r) => this.public(project.id, r)) };
+    const rules = this.rules.rules(project.id).map((r) => this.public(project.id, r));
+    // The rule file is off and read-only (rule-store.js): its code, and the version a
+    // newer AgentPier wrote, for the Label rules section.
+    return this.rules.locked ? { rules, locked: this.rules.locked } : { rules };
   }
 
   /** A rule needs its source and GitHub, which its sequence opens pull requests on. */
@@ -56,6 +59,7 @@ export class TicketRuleService {
   }
 
   async create(projectId, input) {
+    this.rules.refuseLocked();
     const checked = ruleInput(input);
     const project = await this.connected(projectId, checked);
     const made = this.rules.create(project.id, checked);
@@ -65,6 +69,7 @@ export class TicketRuleService {
 
   /** A full replace, `paused` included: Pause and Resume send the saved rule. */
   async update(projectId, ruleId, input) {
+    this.rules.refuseLocked();
     const checked = ruleInput(input);
     const project = await this.connected(projectId, checked);
     const made = this.rules.update(project.id, ruleId, checked);

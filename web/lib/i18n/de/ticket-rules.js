@@ -17,6 +17,12 @@ export const ticketRulesCopy = {
   active: "Aktiv",
   failing: "Fehler",
   loadFailed: "Die Label-Regeln konnten nicht geladen werden.",
+  locked: {
+    newerVersion:
+      "Die Label-Regeln wurden von einer neueren AgentPier-Version gespeichert. Sie sind aus und schreibgeschützt, bis diese Version wieder läuft.",
+    unreadable:
+      "Die Datei der Label-Regeln lässt sich nicht lesen. Die Regeln sind aus und schreibgeschützt, bis die Datei lesbar ist und AgentPier neu startet.",
+  },
   fromRule: (label) => `Aus der Label-Regel „${label}“`,
   fromDeletedRule: "Aus einer gelöschten Label-Regel",
   capped: {

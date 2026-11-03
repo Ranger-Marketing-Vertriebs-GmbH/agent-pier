@@ -379,3 +379,18 @@ test("queue item from a rule shows its label", async ({ page }) => {
   await expect(queue.getByText("From a deleted label rule")).toBeVisible();
   await expect(queue.getByText(/From .*label rule/)).toHaveCount(2);
 });
+
+test("a rule file of a newer version shows one error and no changes", async ({
+  page,
+}) => {
+  await ticketsFixture(page, {
+    rules: { rules: [agent], locked: { code: "unsupportedVersion", version: 2 } },
+  });
+  await page.goto(base + "/projects/m1?tab=tickets");
+  await expect(
+    page.getByText(/^Label rules were saved by a newer AgentPier version\./),
+  ).toBeVisible();
+  await expect(rulesCard(page).getByText("agent · GitHub")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add label rule" })).toHaveCount(0);
+  await expect(ruleMenu(page, "agent")).toHaveCount(0);
+});

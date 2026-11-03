@@ -89,12 +89,20 @@ export class TicketRuleStore {
     this.log = log;
     this.onChange = onChange;
     this.file = path.join(dataDir, "ticket-rules.json");
+    this.list = [];
+    this.picks = new Map();
+    // Set when the file cannot be used as it is: the rules are off and read-only, and the
+    // file stays untouched, since dropping its pickups would queue tickets again.
+    this.locked = null;
     let saved;
     let damaged = false;
     try {
       saved = readJSON(this.file, {});
     } catch (error) {
-      if (!(error instanceof SyntaxError)) throw error;
+      if (!(error instanceof SyntaxError)) {
+        this.lock({ code: "unreadable" }, `unreadable code=${error.code || "error"}`);
+        return;
+      }
       damaged = true;
     }
     if (
@@ -103,16 +111,19 @@ export class TicketRuleStore {
       (saved.pickups !== undefined && !Array.isArray(saved.pickups))
     )
       damaged = true;
-    // A file a newer AgentPier wrote stays untouched: dropping its pickups would queue
-    // tickets again, so the server refuses to start until that version runs again.
-    if (!damaged && saved.version !== undefined && saved.version !== VERSION)
-      throw new Error(`Unsupported ticket rule storage version: ${saved.version}`);
+    // A file a newer AgentPier wrote (a downgrade, a restored newer backup).
+    if (!damaged && saved.version !== undefined && saved.version !== VERSION) {
+      const version = Number.isSafeInteger(saved.version) ? saved.version : null;
+      this.lock(
+        { code: "unsupportedVersion", version },
+        `unsupported version=${version ?? "invalid"}`,
+      );
+      return;
+    }
     if (damaged) {
       fs.renameSync(this.file, `${this.file}.corrupt-${this.now()}`);
       saved = {};
     }
-    this.list = [];
-    this.picks = new Map();
     let dropped = 0;
     for (const entry of saved.rules ?? []) {
       const checked = rule(entry);
@@ -140,7 +151,18 @@ export class TicketRuleStore {
       this.cap(projectId);
     if (dropped) this.log(`ticket-rules: dropped-invalid count=${dropped}`);
   }
+  lock(locked, detail) {
+    this.locked = locked;
+    this.log(`ticket-rules: ${detail}, rules disabled`);
+  }
+  refuseLocked() {
+    if (this.locked)
+      throw Object.assign(problem(copy.rulesLocked, 409), {
+        code: "TICKET_RULES_LOCKED",
+      });
+  }
   save() {
+    this.refuseLocked();
     writePrivate(this.file, {
       version: VERSION,
       rules: this.list,
@@ -203,6 +225,7 @@ export class TicketRuleStore {
   }
   /** `checked` is the result of ruleInput(). */
   create(projectId, checked) {
+    this.refuseLocked();
     if (!idText(projectId)) throw problem(copy.invalidRule);
     if (this.list.filter((e) => e.projectId === projectId).length >= MAX_RULES)
       throw problem(copy.tooManyRules, 409);
@@ -220,6 +243,7 @@ export class TicketRuleStore {
     return structuredClone(made);
   }
   update(projectId, ruleId, checked) {
+    this.refuseLocked();
     const index = this.list.findIndex(
       (e) => e.projectId === projectId && e.id === ruleId,
     );
@@ -243,6 +267,7 @@ export class TicketRuleStore {
   }
   /** Pickups stay, so a recreated rule never restarts a ticket. */
   remove(projectId, ruleId) {
+    this.refuseLocked();
     if (!this.list.some((e) => e.projectId === projectId && e.id === ruleId))
       throw problem(copy.ruleNotFound, 404);
     this.commit(
@@ -257,7 +282,7 @@ export class TicketRuleStore {
     const index = this.list.findIndex(
       (e) => e.projectId === projectId && e.id === ruleId,
     );
-    if (index < 0) return;
+    if (index < 0 || this.locked) return;
     this.commit(projectId, () => {
       this.list[index] = { ...this.list[index], status: status(next) };
     });
@@ -267,6 +292,7 @@ export class TicketRuleStore {
     return found ? { ...found } : null;
   }
   addPickups(projectId, entries) {
+    this.refuseLocked();
     const added = [];
     for (const entry of entries) {
       const checked = pickup({ ...entry, projectId });

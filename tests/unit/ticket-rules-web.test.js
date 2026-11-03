@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  lockedText,
   ruleBody,
   ruleCappedText,
   ruleErrorText,
@@ -98,4 +99,14 @@ test("ruleCappedText names the cap of the rule's source", () => {
   assert.match(ruleCappedText({ ...capped, source: "plane" }), /500/);
   assert.match(en.ticketRulesCopy.capped.github, /300 open issues/);
   assert.match(en.ticketRulesCopy.capped.plane, /500 work items/);
+});
+
+test("a locked rule file reads as a newer version or an unreadable file", () => {
+  assert.equal(
+    lockedText({ code: "unsupportedVersion", version: 2 }),
+    de.ticketRulesCopy.locked.newerVersion,
+  );
+  assert.equal(lockedText({ code: "unreadable" }), de.ticketRulesCopy.locked.unreadable);
+  assert.ok(en.ticketRulesCopy.locked.newerVersion);
+  assert.ok(en.ticketRulesCopy.locked.unreadable);
 });

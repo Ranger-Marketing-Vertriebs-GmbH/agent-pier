@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { TicketRuleStore } from "../../server/features/tickets/rule-store.js";
 import { ruleInput } from "../../server/features/tickets/rule-input.js";
+import { TicketRuleMonitor } from "../../server/features/tickets/rule-monitor.js";
 
 const dirs = [];
 const dataDir = () => {
@@ -217,16 +218,42 @@ test("labels are checked and trimmed on load", () => {
   assert.deepEqual(logs, ["ticket-rules: dropped-invalid count=4"]);
 });
 
-test("a file of an unknown version is refused and left untouched", () => {
+test("a file of an unknown version loads off and read-only and stays untouched", () => {
   const dir = dataDir();
   const file = path.join(dir, "ticket-rules.json");
-  const content = JSON.stringify({ version: 2, rules: [], pickups: [] });
+  const content = JSON.stringify({ version: 2, rules: [{ id: "x" }], pickups: [] });
   fs.writeFileSync(file, content);
-  assert.throws(
-    () => new TicketRuleStore({ dataDir: dir }),
-    /Unsupported ticket rule storage version: 2/,
-  );
+  const logs = [];
+  const store = new TicketRuleStore({ dataDir: dir, log: (m) => logs.push(m) });
+  assert.deepEqual(store.locked, { code: "unsupportedVersion", version: 2 });
+  assert.deepEqual(logs, ["ticket-rules: unsupported version=2, rules disabled"]);
+  assert.deepEqual(store.allRules(), []);
+  const monitor = new TicketRuleMonitor({ rules: store, intervalMs: 60_000 });
+  assert.equal(monitor.enabled, false);
+  const refused = (run) =>
+    assert.throws(
+      run,
+      (error) => error.status === 409 && error.code === "TICKET_RULES_LOCKED",
+    );
+  refused(() => store.create("p1", input("agent")));
+  refused(() => store.update("p1", "x", input("agent")));
+  refused(() => store.remove("p1", "x"));
+  refused(() => store.addPickups("p1", [pick(1)]));
+  store.setStatus("p1", "x", { checkedAt: 1 });
   assert.equal(fs.readFileSync(file, "utf8"), content);
   fs.writeFileSync(file, JSON.stringify({ rules: [], pickups: [] }));
-  assert.deepEqual(new TicketRuleStore({ dataDir: dir }).allRules(), []);
+  const plainFile = new TicketRuleStore({ dataDir: dir });
+  assert.equal(plainFile.locked, null);
+  assert.deepEqual(plainFile.allRules(), []);
+});
+
+test("a file that cannot be read loads off and read-only", () => {
+  const dir = dataDir();
+  fs.mkdirSync(path.join(dir, "ticket-rules.json"));
+  const logs = [];
+  const store = new TicketRuleStore({ dataDir: dir, log: (m) => logs.push(m) });
+  assert.deepEqual(store.locked, { code: "unreadable" });
+  assert.deepEqual(logs, ["ticket-rules: unreadable code=EISDIR, rules disabled"]);
+  assert.throws(() => store.create("p1", input("agent")), { status: 409 });
+  assert.ok(fs.statSync(path.join(dir, "ticket-rules.json")).isDirectory());
 });
