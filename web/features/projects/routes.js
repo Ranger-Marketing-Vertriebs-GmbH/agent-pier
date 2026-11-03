@@ -1,5 +1,13 @@
 const valid = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/;
-const tabs = ["overview", "knowledge", "agentbus", "runs", "agents", "approvals"];
+const tabs = [
+  "overview",
+  "knowledge",
+  "agentbus",
+  "runs",
+  "tickets",
+  "agents",
+  "approvals",
+];
 const statuses = ["running", "awaiting-human", "completed", "failed", "cancelled"];
 function pageNumber(value) {
   const number = Number(value || 1);
@@ -8,6 +16,11 @@ function pageNumber(value) {
     number <= 100000
     ? number
     : 1;
+}
+// A label filter of the Tickets tab: at most 100 characters, no control characters.
+function ticketLabel(value) {
+  const label = String(value || "");
+  return label.length <= 100 && !/[\x00-\x1f\x7f]/.test(label) ? label : "";
 }
 export function projectsRoute(fields = {}) {
   return {
@@ -22,6 +35,7 @@ export function projectsRoute(fields = {}) {
     messagePage: 1,
     pipelineStatus: "",
     pipelinePage: 1,
+    ticketLabel: "",
     ...fields,
   };
 }
@@ -50,6 +64,9 @@ export function readProjectsRoute(pathname, search) {
       pipelineStatus: statuses.includes(query.get("status")) ? query.get("status") : "",
       pipelinePage: page,
     }),
+    ...(tab === "tickets" && {
+      ticketLabel: ticketLabel(query.get("label")),
+    }),
   });
 }
 export function projectsRoutePath(route) {
@@ -71,6 +88,8 @@ export function projectsRoutePath(route) {
     if (route.pipelineStatus) query.set("status", route.pipelineStatus);
     if (route.pipelinePage > 1) query.set("page", String(route.pipelinePage));
   }
+  if (route.projectTab === "tickets" && route.ticketLabel)
+    query.set("label", route.ticketLabel);
   return `/projects${route.projectId ? `/${encodeURIComponent(route.projectId)}` : ""}${query.size ? `?${query}` : ""}`;
 }
 

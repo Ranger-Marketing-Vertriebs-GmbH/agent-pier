@@ -122,6 +122,9 @@ export async function fixture(page) {
     } else if (path === "/api/mail/accounts" && method === "GET") {
       // Connections counts the email accounts; this fixture has none.
       result = { accounts: [], presets: {} };
+    } else if (path === "/api/ticket-connections" && method === "GET") {
+      // ... and its Plane connections (Ticket sources); this fixture has none.
+      result = { connections: [] };
     } else if (path === "/api/settings/summary") {
       result = {
         access: { mcp: null, remote: null, ssh: null, github: null },

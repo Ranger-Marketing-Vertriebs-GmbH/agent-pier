@@ -23,6 +23,7 @@ import ProjectKnowledge from "./ProjectKnowledge.jsx";
 import ProjectMenuButton from "./ProjectMenuButton.jsx";
 import ProjectOverview from "./ProjectOverview.jsx";
 import ProjectRuns from "./ProjectRuns.jsx";
+import ProjectTickets from "./ProjectTickets.jsx";
 import { groupNameMessage, projectMenuItems, projectMenuSheet } from "./project-menu.js";
 import { projectSessions, remoteDisplay, remoteShort } from "./project-presentation.js";
 import { projectsRoute } from "./routes.js";
@@ -102,6 +103,7 @@ export default function ProjectDetail({
     { id: "knowledge", label: copy.tabKnowledge, count: project.entryCount },
     { id: "agentbus", label: copy.tabAgentBus, count: project.sessionCount },
     { id: "runs", label: copy.tabRuns, count: runTotal },
+    { id: "tickets", label: copy.tabTickets },
     { id: "agents", label: projectAgentsCopy.tab },
     { id: "approvals", label: projectApprovalsCopy.tab },
   ];
@@ -198,6 +200,15 @@ export default function ProjectDetail({
           onNavigate={onNavigate}
           home={home}
           reloadHub={reloadHub}
+        />
+      )}
+      {tab === "tickets" && (
+        <ProjectTickets
+          project={project}
+          route={route}
+          onNavigate={onNavigate}
+          onLaunch={onLaunch}
+          home={home}
         />
       )}
     </div>

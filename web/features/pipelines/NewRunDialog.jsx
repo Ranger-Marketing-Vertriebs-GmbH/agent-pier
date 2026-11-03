@@ -13,6 +13,8 @@ import useResource from "../../lib/useResource.js";
 import ProjectFields, { segmentLimit } from "./ProjectFields.jsx";
 import { listedProjectsPath } from "../../lib/project-list.js";
 import { pipelineQueueCopy as queueCopy } from "../../lib/i18n/messages/pipeline-queue.js";
+import { ticketStartCopy } from "../../lib/i18n/messages/tickets.js";
+import { startRefusal, ticketStartPath } from "../projects/ticket-list.js";
 import "./run-dialog.css";
 
 function PipelineField({ definitions, value, onChange, disabled }) {
@@ -105,6 +107,8 @@ function ProjectAndFolder({
 // Starts a pipeline run. `fixedProject` ({id, cwd}) preselects a knowledge project
 // and its folder, for example from the projects hub. With `queueProject` ({id, name})
 // the run is added to that project's queue instead (onCreated receives the item).
+// With `ticket` ({ projectId, source, key, title, again }) the run starts that ticket:
+// the server picks the folder and builds the task, so neither is asked for.
 export default function NewRunDialog({
   route = {},
   home,
@@ -112,9 +116,11 @@ export default function NewRunDialog({
   onCreated,
   fixedProject,
   queueProject,
+  ticket,
 }) {
   const definitions = useResource("/pipelines"),
-    projects = useResource(queueProject ? null : listedProjectsPath);
+    projects = useResource(queueProject || ticket ? null : listedProjectsPath);
+  const [again, setAgain] = useState(Boolean(ticket?.again));
   const [pipelineId, setPipelineId] = useState(route.selectedPipeline || ""),
     [projectId, setProjectId] = useState(fixedProject?.id || ""),
     [cwd, setCwd] = useState(fixedProject?.cwd || home || ""),
@@ -130,7 +136,11 @@ export default function NewRunDialog({
   const dismiss = () => {
     if (!action.busy) close();
   };
-  const title = queueProject ? queueCopy.add : copy.newRun;
+  const title = ticket
+    ? ticketStartCopy.runTitle(ticket.key)
+    : queueProject
+      ? queueCopy.add
+      : copy.newRun;
   return (
     <Modal
       title={title}
@@ -143,6 +153,24 @@ export default function NewRunDialog({
         onSubmit={(event) => {
           event.preventDefault();
           action.run(async () => {
+            if (ticket) {
+              const result = await api(ticketStartPath(ticket.projectId), "POST", {
+                source: ticket.source,
+                key: ticket.key,
+                kind: "pipeline",
+                again,
+                pipeline: {
+                  pipelineId,
+                  ...(baseBranch ? { baseBranch } : {}),
+                  ...(tokenBudget ? { tokenBudget: Number(tokenBudget) } : {}),
+                },
+              }).catch((error) => {
+                // Already started elsewhere: the next submit starts it again.
+                if (startRefusal(error) === "started") setAgain(true);
+                throw error;
+              });
+              return onCreated(result.run);
+            }
             const common = {
               pipelineId,
               task,
@@ -169,7 +197,11 @@ export default function NewRunDialog({
             onChange={setPipelineId}
             disabled={action.busy}
           />
-          {queueProject ? (
+          {ticket ? (
+            <p className="run-dialog-help">
+              {ticketStartCopy.runDescription(ticket.title)}
+            </p>
+          ) : queueProject ? (
             <p className="run-dialog-help">
               {queueCopy.dialogProject(queueProject.name)}
             </p>
@@ -179,15 +211,17 @@ export default function NewRunDialog({
               disabled={action.busy}
             />
           )}
-          <label>
-            {copy.task}
-            <textarea
-              rows={5}
-              required
-              value={task}
-              onChange={(event) => setTask(event.target.value)}
-            />
-          </label>
+          {!ticket && (
+            <label>
+              {copy.task}
+              <textarea
+                rows={5}
+                required
+                value={task}
+                onChange={(event) => setTask(event.target.value)}
+              />
+            </label>
+          )}
           <label>
             {copy.baseBranch}
             <input
@@ -236,7 +270,7 @@ export default function NewRunDialog({
             {commonCopy.cancel}
           </button>
           <button className="button primary" disabled={action.busy}>
-            {title}
+            {ticket ? (again ? ticketStartCopy.again : copy.newRun) : title}
           </button>
         </div>
       </form>

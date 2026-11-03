@@ -28,6 +28,9 @@ import {
   unattendedLaunchMode,
 } from "./launch-modes.js";
 import { rememberLaunchChoice } from "./launch-preferences.js";
+import { ticketStartCopy } from "../../lib/i18n/messages/tickets.js";
+import { startRefusal, ticketStartPath } from "../projects/ticket-list.js";
+import { isCodingCli } from "../../../server/features/clis/catalog.js";
 const modeCopy = (tool, mode) =>
   ({
     "codex:yolo": [copy.codexYoloOption, copy.codexYoloDescription],
@@ -43,14 +46,23 @@ export default function LaunchDialog({
   close,
   created,
   update,
+  ticket,
 }) {
   const viewport = useLaunchViewport();
+  // A ticket starts in its project's folder with a coding CLI and the server's task:
+  // no folder, shell or task profile to choose.
+  const launchState = ticket
+    ? { ...state, tools: state.tools.filter((item) => isCodingCli(item.id)) }
+    : state;
+  const [again, setAgain] = useState(Boolean(ticket?.again));
   const access = useLaunchAccess(
-    state,
+    launchState,
     initialProfile?.config.cliTool || tool,
     initialProfile,
   );
-  const profiles = useResource(access.tool === "shell" ? null : "/pipeline-profiles");
+  const profiles = useResource(
+    access.tool === "shell" || ticket ? null : "/pipeline-profiles",
+  );
   const [profileId, setProfileId] = useState(initialProfile?.id || ""),
     [params, setParams] = useState({});
   const profile = profiles.data?.profiles?.find((item) => item.id === profileId);
@@ -124,7 +136,13 @@ export default function LaunchDialog({
   const unattended = unattendedLaunchMode(selectedTool, launchMode);
   return (
     <Modal
-      title={browse ? commonCopy.workingDirectory : commonCopy.newSession}
+      title={
+        browse
+          ? commonCopy.workingDirectory
+          : ticket
+            ? ticketStartCopy.sessionTitle(ticket.key)
+            : commonCopy.newSession
+      }
       close={close}
       style={viewport}
       className={`launch-dialog${coding ? "" : " launch-dialog-shell"}`}
@@ -142,7 +160,7 @@ export default function LaunchDialog({
         ) : (
           <AsyncForm
             close={close}
-            button={commonCopy.startSession}
+            button={again ? ticketStartCopy.again : commonCopy.startSession}
             disabled={!access.ready || !profileReady}
             submit={async () => {
               if (!access.ready) throw Error(connectionCopy.chooseAccess);
@@ -161,6 +179,24 @@ export default function LaunchDialog({
                 agentpierTools: coding ? agentpierTools : false,
                 ...(access.nonoProfile ? { nonoProfile: access.nonoProfile } : {}),
               };
+              if (ticket) {
+                const { cwd: _cwd, name: _name, ...session } = body;
+                const result = await api(ticketStartPath(ticket.projectId), "POST", {
+                  source: ticket.source,
+                  key: ticket.key,
+                  kind: "session",
+                  again,
+                  session: name.trim() ? { ...session, name: name.trim() } : session,
+                }).catch((error) => {
+                  if (error.updateRequired) setRefused(error.updateRequired);
+                  // Already started elsewhere: the next submit starts it again.
+                  if (startRefusal(error) === "started") setAgain(true);
+                  throw error;
+                });
+                rememberLaunchChoice(access.tool, access.accessId);
+                rememberLaunchMode(access.tool, launchMode);
+                return created(result.session);
+              }
               const result = await (
                 profile
                   ? api(`/pipeline-profiles/${profile.id}/launch`, "POST", {
@@ -196,7 +232,11 @@ export default function LaunchDialog({
             }}
           >
             <p className="field-description">
-              {coding ? copy.codingSessionDescription : copy.shellSessionDescription}
+              {ticket
+                ? ticketStartCopy.sessionDescription(ticket.title)
+                : coding
+                  ? copy.codingSessionDescription
+                  : copy.shellSessionDescription}
             </p>
             <div className="launch-columns">
               <section
@@ -241,26 +281,28 @@ export default function LaunchDialog({
                   refused={refused}
                   update={update}
                 />
-                <label>
-                  {commonCopy.workingDirectory}
-                  <div className="input-action">
-                    <input
-                      aria-label={commonCopy.workingDirectory}
-                      value={cwd}
-                      required
-                      onChange={(e) => setCwd(e.target.value)}
-                      placeholder={connectionCopy.directoryPlaceholder}
-                    />
-                    <button
-                      type="button"
-                      className="icon-button"
-                      aria-label={commonCopy.chooseDirectory}
-                      onClick={() => setBrowse(true)}
-                    >
-                      <Icon name="folder" />
-                    </button>
-                  </div>
-                </label>
+                {!ticket && (
+                  <label>
+                    {commonCopy.workingDirectory}
+                    <div className="input-action">
+                      <input
+                        aria-label={commonCopy.workingDirectory}
+                        value={cwd}
+                        required
+                        onChange={(e) => setCwd(e.target.value)}
+                        placeholder={connectionCopy.directoryPlaceholder}
+                      />
+                      <button
+                        type="button"
+                        className="icon-button"
+                        aria-label={commonCopy.chooseDirectory}
+                        onClick={() => setBrowse(true)}
+                      >
+                        <Icon name="folder" />
+                      </button>
+                    </div>
+                  </label>
+                )}
                 <label>
                   {copy.sessionNameLabel}
                   <input
@@ -270,7 +312,7 @@ export default function LaunchDialog({
                     placeholder={copy.sessionNamePlaceholder}
                   />
                 </label>
-                {coding && (
+                {coding && !ticket && (
                   <>
                     <label>
                       {copy.taskProfile}

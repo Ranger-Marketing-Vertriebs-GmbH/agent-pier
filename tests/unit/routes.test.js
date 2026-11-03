@@ -49,6 +49,7 @@ test("projects routes carry tab state and old links map onto them", () => {
     messagePage: 1,
     pipelineStatus: "",
     pipelinePage: 1,
+    ticketLabel: "",
   });
   assert.equal(
     read("/projects/p1?tab=knowledge&q=Build&archived=1&page=2").memoryPage,
