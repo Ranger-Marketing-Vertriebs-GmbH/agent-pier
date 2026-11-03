@@ -141,6 +141,7 @@ export const operationsCopy = {
   no: "No",
   needsLogin: "Sign-in required",
   needsMcpServerValues: (name) => `MCP server ${name} (enter values again)`,
+  needsTicketSourceKey: (name) => `Plane connection ${name} (enter the API key again)`,
   needsUserPassword: (name) => `User ${name} (set a new password)`,
   needsMcpServerAddress: (name) =>
     `MCP server ${name} (enter the token in its address again)`,

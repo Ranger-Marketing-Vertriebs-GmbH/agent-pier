@@ -398,9 +398,17 @@ export class Restore {
       const ticketSources = readJson(path.join(stage, "ticket-sources.json"), {
         connections: [],
       });
+      // `ticket-source:<id>:<name>`: the name tells the owner which key to enter again.
       for (const connection of ticketSources.connections || [])
-        if (!restored.has(`ticket-source-secrets/${connection.id}.json`))
-          credentialsNeedingLogin.push(`ticket-source:${connection.id}`);
+        if (!restored.has(`ticket-source-secrets/${connection.id}.json`)) {
+          const name =
+            typeof connection.name === "string"
+              ? connection.name.replace(/[\x00-\x1f\x7f]/g, "").slice(0, 100)
+              : "";
+          credentialsNeedingLogin.push(
+            `ticket-source:${connection.id}${name ? `:${name}` : ""}`,
+          );
+        }
       credentialsNeedingLogin.push(...mcpServersNeedingValues);
       for (const name of usersNeedingPassword)
         credentialsNeedingLogin.push(`user:${name}`);
