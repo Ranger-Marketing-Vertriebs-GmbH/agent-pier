@@ -28,8 +28,11 @@ coding CLIs. They stay outside the catalog; tables that also cover them, such as
 | `<id>/profile-files.js`   | Node          | The `profileFiles` members                                       |
 | `codex/history-client.js` | Node          | Codex's read-only app-server client for its history              |
 
-`catalog.js` and every `definition.js` import nothing: the web app bundles them
-(`web/features/**` imports `server/features/clis/catalog.js`). Drivers are stateless.
+`catalog.js` imports only the definitions, and neither imports Node modules or anything
+outside `clis/`: the web app bundles them (`web/features/**` imports
+`server/features/clis/catalog.js`). `catalog.js` deep-freezes every definition once. A feature reaches a driver through `cliDriver(id)`; it imports a driver's helper module
+directly only to avoid an import cycle (for example `opencode-history-page.js`, the
+history imports in `provider-history.js` and `inlineConfig`). Drivers are stateless.
 Whatever state a call needs is passed in: the launch being built, the environment and
 home, or the owning service (for example the `ProviderHistory` instance for `history`).
 
@@ -53,6 +56,10 @@ home, or the owning service (for example the `ProviderHistory` instance for `his
 | `protocol`                 | Custom-endpoint protocol: `responses`, `messages` or `chatCompletions`                           |
 | `capabilities`             | `accountTransfer`, `transcriptCleanup`, `storageCleanup`, `mcpOAuth`, `imagePaste`, `rateLimits` |
 | `pipeline.permissionModes` | Permission modes a pipeline profile may choose                                                   |
+
+`accountTransfer`, `transcriptCleanup` and `storageCleanup` are read by their consumers.
+`mcpOAuth`, `imagePaste` and `rateLimits` are declared; consumers still branch on the id
+(counted in the branch budget of `tests/unit/cli-id-lists.test.js`).
 
 `server/features/tools/` derives the minimum-version table (`MINIMUM_CLI_VERSIONS` in
 `cli-version.js`), the install table (`nativeInstallers`) and the update commands
@@ -81,10 +88,10 @@ from `launchModes` (`server/features/accounts/account-store.js`).
 
 - `addMcpServer(launch, { name, command, args, env? }, claude?)`: adds a stdio MCP
   server to the launch's `args`/`env`. Claude Code also needs
-  `{ plugin, manifest, write }`.
-- `addReminder(launch, { name, script, plugin, folder, invalid })`: adds a start hook (a
+  `{ pluginFolder, manifest, write }`.
+- `addReminder(launch, { name, script, pluginUrl, folder, invalid })`: adds a start hook (a
   Codex hook `name` running `script`, a SessionStart hook in the Claude plugin `folder`,
-  or the OpenCode `plugin` URL).
+  or the OpenCode `pluginUrl`).
 - `prepareRequests({ broker, id, file, args, env, grants }, launch)`: starts the
   approval relay, changing `args`, `env` and `grants` in place; may return a replacement
   launch (Codex's wrapper).

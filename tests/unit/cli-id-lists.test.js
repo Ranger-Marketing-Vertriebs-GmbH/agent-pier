@@ -50,12 +50,15 @@ function offenders(dir, exclude, used = new Set()) {
   return found;
 }
 
+const LIST_GUIDANCE =
+  "Read the ids from the catalog (CODING_CLI_IDS or a capability) instead of an inline list.";
+
 test("no inline coding-CLI id arrays outside server/features/clis", () => {
-  assert.deepEqual(offenders("server", "server/features/clis/"), []);
+  assert.deepEqual(offenders("server", "server/features/clis/"), [], LIST_GUIDANCE);
 });
 
 test("no inline coding-CLI id arrays in the web app", () => {
-  assert.deepEqual(offenders("web", "web/lib/i18n/"), []);
+  assert.deepEqual(offenders("web", "web/lib/i18n/"), [], LIST_GUIDANCE);
 });
 
 test("every allowed coding-CLI id array still exists", () => {
@@ -239,6 +242,9 @@ const BRANCH_BUDGET = {
   "web/features/terminal/useClaudeTerminalQuestions.js": 2,
 };
 
+const GUIDANCE =
+  "Lower or remove the BRANCH_BUDGET entry, or move the branch into a CLI driver; never raise it.";
+
 const BRANCH =
   /[!=]==\s*(["'`])(codex|claude|opencode)\1|(["'`])(codex|claude|opencode)\3\s*[!=]==/g;
 
@@ -251,5 +257,5 @@ test("tool-id equality branches outside server/features/clis only shrink", () =>
       const count = [...fs.readFileSync(file, "utf8").matchAll(BRANCH)].length;
       if (count) counts[rel] = count;
     }
-  assert.deepEqual(counts, BRANCH_BUDGET);
+  assert.deepEqual(counts, BRANCH_BUDGET, GUIDANCE);
 });
