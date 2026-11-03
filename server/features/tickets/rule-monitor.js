@@ -264,6 +264,7 @@ export class TicketRuleMonitor {
           kind: "ticket-rule-failed",
           eventId,
           projectId: rule.projectId,
+          ticketSource: before.source,
         });
       } catch (error) {
         this.onError(error);

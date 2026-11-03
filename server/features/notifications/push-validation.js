@@ -136,9 +136,15 @@ export function pushPayload(input) {
   const payload = { kind: input.kind, eventId: pushId(input.eventId) };
   if (input.kind === "telegram-revocation") {
     if (input.assistantId !== undefined) payload.assistantId = pushId(input.assistantId);
-  } else if (ticketKinds.includes(input.kind))
+  } else if (ticketKinds.includes(input.kind)) {
     payload.projectId = pushId(input.projectId);
-  else if (input.kind.startsWith("pipeline-")) payload.runId = pushId(input.runId);
+    // A label rule failure names its ticket source, so each source groups apart.
+    if (input.kind === "ticket-rule-failed" && input.ticketSource !== undefined) {
+      if (!["github", "plane"].includes(input.ticketSource))
+        throw problem("Invalid notification kind.");
+      payload.ticketSource = input.ticketSource;
+    }
+  } else if (input.kind.startsWith("pipeline-")) payload.runId = pushId(input.runId);
   else if (agentKinds.includes(input.kind)) {
     payload.assistantId = pushId(input.assistantId);
     // The chat it was written to; the notice opens it.

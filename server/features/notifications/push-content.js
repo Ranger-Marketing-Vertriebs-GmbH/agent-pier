@@ -151,7 +151,10 @@ export function pushSource(event) {
   // A project's newer "ticket needs you" notice replaces its older one. Label rule
   // failures group apart, so they never replace a sequence that waits for the owner.
   if (event.kind === "ticket-needs-owner") return `tickets:${event.projectId}`;
-  if (event.kind === "ticket-rule-failed") return `ticket-rules:${event.projectId}`;
+  // Per project and ticket source, so GitHub and Plane rule failures never replace
+  // each other on a device.
+  if (event.kind === "ticket-rule-failed")
+    return `ticket-rules:${event.projectId}${event.ticketSource ? `:${event.ticketSource}` : ""}`;
   if (event.sessionId) return `session:${event.sessionId}`;
   if (event.runId) return `run:${event.runId}`;
   if (event.assistantId && event.conversationId && event.kind !== "telegram-revocation")

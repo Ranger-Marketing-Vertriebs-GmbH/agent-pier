@@ -186,6 +186,7 @@ test("unreachable source sets the code on the rule and pushes once until it clea
     kind: "ticket-rule-failed",
     eventId: f.notified[0].eventId,
     projectId: "p1",
+    ticketSource: "github",
   });
   assert.match(f.notified[0].eventId, /^[0-9a-f]{64}$/);
   assert.deepEqual(f.status(rule.id).error, { code: "unreachable", since });
@@ -255,7 +256,7 @@ test("failing rules push once per project and source, not per rule", async (t) =
   for (const id of [gone.id, other.id, plane.id])
     assert.equal(f.status(id).error.code, "labelGone");
   // One for GitHub, one for Plane.
-  assert.equal(f.notified.length, 2);
+  assert.deepEqual(f.notified.map((n) => n.ticketSource).sort(), ["github", "plane"]);
   assert.equal(new Set(f.notified.map((n) => n.eventId)).size, 2);
   await monitor.run();
   assert.equal(f.notified.length, 2);
