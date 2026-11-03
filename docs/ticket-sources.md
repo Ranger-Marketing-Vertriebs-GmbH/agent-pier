@@ -174,8 +174,10 @@ it, the ticket data moves with the rest of the project:
   as the copy that got further (awaiting merge, then running, then waiting for you,
   then waiting); on a tie the new project's copy stays. The move itself starts,
   watches or parks nothing: the queue steps again on the engine's next pass;
-- the label rules with their pickups (a rule whose source and label the new project
-  already has is dropped, its pickups move).
+- the label rules with their pickups. A rule whose source and label the new project
+  already has is dropped, and so are rules beyond the new project's limit of 20 (the
+  server logs `ticket-rules: move dropped-over-limit count=<n>`); their pickups move
+  all the same, so no ticket is queued twice.
 
 An interrupted move finishes on the next start.
 
