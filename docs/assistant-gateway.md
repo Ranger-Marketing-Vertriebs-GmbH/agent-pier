@@ -1154,7 +1154,7 @@ A lead reaches its own members without the owner relaying anything
   hands a task to a permanent member (one open task per member);
   `agentpier_team_cancel` cancels an open one; `agentpier_team_archive` archives the
   lead's finished temporary members without asking; `agentpier_team_member_update`
-  edits a temporary or permanent member, `agentpier_team_models` lists the models it
+  edits a temporary or permanent member (with `model` also `freshChat`, see [Lead edits of team members](#lead-edits-of-team-members-2026-10-17)), `agentpier_team_models` lists the models it
   can give its members (see below), `agentpier_team_promote` keeps one as a permanent
   agent and `agentpier_team_member_routine` sets up routines on permanent members
   that report back (see below); `agentpier_team_groups` and
@@ -2840,6 +2840,17 @@ history of its Identity tab:
   account signed out, model gone) is not replaced: the member's turns fail visibly
   with the usual model error and there is no fallback to the lead's model.
 
+  `freshChat` (boolean, optional, only with `model`) says whether the move starts the
+  member in a fresh chat; without it the model family rule decides (`planSwitch`,
+  `model-switch.js`: on when `familyChanged`, `model-family.js`, off within one
+  family). A non-boolean is refused. The result then carries `freshChat`: `"started"`
+  (the member's `conversationId` chat was replaced with `freshMemberChat`),
+  `"waits_for_turn"` (a turn runs in it; `DeferredSwaps` swaps it once it is free) or
+  `"off"`, and `memoryReview: "waits_for_owner"` when the member keeps memory and a
+  fresh chat starts. The audit record and the note name `freshChat` as a boolean; the
+  lead never sees the review or its card. The member keeps running and the model still
+  applies from its next turn.
+
 An edit of a permanent member applies from its next turn, also in the owner's chats
 with it, and appears in the history of its Identity tab together with the replaced
 instructions.
@@ -3927,6 +3938,48 @@ archivedAt, lastActivityAt, busy}` (the owner's also `userId`), the main chat fi
   `{ restored: true, file }`. Both are owner-only agent content; the activity log records
   `assistant.memory-archived` and `assistant.memory-restored` with `count` and
   `files` only.
+- Model switch (`model-switch.js`, `deferred-swaps.js`, `chat-successor.js`,
+  `model-hints.js`): saving an agent with another model plans the switch with
+  `planSwitch(service, before, after, { freshChats, followLead })`. It names the agents
+  (the saved one and each temporary member that follows its model, `ownModel` unset,
+  whose effective model changes), whether chats start fresh and both models. `freshChats`
+  comes from the owner's `PATCH /api/assistants/:id` (boolean, anything else is
+  `invalid`); by default `familyChanged` decides. `GET /api/assistants/:id/model-switch
+?connectionId&modelId` answers `{ familyChanged, freshChatsDefault }` for the
+  Identity form (`model-switch-preview.js`). The model family (`model-family.js`) is
+  the maker: `openai` for ChatGPT accounts, the model ID prefix on OpenRouter, the
+  prefix on an endpoint only for a known maker, otherwise `unknown:<connectionId>`.
+  `swapNow` replaces, under admission, each chat of each agent that is free
+  (`chatFree`: no turn under way, no queued message, no waiting approval, no running
+  summary; team requests and owed follow-ups do not hold it) through `freshMainChat`
+  for every person's main chat or `freshMemberChat` for a member's chat, with the
+  reason `model-switched` and both model names; the archived chat records the new one
+  as `successorId`. A chat that is not free, or whose swap failed before it committed,
+  goes into `DeferredSwaps` (table `assistant_deferred_swaps`, private in backups),
+  which the service's poll swaps once it is free; it is dropped when the chat, the
+  agent or the member is gone or reassigned, and given up after 24 hours (a failed swap
+  retries after one minute). Nothing is cancelled, no member ends. After the swaps
+  Telegram channels move (`moveChannels`), deliveries resync and the memory review
+  starts (above). The save answers the profile with `freshChats: { chats, deferred }`
+  when chats start fresh. Non-main chats are never swapped.
+- Late results: `sendTurn` and the team follow-ups (member results, lead-request
+  answers, SSH, SFTP and mail follow-ups, coding hand-overs) resolve the
+  `successorId` line (`redirectedTo`, `followUpChat`, at most 20 hops, cycle-checked)
+  and deliver to the newest live chat; a delivery already accepted in a chat of the
+  line is adopted there and not sent again. The fresh chat gets the quiet note
+  `redirected` ("This result was started in the previous chat."), once per delivery.
+  Chats archived by the owner, by Restart main chat or by deletion have no successor.
+- Model hint dismissals: an older chat (not a main chat) records the model family its
+  turns run on (`family`); when it differs from the agent's current family the
+  conversation history carries `modelHint: true` for its person (owner privacy hides
+  it from the owner for a user's chat like `longChat`). `POST
+/api/assistant-conversations/:id/model-hint-dismissal` (owner) and `POST
+/api/me/conversations/:id/model-hint-dismissal` (user, her own chats) store the pair
+  of families per chat and person in `assistant_model_hint_dismissals` (private in
+  backups; a deleted chat forgets it) and answer `{ dismissed: true }`, or
+  `{ dismissed: false }` without a differing family. A closed chat is refused as on the
+  other chat routes. The hint returns only for another pair of families.
+
 - Archive and restore: `POST …/conversations/:id/archive|restore` (owner under
   `/api/assistant-conversations`, user under `/api/me/conversations`). An archived chat
   leaves the list, stays readable, and refuses turns, queued messages, uploads and
@@ -5062,6 +5115,11 @@ running: true}` after ten minutes while it still runs (below). The key, the chat
   real local model: refusal during a run, a 109 s compaction (21,277 → 15,512 tokens)
   with one summary model call and no OpenClaw flush, the marker, `Already compacted` on a
   second call and an intact follow-up turn.
+
+| Hint               | Dismissed by                                              | Returns when                           |
+| ------------------ | --------------------------------------------------------- | -------------------------------------- |
+| Long chat          | `…/long-chat-dismissal`: stores the session's token count | Context grows by half or 50,000 tokens |
+| Another model used | `…/model-hint-dismissal`: stores the pair of families     | The agent moves to a different family  |
 
 The chat (`web/features/assistants/AgentRunState.jsx`, owner's chat and user app
 alike) shows the phase or the running tool with its label below the turn, the steps

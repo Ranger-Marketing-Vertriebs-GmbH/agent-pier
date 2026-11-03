@@ -49,6 +49,15 @@ answer from AgentPier says why: answered in the terminal, the CLI moved on to a 
 step, the CLI stopped asking, the session ended, or it expired and the CLI asks in its
 own terminal dialog now.
 
+## Memory review after a model switch
+
+When an agent's model changes and its chats start fresh, the new model reviews the
+agent's memory. If it finds entries that only record what an earlier model refused or
+limited itself, the **Agents** tab shows one card **Memory after a model switch** for the
+switch (type `memory-review`). It lists the entries with their file, each set to
+**Archive** or **Keep**; **Apply** carries out your choices (the card then reads
+**Applied**). Only you see and decide it; see [Memory](agents.md#memory).
+
 ## Unresolved agent work
 
 Agent work that has not moved for more than 24 hours shows on the **Agents** tab as

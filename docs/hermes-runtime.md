@@ -220,6 +220,11 @@ limits (`memory.memory_char_limit`, `memory.user_char_limit`) and refuses an own
 edit beyond them with `memoryTooLarge` (413), since Hermes would keep loading such a
 file but refuse every later write of the agent. Hermes freezes memory into a
 session's prompt when the session starts, so an edit reaches the agent's next chat.
+Entries the owner archives after a [model switch](agents.md#memory) leave these files
+and live in AgentPier's own archive (`assistant_memory_archive`), not beside Hermes's
+files, which have the hard limits above and which Hermes reads. **Restore** appends an
+entry back as a `§` block and is refused with `memoryTooLarge` (409) when the file
+would go over its limit.
 Memory search looks for the query's words in the entries of both files; Hermes's own
 `session_search` covers past chats, not memory.
 
