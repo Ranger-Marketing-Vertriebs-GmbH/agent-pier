@@ -7594,6 +7594,7 @@
   "terminal:terminalViewCopy.retryUpload": "de:112b98ea6f31 en:731dc6e3f07a",
   "terminal:terminalViewCopy.uploaded": "de:9ed323d68644 en:3cc3767e7032",
   "terminal:terminalViewCopy.uploading": "de:6a1bcf2677bd en:48618a91ec87",
+  "ticket-rules:labelRuleDialogCopy.allowMergeWarning": "de:351b1258b5bc en:0145f933229c",
   "ticket-rules:labelRuleDialogCopy.intro": "de:f17325b8415e en:1622d918a597",
   "ticket-rules:labelRuleDialogCopy.label": "de:0e66373f45dc en:0e66373f45dc",
   "ticket-rules:labelRuleDialogCopy.labelHint": "de:7358aae17e4f en:2d512f1d1337",

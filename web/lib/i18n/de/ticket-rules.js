@@ -49,6 +49,8 @@ export const labelRuleDialogCopy = {
   label: "Label",
   labelHint:
     "Genauer Label-Name; offene Tickets, die es schon tragen, werden auch übernommen.",
+  allowMergeWarning:
+    "Wer dieses Label setzen kann, kann die Arbeit an seinem Ticket mergen lassen. Nimm ein Label, das nur vertrauenswürdige Personen setzen können.",
   intro:
     "Jedes Ticket, das die Regel übernimmt, kommt in die Warteschlange und läuft mit diesen Einstellungen.",
   paused: "Pausiert",

@@ -504,6 +504,14 @@ minutes, so labelling an issue `agent` in GitHub, or a work item in Plane, is en
 queue it; nothing has to stay open in the browser. Like sequences, rules need GitHub
 for the pull requests, also for Plane tickets.
 
+Anyone who can set a rule's label can start work on your host: a session or pipeline
+run on their ticket text. That includes outside users, for example through a GitHub
+issue template or form that applies labels (`labels:`) or a bot that labels new
+tickets, so use a label that only trusted people can set. AgentPier treats the ticket
+text as untrusted and a rule adds no privilege, but combining such a label with
+**Allow merge** means outside input can end up merged. The rule dialog warns while
+**Allow merge** is on.
+
 ### Adding a rule
 
 The **Label rules** section of the Tickets tab sits below the queue while a source is

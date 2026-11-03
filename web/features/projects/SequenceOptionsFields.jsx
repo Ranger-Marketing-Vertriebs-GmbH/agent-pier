@@ -70,7 +70,8 @@ function SessionFields({ access, mode, setMode, sandbox = true }) {
 /**
  * The run-as choice, the session fields or the pipeline with its repair session, and
  * "Allow merge" of a sequence or a label rule; the props come from
- * `useSequenceOptions(...).fieldProps`.
+ * `useSequenceOptions(...).fieldProps`. `mergeWarning` shows below "Allow merge" while
+ * it is on.
  */
 export default function SequenceOptionsFields({
   kind,
@@ -87,6 +88,7 @@ export default function SequenceOptionsFields({
   repairPrefilled,
   allowMerge,
   setAllowMerge,
+  mergeWarning,
 }) {
   const list = pipelines.data?.pipelines || [];
   return (
@@ -146,6 +148,9 @@ export default function SequenceOptionsFields({
           onChange={setAllowMerge}
         />
       </ListCard>
+      {allowMerge && mergeWarning && (
+        <p className="field-description sequence-merge-warning">{mergeWarning}</p>
+      )}
     </>
   );
 }
