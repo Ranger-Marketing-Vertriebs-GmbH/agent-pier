@@ -78,6 +78,20 @@ export function projectEntries({ projects = [], repositories = [] } = {}) {
         { meta: same(path), icon: "folder", extra: [path].filter(Boolean) },
       ),
     );
+    entries.push(
+      entry(
+        "projects",
+        `project-tickets:${id}`,
+        bilingual(() => searchCopy.projectTickets),
+        join(root, same(name)),
+        { route: projectsRoute({ projectId: id, projectTab: "tickets" }) },
+        {
+          meta: same(path),
+          icon: "folder",
+          extra: [name, path, "GitHub", "Plane", "Issues"].filter(Boolean),
+        },
+      ),
+    );
   };
   for (const project of listedProjects(projects))
     add(project.id, project.name || folder(project.cwd), project.cwd || "");
