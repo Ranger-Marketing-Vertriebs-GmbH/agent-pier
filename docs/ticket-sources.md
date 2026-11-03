@@ -1,9 +1,11 @@
 # Ticket sources
 
 A project's **Tickets** tab lists the open GitHub issues of its repository and the open
-work items of a linked Plane project. One ticket at a time starts as a session or a
-pipeline run; AgentPier then marks the ticket "In progress" in the tracker and comments
-that it was started, and shows the ticket on the session and the run.
+work items of a linked Plane project. A ticket starts as a session or a pipeline run;
+AgentPier then marks the ticket "In progress" in the tracker and comments that it was
+started, and shows the ticket on the session and the run. Several tickets can start as
+a [sequence](#ticket-sequences) that AgentPier works through one at a time, watching
+each pull request until it is merged.
 
 ## Setup
 
@@ -20,7 +22,8 @@ connected; Plane still loads.
 The token needs **Issues: read** to list tickets and **Issues: write** for the
 write-back (fine-grained token), or the `repo` scope (classic token, `public_repo` for
 public repositories only). Without write access the session or run still starts; the
-ticket shows **Write-back failed**.
+ticket shows **Write-back failed**. Sequences need more; see
+[GitHub permissions](#github-permissions).
 
 ### Plane
 
@@ -72,9 +75,10 @@ connections** and **Connections › Ticket sources** and still offers **Refresh*
 Each ticket's ⋯ menu offers **Start session**, **Start pipeline run**, **Open in
 GitHub** or **Open in Plane** and, once started, **Open session** or **Open pipeline
 run**. A started ticket shows **Started**, or **Write-back failed** with the reason.
+**Select tickets** starts a [sequence](#starting-a-sequence) of several tickets.
 
 ⌘K/Ctrl+K finds each project's Tickets tab ("Tickets", also by "Issues", "GitHub" and
-"Plane").
+"Plane") and the action **Start tickets**.
 
 ## Starting a ticket
 
@@ -124,8 +128,9 @@ and the session list adds the key.
 ## Live updates
 
 The tab follows the live topic `tickets.project:<projectId>` (the project's source
-links and start records) and the Connections page follows `tickets.connections`; both
-are owner-only and change on every write of the ticket service. Adding, editing or
+links and start records) and `tickets.queue:<projectId>` (its
+[sequence](#live-updates-and-routes)), and the Connections page follows
+`tickets.connections`; all are owner-only and change on every write of the ticket service. Adding, editing or
 deleting a GitHub token profile, changing the profile a host uses, and cloning a
 repository signal every project's topic too. The ticket list itself
 is a REST read when the tab opens, when a source changes and on **Refresh**, never on
@@ -134,8 +139,9 @@ a timer. See [Architecture](architecture.md#live-channel).
 ## Data and backups
 
 Plane connections, project links and start records live in `ticket-sources.json` in
-the data directory (at most 500 start records; the oldest are dropped). Backups carry
-it as a public member and the API keys only sealed with **Include encrypted
+the data directory (at most 500 start records; the oldest are dropped). Ticket
+sequences live in `ticket-sequences.json`, which backups leave out. Backups carry
+`ticket-sources.json` as a public member and the API keys only sealed with **Include encrypted
 credentials**; a restore without them lists each Plane connection as needing its key
 again. See [Backups](backups.md).
 
@@ -155,8 +161,112 @@ again. See [Backups](backups.md).
 
 ## Ticket sequences
 
-Ticket sequences work through a project's tickets one at a time and watch each pull
-request until it merges. The full guide is still to come.
+A ticket sequence works through several tickets of a project one at a time. For each
+ticket AgentPier starts a fresh session or pipeline run, waits for its pull request,
+watches the pull request until it is merged, asks for fixes when checks fail or a
+review requests changes, and then starts the next ticket. When it cannot go on, it
+stops and waits for you.
+
+Sequences need GitHub: the pull requests live there, also for Plane tickets. Without a
+token profile for the project's GitHub host, **Start sequence** is refused.
+
+### Starting a sequence
+
+In the Tickets tab, **Select tickets** adds a checkbox to every ticket. **Start as
+sequence (N)** opens the dialog for the selected tickets; **Cancel** ends the
+selection. ⌘K/Ctrl+K **Start tickets** opens the current project's Tickets tab in
+selection mode, or the Projects page when no project is open. The tickets run in the
+order of the list, also those a filter hides at the moment. A selected ticket that is
+no longer listed after **Refresh** (closed, or moved out of its source) is deselected,
+and a line names it.
+
+The dialog **Start N tickets as a sequence** asks:
+
+- **Run as**: **Session** (a CLI, an account or provider connection with its model, and
+  a launch mode, as in the session dialog; coding CLIs only, never the shell) or
+  **Pipeline run** (a **Pipeline**). Every ticket of the sequence runs the same way.
+- **Repair session** (pipeline runs only): the CLI, access and launch mode of the
+  session that fixes a pipeline ticket's pull request (see [Fix attempts](#fix-attempts)).
+  It is prefilled from the newest coding session in the project folder or below it,
+  when its CLI is installed and its account or connection still exists; settings that
+  arrive after the dialog opened fill it too, unless you already changed the fields.
+- **Allow merge** (off by default): whether AgentPier may merge the pull requests
+  itself (see [Merging](#merging)).
+
+As with a single start, a ticket that was started before is refused once; **Start
+again** then starts the sequence anyway. A ticket that is already in the sequence and
+not done is refused (`ticketQueued`).
+
+AgentPier reads every ticket from its tracker when it is added and again when it
+starts. Each start is recorded like a single start: the ticket shows **Started** in the
+list and gets the "In progress" [write-back](#write-back-in-progress).
+
+### The queue
+
+Each project has one sequence, kept per project and repository folder. New tickets are
+appended at the end, also when a sequence is already running. The **Queue** card above
+the ticket list shows each ticket with its state:
+
+| State               | Meaning                                                                       |
+| ------------------- | ----------------------------------------------------------------------------- |
+| **Waiting**         | Not started yet.                                                              |
+| **Running**         | The session or run works on the ticket; AgentPier waits for its pull request. |
+| **Waits for merge** | The pull request is open; AgentPier watches it, asks for fixes and may merge. |
+| **Needs you**       | AgentPier stopped; the line below says why.                                   |
+| **Done**            | Merged, or marked done by you.                                                |
+
+Only the first ticket that is not done is worked on. The next one starts only after
+the pull request of the previous one is merged, or after you mark it done or remove
+it. A ticket that needs you therefore holds up the rest of its sequence; no ticket is
+skipped. The sequence holds up nothing else: single starts from the ⋯ menu, other
+sessions and other projects' sequences go on as usual. A pipeline ticket waits in the
+project's [run queue](pipelines.md#run-queue) like any other item, so the project's
+**Concurrent runs** limit applies to it.
+
+Each row's ⋯ menu offers **Open session** or **Open run**, **Open pull request** once
+there is one, and the [owner actions](#owner-actions).
+
+### Worktrees and branches
+
+A session ticket gets its own git worktree under the repository's `.worktrees/` folder,
+named `ticket-<key>-<id8>` (letters, digits and `-` only). AgentPier fetches `origin`
+first and creates the worktree from the remote default branch (`origin/HEAD`, else
+`main`, else `master`), never from your checkout: local changes and the branch checked
+out in the project folder stay untouched. The new branch is
+`ticket/<key>-<title>`, with the title cut to 30 characters and `-2`, `-3`… added when a
+local or remote branch of that name exists. A folder that already exists is refused.
+When the repository does not ignore `.worktrees/`, AgentPier adds `/.worktrees/` to
+the repository's `.git/info/exclude`; it never edits `.gitignore`.
+
+The session's task is the ticket, quoted as untrusted text as for a single start (see
+[The task text](#the-task-text)), plus its branch and base: commit there, push the
+branch, open a pull request against the base and keep fixing it until it is merged.
+The session is named `<key> · <title>`. Sessions of a sequence run with AgentBus and
+AgentPier's tools and without SSH accesses.
+
+A pipeline ticket runs through the project's run queue with the ticket as its task and
+the repository's default branch on GitHub as its base; the run creates its own worktree
+and pull request as any run does.
+
+When a ticket is done, its session stays open and its worktree and branch stay.
+AgentPier never removes ticket worktrees: remove them with `git worktree remove` once
+you no longer need them.
+
+### Finding the pull request
+
+- **Session tickets**: AgentPier looks for a pull request whose head is exactly the
+  ticket's branch, from this repository (not a fork), opened no earlier than five
+  minutes before the ticket started. An older pull request of an earlier attempt or a
+  branch that merely looks similar never counts. While there is none, the ticket stays
+  **Running**; when its session has stopped or is gone, the ticket waits for you
+  (`sessionEnded`).
+- **Pipeline tickets**: the pull request the run reports. A run that completes without
+  one, or with one in another repository, waits for you (`noPullRequest`); a failed or
+  cancelled run, or a queue item you deleted, waits for you too (`runFailed`).
+
+AgentPier reads GitHub on the server about once a minute and right after anything that
+changes the sequence (a start, an owner action, a change of a pipeline run). The
+browser never polls.
 
 ### Merging
 
@@ -188,18 +298,29 @@ off was turned off by a person, and the ticket waits for you. When a merge queue
 pull request because its merge-group build failed while the pull request's own checks
 are green, the ticket also waits for you (`mergeDisarmed`).
 
+A direct merge needs the counted checks green, no review that requests changes or is
+still required, and GitHub's merge state `CLEAN`, `HAS_HOOKS` or `UNSTABLE` (only a
+check outside the counted ones is not green). The counted checks are the required
+ones; a repository without required checks counts every check. AgentPier uses the
+repository's default merge method and merges with the head commit it checked, so a
+later push is never merged unchecked. Without **Allow merge**, AgentPier only watches:
+you merge, and the sequence moves on.
+
 ### Fix attempts
 
 When the counted checks of a pull request fail, or a review requests changes, AgentPier
 asks for a fix once per pull request head:
 
 - A session ticket's own session gets a message naming the pull request and the failed
-  checks.
+  checks (at most five names), or that a review requested changes. Review texts are
+  never passed on.
 - A pipeline ticket gets a repair session in its own worktree under `.worktrees/`, on a
-  local `ticket-repair/…` branch started from the pull request branch. The session
-  pushes its fix to the pull request branch. It uses the sequence's repair settings
-  (CLI, account, launch mode), or else those of the newest coding session in the
-  project folder. Later failures go to the same repair session while it runs.
+  local `ticket-repair/…` branch started from the freshly fetched pull request branch.
+  Its task is the ticket, the pull request and the failed checks; it pushes its fix with
+  `git push origin HEAD:<pull request branch>` and opens no new pull request. It uses
+  the sequence's **Repair session** settings, or else those of the newest coding
+  session in the project folder. Later failures go to the same repair session while it
+  runs, as messages.
 
 Repair worktrees are named `.worktrees/repair-<key>-<sha7>-<id8>`, with a `-2`, `-3` …
 before the item id when one head needs another repair. A later repair reuses the
@@ -211,16 +332,30 @@ never removes repair worktrees or their `ticket-repair/…` branches: remove the
 A review that requests changes stays in force until the reviewer reviews again, so the
 session hears about it once per new head.
 
-The ticket waits for you when:
+### When a ticket needs you
 
-- the checks of a third head fail,
-- the pull request stays red for 30 minutes while the session that should fix it is
-  idle, stopped or gone (counted from the later of the last message and the start of
-  the idle phase),
-- a pipeline ticket needs a repair but the sequence has no repair settings and the
-  project has no coding session to copy them from, or the repair session cannot start,
-- GitHub cannot be read, or the pull request branch cannot be fetched for a repair,
-  for 30 minutes in a row. Shorter outages and rate limits only delay the next read.
+A ticket waits for you (**Needs you**) with one of these reasons:
+
+| Reason                                                                    | When                                                                                                                                                                                                  |
+| ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The project has no GitHub access. (`githubRequired`)                      | The project's GitHub host has no token profile.                                                                                                                                                       |
+| The ticket source is no longer connected. (`sourceUnavailable`)           | The ticket's GitHub or Plane source was disconnected.                                                                                                                                                 |
+| The ticket could not be found. (`ticketUnavailable`)                      | The tracker no longer has the ticket.                                                                                                                                                                 |
+| The ticket could not be started. (`startFailed`)                          | The worktree, the session or the run could not be created (for example no remote default branch, or a folder that exists).                                                                            |
+| AgentPier restarted while starting this ticket. (`startInterrupted`)      | A restart cut a start off before AgentPier knew its session or run, and no session of the ticket runs in its worktree. AgentPier never launches a second one on its own.                              |
+| The task did not reach the session. (`taskNotDelivered`)                  | The session started but did not take its task; AgentPier stops it.                                                                                                                                    |
+| The session ended without a pull request. (`sessionEnded`)                | The ticket's session stopped or is gone and no pull request exists.                                                                                                                                   |
+| The pipeline run failed. (`runFailed`)                                    | The run failed or was cancelled, its queue item failed, or the item is gone.                                                                                                                          |
+| The work ended without a pull request. (`noPullRequest`)                  | The run completed without a pull request, or with one outside this repository.                                                                                                                        |
+| The pull request was closed without merging. (`prClosed`)                 | Someone closed the pull request.                                                                                                                                                                      |
+| Auto-merge or the merge queue was turned off on GitHub. (`mergeDisarmed`) | A head AgentPier armed was disarmed on GitHub (see [Merging](#merging)).                                                                                                                              |
+| GitHub refused auto-merge or the merge queue. (`armRefused`)              | GitHub refused to arm a head that is otherwise ready.                                                                                                                                                 |
+| GitHub refused the merge. (`mergeRefused`)                                | GitHub refused the direct merge of a ready head.                                                                                                                                                      |
+| The pull request stayed red for 30 minutes. (`idle`)                      | Checks failed or changes were requested, and the session that should fix it was idle, stopped or gone for 30 minutes, counted from the later of the last fix request and the start of the idle phase. |
+| Checks failed three times. (`failedRounds`)                               | The counted checks of a third head failed.                                                                                                                                                            |
+| GitHub could not be reached for 30 minutes. (`forgeUnreachable`)          | Reading GitHub, or fetching the pull request branch for a repair, failed for 30 minutes in a row. Shorter outages and rate limits only delay the next read.                                           |
+| No coding session settings for the repair session. (`repairUnconfigured`) | A pipeline ticket needs a repair, but the sequence has no **Repair session** settings and the project has no coding session to copy them from.                                                        |
+| The repair session could not start. (`repairFailed`)                      | The repair worktree or session could not be created.                                                                                                                                                  |
 
 ### Owner actions
 
@@ -250,16 +385,84 @@ A ticket that is running or waiting for its merge cannot be retried, marked done
 removed. These actions never overlap with AgentPier's own work on the sequence: each
 one waits for a running step and is followed by the next step at once.
 
-The sequence lives in `ticket-sequences.json` in the data directory. It is runtime
-state like the pipeline run queue and is not part of backups. The Tickets tab follows
-it on the owner-only live topic `tickets.queue:<projectId>`, which is signalled on
-every saved change. The routes are `GET` and `POST /api/tickets/projects/:projectId/queue`,
+### Write-back "Done"
+
+When AgentPier sees the pull request merged, the ticket is **Done** and AgentPier writes
+to the tracker:
+
+- **GitHub**: closes the issue as completed if the merge did not close it already,
+  removes the project's "in progress" label (a label that is gone is fine) and comments
+  `Done: merged in <pull request URL>.`
+- **Plane**: moves the work item to the first state of the `completed` group (by
+  sequence), unless it is in a completed state already, and comments
+  `Done: merged in <pull request URL>.`
+
+The comment names only the pull request, never an AgentPier address. When the tracker
+refuses (for example a token without write access), the ticket stays done, the sequence
+moves on and nothing is retried. **Mark done** writes nothing to the tracker.
+
+### Notifications
+
+When a ticket starts to wait for you, AgentPier sends a push notification of the kind
+**A ticket sequence waits for you** (group **Needs you**, on by default; see
+[Notifications](notifications.md)). It says only that a ticket sequence waits, never
+which ticket or why, and a tap opens the project's Tickets tab. A newer notice of the
+same project replaces the older one and alerts again while **Group by session, agent or
+run** is on. The notice goes to the owner's devices only.
+
+### Restarts
+
+The sequence lives in `ticket-sequences.json` in the data directory and survives
+restarts. About five seconds after AgentPier starts, it carries on with every
+sequence where it stopped:
+
+- A session start that was cut off is adopted when a session of the ticket runs in the
+  ticket's worktree; its task is sent again under the same delivery id, so the session
+  never gets it twice. Without such a session the ticket waits for you
+  (`startInterrupted`); AgentPier never launches a second session on its own.
+- A pipeline start reserves its run id first, so the run queue starts it at most once.
+- A repair session launched just before a restart is found by its folder and reused.
+- Fix messages carry ids derived from the ticket and head, so a repeated message is
+  dropped.
+- The 30-minute clocks and the fix counters are saved, so a restart neither resets
+  nor shortens them.
+
+### GitHub permissions
+
+Sequences use the token profile of the project's GitHub host, as the Tickets tab does.
+Besides **Issues: read and write** for the ticket and its write-back, a fine-grained
+token needs:
+
+- **Pull requests: read and write**: find and read the pull request, turn auto-merge
+  on and off, add it to and remove it from the merge queue;
+- **Contents: write**: merge, and push the ticket and repair branches;
+- **Checks** and **Commit statuses: read**: the check results;
+- **Metadata: read** (always granted).
+
+A classic token needs the `repo` scope. Without merge rights the sequence still works
+with **Allow merge** off; with it on, a refused arm or merge makes the ticket wait for
+you (`armRefused`, `mergeRefused`).
+
+### Live updates and routes
+
+The Tickets tab follows the sequence on the owner-only live topic
+`tickets.queue:<projectId>`, which is signalled on every saved change. The routes are
+`GET` and `POST /api/tickets/projects/:projectId/queue`,
 `POST …/queue/:itemId/retry`, `POST …/queue/:itemId/done` and
-`DELETE …/queue/:itemId`.
+`DELETE …/queue/:itemId`; all are owner-only.
+
+### Sequence limits
+
+- At most 50 tickets per start, 200 tickets that are not done per project, and the 50
+  most recent done tickets are kept.
+- AgentPier reads each pull request about once a minute, and at most 100 of its checks.
+- A ticket waits for you after 3 failed check rounds, 30 minutes red with a quiet
+  session, or 30 minutes without GitHub.
+- The sequence is runtime state like the pipeline run queue: it is not part of
+  [backups](backups.md).
 
 ## Planned
 
-Not available yet: starting several tickets as a sequence, rules that pick tickets by
-label, and following the resulting pull request back to the ticket. Queue import by
-label is future work too; until then a queue item takes the ticket key as **External
-reference** ([Pipelines](pipelines.md#run-queue)).
+Rules that add tickets to a sequence by label are not available yet. Until then, a
+pipeline run queue item can carry the ticket key as **External reference**
+([Pipelines](pipelines.md#run-queue)).
