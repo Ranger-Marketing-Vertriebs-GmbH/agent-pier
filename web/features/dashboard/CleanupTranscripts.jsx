@@ -5,6 +5,7 @@ import ListRow from "../../components/ListRow.jsx";
 import Segmented from "../../components/Segmented.jsx";
 import { CLEANUP_API, useCleanup } from "./useCleanup.jsx";
 import { statusBytes } from "./system-status-format.js";
+import { cliDefinition, isCodingCli } from "../../../server/features/clis/catalog.js";
 
 const AGES = [30, 90, 180];
 
@@ -49,7 +50,10 @@ export default function CleanupTranscripts() {
                       body: [
                         text.confirmBody(count, size, days),
                         text.confirmWarning,
-                        ...(profile.tool === "codex" ? [text.codexNote] : []),
+                        ...(isCodingCli(profile.tool) &&
+                        cliDefinition(profile.tool).capabilities.transcriptIndex
+                          ? [text.codexNote]
+                          : []),
                       ],
                       confirmLabel: text.confirm,
                       path: `${CLEANUP_API}/transcripts/${encodeURIComponent(profile.id)}`,

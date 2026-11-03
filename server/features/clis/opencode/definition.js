@@ -33,6 +33,11 @@ const definition = {
     endpointSdkRouting: true,
     mcpStdioCwd: true,
     requestHandoff: false,
+    hookTrust: false,
+    keychainCredentials: false,
+    transcriptIndex: false,
+    npmPlugins: true,
+    clearResetsBinding: false,
   },
   mcpLoginCommand: (name) => `opencode mcp auth ${name}`,
   mcpSetup: ({ endpoint }) => ({

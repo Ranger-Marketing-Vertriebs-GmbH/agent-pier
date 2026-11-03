@@ -108,7 +108,8 @@ const drivers = new Map();
  *   readPage(history, session, id, state): the native page or null for a page over
  *   a full read, readReloadContext(history, session, id), watchRoots(env, home, cwd):
  *   folders to watch while a chat has no known sources, slashCommands(scan, env,
- *   cwd): discovers custom commands. normalize and observe take what the CLI's own
+ *   cwd): discovers custom commands, transcriptFiles(home): the transcript walk
+ *   plan of a CLI with `capabilities.transcriptCleanup`. normalize and observe take what the CLI's own
  *   reader produced, so their arguments differ: Codex normalize(thread) and
  *   observe(thread, records), Claude Code normalize(records) and observe(records),
  *   OpenCode normalize(exported) and observe(exported).
@@ -182,6 +183,7 @@ export function cliDriver(id) {
           observe: histories[id].observe,
           watchRoots: histories[id].watchRoots,
           slashCommands: histories[id].slashCommands,
+          transcriptFiles: histories[id].transcriptFiles,
         }),
         tui: Object.freeze({
           activity: tuis[id].activity,

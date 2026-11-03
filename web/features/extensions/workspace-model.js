@@ -1,4 +1,5 @@
 import { defaultExtensionTab } from "./routes.js";
+import { cliDefinition, isCodingCli } from "../../../server/features/clis/catalog.js";
 
 /** The tabs of one CLI profile: marketplaces only when the CLI supports them, subagents only for shared profiles. */
 export function workspaceTabs({ shared, marketplaces, counts = {} }) {
@@ -32,7 +33,9 @@ export function primaryAction({
   pluginInstall,
 }) {
   if (tab === "plugins")
-    return tool === "opencode" && !catalogSupported
+    return isCodingCli(tool) &&
+      cliDefinition(tool).capabilities.npmPlugins &&
+      !catalogSupported
       ? { kind: "npm", disabled: !pluginsReady || !pluginInstall }
       : { kind: "discover", disabled: !catalogSupported };
   if (tab === "marketplaces") return { kind: "market", disabled: !pluginsReady };

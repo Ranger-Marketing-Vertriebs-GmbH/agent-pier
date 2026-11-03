@@ -3,6 +3,7 @@ import path from "node:path";
 import { entryStat, folderNames, measureTree, removeEntry } from "./safe-tree.js";
 import { cleanupProblem } from "./cleanup-problem.js";
 import { cliDefinition, codingCliIds } from "../clis/catalog.js";
+import { cliDriver } from "../clis/drivers.js";
 
 /*
  * Transcripts of ended CLI sessions in AgentPier's CLI profiles
@@ -26,10 +27,6 @@ const TOOLS = codingCliIds().filter(
   (id) => cliDefinition(id).capabilities.transcriptCleanup,
 );
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
-const claudeName =
-  /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl$/i;
-const codexName =
-  /^rollout-.*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl$/i;
 // What AgentPier keeps about its sessions; every id named there stays protected.
 const SOURCES = ["sessions", "chat", "native-sessions", "agentbus"];
 const MAX_SOURCE_FILES = 100_000;
@@ -137,14 +134,17 @@ async function transcriptsIn(home, tool) {
         found.push({ folder, name, id: match[1].toLowerCase(), stat, companion });
     }
   };
-  if (tool === "claude") {
-    const projects = path.join(home, "projects");
-    for (const name of await folderNames(projects))
-      if (isFolder(await entryStat(projects, name)))
-        await walk(path.join(projects, name), 0, claudeName, true);
-  } else {
-    await walk(path.join(home, "sessions"), 4, codexName, false);
-    await walk(path.join(home, "archived_sessions"), 4, codexName, false);
+  for (const step of cliDriver(tool).history.transcriptFiles(home)) {
+    if (step.perFolder) {
+      for (const name of await folderNames(step.folder))
+        if (isFolder(await entryStat(step.folder, name)))
+          await walk(
+            path.join(step.folder, name),
+            step.depth,
+            step.pattern,
+            step.companion,
+          );
+    } else await walk(step.folder, step.depth, step.pattern, step.companion);
   }
   for (const item of found) {
     const size = await measureTree(path.join(item.folder, item.name));

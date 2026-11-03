@@ -33,6 +33,11 @@ const definition = {
     endpointSdkRouting: false,
     mcpStdioCwd: true,
     requestHandoff: false,
+    hookTrust: true,
+    keychainCredentials: false,
+    transcriptIndex: true,
+    npmPlugins: false,
+    clearResetsBinding: true,
   },
   mcpLoginCommand: (name) => `codex mcp login ${name}`,
   mcpSetup: ({ quoted }) => ({

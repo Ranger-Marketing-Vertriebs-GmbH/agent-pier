@@ -17,6 +17,19 @@ import { configRoot, dataRoot } from "./profile.js";
 export const normalize = normalizeCodex;
 export const observe = observeCodex;
 
+const rolloutName =
+  /^rollout-.*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl$/i;
+
+/** The transcript walk below CODEX_HOME (see the Claude Code history for the shape). */
+export function transcriptFiles(home) {
+  return ["sessions", "archived_sessions"].map((name) => ({
+    folder: path.join(home, name),
+    depth: 4,
+    pattern: rolloutName,
+    companion: false,
+  }));
+}
+
 export async function readModels(history, session) {
   return history.codexRequest(session, async (client) => {
     const models = [],

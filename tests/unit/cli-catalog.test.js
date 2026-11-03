@@ -61,6 +61,11 @@ test("definitions carry every required field", () => {
       "endpointSdkRouting",
       "mcpStdioCwd",
       "requestHandoff",
+      "hookTrust",
+      "keychainCredentials",
+      "transcriptIndex",
+      "npmPlugins",
+      "clearResetsBinding",
     ]);
     for (const value of Object.values(d.capabilities))
       assert.equal(typeof value, "boolean");
@@ -108,6 +113,16 @@ test("capabilities match today's partial lists", () => {
     CODING_CLI_IDS.filter((id) => caps(id).imagePaste),
     ["claude"],
   );
+});
+
+test("hook trust, keychain, transcript index, npm plugin and clear flags", () => {
+  const flag = (key) =>
+    CODING_CLI_IDS.filter((id) => cliDefinition(id).capabilities[key]);
+  assert.deepEqual(flag("hookTrust"), ["codex"]);
+  assert.deepEqual(flag("keychainCredentials"), ["claude"]);
+  assert.deepEqual(flag("transcriptIndex"), ["codex"]);
+  assert.deepEqual(flag("npmPlugins"), ["opencode"]);
+  assert.deepEqual(flag("clearResetsBinding"), ["codex"]);
 });
 
 test("resumeArgs reproduce the session reload launch", () => {

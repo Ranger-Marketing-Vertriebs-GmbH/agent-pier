@@ -296,3 +296,30 @@ test("request launch records and handoff capability per CLI", () => {
   );
   assert.ok(Object.isFrozen(cliDriver("claude").requests));
 });
+
+test("every CLI with transcript cleanup walks its transcript layout", () => {
+  for (const id of CODING_CLI_IDS) {
+    const { history } = cliDriver(id);
+    if (!cliDefinition(id).capabilities.transcriptCleanup) continue;
+    const steps = history.transcriptFiles(path.join(os.tmpdir(), "home"));
+    assert.ok(steps.length > 0, id);
+    for (const step of steps) {
+      assert.equal(typeof step.folder, "string");
+      assert.ok(step.pattern instanceof RegExp);
+    }
+  }
+  const [claude] = cliDriver("claude").history.transcriptFiles("/h");
+  assert.deepEqual(
+    [claude.folder, claude.perFolder, claude.depth, claude.companion],
+    ["/h/projects", true, 0, true],
+  );
+  assert.deepEqual(
+    cliDriver("codex")
+      .history.transcriptFiles("/h")
+      .map((step) => [step.folder, step.depth, step.companion]),
+    [
+      ["/h/sessions", 4, false],
+      ["/h/archived_sessions", 4, false],
+    ],
+  );
+});
