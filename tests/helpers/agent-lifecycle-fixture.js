@@ -8,6 +8,8 @@ import { HookEvents } from "../../server/features/assistants/agent-hook-events.j
 import { RoutineResults } from "../../server/features/assistants/routine-results.js";
 import { RoutineEvents } from "../../server/features/assistants/routine-events.js";
 import { dismissalTable } from "../../server/features/assistants/long-chats.js";
+import { modelHintTable } from "../../server/features/assistants/model-hints.js";
+import { MemoryArchive } from "../../server/features/assistants/memory-archive.js";
 import { LeadShares } from "../../server/features/assistants/lead-shares.js";
 import { AssistantActionStore } from "../../server/features/assistants/assistant-action-store.js";
 import { AgentLifecycle } from "../../server/features/assistants/agent-lifecycle.js";
@@ -115,6 +117,8 @@ export function lifecycleFixture(t) {
   new RoutineResults(db);
   new RoutineEvents(db);
   db.exec(dismissalTable);
+  db.exec(modelHintTable);
+  const memoryArchive = new MemoryArchive(db);
   new LeadShares({ a: { store: f.store } });
   const actions = new AssistantActionStore(db);
   const codingSessions = new AgentSessionStore(db);
@@ -225,6 +229,19 @@ export function lifecycleFixture(t) {
       1,
       "2026-10-27",
     );
+    insert(
+      "INSERT INTO assistant_model_hint_dismissals VALUES(?,?,?,?,?)",
+      chat.id,
+      "owner",
+      "openai",
+      "anthropic",
+      "2026-11-02",
+    );
+    // An entry the owner archived from its memory.
+    memoryArchive.archive(id, [{ file: "MEMORY.md", text: "Private entry" }], {
+      switch: null,
+      reviewId: null,
+    });
     insert(
       "INSERT INTO assistant_member_long_chats VALUES(?,?,?,?,?,?,?,?)",
       chat.id,
@@ -403,6 +420,10 @@ export function lifecycleFixture(t) {
       dismissals: q(
         "SELECT 1 FROM assistant_long_chat_dismissals WHERE conversation_id NOT IN (SELECT id FROM conversations)",
       ),
+      modelHints: q(
+        "SELECT 1 FROM assistant_model_hint_dismissals WHERE conversation_id NOT IN (SELECT id FROM conversations)",
+      ),
+      memoryArchive: q("SELECT 1 FROM assistant_memory_archive WHERE assistant_id=?", id),
       memberLongChats: q(
         "SELECT 1 FROM assistant_member_long_chats WHERE member_id=?",
         id,

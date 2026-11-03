@@ -82,4 +82,8 @@ export const verbs = new Set([
   "connected",
   // The owner's Restart main chat (main-chat-restart.js, audit-restart-details.js).
   "main-chat-restarted",
+  // Memory entries moved to and back from the archive (memory-archive.js,
+  // audit-memory-archive-details.js).
+  "memory-archived",
+  "memory-restored",
 ]);

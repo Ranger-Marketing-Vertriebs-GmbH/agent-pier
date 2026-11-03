@@ -572,6 +572,13 @@ press **Save notes**, or press **Delete note** and confirm. A save fails with a 
 notice when the agent changed the note meanwhile. The Dream Diary and the lead agent's
 copied notes stay read-only, and a user's own agent stays read-only for you.
 
+Entries you archive after a model switch's memory review leave the agent's memory
+files and are kept, word for word, in AgentPier, where the agent never reads them;
+**Restore** puts one back at the end of its file. An entry the agent changed
+meanwhile stays where it is. Archived entries can still be in dreaming's raw
+material (the session corpus and recall store under `memory/.dreams/` and
+OpenClaw's own state), which AgentPier leaves alone.
+
 When you press **Summarize now** ([long chats](#what-the-agent-is-doing)), AgentPier
 first gives the agent a hidden memory step in that chat, because no automatic last
 chance comes before a summary you ask for. See below.

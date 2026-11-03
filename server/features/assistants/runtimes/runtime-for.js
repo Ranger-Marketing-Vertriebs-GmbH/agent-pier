@@ -41,8 +41,15 @@ const registry = Object.freeze({
  */
 export { openClawRunEvent as openClawFrameEvent } from "./openclaw/openclaw-events.js";
 
-/** What separates two entries of a Hermes memory file, for memory-entries.js. */
-export { entryDelimiter as hermesEntryDelimiter } from "./hermes/hermes-config/memory.js";
+/**
+ * What separates two entries of a Hermes memory file (memory-entries.js), and the
+ * limits and character count a restored entry is checked against (memory-archive.js).
+ */
+export {
+  entryDelimiter as hermesEntryDelimiter,
+  memoryLimits as hermesMemoryLimits,
+  memoryChars as hermesMemoryChars,
+} from "./hermes/hermes-config/memory.js";
 
 /** The runtime ids an agent may record, the default first. */
 export const RUNTIME_IDS = Object.freeze(Object.keys(registry));

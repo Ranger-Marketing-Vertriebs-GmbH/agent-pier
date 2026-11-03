@@ -105,6 +105,8 @@ test("without a passphrase, private content is left out and agents keep their se
     "conversations",
     "messages",
     "assistant_long_chat_dismissals",
+    "assistant_model_hint_dismissals",
+    "assistant_memory_archive",
     "assistant_member_long_chats",
   ])
     assert.deepEqual(

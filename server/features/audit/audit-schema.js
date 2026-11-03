@@ -20,6 +20,7 @@ import { agentProjectAuditDetails } from "./audit-agent-project-details.js";
 import { notificationAuditDetails } from "./audit-notification-details.js";
 import { runtimeUpdateAuditDetails } from "./audit-runtime-update-details.js";
 import { restartAuditDetails } from "./audit-restart-details.js";
+import { memoryArchiveAuditDetails } from "./audit-memory-archive-details.js";
 import { previewAuditDetails } from "./audit-preview-details.js";
 import { codingCliIds, isCodingCli } from "../clis/catalog.js";
 const memberGrantKeys = new Set([
@@ -520,6 +521,8 @@ export function auditEvent(input) {
   // A push device removed without the owner (audit-notification-details.js).
   if (input.resourceType === "notification") notificationAuditDetails(details, event);
   if (action === "assistant.main-chat-restarted") restartAuditDetails(details, event);
+  if (/^assistant\.memory-(archived|restored)$/.test(action))
+    memoryArchiveAuditDetails(details, event);
   if (input.resourceType === "preview") previewAuditDetails(details, event);
   userAuditDetails(input, event, auditId);
   return event;

@@ -200,6 +200,7 @@ test("delete removes every store of the agent and keeps everything else", async 
   for (const key of [
     "attachments",
     "notes",
+    "memoryArchive",
     "routineResults",
     "hookEvents",
     "leadShares",

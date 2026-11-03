@@ -63,6 +63,9 @@ export const ownerContentRoutes = {
   "DELETE /api/assistants/:id/memory/notes": "agent",
   "GET /api/assistants/:id/memory/files": "agent",
   "GET /api/assistants/:id/memory/search": "agent",
+  // The entries archived from its memory, verbatim, and restoring one.
+  "GET /api/assistants/:id/memory/archive": "agent",
+  "POST /api/assistants/:id/memory/archive/:entryId/restore": "agent",
   "GET /api/assistants/:id/browser": "agent",
   "POST /api/assistants/:id/browser/reset": "agent",
   // Reminders and routines carry the texts a user asked for.
