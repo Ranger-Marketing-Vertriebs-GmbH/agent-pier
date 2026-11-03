@@ -238,3 +238,15 @@ test("transfer member shape", () => {
     path.join("file-history", "x"),
   ]);
 });
+
+test("Claude messages pass image decoration unchanged", async () => {
+  const { UploadedImageInput } =
+    await import("../../server/features/chat/uploaded-image-input.js");
+  const messages = [{ role: "user", text: "hi" }];
+  const out = await new UploadedImageInput().decorate(
+    { tool: "claude" },
+    messages,
+    os.tmpdir(),
+  );
+  assert.equal(out, messages);
+});
