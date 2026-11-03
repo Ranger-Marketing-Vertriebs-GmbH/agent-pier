@@ -99,5 +99,10 @@ export function validTicketRef(value) {
     (value.url !== "" && httpUrl(value.url) === "")
   )
     return null;
-  return { source: value.source, key: value.key, title: value.title, url: value.url };
+  return {
+    source: value.source,
+    key: value.key,
+    title: value.title,
+    url: httpUrl(value.url),
+  };
 }

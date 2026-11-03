@@ -1,4 +1,3 @@
-import { githubApiBase } from "../../repositories/github-token-check.js";
 import { cleanTicket } from "../ticket.js";
 import { requestJson, TicketSourceError } from "../http-json.js";
 
@@ -36,10 +35,6 @@ export function parseGithubRemote(remote) {
     .split("/");
   if (parts.length !== 2 || !valid(parts[0], parts[1])) return null;
   return { host: `https://${host.toLowerCase()}`, owner: parts[0], repo: parts[1] };
-}
-
-export function resolveGithubApiBase(host) {
-  return githubApiBase(host);
 }
 
 function headers(token) {
@@ -83,25 +78,25 @@ function repoPath(access) {
 export const githubSource = {
   id: "github",
   async list(access, { label, signal } = {}) {
-    const tickets = [];
+    const open = [];
     for (let page = 1; page <= MAX_PAGES; page += 1) {
-      const query = `state=open&per_page=${PAGE_SIZE}&page=${page}${
-        label ? `&labels=${encodeURIComponent(label)}` : ""
-      }`;
+      const query = `state=open&per_page=${PAGE_SIZE}&page=${page}`;
       const { data } = await call(access, `${repoPath(access)}/issues?${query}`, {
         signal,
       });
       if (!Array.isArray(data)) throw new TicketSourceError("invalidResponse");
       for (const issue of data) {
         if (issue && !issue.pull_request && Number.isInteger(issue.number))
-          tickets.push(toTicket(access, issue));
+          open.push(toTicket(access, issue));
       }
       if (data.length < PAGE_SIZE) break;
     }
-    const names = new Set(tickets.flatMap((ticket) => ticket.labels));
+    // Labels come from every open issue so the filter keeps its choices.
+    const names = new Set(open.flatMap((ticket) => ticket.labels));
     const labels = [...names].sort((a, b) =>
       a.localeCompare(b, "en", { sensitivity: "base" }),
     );
+    const tickets = label ? open.filter((ticket) => ticket.labels.includes(label)) : open;
     return { tickets, labels };
   },
   async get(access, key, { signal } = {}) {
@@ -119,7 +114,11 @@ export const githubSource = {
       throw new TicketSourceError("notFound");
     return toTicket(access, data);
   },
-  async markInProgress(access, ticket, { link, kind, label, signal } = {}) {
+  async markInProgress(
+    access,
+    ticket,
+    { link, kind, label = "in progress", signal } = {},
+  ) {
     const base = `${repoPath(access)}/issues/${encodeURIComponent(ticket.number)}`;
     await call(access, `${base}/labels`, {
       method: "POST",

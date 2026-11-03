@@ -48,10 +48,17 @@ function ConnectionRow({ connection, onEdit, onRemove }) {
 
 /**
  * Connections › Ticket sources: the Plane connections (add, edit, delete). The list
- * follows the `tickets.connections` live topic; the API key never reaches the browser.
+ * follows the `tickets.connections` live topic, or the `live` reader of a parent that
+ * already follows it; the API key never reaches the browser.
  */
-export default function PlaneConnectionsPage({ only, emptyState, onChanged } = {}) {
-  const live = useLiveTopic("tickets.connections", "/ticket-connections");
+export default function PlaneConnectionsPage({
+  only,
+  emptyState,
+  onChanged,
+  live: shared,
+} = {}) {
+  const own = useLiveTopic(shared ? null : "tickets.connections", "/ticket-connections");
+  const live = shared ?? own;
   const [modal, setModal] = useState(null);
   const [removing, setRemoving] = useState(null);
   const connections = live.data?.connections;

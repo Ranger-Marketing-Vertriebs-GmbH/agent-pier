@@ -159,7 +159,7 @@ export const planeSource = {
     let states;
     let labelNames;
     if (typeof data.state === "string") states = await readStates(access, signal);
-    if ((data.labels ?? []).some((l) => typeof l === "string"))
+    if (Array.isArray(data.labels) && data.labels.some((l) => typeof l === "string"))
       labelNames = await readLabelNames(access, signal);
     return toTicket(access, data, { states, labelNames }).ticket;
   },
