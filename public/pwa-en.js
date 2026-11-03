@@ -67,6 +67,11 @@ self.agentPierNotificationCopyEn = {
       body: "A hook received more events this hour than it may wake its agent for. Further events are only recorded.",
       name: "Hook limit reached",
     },
+    "agent-memory-review-failed": {
+      title: "AgentPier: Memory not reviewed",
+      body: "After the model switch, the agent's memory could not be reviewed. Check it on its memory page.",
+      name: "Memory not reviewed",
+    },
     "telegram-revocation": {
       title: "AgentPier: Telegram access still active",
       body: "A bot or person you removed could not be stopped. Restart the agent service.",

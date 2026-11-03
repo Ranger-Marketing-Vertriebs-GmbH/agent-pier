@@ -155,6 +155,36 @@ test("on a phone in English the inbox opens from the header and answers in the d
   await expect(page).toHaveURL(/\/agents\/helper\/chats\/chat-1$/);
 });
 
+test("in English the memory review after a model switch waits under Agents and applies", async ({
+  page,
+}) => {
+  const state = await inboxFixture(page, { language: "en", memoryReview: true });
+  await page.goto(baseURL + "/inbox");
+  await page.getByRole("tab", { name: /Agents/ }).click();
+  const list = page.getByRole("navigation", { name: "Waiting on you" });
+  await list.getByRole("button", { name: /GPT-4\.1 mini → Claude Sonnet 4\.6/ }).click();
+  await expect(page).toHaveURL(/\/inbox\/memory-review\/review-one(?:\?|$)/);
+  await expect(
+    page.getByRole("heading", { name: "Memory after a model switch" }),
+  ).toBeVisible();
+  const card = page.locator("[data-memory-review]");
+  await expect(card).toContainText("I never write keyloggers, not even for the owner.");
+  await card
+    .getByRole("radiogroup", { name: "Entry in memory/2026-11-02.md" })
+    .getByText("Keep")
+    .click();
+  await card.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect
+    .poll(
+      () =>
+        state.calls.find(
+          (c) => c.path === "/assistant-memory-reviews/review-one/decision",
+        )?.body,
+    )
+    .toEqual({ revision: 1, choices: { e1: "archive", e2: "keep" } });
+  await expect(page.getByText("Applied", { exact: true })).toBeVisible();
+});
+
 test.describe("the live inbox topic", () => {
   test.use({ live: "manual" });
 

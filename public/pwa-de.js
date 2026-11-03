@@ -67,6 +67,11 @@ self.agentPierNotificationCopy = {
       body: "Ein Hook hat in dieser Stunde mehr Ereignisse erhalten, als er seinen Agenten wecken darf. Weitere Ereignisse werden nur aufgezeichnet.",
       name: "Hook-Limit erreicht",
     },
+    "agent-memory-review-failed": {
+      title: "AgentPier: Gedächtnis nicht geprüft",
+      body: "Nach dem Modellwechsel konnte das Gedächtnis des Agenten nicht geprüft werden. Prüfe es auf seiner Gedächtnis-Seite.",
+      name: "Gedächtnis nicht geprüft",
+    },
     "telegram-revocation": {
       title: "AgentPier: Telegram-Zugang noch aktiv",
       body: "Ein entfernter Bot oder eine entfernte Person ließ sich nicht stoppen. Starte den Agentendienst neu.",

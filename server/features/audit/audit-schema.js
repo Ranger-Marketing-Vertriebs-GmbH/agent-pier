@@ -207,6 +207,7 @@ export function auditEvent(input) {
       "runtime-update",
       // A session or agent preview (audit-preview-details.js).
       "preview",
+      "memory-review",
     ].includes(details.kind)
   )
     event.details.kind = details.kind;
@@ -221,6 +222,7 @@ export function auditEvent(input) {
       "review",
       "allow-once",
       "allow-always",
+      "apply",
     ].includes(details.decision)
   )
     event.details.decision = details.decision;

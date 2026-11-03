@@ -102,7 +102,7 @@ export function chatFree(service, conversationId) {
 }
 
 // The model as the owner reads it; one that no longer resolves keeps its id.
-async function modelName(service, model) {
+export async function modelName(service, model) {
   try {
     const lease = await service.models.resolve(model);
     lease.release?.();

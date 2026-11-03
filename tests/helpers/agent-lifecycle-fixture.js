@@ -10,6 +10,7 @@ import { RoutineEvents } from "../../server/features/assistants/routine-events.j
 import { dismissalTable } from "../../server/features/assistants/long-chats.js";
 import { modelHintTable } from "../../server/features/assistants/model-hints.js";
 import { MemoryArchive } from "../../server/features/assistants/memory-archive.js";
+import { MemoryReviews } from "../../server/features/assistants/memory-reviews.js";
 import { LeadShares } from "../../server/features/assistants/lead-shares.js";
 import { AssistantActionStore } from "../../server/features/assistants/assistant-action-store.js";
 import { AgentLifecycle } from "../../server/features/assistants/agent-lifecycle.js";
@@ -119,6 +120,7 @@ export function lifecycleFixture(t) {
   db.exec(dismissalTable);
   db.exec(modelHintTable);
   const memoryArchive = new MemoryArchive(db);
+  const memoryReviews = new MemoryReviews(db);
   new LeadShares({ a: { store: f.store } });
   const actions = new AssistantActionStore(db);
   const codingSessions = new AgentSessionStore(db);
@@ -241,6 +243,13 @@ export function lifecycleFixture(t) {
     memoryArchive.archive(id, [{ file: "MEMORY.md", text: "Private entry" }], {
       switch: null,
       reviewId: null,
+    });
+    // The owner's undecided memory review card naming it.
+    memoryReviews.save({
+      id: `review-${id}`,
+      chatAgentId: id,
+      agents: [{ assistantId: id, entries: [{ id: "e1", file: "MEMORY.md" }] }],
+      revision: 1,
     });
     insert(
       "INSERT INTO assistant_member_long_chats VALUES(?,?,?,?,?,?,?,?)",
@@ -424,6 +433,10 @@ export function lifecycleFixture(t) {
         "SELECT 1 FROM assistant_model_hint_dismissals WHERE conversation_id NOT IN (SELECT id FROM conversations)",
       ),
       memoryArchive: q("SELECT 1 FROM assistant_memory_archive WHERE assistant_id=?", id),
+      memoryReviews: q(
+        "SELECT 1 FROM assistant_memory_reviews WHERE id=?",
+        `review-${id}`,
+      ),
       memberLongChats: q(
         "SELECT 1 FROM assistant_member_long_chats WHERE member_id=?",
         id,

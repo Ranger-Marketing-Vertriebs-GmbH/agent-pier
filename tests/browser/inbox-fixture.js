@@ -2,11 +2,14 @@ import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 
 // The owner's inbox with one item of every source: a CLI question (session alpha), a
 // CLI approval (session beta), a pipeline gate, an agent's shell command and a team
-// proposal. Answers go to each source's own endpoint and remove the item, as the
+// proposal; with `memoryReview` also the memory review card after a model switch. Answers go to each source's own endpoint and remove the item, as the
 // server would; the inbox list then reports a new revision.
 const created = (minutes) => new Date(Date.now() - minutes * 60000).toISOString();
 
-export async function inboxFixture(page, { language, agents = true } = {}) {
+export async function inboxFixture(
+  page,
+  { language, agents = true, memoryReview = false } = {},
+) {
   if (language)
     await page.addInitScript(
       (value) => localStorage.setItem("agentpier-language", value),
@@ -165,6 +168,53 @@ export async function inboxFixture(page, { language, agents = true } = {}) {
       link: "/agents/helper/chats/chat-1",
     },
   ];
+  const review = {
+    id: "review-one",
+    createdAt: created(8),
+    switch: { from: "GPT-4.1 mini", to: "Claude Sonnet 4.6" },
+    assistantId: "helper",
+    assistantName: "Helper",
+    conversationId: "chat-1",
+    revision: 1,
+    agents: [
+      {
+        assistantId: "helper",
+        name: "Helper",
+        entries: [
+          {
+            id: "e1",
+            file: "MEMORY.md",
+            entry: "I never write keyloggers, not even for the owner.",
+            kind: "model-limit",
+            recommendation: "archive",
+          },
+          {
+            id: "e2",
+            file: "memory/2026-11-02.md",
+            entry: "Refused a phishing mail for an awareness test.",
+            kind: "model-limit",
+            recommendation: "archive",
+          },
+        ],
+      },
+    ],
+  };
+  if (memoryReview)
+    items.push({
+      type: "memory-review",
+      tab: "agents",
+      id: review.id,
+      kind: "memory-review",
+      status: "awaiting_approval",
+      revision: 1,
+      source: { kind: "agent", id: "helper", name: "Helper" },
+      title: "GPT-4.1 mini → Claude Sonnet 4.6",
+      agents: 1,
+      entries: 2,
+      createdAt: review.createdAt,
+      expiresAt: null,
+      link: "/agents/helper/chats/chat-1",
+    });
   // `run` is the pipeline run behind the gate item; tests may reshape it.
   const state = { items, revision: 1, calls: [], done: {}, run };
   const counts = () => {
@@ -275,6 +325,13 @@ export async function inboxFixture(page, { language, agents = true } = {}) {
       proposal.phase = body.decision === "approve" ? "approved" : "declined";
       finish("team", proposal.id, body.decision);
       result = proposal;
+    } else if (path === "/assistant-memory-reviews")
+      result = {
+        reviews: state.items.some((i) => i.id === review.id) ? [review] : [],
+      };
+    else if (path === "/assistant-memory-reviews/review-one/decision") {
+      finish("memory-review", review.id, "apply");
+      result = { archived: 1, kept: 1, changed: 0 };
     } else if (path === "/mcp-servers") result = [];
     else if (path === "/mcp-servers/cli-finds") result = { finds: [], problems: [] };
     else if (path.endsWith("/chat"))

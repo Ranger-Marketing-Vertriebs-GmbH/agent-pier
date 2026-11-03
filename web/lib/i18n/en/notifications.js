@@ -88,6 +88,7 @@ export const notificationCopy = {
     "agent-routine": "Routine or hook result",
     "agent-reminder": "Reminder you asked an agent for",
     "agent-hook-throttled": "Hook limit reached",
+    "agent-memory-review-failed": "Memory not reviewed after a model switch",
     "session-limited": "Session reached its usage limit",
     "session-resume-failed": "Session could not be resumed",
     "update-available": "Update available",

@@ -3,6 +3,7 @@ import { assistantRuntimeUpdateRoutes } from "./assistant-runtime-updates.js";
 import { assistantRoutineRoutes } from "./assistant-routines.js";
 import { assistantHookRoutes } from "./assistant-hooks.js";
 import { assistantTeamRoutes } from "./assistant-teams.js";
+import { assistantMemoryReviewRoutes } from "./assistant-memory-reviews.js";
 import { assistantWorkRoutes } from "./assistant-work.js";
 import { assistantProjectAccessRoutes } from "./assistant-project-access.js";
 import { assistantLeadShareRoutes } from "./assistant-lead-shares.js";
@@ -121,6 +122,7 @@ function activeAssistantRoutes(services) {
   router.use(assistantAdvancedSettingsRoutes(services));
   router.use(assistantTelegramSenderRoutes(services));
   router.use(assistantTeamRoutes(services));
+  router.use(assistantMemoryReviewRoutes(services));
   router.use(assistantWorkRoutes(services));
   router.use(assistantProjectAccessRoutes(services));
   router.use(assistantLeadShareRoutes(services));

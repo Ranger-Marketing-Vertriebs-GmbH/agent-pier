@@ -10,12 +10,12 @@ each card opens its item here (see [start page](system-status.md#start-page)).
 
 ## What it lists
 
-| Tab           | Items                                                                                                                                                                                                                                    |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Questions** | Questions a coding CLI asks in a running session (Codex, Claude Code, OpenCode)                                                                                                                                                          |
-| **Approvals** | Permission requests of a coding CLI in a running session, such as a tool call, a workspace trust, Codex hooks or a Claude startup or auto mode dialog                                                                                    |
-| **Gates**     | Pipeline runs that wait for a human decision at their current stage                                                                                                                                                                      |
-| **Agents**    | Agent requests that wait for approval (shell and SSH commands, coding tasks, memory entries, team member permissions, emails to send, hook and SSH access proposals), team proposals and [unresolved agent work](#unresolved-agent-work) |
+| Tab           | Items                                                                                                                                                                                                                                                                                                |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Questions** | Questions a coding CLI asks in a running session (Codex, Claude Code, OpenCode)                                                                                                                                                                                                                      |
+| **Approvals** | Permission requests of a coding CLI in a running session, such as a tool call, a workspace trust, Codex hooks or a Claude startup or auto mode dialog                                                                                                                                                |
+| **Gates**     | Pipeline runs that wait for a human decision at their current stage                                                                                                                                                                                                                                  |
+| **Agents**    | Agent requests that wait for approval (shell and SSH commands, coding tasks, memory entries, team member permissions, emails to send, hook and SSH access proposals), team proposals, the [memory review after a model switch](agents.md#memory) and [unresolved agent work](#unresolved-agent-work) |
 
 **All** shows everything; every tab shows its count. Items about to expire (within 15
 minutes, such as an agent's shell command) come first, soonest first; everything else
@@ -32,8 +32,8 @@ see [pipelines](pipelines.md#risk-gate), the tokens a run reported against its b
 [parallel review group](pipelines.md#parallel-review-groups) the members that wait for a
 decision and the group's own restart or override, while decisions on a single member are
 made in the run view), the agent's
-approval card or the
-team proposal. Answering there
+approval card, the
+team proposal or the memory review card. Answering there
 has the same effect as answering in place, because the card uses the same endpoint and
 the same checks. **Open in context** opens the session chat, the run or the agent's
 chat instead. The list has no quick actions; a decision is always made on the full
@@ -41,7 +41,7 @@ card.
 
 Answered or expired items leave the list without a reload. Every item has a stable
 address, `/inbox/<type>/<id>`, where the type is `question`, `approval`, `gate`,
-`action`, `team` or `unresolved`. An address of an item that no longer waits shows **Already done**
+`action`, `team`, `memory-review` or `unresolved`. An address of an item that no longer waits shows **Already done**
 with the decision and its time when the audit log recorded it within the last 24 hours,
 and **No longer waiting** otherwise (for example after the CLI dialog was answered in
 the terminal long ago, or an approval expired). A native request that ended without an

@@ -2,11 +2,13 @@ import {
   actionItem,
   chatLink,
   gateItem,
+  memoryReviewItem,
   requestItem,
   teamItem,
   unresolvedItem,
 } from "./inbox-items.js";
 import { escalationKey } from "../assistants/coding-sessions/session-requests.js";
+import { memoryReviews } from "../assistants/memory-reviews.js";
 
 // The escalation of a session prompt (coding-sessions/session-escalations.js) while
 // it waits, with its agent's name and note, or null. A lookup that fails is null, so
@@ -174,6 +176,9 @@ export async function collectItems(
     (assistants.teams?.store.list() || [])
       .filter((t) => t.phase === "awaiting_approval" && !t.archivedAt)
       .map((t) => teamItem(t, agents, conversations)),
+  );
+  await read("memory reviews", () =>
+    memoryReviews(assistants).reviews.map((r) => memoryReviewItem(r, conversations)),
   );
   const stale = unresolvedSources({
     services,

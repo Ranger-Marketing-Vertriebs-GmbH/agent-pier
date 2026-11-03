@@ -71,6 +71,8 @@ export const pushKinds = [
   "agent-reminder",
   // A hook went over its hourly limit: further events wake nobody this hour.
   "agent-hook-throttled",
+  // An agent's memory could not be reviewed after a model switch (memory-reviews.js).
+  "agent-memory-review-failed",
   // An agent's own Telegram bot still runs after the owner revoked it.
   "telegram-revocation",
   // A saved GitHub token was rejected, expired or expires soon.
@@ -108,6 +110,7 @@ const agentKinds = [
   "agent-routine",
   "agent-reminder",
   "agent-hook-throttled",
+  "agent-memory-review-failed",
   "agent-approval",
 ];
 
@@ -183,7 +186,7 @@ export function pushEvent(input) {
 }
 
 const linkPattern =
-  /^\/(?:|inbox(?:\/(?:question|approval|gate|action|team)\/[A-Za-z0-9_-]{1,120})?|sessions\/[A-Za-z0-9_-]{1,120}\/chat|pipelines\/runs\/[A-Za-z0-9_-]{1,120}|agents(?:\/[A-Za-z0-9_-]{1,120}\/(?:settings|chats\/[A-Za-z0-9_-]{1,120}))?|connections\?section=github|settings\/(?:github|notifications|updates))$/;
+  /^\/(?:|inbox(?:\/(?:question|approval|gate|action|team)\/[A-Za-z0-9_-]{1,120})?|sessions\/[A-Za-z0-9_-]{1,120}\/chat|pipelines\/runs\/[A-Za-z0-9_-]{1,120}|agents(?:\/[A-Za-z0-9_-]{1,120}\/(?:settings(?:\?tab=capabilities&page=memory)?|chats\/[A-Za-z0-9_-]{1,120}))?|connections\?section=github|settings\/(?:github|notifications|updates))$/;
 
 const itemPattern =
   /^\/inbox\/(?:question|approval|gate|action|team)\/[A-Za-z0-9_-]{1,120}$/;

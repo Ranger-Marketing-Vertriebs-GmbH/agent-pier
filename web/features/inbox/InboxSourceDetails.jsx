@@ -17,6 +17,8 @@ import { OwnerQuestion } from "../pipelines/Verdict.jsx";
 import AssistantActionApprovals from "../assistants/AssistantActionApprovals.jsx";
 import TeamCodingRequests from "../assistants/TeamCodingRequests.jsx";
 import TeamProposalCard from "../assistants/TeamProposalCard.jsx";
+import MemoryReviewCard from "../assistants/MemoryReviewCard.jsx";
+import useMemoryReviews from "../assistants/useMemoryReviews.js";
 import useAssistants from "../assistants/useAssistants.js";
 import useAssistantFeature from "../assistants/useAssistantFeature.js";
 import useTeamActions from "../assistants/useTeamActions.js";
@@ -189,6 +191,26 @@ export function InboxTeamDetail({ item, done }) {
             }
           })
         }
+      />
+    </section>
+  );
+}
+
+/** The owner's memory review after a model switch, as in the agent's main chat. */
+export function InboxMemoryReviewDetail({ item, done }) {
+  const { reviews, error, loading: reading, reload } = useMemoryReviews();
+  const review = reviews.find((r) => r.id === item.id);
+  if (!review && (error || !reading)) return <InboxStale type={item.type} id={item.id} />;
+  if (!review) return loading;
+  return (
+    <section className="inbox-card">
+      <MemoryReviewCard
+        key={`${review.id}:${review.revision}`}
+        review={review}
+        onApplied={async () => {
+          await reload();
+          done();
+        }}
       />
     </section>
   );

@@ -9,6 +9,7 @@ import { dismissalTable } from "../../server/features/assistants/long-chats.js";
 import { memberLongChatTable } from "../../server/features/assistants/member-long-chats.js";
 import { modelHintTable } from "../../server/features/assistants/model-hints.js";
 import { MemoryArchive } from "../../server/features/assistants/memory-archive.js";
+import { MemoryReviews } from "../../server/features/assistants/memory-reviews.js";
 
 // Private content beside the histories (AGENTPIER-110): agent chats, channel
 // messages, workspaces and attachments, pipeline history and unpinned artifacts.
@@ -124,6 +125,13 @@ export function privateContentFixture(t) {
   new MemoryArchive(store.db).archive("home", [{ file: "MEMORY.md", text: marker }], {
     switch: null,
     reviewId: null,
+  });
+  new MemoryReviews(store.db).save({
+    id: "review",
+    agents: [
+      { assistantId: "home", entries: [{ id: "e1", file: "MEMORY.md", entry: marker }] },
+    ],
+    revision: 1,
   });
   store.close();
   writeAssistantFeature(dataDir, { enabled: true });

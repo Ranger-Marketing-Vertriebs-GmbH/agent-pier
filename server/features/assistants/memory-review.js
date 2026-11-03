@@ -5,6 +5,7 @@ import { parseReview } from "./memory-review-answer.js";
 import { reviewInput, reviewInstructions } from "./memory-review-prompt.js";
 import { runtimeFor, runtimeIdOf } from "./runtimes/runtime-for.js";
 import { memoryReviewInputLimit } from "./team-plugin/memory-review.js";
+import { recordReviews } from "./memory-reviews.js";
 
 /**
  * The memory review after a model switch with fresh chats (model-switch.js): the
@@ -178,6 +179,8 @@ export const memoryReviewsSettled = (service) =>
 
 /**
  * Where the results of one switch's reviews go (`reviews` as startMemoryReviews
- * names them): the owner's decision. For now nothing happens with them.
+ * names them): the owner's card, or a notice when a review failed
+ * (memory-reviews.js).
  */
-export async function onReviewResults() {}
+export const onReviewResults = (service, plan, reviews) =>
+  recordReviews(service, plan, reviews);

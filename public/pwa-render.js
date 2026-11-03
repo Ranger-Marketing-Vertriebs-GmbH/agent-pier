@@ -5,7 +5,7 @@
 (() => {
   const id = "[A-Za-z0-9_-]{1,120}";
   const linkPattern = new RegExp(
-    `^/(?:|inbox(?:/(?:question|approval|gate|action|team)/${id})?|sessions/${id}/chat|pipelines/runs/${id}|agents(?:/${id}/(?:settings|chats/${id}))?|connections\\?section=github|settings/(?:github|notifications|updates))$`,
+    `^/(?:|inbox(?:/(?:question|approval|gate|action|team)/${id})?|sessions/${id}/chat|pipelines/runs/${id}|agents(?:/${id}/(?:settings(?:\\?tab=capabilities&page=memory)?|chats/${id}))?|connections\\?section=github|settings/(?:github|notifications|updates))$`,
   );
   // The grouping tags of push-content.js pushSource: a session, run, agent chat or agent.
   const tagPattern = new RegExp(`^(?:(?:session|agent|chat|run):)?${id}$`);

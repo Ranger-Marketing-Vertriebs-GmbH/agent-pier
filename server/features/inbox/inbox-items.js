@@ -11,6 +11,7 @@ export const inboxTypes = [
   "gate",
   "action",
   "team",
+  "memory-review",
   "unresolved",
 ];
 export const inboxTabs = ["questions", "approvals", "gates", "agents"];
@@ -20,6 +21,7 @@ const tabOf = {
   gate: "gates",
   action: "agents",
   team: "agents",
+  "memory-review": "agents",
   unresolved: "agents",
 };
 // An item expiring within this window counts as "about to expire" and comes first.
@@ -203,6 +205,26 @@ export function teamItem(team, agents, conversations) {
     createdAt: team.createdAt,
     expiresAt: null,
     link: chatLink(team.parentAssistantId, team.parentConversationId, conversations),
+  });
+}
+
+/**
+ * The owner's card after a model switch's memory review (memory-reviews.js): how many
+ * entries it names, never their text; the switch's models are its title.
+ */
+export function memoryReviewItem(review, conversations) {
+  return item("memory-review", {
+    id: review.id,
+    kind: "memory-review",
+    status: "awaiting_approval",
+    revision: review.revision,
+    source: { kind: "agent", id: review.assistantId, name: review.assistantName || "" },
+    title: review.switch ? `${review.switch.from} → ${review.switch.to}` : "",
+    agents: review.agents.length,
+    entries: review.agents.reduce((sum, a) => sum + a.entries.length, 0),
+    createdAt: review.createdAt,
+    expiresAt: null,
+    link: chatLink(review.assistantId, review.conversationId, conversations),
   });
 }
 
