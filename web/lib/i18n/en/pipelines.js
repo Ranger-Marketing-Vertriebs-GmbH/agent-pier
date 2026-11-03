@@ -9,6 +9,7 @@ export const pipelineCopy = {
   allRuns: "All runs",
   runBranch: (branch) => `branch ${branch}`,
   runStartedMeta: (time) => `started ${time}`,
+  runTicket: (label) => `Ticket: ${label}`,
   stageFlags: {
     gate: "Approval",
     verify: "Verification",

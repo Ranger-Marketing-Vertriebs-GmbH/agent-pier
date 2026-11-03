@@ -23,6 +23,7 @@ import useSessionActions from "./useSessionActions.jsx";
 import SessionGithubStatus from "./SessionGithubStatus.jsx";
 import SessionPaneHeader from "./SessionPaneHeader.jsx";
 import StatusDot from "../../components/StatusDot.jsx";
+import TicketLink from "../projects/TicketLink.jsx";
 
 // The terminal connection as a status dot: connected is ok, not the accent.
 const connectionTones = { connecting: "waiting", connected: "ok", disconnected: "error" };
@@ -145,6 +146,11 @@ export default function SessionWorkspace({
                   {copy.startedByAgent(session.startedBy.name)}
                 </p>
               )}
+              <TicketLink
+                ticket={session.ticket}
+                text={copy.ticket}
+                className="session-started-by"
+              />
             </div>
           </div>
           <div className="session-actions">

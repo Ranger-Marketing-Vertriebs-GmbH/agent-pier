@@ -6,6 +6,7 @@ import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { formatTimestamp } from "../../lib/i18n/index.js";
 import { isVerifying } from "./VerificationStatus.jsx";
+import TicketLink from "../projects/TicketLink.jsx";
 import RunActions from "./RunActions.jsx";
 import { runTitle } from "./run-title.js";
 import { runProject, runStatusTone } from "./run-presentation.js";
@@ -81,6 +82,7 @@ export default function RunHeader({
               </p>
             )
           )}
+          <TicketLink ticket={run.ticket} text={copy.runTicket} />
           {run.pullRequestUrl && (
             <a href={run.pullRequestUrl} target="_blank" rel="noreferrer">
               {run.pullRequestUrl}

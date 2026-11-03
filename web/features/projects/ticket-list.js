@@ -48,3 +48,24 @@ export function startRefusal(error) {
 /** The request path of a project's ticket start. */
 export const ticketStartPath = (projectId) =>
   `/tickets/projects/${encodeURIComponent(projectId)}/start`;
+
+const TITLE_MAX = 80;
+
+/** "<key> · <title>" with the title cut at 80 characters; "" without a ticket key. */
+export function ticketLinkLabel(ticket) {
+  if (!ticket || typeof ticket.key !== "string" || !ticket.key) return "";
+  const title = typeof ticket.title === "string" ? ticket.title.trim() : "";
+  if (!title) return ticket.key;
+  const chars = [...title];
+  return `${ticket.key} · ${chars.length > TITLE_MAX ? `${chars.slice(0, TITLE_MAX).join("")}…` : title}`;
+}
+
+/** The ticket's URL when it is http(s), else "". */
+export function ticketHref(ticket) {
+  try {
+    const url = new URL(ticket?.url);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.href : "";
+  } catch {
+    return "";
+  }
+}
