@@ -18,6 +18,9 @@ const createBudgetMs = 60000;
 const minAttemptMs = 5000;
 // session.resume attaches the session and reads its state.
 const resumeTimeoutMs = 60000;
+// The fixed request timeout of Hermes's one-shot call (agent/oneshot.py
+// `run_oneshot`, `timeout=60.0`), which llm.oneshot does not let a caller raise.
+const oneshotTimeoutMs = 60000;
 
 // Attaches in flight per connection, so two calls for one key share one attach.
 const attaching = new WeakMap();
@@ -37,8 +40,9 @@ const missing = (error) => error?.answered === true && error.reason === "not_fou
  * get/history → session.history, list → session.list by title, compact, delete
  * (or archive keeping the transcript) and keepOpen → session.mutate (`compress`,
  * `delete`, `archive`) fenced on the session's revision, subscribeMessages → the
- * attach, title → llm.oneshot. downloadArtifact is a capability gap (UNSUPPORTED).
- * `on(connection)` binds the methods to one connection (hermes-connection.js).
+ * attach, title and reviewMemory → llm.oneshot. downloadArtifact is a capability
+ * gap (UNSUPPORTED). `on(connection)` binds the methods to one connection
+ * (hermes-connection.js).
  */
 export function hermesSessions(supervisor) {
   // The turns AgentPier submitted, shared by every view (hermes-turns.js).
@@ -472,6 +476,19 @@ function sessionsOver(current, turns, sizes = new Map()) {
       const title = titleOf(answer?.text);
       if (!title) throw refused("no title");
       return { title };
+    },
+    // The memory review after a model switch (memory-review.js) as one llm.oneshot
+    // outside any session. Without a session Hermes runs a task it has no
+    // `auxiliary.<task>` route for on the agent's main model (agent/auxiliary_client.py
+    // `_resolve_task_provider_model`, `_resolve_auto_route`), so on its new model.
+    async reviewMemory({ instructions, input }) {
+      const link = await reach();
+      const answer = await link.client.call(
+        "llm.oneshot",
+        { task: "memory_review", instructions, input, max_tokens: 4000 },
+        { timeoutMs: oneshotTimeoutMs + 5000 },
+      );
+      return { text: typeof answer?.text === "string" ? answer.text : "" };
     },
   };
 }

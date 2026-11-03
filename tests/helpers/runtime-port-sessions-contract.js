@@ -157,8 +157,9 @@ export function sessionsContract(name, make, { kinds, tick }) {
 }
 
 /**
- * The sessions contract's background and title checks: a fresh session runs nothing
- * in the background, and a title is proposed outside any session.
+ * The sessions contract's background, title and memory review checks: a fresh
+ * session runs nothing in the background, and a title and a memory review are
+ * answered outside any session.
  */
 export function sessionExtrasContract(name, make) {
   test(`${name}: a fresh session runs no background work and chats get a title`, async () => {
@@ -172,10 +173,17 @@ export function sessionExtrasContract(name, make) {
     });
     assert.equal(typeof title, "string");
     assert.ok(title.length > 0);
+    const review = {
+      agentId: "ap-1",
+      instructions: "Review.",
+      input: "=== MEMORY.md\n- a",
+    };
+    assert.equal(typeof (await runtime.sessions.reviewMemory(review)).text, "string");
     const bound = runtime.sessions.on(runtime.host.connection());
     await runtime.host.restart();
     await assert.rejects(bound.backgroundRunning({ key }));
     await assert.rejects(bound.title({ agentId: "ap-1", message: "m", reply: "r" }));
+    await assert.rejects(bound.reviewMemory(review));
   });
 
   test(`${name}: background and title reads reject while unreachable`, async () => {
@@ -183,6 +191,7 @@ export function sessionExtrasContract(name, make) {
     for (const pending of [
       sessions.backgroundRunning({ key: "k" }),
       sessions.title({ agentId: "ap-1", message: "m", reply: "r" }),
+      sessions.reviewMemory({ agentId: "ap-1", instructions: "i", input: "m" }),
     ]) {
       assert.ok(pending instanceof Promise);
       await assert.rejects(pending);
@@ -268,6 +277,7 @@ export function fakeSessionPorts({ reach, runFailure = null, connection }) {
       }),
     backgroundRunning: () => reach(() => false),
     title: ({ message }) => reach(() => ({ title: `About ${message}` })),
+    reviewMemory: () => reach(() => ({ text: "[]" })),
   };
   // A view bound to one connection refuses every call once another replaced it.
   const closed = () =>

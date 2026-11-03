@@ -34,8 +34,32 @@ export function titlePrompt({ message, reply }) {
   ].join("\n");
 }
 
-const valid = (value, limit) =>
+export const valid = (value, limit) =>
   typeof value === "string" && value.trim().length > 0 && [...value].length <= limit;
+
+/**
+ * The completion `complete(reasoning)` with thinking off where the model allows it,
+ * else as little as it allows (team-plugin/memory-review.js shares it). OpenClaw
+ * refuses a level the model lacks before any inference.
+ */
+export async function withLeastReasoning(complete) {
+  for (const reasoning of reasoningLevels)
+    try {
+      return await complete(reasoning);
+    } catch (error) {
+      if (!reasoning || error?.code !== "LLM_ISOLATED_INPUT_REJECTED") throw error;
+    }
+}
+
+/**
+ * A failed completion's answer: UNAVAILABLE with only OpenClaw's stable code
+ * (LLM_COMPLETION_TIMEOUT, ...), which AgentPier logs; never a message that could
+ * carry content.
+ */
+export const completionFailure = (error) => ({
+  code: "UNAVAILABLE",
+  message: /^[A-Z][A-Z_]{2,60}$/.test(error?.code) ? error.code : "LLM_COMPLETION_FAILED",
+});
 
 /**
  * Registers the title method, admin-only: only AgentPier holds that scope. A failure
@@ -67,17 +91,8 @@ export function registerChatTitle(api) {
           execution: { mode: "isolated-agent-runtime", timeoutMs: titleTimeoutMs },
         });
       try {
-        // Thinking off where the model allows it, else as little as it allows: a
-        // title needs none. OpenClaw refuses a level the model lacks before any
-        // inference.
-        let result;
-        for (const reasoning of reasoningLevels)
-          try {
-            result = await complete(reasoning);
-            break;
-          } catch (error) {
-            if (!reasoning || error?.code !== "LLM_ISOLATED_INPUT_REJECTED") throw error;
-          }
+        // A title needs no thinking.
+        const result = await withLeastReasoning(complete);
         // Reasoning a model writes into its text goes before the cut, so the title
         // after it still arrives.
         const text = (typeof result?.text === "string" ? result.text : "")
@@ -85,14 +100,7 @@ export function registerChatTitle(api) {
           .trim();
         respond(true, { title: [...text].slice(0, replyLimit).join("") });
       } catch (error) {
-        // Only OpenClaw's stable code (LLM_COMPLETION_TIMEOUT, ...), which AgentPier
-        // logs; never a message that could carry content.
-        respond(false, undefined, {
-          code: "UNAVAILABLE",
-          message: /^[A-Z][A-Z_]{2,60}$/.test(error?.code)
-            ? error.code
-            : "LLM_COMPLETION_FAILED",
-        });
+        respond(false, undefined, completionFailure(error));
       }
     },
     { scope: "operator.admin" },

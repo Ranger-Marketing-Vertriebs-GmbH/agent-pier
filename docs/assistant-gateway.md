@@ -3884,6 +3884,26 @@ archivedAt, lastActivityAt, busy}` (the owner's also `userId`), the main chat fi
   `<think>` reasoning from the model's text before it cuts the answer to 400
   characters. The change reaches open lists as a `conversation` event; owner privacy hides a generated
   title exactly like any other.
+- Memory review after a model switch (`server/features/assistants/memory-review.js`):
+  when a switch starts fresh chats, each agent of the switch whose memory is on (the
+  switched agent and each temporary member that follows it) has its memory read by its
+  new model, in the background after the save. The input is `MEMORY.md`, `USER.md` and
+  the agent's notes under `memory/` (not `memory/lead/`, `DREAMS.md` or
+  `memory/.dreams/`), each as `=== <file>` and its text, at most 60,000 characters
+  with the notes newest first; what does not fit stays out and the result says
+  `truncated`. The request is the product plugin's admin-only Gateway method
+  `agentpier.memoryReview` (`team-plugin/memory-review.js`), an `isolated-agent-runtime`
+  completion like the title's: the agent's own model and login, the review task
+  (`memory-review-prompt.js`) as the system prompt, the memory as the only message, no
+  tools, session or chat history, 4,000 output tokens, 120 seconds at most. The answer
+  names, per entry, its file, its text, its kind (`model-limit`, `owner-rule`, `fact`)
+  and a recommendation (`archive`, `keep`); `memory-review-answer.js` keeps only
+  items that name one entry of their file (a list item or a line in Markdown, a
+  `§`-block on Hermes; typographic quotes, spacing and a unique start of at least
+  three words still match) and asks once more when the answer holds no readable JSON
+  array. Nothing is written and no entry text is logged. A lead's
+  `agentpier_team_member_update` that moves a member with memory into a fresh chat
+  answers `memoryReview: "waits_for_owner"`.
 - Archive and restore: `POST …/conversations/:id/archive|restore` (owner under
   `/api/assistant-conversations`, user under `/api/me/conversations`). An archived chat
   leaves the list, stays readable, and refuses turns, queued messages, uploads and

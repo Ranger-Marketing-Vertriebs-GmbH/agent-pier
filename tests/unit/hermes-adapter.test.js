@@ -415,3 +415,17 @@ test("a chat title comes from Hermes's one-shot model call", async () => {
   assert.equal(call.params.task, "title_generation");
   assert.match(call.params.input, /<message>\nthe budget\n<\/message>/);
 });
+
+test("a memory review is Hermes's one-shot call outside any session", async () => {
+  const { peer, sessions } = await scripted(() => ({ text: "[]" }));
+  const review = { agentId, instructions: "Review.", input: "=== MEMORY.md\nfact" };
+  assert.deepEqual(await sessions.reviewMemory(review), { text: "[]" });
+  const call = peer.frames.at(-1);
+  assert.equal(call.method, "llm.oneshot");
+  assert.deepEqual(call.params, {
+    task: "memory_review",
+    instructions: "Review.",
+    input: "=== MEMORY.md\nfact",
+    max_tokens: 4000,
+  });
+});

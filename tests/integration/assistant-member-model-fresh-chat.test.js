@@ -5,6 +5,7 @@ import { fakeGateway } from "../helpers/user-chats.js";
 import { switchTeam } from "../helpers/model-switch-team.js";
 import { definitions } from "../../server/features/assistants/team-plugin/index.js";
 import { deferredSwaps } from "../../server/features/assistants/deferred-swaps.js";
+import { memoryReviewsSettled } from "../../server/features/assistants/memory-review.js";
 
 // OpenRouter names the family before the slash: the fixture runs openai/gpt-4.1-mini.
 const model = (agent, modelId) => ({ connectionId: agent.model.connectionId, modelId });
@@ -48,6 +49,8 @@ test("a lead's family switch gives the member a fresh chat", async (t) => {
   const result = await update(keeper.id, { model: otherFamily(lead) });
   assert.equal(result.status, "updated");
   assert.equal(result.freshChat, "started");
+  // Without memory there is nothing to review.
+  assert.equal("memoryReview" in result, false);
   const member = teams.member(keeper.id);
   assert.notEqual(member.conversationId, keeper.conversationId);
   const { store } = service;
@@ -67,6 +70,23 @@ test("a lead's family switch gives the member a fresh chat", async (t) => {
   const [note] = updateNotes(service, keeper.assistantId, keeper.conversationId);
   assert.equal(note.freshChat, true);
   assert.deepEqual(deferredSwaps(service).list(), []);
+});
+
+test("a member with memory waits for the owner's review of it", async (t) => {
+  const { service, lead, keeper, update } = await leadTeam(t);
+  const { revision } = service.store.getAssistant(keeper.assistantId);
+  service.store.updateAssistant(
+    keeper.assistantId,
+    { capabilities: { memory: true, reminders: false } },
+    revision,
+  );
+  const kept = await update(keeper.id, { model: otherFamily(lead), freshChat: false });
+  assert.equal("memoryReview" in kept, false);
+  const result = await update(keeper.id, { model: sameFamily(lead), freshChat: true });
+  assert.equal(result.freshChat, "started");
+  assert.equal(result.memoryReview, "waits_for_owner");
+  const [[review]] = await memoryReviewsSettled(service);
+  assert.equal(review.assistantId, keeper.assistantId);
 });
 
 test("freshChat false keeps it", async (t) => {

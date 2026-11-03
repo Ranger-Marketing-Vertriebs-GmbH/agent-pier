@@ -13,6 +13,7 @@ import { previewDefinition } from "./preview-tool.js";
 import { memberDefinitions } from "./member-tools.js";
 import { groupDefinitions } from "./group-tools.js";
 import { registerChatTitle } from "./chat-title.js";
+import { registerMemoryReview } from "./memory-review.js";
 const text = (maxLength) => ({ type: "string", minLength: 1, maxLength });
 const schema = (properties, required = Object.keys(properties)) => ({
   type: "object",
@@ -336,6 +337,8 @@ export default {
     } catch {}
     // A chat's generated title, on the agent's own model (chat-title.js).
     registerChatTitle(api);
+    // The memory review after a model switch, on the new model (memory-review.js).
+    registerMemoryReview(api);
     // The Gateway's record of background commands (exec-processes.js).
     try {
       if (typeof api.on === "function" && api.registrationMode === "full")

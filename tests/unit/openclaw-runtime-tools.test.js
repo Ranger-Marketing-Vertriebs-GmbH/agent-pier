@@ -8,6 +8,10 @@ import {
   chatTitleMethod,
   titleTimeoutMs,
 } from "../../server/features/assistants/team-plugin/chat-title.js";
+import {
+  memoryReviewMethod,
+  memoryReviewTimeoutMs,
+} from "../../server/features/assistants/team-plugin/memory-review.js";
 
 // A client that records each call and request as [method, params, options?] and
 // answers `answer(method, params)`.
@@ -135,6 +139,16 @@ test("the team plugin's background and title calls go through sessions", async (
       { agentId: "ap-1", message: "m", reply: "r" },
       { timeoutMs: titleTimeoutMs + 5000 },
     ],
+  ]);
+});
+
+test("the memory review is the team plugin's method on the agent's model", async () => {
+  const client = recorder(() => ({ text: "[]" }));
+  const { sessions } = createOpenClawRuntime({ client });
+  const review = { agentId: "ap-1", instructions: "Review.", input: "=== MEMORY.md" };
+  assert.deepEqual(await sessions.reviewMemory(review), { text: "[]" });
+  assert.deepEqual(client.calls, [
+    [memoryReviewMethod, review, { timeoutMs: memoryReviewTimeoutMs + 5000 }],
   ]);
 });
 
