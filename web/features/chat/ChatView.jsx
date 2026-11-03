@@ -22,6 +22,7 @@ import ChatComposer from "./ChatComposer.jsx";
 import ChatObservability from "./ChatObservability.jsx";
 import useChatController from "./useChatController.js";
 import useSubagentPresence from "./useSubagentPresence.js";
+import useScrollbarWidth from "./useScrollbarWidth.js";
 export default function ChatView({
   active,
   session,
@@ -131,6 +132,7 @@ export default function ChatView({
     )
       void loadOlder();
   }, [restored, active, output, historyError, resetStatus, loadOlder]);
+  useScrollbarWidth(output);
   const subagentsLive =
     session.status === "running" && !restored && !data?.observability?.stale;
   const subagents = useSubagentPresence(
