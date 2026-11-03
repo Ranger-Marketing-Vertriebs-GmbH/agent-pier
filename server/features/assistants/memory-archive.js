@@ -72,8 +72,8 @@ export class MemoryArchive {
     }
     return ids;
   }
-  /** Drops archived rows: a restored entry, or rows whose file write failed. */
-  restore(assistantId, ...ids) {
+  /** Deletes archived rows: a restored entry, or rows whose file kept its entries. */
+  remove(assistantId, ...ids) {
     const remove = this.db.prepare(
       "DELETE FROM assistant_memory_archive WHERE assistant_id=? AND id=?",
     );
@@ -133,6 +133,20 @@ function writeFile(memory, assistantId, name, content, hash) {
   });
 }
 
+// Whether `name` still holds every one of `texts`; false when it cannot be read, so
+// the archive keeps what may be gone from the file.
+async function stillHeld(memory, assistantId, runtime, name, texts) {
+  try {
+    const read = await readFile(memory, assistantId, name);
+    const present = new Set(
+      read.missing ? [] : memoryEntries(runtime, name, read.content).map((e) => e.text),
+    );
+    return texts.every((text) => present.has(text));
+  } catch {
+    return false;
+  }
+}
+
 function audit(service, assistantId, verb, count, files) {
   try {
     service.audit?.append({
@@ -155,10 +169,15 @@ function audit(service, assistantId, verb, count, files) {
  * archived, changed }`: `changed` lists the entry texts no longer in their file as
  * read, or whose file changed before the write (409); they stay where they are.
  *
+ * Identical copies of an entry in one file are removed together and archived as one
+ * row.
+ *
  * Per file: read with its hash, compute the file without the entries, insert their
  * archive rows (one committed transaction), then write the file against the hash. A
- * failed write deletes the just-inserted rows again, so archive and file never
- * disagree; a crash between the two leaves an entry in both, never in neither.
+ * refused write (409, 400) deletes the just-inserted rows again. After any other
+ * failure the file is read again and the rows go only if it still holds every entry;
+ * otherwise, or when that read fails, they stay. A crash or an unclear failure can
+ * leave an entry in both places, never in neither.
  *
  * Takes no admission itself: each read and write goes through NativeMemory's public
  * methods, which take it (call it from a request handler, never inside admit()).
@@ -198,8 +217,13 @@ export async function archiveEntries(service, assistantId, entries, meta) {
       try {
         await writeFile(memory, assistantId, file, content, read.hash);
       } catch (error) {
-        archive.restore(assistantId, ...ids);
-        if (error.status !== 409) throw error;
+        // A refused write (conflict, invalid) changed nothing. Any other failure may
+        // come after the write was applied (a timeout, a dropped connection): the
+        // rows go only when the file still holds every entry.
+        const refused = error.status === 409 || error.status === 400;
+        if (refused || (await stillHeld(memory, assistantId, runtime, file, found)))
+          archive.remove(assistantId, ...ids);
+        if (!refused) throw error;
         changed.push(...found);
         continue;
       }
@@ -246,7 +270,7 @@ export async function restoreEntry(service, assistantId, archiveId) {
   if (runtime === "hermes" && hermesMemoryChars(content) > limit)
     throw assistantProblem("memoryTooLarge", 409, entry.file, limit);
   await writeFile(memory, assistantId, entry.file, content, read.hash);
-  archive.restore(assistantId, archiveId);
+  archive.remove(assistantId, archiveId);
   audit(service, assistantId, "memory-restored", 1, [entry.file]);
   return { restored: true, file: entry.file };
 }

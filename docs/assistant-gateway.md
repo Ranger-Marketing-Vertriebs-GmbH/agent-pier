@@ -3913,9 +3913,11 @@ archivedAt, lastActivityAt, busy}` (the owner's also `userId`), the main chat fi
   `assistant_memory_archive` table (private in backups, removed with the agent),
   verbatim with file, time, the switch's models and the review id. Per file it reads
   with the hash, removes each matching entry with its own line break (a Hermes block
-  with one separator; headings and everything else stay byte for byte), commits the
-  archive rows, then writes against the hash; a refused or failed write deletes those
-  rows again, and an entry that is no longer in the file or whose file changed (409)
+  with one separator, identical copies together as one row; headings and everything
+  else stay byte for byte), commits the archive rows, then writes against the hash. A
+  refused write (409, 400) deletes those rows again; after any other failure, which may
+  follow an applied write, the file is read again and the rows go only if it still
+  holds every entry. An entry that is no longer in the file or whose file changed (409)
   comes back in `changed`. Nothing calls it without the owner.
   `GET /assistants/:id/memory/archive` lists
   `{ entries: [{ id, file, text, archivedAt, switch }] }`;
