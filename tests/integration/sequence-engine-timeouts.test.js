@@ -126,3 +126,16 @@ test("a repair session whose task delivery timed out is stopped and parked", asy
   assert.equal(item.needsOwner?.reason, "stepTimedOut");
   assert.equal((await f.sessionsApi.get(repairs()[0].session.id)).status, "stopped");
 });
+
+test("a pass reports a queue that fails unexpectedly and still steps the others", async (t) => {
+  const f = await sequenceFixture(t);
+  const engine = f.build();
+  f.append([KEY]);
+  queueP2(f);
+  const advance = engine.advance.bind(engine);
+  engine.advance = (projectId) =>
+    projectId === "p1" ? Promise.reject(new Error("broken")) : advance(projectId);
+  await engine.run();
+  assert.ok(f.errors.some((e) => e.step === "pass" && e.error.message === "broken"));
+  assert.ok(f.store.queue("p2").items[0].sessionId);
+});

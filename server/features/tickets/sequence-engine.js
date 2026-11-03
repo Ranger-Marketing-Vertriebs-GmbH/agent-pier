@@ -146,7 +146,10 @@ export class TicketSequenceEngine {
     if (this.closed) return Promise.resolve();
     const queues = this.store.queues();
     return Promise.allSettled(queues.map((queue) => this.advance(queue.projectId))).then(
-      () => {},
+      (results) => {
+        for (const result of results)
+          if (result.status === "rejected") this.onError(result.reason, "pass");
+      },
     );
   }
 
