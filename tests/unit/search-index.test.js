@@ -250,8 +250,6 @@ test("Start tickets is an action that opens the ticket selection", () => {
   for (const query of [
     "Start tickets",
     "Tickets starten",
-    "ticket sequence",
-    "Ticketfolge",
   ]) {
     const top = first(query);
     assert.equal(top.id, "action:start-tickets", query);

@@ -263,7 +263,6 @@ test("Start tickets is an owner action only, not in the user's search", () => {
   const action = (query) => flat(searchEntries(owners, query))[0];
   assert.equal(action("Start tickets").id, "action:start-tickets");
   assert.equal(action("Tickets starten").id, "action:start-tickets");
-  assert.equal(action("ticket sequence").id, "action:start-tickets");
   const users = buildUserSearchIndex({ agents: [{ id: "lumi", name: "Lumi" }] });
   assert.equal(
     users.some((item) => item.id === "action:start-tickets"),

@@ -60,7 +60,6 @@ export const searchCopy = {
   },
   // Alte Namen und Pfade, damit Suchende den neuen Ort finden.
   aliases: {
-    ticketSequence: "Ticketfolge",
     menuAgents: "Menü › Agenten",
     settingsAccess: "Einstellungen › Zugriff",
     settingsSsh: "Einstellungen › Zugriff › SSH-Zugänge",
