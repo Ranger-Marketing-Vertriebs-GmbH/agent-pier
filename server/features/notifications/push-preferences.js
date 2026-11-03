@@ -35,6 +35,8 @@ export const pushEventDefaults = Object.freeze({
   "session-resume-failed": true,
   "update-available": false,
   "update-failed": true,
+  // The ticket sequence of a project waits for the owner.
+  "ticket-needs-owner": true,
   telegram: false,
 });
 export const pushEvents = Object.keys(pushEventDefaults);
@@ -54,6 +56,7 @@ export const blockingKinds = new Set([
   "session-waiting",
   "pipeline-gate",
   "agent-approval",
+  "ticket-needs-owner",
 ]);
 
 /**

@@ -222,6 +222,12 @@ const rows = [
     { view: "settings", settingsTab: "operations", settingsSection: "updates" },
   ],
   [
+    "ticket-needs-owner",
+    { projectId: "p1" },
+    "/projects/p1?tab=tickets",
+    { view: "projects", projectId: "p1", projectTab: "tickets" },
+  ],
+  [
     "test",
     {},
     "/settings/notifications",

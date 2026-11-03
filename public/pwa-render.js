@@ -5,7 +5,7 @@
 (() => {
   const id = "[A-Za-z0-9_-]{1,120}";
   const linkPattern = new RegExp(
-    `^/(?:|inbox(?:/(?:question|approval|gate|action|team)/${id})?|sessions/${id}/chat|pipelines/runs/${id}|agents(?:/${id}/(?:settings(?:\\?tab=capabilities&page=memory)?|chats/${id}))?|connections\\?section=github|settings/(?:github|notifications|updates))$`,
+    `^/(?:|inbox(?:/(?:question|approval|gate|action|team)/${id})?|sessions/${id}/chat|pipelines/runs/${id}|agents(?:/${id}/(?:settings(?:\\?tab=capabilities&page=memory)?|chats/${id}))?|projects/${id}\\?tab=tickets|connections\\?section=github|settings/(?:github|notifications|updates))$`,
   );
   // The grouping tags of push-content.js pushSource: a session, run, agent chat or agent.
   const tagPattern = new RegExp(`^(?:(?:session|agent|chat|run):)?${id}$`);
@@ -20,6 +20,8 @@
   function target(data) {
     if (typeof data?.link === "string" && linkPattern.test(data.link)) return data.link;
     if (data?.kind === "github-token") return "/connections?section=github";
+    if (data?.kind === "ticket-needs-owner" && validId(data?.projectId))
+      return `/projects/${data.projectId}?tab=tickets`;
     if (data?.kind === "disk-space") return "/";
     if (data?.kind === "update-available" || data?.kind === "update-failed")
       return "/settings/updates";

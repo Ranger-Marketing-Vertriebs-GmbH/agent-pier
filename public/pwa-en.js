@@ -97,6 +97,11 @@ self.agentPierNotificationCopyEn = {
       body: "A session could not be resumed automatically. Open it to start it again.",
       name: "Session not resumed",
     },
+    "ticket-needs-owner": {
+      title: "AgentPier: A ticket needs you",
+      body: "A ticket sequence is waiting for you.",
+      name: "Ticket needs you",
+    },
     "update-available": {
       title: "AgentPier: Update available",
       body: "A new AgentPier version is available. Open the updates to install it.",

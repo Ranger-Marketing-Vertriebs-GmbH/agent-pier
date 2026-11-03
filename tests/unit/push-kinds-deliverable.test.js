@@ -67,6 +67,7 @@ const events = {
   "session-resume-failed": [{ sessionId: "s1" }],
   "update-available": [{ label: "2.13.0" }],
   "update-failed": [{}],
+  "ticket-needs-owner": [{ projectId: "p1" }],
   test: [{}],
 };
 
@@ -103,6 +104,27 @@ test("a GitHub token notice opens GitHub connections", () => {
   );
   assert.equal(payload.link, "/connections?section=github");
   assert.equal(worker.target({ kind: "github-token" }), "/connections?section=github");
+});
+
+test("a ticket notice opens the project's Tickets tab and drops any session", () => {
+  const event = pushEvent({
+    kind: "ticket-needs-owner",
+    eventId: "t1",
+    projectId: "p1",
+    sessionId: "s1",
+  });
+  assert.equal(event.sessionId, undefined);
+  assert.equal(event.projectId, "p1");
+  const payload = buildPayload(event, defaultPreferences());
+  assert.equal(payload.link, "/projects/p1?tab=tickets");
+  assert.equal(
+    worker.target({ kind: "ticket-needs-owner", projectId: "p1" }),
+    payload.link,
+  );
+  assert.throws(() => pushEvent({ kind: "ticket-needs-owner", eventId: "t1" }));
+  assert.throws(() =>
+    pushEvent({ kind: "ticket-needs-owner", eventId: "t1", projectId: "../x" }),
+  );
 });
 
 test("agent chat notices collapse by their chat's tag", () => {
