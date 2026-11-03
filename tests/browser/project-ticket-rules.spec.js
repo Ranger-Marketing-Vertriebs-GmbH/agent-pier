@@ -84,7 +84,7 @@ test("add rule sends allowMerge false by default and the chosen label", async ({
   await expect(dialog).toBeVisible();
   const label = dialog.getByRole("textbox", { name: "Label" });
   await expect(label).toHaveAccessibleDescription(
-    "Exact label name; existing open tickets with it are picked up too.",
+    "The label's name; case and spaces around it don't matter. Open tickets that already carry it are picked up too.",
   );
   await expect(dialog.getByRole("radio", { name: "GitHub" })).toBeChecked();
   await expect(dialog.getByRole("radio", { name: "Session" })).toBeChecked();

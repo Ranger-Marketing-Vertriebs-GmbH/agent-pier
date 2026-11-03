@@ -48,7 +48,7 @@ export const labelRuleDialogCopy = {
   source: "Quelle",
   label: "Label",
   labelHint:
-    "Genauer Label-Name; offene Tickets, die es schon tragen, werden auch übernommen.",
+    "Name des Labels; Groß- und Kleinschreibung und Leerzeichen am Rand spielen keine Rolle. Offene Tickets, die es schon tragen, werden auch übernommen.",
   allowMergeWarning:
     "Wer dieses Label setzen kann, kann die Arbeit an seinem Ticket mergen lassen. Nimm ein Label, das nur vertrauenswürdige Personen setzen können.",
   intro:
