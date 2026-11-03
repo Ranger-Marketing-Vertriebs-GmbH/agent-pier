@@ -1,102 +1,14 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import { composerProblem } from "./claude-composer.js";
+import { isCodingCli } from "../clis/catalog.js";
+import { cliDriver } from "../clis/drivers.js";
 
-const plain = (value) => value.replace(/\x1b\[[0-9;:]*m/g, "");
 const unknown = () => ({ state: "unknown" });
 
 /** Native geometry, not transcript text, identifies the input we may edit. */
 export function nativePromptState(tool, { raw, pane }) {
-  if (!raw || !Number.isInteger(pane?.cursorY)) return unknown();
-  const rows = raw.split("\n").slice(0, pane.height);
-  const lines = rows.map(plain);
-  const cursor = pane.cursorY;
-  if (tool === "codex") {
-    const start = rows.findLastIndex(
-      (row, i) => i <= cursor && /^\x1b\[1m›\x1b\[0m /.test(row),
-    );
-    if (start >= 0) {
-      const footer = lines.findLastIndex(
-        (row, i) => i > start && /^  .+ · .+/.test(row) && !lines[i - 1]?.trim(),
-      );
-      const end = footer - 2;
-      if (
-        cursor >= start &&
-        cursor <= end &&
-        lines
-          .slice(start + 1, end + 1)
-          .every((row) => !row.trim() || row.startsWith("  ")) &&
-        !lines[end + 1]?.trim() &&
-        /^  .+ · .+/.test(lines[end + 2] || "")
-      ) {
-        const content = lines.slice(start, end + 1).map((row) => row.slice(2));
-        const placeholder =
-          start === end &&
-          pane.cursorX === 2 &&
-          /^\x1b\[1m›\x1b\[0m \x1b\[2m[^\x1b]+\x1b\[0m$/.test(rows[start]);
-        return { state: placeholder ? "empty" : "draft", rows: content };
-      }
-    }
-    // Native selectors end with this footer; a normal composer above wins.
-    const bottom = lines
-      .filter((row) => row.trim())
-      .slice(-4)
-      .join("\n");
-    if (
-      /\b(?:enter|esc)\b.*(?:select|confirm|continue|cancel|back|quit|deny|reject)/i.test(
-        bottom,
-      )
-    )
-      return { state: "dialog" };
-  }
-  if (tool === "opencode") {
-    const footer = lines
-      .filter((row) => row.trim())
-      .slice(-5)
-      .join(" ");
-    const dialog =
-      lines.slice(-14).some((row) => /^ *┃ +△ Permission required *$/.test(row)) ||
-      (/┃/.test(footer) &&
-        /enter\s+confirm/.test(footer) &&
-        /Allow once|Reject|select/.test(footer)) ||
-      rows.some((row) => /\x1b\[1m/.test(row) && /^ +\S.* +esc *$/.test(plain(row)));
-    const unreadable = () => (dialog ? { state: "dialog" } : unknown());
-    // Prefer the active prompt to old permission output in the transcript.
-    const prefix = /^( *)┃  /.exec(lines[cursor] || "");
-    if (!prefix) return unreadable();
-    const indent = prefix[1];
-    const border = `${indent}┃`;
-    let top = cursor,
-      bottom = cursor;
-    while (
-      top > 0 &&
-      lines[top - 1].startsWith(border) &&
-      lines[top - 1].trimEnd() !== border
-    )
-      top--;
-    while (
-      bottom + 1 < lines.length &&
-      lines[bottom + 1].startsWith(border) &&
-      lines[bottom + 1].trimEnd() !== border
-    )
-      bottom++;
-    if (
-      lines[top - 1]?.trimEnd() !== border ||
-      lines[bottom + 1]?.trimEnd() !== border ||
-      !lines[bottom + 2]?.startsWith(`${border}  `) ||
-      !/ · \S/.test(lines[bottom + 2]) ||
-      !lines[bottom + 3]?.startsWith(`${indent}╹▀▀▀`)
-    )
-      return unreadable();
-    const content = lines
-      .slice(top, bottom + 1)
-      .map((row) => row.slice(indent.length + 3).trimEnd());
-    const placeholder =
-      top === bottom &&
-      pane.cursorX === indent.length + 3 &&
-      (!content[0] || rows[top].includes("\x1b[38;2;128;128;128mAsk anything… "));
-    return { state: placeholder ? "empty" : "draft", rows: content };
-  }
-  return unknown();
+  if (!raw || !Number.isInteger(pane?.cursorY) || !isCodingCli(tool)) return unknown();
+  return cliDriver(tool).tui.promptState?.({ raw, pane }) ?? unknown();
 }
 
 const proofOf = (state) => (state.state === "draft" ? JSON.stringify(state.rows) : null);
@@ -118,6 +30,7 @@ export function nativeFreshInput({
   // seconds on first start. Until then an unreadable screen means "starting".
   const startupMs = timing.startupMs ?? 120_000;
   const stateOf = (fresh) => nativePromptState(tool, fresh);
+  const promptProof = isCodingCli(tool) ? cliDriver(tool).tui.promptProof : undefined;
   const assertOpen = (fresh) => {
     const state = stateOf(fresh);
     if (state.state === "dialog") throw composerProblem("CHAT_DIALOG_NOT_CLOSED");
@@ -193,8 +106,7 @@ export function nativeFreshInput({
         if (
           state.state === "draft" &&
           !state.rows.some((row) => /\[Pasted/.test(row)) &&
-          (state.rows.join("\n").endsWith(text) ||
-            (tool === "codex" && state.rows.join("").endsWith(text.replaceAll("\n", ""))))
+          (state.rows.join("\n").endsWith(text) || promptProof?.(state.rows, text))
         ) {
           onProof(proofOf(state));
           return;

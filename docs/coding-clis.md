@@ -67,8 +67,9 @@ home, or the owning service (for example the `ProviderHistory` instance for `his
 
 `accountTransfer`, `transcriptCleanup`, `storageCleanup`, `mcpOAuth` and
 `endpointSdkRouting` (the CLI reaches a custom endpoint through its own SDK providers, so
-its route choices name a protocol: OpenCode) are read by their consumers. `imagePaste` is declared; consumers still branch on the id
-(counted in the branch budget of `tests/unit/cli-id-lists.test.js`).
+its route choices name a protocol: OpenCode) are read by their consumers. `imagePaste` (the CLI
+shows pasted image paths as chips: Claude Code) selects the chip-paste path of chat input; the
+per-CLI parts of it are the `tui.images` driver members.
 
 `server/features/tools/` derives the minimum-version table (`MINIMUM_CLI_VERSIONS` in
 `cli-version.js`), the install table (`nativeInstallers`) and the update commands
@@ -167,6 +168,20 @@ directory, key, description, adapterRoute, adapterToken })` returns the launch
   when it cannot be kept. `options` holds `observed`, `fallback`, `models`, `identifier`
   and `unavailable`. Without it (OpenCode) only an exact model id is kept.
 - `limitWarning({ raw, pane, styled, lines })`: visible native limit warnings.
+- `queuedInputs({ raw, styled, lines, row, pane, hashes })`: the hashes of the inputs
+  the CLI shows as queued, built with the `hashes(values, pane, limit?)` it is given;
+  `row` is the cursor row. Rows that are incomplete, wrapped or restyled read as none.
+- `promptState?({ raw, pane })`: the native prompt box (`{ state: "empty" | "draft", rows }`,
+  `{ state: "dialog" }` or `{ state: "unknown" }`) for CLIs without image chips (Codex,
+  OpenCode); `undefined` reads as unknown.
+- `promptProof?(rows, text)`: whether the draft rows show `text` in another form than its
+  lines (Codex joins wrapped rows).
+- `blockingScreen?(raw, { cwd, started })`: a screen that holds chat input as a pending
+  request (Codex hook review, Claude Code startup dialogs).
+- `images`: `pathText(file)` (the paste of one image path; Codex quotes it),
+  `wait?(manager, session, count, { timeoutMs, exact })` (the chip wait, default
+  `waitForNativeImages`), and for a CLI with `capabilities.imagePaste`
+  `draft?(composer, message, { text })` and `chipsOnly?(raw, pane, count)`.
 
 **Pipelines** (`pipeline`)
 

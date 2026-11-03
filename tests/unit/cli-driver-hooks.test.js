@@ -476,3 +476,56 @@ test("session id, reload model and credential members per CLI", () => {
       assert.equal(cliDriver("opencode").credentials, null);
     });
 });
+
+test("terminal input members per CLI", () => {
+  const file = "/tmp/a b.png";
+  for (const id of CODING_CLI_IDS) {
+    const { tui } = cliDriver(id);
+    assert.ok(Object.isFrozen(tui));
+    assertFrozenDeep(tui.images, `${id}.tui.images`);
+    assert.ok(Object.isFrozen(tui.images));
+    assert.equal(typeof tui.queuedInputs, "function");
+    assert.equal(tui.images.pathText(file), id === "codex" ? '"/tmp/a b.png"' : file);
+    assert.equal(cliDefinition(id).capabilities.imagePaste, id === "claude");
+  }
+  const { codex, claude, opencode } = Object.fromEntries(
+    CODING_CLI_IDS.map((id) => [id, cliDriver(id).tui]),
+  );
+  for (const tui of [codex, opencode]) {
+    assert.equal(typeof tui.promptState, "function");
+    assert.equal(tui.images.wait, undefined);
+    assert.equal(tui.images.draft, undefined);
+    assert.equal(tui.images.chipsOnly, undefined);
+  }
+  assert.equal(claude.promptState, undefined);
+  for (const key of ["wait", "draft", "chipsOnly"])
+    assert.equal(typeof claude.images[key], "function");
+  assert.equal(codex.promptProof(["a", "b"], "a\nb"), true);
+  assert.equal(codex.promptProof(["a", "c"], "a\nb"), false);
+  assert.equal(claude.promptProof, undefined);
+  assert.equal(opencode.promptProof, undefined);
+  assert.equal(typeof codex.blockingScreen, "function");
+  assert.equal(typeof claude.blockingScreen, "function");
+  assert.equal(opencode.blockingScreen, undefined);
+  // An empty or unrelated screen blocks nothing.
+  assert.ok(!codex.blockingScreen("", { cwd: "/tmp", started: true }));
+  assert.ok(!claude.blockingScreen("", { cwd: "/tmp", started: true }));
+  assert.equal(
+    codex.promptState({ raw: "", pane: { cursorY: 0, height: 1 } }),
+    undefined,
+  );
+  // Without a recognisable queue every CLI reads none.
+  const pane = { cursorX: 0, cursorY: 2, width: 80, height: 4 };
+  for (const tui of [codex, claude, opencode])
+    assert.deepEqual(
+      tui.queuedInputs({
+        raw: "\n\n\n",
+        styled: ["", "", "", ""],
+        lines: ["", "", "", ""],
+        row: 2,
+        pane,
+        hashes: (values) => values,
+      }),
+      [],
+    );
+});

@@ -1,5 +1,6 @@
-import { waitForClaudeImages } from "./claude-image-paste.js";
 import { waitForNativeImages } from "./native-image-paste.js";
+import { cliDefinition } from "../clis/catalog.js";
+import { cliDriver } from "../clis/drivers.js";
 
 /** Images become native chips before the text can hide them in a long prompt. */
 export async function writeChatImages({
@@ -16,8 +17,11 @@ export async function writeChatImages({
   paste,
 }) {
   const exact = Number.isInteger(initialImages) && initialImages >= 0;
+  // Chip CLIs take every image in one paste; the others one image path per paste.
+  const chips = cliDefinition(session.tool).capabilities.imagePaste;
+  const rules = cliDriver(session.tool).tui.images;
   const wait = (count) =>
-    (session.tool === "claude" ? waitForClaudeImages : waitForNativeImages)(
+    (rules.wait ?? waitForNativeImages)(
       manager,
       session,
       (exact ? initialImages : 0) + count,
@@ -25,9 +29,9 @@ export async function writeChatImages({
     );
   let ready = true;
   if (resume !== "text") {
-    if (session.tool !== "claude") await onDialog();
+    if (!chips) await onDialog();
     await onPhase("paste-intent");
-    if (session.tool === "claude") {
+    if (chips) {
       await paste(images.images.join("\n"));
       await onPhase("images-pasted");
       ready = await wait(images.images.length);
@@ -40,8 +44,7 @@ export async function writeChatImages({
       // A failure partway through remains paste-intent: never replay the batch.
       for (const [index, file] of images.images.entries()) {
         if (index > 0) await onDialog();
-        // Codex tokenizes bare paths on spaces; a quoted path remains one image.
-        await paste(session.tool === "codex" ? JSON.stringify(file) : file);
+        await paste(rules.pathText(file));
         const result = await wait(index + 1);
         if (result === "dialog") await onDialog();
         ready = ready && result === true;

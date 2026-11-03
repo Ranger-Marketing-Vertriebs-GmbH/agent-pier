@@ -2,11 +2,10 @@ import { nativeImageDraft } from "../sessions/native-image-paste.js";
 import { nativeInputQueue } from "./native-input-queue.js";
 import { createHash } from "node:crypto";
 import {
-  claudeChipsOnly,
-  claudeImageDraft,
   claudeImageMessage,
   missingClaudeImages,
 } from "../sessions/claude-image-paste.js";
+import { cliDriver } from "../clis/drivers.js";
 import { problem } from "../../lib/storage.js";
 import { chatDeliveryCopy as copy } from "../../lib/i18n/de/chat-delivery.js";
 import {
@@ -41,9 +40,11 @@ async function recoveryPlan(tool, phase, { composer, raw, pane }, text) {
   if (!["pasted", "images-pasted", "text-intent"].includes(phase))
     return { reason: copy.recoveryUncertain };
   const message = await claudeImageMessage(text);
+  // CLIs with image chips compare drafts with the chips in place of the paths.
+  const images = cliDriver(tool).tui.images;
   const full = message
-    ? tool === "claude"
-      ? claudeImageDraft(composer, message, { text: message.text })
+    ? images.draft
+      ? images.draft(composer, message, { text: message.text })
       : nativeImageDraft(tool, { composer, raw, pane }, message, { text: message.text })
     : composer.state === "text" && composer.text === text;
   let result;
@@ -54,10 +55,10 @@ async function recoveryPlan(tool, phase, { composer, raw, pane }, text) {
     result = full ? { plan: "submit" } : { reason: copy.recoveryUncertain };
   else
     result =
-      (tool === "claude"
-        ? claudeImageDraft(composer, message)
+      (images.draft
+        ? images.draft(composer, message)
         : nativeImageDraft(tool, { composer, raw, pane }, message)) ||
-      (tool === "claude" && message && claudeChipsOnly(raw, pane, message.images.length))
+      (message && images.chipsOnly?.(raw, pane, message.images.length))
         ? { plan: "text" }
         : { reason: copy.recoveryComposer };
   // A deleted attachment can no longer be compared with its chip.
