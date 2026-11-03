@@ -293,13 +293,14 @@ export const forgeMutations = (f, name) =>
 export const forgeMerges = (f) => f.forge.calls.filter((call) => call.method === "PUT");
 
 /** Starts the first ticket and opens its PR on the started branch. */
-export async function awaitingMerge(f, { pull = {}, ...options } = {}) {
+export async function awaitingMerge(f, { pull = {}, engine, ...options } = {}) {
+  const runner = engine ?? f.engine;
   f.append([KEY, "acme/app#13"], options);
-  await f.engine.run();
+  await runner.run();
   const branch = f.items()[0].worktree.branch;
   const opened = githubPull(30, { headRef: branch, contexts: GREEN, ...pull });
   f.forge.pulls.push(opened);
-  await f.engine.run();
+  await runner.run();
   assert.equal(f.items()[0].state, "awaiting-merge");
   return opened;
 }
