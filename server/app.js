@@ -101,6 +101,7 @@ import { accountsRoutes } from "./http/routes/accounts.js";
 import { connectionsRoutes } from "./http/routes/connections.js";
 import { sessionsRoutes } from "./http/routes/sessions.js";
 import { repositoriesRoutes } from "./http/routes/repositories.js";
+import { ticketRoutes } from "./http/routes/tickets.js";
 import { GithubTokenMonitor } from "./features/repositories/github-token-monitor.js";
 import { SystemStatus } from "./features/system-status/system-status.js";
 import { systemStatusRoutes } from "./http/routes/system-status.js";
@@ -415,6 +416,7 @@ export async function createApplication(config) {
   mount(secretsRoutes(services));
   mount(mailRoutes(services));
   mount(repositoriesRoutes(services));
+  mount(ticketRoutes(services));
   mount(extensionsRoutes(services));
   mount(agencyRoutes(services));
   mount(pluginsRoutes(services));

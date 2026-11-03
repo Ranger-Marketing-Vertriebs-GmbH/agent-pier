@@ -60,6 +60,7 @@ import { ToolInstaller } from "../features/tools/tool-installer.js";
 import { PluginStore } from "../features/plugins/plugin-store.js";
 import { NativeSessionBinding } from "../features/sessions/native-session-binding.js";
 import { GithubCredentials } from "../features/repositories/github-credentials.js";
+import { createTicketServices } from "../features/tickets/ticket-service.js";
 import { GithubMcpTool } from "../features/tools/github-mcp-tool.js";
 import { SessionActivity } from "../features/sessions/session-activity.js";
 import { AgentBus } from "../features/agentbus/agent-bus.js";
@@ -584,6 +585,7 @@ export async function createServices(config) {
     );
   };
   services.previews = previews = createPreviewService(services);
+  Object.assign(services, createTicketServices(services));
   // Listing sessions reconciles stopped ones through onStopped, whose cleanup needs
   // every service above, so the first rewrite of the secrets files waits until here.
   refreshSessionSecrets();

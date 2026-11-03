@@ -10,6 +10,12 @@ export const tickets = Object.freeze({
   invalidLink: "Die Ticketquellen-Zuordnung des Projekts ist ungültig.",
   invalidStart: "Der Ticketstart ist ungültig.",
   startNotFound: "Der Ticketstart wurde nicht gefunden.",
+  projectNotFound: "Das Projekt wurde nicht gefunden.",
+  invalidFilter: "Der Ticketfilter ist ungültig.",
+  codingCliRequired: "Ein Ticket kann nur mit einem Coding-CLI gestartet werden.",
+  alreadyStarting: "Dieses Ticket wird gerade gestartet.",
+  alreadyStarted:
+    "Dieses Ticket wurde bereits gestartet. Zum erneuten Start bitte ausdrücklich bestätigen.",
   source: Object.freeze({
     unauthorized: "Die Ticketquelle hat den Zugang abgelehnt. Bitte den Token prüfen.",
     forbidden: "Der Token der Ticketquelle hat dafür keine Berechtigung.",
