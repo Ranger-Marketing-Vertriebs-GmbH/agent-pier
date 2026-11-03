@@ -4,7 +4,7 @@ import { publicSession } from "../../features/sessions/session-public.js";
 // Owner-only like every /api route outside /api/me (route-access.js). Responses carry
 // connection metadata and failure codes, never a token.
 export function ticketRoutes(services) {
-  const { tickets, ticketSequences } = services;
+  const { tickets, ticketSequences, ticketRules } = services;
   const router = Router();
   router.get("/ticket-connections", (req, res) => res.json(tickets.connectionsView()));
   router.post("/ticket-connections", (req, res) =>
@@ -71,5 +71,21 @@ export function ticketRoutes(services) {
       await ticketSequences.remove(req.params.projectId, req.params.itemId, force(req)),
     ),
   );
+  const rules = "/tickets/projects/:projectId/rules";
+  router.get(rules, (req, res) => res.json(ticketRules.view(req.params.projectId)));
+  router.post(rules, async (req, res) =>
+    res
+      .status(201)
+      .json({ rule: await ticketRules.create(req.params.projectId, req.body) }),
+  );
+  router.put(`${rules}/:ruleId`, async (req, res) =>
+    res.json({
+      rule: await ticketRules.update(req.params.projectId, req.params.ruleId, req.body),
+    }),
+  );
+  router.delete(`${rules}/:ruleId`, (req, res) => {
+    ticketRules.remove(req.params.projectId, req.params.ruleId);
+    res.status(204).end();
+  });
   return router;
 }

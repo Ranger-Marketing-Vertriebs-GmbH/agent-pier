@@ -6,6 +6,7 @@ import { readFileLimits } from "../features/files/file-limits.js";
 import { normalizeNetworkConfig } from "./network-config.js";
 import { pipelineTiming } from "../features/pipelines/pipeline-timing.js";
 import { pipelinePorts } from "../features/pipelines/run-ports.js";
+import { ticketRuleTiming } from "../features/tickets/rule-monitor.js";
 import { devOrigins } from "./dev-ports.js";
 export const projectDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -36,6 +37,7 @@ export function loadConfig() {
       ...pipelineTiming(saved.pipelines),
       ...pipelinePorts(saved.pipelines),
     },
+    ticketRules: ticketRuleTiming(saved.ticketRules),
     // Exactly the origin vite.config.js serves on, derived from the same variables.
     devOrigins: process.env.AGENTPIER_DEV === "1" ? devOrigins() : [],
   };

@@ -12,8 +12,15 @@ import { githubApiBase } from "../repositories/github-token-check.js";
 import { parseGithubRemote } from "./sources/github.js";
 import { TicketStore } from "./ticket-store.js";
 import { canonicalKey, startInput } from "./ticket-start-input.js";
-import { ticketConnectionsChanged, ticketsProjectChanged } from "./live-topics.js";
+import {
+  ticketConnectionsChanged,
+  ticketRulesChanged,
+  ticketsProjectChanged,
+} from "./live-topics.js";
 import { createTicketSequenceServices } from "./sequence-service.js";
+import { TicketRuleStore } from "./rule-store.js";
+import { TicketRuleMonitor, ticketRuleTiming } from "./rule-monitor.js";
+import { TicketRuleService } from "./rule-service.js";
 
 const copy = serverMessages.tickets;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -469,5 +476,46 @@ export function createTicketServices(services) {
   });
   // The GitHub source of every project view reads the repository credentials.
   services.repositories.onChange = () => services.live?.invalidate("tickets.project");
-  return { ticketStore, tickets, ...createTicketSequenceServices(services, { tickets }) };
+  const ticketRuleStore = new TicketRuleStore({
+    dataDir: config.dataDir,
+    log: (line) => console.error(`AgentPier ${line}`),
+    onChange: (projectId) => ticketRulesChanged(services.live, projectId),
+  });
+  const sequences = createTicketSequenceServices(services, {
+    tickets,
+    rules: ticketRuleStore,
+  });
+  const { ticketSequenceStore, ticketSequences } = sequences;
+  tickets.taken = (projectId, source, key) =>
+    ticketSequenceStore.contains(projectId, source, key) === "active"
+      ? "queued"
+      : ticketRuleStore.picked(projectId, source, key)
+        ? "picked"
+        : null;
+  // Fixtures override the timing, e.g. `{ intervalMs: 0 }` turns rule polling off.
+  const ticketRuleMonitor = new TicketRuleMonitor({
+    rules: ticketRuleStore,
+    tickets,
+    sequences: ticketSequences,
+    notifications: services.notifications,
+    ...ticketRuleTiming(),
+    ...config.ticketRules,
+    onError: (error) =>
+      console.error(
+        `AgentPier could not poll the label rules: ${error?.code || "unknown error"}`,
+      ),
+  });
+  const ticketRules = new TicketRuleService({
+    rules: ticketRuleStore,
+    tickets,
+    monitor: ticketRuleMonitor,
+  });
+  return {
+    ticketStore,
+    tickets,
+    ...sequences,
+    ticketRuleStore,
+    ticketRules,
+    ticketRuleMonitor,
+  };
 }

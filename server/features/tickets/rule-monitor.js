@@ -3,6 +3,22 @@ import { TicketSourceError } from "./http-json.js";
 import { GITHUB_KEY, canonicalKey } from "./ticket-start-input.js";
 import { labelKey } from "./ticket.js";
 
+const DEFAULT_INTERVAL_MS = 10 * 60 * 1000;
+
+/**
+ * The poll interval of config.json `"ticketRules": { "intervalMinutes": 10 }`: an
+ * integer from 1 to 1440 minutes, else the default of 10. Applies at the next start.
+ */
+export function ticketRuleTiming(saved) {
+  const minutes = saved?.intervalMinutes;
+  return {
+    intervalMs:
+      Number.isInteger(minutes) && minutes >= 1 && minutes <= 1440
+        ? minutes * 60_000
+        : DEFAULT_INTERVAL_MS,
+  };
+}
+
 // The failure codes a source read can end in; anything else counts as unavailable.
 const SOURCE_CODES = new Set([
   "unauthorized",
@@ -33,7 +49,7 @@ export class TicketRuleMonitor {
     tickets,
     sequences,
     notifications,
-    intervalMs = 10 * 60 * 1000,
+    intervalMs = DEFAULT_INTERVAL_MS,
     initialDelayMs = 30 * 1000,
     now = Date.now,
     onError = () => {},

@@ -53,6 +53,7 @@ import { projectGroupsChangedTopic } from "../features/projects/live-topics.js";
 import { viewsTopic } from "../features/views/live-topics.js";
 import {
   ticketConnectionsTopic,
+  ticketRulesTopic,
   ticketsProjectTopic,
   ticketsQueueTopic,
 } from "../features/tickets/live-topics.js";
@@ -124,6 +125,7 @@ export function createLiveHub(services, options = {}) {
   hub.define(ticketsProjectTopic(services));
   hub.define(ticketConnectionsTopic(services));
   hub.define(ticketsQueueTopic(services));
+  hub.define(ticketRulesTopic(services));
   hub.define(accountAuthTopic(services));
   followAccountWrites(services, hub);
   // A restricted user's own topics, each scoped to her (route-access.js userTopics).

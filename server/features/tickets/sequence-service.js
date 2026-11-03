@@ -424,7 +424,7 @@ export class TicketSequenceService {
  * The sequence store, worktrees, engine and service of the application. The run queue,
  * pipelines and launch bind late: they exist only after createServices returns.
  */
-export function createTicketSequenceServices(services, { tickets }) {
+export function createTicketSequenceServices(services, { tickets, rules }) {
   const { config } = services;
   const ticketSequenceStore = new TicketSequenceStore({
     dataDir: config.dataDir,
@@ -462,6 +462,7 @@ export function createTicketSequenceServices(services, { tickets }) {
     tickets,
     sessions,
     worktrees: ticketWorktrees,
+    rules,
   });
   return { ticketSequenceStore, ticketWorktrees, ticketSequenceEngine, ticketSequences };
 }

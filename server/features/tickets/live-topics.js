@@ -7,6 +7,9 @@
 // `tickets.queue:<projectId>` is the value GET /api/tickets/projects/:projectId/queue
 // answers: the project's ticket sequence. The sequence store signals it after every
 // saved change, whoever wrote it (the engine, an owner action, a rule).
+// `tickets.rules:<projectId>` is the value GET /api/tickets/projects/:projectId/rules
+// answers: the project's label rules with their poll status. The rule store signals it
+// after every saved change: an owner edit, a pass's status write, a pickup.
 
 const PROJECT_PARAM = /^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$/;
 const owner = (principal) => principal?.role === "owner";
@@ -46,6 +49,18 @@ export function ticketsQueueTopic(services) {
   };
 }
 
+/** The `tickets.rules` topic definition for LiveHub#define. */
+export function ticketRulesTopic(services) {
+  return {
+    name: "tickets.rules",
+    mode: "state",
+    param: PROJECT_PARAM,
+    authorize: owner,
+    scopeKey: () => "owner",
+    read: (_principal, projectId) => services.ticketRules.view(projectId),
+  };
+}
+
 /** Signals the topic of `projectId` on `hub` (services.live, absent until it exists). */
 export function ticketsProjectChanged(hub, projectId) {
   if (typeof projectId === "string") hub?.invalidate("tickets.project", projectId);
@@ -60,4 +75,9 @@ export function ticketConnectionsChanged(hub) {
 /** Signals the ticket sequence queue topic of `projectId` on `hub`. */
 export function ticketQueueChanged(hub, projectId) {
   if (typeof projectId === "string") hub?.invalidate("tickets.queue", projectId);
+}
+
+/** Signals the label rules topic of `projectId` on `hub`. */
+export function ticketRulesChanged(hub, projectId) {
+  if (typeof projectId === "string") hub?.invalidate("tickets.rules", projectId);
 }
