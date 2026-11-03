@@ -27,7 +27,10 @@ test("required checks decide when present", () => {
   assert.equal(both.checks, "failed");
   assert.deepEqual(both.failed, ["build"]);
   const optional = prVerdict(
-    snapshot({ checks: [check("build", "success", true), check("lint", "failure")] }),
+    snapshot({
+      checks: [check("build", "success", true), check("lint", "failure")],
+      mergeStateStatus: "UNSTABLE",
+    }),
   );
   assert.equal(optional.checks, "passed");
   assert.deepEqual(optional.failed, []);
@@ -65,6 +68,30 @@ test("no checks at all counts as passed", () => {
   assert.equal(verdict.headSha, "a".repeat(40));
 });
 
+test("UNSTABLE is merge-ready when every required check passed", () => {
+  const unstable = (checks, extra = {}) =>
+    prVerdict(snapshot({ mergeStateStatus: "UNSTABLE", checks, ...extra }));
+  assert.equal(
+    unstable([check("build", "success", true), check("lint", "failure")]).mergeReady,
+    true,
+  );
+  assert.equal(
+    unstable([check("build", "success", true), check("e2e", "pending")]).mergeReady,
+    true,
+  );
+  assert.equal(
+    unstable([check("build", "pending", true), check("lint", "failure")]).mergeReady,
+    false,
+  );
+  // Without required checks every check counts, so a red one still blocks.
+  assert.equal(unstable([check("lint", "failure")]).mergeReady, false);
+  assert.equal(
+    unstable([check("build", "success", true)], { reviewDecision: "CHANGES_REQUESTED" })
+      .mergeReady,
+    false,
+  );
+});
+
 test("CHANGES_REQUESTED blocks mergeReady even with green checks", () => {
   const verdict = prVerdict(
     snapshot({
@@ -86,10 +113,10 @@ test("REVIEW_REQUIRED sets reviewBlocks", () => {
   assert.equal(prVerdict(snapshot({ reviewDecision: "APPROVED" })).reviewBlocks, false);
 });
 
-test("mergeReady needs CLEAN or HAS_HOOKS", () => {
-  for (const status of ["CLEAN", "HAS_HOOKS"])
+test("mergeReady needs CLEAN, HAS_HOOKS or UNSTABLE", () => {
+  for (const status of ["CLEAN", "HAS_HOOKS", "UNSTABLE"])
     assert.equal(prVerdict(snapshot({ mergeStateStatus: status })).mergeReady, true);
-  for (const status of ["BLOCKED", "UNSTABLE", "BEHIND", "DIRTY", "UNKNOWN", null])
+  for (const status of ["BLOCKED", "BEHIND", "DIRTY", "UNKNOWN", "DRAFT", null])
     assert.equal(prVerdict(snapshot({ mergeStateStatus: status })).mergeReady, false);
 });
 
@@ -118,13 +145,34 @@ test("branchMatchesKey uses separators as boundaries", () => {
   assert.equal(branchMatchesKey(undefined, github), false);
 });
 
+test("branchMatchesKey rejects version, release and bot branches", () => {
+  const github = { source: "github", key: "acme/app#12" };
+  for (const branch of [
+    "dependabot/npm_and_yarn/lodash-4.17.12",
+    "renovate/node-12.x",
+    "release/12",
+    "releases/12-final",
+    "fix-12",
+    "v1.12",
+    "a.12",
+    "12.x",
+    "revert-12-ticket/12-fix",
+  ])
+    assert.equal(branchMatchesKey(branch, github), false, branch);
+  assert.equal(branchMatchesKey("Ticket/12-Fix", github), true);
+  const plane = { source: "plane", key: "AP-1" };
+  assert.equal(branchMatchesKey("ticket/ap-12-x", plane), false);
+  assert.equal(branchMatchesKey("ticket/ap-1-x", plane), true);
+  assert.equal(branchMatchesKey("ticket/ap-1.2", plane), false);
+});
+
 test("branchMatchesKey never matches a longer number", () => {
   fc.assert(
     fc.property(
       fc.integer({ min: 1, max: 99999 }),
       fc.integer({ min: 0, max: 9 }),
-      fc.constantFrom("", "ticket/", "fix-", "a."),
-      fc.constantFrom("", "-x", "/y", "_z"),
+      fc.constantFrom("", "ticket/", "feature/x/"),
+      fc.constantFrom("", "-x", "_z", "-y.z"),
       (number, digit, prefix, suffix) => {
         const ticket = { source: "github", key: `acme/app#${number}` };
         assert.equal(branchMatchesKey(`${prefix}${number}${suffix}`, ticket), true);
