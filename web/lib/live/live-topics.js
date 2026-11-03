@@ -54,6 +54,12 @@ export const liveTopics = Object.freeze({
     path: under("/tickets/projects"),
     interval: 30000,
   }),
+  // The project's ticket sequence, pushed after every saved change of the queue.
+  "tickets.queue": Object.freeze({
+    mode: "state",
+    path: (id) => `/tickets/projects/${encodeURIComponent(id)}/queue`,
+    interval: 30000,
+  }),
   "pipeline.run": Object.freeze({
     mode: "state",
     path: under("/pipeline-runs"),
