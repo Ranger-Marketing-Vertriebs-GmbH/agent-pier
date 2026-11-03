@@ -640,14 +640,15 @@ longer exists, or the tracker's own failure (credentials rejected, not found, ra
 limited, unreachable). The rule's status holds only a failure code and its start,
 never a token, URL or ticket text. The next successful pass clears the error.
 
-The first failure of each kind sends a push notification of the kind **A label rule
-cannot read its tickets** (group **Problems**, on by default; see
-[Notifications](notifications.md)). It names neither the rule nor the ticket, and a tap
-opens the project's Tickets tab. A source that stays down for many passes notifies
-once, and failures that alternate between kinds notify once per kind; a failure of a
-kind not yet sent, or of any kind after a successful pass, notifies again. These notices group per project apart from **A ticket sequence waits
-for you**, so neither replaces the other on a device. They go to the owner's devices
-only.
+A failure sends a push notification of the kind **A label rule needs attention**
+(group **Problems**, on by default; see [Notifications](notifications.md)). It names
+neither the rule nor the ticket, and a tap opens the project's Tickets tab. Pushes are
+grouped per project and source: while rules of one source in a project fail, the
+first failure pushes once, and further failing rules of that source, other error kinds
+and a source that stays down for many passes send nothing more. Once every rule of
+that source has had a successful pass, the next failure notifies again. These notices
+group per project apart from **A ticket sequence waits for you**, so neither replaces
+the other on a device. They go to the owner's devices only.
 
 ### Interval
 

@@ -172,7 +172,7 @@ test("a repo without GitHub access sets notConnected for every rule", async (t) 
   assert.equal(f.listCalls().plane, 0);
 });
 
-test("unreachable source sets the code on the rule and pushes once per error kind until it clears", async (t) => {
+test("unreachable source sets the code on the rule and pushes once until it clears", async (t) => {
   const f = await ruleMonitorFixture(t, { issues: [labelledIssue(1, "agent")] });
   const rule = f.rules.create("p1", ruleInput());
   const monitor = f.monitor();
@@ -204,17 +204,18 @@ test("unreachable source sets the code on the rule and pushes once per error kin
   await monitor.run();
   assert.equal(f.notified.length, 2);
   assert.notEqual(f.notified[1].eventId, f.notified[0].eventId);
-  // Another kind pushes once too.
+  // Another kind while it still fails joins the episode without a push.
   f.net.down = false;
   f.githubFailures["GET /repos/acme/app/issues"] = 401;
   await monitor.run();
   await monitor.run();
-  assert.equal(f.notified.length, 3);
+  assert.equal(f.notified.length, 2);
   assert.equal(f.status(rule.id).error.code, "unauthorized");
+  assert.deepEqual(f.status(rule.id).notified, ["unreachable", "unauthorized"]);
   for (const line of f.logs) assert.doesNotMatch(line, /gh-token|http|acme/);
 });
 
-test("error codes that alternate push once each until a successful pass", async (t) => {
+test("error codes that alternate push once until a successful pass", async (t) => {
   const f = await ruleMonitorFixture(t, { issues: [labelledIssue(1, "agent")] });
   const rule = f.rules.create("p1", ruleInput());
   const monitor = f.monitor();
@@ -227,13 +228,48 @@ test("error codes that alternate push once each until a successful pass", async 
   };
   for (const code of ["unavailable", "unreachable", "unavailable", "unreachable"])
     await flip(code);
-  assert.equal(f.notified.length, 2);
+  assert.equal(f.notified.length, 1);
   assert.deepEqual(f.status(rule.id).notified, ["unavailable", "unreachable"]);
   f.net.down = false;
   delete f.githubFailures["GET /repos/acme/app/issues"];
   await monitor.run();
   assert.equal(f.status(rule.id).notified, null);
   await flip("unavailable");
+  assert.equal(f.notified.length, 2);
+});
+
+test("failing rules push once per project and source, not per rule", async (t) => {
+  const f = await ruleMonitorFixture(t, {
+    issues: [labelledIssue(1, "agent")],
+    githubLabels: ["agent"],
+  });
+  await f.linkPlane();
+  const agent = f.rules.create("p1", ruleInput());
+  // Two more GitHub rules whose labels are gone, and a failing Plane rule.
+  const gone = f.rules.create("p1", ruleInput({ label: "gone" }));
+  const other = f.rules.create("p1", ruleInput({ label: "other" }));
+  const plane = f.rules.create("p1", ruleInput({ source: "plane", label: "none" }));
+  const monitor = f.monitor();
+  await monitor.run();
+  assert.equal(f.status(agent.id).error, null);
+  for (const id of [gone.id, other.id, plane.id])
+    assert.equal(f.status(id).error.code, "labelGone");
+  // One for GitHub, one for Plane.
+  assert.equal(f.notified.length, 2);
+  assert.equal(new Set(f.notified.map((n) => n.eventId)).size, 2);
+  await monitor.run();
+  assert.equal(f.notified.length, 2);
+  // While one GitHub rule still fails, the other's recovery and relapse stay silent.
+  f.rules.remove("p1", other.id);
+  f.rules.create("p1", ruleInput({ label: "other" }));
+  await monitor.run();
+  assert.equal(f.notified.length, 2);
+  // Once every GitHub rule recovers, the next failure pushes again.
+  for (const rule of f.rules.rules("p1").filter((r) => r.source === "github"))
+    if (rule.label !== "agent") f.rules.remove("p1", rule.id);
+  await monitor.run();
+  f.rules.create("p1", ruleInput({ label: "gone" }));
+  await monitor.run();
   assert.equal(f.notified.length, 3);
 });
 

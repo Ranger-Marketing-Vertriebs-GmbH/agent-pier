@@ -39,9 +39,10 @@ const number = (key) => Number(/(\d+)$/.exec(key)?.[1] ?? 0);
 /**
  * Polls the label rules of every project and appends each newly labelled ticket to the
  * project's ticket sequence. A pass reads GitHub once per rule label (GitHub filters by
- * label) and Plane once per project for all its rules, and hands the matches to TicketSequenceService.appendFromRule, which
- * dedupes them. A failure is shown on the rule (a code only) and notifies the owner
- * once per error kind until a successful pass clears the kinds already pushed.
+ * label) and Plane once per project for all its rules, and hands the matches to
+ * TicketSequenceService.appendFromRule, which dedupes them. A failure is shown on the
+ * rule (a code only) and notifies the owner once per project and source while its
+ * rules of that source fail (see fail).
  */
 export class TicketRuleMonitor {
   constructor({
@@ -234,18 +235,28 @@ export class TicketRuleMonitor {
     const same = status.error?.code === code;
     const since = same ? status.error.since : this.now();
     if (!same) this.log(`AgentPier could not poll a label rule: ${code}`);
-    // Every code pushed since the last successful pass, so codes that alternate (a
-    // tracker flipping between 5xx and timeouts) push once each, not on every pass.
+    // `notified`: the codes this rule failed with since its last successful pass while
+    // its project's rules of the same source had pushed. One push per project and
+    // source while they fail: a second failing rule, or another error kind, joins the
+    // episode silently, and it ends once none of them holds a `notified` any more.
     const pushed = status.notified ?? [];
     const next = {
       checkedAt: this.now(),
       error: { code, since },
-      notified: pushed,
+      notified: pushed.includes(code) ? pushed : [...pushed, code],
     };
-    if (!pushed.includes(code)) {
-      // One notice per rule, error kind and episode.
+    const episode = this.rules
+      .allRules()
+      .some(
+        (other) =>
+          other.projectId === rule.projectId &&
+          other.source === before.source &&
+          !other.paused &&
+          other.status.notified?.length,
+      );
+    if (!episode) {
       const eventId = createHash("sha256")
-        .update(`ticket-rule:${rule.id}:${code}:${since}`)
+        .update(`ticket-rules:${rule.projectId}:${before.source}:${since}`)
         .digest("hex")
         .slice(0, 64);
       try {
@@ -257,7 +268,6 @@ export class TicketRuleMonitor {
       } catch (error) {
         this.onError(error);
       }
-      next.notified = [...pushed, code];
       // An owner edit during the push that deleted, paused or moved the rule reset its
       // status: the old error must not come back over it.
       const after = this.rules.rule(rule.projectId, rule.id);
