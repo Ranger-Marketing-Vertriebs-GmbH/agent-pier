@@ -142,7 +142,6 @@ test("every file allowed to mention a config root still does", () => {
 // branches, so lower or remove its entry in the change that removed the branch.
 const BRANCH_BUDGET = {
   "server/features/accounts/account-store.js": 1,
-  "server/features/agentbus/agent-bus.js": 4,
   "server/features/agentbus/agentbus-broker.js": 4,
   "server/features/chat/chat-source-watch.js": 1,
   "server/features/chat/context-window.js": 1,
@@ -160,8 +159,6 @@ const BRANCH_BUDGET = {
   "server/features/requests/codex-hook-trust.js": 1,
   "server/features/requests/request-approvals.js": 1,
   "server/features/requests/request-broker.js": 4,
-  "server/features/secrets/session-secrets.js": 1,
-  "server/features/sessions/native-session-binding.js": 8,
   "server/features/sessions/native-session-process.js": 3,
   "server/features/sessions/session-chat-input.js": 1,
   "server/features/sessions/session-slash-command.js": 1,

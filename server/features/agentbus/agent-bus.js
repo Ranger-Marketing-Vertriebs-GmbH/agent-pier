@@ -1,10 +1,6 @@
 import { AgentBusBroker } from "./agentbus-broker.js";
 import { serverMessages } from "../../lib/i18n/de.js";
-import { codexHookCommand } from "../../lib/codex-hook-command.js";
-import {
-  shellQuote as quote,
-  tomlValue as toml,
-} from "../../lib/launch-serialization.js";
+import { shellQuote as quote } from "../../lib/launch-serialization.js";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -129,44 +125,27 @@ export class AgentBus {
       ),
     };
     Object.assign(env, bridgeEnv);
-    const hooks = Object.fromEntries(
-      ["SessionStart", "UserPromptSubmit", "SessionEnd"].map((event) => [
-        event,
-        [
-          {
-            hooks: [
-              {
-                type: "command",
-                command:
-                  selected.tool === "codex"
-                    ? codexHookCommand(env, "AGENTBUS", hook, [event])
-                    : [process.execPath, hook, event].map(quote).join(" "),
-                timeout: event === "SessionEnd" ? 3 : 10,
-              },
-            ],
-          },
-        ],
-      ]),
-    );
     const server = {
       name: "agentpier_agentbus",
       command: process.execPath,
       args: [mcp],
       env: bridgeEnv,
     };
-    if (selected.tool === "codex") {
-      cliDriver("codex").addMcpServer({ args, env }, server);
-      // Codex loads hooks independently from each active config layer. The session layer
-      // adds these definitions; it does not replace user/project hooks or their trust.
-      for (const [event, definitions] of Object.entries(hooks))
-        args.push("-c", `hooks.${event}=${toml(definitions)}`);
-    } else if (selected.tool === "claude") {
-      const plugin = path.join(home, "adapters", id);
-      ensureDir(path.join(plugin, ".claude-plugin"));
-      ensureDir(path.join(plugin, "hooks"));
-      writeJsonAtomic(path.join(plugin, "hooks/hooks.json"), { hooks });
-      cliDriver("claude").addMcpServer({ args, env }, server, {
-        pluginFolder: () => plugin,
+    const driver = cliDriver(selected.tool);
+    if (!driver.addSessionHooks) throw problem(serverMessages.common.unknownCliTool);
+    const plugin = path.join(home, "adapters", id);
+    driver.addSessionHooks(
+      { args, env },
+      {
+        name: "AGENTBUS",
+        script: hook,
+        events: { SessionStart: 10, UserPromptSubmit: 10, SessionEnd: 3 },
+        server,
+        pluginFolder: () => {
+          ensureDir(path.join(plugin, ".claude-plugin"));
+          ensureDir(path.join(plugin, "hooks"));
+          return plugin;
+        },
         manifest: {
           name: "agentpier-agentbus",
           version: "1.0.0",
@@ -174,25 +153,11 @@ export class AgentBus {
           license: "MIT",
         },
         write: writeJsonAtomic,
-      });
-    } else if (selected.tool === "opencode") {
-      let config = {};
-      try {
-        if (env.OPENCODE_CONFIG_CONTENT) config = JSON.parse(env.OPENCODE_CONFIG_CONTENT);
-      } catch {
-        throw problem(serverMessages.common.invalidTemporaryOpenCodeConfig, 409);
-      }
-      if (
-        !config ||
-        typeof config !== "object" ||
-        Array.isArray(config) ||
-        (config.plugin !== undefined && !Array.isArray(config.plugin))
-      )
-        throw problem(serverMessages.common.invalidTemporaryOpenCodeConfig, 409);
-      const plugin = pathToFileURL(path.join(adapters, "agentbus-opencode.js")).href;
-      config.plugin = [...(config.plugin || []), plugin];
-      env.OPENCODE_CONFIG_CONTENT = JSON.stringify(config);
-    } else throw problem(serverMessages.common.unknownCliTool);
+        pluginUrl: pathToFileURL(path.join(adapters, "agentbus-opencode.js")).href,
+        invalid: () => problem(serverMessages.common.invalidTemporaryOpenCodeConfig, 409),
+        quote,
+      },
+    );
     this.accounts.get(selected.id);
     if (replace) this.broker.revoke(id);
     try {

@@ -39,6 +39,34 @@ export function addReminder(launch, { name, script, invalid }) {
   }
 }
 
+/**
+ * Adds a session integration: its MCP `server` (when given), then one `-c
+ * hooks.<event>=` override per event of `events` ({ [event]: timeoutSeconds }), each
+ * running `script` with the event name under the managed hook `name`. Codex loads
+ * hooks independently from each active config layer, so these definitions do not
+ * replace user/project hooks or their trust.
+ */
+export function addSessionHooks(launch, { name, script, events, server }) {
+  const { args, env } = launch;
+  const hooks = Object.entries(events).map(([event, timeout]) => [
+    event,
+    [
+      {
+        hooks: [
+          {
+            type: "command",
+            command: codexHookCommand(env, name, script, [event]),
+            timeout,
+          },
+        ],
+      },
+    ],
+  ]);
+  if (server) addMcpServer(launch, server);
+  for (const [event, definitions] of hooks)
+    args.push("-c", `hooks.${event}=${tomlValue(definitions)}`);
+}
+
 /** Names of the MCP servers the launch environment already holds inline: none. */
 export function inlineMcpNames() {
   return [];

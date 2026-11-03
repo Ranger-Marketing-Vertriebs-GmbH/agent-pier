@@ -29,6 +29,48 @@ export function addMcpServer(
 }
 
 /**
+ * Adds a session integration as a plugin: `hooks/hooks.json` in the folder
+ * `pluginFolder()` returns (it creates `hooks/` and `.claude-plugin/`), one hook per
+ * event of `events` ({ [event]: timeoutSeconds }) running `script` with the event name,
+ * then the MCP `server` with its `manifest` (addMcpServer). `write(file, value)` and
+ * `quote(value)` come from the caller.
+ */
+export function addSessionHooks(
+  launch,
+  { script, events, server, pluginFolder, manifest, write, quote },
+) {
+  const hooks = Object.fromEntries(
+    Object.entries(events).map(([event, timeout]) => [
+      event,
+      [
+        {
+          hooks: [
+            {
+              type: "command",
+              command: [process.execPath, script, event].map(quote).join(" "),
+              timeout,
+            },
+          ],
+        },
+      ],
+    ]),
+  );
+  write(path.join(pluginFolder(), "hooks/hooks.json"), { hooks });
+  addMcpServer(launch, server, { pluginFolder, manifest, write });
+}
+
+/**
+ * Writes the plugin `manifest` into `folder` with `write(file, value)` and passes the
+ * folder to Claude Code, so a later start hook (addReminder) has a plugin to live in.
+ * Returns the folder.
+ */
+export function addPluginFolder(launch, { folder, manifest, write }) {
+  write(path.join(folder, ".claude-plugin", "plugin.json"), manifest);
+  launch.args.push("--plugin-dir", folder);
+  return folder;
+}
+
+/**
  * Adds the hook to SessionStart in `folder/hooks/hooks.json` of a plugin the launch
  * already passes, keeping the hooks the file holds. `invalid()` builds the error for a
  * file that is not a hook configuration.

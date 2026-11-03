@@ -51,6 +51,31 @@ export function addReminder(launch, { pluginUrl, invalid }) {
   launch.env.OPENCODE_CONFIG_CONTENT = JSON.stringify(config);
 }
 
+/**
+ * Adds a session integration: appends the `pluginUrl` module URL to the configuration's
+ * plugins (the plugin bridges hooks and tools itself, so `events` and `server` are not
+ * used). `invalid()` builds the error for a configuration or plugin list that is not
+ * valid.
+ */
+export function addSessionHooks(launch, { pluginUrl, invalid }) {
+  const { env } = launch;
+  let config = {};
+  try {
+    if (env.OPENCODE_CONFIG_CONTENT) config = JSON.parse(env.OPENCODE_CONFIG_CONTENT);
+  } catch {
+    throw invalid();
+  }
+  if (
+    !config ||
+    typeof config !== "object" ||
+    Array.isArray(config) ||
+    (config.plugin !== undefined && !Array.isArray(config.plugin))
+  )
+    throw invalid();
+  config.plugin = [...(config.plugin || []), pluginUrl];
+  env.OPENCODE_CONFIG_CONTENT = JSON.stringify(config);
+}
+
 /** Names of the MCP servers the inline configuration holds; throws when it is invalid. */
 export function inlineMcpNames(env) {
   return Object.keys(inlineConfig(env).mcp || {});
