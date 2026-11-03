@@ -1,8 +1,9 @@
 import http from "node:http";
 
 // Fake GitHub issues API on 127.0.0.1. `issues` are raw GitHub issue objects;
-// `failures` maps "METHOD /path" (query ignored) to an HTTP status.
-export async function fakeGithub(t, { issues = [], failures = {} } = {}) {
+// `failures` maps "METHOD /path" (query ignored) to an HTTP status; `labels` (names)
+// serves GET /repos/:o/:r/labels/:name case-insensitively.
+export async function fakeGithub(t, { issues = [], failures = {}, labels = [] } = {}) {
   const calls = [];
   const server = http.createServer((req, res) => {
     const chunks = [];
@@ -31,6 +32,12 @@ export async function fakeGithub(t, { issues = [], failures = {} } = {}) {
           .filter((issue) => issue.state !== "closed")
           .filter((issue) => !label || issue.labels?.some((l) => l.name === label));
         return send(200, open.slice((page - 1) * size, page * size));
+      }
+      const label = /^\/repos\/[^/]+\/[^/]+\/labels\/([^/]+)$/.exec(url.pathname);
+      if (req.method === "GET" && label) {
+        const name = decodeURIComponent(label[1]);
+        const found = labels.find((item) => item.toLowerCase() === name.toLowerCase());
+        return found ? send(200, { name: found }) : send(404, { message: "Not Found" });
       }
       const one = /^\/repos\/([^/]+)\/([^/]+)\/issues\/(\d+)$/.exec(url.pathname);
       if (req.method === "GET" && one) {

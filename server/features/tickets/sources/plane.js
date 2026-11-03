@@ -1,4 +1,4 @@
-import { cleanTicket, htmlToText, httpUrl } from "../ticket.js";
+import { cleanTicket, htmlToText, httpUrl, labelKey } from "../ticket.js";
 import { requestJson, TicketSourceError } from "../http-json.js";
 
 const PAGE_SIZE = 100;
@@ -131,6 +131,11 @@ export const planeSource = {
     );
     const tickets = label ? open.filter((ticket) => ticket.labels.includes(label)) : open;
     return { tickets, labels };
+  },
+  async hasLabel(access, label, { signal } = {}) {
+    const wanted = labelKey(label);
+    const names = await readLabelNames(access, signal);
+    return [...names.values()].some((name) => labelKey(name) === wanted);
   },
   async get(access, key, { signal } = {}) {
     const match = KEY.exec(String(key ?? ""));
