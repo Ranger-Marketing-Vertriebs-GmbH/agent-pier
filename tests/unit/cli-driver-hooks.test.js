@@ -10,6 +10,10 @@ import { CODING_CLI_IDS, cliDefinition } from "../../server/features/clis/catalo
 import { cliDriver } from "../../server/features/clis/drivers.js";
 import { documents } from "../../server/features/cli-profiles/configuration.js";
 import { assetDirectories } from "../../server/features/cli-profiles/assets.js";
+import {
+  centralFromNative,
+  cliEntry,
+} from "../../server/features/mcp-servers/cli-native.js";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const DRIVERS = path.join(ROOT, "server/features/clis/drivers.js");
@@ -125,5 +129,43 @@ test("native folders and config formats per CLI", () => {
   assert.deepEqual(
     CODING_CLI_IDS.map((id) => cliDefinition(id).configFormat),
     ["toml", "json", "jsonc"],
+  );
+});
+
+test("mcp codec member shape", () => {
+  const timeouts = {
+    codex: {
+      startup_timeout_sec: { field: "startupTimeoutSec", scale: 1 },
+      tool_timeout_sec: { field: "toolTimeoutSec", scale: 1 },
+    },
+    claude: { timeout: { field: "toolTimeoutSec", scale: 1000 } },
+    opencode: { timeout: { field: "toolTimeoutSec", scale: 1000 } },
+  };
+  for (const id of CODING_CLI_IDS) {
+    const { mcp } = cliDriver(id);
+    assert.equal(typeof mcp.toNative, "function");
+    assert.equal(typeof mcp.fromNative, "function");
+    assert.deepEqual(mcp.timeouts, timeouts[id]);
+    assert.deepEqual(Object.keys(mcp.timeouts), Object.keys(timeouts[id]));
+    assert.equal(mcp.remoteSseAsHttp, id === "opencode");
+    assert.equal(mcp.keepsOAuthScope, id === "claude");
+    assert.ok(Object.isFrozen(mcp));
+    assertFrozenDeep(mcp, `${id}.mcp`);
+  }
+});
+
+test("an unknown CLI has no MCP codec", () => {
+  assert.deepEqual(centralFromNative("gemini", { type: "remote", url: "https://x" }), {
+    ok: false,
+    reason: "invalid",
+  });
+  assert.throws(
+    () =>
+      cliEntry(
+        "gemini",
+        { transport: "http", url: "https://x/mcp" },
+        { headers: {}, env: {} },
+      ),
+    TypeError,
   );
 });

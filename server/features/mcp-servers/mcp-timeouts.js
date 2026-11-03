@@ -1,5 +1,6 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
+import { cliDriver } from "../clis/drivers.js";
 
 /**
  * Optional per-server timeouts in whole seconds (docs/mcp.md, "Timeouts"). Startup:
@@ -56,19 +57,16 @@ export const publicTimeouts = (definition) =>
  * included); it carries the tool timeout. Neither has a per-server startup timeout.
  */
 export function nativeTimeouts(cli, definition) {
-  const startup = definition.startupTimeoutSec ?? null;
-  const tool = definition.toolTimeoutSec ?? null;
-  if (cli === "codex")
-    return {
-      ...(startup !== null ? { startup_timeout_sec: startup } : {}),
-      ...(tool !== null ? { tool_timeout_sec: tool } : {}),
-    };
-  return tool !== null ? { timeout: tool * 1000 } : {};
+  return Object.fromEntries(
+    Object.entries(cliDriver(cli).mcp.timeouts).flatMap(([key, { field, scale }]) => {
+      const value = definition[field] ?? null;
+      return value !== null ? [[key, value * scale]] : [];
+    }),
+  );
 }
 
 /** The native timeout keys of `cli`, read by `timeoutsFromNative`. */
-export const nativeTimeoutKeys = (cli) =>
-  cli === "codex" ? ["startup_timeout_sec", "tool_timeout_sec"] : ["timeout"];
+export const nativeTimeoutKeys = (cli) => Object.keys(cliDriver(cli).mcp.timeouts);
 
 /**
  * The central timeouts of a native entry, `{ values }`, or `{ key }` naming the first
@@ -76,19 +74,12 @@ export const nativeTimeoutKeys = (cli) =>
  */
 export function timeoutsFromNative(cli, entry) {
   const values = { startupTimeoutSec: null, toolTimeoutSec: null };
-  const read = (key, field, scale) => {
-    if (entry[key] === undefined) return true;
+  for (const [key, { field, scale }] of Object.entries(cliDriver(cli).mcp.timeouts)) {
+    if (entry[key] === undefined) continue;
     const value = typeof entry[key] === "number" ? entry[key] / scale : NaN;
-    if (!within(field, value)) return false;
+    if (!within(field, value)) return { key };
     values[field] = value;
-    return true;
-  };
-  if (cli === "codex") {
-    if (!read("startup_timeout_sec", "startupTimeoutSec", 1))
-      return { key: "startup_timeout_sec" };
-    if (!read("tool_timeout_sec", "toolTimeoutSec", 1))
-      return { key: "tool_timeout_sec" };
-  } else if (!read("timeout", "toolTimeoutSec", 1000)) return { key: "timeout" };
+  }
   return { values };
 }
 

@@ -25,6 +25,9 @@ import * as opencodePlugins from "./opencode/plugins.js";
 import * as codexFiles from "./codex/profile-files.js";
 import * as claudeFiles from "./claude/profile-files.js";
 import * as opencodeFiles from "./opencode/profile-files.js";
+import * as codexMcp from "./codex/mcp.js";
+import * as claudeMcp from "./claude/mcp.js";
+import * as opencodeMcp from "./opencode/mcp.js";
 
 const profiles = { codex, claude, opencode };
 const sessions = {
@@ -50,6 +53,7 @@ const pipelines = {
 };
 const plugins = { codex: codexPlugins, claude: claudePlugins, opencode: opencodePlugins };
 const profileFiles = { codex: codexFiles, claude: claudeFiles, opencode: opencodeFiles };
+const mcps = { codex: codexMcp, claude: claudeMcp, opencode: opencodeMcp };
 // Freezes plain objects and arrays; regular expressions stay as they are.
 const frozen = (value) => {
   if (Array.isArray(value)) return Object.freeze(value.map(frozen));
@@ -112,6 +116,12 @@ const drivers = new Map();
  *   plugins).
  * profileFiles: { roots, credentials, backupAllowlist, configFiles, sharedDocuments,
  *   extensions, assetDirectories, nativeFolder } (see `codex/profile-files.js`).
+ * mcp: the CLI's native MCP entry (see `<id>/mcp.js`). toNative(entry): the native
+ *   entry of a central server; fromNative(entry, shape): the central fields of a native
+ *   entry, with the parse helpers `shape = { stdio, remote, extra, strings,
+ *   unsupported, record, fail }` passed in; timeouts: { [nativeKey]: { field, scale } }
+ *   in read and write order; remoteSseAsHttp: its `remote` cannot tell SSE from HTTP;
+ *   keepsOAuthScope: its native form has no OAuth scope.
  */
 export function cliDriver(id) {
   const definition = cliDefinition(id);
@@ -158,6 +168,13 @@ export function cliDriver(id) {
         }),
         plugins: frozen({ ...plugins[id] }),
         profileFiles: frozen({ ...profileFiles[id] }),
+        mcp: frozen({
+          toNative: mcps[id].toNative,
+          fromNative: mcps[id].fromNative,
+          timeouts: mcps[id].timeouts,
+          remoteSseAsHttp: mcps[id].remoteSseAsHttp,
+          keepsOAuthScope: mcps[id].keepsOAuthScope,
+        }),
         parseAuthStatus(stdout, exitCode, stderr = "") {
           const state = profile.parseAuthStatus(stdout, stderr, exitCode);
           return { signedIn: state === "authenticated", state };
