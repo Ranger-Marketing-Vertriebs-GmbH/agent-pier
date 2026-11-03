@@ -8,6 +8,7 @@ import StatusChip from "../../components/StatusChip.jsx";
 import api from "../../lib/api.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { ticketQueueCopy as copy } from "../../lib/i18n/messages/ticket-sequences.js";
+import { ticketErrorCopy } from "../../lib/i18n/messages/tickets.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import { RowMenu, useRowMenu } from "../extensions/RowMenu.jsx";
 import { pipelineRunRoute } from "./routes.js";
@@ -15,6 +16,9 @@ import { queueItemActions, queueItemPath, queueStateTone } from "./ticket-queue.
 
 const reasonText = (reason) =>
   (Object.hasOwn(copy.reasons, reason) && copy.reasons[reason]) || copy.reasons.other;
+const codeText = (code) =>
+  (Object.hasOwn(ticketErrorCopy, code) && ticketErrorCopy[code]) ||
+  ticketErrorCopy.invalidResponse;
 // The server refused Mark done or Remove because GitHub could not be read.
 const unreadable = (error) =>
   error?.status === 409 && error.messageKey === "tickets.prUnreadable";
@@ -24,7 +28,12 @@ function itemSub(item) {
   if (item.state === "needs-owner") return reasonText(item.needsOwner?.reason);
   if (item.state !== "done")
     return item.pr?.number ? copy.pullRequest(item.pr.number) : "";
-  return [item.prUnchecked && item.pr?.number ? copy.prUnchecked(item.pr.number) : ""]
+  return [
+    item.writeBack?.state === "failed"
+      ? copy.doneWriteBackFailed(codeText(item.writeBack.code))
+      : "",
+    item.prUnchecked && item.pr?.number ? copy.prUnchecked(item.pr.number) : "",
+  ]
     .filter(Boolean)
     .join(" · ");
 }

@@ -54,6 +54,8 @@ export const ticketQueueCopy = {
     `Prüfe Pull Request #${number} auf GitHub: Auto-Merge oder die Merge-Queue ist vielleicht noch an.`,
   removedUnchecked: (key, number) =>
     `${key} wurde entfernt. Prüfe Pull Request #${number} auf GitHub: Auto-Merge oder die Merge-Queue ist vielleicht noch an.`,
+  doneWriteBackFailed: (message) =>
+    `Gemergt, aber nicht als erledigt markiert: ${message}`,
 };
 
 // Tickets in der Liste auswählen und der Dialog, der sie als Folge startet.
