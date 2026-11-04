@@ -260,6 +260,18 @@ export class SessionManager {
       return session;
     }, id);
   }
+  /** Records a missing start commit (legacy sessions); never overwrites one. */
+  setStartCommit(id, sha, source) {
+    return this.serial(async () => {
+      const session = await this.metadata(id);
+      if (!session.startCommit) {
+        session.startCommit = sha;
+        session.startCommitSource = source;
+        await this.save(session);
+      }
+      return session;
+    }, id);
+  }
   replace(id, prepare, beforeStop) {
     this.replacing.add(id);
     return this.serial(() => replaceSession(this, id, prepare, beforeStop)).finally(() =>

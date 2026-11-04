@@ -11,6 +11,7 @@ import { access, stat } from "node:fs/promises";
 import { constants } from "node:fs";
 import path from "node:path";
 import { isCodingCli } from "../clis/catalog.js";
+import { headCommit } from "../changes/git-read.js";
 import { validTicketRef } from "../tickets/ticket.js";
 
 /** The secrets binding a session keeps (session-secrets.js): ids only, never values. */
@@ -183,6 +184,14 @@ export async function buildSessionLaunch(manager, options) {
       ? { sandbox: { profile: options.sandbox.profile } }
       : {}),
   };
+  // The diff base of the Changes tab; a reload keeps it. Not for login or pipeline runs.
+  if (options.purpose !== "login" && !pipeline) {
+    const sha = await headCommit(cwd);
+    if (sha) {
+      session.startCommit = sha;
+      session.startCommitSource = "start";
+    }
+  }
   if (options.nativeModelId) session.nativeModelId = options.nativeModelId;
   // The CLI release the session started with, for diagnosing parser or flag changes.
   if (typeof options.cliVersion === "string") session.cliVersion = options.cliVersion;
