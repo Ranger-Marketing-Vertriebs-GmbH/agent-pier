@@ -1521,10 +1521,20 @@ existing durable channel delivery outbox. It has no second memory index or clock
 ### Memory
 
 Enable **Remember information** in the agent's settings, then ask it to remember a
-fact in chat. The settings panel reads and edits native `MEMORY.md` and `USER.md`,
-and searches all indexed memory in that agent's workspace. Saving carries the
-native expected file hash (or expected-missing flag): concurrent agent edits cause
-a conflict instead of being overwritten. Reload before reconciling such a conflict.
+fact in chat. The settings panel reads and edits native `MEMORY.md` and `USER.md`
+and, on OpenClaw, the day notes under `memory/`, and searches all indexed memory in
+that agent's workspace; a search result opens its note at the matching lines. Saving
+carries the native expected file hash (or expected-missing flag): concurrent agent
+edits cause a conflict instead of being overwritten. Reload before reconciling such a
+conflict. Every note saves through `PUT /assistants/:id/memory`: a root note goes to
+the runtime, a `memory/` name to `NativeMemory.writeNote`, which accepts only a
+Markdown note inside the workspace's real `memory/` folder (no `..`, no symbolic link
+on the way, not the Dream Diary, the lead's mirror `memory/lead/` or the corpus
+`memory/.dreams/`, never on Hermes) and replaces it atomically against its sha256.
+`DELETE /assistants/:id/memory/notes?name=` deletes such a note under the same rules.
+Both are owner content routes, so a user's own agent stays read-only for the owner,
+and the activity log records `assistant.memory-saved` and `assistant.memory-deleted`
+with `files` (the file name) only.
 Saving an empty note clears that file; it does not purge chat history or other
 workspace notes. Native file tools stay within the workspace.
 

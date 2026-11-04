@@ -615,8 +615,13 @@ rule is part of the memory step before **Summarize now**.
 **Memory** in the agent's settings edits `MEMORY.md` and `USER.md` and also the day
 notes under `memory/`: pick a note under **Notes written by the agent**, change it and
 press **Save notes**, or press **Delete note** and confirm. A save fails with a conflict
-notice when the agent changed the note meanwhile. The Dream Diary and the lead agent's
-copied notes stay read-only, and a user's own agent stays read-only for you.
+notice when the agent changed the note meanwhile. **Search memory** lists matching
+notes; **Open note** on a result opens that note with the matching lines selected,
+ready to edit. The Dream Diary and the lead agent's copied notes stay read-only, and a
+user's own agent stays read-only for you. A Hermes agent has no day notes; its
+`MEMORY.md` and `USER.md` are edited the same way. The activity log records each saved
+or deleted note (`assistant.memory-saved`, `assistant.memory-deleted`) by its file name,
+never its text.
 
 After a model switch with fresh chats, the agent's new model reviews its memory. When
 it finds entries that only record what an earlier model refused or set itself as a

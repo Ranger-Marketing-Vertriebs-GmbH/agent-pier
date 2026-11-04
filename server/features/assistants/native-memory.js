@@ -6,7 +6,7 @@ import { memoryEnabled } from "./native-capabilities.js";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { leadMirrorDir } from "./member-memory.js";
 import { openInside } from "./project-open.js";
-import { runtimeFor } from "./runtimes/runtime-for.js";
+import { runtimeFor, runtimeIdOf } from "./runtimes/runtime-for.js";
 const names = new Set(["MEMORY.md", "USER.md"]);
 const projectFile = (file, name) => ({
   name,
@@ -16,7 +16,7 @@ const projectFile = (file, name) => ({
 });
 // OpenClaw indexes MEMORY.md, USER.md and Markdown files recursively under
 // memory/. The two root files are edited through the Gateway; notes under memory/
-// are the agent's own working layer and are shown read-only from its workspace.
+// are the agent's own working layer, read and rewritten in its workspace.
 const noteName = /^memory\/(?:[A-Za-z0-9][\w.-]*\/){0,3}[A-Za-z0-9][\w.-]*\.md$/;
 // OpenClaw's Dream Diary: a file in the workspace root, shown read-only.
 const diaryName = "DREAMS.md";
@@ -67,6 +67,12 @@ export class NativeMemory {
   constructor(assistants, { workspaces } = {}) {
     this.assistants = assistants;
     this.workspaces = workspaces;
+  }
+  // Hermes keeps its memory in MEMORY.md and USER.md only (its memory tool): a note
+  // under its workspace's memory/ is no day note, so it is never rewritten or deleted
+  // as one.
+  dayNotes(id) {
+    return runtimeIdOf(this.assistants.store.getAssistant(id)) !== "hermes";
   }
   root(id) {
     const agent = this.assistants.store.getAssistant(id);
@@ -172,7 +178,7 @@ export class NativeMemory {
         readOnly: true,
         // A day note can be rewritten from the memory page (writeNote); the diary
         // and the lead's mirrored notes cannot.
-        ...(editableNote(name) ? { editable: true } : {}),
+        ...(editableNote(name) && this.dayNotes(id) ? { editable: true } : {}),
         hash: createHash("sha256").update(content).digest("hex"),
         ...(truncated ? { truncated: true, size: stat.size } : {}),
       };
@@ -195,7 +201,7 @@ export class NativeMemory {
         typeof name !== "string" ||
         !noteName.test(name) ||
         name.split("/").includes("..") ||
-        (owner && !editableNote(name))
+        (owner && (!editableNote(name) || !this.dayNotes(id)))
       )
         throw assistantProblem("invalid");
       const root = this.root(id),
@@ -228,7 +234,8 @@ export class NativeMemory {
       !input ||
       Object.keys(input).some((k) => !["name", "content", "expectedHash"].includes(k)) ||
       !editableNote(input.name) ||
-      !/^[a-f0-9]{64}$/i.test(input.expectedHash || "")
+      !/^[a-f0-9]{64}$/i.test(input.expectedHash || "") ||
+      !this.dayNotes(id)
     )
       throw assistantProblem("invalid");
     // The read limit applies in bytes, so every note that opens can be saved.
@@ -316,7 +323,11 @@ export class NativeMemory {
       return projectFile(result.file, name);
     });
   }
+  // One save path for every note the memory page edits: a root note through the
+  // runtime, a day note under memory/ to the workspace (writeNote).
   write(id, input) {
+    if (typeof input?.name === "string" && input.name.startsWith("memory/"))
+      return this.writeNote(id, input);
     return this.assistants.admit(async () => {
       if (
         !input ||
