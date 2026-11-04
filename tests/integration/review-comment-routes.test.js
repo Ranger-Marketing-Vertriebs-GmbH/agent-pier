@@ -194,7 +194,11 @@ test("the topics are owner only", async (t) => {
     (f) => frames.push(f),
   );
   t.after(stop);
-  await new Promise((resolve) => setTimeout(resolve, 60));
+  // The hub answers a topic it will not show synchronously, with unknown-topic.
+  assert.equal(
+    frames.some((f) => f.code === "unknown-topic"),
+    true,
+  );
   assert.equal(
     frames.some((f) => f.data?.comments),
     false,

@@ -129,6 +129,15 @@ export class ReviewCommentStore {
     return { batch };
   }
 
+  // A removal hook must never fail on a comment file: log and go on.
+  discardQuietly(scope) {
+    try {
+      this.discard(scope);
+    } catch (error) {
+      console.warn(`Review comments of ${scope.kind} ${scope.id} not removed:`, error);
+    }
+  }
+
   discard(scope) {
     const file = scopeFile(this.dataDir, scope);
     if (!fs.existsSync(file)) return;

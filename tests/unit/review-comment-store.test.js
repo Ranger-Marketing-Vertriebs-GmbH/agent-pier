@@ -179,3 +179,13 @@ test("scope ids are validated", (t) => {
   assert.throws(() => store.list({ kind: "session", id: "../x" }), { status: 400 });
   assert.throws(() => store.list({ kind: "other", id: "a" }), { status: 400 });
 });
+
+test("discardQuietly logs a failing removal instead of throwing", (t) => {
+  const { store } = fresh(t);
+  const warn = t.mock.method(console, "warn", () => {});
+  t.mock.method(store, "discard", () => {
+    throw new Error("EACCES");
+  });
+  assert.doesNotThrow(() => store.discardQuietly(scope));
+  assert.equal(warn.mock.callCount(), 1);
+});

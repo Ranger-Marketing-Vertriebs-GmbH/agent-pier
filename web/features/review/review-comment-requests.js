@@ -35,3 +35,22 @@ export async function afterWrite(write, written) {
   await written();
   return answer;
 }
+
+/**
+ * The write functions over `requests` (null without a scope). Without a scope each
+ * rejects with an Error instead of throwing a TypeError.
+ */
+export function writesOf(requests, after) {
+  const write =
+    (name) =>
+    (...args) =>
+      requests
+        ? after(() => requests[name](...args))
+        : Promise.reject(new Error("No session or run to comment on"));
+  return {
+    create: write("create"),
+    update: write("update"),
+    remove: write("remove"),
+    markSent: write("markSent"),
+  };
+}

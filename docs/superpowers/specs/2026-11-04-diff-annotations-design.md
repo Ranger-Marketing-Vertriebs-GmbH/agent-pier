@@ -128,11 +128,11 @@ It must work both in sessions and in pipeline runs, and on the phone.
   Review notes (3):
 
   1. .worktrees/feat/x/server/a.js:42
-     ```
-     - if (pw === user.pw) return ok();
-     + if (await verify(pw, user.hash)) return ok();
-     ```
-     Use a constant-time comparison here.
+  ```
+  - if (pw === user.pw) return ok();
+  * if (await verify(pw, user.hash)) return ok();
+  ```
+  Use a constant-time comparison here.
   ```
 
 ### Session Changes tab (step 2)

@@ -6,6 +6,7 @@ import {
   reviewRequests,
   reviewState,
   reviewTopic,
+  writesOf,
 } from "../../web/features/review/review-comment-requests.js";
 import { startLiveTopic } from "../../web/lib/live/live-topic-reader.js";
 import { fakeEnv } from "../helpers/fake-browser.js";
@@ -144,4 +145,24 @@ test("a pushed review state shows its comments and written() resolves with the p
   assert.deepEqual(await written, second);
   assert.deepEqual(reviewState(shown.data), second);
   started.stop();
+});
+
+test("without a scope every write rejects with an Error, never a TypeError", async () => {
+  const writes = writesOf(null, (write) => write());
+  for (const call of [
+    () => writes.create({}),
+    () => writes.update("c", {}),
+    () => writes.remove("c"),
+    () => writes.markSent(["c"]),
+  ])
+    await assert.rejects(call(), (error) => error.constructor === Error);
+});
+
+test("with a scope the writes reach the requests through after()", async () => {
+  const { api, calls } = recorder();
+  const writes = writesOf(reviewRequests(api, run), (write) => write());
+  await writes.remove("c1");
+  assert.deepEqual(calls, [
+    ["DELETE", "/pipeline-runs/r1/review-comments/c1", undefined],
+  ]);
 });
