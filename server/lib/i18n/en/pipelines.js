@@ -27,7 +27,7 @@ export const pipelines = Object.freeze({
   feedbackSize: "Feedback must contain between 1 and 32768 bytes.",
   invalidLoopFeedback: "Invalid loop feedback.",
   operatorRepairRound: "Operator requested another repair round.",
-  returnBlocked: {
+  returnBlocked: Object.freeze({
     imported: "Imported pipeline history cannot be sent back. Start a new run instead.",
     notFinished: "Only a completed or failed run can be sent back to a stage.",
     cancelled: "A cancelled run cannot be sent back. Start a new run instead.",
@@ -41,7 +41,7 @@ export const pipelines = Object.freeze({
     prUnknown: "GitHub could not tell whether the run's pull request is still open.",
     sequenceWatching:
       "A ticket sequence follows this run. Remove the ticket from the sequence first.",
-  },
+  }),
   returnStageUnknown: "The run cannot be sent back to this stage.",
   returnNoteRequired: "Write what the stage should change, or add review notes.",
   returnBusy: "The project has no free run slot. Try again when a run finishes.",
