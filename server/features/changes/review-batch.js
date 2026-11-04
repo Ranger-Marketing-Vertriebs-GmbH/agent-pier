@@ -19,6 +19,9 @@ import { excerptAt, placeComments } from "./review-anchor.js";
 /** Byte limit of the review gate's feedback text. */
 export const REVIEW_FEEDBACK_LIMIT = 32768;
 
+/** UTF-8 bytes of a text, counted the same way in Node and the browser. */
+export const feedbackBytes = (text) => new TextEncoder().encode(text).length;
+
 const MARKERS = { add: "+ ", remove: "- ", context: "  " };
 const INDENT = "   ";
 

@@ -40,6 +40,7 @@ export async function createPipelineServices(services) {
     workspace: pipelineWorkspace,
     mutationBarrier: services.mutationBarrier,
     audit: services.audit,
+    reviewComments: services.reviewComments,
     ...config.pipelines,
     hostPort: config.port,
     onChange: (run) => {
