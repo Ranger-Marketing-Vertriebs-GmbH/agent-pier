@@ -407,17 +407,24 @@ test("the pull request state reads merged, closed, armed and open", async (t) =>
     await t.test(expected, async (t) => {
       const { manager, workspace, args } = await forgeFixture(
         t,
-        `console.log(${JSON.stringify(JSON.stringify(reply))});`,
+        `console.log(${JSON.stringify(JSON.stringify({ data: { repository: { pullRequest: reply } } }))});`,
       );
       assert.equal(await manager.pullRequestState({ workspace, url }), expected);
-      assert.deepEqual((await args())[0], [
-        "pr",
-        "view",
-        url,
-        "--repo",
-        "github.example/org/repo",
-        "--json",
-        "state,autoMergeRequest,isInMergeQueue",
+      const call = (await args())[0];
+      assert.deepEqual(call.slice(0, 4), [
+        "api",
+        "graphql",
+        "--hostname",
+        "github.example",
+      ]);
+      assert.match(call[5], /pullRequest\(number:\$number\)\{state isInMergeQueue/);
+      assert.deepEqual(call.slice(6), [
+        "-f",
+        "owner=org",
+        "-f",
+        "name=repo",
+        "-F",
+        "number=1",
       ]);
     });
   }
