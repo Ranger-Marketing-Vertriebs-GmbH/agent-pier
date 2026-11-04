@@ -70,8 +70,11 @@ jobs:
     # four per runner. Each shard is its own runner with its own runtime
     # installation, data directories and ports. Intel macOS (darwin-x64) is not
     # qualified here: its hosted runners are too slow and flaky for these timings.
+    # The recorded seconds balance the shards on Linux (16-22 min each). The same
+    # shard on macos-latest took 14 to 28 min of test time on 2026-11-03, so its
+    # shards get 45 minutes: a slow macOS runner, not a hung test, hit the 30.
     name: Native contracts (${{ matrix.runner }}) shard ${{ matrix.shard }}/4
-    timeout-minutes: 30
+    timeout-minutes: ${{ startsWith(matrix.runner, 'macos') && 45 || 30 }}
     strategy:
       fail-fast: false
       matrix:
