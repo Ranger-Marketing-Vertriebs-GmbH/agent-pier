@@ -377,6 +377,15 @@ export class TicketSequenceStore {
     const found = mine.find(isActive) ?? mine.at(-1);
     return found ? structuredClone(found) : null;
   }
+  /**
+   * Whether any item of any queue names the pipeline run, in any state: such a run is
+   * the sequence's to follow, and the owner does not send it back to a stage.
+   */
+  watchingRun(runId) {
+    for (const queue of this.byProject.values())
+      if (queue.items.some((entry) => entry.runId === runId)) return true;
+    return false;
+  }
   /** The first item that is not done; a needs-owner head blocks the whole queue. */
   head(projectId) {
     const found = this.byProject.get(projectId)?.items.find(isActive);

@@ -242,6 +242,7 @@ test("cancelled runs offer no pull request", () => {
   assert.deepEqual(availableActions({ status: "completed", workspace }), [
     "delete",
     "create-pr",
+    "return-to-stage",
   ]);
 });
 

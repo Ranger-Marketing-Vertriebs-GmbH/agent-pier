@@ -303,3 +303,20 @@ test("contains tells an active item from a done one and from none", () => {
   assert.equal(store.contains("p1", "github", "o/r#1"), "active");
   assert.equal(store.find("p1", "github", "o/r#1").state, "waiting");
 });
+
+test("the store reports every run an item names, in any state", () => {
+  const store = new TicketSequenceStore({ dataDir: dataDir() });
+  const [a, b] = store.append("p1", "/repo", [entry(1), entry(2)]).items;
+  store.append("p2", "/other", [entry(3)]);
+  walk(store, a.id, "running");
+  store.patch("p1", a.id, { runId: "run-1" });
+  walk(store, b.id, "running", "needs-owner");
+  store.patch("p1", b.id, { runId: "run-2" });
+  assert.equal(store.watchingRun("run-1"), true);
+  assert.equal(store.watchingRun("run-2"), true);
+  assert.equal(store.watchingRun("run-3"), false);
+  finish(store, a.id);
+  assert.equal(store.watchingRun("run-1"), true, "a done item still names its run");
+  store.remove("p1", a.id);
+  assert.equal(store.watchingRun("run-1"), false);
+});

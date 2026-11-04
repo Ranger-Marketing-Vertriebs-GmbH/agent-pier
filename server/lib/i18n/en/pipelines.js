@@ -27,6 +27,24 @@ export const pipelines = Object.freeze({
   feedbackSize: "Feedback must contain between 1 and 32768 bytes.",
   invalidLoopFeedback: "Invalid loop feedback.",
   operatorRepairRound: "Operator requested another repair round.",
+  returnBlocked: {
+    imported: "Imported pipeline history cannot be sent back. Start a new run instead.",
+    notFinished: "Only a completed or failed run can be sent back to a stage.",
+    cancelled: "A cancelled run cannot be sent back. Start a new run instead.",
+    noWorkspace: "This run has no workspace to continue in.",
+    workspaceGone:
+      "The run's workspace is gone or changed, so the run cannot continue in it.",
+    prMerged: "The run's pull request is merged. Start a new run for further changes.",
+    prClosed: "The run's pull request is closed. Start a new run for further changes.",
+    prArmed:
+      "The pull request has auto-merge or a merge queue armed. Disarm it first, or start a new run.",
+    prUnknown: "GitHub could not tell whether the run's pull request is still open.",
+    sequenceWatching:
+      "A ticket sequence follows this run. Remove the ticket from the sequence first.",
+  },
+  returnStageUnknown: "The run cannot be sent back to this stage.",
+  returnNoteRequired: "Write what the stage should change, or add review notes.",
+  returnBusy: "The project has no free run slot. Try again when a run finishes.",
   reconcileRequiresQuiescedTurn:
     "Reconciliation requires a successful, quiesced native turn.",
   noFreshVerdict: "No fresh valid verdict is available to reconcile.",

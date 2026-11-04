@@ -41,6 +41,8 @@ export async function createPipelineServices(services) {
     mutationBarrier: services.mutationBarrier,
     audit: services.audit,
     reviewComments: services.reviewComments,
+    // Bound late: the ticket sequences exist only after the pipelines.
+    sequenceWatch: (id) => services.ticketSequences?.watchesRun(id) === true,
     ...config.pipelines,
     hostPort: config.port,
     onChange: (run) => {

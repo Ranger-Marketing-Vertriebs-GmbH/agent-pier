@@ -8,6 +8,7 @@ import { git, exactCommit, resolveBase } from "./workspace-git.js";
 import {
   pushWorkspace,
   createWorkspacePr,
+  pullRequestState,
   withGitCredentials,
 } from "./workspace-forge.js";
 import { checkpointWorkspace } from "./workspace-checkpoint.js";
@@ -296,6 +297,11 @@ export class PipelineWorkspace {
   async createPr({ workspace, run, expectedSha }) {
     const stored = await this.validate(workspace);
     return createWorkspacePr(this, stored, run, expectedSha);
+  }
+  /** Whether the run's pull request is open, armed, merged or closed. */
+  async pullRequestState({ workspace, url }) {
+    const stored = await this.validate(workspace);
+    return pullRequestState(this, stored, url);
   }
   /**
    * Local-only commits block cleanup unless the operator confirms. The run branch is

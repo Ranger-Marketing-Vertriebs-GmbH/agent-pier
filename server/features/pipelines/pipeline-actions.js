@@ -52,6 +52,8 @@ export function availableActions(run) {
       !run.pullRequestUrl
         ? ["create-pr"]
         : []),
+      // The owner may send a finished run back to a stage (return-service.js).
+      ...(run.status !== "cancelled" && run.workspace ? ["return-to-stage"] : []),
     ];
   const actions = ["abort"];
   if (run.status !== "awaiting-human") return actions;
@@ -100,7 +102,10 @@ export async function gateAction(engine, run, input = {}) {
   // An action on a member of the current parallel group.
   if (nodeId !== undefined && nodeId !== run.currentNodeId)
     return memberAction(engine, run, input);
-  if (!availableActions(run).includes(action) || ["delete", "create-pr"].includes(action))
+  if (
+    !availableActions(run).includes(action) ||
+    ["delete", "create-pr", "return-to-stage"].includes(action)
+  )
     throw problem(serverMessages.pipelines.actionUnavailable, 409);
   const node = activeNode(run);
   if (action === "abort") return cancelRun(engine, run);

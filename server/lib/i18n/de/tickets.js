@@ -38,6 +38,8 @@ export const tickets = Object.freeze({
   ticketQueued: "Dieses Ticket ist bereits eingereiht.",
   itemNotFound: "Das eingereihte Ticket wurde nicht gefunden.",
   itemBusy: "Dieses Ticket wird gerade bearbeitet.",
+  itemRunActive:
+    "Der Pipeline-Lauf des Tickets ist noch aktiv. Bitte ihn zuerst beenden lassen oder abbrechen.",
   githubRequired: "Ticketfolgen brauchen ein GitHub-Repository für dieses Projekt.",
   ruleGithubRequired:
     "Label-Regeln brauchen ein GitHub-Repository für dieses Projekt, auch für Plane-Tickets.",

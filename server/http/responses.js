@@ -60,6 +60,10 @@ export function registerResponses(app) {
       ...(error.code === "CLI_UPDATE_REQUIRED" && error.updateRequired
         ? { updateRequired: error.updateRequired }
         : {}),
+      // Why a run cannot be sent back to a stage (return-blocks.js).
+      ...(error.code === "PIPELINE_RETURN_BLOCKED" && typeof error.reason === "string"
+        ? { reason: error.reason }
+        : {}),
       error: message,
       ...messageIdentity(message),
     });

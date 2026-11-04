@@ -196,6 +196,8 @@ export function auditEvent(input) {
       "risk",
       "risk-rules",
       "budget",
+      // A finished run the owner sent back to a stage (return-service.js).
+      "return",
       "queue",
       "queue-settings",
       // Agent email (audit-mail-details.js): approvals and grant changes.
@@ -294,6 +296,14 @@ export function auditEvent(input) {
     // A group override names the members it accepted without a verdict.
     if (Array.isArray(details.members))
       event.details.members = details.members.slice(0, 8).map((id) => auditId(id));
+    // A return to a stage names how many review notes went along.
+    if (
+      details.kind === "return" &&
+      Number.isSafeInteger(details.comments) &&
+      details.comments >= 0 &&
+      details.comments <= 1e6
+    )
+      event.details.comments = details.comments;
     // A replaced run spec names the hash of the owner's text.
     if (typeof details.sha256 === "string" && /^[a-f0-9]{64}$/.test(details.sha256))
       event.details.sha256 = details.sha256;

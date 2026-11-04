@@ -59,6 +59,62 @@ export async function pushWorkspace(manager, workspace) {
     return { branch: workspace.branch, pushed: true };
   });
 }
+// Runs `gh` in the workspace with the prepared credentials; any failure is one 409.
+function ghCaller(manager, workspace, env) {
+  const gh = manager.github.resolveGh(env);
+  if (!gh) throw problem(serverMessages.pipelineWorkspaces.githubCliRequired, 409);
+  return async (args) => {
+    try {
+      return (
+        await exec(gh, args, {
+          cwd: workspace.cwd,
+          env,
+          timeout: 60000,
+          maxBuffer: 1024 * 1024,
+        })
+      ).stdout.trim();
+    } catch {
+      throw problem(serverMessages.pipelineWorkspaces.pullRequestOperationFailed, 409);
+    }
+  };
+}
+/**
+ * Where the run's pull request stands: "merged", "closed", "armed" (open with GitHub
+ * auto-merge on or in a merge queue) or "open". Throws when GitHub cannot tell.
+ * @returns {Promise<"open"|"armed"|"merged"|"closed">}
+ */
+export async function pullRequestState(manager, workspace, url) {
+  const repo = repository(await git(workspace.cwd, ["remote", "get-url", "origin"]));
+  const pr = checkedUrl(url);
+  return withGitCredentials(manager, workspace, async (env) => {
+    const out = await ghCaller(
+      manager,
+      workspace,
+      env,
+    )([
+      "pr",
+      "view",
+      pr,
+      "--repo",
+      repo,
+      "--json",
+      "state,autoMergeRequest,isInMergeQueue",
+    ]);
+    let view;
+    try {
+      view = JSON.parse(out);
+    } catch {
+      throw problem(serverMessages.pipelineWorkspaces.invalidPullRequestResponse, 409);
+    }
+    if (view?.state === "MERGED") return "merged";
+    if (view?.state === "CLOSED") return "closed";
+    if (view?.state !== "OPEN")
+      throw problem(serverMessages.pipelineWorkspaces.invalidPullRequestResponse, 409);
+    return view.autoMergeRequest != null || view.isInMergeQueue === true
+      ? "armed"
+      : "open";
+  });
+}
 export async function createWorkspacePr(manager, workspace, run, expectedSha) {
   const { sha } = await manager.checkpoint({ workspace, run });
   // The risk gate checked `expectedSha`; anything written since is not pushed unchecked.
@@ -67,22 +123,7 @@ export async function createWorkspacePr(manager, workspace, run, expectedSha) {
   await manager.inspect(workspace);
   const repo = repository(await git(workspace.cwd, ["remote", "get-url", "origin"]));
   return withGitCredentials(manager, workspace, async (env) => {
-    const gh = manager.github.resolveGh(env);
-    if (!gh) throw problem(serverMessages.pipelineWorkspaces.githubCliRequired, 409);
-    const call = async (args) => {
-      try {
-        return (
-          await exec(gh, args, {
-            cwd: workspace.cwd,
-            env,
-            timeout: 60000,
-            maxBuffer: 1024 * 1024,
-          })
-        ).stdout.trim();
-      } catch {
-        throw problem(serverMessages.pipelineWorkspaces.pullRequestOperationFailed, 409);
-      }
-    };
+    const call = ghCaller(manager, workspace, env);
     const existing = await call([
       "pr",
       "list",
@@ -103,6 +144,10 @@ export async function createWorkspacePr(manager, workspace, run, expectedSha) {
     } catch {
       throw problem(serverMessages.pipelineWorkspaces.invalidPullRequestResponse, 409);
     }
+    // A run whose pull request was merged or closed never opens a second one: the
+    // owner decides on a new run instead.
+    if (run?.pullRequestUrl && !parsed[0]?.url)
+      throw problem(serverMessages.pipelineWorkspaces.pullRequestNoLongerOpen, 409);
     // The checked commit itself is pushed: a commit landing after the check, even
     // while GitHub answered, never reaches the branch unchecked.
     await git(

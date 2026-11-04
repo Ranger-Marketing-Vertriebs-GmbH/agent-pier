@@ -97,6 +97,10 @@ test("a replaced run spec is audited with its stage, revision and hash only", ()
     { kind: "spec", stageId: "spec", revision: 3, sha256 },
   );
   assert.deepEqual(event({ kind: "spec", sha256: "not-a-hash" }), { kind: "spec" });
+  assert.deepEqual(
+    event({ kind: "return", stageId: "review", comments: 2, note: "never" }),
+    { kind: "return", stageId: "review", comments: 2 },
+  );
 });
 
 test("an approved risk gate is audited with its stage, paths and count only", () => {
