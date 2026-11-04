@@ -48,11 +48,23 @@ test("a group member starting to wait reads the diff again", () => {
   );
 });
 
-test("comments are writable while the run's or a member's gate waits", () => {
-  assert.equal(gateWaits(run(), true), true);
-  assert.equal(gateWaits(run(), false), false);
-  assert.equal(gateWaits(run({ memberActions: { a: [] } }), false), false);
-  assert.equal(gateWaits(run({ memberActions: { a: ["feedback"] } }), false), true);
+test("comments are writable only while a decision that carries them waits", () => {
+  assert.equal(gateWaits(run({ actions: ["abort", "feedback"] })), true);
+  assert.equal(gateWaits(run({ actions: ["loop-back"] })), true);
+  assert.equal(gateWaits(run()), false);
+  // budget, risk and override-only gates cannot send them
+  for (const actions of [
+    ["raise-budget", "abort"],
+    ["approve-risk", "decline-risk"],
+    ["override"],
+    ["accept"],
+  ])
+    assert.equal(gateWaits(run({ actions })), false, actions.join());
+  assert.equal(gateWaits(run({ memberActions: { a: [] } })), false);
+  assert.equal(gateWaits(run({ memberActions: { a: ["retry", "override"] } })), false);
+  assert.equal(gateWaits(run({ memberActions: { a: ["feedback"] } })), true);
+  // a member cannot return for repair; loop-back there carries nothing
+  assert.equal(gateWaits(run({ memberActions: { a: ["loop-back"] } })), false);
 });
 
 test("an answer with the shown fingerprint keeps the shown diff", () => {

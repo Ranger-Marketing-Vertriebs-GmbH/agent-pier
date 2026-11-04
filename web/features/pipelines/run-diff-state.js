@@ -25,12 +25,23 @@ export const runDiffKey = (run, refreshes) =>
     refreshes,
   ]);
 
+// The decisions that carry the run's comments: the run's Retry with feedback and Return
+// for repair, a group member's Retry with feedback.
+const runCarriers = ["feedback", "loop-back"];
+const memberCarriers = ["feedback"];
+
 /**
- * Whether a gate waits: the run's own (`gateActions` of `run.actions`, passed as
- * `runGate`) or a parallel-group member's (`run.memberActions`). Run comments can be
- * written only then, since they go out with that decision.
+ * Whether a decision that can carry the run's comments waits: `feedback` or `loop-back`
+ * in `run.actions`, or `feedback` for a parallel-group member (`run.memberActions`).
+ * Run comments can be written only then, since they go out with that decision; a
+ * budget, risk or override-only gate keeps them read-only.
  */
-export const gateWaits = (run, runGate) => runGate || waitingMembers(run).length > 0;
+export const gateWaits = (run) =>
+  (run?.actions ?? []).some((action) => runCarriers.includes(action)) ||
+  Object.values(run?.memberActions ?? {}).some(
+    (actions) =>
+      Array.isArray(actions) && actions.some((action) => memberCarriers.includes(action)),
+  );
 
 /**
  * The diff to show after an answer: the shown one while the server's fingerprint is

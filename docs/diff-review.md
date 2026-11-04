@@ -76,5 +76,5 @@ A pipeline run has the same diff view in its run detail: **Review changes** open
 run's whole diff against its base commit, and its comments go to the stage with the
 next **Retry with feedback**, **Return for repair** or group member feedback instead of
 **Send to agent**. Run paths are relative to the run's worktree, and the limit there is
-32 KB (32,768 UTF-8 bytes) of typed text and notes together. See
+32 KB (32,768 UTF-8 bytes) of typed text and comments together. See
 [pipelines › reviewing a run's changes](pipelines.md#reviewing-a-runs-changes).

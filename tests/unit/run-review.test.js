@@ -7,7 +7,11 @@ import {
   formatReviewBatch,
   reviewEntries,
 } from "../../server/features/changes/review-batch.js";
-import { reviewCheck } from "../../web/features/pipelines/useRunReview.js";
+import {
+  checkFeedback,
+  reviewBatch,
+  reviewCheck,
+} from "../../web/features/pipelines/useRunReview.js";
 
 const diff = [
   "diff --git a/server/a.js b/server/a.js",
@@ -85,4 +89,16 @@ test("feedback and comments above the limit do not fit", () => {
   });
   assert.ok(check.text.length < 32768, "under the limit in characters");
   assert.equal(check.fits, false);
+});
+
+test("one batch serves every typed text", () => {
+  const batch = reviewBatch([open1], files);
+  assert.equal(batch.open, 1);
+  for (const freeText of ["", "Bitte prüfen", "ä".repeat(100)])
+    assert.deepEqual(
+      checkFeedback(batch, freeText),
+      reviewCheck({ freeText, comments: [open1], files }),
+    );
+  assert.deepEqual(reviewBatch([], files), { open: 0, batch: null });
+  assert.equal(checkFeedback(reviewBatch([], files), "typed").text, "typed");
 });

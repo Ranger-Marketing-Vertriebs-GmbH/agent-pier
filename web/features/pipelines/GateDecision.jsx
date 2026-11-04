@@ -26,7 +26,7 @@ export const availableGateActions = (run) =>
 // The decision the current gate stage waits for: approve, retry with feedback, return
 // for repair or override. A failed request keeps the feedback so it can be resent; the
 // run detail owns the feedback so browsing other stages keeps the typed text. Both
-// feedback actions carry the run's open review notes (the server adds them); Retry
+// feedback actions carry the run's open comments (the server adds them); Retry
 // with feedback needs text or notes, and neither goes while the two exceed the limit.
 export default function GateDecision({ run, node, refresh, feedback: owned, shared }) {
   const local = useState(""),

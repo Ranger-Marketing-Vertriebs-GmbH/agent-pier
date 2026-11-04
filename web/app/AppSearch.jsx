@@ -12,7 +12,7 @@ import useAssistants from "../features/assistants/useAssistants.js";
 import useAssistantFeature from "../features/assistants/useAssistantFeature.js";
 import { codingRoute } from "../features/coding/routes.js";
 import { projectsRoute } from "../features/projects/routes.js";
-import { requestPageAction } from "./page-action.js";
+import { pageActionOffered, requestPageAction } from "./page-action.js";
 import { SearchDialogContext, openSearchEvent } from "./search-dialog.js";
 import { loadConnectionNames } from "./search-connections.js";
 import { isMacPlatform, opensSearch } from "./search-shortcut.js";
@@ -125,7 +125,9 @@ export default function AppSearch({
             runOpen={
               route?.view === "pipelines" &&
               route.pipelineTab === "runs" &&
-              Boolean(route.pipelineItem)
+              Boolean(route.pipelineItem) &&
+              // the run on screen offers its changes (not an imported history run)
+              pageActionOffered("run-changes")
             }
             connections={connections}
             workspace={workspace}

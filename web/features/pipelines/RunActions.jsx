@@ -20,7 +20,7 @@ import {
 // Renders the engine-authorized run actions in server order; `exclude` hides actions
 // another control (the gate decision block) already offers. An optional `shared` action
 // runner lets several action areas of one run disable each other while one is pending.
-// Feedback actions carry the run's open review notes, as in GateDecision.
+// Feedback actions carry the run's open comments, as in GateDecision.
 export default function RunActions({ run, refresh, removed, exclude = [], shared }) {
   const [feedback, setFeedback] = useState(""),
     [resumeAt, setResumeAt] = useState(""),

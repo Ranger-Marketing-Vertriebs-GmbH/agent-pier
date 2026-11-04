@@ -2,9 +2,10 @@ import { test, expect } from "../helpers/browser-test.js";
 import { pipelinesFixture, openPipelines, sampleRun } from "./pipelines-fixture.js";
 
 // The run's Changes view (RunChanges) against mocked whole-run diff and review-comment
-// routes: closed by default, comments while a gate waits, read-only otherwise, the
-// gone and imported answers, a failed refresh, re-reads on run pushes, the stage diff
-// tile in the shared renderer and the phone width. The gate forms (GateDecision, a
+// routes: closed by default, comments while a decision that carries them waits,
+// read-only otherwise (a budget gate too), the gone and imported answers, a failed
+// refresh, re-reads on run pushes, the stage diff tile in the shared renderer and the
+// phone width. The gate forms (GateDecision, a
 // group member's actions) send the open notes with `review: true` and stop feedback
 // that would exceed the server's 32 KB limit.
 test.use({ locale: "en-GB" });
@@ -101,7 +102,7 @@ test("the run's changes open on demand and take comments", async ({ page }) => {
   await page.getByRole("button", { name: "Comment on line 3" }).click();
   await page.getByLabel("Comment (Markdown)").fill("Read the port once");
   await page.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByText("1 open review note", { exact: true })).toBeVisible();
+  await expect(page.getByText("1 open comment", { exact: true })).toBeVisible();
   await expect(appRegion(page).getByText("Read the port once")).toBeVisible();
   expect(mock.creates).toEqual([
     expect.objectContaining({ file: "src/app.js", line: 3, side: "new", workspace: "" }),
@@ -111,7 +112,7 @@ test("the run's changes open on demand and take comments", async ({ page }) => {
   // closing keeps the count beside the button
   await reviewButton(page).click();
   await expect(appRegion(page)).toHaveCount(0);
-  await expect(page.getByText("1 open review note", { exact: true })).toBeVisible();
+  await expect(page.getByText("1 open comment", { exact: true })).toBeVisible();
 });
 
 test("Refresh and run pushes read the diff again", async ({ page, liveStub }) => {
@@ -160,6 +161,22 @@ test("without a waiting gate the changes are read-only", async ({ page }) => {
       run.actions = ["abort"];
     },
   });
+  await reviewButton(page).click();
+  await appRegion(page).getByText("start(port);").click();
+  await expect(page.getByRole("button", { name: /Comment on line/ })).toHaveCount(0);
+});
+
+test("a budget gate keeps the changes read-only", async ({ page }) => {
+  await setup(page, {
+    run: (run) => {
+      run.tokenBudget = 1000;
+      run.nodes[0].verdict = undefined;
+      run.nodes[0].failReason = "budget-exceeded";
+      run.actions = ["abort", "raise-budget"];
+    },
+  });
+  // the gate waits, but no decision there can send comments
+  await expect(page.getByRole("textbox", { name: "New token budget" })).toBeVisible();
   await reviewButton(page).click();
   await appRegion(page).getByText("start(port);").click();
   await expect(page.getByRole("button", { name: /Comment on line/ })).toHaveCount(0);
@@ -244,6 +261,18 @@ test("a history-only run offers no review", async ({ page }) => {
   });
   await expect(reviewButton(page)).toHaveCount(0);
   expect(mock.diffReads).toBe(0);
+  // nor does ⌘K
+  await page.route(
+    /\/api\/(ssh-accesses|mcp-servers|secrets|repositories|inbox)$/,
+    (route) => route.fulfill({ status: 404, json: { error: "none" } }),
+  );
+  await page.getByRole("button", { name: "Search (⌘K)" }).click();
+  const dialog = page.getByRole("dialog", { name: "Search" });
+  // the search answers (a page is found), then the action is not among the results
+  await dialog.getByRole("combobox").fill("Pipelines");
+  await expect(dialog.getByRole("option").first()).toBeVisible();
+  await dialog.getByRole("combobox").fill("Review changes");
+  await expect(dialog.getByRole("option")).toHaveCount(0);
 });
 
 test("a stage's diff tile shows rows, read-only", async ({ page }) => {
@@ -266,7 +295,7 @@ test("the open changes fit a phone", async ({ page }) => {
   if (shots) await page.screenshot({ path: `${shots}/run-changes-en-phone.png` });
 });
 
-// Open review notes on src/app.js; `resolved` adds one that is not sent.
+// Open comments on src/app.js; `resolved` adds one that is not sent.
 const note = (id, line, body, status = "open") => ({
   id,
   file: "src/app.js",
@@ -290,13 +319,13 @@ const gateRequest = (page) =>
 const retry = (page) =>
   page.getByRole("button", { name: "Retry with feedback", exact: true });
 
-test("a waiting gate sends the review notes with its feedback", async ({ page }) => {
+test("a waiting gate sends the open comments with its feedback", async ({ page }) => {
   const mock = await setup(page, { comments: notes() });
   await expect(
-    page.getByText("2 open review notes will be sent with the feedback"),
+    page.getByText("2 open comments will be sent with the feedback"),
   ).toBeVisible();
   await expect(page.getByLabel("Feedback", { exact: true })).toHaveAccessibleDescription(
-    "2 open review notes will be sent with the feedback",
+    "2 open comments will be sent with the feedback",
   );
   // the size check reads the run's diff to place the notes as the server does
   await expect.poll(() => mock.diffReads).toBe(1);
@@ -330,7 +359,23 @@ test("without open notes Retry with feedback needs text", async ({ page }) => {
 test("too much feedback is stopped before sending", async ({ page }) => {
   await setup(page, { comments: notes() });
   const field = page.getByLabel("Feedback", { exact: true });
+  // the live region is there, empty, before the notice, so the notice is announced
+  const size = page.locator(".run-gate-decision [role=status].gate-review-size");
+  await expect(size).toHaveCount(1);
+  await expect(size).toHaveText("");
   await field.fill("ä".repeat(16400));
+  await expect(size).toHaveText(/together exceed 32 KB/);
+  // in the guide's warning tone
+  expect(
+    await size.evaluate((element) => {
+      const probe = document.createElement("span");
+      probe.style.color = "var(--warning)";
+      document.body.append(probe);
+      const warning = getComputedStyle(probe).color;
+      probe.remove();
+      return getComputedStyle(element).color === warning;
+    }),
+  ).toBe(true);
   await expect(retry(page)).toBeDisabled();
   await expect(
     page.getByRole("button", { name: "Return for repair", exact: true }),
@@ -363,7 +408,7 @@ test("a waiting group member's feedback carries the notes", async ({ page }) => 
   });
   const card = page.locator(".run-group-member").filter({ hasText: "Security" });
   await expect(
-    card.getByText("2 open review notes will be sent with the feedback"),
+    card.getByText("2 open comments will be sent with the feedback"),
   ).toBeVisible();
   const send = card.getByRole("button", { name: "Retry with feedback · Security" });
   await card.getByLabel("Feedback for Security").fill("ä".repeat(16400));

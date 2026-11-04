@@ -313,13 +313,13 @@ export const pipelineCopy = {
   emptyDiff: "No changes reported.",
   truncated: "Output truncated.",
   reviewChanges: "Review changes",
-  reviewNotes: (n) => (n === 1 ? "1 open review note" : `${n} open review notes`),
+  reviewNotes: (n) => (n === 1 ? "1 open comment" : `${n} open comments`),
   reviewNotesSent: (n) =>
     n === 1
-      ? "1 open review note will be sent with the feedback"
-      : `${n} open review notes will be sent with the feedback`,
+      ? "1 open comment will be sent with the feedback"
+      : `${n} open comments will be sent with the feedback`,
   reviewTooLarge: (bytes) =>
-    `Feedback and open review notes together exceed 32 KB (${bytes} bytes). Shorten the text or resolve comments.`,
+    `Feedback and open comments together exceed 32 KB (${bytes} bytes). Shorten the text or resolve comments.`,
   refreshChanges: "Refresh changes",
   changesLoading: "Loading changes …",
   runDiffUnavailable:

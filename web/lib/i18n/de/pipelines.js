@@ -318,13 +318,13 @@ export const pipelineCopy = {
   emptyDiff: "Keine Änderungen gemeldet.",
   truncated: "Ausgabe gekürzt.",
   reviewChanges: "Änderungen prüfen",
-  reviewNotes: (n) => (n === 1 ? "1 offene Prüfnotiz" : `${n} offene Prüfnotizen`),
+  reviewNotes: (n) => (n === 1 ? "1 offener Kommentar" : `${n} offene Kommentare`),
   reviewNotesSent: (n) =>
     n === 1
-      ? "1 offene Prüfnotiz wird mit der Rückmeldung gesendet"
-      : `${n} offene Prüfnotizen werden mit der Rückmeldung gesendet`,
+      ? "1 offener Kommentar wird mit der Rückmeldung gesendet"
+      : `${n} offene Kommentare werden mit der Rückmeldung gesendet`,
   reviewTooLarge: (bytes) =>
-    `Rückmeldung und offene Prüfnotizen sind zusammen größer als 32 KB (${bytes} Bytes). Kürze den Text oder erledige Kommentare.`,
+    `Rückmeldung und offene Kommentare sind zusammen größer als 32 KB (${bytes} Bytes). Kürze den Text oder erledige Kommentare.`,
   refreshChanges: "Änderungen aktualisieren",
   changesLoading: "Änderungen werden geladen …",
   runDiffUnavailable:
