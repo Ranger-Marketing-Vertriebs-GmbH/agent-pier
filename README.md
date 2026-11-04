@@ -48,7 +48,8 @@ and agents that work as a team.
   [screenshot](docs/screenshots/split-view-desktop.png)).
 - **Pipelines with review:** reusable profiles, isolated Git worktrees, parallel
   reviewers whose verdicts are joined, bounded review loops, checks, a risk gate for sensitive paths, a token budget per run, a run queue per project with a concurrency limit and human approval,
-  line comments on a run's changes that go back with the gate's feedback,
+  line comments on a run's changes that go back with the gate's feedback, and a
+  finished run sent back to a chosen stage with them,
   plus a built-in software factory from spec to pull request
   ([pipelines](docs/pipelines.md#software-factory)).
 - **Tickets:** a project's **Tickets** tab lists open GitHub issues and Plane work items,

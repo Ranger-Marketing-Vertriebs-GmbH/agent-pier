@@ -12,7 +12,8 @@ import "./run-changes.css";
  * The run's whole diff against its base commit, below the spec: closed by default,
  * opened with **Review changes**. Line comments are the run's review comments; they can
  * be written only while a decision that can carry them waits, the run's own or a group
- * member's feedback (they go out with it), and only while the worktree exists. An imported history run has
+ * member's feedback or a finished run's Return to stage (they go out with it), and
+ * only while the worktree exists. An imported history run has
  * no changes on this host and shows nothing. The ⌘K action **Review changes** opens
  * the section of the run on screen.
  */

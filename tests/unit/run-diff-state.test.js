@@ -51,6 +51,9 @@ test("a group member starting to wait reads the diff again", () => {
 test("comments are writable only while a decision that carries them waits", () => {
   assert.equal(gateWaits(run({ actions: ["abort", "feedback"] })), true);
   assert.equal(gateWaits(run({ actions: ["loop-back"] })), true);
+  // a finished run that can return to a stage takes comments for the return
+  assert.equal(gateWaits(run({ actions: ["delete", "return-to-stage"] })), true);
+  assert.equal(gateWaits(run({ actions: ["delete", "create-pr"] })), false);
   assert.equal(gateWaits(run()), false);
   // budget, risk and override-only gates cannot send them
   for (const actions of [

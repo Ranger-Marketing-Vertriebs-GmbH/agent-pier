@@ -325,6 +325,36 @@ export const pipelineCopy = {
       : `${n} offene Kommentare werden mit der Rückmeldung gesendet`,
   reviewTooLarge: (bytes) =>
     `Rückmeldung und offene Kommentare sind zusammen größer als 32 KB (${bytes} Bytes). Kürze den Text oder erledige Kommentare.`,
+  returnToStage: {
+    open: "An eine Stufe zurückgeben …",
+    title: (run) => `„${run}“ an eine Stufe zurückgeben`,
+    intro:
+      "Die gewählte Stufe arbeitet mit deinen Hinweisen und den offenen Review-Kommentaren erneut im Arbeitsverzeichnis des Laufs; die Stufen danach folgen. Sie setzt ihre frühere CLI-Session fort, wenn das möglich ist. Die Runde wird festgehalten, zählt aber gegen kein Schleifenlimit.",
+    stage: "Stufe",
+    feedback: "Was soll die Stufe ändern?",
+    submit: "Zurückgeben",
+    loading: "Es wird geprüft, ob der Lauf zurückgegeben werden kann …",
+    blocked: {
+      prMerged:
+        "Der Pull Request wurde gemergt. Starte für weitere Änderungen einen neuen Lauf.",
+      prClosed:
+        "Der Pull Request wurde geschlossen. Starte für weitere Änderungen einen neuen Lauf.",
+      prArmed:
+        "Für den Pull Request ist Auto-Merge oder eine Merge-Queue aktiv. Deaktiviere sie zuerst oder starte einen neuen Lauf.",
+      prUnknown:
+        "Der Zustand des Pull Requests konnte nicht gelesen werden, daher bleibt der Lauf, wie er ist.",
+      sequenceWatching:
+        "Eine Ticketfolge verfolgt diesen Lauf und könnte ihn während der Korrektur mergen. Versuche es erneut, sobald die Folge ihn freigegeben hat.",
+      workspaceGone: "Das Arbeitsverzeichnis des Laufs ist nicht mehr vorhanden.",
+      cancelled: "Der Lauf wurde abgebrochen.",
+      notFinished:
+        "Nur ein abgeschlossener oder fehlgeschlagener Lauf kann an eine Stufe zurückgehen.",
+      noWorkspace: "Der Lauf hat kein Arbeitsverzeichnis, in dem er weiterarbeiten kann.",
+      imported:
+        "Importierter Laufverlauf kann nicht an eine Stufe zurückgehen. Starte stattdessen einen neuen Lauf.",
+    },
+    blockedOther: "Der Lauf kann gerade nicht an eine Stufe zurückgehen.",
+  },
   refreshChanges: "Änderungen aktualisieren",
   changesLoading: "Änderungen werden geladen …",
   runDiffUnavailable:

@@ -75,6 +75,8 @@ already loaded; it reads the others first to find each comment's line again.
 A pipeline run has the same diff view in its run detail: **Review changes** opens the
 run's whole diff against its base commit, and its comments go to the stage with the
 next **Retry with feedback**, **Return for repair** or group member feedback instead of
-**Send to agent**. Run paths are relative to the run's worktree, and the limit there is
-32 KB (32,768 UTF-8 bytes) of typed text and comments together. See
-[pipelines › reviewing a run's changes](pipelines.md#reviewing-a-runs-changes).
+**Send to agent**. On a finished run they go with **Return to stage …**, which sends the
+run back to a chosen stage. Run paths are relative to the run's worktree, and the limit
+there is 32 KB (32,768 UTF-8 bytes) of typed text and comments together. See
+[pipelines › reviewing a run's changes](pipelines.md#reviewing-a-runs-changes) and
+[pipelines › return to a stage](pipelines.md#return-to-a-stage).

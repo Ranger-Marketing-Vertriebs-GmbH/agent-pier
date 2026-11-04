@@ -25,16 +25,18 @@ export const runDiffKey = (run, refreshes) =>
     refreshes,
   ]);
 
-// The decisions that carry the run's comments: the run's Retry with feedback and Return
-// for repair, a group member's Retry with feedback.
-const runCarriers = ["feedback", "loop-back"];
+// The decisions that carry the run's comments: the run's Retry with feedback, Return
+// for repair and, on a finished run, Return to stage; a group member's Retry with
+// feedback.
+const runCarriers = ["feedback", "loop-back", "return-to-stage"];
 const memberCarriers = ["feedback"];
 
 /**
- * Whether a decision that can carry the run's comments waits: `feedback` or `loop-back`
- * in `run.actions`, or `feedback` for a parallel-group member (`run.memberActions`).
- * Run comments can be written only then, since they go out with that decision; a
- * budget, risk or override-only gate keeps them read-only.
+ * Whether a decision that can carry the run's comments waits: `feedback`, `loop-back`
+ * or `return-to-stage` in `run.actions`, or `feedback` for a parallel-group member
+ * (`run.memberActions`). Run comments can be written only then, since they go out with
+ * that decision; a budget, risk or override-only gate and a running run keep them
+ * read-only.
  */
 export const gateWaits = (run) =>
   (run?.actions ?? []).some((action) => runCarriers.includes(action)) ||
