@@ -91,14 +91,12 @@ for (const locale of ["de-DE", "en-GB"]) {
         await page.locator(".chat-tool-group > .activity-row-head").click();
         const tool = page.locator(".chat-tool");
         await tool.locator(":scope > summary").click();
-        await expect(tool.locator(".tool-diff-row").first()).toBeVisible();
-        expect(await tool.locator(".tool-diff-row").count()).toBeLessThanOrEqual(7);
+        await expect(tool.locator(".diff-row").first()).toBeVisible();
+        expect(await tool.locator(".diff-row").count()).toBeLessThanOrEqual(7);
         await expect(
           tool.locator(".hljs-comment").filter({ hasText: "comment" }).first(),
         ).toBeVisible();
-        await expect(tool.locator(".is-remove .tool-diff-marker").first()).toHaveText(
-          "−",
-        );
+        await expect(tool.locator(".is-remove .diff-marker").first()).toHaveText("−");
         const en = locale === "en-GB";
         const expand = tool.getByRole("button", {
           name: en ? "Show more lines" : "Weitere Zeilen anzeigen",
@@ -109,7 +107,7 @@ for (const locale of ["de-DE", "en-GB"]) {
         await expect(tool.locator(".is-add .hljs-keyword").first()).toHaveText("const");
         await expect(tool).toContainText("line100");
         await expect(tool).not.toContainText("line219");
-        const scroll = tool.locator(".tool-diff-scroll");
+        const scroll = tool.locator(".diff-scroll");
         expect(await scroll.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
         expect(
           await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
