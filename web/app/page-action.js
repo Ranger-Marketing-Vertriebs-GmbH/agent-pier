@@ -8,6 +8,10 @@ import { useEffect, useRef, useState } from "react";
 const lifetime = 10_000;
 const listeners = new Set();
 let pending = null;
+// The kinds a mounted page takes right now (usePageAction while `ready`), with a count
+// per kind, so the search offers a page's own action (⌘K "Review changes") only while
+// the page on screen can take it.
+const offers = new Map();
 
 export function requestPageAction(kind, now = Date.now()) {
   pending = { kind, at: now };
@@ -22,13 +26,33 @@ export function takePageAction(kind, now = Date.now()) {
   return fresh;
 }
 
-/** Runs `run()` when `kind` is requested and `ready` is true. */
+/** Marks `kind` as taken by a mounted page; the returned function ends the offer. */
+export function offerPageAction(kind) {
+  offers.set(kind, (offers.get(kind) ?? 0) + 1);
+  let ended = false;
+  return () => {
+    if (ended) return;
+    ended = true;
+    const left = offers.get(kind) - 1;
+    if (left > 0) offers.set(kind, left);
+    else offers.delete(kind);
+  };
+}
+
+/** Whether a mounted page takes `kind` now. */
+export const pageActionOffered = (kind) => offers.has(kind);
+
+/**
+ * Runs `run()` when `kind` is requested and `ready` is true; while `ready` the page
+ * offers `kind` (pageActionOffered).
+ */
 export function usePageAction(kind, run, ready = true) {
   const current = useRef(run);
   useEffect(() => {
     current.current = run;
   });
   const [requests, setRequests] = useState(0);
+  useEffect(() => (ready ? offerPageAction(kind) : undefined), [kind, ready]);
   useEffect(() => {
     const listener = (requested) => {
       if (requested === kind) setRequests((value) => value + 1);

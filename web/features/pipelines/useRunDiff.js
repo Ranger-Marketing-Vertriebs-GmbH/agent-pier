@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import api from "../../lib/api.js";
+import { sharedRunDiff } from "./run-diff-reads.js";
 import { diffFailure, keptDiff, runDiffKey } from "./run-diff-state.js";
 
 const idle = { data: null, error: "", failure: null, loading: false };
@@ -9,8 +10,9 @@ const none = [];
  * The whole-run diff (GET /pipeline-runs/:id/diff) while `enabled`. It is read when
  * enabled, when the run's push changes its status, current stage, attempt count or
  * waiting group members, and on `refresh()`; an answer with the shown fingerprint
- * keeps the shown diff. A failed read keeps the shown diff beside the error. `unavailable`: the worktree is gone;
- * `imported`: a history-only run without changes on this host.
+ * keeps the shown diff. A failed read keeps the shown diff beside the error. Views of the
+ * same run with the same key share one read (run-diff-reads.js). `unavailable`: the
+ * worktree is gone; `imported`: a history-only run without changes on this host.
  */
 export default function useRunDiff(run, enabled) {
   const [refreshes, setRefreshes] = useState(0);
@@ -19,16 +21,14 @@ export default function useRunDiff(run, enabled) {
   const key = runDiffKey(run, refreshes);
   useEffect(() => {
     if (!enabled || !id) return;
-    const controller = new AbortController();
+    let live = true;
     setState((last) => ({ ...last, error: "", loading: true }));
-    api(
-      `/pipeline-runs/${encodeURIComponent(id)}/diff`,
-      "GET",
-      undefined,
-      controller.signal,
-    ).then(
+    const shared = sharedRunDiff(`${id}|${key}`, (signal) =>
+      api(`/pipeline-runs/${encodeURIComponent(id)}/diff`, "GET", undefined, signal),
+    );
+    shared.promise.then(
       (answer) => {
-        if (controller.signal.aborted) return;
+        if (!live) return;
         setState((last) => ({
           data: keptDiff(last.data, answer),
           error: "",
@@ -37,7 +37,7 @@ export default function useRunDiff(run, enabled) {
         }));
       },
       (error) => {
-        if (controller.signal.aborted) return;
+        if (!live) return;
         const failure = diffFailure(error);
         setState((last) => ({
           data: failure === "error" ? last.data : null,
@@ -47,7 +47,10 @@ export default function useRunDiff(run, enabled) {
         }));
       },
     );
-    return () => controller.abort();
+    return () => {
+      live = false;
+      shared.release();
+    };
     // `key` stands for the run's status, current stage, attempts and refresh count.
   }, [enabled, id, key]);
   const refresh = useCallback(() => setRefreshes((count) => count + 1), []);

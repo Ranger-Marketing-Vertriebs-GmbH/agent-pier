@@ -1,0 +1,8 @@
+/* The size notice under a gate's feedback field: a warning in the guide's tone. Its
+   live region stays mounted; while empty it leaves the form's flow, so it adds no gap. */
+.field-description.gate-review-size {
+  color: var(--warning);
+}
+.field-description.gate-review-size:empty {
+  position: absolute;
+}

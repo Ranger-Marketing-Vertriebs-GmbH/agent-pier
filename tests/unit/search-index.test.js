@@ -5,6 +5,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { routePath } from "../../web/app/routes.js";
 import { buildSearchIndex } from "../../web/app/search-entries.js";
+import { offerPageAction, pageActionOffered } from "../../web/app/page-action.js";
 import {
   normalizeText,
   queryTokens,
@@ -365,4 +366,20 @@ test("Review changes opens the open run's changes and only then", () => {
   assert.ok(!withRun.some((item) => item.id === "action:session-changes"));
   const withSession = buildSearchIndex({ agents, connections, sessionOpen: true });
   assert.ok(!withSession.some((item) => item.id === "action:run-changes"));
+});
+
+test("Review changes is offered only while the run on screen takes it", () => {
+  // AppSearch offers the action when a run page is open and its Changes section takes
+  // it; an imported history run's page does not (RunChanges offers it only otherwise).
+  assert.equal(pageActionOffered("run-changes"), false);
+  const first = offerPageAction("run-changes");
+  const second = offerPageAction("run-changes");
+  assert.equal(pageActionOffered("run-changes"), true);
+  first();
+  first(); // ending twice changes nothing
+  assert.equal(pageActionOffered("run-changes"), true);
+  second();
+  assert.equal(pageActionOffered("run-changes"), false);
+  const index = buildSearchIndex({ runOpen: pageActionOffered("run-changes") });
+  assert.ok(!index.some((item) => item.id === "action:run-changes"));
 });

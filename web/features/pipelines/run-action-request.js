@@ -12,7 +12,7 @@ export const gateActions = [
   "override",
   "raise-budget",
 ];
-// The actions whose request carries feedback text and, on request, the review notes.
+// The actions whose request carries feedback text and, on request, the open comments.
 export const feedbackActions = ["feedback", "loop-back"];
 const carriesFeedback = (action) => feedbackActions.includes(action);
 // The decision a gate is waiting for is the highlighted one.
