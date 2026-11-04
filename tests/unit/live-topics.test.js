@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { liveGate } from "../../server/application/live-wiring.js";
 import { liveTopics, readTopicValue, topicInfo } from "../../web/lib/live/live-topics.js";
 import { liveEnvironment } from "../../web/lib/live/live-environment.js";
 import { userRoutes } from "../../server/http/route-access.js";
@@ -357,4 +358,22 @@ test("ticket topics are owner only and read the service", async () => {
     ["tickets.connections"],
     ["tickets.project"],
   ]);
+});
+
+test("the review topics name their comment routes", () => {
+  assert.equal(topicInfo("session.review:s1").path("s1"), "/sessions/s1/review-comments");
+  assert.equal(
+    topicInfo("pipeline.review:r1").path("r1"),
+    "/pipeline-runs/r1/review-comments",
+  );
+  for (const id of ["session.review:s1", "pipeline.review:r1"]) {
+    assert.equal(topicInfo(id).mode, "state");
+    assert.equal(topicInfo(id).interval, 30000);
+  }
+});
+
+test("a restricted user reaches no review topic", () => {
+  assert.equal(liveGate({ role: "user", userId: "u" }, "session.review:s1"), false);
+  assert.equal(liveGate({ role: "user", userId: "u" }, "pipeline.review:r1"), false);
+  assert.equal(liveGate({ role: "owner" }, "session.review:s1"), true);
 });
