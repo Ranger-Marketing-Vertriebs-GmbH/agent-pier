@@ -4,4 +4,6 @@ export const changes = {
   tooManyOpenComments:
     "Es sind bereits 200 offene Kommentare vorhanden. Erledige oder lösche einige und versuche es erneut.",
   commentNotFound: "Dieser Kommentar existiert nicht mehr.",
+  invalidWorkspace: "Gib den Arbeitsbereich an.",
+  unknownWorkspace: "Diesen Arbeitsbereich gibt es nicht mehr. Lade die Änderungen neu.",
 };

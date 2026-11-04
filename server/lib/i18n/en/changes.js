@@ -4,4 +4,6 @@ export const changes = {
   tooManyOpenComments:
     "There are already 200 open comments. Resolve or delete some and try again.",
   commentNotFound: "This comment no longer exists.",
+  invalidWorkspace: "Name the workspace.",
+  unknownWorkspace: "This workspace no longer exists. Reload the changes.",
 };

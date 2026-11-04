@@ -29,3 +29,28 @@ export const sessionReviewTopic = (services) =>
   topic("session.review", REVIEW_SESSION_PARAM, "session", services);
 export const pipelineReviewTopic = (services) =>
   topic("pipeline.review", PIPELINE_PARAM, "run", services);
+
+// `session.changes:<sessionId>` carries GET /api/sessions/:id/changes. The working tree
+// announces nothing, so the topic is sampled every 60 s (like the AgentBus safety
+// read) while a visible tab watches, and read at once on each `native-activity`
+// event of the session (an agent turn starting or ending).
+export const CHANGES_SAMPLE_MS = 60000;
+
+/** The topic definition for LiveHub#define. `sampleMs` is for tests. */
+export function sessionChangesTopic(services, { sampleMs = CHANGES_SAMPLE_MS } = {}) {
+  return {
+    name: "session.changes",
+    mode: "state",
+    param: REVIEW_SESSION_PARAM,
+    authorize: owner,
+    scopeKey: () => "owner",
+    sampleMs,
+    read: (_principal, id) => services.sessionChanges.summary(id),
+    watch({ param, nudge }) {
+      return services.chatEvents?.subscribe(
+        param,
+        (event) => event?.type === "native-activity" && nudge(),
+      );
+    },
+  };
+}

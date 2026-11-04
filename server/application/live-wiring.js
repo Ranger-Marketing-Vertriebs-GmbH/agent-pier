@@ -52,6 +52,7 @@ import {
 import { projectGroupsChangedTopic } from "../features/projects/live-topics.js";
 import {
   pipelineReviewTopic,
+  sessionChangesTopic,
   sessionReviewTopic,
 } from "../features/changes/live-topics.js";
 import { viewsTopic } from "../features/views/live-topics.js";
@@ -128,6 +129,7 @@ export function createLiveHub(services, options = {}) {
   hub.define(viewsTopic(services));
   hub.define(sessionReviewTopic(services));
   hub.define(pipelineReviewTopic(services));
+  hub.define(sessionChangesTopic(services));
   hub.define(ticketsProjectTopic(services));
   hub.define(ticketConnectionsTopic(services));
   hub.define(ticketsQueueTopic(services));

@@ -103,6 +103,8 @@ import { connectionsRoutes } from "./http/routes/connections.js";
 import { sessionsRoutes } from "./http/routes/sessions.js";
 import { reviewCommentRoutes } from "./http/routes/review-comments.js";
 import { ReviewCommentStore } from "./features/changes/review-comment-store.js";
+import { SessionChanges } from "./features/changes/session-changes.js";
+import { sessionChangesRoutes } from "./http/routes/session-changes.js";
 import { reviewChanged } from "./features/changes/live-topics.js";
 import { repositoriesRoutes } from "./http/routes/repositories.js";
 import { ticketRoutes } from "./http/routes/tickets.js";
@@ -188,6 +190,7 @@ export async function createApplication(config) {
     dataDir: config.dataDir,
     onChange: (scope) => reviewChanged(services.live, scope),
   });
+  services.sessionChanges = new SessionChanges({ sessions: services.sessions });
   Object.assign(services, await createPipelineServices(services));
   services.projectRebind.definitions = services.pipelineDefinitions;
   services.projectRebind.runQueue = services.pipelineQueue;
@@ -432,6 +435,7 @@ export async function createApplication(config) {
   mount(connectionsRoutes(services));
   mount(sessionsRoutes(services));
   mount(reviewCommentRoutes(services));
+  mount(sessionChangesRoutes(services));
   mount(sshRoutes(services));
   mount(secretsRoutes(services));
   mount(mailRoutes(services));
