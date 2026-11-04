@@ -7,6 +7,7 @@ import {
   catalogWideTest,
   serverCatalog,
 } from "./catalogs.mjs";
+import { versionOnly } from "./version-only.mjs";
 
 // Chooses the tests a change can affect. See scripts/affected-tests.mjs for the
 // command line and docs/testing.md for the policy.
@@ -51,29 +52,6 @@ export const inert = [
 ];
 
 const matches = (patterns, file) => patterns.some((pattern) => pattern.test(file));
-
-// A release bump changes only the "version" fields of the package manifests;
-// no test depends on them.
-const versionFields = {
-  "package.json": (json) => ({ ...json, version: undefined }),
-  "package-lock.json": (json) => ({
-    ...json,
-    version: undefined,
-    packages: { ...json.packages, "": { ...json.packages?.[""], version: undefined } },
-  }),
-};
-export function versionOnly(file, before, after) {
-  const strip = versionFields[file];
-  if (!strip || typeof before !== "string" || typeof after !== "string") return false;
-  try {
-    return (
-      JSON.stringify(strip(JSON.parse(before))) ===
-      JSON.stringify(strip(JSON.parse(after)))
-    );
-  } catch {
-    return false;
-  }
-}
 
 // Code that branches on the host platform, drives macOS tools or loads macOS
 // libraries, and files named for macOS, are worth a macOS run before the merge

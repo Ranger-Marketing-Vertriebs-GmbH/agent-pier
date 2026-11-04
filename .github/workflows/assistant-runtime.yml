@@ -5,7 +5,8 @@ name: Assistant runtime
 # native contracts on Linux arm64 and macOS x64 and the cross-version updates run
 # only nightly, on demand and before a release (a tag push through release.yml),
 # not after each merge. The merge queue runs the core contracts through
-# assistant-runtime-queue.yml.
+# assistant-runtime-queue.yml. A pull request that only bumps the version of
+# package.json and package-lock.json (a release) runs none of the jobs.
 on:
   workflow_dispatch:
   workflow_call:
@@ -19,6 +20,7 @@ on:
       - "server/lib/storage.js"
       - "scripts/*assistant*.mjs"
       - "scripts/*hermes*.mjs"
+      - "scripts/affected/version-only.mjs"
       - "tests/**/*hermes*"
       - "scripts/assistant-contract-shards.json"
       - "tests/**/assistant*"
@@ -37,8 +39,28 @@ concurrency:
   group: assistant-runtime-${{ github.event.pull_request.number && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
+  # Pull requests only: scripts/assistant-runtime-paths.mjs drops package files that
+  # changed only their version and says whether any assistant runtime path is left.
+  # Without a pull request base (nightly, release, on demand) it always runs.
+  plan:
+    name: Plan assistant runtime checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      relevant: ${{ steps.paths.outputs.relevant }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Detect assistant runtime changes
+        id: paths
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: node scripts/assistant-runtime-paths.mjs
   fresh-install:
     name: Fresh install (${{ matrix.target }})
+    needs: plan
+    if: needs.plan.outputs.relevant == 'true'
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -74,6 +96,8 @@ jobs:
     # shard on macos-latest took 14 to 28 min of test time on 2026-11-03, so its
     # shards get 45 minutes: a slow macOS runner, not a hung test, hit the 30.
     name: Native contracts (${{ matrix.runner }}) shard ${{ matrix.shard }}/4
+    needs: plan
+    if: needs.plan.outputs.relevant == 'true'
     timeout-minutes: ${{ startsWith(matrix.runner, 'macos') && 45 || 30 }}
     strategy:
       fail-fast: false
@@ -171,6 +195,8 @@ jobs:
   # tests/integration/*hermes*-contract.test.js runs against it; none may skip.
   hermes-contracts:
     name: Hermes contracts (${{ matrix.runner }})
+    needs: plan
+    if: needs.plan.outputs.relevant == 'true'
     timeout-minutes: 30
     strategy:
       fail-fast: false

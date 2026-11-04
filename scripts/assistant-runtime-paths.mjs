@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
+import { versionFiles, versionOnly } from "./affected/version-only.mjs";
 
 // Paths whose change can break the assistant runtime contracts. Keep in sync with
 // the `paths` filters of .github/workflows/assistant-runtime.yml.
@@ -17,6 +18,7 @@ export const assistantRuntimePaths = [
   "tests/**/*hermes*",
   "scripts/assistant-contract-shards.json",
   "scripts/assistant-runtime-paths.mjs",
+  "scripts/affected/version-only.mjs",
   "scripts/test-files.mjs",
   "scripts/test-runner.mjs",
   "scripts/test-retry.mjs",
@@ -93,15 +95,38 @@ export function changedFiles(base, run = execFileSync) {
   }
 }
 
-export function decide(base, run) {
-  const files = changedFiles(base, run);
-  if (!files) return { relevant: true, reason: "the changed files could not be read" };
+// A file's text at a commit, or null when it is missing there.
+function show(commit, file, run) {
+  try {
+    return run("git", ["show", `${commit}:${file}`], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+  } catch {
+    return null;
+  }
+}
+
+// A release pull request bumps only the version of package.json and
+// package-lock.json; that changes nothing the contracts run, as in
+// scripts/affected-tests.mjs.
+export function decide(base, run = execFileSync) {
+  if (!base) return { relevant: true, reason: "no pull request or queue base was given" };
+  const changed = changedFiles(base, run);
+  if (!changed) return { relevant: true, reason: "the changed files could not be read" };
+  const files = changed.filter(
+    (file) =>
+      !versionFiles.includes(file) ||
+      !versionOnly(file, show(base, file, run), show("HEAD", file, run)),
+  );
   const relevant = assistantRuntimeRelevant(files);
+  const bumped = changed.length - files.length;
   return {
     relevant,
     reason: relevant
       ? "assistant runtime paths changed"
-      : `none of ${files.length} changed file(s) touches the assistant runtime`,
+      : `none of ${changed.length} changed file(s) touches the assistant runtime` +
+        (bumped ? `; ${bumped} changed only the version` : ""),
   };
 }
 
