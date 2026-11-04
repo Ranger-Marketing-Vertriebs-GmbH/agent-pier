@@ -190,6 +190,17 @@
   font-weight: var(--font-weight-regular);
   font-size: var(--font-size-base);
   color-scheme: dark;
+
+  /* Diff view (web/components/diff/diff.css). */
+  --diff-surface: #0c0d11;
+  --diff-add-bg: #173b2866;
+  --diff-add-marker: #a8d8ac;
+  --diff-remove-bg: #55252a66;
+  --diff-remove-marker: #f4a49f;
+  --diff-meta-bg: #252b4433;
+  --diff-meta-text: #aeb7e8;
+  --diff-number: #a0a4ae;
+  --diff-selected: var(--neutral-14);
 }
 * {
   box-sizing: border-box;
