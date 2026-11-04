@@ -14,6 +14,12 @@ export const assistantAttachmentsCopy = Object.freeze({
   remove: (name) => `Remove ${name}`,
   open: (name) => `Open ${name}`,
   download: (name) => `Download ${name}`,
+  preview: (name) => `Preview ${name}`,
+  previewDownload: "Download",
+  previewLoading: "Loading preview …",
+  previewFailed: "The preview could not be loaded. You can still download the file.",
+  previewTooLarge: (limit) =>
+    `This file is larger than ${limit}, too large for a preview. Download it to read it.`,
   audio: (name) => `Audio: ${name}`,
   uploading: "Uploading …",
   uploadingProgress: (percent) => `Uploading … ${percent} %`,
