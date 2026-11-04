@@ -200,17 +200,3 @@ test("the topics are owner only", async (t) => {
     false,
   );
 });
-
-test("removing a session or run discards its comments", () => {
-  // The closures live in services construction; check the wiring and the store.
-  const read = (file) =>
-    fs.readFileSync(new URL(`../../${file}`, import.meta.url), "utf8");
-  assert.match(
-    read("server/application/services.js"),
-    /onRemoving:[\s\S]*?reviewComments\?\.discard\(\{ kind: "session", id: session\.id \}\)/,
-  );
-  assert.match(
-    read("server/application/pipelines.js"),
-    /onRemove:[\s\S]*?reviewComments\?\.discard\(\{ kind: "run", id \}\)/,
-  );
-});

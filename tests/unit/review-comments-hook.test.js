@@ -1,11 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  afterWrite,
   reviewPath,
   reviewRequests,
   reviewState,
   reviewTopic,
 } from "../../web/features/review/review-comment-requests.js";
+import { startLiveTopic } from "../../web/lib/live/live-topic-reader.js";
+import { fakeEnv } from "../helpers/fake-browser.js";
 import { topicInfo } from "../../web/lib/live/live-topics.js";
 
 // The hook (useReviewComments) is React state around these pure parts and
@@ -70,4 +73,75 @@ test("a refused write rejects", async () => {
     throw new Error("refused");
   };
   await assert.rejects(reviewRequests(api, run).remove("c1"), /refused/);
+});
+
+test("a write resolves with its answer only after written() resolves", async () => {
+  const order = [];
+  let release;
+  const gate = new Promise((resolve) => (release = resolve));
+  const result = afterWrite(
+    async () => {
+      order.push("write");
+      return { id: "c1" };
+    },
+    async () => {
+      order.push("written");
+      await gate;
+      order.push("shown");
+    },
+  ).then((answer) => {
+    order.push("returned");
+    return answer;
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(order, ["write", "written"]);
+  release();
+  assert.deepEqual(await result, { id: "c1" });
+  assert.deepEqual(order, ["write", "written", "shown", "returned"]);
+});
+
+test("a refused write never waits for written()", async () => {
+  let waited = false;
+  await assert.rejects(
+    afterWrite(
+      async () => {
+        throw new Error("refused");
+      },
+      async () => {
+        waited = true;
+      },
+    ),
+    /refused/,
+  );
+  assert.equal(waited, false);
+});
+
+test("a pushed review state shows its comments and written() resolves with the push", async () => {
+  const listeners = new Set();
+  const client = {
+    subscribe: (_id, listener) => (
+      listeners.add(listener),
+      () => listeners.delete(listener)
+    ),
+    status: () => ({ connected: true, fallback: false }),
+    emit: (event) => [...listeners].forEach((listener) => listener(event)),
+  };
+  let shown = null;
+  const started = startLiveTopic({
+    topicId: "session.review:s1",
+    client,
+    env: fakeEnv().env,
+    read: async () => ({ comments: [], batches: 0 }),
+    report: (state) => (shown = state),
+  });
+  const first = { comments: [{ id: "c1" }], batches: 0 };
+  client.emit({ type: "data", data: first });
+  assert.deepEqual(reviewState(shown.data), first);
+  // The caller writes, then waits for the change: the next push resolves written().
+  const written = started.written();
+  const second = { comments: [{ id: "c1" }, { id: "c2" }], batches: 1 };
+  client.emit({ type: "data", data: second });
+  assert.deepEqual(await written, second);
+  assert.deepEqual(reviewState(shown.data), second);
+  started.stop();
 });
