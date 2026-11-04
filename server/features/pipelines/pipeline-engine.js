@@ -4,6 +4,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { problem } from "../../lib/storage.js";
 import { runDiff } from "./run-diff.js";
+import { markReviewSent, withReviewFeedback } from "./review-feedback.js";
 import { RunStore, runId } from "./run-store.js";
 import { validTicketRef } from "../tickets/ticket.js";
 import { runListView } from "./run-list-view.js";
@@ -61,8 +62,10 @@ export class PipelineEngine {
     portProbe,
     hostPort,
     audit,
+    reviewComments,
   }) {
     this.audit = audit;
+    this.reviewComments = reviewComments;
     this.timing = { completionGraceMs, inactivityTimeoutMs, turnTimeoutMs };
     fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 });
     this.store = new RunStore(dataDir, onChange, { onRemove });
@@ -260,7 +263,9 @@ export class PipelineEngine {
               }
             : {}),
         };
-      const result = await gateAction(this, run, input);
+      const review = await withReviewFeedback(this, run, input);
+      const result = await gateAction(this, run, review.input);
+      markReviewSent(this, id, review.sent);
       if (result?.riskDecision)
         risk = {
           kind: "risk",

@@ -117,9 +117,13 @@ export class ReviewCommentStore {
     this.#write(scope, state);
   }
 
-  /** Raises the batch counter and marks those open comments as sent in it. */
+  /**
+   * Raises the batch counter and marks those open comments as sent in it. An empty
+   * list sends no batch: the counter and the file stay as they are.
+   */
   markSent(scope, ids) {
     const state = this.#read(scope);
+    if (ids.length === 0) return { batch: state.batches };
     const batch = state.batches + 1;
     const wanted = new Set(ids);
     for (const c of state.comments)

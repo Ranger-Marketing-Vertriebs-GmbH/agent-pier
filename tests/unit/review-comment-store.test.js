@@ -65,6 +65,16 @@ test("sent comments name their batch and stay open", (t) => {
   );
 });
 
+test("an empty send names no batch", (t) => {
+  const changes = [];
+  const { store } = fresh(t, { onChange: (s) => changes.push(s) });
+  store.create(scope, input());
+  assert.deepEqual(store.markSent(scope, []), { batch: 0 });
+  assert.equal(store.list(scope).batches, 0);
+  assert.equal(store.list(scope).comments[0].sentIn, null);
+  assert.equal(changes.length, 1);
+});
+
 test("limits: body bytes and open count", (t) => {
   const { store } = fresh(t);
   assert.equal(MAX_COMMENT_BYTES, 8192);

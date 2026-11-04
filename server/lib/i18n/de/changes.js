@@ -8,4 +8,6 @@ export const changes = {
   unknownWorkspace: "Diesen Arbeitsbereich gibt es nicht mehr. Lade die Änderungen neu.",
   runWithoutWorkspace:
     "Dieser Lauf hat keinen Arbeitsbereich mehr, deshalb gibt es keine Änderungen zu zeigen.",
+  reviewFeedbackTooLarge:
+    "Rückmeldung und offene Kommentare sind zusammen größer als 32 KB. Kürze den Text oder erledige Kommentare.",
 };

@@ -5,6 +5,7 @@ import { anchorAt } from "../../server/features/changes/review-anchor.js";
 import {
   REVIEW_FEEDBACK_LIMIT,
   combineFeedback,
+  feedbackBytes,
   formatReviewBatch,
   reviewEntries,
 } from "../../server/features/changes/review-batch.js";
@@ -195,4 +196,9 @@ test("a comment with a malformed anchor becomes outdated instead of throwing", (
   );
   assert.equal(entries.length, 1);
   assert.equal(entries[0].outdated, true);
+});
+
+test("byte counting matches Buffer.byteLength", () => {
+  for (const text of ["abc", "äöü", "👍🏽", ""])
+    assert.equal(feedbackBytes(text), Buffer.byteLength(text));
 });

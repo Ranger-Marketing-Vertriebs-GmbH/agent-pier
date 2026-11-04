@@ -8,4 +8,6 @@ export const changes = {
   unknownWorkspace: "This workspace no longer exists. Reload the changes.",
   runWithoutWorkspace:
     "This run no longer has a workspace, so there are no changes to show.",
+  reviewFeedbackTooLarge:
+    "Feedback and open comments together exceed 32 KB. Shorten the text or resolve comments.",
 };
