@@ -78,6 +78,9 @@ function ghCaller(manager, workspace, env) {
     }
   };
 }
+const PR_STATE_QUERY =
+  "query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name)" +
+  "{pullRequest(number:$number){state isInMergeQueue autoMergeRequest{enabledAt}}}}";
 /**
  * Where the run's pull request stands: "merged", "closed", "armed" (open with GitHub
  * auto-merge on or in a merge queue) or "open". Throws when GitHub cannot tell.
@@ -85,24 +88,31 @@ function ghCaller(manager, workspace, env) {
  */
 export async function pullRequestState(manager, workspace, url) {
   const repo = repository(await git(workspace.cwd, ["remote", "get-url", "origin"]));
-  const pr = checkedUrl(url);
+  const [host, owner, name] = repo.split("/");
+  const number = Number(new URL(checkedUrl(url)).pathname.split("/").pop());
   return withGitCredentials(manager, workspace, async (env) => {
     const out = await ghCaller(
       manager,
       workspace,
       env,
     )([
-      "pr",
-      "view",
-      pr,
-      "--repo",
-      repo,
-      "--json",
-      "state,autoMergeRequest,isInMergeQueue",
+      // `gh pr view --json` has no merge queue field; GraphQL does.
+      "api",
+      "graphql",
+      "--hostname",
+      host,
+      "-f",
+      `query=${PR_STATE_QUERY}`,
+      "-f",
+      `owner=${owner}`,
+      "-f",
+      `name=${name}`,
+      "-F",
+      `number=${number}`,
     ]);
     let view;
     try {
-      view = JSON.parse(out);
+      view = JSON.parse(out).data.repository.pullRequest;
     } catch {
       throw problem(serverMessages.pipelineWorkspaces.invalidPullRequestResponse, 409);
     }
