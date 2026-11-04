@@ -1,3 +1,5 @@
+import { anchorAt } from "../../../server/features/changes/review-anchor.js";
+import { parseGitDiff } from "../../../server/features/changes/diff-parse.js";
 import { galleryCopy as copy } from "../../lib/i18n/messages/gallery.js";
 
 // Sample data for the gallery: everything is local, nothing reaches the API.
@@ -87,4 +89,94 @@ export function historySample(end) {
     second: 60 + 3 * Math.cos(index / 7),
     third: 5 + 2 * Math.sin(index / 3),
   })).filter((_, index) => index < 25 || index > 35);
+}
+
+/** A deterministic review fixture for DiffReview: parsed git diffs and sample comments. */
+const reviewDiff = [
+  "diff --git a/server/a.js b/server/a.js",
+  "index 1111111..2222222 100644",
+  "--- a/server/a.js",
+  "+++ b/server/a.js",
+  "@@ -10,6 +10,7 @@ export function check(token) {",
+  "   const expected = load();",
+  "-  if (token === expected) {",
+  "+  if (timingSafeEqual(token, expected)) {",
+  "     return true;",
+  "   }",
+  "+  audit(token);",
+  "   return false;",
+  " }",
+  "diff --git a/server/long.js b/server/long.js",
+  "new file mode 100644",
+  "--- /dev/null",
+  "+++ b/server/long.js",
+  "@@ -0,0 +1,2 @@",
+  `+const payload = "${"x".repeat(10000)}";`,
+  "+export default payload;",
+  "diff --git a/server/big.js b/server/big.js",
+  "new file mode 100644",
+  "--- /dev/null",
+  "+++ b/server/big.js",
+  "@@ -0,0 +1,450 @@",
+  ...Array.from(
+    { length: 450 },
+    (_, index) => `+export const value${index + 1} = ${index + 1};`,
+  ),
+].join("\n");
+
+export const reviewFiles = parseGitDiff(reviewDiff);
+export const REVIEW_WORKSPACE = "gallery";
+
+const rowIndex = (path, test) =>
+  reviewFiles.find((file) => file.path === path).rows.findIndex(test);
+
+function comment(id, path, index, fields) {
+  const rows = reviewFiles.find((file) => file.path === path).rows;
+  const anchor = anchorAt(rows, index);
+  return {
+    id,
+    workspace: REVIEW_WORKSPACE,
+    file: path,
+    side: anchor.side,
+    line: anchor.line,
+    anchor,
+    status: "open",
+    createdAt: "2026-11-04T09:00:00.000Z",
+    updatedAt: "2026-11-04T09:00:00.000Z",
+    ...fields,
+  };
+}
+
+/** One open, one resolved, one outdated, one sent, one past the first page, one on a removed file. */
+export function reviewComments() {
+  const text = (needle) => (row) => row.text.includes(needle);
+  const stale = {
+    text: "console.log(token);",
+    before: [],
+    after: [],
+    excerpt: [{ kind: "add", text: "console.log(token);" }],
+  };
+  const outdated = comment("c-outdated", "server/a.js", 3, {
+    body: copy.diff.outdatedBody,
+  });
+  outdated.anchor = { ...outdated.anchor, ...stale };
+  const missing = comment("c-missing", "server/a.js", 3, { body: copy.diff.missingBody });
+  return [
+    comment("c-open", "server/a.js", rowIndex("server/a.js", text("timingSafeEqual")), {
+      body: copy.diff.openBody,
+    }),
+    comment("c-resolved", "server/a.js", rowIndex("server/a.js", text("return true")), {
+      body: copy.diff.resolvedBody,
+      status: "resolved",
+    }),
+    outdated,
+    comment("c-sent", "server/a.js", rowIndex("server/a.js", text("audit(token)")), {
+      body: copy.diff.sentBody,
+      sentIn: 1,
+    }),
+    comment("c-paged", "server/big.js", rowIndex("server/big.js", text("value430 ")), {
+      body: copy.diff.paged,
+    }),
+    { ...missing, file: "server/removed.js" },
+  ];
 }

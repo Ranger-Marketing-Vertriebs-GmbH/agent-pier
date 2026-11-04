@@ -13,6 +13,7 @@ export const galleryCopy = {
     controls: "Controls",
     choices: "Choices and tabs",
     feedback: "Status and feedback",
+    diff: "Diffs",
     overlays: "Dialogs and sheets",
     layout: "Layout",
     saveBar: "Save bar",
@@ -182,5 +183,15 @@ export const galleryCopy = {
     error: "Error",
     conflict: "Conflict",
     partial: "Partly saved",
+  },
+  diff: {
+    editable: "Editable, comments stay in this page",
+    readOnly: "Read-only",
+    openBody: "Use a **constant-time** comparison here.",
+    resolvedBody: "Naming is fine now.",
+    outdatedBody: "Drop this log line before merging.",
+    sentBody: "Check the second branch too.",
+    missingBody: "This helper was removed in the refactor.",
+    paged: "Please add a test for this value.",
   },
 };

@@ -7,6 +7,7 @@ import { SubpageFrame } from "../settings/SettingsFrame.jsx";
 import ActionsSection from "./ActionsSection.jsx";
 import ChoicesSection from "./ChoicesSection.jsx";
 import ControlsSection from "./ControlsSection.jsx";
+import DiffSection from "./DiffSection.jsx";
 import FeedbackSection from "./FeedbackSection.jsx";
 import { GallerySection, sectionIds, Specimen } from "./GallerySection.jsx";
 import LayoutSection from "./LayoutSection.jsx";
@@ -51,6 +52,7 @@ export default function ComponentGallery({ frame }) {
         <ControlsSection />
         <ChoicesSection />
         <FeedbackSection />
+        <DiffSection />
         <OverlaysSection />
         <LayoutSection />
         <GallerySection id="saveBar">
