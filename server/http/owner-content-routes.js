@@ -59,7 +59,6 @@ export const ownerContentRoutes = {
   // Memory and the browser the agent uses for its users.
   "GET /api/assistants/:id/memory": "agent",
   "PUT /api/assistants/:id/memory": "agent",
-  "PUT /api/assistants/:id/memory/notes": "agent",
   "DELETE /api/assistants/:id/memory/notes": "agent",
   "GET /api/assistants/:id/memory/files": "agent",
   "GET /api/assistants/:id/memory/search": "agent",

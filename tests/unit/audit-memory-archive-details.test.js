@@ -41,3 +41,13 @@ test("drops malformed counts and file names that are no memory file", () => {
     {},
   );
 });
+
+test("a saved or deleted note keeps its file name, never its text", () => {
+  for (const verb of ["memory-saved", "memory-deleted"]) {
+    assert.deepEqual(
+      event(verb, { files: ["memory/2026-11-01.md"], content: "No keyloggers." }).details,
+      { files: ["memory/2026-11-01.md"] },
+    );
+    assert.deepEqual(event(verb, { files: ["memory/../MEMORY.md"] }).details, {});
+  }
+});

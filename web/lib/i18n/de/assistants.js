@@ -170,6 +170,8 @@ export const assistantCopy = {
     searchMemory: "Gedächtnis durchsuchen",
     search: "Suchen",
     noResults: "Keine passenden Notizen gefunden.",
+    openNote: "Notiz öffnen",
+    openNoteNamed: (name) => `Notiz ${name} öffnen`,
     reminders: "Erinnerungen",
     remindersHint:
       "Erhalte einmalige oder tägliche Erinnerungen im Chat dieses Agenten, mit Push-Benachrichtigung. Du kannst Erinnerungen auch im Chat beauftragen.",

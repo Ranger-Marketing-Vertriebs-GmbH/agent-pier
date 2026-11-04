@@ -1,5 +1,6 @@
-// Memory entries archived or restored (memory-archive.js): how many and the names of
-// their memory files; never an entry's text.
+// Memory entries archived or restored (memory-archive.js), and notes the owner saved
+// or deleted on the memory page: how many and the names of their memory files; never
+// an entry's or a note's text.
 const fileName = /^(?:MEMORY\.md|USER\.md|memory\/[\w./-]{1,240}\.md)$/;
 const longestList = 100;
 

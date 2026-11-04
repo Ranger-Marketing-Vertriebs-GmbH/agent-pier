@@ -6,8 +6,18 @@ import {
   restoreEntry,
 } from "../../features/assistants/memory-archive.js";
 export function assistantCapabilityRoutes(services) {
-  const { assistants, assistantMemory, assistantReminders } = services;
+  const { assistants, assistantMemory, assistantReminders, audit } = services;
   const router = Router();
+  // A note the owner saved or deleted, by its file name only: never its text.
+  const audited = (id, verb, name) =>
+    audit?.append({
+      action: `assistant.${verb}`,
+      resourceType: "assistant",
+      resourceId: id,
+      outcome: "success",
+      source: "user",
+      details: { files: [name] },
+    });
   // The agent's own browser: whether it runs, and deleting its profile.
   router.get("/assistants/:id/browser", (req, res) =>
     res.json(assistants.browsers.status(req.params.id)),
@@ -18,15 +28,16 @@ export function assistantCapabilityRoutes(services) {
   router.get("/assistants/:id/memory", async (req, res) =>
     res.json(await assistantMemory.read(req.params.id, req.query.name || "MEMORY.md")),
   );
-  router.put("/assistants/:id/memory", async (req, res) =>
-    res.json(await assistantMemory.write(req.params.id, req.body)),
-  );
-  // A day note under memory/ is rewritten against its hash, or deleted, by the owner.
-  router.put("/assistants/:id/memory/notes", async (req, res) =>
-    res.json(await assistantMemory.writeNote(req.params.id, req.body)),
-  );
+  // A root note or a day note under memory/, saved against its loaded hash.
+  router.put("/assistants/:id/memory", async (req, res) => {
+    const saved = await assistantMemory.write(req.params.id, req.body);
+    audited(req.params.id, "memory-saved", saved.name);
+    res.json(saved);
+  });
+  // A day note under memory/ is deleted by the owner.
   router.delete("/assistants/:id/memory/notes", async (req, res) => {
     await assistantMemory.remove(req.params.id, req.query.name, { owner: true });
+    audited(req.params.id, "memory-deleted", req.query.name);
     res.status(204).end();
   });
   router.get("/assistants/:id/memory/files", async (req, res) =>

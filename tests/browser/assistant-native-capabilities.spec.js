@@ -36,6 +36,12 @@ async function setup(page, reminders = []) {
       body = {
         results: [
           { path: "memory/network.md", snippet: "The router is in the hallway." },
+          {
+            path: "memory/MEMORY.md",
+            snippet: "User likes tea",
+            startLine: 2,
+            endLine: 2,
+          },
         ],
       };
     else if (url.pathname.endsWith("/memory/files"))
@@ -43,24 +49,27 @@ async function setup(page, reminders = []) {
         files: [{ name: "memory/MEMORY.md", size: 14, modifiedAt: "2026-10-10" }],
       };
     else if (url.pathname.endsWith("/memory/notes")) {
-      if (method === "PUT") {
-        state.noteSaved = route.request().postDataJSON();
-        body = { name: "memory/MEMORY.md", hash: "d".repeat(64) };
-      } else {
-        state.noteRemoved = url.searchParams.get("name");
-        await route.fulfill({ status: 204 });
-        return;
-      }
+      state.noteRemoved = url.searchParams.get("name");
+      await route.fulfill({ status: 204 });
+      return;
     } else if (url.searchParams.get("name") === "memory/MEMORY.md")
       body = {
         name: "memory/MEMORY.md",
-        content: "User likes tea",
+        content: state.noteContent ?? "User likes tea",
         hash: "c".repeat(64),
         missing: false,
         readOnly: true,
         editable: state.editableNote === true,
       };
-    else if (url.pathname.endsWith("/memory")) {
+    else if (
+      url.pathname.endsWith("/memory") &&
+      method === "PUT" &&
+      route.request().postDataJSON().name === "memory/MEMORY.md"
+    ) {
+      // A day note goes the root notes' save path.
+      state.noteSaved = route.request().postDataJSON();
+      body = { name: "memory/MEMORY.md", hash: "d".repeat(64) };
+    } else if (url.pathname.endsWith("/memory")) {
       if (method === "PUT") state.saved = route.request().postDataJSON();
       body = {
         name: "MEMORY.md",
@@ -207,4 +216,34 @@ test("English memory page edits and deletes a day note", async ({ page }) => {
     .getByRole("button", { name: "Delete note", exact: true })
     .click();
   await expect.poll(() => state.noteRemoved).toBe("memory/MEMORY.md");
+});
+test("English memory search opens a day note in edit mode at the match", async ({
+  page,
+}) => {
+  const state = await setup(page);
+  state.editableNote = true;
+  state.noteContent = "# 2026-10-10\nUser likes tea\nTea at four";
+  await page.goto(baseURL + settingsPath("capabilities", "memory"));
+  await expect(page.getByLabel("Saved notes")).toHaveValue("Prefers vegetarian meals");
+  await page.getByLabel("Search memory").fill("tea");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  // Each result opens its own note.
+  await expect(
+    page.getByRole("button", { name: "Open note memory/network.md" }),
+  ).toHaveCount(1);
+  await page.getByRole("button", { name: "Open note memory/MEMORY.md" }).click();
+  const notes = page.getByLabel("Saved notes");
+  await expect(page.getByLabel("Note type")).toHaveValue("memory/MEMORY.md");
+  await expect(notes).toHaveValue(state.noteContent);
+  await expect(notes).toBeFocused();
+  await expect(notes).not.toHaveAttribute("readonly", "");
+  expect(
+    await notes.evaluate((field) =>
+      field.value.slice(field.selectionStart, field.selectionEnd),
+    ),
+  ).toBe("User likes tea");
+  await page.screenshot({
+    path: ".cache/assistant-memory-search-open-en.png",
+    fullPage: true,
+  });
 });

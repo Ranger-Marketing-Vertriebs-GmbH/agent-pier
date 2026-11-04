@@ -86,4 +86,7 @@ export const verbs = new Set([
   // audit-memory-archive-details.js).
   "memory-archived",
   "memory-restored",
+  // A note the owner saved or deleted on the memory page, by file name only.
+  "memory-saved",
+  "memory-deleted",
 ]);

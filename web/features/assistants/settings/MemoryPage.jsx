@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
 import ErrorMessage from "../../../components/ErrorMessage.jsx";
 import SaveBar from "../../../components/SaveBar.jsx";
@@ -12,14 +12,16 @@ import { assistantApi } from "../assistant-api.js";
 import { memoryStep } from "./agent-settings-steps.js";
 import useAgentDraftGuard from "./useAgentDraftGuard.js";
 import useMemoryNotes from "./useMemoryNotes.js";
+import { lineRange, openableNote } from "./memory-match.js";
 import ConflictNotice from "./ConflictNotice.jsx";
 import MemoryArchiveList from "./MemoryArchiveList.jsx";
 import SubpageHeader from "./SubpageHeader.jsx";
 
 /**
- * The agent's two root notes (editable, saved against the loaded hash), its Dream
- * Diary and its own notes under memory/ (read only), plus a search over all of them
- * and the archive of entries taken out after a model switch (MemoryArchiveList).
+ * The agent's two root notes and its day notes under memory/ (editable, saved against
+ * the loaded hash; a day note can also be deleted), its Dream Diary (read only), plus
+ * a search over all of them whose results open their note at the match, and the
+ * archive of entries taken out after a model switch (MemoryArchiveList).
  * `readOnly` (a user's own agent under her opt-in) shows every note read only.
  */
 export default function MemoryPage({ assistant, onBack, readOnly: locked = false }) {
@@ -33,7 +35,10 @@ export default function MemoryPage({ assistant, onBack, readOnly: locked = false
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [reload, setReload] = useState(0),
-    [deleting, setDeleting] = useState(false);
+    [deleting, setDeleting] = useState(false),
+    // A search result being opened: its note and lines, selected once it loaded.
+    [match, setMatch] = useState(null);
+  const textarea = useRef(null);
   const fetchNotes = useCallback(
     (offset) => assistantApi.memoryFiles(assistantId, offset),
     [assistantId],
@@ -62,16 +67,22 @@ export default function MemoryPage({ assistant, onBack, readOnly: locked = false
   const savable = Boolean(file) && !readOnly && Boolean(file.missing || file.hash);
   const draft = useTabDraft({ server: { content: file?.content ?? "" } });
   const steps = savable
-    ? [
-        memoryStep({
-          assistantId,
-          name,
-          file,
-          label: copy.memory,
-          ...(editable ? { saveMemory: assistantApi.saveMemoryNote } : {}),
-        }),
-      ]
+    ? [memoryStep({ assistantId, name, file, label: copy.memory })]
     : [];
+  // The opened result's lines are selected and scrolled into view in its note.
+  const shown = file ? draft.values.content : "";
+  useEffect(() => {
+    const field = textarea.current;
+    if (!match || file?.name !== match.name || !field) return;
+    // An untouched draft follows the loaded note one render later: wait for it.
+    if (!draft.dirty && shown !== (file.content ?? "")) return;
+    setMatch(null);
+    const { start, end } = lineRange(field.value, match.startLine, match.endLine);
+    field.focus();
+    field.setSelectionRange(start, end);
+    const lineHeight = parseFloat(getComputedStyle(field).lineHeight) || 20;
+    field.scrollTop = Math.max(0, (match.startLine - 2) * lineHeight);
+  }, [match, file, shown, draft.dirty]);
   const save = async () => {
     const result = await draft.save(steps);
     if (result.status === "saved" && result.results.memory)
@@ -100,6 +111,13 @@ export default function MemoryPage({ assistant, onBack, readOnly: locked = false
   });
   // Another note is not a route change: this page asks itself before switching.
   const choose = (next) => (draft.dirty ? setNextName(next) : setName(next));
+  const openResult = (result) => {
+    setMatch({ name: result.path, startLine: result.startLine, endLine: result.endLine });
+    if (result.path !== name) choose(result.path);
+  };
+  // A note opened from a search result that the list does not show (a later page).
+  const unlisted =
+    !["MEMORY.md", "USER.md"].includes(name) && !notes.some((note) => note.name === name);
   const switchTo = () => {
     setName(nextName);
     setNextName(null);
@@ -143,8 +161,9 @@ export default function MemoryPage({ assistant, onBack, readOnly: locked = false
                 {dreamingCopy.diary}
               </option>
             ))}
-            {agentNotes.length > 0 && (
+            {(agentNotes.length > 0 || unlisted) && (
               <optgroup label={copy.agentNotes}>
+                {unlisted && <option value={name}>{name}</option>}
                 {agentNotes.map((note) => (
                   <option key={note.name} value={note.name}>
                     {note.name}
@@ -169,11 +188,12 @@ export default function MemoryPage({ assistant, onBack, readOnly: locked = false
         <label className="agent-field">
           {copy.notes}
           <textarea
+            ref={textarea}
             rows={9}
             maxLength={editable ? 262144 : 65536}
             disabled={!file || busy || (!savable && !readOnly)}
             readOnly={readOnly}
-            value={file ? draft.values.content : ""}
+            value={shown}
             onChange={(event) => draft.set("content", event.target.value)}
           />
         </label>
@@ -249,6 +269,19 @@ export default function MemoryPage({ assistant, onBack, readOnly: locked = false
         <article className="assistant-card" key={`${result.path}-${index}`}>
           <strong>{result.path}</strong>
           <p className="assistant-memory-text">{result.snippet}</p>
+          {openableNote(result.path) && (
+            <div className="assistant-actions">
+              <button
+                type="button"
+                className="button secondary compact"
+                aria-label={copy.openNoteNamed(result.path)}
+                disabled={busy || draft.saving}
+                onClick={() => openResult(result)}
+              >
+                {copy.openNote}
+              </button>
+            </div>
+          )}
         </article>
       ))}
       <MemoryArchiveList
@@ -289,7 +322,10 @@ export default function MemoryPage({ assistant, onBack, readOnly: locked = false
           draft.reset();
           switchTo();
         }}
-        onCancel={() => setNextName(null)}
+        onCancel={() => {
+          setNextName(null);
+          setMatch(null);
+        }}
       />
     </section>
   );
