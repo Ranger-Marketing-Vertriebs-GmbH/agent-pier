@@ -16,6 +16,8 @@ export const pipelineWorkspaces = Object.freeze({
   pullRequestOperationFailed: "GitHub konnte den Pull-Request-Vorgang nicht abschließen.",
   invalidPullRequestResponse: "GitHub hat eine ungültige Pull-Request-Antwort geliefert.",
   invalidPullRequestUrl: "GitHub hat eine ungültige Pull-Request-URL geliefert.",
+  pullRequestNoLongerOpen:
+    "Der Pull Request des Laufs ist nicht mehr offen; AgentPier öffnet keinen zweiten.",
   gitOperationFailed:
     "Der Git-Vorgang ist fehlgeschlagen. Bitte Repository, Branch und Zugangsdaten prüfen.",
   invalidGitReference: "Ungültige Git-Referenz.",

@@ -1,14 +1,31 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import express from "express";
 import { fixture } from "../helpers/pipeline-engine.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
+import { availableActions } from "../../server/features/pipelines/pipeline-actions.js";
+import {
+  requestReturn,
+  returnOptions,
+} from "../../server/features/pipelines/return-service.js";
+import { RunQueue } from "../../server/features/pipelines/run-queue.js";
+import { TicketSequenceStore } from "../../server/features/tickets/sequence-store.js";
+import { ReviewCommentStore } from "../../server/features/changes/review-comment-store.js";
+import { commentInput } from "../../server/features/changes/review-comment-input.js";
+import { anchorAt } from "../../server/features/changes/review-anchor.js";
+import { parseGitDiff } from "../../server/features/changes/diff-parse.js";
+import { auditEvent } from "../../server/features/audit/audit-schema.js";
+import { pipelineRunRoutes } from "../../server/http/routes/pipeline-runs.js";
+import { routeAccess } from "../../server/http/route-access.js";
+import { registerResponses } from "../../server/http/responses.js";
 import {
   reopenAtStage,
   returnableStages,
 } from "../../server/features/pipelines/return-to-stage.js";
 
 // build -> review -> approve; a review failure loops back to build.
-function completedFixture(t) {
-  const f = fixture(t, { loop: true });
+function completedFixture(t, options = {}) {
+  const f = fixture(t, { loop: true, options });
   const original = f.definitions.snapshot;
   f.definitions.snapshot = () => {
     const snapshot = original();
@@ -31,8 +48,8 @@ function completedFixture(t) {
 }
 const pass = (summary) => ({ result: "pass", summary, findings: [] });
 
-async function completed(t) {
-  const f = completedFixture(t);
+async function completed(t, options) {
+  const f = completedFixture(t, options);
   const run = await f.engine.start({ pipelineId: "definition", cwd: f.dir, task: "Fix" });
   await f.end(pass("Built"), { nativeId: "native-build" });
   await f.end(pass("Reviewed"), { nativeId: "native-review" });
@@ -172,4 +189,339 @@ test("the round number follows the last kept round once old ones are trimmed", a
   f.engine.store.save(saved);
   await reopen({ nodeId: "review", note: "Late", requestId: "req-9" });
   assert.equal(current().loopRounds.at(-1).round, 15);
+});
+
+// ── The owner's return: blocks, slot, notes and the routes ──────────────────────
+
+const copy = serverMessages.pipelines;
+const diffText = [
+  "diff --git a/server/a.js b/server/a.js",
+  "index 1111111..2222222 100644",
+  "--- a/server/a.js",
+  "+++ b/server/a.js",
+  "@@ -40,3 +40,3 @@ function login() {",
+  " const user = load();",
+  "-if (pw === user.pw) return ok();",
+  "+if (await verify(pw, user.hash)) return ok();",
+  " return fail();",
+].join("\n");
+
+// A completed run with a review comment store, a PR state stub, a sequence watch and
+// an audit log; `box` steers the stubs.
+async function returnable(t) {
+  const box = { pr: "open", watch: () => false, audit: [] };
+  const done = await completed(t, {
+    reviewComments: {
+      list: (scope) => box.store.list(scope),
+      markSent: (scope, ids) => box.store.markSent(scope, ids),
+    },
+    sequenceWatch: (id) => box.watch(id),
+    audit: { append: (entry) => box.audit.push(auditEvent(entry)) },
+  });
+  const { f, run } = done;
+  box.store = new ReviewCommentStore({ dataDir: f.dir });
+  f.workspace.validate = async (workspace) => {
+    if (box.gone) throw new Error("gone");
+    return workspace;
+  };
+  f.workspace.pullRequestState = async () => {
+    if (box.pr instanceof Error) throw box.pr;
+    return box.pr;
+  };
+  f.workspace.runDiff = async () => ({
+    from: "base",
+    files: parseGitDiff(diffText),
+    truncated: false,
+  });
+  const scope = { kind: "run", id: run.id };
+  const comment = (body = "Check this.") =>
+    box.store.create(
+      scope,
+      commentInput(
+        {
+          file: "server/a.js",
+          side: "new",
+          line: 41,
+          anchor: anchorAt(parseGitDiff(diffText)[0].rows, 3),
+          body,
+        },
+        { kind: "run" },
+      ),
+    );
+  const edit = (change) => {
+    const saved = f.engine.store.get(run.id);
+    change(saved);
+    f.engine.store.save(saved);
+  };
+  // Puts back the run as it completed, but for the fields given.
+  const original = f.engine.store.get(run.id);
+  const restore = (fields = {}) =>
+    edit((r) => {
+      for (const key of Object.keys(r)) if (key !== "revision") delete r[key];
+      Object.assign(r, structuredClone({ ...original, ...fields }), {
+        revision: r.revision,
+      });
+    });
+  return { ...done, box, scope, comment, edit, restore };
+}
+let requests = 0;
+const body = (extra = {}) => ({
+  nodeId: "review",
+  feedback: "Tighten the review.",
+  requestId: `req-${++requests}`,
+  ...extra,
+});
+
+test("finished runs with a workspace offer return-to-stage, which is no gate action", async (t) => {
+  const workspace = { hasRemote: true };
+  assert.ok(
+    availableActions({ status: "completed", workspace }).includes("return-to-stage"),
+  );
+  assert.ok(
+    availableActions({ status: "failed", workspace }).includes("return-to-stage"),
+  );
+  for (const run of [
+    { status: "cancelled", workspace },
+    { status: "completed", workspace: null },
+    { status: "completed", workspace, imported: { historyOnly: true } },
+  ])
+    assert.ok(!availableActions(run).includes("return-to-stage"));
+  const { f, run } = await returnable(t);
+  await assert.rejects(f.engine.gate(run.id, { action: "return-to-stage" }), {
+    status: 409,
+    message: copy.actionUnavailable,
+  });
+});
+
+test("the options name the stages that ran and the open notes", async (t) => {
+  const { f, run, comment } = await returnable(t);
+  comment();
+  assert.deepEqual(await returnOptions(f.engine, run.id), {
+    available: true,
+    reason: null,
+    stages: [
+      { id: "build", name: "Builder" },
+      { id: "review", name: "Builder" },
+      { id: "approve", name: "Builder" },
+    ],
+    openComments: 1,
+  });
+});
+
+test("every block names its own reason and sentence", async (t) => {
+  const { f, run, box, edit, restore, current } = await returnable(t);
+  const cases = [
+    ["imported", "imported", (r) => (r.imported = { historyOnly: true })],
+    ["not-finished", "notFinished", (r) => (r.status = "awaiting-human")],
+    ["cancelled", "cancelled", (r) => (r.status = "cancelled")],
+    ["no-workspace", "noWorkspace", (r) => (r.workspace = null)],
+    ["workspace-gone", "workspaceGone", () => (box.gone = true)],
+    ["pr-merged", "prMerged", () => (box.pr = "merged")],
+    ["pr-closed", "prClosed", () => (box.pr = "closed")],
+    ["pr-armed", "prArmed", () => (box.pr = "armed")],
+    ["pr-unknown", "prUnknown", () => (box.pr = new Error("offline"))],
+    ["sequence-watching", "sequenceWatching", () => (box.watch = () => true)],
+  ];
+  for (const [reason, key, change] of cases) {
+    Object.assign(box, { pr: "open", gone: false, watch: () => false });
+    restore({ pullRequestUrl: "https://github.example/o/r/pull/1" });
+    edit(change);
+    const options = await returnOptions(f.engine, run.id);
+    assert.deepEqual([options.available, options.reason], [false, reason]);
+    await assert.rejects(requestReturn(f.engine, run.id, body()), (error) => {
+      assert.deepEqual(
+        [error.status, error.code, error.reason, error.message],
+        [409, "PIPELINE_RETURN_BLOCKED", reason, copy.returnBlocked[key]],
+      );
+      return true;
+    });
+  }
+  assert.equal(new Set(Object.values(copy.returnBlocked)).size, cases.length);
+  // Without a pull request no forge is asked.
+  restore();
+  Object.assign(box, { pr: new Error("never asked"), watch: () => false });
+  assert.equal((await returnOptions(f.engine, run.id)).available, true);
+  assert.equal(current().status, "completed");
+});
+
+test("a run any sequence item names stays blocked, whatever the item's state", async (t) => {
+  const { f, run, box } = await returnable(t);
+  const sequences = new TicketSequenceStore({ dataDir: f.dir });
+  box.watch = (id) => sequences.watchingRun(id);
+  const [item] = sequences.append("p1", "/repo", [
+    {
+      source: "github",
+      key: "o/r#1",
+      title: "Ticket",
+      url: "https://github.com/o/r/issues/1",
+      kind: "pipeline",
+      options: { allowMerge: false },
+    },
+  ]).items;
+  assert.equal((await returnOptions(f.engine, run.id)).available, true);
+  for (const state of ["running", "awaiting-merge", "done"]) {
+    sequences.patch("p1", item.id, { state, runId: run.id });
+    assert.equal((await returnOptions(f.engine, run.id)).reason, "sequence-watching");
+  }
+});
+
+test("an unknown stage, an empty note or a bad request id is refused", async (t) => {
+  const { f, run, current } = await returnable(t);
+  const count = f.launches.length;
+  await assert.rejects(requestReturn(f.engine, run.id, body({ nodeId: "nope" })), {
+    status: 400,
+    message: copy.returnStageUnknown,
+  });
+  for (const extra of [{ feedback: "  " }, { feedback: "", review: true }, {}])
+    await assert.rejects(
+      requestReturn(f.engine, run.id, body({ feedback: "", ...extra })),
+      { status: 400, message: copy.returnNoteRequired },
+    );
+  await assert.rejects(requestReturn(f.engine, run.id, body({ requestId: "../x" })), {
+    status: 400,
+  });
+  await assert.rejects(
+    requestReturn(f.engine, run.id, body({ feedback: "x".repeat(40000) })),
+    { status: 409, code: "PIPELINE_FEEDBACK_TOO_LARGE" },
+  );
+  assert.equal(f.launches.length, count);
+  assert.equal(current().status, "completed");
+});
+
+test("the notes alone are enough, go along once and are marked sent after the reopen", async (t) => {
+  const { f, run, box, scope, comment, current } = await returnable(t);
+  comment("Use a constant-time comparison.");
+  const input = body({ feedback: "", review: true });
+  const { run: answered } = await requestReturn(f.engine, run.id, input);
+  assert.equal(answered.status, "running");
+  assert.ok(Array.isArray(answered.actions));
+  assert.match(f.launches.at(-1).prompt, /Review notes \(1\):/);
+  assert.equal(box.store.list(scope).comments[0].sentIn, 1);
+  const count = f.launches.length;
+  await requestReturn(f.engine, run.id, input);
+  assert.equal(f.launches.length, count);
+  assert.equal(box.store.list(scope).batches, 1);
+  assert.deepEqual(
+    box.audit.map((e) => [e.action, e.details]),
+    [["pipeline.updated", { kind: "return", stageId: "review", comments: 1 }]],
+  );
+  assert.equal(current().returns.length, 1);
+});
+
+// A real run queue of the fixture's project with one slot.
+function projectQueue(t, f, { known = true } = {}) {
+  f.definitions.getQueueSettings = (projectId) => ({
+    projectId,
+    limit: 1,
+    countParked: false,
+  });
+  const queue = new RunQueue({
+    dataDir: f.dir,
+    engine: f.engine,
+    definitions: f.definitions,
+    projects: (id) => {
+      if (!known || id !== "project")
+        throw Object.assign(new Error("missing"), { status: 404 });
+      return { id, cwd: f.dir };
+    },
+    projectMoved: () => null,
+    pollIntervalMs: 0,
+  });
+  t.after(() => queue.close());
+  return queue;
+}
+
+test("a busy project refuses the return and keeps the run and its notes", async (t) => {
+  const { f, run, box, scope, comment, current } = await returnable(t);
+  const queue = projectQueue(t, f);
+  comment();
+  const other = await f.engine.start({ pipelineId: "definition", cwd: f.dir, task: "B" });
+  assert.equal(f.engine.get(other.id).status, "running");
+  const count = f.launches.length;
+  const input = body({ review: true });
+  await assert.rejects(requestReturn(f.engine, run.id, input, { queue }), {
+    status: 409,
+    code: "PIPELINE_RETURN_BUSY",
+    message: copy.returnBusy,
+  });
+  assert.equal(current().status, "completed");
+  assert.equal(current().returns, undefined);
+  assert.equal(f.launches.length, count);
+  assert.equal(box.store.list(scope).comments[0].sentIn, null);
+  assert.equal(box.audit.length, 0);
+  // Once the other run finished, the same request goes through.
+  await f.engine.cancel(other.id);
+  await requestReturn(f.engine, run.id, input, { queue });
+  assert.equal(current().status, "running");
+  assert.equal(box.store.list(scope).comments[0].sentIn, 1);
+});
+
+test("a run without a registered project reopens at once", async (t) => {
+  const { f, run, current } = await returnable(t);
+  const queue = projectQueue(t, f, { known: false });
+  await f.engine.start({ pipelineId: "definition", cwd: f.dir, task: "B" });
+  await requestReturn(f.engine, run.id, body(), { queue });
+  assert.equal(current().status, "running");
+});
+
+// The routes behind the owner's access check; `?as=user` is a restricted user.
+async function serve(t, f, queue) {
+  const app = express();
+  app.use(express.json());
+  app.use((req, _res, next) => {
+    req.principal = req.query.as === "user" ? { role: "user", userId: "u" } : null;
+    next();
+  });
+  app.use("/api", routeAccess());
+  app.use(
+    "/api",
+    pipelineRunRoutes({
+      pipelines: f.engine,
+      pipelineRunCounts: {},
+      pipelineQueue: queue,
+    }),
+  );
+  registerResponses(app);
+  const server = await new Promise((resolve) => {
+    const listening = app.listen(0, "127.0.0.1", () => resolve(listening));
+  });
+  t.after(() => server.close());
+  return async (url, payload) => {
+    const response = await fetch(`http://127.0.0.1:${server.address().port}${url}`, {
+      method: payload ? "POST" : "GET",
+      headers: { "content-type": "application/json" },
+      ...(payload ? { body: JSON.stringify(payload) } : {}),
+    });
+    return { status: response.status, body: await response.json() };
+  };
+}
+
+test("the routes answer options and the reopened run, blocks by reason, users 404", async (t) => {
+  const { f, run, box } = await returnable(t);
+  const call = await serve(t, f, projectQueue(t, f));
+  const url = `/api/pipeline-runs/${run.id}/return-to-stage`;
+  assert.equal((await call(`${url}?as=user`)).status, 404);
+  assert.equal((await call(`${url}?as=user`, body())).status, 404);
+  const options = await call(url);
+  assert.equal(options.status, 200);
+  assert.deepEqual(
+    [options.body.available, options.body.reason, options.body.openComments],
+    [true, null, 0],
+  );
+  box.pr = "armed";
+  f.engine.store.save({
+    ...f.engine.store.get(run.id),
+    pullRequestUrl: "https://github.example/o/r/pull/1",
+  });
+  const blocked = await call(url, body());
+  assert.equal(blocked.status, 409);
+  assert.deepEqual(
+    [blocked.body.code, blocked.body.reason, blocked.body.messageKey],
+    ["PIPELINE_RETURN_BLOCKED", "pr-armed", "pipelines.returnBlocked.prArmed"],
+  );
+  box.pr = "open";
+  const done = await call(url, body());
+  assert.equal(done.status, 200);
+  assert.equal(done.body.run.status, "running");
+  assert.equal(done.body.run.returns.length, 1);
 });

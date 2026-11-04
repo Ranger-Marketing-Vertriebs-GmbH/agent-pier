@@ -240,6 +240,11 @@ export class TicketSequenceService {
     return outcome;
   }
 
+  /** Whether a sequence item names the run (Return to stage refuses it then). */
+  watchesRun(runId) {
+    return this.store.watchingRun(runId);
+  }
+
   /** A pipeline run changed (PipelineEngine onChange). */
   runChanged(run) {
     this.engine.runChanged(run);
@@ -265,6 +270,10 @@ export class TicketSequenceService {
   retry(projectId, itemId) {
     return this.withItem(projectId, itemId, async (project, item) => {
       if (item.state !== "needs-owner") throw problem(copy.itemBusy, 409);
+      // A run that still works or waits (sent back to a stage, say) is not replaced.
+      const run = item.runId ? await this.engine.readRun(item.runId) : null;
+      if (run && !["completed", "failed", "cancelled"].includes(run.status))
+        throw problem(copy.itemRunActive, 409);
       let next = item;
       // The ticket's session still runs without a PR: it is watched again (its start
       // resumed: the task goes out under the same delivery id), never launched twice.

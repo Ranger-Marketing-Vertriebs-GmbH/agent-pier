@@ -54,10 +54,10 @@ test("a repository without a remote offers no pull request and records it", asyn
   const workspace = await manager.prepare({ runId: "local", cwd: project });
   assert.equal(workspace.hasRemote, false);
   const run = { status: "completed", workspace, pullRequestUrl: null };
-  assert.deepEqual(availableActions(run), ["delete"]);
+  assert.deepEqual(availableActions(run), ["delete", "return-to-stage"]);
   assert.deepEqual(
     availableActions({ ...run, workspace: { ...workspace, hasRemote: true } }),
-    ["delete", "create-pr"],
+    ["delete", "create-pr", "return-to-stage"],
   );
 });
 

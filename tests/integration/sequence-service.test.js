@@ -186,6 +186,34 @@ test("retry of a failed pipeline run queues a new run", async (t) => {
   assert.equal(f.queued.size, 2);
 });
 
+test("retry refuses while the item's pipeline run is still active", async (t) => {
+  const f = await sequenceFixture(t);
+  f.append([KEY], { kind: "pipeline" });
+  await f.engine.run();
+  const [item] = f.items();
+  park(f, item.id, "runFailed");
+  // The run was sent back to a stage meanwhile and works again.
+  f.runs.set(item.runId, { id: item.runId, status: "running" });
+  await assert.rejects(service(f).retry("p1", item.id), {
+    status: 409,
+    message: copy.itemRunActive,
+  });
+  assert.equal(f.items()[0].state, "needs-owner");
+  assert.equal(f.items()[0].runId, item.runId);
+  f.runs.set(item.runId, { id: item.runId, status: "failed" });
+  await service(f).retry("p1", item.id);
+  assert.notEqual(f.items()[0].state, "needs-owner");
+});
+
+test("the service tells which runs a sequence follows", async (t) => {
+  const f = await sequenceFixture(t);
+  f.append([KEY], { kind: "pipeline" });
+  await f.engine.run();
+  const [item] = f.items();
+  assert.equal(service(f).watchesRun(item.runId), true);
+  assert.equal(service(f).watchesRun("other"), false);
+});
+
 test("mark done moves on without writing to the tracker", async (t) => {
   const f = await sequenceFixture(t);
   f.append([KEY, "acme/app#13"]);

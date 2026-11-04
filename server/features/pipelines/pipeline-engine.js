@@ -63,8 +63,11 @@ export class PipelineEngine {
     hostPort,
     audit,
     reviewComments,
+    sequenceWatch = () => false,
   }) {
     this.audit = audit;
+    // Whether a ticket sequence follows a run (Return to stage refuses it then).
+    this.sequenceWatch = sequenceWatch;
     this.reviewComments = reviewComments;
     this.timing = { completionGraceMs, inactivityTimeoutMs, turnTimeoutMs };
     fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 });

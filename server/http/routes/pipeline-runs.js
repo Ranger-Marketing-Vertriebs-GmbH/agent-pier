@@ -2,6 +2,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { Router } from "express";
 import { problem } from "../../lib/storage.js";
 import { runCountsView } from "../../features/pipelines/live-topics.js";
+import { requestReturn, returnOptions } from "../../features/pipelines/return-service.js";
 
 function pageValue(value) {
   if (value === undefined) return 1;
@@ -20,7 +21,7 @@ function filter(value, message) {
   return value;
 }
 
-export function pipelineRunRoutes({ pipelines, pipelineRunCounts }) {
+export function pipelineRunRoutes({ pipelines, pipelineRunCounts, pipelineQueue }) {
   const router = Router();
   // The count of each status, of all runs or of one project (the pills and hints).
   router.get("/pipeline-run-counts", (req, res) =>
@@ -66,6 +67,15 @@ export function pipelineRunRoutes({ pipelines, pipelineRunCounts }) {
   });
   router.post("/pipeline-runs/:id/gate", async (req, res) =>
     res.json({ run: await pipelines.gate(req.params.id, req.body) }),
+  );
+  // Return to stage: what the dialog offers, and sending a finished run back.
+  router.get("/pipeline-runs/:id/return-to-stage", async (req, res) =>
+    res.json(await returnOptions(pipelines, req.params.id)),
+  );
+  router.post("/pipeline-runs/:id/return-to-stage", async (req, res) =>
+    res.json(
+      await requestReturn(pipelines, req.params.id, req.body, { queue: pipelineQueue }),
+    ),
   );
   for (const [endpoint, method] of [
     ["cancel", "cancel"],

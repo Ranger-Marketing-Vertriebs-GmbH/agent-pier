@@ -335,3 +335,97 @@ test("new pull requests use the ticket task headline rather than the pipeline de
     "NEONNIGHTS-353: ActionCam auf Tokens umstellen",
   );
 });
+
+// A workspace with a GitHub origin and a fake `gh` that answers `reply(args)`.
+async function forgeFixture(t, script) {
+  const { root, project, dataDir, git } = await fixture(t);
+  const calls = path.join(root, "gh-calls.jsonl"),
+    gh = path.join(root, "fake-gh.cjs");
+  await fs.writeFile(
+    gh,
+    `#!${process.execPath}\nconst fs=require('node:fs');const args=process.argv.slice(2);fs.appendFileSync(${JSON.stringify(calls)},JSON.stringify(args)+'\\n');${script}`,
+    { mode: 0o700 },
+  );
+  const manager = new PipelineWorkspace({
+    dataDir,
+    github: {
+      prepare: async ({ launch }) => launch,
+      discard: async () => {},
+      resolveGh: () => gh,
+    },
+  });
+  const workspace = await manager.prepare({ runId: "forge", cwd: project });
+  const remote = path.join(root, "remote.git");
+  await exec("git", ["init", "--bare", remote]);
+  await git("remote", "add", "origin", "https://github.example/org/repo.git");
+  await git("config", "remote.origin.pushurl", remote);
+  const args = async () =>
+    (await fs.readFile(calls, "utf8")).trim().split("\n").map(JSON.parse);
+  return { manager, workspace, remote, args };
+}
+
+test("a run whose pull request is gone never opens a second one", async (t) => {
+  const { manager, workspace, remote, args } = await forgeFixture(
+    t,
+    `console.log(args[1]==='list'?'[]':'https://github.example/org/repo/pull/2');`,
+  );
+  await fs.writeFile(path.join(workspace.cwd, "tracked.txt"), "again\n");
+  await assert.rejects(
+    manager.createPr({
+      workspace,
+      run: {
+        id: "forge",
+        task: "Fix",
+        pullRequestUrl: "https://github.example/org/repo/pull/1",
+      },
+    }),
+    { status: 409, message: copy.pullRequestNoLongerOpen },
+  );
+  const calls = await args();
+  assert.equal(
+    calls.some((row) => row[1] === "create"),
+    false,
+  );
+  // Nothing was pushed to the branch of the gone pull request.
+  await assert.rejects(
+    exec("git", ["rev-parse", "refs/heads/agentpier/forge"], { cwd: remote }),
+  );
+});
+
+test("the pull request state reads merged, closed, armed and open", async (t) => {
+  const url = "https://github.example/org/repo/pull/1";
+  for (const [reply, expected] of [
+    [{ state: "MERGED", autoMergeRequest: null, isInMergeQueue: false }, "merged"],
+    [{ state: "CLOSED", autoMergeRequest: null, isInMergeQueue: false }, "closed"],
+    [
+      { state: "OPEN", autoMergeRequest: { enabledAt: "x" }, isInMergeQueue: false },
+      "armed",
+    ],
+    [{ state: "OPEN", autoMergeRequest: null, isInMergeQueue: true }, "armed"],
+    [{ state: "OPEN", autoMergeRequest: null, isInMergeQueue: false }, "open"],
+  ]) {
+    await t.test(expected, async (t) => {
+      const { manager, workspace, args } = await forgeFixture(
+        t,
+        `console.log(${JSON.stringify(JSON.stringify(reply))});`,
+      );
+      assert.equal(await manager.pullRequestState({ workspace, url }), expected);
+      assert.deepEqual((await args())[0], [
+        "pr",
+        "view",
+        url,
+        "--repo",
+        "github.example/org/repo",
+        "--json",
+        "state,autoMergeRequest,isInMergeQueue",
+      ]);
+    });
+  }
+  for (const script of [`console.log('nope');`, `process.exit(1);`, `console.log('{}');`])
+    await t.test(script, async (t) => {
+      const { manager, workspace } = await forgeFixture(t, script);
+      await assert.rejects(manager.pullRequestState({ workspace, url }), {
+        status: 409,
+      });
+    });
+});

@@ -29,6 +29,31 @@ export const pipelines = Object.freeze({
   feedbackSize: "Rückmeldungen müssen zwischen 1 und 32768 Bytes enthalten.",
   invalidLoopFeedback: "Ungültige Rückmeldung für die Schleife.",
   operatorRepairRound: "Eine weitere Korrekturrunde wurde angefordert.",
+  returnBlocked: {
+    imported:
+      "Importierter Pipeline-Verlauf kann nicht zurückgeschickt werden. Bitte einen neuen Lauf starten.",
+    notFinished:
+      "Nur ein abgeschlossener oder fehlgeschlagener Lauf kann an eine Stufe zurückgeschickt werden.",
+    cancelled:
+      "Ein abgebrochener Lauf kann nicht zurückgeschickt werden. Bitte einen neuen Lauf starten.",
+    noWorkspace: "Dieser Lauf hat keinen Arbeitsbereich, in dem er weiterarbeiten kann.",
+    workspaceGone:
+      "Der Arbeitsbereich des Laufs fehlt oder wurde verändert, daher kann der Lauf darin nicht weiterarbeiten.",
+    prMerged:
+      "Der Pull Request des Laufs ist gemergt. Für weitere Änderungen bitte einen neuen Lauf starten.",
+    prClosed:
+      "Der Pull Request des Laufs ist geschlossen. Für weitere Änderungen bitte einen neuen Lauf starten.",
+    prArmed:
+      "Für den Pull Request ist Auto-Merge oder eine Merge-Queue aktiv. Bitte zuerst deaktivieren oder einen neuen Lauf starten.",
+    prUnknown: "GitHub konnte nicht sagen, ob der Pull Request des Laufs noch offen ist.",
+    sequenceWatching:
+      "Eine Ticketfolge verfolgt diesen Lauf. Bitte das Ticket zuerst aus der Folge entfernen.",
+  },
+  returnStageUnknown: "Der Lauf kann nicht an diese Stufe zurückgeschickt werden.",
+  returnNoteRequired:
+    "Bitte beschreiben, was die Stufe ändern soll, oder Review-Notizen hinzufügen.",
+  returnBusy:
+    "Das Projekt hat keinen freien Platz für Läufe. Bitte erneut versuchen, wenn ein Lauf endet.",
   reconcileRequiresQuiescedTurn:
     "Der Abgleich erfordert einen erfolgreichen, zur Ruhe gekommenen nativen Turn.",
   noFreshVerdict: "Es liegt kein frisches gültiges Ergebnis zum Abgleichen vor.",

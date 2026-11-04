@@ -37,6 +37,8 @@ export const tickets = Object.freeze({
   ticketQueued: "This ticket is already queued.",
   itemNotFound: "The queued ticket was not found.",
   itemBusy: "This ticket is being worked on right now.",
+  itemRunActive:
+    "The ticket's pipeline run is still active. Let it finish or cancel it first.",
   githubRequired: "Ticket sequences need a GitHub repository for this project.",
   ruleGithubRequired:
     "Label rules need a GitHub repository for this project, also for Plane tickets.",
