@@ -17,6 +17,7 @@ _(German)_ are not translated yet.
 | [Mobile recovery](mobile-recovery.md)                      | Connection and upload recovery on phones                     |
 | [App and notifications](notifications.md)                  | Installing the app, push notifications and devices           |
 | [File Explorer](file-explorer.md)                          | Browsing, editing, uploading and recovering files            |
+| [Session changes](diff-review.md)                          | Reviewing a session's diff, comments and Send to agent       |
 | [Pipelines](pipelines.md)                                  | Task profiles, review pipelines and runs                     |
 | [Project memory](memory.md)                                | Project knowledge for sessions and agents; the Projects page |
 | [AgentBus](agentbus-integration.md) _(German)_             | Messages between sessions in the same project                |

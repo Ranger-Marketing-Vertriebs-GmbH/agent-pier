@@ -52,6 +52,7 @@ export const searchCopy = {
     openInbox: "Open inbox",
     addLabelRule: "Add label rule",
     startTickets: "Start tickets",
+    showChanges: "Show changes",
   },
   // The search in a user's own app: the user's agents, their chats and pages, the account.
   user: {
@@ -89,5 +90,7 @@ export const searchCopy = {
     workTab: "Work",
     routinesTab: "Routines",
     telegramTab: "Telegram",
+    diff: "Diff",
+    reviewChanges: "Review changes",
   },
 };

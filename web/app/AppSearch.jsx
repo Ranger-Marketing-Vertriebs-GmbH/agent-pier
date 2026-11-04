@@ -89,6 +89,8 @@ export default function AppSearch({
       return navigate({ view: "workspace", sessionId: target.session, mode: null });
     }
     if (target.action === "launch") return launch();
+    if (target.action === "session-changes")
+      return navigate({ ...route, mode: "changes" });
     if (target.action === "start-tickets" || target.action === "add-label-rule")
       return navigate(
         projectsRoute(
@@ -117,6 +119,7 @@ export default function AppSearch({
             agents={assistants}
             conversations={conversations}
             agentsEnabled={Boolean(agentsEnabled)}
+            sessionOpen={route?.view === "workspace" && Boolean(route.sessionId)}
             connections={connections}
             workspace={workspace}
             recent={recent}

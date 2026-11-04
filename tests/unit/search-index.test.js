@@ -319,3 +319,28 @@ test("searching stays fast with thousands of entries", () => {
     searchEntries(big, query);
   assert.ok(performance.now() - start < 200, "four queries in under 200 ms");
 });
+
+test("Show changes opens the open session's Changes tab and only then", () => {
+  const withSession = buildSearchIndex({
+    agents,
+    connections,
+    agentsEnabled: true,
+    sessionOpen: true,
+  });
+  const hit = results("Änderungen anzeigen", withSession).find(
+    (item) => item.group === "actions",
+  );
+  assert.deepEqual(hit.target, { action: "session-changes" });
+  assert.equal(results("Show changes", withSession)[0].id, "action:session-changes");
+  for (const alias of ["diff", "Review changes", "Änderungen prüfen"])
+    assert.ok(
+      results(alias, withSession).some((item) => item.id === "action:session-changes"),
+      alias,
+    );
+  assert.ok(!index.some((item) => item.id === "action:session-changes"));
+  assert.equal(
+    results("Änderungen anzeigen").filter((item) => item.id === "action:session-changes")
+      .length,
+    0,
+  );
+});

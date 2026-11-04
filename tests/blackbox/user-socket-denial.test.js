@@ -278,6 +278,8 @@ test("a user cannot tell an owner topic from an unknown one on the live channel"
   for (const topic of topics) {
     live.send({ op: "sub", topic });
     answers.push(await live.next((frame) => frame.type !== "hello"));
+    // A socket holds at most 64 topics, refused ones included; the registry outgrew it.
+    live.send({ op: "unsub", topic });
   }
   const [reference, ...others] = answers.map(({ topic: _topic, ...rest }) => rest);
   assert.deepEqual(reference, { type: "error", code: "unknown-topic" });
