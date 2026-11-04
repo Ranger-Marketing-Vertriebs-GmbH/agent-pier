@@ -4,6 +4,7 @@ import { expect } from "@playwright/test";
 import { navigateTo } from "./navigation.js";
 import { baseURL as base } from "./browser.js";
 import { runCountsAnswer } from "./run-counts.js";
+import { isChangesRead, noChanges } from "./session-changes-fixture.js";
 export const stamp = "2026-09-06T10:00:00Z";
 export async function fixture(page) {
   const state = {
@@ -98,6 +99,8 @@ export async function fixture(page) {
             : {}),
         });
       result = credential || {};
+    } else if (isChangesRead(path)) {
+      result = noChanges;
     } else if (/^\/api\/sessions\/[^/]+\/github$/.test(path)) {
       result = state.github || { configured: true, hosts: [], remote: null };
     } else if (path === "/api/repositories/clone") {

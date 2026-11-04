@@ -267,7 +267,8 @@ export default function useWorkspaceNavigation({ state, ready, setMobileNav, set
     if (
       activeSession &&
       (!route.mode ||
-        (activeSession.tool === "shell" && !["terminal", "files"].includes(route.mode)))
+        (activeSession.tool === "shell" &&
+          !["terminal", "files", "changes"].includes(route.mode)))
     )
       normalized = {
         ...route,

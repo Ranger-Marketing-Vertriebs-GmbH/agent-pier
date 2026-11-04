@@ -156,7 +156,7 @@ function Application() {
       : null);
   // The tab the open session shows; a view made by a drop onto it keeps that tab.
   const sessionMode = activeSession
-    ? activeSession.tool === "shell" && route.mode !== "files"
+    ? activeSession.tool === "shell" && !["files", "changes"].includes(route.mode)
       ? "terminal"
       : route.mode ||
         defaultSessionMode(activeSession, window.matchMedia("(max-width: 700px)").matches)

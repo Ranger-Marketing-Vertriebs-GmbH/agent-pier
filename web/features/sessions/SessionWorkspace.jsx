@@ -9,7 +9,10 @@ import { sessionActivity } from "./sessionPresentation.js";
 import { filesCopy } from "../../lib/i18n/messages/files.js";
 import { pipelineCopy } from "../../lib/i18n/messages/pipelines.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
-import { sessionWorkspaceCopy as copy } from "../../lib/i18n/messages/sessions.js";
+import {
+  sessionChangesCopy,
+  sessionWorkspaceCopy as copy,
+} from "../../lib/i18n/messages/sessions.js";
 import React, { lazy, Suspense, useRef, useState } from "react";
 import api from "../../lib/api.js";
 import { routePath } from "../../app/routes.js";
@@ -19,6 +22,9 @@ import ProviderMark from "../../components/ProviderMark.jsx";
 import { routeLabel } from "../provider-connections/route-label.js";
 import ChatView from "../chat/ChatView.jsx";
 import useSessionViewport from "./useSessionViewport.js";
+import useSessionChanges from "./useSessionChanges.js";
+import { changedCount } from "./session-changes-state.js";
+import ChangesBadge from "./ChangesBadge.jsx";
 import useSessionActions from "./useSessionActions.jsx";
 import SessionGithubStatus from "./SessionGithubStatus.jsx";
 import SessionPaneHeader from "./SessionPaneHeader.jsx";
@@ -33,6 +39,7 @@ const PipelineSessionRecovery = lazy(
 const SessionPreviews = lazy(() => import("../previews/SessionPreviews.jsx"));
 const SessionArtifacts = lazy(() => import("../artifacts/SessionArtifacts.jsx"));
 const FileExplorer = lazy(() => import("../files/FileExplorer.jsx"));
+const SessionChanges = lazy(() => import("./SessionChanges.jsx"));
 const TerminalView = lazy(() => import("../terminal/TerminalView.jsx"));
 
 const ActionButton = ({ item }) => (
@@ -62,6 +69,11 @@ export default function SessionWorkspace({
   const [artifactsOpen, setArtifactsOpen] = useState(false);
   const [connection, setConnection] = useState("connecting");
   const coding = session.tool !== "shell";
+  // The tab badge follows the summary; the diff is read only once the tab is open.
+  const changes = useSessionChanges(session.id);
+  const changed = changedCount(changes.summary);
+  // The terminal connection does not matter on the Files and Changes tabs.
+  const offTerminal = mode === "files" || mode === "changes";
   const reloadable = coding && !session.pipeline && session.purpose !== "login";
   // A pane is never the phone layout: it keeps its own height inside the view.
   const mobileChat = !pane && coding && mode === "reader";
@@ -110,6 +122,7 @@ export default function SessionWorkspace({
           route={route}
           navigate={navigate}
           connection={connection}
+          changed={changed}
         />
       ) : (
         <header className="session-heading">
@@ -259,8 +272,17 @@ export default function SessionWorkspace({
               <Icon name="folder" size={15} />
               {filesCopy.tab}
             </button>
+            <button
+              className={mode === "changes" ? "selected" : ""}
+              aria-label={changed ? copy.changesTabCount(changed) : undefined}
+              onClick={() => setMode("changes")}
+            >
+              <Icon name="diff" size={15} />
+              {copy.changesTab}
+              <ChangesBadge count={changed} />
+            </button>
           </div>
-          {mode !== "files" && (
+          {!offTerminal && (
             <span className={`connection ${connection}`} role="status">
               <StatusDot tone={connectionTones[connection] ?? "idle"} />
               {
@@ -279,6 +301,11 @@ export default function SessionWorkspace({
         {mode === "files" && (
           <Suspense fallback={<p>{filesCopy.loading}</p>}>
             <FileExplorer session={session} route={route} navigate={navigate} />
+          </Suspense>
+        )}
+        {mode === "changes" && (
+          <Suspense fallback={<p>{sessionChangesCopy.loading}</p>}>
+            <SessionChanges key={session.id} session={session} changes={changes} />
           </Suspense>
         )}
         {mode === "terminal" && (

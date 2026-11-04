@@ -177,6 +177,8 @@ test("user-clicked deep links are allowed only for documents, never APIs or imag
     "/sessions/example/reader",
     "/sessions/example/chat",
     "/sessions/example/terminal",
+    "/sessions/example/files",
+    "/sessions/example/changes",
   ])
     assert.equal(authorizeRequest({ ...request(headers), url }, config), true, url);
   for (const url of [

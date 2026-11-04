@@ -43,8 +43,11 @@ export default function DiffFile({
   const [limit, setLimit] = useState(ROW_PAGE);
   const [state, dispatch] = useReducer(selection, initialSelection);
   const region = useRef(null);
-  // The draft's text survives the editor moving to another row after a refresh.
+  // The draft's text and its save in flight survive the editor moving to another row
+  // after a refresh (a remount), so a second Save cannot create the comment twice.
   const draft = useRef("");
+  const saving = useRef(false);
+  const [busy, setBusy] = useState(false);
   const rows = useMemo(() => file.rows.slice(0, limit), [file.rows, limit]);
   const shownRows = useRef(file.rows);
   const layout = useMemo(
@@ -87,10 +90,19 @@ export default function DiffFile({
     <CommentEditor
       initial={draft.current}
       label={copy.editorLabel}
+      saving={busy}
       onChange={(text) => (draft.current = text)}
       onSave={async (body) => {
-        await onCreate(commentInput(state.target, body));
-        close();
+        if (saving.current) return;
+        saving.current = true;
+        setBusy(true);
+        try {
+          await onCreate(commentInput(state.target, body));
+          close();
+        } finally {
+          saving.current = false;
+          setBusy(false);
+        }
       }}
       onCancel={close}
     />

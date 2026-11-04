@@ -3,6 +3,7 @@ import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fix
 import { operationState, operationResponse } from "./operations-http-fixture.js";
 import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 import { runCountsAnswer } from "../helpers/run-counts.js";
+import { isChangesRead, noChanges } from "../helpers/session-changes-fixture.js";
 const category = (total) => ({ total, problems: [], warnings: [], unknown: [] });
 // GET /connections/problems from the Settings summary's counts; an unknown count is
 // a category that could not be read (null).
@@ -203,6 +204,7 @@ export async function operationsFixture(page, { tool = "codex", session = {} } =
     else if (path === "/health") result = state.health;
     else if (/\/sessions\/[^/]+\/github$/.test(path))
       result = { configured: true, hosts: [], remote: null };
+    else if (isChangesRead(path)) result = noChanges;
     // Zugänge reads every category's list, usage and problems (connections specs
     // replace them with their own routes).
     else if (path === "/ssh-accesses" && method === "GET")

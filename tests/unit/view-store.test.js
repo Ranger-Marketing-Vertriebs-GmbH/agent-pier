@@ -63,6 +63,18 @@ test("six panes are fine", () => {
   assert.equal(store.create({ name: "Six", layout: six }).view.layout.type, "split");
 });
 
+test("a saved layout keeps the changes tab", () => {
+  const { view } = store.create({
+    name: "Review",
+    layout: split(pane(s1, "changes"), pane(s2, "terminal")),
+  });
+  assert.equal(view.layout.a.tab, "changes");
+  assert.equal(store.list().views[0].layout.a.tab, "changes");
+  assert.throws(() => store.create({ name: "B", layout: pane(s1, "diff") }), {
+    code: "VIEW_LAYOUT_INVALID",
+  });
+});
+
 test("names must be 1 to 60 characters", () => {
   assert.throws(() => store.create({ name: " ", layout: null }), {
     code: "VIEW_NAME_INVALID",

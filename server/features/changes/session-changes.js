@@ -21,7 +21,7 @@ const STAT_CONCURRENCY = 4;
  * @typedef {{ repository: boolean, startCommit: StartCommit|null,
  *   workspaces: WorkspaceSummary[], changedFiles: number }} ChangesSummary
  * @typedef {{ workspace: string, base: Base,
- *   files: object[], truncated: boolean }} WorkspaceDiff
+ *   files: import("./diff-parse.js").DiffFile[], truncated: boolean }} WorkspaceDiff
  */
 
 const NO_REPOSITORY = Object.freeze({

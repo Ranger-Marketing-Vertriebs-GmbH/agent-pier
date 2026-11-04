@@ -1,7 +1,7 @@
 import { defaultSessionMode } from "./routes.js";
 
 const storageKey = "agentpier.session-views.v1";
-const modes = new Set(["reader", "terminal", "files"]);
+const modes = new Set(["reader", "terminal", "files", "changes"]);
 const identity = (session) =>
   JSON.stringify([session.id, session.createdAt || "", session.tool]);
 const coding = (session) => session.tool !== "shell" && session.purpose !== "login";
@@ -27,7 +27,9 @@ export class SessionViewMemory {
   remember(session, mode) {
     if (!modes.has(mode) || (!coding(session) && mode === "reader")) return;
     const key = identity(session);
-    const preferred = coding(session) && mode !== "files" ? mode : this.preferred;
+    // Only the chat and the terminal become the view a new coding session opens on.
+    const preferred =
+      coding(session) && ["reader", "terminal"].includes(mode) ? mode : this.preferred;
     if (this.entries.get(key) === mode && preferred === this.preferred) return;
     this.entries.delete(key);
     this.entries.set(key, mode);

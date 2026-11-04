@@ -2,6 +2,23 @@
 // no Buffer, no node: imports.
 export const MAX_DIFF_ROWS = 2000;
 
+/**
+ * One line of a hunk: a hunk header or "\ No newline" note (`meta`), or an added,
+ * removed or context line with its line number on the side(s) it exists on.
+ * @typedef {{ kind: "meta", text: string }
+ *   | { kind: "add", text: string, newLine: number }
+ *   | { kind: "remove", text: string, oldLine: number }
+ *   | { kind: "context", text: string, oldLine: number, newLine: number }} Row
+ */
+
+/**
+ * One file of a diff. `rows` holds at most `maxRowsPerFile` rows (`rowsTruncated`
+ * then).
+ * @typedef {{ path: string, oldPath: string|null,
+ *   status: "added"|"modified"|"deleted"|"renamed"|"copied", binary: boolean,
+ *   added: number, removed: number, rows: Row[], rowsTruncated: boolean }} DiffFile
+ */
+
 const ESCAPES = { t: 9, n: 10, r: 13, a: 7, b: 8, f: 12, v: 11, '"': 34, "\\": 92 };
 const decoder = new TextDecoder();
 
@@ -62,6 +79,8 @@ function gitLinePath(rest) {
   return idx >= 0 ? rest.slice(idx + 3) : rest;
 }
 
+// `pathFixed` notes that a rename or copy line named the path; it is dropped on return.
+/** @returns {DiffFile & { pathFixed: boolean }} */
 function newFile(rest) {
   return {
     path: gitLinePath(rest),
@@ -79,6 +98,7 @@ function newFile(rest) {
 /**
  * @param {string} text
  * @param {{ maxRowsPerFile?: number }} [options]
+ * @returns {DiffFile[]}
  */
 export function parseGitDiff(text, { maxRowsPerFile = MAX_DIFF_ROWS } = {}) {
   const files = [];

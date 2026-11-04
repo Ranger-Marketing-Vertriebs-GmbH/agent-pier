@@ -4,7 +4,7 @@ export const MAX_PANES = 6;
 export const PANE_HINT_FROM = 5;
 export const MIN_PANE = Object.freeze({ width: 280, height: 220 });
 
-const TABS = ["terminal", "chat", "files"];
+const TABS = ["terminal", "chat", "files", "changes"];
 const isPane = (node) => node?.type === "pane";
 
 export const itemKey = (item) =>

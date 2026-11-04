@@ -39,7 +39,10 @@ export default function SessionPane({
     );
   }, [pane.tab, pane.item.id]);
   const shell = session?.tool === "shell";
-  const mode = shell && route.mode !== "files" ? "terminal" : route.mode || "terminal";
+  const mode =
+    shell && !["files", "changes"].includes(route.mode)
+      ? "terminal"
+      : route.mode || "terminal";
   const tab = tabOf(mode);
   const show = (next) =>
     request(next, () => {

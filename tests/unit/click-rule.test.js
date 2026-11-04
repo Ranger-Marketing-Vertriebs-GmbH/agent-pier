@@ -106,6 +106,7 @@ test("a session view mode maps to its pane tab", () => {
   assert.equal(tabOfMode("reader"), "chat");
   assert.equal(tabOfMode("terminal"), "terminal");
   assert.equal(tabOfMode("files"), "files");
+  assert.equal(tabOfMode("changes"), "changes");
   assert.equal(tabOfMode(null), undefined);
   assert.equal(tabOfMode("unknown"), undefined);
 });
