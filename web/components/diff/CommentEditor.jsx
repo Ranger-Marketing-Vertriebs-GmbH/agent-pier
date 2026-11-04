@@ -6,7 +6,14 @@ import { MAX_COMMENT_BYTES, editorKey, editorState } from "./diff-review-state.j
 import "./diff-review.css";
 
 // A Markdown comment field with Save and Cancel; ⌘/Ctrl+Enter saves, Escape cancels.
-export default function CommentEditor({ initial = "", label, onSave, onCancel }) {
+// `onChange` hears each edit, so a parent can keep the draft across a remount.
+export default function CommentEditor({
+  initial = "",
+  label,
+  onChange,
+  onSave,
+  onCancel,
+}) {
   const [text, setText] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -43,7 +50,10 @@ export default function CommentEditor({ initial = "", label, onSave, onCancel })
         disabled={busy}
         aria-describedby={state.nearLimit ? `${id}-count` : undefined}
         aria-invalid={state.tooLong || undefined}
-        onChange={(event) => setText(event.target.value)}
+        onChange={(event) => {
+          setText(event.target.value);
+          onChange?.(event.target.value);
+        }}
         onKeyDown={onKeyDown}
       />
       {state.nearLimit && (

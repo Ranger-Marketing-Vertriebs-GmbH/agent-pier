@@ -1,6 +1,10 @@
 // Pure state of the review view: the comment editor's limits and keys, row selection
 // in a diff region, and where a file's comments go.
-import { anchorAt, sideOf } from "../../../server/features/changes/review-anchor.js";
+import {
+  anchorAt,
+  locateAnchor,
+  sideOf,
+} from "../../../server/features/changes/review-anchor.js";
 
 /** Matches the server's limit (server/features/changes/review-comment-input.js). */
 export const MAX_COMMENT_BYTES = 8192;
@@ -39,27 +43,30 @@ export function rowLine(row) {
   return side === "old" ? row.oldLine : row.newLine;
 }
 
-/** The payload for `onCreate`, anchored at `rows[index]`. */
-export function commentInput({ workspace, file, index, body }) {
+/**
+ * What a new comment on `file.rows[index]` targets, captured when its editor opens so
+ * a live refresh of the rows cannot move the draft: `{ workspace, file, side, line,
+ * anchor }`, or null for a meta row.
+ */
+export function commentTarget({ workspace, file, index }) {
   const anchor = anchorAt(file.rows, index);
-  return {
-    workspace,
-    file: file.path,
-    side: anchor.side,
-    line: anchor.line,
-    anchor,
-    body,
-  };
+  if (!anchor) return null;
+  return { workspace, file: file.path, side: anchor.side, line: anchor.line, anchor };
 }
+
+/** The payload for `onCreate`. */
+export const commentInput = (target, body) => ({ ...target, body });
 
 /**
  * `selected` is the highlighted row; `open` shows its comment action; `editing`
- * replaces the action with the editor and pins the selection.
+ * replaces the action with the editor (for the captured `target`) and pins the
+ * selection.
  */
 export const initialSelection = Object.freeze({
   selected: null,
   open: false,
   editing: false,
+  target: null,
 });
 
 const selectable = (row) => Boolean(row) && sideOf(row) !== null;
@@ -94,20 +101,34 @@ export function selectionKey(state, key, rows) {
   } else {
     return null;
   }
-  return next === null ? null : { selected: next, open: false, editing: false };
+  return next === null
+    ? null
+    : { selected: next, open: false, editing: false, target: null };
 }
 
 /** A click or tap on a row selects it and shows its comment action. */
 export function selectRow(state, index, rows) {
   if (state.editing || !selectable(rows[index])) return state;
-  return { selected: index, open: true, editing: false };
+  return { selected: index, open: true, editing: false, target: null };
 }
 
-/** "edit" opens the editor on the open row; "close" closes action and editor. */
-export function selectionAction(state, action) {
-  if (action === "edit") return state.open ? { ...state, editing: true } : state;
-  if (action === "close") return { ...state, open: false, editing: false };
+/** "edit" opens the editor on the open row for `target`; "close" closes both. */
+export function selectionAction(state, action, target = null) {
+  if (action === "edit") {
+    return state.open && target ? { ...state, editing: true, target } : state;
+  }
+  if (action === "close") return { ...state, open: false, editing: false, target: null };
   return state;
+}
+
+/**
+ * New rows (a live refresh) clear a selection that is not editing; an open editor
+ * follows its target's line, or stays open without a row (selected null) when the
+ * line is gone, so the draft is never lost or moved.
+ */
+export function rowsChanged(state, rows) {
+  if (!state.editing) return initialSelection;
+  return { ...state, selected: locateAnchor(rows, state.target.anchor) };
 }
 
 /**
