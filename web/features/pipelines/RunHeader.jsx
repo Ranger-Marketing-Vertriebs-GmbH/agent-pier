@@ -8,6 +8,7 @@ import { formatTimestamp } from "../../lib/i18n/index.js";
 import { isVerifying } from "./VerificationStatus.jsx";
 import TicketLink from "../projects/TicketLink.jsx";
 import RunActions from "./RunActions.jsx";
+import ReturnToStage from "./ReturnToStage.jsx";
 import { runTitle } from "./run-title.js";
 import { runProject, runStatusTone } from "./run-presentation.js";
 import { runStatusLabel } from "./run-codes.js";
@@ -101,6 +102,9 @@ export default function RunHeader({
           <button className="button secondary" onClick={refresh}>
             {commonCopy.refresh}
           </button>
+          {run.actions?.includes("return-to-stage") && (
+            <ReturnToStage run={run} refresh={written} />
+          )}
           <RunActions
             run={run}
             refresh={written}

@@ -132,6 +132,12 @@ test("pull requests are not offered for a repository without a remote", () => {
   ]);
 });
 
+test("Return to stage has its own dialog, not a run action button", () => {
+  assert.deepEqual(offeredRunActions({ actions: ["delete", "return-to-stage"] }), [
+    "delete",
+  ]);
+});
+
 test("a repair turn reads as the same or a new session with its fallback", (t) => {
   t.after(() => setLanguage("en"));
   setLanguage("en");

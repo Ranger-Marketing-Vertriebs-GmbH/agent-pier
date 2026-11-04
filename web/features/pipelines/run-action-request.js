@@ -23,10 +23,13 @@ export const confirmedActions = ["delete", "abort", "override", "create-pr"];
 export const destructiveActions = ["delete", "delete-local", "abort"];
 
 // The engine authorizes actions; publishing additionally needs a Git remote, which
-// the run workspace records (`hasRemote` false for a local-only repository).
+// the run workspace records (`hasRemote` false for a local-only repository). Return to
+// stage has its own dialog (ReturnToStage), not a button here.
 export const offeredRunActions = (run) =>
   (run.actions || []).filter(
-    (action) => action !== "create-pr" || run.workspace?.hasRemote !== false,
+    (action) =>
+      action !== "return-to-stage" &&
+      (action !== "create-pr" || run.workspace?.hasRemote !== false),
   );
 // Deleting a run whose worktree holds commits that exist only locally needs a second,
 // explicit confirmation; the run branch keeps those commits.

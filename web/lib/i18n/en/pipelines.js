@@ -320,6 +320,31 @@ export const pipelineCopy = {
       : `${n} open comments will be sent with the feedback`,
   reviewTooLarge: (bytes) =>
     `Feedback and open comments together exceed 32 KB (${bytes} bytes). Shorten the text or resolve comments.`,
+  returnToStage: {
+    open: "Return to stage …",
+    title: (run) => `Return “${run}” to a stage`,
+    intro:
+      "The chosen stage works in the run's worktree again with your notes and the open review comments; the stages after it follow. It resumes its earlier CLI session when possible. The round is recorded but counts against no loop limit.",
+    stage: "Stage",
+    feedback: "What should the stage change?",
+    submit: "Return",
+    loading: "Checking whether the run can return …",
+    blocked: {
+      prMerged: "The pull request was merged. Start a new run for further changes.",
+      prClosed: "The pull request was closed. Start a new run for further changes.",
+      prArmed:
+        "The pull request has auto-merge or a merge queue armed. Disarm it first, or start a new run.",
+      prUnknown: "The pull request's state could not be read, so the run stays as it is.",
+      sequenceWatching:
+        "A ticket sequence is watching this run and could merge it during the repair. Try again once the sequence has let go of it.",
+      workspaceGone: "The run's worktree is gone.",
+      cancelled: "The run was aborted.",
+      notFinished: "Only a completed or failed run can return to a stage.",
+      noWorkspace: "The run has no worktree to continue in.",
+      imported: "Imported run history cannot return to a stage. Start a new run instead.",
+    },
+    blockedOther: "The run cannot return to a stage right now.",
+  },
   refreshChanges: "Refresh changes",
   changesLoading: "Loading changes …",
   runDiffUnavailable:
