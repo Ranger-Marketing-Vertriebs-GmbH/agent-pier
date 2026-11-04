@@ -17,7 +17,7 @@ const STAT_CONCURRENCY = 4;
  * @typedef {import("./session-workspaces.js").Base} Base
  * @typedef {{ sha: string, source: "start"|"first-open" }} StartCommit
  * @typedef {{ id: string, branch: string|null, base: Base, files: number,
- *   added: number, removed: number }} WorkspaceSummary
+ *   added: number, removed: number, fingerprint: string }} WorkspaceSummary
  * @typedef {{ repository: boolean, startCommit: StartCommit|null,
  *   workspaces: WorkspaceSummary[], changedFiles: number }} ChangesSummary
  * @typedef {{ workspace: string, base: Base,
@@ -54,13 +54,14 @@ export class SessionChanges {
 
   /**
    * The session and its listed workspaces, or null outside a repository. A session
-   * without a start commit (started before the field existed) records HEAD now, once.
+   * without a start commit (started before the field existed) records HEAD now, once;
+   * login and pipeline sessions never record one, as at start.
    */
   async context(sessionId) {
     let session = await this.sessions.get(sessionId);
     const listed = await listWorkspaces(session.cwd);
     if (!listed) return null;
-    if (!session.startCommit) {
+    if (!session.startCommit && session.purpose !== "login" && !session.pipeline) {
       const sha = await headCommit(listed.root);
       if (sha) session = await this.sessions.setStartCommit(sessionId, sha, "first-open");
     }

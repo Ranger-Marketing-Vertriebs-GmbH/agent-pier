@@ -14,6 +14,10 @@ import { isCodingCli } from "../clis/catalog.js";
 import { headCommit } from "../changes/git-read.js";
 import { validTicketRef } from "../tickets/ticket.js";
 
+// Session creation runs inside the global serial barrier: a slow or hung git must not
+// hold it, so the start commit read gives up early (the first open records it then).
+export const START_COMMIT_TIMEOUT_MS = 5000;
+
 /** The secrets binding a session keeps (session-secrets.js): ids only, never values. */
 function sessionSecretsRecord({ projectId, assignedIds }) {
   if (
@@ -186,7 +190,7 @@ export async function buildSessionLaunch(manager, options) {
   };
   // The diff base of the Changes tab; a reload keeps it. Not for login or pipeline runs.
   if (options.purpose !== "login" && !pipeline) {
-    const sha = await headCommit(cwd);
+    const sha = await headCommit(cwd, { timeout: START_COMMIT_TIMEOUT_MS });
     if (sha) {
       session.startCommit = sha;
       session.startCommitSource = "start";

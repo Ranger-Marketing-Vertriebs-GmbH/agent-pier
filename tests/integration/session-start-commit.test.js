@@ -6,6 +6,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { SessionManager } from "../../server/features/sessions/session-manager.js";
 import { headCommit } from "../../server/features/changes/git-read.js";
+import { START_COMMIT_TIMEOUT_MS } from "../../server/features/sessions/session-creation.js";
 
 const home = fs.mkdtempSync(path.join(os.tmpdir(), "start-commit-home-"));
 process.env.HOME = home;
@@ -114,4 +115,21 @@ test("first-open never overwrites a commit recorded at start", async (t) => {
   const saved = await manager.setStartCommit(session.id, "c".repeat(40), "first-open");
   assert.equal(saved.startCommit, session.startCommit);
   assert.equal(saved.startCommitSource, "start");
+});
+
+test("a hung git cannot hold session creation past the short timeout", async (t) => {
+  const { launchFixture } = await fixture(t);
+  assert.equal(START_COMMIT_TIMEOUT_MS, 5000);
+  const bin = fs.mkdtempSync(path.join(os.tmpdir(), "ap-hung-git-"));
+  fs.writeFileSync(path.join(bin, "git"), "#!/bin/sh\nexec sleep 60\n", { mode: 0o755 });
+  const saved = process.env.PATH;
+  process.env.PATH = `${bin}:${saved}`;
+  t.after(() => {
+    process.env.PATH = saved;
+    fs.rmSync(bin, { recursive: true, force: true });
+  });
+  const started = Date.now();
+  const session = await launchFixture();
+  assert.ok(Date.now() - started < START_COMMIT_TIMEOUT_MS + 5000);
+  assert.equal(session.startCommit, undefined);
 });
