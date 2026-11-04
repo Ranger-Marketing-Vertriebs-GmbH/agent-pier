@@ -48,10 +48,15 @@
   --green-500: #86b88e;
   --green-400: #7dd6a5;
   --green-300: #a4cdb3;
+  --green-200: #a8d8ac;
   --amber-400: #e8b765;
   --red-500: #e5796b;
   --red-300: #e7a3a3;
+  --red-200: #f4a49f;
+  --blue-950: #0c0d11;
+  --blue-500: #a0a4ae;
   --blue-400: #7fb0e0;
+  --blue-300: #aeb7e8;
   --blue-200: #b7d3f0;
 
   /* Semantic colours. Alpha tints keep their literal value: a light theme redefines
@@ -192,14 +197,14 @@
   color-scheme: dark;
 
   /* Diff view (web/components/diff/diff.css). */
-  --diff-surface: #0c0d11;
+  --diff-surface: var(--blue-950);
   --diff-add-bg: #173b2866;
-  --diff-add-marker: #a8d8ac;
+  --diff-add-marker: var(--green-200);
   --diff-remove-bg: #55252a66;
-  --diff-remove-marker: #f4a49f;
+  --diff-remove-marker: var(--red-200);
   --diff-meta-bg: #252b4433;
-  --diff-meta-text: #aeb7e8;
-  --diff-number: #a0a4ae;
+  --diff-meta-text: var(--blue-300);
+  --diff-number: var(--blue-500);
   --diff-selected: var(--neutral-14);
 }
 * {

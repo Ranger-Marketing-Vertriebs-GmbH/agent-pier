@@ -6,9 +6,11 @@ import DiffRows from "./DiffRows.jsx";
 import {
   ROW_PAGE,
   commentInput,
+  commentTarget,
   fileCommentLayout,
   initialSelection,
   rowLine,
+  rowsChanged,
   selectRow,
   selectionAction,
   selectionKey,
@@ -21,7 +23,8 @@ const statusLabel = (status) =>
 function selection(state, action) {
   if (action.type === "key") return selectionKey(state, action.key, action.rows) ?? state;
   if (action.type === "select") return selectRow(state, action.index, action.rows);
-  return selectionAction(state, action.type);
+  if (action.type === "rows") return rowsChanged(state, action.rows);
+  return selectionAction(state, action.type, action.target);
 }
 
 // One file of a review: heading, rows in pages of ROW_PAGE, threads after their row,
@@ -40,7 +43,10 @@ export default function DiffFile({
   const [limit, setLimit] = useState(ROW_PAGE);
   const [state, dispatch] = useReducer(selection, initialSelection);
   const region = useRef(null);
+  // The draft's text survives the editor moving to another row after a refresh.
+  const draft = useRef("");
   const rows = useMemo(() => file.rows.slice(0, limit), [file.rows, limit]);
+  const shownRows = useRef(file.rows);
   const layout = useMemo(
     () => fileCommentLayout(placement, file.rows, rows.length),
     [placement, file.rows, rows.length],
@@ -55,7 +61,14 @@ export default function DiffFile({
       [state.selected]?.scrollIntoView?.({ block: "nearest" });
   }, [state.selected]);
 
+  useEffect(() => {
+    if (shownRows.current === file.rows) return;
+    shownRows.current = file.rows;
+    dispatch({ type: "rows", rows });
+  }, [file.rows, rows]);
+
   const close = () => {
+    draft.current = "";
     dispatch({ type: "close" });
     region.current?.focus({ preventScroll: true });
   };
@@ -70,6 +83,18 @@ export default function DiffFile({
       onDelete={onDelete}
     />
   );
+  const editor = state.editing && (
+    <CommentEditor
+      initial={draft.current}
+      label={copy.editorLabel}
+      onChange={(text) => (draft.current = text)}
+      onSave={async (body) => {
+        await onCreate(commentInput(state.target, body));
+        close();
+      }}
+      onCancel={close}
+    />
+  );
   const renderAfter = (index) => {
     const threads = layout.after.get(index);
     const action = editable && state.selected === index && state.open;
@@ -79,19 +104,17 @@ export default function DiffFile({
         {threads?.map((comment) => thread(comment))}
         {action &&
           (state.editing ? (
-            <CommentEditor
-              label={copy.editorLabel}
-              onSave={async (body) => {
-                await onCreate(commentInput({ workspace, file, index, body }));
-                close();
-              }}
-              onCancel={close}
-            />
+            editor
           ) : (
             <button
               type="button"
               className="button secondary diff-comment-button"
-              onClick={() => dispatch({ type: "edit" })}
+              onClick={() =>
+                dispatch({
+                  type: "edit",
+                  target: commentTarget({ workspace, file, index }),
+                })
+              }
             >
               {copy.comment(rowLine(rows[index]))}
             </button>
@@ -150,6 +173,12 @@ export default function DiffFile({
               renderAfter={renderAfter}
             />
           </div>
+        </div>
+      )}
+      {state.editing && state.selected === null && (
+        <div className="diff-file-draft">
+          <small className="diff-file-comment-line">{copy.line(state.target.line)}</small>
+          {editor}
         </div>
       )}
       {remaining > 0 && (
