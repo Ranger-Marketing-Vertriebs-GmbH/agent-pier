@@ -6,6 +6,8 @@ import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import { runTitle } from "./run-title.js";
 import { requestRunAction } from "./run-action-request.js";
 import useRunAction from "./useRunAction.js";
+import GateReviewNotes, { reviewNotesIds } from "./GateReviewNotes.jsx";
+import useRunReview from "./useRunReview.js";
 import { failReasonLabel } from "./run-codes.js";
 import {
   cliName,
@@ -16,15 +18,19 @@ import {
 } from "./run-stages.js";
 
 // The decisions a blocked member of the current group offers: retry, check its
-// verdict again, override, or rework with feedback.
+// verdict again, override, or rework with feedback. The feedback carries all open review
+// notes of the run, as the run's own gate does; there is no per-member tagging.
 export function MemberActions({ run, member, refresh, shared }) {
   const actions = run.memberActions?.[member.id] || [];
   const [feedback, setFeedback] = useState("");
   const [confirm, setConfirm] = useState(false);
   const mutation = useRunAction(shared);
+  const review = useRunReview(run, actions.includes("feedback"));
+  const check = review.check(feedback);
   if (!actions.length) return null;
+  const notesId = `run-review-notes-${member.id}`;
   const execute = async (action) => {
-    await requestRunAction(run, action, { feedback, nodeId: member.id });
+    await requestRunAction(run, action, { feedback, review: true, nodeId: member.id });
     setConfirm(false);
     setFeedback("");
     await refresh();
@@ -32,15 +38,19 @@ export function MemberActions({ run, member, refresh, shared }) {
   return (
     <div className="run-member-actions">
       {actions.includes("feedback") && (
-        <label>
-          {copy.feedback}
-          <textarea
-            aria-label={copy.memberFeedback(stageName(member))}
-            rows={2}
-            value={feedback}
-            onChange={(event) => setFeedback(event.target.value)}
-          />
-        </label>
+        <>
+          <label>
+            {copy.feedback}
+            <textarea
+              aria-label={copy.memberFeedback(stageName(member))}
+              aria-describedby={reviewNotesIds(check, notesId)}
+              rows={2}
+              value={feedback}
+              onChange={(event) => setFeedback(event.target.value)}
+            />
+          </label>
+          <GateReviewNotes check={check} id={notesId} />
+        </>
       )}
       <div className="pipeline-actions">
         {actions.map((action) => (
@@ -49,7 +59,11 @@ export function MemberActions({ run, member, refresh, shared }) {
             type="button"
             className="button secondary compact"
             aria-label={`${copy.memberActions[action]} · ${stageName(member)}`}
-            disabled={mutation.busy || (action === "feedback" && !feedback.trim())}
+            disabled={
+              mutation.busy ||
+              (action === "feedback" &&
+                (!check.fits || (!feedback.trim() && !check.open)))
+            }
             onClick={() =>
               action === "override"
                 ? setConfirm(true)

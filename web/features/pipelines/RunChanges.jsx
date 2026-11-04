@@ -1,4 +1,5 @@
-import React, { useId, useState } from "react";
+import React, { useId, useRef, useState } from "react";
+import { usePageAction } from "../../app/page-action.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import DiffReview from "../../components/diff/DiffReview.jsx";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
@@ -13,12 +14,23 @@ import "./run-changes.css";
  * opened with **Review changes**. Line comments are the run's review comments; they can
  * be written only while a gate waits, the run's own or a group member's (they go out
  * with its decision), and only while the worktree exists. An imported history run has
- * no changes on this host and shows nothing.
+ * no changes on this host and shows nothing. The ⌘K action **Review changes** opens
+ * the section of the run on screen.
  */
 export default function RunChanges({ run }) {
   const [open, setOpen] = useState(false);
   const bodyId = useId();
+  const toggle = useRef(null);
   const imported = run.imported?.historyOnly === true;
+  usePageAction(
+    "run-changes",
+    () => {
+      setOpen(true);
+      toggle.current?.focus();
+      toggle.current?.scrollIntoView?.({ block: "nearest" });
+    },
+    !imported,
+  );
   const diff = useRunDiff(run, open && !imported);
   const review = useReviewComments(imported ? null : { kind: "run", id: run.id });
   if (imported || diff.imported) return null;
@@ -29,6 +41,7 @@ export default function RunChanges({ run }) {
     <section className="run-changes" aria-label={copy.diff}>
       <div className="run-changes-head">
         <button
+          ref={toggle}
           type="button"
           className="button secondary compact"
           aria-expanded={open}

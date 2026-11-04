@@ -7,10 +7,13 @@ import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import { formatNumber } from "../../lib/i18n/index.js";
 import { MAX_TOKEN_BUDGET, parseTokenBudget } from "./token-budget.js";
 import TokenBudgetInput from "./TokenBudgetInput.jsx";
+import GateReviewNotes, { reviewNotesIds } from "./GateReviewNotes.jsx";
+import useRunReview from "./useRunReview.js";
 import {
   confirmDescription,
   confirmedActions,
   destructiveActions,
+  feedbackActions,
   primaryActions,
   gateActions,
   requestRunAction,
@@ -22,7 +25,9 @@ export const availableGateActions = (run) =>
 
 // The decision the current gate stage waits for: approve, retry with feedback, return
 // for repair or override. A failed request keeps the feedback so it can be resent; the
-// run detail owns the feedback so browsing other stages keeps the typed text.
+// run detail owns the feedback so browsing other stages keeps the typed text. Both
+// feedback actions carry the run's open review notes (the server adds them); Retry
+// with feedback needs text or notes, and neither goes while the two exceed the limit.
 export default function GateDecision({ run, node, refresh, feedback: owned, shared }) {
   const local = useState(""),
     [feedback, setFeedback] = owned || local,
@@ -30,12 +35,19 @@ export default function GateDecision({ run, node, refresh, feedback: owned, shar
     [budget, setBudget] = useState("");
   const mutation = useRunAction(shared);
   const actions = availableGateActions(run);
+  const offersFeedback = actions.some((action) => feedbackActions.includes(action));
+  const review = useRunReview(run, offersFeedback);
+  const check = review.check(feedback);
   // A run above its token budget continues with a budget above what it reported.
   const used = run.usage?.totalTokens || 0;
   const requested = parseTokenBudget(budget);
   const budgetValid = requested > used && requested <= MAX_TOKEN_BUDGET;
   const execute = async (action) => {
-    await requestRunAction(run, action, { feedback, tokenBudget: requested });
+    await requestRunAction(run, action, {
+      feedback,
+      review: true,
+      tokenBudget: requested,
+    });
     setConfirm(null);
     setFeedback("");
     setBudget("");
@@ -43,22 +55,27 @@ export default function GateDecision({ run, node, refresh, feedback: owned, shar
     await refresh();
   };
   if (!actions.length) return null;
+  const notesId = `run-review-notes-${node.id}`;
   return (
     <section
       className="run-gate-decision"
       aria-labelledby={`run-gate-decision-${node.id}`}
     >
       <h4 id={`run-gate-decision-${node.id}`}>{copy.statuses["awaiting-human"]}</h4>
-      {actions.some((action) => ["feedback", "loop-back"].includes(action)) && (
-        <label>
-          {copy.feedback}
-          <textarea
-            aria-label={copy.feedback}
-            rows={2}
-            value={feedback}
-            onChange={(event) => setFeedback(event.target.value)}
-          />
-        </label>
+      {offersFeedback && (
+        <>
+          <label>
+            {copy.feedback}
+            <textarea
+              aria-label={copy.feedback}
+              aria-describedby={reviewNotesIds(check, notesId)}
+              rows={2}
+              value={feedback}
+              onChange={(event) => setFeedback(event.target.value)}
+            />
+          </label>
+          <GateReviewNotes check={check} id={notesId} />
+        </>
       )}
       {actions.includes("raise-budget") && (
         <>
@@ -92,7 +109,8 @@ export default function GateDecision({ run, node, refresh, feedback: owned, shar
             className={`button ${primaryActions.includes(action) ? "primary" : "secondary"}`}
             disabled={
               mutation.busy ||
-              (action === "feedback" && !feedback.trim()) ||
+              (action === "feedback" && !feedback.trim() && !check.open) ||
+              (feedbackActions.includes(action) && !check.fits) ||
               (action === "raise-budget" && !budgetValid)
             }
             onClick={() =>

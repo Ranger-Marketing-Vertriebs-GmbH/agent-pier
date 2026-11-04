@@ -344,3 +344,25 @@ test("Show changes opens the open session's Changes tab and only then", () => {
     0,
   );
 });
+
+test("Review changes opens the open run's changes and only then", () => {
+  const withRun = buildSearchIndex({
+    agents,
+    connections,
+    agentsEnabled: true,
+    runOpen: true,
+  });
+  const hit = results("Änderungen prüfen", withRun).find(
+    (item) => item.group === "actions",
+  );
+  assert.equal(hit.id, "action:run-changes");
+  assert.deepEqual(hit.target, { action: "run-changes", pending: "run-changes" });
+  assert.equal(hit.label.en, "Review changes");
+  assert.equal(results("Review changes", withRun)[0].id, "action:run-changes");
+  assert.ok(results("diff", withRun).some((item) => item.id === "action:run-changes"));
+  // Not without a run on screen, and the session's action stays the session's.
+  assert.ok(!index.some((item) => item.id === "action:run-changes"));
+  assert.ok(!withRun.some((item) => item.id === "action:session-changes"));
+  const withSession = buildSearchIndex({ agents, connections, sessionOpen: true });
+  assert.ok(!withSession.some((item) => item.id === "action:run-changes"));
+});

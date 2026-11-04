@@ -91,6 +91,8 @@ export default function AppSearch({
     if (target.action === "launch") return launch();
     if (target.action === "session-changes")
       return navigate({ ...route, mode: "changes" });
+    // The run page on screen takes the requested page action and opens its changes.
+    if (target.action === "run-changes") return undefined;
     if (target.action === "start-tickets" || target.action === "add-label-rule")
       return navigate(
         projectsRoute(
@@ -120,6 +122,11 @@ export default function AppSearch({
             conversations={conversations}
             agentsEnabled={Boolean(agentsEnabled)}
             sessionOpen={route?.view === "workspace" && Boolean(route.sessionId)}
+            runOpen={
+              route?.view === "pipelines" &&
+              route.pipelineTab === "runs" &&
+              Boolean(route.pipelineItem)
+            }
             connections={connections}
             workspace={workspace}
             recent={recent}

@@ -319,6 +319,12 @@ export const pipelineCopy = {
   truncated: "Ausgabe gekürzt.",
   reviewChanges: "Änderungen prüfen",
   reviewNotes: (n) => (n === 1 ? "1 offene Prüfnotiz" : `${n} offene Prüfnotizen`),
+  reviewNotesSent: (n) =>
+    n === 1
+      ? "1 offene Prüfnotiz wird mit der Rückmeldung gesendet"
+      : `${n} offene Prüfnotizen werden mit der Rückmeldung gesendet`,
+  reviewTooLarge: (bytes) =>
+    `Rückmeldung und offene Prüfnotizen sind zusammen größer als 32 KB (${bytes} Bytes). Kürze den Text oder erledige Kommentare.`,
   refreshChanges: "Änderungen aktualisieren",
   changesLoading: "Änderungen werden geladen …",
   runDiffUnavailable:

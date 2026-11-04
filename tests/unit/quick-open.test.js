@@ -338,3 +338,10 @@ test("Show changes is an owner action only, not in the user's search", () => {
   const owners = buildSearchIndex({ agentsEnabled: true, sessionOpen: true });
   assert.ok(owners.some((item) => item.id === "action:session-changes"));
 });
+
+test("Review changes is an owner action only, not in the user's search", () => {
+  const users = buildUserSearchIndex({ agents: [{ id: "lumi", name: "Lumi" }] });
+  assert.ok(!users.some((item) => item.id === "action:run-changes"));
+  const owners = buildSearchIndex({ agentsEnabled: true, runOpen: true });
+  assert.ok(owners.some((item) => item.id === "action:run-changes"));
+});
