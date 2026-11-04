@@ -454,9 +454,8 @@ host results. This fresh-install smoke test does not replace adjacent-version
 activation/rollback tests or qualification of every optional upstream feature.
 
 The same workflow's `native-contracts` job (Ubuntu x64 on pull requests that touch
-assistants, assistant channels or `tests/**/assistant*`, macOS arm64 after the merge
-as well, and nightly and before a release also Ubuntu arm64 and macOS x64)
-provisions the pinned runtime with `scripts/provision-assistant-contracts.mjs`. That
+assistants, assistant channels or `tests/**/assistant*`; nightly, on demand and
+before a release also macOS arm64 and Ubuntu arm64) provisions the pinned runtime with `scripts/provision-assistant-contracts.mjs`. That
 script runs the installer's `--with-assistants` step against a temporary data
 directory. The job caches only `assistants/runtimes`, keyed by OS, architecture,
 version, Node version and `dependencyLockSha256`. It then runs every deterministic
