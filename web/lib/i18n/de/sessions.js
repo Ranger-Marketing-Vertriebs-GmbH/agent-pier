@@ -81,6 +81,16 @@ export const sessionChangesCopy = {
   baseFirstOpen: "Seit diese Session nach dem Update zum ersten Mal angesehen wurde",
   baseHead: "Nur nicht committete Änderungen",
   noChanges: "Keine Änderungen in diesem Arbeitsbereich.",
+  sendToAgent: (n) => `An Agent senden (${n})`,
+  copiedLocked:
+    "Der Chat stellt noch eine Nachricht zu, daher wurden die Review-Notizen stattdessen in die Zwischenablage kopiert.",
+  copiedNoChat:
+    "Diese Session hat keinen Chat. Die Review-Notizen wurden in die Zwischenablage kopiert.",
+  batchTooLong:
+    "Die Review-Notizen und der aktuelle Entwurf sind länger als 32.000 Zeichen. Erledige einige Kommentare oder sende zuerst den Entwurf.",
+  showBatchTitle: "Review-Notizen",
+  showBatchHint:
+    "Die Zwischenablage ist hier nicht verfügbar. Kopiere die Review-Notizen und füge sie in die Eingabe des Agenten ein.",
 };
 
 export const sessionReloadCopy = {

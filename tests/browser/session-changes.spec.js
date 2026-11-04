@@ -1,6 +1,7 @@
 import { test, expect } from "../helpers/browser-test.js";
 import { fixture, stamp } from "../helpers/repository-browser.js";
 import { baseURL } from "../helpers/browser.js";
+import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 
 // The session Changes tab against mocked changes and review-comment routes: the badge,
 // the workspace picker and base lines, the 404 fallback, a plain folder, the save that
@@ -101,6 +102,7 @@ async function setup(page, options = {}) {
     status: "running",
     accountId: "local-shell",
     createdAt: stamp,
+    ...options.session,
   });
   const mock = {
     summary: options.summary ?? summaryOf(),
@@ -108,12 +110,16 @@ async function setup(page, options = {}) {
       "": [appFile(), notesFile],
       [tree]: [treeFile],
     },
-    comments: [],
+    comments: options.comments ?? [],
+    batches: 0,
+    sent: [],
     hold: null,
     summaryReads: 0,
     diffReads: [],
     creates: [],
   };
+  const chat = { availability: "ready", messages: [], tasks: [] };
+  await mockChatStream(page, () => chat);
   await page.route(`**/api/sessions/${id}/**`, async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -151,8 +157,23 @@ async function setup(page, options = {}) {
       mock.comments.push(comment);
       return route.fulfill({ status: 201, json: comment });
     }
+    if (rest === "/chat") return route.fulfill({ json: chat });
+    if (rest === "/models")
+      return route.fulfill({
+        json: { currentModel: null, picker: null, pending: false },
+      });
+    if (rest === "/github")
+      return route.fulfill({ json: { configured: true, hosts: [], remote: null } });
+    if (rest === "/review-comments/sent") {
+      const { ids } = request.postDataJSON();
+      mock.sent.push(ids);
+      const batch = ++mock.batches;
+      for (const comment of mock.comments)
+        if (ids.includes(comment.id)) comment.sentIn = batch;
+      return route.fulfill({ json: { batch } });
+    }
     if (rest === "/review-comments")
-      return route.fulfill({ json: { comments: mock.comments, batches: 0 } });
+      return route.fulfill({ json: { comments: mock.comments, batches: mock.batches } });
     return route.fallback();
   });
   return mock;
@@ -271,6 +292,134 @@ test("a second Save during a create after a refresh creates one comment", async 
   expect(mock.creates[0]).toMatchObject({ workspace: "", file: "src/app.js" });
 });
 
+// Two open comments, one per workspace, anchored on rows of the mocked diffs.
+const openComments = () => [
+  {
+    id: "c-app",
+    workspace: "",
+    file: "src/app.js",
+    anchor: {
+      side: "new",
+      line: 3,
+      text: "start(port);",
+      before: ["const port = Number(process.env.PORT) || 8080;"],
+      after: ["export default start;"],
+      excerpt: [{ kind: "add", text: "start(port);" }],
+    },
+    body: "Read the port once",
+    status: "open",
+    createdAt: stamp,
+    updatedAt: stamp,
+    sentIn: null,
+  },
+  {
+    id: "c-readme",
+    workspace: tree,
+    file: "README.md",
+    anchor: {
+      side: "new",
+      line: 1,
+      text: "# Feature X",
+      before: [],
+      after: [],
+      excerpt: [{ kind: "add", text: "# Feature X" }],
+    },
+    body: "Name the feature",
+    status: "open",
+    createdAt: stamp,
+    updatedAt: stamp,
+    sentIn: null,
+  },
+];
+const coding = { tool: "codex", accountId: "local-codex" };
+const sendButton = (page) => page.getByRole("button", { name: /^Send to agent/ });
+const composer = (page) => page.getByRole("textbox", { name: "Message" });
+
+test("Send to agent appends the batch to the chat composer", async ({
+  page,
+  liveStub,
+}) => {
+  const mock = await setup(page, { session: coding, comments: openComments() });
+  await page.goto(`${baseURL}/sessions/${id}/chat`);
+  await composer(page).fill("Keep the tests green");
+  await changesTab(page).click();
+  await expect(appRegion(page)).toBeVisible();
+  await expect(sendButton(page)).toHaveText("Send to agent (2)");
+  await sendButton(page).click();
+
+  await expect(page).toHaveURL(new RegExp(`/sessions/${id}/chat$`));
+  const tabs = page.locator(".terminal-topbar .segmented");
+  await expect(tabs.getByRole("button", { name: "Chat" })).toHaveClass(/selected/);
+  // a written draft keeps its text and gets the batch on a new line; nothing is sent
+  await expect(composer(page)).toHaveValue(
+    /^Keep the tests green\nReview notes \(2\):[\s\S]*1\. src\/app\.js:3[\s\S]*2\. \.worktrees\/feat\/x\/README\.md:1/,
+  );
+  expect(mock.sent).toEqual([["c-app", "c-readme"]]);
+  expect(mock.diffReads.filter((w) => w === "")).toHaveLength(1);
+  expect(mock.diffReads).toContain(tree);
+
+  await liveStub.reread(`session.review:${id}`);
+  await changesTab(page).click();
+  await expect(appRegion(page).getByText("Sent in batch 1")).toBeVisible();
+});
+
+test("a blank composer takes the batch as it is", async ({ page }) => {
+  await setup(page, { session: coding, comments: openComments().slice(0, 1) });
+  await page.goto(`${baseURL}/sessions/${id}/changes`);
+  await expect(sendButton(page)).toHaveText("Send to agent (1)");
+  await sendButton(page).click();
+  await expect(composer(page)).toHaveValue(/^Review notes \(1\):/);
+});
+
+test("a draft and batch over 32,000 characters are refused", async ({ page }) => {
+  const mock = await setup(page, { session: coding, comments: openComments() });
+  await page.goto(`${baseURL}/sessions/${id}/chat`);
+  const long = "x".repeat(31900);
+  await composer(page).fill(long);
+  await changesTab(page).click();
+  await sendButton(page).click();
+  await expect(page.getByRole("status").filter({ hasText: "32,000" })).toHaveText(
+    /longer than 32,000 characters/,
+  );
+  await expect(page).toHaveURL(new RegExp(`/sessions/${id}/changes$`));
+  expect(mock.sent).toEqual([]);
+  await page
+    .locator(".terminal-topbar .segmented")
+    .getByRole("button", { name: "Chat" })
+    .click();
+  await expect(composer(page)).toHaveValue(long);
+});
+
+test("a terminal-only session copies the batch", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  const mock = await setup(page, { comments: openComments() });
+  await page.goto(`${baseURL}/sessions/${id}/changes`);
+  await sendButton(page).click();
+  await expect(page.getByRole("status").filter({ hasText: "clipboard" })).toHaveText(
+    "This session has no chat. The review notes were copied to the clipboard.",
+  );
+  expect(mock.sent).toEqual([["c-app", "c-readme"]]);
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(
+    /^Review notes \(2\):/,
+  );
+  await expect(page).toHaveURL(new RegExp(`/sessions/${id}/changes$`));
+});
+
+test("a refused clipboard shows the batch in a dialog", async ({ page }) => {
+  const mock = await setup(page, { comments: openComments() });
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: () => Promise.reject(new Error("refused")) },
+    });
+  });
+  await page.goto(`${baseURL}/sessions/${id}/changes`);
+  await sendButton(page).click();
+  const dialog = page.getByRole("dialog", { name: "Review notes" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator("pre")).toHaveText(/^Review notes \(2\):/);
+  expect(mock.sent).toEqual([]);
+});
+
 test.describe("on a phone", () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 
@@ -279,6 +428,7 @@ test.describe("on a phone", () => {
     await page.goto(`${baseURL}/sessions/${id}/changes`);
     await expect(appRegion(page).locator(".diff-row").first()).toBeVisible();
     await expect(page.getByText("Since the session started")).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Send to agent/ })).toBeVisible();
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBeLessThanOrEqual(390);
