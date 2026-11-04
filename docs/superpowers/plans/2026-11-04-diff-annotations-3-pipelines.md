@@ -671,3 +671,23 @@ PR description lists the docs checked: `docs/pipelines.md`, `docs/diff-review.md
 - `commentInput` already accepts `..` in `workspace`; run comments keep an empty workspace.
 - Restricted users get 404 (not 403) on owner-only routes; test with `routeAccess()` and a user principal.
 - Live topics: `session.changes` samples every 60 s plus native-activity reads; a run diff view should follow the existing run topics and include the fingerprint in its re-read key so equal-count edits refresh.
+
+## Status after PR 3a
+
+Tasks 1-4 (whole-run diff, run Changes view, gate batch, gate form, ⌘K "Review changes", the 3a docs) shipped in PR 3a. PR 3b implements Tasks 5-7 (Return to stage) under the rulings below, which override the task text.
+
+## Carried rulings for PR 3b (binding; owner-approved 2026-11-04)
+
+- OWNER — no queue item: if the project's concurrency slot is free the run reopens at once; otherwise answer 409 "project busy, try again" and leave comments open (drops F2/F7/F8/F9/F12/F20 machinery).
+- OWNER — stricter blocks: blocked while ANY ticket sequence references the run (not only an active one); blocked when the PR has GitHub auto-merge enabled or sits in a merge queue; `createWorkspacePr` never opens a second PR when `run.pullRequestUrl` is set but no open PR is found — it fails the stage instead (F1).
+- F2 idempotency without a queue: under the run lock, a repeated requestId found in `run.returns` answers the first result; comments are marked sent only after the reopen succeeded.
+- F3 owner rounds use edge key `owner:${from}->${to}`; iteration = rounds with that key + 1, passed explicitly.
+- F4 update the exact action assertions in pipeline-override-paths.test.js and pipeline-workspace-local.test.js.
+- F13 TicketSequenceService.retry refuses while the item's run is non-terminal.
+- F17 refuse a return without text and without open notes (400 returnNoteRequired); the dialog disables Return until either exists.
+- F18 the 409 block text is a reason-specific catalog message so the browser shows why.
+- F19 return route gets a restricted-user 404 assertion.
+- PR 3b: extend run comment writing to finished runs that Return to stage accepts (ruling during PR 3a Task 2).
+- Run comments are writable only while a decision that can carry them waits (`gateWaits` in web/features/pipelines/run-diff-state.js); PR 3b extends this to finished runs that Return to stage accepts.
+- Put Return to stage in new modules; `server/features/pipelines/pipeline-engine.js` is at 453 lines (plan budget 444).
+- Reuse the shared run diff reads (`web/features/pipelines/run-diff-reads.js`) and the gate review helpers (`useRunReview`, `GateReviewNotes`) for the return dialog.
