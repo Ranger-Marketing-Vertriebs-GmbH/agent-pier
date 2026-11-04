@@ -1,0 +1,193 @@
+/* The review view (DiffReview, DiffFile, CommentThread, CommentEditor). Row styles live
+   in diff.css. */
+.diff-review {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.diff-review-summary {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+}
+.diff-review-files {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.diff-review-file-link {
+  display: flex;
+  width: 100%;
+  min-height: 33px;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+  text-align: left;
+  font-size: var(--font-size-sm);
+}
+@media (max-width: 700px) {
+  .diff-review-file-link {
+    min-height: var(--touch-target);
+  }
+}
+.diff-review-file-link:hover {
+  background: var(--surface-raised);
+}
+.diff-file {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  overflow: hidden;
+}
+.diff-file-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text);
+}
+.diff-file-path {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: "SFMono-Regular", Consolas, monospace;
+}
+.diff-file-meta {
+  display: inline-flex;
+  gap: var(--space-3);
+  margin-left: auto;
+  color: var(--muted);
+  font-size: var(--font-size-xs);
+  font-weight: normal;
+}
+.diff-file-count {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.diff-file-note,
+.diff-file-comment-line {
+  display: block;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  color: var(--muted);
+  font-size: var(--font-size-xs);
+}
+.diff-file-more {
+  margin: var(--space-2) var(--space-3);
+}
+.diff-file-comments {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0 0 var(--space-2);
+  list-style: none;
+  border-top: 1px solid var(--divider);
+}
+/* The scroll viewport is the container, so rows below a code row can match its width
+   (100cqw) and stay put (sticky) while long code lines scroll sideways. */
+.diff-review-scroll {
+  container-type: inline-size;
+}
+.diff-review-scroll.is-editable > .diff-lines > .diff-row {
+  cursor: pointer;
+}
+.diff-row-after {
+  position: sticky;
+  left: 0;
+  width: 100cqw;
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  /* The app font (base.css :root); .diff-lines sets a monospace font for the code. */
+  font:
+    var(--font-size-md) / 1.5 "DM Sans",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  white-space: normal;
+  background: var(--panel);
+}
+.diff-comment-button {
+  justify-self: start;
+  min-height: var(--touch-target);
+}
+.diff-comment-editor {
+  display: grid;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+.diff-comment-editor textarea {
+  resize: vertical;
+}
+.diff-comment-count {
+  color: var(--muted);
+  font-size: var(--font-size-xs);
+}
+.diff-comment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.diff-thread {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  font-size: var(--font-size-md);
+  color: var(--text);
+}
+.diff-file-comments .diff-thread {
+  margin: 0 var(--space-3);
+}
+.diff-thread.is-resolved {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  color: var(--muted);
+}
+.diff-thread-summary {
+  flex: 1 1 12em;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.diff-thread-marks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.diff-thread-sent {
+  color: var(--text-meta);
+  font-size: var(--font-size-xs);
+}
+.diff-thread-body {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.diff-thread-body > :first-child {
+  margin-top: 0;
+}
+.diff-thread-body > :last-child {
+  margin-bottom: 0;
+}
+.diff-thread-excerpt {
+  border-radius: var(--radius-md);
+}
+.diff-thread-confirm p {
+  margin: 0 0 var(--space-2);
+}
