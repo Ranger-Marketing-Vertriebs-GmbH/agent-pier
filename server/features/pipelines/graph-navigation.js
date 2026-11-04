@@ -110,6 +110,14 @@ export function loopResetSet(run, edge) {
       ...((run.nodes || []).find((n) => n.id === id)?.members || []),
     ]);
 }
+// The stage and every stage that can follow it, loop edges aside, with group members.
+export function stagesFrom(run, id) {
+  const edges = run.edges.filter((e) => e.maxIterations === undefined);
+  return [...reach(edges, id)].flatMap((stage) => [
+    stage,
+    ...((run.nodes || []).find((n) => n.id === stage)?.members || []),
+  ]);
+}
 export function activeNode(run) {
   return run.nodes.find((n) => n.id === run.currentNodeId);
 }

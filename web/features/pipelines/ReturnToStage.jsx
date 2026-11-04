@@ -9,34 +9,15 @@ import Modal from "../../components/Modal.jsx";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import GateReviewNotes, { reviewNotesIds } from "./GateReviewNotes.jsx";
+import { returnBlockText, stageOptions } from "./return-to-stage-state.js";
 import { runTitle } from "./run-title.js";
 import useRunReview from "./useRunReview.js";
 import "./run-dialog.css";
 
-const camel = (reason) =>
-  String(reason || "").replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
-
-/** Why a run cannot return, from the options' `reason` (server return-blocks.js). */
-export const returnBlockText = (reason) =>
-  copy.returnToStage.blocked[camel(reason)] || copy.returnToStage.blockedOther;
-
-/**
- * The stage picker's options; a name two stages share carries the stage id.
- * @param {{ id: string, name: string }[]} stages
- */
-export const stageOptions = (stages) =>
-  stages.map((stage) => ({
-    value: stage.id,
-    label:
-      stages.filter((other) => other.name === stage.name).length > 1
-        ? `${stage.name} · ${stage.id}`
-        : stage.name || stage.id,
-  }));
-
 /**
  * **Return to stage …** for a finished run (`run.actions` offers "return-to-stage"):
  * the dialog reads whether the run can return and to which stages; a blocked run shows
- * why and no form. The return carries the free text and the run's open review comments
+ * why and no form, as does a return the server refuses because the run changed since. The return carries the free text and the run's open review comments
  * (`review: true`), checked against the 32 KB limit as at a gate. A busy project
  * answers with its message and the form stays for another try.
  */
@@ -59,7 +40,9 @@ function ReturnDialog({ run, refresh, close }) {
   const [requestId] = useState(() => browserUuid());
   const [stage, setStage] = useState("");
   const [feedback, setFeedback] = useState("");
-  const available = options.data?.available === true;
+  // A POST refused because the run's state changed after the options were read.
+  const [blocked, setBlocked] = useState(null);
+  const available = options.data?.available === true && !blocked;
   const review = useRunReview(run, available);
   const check = review.check(feedback);
   const stages = options.data?.stages ?? [];
@@ -70,7 +53,6 @@ function ReturnDialog({ run, refresh, close }) {
       title={copy.returnToStage.title(runTitle(run))}
       className="run-dialog"
       close={close}
-      dismissOnBackdrop
       footer={
         available ? undefined : (
           <button type="button" className="button secondary" onClick={close}>
@@ -87,7 +69,13 @@ function ReturnDialog({ run, refresh, close }) {
             review.loading || !nodeId || (!feedback.trim() && !check.open) || !check.fits
           }
           submit={async () => {
-            await api(base, "POST", { nodeId, feedback, review: true, requestId });
+            try {
+              await api(base, "POST", { nodeId, feedback, review: true, requestId });
+            } catch (error) {
+              if (error.code !== "PIPELINE_RETURN_BLOCKED") throw error;
+              setBlocked(error.reason || "other");
+              return;
+            }
             close();
             await refresh?.();
           }}
@@ -119,7 +107,9 @@ function ReturnDialog({ run, refresh, close }) {
         <>
           {options.loading && <p role="status">{copy.returnToStage.loading}</p>}
           <ErrorMessage error={options.error} />
-          {options.data && <p>{returnBlockText(options.data.reason)}</p>}
+          {(blocked || options.data) && (
+            <p>{returnBlockText(blocked || options.data.reason)}</p>
+          )}
         </>
       )}
     </Modal>
