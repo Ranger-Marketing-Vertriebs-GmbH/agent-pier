@@ -90,10 +90,10 @@ credentials and message content never reach its logger.
   `safe-stable-stringify` 2.5.0, `sonic-boom` 4.2.1 and `thread-stream` 4.2.0 (MIT) and
   `split2` 4.2.0 (ISC).
 
-Text extraction from PDF attachments uses `unpdf` 1.8.1 (MIT, Copyright (c)
+Text extraction from PDF attachments uses `unpdf` 2.0.0 (MIT, Copyright (c)
 2023-PRESENT Johann Schopplich, <https://github.com/unjs/unpdf>). It bundles a
-serverless build of Mozilla's PDF.js 6.1.200 (Apache-2.0, Copyright Mozilla
-Foundation, <https://github.com/mozilla/pdf.js/tree/v6.1.200>) in
+serverless build of Mozilla's PDF.js 6.4.299 (Apache-2.0, Copyright Mozilla
+Foundation, <https://github.com/mozilla/pdf.js/tree/v6.4.299>) in
 `node_modules/unpdf/dist/pdfjs.mjs`; the bundle carries no license header of its own,
 and the Apache-2.0 text is AgentPier's `LICENSE`. `unpdf` is pinned to that exact
 version, has no runtime dependencies and no install scripts; its optional
