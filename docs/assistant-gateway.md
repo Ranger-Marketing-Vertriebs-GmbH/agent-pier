@@ -5465,7 +5465,10 @@ against the current pin; see
 in WebKit; a Playwright `tablet` project (820x1180, touch) repeats those specs at iPad
 size in WebKit. The slim `Assistant runtime (queue)` workflow
 (`assistant-runtime-queue.yml`) runs in the merge queue only: it passes at once when
-no assistant runtime path changed and otherwise runs the core native contracts.
+no assistant runtime path changed and otherwise runs the core native contracts. Both
+workflows treat `package.json` and `package-lock.json` changes that touch only the
+`version` field (a release) as no change, so a release pull request runs no
+contracts in either.
 
 Dependabot must never update `server/features/assistants/runtimes/openclaw/runtime-lock/`; the
 exclusion and the refresh procedure for security alerts there are described in

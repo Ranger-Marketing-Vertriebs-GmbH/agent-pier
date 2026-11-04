@@ -1,6 +1,7 @@
 name: Assistant runtime (queue)
 # A slim gate for the merge queue. It always reports one check with a stable
-# name: it finishes green at once when no assistant runtime path changed
+# name: it finishes green at once when no assistant runtime path changed beyond a
+# version bump of the package files
 # (scripts/assistant-runtime-paths.mjs) and otherwise runs the core native
 # contracts with one visible retry per failed file. Pull requests run the full
 # Linux contracts in assistant-runtime.yml instead, so this runs in the queue only.

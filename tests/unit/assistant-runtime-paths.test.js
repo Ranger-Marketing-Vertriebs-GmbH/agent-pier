@@ -155,3 +155,89 @@ test("an unrelated diff skips the contracts and says why", () => {
     args[0] === "diff" ? "server/features/assistants/a.js\n" : "";
   assert.equal(decide(base, relevant).relevant, true);
 });
+
+// A real repository whose second commit writes `files`; returns its runner and base.
+function repository(t, files) {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-paths-"));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const sh = (...args) =>
+    execFileSync("git", args, { cwd: directory, encoding: "utf8", env: gitEnv });
+  const write = (entries) => {
+    for (const [file, text] of Object.entries(entries)) {
+      fs.mkdirSync(path.dirname(path.join(directory, file)), { recursive: true });
+      fs.writeFileSync(path.join(directory, file), text);
+    }
+    sh("add", ".");
+  };
+  sh("init", "-q");
+  write(manifests("1.0.0", { yaml: "^2.0.0" }));
+  sh("commit", "-qm", "base");
+  const baseSha = sh("rev-parse", "HEAD").trim();
+  write(files);
+  sh("commit", "-qm", "change");
+  const run = (command, args, options) =>
+    execFileSync(command, args, { ...options, cwd: directory, env: gitEnv });
+  return { baseSha, run };
+}
+
+function manifests(version, dependencies) {
+  const manifest = { name: "agentpier", version, dependencies };
+  return {
+    "package.json": `${JSON.stringify(manifest, null, 2)}\n`,
+    "package-lock.json": `${JSON.stringify(
+      {
+        name: "agentpier",
+        version,
+        lockfileVersion: 3,
+        packages: { "": manifest, "node_modules/yaml": { version: "2.0.0" } },
+      },
+      null,
+      2,
+    )}\n`,
+  };
+}
+
+test("a release bump of the package files skips the contracts", (t) => {
+  const { baseSha, run } = repository(t, manifests("1.1.0", { yaml: "^2.0.0" }));
+  assert.deepEqual(decide(baseSha, run), {
+    relevant: false,
+    reason:
+      "none of 2 changed file(s) touches the assistant runtime; 2 changed only the version",
+  });
+});
+
+test("a dependency change in the package files runs the contracts", (t) => {
+  const { baseSha, run } = repository(t, manifests("1.1.0", { yaml: "^2.1.0" }));
+  assert.equal(decide(baseSha, run).relevant, true);
+});
+
+test("a release bump beside an assistant change runs the contracts", (t) => {
+  const { baseSha, run } = repository(t, {
+    ...manifests("1.1.0", { yaml: "^2.0.0" }),
+    "server/features/assistants/x.js": "export const x = 1;\n",
+  });
+  assert.equal(decide(baseSha, run).relevant, true);
+});
+
+test("without a base every check runs", () => {
+  assert.deepEqual(decide(""), {
+    relevant: true,
+    reason: "no pull request or queue base was given",
+  });
+});
+
+test("the runtime jobs wait for the plan, which reads the pull request base", () => {
+  const workflow = YAML.parse(
+    fs.readFileSync(
+      new URL("../../.github/workflows/assistant-runtime.yml", import.meta.url),
+      "utf8",
+    ),
+  );
+  const plan = workflow.jobs.plan.steps.find((step) => step.id === "paths");
+  assert.equal(plan.run, "node scripts/assistant-runtime-paths.mjs");
+  assert.equal(plan.env.BASE_SHA, "${{ github.event.pull_request.base.sha }}");
+  for (const name of ["fresh-install", "native-contracts", "hermes-contracts"]) {
+    assert.equal(workflow.jobs[name].needs, "plan", name);
+    assert.equal(workflow.jobs[name].if, "needs.plan.outputs.relevant == 'true'", name);
+  }
+});
