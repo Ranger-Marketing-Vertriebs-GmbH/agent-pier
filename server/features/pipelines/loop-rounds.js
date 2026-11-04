@@ -40,8 +40,15 @@ function stageEntry(run, nodeId, attempt, verdict) {
 
 // Records the round that `node`'s verdict closes on `edge`, before the loop resets the
 // stages in between. The operator's note of a manual loop back is kept in full.
-export function recordRound(run, node, edge, verdict, { iteration, operatorNote, at }) {
-  const key = edgeKey(edge);
+// `key` names the round's edge in the history; an owner return passes its own so its
+// rounds never share a key with a real loop edge.
+export function recordRound(
+  run,
+  node,
+  edge,
+  verdict,
+  { iteration, operatorNote, at, key = edgeKey(edge) },
+) {
   const log = run.executionLog || [];
   // The target's newest attempt starts with a kickoff or a resumed repair turn.
   const start = log.findLastIndex(

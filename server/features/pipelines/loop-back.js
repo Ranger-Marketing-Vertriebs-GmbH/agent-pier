@@ -15,20 +15,9 @@ export async function resumeFallback(engine, run, node, attempt, reason, detail)
   delete node.nativeId;
   await launchStage(engine, run, node, freshAfterResume(attempt, reason));
 }
-export async function loopBack(engine, run, node, verdict, feedback) {
-  const edge = outgoing(run, node.id, "fail"),
-    key = edgeKey(edge);
-  const iteration = (run.loopState[key]?.iterations || 0) + 1;
-  run.loopState[key] = { iterations: iteration, maxIterations: edge.maxIterations };
-  recordRound(run, node, edge, verdict, {
-    iteration,
-    operatorNote: feedback,
-    at: engine.now(),
-  });
-  const target = run.nodes.find((n) => n.id === edge.to);
-  // Decided before the reset below drops the target's session.
-  const launch = repairLaunch(run, target, edge, { edgeKey: key, iteration });
-  for (const id of loopResetSet(run, edge)) {
+// The stage fields a restart drops, so the stage runs again from a clean slate.
+export function resetStages(run, ids) {
+  for (const id of ids) {
     const n = run.nodes.find((n) => n.id === id);
     n.status = "pending";
     for (const k of [
@@ -45,6 +34,21 @@ export async function loopBack(engine, run, node, verdict, feedback) {
     ])
       delete n[k];
   }
+}
+export async function loopBack(engine, run, node, verdict, feedback) {
+  const edge = outgoing(run, node.id, "fail"),
+    key = edgeKey(edge);
+  const iteration = (run.loopState[key]?.iterations || 0) + 1;
+  run.loopState[key] = { iterations: iteration, maxIterations: edge.maxIterations };
+  recordRound(run, node, edge, verdict, {
+    iteration,
+    operatorNote: feedback,
+    at: engine.now(),
+  });
+  const target = run.nodes.find((n) => n.id === edge.to);
+  // Decided before the reset below drops the target's session.
+  const launch = repairLaunch(run, target, edge, { edgeKey: key, iteration });
+  resetStages(run, loopResetSet(run, edge));
   // The round history holds the findings and the operator's note; the loop context
   // points at its edge.
   target.loop = {
