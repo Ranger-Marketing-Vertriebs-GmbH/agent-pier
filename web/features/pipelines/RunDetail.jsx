@@ -17,6 +17,7 @@ import "./run-stage-blocks.css";
 import "./parallel-group.css";
 // After the stylesheets above, so the spec's own styles keep their cascade order.
 import RunSpec from "./RunSpec.jsx";
+import RunChanges from "./RunChanges.jsx";
 
 // Run detail: header with run-wide actions, the stage rail on the left and the chosen
 // stage on the right. The chosen stage lives in component state, so pushes keep it.
@@ -69,6 +70,7 @@ export default function RunDetail({ id, navigate }) {
             }
           />
           <RunSpec run={run} refresh={resource.written} />
+          <RunChanges run={run} />
           {nodes.length === 0 && <RunUsage usage={run.usage} budget={run.tokenBudget} />}
           {nodes.length > 0 && (
             <div className="run-detail-layout">

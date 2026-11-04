@@ -3,6 +3,18 @@ import { expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { runCountsAnswer } from "../helpers/run-counts.js";
 import { isChangesRead, noChanges } from "../helpers/session-changes-fixture.js";
+// A stage's `/diff` answer: git diff text, as the server sends it.
+export const stageDiffText = [
+  "diff --git a/src/app.js b/src/app.js",
+  "index 1111111..2222222 100644",
+  "--- a/src/app.js",
+  "+++ b/src/app.js",
+  "@@ -1,2 +1,2 @@",
+  " keep",
+  "-old line",
+  "+new line",
+  "",
+].join("\n");
 export async function pipelinesFixture(page) {
   const profile = {
     id: "profile-one",
@@ -230,8 +242,7 @@ export async function pipelinesFixture(page) {
         };
       else if (path.endsWith("/artifact"))
         result = { content: "Fixture report evidence", truncated: false };
-      else if (path.endsWith("/diff"))
-        result = { diff: "+new line\n-old line", truncated: true };
+      else if (path.endsWith("/diff")) result = { diff: stageDiffText, truncated: true };
       else if (path.includes("/verify-logs/"))
         result = { log: "Fixture verification log", truncated: false };
       else if (path.includes("/spec/revisions/"))
