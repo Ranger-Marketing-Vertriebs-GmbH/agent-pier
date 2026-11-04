@@ -15,12 +15,14 @@ const EXCERPT_KINDS = new Set(["add", "remove", "context"]);
 const invalid = () => problem(serverMessages.changes.invalidComment, 400);
 const isObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 
-// A POSIX relative path: no empty, "." or ".." segments, backslashes or controls.
-function relativePath(value, max) {
+// A POSIX relative path: no empty or "." segments, backslashes or controls. ".." is
+// allowed only for a workspace id (a label such as "../feat/y" for a sibling worktree).
+function relativePath(value, max, { allowParent = false } = {}) {
   if (typeof value !== "string" || value.length > max) throw invalid();
   if (/[\\\x00-\x1f\x7f]/.test(value)) throw invalid();
   for (const segment of value.split("/"))
-    if (segment === "" || segment === "." || segment === "..") throw invalid();
+    if (segment === "" || segment === "." || (segment === ".." && !allowParent))
+      throw invalid();
   return value;
 }
 
@@ -77,7 +79,7 @@ export function commentInput(body, { kind }) {
   if (typeof workspace !== "string") throw invalid();
   if (workspace !== "") {
     if (kind === "run") throw invalid();
-    relativePath(workspace, MAX_WORKSPACE_CHARS);
+    relativePath(workspace, MAX_WORKSPACE_CHARS, { allowParent: true });
   }
   if (typeof body.body !== "string" || !body.body.trim()) throw invalid();
   if (new TextEncoder().encode(body.body).length > MAX_COMMENT_BYTES)
