@@ -131,7 +131,7 @@ Then restart the AgentPier web service. If `tmux -V` works but the service still
 ## 1. Prerequisites on the target machine
 
 - macOS with a regular user account that will also run the CLI sessions.
-- Node.js `^22.23.4 || ^24.22.1 || >=26.12.1` (22.23.4+, 24.22.1+ or 26.12.1+; Node 23 and 25 are not supported) with npm, tmux and Git.
+- Node.js `^24.22.1 || >=26.12.1` (24.22.1+ or 26.12.1+; Node 22, 23 and 25 are not supported) with npm, tmux and Git.
 - OpenSSH 8.9 or newer (`ssh -V`). macOS ships a recent enough client.
 - Codex, Claude Code and OpenCode may already be installed or can be installed later under **Your tools → Install CLI**.
 - Optional: Tailscale, signed in to your own tailnet on both the Mac mini and mobile device.
@@ -139,7 +139,7 @@ Then restart the AgentPier web service. If `tmux -V` works but the service still
 With Homebrew already configured, the runtime tools can be installed as follows:
 
 ```sh
-brew install node@22 tmux git
+brew install node@24 tmux git
 ```
 
 Make sure Node and the CLI binaries are on PATH. AgentPier also searches for CLIs in `~/.local/bin`, `~/.opencode/bin`, `/opt/homebrew/bin` and `/usr/local/bin`. Then verify:
@@ -217,6 +217,8 @@ versions remain available for explicit activation until you delete them. If a cu
 through `AGENTPIER_RELEASE_CHANNEL`, the update source is managed on the server.
 
 For a versioned installation, check for a new version under **Settings → Operations → Updates**, download the package, then activate it. For an offered or already staged update, the app displays the GitHub release notes for that specific version. Notes load separately; missing notes or an unreachable GitHub do not prevent the update. Custom update sources do not display potentially unrelated official release notes. Packages come from the [official GitHub releases](https://github.com/Ranger-Marketing-Vertriebs-GmbH/agent-pier/releases) by default; a custom source can be set with `AGENTPIER_RELEASE_CHANNEL`. Downloads are verified with SHA-256. If the new version fails to start, the previous version is reactivated. CLI sessions survive a web service restart. **Delete** on a staged version's card removes its package after confirmation, for example an RC you no longer want to test; that version can then no longer be activated until it is downloaded again. It uses the same checks as **Delete old versions**: a staged version that a running process uses, or any version during activation, rollback or session migration, is kept.
+
+A versioned release brings its own Node, so activating a new version also switches to the Node runtime bundled with it. A source checkout runs on the host's Node: check `node --version` before you update, and upgrade a Node outside the supported range `^24.22.1 || >=26.12.1` first (for example `brew install node@24`; Node 22 is no longer supported). `npm run service:install` then points the service at the Node that runs it.
 
 For a source checkout, update the repository files, then run:
 
@@ -336,7 +338,7 @@ The assistant service is optional and off initially: until the owner turns on
 **Enable agents** (under **Agents**, or **Agents › Runtime › Function**), nothing is created, downloaded or started. Installations that
 already used agents before this switch existed come back enabled. Enabling it provisions a
 private OpenClaw 2026.10.9 installation and Node 26.12.1 under the data directory's
-`assistants/runtimes/` directory. AgentPier itself retains its supported Node range `^22.23.4 || ^24.22.1 || >=26.12.1`.
+`assistants/runtimes/` directory. AgentPier itself retains its supported Node range `^24.22.1 || >=26.12.1`.
 Downloads are checked against pinned official Node checksums and npm package
 integrity before activation. Failed staging preserves the previously selected runtime.
 The release package includes the installer; no global OpenClaw or second daemon is
@@ -389,7 +391,7 @@ reach uv:
 - `localhost`, `127.0.0.1`, `::1` and `[::1]` are always added to `NO_PROXY` and
   `no_proxy`, so health checks and the Gateway connection never use the proxy.
 - Node's built-in `fetch` honours the proxy on Node 22.21+ or 24+; every Node in the supported range
-  qualifies (Node 23 and Node 22 before 22.21 do not). The release bundles a suitable Node; if
+  qualifies (Node 23 and Node 22 before 22.21 do not, and neither is supported). The release bundles a suitable Node; if
   AgentPier runs on another Node while a proxy is set, downloads fail at once with
   `PROXY_REQUIRES_NEWER_NODE` instead of bypassing the proxy. When a proxy is set,
   the installer does not use such a system Node; it downloads its own pinned Node
@@ -397,7 +399,7 @@ reach uv:
 - Behaviour change: this also applies to AgentPier's own self-update downloads.
   An installation that runs on Node 22.13 to 22.20 behind a proxy now stops an
   update download with `PROXY_REQUIRES_NEWER_NODE` instead of trying a direct
-  connection. Upgrade the Node that runs AgentPier to the supported range `^22.23.4 || ^24.22.1 || >=26.12.1`.
+  connection. Upgrade the Node that runs AgentPier to the supported range `^24.22.1 || >=26.12.1`.
 
 **The update to OpenClaw 2026.10.3 cannot be undone once committed.** It migrates
 the agent service's state database (schema 19 to 20), and OpenClaw 2026.9.9 and

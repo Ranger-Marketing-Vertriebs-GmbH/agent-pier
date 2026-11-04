@@ -143,7 +143,7 @@ test(
         )
         .join("\n") + '\nconsole.log("imports-only");';
     const child = await execute(t, ["--input-type=module", "-e", code], env);
-    // Node 22 emits its SQLite experimental warning during these imports.
+    // Node may print runtime warnings during these imports.
     // Successful exit and the exact marker prove import-only execution.
     assert.equal(child.stdout, "imports-only\n");
     for (const file of [

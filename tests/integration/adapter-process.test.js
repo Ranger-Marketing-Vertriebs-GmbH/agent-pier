@@ -70,8 +70,7 @@ test("the adapter process serves one session and keeps the key out of argv, env 
 });
 
 test("environment and exec args", () => {
-  assert.deepEqual(adapterExecArgv(new Set(["--use-system-ca"])), ["--use-system-ca"]);
-  assert.deepEqual(adapterExecArgv(new Set()), []);
+  assert.deepEqual(adapterExecArgv(), ["--use-system-ca"]);
   assert.deepEqual(
     adapterEnvironment(
       {

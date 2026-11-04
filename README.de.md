@@ -143,7 +143,7 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
 ## Voraussetzungen
 
 - macOS 14 oder neuer (Apple Silicon oder Intel) oder Linux auf x64 oder arm64. Intel-Macs werden unterstützt, die vollständige native Agenten-Qualifikation deckt aber nur Apple Silicon und Linux ab.
-- Node.js `^22.23.4 || ^24.22.1 || >=26.12.1` (22.23.4+, 24.22.1+ oder 26.12.1+; Node 23 und 25 werden nicht unterstützt; in Release-Paketen enthalten), Git, tmux und OpenSSH 8.9 oder neuer.
+- Node.js `^24.22.1 || >=26.12.1` (24.22.1+ oder 26.12.1+; Node 22, 23 und 25 werden nicht unterstützt; in Release-Paketen enthalten), Git, tmux und OpenSSH 8.9 oder neuer.
 - Optional: Tailscale für den Fernzugriff und ein Chromium-basierter Browser für das
   Browser-Tool der Agenten (Brave oder Chromium für sichtbare Browserfenster der
   Agenten; AgentPier kann dafür mit einem Klick ein verwaltetes Chrome for Testing

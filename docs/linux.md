@@ -28,7 +28,7 @@ Danach den AgentPier-Webdienst neu starten. Falls `tmux -V` funktioniert, aber d
 
 ## Voraussetzungen und erster Start
 
-Benötigt werden Node.js `^22.23.4 || ^24.22.1 || >=26.12.1` (22.23.4+, 24.22.1+ oder 26.12.1+; Node 23 und 25 werden nicht unterstützt) mit npm, tmux und Git sowie OpenSSH 8.9 oder neuer. Für das native Terminal-Modul können Python 3, make und ein C++-Compiler erforderlich sein, falls npm für das System kein passendes vorkompiliertes Modul findet. Installiere diese Voraussetzungen mit den üblichen Tools deiner Distribution. Die direkte Installation der drei Coding-CLIs in AgentPier unterstützt Linux auf x64 und ARM64.
+Benötigt werden Node.js `^24.22.1 || >=26.12.1` (24.22.1+ oder 26.12.1+; Node 22, 23 und 25 werden nicht unterstützt) mit npm, tmux und Git sowie OpenSSH 8.9 oder neuer. Für das native Terminal-Modul können Python 3, make und ein C++-Compiler erforderlich sein, falls npm für das System kein passendes vorkompiliertes Modul findet. Installiere diese Voraussetzungen mit den üblichen Tools deiner Distribution. Die direkte Installation der drei Coding-CLIs in AgentPier unterstützt Linux auf x64 und ARM64.
 
 ```sh
 node --version
@@ -99,6 +99,8 @@ loginctl show-user "$USER" -p Linger
 Das ersetzt keine funktionierende systemd-Benutzerumgebung beim Installieren; bei einer fehlenden Verbindung zum User-Manager in einer regulären SSH-/Benutzer-Session arbeiten. [loginctl](https://www.freedesktop.org/software/systemd/man/252/loginctl.html)
 
 ## Aktualisieren, stoppen und entfernen
+
+Ein Checkout läuft mit dem Node des Hosts: Prüfe vor dem Aktualisieren `node --version` und aktualisiere ein Node außerhalb von `^24.22.1 || >=26.12.1` zuerst (Node 22 wird nicht mehr unterstützt). `npm run service:install` richtet den Dienst danach auf das Node aus, mit dem es läuft.
 
 Nach dem Aktualisieren der Repository-Dateien:
 

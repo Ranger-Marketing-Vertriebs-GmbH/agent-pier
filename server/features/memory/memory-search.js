@@ -8,7 +8,8 @@ import { entry, entryColumns, pageSize } from "./memory-rows.js";
  * derived data: one row per entry, keyed by entry ID (the project comes from the
  * entries table, so project moves need no index change). Writes keep it current in
  * their transaction; each start rebuilds it when it is missing or stale; backups leave
- * it out. Without FTS5 (some Node 22 builds) search falls back to LIKE.
+ * it out. Without FTS5 (a Node built against a system SQLite that lacks it) search
+ * falls back to LIKE.
  */
 const index = "memory_search";
 const excerptLength = 256;

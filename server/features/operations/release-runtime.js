@@ -6,7 +6,7 @@ import { download } from "./releases.js";
 import { digest } from "./files.js";
 import { problem } from "../../lib/storage.js";
 const execute = promisify(execFile);
-export const NODE_RUNTIME_VERSION = "22.23.4";
+export const NODE_RUNTIME_VERSION = "24.22.1";
 export async function prepareReleaseRuntime(
   directory,
   { platform = `${process.platform}-${process.arch}`, fetchImpl = fetch } = {},

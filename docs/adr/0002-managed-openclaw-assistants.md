@@ -288,7 +288,7 @@ independent daemon or adopt arbitrary processes based on their port alone.
 
 Installation and upgrades for existing installations must provision required
 runtime tools. The tested OpenClaw 2026.9.8 and 2026.10.3 packages require
-`>=24.16.0 <25 || >=26.1.0`, and 2026.10.7 requires `>=24.22.1 <25 || >=26.12.1`; AgentPier currently accepts Node 22.13+, so relying on the
+`>=24.16.0 <25 || >=26.1.0`, and 2026.10.7 requires `>=24.22.1 <25 || >=26.12.1`; AgentPier accepted Node 22.13+ when this was decided (today `^24.22.1 || >=26.12.1`), so relying on the
 host's existing Node binary is insufficient. Keep AgentPier's existing supported
 runtime contract unless a separate decision changes it.
 

@@ -13,8 +13,8 @@ export const ADAPTER_ENTRY = fileURLToPath(
   new URL("../../adapter-process.js", import.meta.url),
 );
 
-export const adapterExecArgv = (flags = process.allowedNodeEnvironmentFlags) =>
-  flags.has("--use-system-ca") ? ["--use-system-ca"] : [];
+// Every supported Node (24.22.1+) accepts --use-system-ca.
+export const adapterExecArgv = () => ["--use-system-ca"];
 
 // Trust-store settings only: Node's extra CA bundle, and the OpenSSL locations its
 // system-CA loading honors (corporate setups use them on Linux). Never proxies or keys.

@@ -74,7 +74,7 @@ diagnostics). Launch preparation lives in `server/features/providers/`.
 - The adapter ignores `HTTP_PROXY`, `HTTPS_PROXY` and `NO_PROXY` and does not receive
   them. Its environment holds `PATH` plus `NODE_EXTRA_CA_CERTS`, `SSL_CERT_FILE` and
   `SSL_CERT_DIR` (taken from the CLI environment, else AgentPier's); the process also runs
-  with `--use-system-ca` where Node supports it, so private company CAs work.
+  with `--use-system-ca`, so private company CAs work.
 - Limits: request body 64 MiB (larger bodies get HTTP 400 in the client's format and the
   connection closes), one SSE event up to 16 MiB, no total cap on response streams. A
   client that stops reading for 240 s is cut off.

@@ -4,17 +4,12 @@ import fs from "node:fs";
 import { execFileSync } from "node:child_process";
 import { isPatchedNode, nodeCheckStatus } from "../../server/lib/node-support.js";
 import { NODE_RUNTIME_VERSION } from "../../server/features/operations/release-runtime.js";
+import { diagnosticCopy } from "../../web/lib/i18n/en/operations.js";
 
-const PATCHED = [
+const PATCHED = ["24.22.1", "24.23.0", "26.12.1", "26.13.0", "27.0.0"];
+const VULNERABLE = [
   "22.23.4",
   "22.24.0",
-  "24.22.1",
-  "24.23.0",
-  "26.12.1",
-  "26.13.0",
-  "27.0.0",
-];
-const VULNERABLE = [
   "22.13.0",
   "22.22.2",
   "22.23.3",
@@ -23,6 +18,7 @@ const VULNERABLE = [
   "24.16.0",
   "26.7.0",
   "26.12.0",
+  "25.9.0",
   "20.19.0",
 ];
 
@@ -33,7 +29,7 @@ test("isPatchedNode accepts only the security-fixed releases", () => {
 
 test("package.json engines, the bundled runtime and the installer agree", () => {
   const { engines } = JSON.parse(fs.readFileSync("package.json", "utf8"));
-  assert.equal(engines.node, "^22.23.4 || ^24.22.1 || >=26.12.1");
+  assert.equal(engines.node, "^24.22.1 || >=26.12.1");
   assert.equal(isPatchedNode(NODE_RUNTIME_VERSION), true);
   const installer = fs.readFileSync("scripts/install.sh", "utf8");
   assert.match(installer, new RegExp(`^VERSION=${NODE_RUNTIME_VERSION}$`, "m"));
@@ -61,11 +57,17 @@ test("the installer's host Node check matches isPatchedNode", () => {
   }
 });
 
-test("the doctor node check warns on unpatched, passes patched and fails below 22.13", () => {
-  for (const version of ["22.22.2", "22.13.0", "24.22.0", "23.11.0"])
+test("the doctor node check warns on unpatched, passes patched and fails below 24", () => {
+  for (const version of ["24.22.0", "24.0.0", "25.9.0", "26.12.0"])
     assert.equal(nodeCheckStatus(version), "warn", version);
-  for (const version of ["22.23.4", "24.22.1", "26.12.1"])
+  for (const version of ["24.22.1", "26.12.1", "27.0.0"])
     assert.equal(nodeCheckStatus(version), "ok", version);
-  for (const version of ["20.19.0", "22.12.9", "18.0.0"])
+  for (const version of ["22.23.4", "23.11.0", "20.19.0", "22.12.9", "18.0.0", ""])
     assert.equal(nodeCheckStatus(version), "fail", version);
+});
+
+test("the doctor remedy tells a Node 22 installation which releases to upgrade to", () => {
+  const { node } = diagnosticCopy.remedies;
+  assert.match(node, /24\.22\.1, 26\.12\.1 or later/);
+  assert.match(node, /Node\.js 22 is no longer supported/);
 });
