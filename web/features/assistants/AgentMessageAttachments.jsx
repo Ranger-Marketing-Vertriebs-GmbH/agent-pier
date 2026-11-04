@@ -2,6 +2,11 @@ import React, { useState } from "react";
 import Icon from "../../components/Icon.jsx";
 import ImageViewer from "../../components/ImageViewer.jsx";
 import FileLink from "../../components/FileLink.jsx";
+import AgentMarkdownPreview from "./AgentMarkdownPreview.jsx";
+import {
+  isMarkdownAttachment,
+  MARKDOWN_PREVIEW_MAX_BYTES,
+} from "./agent-markdown-preview.js";
 import "./agent-attachments.css";
 import { useAgentPaths } from "./agent-paths.js";
 import { assistantAttachmentsCopy as copy } from "../../lib/i18n/messages/assistant-attachments.js";
@@ -25,15 +30,30 @@ const useSource = () => {
 
 // The name, its details and an explicit download button under a player or in a
 // chip. FileLink keeps a home-screen app (iOS) in place: the share sheet instead
-// of navigating; native iOS players offer no download of their own.
-function FileRow({ file, details }) {
+// of navigating; native iOS players offer no download of their own. With `onOpen`
+// the name is a button that opens the file's preview (Markdown).
+function FileRow({ file, details, onOpen }) {
   const source = useSource();
+  const text = (
+    <>
+      <span className="agent-attachment-name">{file.name}</span>
+      {details && <span className="agent-attachment-meta">{details}</span>}
+    </>
+  );
   return (
     <div className="agent-attachment-row">
-      <span className="agent-attachment-text">
-        <span className="agent-attachment-name">{file.name}</span>
-        {details && <span className="agent-attachment-meta">{details}</span>}
-      </span>
+      {onOpen ? (
+        <button
+          type="button"
+          className="agent-attachment-text agent-attachment-preview"
+          aria-label={copy.preview(file.name)}
+          onClick={onOpen}
+        >
+          {text}
+        </button>
+      ) : (
+        <span className="agent-attachment-text">{text}</span>
+      )}
       <FileLink
         className="icon-button agent-attachment-download"
         // The whole file as a download (Content-Disposition: attachment), never a
@@ -116,7 +136,8 @@ function UnavailableAttachment({ file }) {
 
 // The owner's files in a sent message, or the files an agent shared (`shared`):
 // thumbnails that open the image in the in-app viewer, videos and audio that play
-// inline, and chips, each with a download button. Nothing navigates away: a home-screen app
+// inline, Markdown files that open a rendered preview, and chips, each with a
+// download button. Nothing navigates away: a home-screen app
 // (iOS) has no way back. All are served through the signed-in route by id.
 export default function AgentMessageAttachments({ files, shared = false }) {
   const [open, setOpen] = useState(null);
@@ -151,12 +172,32 @@ export default function AgentMessageAttachments({ files, shared = false }) {
               <span className="agent-attachment-icon" aria-hidden="true">
                 <Icon name="file" size={16} />
               </span>
-              <FileRow file={file} details={fileSize(file.size)} />
+              <FileRow
+                file={file}
+                details={fileSize(file.size)}
+                onOpen={
+                  isMarkdownAttachment(file)
+                    ? (event) =>
+                        setOpen({ file, opener: event.currentTarget, markdown: true })
+                    : undefined
+                }
+              />
             </li>
           ),
         )}
       </ul>
-      {open && (
+      {open?.markdown && (
+        <AgentMarkdownPreview
+          key={open.file.id}
+          file={open.file}
+          src={source(open.file.id)}
+          details={fileSize(open.file.size)}
+          limit={fileSize(MARKDOWN_PREVIEW_MAX_BYTES)}
+          opener={open.opener}
+          close={() => setOpen(null)}
+        />
+      )}
+      {open && !open.markdown && (
         <ImageViewer
           key={open.file.id}
           src={source(open.file.id)}

@@ -1791,7 +1791,13 @@ image with one finger, on a computer double click, ctrl + scroll or pinch on the
 and drag with the mouse or scroll; a double tap or double click on a long screenshot fills
 the width from its top; download or share from there), videos and audio with the
 player inline (a full-screen video keeps its own Done button), every other file as a
-chip, with the agent's short caption. Every video, audio and file in the chat, your own
+chip, with the agent's short caption. Select the name of a Markdown file (`.md`,
+`.markdown`) to read it rendered in a side panel, a bottom sheet on a phone: headings,
+lists, tables and code as in the chat, raw HTML left out, images only named (a remote
+image never loads) and links opening in a new tab. Esc, a click beside it or **Close**
+closes it and the panel keeps **Download**. The preview reads at most 512 KB; a larger
+file, or one that fails to load, says so and offers the download instead. It works for
+your own attachments and in a user's own app as well. Every video, audio and file in the chat, your own
 attachments included, has a download button beside its name and size that saves the
 whole file without leaving the chat; the players themselves offer no download on an
 iPhone. In the home-screen app (iPhone, iPad) a download opens the share sheet instead, so
