@@ -7,6 +7,7 @@ import {
   reviewRequests,
   reviewState,
   reviewTopic,
+  writesOf,
 } from "./review-comment-requests.js";
 
 /**
@@ -25,13 +26,11 @@ export default function useReviewComments(scope) {
   const { written } = topic;
   const requests = useMemo(() => stable && reviewRequests(api, stable), [stable]);
   const after = useCallback((write) => afterWrite(write, written), [written]);
+  const writes = useMemo(() => writesOf(requests, after), [requests, after]);
   return {
     ...reviewState(topic.data),
     loading: topic.loading,
     error: topic.error,
-    create: (input) => after(() => requests.create(input)),
-    update: (commentId, patch) => after(() => requests.update(commentId, patch)),
-    remove: (commentId) => after(() => requests.remove(commentId)),
-    markSent: (ids) => after(() => requests.markSent(ids)),
+    ...writes,
   };
 }

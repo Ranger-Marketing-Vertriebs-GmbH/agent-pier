@@ -4,6 +4,7 @@ import { changePreview } from "./file-change-preview.js";
 import { fileLanguage } from "../../components/diff/file-language.js";
 import ToolOutput from "./ToolOutput.jsx";
 import TruncatedToolOutput from "./TruncatedToolOutput.jsx";
+import "../../components/diff/diff.css";
 import "./tool-changes.css";
 const DiffRows = lazy(() => import("../../components/diff/DiffRows.jsx"));
 export default function ToolChanges({ message, sessionId }) {

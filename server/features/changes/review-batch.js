@@ -9,6 +9,7 @@ import { excerptAt, placeComments } from "./review-anchor.js";
  *   id: string,
  *   location: string,
  *   line: number,
+ *   side?: "old" | "new",
  *   outdated: boolean,
  *   excerpt: import("./review-anchor.js").Anchor["excerpt"],
  *   body: string,
@@ -65,6 +66,7 @@ export function reviewEntries(comments, diffs) {
         id: c.id,
         location: `${workspace ? `${workspace}/` : ""}${c.file}`,
         line,
+        side: c.anchor?.side ?? c.side,
         outdated: !found,
         excerpt,
         body: c.body,
@@ -91,7 +93,8 @@ const indent = (text) =>
     .join("\n");
 
 function formatEntry(entry, number) {
-  const head = `${number}. ${entry.location}:${entry.line}${entry.outdated ? " (outdated)" : ""}`;
+  const removed = entry.side === "old" ? " (removed line)" : "";
+  const head = `${number}. ${entry.location}:${entry.line}${removed}${entry.outdated ? " (outdated)" : ""}`;
   const lines = [head];
   if (entry.excerpt.length > 0) {
     const longest = Math.max(
@@ -114,6 +117,7 @@ export function formatReviewBatch(entries) {
   if (entries.length === 0) return "";
   return [
     `Review notes (${entries.length}):`,
+    "Paths are relative to the session directory (for runs: the run's workspace).",
     "",
     entries.map((entry, i) => formatEntry(entry, i + 1)).join("\n\n"),
   ].join("\n");
@@ -122,7 +126,7 @@ export function formatReviewBatch(entries) {
 /** Free text first, then the batch; empty parts disappear. */
 export function combineFeedback(freeText, batch) {
   return [freeText, batch]
-    .map((part) => part.trim())
+    .map((part) => (part ?? "").trim())
     .filter(Boolean)
     .join("\n\n");
 }

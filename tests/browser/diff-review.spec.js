@@ -12,8 +12,8 @@ async function open(page) {
   await expect(editable(page)).toBeVisible();
 }
 
-// The fixture's `timingSafeEqual` row is the third selectable row of server/a.js.
-async function selectLine(page, presses = 3) {
+// The fixture's `timingSafeEqual` row is the fourth selectable row of server/a.js.
+async function selectLine(page, presses = 4) {
   const region = editable(page).getByRole("region", { name: "Diff of server/a.js" });
   await region.focus();
   for (let i = 0; i < presses; i++) await page.keyboard.press("ArrowDown");
@@ -37,17 +37,20 @@ test("the keyboard flow comments, resolves, reopens and deletes", async ({ page 
   const resolved = editable(page).locator(".diff-thread.is-resolved", {
     hasText: "A new note",
   });
-  await expect(resolved.getByRole("button", { name: "Reopen" })).toBeVisible();
+  await expect(resolved.getByRole("button", { name: "Reopen" })).toBeFocused();
   await resolved.getByRole("button", { name: "Reopen" }).click();
   await expect(note.getByRole("button", { name: "Resolve" })).toBeVisible();
+  await expect(note.getByRole("button", { name: "Resolve" })).toBeFocused();
 
   await note.getByRole("button", { name: "Delete" }).click();
   await expect(note.getByText("Delete this comment?")).toBeVisible();
   await note.getByRole("button", { name: "Cancel" }).click();
   await expect(note).toBeVisible();
+  await expect(note.getByRole("button", { name: "Delete" })).toBeFocused();
   await note.getByRole("button", { name: "Delete" }).click();
   await note.getByRole("button", { name: "Delete now" }).click();
   await expect(editable(page).getByText("A new note")).toHaveCount(0);
+  await expect(region).toBeFocused();
 });
 
 test("Escape closes the editor without saving", async ({ page }) => {
@@ -70,6 +73,11 @@ test("a comment can be edited", async ({ page }) => {
   await box.fill("Edited text");
   await page.keyboard.press("Control+Enter");
   await expect(editable(page).getByText("Edited text")).toBeVisible();
+  await expect(
+    editable(page)
+      .locator(".diff-thread", { hasText: "Edited text" })
+      .getByRole("button", { name: "Edit" }),
+  ).toBeFocused();
 });
 
 test("outdated, sent, paged and missing-file comments are listed", async ({ page }) => {

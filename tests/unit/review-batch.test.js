@@ -62,6 +62,7 @@ test("the batch carries location, line, excerpt and comment", () => {
     text,
     [
       "Review notes (1):",
+      "Paths are relative to the session directory (for runs: the run's workspace).",
       "",
       "1. .worktrees/feat/x/server/a.js:42",
       "   ```",
@@ -71,6 +72,19 @@ test("the batch carries location, line, excerpt and comment", () => {
       "   Use a constant-time comparison here.",
     ].join("\n"),
   );
+});
+
+test("comments on removed lines are tagged", () => {
+  assert.match(
+    formatReviewBatch([{ ...entry, side: "old", line: 40 }]),
+    /^1\. server\/a\.js:40 \(removed line\)$/m,
+  );
+  assert.doesNotMatch(formatReviewBatch([{ ...entry, side: "new" }]), /removed line/);
+  const [e] = reviewEntries(
+    [open("server/a.js", { anchor: anchorAt(parseGitDiff(modified)[0].rows, 2) })],
+    new Map([["", parseGitDiff(modified)]]),
+  );
+  assert.equal(e.side, "old");
 });
 
 test("outdated comments are marked and keep their anchor's line", () => {
@@ -165,6 +179,9 @@ test("free text comes first and empty parts disappear", () => {
   );
   assert.equal(combineFeedback("", ""), "");
   assert.equal(combineFeedback("", " batch "), "batch");
+  assert.equal(combineFeedback(null, " batch "), "batch");
+  assert.equal(combineFeedback("Fix.", undefined), "Fix.");
+  assert.equal(combineFeedback(undefined, null), "");
 });
 
 test("the feedback limit is the gate's 32 KiB", () => {
