@@ -135,3 +135,26 @@ test("resolved comments are placed like open ones", () => {
   const c = { ...comment("server/a.js", anchorAt(files[0].rows, 3)), resolved: true };
   assert.equal(placeComments([c], files).byFile.get("server/a.js").placed.length, 1);
 });
+
+test("anchors clip text and context to 1000 characters", () => {
+  const long = "x".repeat(1500);
+  const rows = rowsOf(diffOf("a.js", [long, `+${long}`, long]));
+  const anchor = anchorAt(rows, 2);
+  assert.equal(anchor.text.length, 1000);
+  assert.ok(anchor.before.every((t) => t.length <= 1000));
+  assert.ok(anchor.after.every((t) => t.length <= 1000));
+  assert.equal(locateAnchor(rows, anchor), 2);
+});
+
+test("a malformed anchor locates to null instead of throwing", () => {
+  const rows = rowsOf(modified);
+  for (const bad of [
+    null,
+    undefined,
+    {},
+    { side: "left", line: 1, text: "x" },
+    { side: "new", line: "1", text: "x" },
+    { side: "new", line: 1, text: 5 },
+  ])
+    assert.equal(locateAnchor(rows, bad), null);
+});

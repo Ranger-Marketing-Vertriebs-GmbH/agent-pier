@@ -53,8 +53,8 @@ export function reviewEntries(comments, diffs) {
   const items = open.map((c) => {
     const workspace = c.workspace ?? "";
     const found = placement.get(c);
-    let line = c.anchor.line;
-    let excerpt = c.anchor.excerpt;
+    let line = c.anchor?.line ?? c.line ?? 0;
+    let excerpt = Array.isArray(c.anchor?.excerpt) ? c.anchor.excerpt : [];
     if (found) {
       line = lineOfRow(found.rows[found.index], c.anchor.side);
       excerpt = excerptAt(found.rows, found.index);

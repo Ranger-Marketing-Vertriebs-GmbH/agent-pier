@@ -17,14 +17,22 @@
  *   id: string,
  *   file: string,
  *   anchor: Anchor,
+ *   workspace: string,
+ *   side: "old" | "new",
+ *   line: number,
  *   body: string,
- *   resolved: boolean,
- *   [key: string]: unknown,
+ *   status: "open" | "resolved",
+ *   createdAt: string,
+ *   updatedAt: string,
+ *   sentIn: number | null,
  * }} Comment
  */
 
 const CONTEXT_ROWS = 2;
 const EXCERPT_CHARS = 200;
+/** Anchor texts are clipped to this many characters and compared by that prefix. */
+export const ANCHOR_TEXT_CHARS = 1000;
+const clip = (text) => text.slice(0, ANCHOR_TEXT_CHARS);
 
 /** @param {{ kind: string }} row */
 export function sideOf(row) {
@@ -68,15 +76,27 @@ export function anchorAt(rows, index) {
   return {
     side,
     line: lineOf(row, side),
-    text: row.text,
-    before: neighbours(rows, index, side, -1),
-    after: neighbours(rows, index, side, 1),
+    text: clip(row.text),
+    before: neighbours(rows, index, side, -1).map(clip),
+    after: neighbours(rows, index, side, 1).map(clip),
     excerpt: excerptAt(rows, index),
   };
 }
 
 const matches = (expected, actual) =>
-  expected.reduce((n, text, k) => n + (actual[k] === text ? 1 : 0), 0);
+  expected.reduce(
+    (n, text, k) => n + (actual[k] !== undefined && clip(actual[k]) === text ? 1 : 0),
+    0,
+  );
+
+const wellFormed = (a) =>
+  a !== null &&
+  typeof a === "object" &&
+  (a.side === "old" || a.side === "new") &&
+  typeof a.text === "string" &&
+  Number.isFinite(a.line);
+const textList = (value) =>
+  Array.isArray(value) ? value.filter((t) => typeof t === "string") : [];
 
 /**
  * Row index of the anchor's line, or null when it is gone (outdated).
@@ -85,13 +105,17 @@ const matches = (expected, actual) =>
  * the lowest index.
  */
 export function locateAnchor(rows, anchor) {
+  if (!wellFormed(anchor)) return null;
+  const before = textList(anchor.before);
+  const after = textList(anchor.after);
+  const text = clip(anchor.text);
   let best = null;
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
-    if (sideOf(row) !== anchor.side || row.text !== anchor.text) continue;
+    if (sideOf(row) !== anchor.side || clip(row.text) !== text) continue;
     const score =
-      matches(anchor.before ?? [], neighbours(rows, i, anchor.side, -1)) +
-      matches(anchor.after ?? [], neighbours(rows, i, anchor.side, 1));
+      matches(before, neighbours(rows, i, anchor.side, -1)) +
+      matches(after, neighbours(rows, i, anchor.side, 1));
     const distance = Math.abs(lineOf(row, anchor.side) - anchor.line);
     if (
       !best ||

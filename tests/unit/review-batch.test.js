@@ -170,3 +170,12 @@ test("free text comes first and empty parts disappear", () => {
 test("the feedback limit is the gate's 32 KiB", () => {
   assert.equal(REVIEW_FEEDBACK_LIMIT, 32768);
 });
+
+test("a comment with a malformed anchor becomes outdated instead of throwing", () => {
+  const entries = reviewEntries(
+    [open("server/a.js", { anchor: { side: "new" } })],
+    new Map([["", parseGitDiff(modified)]]),
+  );
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].outdated, true);
+});
