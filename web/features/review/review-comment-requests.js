@@ -25,3 +25,13 @@ export const reviewState = (data) => ({
   comments: Array.isArray(data?.comments) ? data.comments : [],
   batches: Number.isSafeInteger(data?.batches) ? data.batches : 0,
 });
+
+/**
+ * Runs a write, waits until its change shows (`written()`, the live topic's follow-up),
+ * then returns the write's own answer. A refused write rejects without waiting.
+ */
+export async function afterWrite(write, written) {
+  const answer = await write();
+  await written();
+  return answer;
+}

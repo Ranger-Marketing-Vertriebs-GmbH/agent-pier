@@ -2,6 +2,7 @@ import { useCallback, useMemo } from "react";
 import api from "../../lib/api.js";
 import useLiveTopic from "../../lib/live/useLiveTopic.js";
 import {
+  afterWrite,
   reviewPath,
   reviewRequests,
   reviewState,
@@ -23,14 +24,7 @@ export default function useReviewComments(scope) {
   );
   const { written } = topic;
   const requests = useMemo(() => stable && reviewRequests(api, stable), [stable]);
-  const after = useCallback(
-    async (write) => {
-      const answer = await write();
-      await written();
-      return answer;
-    },
-    [written],
-  );
+  const after = useCallback((write) => afterWrite(write, written), [written]);
   return {
     ...reviewState(topic.data),
     loading: topic.loading,
