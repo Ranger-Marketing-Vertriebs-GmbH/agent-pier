@@ -120,6 +120,7 @@ test("run detail offers engine-authorized decisions and reads exact evidence wit
   expect(state.calls.filter((call) => call.path.endsWith("/gate")).at(-1).body).toEqual({
     action: "feedback",
     feedback: "Please fix validation",
+    review: true,
   });
 });
 test("manual loops accept optional feedback and display the actual iteration and unconfigured verification", async ({
@@ -144,6 +145,7 @@ test("manual loops accept optional feedback and display the actual iteration and
   expect(state.calls.find((c) => c.path.endsWith("/gate")).body).toEqual({
     action: "loop-back",
     feedback: "",
+    review: true,
   });
 });
 test("artifact groups remain scoped to the stage whose files were opened", async ({

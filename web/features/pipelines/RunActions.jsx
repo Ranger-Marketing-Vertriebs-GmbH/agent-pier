@@ -3,11 +3,14 @@ import useRunAction from "./useRunAction.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import ConfirmDialog from "../../components/ConfirmDialog.jsx";
 import { runTitle } from "./run-title.js";
+import GateReviewNotes, { reviewNotesIds } from "./GateReviewNotes.jsx";
+import useRunReview from "./useRunReview.js";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import {
   confirmDescription,
   confirmedActions,
   destructiveActions,
+  feedbackActions,
   primaryActions,
   localCommitsBlockDelete,
   offeredRunActions,
@@ -17,6 +20,7 @@ import {
 // Renders the engine-authorized run actions in server order; `exclude` hides actions
 // another control (the gate decision block) already offers. An optional `shared` action
 // runner lets several action areas of one run disable each other while one is pending.
+// Feedback actions carry the run's open review notes, as in GateDecision.
 export default function RunActions({ run, refresh, removed, exclude = [], shared }) {
   const [feedback, setFeedback] = useState(""),
     [resumeAt, setResumeAt] = useState(""),
@@ -25,6 +29,10 @@ export default function RunActions({ run, refresh, removed, exclude = [], shared
   const actions = offeredRunActions(run).filter(
     (action) => copy.actions[action] && !exclude.includes(action),
   );
+  const offersFeedback = actions.some((action) => feedbackActions.includes(action));
+  const review = useRunReview(run, offersFeedback);
+  const check = review.check(feedback);
+  const notesId = `run-review-notes-${run.id}`;
   const execute = async (action) => {
     let deleted;
     try {
@@ -33,6 +41,7 @@ export default function RunActions({ run, refresh, removed, exclude = [], shared
         action === "delete-local" ? "delete" : action,
         {
           feedback,
+          review: true,
           resumeAt,
           confirmLocalCommits: action === "delete-local",
         },
@@ -58,16 +67,20 @@ export default function RunActions({ run, refresh, removed, exclude = [], shared
   if (!actions.length) return null;
   return (
     <section className="pipeline-card pipeline-gate">
-      {actions.some((action) => ["feedback", "loop-back"].includes(action)) && (
-        <label>
-          {copy.feedback}
-          <textarea
-            aria-label={copy.feedback}
-            rows={3}
-            value={feedback}
-            onChange={(event) => setFeedback(event.target.value)}
-          />
-        </label>
+      {offersFeedback && (
+        <>
+          <label>
+            {copy.feedback}
+            <textarea
+              aria-label={copy.feedback}
+              aria-describedby={reviewNotesIds(check, notesId)}
+              rows={3}
+              value={feedback}
+              onChange={(event) => setFeedback(event.target.value)}
+            />
+          </label>
+          <GateReviewNotes check={check} id={notesId} />
+        </>
       )}
       {actions.includes("wait-for-reset") && (
         <label>
@@ -84,7 +97,11 @@ export default function RunActions({ run, refresh, removed, exclude = [], shared
           <button
             key={action}
             className={`button ${primaryActions.includes(action) ? "primary" : "secondary"}`}
-            disabled={mutation.busy || (action === "feedback" && !feedback.trim())}
+            disabled={
+              mutation.busy ||
+              (action === "feedback" && !feedback.trim() && !check.open) ||
+              (feedbackActions.includes(action) && !check.fits)
+            }
             onClick={() =>
               confirmedActions.includes(action)
                 ? setConfirm(action)

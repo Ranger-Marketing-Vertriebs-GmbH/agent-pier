@@ -513,6 +513,13 @@ export function actionEntries() {
         aliases: [alias("diff"), alias("reviewChanges")].map(bilingual),
       },
     ),
+    action(
+      "run-changes",
+      () => pipelineCopy.reviewChanges,
+      bilingual(text.pipelines),
+      { action: "run-changes", pending: "run-changes" },
+      { runOnly: true, aliases: [alias("diff")].map(bilingual) },
+    ),
     action("add-github", () => searchCopy.actions.addGithub, inSection("github"), {
       route: connectionsRoute("github"),
       pending: "github-add",
@@ -539,12 +546,14 @@ export function withTerms(entry) {
 /**
  * The whole index. `agents` is the loaded agent list, `connections` the lazily loaded
  * names (or null); with agents off only the "Agenten" area of the agent entries stays.
+ * `sessionOpen` and `runOpen` offer the actions on the session or pipeline run on screen.
  */
 export function buildSearchIndex({
   agents = [],
   connections = null,
   agentsEnabled,
   sessionOpen = false,
+  runOpen = false,
 }) {
   return [
     ...pageEntries(),
@@ -554,5 +563,6 @@ export function buildSearchIndex({
   ]
     .filter((entry) => agentsEnabled || !entry.agentsOnly)
     .filter((entry) => sessionOpen || !entry.sessionOnly)
+    .filter((entry) => runOpen || !entry.runOnly)
     .map(withTerms);
 }

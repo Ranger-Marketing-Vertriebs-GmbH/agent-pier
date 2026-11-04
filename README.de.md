@@ -55,7 +55,8 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
   [Screenshot](docs/screenshots/split-view-desktop.png)).
 - **Pipelines mit Review:** wiederverwendbare Profile, isolierte Git-Worktrees,
   parallele Reviewer mit zusammengeführtem Ergebnis, begrenzte Review-Schleifen, Prüfungen, ein Risiko-Gate für heikle Pfade, ein Token-Budget je Lauf, eine Warteschlange je Projekt mit Limit für gleichzeitige Läufe und
-  menschliche Freigabe, dazu eine eingebaute Software-Fabrik von der Spezifikation bis zum Pull Request
+  menschliche Freigabe, Zeilenkommentare zu den Änderungen eines Laufs, die mit der Rückmeldung am Gate zurückgehen,
+  dazu eine eingebaute Software-Fabrik von der Spezifikation bis zum Pull Request
   ([Pipelines](docs/pipelines.md#software-factory)).
 - **Tickets:** der Tab **Tickets** eines Projekts listet offene GitHub-Issues und
   Plane-Work-Items, startet eines als Session oder Pipeline-Lauf, setzt es auf „In

@@ -12,6 +12,9 @@ export const gateActions = [
   "override",
   "raise-budget",
 ];
+// The actions whose request carries feedback text and, on request, the review notes.
+export const feedbackActions = ["feedback", "loop-back"];
+const carriesFeedback = (action) => feedbackActions.includes(action);
 // The decision a gate is waiting for is the highlighted one.
 export const primaryActions = ["accept", "approve-risk", "raise-budget"];
 // Actions that change or remove the run irreversibly ask for confirmation first.
@@ -65,10 +68,20 @@ export function confirmDescription(action, run) {
 }
 
 // Sends one engine-authorized run action. Resolves true when the run was deleted.
+// `review` asks the server to add the run's open review comments to the feedback of
+// "Retry with feedback" and "Return for repair" (server/features/pipelines/
+// review-feedback.js).
 export async function requestRunAction(
   run,
   action,
-  { feedback = "", resumeAt = "", confirmLocalCommits = false, nodeId, tokenBudget } = {},
+  {
+    feedback = "",
+    review = false,
+    resumeAt = "",
+    confirmLocalCommits = false,
+    nodeId,
+    tokenBudget,
+  } = {},
 ) {
   const base = `/pipeline-runs/${encodeURIComponent(run.id)}`;
   if (action === "delete") {
@@ -98,7 +111,8 @@ export async function requestRunAction(
       ? {
           action,
           ...(nodeId ? { nodeId } : {}),
-          ...(["feedback", "loop-back"].includes(action) ? { feedback } : {}),
+          ...(carriesFeedback(action) ? { feedback } : {}),
+          ...(carriesFeedback(action) && review ? { review: true } : {}),
           ...(action === "raise-budget" ? { tokenBudget } : {}),
           ...(action === "wait-for-reset" && resumeAt
             ? { resumeAt: new Date(resumeAt).toISOString() }

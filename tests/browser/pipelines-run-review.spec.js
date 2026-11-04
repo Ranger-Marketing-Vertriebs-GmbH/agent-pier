@@ -4,7 +4,9 @@ import { pipelinesFixture, openPipelines, sampleRun } from "./pipelines-fixture.
 // The run's Changes view (RunChanges) against mocked whole-run diff and review-comment
 // routes: closed by default, comments while a gate waits, read-only otherwise, the
 // gone and imported answers, a failed refresh, re-reads on run pushes, the stage diff
-// tile in the shared renderer and the phone width.
+// tile in the shared renderer and the phone width. The gate forms (GateDecision, a
+// group member's actions) send the open notes with `review: true` and stop feedback
+// that would exceed the server's 32 KB limit.
 test.use({ locale: "en-GB" });
 
 const shots = process.env.RUN_CHANGES_SCREENSHOTS;
@@ -35,7 +37,7 @@ const appFile = (added = "start(port);") => ({
 
 // The pipelines fixture with one run plus the run's diff and comment routes; `options`
 // adjust the run. Returns the mock, whose answers a test may change.
-async function setup(page, { run: adjust } = {}) {
+async function setup(page, { run: adjust, comments = [] } = {}) {
   const state = await pipelinesFixture(page);
   const run = sampleRun(state);
   adjust?.(run);
@@ -46,7 +48,7 @@ async function setup(page, { run: adjust } = {}) {
     answer: { files: [appFile()], truncated: false, fingerprint: "f0" },
     failure: null,
     diffReads: 0,
-    comments: [],
+    comments,
     creates: [],
   };
   await page.route("**/api/pipeline-runs/run-one/diff", (route) => {
@@ -99,7 +101,7 @@ test("the run's changes open on demand and take comments", async ({ page }) => {
   await page.getByRole("button", { name: "Comment on line 3" }).click();
   await page.getByLabel("Comment (Markdown)").fill("Read the port once");
   await page.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByText("1 open review note")).toBeVisible();
+  await expect(page.getByText("1 open review note", { exact: true })).toBeVisible();
   await expect(appRegion(page).getByText("Read the port once")).toBeVisible();
   expect(mock.creates).toEqual([
     expect.objectContaining({ file: "src/app.js", line: 3, side: "new", workspace: "" }),
@@ -109,7 +111,7 @@ test("the run's changes open on demand and take comments", async ({ page }) => {
   // closing keeps the count beside the button
   await reviewButton(page).click();
   await expect(appRegion(page)).toHaveCount(0);
-  await expect(page.getByText("1 open review note")).toBeVisible();
+  await expect(page.getByText("1 open review note", { exact: true })).toBeVisible();
 });
 
 test("Refresh and run pushes read the diff again", async ({ page, liveStub }) => {
@@ -262,4 +264,138 @@ test("the open changes fit a phone", async ({ page }) => {
   await page.getByRole("button", { name: "Review changes" }).scrollIntoViewIfNeeded();
   expect(await noOverflow(page)).toBe(true);
   if (shots) await page.screenshot({ path: `${shots}/run-changes-en-phone.png` });
+});
+
+// Open review notes on src/app.js; `resolved` adds one that is not sent.
+const note = (id, line, body, status = "open") => ({
+  id,
+  file: "src/app.js",
+  workspace: "",
+  side: "new",
+  line,
+  anchor: { side: "new", line, text: "", before: [], after: [], excerpt: [] },
+  body,
+  status,
+  createdAt: stamp,
+  updatedAt: stamp,
+  sentIn: null,
+});
+const notes = () => [
+  note("n1", 2, "Read the port once"),
+  note("n2", 3, "Name the port"),
+  note("n3", 4, "Done already", "resolved"),
+];
+const gateRequest = (page) =>
+  page.waitForRequest((r) => r.url().endsWith("/gate") && r.method() === "POST");
+const retry = (page) =>
+  page.getByRole("button", { name: "Retry with feedback", exact: true });
+
+test("a waiting gate sends the review notes with its feedback", async ({ page }) => {
+  const mock = await setup(page, { comments: notes() });
+  await expect(
+    page.getByText("2 open review notes will be sent with the feedback"),
+  ).toBeVisible();
+  await expect(page.getByLabel("Feedback", { exact: true })).toHaveAccessibleDescription(
+    "2 open review notes will be sent with the feedback",
+  );
+  // the size check reads the run's diff to place the notes as the server does
+  await expect.poll(() => mock.diffReads).toBe(1);
+  const request = gateRequest(page);
+  await retry(page).click(); // enabled without text
+  expect((await request).postDataJSON()).toEqual({
+    action: "feedback",
+    feedback: "",
+    review: true,
+  });
+});
+
+test("Return for repair carries the notes too", async ({ page }) => {
+  await setup(page, { comments: notes() });
+  const request = gateRequest(page);
+  await page.getByRole("button", { name: "Return for repair", exact: true }).click();
+  expect((await request).postDataJSON()).toEqual({
+    action: "loop-back",
+    feedback: "",
+    review: true,
+  });
+});
+
+test("without open notes Retry with feedback needs text", async ({ page }) => {
+  const mock = await setup(page);
+  await expect(retry(page)).toBeDisabled();
+  await expect(page.getByText(/will be sent with the feedback/)).toHaveCount(0);
+  expect(mock.diffReads).toBe(0);
+});
+
+test("too much feedback is stopped before sending", async ({ page }) => {
+  await setup(page, { comments: notes() });
+  const field = page.getByLabel("Feedback", { exact: true });
+  await field.fill("ä".repeat(16400));
+  await expect(retry(page)).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Return for repair", exact: true }),
+  ).toBeDisabled();
+  await expect(page.getByText(/together exceed 32 KB/)).toBeVisible();
+  await field.scrollIntoViewIfNeeded();
+  if (shots) await page.screenshot({ path: `${shots}/gate-batch-en.png` });
+  await field.fill("Shorter");
+  await expect(retry(page)).toBeEnabled();
+  await expect(page.getByText(/together exceed 32 KB/)).toHaveCount(0);
+});
+
+test("the gate form fits a phone", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await setup(page, { comments: notes() });
+  await page.getByLabel("Feedback", { exact: true }).fill("ä".repeat(16400));
+  await expect(page.getByText(/together exceed 32 KB/)).toBeVisible();
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth),
+  ).toBeLessThanOrEqual(390);
+});
+
+test("a waiting group member's feedback carries the notes", async ({ page }) => {
+  await setup(page, {
+    comments: notes(),
+    run: (run) => {
+      groupGate(run);
+      run.memberActions = { security: ["feedback"] };
+    },
+  });
+  const card = page.locator(".run-group-member").filter({ hasText: "Security" });
+  await expect(
+    card.getByText("2 open review notes will be sent with the feedback"),
+  ).toBeVisible();
+  const send = card.getByRole("button", { name: "Retry with feedback · Security" });
+  await card.getByLabel("Feedback for Security").fill("ä".repeat(16400));
+  await expect(send).toBeDisabled();
+  await expect(card.getByText(/together exceed 32 KB/)).toBeVisible();
+  await card.getByLabel("Feedback for Security").fill("");
+  const request = gateRequest(page);
+  await send.click(); // enabled without text
+  expect((await request).postDataJSON()).toEqual({
+    action: "feedback",
+    nodeId: "security",
+    feedback: "",
+    review: true,
+  });
+});
+
+test("⌘K Review changes opens the run's changes", async ({ page }) => {
+  await setup(page);
+  // The search also reads connection names and the inbox; none here.
+  await page.route(
+    /\/api\/(ssh-accesses|mcp-servers|secrets|repositories|inbox)$/,
+    (route) => route.fulfill({ status: 404, json: { error: "none" } }),
+  );
+  await page.getByRole("button", { name: "Search (⌘K)" }).click();
+  const dialog = page.getByRole("dialog", { name: "Search" });
+  await dialog.getByRole("combobox").fill("Review changes");
+  await dialog
+    .getByRole("group", { name: "Actions" })
+    .getByRole("option", { name: /Review changes/ })
+    .click();
+  await expect(dialog).toHaveCount(0);
+  await expect(reviewButton(page)).toHaveAttribute("aria-expanded", "true");
+  await expect(reviewButton(page)).toBeFocused();
+  await expect(appRegion(page).getByText("start(port);")).toBeVisible();
 });
