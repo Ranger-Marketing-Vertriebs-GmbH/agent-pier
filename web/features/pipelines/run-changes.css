@@ -25,3 +25,8 @@
   font-size: var(--font-size-sm);
   overflow-wrap: anywhere;
 }
+.run-changes-cue {
+  display: inline-block;
+  margin-right: var(--space-1);
+  color: var(--accent);
+}

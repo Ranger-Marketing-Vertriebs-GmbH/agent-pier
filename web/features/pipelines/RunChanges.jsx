@@ -4,14 +4,16 @@ import DiffReview from "../../components/diff/DiffReview.jsx";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
 import useReviewComments from "../review/useReviewComments.js";
 import { availableGateActions } from "./GateDecision.jsx";
+import { gateWaits } from "./run-diff-state.js";
 import useRunDiff from "./useRunDiff.js";
 import "./run-changes.css";
 
 /**
  * The run's whole diff against its base commit, below the spec: closed by default,
  * opened with **Review changes**. Line comments are the run's review comments; they can
- * be written only while a gate waits (they go out with its decision) and only while the
- * worktree exists. An imported history run has no changes on this host and shows nothing.
+ * be written only while a gate waits, the run's own or a group member's (they go out
+ * with its decision), and only while the worktree exists. An imported history run has
+ * no changes on this host and shows nothing.
  */
 export default function RunChanges({ run }) {
   const [open, setOpen] = useState(false);
@@ -21,7 +23,8 @@ export default function RunChanges({ run }) {
   const review = useReviewComments(imported ? null : { kind: "run", id: run.id });
   if (imported || diff.imported) return null;
   const notes = review.comments.filter((comment) => comment.status === "open").length;
-  const readOnly = diff.unavailable || availableGateActions(run).length === 0;
+  const readOnly =
+    diff.unavailable || !gateWaits(run, availableGateActions(run).length > 0);
   return (
     <section className="run-changes" aria-label={copy.diff}>
       <div className="run-changes-head">
@@ -32,6 +35,9 @@ export default function RunChanges({ run }) {
           aria-controls={bodyId}
           onClick={() => setOpen((value) => !value)}
         >
+          <span className="run-changes-cue" aria-hidden="true">
+            {open ? "▾" : "▸"}
+          </span>
           {copy.reviewChanges}
         </button>
         {notes > 0 && (

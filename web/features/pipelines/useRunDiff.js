@@ -7,9 +7,9 @@ const none = [];
 
 /**
  * The whole-run diff (GET /pipeline-runs/:id/diff) while `enabled`. It is read when
- * enabled, when the run's push changes its status, current stage or attempt count, and
- * on `refresh()`; an answer with the shown fingerprint keeps the shown diff. A failed
- * read keeps the shown diff beside the error. `unavailable`: the worktree is gone;
+ * enabled, when the run's push changes its status, current stage, attempt count or
+ * waiting group members, and on `refresh()`; an answer with the shown fingerprint
+ * keeps the shown diff. A failed read keeps the shown diff beside the error. `unavailable`: the worktree is gone;
  * `imported`: a history-only run without changes on this host.
  */
 export default function useRunDiff(run, enabled) {
@@ -27,13 +27,15 @@ export default function useRunDiff(run, enabled) {
       undefined,
       controller.signal,
     ).then(
-      (answer) =>
+      (answer) => {
+        if (controller.signal.aborted) return;
         setState((last) => ({
           data: keptDiff(last.data, answer),
           error: "",
           failure: null,
           loading: false,
-        })),
+        }));
+      },
       (error) => {
         if (controller.signal.aborted) return;
         const failure = diffFailure(error);

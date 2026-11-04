@@ -3,18 +3,34 @@
 // the stage diff text as parsed files.
 import { parseGitDiff } from "../../../server/features/changes/diff-parse.js";
 
+// The members of the current parallel group that wait for a decision, by id.
+const waitingMembers = (run) =>
+  Object.entries(run?.memberActions ?? {})
+    .filter(([, actions]) => Array.isArray(actions) && actions.length > 0)
+    .map(([id]) => id)
+    .sort();
+
 /**
- * What of a run changes its diff: its status, current stage and attempt count, which
- * its `pipeline.run` push carries, plus the view's manual refresh count. The view reads
- * the diff again when this changes, never on a timer.
+ * What of a run changes its diff: its status, current stage, attempt count and the
+ * group members waiting for a decision, which its `pipeline.run` push carries, plus the
+ * view's manual refresh count. The view reads the diff again when this changes, never
+ * on a timer.
  */
 export const runDiffKey = (run, refreshes) =>
   JSON.stringify([
     run?.status ?? "",
     run?.currentNodeId ?? "",
     run?.executionLog?.length ?? 0,
+    waitingMembers(run),
     refreshes,
   ]);
+
+/**
+ * Whether a gate waits: the run's own (`gateActions` of `run.actions`, passed as
+ * `runGate`) or a parallel-group member's (`run.memberActions`). Run comments can be
+ * written only then, since they go out with that decision.
+ */
+export const gateWaits = (run, runGate) => runGate || waitingMembers(run).length > 0;
 
 /**
  * The diff to show after an answer: the shown one while the server's fingerprint is
