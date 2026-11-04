@@ -101,6 +101,9 @@ import { workspaceRoutes } from "./http/routes/workspace.js";
 import { accountsRoutes } from "./http/routes/accounts.js";
 import { connectionsRoutes } from "./http/routes/connections.js";
 import { sessionsRoutes } from "./http/routes/sessions.js";
+import { reviewCommentRoutes } from "./http/routes/review-comments.js";
+import { ReviewCommentStore } from "./features/changes/review-comment-store.js";
+import { reviewChanged } from "./features/changes/live-topics.js";
 import { repositoriesRoutes } from "./http/routes/repositories.js";
 import { ticketRoutes } from "./http/routes/tickets.js";
 import { GithubTokenMonitor } from "./features/repositories/github-token-monitor.js";
@@ -180,6 +183,10 @@ export async function createApplication(config) {
     enabled: () => services.preferences.get().autoResumeInterrupted,
     onFailed: (session, interruption) =>
       services.operationsEvents?.resumeFailed(session, interruption),
+  });
+  services.reviewComments = new ReviewCommentStore({
+    dataDir: config.dataDir,
+    onChange: (scope) => reviewChanged(services.live, scope),
   });
   Object.assign(services, await createPipelineServices(services));
   services.projectRebind.definitions = services.pipelineDefinitions;
@@ -424,6 +431,7 @@ export async function createApplication(config) {
   mount(accountsRoutes(services));
   mount(connectionsRoutes(services));
   mount(sessionsRoutes(services));
+  mount(reviewCommentRoutes(services));
   mount(sshRoutes(services));
   mount(secretsRoutes(services));
   mount(mailRoutes(services));

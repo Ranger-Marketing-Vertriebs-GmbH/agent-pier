@@ -50,6 +50,10 @@ import {
   followAccountWrites,
 } from "../features/accounts/live-auth-topics.js";
 import { projectGroupsChangedTopic } from "../features/projects/live-topics.js";
+import {
+  pipelineReviewTopic,
+  sessionReviewTopic,
+} from "../features/changes/live-topics.js";
 import { viewsTopic } from "../features/views/live-topics.js";
 import {
   ticketConnectionsTopic,
@@ -122,6 +126,8 @@ export function createLiveHub(services, options = {}) {
   watchProjectWrites(services, hub);
   hub.define(projectGroupsChangedTopic());
   hub.define(viewsTopic(services));
+  hub.define(sessionReviewTopic(services));
+  hub.define(pipelineReviewTopic(services));
   hub.define(ticketsProjectTopic(services));
   hub.define(ticketConnectionsTopic(services));
   hub.define(ticketsQueueTopic(services));

@@ -39,6 +39,17 @@ export const liveTopics = Object.freeze({
   inbox: Object.freeze({ mode: "state", path: () => "/inbox", interval: 5000 }),
   // The open previews of sessions and agents (server/features/previews/live-topics.js).
   previews: Object.freeze({ mode: "state", path: () => "/previews", interval: 5000 }),
+  // A session's or run's review comments (server/features/changes/live-topics.js).
+  "session.review": Object.freeze({
+    mode: "state",
+    path: session("review-comments"),
+    interval: 30000,
+  }),
+  "pipeline.review": Object.freeze({
+    mode: "state",
+    path: (id) => `/pipeline-runs/${encodeURIComponent(id)}/review-comments`,
+    interval: 30000,
+  }),
   // The owner's split views (server/features/views/live-topics.js), pushed per write.
   views: Object.freeze({ mode: "state", path: () => "/views", interval: 30000 }),
   // The owner's ticket sources (server/features/tickets/live-topics.js): the Plane

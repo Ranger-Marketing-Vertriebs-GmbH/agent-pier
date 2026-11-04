@@ -160,6 +160,7 @@ export async function createServices(config) {
     onRemoving: async (session) => {
       // Approvals remembered for the session end with it, not with a stop or reload.
       requests?.approvals.forgetSession(session.id);
+      services.reviewComments?.discard({ kind: "session", id: session.id });
       await previews?.closeSession(session.id, "session");
       return artifacts?.retireSession(session.id);
     },

@@ -59,6 +59,7 @@ export async function createPipelineServices(services) {
     // started it, the counts and the lists that showed it still learn it.
     onRemove: (id) => {
       pipelineRunChanged(services.live, pipelineQueue, { id });
+      services.reviewComments?.discard({ kind: "run", id });
       agentRunChanged(services, id);
       pipelineListsChanged(services.live, pipelineRunCounts.forget(id), null);
       services.ticketSequences?.runChanged({ id });
