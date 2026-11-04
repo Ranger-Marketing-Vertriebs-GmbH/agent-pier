@@ -6,4 +6,6 @@ export const changes = {
   commentNotFound: "Dieser Kommentar existiert nicht mehr.",
   invalidWorkspace: "Gib den Arbeitsbereich an.",
   unknownWorkspace: "Diesen Arbeitsbereich gibt es nicht mehr. Lade die Änderungen neu.",
+  runWithoutWorkspace:
+    "Dieser Lauf hat keinen Arbeitsbereich mehr, deshalb gibt es keine Änderungen zu zeigen.",
 };

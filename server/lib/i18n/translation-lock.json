@@ -591,6 +591,7 @@
   "changes.commentTooLong": "de:facc9b45d4be en:f8208866602d",
   "changes.invalidComment": "de:6bd5eadab959 en:0d47ec19f990",
   "changes.invalidWorkspace": "de:41e8e897137b en:e0c677a10eac",
+  "changes.runWithoutWorkspace": "de:5402225dc7c6 en:1ef08cafe13c",
   "changes.tooManyOpenComments": "de:3271b3b1bbec en:b5523e85e09a",
   "changes.unknownWorkspace": "de:bfa99cc5a0ea en:413546c8df21",
   "chat.attachmentInvalidPayload": "de:6f860056985c en:cb05cd502665",
