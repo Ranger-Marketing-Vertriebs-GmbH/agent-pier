@@ -49,7 +49,9 @@ function useWorkspaceDiff(sessionId, workspace, key, { refresh, forget }) {
  * A session's Changes tab: the workspace picker (changed ones first), what the diff is
  * measured against, and the diff with its line comments. `changes` is the session's
  * useSessionChanges() result, which the tab badge shares. `toolbar` sits above the
- * diff (the Send to agent area).
+ * diff (the Send to agent area); as a function it receives `{ comments, readDiff,
+ * markSent }`: every comment of the session, a reader of any workspace's files that
+ * answers the shown workspace's loaded diff without a request, and the hook's write.
  */
 export default function SessionChanges({ session, changes, toolbar = null }) {
   const { summary, loading, error, refresh } = changes;
@@ -66,6 +68,14 @@ export default function SessionChanges({ session, changes, toolbar = null }) {
     () => review.comments.filter((comment) => comment.workspace === workspace),
     [review.comments, workspace],
   );
+  const loaded = diff.data ? diff.data.files : null;
+  const readDiff = (id) =>
+    id === workspace && loaded
+      ? loaded
+      : api(diffPath(session.id, id)).then(
+          (data) => data.files,
+          () => null,
+        );
 
   if (!summary)
     return (
@@ -80,6 +90,10 @@ export default function SessionChanges({ session, changes, toolbar = null }) {
       </div>
     );
   const workspaces = summary.workspaces;
+  const bar =
+    typeof toolbar === "function"
+      ? toolbar({ comments: review.comments, readDiff, markSent: review.markSent })
+      : toolbar;
   return (
     <div className="session-changes">
       <div className="session-changes-head">
@@ -110,8 +124,13 @@ export default function SessionChanges({ session, changes, toolbar = null }) {
           onCreate={review.create}
           onUpdate={review.update}
           onDelete={review.remove}
-          toolbar={toolbar}
-          empty={<p className="session-changes-note">{copy.noChanges}</p>}
+          toolbar={bar}
+          empty={
+            <>
+              {bar}
+              <p className="session-changes-note">{copy.noChanges}</p>
+            </>
+          }
         />
       ) : (
         !diff.error && <p>{copy.loading}</p>

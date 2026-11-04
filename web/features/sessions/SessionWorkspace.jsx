@@ -23,6 +23,7 @@ import { routeLabel } from "../provider-connections/route-label.js";
 import ChatView from "../chat/ChatView.jsx";
 import useSessionViewport from "./useSessionViewport.js";
 import useSessionChanges from "./useSessionChanges.js";
+import ChangesSend from "./ChangesSend.jsx";
 import { changedCount } from "./session-changes-state.js";
 import ChangesBadge from "./ChangesBadge.jsx";
 import useSessionActions from "./useSessionActions.jsx";
@@ -305,7 +306,19 @@ export default function SessionWorkspace({
         )}
         {mode === "changes" && (
           <Suspense fallback={<p>{sessionChangesCopy.loading}</p>}>
-            <SessionChanges key={session.id} session={session} changes={changes} />
+            <SessionChanges
+              key={session.id}
+              session={session}
+              changes={changes}
+              toolbar={(review) => (
+                <ChangesSend
+                  session={session}
+                  {...review}
+                  // The batch is in the composer: show it; the owner sends.
+                  onSend={() => setMode("reader")}
+                />
+              )}
+            />
           </Suspense>
         )}
         {mode === "terminal" && (

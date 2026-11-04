@@ -78,6 +78,16 @@ export const sessionChangesCopy = {
   baseFirstOpen: "Since this session was first viewed after the update",
   baseHead: "Uncommitted changes only",
   noChanges: "No changes in this workspace.",
+  sendToAgent: (n) => `Send to agent (${n})`,
+  copiedLocked:
+    "The chat is still delivering a message, so the review notes were copied to the clipboard instead.",
+  copiedNoChat:
+    "This session has no chat. The review notes were copied to the clipboard.",
+  batchTooLong:
+    "The review notes and the current draft are longer than 32,000 characters. Resolve some comments or send the draft first.",
+  showBatchTitle: "Review notes",
+  showBatchHint:
+    "The clipboard is not available here. Copy the review notes and paste them into the agent's input.",
 };
 
 export const sessionReloadCopy = {

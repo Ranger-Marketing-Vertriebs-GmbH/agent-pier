@@ -7,6 +7,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { ChatDraft, deliveryScope } from "./chat-draft.js";
+import { registerComposer } from "./composer-registry.js";
 import { liveClient } from "../../lib/live/live-client.js";
 import { startLiveTopic } from "../../lib/live/live-topic-reader.js";
 import { chatDeliveryCopy as copy } from "../../lib/i18n/messages/chat.js";
@@ -57,6 +58,8 @@ export default function useChatDelivery({ session, request, active }) {
     return () => window.removeEventListener("storage", changed);
   }, [draft]);
   useEffect(() => () => operation.current?.abort(), [draft]);
+  // The session's Changes tab appends review notes to this draft while it is mounted.
+  useEffect(() => registerComposer(scope, draft), [scope, draft]);
   const check = useCallback(
     async (signal) => {
       if (operation.current) return;
