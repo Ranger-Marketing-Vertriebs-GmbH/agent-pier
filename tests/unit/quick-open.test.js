@@ -331,3 +331,10 @@ test("the user's labels follow the language", () => {
     setLanguage(before);
   }
 });
+
+test("Show changes is an owner action only, not in the user's search", () => {
+  const users = buildUserSearchIndex({ agents: [{ id: "lumi", name: "Lumi" }] });
+  assert.ok(!users.some((item) => item.id === "action:session-changes"));
+  const owners = buildSearchIndex({ agentsEnabled: true, sessionOpen: true });
+  assert.ok(owners.some((item) => item.id === "action:session-changes"));
+});

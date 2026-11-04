@@ -503,6 +503,16 @@ export function actionEntries() {
       bilingual(text.projects),
       { action: "add-label-rule", pending: "ticket-rule-add" },
     ),
+    action(
+      "session-changes",
+      () => searchCopy.actions.showChanges,
+      bilingual(text.overview),
+      { action: "session-changes" },
+      {
+        sessionOnly: true,
+        aliases: [alias("diff"), alias("reviewChanges")].map(bilingual),
+      },
+    ),
     action("add-github", () => searchCopy.actions.addGithub, inSection("github"), {
       route: connectionsRoute("github"),
       pending: "github-add",
@@ -530,7 +540,12 @@ export function withTerms(entry) {
  * The whole index. `agents` is the loaded agent list, `connections` the lazily loaded
  * names (or null); with agents off only the "Agenten" area of the agent entries stays.
  */
-export function buildSearchIndex({ agents = [], connections = null, agentsEnabled }) {
+export function buildSearchIndex({
+  agents = [],
+  connections = null,
+  agentsEnabled,
+  sessionOpen = false,
+}) {
   return [
     ...pageEntries(),
     ...agentEntries(agents),
@@ -538,5 +553,6 @@ export function buildSearchIndex({ agents = [], connections = null, agentsEnable
     ...actionEntries(),
   ]
     .filter((entry) => agentsEnabled || !entry.agentsOnly)
+    .filter((entry) => sessionOpen || !entry.sessionOnly)
     .map(withTerms);
 }

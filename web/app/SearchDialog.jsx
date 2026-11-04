@@ -19,6 +19,7 @@ export default function SearchDialog({
   agents,
   conversations,
   agentsEnabled,
+  sessionOpen = false,
   connections,
   workspace,
   recent,
@@ -29,7 +30,7 @@ export default function SearchDialog({
   const sources = useQuickOpenSources();
   const index = useMemo(
     () => [
-      ...buildSearchIndex({ agents, connections, agentsEnabled }),
+      ...buildSearchIndex({ agents, connections, agentsEnabled, sessionOpen }),
       ...workspaceEntries(
         {
           workspace,
@@ -44,7 +45,7 @@ export default function SearchDialog({
         { agentsEnabled },
       ),
     ],
-    [agents, conversations, connections, agentsEnabled, workspace, sources],
+    [agents, conversations, connections, agentsEnabled, sessionOpen, workspace, sources],
   );
   const found = useMemo(
     () => searchEntries(index, query, undefined, { recent }),

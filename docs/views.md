@@ -13,7 +13,7 @@ sidebar has no **Views** group (see "Narrow windows" below).
 ## What a view is
 
 A view has a name (1 to 60 characters) and one to six panes. A pane is either a session
-(with its tab: terminal, chat or files) or an agent chat. The sidebar group **Views**
+(with its tab: terminal, chat, files or changes) or an agent chat. The sidebar group **Views**
 (German: **Ansichten**) sits between **Inbox** and **Agents**; its rows show the view's
 name and pane count and open the view at `/views/:id`.
 
@@ -42,7 +42,7 @@ Drag a session or agent row from the sidebar, or a pane by its header, over a pa
 | Pane header      | Moves the pane; dropped on a pane's centre it swaps the two |
 
 A dropped session opens on the tab it was last shown on in this browser tab (terminal,
-chat or files; shell and login sessions never open on chat), as it would on its own page.
+chat, files or changes; shell and login sessions never open on chat), as it would on its own page.
 A tab chosen inside a pane is remembered the same way, so **Open alone** and the next
 drop land on it.
 
