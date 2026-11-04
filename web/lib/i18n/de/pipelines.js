@@ -344,7 +344,7 @@ export const pipelineCopy = {
       prUnknown:
         "Der Zustand des Pull Requests konnte nicht gelesen werden, daher bleibt der Lauf, wie er ist.",
       sequenceWatching:
-        "Eine Ticketfolge verfolgt diesen Lauf und könnte ihn während der Korrektur mergen. Versuche es erneut, sobald die Folge ihn freigegeben hat.",
+        "Eine Ticketfolge verfolgt diesen Lauf und könnte ihn während der Korrektur mergen. Entferne das Ticket zuerst aus der Folge.",
       workspaceGone: "Das Arbeitsverzeichnis des Laufs ist nicht mehr vorhanden.",
       cancelled: "Der Lauf wurde abgebrochen.",
       notFinished:

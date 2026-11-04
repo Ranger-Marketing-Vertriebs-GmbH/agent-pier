@@ -1,5 +1,5 @@
 import { serverMessages } from "../../lib/i18n/de.js";
-import { activeNode, loopResetSet } from "./graph-navigation.js";
+import { activeNode, stagesFrom } from "./graph-navigation.js";
 import { resetStages } from "./loop-back.js";
 import { recordRound } from "./loop-rounds.js";
 import { repairLaunch } from "./loop-session.js";
@@ -47,7 +47,9 @@ export async function reopenAtStage(engine, run, { nodeId, note, requestId }) {
   );
   // Decided before the reset below drops the target's session.
   const launch = repairLaunch(run, target, edge, { edgeKey: key, iteration });
-  resetStages(run, loopResetSet(run, edge));
+  // The target and all that can follow it run again, whether or not the target lies on
+  // a path to the stage the run stopped at (the last stage, a failed stage, a branch).
+  resetStages(run, stagesFrom(run, nodeId));
   target.loop = { edge: key, fromNodeId: edge.from, iteration, owner: true };
   run.status = "running";
   delete run.finishedAt;

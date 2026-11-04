@@ -336,7 +336,7 @@ export const pipelineCopy = {
         "The pull request has auto-merge or a merge queue armed. Disarm it first, or start a new run.",
       prUnknown: "The pull request's state could not be read, so the run stays as it is.",
       sequenceWatching:
-        "A ticket sequence is watching this run and could merge it during the repair. Try again once the sequence has let go of it.",
+        "A ticket sequence is watching this run and could merge it during the repair. Remove the ticket from the sequence first.",
       workspaceGone: "The run's worktree is gone.",
       cancelled: "The run was aborted.",
       notFinished: "Only a completed or failed run can return to a stage.",

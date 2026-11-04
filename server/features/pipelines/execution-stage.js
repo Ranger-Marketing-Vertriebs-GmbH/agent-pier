@@ -486,13 +486,10 @@ export async function advance(engine, run, node) {
       engine.store.save(run);
     } catch (error) {
       engine.recordError(error);
-      park(
-        engine,
-        run,
-        node,
-        "pr-failed",
-        serverMessages.pipelines.pullRequestUpdateFailed,
-      );
+      const gone = serverMessages.pipelineWorkspaces.pullRequestNoLongerOpen;
+      const detail =
+        error.message === gone ? gone : serverMessages.pipelines.pullRequestUpdateFailed;
+      park(engine, run, node, "pr-failed", detail);
       return;
     }
   }

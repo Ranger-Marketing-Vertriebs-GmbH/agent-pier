@@ -25,6 +25,8 @@ export async function apiError(response) {
   error.code = data.code;
   // A stable identifier for callers that branch on the reason, never on text.
   if (typeof data.messageKey === "string") error.messageKey = data.messageKey;
+  // Why a request was refused, e.g. a blocked return to a stage (PIPELINE_RETURN_BLOCKED).
+  if (typeof data.reason === "string") error.reason = data.reason;
   // The form field a refused value belongs to, and the header or variable names.
   if (typeof data.field === "string") error.field = data.field;
   if (Array.isArray(data.names))

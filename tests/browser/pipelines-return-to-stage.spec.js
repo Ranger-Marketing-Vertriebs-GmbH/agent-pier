@@ -3,8 +3,8 @@ import { pipelinesFixture, openPipelines, sampleRun } from "./pipelines-fixture.
 
 // Return to stage (ReturnToStage) on a finished run against mocked return, diff and
 // review-comment routes: the return to a chosen stage with the open notes, a blocked
-// run's reason without a form, a busy project's answer that keeps the form, Return
-// waiting for text or notes, and the phone width.
+// run's reason without a form, a return refused as blocked, a busy project's answer
+// that keeps the form, Return waiting for text or notes, and the phone width.
 test.use({ locale: "en-GB" });
 
 const shots = process.env.RETURN_TO_STAGE_SCREENSHOTS;
@@ -186,6 +186,28 @@ test("a busy project says so and keeps the form", async ({ page }) => {
   expect(mock.posts).toHaveLength(2);
   expect(mock.posts[1].requestId).toBe(mock.posts[0].requestId);
   expect(mock.posts[1].nodeId).toBe("build");
+});
+
+test("a return refused as blocked switches to the reason", async ({ page }) => {
+  const mock = await setup(page, {
+    post: {
+      status: 409,
+      json: {
+        code: "PIPELINE_RETURN_BLOCKED",
+        reason: "pr-merged",
+        error: "Der Pull Request wurde gemergt.",
+      },
+    },
+  });
+  await openDialog(page);
+  await field(page).fill("Tighten the error handling");
+  await returnButton(page).click();
+  await expect(dialog(page).getByText("The pull request was merged.")).toBeVisible();
+  await expect(returnButton(page)).toHaveCount(0);
+  await expect(field(page)).toHaveCount(0);
+  expect(mock.posts).toHaveLength(1);
+  await dialog(page).getByRole("button", { name: "Close", exact: true }).click();
+  await expect(dialog(page)).toHaveCount(0);
 });
 
 test("Return waits for text or open notes", async ({ page }) => {
