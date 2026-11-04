@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { problem } from "../../lib/storage.js";
+import { runDiff } from "./run-diff.js";
 import { RunStore, runId } from "./run-store.js";
 import { validTicketRef } from "../tickets/ticket.js";
 import { runListView } from "./run-list-view.js";
@@ -425,6 +426,9 @@ export class PipelineEngine {
     const run = this.store.get(id);
     requireLiveRun(run);
     return stageDiff(this, run, nodeId);
+  }
+  runDiff(id) {
+    return runDiff(this, this.store.get(id));
   }
   verifyLogs(id, nodeId, index) {
     return verificationLog(this, this.store.get(id), nodeId, index);

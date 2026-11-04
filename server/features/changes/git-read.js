@@ -13,7 +13,7 @@ const COUNT_FILE_LIMIT = 256 * 1024;
 const NUMSTAT_LIMIT = 8 * 1024 * 1024;
 // Changed paths whose size and mtime go into a workspace's fingerprint.
 const FINGERPRINT_PATH_LIMIT = 2000;
-const DIFF_FLAGS = [
+export const DIFF_FLAGS = [
   "-c",
   "core.quotePath=false",
   "diff",

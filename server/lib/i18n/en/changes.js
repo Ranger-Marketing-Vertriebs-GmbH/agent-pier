@@ -6,4 +6,6 @@ export const changes = {
   commentNotFound: "This comment no longer exists.",
   invalidWorkspace: "Name the workspace.",
   unknownWorkspace: "This workspace no longer exists. Reload the changes.",
+  runWithoutWorkspace:
+    "This run no longer has a workspace, so there are no changes to show.",
 };

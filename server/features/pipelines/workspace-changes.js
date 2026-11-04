@@ -1,13 +1,15 @@
 import { serverMessages } from "../../lib/i18n/de.js";
-import { problem } from "../../lib/storage.js";
+import { problem, readJSON } from "../../lib/storage.js";
 import { git, exactCommit } from "./workspace-git.js";
+import { diffStat, workspaceDiff } from "../changes/git-read.js";
+import { parseGitDiff } from "../changes/diff-parse.js";
 
 export const CHANGE_LIMIT = 5000;
 const FILE_LIMIT = 1024 * 1024;
 
 // Only AgentPier's own run area stays out of the risk diff; every other path, also a
 // private one such as .env or a key file an agent committed itself, is checked.
-const runtimePath = (file) => /^\.(?:pipeline|agentpier-worktrees)\//i.test(file);
+export const runtimePath = (file) => /^\.(?:pipeline|agentpier-worktrees)\//i.test(file);
 
 /**
  * The files a run changed between two commits, from `git diff --raw`: each with its
@@ -102,4 +104,39 @@ export async function fileAt(manager, { workspace, sha, path }) {
   return git(stored.cwd, ["cat-file", "blob", `${commit}:${path}`], {
     maxBuffer: FILE_LIMIT + 1024,
   });
+}
+
+/**
+ * Everything the run changed against its base commit, uncommitted work included, as
+ * parsed files without AgentPier's own run area, plus a `fingerprint` that changes
+ * with any edit. A workspace that is gone is refused with PIPELINE_RUN_WORKSPACE_GONE.
+ */
+export async function runDiff(manager, { workspace }) {
+  const gone = () =>
+    Object.assign(problem(serverMessages.changes.runWithoutWorkspace, 409), {
+      code: "PIPELINE_RUN_WORKSPACE_GONE",
+    });
+  if (!workspace) throw gone();
+  let stored;
+  try {
+    stored = await manager.validate(workspace);
+  } catch (error) {
+    // a removed or vanished worktree; other refusals (a switched branch) stay as they are
+    const record = readJSON(manager.file(workspace.runId), null);
+    if (!record || record.removed || error.status === undefined) throw gone();
+    throw error;
+  }
+  const [read, stat] = await Promise.all([
+    workspaceDiff(stored.cwd, stored.baseSha),
+    diffStat(stored.cwd, stored.baseSha),
+  ]);
+  const files = parseGitDiff(read.text).filter(
+    (file) => !runtimePath(file.path) && !(file.oldPath && runtimePath(file.oldPath)),
+  );
+  return {
+    from: stored.baseSha,
+    files,
+    truncated: read.truncated,
+    fingerprint: stat.fingerprint,
+  };
 }

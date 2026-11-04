@@ -107,6 +107,9 @@ export function pipelineRunRoutes({ pipelines, pipelineRunCounts }) {
       ...(result.changed ? { changed: true } : {}),
     });
   });
+  router.get("/pipeline-runs/:id/diff", async (req, res) =>
+    res.json(await pipelines.runDiff(req.params.id)),
+  );
   router.get(`${node}/diff`, async (req, res) =>
     res.json(await pipelines.diff(req.params.id, req.params.nodeId)),
   );

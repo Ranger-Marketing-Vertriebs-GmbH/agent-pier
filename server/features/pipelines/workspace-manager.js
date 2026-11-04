@@ -11,7 +11,8 @@ import {
   withGitCredentials,
 } from "./workspace-forge.js";
 import { checkpointWorkspace } from "./workspace-checkpoint.js";
-import { changedPaths, fileAt } from "./workspace-changes.js";
+import { changedPaths, fileAt, runDiff } from "./workspace-changes.js";
+import { DIFF_FLAGS, readBounded } from "../changes/git-read.js";
 import { NativeEventReader } from "./native-reader.js";
 
 const fenceName = ".agentpier-worktrees";
@@ -266,25 +267,17 @@ export class PipelineWorkspace {
     const stored = await this.validate(workspace),
       start = await exactCommit(stored.cwd, from || stored.baseSha),
       end = to ? await exactCommit(stored.cwd, to) : null;
-    const result = await git(
-      stored.cwd,
-      [
-        "diff",
-        "--no-ext-diff",
-        "--no-textconv",
-        "--no-color",
-        start,
-        ...(end ? [end] : []),
-        "--",
-      ],
-      { maxBuffer: 8 * 1024 * 1024 },
-    );
-    return {
-      diff: result.slice(0, 1024 * 1024),
-      truncated: result.length > 1024 * 1024,
-      from: start,
-      to: end,
-    };
+    const result = await readBounded(stored.cwd, [
+      ...DIFF_FLAGS,
+      start,
+      ...(end ? [end] : []),
+      "--",
+    ]);
+    return { diff: result.text, truncated: result.truncated, from: start, to: end };
+  }
+  /** The whole run against its base commit, for the Changes view. */
+  runDiff(input) {
+    return runDiff(this, input);
   }
   /** Changed files between two commits of the run, for the risk gate. */
   async changes(input) {
