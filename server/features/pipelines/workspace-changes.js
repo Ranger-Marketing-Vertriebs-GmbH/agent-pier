@@ -126,10 +126,11 @@ export async function runDiff(manager, { workspace }) {
     if (!record || record.removed || error.status === undefined) throw gone();
     throw error;
   }
-  const [read, stat] = await Promise.all([
-    workspaceDiff(stored.cwd, stored.baseSha),
-    diffStat(stored.cwd, stored.baseSha),
-  ]);
+  // The fingerprint first, the diff after it: an edit between the two reads can only
+  // pair a newer diff with an older fingerprint, which the next read replaces. The other
+  // order could pair an old diff with the new fingerprint, and the view would keep it.
+  const stat = await diffStat(stored.cwd, stored.baseSha);
+  const read = await workspaceDiff(stored.cwd, stored.baseSha);
   const files = parseGitDiff(read.text).filter(
     (file) => !runtimePath(file.path) && !(file.oldPath && runtimePath(file.oldPath)),
   );

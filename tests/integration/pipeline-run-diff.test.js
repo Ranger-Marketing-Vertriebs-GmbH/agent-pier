@@ -85,6 +85,34 @@ test("an edit that keeps the line counts changes the fingerprint", async (t) => 
   assert.notEqual(after.fingerprint, before.fingerprint);
 });
 
+test("the fingerprint is read before the diff", async (t) => {
+  // An edit between the two reads may only pair a newer diff with an older
+  // fingerprint (the next read replaces it), never an old diff with a new fingerprint.
+  const { root, manager, stored, write } = await fixture(t);
+  write("c.js", "aaa\n");
+  const bin = path.join(root, "bin");
+  const log = path.join(root, "git.log");
+  fs.mkdirSync(bin);
+  const real = execFileSync("sh", ["-c", "command -v git"], { encoding: "utf8" }).trim();
+  fs.writeFileSync(
+    path.join(bin, "git"),
+    `#!/bin/sh\necho "start $*" >> "${log}"\n"${real}" "$@"\nstatus=$?\necho "end $*" >> "${log}"\nexit $status\n`,
+    { mode: 0o755 },
+  );
+  const before = process.env.PATH;
+  process.env.PATH = `${bin}:${before}`;
+  t.after(() => (process.env.PATH = before));
+  await manager.runDiff({ workspace: stored });
+  const calls = fs.readFileSync(log, "utf8").split("\n");
+  // the fingerprint's numstat ends before the diff itself starts
+  const statEnd = calls.findIndex((line) => /^end .* diff .*--numstat/.test(line));
+  const diffStart = calls.findIndex(
+    (line) => /^start .* diff /.test(line) && !line.includes("--numstat"),
+  );
+  assert.ok(statEnd >= 0 && diffStart >= 0, calls.join("\n"));
+  assert.ok(statEnd < diffStart, calls.join("\n"));
+});
+
 test("a removed workspace or a run without one is refused", async (t) => {
   const { manager, stored, engine } = await fixture(t);
   await manager.remove({ workspace: stored });
