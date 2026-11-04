@@ -104,7 +104,7 @@ test("shared agents stay owner-managed at every level", async (t) => {
 
 test("memory deletion follows level and ownership", async (t) => {
   const { f } = await chatFixture(t);
-  const { agent, request } = await ownAgent(f, "personalize");
+  const { user, agent, request } = await ownAgent(f, "personalize");
   const workspaces = f.application.assistants.config.workspaces;
   const note = path.join(workspaces, agent.id, "memory", "trip.md");
   fs.mkdirSync(path.dirname(note), { recursive: true });
@@ -122,6 +122,14 @@ test("memory deletion follows level and ownership", async (t) => {
   });
   assert.equal(removed.status, 204, await removed.clone().text());
   assert.equal(fs.existsSync(note), false);
+  const deleted = f.application.audit
+    .list({})
+    .events.filter((e) => e.action === "assistant.memory-deleted");
+  assert.equal(deleted.length, 1);
+  assert.equal(deleted[0].resourceId, agent.id);
+  assert.equal(deleted[0].actorUserId, user.id);
+  assert.deepEqual(deleted[0].details.files, ["memory/trip.md"]);
+  assert.doesNotMatch(JSON.stringify(deleted), /Trip to Rome/);
 
   const { anna, agent: family } = await sharedAgentOfTwo(f, "extended", [
     "Carla",

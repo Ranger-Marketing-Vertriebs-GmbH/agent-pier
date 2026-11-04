@@ -63,6 +63,16 @@ export function meAgentSettingsRoutes({ assistants, assistantMemory, userScope, 
     if (isShared(agent) || !["personalize", "extended"].includes(level))
       throw userProblem("USER_LEVEL");
     await assistantMemory.remove(agent.id, req.params.name);
+    // Who deleted which note, by file name only; never its text.
+    audit.append({
+      action: "assistant.memory-deleted",
+      resourceType: "assistant",
+      resourceId: agent.id,
+      outcome: "success",
+      source: "user",
+      actorUserId: req.principal.userId,
+      details: { files: [req.params.name] },
+    });
     res.status(204).end();
   });
   return router;

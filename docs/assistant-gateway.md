@@ -1534,7 +1534,9 @@ on the way, not the Dream Diary, the lead's mirror `memory/lead/` or the corpus
 `DELETE /assistants/:id/memory/notes?name=` deletes such a note under the same rules.
 Both are owner content routes, so a user's own agent stays read-only for the owner,
 and the activity log records `assistant.memory-saved` and `assistant.memory-deleted`
-with `files` (the file name) only.
+with `files` (the file name) only. A user deleting a note of her own agent
+(`DELETE /me/agents/:id/memory/:name`) is recorded as `assistant.memory-deleted` too,
+with her as the actor.
 Saving an empty note clears that file; it does not purge chat history or other
 workspace notes. Native file tools stay within the workspace.
 
