@@ -31,7 +31,7 @@ in the distribution. Its MPL-covered files retain that license. `node-pty` retai
 its MIT and bundled component notices. Other dependencies retain their own MIT,
 Apache, ISC, BSD or other notices as supplied by their authors.
 
-Koffi 3.3.2 and its `@koromix/koffi-*` platform packages are licensed under MIT.
+Koffi 3.3.5 and its `@koromix/koffi-*` platform packages are licensed under MIT.
 Copyright (C) 2026 Niels Martignène. Their complete licenses and bundled component
 notices are preserved in `node_modules/koffi/` and `node_modules/@koromix/`.
 Versioned installation and update archives include the platform's optional native
