@@ -170,7 +170,8 @@ export default function AgentMessageAttachments({ files, shared = false }) {
           ) : (
             <li key={file.id} className="agent-attachment-chip ready">
               <span className="agent-attachment-icon" aria-hidden="true">
-                <Icon name="file" size={16} />
+                {/* A Markdown file opens as a readable preview. */}
+                <Icon name={isMarkdownAttachment(file) ? "book" : "file"} size={16} />
               </span>
               <FileRow
                 file={file}
