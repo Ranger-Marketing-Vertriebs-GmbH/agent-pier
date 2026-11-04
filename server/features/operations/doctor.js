@@ -22,7 +22,7 @@ const REMEDIES = {
   pty: "Reinstall dependencies for this Node runtime and platform.",
   tool: "Install the tool or correct the service PATH.",
   project: "Restore or map the project checkout on this host.",
-  node: "Update Node.js to 22.23.4, 24.22.1, 26.12.1 or later (security fixes).",
+  node: "Update Node.js to 24.22.1, 26.12.1 or later. Node.js 22 is no longer supported.",
 };
 // A remedy only belongs to a check that needs action.
 const needsRemedy = (status) => status === "warn" || status === "fail";

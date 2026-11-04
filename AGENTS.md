@@ -12,7 +12,7 @@ AgentPier is a local workspace for coding CLIs, built with React, Vite, Express,
 
 ## Build, Test, and Development Commands
 
-Use macOS or Linux with Node.js `^22.23.4 || ^24.22.1 || >=26.12.1` (22.23.4+, 24.22.1+ or 26.12.1+; Node 23 and 25 are not supported), Git, and tmux.
+Use macOS or Linux with Node.js `^24.22.1 || >=26.12.1` (24.22.1+ or 26.12.1+; Node 22, 23 and 25 are not supported), Git, and tmux.
 
 If a change requires additional runtime tools, provision them through the installation scripts and the update path for existing installations. Do not rely on manual fixes on one developer machine.
 
@@ -55,7 +55,7 @@ Plans, specs, and progress logs are working documents, never deliverables. Befor
 
 Every pull request must review and update the documentation its change affects, in the same pull request: `README.md` and `README.de.md`, guides under `docs/`, ADRs, and every quoted UI path or label. This covers renamed or moved settings, new or removed features, changed behavior, and CLI or route changes. Name the docs you checked or updated in the description, or state why none were affected.
 
-Follow the history's concise imperative prefixes: `fix:`, `feat:`, and `chore:`. Keep commits focused. Describe the problem, resulting behavior, and validation in PRs; list the docs you checked as part of validation, link relevant issues, and include screenshots for visible UI changes. Pull requests run the affected tests on Linux and Chromium; the merge queue runs the full Node and Chromium suites, and nightly and release runs cover Linux/macOS, Node 22/24 and Chromium/WebKit. Label a pull request `webkit` to run WebKit on it.
+Follow the history's concise imperative prefixes: `fix:`, `feat:`, and `chore:`. Keep commits focused. Describe the problem, resulting behavior, and validation in PRs; list the docs you checked as part of validation, link relevant issues, and include screenshots for visible UI changes. Pull requests run the affected tests on Linux and Chromium; the merge queue runs the full Node and Chromium suites, and nightly and release runs cover Linux/macOS, Node 24/26 and Chromium/WebKit. Label a pull request `webkit` to run WebKit on it.
 
 Every published release, stable or release candidate, gets handwritten notes above GitHub's generated pull request list: a short **Highlights** section with the user-visible changes, and an **Upgrade notes** section whenever behavior, permissions, defaults, data migrations or downgrade safety change. Write them against the previous published release, going through everything merged since its tag (`git log <previous tag>..<new tag>`) so that no change is missing, including other people's pull requests. A stable release compares with the previous stable release and ignores RCs in between; an RC may compare with the previous RC of the same version. Add them right after the release workflow publishes; see `docs/release-channels.md`.
 

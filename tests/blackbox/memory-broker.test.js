@@ -14,9 +14,7 @@ for (const tool of ["codex", "claude", "opencode"])
     assert.equal(config.args[3], "--capability");
     const source = fileURLToPath(new URL("../../", import.meta.url));
     const nodeArgs = [
-      process.allowedNodeEnvironmentFlags.has("--permission")
-        ? "--permission"
-        : "--experimental-permission",
+      "--permission",
       `--allow-fs-read=${source}`,
       `--allow-fs-read=${config.args[4]}`,
       ...(process.allowedNodeEnvironmentFlags.has("--allow-net") ? ["--allow-net"] : []),

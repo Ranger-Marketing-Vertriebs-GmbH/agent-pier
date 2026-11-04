@@ -19,7 +19,10 @@ export function proxyRouted(env = process.env) {
   return routing.some((name) => present(env, name));
 }
 
-/** NODE_USE_ENV_PROXY works on Node 22.21+ and 24+; 23 and older 22 ignore it. */
+/**
+ * NODE_USE_ENV_PROXY works on Node 22.21+ and 24+; 23 and older 22 ignore it. Every
+ * supported Node has it; the check keeps an unsupported runtime from bypassing a proxy.
+ */
 export function envProxySupported(version = process.versions.node) {
   const [major, minor] = String(version).split(".").map(Number);
   return major >= 24 || (major === 22 && minor >= 21);

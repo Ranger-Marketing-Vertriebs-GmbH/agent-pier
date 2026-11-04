@@ -286,7 +286,7 @@ export const diagnosticCopy = {
   project: "Project directory",
   adapterSession: "Adapter session",
   remedies: {
-    node: "Update Node.js to 22.23.4, 24.22.1, 26.12.1 or later (security fixes).",
+    node: "Update Node.js to 24.22.1, 26.12.1 or later. Node.js 22 is no longer supported.",
     platform: "Use a supported macOS or Linux host.",
     pty: "Reinstall dependencies for this Node runtime and platform.",
     tool: "Install the tool or correct the service PATH.",
