@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { serverMessages } from "../../lib/i18n/de.js";
@@ -10,6 +11,8 @@ export const DIFF_BYTE_LIMIT = 1048576;
 export const UNTRACKED_LIMIT = 200;
 const COUNT_FILE_LIMIT = 256 * 1024;
 const NUMSTAT_LIMIT = 8 * 1024 * 1024;
+// Changed paths whose size and mtime go into a workspace's fingerprint.
+const FINGERPRINT_PATH_LIMIT = 2000;
 const DIFF_FLAGS = [
   "-c",
   "core.quotePath=false",
@@ -77,11 +80,16 @@ export function readBounded(
   });
 }
 
-/** HEAD commit of the repository at `cwd`, or null outside one / without commits. */
-export async function headCommit(cwd) {
+/**
+ * HEAD commit of the repository at `cwd`, or null outside one / without commits or
+ * when git takes longer than `timeout` ms.
+ */
+export async function headCommit(cwd, { timeout = 30000 } = {}) {
   try {
     return (
-      (await git(cwd, ["rev-parse", "--verify", "--quiet", "HEAD^{commit}"])) || null
+      (await git(cwd, ["rev-parse", "--verify", "--quiet", "HEAD^{commit}"], {
+        timeout,
+      })) || null
     );
   } catch {
     return null;
@@ -140,7 +148,29 @@ async function untrackedLines(cwd, file) {
   }
 }
 
-/** Changed files and +/- lines against `base`, untracked files included. */
+/**
+ * A short hash over the numstat output and the size and mtime of each changed path,
+ * so an edit that keeps the counts still reads as a change.
+ */
+async function fingerprint(cwd, numstat, paths) {
+  const hash = createHash("sha256").update(numstat);
+  const sampled = paths.slice(0, FINGERPRINT_PATH_LIMIT);
+  const stats = await Promise.all(
+    sampled.map((file) =>
+      fs.lstat(path.join(cwd, file)).then(
+        (info) => `${info.size}:${info.mtimeMs}`,
+        () => "-",
+      ),
+    ),
+  );
+  sampled.forEach((file, index) => hash.update(`\0${file}\0${stats[index]}`));
+  return hash.digest("hex").slice(0, 16);
+}
+
+/**
+ * Changed files and +/- lines against `base`, untracked files included, and a
+ * `fingerprint` that changes with any edit of a changed file.
+ */
 export async function diffStat(cwd, base) {
   const { text, truncated } = await readBounded(
     cwd,
@@ -151,20 +181,27 @@ export async function diffStat(cwd, base) {
   // the last token of a cut output may be partial
   if (truncated || tokens[tokens.length - 1] === "") tokens.pop();
   const stat = { files: 0, added: 0, removed: 0 };
+  const paths = [];
   for (let i = 0; i < tokens.length; i += 1) {
     const match = /^(\d+|-)\t(\d+|-)\t(.*)$/s.exec(tokens[i]);
     if (!match) continue;
     stat.files += 1;
     stat.added += Number(match[1]) || 0;
     stat.removed += Number(match[2]) || 0;
-    if (match[3] === "") i += 2; // a rename lists its old and new path next
+    if (match[3] !== "") paths.push(match[3]);
+    else {
+      // a rename lists its old and new path next
+      if (tokens[i + 2] !== undefined) paths.push(tokens[i + 2]);
+      i += 2;
+    }
   }
   const listed = await untrackedFiles(cwd);
   for (const file of listed.paths) {
     stat.files += 1;
     stat.added += await untrackedLines(cwd, file);
+    paths.push(file);
   }
-  return stat;
+  return { ...stat, fingerprint: await fingerprint(cwd, text, paths) };
 }
 
 /** Remote default branch, else a local `main`/`master`, else null. */

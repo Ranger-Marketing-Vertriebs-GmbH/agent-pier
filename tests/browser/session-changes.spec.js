@@ -59,7 +59,12 @@ const notesFile = {
   ],
 };
 
-function summaryOf({ source = "start", extra = 0, withTree = true } = {}) {
+function summaryOf({
+  source = "start",
+  extra = 0,
+  withTree = true,
+  fingerprint = "f0",
+} = {}) {
   const workspaces = [
     {
       id: "",
@@ -68,6 +73,7 @@ function summaryOf({ source = "start", extra = 0, withTree = true } = {}) {
       files: 2,
       added: 3 + extra,
       removed: 1,
+      fingerprint,
     },
     ...(withTree
       ? [
@@ -131,6 +137,8 @@ async function setup(page, options = {}) {
     if (rest === "/changes/diff") {
       const workspace = url.searchParams.get("workspace");
       mock.diffReads.push(workspace);
+      if (mock.diffFails)
+        return route.fulfill({ status: 500, json: { error: "Git is busy." } });
       const files = mock.diffs[workspace];
       if (!files)
         return route.fulfill({
@@ -166,6 +174,8 @@ async function setup(page, options = {}) {
       return route.fulfill({ json: { configured: true, hosts: [], remote: null } });
     if (rest === "/review-comments/sent") {
       const { ids } = request.postDataJSON();
+      if (mock.markFails)
+        return route.fulfill({ status: 500, json: { error: "Marking failed." } });
       mock.sent.push(ids);
       const batch = ++mock.batches;
       for (const comment of mock.comments)
@@ -244,6 +254,53 @@ test("a removed worktree reads the summary again and falls back", async ({ page 
   await expect(appRegion(page)).toBeVisible();
   expect(mock.diffReads).toContain(tree);
   await expect(changesTab(page)).toHaveAccessibleName("Changes, 2 changed files");
+});
+
+test("an edit that keeps the counts reads the diff again", async ({ page, liveStub }) => {
+  const mock = await setup(page);
+  await page.goto(`${baseURL}/sessions/${id}/changes`);
+  await expect(appRegion(page).getByText("start(port);")).toBeVisible();
+  mock.diffs[""] = [appFile(), { ...notesFile, rows: [...notesFile.rows] }];
+  mock.diffs[""][1].rows[2] = row("add", "Read the port from the env.", 0, 2);
+  mock.summary = summaryOf({ fingerprint: "f1" });
+  await liveStub.reread(`session.changes:${id}`);
+  await expect(page.getByText("Read the port from the env.")).toBeVisible();
+  expect(mock.diffReads).toEqual(["", ""]);
+});
+
+test("a failed refresh keeps the diff and its draft beside the error", async ({
+  page,
+  liveStub,
+}) => {
+  const mock = await setup(page);
+  await page.goto(`${baseURL}/sessions/${id}/changes`);
+  await appRegion(page).getByText("start(port);").click();
+  await page.getByRole("button", { name: "Comment on line 3" }).click();
+  await page.getByLabel("Comment (Markdown)").fill("Keep me");
+  mock.diffFails = true;
+  mock.summary = summaryOf({ fingerprint: "f1" });
+  await liveStub.reread(`session.changes:${id}`);
+  await expect(page.getByText("Git is busy.")).toBeVisible();
+  await expect(appRegion(page).getByText("start(port);")).toBeVisible();
+  await expect(page.getByLabel("Comment (Markdown)")).toHaveValue("Keep me");
+  // the next read clears the error
+  mock.diffFails = false;
+  mock.summary = summaryOf({ fingerprint: "f2" });
+  await liveStub.reread(`session.changes:${id}`);
+  await expect(page.getByText("Git is busy.")).toHaveCount(0);
+  await expect(page.getByLabel("Comment (Markdown)")).toHaveValue("Keep me");
+});
+
+test("a login session follows no changes", async ({ page }) => {
+  const mock = await setup(page, { session: { purpose: "login" } });
+  await page.goto(`${baseURL}/sessions/${id}`);
+  await expect(changesTab(page)).toHaveText("Changes");
+  await changesTab(page).click();
+  await expect(
+    page.getByText("This session's folder is not a Git repository."),
+  ).toBeVisible();
+  expect(mock.summaryReads).toBe(0);
+  expect(mock.diffReads).toEqual([]);
 });
 
 test("a plain folder shows a note and no badge", async ({ page }) => {
@@ -361,6 +418,16 @@ test("Send to agent appends the batch to the chat composer", async ({
   await liveStub.reread(`session.review:${id}`);
   await changesTab(page).click();
   await expect(appRegion(page).getByText("Sent in batch 1")).toBeVisible();
+});
+
+test("a failed sent marking stays on the tab with its error", async ({ page }) => {
+  const mock = await setup(page, { session: coding, comments: openComments() });
+  mock.markFails = true;
+  await page.goto(`${baseURL}/sessions/${id}/changes`);
+  await sendButton(page).click();
+  await expect(page.getByText("Marking failed.")).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/sessions/${id}/changes$`));
+  await expect(changesTab(page)).toHaveClass(/selected/);
 });
 
 test("a blank composer takes the batch as it is", async ({ page }) => {

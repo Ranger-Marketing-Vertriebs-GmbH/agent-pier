@@ -3,9 +3,10 @@
 The **Changes** tab of a session shows what the session's agent has changed in the
 working tree, as a diff you can read and comment on. It is owner-only and closed until
 you open it; nothing is sent to the agent unless you press **Send to agent** and then
-send the message in the chat yourself. Every session whose folder is a Git repository
-has the tab, shell sessions included. The tab shows the number of changed files as a
-badge. For a folder that is not a Git repository it shows a short note instead.
+send the message in the chat yourself. Every session has the tab, shell sessions
+included. The tab shows the number of changed files as a badge. A session whose folder
+is not a Git repository, and a login session, shows a short note there instead and no
+badge.
 
 You can also open it from the search (⌘K or Ctrl+K): **Show changes** (German:
 **Änderungen anzeigen**; also found as "Diff" and "Review changes") appears while a

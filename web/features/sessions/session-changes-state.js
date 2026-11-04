@@ -9,8 +9,9 @@ export function shownWorkspace(summary, picked) {
 }
 
 /**
- * What of a listed workspace changes its diff (base commit, files, lines); the tab
- * reads the diff again when this changes, never on a timer.
+ * What of a listed workspace changes its diff (base commit, files, lines, and the
+ * server's fingerprint of the changed files, which an edit that keeps the counts
+ * changes); the tab reads the diff again when this changes, never on a timer.
  */
 export const diffKey = (entry) =>
   entry
@@ -20,6 +21,7 @@ export const diffKey = (entry) =>
         entry.files,
         entry.added,
         entry.removed,
+        entry.fingerprint ?? "",
       ])
     : null;
 

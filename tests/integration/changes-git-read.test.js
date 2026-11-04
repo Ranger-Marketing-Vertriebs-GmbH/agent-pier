@@ -44,6 +44,12 @@ const tmp = (t, prefix) => {
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   return dir;
 };
+// diffStat without its fingerprint, for the count assertions.
+const counts = async (repo, base) => {
+  const { fingerprint, ...stat } = await diffStat(repo, base);
+  assert.match(fingerprint, /^[a-f0-9]{16}$/);
+  return stat;
+};
 function gitRepo(t, files, { branch = "main" } = {}) {
   const repo = path.join(tmp(t, "git-read-"), "repo");
   fs.mkdirSync(repo);
@@ -82,7 +88,44 @@ test("a working-tree diff includes staged, unstaged and untracked changes", asyn
       ["new.txt", "added"],
     ],
   );
-  assert.deepEqual(await diffStat(repo, base), { files: 2, added: 2, removed: 1 });
+  assert.deepEqual(await counts(repo, base), { files: 2, added: 2, removed: 1 });
+});
+
+test("an edit that keeps the counts changes the fingerprint", async (t) => {
+  const repo = gitRepo(t, { "a.js": "one\n" });
+  const base = await headCommit(repo);
+  const file = path.join(repo, "a.js");
+  write(repo, "a.js", "two\n");
+  fs.utimesSync(file, 1000, 1000);
+  const first = await diffStat(repo, base);
+  assert.equal((await diffStat(repo, base)).fingerprint, first.fingerprint);
+  write(repo, "a.js", "six\n");
+  fs.utimesSync(file, 2000, 2000);
+  const second = await diffStat(repo, base);
+  assert.deepEqual(
+    [second.files, second.added, second.removed],
+    [first.files, first.added, first.removed],
+  );
+  assert.notEqual(second.fingerprint, first.fingerprint);
+  // an untracked file counts in too
+  write(repo, "new.txt", "a\n");
+  fs.utimesSync(path.join(repo, "new.txt"), 1000, 1000);
+  const untracked = (await diffStat(repo, base)).fingerprint;
+  write(repo, "new.txt", "b\n");
+  fs.utimesSync(path.join(repo, "new.txt"), 2000, 2000);
+  assert.notEqual((await diffStat(repo, base)).fingerprint, untracked);
+});
+
+test("headCommit gives up on a hung git after its timeout", async (t) => {
+  const repo = gitRepo(t, { "a.js": "one\n" });
+  const bin = tmp(t, "git-read-bin-");
+  fs.writeFileSync(path.join(bin, "git"), "#!/bin/sh\nexec sleep 30\n", { mode: 0o755 });
+  const saved = process.env.PATH;
+  process.env.PATH = `${bin}:${saved}`;
+  t.after(() => (process.env.PATH = saved));
+  const started = Date.now();
+  assert.equal(await headCommit(repo, { timeout: 200 }), null);
+  assert.ok(Date.now() - started < 5000);
 });
 
 test("output past the limit is cut at a line and flagged", async (t) => {
@@ -117,7 +160,7 @@ test("untracked files are bounded and binaries are marked", async (t) => {
   const { text, truncated } = await workspaceDiff(repo, base);
   assert.equal(truncated, false);
   assert.match(text, /Binary files \/dev\/null and b\/img\.bin differ/);
-  assert.deepEqual(await diffStat(repo, base), { files: 1, added: 0, removed: 0 });
+  assert.deepEqual(await counts(repo, base), { files: 1, added: 0, removed: 0 });
 });
 
 test("ignored files and external diff drivers are never used", async (t) => {
@@ -139,7 +182,7 @@ test("ignored files and external diff drivers are never used", async (t) => {
   assert.ok(text.includes("+two"));
   assert.ok(text.includes("+new"));
   assert.equal(fs.existsSync(marker), false);
-  assert.deepEqual(await diffStat(repo, base), { files: 3, added: 3, removed: 1 });
+  assert.deepEqual(await counts(repo, base), { files: 3, added: 3, removed: 1 });
   assert.equal(fs.existsSync(marker), false);
 });
 
@@ -150,7 +193,7 @@ test("user diff prefix settings do not change the a/ b/ prefixes", async (t) => 
   run(repo, "config", "diff.mnemonicPrefix", "true");
   write(repo, "a.js", "two\n");
   write(repo, "new.txt", "hello\n");
-  assert.deepEqual(await diffStat(repo, base), { files: 2, added: 2, removed: 1 });
+  assert.deepEqual(await counts(repo, base), { files: 2, added: 2, removed: 1 });
   const { text } = await workspaceDiff(repo, base);
   assert.match(text, /^diff --git a\/a\.js b\/a\.js$/m);
   assert.match(text, /^diff --git a\/new\.txt b\/new\.txt$/m);

@@ -15,6 +15,7 @@ import {
 import { liveGate } from "../../server/application/live-wiring.js";
 import { sessionChangesRoutes } from "../../server/http/routes/session-changes.js";
 import { registerResponses } from "../../server/http/responses.js";
+import { routeAccess } from "../../server/http/route-access.js";
 import { problem } from "../../server/lib/storage.js";
 import { subscribe, until } from "../helpers/live-hub-subscriber.js";
 
@@ -75,11 +76,19 @@ async function fixture(t) {
   const records = {
     s1: { id: "s1", cwd: repo, startCommit: start, startCommitSource: "start" },
     legacy: { id: "legacy", cwd: repo },
+    login: { id: "login", cwd: repo, purpose: "login" },
+    run: { id: "run", cwd: repo, pipeline: { runId: "r1" } },
     plain: { id: "plain", cwd: plain },
   };
   const sessions = memorySessions(records);
   const sessionChanges = new SessionChanges({ sessions });
   const application = express();
+  // `?as=user` signs the request in as a restricted user, ahead of routeAccess.
+  application.use((req, _res, next) => {
+    req.principal = req.query.as === "user" ? { role: "user", userId: "u" } : null;
+    next();
+  });
+  application.use("/api", routeAccess());
   application.use("/api", sessionChangesRoutes({ sessionChanges }));
   registerResponses(application);
   const server = await new Promise((resolve) => {
@@ -119,6 +128,36 @@ test("a legacy session gets its start commit at first open", async (t) => {
   const saved = await sessions.get("legacy");
   assert.deepEqual([saved.startCommit, saved.startCommitSource], [start, "first-open"]);
   assert.equal(body.workspaces.find((w) => w.id === "").base.kind, "start-commit");
+});
+
+test("an edit that keeps the counts changes the workspace fingerprint", async (t) => {
+  const { get, repo } = await fixture(t);
+  const file = path.join(repo, "server/a.js");
+  const root = async () =>
+    (await get("/api/sessions/s1/changes")).body.workspaces.find((w) => w.id === "");
+  write(repo, "server/a.js", "two\n");
+  fs.utimesSync(file, 1000, 1000);
+  const first = await root();
+  write(repo, "server/a.js", "six\n");
+  fs.utimesSync(file, 2000, 2000);
+  const second = await root();
+  assert.deepEqual([second.files, second.added, second.removed], [1, 1, 1]);
+  assert.deepEqual([first.files, first.added, first.removed], [1, 1, 1]);
+  assert.notEqual(second.fingerprint, first.fingerprint);
+});
+
+test("login and pipeline sessions record no first-open start commit", async (t) => {
+  const { get, records } = await fixture(t);
+  for (const id of ["login", "run"]) {
+    const body = (await get(`/api/sessions/${id}/changes`)).body;
+    assert.equal(body.startCommit, null, id);
+    assert.equal(records[id].startCommit, undefined, id);
+  }
+});
+
+test("a restricted user is refused the changes routes", async (t) => {
+  const { get } = await fixture(t);
+  assert.equal((await get("/api/sessions/s1/changes?as=user")).status, 404);
 });
 
 test("the diff of one workspace is parsed, bounded and read-only", async (t) => {

@@ -71,7 +71,8 @@ export default function SessionWorkspace({
   const [connection, setConnection] = useState("connecting");
   const coding = session.tool !== "shell";
   // The tab badge follows the summary; the diff is read only once the tab is open.
-  const changes = useSessionChanges(session.id);
+  // A login session follows nothing: it has no work to review.
+  const changes = useSessionChanges(session.purpose === "login" ? null : session.id);
   const changed = changedCount(changes.summary);
   // The terminal connection does not matter on the Files and Changes tabs.
   const offTerminal = mode === "files" || mode === "changes";

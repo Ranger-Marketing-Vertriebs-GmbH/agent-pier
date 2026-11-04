@@ -27,6 +27,8 @@ function useWorkspaceDiff(sessionId, workspace, key, { refresh, forget }) {
   useEffect(() => {
     if (workspace === null) return;
     const controller = new AbortController();
+    // A new read clears the last error; the shown diff stays until an answer.
+    setState((last) => (last.error ? { ...last, error: "" } : last));
     api(diffPath(sessionId, workspace), "GET", undefined, controller.signal).then(
       (data) => setState({ workspace, data, error: "" }),
       (error) => {
@@ -36,7 +38,13 @@ function useWorkspaceDiff(sessionId, workspace, key, { refresh, forget }) {
           refresh();
           return;
         }
-        setState({ workspace, data: null, error: error?.message || String(error) });
+        // A failed refresh keeps the diff (and any comment draft in it) beside the error.
+        const message = error?.message || String(error);
+        setState((last) =>
+          last.workspace === workspace
+            ? { ...last, error: message }
+            : { workspace, data: null, error: message },
+        );
       },
     );
     return () => controller.abort();
@@ -77,13 +85,14 @@ export default function SessionChanges({ session, changes, toolbar = null }) {
           () => null,
         );
 
-  if (!summary)
+  if (!summary && (error || loading))
     return (
       <div className="session-changes">
-        {error ? <ErrorMessage error={error} /> : loading && <p>{copy.loading}</p>}
+        {error ? <ErrorMessage error={error} /> : <p>{copy.loading}</p>}
       </div>
     );
-  if (!summary.repository || !entry)
+  // a login session follows no summary
+  if (!summary?.repository || !entry)
     return (
       <div className="session-changes">
         <p className="session-changes-note">{copy.notRepository}</p>

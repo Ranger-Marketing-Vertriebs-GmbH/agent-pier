@@ -26,7 +26,9 @@ export default function ChangesSend({ session, comments, readDiff, markSent, onS
     try {
       const next = await sendBatch({ session, comments, readDiff, markSent });
       setResult(next);
-      if (next.outcome === "appended") onSend?.();
+      // A batch whose sent marking failed stays here with its error, so the owner
+      // sees it before a second Send would append the same comments again.
+      if (next.outcome === "appended" && !next.error) onSend?.();
     } catch (error) {
       setResult({ outcome: "failed", error: error?.message || String(error) });
     } finally {

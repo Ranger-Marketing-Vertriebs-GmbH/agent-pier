@@ -43,6 +43,7 @@ test("the diff is read again only when its workspace entry changes", () => {
     { files: 3 },
     { added: 6 },
     { removed: 2 },
+    { fingerprint: "0123456789abcdef" },
   ])
     assert.notEqual(diffKey({ ...root, ...change }), diffKey(root));
   assert.equal(diffKey({ ...root, branch: "other" }), diffKey(root));
