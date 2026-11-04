@@ -2,11 +2,13 @@ import React, { useState } from "react";
 import api from "../../lib/api.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import Modal from "../../components/Modal.jsx";
+import DiffReview from "../../components/diff/DiffReview.jsx";
 import StatusDot from "../../components/StatusDot.jsx";
 import StatusChip from "../../components/StatusChip.jsx";
 import { chipTone } from "../../components/status-tones.js";
 import { formatNumber } from "../../lib/i18n/index.js";
 import { pipelineCopy as copy } from "../../lib/i18n/messages/pipelines.js";
+import { stageDiff } from "./run-diff-state.js";
 
 export const verificationSteps = (node) =>
   node.verifyResult?.steps ||
@@ -21,9 +23,11 @@ export function useEvidence(runId, node) {
   const open = (suffix, title, field) =>
     action.run(async () => {
       const result = await api(base + suffix);
+      // A stage's diff opens in the shared renderer, read-only; other evidence is text.
+      if (field === "diff") return setPane({ title, diff: stageDiff(result) });
       setPane({
         title,
-        text: result[field] || (field === "diff" ? copy.emptyDiff : ""),
+        text: result[field] || "",
         truncated: result.truncated,
         changed: result.changed === true,
       });
@@ -62,8 +66,19 @@ export function useEvidence(runId, node) {
               </StatusChip>
             </p>
           )}
-          <pre className="pipeline-evidence">{pane.text}</pre>
-          {pane.truncated && <p>{copy.truncated}</p>}
+          {pane.diff ? (
+            <DiffReview
+              files={pane.diff.files}
+              readOnly
+              truncated={pane.diff.truncated}
+              empty={<p>{copy.emptyDiff}</p>}
+            />
+          ) : (
+            <>
+              <pre className="pipeline-evidence">{pane.text}</pre>
+              {pane.truncated && <p>{copy.truncated}</p>}
+            </>
+          )}
         </div>
       </Modal>
     ),

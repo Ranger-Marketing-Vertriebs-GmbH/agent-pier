@@ -88,8 +88,10 @@ test("run detail offers engine-authorized decisions and reads exact evidence wit
     "1.500",
   );
   await page.getByRole("button", { name: "Änderungen", exact: true }).click();
-  await expect(page.getByRole("dialog")).toContainText("+new line");
-  await expect(page.getByRole("dialog")).toContainText("Ausgabe gekürzt.");
+  await expect(page.getByRole("dialog").locator(".diff-row.is-add")).toContainText(
+    "new line",
+  );
+  await expect(page.getByRole("dialog")).toContainText("länger als 1 MB");
   await page.getByRole("button", { name: "Dialog schließen" }).click();
   const stage = stageDetail(page).filter({ hasText: "Missing validation" });
   await stage.getByRole("button", { name: "Dateien", exact: true }).click();

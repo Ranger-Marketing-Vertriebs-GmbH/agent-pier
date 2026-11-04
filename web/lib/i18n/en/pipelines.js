@@ -312,6 +312,12 @@ export const pipelineCopy = {
   noArtifacts: "No files reported.",
   emptyDiff: "No changes reported.",
   truncated: "Output truncated.",
+  reviewChanges: "Review changes",
+  reviewNotes: (n) => (n === 1 ? "1 open review note" : `${n} open review notes`),
+  refreshChanges: "Refresh changes",
+  changesLoading: "Loading changes …",
+  runDiffUnavailable:
+    "The run's worktree is gone, so its changes can no longer be shown.",
   reportChanged: "Changed after the stage finished",
   spec: "Spec",
   specFrozen: "Frozen",

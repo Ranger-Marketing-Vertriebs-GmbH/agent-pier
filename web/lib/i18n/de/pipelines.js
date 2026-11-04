@@ -317,6 +317,12 @@ export const pipelineCopy = {
   noArtifacts: "Keine Dateien gemeldet.",
   emptyDiff: "Keine Änderungen gemeldet.",
   truncated: "Ausgabe gekürzt.",
+  reviewChanges: "Änderungen prüfen",
+  reviewNotes: (n) => (n === 1 ? "1 offene Prüfnotiz" : `${n} offene Prüfnotizen`),
+  refreshChanges: "Änderungen aktualisieren",
+  changesLoading: "Änderungen werden geladen …",
+  runDiffUnavailable:
+    "Der Worktree des Laufs ist entfernt, daher lassen sich seine Änderungen nicht mehr anzeigen.",
   reportChanged: "Nach Abschluss der Stufe geändert",
   spec: "Spec",
   specFrozen: "Eingefroren",
