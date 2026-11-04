@@ -17,8 +17,16 @@ import {
 import { remoteDefaultBranch } from "../../server/features/tickets/ticket-worktree.js";
 import { parseGitDiff } from "../../server/features/changes/diff-parse.js";
 
+// Isolate from the developer's git configuration, for the test's own git calls and
+// (through HOME) for the server's.
+const home = fs.mkdtempSync(path.join(os.tmpdir(), "git-read-home-"));
+process.env.HOME = home;
+process.on("exit", () => fs.rmSync(home, { recursive: true, force: true }));
 const env = {
   ...process.env,
+  HOME: home,
+  GIT_CONFIG_GLOBAL: "/dev/null",
+  GIT_CONFIG_NOSYSTEM: "1",
   GIT_AUTHOR_NAME: "t",
   GIT_AUTHOR_EMAIL: "t@example.test",
   GIT_COMMITTER_NAME: "t",
@@ -117,15 +125,21 @@ test("ignored files and external diff drivers are never used", async (t) => {
   const base = await headCommit(repo);
   const marker = path.join(path.dirname(repo), "marker");
   write(repo, ".gitattributes", "*.js diff=evil\n");
-  run(repo, "config", "diff.evil.command", `touch ${marker}`);
+  run(repo, "config", "diff.evil.command", `: > ${marker} #`);
   run(repo, "config", "diff.evil.textconv", `touch ${marker}; cat`);
   write(repo, "dist/out.js", "built\n");
   write(repo, "a.js", "two\n");
   write(repo, "b.js", "new\n");
+  // positive control: a plain git diff does run the driver
+  run(repo, "diff", base, "--");
+  assert.equal(fs.existsSync(marker), true);
+  fs.rmSync(marker);
   const { text } = await workspaceDiff(repo, base);
   assert.ok(!text.includes("dist/"));
   assert.ok(text.includes("+two"));
   assert.ok(text.includes("+new"));
+  assert.equal(fs.existsSync(marker), false);
+  assert.deepEqual(await diffStat(repo, base), { files: 3, added: 3, removed: 1 });
   assert.equal(fs.existsSync(marker), false);
 });
 
@@ -136,6 +150,7 @@ test("user diff prefix settings do not change the a/ b/ prefixes", async (t) => 
   run(repo, "config", "diff.mnemonicPrefix", "true");
   write(repo, "a.js", "two\n");
   write(repo, "new.txt", "hello\n");
+  assert.deepEqual(await diffStat(repo, base), { files: 2, added: 2, removed: 1 });
   const { text } = await workspaceDiff(repo, base);
   assert.match(text, /^diff --git a\/a\.js b\/a\.js$/m);
   assert.match(text, /^diff --git a\/new\.txt b\/new\.txt$/m);

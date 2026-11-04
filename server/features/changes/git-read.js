@@ -144,16 +144,7 @@ async function untrackedLines(cwd, file) {
 export async function diffStat(cwd, base) {
   const { text, truncated } = await readBounded(
     cwd,
-    [
-      "-c",
-      "core.quotePath=false",
-      "diff",
-      "--numstat",
-      "-z",
-      "--find-renames",
-      base,
-      "--",
-    ],
+    [...DIFF_FLAGS, "--numstat", "-z", "--find-renames", base, "--"],
     { limit: NUMSTAT_LIMIT, boundary: 0 },
   );
   const tokens = text.split("\0");
