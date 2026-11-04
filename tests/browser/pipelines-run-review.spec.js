@@ -36,6 +36,10 @@ const appFile = (added = "start(port);") => ({
   rowsTruncated: false,
 });
 
+// The search button names its shortcut by platform: ⌘K on macOS, Ctrl+K elsewhere.
+const searchButton = (page) =>
+  page.getByRole("button", { name: /^Search \((⌘|Ctrl\+)K\)$/ });
+
 // The pipelines fixture with one run plus the run's diff and comment routes; `options`
 // adjust the run. Returns the mock, whose answers a test may change.
 async function setup(page, { run: adjust, comments = [] } = {}) {
@@ -266,7 +270,7 @@ test("a history-only run offers no review", async ({ page }) => {
     /\/api\/(ssh-accesses|mcp-servers|secrets|repositories|inbox)$/,
     (route) => route.fulfill({ status: 404, json: { error: "none" } }),
   );
-  await page.getByRole("button", { name: "Search (⌘K)" }).click();
+  await searchButton(page).click();
   const dialog = page.getByRole("dialog", { name: "Search" });
   // the search answers (a page is found), then the action is not among the results
   await dialog.getByRole("combobox").fill("Pipelines");
@@ -432,7 +436,7 @@ test("⌘K Review changes opens the run's changes", async ({ page }) => {
     /\/api\/(ssh-accesses|mcp-servers|secrets|repositories|inbox)$/,
     (route) => route.fulfill({ status: 404, json: { error: "none" } }),
   );
-  await page.getByRole("button", { name: "Search (⌘K)" }).click();
+  await searchButton(page).click();
   const dialog = page.getByRole("dialog", { name: "Search" });
   await dialog.getByRole("combobox").fill("Review changes");
   await dialog
