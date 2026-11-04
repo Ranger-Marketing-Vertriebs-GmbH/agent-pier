@@ -23,7 +23,7 @@ export function viewError(code) {
 }
 
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/;
-const TABS = new Set(["terminal", "chat", "files"]);
+const TABS = new Set(["terminal", "chat", "files", "changes"]);
 const isRecord = (value) =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value);
 export const onlyKeys = (value, keys) =>

@@ -4,6 +4,7 @@ import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { pauseClockSoon } from "./subagent-fixture.js";
 import { docScreenshot } from "../helpers/doc-screenshots.js";
+import { isChangesRead, noChanges } from "../helpers/session-changes-fixture.js";
 
 async function fixture(
   page,
@@ -59,6 +60,7 @@ async function fixture(
       });
     if (/\/sessions\/[^/]+\/github$/.test(path))
       return route.fulfill({ json: { configured: true, hosts: [], remote: null } });
+    if (isChangesRead(path)) return route.fulfill({ json: noChanges });
     throw new Error(`Unexpected presentation fixture request: ${path}`);
   });
   await page.goto(baseURL + "/sessions/presentation/chat");

@@ -42,6 +42,23 @@ test("shell and login sessions cannot inherit chat or change the coding preferen
   }
 });
 
+test("the changes tab is remembered but never becomes the preferred view", () => {
+  let value;
+  const storage = () => ({ getItem: () => value, setItem: (_, next) => (value = next) });
+  const memory = new SessionViewMemory(storage);
+  memory.remember(first, "reader");
+  memory.remember(first, "changes");
+  assert.equal(memory.mode(first, false), "changes");
+  assert.equal(memory.mode(second, false), "reader");
+  const shell = { id: "shell", tool: "shell" };
+  memory.remember(shell, "changes");
+  assert.equal(memory.mode(shell, false), "changes");
+  const restored = new SessionViewMemory(storage);
+  assert.equal(restored.mode(first, false), "changes");
+  assert.equal(restored.mode(second, false), "reader");
+  assert.equal(new SessionViewMemory(() => null).mode(second, false), "terminal");
+});
+
 test("unavailable or corrupt storage does not break view memory", () => {
   for (const storage of [
     () => {

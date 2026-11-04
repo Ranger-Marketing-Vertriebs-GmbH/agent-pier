@@ -2,6 +2,7 @@ import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fix
 import { expect } from "@playwright/test";
 import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 import { baseURL } from "../helpers/browser.js";
+import { isChangesRead, noChanges } from "../helpers/session-changes-fixture.js";
 
 const tool = (id, description, type, status, text, agentId) => ({
   id,
@@ -135,6 +136,7 @@ export async function subagentFixture(page, { older = false } = {}) {
       });
     if (/\/sessions\/[^/]+\/github$/.test(path))
       return route.fulfill({ json: { configured: true, hosts: [], remote: null } });
+    if (isChangesRead(path)) return route.fulfill({ json: noChanges });
     throw new Error(`Unexpected subagent fixture request: ${path}`);
   });
   await page.goto(baseURL + "/sessions/subagents/chat");

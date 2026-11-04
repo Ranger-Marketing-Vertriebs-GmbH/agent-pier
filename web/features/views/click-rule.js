@@ -44,7 +44,7 @@ export function singleRoute(item, tab) {
 /** The pane tab of a session view mode (`reader` is the chat tab), or undefined. */
 export function tabOfMode(mode) {
   if (mode === "reader") return "chat";
-  return mode === "terminal" || mode === "files" ? mode : undefined;
+  return ["terminal", "files", "changes"].includes(mode) ? mode : undefined;
 }
 
 const usedTime = (view) => {

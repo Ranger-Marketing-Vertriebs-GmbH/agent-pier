@@ -3,6 +3,7 @@ import { test, expect } from "../helpers/browser-test.js";
 import { subagentFixture } from "./subagent-fixture.js";
 import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 import { baseURL } from "../helpers/browser.js";
+import { isChangesRead, noChanges } from "../helpers/session-changes-fixture.js";
 
 const copy = {
   "de-DE": {
@@ -164,6 +165,7 @@ async function codexFixture(page, observability, tool = "codex") {
       });
     if (/\/sessions\/[^/]+\/github$/.test(path))
       return route.fulfill({ json: { configured: true, hosts: [], remote: null } });
+    if (isChangesRead(path)) return route.fulfill({ json: noChanges });
     throw new Error(`Unexpected token fixture request: ${path}`);
   });
   await page.goto(baseURL + "/sessions/tokens/chat");

@@ -14,6 +14,7 @@ import { sessionWorkspaceCopy as copy } from "../../lib/i18n/messages/sessions.j
 import { viewsCopy } from "../../lib/i18n/messages/views.js";
 import { RowMenu, useRowMenu } from "../extensions/RowMenu.jsx";
 import { sessionActivity } from "./sessionPresentation.js";
+import ChangesBadge from "./ChangesBadge.jsx";
 
 const SessionPreviews = lazy(() => import("../previews/SessionPreviews.jsx"));
 const SessionArtifacts = lazy(() => import("../artifacts/SessionArtifacts.jsx"));
@@ -22,7 +23,7 @@ const folderName = (cwd = "") => cwd.split("/").filter(Boolean).at(-1) || cwd;
 
 /**
  * One compact row on top of a session pane: name, activity, repository and CLI, the
- * Terminal / Chat / Files switch, previews, ⋯ (the pane's own entries, then the
+ * Terminal / Chat / Files / Changes switch, previews, ⋯ (the pane's own entries, then the
  * session's actions and its artifacts) and × to take the pane out of the view.
  */
 export default function SessionPaneHeader({
@@ -36,6 +37,8 @@ export default function SessionPaneHeader({
   navigate,
   // The terminal or chat connection; a lost one shows as a small "Disconnected" chip.
   connection,
+  // Changed files of the session's workspaces, shown as the Changes tab's badge.
+  changed = 0,
 }) {
   const menu = useRowMenu();
   const [artifactsOpen, setArtifactsOpen] = useState(false);
@@ -60,14 +63,16 @@ export default function SessionPaneHeader({
         ]
       : []),
   ];
-  const tab = (value, icon, label) => (
+  const tab = (value, icon, label, extra = {}) => (
     <button
       type="button"
       className={mode === value ? "selected" : ""}
+      aria-label={extra.name}
       onClick={() => setMode(value)}
     >
       {icon}
       {label}
+      {extra.badge}
     </button>
   );
   return (
@@ -82,7 +87,7 @@ export default function SessionPaneHeader({
               pulse={activity === "working"}
               label={activityLabel}
             />
-            {connection === "disconnected" && mode !== "files" && (
+            {connection === "disconnected" && mode !== "files" && mode !== "changes" && (
               <span
                 className="session-pane-offline"
                 role="status"
@@ -109,6 +114,10 @@ export default function SessionPaneHeader({
               copy.chatTab,
             )}
           {tab("files", <Icon name="folder" size={15} />, filesCopy.tab)}
+          {tab("changes", <Icon name="diff" size={15} />, copy.changesTab, {
+            name: changed ? copy.changesTabCount(changed) : undefined,
+            badge: <ChangesBadge count={changed} />,
+          })}
         </div>
         <div className="session-pane-actions">
           {coding && (

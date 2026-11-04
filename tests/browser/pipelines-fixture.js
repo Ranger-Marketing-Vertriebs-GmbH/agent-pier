@@ -2,6 +2,7 @@ import { fulfillDormantAssistantRequest } from "../helpers/assistant-browser-fix
 import { expect } from "@playwright/test";
 import { baseURL } from "../helpers/browser.js";
 import { runCountsAnswer } from "../helpers/run-counts.js";
+import { isChangesRead, noChanges } from "../helpers/session-changes-fixture.js";
 export async function pipelinesFixture(page) {
   const profile = {
     id: "profile-one",
@@ -260,6 +261,7 @@ export async function pipelinesFixture(page) {
       result = { messages: [], tasks: [], availability: "ready" };
     else if (/\/sessions\/[^/]+\/github$/.test(path))
       result = { configured: true, hosts: [], remote: null };
+    else if (isChangesRead(path)) result = noChanges;
     else throw Error(`Unexpected pipeline fixture request ${method} ${path}`);
     await route.fulfill({ json: result });
   });

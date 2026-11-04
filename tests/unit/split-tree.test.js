@@ -151,6 +151,12 @@ test("setRatio ignores non-finite values, setTab unknown tabs, paneLeaf extra fi
   assert.deepEqual(paneLeaf({ ...c1, extra: 1 }).item, c1);
 });
 
+test("a pane may show the changes tab", () => {
+  const changes = setTab(pair, "session:s1", "changes");
+  assert.notEqual(changes, pair);
+  assert.equal(panes(changes).find((p) => p.key === "session:s1").tab, "changes");
+});
+
 test("dropItem moves an existing item together with its tab", () => {
   const files = setTab(pair, "session:s1", "files");
   const moved = dropItem(files, s1, "chat:a1:c1", "right");

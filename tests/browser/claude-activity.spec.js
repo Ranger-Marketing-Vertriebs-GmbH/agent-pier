@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { test, expect } from "../helpers/browser-test.js";
 import { parseSessionActivity } from "../../server/features/sessions/session-activity.js";
 import { mockChatStream } from "../helpers/chat-stream-fixture.js";
+import { isChangesRead, noChanges } from "../helpers/session-changes-fixture.js";
 
 test.use({ locale: "en-GB" });
 
@@ -55,6 +56,7 @@ test("Claude native activity drives English session and chat indicators through 
       });
     if (/\/sessions\/[^/]+\/github$/.test(path))
       return route.fulfill({ json: { configured: true, hosts: [], remote: null } });
+    if (isChangesRead(path)) return route.fulfill({ json: noChanges });
     throw new Error(`Unexpected Claude activity request: ${path}`);
   });
   await page.goto("/sessions/claude-activity/chat");

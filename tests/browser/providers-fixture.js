@@ -9,6 +9,7 @@ import {
 import { runCountsAnswer } from "../helpers/run-counts.js";
 import { noPreviews } from "../helpers/previews-fixture.js";
 import { noViews } from "../helpers/views-fixture.js";
+import { isChangesRead, noChanges } from "../helpers/session-changes-fixture.js";
 const emptyUsage = {
   agentsEnabled: false,
   connections: {},
@@ -456,6 +457,7 @@ export async function fixture(page, { account, session } = {}) {
       });
     if (/\/sessions\/[^/]+\/github$/.test(path))
       return route.fulfill({ json: { configured: true, hosts: [], remote: null } });
+    if (isChangesRead(path)) return route.fulfill({ json: noChanges });
     const status = systemStatusAnswer(path);
     if (status) return route.fulfill({ json: status });
     // Creating an agent offers it to a restricted user; fixtures have none.

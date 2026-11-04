@@ -6,16 +6,19 @@ import { MAX_COMMENT_BYTES, editorKey, editorState } from "./diff-review-state.j
 import "./diff-review.css";
 
 // A Markdown comment field with Save and Cancel; ⌘/Ctrl+Enter saves, Escape cancels.
-// `onChange` hears each edit, so a parent can keep the draft across a remount.
+// `onChange` hears each edit, so a parent can keep the draft across a remount; a
+// parent that keeps the save itself across a remount passes it as `saving`.
 export default function CommentEditor({
   initial = "",
   label,
   onChange,
   onSave,
   onCancel,
+  saving = false,
 }) {
   const [text, setText] = useState(initial);
-  const [busy, setBusy] = useState(false);
+  const [ownBusy, setBusy] = useState(false);
+  const busy = saving || ownBusy;
   const [error, setError] = useState("");
   const id = useId();
   const state = editorState(text);

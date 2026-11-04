@@ -202,7 +202,7 @@ export function readRoute(location) {
     return idPattern.test(split[1])
       ? { view: "split", viewId: split[1] }
       : { view: "missing" };
-  const session = /^\/sessions\/([^/]+)(?:\/(chat|reader|terminal|files))?$/.exec(
+  const session = /^\/sessions\/([^/]+)(?:\/(chat|reader|terminal|files|changes))?$/.exec(
     pathname,
   );
   if (session && idPattern.test(session[1]))

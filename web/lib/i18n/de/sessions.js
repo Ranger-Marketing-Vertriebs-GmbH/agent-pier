@@ -66,6 +66,21 @@ export const sessionWorkspaceCopy = {
   startedByAgent: (name) => `Gestartet von Agent ${name}`,
   ticket: (label) => `Ticket: ${label}`,
   sessionFooterLabel: "Die Session läuft bei geschlossenem Browser weiter.",
+  changesTab: "Änderungen",
+  changesTabCount: (n) =>
+    `Änderungen, ${n} ${n === 1 ? "geänderte Datei" : "geänderte Dateien"}`,
+};
+
+export const sessionChangesCopy = {
+  loading: "Änderungen werden geladen …",
+  notRepository: "Der Ordner dieser Session ist kein Git-Repository.",
+  workspace: "Arbeitsbereich",
+  sessionDirectory: "Session-Ordner",
+  baseMergeBase: (name) => `Seit der Abzweigung von ${name}`,
+  baseStart: "Seit dem Start der Session",
+  baseFirstOpen: "Seit diese Session nach dem Update zum ersten Mal angesehen wurde",
+  baseHead: "Nur nicht committete Änderungen",
+  noChanges: "Keine Änderungen in diesem Arbeitsbereich.",
 };
 
 export const sessionReloadCopy = {

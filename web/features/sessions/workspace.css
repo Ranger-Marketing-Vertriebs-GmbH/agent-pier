@@ -84,6 +84,11 @@
   color: #ffc99d;
   background: #2a2b2f;
 }
+/* The Changes tab's count of changed files (ChangesBadge). */
+.segmented .session-changes-badge {
+  padding: 0 var(--space-1);
+  line-height: 16px;
+}
 .connection {
   display: flex;
   align-items: center;

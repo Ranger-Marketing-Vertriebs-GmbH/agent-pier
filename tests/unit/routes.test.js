@@ -207,6 +207,17 @@ test("file explorer links retain Unicode paths, preview and pagination", () => {
   assert.deepEqual(read(routePath(route)), route);
   assert.equal(read("/sessions/demo/files?page=-1").filePage, 1);
 });
+test("the changes tab has its own address", () => {
+  assert.deepEqual(read("/sessions/demo/changes"), {
+    view: "workspace",
+    sessionId: "demo",
+    mode: "changes",
+  });
+  assert.equal(
+    routePath({ view: "workspace", sessionId: "demo", mode: "changes" }),
+    "/sessions/demo/changes",
+  );
+});
 test("the central MCP list has its own Zugänge address", () => {
   const route = read("/connections?section=mcp-servers");
   assert.deepEqual(route, { view: "connections", section: "mcp-servers" });
