@@ -8,11 +8,11 @@ import { launchStage } from "./execution-stage.js";
 const RETURNS_KEPT = 20;
 
 // The stages the owner can send a run back to: those that ran at least once, without
-// parallel group members, in rail order.
+// parallel groups and their members, in rail order.
 export function returnableStages(run) {
   const ran = new Set((run.executionLog || []).map((a) => a.nodeId));
   return (run.nodes || [])
-    .filter((n) => !n.group && ran.has(n.id))
+    .filter((n) => !n.group && n.kind !== "parallel" && ran.has(n.id))
     .map((n) => ({ id: n.id, name: n.profileSnapshot?.name || n.id }));
 }
 
@@ -31,7 +31,12 @@ export async function reopenAtStage(engine, run, { nodeId, note, requestId }) {
   };
   // Not the real loop edge's key: owner rounds count on their own.
   const key = `owner:${edge.from}->${edge.to}`;
-  const iteration = (run.loopRounds || []).filter((r) => r.edge === key).length + 1;
+  // The history keeps only the newest rounds per key, so the count would stall.
+  const iteration =
+    Math.max(
+      0,
+      ...(run.loopRounds || []).filter((r) => r.edge === key).map((r) => r.round),
+    ) + 1;
   const at = engine.now();
   recordRound(
     run,

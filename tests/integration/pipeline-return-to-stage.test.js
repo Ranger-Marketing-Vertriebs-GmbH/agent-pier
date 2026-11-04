@@ -125,10 +125,7 @@ test("only stages that ran are offered; members stay out", async (t) => {
     ],
     executionLog: [{ nodeId: "a" }, { nodeId: "g" }, { nodeId: "m" }],
   };
-  assert.deepEqual(returnableStages(synthetic), [
-    { id: "a", name: "Alpha" },
-    { id: "g", name: "g" },
-  ]);
+  assert.deepEqual(returnableStages(synthetic), [{ id: "a", name: "Alpha" }]);
 });
 
 test("a repeated request id reopens once and the history stays bounded", async (t) => {
@@ -141,8 +138,38 @@ test("a repeated request id reopens once and the history stays bounded", async (
   assert.equal(current().returns.length, 1);
   const run = f.engine.store.get(current().id);
   run.returns = Array.from({ length: 25 }, (_, i) => ({ requestId: `r${i}` }));
-  f.engine.store.save(run);
   run.status = "completed";
+  f.engine.store.save(run);
   await reopen({ nodeId: "review", note: "More", requestId: "new" });
   assert.equal(current().returns.length, 20);
+  assert.equal(current().returns[0].requestId, "r6");
+  assert.equal(current().returns.at(-1).requestId, "new");
+});
+
+test("a second owner return to the same stage records round 2 under the owner key", async (t) => {
+  const { f, reopen, current } = await completed(t);
+  await reopen({ nodeId: "review", note: "First", requestId: "req-1" });
+  await f.end(pass("Reviewed again"), { nativeId: "native-review" });
+  await f.end(pass("Approved again"), { nativeId: "native-approve" });
+  assert.equal(current().status, "completed");
+  await reopen({ nodeId: "review", note: "Second", requestId: "req-2" });
+  const rounds = current().loopRounds.filter((r) => r.edge === "owner:approve->review");
+  assert.deepEqual(
+    rounds.map((r) => r.round),
+    [1, 2],
+  );
+  assert.equal(current().nodes[1].loop.iteration, 2);
+});
+
+test("the round number follows the last kept round once old ones are trimmed", async (t) => {
+  const { reopen, current, f, run } = await completed(t);
+  const saved = f.engine.store.get(run.id);
+  saved.loopRounds = Array.from({ length: 10 }, (_, i) => ({
+    edge: "owner:approve->review",
+    round: i + 5,
+    toNodeId: "review",
+  }));
+  f.engine.store.save(saved);
+  await reopen({ nodeId: "review", note: "Late", requestId: "req-9" });
+  assert.equal(current().loopRounds.at(-1).round, 15);
 });
