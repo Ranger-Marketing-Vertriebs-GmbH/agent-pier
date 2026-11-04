@@ -719,3 +719,11 @@ git commit -m "feat: find a session's changes from the search"
 ```
 
 The spec and plan 3 stay (unfinished work of AGENTPIER-222). PR description lists the docs checked: `docs/diff-review.md` (new), `docs/architecture.md`, `docs/views.md`, `README.md`, `README.de.md`.
+
+## Carried rulings from PR 1 (binding)
+
+- Every server `git diff` call passes `-c core.quotePath=false --src-prefix=a/ --dst-prefix=b/` together with `--no-ext-diff --no-textconv --no-color`, so user git config cannot break the parser's `a/`/`b/` assumption.
+- Import `fileLanguage` from `web/components/diff/file-language.js`, not from `web/features/chat/tool-output.js`.
+- Fix the double save in `web/components/diff/DiffFile.jsx`: when the files refresh during an in-flight save, the editor remounts and loses its `busy` flag. Keep `busy` in a ref, like the draft text, and add a test.
+- Add the `DiffFile` and `Row` JSDoc typedefs to `server/features/changes/diff-parse.js` when the session routes first return files.
+- The hook's write functions come from `writesOf()` in `web/features/review/review-comment-requests.js`; they are stable and reject when the scope is null.
