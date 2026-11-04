@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   diffFailure,
+  gateWaits,
   keptDiff,
   runDiffKey,
   stageDiff,
@@ -31,6 +32,27 @@ test("the run diff is read again when status, stage, attempts or the refresh cha
     runDiffKey(run({ executionLog: undefined }), 0),
     runDiffKey(run({ executionLog: [] }), 0),
   );
+});
+
+test("a group member starting to wait reads the diff again", () => {
+  const key = runDiffKey(run({ memberActions: {} }), 0);
+  assert.equal(runDiffKey(run(), 0), key);
+  // an empty list is no waiting member
+  assert.equal(runDiffKey(run({ memberActions: { a: [] } }), 0), key);
+  const waiting = runDiffKey(run({ memberActions: { a: ["feedback"] } }), 0);
+  assert.notEqual(waiting, key);
+  // only which members wait counts, not their order or actions
+  assert.equal(
+    runDiffKey(run({ memberActions: { b: ["retry"], a: ["feedback"] } }), 0),
+    runDiffKey(run({ memberActions: { a: ["override"], b: ["feedback"] } }), 0),
+  );
+});
+
+test("comments are writable while the run's or a member's gate waits", () => {
+  assert.equal(gateWaits(run(), true), true);
+  assert.equal(gateWaits(run(), false), false);
+  assert.equal(gateWaits(run({ memberActions: { a: [] } }), false), false);
+  assert.equal(gateWaits(run({ memberActions: { a: ["feedback"] } }), false), true);
 });
 
 test("an answer with the shown fingerprint keeps the shown diff", () => {

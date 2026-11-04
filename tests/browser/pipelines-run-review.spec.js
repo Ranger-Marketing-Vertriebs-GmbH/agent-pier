@@ -73,7 +73,7 @@ async function setup(page, { run: adjust } = {}) {
     return route.fulfill({ json: { comments: mock.comments, batches: 0 } });
   });
   await openPipelines(page, "runs/run-one");
-  await expect(page.getByText("Missing validation", { exact: false })).toBeVisible();
+  await expect(page.getByText("Review the application").first()).toBeVisible();
   return mock;
 }
 
@@ -86,10 +86,12 @@ test("the run's changes open on demand and take comments", async ({ page }) => {
   const mock = await setup(page);
   await expect(reviewButton(page)).toHaveAttribute("aria-expanded", "false");
   await expect(page.getByRole("region", { name: /Diff of/ })).toHaveCount(0);
+  await expect(reviewButton(page).locator(".run-changes-cue")).toHaveText("▸");
   expect(mock.diffReads).toBe(0);
 
   await reviewButton(page).click();
   await expect(reviewButton(page)).toHaveAttribute("aria-expanded", "true");
+  await expect(reviewButton(page).locator(".run-changes-cue")).toHaveText("▾");
   await expect(appRegion(page).getByText("start(port);")).toBeVisible();
   expect(mock.diffReads).toBe(1);
 
@@ -159,6 +161,54 @@ test("without a waiting gate the changes are read-only", async ({ page }) => {
   await reviewButton(page).click();
   await appRegion(page).getByText("start(port);").click();
   await expect(page.getByRole("button", { name: /Comment on line/ })).toHaveCount(0);
+});
+
+// A run whose parallel group waits on one member's decision, not on a run gate.
+function groupGate(run) {
+  run.status = "running";
+  run.currentNodeId = "review";
+  run.actions = ["abort"];
+  run.memberActions = {};
+  run.nodes = [
+    { ...run.nodes[0], status: "passed" },
+    {
+      id: "review",
+      kind: "parallel",
+      members: ["security", "ux"],
+      concurrency: 2,
+      label: "Security · UX",
+      status: "running",
+    },
+    {
+      id: "security",
+      group: "review",
+      profileSnapshot: { ...run.nodes[0].profileSnapshot, name: "Security" },
+      status: "reported",
+      verdict: { result: "fail", summary: "Injection risk", requiresHuman: true },
+    },
+    {
+      id: "ux",
+      group: "review",
+      profileSnapshot: { ...run.nodes[0].profileSnapshot, name: "UX" },
+      status: "running",
+    },
+  ];
+}
+
+test("a waiting group member makes the changes writable", async ({ page, liveStub }) => {
+  const mock = await setup(page, { run: groupGate });
+  await reviewButton(page).click();
+  await appRegion(page).getByText("start(port);").click();
+  await expect(page.getByRole("button", { name: /Comment on line/ })).toHaveCount(0);
+  expect(mock.diffReads).toBe(1);
+
+  // the member starts to wait: the push reads the diff again and comments open
+  mock.run.memberActions = { security: ["feedback"] };
+  await liveStub.reread("pipeline.run:run-one");
+  await expect.poll(() => mock.diffReads).toBe(2);
+  await appRegion(page).getByText("start(port);").click();
+  await page.getByRole("button", { name: "Comment on line 3" }).click();
+  await expect(page.getByLabel("Comment (Markdown)")).toBeVisible();
 });
 
 test("a gone worktree says so", async ({ page }) => {
