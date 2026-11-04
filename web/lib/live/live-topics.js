@@ -50,6 +50,13 @@ export const liveTopics = Object.freeze({
     path: (id) => `/pipeline-runs/${encodeURIComponent(id)}/review-comments`,
     interval: 30000,
   }),
+  // A session's working-tree changes, sampled every 60 s and at native activity.
+  "session.changes": Object.freeze({
+    mode: "state",
+    path: session("changes"),
+    interval: 60000,
+    sampled: true,
+  }),
   // The owner's split views (server/features/views/live-topics.js), pushed per write.
   views: Object.freeze({ mode: "state", path: () => "/views", interval: 30000 }),
   // The owner's ticket sources (server/features/tickets/live-topics.js): the Plane

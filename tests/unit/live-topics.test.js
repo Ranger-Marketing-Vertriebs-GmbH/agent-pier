@@ -377,3 +377,11 @@ test("a restricted user reaches no review topic", () => {
   assert.equal(liveGate({ role: "user", userId: "u" }, "pipeline.review:r1"), false);
   assert.equal(liveGate({ role: "owner" }, "session.review:s1"), true);
 });
+
+test("the changes topic names its route and is sampled", () => {
+  const info = topicInfo("session.changes:s1");
+  assert.equal(info.path(info.param), "/sessions/s1/changes");
+  assert.deepEqual([info.mode, info.interval, info.sampled], ["state", 60000, true]);
+  assert.equal(topicInfo("session.changes"), null);
+  assert.equal(liveGate({ role: "user", userId: "u" }, "session.changes:s1"), false);
+});
