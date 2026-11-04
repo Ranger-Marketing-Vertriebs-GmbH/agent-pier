@@ -29,7 +29,7 @@ export const pipelines = Object.freeze({
   feedbackSize: "Rückmeldungen müssen zwischen 1 und 32768 Bytes enthalten.",
   invalidLoopFeedback: "Ungültige Rückmeldung für die Schleife.",
   operatorRepairRound: "Eine weitere Korrekturrunde wurde angefordert.",
-  returnBlocked: {
+  returnBlocked: Object.freeze({
     imported:
       "Importierter Pipeline-Verlauf kann nicht zurückgeschickt werden. Bitte einen neuen Lauf starten.",
     notFinished:
@@ -48,7 +48,7 @@ export const pipelines = Object.freeze({
     prUnknown: "GitHub konnte nicht sagen, ob der Pull Request des Laufs noch offen ist.",
     sequenceWatching:
       "Eine Ticketfolge verfolgt diesen Lauf. Bitte das Ticket zuerst aus der Folge entfernen.",
-  },
+  }),
   returnStageUnknown: "Der Lauf kann nicht an diese Stufe zurückgeschickt werden.",
   returnNoteRequired:
     "Bitte beschreiben, was die Stufe ändern soll, oder Review-Notizen hinzufügen.",

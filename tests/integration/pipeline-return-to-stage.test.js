@@ -377,9 +377,16 @@ test("an unknown stage, an empty note or a bad request id is refused", async (t)
       requestReturn(f.engine, run.id, body({ feedback: "", ...extra })),
       { status: 400, message: copy.returnNoteRequired },
     );
-  await assert.rejects(requestReturn(f.engine, run.id, body({ requestId: "../x" })), {
-    status: 400,
-  });
+  for (const requestId of [undefined, "", "../x", 7])
+    await assert.rejects(requestReturn(f.engine, run.id, body({ requestId })), {
+      status: 400,
+      message: copy.invalidIdentifier,
+    });
+  for (const feedback of [42, { text: "x" }, ["x"]])
+    await assert.rejects(requestReturn(f.engine, run.id, body({ feedback })), {
+      status: 400,
+      message: copy.invalidLoopFeedback,
+    });
   await assert.rejects(
     requestReturn(f.engine, run.id, body({ feedback: "x".repeat(40000) })),
     { status: 409, code: "PIPELINE_FEEDBACK_TOO_LARGE" },
@@ -406,6 +413,23 @@ test("the notes alone are enough, go along once and are marked sent after the re
     [["pipeline.updated", { kind: "return", stageId: "review", comments: 1 }]],
   );
   assert.equal(current().returns.length, 1);
+});
+
+test("a failed run goes back to a stage as well", async (t) => {
+  const { f, run, edit, current } = await returnable(t);
+  edit((r) => {
+    r.status = "failed";
+    r.nodes.at(-1).status = "failed";
+  });
+  assert.equal((await returnOptions(f.engine, run.id)).available, true);
+  const count = f.launches.length;
+  await requestReturn(f.engine, run.id, body({ nodeId: "build" }));
+  assert.equal(current().status, "running");
+  assert.equal(f.launches.length, count + 1);
+  assert.deepEqual(
+    current().returns.map((r) => r.nodeId),
+    ["build"],
+  );
 });
 
 // A real run queue of the fixture's project with one slot.

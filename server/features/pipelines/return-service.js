@@ -33,7 +33,9 @@ export async function returnOptions(engine, id) {
 }
 
 // A project with a run queue takes the return only into a free slot of its limit; a
-// run without a registered project goes back at once.
+// run without a registered project goes back at once. The check holds only the run's
+// lock, not the queue's: a concurrent return or queue pass can briefly exceed the
+// limit by one, which the owner accepted with the no-queue ruling.
 function slotFree(queue, run) {
   const projectId = run.projectId ?? run.expectedProjectId;
   if (!queue || !projectId || !queue.exists(projectId)) return true;
