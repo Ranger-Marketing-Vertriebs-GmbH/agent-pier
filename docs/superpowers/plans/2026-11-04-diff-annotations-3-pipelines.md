@@ -664,3 +664,10 @@ PR description lists the docs checked: `docs/pipelines.md`, `docs/diff-review.md
 
 - Every server `git diff` call passes `-c core.quotePath=false --src-prefix=a/ --dst-prefix=b/` together with `--no-ext-diff --no-textconv --no-color`.
 - `combineFeedback` in `server/features/changes/review-batch.js` accepts null parts; the batch header already says run paths are relative to the run's workspace — verify that run entries really are workspace-relative.
+
+## Carried rulings from PR 2 (binding)
+
+- Reuse `server/features/changes/git-read.js` for the whole-run diff (`workspaceDiff`, `diffStat` with its `fingerprint`, `DIFF_FLAGS`, `readBounded`) instead of a second reader; `WorkspaceManager.diff` fails on output over its buffer instead of truncating.
+- `commentInput` already accepts `..` in `workspace`; run comments keep an empty workspace.
+- Restricted users get 404 (not 403) on owner-only routes; test with `routeAccess()` and a user principal.
+- Live topics: `session.changes` samples every 60 s plus native-activity reads; a run diff view should follow the existing run topics and include the fingerprint in its re-read key so equal-count edits refresh.
