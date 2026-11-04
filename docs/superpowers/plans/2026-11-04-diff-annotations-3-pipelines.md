@@ -659,3 +659,8 @@ git commit -m "feat: return a finished pipeline run to a chosen stage"
 ```
 
 PR description lists the docs checked: `docs/pipelines.md`, `docs/diff-review.md`, `docs/architecture.md`, `README.md`, `README.de.md`; the spec and all three plans are gone with this PR.
+
+## Carried rulings from PR 1 (binding)
+
+- Every server `git diff` call passes `-c core.quotePath=false --src-prefix=a/ --dst-prefix=b/` together with `--no-ext-diff --no-textconv --no-color`.
+- `combineFeedback` in `server/features/changes/review-batch.js` accepts null parts; the batch header already says run paths are relative to the run's workspace — verify that run entries really are workspace-relative.

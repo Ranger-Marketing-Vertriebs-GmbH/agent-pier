@@ -123,17 +123,19 @@ It must work both in sessions and in pipeline runs, and on the phone.
   position. If it cannot be found, the comment is marked outdated and stays visible in a
   list for that file.
 - **Batch format** (plain text/Markdown so any CLI understands it), one entry per open
-  comment:
-  ```
+  comment. The exact text is pinned by `tests/unit/review-batch.test.js`; in short:
+
+  ````text
   Review notes (3):
+  Paths are relative to the session directory (for runs: the run's workspace).
 
   1. .worktrees/feat/x/server/a.js:42
-  ```
-  - if (pw === user.pw) return ok();
-  * if (await verify(pw, user.hash)) return ok();
-  ```
-  Use a constant-time comparison here.
-  ```
+     ```
+     - if (pw === user.pw) return ok();
+     + if (await verify(pw, user.hash)) return ok();
+     ```
+     Use a constant-time comparison here.
+  ````
 
 ### Session Changes tab (step 2)
 
