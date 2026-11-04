@@ -8,6 +8,7 @@ export const sectionIds = [
   "controls",
   "choices",
   "feedback",
+  "diff",
   "overlays",
   "layout",
   "saveBar",

@@ -28,6 +28,14 @@ as text, not opened automatically. Unsupported, binary, malformed or oversized d
 uses the existing bounded raw output renderer. Partial multi-edit extraction falls
 back for the entire operation rather than silently omitting a file.
 
+## Shared renderer
+
+The row renderer is `DiffRows` in `web/components/diff/` (with its lazy highlighting
+and `fileLanguage`). The chat's diffs and the line-comment review view
+(`DiffReview`, see the "Code and diffs" table in `docs/ui-guide.md`) use the same
+component. Chat stays read-only: it passes no selection handler, so rows cannot be
+selected or commented on, and nothing in chat opens or expands by default.
+
 ## Bounds and compatibility
 
 Extraction accepts at most 30 file/replacement records, 100,000 characters per
@@ -39,7 +47,7 @@ The UI shares eight preview units across file headers and rows, then expands in
 200-unit increments. Character limits also bound long individual rows. Highlighting
 is lazy and limited to 20,000-character blocks; old/new sides are tokenized separately
 within visible hunks so multiline comments retain their syntax context. React spans
-render tokens without HTML injection. Code scrolls horizontally within the preview.
+render tokens without HTML injection. These bounds are unchanged by the shared renderer. Code scrolls horizontally within the preview.
 
 History readers, cursors, snapshots and WebSocket deltas retain the additive field.
 Snapshot records have no separate message schema version: older snapshots without

@@ -13,6 +13,7 @@ export const galleryCopy = {
     controls: "Bedienelemente",
     choices: "Auswahl und Tabs",
     feedback: "Status und Rückmeldung",
+    diff: "Diffs",
     overlays: "Dialoge und Sheets",
     layout: "Layout",
     saveBar: "Speicherleiste",
@@ -184,5 +185,15 @@ export const galleryCopy = {
     error: "Fehler",
     conflict: "Konflikt",
     partial: "Teilweise gespeichert",
+  },
+  diff: {
+    editable: "Bearbeitbar, Kommentare bleiben auf dieser Seite",
+    readOnly: "Nur lesen",
+    openBody: "Hier einen **zeitkonstanten** Vergleich verwenden.",
+    resolvedBody: "Die Benennung passt jetzt.",
+    outdatedBody: "Diese Log-Zeile vor dem Merge entfernen.",
+    sentBody: "Den zweiten Zweig bitte auch prüfen.",
+    missingBody: "Dieser Helfer wurde beim Refactoring entfernt.",
+    paged: "Bitte für diesen Wert einen Test ergänzen.",
   },
 };
