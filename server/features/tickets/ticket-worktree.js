@@ -23,6 +23,32 @@ function idSlug(value) {
   return slug(value).slice(0, 8) || "x";
 }
 
+async function hasRemoteRef(projectRoot, name) {
+  return git(projectRoot, [
+    "rev-parse",
+    "--verify",
+    "--quiet",
+    `refs/remotes/origin/${name}^{commit}`,
+  ]).then(
+    () => true,
+    () => false,
+  );
+}
+
+/** Remote default branch only: `origin/HEAD`, then `main`, then `master`. */
+export async function remoteDefaultBranch(projectRoot) {
+  const head = await git(projectRoot, [
+    "symbolic-ref",
+    "--short",
+    "refs/remotes/origin/HEAD",
+  ]).catch(() => "");
+  if (head.startsWith("origin/") && (await hasRemoteRef(projectRoot, head.slice(7))))
+    return head.slice(7);
+  for (const name of ["main", "master"])
+    if (await hasRemoteRef(projectRoot, name)) return name;
+  throw problem(serverMessages.pipelineWorkspaces.originBaseUnavailable, 409);
+}
+
 /** Branch `ticket/<key>-<title>`; ticket text is untrusted, so only [a-z0-9-] survives. */
 export function ticketBranchName(ticket, taken = new Set()) {
   const title = slug(ticket?.title).slice(0, TITLE_SLUG_LIMIT).replace(/-+$/, "");
@@ -103,33 +129,12 @@ export class TicketWorktrees {
     }
   }
 
-  async #hasRemoteRef(projectRoot, name) {
-    return git(projectRoot, [
-      "rev-parse",
-      "--verify",
-      "--quiet",
-      `refs/remotes/origin/${name}^{commit}`,
-    ]).then(
-      () => true,
-      () => false,
-    );
+  #hasRemoteRef(projectRoot, name) {
+    return hasRemoteRef(projectRoot, name);
   }
 
-  /** Remote default branch only: `origin/HEAD`, then `main`, then `master`. */
-  async #defaultBranch(projectRoot) {
-    const head = await git(projectRoot, [
-      "symbolic-ref",
-      "--short",
-      "refs/remotes/origin/HEAD",
-    ]).catch(() => "");
-    if (
-      head.startsWith("origin/") &&
-      (await this.#hasRemoteRef(projectRoot, head.slice(7)))
-    )
-      return head.slice(7);
-    for (const name of ["main", "master"])
-      if (await this.#hasRemoteRef(projectRoot, name)) return name;
-    throw problem(serverMessages.pipelineWorkspaces.originBaseUnavailable, 409);
+  #defaultBranch(projectRoot) {
+    return remoteDefaultBranch(projectRoot);
   }
 
   async #base(projectRoot, baseBranch) {
