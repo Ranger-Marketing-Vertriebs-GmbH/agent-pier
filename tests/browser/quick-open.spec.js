@@ -181,7 +181,9 @@ test("finds sessions, runs, inbox items, projects and chats, fuzzy and recent fi
   );
   await page.keyboard.press("Escape");
 
-  // A run despite the typo, under Pipelines with its status.
+  // A run despite the typo, under Pipelines with its status. The session page may
+  // hand the focus to its terminal, where Ctrl+K stays the shell's kill-line on Linux.
+  await page.locator(".sidebar .sidebar-menu-button").focus();
   await openWithShortcut(page);
   await field(page).fill("flaky logn");
   const run = group(page, "Pipelines").getByRole("option").first();

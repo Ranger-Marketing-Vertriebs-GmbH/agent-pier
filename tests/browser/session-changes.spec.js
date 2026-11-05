@@ -457,8 +457,18 @@ test("a draft and batch over 32,000 characters are refused", async ({ page }) =>
   await expect(composer(page)).toHaveValue(long);
 });
 
-test("a terminal-only session copies the batch", async ({ page, context }) => {
-  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+test("a terminal-only session copies the batch", async ({ page }) => {
+  // A recording clipboard: WebKit has no clipboard permissions to grant.
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: {
+        writeText: (text) => {
+          window.__copied = text;
+          return Promise.resolve();
+        },
+      },
+    });
+  });
   const mock = await setup(page, { comments: openComments() });
   await page.goto(`${baseURL}/sessions/${id}/changes`);
   await sendButton(page).click();
@@ -466,9 +476,7 @@ test("a terminal-only session copies the batch", async ({ page, context }) => {
     "This session has no chat. The review notes were copied to the clipboard.",
   );
   expect(mock.sent).toEqual([["c-app", "c-readme"]]);
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(
-    /^Review notes \(2\):/,
-  );
+  expect(await page.evaluate(() => window.__copied)).toMatch(/^Review notes \(2\):/);
   await expect(page).toHaveURL(new RegExp(`/sessions/${id}/changes$`));
 });
 
