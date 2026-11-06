@@ -80,7 +80,51 @@ test("codex event matches by count", () => {
   assert.equal(matches.length, 1);
 });
 
-test("two deliveries take events in order", () => {
+test("two deliveries in turn: Enter, event, Enter, event", () => {
+  const { matches, acceptance } = setup();
+  acceptance.expect("s1", { deliveryId: "d1", since: 1000, imageNames: [] });
+  acceptance.report("s1", accepted(1010));
+  acceptance.expect("s1", { deliveryId: "d2", since: 1020, imageNames: [] });
+  acceptance.report("s1", accepted(1030));
+  assert.deepEqual(
+    matches.map((m) => m.deliveryId),
+    ["d1", "d2"],
+  );
+});
+
+test("events reported after both Enters still go to their own delivery by time", () => {
+  const { matches, acceptance } = setup();
+  acceptance.expect("s1", { deliveryId: "d1", since: 1000, imageNames: [] });
+  acceptance.expect("s1", { deliveryId: "d2", since: 1005, imageNames: [] });
+  // Both reach the matcher after the second Enter, dated between and after it.
+  acceptance.report("s1", accepted(1003));
+  acceptance.report("s1", accepted(1010));
+  assert.deepEqual(
+    matches.map((m) => m.deliveryId),
+    ["d1", "d2"],
+  );
+});
+
+test("a delivery without an event never takes the next delivery's event", () => {
+  const { matches, acceptance } = setup();
+  // D1 is hook-blocked without an event (or a command with no submit event).
+  acceptance.expect("s1", { deliveryId: "d1", since: 1000, imageNames: [] });
+  acceptance.expect("s1", { deliveryId: "d2", since: 2000, imageNames: [] });
+  acceptance.report("s1", accepted(2010));
+  assert.deepEqual(
+    matches.map((m) => m.deliveryId),
+    ["d2"],
+  );
+  // D1 is retired: it stays handed-off and a later event finds nothing open.
+  acceptance.report("s1", accepted(2020));
+  acceptance.expect("s1", { deliveryId: "d3", since: 2030, imageNames: [] });
+  assert.deepEqual(
+    matches.map((m) => m.deliveryId),
+    ["d2"],
+  );
+});
+
+test("an event dated after two Enters goes to the newest; the older one asks", () => {
   const { matches, acceptance } = setup();
   acceptance.expect("s1", { deliveryId: "d1", since: 1000, imageNames: [] });
   acceptance.expect("s1", { deliveryId: "d2", since: 1005, imageNames: [] });
@@ -88,7 +132,36 @@ test("two deliveries take events in order", () => {
   acceptance.report("s1", accepted(1020));
   assert.deepEqual(
     matches.map((m) => m.deliveryId),
-    ["d1", "d2"],
+    ["d2"],
+  );
+});
+
+test("a match retires older deliveries, also those the event did not fit", () => {
+  const { matches, acceptance } = setup();
+  acceptance.expect("s1", { deliveryId: "d1", since: 1000, imageNames: ["a.png"] });
+  acceptance.expect("s1", { deliveryId: "d2", since: 1005, imageNames: [] });
+  acceptance.report("s1", accepted(1010));
+  // D2 matched and retired D1, which the event never fit: it gets no late match.
+  acceptance.report("s1", accepted(1020, ["a.png"]));
+  assert.deepEqual(
+    matches.map((m) => m.deliveryId),
+    ["d2"],
+  );
+});
+
+test("a buffered event goes to the delivery it fits and keeps newer ones open", () => {
+  const { matches, acceptance } = setup();
+  acceptance.report("s1", accepted(1010));
+  acceptance.expect("s1", { deliveryId: "d1", since: 1020, imageNames: [] });
+  acceptance.expect("s1", { deliveryId: "d2", since: 1005, imageNames: [] });
+  assert.deepEqual(
+    matches.map((m) => m.deliveryId),
+    ["d2"],
+  );
+  acceptance.report("s1", accepted(1030));
+  assert.deepEqual(
+    matches.map((m) => m.deliveryId),
+    ["d2", "d1"],
   );
 });
 
