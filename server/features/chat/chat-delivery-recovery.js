@@ -268,6 +268,14 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
         allowComposerDraft: plan === "resend",
         onPhase: async (phase) => {
           if (intents.has(phase)) requireCurrentChatInput(delivery.requests, id);
+          if (phase === "submit-intent")
+            await delivery.expectAcceptance(
+              id,
+              file,
+              tx.session.tool,
+              receipt,
+              normalized,
+            );
           receipt.journal = { phase, generation: tx.recoveryGeneration };
           delivery.write(file, receipt);
         },
@@ -294,20 +302,24 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
       heldMode[receipt.journal.phase]
     ) {
       if (receipt.journal.phase === "reserved") receipt.status = "pending";
+      // Enter was never sent: an event meanwhile was not this message.
+      delivery.earlyAcceptance.delete(file);
       return hold(waitingFor(code), code, proof);
     }
+    delivery.settleAcceptance(file, receipt);
+    const delivered = ["handed-off", "accepted"].includes(receipt.status);
     return finish(
-      receipt.status === "handed-off"
+      delivered
         ? { resend: "resent", text: "completed-existing", submit: "submitted-existing" }[
             plan
           ]
         : "blocked",
-      receipt.status === "handed-off"
+      delivered
         ? copy.recoveryHandedOff
         : receipt.status === "rejected"
           ? copy.rejected
           : copy.recoveryUncertain,
-      code,
+      delivered ? undefined : code,
     );
   });
 }

@@ -71,6 +71,7 @@ export class DeliveryQueue {
     const index = queue.indexOf(job);
     if (index >= 0) queue.splice(index, 1);
     if (!queue.length) this.queues.delete(job.id);
+    this.delivery.earlyAcceptance?.delete(job.file);
     // A receipt no longer held answers its own status (pending becomes uncertain).
     if (this.delivery.active.delete(job.file)) this.delivery.changed?.(job.id);
     job.attempted?.();

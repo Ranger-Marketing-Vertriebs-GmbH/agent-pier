@@ -13,6 +13,8 @@ import {
 } from "./chat-delivery-recovery.js";
 import { DeliveryQueue } from "./chat-delivery-queue.js";
 import { composerProblem } from "../sessions/claude-composer.js";
+import { claudeImageMessage } from "../sessions/claude-image-paste.js";
+import { isNativeSlashCommand } from "../sessions/session-slash-command.js";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { privateDirectory, problem } from "../../lib/storage.js";
@@ -23,7 +25,9 @@ import {
 } from "../../application/request-input-guard.js";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const statuses = new Set(["pending", "handed-off", "rejected", "uncertain"]);
+const statuses = new Set(["pending", "handed-off", "rejected", "uncertain", "accepted"]);
+// Receipts a native acceptance event may still confirm.
+const confirmable = new Set(["handed-off", "uncertain"]);
 /** The scope a delivery is bound to: the session and the CLI and account it runs. */
 export function sessionScope(session) {
   return JSON.stringify([
@@ -42,6 +46,17 @@ function syncDirectory(directory) {
   }
 }
 
+/** Turn a handed-off or uncertain receipt into accepted; false when it is not. */
+function confirm(receipt, outcome) {
+  if (!confirmable.has(receipt.status)) return false;
+  receipt.status = "accepted";
+  receipt.acceptedAt = Date.now();
+  if (outcome.queued !== undefined) receipt.queued = outcome.queued;
+  delete receipt.reason;
+  delete receipt.waiting;
+  return true;
+}
+
 /** Durable at-most-once native input for one owner of the data directory. */
 export class ChatDelivery {
   constructor({
@@ -52,6 +67,7 @@ export class ChatDelivery {
     retryMs = 1000,
     waitLimitMs,
     onChange,
+    acceptance,
   }) {
     this.directory = path.join(dataDir, "chat-delivery");
     // Told the session id of every receipt write (session.deliveries live topic).
@@ -64,6 +80,10 @@ export class ChatDelivery {
     this.retryMs = retryMs;
     this.waitLimitMs = waitLimitMs ?? 12 * 60 * 60 * 1000;
     this.held = new DeliveryQueue(this);
+    // Matches native acceptance events of the CLI to deliveries (see accept()).
+    this.acceptance = acceptance;
+    // Acceptances that arrived while their delivery still ran, by receipt file.
+    this.earlyAcceptance = new Map();
   }
 
   folder(id) {
@@ -153,6 +173,14 @@ export class ChatDelivery {
       ...(receipt.observation ? { observation: receipt.observation } : {}),
       ...(receipt.recovery ? { recovery: receipt.recovery } : {}),
       ...(receipt.notices?.length ? { notices: receipt.notices } : {}),
+      ...(receipt.confirmation ? { confirmation: receipt.confirmation } : {}),
+      ...(receipt.submittedAt ? { submittedAt: receipt.submittedAt } : {}),
+      ...(status === "accepted"
+        ? {
+            acceptedAt: receipt.acceptedAt,
+            ...(receipt.queued !== undefined ? { queued: receipt.queued } : {}),
+          }
+        : {}),
       ...(status === "pending" && receipt.waiting ? { waiting: receipt.waiting } : {}),
       ...(status === "rejected" ? { error: copy.rejected } : {}),
       ...(status === "uncertain" ? { error: copy.uncertain } : {}),
@@ -303,6 +331,8 @@ export class ChatDelivery {
           onPhase: async (phase) => {
             if (phase === "paste-intent") refuseCancelled();
             if (intents.has(phase)) requireCurrentChatInput(this.requests, id);
+            if (phase === "submit-intent")
+              await this.expectAcceptance(id, file, tx.session.tool, receipt, text);
             receipt.status = "uncertain";
             receipt.journal = { phase, generation: tx.recoveryGeneration };
             this.write(file, receipt);
@@ -333,6 +363,8 @@ export class ChatDelivery {
         job.mode = heldMode[phase];
         receipt.waiting = waiting;
         receipt.reason = reason;
+        // Enter was never sent: an event meanwhile was not this message.
+        this.earlyAcceptance.delete(file);
         if (this.exists(file)) this.write(file, receipt);
         return "deferred";
       }
@@ -342,8 +374,53 @@ export class ChatDelivery {
       if (reason) receipt.reason = reason;
       else delete receipt.reason;
     }
+    this.settleAcceptance(file, receipt);
     if (this.exists(file)) this.write(file, receipt);
     return receipt.status;
+  }
+
+  /**
+   * Right before Enter: record when it was due and, when the session has an
+   * acceptance source, expect its native event. Images are matched by name.
+   */
+  async expectAcceptance(id, file, tool, receipt, text) {
+    const since = Date.now();
+    receipt.submittedAt = since;
+    this.earlyAcceptance.delete(file);
+    if (!this.acceptance?.supports(id)) {
+      receipt.confirmation = "text";
+      return;
+    }
+    receipt.confirmation = "events";
+    const imageNames = isNativeSlashCommand(tool, text)
+      ? []
+      : ((await claudeImageMessage(text))?.images.map((image) => path.basename(image)) ??
+        []);
+    this.acceptance.expect(id, { deliveryId: receipt.deliveryId, since, imageNames });
+  }
+
+  /**
+   * A native acceptance event matched delivery `deliveryId`. Only a handed-off
+   * or uncertain receipt changes; accepted is terminal. A delivery still running
+   * takes the outcome when it finishes, so its own result never overwrites it.
+   */
+  accept(id, deliveryId, outcome) {
+    // A dropped prompt (blocked by a hook) is handled separately.
+    if (outcome.kind !== "accepted") return;
+    const file = this.file(id, deliveryId);
+    if (this.active.has(file)) {
+      this.earlyAcceptance.set(file, outcome);
+      return;
+    }
+    const receipt = this.read(file);
+    if (receipt && confirm(receipt, outcome)) this.write(file, receipt);
+  }
+
+  /** Apply an acceptance that arrived while this delivery ran. */
+  settleAcceptance(file, receipt) {
+    const outcome = this.earlyAcceptance.get(file);
+    this.earlyAcceptance.delete(file);
+    if (outcome) confirm(receipt, outcome);
   }
 
   exists(file) {
