@@ -54,9 +54,35 @@ export const confirmationFields = (receipt, item, pending, now = Date.now()) => 
     undefined,
 });
 
-/** Whether a message's text may still sit in the CLI prompt: no send may double it. */
-export const sendHeld = (state) =>
-  state.recent.some((item) => item.heldInCli && item.status === "rejected");
+// What the composer would send: its text and attachment paths, as enqueue builds it.
+const composerBody = ({ text, attachments }) =>
+  attachments.length
+    ? [text.trimEnd(), ...attachments.map((file) => file.path)].filter(Boolean).join("\n")
+    : text;
+
+// The composer still holds exactly `item`, whose text may also sit in the CLI prompt.
+const holds = (state, item) =>
+  Boolean(item.heldInCli) &&
+  item.status === "rejected" &&
+  composerBody(state) === item.text;
+
+/**
+ * Whether sending would type a hook-blocked message a second time. Once the
+ * owner changed the composer, it holds a different message and may be sent.
+ */
+export const sendHeld = (state) => state.recent.some((item) => holds(state, item));
+
+/**
+ * The draft without notice `id`. Dismissing a held message also clears its copy
+ * in the composer: the message lives on in the CLI prompt, never twice.
+ */
+export function dismissed(saved, id) {
+  const item = saved.recent.find((entry) => entry.id === id);
+  const recent = saved.recent.filter((entry) => entry.id !== id);
+  return item && holds(saved, item)
+    ? { ...saved, recent, text: "", attachments: [] }
+    : { ...saved, recent };
+}
 
 /** Keeps the last 20 finished handoffs; everything else stays until resolved. */
 export const retainRecent = (items) => {

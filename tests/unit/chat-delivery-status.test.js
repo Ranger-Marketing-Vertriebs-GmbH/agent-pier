@@ -272,3 +272,41 @@ test("a hook block of the outbox with its text still in the CLI holds sending", 
   await later.receipt({ ...blocked, deliveryId: "third" });
   assert.equal(sendHeld(later.getSnapshot()), false);
 });
+
+async function heldDraft(text = "hello") {
+  const draft = new ChatDraft(storage(), scope, lock);
+  await draft.change({ text });
+  await draft.enqueue("first", []);
+  await draft.receipt({
+    deliveryId: "first",
+    status: "rejected",
+    reason: "CHAT_HOOK_BLOCKED_DRAFT",
+    released: false,
+  });
+  return draft;
+}
+
+test("dismissing a held block clears its composer copy, so it is never sent twice", async () => {
+  const draft = await heldDraft();
+  assert.equal(sendHeld(draft.getSnapshot()), true);
+  await draft.dismiss("first");
+  const after = new ChatDraft(draft.storage, scope, lock).getSnapshot();
+  assert.equal(after.text, "");
+  assert.deepEqual(after.recent, []);
+  assert.equal(sendHeld(after), false);
+  // Nothing is left that a send could carry.
+  assert.equal(await draft.enqueue("second", []), null);
+});
+
+test("once the owner edits the held text, it may be sent and dismiss keeps it", async () => {
+  const draft = await heldDraft();
+  await draft.change({ text: "hello, without the secret" });
+  assert.equal(sendHeld(draft.getSnapshot()), false);
+  await draft.dismiss("first");
+  assert.equal(draft.getSnapshot().text, "hello, without the secret");
+  // Typing it back exactly holds sending again.
+  const back = await heldDraft();
+  await back.change({ text: "changed" });
+  await back.change({ text: "hello" });
+  assert.equal(sendHeld(back.getSnapshot()), true);
+});
