@@ -100,6 +100,23 @@ test("a hook-blocked task parks like an undelivered one", async (t) => {
   await assertParked(f, "taskNotDelivered");
 });
 
+test("a hook block after the hand-off parks the start", async (t) => {
+  const f = await sequenceFixture(t);
+  f.chatDelivery.deliver = () => ({
+    status: "handed-off",
+    deliveryId: "d1",
+    confirmation: "events",
+  });
+  f.chatDelivery.settled = async () => ({
+    status: "rejected",
+    reason: "CHAT_HOOK_BLOCKED",
+  });
+  f.append([KEY, "acme/app#13"]);
+  await f.engine.run();
+  assert.equal(f.sessions[0].status, "stopped");
+  await assertParked(f, "taskNotDelivered");
+});
+
 test("an accepted task starts the ticket", async (t) => {
   const f = await sequenceFixture(t);
   f.chatDelivery.deliver = () => ({ status: "accepted" });

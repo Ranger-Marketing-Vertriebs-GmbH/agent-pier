@@ -6,6 +6,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { isCodingCli } from "../clis/catalog.js";
 import { sessionScope } from "../chat/chat-delivery.js";
+import { confirmedDelivery } from "../chat/chat-delivery-blocked.js";
 import { keyToken } from "./pr-status.js";
 import { ticketRef } from "./ticket.js";
 import { sequenceSessionTask, ticketTask } from "./ticket-task.js";
@@ -140,6 +141,8 @@ async function deliverTask(engine, ctx, item, session, ticket) {
       text,
       submit: true,
     });
+    // A hook block that follows the hand-off fails the start like a rejection.
+    receipt = await confirmedDelivery(engine.chatDelivery, session.id, receipt);
   } catch (error) {
     // 409: this delivery id already carries a task (an earlier copy of the ticket).
     if (error?.status === 409) return true;

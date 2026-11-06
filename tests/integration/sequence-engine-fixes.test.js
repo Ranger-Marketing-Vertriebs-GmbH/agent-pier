@@ -459,3 +459,22 @@ test("an accepted notice counts as delivered; a hook block reports its reason", 
     assert.equal(failed[0]?.code, code);
   }
 });
+
+test("a fix notice blocked by a hook after the hand-off reports its reason", async (t) => {
+  const f = await sequenceFixture(t);
+  f.chatDelivery.deliver = (n) =>
+    n === 1
+      ? { status: "handed-off" }
+      : { status: "handed-off", deliveryId: "d2", confirmation: "events" };
+  f.chatDelivery.settled = async () => ({
+    status: "rejected",
+    reason: "CHAT_HOOK_BLOCKED_DRAFT",
+  });
+  await awaitingMerge(f, { pull: { contexts: RED } });
+  await passes(f.engine);
+  const failed = f.errors.filter((e) => e.step === "fix-deliver");
+  assert.deepEqual(
+    failed.map((e) => e.code),
+    ["CHAT_HOOK_BLOCKED_DRAFT"],
+  );
+});

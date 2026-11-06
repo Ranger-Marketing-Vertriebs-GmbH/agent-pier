@@ -75,6 +75,8 @@ export function timedCalls({ launch, chatDelivery, sessions, ms }) {
       ...chatDelivery,
       send: (...args) =>
         bounded(Promise.resolve().then(() => chatDelivery.send(...args))),
+      // Prototype methods are not spread; settled() has its own bound (8 s).
+      settled: (...args) => chatDelivery.settled?.(...args),
     },
   };
 }

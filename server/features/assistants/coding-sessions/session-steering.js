@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { assistantProblem } from "../assistant-validation.js";
 import { sessionScope } from "../../chat/chat-delivery.js";
+import { confirmedDelivery, isHookBlock } from "../../chat/chat-delivery-blocked.js";
 import { control } from "./session-control.js";
 
 const invalid = () => assistantProblem("invalid");
@@ -30,8 +31,6 @@ const deliveryStatuses = new Set([
   "rejected",
   "uncertain",
 ]);
-const hookBlocked = (receipt) =>
-  /^CHAT_HOOK_BLOCKED(_DRAFT)?$/.test(receipt?.reason ?? "");
 
 // A UUID derived from a stable key, so a retried call reuses its delivery.
 function deliveryUuid(key) {
@@ -78,12 +77,16 @@ export async function sendToSession(w, ctx, input, inv) {
   const deliveryId = deliveryUuid(`${ctx.assistantId}:${record.sessionId}:${callKey}`);
   // The turn may have ended while the session was read: never send for a stale turn.
   inv?.assertCurrent?.();
-  const receipt = await w.s.chatDelivery.send(record.sessionId, {
-    deliveryId,
-    deliveryScope: sessionScope(session),
-    text: input.text,
-    submit: true,
-  });
+  const receipt = await confirmedDelivery(
+    w.s.chatDelivery,
+    record.sessionId,
+    await w.s.chatDelivery.send(record.sessionId, {
+      deliveryId,
+      deliveryScope: sessionScope(session),
+      text: input.text,
+      submit: true,
+    }),
+  );
   const status = deliveryStatuses.has(receipt?.status) ? receipt.status : "uncertain";
   if (status !== "rejected") {
     const at = w.sessions.now();
@@ -95,7 +98,7 @@ export async function sendToSession(w, ctx, input, inv) {
   audit(w, record, session, {
     ...(text(input.requestId, 100) ? { requestId: input.requestId } : {}),
     deliveryId,
-    status: status === "rejected" && hookBlocked(receipt) ? "hook-blocked" : status,
+    status: isHookBlock(receipt) ? "hook-blocked" : status,
   });
   return {
     deliveryId,

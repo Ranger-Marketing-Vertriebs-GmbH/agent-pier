@@ -77,6 +77,7 @@ export class ChatDelivery {
     this.directory = path.join(dataDir, "chat-delivery");
     // Told the session id of every receipt write (session.deliveries live topic).
     this.onChange = onChange;
+    this.waiters = new Set();
     this.sessions = sessions;
     this.requests = requests;
     this.models = models;
@@ -159,8 +160,38 @@ export class ChatDelivery {
     this.changed(path.basename(path.dirname(file)));
   }
 
+  /**
+   * Resolves with the receipt's `status()` shape once it is no longer pending,
+   * handed-off or uncertain (accepted, hook-blocked, rejected), or with the current
+   * result at `timeoutMs`. Woken by receipt writes, never polling.
+   */
+  settled(id, deliveryId, { timeoutMs = 8000 } = {}) {
+    const file = this.file(id, deliveryId);
+    const read = () => {
+      const receipt = this.read(file);
+      return receipt
+        ? this.result(receipt, file)
+        : { deliveryId: deliveryId.toLowerCase(), status: "absent" };
+    };
+    const open = (result) =>
+      ["pending", "handed-off", "uncertain"].includes(result.status);
+    const first = read();
+    if (!open(first)) return Promise.resolve(first);
+    return new Promise((resolve) => {
+      const done = (result) => {
+        clearTimeout(timer);
+        this.waiters.delete(waiter);
+        resolve(result);
+      };
+      const waiter = { id, check: () => open(read()) || done(read()) };
+      const timer = setTimeout(() => done(read()), timeoutMs);
+      this.waiters.add(waiter);
+    });
+  }
+
   /** A delivery of session `id` changed; a failing listener is logged, never thrown. */
   changed(id) {
+    for (const waiter of [...this.waiters]) if (waiter.id === id) waiter.check();
     try {
       this.onChange?.(id);
     } catch {
