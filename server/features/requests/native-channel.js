@@ -61,6 +61,7 @@ export class NativeRequestChannel {
           run.sent = 0;
           this.flush(runId, run);
         }
+        if (this.promptReady) send(socket, { type: "prompt-ready" });
       }
       if (message.type !== "answer") return;
       const entry = this.pending.get(message.key);
@@ -110,6 +111,15 @@ export class NativeRequestChannel {
         ...(event ? { event } : {}),
         ...(failure ? { failure, ...(detail ? { detail } : {}) } : {}),
       });
+  }
+  /**
+   * The native owner's prompt reports (`type: "prompt"`, lost while disconnected) and
+   * its `prompt-ready`, which every reconnect repeats: a restarted server knows the
+   * source again.
+   */
+  prompt(event) {
+    if (event.type === "prompt-ready") this.promptReady = true;
+    if (this.connected) send(this.socket, event);
   }
   /** Append reply text to run `runId` ({thread, turn} label it). */
   streamDelta(runId, delta, meta = {}) {

@@ -5,7 +5,8 @@ import { messages, send } from "./wire.js";
 
 // Push hints a native owner sends over its authenticated broker channel. They never
 // carry requests: `activity` asks the server to read the session's chat now, the
-// stream messages carry reply text while the CLI generates it (chat/reply-streams.js).
+// stream messages carry reply text while the CLI generates it (chat/reply-streams.js),
+// `prompt` tells whether the CLI took a submitted prompt (chat/delivery-acceptance.js).
 export const maxReplyText = 64 * 1024;
 const RUN = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$/;
 const LABEL = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$/;
@@ -99,6 +100,25 @@ export function nativePushValue(message) {
       index: message.index,
       final: message.final,
       delta: message.delta,
+    };
+  }
+  // Whether the CLI took a submitted prompt (Codex proxy): confirms chat deliveries.
+  if (message.type === "prompt-ready") return { type: "prompt-ready" };
+  if (message.type === "prompt") {
+    if (
+      !["accepted", "dropped"].includes(message.kind) ||
+      !Number.isInteger(message.imageCount) ||
+      message.imageCount < 0 ||
+      message.imageCount > 1000
+    )
+      invalid();
+    return {
+      type: "prompt",
+      kind: message.kind,
+      imageCount: message.imageCount,
+      ...(message.kind === "dropped" && text(message.reason, 500) && message.reason
+        ? { reason: message.reason }
+        : {}),
     };
   }
   return null;

@@ -5,6 +5,7 @@ import { observeHookTrust } from "./codex-hook-trust.js";
 import { codexRequest } from "./codex-protocol.js";
 import { codexActivityTracker } from "./codex-activity.js";
 import { codexReplyObserver } from "./codex-reply-stream.js";
+import { codexPromptAcceptance } from "./codex-prompt-acceptance.js";
 
 /** One real TUI connection and one stdio app-server. Both UIs race at this sole native owner. */
 export async function createCodexProxy({
@@ -30,6 +31,10 @@ export async function createCodexProxy({
   let tui,
     closed = false;
   const hooks = observeHookTrust(channel);
+  // Whether Codex took each prompt the TUI submits confirms chat deliveries.
+  const prompts = codexPromptAcceptance((event) =>
+    channel.prompt?.({ type: "prompt", ...event }),
+  );
   const requests = new Map();
   const retired = new Set();
   const idKey = (id) => JSON.stringify(id);
@@ -56,6 +61,7 @@ export async function createCodexProxy({
       return;
     }
     tui = socket;
+    channel.prompt?.({ type: "prompt-ready" });
     socket.on("error", () => {});
     socket.on("message", (data) => {
       try {
@@ -69,6 +75,11 @@ export async function createCodexProxy({
           hooks.outgoing(message);
         } catch {
           /* Future hook schemas remain native. */
+        }
+        try {
+          prompts.outgoing(message);
+        } catch {
+          /* Observation only; the prompt still reaches Codex. */
         }
         write(message);
       } catch {
@@ -88,6 +99,11 @@ export async function createCodexProxy({
       if (message.id === undefined) {
         activity(message);
         reply(message);
+      }
+      try {
+        prompts.incoming(message);
+      } catch {
+        /* Observation only; the TUI still gets every message. */
       }
       if (tui?.readyState === WebSocket.OPEN) {
         try {
