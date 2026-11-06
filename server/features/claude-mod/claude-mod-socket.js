@@ -1,6 +1,6 @@
 import http from "node:http";
 import fs from "node:fs/promises";
-import { claudeModEvents } from "./claude-mod-events.js";
+import { claudeModReport } from "./claude-mod-events.js";
 
 // The bridge mod's way in: HTTP over a private Unix socket beside the request
 // broker's (the mod runtime only speaks HTTP, `$.http.fetch` with `socketPath`).
@@ -21,8 +21,8 @@ const reply = (res, status, body) => {
 
 /**
  * `authenticate(sessionId, token)` resolves the owner or `{status}` (401: not this
- * launch, 410: the session no longer runs); `deliver(owner, events)` returns what the
- * mod should know (`{resync: true}` when text offsets no longer fit).
+ * launch, 410: the session no longer runs); `deliver(owner, {events, prompts})`
+ * returns what the mod should know (`{resync: true}` when text offsets no longer fit).
  */
 export async function listenClaudeMod({ socketPath, authenticate, deliver }) {
   const server = http.createServer((req, res) => {
@@ -48,13 +48,13 @@ export async function listenClaudeMod({ socketPath, authenticate, deliver }) {
         const sessionId = req.headers["x-agentpier-session"];
         const owner = token && (await authenticate(sessionId, token));
         if (!owner || owner.status) return reply(res, owner?.status || 401);
-        let events;
+        let report;
         try {
-          events = claudeModEvents(JSON.parse(Buffer.concat(chunks).toString("utf8")));
+          report = claudeModReport(JSON.parse(Buffer.concat(chunks).toString("utf8")));
         } catch {
           return reply(res, 400);
         }
-        reply(res, 200, (await deliver(owner, events)) || {});
+        reply(res, 200, (await deliver(owner, report)) || {});
       } catch {
         reply(res, 500);
       }

@@ -31,6 +31,7 @@ test("the mod says hello over the broker's socket with this launch's credentials
   assert.equal(request.headers["x-agentpier-session"], "session-1");
   assert.deepEqual(request.body, {
     protocol: 1,
+    prompts: true,
     events: [{ type: "hello", protocol: 1, cli: "2.1.304" }],
   });
 });

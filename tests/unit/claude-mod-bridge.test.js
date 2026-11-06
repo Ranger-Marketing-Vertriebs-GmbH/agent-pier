@@ -5,7 +5,10 @@ import {
   ClaudeModBridge,
   preferModActivity,
 } from "../../server/features/claude-mod/claude-mod-bridge.js";
-import { claudeModEvents } from "../../server/features/claude-mod/claude-mod-events.js";
+import {
+  claudeModEvents,
+  claudeModReport,
+} from "../../server/features/claude-mod/claude-mod-events.js";
 import { DeliveryAcceptance } from "../../server/features/chat/delivery-acceptance.js";
 import { claudeModAcceptance } from "../../server/application/chat-delivery-wiring.js";
 import { ReplyStreams } from "../../server/features/chat/reply-streams.js";
@@ -265,15 +268,18 @@ test("prompt reports are validated: file names, queued and a bounded reason", ()
   );
 });
 
-test("every report readies the session's acceptance source; prompts are dated here", (t) => {
+// A report of a mod copy that declares its prompt reports (`prompts: true`).
+const report = (mod, id, events) => mod.receive(id, events, { prompts: true });
+
+test("every report of a prompt-reporting mod readies the source; prompts are dated here", (t) => {
   const b = bridge(t);
   const calls = [];
   b.mod.onReady = (id) => calls.push(["ready", id]);
   b.mod.onPrompt = (id, event) => calls.push(["prompt", id, event]);
   b.mod.onForget = (id) => calls.push(["forget", id]);
-  b.mod.receive("s", [{ type: "hello", cli: "2.1.319" }]);
+  report(b.mod, "s", [{ type: "hello", cli: "2.1.319" }]);
   b.tick(25);
-  b.mod.receive("s", [
+  report(b.mod, "s", [
     { type: "prompt.accepted", images: ["red.png", "blue.png"], queued: true },
     { type: "prompt.dropped", images: [], reason: "blocked" },
     { type: "prompt.accepted", images: [], queued: false },
@@ -308,10 +314,10 @@ test("every report readies the session's acceptance source; prompts are dated he
     throw Error("matcher down");
   };
   assert.deepEqual(
-    b.mod.receive("s", [{ type: "prompt.accepted", images: [], queued: false }]),
+    report(b.mod, "s", [{ type: "prompt.accepted", images: [], queued: false }]),
     {},
   );
-  b.mod.receive("s", [{ type: "session.end" }]);
+  report(b.mod, "s", [{ type: "session.end" }]);
   b.mod.forget("s");
   assert.deepEqual(calls.slice(5), [
     ["ready", "s"],
@@ -334,16 +340,16 @@ test("the mod's prompt reports confirm a chat delivery through the matcher", () 
     ...claudeModAcceptance(() => delivery),
   });
   // Before the chat delivery exists a report goes nowhere and breaks nothing.
-  assert.deepEqual(mod.receive("s", [{ type: "hello" }]), {});
+  assert.deepEqual(report(mod, "s", [{ type: "hello" }]), {});
   delivery = { acceptance };
-  mod.receive("s", [{ type: "hello" }]);
+  report(mod, "s", [{ type: "hello" }]);
   assert.equal(acceptance.supports("s"), true);
   acceptance.expect("s", { deliveryId: "d1", since: 1500, imageNames: ["red.png"] });
-  mod.receive("s", [{ type: "prompt.accepted", images: ["red.png"], queued: true }]);
+  report(mod, "s", [{ type: "prompt.accepted", images: ["red.png"], queued: true }]);
   assert.deepEqual(matches, [["s", "d1", { kind: "accepted", queued: true }]]);
-  mod.receive("s", [{ type: "session.end" }]);
+  report(mod, "s", [{ type: "session.end" }]);
   assert.equal(acceptance.supports("s"), false);
-  mod.receive("s", [{ type: "hello" }]);
+  report(mod, "s", [{ type: "hello" }]);
   mod.forget("s");
   assert.equal(acceptance.supports("s"), false, "a new launch ends the source too");
 });
@@ -362,22 +368,43 @@ test("batch without hello after restart marks ready", () => {
   // A restarted server never hears the mod's hello again; its next report counts.
   const { mod, acceptance } = wiredMod();
   assert.equal(acceptance.supports("s"), false);
-  mod.receive("s", [{ type: "turn.start", turn: TURN }]);
+  report(mod, "s", [{ type: "turn.start", turn: TURN }]);
   assert.equal(acceptance.supports("s"), true);
   mod.forget("s");
   assert.equal(acceptance.supports("s"), false);
-  mod.receive("s", [{ type: "prompt.accepted", images: [], queued: false }]);
+  report(mod, "s", [{ type: "prompt.accepted", images: [], queued: false }]);
   assert.equal(acceptance.supports("s"), true);
 });
 
 test("session.end batch leaves the session not ready", () => {
   const { mod, acceptance } = wiredMod();
-  mod.receive("s", [{ type: "hello" }, { type: "session.end" }]);
+  report(mod, "s", [{ type: "hello" }, { type: "session.end" }]);
   assert.equal(acceptance.supports("s"), false);
-  mod.receive("s", [{ type: "hello" }]);
-  mod.receive("s", [
+  report(mod, "s", [{ type: "hello" }]);
+  report(mod, "s", [
     { type: "prompt.accepted", images: [], queued: false },
     { type: "session.end" },
   ]);
   assert.equal(acceptance.supports("s"), false);
+});
+
+test("a mod copy without prompt reports never readies the source", () => {
+  // A session launched before the update runs an older copy of the mod.
+  const { mod, acceptance } = wiredMod();
+  mod.receive("s", [{ type: "hello" }]);
+  mod.receive("s", [{ type: "turn.start", turn: TURN }], { prompts: false });
+  assert.equal(acceptance.supports("s"), false);
+  assert.equal(mod.active("s"), true, "its other reports still count");
+  report(mod, "s", [{ type: "hello" }]);
+  assert.equal(acceptance.supports("s"), true);
+});
+
+test("the report body declares prompt reports as an optional boolean", () => {
+  const old = { protocol: 1, events: [{ type: "hello" }] };
+  assert.deepEqual(claudeModReport(old), { events: [{ type: "hello" }], prompts: false });
+  assert.deepEqual(claudeModEvents(old), [{ type: "hello" }]);
+  assert.equal(claudeModReport({ ...old, prompts: true }).prompts, true);
+  assert.equal(claudeModReport({ ...old, prompts: false }).prompts, false);
+  for (const prompts of ["yes", 1, null])
+    assert.throws(() => claudeModReport({ ...old, prompts }), /Invalid Claude mod/);
 });

@@ -110,13 +110,25 @@ function event(value) {
 
 /** The validated events of one request body, or an error. */
 export function claudeModEvents(body) {
+  return claudeModReport(body).events;
+}
+
+/**
+ * One request body, validated: its events and whether the mod copy reports prompts
+ * (`prompts: true`; a copy launched before that report has no such field).
+ */
+export function claudeModReport(body) {
   if (
     !body ||
     typeof body !== "object" ||
     body.protocol !== claudeModProtocol ||
+    (body.prompts !== undefined && typeof body.prompts !== "boolean") ||
     !Array.isArray(body.events) ||
     body.events.length > maxModEvents
   )
     throw Error("Invalid Claude mod report");
-  return body.events.map(event).filter(Boolean);
+  return {
+    events: body.events.map(event).filter(Boolean),
+    prompts: body.prompts === true,
+  };
 }

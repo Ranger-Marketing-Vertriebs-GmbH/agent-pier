@@ -411,9 +411,9 @@ export async function createServices(config) {
         chatStreams.endStream(sessionId, push.runId, { turn: push.turn });
       if (push.type === "claude-display" && !claudeMod.active(sessionId))
         claudeDrafts.display(sessionId, push);
-      if (push.type === "claude-mod") return claudeMod.receive(sessionId, push.events);
-      // A Claude turn's drafts give way to its transcript when it stops, and are
-      // dropped when it fails, the session ends or the next prompt starts.
+      if (push.type === "claude-mod")
+        return claudeMod.receive(sessionId, push.events, { prompts: push.prompts });
+      // Claude drafts yield to the transcript on Stop; failure, end or a prompt drop them.
       if (push.event === "Stop") claudeDrafts.stop(sessionId, push.lastAssistantMessage);
       if (["StopFailure", "SessionEnd", "UserPromptSubmit"].includes(push.event))
         claudeDrafts.end(sessionId);

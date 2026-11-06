@@ -16,9 +16,10 @@ export class ClaudeModBridge {
   /**
    * `streams` is ChatStreams (streamText, endStream, setStatus); `drafts` the
    * MessageDisplay drafts it replaces; `onActivity(id)` asks an open chat to read
-   * its transcript again. Each report readies the session's acceptance source
-   * (`onReady(id)`), each prompt report reaches `onPrompt(id, event)` dated by this
-   * server, and `onForget(id)` ends the source with the mod's state.
+   * its transcript again. Each report of a mod copy that reports prompts readies the
+   * session's acceptance source (`onReady(id)`), each prompt report reaches
+   * `onPrompt(id, event)` dated by this server, and `onForget(id)` ends the source
+   * with the mod's state.
    */
   constructor({
     streams,
@@ -64,8 +65,12 @@ export class ClaudeModBridge {
       ...(state.turnAt ? { turnAt: state.turnAt } : {}),
     };
   }
-  /** One request's events, in order; `{resync: true}` asks the mod for whole runs. */
-  receive(sessionId, events) {
+  /**
+   * One request's events, in order; `{resync: true}` asks the mod for whole runs.
+   * `prompts` tells that the mod copy reports prompts: a copy launched before an
+   * update does not, and its session keeps the text fallback.
+   */
+  receive(sessionId, events, { prompts = false } = {}) {
     let state = this.sessions.get(sessionId);
     if (!state) {
       state = { at: 0, turn: null, phase: null, tools: new Map(), agents: new Map() };
@@ -75,7 +80,7 @@ export class ClaudeModBridge {
     }
     state.at = this.now();
     // Any report proves the mod runs here: a restarted server hears no new hello.
-    this.acceptance("onReady", sessionId);
+    if (prompts) this.acceptance("onReady", sessionId);
     let resync = false;
     for (const event of events) {
       if (event.type === "session.end") {

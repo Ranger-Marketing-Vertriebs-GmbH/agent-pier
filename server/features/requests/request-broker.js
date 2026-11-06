@@ -131,7 +131,8 @@ export class RequestBroker {
     this.modServer = await listenClaudeMod({
       socketPath: this.modSocketPath,
       authenticate: (id, token) => this.modOwner(id, token),
-      deliver: (owner, events) => this.notify(owner.id, { type: "claude-mod", events }),
+      deliver: (owner, { events, prompts }) =>
+        this.notify(owner.id, { type: "claude-mod", events, prompts }),
     });
   }
   /**

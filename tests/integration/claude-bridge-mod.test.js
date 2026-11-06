@@ -46,6 +46,7 @@ async function setup(t, { cliVersion = "2.1.304", status = "running" } = {}) {
   t.after(() => replies.close());
   replies.subscribe("s", (frame) => frames.push(frame));
   const drafts = [];
+  const ready = [];
   const mod = new ClaudeModBridge({
     streams: {
       streamText: (...a) => replies.streamText(...a),
@@ -53,12 +54,14 @@ async function setup(t, { cliVersion = "2.1.304", status = "running" } = {}) {
       setStatus: (...a) => replies.setStatus(...a),
     },
     drafts: { end: (id) => drafts.push(id) },
+    onReady: (id) => ready.push(id),
   });
   const broker = new RequestBroker({
     dataDir,
     sessions: { get: async () => ({ ...session }) },
     onNative: (id, push) => {
-      if (push.type === "claude-mod") return mod.receive(id, push.events);
+      if (push.type === "claude-mod")
+        return mod.receive(id, push.events, { prompts: push.prompts });
     },
     onLaunch: (id) => mod.forget(id),
   });
@@ -69,7 +72,7 @@ async function setup(t, { cliVersion = "2.1.304", status = "running" } = {}) {
     cwd: dataDir,
     launch: { command: "/fixture/claude", args: [], env: {}, cliVersion },
   });
-  return { broker, launch, mod, frames, session, drafts };
+  return { broker, launch, mod, frames, session, drafts, ready };
 }
 
 test("a Claude Code with mods gets the bridge plugin, its socket and the sandbox grant", async (t) => {
@@ -177,6 +180,29 @@ test("the mod socket refuses foreign tokens, other tools and stopped sessions", 
   session.status = "stopped";
   broker.modOwners.clear();
   assert.equal((await send(auth)).status, 410, "the mod stops reporting");
+});
+
+test("only a mod copy that declares prompt reports readies the acceptance source", async (t) => {
+  const { broker, launch, mod, ready } = await setup(t);
+  const send = (body) =>
+    unixFetch({
+      url: "http://agentpier/claude-mod/v1/events",
+      socketPath: broker.modSocketPath,
+      method: "POST",
+      headers: {
+        "x-agentpier-session": "s",
+        authorization: `Bearer ${launch.env.AGENTPIER_REQUEST_TOKEN}`,
+      },
+      body,
+    });
+  // A copy launched before the update: accepted, but the text fallback stays.
+  assert.equal((await send({ protocol: 1, events: [{ type: "hello" }] })).status, 200);
+  assert.equal(mod.active("s"), true);
+  assert.deepEqual(ready, []);
+  const flagged = { protocol: 1, prompts: "yes", events: [{ type: "hello" }] };
+  assert.equal((await send(flagged)).status, 400);
+  assert.equal((await send({ ...flagged, prompts: true })).status, 200);
+  assert.deepEqual(ready, ["s"]);
 });
 
 test("discarding a traversal id removes nothing outside the broker's directory", async (t) => {
