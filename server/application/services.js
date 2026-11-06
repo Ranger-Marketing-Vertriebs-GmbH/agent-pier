@@ -28,7 +28,8 @@ import { ProviderCatalog } from "../features/providers/provider-catalog.js";
 import { RepositoryStore } from "../features/repositories/repository-store.js";
 import { GitRemotes } from "../features/repositories/git-remote.js";
 import { ProviderHistory } from "../features/chat/provider-history.js";
-import { claudeModAcceptance, createChatDelivery } from "./chat-delivery-wiring.js";
+import { claudeModAcceptance, codexProxyAcceptance } from "./chat-delivery-wiring.js";
+import { createChatDelivery } from "./chat-delivery-wiring.js";
 import { ChatStore } from "../features/chat/chat-store.js";
 import { ChatImages } from "../features/chat/chat-images.js";
 import { ChatSync } from "../features/chat/chat-sync.js";
@@ -178,8 +179,7 @@ export async function createServices(config) {
     },
   });
   await sessions.ready;
-  // Coding sessions' secrets files follow every secret change, coalesced, and are
-  // rewritten once at start.
+  // Sessions' secrets files follow each secret change (coalesced), rewritten at start.
   sessionSecrets = new SessionSecrets({
     dataDir: config.dataDir,
     store: secrets,
@@ -306,8 +306,7 @@ export async function createServices(config) {
     classifyFolder: (cwd) => memory.classifyFolder(cwd),
   });
   await agentbus.ready;
-  // Detected per launch, the same way the workspace state and the installer see
-  // it, so installing nono while AgentPier runs needs no restart.
+  // Detected per launch (like the workspace state), so installing nono needs no restart.
   const nonoSandbox = new NonoSandbox({
     detect: () =>
       detectUtilities(
@@ -405,6 +404,7 @@ export async function createServices(config) {
     // file watcher triggers); the activity file stays for restarts.
     onNative: (sessionId, push) => {
       if (push.type === "activity") chatEvents.publish(sessionId, "native-activity");
+      codexProxyAcceptance(sessionId, push, () => chatDelivery); // Prompts it took.
       // Reply text while the CLI generates it (Codex proxy, OpenCode plugin).
       if (push.type === "stream") chatStreams.streamText(sessionId, push.runId, push);
       if (push.type === "stream-end")

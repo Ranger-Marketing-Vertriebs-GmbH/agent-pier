@@ -27,3 +27,22 @@ export function claudeModAcceptance(current) {
     onForget: (sessionId) => acceptance()?.forget(sessionId),
   };
 }
+
+/**
+ * The Codex proxy's prompt pushes (`prompt-ready`, `prompt`), routed like the bridge
+ * mod's reports. The event's time is when the server hears it.
+ */
+export function codexProxyAcceptance(sessionId, push, current) {
+  if (push.type !== "prompt-ready" && push.type !== "prompt") return;
+  const acceptance = current()?.acceptance;
+  if (!acceptance) return;
+  acceptance.ready(sessionId, "codex-proxy");
+  if (push.type === "prompt")
+    acceptance.report(sessionId, {
+      kind: push.kind,
+      at: Date.now(),
+      imageNames: null,
+      imageCount: push.imageCount,
+      ...(push.reason ? { reason: push.reason } : {}),
+    });
+}
