@@ -265,7 +265,7 @@ test("prompt reports are validated: file names, queued and a bounded reason", ()
   );
 });
 
-test("hello readies the session's acceptance source; prompts reach it dated here", (t) => {
+test("every report readies the session's acceptance source; prompts are dated here", (t) => {
   const b = bridge(t);
   const calls = [];
   b.mod.onReady = (id) => calls.push(["ready", id]);
@@ -279,6 +279,7 @@ test("hello readies the session's acceptance source; prompts reach it dated here
     { type: "prompt.accepted", images: [], queued: false },
   ]);
   assert.deepEqual(calls, [
+    ["ready", "s"],
     ["ready", "s"],
     [
       "prompt",
@@ -312,7 +313,9 @@ test("hello readies the session's acceptance source; prompts reach it dated here
   );
   b.mod.receive("s", [{ type: "session.end" }]);
   b.mod.forget("s");
-  assert.deepEqual(calls.slice(4), [
+  assert.deepEqual(calls.slice(5), [
+    ["ready", "s"],
+    ["ready", "s"],
     ["forget", "s"],
     ["forget", "s"],
   ]);
@@ -343,4 +346,38 @@ test("the mod's prompt reports confirm a chat delivery through the matcher", () 
   mod.receive("s", [{ type: "hello" }]);
   mod.forget("s");
   assert.equal(acceptance.supports("s"), false, "a new launch ends the source too");
+});
+
+function wiredMod() {
+  const acceptance = new DeliveryAcceptance({ now: () => 2000, onMatch() {} });
+  const mod = new ClaudeModBridge({
+    streams: { streamText: () => true, endStream() {}, setStatus() {} },
+    now: () => 2000,
+    ...claudeModAcceptance(() => ({ acceptance })),
+  });
+  return { mod, acceptance };
+}
+
+test("batch without hello after restart marks ready", () => {
+  // A restarted server never hears the mod's hello again; its next report counts.
+  const { mod, acceptance } = wiredMod();
+  assert.equal(acceptance.supports("s"), false);
+  mod.receive("s", [{ type: "turn.start", turn: TURN }]);
+  assert.equal(acceptance.supports("s"), true);
+  mod.forget("s");
+  assert.equal(acceptance.supports("s"), false);
+  mod.receive("s", [{ type: "prompt.accepted", images: [], queued: false }]);
+  assert.equal(acceptance.supports("s"), true);
+});
+
+test("session.end batch leaves the session not ready", () => {
+  const { mod, acceptance } = wiredMod();
+  mod.receive("s", [{ type: "hello" }, { type: "session.end" }]);
+  assert.equal(acceptance.supports("s"), false);
+  mod.receive("s", [{ type: "hello" }]);
+  mod.receive("s", [
+    { type: "prompt.accepted", images: [], queued: false },
+    { type: "session.end" },
+  ]);
+  assert.equal(acceptance.supports("s"), false);
 });
