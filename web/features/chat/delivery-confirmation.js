@@ -3,8 +3,10 @@
 
 /** An unconfirmed event-based handoff turns into a question after this long. */
 export const ASK_AFTER_MS = 8000;
-/** How long an accepted local command shows "handed over" before it hides. */
+/** How long an accepted local command shows "handed over" before the notice hides. */
 export const COMMAND_NOTICE_MS = 3000;
+/** How long after the ask a live change still re-reads an unconfirmed handoff. */
+export const REREAD_AFTER_ASK_MS = 60000;
 
 /** Statuses of a finished handoff: the message reached the CLI. */
 export const delivered = (status) => ["handed-off", "accepted"].includes(status);
@@ -27,14 +29,34 @@ export const receiptAdvances = (from, receipt) =>
 export const awaitsConfirmation = (item) =>
   item.status === "handed-off" && ["events", "screen"].includes(item.confirmation);
 
-/** The confirmation fields of a server receipt, copied onto the chat's item. */
-export const confirmationFields = (receipt) => ({
+/**
+ * The confirmation fields of a server `receipt` for chat item `item`. The ask is
+ * timed from `handedOffAt`, this browser's own time when the handoff first
+ * arrived, never from the server clock. `heldInCli` marks a hook-blocked
+ * message whose text is in the composer (it was the outbox) and still in the
+ * CLI prompt: sending is held until the server releases it.
+ */
+export const confirmationFields = (receipt, item, pending, now = Date.now()) => ({
   confirmation: receipt.confirmation,
   command: receipt.command === true || undefined,
   submittedAt: receipt.submittedAt,
   acceptedAt: receipt.acceptedAt,
   hookReason: receipt.status === "rejected" ? receipt.hookReason : undefined,
+  handedOffAt:
+    receipt.status !== "handed-off" ||
+    (item.status === "handed-off" && Number.isFinite(item.handedOffAt))
+      ? item.handedOffAt
+      : now,
+  heldInCli:
+    (receipt.status === "rejected" &&
+      receipt.reason === "CHAT_HOOK_BLOCKED_DRAFT" &&
+      (pending || item.heldInCli)) ||
+    undefined,
 });
+
+/** Whether a message's text may still sit in the CLI prompt: no send may double it. */
+export const sendHeld = (state) =>
+  state.recent.some((item) => item.heldInCli && item.status === "rejected");
 
 /** Keeps the last 20 finished handoffs; everything else stays until resolved. */
 export const retainRecent = (items) => {
@@ -42,29 +64,27 @@ export const retainRecent = (items) => {
   return items.filter((item) => !delivered(item.status) || completed.includes(item));
 };
 
-// Server and browser clocks may differ: never count less than nothing.
+// A clock change in the browser never counts less than nothing.
 const elapsed = (since, now) =>
   Number.isFinite(since) ? Math.max(0, now - since) : null;
 
 /**
  * The confirmation view of `item` at browser time `now`, or null for today's
  * presentation (text-confirmed and older receipts). Shown views are chatDeliveryCopy
- * keys; "accepted" shows no notice. The views:
- * "commandHandedOff", "hidden", "handed-off", "askCheck", "hookBlocked" or
- * "hookBlockedDraft".
+ * keys; "accepted" shows no notice. The views: "accepted", "commandHandedOff",
+ * "handed-off", "askCheck", "hookBlocked" or "hookBlockedDraft".
  */
 export function deliveryView(item, now) {
   if (item.status === "accepted") {
-    if (!item.command) return "accepted";
-    const since = elapsed(item.acceptedAt, now);
-    return since !== null && since < COMMAND_NOTICE_MS ? "commandHandedOff" : "hidden";
+    const since = item.command ? elapsed(item.acceptedAt, now) : null;
+    return since !== null && since < COMMAND_NOTICE_MS ? "commandHandedOff" : "accepted";
   }
   if (item.status === "rejected" && item.reason === "CHAT_HOOK_BLOCKED")
     return "hookBlocked";
   if (item.status === "rejected" && item.reason === "CHAT_HOOK_BLOCKED_DRAFT")
     return "hookBlockedDraft";
   if (awaitsConfirmation(item)) {
-    const since = elapsed(item.submittedAt, now);
+    const since = elapsed(item.handedOffAt, now);
     return since !== null && since < ASK_AFTER_MS ? "handed-off" : "askCheck";
   }
   return null;
@@ -74,10 +94,39 @@ export function deliveryView(item, now) {
 export function nextDeliveryChange(items, now) {
   const waits = items.flatMap((item) => {
     const view = deliveryView(item, now);
-    if (view === "handed-off") return [ASK_AFTER_MS - elapsed(item.submittedAt, now)];
+    if (view === "handed-off") return [ASK_AFTER_MS - elapsed(item.handedOffAt, now)];
     if (view === "commandHandedOff")
       return [COMMAND_NOTICE_MS - elapsed(item.acceptedAt, now)];
     return [];
   });
   return waits.length ? Math.min(...waits) : null;
+}
+
+/**
+ * Whether a live change re-reads `item`: an unconfirmed handoff without a
+ * transcript row, until a minute after its ask. The server's later pushes of
+ * a read item still apply.
+ */
+export function rereadable(item, now) {
+  if (!awaitsConfirmation(item) || item.matchedMessageId) return false;
+  const since = elapsed(item.handedOffAt, now);
+  return since !== null && since < ASK_AFTER_MS + REREAD_AFTER_ASK_MS;
+}
+
+/**
+ * Calls `tick` at each time-based view change of `items()`, re-arming after each
+ * one until none is left. Returns the function that stops it.
+ */
+export function followDeliveryClock(items, tick, now = () => Date.now()) {
+  let timer = null;
+  const arm = () => {
+    const wait = nextDeliveryChange(items(), now());
+    if (wait === null) return;
+    timer = setTimeout(() => {
+      tick();
+      arm();
+    }, wait + 50);
+  };
+  arm();
+  return () => clearTimeout(timer);
 }

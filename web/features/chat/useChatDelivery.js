@@ -7,7 +7,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { ChatDraft, deliveryScope } from "./chat-draft.js";
-import { awaitsConfirmation } from "./delivery-confirmation.js";
+import { awaitsConfirmation, rereadable, sendHeld } from "./delivery-confirmation.js";
 import { registerComposer } from "./composer-registry.js";
 import { liveClient } from "../../lib/live/live-client.js";
 import { startLiveTopic } from "../../lib/live/live-topic-reader.js";
@@ -15,11 +15,11 @@ import { chatDeliveryCopy as copy } from "../../lib/i18n/messages/chat.js";
 import { browserUuid } from "../../lib/browser-uuid.js";
 
 // Deliveries whose server status may still change: unresolved ones, and handoffs the
-// CLI has yet to confirm (accepted or hook-blocked) while no transcript row shows them.
+// CLI has yet to confirm (accepted or hook-blocked), for a while (rereadable).
 const changeable = (item) =>
   item.recoveryAttempt ||
   (awaitsConfirmation(item)
-    ? !item.matchedMessageId
+    ? rereadable(item, Date.now())
     : !["handed-off", "accepted"].includes(item.status));
 const receiptStatuses = [
   "absent",
@@ -119,6 +119,8 @@ export default function useChatDelivery({ session, request, active }) {
     if (operation.current) return;
     const old = draft.getSnapshot().outbox;
     if (old && old.status !== "absent") return;
+    // A hook-blocked text may still be in the CLI prompt: sending could double it.
+    if (sendHeld(draft.getSnapshot())) return;
     const controller = new AbortController();
     operation.current = controller;
     checkVersion.current++;
@@ -268,5 +270,6 @@ export default function useChatDelivery({ session, request, active }) {
       });
     },
     locked: Boolean(state.outbox) || Boolean(recovering),
+    sendHeld: sendHeld(state),
   };
 }

@@ -88,7 +88,7 @@ test("an accepted push removes the notice and keeps the sent message", async ({
   );
 });
 
-test("an accepted command shows handed over briefly, then hides", async ({
+test("an accepted command shows handed over briefly and keeps its message", async ({
   page,
   liveStub,
 }) => {
@@ -97,18 +97,22 @@ test("an accepted command shows handed over briefly, then hides", async ({
   state.receipt = { status: "accepted", command: true, acceptedAt: Date.now() };
   await liveStub.changed(topic);
   await expect(status(page)).toHaveText("Command handed over");
-  await expect(page.locator(".chat-delivery-message")).toHaveCount(0, { timeout: 6000 });
+  await expect(page.locator(".chat-delivery-status")).toHaveCount(0, { timeout: 6000 });
+  await expect(page.locator(".chat-delivery-message")).toContainText("/cost");
 });
 
 test("a handoff without confirmation asks after eight seconds", async ({ page }) => {
-  // Handed off six seconds ago: the client timer switches to the question.
-  await fixture(page, { submittedAt: Date.now() - 6000 });
+  // The server clock is a minute behind: the ask still follows the browser's handoff.
+  await fixture(page, { submittedAt: Date.now() - 60000 });
   await sendMessage(page, "Silent CLI");
   await expect(status(page)).toContainText("Sent to TUI");
   await expect(page.getByRole("button", { name: "Inspect handoff" })).toHaveCount(0);
-  await expect(status(page)).toHaveText("The CLI has not confirmed. Check or resend.", {
-    timeout: 6000,
-  });
+  await page.waitForTimeout(6000);
+  await expect(status(page)).toContainText("Sent to TUI");
+  await expect(status(page)).toHaveText(
+    "The CLI has not confirmed. Check the handoff or edit and resend the message.",
+    { timeout: 6000 },
+  );
   await expect(page.getByRole("button", { name: "Inspect handoff" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Edit message" })).toBeVisible();
   await page.screenshot({ path: test.info().outputPath("delivery-ask.png") });
@@ -156,4 +160,23 @@ test("a hook block with the text still in the CLI offers no resend", async ({
   await expect(page.getByRole("button", { name: "Deliver again" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Edit message" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Open TUI" })).toBeVisible();
+});
+
+test("a blocked message still in the CLI prompt cannot be sent again from the composer", async ({
+  page,
+}) => {
+  // The block arrives with the send's own answer: the text returns to the composer.
+  await fixture(page, {
+    status: "rejected",
+    reason: "CHAT_HOOK_BLOCKED_DRAFT",
+    released: false,
+  });
+  await sendMessage(page, "Twice would double");
+  await expect(status(page)).toContainText("The text is still in the CLI prompt.");
+  await expect(page.getByLabel("Message", { exact: true })).toHaveValue(
+    "Twice would double",
+  );
+  await expect(page.getByRole("button", { name: "Send", exact: true })).toBeDisabled();
+  await page.getByRole("button", { name: "Dismiss delivery status" }).click();
+  await expect(page.getByRole("button", { name: "Send", exact: true })).toBeEnabled();
 });
