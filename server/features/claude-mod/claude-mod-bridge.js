@@ -4,7 +4,8 @@
 // model is thinking or compacting. A session whose mod reported is "mod active":
 // its MessageDisplay drafts are ignored and its turn reports decide Working and Idle
 // instead of the terminal reading (preferModActivity, session-activity-merge.js).
-// Streamed text is passed on, never logged or stored.
+// Streamed text is passed on, never logged or stored. Its prompt reports (a prompt
+// that entered or a hook dropped) go to the chat delivery's acceptance matcher.
 const maxTools = 32;
 const maxAgents = 64;
 const runId = (turn, step, block) => `claude-mod-${turn}-${step}-${block}`;
@@ -15,11 +16,37 @@ export class ClaudeModBridge {
   /**
    * `streams` is ChatStreams (streamText, endStream, setStatus); `drafts` the
    * MessageDisplay drafts it replaces; `onActivity(id)` asks an open chat to read
-   * its transcript again.
+   * its transcript again. The mod's hello readies the session's acceptance source
+   * (`onReady(id)`), each prompt report reaches `onPrompt(id, event)` dated by this
+   * server, and `onForget(id)` ends the source with the mod's state.
    */
-  constructor({ streams, drafts, onActivity = () => {}, now = Date.now }) {
-    Object.assign(this, { streams, drafts, onActivity, now });
+  constructor({
+    streams,
+    drafts,
+    onActivity = () => {},
+    onReady = () => {},
+    onPrompt = () => {},
+    onForget = () => {},
+    now = Date.now,
+  }) {
+    Object.assign(this, {
+      streams,
+      drafts,
+      onActivity,
+      onReady,
+      onPrompt,
+      onForget,
+      now,
+    });
     this.sessions = new Map();
+  }
+  /** Tell the acceptance matcher; it is advisory and never fails a report. */
+  acceptance(name, ...args) {
+    try {
+      this[name](...args);
+    } catch {
+      /* The delivery falls back to its timeout. */
+    }
   }
   /** Whether the mod reports for this launch of the session. */
   active(sessionId) {
@@ -53,6 +80,16 @@ export class ClaudeModBridge {
         this.forget(sessionId);
         return {};
       }
+      if (event.type === "hello") this.acceptance("onReady", sessionId);
+      if (event.type === "prompt.accepted" || event.type === "prompt.dropped")
+        this.acceptance("onPrompt", sessionId, {
+          kind: event.type === "prompt.accepted" ? "accepted" : "dropped",
+          at: state.at,
+          imageNames: event.images,
+          imageCount: event.images.length,
+          ...(event.queued !== undefined ? { queued: event.queued } : {}),
+          ...(event.reason !== undefined ? { reason: event.reason } : {}),
+        });
       if (event.type === "turn.start") this.startTurn(sessionId, state, event.turn);
       if (event.type === "text") {
         if (state.turn?.id !== event.turn) this.startTurn(sessionId, state, event.turn);
@@ -117,6 +154,7 @@ export class ClaudeModBridge {
   }
   /** A new launch, a stopped session or the mod's goodbye: back to the fallbacks. */
   forget(sessionId) {
+    this.acceptance("onForget", sessionId);
     const state = this.sessions.get(sessionId);
     if (!state) return;
     this.sessions.delete(sessionId);

@@ -6,6 +6,8 @@ import {
   preferModActivity,
 } from "../../server/features/claude-mod/claude-mod-bridge.js";
 import { claudeModEvents } from "../../server/features/claude-mod/claude-mod-events.js";
+import { DeliveryAcceptance } from "../../server/features/chat/delivery-acceptance.js";
+import { claudeModAcceptance } from "../../server/application/chat-delivery-wiring.js";
 import { ReplyStreams } from "../../server/features/chat/reply-streams.js";
 import { mergeActivity } from "../../server/features/sessions/session-activity-merge.js";
 import { nextReplies } from "../../web/features/chat/reply-stream.js";
@@ -215,4 +217,130 @@ test("the header takes the newer of the live and the polled activity", () => {
     liveActivity({ state: "idle", label: "Ready" }, thinking).detail,
     "Denkt nach",
   );
+});
+
+test("prompt reports are validated: file names, queued and a bounded reason", () => {
+  const events = claudeModEvents({
+    protocol: 1,
+    events: [
+      { type: "prompt.accepted", at: 5, images: ["red.png", "a b.PNG"], queued: true },
+      { type: "prompt.accepted", images: [], queued: false, extra: 1 },
+      { type: "prompt.dropped", at: 6, images: ["red.png"], reason: "no\nway" },
+      { type: "prompt.dropped", images: [] },
+    ],
+  });
+  assert.deepEqual(events, [
+    { type: "prompt.accepted", images: ["red.png", "a b.PNG"], queued: true },
+    { type: "prompt.accepted", images: [], queued: false },
+    { type: "prompt.dropped", images: ["red.png"], reason: "no\nway" },
+    { type: "prompt.dropped", images: [] },
+  ]);
+  const accepted = { type: "prompt.accepted", at: 1, images: [], queued: false };
+  for (const bad of [
+    { ...accepted, queued: "yes" },
+    { ...accepted, queued: undefined },
+    { ...accepted, images: undefined },
+    { ...accepted, images: ["dir/red.png"] },
+    { ...accepted, images: ["red\n.png"] },
+    { ...accepted, images: [""] },
+    { ...accepted, images: ["x".repeat(256)] },
+    { ...accepted, images: Array.from({ length: 33 }, () => "a.png") },
+    { ...accepted, images: [7] },
+    { ...accepted, at: -1 },
+    { ...accepted, at: "now" },
+    { type: "prompt.dropped", images: [], reason: "x".repeat(501) },
+    { type: "prompt.dropped", images: [], reason: 5 },
+  ])
+    assert.throws(
+      () => claudeModEvents({ protocol: 1, events: [bad] }),
+      /Invalid Claude mod/,
+      JSON.stringify(bad).slice(0, 80),
+    );
+  assert.equal(
+    claudeModEvents({
+      protocol: 1,
+      events: [{ ...accepted, images: Array.from({ length: 32 }, () => "a.png") }],
+    }).length,
+    1,
+  );
+});
+
+test("hello readies the session's acceptance source; prompts reach it dated here", (t) => {
+  const b = bridge(t);
+  const calls = [];
+  b.mod.onReady = (id) => calls.push(["ready", id]);
+  b.mod.onPrompt = (id, event) => calls.push(["prompt", id, event]);
+  b.mod.onForget = (id) => calls.push(["forget", id]);
+  b.mod.receive("s", [{ type: "hello", cli: "2.1.319" }]);
+  b.tick(25);
+  b.mod.receive("s", [
+    { type: "prompt.accepted", images: ["red.png", "blue.png"], queued: true },
+    { type: "prompt.dropped", images: [], reason: "blocked" },
+    { type: "prompt.accepted", images: [], queued: false },
+  ]);
+  assert.deepEqual(calls, [
+    ["ready", "s"],
+    [
+      "prompt",
+      "s",
+      {
+        kind: "accepted",
+        at: 1025,
+        imageNames: ["red.png", "blue.png"],
+        imageCount: 2,
+        queued: true,
+      },
+    ],
+    [
+      "prompt",
+      "s",
+      { kind: "dropped", at: 1025, imageNames: [], imageCount: 0, reason: "blocked" },
+    ],
+    [
+      "prompt",
+      "s",
+      { kind: "accepted", at: 1025, imageNames: [], imageCount: 0, queued: false },
+    ],
+  ]);
+  // The mod's goodbye and a new launch both end the source; a throwing one is advisory.
+  b.mod.onPrompt = () => {
+    throw Error("matcher down");
+  };
+  assert.deepEqual(
+    b.mod.receive("s", [{ type: "prompt.accepted", images: [], queued: false }]),
+    {},
+  );
+  b.mod.receive("s", [{ type: "session.end" }]);
+  b.mod.forget("s");
+  assert.deepEqual(calls.slice(4), [
+    ["forget", "s"],
+    ["forget", "s"],
+  ]);
+});
+
+test("the mod's prompt reports confirm a chat delivery through the matcher", () => {
+  const matches = [];
+  const acceptance = new DeliveryAcceptance({
+    now: () => 2000,
+    onMatch: (...args) => matches.push(args),
+  });
+  let delivery = null;
+  const mod = new ClaudeModBridge({
+    streams: { streamText: () => true, endStream() {}, setStatus() {} },
+    now: () => 2000,
+    ...claudeModAcceptance(() => delivery),
+  });
+  // Before the chat delivery exists a report goes nowhere and breaks nothing.
+  assert.deepEqual(mod.receive("s", [{ type: "hello" }]), {});
+  delivery = { acceptance };
+  mod.receive("s", [{ type: "hello" }]);
+  assert.equal(acceptance.supports("s"), true);
+  acceptance.expect("s", { deliveryId: "d1", since: 1500, imageNames: ["red.png"] });
+  mod.receive("s", [{ type: "prompt.accepted", images: ["red.png"], queued: true }]);
+  assert.deepEqual(matches, [["s", "d1", { kind: "accepted", queued: true }]]);
+  mod.receive("s", [{ type: "session.end" }]);
+  assert.equal(acceptance.supports("s"), false);
+  mod.receive("s", [{ type: "hello" }]);
+  mod.forget("s");
+  assert.equal(acceptance.supports("s"), false, "a new launch ends the source too");
 });

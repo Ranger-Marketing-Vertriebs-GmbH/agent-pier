@@ -2,7 +2,8 @@
 // AgentPier copies this file into a per-launch plugin folder and loads it with
 // `--plugin-dir`; it runs inside Claude Code's mod runtime (no Node, no DOM): every
 // outside effect goes through `$`. It reports the session's turns, token-level reply
-// text, tool calls, subagents and compactions to AgentPier over the request broker's
+// text, tool calls, subagents, compactions and whether a prompt typed at the composer
+// entered or a hook dropped it to AgentPier over the request broker's
 // private Unix socket (server/features/claude-mod/claude-mod-socket.js).
 //
 // It never changes what Claude Code does: every hook passes the event on unchanged,
@@ -17,7 +18,19 @@ const maxText = 64 * 1024;
 const maxQueue = 512;
 const url = "http://agentpier/claude-mod/v1/events";
 // Reports that must survive a failed request; the others describe a moment.
-const kept = new Set(["hello", "turn.start", "turn.complete", "session.end"]);
+const kept = new Set([
+  "hello",
+  "turn.start",
+  "turn.complete",
+  "session.end",
+  "prompt.accepted",
+  "prompt.dropped",
+]);
+// A prompt report names at most this many images and a drop's reason this many chars.
+const maxImages = 32;
+const maxReason = 500;
+const imageName = (name) =>
+  typeof name === "string" && /^[^\0-\x1f\x7f/]{1,255}$/.test(name) ? name : "?";
 
 const quietly = (fn) => {
   try {
@@ -156,6 +169,30 @@ export class Bridge {
   agentEnd(agentId) {
     this.agents.delete(agentId);
     this.push({ type: "agent.end", id: agentId });
+  }
+  /**
+   * A prompt typed at the composer (AgentPier's deliveries arrive there) entered or
+   * was queued, or a hook dropped it. Only its images' file names leave, never its
+   * text: the engine appends the prompt to a settings hook's reason, which is cut off.
+   */
+  promptSubmitted(e, result) {
+    if (e?.origin?.kind !== "composer" || !result || typeof result !== "object") return;
+    const images = (e.attachments || [])
+      .filter((item) => item?.type === "image")
+      .slice(0, maxImages)
+      // An unnamed image keeps its place, so the count stays right.
+      .map((item) => imageName(item.filename));
+    if (typeof result.drop === "string") {
+      const reason = result.drop.split("\n\n\nOriginal prompt:")[0].slice(0, maxReason);
+      this.push({ type: "prompt.dropped", at: Date.now(), images, reason });
+    } else
+      this.push({
+        type: "prompt.accepted",
+        at: Date.now(),
+        images,
+        queued: Boolean(e.turnId),
+      });
+    this.flushSoon();
   }
   sessionEnd() {
     this.push({ type: "session.end" });
@@ -355,6 +392,12 @@ export const register = (on) => {
     } finally {
       quietly(() => bridge.push({ type: "compact.end" }));
     }
+  }).catch(pass);
+  on("prompt.submit", async ($, e, next) => {
+    // Observed once it entered or was queued (or dropped); never changed or held.
+    const result = await next(e);
+    quietly(() => bridge.promptSubmitted(e, result));
+    return result;
   }).catch(pass);
   on("session.end", ($, e, next) => {
     // `/clear` goes on in the same process under a new conversation.
