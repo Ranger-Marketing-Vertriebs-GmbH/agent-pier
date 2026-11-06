@@ -13,6 +13,9 @@
 // stays quiet. It never logs anything.
 
 const protocol = 1;
+// This copy reports prompt.accepted / prompt.dropped. A copy from before (protocol 1
+// all the same) has no such report, so the server keeps the text fallback for it.
+const prompts = true;
 const flushMs = 100;
 const maxText = 64 * 1024;
 const maxQueue = 512;
@@ -267,7 +270,7 @@ export class Bridge {
           "content-type": "application/json",
           "x-agentpier-session": config.session,
         },
-        body: JSON.stringify({ protocol, events }),
+        body: JSON.stringify({ protocol, prompts, events }),
       });
       ok = response.ok === true;
       // Not this launch's channel any more (another launch, a removed session).

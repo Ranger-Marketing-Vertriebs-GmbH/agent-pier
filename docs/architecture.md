@@ -61,7 +61,7 @@ A chat message is pasted into the CLI's TUI and followed by Enter; the receipt (
 
 Known limitations:
 
-- A native source becomes ready only after the mod or the proxy has reported, so the first delivery after a launch may use the text fallback.
+- A native source becomes ready only after the mod or the proxy has reported, so the first delivery after a launch may use the text fallback. A Claude Code session launched before an update runs an older copy of the mod without prompt reports (its body lacks `prompts: true`) and keeps the text fallback until it is relaunched.
 - A drop reason in a non-settings-hook format may carry prompt text, up to 500 characters.
 - Acceptance events are dated with the server's receive time, not the CLI's clock.
 - A prompt the owner types in the TUI at the very moment of a delivery cannot be told apart by id; the newest fitting delivery takes the event.
