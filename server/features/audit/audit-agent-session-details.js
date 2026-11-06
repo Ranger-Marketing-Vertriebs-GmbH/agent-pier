@@ -3,7 +3,15 @@
 // answer, a note or a launch option's text.
 const ops = ["start", "send", "answer", "escalate", "stop", "worktree-remove"];
 // A send: its delivery and what ChatDelivery answered.
-const deliveryStatuses = ["pending", "handed-off", "rejected", "uncertain"];
+// "hook-blocked" is a rejection by a CLI hook (the MCP answer says "rejected").
+const deliveryStatuses = [
+  "pending",
+  "handed-off",
+  "accepted",
+  "rejected",
+  "hook-blocked",
+  "uncertain",
+];
 const id = (value) =>
   typeof value === "string" && /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/.test(value);
 

@@ -13,7 +13,9 @@ import { ticketsProjectChanged } from "./live-topics.js";
 import { isTimedOut, isTransient } from "./sequence-reasons.js";
 
 const copy = serverMessages.tickets;
-const DELIVERING = new Set(["pending", "handed-off", "uncertain"]);
+// "accepted": the CLI took the task. "handed-off" stays success for CLIs without a
+// native source. A hook block is "rejected", so it fails like any rejection.
+const DELIVERING = new Set(["pending", "handed-off", "uncertain", "accepted"]);
 const REMOTE_PREFIX = "refs/remotes/origin/";
 
 /** A UUID derived from `seed`, so a resumed delivery reuses the first one's id. */

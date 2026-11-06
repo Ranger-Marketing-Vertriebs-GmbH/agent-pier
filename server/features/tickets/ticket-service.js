@@ -25,7 +25,9 @@ import { TicketRuleService } from "./rule-service.js";
 const copy = serverMessages.tickets;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SOURCE_CODES = new Set(Object.keys(copy.source));
-const DELIVERING = new Set(["pending", "handed-off", "uncertain"]);
+// "accepted": the CLI took the task. "handed-off" stays success for CLIs without a
+// native source. A hook block is "rejected", so it fails like any rejection.
+const DELIVERING = new Set(["pending", "handed-off", "uncertain", "accepted"]);
 
 const plainObject = (value) =>
   !!value && typeof value === "object" && !Array.isArray(value);
@@ -391,10 +393,15 @@ export class TicketService {
       await this.stopSession(session.id);
       throw error;
     }
-    // Pending and uncertain deliveries may still reach the CLI; rejected ones never do.
+    // Pending and uncertain deliveries may still reach the CLI; rejected ones never do
+    // (a hook block among them, which names its reason as the error code).
     if (!DELIVERING.has(receipt?.status)) {
       await this.stopSession(session.id);
-      throw problem(copy.taskNotDelivered, 502);
+      const hookBlocked = /^CHAT_HOOK_BLOCKED(_DRAFT)?$/.test(receipt?.reason ?? "");
+      throw Object.assign(
+        problem(copy.taskNotDelivered, 502),
+        hookBlocked ? { code: receipt.reason } : {},
+      );
     }
   }
 

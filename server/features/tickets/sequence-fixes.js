@@ -20,7 +20,9 @@ export const FORGE_LIMIT_MS = 1_800_000;
 export const NO_PR_LIMIT_MS = 6 * 3_600_000;
 
 const copy = serverMessages.tickets;
-const DELIVERING = new Set(["pending", "handed-off", "uncertain"]);
+// "accepted": the CLI took the task. "handed-off" stays success for CLIs without a
+// native source. A hook block is "rejected", so it fails like any rejection.
+const DELIVERING = new Set(["pending", "handed-off", "uncertain", "accepted"]);
 const QUIET = new Set(["idle", "stopped"]);
 const MISSING = Object.freeze({ exists: false, state: "unknown", since: null });
 
@@ -153,7 +155,11 @@ async function deliver(engine, session, seed, text) {
       deliveryScope: sessionScope(session),
     });
     if (DELIVERING.has(receipt?.status)) return true;
-    engine.onError(Object.assign(new Error(), { code: "notDelivered" }), "fix-deliver");
+    const hookBlocked = /^CHAT_HOOK_BLOCKED(_DRAFT)?$/.test(receipt?.reason ?? "");
+    engine.onError(
+      Object.assign(new Error(), { code: hookBlocked ? receipt.reason : "notDelivered" }),
+      "fix-deliver",
+    );
   } catch (error) {
     if (error?.status === 409) return true;
     if (isTimedOut(error)) throw error;

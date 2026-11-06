@@ -21,7 +21,17 @@ export const readBounds = { limit: 3, maxLimit: 10, replyChars: 8000, totalChars
 // counts once the turn was seen working or this long after the send.
 export const waitBounds = { pollMs: 1000, timeoutSeconds: 60, maxSeconds: 100 };
 export const settleMs = 5000;
-const deliveryStatuses = new Set(["pending", "handed-off", "rejected", "uncertain"]);
+// "accepted": the CLI took the message (also queued). A hook block is "rejected" with
+// the reason CHAT_HOOK_BLOCKED or CHAT_HOOK_BLOCKED_DRAFT.
+const deliveryStatuses = new Set([
+  "pending",
+  "handed-off",
+  "accepted",
+  "rejected",
+  "uncertain",
+]);
+const hookBlocked = (receipt) =>
+  /^CHAT_HOOK_BLOCKED(_DRAFT)?$/.test(receipt?.reason ?? "");
 
 // A UUID derived from a stable key, so a retried call reuses its delivery.
 function deliveryUuid(key) {
@@ -85,7 +95,7 @@ export async function sendToSession(w, ctx, input, inv) {
   audit(w, record, session, {
     ...(text(input.requestId, 100) ? { requestId: input.requestId } : {}),
     deliveryId,
-    status,
+    status: status === "rejected" && hookBlocked(receipt) ? "hook-blocked" : status,
   });
   return {
     deliveryId,
@@ -101,7 +111,9 @@ function audit(w, record, session, details) {
       action: "session.sent",
       resourceType: "session",
       source: "system",
-      outcome: details.status === "rejected" ? "failure" : "success",
+      outcome: ["rejected", "hook-blocked"].includes(details.status)
+        ? "failure"
+        : "success",
       sessionId: record.sessionId,
       projectId: record.projectId,
       details: {
