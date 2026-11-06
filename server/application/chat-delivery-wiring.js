@@ -30,19 +30,25 @@ export function claudeModAcceptance(current) {
 
 /**
  * The Codex proxy's prompt pushes (`prompt-ready`, `prompt`), routed like the bridge
- * mod's reports. The event's time is when the server hears it.
+ * mod's reports. The event's time is when the server hears it. Advisory: it never
+ * throws, so the rest of the push's handling runs (a push before the chat delivery
+ * exists, or a failing matcher, leaves the delivery to its timeout).
  */
 export function codexProxyAcceptance(sessionId, push, current) {
   if (push.type !== "prompt-ready" && push.type !== "prompt") return;
-  const acceptance = current()?.acceptance;
-  if (!acceptance) return;
-  acceptance.ready(sessionId, "codex-proxy");
-  if (push.type === "prompt")
-    acceptance.report(sessionId, {
-      kind: push.kind,
-      at: Date.now(),
-      imageNames: null,
-      imageCount: push.imageCount,
-      ...(push.reason ? { reason: push.reason } : {}),
-    });
+  try {
+    const acceptance = current()?.acceptance;
+    if (!acceptance) return;
+    acceptance.ready(sessionId, "codex-proxy");
+    if (push.type === "prompt")
+      acceptance.report(sessionId, {
+        kind: push.kind,
+        at: Date.now(),
+        imageNames: null,
+        imageCount: push.imageCount,
+        ...(push.reason ? { reason: push.reason } : {}),
+      });
+  } catch {
+    /* The delivery falls back to its timeout. */
+  }
 }
