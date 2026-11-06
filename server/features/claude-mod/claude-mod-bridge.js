@@ -16,7 +16,7 @@ export class ClaudeModBridge {
   /**
    * `streams` is ChatStreams (streamText, endStream, setStatus); `drafts` the
    * MessageDisplay drafts it replaces; `onActivity(id)` asks an open chat to read
-   * its transcript again. The mod's hello readies the session's acceptance source
+   * its transcript again. Each report readies the session's acceptance source
    * (`onReady(id)`), each prompt report reaches `onPrompt(id, event)` dated by this
    * server, and `onForget(id)` ends the source with the mod's state.
    */
@@ -74,13 +74,14 @@ export class ClaudeModBridge {
       this.drafts?.end(sessionId);
     }
     state.at = this.now();
+    // Any report proves the mod runs here: a restarted server hears no new hello.
+    this.acceptance("onReady", sessionId);
     let resync = false;
     for (const event of events) {
       if (event.type === "session.end") {
         this.forget(sessionId);
         return {};
       }
-      if (event.type === "hello") this.acceptance("onReady", sessionId);
       if (event.type === "prompt.accepted" || event.type === "prompt.dropped")
         this.acceptance("onPrompt", sessionId, {
           kind: event.type === "prompt.accepted" ? "accepted" : "dropped",
