@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  ASK_WINDOW_MS,
   DeliveryAcceptance,
   EVENT_BUFFER_MS,
 } from "../../server/features/chat/delivery-acceptance.js";
@@ -80,7 +81,7 @@ test("codex event matches by count", () => {
   assert.equal(matches.length, 1);
 });
 
-test("two deliveries in turn: Enter, event, Enter, event", () => {
+test("two deliveries in turn within the ask window: Enter, event, Enter, event", () => {
   const { matches, acceptance } = setup();
   acceptance.expect("s1", { deliveryId: "d1", since: 1000, imageNames: [] });
   acceptance.report("s1", accepted(1010));
@@ -108,32 +109,55 @@ test("events reported after both Enters still go to their own delivery by time",
 test("a delivery without an event never takes the next delivery's event", () => {
   const { matches, acceptance } = setup();
   // D1 is hook-blocked without an event (or a command with no submit event).
+  // D2 follows after the ask window, so D1 is stale and cannot make the event ambiguous.
+  const d2 = 1000 + ASK_WINDOW_MS + 1;
   acceptance.expect("s1", { deliveryId: "d1", since: 1000, imageNames: [] });
-  acceptance.expect("s1", { deliveryId: "d2", since: 2000, imageNames: [] });
-  acceptance.report("s1", accepted(2010));
+  acceptance.expect("s1", { deliveryId: "d2", since: d2, imageNames: [] });
+  acceptance.report("s1", accepted(d2 + 10));
   assert.deepEqual(
     matches.map((m) => m.deliveryId),
     ["d2"],
   );
   // D1 is retired: it stays handed-off and a later event finds nothing open.
-  acceptance.report("s1", accepted(2020));
-  acceptance.expect("s1", { deliveryId: "d3", since: 2030, imageNames: [] });
+  acceptance.report("s1", accepted(d2 + 20));
+  acceptance.expect("s1", { deliveryId: "d3", since: d2 + 30, imageNames: [] });
   assert.deepEqual(
     matches.map((m) => m.deliveryId),
     ["d2"],
   );
 });
 
-test("an event dated after two Enters goes to the newest; the older one asks", () => {
+test("an event fitting two fresh deliveries is ambiguous: both ask, none later", () => {
   const { matches, acceptance } = setup();
   acceptance.expect("s1", { deliveryId: "d1", since: 1000, imageNames: [] });
   acceptance.expect("s1", { deliveryId: "d2", since: 1005, imageNames: [] });
   acceptance.report("s1", accepted(1010));
+  // A second event must not confirm either of them.
   acceptance.report("s1", accepted(1020));
-  assert.deepEqual(
-    matches.map((m) => m.deliveryId),
-    ["d2"],
+  assert.deepEqual(matches, []);
+});
+
+test("an ambiguous event followed by a hook block of the second leaves both asking", () => {
+  const { matches, acceptance } = setup();
+  acceptance.expect("s1", { deliveryId: "d1", since: 1000, imageNames: [] });
+  acceptance.expect("s1", { deliveryId: "d2", since: 1100, imageNames: [] });
+  // D1's own event arrives after D2's Enter; D2 is then blocked by a hook.
+  acceptance.report("s1", accepted(1150));
+  acceptance.report("s1", { ...accepted(1200), kind: "dropped", reason: "hook" });
+  assert.equal(
+    matches.some((m) => m.outcome.kind === "accepted"),
+    false,
   );
+  assert.deepEqual(matches, []);
+});
+
+test("an ambiguous drop confirms none", () => {
+  const { matches, acceptance } = setup();
+  acceptance.expect("s1", { deliveryId: "d1", since: 1000, imageNames: [] });
+  acceptance.expect("s1", { deliveryId: "d2", since: 1100, imageNames: [] });
+  acceptance.report("s1", { ...accepted(1150), kind: "dropped", reason: "hook" });
+  acceptance.report("s1", accepted(1200));
+  assert.deepEqual(matches, []);
 });
 
 test("a match retires older deliveries, also those the event did not fit", () => {
