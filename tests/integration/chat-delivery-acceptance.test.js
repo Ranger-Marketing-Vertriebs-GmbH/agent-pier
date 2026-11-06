@@ -17,7 +17,10 @@ function tempDir(t) {
   return dataDir;
 }
 
-/** A fake session whose TUI write runs every phase, then `afterSubmit`. */
+/**
+ * A fake session whose TUI write runs every phase. `afterSubmit` gets the write
+ * options, so it can refuse Enter like the composer guard does.
+ */
 function setup(
   dataDir,
   { source = true, now, afterSubmit = async () => {}, afterPaste = async () => {} } = {},
@@ -41,12 +44,13 @@ function setup(
           composer: { state: "text", text: "hello" },
           recoveryGeneration: "fixture",
           observationGeneration: "fixture",
-          write: async (_text, { onPhase }) => {
+          write: async (_text, options) => {
+            const { onPhase } = options;
             await onPhase("paste-intent");
             await onPhase("pasted");
             await afterPaste();
             await onPhase("submit-intent");
-            await afterSubmit();
+            await afterSubmit(options);
             await onPhase("submitted");
           },
         }),
@@ -57,6 +61,7 @@ function setup(
       clearNotice: () => {},
     },
     models: { guardInput: async () => {} },
+    retryMs: 10,
     onChange: (id) => changes.push(id),
   });
   const send = (text = "hello", deliveryId = randomUUID()) =>
@@ -124,6 +129,46 @@ test("uncertain receipt is confirmed by a later event", async (t) => {
   assert.equal(accepted.status, "accepted");
   assert.equal(accepted.error, undefined);
   assert.equal(accepted.reason, undefined);
+});
+
+// The composer guard refuses Enter after the submit intent was journaled.
+const refuseEnter = async (options, code) => {
+  await options.onRefused("submit-intent");
+  throw Object.assign(new Error("Enter refused"), code ? { code } : {});
+};
+
+test("refused Enter, then owner prompt: receipt stays uncertain", async (t) => {
+  const x = setup(tempDir(t), { afterSubmit: (options) => refuseEnter(options) });
+  const sent = await x.send();
+  assert.equal(sent.status, "uncertain");
+  // The owner's own prompt in the TUI is no confirmation of this message.
+  x.event();
+  assert.equal((await x.status(sent.deliveryId)).status, "uncertain");
+});
+
+test("held then retried A, then B's event confirms B", async (t) => {
+  let refused = false;
+  const x = setup(tempDir(t), {
+    afterSubmit: async (options) => {
+      if (refused) return;
+      refused = true;
+      await refuseEnter(options, "CHAT_QUESTION_OPEN");
+    },
+  });
+  const a = await x.send("first");
+  assert.equal(a.status, "pending");
+  let current = a;
+  for (let n = 0; n < 200 && current.status === "pending"; n++) {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    current = await x.status(a.deliveryId);
+  }
+  assert.equal(current.status, "handed-off");
+  x.event();
+  assert.equal((await x.status(a.deliveryId)).status, "accepted");
+  const b = await x.send("second");
+  assert.equal(b.status, "handed-off");
+  x.event();
+  assert.equal((await x.status(b.deliveryId)).status, "accepted");
 });
 
 test("late event after ask timeout still confirms", async (t) => {

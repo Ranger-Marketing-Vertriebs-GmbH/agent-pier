@@ -3,6 +3,7 @@ import fs from "node:fs";
 import { normalizeChatText } from "../sessions/session-chat-input.js";
 import {
   deliveryReason,
+  enterMaySent,
   heldMode,
   intents,
   noticeRecorder,
@@ -339,6 +340,7 @@ export class ChatDelivery {
             mayHaveWritten = true;
           },
           onRefused: async (phase) => {
+            if (phase === "submit-intent") this.withdrawAcceptance(id, file, receipt);
             receipt.journal = {
               phase: provenPhase[phase],
               generation: tx.recoveryGeneration,
@@ -363,11 +365,11 @@ export class ChatDelivery {
         job.mode = heldMode[phase];
         receipt.waiting = waiting;
         receipt.reason = reason;
-        // Enter was never sent: an event meanwhile was not this message.
-        this.earlyAcceptance.delete(file);
+        this.withdrawAcceptance(id, file, receipt);
         if (this.exists(file)) this.write(file, receipt);
         return "deferred";
       }
+      if (!enterMaySent(receipt)) this.withdrawAcceptance(id, file, receipt);
       receipt.status = mayHaveWritten ? "uncertain" : "rejected";
       delete receipt.waiting;
       // Never keep the reason of an earlier hold for a different outcome.
@@ -414,6 +416,12 @@ export class ChatDelivery {
     }
     const receipt = this.read(file);
     if (receipt && confirm(receipt, outcome)) this.write(file, receipt);
+  }
+
+  /** Enter was never sent: no later event may confirm this delivery. */
+  withdrawAcceptance(id, file, receipt) {
+    this.earlyAcceptance.delete(file);
+    this.acceptance?.withdraw(id, receipt.deliveryId);
   }
 
   /** Apply an acceptance that arrived while this delivery ran. */

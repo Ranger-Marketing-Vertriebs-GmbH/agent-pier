@@ -58,7 +58,10 @@ export class DeliveryAcceptance {
       this.#emit(sessionId, deliveryId, outcomeOf(event));
       return;
     }
-    const list = this.#expectations.get(sessionId) ?? [];
+    // A retried delivery replaces its earlier expectation.
+    const list = (this.#expectations.get(sessionId) ?? []).filter(
+      (entry) => entry.deliveryId !== deliveryId,
+    );
     list.push(expectation);
     while (list.length > MAX_EXPECTATIONS) list.shift();
     this.#expectations.set(sessionId, list);
@@ -81,6 +84,15 @@ export class DeliveryAcceptance {
     events.push({ event, expiresAt: this.#now() + EVENT_BUFFER_MS });
     while (events.length > MAX_EVENTS) events.shift();
     this.#events.set(sessionId, events);
+  }
+
+  /** Enter was never sent for this delivery: its expectation must not match. */
+  withdraw(sessionId, deliveryId) {
+    const list = this.#expectations.get(sessionId);
+    if (!list) return;
+    const kept = list.filter((entry) => entry.deliveryId !== deliveryId);
+    if (kept.length) this.#expectations.set(sessionId, kept);
+    else this.#expectations.delete(sessionId);
   }
 
   forget(sessionId) {

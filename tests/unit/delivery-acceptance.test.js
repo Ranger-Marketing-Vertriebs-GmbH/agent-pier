@@ -156,3 +156,37 @@ test("expired expectations are dropped and a throwing listener keeps state intac
   acceptance.report("s1", accepted(clock.t + 1));
   assert.deepEqual(seen, ["d1", "d2"]);
 });
+
+test("a withdrawn expectation never matches and later events buffer again", () => {
+  const { matches, acceptance } = setup();
+  acceptance.expect("s1", { deliveryId: "d1", since: 1000, imageNames: [] });
+  acceptance.expect("s1", { deliveryId: "d2", since: 1000, imageNames: [] });
+  acceptance.withdraw("s1", "d1");
+  acceptance.report("s1", accepted(1010));
+  assert.deepEqual(
+    matches.map((match) => match.deliveryId),
+    ["d2"],
+  );
+  acceptance.withdraw("s1", "d2");
+  acceptance.withdraw("s1", "unknown");
+  // With nothing expected, an event is buffered for a later Enter.
+  acceptance.report("s1", accepted(1020));
+  acceptance.expect("s1", { deliveryId: "d3", since: 1015, imageNames: [] });
+  assert.deepEqual(
+    matches.map((match) => match.deliveryId),
+    ["d2", "d3"],
+  );
+});
+
+test("expect replaces an earlier expectation of the same delivery", () => {
+  const { matches, acceptance } = setup();
+  acceptance.expect("s1", { deliveryId: "a", since: 1000, imageNames: [] });
+  acceptance.expect("s1", { deliveryId: "a", since: 1100, imageNames: [] });
+  acceptance.expect("s1", { deliveryId: "b", since: 1200, imageNames: [] });
+  acceptance.report("s1", accepted(1150));
+  acceptance.report("s1", accepted(1250));
+  assert.deepEqual(
+    matches.map((match) => match.deliveryId),
+    ["a", "b"],
+  );
+});
