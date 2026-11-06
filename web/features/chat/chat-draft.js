@@ -462,7 +462,7 @@ export class ChatDraft {
         waiting: receipt.status === "pending" ? receipt.waiting || "" : "",
         pasted: receipt.pasted === "images" ? "images" : receipt.pasted !== false,
         recoveryAttempt: resolved ? null : item.recoveryAttempt,
-        ...confirmationFields(receipt),
+        ...confirmationFields(receipt, item, pending),
         // A hook block says whether its text left the CLI prompt (resend is safe).
         ...(!pending && typeof receipt.released === "boolean"
           ? { released: receipt.released }

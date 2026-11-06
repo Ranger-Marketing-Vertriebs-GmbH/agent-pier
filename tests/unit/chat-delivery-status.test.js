@@ -1,4 +1,4 @@
-import test from "node:test";
+import test, { mock } from "node:test";
 import assert from "node:assert/strict";
 import {
   ChatDraft,
@@ -8,8 +8,12 @@ import {
 import {
   ASK_AFTER_MS,
   COMMAND_NOTICE_MS,
+  REREAD_AFTER_ASK_MS,
   deliveryView,
+  followDeliveryClock,
   nextDeliveryChange,
+  rereadable,
+  sendHeld,
 } from "../../web/features/chat/delivery-confirmation.js";
 import { nativeDeliveryStates } from "../../web/features/chat/native-delivery-state.js";
 
@@ -48,15 +52,66 @@ async function handedOff(id = "first", extra = {}) {
 }
 
 test("an events delivery reads as sent, then asks after eight seconds", () => {
-  const item = { status: "handed-off", confirmation: "events", submittedAt: 1000 };
+  const item = { status: "handed-off", confirmation: "events", handedOffAt: 1000 };
   assert.equal(deliveryView(item, 1000), "handed-off");
   assert.equal(deliveryView(item, 1000 + ASK_AFTER_MS - 1), "handed-off");
   assert.equal(deliveryView(item, 1000 + ASK_AFTER_MS), "askCheck");
   assert.equal(nextDeliveryChange([item], 3000), ASK_AFTER_MS - 2000);
   assert.equal(nextDeliveryChange([item], 1000 + ASK_AFTER_MS), null);
-  // A browser clock behind the server never waits longer than the full delay.
+  // A browser clock set back never waits longer than the full delay.
   assert.equal(nextDeliveryChange([item], 0), ASK_AFTER_MS);
   assert.equal(deliveryView({ ...item, confirmation: "screen" }, 99999), "askCheck");
+});
+
+test("the ask is timed from this browser's handoff, not the server clock", async () => {
+  // Server clock a minute ahead of and behind the browser.
+  for (const skew of [60000, -60000]) {
+    const draft = await handedOff("first", { submittedAt: Date.now() + skew });
+    const item = draft.getSnapshot().recent[0];
+    assert.ok(Math.abs(item.handedOffAt - Date.now()) < 1000);
+    assert.equal(deliveryView(item, Date.now()), "handed-off");
+    assert.equal(deliveryView(item, item.handedOffAt + ASK_AFTER_MS), "askCheck");
+    // A repeated read of the same handoff keeps the first stamp.
+    await draft.receipt({
+      deliveryId: "first",
+      status: "handed-off",
+      confirmation: "events",
+    });
+    assert.equal(draft.getSnapshot().recent[0].handedOffAt, item.handedOffAt);
+  }
+});
+
+test("the clock re-arms by itself and reaches the ask without other renders", () => {
+  mock.timers.enable({ apis: ["setTimeout", "Date"], now: 0 });
+  try {
+    const items = [
+      { status: "accepted", command: true, acceptedAt: 0 },
+      { status: "handed-off", confirmation: "events", handedOffAt: 0 },
+    ];
+    const views = [];
+    const stop = followDeliveryClock(
+      () => items,
+      () => views.push(items.map((item) => deliveryView(item, Date.now()))),
+    );
+    mock.timers.tick(COMMAND_NOTICE_MS + 50);
+    assert.deepEqual(views, [["accepted", "handed-off"]]);
+    mock.timers.tick(ASK_AFTER_MS - COMMAND_NOTICE_MS);
+    assert.deepEqual(views.at(-1), ["accepted", "askCheck"]);
+    mock.timers.tick(ASK_AFTER_MS * 10);
+    assert.equal(views.length, 2);
+    stop();
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+test("a live change re-reads a silent handoff until a minute after its ask", () => {
+  const item = { status: "handed-off", confirmation: "events", handedOffAt: 0 };
+  assert.equal(rereadable(item, ASK_AFTER_MS), true);
+  assert.equal(rereadable(item, ASK_AFTER_MS + REREAD_AFTER_ASK_MS - 1), true);
+  assert.equal(rereadable(item, ASK_AFTER_MS + REREAD_AFTER_ASK_MS), false);
+  assert.equal(rereadable({ ...item, matchedMessageId: "row" }, 0), false);
+  assert.equal(rereadable({ ...item, confirmation: "text" }, 0), false);
 });
 
 test("text-confirmed and older receipts keep today's presentation", () => {
@@ -77,7 +132,8 @@ test("an accepted message shows no notice; a command shows handed over briefly",
   const command = { status: "accepted", command: true, acceptedAt: 1000 };
   assert.equal(deliveryView(command, 1000), "commandHandedOff");
   assert.equal(nextDeliveryChange([command], 2000), COMMAND_NOTICE_MS - 1000);
-  assert.equal(deliveryView(command, 1000 + COMMAND_NOTICE_MS), "hidden");
+  // Only the notice ends; the sent message stays until its transcript row shows.
+  assert.equal(deliveryView(command, 1000 + COMMAND_NOTICE_MS), "accepted");
 });
 
 test("hook blocks read as blocked, with the text in the CLI or released", () => {
@@ -189,4 +245,30 @@ test("every shown confirmation view has German and English copy", async () => {
     const { chatDeliveryCopy } = await import(`../../web/lib/i18n/${lang}/chat.js`);
     for (const view of views) assert.equal(typeof chatDeliveryCopy[view], "string", view);
   }
+});
+
+test("a hook block of the outbox with its text still in the CLI holds sending", async () => {
+  const draft = new ChatDraft(storage(), scope, lock);
+  await draft.change({ text: "hello" });
+  await draft.enqueue("first", []);
+  const blocked = {
+    deliveryId: "first",
+    status: "rejected",
+    reason: "CHAT_HOOK_BLOCKED_DRAFT",
+    released: false,
+  };
+  await draft.receipt(blocked);
+  // The composer has the text back, and the CLI prompt may hold it too.
+  assert.equal(draft.getSnapshot().text, "hello");
+  assert.equal(sendHeld(draft.getSnapshot()), true);
+  await draft.receipt(blocked);
+  assert.equal(sendHeld(draft.getSnapshot()), true);
+  // Released once the server reports the CLI prompt empty.
+  await draft.receipt({ ...blocked, reason: "CHAT_HOOK_BLOCKED", released: true });
+  assert.equal(sendHeld(draft.getSnapshot()), false);
+
+  // A block after the handoff leaves the composer empty: nothing to double.
+  const later = await handedOff("third");
+  await later.receipt({ ...blocked, deliveryId: "third" });
+  assert.equal(sendHeld(later.getSnapshot()), false);
 });

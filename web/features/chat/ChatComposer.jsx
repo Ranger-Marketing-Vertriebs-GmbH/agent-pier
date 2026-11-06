@@ -22,6 +22,8 @@ export default function ChatComposer({
   modelPending,
   requestPending = false,
   deliveryLocked = false,
+  // A hook-blocked text may still be in the CLI prompt: typing stays, sending waits.
+  sendHeld = false,
   attachments,
 }) {
   const input = useRef(null);
@@ -151,6 +153,7 @@ export default function ChatComposer({
           aria-label={busy ? commonCopy.sending : commonCopy.send}
           disabled={
             deliveryLocked ||
+            sendHeld ||
             session.pipeline?.headless ||
             busy ||
             modelPending ||

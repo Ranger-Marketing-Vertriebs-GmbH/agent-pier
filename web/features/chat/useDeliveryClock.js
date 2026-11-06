@@ -1,19 +1,28 @@
-import { useEffect, useState } from "react";
-import { nextDeliveryChange } from "./delivery-confirmation.js";
+import { useEffect, useRef, useState } from "react";
+import { followDeliveryClock } from "./delivery-confirmation.js";
 
 /**
- * The browser time for presenting `items`, re-rendering once when one of them
- * changes by time alone (the "ask" after a silent handoff, a command's brief
- * notice). A client timer: it reads nothing from the server.
+ * The browser time for presenting `items`, re-rendering at each time-based view
+ * change (the "ask" after a silent handoff, a command's brief notice). A client
+ * timer: it reads nothing from the server.
  */
 export default function useDeliveryClock(items) {
   const [, setTick] = useState(0);
-  const now = Date.now();
-  const wait = nextDeliveryChange(items, now);
+  const latest = useRef(items);
   useEffect(() => {
-    if (wait === null) return;
-    const timer = setTimeout(() => setTick((tick) => tick + 1), wait + 50);
-    return () => clearTimeout(timer);
-  }, [wait]);
-  return now;
+    latest.current = items;
+  });
+  // Re-arm only when a timed field changes, not on every render.
+  const timing = items
+    .map((item) => [item.id, item.status, item.handedOffAt, item.acceptedAt].join(":"))
+    .join(",");
+  useEffect(
+    () =>
+      followDeliveryClock(
+        () => latest.current,
+        () => setTick((tick) => tick + 1),
+      ),
+    [timing],
+  );
+  return Date.now();
 }

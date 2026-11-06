@@ -19,10 +19,8 @@ export default function ChatDeliveryStatus({
 }) {
   const items = [...delivery.recent, ...(delivery.outbox ? [delivery.outbox] : [])];
   const visible = new Set(visibleDeliveries(items, messages).map((item) => item.id));
-  const listed = deliveryNotices(delivery, messages, position);
-  const now = useDeliveryClock(listed);
-  // An accepted command hides after its brief notice.
-  const notices = listed.filter((item) => deliveryView(item, now) !== "hidden");
+  const notices = deliveryNotices(delivery, messages, position);
+  const now = useDeliveryClock(notices);
   const content = notices.map((item) => {
     // Server confirmation (events or screen); null keeps the text-based presentation.
     const view = deliveryView(item, now);
