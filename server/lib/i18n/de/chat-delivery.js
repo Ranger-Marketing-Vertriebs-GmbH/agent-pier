@@ -101,5 +101,9 @@ export const chatDeliveryCopy = {
       "Die CLI hat die Übernahme der Nachricht nicht bestätigt. Bitte prüfe die TUI, bevor du erneut sendest.",
     CHAT_IMAGES_UNCONFIRMED:
       "Die CLI hat nicht bestätigt, dass alle angehängten Bilder übernommen wurden. Bitte prüfe die TUI, bevor du erneut sendest.",
+    CHAT_HOOK_BLOCKED:
+      "Ein Hook der CLI hat die Nachricht blockiert. Sie wurde nicht gesendet und steht wieder im Chat, sodass du sie bearbeiten oder erneut senden kannst.",
+    CHAT_HOOK_BLOCKED_DRAFT:
+      "Ein Hook der CLI hat die Nachricht blockiert. Sie wurde nicht gesendet, ihr Text kann aber noch im Eingabefeld der CLI stehen, das AgentPier unverändert gelassen hat. Leere das Eingabefeld in der TUI, bevor du sie erneut sendest.",
   },
 };

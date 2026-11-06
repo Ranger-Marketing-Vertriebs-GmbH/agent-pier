@@ -311,9 +311,9 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
       delivery.withdrawAcceptance(id, file, receipt);
       return hold(waitingFor(code), code, proof);
     }
-    delivery.settleAcceptance(file, receipt);
+    const dropped = delivery.settleAcceptance(file, receipt);
     const delivered = ["handed-off", "accepted"].includes(receipt.status);
-    return finish(
+    const result = finish(
       delivered
         ? { resend: "resent", text: "completed-existing", submit: "submitted-existing" }[
             plan
@@ -326,5 +326,8 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
           : copy.recoveryUncertain,
       delivered ? undefined : code,
     );
+    // The clear waits for this lock; the receipt is written by then.
+    if (dropped) delivery.block(id, file, dropped);
+    return result;
   });
 }
