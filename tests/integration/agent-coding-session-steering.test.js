@@ -420,3 +420,26 @@ for (const [name, receipt, expected, audited, outcome] of [
     assert.equal(sent[0].details.agentSession.status, audited);
     assert.equal(JSON.stringify(events).includes("secret"), false);
   });
+
+test("send reports a hook block that follows the hand-off", async (t) => {
+  const f = await agentSessionFixture(t);
+  const sessionId = await started(f);
+  const delivery = f.services.chatDelivery;
+  const plain = delivery.send;
+  delivery.send = async (...args) => ({
+    ...(await plain(...args)),
+    confirmation: "events",
+  });
+  delivery.settled = async (_id, deliveryId) => ({
+    deliveryId,
+    status: "rejected",
+    reason: "CHAT_HOOK_BLOCKED",
+  });
+  const result = await f.call(await f.invocation(), {
+    action: "send",
+    sessionId,
+    text: "Hello",
+  });
+  assert.equal(result.status, "rejected");
+  assert.equal(result.reason, "CHAT_HOOK_BLOCKED");
+});

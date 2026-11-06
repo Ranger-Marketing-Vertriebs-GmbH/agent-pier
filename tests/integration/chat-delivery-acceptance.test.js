@@ -290,3 +290,22 @@ test("ordinary text with an empty prompt is never confirmed by the screen", asyn
   assert.equal(sent.status, "handed-off");
   assert.equal(sent.command, undefined);
 });
+
+test("settled resolves on accept and at the timeout with handed-off", async (t) => {
+  const x = setup(tempDir(t));
+  const sent = await x.send();
+  const waiting = x.delivery.settled(session.id, sent.deliveryId);
+  x.event();
+  const accepted = await waiting;
+  assert.equal(accepted.status, "accepted");
+  assert.equal(x.delivery.waiters.size, 0);
+  // Already settled: answers at once.
+  assert.equal(
+    (await x.delivery.settled(session.id, sent.deliveryId)).status,
+    "accepted",
+  );
+  const second = await x.send("again");
+  const open = await x.delivery.settled(session.id, second.deliveryId, { timeoutMs: 20 });
+  assert.equal(open.status, "handed-off");
+  assert.equal(x.delivery.waiters.size, 0);
+});

@@ -111,6 +111,17 @@ test("blocked prompt is cleared and released", async (t) => {
   assert.deepEqual(model.submitted, ["first line\nsecond line"]);
 });
 
+test("settled resolves with the hook block", async (t) => {
+  const x = setup(t, claudePromptModel());
+  const sent = await x.send("hello");
+  const waiting = x.delivery.settled(session.id, sent.deliveryId);
+  x.drop("no");
+  const result = await waiting;
+  assert.equal(result.status, "rejected");
+  assert.equal(result.reason, "CHAT_HOOK_BLOCKED");
+  assert.equal(x.delivery.waiters.size, 0);
+});
+
 test("already empty box releases", async (t) => {
   const model = claudePromptModel();
   const x = setup(t, model);

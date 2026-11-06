@@ -7,6 +7,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { isCodingCli } from "../clis/catalog.js";
 import { sessionScope } from "../chat/chat-delivery.js";
+import { confirmedDelivery, isHookBlock } from "../chat/chat-delivery-blocked.js";
 import { keyToken } from "./pr-status.js";
 import { ticketRef } from "./ticket.js";
 import { checksNotice, repairTask, reviewNotice } from "./ticket-task.js";
@@ -148,16 +149,21 @@ export async function findWorker(engine, item) {
  */
 async function deliver(engine, session, seed, text) {
   try {
-    const receipt = await engine.chatDelivery.send(session.id, {
-      text,
-      submit: true,
-      deliveryId: stableUuid(seed),
-      deliveryScope: sessionScope(session),
-    });
+    const receipt = await confirmedDelivery(
+      engine.chatDelivery,
+      session.id,
+      await engine.chatDelivery.send(session.id, {
+        text,
+        submit: true,
+        deliveryId: stableUuid(seed),
+        deliveryScope: sessionScope(session),
+      }),
+    );
     if (DELIVERING.has(receipt?.status)) return true;
-    const hookBlocked = /^CHAT_HOOK_BLOCKED(_DRAFT)?$/.test(receipt?.reason ?? "");
     engine.onError(
-      Object.assign(new Error(), { code: hookBlocked ? receipt.reason : "notDelivered" }),
+      Object.assign(new Error(), {
+        code: isHookBlock(receipt) ? receipt.reason : "notDelivered",
+      }),
       "fix-deliver",
     );
   } catch (error) {

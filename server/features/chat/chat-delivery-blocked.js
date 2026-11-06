@@ -125,3 +125,24 @@ export function rejectBlocked(receipt, outcome, prompt) {
   else delete receipt.hookReason;
   delete receipt.waiting;
 }
+
+/** Whether a delivery result is a hook block (text released or left in the prompt). */
+export const isHookBlock = (result) =>
+  result?.status === "rejected" &&
+  (result.reason === "CHAT_HOOK_BLOCKED" || result.reason === "CHAT_HOOK_BLOCKED_DRAFT");
+
+/**
+ * A send result with the outcome of a native confirmation: for a receipt that only
+ * the CLI's events can confirm (`confirmation: "events"`) and that is still
+ * handed-off or uncertain, waits (bounded) for the acceptance or the hook block.
+ * Other receipts, and one still open at the timeout, are returned as they are.
+ */
+export async function confirmedDelivery(chatDelivery, sessionId, receipt) {
+  if (
+    receipt?.confirmation !== "events" ||
+    !["handed-off", "uncertain"].includes(receipt.status) ||
+    typeof chatDelivery?.settled !== "function"
+  )
+    return receipt;
+  return (await chatDelivery.settled(sessionId, receipt.deliveryId)) ?? receipt;
+}

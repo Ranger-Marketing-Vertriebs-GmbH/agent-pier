@@ -4,6 +4,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { isCodingCli } from "../clis/catalog.js";
 import { sessionScope } from "../chat/chat-delivery.js";
+import { confirmedDelivery, isHookBlock } from "../chat/chat-delivery-blocked.js";
 import { TICKET_SOURCE_IDS, ticketRef } from "./ticket.js";
 import { ticketTask } from "./ticket-task.js";
 import { TicketSourceError, refineNotFound } from "./http-json.js";
@@ -383,12 +384,16 @@ export class TicketService {
   async deliverTask(session, ticket) {
     let receipt;
     try {
-      receipt = await this.chatDelivery.send(session.id, {
-        deliveryId: randomUUID(),
-        deliveryScope: sessionScope(session),
-        text: ticketTask(ticket, { kind: "session" }),
-        submit: true,
-      });
+      receipt = await confirmedDelivery(
+        this.chatDelivery,
+        session.id,
+        await this.chatDelivery.send(session.id, {
+          deliveryId: randomUUID(),
+          deliveryScope: sessionScope(session),
+          text: ticketTask(ticket, { kind: "session" }),
+          submit: true,
+        }),
+      );
     } catch (error) {
       await this.stopSession(session.id);
       throw error;
@@ -397,10 +402,9 @@ export class TicketService {
     // (a hook block among them, which names its reason as the error code).
     if (!DELIVERING.has(receipt?.status)) {
       await this.stopSession(session.id);
-      const hookBlocked = /^CHAT_HOOK_BLOCKED(_DRAFT)?$/.test(receipt?.reason ?? "");
       throw Object.assign(
         problem(copy.taskNotDelivered, 502),
-        hookBlocked ? { code: receipt.reason } : {},
+        isHookBlock(receipt) ? { code: receipt.reason } : {},
       );
     }
   }

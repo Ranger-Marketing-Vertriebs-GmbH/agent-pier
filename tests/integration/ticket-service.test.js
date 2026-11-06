@@ -29,7 +29,14 @@ const planeItem = (n, extra = {}) => ({
 
 async function setup(
   t,
-  { githubFailures = {}, planeFailures = {}, tool = "claude", deliver, taken } = {},
+  {
+    githubFailures = {},
+    planeFailures = {},
+    tool = "claude",
+    deliver,
+    settled,
+    taken,
+  } = {},
 ) {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "ap-ticket-svc-")));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -102,6 +109,7 @@ async function setup(
       return session;
     },
     chatDelivery: {
+      settled,
       async send(id, body) {
         sent.push({ id, ...body });
         return deliver ? deliver(sent.length) : { status: "handed-off" };
@@ -582,15 +590,11 @@ test("the start answers before the tracker write and signals its outcome", async
   assert.ok(hubSignals.slice(signals).includes("tickets.project:p1"));
 });
 
-test("a hook block fails the start with its reason; accepted starts it", async (t) => {
-  const { service, store } = await setup(t, {
-    deliver: (n) =>
-      n === 1
-        ? { status: "rejected", reason: "CHAT_HOOK_BLOCKED" }
-        : { status: "accepted" },
+test("a hook block after the hand-off fails the start with its reason", async (t) => {
+  const { service } = await setup(t, {
+    deliver: () => ({ status: "handed-off", deliveryId: "d1", confirmation: "events" }),
+    settled: async () => ({ status: "rejected", reason: "CHAT_HOOK_BLOCKED" }),
   });
   const input = { source: "github", key: "acme/app#7", kind: "session", session: {} };
   await assert.rejects(service.start("p1", input), { code: "CHAT_HOOK_BLOCKED" });
-  await service.start("p1", input);
-  assert.equal(store.starts("p1").length, 1);
 });
