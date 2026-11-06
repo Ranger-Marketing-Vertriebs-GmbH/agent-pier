@@ -344,6 +344,18 @@ function claudeQueue(styled, lines, start) {
 }
 
 /** A startup screen (folder trust, …) holds input until AgentPier answers it. */
+/** Local commands that send no submit event; delivery confirms them by screen. */
+export const localCommands = [
+  "cost",
+  "status",
+  "clear",
+  "compact",
+  "context",
+  "help",
+  "model",
+  "config",
+];
+
 export const blockingScreen = (raw, { cwd, started }) =>
   startupScreen(raw, cwd, { started });
 

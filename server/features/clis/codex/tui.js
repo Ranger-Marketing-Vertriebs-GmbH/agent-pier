@@ -263,6 +263,9 @@ export const promptProof = (rows, text) =>
   rows.join("").endsWith(text.replaceAll("\n", ""));
 
 /** The hook review screen holds input until AgentPier answers it. */
+/** Local commands that send no submit event; delivery confirms them by screen. */
+export const localCommands = ["status", "compact", "model", "diff", "mention"];
+
 export const blockingScreen = (raw) => hookTrustScreen(raw);
 
 /** Codex tokenizes bare paths on spaces; a quoted path remains one image. */

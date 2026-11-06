@@ -23,7 +23,13 @@ function tempDir(t) {
  */
 function setup(
   dataDir,
-  { source = true, now, afterSubmit = async () => {}, afterPaste = async () => {} } = {},
+  {
+    source = true,
+    now,
+    afterSubmit = async () => {},
+    afterPaste = async () => {},
+    composer = { state: "text", text: "hello" },
+  } = {},
 ) {
   const changes = [];
   let delivery;
@@ -44,6 +50,7 @@ function setup(
           composer: { state: "text", text: "hello" },
           recoveryGeneration: "fixture",
           observationGeneration: "fixture",
+          screen: async () => ({ raw: "", pane: {}, composer }),
           write: async (_text, options) => {
             const { onPhase } = options;
             await onPhase("paste-intent");
@@ -257,4 +264,29 @@ test("the application wiring confirms deliveries through its own matcher", async
   });
   const accepted = await delivery.status(session.id, sent.deliveryId, scope);
   assert.equal(accepted.status, "accepted");
+});
+
+test("command with empty prompt is accepted without an expectation", async (t) => {
+  const x = setup(tempDir(t), { composer: { state: "empty", text: "" } });
+  const sent = await x.send("/cost");
+  assert.equal(sent.status, "accepted");
+  assert.equal(sent.command, true);
+  assert.equal(sent.confirmation, "screen");
+  assert.equal((await x.status(sent.deliveryId)).status, "accepted");
+});
+
+test("command left in prompt stays handed-off", async (t) => {
+  const x = setup(tempDir(t), { composer: { state: "text", text: "!ls" } });
+  const sent = await x.send("!ls");
+  assert.equal(sent.status, "handed-off");
+  assert.equal(sent.command, true);
+  x.event();
+  assert.equal((await x.status(sent.deliveryId)).status, "handed-off");
+});
+
+test("ordinary text with an empty prompt is never confirmed by the screen", async (t) => {
+  const x = setup(tempDir(t), { composer: { state: "empty", text: "" } });
+  const sent = await x.send("hello");
+  assert.equal(sent.status, "handed-off");
+  assert.equal(sent.command, undefined);
 });
