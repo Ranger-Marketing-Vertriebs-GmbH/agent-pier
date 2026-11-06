@@ -1,5 +1,6 @@
 import { cliDefinition, isCodingCli } from "../../../server/features/clis/catalog.js";
 import { deliveryMatches } from "./chat-draft.js";
+import { awaitsConfirmation } from "./delivery-confirmation.js";
 import { deliveryContentMatches, queuedImagesUnique } from "./delivery-content.js";
 
 /** Display evidence only. Never changes custody, resend eligibility or transport receipts. */
@@ -7,7 +8,9 @@ export function nativeDeliveryStates(items, messages, input, tool, live = true) 
   const states = new Map();
   const matches = deliveryMatches(items, messages);
   for (const item of items) {
-    if (item.status !== "handed-off" || !item.observation) continue;
+    // Event- and screen-confirmed handoffs become `accepted` from the server instead.
+    if (item.status !== "handed-off" || !item.observation || awaitsConfirmation(item))
+      continue;
     const { generation, hash, providerSessionId, baseline = [] } = item.observation;
     if (
       !live ||

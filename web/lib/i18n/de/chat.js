@@ -134,6 +134,11 @@ export const chatDeliveryCopy = {
   checking: "Zustellung wird geprüft …",
   pending: "Übergabe läuft …",
   "handed-off": "An TUI gesendet · CLI-Bestätigung steht aus",
+  commandHandedOff: "Befehl übergeben",
+  askCheck: "Keine Bestätigung der CLI. Bitte prüfen oder erneut senden.",
+  hookBlocked: "Von einem Hook blockiert",
+  hookBlockedDraft:
+    "Von einem Hook blockiert. Der Text steht noch im Eingabefeld der CLI.",
   uncertain: "Zustellung unklar",
   waitingRequest:
     "Wartet auf die Antwort zur offenen Anfrage · wird danach automatisch gesendet",
