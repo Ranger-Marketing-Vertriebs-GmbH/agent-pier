@@ -1,6 +1,11 @@
 import { normalizeChatText } from "../sessions/session-chat-input.js";
 import { claudeComposerBox, claudeComposerState } from "../sessions/claude-composer.js";
 import { nativePromptState } from "../sessions/native-prompt.js";
+import {
+  claudeComposerImages,
+  claudeImageMessage,
+} from "../sessions/claude-image-paste.js";
+import { nativeComposerImages } from "../sessions/native-image-paste.js";
 import { cliDefinition } from "../clis/catalog.js";
 
 const HOOK_REASON_LIMIT = 500;
@@ -13,50 +18,78 @@ const comparable = (text) =>
     .join("\n")
     .trimEnd();
 
+const chip = /\[Image\s+#?\s*\d+\]/g;
+
 /**
- * What the native prompt box of `tool` holds: "empty", "ours" (exactly `text`)
- * or "foreign" (anything else, also an unreadable box or a dialog).
+ * Whether prompt `content` showing `chips` image chips is exactly the delivery:
+ * one chip per image path of `message` and, around them, its remaining text.
+ * `joined` is the same box with wrapped rows joined (Codex), or null.
  */
-function promptContent(tool, fresh, text) {
-  const expected = comparable(text);
+function sameDelivery(content, joined, chips, text, message) {
+  if (chips === null || /\[Pasted/.test(content)) return false;
+  if (chips !== (message?.images.length ?? 0)) return false;
+  // Chips are attachment tokens; their separators are not user text.
+  const rest = (value) =>
+    comparable(message ? value.replace(chip, "").replace(/^\s+/, "") : value);
+  const expected = comparable(message ? message.text : text);
+  return (
+    rest(content) === expected ||
+    (joined !== null && !expected.includes("\n") && rest(joined) === expected)
+  );
+}
+
+/**
+ * What the native prompt box of `tool` holds: "empty", "ours" (exactly the
+ * delivered `text`, its image paths shown as chips) or "foreign" (anything else,
+ * also an unreadable box or a dialog). `message` is claudeImageMessage(text).
+ */
+function promptContent(tool, fresh, text, message) {
+  const verdict = (same) => (same ? "ours" : "foreign");
   // Claude (image chips) has its own prompt box reader; the others share one.
   if (cliDefinition(tool).capabilities.imagePaste) {
     const state = claudeComposerState(fresh.raw, fresh.pane, fresh.composer);
     if (state.state === "empty") return "empty";
+    const chips = claudeComposerImages(fresh.raw, fresh.pane);
     if (state.state === "text")
-      return comparable(state.text) === expected ? "ours" : "foreign";
+      return verdict(sameDelivery(state.text, null, chips, text, message));
     if (state.state !== "draft" || state.placeholder) return "foreign";
     // Every row of the box sits behind a two-cell prompt or indent.
     const box = claudeComposerBox(fresh.raw, fresh.pane);
     if (!box || box.clipped) return "foreign";
-    return comparable(box.rows.map((row) => row.slice(2)).join("\n")) === expected
-      ? "ours"
-      : "foreign";
+    const content = box.rows.map((row) => row.slice(2)).join("\n");
+    return verdict(sameDelivery(content, null, chips, text, message));
   }
   const state = nativePromptState(tool, fresh);
   if (state.state === "empty") return "empty";
   if (state.state !== "draft") return "foreign";
-  const shown = comparable(state.rows.join("\n"));
-  // Codex wraps a long line without a newline; only a one-line text may join.
-  const wrapped =
-    !expected.includes("\n") && comparable(state.rows.join("")) === expected;
-  return shown === expected || wrapped ? "ours" : "foreign";
+  const chips = nativeComposerImages(tool, fresh.raw, fresh.pane);
+  // Codex wraps a long line without a newline: a one-line text may join rows.
+  return verdict(
+    sameDelivery(state.rows.join("\n"), state.rows.join(""), chips, text, message),
+  );
 }
 
 /**
  * A hook blocked delivered `text` and the CLI may have put it back into its
  * prompt box. Clears the box only while it provably holds exactly that text:
  * "cleared", "empty" (nothing to clear) or "foreign" (left untouched, also when
- * the session cannot be read).
+ * the session cannot be read). An empty box is read again after a settle, since
+ * the CLI may refill it only after reporting the block.
  */
 export async function clearBlockedPrompt({ sessions, id, text }) {
   try {
     const expected = normalizeChatText(text);
+    const message = await claudeImageMessage(expected);
     return await sessions.withChatInput(id, async (tx) => {
       let content = "foreign";
+      let rechecked = false;
       const cleared = await tx.clearPrompt((fresh) => {
-        content = promptContent(tx.session.tool, fresh, expected);
-        return content === "ours";
+        content = promptContent(tx.session.tool, fresh, expected, message);
+        if (content === "empty" && !rechecked) {
+          rechecked = true;
+          return "recheck";
+        }
+        return content === "ours" ? "clear" : "keep";
       });
       if (content === "empty") return "empty";
       return cleared ? "cleared" : "foreign";

@@ -337,17 +337,24 @@ export function withChatInput(manager, id, operation) {
         session,
         ...initial,
         /**
-         * Empties the native prompt box when `owned(fresh)` accepts the current
-         * screen; false when it does not or the box did not end up empty. Uses the
-         * draft-clearing keys of a fresh delivery, never Escape or Ctrl-C.
+         * Empties the native prompt box when `decide(fresh)` says "clear"; "keep"
+         * leaves it, "recheck" reads it again after one clear settle (once). False
+         * when not cleared or the box did not end up empty. Uses the draft-clearing
+         * keys of a fresh delivery, never Escape, Ctrl-C or Enter.
          */
-        clearPrompt: async (owned) => {
+        clearPrompt: async (decide) => {
           if (attempted || checking)
             throw problem(serverMessages.sessionInput.alreadyAttempted, 409);
           attempted = true;
           const snapshot = () => check(null, false);
-          const fresh = await snapshot();
-          if (!owned(fresh)) return false;
+          let fresh = await snapshot();
+          let decision = decide(fresh);
+          if (decision === "recheck") {
+            await sleep(manager.chatInputTiming?.clear?.settleMs ?? 750);
+            fresh = await snapshot();
+            decision = decide(fresh);
+          }
+          if (decision !== "clear") return false;
           if (cliDefinition(session.tool).capabilities.imagePaste) {
             const timing = manager.chatInputTiming?.clear;
             await clearClaudeComposer(manager, session, fresh, snapshot, timing);

@@ -25,14 +25,15 @@ function setup(t, model, { afterSubmit } = {}) {
     clear: { settleMs: 30, timeoutMs: 400 },
     confirm: { timeoutMs: 300 },
   };
-  if (afterSubmit) {
-    const tmux = manager.tmux;
-    manager.tmux = async (args, options) => {
-      const result = await tmux(args, options);
-      if (args[0] === "send-keys" && args.includes("Enter")) afterSubmit();
-      return result;
-    };
-  }
+  const hooks = { capture: null };
+  const tmux = manager.tmux;
+  manager.tmux = async (args, options) => {
+    // A screen read: a test may change the prompt box right before it.
+    if (args[0] === "display-message") hooks.capture?.();
+    const result = await tmux(args, options);
+    if (afterSubmit && args[0] === "send-keys" && args.includes("Enter")) afterSubmit();
+    return result;
+  };
   let delivery;
   const acceptance = new DeliveryAcceptance({
     onMatch: (id, deliveryId, outcome) => delivery.accept(id, deliveryId, outcome),
@@ -61,12 +62,12 @@ function setup(t, model, { afterSubmit } = {}) {
       submit: true,
     });
   // Claude puts a prompt its hook blocked back into its own prompt box.
-  const drop = (reason) =>
+  const drop = (reason, imageCount = 0) =>
     acceptance.report(session.id, {
       kind: "dropped",
       at: Date.now(),
       imageNames: null,
-      imageCount: 0,
+      imageCount,
       ...(reason === undefined ? {} : { reason }),
     });
   const rejected = async (deliveryId) => {
@@ -77,7 +78,9 @@ function setup(t, model, { afterSubmit } = {}) {
     }
     assert.fail("never rejected");
   };
-  return { model, manager, delivery, send, drop, rejected };
+  const image = path.join(dataDir, "shot.png");
+  fs.writeFileSync(image, "synthetic transport fixture");
+  return { model, manager, hooks, image, delivery, send, drop, rejected };
 }
 
 const restore = (model, text) => {
@@ -119,6 +122,70 @@ test("already empty box releases", async (t) => {
   assert.equal(result.released, true);
   assert.equal(result.hookReason, undefined);
   assert.deepEqual(model.keys, []);
+});
+
+test("a box Claude refills after the drop is cleared, then released", async (t) => {
+  const model = claudePromptModel();
+  const x = setup(t, model);
+  const sent = await x.send("hello");
+  model.keys.length = 0;
+  // The first reads after the drop see the box empty; Claude refills it later.
+  let reads = 0;
+  x.hooks.capture = () => {
+    if (++reads === 3) restore(model, "hello");
+  };
+  x.drop();
+  const result = await x.rejected(sent.deliveryId);
+  assert.ok(reads >= 3);
+  assert.equal(result.reason, "CHAT_HOOK_BLOCKED");
+  assert.equal(result.released, true);
+  assert.deepEqual(model.lines, [""]);
+  assert.ok(model.keys.length > 0);
+  assert.ok(model.keys.every((key) => !interrupting.includes(key) && key !== "Enter"));
+});
+
+test("a box that stays empty after the settle is released untouched", async (t) => {
+  const model = claudePromptModel();
+  const x = setup(t, model);
+  const sent = await x.send("hello");
+  model.keys.length = 0;
+  let reads = 0;
+  x.hooks.capture = () => reads++;
+  x.drop();
+  const result = await x.rejected(sent.deliveryId);
+  // Read again after the settle, not only once right after the drop.
+  assert.ok(reads >= 3);
+  assert.equal(result.released, true);
+  assert.deepEqual(model.keys, []);
+});
+
+test("Claude: a blocked message with an image is cleared and released", async (t) => {
+  const model = claudePromptModel({ images: true });
+  const x = setup(t, model);
+  const sent = await x.send(`${x.image}\nlook at this`);
+  assert.equal(sent.status, "handed-off");
+  restore(model, "[Image #1] look at this");
+  model.keys.length = 0;
+  x.drop("Blocked", 1);
+  const result = await x.rejected(sent.deliveryId);
+  assert.equal(result.reason, "CHAT_HOOK_BLOCKED");
+  assert.equal(result.released, true);
+  assert.deepEqual(model.lines, [""]);
+  assert.ok(model.keys.every((key) => !interrupting.includes(key) && key !== "Enter"));
+});
+
+test("Claude: a box with a different chip count is never cleared", async (t) => {
+  const model = claudePromptModel({ images: true });
+  const x = setup(t, model);
+  const sent = await x.send(`${x.image}\nlook at this`);
+  restore(model, "[Image #1] [Image #2] look at this");
+  model.keys.length = 0;
+  x.drop("Blocked", 1);
+  const result = await x.rejected(sent.deliveryId);
+  assert.equal(result.reason, "CHAT_HOOK_BLOCKED_DRAFT");
+  assert.equal(result.released, false);
+  assert.deepEqual(model.keys, []);
+  assert.deepEqual(model.lines, ["[Image #1] [Image #2] look at this"]);
 });
 
 test("foreign draft is never cleared", async (t) => {
@@ -215,12 +282,12 @@ function codexSessions(frame) {
     screen: () => model.frame,
     key(name) {
       model.keys.push(name);
-      if (name === "C-u" && model.frame === codexFrames.short)
+      if (name === "C-u" && model.frame !== codexFrames.idle)
         model.frame = codexFrames["short-cleared"];
     },
   };
   const manager = claudeModelManager(model, { tool: "codex" });
-  manager.chatInputTiming = { timeoutMs: 200, settleMs: 5 };
+  manager.chatInputTiming = { timeoutMs: 200, settleMs: 5, clear: { settleMs: 5 } };
   return {
     model,
     sessions: {
@@ -261,4 +328,32 @@ test("Codex: an empty prompt box needs no keys", async () => {
   });
   assert.equal(result, "empty");
   assert.deepEqual(x.model.keys, []);
+});
+
+// The recorded draft frame with an image chip in front of the text.
+const codexImageFrame = (text) => ({
+  ...codexFrames.short,
+  raw: codexFrames.short.raw.replace("AP_PROBE_DRAFT", text),
+});
+
+test("Codex: a blocked message with an image is cleared and released", async (t) => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-blocked-"));
+  t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+  const image = path.join(dataDir, "shot.png");
+  fs.writeFileSync(image, "synthetic transport fixture");
+  const x = codexSessions(codexImageFrame("[Image #1] look"));
+  const text = `${image}\nlook`;
+  assert.equal(
+    await clearBlockedPrompt({ sessions: x.sessions, id: "one", text }),
+    "cleared",
+  );
+  assert.equal(x.model.frame, codexFrames["short-cleared"]);
+  assert.ok(x.model.keys.every((key) => !interrupting.includes(key) && key !== "Enter"));
+  // One chip too many is not this delivery.
+  const y = codexSessions(codexImageFrame("[Image #1] [Image #2] look"));
+  assert.equal(
+    await clearBlockedPrompt({ sessions: y.sessions, id: "one", text }),
+    "foreign",
+  );
+  assert.deepEqual(y.model.keys, []);
 });
