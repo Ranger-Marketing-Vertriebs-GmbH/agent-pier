@@ -66,7 +66,8 @@ Known limitations:
 - Acceptance events are dated with the server's receive time, not the CLI's clock.
 - A prompt the owner types in the TUI at the very moment of a delivery cannot be told apart by id; the newest fitting delivery takes the event.
 - When two deliveries' events both reach the server after the second Enter, the first event goes to the second delivery and the first delivery ends in the ask state.
-- A sequence start that a hook blocks parks as "task not delivered".
+- A sequence start that a hook blocks parks as "The task did not reach the session."
+- A command that opens a dialog or panel (for example `/model` without arguments, `/config` or `/help`) ends in the ask state by design: the screen confirms a command only from an empty prompt box without a dialog or menu.
 
 ## File Explorer
 
