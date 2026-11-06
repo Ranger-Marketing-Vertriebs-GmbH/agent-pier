@@ -97,6 +97,26 @@ test("the channel repeats prompt-ready after a reconnect", async (t) => {
   await until(() => f.acceptance.supports("s1"), 5000);
 });
 
+test("a Codex prompt push never throws into the rest of the push handling", () => {
+  // Before the chat delivery exists its binding is still in its temporal dead zone.
+  const early = () => {
+    throw new ReferenceError("Cannot access 'chatDelivery' before initialization");
+  };
+  for (const push of [{ type: "prompt-ready" }, { type: "prompt", kind: "accepted" }])
+    assert.doesNotThrow(() => codexProxyAcceptance("s1", push, early));
+  const failing = {
+    acceptance: {
+      ready() {},
+      report() {
+        throw Error("matcher down");
+      },
+    },
+  };
+  assert.doesNotThrow(() =>
+    codexProxyAcceptance("s1", { type: "prompt", kind: "accepted" }, () => failing),
+  );
+});
+
 test("prompt pushes are validated", () => {
   assert.deepEqual(nativePushValue({ type: "prompt-ready", extra: 1 }), {
     type: "prompt-ready",
