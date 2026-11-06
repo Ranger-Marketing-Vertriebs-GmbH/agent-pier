@@ -91,6 +91,24 @@ test("an undelivered task stops the session and parks", async (t) => {
   await assertParked(f, "taskNotDelivered");
 });
 
+test("a hook-blocked task parks like an undelivered one", async (t) => {
+  const f = await sequenceFixture(t);
+  f.chatDelivery.deliver = () => ({ status: "rejected", reason: "CHAT_HOOK_BLOCKED" });
+  f.append([KEY, "acme/app#13"]);
+  await f.engine.run();
+  assert.equal(f.sessions[0].status, "stopped");
+  await assertParked(f, "taskNotDelivered");
+});
+
+test("an accepted task starts the ticket", async (t) => {
+  const f = await sequenceFixture(t);
+  f.chatDelivery.deliver = () => ({ status: "accepted" });
+  f.append([KEY, "acme/app#13"]);
+  await f.engine.run();
+  assert.equal(f.items()[0].state, "running");
+  assert.notEqual(f.sessions[0].status, "stopped");
+});
+
 test("a source blip skips the pass without parking", async (t) => {
   let failing = true;
   const f = await sequenceFixture(t, {

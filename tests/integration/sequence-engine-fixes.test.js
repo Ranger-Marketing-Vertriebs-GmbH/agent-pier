@@ -444,3 +444,18 @@ test("a PR branch with shell metacharacters never reaches a repair task", async 
   assert.equal(f.items()[0].needsOwner.reason, "repairFailed");
   assert.equal(f.notified.length, 1);
 });
+
+test("an accepted notice counts as delivered; a hook block reports its reason", async (t) => {
+  for (const [receipt, code, delivered] of [
+    [{ status: "accepted" }, undefined, true],
+    [{ status: "rejected", reason: "CHAT_HOOK_BLOCKED" }, "CHAT_HOOK_BLOCKED", false],
+  ]) {
+    const f = await sequenceFixture(t);
+    f.chatDelivery.deliver = (n) => (n === 1 ? { status: "handed-off" } : receipt);
+    await awaitingMerge(f, { pull: { contexts: RED } });
+    await passes(f.engine);
+    const failed = f.errors.filter((e) => e.step === "fix-deliver");
+    assert.equal(failed.length, delivered ? 0 : 1);
+    assert.equal(failed[0]?.code, code);
+  }
+});

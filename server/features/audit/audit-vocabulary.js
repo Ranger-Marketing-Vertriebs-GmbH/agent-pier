@@ -52,6 +52,8 @@ export const verbs = new Set([
   "answered",
   "expired",
   "handed-off",
+  // A CLI hook refused a chat message (audit-agent-session-details.js).
+  "hook-blocked",
   "staged",
   "activated",
   "rolled-back",

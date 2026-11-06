@@ -388,3 +388,35 @@ test("wait on a session the owner deleted answers NOT_FOUND", async (t) => {
     "NOT_FOUND",
   );
 });
+
+for (const [name, receipt, expected, audited, outcome] of [
+  ["accepted", { status: "accepted" }, { status: "accepted" }, "accepted", "success"],
+  [
+    "a hook block",
+    { status: "rejected", reason: "CHAT_HOOK_BLOCKED", hookReason: "secret" },
+    { status: "rejected", reason: "CHAT_HOOK_BLOCKED" },
+    "hook-blocked",
+    "failure",
+  ],
+])
+  test(`send reports ${name} and audits ${audited}`, async (t) => {
+    const f = await agentSessionFixture(t);
+    const events = [];
+    f.services.audit = { append: (input) => events.push(auditEvent(input)) };
+    const sessionId = await started(f);
+    const delivery = f.services.chatDelivery;
+    delivery.send = async (_id, body) => ({ deliveryId: body.deliveryId, ...receipt });
+    const result = await f.call(await f.invocation(), {
+      action: "send",
+      sessionId,
+      text: "Hello",
+      requestId: "m9",
+    });
+    assert.equal(result.status, expected.status);
+    assert.equal(result.reason, expected.reason);
+    const sent = events.filter((e) => e.action === "session.sent");
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].outcome, outcome);
+    assert.equal(sent[0].details.agentSession.status, audited);
+    assert.equal(JSON.stringify(events).includes("secret"), false);
+  });

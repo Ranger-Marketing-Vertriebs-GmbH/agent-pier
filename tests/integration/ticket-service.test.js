@@ -581,3 +581,16 @@ test("the start answers before the tracker write and signals its outcome", async
   assert.deepEqual(store.starts("p1")[0].writeBack, { state: "done" });
   assert.ok(hubSignals.slice(signals).includes("tickets.project:p1"));
 });
+
+test("a hook block fails the start with its reason; accepted starts it", async (t) => {
+  const { service, store } = await setup(t, {
+    deliver: (n) =>
+      n === 1
+        ? { status: "rejected", reason: "CHAT_HOOK_BLOCKED" }
+        : { status: "accepted" },
+  });
+  const input = { source: "github", key: "acme/app#7", kind: "session", session: {} };
+  await assert.rejects(service.start("p1", input), { code: "CHAT_HOOK_BLOCKED" });
+  await service.start("p1", input);
+  assert.equal(store.starts("p1").length, 1);
+});
