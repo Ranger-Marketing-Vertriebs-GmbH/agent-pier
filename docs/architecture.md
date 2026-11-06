@@ -66,6 +66,7 @@ Known limitations:
 - Acceptance events are dated with the server's receive time, not the CLI's clock.
 - A prompt the owner types in the TUI at the very moment of a delivery cannot be told apart by id; the newest fitting delivery takes the event.
 - Two deliveries sent within the ask window (8 s, `ASK_WINDOW_MS`) whose events cannot be told apart both end in the ask state: an event that fits both confirms neither, and no later event confirms them.
+- A delivery's own event that arrives more than the ask window after its Enter may confirm the next delivery instead (by design): a delivery retired as ambiguous keeps an event ambiguous only until the ask window after its Enter ends.
 - A sequence start that a hook blocks parks as "The task did not reach the session."
 - A command that opens a dialog or panel (for example `/model` without arguments, `/config` or `/help`) ends in the ask state by design: the screen confirms a command only from an empty prompt box without a dialog or menu.
 
