@@ -156,6 +156,8 @@ const drivers = new Map();
  *   than its lines (Codex joins wrapped rows).
  *   blockingScreen?(raw, { cwd, started }): a screen that holds chat input as a
  *   pending request (Codex hook review, Claude Code startup dialogs).
+ *   localCommands?: names of the slash commands the CLI runs locally, without a native
+ *   submit event (bash-mode `!` input also sends none); delivery confirms them by screen.
  *   images: { pathText(file): the paste of one image path, wait?(manager, session,
  *   count, { timeoutMs, exact }): the chips wait (default waitForNativeImages),
  *   draft?(composer, message, { text }), chipsOnly?(raw, pane, count): the chip
@@ -239,6 +241,7 @@ export function cliDriver(id) {
         promptState: tuis[id].promptState,
         promptProof: tuis[id].promptProof,
         blockingScreen: tuis[id].blockingScreen,
+        localCommands: tuis[id].localCommands,
         images: { ...tuis[id].images },
         modelPicker: { ...tuis[id].modelPicker },
       },

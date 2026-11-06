@@ -7,6 +7,7 @@ import {
   nativeDraftScreen,
 } from "../helpers/chat-tui-fixture.js";
 import { createTuiInputRecorder } from "../helpers/tui-input-recorder.js";
+import { unconfirmedCommand } from "../../server/features/chat/delivery-commands.js";
 import { applicationFixture } from "../helpers/application.js";
 
 for (const tool of ["codex", "claude", "opencode"]) {
@@ -41,8 +42,10 @@ for (const tool of ["codex", "claude", "opencode"]) {
         submit: true,
       };
       const send = () => f.request("/api/sessions/slash/input", { method: "POST", body });
-      assert.equal((await (await send()).json()).status, "handed-off");
-      assert.equal((await (await send()).json()).status, "handed-off");
+      // Local commands send no native event: the cleared prompt confirms them.
+      const settled = unconfirmedCommand(tool, text) ? "accepted" : "handed-off";
+      assert.equal((await (await send()).json()).status, settled);
+      assert.equal((await (await send()).json()).status, settled);
       assert.deepEqual(
         calls.map((args) => args[0]),
         ["send-keys", "send-keys"],
@@ -91,9 +94,10 @@ for (const tool of ["codex", "claude", "opencode"]) {
     };
     const send = () =>
       f.request(`/api/sessions/${session.id}/input`, { method: "POST", body });
-    assert.equal((await (await send()).json()).status, "handed-off");
+    const settled = unconfirmedCommand(tool, "/clear") ? "accepted" : "handed-off";
+    assert.equal((await (await send()).json()).status, settled);
     await recorder.waitForText("/clear\r");
-    assert.equal((await (await send()).json()).status, "handed-off");
+    assert.equal((await (await send()).json()).status, settled);
     assert.equal((await recorder.readBytes()).toString(), "/clear\r");
   });
 }

@@ -336,6 +336,8 @@ export function withChatInput(manager, id, operation) {
       return await operation({
         session,
         ...initial,
+        /** A fresh read of the screen (throws on a blocking dialog). */
+        screen: () => check(null, false),
         /**
          * Empties the native prompt box when `decide(fresh)` says "clear"; "keep"
          * leaves it, "recheck" reads it again after one clear settle (once). False

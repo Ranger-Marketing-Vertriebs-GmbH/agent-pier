@@ -12,6 +12,7 @@ import {
   recoverDelivery,
   waitingFor,
 } from "./chat-delivery-recovery.js";
+import { commandCleared, unconfirmedCommand } from "./delivery-commands.js";
 import { DeliveryQueue } from "./chat-delivery-queue.js";
 import { clearBlockedPrompt, rejectBlocked } from "./chat-delivery-blocked.js";
 import { composerProblem } from "../sessions/claude-composer.js";
@@ -181,6 +182,7 @@ export class ChatDelivery {
       ...(receipt.recovery ? { recovery: receipt.recovery } : {}),
       ...(receipt.notices?.length ? { notices: receipt.notices } : {}),
       ...(receipt.confirmation ? { confirmation: receipt.confirmation } : {}),
+      ...(receipt.command ? { command: true } : {}),
       ...(receipt.submittedAt ? { submittedAt: receipt.submittedAt } : {}),
       ...(status === "accepted"
         ? {
@@ -306,6 +308,8 @@ export class ChatDelivery {
     // Image chips were pasted before a hold: only their text is still due.
     const resume = job.mode === "text";
     let mayHaveWritten = submitOnly || resume;
+    // A command is accepted once the screen shows its prompt box cleared.
+    let cleared = false;
     try {
       if (!mayHaveWritten) await requireChatInput(this.requests, id);
       const refuseCancelled = () => {
@@ -363,8 +367,11 @@ export class ChatDelivery {
           },
           onNotice: noticeRecorder(receipt),
         });
+        if (receipt.command && tx.screen)
+          cleared = await commandCleared(tx.session.tool, tx.screen);
       });
       receipt.status = "handed-off";
+      if (cleared) confirm(receipt, {});
       // A message reached the terminal, so an earlier approval notice is history.
       this.requests.clearNotice?.(id);
       delete receipt.waiting;
@@ -403,6 +410,13 @@ export class ChatDelivery {
     const since = Date.now();
     receipt.submittedAt = since;
     this.earlyAcceptance.delete(file);
+    // Local commands send no native event: the screen confirms them instead.
+    if (unconfirmedCommand(tool, text)) {
+      receipt.command = true;
+      receipt.confirmation = "screen";
+      return;
+    }
+    delete receipt.command;
     if (!this.acceptance?.supports(id)) {
       receipt.confirmation = "text";
       return;
