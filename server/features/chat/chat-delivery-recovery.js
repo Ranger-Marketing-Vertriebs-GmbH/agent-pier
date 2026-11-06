@@ -67,6 +67,10 @@ async function recoveryPlan(tool, phase, { composer, raw, pane }, text) {
   return result;
 }
 
+/** Whether the journal allows that Enter reached the terminal. */
+export const enterMaySent = (receipt) =>
+  ["submit-intent", "submitted"].includes(receipt.journal?.phase);
+
 /** Stable, translatable identifier of a refused or unconfirmed terminal handoff. */
 export const deliveryReason = (error) =>
   typeof error?.code === "string" && Object.hasOwn(copy.reasons, error.code)
@@ -280,6 +284,7 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
           delivery.write(file, receipt);
         },
         onRefused: async (phase) => {
+          if (phase === "submit-intent") delivery.withdrawAcceptance(id, file, receipt);
           receipt.journal = {
             phase: provenPhase[phase],
             generation: tx.recoveryGeneration,
@@ -291,6 +296,7 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
       receipt.status = "handed-off";
     } catch (error) {
       code = deliveryReason(error);
+      if (!enterMaySent(receipt)) delivery.withdrawAcceptance(id, file, receipt);
       receipt.status = receipt.journal.phase === "reserved" ? "rejected" : "uncertain";
       if (code) receipt.reason = code;
     } finally {
@@ -302,8 +308,7 @@ export async function recoverDelivery(delivery, id, deliveryId, body) {
       heldMode[receipt.journal.phase]
     ) {
       if (receipt.journal.phase === "reserved") receipt.status = "pending";
-      // Enter was never sent: an event meanwhile was not this message.
-      delivery.earlyAcceptance.delete(file);
+      delivery.withdrawAcceptance(id, file, receipt);
       return hold(waitingFor(code), code, proof);
     }
     delivery.settleAcceptance(file, receipt);
