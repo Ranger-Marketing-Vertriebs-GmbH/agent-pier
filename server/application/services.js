@@ -28,7 +28,7 @@ import { ProviderCatalog } from "../features/providers/provider-catalog.js";
 import { RepositoryStore } from "../features/repositories/repository-store.js";
 import { GitRemotes } from "../features/repositories/git-remote.js";
 import { ProviderHistory } from "../features/chat/provider-history.js";
-import { ChatDelivery } from "../features/chat/chat-delivery.js";
+import { createChatDelivery } from "./chat-delivery-wiring.js";
 import { ChatStore } from "../features/chat/chat-store.js";
 import { ChatImages } from "../features/chat/chat-images.js";
 import { ChatSync } from "../features/chat/chat-sync.js";
@@ -438,7 +438,7 @@ export async function createServices(config) {
     onLaunch: (sessionId) => claudeMod.forget(sessionId),
   });
   await requests.ready;
-  const chatDelivery = new ChatDelivery({
+  const chatDelivery = createChatDelivery({
     ...config,
     sessions,
     requests,
