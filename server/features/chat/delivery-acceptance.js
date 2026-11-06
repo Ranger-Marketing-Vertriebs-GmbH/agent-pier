@@ -1,3 +1,5 @@
+/** Deliveries whose Enter lies this close before an event are candidates for it. */
+export const ASK_WINDOW_MS = 8000;
 export const EVENT_BUFFER_MS = 5000;
 export const EXPECTATION_TTL_MS = 600000;
 export const MAX_EXPECTATIONS = 32;
@@ -19,14 +21,18 @@ function fits(expectation, event) {
 /**
  * The newest open expectation the event fits (latest `since`, the later one on a tie):
  * an event dated after two Enters belongs to the second, since the first had its
- * chance before.
+ * chance before. When the event fits two or more fresh expectations (Enter within
+ * ASK_WINDOW_MS before the event), it cannot be told apart and confirms none.
  */
-function newestFitting(list, event) {
-  let match = null;
-  for (const expectation of list)
-    if (fits(expectation, event) && (!match || expectation.since >= match.since))
-      match = expectation;
-  return match;
+function resolve(list, event) {
+  let newest = null;
+  let fresh = 0;
+  for (const expectation of list) {
+    if (!fits(expectation, event)) continue;
+    if (!newest || expectation.since >= newest.since) newest = expectation;
+    if (expectation.since >= event.at - ASK_WINDOW_MS) fresh += 1;
+  }
+  return { newest, ambiguous: fresh > 1 };
 }
 
 function outcomeOf(event) {
@@ -68,16 +74,15 @@ export class DeliveryAcceptance {
     const list = (this.#expectations.get(sessionId) ?? []).filter(
       (entry) => entry.deliveryId !== deliveryId,
     );
+    list.push(expectation);
     const events = this.#events.get(sessionId) ?? [];
     const index = events.findIndex((entry) => fits(expectation, entry.event));
     if (index >= 0) {
-      // The newest delivery takes the event, as in report().
+      // A buffered event settles as in report().
       const [{ event }] = events.splice(index, 1);
-      this.#retireOlder(sessionId, list, expectation);
-      this.#emit(sessionId, deliveryId, outcomeOf(event));
+      this.#settle(sessionId, list, event);
       return;
     }
-    list.push(expectation);
     while (list.length > MAX_EXPECTATIONS) list.shift();
     this.#expectations.set(sessionId, list);
   }
@@ -85,16 +90,7 @@ export class DeliveryAcceptance {
   report(sessionId, event) {
     this.#prune(sessionId);
     const list = this.#expectations.get(sessionId) ?? [];
-    const match = newestFitting(list, event);
-    if (match) {
-      this.#retireOlder(
-        sessionId,
-        list.filter((entry) => entry !== match),
-        match,
-      );
-      this.#emit(sessionId, match.deliveryId, outcomeOf(event));
-      return;
-    }
+    if (this.#settle(sessionId, list, event)) return;
     if (list.length > 0) {
       // Fits no open expectation: the owner's own prompt.
       return;
@@ -121,14 +117,20 @@ export class DeliveryAcceptance {
   }
 
   /**
-   * Keeps only the expectations newer than `match`. An older one that is still open
-   * had no event of its own (a hook-blocked steer, a command without a submit event):
-   * it stays handed-off, and the browser asks, instead of taking a later event.
+   * Gives the event to the newest fitting expectation and keeps only the newer ones.
+   * An older one that is still open had no event of its own (a hook-blocked steer, a
+   * command without a submit event): it stays handed-off, and the browser asks,
+   * instead of taking a later event. An ambiguous event retires the newest fitting
+   * one too and confirms none, so all of them ask. Returns whether the event fit.
    */
-  #retireOlder(sessionId, list, match) {
-    const kept = list.filter((entry) => entry.since > match.since);
+  #settle(sessionId, list, event) {
+    const { newest, ambiguous } = resolve(list, event);
+    if (!newest) return false;
+    const kept = list.filter((entry) => entry.since > newest.since);
     if (kept.length) this.#expectations.set(sessionId, kept);
     else this.#expectations.delete(sessionId);
+    if (!ambiguous) this.#emit(sessionId, newest.deliveryId, outcomeOf(event));
+    return true;
   }
 
   #prune(sessionId) {

@@ -5,7 +5,10 @@ import os from "node:os";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { ChatDelivery } from "../../server/features/chat/chat-delivery.js";
-import { DeliveryAcceptance } from "../../server/features/chat/delivery-acceptance.js";
+import {
+  ASK_WINDOW_MS,
+  DeliveryAcceptance,
+} from "../../server/features/chat/delivery-acceptance.js";
 import { createChatDelivery } from "../../server/application/chat-delivery-wiring.js";
 
 const session = { id: "one", accountId: "fixture", tool: "claude", createdAt: "x" };
@@ -183,6 +186,11 @@ test("a delivery without an event is not confirmed by the next one's event", asy
   // D1 never produces an event (a hook-blocked steer, a command with no submit event).
   const d1 = await x.send("first");
   assert.equal(d1.status, "handed-off");
+  // D2 follows after the ask window, so D1 cannot make D2's event ambiguous.
+  const later = Date.now() + ASK_WINDOW_MS + 1000;
+  const realNow = Date.now.bind(Date);
+  const start = realNow();
+  t.mock.method(Date, "now", () => later + (realNow() - start));
   const d2 = await x.send("second");
   assert.equal(d2.status, "handed-off");
   x.event();
@@ -191,6 +199,19 @@ test("a delivery without an event is not confirmed by the next one's event", asy
   // D1 is retired: a later event does not confirm it either.
   x.event();
   assert.equal((await x.status(d1.deliveryId)).status, "handed-off");
+});
+
+test("an event fitting two fresh deliveries leaves both asking, even after a drop", async (t) => {
+  const x = setup(tempDir(t));
+  const d1 = await x.send("first");
+  const d2 = await x.send("second");
+  // D1's own event arrives after D2's Enter; then a hook blocks D2.
+  x.event();
+  x.event({ kind: "dropped", reason: "hook" });
+  assert.equal((await x.status(d1.deliveryId)).status, "handed-off");
+  assert.equal((await x.status(d2.deliveryId)).status, "handed-off");
+  x.event();
+  assert.equal((await x.status(d2.deliveryId)).status, "handed-off");
 });
 
 test("late event after ask timeout still confirms", async (t) => {
