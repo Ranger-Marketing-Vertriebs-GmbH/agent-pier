@@ -96,5 +96,9 @@ export const chatDeliveryCopy = {
       "The CLI did not confirm that it accepted the message. Check the TUI before sending again.",
     CHAT_IMAGES_UNCONFIRMED:
       "The CLI did not confirm that all attached images were accepted. Check the TUI before sending again.",
+    CHAT_HOOK_BLOCKED:
+      "A hook in the CLI blocked the message. It was not sent and is back in the chat, so you can edit it or send it again.",
+    CHAT_HOOK_BLOCKED_DRAFT:
+      "A hook in the CLI blocked the message. It was not sent, but its text may still be in the CLI's input field, which AgentPier left unchanged. Empty the input field in the TUI before sending it again.",
   },
 };

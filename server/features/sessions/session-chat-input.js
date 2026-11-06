@@ -17,7 +17,8 @@ import {
   claudeImageDraft,
   claudeImageMessage,
 } from "./claude-image-paste.js";
-import { nativeFreshInput } from "./native-prompt.js";
+import { nativeFreshInput, nativePromptState } from "./native-prompt.js";
+import { clearClaudeComposer } from "./claude-composer.js";
 import { claudeFreshInput } from "./claude-prompt.js";
 import { cliDefinition, isCodingCli } from "../clis/catalog.js";
 import { cliDriver } from "../clis/drivers.js";
@@ -335,6 +336,36 @@ export function withChatInput(manager, id, operation) {
       return await operation({
         session,
         ...initial,
+        /**
+         * Empties the native prompt box when `owned(fresh)` accepts the current
+         * screen; false when it does not or the box did not end up empty. Uses the
+         * draft-clearing keys of a fresh delivery, never Escape or Ctrl-C.
+         */
+        clearPrompt: async (owned) => {
+          if (attempted || checking)
+            throw problem(serverMessages.sessionInput.alreadyAttempted, 409);
+          attempted = true;
+          const snapshot = () => check(null, false);
+          const fresh = await snapshot();
+          if (!owned(fresh)) return false;
+          if (cliDefinition(session.tool).capabilities.imagePaste) {
+            const timing = manager.chatInputTiming?.clear;
+            await clearClaudeComposer(manager, session, fresh, snapshot, timing);
+            return true;
+          }
+          const input = nativeFreshInput({
+            tool: session.tool,
+            manager,
+            session,
+            snapshot,
+            notice: async () => {},
+            text: "",
+            timing: manager.chatInputTiming,
+          });
+          return (
+            nativePromptState(session.tool, await input.prepare(fresh)).state === "empty"
+          );
+        },
         write: async (value, options = {}) => {
           const text = normalizeChatText(value);
           const submitOnly = options.submitOnly === true;

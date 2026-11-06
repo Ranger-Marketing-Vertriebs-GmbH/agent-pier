@@ -13,6 +13,7 @@ import {
   waitingFor,
 } from "./chat-delivery-recovery.js";
 import { DeliveryQueue } from "./chat-delivery-queue.js";
+import { clearBlockedPrompt, rejectBlocked } from "./chat-delivery-blocked.js";
 import { composerProblem } from "../sessions/claude-composer.js";
 import { claudeImageMessage } from "../sessions/claude-image-paste.js";
 import { isNativeSlashCommand } from "../sessions/session-slash-command.js";
@@ -29,6 +30,8 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const statuses = new Set(["pending", "handed-off", "rejected", "uncertain", "accepted"]);
 // Receipts a native acceptance event may still confirm.
 const confirmable = new Set(["handed-off", "uncertain"]);
+// Delivered texts kept for a hook block; the matcher bounds expectations alike.
+const MAX_BLOCKABLE = 256;
 /** The scope a delivery is bound to: the session and the CLI and account it runs. */
 export function sessionScope(session) {
   return JSON.stringify([
@@ -85,6 +88,9 @@ export class ChatDelivery {
     this.acceptance = acceptance;
     // Acceptances that arrived while their delivery still ran, by receipt file.
     this.earlyAcceptance = new Map();
+    // The text of each delivery awaiting its event, by receipt file: a hook
+    // block clears the CLI prompt box only while it shows exactly this text.
+    this.blockable = new Map();
   }
 
   folder(id) {
@@ -184,6 +190,13 @@ export class ChatDelivery {
         : {}),
       ...(status === "pending" && receipt.waiting ? { waiting: receipt.waiting } : {}),
       ...(status === "rejected" ? { error: copy.rejected } : {}),
+      // A hook-blocked message: its text is back in the composer when released.
+      ...(status === "rejected" && receipt.released !== undefined
+        ? { released: receipt.released }
+        : {}),
+      ...(status === "rejected" && receipt.hookReason
+        ? { hookReason: receipt.hookReason }
+        : {}),
       ...(status === "uncertain" ? { error: copy.uncertain } : {}),
       // Whether the text may sit in the TUI prompt selects the reason wording.
       ...(["uncertain", "pending"].includes(status)
@@ -376,8 +389,9 @@ export class ChatDelivery {
       if (reason) receipt.reason = reason;
       else delete receipt.reason;
     }
-    this.settleAcceptance(file, receipt);
+    const dropped = this.settleAcceptance(file, receipt);
     if (this.exists(file)) this.write(file, receipt);
+    if (dropped) this.block(id, file, dropped);
     return receipt.status;
   }
 
@@ -394,6 +408,10 @@ export class ChatDelivery {
       return;
     }
     receipt.confirmation = "events";
+    this.blockable.delete(file);
+    this.blockable.set(file, text);
+    if (this.blockable.size > MAX_BLOCKABLE)
+      this.blockable.delete(this.blockable.keys().next().value);
     const imageNames = isNativeSlashCommand(tool, text)
       ? []
       : ((await claudeImageMessage(text))?.images.map((image) => path.basename(image)) ??
@@ -405,30 +423,70 @@ export class ChatDelivery {
    * A native acceptance event matched delivery `deliveryId`. Only a handed-off
    * or uncertain receipt changes; accepted is terminal. A delivery still running
    * takes the outcome when it finishes, so its own result never overwrites it.
+   * A dropped prompt (blocked by a hook) is rejected asynchronously (block()).
    */
   accept(id, deliveryId, outcome) {
-    // A dropped prompt (blocked by a hook) is handled separately.
-    if (outcome.kind !== "accepted") return;
+    if (!["accepted", "dropped"].includes(outcome.kind)) return;
     const file = this.file(id, deliveryId);
     if (this.active.has(file)) {
       this.earlyAcceptance.set(file, outcome);
       return;
     }
+    if (outcome.kind === "dropped") {
+      this.block(id, file, outcome);
+      return;
+    }
+    this.blockable.delete(file);
     const receipt = this.read(file);
     if (receipt && confirm(receipt, outcome)) this.write(file, receipt);
+  }
+
+  /**
+   * A hook blocked the delivery: clear the CLI prompt box when it holds exactly
+   * our text, then reject the receipt. Never throws; the matcher calls it
+   * synchronously, and a failing clear counts as a foreign draft.
+   */
+  async block(id, file, outcome) {
+    try {
+      const text = this.blockable.get(file);
+      this.blockable.delete(file);
+      const before = this.read(file);
+      if (!confirmable.has(before?.status)) return;
+      const prompt =
+        text === undefined
+          ? "foreign"
+          : await clearBlockedPrompt({ sessions: this.sessions, id, text });
+      // A retry may have started or settled the delivery meanwhile.
+      const receipt = this.read(file);
+      if (!confirmable.has(receipt?.status) || receipt.attemptId !== before.attemptId)
+        return;
+      rejectBlocked(receipt, outcome, prompt);
+      this.write(file, receipt);
+    } catch {
+      console.error("AgentPier could not record a blocked chat delivery.");
+    }
   }
 
   /** Enter was never sent: no later event may confirm this delivery. */
   withdrawAcceptance(id, file, receipt) {
     this.earlyAcceptance.delete(file);
+    this.blockable.delete(file);
     this.acceptance?.withdraw(id, receipt.deliveryId);
   }
 
-  /** Apply an acceptance that arrived while this delivery ran. */
+  /**
+   * Apply an acceptance that arrived while this delivery ran. Returns a drop,
+   * which the caller hands to block() once the receipt is written.
+   */
   settleAcceptance(file, receipt) {
     const outcome = this.earlyAcceptance.get(file);
     this.earlyAcceptance.delete(file);
-    if (outcome) confirm(receipt, outcome);
+    if (outcome?.kind === "dropped") return outcome;
+    if (outcome) {
+      this.blockable.delete(file);
+      confirm(receipt, outcome);
+    }
+    return null;
   }
 
   exists(file) {
