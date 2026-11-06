@@ -160,6 +160,48 @@ test("an ambiguous drop confirms none", () => {
   assert.deepEqual(matches, []);
 });
 
+test("a delivery's late event after an ambiguous one does not confirm the next", () => {
+  const { matches, acceptance } = setup();
+  acceptance.expect("s1", { deliveryId: "d1", since: 1000, imageNames: [] });
+  acceptance.expect("s1", { deliveryId: "d2", since: 1100, imageNames: [] });
+  acceptance.report("s1", accepted(1150));
+  acceptance.expect("s1", { deliveryId: "d3", since: 1300, imageNames: [] });
+  // D2's own event arrives after D3's Enter; D3 is then blocked by a hook.
+  acceptance.report("s1", accepted(1350));
+  acceptance.report("s1", { ...accepted(1400), kind: "dropped", reason: "hook" });
+  assert.deepEqual(matches, []);
+});
+
+test("a delivery retired as ambiguous stops counting after the ask window", () => {
+  const { clock, matches, acceptance } = setup();
+  acceptance.expect("s1", { deliveryId: "d1", since: 1000, imageNames: [] });
+  acceptance.expect("s1", { deliveryId: "d2", since: 1100, imageNames: [] });
+  acceptance.report("s1", accepted(1150));
+  const later = 1100 + ASK_WINDOW_MS + 1;
+  clock.t = later;
+  acceptance.expect("s1", { deliveryId: "d3", since: later, imageNames: [] });
+  acceptance.report("s1", accepted(later + 10));
+  assert.deepEqual(
+    matches.map((match) => match.deliveryId),
+    ["d3"],
+  );
+});
+
+test("a delivery retired as ambiguous never takes a later event alone", () => {
+  const { matches, acceptance } = setup();
+  acceptance.expect("s1", { deliveryId: "d1", since: 1000, imageNames: [] });
+  acceptance.expect("s1", { deliveryId: "d2", since: 1100, imageNames: [] });
+  acceptance.report("s1", accepted(1150));
+  acceptance.report("s1", accepted(1200));
+  // With only retired deliveries open, an event is buffered for a later Enter.
+  acceptance.report("s1", accepted(9500));
+  acceptance.expect("s1", { deliveryId: "d3", since: 9400, imageNames: [] });
+  assert.deepEqual(
+    matches.map((match) => match.deliveryId),
+    ["d3"],
+  );
+});
+
 test("a match retires older deliveries, also those the event did not fit", () => {
   const { matches, acceptance } = setup();
   acceptance.expect("s1", { deliveryId: "d1", since: 1000, imageNames: ["a.png"] });

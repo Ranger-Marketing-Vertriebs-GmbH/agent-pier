@@ -18,21 +18,36 @@ function fits(expectation, event) {
   return event.imageNames === null || sameNames(event.imageNames, expectation.imageNames);
 }
 
+function isFresh(expectation, event) {
+  return expectation.since >= event.at - ASK_WINDOW_MS;
+}
+
 /**
  * The newest open expectation the event fits (latest `since`, the later one on a tie):
  * an event dated after two Enters belongs to the second, since the first had its
  * chance before. When the event fits two or more fresh expectations (Enter within
  * ASK_WINDOW_MS before the event), it cannot be told apart and confirms none.
+ * Tombstones of deliveries retired as ambiguous still count as fresh fits, so their
+ * own late events cannot confirm another delivery, but are never the newest.
  */
 function resolve(list, event) {
   let newest = null;
   let fresh = 0;
   for (const expectation of list) {
     if (!fits(expectation, event)) continue;
+    if (isFresh(expectation, event)) fresh += 1;
+    if (expectation.tombstone) continue;
     if (!newest || expectation.since >= newest.since) newest = expectation;
-    if (expectation.since >= event.at - ASK_WINDOW_MS) fresh += 1;
   }
   return { newest, ambiguous: fresh > 1 };
+}
+
+/** Caps the list, evicting tombstones before open expectations. */
+function cap(list) {
+  while (list.length > MAX_EXPECTATIONS) {
+    const index = list.findIndex((entry) => entry.tombstone);
+    list.splice(Math.max(index, 0), 1);
+  }
 }
 
 function outcomeOf(event) {
@@ -83,7 +98,7 @@ export class DeliveryAcceptance {
       this.#settle(sessionId, list, event);
       return;
     }
-    while (list.length > MAX_EXPECTATIONS) list.shift();
+    cap(list);
     this.#expectations.set(sessionId, list);
   }
 
@@ -91,7 +106,7 @@ export class DeliveryAcceptance {
     this.#prune(sessionId);
     const list = this.#expectations.get(sessionId) ?? [];
     if (this.#settle(sessionId, list, event)) return;
-    if (list.length > 0) {
+    if (list.some((entry) => !entry.tombstone)) {
       // Fits no open expectation: the owner's own prompt.
       return;
     }
@@ -121,12 +136,27 @@ export class DeliveryAcceptance {
    * An older one that is still open had no event of its own (a hook-blocked steer, a
    * command without a submit event): it stays handed-off, and the browser asks,
    * instead of taking a later event. An ambiguous event retires the newest fitting
-   * one too and confirms none, so all of them ask. Returns whether the event fit.
+   * one too and confirms none, so all of them ask; the fresh fitting ones stay as
+   * tombstones until the ask window after their Enter ends. Returns whether the event
+   * fit.
    */
   #settle(sessionId, list, event) {
     const { newest, ambiguous } = resolve(list, event);
     if (!newest) return false;
     const kept = list.filter((entry) => entry.since > newest.since);
+    if (ambiguous) {
+      const tombstones = list
+        .filter((entry) => entry.since <= newest.since)
+        .filter((entry) => fits(entry, event) && isFresh(entry, event))
+        .map(({ since, imageNames }) => ({
+          since,
+          imageNames,
+          tombstone: true,
+          expiresAt: since + ASK_WINDOW_MS,
+        }));
+      kept.unshift(...tombstones);
+      cap(kept);
+    }
     if (kept.length) this.#expectations.set(sessionId, kept);
     else this.#expectations.delete(sessionId);
     if (!ambiguous) this.#emit(sessionId, newest.deliveryId, outcomeOf(event));
