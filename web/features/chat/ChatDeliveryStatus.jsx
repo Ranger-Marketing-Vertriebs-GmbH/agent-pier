@@ -3,6 +3,8 @@ import NativeDeliveryBadge from "./NativeDeliveryBadge.jsx";
 import React from "react";
 import Message from "./ChatMessage.jsx";
 import { deliveryNotices, visibleDeliveries } from "./chat-draft.js";
+import { deliveryView } from "./delivery-confirmation.js";
+import useDeliveryClock from "./useDeliveryClock.js";
 import { chatDeliveryCopy as copy } from "../../lib/i18n/messages/chat.js";
 import { serverText } from "../../lib/server-messages.js";
 
@@ -17,8 +19,24 @@ export default function ChatDeliveryStatus({
 }) {
   const items = [...delivery.recent, ...(delivery.outbox ? [delivery.outbox] : [])];
   const visible = new Set(visibleDeliveries(items, messages).map((item) => item.id));
-  const notices = deliveryNotices(delivery, messages, position);
+  const listed = deliveryNotices(delivery, messages, position);
+  const now = useDeliveryClock(listed);
+  // An accepted command hides after its brief notice.
+  const notices = listed.filter((item) => deliveryView(item, now) !== "hidden");
   const content = notices.map((item) => {
+    // Server confirmation (events or screen); null keeps the text-based presentation.
+    const view = deliveryView(item, now);
+    const hook = view === "hookBlocked" || view === "hookBlockedDraft";
+    // Accepted: no actions; a command shows only its brief notice.
+    const quiet = view === "accepted" || view === "commandHandedOff";
+    // Before the ask, an event-confirmed handoff only waits for the CLI.
+    const inspectable =
+      ["uncertain", "handed-off"].includes(item.status) && view !== "handed-off";
+    // Its text left the composer: rejected, or unconfirmed after the ask.
+    const editable =
+      item.id !== delivery.outbox?.id &&
+      (item.status === "rejected" || view === "askCheck") &&
+      item.released;
     const native = delivery.nativeStates?.get(item.id);
     const pending = item.id === delivery.outbox?.id;
     const recovering = item.id === delivery.recovering;
@@ -36,7 +54,9 @@ export default function ChatDeliveryStatus({
         item.pasted !== false &&
         copy.pastedReasons[code]) ||
       copy.reasons[code];
-    const detail = reasonText(item.reason) || serverText(item.error);
+    const detail = hook
+      ? item.hookReason
+      : reasonText(item.reason) || serverText(item.error);
     const recoveryDetail =
       reasonText(item.recovery?.code) || serverText(item.recovery?.reason);
     const status = recovering
@@ -57,18 +77,20 @@ export default function ChatDeliveryStatus({
         )}
         {native ? (
           <NativeDeliveryBadge state={native.state} tool={session.tool} />
-        ) : (
+        ) : view === "accepted" ? null : (
           <div className="chat-delivery-status" role="status" aria-label={copy.ariaLabel}>
             <span>
-              {status === "pending" && item.waiting === "request"
-                ? copy.waitingRequest
-                : status === "pending" && item.waiting === "dialog"
-                  ? copy.waitingDialog
-                  : status === "pending" && item.waiting === "queue"
-                    ? copy.waitingQueue
-                    : status === "pending" && item.waiting === "starting"
-                      ? copy.waitingStarting
-                      : copy[status] || copy.checking}
+              {view && view !== "handed-off" && !recovering
+                ? copy[view]
+                : status === "pending" && item.waiting === "request"
+                  ? copy.waitingRequest
+                  : status === "pending" && item.waiting === "dialog"
+                    ? copy.waitingDialog
+                    : status === "pending" && item.waiting === "queue"
+                      ? copy.waitingQueue
+                      : status === "pending" && item.waiting === "starting"
+                        ? copy.waitingStarting
+                        : copy[status] || copy.checking}
             </span>
             {detail && <span role="alert">{detail}</span>}
             {item.recovery?.action === "blocked" && (
@@ -84,7 +106,7 @@ export default function ChatDeliveryStatus({
               {copy.notices[code]}
             </p>
           ))}
-        {!native && !delivery.sending && (
+        {!native && !delivery.sending && !quiet && (
           <div className="chat-delivery-actions">
             {item.status === "uncertain" && <p>{copy.uncertainHint}</p>}
             {pending && item.status === "absent" && <p>{copy.absentHint}</p>}
@@ -104,7 +126,7 @@ export default function ChatDeliveryStatus({
               </button>
             )}
             {/* A rejected message is back in the composer: send it from there. */}
-            {["uncertain", "handed-off"].includes(item.status) && (
+            {inspectable && (
               <button
                 type="button"
                 className="button"
@@ -128,7 +150,23 @@ export default function ChatDeliveryStatus({
                 {copy.cancel}
               </button>
             )}
-            {!pending && item.status === "rejected" && item.released && (
+            {/* Its text left the CLI prompt: send it again as it was. */}
+            {!pending && view === "hookBlocked" && item.released && (
+              <button
+                type="button"
+                className="button"
+                disabled={
+                  blocked ||
+                  delivery.locked ||
+                  Boolean(delivery.text.trim()) ||
+                  delivery.attachments.length > 0
+                }
+                onClick={() => delivery.resend(item.id, messages)}
+              >
+                {copy.redeliver}
+              </button>
+            )}
+            {editable && (
               <button
                 type="button"
                 className="button"
@@ -138,6 +176,7 @@ export default function ChatDeliveryStatus({
               </button>
             )}
             {(item.recovery?.action === "blocked" ||
+              view === "hookBlockedDraft" ||
               (held && (item.waiting === "dialog" || item.pasted))) && (
               <button type="button" className="button" onClick={openTerminal}>
                 {copy.openTerminal}

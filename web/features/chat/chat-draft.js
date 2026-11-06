@@ -3,6 +3,12 @@ import { chatDeliveryCopy as copy } from "../../lib/i18n/messages/chat.js";
 import { browserUuid } from "../../lib/browser-uuid.js";
 import { reusedDraft } from "./chat-draft-reuse.js";
 import { deliveryContentMatches, queuedImagesUnique } from "./delivery-content.js";
+import {
+  confirmationFields,
+  delivered,
+  receiptAdvances,
+  retainRecent,
+} from "./delivery-confirmation.js";
 
 export const deliveryScope = (session) =>
   JSON.stringify([
@@ -24,10 +30,6 @@ const empty = () => ({
 });
 const manifest = (attachments) =>
   attachments.map(({ key, name, path }) => ({ key, name, path }));
-const retainRecent = (items) => {
-  const completed = items.filter((item) => item.status === "handed-off").slice(-20);
-  return items.filter((item) => item.status !== "handed-off" || completed.includes(item));
-};
 const predatesDelivery = (item, message) => {
   const startedAt = item.observation?.startedAt ?? Date.parse(item.clientCreatedAt);
   const timestamp =
@@ -82,11 +84,11 @@ export function deliveryNotices(delivery, messages, position = "current") {
   const items = [...delivery.recent, ...(delivery.outbox ? [delivery.outbox] : [])];
   const visible = new Set(visibleDeliveries(items, messages).map((item) => item.id));
   return items.filter((item) => {
-    if (item.resetContext && item.status === "handed-off") return false;
+    if (item.resetContext && delivered(item.status)) return false;
     const current = item.id === delivery.outbox?.id;
-    if (!visible.has(item.id) && !current && item.status === "handed-off") return false;
+    if (!visible.has(item.id) && !current && delivered(item.status)) return false;
     const saved =
-      !current && item.status === "handed-off" && item.clientCreatedAt === undefined;
+      !current && delivered(item.status) && item.clientCreatedAt === undefined;
     return position === "earlier" ? saved : !saved;
   });
 }
@@ -434,16 +436,15 @@ export class ChatDraft {
         attemptIds.includes(incomingAttemptId)
       )
         return;
-      // Terminal outcomes are final for this attempt. A retry may advance only
-      // with its own ID; same-status recovery results can still add explanations.
+      // Terminal outcomes are final for this attempt (a handoff may still be
+      // accepted or hook-blocked). A retry may advance only with its own ID.
       if (
         incomingAttemptId === currentAttemptId &&
-        ["handed-off", "rejected"].includes(item.status) &&
-        receipt.status !== item.status
+        !receiptAdvances(item.status, receipt)
       )
         return;
       const resolved =
-        receipt.status === "handed-off" ||
+        delivered(receipt.status) ||
         (receipt.recovery?.requestId === item.recoveryAttempt?.attemptId &&
           Boolean(item.recoveryAttempt));
       const next = {
@@ -461,12 +462,17 @@ export class ChatDraft {
         waiting: receipt.status === "pending" ? receipt.waiting || "" : "",
         pasted: receipt.pasted === "images" ? "images" : receipt.pasted !== false,
         recoveryAttempt: resolved ? null : item.recoveryAttempt,
+        ...confirmationFields(receipt),
+        // A hook block says whether its text left the CLI prompt (resend is safe).
+        ...(!pending && typeof receipt.released === "boolean"
+          ? { released: receipt.released }
+          : {}),
       };
       if (
         next.resetContext &&
         next.resetContext.sequence === saved.resetSequence &&
-        next.status === "handed-off" &&
-        item.status !== "handed-off"
+        delivered(next.status) &&
+        !delivered(item.status)
       ) {
         saved = {
           ...saved,
@@ -490,8 +496,7 @@ export class ChatDraft {
         });
       } else if (
         pending &&
-        (receipt.status === "handed-off" ||
-          (receipt.status === "pending" && receipt.waiting))
+        (delivered(receipt.status) || (receipt.status === "pending" && receipt.waiting))
       ) {
         // Handed off, or held by the server behind a question or an earlier
         // message: either way the composer is free for the next message.

@@ -7,11 +7,28 @@ import {
   useSyncExternalStore,
 } from "react";
 import { ChatDraft, deliveryScope } from "./chat-draft.js";
+import { awaitsConfirmation } from "./delivery-confirmation.js";
 import { registerComposer } from "./composer-registry.js";
 import { liveClient } from "../../lib/live/live-client.js";
 import { startLiveTopic } from "../../lib/live/live-topic-reader.js";
 import { chatDeliveryCopy as copy } from "../../lib/i18n/messages/chat.js";
 import { browserUuid } from "../../lib/browser-uuid.js";
+
+// Deliveries whose server status may still change: unresolved ones, and handoffs the
+// CLI has yet to confirm (accepted or hook-blocked) while no transcript row shows them.
+const changeable = (item) =>
+  item.recoveryAttempt ||
+  (awaitsConfirmation(item)
+    ? !item.matchedMessageId
+    : !["handed-off", "accepted"].includes(item.status));
+const receiptStatuses = [
+  "absent",
+  "pending",
+  "handed-off",
+  "accepted",
+  "rejected",
+  "uncertain",
+];
 
 export default function useChatDelivery({ session, request, active }) {
   const scope = deliveryScope(session);
@@ -41,12 +58,7 @@ export default function useChatDelivery({ session, request, active }) {
   const [sendError, setSendError] = useState("");
   const operation = useRef(null);
   const checkVersion = useRef(0);
-  const id = [
-    state.outbox,
-    ...state.recent.filter(
-      (item) => item.recoveryAttempt || item.status !== "handed-off",
-    ),
-  ]
+  const id = [state.outbox, ...state.recent.filter(changeable)]
     .filter(Boolean)
     .map((item) => item.id)
     .join(",");
@@ -64,12 +76,7 @@ export default function useChatDelivery({ session, request, active }) {
     async (signal) => {
       if (operation.current) return;
       const state = draft.getSnapshot();
-      const items = [
-        state.outbox,
-        ...state.recent.filter(
-          (item) => item.recoveryAttempt || item.status !== "handed-off",
-        ),
-      ].filter(Boolean);
+      const items = [state.outbox, ...state.recent.filter(changeable)].filter(Boolean);
       const version = ++checkVersion.current;
       for (const pending of items) {
         try {
@@ -83,9 +90,7 @@ export default function useChatDelivery({ session, request, active }) {
             version === checkVersion.current &&
             !signal?.aborted &&
             result.deliveryId === pending.id &&
-            ["absent", "pending", "handed-off", "rejected", "uncertain"].includes(
-              result.status,
-            )
+            receiptStatuses.includes(result.status)
           )
             await draft.receipt(result);
         } catch {
@@ -141,7 +146,9 @@ export default function useChatDelivery({ session, request, active }) {
       if (draft.getSnapshot().outbox?.id === item.id) {
         if (
           result.deliveryId === item.id &&
-          ["handed-off", "pending", "uncertain", "rejected"].includes(result.status)
+          ["handed-off", "accepted", "pending", "uncertain", "rejected"].includes(
+            result.status,
+          )
         )
           await draft.receipt(result);
         else
@@ -188,7 +195,9 @@ export default function useChatDelivery({ session, request, active }) {
       if (
         result.deliveryId === id &&
         result.recovery?.requestId === item.recoveryAttempt.attemptId &&
-        ["handed-off", "pending", "uncertain", "rejected"].includes(result.status)
+        ["handed-off", "accepted", "pending", "uncertain", "rejected"].includes(
+          result.status,
+        )
       )
         await draft.receipt(result);
       else setSendError(copy.disconnected);
@@ -225,9 +234,25 @@ export default function useChatDelivery({ session, request, active }) {
     }
   };
 
+  // A hook-blocked message whose text left the CLI prompt goes out again as a new
+  // message, only from an empty composer so nothing typed meanwhile is sent with it.
+  const resend = async (id, messages = []) => {
+    const current = draft.getSnapshot();
+    if (
+      operation.current ||
+      current.outbox ||
+      current.text.trim() ||
+      current.attachments.length
+    )
+      return;
+    await draft.reuse(id);
+    await send(messages);
+  };
+
   return {
     ...state,
     cancel,
+    resend,
     storageError: state.storageError || sendError,
     draft,
     sending,

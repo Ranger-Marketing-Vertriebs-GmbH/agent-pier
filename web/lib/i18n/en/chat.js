@@ -132,6 +132,10 @@ export const chatDeliveryCopy = {
   checking: "Checking delivery …",
   pending: "Handoff in progress …",
   "handed-off": "Sent to TUI · awaiting CLI confirmation",
+  commandHandedOff: "Command handed over",
+  askCheck: "The CLI has not confirmed. Check or resend.",
+  hookBlocked: "Blocked by a hook",
+  hookBlockedDraft: "Blocked by a hook. The text is still in the CLI prompt.",
   uncertain: "Delivery uncertain",
   waitingRequest:
     "Waiting for the open request to be answered · sent automatically afterwards",
