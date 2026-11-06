@@ -178,6 +178,21 @@ test("held then retried A, then B's event confirms B", async (t) => {
   assert.equal((await x.status(b.deliveryId)).status, "accepted");
 });
 
+test("a delivery without an event is not confirmed by the next one's event", async (t) => {
+  const x = setup(tempDir(t));
+  // D1 never produces an event (a hook-blocked steer, a command with no submit event).
+  const d1 = await x.send("first");
+  assert.equal(d1.status, "handed-off");
+  const d2 = await x.send("second");
+  assert.equal(d2.status, "handed-off");
+  x.event();
+  assert.equal((await x.status(d2.deliveryId)).status, "accepted");
+  assert.equal((await x.status(d1.deliveryId)).status, "handed-off");
+  // D1 is retired: a later event does not confirm it either.
+  x.event();
+  assert.equal((await x.status(d1.deliveryId)).status, "handed-off");
+});
+
 test("late event after ask timeout still confirms", async (t) => {
   let clock = Date.now();
   const x = setup(tempDir(t), { now: () => clock });
