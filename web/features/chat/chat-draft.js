@@ -6,6 +6,7 @@ import { deliveryContentMatches, queuedImagesUnique } from "./delivery-content.j
 import {
   confirmationFields,
   delivered,
+  dismissed,
   receiptAdvances,
   retainRecent,
 } from "./delivery-confirmation.js";
@@ -587,10 +588,7 @@ export class ChatDraft {
   }
   dismiss(id) {
     return this.mutate((saved) => {
-      this.write(
-        { ...saved, recent: saved.recent.filter((item) => item.id !== id) },
-        { preserveDraft: true },
-      );
+      this.write(dismissed(saved, id), { preserveDraft: true });
     });
   }
 }

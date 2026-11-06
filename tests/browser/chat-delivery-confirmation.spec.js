@@ -166,7 +166,7 @@ test("a blocked message still in the CLI prompt cannot be sent again from the co
   page,
 }) => {
   // The block arrives with the send's own answer: the text returns to the composer.
-  await fixture(page, {
+  const state = await fixture(page, {
     status: "rejected",
     reason: "CHAT_HOOK_BLOCKED_DRAFT",
     released: false,
@@ -177,6 +177,15 @@ test("a blocked message still in the CLI prompt cannot be sent again from the co
     "Twice would double",
   );
   await expect(page.getByRole("button", { name: "Send", exact: true })).toBeDisabled();
+  await page.getByLabel("Message", { exact: true }).press("Enter");
+  // Dismissing clears the composer copy: the message lives on in the CLI prompt only.
   await page.getByRole("button", { name: "Dismiss delivery status" }).click();
-  await expect(page.getByRole("button", { name: "Send", exact: true })).toBeEnabled();
+  await expect(page.locator(".chat-delivery-message")).toHaveCount(0);
+  await expect(page.getByLabel("Message", { exact: true })).toHaveValue("");
+  await expect(page.getByRole("button", { name: "Send", exact: true })).toBeDisabled();
+  await page.getByLabel("Message", { exact: true }).press("Enter");
+  expect(state.inputs).toHaveLength(1);
+  expect(
+    state.inputs.filter((input) => input.text === "Twice would double"),
+  ).toHaveLength(1);
 });
