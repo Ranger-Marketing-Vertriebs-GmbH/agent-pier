@@ -267,3 +267,121 @@ test("/clear is no goodbye; the session's end is", async () => {
   await runtime.tick();
   assert.deepEqual(runtime.events().at(-1), { type: "session.end" });
 });
+
+test("a composer prompt that entered is reported with its image names", async () => {
+  const runtime = await loaded();
+  const e = {
+    text: "[Image #1] [Image #2] secret prompt",
+    attachments: [
+      { type: "image", mediaType: "image/png", filename: "red.png", id: "media_1" },
+      { type: "document", filename: "notes.pdf", id: "media_2" },
+      { type: "image", mediaType: "image/png", id: "media_3" },
+      { type: "image", filename: "bad/name.png", id: "media_4" },
+    ],
+    wait: false,
+    origin: { kind: "composer" },
+  };
+  const entered = { text: e.text, origin: { kind: "composer" } };
+  const result = await runtime.dispatch("prompt.submit", e, async () => entered);
+  assert.equal(result, entered, "the prompt's result is passed on unchanged");
+  await runtime.dispatch(
+    "prompt.submit",
+    { text: "later please", wait: false, turnId: TURN, origin: { kind: "composer" } },
+    async (input) => ({ text: input.text }),
+  );
+  await runtime.tick();
+  const events = runtime.events().slice(1);
+  assert.equal(typeof events[0].at, "number");
+  assert.deepEqual(
+    events.map((event) => ({ ...event, at: 0 })),
+    [
+      // An image without a usable name keeps its place, so the count stays right.
+      { type: "prompt.accepted", at: 0, images: ["red.png", "?", "?"], queued: false },
+      { type: "prompt.accepted", at: 0, images: [], queued: true },
+    ],
+  );
+  assert.doesNotMatch(JSON.stringify(runtime.events()), /secret prompt|later please/);
+});
+
+test("a dropped prompt is reported without the prompt the engine appends", async () => {
+  const runtime = await loaded();
+  const reason =
+    "UserPromptSubmit operation blocked by hook:\n[/x/hook.sh]: blocked by spike" +
+    "\n\n\nOriginal prompt: BLOCKME secret";
+  const drop = { drop: reason };
+  const result = await runtime.dispatch(
+    "prompt.submit",
+    {
+      text: "BLOCKME secret",
+      attachments: [{ type: "image", filename: "red.png" }],
+      wait: false,
+      origin: { kind: "composer" },
+    },
+    async () => drop,
+  );
+  assert.equal(result, drop);
+  await runtime.dispatch(
+    "prompt.submit",
+    { text: "x", wait: false, origin: { kind: "composer" } },
+    async () => ({ drop: "y".repeat(800) }),
+  );
+  await runtime.tick();
+  const [blocked, long] = runtime.events().slice(1);
+  assert.deepEqual(
+    { ...blocked, at: 0 },
+    {
+      type: "prompt.dropped",
+      at: 0,
+      images: ["red.png"],
+      reason:
+        "UserPromptSubmit operation blocked by hook:\n[/x/hook.sh]: blocked by spike",
+    },
+  );
+  assert.equal(long.reason.length, 500);
+  assert.doesNotMatch(JSON.stringify(runtime.events()), /secret/);
+});
+
+test("prompts from elsewhere are not reported, and the mod's own failure never blocks one", async () => {
+  const runtime = await loaded();
+  for (const kind of ["bridge", "sdk", "task-notification", "plugin", "peer"])
+    await runtime.dispatch("prompt.submit", { text: "x", wait: false, origin: { kind } });
+  await runtime.dispatch("prompt.submit", { text: "x", wait: false });
+  // Attachments the mod cannot read: the prompt still enters, unchanged.
+  const e = {
+    text: "x",
+    wait: false,
+    origin: { kind: "composer" },
+    get attachments() {
+      throw Error("boom");
+    },
+  };
+  const entered = { text: "x" };
+  assert.equal(await runtime.dispatch("prompt.submit", e, async () => entered), entered);
+  await runtime.tick();
+  assert.equal(runtime.events().length, 1, "only the hello");
+  // The engine's own failure goes to the failure handler, which passes.
+  const handler = runtime.hooks.get("prompt.submit").catch;
+  assert.deepEqual(await handler(runtime.$, { text: "x" }, async (input) => input), {
+    text: "x",
+  });
+});
+
+test("prompt reports survive a failed request", async () => {
+  let fail = true;
+  const runtime = await loaded({
+    fetch: async () =>
+      fail ? Promise.reject(Error("down")) : { status: 200, ok: true, text: "{}" },
+  });
+  await runtime.dispatch("prompt.submit", {
+    text: "x",
+    wait: false,
+    origin: { kind: "composer" },
+  });
+  await runtime.tick();
+  fail = false;
+  await runtime.tick();
+  assert.deepEqual(
+    runtime.requests.at(-1).body.events.map((event) => event.type),
+    ["hello", "prompt.accepted"],
+  );
+});

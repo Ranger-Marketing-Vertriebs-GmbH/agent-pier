@@ -13,3 +13,17 @@ export function createChatDelivery(options) {
   const chatDelivery = new ChatDelivery({ ...options, acceptance });
   return chatDelivery;
 }
+
+/**
+ * The bridge mod's prompt reports (ClaudeModBridge options), routed to the matcher of
+ * the chat delivery `current()` returns: it is created after the bridge (a report
+ * before then throws, which the bridge ignores).
+ */
+export function claudeModAcceptance(current) {
+  const acceptance = () => current()?.acceptance;
+  return {
+    onReady: (sessionId) => acceptance()?.ready(sessionId, "claude-mod"),
+    onPrompt: (sessionId, event) => acceptance()?.report(sessionId, event),
+    onForget: (sessionId) => acceptance()?.forget(sessionId),
+  };
+}

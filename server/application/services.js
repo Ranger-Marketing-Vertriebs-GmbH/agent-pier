@@ -28,7 +28,7 @@ import { ProviderCatalog } from "../features/providers/provider-catalog.js";
 import { RepositoryStore } from "../features/repositories/repository-store.js";
 import { GitRemotes } from "../features/repositories/git-remote.js";
 import { ProviderHistory } from "../features/chat/provider-history.js";
-import { createChatDelivery } from "./chat-delivery-wiring.js";
+import { claudeModAcceptance, createChatDelivery } from "./chat-delivery-wiring.js";
 import { ChatStore } from "../features/chat/chat-store.js";
 import { ChatImages } from "../features/chat/chat-images.js";
 import { ChatSync } from "../features/chat/chat-sync.js";
@@ -281,6 +281,7 @@ export async function createServices(config) {
     streams: chatStreams,
     drafts: claudeDrafts,
     onActivity: (id) => chatEvents.publish(id, "native-activity"),
+    ...claudeModAcceptance(() => chatDelivery), // Its prompts confirm chat deliveries.
   });
   const sharedProfiles = new SharedCliProfiles({ accounts });
   const extensions = new ExtensionsStore({ accounts, home: config.home, sharedProfiles });

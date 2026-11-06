@@ -10,6 +10,13 @@ const count = (value, limit) => Number.isInteger(value) && value >= 0 && value <
 // Tool and agent type names as Claude Code reports them (`Bash`, `mcp__x__y`, `Explore`).
 const name = (value) =>
   typeof value === "string" && /^[^\0-\x1f\x7f]{0,120}$/.test(value) ? value : null;
+// A submitted prompt's image file names, as the mod read them from its attachments.
+const maxImages = 32;
+const maxReason = 500;
+const fileName = (value) =>
+  typeof value === "string" && /^[^\0-\x1f\x7f/]{1,255}$/.test(value);
+const images = (value) =>
+  Array.isArray(value) && value.length <= maxImages && value.every(fileName);
 
 function event(value) {
   const invalid = () => {
@@ -70,6 +77,29 @@ function event(value) {
       ...(count(value.usage?.input, 1e9) && count(value.usage?.output, 1e9)
         ? { usage: { input: value.usage.input, output: value.usage.output } }
         : {}),
+    };
+  }
+  // A prompt that entered (or was queued) or that a hook dropped. Its `at` is the
+  // mod's clock; the server dates the report itself.
+  if (type === "prompt.accepted" || type === "prompt.dropped") {
+    if (
+      (value.at !== undefined && !count(value.at, Number.MAX_SAFE_INTEGER)) ||
+      !images(value.images)
+    )
+      invalid();
+    if (type === "prompt.accepted") {
+      if (typeof value.queued !== "boolean") invalid();
+      return { type, images: [...value.images], queued: value.queued };
+    }
+    if (
+      value.reason !== undefined &&
+      (typeof value.reason !== "string" || value.reason.length > maxReason)
+    )
+      invalid();
+    return {
+      type,
+      images: [...value.images],
+      ...(value.reason !== undefined ? { reason: value.reason } : {}),
     };
   }
   if (["compact.start", "compact.end", "session.end"].includes(type)) return { type };
