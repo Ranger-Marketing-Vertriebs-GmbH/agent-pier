@@ -1,0 +1,71 @@
+/* An agent's pinboard (PinboardLists): lists of pinned files, archived ones last. */
+.pinboard-view {
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+}
+.pinboard-lists {
+  display: grid;
+  gap: var(--space-6);
+}
+.pinboard-list {
+  display: grid;
+  gap: var(--space-2);
+  scroll-margin-top: var(--space-4);
+}
+.pinboard-list-meta,
+.pinboard-list-description {
+  font-size: var(--font-size-sm);
+  color: var(--text-meta);
+  overflow-wrap: anywhere;
+}
+.pinboard-list-description {
+  color: var(--text-row);
+}
+.pinboard-origin {
+  color: var(--accent-text);
+  font-size: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.pinboard-origin:focus-visible,
+.pinboard-archived-toggle:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+.pinboard-entry .list-row-value {
+  flex-shrink: 0;
+}
+.pinboard-archived {
+  display: grid;
+  gap: var(--space-2);
+}
+.pinboard-archived-list {
+  display: grid;
+  gap: var(--space-2);
+  scroll-margin-top: var(--space-4);
+}
+.pinboard-archived-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--touch-target);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  color: var(--text-row);
+  font-size: var(--font-size-md);
+  text-align: left;
+}
+.pinboard-archived-toggle span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.pinboard-empty {
+  padding: var(--space-6) 0;
+  color: var(--muted);
+  font-size: var(--font-size-md);
+  text-align: center;
+}

@@ -1,0 +1,54 @@
+/* DockedPanel (docs/ui-guide.md#page-structure): beside the content above phones. */
+:root {
+  --docked-panel-width: 380px;
+}
+.docked-panel {
+  flex: 0 0 var(--docked-panel-width);
+  width: var(--docked-panel-width);
+  max-width: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  color: var(--text);
+  border-left: 1px solid var(--line);
+}
+.docked-panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-4) var(--space-3);
+  flex-shrink: 0;
+}
+.docked-panel-titles {
+  min-width: 0;
+}
+.docked-panel-heading h2 {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  overflow-wrap: anywhere;
+}
+.docked-panel-heading p {
+  margin-top: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--muted);
+}
+.docked-panel-heading > .icon-button {
+  margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-2)) 0 0;
+}
+.docked-panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 var(--space-4) var(--space-4);
+}
+@media (max-width: 700px) {
+  .docked-panel {
+    position: absolute;
+    inset: 0;
+    z-index: var(--z-sticky);
+    width: auto;
+    border-left: none;
+  }
+}
