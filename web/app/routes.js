@@ -97,7 +97,7 @@ export function readRoute(location) {
       view: "agents",
       assistantId: agent[1],
       ...(agent[3]
-        ? { conversationId: agent[3] }
+        ? { conversationId: agent[3], ...readPinboardQuery(location.search) }
         : agent[4]
           ? { teamId: agent[4] }
           : agent[2] === "browser"
@@ -330,13 +330,32 @@ export function routePath(route) {
   return withReturnTo(basePath(target), target);
 }
 
+// A chat link that opens the agent's pinboard, at a list: `?pinboard=1&list=<id>`.
+function readPinboardQuery(search) {
+  const query = new URLSearchParams(search);
+  if (query.get("pinboard") !== "1") return {};
+  const list = query.get("list");
+  return {
+    pinboard: true,
+    ...(list && idPattern.test(list) ? { pinboardList: list } : {}),
+  };
+}
+
+function pinboardQuery(route) {
+  if (!route.pinboard) return "";
+  const list = route.pinboardList
+    ? `&list=${encodeURIComponent(route.pinboardList)}`
+    : "";
+  return `?pinboard=1${list}`;
+}
+
 function basePath(route) {
   if (route.view === "artifacts") return artifactsRoutePath(route);
   if (route.view === "files") return `/files${explorerQuery(route)}`;
   if (route.view === "inbox") return inboxRoutePath(route);
   if (route.view === "agents")
     return route.conversationId
-      ? `/agents/${encodeURIComponent(route.assistantId)}/chats/${encodeURIComponent(route.conversationId)}`
+      ? `/agents/${encodeURIComponent(route.assistantId)}/chats/${encodeURIComponent(route.conversationId)}${pinboardQuery(route)}`
       : route.teamId
         ? `/agents/${encodeURIComponent(route.assistantId)}/teams/${encodeURIComponent(route.teamId)}`
         : route.assistantId && route.agentBrowser

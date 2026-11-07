@@ -7,10 +7,9 @@ import {
   withOlder,
 } from "./agent-history-view.js";
 import useAgentConversationStream from "./useAgentConversationStream.js";
-import AssistantHeader from "./AssistantHeader.jsx";
+import AgentChatTop from "./AgentChatTop.jsx";
 import AssistantChatActions from "./AssistantChatActions.jsx";
 import QuestionCard from "./QuestionCard.jsx";
-import ChatStrips from "./ChatStrips.jsx";
 import useAssistantActions from "./useAssistantActions.js";
 import { activityFor } from "./assistant-status.js";
 import React, { useCallback, useMemo, useRef, useState } from "react";
@@ -36,19 +35,18 @@ import useAwaitingConfirmation from "./unconfirmed-turn.js";
 import AgentRunState from "./AgentRunState.jsx";
 import useLongChat from "./useLongChat.js";
 import useModelHint, { openOwnerChat } from "./useModelHint.js";
-import SummariseConfirm from "./SummariseConfirm.jsx";
 import summariseAction from "./chats/summarise-action.js";
 import { memoryStepTurn, stepsOf, useRetry } from "./run-steps.js";
-import OwnerChatBar from "./chats/OwnerChatBar.jsx";
 import {
   ArchivedChatBanner,
   ConversationFault,
   ReadOnlyComposer,
 } from "./chats/ChatStates.jsx";
 import { sameTurn } from "./same-turn.js";
-import useTalk, { useTalkStatus } from "../talk/useTalk.js";
-import TalkButton from "../talk/TalkButton.jsx";
 import TalkBar from "../talk/TalkBar.jsx";
+import useChatTalk from "./useChatTalk.js";
+import useChatPinboard from "./pinboard/useChatPinboard.js";
+import ChatPinboardBody, { PinboardTab } from "./pinboard/ChatPinboard.jsx";
 export default function AssistantChat({
   assistant,
   conversationId,
@@ -57,6 +55,7 @@ export default function AssistantChat({
   openNavigation,
   navigationOpen,
   pane = null,
+  initialPinboard = null,
 }) {
   const {
     drafts,
@@ -365,12 +364,11 @@ export default function AssistantChat({
     compacting: Boolean(compacting),
     empty: !history.messages.length && !latest,
   });
-  // Talk mode (AGENTPIER-291): the owner's own chats, not a task member's.
-  const talkShown = !readOnly && !member && !assistant.archivedAt;
-  const talkStatus = useTalkStatus(talkShown);
-  const talk = useTalk({
+  const pinboard = useChatPinboard(assistant, initialPinboard, { pane, output, stick });
+  const talk = useChatTalk({
     conversationId,
-    enabled: talkShown && available,
+    shown: !readOnly && !member && !assistant.archivedAt,
+    available,
     turn: {
       active: Boolean(active),
       replyId: lastReply?.id ?? null,
@@ -382,213 +380,197 @@ export default function AssistantChat({
   });
   return (
     <section className={`assistant-detail assistant-chat${pane ? " in-pane" : ""}`}>
-      <AssistantHeader
+      <AgentChatTop
         assistant={assistant}
-        variant="conversation"
+        conversationId={conversationId}
         navigate={navigate}
         openNavigation={openNavigation}
         navigationOpen={navigationOpen}
+        pane={pane}
         attempt={active ? shownAttempt : null}
         member={member}
         compacting={compacting}
-        pane={pane}
-        actions={
-          talkShown && (
-            <TalkButton
-              talk={talk}
-              reason={talkStatus.reason || (!available && "unknown")}
-              loading={!talkStatus.status}
-            />
-          )
-        }
-      />
-      <OwnerChatBar
-        assistant={assistant}
-        conversationId={conversationId}
-        navigate={navigate}
-        summarise={summarise}
-      />
-      <SummariseConfirm longChat={longChat} />
-      <ChatStrips
-        entry={activityFor(activity, assistant.id)}
-        output={output}
         history={history}
-        stick={stick}
-        conversationId={conversationId}
-        assistant={assistant}
-        member={member}
-        navigate={navigate}
         onStopped={refresh}
+        talk={talk}
+        available={available}
+        summarise={summarise}
+        longChat={longChat}
+        strips={{ entry: activityFor(activity, assistant.id), output, stick }}
+        pinboard={pinboard}
       />
-      <div
-        className="assistant-chat-panel"
-        {...drop}
-        data-drop-hint={assistantAttachmentsCopy.drop}
-      >
-        <ErrorMessage error={error || feed.error} />
-        {(!connected || offline) && (
-          <p role="status" className="assistant-notice">
-            {copy.disconnected}
-          </p>
-        )}
-        {archived && !userChat && (
-          <ArchivedChatBanner
-            onRestore={async () => {
-              await assistantApi.restoreChat(conversationId);
-              await reloadList();
-            }}
-          />
-        )}
-        <ConversationFault diagnostic={record?.diagnostic} canRestart={!userChat} />
-        {history.stale && (
-          <p role="status" className="assistant-notice">
-            {copy.stale}
-          </p>
-        )}
-        <div className="assistant-transcript" ref={output}>
-          <div role="log" aria-live="off" aria-label={copy.conversation}>
-            {history.nextBefore && (
-              <button className="button secondary" onClick={earlier}>
-                {copy.earlier}
-              </button>
-            )}
-            {!history.messages.length && !latest && (
-              <div className="assistant-empty">
-                <h2>{copy.emptyChat}</h2>
-              </div>
-            )}
-            {transcript.map((item) => (
-              <TranscriptItem
-                key={item.key ?? item.note?.id ?? item.message.id}
-                item={item}
-                assistant={assistant}
-                navigate={navigate}
-                focusedNote={focusedNote}
-                mentions={mentions}
-                removeShared={offline ? null : removeShared}
-              />
-            ))}
-            {active &&
-              latest.internal &&
-              // An internal turn's event line is the newest message but quiet notes.
-              history.messages.findLast((m) => !noteEvents.has(m.event))?.event !==
-                latest.internal && (
-                <p className="assistant-note assistant-event">
-                  {internalTurnText(
-                    copy,
-                    latest.internal,
-                    latest.internalOutcome,
-                    latest.internalGroup,
-                  )}
-                </p>
+      <ChatPinboardBody assistant={assistant} pinboard={pinboard} navigate={navigate}>
+        <div
+          className="assistant-chat-panel"
+          {...drop}
+          data-drop-hint={assistantAttachmentsCopy.drop}
+        >
+          <ErrorMessage error={error || feed.error} />
+          {(!connected || offline) && (
+            <p role="status" className="assistant-notice">
+              {copy.disconnected}
+            </p>
+          )}
+          {archived && !userChat && (
+            <ArchivedChatBanner
+              onRestore={async () => {
+                await assistantApi.restoreChat(conversationId);
+                await reloadList();
+              }}
+            />
+          )}
+          <ConversationFault diagnostic={record?.diagnostic} canRestart={!userChat} />
+          {history.stale && (
+            <p role="status" className="assistant-notice">
+              {copy.stale}
+            </p>
+          )}
+          <div className="assistant-transcript" ref={output} hidden={pinboard.tab}>
+            <div role="log" aria-live="off" aria-label={copy.conversation}>
+              {history.nextBefore && (
+                <button className="button secondary" onClick={earlier}>
+                  {copy.earlier}
+                </button>
               )}
-            {active &&
-              !latest.internal &&
-              !history.messages.some((m) => sameTurn(m, latest)) && (
-                <AssistantMessage
-                  role="user"
-                  name={copy.you}
-                  text={latest.text}
-                  attachments={latest.attachments}
-                  source={latest.source}
-                  sender={latest.sender}
-                  timestamp={Date.parse(latest.createdAt) || 0}
-                  forwarded={latest.forwarded === true}
+              {!history.messages.length && !latest && (
+                <div className="assistant-empty">
+                  <h2>{copy.emptyChat}</h2>
+                </div>
+              )}
+              {transcript.map((item) => (
+                <TranscriptItem
+                  key={item.key ?? item.note?.id ?? item.message.id}
+                  item={item}
+                  assistant={assistant}
+                  navigate={navigate}
+                  focusedNote={focusedNote}
                   mentions={mentions}
+                  removeShared={offline ? null : removeShared}
+                />
+              ))}
+              {active &&
+                latest.internal &&
+                // An internal turn's event line is the newest message but quiet notes.
+                history.messages.findLast((m) => !noteEvents.has(m.event))?.event !==
+                  latest.internal && (
+                  <p className="assistant-note assistant-event">
+                    {internalTurnText(
+                      copy,
+                      latest.internal,
+                      latest.internalOutcome,
+                      latest.internalGroup,
+                    )}
+                  </p>
+                )}
+              {active &&
+                !latest.internal &&
+                !history.messages.some((m) => sameTurn(m, latest)) && (
+                  <AssistantMessage
+                    role="user"
+                    name={copy.you}
+                    text={latest.text}
+                    attachments={latest.attachments}
+                    source={latest.source}
+                    sender={latest.sender}
+                    timestamp={Date.parse(latest.createdAt) || 0}
+                    forwarded={latest.forwarded === true}
+                    mentions={mentions}
+                  />
+                )}
+              {delta?.text && !streamInHistory(delta, history) && (
+                <AssistantMessage
+                  role="assistant"
+                  name={assistant.name}
+                  text={delta.text}
+                  streaming={Boolean(active)}
                 />
               )}
-            {delta?.text && !streamInHistory(delta, history) && (
-              <AssistantMessage
-                role="assistant"
-                name={assistant.name}
-                text={delta.text}
-                streaming={Boolean(active)}
+              <AgentRunState
+                attempt={latest?.attempt}
+                shownAttempt={shownAttempt}
+                active={Boolean(active)}
+                uncertain={uncertain}
+                compacting={compacting}
+                compactOutcome={history.compactOutcome}
+                memoryNotSaved={history.memoryNotSaved}
+                steps={stepsOf(feed.steps, latest?.attempt)}
+                longChat={history.longChat}
+                longChatActions={available ? longChat : null}
+                modelHint={history.modelHint}
+                modelHintActions={available ? modelHint : null}
+                busy={busy}
+                onStop={readOnly ? null : stop}
+                onRetry={available && !queued && !ownStep ? retry : null}
+                awaiting={awaiting}
+                explainUncertain
+                onRecover={recover}
               />
-            )}
-            <AgentRunState
-              attempt={latest?.attempt}
-              shownAttempt={shownAttempt}
-              active={Boolean(active)}
-              uncertain={uncertain}
-              compacting={compacting}
-              compactOutcome={history.compactOutcome}
-              memoryNotSaved={history.memoryNotSaved}
-              steps={stepsOf(feed.steps, latest?.attempt)}
-              longChat={history.longChat}
-              longChatActions={available ? longChat : null}
-              modelHint={history.modelHint}
-              modelHintActions={available ? modelHint : null}
-              busy={busy}
-              onStop={readOnly ? null : stop}
-              onRetry={available && !queued && !ownStep ? retry : null}
-              awaiting={awaiting}
-              explainUncertain
-              onRecover={recover}
-            />
-          </div>
-          <AssistantChatActions
-            assistant={assistant}
-            member={member}
-            conversationId={conversationId}
-            latest={latest}
-            available={available && !history.queued}
-            busy={busy}
-            onSend={(message) =>
-              deliver({ clientRequestId: crypto.randomUUID(), text: message }, [])
-            }
-            navigate={navigate}
-            pushedActions={pushedActions}
-            ownActions={ownActions}
-            notedMail={notedMail}
-          />
-          {(view.live?.questions || []).map((question) => (
-            <QuestionCard
-              key={question.id}
+            </div>
+            <AssistantChatActions
+              assistant={assistant}
+              member={member}
               conversationId={conversationId}
-              question={question}
+              latest={latest}
+              available={available && !history.queued}
+              busy={busy}
+              onSend={(message) =>
+                deliver({ clientRequestId: crypto.randomUUID(), text: message }, [])
+              }
+              navigate={navigate}
+              pushedActions={pushedActions}
+              ownActions={ownActions}
+              notedMail={notedMail}
             />
-          ))}
+            {(view.live?.questions || []).map((question) => (
+              <QuestionCard
+                key={question.id}
+                conversationId={conversationId}
+                question={question}
+              />
+            ))}
+          </div>
+          <PinboardTab assistant={assistant} pinboard={pinboard} navigate={navigate} />
+          <div
+            className="assistant-announcer"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            {announcement}
+          </div>
+          <TalkBar talk={talk.talk} />
+          {readOnly ? (
+            <ReadOnlyComposer userChat={userChat} />
+          ) : (
+            <AssistantComposer
+              assistant={assistant}
+              conversationId={conversationId}
+              drafts={drafts}
+              attachments={attachments}
+              text={text}
+              setText={setText}
+              teamAllowed={teamAllowed}
+              setTeamAllowed={setTeamAllowed}
+              canSend={canSend}
+              busy={busy}
+              active={Boolean(active)}
+              touchInput={touchInput}
+              onSubmit={send}
+              queued={queued}
+              available={available}
+              onTakeBack={takeBackQueued}
+              onFiles={setFiles}
+              onStop={stop}
+              output={output}
+              stick={stick}
+              scroll={scroll}
+              mentionMembers={mentionMembers}
+              // A user's agent never leads a team (user-agent-lock.js), also for the owner.
+              team={!assistant.userAccess}
+            />
+          )}
         </div>
-        <div
-          className="assistant-announcer"
-          role="status"
-          aria-live="polite"
-          aria-atomic="true"
-        >
-          {announcement}
-        </div>
-        <TalkBar talk={talk} />
-        {readOnly ? (
-          <ReadOnlyComposer userChat={userChat} />
-        ) : (
-          <AssistantComposer
-            assistant={assistant}
-            conversationId={conversationId}
-            drafts={drafts}
-            attachments={attachments}
-            text={text}
-            setText={setText}
-            teamAllowed={teamAllowed}
-            setTeamAllowed={setTeamAllowed}
-            canSend={canSend}
-            busy={busy}
-            active={Boolean(active)}
-            touchInput={touchInput}
-            onSubmit={send}
-            queued={queued}
-            available={available}
-            onTakeBack={takeBackQueued}
-            onFiles={setFiles}
-            onStop={stop}
-            output={output}
-            stick={stick}
-            scroll={scroll}
-            mentionMembers={mentionMembers}
-            // A user's agent never leads a team (user-agent-lock.js), also for the owner.
-            team={!assistant.userAccess}
-          />
-        )}
-      </div>
+      </ChatPinboardBody>
     </section>
   );
 }

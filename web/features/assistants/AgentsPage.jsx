@@ -97,6 +97,7 @@ export default function AgentsPage({
         assistant={assistant}
         conversationId={conversationId}
         focusTeamId={team?.id}
+        initialPinboard={route.pinboard ? { listId: route.pinboardList ?? null } : null}
         navigate={navigate}
         openNavigation={openNavigation}
         navigationOpen={navigationOpen}

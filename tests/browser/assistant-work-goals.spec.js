@@ -1,5 +1,5 @@
-// A work goal in the agent chat (AGENTPIER-208): the open goal with Stop above the
-// transcript, and its notes and continuations as quiet lines.
+// A work goal in the agent chat (AGENTPIER-208): the open goal as a header icon whose
+// sheet has Stop, and its notes and continuations as quiet lines.
 import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { chatFixture } from "../helpers/assistant-chat-fixture.js";
@@ -12,6 +12,11 @@ const goal = {
   state: "open",
   createdAt: 1,
 };
+const goalButton = (page) =>
+  page
+    .locator(".assistant-header")
+    .getByRole("button", { name: "Working until done: Review cut" });
+const goalSheet = (page) => page.getByRole("dialog", { name: "Work goal" });
 const messages = [{ id: "u1", role: "user", text: "Finish the episode", timestamp: 1 }];
 
 test("the open goal shows with Stop and stops through the route", async ({ page }) => {
@@ -24,41 +29,45 @@ test("the open goal shows with Stop and stops through the route", async ({ page 
     return route.fulfill({ json: { goal: null } });
   });
   await page.goto(baseURL + "/agents/home/chats/dinner");
-  const line = page.locator(".assistant-goal-line");
-  await expect(page.getByText("Working until done: Review cut")).toBeVisible();
+  await goalButton(page).click();
+  const line = goalSheet(page).getByText("Working until done: Review cut");
+  await expect(line).toBeVisible();
   await expect(line).toHaveAttribute("role", "status");
   await page.waitForFunction(() => window.agentFeed?.sockets.size === 1);
   state.history = { ...state.history, goal: null };
-  await line.getByRole("button", { name: "Stop" }).click();
-  await expect(line).toHaveCount(0);
+  await goalSheet(page).getByRole("button", { name: "Stop" }).click();
+  await expect(goalSheet(page)).toHaveCount(0);
+  await expect(goalButton(page)).toHaveCount(0);
   expect(stops).toEqual([
     ["POST", `${baseURL}/api/assistant-conversations/dinner/goal/stop`],
   ]);
 });
 
-test("the line hides after a feed push without the goal", async ({ page }) => {
+test("the goal icon hides after a feed push without the goal", async ({ page }) => {
   const state = await chatFixture(page, {
     history: { messages, requests: [], stale: false, goal },
   });
   await page.goto(baseURL + "/agents/home/chats/dinner");
-  await expect(page.getByText("Working until done: Review cut")).toBeVisible();
+  await expect(goalButton(page)).toBeVisible();
   await page.waitForFunction(() => window.agentFeed?.sockets.size === 1);
   state.history = { ...state.history, goal: null };
   await page.evaluate(() => window.agentFeed.push("dinner"));
-  await expect(page.locator(".assistant-goal-line")).toHaveCount(0);
+  await expect(goalButton(page)).toHaveCount(0);
 });
 
-test("a failed Stop says so and keeps the line", async ({ page }) => {
+test("a failed Stop says so and keeps the sheet", async ({ page }) => {
   await chatFixture(page, { history: { messages, requests: [], stale: false, goal } });
   await page.route("**/goal/stop", (route) =>
     route.fulfill({ status: 500, json: { error: "Internal" } }),
   );
   await page.goto(baseURL + "/agents/home/chats/dinner");
-  const line = page.locator(".assistant-goal-line");
-  await expect(line).toBeVisible();
-  await line.getByRole("button", { name: "Stop" }).click();
-  await expect(page.getByText("The goal could not be stopped. Try again.")).toBeVisible();
-  await expect(line.getByRole("button", { name: "Stop" })).toBeEnabled();
+  await goalButton(page).click();
+  const sheet = goalSheet(page);
+  await sheet.getByRole("button", { name: "Stop" }).click();
+  await expect(
+    sheet.getByText("The goal could not be stopped. Try again."),
+  ).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Stop" })).toBeEnabled();
 });
 
 test("continuations and goal notes read as quiet lines", async ({ page }) => {

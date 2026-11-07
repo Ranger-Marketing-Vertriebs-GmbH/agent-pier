@@ -69,3 +69,11 @@
   font-size: var(--font-size-md);
   text-align: center;
 }
+/* Phones: the chat a list came from is a full tap target. */
+@media (max-width: 700px) {
+  .pinboard-origin {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--touch-target);
+  }
+}

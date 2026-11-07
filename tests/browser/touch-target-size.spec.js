@@ -6,7 +6,8 @@ import { home, setupAssistantSettings } from "../helpers/assistant-settings-brow
 
 // docs/ui-guide.md#mobile-and-touch: on a phone every button, compact button and icon
 // button is at least 44px tall (icon buttons also 44px wide), and checkbox labels
-// and the chats under an agent in the navigation offer the same target.
+// and the chats under an agent in the navigation offer the same target, as does the
+// pinboard's link to the chat a list came from.
 test.use(phone);
 
 const pages = [
@@ -40,7 +41,7 @@ async function smallTargets(page) {
     const describe = (element) =>
       `${element.tagName.toLowerCase()}${[...element.classList].map((name) => `.${name}`).join("")} "${(element.getAttribute("aria-label") || element.innerText || "").trim().slice(0, 30)}"`;
     for (const element of document.querySelectorAll(
-      ".button, .compact, .icon-button, .assistant-sidebar-chat, label:has(> input[type='checkbox'])",
+      ".button, .compact, .icon-button, .assistant-sidebar-chat, .pinboard-origin, label:has(> input[type='checkbox'])",
     )) {
       if (!element.checkVisibility({ checkVisibilityCSS: true })) continue;
       const box = element.getBoundingClientRect();
@@ -104,6 +105,33 @@ test("an agent's chats in the navigation drawer are 44px touch targets", async (
   expect(
     (await smallTargets(page)).filter((target) => target.includes("sidebar-chat")),
   ).toEqual([]);
+});
+
+test("the agent chat's switch row and pinboard are 44px touch targets", async ({
+  page,
+}) => {
+  await setupAssistantSettings(page, {
+    assistants: [home()],
+    conversations: [{ id: "main", assistantId: "home", main: true, title: "Main" }],
+  });
+  const list = {
+    id: "l1",
+    title: "Episodes",
+    description: "",
+    origin: { conversationId: "main", title: "Main" },
+    archived: false,
+    updatedAt: new Date().toISOString(),
+    entries: [],
+  };
+  await page.route("**/api/assistants/home/pinboard", (route) =>
+    route.fulfill({
+      json: { fresh: 0, lists: [list, { ...list, id: "l0", archived: true }] },
+    }),
+  );
+  await page.goto(baseURL + "/agents/home/chats/main");
+  await page.getByRole("radio", { name: "Pinboard", exact: true }).check({ force: true });
+  await expect(page.locator(".pinboard-origin")).toBeVisible();
+  expect(await smallTargets(page)).toEqual([]);
 });
 
 test.describe("on a desktop", () => {

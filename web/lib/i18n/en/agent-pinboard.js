@@ -20,6 +20,11 @@ export const agentPinboardCopy = {
     audio: "Audio",
     file: "File",
   },
+  // The compact agent chat header: the work goal's sheet, the events button.
+  header: {
+    workSheet: "Work goal",
+    events: (n) => `Events: ${n}`,
+  },
   loadFailed: "The pinboard could not be loaded.",
   card: {
     counts: {
