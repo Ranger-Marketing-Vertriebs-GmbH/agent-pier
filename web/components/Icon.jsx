@@ -45,6 +45,12 @@ const paths = {
   diff: "M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Zm0 0v5h5M9 11h6m-3-3v6m-3 3h6",
   file: "M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Zm0 0v5h5",
   video: "M3 6h12v12H3Zm12 4.5 6-3.5v10l-6-3.5",
+  image: "M4 5h16v14H4Zm0 11 5-5 4 4 2-2 5 5M15 9h.01",
+  // A music note: an audio file pinned by an agent.
+  audio:
+    "M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm11-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0",
+  // A push pin: an agent's pinboard.
+  pin: "M9 3h6m-1 0v6l3 4H7l3-4V3m2 10v8",
   star: "m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9Z",
 };
 // Every icon name, for the component gallery (Settings › Development › Components).

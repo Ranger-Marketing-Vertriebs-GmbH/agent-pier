@@ -129,6 +129,12 @@ export const galleryCopy = {
     paneName: (n) => `Bereich ${n}`,
     dropHere: "Hier ablegen",
     dropHint: "Einen Bereich hierher ziehen",
+    dockedTitle: "Angedocktes Panel",
+    dockedSubtitle: "Bleibt neben der Seite",
+    dockedClose: "Angedocktes Panel schließen",
+    dockedOpen: "Angedocktes Panel öffnen",
+    dockedPage: "Die Seite bleibt neben dem Panel bedienbar.",
+    dockedBody: "Panel-Inhalt mit Beispieltext.",
     dropIdle: "Noch nichts abgelegt",
     dropped: {
       left: "Links abgelegt",

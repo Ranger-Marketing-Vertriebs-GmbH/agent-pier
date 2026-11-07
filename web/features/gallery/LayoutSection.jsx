@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import DockedPanel from "../../components/DockedPanel.jsx";
 import DropZoneOverlay from "../../components/DropZoneOverlay.jsx";
 import ListDetail from "../../components/ListDetail.jsx";
 import PageHeader from "../../components/PageHeader.jsx";
@@ -41,6 +42,36 @@ function DropZoneSpecimen() {
       <p className="gallery-drop-status" role="status">
         {dropped ? copy.sample.dropped[dropped] : copy.sample.dropIdle}
       </p>
+    </div>
+  );
+}
+
+function DockedPanelSpecimen() {
+  const [open, setOpen] = useState(true);
+  return (
+    <div className="gallery-docked">
+      <div className="gallery-docked-content">
+        <p>{copy.sample.dockedPage}</p>
+        {!open && (
+          <button
+            type="button"
+            className="button secondary"
+            onClick={() => setOpen(true)}
+          >
+            {copy.sample.dockedOpen}
+          </button>
+        )}
+      </div>
+      {open && (
+        <DockedPanel
+          title={copy.sample.dockedTitle}
+          subtitle={copy.sample.dockedSubtitle}
+          closeLabel={copy.sample.dockedClose}
+          onClose={() => setOpen(false)}
+        >
+          <p>{copy.sample.dockedBody}</p>
+        </DockedPanel>
+      )}
     </div>
   );
 }
@@ -99,6 +130,9 @@ export default function LayoutSection() {
             )}
           />
         </div>
+      </Specimen>
+      <Specimen label="DockedPanel" wide>
+        <DockedPanelSpecimen />
       </Specimen>
       <Specimen label="DropZoneOverlay" wide>
         <DropZoneSpecimen />

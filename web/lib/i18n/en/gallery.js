@@ -129,6 +129,12 @@ export const galleryCopy = {
     paneName: (n) => `Pane ${n}`,
     dropHere: "Drop here",
     dropHint: "Drag a pane here",
+    dockedTitle: "Docked panel",
+    dockedSubtitle: "Stays beside the page",
+    dockedClose: "Close docked panel",
+    dockedOpen: "Open docked panel",
+    dockedPage: "The page stays usable beside the panel.",
+    dockedBody: "Panel content with sample text.",
     dropIdle: "Nothing dropped yet",
     dropped: {
       left: "Dropped on the left",

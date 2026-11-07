@@ -155,6 +155,23 @@
 .gallery-skeleton-lines small {
   font-size: var(--font-size-xs);
 }
+.gallery-docked {
+  position: relative;
+  display: flex;
+  height: 220px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+.gallery-docked-content {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+  justify-items: start;
+  padding: var(--space-4);
+}
 .gallery-split {
   height: 260px;
 }

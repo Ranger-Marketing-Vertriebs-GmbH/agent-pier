@@ -11,6 +11,7 @@ import "./agent-attachments.css";
 import { useAgentPaths } from "./agent-paths.js";
 import { assistantAttachmentsCopy as copy } from "../../lib/i18n/messages/assistant-attachments.js";
 import { formatNumber } from "../../lib/i18n/index.js";
+import { videoDuration } from "../../lib/format-duration.js";
 
 export function fileSize(bytes) {
   if (!Number.isFinite(bytes)) return "";
@@ -67,15 +68,6 @@ function FileRow({ file, details, onOpen }) {
       </FileLink>
     </div>
   );
-}
-
-export function videoDuration(seconds) {
-  if (!Number.isFinite(seconds)) return "";
-  const total = Math.round(seconds);
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = String(total % 60).padStart(2, "0");
-  return h ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
 }
 
 // A video (sent by the owner or shared by the agent) plays inline from the signed-in
