@@ -181,6 +181,8 @@ test("delete removes chat and transcript", async (t) => {
     body: { confirm: true },
   });
   assert.equal(deleted.status, 204, await deleted.clone().text());
+  // The native session goes right after the answer (chat-removal.js).
+  await assistants.nativeDeletes;
   assert.ok(
     gateway.calls.some(
       (c) =>
@@ -243,6 +245,38 @@ test("a chat deleted while the Gateway is away loses its session at the next sta
   await deleteReleasedSessions({ assistants });
   assert.equal(nativeDeletes().length, 1);
   assert.equal(nativeDeletes()[0].params.deleteTranscript, true);
+  assert.equal(assistants.store.storedConversation(second).nativeDeletePending, false);
+});
+
+test("a Gateway that does not answer never holds the delete or the agent", async (t) => {
+  const { f, gateway } = await chatFixture(t);
+  const agent = await ownerAgent(f);
+  const { second } = await twoChats(f.request, agent.id);
+  const assistants = f.application.assistants;
+  const key = assistants.store.getConversation(second).runtimeSessionKey;
+  // The native delete hangs as on a Gateway that stopped answering mid-call.
+  const call = gateway.client.call;
+  let answer;
+  const hanging = new Promise((resolve) => (answer = resolve));
+  gateway.client.call = (method, params) =>
+    method === "sessions.delete" || method === "sessions.describe"
+      ? (gateway.calls.push({ method, params }), hanging)
+      : call(method, params);
+  const deleted = await f.request(routes(false).chat(second), {
+    method: "DELETE",
+    body: { confirm: true },
+  });
+  assert.equal(deleted.status, 204, await deleted.clone().text());
+  assert.ok(!(await listed(f.request, agent.id, false)).includes(second));
+  // Another chat starts meanwhile: the agent's admission is free.
+  const third = await f.request(routes(false).chats(agent.id), { method: "POST" });
+  assert.equal(third.status, 201, await third.clone().text());
+  assert.equal(assistants.store.storedConversation(second).nativeDeletePending, true);
+  answer({ session: {}, deleted: true });
+  await assistants.nativeDeletes;
+  assert.ok(
+    gateway.calls.some((c) => c.method === "sessions.delete" && c.params.key === key),
+  );
   assert.equal(assistants.store.storedConversation(second).nativeDeletePending, false);
 });
 
