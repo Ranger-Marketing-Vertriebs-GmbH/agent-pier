@@ -165,6 +165,7 @@ for (const [language, copy] of Object.entries(languages))
       await setup(page, language);
       await page.goto(baseURL + "/agents/home/chats/main");
       await expect(page.getByText("Dinner is planned.")).toBeVisible();
+      await openList(page, copy);
       await page.getByRole("button", { name: copy.newChat, exact: true }).click();
       await expect(page).toHaveURL(/\/agents\/home\/chats\/new-1$/);
       await expect(page.getByText("Dinner is planned.")).toHaveCount(0);
@@ -232,6 +233,7 @@ for (const [language, copy] of Object.entries(languages))
       const state = await setup(page, language);
       await page.goto(baseURL + "/agents/home/chats/main");
       await expect(page.getByText("Dinner is planned.")).toBeVisible();
+      await openList(page, copy);
       await page.getByRole("button", { name: copy.newChat, exact: true }).click();
       await expect(page).toHaveURL(/\/agents\/home\/chats\/new-1$/);
       await openList(page, copy);

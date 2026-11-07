@@ -44,7 +44,10 @@ export function chatActionEntries(action, path, bilingual) {
       {
         offer: "chat-summarise",
         suggested: false,
-        aliases: [bilingual(() => agentChatsCopy.summariseNow)],
+        aliases: [
+          bilingual(() => agentChatsCopy.summariseNow),
+          bilingual(() => agentChatsCopy.summariseThisChat),
+        ],
       },
     ),
   ];

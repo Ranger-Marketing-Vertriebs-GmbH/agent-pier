@@ -1596,10 +1596,10 @@ is hidden, and after 30 minutes. Details and limits:
 Each agent holds several chats. The chat selector under the agent's name in the chat
 header shows the open chat's title (on a computer in the place where the header showed
 the model id; on a phone the agent's status is the dot before it, named when you hover
-or use a screen reader); tap it for the **Chats** sheet: **New chat** on top, your main chat first, then
-the others newest first, and **Archived chats** at the bottom. **New chat** (a header button on a
-computer, a button beside the **Chat** and **Pinboard** switch on a phone) starts an
-empty chat right away; the earlier one stays in the list. The ⋯ of a
+or use a screen reader); tap it (or **Chats** beside the **Chat** and **Pinboard** switch on a phone) for the
+**Chats** sheet: **New chat** and **Summarize this chat** on top, your main chat first,
+then the others newest first, and **Archived chats** at the bottom. **New chat** starts
+an empty chat right away; the earlier one stays in the list. The ⋯ of a
 row offers **Rename**, **Archive** and **Delete** (**Delete now** removes the chat and
 its transcript). Your main chat is the one reminders, routines, check-ins and Telegram
 deliver into: it is renamed only, and archived and replaced only by
@@ -1662,7 +1662,7 @@ gives up after a few tries.
 When a chat grows long (from 60 % of the model's context window, or 100,000 tokens
 when the window is unknown), the chat says "This chat is long. After a pause the first
 reply takes longer, and older details are easier to miss." while no turn runs.
-**Summarize now** first asks **Summarize this chat?**: older messages are condensed into a summary, details in them may get lost, this cannot be undone, and the chat is busy while it runs. **Summarize** has the agent service summarise the chat's history right away; **Cancel** (or Escape) sends nothing. The same button, with the same question, always sits in the bar under the chat header, next to **New chat** (icon only on a phone), not only with this hint: it is disabled with a reason while the agent works, a message waits or a summary runs, while the chat is still empty, and while the agent service is unavailable; archived chats and a user's chats have none there. If there is nothing left to summarise, the agent service refuses and the chat says so. When
+**Summarize now** first asks **Summarize this chat?**: older messages are condensed into a summary, details in them may get lost, this cannot be undone, and the chat is busy while it runs. **Summarize** has the agent service summarise the chat's history right away; **Cancel** (or Escape) sends nothing. The same action, with the same question, is always in the **Chats** sheet as **Summarize this chat**, under **New chat**, not only with this hint: it is disabled with a reason while the agent works, a message waits or a summary runs, while the chat is still empty, and while the agent service is unavailable; archived chats and a user's chats have none there. If there is nothing left to summarise, the agent service refuses and the chat says so. When
 the agent may write memory (**Remember information** is on and writing memory is proven
 safe; a shared agent writes its shared memory), AgentPier first runs a hidden memory
 step in that chat: the agent may search its memory and read files; it may write only its
@@ -1853,7 +1853,7 @@ pinboard; its pins stay there.
 
 - **Where you see it.** On a phone, a **Chat | Pinboard (n)** switch under the chat
   header (n counts files that are new or changed since you last looked) is the only row
-  below it; **New chat** and the chat list are buttons beside it. A
+  below it; **Chats** beside it opens the chat list with **New chat**. A
   team member's chat has no extra row but a pin button in its header. On a computer, the
   header's **Pinboard** button docks the pinboard as a side panel beside the chat; the
   chat stays usable. **Pinboard** in the search (⌘K or Ctrl+K, also "Pinned files") and
