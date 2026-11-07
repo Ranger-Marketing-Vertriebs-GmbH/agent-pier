@@ -30,6 +30,7 @@ import {
   assistantAttachmentRateLimits,
   assistantAttachmentRoutes,
 } from "./assistant-attachments.js";
+import { assistantPinboardRoutes } from "./assistant-pinboard.js";
 import { Router } from "express";
 import path from "node:path";
 import { readJSON, writePrivate } from "../../lib/storage.js";
@@ -133,6 +134,7 @@ function activeAssistantRoutes(services) {
   router.use(assistantSkillRoutes(services));
   router.use(agentSkillCatalogRoutes(services));
   router.use(assistantAttachmentRoutes(services));
+  router.use(assistantPinboardRoutes(services));
   router.use(userAgentRoutes(services));
   router.use(assistantChatRoutes(services));
   router.use(assistantTalkRoutes(services));
