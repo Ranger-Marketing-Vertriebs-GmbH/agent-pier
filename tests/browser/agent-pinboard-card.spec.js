@@ -109,3 +109,79 @@ for (const [name, use] of [
       await expect(page.locator(".pinboard-list")).toHaveCount(0);
     });
   });
+
+test.describe("links and cards", () => {
+  test.use({ viewport: { width: 1280, height: 900 } });
+
+  test("Back leaves /agents/:id/pinboard for the page before it", async ({ page }) => {
+    await open(page, "/settings");
+    await page.goto(baseURL + "/agents/home/pinboard");
+    await expect(page).toHaveURL(/\/agents\/home\/chats\/dinner\?pinboard=1$/);
+    await expect(page.locator(".pinboard-list").first()).toBeVisible();
+    await page.goBack();
+    await expect(page).toHaveURL(/\/settings$/);
+    await page.waitForTimeout(300);
+    await expect(page).toHaveURL(/\/settings$/);
+  });
+
+  test("/agents/:id/pinboard waits for the agents instead of calling it unavailable", async ({
+    page,
+  }) => {
+    let release;
+    const listed = new Promise((done) => (release = done));
+    await open(page, "/settings");
+    await page.route(/\/api\/assistants$/, async (route) => {
+      await listed;
+      await route.fallback();
+    });
+    await page.goto(baseURL + "/agents/home/pinboard");
+    const agents = page.locator(".assistants-page");
+    await expect(agents.getByRole("status")).toHaveText("Loading …");
+    await page.waitForTimeout(500);
+    await expect(agents.getByRole("status")).toHaveText("Loading …");
+    await expect(page.getByText("This agent is not available.")).toHaveCount(0);
+    release();
+    await expect(page).toHaveURL(/\/agents\/home\/chats\/dinner\?pinboard=1$/);
+  });
+
+  test("a user's own agent drops a pinboard link and shows its cards as plain text", async ({
+    page,
+  }) => {
+    await chatFixture(page, {
+      assistants: [
+        {
+          id: "home",
+          name: "Home assistant",
+          instructions: "",
+          model: { connectionId: "router", modelId: "openai/gpt-4.1-mini" },
+          revision: 1,
+          effectiveRevision: 1,
+          userAccess: { mode: "own", userId: "anna" },
+        },
+      ],
+      conversations: [{ id: "dinner", assistantId: "home", title: "Dinner plans" }],
+      history,
+    });
+    await page.goto(baseURL + "/agents/home/chats/dinner?pinboard=1&list=l1");
+    await expect(page).toHaveURL(/\/agents\/home\/chats\/dinner$/);
+    const card = page.locator("[data-pinboard-card]", { hasText: "Episodes 6–10" });
+    await expect(card).toHaveText(
+      "Episodes 6–10 · 2 files updated · Episode 6, Rough cut",
+    );
+    await expect(card).not.toContainText("deleted");
+    await expect(
+      page.locator("[data-pinboard-card]", { hasText: "Old list" }),
+    ).toContainText("deleted");
+    await expect(page.getByRole("button", { name: /Open pinboard list/ })).toHaveCount(0);
+  });
+
+  test("a list's time moves on while the pinboard stays open", async ({ page }) => {
+    const now = Date.parse("2026-11-07T10:04:00.000Z");
+    await page.clock.install({ time: now });
+    await open(page, "/agents/home/chats/dinner?pinboard=1&list=l1");
+    const time = page.locator('.pinboard-list[data-list-id="l1"] time');
+    await expect(time).toHaveText("4 minutes ago");
+    await page.clock.fastForward("02:00");
+    await expect(time).toHaveText("6 minutes ago");
+  });
+});
