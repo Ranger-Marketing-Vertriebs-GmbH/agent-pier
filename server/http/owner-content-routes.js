@@ -74,6 +74,10 @@ export const ownerContentRoutes = {
   "DELETE /api/assistants/:id/reminders/:bindingId": "agent",
   "POST /api/assistants/:id/reminders/:bindingId/review": "agent",
   "GET /api/assistants/:id/reminders/:bindingId/runs": "agent",
+  // The pinboard names files the agent made for whoever it works for, and serves them.
+  "GET /api/assistants/:id/pinboard": "agent",
+  "POST /api/assistants/:id/pinboard/entries/:entryId/seen": "agent",
+  "GET /api/assistants/:id/pinboard/entries/:entryId/file": "agent",
   "GET /api/assistants/:id/routines": "agent",
   "POST /api/assistants/:id/routines": "agent",
   "PATCH /api/assistants/:id/routines/:routineId": "agent",
