@@ -265,3 +265,23 @@ test("a prompt frame without the pasted text proves nothing", async () => {
   assert.ok(claudePromptProof(model.screen(), "new message"));
   assert.ok(claudePromptProof(model.screen(), "new message\n/tmp/shot.png"));
 });
+
+test("regression: a startup dialog answered in the terminal releases a held message", async (t) => {
+  const model = claudePromptModel();
+  const x = setup(t, model);
+  x.requests.pending = true;
+  // The broker only learns that the dialog left when it compares it with the screen.
+  let screenOpen = true;
+  x.requests.stillPending = async () => {
+    if (!screenOpen) x.requests.pending = false;
+    return x.requests.pending;
+  };
+  const held = await x.send("after the folder trust");
+  assert.equal(held.waiting, "request");
+  await sleep(100);
+  assert.deepEqual(model.submitted, []);
+  screenOpen = false;
+  const done = await x.settled(held.deliveryId);
+  assert.equal(done.status, "handed-off");
+  assert.deepEqual(model.submitted, ["after the folder trust"]);
+});

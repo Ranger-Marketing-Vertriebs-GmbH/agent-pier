@@ -118,7 +118,10 @@ terminal state only changes how:
 - **Requests mirrored in the chat** (questions and permissions brokered by the
   AgentPier hooks, startup dialogs) likewise hold the message with
   `waiting: "request"`. The composer stays usable while such a request is open;
-  the queued message follows the answer without retyping.
+  the queued message follows the answer without retyping. A startup dialog
+  answered in the terminal sends no event, so before each retry the queue compares
+  an open startup dialog with the screen (`RequestBroker#stillPending`); the message
+  follows even when no chat is open to read the request list.
 - **Menus without a question:** only the rewind selector and the `/model` picker,
   recognized by their title directly below the `▔` panel border, are closed with
   single Escape presses, at most three and at least 1.2 s apart so they never form

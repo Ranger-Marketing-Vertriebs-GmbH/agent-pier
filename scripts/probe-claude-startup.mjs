@@ -4,6 +4,10 @@ import { setTimeout as delay } from "node:timers/promises";
 import fs from "node:fs/promises";
 import path from "node:path";
 
+// Claude 2.1.319 replaced "? for shortcuts" with the permission mode footer.
+const shortcutsFooter = (screen) =>
+  screen.includes("for shortcuts") || screen.includes("(shift+tab to cycle)");
+
 export const startupRequestsEnabled = (options) =>
   ["--hook-trust", "--folder-trust", "--fresh-profile"].some((o) => options.includes(o));
 /** --fresh-profile keeps Claude's first-run onboarding (theme, API key, notes). */
@@ -32,7 +36,7 @@ export async function prepareClaude({
   const frame = await waitFor(capture, (screen) =>
     screen.includes("Yes, I trust this folder"),
   );
-  let recovery;
+  let heldDelivery;
   if (folder) {
     const reqs = await fixture.application.requests.list(session.id);
     const request = reqs.requests.find((r) => r.presentation === "claudeFolderTrust");
@@ -49,7 +53,10 @@ export async function prepareClaude({
       method: "POST",
       body: { deliveryId, deliveryScope, text, submit: true },
     });
-    assert.equal((await blocked.json()).status, "rejected");
+    // The message waits for the startup approval; nothing reaches the dialog.
+    const held = await blocked.json();
+    assert.equal(held.status, "pending", JSON.stringify(held));
+    assert.equal(held.waiting, "request", JSON.stringify(held));
     assert.equal(
       fixture.application.chatDelivery.read(
         fixture.application.chatDelivery.file(session.id, deliveryId),
@@ -64,7 +71,7 @@ export async function prepareClaude({
     if (result.status !== 200)
       console.error((await capture()).replaceAll(fixture.root, "<fixture>"));
     assert.equal(result.status, 200, JSON.stringify(answer));
-    recovery = { deliveryId, deliveryScope, text };
+    heldDelivery = deliveryId;
     await manager.tmux(["resize-window", "-t", target, "-x", "120", "-y", "35"]);
   } else {
     await delay(750);
@@ -72,28 +79,30 @@ export async function prepareClaude({
   }
   const auth = await waitFor(
     capture,
-    (screen) => screen.includes("custom API key") || screen.includes("for shortcuts"),
+    (screen) => screen.includes("custom API key") || shortcutsFooter(screen),
   );
   if (auth.includes("custom API key")) {
     await delay(750);
     await keys("Up", "Enter");
   }
-  await waitFor(capture, (screen) => screen.includes("for shortcuts"));
-  if (recovery) {
-    const result = await fixture.request(
-      `/api/sessions/${session.id}/input/${recovery.deliveryId}/recovery`,
-      {
-        method: "POST",
-        body: {
-          ...recovery,
-          attemptId: randomUUID(),
-          expectedAttemptId: recovery.deliveryId,
-          mode: "retry",
-        },
-      },
+  await waitFor(capture, (screen) => shortcutsFooter(screen));
+  if (heldDelivery) {
+    // The API key dialog after the trust was answered in the terminal: the held
+    // message must still be delivered on its own, without a retry.
+    const receipt = () =>
+      fixture.application.chatDelivery.read(
+        fixture.application.chatDelivery.file(session.id, heldDelivery),
+      );
+    // It may wait behind a later startup notice too; "uncertain" still waits there.
+    await waitFor(
+      receipt,
+      (value) => ["handed-off", "accepted", "rejected"].includes(value.status),
+      30000,
     );
-    const receipt = await result.json();
-    assert.equal(receipt.status, "handed-off", JSON.stringify(receipt));
+    assert.ok(
+      ["handed-off", "accepted"].includes(receipt().status),
+      JSON.stringify(receipt()),
+    );
     await waitFor(capture, (screen) =>
       screen.includes("Synthetic response complete: AP_PROBE_FOLDER_TRUST"),
     );
@@ -102,8 +111,8 @@ export async function prepareClaude({
         folderTrust: {
           nativeApproval: true,
           mobileWidth: 50,
-          blockedBeforePaste: true,
-          retriedOriginalMessage: true,
+          heldBeforePaste: true,
+          deliveredAfterTerminalAnswer: true,
           accepted: true,
         },
       }),

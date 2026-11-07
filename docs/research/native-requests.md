@@ -290,11 +290,10 @@ Unexpected menus, changed launches or unsupported layouts never receive blind En
 The currently supported menu includes the clipped warning at 50 columns; arbitrary
 custom keymaps and future native layouts are not assumed compatible.
 
-Fresh Chat input is also refused at the native startup menu before request polling
-catches up. Rejected delivery journals remain `reserved`. An explicit retry may use
-the current session for a proven never-pasted message even before the first native
-binding receipt exists; pasted or ambiguous attempts retain strict recovery identity
-and composer checks. The original draft does not need to be dismissed or retyped.
+Fresh Chat input never reaches the native startup menu, also before request polling
+catches up: the message is held (`pending`, `waiting: "request"`) with its journal
+still `reserved`, and is delivered once the menu is answered. The original draft
+does not need to be dismissed or retyped.
 
 Reproduce using only disposable profiles, private tmux and the loopback mock provider:
 
@@ -303,8 +302,8 @@ node scripts/probe-chat-tui.mjs --native --tool codex --local-mock --bound --hoo
 ```
 
 The probe starts without hook-trust bypass, approves at 50 columns through the real
-HTTP endpoint, verifies native persistent trust, rejects input before paste and
-successfully retries the original message. It also runs the existing busy queue,
+HTTP endpoint, verifies native persistent trust, holds input before paste and
+delivers the original message after the answer without a retry. It also runs the existing busy queue,
 multiline, long-payload and recovery checks. No real user credentials or sessions
 are used. This requires no new runtime dependency or installer exception.
 
@@ -321,11 +320,12 @@ An explicit answer uses the session lock, rechecks launch identity and native
 selection, then sends one Enter. The brief native startup input-settling window is
 respected before sending keys. Success requires Claude's recorded workspace trust
 or the matching native binding receipt. No trust file is written by AgentPier.
-Ordinary Chat input is blocked at this menu even before request polling. The same
-never-pasted recovery path retains the original message.
+Ordinary Chat input is held at this menu even before request polling and is
+delivered after the answer.
 
-The isolated native probe covers the 50-column menu, real HTTP approval, rejection
-before paste, and the original message's successful retry:
+The isolated native probe covers the 50-column menu, real HTTP approval, holding
+before paste, and delivery of the original message once the following startup dialog
+(the API key confirmation) was answered in the terminal:
 
 ```sh
 node scripts/probe-chat-tui.mjs --native --tool claude --local-mock --bound --folder-trust --http --samples 1

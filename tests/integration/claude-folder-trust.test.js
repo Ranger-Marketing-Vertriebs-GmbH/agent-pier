@@ -107,6 +107,15 @@ test("folder approval is discovered before hooks, preserves privacy and submits 
     { status: 409 },
   );
 });
+test("regression: a folder dialog answered in the terminal stops counting as pending", async (t) => {
+  const f = await fixture(t);
+  assert.equal((await f.broker.list("folder")).requests.length, 1);
+  assert.equal(await f.broker.stillPending("folder"), true);
+  f.setScreen("Normal chat composer");
+  assert.equal(f.broker.hasPending("folder"), true);
+  assert.equal(await f.broker.stillPending("folder"), false);
+  assert.deepEqual(f.keys, []);
+});
 test("started sessions cannot turn transcript lookalikes into actionable trust", async (t) => {
   const f = await fixture(t);
   await fs.writeFile(

@@ -45,8 +45,10 @@ export async function probeCodexHookTrust({ fixture, session, capture, keys }) {
     method: "POST",
     body: { deliveryId, deliveryScope, text, submit: true },
   });
-  const rejected = await send.json();
-  assert.equal(rejected.status, "rejected");
+  // The message waits for the startup approval; nothing reaches the hook screen.
+  const held = await send.json();
+  assert.equal(held.status, "pending", JSON.stringify(held));
+  assert.equal(held.waiting, "request", JSON.stringify(held));
   assert.equal(
     fixture.application.chatDelivery.read(
       fixture.application.chatDelivery.file(session.id, deliveryId),
@@ -76,24 +78,19 @@ export async function probeCodexHookTrust({ fixture, session, capture, keys }) {
     "-y",
     "35",
   ]);
-  const ready = Date.now() + 10000;
-  while (Date.now() < ready && !(await capture()).includes("Ask Codex to do anything"))
-    await delay(50);
-  const retry = await fixture.request(
-    `/api/sessions/${session.id}/input/${deliveryId}/recovery`,
-    {
-      method: "POST",
-      body: {
-        attemptId: randomUUID(),
-        expectedAttemptId: deliveryId,
-        deliveryScope,
-        text,
-        mode: "retry",
-      },
-    },
+  // Answered in chat, the held message is delivered without a retry.
+  const receipt = () =>
+    fixture.application.chatDelivery.read(
+      fixture.application.chatDelivery.file(session.id, deliveryId),
+    );
+  // Until then it may report "uncertain" while it still waits behind the screen.
+  const final = ["handed-off", "accepted", "rejected"];
+  const delivered = Date.now() + 30000;
+  while (Date.now() < delivered && !final.includes(receipt().status)) await delay(50);
+  assert.ok(
+    ["handed-off", "accepted"].includes(receipt().status),
+    JSON.stringify(receipt()),
   );
-  const result = await retry.json();
-  assert.equal(result.status, "handed-off", JSON.stringify(result));
   const accepted = Date.now() + 15000;
   while (
     Date.now() < accepted &&
@@ -109,8 +106,8 @@ export async function probeCodexHookTrust({ fixture, session, capture, keys }) {
         nativeApproval: true,
         mobileWidth: 50,
         trustPersisted: true,
-        blockedBeforePaste: true,
-        retriedOriginalMessage: true,
+        heldBeforePaste: true,
+        deliveredAfterAnswer: true,
         accepted: true,
       },
     }),
