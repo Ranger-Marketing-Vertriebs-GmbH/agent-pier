@@ -1,0 +1,83 @@
+/* The pinboard reader (PinboardReader): one pinned file with previous / next. */
+.pinboard-reader {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 100%;
+}
+.pinboard-reader-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.pinboard-reader-titles {
+  min-width: 0;
+}
+.pinboard-reader-titles h3 {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  overflow-wrap: anywhere;
+}
+.pinboard-reader-titles p {
+  font-size: var(--font-size-sm);
+  color: var(--text-meta);
+  overflow-wrap: anywhere;
+}
+.pinboard-reader-body {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+}
+.pinboard-reader-player {
+  width: 100%;
+  max-height: 70vh;
+  border-radius: var(--radius-md);
+}
+.pinboard-reader-image {
+  display: block;
+  padding: 0;
+  max-width: 100%;
+}
+.pinboard-reader-image img {
+  display: block;
+  max-width: 100%;
+  max-height: 70vh;
+  margin: 0 auto;
+  border-radius: var(--radius-md);
+}
+.pinboard-reader-footer {
+  position: sticky;
+  bottom: calc(-1 * var(--space-4));
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  background: var(--panel);
+}
+.pinboard-reader-step {
+  min-width: 0;
+  justify-content: space-between;
+  gap: var(--space-2);
+  text-align: left;
+}
+.pinboard-reader-step.next {
+  text-align: right;
+}
+.pinboard-reader-step-text {
+  display: grid;
+  min-width: 0;
+}
+.pinboard-reader-step-name {
+  font-size: var(--font-size-sm);
+  color: var(--text-meta);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pinboard-view.reading {
+  min-height: 100%;
+  align-content: stretch;
+  grid-template-rows: minmax(0, 1fr);
+}

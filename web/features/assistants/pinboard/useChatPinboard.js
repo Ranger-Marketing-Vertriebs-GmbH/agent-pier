@@ -14,7 +14,7 @@ import usePinboard from "./usePinboard.js";
  */
 export default function useChatPinboard(assistant, initialPinboard, chat) {
   const enabled = assistant.userAccess?.mode !== "own";
-  const { view, error } = usePinboard(enabled ? assistant.id : null);
+  const { view, error, markSeen } = usePinboard(enabled ? assistant.id : null);
   const wanted = enabled && initialPinboard ? `${initialPinboard.listId ?? ""}` : null;
   const [state, setState] = useState(() => ({
     open: wanted !== null,
@@ -47,6 +47,7 @@ export default function useChatPinboard(assistant, initialPinboard, chat) {
     focusListId: state.focusListId,
     view,
     error,
+    markSeen,
     fresh: view?.fresh ?? 0,
     context,
   };

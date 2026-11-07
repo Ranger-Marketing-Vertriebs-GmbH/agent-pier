@@ -8,6 +8,7 @@ export default function PinboardPanel({
   assistant,
   view,
   error,
+  markSeen,
   navigate,
   focusListId,
   onClose,
@@ -23,6 +24,7 @@ export default function PinboardPanel({
         assistant={assistant}
         view={view}
         error={error}
+        markSeen={markSeen}
         navigate={navigate}
         focusListId={focusListId}
       />

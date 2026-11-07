@@ -1,12 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import ChatMarkdown from "../../components/ChatMarkdown.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import FileLink from "../../components/FileLink.jsx";
 import SidePanel from "../../components/SidePanel.jsx";
-import { observeBuild } from "../../lib/build-check.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { assistantAttachmentsCopy as copy } from "../../lib/i18n/messages/assistant-attachments.js";
-import { markdownTooLarge, readMarkdown } from "./agent-markdown-preview.js";
+import useMarkdownFile from "./useMarkdownFile.js";
 
 /**
  * A Markdown file from the agent chat, rendered in a side panel (a bottom sheet on
@@ -24,25 +23,7 @@ export default function AgentMarkdownPreview({
   opener,
   close,
 }) {
-  const tooLarge = markdownTooLarge(file);
-  const [state, setState] = useState(tooLarge ? { tooLarge: true } : { loading: true });
-  useEffect(() => {
-    if (tooLarge) return undefined;
-    const abort = new AbortController();
-    (async () => {
-      try {
-        const response = observeBuild(
-          await fetch(src, { credentials: "same-origin", signal: abort.signal }),
-        );
-        if (!response.ok) throw new Error(String(response.status));
-        const result = await readMarkdown(response);
-        if (!abort.signal.aborted) setState(result);
-      } catch {
-        if (!abort.signal.aborted) setState({ failed: true });
-      }
-    })();
-    return () => abort.abort();
-  }, [src, tooLarge]);
+  const state = useMarkdownFile(src, file);
   return (
     <SidePanel
       title={file.name}
