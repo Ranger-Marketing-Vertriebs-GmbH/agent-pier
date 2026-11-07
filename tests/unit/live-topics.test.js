@@ -267,6 +267,7 @@ test("the agent detail topics name their routes at their former polls", () => {
     "agent.coding-requests": ["/assistants/a%2Fb/actions", 3000, false],
     "agent.channels": ["/assistant-channels", 2000, false],
     "agent.reminders": ["/assistants/a%2Fb/reminders", 10000, true],
+    "agent.pinboard": ["/assistants/a%2Fb/pinboard", 30000, true],
     "agent.senders": ["/assistant-telegram-senders/a%2Fb", 5000, true],
     // Pushed by every change of the agent's SSH agent; the fallback polls slowly.
     "agent.ssh-agent": ["/assistants/a%2Fb/ssh-agent", 30000, false],
