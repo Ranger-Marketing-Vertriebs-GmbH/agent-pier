@@ -118,6 +118,15 @@ export class AgentPinboardStore {
     return row ? listFrom(row, this.#entries(row.id)) : null;
   }
 
+  /** A list's title, or null once it is deleted (the chat cards read only this). */
+  listTitle(assistantId, listId) {
+    return (
+      this.db
+        .prepare("SELECT title FROM agent_pinboard_lists WHERE id=? AND assistant_id=?")
+        .get(listId, assistantId)?.title ?? null
+    );
+  }
+
   getList(assistantId, listId) {
     const list = this.listOrNull(assistantId, listId);
     if (!list) throw assistantProblem("pinboardListNotFound", 404);
@@ -167,14 +176,25 @@ export class AgentPinboardStore {
     });
   }
 
+  /**
+   * Pins a file by name: the same name replaces the entry in place. `reopen` brings an
+   * archived list back in the same transaction, so a refused pin leaves it archived.
+   */
   pin(
     assistantId,
     listId,
     { name, note, root, path, admitConversationId, identity },
     now,
+    { reopen = false } = {},
   ) {
     return this.#transaction(() => {
-      this.getList(assistantId, listId);
+      const list = this.getList(assistantId, listId);
+      if (reopen && list.archivedAt) {
+        this.#refuseFullBoard(assistantId);
+        this.db
+          .prepare("UPDATE agent_pinboard_lists SET archived_at=NULL WHERE id=?")
+          .run(listId);
+      }
       const existing = this.db
         .prepare("SELECT id FROM agent_pinboard_entries WHERE list_id=? AND name=?")
         .get(listId, name);
@@ -235,6 +255,8 @@ export class AgentPinboardStore {
   unpin(assistantId, listId, { entryId, name }) {
     return this.#transaction(() => {
       this.getList(assistantId, listId);
+      if (entryId === undefined && name === undefined)
+        throw assistantProblem("pinboardEntryNotFound", 404);
       const row =
         entryId !== undefined
           ? this.db
@@ -282,26 +304,20 @@ export class AgentPinboardStore {
    * one version bump. A bump also moves the list up; a plain refresh does not.
    */
   setIdentity(entryId, identity, { bump, expected }) {
+    const now = new Date().toISOString();
     return this.#transaction(() => {
       const result = this.db
         .prepare(
           `UPDATE agent_pinboard_entries SET identity=?${bump ? ", version=version+1, updated_at=?" : ""} WHERE id=? AND identity IS ?`,
         )
-        .run(
-          ...[
-            json(identity),
-            ...(bump ? [new Date().toISOString()] : []),
-            entryId,
-            expected ?? null,
-          ],
-        );
+        .run(...[json(identity), ...(bump ? [now] : []), entryId, expected ?? null]);
       if (!result.changes) return false;
       if (bump)
         this.db
           .prepare(
             "UPDATE agent_pinboard_lists SET updated_at=? WHERE id=(SELECT list_id FROM agent_pinboard_entries WHERE id=?)",
           )
-          .run(new Date().toISOString(), entryId);
+          .run(now, entryId);
       return true;
     });
   }
@@ -346,6 +362,13 @@ export class AgentPinboardStore {
         )
         .run(JSON.stringify(names), title, at, conversationId, requestId, listId);
     });
+  }
+
+  /** A deleted chat's cards go with it (chat-removal.js forgetChat). */
+  forgetChanges(conversationId) {
+    this.db
+      .prepare("DELETE FROM agent_pinboard_changes WHERE conversation_id=?")
+      .run(conversationId);
   }
 
   changesFor(conversationId) {

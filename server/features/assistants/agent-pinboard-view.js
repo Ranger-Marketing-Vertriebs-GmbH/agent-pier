@@ -12,7 +12,7 @@ const inlineKinds = new Set(["image", "video", "audio"]);
 const unchanged = (stored, now) =>
   !!stored &&
   stored.size === now.size &&
-  stored.mtimeMs === now.mtimeMs &&
+  stored.mtimeNs === now.mtimeNs &&
   stored.ino === now.ino;
 const json = (value) => (value == null ? null : JSON.stringify(value));
 
@@ -50,8 +50,14 @@ export class AgentPinboardView {
    * it like a shared file.
    */
   notesFor(conversationId) {
+    const titles = new Map();
+    const titleOf = ({ assistantId, listId }) => {
+      if (!titles.has(listId))
+        titles.set(listId, this.store.listTitle(assistantId, listId));
+      return titles.get(listId);
+    };
     return this.store.changesFor(conversationId).map((change) => {
-      const list = this.store.listOrNull(change.assistantId, change.listId);
+      const title = titleOf(change);
       const { listId, requestId, added, updated, removed, names } = change;
       return {
         id: `pinboard:${listId}:${requestId}`,
@@ -62,12 +68,12 @@ export class AgentPinboardView {
         requestId,
         pinboard: {
           listId,
-          title: list ? list.title : change.title,
+          title: title ?? change.title,
           added,
           updated,
           removed,
           names,
-          gone: !list,
+          gone: title === null,
         },
       };
     });
@@ -90,32 +96,45 @@ export class AgentPinboardView {
     );
   }
 
-  // The identity of the opened file, stored when it moved; true when it was written.
-  async current(entry, opened) {
-    if (unchanged(entry.identity, statIdentity(opened.stat))) return false;
-    const identity = {
+  // The identity of the opened file when it moved since it was stored, else null.
+  async moved(entry, opened) {
+    if (unchanged(entry.identity, statIdentity(opened.stat))) return null;
+    return {
       ...(await this.files.pinIdentity(opened.handle, opened.stat)),
       ...(await this.files.pinType(opened.handle, opened.size, opened.name)),
     };
-    const bump = !sameIdentity(entry.identity, identity);
-    this.store.setIdentity(entry.id, identity, { bump, expected: json(entry.identity) });
-    return true;
   }
 
-  // Opens and refreshes one entry; the open file, or null when it is unavailable.
+  /**
+   * Opens and refreshes one entry: the open file, or null when it is unavailable, and
+   * whether a new identity was stored. Only the file's failures make it unavailable;
+   * a store error rejects.
+   */
   async check(agent, entry) {
-    let opened;
+    let opened, identity;
     try {
       opened = await this.open(agent, entry);
     } catch {
       return { opened: null, written: false };
     }
     try {
-      return { opened, written: await this.current(entry, opened) };
+      identity = await this.moved(entry, opened);
     } catch {
       await opened.handle.close();
       return { opened: null, written: false };
     }
+    if (!identity) return { opened, written: false };
+    try {
+      const bump = !sameIdentity(entry.identity, identity);
+      this.store.setIdentity(entry.id, identity, {
+        bump,
+        expected: json(entry.identity),
+      });
+    } catch (error) {
+      await opened.handle.close();
+      throw error;
+    }
+    return { opened, written: true };
   }
 
   async view(assistantId) {
@@ -167,7 +186,12 @@ export class AgentPinboardView {
     const entry = this.store.entry(assistantId, entryId);
     const { opened } = await this.check(agent, entry);
     if (!opened) throw assistantProblem("pinboardUnavailable", 404);
-    return { opened, entry: this.store.entry(assistantId, entryId) };
+    try {
+      return { opened, entry: this.store.entry(assistantId, entryId) };
+    } catch (error) {
+      await opened.handle.close();
+      throw error;
+    }
   }
 
   async seen(assistantId, entryId) {

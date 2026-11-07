@@ -8,7 +8,7 @@ import {
 
 const T0 = "2026-01-01T10:00:00.000Z";
 const T1 = "2026-01-01T11:00:00.000Z";
-const identity = (size = 1) => ({ size, mtimeMs: 1, ino: 7, type: "text/markdown" });
+const identity = (size = 1) => ({ size, mtimeNs: "1", ino: 7, type: "text/markdown" });
 const pinArgs = (name, extra = {}) => ({
   name,
   note: "",
@@ -23,8 +23,8 @@ const setup = () => {
   const list = store.createList("a", { title: "Plan" }, T0);
   return { store, list };
 };
-const rejects = (promiseOrFn, key, status) =>
-  assert.throws(promiseOrFn, (error) => error.key === key && error.status === status);
+const throwsProblem = (fn, key, status) =>
+  assert.throws(fn, (error) => error.key === key && error.status === status);
 
 test("a list keeps its entries in order and a re-pin by name replaces in place", () => {
   const { store, list } = setup();
@@ -44,12 +44,20 @@ test("the 51st open list is refused, an archived one does not count", () => {
   const made = [];
   for (let i = 0; i < PINBOARD_LIMITS.openLists; i += 1)
     made.push(store.createList("a", { title: `L${i}` }, T0));
-  rejects(() => store.createList("a", { title: "extra" }, T0), "pinboardListLimit", 409);
+  throwsProblem(
+    () => store.createList("a", { title: "extra" }, T0),
+    "pinboardListLimit",
+    409,
+  );
   // Another agent has its own 50.
   store.createList("b", { title: "mine" }, T0);
   store.setArchived("a", made[0].id, true, T1);
   const extra = store.createList("a", { title: "extra" }, T1);
-  rejects(() => store.setArchived("a", made[0].id, false, T1), "pinboardListLimit", 409);
+  throwsProblem(
+    () => store.setArchived("a", made[0].id, false, T1),
+    "pinboardListLimit",
+    409,
+  );
   store.deleteList("a", extra.id);
   assert.equal(store.setArchived("a", made[0].id, false, T1).archivedAt, null);
 });
@@ -58,7 +66,7 @@ test("the 101st entry is refused", () => {
   const { store, list } = setup();
   for (let i = 0; i < PINBOARD_LIMITS.entries; i += 1)
     store.pin("a", list.id, pinArgs(`f${i}`), T0);
-  rejects(
+  throwsProblem(
     () => store.pin("a", list.id, pinArgs("one-more"), T0),
     "pinboardEntryLimit",
     409,
@@ -74,7 +82,7 @@ test("reorder puts the named ids first and keeps the rest", () => {
   );
   const names = (l) => l.entries.map((e) => e.name).join("");
   assert.equal(names(store.reorder("a", list.id, [c.id, a.id])), "CABD");
-  rejects(
+  throwsProblem(
     () => store.reorder("a", list.id, [d.id, "nope"]),
     "pinboardEntryNotFound",
     404,
@@ -85,14 +93,14 @@ test("reorder puts the named ids first and keeps the rest", () => {
 
 test("another agent's list is not found", () => {
   const { store, list } = setup();
-  rejects(() => store.getList("other", list.id), "pinboardListNotFound", 404);
-  rejects(
+  throwsProblem(() => store.getList("other", list.id), "pinboardListNotFound", 404);
+  throwsProblem(
     () => store.pin("other", list.id, pinArgs("A"), T0),
     "pinboardListNotFound",
     404,
   );
   const { entry } = store.pin("a", list.id, pinArgs("A"), T0);
-  rejects(() => store.entry("other", entry.id), "pinboardEntryNotFound", 404);
+  throwsProblem(() => store.entry("other", entry.id), "pinboardEntryNotFound", 404);
   assert.deepEqual(store.lists("other"), []);
 });
 
@@ -141,8 +149,10 @@ test("setIdentity bumps once for concurrent changes and touches the list", () =>
   assert.equal(after.version, 2);
   assert.deepEqual(after.identity, identity(2));
   assert.ok(after.list.updatedAt > T0);
+  // One moment for the entry and its list.
+  assert.equal(after.updatedAt, after.list.updatedAt);
   const touched = after.list.updatedAt;
-  const fresh = { ...identity(2), mtimeMs: 99 };
+  const fresh = { ...identity(2), mtimeNs: "99" };
   assert.equal(
     store.setIdentity(entry.id, fresh, {
       bump: false,
@@ -202,5 +212,42 @@ test("unpin removes by id or name", () => {
   store.pin("a", list.id, pinArgs("B"), T0);
   assert.equal(store.unpin("a", list.id, { entryId: entry.id }).name, "A");
   assert.equal(store.unpin("a", list.id, { name: "B" }).name, "B");
-  rejects(() => store.unpin("a", list.id, { name: "B" }), "pinboardEntryNotFound", 404);
+  throwsProblem(
+    () => store.unpin("a", list.id, { name: "B" }),
+    "pinboardEntryNotFound",
+    404,
+  );
+  throwsProblem(() => store.unpin("a", list.id, {}), "pinboardEntryNotFound", 404);
+});
+
+test("a pin with reopen brings an archived list back, a refused one leaves it archived", () => {
+  const { store, list } = setup();
+  store.setArchived("a", list.id, true, T0);
+  store.pin("a", list.id, pinArgs("A"), T1);
+  assert.ok(store.getList("a", list.id).archivedAt, "no reopen without the option");
+  store.pin("a", list.id, pinArgs("B"), T1, { reopen: true });
+  assert.equal(store.getList("a", list.id).archivedAt, null);
+  for (let i = 2; i < PINBOARD_LIMITS.entries; i += 1)
+    store.pin("a", list.id, pinArgs(`f${i}`), T1);
+  store.setArchived("a", list.id, true, T1);
+  throwsProblem(
+    () => store.pin("a", list.id, pinArgs("extra"), T1, { reopen: true }),
+    "pinboardEntryLimit",
+    409,
+  );
+  assert.ok(store.getList("a", list.id).archivedAt);
+});
+
+test("listTitle names a list until it is deleted; forgetChanges drops a chat's cards", () => {
+  const { store, list } = setup();
+  assert.equal(store.listTitle("a", list.id), "Plan");
+  assert.equal(store.listTitle("b", list.id), null);
+  const change = { requestId: "r1", listId: list.id, assistantId: "a", title: "Plan" };
+  for (const conversationId of ["chat-1", "chat-2"])
+    store.recordChange({ ...change, conversationId, at: T0, kind: "added", name: "A" });
+  store.forgetChanges("chat-1");
+  assert.deepEqual(store.changesFor("chat-1"), []);
+  assert.equal(store.changesFor("chat-2").length, 1);
+  store.deleteList("a", list.id);
+  assert.equal(store.listTitle("a", list.id), null);
 });

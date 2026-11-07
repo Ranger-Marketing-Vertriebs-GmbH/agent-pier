@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { shareFixture } from "../helpers/agent-share-fixture.js";
 import { AgentPinboard } from "../../server/features/assistants/agent-pinboard.js";
+import { forgetChat } from "../../server/features/assistants/chat-removal.js";
 
 async function setup(t) {
   const f = await shareFixture(t);
@@ -107,4 +108,72 @@ test("the chat feed of the card's chat is invalidated", async (t) => {
   f.service.events.on("conversation", (chat) => seen.push(chat));
   await f.pinned(call, id, "ep1.md");
   assert.ok(seen.includes(f.chat.id));
+});
+
+test("cards sit among the chat's messages by time", async (t) => {
+  const f = await setup(t);
+  const call = await f.inTurn(f.chat, "turn-1");
+  const id = (await call({ action: "create_list", title: "Episodes" })).list.id;
+  await f.pinned(call, id, "ep1.md");
+  const now = Date.now();
+  const reply = (text, timestamp) => ({
+    role: "assistant",
+    content: [{ type: "text", text }],
+    timestamp,
+    __openclaw: { id: text },
+  });
+  f.setHistory([reply("before", now - 60_000), reply("after", now + 60_000)]);
+  const messages = (await f.service.history(f.chat.id)).messages;
+  const order = messages.map((m) => (m.pinboard ? "card" : m.text));
+  assert.ok(
+    ["before", "card", "after"].every((name) => order.includes(name)),
+    order,
+  );
+  assert.ok(order.indexOf("before") < order.indexOf("card"));
+  assert.ok(order.indexOf("card") < order.indexOf("after"));
+});
+
+test("a list's title is read once per history, whatever its changes", async (t) => {
+  const f = await setup(t);
+  const store = f.service.pinboard.store;
+  const lookups = [];
+  const title = store.listTitle.bind(store);
+  store.listTitle = (...args) => (lookups.push(args[1]), title(...args));
+  const call = await f.inTurn(f.chat, "turn-1");
+  const listId = (await call({ action: "create_list", title: "Episodes" })).list.id;
+  await f.pinned(call, listId, "ep1.md");
+  // Two more turns' changes of the same list.
+  for (const requestId of ["r2", "r3"])
+    store.recordChange({
+      conversationId: f.chat.id,
+      requestId,
+      listId,
+      assistantId: f.agent.id,
+      title: "Episodes",
+      at: new Date().toISOString(),
+      kind: "added",
+      name: `${requestId}.md`,
+    });
+  lookups.length = 0;
+  const cards = await f.cards(f.chat);
+  assert.equal(cards.length, 3);
+  assert.ok(cards.every((card) => card.pinboard.title === "Episodes"));
+  assert.deepEqual(lookups, [listId]);
+});
+
+test("a deleted chat's cards go with it", async (t) => {
+  const f = await setup(t);
+  const other = f.store.saveConversation({
+    assistantId: f.agent.id,
+    runtimeSessionKey: "other",
+  });
+  for (const chat of [f.chat, other]) {
+    const call = await f.inTurn(chat, `turn-${chat.id}`);
+    const id = (await call({ action: "create_list", title: chat.id })).list.id;
+    await f.pinned(call, id, "ep1.md");
+  }
+  await forgetChat(f.service, other);
+  const store = f.service.pinboard.store;
+  assert.deepEqual(store.changesFor(other.id), []);
+  assert.equal(store.changesFor(f.chat.id).length, 1);
 });

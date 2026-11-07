@@ -196,7 +196,6 @@ export class AgentPinboard {
         ...(await pinType(opened.handle, opened.size, opened.name)),
       };
       invocation.assertCurrent?.();
-      if (list.archivedAt) this.store.setArchived(agent.id, list.id, false, now);
       pinned = this.store.pin(
         agent.id,
         list.id,
@@ -210,6 +209,7 @@ export class AgentPinboard {
           identity,
         },
         now,
+        { reopen: true },
       );
     } finally {
       await opened.handle.close();
