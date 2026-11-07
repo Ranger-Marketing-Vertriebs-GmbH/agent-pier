@@ -153,6 +153,40 @@ test.describe("on a phone", () => {
     ).toBeVisible();
   });
 
+  test("the chat title reads in full beside the goal, the events and Talk", async ({
+    page,
+  }) => {
+    await open(page, {
+      history: { messages: [], requests: [], stale: false, goal, events },
+    });
+    const header = page.locator(".assistant-header");
+    await expect(header.locator(".talk-button")).toBeVisible();
+    const title = header.locator(".agent-chat-title-button > span");
+    await expect(title).toHaveText("Dinner plans");
+    expect(await title.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true);
+    // The status is the dot alone, named and titled by its word.
+    const status = header.locator(".assistant-header-status");
+    await expect(status.locator(".assistant-header-label")).toHaveCount(0);
+    const dot = status.getByRole("img", { name: "Ready" });
+    await expect(dot).toHaveAttribute("title", "Ready");
+    // Every header icon and the title are full touch targets.
+    for (const icon of await header.locator(".assistant-header-icon").all()) {
+      const box = await icon.boundingBox();
+      expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(43.5);
+    }
+    const area = await title
+      .locator("..")
+      .evaluate((e) => parseFloat(getComputedStyle(e, "::after").height));
+    expect(area).toBeGreaterThanOrEqual(44);
+    // Chats and Summarize now do not share a glyph.
+    const glyph = (name) =>
+      switchRow(page)
+        .getByRole("button", { name, exact: true })
+        .locator("path")
+        .getAttribute("d");
+    expect(await glyph("Chats")).not.toBe(await glyph("Summarize now"));
+  });
+
   test("the work goal opens a sheet whose Stop ends it", async ({ page }) => {
     const state = await open(page, {
       history: { messages: [], requests: [], stale: false, goal },

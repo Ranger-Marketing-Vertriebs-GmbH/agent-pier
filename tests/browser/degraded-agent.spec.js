@@ -54,7 +54,10 @@ for (const [language, copy] of Object.entries(languages))
     const banner = page.locator(".agent-chat-banner");
     await expect(banner).toContainText(copy.banner);
     await expect(page.locator(".assistant-run-failure")).toContainText(copy.refused);
-    await expect(page.locator(".assistant-header-label")).toHaveText(copy.status);
+    // On a phone the header's dot names the status.
+    await expect(
+      page.locator(".assistant-header-status").getByRole("img", { name: copy.status }),
+    ).toBeVisible();
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBeLessThanOrEqual(390);
