@@ -12,7 +12,9 @@ export async function requireImageBudget(tool, files) {
   const limit = cliDriver(tool).tui.images?.maxEncodedBytes;
   if (!limit) return;
   let encoded = 0;
-  for (const file of files) encoded += Math.ceil((await stat(file)).size / 3) * 4;
+  // A file that cannot be read is left to the CLI, which reports it itself.
+  for (const file of files)
+    encoded += Math.ceil(((await stat(file).catch(() => null))?.size ?? 0) / 3) * 4;
   if (encoded > limit) throw composerProblem("CHAT_IMAGES_TOO_LARGE");
 }
 
