@@ -71,6 +71,43 @@ test("a pin pushes the agent's pinboard", { timeout }, async (t) => {
   live.ws.close();
 });
 
+test("the tool and the seen route push the pinboard", { timeout }, async (t) => {
+  const f = await fixture(t);
+  const chat = f.service.store.saveConversation({
+    assistantId: f.agent.id,
+    runtimeSessionKey: "writer",
+  });
+  const workspace = path.join(f.service.attachments.config.workspaces, f.agent.id);
+  fs.mkdirSync(workspace, { recursive: true });
+  fs.writeFileSync(path.join(workspace, "ep7.md"), "# Episode 7\n");
+  const topic = `agent.pinboard:${f.agent.id}`;
+  const { live } = await subscribe(f, topic);
+  // As the plugin calls agentpier_pinboard from an owner run of the chat.
+  const invoke = (input) =>
+    f.service.pinboard.invoke(
+      { owner: { conversationId: chat.id }, toolCallId: "call", assertCurrent() {} },
+      input,
+    );
+  const { list } = await invoke({ action: "create_list", title: "Episodes" });
+  const { entry } = await invoke({ action: "pin", listId: list.id, path: "ep7.md" });
+  const pushed = await live.next(
+    (frame) => frame.topic === topic && frame.data?.fresh === 1,
+    loaded,
+  );
+  assert.equal(pushed.data.lists[0].entries[0].name, "ep7.md");
+  const seen = await f.request(
+    `/api/assistants/${f.agent.id}/pinboard/entries/${entry.id}/seen`,
+    { method: "POST" },
+  );
+  assert.equal(seen.status, 204);
+  const cleared = await live.next(
+    (frame) => frame.topic === topic && frame.data?.fresh === 0,
+    loaded,
+  );
+  assert.equal(cleared.data.lists[0].entries[0].fresh, false);
+  live.ws.close();
+});
+
 test("the pinboard is sampled while a tab watches", { timeout }, async (t) => {
   const f = await fixture(t);
   const definition = f.application.live.topics.get("agent.pinboard").definition;
@@ -91,8 +128,8 @@ test(
     });
     const topic = `agent.pinboard:${own.id}`;
     const { live, first } = await subscribe(f, topic);
-    assert.equal(first.type, "error");
-    assert.equal(first.topic, topic);
+    // Refused like an unknown topic: nothing tells that her agent has a pinboard.
+    assert.deepEqual(first, { type: "error", topic, code: "unknown-topic" });
     live.ws.close();
   },
 );

@@ -263,3 +263,54 @@ test("downloads carry the file name", { timeout }, async (t) => {
   assert.equal(response.headers.get("content-type"), "application/octet-stream");
   assert.equal(await response.text(), "# Episode 6\n");
 });
+
+test("every route answers 503 while the agents are away", { timeout }, async (t) => {
+  const f = await fixture(t);
+  f.file("out/ep6.md");
+  const entry = f.pin("out/ep6.md");
+  const routes = () => [
+    f.request(f.base),
+    f.fileOf(entry),
+    f.request(`${f.base}/entries/${entry.id}/seen`, { method: "POST" }),
+  ];
+  // During maintenance the app's write guard answers a write first ("active").
+  const expected = {
+    maintenance: [503, 503, 409],
+    recovering: [503, 503, 503],
+    closed: [503, 503, 503],
+  };
+  for (const state of Object.keys(expected)) {
+    f.service[state] = true;
+    try {
+      const statuses = (await Promise.all(routes())).map((r) => r.status);
+      assert.deepEqual(statuses, expected[state], state);
+    } finally {
+      f.service[state] = false;
+    }
+  }
+  assert.equal((await f.view()).fresh, 1);
+});
+
+test("a user's own agent is not found without her opt-in", { timeout }, async (t) => {
+  const f = await fixture(t);
+  f.file("out/ep6.md", "her draft");
+  const entry = f.pin("out/ep6.md");
+  const body = {
+    ...f.service.store.storedAssistant(f.agent.id),
+    userAccess: {
+      mode: "own",
+      members: [{ userId: "anna", level: "chat" }],
+      released: [],
+    },
+  };
+  f.service.store.db
+    .prepare("UPDATE assistants SET body=? WHERE id=?")
+    .run(JSON.stringify(body), f.agent.id);
+  assert.equal((await f.request(f.base)).status, 404);
+  const file = await f.fileOf(entry);
+  assert.equal(file.status, 404);
+  assert.ok(!(await file.text()).includes("her draft"));
+  const seen = await f.request(`${f.base}/entries/${entry.id}/seen`, { method: "POST" });
+  assert.equal(seen.status, 404);
+  assert.equal(f.store.entry(f.agent.id, entry.id).seenIdentity, null);
+});
