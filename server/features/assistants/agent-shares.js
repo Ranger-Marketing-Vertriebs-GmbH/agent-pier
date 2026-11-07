@@ -1,10 +1,12 @@
 import { assistantProblem } from "./assistant-validation.js";
-import { MAX_CAPTION_LENGTH, readShareSource, shareRoots } from "./agent-share-source.js";
+import {
+  MAX_CAPTION_LENGTH,
+  projectShareTarget,
+  readShareSource,
+  shareRoots,
+} from "./agent-share-source.js";
 import { attachmentFile, attachmentsAllowed } from "./attachment-access.js";
-import { projectTarget } from "./project-paths.js";
-import { protectedDirs } from "./protected-dirs.js";
 import { routineOrigin } from "./routine-targets.js";
-import { ownerChat } from "./owner-shares.js";
 import { followUpTelegram } from "./follow-up-target.js";
 import { routineRunOf } from "./runtimes/runtime-for.js";
 
@@ -95,36 +97,14 @@ export class AgentShares {
     };
   }
   // A file in a granted project folder, resolved inside it, then read like any share.
-  async projectSource(invocation, agent, conversation, { projectId, path: requested }) {
-    const workflows = this.assistants.workflows;
-    if (!workflows?.folders) throw assistantProblem("projectFolderNotGranted", 403);
-    // For the owner's chat the agent's own folders count whatever the turn; a hook's
-    // session after its event settled keeps that hook's folders, as they are now.
-    const settled = invocation.owner?.hookId;
-    const owner =
-      !invocation.hook && !settled && ownerChat(agent, conversation) ? agent : null;
-    let ctx = settled
-      ? {
-          hook: {
-            folders: {
-              ...this.assistants.routines?.hooks?.liveRights(agent, settled)?.folders,
-            },
-          },
-        }
-      : null;
-    if (invocation.attemptId || invocation.routine || invocation.hook)
-      try {
-        ctx = workflows.context(invocation);
-      } catch (error) {
-        if (!owner) throw error;
-      }
-    const { root, protectedRoots } = workflows.folders.shareRoot(ctx, projectId, owner);
-    const target = projectTarget(root, requested, { protectedRoots });
-    if (!target.exists) throw assistantProblem("shareNotFound", 404);
-    // The protected roots again by device and inode on every folder walked.
-    return readShareSource(shareRoots(null, null, [target.root]), target.relative, {
-      refuseDirs: protectedDirs(protectedRoots),
-    });
+  async projectSource(invocation, agent, conversation, input) {
+    const { roots, relative, refuseDirs } = projectShareTarget(
+      this.assistants,
+      agent,
+      input,
+      { invocation, conversation },
+    );
+    return readShareSource(roots, relative, { refuseDirs });
   }
   // On a shared agent a turn shares only its own chat's uploads (attachment-access.js).
   admit(agent, conversation, relative) {

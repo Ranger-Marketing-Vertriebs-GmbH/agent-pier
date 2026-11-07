@@ -4,6 +4,9 @@ import path from "node:path";
 import { assistantProblem } from "./assistant-validation.js";
 import { openInside } from "./project-open.js";
 import { managedName } from "./team-plugin/managed-folder.js";
+import { ownerChat } from "./owner-runs.js";
+import { projectTarget } from "./project-paths.js";
+import { protectedDirs } from "./protected-dirs.js";
 
 // What an agent may hand the owner with agentpier_share_file. Telegram takes photos
 // up to 10 MB and documents up to 50 MB; the chat route serves what the store holds.
@@ -57,22 +60,23 @@ async function walk(root, parts, refuseDirs = []) {
   }
 }
 /**
- * Reads the file an agent shares: a regular file inside one of `roots`, named by a
+ * Opens the file an agent shares: a regular file inside one of `roots`, named by a
  * path relative to the first root or absolute inside one. No component may be a
  * symbolic link and the file may have no second hard link, so nothing outside the
- * roots is reachable through the workspace. The bytes are read through the checked
- * descriptor, within MAX_SHARE_BYTES. Returns `{ name, body, identity }`.
+ * roots is reachable through the workspace. Returns `{ name, relative, handle, stat }`
+ * with the checked descriptor and its bigint stat; the caller reads through `handle`
+ * and closes it.
  *
  * A folder that an agent with a shell swaps for a link after these checks is
  * refused by the open itself (openInside: no link in any component on macOS, the
  * descriptor's own path on Linux).
  */
-export async function readShareSource(
+export async function openShareSource(
   roots,
   requested,
   // `admit(relative)` may refuse the file by its path below its root; `refuseDirs`
   // ({ dev, ino } as bigints) are directories no file below may come from.
-  { maxBytes = MAX_SHARE_BYTES, admit = () => {}, refuseDirs = [] } = {},
+  { admit = () => {}, refuseDirs = [] } = {},
 ) {
   if (
     typeof requested !== "string" ||
@@ -126,6 +130,27 @@ export async function readShareSource(
       if (named?.dev !== stat.dev || named?.ino !== stat.ino)
         throw assistantProblem("shareOutside", 403);
     }
+    return { name: path.basename(expected), relative: parts.join("/"), handle, stat };
+  } catch (error) {
+    await handle.close();
+    throw error;
+  }
+}
+
+/**
+ * Reads the file an agent shares (openShareSource), within MAX_SHARE_BYTES, through
+ * the checked descriptor. Returns `{ name, body, identity }`.
+ */
+export async function readShareSource(
+  roots,
+  requested,
+  { maxBytes = MAX_SHARE_BYTES, admit = () => {}, refuseDirs = [] } = {},
+) {
+  const { name, handle, stat } = await openShareSource(roots, requested, {
+    admit,
+    refuseDirs,
+  });
+  try {
     if (stat.size > BigInt(maxBytes)) throw assistantProblem("shareTooLarge", 413);
     if (stat.size === 0n) throw assistantProblem("shareEmpty", 400);
     const size = Number(stat.size);
@@ -139,7 +164,7 @@ export async function readShareSource(
     // A file still being written is not shared half-way.
     if (read !== size) throw assistantProblem("conflict", 409);
     return {
-      name: path.basename(expected),
+      name,
       body: body.subarray(0, size),
       // Which file it was (device and inode), whatever path named it.
       identity: { dev: stat.dev, ino: stat.ino },
@@ -147,4 +172,52 @@ export async function readShareSource(
   } finally {
     await handle.close();
   }
+}
+
+/**
+ * The one place a project folder is resolved for sharing: the folder `projectId`
+ * granted to `agent` and the file `path` inside it (projectTarget: never out of the
+ * folder, into `.git` or AgentPier's data). `scope = { invocation, conversation }`
+ * resolves the grants of that turn, routine or hook as agentpier_share_file does;
+ * `scope = null` is an owner read with the agent's standing grants. Returns the
+ * arguments of openShareSource: `{ roots, relative, refuseDirs }`.
+ */
+export function projectShareTarget(
+  assistants,
+  agent,
+  { projectId, path: requested },
+  scope,
+) {
+  const workflows = assistants.workflows;
+  if (!workflows?.folders) throw assistantProblem("projectFolderNotGranted", 403);
+  let ctx = null,
+    owner = agent;
+  if (scope) {
+    const { invocation, conversation } = scope;
+    // For the owner's chat the agent's own folders count whatever the turn; a hook's
+    // session after its event settled keeps that hook's folders, as they are now.
+    const settled = invocation.owner?.hookId;
+    owner = !invocation.hook && !settled && ownerChat(agent, conversation) ? agent : null;
+    if (settled)
+      ctx = {
+        hook: {
+          folders: { ...assistants.routines?.hooks?.liveRights(agent, settled)?.folders },
+        },
+      };
+    if (invocation.attemptId || invocation.routine || invocation.hook)
+      try {
+        ctx = workflows.context(invocation);
+      } catch (error) {
+        if (!owner) throw error;
+      }
+  }
+  const { root, protectedRoots } = workflows.folders.shareRoot(ctx, projectId, owner);
+  const target = projectTarget(root, requested, { protectedRoots });
+  if (!target.exists) throw assistantProblem("shareNotFound", 404);
+  return {
+    roots: shareRoots(null, null, [target.root]),
+    relative: target.relative,
+    // The protected roots again by device and inode on every folder walked.
+    refuseDirs: protectedDirs(protectedRoots),
+  };
 }
