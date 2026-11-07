@@ -19,7 +19,8 @@ import "./agent-chat-top.css";
  * Everything above an owner's agent chat transcript: one header row (the chat's title
  * under the agent's name, the work goal and the events as icons) and, on phones and
  * in split-view panes, one row with the Chat | Pinboard switch, the Chats sheet, New
- * chat and Summarize now. Wider, the header carries Pinboard, New chat and Summarize
+ * chat and Summarize now (a team member's chat has no row: a header pin icon toggles
+ * its pinboard). Wider, the header carries Pinboard, New chat and Summarize
  * now itself; the pinboard docks beside the chat. Then the chat's strips.
  * `pinboard` is useChatPinboard's result; `talk` is `{ shown, talk, status }`;
  * `summarise` is summariseAction's result; `strips` ChatStrips' `entry`, `output`
@@ -65,6 +66,22 @@ export default function AgentChatTop({
         events={history.events}
         navigate={navigate}
       />
+      {/* A member's chat has no row under the header: its pinboard is an icon. */}
+      {compact && !chatList && pinboard.enabled && (
+        <button
+          type="button"
+          className="assistant-header-icon agent-chat-pin"
+          aria-label={pinLabel}
+          title={pinLabel}
+          aria-pressed={pinboard.open}
+          onClick={() => pinboard.setOpen(!pinboard.open)}
+        >
+          <Icon name="pin" size={18} />
+          {pinboard.fresh > 0 && (
+            <span className="agent-chat-events-count">{pinboard.fresh}</span>
+          )}
+        </button>
+      )}
       {!compact && pinboard.enabled && (
         <button
           type="button"
@@ -97,7 +114,8 @@ export default function AgentChatTop({
       )}
     </>
   );
-  const row = compact && (pinboard.enabled || newChat || shownSummarise);
+  // A team member's chat gets no row: it never had the chat selector row.
+  const row = compact && chatList && (pinboard.enabled || newChat || shownSummarise);
   return (
     <>
       <AssistantHeader
