@@ -492,6 +492,9 @@ export async function fixture(page, { account, session } = {}) {
     // which shows no block.
     if (/^\/api\/assistants\/[^/]+\/ssh-agent$/.test(path) && method === "GET")
       return route.fulfill({ json: { state: "unavailable", reason: "no-hosts" } });
+    // An agent chat reads its pinboard (agent.pinboard); fixture agents pinned nothing.
+    if (/^\/api\/assistants\/[^/]+\/pinboard$/.test(path) && method === "GET")
+      return route.fulfill({ json: { lists: [], fresh: 0 } });
     // Agent chats and session views list their previews; fixtures have none.
     if (path === "/api/previews" && method === "GET")
       return route.fulfill({ json: noPreviews });
