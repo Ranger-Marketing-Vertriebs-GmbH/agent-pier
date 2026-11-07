@@ -11,11 +11,13 @@ import { SessionOperations } from "../../server/features/sessions/session-operat
 async function setup(
   t,
   tool,
-  { crash, partial = false, imageOnly = false, ignoreText = false } = {},
+  { crash, partial = false, imageOnly = false, ignoreText = false, bytes } = {},
 ) {
   const f = await applicationFixture(t);
   const files = [path.join(f.home, "one image.png"), path.join(f.home, "two image.png")];
   for (const file of files) await fs.writeFile(file, "synthetic model fixture");
+  // Sparse files of the given size, for the CLI's image size limit.
+  if (bytes) for (const file of files) await fs.truncate(file, bytes);
   const screen = await chatTuiScreen(tool);
   const session = { id: "native-images", tool, accountId: "fixture", status: "running" };
   const scope = JSON.stringify([session.id, session.accountId, tool, null]);
@@ -136,3 +138,23 @@ for (const tool of ["codex", "opencode"]) {
     assert.equal(x.state.submitted.length, 1);
   });
 }
+
+// Two 12 MiB images are 32 MiB base64-encoded, exactly Codex's limit.
+const MiB = 1024 * 1024;
+test("codex: images within its 32 MiB encoded limit are sent", async (t) => {
+  const x = await setup(t, "codex", { bytes: 12 * MiB });
+  assert.equal((await x.send()).status, "handed-off");
+  assert.equal(x.state.submitted.length, 1);
+});
+test("codex: images above its limit are refused before anything is typed", async (t) => {
+  const x = await setup(t, "codex", { bytes: 12 * MiB + 1 });
+  const result = await x.send();
+  assert.equal(result.status, "rejected", JSON.stringify(result));
+  assert.equal(result.reason, "CHAT_IMAGES_TOO_LARGE");
+  assert.deepEqual(x.state.pastes, []);
+  assert.equal(x.state.submitted.length, 0);
+});
+test("opencode: the Codex image limit does not apply", async (t) => {
+  const x = await setup(t, "opencode", { bytes: 12 * MiB + 1 });
+  assert.equal((await x.send()).status, "handed-off");
+});
