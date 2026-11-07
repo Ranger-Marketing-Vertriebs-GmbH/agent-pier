@@ -19,9 +19,10 @@ export default function ChatPinboardBody({ assistant, pinboard, navigate, childr
             view={pinboard.view}
             error={pinboard.error}
             markSeen={pinboard.markSeen}
-            markSeen={pinboard.markSeen}
             navigate={navigate}
             focusListId={pinboard.focusListId}
+            reading={pinboard.reading}
+            onRead={pinboard.setReading}
             onClose={() => pinboard.setOpen(false)}
           />
         )}
@@ -30,11 +31,15 @@ export default function ChatPinboardBody({ assistant, pinboard, navigate, childr
   );
 }
 
-/** The pinboard in the transcript's place: the chat's tab on phones and in panes. */
+/**
+ * The pinboard in the transcript's place: the chat's tab on phones and in panes. On a
+ * phone a file being read fills the screen (`fullScreen`; AssistantChat hides the
+ * header and the composer meanwhile).
+ */
 export function PinboardTab({ assistant, pinboard, navigate }) {
   if (!pinboard.tab) return null;
   return (
-    <div className="assistant-pinboard-tab">
+    <div className={`assistant-pinboard-tab${pinboard.fullScreen ? " full-screen" : ""}`}>
       <PinboardView
         assistant={assistant}
         view={pinboard.view}
@@ -42,6 +47,8 @@ export function PinboardTab({ assistant, pinboard, navigate }) {
         markSeen={pinboard.markSeen}
         navigate={navigate}
         focusListId={pinboard.focusListId}
+        reading={pinboard.reading}
+        onRead={pinboard.setReading}
       />
     </div>
   );

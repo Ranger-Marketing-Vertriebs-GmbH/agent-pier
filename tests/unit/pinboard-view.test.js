@@ -6,8 +6,8 @@ import {
   listTime,
   neighbours,
   pinboardSections,
-  readable,
 } from "../../web/features/assistants/pinboard/pinboard-view.js";
+import { pinboardFileUrl } from "../../web/features/assistants/pinboard/pinboard-api.js";
 import { agentPinboardCopy as en } from "../../web/lib/i18n/en/agent-pinboard.js";
 import { agentPinboardCopy as de } from "../../web/lib/i18n/de/agent-pinboard.js";
 import { formatBytes } from "../../web/lib/format-bytes.js";
@@ -53,16 +53,6 @@ test("pinboardSections of no view is empty", () => {
   assert.deepEqual(pinboardSections(null), { open: [], archived: [] });
 });
 
-test("readable keeps the available entries in their order", () => {
-  const board = list("l", {
-    entries: [entry("a"), entry("b", { state: "unavailable" }), entry("c")],
-  });
-  assert.deepEqual(
-    readable(board).map((item) => item.id),
-    ["a", "c"],
-  );
-});
-
 test("neighbours skip unavailable entries and count only readable ones", () => {
   const board = list("l", {
     entries: [
@@ -73,6 +63,7 @@ test("neighbours skip unavailable entries and count only readable ones", () => {
     ],
   });
   const middle = neighbours(board, "b");
+  assert.equal(middle.entry.id, "b");
   assert.equal(middle.previous.id, "a");
   assert.equal(middle.next.id, "c");
   assert.equal(middle.index, 1);
@@ -81,12 +72,41 @@ test("neighbours skip unavailable entries and count only readable ones", () => {
     { previous: neighbours(board, "a").previous, next: neighbours(board, "c").next },
     { previous: null, next: null },
   );
-  assert.deepEqual(neighbours(board, "gone"), {
+  assert.deepEqual(neighbours(board, "missing"), {
+    entry: null,
     previous: null,
     next: null,
     index: -1,
     total: 3,
   });
+});
+
+test("neighbours keep the entry being read when it turns unavailable", () => {
+  const board = list("l", {
+    entries: [entry("a"), entry("b", { state: "unavailable" }), entry("c")],
+  });
+  const reading = neighbours(board, "b");
+  assert.equal(reading.entry.id, "b");
+  assert.equal(reading.previous.id, "a");
+  assert.equal(reading.next.id, "c");
+  assert.deepEqual([reading.index, reading.total], [1, 3]);
+  // Read from elsewhere, it is skipped.
+  assert.equal(neighbours(board, "a").next.id, "c");
+});
+
+test("pinboardFileUrl names the entry, its version and a download", () => {
+  assert.equal(
+    pinboardFileUrl("a b", "e/1"),
+    "/api/assistants/a%20b/pinboard/entries/e%2F1/file",
+  );
+  assert.equal(
+    pinboardFileUrl("a", "e", { version: 2 }),
+    "/api/assistants/a/pinboard/entries/e/file?v=2",
+  );
+  assert.equal(
+    pinboardFileUrl("a", "e", { download: true }),
+    "/api/assistants/a/pinboard/entries/e/file?download=1",
+  );
 });
 
 test("entryDetail joins note, duration and size with ' · ' and drops what is missing", () => {

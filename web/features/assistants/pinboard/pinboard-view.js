@@ -24,16 +24,18 @@ export function pinboardSections(view) {
   };
 }
 
-/** The entries the reader can open, in the list's order. */
-export function readable(list) {
-  return (list?.entries || []).filter((entry) => entry.state !== "unavailable");
-}
-
-/** The readable entries around `entryId`; index -1 when it is not readable. */
+/**
+ * The entries around `entryId` that the reader steps to: the readable ones, and the
+ * one being read even after it turned unavailable (the reader says so in its place),
+ * so previous / next keep working. `entry` is that one; index -1 when it is gone.
+ */
 export function neighbours(list, entryId) {
-  const entries = readable(list);
+  const entries = (list?.entries || []).filter(
+    (entry) => entry.id === entryId || entry.state !== "unavailable",
+  );
   const index = entries.findIndex((entry) => entry.id === entryId);
   return {
+    entry: index >= 0 ? entries[index] : null,
     previous: index > 0 ? entries[index - 1] : null,
     next: index >= 0 && index < entries.length - 1 ? entries[index + 1] : null,
     index,

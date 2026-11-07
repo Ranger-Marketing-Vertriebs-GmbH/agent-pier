@@ -10,14 +10,14 @@ import { fileSize } from "../AgentMessageAttachments.jsx";
 import { MARKDOWN_PREVIEW_MAX_BYTES } from "../agent-markdown-preview.js";
 import useMarkdownFile from "../useMarkdownFile.js";
 import { pinboardFileUrl } from "./pinboard-api.js";
-import { neighbours, readable } from "./pinboard-view.js";
+import { neighbours } from "./pinboard-view.js";
 import "./pinboard-reader.css";
 
-function DownloadLink({ entry, src }) {
+function DownloadLink({ entry, href }) {
   return (
     <FileLink
       className="button primary"
-      href={`${src}?download=1`}
+      href={href}
       name={entry.name}
       aria-label={attachmentCopy.download(entry.name)}
     >
@@ -28,7 +28,7 @@ function DownloadLink({ entry, src }) {
 
 // Markdown through ChatMarkdown, as in the chat's preview: no raw HTML, no remote
 // images. Seen once the text is read (or known to be too large to show).
-function TextBody({ entry, src, loaded }) {
+function TextBody({ entry, src, download, loaded }) {
   const state = useMarkdownFile(src, entry);
   const done = Boolean(state.text !== undefined || state.tooLarge);
   useEffect(() => {
@@ -40,14 +40,20 @@ function TextBody({ entry, src, loaded }) {
         {attachmentCopy.previewLoading}
       </p>
     );
-  if (state.failed) return <ErrorMessage error={attachmentCopy.previewFailed} />;
+  if (state.failed)
+    return (
+      <>
+        <ErrorMessage error={attachmentCopy.previewFailed} />
+        <DownloadLink entry={entry} href={download} />
+      </>
+    );
   if (state.tooLarge)
     return (
       <>
         <p className="agent-markdown-notice" role="status">
           {attachmentCopy.previewTooLarge(fileSize(MARKDOWN_PREVIEW_MAX_BYTES))}
         </p>
-        <DownloadLink entry={entry} src={src} />
+        <DownloadLink entry={entry} href={download} />
       </>
     );
   return (
@@ -105,11 +111,11 @@ function PlayerBody({ entry, src, loaded }) {
   );
 }
 
-function FileBody({ entry, src, loaded }) {
+function FileBody({ entry, download, loaded }) {
   useEffect(() => {
     loaded();
   }, [loaded]);
-  return <DownloadLink entry={entry} src={src} />;
+  return <DownloadLink entry={entry} href={download} />;
 }
 
 const bodies = { text: TextBody, image: ImageBody, video: PlayerBody, audio: PlayerBody };
@@ -135,9 +141,10 @@ function Step({ entry, direction, onNavigate }) {
 
 /**
  * One pinned file read in full, with previous / next through the list's readable
- * entries (an unavailable one is skipped). `markSeen(entryId)` runs once per entry,
- * when its file has loaded. Fills the pinboard area; the entry's own state resets when
- * `entryId` changes.
+ * entries (an unavailable one is skipped; the one being read stays, saying it is no
+ * longer available). A file the agent rewrites while it is read shows its new
+ * version. `markSeen(entryId)` runs once per NEW version, when its file has loaded.
+ * Fills the pinboard area; on a phone the pinboard tab shows it full screen.
  */
 export default function PinboardReader({
   assistant,
@@ -147,21 +154,29 @@ export default function PinboardReader({
   onBack,
   markSeen,
 }) {
-  const { previous, next, index, total } = neighbours(list, entryId);
-  const entry = index >= 0 ? readable(list)[index] : null;
+  const { entry, previous, next, index, total } = neighbours(list, entryId);
+  const available = entry && entry.state !== "unavailable";
+  // One version of one entry: a rewrite (version + 1) loads and marks it again.
+  const shown = available ? `${entry.id}:${entry.version}` : null;
+  const fresh = Boolean(available && entry.fresh);
   const marked = useRef(new Set());
-  const [loadedId, setLoadedId] = useState(null);
-  const loaded = useCallback(() => setLoadedId(entryId), [entryId]);
+  const [loadedKey, setLoadedKey] = useState(null);
+  const loaded = useCallback(() => setLoadedKey(shown), [shown]);
   useEffect(() => {
-    if (loadedId !== entryId || marked.current.has(entryId)) return;
-    marked.current.add(entryId);
+    if (!fresh || loadedKey !== shown || marked.current.has(shown)) return;
+    marked.current.add(shown);
     Promise.resolve(markSeen(entryId)).catch(() => {
       // A failed mark leaves NEW on; opening the entry again tries once more.
-      marked.current.delete(entryId);
+      marked.current.delete(shown);
     });
-  }, [loadedId, entryId, markSeen]);
-  const Body = entry ? bodies[entry.kind] || FileBody : null;
-  const src = entry ? pinboardFileUrl(assistant.id, entry.id) : "";
+  }, [fresh, loadedKey, shown, entryId, markSeen]);
+  const Body = available ? bodies[entry.kind] || FileBody : null;
+  const src = available
+    ? pinboardFileUrl(assistant.id, entry.id, { version: entry.version })
+    : "";
+  const download = available
+    ? pinboardFileUrl(assistant.id, entry.id, { download: true })
+    : "";
   return (
     <div className="pinboard-reader">
       <header className="pinboard-reader-header">
@@ -182,10 +197,21 @@ export default function PinboardReader({
             </p>
           )}
         </div>
+        {available && (
+          <FileLink
+            className="icon-button pinboard-reader-download"
+            href={download}
+            name={entry.name}
+            aria-label={copy.reader.download}
+            title={copy.reader.download}
+          >
+            <Icon name="download" size={18} />
+          </FileLink>
+        )}
       </header>
       <div className="pinboard-reader-body">
-        {entry ? (
-          <Body key={entry.id} entry={entry} src={src} loaded={loaded} />
+        {available ? (
+          <Body key={shown} entry={entry} src={src} download={download} loaded={loaded} />
         ) : (
           <p className="pinboard-empty" role="status">
             {copy.reader.empty}
