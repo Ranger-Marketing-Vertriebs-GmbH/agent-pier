@@ -14,6 +14,7 @@ import { DeletedChat } from "./chats/ChatStates.jsx";
 import { chatGone } from "./chats/chat-gone.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import AgentsHub from "./hub/AgentsHub.jsx";
+import { replaceWhenSettled } from "./replace-route.js";
 export default function AgentsPage({
   route,
   navigate,
@@ -26,19 +27,23 @@ export default function AgentsPage({
     conversations = [],
     teams = [],
     models = [],
+    loaded = false,
     error: loadError,
     refresh,
   } = useAssistants();
   const [error, setError] = useState("");
   const assistant = assistants.find((a) => a.id === route.assistantId);
   const request = useRef(null);
+  const current = useRef(route);
+  current.current = route;
   useEffect(
     () => () => {
       request.current = null;
     },
     [route],
   );
-  async function open(a, extra = {}) {
+  // `replace` takes the address's place (a link that only leads to the chat).
+  async function open(a, extra = {}, replace = false) {
     const ticket = {};
     request.current = ticket;
     setError("");
@@ -50,13 +55,15 @@ export default function AgentsPage({
     try {
       const c = await assistantApi.open(a.id);
       await refresh();
-      if (request.current === ticket)
-        navigate({
-          view: "agents",
-          assistantId: a.id,
-          conversationId: c.id,
-          ...extra,
-        });
+      const target = {
+        view: "agents",
+        assistantId: a.id,
+        conversationId: c.id,
+        ...extra,
+      };
+      if (replace)
+        await replaceWhenSettled(navigate, target, () => request.current === ticket);
+      else if (request.current === ticket) navigate(target);
     } catch (e) {
       if (request.current === ticket) setError(e.message);
     }
@@ -71,10 +78,12 @@ export default function AgentsPage({
     route.teamId &&
     teams.find((t) => t.id === route.teamId && t.parentAssistantId === route.assistantId);
   const conversationId = route.conversationId || team?.parentConversationId;
-  // The pinboard link (`/agents/:id/pinboard`) opens the main chat with its pinboard.
-  const pinboardLink = Boolean(route.pinboard && !route.conversationId && assistant);
+  // The pinboard link (`/agents/:id/pinboard`) opens the main chat with its pinboard,
+  // in the link's place, so Back leaves it.
+  const pinboardRoute = Boolean(route.pinboard && !route.conversationId);
+  const pinboardLink = pinboardRoute && Boolean(assistant);
   useEffect(() => {
-    if (pinboardLink) open(assistant, { pinboard: true });
+    if (pinboardLink) open(assistant, { pinboard: true }, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pinboardLink, assistant?.id]);
   // Settings on phones scroll inside their own container under the fixed header, so
@@ -114,14 +123,16 @@ export default function AgentsPage({
                 listId: route.pinboardList ?? null,
                 // Closing the pinboard drops its link, so a reload does not reopen it.
                 onClose: () =>
-                  navigate(
+                  replaceWhenSettled(
+                    navigate,
                     {
                       view: "agents",
                       assistantId: route.assistantId,
                       conversationId: route.conversationId,
                     },
-                    true,
-                    true,
+                    () =>
+                      Boolean(current.current.pinboard) &&
+                      current.current.conversationId === route.conversationId,
                   ),
               }
             : null
@@ -161,11 +172,16 @@ export default function AgentsPage({
   // address.
   if (route.creating)
     return <AgentWizard key={routePath(route)} route={route} navigate={navigate} />;
-  // An agent page whose agent is not (or not yet) listed.
-  if (route.assistantId && pinboardLink)
+  // A pinboard link while it opens its chat, or until the agents are listed.
+  if (route.assistantId && pinboardRoute && (pinboardLink || !loaded))
     return (
       <div className="page assistants-page">
         <ErrorMessage error={error || loadError} />
+        {!error && !loadError && (
+          <p className="loading" role="status">
+            {copy.loading}
+          </p>
+        )}
       </div>
     );
   if (route.assistantId)
