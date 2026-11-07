@@ -5462,33 +5462,42 @@ agent's reply to `pin` names who sees the list; a pin to an archived list reopen
 
 - **Links, not copies.** `pin` resolves the file with the share rules of the calling
   turn (`openPinned` in `agent-pinboard-files.js`, `agent-share-source.js`) and stores
-  only the root, the resolved relative path and a file identity (size, mtime, inode, and
-  a SHA-256 for files up to 1 MiB). The owner's reads (`GET
-/api/assistants/:id/pinboard`, the file route) validate it again every time: root, no
-  symbolic link on the way, `openInside` with `O_NOFOLLOW`, one hard link, a regular file,
-  never `.git` or the data directory, and the project grant still held; the bytes stream
-  from the checked descriptor (`sendFileRange` answers `Range` requests). A failure marks
-  the entry unavailable and answers 404 without a byte. NEW compares the identity with the
-  one the owner last saw: an atomic rewrite keeps the path and raises the entry's version;
-  a touched file whose content hash is unchanged is not NEW. Pinning the same path again
-  replaces the entry in place.
+  only the root, the resolved relative path and a file identity (size, modification time
+  in nanoseconds, inode, and a SHA-256 for files up to 1 MiB; a file that shrinks while
+  it is hashed is refused with a conflict). The owner's reads
+  (`GET /api/assistants/:id/pinboard`, the file route) validate it again every time:
+  root, no symbolic link on the way, `openInside` with `O_NOFOLLOW`, one hard link, a
+  regular file, never `.git` or the data directory, and the project grant still held;
+  the bytes stream from the checked descriptor (`sendFileRange` answers `Range`
+  requests). A failure marks the entry unavailable and answers 404 without a byte. NEW
+  compares the identity with the one the owner last saw: an atomic rewrite keeps the
+  path and raises the entry's version; a touched file whose content hash is unchanged
+  is not NEW. Pinning under the same **name** again replaces that entry in place (path,
+  note and version); the same path under another name adds a second entry.
+- **Project pins from hooks and routines.** A pin resolves a project folder with the
+  grants of the calling run (as `agentpier_share_file` does), but the owner's reads use
+  the agent's standing grants only. A project pin made in a hook or routine run with
+  that run's own folders therefore reads unavailable unless the agent also holds a
+  standing grant for the project.
 - **Limits.** 50 open lists per agent (archived ones do not count) and 100 entries per
   list. The Markdown reader reads at most 512 KB (`MARKDOWN_PREVIEW_MAX_BYTES`); no other
   size limit applies.
 - **Owner only.** Every action, not only `pin`, is refused with `PINBOARD_OWNER_ONLY`
-  (HTTP 403) in a restricted user's chat turn and on a user's own agent (`userAccess.mode
-=== "own"`, whose tool grants omit it); this is stricter than the design, which refused
-  only `pin`, and also keeps the owner's list titles out of user chats. The user app has no
-  pinboard. Refusals reach the model as stable codes with English reasons
-  (`tool-errors.js`): `PINBOARD_LIST_NOT_FOUND`, `PINBOARD_ENTRY_NOT_FOUND`,
-  `PINBOARD_LIST_LIMIT`, `PINBOARD_ENTRY_LIMIT`, `PINBOARD_OWNER_ONLY`; during maintenance,
-  recovery or shutdown the tool answers 503. An archived agent pins nothing.
+  (HTTP 403) in a restricted user's chat turn and on a user's own agent
+  (`userAccess.mode === "own"`, whose tool grants omit it); this is stricter than the
+  design, which refused only `pin`, and also keeps the owner's list titles out of user
+  chats. The user app has no pinboard. Refusals reach the model as stable codes with
+  English reasons (`tool-errors.js`): `PINBOARD_LIST_NOT_FOUND`,
+  `PINBOARD_ENTRY_NOT_FOUND`, `PINBOARD_LIST_LIMIT`, `PINBOARD_ENTRY_LIMIT`,
+  `PINBOARD_OWNER_ONLY`; during maintenance, recovery or shutdown the tool answers 503.
+  An archived agent pins nothing.
 - **Chat cards.** A pin, replace or unpin leaves one card per list and turn in the
-  chat history (`store.recordChange`); list-level actions only signal the board.
-- **Audit and live.** Every write is logged as `assistant.updated` with `details: { kind:
-"pinboard", pinboard: <action> }` (and the `projectId` when the pin came from a project
-  folder). Each write and the owner's `seen` call signal the live topic
-  `agent.pinboard:<agentId>` (owner only, `content: true`;
+  chat history (`store.recordChange`); list-level actions only signal the board. A
+  deleted chat's cards are removed with it (`forgetChat`).
+- **Audit and live.** Every write is logged as `assistant.updated` with
+  `details: { kind: "pinboard", pinboard: <action> }` (and the `projectId` when the pin
+  came from a project folder). Each write and the owner's `seen` call signal the live
+  topic `agent.pinboard:<agentId>` (owner only, `content: true`;
   [Live channel](architecture.md#live-channel)).
 
 ## Continuous integration
