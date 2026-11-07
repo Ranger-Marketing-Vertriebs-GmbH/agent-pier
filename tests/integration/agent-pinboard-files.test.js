@@ -10,6 +10,7 @@ import {
 } from "../../server/features/assistants/agent-share-source.js";
 import {
   PIN_HASH_MAX_BYTES,
+  PIN_IMAGE_HEAD_BYTES,
   openPinned,
   pinIdentity,
   pinType,
@@ -17,6 +18,7 @@ import {
 } from "../../server/features/assistants/agent-pinboard-files.js";
 import { assistantProblem } from "../../server/features/assistants/assistant-validation.js";
 import { png } from "../helpers/agent-share-fixture.js";
+import { jpegOf, webpOf } from "../helpers/image-bytes.js";
 import { mp4File } from "../helpers/video-fixtures.js";
 
 const agent = { id: "a1" };
@@ -169,8 +171,42 @@ test("a file renamed over the pinned one with the same content keeps its identit
   fs.renameSync(path.join(f.workspace, "out/.ep6.tmp"), path.join(f.workspace, at.path));
   const after = await identityOf(f, at);
   assert.notEqual(after.ino, before.ino);
-  assert.notEqual(after.mtimeMs, before.mtimeMs);
+  assert.notEqual(after.mtimeNs, before.mtimeNs);
   assert.equal(sameIdentity(before, after), true);
+});
+
+test("a same-size rewrite of a large file within one millisecond is a new identity", async (t) => {
+  const f = fixture(t);
+  const big = f.write("out/big.bin", Buffer.alloc(PIN_HASH_MAX_BYTES + 1, 7));
+  const at = { root: "workspace", path: "out/big.bin" };
+  const seconds = Math.floor(Date.now() / 1000) - 60;
+  fs.utimesSync(big, seconds + 0.0001, seconds + 0.0001);
+  const before = await identityOf(f, at);
+  fs.writeFileSync(big, Buffer.alloc(PIN_HASH_MAX_BYTES + 1, 8));
+  fs.utimesSync(big, seconds + 0.0004, seconds + 0.0004);
+  const after = await identityOf(f, at);
+  assert.equal(
+    Math.floor(Number(after.mtimeNs) / 1e6),
+    Math.floor(Number(before.mtimeNs) / 1e6),
+  );
+  assert.equal(sameIdentity(before, after), false);
+});
+
+test("a file that shrinks while it is hashed is a conflict", async (t) => {
+  const f = fixture(t);
+  const file = f.write("out/ep6.md", "x".repeat(200_000));
+  const opened = await openPinned(f.assistants, agent, {
+    root: "workspace",
+    path: "out/ep6.md",
+  });
+  try {
+    fs.truncateSync(file, 100_000);
+    await assert.rejects(pinIdentity(opened.handle, opened.stat), (error) => {
+      return error.key === "conflict" && error.status === 409;
+    });
+  } finally {
+    await opened.handle.close();
+  }
 });
 
 test("touching a small file keeps its identity", async (t) => {
@@ -190,8 +226,8 @@ test("touching a small file keeps its identity", async (t) => {
     assert.equal(sameIdentity(before, after), same);
   }
   // Stored extras are ignored; null never matches.
-  const stored = { size: 1, mtimeMs: 2, ino: 3, type: "text/markdown", kind: "text" };
-  assert.equal(sameIdentity(stored, { size: 1, mtimeMs: 2, ino: 3 }), true);
+  const stored = { size: 1, mtimeNs: "2", ino: 3, type: "text/markdown", kind: "text" };
+  assert.equal(sameIdentity(stored, { size: 1, mtimeNs: "2", ino: 3 }), true);
   assert.equal(sameIdentity(stored, null), false);
   assert.equal(sameIdentity(null, null), false);
 });
@@ -218,7 +254,7 @@ test("a project pin opens only while the folder is granted", async (t) => {
   await assert.rejects(openPinned(f.assistants, agent, at), key("shareOutside"));
   fs.rmSync(path.join(f.project, "docs"));
   fs.symlinkSync(f.outside, path.join(f.project, "docs"));
-  await assert.rejects(openPinned(f.assistants, agent, at));
+  await assert.rejects(openPinned(f.assistants, agent, at), key("projectPathRefused"));
 });
 
 test("projectShareTarget resolves a hook's folders at pin time", async (t) => {
@@ -251,13 +287,15 @@ test("projectShareTarget resolves a hook's folders at pin time", async (t) => {
     projectShareTarget(f.assistants, agent, request, owner).relative,
     "docs/plan.md",
   );
-  assert.throws(() =>
-    projectShareTarget(
-      f.assistants,
-      agent,
-      { projectId: "p1", path: "../outside" },
-      null,
-    ),
+  assert.throws(
+    () =>
+      projectShareTarget(
+        f.assistants,
+        agent,
+        { projectId: "p1", path: "../outside" },
+        null,
+      ),
+    key("projectPathRefused"),
   );
   assert.throws(
     () =>
@@ -291,6 +329,13 @@ test("pinType names video, audio, image, markdown and other files", async (t) =>
     ["clip.mp4", mp4, { type: "video/mp4", kind: "video" }],
     ["song.mp3", id3, { type: "audio/mpeg", kind: "audio" }],
     ["chart.png", png, { type: "image/png", kind: "image" }],
+    ["photo.jpg", jpegOf(), { type: "image/jpeg", kind: "image" }],
+    ["photo.webp", webpOf(), { type: "image/webp", kind: "image" }],
+    [
+      "anim.gif",
+      Buffer.from("GIF89a\x01\x00\x01\x00\x00\x00\x00;", "latin1"),
+      { type: "image/gif", kind: "image" },
+    ],
     ["photo.heic", heic, { type: "application/octet-stream", kind: "file" }],
     ["ep.md", "# Episode\n", { type: "text/markdown", kind: "text" }],
     ["x.bin", Buffer.from([1, 2, 3]), { type: "application/octet-stream", kind: "file" }],
@@ -321,6 +366,32 @@ test("pinType names video, audio, image, markdown and other files", async (t) =>
       kind: "video",
       duration: 42,
     });
+  } finally {
+    await opened.handle.close();
+  }
+});
+
+test("pinType sniffs a large image from its header only", async (t) => {
+  const f = fixture(t);
+  const body = Buffer.alloc(10 * 1024 * 1024);
+  png.copy(body);
+  f.write("big.png", body);
+  const opened = await openPinned(f.assistants, agent, {
+    root: "workspace",
+    path: "big.png",
+  });
+  let read = 0;
+  const counting = {
+    async read(buffer, offset, length, position) {
+      const result = await opened.handle.read(buffer, offset, length, position);
+      read += result.bytesRead;
+      return result;
+    },
+  };
+  try {
+    const type = await pinType(counting, opened.size, opened.name);
+    assert.deepEqual(type, { type: "image/png", kind: "image" });
+    assert.ok(read <= PIN_IMAGE_HEAD_BYTES + 4096, `read ${read} bytes`);
   } finally {
     await opened.handle.close();
   }

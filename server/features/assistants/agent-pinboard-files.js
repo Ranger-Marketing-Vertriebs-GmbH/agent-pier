@@ -13,6 +13,9 @@ import {
 // larger ones by size, modification time and inode.
 export const PIN_HASH_MAX_BYTES = 1024 * 1024;
 const CHUNK_BYTES = 64 * 1024;
+// An image's type and frame size lie in its first bytes; a JPEG's metadata segments
+// (EXIF, ICC) come before the frame header and stay well inside this.
+export const PIN_IMAGE_HEAD_BYTES = 256 * 1024;
 const download = { type: "application/octet-stream", kind: "file" };
 
 /**
@@ -71,14 +74,21 @@ async function readAt(handle, offset, length) {
 const plain = (value) =>
   value <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(value) : String(value);
 
-/** Size, modification time and inode of a (bigint) stat, as a pin's identity keeps them. */
+/**
+ * Size, modification time (in nanoseconds, as text) and inode of a (bigint) stat, as a
+ * pin's identity keeps them.
+ */
 export const statIdentity = (stat) => ({
   size: Number(stat.size),
-  mtimeMs: plain(stat.mtimeMs),
+  mtimeNs: String(stat.mtimeNs),
   ino: plain(stat.ino),
 });
 
-/** Which file a pin shows: size, modification time, inode, and the bytes' hash when small. */
+/**
+ * Which file a pin shows: size, modification time, inode, and the bytes' hash when
+ * small. A file that shrinks while it is hashed is a conflict (409), as in
+ * readShareSource: a hash of a prefix would name content that never existed.
+ */
 export async function pinIdentity(handle, stat) {
   const identity = statIdentity(stat);
   const { size } = identity;
@@ -86,7 +96,7 @@ export async function pinIdentity(handle, stat) {
   const hash = createHash("sha256");
   for (let offset = 0; offset < size;) {
     const chunk = await readAt(handle, offset, Math.min(CHUNK_BYTES, size - offset));
-    if (!chunk.length) break;
+    if (!chunk.length) throw assistantProblem("conflict", 409);
     hash.update(chunk);
     offset += chunk.length;
   }
@@ -97,7 +107,7 @@ export async function pinIdentity(handle, stat) {
 export function sameIdentity(a, b) {
   if (!a || !b) return false;
   if (a.hash && b.hash) return a.hash === b.hash;
-  return a.size === b.size && a.mtimeMs === b.mtimeMs && a.ino === b.ino;
+  return a.size === b.size && a.mtimeNs === b.mtimeNs && a.ino === b.ino;
 }
 
 /**
@@ -124,7 +134,10 @@ export async function pinType(handle, size, name) {
   const audio = audioType(head);
   if (audio) return { type: audio, kind: "audio" };
   if (size <= MAX_ATTACHMENT_BYTES) {
-    const detected = detectAttachment(await readAt(handle, 0, size), name);
+    const detected = detectAttachment(
+      await readAt(handle, 0, Math.min(PIN_IMAGE_HEAD_BYTES, size)),
+      name,
+    );
     if (detected?.kind === "image")
       return INLINE_IMAGE_TYPES.has(detected.type)
         ? { type: detected.type, kind: "image" }
