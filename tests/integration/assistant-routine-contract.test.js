@@ -292,6 +292,7 @@ test(
         "agentpier_coding_session",
         // Email on the agent's grants; it answers MAIL_NOT_GRANTED without one.
         "agentpier_mail",
+        "agentpier_pinboard",
         "agentpier_share_file",
         "agentpier_workspace",
         "apply_patch",
@@ -432,6 +433,7 @@ test(
     assert.deepEqual([...narrowed].sort(), [
       "agentpier_coding_session",
       "agentpier_mail",
+      "agentpier_pinboard",
       "agentpier_share_file",
       "agentpier_workspace",
       "session_status",

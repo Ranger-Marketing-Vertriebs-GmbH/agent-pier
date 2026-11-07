@@ -281,6 +281,7 @@ test(
     assert.deepEqual(
       [...job.payload.toolsAllow].sort(),
       [
+        "agentpier_pinboard",
         "agentpier_share_file",
         "edit",
         "exec",
