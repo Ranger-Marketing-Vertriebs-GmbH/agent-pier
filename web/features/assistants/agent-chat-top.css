@@ -65,8 +65,7 @@
   font-variant-numeric: tabular-nums;
 }
 .agent-chat-top-action,
-.agent-chat-switch .agent-chat-summarise,
-.assistant-header .agent-chat-summarise {
+.agent-chat-switch-chats {
   display: inline-flex;
   flex: none;
   align-items: center;
@@ -101,23 +100,8 @@
   align-items: center;
   gap: var(--space-1);
 }
-.agent-chat-switch-actions {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: var(--space-1);
+.agent-chat-switch-chats {
   margin-left: auto;
-}
-/* Summarize now is an icon here, as the row's other actions. */
-.agent-chat-switch .agent-chat-summarise {
-  justify-content: center;
-  width: var(--touch-target);
-  padding: 0;
-  border-color: transparent;
-  background: none;
-}
-.agent-chat-switch .agent-chat-summarise-label {
-  display: none;
 }
 
 /* The pinboard in place of the transcript (phones, panes) or docked beside it. */

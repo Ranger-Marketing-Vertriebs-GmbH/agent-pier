@@ -4,6 +4,7 @@ export const agentChatsCopy = {
   chats: "Chats",
   showChats: (name) => `Chats mit ${name}`,
   summariseNow: "Jetzt zusammenfassen",
+  summariseThisChat: "Diesen Chat zusammenfassen",
   summariseWorking: "Nicht möglich, solange der Agent arbeitet.",
   summariseRunning: "Eine Zusammenfassung läuft bereits.",
   summariseUnavailable: "Der Agent-Dienst ist gerade nicht verfügbar.",

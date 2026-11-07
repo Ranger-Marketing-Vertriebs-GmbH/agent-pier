@@ -1,11 +1,20 @@
 /* The Chats sheet and the states of an archived or deleted chat (AGENTPIER-181). */
-.agent-chats-sheet .agent-chats-new {
+/* New chat and Summarize this chat, stacked above the list. */
+.agent-chats-sheet .agent-chats-top {
+  display: grid;
+  gap: var(--space-2);
+  width: 100%;
+  margin-bottom: var(--space-3);
+}
+.agent-chats-sheet .agent-chats-top:empty {
+  display: none;
+}
+.agent-chats-sheet .agent-chats-new,
+.agent-chats-sheet .agent-chats-summarise {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  width: 100%;
-  margin-bottom: var(--space-3);
 }
 .agent-chats-sheet .agent-chat-list {
   max-height: 50dvh;
@@ -97,4 +106,9 @@
   .assistant-sidebar-chat {
     min-height: var(--touch-target);
   }
+}
+.agent-chats-sheet .agent-chats-reason {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--font-size-md);
 }

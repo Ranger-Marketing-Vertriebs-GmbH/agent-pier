@@ -3,31 +3,32 @@ import Icon from "../../../components/Icon.jsx";
 import { agentChatsCopy as copy } from "../../../lib/i18n/messages/agent-chats.js";
 
 /**
- * Summarize now in the owner's chat bar, at any time (AGENTPIER-263): the same action
- * as the long-chat hint's button, which asks first (SummariseConfirm.jsx). `reason` is
- * why it cannot run now (it stays visible as the tooltip and is announced); empty when
- * it can. On a phone only the icon shows.
+ * Summarize this chat in the Chats sheet, under New chat, at any time (AGENTPIER-263):
+ * the same action as the long-chat hint's button, which asks first
+ * (SummariseConfirm.jsx). `reason` is why it cannot run now, shown under it; empty
+ * when it can. `onRun` runs first (the sheet closes, so the question shows).
  */
-export default function SummariseNowButton({ run, reason = "" }) {
+export default function SummariseNowButton({ run, reason = "", onRun }) {
   const reasonId = useId();
   return (
     <>
       <button
         type="button"
-        className="button secondary compact agent-chat-summarise"
+        className="button secondary agent-chats-summarise"
         disabled={Boolean(reason)}
-        title={reason || undefined}
         aria-describedby={reason ? reasonId : undefined}
-        aria-label={copy.summariseNow}
-        onClick={run}
+        onClick={() => {
+          onRun?.();
+          run();
+        }}
       >
-        <Icon name="summarise" size={14} />
-        <span className="agent-chat-summarise-label">{copy.summariseNow}</span>
+        <Icon name="summarise" size={16} />
+        {copy.summariseThisChat}
       </button>
       {reason && (
-        <span id={reasonId} className="visually-hidden">
+        <p id={reasonId} className="agent-chats-reason">
           {reason}
-        </span>
+        </p>
       )}
     </>
   );
