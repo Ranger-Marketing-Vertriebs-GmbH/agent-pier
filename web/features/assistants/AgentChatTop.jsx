@@ -2,6 +2,7 @@ import React from "react";
 import { usePageAction } from "../../app/page-action.js";
 import Icon from "../../components/Icon.jsx";
 import useMobileLayout from "../../lib/useMobileLayout.js";
+import { usePane } from "../../lib/pane-context.js";
 import { agentChatsCopy } from "../../lib/i18n/messages/agent-chats.js";
 import { agentPinboardCopy } from "../../lib/i18n/messages/agent-pinboard.js";
 import TalkButton from "../talk/TalkButton.jsx";
@@ -53,12 +54,14 @@ export default function AgentChatTop({
   const chatList = !assistant.teamMemberId;
   const newChat = chatList && assistant.userAccess?.mode !== "own";
   const shownSummarise = chatList ? summarise : null;
-  // ⌘K takes these from the compact header too (search-entries.js).
-  usePageAction("chat-new", owner.create, newChat && !assistant.archivedAt);
+  // ⌘K takes these from the compact header too (search-entries.js); in a split view
+  // only the focused pane offers them.
+  const focused = usePane()?.focused !== false;
+  usePageAction("chat-new", owner.create, focused && newChat && !assistant.archivedAt);
   usePageAction(
     "chat-summarise",
     () => shownSummarise?.run(),
-    Boolean(shownSummarise) && !shownSummarise.reason,
+    focused && Boolean(shownSummarise) && !shownSummarise.reason,
   );
   const pinLabel = agentPinboardCopy.tabWithCount(pinboard.fresh);
   const actions = (
