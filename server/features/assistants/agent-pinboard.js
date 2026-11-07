@@ -90,9 +90,9 @@ export class AgentPinboard {
   open(assistantId, entryId) {
     return this.viewer.file(assistantId, entryId);
   }
-  // The pinboard cards of a chat's history (Task 7).
-  notesFor() {
-    return [];
+  // The pinboard cards of a chat's history.
+  notesFor(conversationId) {
+    return this.viewer.notesFor(conversationId);
   }
 
   async invoke(invocation, input) {
