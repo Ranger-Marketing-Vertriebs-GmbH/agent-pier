@@ -5,6 +5,7 @@
 import { reportLimits } from "./member-reports.js";
 import { loopGuardCaps } from "./agent-loop-guard.js";
 import { agentText } from "../../lib/i18n/agent-text.js";
+import { PINBOARD_LIMITS } from "./agent-pinboard-store.js";
 const reasons = {
   TELEGRAM_NOT_CONNECTED:
     "No Telegram chat is paired for this person. Ask them to pair Telegram in the agent settings first; retrying does not help until then.",
@@ -279,6 +280,14 @@ const reasons = {
     "Only the owner's own agents that are not team members and have no Telegram bot for other people can create projects. Do not retry; ask your lead or the owner.",
   PROJECT_FOLDER_UNAVAILABLE:
     "AgentPier could not create a separate project in the owner's default working directory: it is missing, not writable or inside another project, or git init failed. Nothing was left behind. Do not retry unchanged; tell the owner.",
+  PINBOARD_LIST_NOT_FOUND:
+    "No such pinboard list of yours. Call agentpier_pinboard with action list for your lists and their listIds.",
+  PINBOARD_ENTRY_NOT_FOUND:
+    "No such entry on this pinboard list. Call agentpier_pinboard with action list for its entries and their ids.",
+  PINBOARD_LIST_LIMIT: `You already have ${PINBOARD_LIMITS.openLists} open pinboard lists. Archive or delete one with agentpier_pinboard before you create another.`,
+  PINBOARD_ENTRY_LIMIT: `This pinboard list already holds ${PINBOARD_LIMITS.entries} entries. Unpin one or use another list before you pin more.`,
+  PINBOARD_OWNER_ONLY:
+    "The pinboard is only for the owner: it is not available in a restricted user's chat or on a user's own agent. Do not retry; share the file with agentpier_share_file if the person needs it.",
   UNAVAILABLE: "AgentPier operation unavailable; inspect its state before retrying.",
 };
 const byKey = {
@@ -409,6 +418,11 @@ const byKey = {
   provider: "MODEL_UNAVAILABLE",
   unavailable: "UNAVAILABLE",
   turnUnconfirmed: "TURN_UNCONFIRMED",
+  pinboardListNotFound: "PINBOARD_LIST_NOT_FOUND",
+  pinboardEntryNotFound: "PINBOARD_ENTRY_NOT_FOUND",
+  pinboardListLimit: "PINBOARD_LIST_LIMIT",
+  pinboardEntryLimit: "PINBOARD_ENTRY_LIMIT",
+  pinboardOwnerOnly: "PINBOARD_OWNER_ONLY",
 };
 const byStatus = {
   400: "INVALID_INPUT",
