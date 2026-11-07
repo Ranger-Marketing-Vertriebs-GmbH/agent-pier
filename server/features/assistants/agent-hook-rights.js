@@ -163,7 +163,7 @@ export const readsBeyondGuard = (effective) =>
  * agent may always send its owner files (owner-shares.js).
  */
 export function hookTools(effective, ceiling) {
-  const tools = [...baseTools, "agentpier_share_file"];
+  const tools = [...baseTools, "agentpier_share_file", "agentpier_pinboard"];
   if (effective.research) {
     if (ceiling.webSearch) tools.push(...capabilityTools.webSearch);
     if (ceiling.webFetch) tools.push(...capabilityTools.webFetch);

@@ -2,7 +2,7 @@ import { isDeepStrictEqual } from "node:util";
 import { assistantProblem } from "./assistant-validation.js";
 import { ownerChat } from "./owner-runs.js";
 import { mainConversation } from "./routine-targets.js";
-import { routineActions } from "./team-bridge-actions.js";
+import { ownerFileActions, routineActions } from "./team-bridge-actions.js";
 import * as hooks from "./agent-hook-bridge.js";
 
 // The owner decided (AGENTPIER-274): an agent may always send files back to him.
@@ -47,7 +47,7 @@ export function turnlessBinding(bridge, input) {
   if (hooks.hookSession(bridge, input)) {
     const hook = hooks.hookActions.has(input.action) && hooks.hookRun(bridge, input);
     if (hook) return { hook };
-    const owner = input.action === "share_file" && ownerShare(bridge, input);
+    const owner = ownerFileActions.has(input.action) && ownerShare(bridge, input);
     if (owner) return { owner };
     throw assistantProblem("invalid", 403);
   }
@@ -56,14 +56,14 @@ export function turnlessBinding(bridge, input) {
   // lead's ask, delegate and members, and a member's own tools serve a routine's run.
   const routine = bridge.routineRun(input);
   if (routine) return { routine };
-  const owner = input.action === "share_file" && ownerShare(bridge, input);
+  const owner = ownerFileActions.has(input.action) && ownerShare(bridge, input);
   return owner ? { owner } : null;
 }
 
 /** Re-checks an owner share's ticket on every step (TeamBridge.valid); throws. */
 export function assertOwnerShare(bridge, record) {
   if (
-    record.action !== "share_file" ||
+    !ownerFileActions.has(record.action) ||
     !isDeepStrictEqual(ownerShare(bridge, record), record.owner)
   )
     throw assistantProblem("invalid", 403);

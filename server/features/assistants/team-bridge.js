@@ -29,6 +29,7 @@ import {
   bridgeTool,
   inheritedAction,
   memberActions,
+  ownerFileActions,
   peerActions,
   personalActions,
   routineActions,
@@ -153,7 +154,7 @@ export class TeamBridge {
       (parent.teamMemberId &&
         !(
           record.action === "workspace" ||
-          record.action === "share_file" ||
+          ownerFileActions.has(record.action) ||
           memberActions.has(record.action) ||
           (personalActions.has(record.action) && parent.lifetime === "permanent") ||
           inheritedAction(parent, record.action)
@@ -471,6 +472,8 @@ export class TeamBridge {
         return this.assistants.workflows.invoke(invocation, input);
       if (action === "share_file")
         return this.assistants.shares.invoke(invocation, input);
+      if (action === "pinboard")
+        return this.assistants.pinboard.invoke(invocation, input);
       if (action === "routine") return this.assistants.routines.invoke(invocation, input);
       if (action === "hook")
         return invokeHook(this.assistants.routines?.hooks, invocation, input);

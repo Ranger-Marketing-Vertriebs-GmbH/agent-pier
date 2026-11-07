@@ -169,7 +169,13 @@ test("effectiveRights caps every tick live", () => {
 });
 
 test("hookTools builds toolsAllow from ticks, plus sharing files with the owner", () => {
-  const base = ["session_status", "memory_search", "memory_get", "agentpier_share_file"];
+  const base = [
+    "session_status",
+    "memory_search",
+    "memory_get",
+    "agentpier_share_file",
+    "agentpier_pinboard",
+  ];
   assert.deepEqual(hookTools(hookDefaults, none), base);
   const all = hookTools(
     {

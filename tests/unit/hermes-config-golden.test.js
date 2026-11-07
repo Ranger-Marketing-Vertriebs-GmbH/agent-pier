@@ -110,6 +110,7 @@ test("a lead and a member get the team plugin with their own team tools", () => 
       "agentpier_coding_session",
       "agentpier_goal",
       "agentpier_mail",
+      "agentpier_pinboard",
       "agentpier_preview",
       "agentpier_share_file",
       "agentpier_ssh_access",
