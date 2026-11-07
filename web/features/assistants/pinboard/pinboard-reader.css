@@ -81,3 +81,41 @@
   align-content: stretch;
   grid-template-rows: minmax(0, 1fr);
 }
+.pinboard-reader-titles {
+  flex: 1;
+}
+.pinboard-reader-download {
+  flex: none;
+}
+
+/* On a phone a file being read fills the screen (PinboardTab `full-screen`): the
+   chat's header, row and composer give way; the reader's own bar sits on top with
+   Back, the file and its place in the list, previous / next at the bottom. */
+.assistant-chat.pinboard-reading > :not(.assistant-chat-body),
+.assistant-chat.pinboard-reading .assistant-chat-panel > :not(.assistant-pinboard-tab) {
+  display: none;
+}
+.assistant-pinboard-tab.full-screen {
+  padding: 0 var(--space-4);
+}
+.assistant-pinboard-tab.full-screen .pinboard-reader {
+  gap: var(--space-4);
+}
+.assistant-pinboard-tab.full-screen .pinboard-reader-header {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-base);
+  min-height: 56px;
+  margin: 0 calc(-1 * var(--space-4));
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--header-line);
+  background: var(--header-bg);
+}
+.assistant-pinboard-tab.full-screen .pinboard-reader-footer {
+  bottom: 0;
+  margin: 0 calc(-1 * var(--space-4));
+  padding: var(--space-3) var(--space-4)
+    calc(var(--space-3) + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--header-line);
+  background: var(--header-bg);
+}

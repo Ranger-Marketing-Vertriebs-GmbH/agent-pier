@@ -12,7 +12,18 @@ export const pinboardApi = {
   },
 };
 
-/** The pinned file's bytes (range requests for media); `download` saves it by name. */
-export function pinboardFileUrl(assistantId, entryId, { download = false } = {}) {
-  return `/api${base(assistantId, entryId)}/file${download ? "?download=1" : ""}`;
+/**
+ * The pinned file's bytes (range requests for media); `download` saves it by name.
+ * `version` names the entry's version, so a rewritten file is fetched afresh.
+ */
+export function pinboardFileUrl(
+  assistantId,
+  entryId,
+  { download = false, version } = {},
+) {
+  const query = new URLSearchParams();
+  if (version !== undefined) query.set("v", String(version));
+  if (download) query.set("download", "1");
+  const search = query.toString();
+  return `/api${base(assistantId, entryId)}/file${search ? `?${search}` : ""}`;
 }

@@ -379,7 +379,9 @@ export default function AssistantChat({
       deliver({ clientRequestId: crypto.randomUUID(), text: spoken }, []),
   });
   return (
-    <section className={`assistant-detail assistant-chat${pane ? " in-pane" : ""}`}>
+    <section
+      className={`assistant-detail assistant-chat${pane ? " in-pane" : ""}${pinboard.fullScreen ? " pinboard-reading" : ""}`}
+    >
       <AgentChatTop
         assistant={assistant}
         conversationId={conversationId}

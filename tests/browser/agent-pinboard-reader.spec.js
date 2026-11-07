@@ -15,6 +15,7 @@ const entry = (id, name, kind, extra = {}) => ({
   id,
   name,
   note: "",
+  version: 1,
   kind,
   size: 100,
   state: "ok",
@@ -36,7 +37,7 @@ const list = {
   ],
 };
 const media = [
-  entry("pic", "pic.png", "image"),
+  entry("pic", "pic.png", "image", { fresh: true }),
   entry("zip", "data.zip", "file"),
   entry("song", "song.mp3", "audio"),
 ];
@@ -88,7 +89,7 @@ for (const [view, use] of [
     test.use(use);
     const phone = view === "phone";
 
-    test("reads Markdown, steps through the list and marks entries seen once", async ({
+    test("reads Markdown, steps through the list and marks NEW entries seen once", async ({
       page,
     }) => {
       const state = await open(page);
@@ -121,7 +122,6 @@ for (const [view, use] of [
         /\/entries\/cut\/file/,
       );
       await reader.locator("video").dispatchEvent("loadeddata");
-      await expect.poll(() => state.seen).toEqual(["e6", "cut"]);
       await previous.click();
       await expect(reader.getByRole("heading", { name: "ep6.md" })).toBeVisible();
       await reader.getByRole("button", { name: /Next/ }).click();
@@ -137,8 +137,11 @@ for (const [view, use] of [
       );
       await expect(reader.getByRole("button", { name: /Next/ })).toBeDisabled();
       expect(state.files.some((file) => file.startsWith("big"))).toBe(false);
-      // Each entry was marked once, however often it was shown.
-      await expect.poll(() => [...state.seen].sort()).toEqual(["big", "cut", "e6"]);
+      // Only the NEW entry was marked, once, however often it was shown.
+      await expect(
+        reader.getByRole("link", { name: "Download", exact: true }),
+      ).toBeVisible();
+      expect(state.seen).toEqual(["e6"]);
 
       // Back returns to the lists at the same list.
       await reader.getByRole("button", { name: "Back to the lists" }).click();
@@ -153,7 +156,10 @@ for (const [view, use] of [
       await page.getByRole("button", { name: /pic\.png/ }).click();
       const reader = page.locator(".pinboard-reader");
       await expect(reader.getByText("Season 2 · 1 of 3")).toBeVisible();
-      await expect(reader.locator("img")).toHaveAttribute("src", /\/entries\/pic\/file$/);
+      await expect(reader.locator("img")).toHaveAttribute(
+        "src",
+        /\/entries\/pic\/file\?v=1$/,
+      );
       await reader.locator("img").evaluate((img) => img.dispatchEvent(new Event("load")));
       await expect.poll(() => state.seen).toEqual(["pic"]);
       await reader.getByRole("button", { name: "Open pic.png" }).click();
@@ -163,11 +169,60 @@ for (const [view, use] of [
       await expect(
         reader.getByRole("link", { name: "Download data.zip" }),
       ).toHaveAttribute("href", /\/entries\/zip\/file\?download=1$/);
-      await expect.poll(() => state.seen).toEqual(["pic", "zip"]);
+      // A file that is not NEW is not marked.
+      await expect(reader.getByText("Season 2 · 2 of 3")).toBeVisible();
+      expect(state.seen).toEqual(["pic"]);
       await reader.getByRole("button", { name: /Next/ }).click();
       await expect(reader.locator("audio")).toHaveAttribute(
         "src",
-        /\/entries\/song\/file$/,
+        /\/entries\/song\/file\?v=1$/,
       );
     });
   });
+
+test.describe("phone full screen", () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test("the reader fills the screen and Back returns to the list where it was", async ({
+    page,
+  }) => {
+    const many = Array.from({ length: 16 }, (_, n) =>
+      entry(`d${n}`, `Draft ${n}.md`, "text"),
+    );
+    await open(page, { entries: many });
+    await showPinboard(page, true);
+    const tab = page.locator(".assistant-pinboard-tab");
+    const row = page.getByRole("button", { name: /Draft 12\.md/ });
+    await row.scrollIntoViewIfNeeded();
+    const top = await tab.evaluate((element) => element.scrollTop);
+    expect(top).toBeGreaterThan(0);
+    await row.click();
+
+    const reader = page.locator(".pinboard-reader");
+    await expect(reader.getByRole("heading", { name: "Draft 12.md" })).toBeVisible();
+    // The chat's header, its row and the composer give way to the reader's own bar.
+    for (const hidden of [
+      ".assistant-header",
+      ".agent-chat-switch",
+      ".assistant-composer",
+    ])
+      await expect(page.locator(hidden)).toBeHidden();
+    const bar = reader.locator(".pinboard-reader-header");
+    await expect(bar.getByRole("button", { name: "Back to the lists" })).toBeVisible();
+    await expect(bar.getByText("Season 2 · 13 of 16")).toBeVisible();
+    await expect(bar.getByRole("link", { name: "Download", exact: true })).toBeVisible();
+    const viewport = page.viewportSize();
+    expect((await bar.boundingBox()).y).toBeLessThanOrEqual(1);
+    const footer = await reader.locator(".pinboard-reader-footer").boundingBox();
+    expect(footer.y + footer.height).toBeGreaterThan(viewport.height - 2);
+    await reader.getByRole("button", { name: /Next/ }).click();
+    await expect(bar.getByText("Season 2 · 14 of 16")).toBeVisible();
+
+    await bar.getByRole("button", { name: "Back to the lists" }).click();
+    await expect(reader).toHaveCount(0);
+    await expect(page.locator(".assistant-header")).toBeVisible();
+    await expect(page.locator(".assistant-composer")).toBeVisible();
+    await expect.poll(() => tab.evaluate((element) => element.scrollTop)).toBe(top);
+    await expect(page.getByRole("button", { name: /Draft 13\.md/ })).toBeFocused();
+  });
+});

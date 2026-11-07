@@ -11,6 +11,8 @@ export default function PinboardPanel({
   markSeen,
   navigate,
   focusListId,
+  reading,
+  onRead,
   onClose,
 }) {
   return (
@@ -27,6 +29,8 @@ export default function PinboardPanel({
         markSeen={markSeen}
         navigate={navigate}
         focusListId={focusListId}
+        reading={reading}
+        onRead={onRead}
       />
     </DockedPanel>
   );
