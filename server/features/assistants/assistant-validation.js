@@ -10,6 +10,7 @@ export const assistantProblem = (key, status = 400, ...args) => {
     serverMessages.assistants[key] ??
     serverMessages.agentCodingSessions[key] ??
     serverMessages.agentProjects[key] ??
+    serverMessages.agentPinboard[key] ??
     serverMessages.mail[key];
   return Object.assign(
     problem(typeof copy === "function" ? copy(...args) : copy, status),

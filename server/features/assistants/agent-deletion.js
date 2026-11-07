@@ -54,6 +54,9 @@ export const agentTables = [
   "assistant_team_records",
   "agent_coding_sessions",
   "agent_created_projects",
+  "agent_pinboard_lists",
+  "agent_pinboard_entries",
+  "agent_pinboard_changes",
   "agent_mail_cursors",
   "agent_mail_draft_files",
 ];
@@ -238,6 +241,10 @@ function removeRows(db, id) {
     remove(db, "agent_coding_sessions", "assistant_id=?", id);
     // Which projects it created; the projects stay the owner's.
     remove(db, "agent_created_projects", "assistant_id=?", id);
+    // Its pinboard: lists with their entries, and the change records (agent-pinboard-store.js).
+    remove(db, "agent_pinboard_entries", "assistant_id=?", id);
+    remove(db, "agent_pinboard_lists", "assistant_id=?", id);
+    remove(db, "agent_pinboard_changes", "assistant_id=?", id);
     // Its "new mail since last check" positions (mail/agent-mail.js).
     remove(db, "agent_mail_cursors", "assistant_id=?", id);
     // Where the files it attached to its mail drafts came from.
