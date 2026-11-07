@@ -165,6 +165,7 @@ for (const [language, copy] of Object.entries(languages))
       await setup(page, language);
       await page.goto(baseURL + "/agents/home/chats/main");
       await expect(page.getByText("Dinner is planned.")).toBeVisible();
+      await openList(page, copy);
       await page.getByRole("button", { name: copy.newChat, exact: true }).click();
       await expect(page).toHaveURL(/\/agents\/home\/chats\/new-1$/);
       await expect(page.getByText("Dinner is planned.")).toHaveCount(0);
@@ -224,6 +225,27 @@ for (const [language, copy] of Object.entries(languages))
       await page.getByRole("button", { name: copy.actions("Dinner plans") }).click();
       await expect(page.getByRole("button", { name: copy.archive })).toHaveCount(0);
       await expect(page.getByRole("button", { name: copy.delete })).toHaveCount(0);
+    });
+
+    test("deleting the open chat it just started leaves a working page", async ({
+      page,
+    }) => {
+      const state = await setup(page, language);
+      await page.goto(baseURL + "/agents/home/chats/main");
+      await expect(page.getByText("Dinner is planned.")).toBeVisible();
+      await openList(page, copy);
+      await page.getByRole("button", { name: copy.newChat, exact: true }).click();
+      await expect(page).toHaveURL(/\/agents\/home\/chats\/new-1$/);
+      await openList(page, copy);
+      await page.getByRole("button", { name: copy.actions(copy.newChat) }).click();
+      await page.getByRole("button", { name: copy.delete, exact: true }).click();
+      await page.getByRole("button", { name: copy.deleteNow, exact: true }).click();
+      await expect.poll(() => state.conversations.map((c) => c.id)).toEqual(["main"]);
+      await expect(page.locator("dialog[open]")).toHaveCount(0);
+      await expect(page.getByText(copy.deleted)).toBeVisible();
+      await page.getByRole("button", { name: copy.toMain }).click();
+      await expect(page).toHaveURL(/\/agents\/home\/chats\/main$/);
+      await expect(page.getByText("Dinner is planned.")).toBeVisible();
     });
 
     test("archived chats are read-only", async ({ page }) => {

@@ -360,12 +360,13 @@ The information architecture is recorded in
   status line, not the model id). On a phone the status there is the dot alone (its word
   is the dot's label and tooltip), so the title stays readable, and every header icon is
   a 44px touch target. The work goal (with **Stop**, in a sheet) and the events (with a
-  working dot while one runs) are header icons, beside **Talk**. **Summarize now** has
-  its own `summarise` icon; the chat list keeps `history`. On a phone a segmented **Chat | Pinboard (n)**
-  switch replaces the former chat-selector row, so the chat gains no extra row; **New
-  chat** and the chat list are icon buttons beside it. A team member's chat has no row,
-  only a pin icon in the header. On a computer the header carries **Pinboard**, **New
-  chat** and **Summarize now**, and the pinboard docks beside the chat as a `DockedPanel`.
+  working dot while one runs) are header icons, beside **Talk**. **New chat** and
+  **Summarize this chat** (`summarise` icon) live in the Chats sheet, which the chat
+  title opens, and in ⌘K, never as loose icons. On a phone a segmented **Chat | Pinboard (n)**
+  switch replaces the former chat-selector row, so the chat gains no extra row; a
+  labelled **Chats** button (`chats` icon) beside it opens the sheet. A team member's
+  chat has no row, only a pin icon in the header. On a computer the header carries
+  **Pinboard**, and the pinboard docks beside the chat as a `DockedPanel`.
   Pinboard list titles are `h3` headings. A pinned file opens in the pinboard's reader;
   on a phone the reader is full screen with its own bar (Back, the file, its list and
   place, Download) and previous / next at the bottom, while the chat's header, row and

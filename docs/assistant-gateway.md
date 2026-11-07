@@ -4038,8 +4038,10 @@ archived.`); the refusal comes before any run starts, and other refusals are not
 - Delete: `DELETE …/conversations/:id {confirm: true}` (400 `CHAT_CONFIRM` without it)
   marks the chat deleted, so every route answers 404, closes its open views, forgets
   its cached messages, request texts, files, shared files, routine results, memory notes
-  and queued message, and deletes its native session with `deleteTranscript: true` and
-  what OpenClaw keeps of it (`server/features/assistants/chat-removal.js`): the
+  and queued message, and answers. Right after, outside the agents' admission and one
+  delete at a time, it deletes the native session with `deleteTranscript: true` and
+  what OpenClaw keeps of it (`server/features/assistants/chat-removal.js`), so a slow
+  or unresponsive Gateway never holds the confirmation or other agent actions: the
   `<session id>.jsonl.deleted.*` archive files in `state/agents/<agent>/sessions/`,
   the compressed archive copies in the agent's database (`session_transcript_archives`
   in `state/agents/<agent>/agent/openclaw-agent.sqlite`) and the session's Goal

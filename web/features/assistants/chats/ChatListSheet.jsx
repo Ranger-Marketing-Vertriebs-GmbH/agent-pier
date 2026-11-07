@@ -5,6 +5,7 @@ import ErrorMessage from "../../../components/ErrorMessage.jsx";
 import { agentChatsCopy as copy } from "../../../lib/i18n/messages/agent-chats.js";
 import ChatList from "./ChatList.jsx";
 import ChatActionsSheet from "./ChatActionsSheet.jsx";
+import SummariseNowButton from "./SummariseNowButton.jsx";
 import "./agent-chats.css";
 
 /**
@@ -12,6 +13,8 @@ import "./agent-chats.css";
  * newest first, and the archived ones behind "Archived chats" at the bottom. `chats`
  * is useAgentChats' state; `onOpen(chat)` opens one, `onCreated(chat)` a new one.
  * `readOnly` (a user's own agent, for the owner) offers neither New chat nor actions.
+ * `summarise` (summariseAction's `{ run, reason }`, the owner's open chat) adds
+ * Summarize this chat under New chat.
  */
 export default function ChatListSheet({
   open,
@@ -22,6 +25,7 @@ export default function ChatListSheet({
   onCreated,
   onClose,
   readOnly = false,
+  summarise = null,
 }) {
   const [acting, setActing] = useState(null);
   const [creating, setCreating] = useState(false);
@@ -52,17 +56,22 @@ export default function ChatListSheet({
         onCancel={onClose}
         className="agent-chats-sheet"
       >
-        {!archivedView && !readOnly && (
-          <button
-            type="button"
-            className="button primary agent-chats-new"
-            disabled={creating}
-            onClick={create}
-          >
-            <Icon name="plus" size={16} />
-            {copy.newChat}
-          </button>
-        )}
+        <div className="agent-chats-top">
+          {!archivedView && !readOnly && (
+            <button
+              type="button"
+              className="button primary agent-chats-new"
+              disabled={creating}
+              onClick={create}
+            >
+              <Icon name="plus" size={16} />
+              {copy.newChat}
+            </button>
+          )}
+          {!archivedView && summarise && (
+            <SummariseNowButton {...summarise} onRun={onClose} />
+          )}
+        </div>
         <ErrorMessage error={chats.error} />
         {list === null ? (
           <p role="status">{copy.loading}</p>

@@ -178,13 +178,9 @@ test.describe("on a phone", () => {
       .locator("..")
       .evaluate((e) => parseFloat(getComputedStyle(e, "::after").height));
     expect(area).toBeGreaterThanOrEqual(44);
-    // Chats and Summarize now do not share a glyph.
-    const glyph = (name) =>
-      switchRow(page)
-        .getByRole("button", { name, exact: true })
-        .locator("path")
-        .getAttribute("d");
-    expect(await glyph("Chats")).not.toBe(await glyph("Summarize now"));
+    // The row holds the switch and Chats only: New chat and Summarize this chat
+    // are in the Chats sheet.
+    await expect(switchRow(page).getByRole("button")).toHaveText(["Chats"]);
   });
 
   test("the work goal opens a sheet whose Stop ends it", async ({ page }) => {
@@ -414,8 +410,9 @@ test.describe("on a desktop", () => {
     const state = await open(page);
     await expect(switchRow(page)).toHaveCount(0);
     const header = page.locator(".assistant-header");
-    await expect(header.getByRole("button", { name: "New chat" })).toBeVisible();
-    await expect(header.getByRole("button", { name: "Summarize now" })).toBeVisible();
+    // New chat and Summarize this chat are in the Chats sheet, not the header.
+    await expect(header.getByRole("button", { name: "New chat" })).toHaveCount(0);
+    await expect(header.getByRole("button", { name: /^Summarize/ })).toHaveCount(0);
     const button = header.getByRole("button", { name: "Pinboard (2)" });
     await button.click();
     await expect(button).toHaveAttribute("aria-expanded", "true");

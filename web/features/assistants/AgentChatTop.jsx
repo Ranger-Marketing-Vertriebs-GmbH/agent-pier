@@ -3,7 +3,6 @@ import { usePageAction } from "../../app/page-action.js";
 import Icon from "../../components/Icon.jsx";
 import useMobileLayout from "../../lib/useMobileLayout.js";
 import { usePane } from "../../lib/pane-context.js";
-import { agentChatsCopy } from "../../lib/i18n/messages/agent-chats.js";
 import { agentPinboardCopy } from "../../lib/i18n/messages/agent-pinboard.js";
 import TalkButton from "../talk/TalkButton.jsx";
 import AgentEventsButton from "./AgentEventsButton.jsx";
@@ -13,17 +12,17 @@ import ChatSwitchRow from "./ChatSwitchRow.jsx";
 import SummariseConfirm from "./SummariseConfirm.jsx";
 import WorkGoalButton from "./WorkGoalButton.jsx";
 import OwnerChatSelector from "./chats/OwnerChatSelector.jsx";
-import SummariseNowButton from "./chats/SummariseNowButton.jsx";
 import useOwnerChats from "./chats/useOwnerChats.js";
 import "./agent-chat-top.css";
 
 /**
  * Everything above an owner's agent chat transcript: one header row (the chat's title
- * under the agent's name, the work goal and the events as icons) and, on phones and
- * in split-view panes, one row with the Chat | Pinboard switch, the Chats sheet, New
- * chat and Summarize now (a team member's chat has no row: a header pin icon toggles
- * its pinboard). Wider, the header carries Pinboard, New chat and Summarize
- * now itself; the pinboard docks beside the chat. Then the chat's strips.
+ * under the agent's name, which opens the Chats sheet, the work goal and the events as
+ * icons) and, on phones and in split-view panes, one row with the Chat | Pinboard
+ * switch and Chats (a team member's chat has no row: a header pin icon toggles its
+ * pinboard). Wider, the header carries Pinboard itself; the pinboard docks beside the
+ * chat. New chat and Summarize this chat live in the Chats sheet (and ⌘K). Then the
+ * chat's strips.
  * `pinboard` is useChatPinboard's result; `talk` is `{ shown, talk, status }`;
  * `summarise` is summariseAction's result; `strips` ChatStrips' `entry`, `output`
  * and `stick`.
@@ -104,18 +103,6 @@ export default function AgentChatTop({
           {pinLabel}
         </button>
       )}
-      {!compact && newChat && (
-        <button
-          type="button"
-          className="button secondary compact agent-chat-top-action"
-          disabled={!!assistant.archivedAt}
-          onClick={owner.create}
-        >
-          <Icon name="plus" size={14} />
-          {agentChatsCopy.newChat}
-        </button>
-      )}
-      {!compact && shownSummarise && <SummariseNowButton {...shownSummarise} />}
       {talk.shown && (
         <TalkButton
           talk={talk.talk}
@@ -126,7 +113,7 @@ export default function AgentChatTop({
     </>
   );
   // A team member's chat gets no row: it never had the chat selector row.
-  const row = compact && chatList && (pinboard.enabled || newChat || shownSummarise);
+  const row = compact && chatList && (pinboard.enabled || newChat);
   return (
     <>
       <AssistantHeader
@@ -146,6 +133,7 @@ export default function AgentChatTop({
               assistant={assistant}
               conversationId={conversationId}
               owner={owner}
+              summarise={shownSummarise}
             />
           )
         }
@@ -156,9 +144,7 @@ export default function AgentChatTop({
           tab={pinboard.open ? "pinboard" : "chat"}
           onTab={pinboard.enabled ? (tab) => pinboard.setOpen(tab === "pinboard") : null}
           fresh={pinboard.fresh}
-          summarise={shownSummarise}
-          onChats={chatList ? () => owner.setOpen(true) : null}
-          onNewChat={newChat ? owner.create : null}
+          onChats={() => owner.setOpen(true)}
         />
       )}
       <SummariseConfirm longChat={longChat} />
