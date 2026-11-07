@@ -53,6 +53,7 @@ export const searchCopy = {
     addLabelRule: "Add label rule",
     startTickets: "Start tickets",
     showChanges: "Show changes",
+    summariseChat: "Summarize this chat",
   },
   // The search in a user's own app: the user's agents, their chats and pages, the account.
   user: {

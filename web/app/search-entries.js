@@ -35,6 +35,7 @@ import { connectionsRoute } from "../features/connections/routes.js";
 import { projectsRoute } from "../features/projects/routes.js";
 import { settingsTabOf } from "../features/operations/routes.js";
 import { termsOf } from "./search-index.js";
+import { chatActionEntries, pinboardEntry } from "./agent-chat-entries.js";
 
 /** `{ de, en }` of a label read from the reactive catalogs. */
 export const bilingual = (read) => ({
@@ -388,6 +389,8 @@ export function agentEntries(agents) {
         agentsOnly: true,
         aliases: (tabAliases[tab] || []).map((key) => named(oldTabs[key])),
       });
+    const pinboard = pinboardEntry(agent, name, root, { bilingual, join, named });
+    if (pinboard) entries.push(pinboard);
     for (const page of Object.keys(pageKeys)) {
       if (!tabs.includes(pageTabs[page]) || !agentPageAllowed(agent, page)) continue;
       entries.push({
@@ -520,6 +523,7 @@ export function actionEntries() {
       { action: "run-changes", pending: "run-changes" },
       { runOnly: true, aliases: [alias("diff")].map(bilingual) },
     ),
+    ...chatActionEntries(action, bilingual(text.agents), bilingual),
     action("add-github", () => searchCopy.actions.addGithub, inSection("github"), {
       route: connectionsRoute("github"),
       pending: "github-add",
@@ -546,7 +550,8 @@ export function withTerms(entry) {
 /**
  * The whole index. `agents` is the loaded agent list, `connections` the lazily loaded
  * names (or null); with agents off only the "Agenten" area of the agent entries stays.
- * `sessionOpen` and `runOpen` offer the actions on the session or pipeline run on screen.
+ * `sessionOpen` and `runOpen` offer the actions on the session or pipeline run on screen;
+ * `offered` lists the page actions a mounted page takes (chat: New chat, Summarize).
  */
 export function buildSearchIndex({
   agents = [],
@@ -554,6 +559,7 @@ export function buildSearchIndex({
   agentsEnabled,
   sessionOpen = false,
   runOpen = false,
+  offered = [],
 }) {
   return [
     ...pageEntries(),
@@ -564,5 +570,6 @@ export function buildSearchIndex({
     .filter((entry) => agentsEnabled || !entry.agentsOnly)
     .filter((entry) => sessionOpen || !entry.sessionOnly)
     .filter((entry) => runOpen || !entry.runOnly)
+    .filter((entry) => !entry.offer || offered.includes(entry.offer))
     .map(withTerms);
 }

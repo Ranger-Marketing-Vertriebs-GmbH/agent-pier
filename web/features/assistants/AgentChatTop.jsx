@@ -1,4 +1,5 @@
 import React from "react";
+import { usePageAction } from "../../app/page-action.js";
 import Icon from "../../components/Icon.jsx";
 import useMobileLayout from "../../lib/useMobileLayout.js";
 import { agentChatsCopy } from "../../lib/i18n/messages/agent-chats.js";
@@ -52,6 +53,13 @@ export default function AgentChatTop({
   const chatList = !assistant.teamMemberId;
   const newChat = chatList && assistant.userAccess?.mode !== "own";
   const shownSummarise = chatList ? summarise : null;
+  // ⌘K takes these from the compact header too (search-entries.js).
+  usePageAction("chat-new", owner.create, newChat && !assistant.archivedAt);
+  usePageAction(
+    "chat-summarise",
+    () => shownSummarise?.run(),
+    Boolean(shownSummarise) && !shownSummarise.reason,
+  );
   const pinLabel = agentPinboardCopy.tabWithCount(pinboard.fresh);
   const actions = (
     <>

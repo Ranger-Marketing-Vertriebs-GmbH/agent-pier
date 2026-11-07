@@ -17,6 +17,8 @@ import { SearchDialogContext, openSearchEvent } from "./search-dialog.js";
 import { loadConnectionNames } from "./search-connections.js";
 import { isMacPlatform, opensSearch } from "./search-shortcut.js";
 import { readRecent, rememberRecent } from "../features/quick-open/recent-items.js";
+// The page actions of the chat on screen (AgentChatTop).
+const chatActions = ["chat-new", "chat-summarise"];
 const SearchDialog = lazy(() => import("./SearchDialog.jsx"));
 
 // Connection names load on the first open and again when an open finds them older
@@ -92,7 +94,12 @@ export default function AppSearch({
     if (target.action === "session-changes")
       return navigate({ ...route, mode: "changes" });
     // The run page on screen takes the requested page action and opens its changes.
-    if (target.action === "run-changes") return undefined;
+    if (
+      target.action === "run-changes" ||
+      target.action === "chat-new" ||
+      target.action === "chat-summarise"
+    )
+      return undefined;
     if (target.action === "start-tickets" || target.action === "add-label-rule")
       return navigate(
         projectsRoute(
@@ -129,6 +136,7 @@ export default function AppSearch({
               // the run on screen offers its changes (not an imported history run)
               pageActionOffered("run-changes")
             }
+            offered={chatActions.filter(pageActionOffered)}
             connections={connections}
             workspace={workspace}
             recent={recent}

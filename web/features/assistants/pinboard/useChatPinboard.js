@@ -7,7 +7,7 @@ import usePinboard from "./usePinboard.js";
  * The pinboard of an agent chat in the owner's app: shown in place of the transcript
  * (phones, panes) or docked beside it (desktop). `open` / `setOpen(bool)` show and
  * hide it; `openPinboard(listId | null)` shows it scrolled to a list (`focusListId`),
- * as does `initialPinboard` (`{ listId } | null`) on mount and whenever its value
+ * as does `initialPinboard` (`{ listId, onClose? } | null`; `onClose` runs when it is hidden) on mount and whenever its value
  * changes. A user's own agent has no pinboard (`enabled` false). On phones and in
  * panes (`pane`) it is the chat's tab (`tab`), else it docks beside the chat
  * (`docked`); the transcript (`output`, `stick`) keeps its place meanwhile.
@@ -30,7 +30,13 @@ export default function useChatPinboard(assistant, initialPinboard, chat) {
     (listId = null) => setState({ open: true, focusListId: listId }),
     [],
   );
-  const setOpen = useCallback((open) => setState({ open, focusListId: null }), []);
+  const link = useRef(initialPinboard);
+  link.current = initialPinboard;
+  const setOpen = useCallback((open) => {
+    setState({ open, focusListId: null });
+    // The address that opened the pinboard drops its link (`initialPinboard.onClose`).
+    if (!open) link.current?.onClose?.();
+  }, []);
   const context = useMemo(
     () => ({ openPinboard: enabled ? openPinboard : null }),
     [enabled, openPinboard],

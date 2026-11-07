@@ -41,5 +41,12 @@ export const agentPinboardCopy = {
       removed: (n) => `${n} removed`,
     },
     namesJoin: ", ",
+    open: (title) => `Open pinboard list ${title}`,
+    gone: "deleted",
+  },
+  // The ⌘K search: the agent's pinboard entry ("<agent> · Pinboard") and its alias.
+  search: {
+    pinboard: "Pinboard",
+    alias: "Pinned files",
   },
 };

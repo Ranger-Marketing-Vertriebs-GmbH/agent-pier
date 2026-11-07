@@ -78,3 +78,9 @@ test("a chat link opens the agent's pinboard at a list", () => {
     conversationId: "c1",
   });
 });
+
+test("the pinboard link round-trips", () => {
+  const route = { view: "agents", assistantId: "a1", pinboard: true };
+  assert.equal(routePath(route), "/agents/a1/pinboard");
+  assert.deepEqual(readRoute({ pathname: "/agents/a1/pinboard", search: "" }), route);
+});

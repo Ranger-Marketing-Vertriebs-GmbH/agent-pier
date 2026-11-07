@@ -21,6 +21,7 @@ export default function SearchDialog({
   agentsEnabled,
   sessionOpen = false,
   runOpen = false,
+  offered = [],
   connections,
   workspace,
   recent,
@@ -29,6 +30,7 @@ export default function SearchDialog({
   const [query, setQuery] = useState("");
   const language = getLanguage();
   const sources = useQuickOpenSources();
+  const offeredKey = offered.join();
   const index = useMemo(
     () => [
       ...buildSearchIndex({
@@ -37,6 +39,7 @@ export default function SearchDialog({
         agentsEnabled,
         sessionOpen,
         runOpen,
+        offered: offeredKey ? offeredKey.split(",") : [],
       }),
       ...workspaceEntries(
         {
@@ -59,6 +62,7 @@ export default function SearchDialog({
       agentsEnabled,
       sessionOpen,
       runOpen,
+      offeredKey,
       workspace,
       sources,
     ],

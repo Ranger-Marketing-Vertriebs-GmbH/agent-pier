@@ -88,7 +88,7 @@ export function readRoute(location) {
       : { view: "agents", creating: true };
   }
   const agent =
-    /^\/agents\/([A-Za-z0-9_-]+)\/(settings|browser|chats\/([A-Za-z0-9_-]+)|teams\/([A-Za-z0-9_-]+))$/.exec(
+    /^\/agents\/([A-Za-z0-9_-]+)\/(settings|browser|pinboard|chats\/([A-Za-z0-9_-]+)|teams\/([A-Za-z0-9_-]+))$/.exec(
       pathname,
     );
   const child = agent?.[3] || agent?.[4];
@@ -100,15 +100,17 @@ export function readRoute(location) {
         ? { conversationId: agent[3], ...readPinboardQuery(location.search) }
         : agent[4]
           ? { teamId: agent[4] }
-          : agent[2] === "browser"
-            ? {
-                agentBrowser: true,
-                // The chat preview's "Take over" opens the view taking over.
-                ...(new URLSearchParams(location.search).get("takeover") === "1"
-                  ? { takeover: true }
-                  : {}),
-              }
-            : { agentSettings: true, ...readAgentSettingsQuery(location.search) }),
+          : agent[2] === "pinboard"
+            ? { pinboard: true }
+            : agent[2] === "browser"
+              ? {
+                  agentBrowser: true,
+                  // The chat preview's "Take over" opens the view taking over.
+                  ...(new URLSearchParams(location.search).get("takeover") === "1"
+                    ? { takeover: true }
+                    : {}),
+                }
+              : { agentSettings: true, ...readAgentSettingsQuery(location.search) }),
     };
   if (pathname === "/connections")
     return {
@@ -358,23 +360,27 @@ function basePath(route) {
       ? `/agents/${encodeURIComponent(route.assistantId)}/chats/${encodeURIComponent(route.conversationId)}${pinboardQuery(route)}`
       : route.teamId
         ? `/agents/${encodeURIComponent(route.assistantId)}/teams/${encodeURIComponent(route.teamId)}`
-        : route.assistantId && route.agentBrowser
-          ? `/agents/${encodeURIComponent(route.assistantId)}/browser${route.takeover ? "?takeover=1" : ""}`
-          : route.assistantId
-            ? `/agents/${encodeURIComponent(route.assistantId)}/settings${agentSettingsQuery(route)}`
-            : route.creating
-              ? `/agents?new=1${
-                  route.forUser ? `&${new URLSearchParams({ user: route.forUser })}` : ""
-                }${
-                  route.duplicate
-                    ? `&${new URLSearchParams({ duplicate: route.duplicate })}`
-                    : ""
-                }${
-                  route.template
-                    ? `&${new URLSearchParams({ template: route.template.id, revision: route.template.revision })}`
-                    : ""
-                }`
-              : `/agents${agentsHubQuery(route)}`;
+        : route.assistantId && route.pinboard
+          ? `/agents/${encodeURIComponent(route.assistantId)}/pinboard`
+          : route.assistantId && route.agentBrowser
+            ? `/agents/${encodeURIComponent(route.assistantId)}/browser${route.takeover ? "?takeover=1" : ""}`
+            : route.assistantId
+              ? `/agents/${encodeURIComponent(route.assistantId)}/settings${agentSettingsQuery(route)}`
+              : route.creating
+                ? `/agents?new=1${
+                    route.forUser
+                      ? `&${new URLSearchParams({ user: route.forUser })}`
+                      : ""
+                  }${
+                    route.duplicate
+                      ? `&${new URLSearchParams({ duplicate: route.duplicate })}`
+                      : ""
+                  }${
+                    route.template
+                      ? `&${new URLSearchParams({ template: route.template.id, revision: route.template.revision })}`
+                      : ""
+                  }`
+                : `/agents${agentsHubQuery(route)}`;
   if (route.view === "settings") return settingsRoutePath(route);
   if (route.view === "pipelines") return pipelineRoutePath(route);
   if (route.view === "projects") return projectsRoutePath(route);
