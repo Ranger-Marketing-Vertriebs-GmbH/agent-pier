@@ -17,6 +17,7 @@ import { AgentLifecycle } from "../../server/features/assistants/agent-lifecycle
 import { mailCursorTable } from "../../server/features/assistants/mail/agent-mail-cursors.js";
 import { mailDraftFilesTable } from "../../server/features/assistants/mail/agent-mail-draft-files.js";
 import { AgentSessionStore } from "../../server/features/assistants/coding-sessions/session-store.js";
+import { AgentPinboardStore } from "../../server/features/assistants/agent-pinboard-store.js";
 import { AgentProjectStore } from "../../server/features/assistants/agent-project-store.js";
 import { ChannelStore } from "../../server/features/assistant-channels/channel-store.js";
 import { TelegramFollowUps } from "../../server/features/assistant-channels/telegram-follow-ups.js";
@@ -125,6 +126,7 @@ export function lifecycleFixture(t) {
   const actions = new AssistantActionStore(db);
   const codingSessions = new AgentSessionStore(db);
   const createdProjects = new AgentProjectStore(db);
+  const pinboard = new AgentPinboardStore(db);
   mailCursorTable(db);
   mailDraftFilesTable(db);
   db.exec(
@@ -478,6 +480,7 @@ export function lifecycleFixture(t) {
     lifecycle,
     bindings,
     hooks,
+    pinboard,
     actions,
     channels,
     channelStore,

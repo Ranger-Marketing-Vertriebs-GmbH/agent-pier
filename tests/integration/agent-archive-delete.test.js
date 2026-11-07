@@ -261,6 +261,49 @@ test("delete removes every store of the agent and keeps everything else", async 
   );
 });
 
+test("deleting an agent removes its pinboard rows", async (t) => {
+  const f = lifecycleFixture(t);
+  const other = f.populated("Other");
+  const { agent } = f.populated();
+  const now = new Date().toISOString();
+  const seed = (id) => {
+    const list = f.pinboard.createList(id, { title: "Plan" }, now);
+    f.pinboard.pin(
+      id,
+      list.id,
+      { name: "A", note: "", root: "workspace", path: "a.md", identity: null },
+      now,
+    );
+    f.pinboard.recordChange({
+      conversationId: "c",
+      requestId: "r",
+      listId: list.id,
+      assistantId: id,
+      title: "Plan",
+      at: now,
+      kind: "added",
+      name: "A",
+    });
+  };
+  const rows = (id) =>
+    ["lists", "entries", "changes"].map(
+      (part) =>
+        f.store.db
+          .prepare(
+            `SELECT COUNT(*) AS n FROM agent_pinboard_${part} WHERE assistant_id=?`,
+          )
+          .get(id).n,
+    );
+  seed(agent.id);
+  seed(other.agent.id);
+  assert.deepEqual(rows(agent.id), [1, 1, 1]);
+  const archived = await f.lifecycle.archive(agent.id, { revision: agent.revision });
+  assert.ok(archived.archivedAt);
+  await f.lifecycle.delete(agent.id, { name: "Helper" });
+  assert.deepEqual(rows(agent.id), [0, 0, 0]);
+  assert.deepEqual(rows(other.agent.id), [1, 1, 1]);
+});
+
 test("the owner deletes a user's agent with her chats on it", async (t) => {
   const f = lifecycleFixture(t);
   const { agent, chat } = f.populated("Anna's agent", {
