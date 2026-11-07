@@ -3,7 +3,8 @@ import { stubContext } from "../helpers/live-stub.js";
 import { baseURL } from "../helpers/browser.js";
 import { chatFixture } from "../helpers/assistant-chat-fixture.js";
 
-// Summarize now in the owner's chat bar at any time (AGENTPIER-263): the same action
+// Summarize now in the owner's agent chat header (desktop) or the row under it
+// (phones) at any time (AGENTPIER-263): the same action
 // as the long-chat hint, disabled with a reason while a turn or a summary runs.
 const messages = [
   { id: "u0", role: "user", text: "Plan three dinners.", timestamp: 1, requestId: "q0" },
@@ -18,7 +19,7 @@ const request = (state) => ({
 const idle = { messages, requests: [request("completed")], stale: false };
 const synced = (page) => page.waitForFunction(() => window.agentFeed?.synced("dinner"));
 const button = (page) =>
-  page.locator(".agent-chat-bar").getByRole("button", {
+  page.locator(".assistant-header, .agent-chat-switch").getByRole("button", {
     name: "Summarize now",
   });
 

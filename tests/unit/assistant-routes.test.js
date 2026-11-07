@@ -53,3 +53,28 @@ test("the new-agent flow has its own address", () => {
     creating: true,
   });
 });
+
+test("a chat link opens the agent's pinboard at a list", () => {
+  const route = {
+    view: "agents",
+    assistantId: "a1",
+    conversationId: "c1",
+    pinboard: true,
+    pinboardList: "l1",
+  };
+  const path = "/agents/a1/chats/c1?pinboard=1&list=l1";
+  assert.equal(routePath(route), path);
+  assert.deepEqual(
+    readRoute({ pathname: "/agents/a1/chats/c1", search: "?pinboard=1&list=l1" }),
+    route,
+  );
+  assert.deepEqual(
+    readRoute({ pathname: "/agents/a1/chats/c1", search: "?pinboard=1&list=../x" }),
+    { view: "agents", assistantId: "a1", conversationId: "c1", pinboard: true },
+  );
+  assert.deepEqual(readRoute({ pathname: "/agents/a1/chats/c1", search: "?list=l1" }), {
+    view: "agents",
+    assistantId: "a1",
+    conversationId: "c1",
+  });
+});

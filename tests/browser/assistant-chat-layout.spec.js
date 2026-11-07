@@ -20,7 +20,10 @@ test.describe("agent chat header", () => {
     const status = header.locator(".assistant-header-status");
     await expect(status).toHaveClass(/\bready\b/);
     await expect(status).toContainText("Ready");
-    await expect(status).toContainText("· openai/gpt-4.1-mini");
+    // The chat's title takes the model's place (the chat selector, AgentChatTop).
+    await expect(
+      status.getByRole("button", { name: /^Chats with Home assistant: / }),
+    ).toBeVisible();
     await expect(status.locator(".assistant-header-dot")).toHaveCSS(
       "background-color",
       "rgb(134, 184, 142)",

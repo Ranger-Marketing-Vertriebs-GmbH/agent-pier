@@ -19,6 +19,7 @@ import { RowMenu, useRowMenu } from "../extensions/RowMenu.jsx";
 // replaces the app's mobile header, so it carries the navigation button itself. In a
 // split view's pane (`pane`: { menuItems, close, headerProps }) it has no navigation;
 // ⋯ holds the pane's entries and Settings, × takes the pane out of the view.
+// `statusExtra` (the agent chat's chat selector) takes the place of "· <model>".
 export default function AssistantHeader({
   assistant,
   variant,
@@ -32,6 +33,7 @@ export default function AssistantHeader({
   subtitle,
   backLabel,
   actions,
+  statusExtra = null,
   pane = null,
 }) {
   const menu = useRowMenu();
@@ -107,17 +109,23 @@ export default function AssistantHeader({
           {settings && !missing && !actions ? (
             <p className="assistant-header-sub">{subtitle || copy.settingsTab}</p>
           ) : (
-            <p className={`assistant-header-status ${status.tone}`}>
+            <div className={`assistant-header-status ${status.tone}`}>
               <StatusDot
                 tone={headerDotTone(status.tone, runtime?.availability)}
                 pulse={status.tone === "working"}
                 className="assistant-header-dot"
               />
               <span className="assistant-header-label">{status.label}</span>
-              {(!settings || actions) && detail && (
-                <span className="assistant-header-detail">· {detail}</span>
+              {statusExtra ? (
+                <>
+                  <span aria-hidden="true">·</span>
+                  {statusExtra}
+                </>
+              ) : (
+                (!settings || actions) &&
+                detail && <span className="assistant-header-detail">· {detail}</span>
               )}
-            </p>
+            </div>
           )}
         </div>
         {!settings && assistant.browserRunning && (

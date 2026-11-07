@@ -47,3 +47,31 @@ for (const [locale, names] of [
     });
   });
 }
+
+// On a phone the panel covers its parent (a `position: relative` box) instead of
+// squeezing the content beside it.
+test.describe("docked panel on a phone", () => {
+  test.use({
+    locale: "en-GB",
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+  });
+
+  test("covers its parent", async ({ page }) => {
+    await page.goto("/settings/components");
+    const specimen = page.locator(".gallery-docked");
+    await specimen.scrollIntoViewIfNeeded();
+    const panel = specimen.getByRole("complementary", { name: "Docked panel" });
+    await expect(panel).toBeVisible();
+    const frame = await specimen.boundingBox();
+    const box = await panel.boundingBox();
+    // Inside the specimen's 1px border, edge to edge.
+    expect(Math.abs(box.x - frame.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(box.width - frame.width)).toBeLessThanOrEqual(2);
+    expect(Math.abs(box.height - frame.height)).toBeLessThanOrEqual(2);
+    await panel.getByRole("button", { name: "Close docked panel" }).click();
+    await expect(panel).toHaveCount(0);
+    await expect(specimen.locator(".gallery-docked-content")).toBeVisible();
+  });
+});

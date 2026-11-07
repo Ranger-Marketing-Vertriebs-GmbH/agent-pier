@@ -17,7 +17,8 @@ const messages = [
   { id: "q", role: "user", text: "Send me the AI news every morning.", timestamp: 1 },
   { id: "a", role: "assistant", text: "Done: a daily routine at 9:00.", timestamp: 2 },
 ];
-// Routine results leave the transcript for the chat's event area (agent-event-area.js).
+// Routine results leave the transcript for the chat's events (event-area.js), which
+// the header's Events button opens.
 const events = [
   {
     id: "routine:failed",
@@ -113,10 +114,10 @@ for (const [name, viewport] of [
           "October 14",
         );
         await expect(page.locator(".assistant-scheduled-badge")).toHaveCount(0);
-        const head = page.locator(".agent-event-group > .activity-row-head");
-        await expect(head.locator(".activity-row-label")).toHaveText(words.group);
-        await head.click();
-        const rows = page.locator(".agent-event-row");
+        // The header's Events button opens them in a sheet (AgentEventsButton).
+        await page.locator(".assistant-header .agent-chat-events").click();
+        const sheet = page.getByRole("dialog", { name: words.group });
+        const rows = sheet.locator(".agent-event-row");
         await expect(rows).toHaveCount(2);
         const result = rows.filter({ hasText: "AI News Update" });
         await expect(result.locator(".status-chip")).toHaveText(words.done);
@@ -142,7 +143,7 @@ for (const [name, viewport] of [
       test.skip(!process.env.ROUTINE_RESULT_SHOTS, "Screenshots are taken on request.");
       await page.emulateMedia({ colorScheme: "dark" });
       await setup(page, "de");
-      await page.locator(".agent-event-group > .activity-row-head").click();
+      await page.locator(".assistant-header .agent-chat-events").click();
       await page.screenshot({
         path: info.outputPath(`routine-result-${name}-de-dark.png`),
       });

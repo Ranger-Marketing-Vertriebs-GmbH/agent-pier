@@ -1,0 +1,118 @@
+/* Above the owner's agent chat transcript (AgentChatTop.jsx): the header's chat
+   title, work goal and events, and the one row with the Chat | Pinboard switch. */
+
+/* The chat's title in the status line: as small as the line, a taller tap area. */
+.assistant-header-status:has(.agent-chat-title-button) {
+  overflow: visible;
+}
+.assistant-header-status .agent-chat-title-button {
+  position: relative;
+  flex: 0 1 auto;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  color: var(--muted);
+  font-size: inherit;
+}
+.assistant-header-status .agent-chat-title-button::after {
+  content: "";
+  position: absolute;
+  inset: -14px -6px;
+}
+.assistant-header .agent-chat-work,
+.assistant-header .agent-chat-events {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  width: auto;
+  min-width: 40px;
+  padding: 0 var(--space-2);
+  font-size: var(--font-size-sm);
+}
+@media (max-width: 700px) {
+  .assistant-header .agent-chat-work,
+  .assistant-header .agent-chat-events {
+    min-width: 32px;
+    padding: 0 6px;
+  }
+}
+.agent-chat-events-count {
+  font-variant-numeric: tabular-nums;
+}
+.agent-chat-top-action,
+.agent-chat-switch .agent-chat-summarise,
+.assistant-header .agent-chat-summarise {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+}
+.agent-events-sheet .agent-events-list {
+  display: grid;
+  gap: var(--space-2);
+  max-height: 60dvh;
+  margin-bottom: var(--space-3);
+  overflow-y: auto;
+}
+.agent-chat-work-goal {
+  overflow-wrap: anywhere;
+}
+
+/* The one row under the header on phones and in panes. */
+.agent-chat-switch {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-4);
+  border-bottom: 1px solid var(--header-line);
+}
+.agent-chat-switch-tabs {
+  flex: 0 1 auto;
+}
+.agent-chat-switch-tabs label span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.agent-chat-switch-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+}
+/* Summarize now is an icon here, as the row's other actions. */
+.agent-chat-switch .agent-chat-summarise {
+  justify-content: center;
+  width: var(--touch-target);
+  padding: 0;
+  border-color: transparent;
+  background: none;
+}
+.agent-chat-switch .agent-chat-summarise-label {
+  display: none;
+}
+
+/* The pinboard in place of the transcript (phones, panes) or docked beside it. */
+.assistant-chat-body {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.assistant-chat-body > .assistant-chat-panel {
+  min-width: 0;
+}
+.assistant-pinboard-tab {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-4);
+  overscroll-behavior: contain;
+}
+.assistant-transcript[hidden] {
+  display: none;
+}

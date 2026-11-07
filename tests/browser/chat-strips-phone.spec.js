@@ -2,9 +2,9 @@ import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { chatAssistant, chatFixture } from "../helpers/assistant-chat-fixture.js";
 
-// A team member's chat on a phone: the role strip and the event area stay one slim
-// row each, and both step aside while the on-screen keyboard is open (the composer
-// has focus on a touch screen) so the transcript keeps its room.
+// A team member's chat on a phone: the role strip stays one slim row and steps aside
+// while the on-screen keyboard is open (the composer has focus on a touch screen) so
+// the transcript keeps its room. The events sit in the header (AgentEventsButton).
 const shots = process.env.AGENTPIER_STRIP_SHOTS;
 test.use({ viewport: { width: 390, height: 664 }, hasTouch: true, isMobile: true });
 
@@ -86,8 +86,9 @@ const setup = (language) => ({
 const open = async (page, language) => {
   await chatFixture(page, setup(language));
   await page.goto(baseURL + "/agents/member-0/chats/member-chat");
-  await expect(page.locator(".agent-event-area")).toBeVisible();
+  await expect(eventsButton(page)).toBeVisible();
 };
+const eventsButton = (page) => page.locator(".assistant-header .agent-chat-events");
 const height = (locator) => locator.evaluate((e) => e.getBoundingClientRect().height);
 
 for (const language of ["en", "de"])
@@ -97,31 +98,26 @@ for (const language of ["en", "de"])
     const t = words[language];
     await open(page, language);
     const role = page.locator(".assistant-member-context");
-    const area = page.locator(".agent-event-area");
-    const head = page.locator(".agent-event-group > .activity-row-head");
+    const head = eventsButton(page);
     if (shots) await page.screenshot({ path: `${shots}/after-${language}.png` });
     await expect(role).toContainText(t.role);
     expect(await height(role)).toBeLessThanOrEqual(46);
-    expect(await height(area)).toBeLessThanOrEqual(46);
-    // The head stays a full touch target, without a frame of its own.
+    // The events take no row: a header icon at the header's touch size.
     expect(await height(head)).toBeGreaterThanOrEqual(40);
-    await expect(page.locator(".agent-event-group")).toHaveCSS("border-top-width", "0px");
-    // Short counts: the number, new events as a labelled dot, failures as the chip.
-    await expect(head.locator(".activity-row-label")).toHaveText(t.group);
-    await expect(head.locator(".activity-row-detail")).toHaveText("10");
-    await expect(head.locator(".agent-event-unread")).toHaveAttribute(
+    // Short counts: the number, new and failed events as a labelled dot.
+    await expect(head).toHaveAttribute("aria-label", `${t.group}: 10`);
+    await expect(head.locator(".agent-chat-events-count")).toHaveText("10");
+    await expect(head.locator(".agent-chat-events-unread")).toHaveAttribute(
       "aria-label",
-      t.unread,
+      `${t.unread} · ${t.failed}`,
     );
-    await expect(head.locator(".status-chip")).toHaveText(t.failed);
-    // The head still opens and shuts the events.
+    // The button opens the events in a sheet, which closes again.
     await head.click();
-    await expect(head).toHaveAttribute("aria-expanded", "true");
-    await expect(page.locator(".agent-event-row")).toHaveCount(10);
-    await expect(page.locator(".agent-event-row").first()).toBeVisible();
-    await head.click();
-    await expect(head).toHaveAttribute("aria-expanded", "false");
-    await expect(page.locator(".agent-event-row").first()).toBeHidden();
+    const sheet = page.getByRole("dialog", { name: t.group });
+    await expect(sheet.locator(".agent-event-row")).toHaveCount(10);
+    await expect(sheet.locator(".agent-event-row").first()).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(sheet).toHaveCount(0);
   });
 
 for (const language of ["en", "de"])
@@ -130,25 +126,17 @@ for (const language of ["en", "de"])
   }) => {
     await open(page, language);
     const role = page.locator(".assistant-member-context");
-    const area = page.locator(".agent-event-area");
     const field = page.locator("#assistant-message");
     const transcript = page.locator(".assistant-transcript");
     const before = await height(transcript);
     await field.tap();
     await expect(field).toBeFocused();
     await expect(role).toBeHidden();
-    await expect(area).toBeHidden();
-    expect(await height(transcript)).toBeGreaterThan(before + 80);
+    await expect(eventsButton(page)).toBeVisible();
+    expect(await height(transcript)).toBeGreaterThan(before + 40);
     if (shots) await page.screenshot({ path: `${shots}/after-${language}-focused.png` });
     await field.blur();
     await expect(role).toBeVisible();
-    await expect(area).toBeVisible();
-    // An event area the owner opened stays while typing.
-    await page.locator(".agent-event-group > .activity-row-head").click();
-    await field.tap();
-    await expect(field).toBeFocused();
-    await expect(role).toBeHidden();
-    await expect(area).toBeVisible();
   });
 
 test("the strips stay while the composer has focus on a wide screen", async ({
@@ -158,5 +146,5 @@ test("the strips stay while the composer has focus on a wide screen", async ({
   await open(page, "en");
   await page.locator("#assistant-message").focus();
   await expect(page.locator(".assistant-member-context")).toBeVisible();
-  await expect(page.locator(".agent-event-area")).toBeVisible();
+  await expect(eventsButton(page)).toBeVisible();
 });

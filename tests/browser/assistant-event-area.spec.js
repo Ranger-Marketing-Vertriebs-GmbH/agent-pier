@@ -3,8 +3,8 @@ import { baseURL } from "../helpers/browser.js";
 import { chatFixture } from "../helpers/assistant-chat-fixture.js";
 
 // The main chat of "home" with a routine result, a failed routine, a hook event and
-// a reminder: only the reminder stays a message, the rest waits in the shut
-// "Events" group. The hook event's payload tries to inject HTML.
+// a reminder: only the reminder stays a message, the rest waits behind the header's
+// Events button, whose sheet lists them. The hook event's payload tries to inject HTML.
 const hookId = "0f8b6a52-3c1d-4e2f-9a7b-5d6c8e9f0a1b";
 const now = Date.now();
 const reply = "Disk on **nas** is 95% full.\n\nI cleared the package cache.";
@@ -121,8 +121,10 @@ async function eventAreaSetup(page, language) {
   return { state, reads };
 }
 
-const group = (page) => page.locator(".agent-event-group");
-const groupHead = (page) => group(page).locator("> .activity-row-head");
+// The Events sheet and the header button that opens it (AgentEventsButton).
+const group = (page) => page.locator("dialog.agent-events-sheet");
+const groupHead = (page) => page.locator(".assistant-header .agent-chat-events");
+const newsDot = (page) => groupHead(page).locator(".agent-chat-events-unread");
 
 for (const language of ["en", "de"])
   test(`routine and hook events wait in the shut Events group (${language})`, async ({
@@ -130,12 +132,12 @@ for (const language of ["en", "de"])
   }) => {
     const t = words[language];
     await eventAreaSetup(page, language);
-    await expect(groupHead(page)).toHaveAttribute("aria-expanded", "false");
-    await expect(groupHead(page).locator(".activity-row-label")).toHaveText(t.group);
-    await expect(groupHead(page).locator(".activity-row-detail")).toHaveText(t.summary);
-    // The failed routine stays visible while the group is shut.
-    await expect(groupHead(page).locator(".status-chip")).toHaveText(t.failed);
-    await expect(group(page).locator(".agent-event-row").first()).toBeHidden();
+    await expect(group(page)).toHaveCount(0);
+    await expect(groupHead(page)).toHaveAttribute("aria-label", `${t.group}: 3`);
+    await expect(groupHead(page)).toHaveAttribute("title", t.summary);
+    // The failed routine stays visible while the sheet is shut.
+    await expect(newsDot(page)).toHaveAttribute("aria-label", new RegExp(t.failed));
+    await expect(newsDot(page)).toHaveClass(/status-dot-error/);
     // Results are not messages; the reminder is.
     await expect(page.locator(".assistant-message")).toHaveCount(3);
     await expect(page.locator(".assistant-transcript")).not.toContainText("AI news");
@@ -145,16 +147,17 @@ for (const language of ["en", "de"])
     ).toBeVisible();
 
     await groupHead(page).click();
+    await expect(group(page).getByRole("heading", { name: t.group })).toBeVisible();
     const rows = group(page).locator(".agent-event-row");
     await expect(rows).toHaveCount(3);
     await expect(rows.nth(0).locator(".activity-row-label")).toHaveText(t.hookRow);
     await expect(rows.nth(0).locator(".activity-row-detail")).toContainText(t.duplicates);
     await expect(rows.nth(2).locator(".activity-row-detail")).toHaveText(t.refused);
     // Opening marks everything seen, also after a reload.
-    await expect(groupHead(page).locator(".activity-row-detail")).toHaveText(t.seen);
+    await expect(groupHead(page)).toHaveAttribute("title", t.seen);
     await page.reload();
-    await expect(groupHead(page).locator(".activity-row-detail")).toHaveText(t.seen);
-    await expect(groupHead(page).locator(".status-chip")).toHaveCount(0);
+    await expect(groupHead(page)).toHaveAttribute("title", t.seen);
+    await expect(newsDot(page)).toHaveCount(0);
   });
 
 for (const language of ["en", "de"])
@@ -276,8 +279,7 @@ test("a routine run's SSH row shows only inside its shut event row", async ({ pa
   await expect(transcript.locator(".assistant-message")).toHaveCount(2);
   await expect(transcript.locator(".ssh-run-note")).toHaveCount(0);
   await expect(transcript).not.toContainText("qm guest exec");
-  await expect(groupHead(page)).toHaveAttribute("aria-expanded", "false");
-  await expect(group(page).locator(".ssh-run-note")).toBeHidden();
+  await expect(group(page)).toHaveCount(0);
 
   await groupHead(page).click();
   const row = group(page).locator('.agent-event-row[data-event-source="routine"]');

@@ -21,6 +21,11 @@ export const agentPinboardCopy = {
     audio: "Audio",
     file: "Datei",
   },
+  // Die kompakte Kopfzeile des Agentenchats: Sheet des Arbeitsziels, Ereignisse.
+  header: {
+    workSheet: "Arbeitsziel",
+    events: (n) => `Ereignisse: ${n}`,
+  },
   loadFailed: "Die Pinnwand konnte nicht geladen werden.",
   card: {
     counts: {

@@ -152,6 +152,8 @@
   "agent-pinboard:agentPinboardCopy.empty": "de:0650ddf7de04 en:6e18750bfefc",
   "agent-pinboard:agentPinboardCopy.fresh": "de:c8c6181904ce en:a253ff09c5a8",
   "agent-pinboard:agentPinboardCopy.from": "de:ca3d50017d02 en:028d83993e36",
+  "agent-pinboard:agentPinboardCopy.header.events": "de:bb7ef14fd0d8 en:ee8c2536ceb4",
+  "agent-pinboard:agentPinboardCopy.header.workSheet": "de:67f91beb5fbb en:b60c706eccf3",
   "agent-pinboard:agentPinboardCopy.kinds.audio": "de:bc1b88907d3b en:bc1b88907d3b",
   "agent-pinboard:agentPinboardCopy.kinds.file": "de:e9028a569297 en:50009ce1da4d",
   "agent-pinboard:agentPinboardCopy.kinds.image": "de:375e84034b8f en:1aa4cb0bcca7",
