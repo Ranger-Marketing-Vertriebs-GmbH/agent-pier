@@ -288,6 +288,89 @@ test.describe("on a phone", () => {
   });
 });
 
+test.describe("a team member's chat on a phone", () => {
+  test.use(phone);
+
+  test("has no row under the header; a pin icon toggles the pinboard", async ({
+    page,
+  }) => {
+    const member = {
+      id: "member-0",
+      name: "Network Architect",
+      instructions: "",
+      model: { connectionId: "router", modelId: "openai/gpt-4.1-mini" },
+      revision: 1,
+      effectiveRevision: 1,
+      teamMemberId: "member-0",
+      teamId: "team",
+      parentAssistantId: "home",
+      lifetime: "permanent",
+    };
+    await chatFixture(page, {
+      assistants: [
+        {
+          id: "home",
+          name: "Home assistant",
+          instructions: "",
+          model: { connectionId: "router", modelId: "openai/gpt-4.1-mini" },
+          revision: 1,
+          effectiveRevision: 1,
+        },
+        member,
+      ],
+      conversations: [
+        { id: "dinner", assistantId: "home" },
+        { id: "member-chat", assistantId: "member-0" },
+      ],
+      members: [
+        {
+          id: "member-0",
+          kind: "member",
+          teamId: "team",
+          parentAssistantId: "home",
+          assistantId: "member-0",
+          name: "Network Architect",
+          role: "Network specialist",
+          assignment: "Know the network.",
+          lifetime: "permanent",
+          phase: "completed",
+          conversationId: "member-chat",
+        },
+      ],
+    });
+    await page.route("**/api/assistants/member-0/pinboard", (route) =>
+      route.fulfill({ json: pinboard }),
+    );
+    await page.goto(baseURL + "/agents/member-0/chats/member-chat");
+    const header = page.locator(".assistant-header");
+    await expect(header).toBeVisible();
+    await expect(switchRow(page)).toHaveCount(0);
+    // Only the member's own context strip sits between the header and the transcript.
+    const bottom = await header.boundingBox();
+    const context = await page.locator(".assistant-member-context").boundingBox();
+    expect(Math.abs(context.y - (bottom.y + bottom.height))).toBeLessThanOrEqual(1);
+    const box = await transcript(page).boundingBox();
+    expect(Math.abs(box.y - (context.y + context.height))).toBeLessThanOrEqual(1);
+
+    const pin = header.getByRole("button", { name: "Pinboard (2)" });
+    await expect(pin).toContainText("2");
+    const size = await pin.boundingBox();
+    expect(size.width).toBeGreaterThanOrEqual(40);
+    expect(size.height).toBeGreaterThanOrEqual(40);
+    await expect(pin).toHaveAttribute("aria-pressed", "false");
+    await pin.click();
+    await expect(pin).toHaveAttribute("aria-pressed", "true");
+    await expect(transcript(page)).toBeHidden();
+    await expect(page.getByRole("heading", { name: "Episodes 6–10" })).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "Message" })).toBeVisible();
+    // The same icon leads back to the chat.
+    await pin.click();
+    await expect(pin).toHaveAttribute("aria-pressed", "false");
+    await expect(transcript(page)).toBeVisible();
+    await expect(page.locator(".assistant-pinboard-tab")).toHaveCount(0);
+  });
+});
+
 test.describe("on a desktop", () => {
   test.use(desktop);
 

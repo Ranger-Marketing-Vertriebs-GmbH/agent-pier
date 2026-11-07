@@ -20,7 +20,8 @@
   inset: -14px -6px;
 }
 .assistant-header .agent-chat-work,
-.assistant-header .agent-chat-events {
+.assistant-header .agent-chat-events,
+.assistant-header .agent-chat-pin {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -32,10 +33,15 @@
 }
 @media (max-width: 700px) {
   .assistant-header .agent-chat-work,
-  .assistant-header .agent-chat-events {
-    min-width: 32px;
+  .assistant-header .agent-chat-events,
+  .assistant-header .agent-chat-pin {
+    min-width: 40px;
     padding: 0 6px;
   }
+}
+.assistant-header .agent-chat-pin[aria-pressed="true"] {
+  background: var(--button-secondary-bg);
+  color: var(--accent-text);
 }
 .agent-chat-events-count {
   font-variant-numeric: tabular-nums;
