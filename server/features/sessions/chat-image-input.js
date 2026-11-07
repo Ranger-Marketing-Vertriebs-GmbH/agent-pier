@@ -1,6 +1,20 @@
+import { stat } from "node:fs/promises";
 import { waitForNativeImages } from "./native-image-paste.js";
+import { composerProblem } from "./claude-composer.js";
 import { cliDefinition } from "../clis/catalog.js";
 import { cliDriver } from "../clis/drivers.js";
+
+/**
+ * Refuses, before anything is typed, images the CLI would refuse as a whole:
+ * their base64 size (4 bytes per 3, as the CLI sends them) above its limit.
+ */
+export async function requireImageBudget(tool, files) {
+  const limit = cliDriver(tool).tui.images?.maxEncodedBytes;
+  if (!limit) return;
+  let encoded = 0;
+  for (const file of files) encoded += Math.ceil((await stat(file)).size / 3) * 4;
+  if (encoded > limit) throw composerProblem("CHAT_IMAGES_TOO_LARGE");
+}
 
 /** Images become native chips before the text can hide them in a long prompt. */
 export async function writeChatImages({
@@ -29,6 +43,7 @@ export async function writeChatImages({
     );
   let ready = true;
   if (resume !== "text") {
+    await requireImageBudget(session.tool, images.images);
     if (!chips) await onDialog();
     await onPhase("paste-intent");
     if (chips) {

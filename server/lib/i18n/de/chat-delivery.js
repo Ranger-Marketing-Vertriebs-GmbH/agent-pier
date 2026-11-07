@@ -82,6 +82,8 @@ export const chatDeliveryCopy = {
       "Die Nachricht wurde in die CLI eingefügt, aber das Eingabefeld hat sich während des Wartens verändert. Sie wurde deshalb nicht abgeschickt; bitte prüfe die TUI.",
     CHAT_QUEUED:
       "Die Nachricht wartete hinter einer früheren Nachricht und wurde noch nicht eingegeben. Sende sie erneut.",
+    CHAT_IMAGES_TOO_LARGE:
+      "Die angehängten Bilder sind zusammen zu groß für Codex (höchstens etwa 24 MB pro Nachricht). Die Nachricht wurde nicht gesendet und ist zurück im Chat; sende weniger oder kleinere Bilder.",
     CHAT_CANCELLED: "Abgebrochen, bevor die Nachricht in die TUI eingegeben wurde.",
     CHAT_DIALOG_NOT_CLOSED:
       "Die Nachricht wartete auf einen CLI-Dialog und wurde noch nicht eingegeben. Beantworte oder schließe den Dialog im Terminal und sende sie dann erneut.",

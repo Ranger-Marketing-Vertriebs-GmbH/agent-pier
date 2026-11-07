@@ -673,6 +673,7 @@
   "chatDelivery.reasons.CHAT_DIALOG_NOT_CLOSED": "de:633f4b08627d en:8a5dadb5f8fe",
   "chatDelivery.reasons.CHAT_HOOK_BLOCKED": "de:b239de727f06 en:65d89fd99d9c",
   "chatDelivery.reasons.CHAT_HOOK_BLOCKED_DRAFT": "de:128a96e81a73 en:9807b28f4824",
+  "chatDelivery.reasons.CHAT_IMAGES_TOO_LARGE": "de:981990d83f61 en:a91070bd4b20",
   "chatDelivery.reasons.CHAT_IMAGES_UNCONFIRMED": "de:919cf5ce203a en:4390c9514390",
   "chatDelivery.reasons.CHAT_PROMPT_CHANGED": "de:5f90555b08a0 en:9a6b9006fde4",
   "chatDelivery.reasons.CHAT_QUESTION_OPEN": "de:27cc66ce2264 en:c26330076f68",

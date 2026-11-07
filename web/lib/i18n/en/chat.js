@@ -219,6 +219,8 @@ export const chatDeliveryCopy = {
       "The message was pasted into the CLI, but the prompt changed while it waited, so it was not submitted. Please check the TUI.",
     CHAT_QUEUED:
       "The message was waiting behind an earlier message and has not been typed yet. Send it again.",
+    CHAT_IMAGES_TOO_LARGE:
+      "The attached images are too large for Codex together (about 24 MB at most per message). The message was not sent and is back in the chat; send fewer or smaller images.",
     CHAT_CANCELLED: "Cancelled before the message was typed into the TUI.",
     CHAT_DIALOG_NOT_CLOSED:
       "The message was waiting for a CLI dialog and has not been typed yet. Answer or close the dialog in the terminal, then send it again.",

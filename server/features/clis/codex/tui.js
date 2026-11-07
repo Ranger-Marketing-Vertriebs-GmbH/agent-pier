@@ -268,5 +268,12 @@ export const localCommands = ["status", "compact", "model", "diff", "mention"];
 
 export const blockingScreen = (raw) => hookTrustScreen(raw);
 
-/** Codex tokenizes bare paths on spaces; a quoted path remains one image. */
-export const images = { pathText: (file) => JSON.stringify(file) };
+/**
+ * Codex tokenizes bare paths on spaces; a quoted path remains one image. Codex
+ * 0.164 refuses a message whose images exceed 32 MiB once base64-encoded and puts
+ * it back into its own prompt (`MAX_IMAGE_BYTES`, tui image_submission.rs).
+ */
+export const images = {
+  pathText: (file) => JSON.stringify(file),
+  maxEncodedBytes: 32 * 1024 * 1024,
+};

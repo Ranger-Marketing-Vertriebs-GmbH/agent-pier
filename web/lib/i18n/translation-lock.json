@@ -2852,6 +2852,7 @@
   "chat:chatDeliveryCopy.reasons.CHAT_COMPOSER_NOT_CLEARED": "de:593dc0e26398 en:82c5fa6bdc19",
   "chat:chatDeliveryCopy.reasons.CHAT_COMPOSER_UNAVAILABLE": "de:44e00f7fbbaa en:2c1c765b6ea7",
   "chat:chatDeliveryCopy.reasons.CHAT_DIALOG_NOT_CLOSED": "de:633f4b08627d en:8a5dadb5f8fe",
+  "chat:chatDeliveryCopy.reasons.CHAT_IMAGES_TOO_LARGE": "de:981990d83f61 en:a91070bd4b20",
   "chat:chatDeliveryCopy.reasons.CHAT_IMAGES_UNCONFIRMED": "de:919cf5ce203a en:4390c9514390",
   "chat:chatDeliveryCopy.reasons.CHAT_PROMPT_CHANGED": "de:5f90555b08a0 en:9a6b9006fde4",
   "chat:chatDeliveryCopy.reasons.CHAT_QUESTION_OPEN": "de:27cc66ce2264 en:c26330076f68",
