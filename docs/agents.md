@@ -1594,7 +1594,9 @@ is hidden, and after 30 minutes. Details and limits:
 ## Chats
 
 Each agent holds several chats. The chat selector under the agent's name in the chat
-header shows the open chat's title; tap it for the **Chats** sheet: **New chat** on top, your main chat first, then
+header shows the open chat's title (on a computer in the place where the header showed
+the model id; on a phone the agent's status is the dot before it, named when you hover
+or use a screen reader); tap it for the **Chats** sheet: **New chat** on top, your main chat first, then
 the others newest first, and **Archived chats** at the bottom. **New chat** (a header button on a
 computer, a button beside the **Chat** and **Pinboard** switch on a phone) starts an
 empty chat right away; the earlier one stays in the list. The ⋯ of a
@@ -1862,9 +1864,12 @@ pinboard; its pins stay there.
   **Done**. An entry marked **NEW** is a file whose content changed since you last
   opened it. Select an entry to read it: Markdown rendered as in the chat (at most
   512 KB; a larger text offers the download), videos and audio played inline, images in
-  the image viewer, every other file as a download. In the reader **Previous** and
-  **Next** walk through the list one file after another and **Back to the lists**
-  returns.
+  the image viewer, every other file as a download; **Download** in the reader's bar
+  saves any file. In the reader **Previous** and **Next** walk through the list one
+  file after another and **Back to the lists** returns to where you were in the list.
+  On a phone the file opens full screen, with its own bar (Back, the file, its list
+  and place) instead of the chat's header and message field; on a computer it opens in
+  the side panel. A file the agent rewrites while you read it shows its new version.
 - **Links, not copies.** An entry points to a file in the agent's workspace or a
   project folder you granted it. AgentPier stores no bytes. Every time you open the
   file it is checked again by the rules of [files from agents](#files-from-agents)
@@ -1874,8 +1879,8 @@ pinboard; its pins stay there.
   (granting the project again brings it back). There is no 25 MiB limit; large videos
   seek.
 - **What the agent can do.** Its `agentpier_pinboard` tool lists the lists, creates,
-  retitles, reorders, archives, reopens and deletes a list, and pins (a path again
-  replaces the entry in place), or unpins a file. Each agent holds at most 50 open
+  retitles, reorders, archives, reopens and deletes a list, and pins (the same name
+  again replaces that entry in place), or unpins a file. Each agent holds at most 50 open
   lists (finished ones do not count) with 100 entries each.
 - **Only you.** Only you see and fill the pinboard, in the owner app. An agent refuses
   every pinboard action in a restricted user's chat and on a user's own agent, and the
