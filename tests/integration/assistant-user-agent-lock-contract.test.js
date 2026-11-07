@@ -98,9 +98,15 @@ test(
     // Everything else the same profile gives the owner's agent stays: web tools and
     // its own workspace files (the browser, image and PDF tools wait for their plugin
     // and models, absent here, for both alike; openclaw-*-config tests compile them).
+    // The pinboard is the owner's: it is never granted to a user's own agent
+    // (toolGrants, agent-pinboard.js), so only the owner's agent is offered it.
+    assert.ok(ownerOffered.includes("agentpier_pinboard"), "owner agentpier_pinboard");
+    assert.ok(!offered.includes("agentpier_pinboard"), "no pinboard for a user agent");
     assert.deepEqual(
       [...offered].sort(),
-      ownerOffered.filter((tool) => !lockedTools.includes(tool)).sort(),
+      ownerOffered
+        .filter((tool) => !lockedTools.includes(tool) && tool !== "agentpier_pinboard")
+        .sort(),
     );
     for (const tool of ["web_fetch", "read", "write", "edit"])
       assert.ok(offered.includes(tool), tool);
