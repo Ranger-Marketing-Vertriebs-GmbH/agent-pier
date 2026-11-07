@@ -135,3 +135,19 @@ test("a future native question shape still reaches Terminal when the Chat adapte
   assert.deepEqual(received, future);
   assert.equal(asks.size, 0);
 });
+test("regression: a turn with 30 MiB of base64 images reaches the app-server", async (t) => {
+  const { written, tui } = await fixture(t);
+  const image = `data:image/png;base64,${"A".repeat(30 * 1024 * 1024)}`;
+  const turn = {
+    id: 7,
+    method: "turn/start",
+    params: { threadId: "thread", input: [{ type: "image", url: image }] },
+  };
+  const closed = once(tui, "close").then(() => true);
+  tui.send(JSON.stringify(turn));
+  const deadline = Date.now() + 10000;
+  while (!written.some((message) => message.id === 7) && Date.now() < deadline)
+    await Promise.race([closed, new Promise((resolve) => setTimeout(resolve, 20))]);
+  assert.equal(written.find((message) => message.id === 7)?.params.input[0].url, image);
+  assert.equal(tui.readyState, WebSocket.OPEN);
+});

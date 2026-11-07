@@ -430,7 +430,10 @@ Codex 0.164 refuses the images of one message when they exceed 32 MiB once
 base64-encoded (about 24 MiB of files): it shows "image attachments exceed the 32
 MiB transport limit" and puts the message back into its composer. The Codex probe
 therefore sends seven 1024 × 768 PNGs (about 2.4 MB each); Claude keeps the
-1536 × 1024 set.
+1536 × 1024 set. Such a turn travels as one WebSocket message through AgentPier's
+Codex app-server proxy, which accepts 64 MiB like Codex's own server; its former
+16 MiB limit closed the socket and lost any prompt with more than about 12 MB of
+images.
 
 | CLI         | Installed version | Held-response observation                                                                                        | Submit                                                 |
 | ----------- | ----------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
