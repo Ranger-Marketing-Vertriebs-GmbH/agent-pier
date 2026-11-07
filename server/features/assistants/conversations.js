@@ -370,7 +370,10 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
         ],
         { from: pageStart(nextBefore, messages) },
       ),
-      service.attachments?.sharedFor?.(id) || [],
+      [
+        ...(service.attachments?.sharedFor?.(id) || []),
+        ...(service.pinboard?.notesFor(id) || []),
+      ],
       { from: pageStart(nextBefore, messages) },
     ),
     events: eventArea(service, conversation),

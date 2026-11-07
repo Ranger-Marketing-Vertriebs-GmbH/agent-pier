@@ -43,6 +43,36 @@ export class AgentPinboardView {
     }
   }
 
+  /**
+   * The chat history's cards (conversations.js): one message per list changed in a
+   * turn (store.changesFor), carrying the list's current title, or the stored one with
+   * `gone` once the list is deleted. `requestId` lets the owner-privacy window hide
+   * it like a shared file.
+   */
+  notesFor(conversationId) {
+    return this.store.changesFor(conversationId).map((change) => {
+      const list = this.store.listOrNull(change.assistantId, change.listId);
+      const { listId, requestId, added, updated, removed, names } = change;
+      return {
+        id: `pinboard:${listId}:${requestId}`,
+        role: "assistant",
+        text: "",
+        timestamp: Date.parse(change.at),
+        runId: null,
+        requestId,
+        pinboard: {
+          listId,
+          title: list ? list.title : change.title,
+          added,
+          updated,
+          removed,
+          names,
+          gone: !list,
+        },
+      };
+    });
+  }
+
   // Opens the entry's file as the owner reads it: a workspace upload only while the
   // chat that admitted the pin still exists and may use it (AgentShares#admit).
   open(agent, entry) {
