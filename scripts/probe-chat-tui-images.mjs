@@ -14,7 +14,9 @@ export async function probeNativeImages({
   directory,
   tool = "claude",
 }) {
-  const png = syntheticPng();
+  // Codex 0.164 refuses images of one message above 32 MiB once base64-encoded
+  // (about 24 MiB of files), so it gets seven smaller ones.
+  const png = tool === "codex" ? syntheticPng(1024, 768) : syntheticPng();
   const files = [];
   for (let n = 0; n < 7; n++) {
     const file = path.join(directory, `synthetic image ${n}.png`);
@@ -63,9 +65,7 @@ export async function probeNativeImages({
   };
 }
 
-export function syntheticPng() {
-  const width = 1536,
-    height = 1024;
+export function syntheticPng(width = 1536, height = 1024) {
   const pixels = randomBytes((width * 3 + 1) * height);
   for (let y = 0; y < height; y++) pixels[y * (width * 3 + 1)] = 0;
   const header = Buffer.alloc(13);

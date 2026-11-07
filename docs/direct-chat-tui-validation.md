@@ -426,6 +426,12 @@ provider, each case with Claude's own cursor cell and with
 
 Frames are in `tests/fixtures/tui-input/claude-2.1.280-image-first-screens.json`.
 
+Codex 0.164 refuses the images of one message when they exceed 32 MiB once
+base64-encoded (about 24 MiB of files): it shows "image attachments exceed the 32
+MiB transport limit" and puts the message back into its composer. The Codex probe
+therefore sends seven 1024 × 768 PNGs (about 2.4 MB each); Claude keeps the
+1536 × 1024 set.
+
 | CLI         | Installed version | Held-response observation                                                                                        | Submit                                                 |
 | ----------- | ----------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
 | Codex       | 0.153.4           | Second marker shown under “Messages to be submitted after next tool call” while the first response remained open | Separate Enter after bracketed paste, zero added delay |
