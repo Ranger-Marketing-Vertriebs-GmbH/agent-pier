@@ -105,6 +105,33 @@ test("a hook run pins from the workspace", async (t) => {
     hookKey,
   );
   assert.equal(result.status, "pinned");
+  // The card lands in the list's origin chat, under the hook's event.
+  const [card] = f.pinboard.store
+    .changesFor(conversation.id)
+    .filter((change) => change.requestId === "hook:event-1");
+  assert.deepEqual(card.names, ["hook.md"]);
+  assert.equal(card.added, 1);
+});
+
+test("a permanent member pins onto its own board through the bridge", async (t) => {
+  const f = await pinboardFixture(t);
+  const body = {
+    ...f.store.storedAssistant(f.id),
+    teamMemberId: "team-1",
+    lifetime: "permanent",
+  };
+  f.store.db
+    .prepare("UPDATE assistants SET body=? WHERE id=?")
+    .run(JSON.stringify(body), f.id);
+  const { attemptId } = await f.invocation(randomUUID(), { kind: "owner" });
+  const { list } = await f.pin({ action: "create_list", title: "Review" }, attemptId);
+  f.file("review.md");
+  const result = await f.pin(
+    { action: "pin", listId: list.id, path: "review.md" },
+    attemptId,
+  );
+  assert.equal(result.status, "pinned");
+  assert.equal(f.pinboard.store.lists(f.id)[0].entries[0].name, "review.md");
 });
 
 test("an owner run without a turn may pin", async (t) => {
@@ -129,6 +156,23 @@ test("a restricted user's turn is refused at the bridge too", async (t) => {
     f.pin({ action: "list" }),
     (error) => toolError(error).code === "PINBOARD_OWNER_ONLY",
   );
+});
+
+test("a user's own agent is refused at the bridge", async (t) => {
+  const f = await pinboardFixture(t, {
+    userAccess: {
+      mode: "own",
+      members: [{ userId: "anna", level: "chat" }],
+      released: [],
+    },
+  });
+  f.store.updateConversation(f.channel.conversationId, { userId: "anna" });
+  await f.invocation(randomUUID(), { kind: "user", userId: "anna" });
+  await assert.rejects(
+    f.pin({ action: "list" }),
+    (error) => toolError(error).code === "PINBOARD_OWNER_ONLY",
+  );
+  assert.deepEqual(f.pinboard.store.lists(f.id), []);
 });
 
 test("the tool is granted to live agents and members, not to a user's own agent", () => {
@@ -179,24 +223,37 @@ test("the production graph routes a bridge invoke to graph.assistants.pinboard",
   const { assistants } = services;
   const { bridge } = services.assistantTeams;
   assert.ok(assistants.pinboard instanceof AgentPinboard);
-  const calls = [];
-  const answer = { status: "listed", lists: [] };
-  assistants.pinboard.invoke = (invocation, input) => {
-    calls.push({ invocation, input });
-    return answer;
-  };
-  // A ticket as prepare would issue it; the turn checks are not under test here.
+  const agent = assistants.store.createAssistant({
+    name: "Agent",
+    model: { connectionId: "c", modelId: "m" },
+  });
+  const chat = assistants.store.saveConversation({
+    assistantId: agent.id,
+    runtimeSessionKey: "session",
+  });
+  const list = assistants.pinboard.store.createList(
+    agent.id,
+    { title: "Episodes" },
+    new Date().toISOString(),
+  );
+  // A ticket as prepare would issue it for an owner run of the chat; the turn checks
+  // are not under test here, the dispatch to the real pinboard is.
   bridge.valid = (record) => record;
   bridge.tickets.set("t1", {
     action: "pinboard",
     expires: Date.now() + 30000,
-    attemptId: "attempt-1",
+    owner: { conversationId: chat.id },
     sessionKey: "session",
     toolCallId: "call-1",
   });
-  const input = { action: "list" };
-  assert.equal(await bridge.invoke({ ticket: "t1", action: "pinboard", input }), answer);
-  assert.equal(calls.length, 1);
-  assert.deepEqual(calls[0].input, input);
-  assert.equal(calls[0].invocation.attemptId, "attempt-1");
+  const answer = await bridge.invoke({
+    ticket: "t1",
+    action: "pinboard",
+    input: { action: "list" },
+  });
+  assert.equal(answer.status, "ok");
+  assert.deepEqual(
+    answer.lists.map(({ id, title }) => ({ id, title })),
+    [{ id: list.id, title: "Episodes" }],
+  );
 });
