@@ -339,8 +339,9 @@ async function probeNative(fixture, cleanup) {
       if (options.includes("--hook-trust"))
         await probeCodexHookTrust({ fixture, session, capture, keys });
       else {
-        await waitFor(capture, (screen) =>
-          /Yes, continue|Trust and continue/.test(screen),
+        // Codex 0.164 starts in a trusted fixture project without the trust menu.
+        const first = await waitFor(capture, (screen) =>
+          /Yes, continue|Trust and continue|Ask Codex to do anything/.test(screen),
         ).catch(async (error) => {
           console.error(
             "STARTUP",
@@ -349,8 +350,10 @@ async function probeNative(fixture, cleanup) {
           );
           throw error;
         });
-        await sleep(750);
-        await keys("Enter");
+        if (/Yes, continue|Trust and continue/.test(first)) {
+          await sleep(750);
+          await keys("Enter");
+        }
       }
       await waitFor(capture, (screen) =>
         screen.includes("Ask Codex to do anything"),
