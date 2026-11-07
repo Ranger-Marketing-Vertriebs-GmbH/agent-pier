@@ -226,6 +226,26 @@ for (const [language, copy] of Object.entries(languages))
       await expect(page.getByRole("button", { name: copy.delete })).toHaveCount(0);
     });
 
+    test("deleting the open chat it just started leaves a working page", async ({
+      page,
+    }) => {
+      const state = await setup(page, language);
+      await page.goto(baseURL + "/agents/home/chats/main");
+      await expect(page.getByText("Dinner is planned.")).toBeVisible();
+      await page.getByRole("button", { name: copy.newChat, exact: true }).click();
+      await expect(page).toHaveURL(/\/agents\/home\/chats\/new-1$/);
+      await openList(page, copy);
+      await page.getByRole("button", { name: copy.actions(copy.newChat) }).click();
+      await page.getByRole("button", { name: copy.delete, exact: true }).click();
+      await page.getByRole("button", { name: copy.deleteNow, exact: true }).click();
+      await expect.poll(() => state.conversations.map((c) => c.id)).toEqual(["main"]);
+      await expect(page.locator("dialog[open]")).toHaveCount(0);
+      await expect(page.getByText(copy.deleted)).toBeVisible();
+      await page.getByRole("button", { name: copy.toMain }).click();
+      await expect(page).toHaveURL(/\/agents\/home\/chats\/main$/);
+      await expect(page.getByText("Dinner is planned.")).toBeVisible();
+    });
+
     test("archived chats are read-only", async ({ page }) => {
       const state = await setup(page, language);
       state.conversations.push({

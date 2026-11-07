@@ -84,9 +84,9 @@ export function restoreChat(service, conversationId) {
 
 /**
  * Deletes a chat: marked deleted first (every route then answers 404), its open views
- * closed, AgentPier's copies of it forgotten, and its native session deleted with its
- * transcript. A Gateway that is away deletes the session at its next start
- * (deleteReleasedSessions, users/user-release.js).
+ * closed and AgentPier's copies of it forgotten; its native session is deleted with
+ * its transcript right after (deleteNativeLater). A Gateway that is away deletes the
+ * session at its next start (deleteReleasedSessions, users/user-release.js).
  */
 export function deleteChat(service, conversationId) {
   return service.admit(async () => {
@@ -100,10 +100,23 @@ export function deleteChat(service, conversationId) {
     service.feeds.end(conversationId);
     await forgetChat(service, conversation);
     service.memoryNotes?.forget(conversationId);
-    await deleteNativeSession(service, conversation);
     service.changed();
+    deleteNativeLater(service, conversation);
     return conversation;
   });
+}
+
+/**
+ * The native delete of a chat AgentPier already deleted, after the answer and outside
+ * admission: a slow or absent Gateway (up to two RPC timeouts) would otherwise hold the
+ * person's confirmation and every agent action queued behind it. One after another;
+ * a failure keeps `nativeDeletePending` for the retries at the next start.
+ * `service.nativeDeletes` settles once the deletes asked so far are through.
+ */
+function deleteNativeLater(service, conversation) {
+  service.nativeDeletes = (service.nativeDeletes || Promise.resolve())
+    .then(() => deleteNativeSession(service, conversation))
+    .catch(() => {});
 }
 
 /**
