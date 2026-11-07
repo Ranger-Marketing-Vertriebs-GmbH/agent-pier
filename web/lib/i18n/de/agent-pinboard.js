@@ -26,6 +26,14 @@ export const agentPinboardCopy = {
     workSheet: "Arbeitsziel",
     events: (n) => `Ereignisse: ${n}`,
   },
+  reader: {
+    position: (i, n) => `${i} von ${n}`,
+    previous: "Zurück",
+    next: "Weiter",
+    back: "Zurück zu den Listen",
+    download: "Herunterladen",
+    empty: "Diese Datei ist nicht mehr verfügbar.",
+  },
   loadFailed: "Die Pinnwand konnte nicht geladen werden.",
   card: {
     counts: {

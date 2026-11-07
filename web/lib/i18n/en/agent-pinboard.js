@@ -25,6 +25,14 @@ export const agentPinboardCopy = {
     workSheet: "Work goal",
     events: (n) => `Events: ${n}`,
   },
+  reader: {
+    position: (i, n) => `${i} of ${n}`,
+    previous: "Previous",
+    next: "Next",
+    back: "Back to the lists",
+    download: "Download",
+    empty: "This file is no longer available.",
+  },
   loadFailed: "The pinboard could not be loaded.",
   card: {
     counts: {

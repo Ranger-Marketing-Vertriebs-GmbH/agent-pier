@@ -18,6 +18,8 @@ export default function ChatPinboardBody({ assistant, pinboard, navigate, childr
             assistant={assistant}
             view={pinboard.view}
             error={pinboard.error}
+            markSeen={pinboard.markSeen}
+            markSeen={pinboard.markSeen}
             navigate={navigate}
             focusListId={pinboard.focusListId}
             onClose={() => pinboard.setOpen(false)}
@@ -37,6 +39,7 @@ export function PinboardTab({ assistant, pinboard, navigate }) {
         assistant={assistant}
         view={pinboard.view}
         error={pinboard.error}
+        markSeen={pinboard.markSeen}
         navigate={navigate}
         focusListId={pinboard.focusListId}
       />

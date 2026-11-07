@@ -1,32 +1,30 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import ErrorMessage from "../../../components/ErrorMessage.jsx";
 import Skeleton, { SkeletonLabel } from "../../../components/Skeleton.jsx";
 import { agentPinboardCopy as copy } from "../../../lib/i18n/messages/agent-pinboard.js";
-import { appleStandalone, saveUrl } from "../../../lib/standalone.js";
 import PinboardLists from "./PinboardLists.jsx";
-import { pinboardFileUrl } from "./pinboard-api.js";
-
-// Saves the file by its name; a home-screen app hands it to the share sheet instead
-// of navigating away (FileLink does the same for a link).
-function download(url) {
-  if (appleStandalone()) return void saveUrl(url).catch(() => {});
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "";
-  link.click();
-}
+import PinboardReader from "./PinboardReader.jsx";
 
 /**
  * An agent's pinboard as the chat's tab (phones) or the docked panel's body: the
- * lists, or while `view` loads a placeholder. Tapping a file downloads it; the
- * reader with previous / next takes over here (Task 10's PinboardReader).
+ * lists, or while `view` loads a placeholder. Tapping a file opens the reader with
+ * previous / next in the lists' place; Back returns to the lists at that list.
  */
-export default function PinboardView({ assistant, view, error, navigate, focusListId }) {
-  const openEntry = useCallback(
-    (_listId, entryId) =>
-      download(pinboardFileUrl(assistant.id, entryId, { download: true })),
-    [assistant.id],
-  );
+export default function PinboardView({
+  assistant,
+  view,
+  error,
+  navigate,
+  focusListId,
+  markSeen,
+}) {
+  const [reading, setReading] = useState(null);
+  // The list the reader came from, scrolled to again on Back.
+  const [returned, setReturned] = useState(null);
+  const openEntry = useCallback((listId, entryId) => {
+    setReturned(null);
+    setReading({ listId, entryId });
+  }, []);
   const openChat = useCallback(
     (conversationId) =>
       navigate({ view: "agents", assistantId: assistant.id, conversationId }),
@@ -45,11 +43,28 @@ export default function PinboardView({ assistant, view, error, navigate, focusLi
         )}
       </div>
     );
+  const readingList = reading && view.lists.find((list) => list.id === reading.listId);
+  if (readingList)
+    return (
+      <div className="pinboard-view reading">
+        <PinboardReader
+          assistant={assistant}
+          list={readingList}
+          entryId={reading.entryId}
+          markSeen={markSeen}
+          onNavigate={(entryId) => setReading({ ...reading, entryId })}
+          onBack={() => {
+            setReturned(reading.listId);
+            setReading(null);
+          }}
+        />
+      </div>
+    );
   return (
     <div className="pinboard-view">
       <PinboardLists
         view={view}
-        focusListId={focusListId}
+        focusListId={returned || focusListId}
         onOpenEntry={openEntry}
         onOpenChat={openChat}
       />
