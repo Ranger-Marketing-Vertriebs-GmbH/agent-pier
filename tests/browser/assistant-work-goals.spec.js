@@ -55,6 +55,31 @@ test("the goal icon hides after a feed push without the goal", async ({ page }) 
   await expect(goalButton(page)).toHaveCount(0);
 });
 
+test("a goal that ends with its sheet open leaves the next goal's sheet shut", async ({
+  page,
+}) => {
+  const state = await chatFixture(page, {
+    history: { messages, requests: [], stale: false, goal },
+  });
+  await page.goto(baseURL + "/agents/home/chats/dinner");
+  await goalButton(page).click();
+  await expect(goalSheet(page)).toBeVisible();
+  await page.waitForFunction(() => window.agentFeed?.sockets.size === 1);
+  state.history = { ...state.history, goal: null };
+  await page.evaluate(() => window.agentFeed.push("dinner"));
+  await expect(goalButton(page)).toHaveCount(0);
+  await expect(goalSheet(page)).toHaveCount(0);
+  const next = { ...goal, id: "g2", title: "Mix the sound" };
+  state.history = { ...state.history, goal: next };
+  await page.evaluate(() => window.agentFeed.push("dinner"));
+  await expect(
+    page
+      .locator(".assistant-header")
+      .getByRole("button", { name: "Working until done: Mix the sound" }),
+  ).toBeVisible();
+  await expect(goalSheet(page)).toHaveCount(0);
+});
+
 test("a failed Stop says so and keeps the sheet", async ({ page }) => {
   await chatFixture(page, { history: { messages, requests: [], stale: false, goal } });
   await page.route("**/goal/stop", (route) =>

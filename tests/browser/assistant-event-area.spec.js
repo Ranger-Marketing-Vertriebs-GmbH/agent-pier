@@ -194,6 +194,32 @@ for (const language of ["en", "de"])
     expect(overflow).toBeLessThanOrEqual(1);
   });
 
+test("a running event shows a working dot on the Events icon", async ({ page }) => {
+  const state = await chatFixture(page, {
+    history: {
+      messages: [],
+      requests: [],
+      events: [{ ...events[1], id: "routine:run", status: "running" }, events[2]],
+      stale: false,
+    },
+  });
+  await page.goto(baseURL + "/agents/home/chats/dinner");
+  const running = groupHead(page).getByRole("img", { name: "Running" });
+  await expect(running).toHaveClass(/status-dot-working/);
+  await page.waitForFunction(() => window.agentFeed?.sockets.size === 1);
+  state.history = { ...state.history, events: [events[1], events[2]] };
+  await page.evaluate(() => window.agentFeed.push("dinner"));
+  await expect(running).toHaveCount(0);
+  await expect(groupHead(page)).toBeVisible();
+  // The sheet goes with the events.
+  await groupHead(page).click();
+  await expect(group(page)).toBeVisible();
+  state.history = { ...state.history, events: [] };
+  await page.evaluate(() => window.agentFeed.push("dinner"));
+  await expect(groupHead(page)).toHaveCount(0);
+  await expect(group(page)).toHaveCount(0);
+});
+
 test("event area screenshots", async ({ page }, info) => {
   test.skip(!process.env.EVENT_AREA_SHOTS, "Screenshots are taken on request.");
   await eventAreaSetup(page, "en");
