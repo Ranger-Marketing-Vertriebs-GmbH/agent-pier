@@ -38,7 +38,7 @@ export default function AgentsPage({
     },
     [route],
   );
-  async function open(a) {
+  async function open(a, extra = {}) {
     const ticket = {};
     request.current = ticket;
     setError("");
@@ -51,7 +51,12 @@ export default function AgentsPage({
       const c = await assistantApi.open(a.id);
       await refresh();
       if (request.current === ticket)
-        navigate({ view: "agents", assistantId: a.id, conversationId: c.id });
+        navigate({
+          view: "agents",
+          assistantId: a.id,
+          conversationId: c.id,
+          ...extra,
+        });
     } catch (e) {
       if (request.current === ticket) setError(e.message);
     }
@@ -66,6 +71,12 @@ export default function AgentsPage({
     route.teamId &&
     teams.find((t) => t.id === route.teamId && t.parentAssistantId === route.assistantId);
   const conversationId = route.conversationId || team?.parentConversationId;
+  // The pinboard link (`/agents/:id/pinboard`) opens the main chat with its pinboard.
+  const pinboardLink = Boolean(route.pinboard && !route.conversationId && assistant);
+  useEffect(() => {
+    if (pinboardLink) open(assistant, { pinboard: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pinboardLink, assistant?.id]);
   // Settings on phones scroll inside their own container under the fixed header, so
   // the visual viewport (keyboard) must size the app like the chat does.
   useSessionViewport(Boolean(route.agentSettings && assistant && !conversationId));
@@ -97,7 +108,24 @@ export default function AgentsPage({
         assistant={assistant}
         conversationId={conversationId}
         focusTeamId={team?.id}
-        initialPinboard={route.pinboard ? { listId: route.pinboardList ?? null } : null}
+        initialPinboard={
+          route.pinboard
+            ? {
+                listId: route.pinboardList ?? null,
+                // Closing the pinboard drops its link, so a reload does not reopen it.
+                onClose: () =>
+                  navigate(
+                    {
+                      view: "agents",
+                      assistantId: route.assistantId,
+                      conversationId: route.conversationId,
+                    },
+                    true,
+                    true,
+                  ),
+              }
+            : null
+        }
         navigate={navigate}
         openNavigation={openNavigation}
         navigationOpen={navigationOpen}
@@ -134,6 +162,12 @@ export default function AgentsPage({
   if (route.creating)
     return <AgentWizard key={routePath(route)} route={route} navigate={navigate} />;
   // An agent page whose agent is not (or not yet) listed.
+  if (route.assistantId && pinboardLink)
+    return (
+      <div className="page assistants-page">
+        <ErrorMessage error={error || loadError} />
+      </div>
+    );
   if (route.assistantId)
     return (
       <div className="page assistants-page">

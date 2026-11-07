@@ -345,3 +345,17 @@ test("Review changes is an owner action only, not in the user's search", () => {
   const owners = buildSearchIndex({ agentsEnabled: true, runOpen: true });
   assert.ok(owners.some((item) => item.id === "action:run-changes"));
 });
+
+test("choosing an agent's pinboard entry navigates to the pinboard route", () => {
+  const entries = buildSearchIndex({
+    agents: [{ id: "ops", name: "Ops-Wache" }],
+    agentsEnabled: true,
+  });
+  const hit = flat(searchEntries(entries, "Ops-Wache Pinnwand")).find(
+    (item) => item.id === "agent:ops:pinboard",
+  );
+  assert.deepEqual(hit.target, {
+    route: { view: "agents", assistantId: "ops", pinboard: true },
+  });
+  assert.equal(routePath(hit.target.route), "/agents/ops/pinboard");
+});

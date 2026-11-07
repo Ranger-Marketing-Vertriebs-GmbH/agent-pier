@@ -52,6 +52,7 @@ export const searchCopy = {
     openInbox: "Eingang öffnen",
     addLabelRule: "Label-Regel hinzufügen",
     startTickets: "Tickets starten",
+    summariseChat: "Diesen Chat zusammenfassen",
     showChanges: "Änderungen anzeigen",
   },
   // Die Suche in der eigenen App eines Benutzers: die eigenen Agenten, deren Chats und Seiten, das Konto.

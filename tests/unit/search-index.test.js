@@ -198,9 +198,12 @@ test("agents get their tabs and subpages; old tab names find the new tabs", () =
     assert.equal(hit.target.route.agentTab, tab, old);
   }
   assert.equal(results("Altlast").length, 0, "archived agents stay out");
-  const helper = results("Helfer").map(
-    (item) => item.target.route?.agentTab || "overview",
-  );
+  // A team member has its own pinboard besides its settings tabs.
+  const helperHits = results("Helfer");
+  assert.ok(helperHits.some((item) => item.id === "agent:tmp:pinboard"));
+  const helper = helperHits
+    .filter((item) => !item.target.route?.pinboard)
+    .map((item) => item.target.route?.agentTab || "overview");
   assert.deepEqual(helper, ["overview", "identity", "capabilities", "access"]);
   assert.equal(
     results("Mias Agent").some((item) => item.target.route?.agentTab === "team"),
@@ -382,4 +385,37 @@ test("Review changes is offered only while the run on screen takes it", () => {
   assert.equal(pageActionOffered("run-changes"), false);
   const index = buildSearchIndex({ runOpen: pageActionOffered("run-changes") });
   assert.ok(!index.some((item) => item.id === "action:run-changes"));
+});
+
+test("an agent's pinboard is found in both languages, not on a user's own agent", () => {
+  for (const query of ["pinboard", "pinnwand", "Pinned files", "Angepinnte Dateien"]) {
+    const hit = results(query).find((item) => item.id === "agent:ops:pinboard");
+    assert.ok(hit, query);
+    assert.equal(pathOf(hit), "/agents/ops/pinboard");
+  }
+  assert.ok(!index.some((entry) => entry.id === "agent:old:pinboard"));
+  const own = buildSearchIndex({
+    agents: [{ id: "mine", name: "Mias Agent", userAccess: { mode: "own" } }],
+    agentsEnabled: true,
+  });
+  assert.ok(!own.some((entry) => entry.id.endsWith(":pinboard")));
+});
+
+test("New chat and Summarize this chat are offered only by a chat that takes them", () => {
+  const ids = (offered) =>
+    buildSearchIndex({ agentsEnabled: true, offered })
+      .filter((entry) => entry.id.startsWith("action:chat-"))
+      .map((entry) => entry.id);
+  assert.deepEqual(ids(), []);
+  assert.deepEqual(ids(["chat-summarise"]), ["action:chat-summarise"]);
+  const all = buildSearchIndex({
+    agentsEnabled: true,
+    offered: ["chat-new", "chat-summarise"],
+  });
+  // The old chat-bar names stay searchable.
+  for (const query of ["Jetzt zusammenfassen", "Summarize now", "Neuer Chat", "New chat"])
+    assert.ok(
+      results(query, all).some((item) => item.id.startsWith("action:chat-")),
+      query,
+    );
 });

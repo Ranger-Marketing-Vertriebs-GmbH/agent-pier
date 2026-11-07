@@ -10,6 +10,7 @@ import RemoteActivityGroup from "./RemoteActivityGroup.jsx";
 import AgentProjectNote from "./AgentProjectNote.jsx";
 import MemberGrantNote from "./MemberGrantNote.jsx";
 import WorkGoalNote from "./WorkGoalNote.jsx";
+import PinboardCard from "./pinboard/PinboardCard.jsx";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import { routineCopy } from "../../lib/i18n/messages/assistant-routines.js";
 import { memoryNoteText } from "./memory-note-text.js";
@@ -46,6 +47,8 @@ export default function TranscriptItem({
     <TeamNote note={note} navigate={navigate} focused={note.id === focusedNote} />
   ) : m.event === "coding-run" ? (
     <CodingRunNote note={m} navigate={navigate} />
+  ) : m.pinboard ? (
+    <PinboardCard pinboard={m.pinboard} />
   ) : m.event === "goal" || m.event === "goal-continuation" ? (
     <WorkGoalNote note={m} />
   ) : m.event === "ssh-run" ? (
