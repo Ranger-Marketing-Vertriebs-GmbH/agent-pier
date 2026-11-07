@@ -22,7 +22,9 @@ export async function createCodexProxy({
   const server = new WebSocketServer({
     host: "127.0.0.1",
     port: 0,
-    maxPayload: 16 * 1024 * 1024,
+    // Codex's own app-server accepts 64 MiB; its TUI sends up to 32 MiB of base64
+    // images in one turn/start. A lower limit closed the socket and lost the prompt.
+    maxPayload: 64 * 1024 * 1024,
   });
   await new Promise((resolve, reject) => {
     server.once("listening", resolve);
