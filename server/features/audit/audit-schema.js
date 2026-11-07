@@ -38,6 +38,16 @@ const memberGrantKeys = new Set([
   "projects",
   "github",
 ]);
+const pinboardActions = new Set([
+  "create_list",
+  "update_list",
+  "pin",
+  "unpin",
+  "reorder",
+  "archive_list",
+  "reopen_list",
+  "delete_list",
+]);
 const memberEditKeys = new Set([
   "name",
   "role",
@@ -210,9 +220,13 @@ export function auditEvent(input) {
       // A session or agent preview (audit-preview-details.js).
       "preview",
       "memory-review",
+      // An agent's pinboard write (agent-pinboard.js); `pinboard` names the action.
+      "pinboard",
     ].includes(details.kind)
   )
     event.details.kind = details.kind;
+  if (details.kind === "pinboard" && pinboardActions.has(details.pinboard))
+    event.details.pinboard = details.pinboard;
   if (
     [
       "allow",

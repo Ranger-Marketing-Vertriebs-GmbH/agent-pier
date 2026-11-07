@@ -71,10 +71,17 @@ async function readAt(handle, offset, length) {
 const plain = (value) =>
   value <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(value) : String(value);
 
+/** Size, modification time and inode of a (bigint) stat, as a pin's identity keeps them. */
+export const statIdentity = (stat) => ({
+  size: Number(stat.size),
+  mtimeMs: plain(stat.mtimeMs),
+  ino: plain(stat.ino),
+});
+
 /** Which file a pin shows: size, modification time, inode, and the bytes' hash when small. */
 export async function pinIdentity(handle, stat) {
-  const size = Number(stat.size);
-  const identity = { size, mtimeMs: plain(stat.mtimeMs), ino: plain(stat.ino) };
+  const identity = statIdentity(stat);
+  const { size } = identity;
   if (size > PIN_HASH_MAX_BYTES) return identity;
   const hash = createHash("sha256");
   for (let offset = 0; offset < size;) {
