@@ -277,9 +277,12 @@ for (const [label, use] of [
       await expect(
         page.getByRole("button", { name: /^Waiting for your approval · 1/ }),
       ).toBeVisible();
-      await expect(page.locator(".assistant-header-label")).toHaveText(
-        "Awaiting approval",
-      );
+      // On a phone the header's dot names the status.
+      await expect(
+        page
+          .locator(".assistant-header-label", { hasText: "Awaiting approval" })
+          .or(page.locator(".assistant-header-dot[aria-label='Awaiting approval']")),
+      ).toBeVisible();
       await cards.getByRole("button", { name: "Allow once" }).click();
       await expect
         .poll(() => state.decisions)
@@ -322,9 +325,12 @@ for (const [label, use] of [
       });
       await expect(cards).toHaveCount(1);
       await expect(cards).toContainText("Network Architect");
-      await expect(page.locator(".assistant-header-label")).toHaveText(
-        "Awaiting approval",
-      );
+      // On a phone the header's dot names the status.
+      await expect(
+        page
+          .locator(".assistant-header-label", { hasText: "Awaiting approval" })
+          .or(page.locator(".assistant-header-dot[aria-label='Awaiting approval']")),
+      ).toBeVisible();
       await cards.getByRole("button", { name: "Deny" }).click();
       await expect
         .poll(() => state.decisions)

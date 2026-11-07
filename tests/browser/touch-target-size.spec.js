@@ -3,11 +3,12 @@ import { baseURL } from "../helpers/browser.js";
 import { phone } from "./touch-input-size.js";
 import { fixture } from "./providers-fixture.js";
 import { home, setupAssistantSettings } from "../helpers/assistant-settings-browser.js";
+import { chatFixture } from "../helpers/assistant-chat-fixture.js";
 
 // docs/ui-guide.md#mobile-and-touch: on a phone every button, compact button and icon
 // button is at least 44px tall (icon buttons also 44px wide), and checkbox labels
-// and the chats under an agent in the navigation offer the same target, as does the
-// pinboard's link to the chat a list came from.
+// and the chats under an agent in the navigation offer the same target, as do the
+// agent chat header's icons and the pinboard's link to the chat a list came from.
 test.use(phone);
 
 const pages = [
@@ -41,12 +42,14 @@ async function smallTargets(page) {
     const describe = (element) =>
       `${element.tagName.toLowerCase()}${[...element.classList].map((name) => `.${name}`).join("")} "${(element.getAttribute("aria-label") || element.innerText || "").trim().slice(0, 30)}"`;
     for (const element of document.querySelectorAll(
-      ".button, .compact, .icon-button, .assistant-sidebar-chat, .pinboard-origin, label:has(> input[type='checkbox'])",
+      ".button, .compact, .icon-button, .assistant-header-icon, .assistant-sidebar-chat, .pinboard-origin, label:has(> input[type='checkbox'])",
     )) {
       if (!element.checkVisibility({ checkVisibilityCSS: true })) continue;
       const box = element.getBoundingClientRect();
       if (!box.width || !box.height) continue;
-      const icon = element.classList.contains("icon-button");
+      const icon =
+        element.classList.contains("icon-button") ||
+        element.classList.contains("assistant-header-icon");
       if (box.height < target || (icon && box.width < target))
         found.push(
           `${describe(element)} ${Math.round(box.width)}×${Math.round(box.height)}`,
@@ -131,6 +134,36 @@ test("the agent chat's switch row and pinboard are 44px touch targets", async ({
   await page.goto(baseURL + "/agents/home/chats/main");
   await page.getByRole("radio", { name: "Pinboard", exact: true }).check({ force: true });
   await expect(page.locator(".pinboard-origin")).toBeVisible();
+  expect(await smallTargets(page)).toEqual([]);
+});
+
+test("the agent chat header's icons are 44px touch targets", async ({ page }) => {
+  await chatFixture(page, {
+    conversations: [{ id: "dinner", assistantId: "home", title: "Dinner plans" }],
+    history: {
+      messages: [],
+      requests: [],
+      stale: false,
+      goal: { id: "g", title: "Review cut", state: "open", createdAt: 1 },
+      events: [
+        {
+          id: "routine:r1",
+          source: "routine",
+          name: "Network check",
+          at: Date.now() - 60_000,
+          status: "done",
+          firstLine: "All links up",
+        },
+      ],
+    },
+  });
+  await page.route("**/api/assistants/home/pinboard", (route) =>
+    route.fulfill({ json: { fresh: 0, lists: [] } }),
+  );
+  await page.goto(baseURL + "/agents/home/chats/dinner");
+  const header = page.locator(".assistant-header");
+  await expect(header.getByRole("button", { name: /Review cut/ })).toBeVisible();
+  await expect(header.getByRole("button", { name: /Events/ })).toBeVisible();
   expect(await smallTargets(page)).toEqual([]);
 });
 

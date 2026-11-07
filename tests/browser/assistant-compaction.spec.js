@@ -106,9 +106,11 @@ test("the summarising status fits a phone and stays clear of the composer", asyn
   const box = await line.boundingBox();
   expect(box.x).toBeGreaterThanOrEqual(0);
   expect(box.x + box.width).toBeLessThanOrEqual(390);
-  // The header keeps its short form on one line.
-  await expect(headerLabel(page)).toHaveText(copy.en.header);
-  const label = await headerLabel(page).boundingBox();
+  // On a phone the header's dot carries the short form; the line stays inside.
+  await expect(
+    page.locator(".assistant-header-status").getByRole("img", { name: copy.en.header }),
+  ).toBeVisible();
+  const label = await page.locator(".assistant-header-status").boundingBox();
   expect(label.x + label.width).toBeLessThanOrEqual(390);
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth),

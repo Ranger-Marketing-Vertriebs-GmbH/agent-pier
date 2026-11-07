@@ -14,10 +14,14 @@
   color: var(--muted);
   font-size: inherit;
 }
+/* A full touch target around the small title, centred on it. */
 .assistant-header-status .agent-chat-title-button::after {
   content: "";
   position: absolute;
-  inset: -14px -6px;
+  top: calc(50% - var(--touch-target) / 2);
+  right: -6px;
+  left: -6px;
+  height: var(--touch-target);
 }
 .assistant-header .agent-chat-work,
 .assistant-header .agent-chat-events,
@@ -31,11 +35,25 @@
   padding: 0 var(--space-2);
   font-size: var(--font-size-sm);
 }
+/* Phones: every header icon is a full touch target; their own margins space them,
+   so the chat's title under the agent's name stays readable. */
 @media (max-width: 700px) {
+  .assistant-header.conversation {
+    gap: 0;
+  }
+  .assistant-header.conversation .assistant-header-title {
+    margin: 0 var(--space-1) 0 var(--space-2);
+  }
+  .assistant-header .assistant-header-icon,
+  .assistant-header .assistant-header-settings {
+    width: var(--touch-target);
+    height: var(--touch-target);
+  }
   .assistant-header .agent-chat-work,
   .assistant-header .agent-chat-events,
   .assistant-header .agent-chat-pin {
-    min-width: 40px;
+    width: auto;
+    min-width: var(--touch-target);
     padding: 0 6px;
   }
 }

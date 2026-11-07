@@ -46,16 +46,26 @@ function EntryRows({ list, label, labelledBy, onOpenEntry }) {
   );
 }
 
-function OpenList({ list, onOpenEntry, onOpenChat, anchor }) {
+// The current time, a minute at a time: the lists' "4 minutes ago" moves on.
+function useMinute() {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
+  return now;
+}
+
+function OpenList({ list, now, onOpenEntry, onOpenChat, anchor }) {
   const titleId = useId();
   const origin = list.origin;
   return (
     <section className="pinboard-list" ref={anchor} data-list-id={list.id}>
-      <GroupLabel as="h3" id={titleId}>
+      <h3 id={titleId} className="pinboard-list-title">
         {list.title}
-      </GroupLabel>
+      </h3>
       <p className="pinboard-list-meta">
-        <time dateTime={list.updatedAt}>{listTime(list.updatedAt)}</time>
+        <time dateTime={list.updatedAt}>{listTime(list.updatedAt, now)}</time>
         {origin && (
           <>
             {" · "}
@@ -112,6 +122,7 @@ function ArchivedList({ list, expanded, onToggle, onOpenEntry, anchor }) {
  */
 export default function PinboardLists({ view, focusListId, onOpenEntry, onOpenChat }) {
   const { open, archived } = pinboardSections(view);
+  const now = useMinute();
   const [expanded, setExpanded] = useState(() => new Set());
   const anchors = useRef(new Map());
   const scrolled = useRef(null);
@@ -150,6 +161,7 @@ export default function PinboardLists({ view, focusListId, onOpenEntry, onOpenCh
         <OpenList
           key={list.id}
           list={list}
+          now={now}
           anchor={anchor(list.id)}
           onOpenEntry={onOpenEntry}
           onOpenChat={onOpenChat}

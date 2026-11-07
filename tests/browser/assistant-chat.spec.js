@@ -249,7 +249,12 @@ for (const [name, size, touch] of [
         },
       });
       const status = page.locator(".assistant-header-status");
-      await expect(status).toContainText("Working");
+      // On a phone the status is the dot, named by its word.
+      await expect(
+        status
+          .locator(".assistant-header-label", { hasText: "Working" })
+          .or(status.getByRole("img", { name: "Working" })),
+      ).toBeVisible();
       await expect(page.getByText("Ready", { exact: true })).toHaveCount(0);
     });
   });

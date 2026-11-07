@@ -19,8 +19,9 @@ test.describe("agent chat header", () => {
     );
     const status = header.locator(".assistant-header-status");
     await expect(status).toHaveClass(/\bready\b/);
-    await expect(status).toContainText("Ready");
-    // The chat's title takes the model's place (the chat selector, AgentChatTop).
+    // On a phone the chat's title takes the status word's and the model's place (the
+    // chat selector, AgentChatTop); the dot alone shows the status, named by it.
+    await expect(status.getByRole("img", { name: "Ready" })).toBeVisible();
     await expect(
       status.getByRole("button", { name: /^Chats with Home assistant: / }),
     ).toBeVisible();
@@ -147,9 +148,11 @@ test.describe("agent chat header", () => {
       });
       await page.goto(chat);
       const status = page.locator(".assistant-header-status");
-      await expect(status).toContainText(
-        language === "en" ? "Team awaiting approval" : "Team wartet auf Freigabe",
-      );
+      await expect(
+        status.getByRole("img", {
+          name: language === "en" ? "Team awaiting approval" : "Team wartet auf Freigabe",
+        }),
+      ).toBeVisible();
       const [label, gear] = await Promise.all([
         status.boundingBox(),
         page.locator(".assistant-header-settings").boundingBox(),

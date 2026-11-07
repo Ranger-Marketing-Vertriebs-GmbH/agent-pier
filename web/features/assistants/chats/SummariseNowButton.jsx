@@ -21,7 +21,7 @@ export default function SummariseNowButton({ run, reason = "" }) {
         aria-label={copy.summariseNow}
         onClick={run}
       >
-        <Icon name="history" size={14} />
+        <Icon name="summarise" size={14} />
         <span className="agent-chat-summarise-label">{copy.summariseNow}</span>
       </button>
       {reason && (

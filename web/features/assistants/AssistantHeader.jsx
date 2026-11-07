@@ -1,5 +1,6 @@
 import React from "react";
 import Icon from "../../components/Icon.jsx";
+import useMobileLayout from "../../lib/useMobileLayout.js";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import { mobileHeaderCopy } from "../../lib/i18n/messages/app.js";
 import useAssistants from "./useAssistants.js";
@@ -19,7 +20,9 @@ import { RowMenu, useRowMenu } from "../extensions/RowMenu.jsx";
 // replaces the app's mobile header, so it carries the navigation button itself. In a
 // split view's pane (`pane`: { menuItems, close, headerProps }) it has no navigation;
 // ⋯ holds the pane's entries and Settings, × takes the pane out of the view.
-// `statusExtra` (the agent chat's chat selector) takes the place of "· <model>".
+// `statusExtra` (the agent chat's chat selector) takes the place of "· <model>"; on a
+// phone it takes the status word's place too, and the dot alone (labelled with that
+// word) shows the status.
 export default function AssistantHeader({
   assistant,
   variant,
@@ -49,6 +52,7 @@ export default function AssistantHeader({
     compacting,
   });
   const missing = status.tone === "missing";
+  const dotOnly = useMobileLayout() && Boolean(statusExtra) && !missing;
   const settings = variant === "settings";
   const detail = member
     ? `${member.role} · ${assistant.model.modelId}`
@@ -114,11 +118,13 @@ export default function AssistantHeader({
                 tone={headerDotTone(status.tone, runtime?.availability)}
                 pulse={status.tone === "working"}
                 className="assistant-header-dot"
+                label={dotOnly ? status.label : undefined}
+                title={dotOnly ? status.label : undefined}
               />
-              <span className="assistant-header-label">{status.label}</span>
+              {!dotOnly && <span className="assistant-header-label">{status.label}</span>}
               {statusExtra ? (
                 <>
-                  <span aria-hidden="true">·</span>
+                  {!dotOnly && <span aria-hidden="true">·</span>}
                   {statusExtra}
                 </>
               ) : (
