@@ -5447,6 +5447,50 @@ person who asked, never the owner.
   the owner's chat follows `followUpTelegram` (above); a hook's session never sends. Each share writes an
   `assistant.sent` audit event with `kind: "share"`.
 
+### Agent pinboard (2026-11-07)
+
+`agentpier_pinboard {action, ...}` is compiled beside `agentpier_share_file` into every
+non-archived agent's `tools.allow`, team members included, into a routine's `toolsAllow`,
+into every hook run's tools (`agent-hook-rights.js`) and into the Hermes grants
+(`native-capabilities.js`). The bridge serves it as the `pinboard` action
+(`team-bridge-actions.js`, an owner file action like `share_file`, so a turn without an
+active attempt, a routine's or hook's run and a follow-up bind as they do for a share) and
+hands it to `AgentPinboard` (`agent-pinboard.js`). Actions: `list`, `create_list`,
+`update_list`, `pin` (`listId`, `path`, optional `projectId`, `name`, `note`), `unpin`
+(`entryId` or `name`), `reorder`, `archive_list`, `reopen_list` and `delete_list`. The
+agent's reply to `pin` names who sees the list; a pin to an archived list reopens it.
+
+- **Links, not copies.** `pin` resolves the file with the share rules of the calling
+  turn (`openPinned` in `agent-pinboard-files.js`, `agent-share-source.js`) and stores
+  only the root, the resolved relative path and a file identity (size, mtime, inode, and
+  a SHA-256 for files up to 1 MiB). The owner's reads (`GET
+/api/assistants/:id/pinboard`, the file route) validate it again every time: root, no
+  symbolic link on the way, `openInside` with `O_NOFOLLOW`, one hard link, a regular file,
+  never `.git` or the data directory, and the project grant still held; the bytes stream
+  from the checked descriptor (`sendFileRange` answers `Range` requests). A failure marks
+  the entry unavailable and answers 404 without a byte. NEW compares the identity with the
+  one the owner last saw: an atomic rewrite keeps the path and raises the entry's version;
+  a touched file whose content hash is unchanged is not NEW. Pinning the same path again
+  replaces the entry in place.
+- **Limits.** 50 open lists per agent (archived ones do not count) and 100 entries per
+  list. The Markdown reader reads at most 512 KB (`MARKDOWN_PREVIEW_MAX_BYTES`); no other
+  size limit applies.
+- **Owner only.** Every action, not only `pin`, is refused with `PINBOARD_OWNER_ONLY`
+  (HTTP 403) in a restricted user's chat turn and on a user's own agent (`userAccess.mode
+=== "own"`, whose tool grants omit it); this is stricter than the design, which refused
+  only `pin`, and also keeps the owner's list titles out of user chats. The user app has no
+  pinboard. Refusals reach the model as stable codes with English reasons
+  (`tool-errors.js`): `PINBOARD_LIST_NOT_FOUND`, `PINBOARD_ENTRY_NOT_FOUND`,
+  `PINBOARD_LIST_LIMIT`, `PINBOARD_ENTRY_LIMIT`, `PINBOARD_OWNER_ONLY`; during maintenance,
+  recovery or shutdown the tool answers 503. An archived agent pins nothing.
+- **Chat cards.** A pin, replace or unpin leaves one card per list and turn in the
+  chat history (`store.recordChange`); list-level actions only signal the board.
+- **Audit and live.** Every write is logged as `assistant.updated` with `details: { kind:
+"pinboard", pinboard: <action> }` (and the `projectId` when the pin came from a project
+  folder). Each write and the owner's `seen` call signal the live topic
+  `agent.pinboard:<agentId>` (owner only, `content: true`;
+  [Live channel](architecture.md#live-channel)).
+
 ## Continuous integration
 
 The `Assistant runtime` workflow runs the opt-in native contracts in a

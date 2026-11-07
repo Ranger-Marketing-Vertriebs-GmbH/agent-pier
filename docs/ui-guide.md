@@ -355,6 +355,15 @@ The information architecture is recorded in
   **Agent** while agents are on) stays in the phone header and the floating bar of a
   collapsed sidebar. While the agent service is stopped, agent rows are dimmed with
   "offline".
+- **Agent chat header** (`web/features/assistants/AgentChatTop.jsx`, owner app, every
+  width): the chat selector sits under the agent name (a main chat shows its title in the
+  status line, not the model id). The work goal (with **Stop**, in a sheet) and the
+  events are header icons, beside **Talk**. On a phone a segmented **Chat | Pinboard (n)**
+  switch replaces the former chat-selector row, so the chat gains no extra row; **New
+  chat** and the chat list are icon buttons beside it. A team member's chat has no row,
+  only a pin icon in the header. On a computer the header carries **Pinboard**, **New
+  chat** and **Summarize now**, and the pinboard docks beside the chat as a `DockedPanel`.
+  A restricted user's chat keeps its layout.
 - **Views group** (`web/features/views/ViewsSidebarGroup.jsx`): between **Inbox** and
   **Agents**, shown only wider than 1150 px. Its head has one "+" (**New view**); each
   view row shows the name and pane count. Sessions and agent chats shown in the current

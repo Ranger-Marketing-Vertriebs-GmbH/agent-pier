@@ -1340,8 +1340,9 @@ working until it is done ("finish the episode", "work until you're done"); the a
 also set a goal itself in any run of your chat, never for forwarded or members' content.
 A goal stays anchored to your own latest message. The agent recognises that by meaning in any
 wording and language, sets a **work goal** with a short title, what done means and its
-open steps, and keeps working. While the goal is open, the chat shows **Working until
-done: <title>** with a **Stop** button under the chat header.
+open steps, and keeps working. While the goal is open, the chat header shows a work
+icon; selecting it opens the **Work goal** sheet with **Working until done: <title>**,
+what done means, the open steps and a **Stop** button.
 
 - **One goal per chat.** A new goal in the same chat replaces the open one; both
   changes appear as notes in the chat ("Goal replaced: ...", "Working until done: ...").
@@ -1381,7 +1382,7 @@ done: <title>** with a **Stop** button under the chat header.
   count as progress. The agent can also finish it
   itself ("Goal done: ...") or report it blocked ("Goal blocked: ...") when it needs
   you.
-- **Stop.** **Stop** on the goal line ends the goal at once ("Goal stopped: ...").
+- **Stop.** **Stop** in the **Work goal** sheet ends the goal at once ("Goal stopped: ...").
   Stopping a running continuation turn with the chat's stop control ends the goal too.
 - **No Telegram.** Continuations and goal notes stay in AgentPier's chat; nothing is
   sent to a paired Telegram chat.
@@ -1471,9 +1472,10 @@ or proposing a team sends an **Agent approval** push notification as well.
 ### The event area
 
 What routines, check-ins and hooks did stays out of the conversation: the main chat
-shows it in one **Events** strip under the chat header, shut by default, with the number
-of events and how many are new since you last opened it (remembered per browser), plus
-**Running** while one runs and **N failed** for new failures. Each event is a row with
+shows it behind one **Events** icon in the chat header (**Events: <number>**), with the
+number of events, a dot for ones that are new since you last opened it (remembered per
+browser), plus **Running** while one runs and **N failed** for new failures; selecting
+it opens the list. Each event is a row with
 its name (a hook's with its sender), the reply's first line, duplicates, and **Running**,
 **Done**, **Failed**, **Throttled** or **Silent**. Opening a hook's row shows **What came
 in** as plain text (never formatted), when it arrived, its size and sender, **What the
@@ -1488,11 +1490,9 @@ request or a shell command approval a run asks for stays a card in the conversat
 Reminders stay ordinary messages marked "Scheduled · <name>". Other chats have no event
 area.
 
-On a phone the **Events** strip is one slim row with the number of events, a dot for new
-ones and the **N failed** chip, and a team member's role strip is one line (role, then
-the assignment cut short). While you type with the on-screen keyboard open, both step
-aside for the transcript and come back when you leave the message field; an **Events**
-strip you opened stays.
+A team member's role strip is one line on a phone (role, then the assignment cut short).
+While you type with the on-screen keyboard open, it steps aside for the transcript and
+comes back when you leave the message field.
 
 ## Hooks
 
@@ -1593,10 +1593,11 @@ is hidden, and after 30 minutes. Details and limits:
 
 ## Chats
 
-Each agent holds several chats. The bar under the chat header shows the open chat's
-title; tap it for the **Chats** sheet: **New chat** on top, your main chat first, then
-the others newest first, and **Archived chats** at the bottom. **New chat** next to the
-title starts an empty chat right away; the earlier one stays in the list. The ⋯ of a
+Each agent holds several chats. The chat selector under the agent's name in the chat
+header shows the open chat's title; tap it for the **Chats** sheet: **New chat** on top, your main chat first, then
+the others newest first, and **Archived chats** at the bottom. **New chat** (a header button on a
+computer, a button beside the **Chat** and **Pinboard** switch on a phone) starts an
+empty chat right away; the earlier one stays in the list. The ⋯ of a
 row offers **Rename**, **Archive** and **Delete** (**Delete now** removes the chat and
 its transcript). Your main chat is the one reminders, routines, check-ins and Telegram
 deliver into: it is renamed only, and archived and replaced only by
@@ -1608,7 +1609,8 @@ generated title back. A chat stays usable however long it sits idle; only
 your own **Archive** makes it read-only. An archived chat opens read-only with
 **Restore**; a link to a deleted chat (an old push notice's) says "This chat was
 deleted." and leads to the main chat. The sidebar lists the open agent's recent chats under it, the main
-chat first. Server details:
+chat first. In a main chat the header's status line shows the chat's title instead of
+the model's id, also on a computer. Server details:
 [Several chats per agent](assistant-gateway.md#several-chats-per-agent).
 
 ## Messages while the agent works
@@ -1837,6 +1839,47 @@ signed-in one may be used for images.
   under a shared file removes AgentPier's copy from every chat that shows it; the
   agent's own file stays in its workspace. A copy that is gone leaves its message with
   a note that the file is no longer available.
+
+### Pinboard
+
+Besides single files in the chat, every agent, team members included, keeps a
+**pinboard** for you: named lists of files that it creates, updates and tidies up while
+the work goes on, for example "Episodes 6-10" with one text per episode. The pinboard
+belongs to the agent, not to a chat: a new chat or a summary never hides a list, and a
+list names the chat it came from and links back to it. A team member has its own
+pinboard; its pins stay there.
+
+- **Where you see it.** On a phone, a **Chat | Pinboard (n)** switch under the chat
+  header (n counts files that are new or changed since you last looked) is the only row
+  below it; **New chat** and the chat list are buttons beside it. A
+  team member's chat has no extra row but a pin button in its header. On a computer, the
+  header's **Pinboard** button docks the pinboard as a side panel beside the chat; the
+  chat stays usable. **Pinboard** in the search (⌘K or Ctrl+K, also "Pinned files") and
+  the link `/agents/<agent>/pinboard` open it; a chat link with `?pinboard=1&list=<list>`
+  opens one list. When the agent pins or replaces a file, a card in the chat names the
+  list and the files and opens it.
+- **Lists and reading.** The pinboard shows open lists first and finished ones under
+  **Done**. An entry marked **NEW** is a file whose content changed since you last
+  opened it. Select an entry to read it: Markdown rendered as in the chat (at most
+  512 KB; a larger text offers the download), videos and audio played inline, images in
+  the image viewer, every other file as a download. In the reader **Previous** and
+  **Next** walk through the list one file after another and **Back to the lists**
+  returns.
+- **Links, not copies.** An entry points to a file in the agent's workspace or a
+  project folder you granted it. AgentPier stores no bytes. Every time you open the
+  file it is checked again by the rules of [files from agents](#files-from-agents)
+  (no links, never `.git` or AgentPier's data, project still granted), so a file the
+  agent rewrites keeps its entry and shows **NEW**, while a moved, deleted or swapped
+  file, or one whose project grant you took back, shows **No longer available**
+  (granting the project again brings it back). There is no 25 MiB limit; large videos
+  seek.
+- **What the agent can do.** Its `agentpier_pinboard` tool lists the lists, creates,
+  retitles, reorders, archives, reopens and deletes a list, and pins (a path again
+  replaces the entry in place), or unpins a file. Each agent holds at most 50 open
+  lists (finished ones do not count) with 100 entries each.
+- **Only you.** Only you see and fill the pinboard, in the owner app. An agent refuses
+  every pinboard action in a restricted user's chat and on a user's own agent, and the
+  users' app has none.
 
 ## Users
 
