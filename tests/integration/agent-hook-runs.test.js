@@ -39,6 +39,7 @@ test("a fresh delivery starts one disabled job and forces its run", async (t) =>
     "memory_search",
     "memory_get",
     "agentpier_share_file",
+    "agentpier_pinboard",
   ]);
   assert.match(
     add.payload.message,

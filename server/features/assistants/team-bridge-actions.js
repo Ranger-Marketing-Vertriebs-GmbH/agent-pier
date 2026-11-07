@@ -33,6 +33,8 @@ export const actions = new Set([
   "ssh",
   // Every agent, members too, hands the owner files (agent-shares.js).
   "share_file",
+  // The agent's pinboard of files for the owner (agent-pinboard.js).
+  "pinboard",
   // A work goal in the owner's chat (work-goals.js); never a routine run.
   "goal",
   // The agent's hook proposals for the owner (agent-hook-proposals.js); owner turns only.
@@ -49,6 +51,8 @@ export const actions = new Set([
   "preview",
   ...memberActions,
 ]);
+// File actions for the owner that also run in a session without a turn (owner-shares.js).
+export const ownerFileActions = new Set(["share_file", "pinboard"]);
 // The tool name behind a bridge action: agentpier_ssh, agentpier_team_<action>, ...
 export const bridgeTool = (action) =>
   [
@@ -57,6 +61,7 @@ export const bridgeTool = (action) =>
     "workspace",
     "ssh",
     "share_file",
+    "pinboard",
     "goal",
     "hook",
     "ssh_access",
@@ -73,6 +78,7 @@ export const bridgeTool = (action) =>
 export const routineActions = new Set([
   "ssh",
   "share_file",
+  "pinboard",
   "members",
   "ask",
   "delegate",

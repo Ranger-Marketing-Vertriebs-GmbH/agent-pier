@@ -256,6 +256,7 @@ test("a hook run submits, forces and removes its job as before", async (t) => {
           "memory_search",
           "memory_get",
           "agentpier_share_file",
+          "agentpier_pinboard",
         ],
       },
       delivery: {

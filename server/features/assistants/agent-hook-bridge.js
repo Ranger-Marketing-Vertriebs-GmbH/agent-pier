@@ -22,6 +22,7 @@ export const hookActions = new Set([
   "coding_session",
   "mail",
   "share_file",
+  "pinboard",
 ]);
 
 /** The running hook event's origin of this agent's session, or null. */

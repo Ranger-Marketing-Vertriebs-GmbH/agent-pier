@@ -130,6 +130,7 @@ const nativeAllow = [
   "agentpier_workspace",
   "agentpier_ssh",
   "agentpier_share_file",
+  "agentpier_pinboard",
   "agentpier_goal",
   "agentpier_hook",
   "agentpier_ssh_access",
@@ -345,6 +346,7 @@ test("a temporary team member's own capabilities give it no web tools", () => {
     "agentpier_team_report",
     "agentpier_workspace",
     "agentpier_share_file",
+    "agentpier_pinboard",
   ]);
   // It adds nothing to the global sections, not even a browser profile.
   assert.deepEqual(

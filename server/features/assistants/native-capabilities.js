@@ -146,6 +146,7 @@ export const routineTools = [
   ...shellTools,
   "agentpier_ssh",
   "agentpier_share_file",
+  "agentpier_pinboard",
   // Project folders at the agent's levels, read-only once "May write" is off.
   "agentpier_workspace",
   // Coding sessions on projects with sessions on (coding-sessions/session-turns.js).
@@ -286,7 +287,15 @@ export function toolGrants(assistant, { ssh = false } = {}) {
     // Temporary members use it only to request coding runs on the parent's grant.
     ...(live ? [grant(["agentpier_workspace"])] : []),
     // Every agent may hand the owner a file from its own workspace (agent-shares.js).
-    ...(live ? [grant(["agentpier_share_file"])] : []),
+    // The pinboard is the owner's: never on a user's own agent (agent-pinboard.js).
+    ...(live
+      ? [
+          grant([
+            "agentpier_share_file",
+            ...(assistant.userAccess?.mode === "own" ? [] : ["agentpier_pinboard"]),
+          ]),
+        ]
+      : []),
     // Work goals, SSH access proposals, coding sessions and email: own agents and
     // permanent members only (goal-turns.js, agent-ssh-proposals.js,
     // agent-coding-sessions.js, mail/agent-mail.js). Without a project with sessions
