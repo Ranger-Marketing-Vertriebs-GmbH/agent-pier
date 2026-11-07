@@ -1,4 +1,4 @@
-import { refreshStartupPrompts } from "./claude-startup-prompts.js";
+import { refreshOpenStartup, refreshStartupPrompts } from "./claude-startup-prompts.js";
 import { hookLaunchIdentity } from "./codex-hook-trust.js";
 import fs from "node:fs/promises";
 import { writeFileSync, renameSync } from "node:fs";
@@ -404,6 +404,11 @@ export class RequestBroker {
   }
   hasPending(sessionId) {
     return [...this.entries.values()].some((entry) => entry.sessionId === sessionId);
+  }
+  /** hasPending() after an open startup dialog was compared with the screen. */
+  async stillPending(sessionId) {
+    await refreshOpenStartup(this, sessionId).catch(() => {});
+    return this.hasPending(sessionId);
   }
   /**
    * Every open request of every session, for the owner's inbox. Unlike list() it has

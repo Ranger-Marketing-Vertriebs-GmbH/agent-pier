@@ -135,7 +135,11 @@ export class DeliveryQueue {
           this.finish(job);
           continue;
         }
-        if (job.receipt.waiting === "request" && delivery.requests.hasPending(id))
+        if (
+          job.receipt.waiting === "request" &&
+          (await (delivery.requests.stillPending?.(id) ??
+            delivery.requests.hasPending(id)))
+        )
           continue;
         // A menu or question still on an unchanged screen: leave the session
         // lock (and terminal typing) alone until something moves.

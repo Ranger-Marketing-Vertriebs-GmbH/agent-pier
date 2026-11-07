@@ -303,6 +303,15 @@ export async function refreshStartupPrompts(broker, session) {
   // (reload, stop); the next poll looks again.
   return current.started ? scan.catch(() => {}) : scan;
 }
+/**
+ * Compares an open startup dialog of the session with its screen. Nothing signals
+ * the end of one answered in the terminal; otherwise only a reader of the list (an
+ * open chat) notices, and a held chat message would wait for it.
+ */
+export async function refreshOpenStartup(broker, sessionId) {
+  if (localEntry(broker, sessionId))
+    await refreshStartupPrompts(broker, await broker.sessions.get(sessionId));
+}
 /** Moves the native selection to `choice`, confirms it and waits for the dialog to leave. */
 export async function answerStartupPrompt(broker, entry, choice) {
   const dialog = entry.subject?.dialog;
