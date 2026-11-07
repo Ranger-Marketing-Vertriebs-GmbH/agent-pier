@@ -82,6 +82,7 @@ export function agentListTopic(services) {
 // - `agent.coding-requests`: that list's team coding requests (`teamId`) only;
 // - `agent.channels`: GET /api/assistant-channels with the agent's channels only;
 // - `agent.reminders`: GET /api/assistants/:id/reminders;
+// - `agent.pinboard`: GET /api/assistants/:id/pinboard (the agent's pinned lists);
 // - `agent.senders`: GET /api/assistant-telegram-senders/:id;
 // - `agent.ssh-agent`: GET /api/assistants/:id/ssh-agent, the agent's plain ssh status.
 // Privacy is checked as the routes check it. The owner-content guard
@@ -98,6 +99,7 @@ export const AGENT_DETAIL_TOPICS = Object.freeze([
   "agent.coding-requests",
   "agent.channels",
   "agent.reminders",
+  "agent.pinboard",
   "agent.senders",
   "agent.ssh-agent",
 ]);
@@ -109,6 +111,10 @@ export const AGENT_SENDERS_SAMPLE_MS = 5000;
 // The cron jobs behind the reminders live in the Gateway too: an agent's own cron
 // tool changes them, and a next run moves on without AgentPier hearing of it.
 export const AGENT_REMINDERS_SAMPLE_MS = 30000;
+
+// Pinned files change without a tool call (an agent edits one in its workspace), and
+// a view opens every entry: sampled while a visible tab watches, no faster.
+export const AGENT_PINBOARD_SAMPLE_MS = 30000;
 
 const owner = (principal) => principal?.role === "owner";
 
@@ -235,6 +241,15 @@ export function agentDetailTopics(services) {
       watch: switched,
     }),
     detailTopic(services, {
+      name: "agent.pinboard",
+      content: true,
+      read: (id) => running(services).pinboard.view(id),
+      // Pinboard writes and `seen` signal it (agentPinboardChanged); a file edited
+      // without a tool call is sampled.
+      sampleMs: AGENT_PINBOARD_SAMPLE_MS,
+      watch: switched,
+    }),
+    detailTopic(services, {
       name: "agent.senders",
       sampleMs: AGENT_SENDERS_SAMPLE_MS,
       read: (id) => services.assistantTelegramSenders.get(id),
@@ -272,6 +287,18 @@ export function agentSshChanged(hub, id) {
     hub?.invalidate("agent.ssh-agent", id);
   } catch {
     console.error("AgentPier could not report a change of an agent's SSH agent.");
+  }
+}
+
+/**
+ * Agent `id`'s pinboard changed (AgentPinboard's onChange): signals its
+ * `agent.pinboard` topic on `hub` (services.live). A failing hub is logged.
+ */
+export function agentPinboardChanged(hub, id) {
+  try {
+    hub?.invalidate("agent.pinboard", id);
+  } catch {
+    console.error("AgentPier could not report a change of an agent's pinboard.");
   }
 }
 

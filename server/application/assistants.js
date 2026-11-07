@@ -24,6 +24,7 @@ import { chatgptLoginChanged } from "../features/assistants/live-login-topics.js
 import {
   agentActionsChanged,
   agentChannelsChanged,
+  agentPinboardChanged,
   followReminderWrites,
 } from "../features/assistants/live-topics.js";
 
@@ -82,7 +83,10 @@ export function createAssistantServices(options) {
     graph.assistantUpdates.onChange = () => options.live?.invalidate("runtime.updates");
     followReminderWrites(graph.assistantReminders, () => options.live);
     // The agents' pinboards (agentpier_pinboard), on the shares of the connected graph.
-    graph.assistants.pinboard = new AgentPinboard({ assistants: graph.assistants });
+    graph.assistants.pinboard = new AgentPinboard({
+      assistants: graph.assistants,
+      onChange: (id) => agentPinboardChanged(options.live, id),
+    });
     return Object.fromEntries(assistantServiceNames.map((name) => [name, graph[name]]));
   } catch (error) {
     // Unconnected services are not closed through AssistantService; close each one

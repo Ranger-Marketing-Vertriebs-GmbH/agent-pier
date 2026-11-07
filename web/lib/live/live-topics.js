@@ -159,6 +159,14 @@ export const liveTopics = Object.freeze({
     interval: 10000,
     sampled: true,
   }),
+  // Pushed by every pinboard write; files edited without a tool call are sampled by
+  // the server while a visible tab watches.
+  "agent.pinboard": Object.freeze({
+    mode: "state",
+    path: (id) => `/assistants/${encodeURIComponent(id)}/pinboard`,
+    interval: 30000,
+    sampled: true,
+  }),
   // The bot's state is sampled by the server while a visible tab watches.
   "agent.senders": Object.freeze({
     mode: "state",
