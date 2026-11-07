@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Icon from "../../components/Icon.jsx";
 import Sheet from "../../components/Sheet.jsx";
 import StatusDot from "../../components/StatusDot.jsx";
@@ -15,8 +15,9 @@ const copy = hookCopy.events;
 /**
  * The main chat's routine, check-in and hook events as a header icon: the inbox, the
  * count and a dot for the events that arrived since this viewer last opened them (red
- * while one of them failed). A tap opens them in a sheet and marks them seen. Nothing
- * without events.
+ * while one of them failed), and a working dot while one still runs. A tap opens them
+ * in a sheet and marks them seen. Nothing without events; when they go, so does the
+ * sheet.
  */
 export default function AgentEventsButton({
   assistantId,
@@ -26,7 +27,11 @@ export default function AgentEventsButton({
 }) {
   const [open, setOpen] = useState(false);
   const { seenAt, markSeen } = useEventSeen(conversationId);
-  if (!events?.length) return null;
+  const shown = Boolean(events?.length);
+  useEffect(() => {
+    if (!shown) setOpen(false);
+  }, [shown]);
+  if (!shown) return null;
   const view = eventAreaView(events, seenAt);
   const news = [
     copy.unread(view.unread),
@@ -48,6 +53,14 @@ export default function AgentEventsButton({
         }}
       >
         <Icon name="inbox" size={18} />
+        {view.running && (
+          <StatusDot
+            tone="working"
+            pulse
+            className="agent-chat-events-running"
+            label={activityGroupCopy.running}
+          />
+        )}
         <span className="agent-chat-events-count">{view.count}</span>
         {view.unread > 0 && (
           <StatusDot

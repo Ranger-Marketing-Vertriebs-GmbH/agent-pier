@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import Icon from "../../components/Icon.jsx";
 import Sheet from "../../components/Sheet.jsx";
@@ -11,11 +11,16 @@ import useStopGoal from "./useStopGoal.js";
 /**
  * The chat's open work goal (AGENTPIER-208) as a header icon: a working dot and the
  * stop glyph. A tap opens a sheet with the goal and the owner's Stop. `onStopped`
- * reloads the chat. Nothing without a goal.
+ * reloads the chat. Nothing without a goal; a goal that ends closes its sheet, so the
+ * next one does not open by itself.
  */
 export default function WorkGoalButton({ goal, conversationId, onStopped }) {
   const [open, setOpen] = useState(false);
   const { stop, stopping, failed } = useStopGoal(conversationId, onStopped);
+  const shown = Boolean(goal);
+  useEffect(() => {
+    if (!shown) setOpen(false);
+  }, [shown]);
   if (!goal) return null;
   const text = workGoalCopy.line(goal.title);
   return (
