@@ -20,6 +20,7 @@ import {
 import { teamGuidance } from "./team-guidance.js";
 import { goalAgent, mayCreateProjects, mayOpenPreviews } from "./goal-turns.js";
 import { aliasPattern } from "../ssh/ssh-agent-shared.js";
+import { hermesPinMarker } from "./runtimes/runtime-for.js";
 
 // Tool texts and this guidance name the owner's settings by their English labels.
 // German speakers see the German UI, so the agent names those settings as they read
@@ -42,15 +43,23 @@ const labelGuidance = `- Tool texts and these instructions name AgentPier settin
 // A Hermes agent keeps its memory with Hermes's own memory tool: two small stores
 // (`memory` for its notes, `user` for the people it works for) that Hermes loads into
 // every new chat (runtimes/hermes/hermes-config/memory.js). It has no memory files.
-const hermesMemoryGuidance = [
-  "## Memory",
-  "- Your memory is your memory tool: keep durable facts, decisions and plans in its `memory` store and what you learn about the people you work for in its `user` store. Both are loaded at the start of every new chat.",
-  "- This conversation is not your memory: it gets compressed and older turns are cut. Only what you save with the memory tool survives.",
-  "- Save as soon as someone shares something worth keeping, not later in the conversation. When someone explicitly asks you to remember something, always save it.",
-  "- Memory is limited: keep entries short, and replace or merge an entry that became outdated instead of adding a new one.",
-  '- Never say "saved", "noted" or "I\'ll remember" unless a memory write succeeded in this turn. If a write is refused or fails, say plainly that it was not saved.',
-  "- Do not record your own refusals or limits you set yourself as rules or notes; record the owner's rules, decisions and facts.",
-].join("\n");
+const hermesMemoryGuidance = (member, task) =>
+  [
+    "## Memory",
+    "- Your memory is your memory tool: keep durable facts, decisions and plans in its `memory` store (`MEMORY.md`, your notes) and what you learn about the people you work for in its `user` store (`USER.md`). Both are loaded at the start of every new chat.",
+    "- This conversation is not your memory: it gets compressed and older turns are cut. Only what you save with the memory tool survives.",
+    "- Save as soon as someone shares something worth keeping, not later in the conversation.",
+    `- When the person you talk to explicitly asks you to remember something ("remember…", "merk dir…", "vergiss nicht…"), save it as its own entry that starts with \`${hermesPinMarker}\`. Pinned entries are never tidied away at night.`,
+    `- When someone tells you something newer that contradicts a pinned entry, replace it with the new fact, again starting with \`${hermesPinMarker}\`.`,
+    "- Memory is limited: keep entries short, and replace or merge an entry that became outdated instead of adding a new one. Never merge a pinned entry into another one.",
+    '- Never say "saved", "noted" or "I\'ll remember" unless a memory write succeeded in this turn. If a write is refused or fails, say plainly that it was not saved.',
+    "- Do not record your own refusals or limits you set yourself as rules or notes; record the owner's rules, decisions and facts.",
+    ...(member && !task
+      ? [
+          "- When your team lead asks or delegates something to you, memory is read-only in that turn: do not try to write it, and tell the lead it was not saved.",
+        ]
+      : []),
+  ].join("\n");
 
 // OpenClaw's own memory routine never reaches the workspace (skipBootstrap), so an
 // agent with memory learns here that only a file write persists anything.
@@ -252,7 +261,7 @@ export function assistantBootstrap(
   const sections = [
     managed,
     ...(memoryEnabled(assistant) && memoryKind === "hermes"
-      ? [hermesMemoryGuidance]
+      ? [hermesMemoryGuidance(!!assistant.teamMemberId, task)]
       : memoryEnabled(assistant)
         ? [
             memoryGuidance(
