@@ -546,7 +546,9 @@ commit `bf0203a7`, since 2026-11-01), the SHA-256 of its source archive and of t
 `pyproject.toml` and `uv.lock` inside it, the extras (`messaging`, for the messaging
 gateway, `mcp`, for the agents' MCP servers, and `ddgs`, for DuckDuckGo web search), the CPython version, a uv version
 with the SHA-256 of its release archive per platform (macOS and Linux, x64 and arm64),
-and the agent-browser release Hermes's package lock pins (`agentBrowser`). The archive
+the agent-browser release Hermes's package lock pins (`agentBrowser`), and the
+pypdfium2 release with one wheel and its SHA-256 per platform (`pdfium`), which
+AgentPier's pdf tool reads PDF pages with ([Hermes runtime](hermes-runtime.md#pdfs)). The archive
 is the commit's, so a moved
 tag cannot change what is installed. Hermes carries no version of its own in the archive
 (`pyproject.toml` says `0.0.0`); the version AgentPier shows is the tag without its `v`
@@ -571,12 +573,16 @@ MCP SDK import) and `hermes --version`, with a scratch `HERMES_HOME`. Then the
 agent-browser binary Hermes's browser tools run goes to `tools/agent-browser`, on the
 Hermes processes' PATH: the release Hermes's own package lock (`pm/lock.json`) pins,
 recorded in the manifest as `agentBrowser` (version, npm archive, SHA-256), checked and
-unpacked for the platform. A `receipt.json` written last marks the installation
+unpacked for the platform. Then the pinned pypdfium2 wheel of the platform, checked
+against its SHA-256, goes into the environment with the installation's own uv (`uv pip
+install --no-deps --no-index --no-cache`, it has no dependencies), and its import is
+checked; `tools/pdfium.json` records it (`hermes-pdfium.js`). A `receipt.json` written last marks the installation
 complete; a folder without one is a crashed attempt and is replaced. The uv cache is
 removed afterwards. The installation needs about 550 MB (source 290 MB, environment
-145 MB, CPython 75 MB, uv 27 MB, agent-browser 10 MB on macOS arm64). An installation
-from before the browser gets its agent-browser in place at the next server start
-(`hermesStagingDue`).
+145 MB, CPython 75 MB, uv 27 MB, agent-browser 10 MB, pypdfium2 8 MB on macOS arm64).
+An installation from before the browser gets its agent-browser, one from before the pdf
+tool its pypdfium2, in place at the next server start (`hermesStagingDue`); running
+agents pick it up at their next pdf call.
 
 **Updates.** At server start, and so after an AgentPier update, an enabled Hermes is
 installed when nothing is selected yet, or the newly pinned commit is staged beside
@@ -634,7 +640,8 @@ together must agree. The script downloads the archive and each uv release archiv
 checks every uv archive against the `.sha256` file uv publishes beside it, reads the
 agent-browser pin from the archive's `pm/lock.json` and checks that archive against
 it, refuses a commit whose `requires-python` excludes Python 3.14, and rewrites `hermes-manifest.json`
-with the recorded hashes. Run without arguments, it reproduces the shipped manifest byte
+with the recorded hashes. It keeps the `pdfium` pin, which is independent of Hermes and
+changes by hand (a release that has been out for a while; its wheel hashes from PyPI). Run without arguments, it reproduces the shipped manifest byte
 for byte. Review the diff, then run the Hermes contracts.
 
 **Native Hermes contracts.** `node scripts/provision-hermes-contracts.mjs --data-dir

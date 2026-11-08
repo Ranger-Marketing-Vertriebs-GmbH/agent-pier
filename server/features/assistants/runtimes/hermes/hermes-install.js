@@ -10,6 +10,7 @@ import { privateFolder } from "../../runtime-paths.js";
 import { acquireInstallLock, withInstallLock } from "../../runtime-install-lock.js";
 import { hermesManifest, uvArchiveUrl } from "./hermes-manifest.js";
 import { hermesExecutables, hermesPaths } from "./hermes-paths.js";
+import { hasPdfium, installPdfium } from "./hermes-pdfium.js";
 
 const jobs = new Map();
 const executeFile = promisify(execFile);
@@ -226,24 +227,38 @@ async function install({
       pythonVersion: manifest.pythonVersion,
       uvChecksum: manifest.uvChecksums[target],
     });
-    // An installation from before the browser gets its agent-browser now.
-    if (!hasAgentBrowser(directory, manifest)) {
+    // An installation from before the browser gets its agent-browser now, one from
+    // before the pdf tool its PDFium (hermes-pdfium.js).
+    if (
+      !hasAgentBrowser(directory, manifest) ||
+      !hasPdfium(directory, manifest, target)
+    ) {
       const scratch = privateFolder(path.join(paths.tmp, `.install-${randomUUID()}`));
+      const env = hermesInstallEnvironment({ paths, directory, scratch, environment });
+      const run = (file, args, options) =>
+        execute(file, args, {
+          env,
+          cwd: scratch,
+          timeout: 900000,
+          maxBuffer: 1024 * 1024,
+          ...options,
+        });
       try {
         await installAgentBrowser(directory, {
           manifest,
           target,
           download,
           scratch,
-          run: (file, args, options) =>
-            execute(file, args, { cwd: scratch, maxBuffer: 1024 * 1024, ...options }),
+          run,
         });
+        await installPdfium(directory, { manifest, target, download, scratch, run });
       } catch (error) {
         if (!error.code || !/^HERMES_/.test(error.code))
           error.code = "HERMES_INSTALL_FAILED";
         throw error;
       } finally {
         fs.rmSync(scratch, { recursive: true, force: true });
+        fs.rmSync(env.UV_CACHE_DIR, { recursive: true, force: true });
       }
     }
     return record;
@@ -314,6 +329,7 @@ async function install({
     executable(record.hermesPath);
     await hermesIdentityCheck(record, { scratch, execute, manifest });
     await installAgentBrowser(directory, { manifest, target, download, run, scratch });
+    await installPdfium(directory, { manifest, target, download, run, scratch });
     writePrivate(receiptFile, {
       commit: manifest.commit,
       archiveSha256: manifest.archiveSha256,

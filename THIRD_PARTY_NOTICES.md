@@ -134,7 +134,10 @@ installation; their exact versions are those of the `uv.lock` in the pinned Herm
 release (`server/features/assistants/runtimes/hermes/hermes-manifest.json`). With it
 comes the agent-browser binary Hermes's browser tools run (Apache-2.0,
 `vercel-labs/agent-browser`), the release Hermes's own package lock pins, from its npm
-archive.
+archive, and the pypdfium2 wheel AgentPier's pdf tool reads PDF pages with
+(BSD-3-Clause or Apache-2.0, with the PDFium library it bundles under BSD-3-Clause and
+the licenses of PDFium's third-party code inside the wheel), the release and SHA-256
+per platform the same manifest pins, from PyPI.
 
 ## Unicode upload-name data
 

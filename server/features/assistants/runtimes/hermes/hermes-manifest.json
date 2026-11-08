@@ -20,5 +20,26 @@
     "version": "0.26.0",
     "url": "https://registry.npmjs.org/agent-browser/-/agent-browser-0.26.0.tgz",
     "sha256": "8a48cf4110d7dc2c12c1c4d6d25e0babdfa31604b537f05df0dc835fe2f854bf"
+  },
+  "pdfium": {
+    "version": "5.14.0",
+    "wheels": {
+      "darwin-arm64": {
+        "url": "https://files.pythonhosted.org/packages/d1/ea/14673bc9d8b7beeaa1eb46e9951b22543edaf2a4676c586e3b1e032ff6ee/pypdfium2-5.14.0-py3-none-macosx_13_0_arm64.whl",
+        "sha256": "2de384df66ba55fcaab0775f30f28ec1090af3dfa60276a07821efc96d993118"
+      },
+      "darwin-x64": {
+        "url": "https://files.pythonhosted.org/packages/a6/11/b720097b01fa0874854f2f6669cbea4e4ea4e075769687714fac64d68964/pypdfium2-5.14.0-py3-none-macosx_13_0_x86_64.whl",
+        "sha256": "e4e203ea9710fd00e5448edb6f1615dc8587035357f75f40b432dde0c33e8da1"
+      },
+      "linux-arm64": {
+        "url": "https://files.pythonhosted.org/packages/92/b4/0c31aa51887cd6cd032191dfe010a6d01ed43cf03204cfbd2184ebe4b715/pypdfium2-5.14.0-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl",
+        "sha256": "f1b696e6901e16f114a2ec6332e5e3f8f5033a901614ead28499ab18ca6024f5"
+      },
+      "linux-x64": {
+        "url": "https://files.pythonhosted.org/packages/4f/a3/c9cc797fc8bdfb8f37b9b0f8b9d02a5fc196b2015f408d53624cab5b0519/pypdfium2-5.14.0-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "sha256": "11f281613fa22313d9c7ab89947665e84eccf8ebe40e1198a84a88352305648d"
+      }
+    }
   }
 }

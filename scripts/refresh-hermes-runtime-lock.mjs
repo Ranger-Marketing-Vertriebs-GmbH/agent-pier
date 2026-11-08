@@ -60,6 +60,7 @@ export async function refreshHermesRuntimeLock({
   uvVersion = hermesManifest.uvVersion,
   pythonVersion = hermesManifest.pythonVersion,
   extras = hermesManifest.extras,
+  pdfium = hermesManifest.pdfium,
   output = hermesManifestFile,
   download = (url) => fetchDownload(url, fetch, 512 * 1024 * 1024),
   execute = promisify(execFile),
@@ -135,6 +136,8 @@ export async function refreshHermesRuntimeLock({
       uvVersion,
       uvChecksums,
       agentBrowser,
+      // PDFium for AgentPier's pdf tool is pinned independently of Hermes's lock.
+      pdfium,
     });
     // Formatted as the repository formats it, so an unchanged pin writes no diff.
     const { format } = await import("prettier");
