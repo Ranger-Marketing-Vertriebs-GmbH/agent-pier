@@ -224,3 +224,29 @@ test("a job is refused while the other tool's job runs", async (t) => {
   assert.equal(rea.state().status, "succeeded", rea.state().message);
   assert.ok(present(f));
 });
+
+test("a start sweep spares the other tool's install in progress", async (t) => {
+  const { f, rea, craft } = await pair(t);
+  const leftovers = () => {
+    const work = path.join(f.root, ".rea-install-other");
+    const unpublished = path.join(f.root, ".packages", "craft-anything-0.5.0-pending");
+    fs.mkdirSync(work, { recursive: true });
+    fs.mkdirSync(unpublished, { recursive: true });
+    return [work, unpublished];
+  };
+  // Craft Anything's job runs: REA's start leaves its folders alone.
+  craft.claimed = true;
+  let kept = leftovers();
+  await rea.start();
+  assert.ok(kept.every((p) => fs.existsSync(p)));
+  craft.claimed = false;
+  // REA's job runs: Craft Anything's start leaves them alone too.
+  rea.claimed = true;
+  kept = leftovers();
+  await craft.start();
+  assert.ok(kept.every((p) => fs.existsSync(p)));
+  rea.claimed = false;
+  // Nobody busy: the sweep removes them.
+  await craft.start();
+  assert.ok(kept.every((p) => !fs.existsSync(p)));
+});
