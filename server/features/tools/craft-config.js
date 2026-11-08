@@ -64,13 +64,19 @@ function readConfig(file) {
  * Craft Anything builds with a coding agent only once one is configured: it does not
  * pick up `claude` from PATH by itself (`ai detect` merely suggests it). Rebuilds get
  * Claude Code as an `agent_cli` backend; an entry the owner or Craft Anything already
- * made for it stays as it is.
+ * made for it keeps its other fields but is switched on, since rebuilds need it.
  */
 function withClaudeCode(ai) {
   const section = ai && typeof ai === "object" ? ai : {};
   const backends = Array.isArray(section.backends) ? section.backends : [];
-  if (backends.some((item) => item?.kind === "agent_cli" && item.model === "claude-code"))
-    return { ...section, backends };
+  const isClaude = (item) => item?.kind === "agent_cli" && item.model === "claude-code";
+  if (backends.some(isClaude))
+    return {
+      ...section,
+      backends: backends.map((item) =>
+        isClaude(item) ? { ...item, enabled: true } : item,
+      ),
+    };
   return {
     ...section,
     backends: [

@@ -1,10 +1,10 @@
 # Rebuilds (Craft Anything)
 
-**Rebuilds** in the sidebar lets [Craft Anything](https://github.com/storytold/craft-anything)
+**Rebuilds** in the sidebar **Menu** (group **Work**) lets [Craft Anything](https://github.com/storytold/craft-anything)
 study an app, a website or a file and build your own version of it. Every rebuild
 gets its own project, and Craft Anything runs Claude on one of your Claude accounts to
-do the work. The page is for the owner only; it appears once Craft Anything is
-[installed](mcp.md#managed-craft-anything) and never shows in the users' app.
+do the work. The page is for the owner only and never shows in the users' app. Until Craft Anything is
+[installed](mcp.md#managed-craft-anything) it shows a note instead of the form.
 
 ![Rebuilds page with the start form and the list of rebuilds](screenshots/craft-rebuilds-list.png)
 
@@ -87,7 +87,8 @@ its state every 2 seconds; nothing is read while none runs.
 
 AgentPier gives the rebuilds their own Craft Anything config under
 `<data dir>/craft-anything/rebuilds` (separate from the sessions' one) and names Claude
-Code there as the backend that builds, because Craft Anything does not use a coding
+Code there as the backend that builds (an `[[ai.backends]]` entry in its `config.toml`,
+switched on at every start), because Craft Anything does not use a coding
 agent from `PATH` until one is configured. The account's login is the one in its
 `CLAUDE_CONFIG_DIR`.
 
@@ -102,8 +103,9 @@ rebuilds too:
   ([agents](agents.md#rebuilds-with-craft-anything)).
 
 They choose only the request, the target and the stack. The account, the mode and
-auto mode always follow your defaults. Their target may be a web address or nothing,
-never a local path. They see a rebuild's status, folder and how many questions wait, not
+auto mode always follow your defaults. A session's target may be a web address, an
+absolute local path or nothing; an agent's only a web address or nothing, never a local
+path. They see a rebuild's status, folder and how many questions wait, not
 the questions themselves: you answer those in AgentPier. The rebuild shows **Started by
 a session** or **Started by an agent**.
 
