@@ -40,7 +40,8 @@ export function reaState(overrides = {}) {
         installedSize: reaManifest.core.installedSize,
         ...components.core,
       },
-      ghidra: { ...pinned.ghidra, ...components.ghidra },
+      // `wanted` is REA's own choice; `shared` that Craft Anything keeps Ghidra too.
+      ghidra: { ...pinned.ghidra, shared: false, ...components.ghidra },
       frida: { ...pinned.frida, ...components.frida },
     },
     settings: { provider: "ghidra", hopperPath: null, idaConfig: null, jebUrl: null },

@@ -100,7 +100,12 @@ test("an installed REA offers Update and Uninstall; a 409 in use is shown", asyn
     updateAvailable: true,
     components: {
       core: { installed: true, version: "6.7.0", packageStatus: "ready", outdated: true },
-      ghidra: { installed: true, version: "12.1.4", jdkVersion: "21.0.13+9" },
+      ghidra: {
+        installed: true,
+        wanted: true,
+        version: "12.1.4",
+        jdkVersion: "21.0.13+9",
+      },
       frida: { installed: true, version: "17.23.2" },
     },
   });
@@ -182,6 +187,37 @@ test("the update note names Ghidra and the JDK when only their pins moved", asyn
     `An update is available: Ghidra ${reaManifest.ghidra.version} with JDK ${reaManifest.jdk.version}.`,
   );
   await expect(note).not.toContainText("REA Core");
+});
+
+test("the Ghidra box is REA's own choice and names Craft Anything when shared", async ({
+  page,
+}) => {
+  const installed = (ghidra) =>
+    reaState({
+      installed: true,
+      serverId: "srv-rea",
+      serverName: "rea",
+      components: {
+        core: { installed: true, version: reaManifest.core.version },
+        ghidra: { installed: true, shared: true, ...ghidra },
+        frida: { installed: true },
+      },
+    });
+  const controls = await fixture(page, installed({ wanted: false }));
+  let dialog = await openDialog(page, "Manage");
+  const box = () =>
+    dialog.getByRole("checkbox", { name: "Ghidra with decompiler + Temurin JDK" });
+  // Craft Anything keeps Ghidra installed; REA itself does not want it.
+  await expect(box()).not.toBeChecked();
+  await expect(dialog).toContainText("Shared with Craft Anything");
+  await box().check();
+  await dialog.getByRole("button", { name: "Apply changes" }).click();
+  await expect.poll(() => controls.applied.length).toBe(1);
+  expect(controls.applied[0].components).toEqual({ ghidra: true, frida: true });
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+  await fixture(page, installed({ wanted: true }));
+  dialog = await openDialog(page, "Manage");
+  await expect(box()).toBeChecked();
 });
 
 test("a refused install shows the server reason in the dialog", async ({ page }) => {

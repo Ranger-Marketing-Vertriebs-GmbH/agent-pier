@@ -9,6 +9,7 @@ import LaunchDialog from "../features/sessions/LaunchDialog.jsx";
 import { forgetCachedChat } from "../features/chat/chat-session-cache.js";
 import ToolInstaller from "../features/tools/ToolInstaller.jsx";
 import ReaDialog from "../features/tools/ReaDialog.jsx";
+import CraftAnythingDialog from "../features/tools/CraftAnythingDialog.jsx";
 import { toolInstallerCopy } from "../lib/i18n/messages/tools.js";
 import { cliDefinition, isCodingCli } from "../../server/features/clis/catalog.js";
 export default function AppDialogs({
@@ -39,6 +40,9 @@ export default function AppDialogs({
       )}
       {modal?.type === "rea" && (
         <ReaDialog request={api} refresh={refresh} close={close} />
+      )}
+      {modal?.type === "craft-anything" && (
+        <CraftAnythingDialog request={api} refresh={refresh} close={close} />
       )}
       {["install", "update"].includes(modal?.type) && (
         <Modal

@@ -12,7 +12,7 @@ import { startPageCopy as copy } from "../../lib/i18n/messages/dashboard.js";
 import { reaCopy } from "../../lib/i18n/messages/rea.js";
 import { toolInstallerCopy } from "../../lib/i18n/messages/tools.js";
 import {
-  reaUpdate,
+  dialogUpdate,
   splitToolActions,
   toolActions,
   updateRequired,
@@ -34,7 +34,7 @@ function stateLine(tool) {
       .filter(Boolean)
       .join(" · ");
   if (!tool.installed) return commonCopy.notInstalled;
-  if (reaUpdate(tool))
+  if (dialogUpdate(tool))
     return [reaCopy.updateBadge, tool.version].filter(Boolean).join(" · ");
   return [commonCopy.ready, tool.version].filter(Boolean).join(" · ");
 }
@@ -42,7 +42,7 @@ function stateLine(tool) {
 function ToolRow({ tool, effects }) {
   const menu = useRowMenu();
   const { primary, more } = splitToolActions(toolActions(tool));
-  const outdated = updateRequired(tool) || reaUpdate(tool);
+  const outdated = updateRequired(tool) || dialogUpdate(tool);
   return (
     <li className={`start-tool ${tool.installed ? "" : "unavailable"}`}>
       <ProviderMark tool={tool.id} size="row" />

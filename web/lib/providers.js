@@ -7,6 +7,7 @@ export const names = {
   nono: "nono",
   chromium: "Chrome for Testing",
   rea: "REA",
+  "craft-anything": "Craft Anything",
 };
 // The page a utility sends the user to once it is installed. A utility without an
 // entry has nothing to configure in AgentPier, so it gets no follow-up action.

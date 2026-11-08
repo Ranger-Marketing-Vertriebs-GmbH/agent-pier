@@ -12,6 +12,7 @@ import { assistantSettingsCopy } from "../lib/i18n/messages/assistant-settings.j
 import { assistantTeamCopy } from "../lib/i18n/messages/assistant-team.js";
 import { codingPageCopy } from "../lib/i18n/messages/coding.js";
 import { commonCopy } from "../lib/i18n/messages/common.js";
+import { craftAnythingCopy } from "../lib/i18n/messages/craft-anything.js";
 import { connectionsAreaCopy } from "../lib/i18n/messages/connections-area.js";
 import { extensionsHubCopy } from "../lib/i18n/messages/extensions.js";
 import { filesCopy } from "../lib/i18n/messages/files.js";
@@ -213,6 +214,13 @@ export function pageEntries() {
           }[tab],
         },
       ),
+    ),
+    // The Craft Anything card on CLIs & extensions › Installation.
+    pageEntry(
+      "craft-anything",
+      () => craftAnythingCopy.searchLabel,
+      [...clis, bilingual(() => codingPageCopy.tabs.install)],
+      { route: codingRoute("install") },
     ),
     ...Object.keys(extensionTabLabels).map((tab) =>
       pageEntry(

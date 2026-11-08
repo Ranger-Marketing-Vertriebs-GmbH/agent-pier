@@ -8,6 +8,8 @@ export const dashboardPageCopy = {
   toolGridChromium: "Eigener Browser der Agenten, getrennt von deinem Chrome.",
   toolGridRea:
     "Reverse Engineering für deine Agenten: Binärdateien, Decompiler, dynamische Analyse.",
+  toolGridCraftAnything:
+    "Anwendungen mit deinen Agenten untersuchen: von außen oder, wenn du es erlaubst, tiefer.",
   removeTool: "Entfernen",
   githubCredentials: "GitHub-Zugänge",
   workspaceLoading: "Dein Workspace wird geladen …",

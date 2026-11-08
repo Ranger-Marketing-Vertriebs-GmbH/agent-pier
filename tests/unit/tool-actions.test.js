@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  dialogUpdate,
   splitToolActions,
   toolActions,
 } from "../../web/features/dashboard/tool-actions.js";
@@ -100,6 +101,10 @@ test("every action has a grid label and a short label in both languages", async 
     { id: "gh", installed: true, utility: true },
     { id: "nono", installed: true, utility: true },
     { id: "chromium", installed: true, utility: true, updateAvailable: true },
+    { id: "rea", installed: false, utility: true },
+    { id: "rea", installed: true, utility: true },
+    { id: "craft-anything", installed: false, utility: true },
+    { id: "craft-anything", installed: true, utility: true, updateAvailable: true },
   ];
   for (const language of ["de", "en"]) {
     setLanguage(language, { persist: false, document: null });
@@ -121,4 +126,39 @@ test("REA only opens its own dialog, never the generic installer", () => {
     split({ id: "rea", installed: true, utility: true, updateAvailable: true }),
     { primary: "rea", more: [] },
   );
+});
+
+test("Craft Anything only opens its own dialog and shows its optional update", () => {
+  assert.deepEqual(
+    toolActions({ id: "craft-anything", installed: false, utility: true }),
+    [{ id: "craft-anything", install: true }],
+  );
+  const installed = {
+    id: "craft-anything",
+    installed: true,
+    utility: true,
+    updateAvailable: true,
+  };
+  assert.deepEqual(toolActions(installed), [{ id: "craft-anything", install: false }]);
+  assert.deepEqual(split(installed), { primary: "craft-anything", more: [] });
+  assert.equal(dialogUpdate(installed), true);
+  assert.equal(dialogUpdate({ ...installed, updateAvailable: false }), false);
+  assert.equal(dialogUpdate({ id: "rea", installed: true, updateAvailable: true }), true);
+  assert.equal(
+    dialogUpdate({ id: "chromium", installed: true, updateAvailable: true }),
+    false,
+  );
+});
+
+test("the dialog actions open their own dialog", async () => {
+  const view = await import("../../web/features/dashboard/tool-action-view.js");
+  const opened = [];
+  const effects = { setModal: (modal) => opened.push(modal) };
+  for (const id of ["rea", "craft-anything"])
+    view.runToolAction(
+      toolActions({ id, installed: true, utility: true })[0],
+      { id },
+      effects,
+    );
+  assert.deepEqual(opened, [{ type: "rea" }, { type: "craft-anything" }]);
 });
