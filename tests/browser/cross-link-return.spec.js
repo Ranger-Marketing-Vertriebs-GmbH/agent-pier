@@ -18,7 +18,7 @@ const copy = {
     speech: /^Speech recognition · Deepgram/,
     backToAgent: "Back to Home",
     backToWorkspace: "Back to General",
-    menu: "Open navigation",
+    connectionsHub: "Connections",
   },
   de: {
     identity: "Identität",
@@ -29,7 +29,7 @@ const copy = {
     speech: /^Spracherkennung · Deepgram/,
     backToAgent: "Zurück zu Home",
     backToWorkspace: "Zurück zu Allgemein",
-    menu: "Navigation öffnen",
+    connectionsHub: "Zugänge",
   },
 };
 const sizes = {
@@ -107,9 +107,14 @@ for (const [language, text] of Object.entries(copy))
         await expect(back(page, text.backToWorkspace)).toHaveCount(0);
         await expect(back(page, text.backToAgent)).toHaveCount(0);
         await page.goto(baseURL + "/accounts?section=models");
+        // On phones a category's list is a subpage: its back goes up to the categories.
+        // Wait for the settled page first: the boot screen's header proves nothing.
+        if (size === "phone") await expect(back(page, text.connectionsHub)).toBeVisible();
+        else
+          await expect(
+            page.getByRole("heading", { name: text.connectionsHub, level: 1 }),
+          ).toBeVisible();
         await expect(back(page, text.backToAgent)).toHaveCount(0);
-        if (size === "phone")
-          await expect(page.getByRole("button", { name: text.menu })).toBeVisible();
         // A forged origin is ignored rather than followed.
         await page.goto(
           baseURL +
