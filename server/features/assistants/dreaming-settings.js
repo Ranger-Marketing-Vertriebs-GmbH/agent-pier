@@ -4,9 +4,10 @@ import { assistantProblem } from "./assistant-validation.js";
 import { validTimeZone } from "./heartbeat-schedule.js";
 
 /**
- * The owner's switch for OpenClaw dreaming (memory-core's nightly sweep): on or off,
- * the hour it starts and the time zone of that hour. One global row; the compiler
- * reads it at each start (openclaw-config/dreaming.js).
+ * The owner's switch for dreaming, covering both runtimes (OpenClaw's memory-core
+ * sweep and the nightly Hermes dream): on or off, the hour it starts and the time zone
+ * of that hour. One global row; the OpenClaw compiler reads it at each start
+ * (openclaw-config/dreaming.js), the Hermes dream at each night.
  */
 export class DreamingSettings {
   constructor({ dataDir }) {

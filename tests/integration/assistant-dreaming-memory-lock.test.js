@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { memoryRequirement } from "../../server/features/assistants/memory-rules.js";
+import { attachHermesFleet } from "../../server/features/assistants/runtimes/runtime-for.js";
 import { UserAgents } from "../../server/features/users/user-agents.js";
 import { shellService } from "../helpers/assistant-shell-service.js";
 
@@ -46,6 +47,50 @@ test("memory cannot be switched off while dreaming is on", async (t) => {
   f.switchState.on = false;
   const saved = await f.service.update(f.a.id, memoryOff, f.a.revision);
   assert.equal(saved.capabilities.memory, false);
+});
+
+// Makes the stored agent a Hermes agent (the runtime is part of its stored body).
+const hermes = (f, id) => {
+  const agent = f.store.getAssistant(id);
+  f.store.db
+    .prepare("UPDATE assistants SET body=? WHERE id=?")
+    .run(JSON.stringify({ ...agent, runtime: "hermes" }), id);
+  return f.store.getAssistant(id);
+};
+
+test("a Hermes agent keeps its memory while dreaming is on", async (t) => {
+  const f = lock(t);
+  const h = hermes(f, f.a.id);
+  f.switchState.on = true;
+  assert.equal(
+    memoryRequirement(h, memoryOff, { dreaming: true }),
+    "dreamingMemoryRequired",
+  );
+  await assert.rejects(f.service.update(h.id, memoryOff, h.revision), refusedForDreaming);
+  assert.equal(f.store.getAssistant(h.id).capabilities.memory, true);
+  // A temporary member of a Hermes lead stays free, as under OpenClaw.
+  assert.equal(memoryRequirement(member(f, "task"), memoryOff, { dreaming: true }), null);
+});
+
+test("a new Hermes agent cannot start without memory while dreaming is on", async (t) => {
+  const f = lock(t);
+  // Hermes counts as available, so the create reaches the memory rule.
+  attachHermesFleet(f.service.runtime, { available: () => true, close: async () => {} });
+  f.switchState.on = true;
+  await assert.rejects(
+    f.service.create({
+      name: "Heron",
+      instructions: "",
+      model,
+      runtime: "hermes",
+      ...memoryOff,
+    }),
+    refusedForDreaming,
+  );
+  assert.equal(
+    f.store.listAssistants().some((agent) => agent.name === "Heron"),
+    false,
+  );
 });
 
 test("a temporary member is not held by the dreaming rule", (t) => {

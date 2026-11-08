@@ -99,19 +99,24 @@ test("a deleted Hermes agent's chat has nothing left to delete", async (t) => {
   assert.equal(f.store.storedConversation(chat.id).nativeDeletePending, false);
 });
 
-test("dreaming never holds a Hermes agent's memory on", () => {
+test("dreaming holds a Hermes agent's memory on, as OpenClaw's", () => {
   const openclaw = { id: "a1", runtimeAgentId: "ap-a1", capabilities: { memory: true } };
   const hermes = { ...openclaw, id: "a2", runtime: "hermes" };
   assert.equal(dreamingCovered(openclaw), true);
-  assert.equal(dreamingCovered(hermes), false);
+  assert.equal(dreamingCovered(hermes), true);
   const off = { capabilities: { memory: false } };
   assert.equal(
     memoryRequirement(openclaw, off, { dreaming: true }),
     "dreamingMemoryRequired",
   );
-  assert.equal(memoryRequirement(hermes, off, { dreaming: true }), null);
+  assert.equal(
+    memoryRequirement(hermes, off, { dreaming: true }),
+    "dreamingMemoryRequired",
+  );
   assert.throws(() => newCapabilities(off, true), { key: "dreamingMemoryRequired" });
-  assert.equal(newCapabilities({ ...off, runtime: "hermes" }, true).memory, false);
+  assert.throws(() => newCapabilities({ ...off, runtime: "hermes" }, true), {
+    key: "dreamingMemoryRequired",
+  });
 });
 
 test("a Hermes agent's new project or share reaches its set while OpenClaw is down", async () => {
