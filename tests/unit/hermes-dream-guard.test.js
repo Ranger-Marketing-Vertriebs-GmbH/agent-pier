@@ -108,3 +108,39 @@ test("any after that contains every before pin per file in any order passes", ()
     }),
   );
 });
+
+test("removing or altering any one pin discards the night for its file", () => {
+  const entry = fc
+    .string({ minLength: 1, maxLength: 20 })
+    .map((s) => s.replace(/[§~]/g, "-").trim())
+    .filter(Boolean);
+  const pins = fc.uniqueArray(
+    entry.map((s) => `📌 ${s}`),
+    { minLength: 1, maxLength: 4 },
+  );
+  const side = fc.record({ pins, others: fc.array(entry, { maxLength: 4 }) });
+  fc.assert(
+    fc.property(
+      side,
+      side,
+      fc.constantFrom("MEMORY.md", "USER.md"),
+      fc.nat(),
+      fc.boolean(),
+      (m, u, file, pick, remove) => {
+        const join = (a) => a.join("\n§\n");
+        const sides = { "MEMORY.md": m, "USER.md": u };
+        const b = Object.fromEntries(
+          Object.entries(sides).map(([f, s]) => [f, join([...s.pins, ...s.others])]),
+        );
+        const { pins: own, others } = sides[file];
+        const lost = pick % own.length;
+        // The chosen pin is left out, or one character longer than before.
+        const changed = own.flatMap((p, i) =>
+          i !== lost ? [p] : remove ? [] : [`${p}~`],
+        );
+        const a = { ...b, [file]: join([...changed, ...others]) };
+        assert.deepEqual(dreamGuard(b, a), { ok: false, reason: "pinLost", file });
+      },
+    ),
+  );
+});
