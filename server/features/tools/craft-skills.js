@@ -10,12 +10,16 @@ import { craftManifest } from "./craft-manifest.js";
 export const craftSkill = "craft-anything";
 export const craftSkillRegistry = "agentpier";
 const shipped = path.join(path.dirname(fileURLToPath(import.meta.url)), "craft-skill");
+// Raise with every change to the shipped SKILL.md: the owned copies follow it.
+const craftSkillRevision = 2;
+/** The owner version of the shipped skill: the pinned Craft version and its revision. */
+export const craftSkillVersion = `${craftManifest.version}+skill.${craftSkillRevision}`;
 
 /**
  * Keeps Craft Anything's skill beside the tool, as syncReaSkills does for REA: one
  * AgentPier-owned copy in each skill profile of a CLI the managed row `serverId` is
- * bound to, none elsewhere (`serverId` null: all go). A newer pinned version replaces
- * an owned copy. A profile with the owner's own folder of that name keeps it; an owned
+ * bound to, none elsewhere (`serverId` null: all go). Another pinned version or skill
+ * revision replaces an owned copy. A profile with the owner's own folder of that name keeps it; an owned
  * copy the owner changed is only forgotten (PackageSkills#settle). Never throws.
  */
 export async function syncCraftSkills({
@@ -23,7 +27,7 @@ export async function syncCraftSkills({
   servers,
   extensions,
   directory = shipped,
-  version = craftManifest.version,
+  version = craftSkillVersion,
 }) {
   const owned = serverId
     ? extensions

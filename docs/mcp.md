@@ -893,7 +893,10 @@ as managed by AgentPier and link to **Manage** on the Craft Anything card instea
 **Remove**. AgentPier copies the skill `craft-anything` into the skill profiles of every
 CLI the row is bound to, with the ownership tracking and the rules of
 [REA's skill copies](#managed-rea): a copy you changed, or a skill of that name you made
-yourself, is kept.
+yourself, is kept. An AgentPier release that ships a changed skill replaces the copies it
+owns at the next sync. The skill tells agents that in clean room the tools that look
+inside a target, such as `core_target_open`, are not listed, and to ask you for **Deep
+mode for sessions** when a question needs it.
 
 **Updates.** A newer pin installed by a new AgentPier release is applied at the next
 server start, unless a session uses Craft Anything; then the card shows **Update

@@ -32,9 +32,13 @@ instead; that is faster and more direct.
   look for a way around it. Tell the user which tool you wanted and why; rebuilds are started in
   AgentPier by the user, not from a session.
 - In Clean room (the default) nothing inside a target is read: only the tools that work from
-  outside are listed, and others are refused with `details.reason` `clean_room`. Clean room versus
-  Deep is the owner's switch in AgentPier (the Craft Anything card). Tell the user the question
-  needs Deep mode instead of working around it, and do not try to change it with `settings_set`.
+  outside are listed, and others are refused with `details.reason` `clean_room`. Tools that look
+  inside a target, such as `core_target_open`, are not listed at all in Clean room. Work from
+  outside instead: call `list_toolsets` and enable the web, browser or capture toolsets it offers
+  with `enable_toolset`. Clean room versus Deep is the owner's switch in AgentPier: "Deep mode for
+  sessions" on the Craft Anything card. When a question needs Deep mode, tell the user the owner
+  can switch it on there instead of working around it, and do not try to change it with
+  `settings_set`.
 
 ## Working memory: keep it current
 
@@ -75,6 +79,10 @@ findings and a handoff note; use them every time.
 
 ## Where to start, by target
 
+This table applies to Deep mode. In Clean room (the default) `core_target_open` is not listed;
+start from the toolsets that work from outside (see above), or tell the user the question needs
+"Deep mode for sessions" on the Craft Anything card in AgentPier.
+
 | Target                                               | First step                                                            |
 | ---------------------------------------------------- | --------------------------------------------------------------------- |
 | Native executable or library (ELF, PE, Mach-O)       | `core_target_open`, then the overview, search and function tools      |
@@ -100,7 +108,7 @@ If the user says "my app" without naming it, ask which one. Never guess with an 
 
 | Error code                           | What to do                                                                                                             |
 | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| `not_found`                          | Open a target first (`core_target_open`), or check the path or name                                                    |
+| `not_found`                          | Check the path or name; in Deep mode open a target first (`core_target_open`)                                          |
 | `feature_missing` / `engine_missing` | Read the remediation; it names the toolset, engine or setting needed. If it needs a change in AgentPier, tell the user |
 | `restricted_mode`                    | Not available from a session; tell the user (rebuilds are started in AgentPier)                                        |
 | `clean_room`                         | The question needs Deep mode, the owner's switch in AgentPier; tell the user                                           |
