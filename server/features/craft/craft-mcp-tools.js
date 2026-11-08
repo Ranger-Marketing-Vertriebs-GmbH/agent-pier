@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { craftStacks } from "./craft-stacks.js";
@@ -52,6 +53,17 @@ export const statusView = (rebuild) => ({
   link: `/craft/${rebuild.id}`,
 });
 
+/**
+ * A session's retry key, scoped to the session like the agents' one: the same
+ * requestId from another session starts a rebuild of its own. A key over the
+ * supervisor's 200 characters is hashed.
+ */
+function sessionRequestId(sessionId, { requestId }) {
+  const key = `${sessionId}:${requestId}`;
+  if (key.length <= 200) return key;
+  return `${String(sessionId).slice(0, 100)}:${createHash("sha256").update(key).digest("hex")}`;
+}
+
 export async function callCraftTool(services, name, input, context) {
   // The grant is checked on every call: a revoked session starts nothing more.
   const unavailable = () =>
@@ -79,9 +91,10 @@ export async function callCraftTool(services, name, input, context) {
   }
   let started;
   try {
-    started = await services.craftRebuilds.start(parsed.data, {
-      source: "session",
-    });
+    started = await services.craftRebuilds.start(
+      { ...parsed.data, requestId: sessionRequestId(context.sessionId, parsed.data) },
+      { source: "session" },
+    );
   } catch (error) {
     if (error.status) error.code ??= "CRAFT_REBUILD_REFUSED";
     throw error;
