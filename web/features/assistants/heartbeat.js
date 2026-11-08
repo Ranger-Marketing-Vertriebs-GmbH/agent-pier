@@ -1,5 +1,5 @@
 // Mirrors server/features/assistants/heartbeat-schedule.js for the settings form.
-export const heartbeatIntervals = { "1h": 1, "2h": 2, "4h": 4, daily: 24 };
+export const heartbeatIntervals = { "30m": 0.5, "1h": 1, "2h": 2, "4h": 4, daily: 24 };
 
 export function browserTimeZone() {
   try {

@@ -10,6 +10,7 @@ export const assistantProactivityCopy = {
     "Meldungen erscheinen im Chat des Agenten, mit „Check-in“ markiert, sodass du direkt antworten kannst. Wird eine Meldung fällig, während der Agent antwortet, erscheint sie nach dieser Antwort und kennt sie womöglich noch nicht.",
   interval: "Wie oft",
   intervals: {
+    "30m": "Alle 30 Minuten",
     "1h": "Jede Stunde",
     "2h": "Alle 2 Stunden",
     "4h": "Alle 4 Stunden",

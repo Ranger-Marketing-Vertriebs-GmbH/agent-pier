@@ -9,6 +9,7 @@ import { readJSON } from "../../server/lib/storage.js";
 import { validateDefinition } from "../../server/features/assistants/assistant-validation.js";
 import {
   heartbeatHours,
+  heartbeatMinutes,
   heartbeatSchedule,
   heartbeatSettings,
 } from "../../server/features/assistants/heartbeat-schedule.js";
@@ -83,7 +84,7 @@ test("heartbeat settings validate interval, active hours and time zone", () => {
   );
   for (const invalid of [
     null,
-    { ...heartbeat, interval: "30m" },
+    { ...heartbeat, interval: "15m" },
     { ...heartbeat, start: 20, end: 8 },
     { ...heartbeat, start: -1 },
     { ...heartbeat, end: 25 },
@@ -107,6 +108,13 @@ test("heartbeat schedules run within the active hours in the owner's time zone",
     expr: "0 8,10,12,14,16,18 * * *",
     tz: "Europe/Berlin",
   });
+  // Every 30 minutes: on the hour and at half past, 8:00 to 19:30.
+  assert.deepEqual(heartbeatHours({ ...base, interval: "30m" }).length, 12);
+  assert.deepEqual(heartbeatSchedule({ ...base, interval: "30m" }), {
+    kind: "cron",
+    expr: "0,30 8,9,10,11,12,13,14,15,16,17,18,19 * * *",
+    tz: "Europe/Berlin",
+  });
   // Defaults: off, every four hours, 9 to 18 in UTC until the owner saves a zone.
   assert.deepEqual(heartbeatSettings({}), {
     enabled: false,
@@ -123,12 +131,13 @@ test("heartbeat schedules run within the active hours in the owner's time zone",
 
 test("the settings form's cost hint counts the runs the server schedules", async () => {
   const { heartbeatRuns } = await import("../../web/features/assistants/heartbeat.js");
-  for (const interval of ["1h", "2h", "4h", "daily"])
+  for (const interval of ["30m", "1h", "2h", "4h", "daily"])
     for (let start = 0; start < 24; start++)
       for (let end = start + 1; end <= 24; end++)
         assert.equal(
           heartbeatRuns({ interval, start, end }),
-          heartbeatHours({ interval, start, end }).length,
+          heartbeatHours({ interval, start, end }).length *
+            heartbeatMinutes({ interval }).length,
           `${interval} ${start}-${end}`,
         );
 });

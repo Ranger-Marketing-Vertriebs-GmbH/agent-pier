@@ -4493,8 +4493,9 @@ value.
 ### Check-ins (heartbeat)
 
 **Check in on its own** lets the agent look at its conversation at set times: every
-hour, 2 hours, 4 hours or once a day, within active hours (start to before end, whole
-hours, within one day) in the owner's time zone, which the browser supplies; the
+30 minutes (on the hour and at half past), every hour, 2 hours, 4 hours or once a day,
+within active hours (start to before end, whole hours, within one day) in the owner's
+time zone, which the browser supplies; the
 settings offer to adopt the browser's zone when the saved one differs. The agent is
 asked whether something needs the owner's attention and to answer exactly
 `NO_REPLY` otherwise. The settings show the cost as model runs per day, each reading
