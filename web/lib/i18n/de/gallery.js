@@ -27,6 +27,7 @@ export const galleryCopy = {
     compact: "Kompakt",
     disabled: "Deaktiviert",
     iconButton: "Icon-Button",
+    pressed: "Gedrückt",
     icons: "Icons",
     providerMarks: "Anbieter-Zeichen",
   },

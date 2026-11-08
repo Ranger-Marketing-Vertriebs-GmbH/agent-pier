@@ -359,3 +359,28 @@ test("choosing an agent's pinboard entry navigates to the pinboard route", () =>
   });
   assert.equal(routePath(hit.target.route), "/agents/ops/pinboard");
 });
+
+test("choosing the memory pins alias navigates to the agent's memory page", () => {
+  const entries = buildSearchIndex({
+    agents: [{ id: "ops", name: "Ops-Wache", capabilities: { memory: true } }],
+    agentsEnabled: true,
+  });
+  const hit = flat(searchEntries(entries, "Ops-Wache anheften")).find(
+    (item) => item.id === "agent:ops:memory",
+  );
+  assert.ok(hit);
+  assert.deepEqual(hit.target, {
+    route: {
+      view: "agents",
+      assistantId: "ops",
+      agentSettings: true,
+      agentTab: "capabilities",
+      agentPage: "memory",
+    },
+  });
+  assert.equal(
+    routePath(hit.target.route),
+    "/agents/ops/settings?tab=capabilities&page=memory",
+  );
+  assert.equal(hit.alias.en, "Ops-Wache · Pin memory entries");
+});

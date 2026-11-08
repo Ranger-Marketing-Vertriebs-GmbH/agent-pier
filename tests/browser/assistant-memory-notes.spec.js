@@ -1,6 +1,8 @@
 import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { fulfillEnabledAssistantFeature } from "../helpers/assistant-browser-fixture.js";
+import { settingsPath } from "../helpers/agent-settings-page.js";
+import { home, setupAssistantSettings } from "../helpers/assistant-settings-browser.js";
 import { fixture } from "./providers-fixture.js";
 
 // Memory an agent could not write, and a write to a shared agent's memory, show as
@@ -154,4 +156,176 @@ test("shows the model switch note with both models", async ({ page }) => {
     "This result was started in the previous chat.",
     "Memory not saved.",
   ]);
+});
+
+// Set AGENTPIER_SHOTS_DIR to a directory to keep screenshots of the pins.
+const shots = process.env.AGENTPIER_SHOTS_DIR;
+const shoot = (name) =>
+  shots ? (target) => target.screenshot({ path: `${shots}/${name}.png` }) : () => null;
+
+// A Hermes agent's memory page: its reads name the limits (native-memory.js).
+const hermes = (page, extra = {}, memory = {}) =>
+  setupAssistantSettings(page, {
+    assistants: [
+      home({
+        name: "Fern",
+        runtime: "hermes",
+        capabilities: { memory: true, reminders: false },
+        ...extra,
+      }),
+    ],
+    memory,
+    memoryLimits: { "MEMORY.md": 10000, "USER.md": 5000 },
+  });
+const entries = (page) => page.getByRole("group", { name: "Entries" });
+
+test("a Hermes agent pins an entry and saves it", async ({ page }) => {
+  const state = await hermes(page);
+  await page.goto(baseURL + settingsPath("capabilities", "memory"));
+  await expect(page.getByText(/0 of 10000 characters/)).toBeVisible();
+  const notes = page.getByRole("textbox", { name: "Notes" });
+  await notes.fill("Owner likes tea\n§\nOwner's vault is /srv/quartz");
+  await expect(entries(page).locator(".list-row-label")).toHaveText([
+    "Owner likes tea",
+    "Owner's vault is /srv/quartz",
+  ]);
+  await page.getByRole("button", { name: "Pin entry 1" }).click();
+  const unpin = page.getByRole("button", { name: "Unpin entry 1" });
+  await expect(unpin).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Pin entry 2" })).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
+  await expect(notes).toHaveValue(/^📌 Owner likes tea\n§\n/);
+  await expect(page.getByText("48 of 10000 characters, 17 pinned")).toBeVisible();
+  await expect(
+    page.getByText("Pinned entries are kept word for word when the agent dreams."),
+  ).toBeVisible();
+  await shoot("memory-pins")(page);
+  await page.getByRole("button", { name: "Save notes" }).click();
+  await expect(page.getByRole("region", { name: "Unsaved changes" })).toHaveCount(0);
+  expect(state.memorySaves).toHaveLength(1);
+  expect(state.memorySaves[0]).toMatchObject({
+    name: "MEMORY.md",
+    expectedMissing: true,
+  });
+  expect(state.memorySaves[0].content.startsWith("📌 ")).toBe(true);
+  // The saved file keeps its pins and its limit.
+  await expect(unpin).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByText(/48 of 10000 characters/)).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  await expect(unpin).toBeVisible();
+  await entries(page).evaluate((element) => element.scrollIntoView({ block: "center" }));
+  await shoot("memory-pins-phone")(page);
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth),
+  ).toBeLessThanOrEqual(390);
+});
+
+test("pins are disabled on a user's own agent the owner reads", async ({ page }) => {
+  await hermes(
+    page,
+    { userAccess: { mode: "own" }, ownerReads: true },
+    {
+      "MEMORY.md": {
+        name: "MEMORY.md",
+        content: "📌 Owner's vault is /srv/quartz\n§\nOwner likes tea",
+        hash: "h1",
+      },
+    },
+  );
+  await page.goto(baseURL + settingsPath("capabilities", "memory"));
+  await expect(page.getByRole("button", { name: "Unpin entry 1" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Pin entry 2" })).toBeDisabled();
+  await expect(page.getByRole("textbox", { name: "Notes" })).toHaveAttribute(
+    "readonly",
+    "",
+  );
+});
+
+test("a pinned entry the agent replaced shows the new pin after Reload", async ({
+  page,
+}) => {
+  const state = await hermes(
+    page,
+    {},
+    {
+      "USER.md": {
+        name: "USER.md",
+        content: "📌 Owner drinks coffee\n§\nOwner likes jazz",
+        hash: "h1",
+      },
+    },
+  );
+  await page.goto(baseURL + settingsPath("capabilities", "memory"));
+  await page.getByRole("combobox", { name: "Note type" }).selectOption("USER.md");
+  await expect(page.getByText(/of 5000 characters/)).toBeVisible();
+  await expect(entries(page).locator(".list-row-label")).toHaveText([
+    "Owner drinks coffee",
+    "Owner likes jazz",
+  ]);
+  // The agent replaced the pinned entry in a chat ("I drink tea now").
+  state.memory["USER.md"] = {
+    name: "USER.md",
+    content: "Owner likes jazz\n§\n📌 Owner drinks tea",
+    hash: "h2",
+  };
+  await page.getByRole("button", { name: "Reload" }).click();
+  await expect(entries(page).locator(".list-row-label")).toHaveText([
+    "Owner likes jazz",
+    "Owner drinks tea",
+  ]);
+  await expect(page.getByRole("button", { name: "Pin entry 1" })).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
+  await expect(page.getByRole("button", { name: "Unpin entry 2" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+});
+
+test("a recorded night re-reads a clean note and keeps an unsaved edit", async ({
+  page,
+  liveStub,
+}) => {
+  const state = await hermes(
+    page,
+    {},
+    {
+      "MEMORY.md": { name: "MEMORY.md", content: "Owner likes tea", hash: "h1" },
+    },
+  );
+  const night = (modifiedAt) => ({
+    files: modifiedAt ? [{ name: "DREAMS.md", diary: true, size: 300, modifiedAt }] : [],
+  });
+  let listing = night(null);
+  await page.route("**/api/assistants/home/memory/files*", (route) =>
+    route.fulfill({ json: listing }),
+  );
+  await page.goto(baseURL + settingsPath("capabilities", "memory"));
+  await liveStub.waitForSubscribe("agent.memory:home");
+  const notes = page.getByRole("textbox", { name: "Notes" });
+  await expect(notes).toHaveValue("Owner likes tea");
+  await expect(page.getByRole("option", { name: "Dream diary" })).toHaveCount(0);
+  // The night rewrote MEMORY.md: the clean note follows it.
+  state.memory["MEMORY.md"] = {
+    name: "MEMORY.md",
+    content: "Owner likes green tea",
+    hash: "h2",
+  };
+  listing = night("2026-11-08T03:05:00Z");
+  liveStub.push("agent.memory:home", listing);
+  await expect(notes).toHaveValue("Owner likes green tea");
+  // An unsaved edit stays through the next night.
+  await notes.fill("Owner likes green tea\n§\nOwner reads at night");
+  state.memory["MEMORY.md"] = { name: "MEMORY.md", content: "Owner likes", hash: "h3" };
+  listing = night("2026-11-09T03:05:00Z");
+  listing.files.push({ name: "memory/2026-11-09.md", size: 20 });
+  liveStub.push("agent.memory:home", listing);
+  // The listing followed the push; the note being edited did not.
+  await expect(page.getByRole("option", { name: "memory/2026-11-09.md" })).toHaveCount(1);
+  await expect(notes).toHaveValue("Owner likes green tea\n§\nOwner reads at night");
+  await expect(page.getByRole("region", { name: "Unsaved changes" })).toBeVisible();
 });

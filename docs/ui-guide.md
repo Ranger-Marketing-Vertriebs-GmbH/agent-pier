@@ -187,7 +187,7 @@ Buttons are CSS classes on a native `<button>` (`.button` variants in `web/app/l
 | `.button.destructive` | A quieter destructive action shown next to others (Revoke).                    |
 | `.button.text`        | A low-emphasis action in sheets (Cancel).                                      |
 | `.compact`            | Dense rows and toolbars on desktop only; phones keep the 44px target.          |
-| `.icon-button`        | An icon-only action; always with `aria-label`.                                 |
+| `.icon-button`        | An icon-only action; always with `aria-label`. A toggle sets `aria-pressed`.   |
 
 `Icon` (`web/components/Icon.jsx`) draws the line icons; the gallery lists every name.
 `ProviderMark` draws CLI marks. Icons are `aria-hidden`; the button carries the label.

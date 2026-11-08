@@ -232,11 +232,14 @@ function agentRoute(route, state, agent, rest, method, body) {
     if (content === undefined) return missing(route);
     // A diary past the read limit: its newest part and its whole size.
     const size = state.memory[id]?.truncated?.[name];
+    // A Hermes agent's diary comes as structured entries (hermes-dream-store.js).
+    const entries = state.memory[id]?.entries?.[name];
     return json(route, {
       name,
       content,
       readOnly: true,
       ...(size ? { truncated: true, size } : {}),
+      ...(entries ? { entries } : {}),
     });
   }
   if ((m = /^\/memory\/(.+)$/.exec(rest)) && method === "DELETE") {

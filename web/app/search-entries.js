@@ -331,6 +331,8 @@ const pageKeys = {
   "telegram-activity": "telegramActivity",
   "telegram-connection": "telegramConnection",
 };
+// Names of what an agent's subpage holds, so searching for them finds the page.
+const pageAliases = { memory: ["memoryPins"] };
 const pageTabs = {
   memory: "capabilities",
   allowlist: "capabilities",
@@ -400,7 +402,7 @@ export function agentEntries(agents) {
         path: join(root, name, tabLabels[pageTabs[page]], pageLabels[page]),
         target: { route: agentRoute(agent.id, pageTabs[page], page) },
         agentsOnly: true,
-        aliases: [],
+        aliases: (pageAliases[page] || []).map((key) => named(bilingual(alias(key)))),
       });
     }
   }
