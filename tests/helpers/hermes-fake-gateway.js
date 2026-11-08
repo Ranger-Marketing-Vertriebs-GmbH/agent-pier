@@ -56,6 +56,7 @@ export const hermesStore = () => ({
   rows: new Map(),
   created: 0,
   admissions: new Map(),
+  images: 0,
   cron: cronStore(),
 });
 
@@ -199,7 +200,10 @@ export function fakeHermesGateway(
       const row = stored(id, sid);
       if (row) ok(id, { count: row.messages.length, messages: row.messages });
     },
-    "prompt.submit": (id, { session_id: sid, text, submission_id: submission }) => {
+    "prompt.submit": (
+      id,
+      { session_id: sid, text, submission_id: submission, attachments },
+    ) => {
       if (!attached.has(sid)) return peer.send(refusal(id, "permission_denied"));
       if (!submission) return peer.send(refusal(id, "invalid_params"));
       const row = stored(id, sid);
@@ -208,9 +212,34 @@ export function fakeHermesGateway(
       if (known) return ok(id, { admission_id: known, status: "terminal" });
       const admission = `adm-${store.admissions.size + 1}`;
       store.admissions.set(submission, admission);
-      row.messages.push({ role: "user", text, row_id: row.messages.length + 1 });
+      // The stored row names the turn's images after its text, and its text view
+      // shows a placeholder per image part (gateway/session_ingress_media.py,
+      // agent/image_routing.py build_native_content_parts).
+      const images = attachments || [];
+      row.turnImages = [...(row.turnImages || []), images];
+      const kept = images.length
+        ? [
+            `${text}\n`,
+            ...images.map((image) => `[Image attached at: ${image.path}]`),
+            ...images.map(() => "[screenshot]"),
+          ].join("\n")
+        : text;
+      row.messages.push({ role: "user", text: kept, row_id: row.messages.length + 1 });
       ok(id, { admission_id: admission, status: "queued" });
       turn(row, text, admission);
+    },
+    // gateway/session_images.py: staged in the image cache, named by the submit;
+    // `invalid_params` for bytes that are no image it takes.
+    "image.attach_bytes": (id, { session_id: sid, content_base64: data, ext }) => {
+      if (!attached.has(sid)) return peer.send(refusal(id, "permission_denied"));
+      if (!/^[A-Za-z0-9+/]+=*$/.test(data || ""))
+        return peer.send(refusal(id, "invalid_params"));
+      const mime = { png: "image/png", jpg: "image/jpeg" }[ext] || `image/${ext}`;
+      ok(id, {
+        attached: true,
+        path: `/home/cache/images/upload_${++store.images}.${ext}`,
+        mime,
+      });
     },
     "session.interrupt": (id, { session_id: sid, execution_generation: generation }) => {
       const row = stored(id, sid);
