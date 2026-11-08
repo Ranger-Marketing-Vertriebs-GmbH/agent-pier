@@ -55,11 +55,29 @@ const portAttempts = 3;
 // The browsers' CDP ports sit at the Gateway port + 12 up to + 110 (web-tools.js,
 // browser-profiles.js).
 export const maxGatewayPort = 65535 - lastCdpOffset;
-export async function freePort({ draw = drawPort } = {}) {
-  for (;;) {
+// OpenClaw's managed CDP range starts at the Gateway port + 11 (browser-profiles.js).
+const firstCdpOffset = 11;
+// Draws with a held CDP port one start skips before it takes the next fitting draw.
+const cdpRangeDraws = 20;
+/**
+ * A free Gateway port whose CDP range is free too. Only the Gateway port comes from
+ * the system; the browsers' CDP ports are derived from it, and OpenClaw refuses to
+ * start a browser whose port another listener holds (PortInUseError) for as long as
+ * that Gateway runs (AGENTPIER-360). A host so busy that no draw has a free range
+ * still gets a Gateway; only a browser on a held port fails.
+ */
+export async function freePort({ draw = drawPort, inUse = portInUse } = {}) {
+  for (let held = 0; ;) {
     const port = await draw();
-    if (port <= maxGatewayPort) return port;
+    if (port > maxGatewayPort) continue;
+    if (held >= cdpRangeDraws || !(await cdpRangeHeld(port, inUse))) return port;
+    held++;
   }
+}
+async function cdpRangeHeld(port, inUse) {
+  for (let offset = firstCdpOffset; offset <= lastCdpOffset; offset++)
+    if (await inUse(port + offset)) return true;
+  return false;
 }
 // Whether another listener holds the port now that our Gateway is gone.
 async function portInUse(port) {

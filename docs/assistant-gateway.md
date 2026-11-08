@@ -2110,12 +2110,14 @@ settings name it and the cause ([Linux](linux.md#optional-assistants)). The bloc
   profile (extension relay) are redefined as managed profiles on their own CDP
   ports, so no profile name reaches the owner's browser;
 - gives every permanent agent with **Use a browser** a persistent profile of its own,
-  `agent-<id>`, with its own CDP port from Gateway port + 20. Logins and cookies
-  survive restarts. Temporary team members borrow one of three member slots
-  (`member-1` to `member-3`, or `member-visible-1` to `-3` when their lead's
-  window is visible); AgentPier discards a slot's data when the member ends, and a
-  promoted member takes it along as its own `agent-<id>` profile. Slot data no member
-  holds (for example after AgentPier restarted) is discarded too;
+  `agent-<id>`, with its own CDP port from Gateway port + 20. A start draws the
+  Gateway port again while another listener holds a port of its CDP range (+ 11 to
+  - 110), as OpenClaw would refuse that browser for the Gateway's run. Logins and cookies
+    survive restarts. Temporary team members borrow one of three member slots
+    (`member-1` to `member-3`, or `member-visible-1` to `-3` when their lead's
+    window is visible); AgentPier discards a slot's data when the member ends, and a
+    promoted member takes it along as its own `agent-<id>` profile. Slot data no member
+    holds (for example after AgentPier restarted) is discarded too;
 - keeps the profile data in the Gateway's state directory
   (`assistants/state/browser/<profile>/user-data`), never in the owner's browser
   profile;
