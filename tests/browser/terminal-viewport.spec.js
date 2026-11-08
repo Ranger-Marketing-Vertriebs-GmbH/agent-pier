@@ -320,3 +320,35 @@ test("touch rotation keeps the keyboard viewport and collapsed navigation aligne
     ),
   ).toBe("");
 });
+
+// iOS closes the keyboard while the app is in the background, reports the old
+// viewport for a moment after it returns and sends no resize once the real height
+// arrives: the chat must still fill the screen again.
+test("returning from the background after the keyboard closed fills the screen again", async ({
+  page,
+}) => {
+  await fixture(page);
+  await page.getByRole("button", { name: "Chat", exact: true }).click();
+  await expect(page.locator(".mobile-chat-workspace")).toBeVisible();
+  await viewport(page, 420);
+  await expect
+    .poll(async () => (await page.locator(".app").boundingBox()).height)
+    .toBe(420);
+  await page.evaluate(() => {
+    Object.defineProperty(document, "hidden", { configurable: true, value: false });
+    document.dispatchEvent(new Event("visibilitychange"));
+    // The real height arrives a few frames later, without an event.
+    let frames = 3;
+    const later = () => {
+      if (--frames > 0) return requestAnimationFrame(later);
+      Object.defineProperty(window.visualViewport, "height", {
+        configurable: true,
+        value: 844,
+      });
+    };
+    requestAnimationFrame(later);
+  });
+  await expect
+    .poll(async () => (await page.locator(".app").boundingBox()).height)
+    .toBe(844);
+});
