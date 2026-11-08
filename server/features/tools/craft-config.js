@@ -23,6 +23,11 @@ export function sessionsConfigDir(dataDir) {
   return path.join(craftHome(dataDir), "sessions");
 }
 
+/** The config directory of the rebuild supervisor's own MCP children. */
+export function rebuildsConfigDir(dataDir) {
+  return path.join(craftHome(dataDir), "rebuilds");
+}
+
 /** The environment AgentPier sets on the session row. */
 export function craftEnvironment(dataDir) {
   return {

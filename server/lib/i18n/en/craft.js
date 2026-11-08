@@ -22,4 +22,24 @@ export const craft = Object.freeze({
   configuring: "Setting up Craft Anything's environment …",
   copyingSkill: "Copying Craft Anything's skill into the CLIs …",
   failed: "Craft Anything could not be installed or changed.",
+  rebuildRequestRequired: "Describe what Craft Anything should rebuild.",
+  rebuildRequestTooLong:
+    "The rebuild's description is too long (at most 8000 characters).",
+  rebuildTargetInvalid:
+    "A rebuild's target must be a web address (http or https), an absolute path or empty.",
+  rebuildStackInvalid: "Craft Anything does not know this stack.",
+  rebuildRoundsInvalid: "A rebuild's rounds must be a whole number from 1 to 10.",
+  rebuildAccountIneligible:
+    "This account cannot run a rebuild. Choose a Claude account of your own without a provider.",
+  rebuildNotFound: "This rebuild does not exist.",
+  rebuildRunning: "This rebuild is running. Pause it first.",
+  rebuildNeverStarted: "This rebuild never started and cannot be continued.",
+  rebuildAnswerInvalid:
+    "An answer needs the question and a choice, a text or an approval.",
+  rebuildQuestionGone: "This question has already been answered or is no longer open.",
+  rebuildAutoModeInvalid: "Auto mode must be switched on or off.",
+  rebuildSettingsInvalid:
+    'The defaults for rebuilds need an account, "clean-room" or "deep" and an auto mode.',
+  rebuildsStopping: "AgentPier is stopping. New rebuilds start again after it restarts.",
+  rebuildUnavailable: (detail) => `Craft Anything could not run the rebuild: ${detail}`,
 });

@@ -459,15 +459,19 @@ export class CraftTool {
     this.servers.managed.setLockedEnv(id, [...craftManagedKeys]);
   }
   /**
-   * Rewrites AgentPier's keys in config.toml: the shared Ghidra when Craft Anything
-   * wants it (`components`, the stored choice by default), else the stub.
+   * Rewrites AgentPier's keys in config.toml (the sessions' by default, or
+   * `configDir`): the shared Ghidra when Craft Anything wants it (`components`, the
+   * stored choice by default), else the stub.
    */
-  writeConfig(components = this.stored().components) {
+  writeConfig(
+    components = this.stored().components,
+    configDir = sessionsConfigDir(this.dataDir),
+  ) {
     const stub = ensureGhidraStub(this.dataDir);
     const ghidra = components.ghidra ? this.component("rea-ghidra") : null;
     const jdk = components.ghidra ? this.component("rea-jdk") : null;
     const both = !!ghidra && !!jdk;
-    writeCraftConfig(sessionsConfigDir(this.dataDir), {
+    writeCraftConfig(configDir, {
       ghidra: both ? ghidra : null,
       jdk: both ? jdk : null,
       stub,

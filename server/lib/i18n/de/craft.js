@@ -22,4 +22,27 @@ export const craft = Object.freeze({
   configuring: "Die Umgebung von Craft Anything wird eingerichtet …",
   copyingSkill: "Der Skill von Craft Anything wird in die CLIs kopiert …",
   failed: "Craft Anything konnte nicht installiert oder geändert werden.",
+  rebuildRequestRequired: "Beschreibe, was Craft Anything nachbauen soll.",
+  rebuildRequestTooLong:
+    "Die Beschreibung des Nachbaus ist zu lang (höchstens 8000 Zeichen).",
+  rebuildTargetInvalid:
+    "Das Ziel eines Nachbaus muss eine Webadresse (http oder https), ein absoluter Pfad oder leer sein.",
+  rebuildStackInvalid: "Craft Anything kennt diesen Stack nicht.",
+  rebuildRoundsInvalid:
+    "Die Runden eines Nachbaus müssen eine ganze Zahl von 1 bis 10 sein.",
+  rebuildAccountIneligible:
+    "Dieses Konto kann keinen Nachbau ausführen. Wähle ein eigenes Claude-Konto ohne Provider.",
+  rebuildNotFound: "Diesen Nachbau gibt es nicht.",
+  rebuildRunning: "Dieser Nachbau läuft gerade. Pausiere ihn zuerst.",
+  rebuildNeverStarted:
+    "Dieser Nachbau wurde nie gestartet und kann nicht fortgesetzt werden.",
+  rebuildAnswerInvalid:
+    "Eine Antwort braucht die Frage und eine Auswahl, einen Text oder eine Freigabe.",
+  rebuildQuestionGone: "Diese Frage ist schon beantwortet oder nicht mehr offen.",
+  rebuildAutoModeInvalid: "Der Automodus muss ein- oder ausgeschaltet werden.",
+  rebuildSettingsInvalid:
+    "Die Voreinstellungen für Nachbauten brauchen ein Konto, „clean-room“ oder „deep“ und einen Automodus.",
+  rebuildsStopping: "AgentPier wird beendet. Neue Nachbauten starten erst danach wieder.",
+  rebuildUnavailable: (detail) =>
+    `Craft Anything konnte den Nachbau nicht ausführen: ${detail}`,
 });
