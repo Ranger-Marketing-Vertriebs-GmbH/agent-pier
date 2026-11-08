@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { rebuildsConfigDir } from "../../server/features/tools/craft-config.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 import {
   exists,
   fakeTimers,
@@ -199,6 +200,34 @@ test("answer forwards to project_inbox_answer", async (t) => {
   });
   const { lines } = await f.rebuilds.activity(view.id, { limit: 50 });
   assert.ok(lines.some((line) => line.includes("Answered q1: Blue")));
+});
+
+test("a question answered twice is refused as already answered", async (t) => {
+  let answers = 0;
+  const f = rebuildsFixture(t, {
+    script: { steps: [question, { wait: 10000 }] },
+    intercept: (name) => {
+      if (name === "project_inbox_answer") answers++;
+    },
+  });
+  const view = await f.rebuilds.start({ request: "Answer me twice" });
+  assert.ok(await settled(f.rebuilds, view.id, "needs_you"));
+  const [open] = f.rebuilds.get(view.id).questions;
+  // The inbox and the Rebuilds page answer at the same time.
+  const results = await Promise.allSettled([
+    f.rebuilds.answer(view.id, open.id, { choice: "Red" }),
+    f.rebuilds.answer(view.id, open.id, { choice: "Blue" }),
+  ]);
+  assert.equal(results[0].status, "fulfilled");
+  assert.equal(results[1].status, "rejected");
+  assert.equal(results[1].reason.status, 409);
+  assert.equal(results[1].reason.message, serverMessages.craft.rebuildQuestionGone);
+  assert.equal(answers, 1, "Craft Anything is asked once");
+  const texts = f.craftRecord(view).conversation.map((entry) => entry.text);
+  assert.deepEqual(
+    texts.filter((text) => text.startsWith("Which colour?")),
+    ["Which colour?: Red"],
+  );
 });
 
 test("pause stops the build and continue resumes it", async (t) => {

@@ -306,8 +306,10 @@ export class CraftRebuilds {
   async answer(id, questionId, input) {
     const record = this.require(id);
     const answer = cleanAnswer(questionId, input);
-    if (!record.craftProject) throw refuse(messages.rebuildQuestionGone);
     return this.serial(id, async () => {
+      // Answered already (another tab, the inbox) or never asked: Craft is not asked.
+      if (!record.craftProject || !record.questions.some((q) => q.id === questionId))
+        throw refuse(messages.rebuildQuestionGone);
       try {
         await this.call(record, "project_inbox_answer", { id: questionId, ...answer });
       } catch (error) {
@@ -429,7 +431,8 @@ export class CraftRebuilds {
     try {
       const status = await client.call("rebuild_status", { project });
       const show = await client.call("project_show", { project });
-      this.update(record, sampledFields(status, show, record.step));
+      const asked = [record.step, record.questions, this.now().toISOString()];
+      this.update(record, sampledFields(status, show, ...asked));
       this.forgetApprovals(record);
       if (approve && record.autoMode && (await this.allowApprovals(record, client)))
         await this.sample(record, { approve: false });

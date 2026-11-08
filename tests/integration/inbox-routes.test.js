@@ -60,6 +60,12 @@ test("the inbox lists, announces revisions and resolves stable item addresses", 
   const unknown = await f.request("/api/inbox/session/abc");
   assert.equal(unknown.status, 404);
   assert.equal((await unknown.json()).messageKey, "http.notFound");
+  // A rebuild's question is addressed as <rebuildId>:<questionId>, nothing else.
+  const rebuild = "0b8c1f7e-3d2a-4c5b-9e6f-7a8b9c0d1e2f";
+  const question = await f.request(`/api/inbox/craft/${rebuild}%3Aq1`);
+  assert.deepEqual(await question.json(), { state: "gone" });
+  for (const id of ["q1", `${rebuild}%3A..%2Fq1`, `${rebuild}`])
+    assert.equal((await f.request(`/api/inbox/craft/${id}`)).status, 404, id);
 });
 
 test("the inbox requires the owner's login", async (t) => {

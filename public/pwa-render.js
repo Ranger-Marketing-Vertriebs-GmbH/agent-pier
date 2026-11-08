@@ -4,13 +4,17 @@
 // public/pwa-en.js. Pure functions, so tests run them without a service worker.
 (() => {
   const id = "[A-Za-z0-9_-]{1,120}";
+  const uuid = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+  // A rebuild's question: `<rebuildId>:<questionId>`.
+  const question = `${uuid}:[A-Za-z0-9][A-Za-z0-9_.-]{0,79}`;
   const linkPattern = new RegExp(
-    `^/(?:|inbox(?:/(?:question|approval|gate|action|team)/${id})?|sessions/${id}/chat|pipelines/runs/${id}|agents(?:/${id}/(?:settings(?:\\?tab=capabilities&page=memory)?|chats/${id}))?|projects/${id}\\?tab=tickets|connections\\?section=github|settings/(?:github|notifications|updates))$`,
+    `^/(?:|inbox(?:/(?:question|approval|gate|action|team)/${id})?|craft/${uuid}|sessions/${id}/chat|pipelines/runs/${id}|agents(?:/${id}/(?:settings(?:\\?tab=capabilities&page=memory)?|chats/${id}))?|projects/${id}\\?tab=tickets|connections\\?section=github|settings/(?:github|notifications|updates))$`,
   );
-  // The grouping tags of push-content.js pushSource: a session, run, agent chat, agent
-  // or a project's ticket sequences, or its label rules of one ticket source.
+  // The grouping tags of push-content.js pushSource: a session, rebuild, run, agent
+  // chat, agent or a project's ticket sequences, or its label rules of one ticket
+  // source; ungrouped, the event's id (a rebuild question's too).
   const tagPattern = new RegExp(
-    `^(?:(?:(?:session|agent|chat|run|tickets|ticket-rules):)?${id}|ticket-rules:${id}:(?:github|plane))$`,
+    `^(?:(?:(?:session|agent|chat|run|tickets|ticket-rules|craft):)?${id}|ticket-rules:${id}:(?:github|plane)|${question})$`,
   );
   const validId = (value) =>
     typeof value === "string" && new RegExp(`^${id}$`).test(value);

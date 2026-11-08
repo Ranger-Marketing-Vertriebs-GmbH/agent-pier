@@ -2,14 +2,15 @@ import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 
 // The owner's inbox with one item of every source: a CLI question (session alpha), a
 // CLI approval (session beta), a pipeline gate, an agent's shell command and a team
-// proposal; with `memoryReview` also the memory review card after a model switch.
+// proposal; with `memoryReview` also the memory review card after a model switch, with
+// `craft` a Craft Anything rebuild's question and approval.
 // Answers go to each source's own endpoint and remove the item, as the server would;
 // the inbox list then reports a new revision.
 const created = (minutes) => new Date(Date.now() - minutes * 60000).toISOString();
 
 export async function inboxFixture(
   page,
-  { language, agents = true, memoryReview = false } = {},
+  { language, agents = true, memoryReview = false, craft = false } = {},
 ) {
   if (language)
     await page.addInitScript(
@@ -216,8 +217,11 @@ export async function inboxFixture(
       expiresAt: null,
       link: "/agents/helper/chats/chat-1",
     });
-  // `run` is the pipeline run behind the gate item; tests may reshape it.
-  const state = { items, revision: 1, calls: [], done: {}, run };
+  const rebuild = craftRebuild();
+  if (craft) items.push(...rebuild.questions.map((q) => craftItem(rebuild, q)));
+  // `run` is the pipeline run behind the gate item; tests may reshape it. `rebuild`'s
+  // questions are what its live topic shows; `answered` those answered elsewhere.
+  const state = { items, revision: 1, calls: [], done: {}, run, rebuild, answered: [] };
   const counts = () => {
     const result = {
       all: state.items.length,
@@ -314,7 +318,18 @@ export async function inboxFixture(
         members: [],
         policies: {},
       };
-    else if (path === "/assistant-runtime")
+    else if (path === `/craft/rebuilds/${rebuild.id}`) result = { rebuild };
+    else if (path === `/craft/rebuilds/${rebuild.id}/answer`) {
+      const open = rebuild.questions.some((q) => q.id === body.questionId);
+      if (!open || state.answered.includes(body.questionId))
+        return route.fulfill({
+          status: 409,
+          json: { error: "Answered", messageKey: "craft.rebuildQuestionGone" },
+        });
+      rebuild.questions = rebuild.questions.filter((q) => q.id !== body.questionId);
+      finish("craft", `${rebuild.id}:${body.questionId}`, "answer");
+      result = rebuild;
+    } else if (path === "/assistant-runtime")
       result = { availability: "ready", sync: "current" };
     else if (path === "/assistants/helper/actions")
       result = { actions: exec.state === "awaiting_approval" ? [exec] : [] };
@@ -347,3 +362,51 @@ export async function inboxFixture(
   await mockChatStream(page, () => ({ messages: [], tasks: [], availability: "ready" }));
   return state;
 }
+
+const rebuildId = "0b8c1f7e-3d2a-4c5b-9e6f-7a8b9c0d1e2f";
+
+/** A rebuild waiting for an answer to a question and for an approval. */
+function craftRebuild() {
+  return {
+    id: rebuildId,
+    name: "shop-clone",
+    autoMode: false,
+    status: "needs_you",
+    questions: [
+      {
+        id: "q1",
+        kind: "question",
+        title: "Which colour should the buttons have?",
+        detail: "The target uses two shades.",
+        choices: ["Red", "Blue"],
+        allowText: true,
+        action: null,
+        askedAt: created(3),
+      },
+      {
+        id: "q2",
+        kind: "approval",
+        title: "Install the dependencies?",
+        detail: "",
+        choices: [],
+        allowText: false,
+        action: "npm install",
+        askedAt: created(2),
+      },
+    ],
+  };
+}
+
+const craftItem = (rebuild, question) => ({
+  type: "craft",
+  tab: "questions",
+  id: `${rebuild.id}:${question.id}`,
+  kind: question.kind === "approval" ? "craft-approval" : "craft-question",
+  status: "pending",
+  revision: null,
+  source: { kind: "craft", id: rebuild.id, name: rebuild.name },
+  title: question.title,
+  createdAt: question.askedAt,
+  expiresAt: null,
+  link: `/craft/${rebuild.id}`,
+});

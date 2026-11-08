@@ -69,6 +69,14 @@ const events = {
   "update-failed": [{}],
   "ticket-needs-owner": [{ projectId: "p1" }],
   "ticket-rule-failed": [{ projectId: "p1" }, { projectId: "p1", ticketSource: "plane" }],
+  "craft-question": [
+    {
+      eventId: "0b8c1f7e-3d2a-4c5b-9e6f-7a8b9c0d1e2f:q1",
+      rebuildId: "0b8c1f7e-3d2a-4c5b-9e6f-7a8b9c0d1e2f",
+      preview: "Which colour?",
+      inbox: { type: "craft", id: "0b8c1f7e-3d2a-4c5b-9e6f-7a8b9c0d1e2f:q1" },
+    },
+  ],
   test: [{}],
 };
 

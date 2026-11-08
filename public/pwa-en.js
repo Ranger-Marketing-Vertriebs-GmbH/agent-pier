@@ -107,6 +107,11 @@ self.agentPierNotificationCopyEn = {
       body: "A label rule of a project failed. Open the Tickets tab to see why.",
       name: "Label rule needs attention",
     },
+    "craft-question": {
+      title: "AgentPier: A rebuild needs you",
+      body: "A Craft Anything rebuild is waiting for your answer or approval.",
+      name: "Rebuild needs you",
+    },
     "update-available": {
       title: "AgentPier: Update available",
       body: "A new AgentPier version is available. Open the updates to install it.",

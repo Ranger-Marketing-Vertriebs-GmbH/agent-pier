@@ -1,6 +1,7 @@
 import {
   actionItem,
   chatLink,
+  craftItems,
   gateItem,
   memoryReviewItem,
   requestItem,
@@ -150,6 +151,9 @@ export async function collectItems(
     (services.pipelines?.store?.withStatus("awaiting-human") || [])
       .filter((run) => run.status === "awaiting-human" && !run.imported?.historyOnly)
       .map(gateItem),
+  );
+  await read("rebuilds", () =>
+    (services.craftRebuilds?.list() || []).flatMap(craftItems),
   );
   const assistants = services.assistants;
   if (!assistants || assistants.closed) return items;

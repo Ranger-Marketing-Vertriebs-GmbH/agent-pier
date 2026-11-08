@@ -335,3 +335,36 @@ test("the broker lists every session's requests without side effects or internal
   // Reading twice changes nothing, unlike the per-session list.
   assert.deepEqual(broker.listAll(), [entry]);
 });
+
+test("a rebuild's open question waits until it is answered", async (t) => {
+  const id = "0b8c1f7e-3d2a-4c5b-9e6f-7a8b9c0d1e2f";
+  const rebuild = {
+    id,
+    name: "shop-clone",
+    autoMode: false,
+    questions: [{ id: "q1", kind: "question", title: "Which colour?" }],
+  };
+  const inbox = new OwnerInbox({
+    services: { craftRebuilds: { list: () => [rebuild] } },
+    intervalMs: 0,
+    debounceMs: 5,
+    maxAgeMs: 0,
+  });
+  t.after(() => inbox.close());
+  const pushed = [];
+  t.after(inbox.subscribe((event) => pushed.push(event)));
+  const first = await inbox.snapshot();
+  assert.equal(first.counts.questions, 1);
+  assert.equal(first.items[0].type, "craft");
+  assert.equal(first.items[0].link, `/craft/${id}`);
+  assert.equal((await inbox.status("craft", `${id}:q1`)).state, "pending");
+  // Answered: the supervisor's change reaches the inbox, which no longer lists it.
+  rebuild.questions = [];
+  inbox.changed();
+  await until(
+    () => pushed,
+    (events) => events.some((event) => event.counts.questions === 0),
+    "the answered question to leave",
+  );
+  assert.deepEqual(await inbox.status("craft", `${id}:q1`), { state: "gone" });
+});

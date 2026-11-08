@@ -2,6 +2,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { isIP } from "node:net";
 import { ECDH } from "node:crypto";
 import { problem } from "../../lib/storage.js";
+import { CRAFT_QUESTION_KEY, REBUILD_ID } from "../craft/rebuild-questions.js";
 export function pushId(value) {
   if (typeof value !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/.test(value))
     throw problem(serverMessages.notifications.invalidId);
@@ -91,9 +92,20 @@ export const pushKinds = [
   "ticket-needs-owner",
   // A label rule cannot read its tickets; one notice per error kind until it clears.
   "ticket-rule-failed",
+  // A Craft Anything rebuild asks a question or for an approval (rebuild-questions.js).
+  "craft-question",
   "test",
 ];
-export const inboxItemTypes = ["question", "approval", "gate", "action", "team"];
+export const inboxItemTypes = ["question", "approval", "gate", "craft", "action", "team"];
+
+/** A rebuild question's event and inbox id is `<rebuildId>:<questionId>`. */
+function craftKey(value) {
+  if (typeof value !== "string" || !CRAFT_QUESTION_KEY.test(value))
+    throw problem(serverMessages.notifications.invalidId);
+  return value;
+}
+const eventIdOf = (kind, value) =>
+  kind === "craft-question" ? craftKey(value) : pushId(value);
 export const approvalSubjects = [
   "exec",
   "ssh",
@@ -133,8 +145,12 @@ const idlessKinds = [
 /** The identifiers of an event; any other field of the input is dropped. */
 export function pushPayload(input) {
   if (!pushKinds.includes(input?.kind)) throw problem("Invalid notification kind.");
-  const payload = { kind: input.kind, eventId: pushId(input.eventId) };
-  if (input.kind === "telegram-revocation") {
+  const payload = { kind: input.kind, eventId: eventIdOf(input.kind, input.eventId) };
+  if (input.kind === "craft-question") {
+    if (typeof input.rebuildId !== "string" || !REBUILD_ID.test(input.rebuildId))
+      throw problem(serverMessages.notifications.invalidId);
+    payload.rebuildId = input.rebuildId;
+  } else if (input.kind === "telegram-revocation") {
     if (input.assistantId !== undefined) payload.assistantId = pushId(input.assistantId);
   } else if (ticketKinds.includes(input.kind)) {
     payload.projectId = pushId(input.projectId);
@@ -184,7 +200,11 @@ export function pushEvent(input) {
   if (input.inbox !== undefined) {
     if (!inboxItemTypes.includes(input.inbox?.type))
       throw problem("Invalid notification kind.");
-    event.inbox = { type: input.inbox.type, id: pushId(input.inbox.id) };
+    event.inbox = {
+      type: input.inbox.type,
+      id:
+        input.inbox.type === "craft" ? craftKey(input.inbox.id) : pushId(input.inbox.id),
+    };
   }
   if (input.telegram === true) event.telegram = true;
   // Allow and Deny name the exact inbox item and its revision.
@@ -200,11 +220,15 @@ export function pushEvent(input) {
   return event;
 }
 
+// A rebuild question's inbox address encodes its ":" (push-content.js pushItem).
+const craftItem =
+  /inbox\/craft\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}%3A[A-Za-z0-9][A-Za-z0-9_.-]{0,79}/;
 const linkPattern =
-  /^\/(?:|inbox(?:\/(?:question|approval|gate|action|team)\/[A-Za-z0-9_-]{1,120})?|sessions\/[A-Za-z0-9_-]{1,120}\/chat|pipelines\/runs\/[A-Za-z0-9_-]{1,120}|agents(?:\/[A-Za-z0-9_-]{1,120}\/(?:settings(?:\?tab=capabilities&page=memory)?|chats\/[A-Za-z0-9_-]{1,120}))?|projects\/[A-Za-z0-9_-]{1,120}\?tab=tickets|connections\?section=github|settings\/(?:github|notifications|updates))$/;
+  /^\/(?:|inbox(?:\/(?:question|approval|gate|action|team)\/[A-Za-z0-9_-]{1,120})?|craft\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|sessions\/[A-Za-z0-9_-]{1,120}\/chat|pipelines\/runs\/[A-Za-z0-9_-]{1,120}|agents(?:\/[A-Za-z0-9_-]{1,120}\/(?:settings(?:\?tab=capabilities&page=memory)?|chats\/[A-Za-z0-9_-]{1,120}))?|projects\/[A-Za-z0-9_-]{1,120}\?tab=tickets|connections\?section=github|settings\/(?:github|notifications|updates))$/;
 
-const itemPattern =
-  /^\/inbox\/(?:question|approval|gate|action|team)\/[A-Za-z0-9_-]{1,120}$/;
+const itemPattern = new RegExp(
+  `^/(?:inbox/(?:question|approval|gate|action|team)/[A-Za-z0-9_-]{1,120}|${craftItem.source})$`,
+);
 
 const messageKeys = [
   "v",
@@ -236,7 +260,7 @@ export function pushMessage(input) {
     if (input?.[key] !== undefined) payload[key] = input[key];
   if (!pushKinds.includes(payload?.kind) || payload.v !== 2)
     throw problem("Invalid notification kind.");
-  pushId(payload.eventId);
+  eventIdOf(payload.kind, payload.eventId);
   if (
     payload.decide !== undefined &&
     (!decideModes.includes(payload.decide) ||

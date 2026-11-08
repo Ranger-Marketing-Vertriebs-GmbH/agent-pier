@@ -95,6 +95,7 @@ export const notificationCopy = {
     "session-resume-failed": "Session konnte nicht fortgesetzt werden",
     "ticket-needs-owner": "Eine Ticketfolge wartet auf dich",
     "ticket-rule-failed": "Eine Label-Regel braucht dich",
+    "craft-question": "Ein Nachbau von Craft Anything wartet auf dich",
     "update-available": "Update verfügbar",
     "update-failed": "Update fehlgeschlagen",
     telegram: "Auch was Telegram schon zugestellt hat",

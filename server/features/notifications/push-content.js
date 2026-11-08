@@ -11,10 +11,11 @@ export const previewLimit = 140;
 const labelLimit = 60;
 
 // Kinds whose preview level may show a short text: questions, the start of a reply,
-// check-ins and team goals. Approvals never do.
+// check-ins and team goals. Approvals never do (a rebuild's approval sends no preview).
 // A rate-limited session previews the CLI's own limit message with its reset time.
 const previewKinds = new Set([
   "question",
+  "craft-question",
   "session-completed",
   "agent-checkin",
   "session-limited",
@@ -117,6 +118,8 @@ export const pushItem = (event) =>
  * "open in context" does). Only an item without such a place opens its inbox address.
  */
 export function pushLink(event) {
+  // A rebuild's question shows on its rebuild, answered there or in the inbox.
+  if (event.rebuildId) return `/craft/${segment(event.rebuildId)}`;
   if (event.inbox && !event.sessionId && !event.runId && !event.conversationId)
     return pushItem(event);
   if (event.kind === "github-token") return "/connections?section=github";
@@ -140,8 +143,8 @@ export function pushLink(event) {
 }
 
 /**
- * Where an event comes from: one session, agent chat, agent, run, project's ticket
- * sequences or project's label rules, or null. Agents
+ * Where an event comes from: one session, rebuild, agent chat, agent, run, project's
+ * ticket sequences or project's label rules, or null. Agents
  * hold several chats, so an event of one chat is its chat's, not the whole agent's.
  */
 export function pushSource(event) {
@@ -156,6 +159,7 @@ export function pushSource(event) {
   if (event.kind === "ticket-rule-failed")
     return `ticket-rules:${event.projectId}${event.ticketSource ? `:${event.ticketSource}` : ""}`;
   if (event.sessionId) return `session:${event.sessionId}`;
+  if (event.rebuildId) return `craft:${event.rebuildId}`;
   if (event.runId) return `run:${event.runId}`;
   if (event.assistantId && event.conversationId && event.kind !== "telegram-revocation")
     return `chat:${event.conversationId}`;

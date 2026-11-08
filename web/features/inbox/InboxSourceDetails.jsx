@@ -22,6 +22,7 @@ import useMemoryReviews from "../assistants/useMemoryReviews.js";
 import useAssistants from "../assistants/useAssistants.js";
 import useAssistantFeature from "../assistants/useAssistantFeature.js";
 import useTeamActions from "../assistants/useTeamActions.js";
+import CraftQuestion from "../craft/CraftQuestion.jsx";
 import InboxStale from "./InboxStale.jsx";
 
 // Each source's own card, fed from the live topic (or the endpoint) the source's page
@@ -107,6 +108,43 @@ export function InboxGateDetail({ item, done }) {
       ) : (
         <p className="assistant-note">{copy.gateElsewhere}</p>
       )}
+    </section>
+  );
+}
+
+/**
+ * A Craft Anything rebuild's question or approval, from the rebuild's live topic
+ * (`{ rebuild: null }` once it is gone). Answered here, on the rebuild's page or by
+ * auto mode, it no longer waits.
+ */
+export function InboxCraftDetail({ item, done }) {
+  const rebuildId = item.source.id;
+  const questionId = item.id.slice(rebuildId.length + 1);
+  const resource = useLiveTopic(`craft.rebuild:${rebuildId}`);
+  // The item answered elsewhere in the meantime (the detail stays for the next item).
+  const [goneId, setGoneId] = useState(null);
+  const gone = goneId === item.id;
+  if (resource.error && !resource.data) return <ErrorMessage error={resource.error} />;
+  const rebuild = resource.data?.rebuild;
+  const question = rebuild?.questions?.find((q) => q.id === questionId);
+  if (gone || rebuild === null || (rebuild && !question))
+    return <InboxStale type={item.type} id={item.id} />;
+  if (!rebuild) return loading;
+  return (
+    <section className="inbox-card">
+      <CraftQuestion
+        key={question.id}
+        rebuildId={rebuildId}
+        question={question}
+        onAnswered={async () => {
+          await resource.written();
+          done();
+        }}
+        onGone={() => {
+          setGoneId(item.id);
+          done();
+        }}
+      />
     </section>
   );
 }

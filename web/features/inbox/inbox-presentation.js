@@ -7,6 +7,7 @@ const icons = {
   question: "help",
   approval: "shield",
   gate: "check",
+  craft: "help",
   action: "terminal",
   team: "users",
   "memory-review": "book",

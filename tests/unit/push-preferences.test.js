@@ -67,6 +67,7 @@ test("by default only what needs the owner and what went wrong notifies", () => 
     "update-failed": true,
     "ticket-needs-owner": true,
     "ticket-rule-failed": true,
+    "craft-question": true,
     telegram: false,
   });
   const now = Date.UTC(2026, 9, 31, 12);
@@ -209,7 +210,13 @@ test("quiet hours hold blocking items unless the device lets them through", () =
   const night = utc("23:30");
   const held = quiet("22:00", "07:00");
   const through = quiet("22:00", "07:00", "UTC", true);
-  for (const kind of ["question", "permission", "pipeline-gate", "agent-approval"]) {
+  for (const kind of [
+    "question",
+    "permission",
+    "pipeline-gate",
+    "agent-approval",
+    "craft-question",
+  ]) {
     assert.equal(wantsEvent(held, { kind }, night), false, kind);
     assert.equal(wantsEvent(through, { kind }, night), true, kind);
   }
@@ -262,6 +269,9 @@ test("visible views hold back pushes about them for 30 seconds", () => {
   assert.equal(routeView("/sessions/s1/chat?x=1"), "session:s1");
   assert.equal(routeView("/agents/a1/chats/c1"), "agent:a1");
   assert.equal(routeView("/pipelines/runs/run-1"), "run:run-1");
+  // A rebuild's page holds back its questions' pushes (pushSource `craft:<id>`).
+  assert.equal(routeView("/craft/b1"), "craft:b1");
+  assert.equal(routeView("/craft"), null);
   assert.equal(routeView("/settings/notifications"), null);
   assert.equal(routeView(42), null);
   presence.report("/sessions/s1/chat");

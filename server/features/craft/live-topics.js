@@ -8,10 +8,9 @@
 
 import { assistantProblem } from "../assistants/assistant-validation.js";
 import { craftStacks } from "./craft-stacks.js";
+import { REBUILD_ID } from "./rebuild-questions.js";
 
-// Rebuild ids are randomUUID() (craft-rebuilds.js).
-export const REBUILD_ID =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+export { REBUILD_ID };
 
 const owner = (principal) => principal?.role === "owner";
 

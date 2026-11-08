@@ -66,6 +66,10 @@ test("a sample becomes the view's fields", () => {
         { id: "q2", kind: "approval", title: "Run?", action: "npm install" },
       ],
     },
+    null,
+    // q2 was open at the previous sample; q1 is new.
+    [{ id: "q2", askedAt: "2026-11-08T10:00:00.000Z" }],
+    "2026-11-08T10:05:00.000Z",
   );
   assert.equal(fields.running, true);
   assert.equal(fields.status, "needs_you");
@@ -81,8 +85,10 @@ test("a sample becomes the view's fields", () => {
     choices: ["Red"],
     allowText: true,
     action: null,
+    askedAt: "2026-11-08T10:05:00.000Z",
   });
   assert.equal(fields.questions[1].kind, "approval");
+  assert.equal(fields.questions[1].askedAt, "2026-11-08T10:00:00.000Z");
   assert.equal(fields.questions[1].action, "npm install");
   const stopped = sampledFields({ running: false, status: "stopped" }, {});
   assert.equal(stopped.status, "paused");
