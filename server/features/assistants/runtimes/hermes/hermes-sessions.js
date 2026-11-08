@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { boundPort, reachable, unsupported } from "./hermes-connection.js";
 import { HermesTurns } from "./hermes-turns.js";
+import { inlineImages, sentText, stageImages } from "./hermes-inline-images.js";
 import { hermesError } from "./hermes-rpc-client.js";
 import { refused } from "./hermes-approval-queue.js";
 import { sessionKeyOf, storedIdOf } from "./hermes-run-state.js";
@@ -164,7 +165,8 @@ export function hermesEntry(row, index) {
         ? `row:${rowId}`
         : `at:${index}`,
     role: r.role,
-    text: typeof r.text === "string" ? r.text : "",
+    // A user row reads as the text AgentPier sent (hermes-inline-images.js).
+    text: typeof r.text !== "string" ? "" : r.role === "user" ? sentText(r.text) : r.text,
     // Seconds; a value already in milliseconds is kept.
     timestamp: at > 0 && at < 1e11 ? Math.round(at * 1000) : Math.round(at),
     runId: null,
@@ -183,7 +185,12 @@ const messagesOf = (answer, limit, attribute = (all) => all) => {
     rows.map((row, i) => {
       const entry = hermesEntry(row, i);
       return typeof row?.text === "string"
-        ? { ...row, content: [{ type: "text", text: row.text }], entry }
+        ? {
+            ...row,
+            text: entry.text,
+            content: [{ type: "text", text: entry.text }],
+            entry,
+          }
         : { ...(row && typeof row === "object" ? row : {}), entry };
     }),
   );
@@ -279,16 +286,23 @@ function sessionsOver(current, turns, sizes = new Map()) {
     async send({ key, turn, idempotencyKey, onLate }) {
       const link = await reach();
       const runId = idempotencyKey || randomUUID();
-      // The turn's text only: inline images (`turn.attachments`) are not sent yet; the
-      // message names every attached file by its path (agent-attachments.js).
+      // The message names every attached file by its path (agent-attachments.js); its
+      // inline images go with it as Hermes's attachments (hermes-inline-images.js).
       const text = typeof turn?.message === "string" ? turn.message : "";
+      const images = inlineImages(turn);
       for (let attempt = 0; ; attempt++) {
         const sid = await attach(link, key);
         link.runs.submitted(sid, runId);
         try {
+          const attachments = await stageImages(link.client, sid, images);
           const answer = await link.client.call(
             "prompt.submit",
-            { session_id: sid, text, submission_id: runId },
+            {
+              session_id: sid,
+              text,
+              submission_id: runId,
+              ...(attachments.length && { attachments }),
+            },
             { onLate },
           );
           link.runs.admitted(sid, runId, answer?.admission_id);
