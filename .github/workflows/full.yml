@@ -56,7 +56,13 @@ jobs:
         if: matrix.node == 24
         shell: bash
         run: |
-          NONO_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL https://nono.sh/install.sh)"
+          # The installer downloads a GitHub release, which fails now and then with
+          # 5xx: try it up to three times.
+          for attempt in 1 2 3; do
+            NONO_INSTALL_DIR="$HOME/.local/bin" sh -c "$(curl -fsSL --retry 5 --retry-all-errors https://nono.sh/install.sh)" && break
+            [ "$attempt" = 3 ] && exit 1
+            sleep 20
+          done
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           "$HOME/.local/bin/nono" --version
       - name: Real nono confinement matrix
