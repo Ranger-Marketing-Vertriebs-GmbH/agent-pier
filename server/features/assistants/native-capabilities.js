@@ -95,13 +95,14 @@ export const sessionTools = [
   "sessions_spawn",
 ];
 // What an agent with its own Telegram bot for other people never holds: the session
-// tools, email (its grants are refused too, mail/agent-mail-grants.js) and project
-// creation (goal-turns.js mayCreateProjects) and previews (mayOpenPreviews).
+// tools, email (its grants are refused too, mail/agent-mail-grants.js), project
+// creation and rebuilds (goal-turns.js mayCreateProjects) and previews (mayOpenPreviews).
 export const senderLockedTools = [
   ...sessionTools,
   "agentpier_mail",
   "agentpier_project",
   "agentpier_preview",
+  "agentpier_craft",
 ];
 /**
  * What an agent of restricted users never holds, whatever its stored settings say:
@@ -118,6 +119,7 @@ export const lockedTools = [
   "agentpier_mail",
   "agentpier_project",
   "agentpier_preview",
+  "agentpier_craft",
   ...delegationTools,
   ...memberTeamTools,
   ...sessionTools,
@@ -254,10 +256,11 @@ export function usedCapabilities(profiles = []) {
  * go. `needs` names what the runtime must offer for the grant to apply: "teams" (the
  * team tools are ready), "native" (AgentPier's native tools are), "guard" (the tool
  * guard is proven) and `available:<capability>` (the runtime can serve that web
- * capability). `ssh`: the agent holds at least one SSH grant. A user agent's grants
+ * capability). `ssh`: the agent holds at least one SSH grant; `craft`: Craft Anything
+ * rebuilds are available (installed, with their supervisor). A user agent's grants
  * never name a locked tool. grantedTools resolves them.
  */
-export function toolGrants(assistant, { ssh = false } = {}) {
+export function toolGrants(assistant, { ssh = false, craft = false } = {}) {
   const capabilities = personalCapabilities(assistant);
   // A temporary member has its own memory beside the read-only copy of its lead's,
   // and gets no routines (standing jobs with tools that would outlive the team).
@@ -313,6 +316,9 @@ export function toolGrants(assistant, { ssh = false } = {}) {
     // Own projects: own agents and leads, never members (agent-projects.js). An
     // agent with its own bot for other people loses it with senderLockedTools.
     ...(mayCreateProjects(assistant) ? [grant(["agentpier_project"])] : []),
+    // Rebuilds for the owner (craft/agent-craft.js): as projects, while Craft Anything
+    // is installed.
+    ...(craft && mayCreateProjects(assistant) ? [grant(["agentpier_craft"])] : []),
     // Previews: own agents and permanent members (agent-previews.js); an agent with
     // its own bot for other people loses it with senderLockedTools.
     ...(mayOpenPreviews(assistant) ? [grant(["agentpier_preview"])] : []),
@@ -381,8 +387,10 @@ export function profileTools(
   mcpTools = [],
   // The agent holds at least one SSH grant (assistant-access.js hasSshGrants).
   ssh = false,
+  // Craft Anything rebuilds are available (toolGrants).
+  craft = false,
 ) {
-  return grantedTools(toolGrants(assistant, { ssh }), {
+  return grantedTools(toolGrants(assistant, { ssh, craft }), {
     teamsReady,
     nativeReady,
     writeGuard,

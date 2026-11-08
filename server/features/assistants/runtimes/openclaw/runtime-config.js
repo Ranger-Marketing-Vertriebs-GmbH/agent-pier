@@ -69,6 +69,7 @@ export const nativeTools = [
   "agentpier_mail",
   "agentpier_project",
   "agentpier_preview",
+  "agentpier_craft",
 ];
 
 /**

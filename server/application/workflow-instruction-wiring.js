@@ -1,7 +1,9 @@
+import { craftAvailable } from "../features/craft/agent-craft.js";
+
 /**
  * The configuration inputs AssistantWorkflows answers for an agent's instructions
  * and shell: its SSH grant, project folders, GitHub access, coding-session projects
- * and email accounts.
+ * and email accounts, and whether Craft Anything rebuilds are available.
  */
 export function workflowInstructionWiring(workflows) {
   return {
@@ -19,5 +21,8 @@ export function workflowInstructionWiring(workflows) {
       workflows.mail
         .accounts(assistant.id)
         .map(({ accountId, name }) => ({ accountId, name })),
+    // agentpier_craft (craft/agent-craft.js), read late: the supervisor is made after
+    // the assistants (services.js).
+    craftAvailable: () => craftAvailable(workflows.s),
   };
 }

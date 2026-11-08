@@ -138,6 +138,7 @@ const nativeAllow = [
   "agentpier_mail",
   "agentpier_project",
   "agentpier_preview",
+  "agentpier_craft",
 ];
 const agentAllow = (config, id) => config.agents.entries[id].tools.allow;
 

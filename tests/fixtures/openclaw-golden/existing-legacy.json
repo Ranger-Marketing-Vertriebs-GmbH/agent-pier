@@ -179,6 +179,7 @@
       "agentpier_mail",
       "agentpier_project",
       "agentpier_preview",
+      "agentpier_craft",
       "web_fetch",
       "view_image"
     ],

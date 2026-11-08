@@ -65,6 +65,7 @@
             "agentpier_mail",
             "agentpier_project",
             "agentpier_preview",
+            "agentpier_craft",
             "agentpier_team_propose",
             "agentpier_team_status",
             "agentpier_team_stop",
@@ -301,6 +302,7 @@
       "agentpier_mail",
       "agentpier_project",
       "agentpier_preview",
+      "agentpier_craft",
       "web_fetch",
       "browser",
       "view_image"

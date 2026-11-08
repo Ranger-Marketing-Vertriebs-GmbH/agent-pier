@@ -49,6 +49,8 @@ export const actions = new Set([
   "project",
   // The agent's previews of a server it runs (agent-previews.js); owner turns only.
   "preview",
+  // Craft Anything rebuilds for the owner (craft/agent-craft.js); owner turns only.
+  "craft",
   ...memberActions,
 ]);
 // File actions for the owner that also run in a session without a turn (owner-shares.js).
@@ -69,6 +71,7 @@ export const bridgeTool = (action) =>
     "mail",
     "project",
     "preview",
+    "craft",
   ].includes(action)
     ? `agentpier_${action}`
     : `agentpier_team_${action}`;

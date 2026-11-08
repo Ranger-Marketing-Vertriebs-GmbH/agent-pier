@@ -98,6 +98,19 @@ export class CraftRebuilds {
     return record ? rebuildView(record) : null;
   }
 
+  /** The rebuild `source` started with `requestId` (its view), or null. */
+  startedWith(source, requestId) {
+    const record = [...this.records.values()].find(
+      (item) => item.source === source && item.requestId === requestId,
+    );
+    return record ? rebuildView(record) : null;
+  }
+
+  /** The `requestId` a rebuild was started with, or null. */
+  requestIdOf(id) {
+    return this.records.get(id)?.requestId ?? null;
+  }
+
   /** `listener({ id } | { list: true })`; returns an unsubscribe function. */
   onChange(listener) {
     this.listeners.add(listener);
@@ -151,10 +164,8 @@ export class CraftRebuilds {
     if (!this.craft.state().installed) throw refuse(messages.notInstalled);
     const requestId = cleanRequestId(input?.requestId);
     if (requestId) {
-      const known = [...this.records.values()].find(
-        (item) => item.source === source && item.requestId === requestId,
-      );
-      if (known) return rebuildView(known);
+      const known = this.startedWith(source, requestId);
+      if (known) return known;
       const key = `${source}\n${requestId}`;
       if (this.starting.has(key)) return this.starting.get(key);
       const work = this.begin(input, source, requestId);

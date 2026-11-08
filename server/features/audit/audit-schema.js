@@ -213,8 +213,10 @@ export function auditEvent(input) {
       // Agent email (audit-mail-details.js): approvals and grant changes.
       "mail",
       "mail-grants",
-      // A project an agent created itself (audit-agent-project-details.js).
+      // A project an agent created itself, or a rebuild it started
+      // (audit-agent-project-details.js).
       "agent-project",
+      "agent-craft",
       // A blocker resolved by "Pause agents and update" (audit-runtime-update-details.js).
       "runtime-update",
       // A session or agent preview (audit-preview-details.js).

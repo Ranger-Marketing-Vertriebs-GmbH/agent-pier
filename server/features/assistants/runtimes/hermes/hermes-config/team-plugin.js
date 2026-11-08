@@ -529,7 +529,7 @@ const actionOf = (name) => {
 /**
  * AgentPier's bridge tools of `agent` (a desiredAgent) as `{ name, action }`, sorted:
  * its team tools and AgentPier's own tools (reminders, routines, hooks, workspace,
- * file sharing, SSH, goals, coding sessions, mail, projects, previews), as its grants
+ * file sharing, SSH, goals, coding sessions, mail, projects, rebuilds, previews), as its grants
  * name them (native-capabilities.js toolGrants, which already leaves out what a user
  * agent may not hold). The bridge checks every call as it does OpenClaw's.
  */

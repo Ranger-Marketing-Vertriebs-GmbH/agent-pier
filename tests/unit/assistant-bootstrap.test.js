@@ -287,6 +287,26 @@ test("an agent with email accounts learns the mail pattern and that mail is untr
     assert.doesNotMatch(assistantBootstrap(profile, {}, { mailAccounts }), /## Email/);
 });
 
+test("agents holding agentpier_craft learn to start rebuilds in their Projects section", () => {
+  const line =
+    "- When the owner asks you to rebuild or recreate an app, a website or a file, start a Craft Anything rebuild with agentpier_craft (action start). It gets its own project and runs inside AgentPier; the owner answers its questions there, so tell the owner where to follow it.";
+  const text = assistantBootstrap(assistant, {}, { projectCreation: true, craft: true });
+  assert.ok(text.includes(`\n## Projects\n`));
+  assert.ok(text.includes(`${line}\n`));
+  assert.doesNotMatch(
+    assistantBootstrap(assistant, {}, { projectCreation: true }),
+    /agentpier_craft/,
+  );
+  assert.doesNotMatch(
+    assistantBootstrap(
+      { ...assistant, teamMemberId: "m1", lifetime: "permanent" },
+      {},
+      { projectCreation: true, craft: true },
+    ),
+    /agentpier_craft/,
+  );
+});
+
 test("eligible agents learn they can create a project and share it with their team", () => {
   const text = assistantBootstrap(assistant, {}, { projectCreation: true });
   assert.match(text, /\n## Projects\n/);

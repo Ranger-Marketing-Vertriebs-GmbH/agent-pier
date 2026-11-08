@@ -10,6 +10,7 @@ import { goalDefinition } from "./goal-tool.js";
 import { codingSessionDefinition } from "./coding-session-tool.js";
 import { mailDefinition } from "./mail-tool.js";
 import { projectDefinition } from "./project-tool.js";
+import { craftDefinition } from "./craft-tool.js";
 import { previewDefinition } from "./preview-tool.js";
 import { memberDefinitions } from "./member-tools.js";
 import { groupDefinitions } from "./group-tools.js";
@@ -50,6 +51,9 @@ export const toolTimeouts = {
   mail: 125000,
   // A project creation initializes Git and registers the folder before it answers.
   project: 30000,
+  // A rebuild start makes its folder and waits up to 60 seconds for Craft Anything
+  // (craft-rebuilds.js START_TIMEOUT_MS) plus its MCP child's start.
+  craft: 95000,
   // A preview open checks the server's port and binds a slot before it answers.
   preview: 15000,
 };
@@ -70,6 +74,7 @@ export const ownTools = [
   "mail",
   "project",
   "preview",
+  "craft",
 ];
 /** The tool name of bridge action `action` (shared with the Hermes adapter). */
 export const toolName = (action) =>
@@ -135,6 +140,7 @@ export const definitions = {
   ...codingSessionDefinition,
   ...mailDefinition,
   ...projectDefinition,
+  ...craftDefinition,
   ...previewDefinition,
   ...memberDefinitions,
   ...groupDefinitions,

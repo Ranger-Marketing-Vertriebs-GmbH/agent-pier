@@ -288,6 +288,10 @@ const reasons = {
   PINBOARD_ENTRY_LIMIT: `This pinboard list already holds ${PINBOARD_LIMITS.entries} entries. Unpin one or use another list before you pin more.`,
   PINBOARD_OWNER_ONLY:
     "The pinboard is only for the owner: it is not available in a restricted user's chat or on a user's own agent. Do not retry; share the file with agentpier_share_file if the person needs it.",
+  CRAFT_NOT_INSTALLED:
+    "Craft Anything is not installed in AgentPier, so no rebuild can start. Do not retry; tell the owner, who can install it in AgentPier.",
+  CRAFT_REBUILD_NOT_FOUND:
+    "No rebuild you started has this id. Use the id agentpier_craft start returned.",
   UNAVAILABLE: "AgentPier operation unavailable; inspect its state before retrying.",
 };
 const byKey = {
@@ -441,6 +445,10 @@ const sftpCode = (error) =>
 // message that names nothing internal; the model reads it in English.
 const previewCode = (error) =>
   !error?.key && /^PREVIEW_[A-Z_]+$/.test(error?.code ?? "") ? error.code : null;
+// Rebuild problems (craft/agent-craft.js) carry a CRAFT_ code; one without a fixed
+// reason says why in its catalog message, read in English.
+const craftCode = (error) =>
+  !error?.key && /^CRAFT_[A-Z_]+$/.test(error?.code ?? "") ? error.code : null;
 // Who answered a coding session's prompt first (coding-sessions/session-requests.js).
 const answerers = ["owner", "agent", "telegram", "session"];
 export function toolError(error) {
@@ -449,6 +457,7 @@ export function toolError(error) {
     (error?.key === "invalid" && status === 403 ? "FORBIDDEN" : byKey[error?.key]) ||
     sftpCode(error) ||
     previewCode(error) ||
+    craftCode(error) ||
     byStatus[status] ||
     (status === 413 ? "REQUEST_TOO_LARGE" : "UNAVAILABLE");
   return {
@@ -457,7 +466,7 @@ export function toolError(error) {
     reason:
       code === "PROMPT_ANSWERED" && answerers.includes(error.answeredBy)
         ? `${reasons[code]} Answered by: ${error.answeredBy}.`
-        : code === previewCode(error)
+        : code === previewCode(error) || (code === craftCode(error) && !reasons[code])
           ? agentText(error.message)
           : reasons[code],
   };

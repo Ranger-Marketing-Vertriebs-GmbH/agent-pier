@@ -44,7 +44,8 @@ export const isDesiredState = (value) => built.has(value) && Array.isArray(value
  * a runtime that runs the agent's own Telegram bot in the agent's own process set
  * (Hermes): `{ token, people, speech, apiRoot, deepgram }` as telegram-senders-own.js
  * reads it, null for none, left out when unknown; `lead`, a temporary member's lead's
- * record, whose window setting its borrowed browser follows. Deeply frozen.
+ * record, whose window setting its borrowed browser follows; `craft`, Craft Anything
+ * rebuilds are available (native-capabilities.js toolGrants). Deeply frozen.
  */
 export function desiredAgent(
   profile,
@@ -57,6 +58,7 @@ export function desiredAgent(
     model,
     channelBot,
     lead = null,
+    craft = false,
   } = {},
 ) {
   const capabilities = personalCapabilities(profile);
@@ -81,7 +83,7 @@ export function desiredAgent(
       permanent: profile.lifetime === "permanent",
     },
     // The tools it may hold, each grant with what it needs of the runtime.
-    tools: toolGrants(profile, { ssh: !!ssh }),
+    tools: toolGrants(profile, { ssh: !!ssh, craft: !!craft }),
     shell: { level: personalShell(profile), pathPrepend: [...shellPath] },
     memory: memoryEnabled(profile),
     skills: { assigned: personalSkills(profile), compiled: compiledSkillNames(profile) },
@@ -130,7 +132,8 @@ export function desiredAgent(
  * The desired state of every agent and of the host, from what a Gateway start (or a
  * live apply) reads from the stores. Every field is optional:
  * - `profiles`: the agents' records; `sshAgents`: ids with an SSH grant;
- *   `githubShell`, `sshShell`: `{ [id]: folders }` on an agent's shell PATH.
+ *   `githubShell`, `sshShell`: `{ [id]: folders }` on an agent's shell PATH;
+ *   `craft`: Craft Anything rebuilds are available.
  * - `mcp`: the MCP store's servers, bindings and secrets (mcp-inputs.js
  *   readMcpInputs); `stdio`: ids bound to a local command server, else from `mcp`.
  * - `telegram`: the agents' bots and the speech key (telegram-inputs.js).
@@ -146,6 +149,7 @@ export function desiredState(inputs = {}) {
     sshAgents,
     githubShell,
     sshShell,
+    craft = false,
     mcp,
     stdio = stdioAgents(mcp || {}),
     telegram,
@@ -160,6 +164,7 @@ export function desiredState(inputs = {}) {
   const agents = profiles.map((profile) =>
     desiredAgent(profile, {
       ssh: !!sshAgents?.has(profile.id),
+      craft,
       shellPath: [
         ...(githubShell?.[profile.id] || []),
         ...(sshShell?.[profile.id] || []),

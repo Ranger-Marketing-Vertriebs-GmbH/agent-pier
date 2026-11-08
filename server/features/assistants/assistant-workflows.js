@@ -42,6 +42,7 @@ import { deliverCodingStart } from "./coding-start-follow-up.js";
 import { emitCompletion } from "./coding-completion.js";
 import { AgentCodingSessions } from "./coding-sessions/agent-coding-sessions.js";
 import { AgentProjects } from "./agent-projects.js";
+import { AgentCraft } from "../craft/agent-craft.js";
 // How long an expired exec action waits for the Gateway's own outcome.
 const execExpiryGraceMs = 60000;
 export class AssistantWorkflows {
@@ -66,6 +67,7 @@ export class AssistantWorkflows {
     // The agent's own coding sessions (agentpier_coding_session).
     this.sessions = new AgentCodingSessions(this);
     this.projects = new AgentProjects(this); // agentpier_project
+    this.craft = new AgentCraft(this); // agentpier_craft
     if (autoStart) this.start();
   }
   /** Starts advancing open actions; the application starts it after recovery. */
