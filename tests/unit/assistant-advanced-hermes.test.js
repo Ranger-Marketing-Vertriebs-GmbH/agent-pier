@@ -48,15 +48,36 @@ const settle = () => new Promise((resolve) => setImmediate(resolve));
 test("the page names which settings Hermes agents take and its approval", async () => {
   const { advanced } = setup();
   const { hermes, settings } = await advanced.get();
-  assert.deepEqual(hermes, { enabled: true, version: "0.22.5", qualified: true });
-  assert.deepEqual(
-    settings.filter((s) => s.hermes).map((s) => s.id),
-    ["thinkingDefault", "userTimezone"],
-  );
+  // The archived Hermes agent and the OpenClaw agent do not count.
+  assert.deepEqual(hermes, {
+    enabled: true,
+    agents: 1,
+    version: "0.22.5",
+    qualified: true,
+  });
+  // How Hermes agents take each setting: live, with a restart, or not at all.
+  assert.deepEqual(Object.fromEntries(settings.map((s) => [s.id, s.hermes])), {
+    runTimeout: null,
+    thinkingDefault: "hot",
+    userTimezone: "restart",
+    imageQuality: null,
+    imageMaxDimension: null,
+    mediaRetention: null,
+  });
   const other = await setup({ hermes: "0.23.0" }).advanced.get();
-  assert.deepEqual(other.hermes, { enabled: true, version: "0.23.0", qualified: false });
+  assert.deepEqual(other.hermes, {
+    enabled: true,
+    agents: 1,
+    version: "0.23.0",
+    qualified: false,
+  });
   const off = await setup({ enabled: false, hermes: null }).advanced.get();
-  assert.deepEqual(off.hermes, { enabled: false, version: null, qualified: true });
+  assert.deepEqual(off.hermes, {
+    enabled: false,
+    agents: 1,
+    version: null,
+    qualified: true,
+  });
 });
 
 test("a save of a setting Hermes takes applies every Hermes agent", async () => {

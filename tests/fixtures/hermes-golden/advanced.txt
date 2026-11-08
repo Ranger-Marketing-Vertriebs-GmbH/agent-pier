@@ -37,7 +37,6 @@ plugins:
   auto_update_check_hours: 0
 skills:
   external_dirs: []
-timezone: Europe/Berlin
 delegation:
   subagent_auto_approve: false
 web:

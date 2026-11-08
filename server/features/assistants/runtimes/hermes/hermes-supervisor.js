@@ -62,7 +62,8 @@ const commandOf = (pid) => {
  *
  * `prepare(agentPaths)` runs before each start, once the installation is known and
  * before any process of the set: the runtime (hermes-runtime.js) writes the agent's
- * compiled HERMES_HOME there.
+ * compiled HERMES_HOME there and may set `timezone`, the HERMES_TIMEZONE the set's
+ * processes get (hermes-environment.js; null: none).
  *
  * Hermes starts a gateway of its own only when a client finds no owner (`hermes cron
  * run`, `hermes chat`, …, through ensure_gateway_runtime with `--idle-exit`, on macOS
@@ -87,6 +88,7 @@ export class HermesSupervisor extends EventEmitter {
     environment = process.env,
     pathPrepend = [],
     extra = {},
+    timezone = null,
     bridge = hermesBridgeFile,
     prepare = async () => {},
     callTimeoutMs = 30000,
@@ -101,7 +103,7 @@ export class HermesSupervisor extends EventEmitter {
     super();
     Object.assign(this, { dataDir, agentId, runtime, spawn, kill, command, environment });
     Object.assign(this, { pathPrepend, extra, bridge, readyTimeoutMs, stopTimeoutMs });
-    Object.assign(this, { prepare, callTimeoutMs });
+    Object.assign(this, { prepare, callTimeoutMs, timezone });
     Object.assign(this, { backoff, stableMs, maxFailures, timers, now });
     this.availability = "disabled";
     this.diagnostic = null;
@@ -184,6 +186,7 @@ export class HermesSupervisor extends EventEmitter {
       runtime: record,
       pathPrepend: this.pathPrepend,
       extra: this.extra,
+      timezone: this.timezone,
       parent: this.environment,
     });
     const set = this.spawnSet(record, agent, env);

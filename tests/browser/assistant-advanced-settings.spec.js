@@ -15,11 +15,18 @@ import { HermesFleet } from "../../server/features/assistants/runtimes/hermes/he
  * reload kinds and validation. `running` only presents the Gateway as running.
  * `restart` names paths to present as needing a restart: no 2026.9.9 path does, but
  * the prompt must work for one a later runtime reports. `hermes` names the installed
- * Hermes version while Hermes agents run.
+ * Hermes version while Hermes runs; `hermesAgents` how many Hermes agents exist.
  */
 async function setup(
   page,
-  { language = "en", running = true, version = null, restart = [], hermes = null } = {},
+  {
+    language = "en",
+    running = true,
+    version = null,
+    restart = [],
+    hermes = null,
+    hermesAgents = hermes ? 1 : 0,
+  } = {},
 ) {
   await fixture(page);
   await page.addInitScript(
@@ -39,7 +46,17 @@ async function setup(
     new HermesFleet({ dataDir: null, available: () => !!hermes, version: () => hermes }),
   );
   const advanced = new AdvancedConfig({
-    assistants: { runtime, admit: (operation) => operation() },
+    assistants: {
+      runtime,
+      admit: (operation) => operation(),
+      store: {
+        listAssistants: () =>
+          Array.from({ length: hermesAgents }, (_, i) => ({
+            id: `h${i}`,
+            runtime: "hermes",
+          })),
+      },
+    },
     overrides,
     synchronization: {},
   });
@@ -233,23 +250,29 @@ for (const phone of [false, true])
     if (phone) await page.setViewportSize({ width: 390, height: 844 });
     const { state } = await setup(page, { hermes: "0.22.5" });
     await page.goto(baseURL + "/settings/assistants-advanced");
-    await expect(page.getByText(/Hermes agents take the settings/)).toBeVisible();
-    // Thinking level and time zone reach Hermes agents; the other four do not.
+    await expect(
+      page.getByText("Settings without “OpenClaw only” also apply to Hermes agents."),
+    ).toBeVisible();
+    // Thinking level and time zone reach Hermes agents, the time zone with a restart
+    // of theirs; the other four do not reach them.
     await expect(page.getByText("OpenClaw only", { exact: true })).toHaveCount(4);
-    for (const [name, only] of [
-      ["Time limit per task", true],
-      ["Thinking level", false],
-      ["Time zone", false],
-      ["Image quality", true],
-      ["Maximum image size", true],
-      ["Media file retention", true],
+    await expect(page.getByText("Restarts Hermes agents", { exact: true })).toHaveCount(
+      1,
+    );
+    for (const [name, pill] of [
+      ["Time limit per task", "OpenClaw only"],
+      ["Thinking level", null],
+      ["Time zone", "Restarts Hermes agents"],
+      ["Image quality", "OpenClaw only"],
+      ["Maximum image size", "OpenClaw only"],
+      ["Media file retention", "OpenClaw only"],
     ])
       await expect(
         page
           .locator(".advanced-setting-row")
           .filter({ hasText: name })
-          .getByText("OpenClaw only", { exact: true }),
-      ).toHaveCount(only ? 1 : 0);
+          .locator(".advanced-setting-badge.scope"),
+      ).toHaveText(pill ? [pill] : []);
     await page.getByRole("button", { name: "Thinking level", exact: true }).click();
     await expect(page.getByText(/no “Adaptive” level/)).toBeVisible();
     await page.getByRole("combobox", { name: /Time zone/ }).selectOption("Asia/Tokyo");
@@ -271,12 +294,16 @@ test("a Hermes version the mapping is not approved for is named", async ({ page 
   await expect(page.getByRole("combobox", { name: /Thinking level/ })).toBeEnabled();
 });
 
-test("without Hermes agents the page names no runtime per setting", async ({ page }) => {
-  await setup(page);
-  await page.goto(baseURL + "/settings/assistants-advanced");
-  await expect(page.getByText("Tasks", { exact: true })).toBeVisible();
-  await expect(page.getByText("OpenClaw only", { exact: true })).toHaveCount(0);
-  await expect(page.getByText(/Hermes agents take|Hermes Agent .* approved/)).toHaveCount(
-    0,
-  );
-});
+for (const [label, options] of [
+  ["without Hermes", {}],
+  ["with Hermes but no Hermes agent", { hermes: "0.22.5", hermesAgents: 0 }],
+])
+  test(`${label} the page names no runtime per setting`, async ({ page }) => {
+    await setup(page, options);
+    await page.goto(baseURL + "/settings/assistants-advanced");
+    await expect(page.getByText("Tasks", { exact: true })).toBeVisible();
+    await expect(page.locator(".advanced-setting-badge.scope")).toHaveCount(0);
+    await expect(
+      page.getByText(/apply to Hermes agents|Hermes Agent .* approved/),
+    ).toHaveCount(0);
+  });

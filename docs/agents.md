@@ -35,8 +35,8 @@ agents**.
    runtime settings for all agents: **Time limit per task**, **Thinking level**,
    **Time zone**, **Image quality**, **Maximum image size** and **Media file
    retention**. Each one is marked **Immediate** or **Restart needed**. Hermes agents
-   take **Thinking level** and **Time zone** too and restart for a change; while
-   Hermes agents run, the other four are marked **OpenClaw only**
+   take **Thinking level** and **Time zone** too (a time zone change restarts them);
+   while Hermes agents exist, the other four are marked **OpenClaw only**
    ([Hermes runtime](hermes-runtime.md#advanced-settings)). AgentPier offers only
    settings that do not touch security, access or management, and applies them only to
    the runtime version they were approved for; an older runtime starts with OpenClaw's

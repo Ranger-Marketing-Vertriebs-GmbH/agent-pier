@@ -113,6 +113,17 @@ test("a routine in another time zone becomes a pinned Hermes job that reads back
   const own = { ...job, agentpier: local, schedule: { kind: "cron", expr: "0 9 * * *" } };
   assert.equal(repinOf(own, ran), null);
   assert.equal(repinOf(job, { ...ran, zone: "Asia/Tokyo" }), schedule.expression);
+  // A job still on its own expression that is due when the zone changed is left to
+  // Hermes, which fires the run it missed while restarting; then it is pinned.
+  const unpinned = {
+    ...job,
+    agentpier: meta,
+    schedule: { kind: "cron", expr: schedule.expression },
+    next_run_at: "2026-11-02T00:00:00Z",
+  };
+  assert.equal(repinOf(unpinned, ran), null);
+  const later = { ...unpinned, next_run_at: "2026-11-03T00:00:00Z" };
+  assert.equal(repinOf(later, ran), "0 1 3 11 *");
 });
 
 const routine = (extra = {}) => ({

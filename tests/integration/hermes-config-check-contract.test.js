@@ -16,6 +16,7 @@ import {
   hermesGoldenScenarios,
 } from "../helpers/hermes-golden-scenarios.js";
 import { contractTimeout } from "../helpers/contract-timeout.js";
+import { advancedZone } from "../../server/features/assistants/runtimes/hermes/hermes-config/advanced.js";
 import { telegramTokenEnv } from "../../server/features/assistants/runtimes/hermes/hermes-config/telegram.js";
 import { deepgramKeyEnv } from "../../server/features/assistants/runtimes/hermes/hermes-config/deepgram-plugin.js";
 import {
@@ -85,6 +86,7 @@ from hermes_constants import parse_reasoning_effort
 from hermes_time import get_timezone_name
 out["reasoning"] = parse_reasoning_effort(config["agent"].get("reasoning_effort"))
 out["timezone"] = get_timezone_name()
+out["timezoneKey"] = config.get("timezone") or None
 child = _sanitize_subprocess_env(dict(os.environ))
 out["leaked"] = sorted(k for k in child if k in sys.argv[1:])
 print(json.dumps(out))
@@ -100,7 +102,10 @@ async function hermesHome(t, name) {
   const input = goldenCompileInput(hermesGoldenScenarios[name]());
   input.workspaces = { "ap-a1": dirs.work };
   hermesCompiler.write(dirs.hermes, hermesCompiler.compile(input).homes["ap-a1"]);
+  // The owner's time zone travels in the processes' environment (advanced.js).
+  const zone = advancedZone(input.advanced);
   const env = {
+    ...(zone && { HERMES_TIMEZONE: zone }),
     HOME: dirs.home,
     HERMES_HOME: dirs.hermes,
     TMPDIR: dirs.tmp,
@@ -185,10 +190,12 @@ for (const name of Object.keys(hermesGoldenScenarios))
         assert.equal(seen.key, true, "the key reaches the model route");
     } else assert.equal(seen.route, undefined);
     // The owner's advanced settings (hermes-config/advanced.js) as Hermes reads them:
-    // "off" disables thinking, and the agent's clock runs in the chosen zone.
+    // "off" disables thinking, and the agent's clock runs in the chosen zone, which
+    // comes from the environment: config.yaml names none.
     if (scenario.advanced) {
       assert.deepEqual(seen.reasoning, { enabled: false });
       assert.equal(seen.timezone, scenario.advanced.values.userTimezone);
+      assert.equal(seen.timezoneKey, null);
     } else assert.equal(seen.reasoning, null);
     assert.deepEqual(seen.leaked, []);
   });
