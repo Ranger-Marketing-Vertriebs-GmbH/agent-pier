@@ -59,6 +59,9 @@ function auditStart(services, agent, view) {
 export class AgentCraft {
   constructor(w) {
     this.w = w;
+    // Starts under way by retry key: a retry while its first call runs joins it and
+    // charges the loop guard once.
+    this.starting = new Map();
   }
 
   async invoke(inv, input) {
@@ -88,16 +91,31 @@ export class AgentCraft {
     return `${agent.id}:${call}`;
   }
 
-  async start(inv, agent, { request, target, stack }) {
-    const rebuilds = this.w.s.craftRebuilds;
+  start(inv, agent, input) {
     const requestId = this.requestId(agent, inv);
-    const known = requestId && rebuilds.startedWith(source, requestId);
+    const known = requestId && this.w.s.craftRebuilds.startedWith(source, requestId);
     if (known) return statusView(known);
+    if (requestId && this.starting.has(requestId)) return this.starting.get(requestId);
+    const work = this.begin(inv, agent, input, requestId);
+    if (requestId) {
+      this.starting.set(requestId, work);
+      work.then(
+        () => this.starting.delete(requestId),
+        () => this.starting.delete(requestId),
+      );
+    }
+    return work;
+  }
+
+  async begin(inv, agent, { request, target, stack }, requestId) {
     loopGuard(this.w.a.store).take(agent.id);
     inv.assertCurrent();
     let started;
     try {
-      started = await rebuilds.start({ request, target, stack, requestId }, { source });
+      started = await this.w.s.craftRebuilds.start(
+        { request, target, stack, requestId },
+        { source },
+      );
     } catch (error) {
       throw refusal(error);
     }

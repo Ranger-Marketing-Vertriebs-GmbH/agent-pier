@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { agentProjectFixture } from "../helpers/agent-project-fixture.js";
 import { rebuildsFixture } from "../helpers/craft-rebuilds-fixture.js";
 import { toolError } from "../../server/features/assistants/tool-errors.js";
+import { loopGuard } from "../../server/features/assistants/agent-loop-guard.js";
 import { auditEvent } from "../../server/features/audit/audit-schema.js";
 import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import {
@@ -278,4 +279,61 @@ test("the audit keeps a rebuild's id only for agent-craft records", () => {
   assert.deepEqual(event("agent-craft", id), { kind: "agent-craft", rebuildId: id });
   assert.deepEqual(event("agent-craft", "../x"), { kind: "agent-craft" });
   assert.deepEqual(event("agent-project", id), { kind: "agent-project" });
+});
+
+test("an agent's rebuild targets a web address or nothing, never a local path", async (t) => {
+  const f = await craftFixture(t);
+  for (const target of ["/Users/owner/.ssh", f.r.dataDir, " /etc "]) {
+    const error = await f.call({ action: "start", request: "X", target }).then(
+      () => null,
+      (e) => toolError(e),
+    );
+    assert.equal(error.code, "CRAFT_REBUILD_INVALID_INPUT", target);
+    assert.match(error.reason, /never a local path/);
+  }
+  assert.equal(f.r.rebuilds.list().length, 0);
+  const url = await f.call({ action: "start", request: "X", target: "https://a.test/" });
+  assert.equal(f.r.rebuilds.get(url.id).target, "https://a.test/");
+  const none = await f.call({ action: "start", request: "Y", target: "-" });
+  assert.equal(f.r.rebuilds.get(none.id).target, "-");
+  // Sessions and the owner keep paths.
+  for (const source of ["session", "owner"]) {
+    const view = await f.r.rebuilds.start(
+      { request: source, target: "/tmp/app" },
+      { source },
+    );
+    assert.equal(view.target, "/tmp/app", source);
+  }
+});
+
+test("a user agent and a user's conversation are refused at the service", async (t) => {
+  const f = await craftFixture(t);
+  const start = { action: "start", request: "A clock" };
+  f.setAgent("userAccess", { mode: "shared", userIds: ["u"] });
+  assert.equal(await f.code(f.call(start)), "FORBIDDEN");
+  assert.equal(await f.code(f.call({ action: "status", id: "x" })), "FORBIDDEN");
+  f.setAgent("userAccess", null);
+  f.assistants.store.db
+    .prepare("UPDATE conversations SET body=json_set(body,'$.userId',?) WHERE id=?")
+    .run("u", f.channel.conversationId);
+  assert.equal(await f.code(f.call(start)), "FORBIDDEN");
+  assert.equal(f.r.rebuilds.list().length, 0);
+});
+
+test("a retry while the first start runs joins it and charges the loop guard once", async (t) => {
+  const f = await craftFixture(t);
+  const guard = loopGuard(f.assistants.store);
+  const take = guard.take.bind(guard);
+  let taken = 0;
+  guard.take = (id) => {
+    taken += 1;
+    return take(id);
+  };
+  const inv = await f.invocation(randomUUID());
+  const input = { action: "start", request: "A counter app" };
+  const [first, retry] = await Promise.all([f.tool(inv, input), f.tool(inv, input)]);
+  assert.equal(retry.id, first.id);
+  assert.equal(taken, 1);
+  assert.equal(f.r.rebuilds.list().length, 1);
+  assert.equal(f.workflows.craft.starting.size, 0);
 });

@@ -27,6 +27,8 @@ export const craft = Object.freeze({
     "The rebuild's description is too long (at most 8000 characters).",
   rebuildTargetInvalid:
     "A rebuild's target must be a web address (http or https), an absolute path or empty.",
+  rebuildTargetPathRefused:
+    "An agent can only have a web address (http or https) or nothing rebuilt, never a local path.",
   rebuildStackInvalid: "Craft Anything does not know this stack.",
   rebuildRoundsInvalid: "A rebuild's rounds must be a whole number from 1 to 10.",
   rebuildAccountIneligible:
