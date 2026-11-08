@@ -199,3 +199,41 @@
 .diff-thread-confirm p {
   margin: 0 0 var(--space-2);
 }
+/* A collapsible file: the whole heading is the toggle (DiffFile `onToggle`). */
+.diff-file-heading.is-toggle {
+  padding: 0;
+}
+.diff-file-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  width: 100%;
+  min-height: 33px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+@media (max-width: 700px) {
+  .diff-file-toggle {
+    min-height: var(--touch-target);
+  }
+}
+.diff-file-toggle:hover {
+  background: var(--surface-raised);
+}
+.diff-file-chevron {
+  flex: none;
+  color: var(--muted);
+  transition: transform 150ms;
+}
+.diff-file[data-open] .diff-file-chevron {
+  transform: rotate(90deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .diff-file-chevron {
+    transition: none;
+  }
+}

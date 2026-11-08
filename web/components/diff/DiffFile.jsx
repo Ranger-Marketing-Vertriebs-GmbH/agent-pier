@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import React, { memo, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { diffReviewCopy as copy } from "../../lib/i18n/messages/diff-review.js";
+import Icon from "../Icon.jsx";
 import CommentEditor from "./CommentEditor.jsx";
 import CommentThread from "./CommentThread.jsx";
 import DiffRows from "./DiffRows.jsx";
@@ -28,8 +29,11 @@ function selection(state, action) {
 }
 
 // One file of a review: heading, rows in pages of ROW_PAGE, threads after their row,
-// then the comments whose row is not shown yet and the outdated ones.
-export default function DiffFile({
+// then the comments whose row is not shown yet and the outdated ones. With `onToggle`
+// the heading opens and closes the file (`open`); a closed file renders no rows but
+// keeps its state (a comment draft, the rows shown). Memoized, so a refresh that
+// leaves a file's props alone does not render its rows again.
+export default memo(function DiffFile({
   file,
   workspace = "",
   placement,
@@ -38,6 +42,8 @@ export default function DiffFile({
   onCreate,
   onUpdate,
   onDelete,
+  open = true,
+  onToggle,
   id,
 }) {
   const [limit, setLimit] = useState(ROW_PAGE);
@@ -56,6 +62,8 @@ export default function DiffFile({
   );
   const editable = !readOnly && typeof onCreate === "function";
   const remaining = file.rows.length - rows.length;
+  const commentCount =
+    (placement?.placed.length ?? 0) + (placement?.outdated.length ?? 0);
 
   useEffect(() => {
     if (state.selected === null) return;
@@ -135,20 +143,23 @@ export default function DiffFile({
     );
   };
 
-  return (
-    <section className="diff-file" id={id}>
-      <h3 className="diff-file-heading">
-        <span className="diff-file-path">
-          {file.oldPath && <>{file.oldPath} → </>}
-          {file.path}
+  const heading = (
+    <>
+      <span className="diff-file-path">
+        {file.oldPath && <>{file.oldPath} → </>}
+        {file.path}
+      </span>
+      <span className="diff-file-meta">
+        {!open && commentCount > 0 && <span>{copy.comments(commentCount)}</span>}
+        <span>{statusLabel(file.status)}</span>
+        <span className="diff-file-count">
+          +{file.added} −{file.removed}
         </span>
-        <span className="diff-file-meta">
-          <span>{statusLabel(file.status)}</span>
-          <span className="diff-file-count">
-            +{file.added} −{file.removed}
-          </span>
-        </span>
-      </h3>
+      </span>
+    </>
+  );
+  const body = (
+    <>
       {file.binary ? (
         <p className="diff-file-note">{copy.binary}</p>
       ) : file.rows.length === 0 ? (
@@ -223,6 +234,26 @@ export default function DiffFile({
           ))}
         </ul>
       )}
+    </>
+  );
+  return (
+    <section className="diff-file" id={id} data-open={open || undefined}>
+      <h3 className={`diff-file-heading${onToggle ? " is-toggle" : ""}`}>
+        {onToggle ? (
+          <button
+            type="button"
+            className="diff-file-toggle"
+            aria-expanded={open}
+            onClick={() => onToggle(file.path, !open)}
+          >
+            <Icon name="chevron" size={14} className="diff-file-chevron" />
+            {heading}
+          </button>
+        ) : (
+          heading
+        )}
+      </h3>
+      {open && body}
     </section>
   );
-}
+});
