@@ -85,7 +85,7 @@ import {
 } from "../features/claude-mod/claude-mod-bridge.js";
 import { createFileServices } from "./files.js";
 import { OwnerInbox } from "../features/inbox/owner-inbox.js";
-
+import { createCraftRebuilds } from "./craft-rebuilds-wiring.js";
 import { createAssistantFeature } from "./assistants.js";
 import { hostReady } from "../features/assistants/runtimes/runtime-for.js";
 
@@ -558,6 +558,7 @@ export async function createServices(config) {
   services.assistantFeature = createAssistantFeature(services);
   // The owner's Hermes Agent opt-in and its pinned runtime (hermes-wiring.js).
   services.hermesRuntime = createHermesRuntime({ config, services });
+  services.craftRebuilds = createCraftRebuilds(services); // craft-rebuilds-wiring.js
   // Every job write reaches the live job topics (services.live, once listening).
   installer.onChange = () => toolJobsChanged(services.live);
   watchPackageJobs(services, mcpPackages);
@@ -588,8 +589,7 @@ export async function createServices(config) {
   };
   services.previews = previews = createPreviewService(services);
   Object.assign(services, createTicketServices(services));
-  // Listing sessions reconciles stopped ones through onStopped, whose cleanup needs
-  // every service above, so the first rewrite of the secrets files waits until here.
+  // The first secrets rewrite lists sessions, whose onStopped needs every service above.
   refreshSessionSecrets();
   // Running sessions' agents listen again at their paths after a restart.
   sshAgents

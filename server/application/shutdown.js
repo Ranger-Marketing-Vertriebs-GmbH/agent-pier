@@ -12,6 +12,13 @@ export function createShutdown({ services, wss, server }) {
       ws.once("close", () => clearTimeout(timeout));
     }
     services.live?.close();
+    // Craft Anything rebuilds stop their builds and children (bounded, about 3 s, in
+    // parallel), before the inbox and notifications close, so their last changes land.
+    const rebuildsClosed = services.craftRebuilds
+      ?.close()
+      .catch(() =>
+        console.error("AgentPier could not stop the Craft Anything rebuilds."),
+      );
     // Ticket sequences stop first: their steps launch sessions, queue pipeline runs and
     // deliver chat text, so none may run while those services close.
     // The rule monitor appends to them, so it stops before them (at most 1 s).
@@ -26,6 +33,7 @@ export function createShutdown({ services, wss, server }) {
     services.talk?.close();
     services.dictation?.close();
     await sequencesClosed;
+    await rebuildsClosed;
     // Closes only the assistant services that the opt-in actually created.
     await services.assistantFeature?.close();
     services.chatStreams?.close();

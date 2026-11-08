@@ -265,6 +265,29 @@ test("a rebuild running at shutdown reads paused after restart", async (t) => {
   assert.equal(exists(f.craftRecord(view).fake_builder.pid), true);
 });
 
+test("restore leaves rebuilds this server started alone and announces the paused", async (t) => {
+  const f = rebuildsFixture(t);
+  const old = await f.rebuilds.start({ request: "Old" });
+  const file = path.join(f.dataDir, "craft-anything", "rebuilds.json");
+  const crashed = fs.readFileSync(file, "utf8");
+  await f.rebuilds.close();
+  fs.writeFileSync(file, crashed);
+  const next = f.create();
+  const changes = [];
+  next.onChange((event) => changes.push(event));
+  // Started after the server listened, before restore() ran.
+  const fresh = await next.start({ request: "Fresh" });
+  await next.restore();
+  assert.equal(next.get(old.id).status, "paused");
+  assert.equal(next.get(fresh.id).status, "building");
+  assert.ok(changes.some((event) => event.list));
+  assert.deepEqual(next.eligibleAccounts(), [
+    { id: "local-claude", name: "Local" },
+    { id: "acc-a", name: "A" },
+    { id: "acc-b", name: "B" },
+  ]);
+});
+
 test("an idle child closes after 60 s", async (t) => {
   const timers = fakeTimers();
   const f = rebuildsFixture(t, { timers, script: { steps: [{ finish: "ready" }] } });

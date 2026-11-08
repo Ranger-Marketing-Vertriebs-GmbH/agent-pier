@@ -6,6 +6,11 @@ import { liveEnvironment } from "../../web/lib/live/live-environment.js";
 import { userRoutes } from "../../server/http/route-access.js";
 import { ME_TOPICS } from "../../server/features/users/live-me-topics.js";
 import {
+  REBUILD_ID,
+  craftRebuildTopic,
+  craftRebuildsTopic,
+} from "../../server/features/craft/live-topics.js";
+import {
   ticketConnectionsChanged,
   ticketConnectionsTopic,
   ticketsProjectChanged,
@@ -194,6 +199,26 @@ test("the tool and REA job topics name their routes at their former polls", () =
   assert.equal(craft.path(craft.param), "/craft-anything");
   assert.deepEqual([craft.mode, craft.interval, craft.sampled], ["state", 1000, true]);
   assert.equal(topicInfo("job.craft-anything"), null);
+});
+
+test("the Craft Anything rebuild topics are owner only and name their routes", () => {
+  const list = topicInfo("craft.rebuilds");
+  assert.equal(list.path(), "/craft/rebuilds");
+  assert.deepEqual([list.mode, list.interval, list.sampled], ["state", 5000, false]);
+  const id = "0000aaaa-0000-4000-8000-000000000000";
+  const one = topicInfo(`craft.rebuild:${id}`);
+  assert.equal(one.path(one.param), `/craft/rebuilds/${id}`);
+  assert.deepEqual([one.mode, one.interval, one.sampled], ["state", 5000, false]);
+  assert.equal(topicInfo("craft.rebuild"), null);
+  for (const topic of [craftRebuildsTopic({}), craftRebuildTopic({})]) {
+    assert.equal(topic.authorize({ role: "owner" }), true);
+    assert.equal(topic.authorize({ role: "user" }), false);
+    assert.equal(topic.authorize(undefined), false);
+  }
+  assert.equal(craftRebuildTopic({}).param, REBUILD_ID);
+  assert.equal(REBUILD_ID.test(id), true);
+  assert.equal(REBUILD_ID.test("x"), false);
+  assert.equal(REBUILD_ID.test(`../${id}`), false);
 });
 
 test("the package, plugin, SSH, sign-in and reload topics name their routes", () => {

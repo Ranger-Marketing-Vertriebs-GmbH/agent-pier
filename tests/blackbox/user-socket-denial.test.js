@@ -132,6 +132,8 @@ test("a user cannot tell an owner topic from an unknown one on the live channel"
     "job.craft-anything:current",
     `job.mcp-package:${server.id}`,
     "files.jobs:global",
+    "craft.rebuilds",
+    "craft.rebuild:0000aaaa-0000-4000-8000-000000000000",
   ]) {
     ownerLive.send({ op: "sub", topic });
     assert.equal(
@@ -223,6 +225,8 @@ test("a user cannot tell an owner topic from an unknown one on the live channel"
     "job.tool:codex",
     "job.rea:current",
     "job.craft-anything:current",
+    "craft.rebuilds",
+    "craft.rebuild:0000aaaa-0000-4000-8000-000000000000",
     `job.mcp-package:${server.id}`,
     "job.plugins:local-codex",
     "job.ssh-tools:x",
