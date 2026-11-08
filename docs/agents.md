@@ -247,12 +247,14 @@ What works on Hermes today:
   **Create images** works with a ChatGPT login AgentPier holds (one OpenClaw holds needs
   **Move this ChatGPT login to AgentPier** first); the image appears in the chat as a
   file the agent shared, and in its `generated-images` folder.
-- AgentPier's own tools: attachments you send (also videos), sharing files with you
+- AgentPier's own tools: attachments you send (also videos; a model that takes images
+  sees attached images directly, as on OpenClaw), sharing files with you
   (also to your paired Telegram chat), the agent's own reminders and routines, hook
   proposals, project folders and new projects, SSH and SSH access requests, GitHub,
   secrets, work goals, coding sessions, email and previews work as on OpenClaw. The
   agent works in the same kind of folder as an OpenClaw agent, so its attachments,
-  secrets and transfers are where its commands run.
+  secrets and transfers are where its commands run. With **Read images**, images it
+  views in your project folders reach its model as images too.
 - Reminders, routines and check-ins you set up in the agent's settings: they run
   on the agent's own Hermes scheduler in each routine's own time zone, their results
   show in its main chat and the agent sees them in later turns, as on OpenClaw. With
@@ -1757,7 +1759,7 @@ also in a team member's chat. A message holds up to five files of at most 10 MB:
 PNG, WebP, GIF and HEIC images, PDF and text files. Copies are saved in the agent's
 workspace so it can read them with its tools. Models that accept images (ChatGPT,
 endpoint models that declare it, OpenRouter models whose catalog lists image input)
-also see images directly; the composer says when the agent's model cannot. Files you
+also see JPEG, PNG, WebP and GIF images directly, on OpenClaw and Hermes agents alike; the composer says when the agent's model cannot. Files you
 picked but have not sent stay in that chat's composer when you open another chat,
 agent or page, like the typed text, and an upload still running finishes meanwhile. A
 reload, closing the tab or a logout discards them. An unsent file is kept for a day

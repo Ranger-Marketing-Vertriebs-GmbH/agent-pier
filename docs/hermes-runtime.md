@@ -114,7 +114,8 @@ the agent's process set; AgentPier has no per-chat model. The key never appears 
 strips `AUXILIARY_*_API_KEY` and `OPENROUTER_API_KEY` from every command and process it
 starts, so the agent's own commands do not see the key. A model that accepts images sets
 `agent.image_input_mode: native` and `model.supports_vision: true`: Hermes hands a
-tool's images (a PDF's pages, [PDFs](#pdfs)) only to a model it knows sees them, and its
+tool's images (a PDF's pages, [PDFs](#pdfs); a project image) and a turn's attached
+images ([attached images](#attached-images)) only to a model it knows sees them, and its
 catalog does not know a custom endpoint's models (`agent/image_routing.py`).
 
 ### Practical defaults
@@ -168,6 +169,26 @@ upload staging and SFTP transfers all use that one folder. Its shell PATH starts
 its GitHub folder and its SSH agent's `bin/`, as on OpenClaw; Hermes's commands inherit
 the gateway's PATH (`tools/environments/local.py`), so a change restarts the agent's
 set.
+
+### Attached images
+
+Images the owner attaches in the chat or sends as Telegram photos reach a Hermes agent's
+model inline, as an OpenClaw agent's: AgentPier picks them as for OpenClaw
+(`agent-attachments.js` `delivery`: PNG, JPEG, GIF and WebP, at most 6 MiB each and
+15 MiB per message, never HEIC, nothing for a model that takes no images), and the turn's
+text still names each saved copy in `attachments/` for the agent's tools. The sessions
+sub-port (`hermes-inline-images.js`) stages each image with the gateway's
+`image.attach_bytes` (`gateway/session_images.py`, below the home's `cache/images/`) and
+names them in the turn's `prompt.submit` as `attachments: [{ path, mime }]`; the gateway
+commits their bytes with the admission (`gateway/session_ingress_media.py`
+`admit_attachments`, at most 10), so a retried submission runs the same images. A model
+Hermes knows sees images (`agent.image_input_mode: native`, `model.supports_vision`)
+gets them as image parts after the text and a line `[Image attached at: <path>]` per
+image (`agent/image_routing.py` `build_native_content_parts`); an image Hermes refuses
+is left out, and the text still names its file. Hermes stores those lines (and a
+`[screenshot]` placeholder per image in the row's text) with the owner's row; the
+history read drops them again (`sentText`), so the chat shows the owner's words with
+the files and replies stay attributed to their runs.
 
 ### Web search
 
@@ -399,9 +420,12 @@ The `agentpier-team` profile plugin carries both parts of the OpenClaw team plug
   `agentpier_goal`, `agentpier_coding_session`, `agentpier_mail`, `agentpier_project`
   and `agentpier_preview`. A restricted user's agent holds what OpenClaw's holds (no
   team, SSH, goal, mail, project or preview tools). The bridge serves and checks every
-  call as it does OpenClaw's. A plugin tool answers text only, so a project image
-  (`agentpier_workspace` `image_view`) comes back without its data, with a note to read
-  the file instead. A plugin tool's handler receives
+  call as it does OpenClaw's. A project image (`agentpier_workspace` `image_view`)
+  comes back as Hermes's multimodal tool result (`_multimodal` with `content` and
+  `text_summary`, `tools/registry.py`): OpenClaw's line naming the image and the image
+  as an image part, never as base64 text. A model Hermes does not know to see images
+  gets the summary instead (`agent/vision_message_prep.py`), which names the image and
+  says it cannot be shown. A plugin tool's handler receives
   the calling session's id, the stored session id the session keys carry, and runs
   under the tool call's id (`model_tools.py` `handle_function_call`,
   `tools/approval_context.py`); an MCP call carries neither (`tools/mcp_tool_handlers.py`
@@ -831,7 +855,8 @@ relies on these:
 | Create a chat     | `session.create { request_id, title }`: idempotent by `request_id`; titles are unique     |
 | Attach a chat     | `session.resume { session_id, omit_messages }`: needed before a turn, after every restart |
 | Find a chat       | `session.list { title }`                                                                  |
-| Run a turn        | `prompt.submit { session_id, text, submission_id }`: answers the turn's `admission_id`    |
+| Run a turn        | `prompt.submit { session_id, text, submission_id, attachments? }`: answers `admission_id` |
+| Attach images     | `image.attach_bytes { session_id, content_base64, ext }` → `{ path, mime }` before submit |
 | Stop a turn       | `session.interrupt { session_id, execution_generation }`; `prompt.cancel` while queued    |
 | Read a transcript | `session.history { session_id }`                                                          |
 | Compress, archive | `session.mutate { operation, payload, request_id, expected_revision, … }`                 |
@@ -912,13 +937,13 @@ AGENTPIER-344, logins from AGENTPIER-340).
 | Read images                                                | `view_image`                        | `vision` toolset                                    |                                                              |
 | Read PDFs                                                  | `pdf` with the PDF model            | AgentPier's `pdf` tool with the same model          | [PDFs](#pdfs); no native PDF input, no web addresses         |
 | Create images                                              | ChatGPT account                     | ChatGPT login AgentPier holds                       | [Images](#images)                                            |
-| Attachments, video                                         | `attachments/` in the workspace     | The same folder, its work folder                    | Named by path; inline images not sent                        |
+| Attachments, video                                         | `attachments/` in the workspace     | The same folder, its work folder                    | [Attached images](#attached-images) inline                   |
 | Browser                                                    | AgentPier's Chromium                | AgentPier's Chromium                                | [Browser](#browser)                                          |
 | Browser for task members                                   | Member slot                         | Own Chromium under the slot limit                   |                                                              |
 | Browser uploads                                            | Staged files                        | `agentpier_browser_upload` for staged files         | Hermes's own browser tools have no upload                    |
 | Reminders, routines, hooks (agent's tools)                 | Team plugin                         | Hermes team plugin                                  | Same bridge                                                  |
 | Owner's routines, check-ins, hooks                         | OpenClaw cron                       | Hermes cron                                         | [Routines](#routines)                                        |
-| Workspace, projects, project files                         | `agentpier_workspace`               | The same                                            | Project images come back as a note                           |
+| Workspace, projects, project files                         | `agentpier_workspace`               | The same                                            | Project images as images                                     |
 | Share files, to Telegram                                   | `agentpier_share_file`              | The same                                            |                                                              |
 | Pinboard of files for the owner                            | `agentpier_pinboard`                | The same                                            | [Pinboard](agents.md#pinboard)                               |
 | Secrets for agents                                         | `.agentpier/secrets.env`            | The same file                                       | Hook-run read guard                                          |
@@ -992,6 +1017,12 @@ holds `python` and `hermes`, its `tools/` agent-browser). `hermes-pdf-contract.t
 lets a text-only agent read a two-page PDF whose second page is a scan: the tool reads
 it with the installation's PDFium, and the owner's fallback (a second connection of the
 fake model that takes images) gets the text and the page image with its own key, while
-a file outside the agent's folder is refused before anything is read. The tests use a private
+a file outside the agent's folder is refused before anything is read.
+`hermes-image-input-contract.test.js` gives an agent on a model that takes images (a
+connection of the fake model declared with image input) an attached PNG and a project
+folder image: the model's request carries the attachment as an image part after the
+turn's text, the chat shows the owner's words with the file, and the image the agent
+views with `agentpier_workspace` `image_view` reaches the model as an image part of the
+tool result, never as base64 text. The tests use a private
 `HOME` and `HERMES_HOME` and never touch
 `~/.hermes`.
