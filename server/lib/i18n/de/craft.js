@@ -32,6 +32,8 @@ export const craft = Object.freeze({
     "Die Runden eines Nachbaus müssen eine ganze Zahl von 1 bis 10 sein.",
   rebuildAccountIneligible:
     "Dieses Konto kann keinen Nachbau ausführen. Wähle ein eigenes Claude-Konto ohne Provider.",
+  rebuildToolInvalid:
+    "Ungültige Eingabe. Ein Nachbau braucht eine Beschreibung und eine requestId (höchstens 100 Zeichen).",
   rebuildNotFound: "Diesen Nachbau gibt es nicht.",
   rebuildRunning: "Dieser Nachbau läuft gerade. Pausiere ihn zuerst.",
   rebuildNeverStarted:

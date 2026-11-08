@@ -13,6 +13,7 @@ import { endpointModel } from "../providers/endpoint-config.js";
 import { problem } from "../../lib/storage.js";
 import { projectScope } from "../memory/project-scope.js";
 import { toolSchemas } from "./tool-schemas.js";
+import { callCraftTool, craftToolEntries, craftTools } from "../craft/craft-mcp-tools.js";
 import { StartRequests } from "./start-requests.js";
 import { queueTools } from "./queue-tools.js";
 import { serverMessages } from "../../lib/i18n/de.js";
@@ -62,6 +63,7 @@ export class McpTools {
       ),
       ...artifactToolEntries(grant, context),
       ...previewToolEntries(grant, context),
+      ...craftToolEntries(grant, context, this.services),
     ];
   }
   async call(name, input, grant, resolveGrant, context) {
@@ -81,6 +83,12 @@ export class McpTools {
     if (Object.hasOwn(previewTools, name)) {
       const execute = () => callPreviewTool(this.services, name, input, context);
       return previewTools[name].readOnly
+        ? execute()
+        : this.services.mutationBarrier.run(execute);
+    }
+    if (Object.hasOwn(craftTools, name)) {
+      const execute = () => callCraftTool(this.services, name, input, context);
+      return craftTools[name].readOnly
         ? execute()
         : this.services.mutationBarrier.run(execute);
     }
