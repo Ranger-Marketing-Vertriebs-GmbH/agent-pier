@@ -77,7 +77,10 @@ function hermesSet() {
   return set;
 }
 
-function fixture(t, { enabled = true, hour = 3, timeZone = "Europe/Berlin" } = {}) {
+function fixture(
+  t,
+  { enabled = true, hour = 3, timeZone = "Europe/Berlin", clock = () => night } = {},
+) {
   const f = shellService(t, []);
   f.runtime.paths = runtimePaths(f.dataDir);
   fs.mkdirSync(f.runtime.paths.root, { recursive: true });
@@ -93,7 +96,7 @@ function fixture(t, { enabled = true, hour = 3, timeZone = "Europe/Berlin" } = {
   t.after(() => settings.close());
   settings.save({ enabled, hour, timeZone }, settings.get().revision);
   const store = new HermesDreamStore(settings.db);
-  const dreams = new HermesDreams({ settings, assistants: f.service, store });
+  const dreams = new HermesDreams({ settings, assistants: f.service, store, clock });
   const changes = [];
   dreams.onChange = (id) => changes.push(id);
   // A Hermes agent with memory unless `memory: false`, and its scripted set.
@@ -502,4 +505,26 @@ test("a backup that cannot be taken fails the night and writes nothing", async (
   assert.equal(heron.set.files["MEMORY.md"], "Lives in Berlin");
   // The first night applied nothing: the next one reads the same chats again.
   assert.equal(f.store.cursor(heron.id), before(24 * hourMs).getTime());
+});
+
+test("each agent's diary entry and backup carry the time it dreamed", async (t) => {
+  let minutes = 0;
+  // One minute later at each reading of the clock.
+  const f = fixture(t, { clock: () => new Date(night.getTime() + minutes++ * 60000) });
+  const heron = f.agent("Heron");
+  const ibis = f.agent("Ibis");
+  f.chat(heron, day);
+  f.chat(ibis, day);
+  const entries = await f.dreams.tick(night);
+  assert.equal(entries.length, 2);
+  assert.deepEqual(
+    entries.map((e) => e.night),
+    ["2026-11-08", "2026-11-08"],
+  );
+  const times = entries.map((e) => Date.parse(e.at));
+  assert.ok(times[0] > night.getTime() && times[1] > times[0], String(times));
+  const copies = [heron, ibis].map((agent) =>
+    fs.readdirSync(`${f.runtime.paths.root}/memory-backups/${agent.runtimeAgentId}`),
+  );
+  assert.notDeepEqual(copies[0], copies[1]);
 });
