@@ -316,3 +316,81 @@ test("search drops results from the dreaming corpus", async (t) => {
     ["memory/dreaming/light/2026-10-25.md"],
   );
 });
+// A Hermes agent whose dream diary lives in the dream store, not its workspace.
+async function hermesDiaryFixture(t) {
+  const f = await dreamFixture(t);
+  const { DatabaseSync } = await import("node:sqlite");
+  const { HermesDreamStore } =
+    await import("../../server/features/assistants/hermes-dream-store.js");
+  const db = new DatabaseSync(":memory:");
+  t.after(() => db.close());
+  const agent = f.store.getAssistant(f.id);
+  f.store.getAssistant = () => ({ ...agent, runtime: "hermes" });
+  const dreams = new HermesDreamStore(db);
+  f.assistants.hermesDreams = { store: dreams };
+  return { ...f, dreams };
+}
+const night = (day, extra = {}) => ({
+  at: `2026-11-0${day}T02:00:00.000Z`,
+  night: `2026-11-0${day}`,
+  outcome: "applied",
+  ...extra,
+});
+test("a Hermes agent's dream diary is listed first and reads as entries", async (t) => {
+  const f = await hermesDiaryFixture(t);
+  f.put("memory/notes.md", "n");
+  f.dreams.append(f.id, night(7));
+  f.dreams.append(f.id, night(8));
+  const diary = f.dreams.diary(f.id);
+  const { files } = await f.memory.files(f.id);
+  assert.deepEqual(files[0], {
+    name: "DREAMS.md",
+    diary: true,
+    size: diary.size,
+    modifiedAt: "2026-11-08T02:00:00.000Z",
+  });
+  assert.deepEqual(
+    files.map((x) => x.name),
+    ["DREAMS.md", "memory/notes.md"],
+  );
+  // A later page leaves it out.
+  assert.equal((await f.memory.files(f.id, { offset: 1 })).files.length, 0);
+  const { createHash } = await import("node:crypto");
+  assert.deepEqual(await f.memory.read(f.id, "DREAMS.md"), {
+    name: "DREAMS.md",
+    content: "",
+    entries: diary.entries,
+    missing: false,
+    readOnly: true,
+    hash: createHash("sha256").update(JSON.stringify(diary.entries)).digest("hex"),
+  });
+  assert.equal(diary.entries[0].night, "2026-11-08");
+  await assert.rejects(
+    f.memory.write(f.id, { name: "DREAMS.md", content: "x", expectedMissing: true }),
+    { status: 400 },
+  );
+});
+test("a Hermes diary past the read limit says it is cut", async (t) => {
+  const f = await hermesDiaryFixture(t);
+  f.dreams.append(f.id, night(7, { summary: "a".repeat(200000) }));
+  f.dreams.append(f.id, night(8, { summary: "b".repeat(200000) }));
+  const diary = f.dreams.diary(f.id);
+  const read = await f.memory.read(f.id, "DREAMS.md");
+  assert.equal(read.truncated, true);
+  assert.equal(read.size, diary.size);
+  assert.deepEqual(
+    read.entries.map((e) => e.night),
+    ["2026-11-08"],
+  );
+});
+test("a DREAMS.md in a Hermes workspace is ignored", async (t) => {
+  const f = await hermesDiaryFixture(t);
+  f.put("DREAMS.md", "# Dream Diary from the workspace");
+  assert.deepEqual((await f.memory.files(f.id)).files, []);
+  await assert.rejects(f.memory.read(f.id, "DREAMS.md"), { status: 404 });
+  // Without the dream service (dreaming never set up) there is no diary either.
+  delete f.assistants.hermesDreams;
+  f.dreams.append(f.id, night(8));
+  assert.deepEqual((await f.memory.files(f.id)).files, []);
+  await assert.rejects(f.memory.read(f.id, "DREAMS.md"), { status: 404 });
+});

@@ -7,6 +7,7 @@ import { assistantProblem, textValue } from "./assistant-validation.js";
 import { leadMirrorDir } from "./member-memory.js";
 import { openInside } from "./project-open.js";
 import { hermesMemoryLimits, runtimeFor, runtimeIdOf } from "./runtimes/runtime-for.js";
+import { diaryListing, diaryNote } from "./hermes-dream-store.js";
 const names = new Set(["MEMORY.md", "USER.md"]);
 const projectFile = (file, name) => ({
   name,
@@ -18,7 +19,9 @@ const projectFile = (file, name) => ({
 // memory/. The two root files are edited through the Gateway; notes under memory/
 // are the agent's own working layer, read and rewritten in its workspace.
 const noteName = /^memory\/(?:[A-Za-z0-9][\w.-]*\/){0,3}[A-Za-z0-9][\w.-]*\.md$/;
-// OpenClaw's Dream Diary: a file in the workspace root, shown read-only.
+// OpenClaw's Dream Diary: a file in the workspace root, shown read-only. A Hermes
+// agent's diary lives in its dream store (hermes-dream-store.js) under the same name;
+// a DREAMS.md in its workspace is never listed or read.
 const diaryName = "DREAMS.md";
 // Dreaming's raw corpus; it is never listed, read or searched.
 export const corpusFolder = /(^|\/)memory\/\.dreams(\/|$)/;
@@ -74,6 +77,10 @@ export class NativeMemory {
   dayNotes(id) {
     return runtimeIdOf(this.assistants.store.getAssistant(id)) !== "hermes";
   }
+  // The store of Hermes's nightly dreams (DreamingBackups sets it), if any.
+  get hermesDiary() {
+    return this.assistants.hermesDreams?.store;
+  }
   root(id) {
     const agent = this.assistants.store.getAssistant(id);
     if (!memoryEnabled(agent)) throw assistantProblem("invalid", 403);
@@ -106,18 +113,23 @@ export class NativeMemory {
         nextOffset: next < notes.length ? next : null,
       };
     };
-    try {
-      await assertRealDirectories(root, false);
-      const stat = await fs.lstat(path.join(root, diaryName));
-      if (stat.isFile())
-        files.push({
-          name: diaryName,
-          size: stat.size,
-          modifiedAt: stat.mtime.toISOString(),
-          diary: true,
-        });
-    } catch (error) {
-      if (error.code !== "ENOENT") return page();
+    if (!this.dayNotes(id)) {
+      const diary = diaryListing(this.hermesDiary, id);
+      if (diary) files.push(diary);
+    } else {
+      try {
+        await assertRealDirectories(root, false);
+        const stat = await fs.lstat(path.join(root, diaryName));
+        if (stat.isFile())
+          files.push({
+            name: diaryName,
+            size: stat.size,
+            modifiedAt: stat.mtime.toISOString(),
+            diary: true,
+          });
+      } catch (error) {
+        if (error.code !== "ENOENT") return page();
+      }
     }
     try {
       await assertRealDirectories(root);
@@ -154,6 +166,11 @@ export class NativeMemory {
       throw assistantProblem("invalid");
     const root = this.root(id),
       file = path.join(root, name);
+    if (diary && !this.dayNotes(id)) {
+      const note = diaryNote(this.hermesDiary, id);
+      if (!note) throw assistantProblem("notFound", 404);
+      return note;
+    }
     let handle;
     try {
       // Every component must be a real directory or file inside the workspace.

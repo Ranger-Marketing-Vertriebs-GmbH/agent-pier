@@ -84,14 +84,15 @@ export function agentListTopic(services) {
 // - `agent.reminders`: GET /api/assistants/:id/reminders;
 // - `agent.pinboard`: GET /api/assistants/:id/pinboard (the agent's pinned lists);
 // - `agent.senders`: GET /api/assistant-telegram-senders/:id;
-// - `agent.ssh-agent`: GET /api/assistants/:id/ssh-agent, the agent's plain ssh status.
+// - `agent.ssh-agent`: GET /api/assistants/:id/ssh-agent, the agent's plain ssh status;
+// - `agent.memory`: GET /api/assistants/:id/memory/files, the memory view's first page.
 // Privacy is checked as the routes check it. The owner-content guard
-// (owner-content-guard.js) refuses the actions and reminders of a user's own agent
-// without her opt-in like an unknown route: so do the topics, and an opt-in that ends
-// sends `revoked` (live-wiring.js checks every subscription again on each privacy and
-// agent change). The channel list is never refused: like its route, it hides her
-// Telegram identity and texts without the opt-in (OwnerPrivacy#filterChannels), so an
-// opt-in that ends pushes the list without them. The sender bots are not content:
+// (owner-content-guard.js) refuses the actions, reminders, pinboard and memory of a
+// user's own agent without her opt-in like an unknown route: so do the topics, and an
+// opt-in that ends sends `revoked` (live-wiring.js checks every subscription again on
+// each privacy and agent change). The channel list is never refused: like its route,
+// it hides her Telegram identity and texts without the opt-in
+// (OwnerPrivacy#filterChannels), so an opt-in that ends pushes the list without them. The sender bots are not content:
 // their route has no privacy check (user agents never own one), nor has the plain ssh
 // status, which names no path, token or content (user agents never get one).
 export const AGENT_DETAIL_TOPICS = Object.freeze([
@@ -102,6 +103,7 @@ export const AGENT_DETAIL_TOPICS = Object.freeze([
   "agent.pinboard",
   "agent.senders",
   "agent.ssh-agent",
+  "agent.memory",
 ]);
 // An agent id (randomUUID, or a test's own); never a path or a second parameter.
 export const AGENT_PARAM = /[A-Za-z0-9][A-Za-z0-9_-]{0,99}/;
@@ -263,7 +265,26 @@ export function agentDetailTopics(services) {
       // change reads again too, before the refresh it sets off has settled.
       watch: listed,
     }),
+    detailTopic(services, {
+      name: "agent.memory",
+      content: true,
+      read: (id) => running(services).nativeMemory.files(id),
+      // A recorded Hermes night signals it (agentMemoryChanged).
+      watch: switched,
+    }),
   ];
+}
+
+/**
+ * Agent `id`'s memory view changed (HermesDreams' onChange, a night recorded):
+ * signals its `agent.memory` topic on `hub` (services.live). A failing hub is logged.
+ */
+export function agentMemoryChanged(hub, id) {
+  try {
+    hub?.invalidate("agent.memory", id);
+  } catch {
+    console.error("AgentPier could not report a change of an agent's memory.");
+  }
 }
 
 /**

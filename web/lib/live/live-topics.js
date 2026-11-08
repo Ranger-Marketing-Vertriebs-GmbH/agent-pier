@@ -180,6 +180,12 @@ export const liveTopics = Object.freeze({
     path: (id) => `/assistants/${encodeURIComponent(id)}/ssh-agent`,
     interval: 30000,
   }),
+  // The memory view's first page, pushed by every recorded Hermes night.
+  "agent.memory": Object.freeze({
+    mode: "state",
+    path: (id) => `/assistants/${encodeURIComponent(id)}/memory/files`,
+    interval: 30000,
+  }),
   "runtime.updates": Object.freeze({
     mode: "state",
     path: () => "/assistant-runtime/updates",

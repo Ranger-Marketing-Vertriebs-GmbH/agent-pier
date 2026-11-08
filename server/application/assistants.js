@@ -23,6 +23,7 @@ import { AgentPinboard } from "../features/assistants/agent-pinboard.js";
 import { chatgptLoginChanged } from "../features/assistants/live-login-topics.js";
 import {
   agentActionsChanged,
+  agentMemoryChanged,
   agentChannelsChanged,
   agentPinboardChanged,
   followReminderWrites,
@@ -82,6 +83,10 @@ export function createAssistantServices(options) {
       agentChannelsChanged(options.live, assistantId);
     graph.assistantUpdates.onChange = () => options.live?.invalidate("runtime.updates");
     followReminderWrites(graph.assistantReminders, () => options.live);
+    // A recorded Hermes night (hermes-dreams.js) shows on the memory view.
+    if (graph.assistants.hermesDreams)
+      graph.assistants.hermesDreams.onChange = (id) =>
+        agentMemoryChanged(options.live, id);
     // The agents' pinboards (agentpier_pinboard), on the shares of the connected graph.
     graph.assistants.pinboard = new AgentPinboard({
       assistants: graph.assistants,
