@@ -114,7 +114,12 @@ test("a ChatGPT login AgentPier holds compiles to the openai-codex provider behi
     { chatgpt: { ...chatgpt, holder: "agentpier" } },
     { modelProxy },
   );
-  assert.deepEqual(held.section, { provider: "openai-codex", default: "gpt-5.4" });
+  // Hermes hands its models images (a pdf tool's pages, hermes-config/pdf.js).
+  assert.deepEqual(held.section, {
+    provider: "openai-codex",
+    default: "gpt-5.4",
+    supports_vision: true,
+  });
   assert.deepEqual(held.env, {
     HERMES_CODEX_BASE_URL: "http://127.0.0.1:4999/chatgpt/codex",
   });

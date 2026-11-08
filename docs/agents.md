@@ -242,7 +242,8 @@ What works on Hermes today:
   Agent placeholders resolve in the agent's own folder.
 - Web: web search uses the provider you chose (DuckDuckGo, Brave or Perplexity through
   OpenRouter) and web fetch reads pages directly, never private addresses. **Read
-  images** and **Read PDFs** work (PDFs by their text; scanned pages are not read).
+  images** and **Read PDFs** work, scanned pages included, with the PDF fallback model
+  as on OpenClaw ([Hermes runtime](hermes-runtime.md#pdfs)).
   **Create images** works with a ChatGPT login AgentPier holds (one OpenClaw holds needs
   **Move this ChatGPT login to AgentPier** first); the image appears in the chat as a
   file the agent shared, and in its `generated-images` folder.
@@ -501,7 +502,8 @@ A switch with fresh chats also has the new model review the agent's memory; see
   chosen under **Connections › Services for agents › PDF reading** from the model
   connections and ChatGPT accounts; without one, such an agent reads only the text of
   PDFs, not scanned pages or pages without text. PDFs never go to another provider;
-  with several ChatGPT accounts any signed-in one may read them.
+  with several ChatGPT accounts any signed-in one may read them. Agents on Hermes read
+  PDFs the same way; a new fallback reaches them without the agent service restart.
   **Read images** also lets the
   agent look at PNG, JPEG, GIF and WebP files (up to 6 MiB) in the project folders
   you gave it, when its model takes images; each such view is recorded in the

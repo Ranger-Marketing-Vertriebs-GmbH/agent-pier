@@ -19,6 +19,7 @@ import { mcpEntries, mcpEnvOwned } from "./mcp.js";
 import { channelBotEnvNames, channelBotHome, senderLockedToolsets } from "./telegram.js";
 import { webDirectory, webEnvNames, webHome } from "./web.js";
 import { imageHome } from "./images.js";
+import { pdfHome, pdfKeyEnv } from "./pdf.js";
 import {
   teamDirectory,
   teamPlugin,
@@ -68,6 +69,10 @@ const practicalDefaults = [
   [["updates", "check"], false],
   [["plugins", "auto_update_check_hours"], 0],
   [["security", "allow_lazy_installs"], false],
+  // PDFs never go to Firecrawl's hosted OCR (tools/read_extract.py, used with a
+  // FIRECRAWL_API_KEY): AgentPier's pdf tool reads scanned pages with the model the
+  // owner chose (pdf.js).
+  [["file_tools", "hosted_ocr"], false],
   // Shared metrics stay off (they are off by default; a consent prompt would turn
   // them on).
   [["telemetry", "shared_metrics", "enabled"], false],
@@ -116,7 +121,8 @@ function unsupportedOf(agent, level, model, { placed, mcp, team, browser, images
  * credentialFor(profileId) }` of AgentPier's model proxy for this agent, through
  * which a ChatGPT account is reached (model.js); `imageLogin`: the profile id of the
  * ChatGPT login AgentPier holds that the agent creates images with (images.js), or
- * none.
+ * none; `pdfFallback`: the owner's PDF fallback connection as an apply resolves it
+ * (pdf.js), null without one, undefined when the apply does not name it.
  * Pure: the same inputs yield the same home.
  */
 export function compileHome(
@@ -133,6 +139,7 @@ export function compileHome(
     web,
     modelProxy,
     imageLogin,
+    pdfFallback,
   } = {},
 ) {
   const level = shellLevel(agent, strict);
@@ -148,19 +155,31 @@ export function compileHome(
   // Built-in skills (shopping) need the browser, so they come with the team plugin.
   const builtIn = builtInOffered(agent, browsing);
   const model = agent.model ? modelSection(agent.model, { modelProxy }) : null;
+  // The team plugin's guard, which image creation and the pdf tool ask at each call.
+  const guarded = !!(connection?.url && connection?.token);
   // Image creation through the proxy, every call checked by the team plugin's guard.
   const imagePart = imageHome(agent, {
     model,
     modelProxy,
     imageLogin,
-    guarded: !!(connection?.url && connection?.token),
+    guarded,
   });
   const images = !!imagePart && !imagePart.unsupported;
+  // AgentPier's pdf tool; the fallback only while the apply names it (pdfFallback).
+  const pdf = pdfHome(agent, {
+    model,
+    pdf: pdfFallback,
+    modelProxy,
+    workspace,
+    guarded,
+  });
+  const pdfKnown = !!model && pdfFallback !== undefined;
   const team = teamPluginFiles(agent, {
     connection,
     browser: browsing,
     skills: builtIn,
     images: images && workspace ? { folder: workspace } : null,
+    pdf: pdf?.settings,
   });
   // Routine runs on an asking level ask the owner through the team bridge, which the
   // team plugin's bridge.json names (guard-plugin.js); Hermes's cron gate then lets
@@ -252,6 +271,8 @@ export function compileHome(
       ...(web && typeof web === "object" ? webEnvNames : []),
       // The Codex URL of an image row (images.js) while the model is unknown.
       ...(images && imagePart.env ? Object.keys(imagePart.env) : []),
+      // The PDF fallback's key while the model and the fallback are known.
+      ...(pdfKnown ? [pdfKeyEnv] : []),
     ],
     values: {
       ...model?.env,
@@ -259,6 +280,7 @@ export function compileHome(
       ...bot?.env,
       ...webPart?.env.values,
       ...(images && imagePart.env),
+      ...(pdfKnown && pdf?.env),
     },
   };
   // The proxy's pool row: the ChatGPT model's, else the image login's (images.js).

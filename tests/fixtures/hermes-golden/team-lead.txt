@@ -52,6 +52,8 @@ updates:
   check: false
 security:
   allow_lazy_installs: false
+file_tools:
+  hosted_ocr: false
 telemetry:
   shared_metrics:
     enabled: false
@@ -273,21 +275,14 @@ def _names_folder(args):
     return "attachments" in text or ".agentpier" in text or "%" in text
 
 
-def _guard(tool_name="", args=None, session_id=None, task_id=None, **_):
-    settings = _read("tools.json")
-    args = args if isinstance(args, dict) else {}
-    browser = tool_name.startswith("browser_") and settings.get("browser")
-    member_write = tool_name in _WRITES and bool(settings.get("guardWrites"))
-    folder = tool_name in _FILES and _names_folder(args)
-    image = tool_name == "image_generate" and bool(settings.get("images"))
-    if not browser and not member_write and not folder and not image:
-        return None
+def _ask(tool_name, args, session_id, task_id, member_write=False):
+    # The bridge's answer for one call, or None when it cannot answer.
     try:
         root = _root(session_id)
         key = _session_key(root, task_id)
         cron = _job(root, task_id)
         earlier = [_session_key(sid) for sid in _segments(root)[1:]] if key and not cron else []
-        answer = _post(
+        return _post(
             "/hermes-guard",
             {
                 "agentId": _read("bridge.json")["agentId"],
@@ -300,7 +295,19 @@ def _guard(tool_name="", args=None, session_id=None, task_id=None, **_):
             10,
         )
     except Exception:
-        answer = None
+        return None
+
+
+def _guard(tool_name="", args=None, session_id=None, task_id=None, **_):
+    settings = _read("tools.json")
+    args = args if isinstance(args, dict) else {}
+    browser = tool_name.startswith("browser_") and settings.get("browser")
+    member_write = tool_name in _WRITES and bool(settings.get("guardWrites"))
+    folder = tool_name in _FILES and _names_folder(args)
+    image = tool_name == "image_generate" and bool(settings.get("images"))
+    if not browser and not member_write and not folder and not image:
+        return None
+    answer = _ask(tool_name, args, session_id, task_id, member_write)
     if isinstance(answer, dict) and answer.get("allow") is True:
         return None
     message = answer.get("message") if isinstance(answer, dict) else None
@@ -379,8 +386,35 @@ def _upload(args, session_id=None, task_id=None, **_):
         return json.dumps({"error": _UNAVAILABLE})
 
 
+def _pdf_tool(pdf):
+    # AgentPier's pdf tool (pdf_tool.py beside this file); every call asks the guard.
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "agentpier_team_pdf_tool", os.path.join(_DIR, "pdf_tool.py")
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.handler(
+        pdf, lambda args, session_id, task_id: _ask("pdf", args, session_id, task_id)
+    )
+
+
 def register(ctx):
     settings = _read("tools.json")
+    pdf = settings.get("pdf")
+    if pdf:
+        ctx.register_tool(
+            name=pdf["name"],
+            toolset="agentpier",
+            schema={
+                "name": pdf["name"],
+                "description": pdf["description"],
+                "parameters": pdf["parameters"],
+            },
+            handler=_pdf_tool(pdf),
+            description=pdf["description"],
+        )
     upload = settings.get("browserUpload")
     if upload:
         ctx.register_tool(

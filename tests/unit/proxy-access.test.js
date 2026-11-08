@@ -39,7 +39,7 @@ function fixture() {
   };
   const servers = { bindingsByTarget: () => bindings };
   const access = proxyAccess({ assistants, servers, accountIdOf });
-  return { access, agents, bindings, users, shares, login, otherLogin };
+  return { access, agents, assistants, bindings, users, shares, login, otherLogin };
 }
 
 test("a ChatGPT credential works only for the agent whose current model is that login", () => {
@@ -94,4 +94,20 @@ test("an MCP credential works only for agents bound to the server", () => {
   // A deleted agent is refused.
   agents.splice(0, 1);
   assert.equal(access.mcp("srv", "h-a"), false);
+});
+
+test("the owner's PDF fallback login serves an agent's pdf tool while it reads PDFs", () => {
+  const { access, agents, assistants, otherLogin } = fixture();
+  agents[0].capabilities = { readPdfs: true };
+  let fallback = { connectionId: accountIdOf(otherLogin), modelId: "gpt-5.4" };
+  assistants.pdfPolicy = { fallback: () => fallback };
+  assert.equal(access.chatgpt("h-a", otherLogin), true);
+  // Never its images endpoints, and never once the owner chose another fallback or
+  // the agent may no longer read PDFs.
+  assert.equal(access.chatgpt("h-a", otherLogin, { images: true }), false);
+  fallback = null;
+  assert.equal(access.chatgpt("h-a", otherLogin), false);
+  fallback = { connectionId: accountIdOf(otherLogin), modelId: "gpt-5.4" };
+  agents[0].capabilities = { readPdfs: false };
+  assert.equal(access.chatgpt("h-a", otherLogin), false);
 });

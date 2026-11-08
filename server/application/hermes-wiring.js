@@ -49,6 +49,28 @@ export function hermesAgentFleet(supervisor, { dataDir, store }) {
 }
 
 /**
+ * The owner's PDF fallback (pdf-model-settings.js) as a Hermes home compiles it
+ * (hermes-config/pdf.js): the connection a model lease names (`provider`, or
+ * `chatgpt` for a ChatGPT login) and whether its model takes images; null without a
+ * usable one. Never throws.
+ */
+export async function hermesPdfFallback(models, selection) {
+  if (!models || !selection?.ready) return null;
+  const model = { connectionId: selection.connectionId, modelId: selection.modelId };
+  let lease;
+  try {
+    lease = await models.resolve(model);
+    const images = models.imageInput(model) === true;
+    if (lease.chatgpt) return { chatgpt: { ...lease.chatgpt }, images };
+    return lease.provider ? { provider: lease.provider, images } : null;
+  } catch {
+    return null;
+  } finally {
+    lease?.release?.();
+  }
+}
+
+/**
  * What a Hermes agent's apply reads beside its record (AssistantConfig
  * applyOwnProcess): the team bridge its team plugin calls, started for it when the
  * OpenClaw start has not yet (TeamBridge.start is idempotent), none while it cannot;
@@ -56,7 +78,8 @@ export function hermesAgentFleet(supervisor, { dataDir, store }) {
  * open a window, and the owner's private-network setting (web-tools-changes.js); the
  * owner's web search settings (hermes-config/web.js); and the model proxy
  * (model-logins/runtime-proxy.js) for a ChatGPT login, and the login AgentPier holds
- * that the agent creates images with through it (model-accounts.js heldImageLogin).
+ * that the agent creates images with through it (model-accounts.js heldImageLogin);
+ * and the owner's PDF fallback (hermesPdfFallback).
  */
 export const hermesApplyWiring = ({ bridge, webTools, proxy }) => ({
   hermesInputs: async (assistant) => {
@@ -85,6 +108,9 @@ export const hermesApplyWiring = ({ bridge, webTools, proxy }) => ({
         : null,
       // The owner's web search provider and its key (web-search-settings.js resolve).
       web: webTools?.webSearch ? { search: webTools.webSearch.resolve() } : undefined,
+      pdfFallback: webTools?.pdf
+        ? await hermesPdfFallback(bridge.assistants?.models, webTools.pdf())
+        : undefined,
     };
   },
 });

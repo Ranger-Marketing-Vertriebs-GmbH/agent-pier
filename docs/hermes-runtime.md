@@ -18,15 +18,15 @@ The Hermes compiler (`server/features/assistants/runtimes/hermes/hermes-compiler
 turns one agent's runtime-neutral desired state into these files of its home, and
 nothing else:
 
-| File                          | Content                                                                                          |
-| ----------------------------- | ------------------------------------------------------------------------------------------------ |
-| `config.yaml`                 | Model, toolsets, approvals, memory, skills, MCP, plugins, the agent's bot and the defaults       |
-| `.env`                        | The model connection's key, the MCP servers' secrets, the agent's bot token and the Deepgram key |
-| `SOUL.md`                     | The agent's instructions                                                                         |
-| `plugins/agentpier-guard/`    | `plugin.yaml` and `__init__.py`, only for every-command approval                                 |
-| `plugins/agentpier-team/`     | AgentPier's team tools and tool guard ([teams](#teams))                                          |
-| `plugins/agentpier-deepgram/` | `plugin.yaml` and `__init__.py`, only for a bot for other people with voice                      |
-| `plugins/agentpier-web/`      | `plugin.yaml`, `__init__.py`, `web.json`: web fetch and Perplexity search ([web](#web-search))   |
+| File                          | Content                                                                                                                  |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `config.yaml`                 | Model, toolsets, approvals, memory, skills, MCP, plugins, the agent's bot and the defaults                               |
+| `.env`                        | The model connection's key, the MCP servers' secrets, the agent's bot token and the Deepgram key, the PDF fallback's key |
+| `SOUL.md`                     | The agent's instructions                                                                                                 |
+| `plugins/agentpier-guard/`    | `plugin.yaml` and `__init__.py`, only for every-command approval                                                         |
+| `plugins/agentpier-team/`     | AgentPier's team tools, tool guard ([teams](#teams)) and pdf tool ([PDFs](#pdfs))                                        |
+| `plugins/agentpier-deepgram/` | `plugin.yaml` and `__init__.py`, only for a bot for other people with voice                                              |
+| `plugins/agentpier-web/`      | `plugin.yaml`, `__init__.py`, `web.json`: web fetch and Perplexity search ([web](#web-search))                           |
 
 The agent's memory (`memories/MEMORY.md`, `memories/USER.md`) and the `AGENTS.md` of
 its work folder are not compiled: they are read and written through the agentFiles
@@ -113,7 +113,9 @@ AgentPier. A model switch is a `config.apply` that restarts
 the agent's process set; AgentPier has no per-chat model. The key never appears in `config.yaml`. Hermes
 strips `AUXILIARY_*_API_KEY` and `OPENROUTER_API_KEY` from every command and process it
 starts, so the agent's own commands do not see the key. A model that accepts images sets
-`agent.image_input_mode: native`.
+`agent.image_input_mode: native` and `model.supports_vision: true`: Hermes hands a
+tool's images (a PDF's pages, [PDFs](#pdfs)) only to a model it knows sees them, and its
+catalog does not know a custom endpoint's models (`agent/image_routing.py`).
 
 ### Practical defaults
 
@@ -128,6 +130,7 @@ owner's choice, changes the installation or rewrites the first turn:
 | `delegation.subagent_auto_approve`                 | `false` | A subagent's dangerous command is never approved silently |
 | `updates.check`, `plugins.auto_update_check_hours` | off     | AgentPier installs and updates Hermes                     |
 | `security.allow_lazy_installs`                     | `false` | No packages installed from PyPI at run time               |
+| `file_tools.hosted_ocr`                            | `false` | PDFs never go to Firecrawl's hosted OCR                   |
 | `telemetry.shared_metrics.enabled`, `.send`        | `false` | No shared metrics                                         |
 
 Invisible subagents (`delegate_task`) stay on. In a session of the messaging gateway,
@@ -150,10 +153,10 @@ An agent of restricted users also loses `delegation`, `session_search` and
 for it (`native-capabilities.js` `lockedTools`); its shell is off through its shell
 level. A tool of a disabled toolset is neither offered nor run: Hermes answers a
 model that names one anyway with `Tool '<name>' does not exist`
-(`hermes-user-agent-lock-contract.test.js`). PDFs: Hermes's `read_file` extracts a PDF's text layer itself
-(`tools/file_tools.py`), so **Read PDFs** keeps the file tools on; scanned pages are
-not read with a model as OpenClaw's `pdf` tool does, and the PDF model setting does
-not apply.
+(`hermes-user-agent-lock-contract.test.js`). PDFs: **Read PDFs** gives the agent
+AgentPier's `pdf` tool, which reads scanned pages too ([PDFs](#pdfs)), and keeps the
+file tools on, whose `read_file` extracts a PDF's text layer itself
+(`tools/file_tools.py`).
 
 ### Work folder
 
@@ -419,7 +422,8 @@ The `agentpier-team` profile plugin carries both parts of the OpenClaw team plug
   `hermes-tool-guard.js`) before a team member's `write_file` or `patch`, before a file
   call (`read_file`, `search_files`, `vision_analyze`, the writes) whose arguments name
   `attachments/` or `.agentpier/`, before every browser call and before every
-  `image_generate` ([images](#images)). It applies the
+  `image_generate` ([images](#images)); AgentPier's `pdf` tool asks it at each call
+  ([PDFs](#pdfs)). It applies the
   OpenClaw guard's rules (`team-plugin/tool-guard.js`, `secrets-guard.js`): an
   attachment is read only from the chat it was sent in (`/attachment-policy`), the
   secrets file not in a hook run without the hook's Secrets switch; a member's file
@@ -443,8 +447,7 @@ guard judges its file changes and browser calls as the parent's.
 Beside OpenClaw's guard: memory steps are OpenClaw's (Hermes keeps its memory itself);
 restricted users' locked tools are compiled away (toolsets, [Toolsets](#toolsets))
 rather than refused at run time; image creation passes the same image policy
-([images](#images)); PDF checks have nothing to check, as Hermes agents read PDFs with
-`read_file`.
+([images](#images)), and a PDF read the same PDF policy ([PDFs](#pdfs)).
 
 ## Browser
 
@@ -570,6 +573,54 @@ Hermes's own media delivery into an AgentPier chat (`gateway/session_local.py`
 `LocalSessionAdapter`) has no image send in v0.22.5, so Hermes logs a
 `send_image_file fallback` warning; the image reaches the chat through the share
 above. The agent's instructions name image creation as for OpenClaw.
+
+## PDFs
+
+A Hermes agent with **Read PDFs** reads PDFs as an OpenClaw agent does, scanned pages
+included, with AgentPier's own `pdf` tool in the team plugin (`hermes-config/pdf.js`,
+`pdf-tool.py`, written as `plugins/agentpier-team/pdf_tool.py`). Hermes's `read_file`
+reads only a PDF's text layer and would offer scanned pages to Firecrawl's hosted OCR,
+which stays off (`file_tools.hosted_ocr: false`). The tool takes OpenClaw's arguments
+(`pdf` or up to ten `pdfs`, `prompt`, `pages` like `1-5,7`, `password`; no `model`)
+and works like OpenClaw's pdf tool in its extraction mode: PDFium (pypdfium2, which
+the installation provisions, [runtime updates](assistant-runtime-updates.md#hermes-agent-runtime))
+reads the text of at most 20 pages of each PDF of up to 10 MB and renders every page
+with fewer than 200 characters of text as a JPEG image, 4 megapixels shared by all such
+pages and at most 200 dpi.
+
+Each call first asks the team plugin's guard (`hermes-tool-guard.js` `pdfGuard`):
+only files in the agent's own folder (a relative path from it, also once resolved), no
+web address, no attachment of another chat and its secrets folder only where the run
+may read it, as for `read_file`. Then AgentPier's PDF policy (`pdf-policy.js` `reader`,
+the decision OpenClaw's pdf hook gets as a model reference) names who reads, with
+OpenClaw's refusals (the agent may not read PDFs now; its own model takes images but is
+unusable):
+
+| Agent's model                        | Who reads                | What the agent gets                                      |
+| ------------------------------------ | ------------------------ | -------------------------------------------------------- |
+| Takes images                         | The agent's own model    | The page text and the page images as a multimodal result |
+| Text only, with a PDF fallback       | The owner's PDF fallback | The fallback's answer to `prompt`                        |
+| Text only, without a usable fallback | Nobody                   | The page text and which pages without text were not read |
+
+The fallback is the one chosen under **Connections › Services for agents › PDF
+reading** (`pdf-model-settings.js`). An agent whose own model takes no images gets it
+in its home: in `tools.json` (`pdf.fallback`: Chat Completions URL and model, or the
+model proxy's `<proxy>/chatgpt/codex` for a ChatGPT login AgentPier holds) and its key
+in `.env` as `AUXILIARY_AGENTPIER_PDF_API_KEY`, which Hermes strips from every command
+(for a ChatGPT login the proxy's credential for this agent and login, valid while the
+agent may read PDFs and that login is the fallback, `proxy-access.js`). The tool calls
+it itself, once, never through Hermes's auxiliary client, whose recovery could move the
+request to another provider. A fallback without image input gets the text only, as on
+OpenClaw. Saving the fallback applies every Hermes agent that reads PDFs
+(`web-tools-changes.js`), which restarts only the homes it changed; the policy
+reads the setting as it is now, so a cleared fallback stops reading at once. A fallback
+Hermes cannot call (another transport than Chat Completions, a login OpenClaw holds)
+leaves such an agent with the text layer.
+
+Beside OpenClaw's pdf tool: no native PDF input for Anthropic or Google models (every
+model gets text and page images), no web addresses or OpenClaw media references, and
+the agent's own model sees the pages directly in its context instead of through a
+second call.
 
 ## Agents on Hermes
 
@@ -845,7 +896,7 @@ AGENTPIER-344, logins from AGENTPIER-340).
 | Web search                                                 | DuckDuckGo, Brave, Perplexity       | `ddgs`, `brave-free`, AgentPier's Perplexity plugin | [Web search](#web-search)                                    |
 | Web fetch                                                  | `web_fetch`                         | AgentPier's `agentpier-fetch`                       | Private networks always refused                              |
 | Read images                                                | `view_image`                        | `vision` toolset                                    |                                                              |
-| Read PDFs                                                  | `pdf` with the PDF model            | `read_file` text layer                              | Scanned pages not read                                       |
+| Read PDFs                                                  | `pdf` with the PDF model            | AgentPier's `pdf` tool with the same model          | [PDFs](#pdfs); no native PDF input, no web addresses         |
 | Create images                                              | ChatGPT account                     | ChatGPT login AgentPier holds                       | [Images](#images)                                            |
 | Attachments, video                                         | `attachments/` in the workspace     | The same folder, its work folder                    | Named by path; inline images not sent                        |
 | Browser                                                    | AgentPier's Chromium                | AgentPier's Chromium                                | [Browser](#browser)                                          |
@@ -923,6 +974,10 @@ Google Chrome, or Playwright's Chromium on the Linux arm64 image without Chrome,
 image's `/usr/bin/chromium`, which the detection prefers, is an unpacked snapshot
 without a sandbox helper that AppArmor's user namespace limit stops at launch.
 Set `AGENTPIER_HERMES_CONTRACT_RUNTIME` to an installation made by `scripts/provision-hermes-contracts.mjs` (its `venv/bin/`
-holds `python` and `hermes`, its `tools/` agent-browser). The tests use a private
+holds `python` and `hermes`, its `tools/` agent-browser). `hermes-pdf-contract.test.js`
+lets a text-only agent read a two-page PDF whose second page is a scan: the tool reads
+it with the installation's PDFium, and the owner's fallback (a second connection of the
+fake model that takes images) gets the text and the page image with its own key, while
+a file outside the agent's folder is refused before anything is read. The tests use a private
 `HOME` and `HERMES_HOME` and never touch
 `~/.hermes`.

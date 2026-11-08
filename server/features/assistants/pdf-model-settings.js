@@ -74,7 +74,7 @@ export class PdfModelSettings {
   }
   /** The bridge's answer to the plugin's pdf hook (pdf-policy.js). */
   policy(assistants) {
-    return new PdfPolicy({ assistants });
+    return new PdfPolicy({ assistants, settings: this });
   }
   /** The compiler's view: `{ ready, connectionId, modelId }`, ids only. */
   resolve() {

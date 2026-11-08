@@ -276,6 +276,7 @@ export class AssistantConfig {
         web: inputs.web,
         modelProxy: inputs.modelProxy,
         imageLogin: inputs.imageLogin,
+        pdfFallback: inputs.pdfFallback,
       });
     }
     this.store.markEffective(assistant.id, assistant.revision);

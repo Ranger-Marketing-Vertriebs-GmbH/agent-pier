@@ -193,20 +193,29 @@ export class WebToolsChanges {
   }
   /** Applies every Hermes agent that searches the web; failures retry with its next apply. */
   applySearchAgents() {
+    this.applyHermesAgents((agent) => agent.web.webSearch);
+  }
+  /** Applies every Hermes agent `wanted` (a desiredAgent) names. */
+  applyHermesAgents(wanted) {
     const { store, config } = this.assistants;
     if (typeof config?.apply !== "function") return;
     for (const profile of store.listAssistants())
-      if (
-        ownProcess(profile) &&
-        !profile.archivedAt &&
-        desiredAgent(profile).web.webSearch
-      )
+      if (ownProcess(profile) && !profile.archivedAt && wanted(desiredAgent(profile)))
         Promise.resolve()
           .then(() => config.apply(profile.id))
           .catch(() => {});
   }
-  /** Saves the PDF model; a change for agents that read PDFs needs a restart. */
-  async savePdfModel(input, { confirmed = false } = {}) {
+  /**
+   * Saves the PDF model; a change for agents that read PDFs needs a Gateway restart.
+   * Hermes agents that read PDFs take it with an apply of their own
+   * (runtimes/hermes/hermes-config/pdf.js), which restarts only a changed home.
+   */
+  async savePdfModel(input, options) {
+    const saved = await this.saveGatewayPdfModel(input, options);
+    this.applyHermesAgents((agent) => agent.web.readPdfs);
+    return saved;
+  }
+  async saveGatewayPdfModel(input, { confirmed = false } = {}) {
     if (!this.differs({ pdf: this.pdfModel.preview(input) }))
       return this.pdfModel.save(input);
     if (this.pending) {
