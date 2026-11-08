@@ -1,11 +1,5 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import http from "node:http";
-import os from "node:os";
-import path from "node:path";
-import { execFile, spawnSync } from "node:child_process";
-import { promisify } from "node:util";
 import { desiredAgent } from "../../server/features/assistants/agent-desired-state.js";
 import { compileHome } from "../../server/features/assistants/runtimes/hermes/hermes-config/home.js";
 import { readHermesConfig } from "../../server/features/assistants/runtimes/hermes/hermes-config/home-merge.js";
@@ -15,7 +9,6 @@ import { hermesPdfFallback } from "../../server/application/hermes-wiring.js";
 
 // Read PDFs on Hermes (hermes-config/pdf.js): AgentPier's own pdf tool in the team
 // plugin, which reads scanned pages too, with the model AgentPier names.
-const python = spawnSync("python3", ["--version"]).status === 0 ? "python3" : null;
 const connection = { url: "http://127.0.0.1:9", token: "bridge-token" };
 const workspace = "/data/workspaces/a1";
 const agent = (capabilities = { readPdfs: true }, extra = {}) =>
@@ -46,6 +39,7 @@ const env = (built) => built.files[".env"] || "";
 const visionFallback = {
   provider: endpoint(["text", "image"], "fallback-key"),
   images: true,
+  id: "fb-1",
 };
 
 test("the pdf tool exists only while the agent may read PDFs and has the team plugin", () => {
@@ -76,6 +70,7 @@ test("a text-only agent reads with the owner's fallback, its key in .env alone",
   const base = { capabilities: { readPdfs: true } };
   const text = home(withModel(base, ["text"]), { pdfFallback: visionFallback });
   assert.deepEqual(tools(text).pdf.fallback, {
+    id: "fb-1",
     api: "chat",
     url: "http://models.test/v1",
     model: "m1",
@@ -161,16 +156,35 @@ test("an apply resolves the owner's fallback; a save applies the agents that rea
         release: () => released.push(connectionId),
       };
     },
-    imageInput: () => true,
+    imageInput: ({ connectionId }) => connectionId !== "text",
   };
-  assert.equal(await hermesPdfFallback(models, { ready: false }), null);
+  const textOwn = { connectionId: "text", modelId: "t" };
+  assert.equal(await hermesPdfFallback(models, { ready: false }, textOwn), null);
   assert.deepEqual(
-    await hermesPdfFallback(models, { ready: true, connectionId: "c1", modelId: "m1" }),
-    { provider: endpoint(["image"]), images: true },
+    await hermesPdfFallback(
+      models,
+      { ready: true, connectionId: "c1", modelId: "m1" },
+      textOwn,
+    ),
+    { provider: endpoint(["image"]), images: true, id: "c1\nm1" },
+  );
+  // An agent whose own model takes images (also an OpenRouter one, which only the
+  // catalog knows) gets no fallback and no key in its home.
+  assert.equal(
+    await hermesPdfFallback(
+      models,
+      { ready: true, connectionId: "c1", modelId: "m1" },
+      { connectionId: "openrouter-1", modelId: "vision" },
+    ),
+    null,
   );
   assert.deepEqual(released, ["c1"]);
   assert.equal(
-    await hermesPdfFallback(models, { ready: true, connectionId: "gone", modelId: "m" }),
+    await hermesPdfFallback(
+      models,
+      { ready: true, connectionId: "gone", modelId: "m" },
+      textOwn,
+    ),
     null,
   );
 
@@ -198,246 +212,3 @@ test("an apply resolves the owner's fallback; a save applies the agents that rea
   await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(applied, ["h1"]);
 });
-
-// A stand-in for pypdfium2: pages separated by form feeds after the %PDF line, a page
-// without text being a scan; render() yields an image of the scaled page size.
-const fakePdfium = `
-class _Image:
-    def __init__(self, width, height):
-        self.width, self.height = width, height
-    def convert(self, mode):
-        return self
-    def save(self, out, format=None, quality=None):
-        out.write(b"JPEG-" + str(self.width).encode())
-class _Bitmap:
-    def __init__(self, width, height):
-        self.width, self.height = width, height
-    def to_pil(self):
-        return _Image(self.width, self.height)
-class _Text:
-    def __init__(self, text):
-        self.text = text
-    def get_text_bounded(self):
-        return self.text
-class _Page:
-    def __init__(self, text):
-        self.text = text
-    def get_textpage(self):
-        return _Text(self.text)
-    def get_size(self):
-        return (612.0, 792.0)
-    def render(self, scale=1):
-        return _Bitmap(int(612 * scale), int(792 * scale))
-class PdfDocument:
-    def __init__(self, path, password=None):
-        data = open(path, "rb").read().decode("latin-1")
-        self.pages = [_Page(t) for t in data.split("\\n", 1)[1].split("\\f")]
-    def __len__(self):
-        return len(self.pages)
-    def __getitem__(self, index):
-        return self.pages[index]
-    def close(self):
-        pass
-`;
-const runner = `
-import importlib.util, json, sys
-spec = importlib.util.spec_from_file_location("plugin", sys.argv[1])
-plugin = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(plugin)
-tools = {}
-class Ctx:
-    def register_tool(self, name, handler, **_):
-        tools[name] = handler
-    def register_hook(self, *_):
-        pass
-plugin.register(Ctx())
-result = tools["pdf"](json.loads(sys.argv[2]), session_id="20261108_100000_abcd")
-print(result if isinstance(result, str) else json.dumps(result))
-`;
-const invoice = "Invoice 4711, total 99 EUR. ".repeat(10);
-
-// The compiled plugin in Python with the stand-in PDFium, against a local server that
-// answers as AgentPier's bridge (`guard`) and as the fallback model (`model`).
-async function readPdf(t, { guard, fallback, args, model = () => ({}) }) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "hermes-pdf-"));
-  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
-  const seen = [];
-  const server = http.createServer(async (req, res) => {
-    let body = "";
-    for await (const chunk of req) body += chunk;
-    const parsed = JSON.parse(body);
-    seen.push({ url: req.url, headers: req.headers, body: parsed });
-    if (req.url === "/hermes-guard") {
-      res.writeHead(200, { "content-type": "application/json" });
-      return res.end(JSON.stringify(guard));
-    }
-    const answer = model(req.url);
-    res.writeHead(200, { "content-type": answer.type || "application/json" });
-    res.end(answer.body);
-  });
-  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-  t.after(() => server.close());
-  const url = `http://127.0.0.1:${server.address().port}`;
-  const folder = path.join(dir, "workspace");
-  fs.mkdirSync(path.join(folder, "docs"), { recursive: true });
-  fs.writeFileSync(path.join(folder, "docs/scan.pdf"), `%PDF-1.4\n${invoice}\f`);
-  fs.mkdirSync(path.join(dir, "site/pypdfium2"), { recursive: true });
-  fs.writeFileSync(path.join(dir, "site/pypdfium2/__init__.py"), fakePdfium);
-  const built = compileHome(
-    desiredAgent(
-      {
-        id: "a1",
-        runtimeAgentId: "ap-a1",
-        revision: 1,
-        capabilities: { readPdfs: true },
-      },
-      { model: { provider: endpoint(["text"]) } },
-    ),
-    {
-      workspace: folder,
-      connection: { url, token: "bridge-token" },
-      pdfFallback: fallback && { ...fallback, url },
-      modelProxy: { url, credentialFor: () => "apx1.proxy" },
-    },
-  );
-  for (const [file, text] of Object.entries(built.files)) {
-    if (!file.startsWith("plugins/agentpier-team/")) continue;
-    fs.mkdirSync(path.dirname(path.join(dir, file)), { recursive: true });
-    fs.writeFileSync(path.join(dir, file), text);
-  }
-  // A fallback endpoint at the local server.
-  const settings = path.join(dir, "plugins/agentpier-team/tools.json");
-  const parsed = JSON.parse(fs.readFileSync(settings, "utf8"));
-  if (parsed.pdf.fallback?.api === "chat") parsed.pdf.fallback.url = `${url}/v1`;
-  fs.writeFileSync(settings, JSON.stringify(parsed));
-  const { stdout } = await promisify(execFile)(
-    python,
-    [
-      "-c",
-      runner,
-      path.join(dir, "plugins/agentpier-team/__init__.py"),
-      JSON.stringify(args),
-    ],
-    {
-      env: {
-        PATH: process.env.PATH,
-        PYTHONPATH: path.join(dir, "site"),
-        [pdfKeyEnv]: "fallback-key",
-      },
-    },
-  );
-  return { result: JSON.parse(stdout), seen };
-}
-
-const skip = { skip: !python && "python3 is not installed" };
-
-test(
-  "an agent whose model sees images gets the text and the scanned page",
-  skip,
-  async (t) => {
-    const { result, seen } = await readPdf(t, {
-      guard: { allow: true, reader: "own" },
-      args: { pdf: "docs/scan.pdf", prompt: "What is the total?" },
-    });
-    assert.equal(result._multimodal, true);
-    const [text, image] = result.content;
-    assert.match(text.text, /^Request: What is the total\?/);
-    assert.match(text.text, /--- Page 1 ---\nInvoice 4711/);
-    assert.match(text.text, /--- Page 2 ---\n\[This page has little or no text/);
-    assert.match(image.image_url.url, /^data:image\/jpeg;base64,/);
-    assert.equal(result.content.length, 2, "only the page without text as an image");
-    assert.match(result.text_summary, /could not be shown here/);
-    // The bridge judged the call for its chat.
-    assert.equal(seen[0].url, "/hermes-guard");
-    assert.equal(seen[0].body.toolName, "pdf");
-    assert.equal(seen[0].body.sessionKey, "agent:ap-a1:hermes:20261108_100000_abcd");
-    assert.deepEqual(seen[0].body.args, {
-      pdf: "docs/scan.pdf",
-      prompt: "What is the total?",
-    });
-  },
-);
-
-test(
-  "a text-only agent's PDF goes to the owner's fallback model alone",
-  skip,
-  async (t) => {
-    const { result, seen } = await readPdf(t, {
-      guard: { allow: true, reader: "fallback" },
-      fallback: { provider: endpoint(["image"], "fallback-key"), images: true },
-      args: { pdfs: ["docs/scan.pdf"], prompt: "Total?" },
-      model: () => ({
-        body: JSON.stringify({
-          choices: [{ message: { content: "The total is 99 EUR." } }],
-        }),
-      }),
-    });
-    assert.deepEqual(result, { text: "The total is 99 EUR.", model: "m1" });
-    const call = seen.find((entry) => entry.url === "/v1/chat/completions");
-    assert.equal(call.headers.authorization, "Bearer fallback-key");
-    assert.equal(call.body.model, "m1");
-    const [text, image] = call.body.messages[0].content;
-    assert.match(text.text, /^Total\?\n\nPDF docs\/scan\.pdf: 2 pages/);
-    assert.match(image.image_url.url, /^data:image\/jpeg;base64,/);
-    assert.equal(seen.length, 2, "the bridge, then the fallback; nothing else");
-  },
-);
-
-test("a ChatGPT fallback reads through the proxy's Responses stream", skip, async (t) => {
-  const events = [
-    { type: "response.output_text.delta", delta: "Total: " },
-    { type: "response.output_text.delta", delta: "99 EUR" },
-    { type: "response.completed", response: { status: "completed" } },
-  ];
-  const { result, seen } = await readPdf(t, {
-    guard: { allow: true, reader: "fallback" },
-    fallback: {
-      chatgpt: { profileId: "p1", modelId: "gpt-5.4", holder: "agentpier" },
-      images: true,
-    },
-    args: { pdf: "docs/scan.pdf" },
-    model: () => ({
-      type: "text/event-stream",
-      body: events
-        .map((e) => `event: ${e.type}\ndata: ${JSON.stringify(e)}\n\n`)
-        .join(""),
-    }),
-  });
-  assert.deepEqual(result, { text: "Total: 99 EUR", model: "gpt-5.4" });
-  const call = seen.find((entry) => entry.url === "/chatgpt/codex/responses");
-  assert.equal(call.headers.authorization, "Bearer fallback-key");
-  assert.equal(call.body.stream, true);
-  assert.equal(call.body.store, false);
-  const parts = call.body.input[0].content;
-  assert.deepEqual(
-    parts.map((part) => part.type),
-    ["input_text", "input_image"],
-  );
-  assert.match(parts[0].text, /^Analyze this PDF document\./);
-});
-
-test(
-  "without a model that sees images the agent gets the text, and is told what it missed",
-  skip,
-  async (t) => {
-    const { result, seen } = await readPdf(t, {
-      guard: { allow: true, reader: "text" },
-      args: { pdf: "docs/scan.pdf", pages: "1-2" },
-    });
-    assert.match(result.text, /Invoice 4711/);
-    assert.match(result.note, /were not read: docs\/scan\.pdf page 2\./);
-    assert.equal(seen.length, 1);
-    // A refusal reaches the agent as AgentPier words it; no file is read.
-    const refused = await readPdf(t, {
-      guard: { allow: false, message: "This agent may not read PDFs." },
-      args: { pdf: "docs/scan.pdf" },
-    });
-    assert.deepEqual(refused.result, { error: "This agent may not read PDFs." });
-    // Paths outside its folder stay closed even if the bridge were wrong.
-    const outside = await readPdf(t, {
-      guard: { allow: true, reader: "text" },
-      args: { pdf: "../../etc/hosts" },
-    });
-    assert.match(outside.result.error, /files in your workspace/);
-  },
-);

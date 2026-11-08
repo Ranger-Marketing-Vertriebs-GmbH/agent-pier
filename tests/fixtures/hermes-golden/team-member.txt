@@ -395,8 +395,15 @@ def _pdf_tool(pdf):
     )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    # The guard needs the files only: never the password or the prompt.
     return module.handler(
-        pdf, lambda args, session_id, task_id: _ask("pdf", args, session_id, task_id)
+        pdf,
+        lambda args, session_id, task_id: _ask(
+            "pdf",
+            {key: args[key] for key in ("pdf", "pdfs") if key in args},
+            session_id,
+            task_id,
+        ),
     )
 
 
