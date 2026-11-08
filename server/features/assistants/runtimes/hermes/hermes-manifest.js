@@ -36,10 +36,18 @@ const pdfiumTags = Object.freeze({
   "linux-arm64": "manylinux_2_17_aarch64.manylinux2014_aarch64",
   "linux-x64": "manylinux_2_17_x86_64.manylinux2014_x86_64",
 });
-const pdfiumWheel = (version, target) =>
-  new RegExp(
-    `^https://files\\.pythonhosted\\.org/packages/[0-9a-f]{2}/[0-9a-f]{2}/[0-9a-f]{60}/pypdfium2-${version.replaceAll(".", "\\.")}-py3-none-${pdfiumTags[target].replaceAll(".", "\\.")}\\.whl$`,
+// Literal prefix and suffix, no pattern built from the pin: files.pythonhosted.org's
+// blake2 path between them.
+const pypiPackages = "https://files.pythonhosted.org/packages/";
+const blake2Path = /^[0-9a-f]{2}\/[0-9a-f]{2}\/[0-9a-f]{60}$/;
+const pdfiumWheel = (version, target, url) => {
+  const suffix = `/pypdfium2-${version}-py3-none-${pdfiumTags[target]}.whl`;
+  return (
+    url.startsWith(pypiPackages) &&
+    url.endsWith(suffix) &&
+    blake2Path.test(url.slice(pypiPackages.length, url.length - suffix.length))
   );
+};
 const validPdfium = (pin) =>
   exact.test(pin?.version || "") &&
   Object.keys(pin.wheels || {})
@@ -47,7 +55,7 @@ const validPdfium = (pin) =>
     .join() === Object.keys(uvTargets).sort().join() &&
   Object.entries(pin.wheels).every(
     ([target, wheel]) =>
-      pdfiumWheel(pin.version, target).test(wheel?.url || "") &&
+      pdfiumWheel(pin.version, target, wheel?.url || "") &&
       sha256.test(wheel.sha256 || ""),
   );
 

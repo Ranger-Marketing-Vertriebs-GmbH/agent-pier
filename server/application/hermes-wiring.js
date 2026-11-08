@@ -113,13 +113,14 @@ export const hermesApplyWiring = ({ bridge, webTools, proxy }) => ({
         : null,
       // The owner's web search provider and its key (web-search-settings.js resolve).
       web: webTools?.webSearch ? { search: webTools.webSearch.resolve() } : undefined,
-      pdfFallback: webTools?.pdf
-        ? await hermesPdfFallback(
-            bridge.assistants?.models,
-            webTools.pdf(),
-            assistant.model,
-          )
-        : undefined,
+      pdfFallback:
+        webTools?.pdf && assistant
+          ? await hermesPdfFallback(
+              bridge.assistants?.models,
+              webTools.pdf(),
+              assistant.model,
+            )
+          : undefined,
     };
   },
 });
