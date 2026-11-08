@@ -168,8 +168,13 @@ export async function setupAssistantSettings(page, options = {}) {
         return route.fulfill({ json: state.memory[body.name] });
       }
       const name = new URL(route.request().url()).searchParams.get("name");
+      // Like native-memory.js for a Hermes agent: the read names the file's limit.
+      const limit = options.memoryLimits?.[name];
       return route.fulfill({
-        json: state.memory[name] || { name, content: "", missing: true },
+        json: {
+          ...(state.memory[name] || { name, content: "", missing: true }),
+          ...(limit ? { limit } : {}),
+        },
       });
     }
     if (path === "/api/assistant-model-accounts")

@@ -9,6 +9,7 @@ import { formatTimestamp, locale } from "../../lib/i18n/index.js";
 import { userAppCopy as copy } from "../../lib/i18n/messages/user-app.js";
 import { assistantDreamingCopy as dreamingCopy } from "../../lib/i18n/messages/assistant-dreaming.js";
 import useMemoryNotes from "../assistants/settings/useMemoryNotes.js";
+import { diaryText } from "../assistants/settings/dream-diary.js";
 import { userApi } from "./user-api.js";
 
 const shortName = (name) => name.replace(/^memory\//, "");
@@ -30,7 +31,8 @@ export default function UserMemoryPage({ agent }) {
       const note = await userApi.readMemory(agent.id, file.name);
       setReading({
         title: label(file),
-        content: note.content ?? "",
+        // A Hermes agent's diary comes as entries, written in her language.
+        content: diaryText(note, dreamingCopy),
         cut: note.truncated
           ? dreamingCopy.diaryTruncated(formatBytes(note.size, locale))
           : "",

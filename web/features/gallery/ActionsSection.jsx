@@ -39,6 +39,14 @@ export default function ActionsSection() {
         >
           <Icon name="more" />
         </button>
+        <button
+          type="button"
+          className="icon-button"
+          aria-label={copy.variants.pressed}
+          aria-pressed="true"
+        >
+          <Icon name="pin" />
+        </button>
       </Specimen>
       <Specimen label={`Icon · ${copy.variants.icons}`} wide>
         <ul className="gallery-icons">

@@ -2,6 +2,7 @@ import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { settingsPath } from "../helpers/agent-settings-page.js";
 import { home, setupAssistantSettings } from "../helpers/assistant-settings-browser.js";
+import { isLiveStubRequest } from "../helpers/live-stub.js";
 
 test.use({ locale: "en-GB", timezoneId: "Europe/Berlin" });
 
@@ -208,6 +209,8 @@ test("the memory view loads older notes page by page", async ({ page }) => {
   });
   const offsets = [];
   await page.route("**/api/assistants/home/memory/files*", (route) => {
+    // The live stub's reads stand for the server's push of agent.memory.
+    if (isLiveStubRequest(route.request())) return route.fallback();
     const offset = Number(new URL(route.request().url()).searchParams.get("offset") || 0);
     offsets.push(offset);
     route.fulfill({
@@ -266,4 +269,78 @@ test("a dream diary past the read limit says that older entries are cut off", as
       "The dream diary is 3 MB. Only its newest entries are shown here; older ones are cut off.",
     ),
   ).toBeVisible();
+});
+
+// A Hermes agent's diary as the server reads it (hermes-dream-store.js diaryNote).
+const night = (day, extra = {}) => ({
+  at: `2026-11-0${day}T03:05:00.000Z`,
+  night: `2026-11-0${day}`,
+  outcome: "applied",
+  reason: null,
+  file: null,
+  counts: {
+    "MEMORY.md": { kept: 4, added: 2, merged: 1, replaced: 0, dropped: 1 },
+    "USER.md": { kept: 2, added: 0, merged: 0, replaced: 1, dropped: 0 },
+  },
+  chars: { "MEMORY.md": 812, "USER.md": 140 },
+  summary: "Merged the tea notes.",
+  ...extra,
+});
+const hermesDiary = (entries, hash) => ({
+  name: "DREAMS.md",
+  content: "",
+  entries,
+  missing: false,
+  readOnly: true,
+  hash,
+});
+const diaryListing = (modifiedAt) => ({
+  files: [{ name: "DREAMS.md", diary: true, size: 400, modifiedAt }],
+  total: 0,
+  nextOffset: null,
+});
+
+test("a Hermes dream diary opens read only and follows a new night", async ({
+  page,
+  liveStub,
+}) => {
+  const state = await setup(page, {
+    enabled: true,
+    memoryOn: true,
+    memory: {
+      "DREAMS.md": hermesDiary(
+        [night(7, { outcome: "discarded", reason: "pinLost", file: "USER.md" })],
+        "d1",
+      ),
+    },
+  });
+  let listing = diaryListing("2026-11-07T03:05:00Z");
+  await page.route("**/api/assistants/home/memory/files*", (route) =>
+    route.fulfill({ json: listing }),
+  );
+  await page.goto(baseURL + settingsPath("capabilities", "memory"));
+  await liveStub.waitForSubscribe("agent.memory:home");
+  await page.getByRole("combobox", { name: "Note type" }).selectOption({
+    label: "Dream diary",
+  });
+  const notes = page.getByRole("textbox", { name: "Notes" });
+  await expect(notes).toHaveValue(
+    "2026-11-07\nDiscarded: a pinned entry in USER.md would have been lost. Nothing was changed.",
+  );
+  await expect(notes).toHaveAttribute("readonly", "");
+  await expect(page.getByRole("group", { name: "Entries" })).toHaveCount(0);
+  // The next night is recorded: the topic pushes the listing, the diary is read again.
+  state.memory["DREAMS.md"] = hermesDiary(
+    [night(8), night(7, { outcome: "discarded", reason: "pinLost", file: "USER.md" })],
+    "d2",
+  );
+  listing = diaryListing("2026-11-08T03:05:00Z");
+  liveStub.push("agent.memory:home", listing);
+  await expect(notes).toHaveValue(
+    /^2026-11-08\nMemory consolidated\.\nMEMORY\.md: 2 added, 1 merged, 0 replaced, 1 dropped\nUSER\.md: 0 added, 0 merged, 1 replaced, 0 dropped\nMerged the tea notes\.\n\n2026-11-07\n/,
+  );
+  await shoot(page, "hermes-dream-diary");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await notes.evaluate((element) => element.scrollIntoView({ block: "center" }));
+  await shoot(page, "hermes-dream-diary-phone");
 });

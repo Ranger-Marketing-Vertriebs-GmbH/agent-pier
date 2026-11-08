@@ -419,3 +419,15 @@ test("New chat and Summarize this chat are offered only by a chat that takes the
       query,
     );
 });
+
+test("pinning memory entries finds the agent's memory page in both languages", () => {
+  for (const query of ["pin", "anheften", "Pin memory entries", "Einträge anheften"]) {
+    const hit = results(query).find((item) => item.id === "agent:ops:memory");
+    assert.ok(hit, query);
+    assert.equal(
+      pathOf(hit),
+      pathOf(index.find((item) => item.id === "agent:ops:memory")),
+    );
+    assert.ok(hit.alias, query);
+  }
+});

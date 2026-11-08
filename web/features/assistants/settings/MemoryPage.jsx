@@ -8,11 +8,14 @@ import { assistantCopy } from "../../../lib/i18n/messages/assistants.js";
 import { assistantDreamingCopy as dreamingCopy } from "../../../lib/i18n/messages/assistant-dreaming.js";
 import { formatBytes } from "../../../lib/format-bytes.js";
 import { locale } from "../../../lib/i18n/index.js";
+import useLiveTopic from "../../../lib/live/useLiveTopic.js";
 import { assistantApi } from "../assistant-api.js";
 import { memoryStep } from "./agent-settings-steps.js";
 import useAgentDraftGuard from "./useAgentDraftGuard.js";
 import useMemoryNotes from "./useMemoryNotes.js";
 import { lineRange, openableNote } from "./memory-match.js";
+import { diaryText } from "./dream-diary.js";
+import MemoryPins from "./MemoryPins.jsx";
 import ConflictNotice from "./ConflictNotice.jsx";
 import MemoryArchiveList from "./MemoryArchiveList.jsx";
 import SubpageHeader from "./SubpageHeader.jsx";
@@ -21,8 +24,10 @@ import SubpageHeader from "./SubpageHeader.jsx";
  * The agent's two root notes and its day notes under memory/ (editable, saved against
  * the loaded hash; a day note can also be deleted), its Dream Diary (read only), plus
  * a search over all of them whose results open their note at the match, and the
- * archive of entries taken out after a model switch (MemoryArchiveList).
- * `readOnly` (a user's own agent under her opt-in) shows every note read only.
+ * archive of entries taken out after a model switch (MemoryArchiveList). A Hermes
+ * agent's MEMORY.md and USER.md (their read names a `limit`) list their entries with a
+ * pin each (MemoryPins). `readOnly` (a user's own agent under her opt-in) shows every
+ * note read only.
  */
 export default function MemoryPage({ assistant, onBack, readOnly: locked = false }) {
   const copy = assistantCopy.personal;
@@ -35,6 +40,9 @@ export default function MemoryPage({ assistant, onBack, readOnly: locked = false
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [reload, setReload] = useState(0),
+    // Pushes of agent.memory: the listing is read again, the shown note when clean.
+    [pushes, setPushes] = useState(0),
+    [refresh, setRefresh] = useState(0),
     [deleting, setDeleting] = useState(false),
     // A search result being opened: its note and lines, selected once it loaded.
     [match, setMatch] = useState(null);
@@ -43,7 +51,7 @@ export default function MemoryPage({ assistant, onBack, readOnly: locked = false
     (offset) => assistantApi.memoryFiles(assistantId, offset),
     [assistantId],
   );
-  const listing = useMemoryNotes(fetchNotes, reload);
+  const listing = useMemoryNotes(fetchNotes, `${reload}:${pushes}`);
   const notes = listing.notes || [];
   useEffect(() => {
     let active = true;
@@ -57,6 +65,23 @@ export default function MemoryPage({ assistant, onBack, readOnly: locked = false
       active = false;
     };
   }, [assistantId, name, reload]);
+  // A pushed listing (a Hermes night was recorded, which also rewrote MEMORY.md and
+  // USER.md): the shown note is read again in place, unless the owner is editing it.
+  // An OpenClaw agent's topic does not push; its listing is read when the page opens.
+  const shownName = useRef(name);
+  shownName.current = name;
+  useEffect(() => {
+    if (!refresh) return undefined;
+    let active = true;
+    const wanted = shownName.current;
+    assistantApi.memory(assistantId, wanted).then(
+      (next) => active && shownName.current === wanted && setFile(next),
+      () => {},
+    );
+    return () => {
+      active = false;
+    };
+  }, [assistantId, refresh]);
   const diaries = notes.filter((note) => note.diary);
   const agentNotes = notes.filter((note) => !note.diary);
   const diary = diaries.some((note) => note.name === name);
@@ -65,7 +90,23 @@ export default function MemoryPage({ assistant, onBack, readOnly: locked = false
   const editable = !locked && !diary && file?.editable === true;
   const readOnly = locked || diary || (Boolean(file?.readOnly) && !editable);
   const savable = Boolean(file) && !readOnly && Boolean(file.missing || file.hash);
-  const draft = useTabDraft({ server: { content: file?.content ?? "" } });
+  const loaded = file ? diaryText(file, dreamingCopy) : "";
+  const draft = useTabDraft({ server: { content: loaded } });
+  const topic = useLiveTopic(`agent.memory:${assistantId}`);
+  const seen = useRef(null);
+  const dirty = useRef(false);
+  dirty.current = draft.dirty;
+  useEffect(() => {
+    if (!topic.data) return;
+    const value = JSON.stringify(topic.data);
+    // The first value is the listing the page has just read.
+    const first = seen.current === null;
+    if (value === seen.current) return;
+    seen.current = value;
+    if (first) return;
+    setPushes((n) => n + 1);
+    if (!dirty.current) setRefresh((n) => n + 1);
+  }, [topic.data]);
   const steps = savable
     ? [memoryStep({ assistantId, name, file, label: copy.memory })]
     : [];
@@ -75,21 +116,22 @@ export default function MemoryPage({ assistant, onBack, readOnly: locked = false
     const field = textarea.current;
     if (!match || file?.name !== match.name || !field) return;
     // An untouched draft follows the loaded note one render later: wait for it.
-    if (!draft.dirty && shown !== (file.content ?? "")) return;
+    if (!draft.dirty && shown !== loaded) return;
     setMatch(null);
     const { start, end } = lineRange(field.value, match.startLine, match.endLine);
     field.focus();
     field.setSelectionRange(start, end);
     const lineHeight = parseFloat(getComputedStyle(field).lineHeight) || 20;
     field.scrollTop = Math.max(0, (match.startLine - 2) * lineHeight);
-  }, [match, file, shown, draft.dirty]);
+  }, [match, file, shown, loaded, draft.dirty]);
   const save = async () => {
     const result = await draft.save(steps);
+    // A root note's save answers no limit: the one read stays.
     if (result.status === "saved" && result.results.memory)
       setFile(
         editable
           ? { ...file, ...result.results.memory, content: draft.values.content }
-          : result.results.memory,
+          : { limit: file.limit, ...result.results.memory },
       );
     // Changed elsewhere (409 "assistants.conflict"): read the note's current hash and
     // content without touching the draft, so "Reload" shows the newer note and
@@ -198,6 +240,14 @@ export default function MemoryPage({ assistant, onBack, readOnly: locked = false
           />
         </label>
       </div>
+      {file?.limit > 0 && !diary && (
+        <MemoryPins
+          text={shown}
+          limit={file.limit}
+          readOnly={readOnly || busy || draft.saving}
+          onChange={(content) => draft.set("content", content)}
+        />
+      )}
       {diary ? (
         <p className="assistant-note">
           {dreamingCopy.diaryHint}

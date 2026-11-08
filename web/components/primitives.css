@@ -27,6 +27,11 @@
   background: #292a2e;
   color: #ffc99d;
 }
+/* A toggle (aria-pressed) shows when it is on. */
+.icon-button[aria-pressed="true"] {
+  background: var(--button-secondary-bg);
+  color: var(--accent-text);
+}
 .mobile-header,
 .nav-backdrop {
   display: none;

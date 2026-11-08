@@ -93,5 +93,7 @@ export const searchCopy = {
     telegramTab: "Telegram",
     diff: "Diff",
     reviewChanges: "Änderungen prüfen",
+    // Die Pins auf der Gedächtnisseite eines Agenten.
+    memoryPins: "Einträge im Gedächtnis anheften",
   },
 };

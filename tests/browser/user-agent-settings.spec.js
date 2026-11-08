@@ -34,6 +34,7 @@ const languages = {
     moreNotes: "1 weitere Notiz laden",
     diary: "Traumtagebuch",
     diaryTruncated: /ist 3 MB groß\. Hier stehen nur seine neuesten Einträge/,
+    hermesNight: "Verworfen: Ein angehefteter Eintrag in USER.md wäre verloren gegangen.",
   },
   en: {
     title: "Settings of Lotta",
@@ -59,6 +60,7 @@ const languages = {
     diary: "Dream diary",
     diaryTruncated:
       /is 3 MB\. Only its newest entries are shown here; older ones are cut off\./,
+    hermesNight: "Discarded: a pinned entry in USER.md would have been lost.",
   },
 };
 
@@ -251,6 +253,38 @@ for (const [language, copy] of Object.entries(languages))
       const reader = page.getByRole("dialog", { name: copy.diary });
       await expect(reader.getByText("A calm night.")).toBeVisible();
       await expect(reader.getByText(copy.diaryTruncated)).toBeVisible();
+    });
+
+    test("a Hermes dream diary reads in her language", async ({ page }) => {
+      await userAppFixture(page, {
+        language,
+        memory: {
+          lotta: {
+            files: [{ name: "DREAMS.md", diary: true, size: 300 }],
+            contents: { "DREAMS.md": "" },
+            entries: {
+              "DREAMS.md": [
+                {
+                  at: "2026-11-07T03:05:00.000Z",
+                  night: "2026-11-07",
+                  outcome: "discarded",
+                  reason: "pinLost",
+                  file: "USER.md",
+                  counts: null,
+                  chars: null,
+                  summary: "",
+                },
+              ],
+            },
+          },
+        },
+      });
+      await page.goto(baseURL + "/agents/lotta/settings");
+      await page.getByRole("button", { name: new RegExp(copy.memory) }).click();
+      await page.getByText(copy.diary, { exact: true }).click();
+      const reader = page.getByRole("dialog", { name: copy.diary });
+      await expect(reader.locator("pre")).toContainText("2026-11-07");
+      await expect(reader.locator("pre")).toContainText(copy.hermesNight);
     });
 
     test("a shared agent stays the owner's at every level", async ({ page }) => {
