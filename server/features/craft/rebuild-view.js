@@ -147,9 +147,15 @@ const viewKeys = [
   "questions",
 ];
 
-/** The RebuildView of a stored record (a copy). */
+/**
+ * The RebuildView of a stored record (a copy). `started` tells whether Craft Anything
+ * ever took the rebuild on: only then can it be continued or asked for changes.
+ */
 export function rebuildView(record) {
-  return structuredClone(Object.fromEntries(viewKeys.map((key) => [key, record[key]])));
+  return structuredClone({
+    ...Object.fromEntries(viewKeys.map((key) => [key, record[key]])),
+    started: !!record.craftProject,
+  });
 }
 
 /** Whether the owner would see a difference between two records. */

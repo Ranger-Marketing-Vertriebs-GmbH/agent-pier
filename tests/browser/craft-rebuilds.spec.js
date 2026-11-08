@@ -3,6 +3,7 @@ import { baseURL } from "../helpers/browser.js";
 import {
   craftRebuildsFixture,
   readyId,
+  rebuild,
   startedId,
   waitingId,
 } from "./craft-rebuilds-fixture.js";
@@ -145,6 +146,31 @@ test("asks a ready rebuild for changes", async ({ page }) => {
   expect(callsTo(state, "/follow-up").map((call) => call.body)).toEqual([
     { request: "Add a dark theme" },
   ]);
+});
+
+test("a rebuild that never reached Craft Anything offers no Continue or changes", async ({
+  page,
+}) => {
+  const state = await craftRebuildsFixture(page);
+  const id = "f0f0f0f0-1111-4222-8333-444455556666";
+  state.rebuilds.push(
+    rebuild({
+      id,
+      started: false,
+      name: "lost-start",
+      request: "A start that never reached Craft Anything",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      status: "failed",
+      step: "study",
+    }),
+  );
+  await page.goto(`${baseURL}/craft/${id}`);
+  await expect(page.getByText("Failed", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continue", exact: true })).toHaveCount(
+    0,
+  );
+  await expect(page.getByRole("heading", { name: "Ask for changes" })).toHaveCount(0);
 });
 
 test("saves the owner's defaults", async ({ page }) => {
