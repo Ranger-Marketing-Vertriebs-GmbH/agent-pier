@@ -112,11 +112,14 @@ inventory of the home (`model.options`) and no accounts; sign-ins stay host-wide
 AgentPier. A model switch is a `config.apply` that restarts
 the agent's process set; AgentPier has no per-chat model. The key never appears in `config.yaml`. Hermes
 strips `AUXILIARY_*_API_KEY` and `OPENROUTER_API_KEY` from every command and process it
-starts, so the agent's own commands do not see the key. A model that accepts images sets
-`agent.image_input_mode: native` and `model.supports_vision: true`: Hermes hands a
-tool's images (a PDF's pages, [PDFs](#pdfs); a project image) and a turn's attached
-images ([attached images](#attached-images)) only to a model it knows sees them, and its
-catalog does not know a custom endpoint's models (`agent/image_routing.py`).
+starts, so the agent's own commands do not see the key. A model AgentPier knows accepts
+images (an endpoint model that declares it, an OpenRouter model whose catalog lists image
+input, a ChatGPT login) sets `agent.image_input_mode: native` and
+`model.supports_vision: true`: Hermes hands a tool's images (a PDF's pages,
+[PDFs](#pdfs); a project image) and a turn's attached images
+([attached images](#attached-images)) only to a model it knows sees them, and its own
+lookup does not know a custom endpoint's models and may miss an OpenRouter model
+(`agent/image_routing.py`). Any other model gets no mode: Hermes's own lookup decides.
 
 ### Practical defaults
 
@@ -173,22 +176,44 @@ set.
 ### Attached images
 
 Images the owner attaches in the chat or sends as Telegram photos reach a Hermes agent's
-model inline, as an OpenClaw agent's: AgentPier picks them as for OpenClaw
-(`agent-attachments.js` `delivery`: PNG, JPEG, GIF and WebP, at most 6 MiB each and
-15 MiB per message, never HEIC, nothing for a model that takes no images), and the turn's
-text still names each saved copy in `attachments/` for the agent's tools. The sessions
-sub-port (`hermes-inline-images.js`) stages each image with the gateway's
-`image.attach_bytes` (`gateway/session_images.py`, below the home's `cache/images/`) and
-names them in the turn's `prompt.submit` as `attachments: [{ path, mime }]`; the gateway
+model inline, as an OpenClaw agent's, while its home takes images natively
+(`image_input_mode: native` above, home.js `nativeImages`). AgentPier picks them as for
+OpenClaw (`agent-attachments.js` `delivery`: PNG, JPEG, GIF and WebP, at most 6 MiB
+each and 15 MiB per message, never HEIC), and the turn's text still names each saved
+copy in `attachments/` for the agent's tools. Another home gets the text only: in
+Hermes's other mode the gateway would describe each image with an extra vision call
+before the turn and put those notes before the owner's words
+(`gateway/run_inbound.py` `_enrich_message_with_vision`), which OpenClaw never does.
+
+The sessions sub-port (`hermes-inline-images.js`) stages each image with the gateway's
+`image.attach_bytes` (`gateway/session_images.py`, into the home's `cache/images/`)
+within one call's time in all, so the send holds AgentPier's admission no longer than
+a turn without images, and only then submits: a staging failure (no answer, or a
+refusal other than one image's `invalid_params`) submits nothing and fails the turn at
+once. `prompt.submit` names the images as `attachments: [{ path, mime }]`; the gateway
 commits their bytes with the admission (`gateway/session_ingress_media.py`
-`admit_attachments`, at most 10), so a retried submission runs the same images. A model
-Hermes knows sees images (`agent.image_input_mode: native`, `model.supports_vision`)
-gets them as image parts after the text and a line `[Image attached at: <path>]` per
-image (`agent/image_routing.py` `build_native_content_parts`); an image Hermes refuses
-is left out, and the text still names its file. Hermes stores those lines (and a
-`[screenshot]` placeholder per image in the row's text) with the owner's row; the
-history read drops them again (`sentText`), so the chat shows the owner's words with
-the files and replies stay attributed to their runs.
+`admit_attachments`, into `cache/documents/native-inputs/`, at most 10), so a retried
+submission runs the same images. The model gets them as image parts after the text and
+a line `[Image attached at: <path>]` per image (`agent/image_routing.py`
+`build_native_content_parts`); an image Hermes refuses is left out, and the text still
+names its file.
+
+Hermes stores those lines with the owner's row, and in the row's text a `[screenshot]`
+placeholder per image. The history read drops exactly these again (`sentText`): only
+lines naming files of the agent's own `HERMES_HOME/cache/`, after a blank line, with no
+placeholder or one per image; and the notes of the description mode, which end in
+such a path. The chat then shows the owner's words with the files, and replies stay
+attributed to their runs. The owner's own words never match, as they name no file of
+that folder.
+
+On an agent shared with users each chat is private to its person, but these caches
+hold every chat's images. Its file and vision tools therefore read nothing in its
+`HERMES_HOME` or its `HOME`, and search no folder that holds them: the team plugin
+asks the bridge before every `read_file`, `search_files` and `vision_analyze` of such
+an agent (`privateFolders` in `tools.json`), and `hermes-home-guard.js` refuses
+those. An OpenClaw agent reads only its workspace (`tools.fs.workspaceOnly`). An agent
+not shared with users serves only the owner's chats, which may read each other's
+attachments on OpenClaw too, so its reads stay Hermes's own.
 
 ### Web search
 
@@ -445,7 +470,8 @@ The `agentpier-team` profile plugin carries both parts of the OpenClaw team plug
 - **Guard.** A `pre_tool_call` hook asks the bridge (`/hermes-guard`,
   `hermes-tool-guard.js`) before a team member's `write_file` or `patch`, before a file
   call (`read_file`, `search_files`, `vision_analyze`, the writes) whose arguments name
-  `attachments/` or `.agentpier/`, before every browser call and before every
+  `attachments/` or `.agentpier/` (on an agent shared with users, before every read:
+  [attached images](#attached-images)), before every browser call and before every
   `image_generate` ([images](#images)); AgentPier's `pdf` tool asks it at each call
   ([PDFs](#pdfs)). It applies the
   OpenClaw guard's rules (`team-plugin/tool-guard.js`, `secrets-guard.js`): an
