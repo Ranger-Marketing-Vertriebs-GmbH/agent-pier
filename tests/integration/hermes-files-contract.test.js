@@ -99,7 +99,7 @@ test(
     );
     // Hermes's limit holds for the owner too, and the file stays as it was.
     await assert.rejects(
-      files.set({ agentId, name: "USER.md", content: "x".repeat(1376) }),
+      files.set({ agentId, name: "USER.md", content: "x".repeat(5001) }),
       (error) => error.code === "TOO_LARGE",
     );
     assert.match((await files.get({ agentId, name: "USER.md" })).file.content, /tea/);

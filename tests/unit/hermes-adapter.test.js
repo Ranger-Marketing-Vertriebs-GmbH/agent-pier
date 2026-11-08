@@ -429,3 +429,16 @@ test("a memory review is Hermes's one-shot call outside any session", async () =
     max_tokens: 4000,
   });
 });
+
+test("a dream asks the one-shot with more room", async () => {
+  const { peer, sessions } = await scripted(() => ({ text: "{}" }));
+  await sessions.reviewMemory({
+    agentId,
+    instructions: "Dream.",
+    input: "=== MEMORY.md",
+    maxTokens: 8000,
+  });
+  const call = peer.frames.at(-1);
+  assert.equal(call.method, "llm.oneshot");
+  assert.equal(call.params.max_tokens, 8000);
+});

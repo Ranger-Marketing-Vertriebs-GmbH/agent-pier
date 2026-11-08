@@ -77,10 +77,11 @@
  *   - backgroundRunning({ key }): whether the session still runs background work.
  *   - title({ agentId, message, reply }): `{ title }`, a chat title the agent's own
  *     model proposes from a message and its reply, outside any session.
- *   - reviewMemory({ agentId, instructions, input }): `{ text }`, one answer of the
- *     agent's own (just switched) model to `instructions` as the system prompt and
- *     `input` as the only user message, outside any session and chat history, with no
- *     tools (memory-review.js).
+ *   - reviewMemory({ agentId, instructions, input, maxTokens = 4000 }): `{ text }`,
+ *     one answer of the agent's own (just switched) model to `instructions` as the
+ *     system prompt and `input` as the only user message, outside any session and
+ *     chat history, with no tools (memory-review.js, and Hermes's nightly dream,
+ *     hermes-dream.js). `maxTokens` bounds the answer; OpenClaw ignores it.
  *   - on(connection): the same methods (without `on`) bound to a handle of
  *     host.connection(): while it is current they act as above; once the runtime
  *     replaced that connection they reject (code "UNAVAILABLE", status 503) and the
