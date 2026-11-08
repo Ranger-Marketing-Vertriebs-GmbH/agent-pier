@@ -229,8 +229,11 @@ Memory search looks for the query's words in the entries of both files; Hermes's
 `session_search` covers past chats, not memory.
 
 The agent keeps its memory with Hermes's `memory` tool and Hermes's background review
-after a turn (`memory.write_approval` stays off, Hermes's default). AgentPier's memory
-step before a chat summary is OpenClaw's: AgentPier's write guard never sees a Hermes
+after a turn. Its instructions (`SOUL.md`, **Memory**) tell it so: save to the `memory`
+and `user` stores, always when someone asks it to remember something, and keep entries
+short; they never name AgentPier's memory files or a read-only memory. Hermes's review
+writes without asking (`memory.write_approval` stays off, Hermes's default). AgentPier's
+memory step before a chat summary is OpenClaw's: AgentPier's write guard never sees a Hermes
 agent's writes, so Hermes agents skip it (`memory-step.js`). Notes below `memory/` and
 the Dream Diary are OpenClaw's and stay empty for a Hermes agent.
 

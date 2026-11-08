@@ -114,7 +114,7 @@ test("bootstrap tells the agent not to store its own refusals", () => {
     "- Do not record your own refusals or limits you set yourself as rules or notes; record the owner's rules, decisions and facts.";
   // Also the guidance of an agent on its own process (Hermes), whose memory AgentPier
   // does not write.
-  for (const options of [{}, { memoryWritable: false }])
+  for (const options of [{}, { memoryWritable: false }, { memoryKind: "hermes" }])
     assert.ok(assistantBootstrap(memoryOn, {}, options).includes(sentence));
   assert.ok(!assistantBootstrap(assistant, {}).includes(sentence), "no memory, no line");
   assert.match(memoryStepText, /Do not record your own refusals or limits/);
@@ -134,6 +134,24 @@ test("memory on without writes: the agent is told memory is read-only right now"
     assistantBootstrap(assistant, {}, { memoryWritable: false }),
     /read-only right now/,
     "no memory, no note",
+  );
+});
+
+test("a Hermes agent keeps memory with its memory tool, never read-only or in files", () => {
+  const text = assistantBootstrap(memoryOn, {}, { memoryKind: "hermes" });
+  assert.match(text, /## Memory/);
+  assert.match(text, /memory tool/);
+  assert.match(text, /`memory` store/);
+  assert.match(text, /`user` store/);
+  assert.match(text, /explicitly asks you to remember something, always save it/);
+  assert.doesNotMatch(text, /read-only right now/);
+  assert.doesNotMatch(text, /nothing can be saved/);
+  assert.doesNotMatch(text, /memory\/YYYY-MM-DD\.md/);
+  assert.doesNotMatch(text, /write or edit tool/);
+  assert.doesNotMatch(
+    assistantBootstrap(assistant, {}, { memoryKind: "hermes" }),
+    /## Memory/,
+    "no memory, no section",
   );
 });
 
