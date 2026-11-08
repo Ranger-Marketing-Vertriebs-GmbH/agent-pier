@@ -113,6 +113,7 @@ test("all six steps create the agent, its grants and routine, then its chat", as
     "update",
     "work",
     "channel",
+    "update",
     "routine",
   ]);
   const create = sent[0][1];
@@ -125,12 +126,14 @@ test("all six steps create the agent, its grants and routine, then its chat", as
     capabilities: { browser: true, webSearch: true, readPdfs: false },
   });
   expect(sent[2][1].access).toMatchObject({ revision: 11, projectIds: ["p1"] });
-  expect(sent[4][1]).toMatchObject({
+  // Check-ins are on by default, every 30 minutes.
+  expect(sent[4][1].heartbeat).toMatchObject({ enabled: true, interval: "30m" });
+  expect(sent[5][1]).toMatchObject({
     name: "Daily overview",
     prompt: "Sum up the news",
     trigger: { kind: "cron", expr: "30 8 * * *" },
   });
-  expect("telegram" in sent[4][1]).toBe(false);
+  expect("telegram" in sent[5][1]).toBe(false);
 });
 
 test("a failed step keeps the agent, lists ✓/✕ and retries only on request", async ({
@@ -148,18 +151,20 @@ test("a failed step keeps the agent, lists ✓/✕ and retries only on request",
   await next(page);
   await page.getByRole("button", { name: "Create agent", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText(
-    "Scout is created. 1 of 2 steps did not work.",
+    "Scout is created. 1 of 3 steps did not work.",
   );
   const failed = page.locator(".agent-wizard-step-failed");
   await expect(failed).toContainText("Connect Telegram");
   await expect(failed).toContainText("Bot token invalid");
-  await expect(page.locator(".agent-wizard-step-done")).toContainText("Agent created");
+  await expect(
+    page.locator(".agent-wizard-step-done").filter({ hasText: "Agent created" }),
+  ).toBeVisible();
   // Nothing is sent again on its own.
   await page.waitForTimeout(300);
   expect(sent.filter(([name]) => name === "channel")).toHaveLength(1);
   await failed.getByRole("button", { name: "Try again" }).click();
   await expect(page.locator(".agent-wizard-step-failed")).toHaveCount(0);
-  expect(sent.map(([name]) => name)).toEqual(["create", "channel", "channel"]);
+  expect(sent.map(([name]) => name)).toEqual(["create", "channel", "update", "channel"]);
   await page.getByRole("button", { name: "Open chat", exact: true }).click();
   await expect(page).toHaveURL(/\/agents\/fresh\/chats\/fresh-chat$/);
 });
@@ -301,7 +306,13 @@ test("duplicate prefills the copy and sends its grants", async ({ page }) => {
   await page.getByRole("button", { name: "Create agent", exact: true }).click();
   await expect(page).toHaveURL(/\/agents\/fresh\/chats\/fresh-chat$/);
   // The team policy comes along as its own step (5.3.1).
-  expect(sent.map(([name]) => name)).toEqual(["create", "update", "work", "work"]);
+  expect(sent.map(([name]) => name)).toEqual([
+    "create",
+    "update",
+    "work",
+    "work",
+    "update",
+  ]);
   expect(sent[3][1].team).toMatchObject({
     revision: 1,
     maxMembers: 4,

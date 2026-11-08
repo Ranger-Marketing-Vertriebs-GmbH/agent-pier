@@ -157,7 +157,9 @@ the left on a computer and one per screen with a progress bar on a phone; **Back
    wizard.
 5. **Channels & routines** (optional): a Telegram bot token (pair your private chat
    afterwards), **Check in on its own** and a first daily routine. Hooks are created
-   after the agent exists, because creating one reveals a secret.
+   after the agent exists, because creating one reveals a secret. **Check in on its
+   own** is on by default, every 30 minutes from 09:00 to 18:00, when the profile
+   keeps **Remember information** on; switch it off here if you do not want it.
 6. **Review:** every choice, open prerequisites (for example a missing web search
    provider) and **Create agent**.
 

@@ -143,8 +143,18 @@ test("duplicate copies exactly the fields of 5.3.1 and nothing else", () => {
 
 test("the plan follows the draft; agents of users keep only folders and MCP", () => {
   const d = { ...emptyDraft(), name: "A", connectionId: "c", modelId: "m" };
-  assert.deepEqual(creationPlan(d), ["create", "capabilities"]);
-  assert.deepEqual(creationPlan({ ...d, ...profileSwitches("talk") }), ["create"]);
+  // Check-ins are on by default, every 30 minutes; they need memory.
+  assert.equal(d.heartbeatInterval, "30m");
+  assert.deepEqual(creationPlan(d), ["create", "capabilities", "heartbeat"]);
+  assert.deepEqual(creationPlan({ ...d, heartbeatEnabled: false }), [
+    "create",
+    "capabilities",
+  ]);
+  assert.deepEqual(creationPlan({ ...d, ...profileSwitches("talk") }), [
+    "create",
+    "heartbeat",
+  ]);
+  assert.deepEqual(creationPlan({ ...d, memory: false }), ["create", "capabilities"]);
   const full = {
     ...d,
     projectIds: ["p"],
@@ -247,6 +257,7 @@ test("a failed later step keeps the agent; retry repeats only that step", async 
       capabilities: "done",
       access: "done",
       telegram: "failed",
+      heartbeat: "done",
       routine: "done",
     },
   );

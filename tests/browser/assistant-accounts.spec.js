@@ -125,6 +125,12 @@ test("the sign-in works while the agent service is offline and a selected ChatGP
     saved = route.request().postDataJSON();
     await route.fulfill({ json: { ...saved, id: "new", revision: 1 } });
   });
+  // The wizard's default check-ins save on the created agent.
+  await page.route("**/api/assistants/new", (route) =>
+    route.request().method() === "PATCH"
+      ? route.fulfill({ json: { ...saved, id: "new", revision: 2 } })
+      : route.fallback(),
+  );
   // A created agent opens its first chat.
   await page.route("**/api/assistants/new/conversations", (route) =>
     route.request().method() === "POST"
