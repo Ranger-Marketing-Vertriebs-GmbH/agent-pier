@@ -1,0 +1,90 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {
+  rebuildStatus,
+  rebuildStep,
+  sampledFields,
+} from "../../server/features/craft/rebuild-view.js";
+
+test("Craft Anything's statuses map to a rebuild's status", () => {
+  const table = [
+    ["building", true, "building"],
+    ["needs_you", true, "needs_you"],
+    ["ready", false, "ready"],
+    ["stopped", false, "paused"],
+    ["checking", true, "checking"],
+    ["failed", false, "failed"],
+    ["build_error", false, "failed"],
+    ["something_new", true, "building"],
+    ["something_new", false, "paused"],
+    [undefined, false, "paused"],
+  ];
+  for (const [craft, running, status] of table)
+    assert.equal(rebuildStatus(craft, running), status, `${craft} running=${running}`);
+});
+
+test("the step follows the status and note", () => {
+  const table = [
+    ["ready", "All done", "ready"],
+    ["checking", null, "check"],
+    ["starting", null, "study"],
+    ["building", "Building the first version…", "build"],
+    ["building", "Studying the target", "study"],
+    ["building", "Capturing the page", "study"],
+    ["building", "Comparing with the target", "check"],
+    ["needs_you", "Which colour?", "build"],
+    ["paused", null, "build"],
+  ];
+  for (const [status, note, step] of table)
+    assert.equal(rebuildStep(status, note), step, `${status} ${note}`);
+});
+
+test("a sample becomes the view's fields", () => {
+  const fields = sampledFields(
+    {
+      running: true,
+      queued: false,
+      status: "needs_you",
+      status_label: "Needs you",
+      note: "Which colour?",
+      waiting: 1,
+      last_check: { similarity: 0.82 },
+    },
+    {
+      status: "needs_you",
+      checks: [{ name: "build", passed: true }],
+      usage: { input_tokens: 10, output_tokens: 5, cost_usd: 0.01 },
+      last_reply: "Hi",
+      questions: [
+        {
+          id: "q1",
+          kind: "question",
+          title: "Which colour?",
+          choices: ["Red"],
+          allow_text: true,
+        },
+        { id: "q2", kind: "approval", title: "Run?", action: "npm install" },
+      ],
+    },
+  );
+  assert.equal(fields.running, true);
+  assert.equal(fields.status, "needs_you");
+  assert.equal(fields.statusLabel, "Needs you");
+  assert.equal(fields.similarity, 0.82);
+  assert.deepEqual(fields.usage, { inputTokens: 10, outputTokens: 5, costUsd: 0.01 });
+  assert.equal(fields.lastReply, "Hi");
+  assert.deepEqual(fields.questions[0], {
+    id: "q1",
+    kind: "question",
+    title: "Which colour?",
+    detail: "",
+    choices: ["Red"],
+    allowText: true,
+    action: null,
+  });
+  assert.equal(fields.questions[1].kind, "approval");
+  assert.equal(fields.questions[1].action, "npm install");
+  const stopped = sampledFields({ running: false, status: "stopped" }, {});
+  assert.equal(stopped.status, "paused");
+  assert.deepEqual(stopped.questions, []);
+});
