@@ -42,8 +42,10 @@ const defaultDarwinMajor = () =>
  * managed stdio MCP row bound to Claude Code (always `--restricted`), its config
  * pinned to AgentPier's keys and, when wanted, the Ghidra and JDK it shares with REA.
  * One job runs at a time, as with ReaTool. Hooks the wiring assigns: `inUse` (a
- * session runs the row), `onChange` (state changed) and `keepsGhidra` (the other tool
- * wants Ghidra, so it is never removed here).
+ * session runs the row), `onChange` (state changed), `keepsGhidra` (the other tool
+ * wants Ghidra, so it is never removed here), `othersUseGhidra` (the other tool's
+ * session runs Ghidra, so it is neither removed nor replaced) and `othersBusy` (the
+ * other tool's job runs, so no job starts here).
  */
 export class CraftTool {
   constructor({
@@ -84,6 +86,8 @@ export class CraftTool {
     this.inUse = async () => false;
     this.onChange = null;
     this.keepsGhidra = () => false;
+    this.othersUseGhidra = async () => false;
+    this.othersBusy = () => false;
     this.jobCount = 0;
     this.job = null;
     this.controller = null;
@@ -238,7 +242,7 @@ export class CraftTool {
     }
   }
   requireIdle() {
-    if (this.job || this.claimed) throw refuse(messages.busy);
+    if (this.job || this.claimed || this.othersBusy()) throw refuse(messages.busy);
   }
   /** Refuses (409) while a session runs Craft Anything; holds the job slot meanwhile. */
   async requireUnused(when) {
@@ -349,7 +353,7 @@ export class CraftTool {
     await this.placeBinary(update, signal);
     const id = await this.placeRow(settings, source);
     this.progress("environment", messages.configuring);
-    this.writeConfig();
+    this.writeConfig(components);
     this.save(components, settings);
     this.progress("skills", messages.copyingSkill);
     await this.syncSkills(id);
@@ -357,7 +361,7 @@ export class CraftTool {
   /** Places or removes the shared Ghidra and JDK; never removes what the other keeps. */
   async placeGhidraParts(components, update, signal) {
     if (!components.ghidra) {
-      if (!this.ghidraGoes(components)) return;
+      if (!this.ghidraGoes(components) || (await this.othersUseGhidra())) return;
       this.progress("ghidra", messages.removing("Ghidra"));
       await removeReaComponent(this.root, "rea-ghidra");
       await removeReaComponent(this.root, "rea-jdk");
@@ -368,6 +372,8 @@ export class CraftTool {
       manifest: this.reaManifest,
       host: this.reaHost(),
       update,
+      // REA's session runs the installed version: no replacing it now.
+      keep: update && (await this.othersUseGhidra()),
       signal,
       fetchImpl: this.fetchImpl,
       run: this.run,
@@ -448,11 +454,14 @@ export class CraftTool {
       );
     this.servers.managed.setLockedEnv(id, [...craftManagedKeys]);
   }
-  /** Rewrites AgentPier's keys in config.toml: the shared Ghidra, else the stub. */
-  writeConfig() {
+  /**
+   * Rewrites AgentPier's keys in config.toml: the shared Ghidra when Craft Anything
+   * wants it (`components`, the stored choice by default), else the stub.
+   */
+  writeConfig(components = this.stored().components) {
     const stub = ensureGhidraStub(this.dataDir);
-    const ghidra = this.component("rea-ghidra");
-    const jdk = this.component("rea-jdk");
+    const ghidra = components.ghidra ? this.component("rea-ghidra") : null;
+    const jdk = components.ghidra ? this.component("rea-jdk") : null;
     const both = !!ghidra && !!jdk;
     writeCraftConfig(sessionsConfigDir(this.dataDir), {
       ghidra: both ? ghidra : null,
