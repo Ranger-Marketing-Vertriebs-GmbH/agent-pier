@@ -5,6 +5,14 @@ const refuse = (reason) => ({ allow: false, reason });
 const account = (connectionId) => connectionId.startsWith("openclaw:");
 
 /**
+ * The identity of a PDF fallback selection (`{ connectionId, modelId }`): a Hermes
+ * home carries the one it was compiled with, and its pdf tool sends a PDF to that
+ * fallback only while reader() names the same one.
+ */
+export const pdfFallbackId = (selection) =>
+  selection ? `${selection.connectionId}\n${selection.modelId}` : null;
+
+/**
  * AgentPier's answer to the plugin's pdf hook (tool-guard.js pdfCall): which model
  * reads this agent's PDF. OpenClaw takes a PDF model only from the global
  * agents.defaults.pdfModel (verified on 2026.10.7), so the guard sets `model` on every
@@ -100,9 +108,18 @@ export class PdfPolicy {
       return null;
     }
   }
-  /** The Hermes pdf tool's answer: `{ allow: true, reader }` or a refusal. */
+  /**
+   * The Hermes pdf tool's answer: `{ allow: true, reader }`, with `fallback`, the
+   * fallback's identity (pdfFallbackId), when it reads; or a refusal.
+   */
   async reader(input) {
-    const answer = await this.decide(input, this.fallback() ? "fallback" : null);
-    return answer.allow ? { allow: true, reader: answer.reader } : answer;
+    const fallback = pdfFallbackId(this.fallback());
+    const answer = await this.decide(input, fallback);
+    if (!answer.allow) return answer;
+    return {
+      allow: true,
+      reader: answer.reader,
+      ...(answer.reader === "fallback" && { fallback }),
+    };
   }
 }

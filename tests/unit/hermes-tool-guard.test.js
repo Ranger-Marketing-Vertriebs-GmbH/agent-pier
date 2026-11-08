@@ -6,6 +6,7 @@ import path from "node:path";
 import { hermesGuard } from "../../server/features/assistants/hermes-tool-guard.js";
 import { attachHermesFleet } from "../../server/features/assistants/runtimes/runtime-for.js";
 import { HermesFleet } from "../../server/features/assistants/runtimes/hermes/hermes-fleet.js";
+import { secretsRefusal } from "../../server/features/assistants/team-plugin/secrets-guard.js";
 import {
   attachmentRefusal,
   browserRefusals,
@@ -277,6 +278,37 @@ test("a pdf call reads files of the agent's own folder with the model AgentPier 
       { agentId: "ap-m1", sessionKey: "agent:ap-m1:hermes:s1", files: ["other.pdf"] },
     ],
   ]);
+  // A link inside its folder that points at an attachment counts as that attachment.
+  fs.mkdirSync(path.join(workspace, "attachments"), { recursive: true });
+  fs.writeFileSync(path.join(workspace, "attachments", "other.pdf"), "%PDF-1.4\n");
+  fs.symlinkSync(
+    path.join(workspace, "attachments", "other.pdf"),
+    path.join(workspace, "docs/l.pdf"),
+  );
+  assert.deepEqual(await hermesGuard(bridge, pdf({ pdf: "docs/l.pdf" })), {
+    allow: false,
+    message: attachmentRefusal,
+  });
+  // A hook run without the hook's Secrets switch reads no secrets, also as a PDF.
+  bridge.assistants.routines = {
+    hooks: {
+      events: { byJob: () => ({ id: "e1" }) },
+      secretsRead: () => ({ allow: false }),
+    },
+  };
+  const hook = { sessionKey: "agent:ap-m1:hermes:cron:job1:s1" };
+  assert.deepEqual(await hermesGuard(bridge, pdf({ pdf: ".agentpier/x.pdf" }, hook)), {
+    allow: false,
+    message: secretsRefusal,
+  });
+  delete bridge.assistants.routines;
+  // The fallback's identity reaches the tool, which compares it with its own.
+  answer = { allow: true, reader: "fallback", fallback: "c1\nm1" };
+  assert.deepEqual(await hermesGuard(bridge, pdf({ pdf: "docs/a.pdf" })), {
+    allow: true,
+    reader: "fallback",
+    fallback: "c1\nm1",
+  });
   // The policy's refusals reach the model as OpenClaw's pdf hook words them.
   answer = { allow: false, reason: "notGranted" };
   assert.deepEqual(await hermesGuard(bridge, pdf({ pdf: "docs/a.pdf" })), {

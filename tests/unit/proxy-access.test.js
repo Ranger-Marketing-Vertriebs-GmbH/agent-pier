@@ -101,13 +101,17 @@ test("the owner's PDF fallback login serves an agent's pdf tool while it reads P
   agents[0].capabilities = { readPdfs: true };
   let fallback = { connectionId: accountIdOf(otherLogin), modelId: "gpt-5.4" };
   assistants.pdfPolicy = { fallback: () => fallback };
-  assert.equal(access.chatgpt("h-a", otherLogin), true);
+  const responses = { route: "codex/responses" };
+  assert.equal(access.chatgpt("h-a", otherLogin, responses), true);
+  // Only the Responses route the pdf tool calls, nothing else of the login.
+  assert.equal(access.chatgpt("h-a", otherLogin), false);
+  assert.equal(access.chatgpt("h-a", otherLogin, { route: "codex/models" }), false);
   // Never its images endpoints, and never once the owner chose another fallback or
   // the agent may no longer read PDFs.
   assert.equal(access.chatgpt("h-a", otherLogin, { images: true }), false);
   fallback = null;
-  assert.equal(access.chatgpt("h-a", otherLogin), false);
+  assert.equal(access.chatgpt("h-a", otherLogin, responses), false);
   fallback = { connectionId: accountIdOf(otherLogin), modelId: "gpt-5.4" };
   agents[0].capabilities = { readPdfs: false };
-  assert.equal(access.chatgpt("h-a", otherLogin), false);
+  assert.equal(access.chatgpt("h-a", otherLogin, responses), false);
 });

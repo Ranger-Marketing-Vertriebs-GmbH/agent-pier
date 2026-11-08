@@ -38,9 +38,10 @@ const responseDropped = new Set([
 const loginCodes = new Set(["RELOGIN", "LOGIN_MISSING"]);
 
 /**
- * The route handler. `authorize(agentId, profileId, { images })`: whether the agent
- * may still use the login (an agent removed since its credential was minted may
- * not), for its model or, with `images`, to create images.
+ * The route handler. `authorize(agentId, profileId, { images, route })`: whether the
+ * agent may still use the login (an agent removed since its credential was minted
+ * may not), for its model or, with `images`, to create images; `route` is the Codex
+ * path asked for ("codex/responses", …).
  */
 export function chatgptRoute({
   vault,
@@ -54,7 +55,7 @@ export function chatgptRoute({
     const images = imagePaths.test(rest) && req.method === "POST";
     if (!images && (!paths.test(rest) || !["GET", "POST"].includes(req.method)))
       return proxyError(res, 404, "not_found", "Unknown ChatGPT route.");
-    if (!profileId || !(await authorize(agentId, profileId, { images })))
+    if (!profileId || !(await authorize(agentId, profileId, { images, route: rest })))
       return proxyError(
         res,
         403,

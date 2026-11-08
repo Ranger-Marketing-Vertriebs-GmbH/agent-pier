@@ -202,7 +202,11 @@ test("the Codex images endpoints pass through for image creation only", async (t
   assert.equal(request.headers["chatgpt-account-id"], "acct-fixture");
   assert.equal(request.headers["x-codex-image-turn-id"], "turn-1");
   assert.equal((await call("/chatgpt/codex/images/edits", { body: {} })).status, 200);
-  assert.deepEqual(asked, [{ images: true }, { images: true }]);
+  // The access rule hears which Codex route is asked for (proxy-access.js).
+  assert.deepEqual(asked, [
+    { images: true, route: "codex/images/generations" },
+    { images: true, route: "codex/images/edits" },
+  ]);
   // Only POST, and only these two paths.
   assert.equal(
     (await call("/chatgpt/codex/images/generations", { method: "GET" })).status,

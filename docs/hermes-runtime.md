@@ -585,13 +585,20 @@ which stays off (`file_tools.hosted_ocr: false`). The tool takes OpenClaw's argu
 and works like OpenClaw's pdf tool in its extraction mode: PDFium (pypdfium2, which
 the installation provisions, [runtime updates](assistant-runtime-updates.md#hermes-agent-runtime))
 reads the text of at most 20 pages of each PDF of up to 10 MB and renders every page
-with fewer than 200 characters of text as a JPEG image, 4 megapixels shared by all such
-pages and at most 200 dpi.
+with fewer than 200 characters of text as a JPEG image, at most 200 dpi and 4
+megapixels shared by all such pages of one call (OpenClaw shares them within one PDF).
+PDFium is not thread-safe and Hermes runs subagents and chats in threads of one
+process, so the tool opens the file once (never through a link) and reads each PDF in
+a child process of its own with the installation's Python, which gets the bytes but
+none of the agent's keys; a PDF that crashes or stalls PDFium ends that child only.
+Reading all PDFs of a call must finish within 180 seconds, and so must the fallback's
+answer, however slowly it arrives.
 
-Each call first asks the team plugin's guard (`hermes-tool-guard.js` `pdfGuard`):
-only files in the agent's own folder (a relative path from it, also once resolved), no
-web address, no attachment of another chat and its secrets folder only where the run
-may read it, as for `read_file`. Then AgentPier's PDF policy (`pdf-policy.js` `reader`,
+Each call first asks the team plugin's guard (`hermes-tool-guard.js` `pdfGuard`) with
+the file names only (never the password or the prompt): only files in the agent's own
+folder (a relative path from it, also once resolved), no web address, no attachment of
+another chat and its secrets folder only where the run may read it, as for `read_file`,
+judged for the path as written and for the file a link points at. Then AgentPier's PDF policy (`pdf-policy.js` `reader`,
 the decision OpenClaw's pdf hook gets as a model reference) names who reads, with
 OpenClaw's refusals (the agent may not read PDFs now; its own model takes images but is
 unusable):
@@ -607,13 +614,20 @@ reading** (`pdf-model-settings.js`). An agent whose own model takes no images ge
 in its home: in `tools.json` (`pdf.fallback`: Chat Completions URL and model, or the
 model proxy's `<proxy>/chatgpt/codex` for a ChatGPT login AgentPier holds) and its key
 in `.env` as `AUXILIARY_AGENTPIER_PDF_API_KEY`, which Hermes strips from every command
-(for a ChatGPT login the proxy's credential for this agent and login, valid while the
-agent may read PDFs and that login is the fallback, `proxy-access.js`). The tool calls
-it itself, once, never through Hermes's auxiliary client, whose recovery could move the
-request to another provider. A fallback without image input gets the text only, as on
+(for a ChatGPT login the proxy's credential for this agent and login, valid on the
+Codex Responses route only and while the agent may read PDFs and that login is the
+fallback, `proxy-access.js`). An agent whose own model takes images, by the policy's
+own check (also an OpenRouter model, from the catalog), gets neither. The tool calls it
+itself, once, never through Hermes's auxiliary client, whose recovery could move the
+request to another provider, and follows no redirect, which would carry the key to
+another address. A fallback without image input gets the text only, as on
 OpenClaw. Saving the fallback applies every Hermes agent that reads PDFs
-(`web-tools-changes.js`), which restarts only the homes it changed; the policy
-reads the setting as it is now, so a cleared fallback stops reading at once. A fallback
+(`web-tools-changes.js`), which restarts only the homes it changed. The policy reads
+the setting as it is now and names the fallback's identity (connection and model,
+`pdfFallbackId`), which the home carries as `pdf.fallback.id`: while they differ (the
+owner switched the fallback and the apply is pending or failed) the tool reads the
+text only and sends nothing to the old fallback, and a cleared fallback stops reading
+at once. A fallback
 Hermes cannot call (another transport than Chat Completions, a login OpenClaw holds)
 leaves such an agent with the text layer.
 
