@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { publicMessages } from "./conversations.js";
 import { dreamBudget, dreamMessageLimit } from "./hermes-dream-prompt.js";
 
@@ -5,7 +6,8 @@ import { dreamBudget, dreamMessageLimit } from "./hermes-dream-prompt.js";
  * The chats a Hermes agent's nightly dream reads (hermes-dreams.js): every chat of the
  * agent, a shared agent's users' chats included, that is not deleted and was active
  * since the cursor, read through the runtime's sessions.history. Only the people's and
- * the agent's own turns go in, never a turn the runtime made itself.
+ * the agent's own turns go in, never a turn the runtime made itself. Each chat names
+ * its person: the owner, or a user by an opaque label.
  */
 
 /**
@@ -22,6 +24,15 @@ const size = (text) => [...text].length;
 const activitySlackMs = 5 * 60000;
 
 const clip = (text) => [...text].slice(0, dreamMessageLimit).join("");
+
+/** The chat's person for the dream: "owner", or a stable opaque label of its user. */
+export function dreamPerson(conversation) {
+  if (typeof conversation.userId !== "string") return "owner";
+  const hash = createHash("sha256")
+    .update(`${conversation.assistantId}:${conversation.userId}`)
+    .digest("hex");
+  return `user-${hash.slice(0, 8)}`;
+}
 
 const activeSince = (conversation, since) => {
   const at = Date.parse(conversation.lastActivityAt ?? "");
@@ -50,7 +61,8 @@ async function messagesSince(sessions, conversation, since) {
 
 /**
  * The agent's chats since `since` (ms) as the dream's `Chat`s (hermes-dream-prompt.js):
- * `{ chats: [{ channel, messages: [{ role, text, at }] }], until }`. Messages go in
+ * `{ chats: [{ channel, person, messages: [{ role, text, at }] }], until }`, `person`
+ * as dreamPerson names it. Messages go in
  * oldest first across all chats, each clipped to dreamMessageLimit, while fewer than
  * `budget` code points went in before them, and are then grouped by chat in the
  * order of their first message. The cut falls between two times, never inside a
@@ -104,7 +116,11 @@ export async function dreamChats({ store, sessions, assistantId, since, budget }
   const groups = new Map();
   for (const { chat, message } of read.slice(0, end)) {
     if (!groups.has(chat.id))
-      groups.set(chat.id, { channel: chat.channel, messages: [] });
+      groups.set(chat.id, {
+        channel: chat.channel,
+        person: dreamPerson(chat),
+        messages: [],
+      });
     groups.get(chat.id).messages.push(message);
   }
   return { chats: [...groups.values()], until: end ? at(end - 1) : null };
