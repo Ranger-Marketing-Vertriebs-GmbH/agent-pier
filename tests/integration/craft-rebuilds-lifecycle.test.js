@@ -2,7 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import { exists, rebuildsFixture, until } from "../helpers/craft-rebuilds-fixture.js";
+import {
+  exists,
+  fakeTimers,
+  rebuildsFixture,
+  until,
+} from "../helpers/craft-rebuilds-fixture.js";
 
 /** The pids of the processes whose command line mentions `text`. */
 const processesWith = (text) =>
@@ -33,4 +38,22 @@ test("close does not wait for a child that never finishes initialize", async (t)
   assert.ok(took < 3500, `close took ${took} ms`);
   assert.ok(await until(() => !exists(client.pid), 2000), "the child is killed");
   assert.equal((await starting).status, 409);
+});
+
+test("a running rebuild or a live child keeps Craft Anything in use", async (t) => {
+  const timers = fakeTimers();
+  const f = rebuildsFixture(t, { timers, script: { steps: [{ finish: "ready" }] } });
+  assert.equal(f.rebuilds.inUse(), false);
+  const view = await f.rebuilds.start({ request: "Busy" });
+  assert.equal(f.rebuilds.inUse(), true);
+  assert.ok(
+    await until(() => {
+      timers.advance(2000);
+      return f.rebuilds.get(view.id).status === "ready";
+    }),
+  );
+  // Ready, but its child still runs until the idle close.
+  assert.equal(f.rebuilds.inUse(), true);
+  timers.advance(60000);
+  assert.ok(await until(() => !f.rebuilds.inUse()));
 });

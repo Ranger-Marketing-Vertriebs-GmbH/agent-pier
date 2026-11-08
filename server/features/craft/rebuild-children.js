@@ -41,6 +41,11 @@ export class RebuildChildren {
     this.closing = false;
   }
 
+  /** How many children run or start. */
+  get size() {
+    return this.entries.size;
+  }
+
   key(accountId, mode) {
     return `${accountId}\n${mode}`;
   }

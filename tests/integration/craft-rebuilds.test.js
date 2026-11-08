@@ -44,11 +44,11 @@ test("start creates and registers a project, inits git and writes .gitignore", a
   const second = await f.rebuilds.start({ request: "A counter app" });
   assert.equal(second.folder, path.join(f.projectsDir, "A counter app 2"));
   const saved = JSON.parse(
-    fs.readFileSync(path.join(f.dataDir, "craft-anything", "rebuilds.json"), "utf8"),
+    fs.readFileSync(path.join(f.dataDir, "craft-rebuilds", "rebuilds.json"), "utf8"),
   );
   assert.equal(saved.rebuilds.length, 2);
   assert.equal(
-    fs.statSync(path.join(f.dataDir, "craft-anything", "rebuilds.json")).mode & 0o777,
+    fs.statSync(path.join(f.dataDir, "craft-rebuilds", "rebuilds.json")).mode & 0o777,
     0o600,
   );
 });
@@ -296,7 +296,7 @@ test("close fits the shutdown budget when every stop hangs", async (t) => {
 test("a rebuild running at shutdown reads paused after restart", async (t) => {
   const f = rebuildsFixture(t);
   const view = await f.rebuilds.start({ request: "Survive" });
-  const file = path.join(f.dataDir, "craft-anything", "rebuilds.json");
+  const file = path.join(f.dataDir, "craft-rebuilds", "rebuilds.json");
   // A crash: the file still says running, the processes are gone.
   const crashed = fs.readFileSync(file, "utf8");
   assert.equal(JSON.parse(crashed).rebuilds[0].running, true);
@@ -315,7 +315,7 @@ test("a rebuild running at shutdown reads paused after restart", async (t) => {
 test("restore leaves rebuilds this server started alone and announces the paused", async (t) => {
   const f = rebuildsFixture(t);
   const old = await f.rebuilds.start({ request: "Old" });
-  const file = path.join(f.dataDir, "craft-anything", "rebuilds.json");
+  const file = path.join(f.dataDir, "craft-rebuilds", "rebuilds.json");
   const crashed = fs.readFileSync(file, "utf8");
   await f.rebuilds.close();
   fs.writeFileSync(file, crashed);
@@ -395,7 +395,7 @@ test("settings keep the owner's defaults", async (t) => {
     status: 409,
   });
   await assert.rejects(f.rebuilds.saveSettings({ mode: "loud" }), { status: 400 });
-  fs.writeFileSync(path.join(f.dataDir, "craft-anything", "rebuilds.json"), "{broken");
+  fs.writeFileSync(path.join(f.dataDir, "craft-rebuilds", "rebuilds.json"), "{broken");
   assert.equal(f.create().settings().mode, "clean-room");
 });
 
