@@ -15,7 +15,11 @@ files must be the agent's own, and AgentPier names the model that reads them:
 
 Pages are read with PDFium (pypdfium2, which AgentPier installs into this Hermes
 installation): the text of each page, and an image of each page with less than
-`imageText` characters of text, within a pixel budget all such pages share.
+`imageText` characters of text, within a pixel budget all such pages of a call share.
+PDFium is not thread-safe and a hostile PDF may crash or stall it, so each PDF is read
+in a child process of its own (this file run as a script) under a deadline; Hermes
+runs subagents and chats in threads of one process. The tool opens the file itself,
+once, and hands the child its bytes.
 """
 
 import base64
@@ -24,6 +28,9 @@ import json
 import math
 import os
 import re
+import subprocess
+import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -34,12 +41,15 @@ _MISSING = (
     "PDF reading is being installed for this agent. Read the PDF's text with read_file "
     "for now."
 )
+_SLOW = "Reading this PDF took too long. Try fewer pages with pages."
 _DEFAULT_PROMPT = "Analyze this PDF document."
 _INSTRUCTIONS = (
     "You read PDF documents for another assistant. Answer its request from the "
     "document's text and page images. Quote figures and names exactly."
 )
 _LOCAL = ("127.0.0.1", "localhost", "::1")
+# The environment a reading child keeps: never the agent's keys.
+_CHILD_ENV = ("PATH", "PYTHONPATH", "LANG", "LC_ALL", "TMPDIR", "HOME")
 
 
 class Refused(Exception):
@@ -83,6 +93,36 @@ def _resolve(value, folder):
     return target
 
 
+def read_file(path, limit):
+    """The bytes of the regular file `path` (resolved already), opened once and never
+    through a link, refused above `limit` bytes or without a PDF header."""
+    try:
+        handle = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    except OSError:
+        raise Refused("No such file: " + os.path.basename(path))
+    try:
+        stat = os.fstat(handle)
+        if not (stat.st_mode & 0o170000) == 0o100000:
+            raise Refused("No such file: " + os.path.basename(path))
+        if stat.st_size > limit:
+            raise Refused("This PDF is larger than " + str(limit // (1024 * 1024)) + " MB.")
+        chunks, size = [], 0
+        while size <= limit:
+            chunk = os.read(handle, 1024 * 1024)
+            if not chunk:
+                break
+            chunks.append(chunk)
+            size += len(chunk)
+    finally:
+        os.close(handle)
+    data = b"".join(chunks)
+    if len(data) > limit:
+        raise Refused("This PDF is larger than " + str(limit // (1024 * 1024)) + " MB.")
+    if b"%PDF-" not in data[:1024]:
+        raise Refused(os.path.basename(path) + " is not a PDF.")
+    return data
+
+
 def parse_pages(spec, count, limit):
     """1-based page numbers from "1-5,7" (all pages without one), and whether `limit`
     cut the selection short."""
@@ -114,24 +154,16 @@ def _jpeg(image):
     return "data:image/jpeg;base64," + base64.b64encode(out.getvalue()).decode("ascii")
 
 
-def extract(path, settings, pages=None, password=None):
-    """`{ "count", "pages": [{ "page", "text", "image" }], "partial" }`, an image only
-    for a page with too little text, within the shared pixel budget."""
+def extract(data, settings, pages=None, password=None, budget=None):
+    """`{ "count", "pages": [{ "page", "text", "image" }], "partial", "used" }`: an image
+    only for a page with too little text, within `budget` pixels (`used` of them).
+    Runs in the reading child (_child): PDFium is used by one thread only."""
     try:
         import pypdfium2 as pdfium
     except ImportError:
         raise Refused(_MISSING)
-    if not os.path.isfile(path):
-        raise Refused("No such file: " + os.path.basename(path))
-    if os.path.getsize(path) > settings["maxBytes"]:
-        raise Refused(
-            "This PDF is larger than " + str(settings["maxBytes"] // (1024 * 1024)) + " MB."
-        )
-    with open(path, "rb") as handle:
-        if b"%PDF-" not in handle.read(1024):
-            raise Refused(os.path.basename(path) + " is not a PDF.")
     try:
-        document = pdfium.PdfDocument(path, password=password or None)
+        document = pdfium.PdfDocument(data, password=password or None)
     except Exception:
         raise Refused(
             "This PDF cannot be opened"
@@ -145,25 +177,70 @@ def extract(path, settings, pages=None, password=None):
             text = page.get_textpage().get_text_bounded() or ""
             read.append({"page": number, "text": text.strip(), "image": None, "_page": page})
         scans = [entry for entry in read if len(entry["text"]) < settings["imageText"]]
-        budget = settings["pixelBudget"]
+        left = settings["pixelBudget"] if budget is None else budget
+        used = 0
         for index, entry in enumerate(scans):
-            share = budget / (len(scans) - index)
+            share = left / (len(scans) - index)
             width, height = entry["_page"].get_size()
-            scale = min(math.sqrt(share / max(width * height, 1)), settings["maxScale"])
-            if scale <= 0:
+            scale = min(math.sqrt(max(share, 0) / max(width * height, 1)), settings["maxScale"])
+            if scale * min(width, height) < 1:
                 continue
             try:
                 image = entry["_page"].render(scale=scale).to_pil()
             except Exception:
                 # OpenClaw drops a page image that fails and keeps the text.
                 continue
-            budget -= image.width * image.height
+            left -= image.width * image.height
+            used += image.width * image.height
             entry["image"] = _jpeg(image)
         for entry in read:
             del entry["_page"]
-        return {"count": len(document), "pages": read, "partial": partial}
+        return {"count": len(document), "pages": read, "partial": partial, "used": used}
     finally:
         document.close()
+
+
+def _child():
+    # One PDF in this process alone: a JSON line, then the PDF's bytes, on stdin.
+    raw = sys.stdin.buffer.read()
+    head, _, data = raw.partition(b"\n")
+    try:
+        job = json.loads(head.decode("utf-8"))
+        result = {"document": extract(data, job["settings"], job.get("pages"), job.get("password"), job["budget"])}
+    except Refused as refusal:
+        result = {"error": str(refusal)}
+    except Exception:
+        result = {"error": _UNAVAILABLE}
+    sys.stdout.write(json.dumps(result))
+    sys.stdout.flush()
+
+
+def read_pdf(data, settings, pages, password, budget, deadline):
+    """extract() in a child process that must finish before `deadline` (monotonic)."""
+    left = deadline - time.monotonic()
+    if left <= 0:
+        raise Refused(_SLOW)
+    job = {"settings": settings, "pages": pages, "password": password, "budget": budget}
+    env = {name: os.environ[name] for name in _CHILD_ENV if name in os.environ}
+    try:
+        done = subprocess.run(
+            [sys.executable, os.path.abspath(__file__)],
+            input=json.dumps(job).encode("utf-8") + b"\n" + data,
+            capture_output=True,
+            timeout=left,
+            env=env,
+            cwd="/",
+        )
+    except subprocess.TimeoutExpired:
+        raise Refused(_SLOW)
+    try:
+        result = json.loads(done.stdout.decode("utf-8"))
+    except Exception:
+        # A crash (a hostile PDF) ends the child, not the agent.
+        raise Refused(_UNAVAILABLE)
+    if "error" in result:
+        raise Refused(result["error"])
+    return result["document"]
 
 
 def _document_text(name, document):
@@ -196,15 +273,30 @@ def _unread(documents):
     ]
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    # A redirect would carry the key to wherever it points: none is followed.
+    def redirect_request(self, *args, **kwargs):
+        return None
+
+
 def _opener(url):
     host = urllib.parse.urlsplit(url).hostname or ""
     # AgentPier's model proxy on loopback: the host's proxy settings never apply.
     if host in _LOCAL:
-        return urllib.request.build_opener(urllib.request.ProxyHandler({}))
-    return urllib.request.build_opener()
+        return urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect)
+    return urllib.request.build_opener(_NoRedirect)
 
 
-def _send(fallback, path, body, timeout):
+def _lines(response, deadline):
+    # The answer line by line, refused once `deadline` passes, however it trickles.
+    for line in response:
+        if time.monotonic() > deadline:
+            raise Refused(_UNAVAILABLE)
+        yield line
+
+
+def _send(fallback, path, body, deadline):
+    timeout = max(1.0, deadline - time.monotonic())
     headers = {"content-type": "application/json"}
     key = _key()
     if key:
@@ -227,20 +319,20 @@ def _send(fallback, path, body, timeout):
         raise Refused(_UNAVAILABLE)
 
 
-def _chat(fallback, prompt, images, timeout):
+def _chat(fallback, prompt, images, deadline):
     content = [{"type": "text", "text": prompt}] + [
         {"type": "image_url", "image_url": {"url": image}} for image in images
     ]
     body = {"model": fallback["model"], "messages": [{"role": "user", "content": content}]}
-    with _send(fallback, "/chat/completions", body, timeout) as response:
-        answer = json.loads(response.read().decode("utf-8"))
+    with _send(fallback, "/chat/completions", body, deadline) as response:
+        answer = json.loads(b"".join(_lines(response, deadline)).decode("utf-8"))
     text = answer["choices"][0]["message"]["content"]
     if isinstance(text, list):
         text = "".join(part.get("text", "") for part in text if isinstance(part, dict))
     return str(text or "")
 
 
-def _codex(fallback, prompt, images, timeout):
+def _codex(fallback, prompt, images, deadline):
     # The Codex backend of a ChatGPT login, through AgentPier's model proxy: the
     # Responses API, streamed, never stored.
     content = [{"type": "input_text", "text": prompt}] + [
@@ -254,8 +346,8 @@ def _codex(fallback, prompt, images, timeout):
         "store": False,
     }
     parts, done = [], ""
-    with _send(fallback, "/responses", body, timeout) as response:
-        for raw in response:
+    with _send(fallback, "/responses", body, deadline) as response:
+        for raw in _lines(response, deadline):
             line = raw.decode("utf-8").strip()
             if not line.startswith("data:"):
                 continue
@@ -278,11 +370,11 @@ def _codex(fallback, prompt, images, timeout):
     return "".join(parts) or done
 
 
-def _ask_fallback(fallback, prompt, text, images, timeout):
+def _ask_fallback(fallback, prompt, text, images, deadline):
     request = prompt + "\n\n" + text
     images = images if fallback.get("images") else []
     call = _codex if fallback.get("api") == "codex" else _chat
-    answer = call(fallback, request, images, timeout).strip()
+    answer = call(fallback, request, images, deadline).strip()
     if not answer:
         raise Refused(_UNAVAILABLE)
     return answer
@@ -299,14 +391,29 @@ def handler(settings, ask):
                 message = answer.get("message") if isinstance(answer, dict) else None
                 return _error(message or _UNAVAILABLE)
             reader = answer.get("reader")
+            fallback = settings.get("fallback")
+            # The fallback this home was compiled with reads only while it is still
+            # the owner's: after a switch, until the home is applied again, text only.
+            if reader == "fallback" and (
+                not fallback or fallback.get("id") != answer.get("fallback")
+            ):
+                reader = "text"
             prompt = args.get("prompt")
             prompt = prompt.strip() if isinstance(prompt, str) and prompt.strip() else _DEFAULT_PROMPT
             password = args.get("password") if isinstance(args.get("password"), str) else None
+            started = time.monotonic()
+            deadline = started + settings["timeoutS"]
+            files = [
+                (value, read_file(_resolve(value, settings["folder"]), settings["maxBytes"]))
+                for value in _references(args)
+            ]
             documents = []
-            for value in _references(args):
-                document = extract(
-                    _resolve(value, settings["folder"]), settings, args.get("pages"), password
-                )
+            budget = settings["pixelBudget"]
+            for index, (value, data) in enumerate(files):
+                # The call's pixel budget, shared by its PDFs; what one leaves the next get.
+                share = budget / (len(files) - index)
+                document = read_pdf(data, settings, args.get("pages"), password, share, deadline)
+                budget -= document.pop("used", 0)
                 documents.append((value, document))
             if not documents:
                 raise Refused("Give a PDF path as pdf, or several as pdfs.")
@@ -318,7 +425,6 @@ def handler(settings, ask):
                 if entry["image"]
             ]
             unread = _unread(documents)
-            fallback = settings.get("fallback")
             if reader == "own":
                 summary = text + (
                     "\n\n[Page images of " + ", ".join(unread) + " could not be shown here.]"
@@ -333,9 +439,9 @@ def handler(settings, ask):
                     + [{"type": "image_url", "image_url": {"url": image}} for image in images],
                     "text_summary": summary,
                 }
-            if reader == "fallback" and fallback:
+            if reader == "fallback":
                 analysis = _ask_fallback(
-                    fallback, prompt, text, images, settings["timeoutS"]
+                    fallback, prompt, text, images, time.monotonic() + settings["timeoutS"]
                 )
                 return json.dumps({"text": analysis, "model": fallback["label"]})
             if not any(entry["text"] for _, doc in documents for entry in doc["pages"]):
@@ -356,3 +462,7 @@ def handler(settings, ask):
             return _error(_UNAVAILABLE)
 
     return run
+
+
+if __name__ == "__main__":
+    _child()
