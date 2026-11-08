@@ -6,6 +6,7 @@ import {
   toolName,
   toolTimeouts,
 } from "../../../team-plugin/index.js";
+import { pdfToolFile, pdfToolSource } from "./pdf.js";
 
 // The AgentPier team plugin of a Hermes agent (ADR 0006 decision 4): AgentPier's team
 // tools and its tool guard in one Hermes profile plugin (website/docs/user-guide/
@@ -27,7 +28,8 @@ import {
 //   `patch`), before a file call that names the attachments/ or .agentpier/ folder
 //   (`read_file`, `search_files`, `vision_analyze`, the writes) and before every
 //   browser call (`browser_*`) and image creation (`image_generate`); no answer
-//   blocks the call. Invisible subagents (`delegate_task`) run under a session of
+//   blocks the call. AgentPier's pdf tool (pdf.js) asks the same bridge at each call.
+//   Invisible subagents (`delegate_task`) run under a session of
 //   their own; the `subagent_start` hook maps it to the parent's, so the guard judges
 //   a subagent's call as its parent's. Team tools stay with the parent's own session.
 // - Images: a `transform_tool_result` hook (model_tools.py) copies an image Hermes
@@ -304,21 +306,14 @@ def _names_folder(args):
     return "attachments" in text or ".agentpier" in text or "%" in text
 
 
-def _guard(tool_name="", args=None, session_id=None, task_id=None, **_):
-    settings = _read("tools.json")
-    args = args if isinstance(args, dict) else {}
-    browser = tool_name.startswith("browser_") and settings.get("browser")
-    member_write = tool_name in _WRITES and bool(settings.get("guardWrites"))
-    folder = tool_name in _FILES and _names_folder(args)
-    image = tool_name == "image_generate" and bool(settings.get("images"))
-    if not browser and not member_write and not folder and not image:
-        return None
+def _ask(tool_name, args, session_id, task_id, member_write=False):
+    # The bridge's answer for one call, or None when it cannot answer.
     try:
         root = _root(session_id)
         key = _session_key(root, task_id)
         cron = _job(root, task_id)
         earlier = [_session_key(sid) for sid in _segments(root)[1:]] if key and not cron else []
-        answer = _post(
+        return _post(
             "/hermes-guard",
             {
                 "agentId": _read("bridge.json")["agentId"],
@@ -331,7 +326,19 @@ def _guard(tool_name="", args=None, session_id=None, task_id=None, **_):
             10,
         )
     except Exception:
-        answer = None
+        return None
+
+
+def _guard(tool_name="", args=None, session_id=None, task_id=None, **_):
+    settings = _read("tools.json")
+    args = args if isinstance(args, dict) else {}
+    browser = tool_name.startswith("browser_") and settings.get("browser")
+    member_write = tool_name in _WRITES and bool(settings.get("guardWrites"))
+    folder = tool_name in _FILES and _names_folder(args)
+    image = tool_name == "image_generate" and bool(settings.get("images"))
+    if not browser and not member_write and not folder and not image:
+        return None
+    answer = _ask(tool_name, args, session_id, task_id, member_write)
     if isinstance(answer, dict) and answer.get("allow") is True:
         return None
     message = answer.get("message") if isinstance(answer, dict) else None
@@ -410,8 +417,35 @@ def _upload(args, session_id=None, task_id=None, **_):
         return json.dumps({"error": _UNAVAILABLE})
 
 
+def _pdf_tool(pdf):
+    # AgentPier's pdf tool (pdf_tool.py beside this file); every call asks the guard.
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "agentpier_team_pdf_tool", os.path.join(_DIR, "pdf_tool.py")
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.handler(
+        pdf, lambda args, session_id, task_id: _ask("pdf", args, session_id, task_id)
+    )
+
+
 def register(ctx):
     settings = _read("tools.json")
+    pdf = settings.get("pdf")
+    if pdf:
+        ctx.register_tool(
+            name=pdf["name"],
+            toolset="agentpier",
+            schema={
+                "name": pdf["name"],
+                "description": pdf["description"],
+                "parameters": pdf["parameters"],
+            },
+            handler=_pdf_tool(pdf),
+            description=pdf["description"],
+        )
     upload = settings.get("browserUpload")
     if upload:
         ctx.register_tool(
@@ -471,13 +505,14 @@ export function teamTools(agent) {
  * the agent gets neither tools nor the guard; `browser`: whether it uses the browser;
  * `skills`: the built-in skills it gets (skills.js builtInOffered), copied here;
  * `images`: `{ folder }`, the agent's own folder, while it creates images (images.js),
- * which its generated images are copied into before they are shared.
+ * which its generated images are copied into before they are shared; `pdf`: the
+ * pdf tool's settings while it reads PDFs (pdf.js pdfHome).
  * A team member's file changes ask the bridge (guardWrites), as the OpenClaw guard
  * does for every agent; an own agent's stay Hermes's own.
  */
 export function teamPluginFiles(
   agent,
-  { connection, browser = false, skills = [], images = null } = {},
+  { connection, browser = false, skills = [], images = null, pdf = null } = {},
 ) {
   if (!connection?.url || !connection?.token) return null;
   const tools = teamTools(agent).map(({ name, action }) => ({
@@ -497,6 +532,7 @@ export function teamPluginFiles(
     ...(images?.folder && {
       images: { folder: images.folder, share: generatedImagesFolder },
     }),
+    ...(pdf && { pdf }),
   };
   const bridge = {
     url: connection.url,
@@ -513,6 +549,7 @@ export function teamPluginFiles(
     ...skillFiles,
     [`${teamDirectory}/plugin.yaml`]: manifest,
     [`${teamDirectory}/__init__.py`]: source,
+    ...(pdf && { [`${teamDirectory}/${pdfToolFile}`]: pdfToolSource() }),
     [`${teamDirectory}/tools.json`]: `${JSON.stringify(settings, null, 2)}\n`,
     [`${teamDirectory}/bridge.json`]: `${JSON.stringify(bridge, null, 2)}\n`,
   };

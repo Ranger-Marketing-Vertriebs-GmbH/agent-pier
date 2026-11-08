@@ -11,7 +11,9 @@ import { personalCapabilities } from "./native-capabilities.js";
 //   belongs to an active user (if any) and its current model is that ChatGPT login;
 //   the Codex images endpoints only while it may create images now, with that login
 //   as its model or as the one AgentPier chose for its images (model-accounts.js
-//   heldImageLogin).
+//   heldImageLogin). Its Responses route also while the agent may read PDFs and that
+//   login is the owner's PDF fallback now (pdf-policy.js fallback): its pdf tool
+//   reads with it (hermes-config/pdf.js).
 // - ["mcp", serverId, agentId]: the Hermes agent is such an agent and bound to the
 //   server (its own bindings or those it uses through its lead).
 // - ["mcp", serverId, "openclaw"]: the Gateway's one entry (OpenClaw's `mcp.servers`
@@ -53,7 +55,12 @@ export function proxyAccess({ assistants, servers, accountIdOf }) {
       const agent = hermesAgent(agentId);
       if (!agent) return false;
       const model = agent.model?.connectionId === accountIdOf(profileId);
-      if (!images) return model;
+      if (!images)
+        return (
+          model ||
+          (personalCapabilities(agent).readPdfs === true &&
+            assistants.pdfPolicy?.fallback?.()?.connectionId === accountIdOf(profileId))
+        );
       return (
         personalCapabilities(agent).createImages === true &&
         (model ||

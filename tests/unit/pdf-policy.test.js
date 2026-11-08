@@ -137,3 +137,41 @@ test("a task member reads PDFs only with its lead's grant", async () => {
   const denied = fixture({ profiles: [member(false)] }).policy;
   assert.equal((await denied.check({ agentId: "ap-m" })).reason, "notGranted");
 });
+
+test("a Hermes agent's pdf tool learns which model reads, by the owner's setting now", async () => {
+  const { policy, agents } = fixture({ fallback: null });
+  let selection = null;
+  policy.settings = { selection: () => selection };
+  assert.deepEqual(await policy.reader({ agentId: "ap-v", sessionKey: "s" }), {
+    allow: true,
+    reader: "own",
+  });
+  assert.deepEqual(await policy.reader({ agentId: "ap-t" }), {
+    allow: true,
+    reader: "text",
+  });
+  // A fallback saved now reads at once: a save applies the Hermes homes again,
+  // unlike the Gateway's, which waits for its restart.
+  selection = { connectionId: "fb", modelId: "m" };
+  assert.deepEqual(await policy.reader({ agentId: "ap-t" }), {
+    allow: true,
+    reader: "fallback",
+  });
+  assert.equal((await policy.check({ agentId: "ap-t" })).model, "ap-text-1/tx");
+  // The same refusals as OpenClaw's pdf hook.
+  assert.deepEqual(await policy.reader({ agentId: "ap-o" }), {
+    allow: false,
+    reason: "unavailable",
+  });
+  agents[1].capabilities = { readPdfs: false };
+  assert.deepEqual(await policy.reader({ agentId: "ap-t" }), {
+    allow: false,
+    reason: "notGranted",
+  });
+  policy.settings = {
+    selection: () => {
+      throw Error("db");
+    },
+  };
+  assert.equal(policy.fallback(), null);
+});

@@ -7,6 +7,7 @@ import {
   browserRefusals,
   classifyWrite,
   imageRefusals,
+  pdfRefusals,
   writeRefusals,
   writeTargets,
 } from "./team-plugin/tool-guard.js";
@@ -162,10 +163,71 @@ async function imageGuard(bridge, input, agent, args) {
   return deny(imageRefusals[policy?.reason] || imageRefusals.unavailable);
 }
 
+// PDFs a pdf call reads at most, as OpenClaw's pdf tool (hermes-config/pdf.js offers
+// the same limit in the tool's schema).
+const pdfLimit = 10;
+// The PDFs a pdf call names (`pdf` and `pdfs`, as OpenClaw's pdf tool takes them).
+const pdfReferences = (args) => [
+  ...(args.pdf === undefined ? [] : [args.pdf]),
+  ...(args.pdfs === undefined ? [] : Array.isArray(args.pdfs) ? args.pdfs : [null]),
+];
+
+// A pdf call, as OpenClaw's guard judges one (tool-guard.js pdfCall) and as this
+// guard judges a file read: files of the agent's own folder only (a relative path
+// from that folder, where the tool resolves it too), never a web address, its
+// attachments from another chat or its secrets; then the model that reads
+// (pdf-policy.js reader): `{ allow: true, reader }` tells the tool which one.
+async function pdfGuard(bridge, input, agent, args) {
+  const references = pdfReferences(args);
+  if (
+    !references.length ||
+    references.length > pdfLimit ||
+    references.some(
+      (value) => typeof value !== "string" || !value.trim() || scheme(value),
+    )
+  )
+    return deny(pdfRefusals.reference);
+  const folders = rootsOf(bridge, agent);
+  if (!folders) return deny(pdfRefusals.unavailable);
+  const own = folders.workspace;
+  let realOwn = own;
+  try {
+    realOwn = fs.realpathSync(own);
+  } catch {
+    /* No folder yet: every path is judged as spelled. */
+  }
+  const files = [];
+  for (const value of references) {
+    const target = path.resolve(own, value);
+    let real = null;
+    try {
+      real = fs.realpathSync(target);
+    } catch {
+      /* A missing file fails in the tool; its spelled path is judged. */
+    }
+    if (!within(own, target) && !within(realOwn, target))
+      return deny(pdfRefusals.reference);
+    if (real && !within(realOwn, real)) return deny(pdfRefusals.reference);
+    files.push(target);
+  }
+  const refusal = await folderRefusal(bridge, input, agent, {
+    toolName: "pdf",
+    params: { pdfs: files },
+  });
+  if (refusal) return deny(refusal);
+  const policy = await bridge.assistants.pdfPolicy?.reader({
+    agentId: input.agentId,
+    ...(input.sessionKey && { sessionKey: input.sessionKey }),
+  });
+  if (policy?.allow === true) return { allow: true, reader: policy.reader };
+  return deny(pdfRefusals[policy?.reason] || pdfRefusals.unavailable);
+}
+
 /**
  * The Hermes team plugin's guard (runtimes/hermes/hermes-config/team-plugin.js) asks
  * here before a Hermes agent's browser call, before its image_generate call
- * (imageGuard), before a file call that names its
+ * (imageGuard), at each call of AgentPier's pdf tool (pdfGuard), before a file call
+ * that names its
  * attachments/ or secrets folder, and before a team member's file change
  * (`memberWrite`), with the rules the OpenClaw tool guard applies
  * (team-plugin/tool-guard.js): the browser runs on the agent's own AgentPier profile
@@ -214,6 +276,7 @@ export async function hermesGuard(bridge, input) {
       : deny(browserRefusals[policy.reason] || browserRefusals.unavailable);
   }
   if (input.toolName === "image_generate") return imageGuard(bridge, input, agent, args);
+  if (input.toolName === "pdf") return pdfGuard(bridge, input, agent, args);
   const read = readCall(input.toolName, args);
   const call = writeCall(input.toolName, args);
   const refusal = await folderRefusal(bridge, input, agent, read || call || {});

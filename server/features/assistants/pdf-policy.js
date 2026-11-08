@@ -15,10 +15,17 @@ const account = (connectionId) => connectionId.startsWith("openclaw:");
  * but is unusable right now refuses rather than falling back. An agent's own `model` argument
  * is never used. Refs are resolved like the start and a live apply resolve them, so
  * they name the providers the Gateway runs (assistant-models.js transport ids).
+ *
+ * A Hermes agent reads with AgentPier's own `pdf` tool (runtimes/hermes/hermes-config/
+ * pdf.js), which asks reader() through the Hermes guard (hermes-tool-guard.js): the
+ * same decision, named as the reader rather than a Gateway model reference, with the
+ * fallback as the owner's setting names it now (`settings`: pdf-model-settings.js),
+ * since each change applies the Hermes homes that read PDFs.
  */
 export class PdfPolicy {
-  constructor({ assistants }) {
+  constructor({ assistants, settings = null }) {
     this.assistants = assistants;
+    this.settings = settings;
   }
   /** The model reference the Gateway runs `model` ({ connectionId, modelId }) by, or null. */
   async ref(model) {
@@ -47,7 +54,12 @@ export class PdfPolicy {
       return false;
     }
   }
-  async check(input) {
+  /**
+   * `{ allow: true, model, reader }` or a refusal; `reader` is "own" (the agent's own
+   * model, which takes images), "fallback" (`fallback`, a truthy model reference) or
+   * "text" (the agent's own text-only model).
+   */
+  async decide(input, fallback) {
     if (
       !input ||
       typeof input !== "object" ||
@@ -65,11 +77,32 @@ export class PdfPolicy {
     // An own model that takes images reads, or nothing does: while it is unusable the
     // PDF waits rather than reaching the owner's fallback.
     if (this.images(agent.model))
-      return own ? { allow: true, model: own } : refuse("unavailable");
-    // A fallback saved since the start waits for its restart (web-tools-changes.js).
-    const fallback = this.assistants.providerSynchronization?.pdfFallback;
-    if (typeof fallback === "string" && fallback) return { allow: true, model: fallback };
-    if (own) return { allow: true, model: own };
+      return own ? { allow: true, model: own, reader: "own" } : refuse("unavailable");
+    if (fallback) return { allow: true, model: fallback, reader: "fallback" };
+    if (own) return { allow: true, model: own, reader: "text" };
     return refuse("unavailable");
+  }
+  /** OpenClaw's pdf hook: the Gateway model reference that reads, or a refusal. */
+  async check(input) {
+    // A fallback saved since the start waits for its restart (web-tools-changes.js).
+    const started = this.assistants.providerSynchronization?.pdfFallback;
+    const { reader: _reader, ...answer } = await this.decide(
+      input,
+      typeof started === "string" && started ? started : null,
+    );
+    return answer;
+  }
+  /** The owner's fallback selection now (`{ connectionId, modelId }`), or null. */
+  fallback() {
+    try {
+      return this.settings?.selection() ?? null;
+    } catch {
+      return null;
+    }
+  }
+  /** The Hermes pdf tool's answer: `{ allow: true, reader }` or a refusal. */
+  async reader(input) {
+    const answer = await this.decide(input, this.fallback() ? "fallback" : null);
+    return answer.allow ? { allow: true, reader: answer.reader } : answer;
   }
 }

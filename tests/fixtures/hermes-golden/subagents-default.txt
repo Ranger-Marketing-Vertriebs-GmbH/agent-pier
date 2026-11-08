@@ -48,6 +48,8 @@ updates:
   check: false
 security:
   allow_lazy_installs: false
+file_tools:
+  hosted_ocr: false
 telemetry:
   shared_metrics:
     enabled: false

@@ -57,7 +57,8 @@ const isRunning = (availability) => !["disabled", "failed"].includes(availabilit
  *   readMcpInputs) for the agent's bound servers (hermes-config/mcp.js), which a
  *   restart loads: Hermes freezes a session's tools, so neither its config watcher
  *   nor `reload.mcp` reaches the chats already open; `connection`: the team
- *   bridge's (hermes-config/team-plugin.js). Later starts keep all three.
+ *   bridge's (hermes-config/team-plugin.js); `pdfFallback`: the owner's PDF fallback
+ *   connection (hermes-config/pdf.js). Later starts keep them.
  *   Resolves `{ written, restarted }`.
  * - agents: one runtime agent, the set's own: list() names it while ready; create and
  *   update leave the home to config.apply; delete({ deleteFiles }) stops the set and,
@@ -93,6 +94,7 @@ export function createHermesRuntime({
       connection: inputs.connection,
       modelProxy: inputs.modelProxy,
       imageLogin: inputs.imageLogin,
+      pdfFallback: inputs.pdfFallback,
       // The owner's web search settings, once the installation (ddgs) is known.
       web:
         inputs.web && installed
@@ -212,11 +214,12 @@ export function createHermesRuntime({
         web,
         modelProxy,
         imageLogin,
+        pdfFallback,
       }) {
         latest = {
           desired: read,
           strict: !!everyCommand,
-          inputs: { catalog, mcp, connection, web, modelProxy, imageLogin },
+          inputs: { catalog, mcp, connection, web, modelProxy, imageLogin, pdfFallback },
           browser: settings,
         };
         // The agent's shell PATH starts with its GitHub folder and its SSH agent's

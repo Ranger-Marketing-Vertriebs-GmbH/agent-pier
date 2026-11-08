@@ -78,6 +78,15 @@ function keyHeaders(provider) {
  * AgentPier: "modelAccount".
  */
 export function modelSection(connection, { modelProxy } = {}) {
+  const section = baseSection(connection, modelProxy);
+  // Hermes hands a tool's page images (pdf.js) to a model it knows sees them: a
+  // custom endpoint's model is unknown to its catalog unless config.yaml says so
+  // (agent/image_routing.py `_supports_vision_override`).
+  if (section.images) section.section.supports_vision = true;
+  return section;
+}
+
+function baseSection(connection, modelProxy) {
   if (connection?.chatgpt) return chatgptSection(connection.chatgpt, modelProxy);
   const provider = connection?.provider;
   if (!provider) return { unsupported: "modelAccount" };

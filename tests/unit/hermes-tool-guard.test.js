@@ -9,6 +9,7 @@ import { HermesFleet } from "../../server/features/assistants/runtimes/hermes/he
 import {
   attachmentRefusal,
   browserRefusals,
+  pdfRefusals,
   writeRefusals,
 } from "../../server/features/assistants/team-plugin/tool-guard.js";
 
@@ -219,5 +220,72 @@ test("after a compression the guard finds the chat by its earlier segment", asyn
   assert.equal(calls[0][1].sessionKey, "agent:ap-m1:hermes:s1");
   await assert.rejects(hermesGuard(bridge, { ...input, segments: "x" }), {
     key: "invalid",
+  });
+});
+
+test("a pdf call reads files of the agent's own folder with the model AgentPier names", async (t) => {
+  const { bridge, calls, workspace } = guardBridge(t);
+  let answer = { allow: true, reader: "fallback" };
+  bridge.assistants.pdfPolicy = {
+    reader: async (input) => {
+      calls.push(["pdf", input]);
+      return answer;
+    },
+  };
+  fs.mkdirSync(path.join(workspace, "docs"), { recursive: true });
+  fs.writeFileSync(path.join(workspace, "docs", "a.pdf"), "%PDF-1.4\n");
+  const pdf = (args, extra) => ({ ...call("pdf", args), ...extra });
+  assert.deepEqual(await hermesGuard(bridge, pdf({ pdf: "docs/a.pdf" })), {
+    allow: true,
+    reader: "fallback",
+  });
+  assert.deepEqual(calls, [
+    ["pdf", { agentId: "ap-m1", sessionKey: "agent:ap-m1:hermes:s1" }],
+  ]);
+  assert.deepEqual(
+    await hermesGuard(
+      bridge,
+      pdf({ pdfs: [path.join(workspace, "docs/a.pdf"), "docs/new.pdf"] }),
+    ),
+    { allow: true, reader: "fallback" },
+  );
+  // Never a web address, a path outside its folder, or a link out of it.
+  fs.symlinkSync("/etc", path.join(workspace, "out"));
+  for (const args of [
+    { pdf: "https://example.com/a.pdf" },
+    { pdf: "file:///etc/a.pdf" },
+    { pdf: "../m2/a.pdf" },
+    { pdf: "/etc/a.pdf" },
+    { pdf: "out/hosts" },
+    { pdfs: "docs/a.pdf" },
+    { pdfs: Array.from({ length: 11 }, () => "docs/a.pdf") },
+    {},
+  ])
+    assert.deepEqual(await hermesGuard(bridge, pdf(args)), {
+      allow: false,
+      message: pdfRefusals.reference,
+    });
+  // Attachments only from the calling chat, as for read_file.
+  calls.length = 0;
+  assert.deepEqual(await hermesGuard(bridge, pdf({ pdf: "attachments/other.pdf" })), {
+    allow: false,
+    message: attachmentRefusal,
+  });
+  assert.deepEqual(calls, [
+    [
+      "attachments",
+      { agentId: "ap-m1", sessionKey: "agent:ap-m1:hermes:s1", files: ["other.pdf"] },
+    ],
+  ]);
+  // The policy's refusals reach the model as OpenClaw's pdf hook words them.
+  answer = { allow: false, reason: "notGranted" };
+  assert.deepEqual(await hermesGuard(bridge, pdf({ pdf: "docs/a.pdf" })), {
+    allow: false,
+    message: pdfRefusals.notGranted,
+  });
+  answer = null;
+  assert.deepEqual(await hermesGuard(bridge, pdf({ pdf: "docs/a.pdf" })), {
+    allow: false,
+    message: pdfRefusals.unavailable,
   });
 });
