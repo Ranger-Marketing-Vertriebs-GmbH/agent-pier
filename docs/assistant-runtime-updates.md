@@ -603,7 +603,10 @@ it starts, so there is no migration step; a failed validation restores the snaps
 and the previous selection. A native contract (`tests/integration/hermes-update-contract.test.js`)
 updates an agent from the previous release to the pinned one this way, a rollback first
 and then a commit. Runtime retention keeps the installations a selection,
-candidate or backup names.
+candidate or backup names. The owner's advanced settings apply to the Hermes version they were
+approved for ([Hermes runtime](hermes-runtime.md#advanced-settings)): each start writes
+them for the installation it runs, so an activated or rolled-back version they are not
+approved for starts with Hermes's defaults and keeps the values stored.
 
 **Processes.** Each Hermes agent runs as one supervised process set
 (`runtimes/hermes/hermes-supervisor.js`, host sub-port in `hermes-host.js`): the

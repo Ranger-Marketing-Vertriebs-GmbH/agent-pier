@@ -8,6 +8,13 @@ export const assistantAdvancedCopy = {
     "Der Agentendienst läuft gerade nicht. Gespeicherte Änderungen gelten beim nächsten Start.",
   unqualified: (version) =>
     `Die installierte Agentenlaufzeit ${version} ist für diese Einstellungen nicht freigegeben. Gespeicherte Werte bleiben erhalten und gelten wieder, sobald die freigegebene Version läuft.`,
+  hermesRestart:
+    "Hermes-Agenten übernehmen die Einstellungen ohne „Nur OpenClaw“ ebenfalls; eine Änderung startet sie neu.",
+  hermesUnqualified: (version) =>
+    `Hermes Agent ${version} ist für diese Einstellungen nicht freigegeben. Hermes-Agenten starten mit den Standards von Hermes, bis die freigegebene Version läuft.`,
+  openClawOnly: "Nur OpenClaw",
+  openClawOnlyLabel:
+    "Gilt nur für OpenClaw-Agenten; Hermes-Agenten behalten den Standard von Hermes",
   loading: "Einstellungen werden geladen …",
   loadFailed: "Die erweiterten Einstellungen konnten nicht geladen werden.",
   save: "Einstellungen speichern",
@@ -35,7 +42,7 @@ export const assistantAdvancedCopy = {
     },
     thinkingDefault: {
       label: "Denkstufe",
-      help: "Wie gründlich Modelle mit Denkmodus standardmäßig nachdenken. Höhere Stufen antworten sorgfältiger, brauchen aber länger und verbrauchen mehr Token. Kennt ein Modell eine Stufe nicht, nutzt es die nächstpassende.",
+      help: "Wie gründlich Modelle mit Denkmodus standardmäßig nachdenken. Höhere Stufen antworten sorgfältiger, brauchen aber länger und verbrauchen mehr Token. Kennt ein Modell eine Stufe nicht, nutzt es die nächstpassende. Hermes-Agenten kennen keine Stufe „Adaptiv“ und behalten damit den Standard von Hermes.",
       fallback: "abhängig vom Modell",
       options: {
         off: "Aus",

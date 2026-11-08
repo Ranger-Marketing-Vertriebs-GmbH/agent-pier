@@ -444,8 +444,34 @@ OpenClaw still holds, the browser while AgentPier knows no browser app, MCP serv
 cannot compile (`mcp`, `mcpOAuth`), assigned skills Hermes cannot offer, a web search
 provider it cannot serve (`webSearch`), image creation without a ChatGPT login
 AgentPier holds, its proxy or the team bridge (`createImages`) and AgentPier's tools
-while no team bridge runs (`teams`). Hermes has no advanced settings in AgentPier
-yet: the capability reports `advancedSettingsUnsupported`.
+while no team bridge runs (`teams`).
+
+### Advanced settings
+
+The owner's [advanced settings for all agents](agents.md#turn-agents-on) reach Hermes
+agents where Hermes v0.22.5 has a faithful equivalent (`hermes-config/advanced.js`).
+They are stored once, with OpenClaw's overrides; the page marks the others
+**OpenClaw only** while Hermes agents run.
+
+| Setting              | Hermes                   | Notes                                                                                                                                                                         |
+| -------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Thinking level       | `agent.reasoning_effort` | Every session follows it unless the chat pinned its own level. **Off** is `none`; **Adaptive** has no Hermes level and leaves Hermes's default (it thinks adaptively anyway). |
+| Time zone            | `timezone`               | The agent's clock (`hermes_time`). Hermes runs cron in it too; routines keep their own zone ([Routines](#routines)).                                                          |
+| Time limit per task  | none                     | `agent.run_budget_seconds` only adds a wrap-up notice at 80 % and never stops the task.                                                                                       |
+| Image quality        | none                     | Attached images go to the model as they are; tool images are scaled to a fixed byte budget.                                                                                   |
+| Maximum image size   | none                     | Tool images are scaled to a fixed 1568 px (`tools/vision_tools.py`).                                                                                                          |
+| Media file retention | none                     | Hermes sweeps its media caches after a fixed 24 hours (`MEDIA_CACHE_MAX_AGE_HOURS`).                                                                                          |
+
+Each start and apply writes these keys from the stored values; without a value the key
+is removed and Hermes's default applies. A start without a desired state (at server
+start, after a Hermes update) merges them into the existing `config.yaml` alone. Like
+OpenClaw's overrides, the mapping is approved for one Hermes version
+(`hermesAdvancedRuntime`, checked against `hermes-manifest.json` by
+`tests/unit/hermes-advanced.test.js`): another installed version (an update AgentPier
+has not approved yet, a rollback) starts with Hermes's defaults, the values stay stored,
+and the page names that version. A save of a setting Hermes takes applies every Hermes
+agent; one whose home changed restarts, as for [web search](#web-search). None of the
+keys touches access, approvals, toolsets, plugins or management.
 
 ## Teams
 
@@ -747,7 +773,7 @@ every set reach the chat path and the event hub once (`agentRuntimeEvents`).
 | channelBots                                                 | available (Hermes's own adapter)    |
 | browser                                                     | available (AgentPier's Chromium)    |
 | everyCommandApproval                                        | available (unavailable on OpenClaw) |
-| advancedSettings                                            | `advancedSettingsUnsupported`       |
+| advancedSettings                                            | available (those Hermes maps)       |
 
 Teams have no capability of their own: a Hermes agent offers them as OpenClaw does.
 
@@ -856,9 +882,12 @@ turn ended and then written, after its reply.
 
 **Time zones.** Hermes matches every cron expression in the time zone of the agent's
 processes (`cron/jobs.py compute_next_run`, `hermes_time`: `HERMES_TIMEZONE` or
-`timezone` in `config.yaml`, else the process's zone, which is AgentPier's own TZ,
-passed on by `hermes-environment.js`); v0.22.5 has no zone per job. A cron routine
-without a zone, or in that zone, runs as written. A routine in another zone runs as a
+`timezone` in `config.yaml`, which the owner's **Time zone** sets
+([advanced settings](#advanced-settings)), else the process's zone, which is
+AgentPier's own TZ, passed on by `hermes-environment.js`); v0.22.5 has no zone per job.
+AgentPier takes that zone from the agent's `config.yaml` at each start. A cron routine
+without a zone, or in that zone, runs as written; a pinned job whose routine is in the
+zone Hermes runs in after a change of **Time zone** gets its own expression back. A routine in another zone runs as a
 pinned job (`hermes-cron-zone.js`): AgentPier computes its next occurrence in its own
 zone and writes the expression `<minute> <hour> <day> <month> *` of that instant in the
 process's zone; the routine's own expression and zone stay in the job's `agentpier`
@@ -1011,7 +1040,7 @@ AGENTPIER-344, logins from AGENTPIER-340).
 | Telegram for other people                                  | OpenClaw's adapter                  | Hermes's adapter                                    | A people change restarts the agent                           |
 | Backups                                                    | Sealed credentials and history      | Sealed `.env`, `auth.json` and history              | [Backups](backups.md#hermes-agents)                          |
 | Access and approval audit                                  | AgentPier                           | AgentPier                                           |                                                              |
-| Advanced settings                                          | Available                           | `advancedSettingsUnsupported`                       |                                                              |
+| Advanced settings                                          | All six                             | Thinking level, time zone                           | [Advanced settings](#advanced-settings)                      |
 | Updates                                                    | OpenClaw update                     | Hermes update                                       | [Updates](assistant-runtime-updates.md#hermes-agent-runtime) |
 
 ## Contract tests

@@ -306,7 +306,8 @@ applies (`assistant-config.js`, `mcp-changes.js`, `telegram-senders.js`,
 and `config.applied` write and read back one agent. OpenClaw-only settings stay in
 the adapter: advanced settings are the `advancedSettings` capability with
 `config.compiler.advancedSettings`, a runtime without them lists none and refuses a
-save. `tests/unit/openclaw-config-golden.test.js` holds the compiled
+save. Hermes maps the ones it has an equivalent of by setting id
+(`runtimes/hermes/hermes-config/advanced.js`) from the same stored overrides. `tests/unit/openclaw-config-golden.test.js` holds the compiled
 `openclaw.json` of representative agents byte for byte.
 
 See [the user guide](agents.md), [the Gateway design](assistant-gateway.md) and

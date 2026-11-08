@@ -7,6 +7,13 @@ export const assistantAdvancedCopy = {
   stopped: "The agent service is not running. Saved changes apply at its next start.",
   unqualified: (version) =>
     `The installed agent runtime ${version} is not approved for these settings. Saved values are kept and apply again once the approved version runs.`,
+  hermesRestart:
+    "Hermes agents take the settings without “OpenClaw only” too; a change restarts them.",
+  hermesUnqualified: (version) =>
+    `Hermes Agent ${version} is not approved for these settings. Hermes agents start with Hermes's defaults until the approved version runs.`,
+  openClawOnly: "OpenClaw only",
+  openClawOnlyLabel:
+    "Applies to OpenClaw agents only; Hermes agents keep Hermes's default",
   loading: "Loading settings …",
   loadFailed: "The advanced settings could not be loaded.",
   save: "Save settings",
@@ -34,7 +41,7 @@ export const assistantAdvancedCopy = {
     },
     thinkingDefault: {
       label: "Thinking level",
-      help: "How thoroughly models with a thinking mode think by default. Higher levels answer more carefully but take longer and use more tokens. A model that does not know a level uses the closest one.",
+      help: "How thoroughly models with a thinking mode think by default. Higher levels answer more carefully but take longer and use more tokens. A model that does not know a level uses the closest one. Hermes agents have no “Adaptive” level and keep Hermes's default with it.",
       fallback: "depends on the model",
       options: {
         off: "Off",

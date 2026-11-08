@@ -27,6 +27,12 @@
   background: #1c2b20;
   color: var(--success);
 }
+/* "OpenClaw only": a scope, not a state, so it stays neutral. */
+.advanced-setting-badge.scope {
+  border-color: var(--neutral-17);
+  background: var(--neutral-09);
+  color: var(--neutral-25);
+}
 .advanced-setting-row input.list-row-number {
   width: 88px;
 }

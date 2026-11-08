@@ -14,6 +14,8 @@ const groups = ["runs", "media"];
  * Laufzeit › Erweitert (handoff 5.2, formerly its own subpage): the allow-listed
  * OpenClaw values for all agents with their Sofort/Neustart nötig badges, ⓘ help and
  * "Standard" reset, and the notes for an unapproved runtime or a stopped service.
+ * While Hermes agents run, settings Hermes has no equivalent of say "OpenClaw only",
+ * and a note names a Hermes version the mapping is not approved for.
  * `section=advanced` scrolls here (id `agents-runtime-advanced`).
  */
 export default function RuntimeAdvancedGroup({
@@ -26,6 +28,7 @@ export default function RuntimeAdvancedGroup({
 }) {
   const id = useId();
   const gateway = data?.gateway;
+  const hermes = data?.hermes?.enabled ? data.hermes : null;
   return (
     <section id="agents-runtime-advanced" aria-labelledby={id}>
       <GroupLabel id={id} hint={copy.intro}>
@@ -41,6 +44,11 @@ export default function RuntimeAdvancedGroup({
       {gateway?.qualified && !gateway.running && (
         <p className="advanced-settings-note" role="status">
           {copy.stopped}
+        </p>
+      )}
+      {hermes && (
+        <p className="advanced-settings-note" role="status">
+          {hermes.qualified ? copy.hermesRestart : copy.hermesUnqualified(hermes.version)}
         </p>
       )}
       {groups.map((group) => {
@@ -60,6 +68,7 @@ export default function RuntimeAdvancedGroup({
                   value={values[advancedKey(setting.id)] ?? ""}
                   onChange={edit(advancedKey(setting.id))}
                   disabled={disabled}
+                  openClawOnly={!!hermes && !setting.hermes}
                 />
               ))}
             </ListCard>
