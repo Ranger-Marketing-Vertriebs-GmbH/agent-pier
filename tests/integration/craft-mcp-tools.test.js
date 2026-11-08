@@ -13,18 +13,28 @@ const names = (f, grant, context) =>
     .filter((name) => name.startsWith("craft_"));
 
 /** The real application with Craft Anything "installed" and a recording supervisor. */
+/** Runs `work` with a connected client and closes it before the application is disposed. */
+async function withClient(t, f, work) {
+  const client = await connect(t, f, await issue(f, { choices: true }));
+  try {
+    await work(client);
+  } finally {
+    await client.close();
+  }
+}
+
 async function craftApp(t, { installed = true } = {}) {
   const f = await applicationFixture(t);
   const calls = [];
   const rebuilds = new Map();
   const real = { craft: f.application.craft, rebuilds: f.application.craftRebuilds };
-  t.after(() => {
-    f.application.craft = real.craft;
-    f.application.craftRebuilds = real.rebuilds;
-  });
-  f.application.craft = { state: () => ({ installed }), close: async () => {} };
+  // The fakes hand closing to the real services, which the application disposes.
+  f.application.craft = {
+    state: () => ({ installed }),
+    close: () => real.craft?.close?.(),
+  };
   f.application.craftRebuilds = {
-    close: async () => {},
+    close: () => real.rebuilds?.close?.(),
     start: async (input, options) => {
       calls.push({ input, options });
       if (input.request === "refuse")
@@ -73,69 +83,68 @@ test("rebuild tools are offered only to a full session grant with Craft Anything
 
 test("a session starts a rebuild, repeats it by requestId and reads its status", async (t) => {
   const { f, calls } = await craftApp(t);
-  const issued = await issue(f, { choices: true });
-  const client = await connect(t, f, issued);
-  assert.ok(client.getInstructions().includes("craft_rebuild_status"));
-  const tool = (await client.listTools()).tools.find(
-    (entry) => entry.name === "craft_rebuild_start",
-  );
-  assert.equal(tool.annotations.idempotentHint, true);
-  const args = { request: "Clone it", target: "https://example.com", requestId: "a" };
-  const first = data(
-    await client.callTool({ name: "craft_rebuild_start", arguments: args }),
-  );
-  const again = data(
-    await client.callTool({ name: "craft_rebuild_start", arguments: args }),
-  );
-  assert.deepEqual(again, first);
-  assert.equal(first.id, "r1");
-  assert.equal(first.link, "/craft/r1");
-  assert.equal(calls[0].options.source, "session");
-  const status = data(
-    await client.callTool({ name: "craft_rebuild_status", arguments: { id: "r1" } }),
-  );
-  assert.deepEqual(status, {
-    id: "r1",
-    name: "clone",
-    status: "building",
-    statusLabel: "Building",
-    step: "study",
-    note: "Reading",
-    projectId: "p1",
-    folder: "/projects/clone",
-    openQuestions: 1,
-    link: "/craft/r1",
+  await withClient(t, f, async (client) => {
+    assert.ok(client.getInstructions().includes("craft_rebuild_status"));
+    const tool = (await client.listTools()).tools.find(
+      (entry) => entry.name === "craft_rebuild_start",
+    );
+    assert.equal(tool.annotations.idempotentHint, true);
+    const args = { request: "Clone it", target: "https://example.com", requestId: "a" };
+    const first = data(
+      await client.callTool({ name: "craft_rebuild_start", arguments: args }),
+    );
+    const again = data(
+      await client.callTool({ name: "craft_rebuild_start", arguments: args }),
+    );
+    assert.deepEqual(again, first);
+    assert.equal(first.id, "r1");
+    assert.equal(first.link, "/craft/r1");
+    assert.equal(calls[0].options.source, "session");
+    const status = data(
+      await client.callTool({ name: "craft_rebuild_status", arguments: { id: "r1" } }),
+    );
+    assert.deepEqual(status, {
+      id: "r1",
+      name: "clone",
+      status: "building",
+      statusLabel: "Building",
+      step: "study",
+      note: "Reading",
+      projectId: "p1",
+      folder: "/projects/clone",
+      openQuestions: 1,
+      link: "/craft/r1",
+    });
   });
 });
 
 test("owner-only fields are refused and errors carry stable codes", async (t) => {
   const { f, calls } = await craftApp(t);
-  const client = await connect(t, f, await issue(f, { choices: true }));
-  const fields = await client
-    .callTool({
+  await withClient(t, f, async (client) => {
+    const invalid = async (args) => {
+      const result = await client.callTool({
+        name: "craft_rebuild_start",
+        arguments: args,
+      });
+      assert.equal(result.isError, true);
+      assert.match(result.content[0].text, /invalid|unrecognized|required/i);
+      assert.equal(calls.length, 0);
+    };
+    await invalid({ request: "x", requestId: "a", autoMode: true, accountId: "z" });
+    await invalid({ request: "x" });
+    const refused = await client.callTool({
       name: "craft_rebuild_start",
-      arguments: { request: "x", requestId: "a", autoMode: true, accountId: "z" },
-    })
-    .catch((error) => ({ isError: true, error }));
-  assert.equal(fields.isError, true);
-  assert.equal(calls.length, 0);
-  const noId = await client.callTool({
-    name: "craft_rebuild_start",
-    arguments: { request: "x" },
+      arguments: { request: "refuse", requestId: "b" },
+    });
+    assert.equal(data(refused).code, "CRAFT_REBUILD_REFUSED");
+    assert.equal(data(refused).status, 409);
+    const missing = await client.callTool({
+      name: "craft_rebuild_status",
+      arguments: { id: "nope" },
+    });
+    assert.equal(data(missing).code, "CRAFT_REBUILD_NOT_FOUND");
+    assert.equal(data(missing).status, 404);
   });
-  assert.equal(noId.isError, true);
-  const refused = await client.callTool({
-    name: "craft_rebuild_start",
-    arguments: { request: "refuse", requestId: "b" },
-  });
-  assert.equal(data(refused).code, "CRAFT_REBUILD_REFUSED");
-  assert.equal(data(refused).status, 409);
-  const missing = await client.callTool({
-    name: "craft_rebuild_status",
-    arguments: { id: "nope" },
-  });
-  assert.equal(data(missing).code, "CRAFT_REBUILD_NOT_FOUND");
-  assert.equal(data(missing).status, 404);
 });
 
 test("a revoked grant refuses the next call", async (t) => {
