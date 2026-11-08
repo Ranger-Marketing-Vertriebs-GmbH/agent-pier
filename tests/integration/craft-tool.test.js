@@ -14,6 +14,8 @@ import {
 } from "../../server/features/tools/craft-config.js";
 import { requireOwnerPatch } from "../../server/features/mcp-servers/managed-servers.js";
 import { managedRowInUse, reaInUse } from "../../server/application/rea-wiring.js";
+import { createCraftTool } from "../../server/application/craft-wiring.js";
+import { RebuildStore } from "../../server/features/craft/rebuild-store.js";
 import { craftFixture } from "../helpers/craft-tool-fixture.js";
 
 const refused = (message) => ({ status: 409, message });
@@ -304,7 +306,14 @@ test("uninstall removes row, binary and its skill copies; keeps Ghidra when keep
   const { serverId } = await f.install(craft);
   assert.deepEqual(skills, [serverId]);
   craft.keepsGhidra = () => true;
+  // The rebuild list lives outside the tool's directory and survives it.
+  const rebuilds = new RebuildStore(f.s.dataDir);
+  rebuilds.save({
+    settings: {},
+    records: [{ id: "r1", folder: "/x", request: "x", accountId: "a" }],
+  });
   const state = await craft.uninstall();
+  assert.equal(rebuilds.load().records.length, 1);
   assert.equal(state.installed, false);
   assert.equal(state.serverId, null);
   assert.equal(f.s.servers.definitions().length, 0);
@@ -395,6 +404,25 @@ test("close() stops a running download through the job's signal", async (t) => {
   assert.equal(craft.state().status, "failed");
   assert.equal(craft.aborted, true);
   assert.equal(craft.serverId(), null);
+});
+
+test("running rebuilds keep Craft Anything in use", async (t) => {
+  const f = await craftFixture(t);
+  let busy = true;
+  const craft = createCraftTool({
+    config: { dataDir: f.s.dataDir },
+    servers: f.s.servers,
+    changes: f.s.changes,
+    packages: f.s.packages,
+    extensions: f.s.extensions,
+    audit: { append() {} },
+    sessions: { list: async () => [] },
+    services: () => ({ craftRebuilds: { inUse: () => busy } }),
+  });
+  t.after(() => craft.close());
+  assert.equal(await craft.inUse(), true);
+  busy = false;
+  assert.equal(await craft.inUse(), false);
 });
 
 test("managedRowInUse is the generic check REA's name points at", () => {

@@ -102,6 +102,18 @@ export class CraftRebuilds {
     return record ? rebuildView(record) : null;
   }
 
+  /**
+   * Whether a rebuild runs or starts, or a child of the rebuilds is alive: removing,
+   * updating or changing Craft Anything is refused meanwhile.
+   */
+  inUse() {
+    return (
+      this.starting.size > 0 ||
+      [...this.records.values()].some((record) => record.running) ||
+      this.children.size > 0
+    );
+  }
+
   /** The `requestId` a rebuild was started with, or null. */
   requestIdOf(id) {
     return this.records.get(id)?.requestId ?? null;

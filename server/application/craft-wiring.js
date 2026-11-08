@@ -26,7 +26,9 @@ export function createCraftTool({
     extensions,
     audit,
   });
-  craft.inUse = () =>
+  // Rebuilds count too: their children and builders run Craft Anything.
+  craft.inUse = async () =>
+    !!services()?.craftRebuilds?.inUse() ||
     managedRowInUse({
       serverId: craft.serverId(),
       servers,

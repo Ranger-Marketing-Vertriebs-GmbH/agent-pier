@@ -2,7 +2,12 @@ import path from "node:path";
 import { readJSON, writePrivate } from "../../lib/storage.js";
 import { record } from "../extensions/mcp-config.js";
 import { logCraftFailure } from "./craft-log.js";
-import { craftHome } from "../tools/craft-home.js";
+
+/**
+ * `<dataDir>/craft-rebuilds`: the rebuild list and the children's process groups.
+ * Outside the tool's own directory, so removing Craft Anything keeps the list.
+ */
+export const rebuildsHome = (dataDir) => path.join(dataDir, "craft-rebuilds");
 
 /** The owner's defaults for new rebuilds. */
 export const defaultRebuildSettings = Object.freeze({
@@ -29,12 +34,12 @@ const storedRecord = (value) =>
 
 /**
  * The rebuilds AgentPier started and the owner's defaults, in
- * `<dataDir>/craft-anything/rebuilds.json` (0600, written atomically). A missing or
+ * `<dataDir>/craft-rebuilds/rebuilds.json` (0600, written atomically). A missing or
  * unreadable file reads as empty.
  */
 export class RebuildStore {
   constructor(dataDir) {
-    this.file = path.join(craftHome(dataDir), "rebuilds.json");
+    this.file = path.join(rebuildsHome(dataDir), "rebuilds.json");
   }
   /** `{ settings, records }`. */
   load() {
