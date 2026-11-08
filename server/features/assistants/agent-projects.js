@@ -1,9 +1,8 @@
-import fs from "node:fs/promises";
-import { constants } from "node:fs";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-import { createDirectory } from "../../lib/directories.js";
-import { projectScope } from "../memory/project-scope.js";
+import {
+  assertUnchanged,
+  createProjectFolder,
+  initRepository,
+} from "../projects/project-folder.js";
 import { exact } from "./assistant-access.js";
 import { auditAgentProject } from "./assistant-access-audit.js";
 import { assistantProblem } from "./assistant-validation.js";
@@ -16,19 +15,13 @@ import { notifyAgentProject } from "./agent-project-notes.js";
 import { mayCreateProjects } from "./goal-turns.js";
 import { runtimeAccepts } from "./runtimes/runtime-for.js";
 
-const run = promisify(execFile);
-const openFolder = constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW;
-const unavailable = () => assistantProblem("projectFolderUnavailable", 409);
 const optionalBoolean = (value, fallback) => {
   if (value === undefined) return fallback;
   if (typeof value !== "boolean") throw assistantProblem("invalid");
   return value;
 };
 
-/** `git init` in a new project folder, with the owner's normal Git environment. */
-export async function initRepository(cwd) {
-  await run("git", ["init", "--quiet"], { cwd, timeout: 10000 });
-}
+export { initRepository };
 
 /**
  * Any run of the owner's chat with an agent that may create projects (owner-runs.js
@@ -107,41 +100,22 @@ export class AgentProjects {
   async create(inv, { agent, conversation }, { name, git, coding }) {
     const w = this.w;
     loopGuard(w.a.store).take(agent.id);
-    const parent = await this.parent();
-    let target, made, held;
-    try {
-      target = (await createDirectory(parent, name)).path;
-    } catch (error) {
-      throw error.status === 409 ? assistantProblem("projectExists", 409) : unavailable();
-    }
-    // The new folder stays open until the call ends: an open inode is never freed, so
-    // no folder put in its place can get its device and inode numbers (Linux file
-    // systems hand a freed inode number to the next new folder at once).
-    try {
-      held = await fs.open(target, openFolder);
-      made = await held.stat({ bigint: true });
-    } catch {
-      await held?.close().catch(() => {});
-      await fs.rmdir(target).catch(() => {});
-      throw unavailable();
-    }
-    // From here on a failure removes this folder, which this call made, and everything
-    // the call recorded for it: the grant, the creation record and the registration
-    // (ProjectMemory#removeEmpty; the project is fresh, so it holds nothing yet).
-    let project = null,
-      recorded = false,
+    // The shared safe creation (project-folder.js) fails clean; from here on a failure
+    // also removes what this call recorded for the folder: the grant, the creation
+    // record and the registration (the project is fresh, so it holds nothing yet).
+    const folder = await createProjectFolder({
+      preferences: w.s.preferences,
+      memory: w.s.memory,
+      name,
+      git,
+      label: "Agent project",
+      gitInit: (target) => this.gitInit(target),
+      unchanged: (target, made) => this.unchanged(target, made),
+    });
+    const { project, path: target } = folder;
+    let recorded = false,
       granted = false;
     try {
-      // The folder must still be the one this call made, never a link put in its place.
-      await this.unchanged(target, made);
-      if (git)
-        try {
-          await this.gitInit(target);
-        } catch {
-          throw unavailable();
-        }
-      await this.unchanged(target, made);
-      project = await this.register(target, made);
       this.store.add({
         projectId: project.id,
         assistantId: agent.id,
@@ -173,10 +147,10 @@ export class AgentProjects {
       this.refresh(agent);
       return result;
     } catch (error) {
-      await this.rollback(agent, target, made, project, { recorded, granted });
+      await this.rollback(agent, folder, project, { recorded, granted });
       throw error;
     } finally {
-      await held.close().catch(() => {});
+      await folder.release();
     }
   }
   async coding(inv, { agent, conversation }, projectId, enabled) {
@@ -204,35 +178,6 @@ export class AgentProjects {
     notifyAgentProject(w, agent, row);
     this.refresh(agent);
     return result;
-  }
-  /**
-   * Registers the new folder as a project of its own: never an enclosing repository
-   * (the default folder may lie inside one), the home or a collection folder, nor a
-   * project AgentPier knew before this call. A project row that already names this
-   * path or folder (an earlier project whose folder was deleted, its inode reused) is
-   * refused too: registering would rebind it and its data into the new project
-   * (ProjectMemory#followGitInit).
-   */
-  async register(target, made) {
-    const memory = this.w.s.memory;
-    let project;
-    try {
-      const scope = await projectScope(target);
-      if (scope.cwd !== target) throw Error();
-      const folder = JSON.stringify([
-        "directory",
-        target,
-        String(made.dev),
-        String(made.ino),
-      ]);
-      if (memory.claimsFolder(target, [folder, scope.identity])) throw Error();
-      const known = new Set(memory.projectNames().map((p) => p.id));
-      project = await memory.register(target);
-      if (!project || project.cwd !== target || known.has(project.id)) throw Error();
-    } catch {
-      throw unavailable();
-    }
-    return project;
   }
   list(agent) {
     const policy = this.w.access.get(agent.id);
@@ -263,26 +208,8 @@ export class AgentProjects {
     }
   }
   // Throws unless `target` is still the directory `made` (same device and inode).
-  async unchanged(target, made) {
-    let now;
-    try {
-      now = await fs.lstat(target, { bigint: true });
-    } catch {
-      throw unavailable();
-    }
-    if (!now.isDirectory() || now.dev !== made.dev || now.ino !== made.ino)
-      throw unavailable();
-  }
-  // The owner's default folder, canonical, an existing and writable directory.
-  async parent() {
-    try {
-      const parent = await fs.realpath(this.w.s.preferences.get().defaultCwd);
-      if (!(await fs.stat(parent)).isDirectory()) throw Error();
-      await fs.access(parent, constants.W_OK);
-      return parent;
-    } catch {
-      throw unavailable();
-    }
+  unchanged(target, made) {
+    return assertUnchanged(target, made);
   }
   /**
    * The settled row in the agent's chat that tells the owner (actionNotes). It is the
@@ -311,26 +238,14 @@ export class AgentProjects {
       .then(() => a.admit(() => a.config.apply(agent.id)))
       .catch(() => {});
   }
-  async rollback(agent, target, made, project, { recorded, granted }) {
+  async rollback(agent, folder, project, { recorded, granted }) {
     try {
       if (granted && this.w.access.revokeProject(project.id).length) this.w.a.changed();
       if (recorded) this.store.remove(project.id, agent.id);
-      // Fresh (register refused known and claimed folders), so it holds nothing.
-      if (project) this.w.s.memory.removeEmpty(project.id);
     } catch (error) {
       console.error("Agent project rollback failed:", error?.message);
     }
-    // Only the folder this call made goes; whatever was put in its place stays.
-    let now;
-    try {
-      now = await fs.lstat(target, { bigint: true });
-    } catch {
-      return;
-    }
-    if (!now.isDirectory() || now.dev !== made.dev || now.ino !== made.ino) {
-      console.error("Agent project rollback left a replaced folder in place.");
-      return;
-    }
-    await fs.rm(target, { recursive: true, force: true }).catch(() => {});
+    // The registration and the folder this call made.
+    await folder.rollback();
   }
 }
