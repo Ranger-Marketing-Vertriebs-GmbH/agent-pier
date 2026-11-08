@@ -6,7 +6,7 @@ import { memoryEnabled } from "./native-capabilities.js";
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { leadMirrorDir } from "./member-memory.js";
 import { openInside } from "./project-open.js";
-import { runtimeFor, runtimeIdOf } from "./runtimes/runtime-for.js";
+import { hermesMemoryLimits, runtimeFor, runtimeIdOf } from "./runtimes/runtime-for.js";
 const names = new Set(["MEMORY.md", "USER.md"]);
 const projectFile = (file, name) => ({
   name,
@@ -320,7 +320,10 @@ export class NativeMemory {
         agentId: agent.runtimeAgentId,
         name,
       });
-      return projectFile(result.file, name);
+      const file = projectFile(result.file, name);
+      return runtimeIdOf(agent) === "hermes"
+        ? { ...file, limit: hermesMemoryLimits[name] }
+        : file;
     });
   }
   // One save path for every note the memory page edits: a root note through the

@@ -68,13 +68,13 @@ test("a Hermes restore past Hermes's limit is refused and stays archived", async
   const service = stub("hermes", files);
   await archiveEntries(service, "a1", [{ file: "USER.md", entry: "Gone." }], meta);
   assert.equal(files["USER.md"], "");
-  files["USER.md"] = "x".repeat(1373);
+  files["USER.md"] = "x".repeat(4995);
   const [entry] = memoryArchiveOf(service).list("a1");
   await assert.rejects(restoreEntry(service, "a1", entry.id), {
     status: 409,
     key: "memoryTooLarge",
   });
-  assert.equal(files["USER.md"], "x".repeat(1373));
+  assert.equal(files["USER.md"], "x".repeat(4995));
   assert.equal(memoryArchiveOf(service).list("a1").length, 1);
 });
 

@@ -49,6 +49,8 @@ export {
   entryDelimiter as hermesEntryDelimiter,
   memoryLimits as hermesMemoryLimits,
   memoryChars as hermesMemoryChars,
+  pinMarker as hermesPinMarker,
+  pinnedEntries as hermesPinnedEntries,
 } from "./hermes/hermes-config/memory.js";
 
 /** The runtime ids an agent may record, the default first. */
