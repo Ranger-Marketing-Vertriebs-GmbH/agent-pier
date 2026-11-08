@@ -60,6 +60,13 @@ and the server start retries the request. Every installer run brings the Ghidra 
 of an installed REA to the pinned versions. On an installed REA whose Ghidra was
 deliberately left off, `--with-rea` keeps that choice and downloads neither; add Ghidra
 in the REA dialog instead.
+`--with-craft-anything` sets up Craft Anything, a second analysis tool beside REA (see
+[managed Craft Anything](mcp.md#managed-craft-anything)). It downloads nothing itself: it
+leaves a request in `<data dir>/craft-anything/settings.json`, and the next server start
+installs the pinned Craft Anything, its server row and its skill, with Ghidra and the JDK
+(shared with REA, so nothing is downloaded twice) where a Ghidra build exists. The result
+reports `craftAnything` as requested or installed. macOS (universal) and Linux x64 and
+arm64 are supported; Intel Macs and Linux arm64 get Craft Anything without Ghidra.
 `--with-hermes` enables Hermes Agent, the second agent runtime, and installs its pinned
 runtime in advance (see [Hermes Agent runtime](#hermes-agent-runtime)). A failed
 download never fails the installation; the result reports `hermesRuntime.status`.

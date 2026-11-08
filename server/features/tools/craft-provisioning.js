@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { serverMessages } from "../../lib/i18n/de.js";
-import { craftHome } from "./craft-config.js";
+import { craftHome } from "./craft-home.js";
 
 const isObject = (value) =>
   value !== null && typeof value === "object" && !Array.isArray(value);

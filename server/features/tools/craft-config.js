@@ -3,6 +3,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { parse, stringify } from "smol-toml";
 import { privateFolder, problem, writePrivateText } from "../../lib/storage.js";
+import { craftHome } from "./craft-home.js";
+
+export { craftHome };
 
 /** Environment keys AgentPier sets on Craft Anything's managed MCP row. */
 export const craftManagedKeys = Object.freeze([
@@ -14,11 +17,6 @@ const stubText = `#!/bin/sh
 echo "Ghidra is not installed. Install it in AgentPier: CLIs and extensions › Installation › Craft Anything." >&2
 exit 1
 `;
-
-/** Craft Anything's own folder below the data directory. */
-export function craftHome(dataDir) {
-  return path.join(dataDir, "craft-anything");
-}
 
 /** The config directory of the MCP session row. */
 export function sessionsConfigDir(dataDir) {
