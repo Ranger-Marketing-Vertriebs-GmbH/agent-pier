@@ -19,6 +19,7 @@ Usage: agentpier-install [options]
   --with-assistants     Enable assistants and pre-install their runtime
   --with-agent-browser  Install the managed agent browser (Chrome for Testing)
   --with-rea            Install REA with Ghidra and the JDK (Core follows at server start)
+  --with-craft-anything Install Craft Anything (installed at server start, with Ghidra)
   --with-hermes         Enable Hermes Agent and pre-install its pinned runtime
   --help                Show this help
   --version             Show the installer version

@@ -22,6 +22,7 @@ export function resolveSetupOptions(args, { home, env, platform, arch }) {
         "--with-assistants",
         "--with-agent-browser",
         "--with-rea",
+        "--with-craft-anything",
         "--with-hermes",
       ].includes(option)
     ) {
@@ -83,6 +84,7 @@ export function resolveSetupOptions(args, { home, env, platform, arch }) {
     ...(present.has("--with-assistants") ? { withAssistants: true } : {}),
     ...(present.has("--with-agent-browser") ? { withAgentBrowser: true } : {}),
     ...(present.has("--with-rea") ? { withRea: true } : {}),
+    ...(present.has("--with-craft-anything") ? { withCraftAnything: true } : {}),
     ...(present.has("--with-hermes") ? { withHermes: true } : {}),
     resume: true,
   };
@@ -110,6 +112,7 @@ export function installerArguments(options, version) {
   if (options.withAssistants) args.push("--with-assistants");
   if (options.withAgentBrowser) args.push("--with-agent-browser");
   if (options.withRea) args.push("--with-rea");
+  if (options.withCraftAnything) args.push("--with-craft-anything");
   if (options.withHermes) args.push("--with-hermes");
   return args;
 }

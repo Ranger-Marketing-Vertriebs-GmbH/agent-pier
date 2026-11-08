@@ -17,6 +17,7 @@ import { provisionInstallerRuntime } from "../server/features/assistants/runtime
 import { provisionInstallerToolchains } from "../server/features/mcp-packages/toolchain-provisioning.js";
 import { provisionAgentBrowser } from "../server/features/tools/chromium-provisioning.js";
 import { provisionRea } from "../server/features/tools/rea-provisioning.js";
+import { provisionCraftAnything } from "../server/features/tools/craft-provisioning.js";
 import { provisionInstallerHermes } from "../server/features/assistants/runtimes/hermes/hermes-provisioning.js";
 import { provisionGithubMcp } from "../server/features/tools/github-mcp-installer.js";
 export async function installRelease(options, dependencies = {}) {
@@ -35,6 +36,7 @@ async function installInitialRelease(
     withAssistants = false,
     withAgentBrowser = false,
     withRea = false,
+    withCraftAnything = false,
     withHermes = false,
   },
   {
@@ -49,6 +51,7 @@ async function installInitialRelease(
     toolchains = provisionInstallerToolchains,
     agentBrowser = provisionAgentBrowser,
     rea = provisionRea,
+    craftAnything = provisionCraftAnything,
     githubMcp = provisionGithubMcp,
     hermes = provisionInstallerHermes,
   } = {},
@@ -88,6 +91,8 @@ async function installInitialRelease(
   const browserResult = await agentBrowser({ dataDir, enable: withAgentBrowser });
   // Ghidra and the JDK now; REA Core and its server row at the next server start.
   const reaResult = await rea({ dataDir, enable: withRea });
+  // Craft Anything is requested now; the server installs it at its next start.
+  const craftResult = await craftAnything({ dataDir, enable: withCraftAnything });
   // Keeps an installed GitHub MCP server for agents at the pinned version.
   const githubMcpResult = await githubMcp({ dataDir });
   // The pinned Hermes Agent runtime on request, or when Hermes is already enabled.
@@ -122,6 +127,9 @@ async function installInitialRelease(
     toolchains: toolchainResult,
     ...(browserResult ? { agentBrowser: browserResult } : {}),
     ...(reaResult ? { rea: reaResult } : {}),
+    ...(craftResult?.requested || craftResult?.installed
+      ? { craftAnything: craftResult }
+      : {}),
     ...(githubMcpResult ? { githubMcp: githubMcpResult } : {}),
     ...(hermesResult ? { hermesRuntime: hermesResult } : {}),
   };
@@ -140,6 +148,7 @@ export async function runInstaller(args, dependencies = {}) {
         "--with-assistants",
         "--with-agent-browser",
         "--with-rea",
+        "--with-craft-anything",
         "--with-hermes",
       ].includes(key)
     )
@@ -190,6 +199,7 @@ export async function runInstaller(args, dependencies = {}) {
       withAssistants: options["--with-assistants"] === true,
       withAgentBrowser: options["--with-agent-browser"] === true,
       withRea: options["--with-rea"] === true,
+      withCraftAnything: options["--with-craft-anything"] === true,
       withHermes: options["--with-hermes"] === true,
     },
     dependencies,
