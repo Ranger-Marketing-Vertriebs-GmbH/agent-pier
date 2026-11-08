@@ -33,6 +33,8 @@
  *     ],
  *     "hideTools": ["rebuild_start"],    // left out of tools/list
  *     "slowTools": { "rebuild_status": 5000 },  // answer these tools late (ms)
+ *     "emptyTools": ["rebuild_start"],  // run these, then answer { result: {} }
+ *     "silentInit": true,               // never answer initialize
  *     "ignoreStdinClose": true          // keep running when stdin closes
  *   }
  * Without steps a build runs until rebuild_stop. A question waits for
@@ -477,10 +479,14 @@ function callTool(id, { name, arguments: args = {} } = {}) {
       error: { code: -32602, message: `Unknown tool ${name}` },
     };
   try {
+    const result = tools[name](args);
     return {
       jsonrpc: "2.0",
       id,
-      result: toolResult({ result: tools[name](args) }, false),
+      result: toolResult(
+        { result: (script.emptyTools ?? []).includes(name) ? {} : result },
+        false,
+      ),
     };
   } catch (error) {
     if (!(error instanceof ToolError)) throw error;
@@ -492,6 +498,7 @@ function callTool(id, { name, arguments: args = {} } = {}) {
 function handle(message) {
   const { id, method, params } = message;
   if (id === undefined || id === null) return; // Notifications need no answer.
+  if (method === "initialize" && script.silentInit) return;
   if (method === "initialize")
     return send({
       jsonrpc: "2.0",
