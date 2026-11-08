@@ -1,5 +1,5 @@
 import { publicMessages } from "./conversations.js";
-import { dreamMessageLimit } from "./hermes-dream-prompt.js";
+import { dreamBudget, dreamMessageLimit } from "./hermes-dream-prompt.js";
 
 /*
  * The chats a Hermes agent's nightly dream reads (hermes-dreams.js): every chat of the
@@ -8,7 +8,15 @@ import { dreamMessageLimit } from "./hermes-dream-prompt.js";
  * the agent's own turns go in, never a turn the runtime made itself.
  */
 
+/**
+ * What the chats of one night may take, in code points: a message goes in while less
+ * went in before it, so the whole stays within dreamBudget and the dream's input
+ * (hermes-dream-prompt.js chatsInput) never cuts a message chosen here.
+ */
+export const dreamChatBudget = dreamBudget - dreamMessageLimit;
+
 const pageSize = 200;
+const size = (text) => [...text].length;
 // A chat's activity mark is written by AgentPier, its messages' times by the runtime:
 // a chat marked a little before the cursor is read anyway.
 const activitySlackMs = 5 * 60000;
@@ -45,8 +53,10 @@ async function messagesSince(sessions, conversation, since) {
  * `{ chats: [{ channel, messages: [{ role, text, at }] }], until }`. Messages go in
  * oldest first across all chats, each clipped to dreamMessageLimit, while fewer than
  * `budget` code points went in before them, and are then grouped by chat in the
- * order of their first message. `until` is the `at` of the newest message that went
- * in (null with none), so what did not fit is read the next night.
+ * order of their first message. The cut falls between two times, never inside a
+ * group of messages with the same `at` (a first group larger than the budget goes in
+ * whole). `until` is the `at` of the newest message that went in (null with none),
+ * so what did not fit is read the next night (`at > until`).
  */
 export async function dreamChats({ store, sessions, assistantId, since, budget }) {
   const read = [];
@@ -80,16 +90,22 @@ export async function dreamChats({ store, sessions, assistantId, since, budget }
   }
   // Stable: equal times keep their chat's and their own order.
   read.sort((a, b) => a.message.at - b.message.at);
+  let end = 0;
+  for (let used = 0; end < read.length && used < budget; end++)
+    used += size(read[end].message.text);
+  const at = (i) => read[i].message.at;
+  if (end < read.length) {
+    // Back to the start of a group of equal times the budget cut through.
+    let start = end;
+    while (start > 0 && at(start - 1) === at(end)) start--;
+    if (start > 0) end = start;
+    else while (end < read.length && at(end) === at(0)) end++;
+  }
   const groups = new Map();
-  let used = 0;
-  let until = null;
-  for (const { chat, message } of read) {
-    if (used >= budget) break;
-    used += [...message.text].length;
-    until = message.at;
+  for (const { chat, message } of read.slice(0, end)) {
     if (!groups.has(chat.id))
       groups.set(chat.id, { channel: chat.channel, messages: [] });
     groups.get(chat.id).messages.push(message);
   }
-  return { chats: [...groups.values()], until };
+  return { chats: [...groups.values()], until: end ? at(end - 1) : null };
 }
