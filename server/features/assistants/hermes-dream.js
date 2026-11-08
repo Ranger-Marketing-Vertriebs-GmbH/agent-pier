@@ -95,7 +95,9 @@ export async function dreamOnce({
 
 // Writes each changed file in order. When a later file fails, the earlier ones go
 // back to their start content over the hash just written, so a night applies whole
-// or not at all.
+// or not at all. A file the night created goes back as an empty file: the port has
+// no delete, and Hermes reads an empty and a missing memory file the same way (no
+// entries; tools/memory_tool_store.py `_read_raw_checked` reads a missing file as "").
 async function write(files, agentId, start, before, parsed) {
   const written = [];
   for (const name of fileNames) {
