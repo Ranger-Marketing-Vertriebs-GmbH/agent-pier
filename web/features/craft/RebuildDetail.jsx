@@ -131,7 +131,7 @@ function RebuildBody({ rebuild, activity, written, actions, onNavigate, onLaunch
             >
               {action.busy ? copy.detail.pausing : copy.detail.pause}
             </button>
-          ) : ["paused", "failed"].includes(rebuild.status) ? (
+          ) : rebuild.started && ["paused", "failed"].includes(rebuild.status) ? (
             <button
               type="button"
               className="button primary"
@@ -185,7 +185,7 @@ function RebuildBody({ rebuild, activity, written, actions, onNavigate, onLaunch
           </div>
         </section>
       )}
-      {!running && <FollowUp send={actions.followUp} />}
+      {!running && rebuild.started && <FollowUp send={actions.followUp} />}
       <AutoMode rebuild={rebuild} set={actions.autoMode} />
       <Facts rebuild={rebuild} />
       <Activity activity={activity} />

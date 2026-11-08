@@ -12,7 +12,8 @@ export const startedId = "c0ffee00-1234-4abc-8def-0123456789ab";
 
 const ago = (minutes) => new Date(Date.now() - minutes * 60000).toISOString();
 
-const rebuild = (fields) => ({
+export const rebuild = (fields) => ({
+  started: true,
   projectId: null,
   folder: null,
   target: "-",

@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  rebuildView,
   rebuildStatus,
   rebuildStep,
   sampledFields,
@@ -107,4 +108,12 @@ test("a paused or failed rebuild keeps the step it reached", () => {
   assert.equal(failed.step, "study");
   const building = sampledFields({ running: true, status: "building" }, show, "check");
   assert.equal(building.step, "build");
+});
+
+test("the view tells whether Craft Anything ever took the rebuild on", () => {
+  const record = { id: "r1", status: "failed", craftProject: null, secret: "x" };
+  assert.equal(rebuildView(record).started, false);
+  assert.equal(rebuildView({ ...record, craftProject: "app" }).started, true);
+  assert.equal("craftProject" in rebuildView(record), false);
+  assert.equal("secret" in rebuildView(record), false);
 });
