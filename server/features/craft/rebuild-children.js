@@ -1,6 +1,6 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
-import { logFailure } from "../mcp-packages/package-install-job.js";
+import { logCraftFailure } from "./craft-log.js";
 import { craftEnvironment, rebuildsConfigDir } from "../tools/craft-config.js";
 import { craftCommand } from "../tools/craft-row.js";
 
@@ -101,7 +101,9 @@ export class RebuildChildren {
       if (this.entries.get(key) === entry) this.entries.delete(key);
       this.disarm(entry);
       // close() awaits the kill of the builders the child left behind.
-      client.close().catch((error) => logFailure("close a Craft Anything child", error));
+      client
+        .close()
+        .catch((error) => logCraftFailure("close a Craft Anything child", error));
       this.lost(key);
     });
     if (this.closing) {
@@ -124,7 +126,7 @@ export class RebuildChildren {
       this.entries.delete(key);
       entry.ready
         .then((client) => client.close())
-        .catch((error) => logFailure("close an idle Craft Anything child", error));
+        .catch((error) => logCraftFailure("close an idle Craft Anything child", error));
     }, this.idleMs);
   }
 

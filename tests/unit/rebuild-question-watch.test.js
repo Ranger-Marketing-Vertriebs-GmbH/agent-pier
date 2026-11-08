@@ -5,6 +5,7 @@ import {
   ownerQuestions,
   questionNotice,
 } from "../../server/features/craft/rebuild-questions.js";
+import { logCraftFailure } from "../../server/features/craft/craft-log.js";
 import { pushEvent } from "../../server/features/notifications/push-validation.js";
 
 const id = "0b8c1f7e-3d2a-4c5b-9e6f-7a8b9c0d1e2f";
@@ -40,10 +41,15 @@ test("a new question announces once; samples without a new one stay quiet", () =
   f.watch.update({ list: true });
   assert.deepEqual(f.opened, [`${id}:q1`]);
   assert.equal(f.changes(), 1);
+  // A new title reaches the inbox list without another push.
+  view.questions = [{ ...question, title: "Which colour, exactly?" }];
+  f.watch.update({ id });
+  assert.deepEqual(f.opened, [`${id}:q1`]);
+  assert.equal(f.changes(), 2);
   // Answered: the inbox hears it, nothing is announced; asked again it announces.
   view.questions = [];
   f.watch.update({ id });
-  assert.equal(f.changes(), 2);
+  assert.equal(f.changes(), 3);
   view.questions = [question, approval];
   f.watch.update({ id });
   assert.deepEqual(f.opened, [`${id}:q1`, `${id}:q1`, `${id}:q2`]);
@@ -90,7 +96,31 @@ test("a failing notifier never breaks the watch", async () => {
   } finally {
     console.error = original;
   }
-  assert.equal(errors.length, 1);
+  assert.deepEqual(errors, [
+    "AgentPier could not announce a rebuild question (CRAFT_REBUILD_FAILED).",
+  ]);
+});
+
+test("craft failures log a craft code, never the message", () => {
+  const errors = [];
+  const original = console.error;
+  console.error = (line) => errors.push(line);
+  try {
+    logCraftFailure(
+      "read a rebuild",
+      Object.assign(new Error("/home/x"), { code: "CRAFT_MCP_TIMEOUT" }),
+    );
+    logCraftFailure(
+      "read a rebuild",
+      Object.assign(new Error("/home/x"), { code: "ENOENT" }),
+    );
+  } finally {
+    console.error = original;
+  }
+  assert.deepEqual(errors, [
+    "AgentPier could not read a rebuild (CRAFT_MCP_TIMEOUT).",
+    "AgentPier could not read a rebuild (CRAFT_REBUILD_FAILED).",
+  ]);
 });
 
 test("the notice is a valid push event: a question previews, an approval does not", () => {

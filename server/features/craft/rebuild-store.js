@@ -1,7 +1,7 @@
 import path from "node:path";
 import { readJSON, writePrivate } from "../../lib/storage.js";
 import { record } from "../extensions/mcp-config.js";
-import { logFailure } from "../mcp-packages/package-install-job.js";
+import { logCraftFailure } from "./craft-log.js";
 import { craftHome } from "../tools/craft-home.js";
 
 /** The owner's defaults for new rebuilds. */
@@ -42,7 +42,7 @@ export class RebuildStore {
     try {
       saved = readJSON(this.file, null);
     } catch (error) {
-      logFailure("read the Craft Anything rebuilds", error);
+      logCraftFailure("read the Craft Anything rebuilds", error);
     }
     const source = record(saved) ? saved : {};
     return {
