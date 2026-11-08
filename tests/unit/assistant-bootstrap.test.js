@@ -143,7 +143,10 @@ test("a Hermes agent keeps memory with its memory tool, never read-only or in fi
   assert.match(text, /memory tool/);
   assert.match(text, /`memory` store/);
   assert.match(text, /`user` store/);
-  assert.match(text, /explicitly asks you to remember something, always save it/);
+  assert.match(text, /explicitly asks you to remember/);
+  assert.ok(text.includes("📌 "));
+  assert.match(text, /contradicts a pinned entry, replace it/);
+  assert.ok(text.includes("Do not record your own refusals"));
   assert.doesNotMatch(text, /read-only right now/);
   assert.doesNotMatch(text, /nothing can be saved/);
   assert.doesNotMatch(text, /memory\/YYYY-MM-DD\.md/);
