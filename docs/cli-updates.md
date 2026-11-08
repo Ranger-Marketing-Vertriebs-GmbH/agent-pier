@@ -29,6 +29,11 @@ an installed REA follows the new pins at the first server start after an AgentPi
 update, unless a session or an agent uses it at that moment; then the next start tries
 again (see [managed REA](mcp.md#managed-rea)).
 
+The **Craft Anything** card works the same way: its dialog shows **Update** when
+AgentPier pins a newer Craft Anything, Ghidra or JDK, and an installed Craft Anything
+follows at the first server start after an AgentPier update unless a session or an agent
+uses it (see [managed Craft Anything](mcp.md#managed-craft-anything)).
+
 The agents' GitHub MCP server is managed the same way but has no card: AgentPier
 installs its pinned release (checked by SHA-256) when an agent first gets GitHub
 access, and an installed one follows a newer pinned version at the first server start

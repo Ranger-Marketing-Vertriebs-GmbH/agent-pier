@@ -39,11 +39,13 @@
 ### Task 1: Pinned download of the Craft Anything binary
 
 **Files:**
+
 - Create: `server/features/tools/craft-manifest.js`
 - Modify: `server/features/tools/rea-components.js` (component table, ids), `server/features/tools/rea-checks.js` (add `checkCraftAnything`), `server/features/tools/verified-download.js` (allow `/storytold/craft-anything/releases/download/` on `github.com`)
 - Test: `tests/unit/craft-manifest.test.js`, extend `tests/integration/rea-components.test.js`
 
 **Interfaces:**
+
 - Produces: `craftManifest` (`{ checked, version: "0.5.0", platforms: { "darwin-arm64", "darwin-x64", "linux-x64", "linux-arm64" } }`, each entry `{ url, sha256, size, kind, top, binary, installedSize, remove?: ["bin/craft-anything"] }`); `craftPlatform({ platform, arch }, manifest = craftManifest) → { available, reason, entry }` (unavailable reason: `serverMessages.craft.platformUnavailable`); component id `"craft-anything"` in `reaComponentIds` (now `["rea-ghidra", "rea-jdk", "craft-anything"]`); `managedReaComponent(root, "craft-anything") → { version, directory, home }` where `home` is the folder holding the binary; `craftBinary(component) → path.join(component.home, "craft-anything-cli")`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -51,6 +53,7 @@
 `tests/unit/craft-manifest.test.js`: `every platform pins an https github release asset with sha256` (url matches `^https://github.com/storytold/craft-anything/releases/download/v0\.5\.0/`, sha256 64 hex, size > 0); `darwin x64 and arm64 share the universal zip`; `craftPlatform refuses win32 and freebsd with platformUnavailable`.
 
 `tests/integration/rea-components.test.js` (reuse the fixture's `serve()`; build the archive with a fake `craft-anything-cli` shell script `#!/bin/sh\necho "craft-anything-cli 0.5.0"` plus a `bin/craft-anything` file for the tar case):
+
 - `installs craft-anything from a zip and checks its version` → `managedReaComponent(root, "craft-anything").version === "0.5.0"`, binary executable.
 - `drops the linux GUI binary after unpacking` → `bin/craft-anything` absent, `bin/craft-anything-cli` present.
 - `refuses a binary that reports another version` → rejects with `serverMessages.craft.versionMismatch("0.5.0", "0.4.0")`, nothing published.
@@ -74,10 +77,12 @@ Run: same command. Expected: PASS.
 ### Task 2: Craft Anything's config file and the Ghidra stub
 
 **Files:**
+
 - Create: `server/features/tools/craft-config.js`
 - Test: `tests/unit/craft-config.test.js`
 
 **Interfaces:**
+
 - Produces: `craftHome(dataDir) → <dataDir>/craft-anything`; `sessionsConfigDir(dataDir) → <dataDir>/craft-anything/sessions`; `writeCraftConfig(configDir, { ghidra, jdk, stub }) → void` (ghidra/jdk: `managedReaComponent` results or null; stub: absolute stub path); `ensureGhidraStub(dataDir) → string` (path); `craftEnvironment(dataDir) → { CRAFT_ANYTHING_CONFIG_DIR, CRAFT_ANYTHING_NO_KEYCHAIN: "1" }`; `craftManagedKeys = ["CRAFT_ANYTHING_CONFIG_DIR", "CRAFT_ANYTHING_NO_KEYCHAIN"]`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -96,11 +101,13 @@ Run: same command. Expected: PASS.
 ### Task 3: `CraftTool`: install, update, remove, the managed row
 
 **Files:**
+
 - Create: `server/features/tools/craft-tool.js`, `server/features/tools/craft-lifecycle.js`
 - Modify: `server/application/rea-wiring.js` → rename nothing; export the generic `reaInUse` as `managedRowInUse` (keep `reaInUse` as an alias)
 - Test: `tests/integration/craft-tool.test.js`, `tests/helpers/craft-tool-fixture.js` (wraps `reaFixture`)
 
 **Interfaces:**
+
 - Consumes: Task 1 (`craftManifest`, `craftPlatform`, `installReaComponent`, `managedReaComponent`, `removeReaComponent`, `craftBinary`), Task 2, `reaManifest`/`reaPlatform` for Ghidra/JDK entries.
 - Produces: `class CraftTool` with the same surface `ReaTool` offers the wiring and routes: `constructor({ dataDir, servers, changes, packages, extensions, audit, manifest, reaManifest, platform, arch, darwinMajor, fetchImpl, run, env })`, `state()`, `utility()`, `apply(input, { source })`, `update({ source })`, `uninstall()`, `start()`, `close()`, `settled()`, `bindingsChanged()`, `syncEnvironment()`, `serverId()`, `wantsGhidra() → boolean`, and hooks the wiring assigns: `inUse`, `onChange`, `keepsGhidra` (`() => boolean`, the other tool wants Ghidra). Stored choice in `<dataDir>/craft-anything/settings.json`: `{ serverId, components: { ghidra: boolean }, settings: { mode: "clean-room" | "deep" }, requested? }`. `state()` returns `{ available, reason, status, jobCount, step, message, installed, serverId, serverName, updateAvailable, components: { core: { installed, version, pinnedVersion, downloadSize, installedSize, outdated }, ghidra: { … as REA's, plus shared: boolean } }, settings }`. `utility()` returns `{ id: "craft-anything", name: "Craft Anything", utility: true, installed, version, pinnedVersion, updateAvailable, status }`.
 
@@ -129,10 +136,12 @@ Follow `ReaTool`'s job model (`begin`, `progress`, `jobCount`, `requireIdle`, `r
 ### Task 4: Ghidra/JDK shared between REA and Craft Anything
 
 **Files:**
+
 - Modify: `server/features/tools/rea-tool.js` (`apply` `ghidraGoes`, `placeComponents`), `server/features/tools/rea-lifecycle.js` (`uninstallRea`), `server/features/tools/rea-state.js` (add `shared`)
 - Test: extend `tests/integration/rea-tool.test.js`, new `tests/integration/shared-ghidra.test.js`
 
 **Interfaces:**
+
 - Consumes: `CraftTool#wantsGhidra`, `ReaTool#wantsGhidra` (new: `this.stored().components.ghidra`), hook `keepsGhidra` on both (default `() => false`).
 - Produces: `ReaTool#keepsGhidra`, `state().components.ghidra.shared`.
 
@@ -149,10 +158,12 @@ Follow `ReaTool`'s job model (`begin`, `progress`, `jobCount`, `requireIdle`, `r
 ### Task 5: Craft Anything's skill for the CLIs
 
 **Files:**
+
 - Create: `server/features/tools/craft-skill/craft-anything/SKILL.md` (from `crates/setup/src/skill.md` of craft-anything v0.5.0, keeping its frontmatter `name: craft-anything`; replace "Connect only when you need it" with: the tools come from AgentPier's managed server; never run `craft-anything-cli setup`, `doctor --fix` or edit MCP configs; a refused tool with reason `restricted_mode` cannot be enabled from a session — rebuilds are started in AgentPier; clean room/deep is the owner's switch in AgentPier. Add a first-line comment block with source URL, version and licence "MIT OR Apache-2.0, © Craft Anything contributors"), `server/features/tools/craft-skills.js`
 - Test: `tests/unit/craft-skills.test.js`
 
 **Interfaces:**
+
 - Produces: `craftSkill = "craft-anything"`; `syncCraftSkills({ serverId, servers, extensions })` — same rules as `syncReaSkills` (copy into each bound CLI profile, the owner's own folder wins, unbound copies removed), but reads the skill from the shipped folder (`bundledSkills(dir)`/`skillPack(skill)` from the package-skills helpers) and installs with `extensions.installPackageSkill(profileId, pack, { serverId, registry: "agentpier", name: "craft-anything", version: craftManifest.version })`; on a version change it replaces owned copies (`extensions.replaceSkill`).
 - [ ] **Step 1: Write the failing tests** — `copies the skill into bound Claude profiles only`; `leaves the owner's own craft-anything folder`; `unbinding removes the owned copy`; `a newer pinned version replaces the owned copy`; `the shipped SKILL.md never mentions craft-anything-cli setup as an instruction` (assert no line matching `/run `craft-anything-cli setup/`).
 - [ ] **Step 2: Run** `node --test tests/unit/craft-skills.test.js` — Expected: FAIL.
@@ -163,11 +174,13 @@ Follow `ReaTool`'s job model (`begin`, `progress`, `jobCount`, `requireIdle`, `r
 ### Task 6: Wiring, routes, live topic, utility row
 
 **Files:**
+
 - Create: `server/application/craft-wiring.js`, `server/http/routes/craft-anything.js`
 - Modify: `server/application/services.js` (create after `rea`, hooks `onChange`, `inUse` via `managedRowInUse`, `keepsGhidra` both ways, `bindingsChanged` in the `CentralMcpChanges.onSaved` chain), `server/application/shutdown.js` (`await services.craft?.close()` beside REA's), `server/app.js` (`services.craft?.start()` after REA's start; mount routes), `server/features/tools/live-topics.js` (`craftJobChanged`, `defineJobTopic({ kind: "craft-anything", param: /current/, sampleMs: 1000, … read: () => services.craft.state() })`), `server/features/sessions/workspace-state.js` (utility row), `web/lib/live/live-topics.js` (`"job.craft-anything": { mode: "state", path: () => "/craft-anything", interval: 1000, sampled: true }`)
 - Test: `tests/integration/craft-tool-routes.test.js`, extend `tests/integration/live-job-topics.test.js`, `tests/unit/live-topics.test.js`, `tests/blackbox/user-socket-denial.test.js`
 
 **Interfaces:**
+
 - Produces: `services.craft`; routes `GET /api/craft-anything` → `state()`, `POST /api/craft-anything` → 202 `apply(body)`, `POST /api/craft-anything/update` → 202, `DELETE /api/craft-anything` → `uninstall()`; 503 `assistantProblem("unavailable", 503)` without `services.craft`; `Cache-Control: no-store`; owner only. Topic `job.craft-anything:current`.
 - [ ] **Step 1: Write the failing tests** — routes mirror `rea-tool-routes.test.js` (state, 202 apply, update, delete, 503, audit origin `managed`); live: `job.craft-anything pushes each job step and samples while running`; blackbox: `job.craft-anything:current is refused to a user socket`; workspace state lists the `craft-anything` utility.
 - [ ] **Step 2: Run** `node --test tests/integration/craft-tool-routes.test.js tests/integration/live-job-topics.test.js tests/unit/live-topics.test.js tests/blackbox/user-socket-denial.test.js` — Expected: FAIL.
@@ -178,11 +191,13 @@ Follow `ReaTool`'s job model (`begin`, `progress`, `jobCount`, `requireIdle`, `r
 ### Task 7: Installer flag and the update path
 
 **Files:**
+
 - Create: `server/features/tools/craft-provisioning.js`
 - Modify: `scripts/setup-options.mjs`, `scripts/setup.sh` (help), `scripts/install-bootstrap.sh` (both option whitelists), `scripts/release-install.mjs`, `scripts/setup-resume.mjs`
 - Test: `tests/integration/craft-provisioning.test.js`
 
 **Interfaces:**
+
 - Produces: `provisionCraftAnything({ dataDir, enable, ghidra = true }) → { requested: boolean, installed: boolean }`: writes `requested: { components: { ghidra }, settings: { mode: "clean-room" } }` into `<dataDir>/craft-anything/settings.json` when enabled and not installed; never downloads (the server's `start()` does). Flag `--with-craft-anything` → `withCraftAnything: true` → installer argument `--with-craft-anything`.
 - [ ] **Step 1: Write the failing tests** — `--with-craft-anything flows from setup options to the installer arguments`; `writes the request once`; `an installed Craft Anything is left alone`; `release install and resume call it with enable`.
 - [ ] **Step 2: Run** `node --test tests/integration/craft-provisioning.test.js` — Expected: FAIL.
@@ -193,11 +208,13 @@ Follow `ReaTool`'s job model (`begin`, `progress`, `jobCount`, `requireIdle`, `r
 ### Task 8: The Craft Anything card and dialog
 
 **Files:**
+
 - Create: `web/features/tools/useCraftAnything.js`, `web/features/tools/CraftAnythingDialog.jsx`, `web/lib/i18n/de/craft-anything.js`, `web/lib/i18n/en/craft-anything.js`, `web/lib/i18n/messages/craft-anything.js`, `tests/browser/craft-anything.spec.js`, `tests/browser/craft-anything-fixture.js`
 - Modify: `web/app/AppDialogs.jsx` (`modal?.type === "craft-anything"`), `web/features/dashboard/tool-actions.js`, `tool-action-view.js`, `ToolGrid.jsx`, `ToolRows.jsx`, `web/lib/providers.js` (`names["craft-anything"] = "Craft Anything"`), `web/features/mcp-servers/wizard/McpServerOverview.jsx` and `web/lib/i18n/{de,en}/mcp-servers.js` (managed note/link per tool: `managedManage` becomes a function of the tool name), `web/app/search-entries.js`
 - Test: extend `tests/unit/tool-actions.test.js`, `tests/unit/search-index.test.js`, `tests/unit/quick-open.test.js`
 
 **Interfaces:**
+
 - Consumes: Task 6 routes and topic; REA's `ReaComponents.jsx` patterns (reuse its row rendering if it fits without growing it past 600 lines; otherwise a small shared row component in `web/features/tools/`).
 - Produces: dialog sections — responsible-use note (Craft Anything's: software you own or may examine; no DRM, login or anti-cheat bypass; early alpha), components with sizes and total (Craft Anything always; "Ghidra with decompiler + Temurin JDK" optional, shows "shared with REA" when `shared`), "Deep mode for sessions" switch (`settings.mode`), Install/Update/Remove, job status from the topic.
 - [ ] **Step 1: Write the failing tests**
@@ -211,6 +228,7 @@ Follow `ReaTool`'s job model (`begin`, `progress`, `jobCount`, `requireIdle`, `r
 ### Task 9: Docs and full check
 
 **Files:**
+
 - Modify: `docs/mcp.md` (new `#### Managed Craft Anything` after `#### Managed REA`: components and sizes, restricted session server and what it refuses, clean room/deep switch, config ownership, Ghidra shared, skill, update/remove, the stub; REA section: Ghidra is shared), `docs/installation.md` and `docs/linux.md` (`--with-craft-anything`), `docs/cli-updates.md` (the card's Update), `docs/architecture.md` (topic `job.craft-anything:current`, `GET /api/craft-anything`, sampled 1 s while running), `README.md`, `README.de.md` (one line beside REA), screenshot of the dialog under `docs/screenshots/`
 - Delete before opening the PR: `docs/superpowers/plans/2026-11-08-craft-anything-managed-tool.md`; keep the spec until PR 2 merges (its decisions 4–7 are unfinished work).
 

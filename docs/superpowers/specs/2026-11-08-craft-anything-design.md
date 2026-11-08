@@ -84,7 +84,7 @@ invocation, then once with the owner's real Claude Code (built a hello-world pag
   (without it `rebuild_start` returns `consent_required`; there is no elicitation).
   Then:
   - `rebuild_start {request, target ("-" for none, a URL or an absolute path),
-    build_with?, rounds?, project_folder?, existing?, projects_dir?, resume?, project?}`
+build_with?, rounds?, project_folder?, existing?, projects_dir?, resume?, project?}`
     → `{project, started}`. The build runs **inside that MCP server process**
     (in the background, at most `build.parallel` = 2 at once, more are queued).
   - `rebuild_status {project}` → `running`, `queued`, `status` (`building`, `ready`,

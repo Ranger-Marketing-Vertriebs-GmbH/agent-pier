@@ -75,7 +75,9 @@ and agents that work as a team.
 - **Central MCP servers:** add a server once and bind it to agents and to your coding
   CLIs, with OAuth sign-in from AgentPier and per-agent folders for local servers;
   the reverse-engineering server REA installs with one click, including Ghidra, a JDK
-  and Frida ([MCP](docs/mcp.md), [managed REA](docs/mcp.md#managed-rea)).
+  and Frida ([MCP](docs/mcp.md), [managed REA](docs/mcp.md#managed-rea)); Craft Anything,
+  a second analysis tool in restricted mode, installs the same way
+  ([managed Craft Anything](docs/mcp.md#managed-craft-anything)).
 - **SSH and SFTP:** SSH and SFTP hosts with a pinned host key (SFTP with a password
   or a key) that coding CLIs and agents use, with approvals for changes and deletes,
   whole-folder transfers, syncs and live activity rows; coding sessions reach their

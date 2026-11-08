@@ -822,9 +822,99 @@ Therefore `rea doctor` reports its `registration` and `skill` checks as
 `config_drift`; that is expected and not an error. With the row's environment,
 `rea doctor --provider ghidra` reports `healthy` once Ghidra is installed.
 
+**Shared with Craft Anything.** Ghidra and the JDK are shared with
+[Craft Anything](#managed-craft-anything): they stay installed while either tool wants
+them, and removing REA keeps them when Craft Anything still does.
+
 **Sandbox.** REA does not work in a nono-sandboxed session: Ghidra decompilation fails
 there and the setuid `ps` cannot run. Use REA in an unsandboxed session; see
 [sandboxed sessions](sandbox.md#tools-that-do-not-run-sandboxed) for what was tested.
+
+#### Managed Craft Anything
+
+AgentPier can also install [Craft Anything](https://github.com/storytold/craft-anything)
+(early alpha, MIT or Apache-2.0), a second tool that gives the coding CLIs
+evidence-based analysis tools for shipped software. The **Craft Anything** card sits
+beside REA on the dashboard and under **CLIs and extensions › Installation**.
+**Install** (or **Manage** once it is installed) opens its dialog.
+
+![Craft Anything dialog with its components, deep mode switch and responsible-use notes](screenshots/craft-anything-dialog.png)
+
+**Components.** Craft Anything is pinned to release 0.5.0, one archive per platform in
+`server/features/tools/craft-manifest.js` (URL, size and SHA-256, checked on
+2026-11-08 and verified before unpacking). The dialog lists:
+
+| Component                                   | Version                      | Download / installed |
+| ------------------------------------------- | ---------------------------- | -------------------- |
+| **Craft Anything** (macOS, always included) | 0.5.0                        | 27 MB / 66 MB        |
+| **Craft Anything** (Linux x64)              | 0.5.0                        | 69 MB / 35 MB        |
+| **Craft Anything** (Linux arm64)            | 0.5.0                        | 66 MB / 29 MB        |
+| **Ghidra with decompiler + Temurin JDK**    | Ghidra 12.1.4, JDK 21.0.13+9 | 633 MB / 1.1 GB      |
+
+macOS gets one universal build for Apple silicon and Intel; Linux x64 and arm64 each get
+their own. The Linux archives also hold a GUI binary, which AgentPier deletes after
+unpacking. Ghidra is the same optional component as in [managed REA](#managed-rea),
+with the same limits: it is not available on Intel Macs or on Linux arm64, where the
+row is disabled and names the reason and Craft Anything still installs.
+
+**Ghidra and the JDK are shared with REA.** Both tools use the same copies under
+`<data dir>/clis/rea-ghidra` and `<data dir>/clis/rea-jdk`; installing one tool when
+the other has already installed them downloads nothing. They stay while either tool
+wants them, and they are removed only when neither does. An update is not applied
+while a session of the other tool uses them. The jobs of the two tools never run at the
+same time: the second one is refused until the first has finished.
+
+**Restricted sessions.** The MCP server row runs
+`craft-anything-cli mcp --restricted --allow-web --allow-capture` plus `--clean-room`
+or `--deep`. `--restricted` makes Craft Anything refuse every tool that runs target
+code, acts on the machine or needs consent (`rebuild_start`, `rebuild_question_ask`,
+the run, Frida and adb tools) before it reads its own settings, so an agent that calls
+`settings_set ask_before_running false` cannot lift it. Sessions therefore never run
+the code they examine and never start a rebuild. **Deep mode for sessions** in the
+dialog switches between **clean room** (the default: nothing inside a target is read,
+only tools that work from outside) and **deep** (sessions may also look inside a
+target, for example decompile it with Ghidra). Changing it rewrites the row's flag.
+
+**Config ownership.** The row's environment sets `CRAFT_ANYTHING_CONFIG_DIR` to
+`<data dir>/craft-anything/sessions` and `CRAFT_ANYTHING_NO_KEYCHAIN` to `1`; both are
+locked like REA's keys. AgentPier owns these keys of `config.toml` there and rewrites
+them at every apply, update and server start, so an agent's `settings_set` does not
+last: `auto_mode = false`, `deep_mode = false`, and `engines.ghidra.install_dir` and
+`java_home`. Other keys Craft Anything writes stay. With Ghidra installed they point at
+the shared Ghidra and JDK. Without it `install_dir` is `<data dir>/craft-anything/no-ghidra`,
+a small executable script that prints that Ghidra is not installed and where to install
+it, and `java_home` is removed. Craft Anything otherwise searches the home folder (on
+macOS also Desktop and Downloads) for a Ghidra and hangs for minutes.
+
+**The MCP server row and the skill.** The row is named `craft-anything`, or
+`craft-anything-agentpier` when that name is taken, and is bound to Claude Code on the
+first install; bind it to other CLIs and agents like any server. The MCP pages mark it
+as managed by AgentPier and link to **Manage** on the Craft Anything card instead of offering
+**Remove**. AgentPier copies the skill `craft-anything` into the skill profiles of every
+CLI the row is bound to, with the ownership tracking and the rules of
+[REA's skill copies](#managed-rea): a copy you changed, or a skill of that name you made
+yourself, is kept.
+
+**Updates.** A newer pin installed by a new AgentPier release is applied at the next
+server start, unless a session uses Craft Anything; then the card shows **Update
+available** and **Update** in the dialog applies it ([CLI updates](cli-updates.md)).
+Apply changes never replaces an installed component.
+
+**Removal.** **Remove Craft Anything** asks **Remove Craft Anything?** and removes the MCP
+server row, the skill copies, the CLI and `<data dir>/craft-anything`, and Ghidra with
+the JDK unless REA still wants them. It is refused while a session or an agent uses
+Craft Anything.
+
+**Install and API.** The installer option `--with-craft-anything` leaves a request that
+the server applies at its next start, Ghidra included
+([installation](installation.md)). The owner-only routes are `GET /api/craft-anything`
+(state), `POST /api/craft-anything` (apply, 202), `POST /api/craft-anything/update` and
+`DELETE /api/craft-anything`; the job is pushed on the live topic
+`job.craft-anything:current` ([architecture](architecture.md#live-channel)).
+
+**Safety.** Use Craft Anything only on software you own or are allowed to examine, and
+never to bypass DRM, logins or anti-cheat systems. The dialog repeats this and asks you
+to confirm before the first install.
 
 #### Worked example: REA
 

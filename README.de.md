@@ -84,7 +84,9 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
   Coding-CLIs binden, mit OAuth-Anmeldung aus AgentPier und eigenen Ordnern je Agent
   für lokale Server; den Reverse-Engineering-Server REA installiert AgentPier mit einem
   Klick samt Ghidra, JDK und Frida ([MCP](docs/mcp.md),
-  [verwaltetes REA](docs/mcp.md#managed-rea)).
+  [verwaltetes REA](docs/mcp.md#managed-rea)); Craft Anything, ein zweites
+  Analysewerkzeug im eingeschränkten Modus, wird genauso installiert, siehe
+  [verwaltetes Craft Anything](docs/mcp.md#managed-craft-anything).
 - **SSH und SFTP:** SSH- und SFTP-Hosts mit fixiertem Host-Schlüssel (SFTP mit
   Passwort oder Schlüssel), die Coding-CLIs und Agenten nutzen, mit Freigaben für
   Änderungen und Löschungen, Ordnerübertragungen, Synchronisieren und

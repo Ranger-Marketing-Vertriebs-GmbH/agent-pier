@@ -227,6 +227,13 @@ follows at the next AgentPier start. Linux arm64 has no Ghidra build, so only Co
 installed there. Ghidra's native decompiler needs the usual system libraries;
 the installation names any that `ldd` cannot resolve.
 
+### Optional Craft Anything
+
+`--with-craft-anything` requests [Craft Anything](mcp.md#managed-craft-anything) for the
+next AgentPier start on Linux x64 and arm64. It shares the pinned Ghidra and JDK with REA
+on x64; Linux arm64 has no Ghidra build, so only the Craft Anything CLI is installed
+there. The GUI binary in the Linux archive is deleted after unpacking.
+
 ### Optional Hermes Agent
 
 `--with-hermes` installs the pinned Hermes Agent runtime on Linux x64 and arm64 as on
