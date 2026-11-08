@@ -92,9 +92,10 @@ export function agentListTopic(services) {
 // opt-in that ends sends `revoked` (live-wiring.js checks every subscription again on
 // each privacy and agent change). The channel list is never refused: like its route,
 // it hides her Telegram identity and texts without the opt-in
-// (OwnerPrivacy#filterChannels), so an opt-in that ends pushes the list without them. The sender bots are not content:
-// their route has no privacy check (user agents never own one), nor has the plain ssh
-// status, which names no path, token or content (user agents never get one).
+// (OwnerPrivacy#filterChannels), so an opt-in that ends pushes the list without them.
+// The sender bots are not content: their route has no privacy check (user agents
+// never own one), nor has the plain ssh status, which names no path, token or content
+// (user agents never get one).
 export const AGENT_DETAIL_TOPICS = Object.freeze([
   "agent.actions",
   "agent.coding-requests",
