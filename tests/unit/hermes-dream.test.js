@@ -248,6 +248,60 @@ test("a conflict on the second file restores the first", async () => {
   assert.equal(files.store["USER.md"], "the agent wrote meanwhile");
 });
 
+test("a created file that must go back is left empty, as Hermes reads a missing one", async () => {
+  const files = filesPort(
+    { "USER.md": "Name is Ada" },
+    {
+      beforeSet: (name, store) => {
+        if (name === "USER.md" && store["USER.md"] === "Name is Ada")
+          store["USER.md"] = "the agent wrote meanwhile";
+      },
+    },
+  );
+  const sessions = sessionsPort({
+    "MEMORY.md": [{ text: "Likes tea" }],
+    "USER.md": [{ text: "Name is Ada Lovelace", from: ["U1"] }],
+    summary: "",
+  });
+  const outcome = await dreamOnce({ files, sessions, agentId });
+  assert.deepEqual(
+    { outcome: outcome.outcome, reason: outcome.reason, file: outcome.file },
+    { outcome: "conflict", reason: "changed", file: "USER.md" },
+  );
+  const written = sets(files);
+  assert.equal(written[0][2].expectedMissing, true);
+  assert.deepEqual(written[2].slice(1), [
+    "MEMORY.md",
+    { content: "", expectedHash: sha256("Likes tea"), expectedMissing: undefined },
+  ]);
+  assert.equal(files.store["MEMORY.md"], "");
+});
+
+test("a restore that meets a newer write keeps it and logs only a code", async (t) => {
+  const warn = t.mock.method(console, "warn", () => {});
+  const files = filesPort(start, {
+    beforeSet: (name, store) => {
+      if (name === "USER.md") store["USER.md"] = "the agent wrote meanwhile";
+      // The agent writes MEMORY.md again after the dream's write, before the restore.
+      if (name === "MEMORY.md" && store["MEMORY.md"] !== start["MEMORY.md"])
+        store["MEMORY.md"] = "the agent's newer memory";
+    },
+  });
+  const outcome = await dreamOnce({ files, sessions: sessionsPort(merged), agentId });
+  assert.deepEqual(
+    { outcome: outcome.outcome, reason: outcome.reason, file: outcome.file },
+    { outcome: "conflict", reason: "changed", file: "USER.md" },
+  );
+  assert.deepEqual(
+    sets(files).map(([, name]) => name),
+    ["MEMORY.md", "USER.md", "MEMORY.md"],
+  );
+  assert.equal(files.store["MEMORY.md"], "the agent's newer memory");
+  const logged = JSON.stringify(warn.mock.calls.map((c) => c.arguments));
+  assert.match(logged, /CONFLICT/);
+  assert.doesNotMatch(logged, /tea|quartz|newer memory|changed/);
+});
+
 test("an unchanged file is not written", async () => {
   const files = filesPort(start);
   const sessions = sessionsPort({

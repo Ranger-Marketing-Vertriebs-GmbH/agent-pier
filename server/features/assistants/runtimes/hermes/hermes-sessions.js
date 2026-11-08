@@ -19,8 +19,17 @@ const minAttemptMs = 5000;
 // session.resume attaches the session and reads its state.
 const resumeTimeoutMs = 60000;
 // The fixed request timeout of Hermes's one-shot call (agent/oneshot.py
-// `run_oneshot`, `timeout=60.0`), which llm.oneshot does not let a caller raise.
+// `run_oneshot`, `timeout=60.0`), which llm.oneshot does not let a caller raise: it
+// passes the value explicitly, so `auxiliary.<task>.timeout` does not apply either.
+// One attempt of the model therefore gets at most 60 s on Hermes's side, whatever
+// AgentPier waits. Hermes retries a timed-out `memory_review` once on the same
+// provider and may then fall back (agent/auxiliary_client.py
+// `_should_skip_same_provider_retry`), so one call can take a multiple of it.
 const oneshotTimeoutMs = 60000;
+// How long a memory review waits for Hermes: 60 s per 4000 answer tokens (the
+// review's budget), so the dream's 8000 leave room for Hermes's retry.
+const reviewTimeoutMs = (maxTokens) =>
+  Math.ceil((oneshotTimeoutMs * Math.max(maxTokens, 4000)) / 4000) + 5000;
 
 // Attaches in flight per connection, so two calls for one key share one attach.
 const attaching = new WeakMap();
@@ -487,7 +496,7 @@ function sessionsOver(current, turns, sizes = new Map()) {
       const answer = await link.client.call(
         "llm.oneshot",
         { task: "memory_review", instructions, input, max_tokens: maxTokens },
-        { timeoutMs: oneshotTimeoutMs + 5000 },
+        { timeoutMs: reviewTimeoutMs(maxTokens) },
       );
       return { text: typeof answer?.text === "string" ? answer.text : "" };
     },

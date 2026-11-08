@@ -430,8 +430,9 @@ test("a memory review is Hermes's one-shot call outside any session", async () =
   });
 });
 
-test("a dream asks the one-shot with more room", async () => {
-  const { peer, sessions } = await scripted(() => ({ text: "{}" }));
+test("a dream asks the one-shot with more room and waits longer", async (t) => {
+  const { client, peer, sessions } = await scripted(() => ({ text: "{}" }));
+  const calls = t.mock.method(client, "call");
   await sessions.reviewMemory({
     agentId,
     instructions: "Dream.",
@@ -441,4 +442,8 @@ test("a dream asks the one-shot with more room", async () => {
   const call = peer.frames.at(-1);
   assert.equal(call.method, "llm.oneshot");
   assert.equal(call.params.max_tokens, 8000);
+  // 60 s per 4000 tokens, beside Hermes's own 60 s per attempt, plus slack.
+  assert.equal(calls.mock.calls.at(-1).arguments[2].timeoutMs, 125000);
+  await sessions.reviewMemory({ agentId, instructions: "Review.", input: "x" });
+  assert.equal(calls.mock.calls.at(-1).arguments[2].timeoutMs, 65000);
 });
