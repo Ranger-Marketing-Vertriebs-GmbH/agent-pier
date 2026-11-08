@@ -9,7 +9,14 @@ import { craftAnythingCopy as copy } from "../../lib/i18n/messages/craft-anythin
 import { reaCopy } from "../../lib/i18n/messages/rea.js";
 import { names } from "../../lib/providers.js";
 import { serverText } from "../../lib/server-messages.js";
-import { GhidraRow, PartsTotal, Sizes, ToolStatus, versionLine } from "./ToolParts.jsx";
+import {
+  GhidraRow,
+  PartsTotal,
+  Sizes,
+  ToolStatus,
+  ghidraCosts,
+  versionLine,
+} from "./ToolParts.jsx";
 import useCraftAnything from "./useCraftAnything.js";
 
 const statusLabels = {
@@ -29,12 +36,13 @@ const statusLabels = {
 
 /**
  * The form's start: Craft Anything's own Ghidra choice (REA may keep Ghidra installed)
- * and mode, or Ghidra when this host has it and clean room before an install.
+ * and mode, or before an install clean room, with Ghidra only when it is installed
+ * already (REA's, at no cost): clean room never needs it.
  */
 const draftFrom = (state) => ({
   ghidra: state.serverId
     ? state.components.ghidra.wanted
-    : state.components.ghidra.available,
+    : state.components.ghidra.available && state.components.ghidra.installed,
   mode: state.settings?.mode === "deep" ? "deep" : "clean-room",
 });
 
@@ -49,7 +57,7 @@ function updateNote({ core, ghidra }) {
 
 function Components({ components, draft, onChange, disabled }) {
   const { core, ghidra } = components;
-  const parts = [core, ...(draft.ghidra && ghidra.available ? [ghidra] : [])];
+  const parts = [core, ...(draft.ghidra && ghidraCosts(ghidra) ? [ghidra] : [])];
   return (
     <fieldset className="check-list rea-components">
       <legend>{copy.componentsLabel}</legend>

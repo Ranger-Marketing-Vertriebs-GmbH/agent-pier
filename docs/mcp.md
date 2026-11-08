@@ -855,7 +855,10 @@ macOS gets one universal build for Apple silicon and Intel; Linux x64 and arm64 
 their own. The Linux archives also hold a GUI binary, which AgentPier deletes after
 unpacking. Ghidra is the same optional component as in [managed REA](#managed-rea),
 with the same limits: it is not available on Intel Macs or on Linux arm64, where the
-row is disabled and names the reason and Craft Anything still installs.
+row is disabled and names the reason and Craft Anything still installs. Clean room
+never needs Ghidra, so a first install leaves it unticked, unless REA's Ghidra is
+already installed: then it is ticked and marked **Shared with REA**. An installed,
+current Ghidra downloads nothing, so both dialogs leave it out of the total.
 
 **Ghidra and the JDK are shared with REA.** Both tools use the same copies under
 `<data dir>/clis/rea-ghidra` and `<data dir>/clis/rea-jdk`; installing one tool when

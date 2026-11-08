@@ -2,15 +2,25 @@ import React from "react";
 import CheckRow from "../../components/CheckRow.jsx";
 import { reaCopy as copy } from "../../lib/i18n/messages/rea.js";
 import { names } from "../../lib/providers.js";
-import { GhidraRow, PartsTotal, Sizes, Unavailable, versionLine } from "./ToolParts.jsx";
+import {
+  GhidraRow,
+  PartsTotal,
+  Sizes,
+  Unavailable,
+  ghidraCosts,
+  versionLine,
+} from "./ToolParts.jsx";
 
-/** The parts the owner ticked that this host has, with Core always included. */
+/**
+ * The parts the owner ticked that this host has, with Core always included; an
+ * installed, current Ghidra costs nothing and stays out.
+ */
 function chosenParts(components, chosen) {
+  const { core, ghidra, frida } = components;
   return [
-    components.core,
-    ...["ghidra", "frida"]
-      .filter((id) => chosen[id] && components[id]?.available)
-      .map((id) => components[id]),
+    core,
+    ...(chosen.ghidra && ghidraCosts(ghidra) ? [ghidra] : []),
+    ...(chosen.frida && frida?.available ? [frida] : []),
   ];
 }
 

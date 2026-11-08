@@ -1,6 +1,7 @@
 import { test, expect } from "../helpers/browser-test.js";
 import { baseURL as base } from "../helpers/browser.js";
 import { reaManifest } from "../../server/features/tools/rea-manifest.js";
+import { formatBytes } from "../../web/lib/format-bytes.js";
 import { packagedServer } from "./mcp-packages-fixture.js";
 import { wizardSetup } from "./mcp-wizard-fixture.js";
 import { card, fixture, openDialog, reaState } from "./rea-fixture.js";
@@ -218,6 +219,12 @@ test("the Ghidra box is REA's own choice and names Craft Anything when shared", 
   await fixture(page, installed({ wanted: true }));
   dialog = await openDialog(page, "Manage");
   await expect(box()).toBeChecked();
+  // The installed Ghidra costs nothing: the total holds Core and Frida only.
+  const { core, frida } = reaState().components;
+  const sum = (key) => formatBytes(core[key] + frida[key], "en");
+  await expect(dialog.locator(".rea-total")).toHaveText(
+    `Total: download ${sum("downloadSize")}, installed ${sum("installedSize")}`,
+  );
 });
 
 test("a refused install shows the server reason in the dialog", async ({ page }) => {
