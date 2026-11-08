@@ -92,6 +92,17 @@ export class HermesFleet extends EventEmitter {
     return hermesWorkspace(hermesPaths(this.dataDir), agentId);
   }
 
+  /**
+   * The private folders of a Hermes agent read outside its work folder, or null: its
+   * HERMES_HOME (sessions, caches, staged and committed chat images) and its HOME.
+   */
+  privateFoldersOf(agent) {
+    const agentId = hermesAgentIdOf(agent);
+    if (!this.dataDir || !folderId.test(agentId || "")) return null;
+    const paths = hermesPaths(this.dataDir);
+    return [path.join(paths.state, agentId), path.join(paths.home, agentId)];
+  }
+
   /** The runtimes made so far, by runtime agent id. */
   list() {
     return [...this.sets.values()].map(({ agentId, runtime }) => ({ agentId, runtime }));
