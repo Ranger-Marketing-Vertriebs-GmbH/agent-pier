@@ -10,6 +10,7 @@ export const assistantProactivityCopy = {
     "Check-ins appear in the agent's chat, marked “Check-in”, so you can reply to them directly. A check-in that comes due while the agent is answering appears after that answer and may not know it yet.",
   interval: "How often",
   intervals: {
+    "30m": "Every 30 minutes",
     "1h": "Every hour",
     "2h": "Every 2 hours",
     "4h": "Every 4 hours",

@@ -53,6 +53,8 @@ test("check-ins are off, need memory, explain their cost and save", async ({ pag
   );
   await proactivity.getByLabel("How often").selectOption("daily");
   await expect(proactivity).toContainText("About 1 extra model run per day");
+  await proactivity.getByLabel("How often").selectOption("30m");
+  await expect(proactivity).toContainText("About 24 extra model runs per day");
   await proactivity.getByLabel("How often").selectOption("1h");
   await expect(proactivity).toContainText("About 12 extra model runs per day");
   await proactivity.screenshot({ path: ".cache/assistant-proactivity-desktop-en.png" });

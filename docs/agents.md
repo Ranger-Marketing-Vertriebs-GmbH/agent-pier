@@ -1461,8 +1461,9 @@ or proposing a team sends an **Agent approval** push notification as well.
   instead of only "error"; a lead learns it with the failed run's report. A reminder's
   history names the cause too.
 - **Check in on its own** (under **Acting on its own**) lets the agent look at its
-  conversation and notes every hour, every 2 or 4 hours or once a day, within active
-  hours, and write only when something needs your attention. A check-in leaves your
+  conversation and notes every 30 minutes, every hour, every 2 or 4 hours or once a
+  day, within active hours, and write only when something needs your attention. A
+  check-in leaves your
   routines to their own runs and tools: it never does, repeats or reports on a
   routine's work. A check-in's result is a "Check-in" row in the main chat's **Events**
   area; so is the reply of a check-in run that failed (marked **Failed**), which sends

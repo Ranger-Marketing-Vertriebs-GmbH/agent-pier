@@ -1,7 +1,8 @@
 import { assistantProblem } from "./assistant-validation.js";
 
-// Hours between check-ins; "daily" is one check-in at the start of the active hours.
-export const heartbeatIntervals = { "1h": 1, "2h": 2, "4h": 4, daily: 24 };
+// Hours between check-ins; "daily" is one check-in at the start of the active hours,
+// "30m" two per active hour (on the hour and at half past).
+export const heartbeatIntervals = { "30m": 0.5, "1h": 1, "2h": 2, "4h": 4, daily: 24 };
 const keys = ["enabled", "interval", "start", "end", "timeZone"];
 // Optional: false keeps check-ins out of the paired Telegram chat (default: sent).
 const optional = ["telegram"];
@@ -47,18 +48,24 @@ export function heartbeatSettings(assistant) {
   return { ...defaults, ...assistant?.heartbeat };
 }
 
-/** The local hours (owner's time zone) at which a check-in runs. */
+/** The local hours (owner's time zone) in which a check-in runs. */
 export function heartbeatHours({ interval, start, end }) {
-  const step = heartbeatIntervals[interval];
+  const step = Math.max(1, heartbeatIntervals[interval]);
   const hours = [];
   for (let hour = start; hour < end; hour += step) hours.push(hour);
   return hours;
 }
 
+/** The minutes past each of those hours at which a check-in runs. */
+export function heartbeatMinutes({ interval }) {
+  return heartbeatIntervals[interval] < 1 ? [0, 30] : [0];
+}
+
 export function heartbeatSchedule(settings) {
+  const minutes = heartbeatMinutes(settings).join(",");
   return {
     kind: "cron",
-    expr: `0 ${heartbeatHours(settings).join(",")} * * *`,
+    expr: `${minutes} ${heartbeatHours(settings).join(",")} * * *`,
     tz: settings.timeZone,
   };
 }
