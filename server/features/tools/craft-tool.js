@@ -20,6 +20,7 @@ import {
   craftRowPatch,
   cleanCraftSettings,
 } from "./craft-row.js";
+import { syncCraftSkills } from "./craft-skills.js";
 import { startCraft, uninstallCraft } from "./craft-lifecycle.js";
 import { reaManifest as defaultReaManifest, reaPlatform } from "./rea-manifest.js";
 import {
@@ -482,9 +483,14 @@ export class CraftTool {
   }
   /**
    * The skill copies in the CLIs bound to row `serverId` (null: none, the copies go).
-   * Kept a no-op here; the skill sync fills it in.
    */
-  async syncSkills(_serverId) {}
+  async syncSkills(serverId) {
+    await syncCraftSkills({
+      serverId,
+      servers: this.servers,
+      extensions: this.extensions,
+    });
+  }
   auditRow(action, id, source) {
     try {
       this.audit?.append({
