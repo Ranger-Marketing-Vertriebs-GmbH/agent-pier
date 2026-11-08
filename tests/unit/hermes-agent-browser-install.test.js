@@ -48,7 +48,11 @@ test("an installation puts the platform's agent-browser on Hermes's PATH", async
   assert.equal(fs.statSync(agentBrowser).mode & 0o777, 0o755);
   assert.match(fs.readFileSync(agentBrowser, "utf8"), /agent-browser/);
   assert.ok(hasAgentBrowser(record.directory, f.manifest));
-  assert.deepEqual(fs.readdirSync(tools).sort(), ["agent-browser", "agent-browser.json"]);
+  assert.deepEqual(fs.readdirSync(tools).sort(), [
+    "agent-browser",
+    "agent-browser.json",
+    "pdfium.json",
+  ]);
   assert.equal(
     f.calls.filter((call) => call.download === f.manifest.agentBrowser.url).length,
     1,
@@ -59,7 +63,9 @@ test("an installation from before the browser gets agent-browser at the next sta
   const f = hermesInstallFixture(t);
   writeHermesEnabled(f.dataDir, true);
   const record = await ensureHermesRuntime(f.options);
-  fs.rmSync(hermesExecutables(record.directory).tools, { recursive: true });
+  const { tools } = hermesExecutables(record.directory);
+  for (const name of ["agent-browser", "agent-browser.json"])
+    fs.rmSync(path.join(tools, name));
   assert.equal(hermesStagingDue(f.dataDir, f.manifest), true);
   const before = f.calls.length;
   assert.deepEqual(await stageHermesRuntime(f.options), record);

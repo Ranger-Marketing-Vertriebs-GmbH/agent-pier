@@ -52,6 +52,8 @@ export function hermesInstallFixture(
     "bin/agent-browser-linux-x64": "#!/bin/sh\necho agent-browser\n",
     "bin/agent-browser-darwin-arm64": "#!/bin/sh\necho agent-browser\n",
   });
+  // pypdfium2's wheels: one stand-in for every platform.
+  const pdfiumWheel = Buffer.from("PK fake pypdfium2 wheel");
   // A pin of a bare commit: the shipped release tag names another one.
   const { tag: _tag, ...shipped } = hermesManifest;
   const manifest = validHermesManifest({
@@ -65,10 +67,20 @@ export function hermesInstallFixture(
     uvLockSha256: sha(Buffer.from(lock)),
     uvChecksums: Object.fromEntries(Object.keys(uvTargets).map((key) => [key, sha(uv)])),
     agentBrowser: { ...shipped.agentBrowser, sha256: sha(agentBrowser) },
+    pdfium: {
+      version: shipped.pdfium.version,
+      wheels: Object.fromEntries(
+        Object.entries(shipped.pdfium.wheels).map(([target, wheel]) => [
+          target,
+          { url: wheel.url, sha256: sha(pdfiumWheel) },
+        ]),
+      ),
+    },
   });
   const files = new Map([
     [manifest.archiveUrl, source],
     [manifest.agentBrowser.url, agentBrowser],
+    ...Object.values(manifest.pdfium.wheels).map((wheel) => [wheel.url, pdfiumWheel]),
   ]);
   for (const target of Object.keys(uvTargets))
     files.set(uvArchiveUrl(manifest, target), uv);
