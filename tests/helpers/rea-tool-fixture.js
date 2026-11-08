@@ -224,6 +224,7 @@ export async function reaFixture(t) {
     tool,
     install,
     manifest,
+    serve,
     fetchImpl,
     run,
     busy,

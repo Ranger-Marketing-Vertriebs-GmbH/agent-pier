@@ -51,8 +51,11 @@ export function reaComponentStates({ host, manifest, ghidra, jdk, frida }) {
   };
 }
 
-/** Only catalog texts reach the card; anything else (paths, npm output) stays out. */
-export const failureText = (error) =>
+/**
+ * Only catalog texts reach the card; anything else (paths, npm output) stays out and
+ * reads as `fallback`.
+ */
+export const failureText = (error, fallback = serverMessages.rea.failed) =>
   typeof error?.status === "number" && messageIdentity(error.message).messageKey
     ? error.message
-    : serverMessages.rea.failed;
+    : fallback;

@@ -77,7 +77,7 @@ const problemWith =
     return true;
   };
 
-test("the REA sources allow exactly the pinned hosts and release paths", () => {
+test("the REA and Craft Anything sources allow exactly the pinned hosts and release paths", () => {
   assert.deepEqual(reaSources, {
     "ghcr.io": ["/v2/homebrew/core/ghidra/blobs/"],
     "pkg-containers.githubusercontent.com": null,
@@ -85,6 +85,7 @@ test("the REA sources allow exactly the pinned hosts and release paths", () => {
       "/NationalSecurityAgency/ghidra/releases/download/",
       "/adoptium/temurin21-binaries/releases/download/",
       "/frida/frida/releases/download/",
+      "/storytold/craft-anything/releases/download/",
     ],
     "release-assets.githubusercontent.com": null,
     "objects.githubusercontent.com": null,

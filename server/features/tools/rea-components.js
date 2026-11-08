@@ -259,3 +259,44 @@ export function sweepReaComponents(root) {
     )
       fs.rmSync(path.join(packages, name), { recursive: true, force: true });
 }
+
+/**
+ * Places the pinned JDK and Ghidra (`host` is reaPlatform's result, `manifest` REA's
+ * manifest) below `root`, shared by REA and Craft Anything: a component already there
+ * stays unless `update` asks for the pin and its version differs. `progress(step,
+ * message)` reports each step ("jdk", "ghidra").
+ */
+export async function placeGhidra({
+  root,
+  manifest,
+  host,
+  update,
+  signal,
+  fetchImpl,
+  run,
+  env,
+  platform,
+  progress,
+}) {
+  const parts = [
+    ["rea-jdk", "jdk", host.ghidra.jdk, manifest.jdk.version],
+    ["rea-ghidra", "ghidra", host.ghidra.entry, manifest.ghidra.version],
+  ];
+  for (const [id, step, entry, version] of parts) {
+    const current = managedReaComponent(root, id);
+    if (current && (!update || current.version === version)) continue;
+    progress(step);
+    await installReaComponent({
+      root,
+      id,
+      version,
+      entry,
+      fetchImpl,
+      signal,
+      run,
+      env,
+      platform,
+      progress: (message) => progress(step, message),
+    });
+  }
+}
