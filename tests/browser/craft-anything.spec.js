@@ -1,6 +1,11 @@
 import { test, expect } from "../helpers/browser-test.js";
 import { baseURL as base } from "../helpers/browser.js";
-import { craftManifest } from "../../server/features/tools/craft-manifest.js";
+import {
+  craftManifest,
+  craftPlatform,
+} from "../../server/features/tools/craft-manifest.js";
+import { formatBytes } from "../../web/lib/format-bytes.js";
+import { reaManifest } from "../../server/features/tools/rea-manifest.js";
 import { wizardSetup } from "./mcp-wizard-fixture.js";
 import {
   card,
@@ -15,6 +20,9 @@ import {
 // managed MCP row.
 const screenshot = process.env.AGENTPIER_CRAFT_SCREENSHOT;
 const ghidraRow = "Ghidra with decompiler + Temurin JDK";
+// The total of Craft Anything alone, as the fixture's Apple silicon Mac reports it.
+const { entry } = craftPlatform({ platform: "darwin", arch: "arm64" });
+const craftOnly = `Total: download ${formatBytes(entry.size, "en")}, installed ${formatBytes(entry.installedSize, "en")}`;
 
 test("installs after acknowledging the note", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -30,16 +38,20 @@ test("installs after acknowledging the note", async ({ page }) => {
   const core = dialog.getByRole("checkbox", { name: "Craft Anything", exact: true });
   await expect(core).toBeChecked();
   await expect(core).toBeDisabled();
-  await expect(dialog.getByRole("checkbox", { name: ghidraRow })).toBeChecked();
+  // Clean room never needs Ghidra: a first install without it present leaves it off.
+  const ghidra = dialog.getByRole("checkbox", { name: ghidraRow });
+  await expect(ghidra).not.toBeChecked();
   const total = dialog.locator(".rea-total");
-  await expect(total).toContainText("GB");
+  await expect(total).toHaveText(craftOnly);
   const deep = dialog.getByRole("switch", { name: "Deep mode for sessions" });
   await expect(deep).not.toBeChecked();
   const install = dialog.getByRole("button", { name: "Install", exact: true });
   await expect(install).toBeDisabled();
   if (screenshot) await dialog.screenshot({ path: screenshot });
-  await dialog.getByRole("checkbox", { name: ghidraRow }).uncheck();
-  await expect(total).toContainText("MB");
+  await ghidra.check();
+  await expect(total).toContainText("GB");
+  await ghidra.uncheck();
+  await expect(total).toHaveText(craftOnly);
   await dialog.getByRole("checkbox", { name: /I understand/ }).check();
   await install.click();
   await expect.poll(() => controls.applied.length).toBe(1);
@@ -63,6 +75,8 @@ test("shows Ghidra as shared with REA", async ({ page }) => {
   const ghidra = dialog.getByRole("checkbox", { name: ghidraRow });
   await expect(ghidra).toBeChecked();
   await expect(dialog).toContainText("Shared with REA");
+  // Ghidra is installed already: nothing of it to download.
+  await expect(dialog.locator(".rea-total")).toHaveText(craftOnly);
   await expect(dialog.getByRole("checkbox", { name: /I understand/ })).toHaveCount(0);
   await ghidra.uncheck();
   await dialog.getByRole("button", { name: "Apply changes" }).click();
@@ -71,6 +85,26 @@ test("shows Ghidra as shared with REA", async ({ page }) => {
     components: { ghidra: false },
     settings: { mode: "clean-room" },
   });
+});
+
+test("a first install ticks REA's Ghidra, which costs nothing", async ({ page }) => {
+  await fixture(
+    page,
+    craftState({
+      components: {
+        ghidra: {
+          installed: true,
+          shared: true,
+          version: reaManifest.ghidra.version,
+          jdkVersion: reaManifest.jdk.version,
+        },
+      },
+    }),
+  );
+  const dialog = await openDialog(page);
+  await expect(dialog.getByRole("checkbox", { name: ghidraRow })).toBeChecked();
+  await expect(dialog).toContainText("Shared with REA");
+  await expect(dialog.locator(".rea-total")).toHaveText(craftOnly);
 });
 
 test("the Ghidra box follows Craft Anything's own choice, not what REA keeps", async ({

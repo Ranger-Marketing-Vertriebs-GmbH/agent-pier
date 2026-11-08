@@ -62,6 +62,13 @@ export function GhidraRow({ ghidra, checked, disabled, onChange, sharedWith }) {
   );
 }
 
+/**
+ * Whether ticking Ghidra costs anything: an installed, current Ghidra (the other
+ * tool's, say) downloads nothing, so it stays out of the total.
+ */
+export const ghidraCosts = (ghidra) =>
+  ghidra.available && !(ghidra.installed && !ghidra.outdated);
+
 /** "Total: download …, installed …" of the ticked `parts`. */
 export function PartsTotal({ parts }) {
   const sum = (key) => parts.reduce((total, part) => total + (part[key] ?? 0), 0);
