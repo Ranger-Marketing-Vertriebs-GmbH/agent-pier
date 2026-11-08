@@ -457,3 +457,28 @@ test("the minute tick does not wait for a dream", async (t) => {
   assert.equal(await done, heron.id);
   assert.equal(backups.hermes.store.diary(heron.id).entries[0].outcome, "applied");
 });
+
+test("a turn AgentPier submitted is not read as a person's words", async (t) => {
+  const f = fixture(t);
+  const heron = f.agent("Heron");
+  const result = "The team found that the owner moved to Oslo";
+  const conversation = f.chat(heron, [...day, ["user", result, before(8 * hourMs)]]);
+  const request = f.service.ledger.accept(conversation.id, {
+    clientRequestId: crypto.randomUUID(),
+    text: result,
+  });
+  const teams = f.service.teams;
+  f.service.teams = {
+    store: {
+      context: (id) =>
+        id === request.id ? { kind: "team-result" } : { kind: "unknown" },
+    },
+  };
+  try {
+    await f.dreams.tick(night);
+  } finally {
+    f.service.teams = teams;
+  }
+  assert.match(heron.set.asks[0].input, /owner: I drink green tea every morning/);
+  assert.doesNotMatch(heron.set.asks[0].input, /moved to Oslo/);
+});

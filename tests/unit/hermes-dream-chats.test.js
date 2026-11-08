@@ -303,3 +303,62 @@ test("each chat names its person, the owner or an opaque user label", async () =
   assert.ok(input.includes(`--- chat 2 (agentpier, ${ada})\n${ada}: I live in Hamburg`));
   assert.ok(input.includes(`--- chat 3 (agentpier, ${bo})\n${bo}: I live in Munich`));
 });
+
+test("turns AgentPier submitted never reach the dream as a person's words", async () => {
+  // The requests of the chat and their trusted contexts, as the ledger keeps them.
+  const requests = [
+    { id: "owner-turn", text: "I moved to Hamburg" },
+    { id: "check-in", text: "Check in: how is the garden project going?" },
+    { id: "team", text: "[Team result] The member finished the report." },
+    { id: "lead", text: "Please draft the newsletter." },
+    { id: "goal", text: "Continue your open goal." },
+  ];
+  const contexts = {
+    "owner-turn": { kind: "owner" },
+    "check-in": { kind: "coding-session" },
+    team: { kind: "team-result" },
+    lead: { kind: "lead-request", leadName: "Lead", display: "Draft it" },
+    // A goal turn of the owner's request is AgentPier's (goal-turns.js turnKind).
+    goal: { kind: "owner", goal: { id: "g", anchorRequestId: "owner-turn", title: "G" } },
+  };
+  const ledger = {
+    requests: (id) => (id === "a" ? requests : []),
+    attemptRequests: () =>
+      new Map([
+        ["attempt-owner", "owner-turn"],
+        ["attempt-team", "team"],
+      ]),
+  };
+  const f = fixture([chat("a")], {
+    "key-a": [
+      row("user", "I moved to Hamburg", 10, { turnKey: "attempt-owner" }),
+      row("user", "[Team result] The member finished the report.", 20, {
+        turnKey: "attempt-team",
+      }),
+      // Unkeyed: matched by text, the framing in front included.
+      row("user", "AgentPier: Check in: how is the garden project going?", 30),
+      row("user", "Please draft the newsletter.", 40),
+      row("user", "Continue your open goal.", 45),
+      // A reminder's or check-in's note the runtime wrote itself.
+      row("user", "Reminder: water the plants", 50, { internal: true }),
+      row("assistant", "Done, the newsletter is drafted", 60),
+      row("user", "My sister is called Lea", 70),
+    ],
+  });
+  const { chats } = await dreamChats({
+    ...f,
+    ledger,
+    contextOf: (id) => contexts[id] ?? null,
+    assistantId: "agent",
+    since: at(0),
+    budget: 60000,
+  });
+  assert.deepEqual(
+    chats.flatMap((c) => c.messages.map((m) => [m.role, m.text])),
+    [
+      ["person", "I moved to Hamburg"],
+      ["agent", "Done, the newsletter is drafted"],
+      ["person", "My sister is called Lea"],
+    ],
+  );
+});
