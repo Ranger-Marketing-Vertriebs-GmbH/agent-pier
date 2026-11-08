@@ -79,9 +79,11 @@ allowed commands** (**Capabilities** → **Shell access**) lists these commands 
 folder they were approved in and when they were added, and deletes them, as it does
 OpenClaw's allowlist. A Hermes agent's list is AgentPier's own (`exactOnly` in
 `GET /api/assistants/:id/shell-allowlist`), so it is read and deleted while Hermes and
-OpenClaw are stopped; the page says that only the identical command runs without asking.
-The live topic `agent.allowlist:<id>` pushes each change, and a deletion writes the same
-`assistant.revoked` audit event (`kind: "allowlist"`) as one of OpenClaw's entries.
+OpenClaw are stopped (a deletion still waits out the agent service's recovery and
+maintenance, like every other agent change); the page says that only the identical
+command runs without asking. The live topic `agent.allowlist:<id>` pushes each change,
+and a deletion writes the same `assistant.revoked` audit event (`kind: "allowlist"`) as
+one of OpenClaw's entries.
 
 ### Model connection
 

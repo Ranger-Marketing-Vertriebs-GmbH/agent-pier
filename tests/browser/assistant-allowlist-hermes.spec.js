@@ -77,13 +77,20 @@ for (const [label, use] of [
         ...state.entries,
         remembered(
           "cmd-00000000000000000000000000000001",
-          "bash -c 'make test'",
+          "bash -c 'make test'\n  && make lint",
           "2026-11-08T10:00:00.000Z",
         ),
       ];
       await liveStub.reread(topic);
       await expect(list).toHaveCount(3);
       await expect(list.nth(2)).toContainText("bash -c 'make test'");
+      // A multi-line command is named on one line.
+      await expect(
+        allowlist(page).getByRole("button", {
+          name: "Remove entry bash -c 'make test' && make lint",
+          exact: true,
+        }),
+      ).toBeVisible();
 
       await allowlist(page)
         .getByRole("button", { name: "Remove entry node build.js" })
