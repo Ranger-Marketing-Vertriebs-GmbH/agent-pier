@@ -32,12 +32,16 @@ agents**.
    **Teams** limit, [Dreaming](#dreaming) and **Storage** (the agents' installed
    dependencies, with the same clean-up as the system status dialog).
 3. **Agents › Runtime › Advanced · for all agents** offers a short, allow-listed set of
-   OpenClaw settings for all agents: **Time limit per task**, **Thinking level**,
+   runtime settings for all agents: **Time limit per task**, **Thinking level**,
    **Time zone**, **Image quality**, **Maximum image size** and **Media file
-   retention**. Each one is marked **Immediate** or **Restart needed**. AgentPier
-   offers only settings that do not touch security, access or management, and applies
-   them only to the runtime version they were approved for; an older runtime starts
-   with OpenClaw's defaults. When an AgentPier update approves them for a new runtime
+   retention**. Each one is marked **Immediate** or **Restart needed**. Hermes agents
+   take **Thinking level** and **Time zone** too and restart for a change; while
+   Hermes agents run, the other four are marked **OpenClaw only**
+   ([Hermes runtime](hermes-runtime.md#advanced-settings)). AgentPier offers only
+   settings that do not touch security, access or management, and applies them only to
+   the runtime version they were approved for; an older runtime starts with OpenClaw's
+   defaults, and a Hermes version they are not approved for with Hermes's defaults,
+   which the page names. When an AgentPier update approves them for a new runtime
    version, saved values stay stored but inactive until you activate that version under
    **Agent service**, and again after a rollback before commit; the page names the
    installed version meanwhile. The activity log records each change as
@@ -291,8 +295,11 @@ What works on Hermes today:
   chats.
 - Backups keep a Hermes agent's keys and conversations sealed like OpenClaw's
   ([backups](backups.md#hermes-agents)); a Hermes agent [dreams](#dreaming) too.
+- Advanced settings: **Thinking level** and **Time zone** of
+  **Agents › Runtime › Advanced · for all agents** apply to Hermes agents too; the
+  other four have no Hermes equivalent and stay OpenClaw's.
 
-What comes later, shown disabled in the agent's settings: advanced runtime settings; the full comparison is in
+The full comparison is in
 [Hermes runtime](hermes-runtime.md#parity-with-openclaw-agents). Updates of Hermes itself appear in the **Hermes Agent** group (**Update**);
 the Hermes agents restart, and a failed start restores the previous installation. Work
 of Hermes agents still running blocks it and is listed there, with **Pause agents and

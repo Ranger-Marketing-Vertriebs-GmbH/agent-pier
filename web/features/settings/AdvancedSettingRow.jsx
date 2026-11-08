@@ -83,9 +83,16 @@ function Control({ setting, value, onChange, disabled, ...aria }) {
 
 /**
  * One allowed setting: our label, its default and how it takes effect, the help as
- * a disclosure, a control by type and a reset to OpenClaw's default.
+ * a disclosure, a control by type and a reset to OpenClaw's default. `openClawOnly`
+ * marks a setting Hermes agents do not take (while Hermes agents run).
  */
-export default function AdvancedSettingRow({ setting, value, onChange, disabled }) {
+export default function AdvancedSettingRow({
+  setting,
+  value,
+  onChange,
+  disabled,
+  openClawOnly = false,
+}) {
   const text = copy.settings[setting.id];
   const info = useInfoHint();
   const id = useId();
@@ -110,6 +117,14 @@ export default function AdvancedSettingRow({ setting, value, onChange, disabled 
                   title={restart ? copy.restartLabel : copy.liveLabel}
                 >
                   {restart ? copy.restart : copy.live}
+                </span>
+              )}
+              {openClawOnly && (
+                <span
+                  className="list-row-pill advanced-setting-badge scope"
+                  title={copy.openClawOnlyLabel}
+                >
+                  {copy.openClawOnly}
                 </span>
               )}
             </span>
