@@ -140,7 +140,12 @@ export class PackageSkills {
   /** Copies of packages removed while AgentPier was stopped. */
   prune(serverIds) {
     for (const item of this.extensions.installed())
-      if (item.package && !serverIds.has(item.package.serverId))
+      // AgentPier's own skills (registry "agentpier") have no package record.
+      if (
+        item.package &&
+        item.package.registry !== "agentpier" &&
+        !serverIds.has(item.package.serverId)
+      )
         this.settle(item, () =>
           this.extensions.removeSkill(item.accountId, item.id, { verify: true }),
         );
