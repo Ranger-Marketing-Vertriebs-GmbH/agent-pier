@@ -86,7 +86,10 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
   Klick samt Ghidra, JDK und Frida ([MCP](docs/mcp.md),
   [verwaltetes REA](docs/mcp.md#managed-rea)); Craft Anything, ein zweites
   Analysewerkzeug im eingeschränkten Modus, wird genauso installiert, siehe
-  [verwaltetes Craft Anything](docs/mcp.md#managed-craft-anything).
+  [verwaltetes Craft Anything](docs/mcp.md#managed-craft-anything); die Seite
+  **Rebuilds** lässt Craft Anything danach eine App oder Website als neues Projekt
+  nachbauen, mit Fragen in deinem Posteingang, auch von deinen Sessions und Agenten
+  gestartet ([Rebuilds](docs/craft.md), auf Englisch).
 - **SSH und SFTP:** SSH- und SFTP-Hosts mit fixiertem Host-Schlüssel (SFTP mit
   Passwort oder Schlüssel), die Coding-CLIs und Agenten nutzen, mit Freigaben für
   Änderungen und Löschungen, Ordnerübertragungen, Synchronisieren und

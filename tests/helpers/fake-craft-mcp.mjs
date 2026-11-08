@@ -307,6 +307,9 @@ const tools = {
     if (args.project) {
       const entry = project(args.project);
       if (args.resume) {
+        // Like Craft Anything 0.5.0, which refuses a resume without the request.
+        if (!args.request)
+          throw new ToolError("invalid_arguments", "missing field `request`.");
         startRound(entry, { resume: true });
         activity(entry, "Resumed");
       } else {

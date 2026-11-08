@@ -78,7 +78,7 @@ export class RebuildChildren {
     const component = this.craft.component(tool);
     if (!component) throw problem(messages.notInstalled, 409);
     const configDir = rebuildsConfigDir(this.dataDir);
-    this.craft.writeConfig(undefined, configDir);
+    this.craft.writeConfig(undefined, configDir, { builder: true });
     const env = {
       ...this.accounts.environment(accountId),
       ...craftEnvironment(this.dataDir),

@@ -153,7 +153,6 @@ export class CraftRebuilds {
   }
 
   // --- Starting ---------------------------------------------------------------------
-
   /**
    * Starts a rebuild for `source` ("owner", "session" or "agent"). Only the owner
    * chooses account, mode, auto mode and rounds. A retried start with the same
@@ -280,12 +279,13 @@ export class CraftRebuilds {
     });
   }
 
-  /** Resumes a paused rebuild where it stopped. */
+  /** Resumes a paused rebuild (Craft Anything 0.5.0 wants its request again). */
   async continue(id) {
     const record = this.require(id);
     return this.serial(id, async () => {
       this.requireIdle(record);
-      await this.call(record, "rebuild_start", { resume: true });
+      const { request } = record;
+      await this.call(record, "rebuild_start", { resume: true, request });
       return this.launched(record);
     });
   }

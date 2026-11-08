@@ -168,6 +168,14 @@ you in AgentPier or Telegram, or the agent. Until the agent escalates a prompt, 
 notification is held for up to 15 minutes ([notifications](notifications.md#what-notifies-you)),
 but the item is listed at once ([coding sessions](assistant-workflows.md#coding-sessions)).
 
+## Questions from rebuilds
+
+A [Craft Anything rebuild](craft.md) that waits for you lists its question as
+**Question from a rebuild** or its approval as **Approval for a rebuild**. Answering
+here and on the rebuild's page is the same: the first answer wins. In auto mode the
+questions are decided by Craft Anything and approvals are allowed by AgentPier, so they
+do not appear.
+
 ## Waiting sessions
 
 A session in the sidebar shows **Waiting** while one of its native requests is open,
