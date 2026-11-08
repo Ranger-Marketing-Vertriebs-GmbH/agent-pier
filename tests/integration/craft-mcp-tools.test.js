@@ -173,3 +173,27 @@ test("a revoked grant refuses the next call", async (t) => {
   );
   assert.equal(calls.length, 0);
 });
+
+test("a session's requestId is scoped to that session", async (t) => {
+  const { f, calls } = await craftApp(t);
+  const args = { request: "Clone it", requestId: "rebuild-1" };
+  const start = async (issued) => {
+    const client = await connect(t, f, issued);
+    try {
+      return data(
+        await client.callTool({ name: "craft_rebuild_start", arguments: args }),
+      );
+    } finally {
+      await client.close();
+    }
+  };
+  const one = await issue(f, { choices: true });
+  const two = await issue(f, { choices: true });
+  const first = await start(one);
+  const retried = await start(one);
+  const other = await start(two);
+  assert.equal(retried.id, first.id);
+  assert.notEqual(other.id, first.id);
+  assert.equal(calls[0].input.requestId, `${one.session.id}:rebuild-1`);
+  assert.equal(calls[2].input.requestId, `${two.session.id}:rebuild-1`);
+});
