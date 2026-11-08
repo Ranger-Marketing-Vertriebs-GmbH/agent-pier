@@ -7,8 +7,9 @@ export const assistantAdvancedCopy = {
   stopped: "The agent service is not running. Saved changes apply at its next start.",
   unqualified: (version) =>
     `The installed agent runtime ${version} is not approved for these settings. Saved values are kept and apply again once the approved version runs.`,
-  hermesRestart:
-    "Hermes agents take the settings without “OpenClaw only” too; a change restarts them.",
+  hermesApplies: "Settings without “OpenClaw only” also apply to Hermes agents.",
+  hermesRestart: "Restarts Hermes agents",
+  hermesRestartLabel: "Hermes agents restart to take a change",
   hermesUnqualified: (version) =>
     `Hermes Agent ${version} is not approved for these settings. Hermes agents start with Hermes's defaults until the approved version runs.`,
   openClawOnly: "OpenClaw only",
