@@ -236,7 +236,8 @@ export class CraftRebuilds {
       await made.rollback();
       throw this.failure(error);
     }
-    await this.prepareFolder(made);
+    const project = await this.prepareFolder(made);
+    if (project?.id) record.projectId = project.id;
     this.persist();
     if (this.pauseAfterStart.delete(record.id))
       await this.serial(record.id, () => this.stop(record));
@@ -261,15 +262,21 @@ export class CraftRebuilds {
     }
   }
 
-  /** Keeps Craft Anything's records out of Git and makes the folder a repository. */
+  /**
+   * Keeps Craft Anything's records out of Git and makes the folder a repository. The
+   * folder is registered again then, which moves its project to the Git identity at
+   * once (ProjectMemory#register): that project, or null when this failed.
+   */
   async prepareFolder(made) {
     try {
       await fs.writeFile(path.join(made.path, ".gitignore"), `${ignored.join("\n")}\n`, {
         flag: "wx",
       });
       await initRepository(made.path);
+      return await this.memory.register(made.path);
     } catch (error) {
       logCraftFailure("prepare a rebuild's project folder", error);
+      return null;
     } finally {
       await made.release();
     }

@@ -90,11 +90,19 @@ export function rebuildsFixture(
     JSON.stringify({ defaultCwd: projectsDir }),
   );
   const projects = [];
+  let projectCount = 0;
+  // Like ProjectMemory: registering a folder again returns its project, unless the
+  // folder became a Git repository since, which moves it to a new (Git) project.
   const memory = {
     claimsFolder: () => false,
     projectNames: () => projects.map((p) => ({ id: p.id })),
     register: async (cwd) => {
-      const project = { id: `p${projects.length + 1}`, cwd, name: path.basename(cwd) };
+      const git = fs.existsSync(path.join(cwd, ".git"));
+      const known = projects.find((p) => p.cwd === cwd);
+      if (known?.git === git) return known;
+      if (known) projects.splice(projects.indexOf(known), 1);
+      projectCount += 1;
+      const project = { id: `p${projectCount}`, cwd, name: path.basename(cwd), git };
       projects.push(project);
       return project;
     },
@@ -195,6 +203,7 @@ export function rebuildsFixture(
     dataDir,
     projectsDir,
     projects,
+    memory,
     profile,
     spawned,
     clients,
