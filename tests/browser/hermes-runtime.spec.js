@@ -325,6 +325,9 @@ for (const [language, texts] of [
     );
     const shell = page.locator("#agent-shell");
     await expect(shell.getByRole("radio")).toHaveCount(4);
+    // Each level is a row with its own explanation, readable on a phone.
+    for (const radio of await shell.getByRole("radio").all())
+      await expect(radio).toHaveAccessibleDescription(/\S/);
     await shell.getByRole("radio", { name: texts.every }).check();
     const bar = saveBar(
       page,
