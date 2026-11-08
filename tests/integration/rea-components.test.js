@@ -161,7 +161,7 @@ async function fixture(t) {
 
 test("installs Ghidra, checks its version and switches the link atomically", async (t) => {
   const f = await fixture(t);
-  assert.deepEqual(reaComponentIds, ["rea-ghidra", "rea-jdk"]);
+  assert.deepEqual(reaComponentIds, ["rea-ghidra", "rea-jdk", "craft-anything"]);
   const bytes = ghidraBottle();
   const messages = [];
   const installed = await f.install("rea-ghidra", ghidraEntry(bytes), bytes, {

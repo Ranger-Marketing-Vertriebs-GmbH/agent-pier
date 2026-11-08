@@ -50,6 +50,7 @@ import { audit } from "./de/audit.js";
 import { users } from "./de/users.js";
 import { storageCleanup } from "./de/storage-cleanup.js";
 import { rea } from "./de/rea.js";
+import { craft } from "./de/craft.js";
 import { tickets } from "./de/tickets.js";
 
 // Browser-visible German server messages; top-level names are the stable key prefix.
@@ -84,6 +85,7 @@ export const germanServerMessages = Object.freeze({
   users,
   storageCleanup,
   rea,
+  craft,
   tickets,
   accounts,
   agentbus,
