@@ -83,15 +83,16 @@ function Control({ setting, value, onChange, disabled, ...aria }) {
 
 /**
  * One allowed setting: our label, its default and how it takes effect, the help as
- * a disclosure, a control by type and a reset to OpenClaw's default. `openClawOnly`
- * marks a setting Hermes agents do not take (while Hermes agents run).
+ * a disclosure, a control by type and a reset to OpenClaw's default. While Hermes
+ * agents exist, `hermes` adds how they take it: "none" (OpenClaw only), "restart"
+ * (they restart) or "hot" (nothing to add).
  */
 export default function AdvancedSettingRow({
   setting,
   value,
   onChange,
   disabled,
-  openClawOnly = false,
+  hermes = null,
 }) {
   const text = copy.settings[setting.id];
   const info = useInfoHint();
@@ -119,12 +120,14 @@ export default function AdvancedSettingRow({
                   {restart ? copy.restart : copy.live}
                 </span>
               )}
-              {openClawOnly && (
+              {(hermes === "none" || hermes === "restart") && (
                 <span
                   className="list-row-pill advanced-setting-badge scope"
-                  title={copy.openClawOnlyLabel}
+                  title={
+                    hermes === "none" ? copy.openClawOnlyLabel : copy.hermesRestartLabel
+                  }
                 >
-                  {copy.openClawOnly}
+                  {hermes === "none" ? copy.openClawOnly : copy.hermesRestart}
                 </span>
               )}
             </span>

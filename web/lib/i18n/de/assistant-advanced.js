@@ -8,8 +8,9 @@ export const assistantAdvancedCopy = {
     "Der Agentendienst läuft gerade nicht. Gespeicherte Änderungen gelten beim nächsten Start.",
   unqualified: (version) =>
     `Die installierte Agentenlaufzeit ${version} ist für diese Einstellungen nicht freigegeben. Gespeicherte Werte bleiben erhalten und gelten wieder, sobald die freigegebene Version läuft.`,
-  hermesRestart:
-    "Hermes-Agenten übernehmen die Einstellungen ohne „Nur OpenClaw“ ebenfalls; eine Änderung startet sie neu.",
+  hermesApplies: "Einstellungen ohne „Nur OpenClaw“ gelten auch für Hermes-Agenten.",
+  hermesRestart: "Startet Hermes-Agenten neu",
+  hermesRestartLabel: "Hermes-Agenten starten neu, um eine Änderung zu übernehmen",
   hermesUnqualified: (version) =>
     `Hermes Agent ${version} ist für diese Einstellungen nicht freigegeben. Hermes-Agenten starten mit den Standards von Hermes, bis die freigegebene Version läuft.`,
   openClawOnly: "Nur OpenClaw",

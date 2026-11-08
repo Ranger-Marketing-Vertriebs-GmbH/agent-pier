@@ -21,17 +21,24 @@
 .advanced-setting-badge {
   padding: 1px 7px;
   font-size: 11px;
+  white-space: nowrap;
 }
 .advanced-setting-badge.live {
   border-color: #5fbf7533;
   background: #1c2b20;
   color: var(--success);
 }
-/* "OpenClaw only": a scope, not a state, so it stays neutral. */
+/* Which agents take a setting: a scope, not a state, so it stays neutral. */
 .advanced-setting-badge.scope {
-  border-color: var(--neutral-17);
-  background: var(--neutral-09);
-  color: var(--neutral-25);
+  border-color: var(--line);
+  background: var(--pill-bg);
+  color: var(--pill-text);
+}
+/* Information, not a warning. */
+.advanced-settings-note.info {
+  border-color: var(--line);
+  background: var(--surface-raised);
+  color: var(--muted);
 }
 .advanced-setting-row input.list-row-number {
   width: 88px;
