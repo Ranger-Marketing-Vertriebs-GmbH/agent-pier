@@ -39,6 +39,19 @@ const labelGuidance = `- Tool texts and these instructions name AgentPier settin
   .map(([english, german]) => `"${english}" is "${german}"`)
   .join(", ")}.`;
 
+// A Hermes agent keeps its memory with Hermes's own memory tool: two small stores
+// (`memory` for its notes, `user` for the people it works for) that Hermes loads into
+// every new chat (runtimes/hermes/hermes-config/memory.js). It has no memory files.
+const hermesMemoryGuidance = [
+  "## Memory",
+  "- Your memory is your memory tool: keep durable facts, decisions and plans in its `memory` store and what you learn about the people you work for in its `user` store. Both are loaded at the start of every new chat.",
+  "- This conversation is not your memory: it gets compressed and older turns are cut. Only what you save with the memory tool survives.",
+  "- Save as soon as someone shares something worth keeping, not later in the conversation. When someone explicitly asks you to remember something, always save it.",
+  "- Memory is limited: keep entries short, and replace or merge an entry that became outdated instead of adding a new one.",
+  '- Never say "saved", "noted" or "I\'ll remember" unless a memory write succeeded in this turn. If a write is refused or fails, say plainly that it was not saved.',
+  "- Do not record your own refusals or limits you set yourself as rules or notes; record the owner's rules, decisions and facts.",
+].join("\n");
+
 // OpenClaw's own memory routine never reaches the workspace (skipBootstrap), so an
 // agent with memory learns here that only a file write persists anything.
 // A task member (`task`) has its own memory and, when its lead granted it (`lead`),
@@ -194,7 +207,8 @@ const secretsGuidance =
   "- Secrets the owner granted you are in `.agentpier/secrets.env` in your workspace. When a task needs them, load them in the same shell command with `set -a; . .agentpier/secrets.env; set +a`. Never print, log, commit or paste their values.";
 
 // `memoryWritable` false: the agent's write and edit tools are withheld (no live
-// write guard, AssistantConfig.applyOnce). `team`: a lead's members and team usage
+// write guard, AssistantConfig.applyOnce). `memoryKind` "hermes": the agent keeps its
+// memory with Hermes's memory tool, not in files. `team`: a lead's members and team usage
 // level (team-guidance.js), only while its team tools are offered. `secrets`: the
 // agent receives at least one secret (AgentSecrets.entries). `codingSessions`: the
 // projects it may start coding sessions on, `[{ projectId, name }]`. `mailAccounts`:
@@ -206,6 +220,7 @@ export function assistantBootstrap(
   display = {},
   {
     memoryWritable = true,
+    memoryKind = "files",
     projectFolders = [],
     github = null,
     images = false,
@@ -236,16 +251,18 @@ export function assistantBootstrap(
   const lead = !assistant.teamMemberId && !assistant.archivedAt && teamGuidance(team);
   const sections = [
     managed,
-    ...(memoryEnabled(assistant)
-      ? [
-          memoryGuidance(
-            !!assistant.teamMemberId,
-            memoryWritable,
-            task,
-            task && personalCapabilities(assistant).memory,
-          ),
-        ]
-      : []),
+    ...(memoryEnabled(assistant) && memoryKind === "hermes"
+      ? [hermesMemoryGuidance]
+      : memoryEnabled(assistant)
+        ? [
+            memoryGuidance(
+              !!assistant.teamMemberId,
+              memoryWritable,
+              task,
+              task && personalCapabilities(assistant).memory,
+            ),
+          ]
+        : []),
     ...(projectFolders.length ? [folderGuidance(projectFolders)] : []),
     ...(github ? [githubGuidance(github)] : []),
     ...(plainSshHosts(plainSsh).length

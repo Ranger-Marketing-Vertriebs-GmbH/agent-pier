@@ -8,8 +8,8 @@ import { mayCreateProjects, mayOpenPreviews } from "./goal-turns.js";
  * project folders, GitHub, plain ssh aliases, its secrets file, coding sessions,
  * email accounts, project creation and previews. AgentPier's own tools reach a Hermes
  * agent through the team plugin and its bridge (`tools`: the bridge runs), so
- * without it none of that guidance is given. Memory is Hermes's own, so it is not
- * named; image creation is, while its images reach the chat through the team plugin
+ * without it none of that guidance is given. Memory is Hermes's own memory tool
+ * (`memoryKind` "hermes"), never AgentPier's memory files; image creation is, while its images reach the chat through the team plugin
  * (`images`: a ChatGPT login AgentPier holds serves them, hermes-config/images.js).
  * Never fails the apply.
  */
@@ -30,7 +30,7 @@ export async function ownProcessInputs(
         .catch(() => null)
     : null;
   const guidance = {
-    memoryWritable: false,
+    memoryKind: "hermes",
     projectFolders: (tools && config.projectFolders?.(assistant)) || [],
     github: (tools && config.github?.(assistant)) || null,
     plainSsh: plainSsh || null,
