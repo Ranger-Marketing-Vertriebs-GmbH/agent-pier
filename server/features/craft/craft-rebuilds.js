@@ -18,12 +18,12 @@ import {
   cleanSettings,
   cleanStart,
 } from "./rebuild-input.js";
+import { RebuildSampler } from "./rebuild-sampler.js";
 import { RebuildStore } from "./rebuild-store.js";
 import {
   activeStatuses,
   initialFields,
   rebuildView,
-  sampledFields,
   viewChanged,
 } from "./rebuild-view.js";
 
@@ -31,16 +31,13 @@ const messages = serverMessages.craft;
 const refuse = (message) => problem(message, 409);
 const ignored = ["capture/", "checks/", "inbox/", "investigation.cany/"];
 const START_TIMEOUT_MS = 60000;
-// Codes of a client that is gone: the exit handler takes care of the rebuilds.
-const goneCodes = new Set(["CRAFT_MCP_CLOSED", "CRAFT_MCP_EXITED"]);
-// The sampler reads running rebuilds that Craft Anything already knows.
-const sampled = (record) => record.running && !!record.craftProject;
 
 /**
  * The rebuild supervisor: the only caller of Craft Anything's rebuild_start. It
  * creates each rebuild's project folder, runs the builds in its own MCP children (one
  * per account and mode, rebuild-children.js), samples every running build each
- * `sampleMs` (2 s) while any runs, answers approvals itself in auto mode, keeps the
+ * `sampleMs` (2 s) while any runs and answers approvals itself in auto mode
+ * (rebuild-sampler.js), keeps the
  * records in rebuilds.json and announces changes through `onChange` (`{ id }` for one
  * rebuild's view, `{ list: true }` when rebuilds or the defaults come or go). Nothing
  * restarts on its own: a build interrupted by a shutdown or a lost child reads paused.
@@ -68,10 +65,9 @@ export class CraftRebuilds {
     this.listeners = new Set();
     this.chains = new Map();
     this.starting = new Map();
-    this.approving = new Set();
     // Rebuilds paused while rebuild_start was still on its way: stopped once it returns.
     this.pauseAfterStart = new Set();
-    this.sampler = null;
+    this.sampler = new RebuildSampler(this);
     this.closing = false;
     this.children = new RebuildChildren({
       dataDir,
@@ -375,8 +371,7 @@ export class CraftRebuilds {
   /** Stops every build and child; the interrupted rebuilds read paused. */
   async close() {
     this.closing = true;
-    if (this.sampler) this.timers.clearTimeout(this.sampler);
-    this.sampler = null;
+    this.sampler.stop();
     await this.children.close((key) =>
       this.runningOn(key)
         .map((item) => item.craftProject)
@@ -407,86 +402,11 @@ export class CraftRebuilds {
   }
 
   schedule() {
-    if (this.sampler || this.closing) return;
-    if (![...this.records.values()].some(sampled)) return;
-    this.sampler = this.timers.setTimeout(() => {
-      this.sampler = null;
-      this.tick().finally(() => this.schedule());
-    }, this.sampleMs);
+    this.sampler.schedule();
   }
 
-  async tick() {
-    const running = [...this.records.values()].filter(sampled);
-    await Promise.all(
-      running.map((record) =>
-        this.serial(record.id, () => this.sample(record)).catch((error) =>
-          logCraftFailure("read a rebuild", error),
-        ),
-      ),
-    );
-  }
-
-  /**
-   * Reads one rebuild from its live child (`rebuild_status` + `project_show`) and, in
-   * auto mode, allows its open approvals. A rebuild without a child stops running; one
-   * still starting (no Craft project yet) is left to its start.
-   */
-  async sample(record, { approve = true } = {}) {
-    if (!record.craftProject) return;
-    const client = this.children.peek(record.accountId, record.mode);
-    if (!client) {
-      if (record.running) this.update(record, { running: false, status: "paused" });
-      return;
-    }
-    const project = record.craftProject;
-    try {
-      const status = await client.call("rebuild_status", { project });
-      const show = await client.call("project_show", { project });
-      const asked = [record.step, record.questions, this.now().toISOString()];
-      this.update(record, sampledFields(status, show, ...asked));
-      this.forgetApprovals(record);
-      if (approve && record.autoMode && (await this.allowApprovals(record, client)))
-        await this.sample(record, { approve: false });
-    } catch (error) {
-      if (!goneCodes.has(error.code)) throw error;
-    } finally {
-      this.children.settle(record.accountId, record.mode);
-    }
-  }
-
-  /** Forgets the allowed approvals of `record` that are no longer open. */
-  forgetApprovals(record) {
-    const open = new Set(record.questions.map((question) => question.id));
-    const prefix = `${record.id}\n`;
-    for (const key of this.approving)
-      if (key.startsWith(prefix) && !open.has(key.slice(prefix.length)))
-        this.approving.delete(key);
-  }
-
-  /**
-   * Auto mode: allows each open approval once (again after a failed try); true when
-   * one was answered.
-   */
-  async allowApprovals(record, client) {
-    let answered = false;
-    for (const question of record.questions) {
-      if (question.kind !== "approval") continue;
-      const key = `${record.id}\n${question.id}`;
-      if (this.approving.has(key)) continue;
-      this.approving.add(key);
-      try {
-        await client.call("project_inbox_answer", {
-          project: record.craftProject,
-          id: question.id,
-          allow: true,
-        });
-        answered = true;
-      } catch (error) {
-        this.approving.delete(key);
-        logCraftFailure("allow a rebuild's approval", error);
-      }
-    }
-    return answered;
+  sample(record, options) {
+    return this.sampler.sample(record, options);
   }
 
   /** The child of `key` died: its running rebuilds read paused (Continue resumes). */
