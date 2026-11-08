@@ -2,6 +2,7 @@ import {
   desiredAgent,
   desiredState,
 } from "../../server/features/assistants/agent-desired-state.js";
+import { hermesAdvancedRuntime } from "../../server/features/assistants/runtimes/hermes/hermes-config/advanced.js";
 
 // Representative Hermes homes for the golden compile test
 // (tests/unit/hermes-config-golden.test.js) and the config-check contract
@@ -190,6 +191,18 @@ export const hermesGoldenScenarios = {
     model: models.bearer,
     instructions,
   }),
+  // The owner's advanced settings for all agents that Hermes takes (advanced.js):
+  // the thinking level as reasoning effort ("off" is "none") and the clock's zone.
+  // Settings Hermes has no equivalent of (the time limit) write nothing.
+  advanced: () => ({
+    profile: agent({ capabilities: { memory: true } }),
+    model: models.bearer,
+    instructions,
+    advanced: {
+      version: hermesAdvancedRuntime,
+      values: { thinkingDefault: "off", userTimezone: "Europe/Berlin", runTimeout: 900 },
+    },
+  }),
   // A lead with the team bridge: AgentPier's team tools and guard as a Hermes plugin.
   "team-lead": () => ({
     profile: agent({ capabilities: { memory: true } }),
@@ -218,7 +231,7 @@ const bridgeConnection = { url: "http://127.0.0.1:43210", token: "golden-bridge-
 /** What hermesCompiler.compile takes for a scenario (`homes`: files found there). */
 export function goldenCompileInput(scenario, homes = {}) {
   const { profile, model: connection, instructions: text, workspace, strict } = scenario;
-  const { bundledSkills, catalogSkills, mcp, channelBot, web } = scenario;
+  const { bundledSkills, catalogSkills, mcp, channelBot, web, advanced } = scenario;
   const servers = mcp?.bindings[profile.id] || [];
   const bridge = scenario.connection;
   const live =
@@ -245,6 +258,7 @@ export function goldenCompileInput(scenario, homes = {}) {
     bundledSkills,
     catalogSkills,
     web,
+    advanced,
   };
 }
 

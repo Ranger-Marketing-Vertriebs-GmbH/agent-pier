@@ -20,6 +20,7 @@ import { channelBotEnvNames, channelBotHome, senderLockedToolsets } from "./tele
 import { webDirectory, webEnvNames, webHome } from "./web.js";
 import { imageHome } from "./images.js";
 import { pdfHome, pdfKeyEnv } from "./pdf.js";
+import { advancedEntries } from "./advanced.js";
 import {
   teamDirectory,
   teamPlugin,
@@ -122,8 +123,10 @@ function unsupportedOf(agent, level, model, { placed, mcp, team, browser, images
  * which a ChatGPT account is reached (model.js); `imageLogin`: the profile id of the
  * ChatGPT login AgentPier holds that the agent creates images with (images.js), or
  * none; `pdfFallback`: the owner's PDF fallback connection as an apply resolves it
- * (pdf.js), null without one, undefined when the apply does not name it.
- * Pure: the same inputs yield the same home.
+ * (pdf.js), null without one, undefined when the apply does not name it;
+ * `advanced`: `{ version, values }`, the installed Hermes version and the owner's
+ * advanced settings for all agents (advanced.js), without which their keys stay as
+ * they are. Pure: the same inputs yield the same home.
  */
 export function compileHome(
   agent,
@@ -140,6 +143,7 @@ export function compileHome(
     modelProxy,
     imageLogin,
     pdfFallback,
+    advanced,
   } = {},
 ) {
   const level = shellLevel(agent, strict);
@@ -256,6 +260,7 @@ export function compileHome(
     ...(bot ? bot.config : []),
     ...(webPart?.config || []),
     [["image_gen", "provider"], images ? "openai-codex" : undefined],
+    ...advancedEntries(advanced),
     ...practicalDefaults,
   ];
   // .env names a part of the home owns only while the desired state knows that part:

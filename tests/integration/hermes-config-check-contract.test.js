@@ -81,6 +81,10 @@ if web.get("search_backend"):
 fetch = web_provider("agentpier-fetch")
 if fetch and web.get("extract_backend"):
   out["fetch"] = [page.get("error", "") for page in fetch.extract(["http://127.0.0.1:9/", "http://169.254.169.254/latest/"])]
+from hermes_constants import parse_reasoning_effort
+from hermes_time import get_timezone_name
+out["reasoning"] = parse_reasoning_effort(config["agent"].get("reasoning_effort"))
+out["timezone"] = get_timezone_name()
 child = _sanitize_subprocess_env(dict(os.environ))
 out["leaked"] = sorted(k for k in child if k in sys.argv[1:])
 print(json.dumps(out))
@@ -180,5 +184,11 @@ for (const name of Object.keys(hermesGoldenScenarios))
       if (provider.apiKey)
         assert.equal(seen.key, true, "the key reaches the model route");
     } else assert.equal(seen.route, undefined);
+    // The owner's advanced settings (hermes-config/advanced.js) as Hermes reads them:
+    // "off" disables thinking, and the agent's clock runs in the chosen zone.
+    if (scenario.advanced) {
+      assert.deepEqual(seen.reasoning, { enabled: false });
+      assert.equal(seen.timezone, scenario.advanced.values.userTimezone);
+    } else assert.equal(seen.reasoning, null);
     assert.deepEqual(seen.leaked, []);
   });

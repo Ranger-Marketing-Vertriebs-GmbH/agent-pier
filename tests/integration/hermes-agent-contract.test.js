@@ -95,10 +95,7 @@ test(
     assert.equal(listed.runtimeInfo.capabilities.approvals.available, true);
     assert.equal(listed.runtimeInfo.capabilities.routines.available, true);
     assert.equal(listed.runtimeInfo.capabilities.skills.available, true);
-    assert.equal(
-      listed.runtimeInfo.capabilities.advancedSettings.reason,
-      "advancedSettingsUnsupported",
-    );
+    assert.equal(listed.runtimeInfo.capabilities.advancedSettings.available, true);
     const home = fleet.sets.get(agent.runtimeAgentId).supervisor.agentPaths();
     assert.match(
       fs.readFileSync(path.join(home.hermesHome, "config.yaml"), "utf8"),

@@ -6,17 +6,20 @@ import { DatabaseSync } from "node:sqlite";
 import { AdvancedConfig } from "../../server/features/assistants/advanced-config.js";
 import { OverrideStore } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/overrides.js";
 import { migrateAssistants } from "../../server/features/assistants/assistant-schema.js";
+import { attachHermesFleet } from "../../server/features/assistants/runtimes/runtime-for.js";
+import { HermesFleet } from "../../server/features/assistants/runtimes/hermes/hermes-fleet.js";
 
 /**
  * The page talks to the real AdvancedConfig and OverrideStore (in memory, with a
  * runtime that has not started), so it sees the real six settings, bounds, options,
  * reload kinds and validation. `running` only presents the Gateway as running.
  * `restart` names paths to present as needing a restart: no 2026.9.9 path does, but
- * the prompt must work for one a later runtime reports.
+ * the prompt must work for one a later runtime reports. `hermes` names the installed
+ * Hermes version while Hermes agents run.
  */
 async function setup(
   page,
-  { language = "en", running = true, version = null, restart = [] } = {},
+  { language = "en", running = true, version = null, restart = [], hermes = null } = {},
 ) {
   await fixture(page);
   await page.addInitScript(
@@ -28,18 +31,21 @@ async function setup(
   migrateAssistants(db);
   const overrides = new OverrideStore(db);
   overrides.set("agents.defaults.thinkingDefault", "high");
+  const runtime = {
+    status: () => ({ availability: version ? "failed" : "disabled", version }),
+  };
+  attachHermesFleet(
+    runtime,
+    new HermesFleet({ dataDir: null, available: () => !!hermes, version: () => hermes }),
+  );
   const advanced = new AdvancedConfig({
-    assistants: {
-      runtime: {
-        status: () => ({ availability: version ? "failed" : "disabled", version }),
-      },
-      admit: (operation) => operation(),
-    },
+    assistants: { runtime, admit: (operation) => operation() },
     overrides,
     synchronization: {},
   });
   const present = (data) => ({
     gateway: { ...data.gateway, running: running && data.gateway.qualified },
+    hermes: data.hermes,
     settings: data.settings.map((setting) => ({
       ...setting,
       ...(running && { current: setting.override }),
@@ -218,4 +224,59 @@ test("an unapproved runtime keeps every setting read-only", async ({ page }) => 
   await expect(
     page.getByText("Not available with the installed agent runtime"),
   ).toHaveCount(6);
+});
+
+for (const phone of [false, true])
+  test(`with Hermes agents, settings Hermes has no equivalent of say so${phone ? " on a phone" : ""}`, async ({
+    page,
+  }) => {
+    if (phone) await page.setViewportSize({ width: 390, height: 844 });
+    const { state } = await setup(page, { hermes: "0.22.5" });
+    await page.goto(baseURL + "/settings/assistants-advanced");
+    await expect(page.getByText(/Hermes agents take the settings/)).toBeVisible();
+    // Thinking level and time zone reach Hermes agents; the other four do not.
+    await expect(page.getByText("OpenClaw only", { exact: true })).toHaveCount(4);
+    for (const [name, only] of [
+      ["Time limit per task", true],
+      ["Thinking level", false],
+      ["Time zone", false],
+      ["Image quality", true],
+      ["Maximum image size", true],
+      ["Media file retention", true],
+    ])
+      await expect(
+        page
+          .locator(".advanced-setting-row")
+          .filter({ hasText: name })
+          .getByText("OpenClaw only", { exact: true }),
+      ).toHaveCount(only ? 1 : 0);
+    await page.getByRole("button", { name: "Thinking level", exact: true }).click();
+    await expect(page.getByText(/no “Adaptive” level/)).toBeVisible();
+    await page.getByRole("combobox", { name: /Time zone/ }).selectOption("Asia/Tokyo");
+    await page.getByRole("button", { name: "Save settings" }).click();
+    await expect
+      .poll(() => state.puts)
+      .toEqual([{ path: "agents.defaults.userTimezone", value: "Asia/Tokyo" }]);
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - window.innerWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
+  });
+
+test("a Hermes version the mapping is not approved for is named", async ({ page }) => {
+  await setup(page, { hermes: "0.23.0" });
+  await page.goto(baseURL + "/settings/assistants-advanced");
+  await expect(page.getByText(/Hermes Agent 0\.23\.0 is not approved/)).toBeVisible();
+  // OpenClaw's settings stay editable.
+  await expect(page.getByRole("combobox", { name: /Thinking level/ })).toBeEnabled();
+});
+
+test("without Hermes agents the page names no runtime per setting", async ({ page }) => {
+  await setup(page);
+  await page.goto(baseURL + "/settings/assistants-advanced");
+  await expect(page.getByText("Tasks", { exact: true })).toBeVisible();
+  await expect(page.getByText("OpenClaw only", { exact: true })).toHaveCount(0);
+  await expect(page.getByText(/Hermes agents take|Hermes Agent .* approved/)).toHaveCount(
+    0,
+  );
 });
