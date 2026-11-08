@@ -227,9 +227,10 @@ What works on Hermes today:
   Model access**.
 - Memory: **Remember information** gives the agent Hermes's own memory, a
   `MEMORY.md` of its notes and a `USER.md` about you, which the agent keeps with
-  Hermes's memory tool. You read and edit both on the agent's memory page; Hermes
-  allows at most 2,200 and 1,375 characters, and an edit reaches the agent's next
-  chat. Memory search looks through both files.
+  Hermes's memory tool. You read and edit both on the agent's memory page; they hold
+  at most 10,000 and 5,000 characters, and an edit reaches the agent's next chat.
+  Memory search looks through both files. Entries can be pinned and are kept when the
+  agent [dreams](#dreaming); see [Memory](#memory).
 - Skills: switch on Hermes's bundled skills and skills from the skill catalog on the
   agent's skills page; the bundled skills you leave off stay off. Skills the agent
   writes itself in Hermes, and Hermes's own `hermes-agent`, stay on and are listed there
@@ -285,7 +286,7 @@ What works on Hermes today:
 - Agents of restricted users keep OpenClaw's limits: no shell, no subagents, no other
   chats.
 - Backups keep a Hermes agent's keys and conversations sealed like OpenClaw's
-  ([backups](backups.md#hermes-agents)); dreaming is OpenClaw's.
+  ([backups](backups.md#hermes-agents)); a Hermes agent [dreams](#dreaming) too.
 
 What comes later, shown disabled in the agent's settings: advanced runtime settings; the full comparison is in
 [Hermes runtime](hermes-runtime.md#parity-with-openclaw-agents). Updates of Hermes itself appear in the **Hermes Agent** group (**Update**);
@@ -603,7 +604,7 @@ token, and changing or removing the speech key a bot uses. See "Pending restart"
 ### Memory
 
 New agents start with **Remember information** on; you can switch it off unless dreaming
-is on (below). An agent remembers only what it writes down: its conversation gets
+is on (below), also for Hermes agents. An agent remembers only what it writes down: its conversation gets
 shortened (compacted) when it grows long, and older turns are cut. With **Remember
 information** on, AgentPier tells the agent to write durable facts and plans to
 `MEMORY.md` and day notes to `memory/YYYY-MM-DD.md` as soon as you share them, and
@@ -621,10 +622,21 @@ notice when the agent changed the note meanwhile. **Search memory** lists matchi
 notes; **Open note** on a result opens that note with the matching lines selected,
 ready to edit. The Dream Diary and the lead agent's copied notes stay read-only, and a
 user's own agent stays read-only for you. A Hermes agent has no day notes; its
-`MEMORY.md` and `USER.md` are edited the same way. The activity log records each saved
+`MEMORY.md` and `USER.md` are edited the same way (see below). The activity log records each saved
 or deleted note (`assistant.memory-saved`, `assistant.memory-deleted`) by its file name,
 never its text. A user deleting a note of her own agent is recorded the same way, with
 her as the actor.
+
+**Hermes agents** keep 10,000 characters in `MEMORY.md` and 5,000 in `USER.md`, and
+the memory page shows how much of each file is used and how much of it is **Pinned**.
+An entry starting with 📌 is pinned: whoever the agent talks to (you, a user of a
+shared agent, the user of her own agent) can pin an entry by asking it to remember
+something ("remember", "merk dir"), and the agent may replace a pinned entry in chat
+when told something newer. You pin and unpin any entry on the memory page (on a user's
+own agent only where you may already edit its memory). Dreaming never creates pins and
+keeps every pinned entry word for word; AgentPier discards a night that loses or
+changes one. On the memory page the **Dream diary** lists each night, newest first (see
+[Dreaming](#dreaming)).
 
 After a model switch with fresh chats, the agent's new model reviews its memory. When
 it finds entries that only record what an earlier model refused or set itself as a
@@ -680,7 +692,8 @@ the time zone, which follows this device when you switch on (**Use my time zone*
 adopts it again later). The change applies at once, without restarting the agent
 service; if the agent service is starting or does not take it, it applies within a
 minute once it is ready. Once a night each agent reviews its own conversations with its own model,
-writes dream notes into its memory and may tidy `MEMORY.md`. Every agent dreams,
+writes dream notes into its memory and may tidy `MEMORY.md`; a Hermes agent instead
+consolidates `MEMORY.md` and `USER.md` (below). Every agent dreams,
 temporary team members and agents with **Remember information** off included, but
 each only over its own chats and into its own memory. A shared agent dreams over all
 its users' chats and your own into its shared memory, and its notes can quote them
@@ -705,10 +718,32 @@ word for word. A busy agent still dreams that night.
   Dreaming's raw copies of the chats (`memory/.dreams/`) are never shown, and the
   agent's file tools cannot open them.
 - **Backups of `MEMORY.md`:** five minutes before the hour AgentPier copies each
-  agent's `MEMORY.md` to `assistants/memory-backups/<agent>/` in its data directory and
+  OpenClaw agent's `MEMORY.md` to `assistants/memory-backups/<agent>/` in its data directory and
   keeps the last 7. They never appear in the memory view; host backups keep them
   encrypted like workspaces. To undo a night's rewrite, copy a backup back over the
   agent's `MEMORY.md`.
+- **Hermes agents.** At the dreaming hour (a night missed by AgentPier or the host is
+  caught up within 6 hours) AgentPier makes one call to the agent's own model, without
+  tools, over the chats since the last applied night (the first night: the last 24
+  hours), up to 60,000 characters a night, so a long day finishes over the next nights.
+  The model merges duplicates, replaces outdated entries, takes in lasting facts and aims
+  for at most 80 % of each file (an instruction only). Pinned entries stay word for
+  word; a night that loses or changes one, or leaves a file over its limit, is discarded
+  and nothing changes. If the agent writes memory in a chat during the dream, the dream
+  runs once more and is then postponed to the next night. Hermes limits each model
+  attempt to 60 seconds, not configurable: a model too slow for a full answer fails the
+  night, and the diary says so. A discarded, postponed or failed night is tried again
+  with the same chats the next night.
+- **Dream diary of Hermes agents.** The **Dream diary** on the memory page lists each
+  night with chats, newest first, read only and structured: what was added, merged,
+  replaced or dropped per file, or why the night was discarded, postponed or failed. It
+  shows up to 256 KiB, the newest entries; the page updates when a night is recorded.
+  The same visibility rules as the rest of the memory apply.
+- **Backups of a Hermes agent's memory:** when its dream starts, AgentPier copies both
+  files to `assistants/memory-backups/<runtimeAgentId>/` as `MEMORY-*.md` and
+  `USER-*.md` and keeps the last 7 nights of each. To undo a night, copy the backup back
+  over the files in `<data>/assistants/hermes/state/<runtimeAgentId>/memories/`; the
+  agent's next chat reads them.
 - **Deleting a chat** removes OpenClaw's archived copy of its transcript and then
   removes it from dreaming's copies, so later nights no longer read it; notes already
   written from it stay. If the removal from dreaming's copies fails, or AgentPier

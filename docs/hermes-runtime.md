@@ -215,7 +215,8 @@ so the adapter reads and writes them directly: atomically, owner-only, only over
 hash or absence the caller read, never through a link the agent put in their place.
 Entries in a memory file are separated by `\n§\n`. Hermes refuses a memory write that
 would take a store over its limit, counted as its entries joined by that separator:
-2,200 characters for `MEMORY.md` and 1,375 for `USER.md`. AgentPier compiles both
+by default 2,200 characters for `MEMORY.md` and 1,375 for `USER.md`. AgentPier gives
+every Hermes agent 10,000 and 5,000 instead, one fixed size, and compiles both
 limits (`memory.memory_char_limit`, `memory.user_char_limit`) and refuses an owner's
 edit beyond them with `memoryTooLarge` (413), since Hermes would keep loading such a
 file but refuse every later write of the agent. Hermes freezes memory into a
@@ -235,7 +236,39 @@ short; they never name AgentPier's memory files or a read-only memory. Hermes's 
 writes without asking (`memory.write_approval` stays off, Hermes's default). AgentPier's
 memory step before a chat summary is OpenClaw's: AgentPier's write guard never sees a Hermes
 agent's writes, so Hermes agents skip it (`memory-step.js`). Notes below `memory/` and
-the Dream Diary are OpenClaw's and stay empty for a Hermes agent.
+the OpenClaw Dream Diary stay empty for a Hermes agent.
+
+**Pinned entries.** An entry whose text starts with `📌 ` (`pinMarker`,
+`hermes-config/memory.js`) is pinned. The marker is AgentPier's convention inside
+Hermes's own format, counts toward the limit, and entries stay separated by `\n§\n`.
+The agent's instructions tell it to write the entry with the marker whenever someone it
+talks to explicitly asks it to remember something ("remember", "merk dir"), whoever that
+is, and to replace a pinned entry in chat, keeping the marker, when told something
+newer. The owner pins and unpins any entry on the memory page. Only dreaming is bound
+by pins.
+
+**Dreaming.** While [dreaming](agents.md#dreaming) is on, every non-archived Hermes
+agent with memory dreams once a night (`hermes-dreams.js`). At the dreaming hour, or up to
+6 hours after it when AgentPier or the host was down, AgentPier reads both files through
+the files port, copies them to `assistants/memory-backups/<runtimeAgentId>/`
+(`MEMORY-*.md`, `USER-*.md`, the last 7 nights), and makes one `llm.oneshot` call on the
+agent's own model without tools (`hermes-dream.js`). The input is the chats since the
+last applied night (the first night: the last 24 hours), at most 60,000 characters a
+night; a long day finishes over the next nights. The prompt asks for each file at or
+below 80 % of its limit; that is an instruction only. Hermes caps every model attempt of
+that call at 60 seconds, not configurable, so a model too slow for a full answer fails
+the night and the diary says so.
+The guard (`hermes-dream-guard.js`) applies the answer only when every pinned entry of
+the start state is present word for word in the same file and both files are within
+their hard limits; otherwise nothing changes and the night is discarded. A leading `📌`
+is stripped from new texts, so dreaming never creates a pin. The files are written
+through `set` over the hashes read; when the agent changed a file in a chat meanwhile,
+the dream reruns once against the new state and is then postponed. A discarded,
+postponed or failed night leaves the cursor, so its chats are read again. Each night with
+chats leaves one structured diary entry (`hermes-dream-store.js`, in `dreaming.sqlite`),
+shown newest first and read only as **Dream diary** on the memory page, up to 256 KiB.
+The memory page follows it over the live topic `agent.memory:<id>`
+([Live channel](architecture.md#live-channel)).
 
 ### Skills
 
@@ -805,8 +838,8 @@ AGENTPIER-344, logins from AGENTPIER-340).
 | Shell levels                                               | Off, approval (every command), full | Off, dangerous commands, every command, full        | [Shell levels](#shell-levels)                                |
 | Routine runs on an asking level                            | Ask the owner                       | Ask the owner through the guard                     | [Routines](#routines)                                        |
 | Always allow                                               | OpenClaw's allowlist                | AgentPier remembers the exact command               | Allowlist page is OpenClaw's                                 |
-| Memory                                                     | Files, memory steps, Dream Diary    | `MEMORY.md`, `USER.md`, Hermes's own review         | No memory step                                               |
-| Dreaming                                                   | memory-core                         | Not offered                                         | Memory stays the owner's switch                              |
+| Memory                                                     | Files, memory steps, Dream Diary    | `MEMORY.md`, `USER.md`, Hermes's own review, pins   | No memory step; 10,000 / 5,000 characters                    |
+| Dreaming                                                   | memory-core                         | AgentPier's nightly one-shot dream, pins kept       | [Dreaming](#memory-and-instructions); memory stays on        |
 | Skills                                                     | Bundled, catalog, shopping          | Bundled, catalog, shopping, self-written            | `hermes-agent` always on                                     |
 | MCP servers                                                | stdio, HTTP, OAuth                  | stdio, HTTP, OAuth logins AgentPier holds           | [MCP servers](#mcp-servers)                                  |
 | Web search                                                 | DuckDuckGo, Brave, Perplexity       | `ddgs`, `brave-free`, AgentPier's Perplexity plugin | [Web search](#web-search)                                    |
@@ -817,7 +850,7 @@ AGENTPIER-344, logins from AGENTPIER-340).
 | Attachments, video                                         | `attachments/` in the workspace     | The same folder, its work folder                    | Named by path; inline images not sent                        |
 | Browser                                                    | AgentPier's Chromium                | AgentPier's Chromium                                | [Browser](#browser)                                          |
 | Browser for task members                                   | Member slot                         | Own Chromium under the slot limit                   |                                                              |
-| Browser uploads                                            | Staged files                        | No upload tool in Hermes                            |                                                              |
+| Browser uploads                                            | Staged files                        | `agentpier_browser_upload` for staged files         | Hermes's own browser tools have no upload                    |
 | Reminders, routines, hooks (agent's tools)                 | Team plugin                         | Hermes team plugin                                  | Same bridge                                                  |
 | Owner's routines, check-ins, hooks                         | OpenClaw cron                       | Hermes cron                                         | [Routines](#routines)                                        |
 | Workspace, projects, project files                         | `agentpier_workspace`               | The same                                            | Project images come back as a note                           |
