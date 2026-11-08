@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import api from "../../lib/api.js";
 import useResource from "../../lib/useResource.js";
 import useAsyncAction from "../../lib/useAsyncAction.js";
@@ -31,7 +31,10 @@ export default function UpdatesPage({ route, navigate, frame }) {
     [plan, setPlan] = useState(null),
     [confirm, setConfirm] = useState(null),
     [reloadSessions, setReloadSessions] = useState(false),
-    [observedJob, setObservedJob] = useState(null);
+    [observedJob, setObservedJob] = useState(null),
+    // The version this page staged; its activate button is the next step.
+    [justStaged, setJustStaged] = useState(null),
+    activateButtons = useRef(new Map());
   const jobPending = Boolean(
     route.operationId &&
     (observedJob?.id !== route.operationId || observedJob.status === "running"),
@@ -60,6 +63,14 @@ export default function UpdatesPage({ route, navigate, frame }) {
       },
     }),
   ];
+  // Bring the next step into view once the staged version's card shows: staging
+  // replaces the candidate card, and a page that briefly got shorter is scrolled up.
+  useEffect(() => {
+    const button = justStaged && !jobPending && activateButtons.current.get(justStaged);
+    if (!button) return;
+    setJustStaged(null);
+    button.scrollIntoView?.({ block: "center" });
+  }, [justStaged, jobPending, presentation?.staged]);
   const save = () => draft.save(steps);
   const sheet = useUnsavedChangesGuard({ draft, tab: copy.updates, save, stays });
   const start = async (path, body) => {
@@ -132,11 +143,12 @@ export default function UpdatesPage({ route, navigate, frame }) {
                 <button
                   className="button primary"
                   disabled={releaseBusy}
-                  onClick={() =>
+                  onClick={() => {
+                    setJustStaged(presentation.candidate.version);
                     action.run(() =>
                       start("stage", { version: presentation.candidate.version }),
-                    )
-                  }
+                    );
+                  }}
                 >
                   {copy.stageRelease}
                 </button>
@@ -153,11 +165,14 @@ export default function UpdatesPage({ route, navigate, frame }) {
                     {copy.staged}: {staged.version}
                     <PrereleaseBadge version={staged.version} />
                   </h3>
-                  <ReleaseNotes version={staged.version} from={releases.current} />
                   <div className="operations-actions">
                     <button
                       className="button primary"
                       aria-label={`${copy.activateRelease}: ${staged.version}`}
+                      ref={(button) => {
+                        if (button) activateButtons.current.set(staged.version, button);
+                        else activateButtons.current.delete(staged.version);
+                      }}
                       disabled={releaseBusy || !releases.installed || !releases.supported}
                       onClick={() => {
                         setReloadSessions(false);
@@ -184,6 +199,7 @@ export default function UpdatesPage({ route, navigate, frame }) {
                       <span>{copy.cleanupReasons[removal.deleteReason]}</span>
                     )}
                   </div>
+                  <ReleaseNotes version={staged.version} from={releases.current} />
                 </article>
               );
             })}
