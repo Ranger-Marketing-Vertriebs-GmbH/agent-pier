@@ -11,12 +11,12 @@
  * before each tool result. `rebuild_start` needs `--allow-run`.
  *
  * Each project lives in its `project_folder`: `craft.json` (request, target, stack,
- * status, note, checks, questions, conversation, agent_session and, for tests,
+ * status — `building`, `needs_you`, `stopped`, `ready` or `failed` as in 0.5.0 — note, checks, questions, conversation, agent_session and, for tests,
  * `fake_builder: { pid, claude_config_dir }`), `usage.json` and
  * `build-activity.log`. The project index (name → folder) is kept in
  * `$CRAFT_ANYTHING_CONFIG_DIR/fake-craft-projects.json`, so a new server finds the
  * projects of an earlier one (resume after a restart). The builder is
- * `/bin/sh -c "sleep 86400 & wait" fake-craft-builder <folder>` in its own process
+ * `/bin/sh -c "sleep 600 & wait" fake-craft-builder <folder>` in its own process
  * group; it inherits the server's environment.
  *
  * FAKE_CRAFT_SCRIPT (JSON, optional) drives every build round:
@@ -37,7 +37,8 @@
  * Without steps a build runs until rebuild_stop. A question waits for
  * project_inbox_answer; in mode "decide" (project_questions_set) questions are
  * decided by the fake itself, approvals still wait. Resuming continues at the step
- * where the build stopped; a follow-up starts the steps again.
+ * where the build stopped; a follow-up starts the steps again. While a question is
+ * open the steps wait, also after a resume, until it is answered.
  */
 import { spawn } from "node:child_process";
 import {
@@ -57,8 +58,8 @@ const allowRun = process.argv.includes("--allow-run");
 const configDir = process.env.CRAFT_ANYTHING_CONFIG_DIR;
 const indexFile = configDir && path.join(configDir, "fake-craft-projects.json");
 const LABELS = {
-  running: "Building",
-  waiting: "Waiting for you",
+  building: "Building",
+  needs_you: "Needs you",
   stopped: "Paused",
   ready: "Ready",
   failed: "Failed",
@@ -145,7 +146,7 @@ const alive = (pid) => {
 function startBuilder(entry) {
   const builder = spawn(
     "/bin/sh",
-    ["-c", "sleep 86400 & wait", "fake-craft-builder", entry.folder],
+    ["-c", "sleep 600 & wait", "fake-craft-builder", entry.folder],
     { detached: true, stdio: "ignore" },
   );
   builder.unref();
@@ -158,7 +159,7 @@ function startBuilder(entry) {
     // A builder that died on its own fails the build.
     try {
       update(entry, (r) => {
-        if (r.status !== "running" && r.status !== "waiting") return;
+        if (r.status !== "building" && r.status !== "needs_you") return;
         r.status = "failed";
         r.note = "The builder ended unexpectedly.";
       });
@@ -167,7 +168,7 @@ function startBuilder(entry) {
     }
   });
   update(entry, (record) => {
-    record.status = record.questions.length ? "waiting" : "running";
+    record.status = record.questions.length ? "needs_you" : "building";
     record.note = record.questions.length ? record.questions[0].title : "Building";
     record.fake_builder = {
       pid: builder.pid,
@@ -248,7 +249,7 @@ function perform(entry, step) {
     update(entry, (r) => {
       r.questions_asked += 1;
       r.questions.push(question);
-      r.status = "waiting";
+      r.status = "needs_you";
       r.note = question.title;
     });
     activity(entry, `Asked ${question.kind} ${question.id}: ${question.title}`);
@@ -294,7 +295,8 @@ function startRound(entry, { resume = false } = {}) {
   if (entry.builder) throw new ToolError("already_running", `${entry.name} is building.`);
   if (!resume) entry.step = 0;
   startBuilder(entry);
-  runSteps(entry);
+  // Open questions hold the steps; answering them starts the (one) chain again.
+  if (!read(entry).questions.length) runSteps(entry);
 }
 
 const tools = {
@@ -333,8 +335,8 @@ const tools = {
       target: args.target,
       stack: args.build_with ?? "Builder's choice",
       rounds: args.rounds ?? null,
-      status: "running",
-      note: "Starting",
+      status: "building",
+      note: "Building the first version…",
       checks: [],
       last_check: null,
       questions: [],
@@ -362,7 +364,7 @@ const tools = {
       status: record.status,
       status_label: LABELS[record.status] ?? record.status,
       note: record.note,
-      waiting: record.questions.length > 0,
+      waiting: record.questions.length,
       last_check: record.last_check,
     };
   },
@@ -394,13 +396,14 @@ const tools = {
     update(entry, (r) => {
       r.questions = r.questions.filter((q) => q.id !== id);
       r.conversation.push({ role: "user", text: `${question.title}: ${answer}` });
-      if (r.status === "waiting" && !r.questions.length) {
-        r.status = entry.builder ? "running" : "stopped";
+      if (r.status === "needs_you" && !r.questions.length) {
+        r.status = entry.builder ? "building" : "stopped";
         r.note = "Building";
       }
     });
     activity(entry, `Answered ${id}: ${answer}`);
-    if (entry.builder) runSteps(entry);
+    // The steps waited for this answer; they go on once nothing else is open.
+    if (entry.builder && !read(entry).questions.length) runSteps(entry);
     return { answered: true };
   },
   project_questions_set({ project: name, mode }) {
@@ -415,7 +418,7 @@ const tools = {
     const running = Boolean(entry.builder);
     stopBuilder(entry);
     update(entry, (r) => {
-      if (["running", "waiting"].includes(r.status) || running) {
+      if (["building", "needs_you"].includes(r.status) || running) {
         r.status = "stopped";
         r.note = "Stopped by request";
       }

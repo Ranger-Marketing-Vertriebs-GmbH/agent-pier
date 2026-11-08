@@ -74,8 +74,10 @@ export class CraftMcpClient {
     const client = new CraftMcpClient(child);
     try {
       await client.initialize({ timeoutMs });
-    } catch (error) {
+    } catch (failed) {
       await client.close();
+      // A spawn failure (ENOENT, EACCES) is the cause, not the exit it led to.
+      const error = client.spawnError ?? failed;
       if (client.stderr && !error.stderr) error.stderr = client.stderr;
       throw error;
     }

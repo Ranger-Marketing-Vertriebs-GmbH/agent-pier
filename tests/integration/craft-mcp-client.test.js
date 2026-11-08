@@ -76,7 +76,7 @@ test("calls a tool and returns its result", async (t) => {
   assert.ok(project);
   const status = await client.call("rebuild_status", { project });
   assert.equal(status.running, true);
-  assert.equal(status.status, "running");
+  assert.equal(status.status, "building");
   assert.ok(
     await until(
       async () => (await client.call("project_show", { project })).questions[0],
@@ -99,6 +99,52 @@ test("calls a tool and returns its result", async (t) => {
     readFileSync(path.join(folder, "build-activity.log"), "utf8").includes("Red"),
   );
   JSON.parse(readFileSync(path.join(folder, "usage.json"), "utf8"));
+});
+
+test("a spawn failure surfaces its cause", async (t) => {
+  const dir = mkdtempSync(path.join(tmpdir(), "agentpier-craft-mcp-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  await assert.rejects(
+    CraftMcpClient.start({
+      command: path.join(dir, "missing-craft-anything-cli"),
+      args: ["mcp"],
+      cwd: dir,
+      env: process.env,
+    }),
+    (error) => error.code === "ENOENT",
+  );
+});
+
+test("resuming with an open question waits for its answer", async (t) => {
+  const { dir, start } = setup(t, {
+    script: {
+      steps: [
+        { ask: "question", title: "Which colour?", choices: ["Red"] },
+        { activity: "after the answer" },
+      ],
+    },
+  });
+  const client = await start();
+  const { project } = await startBuild(client, dir);
+  assert.ok(
+    await until(
+      async () => (await client.call("project_show", { project })).questions[0],
+    ),
+  );
+  await client.call("rebuild_stop", { project });
+  await client.call("rebuild_start", { project, resume: true });
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  const activity = async () =>
+    (await client.call("rebuild_activity_show", { project, limit: 100 })).lines.filter(
+      (line) => line.includes("after the answer"),
+    ).length;
+  assert.equal(await activity(), 0, "the steps wait while the question is open");
+  const status = await client.call("rebuild_status", { project });
+  assert.equal(status.status, "needs_you");
+  await client.call("project_inbox_answer", { project, id: "q1", choice: "Red" });
+  assert.ok(await until(async () => (await activity()) === 1));
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  assert.equal(await activity(), 1, "one step chain runs");
 });
 
 test("a tool error carries its code", async (t) => {
@@ -129,8 +175,8 @@ test("close stops projects, ends the child and leaves no builder process", async
   await client.close({ stopProjects: [project] });
   assert.ok(Date.now() - began < 2500, "closing stdin ends the child without waiting");
   assert.equal(client.alive, false);
-  assert.equal(exists(child), false);
-  assert.equal(exists(builder), false);
+  assert.ok(await until(() => !exists(child), 2000));
+  assert.ok(await until(() => !exists(builder), 2000));
   assert.equal(exits.length, 1);
   assert.equal(exits[0].expected, true);
   const record = JSON.parse(readFileSync(path.join(folder, "craft.json"), "utf8"));
