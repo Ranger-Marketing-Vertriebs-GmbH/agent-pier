@@ -8,8 +8,7 @@ import { logCraftFailure } from "../features/craft/craft-log.js";
  * null without it. Its changes reach the live topics on `services.live`, read late:
  * the hub exists only once the server listens. A question that opens reaches the
  * inbox and, once, a push. Restored in app.js once the server listens (not after the
- * tool starts), closed in
- * shutdown.js.
+ * tool starts), closed in shutdown.js.
  */
 export function createCraftRebuilds(services) {
   const { config, craft, accounts, preferences, memory } = services;

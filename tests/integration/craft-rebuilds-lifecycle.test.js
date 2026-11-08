@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 import {
   exists,
   fakeTimers,
@@ -144,4 +145,27 @@ test("a child a view started before restore idles out after it", async (t) => {
   assert.equal(next.get(view.id).status, "paused");
   timers.advance(60000);
   assert.ok(await until(() => !client.alive));
+});
+
+test("answering an approval a pause left behind fails cleanly and drops it", async (t) => {
+  const approval = { ask: "approval", title: "Run npm install?", action: "npm install" };
+  const f = rebuildsFixture(t, {
+    script: { steps: [approval, { finish: "ready" }], staleAfterResume: true },
+  });
+  const view = await f.rebuilds.start({ request: "Stale" });
+  assert.ok(await until(() => f.rebuilds.get(view.id).questions.length === 1));
+  const [stale] = f.rebuilds.get(view.id).questions;
+  await f.rebuilds.pause(view.id);
+  await f.rebuilds.continue(view.id);
+  assert.ok(await until(() => f.rebuilds.get(view.id).questions.length === 2));
+  await assert.rejects(f.rebuilds.answer(view.id, stale.id, { allow: true }), {
+    status: 409,
+    message: serverMessages.craft.rebuildQuestionGone,
+  });
+  const open = f.rebuilds.get(view.id).questions;
+  assert.ok(!open.some((question) => question.id === stale.id), "the stale one is gone");
+  assert.equal(open.length, 1);
+  // The re-asked one still goes through.
+  await f.rebuilds.answer(view.id, open[0].id, { allow: true });
+  assert.ok(await until(() => f.rebuilds.get(view.id).status === "ready"));
 });
