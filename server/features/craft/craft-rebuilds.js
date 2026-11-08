@@ -3,7 +3,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
-import { logFailure } from "../mcp-packages/package-install-job.js";
+import { logCraftFailure } from "./craft-log.js";
 import {
   createProjectFolder,
   initRepository,
@@ -250,7 +250,7 @@ export class CraftRebuilds {
       });
       await initRepository(made.path);
     } catch (error) {
-      logFailure("prepare a rebuild's project folder", error);
+      logCraftFailure("prepare a rebuild's project folder", error);
     } finally {
       await made.release();
     }
@@ -382,9 +382,9 @@ export class CraftRebuilds {
     this.unrestored.delete(record.id);
     this.update(record, { running: true });
     await this.setQuestions(record).catch((error) =>
-      logFailure("set a rebuild's question mode", error),
+      logCraftFailure("set a rebuild's question mode", error),
     );
-    await this.sample(record).catch((error) => logFailure("read a rebuild", error));
+    await this.sample(record).catch((error) => logCraftFailure("read a rebuild", error));
     this.schedule();
     return this.get(record.id);
   }
@@ -409,7 +409,7 @@ export class CraftRebuilds {
     await Promise.all(
       running.map((record) =>
         this.serial(record.id, () => this.sample(record)).catch((error) =>
-          logFailure("read a rebuild", error),
+          logCraftFailure("read a rebuild", error),
         ),
       ),
     );
@@ -472,7 +472,7 @@ export class CraftRebuilds {
         answered = true;
       } catch (error) {
         this.approving.delete(key);
-        logFailure("allow a rebuild's approval", error);
+        logCraftFailure("allow a rebuild's approval", error);
       }
     }
     return answered;
@@ -573,7 +573,7 @@ export class CraftRebuilds {
     try {
       this.store.save({ settings: this.saved, records: [...this.records.values()] });
     } catch (error) {
-      logFailure("save the Craft Anything rebuilds", error);
+      logCraftFailure("save the Craft Anything rebuilds", error);
     }
   }
 
@@ -582,7 +582,7 @@ export class CraftRebuilds {
       try {
         listener(event);
       } catch (error) {
-        logFailure("announce a rebuild", error);
+        logCraftFailure("announce a rebuild", error);
       }
     }
   }

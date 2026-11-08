@@ -1,7 +1,7 @@
 import { CraftRebuilds } from "../features/craft/craft-rebuilds.js";
 import { craftRebuildsChanged } from "../features/craft/live-topics.js";
 import { ownerQuestions, questionNotice } from "../features/craft/rebuild-questions.js";
-import { logFailure } from "../features/mcp-packages/package-install-job.js";
+import { logCraftFailure } from "../features/craft/craft-log.js";
 
 /**
  * The Craft Anything rebuild supervisor over the managed tool (`services.craft`), or
@@ -36,8 +36,8 @@ export function createCraftRebuilds(services) {
 /**
  * Follows the owner's open questions (rebuild-questions.js) across CraftRebuilds'
  * changes (`{ id }` or `{ list }`): `opened(view, question)` once for each question
- * that newly opens, `changed()` when the open questions changed. A sample that only
- * moves the build on announces nothing. Questions already open when it starts (a
+ * that newly opens, `changed()` when the open questions or their titles (what the
+ * inbox lists) changed. A sample that only moves the build on announces nothing. Questions already open when it starts (a
  * restart) count as seen; a question is forgotten once it closes.
  */
 export class RebuildQuestionWatch {
@@ -48,8 +48,9 @@ export class RebuildQuestionWatch {
   }
 
   remember(id, questions) {
-    const ids = new Set(questions.map((question) => question.id));
-    if (ids.size) this.open.set(id, ids);
+    // Each open question's id with its title.
+    const titles = new Map(questions.map((question) => [question.id, question.title]));
+    if (titles.size) this.open.set(id, titles);
     else this.open.delete(id);
   }
 
@@ -68,13 +69,13 @@ export class RebuildQuestionWatch {
         }
     }
     for (const [id, view] of views) {
-      const before = this.open.get(id) ?? new Set();
+      const before = this.open.get(id) ?? new Map();
       const questions = ownerQuestions(view);
       for (const question of questions)
         if (!before.has(question.id)) {
           changed = true;
           this.announce(view, question);
-        }
+        } else if (before.get(question.id) !== question.title) changed = true;
       if (questions.length !== before.size) changed = true;
       this.remember(id, questions);
     }
@@ -84,10 +85,10 @@ export class RebuildQuestionWatch {
   announce(view, question) {
     try {
       Promise.resolve(this.opened(view, question)).catch((error) =>
-        logFailure("announce a rebuild question", error),
+        logCraftFailure("announce a rebuild question", error),
       );
     } catch (error) {
-      logFailure("announce a rebuild question", error);
+      logCraftFailure("announce a rebuild question", error);
     }
   }
 }
