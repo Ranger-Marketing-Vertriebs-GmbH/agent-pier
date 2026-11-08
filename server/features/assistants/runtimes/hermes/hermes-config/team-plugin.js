@@ -38,8 +38,7 @@ import { pdfToolFile, pdfToolSource } from "./pdf.js";
 //   agentpier_share_file, as OpenClaw's generated images reach the chat
 //   (generated-images.js): the agent does nothing for it.
 //
-// The bridge's address and token change with every AgentPier start. They live in
-// bridge.json, which the plugin reads at each call, so a new one needs no restart.
+// The bridge's address and token change per start; bridge.json is read at each call.
 
 export const teamPlugin = "agentpier-team";
 export const teamDirectory = `plugins/${teamPlugin}`;
@@ -333,6 +332,13 @@ def _names_folder(args):
     return "attachments" in text or ".agentpier" in text or "%" in text
 
 
+def _inside(args):
+    # A relative path without ".." stays in the work folder; its file tools make no links.
+    value = args.get("image_url", args.get("path", "."))
+    value = value.strip().replace(chr(92), "/") if isinstance(value, str) else "/"
+    return value[:1] not in ("", "/", "~") and not re.match("[A-Za-z][A-Za-z0-9+.-]*:", value) and ".." not in value.split("/")
+
+
 def _ask(tool_name, args, session_id, task_id, member_write=False):
     # The bridge's answer for one call, or None when it cannot answer.
     try:
@@ -361,8 +367,9 @@ def _guard(tool_name="", args=None, session_id=None, task_id=None, **_):
     args = args if isinstance(args, dict) else {}
     browser = tool_name.startswith("browser_") and settings.get("browser")
     member_write = tool_name in _WRITES and bool(settings.get("guardWrites"))
-    # A shared agent asks before every read: its runtime folders hold other chats' images.
-    private = tool_name in _READS and bool(settings.get("privateFolders"))
+    # A shared agent asks before every read leaving its work folder: its runtime folders
+    # hold other chats' images (hermes-home-guard.js).
+    private = tool_name in _READS and settings.get("privateFolders") and not _inside(args)
     folder = tool_name in _FILES and (private or _names_folder(args))
     image = tool_name == "image_generate" and bool(settings.get("images"))
     if not browser and not member_write and not folder and not image:
