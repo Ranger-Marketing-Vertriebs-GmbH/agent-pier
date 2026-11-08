@@ -1,3 +1,4 @@
+import { pdfFallbackId } from "../features/assistants/pdf-policy.js";
 import { hermesUpdateScope } from "../features/assistants/runtime-update-scope.js";
 import {
   createHermesSwitch,
@@ -52,17 +53,21 @@ export function hermesAgentFleet(supervisor, { dataDir, store }) {
  * The owner's PDF fallback (pdf-model-settings.js) as a Hermes home compiles it
  * (hermes-config/pdf.js): the connection a model lease names (`provider`, or
  * `chatgpt` for a ChatGPT login) and whether its model takes images; null without a
- * usable one. Never throws.
+ * usable one or for an agent whose own model (`own`) takes images. Never throws.
  */
-export async function hermesPdfFallback(models, selection) {
+export async function hermesPdfFallback(models, selection, own) {
   if (!models || !selection?.ready) return null;
   const model = { connectionId: selection.connectionId, modelId: selection.modelId };
   let lease;
   try {
+    // An agent whose own model takes images (the policy's own answer, also for an
+    // OpenRouter model the compiled section cannot tell) never needs the fallback.
+    if (own && models.imageInput(own) === true) return null;
     lease = await models.resolve(model);
     const images = models.imageInput(model) === true;
-    if (lease.chatgpt) return { chatgpt: { ...lease.chatgpt }, images };
-    return lease.provider ? { provider: lease.provider, images } : null;
+    const id = pdfFallbackId(model);
+    if (lease.chatgpt) return { chatgpt: { ...lease.chatgpt }, images, id };
+    return lease.provider ? { provider: lease.provider, images, id } : null;
   } catch {
     return null;
   } finally {
@@ -109,7 +114,11 @@ export const hermesApplyWiring = ({ bridge, webTools, proxy }) => ({
       // The owner's web search provider and its key (web-search-settings.js resolve).
       web: webTools?.webSearch ? { search: webTools.webSearch.resolve() } : undefined,
       pdfFallback: webTools?.pdf
-        ? await hermesPdfFallback(bridge.assistants?.models, webTools.pdf())
+        ? await hermesPdfFallback(
+            bridge.assistants?.models,
+            webTools.pdf(),
+            assistant.model,
+          )
         : undefined,
     };
   },

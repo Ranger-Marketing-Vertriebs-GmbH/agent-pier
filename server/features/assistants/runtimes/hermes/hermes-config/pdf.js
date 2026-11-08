@@ -84,7 +84,8 @@ function keyHeader(provider) {
  * How the tool reaches the fallback: `{ fallback, env }`, or null when Hermes cannot
  * (a transport other than Chat Completions, a login AgentPier does not hold). `pdf`:
  * the fallback connection as an apply resolves it (`{ provider }` of a model lease or
- * `{ chatgpt }`, and `images`: whether it takes images).
+ * `{ chatgpt }`, `images`: whether it takes images, and `id`: pdf-policy.js
+ * pdfFallbackId, which the tool compares with the guard's answer at each call).
  */
 function fallbackOf(pdf, modelProxy) {
   if (pdf?.chatgpt) {
@@ -93,6 +94,7 @@ function fallbackOf(pdf, modelProxy) {
     if (holder !== "agentpier" || !modelProxy?.url || !credential) return null;
     return {
       fallback: {
+        id: pdf.id,
         api: "codex",
         url: `${modelProxy.url}/chatgpt/codex`,
         model: modelId,
@@ -109,6 +111,7 @@ function fallbackOf(pdf, modelProxy) {
   const header = provider.baseUrl === openRouterUrl ? null : keyHeader(provider);
   return {
     fallback: {
+      id: pdf.id,
       api: "chat",
       url: provider.baseUrl,
       model: model.id,

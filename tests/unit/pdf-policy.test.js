@@ -156,6 +156,8 @@ test("a Hermes agent's pdf tool learns which model reads, by the owner's setting
   assert.deepEqual(await policy.reader({ agentId: "ap-t" }), {
     allow: true,
     reader: "fallback",
+    // Its identity: a Hermes home compiled with another fallback reads text only.
+    fallback: "fb\nm",
   });
   assert.equal((await policy.check({ agentId: "ap-t" })).model, "ap-text-1/tx");
   // The same refusals as OpenClaw's pdf hook.

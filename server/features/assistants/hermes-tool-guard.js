@@ -208,7 +208,8 @@ async function pdfGuard(bridge, input, agent, args) {
     if (!within(own, target) && !within(realOwn, target))
       return deny(pdfRefusals.reference);
     if (real && !within(realOwn, real)) return deny(pdfRefusals.reference);
-    files.push(target);
+    // The attachment and secrets rules judge the file a link points at as well.
+    files.push(target, ...(real && real !== target ? [real] : []));
   }
   const refusal = await folderRefusal(bridge, input, agent, {
     toolName: "pdf",
@@ -219,7 +220,12 @@ async function pdfGuard(bridge, input, agent, args) {
     agentId: input.agentId,
     ...(input.sessionKey && { sessionKey: input.sessionKey }),
   });
-  if (policy?.allow === true) return { allow: true, reader: policy.reader };
+  if (policy?.allow === true)
+    return {
+      allow: true,
+      reader: policy.reader,
+      ...(typeof policy.fallback === "string" && { fallback: policy.fallback }),
+    };
   return deny(pdfRefusals[policy?.reason] || pdfRefusals.unavailable);
 }
 
