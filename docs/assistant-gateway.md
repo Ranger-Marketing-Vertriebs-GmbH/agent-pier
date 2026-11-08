@@ -4757,7 +4757,14 @@ up a missed night within 6 hours. The memory lock of
   (`sessions.reviewMemory`) on the agent's own model, without tools and outside any
   session. The input (`hermes-dream-prompt.js`) is both files, the targets (80 % of each
   limit, an instruction only) and the chats since the cursor (`hermes-dream-chats.js`)
-  within a budget of 60,000 characters a night, oldest first. Hermes fixes the request
+  within a budget of 60,000 characters a night, oldest first. Each chat is labelled with
+  its person, `owner` or a stable opaque `user-<8 hex>` label (`dreamPerson`), and the
+  prompt asks to attribute every fact to its person and never to replace one person's
+  entry with another's statement. A user turn whose request's trusted context names no
+  person (team, coding, member and memory results, goal turns, a lead's task; matched
+  by delivery key, else by text, as the chat's `hideInternal` does) stays out, like the
+  runtime's own notes. A backup that cannot be taken (an agent id that names no folder,
+  `AGENT_ID_INVALID`) fails the night before anything is written. Hermes fixes the request
   timeout of that call at 60 s per model attempt (`run_oneshot`), so a model too slow for a
   full answer fails the night.
 - **Guard.** `dreamGuard` (`hermes-dream-guard.js`) applies the answer only when every
