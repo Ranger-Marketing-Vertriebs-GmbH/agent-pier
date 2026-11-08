@@ -129,3 +129,28 @@ test("the summary is clipped", () => {
   assert.equal(parsed.summary.length, dreamSummaryLimit);
   assert.equal(dreamSummaryLimit, 600);
 });
+
+test("a new entry never carries the pin marker", () => {
+  const parsed = parseDream(
+    answer({
+      "MEMORY.md": [
+        { keep: "M1" },
+        { text: "📌 sneaky", from: ["M2"] },
+        { text: "📌 new" },
+      ],
+      "USER.md": [],
+      summary: "s",
+    }),
+    before,
+  );
+  assert.equal(parsed.files["MEMORY.md"], "📌 a\n§\nsneaky\n§\nnew");
+  assert.match(hermesDreamInstructions, /never start with `📌 `/);
+});
+
+test("a text that would re-split next to the delimiter is null", () => {
+  for (const text of ["foo\n§", "x\n§\ny\n§"]) {
+    const items = [{ text: "a" }, { text }, { text: "b" }];
+    const raw = answer({ "MEMORY.md": items, "USER.md": [], summary: "s" });
+    assert.equal(parseDream(raw, before), null, text);
+  }
+});

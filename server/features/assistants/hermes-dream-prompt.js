@@ -1,6 +1,7 @@
 import { reviewEntries, reviewInput } from "./memory-review-prompt.js";
 import {
   entryDelimiter,
+  memoryEntries,
   memoryLimits,
   pinMarker,
 } from "./runtimes/hermes/hermes-config/memory.js";
@@ -26,6 +27,8 @@ export const hermesDreamInstructions = [
     "made outdated.",
   `Every entry that starts with \`${pinMarker}\` is pinned by the owner and must stay ` +
     'unchanged as {"keep": "<id>"} in its own file.',
+  `New, merged or rewritten entries never start with \`${pinMarker}\`: only kept pinned ` +
+    "entries carry it, and only the owner pins.",
   "End each file at or below its target, 80 % of its limit, as the user message gives it.",
   "Each file starts with a line `=== <file name>`; each entry starts with its id in " +
     "square brackets, such as [M1] or [U2].",
@@ -131,7 +134,10 @@ export function parseDream(text, files) {
         out.push(own.get(item.keep));
         continue;
       }
-      const entry = typeof item.text === "string" ? item.text.trim() : "";
+      let entry = typeof item.text === "string" ? item.text.trim() : "";
+      // Only people pin: a new entry never carries the marker.
+      while (entry.startsWith(pinMarker.trim()))
+        entry = entry.slice(pinMarker.trim().length).trim();
       if (!entry || entry.includes(entryDelimiter)) return null;
       const from = item.from ?? [];
       if (!Array.isArray(from) || !from.every(claim)) return null;
@@ -141,7 +147,10 @@ export function parseDream(text, files) {
       out.push(entry);
     }
     counts.dropped = own.size - used.size;
-    result.files[file] = out.join(entryDelimiter);
+    const assembled = out.join(entryDelimiter);
+    const parsed = memoryEntries(assembled);
+    if (parsed.length !== out.length || parsed.some((e, i) => e !== out[i])) return null;
+    result.files[file] = assembled;
     result.counts[file] = counts;
   }
   if (typeof answer.summary === "string") {
