@@ -29,7 +29,7 @@ import {
   placeGhidra,
   removeReaComponent,
 } from "./rea-components.js";
-import { failureText, keyed, reaComponentStates } from "./rea-state.js";
+import { failureText, keyed, queueSync, reaComponentStates } from "./rea-state.js";
 import { run as defaultRun } from "./tool-run.js";
 
 const messages = serverMessages.craft;
@@ -93,6 +93,7 @@ export class CraftTool {
     this.job = null;
     this.controller = null;
     this.claimed = false;
+    this.syncing = null;
     this.status = "idle";
     this.step = null;
     this.message = "";
@@ -350,6 +351,7 @@ export class CraftTool {
     this.changed();
   }
   async converge({ components, settings, update, source }, signal) {
+    await this.syncing;
     ensureGhidraStub(this.dataDir);
     await this.placeGhidraParts(components, update, signal);
     await this.placeBinary(update, signal);
@@ -476,11 +478,13 @@ export class CraftTool {
    * line with the installed files and the stored mode, also while in use: sessions
    * started afterwards get the new state.
    */
-  async syncEnvironment() {
-    const id = this.serverId();
-    if (!id || this.job || this.claimed || !this.installed()) return;
-    this.writeConfig();
-    await this.patchRow(id, this.stored().settings);
+  syncEnvironment() {
+    return queueSync(this, async () => {
+      const id = this.serverId();
+      if (!id || this.job || this.claimed || !this.installed()) return;
+      this.writeConfig();
+      await this.patchRow(id, this.stored().settings);
+    });
   }
   /**
    * The skill copies in the CLIs bound to row `serverId` (null: none, the copies go).

@@ -400,3 +400,27 @@ test("close() stops a running download through the job's signal", async (t) => {
 test("managedRowInUse is the generic check REA's name points at", () => {
   assert.equal(reaInUse, managedRowInUse);
 });
+
+test("overlapping environment syncs and an apply do not race on the row", async (t) => {
+  const f = await craftFixture(t);
+  const craft = await f.tool();
+  const { serverId } = await f.install(craft, { components: { ghidra: false } });
+  // An agent flipped the row: every sync has something to patch.
+  await f.s.changes.update(
+    serverId,
+    { revision: f.s.servers.get(serverId).revision, args: [...baseArgs] },
+    { confirmStdio: true },
+  );
+  // Saving goes through the agents' gateway in production: it takes a while.
+  const save = f.s.changes.update.bind(f.s.changes);
+  f.s.changes.update = async (...args) => {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    return save(...args);
+  };
+  const syncs = [craft.syncEnvironment(), craft.syncEnvironment()];
+  await craft.apply({ settings: { mode: "deep" } });
+  await Promise.all(syncs);
+  await craft.settled();
+  assert.equal(craft.state().status, "succeeded", craft.state().message);
+  assert.deepEqual(f.s.servers.get(serverId).args, [...baseArgs, "--deep"]);
+});

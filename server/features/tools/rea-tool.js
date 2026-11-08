@@ -27,7 +27,7 @@ import {
 import { placeFridaPrebuild } from "./rea-frida.js";
 import { syncReaSkills } from "./rea-skills.js";
 import { startRea, uninstallRea } from "./rea-lifecycle.js";
-import { failureText, keyed, reaComponentStates } from "./rea-state.js";
+import { failureText, keyed, queueSync, reaComponentStates } from "./rea-state.js";
 import { run as defaultRun } from "./tool-run.js";
 
 const messages = serverMessages.rea;
@@ -96,6 +96,7 @@ export class ReaTool {
     this.controller = null;
     // Set while a refusal check awaits inUse(): no second job may start meanwhile.
     this.claimed = false;
+    this.syncing = null;
     this.status = "idle";
     this.step = null;
     this.message = "";
@@ -397,6 +398,7 @@ export class ReaTool {
     this.changed();
   }
   async converge({ components, settings, update, source, stored }, signal) {
+    await this.syncing;
     this.wanted = components;
     prepareReaHome(this.dataDir);
     await this.placeComponents(components, update, signal);
@@ -509,11 +511,13 @@ export class ReaTool {
    * change: a running REA keeps its environment and the previous version folder,
    * which the next install prunes; sessions started afterwards get the new homes.
    */
-  async syncEnvironment() {
-    const id = this.serverId();
-    if (!id || this.job || this.claimed || !this.installed()) return;
-    const { settings, components } = this.stored();
-    await this.applyEnvironment(id, settings, components);
+  syncEnvironment() {
+    return queueSync(this, async () => {
+      const id = this.serverId();
+      if (!id || this.job || this.claimed || !this.installed()) return;
+      const { settings, components } = this.stored();
+      await this.applyEnvironment(id, settings, components);
+    });
   }
   skillContext(serverId) {
     return {
