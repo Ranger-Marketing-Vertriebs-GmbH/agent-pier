@@ -6,10 +6,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { hermesAgentFiles } from "../../server/features/assistants/runtimes/hermes/hermes-files.js";
 import { connectionOf } from "../../server/features/assistants/runtimes/hermes/hermes-connection.js";
-import {
-  memoryChars,
-  memoryLimits,
-} from "../../server/features/assistants/runtimes/hermes/hermes-config/memory.js";
+import { memoryChars } from "../../server/features/assistants/runtimes/hermes/hermes-config/memory.js";
 
 const sha256 = (text) => createHash("sha256").update(text, "utf8").digest("hex");
 const unavailable = (error) => error.code === "UNAVAILABLE" && error.status === 503;
@@ -77,7 +74,7 @@ test("Hermes memory files are Hermes's own, written only over the expected state
 test("a memory file over Hermes's limit is refused as Hermes counts it", async (t) => {
   const { files } = setup(t);
   const entry = "x".repeat(1000);
-  // Two entries and the separator: 2003 characters, under MEMORY.md's 2200.
+  // Two entries and the separator: 2003 characters, under MEMORY.md's 10000.
   const fits = `${entry}\n§\n${entry}`;
   assert.equal(memoryChars(fits), 2003);
   await files.set({ name: "MEMORY.md", content: fits });
@@ -86,9 +83,18 @@ test("a memory file over Hermes's limit is refused as Hermes counts it", async (
   // Characters, not UTF-16 units: one emoji counts once.
   assert.equal(memoryChars("😀"), 1);
   await assert.rejects(
-    files.set({ name: "USER.md", content: "y".repeat(memoryLimits["USER.md"] + 1) }),
-    (error) => error.code === "TOO_LARGE" && error.status === 413 && error.limit === 1375,
+    files.set({ name: "USER.md", content: "y".repeat(5001) }),
+    (error) => error.code === "TOO_LARGE" && error.status === 413 && error.limit === 5000,
   );
+  await assert.rejects(
+    files.set({ name: "MEMORY.md", content: "é".repeat(10001) }),
+    (error) => error.code === "TOO_LARGE" && error.limit === 10000,
+  );
+  // 9999 two-byte characters, the separator and a pinned entry fit within 10000.
+  await files.set({
+    name: "MEMORY.md",
+    content: `${"é".repeat(9970)}\n§\n📌 Owner drinks tea`,
+  });
   assert.equal((await files.get({ name: "USER.md" })).file.missing, true);
   // Instructions have no such limit.
   await files.set({ name: "SOUL.md", content: "z".repeat(5000) });

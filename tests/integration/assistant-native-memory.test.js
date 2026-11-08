@@ -53,6 +53,18 @@ test("memory uses exact native agent and strips host paths from files and search
   assert.equal(f.calls[0].args.agentId, f.store.getAssistant(f.id).runtimeAgentId);
   assert.equal(f.calls[1].args.agentId, f.store.getAssistant(f.id).runtimeAgentId);
 });
+test("a Hermes root file reads with its limit", async (t) => {
+  const f = fixture(t);
+  const agent = f.store.getAssistant(f.id);
+  f.store.getAssistant = () => ({ ...agent, runtime: "hermes" });
+  f.memory.call = async (_agent, _method, input) => ({
+    file: { name: input.name, content: "Saved fact", hash: "a".repeat(64) },
+  });
+  assert.equal((await f.memory.read(f.id, "MEMORY.md")).limit, 10000);
+  assert.equal((await f.memory.read(f.id, "USER.md")).limit, 5000);
+  f.store.getAssistant = () => agent;
+  assert.equal("limit" in (await f.memory.read(f.id, "MEMORY.md")), false);
+});
 test("native file writes carry compare-and-swap and allow explicit clearing", async (t) => {
   const f = fixture(t);
   await f.memory.write(f.id, {
@@ -77,14 +89,14 @@ test("native file writes carry compare-and-swap and allow explicit clearing", as
 test("a memory file over the runtime's own limit is refused with that limit", async (t) => {
   const f = fixture(t);
   f.assistants.runtime.client.call = async () => {
-    throw Object.assign(Error("too long"), { code: "TOO_LARGE", limit: 1375 });
+    throw Object.assign(Error("too long"), { code: "TOO_LARGE", limit: 5000 });
   };
   await assert.rejects(
     f.memory.write(f.id, { name: "USER.md", content: "long", expectedMissing: true }),
     (error) =>
       error.status === 413 &&
       error.key === "memoryTooLarge" &&
-      /1375/.test(error.message),
+      /5000/.test(error.message),
   );
 });
 test("memory refuses path traversal, blind writes and revoked grants before native calls", async (t) => {
