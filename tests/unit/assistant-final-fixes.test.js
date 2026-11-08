@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
@@ -62,7 +63,8 @@ test("snap Chromium is never chosen as the browser", () => {
 
 test("the Gateway port leaves room for every CDP port", async () => {
   const drawn = [65530, 65426, 65425, 40000];
-  assert.equal(await freePort({ draw: async () => drawn.shift() }), 65425);
+  const inUse = async () => false;
+  assert.equal(await freePort({ draw: async () => drawn.shift(), inUse }), 65425);
   assert.equal(maxGatewayPort + 110, 65535);
   const profiles = Array.from({ length: 120 }, (_, n) => ({
     id: `a${String(n).padStart(3, "0")}`,
@@ -78,6 +80,41 @@ test("the Gateway port leaves room for every CDP port", async () => {
   assert.equal(new Set(ports).size, ports.length);
   // Member slots keep their ports; agents beyond the range get no profile.
   assert.equal(ports.length, 2 + 3 + 91);
+});
+
+// A listener on a derived CDP port made OpenClaw refuse the agent's browser with
+// PortInUseError for the Gateway's whole run (AGENTPIER-360).
+test("the Gateway port is drawn again while a listener holds one of its CDP ports", async () => {
+  const held = new Set([40020, 41110, 42011]);
+  const probed = [];
+  const inUse = async (port) => (probed.push(port), held.has(port));
+  const drawn = [40000, 41000, 42000, 43000];
+  assert.equal(await freePort({ draw: async () => drawn.shift(), inUse }), 43000);
+  for (const port of held) assert.ok(probed.includes(port));
+  // The whole range from + 11 to + 110 of the taken port was free.
+  for (let offset = 11; offset <= 110; offset++)
+    assert.ok(probed.includes(43000 + offset));
+  assert.equal(probed.includes(43000 + 10), false);
+  // A host where every draw has a held port still gets a Gateway port.
+  let n = 0;
+  const port = await freePort({
+    draw: async () => 30000 + 200 * n++,
+    inUse: async () => true,
+  });
+  assert.equal(port, 30000 + 200 * 20);
+});
+
+test("a real listener on the agent browser's CDP port moves the Gateway port", async (t) => {
+  const first = await freePort();
+  const squatter = net.createServer();
+  await new Promise((r) => squatter.listen(first + 20, "127.0.0.1", r));
+  t.after(() => new Promise((r) => squatter.close(r)));
+  const drawn = [first, first, null];
+  const port = await freePort({
+    draw: async () => drawn.shift() ?? (await freePort()),
+  });
+  assert.notEqual(port, first);
+  assert.equal(drawn.length, 0, "both draws of the held range were skipped");
 });
 
 test("leftover mcp, secrets and env blocks are removed from an existing configuration", (t) => {
