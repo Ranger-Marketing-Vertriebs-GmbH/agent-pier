@@ -112,7 +112,8 @@ test("refusals pass through: validation 400, conflicts 409", async (t) => {
   assert.equal(stack.status, 400);
   assert.equal(stack.body.messageKey, "craft.rebuildStackInvalid");
   const empty = await request("POST", "/api/craft/rebuilds", { request: " " });
-  assert.equal(empty.status, 409);
+  assert.equal(empty.status, 400);
+  assert.equal(empty.body.messageKey, "craft.rebuildRequestRequired");
   const provider = await request("POST", "/api/craft/rebuilds", {
     request: "x",
     accountId: "acc-provider",
@@ -164,8 +165,16 @@ test("a rebuild is paused, continued, followed up, answered and read over REST",
   const activity = await request("GET", `${base}/activity?limit=50`);
   assert.equal(activity.status, 200);
   assert.ok(activity.body.lines.some((line) => line.includes("Answered q1: Blue")));
-  const unbounded = await request("GET", `${base}/activity?limit=x`);
-  assert.equal(unbounded.status, 200);
+  // A missing, empty or invalid limit reads the default (200), never a single line.
+  for (const query of ["", "?limit=", "?limit=x"]) {
+    const read = await request("GET", `${base}/activity${query}`);
+    assert.equal(read.status, 200, query);
+    assert.ok(read.body.lines.length > 1, query);
+    assert.ok(
+      read.body.lines.some((line) => line.includes("Answered q1: Blue")),
+      query,
+    );
+  }
   const auto = await request("POST", `${base}/auto-mode`, { on: true });
   assert.equal(auto.status, 200);
   assert.equal(auto.body.autoMode, true);

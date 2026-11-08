@@ -183,6 +183,21 @@ test("close stops projects, ends the child and leaves no builder process", async
   assert.equal(record.status, "stopped");
 });
 
+test("close ends within 4 s when no stop answers and the child ignores stdin", async (t) => {
+  const { dir, start } = setup(t, {
+    script: { slowTools: { rebuild_stop: 60000 }, ignoreStdinClose: true },
+  });
+  const client = await start();
+  const one = await startBuild(client, dir, "one");
+  const two = await startBuild(client, dir, "two");
+  const child = client.pid;
+  const began = Date.now();
+  await client.close({ stopProjects: [one.project, two.project] });
+  const took = Date.now() - began;
+  assert.ok(took < 4000, `close took ${took} ms`);
+  assert.ok(await until(() => ![child, one.builder, two.builder].some(exists), 2000));
+});
+
 test("close kills a builder the child left behind", async (t) => {
   const { dir, start } = setup(t);
   const client = await start();

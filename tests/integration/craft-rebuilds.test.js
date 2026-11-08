@@ -77,7 +77,7 @@ test("start passes project_folder, build_with and rounds", async (t) => {
   await assert.rejects(f.rebuilds.start({ request: "x", target: "relative/path" }), {
     status: 400,
   });
-  await assert.rejects(f.rebuilds.start({ request: "  " }), { status: 409 });
+  await assert.rejects(f.rebuilds.start({ request: "  " }), { status: 400 });
 });
 
 test("each account gets its own child with its own CLAUDE_CONFIG_DIR", async (t) => {
@@ -221,7 +221,7 @@ test("followUp sends a request to the same project", async (t) => {
   const f = rebuildsFixture(t, { script: { steps: [{ finish: "ready" }] } });
   const view = await f.rebuilds.start({ request: "First" });
   assert.ok(await settled(f.rebuilds, view.id, "ready"));
-  await assert.rejects(f.rebuilds.followUp(view.id, " "), { status: 409 });
+  await assert.rejects(f.rebuilds.followUp(view.id, " "), { status: 400 });
   await f.rebuilds.followUp(view.id, "Make it blue");
   const record = f.craftRecord(view);
   assert.ok(record.conversation.some((entry) => entry.text === "Make it blue"));
@@ -244,6 +244,24 @@ test("shutdown leaves no builder process", async (t) => {
   assert.equal(f.rebuilds.get(one.id).status, "paused");
   assert.equal(f.rebuilds.get(two.id).status, "paused");
   await assert.rejects(f.rebuilds.start({ request: "Late" }), { status: 409 });
+});
+
+test("close fits the shutdown budget when every stop hangs", async (t) => {
+  const f = rebuildsFixture(t, {
+    script: { slowTools: { rebuild_stop: 60000 }, ignoreStdinClose: true },
+  });
+  const one = await f.rebuilds.start({ request: "One", accountId: "acc-a" });
+  const two = await f.rebuilds.start({ request: "Two", accountId: "acc-b" });
+  const pids = [
+    ...[one, two].map((view) => f.craftRecord(view).fake_builder.pid),
+    ...f.clients.map((client) => client.pid),
+  ];
+  const began = Date.now();
+  await f.rebuilds.close();
+  const took = Date.now() - began;
+  assert.ok(took < 4000, `close took ${took} ms`);
+  assert.ok(await until(() => !pids.some(exists), 2000));
+  assert.equal(f.rebuilds.get(one.id).status, "paused");
 });
 
 test("a rebuild running at shutdown reads paused after restart", async (t) => {
