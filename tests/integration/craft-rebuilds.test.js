@@ -439,7 +439,7 @@ test("a failed auto-mode allow is retried on the next tick", async (t) => {
   assert.ok(
     f.craftRecord(view).conversation.some((e) => e.text === "Run npm install?: allowed"),
   );
-  assert.equal(f.rebuilds.approving.size, 0, "answered approvals are forgotten");
+  assert.equal(f.rebuilds.sampler.approving.size, 0, "answered approvals are forgotten");
 });
 
 test("a child killed from outside leaves its rebuild paused and no builder", async (t) => {
