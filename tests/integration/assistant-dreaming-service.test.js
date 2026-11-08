@@ -71,6 +71,26 @@ test("switching on asks first and names the agents without memory", async (t) =>
   assert.deepEqual(dreamingPatches(f), []);
 });
 
+test("switching on lists Hermes agents without memory", async (t) => {
+  const f = dreaming(t, ["A", "B", "C", "H"]);
+  const stored = f.store.getAssistant(f.h.id);
+  f.store.db
+    .prepare("UPDATE assistants SET body=? WHERE id=?")
+    .run(JSON.stringify({ ...stored, runtime: "hermes" }), f.h.id);
+  assert.deepEqual(
+    f.dreaming.get().withoutMemory.map(({ name }) => name),
+    ["B", "H"],
+  );
+  await assert.rejects(f.dreaming.save(night, 1), (error) => {
+    assert.equal(error.key, "dreamingMemoryConfirm");
+    assert.deepEqual(error.agents.map(({ name }) => name).sort(), ["B", "H"]);
+    return true;
+  });
+  await f.dreaming.save({ ...night, confirmMemory: true }, 1);
+  assert.equal(hasMemory(f, f.h), true);
+  assert.deepEqual(f.dreaming.get().withoutMemory, []);
+});
+
 test("the confirmation turns memory on and then dreaming", async (t) => {
   const f = dreaming(t);
   const memberBefore = f.store.getAssistant(f.member.id);

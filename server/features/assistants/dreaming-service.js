@@ -5,19 +5,18 @@ import {
   memoryEnabled,
   personalEligible,
 } from "./native-capabilities.js";
-import { hostReady, ownProcess, runtimeFor } from "./runtimes/runtime-for.js";
+import { hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 
 export const DREAMING_MEMORY_CONFIRMATION_REQUIRED =
   "ASSISTANT_DREAMING_MEMORY_CONFIRMATION_REQUIRED";
 export const DREAMING_AGENTS_BUSY = "ASSISTANT_DREAMING_AGENTS_BUSY";
 /**
  * The permanent agents whose memory AgentPier switches on and keeps on while dreaming
- * is on. Temporary members dream as well (memory-core sweeps every runtime agent), but
- * follow their lead's memory and are never raised. Dreaming is OpenClaw's memory-core:
- * a Hermes agent never dreams (its own memory review runs after each turn), so its
- * memory stays the owner's switch.
+ * is on, on either runtime: OpenClaw's memory-core sweeps them, and a Hermes agent
+ * dreams from its own chats (hermes-dream). Temporary members follow their lead's
+ * memory and are never raised.
  */
-export const dreamingCovered = (agent) => personalEligible(agent) && !ownProcess(agent);
+export const dreamingCovered = (agent) => personalEligible(agent);
 const named = ({ id, name }) => ({ id, name });
 
 /**
