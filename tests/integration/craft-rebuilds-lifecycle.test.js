@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
@@ -69,6 +70,7 @@ test("a rebuild keeps the project its folder has after git init", async (t) => {
   assert.equal(f.create().get(view.id).projectId, again.id, "the stored record too");
 });
 
+const sha256 = (text) => createHash("sha256").update(text).digest("hex");
 const childrenFile = (f) => path.join(f.dataDir, "craft-rebuilds", "children.json");
 const rebuildsFile = (f) => path.join(f.dataDir, "craft-rebuilds", "rebuilds.json");
 
@@ -84,6 +86,8 @@ test("after a crash, restore ends the children and builders left running", async
     Object.values(groups).some((members) => members.some((m) => m.pid === builder)),
     "the builder's group is recorded",
   );
+  for (const members of Object.values(groups))
+    for (const m of members) assert.match(m.command, /^[0-9a-f]{64}$/, "only a digest");
   // A crash: the next server starts while the old processes still run.
   const next = f.create();
   assert.equal(next.get(view.id).status, "building");
@@ -115,7 +119,7 @@ test("restore leaves a process alone whose pid or group was reused", async (t) =
       childrenFile(f),
       JSON.stringify({
         version: 1,
-        children: { 1: { [other.pid]: [{ pid: other.pid, command }] } },
+        children: { 1: { [other.pid]: [{ pid: other.pid, command: sha256(command) }] } },
       }),
     );
   write("/opt/craft-anything-cli mcp --all-tools --allow-run --clean-room");

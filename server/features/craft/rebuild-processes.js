@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { readJSON, writePrivate } from "../../lib/storage.js";
 import { record } from "../extensions/mcp-config.js";
@@ -7,7 +8,20 @@ import { rebuildsHome } from "./rebuild-store.js";
 
 const entries = (value) => (record(value) ? Object.entries(value) : []);
 
-/** `{ pgid: [{ pid, command }] }` as pgid → pids and pid → command. */
+/** Command lines are kept only as hashes: a builder's may carry the request text. */
+const digest = (command) => createHash("sha256").update(command).digest("hex");
+
+/** `{ pgid: [{ pid, command }] }` with each command replaced by its digest. */
+function hashedGroups(groups) {
+  return Object.fromEntries(
+    entries(groups).map(([pgid, members]) => [
+      pgid,
+      members.map((member) => ({ pid: member.pid, command: digest(member.command) })),
+    ]),
+  );
+}
+
+/** `{ pgid: [{ pid, command digest }] }` as pgid → pids and pid → command. */
 function parsedGroups(saved, groups, commands) {
   for (const [key, members] of entries(saved)) {
     const pgid = Number(key);
@@ -23,8 +37,8 @@ function parsedGroups(saved, groups, commands) {
 
 /**
  * The process groups of the rebuild children and their builders, in
- * `<dataDir>/craft-rebuilds/children.json` (child pid → `{ pgid: [{ pid, command }] }`),
- * so that a later server can end what a crash or forced exit left running. A child
+ * `<dataDir>/craft-rebuilds/children.json` (child pid → `{ pgid: [{ pid, command }] }`,
+ * each command as its SHA-256 digest), so that a later server can end what a crash or forced exit left running. A child
  * is recorded while it runs and forgotten once it closed cleanly. The entries of the
  * previous server stay in the file until `reap()` ended them.
  */
@@ -44,7 +58,7 @@ export class RebuildProcesses {
   /** `client` (a CraftMcpClient) recorded new process groups. */
   record(client) {
     if (!client.pid) return;
-    this.live.set(String(client.pid), client.processGroups());
+    this.live.set(String(client.pid), hashedGroups(client.processGroups()));
     this.save();
   }
 
@@ -57,18 +71,25 @@ export class RebuildProcesses {
   /**
    * Server start: SIGKILLs every group the previous server recorded that still holds
    * one of its recorded processes with the same command line (a reused pid is left
-   * alone), never a group of this server's own children. Returns the pgids killed.
+   * alone; without a process table nothing is ended and the records stay), never a
+   * group of this server's own children. Returns the pgids killed.
    */
   async reap() {
     const groups = new Map();
     const commands = new Map();
     for (const [, saved] of entries(this.stale)) parsedGroups(saved, groups, commands);
-    this.stale = {};
-    if (!groups.size) return [];
+    if (!groups.size) {
+      this.stale = {};
+      return [];
+    }
     const own = new Set();
     for (const saved of this.live.values())
       for (const key of Object.keys(saved)) own.add(Number(key));
-    const table = await processTable();
+    const listed = await processTable();
+    // No process table (ps failed or timed out): keep the records for the next start.
+    if (!listed.length) return [];
+    this.stale = {};
+    const table = listed.map((row) => ({ ...row, command: digest(row.command) }));
     const self = table.find((row) => row.pid === process.pid)?.pgid;
     const killed = killRecordedGroups(table, groups, {
       commands,
