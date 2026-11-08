@@ -2,7 +2,15 @@ import path from "node:path";
 import { readJSON } from "../../lib/storage.js";
 import { restartRequired } from "./assistant-provider-synchronization.js";
 import { assistantProblem } from "./assistant-validation.js";
-import { compilerFor, hostOf, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
+import {
+  compilerFor,
+  hermesAvailable,
+  hermesFleetOf,
+  hostOf,
+  hostReady,
+  runtimeFor,
+} from "./runtimes/runtime-for.js";
+import { applyHermesAgents } from "./web-tools-changes.js";
 
 const reloadKinds = new Set(["hot", "none", "restart"]);
 // What a runtime without advanced settings offers: nothing to list or change.
@@ -27,13 +35,37 @@ const patchFor = (target, value) =>
     .split(".")
     .reduceRight((inner, key) => ({ [key]: inner }), value === undefined ? null : value);
 
+// The Hermes compiler's advanced settings: those Hermes has an equivalent of, by id.
+const hermesSettings = () => compilerFor({ runtime: "hermes" }).advancedSettings;
+
 /**
- * The owner's advanced OpenClaw settings: the allow-listed paths the runtime's
- * compiler offers (config sub-port `compiler.advancedSettings`, from
+ * The owner's stored advanced settings by setting id (`{ [id]: value }`), as a
+ * runtime that maps them by id compiles them (Hermes, hermes-config/advanced.js);
+ * undefined when the store cannot be read, which leaves their keys as they are.
+ */
+export function advancedValues(overrides) {
+  try {
+    const settings = compilerFor(null).advancedSettings;
+    return Object.fromEntries(
+      overrides.list().flatMap(({ path: target, value }) => {
+        const setting = settings?.byPath(target);
+        return setting ? [[setting.id, value]] : [];
+      }),
+    );
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The owner's advanced settings for all agents: the allow-listed OpenClaw paths the
+ * runtime's compiler offers (config sub-port `compiler.advancedSettings`, from
  * runtimes/openclaw/openclaw-config/advanced-settings.js), stored as layer 3 overrides. A running
  * Gateway takes a `hot` or `none` change live through config.patch; a `restart` change
  * restarts it in maintenance once the owner confirmed, like a web tools change. A
- * stopped Gateway compiles the stored overrides at its next start.
+ * stopped Gateway compiles the stored overrides at its next start. Hermes agents take
+ * the settings Hermes has an equivalent of (`hermes` per setting) at each start and
+ * apply; a save of one applies them, and each whose home changed restarts.
  */
 export class AdvancedConfig {
   constructor({ assistants, overrides, synchronization, usage, audit }) {
@@ -115,6 +147,18 @@ export class AdvancedConfig {
       return null;
     }
   }
+  /**
+   * Hermes as these settings reach it: whether Hermes agents run, the installed
+   * version and whether the mapping is approved for it (hermes-config/advanced.js).
+   */
+  hermes() {
+    const version = hermesFleetOf(this.runtime).installedVersion();
+    return {
+      enabled: hermesAvailable(this.runtime),
+      version,
+      qualified: !version || version === hermesSettings().runtime,
+    };
+  }
   /** Every allowed setting with its stored override and the Gateway's value. */
   async get() {
     const gateway = this.gateway();
@@ -129,6 +173,7 @@ export class AdvancedConfig {
         version: gateway.version,
         qualified: gateway.qualified,
       },
+      hermes: this.hermes(),
       settings: this.settings.list.map((setting) => {
         const reloadKind = kinds ? kinds[setting.path] : setting.reloadKind;
         const value = live ? valueAt(live, setting.path) : undefined;
@@ -147,6 +192,8 @@ export class AdvancedConfig {
           current: value === undefined ? null : value,
           reloadKind: reloadKind || setting.reloadKind,
           available: gateway.qualified && reloadKind !== null,
+          // Whether Hermes agents take it too; otherwise it is OpenClaw's alone.
+          hermes: !!hermesSettings().byId(setting.id),
         };
       }),
     };
@@ -185,6 +232,8 @@ export class AdvancedConfig {
         }
         persist();
       });
+    // Hermes agents compile the stored value at their apply.
+    if (hermesSettings().byId(setting.id)) applyHermesAgents(this.assistants);
     return this.get();
   }
   persist(target, value) {

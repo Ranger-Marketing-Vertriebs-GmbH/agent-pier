@@ -15,6 +15,7 @@ import { hermesCompiler, hermesConfigCapabilities } from "./hermes-compiler.js";
 import { hermesError } from "./hermes-rpc-client.js";
 import { liveTeamFiles } from "./hermes-config/team-plugin.js";
 import { ddgsInstalled } from "./hermes-config/web.js";
+import { advancedHome, homeZone } from "./hermes-config/advanced.js";
 import { HermesBrowser } from "./hermes-browser.js";
 
 /**
@@ -26,8 +27,8 @@ import { HermesBrowser } from "./hermes-browser.js";
  * AgentPier's channel layer, hermes-channels.js), channelBots (the agent's own bot
  * for other people on Hermes's Telegram adapter, hermes-config/telegram.js) and the
  * browser on a Chromium AgentPier runs for the agent (hermes-browser.js);
- * every-command approval, which only Hermes has (ADR 0006 decision 5); advanced
- * settings report `advancedSettingsUnsupported`.
+ * every-command approval, which only Hermes has (ADR 0006 decision 5); and the
+ * owner's advanced settings it has an equivalent of (hermes-config/advanced.js).
  */
 export const hermesCapabilities = Object.freeze({
   ...hermesConfigCapabilities,
@@ -45,9 +46,12 @@ const isRunning = (availability) => !["disabled", "failed"].includes(availabilit
  * connection and instructions of a live apply) the last `config.apply` named, else
  * `desired()`'s, or none to start the home as it is. `strict` (a boolean, or a
  * function answering one at each start) says whether its owner chose every-command
- * approval. Host from hermes-host.js; sessions, events, approvals and routines over
- * the client of the current start, and the deliveries of routine results
- * (HermesRoutineDeliveries) following each start's client.
+ * approval. `advanced()` answers the owner's advanced settings for all agents by
+ * setting id (advanced-config.js advancedValues), read at each write, or undefined to
+ * leave their keys as they are. Host from hermes-host.js; sessions, events, approvals
+ * and routines over the client of the current start, and the deliveries of routine
+ * results (HermesRoutineDeliveries) following each start's client; both run cron
+ * expressions in the time zone the last write gave the agent's clock.
  *
  * - config.apply({ desired, strict, catalog, mcp, connection }): writes the compiled
  *   home now; a running set that this changed restarts, unless only files the gateway
@@ -72,9 +76,13 @@ export function createHermesRuntime({
   desired = () => null,
   strict = false,
   remove = async () => {},
+  advanced = () => undefined,
   ...options
 }) {
   let written = [];
+  // The zone of the agent's clock as its home named it at the last start (null: the
+  // host's, which its processes inherit).
+  let zone = null;
   let latest = null;
   // The installation the set last started with, and the names it bundles.
   let installed = null;
@@ -95,6 +103,8 @@ export function createHermesRuntime({
       modelProxy: inputs.modelProxy,
       imageLogin: inputs.imageLogin,
       pdfFallback: inputs.pdfFallback,
+      // The owner's advanced settings, for the installation they were approved for.
+      advanced: advancedInput(),
       // The owner's web search settings, once the installation (ddgs) is known.
       web:
         inputs.web && installed
@@ -116,20 +126,35 @@ export function createHermesRuntime({
     supervisor.nativeImages = home.nativeImages === true;
     return written;
   };
+  const advancedInput = () => {
+    const values = advanced();
+    return values && installed ? { version: installed.version, values } : undefined;
+  };
   const prepare = async (agent, record) => {
     if (record && record !== installed) {
       installed = record;
       bundled = bundledSkillNames(record);
     }
     const read = latest?.desired ?? (await desired());
-    if (!read) return;
-    await writeHome(
-      agent,
-      read,
-      latest ? latest.strict : strictNow(),
-      latest?.inputs,
-      latest?.browser,
-    );
+    if (read)
+      await writeHome(
+        agent,
+        read,
+        latest ? latest.strict : strictNow(),
+        latest?.inputs,
+        latest?.browser,
+      );
+    // A start without a desired state still takes the owner's advanced settings, so
+    // an update or rollback to a version they are not approved for drops them. A home
+    // that cannot take them starts as it is, as it did before they existed.
+    else
+      try {
+        hermesCompiler.write(agent.hermesHome, advancedHome(advancedInput(), agent));
+      } catch (error) {
+        console.warn(`Hermes advanced settings not written: ${error?.code || "ERROR"}`);
+      }
+    // The zone the gateway this start runs reads its clock and cron in.
+    zone = homeZone(agent.hermesHome);
   };
   const supervisor = new HermesSupervisor({ ...options, prepare });
   // The agent's own Chromium: launched for its browser calls, headless unless its
@@ -150,7 +175,11 @@ export function createHermesRuntime({
       browser.stop().catch(() => {});
   });
   const agentId = supervisor.agentId;
-  const deliveries = hermesDeliveries(supervisor, { dataDir: options.dataDir });
+  const zoneNow = () => zone;
+  const deliveries = hermesDeliveries(supervisor, {
+    dataDir: options.dataDir,
+    zone: zoneNow,
+  });
   host.subscribe(() => deliveries.follow(host.ready() ? supervisor.client : null));
   const ready = () => {
     if (!host.ready()) throw hermesError();
@@ -192,7 +221,7 @@ export function createHermesRuntime({
           pathPrepend: supervisor.pathPrepend,
         }).PATH.split(":"),
     }),
-    routines: hermesRoutines(supervisor, { deliveries }),
+    routines: hermesRoutines(supervisor, { deliveries, zone: zoneNow }),
     models: hermesModels(supervisor),
     channels: hermesChannels(supervisor),
     browser: {

@@ -18,7 +18,12 @@ import {
   confirmedAll,
   resolveItems,
 } from "../features/assistants/runtime-update-resolution.js";
-import { hermesRunnable } from "../features/assistants/runtimes/hermes/hermes-provisioning.js";
+import {
+  hermesRunnable,
+  hermesSelectedVersion,
+} from "../features/assistants/runtimes/hermes/hermes-provisioning.js";
+import { OverrideStore } from "../features/assistants/runtimes/openclaw/openclaw-config/overrides.js";
+import { advancedValues } from "../features/assistants/advanced-config.js";
 import {
   attachHermesFleet,
   hermesFleetOf,
@@ -34,13 +39,19 @@ export const openClawProfiles = (profiles) =>
  * Hermes agent, resolved through the OpenClaw `supervisor` every caller passes
  * (runtime-for.js). Sets run while Hermes is enabled and installed; an agent on
  * "Every command" (`shell: "approval"`, `shellEveryCommand`) asks before each command.
+ * Each start and apply compiles the owner's advanced settings for all agents
+ * (advanced-config.js), stored with OpenClaw's overrides.
  */
 export function hermesAgentFleet(supervisor, { dataDir, store }) {
+  // Read at each start; an invalid row is reported where OpenClaw's start reads it.
+  let overrides = null;
   return attachHermesFleet(
     supervisor,
     new HermesFleet({
       dataDir,
       available: () => hermesRunnable(dataDir),
+      version: () => hermesSelectedVersion(dataDir),
+      advanced: () => advancedValues((overrides ||= new OverrideStore(store.db))),
       strict: (agentId) => {
         const profile = store.listAssistants().find((p) => p.runtimeAgentId === agentId);
         return profile?.shell === "approval" && profile.shellEveryCommand === true;

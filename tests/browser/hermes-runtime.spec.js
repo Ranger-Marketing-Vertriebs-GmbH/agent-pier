@@ -48,7 +48,7 @@ const hermesInfo = {
     browser: unavailable(),
     models: unavailable(),
     channels: unavailable(),
-    advancedSettings: unavailable("advancedSettingsUnsupported"),
+    advancedSettings: { available: true },
   },
 };
 

@@ -14,11 +14,15 @@ compilerContract("Hermes", () => ({
   capabilities: hermesConfigCapabilities,
 }));
 
-test("Hermes reports advanced settings unavailable with a reason", () => {
-  assert.deepEqual(hermesConfigCapabilities.advancedSettings, {
-    available: false,
-    reason: "advancedSettingsUnsupported",
-  });
+test("Hermes offers the advanced settings it has an equivalent of", () => {
+  assert.deepEqual(hermesConfigCapabilities.advancedSettings, { available: true });
+  assert.deepEqual(
+    hermesCompiler.advancedSettings.list.map(({ id, path }) => [id, path]),
+    [
+      ["thinkingDefault", "agent.reasoning_effort"],
+      ["userTimezone", "timezone"],
+    ],
+  );
 });
 
 test("Hermes compiles only desired states, one home per agent that is not archived", () => {

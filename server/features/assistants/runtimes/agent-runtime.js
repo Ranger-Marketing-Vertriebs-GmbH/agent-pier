@@ -170,8 +170,10 @@
  *     state and the start's own facts (OpenClaw: existing, paths, port, token,
  *     overrides, runtime, tls, shell, skillShadows); the same inputs always yield
  *     the same configuration and leave `desired` as it was. `advancedSettings`
- *     (`{ list, byPath, byId, bounds, valid, auditable, validate, runtime }`) exists
- *     exactly while the `advancedSettings` capability is available.
+ *     (`{ list, byPath, byId, validate, runtime }`; OpenClaw's, which defines the
+ *     settings, also `bounds`, `valid` and `auditable`) exists exactly while the
+ *     `advancedSettings` capability is available; Hermes lists the settings it maps,
+ *     by id, with its own key as `path`.
  *   - applyModel({ desired }), apply({ desired, state }): write one agent's model
  *     connection, then its tools, shell, skills and memory, on the running
  *     configuration as `patch` does; `state()` tells what the runtime offers as the
@@ -307,7 +309,8 @@ export const RUN_EVENT_KINDS = Object.freeze([
 
 // One capability per sub-port, and finer ones as ports grow: `advancedSettings`, the
 // owner's overrides of runtime settings beyond AgentPier's model (config.compiler
-// `advancedSettings`; OpenClaw has them, a runtime without reports it unavailable);
+// `advancedSettings`; OpenClaw and Hermes have them, a runtime without reports it
+// unavailable);
 // `everyCommandApproval`, a shell level beside "approval" on which every command asks
 // the owner (Hermes, whose "approval" asks only for dangerous commands; OpenClaw's
 // "approval" already asks for every command, so it reports the option unavailable);

@@ -35,7 +35,8 @@ const isHermes = (agent) => agent?.runtime === "hermes";
  * - "status" events `(agentId, status)` on each set's status change.
  *
  * Options: `dataDir`, `available`, `strict(agentId)` (every-command approval of the
- * agent), and HermesSupervisor's (`runtime`, timeouts, …) for every set; `create`
+ * agent), `version()` (the selected installation's version, installedVersion()),
+ * `advanced()` (createHermesRuntime's) and HermesSupervisor's (`runtime`, timeouts, …) for every set; `create`
  * replaces createHermesRuntime (tests).
  */
 export class HermesFleet extends EventEmitter {
@@ -43,11 +44,12 @@ export class HermesFleet extends EventEmitter {
     dataDir,
     available = () => false,
     strict = () => false,
+    version = () => null,
     create = createHermesRuntime,
     ...options
   }) {
     super();
-    Object.assign(this, { dataDir, available, strict, create, options });
+    Object.assign(this, { dataDir, available, strict, version, create, options });
     this.sets = new Map();
     this.listeners = new Set();
     this.closed = false;
@@ -72,6 +74,11 @@ export class HermesFleet extends EventEmitter {
       this.emit("status", agentId, status);
     });
     return entry;
+  }
+
+  /** The version of the Hermes installation the next start runs, or null. */
+  installedVersion() {
+    return this.version() || null;
   }
 
   /** The AgentRuntime of a Hermes agent read (or its runtime agent id). */

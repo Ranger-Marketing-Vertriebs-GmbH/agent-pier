@@ -1,15 +1,16 @@
 import { isDesiredAgent, isDesiredState } from "../../agent-desired-state.js";
-import { unavailable } from "../agent-runtime.js";
+import { available } from "../agent-runtime.js";
 import { compileHome } from "./hermes-config/home.js";
+import { hermesAdvancedSettings } from "./hermes-config/advanced.js";
 import { writeHermesHome } from "./hermes-config/home-writer.js";
 
 /**
  * What the Hermes config sub-port offers of the capabilities (../agent-runtime.js
- * RUNTIME_CAPABILITIES): no owner overrides of Hermes settings beyond AgentPier's
- * model yet, so `advancedSettings` is unavailable and the compiler has none.
+ * RUNTIME_CAPABILITIES): the owner's advanced settings for all agents that Hermes has
+ * an equivalent of (hermes-config/advanced.js).
  */
 export const hermesConfigCapabilities = Object.freeze({
-  advancedSettings: unavailable("advancedSettingsUnsupported"),
+  advancedSettings: available(),
 });
 
 /**
@@ -21,7 +22,8 @@ export const hermesConfigCapabilities = Object.freeze({
  * "config.yaml", ".env" }`) are by runtime agent id; `strictShell`: the runtime
  * agent ids on every-command approval; `bundledSkills` and `catalogSkills` as
  * compileHome takes them, for every agent; the MCP servers from the desired state's
- * host `mcp`; `web`: `{ search, ddgs }` as compileHome takes it, for every agent. The team plugin answers through the team bridge
+ * host `mcp`; `web`: `{ search, ddgs }` and `advanced`: `{ version, values }` as
+ * compileHome takes them, for every agent. The team plugin answers through the team bridge
  * `desired.host.team.plugin.connection` names. Facts other runtimes take
  * (`existing`, `paths`, `port`, `token`) are ignored. Pure.
  */
@@ -34,6 +36,7 @@ function compile({
   bundledSkills,
   catalogSkills,
   web,
+  advanced,
 }) {
   if (!isDesiredState(desired)) throw new TypeError("Hermes compiles a desired state.");
   if (!agents.every(isDesiredAgent))
@@ -54,6 +57,7 @@ function compile({
         mcp: desired.host.mcp,
         connection: desired.host.team.plugin?.connection,
         web,
+        advanced,
       }),
     ]);
   return Object.freeze({ homes: Object.freeze(Object.fromEntries(entries)) });
@@ -72,6 +76,8 @@ export const hermesCompiler = Object.freeze({
   // One agent's home: compileHome(agent, { workspace, strict, existing, … }).
   compileHome,
   write: writeHermesHome,
+  // The owner's advanced settings Hermes takes, by setting id (hermes-config/advanced.js).
+  advancedSettings: hermesAdvancedSettings,
   // Names a skill in the agent's own folders would replace: none to know before a
   // start, as Hermes reports such a skill itself (hermes-skills.js status).
   skillShadows: () => new Set(),

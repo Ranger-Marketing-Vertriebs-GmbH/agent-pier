@@ -83,14 +83,19 @@ export function hermesSchedule(
 /**
  * The pinned expression a job of a routine in its own time zone needs now, or null
  * when it needs none: its pin names an occurrence that passed (it ran, or it was
- * due while the gateway was down) or no longer the next one. A paused job and one
- * running are left alone.
+ * due while the gateway was down) or no longer the next one; or the routine's own
+ * expression for a pinned job whose zone is the one Hermes runs in now. A paused job
+ * and one running are left alone.
  */
 export function repinOf(job, { zone = processZone(), now = Date.now() } = {}) {
   const meta = job?.[metaField]?.schedule;
   if (job?.schedule?.kind !== "cron" || job.enabled !== true || job.fire_claim)
     return null;
-  if (typeof meta?.expression !== "string" || !zoned(meta.timezone, zone)) return null;
+  if (typeof meta?.expression !== "string") return null;
+  // A routine in the zone Hermes now runs in (the owner changed the agents' time
+  // zone) takes its own expression again instead of a pin to one occurrence.
+  if (!zoned(meta.timezone, zone))
+    return job.schedule.expr === meta.expression ? null : meta.expression;
   const next = nextCronRun(meta.expression, meta.timezone, now);
   if (next === null) return null;
   const pin = pinnedExpression(next, zone);

@@ -6,6 +6,21 @@ import { compilerFor, hostOf, hostReady, ownProcess } from "./runtimes/runtime-f
 import { desiredAgent } from "./agent-desired-state.js";
 
 /**
+ * Applies every Hermes agent of `assistants` (the agents service) that `wanted` (a
+ * desiredAgent) names, in the background: each restarts only if its home changed.
+ * A failure retries with the agent's next apply.
+ */
+export function applyHermesAgents(assistants, wanted = () => true) {
+  const { store, config } = assistants;
+  if (typeof config?.apply !== "function") return;
+  for (const profile of store.listAssistants())
+    if (ownProcess(profile) && !profile.archivedAt && wanted(desiredAgent(profile)))
+      Promise.resolve()
+        .then(() => config.apply(profile.id))
+        .catch(() => {});
+}
+
+/**
  * The global web tool sections (the tools.allow additions, tools.web, the search
  * plugin, PDF extraction and the browser block) exist only in the startup
  * configuration: under the team plugin's restrictive plugins.allow the Gateway does
@@ -197,13 +212,7 @@ export class WebToolsChanges {
   }
   /** Applies every Hermes agent `wanted` (a desiredAgent) names. */
   applyHermesAgents(wanted) {
-    const { store, config } = this.assistants;
-    if (typeof config?.apply !== "function") return;
-    for (const profile of store.listAssistants())
-      if (ownProcess(profile) && !profile.archivedAt && wanted(desiredAgent(profile)))
-        Promise.resolve()
-          .then(() => config.apply(profile.id))
-          .catch(() => {});
+    applyHermesAgents(this.assistants, wanted);
   }
   /**
    * Saves the PDF model; a change for agents that read PDFs needs a Gateway restart.

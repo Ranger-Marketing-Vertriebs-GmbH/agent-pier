@@ -57,6 +57,16 @@ export const hermesInstalled = (dataDir) => {
   }
 };
 
+/** The version of the selected Hermes installation, or null. Never creates storage. */
+export const hermesSelectedVersion = (dataDir) => {
+  try {
+    const version = records(dataDir).selected?.version;
+    return typeof version === "string" ? version : null;
+  } catch {
+    return null;
+  }
+};
+
 /** Whether Hermes agents may run: the owner enabled Hermes and it is installed. */
 export const hermesRunnable = (dataDir) =>
   hermesEnabled(dataDir) && hermesInstalled(dataDir);
