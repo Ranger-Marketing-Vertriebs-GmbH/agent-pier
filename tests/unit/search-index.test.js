@@ -239,11 +239,24 @@ test("Craft Anything is found in both languages and opens CLIs & extensions › 
   assert.match(entry.label.de, /Craft Anything/);
   assert.match(entry.label.en, /Craft Anything/);
   assert.deepEqual(entry.target.route, { view: "coding", codingTab: "install" });
-  for (const query of ["Craft Anything", "craft"]) {
-    assert.equal(first(query).id, "page:craft-anything", query);
-    assert.equal(pathOf(first(query)), "/coding/clis", query);
-  }
+  assert.equal(first("Craft Anything").id, "page:craft-anything");
+  assert.equal(pathOf(first("Craft Anything")), "/coding/clis");
   assert.ok([entry.path.de, entry.path.en].some((path) => path.includes("›")));
+});
+
+test("Rebuilds is a work area, found in both languages and by its old names", () => {
+  const entry = index.find((item) => item.id === "page:craft");
+  assert.ok(entry);
+  assert.equal(entry.label.en, "Rebuilds");
+  assert.equal(entry.label.de, "Nachbauten");
+  assert.equal(entry.path.en, "Menu › Work › Rebuilds");
+  assert.equal(entry.path.de, "Menü › Arbeiten › Nachbauten");
+  for (const query of ["craft", "Rebuilds", "Nachbauten", "rebuild", "Nachbau"]) {
+    assert.equal(first(query).id, "page:craft", query);
+    assert.equal(pathOf(first(query)), "/craft", query);
+  }
+  // Craft Anything's own name still opens its installation card first.
+  assert.ok(results("Craft Anything").some((item) => item.id === "page:craft"));
 });
 
 test("actions open the right dialog or page", () => {

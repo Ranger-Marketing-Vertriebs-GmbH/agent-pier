@@ -11,6 +11,7 @@ import { assistantCopy } from "../lib/i18n/messages/assistants.js";
 import { codingPageCopy } from "../lib/i18n/messages/coding.js";
 import { commonCopy } from "../lib/i18n/messages/common.js";
 import { connectionsAreaCopy } from "../lib/i18n/messages/connections-area.js";
+import { craftCopy } from "../lib/i18n/messages/craft.js";
 import { filesCopy } from "../lib/i18n/messages/files.js";
 import { pipelineCopy } from "../lib/i18n/messages/pipelines.js";
 import { sidebarCopy as copy } from "../lib/i18n/messages/app.js";
@@ -25,6 +26,7 @@ import useSearchDialog from "./search-dialog.js";
 const labels = {
   overview: () => commonCopy.overview,
   projects: () => copy.projectsNavigation,
+  craft: () => craftCopy.title,
   pipelines: () => pipelineCopy.title,
   files: () => filesCopy.tab,
   artifacts: () => artifactCopy.title,
@@ -92,6 +94,7 @@ export default function SidebarMenu({
   const go = {
     overview: () => select(null),
     projects: () => page("projects"),
+    craft: () => page("craft"),
     pipelines: () => page("pipelines"),
     files: () => page("files"),
     artifacts: () => page("artifacts"),

@@ -25,7 +25,7 @@ test("the menu lists exactly the entries of variant A in Arbeiten and Einrichten
   assert.deepEqual(
     menuGroups.map((group) => [group.id, group.entries.map((entry) => entry.id)]),
     [
-      ["work", ["overview", "projects", "pipelines", "files", "artifacts"]],
+      ["work", ["overview", "projects", "craft", "pipelines", "files", "artifacts"]],
       ["setup", ["agents", "clis", "connections", "settings"]],
     ],
   );
@@ -48,6 +48,8 @@ test("every route marks the area it belongs to, old addresses their new place", 
     ["/pipelines", "pipelines"],
     ["/files", "files"],
     ["/artifacts", "artifacts"],
+    ["/craft", "craft"],
+    ["/craft/0b8c1f7e-3d2a-4c5b-9e6f-7a8b9c0d1e2f", "craft"],
     ["/agents", "agents"],
     ["/agents?tab=runtime", "agents"],
     ["/agents?new=1", "agents"],

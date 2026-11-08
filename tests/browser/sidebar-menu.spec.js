@@ -30,7 +30,8 @@ test("outside taps, the scrim and navigation close the menu", async ({ page }) =
   await page.locator(".sidebar ~ main").click({ position: { x: 600, y: 400 } });
   await expect(popover(page)).toBeHidden();
   await trigger(page).click();
-  await page.locator(".sidebar-menu-scrim").click({ position: { x: 20, y: 600 } });
+  // Below the popover, which ends near y 610 with six Work entries.
+  await page.locator(".sidebar-menu-scrim").click({ position: { x: 20, y: 760 } });
   await expect(popover(page)).toBeHidden();
   await trigger(page).click();
   await popover(page).getByRole("button", { name: "Einstellungen", exact: true }).click();

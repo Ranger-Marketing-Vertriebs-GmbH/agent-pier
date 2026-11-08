@@ -48,6 +48,7 @@ const ConnectionsPage = lazy(() => import("../features/connections/ConnectionsPa
 const SessionWorkspace = lazy(() => import("../features/sessions/SessionWorkspace.jsx"));
 const PipelinePage = lazy(() => import("../features/pipelines/PipelinePage.jsx"));
 const ArtifactsPage = lazy(() => import("../features/artifacts/ArtifactsPage.jsx"));
+const CraftPage = lazy(() => import("../features/craft/CraftPage.jsx"));
 const FilesPage = lazy(() => import("../features/files/FilesPage.jsx"));
 const InboxPage = lazy(() => import("../features/inbox/InboxPage.jsx"));
 const SplitViewPage = lazy(() => import("../features/views/SplitViewPage.jsx"));
@@ -346,6 +347,22 @@ function Application() {
                     tools={state.tools}
                     openNavigation={openNavigation}
                     navigationOpen={mobileNav}
+                  />
+                </Suspense>
+              ) : view === "craft" ? (
+                <Suspense
+                  fallback={
+                    <p className="loading" role="status">
+                      {copy.workspaceLoading}
+                    </p>
+                  }
+                >
+                  <CraftPage
+                    route={route}
+                    onNavigate={navigate}
+                    openNavigation={openNavigation}
+                    navigationOpen={mobileNav}
+                    onLaunch={(cwd) => setModal({ type: "launch", cwd })}
                   />
                 </Suspense>
               ) : view === "inbox" ? (

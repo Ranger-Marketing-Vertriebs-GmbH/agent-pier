@@ -295,6 +295,17 @@ test("Craft Anything is an owner page only, not in the user's search", () => {
   );
 });
 
+test("Rebuilds is an owner page only, not in the user's search", () => {
+  const owners = buildSearchIndex({ agents: [], connections: null, agentsEnabled: true });
+  assert.equal(flat(searchEntries(owners, "craft"))[0].id, "page:craft");
+  assert.equal(flat(searchEntries(owners, "Nachbauten"))[0].id, "page:craft");
+  const users = buildUserSearchIndex({ agents: [{ id: "lumi", name: "Lumi" }] });
+  assert.equal(
+    users.some((item) => item.id === "page:craft"),
+    false,
+  );
+});
+
 test("a source not loaded yet adds nothing", () => {
   const entries = workspaceEntries({}, { agentsEnabled: true });
   assert.deepEqual([...new Set(entries.map((item) => item.group))], ["actions"]);
