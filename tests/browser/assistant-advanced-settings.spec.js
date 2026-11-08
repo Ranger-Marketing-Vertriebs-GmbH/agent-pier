@@ -290,6 +290,9 @@ test("a Hermes version the mapping is not approved for is named", async ({ page 
   await setup(page, { hermes: "0.23.0" });
   await page.goto(baseURL + "/settings/assistants-advanced");
   await expect(page.getByText(/Hermes Agent 0\.23\.0 is not approved/)).toBeVisible();
+  // That version takes none of them, so nothing restarts it; OpenClaw-only stays.
+  await expect(page.getByText("Restarts Hermes agents", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("OpenClaw only", { exact: true })).toHaveCount(4);
   // OpenClaw's settings stay editable.
   await expect(page.getByRole("combobox", { name: /Thinking level/ })).toBeEnabled();
 });

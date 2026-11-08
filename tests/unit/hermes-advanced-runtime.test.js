@@ -5,6 +5,10 @@ import path from "node:path";
 import { eventually, hermesFakeRuntime } from "../helpers/hermes-fake-runtime.js";
 import { cronRest, cronStore } from "../helpers/hermes-fake-cron.js";
 import { contractAgent } from "../helpers/hermes-native.js";
+import {
+  fakeHermesSupervisor,
+  hermesTestRuntime,
+} from "../helpers/hermes-fake-gateway.js";
 import { createHermesRuntime } from "../../server/features/assistants/runtimes/hermes/hermes-runtime.js";
 import { hermesAdvancedRuntime } from "../../server/features/assistants/runtimes/hermes/hermes-config/advanced.js";
 import { readHermesConfig } from "../../server/features/assistants/runtimes/hermes/hermes-config/home-merge.js";
@@ -13,7 +17,8 @@ import { processZone } from "../../server/features/assistants/runtimes/hermes/he
 
 // The owner's advanced settings through a Hermes agent's own process set
 // (hermes-runtime.js, hermes-config/advanced.js): the zone each start hands its
-// processes and its routines, and which changes restart it.
+// processes and its routines, which changes restart it, and how existing chats take a
+// new thinking level (hermes-sessions.js).
 
 function agentSet(t, values) {
   const fake = hermesFakeRuntime(t);
@@ -105,4 +110,28 @@ test("a thinking level change applies without a restart, a time zone change rest
   assert.equal(fake.starts("agent-1")[1].env.HERMES_TIMEZONE, "Asia/Tokyo");
   // Unchanged values: nothing restarts.
   assert.equal((await made.runtime.config.apply({ desired })).restarted, false);
+});
+
+test("an existing chat takes a new thinking level at its next turn", async () => {
+  const supervisor = fakeHermesSupervisor({ agentId: "ap-1" });
+  const runtime = hermesTestRuntime(supervisor);
+  await supervisor.start();
+  const { sessions } = runtime;
+  const { store } = supervisor;
+  const { key } = await sessions.create({ agentId: "ap-1", label: "Chat" });
+  const turn = async (message) => {
+    const { runId } = await sessions.send({ key, turn: { message } });
+    await sessions.wait({ runId, waitMs: 5000 });
+  };
+  await turn("one");
+  // The session runs at the level it froze at its create: nothing to change.
+  assert.deepEqual(store.mutations, []);
+  // The owner's level changes in the home; the chat follows before its next turn,
+  // once.
+  store.reasoning = "none";
+  await turn("two");
+  await turn("three");
+  assert.equal(store.mutations.length, 1);
+  assert.equal([...store.rows.values()][0].reasoning, "none");
+  await runtime.host.stop();
 });

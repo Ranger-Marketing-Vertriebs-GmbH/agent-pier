@@ -10,6 +10,15 @@ import "../../settings/advanced-settings.css";
 
 const groups = ["runs", "media"];
 
+// How Hermes agents take `setting` (AdvancedSettingRow `hermes`): nothing to say
+// without Hermes agents, "none" for one Hermes has no equivalent of, and no restart
+// for a Hermes version the mapping is not approved for (it takes none of them).
+const hermesScope = (hermes, setting) => {
+  if (!hermes) return null;
+  if (!setting.hermes) return "none";
+  return hermes.qualified ? setting.hermes : "hot";
+};
+
 /**
  * Laufzeit › Erweitert (handoff 5.2, formerly its own subpage): the allow-listed
  * OpenClaw values for all agents with their Sofort/Neustart nötig badges, ⓘ help and
@@ -69,7 +78,7 @@ export default function RuntimeAdvancedGroup({
                   value={values[advancedKey(setting.id)] ?? ""}
                   onChange={edit(advancedKey(setting.id))}
                   disabled={disabled}
-                  hermes={hermes ? setting.hermes || "none" : null}
+                  hermes={hermesScope(hermes, setting)}
                 />
               ))}
             </ListCard>

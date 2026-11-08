@@ -40,6 +40,18 @@ const reviewTimeoutMs = (maxTokens) =>
 
 // Attaches in flight per connection, so two calls for one key share one attach.
 const attaching = new WeakMap();
+// The reasoning level each session attached to a connection runs at (session id →
+// Hermes's `info.reasoning_effort`, "" for its default; null: unknown).
+const levels = new WeakMap();
+const levelsOf = (client) => {
+  let known = levels.get(client);
+  if (!known) levels.set(client, (known = new Map()));
+  return known;
+};
+const levelOf = (snapshot) =>
+  typeof snapshot?.info?.reasoning_effort === "string"
+    ? snapshot.info.reasoning_effort
+    : null;
 
 const missing = (error) => error?.answered === true && error.reason === "not_found";
 
@@ -59,16 +71,36 @@ const missing = (error) => error?.answered === true && error.reason === "not_fou
  * attach, title and reviewMemory → llm.oneshot. downloadArtifact is a capability
  * gap (UNSUPPORTED). `on(connection)` binds the methods to one connection
  * (hermes-connection.js).
+ *
+ * `reasoning()` answers the thinking level the agent's home names now
+ * (hermes-config/advanced.js homeReasoning; undefined: unknown). Hermes freezes a
+ * session's level when it creates it, so before a turn a session at another level
+ * takes the home's again (session.mutate `reasoning` reset): the owner's Thinking
+ * level reaches existing chats at their next turn.
  */
-export function hermesSessions(supervisor) {
+export function hermesSessions(supervisor, { reasoning = () => undefined } = {}) {
   // The turns AgentPier submitted, shared by every view (hermes-turns.js).
   const turns = new HermesTurns();
   // The last context size read per session key, beyond one connection (contextOf).
   const sizes = new Map();
   return boundPort(
-    (current) => sessionsOver(current, turns, sizes, supervisor),
+    (current) => sessionsOver(current, turns, sizes, supervisor, reasoning),
     supervisor,
   );
+}
+
+// Gives session `sid` (`key`) the home's thinking level (`wanted`) before its next
+// turn when it runs another; a refusal (a turn under way) retries at the next turn.
+async function followReasoning(link, key, sid, wanted) {
+  if (typeof wanted !== "string") return;
+  const known = levelsOf(link.client);
+  if (known.get(sid) === wanted) return;
+  try {
+    await mutate(link, key, "reasoning", { effort: null }, { fenced: true });
+    known.set(sid, wanted);
+  } catch {
+    /* The turn runs at the level it has; the next one tries again. */
+  }
 }
 
 // Attaches the session behind `key` to this connection; resolves its session id.
@@ -91,6 +123,7 @@ async function attach(link, key) {
         .then((snapshot) => {
           if (typeof snapshot?.session_id !== "string") throw hermesError("RPC_FAILED");
           link.runs.bind(key, snapshot.session_id, snapshot);
+          levelsOf(link.client).set(snapshot.session_id, levelOf(snapshot));
           // Questions still waiting in the session are asked again here.
           link.approvals.reopened(snapshot.session_id, snapshot.prompts);
           link.questions.reopened(snapshot.session_id, snapshot.prompts);
@@ -274,7 +307,13 @@ function homesOf(supervisor) {
   }
 }
 
-function sessionsOver(current, turns, sizes = new Map(), supervisor = null) {
+function sessionsOver(
+  current,
+  turns,
+  sizes = new Map(),
+  supervisor = null,
+  reasoning = () => undefined,
+) {
   let homes;
   const own = () => (homes ??= homesOf(supervisor));
   const reach = async () => reachable(current());
@@ -306,6 +345,7 @@ function sessionsOver(current, turns, sizes = new Map(), supervisor = null) {
       const key = sessionKeyOf(link.agentId, created.stored_session_id || sid);
       // The create attached the session to this connection.
       link.runs.bind(key, sid, created);
+      levelsOf(link.client).set(sid, levelOf(created));
       link.runs.titled(key, params.title);
       return { key };
     },
@@ -320,6 +360,7 @@ function sessionsOver(current, turns, sizes = new Map(), supervisor = null) {
       const images = supervisor?.nativeImages === true ? inlineImages(turn) : [];
       for (let attempt = 0; ; attempt++) {
         const sid = await attach(link, key);
+        if (attempt === 0) await followReasoning(link, key, sid, reasoning());
         // Staged before the run is known: a staging failure submitted nothing.
         let attachments;
         try {

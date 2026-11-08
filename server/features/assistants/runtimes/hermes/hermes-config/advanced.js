@@ -8,10 +8,11 @@ import { readHermesConfig } from "./home-merge.js";
 // against Hermes v0.22.5 (hermes_cli/config_defaults.py unless named otherwise).
 // docs/hermes-runtime.md lists each setting and why the others stay OpenClaw's.
 //
-// - Thinking level → `agent.reasoning_effort` in config.yaml, which every session
-//   reads again at each turn unless that chat pinned its own level
-//   (gateway/session_policy.py `effective`, FOLLOW_AGENT_KEYS): a change needs no
-//   restart (liveConfigChange). Hermes takes none, minimal … ultra
+// - Thinking level → `agent.reasoning_effort` in config.yaml, which a session freezes
+//   when Hermes creates it (gateway/session_policy.py `current_reasoning_config`;
+//   cron runs and new chats read the file). AgentPier resets an existing chat's level
+//   to the file's before its next turn (hermes-sessions.js, session.mutate
+//   `reasoning`), so a change needs no restart (liveConfigChange). Hermes takes none, minimal … ultra
 //   (hermes_constants.py parse_reasoning_effort); OpenClaw's "off" is Hermes's
 //   "none". Hermes has no "adaptive" level: it thinks adaptively on models that can
 //   whatever the level (agent/anthropic_adapter.py _thinking_kwargs), so "adaptive"
@@ -111,6 +112,23 @@ export function advancedEntries(advanced) {
       .map((setting) => [setting.path.split("."), compiled(advanced, setting)]),
     [["timezone"], undefined],
   ];
+}
+
+/**
+ * The thinking level config.yaml in `hermesHome` names (`agent.reasoning_effort`, as
+ * Hermes's session info reports it: "" for Hermes's default), or undefined when the
+ * file cannot be read.
+ */
+export function homeReasoning(hermesHome) {
+  try {
+    const config = readHermesConfig(
+      fs.readFileSync(path.join(hermesHome, "config.yaml"), "utf8"),
+    );
+    const level = config.agent?.reasoning_effort;
+    return typeof level === "string" ? level.trim().toLowerCase() : "";
+  } catch {
+    return undefined;
+  }
 }
 
 /** The HERMES_TIMEZONE `advanced` gives the agent's processes, or null (the host's). */
