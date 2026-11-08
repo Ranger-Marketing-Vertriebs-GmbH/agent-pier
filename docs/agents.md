@@ -727,7 +727,10 @@ word for word. A busy agent still dreams that night.
   tools, over the chats since the last applied night (the first night: the last 24
   hours), up to 60,000 characters a night, so a long day finishes over the next nights.
   The model merges duplicates, replaces outdated entries, takes in lasting facts and aims
-  for at most 80 % of each file (an instruction only). Pinned entries stay word for
+  for at most 80 % of each file (an instruction only). On a shared agent each chat names
+  its person (you, or a user by an anonymous label), so one user's statement never
+  replaces another person's entry; messages AgentPier itself sent into a chat (results,
+  check-ins, a lead's tasks) are not read as anyone's words. Pinned entries stay word for
   word; a night that loses or changes one, or leaves a file over its limit, is discarded
   and nothing changes. If the agent writes memory in a chat during the dream, the dream
   runs once more and is then postponed to the next night. Hermes limits each model
