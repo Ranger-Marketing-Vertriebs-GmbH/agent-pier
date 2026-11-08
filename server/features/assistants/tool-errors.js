@@ -59,7 +59,7 @@ const reasons = {
     "Only your finished temporary members without open questions or tasks can be archived. Check agentpier_team_members.",
   PEER_TURN:
     "Questions, tasks and reports to other members are not possible in a turn of forwarded or member content. Do not retry.",
-  AGENT_LOOP_LIMIT: `You started ${loopGuardCaps.actions} team, routine, project or SSH proposal actions in the last ${loopGuardCaps.windowMs / 60000} minutes. AgentPier stops here so that no loop runs away. Do not retry now; finish with what you have and tell the owner what is still open.`,
+  AGENT_LOOP_LIMIT: `You started ${loopGuardCaps.actions} team, routine, project, rebuild or SSH proposal actions in the last ${loopGuardCaps.windowMs / 60000} minutes. AgentPier stops here so that no loop runs away. Do not retry now; finish with what you have and tell the owner what is still open.`,
   PEER_OPEN:
     "You already have an open request to this member, or it already works on an open task. Wait for its answer instead of retrying, or report it to your lead with agentpier_team_report.",
   REPORT_TOO_LONG: `A report holds at most ${reportLimits.text} characters, and this one is longer; nothing was sent. Shorten it to the result your lead needs. Put the details into a project file you may write and name it in files, or send the rest as a second report.`,

@@ -16,13 +16,19 @@ export function cleanRequest(value) {
   return request;
 }
 
-/** `-` (none), an http(s) address or an absolute path. */
-function cleanTarget(value) {
+/**
+ * `-` (none), an http(s) address or an absolute path; `paths` false (an agent's start)
+ * refuses a path, so an agent never points the owner's builder at local files.
+ */
+function cleanTarget(value, paths = true) {
   if (value === undefined || value === null) return "-";
   const target = typeof value === "string" ? value.trim() : null;
   if (target === "" || target === "-") return "-";
   if (target && !/[\x00-\x1f\x7f]/.test(target) && target.length <= 2048) {
-    if (path.isAbsolute(target)) return target;
+    if (path.isAbsolute(target)) {
+      if (!paths) throw problem(messages.rebuildTargetPathRefused, 400);
+      return target;
+    }
     try {
       const url = new URL(target);
       if (["http:", "https:"].includes(url.protocol)) return target;
@@ -60,14 +66,15 @@ function cleanAutoMode(value, fallback) {
 
 /**
  * A start's options. Only the owner chooses account, mode, auto mode and rounds; any
- * other source gets the owner's defaults (`settings`) and Craft Anything's rounds.
+ * other source gets the owner's defaults (`settings`) and Craft Anything's rounds. An
+ * agent's target is a web address or none, never a local path.
  */
 export function cleanStart(input, source, settings) {
   const body = record(input) ? input : {};
   const owner = source === "owner";
   return {
     request: cleanRequest(body.request),
-    target: cleanTarget(body.target),
+    target: cleanTarget(body.target, source !== "agent"),
     stack: cleanStack(body.stack),
     accountId:
       owner && typeof body.accountId === "string" && body.accountId

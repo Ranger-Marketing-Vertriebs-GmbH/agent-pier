@@ -27,6 +27,8 @@ export const craft = Object.freeze({
     "Die Beschreibung des Nachbaus ist zu lang (höchstens 8000 Zeichen).",
   rebuildTargetInvalid:
     "Das Ziel eines Nachbaus muss eine Webadresse (http oder https), ein absoluter Pfad oder leer sein.",
+  rebuildTargetPathRefused:
+    "Ein Agent kann nur eine Webadresse (http oder https) oder nichts nachbauen lassen, keinen lokalen Pfad.",
   rebuildStackInvalid: "Craft Anything kennt diesen Stack nicht.",
   rebuildRoundsInvalid:
     "Die Runden eines Nachbaus müssen eine ganze Zahl von 1 bis 10 sein.",
