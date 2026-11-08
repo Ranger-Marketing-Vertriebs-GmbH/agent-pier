@@ -132,7 +132,7 @@ test("resuming with an open question waits for its answer", async (t) => {
     ),
   );
   await client.call("rebuild_stop", { project });
-  await client.call("rebuild_start", { project, resume: true });
+  await client.call("rebuild_start", { project, resume: true, request: "Hello" });
   await new Promise((resolve) => setTimeout(resolve, 200));
   const activity = async () =>
     (await client.call("rebuild_activity_show", { project, limit: 100 })).lines.filter(

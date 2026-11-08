@@ -466,6 +466,7 @@ export class CraftTool {
   writeConfig(
     components = this.stored().components,
     configDir = sessionsConfigDir(this.dataDir),
+    { builder = false } = {},
   ) {
     const stub = ensureGhidraStub(this.dataDir);
     const ghidra = components.ghidra ? this.component("rea-ghidra") : null;
@@ -475,6 +476,7 @@ export class CraftTool {
       ghidra: both ? ghidra : null,
       jdk: both ? jdk : null,
       stub,
+      builder,
     });
   }
   /**

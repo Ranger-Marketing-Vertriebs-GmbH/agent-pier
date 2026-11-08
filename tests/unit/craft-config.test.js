@@ -99,3 +99,21 @@ test("refuses a config dir that is a link", () => {
   assert.throws(() => writeCraftConfig(link, { ghidra, jdk, stub: "/stub" }));
   assert.equal(fs.existsSync(path.join(target, "config.toml")), false);
 });
+
+test("the rebuilds' config names Claude Code as the builder and keeps an existing entry", () => {
+  const dir = temp();
+  writeCraftConfig(dir, { ghidra, jdk, stub: "/stub", builder: true });
+  assert.deepEqual(JSON.parse(JSON.stringify(read(dir).ai.backends)), [
+    { enabled: true, kind: "agent_cli", model: "claude-code", name: "Claude Code" },
+  ]);
+  const mine = { enabled: false, kind: "agent_cli", model: "claude-code", name: "Mine" };
+  fs.writeFileSync(
+    path.join(dir, "config.toml"),
+    '[[ai.backends]]\nenabled = false\nkind = "agent_cli"\nmodel = "claude-code"\nname = "Mine"\n',
+  );
+  writeCraftConfig(dir, { ghidra, jdk, stub: "/stub", builder: true });
+  assert.deepEqual(JSON.parse(JSON.stringify(read(dir).ai.backends)), [mine]);
+  const plain = temp();
+  writeCraftConfig(plain, { ghidra, jdk, stub: "/stub" });
+  assert.equal("ai" in read(plain), false);
+});

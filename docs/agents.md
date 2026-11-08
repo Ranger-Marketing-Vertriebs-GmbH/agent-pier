@@ -1385,6 +1385,17 @@ summarize their answers for you. At every level it is also told that its members
 hand each other tasks and report back
 ([Members talking to each other](#members-talking-to-each-other)).
 
+## Rebuilds with Craft Anything
+
+An agent that may create projects can start a [Craft Anything rebuild](craft.md) for you
+with the tool `agentpier_craft`, while Craft Anything is installed. `start` takes a
+request and optionally a target and a stack; `status` reads a rebuild the agent started.
+Only your own chat can start one, never a routine, a hook, forwarded or members'
+content. The target is a web address or nothing, never a local path, and the account,
+mode and auto mode follow your defaults. The agent sees the status and how many
+questions wait, never the questions: you answer them in the [inbox](inbox.md). A retried
+call returns the rebuild its first call started.
+
 ## Work until done
 
 Ask your agent, in AgentPier or its paired Telegram chat, to finish a job or to keep

@@ -129,11 +129,12 @@ export function rebuildsFixture(
     root: path.join(dir, "clis"),
     state: () => ({ installed }),
     component: (id) => (id === "craft-anything" && installed ? component : null),
-    writeConfig: (_components, configDir) =>
+    writeConfig: (_components, configDir, { builder } = {}) =>
       writeCraftConfig(configDir, {
         ghidra: null,
         jdk: null,
         stub: ensureGhidraStub(dataDir),
+        builder,
       }),
   };
   const spawned = [];

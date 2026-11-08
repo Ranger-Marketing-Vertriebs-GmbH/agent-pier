@@ -149,6 +149,17 @@ integration. These grants constrain MCP access, not the host user's OS access:
 native coding processes still have the host permissions described in the pipeline
 and account documentation.
 
+### Starting rebuilds from sessions
+
+While [Craft Anything](#managed-craft-anything) is installed, a session with full
+**AgentPier tools** access also receives `craft_rebuild_start` and `craft_rebuild_status`.
+`craft_rebuild_start` takes a `request`, an optional `target` (a web address or an
+absolute path) and an optional `stack`, plus a `requestId` that makes a retry return the
+same rebuild; it creates the rebuild's project and returns its id and link. The account,
+mode and auto mode follow your defaults. `craft_rebuild_status` returns the status,
+step, note, folder and how many questions wait for you, never the questions. You answer
+them in AgentPier ([Rebuilds](craft.md)).
+
 ### Publishing private artifacts
 
 Hosted sessions with AgentPier tools enabled also receive `artifact_publish` and
@@ -832,6 +843,8 @@ there and the setuid `ps` cannot run. Use REA in an unsandboxed session; see
 
 #### Managed Craft Anything
 
+Rebuilds that AgentPier supervises itself are described in [Rebuilds](craft.md).
+
 AgentPier can also install [Craft Anything](https://github.com/storytold/craft-anything)
 (early alpha, MIT or Apache-2.0), a second tool that gives the coding CLIs
 evidence-based analysis tools for shipped software. The **Craft Anything** card sits
@@ -872,8 +885,10 @@ same time: the second one is refused until the first has finished.
 or `--deep`. `--restricted` makes Craft Anything refuse every tool that runs target
 code, acts on the machine or needs consent (`rebuild_start`, `rebuild_question_ask`,
 the run, Frida and adb tools) before it reads its own settings, so an agent that calls
-`settings_set ask_before_running false` cannot lift it. Sessions therefore never run
-the code they examine and never start a rebuild. **Deep mode for sessions** in the
+`settings_set ask_before_running false` cannot lift it. This server therefore never runs
+the code it examines and never starts a rebuild. Rebuilds run through AgentPier's own
+[Rebuilds page](craft.md), which sessions reach with
+[`craft_rebuild_start`](#starting-rebuilds-from-sessions). **Deep mode for sessions** in the
 dialog switches between **clean room** (the default: nothing inside a target is read,
 only tools that work from outside) and **deep** (sessions may also look inside a
 target, for example decompile it with Ghidra). Changing it rewrites the row's flag.

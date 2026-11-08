@@ -61,10 +61,31 @@ function readConfig(file) {
 }
 
 /**
- * Pins AgentPier's keys in Craft Anything's config.toml and keeps all others. An
- * unreadable file is replaced. A linked config directory is refused.
+ * Craft Anything builds with a coding agent only once one is configured: it does not
+ * pick up `claude` from PATH by itself (`ai detect` merely suggests it). Rebuilds get
+ * Claude Code as an `agent_cli` backend; an entry the owner or Craft Anything already
+ * made for it stays as it is.
  */
-export function writeCraftConfig(configDir, { ghidra, jdk, stub }) {
+function withClaudeCode(ai) {
+  const section = ai && typeof ai === "object" ? ai : {};
+  const backends = Array.isArray(section.backends) ? section.backends : [];
+  if (backends.some((item) => item?.kind === "agent_cli" && item.model === "claude-code"))
+    return { ...section, backends };
+  return {
+    ...section,
+    backends: [
+      ...backends,
+      { enabled: true, kind: "agent_cli", model: "claude-code", name: "Claude Code" },
+    ],
+  };
+}
+
+/**
+ * Pins AgentPier's keys in Craft Anything's config.toml and keeps all others. An
+ * unreadable file is replaced. A linked config directory is refused. `builder` also
+ * configures Claude Code as the backend that builds (the rebuilds' directory).
+ */
+export function writeCraftConfig(configDir, { ghidra, jdk, stub, builder = false }) {
   fs.mkdirSync(path.dirname(configDir), { recursive: true, mode: 0o700 });
   privateFolder(configDir, unsafe);
   const file = path.join(configDir, "config.toml");
@@ -79,5 +100,6 @@ export function writeCraftConfig(configDir, { ghidra, jdk, stub }) {
   config.auto_mode = false;
   config.deep_mode = false;
   config.engines = { ...engines, ghidra: engine };
+  if (builder) config.ai = withClaudeCode(config.ai);
   writePrivateText(file, stringify(config));
 }
