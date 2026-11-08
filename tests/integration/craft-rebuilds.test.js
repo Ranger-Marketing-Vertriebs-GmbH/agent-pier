@@ -257,7 +257,7 @@ test("a rebuild running at shutdown reads paused after restart", async (t) => {
   fs.writeFileSync(file, crashed);
   const next = f.create();
   assert.equal(next.get(view.id).status, "building");
-  await next.start();
+  await next.restore();
   assert.equal(next.get(view.id).status, "paused");
   assert.equal(JSON.parse(fs.readFileSync(file, "utf8")).rebuilds[0].status, "paused");
   const resumed = await next.continue(view.id);
@@ -327,4 +327,60 @@ test("settings keep the owner's defaults", async (t) => {
   await assert.rejects(f.rebuilds.saveSettings({ mode: "loud" }), { status: 400 });
   fs.writeFileSync(path.join(f.dataDir, "craft-anything", "rebuilds.json"), "{broken");
   assert.equal(f.create().settings().mode, "clean-room");
+});
+
+test("a rebuild still starting is never sampled as paused and pauses after its start", async (t) => {
+  const f = rebuildsFixture(t, { script: { slowTools: { rebuild_start: 600 } } });
+  const first = await f.rebuilds.start({ request: "First" });
+  const seen = [];
+  f.rebuilds.onChange(() => {
+    const second = f.rebuilds.list().find((item) => item.id !== first.id);
+    if (second) seen.push(second.status);
+  });
+  const starting = f.rebuilds.start({ request: "Second" });
+  assert.ok(await until(() => f.rebuilds.list().length === 2));
+  const id = f.rebuilds.list().find((item) => item.id !== first.id).id;
+  // Ticks of the first rebuild run meanwhile (sampleMs 50).
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  assert.equal(f.rebuilds.get(id).status, "starting");
+  assert.equal((await f.rebuilds.pause(id)).status, "starting");
+  const view = await starting;
+  assert.equal(view.status, "paused");
+  assert.ok(!seen.slice(0, -1).includes("paused"), `seen ${seen}`);
+  const builder = f.craftRecord(view).fake_builder.pid;
+  assert.ok(await until(() => !exists(builder)));
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  assert.equal(f.rebuilds.get(id).status, "paused");
+  assert.equal(f.rebuilds.get(first.id).status, "building");
+});
+
+test("a failed auto-mode allow is retried on the next tick", async (t) => {
+  let failures = 0;
+  const f = rebuildsFixture(t, {
+    script: { steps: [approval, { finish: "ready" }] },
+    intercept: (name, args) => {
+      if (name === "project_inbox_answer" && args.allow && failures++ === 0)
+        throw Object.assign(new Error("flaky"), { code: "busy" });
+    },
+  });
+  const view = await f.rebuilds.start({ request: "Retry", autoMode: true });
+  assert.ok(await settled(f.rebuilds, view.id, "ready"));
+  assert.equal(failures, 2, "the first allow failed, the second went through");
+  assert.ok(
+    f.craftRecord(view).conversation.some((e) => e.text === "Run npm install?: allowed"),
+  );
+  assert.equal(f.rebuilds.approving.size, 0, "answered approvals are forgotten");
+});
+
+test("a child killed from outside leaves its rebuild paused and no builder", async (t) => {
+  const f = rebuildsFixture(t);
+  const view = await f.rebuilds.start({ request: "Killed" });
+  const builder = f.craftRecord(view).fake_builder.pid;
+  process.kill(f.clients[0].pid, "SIGKILL");
+  assert.ok(await settled(f.rebuilds, view.id, "paused"));
+  assert.equal(f.rebuilds.get(view.id).step, "build");
+  assert.ok(await until(() => !exists(builder)));
+  const resumed = await f.rebuilds.continue(view.id);
+  assert.equal(resumed.status, "building");
+  assert.equal(f.clients.length, 2);
 });

@@ -88,3 +88,17 @@ test("a sample becomes the view's fields", () => {
   assert.equal(stopped.status, "paused");
   assert.deepEqual(stopped.questions, []);
 });
+
+test("a paused or failed rebuild keeps the step it reached", () => {
+  const show = { checks: [] };
+  const paused = sampledFields(
+    { running: false, status: "stopped", note: "x" },
+    show,
+    "check",
+  );
+  assert.equal(paused.step, "check");
+  const failed = sampledFields({ running: false, status: "failed" }, show, "study");
+  assert.equal(failed.step, "study");
+  const building = sampledFields({ running: true, status: "building" }, show, "check");
+  assert.equal(building.step, "build");
+});

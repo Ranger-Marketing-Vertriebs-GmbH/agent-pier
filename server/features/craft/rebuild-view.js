@@ -61,8 +61,11 @@ function question(item) {
   };
 }
 
-/** The record fields one sample of `rebuild_status` and `project_show` gives. */
-export function sampledFields(status, show) {
+/**
+ * The record fields one sample of `rebuild_status` and `project_show` gives. A paused
+ * or failed rebuild keeps `previousStep`, the step it reached.
+ */
+export function sampledFields(status, show, previousStep) {
   const running = Boolean(status?.running || status?.queued);
   const state = rebuildStatus(status?.status ?? show?.status, running);
   const note = text(status?.note) ?? text(show?.note);
@@ -73,7 +76,10 @@ export function sampledFields(status, show) {
     status: state,
     statusLabel: text(status?.status_label),
     note,
-    step: rebuildStep(state, note),
+    step:
+      ["paused", "failed"].includes(state) && previousStep
+        ? previousStep
+        : rebuildStep(state, note),
     checks,
     similarity: similarityOf(status?.last_check) ?? similarityOf(checks.at(-1)),
     usage: {

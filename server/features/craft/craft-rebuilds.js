@@ -33,6 +33,8 @@ const ignored = ["capture/", "checks/", "inbox/", "investigation.cany/"];
 const START_TIMEOUT_MS = 60000;
 // Codes of a client that is gone: the exit handler takes care of the rebuilds.
 const goneCodes = new Set(["CRAFT_MCP_CLOSED", "CRAFT_MCP_EXITED"]);
+// The sampler reads running rebuilds that Craft Anything already knows.
+const sampled = (record) => record.running && !!record.craftProject;
 
 /**
  * The rebuild supervisor: the only caller of Craft Anything's rebuild_start. It
@@ -65,6 +67,8 @@ export class CraftRebuilds {
     this.chains = new Map();
     this.starting = new Map();
     this.approving = new Set();
+    // Rebuilds paused while rebuild_start was still on its way: stopped once it returns.
+    this.pauseAfterStart = new Set();
     this.sampler = null;
     this.closing = false;
     this.children = new RebuildChildren({
@@ -130,11 +134,9 @@ export class CraftRebuilds {
   /**
    * Starts a rebuild for `source` ("owner", "session" or "agent"). Only the owner
    * chooses account, mode, auto mode and rounds. A retried start with the same
-   * `requestId` from the same source returns the rebuild it started. Called without
-   * arguments it is the server start (`restore()`).
+   * `requestId` from the same source returns the rebuild it started.
    */
   async start(input, { source = "owner" } = {}) {
-    if (arguments.length === 0) return this.restore();
     if (this.closing) throw refuse(messages.rebuildsStopping);
     if (!this.craft.state().installed) throw refuse(messages.notInstalled);
     const requestId = cleanRequestId(input?.requestId);
@@ -197,6 +199,8 @@ export class CraftRebuilds {
         throw new Error("rebuild_start named no project.");
       record.craftProject = started.project;
     } catch (error) {
+      if (error.code === "CRAFT_MCP_TIMEOUT") await this.stopUnanswered(record);
+      this.pauseAfterStart.delete(record.id);
       this.records.delete(record.id);
       this.persist();
       this.emit({ list: true });
@@ -205,8 +209,27 @@ export class CraftRebuilds {
     }
     await this.prepareFolder(made);
     this.persist();
-    await this.serial(record.id, () => this.launched(record));
+    if (this.pauseAfterStart.delete(record.id))
+      await this.serial(record.id, () => this.stop(record));
+    else await this.serial(record.id, () => this.launched(record));
     return this.get(record.id);
+  }
+
+  /**
+   * rebuild_start timed out: Craft Anything may still build in the folder that is
+   * about to go. Its project, when craft.json already names it, is stopped (best
+   * effort).
+   */
+  async stopUnanswered(record) {
+    try {
+      const saved = JSON.parse(
+        await fs.readFile(path.join(record.folder, "craft.json"), "utf8"),
+      );
+      if (typeof saved?.project !== "string" || !saved.project) return;
+      await this.call({ ...record, craftProject: saved.project }, "rebuild_stop", {});
+    } catch {
+      // Nothing recorded yet, or the child is gone: nothing left to stop here.
+    }
   }
 
   /** Keeps Craft Anything's records out of Git and makes the folder a repository. */
@@ -246,18 +269,27 @@ export class CraftRebuilds {
     });
   }
 
-  /** Stops the build (`rebuild_stop`); Continue resumes it. */
+  /**
+   * Stops the build (`rebuild_stop`); Continue resumes it. A rebuild still starting is
+   * stopped as soon as rebuild_start returns, and reads paused then.
+   */
   async pause(id) {
     const record = this.require(id);
-    return this.serial(id, async () => {
-      const client = this.children.peek(record.accountId, record.mode);
-      if (record.running && client && record.craftProject) {
-        await this.call(record, "rebuild_stop", {});
-        await this.sample(record);
-      } else if (record.running)
-        this.update(record, { running: false, status: "paused" });
+    if (record.running && !record.craftProject) {
+      this.pauseAfterStart.add(id);
       return this.get(id);
-    });
+    }
+    return this.serial(id, () => this.stop(record));
+  }
+
+  async stop(record) {
+    const client = this.children.peek(record.accountId, record.mode);
+    if (record.running && client && record.craftProject) {
+      await this.call(record, "rebuild_stop", {});
+      await this.sample(record);
+    }
+    if (record.running) this.update(record, { running: false, status: "paused" });
+    return this.get(record.id);
   }
 
   /** Answers a question or approval through project_inbox_answer. */
@@ -297,7 +329,7 @@ export class CraftRebuilds {
   // --- Server lifetime --------------------------------------------------------------
 
   /**
-   * Server start (`start()` without arguments): nothing restarts on its own. A build
+   * Server start: nothing restarts on its own. A build
    * that ran when AgentPier stopped reads paused; one whose start never reached Craft
    * Anything reads failed.
    */
@@ -347,7 +379,7 @@ export class CraftRebuilds {
 
   schedule() {
     if (this.sampler || this.closing) return;
-    if (![...this.records.values()].some((record) => record.running)) return;
+    if (![...this.records.values()].some(sampled)) return;
     this.sampler = this.timers.setTimeout(() => {
       this.sampler = null;
       this.tick().finally(() => this.schedule());
@@ -355,7 +387,7 @@ export class CraftRebuilds {
   }
 
   async tick() {
-    const running = [...this.records.values()].filter((record) => record.running);
+    const running = [...this.records.values()].filter(sampled);
     await Promise.all(
       running.map((record) =>
         this.serial(record.id, () => this.sample(record)).catch((error) =>
@@ -367,11 +399,13 @@ export class CraftRebuilds {
 
   /**
    * Reads one rebuild from its live child (`rebuild_status` + `project_show`) and, in
-   * auto mode, allows its open approvals. A rebuild without a child stops running.
+   * auto mode, allows its open approvals. A rebuild without a child stops running; one
+   * still starting (no Craft project yet) is left to its start.
    */
   async sample(record, { approve = true } = {}) {
+    if (!record.craftProject) return;
     const client = this.children.peek(record.accountId, record.mode);
-    if (!client || !record.craftProject) {
+    if (!client) {
       if (record.running) this.update(record, { running: false, status: "paused" });
       return;
     }
@@ -379,7 +413,8 @@ export class CraftRebuilds {
     try {
       const status = await client.call("rebuild_status", { project });
       const show = await client.call("project_show", { project });
-      this.update(record, sampledFields(status, show));
+      this.update(record, sampledFields(status, show, record.step));
+      this.forgetApprovals(record);
       if (approve && record.autoMode && (await this.allowApprovals(record, client)))
         await this.sample(record, { approve: false });
     } catch (error) {
@@ -389,7 +424,19 @@ export class CraftRebuilds {
     }
   }
 
-  /** Auto mode: allows each open approval once; true when one was answered. */
+  /** Forgets the allowed approvals of `record` that are no longer open. */
+  forgetApprovals(record) {
+    const open = new Set(record.questions.map((question) => question.id));
+    const prefix = `${record.id}\n`;
+    for (const key of this.approving)
+      if (key.startsWith(prefix) && !open.has(key.slice(prefix.length)))
+        this.approving.delete(key);
+  }
+
+  /**
+   * Auto mode: allows each open approval once (again after a failed try); true when
+   * one was answered.
+   */
   async allowApprovals(record, client) {
     let answered = false;
     for (const question of record.questions) {
@@ -405,6 +452,7 @@ export class CraftRebuilds {
         });
         answered = true;
       } catch (error) {
+        this.approving.delete(key);
         logFailure("allow a rebuild's approval", error);
       }
     }
