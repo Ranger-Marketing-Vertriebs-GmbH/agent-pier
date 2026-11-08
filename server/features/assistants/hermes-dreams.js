@@ -1,7 +1,6 @@
 import { backupHermesMemory, localTime } from "./dreaming-backups.js";
 import { dreamOnce } from "./hermes-dream.js";
-import { dreamChats } from "./hermes-dream-chats.js";
-import { dreamBudget, dreamMessageLimit } from "./hermes-dream-prompt.js";
+import { dreamChatBudget, dreamChats } from "./hermes-dream-chats.js";
 import { memoryEnabled } from "./native-capabilities.js";
 import { NativeMemory } from "./native-memory.js";
 import { hostReady, runtimeFor, runtimeIdOf } from "./runtimes/runtime-for.js";
@@ -19,9 +18,6 @@ const dayMs = 24 * hourMs;
 // A night missed at its hour (AgentPier down, the host not ready) is caught up within
 // this long after it.
 const catchUpMs = 6 * hourMs;
-// What the chats may take, so the dream's input never cuts a message that went in
-// (hermes-dream-prompt.js chatsInput, which keeps the newest within dreamBudget).
-const chatBudget = dreamBudget - dreamMessageLimit;
 
 const isoDate = (ms) => new Date(ms).toISOString().slice(0, 10);
 // The wall clock of instant `ms` in `timeZone`, as if it were UTC.
@@ -150,7 +146,7 @@ export class HermesDreams {
         sessions: runtime.sessions,
         assistantId: agent.id,
         since,
-        budget: chatBudget,
+        budget: dreamChatBudget,
       });
       if (!read.chats.length) return null;
       until = read.until;

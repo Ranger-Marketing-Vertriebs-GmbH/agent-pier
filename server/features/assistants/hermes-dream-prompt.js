@@ -51,15 +51,16 @@ function chatsInput(chats) {
     }))
     .filter((chat) => chat.messages.length)
     .sort((a, b) => a.messages[0].at - b.messages[0].at);
-  // The newest messages win when the chats exceed the budget.
+  // The newest messages win when the chats exceed the budget, counted in code points
+  // as Hermes counts (dreamChats selects within it, so nothing it chose is cut here).
   const all = dated.flatMap((chat, c) => chat.messages.map((m) => ({ c, m })));
   all.sort((a, b) => b.m.at - a.m.at);
   let used = 0;
   const kept = new Set();
   for (const item of all) {
-    const text = clip(item.m.text, dreamMessageLimit);
-    if (used + text.length > dreamBudget) break;
-    used += text.length;
+    const size = [...clip(item.m.text, dreamMessageLimit)].length;
+    if (used + size > dreamBudget) break;
+    used += size;
     kept.add(item.m);
   }
   const blocks = [];

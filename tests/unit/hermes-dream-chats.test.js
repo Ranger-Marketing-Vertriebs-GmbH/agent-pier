@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { dreamChats } from "../../server/features/assistants/hermes-dream-chats.js";
+import {
+  dreamChatBudget,
+  dreamChats,
+} from "../../server/features/assistants/hermes-dream-chats.js";
+import { dreamInput } from "../../server/features/assistants/hermes-dream-prompt.js";
 
 const day = Date.UTC(2026, 10, 8);
 const at = (minutes) => day + minutes * 60000;
@@ -196,4 +200,67 @@ test("messages are sent oldest first, grouped by chat", async () => {
     { role: "agent", text: "Late two", at: at(70) },
   ]);
   assert.equal(until, at(549));
+});
+
+test("every message chosen within the budget reaches the dream's input", async () => {
+  // Astral characters: one code point, two UTF-16 units each.
+  const text = (i) => `m${i}:${"😀".repeat(2000)}`;
+  const rows = (from) =>
+    Array.from({ length: 20 }, (_, i) => row("user", text(from + i), from + i));
+  const f = fixture([chat("a"), chat("b")], { "key-a": rows(0), "key-b": rows(20) });
+  const { chats, until } = await dreamChats({
+    ...f,
+    assistantId: "agent",
+    since: -1,
+    budget: dreamChatBudget,
+  });
+  const chosen = chats.flatMap((c) => c.messages);
+  // 2000 code points each: 29 start below the 58000 of the budget.
+  assert.equal(chosen.length, 29);
+  assert.equal(until, at(28));
+  const input = dreamInput({ files: {}, chats });
+  for (const m of chosen)
+    assert.ok(input.includes(`person: ${m.text}`), m.text.slice(0, 4));
+});
+
+test("the budget never cuts between messages of the same time", async () => {
+  const f = fixture([chat("a"), chat("b")], {
+    "key-a": [row("user", "x".repeat(2000), 10), row("user", "tie in a", 20)],
+    "key-b": [row("user", "tie in b", 20), row("user", "later", 30)],
+  });
+  // The budget stops after "tie in a": its twin in b would be lost behind `until`.
+  const first = await dreamChats({
+    ...f,
+    assistantId: "agent",
+    since: at(0),
+    budget: 2001,
+  });
+  assert.deepEqual(
+    first.chats.flatMap((c) => c.messages.map((m) => m.text.slice(0, 8))),
+    ["xxxxxxxx"],
+  );
+  assert.equal(first.until, at(10));
+  const next = await dreamChats({
+    ...f,
+    assistantId: "agent",
+    since: first.until,
+    budget: 2001,
+  });
+  assert.deepEqual(
+    next.chats.flatMap((c) => c.messages.map((m) => m.text)),
+    ["tie in a", "tie in b", "later"],
+  );
+  // A first group of equal times larger than the budget goes in whole.
+  const g = fixture([chat("a"), chat("b")], {
+    "key-a": [row("user", "y".repeat(2000), 10)],
+    "key-b": [row("user", "z".repeat(2000), 10), row("user", "after", 11)],
+  });
+  const whole = await dreamChats({
+    ...g,
+    assistantId: "agent",
+    since: at(0),
+    budget: 1000,
+  });
+  assert.equal(whole.chats.flatMap((c) => c.messages).length, 2);
+  assert.equal(whole.until, at(10));
 });

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import fs from "node:fs";
+import { DreamingBackups } from "../../server/features/assistants/dreaming-backups.js";
 import { DreamingSettings } from "../../server/features/assistants/dreaming-settings.js";
 import { HermesDreamStore } from "../../server/features/assistants/hermes-dream-store.js";
 import {
@@ -406,4 +407,53 @@ test("a deleted chat is no longer read", async (t) => {
   assert.equal(heron.set.asks.length, 1);
   assert.match(heron.set.asks[0].input, /green tea/);
   assert.doesNotMatch(heron.set.asks[0].input, /secret plan/);
+});
+
+// A model call that waits for `release()`; `asked` settles once it was made.
+function gate(set) {
+  let release, asked;
+  const answered = new Promise((resolve) => (release = resolve));
+  const started = new Promise((resolve) => (asked = resolve));
+  const reply = set.reply;
+  set.runtime.sessions.reviewMemory = async (request) => {
+    set.asks.push(request);
+    asked();
+    await answered;
+    return { text: reply(request) };
+  };
+  return { release, started };
+}
+
+test("a tick while one dreams dreams nothing more", async (t) => {
+  const f = fixture(t);
+  const heron = f.agent("Heron");
+  f.chat(heron, day);
+  const { release, started } = gate(heron.set);
+  const first = f.dreams.tick(night);
+  await started;
+  assert.deepEqual(await f.dreams.tick(night), []);
+  release();
+  assert.equal((await first).length, 1);
+  assert.equal(heron.set.asks.length, 1);
+  assert.equal(f.store.diary(heron.id).entries.length, 1);
+});
+
+test("the minute tick does not wait for a dream", async (t) => {
+  const f = fixture(t);
+  const heron = f.agent("Heron");
+  f.chat(heron, day);
+  const { release, started } = gate(heron.set);
+  const backups = new DreamingBackups({ settings: f.settings, assistants: f.service });
+  assert.equal(f.service.hermesDreams, backups.hermes);
+  let recorded;
+  const done = new Promise((resolve) => (recorded = resolve));
+  backups.hermes.onChange = recorded;
+  await backups.run(night);
+  await started;
+  // The run returned while the model still thinks; the night is already marked.
+  assert.deepEqual(backups.hermes.store.diary(heron.id).entries, []);
+  assert.equal(backups.hermes.store.night(heron.id), "2026-11-08");
+  release();
+  assert.equal(await done, heron.id);
+  assert.equal(backups.hermes.store.diary(heron.id).entries[0].outcome, "applied");
 });
