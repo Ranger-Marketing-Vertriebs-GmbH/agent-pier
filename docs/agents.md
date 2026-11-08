@@ -1384,7 +1384,9 @@ with the tool `agentpier_craft`, while Craft Anything is installed. `start` take
 request and optionally a target and a stack; `status` reads a rebuild the agent started.
 Only your own chat can start one, never a routine, a hook, forwarded or members'
 content. The target is a web address or nothing, never a local path, and the account,
-mode and auto mode follow your defaults. The agent sees the status and how many
+mode and auto mode follow your defaults. The request text still steers the builder,
+which runs with your account on your machine, so grant `agentpier_craft` only to agents
+you trust with that. The agent sees the status and how many
 questions wait, never the questions: you answer them in the [inbox](inbox.md). A retried
 call returns the rebuild its first call started.
 

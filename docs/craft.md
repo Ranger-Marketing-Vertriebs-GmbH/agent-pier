@@ -33,11 +33,11 @@ points to **CLIs & extensions › Accounts**.
 Every rebuild creates a fresh folder in your default projects folder, named from the
 request (a number is appended when the name is taken), and registers it as an
 AgentPier project. AgentPier writes a `.gitignore` for Craft Anything's working
-folders (`capture/`, `checks/`, `inbox/`, `investigation.cany/`) and runs `git init`.
-AgentPier makes no commits. When the folder cannot be created (for example the default
-projects folder is not writable) the start is refused with a message and nothing is
-left behind. Craft Anything keeps its records at the root of the folder and the app in
-`app/`.
+folders (`capture/`, `checks/`, `inbox/`, `investigation.cany/`) and runs `git init`;
+the project then becomes a Git project and keeps that id. AgentPier makes no commits.
+When the folder cannot be created (for example the default projects folder is not
+writable) the start is refused with a message and nothing is left behind. Craft
+Anything keeps its records at the root of the folder and the app in `app/`.
 
 ## Following a rebuild
 
@@ -66,7 +66,9 @@ push notification, **A Craft Anything rebuild waits for you**
 ([notifications](notifications.md#what-notifies-you)). The notification names the
 rebuild and previews a question, never an approval. It has no Allow or Deny buttons:
 opening it shows the card. A question answered in two places at once is answered by
-the first; the second is refused as already answered.
+the first; the second is refused as already answered. After **Pause** and **Continue**
+Craft Anything asks an open approval again and may still list the old one; answering
+the old one is refused as no longer open and drops it from the page and the inbox.
 
 ### Auto mode
 
@@ -105,7 +107,10 @@ rebuilds too:
 They choose only the request, the target and the stack. The account, the mode and
 auto mode always follow your defaults. A session's target may be a web address, an
 absolute local path or nothing; an agent's only a web address or nothing, never a local
-path. They see a rebuild's status, folder and how many questions wait, not
+path. The request text still steers the builder, which runs with your account on your
+machine (and in auto mode with its approvals allowed), so grant `agentpier_craft` only
+to agents you trust with that. A session's `requestId` counts within that session only.
+They see a rebuild's status, folder and how many questions wait, not
 the questions themselves: you answer those in AgentPier. The rebuild shows **Started by
 a session** or **Started by an agent**.
 
@@ -115,7 +120,23 @@ Stopping or restarting AgentPier pauses running rebuilds: AgentPier stops each o
 closes Craft Anything and ends the builder with everything it started. After the next
 start those rebuilds read **Paused**; **Continue** resumes them. Nothing restarts on
 its own, and a rebuild whose Craft Anything process dies unexpectedly reads Paused or
-Failed. Pausing a rebuild yourself works the same way.
+Failed. Pausing a rebuild yourself works the same way. A rebuild that never reached
+Craft Anything reads Failed and offers neither **Continue** nor **Ask for changes**.
+
+AgentPier also keeps the process groups of its Craft Anything processes and their
+builders in `<data dir>/craft-rebuilds/children.json` while they run. After a crash or
+a forced exit, the next start ends those that are still running (only when a recorded
+process with the same command line is still in the group) before the rebuilds read
+Paused, without waiting for Craft Anything's own start or update.
+
+## Storage and removal
+
+The rebuild list and the defaults live in `<data dir>/craft-rebuilds/rebuilds.json`,
+outside Craft Anything's own folder: removing Craft Anything keeps the list and the
+rebuilds' projects. While a rebuild runs or one of the rebuilds' Craft Anything
+processes is still open (up to 60 seconds after the last one ended, also after opening
+a rebuild's page), removing, updating or changing Craft Anything (also removing Ghidra)
+is refused as in use, as it is for a session.
 
 ## API and live topics
 

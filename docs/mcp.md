@@ -154,9 +154,9 @@ and account documentation.
 While [Craft Anything](#managed-craft-anything) is installed, a session with full
 **AgentPier tools** access also receives `craft_rebuild_start` and `craft_rebuild_status`.
 `craft_rebuild_start` takes a `request`, an optional `target` (a web address or an
-absolute path) and an optional `stack`, plus a `requestId` that makes a retry return the
-same rebuild; it creates the rebuild's project and returns its id and link. The account,
-mode and auto mode follow your defaults. `craft_rebuild_status` returns the status,
+absolute path) and an optional `stack`, plus a `requestId` that makes a retry from the
+same session return the same rebuild; it creates the rebuild's project and returns its
+id and link. The account, mode and auto mode follow your defaults. `craft_rebuild_status` returns the status,
 step, note, folder and how many questions wait for you, never the questions. You answer
 them in AgentPier ([Rebuilds](craft.md)).
 
@@ -917,14 +917,16 @@ inside a target, such as `core_target_open`, are not listed, and to ask you for 
 mode for sessions** when a question needs it.
 
 **Updates.** A newer pin installed by a new AgentPier release is applied at the next
-server start, unless a session uses Craft Anything; then the card shows **Update
-available** and **Update** in the dialog applies it ([CLI updates](cli-updates.md)).
+server start, unless a session or a rebuild uses Craft Anything; then the card shows
+**Update available** and **Update** in the dialog applies it
+([CLI updates](cli-updates.md)).
 Apply changes never replaces an installed component.
 
 **Removal.** **Remove Craft Anything** asks **Remove Craft Anything?** and removes the MCP
 server row, the skill copies, the CLI and `<data dir>/craft-anything`, and Ghidra with
-the JDK unless REA still wants them. It is refused while a session or an agent uses
-Craft Anything.
+the JDK unless REA still wants them. It is refused while a session, an agent or a
+[rebuild](craft.md#storage-and-removal) uses Craft Anything. The rebuild list lives in
+`<data dir>/craft-rebuilds` and stays.
 
 **Install and API.** The installer option `--with-craft-anything` leaves a request that
 the server applies at its next start, Ghidra included
