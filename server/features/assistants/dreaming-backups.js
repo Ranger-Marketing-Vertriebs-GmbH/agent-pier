@@ -4,7 +4,9 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { readJSON } from "../../lib/storage.js";
 import { openInsideSync } from "./project-open.js";
-import { compilerFor } from "./runtimes/runtime-for.js";
+import { compilerFor, ownProcess } from "./runtimes/runtime-for.js";
+import { HermesDreams } from "./hermes-dreams.js";
+import { HermesDreamStore } from "./hermes-dream-store.js";
 import { privateFolder } from "./runtime-paths.js";
 
 /*
@@ -113,10 +115,14 @@ export function backupHermesMemory(
     .map((prefix) => writeCopy(folder, prefix, contents[`${prefix}.md`], { keep, now }));
 }
 
-const localTime = (date, timeZone) =>
+/** The wall clock of `date` in `timeZone`: `{ year, month, day, hour, minute }`. */
+export const localTime = (date, timeZone) =>
   Object.fromEntries(
     new Intl.DateTimeFormat("en-GB", {
       timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
       hourCycle: "h23",
@@ -142,11 +148,21 @@ function inWindow(now, hour, timeZone) {
  * taken yet (DreamingService.converge). While dreaming is on and the night's run is at
  * most five minutes away, it backs up MEMORY.md of every agent compiled into the
  * runtime (all of them dream) that has no copy from the last six hours. Each tick also removes the copies
- * of agents whose workspace is gone (a deleted agent, an ended temporary member).
+ * of agents whose workspace is gone (a deleted agent, an ended temporary member), and
+ * a Hermes agent's copies and dream records once the agent is gone. After the admitted
+ * part, each tick starts Hermes's own nightly dreams (hermes-dreams.js), which take
+ * their copies themselves.
  */
 export class DreamingBackups {
   constructor({ settings, assistants, clock = () => new Date(), keep = 7 }) {
     Object.assign(this, { settings, assistants, clock, keep });
+    this.hermes = assistants.hermesDreams = new HermesDreams({
+      settings,
+      assistants,
+      store: new HermesDreamStore(settings.db),
+      clock,
+      keep,
+    });
   }
   start() {
     if (this.timer) return;
@@ -160,11 +176,16 @@ export class DreamingBackups {
   // Under the admission gate: never while a restore or update replaces workspaces.
   // The time is read once admitted, so a tick that waited never acts on a stale one.
   async run(now) {
-    return this.assistants.admit(async () => {
+    const taken = await this.assistants.admit(async () => {
       // Retried each minute; the save already logged why it did not apply.
       await this.assistants.dreaming?.converge().catch(() => {});
       return this.tick(now ?? this.clock());
     });
+    // Outside admission and not awaited: a dream waits on the agent's model.
+    this.hermes.tick(now ?? this.clock()).catch((error) => {
+      console.warn("Hermes dreams failed:", error?.code || "UNAVAILABLE");
+    });
+    return taken;
   }
   tick(now) {
     const paths = this.assistants.runtime?.paths;
@@ -178,9 +199,12 @@ export class DreamingBackups {
     const prunable = fs.existsSync(root) && fs.existsSync(paths.workspaces);
     for (const name of prunable ? fs.readdirSync(root) : []) {
       const agent = agents.get(name);
-      if (!agent || !fs.existsSync(workspace(agent)))
+      // A Hermes agent's workspace lives in its own home: its copies stay while the
+      // agent does (its deletion removes them, agent-deletion.js).
+      if (!agent || (!ownProcess(agent) && !fs.existsSync(workspace(agent))))
         fs.rmSync(path.join(root, name), { recursive: true, force: true });
     }
+    this.hermes.store.prune(new Set([...agents.values()].map((agent) => agent.id)));
     const { enabled, hour, timeZone } = this.settings.get();
     if (!enabled || !inWindow(now, hour, timeZone)) return [];
     const taken = [];

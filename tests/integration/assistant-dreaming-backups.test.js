@@ -270,6 +270,44 @@ test("backups of a removed agent are deleted", async (t) => {
   assert.equal(f.backups(kept).length, 1);
 });
 
+test("a Hermes agent's copies and dream records stay while the agent does", async (t) => {
+  const f = fixture(t);
+  // Its workspace is in its own Hermes home, never below the runtime's workspaces.
+  const created = f.store.createAssistant({
+    name: "Heron",
+    instructions: "",
+    model,
+    runtime: "hermes",
+  });
+  const heron = f.store.updateAssistant(created.id, memoryOn, created.revision);
+  backupHermesMemory(
+    f.paths,
+    heron,
+    { "MEMORY.md": "memory", "USER.md": "user" },
+    { now: night(0) },
+  );
+  const backups = new DreamingBackups({ settings: f.settings, assistants: f.assistants });
+  assert.equal(f.assistants.hermesDreams, backups.hermes);
+  const dreams = backups.hermes.store;
+  dreams.markNight(heron.id, "2026-11-01");
+  dreams.applied(heron.id, 42);
+  dreams.append(heron.id, { at: night(0).toISOString(), outcome: "applied" });
+  await backups.run(night(0, 12, 0));
+  assert.deepEqual(f.backups(heron), [
+    "MEMORY-20261101T015700000Z.md",
+    "USER-20261101T015700000Z.md",
+  ]);
+  assert.equal(dreams.cursor(heron.id), 42);
+  assert.equal(dreams.diary(heron.id).entries.length, 1);
+  // Gone from the store (deleted, or an ended member): its copies and records go.
+  f.store.db.prepare("DELETE FROM assistants WHERE id=?").run(heron.id);
+  await backups.run(night(0, 12, 1));
+  assert.equal(fs.existsSync(f.folder(heron)), false);
+  assert.equal(dreams.cursor(heron.id), null);
+  assert.equal(dreams.night(heron.id), null);
+  assert.deepEqual(dreams.diary(heron.id).entries, []);
+});
+
 test("a tick reads the clock once admitted", async (t) => {
   const f = fixture(t);
   const orchid = f.agent("Orchid");
