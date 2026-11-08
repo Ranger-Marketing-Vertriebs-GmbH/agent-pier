@@ -48,6 +48,7 @@ async function setup(
     viewOnly = false,
     busy = false,
     stopFails = false,
+    agent = {},
   } = {},
 ) {
   await fixture(page);
@@ -58,7 +59,7 @@ async function setup(
     if (path === "/api/assistants")
       return route.fulfill({
         json: {
-          assistants: [home],
+          assistants: [{ ...home, ...agent }],
           conversations: [
             {
               id: "c1",
@@ -255,6 +256,27 @@ test("the chat header shows a live preview while the browser runs", async ({ pag
   await decoded(preview.locator("img"));
   await preview.click();
   await expect(page).toHaveURL(/\/agents\/home\/browser$/);
+});
+
+test.describe("phone header", () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  // With shell access and a running browser, the preview must not cover the title.
+  test("the live preview sits beside the title, not over it", async ({ page }) => {
+    await setup(page, { agent: { shell: "full", name: "Studio Lead - Hälmchen" } });
+    await page.goto(baseURL + "/agents/home/chats/c1");
+    const preview = page.getByRole("link", { name: /^Live view of/ });
+    await expect(preview).toBeVisible();
+    const box = await preview.boundingBox();
+    const title = await page.locator(".assistant-header-title").boundingBox();
+    expect(title.x + title.width).toBeLessThanOrEqual(box.x);
+    for (const chip of await page.locator(".assistant-shell-chip:visible").all()) {
+      const chipBox = await chip.boundingBox();
+      expect(chipBox.x + chipBox.width).toBeLessThanOrEqual(box.x);
+    }
+    await page.locator(".assistant-header").screenshot({
+      path: ".cache/browser-preview-header-phone.png",
+    });
+  });
 });
 
 test("a live view the server ended says so and does not reconnect", async ({ page }) => {

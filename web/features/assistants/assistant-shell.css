@@ -7,12 +7,21 @@
 .assistant-shell-entry code {
   overflow-wrap: anywhere;
 }
-/* The chip sits beside the agent name in the header; the name ellipsizes first. */
+/* The chip sits beside the agent name in the header; the name ellipsizes first, and
+   chips that still do not fit are cut at the title's edge, never drawn under the
+   header's next item (the browser preview). */
 .assistant-header-name {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
+  overflow: hidden;
+}
+/* Phones: the live preview already says the browser runs. */
+@media (max-width: 700px) {
+  .assistant-header:has(.agent-browser-preview) .assistant-shell-chip.browser {
+    display: none;
+  }
 }
 .assistant-header-name :is(h1, h2) {
   min-width: 0;
