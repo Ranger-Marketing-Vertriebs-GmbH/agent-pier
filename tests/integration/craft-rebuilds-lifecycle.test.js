@@ -57,3 +57,12 @@ test("a running rebuild or a live child keeps Craft Anything in use", async (t) 
   timers.advance(60000);
   assert.ok(await until(() => !f.rebuilds.inUse()));
 });
+
+test("a rebuild keeps the project its folder has after git init", async (t) => {
+  const f = rebuildsFixture(t);
+  const view = await f.rebuilds.start({ request: "Registered" });
+  const again = await f.memory.register(view.folder);
+  assert.equal(again.id, view.projectId);
+  assert.equal(f.projects.length, 1);
+  assert.equal(f.create().get(view.id).projectId, again.id, "the stored record too");
+});
