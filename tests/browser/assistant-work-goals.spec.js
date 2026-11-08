@@ -156,3 +156,47 @@ test("continuations and goal notes read as quiet lines", async ({ page }) => {
   );
   await expect(page.locator("[data-goal-continuation]")).toHaveClass(/assistant-event/);
 });
+
+test.describe("phone", () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  // A model can write a summary without spaces; the line wraps instead of letting the
+  // chat scroll sideways.
+  test("a goal note without spaces never widens the chat", async ({ page }) => {
+    const summary = "Nutzerabnahmeausstehend,keineVeröffentlichung".repeat(6);
+    await chatFixture(page, {
+      history: {
+        messages: [
+          ...messages,
+          {
+            id: "goal:h:done",
+            role: "event",
+            event: "goal",
+            phase: "done",
+            title: "Short06",
+            text: summary,
+            timestamp: 5,
+            runId: null,
+          },
+        ],
+        requests: [],
+        stale: false,
+        goal: null,
+      },
+    });
+    await page.goto(baseURL + "/agents/home/chats/dinner");
+    const note = page.locator('[data-goal-note="done"]');
+    await expect(note).toContainText(summary);
+    // Neither the page nor any area that can scroll is wider than its box.
+    const overflow = await page.evaluate(() =>
+      [document.scrollingElement, ...document.querySelectorAll("*")]
+        .filter(
+          (el) =>
+            el === document.scrollingElement ||
+            ["auto", "scroll"].includes(getComputedStyle(el).overflowX),
+        )
+        .filter((el) => el.scrollWidth > el.clientWidth + 1)
+        .map((el) => `${el.tagName}.${el.className} ${el.scrollWidth}/${el.clientWidth}`),
+    );
+    expect(overflow).toEqual([]);
+  });
+});

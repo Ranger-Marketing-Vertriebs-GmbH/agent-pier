@@ -12,10 +12,13 @@
 .assistant-heading h1 {
   margin: 8px 0;
 }
+/* Notes quote agent text (a goal's summary, a reason) that may hold a word too long
+   for the line; it wraps instead of widening the page. */
 .assistant-note {
   color: var(--muted);
   font-size: 13px;
   line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 .assistant-cards {
   display: grid;
