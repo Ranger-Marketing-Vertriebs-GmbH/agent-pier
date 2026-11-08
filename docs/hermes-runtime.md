@@ -70,6 +70,19 @@ which asks with Hermes's reason. A plugin's question names the call only as
 `<terminal> (plugin approval rule)`; AgentPier shows the guard's message, the command
 itself, in the approval card.
 
+**Always allow.** AgentPier never offers Hermes's own "always" answer: it would allow a
+whole pattern class (every "recursive delete") for good in `command_allowlist`, which
+AgentPier compiles. **Always allow** on a Hermes agent answers once and AgentPier
+remembers the exact command (`exec-remembered.js`, by the SHA-256 of its full text); the
+identical command is then answered without a card, any other one still asks. **Always
+allowed commands** (**Capabilities** → **Shell access**) lists these commands with the
+folder they were approved in and when they were added, and deletes them, as it does
+OpenClaw's allowlist. A Hermes agent's list is AgentPier's own (`exactOnly` in
+`GET /api/assistants/:id/shell-allowlist`), so it is read and deleted while Hermes and
+OpenClaw are stopped; the page says that only the identical command runs without asking.
+The live topic `agent.allowlist:<id>` pushes each change, and a deletion writes the same
+`assistant.revoked` audit event (`kind: "allowlist"`) as one of OpenClaw's entries.
+
 ### Model connection
 
 | Connection                        | `model` section                                                        | `.env`                        |
@@ -902,7 +915,7 @@ AGENTPIER-344, logins from AGENTPIER-340).
 | Model connection                                           | Every connection                    | Every connection; ChatGPT logins AgentPier holds    | [Model connection](#model-connection)                        |
 | Shell levels                                               | Off, approval (every command), full | Off, dangerous commands, every command, full        | [Shell levels](#shell-levels)                                |
 | Routine runs on an asking level                            | Ask the owner                       | Ask the owner through the guard                     | [Routines](#routines)                                        |
-| Always allow                                               | OpenClaw's allowlist                | AgentPier remembers the exact command               | Allowlist page is OpenClaw's                                 |
+| Always allow                                               | OpenClaw's allowlist                | AgentPier remembers the exact command               | Same allowlist page, exact commands only                     |
 | Memory                                                     | Files, memory steps, Dream Diary    | `MEMORY.md`, `USER.md`, Hermes's own review, pins   | No memory step; 10,000 / 5,000 characters                    |
 | Dreaming                                                   | memory-core                         | AgentPier's nightly one-shot dream, pins kept       | [Dreaming](#memory-and-instructions); memory stays on        |
 | Skills                                                     | Bundled, catalog, shopping          | Bundled, catalog, shopping, self-written            | `hermes-agent` always on                                     |

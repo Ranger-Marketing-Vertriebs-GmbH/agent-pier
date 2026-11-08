@@ -277,6 +277,8 @@ test("the agent detail topics name their routes at their former polls", () => {
     "agent.ssh-agent": ["/assistants/a%2Fb/ssh-agent", 30000, false],
     // Pushed by every recorded Hermes night; the fallback polls slowly.
     "agent.memory": ["/assistants/a%2Fb/memory/files", 30000, false],
+    // Pushed by every decision and deletion; the fallback polls slowly.
+    "agent.allowlist": ["/assistants/a%2Fb/shell-allowlist", 30000, false],
   };
   for (const [name, [path, interval, sampled]] of Object.entries(routes)) {
     const info = topicInfo(`${name}:a/b`);

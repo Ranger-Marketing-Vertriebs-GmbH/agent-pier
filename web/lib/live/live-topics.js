@@ -186,6 +186,12 @@ export const liveTopics = Object.freeze({
     path: (id) => `/assistants/${encodeURIComponent(id)}/memory/files`,
     interval: 30000,
   }),
+  // The always allowed commands, pushed by every decision and deletion.
+  "agent.allowlist": Object.freeze({
+    mode: "state",
+    path: (id) => `/assistants/${encodeURIComponent(id)}/shell-allowlist`,
+    interval: 30000,
+  }),
   "runtime.updates": Object.freeze({
     mode: "state",
     path: () => "/assistant-runtime/updates",

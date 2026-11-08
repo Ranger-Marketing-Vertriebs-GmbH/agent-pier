@@ -215,8 +215,9 @@ What works on Hermes today:
   as dangerous and runs the rest; **Every command** asks before every shell command
   and Python run; **Off** and **Full access** work as on OpenClaw. Approval cards
   offer **Allow once**, **Always allow** (AgentPier remembers the exact command) and
-  **Deny**. On OpenClaw, **With approval** already asks before every command, so it
-  keeps its three levels.
+  **Deny**. **Always allowed commands** lists the remembered commands with their
+  folder and when you added them; delete one and the agent asks again. On OpenClaw,
+  **With approval** already asks before every command, so it keeps its three levels.
 - The model connection and the instructions. Every OpenAI-compatible endpoint
   (OpenAI, Azure OpenAI, Anthropic and other vendors' compatible APIs, Ollama,
   llama.cpp, LM Studio) and OpenRouter work; changing the model in **Profile**

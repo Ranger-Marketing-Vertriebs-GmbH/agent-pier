@@ -50,6 +50,8 @@ export const assistantShellCopy = {
     'Programs and commands you allowed with "Always allow". Delete an entry and the agent asks again.',
   allowlistEmpty: "No always allowed commands.",
   allowlistLoading: "Loading allowed commands …",
+  exactOnly: (runtime) =>
+    `On ${runtime}, AgentPier remembers each always allowed command exactly: only the identical command runs without asking, any other one asks again.`,
   sources: {
     agentpier: "Added by AgentPier",
     openclaw: "Added by OpenClaw",
@@ -60,6 +62,7 @@ export const assistantShellCopy = {
   commandEntry: "Exact command",
   command: "Command",
   folder: "Folder",
+  added: (time) => `Added ${time}`,
   lastUsed: (time) => `Last used ${time}`,
   linked: (count) => `Linked command entries: ${count}`,
   remove: "Delete",

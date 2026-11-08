@@ -62,6 +62,7 @@ export class ExecRemembered {
         command: row.command,
         ...(row.cwd ? { cwd: row.cwd } : {}),
         requestedAt: row.created_at,
+        addedAt: row.created_at,
       }));
   }
   /** Forgets one remembered command by its entry id; whether it was there. */
