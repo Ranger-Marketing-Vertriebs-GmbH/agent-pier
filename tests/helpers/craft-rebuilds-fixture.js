@@ -73,7 +73,13 @@ export const testAccounts = [
  * projects folder, a project memory double and the accounts above. Each managed
  * account's environment points CLAUDE_CONFIG_DIR at its own profile folder.
  */
-export function rebuildsFixture(t, { script, installed = true, ...options } = {}) {
+/**
+ * `intercept(name, args)` runs before every client call and may throw to fail it.
+ */
+export function rebuildsFixture(
+  t,
+  { script, installed = true, intercept, ...options } = {},
+) {
   const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "craft-rebuilds-")));
   const dataDir = path.join(dir, "data");
   const projectsDir = path.join(dir, "projects");
@@ -143,6 +149,13 @@ export function rebuildsFixture(t, { script, installed = true, ...options } = {}
         ...(script && { FAKE_CRAFT_SCRIPT: JSON.stringify(script) }),
       },
     });
+    if (intercept) {
+      const call = client.call.bind(client);
+      client.call = async (name, args, callOptions) => {
+        await intercept(name, args);
+        return call(name, args, callOptions);
+      };
+    }
     clients.push(client);
     return client;
   };
