@@ -7,13 +7,15 @@ import { problem } from "../../lib/storage.js";
 import { reaSources, verifiedDownload } from "./verified-download.js";
 import { unpackTarGz } from "./tar-unpack.js";
 import { unpackZip } from "./zip-unpack.js";
-import { checkGhidra, checkJdk, insideReal } from "./rea-checks.js";
+import { checkCraftAnything, checkGhidra, checkJdk, insideReal } from "./rea-checks.js";
 import { run as defaultRun } from "./tool-run.js";
 
-// The pinned Ghidra and JDK of the managed REA tool (AGENTPIER-104): each archive is
-// downloaded and checked, unpacked into <root>/.packages/<id>-<uuid> and activated
-// through the <root>/<id> link, like the managed browser (chromium-installer.js).
-export const reaComponentIds = Object.freeze(["rea-ghidra", "rea-jdk"]);
+// The pinned Ghidra and JDK of the managed REA tool (AGENTPIER-104) and the Craft
+// Anything binary: each archive is downloaded and checked, unpacked into
+// <root>/.packages/<id>-<uuid> and activated through the <root>/<id> link, like the
+// managed browser (chromium-installer.js). Callers that place or remove Ghidra and the
+// JDK name "rea-ghidra" and "rea-jdk" explicitly; only the sweep covers every id.
+export const reaComponentIds = Object.freeze(["rea-ghidra", "rea-jdk", "craft-anything"]);
 const record = "agentpier-rea.json";
 // REA's own work-folder prefix: the browser's and the CLI installers' sweeps remove
 // `.install-*`, so neither can ever touch an REA install in flight, nor REA theirs.
@@ -22,9 +24,36 @@ const bad = (message) => problem(message, 409);
 // Ghidra unpacks to about 0.9 GB in some 20000 files; the limits leave headroom while
 // still stopping an archive bomb.
 const limits = { maxExpanded: 4 * 1024 * 1024 * 1024, maxFiles: 100000 };
+const reaMessages = {
+  downloading: (name, percent) => serverMessages.rea.downloading(name, percent),
+  unpacking: (name) => serverMessages.rea.unpacking(name),
+  checking: (name) => serverMessages.rea.checking(name),
+};
+const craftMessages = {
+  downloading: (_name, percent) => serverMessages.craft.downloading(percent),
+  unpacking: () => serverMessages.craft.unpacking,
+  checking: () => serverMessages.craft.checking,
+};
 const components = {
-  "rea-ghidra": { name: "Ghidra", home: (entry) => entry.installDir, check: checkGhidra },
-  "rea-jdk": { name: "JDK", home: (entry) => entry.home, check: checkJdk },
+  "rea-ghidra": {
+    name: "Ghidra",
+    home: (entry) => entry.installDir,
+    check: checkGhidra,
+    messages: reaMessages,
+  },
+  "rea-jdk": {
+    name: "JDK",
+    home: (entry) => entry.home,
+    check: checkJdk,
+    messages: reaMessages,
+  },
+  // The folder holding the binary; the unpacker keeps the archive's top folder.
+  "craft-anything": {
+    name: "Craft Anything",
+    home: (entry) => path.posix.join(entry.top, path.posix.dirname(entry.binary)),
+    check: checkCraftAnything,
+    messages: craftMessages,
+  },
 };
 const diskFull = (error) =>
   ["ENOSPC", "EDQUOT"].includes(error?.code) ||
@@ -36,6 +65,23 @@ function component(id) {
 }
 
 const activation = (root, id) => path.join(root, id);
+
+// Deletes the files `entry.remove` lists, only inside the version directory: a path
+// that is absolute, climbs out or whose folder resolves outside is refused. The paths
+// are relative to the archive's top folder `top`, which the unpacker keeps.
+async function removeListed(directory, top, remove = []) {
+  for (const listed of remove) {
+    const valid =
+      typeof listed === "string" &&
+      listed &&
+      !path.isAbsolute(listed) &&
+      !listed.split("/").includes("..");
+    const relative = valid ? path.posix.join(top, listed) : null;
+    const folder = relative && insideReal(directory, path.posix.dirname(relative));
+    if (!folder) throw bad(serverMessages.craft.layoutInvalid);
+    await fsp.rm(path.join(folder, path.posix.basename(relative)), { force: true });
+  }
+}
 const prefix = (id) => `${id}-`;
 
 /**
@@ -88,7 +134,7 @@ export async function installReaComponent({
   platform = process.platform,
   progress,
 }) {
-  const { name, home, check } = component(id);
+  const { name, home, check, messages } = component(id);
   const packages = path.join(root, ".packages");
   await fsp.mkdir(packages, { recursive: true, mode: 0o700 });
   const work = await fsp.mkdtemp(path.join(root, workPrefix));
@@ -97,20 +143,21 @@ export async function installReaComponent({
   try {
     // A fresh name in a fresh folder: a file left by a crash never blocks this one.
     const archive = path.join(work, `${id}-${randomUUID()}`);
-    progress?.(serverMessages.rea.downloading(name, 0));
+    progress?.(messages.downloading(name, 0));
     await verifiedDownload({
       entry,
       file: archive,
       allow: reaSources,
       fetchImpl,
       signal,
-      progress: (percent) => progress?.(serverMessages.rea.downloading(name, percent)),
+      progress: (percent) => progress?.(messages.downloading(name, percent)),
     });
-    progress?.(serverMessages.rea.unpacking(name));
+    progress?.(messages.unpacking(name));
     await fsp.mkdir(directory, { mode: 0o700 });
     await unpack(entry, archive, directory, signal);
     await fsp.rm(archive, { force: true });
-    progress?.(serverMessages.rea.checking(name));
+    await removeListed(directory, entry.top, entry.remove);
+    progress?.(messages.checking(name));
     await check({ directory, entry, version, platform, run, env, signal });
     await fsp.writeFile(
       path.join(directory, record),

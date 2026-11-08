@@ -25,6 +25,7 @@ export const reaSources = Object.freeze({
     "/NationalSecurityAgency/ghidra/releases/download/",
     "/adoptium/temurin21-binaries/releases/download/",
     "/frida/frida/releases/download/",
+    "/storytold/craft-anything/releases/download/",
   ]),
   "release-assets.githubusercontent.com": null,
   "objects.githubusercontent.com": null,

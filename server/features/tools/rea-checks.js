@@ -23,7 +23,7 @@ export function insideReal(directory, relative) {
 
 // Downloaded by AgentPier, not a browser, so Gatekeeper never set it; cleared anyway so
 // a copy from elsewhere cannot stop Ghidra's or Java's native code.
-async function clearQuarantine({ directory, platform, run, env, signal }) {
+export async function clearQuarantine({ directory, platform, run, env, signal }) {
   if (platform !== "darwin") return;
   await run("/usr/bin/xattr", ["-cr", directory], env, directory, signal, 120000).catch(
     () => {},
@@ -104,4 +104,44 @@ export async function checkJdk({
   const escaped = version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   if (!new RegExp(`(?:^|[^0-9.])${escaped}(?![0-9])`).test(output))
     throw bad(serverMessages.rea.jdkVersionMismatch(version));
+}
+
+/**
+ * Craft Anything: the CLI at `entry.binary` is an executable file inside the version
+ * directory and `--version` prints exactly `craft-anything-cli <version>`.
+ */
+export async function checkCraftAnything({
+  directory,
+  entry,
+  version,
+  platform,
+  run,
+  env,
+  signal,
+}) {
+  await clearQuarantine({ directory, platform, run, env, signal });
+  const binary = insideReal(directory, path.join(entry.top, entry.binary));
+  const stat = binary && (await fsp.stat(binary).catch(() => null));
+  const executable =
+    stat?.isFile() &&
+    (await fsp.access(binary, fs.constants.X_OK).then(
+      () => true,
+      () => false,
+    ));
+  if (!executable) throw bad(serverMessages.craft.layoutInvalid);
+  const output = await run(binary, ["--version"], env, directory, signal, 10000).catch(
+    (error) => {
+      if (diskFull(error) || signal?.aborted) throw error;
+      throw bad(serverMessages.craft.notStarting);
+    },
+  );
+  const expected = `craft-anything-cli ${version}`;
+  const reported = output.trim();
+  if (reported !== expected)
+    throw bad(
+      serverMessages.craft.versionMismatch(
+        version,
+        reported.replace(/^craft-anything-cli\s+/, "").slice(0, 80),
+      ),
+    );
 }
