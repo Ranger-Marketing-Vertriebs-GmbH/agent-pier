@@ -3,6 +3,7 @@ import { problem } from "../../lib/storage.js";
 import { logCraftFailure } from "./craft-log.js";
 import { craftEnvironment, rebuildsConfigDir } from "../tools/craft-config.js";
 import { craftCommand } from "../tools/craft-row.js";
+import { RebuildProcesses } from "./rebuild-processes.js";
 
 const messages = serverMessages.craft;
 const tool = "craft-anything";
@@ -38,6 +39,8 @@ export class RebuildChildren {
     this.running = running;
     this.lost = lost;
     this.entries = new Map(); // key → { ready, client, spawned, busy, idle }
+    // The children's process groups, kept across a crash (rebuild-processes.js).
+    this.processes = new RebuildProcesses(dataDir);
     this.closing = false;
   }
 
@@ -98,6 +101,7 @@ export class RebuildChildren {
         env,
         cwd: configDir,
         onSpawn: (spawned) => (entry.spawned = spawned),
+        track: this.processes,
       });
     } catch (error) {
       throw problem(messages.rebuildUnavailable(error.message), 409);
@@ -118,6 +122,11 @@ export class RebuildChildren {
       throw problem(messages.rebuildsStopping, 409);
     }
     return client;
+  }
+
+  /** Server start: ends what the previous server's children left running. */
+  reap() {
+    return this.processes.reap();
   }
 
   /** Arms the idle close while nothing of the child runs or calls; disarms it else. */

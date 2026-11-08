@@ -368,11 +368,16 @@ export class CraftRebuilds {
   // --- Server lifetime --------------------------------------------------------------
 
   /**
-   * Server start: nothing restarts on its own. A build that ran when AgentPier stopped
-   * reads paused; one whose start never reached Craft Anything reads failed. Rebuilds
-   * this server started before restore() runs are left alone.
+   * Server start: nothing restarts on its own. What the previous server's children
+   * left running (a crash, a forced exit) is ended first. A build that ran when
+   * AgentPier stopped reads paused; one whose start never reached Craft Anything reads
+   * failed. Rebuilds this server started before restore() runs are left alone; a
+   * child a view started for a paused one meanwhile idles out as usual.
    */
   async restore() {
+    await this.children
+      .reap()
+      .catch((error) => logCraftFailure("end the rebuilds' left-over processes", error));
     let changed = false;
     for (const id of this.unrestored) {
       const record = this.records.get(id);
@@ -381,6 +386,7 @@ export class CraftRebuilds {
       record.status = record.craftProject ? "paused" : "failed";
       record.updatedAt = this.now().toISOString();
       changed = true;
+      this.children.settle(record.accountId, record.mode);
     }
     this.unrestored.clear();
     if (!changed) return;
