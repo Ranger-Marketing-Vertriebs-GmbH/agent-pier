@@ -38,7 +38,8 @@ export const execAction = (id, extra = {}) => ({
 // A stand-in for the server: raising the level needs confirmShell, full also
 // confirmFull, lowering needs neither (server/features/assistants/shell-changes.js).
 // `activity`, `members` and `requests` (the chat's turns) put the agent mid-turn;
-// `assistants` adds other agents, such as a lead's member.
+// `assistants` adds other agents, such as a lead's member; `exactOnly` answers the
+// allowlist as a runtime without one does (Hermes: remembered commands only).
 export async function setup(page, options = {}) {
   await fixture(page);
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
@@ -51,6 +52,7 @@ export async function setup(page, options = {}) {
     actions: options.actions || [],
     entries: options.entries || [],
   };
+  const exactOnly = options.exactOnly ? { exactOnly: true } : {};
   await page.route(/\/api\/assistant/, async (route) => {
     if (await fulfillEnabledAssistantFeature(route)) return;
     const request = route.request();
@@ -84,7 +86,7 @@ export async function setup(page, options = {}) {
       return route.fulfill({ json: { ...state.agent, pending: !!options.pending } });
     }
     if (path === "/api/assistants/home/shell-allowlist")
-      return route.fulfill({ json: { entries: state.entries } });
+      return route.fulfill({ json: { entries: state.entries, ...exactOnly } });
     if (path.startsWith("/api/assistants/home/shell-allowlist/") && method === "DELETE") {
       const entry = decodeURIComponent(path.split("/").pop());
       state.deletes.push(entry);
@@ -94,7 +96,9 @@ export async function setup(page, options = {}) {
           json: { code: "unavailable", error: "The agent service is not ready." },
         });
       state.entries = state.entries.filter((e) => e.id !== entry);
-      return route.fulfill({ json: { removed: entry, entries: state.entries } });
+      return route.fulfill({
+        json: { removed: entry, entries: state.entries, ...exactOnly },
+      });
     }
     if (path === "/api/assistants/home/actions")
       return route.fulfill({ json: { actions: state.actions } });

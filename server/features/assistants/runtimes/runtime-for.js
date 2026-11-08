@@ -26,12 +26,15 @@ const registry = Object.freeze({
     },
     compiler: openClawCompiler,
     runOf: cronRunOf,
+    execAllowlist: true,
   }),
   hermes: Object.freeze({
     name: "Hermes Agent",
     resolve: (supervisor, agent) => hermesFleetOf(supervisor).runtimeOf(agent),
     compiler: hermesCompiler,
     runOf: hermesCronRunOf,
+    // "Always allow" is AgentPier's remembered exact command (exec-remembered.js).
+    execAllowlist: false,
   }),
 });
 
@@ -91,6 +94,15 @@ export const hermesAvailable = (supervisor) =>
  */
 export const runtimeIdOf = (agent) =>
   typeof agent?.runtime === "string" && agent.runtime ? agent.runtime : DEFAULT_RUNTIME;
+
+/**
+ * Whether the runtime of `agent` keeps an exec allowlist AgentPier reads and writes
+ * through its approvals sub-port (OpenClaw's). Hermes keeps none AgentPier may write:
+ * its "Always allow" is the exact command AgentPier remembers (exec-remembered.js). A
+ * runtime this AgentPier lacks is refused as in runtimeFor (409).
+ */
+export const keepsExecAllowlist = (agent) =>
+  registry[assertRuntime(runtimeIdOf(agent), 409)].execAllowlist;
 
 /** Whether this AgentPier has an adapter for runtime `id`. */
 export const knownRuntime = (id) => typeof id === "string" && Object.hasOwn(registry, id);

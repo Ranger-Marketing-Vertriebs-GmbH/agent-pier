@@ -51,6 +51,8 @@ export const assistantShellCopy = {
     "Programme und Befehle, die du mit „Immer erlauben“ freigegeben hast. Löschst du einen Eintrag, fragt der Agent wieder.",
   allowlistEmpty: "Keine immer erlaubten Befehle.",
   allowlistLoading: "Erlaubte Befehle werden geladen …",
+  exactOnly: (runtime) =>
+    `Bei ${runtime} merkt sich AgentPier jeden immer erlaubten Befehl genau: Nur derselbe Befehl läuft ohne Rückfrage, jeder andere fragt wieder.`,
   sources: {
     agentpier: "Von AgentPier eingetragen",
     openclaw: "Von OpenClaw eingetragen",
@@ -61,6 +63,7 @@ export const assistantShellCopy = {
   commandEntry: "Genauer Befehl",
   command: "Befehl",
   folder: "Ordner",
+  added: (time) => `Hinzugefügt ${time}`,
   lastUsed: (time) => `Zuletzt verwendet ${time}`,
   linked: (count) => `Verknüpfte Befehlseinträge: ${count}`,
   remove: "Löschen",

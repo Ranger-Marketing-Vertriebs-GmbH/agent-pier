@@ -7,6 +7,11 @@ import { shellService } from "../helpers/assistant-shell-service.js";
 import { serverMessages } from "../../server/lib/i18n/de.js";
 import { messageIdentity } from "../../server/lib/i18n/message-identity.js";
 import {
+  commandHash,
+  rememberedCommands,
+  rememberedId,
+} from "../../server/features/assistants/exec-remembered.js";
+import {
   applicationFixture,
   enabledAssistants,
   fixtureFetch,
@@ -168,6 +173,92 @@ test("shell allowlist routes list and delete entries; unknown is 404", async (t)
     f.audit.map((e) => [e.action, e.details]),
     [["assistant.revoked", { kind: "allowlist", entryId: "one" }]],
   );
+});
+
+test("a Hermes agent's allowlist is its remembered commands, without any runtime", async (t) => {
+  const f = shellService(t, ["Home"]);
+  const [home] = f.agents;
+  const heron = f.store.createAssistant({
+    name: "Heron",
+    instructions: "",
+    model: { connectionId: "c", modelId: "m" },
+    runtime: "hermes",
+  });
+  const remembered = rememberedCommands(f.store.db);
+  for (const command of ["python3 report.py", "node build.js"])
+    remembered.remember(heron.id, { hash: commandHash(command), command, cwd: "/work" });
+  // Another agent's remembered command never shows.
+  remembered.remember(home.id, { hash: commandHash("ls"), command: "ls" });
+  // Neither OpenClaw nor Hermes runs: the list is AgentPier's own.
+  f.client.ready = false;
+  const request = await serve(t, f);
+  const listed = await request("GET", `/assistants/${heron.id}/shell-allowlist`);
+  assert.equal(listed.status, 200);
+  assert.equal(listed.body.exactOnly, true);
+  assert.deepEqual(
+    listed.body.entries.map(({ id, source, kind, command, cwd }) => ({
+      id,
+      source,
+      kind,
+      command,
+      cwd,
+    })),
+    ["python3 report.py", "node build.js"].map((command) => ({
+      id: rememberedId(commandHash(command)),
+      source: "agentpier",
+      kind: "command",
+      command,
+      cwd: "/work",
+    })),
+  );
+  for (const entry of listed.body.entries) {
+    assert.ok(Date.parse(entry.addedAt) > 0);
+    assert.equal(entry.addedAt, entry.requestedAt);
+  }
+  // OpenClaw's agents still need their Gateway.
+  assert.equal(
+    (await request("GET", `/assistants/${home.id}/shell-allowlist`)).status,
+    503,
+  );
+
+  // Only a remembered command can be deleted: Hermes keeps no other entry.
+  const foreign = await request("DELETE", `/assistants/${heron.id}/shell-allowlist/one`);
+  assert.equal(foreign.status, 404);
+  assert.equal(foreign.body.messageKey, "assistants.allowlistEntryNotFound");
+  const node = rememberedId(commandHash("node build.js"));
+  const removed = await request(
+    "DELETE",
+    `/assistants/${heron.id}/shell-allowlist/${node}`,
+  );
+  assert.equal(removed.status, 200);
+  assert.equal(removed.body.removed, node);
+  assert.equal(removed.body.exactOnly, true);
+  assert.deepEqual(
+    removed.body.entries.map((e) => e.command),
+    ["python3 report.py"],
+  );
+  assert.equal(remembered.has(heron.id, commandHash("node build.js")), false);
+  assert.equal(remembered.has(home.id, commandHash("ls")), true);
+  // Deleting another agent's remembered command through this one finds nothing.
+  const other = rememberedId(commandHash("ls"));
+  assert.equal(
+    (await request("DELETE", `/assistants/${heron.id}/shell-allowlist/${other}`)).status,
+    404,
+  );
+  assert.equal(
+    (await request("DELETE", `/assistants/${heron.id}/shell-allowlist/${node}`)).status,
+    404,
+  );
+  assert.deepEqual(
+    f.audit.map((e) => [e.action, e.resourceId, e.details]),
+    [["assistant.revoked", heron.id, { kind: "allowlist", entryId: node }]],
+  );
+  assert.equal(
+    f.client.calls.some((c) => c.method.startsWith("exec.approvals.")),
+    false,
+    "no Gateway allowlist call",
+  );
+  assert.equal((await request("GET", "/assistants/missing/shell-allowlist")).status, 404);
 });
 
 test("temporary members get 400 from the shell routes", async (t) => {

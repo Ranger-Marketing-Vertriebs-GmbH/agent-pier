@@ -1,5 +1,10 @@
 import { assistantProblem } from "./assistant-validation.js";
-import { hostConnection, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
+import {
+  hostConnection,
+  hostReady,
+  keepsExecAllowlist,
+  runtimeFor,
+} from "./runtimes/runtime-for.js";
 import { allowAlwaysGroup, groupOf } from "./exec-allowlist-links.js";
 import { personalEligible } from "./native-capabilities.js";
 import { isRememberedId, rememberedCommands } from "./exec-remembered.js";
@@ -44,8 +49,11 @@ function present(entry, origin, ours, companions = []) {
 
 /**
  * The agent's exec allowlist in the Gateway (the approvals sub-port's readAllowlist
- * and writeAllowlist, keyed by its runtime agent id). Eligible agents only:
- * temporary members never get shell.
+ * and writeAllowlist, keyed by its runtime agent id), with the exact commands
+ * AgentPier remembers for it. An agent whose runtime keeps no such allowlist (Hermes,
+ * keepsExecAllowlist) lists only the remembered commands, read and deleted in
+ * AgentPier without its runtime. Eligible agents only: temporary members never get
+ * shell.
  */
 export class ExecAllowlist {
   constructor(assistants) {
@@ -138,6 +146,9 @@ export class ExecAllowlist {
   }
   async list(id) {
     const profile = this.profile(id);
+    // `exactOnly`: every entry is an exact command, the page says so.
+    if (!keepsExecAllowlist(profile))
+      return { entries: this.remembered(id), exactOnly: true };
     const current = await this.read(this.approvals());
     return { entries: [...this.entries(profile, current?.file), ...this.remembered(id)] };
   }
@@ -149,18 +160,21 @@ export class ExecAllowlist {
   remove(id, entryId) {
     return this.a.admit(async () => {
       const profile = this.profile(id);
-      const approvals = this.approvals();
-      // A remembered command lives in AgentPier, not in the Gateway.
-      if (isRememberedId(entryId)) {
+      const runtimeList = keepsExecAllowlist(profile);
+      const approvals = runtimeList ? this.approvals() : null;
+      // A remembered command lives in AgentPier, not in the Gateway; a runtime
+      // without an allowlist has no other entry.
+      if (isRememberedId(entryId) || !runtimeList) {
         if (!rememberedCommands(this.a.store.db).remove(id, entryId))
           throw assistantProblem("allowlistEntryNotFound", 404);
         this.audit(id, entryId, 0);
         this.a.changed();
-        const current = await this.read(approvals);
+        const current = runtimeList ? await this.read(approvals) : null;
         return {
           removed: entryId,
           companions: [],
           entries: [...this.entries(profile, current?.file), ...this.remembered(id)],
+          ...(runtimeList ? {} : { exactOnly: true }),
         };
       }
       for (let attempt = 0; attempt < removeAttempts; attempt++) {
