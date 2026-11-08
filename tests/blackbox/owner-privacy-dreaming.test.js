@@ -5,6 +5,7 @@ import path from "node:path";
 import { as, chatFixture, userAgent } from "../helpers/user-chats.js";
 import { signedInUser } from "../helpers/users.js";
 import { notFoundBody } from "../../server/http/responses.js";
+import { openLive } from "../helpers/live-socket.js";
 
 // Owner decision P1: on a user's own agent, dreaming's notes (memory/dreaming/**) and
 // the Dream diary (DREAMS.md) never reach the owner while "Owner may read chats" is
@@ -156,4 +157,28 @@ test("under her opt-in the owner reads her dream notes and diary in full, read-o
     body: { name: "MEMORY.md", content: "x", expectedMissing: true },
   });
   assert.equal(write.status, 404);
+});
+
+test("the memory topic is refused for a user's own agent without her opt-in", async (t) => {
+  const { f, user, agent } = await annaWithDreams(t);
+  const topic = `agent.memory:${agent.id}`;
+  const subscribe = async () => {
+    const live = openLive(f);
+    await live.next((frame) => frame.type === "hello", 10000);
+    live.send({ op: "sub", topic });
+    return { live, first: await live.next((frame) => frame.topic === topic, 10000) };
+  };
+  const refused = await subscribe();
+  // Refused like an unknown topic: nothing tells that her agent has a memory.
+  assert.deepEqual(refused.first, { type: "error", topic, code: "unknown-topic" });
+  refused.live.ws.close();
+  assert.equal((await optIn(f, user.id, true)).status, 200);
+  const { live, first } = await subscribe();
+  assert.equal(first.type, "snapshot");
+  assert.equal(first.data.files[0].name, diary);
+  // Her opt-in ending takes the topic back.
+  assert.equal((await optIn(f, user.id, false)).status, 200);
+  const revoked = await live.next((frame) => frame.topic === topic, 10000);
+  assert.equal(revoked.type, "revoked");
+  live.ws.close();
 });

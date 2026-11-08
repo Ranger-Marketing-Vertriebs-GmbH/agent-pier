@@ -271,6 +271,8 @@ test("the agent detail topics name their routes at their former polls", () => {
     "agent.senders": ["/assistant-telegram-senders/a%2Fb", 5000, true],
     // Pushed by every change of the agent's SSH agent; the fallback polls slowly.
     "agent.ssh-agent": ["/assistants/a%2Fb/ssh-agent", 30000, false],
+    // Pushed by every recorded Hermes night; the fallback polls slowly.
+    "agent.memory": ["/assistants/a%2Fb/memory/files", 30000, false],
   };
   for (const [name, [path, interval, sampled]] of Object.entries(routes)) {
     const info = topicInfo(`${name}:a/b`);

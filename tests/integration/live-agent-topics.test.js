@@ -62,7 +62,7 @@ const reserve = (f, values = {}) =>
     ...values,
   });
 
-test("the seven agent detail topics are owner topics with an agent parameter", () => {
+test("the eight agent detail topics are owner topics with an agent parameter", () => {
   assert.deepEqual(AGENT_DETAIL_TOPICS, [
     "agent.actions",
     "agent.coding-requests",
@@ -71,7 +71,41 @@ test("the seven agent detail topics are owner topics with an agent parameter", (
     "agent.pinboard",
     "agent.senders",
     "agent.ssh-agent",
+    "agent.memory",
   ]);
+});
+
+test("the memory topic pushes when a night is recorded", { timeout }, async (t) => {
+  const f = await fixture(t);
+  const heron = f.service.store.createAssistant({
+    name: "Heron",
+    model: { connectionId: "c", modelId: "m" },
+    runtime: "hermes",
+    capabilities: { memory: true, reminders: false },
+  });
+  const topic = `agent.memory:${heron.id}`;
+  const { live, first } = await subscribe(f, topic);
+  assert.equal(first.type, "snapshot");
+  const path = `/api/assistants/${heron.id}/memory/files`;
+  assert.deepEqual(first.data, await json(f, path));
+  assert.deepEqual(first.data.files, []);
+  const dreams = f.service.hermesDreams;
+  dreams.store.append(heron.id, {
+    at: "2026-11-08T02:00:00.000Z",
+    night: "2026-11-08",
+    outcome: "applied",
+  });
+  // As HermesDreams#dream ends a recorded night.
+  dreams.onChange(heron.id);
+  const frame = await live.next((frame) => frame.topic === topic, 1000);
+  assert.deepEqual(frame.data.files[0], {
+    name: "DREAMS.md",
+    diary: true,
+    size: dreams.store.diary(heron.id).size,
+    modifiedAt: "2026-11-08T02:00:00.000Z",
+  });
+  assert.deepEqual(frame.data, await json(f, path));
+  live.ws.close();
 });
 
 test(
@@ -452,6 +486,7 @@ test("exactly the topics that read through owner privacy are reset by it", async
     "agent.channels",
     "agent.coding-requests",
     "agent.list",
+    "agent.memory",
     "agent.pinboard",
     "agent.reminders",
   ]);

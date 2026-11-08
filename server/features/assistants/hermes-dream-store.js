@@ -5,6 +5,10 @@
  * structured entries. The browser renders the entries in the reader's language; only
  * the model's summary keeps its own.
  */
+import { createHash } from "node:crypto";
+
+// The memory view shows the diary as `DREAMS.md`, like OpenClaw's Dream Diary.
+export const hermesDiaryName = "DREAMS.md";
 
 // The diary keeps its newest entries within this many bytes of entry text; what an
 // older entry took is counted in `pruned_bytes`, so the size stays the whole diary's.
@@ -129,4 +133,38 @@ export class HermesDreamStore {
       throw error;
     }
   }
+}
+
+/**
+ * Agent `id`'s diary as the memory view lists it, or null without an entry (or
+ * without the dream store, `store` undefined).
+ */
+export function diaryListing(store, id) {
+  const diary = store?.diary(id);
+  if (!diary?.entries.length) return null;
+  return {
+    name: hermesDiaryName,
+    diary: true,
+    size: diary.size,
+    modifiedAt: diary.modifiedAt,
+  };
+}
+
+/**
+ * Agent `id`'s diary as the memory view reads it: read-only entries (newest first),
+ * no text, hashed over the entries; `truncated` and the whole size once older
+ * entries were cut. Null without an entry.
+ */
+export function diaryNote(store, id) {
+  const diary = store?.diary(id);
+  if (!diary?.entries.length) return null;
+  return {
+    name: hermesDiaryName,
+    content: "",
+    entries: diary.entries,
+    missing: false,
+    readOnly: true,
+    hash: createHash("sha256").update(JSON.stringify(diary.entries)).digest("hex"),
+    ...(diary.truncated ? { truncated: true, size: diary.size } : {}),
+  };
 }
