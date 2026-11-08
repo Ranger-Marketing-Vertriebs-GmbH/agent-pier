@@ -100,7 +100,8 @@ function writeCopy(folder, prefix, content, { keep, now }) {
  * files port (`contents`: `{ "MEMORY.md": string|null, "USER.md": string|null }`),
  * into its backup folder as `MEMORY-<stamp>.md` and `USER-<stamp>.md`, keeping the
  * newest `keep` of each. A null content (a missing file) takes no copy. Returns the
- * written paths.
+ * written paths; throws (code "AGENT_ID_INVALID") for an agent id that names no
+ * folder, so the dream never writes without its copy.
  */
 export function backupHermesMemory(
   paths,
@@ -108,7 +109,8 @@ export function backupHermesMemory(
   contents,
   { keep = 7, now = new Date() } = {},
 ) {
-  if (!agentName.test(agent.runtimeAgentId)) return [];
+  if (!agentName.test(agent.runtimeAgentId))
+    throw Object.assign(new Error("Invalid agent id"), { code: "AGENT_ID_INVALID" });
   const folder = backupFolder(paths, agent);
   return ["MEMORY", "USER"]
     .filter((prefix) => typeof contents[`${prefix}.md`] === "string")

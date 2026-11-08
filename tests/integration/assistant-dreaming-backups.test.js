@@ -161,6 +161,22 @@ test("Hermes backups keep seven of each file", async (t) => {
   );
 });
 
+test("a Hermes backup for an agent id that names no folder throws", (t) => {
+  const f = fixture(t);
+  for (const runtimeAgentId of ["../escape", "", "a/b"])
+    assert.throws(
+      () =>
+        backupHermesMemory(
+          f.paths,
+          { runtimeAgentId },
+          { "MEMORY.md": "m", "USER.md": "u" },
+          { now: night(0) },
+        ),
+      { code: "AGENT_ID_INVALID" },
+    );
+  assert.equal(fs.existsSync(path.join(f.paths.root, "memory-backups")), false);
+});
+
 test("a missing or linked MEMORY.md takes no backup", async (t) => {
   const f = fixture(t);
   const missing = f.agent("Missing", null);

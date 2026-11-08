@@ -482,3 +482,24 @@ test("a turn AgentPier submitted is not read as a person's words", async (t) => 
   assert.match(heron.set.asks[0].input, /owner: I drink green tea every morning/);
   assert.doesNotMatch(heron.set.asks[0].input, /moved to Oslo/);
 });
+
+test("a backup that cannot be taken fails the night and writes nothing", async (t) => {
+  const f = fixture(t);
+  const heron = f.agent("Heron");
+  f.chat(heron, day);
+  // An id that names no backup folder, served by Heron's own set.
+  const broken = { ...heron, runtimeAgentId: "../escape" };
+  f.sets.set(broken.runtimeAgentId, heron.set);
+  const warn = t.mock.method(console, "warn", () => {});
+  const entry = await f.dreams.dream(broken, night);
+  assert.deepEqual(warn.mock.calls[0].arguments, [
+    "Hermes dream failed (read):",
+    "AGENT_ID_INVALID",
+  ]);
+  assert.equal(entry.outcome, "failed");
+  assert.equal(entry.reason, "unavailable");
+  assert.equal(heron.set.asks.length, 0);
+  assert.equal(heron.set.files["MEMORY.md"], "Lives in Berlin");
+  // The first night applied nothing: the next one reads the same chats again.
+  assert.equal(f.store.cursor(heron.id), before(24 * hourMs).getTime());
+});
