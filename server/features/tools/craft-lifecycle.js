@@ -84,13 +84,15 @@ async function installRequested(craft, requested) {
 
 /**
  * At a server start (`craft` is a CraftTool): sweeps interrupted installs while no job
- * runs, installs what the installer requested, brings an outdated install to the pins
- * unless it is in use, rewrites the config and the row (command, args, env) and syncs
- * the skill copies. Never throws.
+ * of Craft Anything or REA runs or is being claimed (both share the folders), installs
+ * what the installer requested, brings an outdated install to the pins unless it is in
+ * use, rewrites the config and the row (command, args, env) and syncs the skill
+ * copies. Never throws.
  */
 export async function startCraft(craft) {
   try {
-    if (!craft.job && !craft.claimed) sweepReaComponents(craft.root);
+    if (!craft.job && !craft.claimed && !craft.othersBusy())
+      sweepReaComponents(craft.root);
     const { requested } = craft.stored();
     if (requested) await installRequested(craft, requested);
     else if (craft.installed() && craft.outdated() && !(await craft.inUse())) {

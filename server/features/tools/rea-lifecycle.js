@@ -10,8 +10,9 @@ const messages = serverMessages.rea;
 
 /**
  * Removes REA (`rea` is a ReaTool): its row (and with it the package's skill copies),
- * `<data>/rea` and Ghidra and the JDK unless Craft Anything keeps or runs them. Works whatever is left, so a managed row of a
- * failed install or a restored backup goes too; refused while REA is in use.
+ * `<data>/rea` and Ghidra and the JDK unless Craft Anything keeps or runs them. Works
+ * whatever is left, so a managed row of a failed install or a restored backup goes
+ * too; refused while REA is in use.
  */
 export async function uninstallRea(rea, { source = "user" } = {}) {
   rea.requireIdle();
@@ -86,14 +87,15 @@ async function installRequested(rea, requested) {
 }
 
 /**
- * At a server start (`rea` is a ReaTool): sweeps interrupted installs while no REA job
- * runs or is being claimed, installs what the installer requested, brings an outdated
- * REA to the pins unless it is in use (then the next start tries again), points the
- * row env at the current Ghidra and JDK homes and syncs the skill copies. Never throws.
+ * At a server start (`rea` is a ReaTool): sweeps interrupted installs while no job of
+ * REA or Craft Anything runs or is being claimed (both share the folders), installs
+ * what the installer requested, brings an outdated REA to the pins unless it is in use
+ * (then the next start tries again), points the row env at the current Ghidra and JDK
+ * homes and syncs the skill copies. Never throws.
  */
 export async function startRea(rea) {
   try {
-    if (!rea.job && !rea.claimed) sweepReaComponents(rea.root);
+    if (!rea.job && !rea.claimed && !rea.othersBusy()) sweepReaComponents(rea.root);
     const { requested } = rea.stored();
     if (requested) await installRequested(rea, requested);
     else if (rea.installed() && rea.outdated() && !(await rea.inUse())) {
