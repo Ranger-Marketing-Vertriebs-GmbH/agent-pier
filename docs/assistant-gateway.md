@@ -4613,6 +4613,9 @@ Code Mode preferred model is offered the browser and receives the page text.
 
 ### Dreaming
 
+This section describes OpenClaw's dreaming; [Hermes agents](#dreaming-of-hermes-agents)
+dream by AgentPier's own one-shot call.
+
 OpenClaw's dreaming (memory-core's nightly sweep,
 `plugins.entries.memory-core.config.dreaming`) is one owner switch under **Agents › Runtime › Dreaming**: **Dream at night**, the hour (default
 03:00) and its time zone. Switching on adopts this device's zone; **Use my time zone**
@@ -4737,6 +4740,40 @@ which run this release's compiled configuration after a failed activation,
 the section is accepted, the managed job follows the switch and a live hour change
 without a restart, a sweep keeps each agent to its own chats, and a deleted chat leaves
 dreaming. See [memory qualification](assistant-memory-qualification.md#dreaming).
+
+#### Dreaming of Hermes agents
+
+The same owner switch (`DreamingSettings`) drives Hermes agents; Hermes has no sweep of
+its own, so `HermesDreams` (`hermes-dreams.js`, ticked by `DreamingBackups`) runs the
+night. It covers every non-archived Hermes agent with memory, users' own agents and
+temporary members included, at the dreaming hour in the dreaming time zone, and catches
+up a missed night within 6 hours. The memory lock of
+[Memory on for permanent agents](#dreaming) covers permanent Hermes agents too.
+
+- **One-shot.** `dreamOnce` (`hermes-dream.js`) reads `MEMORY.md` and `USER.md` through
+  the agent's files port (`hermesAgentFiles`), hands the contents to
+  `backupHermesMemory` (`dreaming-backups.js`: `MEMORY-*.md` and `USER-*.md` under
+  `assistants/memory-backups/<runtimeAgentId>/`, the last 7), and makes one `llm.oneshot`
+  (`sessions.reviewMemory`) on the agent's own model, without tools and outside any
+  session. The input (`hermes-dream-prompt.js`) is both files, the targets (80 % of each
+  limit, an instruction only) and the chats since the cursor (`hermes-dream-chats.js`)
+  within a budget of 60,000 characters a night, oldest first. Hermes fixes the request
+  timeout of that call at 60 s per model attempt (`run_oneshot`), so a model too slow for a
+  full answer fails the night.
+- **Guard.** `dreamGuard` (`hermes-dream-guard.js`) applies the answer only when every
+  `📌` entry of the start state is present word for word, after Hermes's trim, in the
+  same file and each file is within 10,000 / 5,000 characters. A leading `📌` in a new
+  text is stripped, so dreaming creates no pin. Otherwise nothing is written.
+- **Writes.** Files go through `set` over `expectedHash` or `expectedMissing`. A file that
+  changed during the dream reruns the night once against the new state, then postpones it.
+- **Cursor and store.** `HermesDreamStore` (`hermes-dream-store.js`, tables in
+  `dreaming.sqlite`) keeps per agent the cursor (the newest message the last applied night
+  read), the last night and the structured diary. Only an applied night moves the
+  cursor; a discarded, postponed or failed night leaves it. The diary keeps its newest
+  entries within 256 KiB. `GET /assistants/:id/memory/files` shows it first as `DREAMS.md`
+  (read only), under the same owner-content guard as the rest of the memory.
+- **Topic.** A recorded night signals `agent.memory:<id>` (`agentMemoryChanged`, see the
+  [Live channel](architecture.md#live-channel)).
 
 ## Work goals (2026-10-24, AGENTPIER-208)
 
