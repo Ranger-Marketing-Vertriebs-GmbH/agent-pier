@@ -74,7 +74,8 @@ test("New chat and Summarize now are offered only in an agent chat", async ({ pa
   await page.keyboard.press("Escape");
 
   await page.goto(baseURL + "/settings");
-  await expect(page.locator("#root *").first()).toBeVisible();
+  // The reload first shows the login check; the shortcut listens once the app is up.
+  await expect(page.locator(".sidebar")).toBeVisible();
   await search(page, "New chat");
   await expect(dialog(page)).toContainText("Nothing found");
   await expect(option(page, newChat)).toHaveCount(0);
