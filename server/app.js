@@ -316,9 +316,20 @@ export async function createApplication(config) {
       );
   });
   whenListening.push(() => stageToolchainsInBackground({ dataDir: config.dataDir }));
+  // Rebuilds interrupted by the last stop read paused, and what a crash left running
+  // ends, without waiting for Craft Anything's start (it may update for minutes).
+  whenListening.push(() => {
+    Promise.resolve()
+      .then(() => services.craftRebuilds?.restore())
+      .catch((error) =>
+        console.error(
+          `AgentPier could not restore Craft Anything rebuilds: ${error?.code || "unknown error"}`,
+        ),
+      );
+  });
   // Marks installs a restart interrupted as failed and prunes in the background.
   // REA's sweep and server-start update follow once the package records settled,
-  // then Craft Anything's; then rebuilds interrupted by the last stop read paused.
+  // then Craft Anything's.
   whenListening.push(() => {
     let started;
     try {
@@ -332,10 +343,9 @@ export async function createApplication(config) {
       .catch(() => {})
       .then(() => services.rea?.start())
       .then(() => services.craft?.start())
-      .then(() => services.craftRebuilds?.restore())
       .catch((error) =>
         console.error(
-          `AgentPier could not restore Craft Anything rebuilds: ${error?.code || "unknown error"}`,
+          `AgentPier could not start the managed tools: ${error?.code || "unknown error"}`,
         ),
       );
   });
