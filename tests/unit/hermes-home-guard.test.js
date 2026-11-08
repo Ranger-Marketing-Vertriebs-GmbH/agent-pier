@@ -53,6 +53,11 @@ const guard = (bridge, toolName, args) =>
     args,
   });
 const refused = { allow: false, message: homeRefusal };
+// The path with every folder below the data directory's parent in upper case.
+const upper = (file) => {
+  const base = path.dirname(path.dirname(file).split("/assistants/")[0]);
+  return base + file.slice(base.length).toUpperCase();
+};
 
 test("a shared agent reads nothing of its runtime folders, by any spelling", async (t) => {
   const { bridge, dataDir, hermesHome, home, cache } = guardBridge(t, {
@@ -75,6 +80,27 @@ test("a shared agent reads nothing of its runtime folders, by any spelling", asy
     ["search_files", { path: "/", pattern: "upload_" }],
     ["search_files", { path: dataDir }],
     ["search_files", { path: path.join(hermesHome, "cache") }],
+    // Another case of the same folders (APFS and other case-insensitive systems),
+    // existing or not, and Unicode forms that fold to them.
+    ["read_file", { path: upper(image) }],
+    ["search_files", { path: upper(path.join(hermesHome, "cache")), target: "files" }],
+    ["vision_analyze", { image_url: upper(path.join(cache, "missing.png")) }],
+    [
+      "read_file",
+      { path: path.join(hermesHome, "\u212Aey.txt").replace("hermes", "HERMES") },
+    ],
+    // file:// as Hermes reads it: the literal prefix dropped, then `~` and relative.
+    ["vision_analyze", { image_url: `FILE://${image}` }],
+    ["vision_analyze", { image_url: "file://~/../../state/ap-m1/cache/x.png" }],
+    [
+      "vision_analyze",
+      {
+        image_url:
+          "file://../../hermes/state/ap-m1/cache/documents/native-inputs/ab/upload_1.png",
+      },
+    ],
+    // Another account's home is never resolved here.
+    ["read_file", { path: "~root/x" }],
   ])
     assert.deepEqual(
       await guard(bridge, tool, args),
@@ -149,13 +175,29 @@ print(json.dumps(plugin._guard("read_file", json.loads(sys.argv[2]), session_id=
       ]);
       return JSON.parse(stdout);
     };
-    // A path that names no attachments/ still asks on a shared agent.
-    assert.deepEqual(await run(shared, { path: "/x/cache/images/u.png" }), {
-      action: "block",
-      message: homeRefusal,
-    });
-    assert.equal(seen.at(-1).toolName, "read_file");
+    // A path that leaves the work folder asks on a shared agent, whatever it names.
+    for (const leaving of [
+      { path: "/x/cache/images/u.png" },
+      { path: "~/x" },
+      { path: "../x" },
+      { path: "a/../../x" },
+      { path: "a\\..\\..\\x" },
+      { image_url: "file://x.png" },
+      { path: 7 },
+    ]) {
+      const before = seen.length;
+      assert.deepEqual(
+        await run(shared, leaving),
+        { action: "block", message: homeRefusal },
+        JSON.stringify(leaving),
+      );
+      assert.equal(seen.length, before + 1);
+      assert.equal(seen.at(-1).toolName, "read_file");
+    }
+    // A plain relative read stays in the work folder and needs no bridge.
     const before = seen.length;
+    for (const inside of [{ path: "notes.md" }, { path: "src/a..b.md" }, {}])
+      assert.equal(await run(shared, inside), null, JSON.stringify(inside));
     assert.equal(await run(profile(), { path: "/x/cache/images/u.png" }), null);
     assert.equal(seen.length, before);
   },

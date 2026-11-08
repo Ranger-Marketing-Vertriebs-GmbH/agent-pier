@@ -210,10 +210,22 @@ On an agent shared with users each chat is private to its person, but these cach
 hold every chat's images. Its file and vision tools therefore read nothing in its
 `HERMES_HOME` or its `HOME`, and search no folder that holds them: the team plugin
 asks the bridge before every `read_file`, `search_files` and `vision_analyze` of such
-an agent (`privateFolders` in `tools.json`), and `hermes-home-guard.js` refuses
-those. An OpenClaw agent reads only its workspace (`tools.fs.workspaceOnly`). An agent
-not shared with users serves only the owner's chats, which may read each other's
-attachments on OpenClaw too, so its reads stay Hermes's own.
+an agent (`privateFolders` in `tools.json`) whose path may leave its work folder, and
+`hermes-home-guard.js` refuses those. A plain relative path without `..` stays in the
+work folder (its file tools make no links), so it needs no bridge call; an absolute
+path, `~`, `..`, `file://` or another scheme asks. The guard resolves a path as Hermes
+does (a literal `file://` prefix dropped, `~` the agent's `HOME`, a relative path from
+the work folder) and compares it as the file system does: the nearest existing folder
+as the system spells it (`realpath.native`, links followed), then case-folded, as the
+attachments rule does, since macOS's file system ignores case. It refuses `~name` and
+fails closed when the agent's folders are unknown or the bridge does not answer, so
+such an agent cannot read files in its `HOME` either (`~/.gitconfig`). An OpenClaw
+agent reads only its workspace (`tools.fs.workspaceOnly`). An agent not shared with
+users serves only the owner's chats, which may read each other's attachments on
+OpenClaw too, so its reads stay Hermes's own. Not covered yet: a `search_files` of
+the work folder itself still searches `attachments/` of every chat (as before),
+and Hermes's `video_analyze` (the `video` toolset, which AgentPier never turns on)
+would need the same guard.
 
 ### Web search
 
