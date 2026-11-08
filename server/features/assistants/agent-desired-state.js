@@ -12,7 +12,7 @@ import {
 } from "./native-capabilities.js";
 import { compiledSkillNames } from "./built-in-skills.js";
 import { agentProfileName } from "./browser-profile-names.js";
-import { isUserAgent } from "../users/user-access.js";
+import { isShared, isUserAgent } from "../users/user-access.js";
 import { mcpEligible } from "../mcp-servers/mcp-inputs.js";
 import { stdioAgents, telegramEligible } from "../assistant-channels/telegram-inputs.js";
 
@@ -74,6 +74,8 @@ export function desiredAgent(
     inherits,
     // A user agent under the hard lock (user-agent-lock.js).
     locked: isUserAgent(profile),
+    // Shared with users: each chat is private to its person (attachment-access.js).
+    shared: isShared(profile),
     team: {
       memberOf: profile.teamMemberId ?? null,
       permanent: profile.lifetime === "permanent",

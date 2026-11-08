@@ -172,6 +172,12 @@ export const agentWorkspace = (supervisor, agent) =>
     ? hermesFleetOf(supervisor).workspaceOf(agent)
     : null;
 
+/** The private folders of a Hermes agent outside its work folder (hermes-fleet.js). */
+export const agentPrivateFolders = (supervisor, agent) =>
+  ownProcess(agent) && supervisor && typeof supervisor === "object"
+    ? hermesFleetOf(supervisor).privateFoldersOf(agent)
+    : null;
+
 /** Whether `agent` runs on its own process set (Hermes) rather than the shared host. */
 export const ownProcess = (agent) => runtimeIdOf(agent) === "hermes";
 

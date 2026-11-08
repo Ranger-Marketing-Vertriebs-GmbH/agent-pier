@@ -15,6 +15,7 @@ import { managedRefusal } from "./team-plugin/managed-folder.js";
 import { namesSecrets, secretsRefusal } from "./team-plugin/secrets-guard.js";
 import { secretsPolicy } from "./agent-hook-bridge.js";
 import { agentWorkspace, runtimeIdOf } from "./runtimes/runtime-for.js";
+import { privateFolderRefusal } from "./hermes-home-guard.js";
 
 // The OpenClaw tool each Hermes file tool corresponds to for the write rule
 // (tool-guard.js writeTools): write_file writes a file, patch edits one, and its V4A
@@ -284,6 +285,10 @@ export async function hermesGuard(bridge, input) {
   if (input.toolName === "image_generate") return imageGuard(bridge, input, agent, args);
   if (input.toolName === "pdf") return pdfGuard(bridge, input, agent, args);
   const read = readCall(input.toolName, args);
+  // A shared agent's reads stay out of its runtime folders (hermes-home-guard.js).
+  const own =
+    read && privateFolderRefusal(bridge.assistants.runtime, agent, input.toolName, args);
+  if (own) return deny(own);
   const call = writeCall(input.toolName, args);
   const refusal = await folderRefusal(bridge, input, agent, read || call || {});
   if ((read || call) && refusal) return deny(refusal);
