@@ -120,6 +120,7 @@ import { modelsRoutes } from "./http/routes/models.js";
 import { toolsRoutes } from "./http/routes/tools.js";
 import { reaRoutes } from "./http/routes/rea.js";
 import { craftRoutes } from "./http/routes/craft-anything.js";
+import { craftRebuildsRoutes } from "./http/routes/craft-rebuilds.js";
 import { agentbusRoutes } from "./http/routes/agentbus.js";
 import {
   detectNetworkAddresses,
@@ -317,7 +318,7 @@ export async function createApplication(config) {
   whenListening.push(() => stageToolchainsInBackground({ dataDir: config.dataDir }));
   // Marks installs a restart interrupted as failed and prunes in the background.
   // REA's sweep and server-start update follow once the package records settled,
-  // then Craft Anything's.
+  // then Craft Anything's; then rebuilds interrupted by the last stop read paused.
   whenListening.push(() => {
     let started;
     try {
@@ -330,7 +331,13 @@ export async function createApplication(config) {
     Promise.resolve(started)
       .catch(() => {})
       .then(() => services.rea?.start())
-      .then(() => services.craft?.start());
+      .then(() => services.craft?.start())
+      .then(() => services.craftRebuilds?.restore())
+      .catch((error) =>
+        console.error(
+          `AgentPier could not restore Craft Anything rebuilds: ${error?.code || "unknown error"}`,
+        ),
+      );
   });
   whenListening.push(() => {
     const report = (error) =>
@@ -452,6 +459,7 @@ export async function createApplication(config) {
   mount(toolsRoutes(services));
   mount(reaRoutes(services));
   mount(craftRoutes(services));
+  mount(craftRebuildsRoutes(services));
   mount(agentbusRoutes(services));
   mount(providerRoutes(services));
   mount(providerConnectionRoutes(services));

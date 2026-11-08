@@ -182,7 +182,8 @@ test("joinManagedTools joins the Ghidra hooks both ways and signals each topic",
   craft.job = null;
   rea.onChange();
   craft.onChange();
-  assert.deepEqual(signals, ["job.rea", "job.craft-anything"]);
+  // Craft Anything's install state is part of the rebuild list too.
+  assert.deepEqual(signals, ["job.rea", "job.craft-anything", "craft.rebuilds"]);
 });
 
 test("the end of one tool's job brings the other's environment in line", async () => {
@@ -230,7 +231,12 @@ test("the end of one tool's job brings the other's environment in line", async (
   alone.onChange();
   alone.job = null;
   alone.onChange();
-  assert.deepEqual(signals, ["job.craft-anything", "job.craft-anything"]);
+  assert.deepEqual(signals, [
+    "job.craft-anything",
+    "craft.rebuilds",
+    "job.craft-anything",
+    "craft.rebuilds",
+  ]);
 });
 
 test("managedBindingsChanged tells both tools in turn", async () => {

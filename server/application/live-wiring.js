@@ -21,6 +21,7 @@ import {
   releaseSessionsTopic,
 } from "../features/operations/live-topics.js";
 import { defineToolJobTopics } from "../features/tools/live-topics.js";
+import { craftRebuildTopic, craftRebuildsTopic } from "../features/craft/live-topics.js";
 import { defineJobTopic } from "../features/live/job-topics.js";
 import { mcpPackageJob } from "../features/mcp-packages/live-topics.js";
 import { pluginsJob } from "../features/plugins/live-topics.js";
@@ -108,6 +109,8 @@ export function createLiveHub(services, options = {}) {
   for (const topic of agentDetailTopics(services)) hub.define(topic);
   defineJobTopic(hub, operationJob(services));
   defineToolJobTopics(hub, services);
+  hub.define(craftRebuildsTopic(services));
+  hub.define(craftRebuildTopic(services));
   defineJobTopic(hub, mcpPackageJob(services));
   defineJobTopic(hub, pluginsJob(services));
   defineJobTopic(hub, sshToolsJob(services));

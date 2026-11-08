@@ -63,6 +63,8 @@ export class CraftRebuilds {
     const saved = this.store.load();
     this.saved = saved.settings;
     this.records = new Map(saved.records.map((item) => [item.id, item]));
+    // The records of the previous server, which restore() reads paused or failed.
+    this.unrestored = new Set(this.records.keys());
     this.listeners = new Set();
     this.chains = new Map();
     this.starting = new Map();
@@ -100,6 +102,14 @@ export class CraftRebuilds {
   onChange(listener) {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
+  }
+
+  /** The Claude accounts a rebuild may use: `[{ id, name }]`. */
+  eligibleAccounts() {
+    return this.accounts
+      .list()
+      .filter((account) => this.preferences.eligible(account, "claude"))
+      .map(({ id, name }) => ({ id, name }));
   }
 
   /** The owner's defaults, with the account that new rebuilds actually use. */
@@ -329,19 +339,24 @@ export class CraftRebuilds {
   // --- Server lifetime --------------------------------------------------------------
 
   /**
-   * Server start: nothing restarts on its own. A build
-   * that ran when AgentPier stopped reads paused; one whose start never reached Craft
-   * Anything reads failed.
+   * Server start: nothing restarts on its own. A build that ran when AgentPier stopped
+   * reads paused; one whose start never reached Craft Anything reads failed. Rebuilds
+   * this server started before restore() runs are left alone.
    */
   async restore() {
     let changed = false;
-    for (const record of this.records.values()) {
-      if (!record.running && !activeStatuses.has(record.status)) continue;
+    for (const id of this.unrestored) {
+      const record = this.records.get(id);
+      if (!record || (!record.running && !activeStatuses.has(record.status))) continue;
       record.running = false;
       record.status = record.craftProject ? "paused" : "failed";
+      record.updatedAt = this.now().toISOString();
       changed = true;
     }
-    if (changed) this.persist();
+    this.unrestored.clear();
+    if (!changed) return;
+    this.persist();
+    this.emit({ list: true });
   }
 
   /** Stops every build and child; the interrupted rebuilds read paused. */
@@ -362,6 +377,7 @@ export class CraftRebuilds {
 
   /** After a start, follow-up or resume: question mode, a first sample, the sampler. */
   async launched(record) {
+    this.unrestored.delete(record.id);
     this.update(record, { running: true });
     await this.setQuestions(record).catch((error) =>
       logFailure("set a rebuild's question mode", error),

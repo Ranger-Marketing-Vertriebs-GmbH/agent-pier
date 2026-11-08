@@ -1,5 +1,6 @@
 import { CraftTool } from "../features/tools/craft-tool.js";
 import { craftJobChanged, reaJobChanged } from "../features/tools/live-topics.js";
+import { craftRebuildsChanged } from "../features/craft/live-topics.js";
 import { createReaTool, managedRowInUse } from "./rea-wiring.js";
 
 /**
@@ -74,7 +75,12 @@ export function joinManagedTools({ rea, craft, live }) {
     join(craft, rea);
   }
   if (rea) rea.onChange = followJobs(rea, () => reaJobChanged(live()), craft);
-  if (craft) craft.onChange = followJobs(craft, () => craftJobChanged(live()), rea);
+  // Craft Anything's install state is part of the rebuild list (`installed`).
+  const craftChanged = () => {
+    craftJobChanged(live());
+    craftRebuildsChanged(live());
+  };
+  if (craft) craft.onChange = followJobs(craft, craftChanged, rea);
 }
 
 /** REA and Craft Anything, joined; both null without the MCP server store. */

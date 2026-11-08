@@ -84,6 +84,18 @@ export const liveTopics = Object.freeze({
     path: (id) => `/tickets/projects/${encodeURIComponent(id)}/rules`,
     interval: 30000,
   }),
+  // Craft Anything rebuilds (server/features/craft/live-topics.js): the list with the
+  // defaults, accounts and stacks, and one rebuild (`{ rebuild }`), pushed per change.
+  "craft.rebuilds": Object.freeze({
+    mode: "state",
+    path: () => "/craft/rebuilds",
+    interval: 5000,
+  }),
+  "craft.rebuild": Object.freeze({
+    mode: "state",
+    path: under("/craft/rebuilds"),
+    interval: 5000,
+  }),
   "pipeline.run": Object.freeze({
     mode: "state",
     path: under("/pipeline-runs"),
