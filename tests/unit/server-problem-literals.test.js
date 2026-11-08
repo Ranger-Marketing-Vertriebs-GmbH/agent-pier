@@ -139,6 +139,16 @@ const untranslated = new Map(
       "Official Node runtime license is missing.",
       "Invalid extracted Node runtime.",
     ],
+    // Craft Anything's MCP client: diagnostic evidence of the child, shown only as the
+    // detail of the translated craft.rebuildUnavailable message.
+    "server/features/craft/craft-mcp-client.js": [
+      "Craft Anything does not offer rebuild_start; it needs --all-tools --allow-run.",
+      "Craft Anything was closed.",
+      "Craft Anything exited unexpectedly.",
+      "Craft Anything is not running.",
+      "Craft Anything did not answer ${method}.",
+      "Craft Anything answered with an error.",
+    ],
     // Only MCP machine tokens receive this answer.
     "server/http/security.js": ["Machine tokens are accepted only at the MCP endpoint."],
     // SSH command helper for coding agents; agents always read English.
