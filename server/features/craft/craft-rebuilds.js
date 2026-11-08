@@ -340,10 +340,12 @@ export class CraftRebuilds {
       try {
         await this.call(record, "project_inbox_answer", { id: questionId, ...answer });
       } catch (error) {
-        if (/not_found$/.test(String(error.code))) {
-          await this.sample(record).catch(() => {});
+        // A refused answer reads the rebuild again: a question Craft Anything no longer
+        // lists (unknown, or left behind by a paused build) is gone for the owner too.
+        await this.sample(record).catch(() => {});
+        const listed = record.questions.some((q) => q.id === questionId);
+        if (!listed || /not_found$/.test(String(error.code)))
           throw refuse(messages.rebuildQuestionGone);
-        }
         throw error;
       }
       await this.sample(record);

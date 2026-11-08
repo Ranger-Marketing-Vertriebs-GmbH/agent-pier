@@ -35,6 +35,10 @@
  *     "slowTools": { "rebuild_status": 5000 },  // answer these tools late (ms)
  *     "emptyTools": ["rebuild_start"],  // run these, then answer { result: {} }
  *     "silentInit": true,               // never answer initialize
+ *     "staleAfterResume": true,         // a resume re-asks each open question under a
+ *                                       // new id and keeps the old one listed (as
+ *                                       // 0.5.0 does); answering an old one drops it
+ *                                       // and fails with question_stale
  *     "ignoreStdinClose": true          // keep running when stdin closes
  *   }
  * Without steps a build runs until rebuild_stop. A question waits for
@@ -312,6 +316,19 @@ const tools = {
         // Like Craft Anything 0.5.0, which refuses a resume without the request.
         if (!args.request)
           throw new ToolError("invalid_arguments", "missing field `request`.");
+        if (script.staleAfterResume)
+          update(entry, (r) => {
+            for (const question of [...r.questions]) {
+              if (question.stale) continue;
+              question.stale = true;
+              r.questions_asked += 1;
+              r.questions.push({
+                ...question,
+                id: `q${r.questions_asked}`,
+                stale: false,
+              });
+            }
+          });
         startRound(entry, { resume: true });
         activity(entry, "Resumed");
       } else {
@@ -393,6 +410,10 @@ const tools = {
     const question = record.questions.find((q) => q.id === id);
     if (!question)
       throw new ToolError("question_not_found", `No open question ${id} in ${name}.`);
+    if (question.stale) {
+      update(entry, (r) => (r.questions = r.questions.filter((q) => q.id !== id)));
+      throw new ToolError("question_stale", `${id} was asked by a build that stopped.`);
+    }
     const answer =
       question.kind === "approval"
         ? allow
