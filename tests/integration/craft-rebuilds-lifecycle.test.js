@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
+import path from "node:path";
 import {
   exists,
   fakeTimers,
@@ -65,4 +66,82 @@ test("a rebuild keeps the project its folder has after git init", async (t) => {
   assert.equal(again.id, view.projectId);
   assert.equal(f.projects.length, 1);
   assert.equal(f.create().get(view.id).projectId, again.id, "the stored record too");
+});
+
+const childrenFile = (f) => path.join(f.dataDir, "craft-rebuilds", "children.json");
+const rebuildsFile = (f) => path.join(f.dataDir, "craft-rebuilds", "rebuilds.json");
+
+test("after a crash, restore ends the children and builders left running", async (t) => {
+  const f = rebuildsFixture(t);
+  const view = await f.rebuilds.start({ request: "Crash" });
+  const builder = f.craftRecord(view).fake_builder.pid;
+  const child = f.clients[0].pid;
+  const recorded = JSON.parse(fs.readFileSync(childrenFile(f), "utf8")).children;
+  const groups = recorded[String(child)];
+  assert.ok(groups[String(child)], "the child's own group is recorded");
+  assert.ok(
+    Object.values(groups).some((members) => members.some((m) => m.pid === builder)),
+    "the builder's group is recorded",
+  );
+  // A crash: the next server starts while the old processes still run.
+  const next = f.create();
+  assert.equal(next.get(view.id).status, "building");
+  await next.restore();
+  assert.ok(await until(() => !exists(builder) && !exists(child)));
+  assert.equal(next.get(view.id).status, "paused");
+});
+
+test("a clean close forgets the children's processes", async (t) => {
+  const f = rebuildsFixture(t);
+  await f.rebuilds.start({ request: "Clean" });
+  await f.rebuilds.close();
+  assert.deepEqual(JSON.parse(fs.readFileSync(childrenFile(f), "utf8")).children, {});
+});
+
+test("restore leaves a process alone whose pid or group was reused", async (t) => {
+  const f = rebuildsFixture(t);
+  const other = spawn("/bin/sh", ["-c", "sleep 30"], { detached: true, stdio: "ignore" });
+  t.after(() => {
+    try {
+      process.kill(-other.pid, "SIGKILL");
+    } catch {
+      // Gone already.
+    }
+  });
+  fs.mkdirSync(path.dirname(childrenFile(f)), { recursive: true });
+  const write = (command) =>
+    fs.writeFileSync(
+      childrenFile(f),
+      JSON.stringify({
+        version: 1,
+        children: { 1: { [other.pid]: [{ pid: other.pid, command }] } },
+      }),
+    );
+  write("/opt/craft-anything-cli mcp --all-tools --allow-run --clean-room");
+  await f.create().restore();
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  assert.equal(exists(other.pid), true, "another command keeps running");
+  write(
+    execFileSync("ps", ["-o", "command=", "-p", String(other.pid)], {
+      encoding: "utf8",
+    }).trim(),
+  );
+  await f.create().restore();
+  assert.ok(await until(() => !exists(other.pid)), "the recorded command is ended");
+});
+
+test("a child a view started before restore idles out after it", async (t) => {
+  const timers = fakeTimers();
+  const f = rebuildsFixture(t, { timers });
+  const view = await f.rebuilds.start({ request: "Viewed" });
+  const crashed = fs.readFileSync(rebuildsFile(f), "utf8");
+  await f.rebuilds.close();
+  fs.writeFileSync(rebuildsFile(f), crashed);
+  const next = f.create();
+  await next.activity(view.id);
+  const client = f.clients.at(-1);
+  await next.restore();
+  assert.equal(next.get(view.id).status, "paused");
+  timers.advance(60000);
+  assert.ok(await until(() => !client.alive));
 });

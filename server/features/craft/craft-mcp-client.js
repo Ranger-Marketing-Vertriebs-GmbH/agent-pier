@@ -22,25 +22,47 @@ const signalGroup = (pgid, signal) => {
   }
 };
 
-/** Every process as `{ pid, ppid, pgid }`; empty when ps cannot run. */
-function processTable() {
+/** Every process as `{ pid, ppid, pgid, command }`; empty when ps cannot run. */
+export function processTable() {
   return new Promise((resolve) => {
     execFile(
       "ps",
-      ["-eo", "pid=,ppid=,pgid="],
-      { timeout: 1000, maxBuffer: 4 * 1024 * 1024 },
+      ["-eo", "pid=,ppid=,pgid=,command="],
+      { timeout: 1000, maxBuffer: 8 * 1024 * 1024 },
       (error, stdout) => {
         if (error) return resolve([]);
-        resolve(
-          stdout
-            .split("\n")
-            .map((line) => line.trim().split(/\s+/).map(Number))
-            .filter((row) => row.length === 3 && row.every(Number.isInteger))
-            .map(([pid, ppid, pgid]) => ({ pid, ppid, pgid })),
-        );
+        const rows = [];
+        for (const line of stdout.split("\n")) {
+          const match = /^\s*(\d+)\s+(\d+)\s+(\d+)\s?(.*)$/.exec(line);
+          if (!match) continue;
+          const [pid, ppid, pgid] = match.slice(1, 4).map(Number);
+          rows.push({ pid, ppid, pgid, command: match[4].trim() });
+        }
+        resolve(rows);
       },
     );
   });
+}
+
+/**
+ * SIGKILLs each group of `groups` (pgid → pids) that `table` shows still holding one
+ * of those pids, so a group number reused by an unrelated process is left alone.
+ * `commands` (pid → command line), when given, must match too. Returns the pgids
+ * killed.
+ */
+export function killRecordedGroups(table, groups, { killable, commands } = {}) {
+  const killed = [];
+  for (const [pgid, pids] of groups) {
+    if (killable && !killable(pgid)) continue;
+    const known = table.some(
+      (row) =>
+        row.pgid === pgid &&
+        pids.has(row.pid) &&
+        (!commands || commands.get(row.pid) === row.command),
+    );
+    if (known && signalGroup(pgid, "SIGKILL")) killed.push(pgid);
+  }
+  return killed;
 }
 
 /**
@@ -68,7 +90,9 @@ export class CraftMcpClient {
   /**
    * Spawns the server, initializes it and checks that it offers `rebuild_start`.
    * `onSpawn(client)` hears the client as soon as the child runs, before initialize,
-   * so a caller can close a child that never finishes it.
+   * so a caller can close a child that never finishes it. `track.record(client)`
+   * hears each change of the recorded process groups, `track.forget(client)` the end
+   * of close() (rebuild-processes.js keeps them across a crash).
    */
   static async start({
     command,
@@ -78,6 +102,7 @@ export class CraftMcpClient {
     spawnImpl = spawn,
     timeoutMs,
     onSpawn,
+    track,
   }) {
     const child = spawnImpl(command, args, {
       cwd,
@@ -85,9 +110,10 @@ export class CraftMcpClient {
       detached: true,
       stdio: ["pipe", "pipe", "pipe"],
     });
-    const client = new CraftMcpClient(child);
+    const client = new CraftMcpClient(child, { track });
     onSpawn?.(client);
     try {
+      await client.snapshot();
       await client.initialize({ timeoutMs });
     } catch (failed) {
       await client.close();
@@ -99,8 +125,9 @@ export class CraftMcpClient {
     return client;
   }
 
-  constructor(child) {
+  constructor(child, { track } = {}) {
     this.child = child;
+    this.track = track;
     this.nextId = 1;
     this.pending = new Map();
     this.listeners = new Set();
@@ -110,6 +137,8 @@ export class CraftMcpClient {
     this.exited = false;
     // pgid → pids seen in that group below the child; only these are ever killed.
     this.groups = new Map();
+    // pid → its command line when last seen, for a later server's check (restore).
+    this.commands = new Map();
     this.ownGroup = null;
     this.exit = new Promise((resolve) => {
       const done = (code, signal) => {
@@ -233,6 +262,7 @@ export class CraftMcpClient {
       if (running && this.child.pid) signalGroup(this.child.pid, "SIGKILL");
       await this.killDescendants();
       this.rejectPending(failure("CRAFT_MCP_CLOSED", "Craft Anything was closed."));
+      this.track?.forget(this);
     })();
     return this.closed;
   }
@@ -252,13 +282,29 @@ export class CraftMcpClient {
     }
     // The child's own group is recorded too: its plain children stay in it.
     const queue = table.filter((row) => row.pid === root);
+    let changed = false;
     while (queue.length) {
       const row = queue.shift();
       queue.push(...(children.get(row.pid) ?? []));
       if (!this.killable(row.pgid)) continue;
       if (!this.groups.has(row.pgid)) this.groups.set(row.pgid, new Set());
-      this.groups.get(row.pgid).add(row.pid);
+      const pids = this.groups.get(row.pgid);
+      if (!pids.has(row.pid) || this.commands.get(row.pid) !== row.command)
+        changed = true;
+      pids.add(row.pid);
+      this.commands.set(row.pid, row.command);
     }
+    if (changed) this.track?.record(this);
+  }
+
+  /** The recorded groups as `{ pgid: [{ pid, command }] }` (JSON). */
+  processGroups() {
+    return Object.fromEntries(
+      [...this.groups].map(([pgid, pids]) => [
+        pgid,
+        [...pids].map((pid) => ({ pid, command: this.commands.get(pid) ?? "" })),
+      ]),
+    );
   }
 
   killable(pgid) {
@@ -274,16 +320,8 @@ export class CraftMcpClient {
   async killDescendants() {
     if (!this.groups.size) return;
     const table = await processTable();
-    for (const [pgid, pids] of this.groups) {
-      const members = table.filter((row) => row.pgid === pgid);
-      if (!members.length) {
-        this.groups.delete(pgid);
-        continue;
-      }
-      if (this.killable(pgid) && members.some((row) => pids.has(row.pid)))
-        signalGroup(pgid, "SIGKILL");
-      this.groups.delete(pgid);
-    }
+    killRecordedGroups(table, this.groups, { killable: (pgid) => this.killable(pgid) });
+    this.groups.clear();
   }
 
   handleExit(code, signal) {
