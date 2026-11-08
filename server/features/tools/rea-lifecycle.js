@@ -23,6 +23,7 @@ export async function uninstallRea(rea, { source = "user" } = {}) {
   rea.status = "running";
   rea.message = "";
   try {
+    await rea.syncing;
     const id = rea.serverId();
     rea.progress("core", messages.removing("REA Core"));
     if (id) {

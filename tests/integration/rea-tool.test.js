@@ -540,3 +540,29 @@ test("a fault reading REA degrades only REA's utility row", async (t) => {
   assert.equal(row.installed, false);
   assert.equal(row.status, "failed");
 });
+
+test("overlapping environment syncs and an apply do not race on REA's row", async (t) => {
+  const f = await reaFixture(t);
+  const rea = await f.tool();
+  const { serverId } = await f.install(rea);
+  // An agent dropped a managed env key: every sync has something to patch.
+  await f.s.changes.update(
+    serverId,
+    { revision: f.s.servers.get(serverId).revision, env: { GHIDRA_INSTALL_DIR: null } },
+    { confirmStdio: true },
+  );
+  // Saving goes through the agents' gateway in production: it takes a while.
+  const save = f.s.changes.update.bind(f.s.changes);
+  f.s.changes.update = async (...args) => {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    return save(...args);
+  };
+  const syncs = [rea.syncEnvironment(), rea.syncEnvironment()];
+  await rea.apply({ settings: { hopperPath: "/Applications/Hopper.app/hopper" } });
+  await Promise.all(syncs);
+  await rea.settled();
+  assert.equal(rea.state().status, "succeeded", rea.state().message);
+  const env = f.s.servers.envValues(serverId);
+  assert.equal(env.HOPPER_LAUNCHER_PATH, "/Applications/Hopper.app/hopper");
+  assert.ok(env.GHIDRA_INSTALL_DIR);
+});

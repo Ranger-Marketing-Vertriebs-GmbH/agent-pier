@@ -22,6 +22,7 @@ export async function uninstallCraft(craft, { source = "user" } = {}) {
   craft.status = "running";
   craft.message = "";
   try {
+    await craft.syncing;
     const id = craft.serverId();
     craft.progress("core", messages.removing("Craft Anything"));
     if (id) {

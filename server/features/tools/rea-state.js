@@ -61,3 +61,21 @@ export const failureText = (error, fallback = serverMessages.rea.failed) =>
   typeof error?.status === "number" && messageIdentity(error.message).messageKey
     ? error.message
     : fallback;
+
+/**
+ * Runs a managed tool's environment sync `work` after its earlier ones, so two never
+ * patch the row from the same revision; a job awaits `tool.syncing` (never rejects)
+ * before it changes the row.
+ */
+export function queueSync(tool, work) {
+  const run = Promise.resolve(tool.syncing).then(work);
+  const tail = run.then(
+    () => {},
+    () => {},
+  );
+  tool.syncing = tail;
+  void tail.then(() => {
+    if (tool.syncing === tail) tool.syncing = null;
+  });
+  return run;
+}
