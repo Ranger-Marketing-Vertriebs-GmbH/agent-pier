@@ -100,7 +100,7 @@ test("refuses a config dir that is a link", () => {
   assert.equal(fs.existsSync(path.join(target, "config.toml")), false);
 });
 
-test("the rebuilds' config names Claude Code as the builder and keeps an existing entry", () => {
+test("the rebuilds' config names Claude Code as the builder and switches an existing entry on", () => {
   const dir = temp();
   writeCraftConfig(dir, { ghidra, jdk, stub: "/stub", builder: true });
   assert.deepEqual(JSON.parse(JSON.stringify(read(dir).ai.backends)), [
@@ -112,7 +112,9 @@ test("the rebuilds' config names Claude Code as the builder and keeps an existin
     '[[ai.backends]]\nenabled = false\nkind = "agent_cli"\nmodel = "claude-code"\nname = "Mine"\n',
   );
   writeCraftConfig(dir, { ghidra, jdk, stub: "/stub", builder: true });
-  assert.deepEqual(JSON.parse(JSON.stringify(read(dir).ai.backends)), [mine]);
+  assert.deepEqual(JSON.parse(JSON.stringify(read(dir).ai.backends)), [
+    { ...mine, enabled: true },
+  ]);
   const plain = temp();
   writeCraftConfig(plain, { ghidra, jdk, stub: "/stub" });
   assert.equal("ai" in read(plain), false);
