@@ -241,23 +241,58 @@ test("changed rows reset a selection that is not editing", () => {
   assert.equal(rowsChanged(initialSelection, rows), initialSelection);
 });
 
-test("a review opens files while their first pages fit the budget, and every commented one", () => {
-  const file = (path, rows) => ({ path, rows: Array.from({ length: rows }, () => ({})) });
-  // a small diff opens whole
-  assert.deepEqual([...openByDefault([file("a", 3), file("b", 5)])], ["a", "b"]);
-  // the first file always opens, counted as one page however long it is
-  const huge = [file("big", 5000), file("next", 1)];
-  assert.ok(openByDefault(huge).has("big"));
-  assert.equal(openByDefault(huge).has("next"), OPEN_ROW_BUDGET - ROW_PAGE >= 1);
-  // past the budget files stay collapsed, in order, even small ones after a large one
-  const many = Array.from({ length: 300 }, (_, i) => file(`f${i}`, 60));
-  const open = openByDefault(many);
-  assert.equal(open.size, Math.floor(OPEN_ROW_BUDGET / 60));
-  assert.ok(open.has("f0") && !open.has("f299"));
+const sized = (path, rows) => ({ path, rows: Array.from({ length: rows }, () => ({})) });
+const noted = (...paths) => new Map(paths.map((path) => [path, {}]));
+
+test("a review opens files while their first pages fit the budget", () => {
   assert.equal(OPEN_ROW_BUDGET, 1200);
-  const blocked = [file("a", 900), file("b", 400), file("c", 300), file("d", 400)];
-  assert.deepEqual([...openByDefault([...blocked, file("e", 1)])], ["a", "b", "c"]);
-  // a file with comments opens wherever it is
-  const commented = new Map([["f299", { placed: [], outdated: [] }]]);
-  assert.ok(openByDefault(many, commented).has("f299"));
+  assert.equal(ROW_PAGE, 400);
+  // a small diff opens whole
+  assert.deepEqual([...openByDefault([sized("a", 3), sized("b", 5)])], ["a", "b"]);
+  // the first file always opens, counted as one page however long it is
+  const huge = [sized("big", 5000), sized("next", 1)];
+  assert.deepEqual([...openByDefault(huge)], ["big", "next"]);
+  // past the budget files stay collapsed, in order, even small ones after a large one
+  const many = Array.from({ length: 300 }, (_, i) => sized(`f${i}`, 60));
+  const open = openByDefault(many);
+  assert.equal(open.size, 20);
+  assert.ok(open.has("f19") && !open.has("f20"));
+  const blocked = [sized("a", 900), sized("b", 400), sized("c", 300), sized("d", 400)];
+  assert.deepEqual([...openByDefault([...blocked, sized("e", 1)])], ["a", "b", "c"]);
+});
+
+test("commented files open in order within a second budget", () => {
+  const many = Array.from({ length: 300 }, (_, i) => sized(`f${i}`, 60));
+  // one comment past the budget opens its file
+  assert.ok(openByDefault(many, noted("f299")).has("f299"));
+  // comments on every file open 20 more files, not all 300
+  const all = noted(...many.map((file) => file.path));
+  const open = openByDefault(many, all);
+  // the first 20 are commented too and use that budget up
+  assert.equal(open.size, 20);
+  const later = noted(...many.slice(100).map((file) => file.path));
+  const opened = openByDefault(many, later);
+  assert.equal(opened.size, 40);
+  assert.ok(opened.has("f119") && !opened.has("f120"));
+});
+
+test("the open files only grow across refreshes and late comments", () => {
+  const files = Array.from({ length: 30 }, (_, i) => sized(`f${i}`, 60));
+  const first = openByDefault(files);
+  assert.ok(first.has("f19") && !first.has("f20"));
+  // an earlier file grows: nothing the reader sees closes, nothing new opens
+  const grownFirst = [sized("f0", 400), ...files.slice(1)];
+  assert.equal(openByDefault(grownFirst, new Map(), first), first);
+  // a new file ahead of them all opens (always the first), the rest stay as they were
+  const added = [sized("new", 5), ...files];
+  const after = openByDefault(added, new Map(), first);
+  assert.deepEqual([...after].sort(), [...first, "new"].sort());
+  // comments that arrive later open their file; deleting them closes nothing
+  const commented = openByDefault(files, noted("f25"), first);
+  assert.ok(commented.has("f25"));
+  assert.equal(openByDefault(files, new Map(), commented), commented);
+  // a small diff that grows by a few files opens them while the budget allows
+  const small = [sized("a", 3)];
+  const more = openByDefault([...small, sized("b", 5)], new Map(), openByDefault(small));
+  assert.deepEqual([...more], ["a", "b"]);
 });

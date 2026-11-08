@@ -71,7 +71,7 @@ export default function RunChanges({ run }) {
           <ErrorMessage error={diff.error || review.error} />
           {diff.unavailable ? (
             <p className="run-changes-note">{copy.runDiffUnavailable}</p>
-          ) : diff.loaded ? (
+          ) : diff.loaded && !review.loading ? (
             <DiffReview
               files={diff.files}
               comments={review.comments}

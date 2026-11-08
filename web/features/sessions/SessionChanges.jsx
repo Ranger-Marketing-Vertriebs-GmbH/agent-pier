@@ -124,7 +124,8 @@ export default function SessionChanges({ session, changes, toolbar = null }) {
         </p>
       </div>
       <ErrorMessage error={diff.error || review.error} />
-      {diff.data ? (
+      {/* with the comments read, so commented files open on the first render */}
+      {diff.data && !review.loading ? (
         <DiffReview
           files={diff.data.files}
           comments={comments}

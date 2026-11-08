@@ -237,3 +237,8 @@
     transition: none;
   }
 }
+.diff-review-file-comments {
+  color: var(--muted);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}

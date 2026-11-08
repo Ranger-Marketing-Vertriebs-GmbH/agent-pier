@@ -40,10 +40,11 @@ is read up to 1 MB; beyond that the tab says the rest is not shown.
 A large diff opens partly collapsed so the tab stays responsive, on a phone too: files
 are shown open in order while their first pages add up to 1200 lines (the first file
 always), and the rest start as a heading only; the summary line counts them as
-"n collapsed". A file with a comment always starts open. Tap a file's heading, or its
-entry in the file list, to open or close it; the choice is kept while the tab updates.
-A closed file with comments names their number in its heading. Each open file shows
-400 lines at first and **Show N more** adds the next 400.
+"n collapsed". Files with comments open as well, in order, while their first pages fit
+another 1200 lines; the others name their comments ("n comments") in the heading and
+in the file list. Tap a file's heading, or its entry in the file list, to open or close
+it. While the tab updates, files already shown open stay open and your own choices are
+kept. Each open file shows 400 lines at first and **Show N more** adds the next 400.
 
 The tab updates by itself while it is visible: when an agent turn starts or ends, and
 otherwise at most once a minute, so the badge can be up to a minute behind outside
