@@ -101,6 +101,9 @@ function baseSection(connection, modelProxy) {
         api_mode: "chat_completions",
       },
       env: provider.apiKey ? { [openRouterKeyEnv]: provider.apiKey } : {},
+      // AgentPier's OpenRouter catalog lists the model's image input
+      // (assistant-models.js); Hermes's own lookup may not know the model.
+      images: Array.isArray(model.input) && model.input.includes("image"),
     };
   const headers = provider.apiKey ? keyHeaders(provider) : undefined;
   return {

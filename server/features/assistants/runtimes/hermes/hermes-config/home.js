@@ -313,6 +313,9 @@ export function compileHome(
     ]),
     config: Object.freeze(config),
     env: Object.freeze(env),
+    // Whether Hermes takes the agent's images natively (`image_input_mode: native`):
+    // only then does a turn carry them (hermes-inline-images.js).
+    nativeImages: model?.images === true,
     // The auth.json pool row a writer merges again (null: AgentPier's row goes).
     auth: authKnown ? authRow : undefined,
     unsupported: Object.freeze(

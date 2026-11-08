@@ -51,6 +51,9 @@ export function memoryTransport() {
   return { transport, peer };
 }
 
+/** The HERMES_HOME of a fake Hermes: its staged images lie in its cache/. */
+export const fakeHermesHome = "/fake-hermes-home";
+
 /** What a fake Hermes keeps across its restarts: sessions, admissions, cron jobs. */
 export const hermesStore = () => ({
   rows: new Map(),
@@ -237,7 +240,7 @@ export function fakeHermesGateway(
       const mime = { png: "image/png", jpg: "image/jpeg" }[ext] || `image/${ext}`;
       ok(id, {
         attached: true,
-        path: `/home/cache/images/upload_${++store.images}.${ext}`,
+        path: `${fakeHermesHome}/cache/images/upload_${++store.images}.${ext}`,
         mime,
       });
     },
@@ -344,6 +347,7 @@ export function fakeHermesGateway(
  * as the real supervisor does.
  */
 export function fakeHermesSupervisor({
+  nativeImages = false,
   agentId = "agent-1",
   unreachable = false,
   version = null,
@@ -360,6 +364,9 @@ export function fakeHermesSupervisor({
   let first = true;
   Object.assign(supervisor, {
     agentId,
+    // Its home takes images natively (hermes-runtime.js), and lives here.
+    nativeImages,
+    agentPaths: () => ({ hermesHome: fakeHermesHome }),
     client: null,
     store,
     status: () => ({ ...state }),
