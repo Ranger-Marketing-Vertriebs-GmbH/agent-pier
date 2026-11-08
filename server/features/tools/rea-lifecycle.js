@@ -10,7 +10,7 @@ const messages = serverMessages.rea;
 
 /**
  * Removes REA (`rea` is a ReaTool): its row (and with it the package's skill copies),
- * Ghidra, the JDK and `<data>/rea`. Works whatever is left, so a managed row of a
+ * `<data>/rea` and Ghidra and the JDK unless Craft Anything keeps or runs them. Works whatever is left, so a managed row of a
  * failed install or a restored backup goes too; refused while REA is in use.
  */
 export async function uninstallRea(rea, { source = "user" } = {}) {
@@ -30,9 +30,11 @@ export async function uninstallRea(rea, { source = "user" } = {}) {
       rea.packages.prune();
       rea.auditRow("mcp.deleted", id, source);
     }
-    rea.progress("ghidra", messages.removing("Ghidra"));
-    await removeReaComponent(rea.root, "rea-ghidra");
-    await removeReaComponent(rea.root, "rea-jdk");
+    if (!rea.keepsGhidra() && !(await rea.othersUseGhidra())) {
+      rea.progress("ghidra", messages.removing("Ghidra"));
+      await removeReaComponent(rea.root, "rea-ghidra");
+      await removeReaComponent(rea.root, "rea-jdk");
+    }
     await fsp.rm(rea.directory, { recursive: true, force: true });
     rea.status = "idle";
     rea.message = "";

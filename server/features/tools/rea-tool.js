@@ -43,6 +43,9 @@ const flag = (value, fallback) => (typeof value === "boolean" ? value : fallback
  * and REA's skill in the bound CLIs' profiles. One REA job runs at a time; what it
  * does lands in state().step and state().message. Removing or replacing files that a
  * running REA uses is refused while `inUse()` (assigned by the wiring) says so.
+ * Ghidra and the JDK are shared with Craft Anything; the wiring's hooks
+ * `keepsGhidra` (it wants them), `othersUseGhidra` (its session runs them) and
+ * `othersBusy` (its job runs) keep REA from removing, replacing or racing them.
  */
 export class ReaTool {
   constructor({
@@ -81,6 +84,9 @@ export class ReaTool {
     this.directory = path.join(dataDir, "rea");
     this.file = path.join(this.directory, "settings.json");
     this.inUse = async () => false;
+    this.keepsGhidra = () => false;
+    this.othersUseGhidra = async () => false;
+    this.othersBusy = () => false;
     // Called on every change of the job state (assigned by the wiring: job.rea).
     this.onChange = null;
     // Raised by every job, so each job's end reads differently from the state before
@@ -126,6 +132,10 @@ export class ReaTool {
       settings,
       requested: record(source.requested) ? source.requested : null,
     };
+  }
+  /** Whether the owner chose Ghidra for REA (Craft Anything keeps it then). */
+  wantsGhidra() {
+    return this.stored().components.ghidra;
   }
   save(components, settings) {
     writePrivate(this.file, { serverId: this.serverId(), components, settings });
@@ -233,7 +243,11 @@ export class ReaTool {
           installedSize: this.manifest.core.installedSize,
           outdated: outdated.core,
         },
-        ghidra: { ...parts.ghidra, outdated: outdated.ghidra },
+        ghidra: {
+          ...parts.ghidra,
+          outdated: outdated.ghidra,
+          shared: parts.ghidra.installed && this.keepsGhidra(),
+        },
         frida: parts.frida,
       },
       settings: stored.settings,
@@ -268,7 +282,7 @@ export class ReaTool {
     }
   }
   requireIdle() {
-    if (this.job || this.claimed) throw refuse(messages.busy);
+    if (this.job || this.claimed || this.othersBusy()) throw refuse(messages.busy);
   }
   /** Refuses (409) while REA runs somewhere; holds the job slot while it asks. */
   async requireUnused(when) {
@@ -280,6 +294,14 @@ export class ReaTool {
       this.claimed = false;
     }
     this.requireIdle();
+  }
+  /** Whether Ghidra and the JDK would go: not wanted, present and nobody keeps them. */
+  ghidraGoes(components) {
+    return (
+      !components.ghidra &&
+      !this.keepsGhidra() &&
+      (!!this.component("rea-ghidra") || !!this.component("rea-jdk"))
+    );
   }
   /** The components wanted, refused (409) where this host has none. */
   wantedComponents(input, host, stored) {
@@ -307,11 +329,9 @@ export class ReaTool {
     this.requireIdle();
     const id = this.serverId();
     if (!id && body.confirmInstall !== true) throw refuse(messages.confirmationRequired);
-    const ghidraGoes =
-      !components.ghidra &&
-      (!!this.component("rea-ghidra") || !!this.component("rea-jdk"));
     await this.requireUnused(
-      !!id && (ghidraGoes || components.frida !== stored.components.frida),
+      !!id &&
+        (this.ghidraGoes(components) || components.frida !== stored.components.frida),
     );
     this.begin((signal) =>
       this.converge({ components, settings, update: false, source, stored }, signal),
@@ -383,7 +403,7 @@ export class ReaTool {
     await this.placeComponents(components, update, signal);
     const id = await this.placeCore({ components, settings, stored, update, source });
     this.progress("environment", messages.configuring);
-    await this.applyEnvironment(id, settings);
+    await this.applyEnvironment(id, settings, components);
     this.save(components, settings);
     this.progress("skills", messages.copyingSkill);
     await syncReaSkills(this.skillContext(id));
@@ -391,7 +411,7 @@ export class ReaTool {
   async placeComponents(components, update, signal) {
     const host = this.host();
     if (!components.ghidra) {
-      if (!this.component("rea-ghidra") && !this.component("rea-jdk")) return;
+      if (!this.ghidraGoes(components) || (await this.othersUseGhidra())) return;
       this.progress("ghidra", messages.removing("Ghidra"));
       await removeReaComponent(this.root, "rea-ghidra");
       await removeReaComponent(this.root, "rea-jdk");
@@ -402,6 +422,8 @@ export class ReaTool {
       manifest: this.manifest,
       host,
       update,
+      // Craft Anything's session runs the installed version: no replacing it now.
+      keep: update && (await this.othersUseGhidra()),
       signal,
       fetchImpl: this.fetchImpl,
       run: this.run,
@@ -430,8 +452,7 @@ export class ReaTool {
           args: [...args],
           env: reaEnvironment({
             home: prepareReaHome(this.dataDir),
-            ghidra: this.component("rea-ghidra"),
-            jdk: this.component("rea-jdk"),
+            ...this.ghidraHomes(components),
             settings,
           }),
         },
@@ -462,11 +483,15 @@ export class ReaTool {
       throw problem(this.packages.status(id).error?.message ?? messages.coreFailed, 502);
     return id;
   }
-  async applyEnvironment(id, settings) {
+  /** The Ghidra and JDK REA's env names: none unless REA wants them (shared or not). */
+  ghidraHomes(components) {
+    if (!components.ghidra) return { ghidra: null, jdk: null };
+    return { ghidra: this.component("rea-ghidra"), jdk: this.component("rea-jdk") };
+  }
+  async applyEnvironment(id, settings, components) {
     const wanted = reaEnvironment({
       home: prepareReaHome(this.dataDir),
-      ghidra: this.component("rea-ghidra"),
-      jdk: this.component("rea-jdk"),
+      ...this.ghidraHomes(components),
       settings,
     });
     const patch = reaEnvPatch(this.servers.envValues(id), wanted);
@@ -488,7 +513,8 @@ export class ReaTool {
   async syncEnvironment() {
     const id = this.serverId();
     if (!id || this.job || this.claimed || !this.installed()) return;
-    await this.applyEnvironment(id, this.stored().settings);
+    const { settings, components } = this.stored();
+    await this.applyEnvironment(id, settings, components);
   }
   skillContext(serverId) {
     return {

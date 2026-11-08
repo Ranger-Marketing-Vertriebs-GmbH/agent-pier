@@ -30,7 +30,7 @@ export async function uninstallCraft(craft, { source = "user" } = {}) {
     }
     await craft.syncSkills(null);
     await removeReaComponent(craft.root, "craft-anything");
-    if (!craft.keepsGhidra()) {
+    if (!craft.keepsGhidra() && !(await craft.othersUseGhidra())) {
       craft.progress("ghidra", messages.removing("Ghidra"));
       await removeReaComponent(craft.root, "rea-ghidra");
       await removeReaComponent(craft.root, "rea-jdk");

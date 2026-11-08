@@ -99,6 +99,8 @@ export async function craftFixture(t) {
   };
   return {
     ...f,
+    reaTool: f.tool,
+    reaInstall: f.install,
     tool,
     install,
     craftManifest,
