@@ -19,6 +19,7 @@ import fs from "node:fs";
 import {
   advancedHome,
   advancedZone,
+  homeReasoning,
   liveConfigChange,
 } from "./hermes-config/advanced.js";
 import { HermesBrowser } from "./hermes-browser.js";
@@ -224,7 +225,9 @@ export function createHermesRuntime({
     id: "hermes",
     capabilities: hermesCapabilities,
     host,
-    sessions: hermesSessions(supervisor),
+    sessions: hermesSessions(supervisor, {
+      reasoning: () => homeReasoning(supervisor.agentPaths().hermesHome),
+    }),
     events: hermesEvents(supervisor),
     approvals: hermesApprovals(supervisor),
     agentFiles: hermesAgentFiles(supervisor),

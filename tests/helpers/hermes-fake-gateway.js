@@ -57,6 +57,10 @@ export const fakeHermesHome = "/fake-hermes-home";
 /** What a fake Hermes keeps across its restarts: sessions, admissions, cron jobs. */
 export const hermesStore = () => ({
   rows: new Map(),
+  // The profile's thinking level (config.yaml agent.reasoning_effort, "" unset), which
+  // a session freezes at its create; `reasoning` mutations a test reads back.
+  reasoning: "",
+  mutations: [],
   created: 0,
   admissions: new Map(),
   images: 0,
@@ -106,6 +110,7 @@ export function fakeHermesGateway(
     execution_generation: row.generation,
     subscription_id: `sub-${row.id}`,
     prompts: [],
+    info: { reasoning_effort: row.reasoning ?? "" },
   });
   const turn = async (row, text, admission) => {
     const sid = row.id;
@@ -171,6 +176,7 @@ export function fakeHermesGateway(
           archived: false,
           revision: 0,
           generation: 0,
+          reasoning: store.reasoning,
         };
         store.rows.set(row.id, row);
       }
@@ -278,6 +284,14 @@ export function fakeHermesGateway(
         return receipt({ archived: row.archived });
       }
       if (params.operation === "compress") return receipt({ status: "compressed" });
+      // `/reasoning reset`: the session takes the profile's level again.
+      if (params.operation === "reasoning" && params.payload.effort === null) {
+        if (params.expected_generation !== row.generation)
+          return peer.send(refusal(id, "stale_generation"));
+        store.mutations.push(["reasoning", row.id]);
+        row.reasoning = store.reasoning;
+        return receipt({});
+      }
       if (params.operation === "delete") {
         store.rows.delete(row.id);
         attached.delete(row.id);
@@ -402,7 +416,7 @@ export function fakeHermesSupervisor({
  */
 export function hermesTestRuntime(
   supervisor,
-  { post = async () => ({ ok: true }), zone } = {},
+  { post = async () => ({ ok: true }), zone, reasoning } = {},
 ) {
   const deliveries = new HermesRoutineDeliveries({
     supervisor,
@@ -428,7 +442,9 @@ export function hermesTestRuntime(
       stop: () => supervisor.stop(),
       restart: () => supervisor.restart(),
     },
-    sessions: hermesSessions(supervisor),
+    sessions: hermesSessions(supervisor, {
+      reasoning: reasoning || (() => supervisor.store.reasoning),
+    }),
     events: hermesEvents(supervisor),
     approvals: hermesApprovals(supervisor),
     routines: hermesRoutines(supervisor, { deliveries, zone }),

@@ -454,14 +454,14 @@ They are stored once, with OpenClaw's overrides; while at least one Hermes agent
 exists, the page marks the others **OpenClaw only** and Time zone **Restarts Hermes
 agents**.
 
-| Setting              | Hermes                   | Notes                                                                                                                                                                                                                                                      |
-| -------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Thinking level       | `agent.reasoning_effort` | Every session reads it again at each turn (`gateway/session_policy.py`) unless the chat pinned its own level, so a change needs no restart. **Off** is `none`; **Adaptive** has no Hermes level and leaves Hermes's default (it thinks adaptively anyway). |
-| Time zone            | `HERMES_TIMEZONE`        | The processes' environment, which `hermes_time` reads before `config.yaml`: the agent's clock and its cron. A change restarts the agent; routines keep their own zone ([Routines](#routines)).                                                             |
-| Time limit per task  | none                     | `agent.run_budget_seconds` only adds a wrap-up notice at 80 % and never stops the task.                                                                                                                                                                    |
-| Image quality        | none                     | Attached images go to the model as they are; tool images are scaled to a fixed byte budget.                                                                                                                                                                |
-| Maximum image size   | none                     | Tool images are scaled to a fixed 1568 px (`tools/vision_tools.py`).                                                                                                                                                                                       |
-| Media file retention | none                     | Hermes sweeps its media caches after a fixed 24 hours (`MEDIA_CACHE_MAX_AGE_HOURS`).                                                                                                                                                                       |
+| Setting              | Hermes                   | Notes                                                                                                                                                                                                                                                                                                                                                                                    |
+| -------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Thinking level       | `agent.reasoning_effort` | Hermes freezes a chat's level when it creates the chat (`gateway/session_policy.py`); AgentPier gives an existing chat the new level before its next turn (`session.mutate` `reasoning` reset), so a change needs no restart. New chats and routine runs read it at once. **Off** is `none`; **Adaptive** has no Hermes level and leaves Hermes's default (it thinks adaptively anyway). |
+| Time zone            | `HERMES_TIMEZONE`        | The processes' environment, which `hermes_time` reads before `config.yaml`: the agent's clock and its cron. A change restarts the agent; routines keep their own zone ([Routines](#routines)).                                                                                                                                                                                           |
+| Time limit per task  | none                     | `agent.run_budget_seconds` only adds a wrap-up notice at 80 % and never stops the task.                                                                                                                                                                                                                                                                                                  |
+| Image quality        | none                     | Attached images go to the model as they are; tool images are scaled to a fixed byte budget.                                                                                                                                                                                                                                                                                              |
+| Maximum image size   | none                     | Tool images are scaled to a fixed 1568 px (`tools/vision_tools.py`).                                                                                                                                                                                                                                                                                                                     |
+| Media file retention | none                     | Hermes sweeps its media caches after a fixed 24 hours (`MEDIA_CACHE_MAX_AGE_HOURS`).                                                                                                                                                                                                                                                                                                     |
 
 Each start and apply writes `agent.reasoning_effort` from the stored value and starts
 the processes with `HERMES_TIMEZONE`; without a value the key is removed or the variable
@@ -476,8 +476,11 @@ OpenClaw's overrides, the mapping is approved for one Hermes version
 `tests/unit/hermes-advanced.test.js`): another installed version (an update AgentPier
 has not approved yet, a rollback) starts with Hermes's defaults, the values stay stored,
 and the page names that version. A save of a setting Hermes takes applies every Hermes
-agent, as for [web search](#web-search): a new thinking level reaches the next turn
-without a restart, a new time zone restarts each agent (a turn under way ends). None of
+agent, as for [web search](#web-search): a new thinking level reaches each chat's next
+turn without a restart (a level a chat pinned with Hermes's own `/reasoning`, which
+AgentPier does not offer, gives way to it), a new time zone restarts each agent (a turn
+under way ends). `tests/integration/hermes-advanced-contract.test.js` checks an existing
+chat on the pinned Hermes. None of
 the keys touches access, approvals, toolsets, plugins or management.
 
 **Downgrade.** The time zone lives in no file, so an older AgentPier starts its Hermes
