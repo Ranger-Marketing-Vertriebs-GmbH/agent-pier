@@ -76,8 +76,10 @@ export function createShutdown({ services, wss, server }) {
     await plugins.close();
     await repositories.close();
     await extensions.close();
-    // REA's job ends with its download or its package job, which close() stops.
+    // REA's and Craft Anything's jobs end with their downloads (or REA's package
+    // job), which close() stops.
     await services.rea?.close();
+    await services.craft?.close();
     await packagesClosed;
     try {
       services.mcpServers?.close();

@@ -19,9 +19,10 @@ const sum = (...values) => values.reduce((total, value) => total + (value ?? 0),
 /**
  * Ghidra (with its JDK) and frida as the REA card shows them: whether this host has
  * them and why not, what is installed and pinned, and the sizes to expect.
- * `ghidra`/`jdk` are managedReaComponent() results; `frida` whether Core has it.
+ * `ghidra`/`jdk` are managedReaComponent() results; `frida` whether Core has it;
+ * `wanted` the tool's own stored Ghidra choice (the other tool may keep it installed).
  */
-export function reaComponentStates({ host, manifest, ghidra, jdk, frida }) {
+export function reaComponentStates({ host, manifest, ghidra, jdk, frida, wanted }) {
   const pinned = host.ghidra;
   return {
     ghidra: {
@@ -29,6 +30,7 @@ export function reaComponentStates({ host, manifest, ghidra, jdk, frida }) {
       reason: host.ghidraReason,
       ...keyed("reason", host.ghidraReason),
       installed: !!ghidra && !!jdk,
+      wanted: wanted === true,
       version: ghidra?.version ?? null,
       pinnedVersion: manifest.ghidra.version,
       jdkVersion: jdk?.version ?? null,

@@ -166,3 +166,11 @@ test("a read that reuses an offered list is dated to that listing", async () => 
   // A read that lists the sessions itself is dated to its own start.
   assert.ok((await state.read()).readStartedAt > 3000);
 });
+
+test("the managed REA and Craft Anything tools are listed as utilities", async () => {
+  const { state, services } = fixture();
+  services.rea = { utility: () => ({ id: "rea", utility: true }) };
+  services.craft = { utility: () => ({ id: "craft-anything", utility: true }) };
+  const ids = (await state.read({ fresh: true })).utilities.map((item) => item.id);
+  assert.deepEqual(ids, ["git", "rea", "craft-anything"]);
+});

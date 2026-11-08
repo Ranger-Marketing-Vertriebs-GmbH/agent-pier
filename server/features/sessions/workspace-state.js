@@ -106,6 +106,8 @@ export function createWorkspaceState(
           ...(config.dataDir ? [chromiumUtility(path.join(config.dataDir, "clis"))] : []),
           // The managed REA tool (rea-tool.js); absent without the MCP server store.
           ...(services.rea ? [services.rea.utility()] : []),
+          // The managed Craft Anything tool (craft-tool.js), likewise.
+          ...(services.craft ? [services.craft.utility()] : []),
         ],
         accounts: services.accounts.list(),
         sharedCliExtensions: true,

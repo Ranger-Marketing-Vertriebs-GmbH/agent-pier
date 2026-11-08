@@ -190,6 +190,10 @@ test("the tool and REA job topics name their routes at their former polls", () =
   assert.equal(rea.path(rea.param), "/rea");
   assert.deepEqual([rea.mode, rea.interval, rea.sampled], ["state", 1000, true]);
   assert.equal(topicInfo("job.rea"), null);
+  const craft = topicInfo("job.craft-anything:current");
+  assert.equal(craft.path(craft.param), "/craft-anything");
+  assert.deepEqual([craft.mode, craft.interval, craft.sampled], ["state", 1000, true]);
+  assert.equal(topicInfo("job.craft-anything"), null);
 });
 
 test("the package, plugin, SSH, sign-in and reload topics name their routes", () => {

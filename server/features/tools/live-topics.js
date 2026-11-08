@@ -16,11 +16,17 @@
 // rises with every job, so a job that ends where it began is pushed too; Core's package
 // install, which the job waits for, changes the state without telling REA, so a
 // running job is also sampled every second (the former poll).
+//
+// `job.craft-anything:current` is the managed Craft Anything tool, the value
+// GET /craft-anything answers. CraftTool's onChange signals the start, every step and
+// the end of a job (`jobCount` rises with each), and a running job is sampled every
+// second like REA's.
 import { assistantProblem } from "../assistants/assistant-validation.js";
 import { defineJobTopic } from "../live/job-topics.js";
 import { toolInstallations, versionsSettled } from "./tool-installation-list.js";
 
 export const REA_JOB_SAMPLE_MS = 1000;
+export const CRAFT_JOB_SAMPLE_MS = 1000;
 
 // The catalog's tool ids (tool-installer.js); an unknown one is the route's 404.
 const TOOL_ID = /[a-z][a-z0-9-]{0,39}/;
@@ -36,7 +42,12 @@ export function reaJobChanged(hub) {
   hub?.invalidate("job.rea");
 }
 
-/** Registers `job.tool` and `job.rea` on `hub`. */
+/** Craft Anything's job state changed: signals its topic on `hub` (services.live). */
+export function craftJobChanged(hub) {
+  hub?.invalidate("job.craft-anything");
+}
+
+/** Registers `job.tool`, `job.rea` and `job.craft-anything` on `hub`. */
 export function defineToolJobTopics(hub, services) {
   // A CLI's version may still be probed (`checking`): its result signals again.
   const readTool = async (tool) => {
@@ -59,6 +70,18 @@ export function defineToolJobTopics(hub, services) {
       if (!services.rea)
         throw Object.assign(assistantProblem("unavailable", 503), { expected: true });
       return services.rea.state();
+    },
+  });
+  defineJobTopic(hub, {
+    kind: "craft-anything",
+    param: CURRENT,
+    sampleMs: CRAFT_JOB_SAMPLE_MS,
+    status: (value) => value.status,
+    read: () => {
+      // Without the MCP server store there is no Craft Anything (503, as its route).
+      if (!services.craft)
+        throw Object.assign(assistantProblem("unavailable", 503), { expected: true });
+      return services.craft.state();
     },
   });
 }

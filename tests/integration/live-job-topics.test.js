@@ -9,7 +9,9 @@ import { manualTimers } from "../helpers/manual-timers.js";
 import { LiveHub } from "../../server/features/live/live-hub.js";
 import { defineJobTopic, jobTopic } from "../../server/features/live/job-topics.js";
 import {
+  CRAFT_JOB_SAMPLE_MS,
   REA_JOB_SAMPLE_MS,
+  craftJobChanged,
   defineToolJobTopics,
   reaJobChanged,
   toolJobsChanged,
@@ -328,10 +330,57 @@ test("a running REA job is sampled every second; an idle one is not", async (t) 
   stop();
 });
 
-test("the tool, browser and REA topics are the owner's alone", () => {
+test("job.craft-anything pushes each job step and samples while running", async (t) => {
+  assert.equal(CRAFT_JOB_SAMPLE_MS, 1000);
+  const clock = manualTimers();
+  const hub = new LiveHub({ timers: clock.timers, debounceMs: 0, maxWaitMs: 0 });
+  t.after(() => hub.close());
+  let value = { status: "running", step: "core", jobCount: 1 },
+    reads = 0;
+  const craft = {
+    state: () => {
+      reads += 1;
+      return { ...value, reads };
+    },
+  };
+  defineToolJobTopics(hub, { craft });
+  assert.equal(listen(hub, "job.craft-anything:other").frames[0].code, "unknown-topic");
+  const { frames, stop } = listen(hub, "job.craft-anything:current");
+  await clock.advance(0);
+  assert.equal(frames[0].data.step, "core");
+  // A step the tool signals is pushed; a running job is also sampled every second.
+  value = { ...value, step: "ghidra" };
+  craftJobChanged(hub);
+  await clock.advance(0);
+  assert.equal(frames.at(-1).data.step, "ghidra");
+  const signaled = reads;
+  await clock.advance(1000);
+  assert.equal(reads, signaled + 1);
+  value = { status: "succeeded", step: null, jobCount: 1 };
+  craftJobChanged(hub);
+  await clock.advance(0);
+  assert.equal(frames.at(-1).data.status, "succeeded");
+  const after = reads;
+  await clock.advance(10000);
+  assert.equal(reads, after);
+  stop();
+  // Without the MCP server store there is no Craft Anything, as the route answers.
+  const bare = new LiveHub({ timers: clock.timers });
+  t.after(() => bare.close());
+  defineToolJobTopics(bare, {});
+  const missing = listen(bare, "job.craft-anything:current");
+  await clock.advance(0);
+  assert.equal(missing.frames[0].type, "error");
+});
+
+test("the tool, browser, REA and Craft Anything topics are the owner's alone", () => {
   const hub = new LiveHub();
   defineToolJobTopics(hub, {});
-  for (const topic of ["job.tool:codex", "job.rea:current"]) {
+  for (const topic of [
+    "job.tool:codex",
+    "job.rea:current",
+    "job.craft-anything:current",
+  ]) {
     assert.equal(hub.resolve(user, topic), null, topic);
     assert.equal(hub.resolve(null, topic), null, topic);
     assert.ok(hub.resolve(owner, topic), topic);

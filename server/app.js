@@ -119,6 +119,7 @@ import { chatRoutes } from "./http/routes/chat.js";
 import { modelsRoutes } from "./http/routes/models.js";
 import { toolsRoutes } from "./http/routes/tools.js";
 import { reaRoutes } from "./http/routes/rea.js";
+import { craftRoutes } from "./http/routes/craft-anything.js";
 import { agentbusRoutes } from "./http/routes/agentbus.js";
 import {
   detectNetworkAddresses,
@@ -315,7 +316,8 @@ export async function createApplication(config) {
   });
   whenListening.push(() => stageToolchainsInBackground({ dataDir: config.dataDir }));
   // Marks installs a restart interrupted as failed and prunes in the background.
-  // REA's sweep and server-start update follow once the package records settled.
+  // REA's sweep and server-start update follow once the package records settled,
+  // then Craft Anything's.
   whenListening.push(() => {
     let started;
     try {
@@ -327,7 +329,8 @@ export async function createApplication(config) {
     }
     Promise.resolve(started)
       .catch(() => {})
-      .then(() => services.rea?.start());
+      .then(() => services.rea?.start())
+      .then(() => services.craft?.start());
   });
   whenListening.push(() => {
     const report = (error) =>
@@ -448,6 +451,7 @@ export async function createApplication(config) {
   mount(modelsRoutes(services));
   mount(toolsRoutes(services));
   mount(reaRoutes(services));
+  mount(craftRoutes(services));
   mount(agentbusRoutes(services));
   mount(providerRoutes(services));
   mount(providerConnectionRoutes(services));

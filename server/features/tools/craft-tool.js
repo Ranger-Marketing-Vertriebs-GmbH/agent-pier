@@ -185,6 +185,7 @@ export class CraftTool {
       ghidra,
       jdk,
       frida: false,
+      wanted: stored.components.ghidra,
     });
     return {
       available: host.available,

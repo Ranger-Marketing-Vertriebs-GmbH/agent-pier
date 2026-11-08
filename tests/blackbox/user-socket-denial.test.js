@@ -129,6 +129,7 @@ test("a user cannot tell an owner topic from an unknown one on the live channel"
     "probe.open",
     "job.tool:codex",
     "job.rea:current",
+    "job.craft-anything:current",
     `job.mcp-package:${server.id}`,
     "files.jobs:global",
   ]) {
@@ -219,6 +220,7 @@ test("a user cannot tell an owner topic from an unknown one on the live channel"
     "job.operation:0000aaaa-0000-4000-8000-000000000000",
     "job.tool:codex",
     "job.rea:current",
+    "job.craft-anything:current",
     `job.mcp-package:${server.id}`,
     "job.plugins:local-codex",
     "job.ssh-tools:x",

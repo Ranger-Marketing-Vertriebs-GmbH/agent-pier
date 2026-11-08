@@ -212,6 +212,13 @@ export const liveTopics = Object.freeze({
     interval: 1000,
     sampled: true,
   }),
+  // The managed Craft Anything tool (`current`), sampled like REA's.
+  "job.craft-anything": Object.freeze({
+    mode: "state",
+    path: (_current) => "/craft-anything",
+    interval: 1000,
+    sampled: true,
+  }),
   // A packaged MCP server's package and its last job, pushed on every job write.
   "job.mcp-package": Object.freeze({
     mode: "state",

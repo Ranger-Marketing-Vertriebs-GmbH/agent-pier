@@ -208,17 +208,16 @@ export class ReaTool {
     const row = this.record(id);
     const installed = this.installed();
     const stored = this.stored();
-    const ghidra = this.component("rea-ghidra");
-    const jdk = this.component("rea-jdk");
     const message = host.available ? this.message : "";
     const server = id ? this.servers.get(id) : null;
     const outdated = installed ? this.outdatedParts() : { core: false, ghidra: false };
     const parts = reaComponentStates({
       host,
       manifest: this.manifest,
-      ghidra,
-      jdk,
+      ghidra: this.component("rea-ghidra"),
+      jdk: this.component("rea-jdk"),
       frida: installed && stored.components.frida,
+      wanted: stored.components.ghidra,
     });
     return {
       available: host.available,
