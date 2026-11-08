@@ -77,10 +77,12 @@ test("only the agent's undeleted chats active since the cursor are read", async 
     chats: [
       {
         channel: "agentpier",
+        person: "owner",
         messages: [{ role: "person", text: "Hello", at: at(100) }],
       },
       {
         channel: "telegram",
+        person: "owner",
         messages: [{ role: "person", text: "From the phone", at: at(110) }],
       },
     ],
@@ -110,6 +112,7 @@ test("internal turns, other roles and messages at or before the cursor are left 
   assert.deepEqual(chats, [
     {
       channel: "agentpier",
+      person: "owner",
       messages: [
         { role: "person", text: "I like tea", at: at(10) },
         { role: "agent", text: "Noted: tea", at: at(14) },
@@ -136,10 +139,12 @@ test("chats beyond the budget are read the next night", async () => {
     chats: [
       {
         channel: "agentpier",
+        person: "owner",
         messages: [{ role: "person", text: "a".repeat(2000), at: at(10) }],
       },
       {
         channel: "agentpier",
+        person: "owner",
         messages: [{ role: "person", text: "b".repeat(2000), at: at(20) }],
       },
     ],
@@ -155,6 +160,7 @@ test("chats beyond the budget are read the next night", async () => {
     chats: [
       {
         channel: "agentpier",
+        person: "owner",
         messages: [{ role: "person", text: "c".repeat(2000), at: at(30) }],
       },
     ],
@@ -220,7 +226,7 @@ test("every message chosen within the budget reaches the dream's input", async (
   assert.equal(until, at(28));
   const input = dreamInput({ files: {}, chats });
   for (const m of chosen)
-    assert.ok(input.includes(`person: ${m.text}`), m.text.slice(0, 4));
+    assert.ok(input.includes(`owner: ${m.text}`), m.text.slice(0, 4));
 });
 
 test("the budget never cuts between messages of the same time", async () => {
@@ -263,4 +269,37 @@ test("the budget never cuts between messages of the same time", async () => {
   });
   assert.equal(whole.chats.flatMap((c) => c.messages).length, 2);
   assert.equal(whole.until, at(10));
+});
+
+test("each chat names its person, the owner or an opaque user label", async () => {
+  const f = fixture(
+    [
+      chat("owner"),
+      chat("ada", { userId: "user-ada-id" }),
+      chat("bo", { userId: "user-bo-id" }),
+    ],
+    {
+      "key-owner": [row("user", "I live in Berlin", 10)],
+      "key-ada": [row("user", "I live in Hamburg", 20)],
+      "key-bo": [row("user", "I live in Munich", 30)],
+    },
+  );
+  const read = () =>
+    dreamChats({ ...f, assistantId: "agent", since: at(0), budget: 60000 });
+  const { chats } = await read();
+  const [owner, ada, bo] = chats.map((c) => c.person);
+  assert.equal(owner, "owner");
+  assert.match(ada, /^user-[0-9a-f]{8}$/);
+  assert.match(bo, /^user-[0-9a-f]{8}$/);
+  assert.notEqual(ada, bo);
+  // Stable from night to night, and never the user's id.
+  assert.deepEqual(
+    (await read()).chats.map((c) => c.person),
+    [owner, ada, bo],
+  );
+  const input = dreamInput({ files: {}, chats });
+  assert.ok(!input.includes("user-ada-id") && !input.includes("user-bo-id"));
+  assert.ok(input.includes("--- chat 1 (agentpier, owner)\nowner: I live in Berlin"));
+  assert.ok(input.includes(`--- chat 2 (agentpier, ${ada})\n${ada}: I live in Hamburg`));
+  assert.ok(input.includes(`--- chat 3 (agentpier, ${bo})\n${bo}: I live in Munich`));
 });

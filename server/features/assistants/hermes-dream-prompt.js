@@ -23,6 +23,10 @@ export const hermesDreamInstructions = [
   "Take in lasting facts and preferences that people stated in the chats. Leave out " +
     "passing small talk, the agent's own refusals and limits, and secrets such as " +
     "passwords, tokens and keys.",
+  "Each chat names its person: `owner`, or a user by a label such as `user-1a2b3c4d`; " +
+    "that person's turns carry the same label. Attribute each fact to the person who " +
+    "stated it, as the owner or as that user label. Never replace or merge one " +
+    "person's entry with another person's statement.",
   "Merge duplicates and near-duplicates, and replace entries that newer information " +
     "made outdated.",
   `Every entry that starts with \`${pinMarker}\` is pinned by the owner and must stay ` +
@@ -47,6 +51,7 @@ function chatsInput(chats) {
   const dated = chats
     .map((chat) => ({
       channel: chat.channel,
+      person: chat.person ?? "person",
       messages: [...(chat.messages ?? [])].sort((a, b) => a.at - b.at),
     }))
     .filter((chat) => chat.messages.length)
@@ -69,10 +74,12 @@ function chatsInput(chats) {
       .filter((m) => kept.has(m))
       .map(
         (m) =>
-          `${m.role === "agent" ? "agent" : "person"}: ${clip(m.text, dreamMessageLimit)}`,
+          `${m.role === "agent" ? "agent" : chat.person}: ${clip(m.text, dreamMessageLimit)}`,
       );
     if (lines.length)
-      blocks.push(`--- chat ${c + 1} (${chat.channel})\n${lines.join("\n")}`);
+      blocks.push(
+        `--- chat ${c + 1} (${chat.channel}, ${chat.person})\n${lines.join("\n")}`,
+      );
   });
   return blocks.join("\n\n");
 }

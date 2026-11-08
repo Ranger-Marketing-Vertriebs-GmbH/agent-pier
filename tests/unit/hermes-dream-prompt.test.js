@@ -45,6 +45,8 @@ test("instructions name the rules", () => {
     /keep/,
     /JSON only/,
     /80 %/,
+    /Attribute each fact to the person who stated it/,
+    /Never replace or merge one person's entry with another person's statement/,
   ]) {
     assert.match(hermesDreamInstructions, rule);
   }
