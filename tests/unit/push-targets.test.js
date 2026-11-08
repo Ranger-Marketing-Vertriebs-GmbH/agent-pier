@@ -15,6 +15,7 @@ import {
   runNotice,
   sessionNotice,
 } from "../../server/application/push-notices.js";
+import { questionNotice } from "../../server/features/craft/rebuild-questions.js";
 import { readRoute } from "../../web/app/routes.js";
 import { readUserRoute } from "../../web/features/users/user-routes.js";
 
@@ -31,6 +32,11 @@ for (const name of ["pwa-de.js", "pwa-en.js", "pwa-render.js"])
   );
 const worker = scope.agentPierNotificationRender;
 
+const rebuild = {
+  id: "0b8c1f7e-3d2a-4c5b-9e6f-7a8b9c0d1e2f",
+  name: "shop-clone",
+  questions: [{ id: "q1", kind: "question", title: "Which colour?" }],
+};
 const session = { id: "s1", name: "api-refactor", tool: "claude", cwd: "/w/shop" };
 const run = { id: "run1", pipelineName: "Release", currentNodeId: "n1", nodes: [] };
 const assistants = {
@@ -232,6 +238,14 @@ const rows = [
     { projectId: "p1" },
     "/projects/p1?tab=tickets",
     { view: "projects", projectId: "p1", projectTab: "tickets" },
+  ],
+  [
+    // The Rebuilds page has no route of its own yet; the link is the rebuild's.
+    "craft-question",
+    questionNotice(rebuild, rebuild.questions[0]),
+    `/craft/${rebuild.id}`,
+    {},
+    `/inbox/craft/${rebuild.id}%3Aq1`,
   ],
   [
     "test",

@@ -11,6 +11,7 @@ import {
 } from "./inbox-presentation.js";
 import {
   InboxActionDetail,
+  InboxCraftDetail,
   InboxGateDetail,
   InboxMemoryReviewDetail,
   InboxRequestDetail,
@@ -23,6 +24,7 @@ const details = {
   question: InboxRequestDetail,
   approval: InboxRequestDetail,
   gate: InboxGateDetail,
+  craft: InboxCraftDetail,
   action: InboxActionDetail,
   team: InboxTeamDetail,
   "memory-review": InboxMemoryReviewDetail,

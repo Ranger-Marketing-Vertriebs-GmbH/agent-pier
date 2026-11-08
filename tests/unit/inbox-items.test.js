@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   actionItem,
   countItems,
+  craftItems,
   expiringSoonMs,
   gateItem,
   itemsSignature,
@@ -334,5 +335,53 @@ test("a mail card item counts attachments and marks a forward", () => {
     "mail" in
       actionItem({ id: "x", assistantId: "a1", payload: { action: "exec" } }, agents, []),
     false,
+  );
+});
+
+test("a rebuild's open questions and approvals wait in the questions tab", async () => {
+  const id = "0b8c1f7e-3d2a-4c5b-9e6f-7a8b9c0d1e2f";
+  const rebuild = {
+    id,
+    name: "shop-clone",
+    folder: "/home/owner/projects/shop-clone",
+    autoMode: false,
+    status: "needs_you",
+    questions: [
+      { id: "q1", kind: "question", title: "Which colour?", askedAt: at(-60000) },
+      { id: "q2", kind: "approval", title: "Run npm install?", action: "npm install" },
+      // An id the inbox cannot address stays on the rebuild's page.
+      { id: "../q3", kind: "question", title: "Hidden" },
+    ],
+  };
+  const [question, approval, ...rest] = craftItems(rebuild);
+  assert.equal(rest.length, 0);
+  assert.deepEqual(question, {
+    type: "craft",
+    tab: "questions",
+    id: `${id}:q1`,
+    kind: "craft-question",
+    status: "pending",
+    revision: null,
+    source: { kind: "craft", id, name: "shop-clone" },
+    title: "Which colour?",
+    createdAt: at(-60000),
+    expiresAt: null,
+    link: `/craft/${id}`,
+  });
+  assert.equal(approval.kind, "craft-approval");
+  assert.equal(approval.tab, "questions");
+  // The command an approval would run never reaches the list.
+  assert.equal(JSON.stringify(approval).includes('npm install"'), false);
+  // In auto mode the supervisor allows approvals itself.
+  assert.deepEqual(
+    craftItems({ ...rebuild, autoMode: true }).map((item) => item.id),
+    [`${id}:q1`],
+  );
+  const counts = countItems(craftItems(rebuild));
+  assert.equal(counts.questions, 2);
+  const items = await collectItems({ craftRebuilds: { list: () => [rebuild] } });
+  assert.deepEqual(
+    items.map((item) => item.id),
+    [`${id}:q1`, `${id}:q2`],
   );
 });

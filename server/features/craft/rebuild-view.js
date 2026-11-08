@@ -63,9 +63,16 @@ function question(item) {
 
 /**
  * The record fields one sample of `rebuild_status` and `project_show` gives. A paused
- * or failed rebuild keeps `previousStep`, the step it reached.
+ * or failed rebuild keeps `previousStep`, the step it reached. Each question keeps the
+ * `askedAt` of `previousQuestions` (the record's); one first seen now is asked `now`.
  */
-export function sampledFields(status, show, previousStep) {
+export function sampledFields(
+  status,
+  show,
+  previousStep,
+  previousQuestions = [],
+  now = new Date().toISOString(),
+) {
   const running = Boolean(status?.running || status?.queued);
   const state = rebuildStatus(status?.status ?? show?.status, running);
   const note = text(status?.note) ?? text(show?.note);
@@ -89,7 +96,13 @@ export function sampledFields(status, show, previousStep) {
     },
     lastReply: text(show?.last_reply),
     questions: Array.isArray(show?.questions)
-      ? show.questions.filter((item) => item && item.id != null).map(question)
+      ? show.questions
+          .filter((item) => item && item.id != null)
+          .map(question)
+          .map((next) => ({
+            ...next,
+            askedAt: previousQuestions.find((q) => q.id === next.id)?.askedAt ?? now,
+          }))
       : [],
   };
 }

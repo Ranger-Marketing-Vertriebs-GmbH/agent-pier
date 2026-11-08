@@ -93,6 +93,7 @@ export const notificationCopy = {
     "session-resume-failed": "Session could not be resumed",
     "ticket-needs-owner": "A ticket sequence waits for you",
     "ticket-rule-failed": "A label rule needs attention",
+    "craft-question": "A Craft Anything rebuild waits for you",
     "update-available": "Update available",
     "update-failed": "Update failed",
     telegram: "Also what Telegram delivered",

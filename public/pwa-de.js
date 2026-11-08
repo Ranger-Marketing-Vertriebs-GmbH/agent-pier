@@ -107,6 +107,11 @@ self.agentPierNotificationCopy = {
       body: "Eine Label-Regel eines Projekts ist fehlgeschlagen. Öffne den Tab Tickets, um den Grund zu sehen.",
       name: "Label-Regel braucht dich",
     },
+    "craft-question": {
+      title: "AgentPier: Ein Nachbau braucht dich",
+      body: "Ein Nachbau von Craft Anything wartet auf deine Antwort oder Freigabe.",
+      name: "Nachbau braucht dich",
+    },
     "update-available": {
       title: "AgentPier: Update verfügbar",
       body: "Eine neue AgentPier-Version ist verfügbar. Öffne die Updates, um sie zu installieren.",

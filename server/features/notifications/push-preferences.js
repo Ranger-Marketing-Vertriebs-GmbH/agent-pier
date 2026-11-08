@@ -39,6 +39,8 @@ export const pushEventDefaults = Object.freeze({
   "ticket-needs-owner": true,
   // A label rule of a project cannot read its tickets (rule-monitor.js).
   "ticket-rule-failed": true,
+  // A Craft Anything rebuild waits for an answer or an approval.
+  "craft-question": true,
   telegram: false,
 });
 export const pushEvents = Object.keys(pushEventDefaults);
@@ -59,6 +61,7 @@ export const blockingKinds = new Set([
   "pipeline-gate",
   "agent-approval",
   "ticket-needs-owner",
+  "craft-question",
 ]);
 
 /**

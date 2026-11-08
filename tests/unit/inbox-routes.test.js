@@ -28,7 +28,20 @@ test("every inbox item has a stable address that reads back the same", () => {
   assert.equal(read("/inbox?tab=nonsense").inboxTab, "all");
   assert.equal(read("/inbox/session/abc").view, "missing");
   assert.equal(read("/inbox/gate/bad id").view, "missing");
-  for (const path of ["/inbox", "/inbox/question/abc", "/inbox/team/t-1"])
+  // A rebuild's question: <rebuildId>:<questionId>, its ":" encoded in the address.
+  const rebuild = "0b8c1f7e-3d2a-4c5b-9e6f-7a8b9c0d1e2f";
+  const craft = read(`/inbox/craft/${rebuild}%3Aq1`);
+  assert.equal(craft.itemType, "craft");
+  assert.equal(craft.itemId, `${rebuild}:q1`);
+  assert.equal(routePath(craft), `/inbox/craft/${rebuild}%3Aq1`);
+  for (const id of ["q1", `${rebuild}%3A..%2Fq1`, "%E0%A4%A"])
+    assert.equal(read(`/inbox/craft/${id}`).view, "missing", id);
+  for (const path of [
+    "/inbox",
+    "/inbox/question/abc",
+    "/inbox/team/t-1",
+    `/inbox/craft/${rebuild}%3Aq1`,
+  ])
     assert.equal(appDocumentPath.test(path), true, path);
   assert.equal(appDocumentPath.test("/inbox/other/abc"), false);
 });

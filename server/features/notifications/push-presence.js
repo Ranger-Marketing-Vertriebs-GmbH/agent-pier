@@ -1,6 +1,6 @@
 // "Quiet while visible": open AgentPier pages report which view they show while the
 // page is visible. A push is held back when, on any device, the inbox (for an inbox
-// item) or the event's own session, agent chat or run was visible in the last 30
+// item) or the event's own session, rebuild, agent chat or run was visible in the last 30
 // seconds. An agent holds several chats: an event of one chat is held back only
 // while that chat is visible, one of the agent alone while any of its views is.
 // Kept in memory only; nothing about it is stored on disk.
@@ -29,6 +29,8 @@ export function routeView(route) {
   if (match) return `agent:${match[1]}`;
   match = new RegExp(`^/pipelines/runs/(${id})(?:/.*)?$`).exec(pathname);
   if (match) return `run:${match[1]}`;
+  match = new RegExp(`^/craft/(${id})$`).exec(pathname);
+  if (match) return `craft:${match[1]}`;
   return null;
 }
 

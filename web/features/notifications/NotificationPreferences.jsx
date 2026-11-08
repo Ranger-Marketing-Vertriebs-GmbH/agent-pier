@@ -22,6 +22,7 @@ export const eventGroups = [
       "agent-approval",
       "agent-reminder",
       "ticket-needs-owner",
+      "craft-question",
     ],
   ],
   [

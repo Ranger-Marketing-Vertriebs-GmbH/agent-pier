@@ -1,6 +1,7 @@
 import { hiddenCharacterSource } from "../assistants/agent-ssh-text.js";
 import { mailHtmlState } from "../assistants/mail/agent-mail-send-input.js";
 import { cliName, codingCliIds } from "../clis/catalog.js";
+import { ownerQuestions, questionKey } from "../craft/rebuild-questions.js";
 
 // What waits for the owner, as uniform inbox items. Each item names where it comes
 // from and links back there; answering always goes through that source's own
@@ -9,6 +10,7 @@ export const inboxTypes = [
   "question",
   "approval",
   "gate",
+  "craft",
   "action",
   "team",
   "memory-review",
@@ -19,6 +21,8 @@ const tabOf = {
   question: "questions",
   approval: "approvals",
   gate: "gates",
+  // A rebuild's question or approval: answered on the rebuild, like a question.
+  craft: "questions",
   action: "agents",
   team: "agents",
   "memory-review": "agents",
@@ -119,6 +123,28 @@ export function gateItem(run) {
     expiresAt: null,
     link: `/pipelines/runs/${segment(run.id)}`,
   });
+}
+
+/**
+ * The open questions and approvals of a Craft Anything rebuild (craft-rebuilds.js
+ * RebuildView), one item each at `<rebuildId>:<questionId>`. An approval's command
+ * stays on its card; the list shows its title only.
+ */
+export function craftItems(rebuild) {
+  return ownerQuestions(rebuild).map((question) =>
+    item("craft", {
+      id: questionKey(rebuild.id, question.id),
+      kind: question.kind === "approval" ? "craft-approval" : "craft-question",
+      status: "pending",
+      revision: null,
+      // The rebuild's name is its project folder's.
+      source: { kind: "craft", id: rebuild.id, name: text(rebuild.name) },
+      title: question.title,
+      createdAt: question.askedAt || rebuild.updatedAt || rebuild.createdAt,
+      expiresAt: null,
+      link: `/craft/${segment(rebuild.id)}`,
+    }),
+  );
 }
 
 /** The chat an agent action is decided in: its own, or the agent's open one. */
