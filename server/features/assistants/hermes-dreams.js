@@ -164,7 +164,7 @@ export class HermesDreams {
           backup: (contents) =>
             backupHermesMemory(this.assistants.runtime.paths, agent, contents, {
               keep: this.keep,
-              now,
+              now: this.clock(),
             }),
         });
       // A chat wrote a file meanwhile: once more against it, then the next night.
@@ -180,7 +180,8 @@ export class HermesDreams {
     else if (cursor === null) this.store.applied(agent.id, since);
     const { outcome, reason, file, counts, chars, summary } = result;
     const entry = {
-      at: now.toISOString(),
+      // When this agent's night ended; the night itself is the tick's.
+      at: this.clock().toISOString(),
       night,
       outcome,
       reason,
