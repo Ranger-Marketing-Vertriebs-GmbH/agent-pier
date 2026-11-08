@@ -6,6 +6,7 @@ import { applicationVersion } from "../operations/version.js";
 import { problem } from "../../lib/storage.js";
 import { boundedToolResult } from "./tool-policy.js";
 import { previewInstruction } from "../previews/preview-mcp.js";
+import { craftInstruction } from "../craft/craft-mcp-tools.js";
 
 const publicPaths = new Set([
   "/mcp",
@@ -100,15 +101,22 @@ export function mcpHttpRouter({ mcpAccess, mcpTools }) {
           },
         }
       : undefined;
+    const offered = mcpTools.list(auth.extra.grant, context);
     const server = new McpServer(
       { name: "agentpier", version: applicationVersion() },
       {
         instructions: context
-          ? `${serverInstructions} ${previewInstruction}`
+          ? [
+              serverInstructions,
+              previewInstruction,
+              ...(offered.some(([name]) => name === "craft_rebuild_start")
+                ? [craftInstruction]
+                : []),
+            ].join(" ")
           : serverInstructions,
       },
     );
-    for (const [name, tool] of mcpTools.list(auth.extra.grant, context))
+    for (const [name, tool] of offered)
       server.registerTool(
         name,
         {
@@ -119,9 +127,13 @@ export function mcpHttpRouter({ mcpAccess, mcpTools }) {
             destructiveHint: !tool.readOnly,
             idempotentHint:
               tool.readOnly ||
-              ["run_start", "queue_add", "artifact_publish", "preview_open"].includes(
-                name,
-              ),
+              [
+                "run_start",
+                "queue_add",
+                "artifact_publish",
+                "preview_open",
+                "craft_rebuild_start",
+              ].includes(name),
             openWorldHint: !tool.readOnly,
           },
         },
@@ -145,8 +157,9 @@ export function mcpHttpRouter({ mcpAccess, mcpTools }) {
                     error: error.status
                       ? agentText(error.message)
                       : "MCP operation failed.",
-                    // Only preview errors carry their stable code; others stay as before.
-                    ...(error.status && /^PREVIEW_[A-Z_]+$/.test(error.code)
+                    // Only preview and rebuild errors carry their stable code; others stay as before.
+                    ...(error.status &&
+                    /^(PREVIEW|CRAFT_REBUILD)_[A-Z_]+$/.test(error.code)
                       ? { code: error.code }
                       : {}),
                     status: error.status || 500,

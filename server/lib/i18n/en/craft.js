@@ -31,6 +31,8 @@ export const craft = Object.freeze({
   rebuildRoundsInvalid: "A rebuild's rounds must be a whole number from 1 to 10.",
   rebuildAccountIneligible:
     "This account cannot run a rebuild. Choose a Claude account of your own without a provider.",
+  rebuildToolInvalid:
+    "Invalid input. A rebuild needs a request and a requestId (at most 100 characters).",
   rebuildNotFound: "This rebuild does not exist.",
   rebuildRunning: "This rebuild is running. Pause it first.",
   rebuildNeverStarted: "This rebuild never started and cannot be continued.",
