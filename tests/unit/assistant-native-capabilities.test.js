@@ -17,6 +17,10 @@ import {
 import { agentEntry } from "../../server/features/assistants/runtimes/openclaw/openclaw-config/agent-entry.js";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
 import {
+  desiredAgent,
+  desiredState,
+} from "../../server/features/assistants/agent-desired-state.js";
+import {
   nativeTools,
   prepareRuntimeConfig,
 } from "../../server/features/assistants/runtimes/openclaw/runtime-config.js";
@@ -359,6 +363,44 @@ test("an agent with its own Telegram bot for other people is compiled without ag
       .allow;
   assert.ok(allow(false).includes("agentpier_project"));
   assert.ok(!allow(true).includes("agentpier_project"));
+});
+
+test("agentpier_craft: as agentpier_project, and only while Craft Anything is available", () => {
+  const tool = "agentpier_craft";
+  const tools = (agent, craft = true, nativeReady = true) =>
+    profileTools(agent, true, nativeReady, false, {}, [], false, craft);
+  const own = { id: "a", capabilities: { memory: true } };
+  assert.ok(tools(own).includes(tool));
+  assert.ok(tools({ id: "l", name: "Lead" }).includes(tool));
+  assert.ok(!tools(own, false).includes(tool));
+  assert.ok(!tools(own, true, false).includes(tool));
+  for (const agent of [
+    { id: "p", teamMemberId: "t", lifetime: "permanent" },
+    { id: "m", teamMemberId: "t", lifetime: "task" },
+    { ...own, userAccess: { mode: "own", members: [], released: [] } },
+    { ...own, archivedAt: "today" },
+  ])
+    assert.ok(!tools(agent).includes(tool), JSON.stringify(agent));
+  assert.ok(senderLockedTools.includes(tool));
+  assert.ok(lockedTools.includes(tool));
+  assert.ok(!routineTools.includes(tool));
+  assert.ok(nativeTools.includes(tool));
+  // The compiled entry follows the desired state's `craft`, minus sender-facing agents.
+  const allow = (craft, senderFacing = false) =>
+    agentEntry({}, desiredAgent(own, { craft }), {
+      teamsReady: true,
+      nativeReady: true,
+      senderFacing,
+    }).tools.allow;
+  assert.ok(allow(true).includes(tool));
+  assert.ok(!allow(false).includes(tool));
+  assert.ok(!allow(true, true).includes(tool));
+  assert.equal(
+    desiredState({ profiles: [own], craft: true }).agents[0].tools.some((g) =>
+      g.tools?.includes(tool),
+    ),
+    true,
+  );
 });
 
 test("agentpier_preview: own agents and permanent members only, never user agents, sender-facing agents or routines", () => {

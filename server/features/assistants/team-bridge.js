@@ -485,6 +485,8 @@ export class TeamBridge {
         return this.assistants.workflows.mail.invoke(invocation, input);
       if (action === "project")
         return this.assistants.workflows.projects.invoke(invocation, input);
+      if (action === "craft")
+        return this.assistants.workflows.craft.invoke(invocation, input);
       if (action === "preview")
         return invokePreview(this.assistants.workflows, invocation, input);
       if (action === "report") return this.teams.reports.report(invocation, input);

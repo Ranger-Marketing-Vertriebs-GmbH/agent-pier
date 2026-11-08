@@ -101,6 +101,25 @@ test("native teams grant profile tools without guarded writes on a fresh start",
   assert.equal(config.agents.defaults.maxConcurrent, 12);
 });
 
+test("a start with Craft Anything available grants agentpier_craft after agentpier_project", (t) => {
+  const paths = fixture(t);
+  prepareRuntimeConfig(paths, 1234);
+  const seeded = readJSON(paths.config);
+  seeded.agents.entries = { "ap-a1": { id: "ap-a1" } };
+  fs.writeFileSync(paths.config, JSON.stringify(seeded));
+  const allow = (craft) => {
+    prepareRuntimeConfig(
+      paths,
+      1234,
+      teams({ native: { token: "hook" }, profiles: [profile], craft }),
+    );
+    return readJSON(paths.config).agents.entries["ap-a1"].tools.allow;
+  };
+  assert.ok(!allow(false).includes("agentpier_craft"));
+  const tools = allow(true);
+  assert.equal(tools.indexOf("agentpier_craft"), tools.indexOf("agentpier_project") + 1);
+});
+
 test("maintenance keeps native cron off", (t) => {
   const paths = fixture(t);
   prepareRuntimeConfig(paths, 1234, teams({ native: { token: "hook" }, profiles: [] }), {
@@ -192,6 +211,7 @@ test("native teams wire the plugin, memory, tools, cron and skills", (t) => {
     "agentpier_mail",
     "agentpier_project",
     "agentpier_preview",
+    "agentpier_craft",
     // Compiled before any agent uses them; each agent's entry names its own tools.
     "web_fetch",
     "view_image",

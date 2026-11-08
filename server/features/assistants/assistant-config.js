@@ -240,6 +240,7 @@ export class AssistantConfig {
       });
       const desired = desiredAgent(assistant, {
         ssh: own.ssh,
+        craft: own.craft,
         shellPath: own.shellPath,
         // A temporary member's browser window follows its lead's setting.
         lead: assistant.parentAssistantId
@@ -325,6 +326,8 @@ export class AssistantConfig {
     const senderFacing = !!this.senderFacing?.(assistant);
     // The agent holds an SSH grant (assistant-access.js); the Gateway start uses the same.
     const ssh = !!this.sshGranted?.(assistant);
+    // Craft Anything rebuilds are available (agentpier_craft), read at every apply.
+    const craft = !!this.craftAvailable?.();
     const allowed = profileTools(
       assistant,
       this.teamReady?.(),
@@ -333,6 +336,7 @@ export class AssistantConfig {
       available,
       mcpTools,
       ssh,
+      craft,
     ).filter((tool) => !senderFacing || !senderLockedTools.includes(tool));
     // The agent's SSH agent, synced first so this turn's PATH and instructions name
     // its trusted hosts' aliases (agent-ssh-shell-wiring.js); never fails the turn.
@@ -392,6 +396,8 @@ export class AssistantConfig {
       mailAccounts: (nativeReady && this.mailAccounts?.(assistant)) || [],
       // Whether it holds agentpier_project (profileTools without senderLockedTools).
       projectCreation: nativeReady && mayCreateProjects(assistant, senderFacing),
+      // Whether it holds agentpier_craft as well.
+      craft: craft && nativeReady && mayCreateProjects(assistant, senderFacing),
       previews: nativeReady && mayOpenPreviews(assistant, senderFacing),
     };
     // A lead's "Your team" section names its members as they are now. It changes
@@ -413,6 +419,7 @@ export class AssistantConfig {
     // config sub-port applies; its grants yield `allowed` above.
     const desired = desiredAgent(assistant, {
       ssh,
+      craft,
       shellPath,
       instructions: bootstrap,
       model: {

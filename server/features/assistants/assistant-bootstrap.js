@@ -203,6 +203,9 @@ const projectGuidance = [
   "- When the owner gives you new work that needs its own place, create a project with agentpier_project (action create) instead of asking the owner to make a folder. You get write access to it at once; ask the owner before switching coding sessions on unless the owner asked for them.",
   "- Share it with your permanent team members with agentpier_team_grant (projects and coding), as with any of your projects.",
 ].join("\n");
+// While it also holds agentpier_craft (craft/agent-craft.js): Craft Anything is installed.
+const craftGuidance =
+  "- When the owner asks you to rebuild or recreate an app, a website or a file, start a Craft Anything rebuild with agentpier_craft (action start). It gets its own project and runs inside AgentPier; the owner answers its questions there, so tell the owner where to follow it.";
 
 // Previews of servers the agent runs (agent-previews.js), while it holds
 // agentpier_preview (own agents and permanent members without a bot for other people).
@@ -222,8 +225,8 @@ const secretsGuidance =
 // agent receives at least one secret (AgentSecrets.entries). `codingSessions`: the
 // projects it may start coding sessions on, `[{ projectId, name }]`. `mailAccounts`:
 // its granted email accounts, `[{ accountId, name }]`. `projectCreation`: it holds
-// agentpier_project; `previews`: it holds agentpier_preview. `plainSsh`:
-// `{ hosts: [{ name, alias }] }` of its SSH agent.
+// agentpier_project; `craft`: it holds agentpier_craft as well; `previews`: it holds
+// agentpier_preview. `plainSsh`: `{ hosts: [{ name, alias }] }` of its SSH agent.
 export function assistantBootstrap(
   assistant,
   display = {},
@@ -238,6 +241,7 @@ export function assistantBootstrap(
     codingSessions = [],
     mailAccounts = [],
     projectCreation = false,
+    craft = false,
     previews = false,
     plainSsh = null,
   } = {},
@@ -281,7 +285,9 @@ export function assistantBootstrap(
       ? [sessionGuidance(codingSessions)]
       : []),
     ...(mailAccounts.length && goalAgent(assistant) ? [mailGuidance(mailAccounts)] : []),
-    ...(projectCreation && mayCreateProjects(assistant) ? [projectGuidance] : []),
+    ...(projectCreation && mayCreateProjects(assistant)
+      ? [craft ? `${projectGuidance}\n${craftGuidance}` : projectGuidance]
+      : []),
     ...(previews && mayOpenPreviews(assistant) ? [previewGuidance] : []),
     ...(personalCapabilities(assistant).browser ? [uploadGuidance] : []),
     // While the agent can create images: the capability with a ready ChatGPT account.

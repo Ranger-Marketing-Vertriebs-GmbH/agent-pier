@@ -375,8 +375,7 @@ export function constructAssistantGraph(host, created = {}) {
     runtimeProxy,
     redirectUrl: () => oauthRedirect(host.effectiveConfig?.() || config),
     remoteUrl: () => (host.effectiveConfig?.() || config).remoteUrl,
-    // assistantMcpChanges is built below.
-    reapply: () => assistantMcpChanges.apply(),
+    reapply: () => assistantMcpChanges.apply(), // assistantMcpChanges is built below.
   });
   const assistantMcpOAuth = mcpOAuth.oauth;
   const assistantMcpChanges = new McpChanges({
@@ -541,8 +540,9 @@ export function connectAssistantServices(graph) {
         native: await reminders.start(),
         // Hermes agents run in their own process sets, never in OpenClaw's.
         profiles: openClaw,
-        // Eligible agents with an SSH grant (assistant-access.js sshAgents).
+        // SSH grants (assistant-access.js sshAgents), rebuilds (craft/agent-craft.js).
         sshAgents: workflows.access.sshAgents(),
+        craft: !!configuration.craftAvailable?.(),
         // Read at each start; secrets reach only the compiled openclaw.json.
         mcp: readMcpInputs(mcpServers, {
           redirectUrl: mcpChanges.redirectUrl(),

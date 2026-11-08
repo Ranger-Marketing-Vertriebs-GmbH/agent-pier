@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { hermesCompiler } from "../../server/features/assistants/runtimes/hermes/hermes-compiler.js";
 import { readHermesConfig } from "../../server/features/assistants/runtimes/hermes/hermes-config/home-merge.js";
+import { desiredAgent } from "../../server/features/assistants/agent-desired-state.js";
 import {
   goldenCompileInput,
   goldenText,
@@ -155,4 +156,22 @@ test("secrets reach only .env, never config.yaml", () => {
   );
   assert.match(compiled("full").files[".env"], /^OPENROUTER_API_KEY='sk-or-golden'\n$/);
   assert.equal(compiled("every-command").files[".env"], "");
+});
+
+test("a lead gets agentpier_craft only while Craft Anything is available", () => {
+  const scenario = hermesGoldenScenarios["team-lead"]();
+  const tools = (craft) => {
+    const input = goldenCompileInput(scenario);
+    const agent = desiredAgent(scenario.profile, {
+      model: scenario.model,
+      instructions: scenario.instructions,
+      craft,
+    });
+    const home = hermesCompiler.compile({ ...input, agents: [agent] }).homes["ap-a1"];
+    return JSON.parse(home.files["plugins/agentpier-team/tools.json"]).tools;
+  };
+  assert.ok(!tools(false).some((tool) => tool.name === "agentpier_craft"));
+  const craft = tools(true).find((tool) => tool.name === "agentpier_craft");
+  assert.equal(craft.timeoutMs, 95000);
+  assert.deepEqual(craft.parameters.properties.action.enum, ["start", "status"]);
 });

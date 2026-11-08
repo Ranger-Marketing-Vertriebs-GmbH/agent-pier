@@ -95,6 +95,8 @@ export const ownerRunActions = new Set([
   "goal",
   // A preview of a server the run started for its chat (agent-previews.js).
   "preview",
+  // A rebuild for the owner (craft/agent-craft.js).
+  "craft",
 ]);
 
 /**

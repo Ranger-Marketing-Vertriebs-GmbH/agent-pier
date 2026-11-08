@@ -38,7 +38,8 @@ const messages = serverMessages.craft;
 const craftError = (code, message, status) =>
   Object.assign(new Error(message), { code, status });
 
-const statusView = (rebuild) => ({
+/** What a session or an agent reads of a rebuild: never its questions' details. */
+export const statusView = (rebuild) => ({
   id: rebuild.id,
   name: rebuild.name,
   status: rebuild.status,

@@ -6,9 +6,9 @@ import { mayCreateProjects, mayOpenPreviews } from "./goal-turns.js";
  * and the folders its shell PATH starts with (its GitHub folder, its SSH agent's bin/),
  * and the instructions' guidance on what its tools reach (assistant-bootstrap.js):
  * project folders, GitHub, plain ssh aliases, its secrets file, coding sessions,
- * email accounts, project creation and previews. AgentPier's own tools reach a Hermes
- * agent through the team plugin and its bridge (`tools`: the bridge runs), so
- * without it none of that guidance is given. Memory is Hermes's own memory tool
+ * email accounts, project creation, rebuilds (`craft`) and previews. AgentPier's own
+ * tools reach a Hermes agent through the team plugin and its bridge (`tools`: the
+ * bridge runs), so without it none of that guidance is given. Memory is Hermes's own memory tool
  * (`memoryKind` "hermes"), never AgentPier's memory files; image creation is, while its images reach the chat through the team plugin
  * (`images`: a ChatGPT login AgentPier holds serves them, hermes-config/images.js).
  * Never fails the apply.
@@ -20,6 +20,7 @@ export async function ownProcessInputs(
 ) {
   const senderFacing = !!config.senderFacing?.(assistant);
   const ssh = !!config.sshGranted?.(assistant);
+  const craft = !!config.craftAvailable?.();
   const shellPath = [
     ...(config.githubShellPath?.(assistant) || []),
     ...(config.sshShellPath?.(assistant) || []),
@@ -40,7 +41,8 @@ export async function ownProcessInputs(
     codingSessions: (tools && config.codingSessions?.(assistant)) || [],
     mailAccounts: (tools && config.mailAccounts?.(assistant)) || [],
     projectCreation: tools && mayCreateProjects(assistant, senderFacing),
+    craft: tools && craft && mayCreateProjects(assistant, senderFacing),
     previews: tools && mayOpenPreviews(assistant, senderFacing),
   };
-  return { ssh, shellPath, guidance };
+  return { ssh, craft, shellPath, guidance };
 }

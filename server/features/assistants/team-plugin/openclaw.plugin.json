@@ -40,7 +40,8 @@
       "agentpier_coding_session",
       "agentpier_mail",
       "agentpier_project",
-      "agentpier_preview"
+      "agentpier_preview",
+      "agentpier_craft"
     ]
   },
   "configSchema": {
