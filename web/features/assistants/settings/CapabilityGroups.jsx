@@ -1,14 +1,12 @@
 import React, { useEffect, useId, useState } from "react";
 import GroupLabel from "../../../components/GroupLabel.jsx";
 import ListCard from "../../../components/ListCard.jsx";
-import ListRow, { ToggleRow, unknownValue } from "../../../components/ListRow.jsx";
-import Segmented from "../../../components/Segmented.jsx";
+import ListRow, {
+  RadioRow,
+  ToggleRow,
+  unknownValue,
+} from "../../../components/ListRow.jsx";
 import ReferenceRow from "../../../components/ReferenceRow.jsx";
-import {
-  InfoHintButton,
-  InfoHintText,
-  useInfoHint,
-} from "../../../components/InfoHint.jsx";
 import { routePath } from "../../../app/routes.js";
 import { useCrossLink } from "../../../app/cross-link.js";
 import { assistantCopy } from "../../../lib/i18n/messages/assistants.js";
@@ -186,7 +184,6 @@ export function WebGroup({
  */
 export function ShellGroup({ assistant, draft, go, creating = false, everyCommand }) {
   const id = useId();
-  const others = useInfoHint();
   const eligible = shellEligible(assistant);
   const every = everyCommand ?? offersEveryCommand(assistant?.runtimeInfo);
   const levels = every ? everyCommandLevels : shellLevels;
@@ -197,10 +194,6 @@ export function ShellGroup({ assistant, draft, go, creating = false, everyComman
       ? shellCopy.archived
       : shellCopy.temporary;
   const level = draft.values.shell;
-  const otherHints = levels
-    .filter((value) => value !== level)
-    .map((value) => `${texts.levels[value]}: ${texts.levelHints[value]}`)
-    .join(" ");
   const listed = Boolean(assistant) && eligible && !creating;
   const entries = useCount(
     () =>
@@ -215,26 +208,20 @@ export function ShellGroup({ assistant, draft, go, creating = false, everyComman
       <GroupLabel id={id} hint={shellCopy.intro}>
         {shellCopy.title}
       </GroupLabel>
-      <div className="list-card">
-        <div className="list-row agent-shell-levels">
-          <Segmented
-            label={shellCopy.title}
-            options={levels.map((value) => ({ value, label: texts.levels[value] }))}
-            value={level}
+      <ListCard labelledBy={id} disabled={!eligible}>
+        {levels.map((value) => (
+          <RadioRow
+            key={value}
+            name={`${id}-shell`}
+            value={value}
+            label={texts.levels[value]}
+            sub={texts.levelHints[value]}
+            checked={level === value}
             disabled={!eligible || draft.saving}
             onChange={(next) => draft.set("shell", next)}
           />
-        </div>
-        {reason ? (
-          <p className="agent-row-note">{reason}</p>
-        ) : (
-          <div className="agent-row-note">
-            <p>
-              {texts.levelHints[level]} <InfoHintButton hint={others} />
-            </p>
-            <InfoHintText hint={others}>{otherHints}</InfoHintText>
-          </div>
-        )}
+        ))}
+        {reason && <p className="agent-row-note">{reason}</p>}
         {listed && (
           <ListRow
             label={shellCopy.allowlist}
@@ -243,7 +230,7 @@ export function ShellGroup({ assistant, draft, go, creating = false, everyComman
             onClick={() => go("capabilities", "allowlist")}
           />
         )}
-      </div>
+      </ListCard>
       {eligible &&
         (level === "off" ? (
           <p className="assistant-note">{shellCopy.offHint}</p>
