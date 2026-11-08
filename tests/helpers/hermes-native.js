@@ -6,6 +6,7 @@ import { desiredAgent } from "../../server/features/assistants/agent-desired-sta
 import { detectBrowser } from "../../server/features/assistants/browser-detection.js";
 import { createHermesRuntime } from "../../server/features/assistants/runtimes/hermes/hermes-runtime.js";
 import { hermesExecutables } from "../../server/features/assistants/runtimes/hermes/hermes-paths.js";
+import { hermesAdvancedRuntime } from "../../server/features/assistants/runtimes/hermes/hermes-config/advanced.js";
 import { guardProcess } from "./process-guard.js";
 
 // The native Hermes contracts (tests/integration/*hermes*-contract.test.js) run the
@@ -129,12 +130,18 @@ export function contractAgent(
 export async function startHermes(
   t,
   dirs,
-  { agentId = "hermes-agent", model, strict = false, shell } = {},
+  { agentId = "hermes-agent", model, strict = false, shell, advanced } = {},
 ) {
   const { supervisor, runtime } = createHermesRuntime({
     dataDir: dirs.root,
     agentId,
-    runtime: async () => contractRecord(),
+    // The owner's advanced settings by id; the contract runtime is the pinned Hermes
+    // they are approved for (hermes-config/advanced.js).
+    ...(advanced && { advanced: () => advanced }),
+    runtime: async () => ({
+      ...contractRecord(),
+      ...(advanced && { version: hermesAdvancedRuntime }),
+    }),
     desired: () => contractAgent(agentId, model, { shell }),
     // Every-command approval (the guard plugin) when `strict`.
     strict,

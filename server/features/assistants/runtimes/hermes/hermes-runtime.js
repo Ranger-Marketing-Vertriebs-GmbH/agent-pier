@@ -15,7 +15,12 @@ import { hermesCompiler, hermesConfigCapabilities } from "./hermes-compiler.js";
 import { hermesError } from "./hermes-rpc-client.js";
 import { liveTeamFiles } from "./hermes-config/team-plugin.js";
 import { ddgsInstalled } from "./hermes-config/web.js";
-import { advancedHome, homeZone } from "./hermes-config/advanced.js";
+import fs from "node:fs";
+import {
+  advancedHome,
+  advancedZone,
+  liveConfigChange,
+} from "./hermes-config/advanced.js";
 import { HermesBrowser } from "./hermes-browser.js";
 
 /**
@@ -36,6 +41,13 @@ export const hermesCapabilities = Object.freeze({
 });
 
 const isRunning = (availability) => !["disabled", "failed"].includes(availability);
+const readConfig = (file) => {
+  try {
+    return fs.readFileSync(file, "utf8");
+  } catch {
+    return "";
+  }
+};
 
 /**
  * The Hermes adapter of the agent runtime port (../agent-runtime.js) for one agent,
@@ -51,11 +63,14 @@ const isRunning = (availability) => !["disabled", "failed"].includes(availabilit
  * leave their keys as they are. Host from hermes-host.js; sessions, events, approvals
  * and routines over the client of the current start, and the deliveries of routine
  * results (HermesRoutineDeliveries) following each start's client; both run cron
- * expressions in the time zone the last write gave the agent's clock.
+ * expressions in the zone the current start gave the agent's processes
+ * (HERMES_TIMEZONE from advanced(), else the host's).
  *
  * - config.apply({ desired, strict, catalog, mcp, connection }): writes the compiled
  *   home now; a running set that this changed restarts, unless only files the gateway
- *   reads at each call changed (liveTeamFiles); a stopped or failed one starts.
+ *   reads at each call changed (liveTeamFiles) or config.yaml only in the thinking
+ *   level (hermes-config/advanced.js liveConfigChange); a changed time zone restarts
+ *   it too; a stopped or failed one starts.
  *   `catalog`: `{ [name]: folder }` of the catalog skills it may offer
  *   (hermes-config/skills.js); `mcp`: the MCP store's inputs (mcp-inputs.js
  *   readMcpInputs) for the agent's bound servers (hermes-config/mcp.js), which a
@@ -80,8 +95,7 @@ export function createHermesRuntime({
   ...options
 }) {
   let written = [];
-  // The zone of the agent's clock as its home named it at the last start (null: the
-  // host's, which its processes inherit).
+  // The HERMES_TIMEZONE of the current start (null: the host's zone).
   let zone = null;
   let latest = null;
   // The installation the set last started with, and the names it bundles.
@@ -153,8 +167,11 @@ export function createHermesRuntime({
       } catch (error) {
         console.warn(`Hermes advanced settings not written: ${error?.code || "ERROR"}`);
       }
-    // The zone the gateway this start runs reads its clock and cron in.
-    zone = homeZone(agent.hermesHome);
+    // The zone this start's processes run their clock and cron in; unknown values
+    // keep the zone of the last start.
+    const input = advancedInput();
+    if (input) supervisor.timezone = advancedZone(input);
+    zone = supervisor.timezone ?? null;
   };
   const supervisor = new HermesSupervisor({ ...options, prepare });
   // The agent's own Chromium: launched for its browser calls, headless unless its
@@ -266,15 +283,25 @@ export function createHermesRuntime({
           await supervisor.start();
           return { written: [...written], restarted: false };
         }
+        // The zone reaches the processes at their start only.
+        const input = advancedInput();
+        const zoneChanged =
+          !!input && advancedZone(input) !== (supervisor.timezone ?? null);
+        const paths = supervisor.agentPaths();
+        const config = path.join(paths.hermesHome, "config.yaml");
+        const before = readConfig(config);
         const changed = await writeHome(
-          supervisor.agentPaths(),
+          paths,
           read,
           !!everyCommand,
           latest.inputs,
           settings,
         );
-        const restart =
-          pathChanged || changed.some((file) => !liveTeamFiles.includes(file));
+        // The gateway reads the thinking level again at each turn.
+        const live = (file) =>
+          liveTeamFiles.includes(file) ||
+          (file === "config.yaml" && liveConfigChange(before, readConfig(config)));
+        const restart = pathChanged || zoneChanged || changed.some((file) => !live(file));
         if (restart) await supervisor.restart();
         else await supervisor.start();
         return { written: changed, restarted: restart };

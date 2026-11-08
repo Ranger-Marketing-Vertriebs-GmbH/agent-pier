@@ -324,6 +324,40 @@ async function runCommand(t, shell, command, decide) {
 }
 
 test(
+  "Hermes contract: the owner's time zone reaches the agent's cron through its environment",
+  options,
+  async (t) => {
+    const model = await startFakeModel();
+    t.after(() => model.close());
+    const dirs = hermesSandbox(t);
+    const hook = await webhook(t, dirs);
+    // The owner's Time zone for all agents (hermes-config/advanced.js): passed as
+    // HERMES_TIMEZONE, never written into config.yaml.
+    const zone = otherZone();
+    const { runtime, agent } = await startHermes(t, dirs, {
+      agentId,
+      model,
+      advanced: { userTimezone: zone },
+    });
+    const config = fs.readFileSync(path.join(agent.hermesHome, "config.yaml"), "utf8");
+    assert.doesNotMatch(config, /^timezone:/m);
+    // A routine in that zone runs as written, and Hermes's own scheduler computes its
+    // next run in that zone, not the host's.
+    const schedule = { kind: "cron", expression: "0 9 * * *", timezone: zone };
+    const local = await runtime.routines.add({
+      routine: routine(hook.url, { enabled: true, schedule }),
+    });
+    const jobs = JSON.parse(
+      fs.readFileSync(path.join(agent.hermesHome, "cron", "jobs.json"), "utf8"),
+    );
+    const job = (Array.isArray(jobs) ? jobs : jobs.jobs).find((j) => j.id === local.id);
+    assert.equal(job.schedule.expr, "0 9 * * *");
+    assert.equal(local.runState.nextRunAtMs, nextCronRun("0 9 * * *", zone, Date.now()));
+    await runtime.routines.remove({ id: local.id });
+  },
+);
+
+test(
   "Hermes contract: a routine run's dangerous command follows the agent's shell level",
   options,
   async (t) => {

@@ -645,7 +645,13 @@ agent-browser pin from the archive's `pm/lock.json` and checks that archive agai
 it, refuses a commit whose `requires-python` excludes Python 3.14, and rewrites `hermes-manifest.json`
 with the recorded hashes. It keeps the `pdfium` pin, which is independent of Hermes and
 changes by hand (a release that has been out for a while; its wheel hashes from PyPI). Run without arguments, it reproduces the shipped manifest byte
-for byte. Review the diff, then run the Hermes contracts.
+for byte. Review the diff, then run the Hermes contracts. A new Hermes version also
+needs a review of the advanced settings mapping in
+`runtimes/hermes/hermes-config/advanced.js` (each key and value against the new
+`hermes_cli/config_defaults.py` and readers, and whether settings without an
+equivalent gained one) before `hermesAdvancedRuntime` moves to it;
+`tests/unit/hermes-advanced.test.js` fails until it does, and until then Hermes agents
+start with Hermes's defaults.
 
 **Native Hermes contracts.** `node scripts/provision-hermes-contracts.mjs --data-dir
 <absolute dir> [--env-file <file>]` installs the pinned Hermes like `--with-hermes` and

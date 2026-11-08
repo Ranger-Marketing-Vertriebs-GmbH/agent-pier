@@ -13,7 +13,9 @@ const refused =
  * HERMES_HOME, TMPDIR and XDG folders inside AgentPier's Hermes folder, a minimal
  * PATH (Hermes's environment, the installation's tools/ with agent-browser, the
  * folders AgentPier provides, the system's), UTF-8,
- * and the host's proxy settings and time zone. Nothing else of AgentPier's own
+ * and the host's proxy settings and time zone, and `timezone` (the owner's Time zone
+ * for all agents, hermes-config/advanced.js) as HERMES_TIMEZONE, which Hermes reads
+ * before its config.yaml. Nothing else of AgentPier's own
  * environment reaches them (no AgentPier token, no owner credential); `extra` adds
  * variables a later configuration step supplies (model keys come through Hermes's
  * own secret source instead) and may not name AgentPier's or Hermes's own variables.
@@ -24,6 +26,7 @@ export function hermesEnvironment({
   runtime,
   pathPrepend = [],
   extra = {},
+  timezone = null,
   parent = process.env,
   platform = process.platform,
 }) {
@@ -47,6 +50,7 @@ export function hermesEnvironment({
     ...proxyEnvironment(parent),
     ...(parent.TZ ? { TZ: parent.TZ } : {}),
     ...extra,
+    ...(typeof timezone === "string" && timezone ? { HERMES_TIMEZONE: timezone } : {}),
     HOME: agent.home,
     HERMES_HOME: agent.hermesHome,
     TMPDIR: agent.tmp,

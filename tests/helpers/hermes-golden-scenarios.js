@@ -192,8 +192,9 @@ export const hermesGoldenScenarios = {
     instructions,
   }),
   // The owner's advanced settings for all agents that Hermes takes (advanced.js):
-  // the thinking level as reasoning effort ("off" is "none") and the clock's zone.
-  // Settings Hermes has no equivalent of (the time limit) write nothing.
+  // the thinking level as reasoning effort ("off" is "none"). The time zone travels
+  // as the processes' HERMES_TIMEZONE, not in config.yaml; settings Hermes has no
+  // equivalent of (the time limit) write nothing.
   advanced: () => ({
     profile: agent({ capabilities: { memory: true } }),
     model: models.bearer,

@@ -64,8 +64,9 @@ export function advancedValues(overrides) {
  * Gateway takes a `hot` or `none` change live through config.patch; a `restart` change
  * restarts it in maintenance once the owner confirmed, like a web tools change. A
  * stopped Gateway compiles the stored overrides at its next start. Hermes agents take
- * the settings Hermes has an equivalent of (`hermes` per setting) at each start and
- * apply; a save of one applies them, and each whose home changed restarts.
+ * the settings Hermes has an equivalent of (`hermes` per setting: how a running
+ * Hermes agent takes it) at each start and apply; a save of one applies them, and a
+ * changed time zone restarts them (the thinking level applies at the next turn).
  */
 export class AdvancedConfig {
   constructor({ assistants, overrides, synchronization, usage, audit }) {
@@ -148,13 +149,16 @@ export class AdvancedConfig {
     }
   }
   /**
-   * Hermes as these settings reach it: whether Hermes agents run, the installed
-   * version and whether the mapping is approved for it (hermes-config/advanced.js).
+   * Hermes as these settings reach it: whether Hermes runs, how many Hermes agents
+   * there are (not archived), the installed version and whether the mapping is
+   * approved for it (hermes-config/advanced.js).
    */
   hermes() {
     const version = hermesFleetOf(this.runtime).installedVersion();
+    const profiles = this.assistants.store?.listAssistants?.() || [];
     return {
       enabled: hermesAvailable(this.runtime),
+      agents: profiles.filter((p) => p.runtime === "hermes" && !p.archivedAt).length,
       version,
       qualified: !version || version === hermesSettings().runtime,
     };
@@ -192,8 +196,8 @@ export class AdvancedConfig {
           current: value === undefined ? null : value,
           reloadKind: reloadKind || setting.reloadKind,
           available: gateway.qualified && reloadKind !== null,
-          // Whether Hermes agents take it too; otherwise it is OpenClaw's alone.
-          hermes: !!hermesSettings().byId(setting.id),
+          // How Hermes agents take it ("hot", "restart"), or null: OpenClaw's alone.
+          hermes: hermesSettings().byId(setting.id)?.reloadKind ?? null,
         };
       }),
     };

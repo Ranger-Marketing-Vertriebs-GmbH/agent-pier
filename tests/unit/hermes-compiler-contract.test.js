@@ -20,7 +20,7 @@ test("Hermes offers the advanced settings it has an equivalent of", () => {
     hermesCompiler.advancedSettings.list.map(({ id, path }) => [id, path]),
     [
       ["thinkingDefault", "agent.reasoning_effort"],
-      ["userTimezone", "timezone"],
+      ["userTimezone", "HERMES_TIMEZONE"],
     ],
   );
 });
