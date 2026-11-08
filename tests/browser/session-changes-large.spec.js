@@ -88,7 +88,7 @@ const commentOnLast = {
   sentIn: null,
 };
 
-async function setup(page, { comments = [] } = {}) {
+async function setup(page, { comments = [], extra = [] } = {}) {
   const { state } = await fixture(page);
   state.sessions.push({
     id,
@@ -109,7 +109,10 @@ async function setup(page, { comments = [] } = {}) {
     if (rest === "/changes/diff") {
       mock.diffReads++;
       const base = mock.summary.workspaces[0].base;
-      return route.fulfill({ json: { workspace: "", base, files, truncated: true } });
+      const all = [...files, ...extra];
+      return route.fulfill({
+        json: { workspace: "", base, files: all, truncated: true },
+      });
     }
     if (rest === "/chat") return route.fulfill({ json: chat });
     if (rest === "/models")
@@ -159,12 +162,12 @@ for (const [name, use] of [
       expect(rows).toBeGreaterThan(0);
       expect(rows).toBeLessThanOrEqual(1200);
       // memory: a phone's WebView reloads (and reopens this tab) under memory pressure,
-      // so the page stays a bounded DOM (~27,000 elements here, against ~400,000
-      // for all 18,000 rows)
+      // so the page stays a bounded DOM: 26,735 elements measured here for 20 open
+      // files of 60 highlighted rows (the owner's real diff: 10,913, was 190,713)
       const elements = await page.evaluate(
         () => document.getElementsByTagName("*").length,
       );
-      expect(elements).toBeLessThan(40000);
+      expect(elements).toBeLessThan(32000);
       await expect(page.locator(".diff-review-summary")).toHaveText(
         `${FILES} files · ${FILES - 20} collapsed`,
       );
@@ -215,6 +218,50 @@ test("a file with a comment opens wherever it is", async ({ page }) => {
   await toggle(page, last).click();
   await expect(region).toHaveCount(0);
   await expect(heading(page, last).getByText("1 comment")).toBeVisible();
+});
+
+test("comments past the budget stay reachable from the list and the heading", async ({
+  page,
+}) => {
+  // comments on 60 files, every one outdated: the second budget opens 20 of them
+  const comments = files.slice(100, 160).map((file, i) => ({
+    ...commentOnLast,
+    id: `c${i}`,
+    file: file.path,
+    anchor: { ...commentOnLast.anchor, text: "a line that is gone" },
+  }));
+  await setup(page, { comments });
+  await openTab(page);
+  const shut = files[159].path;
+  await expect(toggle(page, files[119].path)).toHaveAttribute("aria-expanded", "true");
+  await expect(toggle(page, shut)).toHaveAttribute("aria-expanded", "false");
+  await expect(heading(page, shut).getByText("1 comment")).toBeVisible();
+  const link = page
+    .getByRole("navigation", { name: "Changed files" })
+    .getByRole("button", { name: new RegExp(shut) });
+  await expect(link).toContainText("1 comment");
+  await link.click();
+  await expect(toggle(page, shut)).toHaveAttribute("aria-expanded", "true");
+  await expect(heading(page, shut).getByText("Check the last module")).toBeVisible();
+  expect(await page.locator(".diff-row").count()).toBeLessThanOrEqual(2600); // two budgets, the opened file, excerpts
+});
+
+test("the file list focuses a binary file's heading", async ({ page }) => {
+  const binary = {
+    ...bigFile(999),
+    path: "assets/logo.png",
+    binary: true,
+    added: 0,
+    rows: [],
+  };
+  await setup(page, { extra: [binary] });
+  await openTab(page);
+  await page
+    .getByRole("navigation", { name: "Changed files" })
+    .getByRole("button", { name: /assets\/logo\.png/ })
+    .click();
+  await expect(toggle(page, "assets/logo.png")).toBeFocused();
+  await expect(heading(page, "assets/logo.png").getByText("Binary file")).toBeVisible();
 });
 
 test("a push for another workspace neither reads nor rebuilds the diff", async ({

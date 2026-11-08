@@ -157,20 +157,39 @@ export function fileCommentLayout(entry, rows, shown) {
   return { after, hidden, outdated: entry?.outdated ?? [] };
 }
 
+const firstPage = (file) => Math.min(file.rows.length, ROW_PAGE);
+
 /**
- * The paths a review shows open at first: files in order while their first pages fit
- * OPEN_ROW_BUDGET (the first file always), and every file with a comment on it.
+ * The paths a review shows open without the reader asking, grown from `open` (the
+ * set shown so far) and never shrunk, so a refresh or late comments never close a
+ * file under the reader. Files open in order while their first pages fit
+ * OPEN_ROW_BUDGET (the first file always), counting the open ones; commented files
+ * open in order while theirs fit a second OPEN_ROW_BUDGET, so comments on many files
+ * cannot rebuild the whole diff. The rest name their comments in the heading and the
+ * file list. Answers `open` itself when nothing is added.
  * @param {{ path: string, rows: object[] }[]} files
  * @param {Map<string, unknown>} [commented] placeComments().byFile
+ * @param {Set<string>} [open]
  */
-export function openByDefault(files, commented = new Map()) {
-  const open = new Set(commented.keys());
+export function openByDefault(files, commented = new Map(), open = new Set()) {
+  const next = new Set(open);
   let budget = OPEN_ROW_BUDGET;
   for (const [index, file] of files.entries()) {
-    const rows = Math.min(file.rows.length, ROW_PAGE);
-    if (index > 0 && rows > budget) break;
+    const rows = firstPage(file);
+    if (!next.has(file.path)) {
+      if (index > 0 && rows > budget) break;
+      next.add(file.path);
+    }
     budget -= rows;
-    open.add(file.path);
   }
-  return open;
+  let extra = OPEN_ROW_BUDGET;
+  for (const file of files)
+    if (commented.has(file.path) && next.has(file.path)) extra -= firstPage(file);
+  for (const file of files) {
+    if (!commented.has(file.path) || next.has(file.path)) continue;
+    if (firstPage(file) > extra) continue;
+    extra -= firstPage(file);
+    next.add(file.path);
+  }
+  return next.size === open.size ? open : next;
 }

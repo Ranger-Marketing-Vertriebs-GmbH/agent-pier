@@ -10,8 +10,9 @@ import "./diff-review.css";
 
 // A diff with line comments: the file list, every file, then the comments on files
 // that are no longer in the diff. The caller filters `comments` to `workspace`.
-// Files past openByDefault start collapsed to their heading; a file the reader opens
-// or closes keeps that choice (by path) across refreshes of the diff.
+// Files past openByDefault start collapsed to their heading; the files shown open only
+// grow while the review is mounted (one workspace or run), and a file the reader
+// opens or closes keeps that choice (by path) across refreshes of the diff.
 export default function DiffReview({
   files,
   comments = [],
@@ -26,16 +27,20 @@ export default function DiffReview({
 }) {
   const prefix = useId();
   const placement = useMemo(() => placeComments(comments, files), [comments, files]);
-  const defaults = useMemo(
-    () => openByDefault(files, placement.byFile),
-    [files, placement],
-  );
+  const [shown, setShown] = useState(() => openByDefault(files, placement.byFile));
+  const grown = openByDefault(files, placement.byFile, shown);
+  // a refresh or late comments add to the open files during this render, never close one
+  if (grown !== shown) setShown(grown);
   const [chosen, setChosen] = useState(() => new Map());
   const toggle = useCallback(
     (path, value) => setChosen((last) => new Map(last).set(path, value)),
     [],
   );
-  const isOpen = (file) => chosen.get(file.path) ?? defaults.has(file.path);
+  const isOpen = (file) => chosen.get(file.path) ?? grown.has(file.path);
+  const commentsOn = (path) => {
+    const entry = placement.byFile.get(path);
+    return entry ? entry.placed.length + entry.outdated.length : 0;
+  };
   const collapsed = files.filter((file) => !isOpen(file)).length;
   const open = comments.filter((comment) => comment.status === "open").length;
   const fileId = (index) => `${prefix}-file-${index}`;
@@ -44,7 +49,10 @@ export default function DiffReview({
     if (!isOpen(files[index])) flushSync(() => toggle(files[index].path, true));
     const target = document.getElementById(fileId(index));
     target?.scrollIntoView({ block: "start" });
-    (target?.querySelector(".diff-scroll") ?? target)?.focus?.({ preventScroll: true });
+    // the diff region, else (a binary or empty file) the heading's toggle
+    (
+      target?.querySelector(".diff-scroll") ?? target?.querySelector(".diff-file-toggle")
+    )?.focus({ preventScroll: true });
   };
   return (
     <div className="diff-review">
@@ -65,6 +73,11 @@ export default function DiffReview({
                   onClick={() => jump(index)}
                 >
                   <span className="diff-file-path">{file.path}</span>
+                  {commentsOn(file.path) > 0 && (
+                    <span className="diff-review-file-comments">
+                      {copy.comments(commentsOn(file.path))}
+                    </span>
+                  )}
                   <span className="diff-file-count">
                     +{file.added} −{file.removed}
                   </span>
