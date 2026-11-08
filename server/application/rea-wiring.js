@@ -2,11 +2,11 @@ import { ReaTool } from "../features/tools/rea-tool.js";
 import { hostReady } from "../features/assistants/runtimes/runtime-for.js";
 
 /**
- * Whether REA runs right now: a running coding session of a CLI its row is bound to
- * (also one that outlived an AgentPier restart in tmux), or a running agent Gateway
- * while agents have the row.
+ * Whether a managed tool's row (REA, Craft Anything) runs right now: a running coding
+ * session of a CLI the row is bound to (also one that outlived an AgentPier restart
+ * in tmux), or a running agent Gateway while agents have the row.
  */
-export async function reaInUse({ serverId, servers, sessions, assistants }) {
+export async function managedRowInUse({ serverId, servers, sessions, assistants }) {
   if (!serverId) return false;
   const { clis, agents } = servers.targetsOf(serverId);
   if (agents.length && hostReady(assistants?.runtime)) return true;
@@ -16,6 +16,9 @@ export async function reaInUse({ serverId, servers, sessions, assistants }) {
     (session) => session.status === "running" && clis.includes(session.tool),
   );
 }
+
+/** REA's name for managedRowInUse. */
+export const reaInUse = managedRowInUse;
 
 /**
  * The managed REA tool on the central MCP server store (AGENTPIER-104), or null
@@ -43,7 +46,7 @@ export function createReaTool({
   });
   packages.afterInstall = (serverId, context) => rea.afterInstall(serverId, context);
   rea.inUse = () =>
-    reaInUse({
+    managedRowInUse({
       serverId: rea.serverId(),
       servers,
       sessions,

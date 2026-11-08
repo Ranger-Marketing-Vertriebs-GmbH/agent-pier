@@ -13,8 +13,8 @@ import {
 } from "../mcp-packages/frozen-install.js";
 import { reaCore, reaManifest, reaPlatform } from "./rea-manifest.js";
 import {
-  installReaComponent,
   managedReaComponent,
+  placeGhidra,
   removeReaComponent,
 } from "./rea-components.js";
 import {
@@ -397,27 +397,18 @@ export class ReaTool {
       await removeReaComponent(this.root, "rea-jdk");
       return;
     }
-    const parts = [
-      ["rea-jdk", "jdk", host.ghidra.jdk, this.manifest.jdk.version],
-      ["rea-ghidra", "ghidra", host.ghidra.entry, this.manifest.ghidra.version],
-    ];
-    for (const [id, step, entry, version] of parts) {
-      const current = this.component(id);
-      if (current && (!update || current.version === version)) continue;
-      this.progress(step);
-      await installReaComponent({
-        root: this.root,
-        id,
-        version,
-        entry,
-        fetchImpl: this.fetchImpl,
-        signal,
-        run: this.run,
-        env: this.env,
-        platform: this.platform,
-        progress: (message) => this.progress(step, message),
-      });
-    }
+    await placeGhidra({
+      root: this.root,
+      manifest: this.manifest,
+      host,
+      update,
+      signal,
+      fetchImpl: this.fetchImpl,
+      run: this.run,
+      env: this.env,
+      platform: this.platform,
+      progress: (step, message) => this.progress(step, message),
+    });
   }
   /** A free name for the new row: `rea`, else `rea-agentpier`, else `rea-agentpier-<n>`. */
   rowName() {
