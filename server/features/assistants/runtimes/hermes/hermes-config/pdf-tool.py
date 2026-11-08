@@ -200,8 +200,19 @@ def extract(data, settings, pages=None, password=None, budget=None):
         document.close()
 
 
+_CHILD_MEMORY = 2 * 1024 * 1024 * 1024
+
+
 def _child():
     # One PDF in this process alone: a JSON line, then the PDF's bytes, on stdin.
+    # A decompression bomb hits this address-space cap (enforced on Linux; macOS
+    # ignores RLIMIT_AS) instead of the host's memory; the timeout covers the rest.
+    try:
+        import resource
+
+        resource.setrlimit(resource.RLIMIT_AS, (_CHILD_MEMORY, _CHILD_MEMORY))
+    except Exception:
+        pass
     raw = sys.stdin.buffer.read()
     head, _, data = raw.partition(b"\n")
     try:
@@ -224,7 +235,8 @@ def read_pdf(data, settings, pages, password, budget, deadline):
     env = {name: os.environ[name] for name in _CHILD_ENV if name in os.environ}
     try:
         done = subprocess.run(
-            [sys.executable, os.path.abspath(__file__)],
+            # -P: the plugin folder never shadows a module the child imports.
+            [sys.executable, "-P", os.path.abspath(__file__)],
             input=json.dumps(job).encode("utf-8") + b"\n" + data,
             capture_output=True,
             timeout=left,
