@@ -144,6 +144,9 @@ export class HermesDreams {
       const read = await dreamChats({
         store: this.assistants.store,
         sessions: runtime.sessions,
+        // The turns AgentPier submitted stay out (hermes-dream-chats.js personTurns).
+        ledger: this.assistants.ledger,
+        contextOf: (id) => this.assistants.teams?.store?.context(id) ?? null,
         assistantId: agent.id,
         since,
         budget: dreamChatBudget,
