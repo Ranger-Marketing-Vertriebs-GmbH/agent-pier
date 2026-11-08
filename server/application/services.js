@@ -38,7 +38,7 @@ import { ModelController } from "../features/models/model-controller.js";
 import { requestsChanged } from "../features/requests/live-topics.js";
 import { artifactsChanged } from "../features/artifacts/live-topics.js";
 import { operationJobChanged } from "../features/operations/live-topics.js";
-import { reaJobChanged, toolJobsChanged } from "../features/tools/live-topics.js";
+import { toolJobsChanged } from "../features/tools/live-topics.js";
 import { watchPackageJobs } from "../features/mcp-packages/live-topics.js";
 import { pluginJobChanged } from "../features/plugins/live-topics.js";
 import { sshToolsChanged, watchSshCatalog } from "../features/ssh/live-topics.js";
@@ -52,7 +52,7 @@ import { ExtensionsStore } from "../features/extensions/extension-store.js";
 import { McpServerStore } from "../features/mcp-servers/mcp-server-store.js";
 import { CentralMcpChanges } from "../features/mcp-servers/central-changes.js";
 import { McpPackages } from "../features/mcp-packages/mcp-packages.js";
-import { createReaTool } from "./rea-wiring.js";
+import { createManagedTools, managedBindingsChanged } from "./craft-wiring.js";
 import { createHermesRuntime } from "./hermes-wiring.js";
 import { createPreviewService } from "./preview-wiring.js";
 import { CliMcpBindings } from "../features/mcp-servers/cli-bindings.js";
@@ -337,11 +337,11 @@ export async function createServices(config) {
       servers: mcpServers,
       agents: () => services.assistantMcpChanges,
       maintenance: () => !!services.assistants?.maintenance,
-      // Every saved change is written into the bound CLIs at once; REA's skill
-      // copies follow its row's CLIs.
+      // Every saved change is written into the bound CLIs at once; REA's and Craft
+      // Anything's skill copies follow their rows' CLIs.
       onSaved: async () => {
         const reconciled = await services.cliMcp?.reconcileAll();
-        await services.rea?.bindingsChanged();
+        await managedBindingsChanged(services);
         return reconciled;
       },
     });
@@ -354,8 +354,8 @@ export async function createServices(config) {
       changes: mcpServerChanges,
       extensions,
     });
-  // The managed REA tool (AGENTPIER-104) on its own MCP row; started in app.js.
-  const rea = createReaTool({
+  // REA and Craft Anything, managed MCP rows (craft-wiring.js); started in app.js.
+  const { rea, craft } = createManagedTools({
     config,
     servers: mcpServers,
     changes: mcpServerChanges,
@@ -536,6 +536,7 @@ export async function createServices(config) {
     mcpServerChanges,
     mcpPackages,
     rea,
+    craft,
     cliMcp,
     sharedProfiles,
     agency,
@@ -559,7 +560,6 @@ export async function createServices(config) {
   services.hermesRuntime = createHermesRuntime({ config, services });
   // Every job write reaches the live job topics (services.live, once listening).
   installer.onChange = () => toolJobsChanged(services.live);
-  if (rea) rea.onChange = () => reaJobChanged(services.live);
   watchPackageJobs(services, mcpPackages);
   plugins.onChange = () => pluginJobChanged(services.live);
   sshSessions.onChange = (sessionId) => sshToolsChanged(services.live, sessionId);
