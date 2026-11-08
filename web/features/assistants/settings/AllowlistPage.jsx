@@ -9,16 +9,15 @@ import { assistantShellCopy as copy } from "../../../lib/i18n/messages/assistant
 import { assistantApi } from "../assistant-api.js";
 import { runtimeName } from "../runtime-capabilities.js";
 import SubpageHeader from "./SubpageHeader.jsx";
+import { commandName } from "./allowlist-names.js";
 
 const entryName = (entry) =>
   entry.kind === "command" ? copy.commandEntry : entry.pattern;
-// What a delete names: an exact command by its text (shortened), so the entries of a
+// What a delete names: an exact command by its text (commandName), so the entries of a
 // runtime that lists only exact commands (Hermes) stay distinguishable.
 const removalName = (entry) =>
   entry.kind === "command" && entry.command
-    ? entry.command.length > 80
-      ? `${entry.command.slice(0, 79)}…`
-      : entry.command
+    ? commandName(entry.command)
     : entryName(entry);
 
 function EntryDetails({ entry }) {
@@ -76,8 +75,8 @@ export default function AllowlistPage({ assistant, onBack }) {
     setFailed("");
     try {
       await assistantApi.removeShellAllowlistEntry(assistantId, entry.id);
-      // Read again rather than show the answer: a push that arrived meanwhile is newer.
-      await topic.refresh();
+      // The busy row stays until the topic shows the change (its push, else a read).
+      await topic.written();
     } catch (e) {
       setFailed(e.message);
     } finally {
