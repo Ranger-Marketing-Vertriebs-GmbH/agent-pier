@@ -13,6 +13,9 @@ import http from "node:http";
 //   prod;
 // - a clarify result is answered "ANSWERED: <the person's answer>", any other tool
 //   result "TOOL_DONE: <result>" (its first 400 characters);
+// - a request that offers no tools (a one-shot call such as the nightly dream) whose
+//   last user message has a line "DREAM_REPLY: <json>" is answered with the last
+//   such <json>;
 // - "SLOW" streams the echo one word every `slowMs`, then 40 more ticks;
 // - anything else is answered "ECHO: <message>".
 const text = (content) =>
@@ -31,6 +34,8 @@ function answer(body) {
     };
   }
   const said = text(last.content);
+  const dream = [...said.matchAll(/DREAM_REPLY: (.*)$/gm)].at(-1);
+  if (dream && !(body.tools || []).length) return { reply: dream[1] };
   const call = said.match(/CALL: (\S+) (.*)$/m);
   const offered = (body.tools || []).map((tool) => tool?.function?.name);
   if (call && offered.includes(call[1]))

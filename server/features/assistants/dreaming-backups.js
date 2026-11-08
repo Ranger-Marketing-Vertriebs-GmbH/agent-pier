@@ -9,7 +9,8 @@ import { privateFolder } from "./runtime-paths.js";
 
 /*
  * Copies of each agent's MEMORY.md taken shortly before the night's dreaming run
- * (memory-core's deep phase may rewrite it), and the removal of a deleted chat from
+ * (memory-core's deep phase may rewrite it), of a Hermes agent's MEMORY.md and USER.md
+ * before its own dream (hermes-dream.js), and the removal of a deleted chat from
  * dreaming's own copies. The copies live outside the workspaces, below
  * `assistants/memory-backups/<runtimeAgentId>/`, so neither the memory view nor the
  * agent's file tools see them; backups seal them like workspaces (private-content.js).
@@ -22,18 +23,21 @@ const windowMinutes = 5;
 const freshMs = 6 * 60 * 60 * 1000;
 const forgetTimeoutMs = 60000;
 const { O_RDONLY, O_WRONLY, O_CREAT, O_EXCL } = fs.constants;
-const partial = /^MEMORY-\d{8}T\d{9}Z\.md\.tmp$/;
+const partial = /^(MEMORY|USER)-\d{8}T\d{9}Z\.md\.tmp$/;
+const copyName = (prefix) => new RegExp(`^${prefix}-\\d{8}T\\d{9}Z\\.md$`);
 
 const stamp = (date) => date.toISOString().replace(/[-:.]/g, "");
 const stampTime = (name) => {
   const [, y, mo, d, h, mi, s, ms] = backupName.exec(name).map(Number);
   return Date.UTC(y, mo - 1, d, h, mi, s, ms);
 };
-const backupsIn = (folder) => {
+// The copies of one file (`MEMORY` or `USER`) in `folder`, oldest first.
+const backupsIn = (folder, prefix = "MEMORY") => {
+  const name = copyName(prefix);
   try {
     return fs
       .readdirSync(folder)
-      .filter((name) => backupName.test(name))
+      .filter((entry) => name.test(entry))
       .sort();
   } catch {
     return [];
@@ -59,12 +63,22 @@ export function backupMemory(paths, agent, { keep = 7, now = new Date() } = {}) 
   } finally {
     if (fd !== undefined) fs.closeSync(fd);
   }
+  return writeCopy(backupFolder(paths, agent), "MEMORY", content, { keep, now });
+}
+
+// The agent's backup folder, made owner-only; what a crash left half written there
+// is never a copy and goes.
+function backupFolder(paths, agent) {
   const root = privateFolder(path.join(fs.realpathSync(paths.root), folderName));
   const folder = privateFolder(path.join(root, agent.runtimeAgentId));
-  // What a crash left half written is never a copy.
   for (const name of fs.readdirSync(folder).filter((n) => partial.test(n)))
     fs.rmSync(path.join(folder, name), { force: true });
-  const target = path.join(folder, `MEMORY-${stamp(now)}.md`);
+  return folder;
+}
+
+// Writes `<prefix>-<stamp>.md` atomically and keeps the newest `keep` of that prefix.
+function writeCopy(folder, prefix, content, { keep, now }) {
+  const target = path.join(folder, `${prefix}-${stamp(now)}.md`);
   const temporary = `${target}.tmp`;
   const out = openInsideSync(temporary, O_WRONLY | O_CREAT | O_EXCL, 0o600);
   try {
@@ -74,9 +88,29 @@ export function backupMemory(paths, agent, { keep = 7, now = new Date() } = {}) 
     fs.closeSync(out);
   }
   fs.renameSync(temporary, target);
-  for (const name of backupsIn(folder).slice(0, -keep))
+  for (const name of backupsIn(folder, prefix).slice(0, -keep))
     fs.rmSync(path.join(folder, name), { force: true });
   return target;
+}
+
+/**
+ * Copies a Hermes agent's memory files, as its dream read them through the agent's
+ * files port (`contents`: `{ "MEMORY.md": string|null, "USER.md": string|null }`),
+ * into its backup folder as `MEMORY-<stamp>.md` and `USER-<stamp>.md`, keeping the
+ * newest `keep` of each. A null content (a missing file) takes no copy. Returns the
+ * written paths.
+ */
+export function backupHermesMemory(
+  paths,
+  agent,
+  contents,
+  { keep = 7, now = new Date() } = {},
+) {
+  if (!agentName.test(agent.runtimeAgentId)) return [];
+  const folder = backupFolder(paths, agent);
+  return ["MEMORY", "USER"]
+    .filter((prefix) => typeof contents[`${prefix}.md`] === "string")
+    .map((prefix) => writeCopy(folder, prefix, contents[`${prefix}.md`], { keep, now }));
 }
 
 const localTime = (date, timeZone) =>

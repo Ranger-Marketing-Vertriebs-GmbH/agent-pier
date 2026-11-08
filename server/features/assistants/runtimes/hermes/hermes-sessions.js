@@ -481,11 +481,12 @@ function sessionsOver(current, turns, sizes = new Map()) {
     // outside any session. Without a session Hermes runs a task it has no
     // `auxiliary.<task>` route for on the agent's main model (agent/auxiliary_client.py
     // `_resolve_task_provider_model`, `_resolve_auto_route`), so on its new model.
-    async reviewMemory({ instructions, input }) {
+    // The nightly dream (hermes-dream.js) asks the same way with more room.
+    async reviewMemory({ instructions, input, maxTokens = 4000 }) {
       const link = await reach();
       const answer = await link.client.call(
         "llm.oneshot",
-        { task: "memory_review", instructions, input, max_tokens: 4000 },
+        { task: "memory_review", instructions, input, max_tokens: maxTokens },
         { timeoutMs: oneshotTimeoutMs + 5000 },
       );
       return { text: typeof answer?.text === "string" ? answer.text : "" };

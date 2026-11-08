@@ -7,6 +7,7 @@ import { AssistantStore } from "../../server/features/assistants/assistant-store
 import { DreamingSettings } from "../../server/features/assistants/dreaming-settings.js";
 import {
   DreamingBackups,
+  backupHermesMemory,
   backupMemory,
 } from "../../server/features/assistants/dreaming-backups.js";
 import { NativeMemory } from "../../server/features/assistants/native-memory.js";
@@ -111,6 +112,53 @@ test("a backup of MEMORY.md is taken before the night's run and seven are kept",
     workspaces: f.paths.workspaces,
   }).files(orchid.id);
   assert.equal(JSON.stringify(listed).includes("MEMORY-"), false);
+});
+
+test("Hermes backups keep seven of each file", async (t) => {
+  const f = fixture(t);
+  const hermes = f.agent("Heron", null);
+  const claw = f.agent("Orchid");
+  for (let n = 0; n < 8; n++) {
+    const written = backupHermesMemory(
+      f.paths,
+      hermes,
+      { "MEMORY.md": `memory ${n}`, "USER.md": n === 7 ? null : `user ${n}` },
+      { now: night(n) },
+    );
+    assert.equal(written.length, n === 7 ? 1 : 2);
+    backupMemory(f.paths, claw, { now: night(n) });
+  }
+  const files = f.backups(hermes);
+  const memory = files.filter((name) => /^MEMORY-\d{8}T\d{9}Z\.md$/.test(name));
+  const user = files.filter((name) => /^USER-\d{8}T\d{9}Z\.md$/.test(name));
+  assert.equal(files.length, 14);
+  assert.equal(memory.length, 7);
+  assert.equal(user.length, 7);
+  // A night without USER.md takes no copy of it, and drops none of the older ones.
+  assert.equal(user.at(-1), "USER-20261107T015700000Z.md");
+  assert.equal(fs.readFileSync(path.join(f.folder(hermes), user[0]), "utf8"), "user 0");
+  assert.equal(
+    fs.readFileSync(path.join(f.folder(hermes), memory.at(-1)), "utf8"),
+    "memory 7",
+  );
+  for (const name of files)
+    assert.equal(fs.statSync(path.join(f.folder(hermes), name)).mode & 0o777, 0o600);
+  // OpenClaw's MEMORY.md copies keep their own seven, untouched by the USER copies.
+  const openclaw = f.backups(claw);
+  assert.equal(openclaw.length, 7);
+  assert.ok(openclaw.every((name) => name.startsWith("MEMORY-")));
+  // A copy half written by a crash is removed with the next one.
+  fs.writeFileSync(path.join(f.folder(hermes), "USER-20261101T000000000Z.md.tmp"), "x");
+  backupHermesMemory(
+    f.paths,
+    hermes,
+    { "MEMORY.md": "m", "USER.md": "u" },
+    { now: night(8) },
+  );
+  assert.equal(
+    fs.readdirSync(f.folder(hermes)).some((name) => name.endsWith(".tmp")),
+    false,
+  );
 });
 
 test("a missing or linked MEMORY.md takes no backup", async (t) => {

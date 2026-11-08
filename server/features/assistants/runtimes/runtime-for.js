@@ -42,11 +42,13 @@ const registry = Object.freeze({
 export { openClawRunEvent as openClawFrameEvent } from "./openclaw/openclaw-events.js";
 
 /**
- * What separates two entries of a Hermes memory file (memory-entries.js), and the
- * limits and character count a restored entry is checked against (memory-archive.js).
+ * What separates two entries of a Hermes memory file (memory-entries.js), the limits
+ * and character count a restored entry is checked against (memory-archive.js), and
+ * the entries and pins the nightly dream reads (hermes-dream*.js).
  */
 export {
   entryDelimiter as hermesEntryDelimiter,
+  memoryEntries as hermesMemoryEntries,
   memoryLimits as hermesMemoryLimits,
   memoryChars as hermesMemoryChars,
   pinMarker as hermesPinMarker,
