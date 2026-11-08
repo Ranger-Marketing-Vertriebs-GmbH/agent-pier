@@ -1,8 +1,14 @@
+import fs from "node:fs";
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { boundPort, reachable, unsupported } from "./hermes-connection.js";
 import { HermesTurns } from "./hermes-turns.js";
-import { inlineImages, sentText, stageImages } from "./hermes-inline-images.js";
+import {
+  inlineImages,
+  notSubmitted,
+  sentText,
+  stageImages,
+} from "./hermes-inline-images.js";
 import { hermesError } from "./hermes-rpc-client.js";
 import { refused } from "./hermes-approval-queue.js";
 import { sessionKeyOf, storedIdOf } from "./hermes-run-state.js";
@@ -59,7 +65,10 @@ export function hermesSessions(supervisor) {
   const turns = new HermesTurns();
   // The last context size read per session key, beyond one connection (contextOf).
   const sizes = new Map();
-  return boundPort((current) => sessionsOver(current, turns, sizes), supervisor);
+  return boundPort(
+    (current) => sessionsOver(current, turns, sizes, supervisor),
+    supervisor,
+  );
 }
 
 // Attaches the session behind `key` to this connection; resolves its session id.
@@ -154,7 +163,7 @@ const internalKinds = new Set(["auto_continue", "internal_notification"]);
  * timestamp is in seconds, and a row names neither its turn's run nor its submission
  * (hermes-turns.js attributes the replies of the turns AgentPier sent).
  */
-export function hermesEntry(row, index) {
+export function hermesEntry(row, index, homes = []) {
   const r = row && typeof row === "object" ? row : {};
   const rowId = r.row_id;
   const at = Number.isFinite(r.timestamp) && r.timestamp > 0 ? r.timestamp : 0;
@@ -166,7 +175,12 @@ export function hermesEntry(row, index) {
         : `at:${index}`,
     role: r.role,
     // A user row reads as the text AgentPier sent (hermes-inline-images.js).
-    text: typeof r.text !== "string" ? "" : r.role === "user" ? sentText(r.text) : r.text,
+    text:
+      typeof r.text !== "string"
+        ? ""
+        : r.role === "user"
+          ? sentText(r.text, homes)
+          : r.text,
     // Seconds; a value already in milliseconds is kept.
     timestamp: at > 0 && at < 1e11 ? Math.round(at * 1000) : Math.round(at),
     runId: null,
@@ -179,11 +193,11 @@ export function hermesEntry(row, index) {
 // Hermes's history rows, newest last, with OpenClaw's `content` beside its `text` and
 // the port's `entry`; `attribute` names the runs of the rows (hermes-turns.js), read
 // over the whole transcript before a page is cut.
-const messagesOf = (answer, limit, attribute = (all) => all) => {
+const messagesOf = (answer, limit, attribute = (all) => all, homes = []) => {
   const rows = Array.isArray(answer?.messages) ? answer.messages : [];
   const all = attribute(
     rows.map((row, i) => {
-      const entry = hermesEntry(row, i);
+      const entry = hermesEntry(row, i, homes);
       return typeof row?.text === "string"
         ? {
             ...row,
@@ -248,7 +262,21 @@ async function contextOf(link, key, sizes) {
   }
 }
 
-function sessionsOver(current, turns, sizes = new Map()) {
+// The spellings of the agent's HERMES_HOME, which names its turns' images (sentText).
+function homesOf(supervisor) {
+  const home = supervisor?.agentPaths?.().hermesHome;
+  if (typeof home !== "string") return [];
+  try {
+    const real = fs.realpathSync(home);
+    return real === home ? [home] : [home, real];
+  } catch {
+    return [home];
+  }
+}
+
+function sessionsOver(current, turns, sizes = new Map(), supervisor = null) {
+  let homes;
+  const own = () => (homes ??= homesOf(supervisor));
   const reach = async () => reachable(current());
   return {
     async create({ agentId, label, idempotencyKey }, options = {}) {
@@ -289,12 +317,22 @@ function sessionsOver(current, turns, sizes = new Map()) {
       // The message names every attached file by its path (agent-attachments.js); its
       // inline images go with it as Hermes's attachments (hermes-inline-images.js).
       const text = typeof turn?.message === "string" ? turn.message : "";
-      const images = inlineImages(turn);
+      const images = supervisor?.nativeImages === true ? inlineImages(turn) : [];
       for (let attempt = 0; ; attempt++) {
         const sid = await attach(link, key);
+        // Staged before the run is known: a staging failure submitted nothing.
+        let attachments;
+        try {
+          attachments = await stageImages(link.client, sid, images);
+        } catch (error) {
+          if (attempt === 0 && error?.answered && error.reason === "permission_denied") {
+            link.runs.unbind(key);
+            continue;
+          }
+          throw notSubmitted(error);
+        }
         link.runs.submitted(sid, runId);
         try {
-          const attachments = await stageImages(link.client, sid, images);
           const answer = await link.client.call(
             "prompt.submit",
             {
@@ -384,7 +422,9 @@ function sessionsOver(current, turns, sizes = new Map()) {
     async get({ key, limit, timeoutMs }) {
       const link = await reach();
       const answer = await transcript(link, key, { timeoutMs });
-      return { messages: messagesOf(answer, limit, turns.attribute.bind(turns, key)) };
+      return {
+        messages: messagesOf(answer, limit, turns.attribute.bind(turns, key), own()),
+      };
     },
     async history({ sessionKey, limit, offset, maxChars }) {
       const link = await reach();
@@ -393,6 +433,7 @@ function sessionsOver(current, turns, sizes = new Map()) {
         answer,
         undefined,
         turns.attribute.bind(turns, sessionKey),
+        own(),
       );
       const total = messages.length;
       const skip = Number.isSafeInteger(offset) && offset > 0 ? offset : 0;

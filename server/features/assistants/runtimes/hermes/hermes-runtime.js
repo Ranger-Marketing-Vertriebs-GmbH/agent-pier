@@ -111,6 +111,9 @@ export function createHermesRuntime({
           : undefined,
     });
     written = hermesCompiler.write(agent.hermesHome, home);
+    // The sessions sub-port sends a turn's images only to a home that takes them
+    // natively; a change of it changes config.yaml, which restarts the set.
+    supervisor.nativeImages = home.nativeImages === true;
     return written;
   };
   const prepare = async (agent, record) => {

@@ -9,6 +9,7 @@ model:
   provider: openrouter
   default: anthropic/claude-x
   api_mode: chat_completions
+  supports_vision: true
 agent:
   disabled_toolsets:
     - browser
@@ -16,6 +17,7 @@ agent:
     - cronjob
     - image_gen
     - web
+  image_input_mode: native
 terminal:
   backend: local
   cwd: /golden/assistants/workspaces/ap-a1
