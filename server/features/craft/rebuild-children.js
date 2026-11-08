@@ -6,6 +6,7 @@ import { craftCommand } from "../tools/craft-row.js";
 
 const messages = serverMessages.craft;
 const tool = "craft-anything";
+const READY_WAIT_MS = 1000;
 
 /** The arguments of a rebuild child: every tool, AgentPier's own consent, the mode. */
 export const rebuildArgs = (mode) => [
@@ -36,7 +37,7 @@ export class RebuildChildren {
     Object.assign(this, { dataDir, craft, accounts, clientFactory, timers, idleMs });
     this.running = running;
     this.lost = lost;
-    this.entries = new Map(); // key → { ready, client, busy, idle }
+    this.entries = new Map(); // key → { ready, client, spawned, busy, idle }
     this.closing = false;
   }
 
@@ -91,6 +92,7 @@ export class RebuildChildren {
         args: rebuildArgs(mode),
         env,
         cwd: configDir,
+        onSpawn: (spawned) => (entry.spawned = spawned),
       });
     } catch (error) {
       throw problem(messages.rebuildUnavailable(error.message), 409);
@@ -147,7 +149,18 @@ export class RebuildChildren {
     await Promise.all(
       entries.map(async ([key, entry]) => {
         this.disarm(entry);
-        const client = await entry.ready.catch(() => null);
+        // A child still initializing gets READY_WAIT_MS, then its group is killed:
+        // close() must end well inside the forced exit (server/index.js, 6 s).
+        const late = {};
+        let timer;
+        const client = await Promise.race([
+          entry.ready.catch(() => null),
+          new Promise((resolve) => {
+            timer = this.timers.setTimeout(() => resolve(late), READY_WAIT_MS);
+          }),
+        ]);
+        this.timers.clearTimeout(timer);
+        if (client === late) return entry.spawned?.close();
         await client?.close({ stopProjects: stopProjects(key) });
       }),
     );

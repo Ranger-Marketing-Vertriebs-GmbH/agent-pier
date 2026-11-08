@@ -65,8 +65,20 @@ function toolPayload(result) {
  * groups below it, which `close()` (and an unexpected exit) ends as well.
  */
 export class CraftMcpClient {
-  /** Spawns the server, initializes it and checks that it offers `rebuild_start`. */
-  static async start({ command, args = [], env, cwd, spawnImpl = spawn, timeoutMs }) {
+  /**
+   * Spawns the server, initializes it and checks that it offers `rebuild_start`.
+   * `onSpawn(client)` hears the client as soon as the child runs, before initialize,
+   * so a caller can close a child that never finishes it.
+   */
+  static async start({
+    command,
+    args = [],
+    env,
+    cwd,
+    spawnImpl = spawn,
+    timeoutMs,
+    onSpawn,
+  }) {
     const child = spawnImpl(command, args, {
       cwd,
       env,
@@ -74,6 +86,7 @@ export class CraftMcpClient {
       stdio: ["pipe", "pipe", "pipe"],
     });
     const client = new CraftMcpClient(child);
+    onSpawn?.(client);
     try {
       await client.initialize({ timeoutMs });
     } catch (failed) {

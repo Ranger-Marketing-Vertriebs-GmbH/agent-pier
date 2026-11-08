@@ -139,10 +139,16 @@ export function rebuildsFixture(
   };
   const spawned = [];
   const clients = [];
+  // Every client as soon as its child runs, also one that never finishes initialize.
+  const launched = [];
   const clientFactory = async (spawnOptions) => {
     spawned.push(spawnOptions);
     const client = await CraftMcpClient.start({
       ...spawnOptions,
+      onSpawn: (started) => {
+        launched.push(started);
+        spawnOptions.onSpawn?.(started);
+      },
       command: process.execPath,
       args: [fakeServer, ...spawnOptions.args],
       env: {
@@ -178,7 +184,7 @@ export function rebuildsFixture(
   };
   t.after(async () => {
     for (const rebuilds of instances) await rebuilds.close().catch(() => {});
-    for (const client of clients) await client.close().catch(() => {});
+    for (const client of launched) await client.close().catch(() => {});
     fs.rmSync(dir, { recursive: true, force: true });
   });
   /** The fake's project record in a rebuild's folder. */
@@ -192,6 +198,7 @@ export function rebuildsFixture(
     profile,
     spawned,
     clients,
+    launched,
     create,
     rebuilds: create(),
     craftRecord,
