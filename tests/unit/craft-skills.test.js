@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { cliMcpFixture } from "../helpers/cli-mcp.js";
-import { craftSkill, syncCraftSkills } from "../../server/features/tools/craft-skills.js";
+import {
+  craftSkill,
+  craftSkillVersion,
+  syncCraftSkills,
+} from "../../server/features/tools/craft-skills.js";
 import { craftManifest } from "../../server/features/tools/craft-manifest.js";
 import { PackageSkills } from "../../server/features/mcp-packages/package-skills.js";
 
@@ -46,7 +50,8 @@ test("copies the skill into bound Claude profiles only", async (t) => {
     f.owned().map((item) => [item.accountId, item.name, item.package.registry]),
     [["local-claude", craftSkill, "agentpier"]],
   );
-  assert.equal(f.owned()[0].package.version, craftManifest.version);
+  assert.equal(f.owned()[0].package.version, craftSkillVersion);
+  assert.ok(craftSkillVersion.startsWith(`${craftManifest.version}+skill.`));
   await f.sync();
   assert.equal(f.owned().length, 1);
 });
@@ -92,6 +97,26 @@ test("a newer pinned version replaces the owned copy", async (t) => {
   assert.equal(f.owned()[0].package.version, "0.5.0");
 });
 
+test("a newer skill revision of the same Craft version replaces the owned copy", async (t) => {
+  const f = fixture(t);
+  f.servers.setClis(f.server.id, ["claude"]);
+  const older = fs.mkdtempSync(path.join(f.home, "older-skill-"));
+  fs.mkdirSync(path.join(older, craftSkill));
+  fs.writeFileSync(
+    path.join(older, craftSkill, "SKILL.md"),
+    "---\nname: craft-anything\ndescription: An older revision.\n---\n\nOlder.\n",
+  );
+  await f.sync({ directory: older, version: `${craftManifest.version}+skill.1` });
+  assert.match(fs.readFileSync(path.join(f.copy("claude"), "SKILL.md"), "utf8"), /Older/);
+  await f.sync();
+  assert.equal(f.owned().length, 1);
+  assert.equal(f.owned()[0].package.version, craftSkillVersion);
+  assert.equal(
+    fs.readFileSync(path.join(f.copy("claude"), "SKILL.md"), "utf8"),
+    fs.readFileSync(shipped, "utf8"),
+  );
+});
+
 test("package pruning keeps AgentPier's own copy", async (t) => {
   const f = fixture(t);
   f.servers.setClis(f.server.id, ["claude"]);
@@ -108,4 +133,14 @@ test("the shipped SKILL.md never instructs running setup", () => {
   assert.doesNotMatch(text, /setup --yes|--dry-run/);
   assert.match(text, /restricted_mode/);
   assert.match(text, /MIT OR Apache-2\.0/);
+});
+
+test("the shipped SKILL.md says clean room lists no tools that open a target", () => {
+  const text = fs.readFileSync(shipped, "utf8");
+  assert.match(
+    text,
+    /core_target_open.{0,80}not listed|not listed.{0,120}core_target_open/s,
+  );
+  assert.match(text, /Deep mode for sessions/);
+  assert.match(text, /list_toolsets/);
 });
