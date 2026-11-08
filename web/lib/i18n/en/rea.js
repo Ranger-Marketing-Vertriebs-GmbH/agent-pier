@@ -17,6 +17,7 @@ export const reaCopy = {
   installedVersion: (version) => `Installed: ${version}`,
   availableVersion: (version) => `Available: ${version}`,
   ghidraVersion: (ghidra, jdk) => `Ghidra ${ghidra} · Temurin JDK ${jdk}`,
+  ghidraShared: (name) => `Shared with ${name}`,
   sizes: (download, installed) => `Download ${download} · Installed ${installed}`,
   total: (download, installed) => `Total: download ${download}, installed ${installed}`,
   ownToolsLabel: "Your own tools",
@@ -58,6 +59,6 @@ export const reaCopy = {
   uninstall: "Uninstall REA",
   uninstallTitle: "Uninstall REA?",
   uninstallBody:
-    "AgentPier removes REA's MCP server, its skill copies, Ghidra, the Java runtime and Frida. Your own Hopper, IDA and JEB stay untouched.",
+    "AgentPier removes REA's MCP server, its skill copies and Frida, and Ghidra with the Java runtime unless Craft Anything still uses them. Your own Hopper, IDA and JEB stay untouched.",
   uninstallConfirm: "Uninstall",
 };

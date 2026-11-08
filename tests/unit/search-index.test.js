@@ -233,6 +233,19 @@ test("the ticket sources are a connections page, also found by their Plane name"
   assert.equal(pathOf(first("Plane connections")), "/connections?section=tickets");
 });
 
+test("Craft Anything is found in both languages and opens CLIs & extensions › Installation", () => {
+  const entry = index.find((item) => item.id === "page:craft-anything");
+  assert.ok(entry);
+  assert.match(entry.label.de, /Craft Anything/);
+  assert.match(entry.label.en, /Craft Anything/);
+  assert.deepEqual(entry.target.route, { view: "coding", codingTab: "install" });
+  for (const query of ["Craft Anything", "craft"]) {
+    assert.equal(first(query).id, "page:craft-anything", query);
+    assert.equal(pathOf(first(query)), "/coding/clis", query);
+  }
+  assert.ok([entry.path.de, entry.path.en].some((path) => path.includes("›")));
+});
+
 test("actions open the right dialog or page", () => {
   const action = (query) => results(query).find((item) => item.group === "actions");
   assert.deepEqual(action("Neue Session").target, { action: "launch" });

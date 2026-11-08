@@ -282,6 +282,19 @@ test("Add label rule is an owner action only, not in the user's search", () => {
   );
 });
 
+test("Craft Anything is an owner page only, not in the user's search", () => {
+  const owners = buildSearchIndex({ agents: [], connections: null, agentsEnabled: true });
+  assert.equal(
+    flat(searchEntries(owners, "Craft Anything"))[0].id,
+    "page:craft-anything",
+  );
+  const users = buildUserSearchIndex({ agents: [{ id: "lumi", name: "Lumi" }] });
+  assert.equal(
+    users.some((item) => item.id === "page:craft-anything"),
+    false,
+  );
+});
+
 test("a source not loaded yet adds nothing", () => {
   const entries = workspaceEntries({}, { agentsEnabled: true });
   assert.deepEqual([...new Set(entries.map((item) => item.group))], ["actions"]);

@@ -20,8 +20,8 @@ import "../mcp-servers.css";
 import "../mcp-cli.css";
 import "./mcp-wizard.css";
 
-// The install tab of Coding › CLIs, where the REA card lives.
-const reaCardRoute = { view: "coding", codingTab: "install" };
+// The install tab of Coding › CLIs, where the cards of the managed tools live.
+const toolCardRoute = { view: "coding", codingTab: "install" };
 
 function StepCard({ title, lines, onChange }) {
   const id = useId();
@@ -101,6 +101,8 @@ export default function McpServerOverview({
   const where = server.source
     ? copy.overview.packageLine(server.source.name, server.source.version)
     : (server.command ?? server.url ?? "");
+  // The managed tool's name (REA, Craft Anything) for its note and link.
+  const managedName = names[server.managed?.tool] ?? server.managed?.tool;
   return (
     <AccountDetail
       title={server.name}
@@ -108,9 +110,9 @@ export default function McpServerOverview({
         // A managed server has no Remove; its note takes the destructive slot.
         server.managed ? (
           <p className="mcp-hint">
-            {mcpServerCopy.managedNote}{" "}
-            <RouteLink route={reaCardRoute} navigate={navigate}>
-              {mcpServerCopy.managedManage}
+            {mcpServerCopy.managedNote(managedName)}{" "}
+            <RouteLink route={toolCardRoute} navigate={navigate}>
+              {mcpServerCopy.managedManage(managedName)}
             </RouteLink>
           </p>
         ) : removing ? (

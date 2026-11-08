@@ -6,7 +6,12 @@ import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { dashboardPageCopy as copy } from "../../lib/i18n/messages/dashboard.js";
 import { reaCopy } from "../../lib/i18n/messages/rea.js";
 import { toolInstallerCopy } from "../../lib/i18n/messages/tools.js";
-import { reaUpdate, toolActions, updateRequired as outdated } from "./tool-actions.js";
+import {
+  DIALOG_TOOLS,
+  dialogUpdate,
+  toolActions,
+  updateRequired as outdated,
+} from "./tool-actions.js";
 import { runToolAction, toolActionLabel } from "./tool-action-view.js";
 
 const descriptions = () => ({
@@ -18,6 +23,7 @@ const descriptions = () => ({
   nono: copy.toolGridNono,
   chromium: copy.toolGridChromium,
   rea: copy.toolGridRea,
+  "craft-anything": copy.toolGridCraftAnything,
 });
 
 // The grid's classes and icons per action (tests and styles rely on them).
@@ -28,10 +34,12 @@ const looks = {
   credentials: { className: undefined, icon: "arrow" },
   update: { className: "tool-update-button", icon: "refresh" },
   remove: { className: "tool-remove-button", icon: "trash" },
-  rea: { className: undefined, icon: "arrow" },
 };
-// REA updates through its own dialog, so its card shows an update badge instead.
-const warning = (tool) => outdated(tool) || reaUpdate(tool);
+const lookOf = (action) =>
+  looks[action.id] ??
+  (DIALOG_TOOLS.includes(action.id) ? { className: undefined, icon: "arrow" } : null);
+// REA and Craft Anything update through their dialog: their card shows a badge instead.
+const warning = (tool) => outdated(tool) || dialogUpdate(tool);
 
 /**
  * The coding CLIs and utilities with every install, start, update and remove action,
@@ -51,7 +59,7 @@ export default function ToolGrid({ tools, launch, page, setModal }) {
               <StatusDot tone={warning(t) ? "warning" : t.installed ? "ok" : "idle"} />
               {outdated(t)
                 ? toolInstallerCopy.updateRequiredBadge
-                : reaUpdate(t)
+                : dialogUpdate(t)
                   ? reaCopy.updateBadge
                   : t.installed
                     ? commonCopy.ready
@@ -60,7 +68,7 @@ export default function ToolGrid({ tools, launch, page, setModal }) {
           </div>
           <h3>{t.name}</h3>
           {t.installed &&
-            (t.minimumVersion || t.id === "chromium" || t.id === "rea") &&
+            (t.minimumVersion || t.id === "chromium" || DIALOG_TOOLS.includes(t.id)) &&
             t.versionStatus !== "checking" && (
               <small className="tool-version">
                 {t.version
@@ -72,7 +80,7 @@ export default function ToolGrid({ tools, launch, page, setModal }) {
             )}
           <p>{descriptions()[t.id]}</p>
           {toolActions(t).map((action) => {
-            const look = looks[action.id];
+            const look = lookOf(action);
             const className =
               [
                 action.install ? "tool-install-button" : look.className,

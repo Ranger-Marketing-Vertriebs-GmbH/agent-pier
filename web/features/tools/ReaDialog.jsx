@@ -8,6 +8,7 @@ import { reaCopy as copy } from "../../lib/i18n/messages/rea.js";
 import { serverText } from "../../lib/server-messages.js";
 import ReaComponents from "./ReaComponents.jsx";
 import ReaOwnTools, { settingsDraft } from "./ReaOwnTools.jsx";
+import { ToolStatus } from "./ToolParts.jsx";
 import useRea from "./useRea.js";
 
 const statusLabels = {
@@ -20,13 +21,19 @@ const statusLabels = {
   get succeeded() {
     return copy.statusSucceeded;
   },
+  get background() {
+    return copy.backgroundNote;
+  },
 };
 
-/** Ticked components: what is installed, or everything this host has before an install. */
+/**
+ * Ticked components: REA's own choice (Ghidra may stay installed for Craft Anything),
+ * or everything this host has before an install.
+ */
 function chosenFrom(state) {
   const { ghidra, frida } = state.components;
   return state.serverId
-    ? { ghidra: ghidra.installed, frida: frida.installed }
+    ? { ghidra: ghidra.wanted ?? ghidra.installed, frida: frida.installed }
     : { ghidra: ghidra.available, frida: frida.available };
 }
 
@@ -59,19 +66,6 @@ function SafetyNotes() {
         <li>{copy.sandboxBridges}</li>
       </ul>
     </section>
-  );
-}
-
-function Status({ state }) {
-  const label = statusLabels[state.status];
-  const message = serverText(state.message, state.messageKey, state.messageArgs);
-  if (!label && !message) return null;
-  return (
-    <div className={`rea-status ${state.status}`} role="status" aria-live="polite">
-      {label && <strong>{label}</strong>}
-      {message && <p>{message}</p>}
-      {state.status === "running" && <p className="dialog-hint">{copy.backgroundNote}</p>}
-    </div>
   );
 }
 
@@ -181,7 +175,7 @@ export default function ReaDialog({ request, refresh, close }) {
                 onChange={(event) => setAcknowledged(event.target.checked)}
               />
             )}
-            <Status state={state} />
+            <ToolStatus state={state} labels={statusLabels} />
           </>
         )}
         {rea.error && (

@@ -7,21 +7,25 @@ import { codingCliIds } from "../../../server/features/clis/catalog.js";
 const CLI_UPDATES = [...codingCliIds(), "nono"];
 
 export const updateRequired = (tool) => tool.versionStatus === "update-required";
-// REA updates through its own dialog, so it shows an optional update badge instead.
-export const reaUpdate = (tool) =>
-  tool.id === "rea" && Boolean(tool.installed) && Boolean(tool.updateAvailable);
+// The managed tools with their own dialog: it installs, changes, updates and removes
+// them, so the generic installer is never offered for them.
+export const DIALOG_TOOLS = ["rea", "craft-anything"];
+// A dialog tool updates through its dialog, so it shows an optional update badge.
+export const dialogUpdate = (tool) =>
+  DIALOG_TOOLS.includes(tool.id) &&
+  Boolean(tool.installed) &&
+  Boolean(tool.updateAvailable);
 
 /**
  * The actions of `tool` in the grid's order: the main action (`start`, `install`,
  * `unavailable` for a missing shell, or `credentials` with its `page`), then `update`
  * (`browser` for Chromium, `required` below the minimum version) and `remove`.
  * A utility with nothing to configure in AgentPier keeps its install action but offers
- * no follow-up action once it is installed. REA has one action, `rea`, that opens its
- * own dialog (`install` before the first install): it installs, changes, updates and
- * removes REA, so the generic installer is never offered for it.
+ * no follow-up action once it is installed. REA and Craft Anything have one action,
+ * named after the tool, that opens its own dialog (`install` before the first install).
  */
 export function toolActions(tool, pages = utilityPages) {
-  if (tool.id === "rea") return [{ id: "rea", install: !tool.installed }];
+  if (DIALOG_TOOLS.includes(tool.id)) return [{ id: tool.id, install: !tool.installed }];
   const actions = [];
   if (!tool.installed)
     actions.push(tool.id === "shell" ? { id: "unavailable" } : { id: "install" });

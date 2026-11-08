@@ -1,27 +1,8 @@
 import React from "react";
 import CheckRow from "../../components/CheckRow.jsx";
-import { formatBytes } from "../../lib/format-bytes.js";
-import { locale } from "../../lib/i18n/index.js";
 import { reaCopy as copy } from "../../lib/i18n/messages/rea.js";
-import { serverText } from "../../lib/server-messages.js";
-
-const bytes = (value) => formatBytes(value, locale);
-
-/** "Installed: 6.7.0 · Available: 6.8.0", or the pinned version before an install. */
-function versionLine(installed, version, pinned) {
-  if (!installed || !version) return copy.version(pinned);
-  return version === pinned
-    ? copy.installedVersion(version)
-    : `${copy.installedVersion(version)} · ${copy.availableVersion(pinned)}`;
-}
-
-function Sizes({ part }) {
-  return part.downloadSize != null && part.installedSize != null ? (
-    <span className="check-row-meta">
-      {copy.sizes(bytes(part.downloadSize), bytes(part.installedSize))}
-    </span>
-  ) : null;
-}
+import { names } from "../../lib/providers.js";
+import { GhidraRow, PartsTotal, Sizes, Unavailable, versionLine } from "./ToolParts.jsx";
 
 /** The parts the owner ticked that this host has, with Core always included. */
 function chosenParts(components, chosen) {
@@ -40,14 +21,6 @@ function chosenParts(components, chosen) {
  */
 export default function ReaComponents({ components, chosen, onChange, disabled }) {
   const { core, ghidra, frida } = components;
-  const parts = chosenParts(components, chosen);
-  const sum = (key) => parts.reduce((total, part) => total + (part[key] ?? 0), 0);
-  const unavailable = (part) =>
-    !part.available && (
-      <span className="check-row-subtitle rea-reason">
-        {serverText(part.reason, part.reasonKey, part.reasonArgs)}
-      </span>
-    );
   return (
     <fieldset className="check-list rea-components">
       <legend>{copy.componentsLabel}</legend>
@@ -57,21 +30,13 @@ export default function ReaComponents({ components, chosen, onChange, disabled }
         </span>
         <Sizes part={core} />
       </CheckRow>
-      <CheckRow
-        title={copy.ghidra}
-        subtitle={copy.ghidraDescription}
-        checked={ghidra.available && chosen.ghidra}
-        disabled={disabled || !ghidra.available}
-        onChange={(event) => onChange({ ...chosen, ghidra: event.target.checked })}
-      >
-        <span className="check-row-subtitle">
-          {ghidra.installed && ghidra.version
-            ? copy.installedVersion(copy.ghidraVersion(ghidra.version, ghidra.jdkVersion))
-            : copy.ghidraVersion(ghidra.pinnedVersion, ghidra.jdkPinnedVersion)}
-        </span>
-        {unavailable(ghidra)}
-        <Sizes part={ghidra} />
-      </CheckRow>
+      <GhidraRow
+        ghidra={ghidra}
+        checked={chosen.ghidra}
+        disabled={disabled}
+        sharedWith={names["craft-anything"]}
+        onChange={(checked) => onChange({ ...chosen, ghidra: checked })}
+      />
       <CheckRow
         title={copy.frida}
         subtitle={copy.fridaDescription}
@@ -82,12 +47,10 @@ export default function ReaComponents({ components, chosen, onChange, disabled }
         <span className="check-row-subtitle">
           {versionLine(frida.installed, frida.version, frida.pinnedVersion)}
         </span>
-        {unavailable(frida)}
+        <Unavailable part={frida} />
         <Sizes part={frida} />
       </CheckRow>
-      <p className="rea-total" aria-live="polite">
-        {copy.total(bytes(sum("downloadSize")), bytes(sum("installedSize")))}
-      </p>
+      <PartsTotal parts={chosenParts(components, chosen)} />
     </fieldset>
   );
 }
