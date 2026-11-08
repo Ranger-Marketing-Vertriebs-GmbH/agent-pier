@@ -215,7 +215,8 @@ export class CraftRebuilds {
         throw new Error("rebuild_start named no project.");
       record.craftProject = started.project;
     } catch (error) {
-      if (error.code === "CRAFT_MCP_TIMEOUT") await this.stopUnanswered(record);
+      // A timeout or a malformed answer may still have started a build.
+      await this.stopUnanswered(record);
       this.pauseAfterStart.delete(record.id);
       this.records.delete(record.id);
       this.persist();
@@ -232,8 +233,8 @@ export class CraftRebuilds {
   }
 
   /**
-   * rebuild_start timed out: Craft Anything may still build in the folder that is
-   * about to go. Its project, when craft.json already names it, is stopped (best
+   * rebuild_start failed (timed out, answered without a project): Craft Anything may
+   * still build in the folder that is about to go. Its project, when craft.json already names it, is stopped (best
    * effort).
    */
   async stopUnanswered(record) {
