@@ -1,13 +1,17 @@
-import React, { useId, useMemo } from "react";
+import React, { useCallback, useId, useMemo, useState } from "react";
+import { flushSync } from "react-dom";
 import { diffReviewCopy as copy } from "../../lib/i18n/messages/diff-review.js";
 import { placeComments } from "../../../server/features/changes/review-anchor.js";
 import CommentThread from "./CommentThread.jsx";
 import DiffFile from "./DiffFile.jsx";
+import { openByDefault } from "./diff-review-state.js";
 import { fileLanguage } from "./file-language.js";
 import "./diff-review.css";
 
 // A diff with line comments: the file list, every file, then the comments on files
 // that are no longer in the diff. The caller filters `comments` to `workspace`.
+// Files past openByDefault start collapsed to their heading; a file the reader opens
+// or closes keeps that choice (by path) across refreshes of the diff.
 export default function DiffReview({
   files,
   comments = [],
@@ -22,10 +26,22 @@ export default function DiffReview({
 }) {
   const prefix = useId();
   const placement = useMemo(() => placeComments(comments, files), [comments, files]);
+  const defaults = useMemo(
+    () => openByDefault(files, placement.byFile),
+    [files, placement],
+  );
+  const [chosen, setChosen] = useState(() => new Map());
+  const toggle = useCallback(
+    (path, value) => setChosen((last) => new Map(last).set(path, value)),
+    [],
+  );
+  const isOpen = (file) => chosen.get(file.path) ?? defaults.has(file.path);
+  const collapsed = files.filter((file) => !isOpen(file)).length;
   const open = comments.filter((comment) => comment.status === "open").length;
   const fileId = (index) => `${prefix}-file-${index}`;
   if (files.length === 0 && placement.missing.length === 0 && empty) return empty;
   const jump = (index) => {
+    if (!isOpen(files[index])) flushSync(() => toggle(files[index].path, true));
     const target = document.getElementById(fileId(index));
     target?.scrollIntoView({ block: "start" });
     (target?.querySelector(".diff-scroll") ?? target)?.focus?.({ preventScroll: true });
@@ -36,6 +52,7 @@ export default function DiffReview({
       <p className="diff-review-summary">
         {copy.files(files.length)}
         {open > 0 && <> · {copy.openComments(open)}</>}
+        {collapsed > 0 && <> · {copy.collapsedFiles(collapsed)}</>}
       </p>
       {files.length > 0 && (
         <nav aria-label={copy.changedFiles}>
@@ -66,6 +83,8 @@ export default function DiffReview({
           workspace={workspace}
           placement={placement.byFile.get(file.path)}
           language={fileLanguage(file.path)}
+          open={isOpen(file)}
+          onToggle={toggle}
           readOnly={readOnly}
           onCreate={onCreate}
           onUpdate={onUpdate}

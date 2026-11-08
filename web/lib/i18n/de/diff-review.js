@@ -17,6 +17,8 @@ export const diffReviewCopy = {
   truncated: "Der Diff ist länger als 1 MB; der Rest wird nicht angezeigt.",
   files: (n) => (n === 1 ? "1 Datei" : `${n} Dateien`),
   openComments: (n) => (n === 1 ? "1 offener Kommentar" : `${n} offene Kommentare`),
+  comments: (n) => (n === 1 ? "1 Kommentar" : `${n} Kommentare`),
+  collapsedFiles: (n) => `${n} eingeklappt`,
   missingFile: "Kommentare zu Dateien, die nicht mehr geändert sind",
   editorLabel: "Kommentar (Markdown)",
   tooLong: "Höchstens 8192 Bytes",

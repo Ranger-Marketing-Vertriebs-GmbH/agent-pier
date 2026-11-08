@@ -4,6 +4,8 @@ import { parseGitDiff } from "../../server/features/changes/diff-parse.js";
 import { anchorAt, placeComments } from "../../server/features/changes/review-anchor.js";
 import { MAX_COMMENT_BYTES as SERVER_MAX } from "../../server/features/changes/review-comment-input.js";
 import {
+  OPEN_ROW_BUDGET,
+  openByDefault,
   MAX_COMMENT_BYTES,
   ROW_PAGE,
   commentInput,
@@ -237,4 +239,25 @@ test("changed rows reset a selection that is not editing", () => {
   const opened = selectRow(initialSelection, 3, rows);
   assert.equal(rowsChanged(opened, rows), initialSelection);
   assert.equal(rowsChanged(initialSelection, rows), initialSelection);
+});
+
+test("a review opens files while their first pages fit the budget, and every commented one", () => {
+  const file = (path, rows) => ({ path, rows: Array.from({ length: rows }, () => ({})) });
+  // a small diff opens whole
+  assert.deepEqual([...openByDefault([file("a", 3), file("b", 5)])], ["a", "b"]);
+  // the first file always opens, counted as one page however long it is
+  const huge = [file("big", 5000), file("next", 1)];
+  assert.ok(openByDefault(huge).has("big"));
+  assert.equal(openByDefault(huge).has("next"), OPEN_ROW_BUDGET - ROW_PAGE >= 1);
+  // past the budget files stay collapsed, in order, even small ones after a large one
+  const many = Array.from({ length: 300 }, (_, i) => file(`f${i}`, 60));
+  const open = openByDefault(many);
+  assert.equal(open.size, Math.floor(OPEN_ROW_BUDGET / 60));
+  assert.ok(open.has("f0") && !open.has("f299"));
+  assert.equal(OPEN_ROW_BUDGET, 1200);
+  const blocked = [file("a", 900), file("b", 400), file("c", 300), file("d", 400)];
+  assert.deepEqual([...openByDefault([...blocked, file("e", 1)])], ["a", "b", "c"]);
+  // a file with comments opens wherever it is
+  const commented = new Map([["f299", { placed: [], outdated: [] }]]);
+  assert.ok(openByDefault(many, commented).has("f299"));
 });

@@ -12,6 +12,12 @@ export const MAX_COMMENT_BYTES = 8192;
 const NEAR_LIMIT_BYTES = MAX_COMMENT_BYTES - 1024;
 /** Rows a file shows at first and adds per "Show more". */
 export const ROW_PAGE = 400;
+/**
+ * Rows a review renders open at first, counted as each file's first page. Files past
+ * it start collapsed, so a diff of hundreds of files (a long session, up to 1 MB) opens
+ * without building tens of thousands of rows at once.
+ */
+export const OPEN_ROW_BUDGET = 1200;
 
 const encoder = new TextEncoder();
 
@@ -149,4 +155,22 @@ export function fileCommentLayout(entry, rows, shown) {
     }
   }
   return { after, hidden, outdated: entry?.outdated ?? [] };
+}
+
+/**
+ * The paths a review shows open at first: files in order while their first pages fit
+ * OPEN_ROW_BUDGET (the first file always), and every file with a comment on it.
+ * @param {{ path: string, rows: object[] }[]} files
+ * @param {Map<string, unknown>} [commented] placeComments().byFile
+ */
+export function openByDefault(files, commented = new Map()) {
+  const open = new Set(commented.keys());
+  let budget = OPEN_ROW_BUDGET;
+  for (const [index, file] of files.entries()) {
+    const rows = Math.min(file.rows.length, ROW_PAGE);
+    if (index > 0 && rows > budget) break;
+    budget -= rows;
+    open.add(file.path);
+  }
+  return open;
 }
