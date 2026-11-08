@@ -58,6 +58,9 @@ async function setup(page, { language = "en", models = listed, modelCatalog } = 
       state.saved = route.request().postDataJSON();
       return route.fulfill({ json: { ...state.saved, id: "new", revision: 1 } });
     }
+    // The wizard's default check-ins save on the created agent.
+    if (pathname === "/api/assistants/new" && method === "PATCH")
+      return route.fulfill({ json: { ...state.saved, id: "new", revision: 2 } });
     // A created agent opens its first chat.
     if (pathname === "/api/assistants/new/conversations" && method === "POST")
       return route.fulfill({ json: { id: "new-chat", assistantId: "new" } });

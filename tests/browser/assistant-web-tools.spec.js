@@ -74,7 +74,9 @@ for (const [label, use] of [
         browser: false,
         documents: false,
       });
-      await expect.poll(() => patched.length).toBe(1);
+      // The capabilities, then the default check-ins every 30 minutes.
+      await expect.poll(() => patched.length).toBe(2);
+      expect(patched[1].heartbeat).toMatchObject({ enabled: true, interval: "30m" });
       expect(patched[0].capabilities).toMatchObject({
         memory: true,
         reminders: true,

@@ -93,11 +93,11 @@ export default function StepChannels({ d, set }) {
           <ToggleRow
             label={copy().checkIns}
             sub={d.memory ? undefined : copy().checkInsSub}
-            checked={d.heartbeatEnabled}
-            disabled={!d.memory && !d.heartbeatEnabled}
+            checked={d.heartbeatEnabled && d.memory}
+            disabled={!d.memory}
             onChange={(heartbeatEnabled) => set({ heartbeatEnabled })}
           />
-          {d.heartbeatEnabled && (
+          {d.heartbeatEnabled && d.memory && (
             <>
               <SelectRow
                 label={proactivity.interval}

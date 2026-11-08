@@ -57,8 +57,9 @@ export function emptyDraft(timeZone = "UTC") {
     secretIds: [],
     team: null,
     telegramToken: "",
-    heartbeatEnabled: false,
-    heartbeatInterval: "4h",
+    // Checking in on its own is what makes an agent act; it needs memory.
+    heartbeatEnabled: true,
+    heartbeatInterval: "30m",
     heartbeatStart: 9,
     heartbeatEnd: 18,
     heartbeatTimeZone: timeZone,

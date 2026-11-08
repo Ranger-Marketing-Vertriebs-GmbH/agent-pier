@@ -49,7 +49,7 @@ export default function StepReview({
   const channels =
     joined([
       d.telegramToken.trim() && copy().telegram,
-      d.heartbeatEnabled && copy().checkIns,
+      d.heartbeatEnabled && d.memory && copy().checkIns,
       d.routine && copy().routine(d.routine.name, d.routine.time),
     ]) || copy().noChannels;
   const open = openItems({ runtime, webSearchReady, d });
