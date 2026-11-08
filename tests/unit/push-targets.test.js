@@ -240,11 +240,10 @@ const rows = [
     { view: "projects", projectId: "p1", projectTab: "tickets" },
   ],
   [
-    // The Rebuilds page has no route of its own yet; the link is the rebuild's.
     "craft-question",
     questionNotice(rebuild, rebuild.questions[0]),
     `/craft/${rebuild.id}`,
-    {},
+    { view: "craft", rebuildId: rebuild.id },
     `/inbox/craft/${rebuild.id}%3Aq1`,
   ],
   [

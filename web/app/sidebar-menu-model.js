@@ -14,6 +14,7 @@ export const menuGroups = [
     entries: [
       { id: "overview", icon: "grid" },
       { id: "projects", icon: "folder" },
+      { id: "craft", icon: "copy" },
       { id: "pipelines", icon: "refresh" },
       { id: "files", icon: "history" },
       { id: "artifacts", icon: "file" },
@@ -33,6 +34,7 @@ export const menuGroups = [
 
 const areaViews = {
   projects: "projects",
+  craft: "craft",
   pipelines: "pipelines",
   files: "files",
   artifacts: "artifacts",

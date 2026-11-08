@@ -134,6 +134,7 @@ test("the menu lists Arbeiten and Einrichten, marks the area and closes like bef
   await expect(work.getByRole("button")).toHaveText([
     "Übersicht",
     /^Projekte/,
+    "Nachbauten",
     /^Pipelines/,
     "Dateien",
     "Artifacts",
@@ -350,7 +351,7 @@ test.describe("English", () => {
       page.locator(".sessions-group").getByRole("button", { name: "New session" }),
     ).toBeVisible();
     await openMenu(page);
-    await expect(group(page, "Work").getByRole("button")).toHaveCount(5);
+    await expect(group(page, "Work").getByRole("button")).toHaveCount(6);
     await expect(group(page, "Set up").getByRole("button")).toHaveText([
       /^Agents/,
       /^CLIs and extensions/,

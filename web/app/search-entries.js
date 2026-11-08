@@ -13,6 +13,7 @@ import { assistantTeamCopy } from "../lib/i18n/messages/assistant-team.js";
 import { codingPageCopy } from "../lib/i18n/messages/coding.js";
 import { commonCopy } from "../lib/i18n/messages/common.js";
 import { craftAnythingCopy } from "../lib/i18n/messages/craft-anything.js";
+import { craftCopy } from "../lib/i18n/messages/craft.js";
 import { connectionsAreaCopy } from "../lib/i18n/messages/connections-area.js";
 import { extensionsHubCopy } from "../lib/i18n/messages/extensions.js";
 import { filesCopy } from "../lib/i18n/messages/files.js";
@@ -55,6 +56,7 @@ const text = {
   overview: () => commonCopy.overview,
   inbox: () => inboxCopy.title,
   projects: () => sidebarCopy.projectsNavigation,
+  craft: () => craftCopy.title,
   pipelines: () => pipelineCopy.title,
   files: () => filesCopy.tab,
   artifacts: () => artifactCopy.title,
@@ -151,6 +153,19 @@ export function pageEntries() {
       }),
     ),
     area("projects", menuWork, { route: projectsRoute() }),
+    // Rebuilds: "craft" finds it; "Craft Anything" still opens the installation card.
+    area(
+      "craft",
+      menuWork,
+      { route: { view: "craft", rebuildId: "" } },
+      {
+        aliases: [
+          () => craftCopy.search.craft,
+          () => craftCopy.search.product,
+          () => craftCopy.search.rebuild,
+        ],
+      },
+    ),
     area("pipelines", menuWork, { route: pipelinesRoute("runs") }),
     ...["runs", "definitions", "profiles", "verification"].map((tab) =>
       pageEntry(`pipelines-${tab}`, () => pipelineCopy[tab], pipelines, {

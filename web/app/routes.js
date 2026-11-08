@@ -22,6 +22,7 @@ import {
 } from "../features/connections/routes.js";
 import { codingRoutePath, readCodingRoute } from "../features/coding/routes.js";
 import { agentsHubQuery, readAgentsHubQuery } from "../features/assistants/hub-routes.js";
+import { craftRoutePath, readCraftRoute } from "../features/craft/routes.js";
 import { canonicalRoute, movedRoute } from "./route-redirects.js";
 import { screenRoute } from "./route-screens.js";
 export { canonicalRoute } from "./route-redirects.js";
@@ -152,6 +153,8 @@ export function readRoute(location) {
       : settingsRoute;
   const pipelineRoute = readPipelineRoute(pathname, location.search);
   if (pipelineRoute) return pipelineRoute;
+  const craft = readCraftRoute(pathname);
+  if (craft) return craft;
   const artifacts = /^\/artifacts(?:\/([^/]+))?$/.exec(pathname);
   if (artifacts && (!artifacts[1] || idPattern.test(artifacts[1])))
     return {
@@ -391,6 +394,7 @@ function basePath(route) {
   if (route.view === "split") return `/views/${encodeURIComponent(route.viewId)}`;
   if (route.view === "connections") return connectionsRoutePath(route);
   if (route.view === "coding") return codingRoutePath(route);
+  if (route.view === "craft") return craftRoutePath(route);
   return `/${route.view}`;
 }
 export function defaultSessionMode(session, mobile) {
