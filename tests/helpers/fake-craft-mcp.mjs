@@ -32,7 +32,8 @@
  *       { "finish": "ready" | "failed", "note": "Done", "reply": "All set" }
  *     ],
  *     "hideTools": ["rebuild_start"],    // left out of tools/list
- *     "slowTools": { "rebuild_status": 5000 }  // answer these tools late (ms)
+ *     "slowTools": { "rebuild_status": 5000 },  // answer these tools late (ms)
+ *     "ignoreStdinClose": true          // keep running when stdin closes
  *   }
  * Without steps a build runs until rebuild_stop. A question waits for
  * project_inbox_answer; in mode "decide" (project_questions_set) questions are
@@ -529,5 +530,7 @@ process.stdin.on("data", (chunk) => {
   }
 });
 // Like the real server: stdin closing ends it at once, builders are left running.
-process.stdin.on("end", () => process.exit(0));
-process.stdin.on("close", () => process.exit(0));
+if (!script.ignoreStdinClose) {
+  process.stdin.on("end", () => process.exit(0));
+  process.stdin.on("close", () => process.exit(0));
+}

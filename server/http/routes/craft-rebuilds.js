@@ -46,7 +46,9 @@ export function craftRebuildsRoutes(services) {
     res.json(await rebuilds().setAutoMode(req.params.id, req.body?.on)),
   );
   router.get("/craft/rebuilds/:id/activity", async (req, res) => {
-    const limit = Number(req.query.limit);
+    // A missing, empty or non-integer limit reads the default.
+    const raw = typeof req.query.limit === "string" ? req.query.limit.trim() : "";
+    const limit = raw ? Number(raw) : NaN;
     res.json(
       await rebuilds().activity(req.params.id, {
         limit: Number.isInteger(limit) ? limit : undefined,

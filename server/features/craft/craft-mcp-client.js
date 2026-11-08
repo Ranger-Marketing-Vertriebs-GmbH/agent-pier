@@ -2,8 +2,10 @@ import { execFile, spawn } from "node:child_process";
 
 const PROTOCOL_VERSION = "2025-06-18";
 const STDERR_LIMIT = 64 * 1024;
-const STOP_TIMEOUT_MS = 5000;
-const EXIT_GRACE_MS = 3000;
+// close() must end well inside server/index.js's forced exit (6 s): every stop shares
+// one budget, then the child gets a short grace before its groups are killed.
+const STOP_BUDGET_MS = 2000;
+const EXIT_GRACE_MS = 1000;
 // Tools after which the builder may have started: the descendant snapshot is
 // refreshed then, so an unexpected exit can still reach orphaned builders.
 const SNAPSHOT_TOOLS = new Set(["rebuild_start", "rebuild_status"]);
@@ -26,7 +28,7 @@ function processTable() {
     execFile(
       "ps",
       ["-eo", "pid=,ppid=,pgid="],
-      { timeout: 2000, maxBuffer: 4 * 1024 * 1024 },
+      { timeout: 1000, maxBuffer: 4 * 1024 * 1024 },
       (error, stdout) => {
         if (error) return resolve([]);
         resolve(
@@ -187,22 +189,24 @@ export class CraftMcpClient {
   }
 
   /**
-   * Shutdown order: `rebuild_stop` per project → close stdin → wait up to 3 s →
-   * SIGKILL the child's group → SIGKILL every descendant group recorded before.
+   * Shutdown order: `rebuild_stop` for every project at once (≤ 2 s in all) → close
+   * stdin → wait up to 1 s → SIGKILL the child's group → SIGKILL every descendant
+   * group recorded before. Ends within about 3 s even when no stop answers.
    */
   async close({ stopProjects = [] } = {}) {
     if (this.closed) return this.closed;
     this.closed = (async () => {
       const running = !this.exited;
-      if (running) {
-        for (const project of stopProjects)
-          await this.call(
-            "rebuild_stop",
-            { project },
-            { timeoutMs: STOP_TIMEOUT_MS },
-          ).catch(() => {});
-        await this.snapshot();
-      }
+      if (running)
+        // All stops at once under one budget; the groups are recorded meanwhile.
+        await Promise.all([
+          ...stopProjects.map((project) =>
+            this.call("rebuild_stop", { project }, { timeoutMs: STOP_BUDGET_MS }).catch(
+              () => {},
+            ),
+          ),
+          this.snapshot(),
+        ]);
       this.closing = true;
       this.child.stdin?.end();
       let timer;

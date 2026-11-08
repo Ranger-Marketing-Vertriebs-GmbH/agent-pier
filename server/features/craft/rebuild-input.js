@@ -11,7 +11,7 @@ const modes = ["clean-room", "deep"];
 /** A rebuild's request (also a follow-up's): trimmed, not empty, at most 8000 chars. */
 export function cleanRequest(value) {
   const request = typeof value === "string" ? value.trim() : "";
-  if (!request) throw problem(messages.rebuildRequestRequired, 409);
+  if (!request) throw problem(messages.rebuildRequestRequired, 400);
   if (request.length > REQUEST_LIMIT) throw problem(messages.rebuildRequestTooLong, 400);
   return request;
 }
