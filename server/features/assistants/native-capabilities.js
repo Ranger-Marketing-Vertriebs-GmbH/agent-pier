@@ -47,6 +47,7 @@ export const writeGuardRuntimes = [
   "2026.10.3",
   "2026.10.7",
   "2026.10.9",
+  "2026.11.2",
 ];
 export const delegationTools = [
   "agentpier_team_propose",

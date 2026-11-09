@@ -1,46 +1,46 @@
-// Official npm distribution integrity verified 2026-10-30 (OpenClaw 2026.10.9 and its
+// Official npm distribution integrity verified 2026-11-09 (OpenClaw 2026.11.2 and its
 // search plugins); nodejs.org SHASUMS256 for Node 26.12.1 verified 2026-10-23 (signed
 // by release key 5BE8A3F6C8A5C01D106C0AD820B1A390B168D356).
 export const runtimeManifest = {
-  version: "2026.10.9",
+  version: "2026.11.2",
   // Qualified predecessors an activation may roll back to (see the release
   // qualification); the managed team plugin must stay compatible with each.
-  rollbackTargets: ["2026.10.7", "2026.10.3", "2026.9.9", "2026.9.8"],
+  rollbackTargets: ["2026.10.9", "2026.10.7", "2026.10.3", "2026.9.9", "2026.9.8"],
   nodeVersion: "26.12.1",
   npmVersion: "11.20.0",
   dependencyLockSha256:
-    "c4e4b69d557d20c0a181116c92a811b8a0a894fb4a964801b76ff0f468c21670",
-  // Security fixes for transitive packages OpenClaw pins exactly (it ships undici
-  // 8.11.2 and zod 4.6.5, both with published advisories). npm `overrides` in the
-  // locked package.json; the lock must resolve every copy to these versions. Remove
-  // an entry once the pinned OpenClaw ships the fixed version itself.
-  dependencyOverrides: { undici: "8.12.3", zod: "4.6.7" },
-  packageUrl: "https://registry.npmjs.org/openclaw/-/openclaw-2026.10.9.tgz",
+    "2cadd51b4b78f88d571ffa7d6d6cf1393f1b345e12f19cdc3f308500c7778258",
+  // Security fixes for transitive packages OpenClaw pins exactly (it ships zod
+  // 4.6.5, which has a published advisory). npm `overrides` in the locked
+  // package.json; the lock must resolve every copy to these versions. Remove an
+  // entry once the pinned OpenClaw ships the fixed version itself.
+  dependencyOverrides: { zod: "4.6.7" },
+  packageUrl: "https://registry.npmjs.org/openclaw/-/openclaw-2026.11.2.tgz",
   packageIntegrity:
-    "KbIl0/7an0/nKBo92FnJg7LFcEpFVQyOgSRfHNE9yxELg1Ebql7BmBsdLL+1dDOLZnQtuwjt6Hy45CCrmYdJNA==",
-  // Official OpenClaw web search plugins (npm dist integrity, verified 2026-10-30).
+    "SgBml4WLp8V1DdAYkrTPLzVdA/iYo3iuHCtm4788GjaG83QZdd1VeOTlue0HBJGdn3SbFE06b6uPs+AM5ShMgg==",
+  // Official OpenClaw web search plugins (npm dist integrity, verified 2026-11-09).
   // They join the locked graph; a Gateway only loads one its configuration uses.
   searchPlugins: {
     duckduckgo: {
       id: "duckduckgo",
       package: "@openclaw/duckduckgo-plugin",
-      version: "2026.10.9",
+      version: "2026.11.2",
       integrity:
-        "ysdTDjQmP3x8oemf1uPCm3ZCCkXcRsdOe0KJipu5lERE1PKIwLqVut3ai6RCUoPP1m945Qf4RjUuxHDaNgOFTA==",
+        "lACLSRwQ2lbMA6KnRaYu1UKwppOmWEGX/EZslNpTiVRVQ64aKyRnN2k72kAAWJwrcznAOrVOHMCkxaWXBhgQBg==",
     },
     perplexity: {
       id: "perplexity",
       package: "@openclaw/perplexity-plugin",
-      version: "2026.10.9",
+      version: "2026.11.2",
       integrity:
-        "fs2CUCfPJTcpLxNuHfhUZ/MOgSgFKREUECMsxwqFQ97Y4DTSoY/wSi8g3HBwHJaAiBASe2ckPgD1Qe8s8eP1pw==",
+        "Iql1KxzQJPyrxWof+ZXIgAbXZ4vR6P9CznnzOhwOghIqw/TBCs4ojVwptTbcI2xj7JxQAf0AUesJVMI0R0+1XQ==",
     },
     brave: {
       id: "brave",
       package: "@openclaw/brave-plugin",
-      version: "2026.10.9",
+      version: "2026.11.2",
       integrity:
-        "F7CKF0Vtd+YrGWRFxhnB2Y1bRRDXfksE/5IcBCMw9gWRiGmzAM72sHxHaP0mPNQ8sg3gEDJ0yZSdUCV4+qPVrg==",
+        "9aOzDUDyOAHg8NuBo1ugbRiYkMP7M35LDo1yCjxgel+o6iyVep1dmxhejxnAbM4cqmWpw+rRA4UKDN0uS0YjzQ==",
     },
   },
   nodeChecksums: {
