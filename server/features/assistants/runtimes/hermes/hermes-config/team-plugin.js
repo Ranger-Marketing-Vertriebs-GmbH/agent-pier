@@ -7,6 +7,7 @@ import {
   toolTimeouts,
 } from "../../../team-plugin/index.js";
 import { pdfToolFile, pdfToolSource } from "./pdf.js";
+import { browserUpload } from "./browser-upload-tool.js";
 
 // The AgentPier team plugin of a Hermes agent (ADR 0006 decision 4): AgentPier's team
 // tools and its tool guard in one Hermes profile plugin (website/docs/user-guide/
@@ -25,10 +26,11 @@ import { pdfToolFile, pdfToolSource } from "./pdf.js";
 //   about two minutes, beyond Hermes's 30-second hook timeout.
 // - Guard: a `pre_tool_call` hook (hermes_cli/plugins.py `invoke_lifecycle_hook`,
 //   fail-closed) asks the bridge before a team member changes a file (`write_file`,
-//   `patch`), before a file call that names the attachments/ or .agentpier/ folder
-//   (`read_file`, `search_files`, `vision_analyze`, the writes; on an agent shared
-//   with users every read, hermes-home-guard.js) and before every browser call (`browser_*`) and image creation (`image_generate`); no answer
-//   blocks the call. AgentPier's pdf tool (pdf.js) asks the same bridge at each call.
+//   `patch`), before a file call that names the attachments/, chat-files/ or
+//   .agentpier/ folder (`read_file`, `search_files`, `vision_analyze`, the writes; a
+//   search of the whole work folder or beyond it; on an agent shared with users every
+//   read leaving the work folder, hermes-home-guard.js) and before every browser call
+//   (`browser_*`) and image creation (`image_generate`); no answer blocks the call. AgentPier's pdf tool (pdf.js) asks the same bridge at each call.
 //   Invisible subagents (`delegate_task`) run under a session of
 //   their own; the `subagent_start` hook maps it to the parent's, so the guard judges
 //   a subagent's call as its parent's. Team tools stay with the parent's own session.
@@ -55,29 +57,6 @@ const shippedSkill = (name) =>
     "utf8",
   );
 const skillTexts = new Map();
-// Hermes's browser tools have no upload (tools/browser_tool.py), so an agent with
-// AgentPier's browser gets this tool (hermes-browser-upload.js).
-const browserUpload = Object.freeze({
-  name: "agentpier_browser_upload",
-  description:
-    "Put files into a file field (input type=file) of a page open in your browser, as a person choosing files would. First call agentpier_workspace with action browser_upload_stage for each file (path, and projectId for a project folder) and pass the uploadPath values it returns as paths, unchanged; nothing else can be uploaded, and a staged file expires after six hours. selector: a CSS selector of the file field (default: the page's first input[type=file]). urlContains: part of the page's address when several pages are open. Then take a snapshot and submit the form with your browser tools.",
-  parameters: {
-    type: "object",
-    properties: {
-      paths: {
-        type: "array",
-        minItems: 1,
-        maxItems: 20,
-        items: { type: "string", minLength: 1, maxLength: 4096 },
-      },
-      selector: { type: "string", minLength: 1, maxLength: 1000 },
-      urlContains: { type: "string", minLength: 1, maxLength: 2000 },
-    },
-    required: ["paths"],
-    additionalProperties: false,
-  },
-});
-
 /** The folder of the agent's own folder its generated images are shared from. */
 export const generatedImagesFolder = "generated-images";
 
@@ -323,13 +302,13 @@ def _tool(tool):
 
 
 def _names_folder(args):
-    # A cheap first look: only a call whose arguments name attachments/ or .agentpier/
-    # in some spelling asks AgentPier, which resolves the paths itself.
+    # A cheap first look: only a call whose arguments name attachments/, chat-files/ or
+    # .agentpier/ in some spelling asks AgentPier, which resolves the paths itself.
     try:
         text = json.dumps(args).lower()
     except Exception:
         return True
-    return "attachments" in text or ".agentpier" in text or "%" in text
+    return any(name in text for name in ("attachments", "chat-files", ".agentpier", "%"))
 
 
 def _inside(args):
@@ -337,6 +316,16 @@ def _inside(args):
     value = args.get("image_url", args.get("path", "."))
     value = value.strip().replace(chr(92), "/") if isinstance(value, str) else "/"
     return value[:1] not in ("", "/", "~") and not re.match("[A-Za-z][A-Za-z0-9+.-]*:", value) and ".." not in value.split("/")
+
+
+def _wide(tool_name, args):
+    # A search of the whole work folder (its .agentpier/ too), of several paths in one
+    # (Hermes splits them) or leaving the work folder asks AgentPier on every agent.
+    value = args.get("path", ".")
+    value = value.replace(chr(92), "/") if isinstance(value, str) else "/"
+    parts = [part for part in value.split("/") if part.strip() not in ("", ".")]
+    split = any(c.isspace() or c == "," for c in value.strip())
+    return tool_name == "search_files" and (not parts or split or not _inside(args))
 
 
 def _ask(tool_name, args, session_id, task_id, member_write=False):
@@ -367,10 +356,10 @@ def _guard(tool_name="", args=None, session_id=None, task_id=None, **_):
     args = args if isinstance(args, dict) else {}
     browser = tool_name.startswith("browser_") and settings.get("browser")
     member_write = tool_name in _WRITES and bool(settings.get("guardWrites"))
-    # A shared agent asks before every read leaving its work folder: its runtime folders
-    # hold other chats' images (hermes-home-guard.js).
+    # A shared agent asks before every read leaving its work folder: only the calling
+    # chat's file folder holds none of other chats' files (hermes-home-guard.js).
     private = tool_name in _READS and settings.get("privateFolders") and not _inside(args)
-    folder = tool_name in _FILES and (private or _names_folder(args))
+    folder = tool_name in _FILES and (private or _wide(tool_name, args) or _names_folder(args))
     image = tool_name == "image_generate" and bool(settings.get("images"))
     if not browser and not member_write and not folder and not image:
         return None

@@ -154,7 +154,7 @@ test(
     await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
     t.after(() => server.close());
     const connection = { url: `http://127.0.0.1:${server.address().port}`, token: "k" };
-    const run = async (agent, args) => {
+    const run = async (agent, args, tool = "read_file") => {
       for (const [file, text] of Object.entries(teamPluginFiles(agent, { connection }))) {
         fs.mkdirSync(path.dirname(path.join(dir, file)), { recursive: true });
         fs.writeFileSync(path.join(dir, file), text);
@@ -164,7 +164,7 @@ import importlib.util, json, sys
 spec = importlib.util.spec_from_file_location("plugin", sys.argv[1])
 plugin = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(plugin)
-print(json.dumps(plugin._guard("read_file", json.loads(sys.argv[2]), session_id="s1")))
+print(json.dumps(plugin._guard(sys.argv[3], json.loads(sys.argv[2]), session_id="s1")))
 `;
       const { stdout } = await promisify(execFile)(python, [
         "-I",
@@ -172,6 +172,7 @@ print(json.dumps(plugin._guard("read_file", json.loads(sys.argv[2]), session_id=
         script,
         path.join(dir, "plugins/agentpier-team/__init__.py"),
         JSON.stringify(args),
+        tool,
       ]);
       return JSON.parse(stdout);
     };
@@ -200,5 +201,30 @@ print(json.dumps(plugin._guard("read_file", json.loads(sys.argv[2]), session_id=
       assert.equal(await run(shared, inside), null, JSON.stringify(inside));
     assert.equal(await run(profile(), { path: "/x/cache/images/u.png" }), null);
     assert.equal(seen.length, before);
+    // Every agent asks before a call naming the chat folders (chat-file-folders.js) and
+    // before a search of the whole work folder (its secrets folder too), beyond it or
+    // of several paths in one; a search of a folder inside it asks nothing.
+    for (const [args, tool] of [
+      [{ path: "/d/assistants/chat-files/a1/c1/x.pdf" }, "read_file"],
+      [{ path: "../../chat-files/a1/c2/y.md", content: "x" }, "write_file"],
+      [{ pattern: "sk-" }, "search_files"],
+      [{ path: "./", pattern: "sk-" }, "search_files"],
+      [{ path: "/", pattern: "sk-" }, "search_files"],
+      [{ path: "docs .", pattern: "sk-" }, "search_files"],
+      [{ path: "docs,src", pattern: "sk-" }, "search_files"],
+    ]) {
+      const asked = seen.length;
+      assert.notEqual(await run(profile(), args, tool), null, JSON.stringify(args));
+      assert.equal(seen.length, asked + 1);
+    }
+    for (const args of [
+      { path: "docs", pattern: "x" },
+      { path: "src/app", pattern: "x" },
+    ])
+      assert.equal(
+        await run(profile(), args, "search_files"),
+        null,
+        JSON.stringify(args),
+      );
   },
 );
