@@ -38,6 +38,11 @@ export const userApi = {
     ),
   send: (conversationId, body) => api(`${chat(conversationId)}/messages`, "POST", body),
   queue: (conversationId, body) => api(`${chat(conversationId)}/queued`, "POST", body),
+  // A tick and a button press on an agent card of her chat (agent-cards.js).
+  checkCard: (conversationId, cardId, body) =>
+    api(`${chat(conversationId)}/cards/${id(cardId)}/check`, "POST", body),
+  pressCard: (conversationId, cardId, body) =>
+    api(`${chat(conversationId)}/cards/${id(cardId)}/press`, "POST", body),
   takeBackQueued: (conversationId) => api(`${chat(conversationId)}/queued`, "DELETE"),
   cancel: (attemptId) => api(`/me/attempts/${id(attemptId)}/cancel`, "POST", {}),
   recover: (attemptId) =>

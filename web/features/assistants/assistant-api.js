@@ -8,6 +8,19 @@ export const assistantApi = {
   // The owner's Stop of the chat's work goal (work-goals.js).
   stopGoal: (id) =>
     api(`/assistant-conversations/${encodeURIComponent(id)}/goal/stop`, "POST", {}),
+  // A tick and a button press on an agent card of the chat (agent-cards.js).
+  checkCard: (id, cardId, body) =>
+    api(
+      `/assistant-conversations/${encodeURIComponent(id)}/cards/${encodeURIComponent(cardId)}/check`,
+      "POST",
+      body,
+    ),
+  pressCard: (id, cardId, body) =>
+    api(
+      `/assistant-conversations/${encodeURIComponent(id)}/cards/${encodeURIComponent(cardId)}/press`,
+      "POST",
+      body,
+    ),
   feature: () => api("/assistant-feature"),
   setFeature: (enabled) => api("/assistant-feature", "PUT", { enabled }),
   memory: (id, name) =>

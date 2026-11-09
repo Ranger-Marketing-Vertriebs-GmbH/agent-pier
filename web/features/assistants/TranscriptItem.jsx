@@ -11,6 +11,7 @@ import AgentProjectNote from "./AgentProjectNote.jsx";
 import MemberGrantNote from "./MemberGrantNote.jsx";
 import WorkGoalNote from "./WorkGoalNote.jsx";
 import PinboardCard from "./pinboard/PinboardCard.jsx";
+import AgentCard, { AgentCardMoved } from "./cards/AgentCard.jsx";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
 import { routineCopy } from "../../lib/i18n/messages/assistant-routines.js";
 import { memoryNoteText } from "./memory-note-text.js";
@@ -49,6 +50,10 @@ export default function TranscriptItem({
     <CodingRunNote note={m} navigate={navigate} />
   ) : m.pinboard ? (
     <PinboardCard pinboard={m.pinboard} />
+  ) : m.card ? (
+    <AgentCard card={m.card} />
+  ) : m.cardMoved ? (
+    <AgentCardMoved moved={m.cardMoved} />
   ) : m.event === "goal" || m.event === "goal-continuation" ? (
     <WorkGoalNote note={m} />
   ) : m.event === "ssh-run" ? (

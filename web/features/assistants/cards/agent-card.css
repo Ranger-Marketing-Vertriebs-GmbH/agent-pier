@@ -1,0 +1,194 @@
+/* An agent card in the chat history (AgentCard). */
+.agent-card {
+  display: grid;
+  gap: var(--space-3);
+  max-width: 640px;
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  color: var(--text-message);
+  font-size: var(--font-size-base);
+  overflow-wrap: anywhere;
+  scroll-margin-top: var(--space-4);
+}
+.agent-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+}
+.agent-card-head h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+}
+.agent-card-meta,
+.agent-card-note {
+  color: var(--text-meta);
+  font-size: var(--font-size-sm);
+}
+.agent-card-note {
+  margin: 0;
+}
+.agent-card-heading {
+  margin: 0;
+  padding: 0;
+  color: var(--text-group);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+.agent-card-text {
+  margin: 0;
+  white-space: pre-wrap;
+}
+.agent-card-text.muted {
+  color: var(--muted);
+}
+.agent-card-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+}
+.agent-card-metric {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+}
+.agent-card-metric dt {
+  color: var(--text-meta);
+  font-size: var(--font-size-sm);
+}
+.agent-card-metric dd {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.agent-card-metric dd.tone-ok {
+  color: var(--success);
+}
+.agent-card-metric dd.tone-warn {
+  color: var(--warning);
+}
+.agent-card-metric dd.tone-fail {
+  color: var(--error-text);
+}
+.agent-card-table-wrap {
+  overflow-x: auto;
+}
+.agent-card-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.agent-card-table th,
+.agent-card-table td {
+  padding: var(--space-2) var(--space-2) var(--space-2) 0;
+  border-bottom: 1px solid var(--divider-soft);
+  text-align: left;
+  vertical-align: middle;
+}
+.agent-card-table th {
+  color: var(--text-meta);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+.agent-card-table tr:last-child td {
+  border-bottom: 0;
+}
+.agent-card-row-action {
+  width: 1%;
+  padding-right: 0;
+  text-align: right;
+  white-space: nowrap;
+}
+.agent-card-checklist {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.agent-card-checklist legend {
+  margin-bottom: var(--space-1);
+}
+.agent-card-checklist .checkbox-field {
+  min-height: var(--touch-target);
+}
+.agent-card-tiles,
+.agent-card-links {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.agent-card-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--space-2);
+}
+.agent-card-tile {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+}
+.agent-card-tile strong {
+  color: var(--text);
+  font-weight: var(--font-weight-semibold);
+}
+.agent-card-tile-state {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-meta);
+  font-size: var(--font-size-sm);
+}
+.agent-card-links {
+  display: grid;
+  gap: var(--space-1);
+}
+.agent-card-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--touch-target);
+  color: var(--accent-text);
+}
+.agent-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.agent-card-button {
+  min-height: var(--touch-target);
+}
+.agent-card-moved {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch-target);
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--font-size-md);
+  text-align: left;
+  cursor: pointer;
+}
+.agent-card-moved:hover {
+  color: var(--text-row);
+}
+.agent-card-moved:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
