@@ -5,6 +5,7 @@ import { locale } from "../../lib/i18n/index.js";
 import { formatBytes } from "../../lib/format-bytes.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import { assistantCopy as copy } from "../../lib/i18n/messages/assistants.js";
+import { updateCauseDetail } from "./update-cause.js";
 import useLiveTopic from "../../lib/live/useLiveTopic.js";
 import {
   BlockerList,
@@ -157,6 +158,11 @@ export default function AssistantRuntimeUpdates({ onChange, navigate }) {
           )}
           {status.diagnostic && (
             <p role="status">{copy.updates.diagnostics[status.diagnostic]}</p>
+          )}
+          {updateCauseDetail(status.diagnosticCause) && (
+            <p className="assistant-note">
+              {copy.updates.cause(updateCauseDetail(status.diagnosticCause))}
+            </p>
           )}
           {status.diagnosticPath && (
             <p>

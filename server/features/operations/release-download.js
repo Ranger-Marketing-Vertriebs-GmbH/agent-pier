@@ -56,11 +56,16 @@ const contentRange = (response) =>
     response.headers.get("content-range") || "",
   );
 
+// How long a download waits in all for GitHub's rate limit to pass before it reports
+// the limit (`rateLimitWait`).
+export const RATE_LIMIT_WAIT = 60000;
 /**
  * Downloads an HTTPS resource into memory. Only a transfer that receives no bytes
  * for `idleTimeout` is aborted; slow links finish. Network failures, idle transfers
  * and server errors are retried up to `retries` times; a retry resumes with a range
- * request only when the first response carried a strong validator.
+ * request only when the first response carried a strong validator. A rate limit
+ * (403 or 429 with Retry-After or an exhausted quota) is retried after the wait it
+ * names while all such waits fit `rateLimitWait`; a longer wait is reported at once.
  */
 export async function download(
   url,
@@ -74,6 +79,8 @@ export async function download(
     nodeVersion = process.versions.node,
     headers = null,
     pinOrigin = false,
+    rateLimitWait = RATE_LIMIT_WAIT,
+    sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   } = {},
 ) {
   // Older Node releases ignore NODE_USE_ENV_PROXY and would bypass the proxy.
@@ -84,13 +91,22 @@ export async function download(
       503,
     );
   const state = reset({});
+  let limited = 0;
   for (let attempt = 0; ; attempt++) {
     try {
       await transfer(url, fetchImpl, limit, idleTimeout, state, headers, pinOrigin);
       return Buffer.concat(state.chunks, state.length);
     } catch (error) {
-      if (attempt >= retries || error?.[transient] !== true) throw error;
-      await new Promise((resolve) => setTimeout(resolve, retryDelay(attempt)));
+      if (attempt >= retries) throw error;
+      if (error?.rateLimited) {
+        const wait = error.retryAfter === null ? Infinity : error.retryAfter * 1000;
+        if (limited + wait > rateLimitWait) throw error;
+        limited += wait;
+        await sleep(wait);
+        continue;
+      }
+      if (error?.[transient] !== true) throw error;
+      await sleep(retryDelay(attempt));
     }
   }
 }

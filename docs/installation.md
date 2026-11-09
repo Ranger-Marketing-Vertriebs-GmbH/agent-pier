@@ -370,7 +370,10 @@ Downloads are aborted only after 30 seconds without data, not after a total
 duration, so slow links complete. Interrupted transfers and server errors are
 retried up to three times with growing pauses (1, 2, 4 seconds); a retry resumes
 with an HTTP range request only when the server sent a strong ETag or a
-Last-Modified date, and otherwise starts again from the beginning. The small
+Last-Modified date, and otherwise starts again from the beginning. A GitHub rate
+limit (403 or 429 with `Retry-After`, or an exhausted quota with
+`x-ratelimit-remaining: 0`) is retried after the wait it names while all such waits
+add up to at most 60 seconds; a longer wait fails at once and names the limit. The small
 release channel manifest is retried once; a stalled channel reports
 `DOWNLOAD_IDLE_TIMEOUT`. AgentPier's own release
 downloads use the same rules.

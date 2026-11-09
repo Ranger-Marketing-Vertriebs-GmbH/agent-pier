@@ -73,6 +73,7 @@ export const assistantCopy = {
       rolled_back: "Vorherige Version wieder aktiv",
       recovery_required: "Wiederherstellung erforderlich",
     },
+    cause: (detail) => `Ursache: ${detail}`,
     diagnostics: {
       UPDATE_STAGE_FAILED:
         "Vorbereitung fehlgeschlagen. Die aktive Version bleibt erhalten.",

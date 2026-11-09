@@ -56,7 +56,12 @@ export async function previewManifest(fetchImpl) {
           `https://api.github.com/repos/${repository}/releases?per_page=100&page=${page}`,
           fetchImpl,
           4 * 1024 * 1024,
-          { retries: 1, headers: { Accept: "application/vnd.github+json" } },
+          // The owner waits on this check: a rate limit is reported with its wait.
+          {
+            retries: 1,
+            rateLimitWait: 0,
+            headers: { Accept: "application/vnd.github+json" },
+          },
         ),
       );
     } catch (error) {

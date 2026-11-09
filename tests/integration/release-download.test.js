@@ -382,6 +382,56 @@ test("a timeout or throttling without a quota hint is retried, a refusal is not"
   assert.equal(calls["/quota"], 1);
 });
 
+test("a rate limit with a short wait is retried after that wait, up to a minute in all", async (t) => {
+  const answers = {
+    "/after": [[429, { "retry-after": "2" }], [200]],
+    "/quota": [[403, { "x-ratelimit-remaining": "0", "retry-after": "30" }], [200]],
+    "/twice": [[429, { "retry-after": "40" }], [429, { "retry-after": "40" }], [200]],
+    "/reset": [[403, { "x-ratelimit-remaining": "0" }], [200]],
+    "/now": [[429, { "retry-after": "2" }], [200]],
+  };
+  const calls = {};
+  const fetchImpl = await fakeServer(t, (req, res) => {
+    const [status, headers = {}] =
+      answers[req.url][(calls[req.url] = (calls[req.url] ?? 0) + 1) - 1];
+    if (status === 200) return res.end(payload);
+    res.writeHead(status, headers).end();
+  });
+  const waits = [];
+  const options = {
+    idleTimeout: 1000,
+    retryDelay: () => 1,
+    sleep: async (ms) => waits.push(ms),
+  };
+  const get = (route, extra) =>
+    download(`https://fixture.invalid${route}`, fetchImpl, 1 << 20, {
+      ...options,
+      ...extra,
+    });
+  assert.deepEqual(await get("/after"), payload);
+  assert.deepEqual(await get("/quota"), payload);
+  assert.deepEqual(waits, [2000, 30000]);
+  // The second wait would pass the minute: the limit is reported with its wait.
+  await assert.rejects(get("/twice"), {
+    status: 502,
+    upstreamStatus: 429,
+    rateLimited: true,
+    retryAfter: 40,
+  });
+  assert.equal(calls["/twice"], 2);
+  // An exhausted quota without a reset time, or no wait allowed: reported at once.
+  await assert.rejects(get("/reset"), { upstreamStatus: 403, rateLimited: true });
+  await assert.rejects(get("/now", { rateLimitWait: 0 }), { upstreamStatus: 429 });
+  assert.deepEqual(calls, {
+    "/after": 2,
+    "/quota": 2,
+    "/twice": 2,
+    "/reset": 1,
+    "/now": 1,
+  });
+  assert.deepEqual(waits, [2000, 30000, 40000]);
+});
+
 test("the default backoff grows between the three retries", async () => {
   const { downloadRetryDelay } =
     await import("../../server/features/operations/releases.js");

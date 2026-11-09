@@ -72,6 +72,7 @@ export const assistantCopy = {
       rolled_back: "Previous version restored",
       recovery_required: "Recovery required",
     },
+    cause: (detail) => `Cause: ${detail}`,
     diagnostics: {
       UPDATE_STAGE_FAILED: "Staging failed. The active version is preserved.",
       UPDATE_STAGE_INTERRUPTED: "Staging was interrupted. Stage again.",

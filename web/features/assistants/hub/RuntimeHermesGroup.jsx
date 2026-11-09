@@ -14,6 +14,7 @@ import {
 } from "../RuntimeUpdateBlockers.jsx";
 import { hermesBusy, hermesErrorText, hermesStatus } from "../hermes-runtime.js";
 import useHermesRuntime from "../useHermesRuntime.js";
+import { updateCauseDetail } from "../update-cause.js";
 
 const copy = () => agentsHubCopy.runtime.hermes;
 // Hermes Agent's update, for "Pause agents and update".
@@ -54,9 +55,15 @@ export default function RuntimeHermesGroup({ navigate }) {
     state?.error === "UPDATE_BLOCKED" && Array.isArray(state.blockerItems)
       ? state.blockerItems.filter(validBlockerItem)
       : [];
+  const cause = status.kind === "error" ? updateCauseDetail(state.errorCause) : "";
   const statusText =
     status.kind === "error"
-      ? hermesErrorText(state.error, copy().errors, copy().unknownError)
+      ? [
+          hermesErrorText(state.error, copy().errors, copy().unknownError),
+          cause && copy().cause(cause),
+        ]
+          .filter(Boolean)
+          .join(" ")
       : copy().states[status.kind];
   const versionSub = [
     state?.pythonVersion && copy().python(state.pythonVersion),

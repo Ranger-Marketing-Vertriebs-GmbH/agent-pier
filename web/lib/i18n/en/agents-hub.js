@@ -152,6 +152,7 @@ export const agentsHubCopy = {
           "Hermes agents are still working. Open each item below, or pause the agents and update.",
       },
       unknownError: (code) => `Hermes Agent reported a problem (${code}).`,
+      cause: (detail) => `Cause: ${detail}`,
       version: "Version",
       python: (version) => `Python ${version}`,
       target: (version) => `Pinned version ${version}`,
