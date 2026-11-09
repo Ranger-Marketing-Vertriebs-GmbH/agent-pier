@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import Icon from "../../components/Icon.jsx";
 import { filesCopy as copy } from "../../lib/i18n/messages/files.js";
 import { actionLayoutCopy as layoutCopy } from "../../lib/i18n/messages/action-layout.js";
+import FileLink from "../../components/FileLink.jsx";
+import { appleStandalone } from "../../lib/standalone.js";
 import { canExtract } from "./FileArchiveDialog.jsx";
 
 function size(value) {
@@ -13,6 +15,11 @@ function modified(value) {
   return value ? new Date(value).toLocaleString() : "—";
 }
 
+// One regular file can be fetched directly; everything else goes through a ZIP.
+export function canDownload(items, downloadHref) {
+  return Boolean(downloadHref) && items.length === 1 && items[0].type === "file";
+}
+
 export default function FileList({
   listing,
   selected,
@@ -21,6 +28,7 @@ export default function FileList({
   onPage,
   selection,
   onAction,
+  downloadHref,
   readOnly,
   onDrag,
   onDrop,
@@ -228,20 +236,40 @@ export default function FileList({
             "properties",
             !readOnly && "trash",
             !readOnly && "archive",
+            canDownload(selectedItems(menuEntry), downloadHref) && "download",
             "download_zip",
             !readOnly && canExtract(selectedItems(menuEntry)) && "extract_here",
             !readOnly && canExtract(selectedItems(menuEntry)) && "extract_to",
           ]
             .filter(Boolean)
-            .map((kind) => (
-              <button key={kind} type="button" role="menuitem" onClick={() => act(kind)}>
-                {kind === "path"
-                  ? copy.actions.copyPath
-                  : kind === "properties"
-                    ? layoutCopy.properties
-                    : copy.actions[kind] || copy.transfers.actions[kind]}
-              </button>
-            ))}
+            .map((kind) =>
+              kind === "download" ? (
+                <FileLink
+                  key={kind}
+                  href={downloadHref(menuEntry.path)}
+                  role="menuitem"
+                  onClick={() => {
+                    // The iOS app shows progress and failure on the link itself.
+                    if (!appleStandalone()) setTimeout(() => closeMenu(false), 0);
+                  }}
+                >
+                  {copy.actions.download}
+                </FileLink>
+              ) : (
+                <button
+                  key={kind}
+                  type="button"
+                  role="menuitem"
+                  onClick={() => act(kind)}
+                >
+                  {kind === "path"
+                    ? copy.actions.copyPath
+                    : kind === "properties"
+                      ? layoutCopy.properties
+                      : copy.actions[kind] || copy.transfers.actions[kind]}
+                </button>
+              ),
+            )}
           <button role="menuitem" onClick={() => closeMenu()}>
             {copy.actions.choices.cancel}
           </button>

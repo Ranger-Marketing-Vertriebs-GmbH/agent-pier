@@ -10,7 +10,7 @@ import "./file-link.css";
  * a visible error when it fails. `name` is the file name to save, or true for the
  * server's own.
  */
-export default function FileLink({ href, name = true, children, ...props }) {
+export default function FileLink({ href, name = true, onClick, children, ...props }) {
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   return (
@@ -21,6 +21,7 @@ export default function FileLink({ href, name = true, children, ...props }) {
         download={name}
         aria-busy={busy || undefined}
         onClick={async (event) => {
+          onClick?.(event);
           if (!appleStandalone()) return;
           event.preventDefault();
           // A second tap while the first fetches would open two share sheets.

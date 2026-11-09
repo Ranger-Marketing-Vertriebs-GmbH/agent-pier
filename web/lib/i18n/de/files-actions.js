@@ -16,6 +16,7 @@ export const fileActionsCopy = {
   paste: "Einfügen",
   move: "Verschieben",
   copyPath: "Pfad kopieren",
+  download: "Herunterladen",
   trash: "In den Papierkorb",
   trashTitle: "Papierkorb",
   clearSelection: "Auswahl aufheben",

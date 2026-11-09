@@ -21,6 +21,7 @@ export default function ExplorerListing({
   onProperties,
   onPage,
   onAction,
+  downloadHref,
   onDrag,
   onDrop,
 }) {
@@ -37,6 +38,7 @@ export default function ExplorerListing({
         request={request}
         onRequestHandled={onRequestHandled}
         toolbarTarget={toolbarTarget}
+        downloadHref={downloadHref}
       />
       <div className="explorer-folder-heading">
         <h2>{title}</h2>
@@ -60,6 +62,7 @@ export default function ExplorerListing({
             selection={selection}
             readOnly={scope.readOnly}
             onAction={onAction}
+            downloadHref={downloadHref}
             onDrag={onDrag}
             onDrop={onDrop}
           />

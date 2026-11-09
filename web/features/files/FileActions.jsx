@@ -7,6 +7,7 @@ import { actionLayoutCopy as layoutCopy } from "../../lib/i18n/messages/action-l
 import { operation, transferOperation, references, bytes } from "./file-action-utils.js";
 import "./file-actions.css";
 import FileArchiveDialog, { archiveActions, canExtract } from "./FileArchiveDialog.jsx";
+import { canDownload } from "./FileList.jsx";
 import FileActionMenu from "./FileActionMenu.jsx";
 import { writeClipboard } from "../../lib/clipboard.js";
 
@@ -20,6 +21,7 @@ export default function FileActions({
   request,
   onRequestHandled,
   toolbarTarget,
+  downloadHref,
 }) {
   const [dialog, setDialog] = useState(null);
   const [name, setName] = useState("");
@@ -220,6 +222,15 @@ export default function FileActions({
         (kind.startsWith("extract_") && !canExtract(selected)),
       onClick: (extra) => show(kind, selected, extra),
     }));
+  const downloadAction = canDownload(selected, downloadHref)
+    ? [
+        {
+          kind: "download",
+          label: copy.actions.download,
+          href: downloadHref(selected[0].path),
+        },
+      ]
+    : [];
   const primaryActions = (
     <div className="file-primary-actions">
       {!scope.readOnly && (
@@ -284,8 +295,12 @@ export default function FileActions({
               {copy.actions.trash}
             </button>
           )}
-          {advancedActions.some((item) => !item.hidden) && (
-            <FileActionMenu label={layoutCopy.more} items={advancedActions} />
+          {(downloadAction.length > 0 ||
+            advancedActions.some((item) => !item.hidden)) && (
+            <FileActionMenu
+              label={layoutCopy.more}
+              items={[...downloadAction, ...advancedActions]}
+            />
           )}
           <button className="button secondary compact" onClick={selection.clear}>
             {copy.actions.clearSelection}

@@ -556,6 +556,7 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
                 onProperties={showProperties}
                 onPage={(filePage) => changeRoute({ filePage, file: "" })}
                 onAction={requestListAction}
+                downloadHref={client.directDownload}
                 {...dragEvents}
               />
               {route.file && (
