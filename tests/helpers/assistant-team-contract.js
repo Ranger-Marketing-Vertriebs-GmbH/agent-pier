@@ -6,6 +6,7 @@ import { createAssistantServices } from "../../server/application/assistants.js"
 import { assistantTeamModel } from "./assistant-team-model.js";
 import { ChannelOutbox } from "../../server/features/assistant-channels/channel-outbox.js";
 import { profileTools } from "../../server/features/assistants/native-capabilities.js";
+import { lastUser } from "./openclaw-model-input.js";
 // OpenClaw offers apply_patch wherever write is allowed (writeAllowsApplyPatch); the
 // plugin guards it like write (team-plugin/tool-guard.js writeTools).
 const offeredTools = (assistant) => {
@@ -105,23 +106,16 @@ export async function qualifyAssistantTeams({ dataDir, log = () => {} }) {
       offeredTools(parent),
     );
     const childRequests = model.requests.filter((r) =>
-      JSON.stringify(
-        r.messages.filter((m) => m.role === "user").at(-1)?.content,
-      ).includes("TEAM_CHILD_"),
+      JSON.stringify(lastUser(r.messages)?.content).includes("TEAM_CHILD_"),
     );
     assert.ok(childRequests.length >= 4);
     // Each member turn offers exactly the tools of that member's own profile.
     const memberTurns = childRequests.filter(
-      (r) =>
-        !JSON.stringify(
-          r.messages.filter((m) => m.role === "user").at(-1)?.content,
-        ).includes("Summarize"),
+      (r) => !JSON.stringify(lastUser(r.messages)?.content).includes("Summarize"),
     );
     assert.ok(memberTurns.length >= 4);
     for (const r of memberTurns) {
-      const text = JSON.stringify(
-        r.messages.filter((m) => m.role === "user").at(-1)?.content,
-      );
+      const text = JSON.stringify(lastUser(r.messages)?.content);
       const member = members.find((m) => text.includes(m.assignment.split(":")[0]));
       assert.ok(member, "member turn matches a member assignment");
       assert.deepEqual(

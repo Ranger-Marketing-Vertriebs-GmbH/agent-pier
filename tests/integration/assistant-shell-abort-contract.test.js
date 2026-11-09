@@ -84,15 +84,11 @@ test(
     // A Gateway stop waits for background sessions while draining, so AgentPier ends
     // it with SIGKILL after its grace. On Linux OpenClaw spawns exec children through
     // its spawn broker, a separate process that terminates every child it owns once
-    // the Gateway disconnects. Elsewhere the Gateway spawns them itself, in their own
-    // process group, so they outlive the Gateway.
+    // the Gateway disconnects. Up to 2026.10.9 the Gateway spawned them itself
+    // elsewhere, in their own process group, so they outlived it; since 2026.11.2
+    // (its @openclaw/proc-safe process supervision) a restart ends them on macOS too.
     await gw.runtime.restart();
-    if (process.platform === "linux")
-      assert.ok(await gone(background.pid), "a restart ends background exec on Linux");
-    else {
-      await delay(2000);
-      assert.equal(alive(background.pid), true, "background exec survives a restart");
-    }
+    assert.ok(await gone(background.pid), "a restart ends background exec");
   },
 );
 

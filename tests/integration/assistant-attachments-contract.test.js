@@ -238,8 +238,9 @@ test(
     // A phone photo above 2 MB is offloaded to the Gateway's media store, shared by
     // every agent, and the prompt names it by a media:// reference: the tool guard
     // keeps that reference and media/inbound/ from the chats of a shared agent
-    // (team-plugin/attachment-guard.js). The pinned Gateway stages no chat image in the
-    // workspace any more (older ones did, under media/inbound/openclaw-staged-*/).
+    // (team-plugin/attachment-guard.js). 2026.10.9 staged no chat image in the
+    // workspace; 2026.11.2 stages it again, as releases before 2026.10.9 did, and only
+    // under media/inbound/openclaw-staged-<uuid>/, which the guard covers.
     await t.test("a large image reaches the model by a media:// reference", async () => {
       const connection = endpoint("fixture-vision-large", true);
       const agent = store.createAssistant({
@@ -283,7 +284,15 @@ test(
       );
       assert.ok(prompt.includes("data:image/png;base64,"), "the model still sees it");
       const workspace = path.join(runtime.paths.workspaces, agent.id);
-      assert.equal(fs.existsSync(path.join(workspace, "media")), false);
+      const media = path.join(workspace, "media");
+      const staged = fs.existsSync(media)
+        ? fs.readdirSync(media, { recursive: true })
+        : [];
+      for (const entry of staged)
+        assert.match(
+          entry.split(path.sep).join("/"),
+          /^inbound(\/openclaw-staged-[0-9a-f-]{36}(\/[^/]+)?)?$/,
+        );
     });
     // The Gateway loads a local image the turn's text names into the model's input
     // itself, without a tool call; on a shared agent AgentPier's text names none.
