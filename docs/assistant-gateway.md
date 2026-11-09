@@ -279,9 +279,9 @@ for the implementation and remaining native platform/version qualification.
   (no skills for an agent without its own list), each eligible agent's
   `agents.entries.<id>.skills` holds only the bundled and catalog skills the owner
   switched on plus AgentPier's built-in skills for eligible agents (see
-  [Skills](#skills)), and autonomous skill review is off. `skills.allowBundled`
-  is not a gate: OpenClaw reads the empty list AgentPier writes as "every bundled
-  skill allowed".
+  [Skills](#skills)), and autonomous skill review is off. AgentPier writes no
+  `skills.allowBundled` (and removes one it finds): without it every bundled skill
+  is allowed, while OpenClaw 2026.11.2 reads an empty list as "none".
 - **`.agentpier/` is managed by AgentPier.** The folder holds the agent's granted
   secrets (`.agentpier/secrets.env`). No native file tool writes, edits, adds, moves
   or deletes anything below it in any turn, the owner's included; the refusal reads `Files in .agentpier are managed by AgentPier.` The
@@ -490,7 +490,7 @@ Sandbox design stays deferred as agreed. Remaining release checks are tracked in
 
 ## Implemented foundation
 
-The foundation now provisions OpenClaw 2026.10.9 with Node 26.12.1 in private
+The foundation now provisions OpenClaw 2026.11.2 with Node 26.12.1 in private
 application data, starts one owned foreground Gateway, and waits for authenticated
 protocol readiness. It is optional: enabling it under Agents › Runtime provisions
 the runtime; enabled installations provision the selected version at startup after
@@ -902,7 +902,7 @@ behind it.
   (`voice-connections.js`, `GET`/`PUT /api/assistant-speech/voice`). Keys are written,
   never returned: the settings only say whether one is stored. A ChatGPT sign-in
   cannot read text aloud: image generation uses it through OpenClaw's Codex
-  Responses route, but OpenClaw 2026.10.9's OpenAI speech provider needs an API key,
+  Responses route, but OpenClaw 2026.11.2's OpenAI speech provider needs an API key,
   and the subscription only offers realtime voice calls (phase 2, AGENTPIER-293).
 - **Audit and privacy.** Neither audio nor text reaches logs or the audit:
   `speech.completed` records `kind: "talk"` with the session's length and
@@ -1093,7 +1093,7 @@ the existing chat recovery action. Neither recovery route replays work.
 
 The bundled `agentpier-teams` plugin is staged privately and verified on fresh
 installation and every existing-runtime provisioning path. Compatibility is pinned
-to OpenClaw 2026.10.9 and its qualified rollback predecessors 2026.10.7, 2026.10.3, 2026.9.9 and 2026.9.8. Eligible parents receive the eleven managed team tools (propose, status,
+to OpenClaw 2026.11.2 and its qualified rollback predecessors 2026.10.9, 2026.10.7, 2026.10.3, 2026.9.9 and 2026.9.8. Eligible parents receive the eleven managed team tools (propose, status,
 stop, grant ([team member grants](#team-member-grants-2026-10-17)) and the [member tools](#lead-questions-and-tasks-for-members)) and
 `session_status`; members receive `session_status` and their own four
 [member tools](#member-questions-tasks-and-reports) (`agentpier_team_peers`,
@@ -2314,9 +2314,9 @@ AgentPier's. Each start first removes every allow-listed path from the existing
 configuration and then writes the stored overrides, so a reset override never
 survives in `openclaw.json`. Stored rows that are no longer allowed or valid are
 skipped and logged by path. Overrides apply only to the runtime version the allow
-list was qualified against (`advancedSettingsRuntime`, 2026.10.9); a rolled-back runtime
+list was qualified against (`advancedSettingsRuntime`, 2026.11.2); a rolled-back runtime
 starts with OpenClaw's defaults. After an AgentPier update that moves the approval
-(2026.10.3 to 2026.10.7, then 2026.10.7 to 2026.10.9), stored overrides therefore stay
+(2026.10.3 to 2026.10.7, 2026.10.7 to 2026.10.9, then 2026.10.9 to 2026.11.2), stored overrides therefore stay
 inactive on the previous runtime until the owner activates the new one, and again after a rollback before commit
 (`overridesFor`, `runtimes/openclaw/openclaw-config/overrides.js`).
 The owner edits them under **Agents › Runtime › Advanced · for all agents** (the old `/settings/assistants-advanced` opens it)
@@ -4152,8 +4152,9 @@ its own `tools.allow`, because a global `deny` alone still offers the tool.
   background sessions from outside the agent's own `process` tool, and neither an
   abort nor a session reset stops them. A Gateway stop or restart (including stopping or
   updating AgentPier) ends them on Linux, where OpenClaw starts commands through
-  its spawn broker, which terminates its children when the Gateway goes away; on
-  macOS they keep running (see the
+  its spawn broker, which terminates its children when the Gateway goes away, and
+  since OpenClaw 2026.11.2 on macOS as well; on macOS 2026.10.9 and earlier kept them
+  running (see the
   [shell qualification](assistant-shell-qualification.md#h-aborting-turns-and-background-commands)).
   If a lowering cannot be
   applied, AgentPier tries once more, then aborts the agent's running turns and
@@ -4347,8 +4348,9 @@ without any.
   names) and compiled into `agents.entries.<id>.skills`, which OpenClaw reads as the
   agent's final allow list. `agents.defaults.skills` stays `[]`, so every agent
   without its own list has no skills, and every Gateway start removes lists from
-  entries AgentPier does not manage. `skills.allowBundled` is not a gate: OpenClaw reads the empty list
-  as "every bundled skill allowed"; the agents' own lists are.
+  entries AgentPier does not manage. `skills.allowBundled` is not a gate: AgentPier
+  writes none, so every bundled skill is allowed (2026.10.9 and earlier read an empty
+  list so too, 2026.11.2 reads it as "none"); the agents' own lists are.
 - **Live changes.** A save applies with `config.patch` (`reloadKind: "hot"`); a shorter
   or removed list names `agents.entries.<id>.skills` in `replacePaths`. OpenClaw
   refreshes the skill snapshot at the agent's next turn, without a Gateway restart.
@@ -4733,9 +4735,10 @@ setting and clears what was pending.
   Gateway knows no session for the key and no archive names one is there no id to
   forget (`memory forget --session <key>` resolves a key only against live sessions
   and archives too, and would record the key literally).
-- **Resolved data directory.** On 2026.10.7 the sweep fails every workspace ("Canonical
-  session reader continuation is no longer current") and writes no corpus or notes
-  when the state directory's path runs through a symbolic link. The data directory
+- **Resolved data directory.** On 2026.10.7 and later (checked through 2026.11.2) the
+  sweep fails every workspace (up to 2026.10.9 with "Canonical session reader
+  continuation is no longer current", 2026.11.2 without a log line) and writes no
+  corpus or notes when the state directory's path runs through a symbolic link. The data directory
   must therefore not sit behind a symbolic link; `runtime-paths.js` does not resolve
   it. Default data directories have no linked ancestor.
 
@@ -5276,7 +5279,8 @@ type.
   routine run's or the session's own), and `agentpier_share_file` refuses another
   chat's file with `SHARE_NOT_FOUND`. What OpenClaw keeps beside the uploads names
   no chat: a channel's photo it stages under `media/inbound/openclaw-staged-<uuid>/`
-  of the workspace (OpenClaw before 2026.10.9 staged chat images there too), and its
+  of the workspace (OpenClaw before 2026.10.9 and again since 2026.11.2 stages chat
+  images there too), and its
   media store `<state>/media/` (an image above 2 MB that the pinned Gateway offloads
   and names in the prompt as `media://inbound/<id>`, browser screenshots, created
   images), which every agent shares and which OpenClaw's `image` and `pdf` tools read
@@ -5367,10 +5371,10 @@ type.
   never part of a backup, sealed or not.
 - **Limits.** Agents cannot be deleted today (only archived), so the copies follow
   the workspace; `AgentAttachments.purge` removes an agent's folders and index for a
-  future deletion path. OpenClaw before 2026.10.9 also staged inline images it
-  received under `media/inbound/` of the workspace, so such an image exists twice;
-  the pinned Gateway offloads an image above 2 MB to its own media store instead
-  (`assistant-attachments-contract.test.js`).
+  future deletion path. OpenClaw before 2026.10.9, and again the pinned 2026.11.2,
+  also stages inline images it receives under `media/inbound/openclaw-staged-<uuid>/`
+  of the workspace, so such an image exists twice; an image above 2 MB is also
+  offloaded to its own media store (`assistant-attachments-contract.test.js`).
 
 ### Chat videos (2026-10-18)
 
@@ -5646,7 +5650,7 @@ follows the requalification checklist in
 - Plain-language team authorization has the accepted limits described under Visible
   teams. Rollback or restore after a credential revocation needs a new login, and
   works on the same host only (see [runtime updates](assistant-runtime-updates.md)).
-- **Generated images in the delivery turn.** OpenClaw 2026.10.9 loads the images a
+- **Generated images in the delivery turn.** OpenClaw (checked up to 2026.11.2) loads the images a
   prompt names only from the agent's workspace while `tools.fs.workspaceOnly` is on,
   and offers no setting for further folders. The `image_generate` completion turn
   names the image in `state/media/tool-image-generation/`, so a vision model gets the

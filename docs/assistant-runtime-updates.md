@@ -348,7 +348,8 @@ where the activation also runs Doctor. The subsequent
 [cross-version qualification](assistant-release-qualification.md) also passed
 2026.9.7 → 2026.9.8, 2026.9.8 → 2026.9.9, 2026.9.9 → 2026.10.3, 2026.9.8 → 2026.10.3
 and 2026.10.3, 2026.9.9 and 2026.9.8 → 2026.10.7 activation and rollback after failed
-validation. Other version pairs and native hosts remain unqualified.
+validation, and the later updates listed there (the updates to 2026.11.2 are not
+qualified yet). Other version pairs and native hosts remain unqualified.
 
 The update to OpenClaw 2026.10.3 migrates the state database from schema 19 to 20,
 which 2026.9.9 and 2026.9.8 refuse. Rollback before commit restores the snapshot
@@ -368,6 +369,14 @@ wrote. Activation still runs Doctor, which then has nothing to migrate. After co
 the update panel offers only the pinned 2026.10.9, as for every update, and AgentPier
 2.7.x – 2.12.x refuses 2026.10.9 through its team plugin. The installer now also consumes the reviewed dependency lock described below;
 all separately downloaded package archives carry integrity checks.
+
+The update to OpenClaw 2026.11.2 is one-way again: its Doctor migrates the state
+database from schema 20 to 22 and each agent database from 25 to 27, and 2026.10.9
+and every earlier version refuse the migrated data. Before commit the snapshot
+restores the previous runtime and its data; after commit the update panel offers
+only the pinned 2026.11.2, and AgentPier 2.17.x or earlier refuses 2026.11.2 through
+its team plugin. Updates from 2026.10.3 or 2026.9.x run the earlier migrations in the
+same Doctor pass.
 
 ## Locked dependency installation
 
@@ -413,7 +422,7 @@ cryptographically attested installed filesystem contents.
 
 The runtime also contains the official OpenClaw web search plugins
 `@openclaw/duckduckgo-plugin`, `@openclaw/perplexity-plugin` and
-`@openclaw/brave-plugin`, each at the OpenClaw version (2026.10.9). They are exact root
+`@openclaw/brave-plugin`, each at the OpenClaw version (2026.11.2). They are exact root
 dependencies in `runtime-lock/package.json`. The manifest pins each one's
 package name, version, plugin id and npm SHA-512 integrity (`searchPlugins`), and
 the lock check refuses a graph whose plugin entry differs from the pin or does not
