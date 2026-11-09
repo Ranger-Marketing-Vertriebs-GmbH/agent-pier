@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fc from "fast-check";
-import { withoutPromptImagePaths } from "../../server/features/assistants/prompt-image-paths.js";
+import { withoutPromptImagePaths } from "../../server/features/assistants/runtimes/openclaw/prompt-image-paths.js";
 
 // OpenClaw 2026.10.9 (dist/images-*.mjs detectImageReferences): the local image
 // references it finds in a turn's text and loads into the model's input.

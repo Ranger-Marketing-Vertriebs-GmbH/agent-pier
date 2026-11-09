@@ -5282,19 +5282,24 @@ type.
   images), which every agent shares and which OpenClaw's `image` and `pdf` tools read
   even with `tools.fs.workspaceOnly` (`resolveMediaToolReferenceAccess`). On a shared
   agent the same calls naming a `media/inbound/` folder (any path through one, in any
-  case), a `media://` reference or any other local path outside the agent's own
-  workspace are refused for every chat (`team-plugin/attachment-guard.js`, asked as
-  `media/inbound`, which `attachmentsAllowed` admits only on an agent that is not
-  shared); web and `data:` URLs pass. `agentpier_share_file` and browser uploads
-  refuse such media as well. The Gateway also loads every local image a turn's text
-  names (`./…`, `../…`, `/…`, `~…`, a drive letter or a `file://` URL ending in an
-  image extension) into the model's input itself, from anywhere in the workspace and
-  without a tool call (`detectAndLoadPromptImages`); on a shared OpenClaw agent
-  AgentPier sends every turn's text, the owner's chat included, with a word joiner
+  case), a `media://` reference or a path into the media store (`<state>/media/`,
+  relative paths resolved against the workspace) are refused for every chat
+  (`team-plugin/attachment-guard.js`, asked as `media/inbound`, which
+  `attachmentsAllowed` admits only on an agent that is not shared); other read roots
+  OpenClaw grants, such as its skill folders, and web and `data:` URLs pass.
+  `agentpier_share_file` and browser uploads refuse staged inbound media as well.
+  The Gateway also loads every local image a prompt names (`./…`, `../…`, `/…`, `~…`,
+  a drive letter or a `file://` URL ending in an image extension) into the model's
+  input itself, from anywhere in the workspace and without a tool call
+  (`detectAndLoadPromptImages`; no setting turns it off). For an agent shared with
+  users the adapter sends every prompt, a chat turn (the owner's chat included) as
+  well as a reminder's, routine's, hook's or check-in's job, with a word joiner
   (U+2060) before each such path, which ends OpenClaw's match
-  (`prompt-image-paths.js`). The model still sees the image of its own turn, which
-  OpenClaw loads from the turn's attachments, and reads its copy in `attachments/`;
-  editing an image the agent created earlier by its store path is refused there. When the agent deletes a sent copy,
+  (`runtimes/openclaw/shared-prompts.js`, `prompt-image-paths.js`, applied where
+  `runtimeFor` resolves the agent). The model still sees the image of its own turn,
+  which OpenClaw loads from the turn's attachments, and reads its copy in
+  `attachments/`; editing an image the agent created earlier by its store path is
+  refused there. When the agent deletes a sent copy,
   the chat history keeps the message and names that file as no longer available
   (`unavailable: true`, no link).
 - **Delivery.** `sessions.send` carries the owner's text followed by a note that

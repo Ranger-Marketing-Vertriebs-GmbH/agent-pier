@@ -9,6 +9,7 @@ import {
   attachmentRefusal,
   attachmentTools,
 } from "../../server/features/assistants/team-plugin/tool-guard.js";
+import { mediaStore } from "../../server/features/assistants/team-plugin/attachment-guard.js";
 import { noChatRefusal } from "../../server/features/assistants/team-plugin/attachment-guard.js";
 import { capabilityTools } from "../../server/features/assistants/native-capabilities.js";
 
@@ -61,6 +62,7 @@ async function sharedAgent(t, mode = "shared") {
       { agentId: agent.runtimeAgentId, sessionKey: conversation.runtimeSessionKey },
       bridge,
       roots,
+      mediaStore(undefined, f.workspaces),
     );
   return { ...f, agent, ben, call };
 }
@@ -132,14 +134,20 @@ const inboundCalls = (f) => [
   ["image", { image: "MEDIA:/data/assistants/state/media/inbound/photo.png" }],
   ["read", { path: "media/inbound" }],
   // The Gateway's media store, shared by every agent, which OpenClaw's image and pdf
-  // tools read beside the workspace; any other local path outside the workspace too.
+  // tools read beside the workspace.
   [
     "view_image",
     { path: path.join(path.dirname(f.workspaces), "state/media/browser/a.png") },
   ],
   ["pdf", { pdf: "../../state/media/outgoing/b.pdf" }],
-  ["image", { image: "~/x.png" }],
-  ["image", { image: pathToFileURL(path.join(f.workspaces, "other", "x.png")).href }],
+  ["image", { image: "../../state/MEDIA/tool-image-generation/c.png" }],
+  [
+    "read",
+    {
+      path: pathToFileURL(path.join(path.dirname(f.workspaces), "state/media/x.png"))
+        .href,
+    },
+  ],
   ["write", { path: staged, content: "x" }],
 ];
 
@@ -153,6 +161,15 @@ test("no turn on a shared agent names inbound media or anything outside its work
       { block: true, blockReason: noChatRefusal },
       JSON.stringify(params),
     );
+  // OpenClaw's skill folders (bundled and catalog skills) stay readable: they hold no
+  // chat's files.
+  const assistants = path.dirname(f.workspaces);
+  for (const skill of [
+    path.join(assistants, "plugins/teams-1/skills/agentpier-shopping/SKILL.md"),
+    path.join(assistants, "state/plugin-skills/weather/SKILL.md"),
+    path.join(assistants, "skill-catalog/x/SKILL.md"),
+  ])
+    assert.equal(await f.call(f.chat, "read", { path: skill }), undefined, skill);
   // The web, inline data and a media folder of the agent's own stay readable.
   assert.equal(
     await f.call(f.chat, "image", { image: "https://example.com/a.png" }),
