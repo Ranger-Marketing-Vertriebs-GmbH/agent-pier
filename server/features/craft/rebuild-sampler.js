@@ -1,5 +1,5 @@
 import { logCraftFailure } from "./craft-log.js";
-import { sampledFields } from "./rebuild-view.js";
+import { freshQuestions, pausedFields, sampledFields } from "./rebuild-view.js";
 
 // Codes of a client that is gone: the exit handler takes care of the rebuilds.
 const goneCodes = new Set(["CRAFT_MCP_CLOSED", "CRAFT_MCP_EXITED"]);
@@ -40,7 +40,8 @@ export class RebuildSampler {
     await Promise.all(
       running.map((record) =>
         r
-          .serial(record.id, () => this.sample(record))
+          // A pause queued before this sample stopped the rebuild meanwhile.
+          .serial(record.id, () => sampled(record) && this.sample(record))
           .catch((error) => logCraftFailure("read a rebuild", error)),
       ),
     );
@@ -56,7 +57,7 @@ export class RebuildSampler {
     if (!record.craftProject) return;
     const client = r.children.peek(record.accountId, record.mode);
     if (!client) {
-      if (record.running) r.update(record, { running: false, status: "paused" });
+      if (record.running) r.update(record, pausedFields(record));
       return;
     }
     const project = record.craftProject;
@@ -64,7 +65,12 @@ export class RebuildSampler {
       const status = await client.call("rebuild_status", { project });
       const show = await client.call("project_show", { project });
       const asked = [record.step, record.questions, r.now().toISOString()];
-      r.update(record, sampledFields(status, show, ...asked));
+      const fields = sampledFields(status, show, ...asked);
+      const { questions, running } = fields;
+      r.update(record, {
+        ...fields,
+        ...freshQuestions(questions, running, record.staleQuestions),
+      });
       this.forgetApprovals(record);
       if (approve && record.autoMode && (await this.allowApprovals(record, client)))
         await this.sample(record, { approve: false });

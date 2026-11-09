@@ -151,25 +151,41 @@ test("a child a view started before restore idles out after it", async (t) => {
   assert.ok(await until(() => !client.alive));
 });
 
-test("answering an approval a pause left behind fails cleanly and drops it", async (t) => {
+test("a pause drops its questions and Continue shows only the ones asked again", async (t) => {
   const approval = { ask: "approval", title: "Run npm install?", action: "npm install" };
+  const asked = [];
   const f = rebuildsFixture(t, {
-    script: { steps: [approval, { finish: "ready" }], staleAfterResume: true },
+    script: { steps: [approval, { finish: "ready" }] },
+    intercept: (name, args) => name === "project_inbox_answer" && asked.push(args.id),
   });
   const view = await f.rebuilds.start({ request: "Stale" });
   assert.ok(await until(() => f.rebuilds.get(view.id).questions.length === 1));
   const [stale] = f.rebuilds.get(view.id).questions;
-  await f.rebuilds.pause(view.id);
+  // Paused: the builder that asked is gone, though Craft Anything still lists it.
+  assert.deepEqual((await f.rebuilds.pause(view.id)).questions, []);
+  assert.equal(f.craftRecord(view).questions.length, 1);
   await f.rebuilds.continue(view.id);
-  assert.ok(await until(() => f.rebuilds.get(view.id).questions.length === 2));
+  assert.ok(await until(() => f.rebuilds.get(view.id).questions.length === 1));
+  assert.equal(f.craftRecord(view).questions.length, 2, "Craft lists both");
+  const [again] = f.rebuilds.get(view.id).questions;
+  assert.notEqual(again.id, stale.id);
   await assert.rejects(f.rebuilds.answer(view.id, stale.id, { allow: true }), {
     status: 409,
     message: serverMessages.craft.rebuildQuestionGone,
   });
-  const open = f.rebuilds.get(view.id).questions;
-  assert.ok(!open.some((question) => question.id === stale.id), "the stale one is gone");
-  assert.equal(open.length, 1);
-  // The re-asked one still goes through.
-  await f.rebuilds.answer(view.id, open[0].id, { allow: true });
+  assert.deepEqual(asked, [], "the old one is never answered");
+  await f.rebuilds.answer(view.id, again.id, { allow: true });
   assert.ok(await until(() => f.rebuilds.get(view.id).status === "ready"));
+});
+
+test("a pause holds while Craft Anything still reports the build stopping", async (t) => {
+  const f = rebuildsFixture(t, { script: { stopLagMs: 600 } });
+  const view = await f.rebuilds.start({ request: "Lagging" });
+  const statuses = [];
+  f.rebuilds.onChange(() => statuses.push(f.rebuilds.get(view.id).status));
+  assert.equal((await f.rebuilds.pause(view.id)).status, "paused");
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  assert.equal(f.rebuilds.get(view.id).status, "paused");
+  assert.ok(!statuses.includes("building"), `seen ${statuses}`);
+  assert.equal((await f.rebuilds.continue(view.id)).status, "building");
 });

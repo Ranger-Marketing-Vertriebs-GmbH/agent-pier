@@ -66,9 +66,12 @@ push notification, **A Craft Anything rebuild waits for you**
 ([notifications](notifications.md#what-notifies-you)). The notification names the
 rebuild and previews a question, never an approval. It has no Allow or Deny buttons:
 opening it shows the card. A question answered in two places at once is answered by
-the first; the second is refused as already answered. After **Pause** and **Continue**
-Craft Anything asks an open approval again and may still list the old one; answering
-the old one is refused as no longer open and drops it from the page and the inbox.
+the first; the second is refused as already answered. A question or approval belongs
+to the build that asked it: when the build stops (**Pause**, a restart, a lost Craft
+Anything process) it leaves the page and the inbox, and **Continue** asks it again as
+a new one. Craft Anything 0.5.0 keeps listing the old one and would take an answer to
+it without effect, so AgentPier hides it and refuses an answer to it as no longer
+open.
 
 ### Auto mode
 

@@ -115,7 +115,7 @@ test("a spawn failure surfaces its cause", async (t) => {
   );
 });
 
-test("resuming with an open question waits for its answer", async (t) => {
+test("resuming asks an open question again and waits for the new one", async (t) => {
   const { dir, start } = setup(t, {
     script: {
       steps: [
@@ -141,7 +141,25 @@ test("resuming with an open question waits for its answer", async (t) => {
   assert.equal(await activity(), 0, "the steps wait while the question is open");
   const status = await client.call("rebuild_status", { project });
   assert.equal(status.status, "needs_you");
-  await client.call("project_inbox_answer", { project, id: "q1", choice: "Red" });
+  const show = await client.call("project_show", { project });
+  assert.deepEqual(
+    show.questions.map((question) => question.id),
+    ["q1", "q2"],
+    "the old one stays listed, as in 0.5.0",
+  );
+  // Answering the old one succeeds and changes nothing; it is no longer listed.
+  assert.equal(
+    (await client.call("project_inbox_answer", { project, id: "q1", choice: "Red" }))
+      .answered,
+    "q1",
+  );
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  assert.equal(await activity(), 0, "the old answer moves nothing");
+  await assert.rejects(
+    client.call("project_inbox_answer", { project, id: "q1", choice: "Red" }),
+    (error) => error.code === "not_found",
+  );
+  await client.call("project_inbox_answer", { project, id: "q2", choice: "Red" });
   assert.ok(await until(async () => (await activity()) === 1));
   await new Promise((resolve) => setTimeout(resolve, 200));
   assert.equal(await activity(), 1, "one step chain runs");
