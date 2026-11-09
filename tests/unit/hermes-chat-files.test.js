@@ -198,6 +198,16 @@ test("a Hermes agent's attachments/ moves into its chat folders, once", async (t
   assert.equal(await attachments.migrate(agent.id), 0);
   // The unclaimed file counts toward the agent's storage.
   assert.equal((await attachments.usage(agent.id)).files, 4);
+  // An older AgentPier after a downgrade marks the sent file gone; it comes back.
+  const [stored] = attachments.rows(
+    "SELECT * FROM agent_attachments WHERE id=?",
+    sent.id,
+  );
+  attachments.markGone(stored);
+  assert.equal(body(sent.id).gone, true);
+  await attachments.migrate(agent.id);
+  assert.equal(body(sent.id).gone, undefined);
+  assert.equal(body(lostSent.id).gone, true);
 });
 
 test("an OpenClaw agent keeps attachments/ and is never moved", async (t) => {
