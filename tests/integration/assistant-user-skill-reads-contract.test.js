@@ -11,7 +11,7 @@ import { connectSkillCatalog } from "../../server/application/skill-catalog-wiri
 // but OpenClaw's read tool admits, beside the workspace (`tools.fs.workspaceOnly`),
 // only the folder of each skill the agent's own snapshot resolves
 // (core-coding-tools resolveSkillReadRoots): the catalog skills switched on for it,
-// its bundled skills, and nothing of the catalog else, by any spelling. Its own
+// its bundled skills, and nothing else of the catalog by the spellings tried. Its own
 // workspace skills read as workspace files. Switching a skill off withdraws its
 // folder from the next turn.
 const installed = process.env.AGENTPIER_SKILLS_CONTRACT_RUNTIME;
@@ -37,7 +37,8 @@ const pack = (name, text) => ({
   ],
 });
 const meta = { importKind: "upload", scan: { verdict: "clean", rules: [] } };
-const refused = /Path escapes sandbox root|not available to this agent/;
+const refused =
+  /Path escapes sandbox root|not available to this agent|MEMORY_PATH_NOT_ALLOWED/;
 
 // The `<location>` the system prompt lists for skill `name`, if any.
 function location(input, name) {
@@ -123,7 +124,7 @@ test(
     });
     assert.match(ownRead, /OWN-MARK-58/);
 
-    // Nothing else of the catalog, by any spelling or tool.
+    // Nothing else of the catalog, by each spelling and tool tried here.
     const attempts = {
       absolute: { name: "read", arguments: { path: hidden } },
       folder: { name: "read", arguments: { path: path.dirname(hidden) } },
@@ -135,10 +136,15 @@ test(
         name: "read",
         arguments: { path: "../../skill-catalog/skills/hidden-probe/SKILL.md" },
       },
-      folded: {
-        name: "read",
-        arguments: { path: `${shownDir.toUpperCase()}/../hidden-probe/SKILL.md` },
-      },
+      url: { name: "read", arguments: { path: `file://${hidden}` } },
+      memory: { name: "memory_get", arguments: { path: hidden } },
+      // A case variant names the same folder only on a case-insensitive file system.
+      ...(process.platform === "darwin" && {
+        folded: {
+          name: "read",
+          arguments: { path: hidden.replace("hidden-probe", "HIDDEN-PROBE") },
+        },
+      }),
       named: { name: "skills_read", arguments: { name: "hidden-probe" } },
     };
     for (const [label, call] of Object.entries(attempts)) {
