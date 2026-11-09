@@ -86,12 +86,10 @@ export class McpTools {
         ? execute()
         : this.services.mutationBarrier.run(execute);
     }
-    if (Object.hasOwn(craftTools, name)) {
-      const execute = () => callCraftTool(this.services, name, input, context);
-      return craftTools[name].readOnly
-        ? execute()
-        : this.services.mutationBarrier.run(execute);
-    }
+    // The rebuild supervisor holds the mutation lease itself, only around its folder
+    // and project changes: a start waits for Craft Anything for up to about 90 s.
+    if (Object.hasOwn(craftTools, name))
+      return callCraftTool(this.services, name, input, context);
     const descriptor = toolSchemas[name];
     if (!descriptor || !Object.hasOwn(toolSchemas, name))
       throw problem("Unknown MCP tool.", 404);

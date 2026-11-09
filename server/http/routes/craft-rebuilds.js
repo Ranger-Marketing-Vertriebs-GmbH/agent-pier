@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { ownsMutationLeases } from "../../application/mutation-barrier.js";
 import {
   craftRebuildsService,
   craftRebuildsView,
@@ -19,8 +20,14 @@ export function craftRebuildsRoutes(services) {
     next();
   });
   router.get("/craft/rebuilds", (_req, res) => res.json(craftRebuildsView(services)));
-  router.post("/craft/rebuilds", async (req, res) =>
-    res.status(201).json(await rebuilds().start(req.body, { source: "owner" })),
+  // Starting, following up and continuing wait for Craft Anything (a child's start,
+  // rebuild_start): the supervisor takes the mutation lease only around its folder and
+  // project changes (CraftRebuilds#begin), so these routes hold none themselves.
+  router.post(
+    "/craft/rebuilds",
+    ownsMutationLeases(async (req, res) =>
+      res.status(201).json(await rebuilds().start(req.body, { source: "owner" })),
+    ),
   );
   router.put("/craft/settings", async (req, res) =>
     res.json(await rebuilds().saveSettings(req.body)),
@@ -30,11 +37,17 @@ export function craftRebuildsRoutes(services) {
     if (!view) throw problem(serverMessages.craft.rebuildNotFound, 404);
     res.json({ rebuild: view });
   });
-  router.post("/craft/rebuilds/:id/follow-up", async (req, res) =>
-    res.json(await rebuilds().followUp(req.params.id, req.body?.request)),
+  router.post(
+    "/craft/rebuilds/:id/follow-up",
+    ownsMutationLeases(async (req, res) =>
+      res.json(await rebuilds().followUp(req.params.id, req.body?.request)),
+    ),
   );
-  router.post("/craft/rebuilds/:id/continue", async (req, res) =>
-    res.json(await rebuilds().continue(req.params.id)),
+  router.post(
+    "/craft/rebuilds/:id/continue",
+    ownsMutationLeases(async (req, res) =>
+      res.json(await rebuilds().continue(req.params.id)),
+    ),
   );
   router.post("/craft/rebuilds/:id/pause", async (req, res) =>
     res.json(await rebuilds().pause(req.params.id)),

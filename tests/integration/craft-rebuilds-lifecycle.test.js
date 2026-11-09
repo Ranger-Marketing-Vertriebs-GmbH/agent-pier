@@ -5,6 +5,7 @@ import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { serverMessages } from "../../server/lib/i18n/de.js";
+import { MutationBarrier } from "../../server/application/mutation-barrier.js";
 import {
   exists,
   fakeTimers,
@@ -188,4 +189,27 @@ test("a pause holds while Craft Anything still reports the build stopping", asyn
   assert.equal(f.rebuilds.get(view.id).status, "paused");
   assert.ok(!statuses.includes("building"), `seen ${statuses}`);
   assert.equal((await f.rebuilds.continue(view.id)).status, "building");
+});
+
+test("a snapshot does not wait for a slow rebuild_start", async (t) => {
+  const barrier = new MutationBarrier();
+  const f = rebuildsFixture(t, {
+    barrier,
+    script: { slowTools: { rebuild_start: 1500 } },
+  });
+  const leased = [];
+  const register = f.memory.register;
+  f.memory.register = (cwd) => {
+    leased.push(barrier.hasLease());
+    return register(cwd);
+  };
+  const starting = f.rebuilds.start({ request: "Slow" });
+  assert.ok(await until(() => f.rebuilds.list().length === 1));
+  const began = Date.now();
+  await barrier.snapshot(async () => {});
+  assert.ok(Date.now() - began < 1000, "the snapshot ran while rebuild_start waited");
+  assert.equal(f.rebuilds.list()[0].status, "starting");
+  const view = await starting;
+  assert.equal(view.status, "building");
+  assert.deepEqual(leased, [true, true], "folder and Git project under a lease");
 });
