@@ -1,7 +1,7 @@
 /** Copy of agent cards (agent-cards.js): CARD_* problems and the Telegram fallback. */
 export const agentCards = Object.freeze({
   CARD_INVALID: (detail) =>
-    `Die Karte wurde abgelehnt (${detail}). Korrigiere diesen Teil und rufe agentpier_card erneut auf; die Werkzeugbeschreibung nennt die Bausteine und ihre Grenzen.`,
+    `Die Karte wurde abgelehnt (${detail}). Korrigiere diesen Teil und rufe agentpier_card erneut auf; die Tool-Beschreibung nennt die Bausteine und ihre Grenzen.`,
   CARD_TOO_LARGE: (max) =>
     `Die Karte ist größer als ${max} Bytes. Kürze ihre Texte oder teile sie auf zwei Karten auf.`,
   CARD_NOT_FOUND:
