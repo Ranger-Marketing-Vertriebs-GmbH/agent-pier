@@ -7,7 +7,7 @@ import ValueChart from "../../../components/ValueChart.jsx";
 import { formatChatTime, formatNumber } from "../../../lib/i18n/index.js";
 import { agentCardsCopy as copy } from "../../../lib/i18n/messages/agent-cards.js";
 import { CardActions } from "./card-actions.js";
-import { stateTone, tickKey, withPendingTicks } from "./card-view.js";
+import { stateTone, tickKey, unsettledTicks, withPendingTicks } from "./card-view.js";
 import "./agent-card.css";
 
 const toneClass = (tone) => (tone ? ` tone-${tone}` : "");
@@ -174,8 +174,8 @@ export default function AgentCard({ card }) {
   const [pending, setPending] = useState(() => new Map());
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  // A new version or a confirmed tick from the feed replaces what was pending.
-  useEffect(() => setPending(new Map()), [card]);
+  // A tick the feed now shows, or a new version, replaces what was pending.
+  useEffect(() => setPending((before) => unsettledTicks(card, before)), [card]);
   const open = !!actions?.check && !card.frozen;
   const act = {
     canCheck: open,
@@ -188,7 +188,11 @@ export default function AgentCard({ card }) {
       try {
         await actions.check(card.id, { version: card.version, block, item, checked });
       } catch (e) {
-        setPending(new Map());
+        setPending((before) => {
+          const next = new Map(before);
+          next.delete(tickKey(card.version, block, item));
+          return next;
+        });
         setError(e.message);
       }
     },

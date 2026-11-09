@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   tickKey,
+  unsettledTicks,
   withPendingTicks,
   withoutAdjacentMarkers,
 } from "../../web/features/assistants/cards/card-view.js";
@@ -72,4 +73,15 @@ test("German and English card copy have the same keys", () => {
   assert.deepEqual(keys(de), keys(en));
   assert.deepEqual(keys(de.states), keys(en.states));
   assert.match(en.moved("Plan"), /Plan/);
+});
+
+test("a pending tick stays until the feed shows it or the version changes", () => {
+  const card = (version, checked) => ({
+    version,
+    blocks: [{ type: "checklist", items: [{ id: "a:b", text: "A", checked }] }],
+  });
+  const pending = new Map([[tickKey(1, 0, "a:b"), true]]);
+  assert.equal(unsettledTicks(card(1, false), pending), pending);
+  assert.equal(unsettledTicks(card(1, true), pending).size, 0);
+  assert.equal(unsettledTicks(card(2, false), pending).size, 0);
 });

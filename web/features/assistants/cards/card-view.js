@@ -35,3 +35,20 @@ export function withPendingTicks(card, pending) {
   );
 }
 export const tickKey = (version, block, item) => `${version}:${block}:${item}`;
+
+/**
+ * The pending ticks still to show over `card` as the feed now has it: a tick the
+ * card already shows, or one of another version, is settled and dropped.
+ */
+export function unsettledTicks(card, pending) {
+  const next = new Map(pending);
+  for (const key of pending.keys()) {
+    const [version, block, ...item] = key.split(":");
+    const shown = card.blocks[Number(block)]?.items?.find(
+      (entry) => entry.id === item.join(":"),
+    );
+    if (Number(version) !== card.version || !shown || shown.checked === pending.get(key))
+      next.delete(key);
+  }
+  return next.size === pending.size ? pending : next;
+}
