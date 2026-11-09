@@ -337,12 +337,16 @@ export class ExecApprovals {
       this.log(`Assistant exec approval ${id}: deny failed (${error?.code || "ERROR"}).`);
     }
   }
-  finish(action, state, decision) {
+  // `unattributed`: a deny the Gateway reported without a resolver and without a
+  // history record, which may be the runtime ending the run, not a person.
+  finish(action, state, decision, unattributed = false) {
     const current = this.w.store.get(action.id);
     if (actionTerminal.has(current.state)) return;
     this.w.store.patch(action.id, {
       state,
-      ...(decision ? { result: { decision } } : {}),
+      ...(decision
+        ? { result: { decision, ...(unattributed && { unattributed }) } }
+        : {}),
     });
     this.w.a.changed?.();
   }
@@ -362,6 +366,10 @@ export class ExecApprovals {
       action,
       historyStates[record?.status] || this.denyState(action, p),
       decision,
+      // OpenClaw cancels a run's approvals as a deny without a resolver when the run's
+      // authority is released (for example at its timeout); without history that
+      // reads as declined (agent-hook-runs.js timedOutOnApproval).
+      !record && !p.resolvedBy,
     );
   }
   // Without history: a restart resolves as "approval-scope-closed" (verified live),
