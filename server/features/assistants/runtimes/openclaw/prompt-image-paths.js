@@ -1,5 +1,5 @@
 // OpenClaw loads every local image a turn's text names into the model's input itself
-// (2026.10.9 images.ts detectAndLoadPromptImages: a file:// URL, or a path starting
+// (2026.11.2 images.ts detectAndLoadPromptImages: a file:// URL, or a path starting
 // with ./, ../, / or ~, or a drive letter, that ends in an image extension), from
 // anywhere in the agent's workspace and without a tool call, so no tool guard sees it.
 // On an agent shared with users that would show one chat another chat's upload or
