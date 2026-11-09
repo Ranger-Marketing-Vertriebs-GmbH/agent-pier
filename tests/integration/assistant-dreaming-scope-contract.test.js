@@ -259,9 +259,10 @@ test(
     await f.settle();
     await delay(1000);
     assert.doesNotMatch(f.corpus(agent), /DREAMLINKED/);
+    // 2026.10.7 – 2026.10.9 logged "Canonical session reader continuation is no
+    // longer current"; 2026.11.2 skips the workspace without that line.
     const logs = Object.values(snapshot(f.runtime.paths.logs)).join("\n");
     const line = logs.split("\n").find((l) => l.includes("no longer current"));
     t.diagnostic(`run=${JSON.stringify(run)} log=${line?.slice(0, 800)}`);
-    assert.match(logs, /Canonical session reader continuation is no longer current/);
   },
 );

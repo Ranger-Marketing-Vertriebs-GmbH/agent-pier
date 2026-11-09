@@ -12,6 +12,7 @@ import { TeamBridge } from "../../server/features/assistants/team-bridge.js";
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
 import { provisionTeamPlugin } from "../../server/features/assistants/team-plugin-install.js";
 import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
+import { lastUser, lastUserIndex } from "../helpers/openclaw-model-input.js";
 
 // The model writes whatever "WRITE <path> <content>" asks for, once per turn.
 async function writingModel() {
@@ -19,12 +20,12 @@ async function writingModel() {
     let raw = "";
     for await (const part of req) raw += part;
     const body = JSON.parse(raw);
-    const user = body.messages.findLast((m) => m.role === "user");
+    const user = lastUser(body.messages);
     const text = JSON.stringify(user?.content || "");
     const [, target, content] = text.match(/WRITE (\S+) (\w+)/) || [];
     const tool =
       target &&
-      body.messages.findLastIndex((m) => m.role === "user") >
+      lastUserIndex(body.messages) >
         body.messages.findLastIndex((m) => m.role === "tool");
     const delta = tool
       ? {
