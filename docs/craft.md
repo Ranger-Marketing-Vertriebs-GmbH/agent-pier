@@ -140,10 +140,11 @@ Paused, without waiting for Craft Anything's own start or update.
 
 The rebuild list and the defaults live in `<data dir>/craft-rebuilds/rebuilds.json`,
 outside Craft Anything's own folder: removing Craft Anything keeps the list and the
-rebuilds' projects. While a rebuild runs or one of the rebuilds' Craft Anything
-processes is still open (up to 60 seconds after the last one ended, also after opening
-a rebuild's page), removing, updating or changing Craft Anything (also removing Ghidra)
-is refused as in use, as it is for a session.
+rebuilds' projects. While a rebuild runs or starts, removing, updating or changing
+Craft Anything (also removing Ghidra) is refused as in use, as it is for a session. A
+rebuilds' Craft Anything process that no running rebuild uses (one still open after
+the last build ended, or one opening a rebuild's page started) does not count: it is
+closed before the change.
 
 ## API and live topics
 
