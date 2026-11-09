@@ -82,6 +82,10 @@ rebuild can change it.
 - **On:** Craft Anything decides its questions itself and AgentPier allows its
   approvals. Turn it on only for rebuilds you trust to run unattended.
 
+When allowing an approval fails three times in a row, AgentPier stops trying and
+leaves it to you like an approval without auto mode: on the rebuild's page, in the
+inbox and as a push notification, with the note **Auto mode could not allow this.**
+
 ## Accounts and children
 
 A rebuild runs on the account you choose: the builder gets that account's own

@@ -55,6 +55,11 @@ export default function CraftQuestion({ rebuildId, question, onAnswered, onGone 
           {question.title}
         </strong>
       </header>
+      {question.autoFailed && (
+        <p className="craft-question-note" role="note">
+          {copy.autoFailed}
+        </p>
+      )}
       {question.detail && (
         <p className="craft-question-detail" dir="auto">
           {question.detail}

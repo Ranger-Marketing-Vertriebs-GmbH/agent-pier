@@ -14,14 +14,15 @@ export const questionKey = (rebuildId, id) => `${rebuildId}:${id}`;
 
 /**
  * The questions of a RebuildView the owner answers: in auto mode the supervisor allows
- * approvals itself, so only its questions remain. A question whose id cannot be
- * addressed is left to the rebuild's own page.
+ * approvals itself, so only its questions remain, and the approvals it failed to allow
+ * (`autoFailed`, rebuild-sampler.js). A question whose id cannot be addressed is left
+ * to the rebuild's own page.
  */
 export function ownerQuestions(view) {
   if (!view || !Array.isArray(view.questions)) return [];
   return view.questions.filter(
     (question) =>
-      !(view.autoMode && question.kind === "approval") &&
+      !(view.autoMode && question.kind === "approval" && !question.autoFailed) &&
       CRAFT_QUESTION_KEY.test(questionKey(view.id, question.id)),
   );
 }

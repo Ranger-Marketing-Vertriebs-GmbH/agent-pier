@@ -3669,6 +3669,7 @@
   "craft:craftCopy.question.allow": "de:987c0928ab3b en:e213c161d5ce",
   "craft:craftCopy.question.allowAlways": "de:edfad6272dab en:977618bd8bc7",
   "craft:craftCopy.question.approval": "de:3c540fe0d6fe en:147fb813a251",
+  "craft:craftCopy.question.autoFailed": "de:9beb59d4479c en:8b2d9eb09e64",
   "craft:craftCopy.question.choicesLabel": "de:12dfc0a34c26 en:4ad0a0a6ae56",
   "craft:craftCopy.question.deny": "de:7be75ced7162 en:05a2d7332eb9",
   "craft:craftCopy.question.question": "de:2788b953aafb en:289aff12b042",

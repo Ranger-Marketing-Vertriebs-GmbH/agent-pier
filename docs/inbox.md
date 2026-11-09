@@ -175,7 +175,7 @@ A [Craft Anything rebuild](craft.md) that waits for you lists its question as
 here and on the rebuild's page is the same: the first answer wins. A paused rebuild
 lists none; **Continue** asks them again. In auto mode the
 questions are decided by Craft Anything and approvals are allowed by AgentPier, so they
-do not appear.
+do not appear, except an approval AgentPier failed to allow three times in a row.
 
 ## Waiting sessions
 
