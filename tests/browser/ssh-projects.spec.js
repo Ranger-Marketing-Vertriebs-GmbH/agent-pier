@@ -1,4 +1,5 @@
 import { test, expect } from "../helpers/browser-test.js";
+import { sessionAction } from "../helpers/session-actions.js";
 import { baseURL } from "../helpers/browser.js";
 import { fixture } from "./ssh-fixture.js";
 
@@ -164,7 +165,7 @@ test("inherited project accesses are visibly managed by the project and cannot b
   state.inheritedIds = [state.access.id];
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
   await page.goto(baseURL + "/sessions/fixture-session");
-  await page.getByRole("button", { name: "SSH accesses", exact: true }).click();
+  await sessionAction(page, "SSH accesses");
   const inherited = page.getByRole("checkbox", { name: /Build server/ });
   await expect(inherited).toBeChecked();
   await expect(inherited).toBeDisabled();
@@ -264,7 +265,7 @@ test("an explicit grant can be removed while inherited access stays active", asy
   state.assignedIds = [state.access.id];
   await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
   await page.goto(baseURL + "/sessions/fixture-session");
-  await page.getByRole("button", { name: "SSH accesses", exact: true }).click();
+  await sessionAction(page, "SSH accesses");
   await expect(
     page.getByText("Explicit session assignment", { exact: true }),
   ).toBeVisible();
@@ -278,6 +279,6 @@ test("an explicit grant can be removed while inherited access stays active", asy
   expect(state.assignedIds).toEqual([]);
   state.inheritedIds = [];
   await page.reload();
-  await page.getByRole("button", { name: "SSH accesses", exact: true }).click();
+  await sessionAction(page, "SSH accesses");
   await expect(page.getByRole("checkbox", { name: /Build server/ })).not.toBeChecked();
 });

@@ -1,4 +1,5 @@
 import { test, expect } from "../helpers/browser-test.js";
+import { sessionAction } from "../helpers/session-actions.js";
 import { baseURL } from "../helpers/browser.js";
 import { docScreenshot } from "../helpers/doc-screenshots.js";
 import { recordApiRequests } from "../helpers/visibility.js";
@@ -143,8 +144,7 @@ async function fixture(page, language = "en", configure = () => {}) {
   return state;
 }
 const dialog = (page) => page.getByRole("dialog");
-const open = (page) =>
-  page.getByRole("button", { name: "Reload & resume", exact: true }).click();
+const open = (page) => sessionAction(page, "Reload & resume");
 
 test("pending reload lets users open the terminal and approve hooks", async ({
   page,
@@ -255,7 +255,7 @@ test("SSH reload requires saved assignments and advanced commands stay collapsed
   page,
 }) => {
   const state = await fixture(page);
-  await page.getByRole("button", { name: "SSH accesses", exact: true }).click();
+  await sessionAction(page, "SSH accesses");
   await dialog(page)
     .getByRole("checkbox", { name: /Build server/ })
     .check();
@@ -285,7 +285,7 @@ test("SSH readiness updates without losing unsaved choices", async ({
   await page.setViewportSize({ width: 390, height: 844 });
   state.tools.state = "starting";
   const requests = recordApiRequests(page);
-  await page.getByRole("button", { name: "SSH-Zugänge", exact: true }).click();
+  await sessionAction(page, "SSH-Zugänge");
   await expect(dialog(page)).toContainText("Warte auf die Verbindung der CLI");
   await dialog(page)
     .getByRole("checkbox", { name: /Build server/ })
@@ -372,9 +372,7 @@ for (const tool of ["codex", "claude"]) {
     });
     const input = page.getByLabel("Message", { exact: true });
     await input.fill("Keep this draft across accounts");
-    await page
-      .getByRole("button", { name: "Continue with another account", exact: true })
-      .click();
+    await sessionAction(page, "Continue with another account");
     const now = dialog(page).getByRole("button", {
       name: "Switch account & resume",
       exact: true,
@@ -404,9 +402,7 @@ test("a failed account startup can retry the current target without switching ag
   state.reload.activity = { state: "idle" };
   state.reload.accountTargets = [{ id: "second-account", name: "Second account" }];
   state.failSwitch = true;
-  await page
-    .getByRole("button", { name: "Continue with another account", exact: true })
-    .click();
+  await sessionAction(page, "Continue with another account");
   await dialog(page)
     .getByLabel("Target account", { exact: true })
     .selectOption("second-account");
