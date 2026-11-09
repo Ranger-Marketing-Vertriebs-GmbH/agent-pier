@@ -1,3 +1,5 @@
+// First: a fetch to a peer that resets the connection must not end the process.
+import "./lib/socket-type-of-service.js";
 import { serverMessages } from "./lib/i18n/de.js";
 import { loadConfig } from "./lib/config.js";
 import { createApplication } from "./app.js";

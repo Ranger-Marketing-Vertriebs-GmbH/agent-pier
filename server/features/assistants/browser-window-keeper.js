@@ -1,3 +1,7 @@
+// Its /json/version polls meet a browser that resets connections while it launches
+// or quits; on macOS that must reject the poll, never end the process.
+import "../../lib/socket-type-of-service.js";
+
 /**
  * Watches one agent browser through its CDP port: `onClose` reports when it ends
  * (a stop, a crash, or no browser within `timeoutMs`). For a visible browser

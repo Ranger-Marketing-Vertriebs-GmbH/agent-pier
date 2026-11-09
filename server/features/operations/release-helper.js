@@ -1,3 +1,5 @@
+// It polls the server it restarts: a reset connection must reject that poll only.
+import "../../lib/socket-type-of-service.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { isMainModule } from "../../lib/is-main-module.js";
 import path from "node:path";
