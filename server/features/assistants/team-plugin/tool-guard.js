@@ -9,7 +9,7 @@ import {
   writeTargets,
   writeTools,
 } from "./guard-paths.js";
-import { attachmentCall, attachmentTools } from "./attachment-guard.js";
+import { attachmentCall, attachmentTools, mediaStore } from "./attachment-guard.js";
 import { dreamsCall, dreamsTools } from "./dreams-guard.js";
 import { secretsCall, secretsReadTools } from "./secrets-guard.js";
 import {
@@ -431,10 +431,16 @@ export function registerToolGuard(api) {
     matcher: ["image_generate"],
     priority: 1000,
   });
-  api.on("before_tool_call", (event, ctx) => attachmentCall(event, ctx, bridge, roots), {
-    matcher: attachmentTools,
-    priority: 1000,
-  });
+  // The Gateway's media store (OpenClaw's getMediaDir: <OPENCLAW_STATE_DIR>/media).
+  const media = mediaStore(process.env.OPENCLAW_STATE_DIR, roots[0]);
+  api.on(
+    "before_tool_call",
+    (event, ctx) => attachmentCall(event, ctx, bridge, roots, media),
+    {
+      matcher: attachmentTools,
+      priority: 1000,
+    },
+  );
   api.on("before_tool_call", (event, ctx) => secretsCall(event, ctx, bridge, roots), {
     matcher: secretsReadTools,
     priority: 1000,

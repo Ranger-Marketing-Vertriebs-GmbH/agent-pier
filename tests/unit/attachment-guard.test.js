@@ -9,7 +9,7 @@ import {
 const scope = { roots: ["/w"], agentId: "ap-a1" };
 const names = (toolName, params) => attachmentTargets(toolName, params, scope);
 const chatless = (toolName, params) =>
-  attachmentTargets(toolName, params, { ...scope, chatless: true });
+  attachmentTargets(toolName, params, { ...scope, media: ["/data/state/media"] });
 
 // OpenClaw decodes a file: path with fileURLToPath, so every spelling it reads as the
 // agent's attachments/ folder names that folder's file for the bridge.
@@ -73,6 +73,8 @@ test("inbound media and media:// references name NO_CHAT", () => {
     "MEDIA: media://inbound/x.png",
     "MEDIA:/data/state/media/inbound/x.png",
     "media/inbound",
+    "/data/state/media/browser/a.png",
+    "/w/a1/../../data/state/media/outgoing/b.png",
   ])
     assert.deepEqual(chatless("read", { path: value }), [NO_CHAT], value);
   for (const value of [

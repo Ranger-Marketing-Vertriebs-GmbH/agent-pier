@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import { fileSpellings } from "./file-urls.js";
 import { fold } from "./managed-folder.js";
@@ -15,16 +16,16 @@ import {
 // an image of AgentPier's chat) staged under media/inbound/openclaw-staged-<uuid>/,
 // and its media store (`<state>/media/`: offloaded uploads as media://inbound/<id>,
 // browser screenshots, created images), shared by every agent, which OpenClaw's
-// image and pdf tools read even with tools.fs.workspaceOnly. A call naming either, or
-// any other local path outside the agent's own workspace, asks with NO_CHAT, which no
-// chat owns: refused on a shared agent, allowed on any other.
+// image and pdf tools read even with tools.fs.workspaceOnly. A call naming either
+// asks with NO_CHAT, which no chat owns: refused on a shared agent, allowed on any
+// other. Other read roots OpenClaw grants (skill folders) hold no chat's files.
 
 /** What a file tool call names in place of a file no chat owns. */
 export const NO_CHAT = "media/inbound";
 export const attachmentRefusal =
   "Files in attachments/ belong to the chat they were sent in. Use only the files sent in this chat.";
 export const noChatRefusal =
-  "Only files in this agent's workspace are available to tools in this chat, never media/inbound/, media:// references or the Gateway's media store. Use the files sent in this chat by their attachments/ path.";
+  "Files in media/inbound/, media:// references and the Gateway's media store are not available to tools in this chat. Use the files sent in this chat by their attachments/ path.";
 const inboundFolder = /(^|\/)media\/inbound(\/|$)/;
 const attachmentsFolder = /(^|\/)attachments(\/|$)/;
 
@@ -39,6 +40,26 @@ export function inboundMedia(value) {
   if (/^media:\/\//i.test(source)) return true;
   const normalized = path.posix.normalize(fold(source).replaceAll("\\", "/"));
   return inboundFolder.test(normalized);
+}
+
+/**
+ * The roots of the Gateway's media store, as written and resolved: below its state
+ * folder, by default `state/` beside the workspaces root (runtime-paths.js).
+ */
+export function mediaStore(stateDir, workspaces) {
+  const state =
+    typeof stateDir === "string" && path.isAbsolute(stateDir)
+      ? stateDir
+      : typeof workspaces === "string" && path.isAbsolute(workspaces)
+        ? path.join(path.dirname(workspaces), "state")
+        : null;
+  if (!state) return [];
+  const store = path.join(state, "media");
+  const roots = [store];
+  try {
+    roots.push(path.join(fs.realpathSync(state), "media"));
+  } catch {}
+  return [...new Set(roots)];
 }
 
 // A value OpenClaw reads from the web or inline, never from disk.
@@ -56,17 +77,39 @@ export const attachmentTools = [
   ...writeTools,
 ];
 const pathKeys = ["path", "file_path", "filePath", "pdf", "pdfs", "image", "images"];
+// Whether a path value resolves into the Gateway's media store (`media`: its roots),
+// relative to the agent's workspace as OpenClaw's tools resolve it, "~" to HOME.
+function inStore(form, media, roots, ownId) {
+  let value = form
+    .trim()
+    .replace(/^MEDIA\s*:\s*(?!\/\/)/i, "")
+    .replaceAll("\\", "/");
+  if (!media.length || !value || /^(?:@|file:|[a-z][a-z0-9+.-]*:\/\/)/i.test(value))
+    return false;
+  if (value === "~" || value.startsWith("~/"))
+    value = path.posix.join(process.env.HOME || "/", value.slice(1));
+  const base = roots[0] && ownId ? path.posix.join(roots[0], ownId) : "/";
+  const resolved = fold(path.posix.resolve(base, value));
+  return media.some((root) => {
+    const store = fold(root);
+    return resolved === store || resolved.startsWith(`${store}/`);
+  });
+}
+
 /**
  * The stored names a call names in the calling agent's attachments/ folder ("" for
- * the folder itself or a path into it not resolved here). With `chatless` (OpenClaw's
- * guard) also NO_CHAT for inbound media or a local path outside its workspace.
+ * the folder itself or a path into it not resolved here). With `media` (OpenClaw's
+ * guard: the roots of its media store) also NO_CHAT for inbound media or a path into
+ * the media store; any other path outside the workspace (OpenClaw's skill folders,
+ * for one) is left to OpenClaw's own read roots.
  */
 export function attachmentTargets(
   toolName,
   params,
-  { roots = [], agentId, chatless = false } = {},
+  { roots = [], agentId, media = null } = {},
 ) {
   const ownId = workspaceId(agentId);
+  const chatless = Array.isArray(media);
   const values = writeTools.includes(toolName)
     ? writeTargets(toolName, params).flatMap((p) => [p?.path, p?.file_path, p?.filePath])
     : pathKeys.flatMap((key) =>
@@ -76,29 +119,27 @@ export function attachmentTargets(
   for (const value of values) {
     if (typeof value !== "string" || (chatless && remote(value))) continue;
     // A file: URL counts as written and as the path OpenClaw decodes from it; "@x"
-    // as written and as "x" (repairs), each judged in its decoded form.
+    // as written and as "x" (repairs).
     for (const form of repairs(value).flatMap(fileSpellings)) {
-      if (chatless && inboundMedia(form)) files.add(NO_CHAT);
+      if (chatless && (inboundMedia(form) || inStore(form, media, roots, ownId)))
+        files.add(NO_CHAT);
       const relative = relativeTarget(form, roots, ownId);
       if (relative) {
         const [first, ...rest] = relative.split("/");
         if (fold(first) === "attachments") files.add(rest.join("/"));
-        continue;
-      }
-      if (attachmentsFolder.test(fold(form.replaceAll("\\", "/")))) files.add("");
-      if (chatless && form.trim() && !/^\s*(?:@|file:)/i.test(form)) files.add(NO_CHAT);
+      } else if (attachmentsFolder.test(fold(form.replaceAll("\\", "/")))) files.add("");
     }
   }
   return [...files];
 }
 /** Lets a file tool call into attachments/ through only as the bridge allows. */
-export async function attachmentCall(event, ctx, bridge, roots) {
+export async function attachmentCall(event, ctx, bridge, roots, media = []) {
   let files;
   try {
     files = attachmentTargets(event?.toolName, event?.params, {
       roots,
       agentId: ctx?.agentId,
-      chatless: true,
+      media,
     });
   } catch {
     files = [""];

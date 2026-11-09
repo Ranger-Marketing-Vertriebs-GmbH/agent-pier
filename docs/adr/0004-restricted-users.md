@@ -54,8 +54,9 @@ for every existing and future route, WebSocket and event stream. User guide:
   read must lie in its work folder or the calling chat's folder (an allowlist, not a
   list of forbidden folders). _Amended 2026-11-09 (AGENTPIER-371):_ OpenClaw's inbound
   media (`media/inbound/` in the workspace, its media store, `media://` references)
-  name no chat, so no file tool of a shared OpenClaw agent reaches them or any other
-  path outside its workspace, and a turn's text loads no local image by path; a
+  name no chat, so no file tool of a shared OpenClaw agent reaches them, and no
+  prompt of it (a turn, reminder, routine, hook or check-in) loads a local image by
+  path; a
   shared Hermes agent's images from before per-chat folders leave `generated-images/`
   of its work folder for their chat's folder or `.unclaimed`.
 - **Data schema 2.** Push devices gain a per-person column; the release ships data

@@ -2,6 +2,7 @@ import { assistantProblem } from "../assistant-validation.js";
 import { DEFAULT_RUNTIME, RUNTIME_CAPABILITIES, unavailable } from "./agent-runtime.js";
 import { createOpenClawRuntime } from "./openclaw/openclaw-runtime.js";
 import { openClawCompiler } from "./openclaw/openclaw-compiler.js";
+import { sharedAgentAdapter } from "./openclaw/shared-prompts.js";
 import { cronRunOf } from "./openclaw/openclaw-routine-jobs.js";
 import { hermesCompiler } from "./hermes/hermes-compiler.js";
 import { HermesFleet } from "./hermes/hermes-fleet.js";
@@ -18,11 +19,12 @@ import { hermesCronRunOf } from "./hermes/hermes-routine-jobs.js";
 const registry = Object.freeze({
   openclaw: Object.freeze({
     name: "OpenClaw",
-    resolve: (supervisor) => {
+    resolve: (supervisor, agent) => {
       let adapter = adapters.get(supervisor);
       if (!adapter)
         adapters.set(supervisor, (adapter = createOpenClawRuntime(supervisor)));
-      return adapter;
+      // An agent shared with users sends no prompt that loads a local image by path.
+      return agent?.userAccess?.mode === "shared" ? sharedAgentAdapter(adapter) : adapter;
     },
     compiler: openClawCompiler,
     runOf: cronRunOf,

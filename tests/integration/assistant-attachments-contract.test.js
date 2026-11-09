@@ -19,7 +19,7 @@ import { ProviderConnections } from "../../server/features/providers/provider-co
 import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
 import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
-import { withoutPromptImagePaths } from "../../server/features/assistants/prompt-image-paths.js";
+import { withoutPromptImagePaths } from "../../server/features/assistants/runtimes/openclaw/prompt-image-paths.js";
 
 // Opt-in: the pinned Gateway takes AgentPier's attachment shape, shows images to a
 // model that declares image input, keeps the sent text for the chat history, and
