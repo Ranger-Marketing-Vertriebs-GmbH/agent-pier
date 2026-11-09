@@ -1,8 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import api from "../../lib/api.js";
 import { liveClient } from "../../lib/live/live-client.js";
 import { useInboxCount } from "../inbox/inbox-store.js";
 import { startPresenceReporter } from "./presence-reporter.js";
+import { applyAppBadge, watchAppBadge } from "./app-badge.js";
 import { presenceRoutes } from "./presence-routes.js";
 
 /**
@@ -26,13 +27,23 @@ export function usePushPresence(enabled, base = "/notifications") {
   }, [enabled, base]);
 }
 
-/** The installed app's badge shows the inbox count where the platform supports it. */
+/**
+ * The installed app's badge shows the inbox count where the platform supports it,
+ * also after the app returns from the background with a badge a push set meanwhile.
+ */
 export function useAppBadge() {
   const count = useInboxCount();
-  useEffect(() => {
-    if (!("setAppBadge" in navigator)) return;
-    (count > 0 ? navigator.setAppBadge(count) : navigator.clearAppBadge()).catch(
-      () => {},
-    );
-  }, [count]);
+  const current = useRef(count);
+  current.current = count;
+  useEffect(() => applyAppBadge(navigator, count), [count]);
+  useEffect(
+    () =>
+      watchAppBadge({
+        count: () => current.current,
+        nav: navigator,
+        doc: document,
+        win: window,
+      }),
+    [],
+  );
 }

@@ -272,7 +272,9 @@ urgency.
 Where the platform supports app badges (an installed app in Chrome or Edge on desktop
 and Android, the Home Screen app on iOS and iPadOS 16.4 or later, Safari 17 on macOS
 Sonoma or later), the app icon shows how many items wait in the inbox. Every
-notification carries the count, and an open page keeps it current.
+notification carries the count, and an open page keeps it current. When the app
+comes back from the background, it shows its current count again, so a badge a
+notification set meanwhile disappears once the inbox is empty.
 
 ## Grouping on Apple devices
 
