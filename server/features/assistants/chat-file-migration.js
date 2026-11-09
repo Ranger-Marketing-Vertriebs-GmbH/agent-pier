@@ -27,11 +27,13 @@ async function holds(target, file) {
  * Moves the agent's attachments/ into its chat folders (`a`: AgentAttachments, whose
  * serial queue the caller holds). Each row's copy moves to its chat's folder and the
  * row is marked `chat`; a copy that is in neither place goes as the quota check lets
- * it go (an unsent row is dropped, a sent one marked gone). Resolves with how many
- * files moved.
+ * it go (an unsent row is dropped, a sent one marked gone). A sent chat row an older
+ * AgentPier marked gone while its copy stayed in the chat folder is back. Resolves
+ * with how many files moved.
  */
 export async function migrateChatFiles(a, assistantId) {
   if (!a.chatFolders(assistantId)) return 0;
+  await restoreGone(a, assistantId);
   const old = await a.folder(assistantId, false);
   if (!old) return 0;
   const arriving = a.videos.arriving(assistantId);
@@ -78,6 +80,23 @@ export async function migrateChatFiles(a, assistantId) {
   // Empty now, unless a copy had to stay.
   await fs.rmdir(old.path).catch(() => {});
   return moved;
+}
+
+// An older AgentPier, run after the move, finds no copy in attachments/ and marks
+// each sent row gone; a copy still in its chat folder with its bytes is back.
+async function restoreGone(a, assistantId) {
+  for (const file of a.rows(
+    `SELECT * FROM agent_attachments WHERE assistant_id=? AND request_id IS NOT NULL AND request_id NOT LIKE '${SHARED}%'`,
+    assistantId,
+  )) {
+    if (!file.chat || !file.gone) continue;
+    const folder = await a.folderOf(file).catch(() => null);
+    if (!folder || !(await holds(path.join(folder.path, file.file), file))) continue;
+    const { gone: _gone, ...body } = JSON.parse(file.row.body);
+    a.db
+      .prepare("UPDATE agent_attachments SET body=? WHERE id=?")
+      .run(JSON.stringify(body), file.id);
+  }
 }
 
 // Everything left in attachments/ that no row still needs goes to `.unclaimed`.
