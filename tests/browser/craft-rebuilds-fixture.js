@@ -187,6 +187,10 @@ export async function craftRebuildsFixture(
     const match = /^\/craft\/rebuilds\/([^/]+)(?:\/([a-z-]+))?$/.exec(path);
     const item = match && find(match[1]);
     if (match && !item) return json({ error: "Not found" }, 404);
+    if (match && !match[2] && method === "DELETE") {
+      state.rebuilds = state.rebuilds.filter((other) => other !== item);
+      return route.fulfill({ status: 204 });
+    }
     if (match && !match[2]) return json({ rebuild: item });
     if (match?.[2] === "activity" && state.activityFails)
       return json({ error: "Craft Anything did not answer." }, 409);

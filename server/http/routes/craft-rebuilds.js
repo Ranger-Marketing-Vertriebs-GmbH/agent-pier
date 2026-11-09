@@ -37,6 +37,10 @@ export function craftRebuildsRoutes(services) {
     if (!view) throw problem(serverMessages.craft.rebuildNotFound, 404);
     res.json({ rebuild: view });
   });
+  router.delete("/craft/rebuilds/:id", async (req, res) => {
+    await rebuilds().remove(req.params.id);
+    res.status(204).end();
+  });
   router.post(
     "/craft/rebuilds/:id/follow-up",
     ownsMutationLeases(async (req, res) =>

@@ -54,7 +54,9 @@ The list shows each rebuild with its status (**Starting**, **Building**, **Check
   lines read before stay and an error shows below them;
 - **Pause** and **Continue**, **Ask for changes** (another round in the same
   project, sent with **Send request**) and the **Auto mode** switch of this rebuild;
-- **Open project**, **Open folder** and **Open a session here**.
+- **Open project**, **Open folder** and **Open a session here**;
+- **Remove from list** (not while it runs: pause it first), see
+  [Storage and removal](#storage-and-removal).
 
 There is no preview of the built website yet: open the folder or start a session in the
 project to run it.
@@ -148,11 +150,19 @@ rebuilds' Craft Anything process that no running rebuild uses (one still open af
 the last build ended, or one opening a rebuild's page started) does not count: it is
 closed before the change.
 
+**Remove from list** on a rebuild's page asks **Remove rebuild “…” from the list?** and
+forgets the rebuild: its record, its open questions in the inbox and further pushes
+about it. Its folder, its AgentPier project and what Craft Anything keeps in the folder
+stay; start a session there or open the project as before. It is refused while the
+rebuild runs or starts; pause it first. The rebuild's page then reads **This rebuild no
+longer exists.**
+
 ## API and live topics
 
 The owner-only routes are `GET /api/craft/rebuilds` (the list with the defaults,
 eligible accounts, stacks and whether Craft Anything is installed),
-`POST /api/craft/rebuilds` (start), `GET /api/craft/rebuilds/:id`, `.../follow-up`,
+`POST /api/craft/rebuilds` (start), `GET /api/craft/rebuilds/:id`,
+`DELETE /api/craft/rebuilds/:id` (remove from the list), `.../follow-up`,
 `.../pause`, `.../continue`, `.../answer`, `.../auto-mode`, `GET .../activity` and
 `PUT /api/craft/settings` (the defaults). The page follows the live topics
 `craft.rebuilds` and `craft.rebuild:<id>` ([architecture](architecture.md#live-channel)).

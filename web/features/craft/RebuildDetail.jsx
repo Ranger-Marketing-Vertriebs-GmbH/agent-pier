@@ -1,4 +1,5 @@
 import React, { useId, useState } from "react";
+import ConfirmDialog from "../../components/ConfirmDialog.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import GroupLabel from "../../components/GroupLabel.jsx";
 import ListCard from "../../components/ListCard.jsx";
@@ -83,14 +84,24 @@ export default function RebuildDetail({ id, onNavigate, onLaunch }) {
           actions={actions}
           onNavigate={onNavigate}
           onLaunch={onLaunch}
+          onRemoved={back}
         />
       )}
     </SettingsShell>
   );
 }
 
-function RebuildBody({ rebuild, activity, written, actions, onNavigate, onLaunch }) {
+function RebuildBody({
+  rebuild,
+  activity,
+  written,
+  actions,
+  onNavigate,
+  onLaunch,
+  onRemoved,
+}) {
   const running = runningStatuses.has(rebuild.status);
+  const [removing, setRemoving] = useState(false);
   const questionsId = useId();
   const action = useAsyncAction();
   const questions = rebuild.questions || [];
@@ -166,9 +177,31 @@ function RebuildBody({ rebuild, activity, written, actions, onNavigate, onLaunch
               </button>
             </>
           )}
+          {!running && (
+            <button
+              type="button"
+              className="button destructive"
+              onClick={() => setRemoving(true)}
+            >
+              {copy.detail.remove}
+            </button>
+          )}
         </div>
         <ErrorMessage error={action.error} />
       </section>
+      {removing && (
+        <ConfirmDialog
+          title={copy.detail.removeTitle(rebuild.name)}
+          body={copy.detail.removeBody}
+          confirmLabel={copy.detail.remove}
+          destructive
+          onCancel={() => setRemoving(false)}
+          onConfirm={async () => {
+            await actions.remove();
+            onRemoved();
+          }}
+        />
+      )}
       {questions.length > 0 && (
         <section className="craft-section" aria-labelledby={questionsId}>
           <GroupLabel id={questionsId}>{copy.detail.questions}</GroupLabel>

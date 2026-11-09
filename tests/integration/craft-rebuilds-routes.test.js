@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import express from "express";
+import fs from "node:fs";
 import { craftRebuildsRoutes } from "../../server/http/routes/craft-rebuilds.js";
 import { registerResponses } from "../../server/http/responses.js";
 import { craftStacks } from "../../server/features/craft/craft-stacks.js";
@@ -243,4 +244,34 @@ test("supervisor changes signal the list and the rebuild topics", async (t) => {
     ["craft.rebuild", "r1"],
     ["craft.rebuilds"],
   ]);
+});
+
+test("DELETE removes a rebuild from the list, keeping its folder and project", async (t) => {
+  const f = rebuildsFixture(t);
+  const request = await app(t, servicesOf(f));
+  const changes = [];
+  f.rebuilds.onChange((event) => changes.push(event));
+  const view = await f.rebuilds.start({ request: "Forget me" });
+  const base = `/api/craft/rebuilds/${view.id}`;
+  const running = await request("DELETE", base);
+  assert.equal(running.status, 409);
+  assert.equal(running.body.messageKey, "craft.rebuildRunning");
+  await request("POST", `${base}/pause`);
+  changes.length = 0;
+  const removed = await request("DELETE", base);
+  assert.equal(removed.status, 204);
+  assert.deepEqual(changes, [{ list: true }], "the list and every rebuild topic");
+  assert.equal((await request("GET", base)).status, 404);
+  assert.deepEqual(await craftRebuildTopic(servicesOf(f)).read(owner, view.id), {
+    rebuild: null,
+  });
+  assert.deepEqual((await craftRebuildsTopic(servicesOf(f)).read(owner)).rebuilds, []);
+  assert.equal(fs.existsSync(view.folder), true, "the folder stays");
+  assert.deepEqual(
+    f.projects.map((project) => project.id),
+    [view.projectId],
+    "the project stays",
+  );
+  assert.equal(f.create().get(view.id), null, "the stored list forgets it");
+  assert.equal((await request("DELETE", base)).status, 404);
 });

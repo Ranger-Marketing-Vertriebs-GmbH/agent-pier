@@ -91,6 +91,10 @@ export const craftCopy = {
     openFolder: "Open folder",
     openSession: "Open a session here",
     gone: "This rebuild no longer exists.",
+    remove: "Remove from list",
+    removeTitle: (name) => `Remove rebuild “${name}” from the list?`,
+    removeBody:
+      "AgentPier forgets this rebuild and its open questions. Its folder and its project stay, with everything Craft Anything built.",
   },
   source: {
     owner: "Started by you",
