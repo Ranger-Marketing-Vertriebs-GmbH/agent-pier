@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import Icon from "../../components/Icon.jsx";
+import FileLink from "../../components/FileLink.jsx";
+import { appleStandalone } from "../../lib/standalone.js";
 
 export default function FileActionMenu({ label, icon = "menu", items, compact = false }) {
   const [open, setOpen] = useState(false);
@@ -69,20 +71,34 @@ export default function FileActionMenu({ label, icon = "menu", items, compact = 
             }
           }}
         >
-          {visibleItems.map((item) => (
-            <button
-              key={item.kind}
-              type="button"
-              role="menuitem"
-              disabled={item.disabled}
-              onClick={() => {
-                setOpen(false);
-                item.onClick({ restoreFocus: () => trigger.current?.focus() });
-              }}
-            >
-              {item.label}
-            </button>
-          ))}
+          {visibleItems.map((item) =>
+            item.href ? (
+              <FileLink
+                key={item.kind}
+                href={item.href}
+                role="menuitem"
+                onClick={() => {
+                  // The iOS app shows progress and failure on the link itself.
+                  if (!appleStandalone()) setTimeout(() => setOpen(false), 0);
+                }}
+              >
+                {item.label}
+              </FileLink>
+            ) : (
+              <button
+                key={item.kind}
+                type="button"
+                role="menuitem"
+                disabled={item.disabled}
+                onClick={() => {
+                  setOpen(false);
+                  item.onClick({ restoreFocus: () => trigger.current?.focus() });
+                }}
+              >
+                {item.label}
+              </button>
+            ),
+          )}
         </div>
       )}
     </div>

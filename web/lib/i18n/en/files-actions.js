@@ -16,6 +16,7 @@ export const fileActionsCopy = {
   paste: "Paste",
   move: "Move",
   copyPath: "Copy path",
+  download: "Download",
   trash: "Move to trash",
   trashTitle: "Trash",
   clearSelection: "Clear selection",

@@ -47,16 +47,29 @@
   right: 0;
 }
 .file-action-popover > button,
-.file-context-menu > button {
+.file-action-popover > a,
+.file-context-menu > button,
+.file-context-menu > a {
   min-height: 2.25rem;
   padding: 0.45rem 0.65rem;
   border-radius: 0.35rem;
   text-align: left;
 }
+.file-action-popover > a,
+.file-context-menu > a {
+  display: flex;
+  align-items: center;
+  color: inherit;
+  text-decoration: none;
+}
 .file-action-popover > button:hover,
 .file-action-popover > button:focus-visible,
+.file-action-popover > a:hover,
+.file-action-popover > a:focus-visible,
 .file-context-menu > button:hover,
-.file-context-menu > button:focus-visible {
+.file-context-menu > button:focus-visible,
+.file-context-menu > a:hover,
+.file-context-menu > a:focus-visible {
   background: #38302b;
   color: #ffc99d;
 }
@@ -248,7 +261,9 @@
     min-height: 2.5rem;
   }
   .file-action-popover > button,
-  .file-context-menu > button {
+  .file-action-popover > a,
+  .file-context-menu > button,
+  .file-context-menu > a {
     min-height: 2.75rem;
   }
   .file-trash-list li {
