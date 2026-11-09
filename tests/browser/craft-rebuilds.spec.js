@@ -180,7 +180,10 @@ test("an approval auto mode could not allow carries a note", async ({ page }) =>
   ).toHaveCount(0);
 });
 
-test("removes a rebuild from the list after a confirmation", async ({ page }) => {
+test("removes a rebuild from the list after a confirmation", async ({
+  page,
+  liveStub,
+}) => {
   const state = await craftRebuildsFixture(page);
   await page.goto(`${baseURL}/craft/${buildingId}`);
   await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible();
@@ -197,7 +200,10 @@ test("removes a rebuild from the list after a confirmation", async ({ page }) =>
   await expect(page.getByRole("link", { name: /shop-clone/ })).toBeVisible();
   await expect(page.getByRole("link", { name: /timer/ })).toHaveCount(0);
   expect(callsTo(state, `/craft/rebuilds/${readyId}`, "DELETE")).toHaveLength(1);
+  // The server's topic reads a removed rebuild as null (the stub's REST read is 404).
   await page.goto(`${baseURL}/craft/${readyId}`);
+  await liveStub.waitForSubscribe(`craft.rebuild:${readyId}`);
+  await liveStub.push(`craft.rebuild:${readyId}`, { rebuild: null });
   await expect(page.getByText("This rebuild no longer exists.")).toBeVisible();
 });
 
