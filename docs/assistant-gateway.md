@@ -2213,6 +2213,12 @@ limits:
   window ran into the 20-second browser budget, and without focus emulation such a
   page reports `hidden` and paints no frames at all. A parked window stays normal and visible, and the
   anti-throttling flags keep it rendering at full rate while other windows cover it.
+  The keeper polls `/json/version` while the browser launches; a browser that accepts
+  and resets that connection (OpenClaw's bootstrap browser quitting) must only fail
+  the poll. On macOS, Node 24's bundled undici turned such a reset into an uncaught
+  `setTypeOfService EINVAL` (nodejs/undici#6075), so the server and the keeper load
+  `server/lib/socket-type-of-service.js`, which makes that call best effort as
+  undici 8 does (AGENTPIER-370).
   A step that fails while a cold launch is still busy (a CDP call over its two-second
   timeout, a page without its window yet) is tried again a few times on the same
   connection; whether a window is parked is decided when its first page shows up.
