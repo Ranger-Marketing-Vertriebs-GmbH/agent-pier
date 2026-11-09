@@ -1,6 +1,6 @@
 # Continue a session with another account
 
-Use **Continue with another account** in the session header when you want to resume a conversation with another signed-in account. AgentPier supports Codex → Codex and Claude Code → Claude Code. Create and sign in to the target account under Accounts first.
+Use **Continue with another account** in the session header (on a phone: in its **More actions** menu) when you want to resume a conversation with another signed-in account. AgentPier supports Codex → Codex and Claude Code → Claude Code. Create and sign in to the target account under Accounts first.
 
 Select the target account, then choose **Switch account & resume**, or queue the switch until the CLI is idle. Interrupting active work requires acknowledgment. Open the terminal if the CLI asks to approve hooks, trust the project, or sign in; closing the dialog does not cancel an in-progress switch.
 
