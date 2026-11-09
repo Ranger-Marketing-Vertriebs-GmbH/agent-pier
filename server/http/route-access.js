@@ -47,6 +47,11 @@ export const userRoutes = [
   { method: "GET", pattern: /^\/api\/me\/conversations\/[^/]+\/messages$/ },
   { method: "POST", pattern: /^\/api\/me\/conversations\/[^/]+\/messages$/ },
   { method: "POST", pattern: /^\/api\/me\/conversations\/[^/]+\/queued$/ },
+  // Ticks and button presses on the agent cards of her chat (agent-cards.js).
+  {
+    method: "POST",
+    pattern: /^\/api\/me\/conversations\/[^/]+\/cards\/[^/]+\/(?:check|press)$/,
+  },
   { method: "DELETE", pattern: /^\/api\/me\/conversations\/[^/]+\/queued$/ },
   { method: "POST", pattern: /^\/api\/me\/attempts\/[^/]+\/(?:cancel|recover)$/ },
   {

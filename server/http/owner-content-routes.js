@@ -35,6 +35,9 @@ export const ownerContentRoutes = {
   "POST /api/assistant-conversations/:id/long-chat-dismissal": "conversation",
   "POST /api/assistant-conversations/:id/model-hint-dismissal": "conversation",
   "POST /api/assistant-conversations/:id/goal/stop": "conversation",
+  // Ticks and button presses on agent cards (agent-cards.js).
+  "POST /api/assistant-conversations/:id/cards/:cardId/check": "conversation",
+  "POST /api/assistant-conversations/:id/cards/:cardId/press": "conversation",
   "GET /api/assistant-conversations/:id/messages": "conversation",
   "POST /api/assistant-conversations/:id/messages": "conversation",
   // Answering the agent's question goes on its turn: his own chats only.

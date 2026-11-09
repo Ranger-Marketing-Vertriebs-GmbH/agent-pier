@@ -98,6 +98,14 @@ export function assistantChatRoutes({ assistants, ownerPrivacy, audit }) {
     if (!assistants.teams?.goals) throw assistantProblem("unavailable", 503);
     res.json(assistants.teams.goals.stop(req.params.id));
   });
+  // A tick or a button press on an agent card of his chat (agent-cards.js); the
+  // guard refuses hers. A press answers the message the web app then sends.
+  for (const kind of ["check", "press"])
+    router.post(`/assistant-conversations/:id/cards/:cardId/${kind}`, (req, res) => {
+      assistants.store.getConversation(req.params.id);
+      if (!assistants.cards) throw assistantProblem("unavailable", 503);
+      res.json(assistants.cards[kind](req.params.id, req.params.cardId, req.body));
+    });
   router.post("/assistant-conversations/:id/long-chat-dismissal", async (req, res) =>
     res.json(await assistants.longChats.dismiss(req.params.id)),
   );

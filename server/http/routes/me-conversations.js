@@ -47,6 +47,14 @@ export function meConversationRoutes(
     const result = await assistants.send(id, withoutTeam(req.body), context);
     res.status(sendStatus(result)).json(result);
   });
+  // A tick or a button press on an agent card of her chat (agent-cards.js).
+  for (const kind of ["check", "press"])
+    router.post(`/me/conversations/:id/cards/:cardId/${kind}`, (req, res) => {
+      const { id } = own(req);
+      gate();
+      if (!assistants.cards) throw assistantProblem("unavailable", 503);
+      res.json(assistants.cards[kind](id, req.params.cardId, req.body));
+    });
   router.post("/me/conversations/:id/queued", (req, res) =>
     res.json(assistants.queue(own(req).id, withoutTeam(req.body))),
   );
