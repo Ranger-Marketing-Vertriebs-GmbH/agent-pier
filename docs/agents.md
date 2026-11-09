@@ -251,7 +251,7 @@ What works on Hermes today:
   as on OpenClaw ([Hermes runtime](hermes-runtime.md#pdfs)).
   **Create images** works with a ChatGPT login AgentPier holds (one OpenClaw holds needs
   **Move this ChatGPT login to AgentPier** first); the image appears in the chat as a
-  file the agent shared, and in a `generated-images` folder of that chat's files.
+  file the agent shared, and among that chat's files (`generated-<name>`).
 - AgentPier's own tools: attachments you send (also videos; a model that takes images
   sees attached images directly, as on OpenClaw), sharing files with you
   (also to your paired Telegram chat), the agent's own reminders and routines, hook

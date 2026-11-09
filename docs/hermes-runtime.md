@@ -225,16 +225,19 @@ that folder.
 On an agent shared with users each chat is private to its person, but these caches
 hold every chat's images. Its file and vision tools therefore read only its work folder
 and the calling chat's file folder ([chat files](#chat-files)). A user's own agent
-(one user, not shared) reads only its work folder and its own chat folders, all of
+(one user, not shared) uses only its work folder and its own chat folders, all of
 which are hers. On every agent of restricted users the team plugin asks the bridge
-before every `read_file`, `search_files` and `vision_analyze` (`privateFolders` in
-`tools.json`) whose path may leave its work folder, and `hermes-home-guard.js`
-(`userReadRefusal`) refuses any path outside those folders, and any search whose
-folder lies outside them (so neither its `HERMES_HOME`, its `HOME`, another chat's
-folder on a shared agent nor another agent's workspace, chat files or Hermes home). A plain relative path without `..` stays in the
-work folder (its file tools make no links), so it needs no bridge call; an absolute
-path, `~`, `..`, `file://` or another scheme asks, and so does a search path with a
-comma or whitespace: Hermes searches a path that does not exist as several, split at
+before every `read_file`, `search_files`, `vision_analyze`, `write_file` and `patch`
+(`privateFolders` in `tools.json`; `patch` shows the lines of a file it cannot match,
+so it is a read too), and `hermes-home-guard.js` (`userReadRefusal`) refuses any path
+outside those folders, a path that is no text, and any search whose folder lies
+outside them (so neither its `HERMES_HOME`, its `HOME`, another chat's folder on a
+shared agent nor another agent's workspace, chat files or Hermes home). Hermes itself
+refuses such an agent's writes outside its work folder and its folder of chat folders
+as well: its `.env` sets `HERMES_WRITE_SAFE_ROOT` to both (`hermes-config/tools.js`
+`writeRoots`; `agent/file_safety.py`, which `write_file`, `patch` and a
+`text_to_speech` `output_path` check). Every Hermes agent's search path with a
+comma or whitespace asks: Hermes searches a path that does not exist as several, split at
 commas or else at whitespace as Python's `str.split()` sees it, `\x1c`–`\x1f` and
 `\x85` included (`tools/file_operations_search.py` `_try_multi_path_search`), so
 the guard refuses such a search path on every Hermes agent ("Search one folder at a
@@ -268,7 +271,7 @@ no chat's files. The note a turn carries names the folder and each file by absol
 path ("saved in this chat's file folder …"); the chat strips that note and the older
 one naming `attachments/`. On an agent shared with users a turn reads and writes only
 its own chat's folder; images the agent creates are kept in the folder of the chat
-they are shared into ([images](#images)); on any Hermes agent a file call into the chat folders stays in
+they are shared into and count against the quota ([images](#images)); on any Hermes agent a file call into the chat folders stays in
 the agent's own (`chat-files` in the plugin's first look, `hermes-home-guard.js`
 `chatFolderRefusal`). `agentpier_share_file` and `agentpier_workspace`
 `browser_upload_stage` take a file of the calling chat's folder by its absolute path.
@@ -600,8 +603,7 @@ The `agentpier-team` profile plugin carries both parts of the OpenClaw team plug
   call (`read_file`, `search_files`, `vision_analyze`, the writes) whose arguments name
   `attachments/`, `chat-files/` or `.agentpier/`, before a search of the whole work
   folder or beyond it ([chat files](#chat-files)) (on an agent of restricted users,
-  own or shared, before every read leaving the work folder:
-  [attached images](#attached-images)), before every browser call and before every
+  own or shared, before every file call: [attached images](#attached-images)), before every browser call and before every
   `image_generate` ([images](#images)); AgentPier's `pdf` tool asks it at each call
   ([PDFs](#pdfs)). It applies the
   OpenClaw guard's rules (`team-plugin/tool-guard.js`, `secrets-guard.js`): an
@@ -747,10 +749,12 @@ reads it itself and would send any file it can read to OpenAI, and it resolves a
 relative path against its own process. Hermes's tool waits for the image (no
 background task). The plugin's `transform_tool_result` hook hands the image Hermes
 saved below `cache/generated/images/` (beside every other chat's) to
-`agentpier_share_file` by name, which shares it into the chat its turn shares into,
-also to the owner's Telegram chat when the turn came from there, and keeps a copy for
-the agent in `generated-images/` of that chat's file folder
-(`hermes-generated-images.js`, [chat files](#chat-files)); the tool result names that
+`agentpier_share_file` by name (`generated`; the plugin drops that argument from every
+call of the model, so only the hook names a cached image), which shares it into the
+chat its turn shares into, also to the owner's Telegram chat when the turn came from
+there, and keeps a copy for the agent as `generated-<name>` in that chat's file folder
+(`hermes-generated-images.js`, [chat files](#chat-files)), written in the agent's
+upload queue and within its upload quota, which counts it; the tool result names that
 copy. A routine run's image goes to the folder of the chat its routine commits to, a
 hook run's to the agent's main chat, as their shares do. On an agent shared with users
 only that chat reads it, and it goes with the chat's other files (**Clear**, removing

@@ -143,11 +143,9 @@ test(
     );
     // The image reached the chat and is kept in that chat's own file folder, never
     // in the work folder every chat of a shared agent searches.
-    const folder = path.join(
-      chatFolderPath(assistants.attachments.config, agent.id, chat.chat.id),
-      "generated-images",
-    );
+    const folder = chatFolderPath(assistants.attachments.config, agent.id, chat.chat.id);
     const [file] = fs.readdirSync(folder);
+    assert.match(file, /^generated-/);
     assert.ok(done.text.includes(path.join(folder, file)), done.text);
     assert.equal(fs.existsSync(path.join(paths.workspace, "generated-images")), false);
     assert.match(file, /\.png$/);
@@ -159,7 +157,7 @@ test(
     const shared = assistants.attachments.shared.forConversation(chat.chat.id);
     assert.deepEqual(
       shared.flatMap((m) => m.attachments.map((a) => a.name)),
-      [file],
+      [file.slice("generated-".length)],
     );
 
     // A local reference outside its folder never leaves the host.

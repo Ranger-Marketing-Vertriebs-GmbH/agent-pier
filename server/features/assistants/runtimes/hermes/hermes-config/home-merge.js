@@ -87,6 +87,15 @@ const ownedName = (owned, name) =>
  * written once where it first stood, or appended in name order; comments and other
  * names stay. Pure.
  */
+/** The names a .env text sets. */
+export const envNames = (text) =>
+  new Set(
+    (text || "")
+      .split(/\r?\n/)
+      .map((line) => line.match(envLine)?.[1])
+      .filter(Boolean),
+  );
+
 export function mergeEnv(existing, owned, values) {
   const lines = existing ? existing.replace(/\r?\n$/, "").split(/\r?\n/) : [];
   const written = new Set();

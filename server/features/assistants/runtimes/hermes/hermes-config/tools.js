@@ -1,3 +1,6 @@
+import path from "node:path";
+import { chatPlaceholderFolders } from "../../../chat-file-folders.js";
+
 // What an agent's desired state allows, as Hermes toolsets to switch off
 // (`agent.disabled_toolsets`, website/docs/user-guide/configuration.md "Global
 // Toolset Disable": applied after every platform's tool list, per tool) and Hermes's
@@ -59,4 +62,21 @@ export function disabledToolsets(agent, level, { browser = false, images = false
     ...(images ? [] : ["image_gen"]),
   ];
   return [...new Set(off)].sort();
+}
+
+/** Hermes's own write limit for its file tools and text_to_speech's output_path. */
+export const writeRootEnv = "HERMES_WRITE_SAFE_ROOT";
+
+/**
+ * For an agent of restricted users (`locked`) working in `workspace`: Hermes's
+ * HERMES_WRITE_SAFE_ROOT (agent/file_safety.py `get_safe_write_roots`, read at each
+ * write_file, patch and text_to_speech output_path) as its work folder and its folder
+ * of chat folders, so Hermes itself refuses a write elsewhere even past the team
+ * plugin's guard (hermes-home-guard.js), which keeps a shared agent's writes in the
+ * calling chat's folder. Null for the owner's own agents, or without a workspace.
+ */
+export function writeRoots(agent, workspace) {
+  const folders = agent.locked ? chatPlaceholderFolders(workspace) : null;
+  if (!folders) return null;
+  return [workspace, folders["agent.attachments"]].filter(Boolean).join(path.delimiter);
 }
