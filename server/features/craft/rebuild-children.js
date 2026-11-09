@@ -49,6 +49,11 @@ export class RebuildChildren {
     return this.entries.size;
   }
 
+  /** Whether a call of any child is in flight (or waits for its child to start). */
+  get busy() {
+    return [...this.entries.values()].some((entry) => entry.busy > 0);
+  }
+
   key(accountId, mode) {
     return `${accountId}\n${mode}`;
   }
@@ -147,11 +152,13 @@ export class RebuildChildren {
   }
 
   /**
-   * Closes every child no running rebuild uses (one a view opened, one waiting for its
-   * idle close) through the usual close; resolves once they are gone.
+   * Closes every child no running rebuild and no call uses (one a view opened, one
+   * waiting for its idle close) through the usual close; resolves once they are gone.
    */
   async closeIdle() {
-    const idle = [...this.entries].filter(([key]) => !this.running(key));
+    const idle = [...this.entries].filter(
+      ([key, entry]) => !entry.busy && !this.running(key),
+    );
     for (const [key, entry] of idle) {
       this.entries.delete(key);
       this.disarm(entry);

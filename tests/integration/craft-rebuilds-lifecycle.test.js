@@ -6,6 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { serverMessages } from "../../server/lib/i18n/de.js";
 import { MutationBarrier } from "../../server/application/mutation-barrier.js";
+import { statusView } from "../../server/features/craft/craft-mcp-tools.js";
 import {
   exists,
   fakeTimers,
@@ -73,7 +74,8 @@ test("only a running rebuild keeps Craft Anything in use; idle children close", 
   await f.rebuilds.closeIdle();
   assert.equal(viewed.alive, false);
   assert.equal(f.rebuilds.inUse(), true);
-  assert.equal((await f.rebuilds.pause(running.id)).status, "paused");
+  // Its build may have finished meanwhile (300 ms under load): either way it stops.
+  assert.notEqual((await f.rebuilds.pause(running.id)).status, "building");
 });
 
 test("a rebuild keeps the project its folder has after git init", async (t) => {
@@ -226,4 +228,58 @@ test("a snapshot does not wait for a slow rebuild_start", async (t) => {
   const view = await starting;
   assert.equal(view.status, "building");
   assert.deepEqual(leased, [true, true], "folder and Git project under a lease");
+});
+
+test("a Continue in flight keeps Craft Anything in use and its child open", async (t) => {
+  let slow = false;
+  const f = rebuildsFixture(t, {
+    intercept: async (name, args) => {
+      if (slow && name === "rebuild_start" && args.resume)
+        await new Promise((resolve) => setTimeout(resolve, 800));
+    },
+  });
+  const view = await f.rebuilds.start({ request: "Busy child" });
+  await f.rebuilds.pause(view.id);
+  slow = true;
+  const continued = f.rebuilds.continue(view.id);
+  assert.ok(await until(() => f.rebuilds.children.busy));
+  assert.equal(f.rebuilds.inUse(), true, "an update or removal is refused");
+  await f.rebuilds.closeIdle();
+  assert.equal((await continued).status, "building");
+  assert.equal(f.clients[0].alive, true, "the busy child stayed");
+});
+
+test("a Continue queued behind Remove is refused and resumes nothing", async (t) => {
+  const f = rebuildsFixture(t);
+  const view = await f.rebuilds.start({ request: "Removed meanwhile" });
+  await f.rebuilds.pause(view.id);
+  const removed = f.rebuilds.remove(view.id);
+  const continued = f.rebuilds.continue(view.id).catch((error) => error);
+  await removed;
+  assert.equal((await continued).status, 404);
+  assert.equal(f.craftRecord(view).status, "stopped", "Craft Anything was not resumed");
+  assert.equal(f.rebuilds.inUse(), false);
+});
+
+test("a running rebuild waiting for the owner reads needs_you everywhere", async (t) => {
+  const approval = { ask: "approval", title: "Run npm install?", action: "npm install" };
+  const f = rebuildsFixture(t, { script: { steps: [approval, { finish: "ready" }] } });
+  const view = await f.rebuilds.start({ request: "Waiting" });
+  // Craft Anything 0.5.0 (and the fake) report building while it waits.
+  assert.ok(await until(() => f.rebuilds.get(view.id).questions.length === 1));
+  const status = await f.rebuilds.call(
+    f.rebuilds.records.get(view.id),
+    "rebuild_status",
+    {},
+  );
+  assert.equal(status.status, "building");
+  assert.equal(status.waiting, 1);
+  assert.equal(f.rebuilds.get(view.id).status, "needs_you");
+  assert.equal(f.rebuilds.list()[0].status, "needs_you");
+  assert.equal(statusView(f.rebuilds.get(view.id)).status, "needs_you");
+  assert.equal(statusView(f.rebuilds.get(view.id)).openQuestions, 1);
+  // In auto mode an approval it still allows is no owner question.
+  const auto = await f.rebuilds.setAutoMode(view.id, true);
+  assert.ok(["building", "ready"].includes(auto.status), auto.status);
+  assert.ok(await until(() => f.rebuilds.get(view.id).status === "ready"));
 });

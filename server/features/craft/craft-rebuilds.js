@@ -97,12 +97,14 @@ export class CraftRebuilds {
   }
 
   /**
-   * Whether a rebuild runs or starts: removing, updating or changing Craft Anything is
+   * Whether a rebuild runs or starts, or a call of a rebuild child is in flight (a
+   * Continue, a follow-up, a read): removing, updating or changing Craft Anything is
    * refused meanwhile. Idle children do not count; closeIdle() ends them first.
    */
   inUse() {
     return (
       this.starting.size > 0 ||
+      this.children.busy ||
       [...this.records.values()].some((record) => record.running)
     );
   }
@@ -249,6 +251,7 @@ export class CraftRebuilds {
     const record = this.require(id);
     const answer = cleanAnswer(questionId, input);
     return this.serial(id, async () => {
+      this.requireListed(record);
       // Answered already (another tab, the inbox) or never asked: Craft is not asked.
       if (!record.craftProject || !record.questions.some((q) => q.id === questionId))
         throw refuse(messages.rebuildQuestionGone);
@@ -276,6 +279,7 @@ export class CraftRebuilds {
   async remove(id) {
     const record = this.require(id);
     return this.serial(id, async () => {
+      this.requireListed(record);
       if (record.running) throw refuse(messages.rebuildRunning);
       this.records.delete(id);
       this.unrestored.delete(id);
@@ -291,6 +295,7 @@ export class CraftRebuilds {
     const record = this.require(id);
     if (typeof on !== "boolean") throw problem(messages.rebuildAutoModeInvalid, 400);
     return this.serial(id, async () => {
+      this.requireListed(record);
       this.update(record, { autoMode: on });
       if (record.craftProject && this.children.peek(record.accountId, record.mode)) {
         await this.setQuestions(record);
@@ -432,6 +437,12 @@ export class CraftRebuilds {
     return run;
   }
 
+  /** Refuses (404) a record removed while this action waited in its serial chain. */
+  requireListed(record) {
+    if (this.records.get(record.id) !== record)
+      throw problem(messages.rebuildNotFound, 404);
+  }
+
   require(id) {
     const record = this.records.get(id);
     if (!record) throw problem(messages.rebuildNotFound, 404);
@@ -439,6 +450,7 @@ export class CraftRebuilds {
   }
 
   requireIdle(record) {
+    this.requireListed(record);
     if (!record.craftProject) throw refuse(messages.rebuildNeverStarted);
     if (record.running) throw refuse(messages.rebuildRunning);
     this.requireEligible(record.accountId);
