@@ -3,6 +3,12 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { assistantProblem } from "./assistant-validation.js";
 import { SHARED } from "./agent-share-store.js";
+import {
+  UNCLAIMED,
+  agentChatPath,
+  checkedChatFolder,
+  chatFoldersOf,
+} from "./chat-file-folders.js";
 
 // Per agent; counted over the copies still present in its workspace. Room for a few
 // phone videos (200 MB each, agent-video-types.js) next to photos and documents.
@@ -16,14 +22,17 @@ const ignoreExisting = (error) => {
   if (error.code !== "EEXIST") throw error;
 };
 
-/** Entries and regular-file bytes in a checked folder, read without following links. */
-export async function folderUsage(folder) {
+/**
+ * Entries and regular-file bytes in a checked folder, read without following links,
+ * at most `limit` entries.
+ */
+export async function folderUsage(folder, limit = MAX_SCAN) {
   let files = 0;
   let bytes = 0;
   let capped = false;
   if (!folder) return { files, bytes, capped };
   for await (const entry of await fs.opendir(folder.path)) {
-    if (files >= MAX_SCAN) {
+    if (files >= limit) {
       capped = true;
       break;
     }
@@ -136,19 +145,39 @@ export class AttachmentStorage {
       return null;
     }
   }
-  /** What the folder holds against its limits; `unsafe` when it was replaced. */
+  /**
+   * What the folder and the agent's chat folders (chat-file-folders.js) hold against
+   * their limits; `unsafe` when either was replaced.
+   */
   async usage(assistantId) {
     this.a.store.getAssistant(assistantId);
     const { folder, replaced } = await this.locate(assistantId);
     const limits = { maxBytes: MAX_AGENT_BYTES, maxFiles: MAX_AGENT_FILES };
-    if (replaced) return { files: 0, bytes: 0, capped: false, unsafe: true, ...limits };
-    return { ...(await folderUsage(folder)), ...limits };
+    const unsafe = { files: 0, bytes: 0, capped: false, unsafe: true, ...limits };
+    if (replaced) return unsafe;
+    const total = await folderUsage(folder);
+    let chats;
+    try {
+      chats = await chatFoldersOf(this.a.config, assistantId);
+    } catch {
+      return unsafe;
+    }
+    for (const chat of chats) {
+      if (total.files >= MAX_SCAN) total.capped = true;
+      if (total.capped) break;
+      const held = await folderUsage(chat, MAX_SCAN - total.files);
+      total.files += held.files;
+      total.bytes += held.bytes;
+      total.capped = held.capped;
+    }
+    return { ...total, ...limits };
   }
   /**
-   * Empties the folder (the quota's folder only; files the agent shared live in the
-   * share store and stay), or removes what replaced it. Uploads still arriving end
-   * first, with their partial copies; unsent files lose their rows, and sent ones
-   * stay in their messages marked unavailable. Resolves with what was removed.
+   * Empties the folder and the agent's chat folders (the quota's folders only; files
+   * the agent shared live in the share store and stay), or removes what replaced
+   * them. Uploads still arriving end first, with their partial copies; unsent files
+   * lose their rows, and sent ones stay in their messages marked unavailable.
+   * Resolves with what was removed.
    */
   async clear(assistantId) {
     const a = this.a;
@@ -171,39 +200,83 @@ export class AttachmentStorage {
     });
   }
   /**
-   * Removes the uploads of every chat `keep(conversationId)` refuses from the folder,
-   * for a shared agent that became one user's own: on it no turn checks the chat a
-   * file came from any more (attachment-access.js). Unsent files lose their rows, sent
-   * ones stay in their messages marked unavailable; shared files live elsewhere.
+   * Removes the uploads of every chat `keep(conversationId)` refuses, with those
+   * chats' folders, for a shared agent that became one user's own: on it no turn
+   * checks the chat a file came from any more (attachment-access.js). Unsent files
+   * lose their rows, sent ones stay in their messages marked unavailable; shared
+   * files live elsewhere.
    */
   async removeChats(assistantId, keep) {
     const a = this.a;
     return a.serial(assistantId, async () => {
-      const folder = await a.folder(assistantId, false).catch(() => null);
       for (const file of a.rows(
         `SELECT * FROM agent_attachments WHERE assistant_id=? AND (request_id IS NULL OR request_id NOT LIKE '${SHARED}%')`,
         assistantId,
       )) {
         if (keep(file.row.conversation_id)) continue;
+        const folder = await a.folderOf(file).catch(() => null);
         if (folder) await fs.rm(path.join(folder.path, file.file), { force: true });
         if (file.row.request_id === null)
           a.db.prepare("DELETE FROM agent_attachments WHERE id=?").run(file.id);
         else if (!file.gone) a.markGone(file);
       }
+      const chats = await chatFoldersOf(a.config, assistantId).catch(() => []);
+      for (const chat of chats)
+        if (chat.key !== UNCLAIMED && !keep(chat.key)) await this.removeChat(chat);
     });
   }
-  // Ends the agent's open uploads and removes its checked folder, or what replaced
-  // it; the caller holds the agent's serial queue. Resolves with what it held.
+  /**
+   * Removes one chat's folder (chat-removal.js), after its files' rows went.
+   */
+  removeChatFolder(assistantId, conversationId) {
+    return this.a.serial(assistantId, async () => {
+      const chat = await checkedChatFolder(
+        this.a.config,
+        [assistantId, conversationId],
+        false,
+      ).catch(() => null);
+      if (chat) await this.removeChat(chat);
+    });
+  }
+  removeChat(chat) {
+    const trash = trashFor(this.a.config.workspaces);
+    return removeChecked(chat, trash, `${path.basename(path.dirname(chat.path))}-chat`);
+  }
+  // Ends the agent's open uploads and removes its checked folder and its chat folders,
+  // or what replaced them; the caller holds the agent's serial queue. Resolves with
+  // what they held.
   async removeFolder(assistantId) {
     await this.a.videos.dropAgent(assistantId);
     const { folder, replaced } = await this.locate(assistantId);
     const held = await folderUsage(folder);
+    const trash = trashFor(this.a.config.workspaces);
+    const chats = await this.chatRoot(assistantId);
+    if (chats) {
+      for (const chat of await chatFoldersOf(this.a.config, assistantId).catch(
+        () => [],
+      )) {
+        const usage = await folderUsage(chat);
+        held.files += usage.files;
+        held.bytes += usage.bytes;
+      }
+      await removeChecked(chats, trash, `${assistantId}-chat-files`);
+    }
     const target = folder || replaced;
     if (!target) return held;
     await this.a.hooks.clearing?.(target);
-    const trash = trashFor(this.a.config.workspaces);
     await removeChecked(target, trash, `${assistantId}-attachments`);
     return held;
+  }
+  // The agent's checked folder of chat folders, or what replaced it, or null.
+  async chatRoot(assistantId) {
+    try {
+      return await checkedChatFolder(this.a.config, [assistantId], false);
+    } catch {
+      const entry = agentChatPath(this.a.config, assistantId);
+      const stat = entry && (await fs.lstat(entry, { bigint: true }).catch(() => null));
+      if (!stat || stat.isDirectory()) throw unsafe();
+      return { path: entry, dev: stat.dev, ino: stat.ino, directory: false };
+    }
   }
   // Removes an agent's copies (both folders only as checked) and their index, for
   // when the agent itself goes. Unwired: nothing deletes agents yet.

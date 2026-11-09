@@ -87,6 +87,8 @@ export function agentFolders(paths, agent) {
     path.join(paths.workspaces, agent.id),
     // Files the agent shared with its chats (agent-share-store.js).
     path.join(path.dirname(paths.workspaces), "shares", agent.id),
+    // A Hermes agent's chat uploads (chat-file-folders.js).
+    path.join(path.dirname(paths.workspaces), "chat-files", agent.id),
     // Dreaming's copies of its memory (dreaming-backups.js).
     path.join(paths.root, "memory-backups", agent.runtimeAgentId),
     // OpenClaw's agent state: sessions, transcripts and their archives.

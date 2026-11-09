@@ -121,9 +121,11 @@ const omitted = (omission) => ({
   manifest: null,
 });
 
-// Copies of files agents shared (agent-share-store.js) keep the agent's file name, so
-// one may look like a temporary or a cache; each is a stored file all the same.
-const shared = (relative) => /^shares\/[^/]+\/[^/]+$/.test(relative);
+// Copies of files agents shared (agent-share-store.js) keep the agent's file name, and
+// a Hermes agent's chat uploads the sender's (chat-file-folders.js), so one may look
+// like a temporary or a cache; each is a stored file all the same.
+const shared = (relative) =>
+  /^(shares\/[^/]+|chat-files\/[^/]+\/[^/]+)\/[^/]+$/.test(relative);
 /** What a restore accepts: everything any host backup has archived publicly. */
 const restorable = (relative) => {
   const [top] = relative.split("/");

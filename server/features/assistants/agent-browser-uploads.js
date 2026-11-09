@@ -4,6 +4,7 @@ import { personalCapabilities } from "./native-capabilities.js";
 import { guardedWorkspaceEntry } from "./team-plugin/tool-guard.js";
 import { BrowserUploads } from "./browser-upload-staging.js";
 import { attachmentFile, attachmentsAllowed } from "./attachment-access.js";
+import { chatFolderPath, keepsChatFolders } from "./chat-file-folders.js";
 
 // The website an agent says it uploads to, for the audit: a host name, maybe a port.
 const sitePattern = /^(?=.{1,253}$)[a-z0-9-]+(\.[a-z0-9-]+)*(:\d{1,5})?$/i;
@@ -16,6 +17,10 @@ const siteValue = (value) => {
   return site.toLowerCase();
 };
 const refused = () => assistantProblem("projectPathRefused", 403);
+const inside = (root, target) => {
+  const relative = path.relative(root, target);
+  return !!relative && !relative.startsWith("..") && !path.isAbsolute(relative);
+};
 
 /**
  * Uploads from an agent's own browser (agentpier_workspace browser_upload_stage):
@@ -90,6 +95,19 @@ export class AgentBrowserUploads {
       // A chat upload only from this turn's own chat on a shared agent
       // (attachment-access.js); never prompt files, skills/ or .agents/.
       const chat = ctx.memberConversationId ?? ctx.conversationId;
+      // A Hermes agent's uploads of this chat, by absolute path (chat-file-folders.js).
+      const config = this.w.a.attachments?.config;
+      const folder = keepsChatFolders(agent) && chatFolderPath(config, agent.id, chat);
+      if (
+        folder &&
+        path.isAbsolute(raw.trim()) &&
+        inside(folder, path.resolve(raw.trim()))
+      )
+        return {
+          root: folder,
+          raw: path.relative(folder, path.resolve(raw.trim())),
+          protectedRoots: [],
+        };
       const admit = (relative) => {
         const file = attachmentFile(relative);
         if (file !== null) {

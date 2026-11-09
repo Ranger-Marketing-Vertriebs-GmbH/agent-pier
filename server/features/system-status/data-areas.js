@@ -28,6 +28,8 @@ const top = {
 const agentTop = {
   backups: "backups",
   shares: "agentShares",
+  // A Hermes agent's chat uploads (chat-file-folders.js).
+  "chat-files": "agentAttachments",
   runtimes: "runtimes",
   logs: "logs",
 };

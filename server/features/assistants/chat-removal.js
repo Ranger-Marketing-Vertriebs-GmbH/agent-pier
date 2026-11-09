@@ -322,18 +322,21 @@ function agentOf(assistants, id) {
   }
 }
 
-// The files of a chat: uploads and what the agent shared into it.
+// The files of a chat: uploads, what the agent shared into it, and a Hermes agent's
+// folder of that chat (chat-file-folders.js) with whatever else it holds.
 async function removeFiles(assistants, conversation) {
   const attachments = assistants.attachments;
   const files = attachments.rows(
     "SELECT * FROM agent_attachments WHERE conversation_id=?",
     conversation.id,
   );
-  const folder = await attachments.folder(conversation.assistantId, false);
   for (const file of files) {
     if (file.shared)
       await attachments.shared.remove(conversation.id, file.id).catch(() => {});
-    if (folder && !file.shared) await attachments.remove(file, folder.path);
+    if (!file.shared) await attachments.remove(file);
     else attachments.db.prepare("DELETE FROM agent_attachments WHERE id=?").run(file.id);
   }
+  await attachments.storage
+    .removeChatFolder(conversation.assistantId, conversation.id)
+    .catch(() => {});
 }

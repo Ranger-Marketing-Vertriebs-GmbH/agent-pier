@@ -71,7 +71,7 @@ export class VideoUploads {
    * files in the folder with no index row, no upload still writing them, and
    * untouched for the idle time. The caller holds the agent's serial queue.
    */
-  async sweep(assistantId, folder) {
+  async sweep(assistantId) {
     const indexed = new Set(
       this.a.db
         .prepare("SELECT body FROM agent_attachments WHERE assistant_id=?")
@@ -81,24 +81,20 @@ export class VideoUploads {
     const arriving = this.arriving(assistantId);
     const cutoff = Date.now() - IDLE_MS;
     let seen = 0;
-    for await (const entry of await fs.opendir(folder)) {
-      if (++seen > 5000) break;
-      if (!entry.isFile() || !STAMPED.test(entry.name)) continue;
-      if (indexed.has(entry.name) || arriving.has(entry.name)) continue;
-      const target = path.join(folder, entry.name);
-      const stat = await fs.lstat(target).catch(() => null);
-      if (stat?.isFile() && stat.mtimeMs < cutoff) await fs.rm(target, { force: true });
-    }
+    for (const folder of await this.a.folders(assistantId))
+      for await (const entry of await fs.opendir(folder.path)) {
+        if (++seen > 5000) return;
+        if (!entry.isFile() || !STAMPED.test(entry.name)) continue;
+        if (indexed.has(entry.name) || arriving.has(entry.name)) continue;
+        const target = path.join(folder.path, entry.name);
+        const stat = await fs.lstat(target).catch(() => null);
+        if (stat?.isFile() && stat.mtimeMs < cutoff) await fs.rm(target, { force: true });
+      }
   }
   /** At startup: every agent's leftovers, before anything counts them. */
   async sweepAll() {
     for (const { id } of this.a.store.listAssistants())
-      await this.a
-        .serial(id, async () => {
-          const folder = await this.a.folder(id, false);
-          if (folder) await this.sweep(id, folder.path);
-        })
-        .catch(() => {});
+      await this.a.serial(id, () => this.sweep(id)).catch(() => {});
   }
   /** Maintenance (backup, restore, update): no partial copy may outlive it. */
   async dropAll() {
@@ -157,8 +153,8 @@ export class VideoUploads {
     if (conversation.archivedAt) throw chatProblem("CHAT_ARCHIVED");
     const { assistantId } = conversation;
     return this.a.serial(assistantId, async () => {
-      const folder = await this.a.folder(assistantId);
-      await this.a.expire(assistantId, folder.path);
+      const folder = await this.a.uploadFolder(conversation);
+      await this.a.expire(assistantId);
       if (this.uploads.has(id)) throw assistantProblem("conflict", 409);
       const open = [...this.uploads.values()].filter(
         (u) => u.assistantId === assistantId,
@@ -171,7 +167,7 @@ export class VideoUploads {
         }
       if (open.length >= MAX_OPEN_PER_AGENT)
         throw assistantProblem("videoUploadsBusy", 429);
-      await this.a.assertQuota(assistantId, folder.path, size);
+      await this.a.assertQuota(assistantId, size);
       const { display, file } = this.a.storedName(name, type);
       const handle = await this.a.createEmpty(folder, file);
       const upload = {
@@ -275,7 +271,7 @@ export class VideoUploads {
       const target = path.join(upload.folder.path, upload.file);
       // Like any upload, a finished video gives way to none: the oldest unsent
       // files of the conversation do (agent-attachments.js).
-      await this.a.trimStaged(upload.conversationId, upload.folder.path);
+      await this.a.trimStaged(upload.conversationId);
       let meta;
       try {
         await this.proven(upload, target);
@@ -300,6 +296,7 @@ export class VideoUploads {
         kind: "video",
         sha256: upload.hash.digest("hex"),
         ...(Object.keys(meta).length && { video: meta }),
+        ...(upload.folder.chat && { chat: true }),
       };
       const fileId = randomUUID();
       try {
@@ -367,7 +364,7 @@ export class VideoUploads {
    * per file identity). The caller closes `handle`.
    */
   async open(assistantId, file) {
-    const folder = await this.a.folder(assistantId, false);
+    const folder = await this.a.folderOf(file).catch(() => null);
     if (!folder) throw assistantProblem("attachmentNotFound", 404);
     let handle;
     try {

@@ -28,12 +28,13 @@ const isAgentDatabaseCopy = (name, isAssistantMember) =>
   name.startsWith(`${agentHistoryFolder}/`) &&
   isAssistantMember(`assistants/${name.slice(agentHistoryFolder.length + 1)}`);
 
-// Below assistants/: workspaces (with the owner's attachments), the MEMORY.md copies
-// taken before dreaming (dreaming-backups.js), files agents shared, OpenClaw's
-// transcripts and session index, its media and its memory index. Files and databases
-// there are private as a whole.
+// Below assistants/: workspaces (with the owner's attachments), Hermes agents' chat
+// uploads (chat-file-folders.js), the MEMORY.md copies taken before dreaming
+// (dreaming-backups.js), files agents shared, OpenClaw's transcripts and session
+// index, its media and its memory index. Files and databases there are private as a
+// whole.
 const privateTree =
-  /^(workspaces|memory-backups|shares|state\/media|state\/memory|state\/agents\/[^/]+\/sessions)(\/|$)/;
+  /^(workspaces|chat-files|memory-backups|shares|state\/media|state\/memory|state\/agents\/[^/]+\/sessions)(\/|$)/;
 /**
  * Whether `relative` (below assistants/) is or lies in a private folder, Hermes's
  * included (hermes-backup-paths.js).

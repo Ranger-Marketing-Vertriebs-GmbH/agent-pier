@@ -102,7 +102,7 @@ export function constructAssistantGraph(host, created = {}) {
   );
   const store = (created.store = new AssistantStore({ dataDir }));
   // Hermes agents run in their own process sets (hermes-wiring.js).
-  const hermesFleet = hermesAgentFleet(assistantRuntime, { dataDir, store });
+  const hermesFleet = hermesAgentFleet(assistantRuntime, { dataDir, store, created });
   // AgentPier's ChatGPT logins and the loopback proxy the runtimes use them through.
   const { runtimeProxy, assistantModelAccounts, assistantModelLogin } = loginServices(
     { dataDir, runtime: assistantRuntime },
