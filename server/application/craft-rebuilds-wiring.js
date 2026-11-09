@@ -19,6 +19,7 @@ export function createCraftRebuilds(services) {
     accounts,
     preferences,
     memory,
+    barrier: services.mutationBarrier,
   });
   const questions = new RebuildQuestionWatch({
     rebuilds,

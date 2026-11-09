@@ -52,6 +52,7 @@ export class CraftRebuilds {
     accounts,
     preferences,
     memory,
+    barrier = { run: (fn) => fn() },
     clientFactory = (options) => CraftMcpClient.start(options),
     now = () => new Date(),
     timers = { setTimeout, clearTimeout },
@@ -59,6 +60,7 @@ export class CraftRebuilds {
     idleMs = 60000,
   }) {
     Object.assign(this, { craft, accounts, preferences, memory, now, timers, sampleMs });
+    this.barrier = barrier;
     this.store = new RebuildStore(dataDir);
     const saved = this.store.load();
     this.saved = saved.settings;
@@ -185,33 +187,44 @@ export class CraftRebuilds {
     return this.begin(input, source, null);
   }
 
+  /**
+   * Creates the folder and the record, has Craft Anything start, then makes the folder
+   * a Git project. Only the folder and project changes hold a mutation lease
+   * (`barrier`, MutationBarrier#run): snapshots (backups) must see them whole. Spawning
+   * a child and the rebuild_start round-trip may take up to about 90 s and change only
+   * the folder's contents and the rebuild records, which the sampler writes without a
+   * lease anyway, so a snapshot never waits for them.
+   */
   async begin(input, source, requestId) {
     const options = cleanStart(input, source, this.settings());
     this.requireEligible(options.accountId);
-    const made = await createProjectFolder({
-      preferences: this.preferences,
-      memory: this.memory,
-      name: projectFolderName(options.request),
-      git: false,
-      unique: true,
-      label: "Rebuild folder",
+    const { made, record } = await this.barrier.run(async () => {
+      const folder = await createProjectFolder({
+        preferences: this.preferences,
+        memory: this.memory,
+        name: projectFolderName(options.request),
+        git: false,
+        unique: true,
+        label: "Rebuild folder",
+      });
+      const stamp = this.now().toISOString();
+      const created = {
+        id: randomUUID(),
+        projectId: folder.project.id,
+        folder: folder.path,
+        name: path.basename(folder.path),
+        ...options,
+        source,
+        requestId,
+        createdAt: stamp,
+        updatedAt: stamp,
+        craftProject: null,
+        ...initialFields(),
+      };
+      this.records.set(created.id, created);
+      this.persist();
+      return { made: folder, record: created };
     });
-    const stamp = this.now().toISOString();
-    const record = {
-      id: randomUUID(),
-      projectId: made.project.id,
-      folder: made.path,
-      name: path.basename(made.path),
-      ...options,
-      source,
-      requestId,
-      createdAt: stamp,
-      updatedAt: stamp,
-      craftProject: null,
-      ...initialFields(),
-    };
-    this.records.set(record.id, record);
-    this.persist();
     this.emit({ list: true });
     try {
       const started = await this.call(
@@ -233,15 +246,19 @@ export class CraftRebuilds {
       // A timeout or a malformed answer may still have started a build.
       await this.stopUnanswered(record);
       this.pauseAfterStart.delete(record.id);
-      this.records.delete(record.id);
-      this.persist();
+      await this.barrier.run(async () => {
+        this.records.delete(record.id);
+        this.persist();
+        await made.rollback();
+      });
       this.emit({ list: true });
-      await made.rollback();
       throw this.failure(error);
     }
-    const project = await this.prepareFolder(made);
-    if (project?.id) record.projectId = project.id;
-    this.persist();
+    await this.barrier.run(async () => {
+      const project = await this.prepareFolder(made);
+      if (project?.id) record.projectId = project.id;
+      this.persist();
+    });
     if (this.pauseAfterStart.delete(record.id))
       await this.serial(record.id, () => this.stop(record));
     else await this.serial(record.id, () => this.launched(record));

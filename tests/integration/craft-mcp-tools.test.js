@@ -197,3 +197,31 @@ test("a session's requestId is scoped to that session", async (t) => {
   assert.equal(calls[0].input.requestId, `${one.session.id}:rebuild-1`);
   assert.equal(calls[2].input.requestId, `${two.session.id}:rebuild-1`);
 });
+
+test("a session's start holds no mutation lease while the supervisor waits", async (t) => {
+  const { f } = await craftApp(t);
+  let release;
+  const gate = new Promise((resolve) => (release = resolve));
+  const start = f.application.craftRebuilds.start;
+  f.application.craftRebuilds.start = async (...args) => {
+    await gate;
+    return start(...args);
+  };
+  const issued = await issue(f, { choices: true });
+  const context = { sessionId: issued.session.id, revalidate() {} };
+  const call = f.application.mcpTools.call(
+    "craft_rebuild_start",
+    { request: "Slow", requestId: "slow" },
+    { allResources: true, scopes: [] },
+    undefined,
+    context,
+  );
+  const snapshot = f.application.mutationBarrier.snapshot(async () => "taken");
+  const first = await Promise.race([
+    snapshot,
+    new Promise((resolve) => setTimeout(() => resolve("blocked"), 1000)),
+  ]);
+  release();
+  await call;
+  assert.equal(first, "taken");
+});
