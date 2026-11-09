@@ -122,6 +122,8 @@ them on; restricted users never do ([users](users.md#what-stays-locked)).
   fail the integrity check.
 
 Per agent, the owner switches catalog skills under **Agent › Capabilities › Skills**.
+An agent sees and reads only the catalog skills switched on for it; an agent of
+restricted users cannot read any other catalog skill, on OpenClaw or Hermes Agent.
 The runtime, the integrity checks and the shell caveat are described in
 [assistant gateway](assistant-gateway.md#skills).
 

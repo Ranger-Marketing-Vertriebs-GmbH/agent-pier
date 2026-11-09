@@ -455,6 +455,14 @@ relative to HERMES_HOME (`agent/skill_utils.py` `get_external_skills_dirs`). The
 report names such a skill `builtIn`, so the skills page leaves it to the **Shopping**
 switch.
 
+An agent of restricted users reads only the catalog skills switched on for it:
+`skill_view` and `skills_list` find a catalog skill only through its folder in
+`skills.external_dirs` and refuse a `file_path` out of the skill, and its file tools
+stay in its work folder and chat folders (`hermes-home-guard.js`, [Attached images](#attached-images)), which no
+catalog skill lies in. It reads a switched-on skill and its linked files through
+`skill_view`. The owner's own agents read files as Hermes lets them.
+`hermes-user-skill-reads-contract.test.js` checks this on the pinned Hermes.
+
 Skills the agent writes itself (`skill_manage`) or installs inside Hermes stay on:
 practical default, owner's choice. Nothing names them, so Hermes offers them, and
 `skills.write_approval` stays off. The skills page lists them as **On: the agent wrote
@@ -1182,7 +1190,9 @@ command in routine runs on full access and on approval (asked, allowed, denied).
 member's own Chromium; `hermes-browser-upload-contract.test.js` fills a local page's
 file field with a staged file and refuses an unstaged one;
 `hermes-user-agent-lock-contract.test.js` forces a restricted user's agent to call each
-locked tool and finds each refused; `hermes-images-contract.test.js` creates an image
+locked tool and finds each refused; `hermes-user-skill-reads-contract.test.js` lets such
+an agent read its switched-on catalog skill and refuses every other catalog skill;
+`hermes-images-contract.test.js` creates an image
 with a ChatGPT login AgentPier holds through the runtime proxy and a fake Codex backend
 (the login's token only upstream, one audited generation, the image shared into the
 chat) and refuses a reference outside the agent's folder.
