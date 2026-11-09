@@ -805,8 +805,11 @@ data directory, and `assistant-runtime-cross-version`,
 `assistant-mcp-oauth-cross-version`, `assistant-doctor-credentials-cross-version` and
 `assistant-dreaming-rollback-cross-version` from 2026.10.9 (provisioned from
 `v2.17.0`) to 2026.11.2: 6 of 6, 0 skipped, with Doctor's migration to schema 27.
-The other predecessors, the Linux runs and the remaining verification scripts are
-for the `Assistant runtime` workflow.
+The `Assistant runtime` workflow (on demand) passed the `cross-version` job from all
+five predecessors (`v1.28.1`, `v2.0.0`, `v2.6.1`, `v2.12.0`, `v2.17.0`) and the four
+fresh native installations (Linux x64/arm64, macOS x64/arm64, with the new
+`@openclaw/proc-safe` and `@resvg/resvg-js` prebuilds). Its native contracts fail on
+Linux and macOS with exactly the open items above.
 
 ### Native architectures (2026-10-19)
 
