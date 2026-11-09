@@ -26,7 +26,7 @@ import {
   chatFoldersOf,
   keepsChatFolders,
 } from "./chat-file-folders.js";
-import { migrateChatFiles } from "./chat-file-migration.js";
+import { migrateChatFiles, removeStranded } from "./chat-file-migration.js";
 
 // Files picked in the composer but not sent yet; they expire after a day. A page left
 // without sending may leave its files behind, so a conversation at the cap gives up
@@ -340,17 +340,12 @@ export class AgentAttachments {
     for (const file of old) await this.remove(file);
     await this.videos.sweep(assistantId);
   }
-  // Removes a row and its copy. A folder no longer safe refuses, and the row stays
-  // with its copy until the owner's clear. A move stopped between its rename and the
-  // row's mark (chat-file-migration.js) left an unmarked row's copy in its chat's
-  // folder: that copy goes too.
+  // Removes a row and its copy (also one a stopped move left in its chat's folder). A
+  // folder no longer safe refuses, and the row stays with its copy until the clear.
   async remove(file) {
     const folder = await this.folderOf(file);
     if (folder) await fs.rm(path.join(folder.path, file.file), { force: true });
-    if (!file.chat && this.chatFolders(file.row.assistant_id)) {
-      const moved = await this.folderOf({ ...file, chat: true }).catch(() => null);
-      if (moved) await fs.rm(path.join(moved.path, file.file), { force: true });
-    }
+    await removeStranded(this, file);
     this.db.prepare("DELETE FROM agent_attachments WHERE id=?").run(file.id);
   }
   /**

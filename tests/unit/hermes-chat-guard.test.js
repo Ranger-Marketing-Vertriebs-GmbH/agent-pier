@@ -232,3 +232,31 @@ test("a shared agent searches no attachments/ a move left in its work folder", a
   fs.mkdirSync(path.join(own.workspace, "attachments"));
   assert.deepEqual(await own.guard("search_files", { pattern: "x" }), allowed);
 });
+
+test("a shared agent reads no created image an older AgentPier left unmoved", async (t) => {
+  const { guard, workspace } = setup(t);
+  const old = path.join(workspace, "generated-images");
+  fs.mkdirSync(old);
+  // A folder of that name holding only other files is the agent's own.
+  fs.writeFileSync(path.join(old, "logo.png"), "x");
+  assert.deepEqual(await guard("search_files", { pattern: "x" }), allowed);
+  assert.deepEqual(
+    await guard("read_file", { path: "generated-images/logo.png" }),
+    allowed,
+  );
+  const image = "image_20261101_120001_00000001.png";
+  fs.writeFileSync(path.join(old, image), "x");
+  for (const [tool, args] of [
+    ["search_files", { pattern: "x" }],
+    ["search_files", { path: "generated-images", pattern: "x" }],
+    ["read_file", { path: `generated-images/${image}` }],
+    ["read_file", { path: path.join(old, "logo.png") }],
+    ["vision_analyze", { image_url: path.join(old, image) }],
+  ])
+    assert.deepEqual(await guard(tool, args), home, JSON.stringify(args));
+  // An agent not shared with users reads it as before.
+  const own = setup(t, { shared: false });
+  fs.mkdirSync(path.join(own.workspace, "generated-images"));
+  fs.writeFileSync(path.join(own.workspace, "generated-images", image), "x");
+  assert.deepEqual(await own.guard("search_files", { pattern: "x" }), allowed);
+});

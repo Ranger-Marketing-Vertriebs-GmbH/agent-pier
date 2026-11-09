@@ -36,8 +36,19 @@ async function holds(target, file) {
 export async function migrateChatFiles(a, assistantId) {
   if (!a.chatFolders(assistantId)) return 0;
   await restoreGone(a, assistantId);
-  // A shared agent's images an older AgentPier kept in its work folder.
-  let moved = await migrateGeneratedImages(a, assistantId, unclaimed);
+  let moved = 0;
+  try {
+    moved = await moveAttachments(a, assistantId);
+  } finally {
+    // Then, also when that failed, a shared agent's images an older AgentPier kept in
+    // its work folder; their move never throws.
+    moved += await migrateGeneratedImages(a, assistantId);
+  }
+  return moved;
+}
+
+async function moveAttachments(a, assistantId) {
+  let moved = 0;
   // Without attachments/ only rows whose copy a stopped move left in its chat's
   // folder are marked.
   const old = await a.folder(assistantId, false);
@@ -87,6 +98,16 @@ export async function migrateChatFiles(a, assistantId) {
   // Empty now, unless a copy had to stay.
   await fs.rmdir(old.path).catch(() => {});
   return moved;
+}
+
+/**
+ * Removes the copy a move stopped between its rename and the row's mark left in the
+ * chat folder of an unmarked row (`a`: AgentAttachments), as the row goes.
+ */
+export async function removeStranded(a, file) {
+  if (file.chat || !a.chatFolders(file.row.assistant_id)) return;
+  const folder = await a.folderOf({ ...file, chat: true }).catch(() => null);
+  if (folder) await fs.rm(path.join(folder.path, file.file), { force: true });
 }
 
 const markChat = (a, file) =>

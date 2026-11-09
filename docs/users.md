@@ -95,8 +95,10 @@ An agent for users is either:
   ([Dreaming](agents.md#dreaming)). Files sent in a chat stay with that chat: a turn
   in another person's chat cannot read or share them. Media OpenClaw keeps outside
   the chat's files (a photo from a Telegram chat, a large image, chat images an older
-  version kept in `media/inbound/`) is closed to the file tools of every chat; the
-  agent still sees an image in the turn it arrives with. Images a Hermes agent created
+  version kept in `media/inbound/`, browser screenshots and created images in its
+  media store) is closed to the file tools of every chat, and a file path typed into
+  a chat never loads an image by itself; the agent still sees an image in the turn it
+  arrives with. Images a Hermes agent created
   under an older AgentPier move from its work folder into the chat they were shared
   in. The owner keeps a chat of his
   own with a shared agent (**Open my chat**).
