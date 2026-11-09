@@ -471,31 +471,36 @@ test("an approval auto mode fails to allow three times goes to the owner", async
 
 test("a new activity line changes the rebuild's view while it runs", async (t) => {
   let failing = false;
+  let failed = 0;
   const f = rebuildsFixture(t, {
-    script: {
-      steps: [{ wait: 300 }, { activity: "Reading the target" }, { wait: 10000 }],
-    },
+    // The line is written only after the test answers the question.
+    script: { steps: [question, { activity: "Reading the target" }, { wait: 10000 }] },
     intercept: (name) => {
-      if (name === "rebuild_activity_show" && failing)
+      if (name === "rebuild_activity_show" && failing) {
+        failed += 1;
         throw Object.assign(new Error("busy"), { code: "busy" });
+      }
     },
   });
   const view = await f.rebuilds.start({ request: "Watch me" });
+  assert.ok(await settled(f.rebuilds, view.id, "needs_you"));
   const first = f.rebuilds.get(view.id).activityRevision;
   assert.match(first, /^[0-9a-f]{16}$/);
   const changes = [];
   f.rebuilds.onChange((event) => changes.push(event));
+  const [open] = f.rebuilds.get(view.id).questions;
+  await f.rebuilds.answer(view.id, open.id, { choice: "Red" });
+  const read = async () => (await f.rebuilds.activity(view.id)).lines.at(-1) ?? "";
+  assert.ok(await until(async () => (await read()).endsWith("Reading the target")));
   assert.ok(await until(() => f.rebuilds.get(view.id).activityRevision !== first));
   assert.ok(
     changes.some((event) => event.id === view.id),
     "the topic is signalled",
   );
-  const { lines } = await f.rebuilds.activity(view.id);
-  assert.ok(lines.at(-1).endsWith("Reading the target"));
   // A failed read keeps the revision.
   const known = f.rebuilds.get(view.id).activityRevision;
   failing = true;
-  await new Promise((resolve) => setTimeout(resolve, 200));
+  assert.ok(await until(() => failed >= 2), "the sampler tried again");
   assert.equal(f.rebuilds.get(view.id).activityRevision, known);
   assert.equal(f.rebuilds.get(view.id).status, "building");
 });

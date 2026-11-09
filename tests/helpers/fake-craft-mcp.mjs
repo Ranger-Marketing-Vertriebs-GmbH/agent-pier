@@ -11,7 +11,8 @@
  * before each tool result. `rebuild_start` needs `--allow-run`.
  *
  * Each project lives in its `project_folder`: `craft.json` (request, target, stack,
- * status — `building`, `needs_you`, `stopped`, `ready` or `failed` as in 0.5.0 — note, checks, questions, conversation, agent_session and, for tests,
+ * status — `building` (also while a question waits, with `waiting: n`), `stopped`,
+ * `ready` or `failed` as in 0.5.0 — note, checks, questions, conversation, agent_session and, for tests,
  * `fake_builder: { pid, claude_config_dir }`), `usage.json` and
  * `build-activity.log`. The project index (name → folder) is kept in
  * `$CRAFT_ANYTHING_CONFIG_DIR/fake-craft-projects.json`, so a new server finds the
@@ -180,7 +181,7 @@ function startBuilder(entry) {
     }
   });
   update(entry, (record) => {
-    record.status = open(record).length ? "needs_you" : "building";
+    record.status = "building";
     record.note = open(record).length ? open(record)[0].title : "Building";
     record.fake_builder = {
       pid: builder.pid,
@@ -261,7 +262,6 @@ function perform(entry, step) {
     update(entry, (r) => {
       r.questions_asked += 1;
       r.questions.push(question);
-      r.status = "needs_you";
       r.note = question.title;
     });
     activity(entry, `Asked ${question.kind} ${question.id}: ${question.title}`);
@@ -424,10 +424,7 @@ const tools = {
     update(entry, (r) => {
       r.questions = r.questions.filter((q) => q.id !== id);
       r.conversation.push({ role: "user", text: `${question.title}: ${answer}` });
-      if (r.status === "needs_you" && !open(r).length) {
-        r.status = entry.builder ? "building" : "stopped";
-        r.note = "Building";
-      }
+      if (r.status === "building" && !open(r).length) r.note = "Building";
     });
     activity(entry, `Answered ${id}: ${answer}`);
     // The steps waited for this answer; they go on once nothing else is open.

@@ -140,7 +140,9 @@ test("resuming asks an open question again and waits for the new one", async (t)
     ).length;
   assert.equal(await activity(), 0, "the steps wait while the question is open");
   const status = await client.call("rebuild_status", { project });
-  assert.equal(status.status, "needs_you");
+  // Like 0.5.0: a waiting question reads building, counted in `waiting`.
+  assert.equal(status.status, "building");
+  assert.equal(status.waiting, 2, "the old one and the one asked again");
   const show = await client.call("project_show", { project });
   assert.deepEqual(
     show.questions.map((question) => question.id),

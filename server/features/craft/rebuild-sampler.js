@@ -1,4 +1,5 @@
 import { logCraftFailure } from "./craft-log.js";
+import { ownerQuestions } from "./rebuild-questions.js";
 import {
   activityRevision,
   freshQuestions,
@@ -78,22 +79,41 @@ export class RebuildSampler {
       const fields = sampledFields(status, show, ...asked);
       const { questions, running } = fields;
       const fresh = freshQuestions(questions, running, record.staleQuestions);
-      r.update(record, {
-        ...fields,
-        ...fresh,
-        questions: this.marked(record, fresh),
-        activityRevision: activity,
-      });
+      r.update(
+        record,
+        this.waiting(record, {
+          ...fields,
+          ...fresh,
+          questions: this.marked(record, fresh),
+          activityRevision: activity,
+        }),
+      );
       this.forgetApprovals(record);
       if (!approve || !record.autoMode) return;
       const { answered, failed } = await this.allowApprovals(record, client);
       if (answered) await this.sample(record, { approve: false });
-      else if (failed) r.update(record, { questions: this.marked(record, record) });
+      else if (failed)
+        r.update(
+          record,
+          this.waiting(record, { questions: this.marked(record, record) }),
+        );
     } catch (error) {
       if (!goneCodes.has(error.code)) throw error;
     } finally {
       r.children.settle(record.accountId, record.mode);
     }
+  }
+
+  /**
+   * `fields` with status `needs_you` while the build runs and a question or approval
+   * waits for the owner: Craft Anything 0.5.0 reports `building` then (with
+   * `waiting: n`). Approvals auto mode still allows do not count (ownerQuestions).
+   */
+  waiting(record, fields) {
+    const next = { ...record, ...fields };
+    if (next.running && next.status === "building" && ownerQuestions(next).length)
+      return { ...fields, status: "needs_you" };
+    return fields;
   }
 
   /**
