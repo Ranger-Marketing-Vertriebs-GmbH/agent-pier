@@ -54,3 +54,30 @@ for (const [label, viewport] of [
     await expect(page.getByRole("menuitem", { name: "Download as ZIP" })).toBeVisible();
   });
 }
+
+for (const [label, viewport] of [
+  ["desktop", { width: 1280, height: 800 }],
+  ["phone", { width: 390, height: 844 }],
+]) {
+  test(`${label}: a PDF is opened inline in a new window and still downloadable`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await actionsFixture(page);
+    await page.route("**/api/files/preview?**", (route) =>
+      route.fulfill({ json: { type: "pdf", path: "/home/test/a.txt" } }),
+    );
+    await selectEnglish(page);
+    await page.goto(baseURL + "/files");
+    await page.getByRole("button", { name: "a.txt", exact: true }).click();
+
+    const open = page.getByRole("link", { name: "Open PDF", exact: true });
+    await expect(open).toHaveAttribute("href", `${href("a.txt")}&inline=1`);
+    await expect(open).toHaveAttribute("target", "_blank");
+    await expect(open).toHaveAttribute("rel", /noopener/);
+    await expect(
+      page.getByRole("link", { name: "Download file", exact: true }),
+    ).toHaveAttribute("href", href("a.txt"));
+    await expect(page.getByText("This file type cannot be previewed.")).toHaveCount(0);
+  });
+}

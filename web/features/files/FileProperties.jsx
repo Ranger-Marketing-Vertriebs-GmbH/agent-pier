@@ -19,6 +19,7 @@ export default function FileProperties({
   selectedPath,
   entry,
   downloadHref,
+  openHref,
   preview,
   error,
   previewError,
@@ -120,6 +121,16 @@ export default function FileProperties({
           )}
           <div className="file-preview-primary-actions">
             <div ref={actionTarget} />
+            {openHref && (
+              <a
+                className="button secondary compact"
+                href={openHref}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {copy.openPdf}
+              </a>
+            )}
             {downloadHref && (
               <FileLink className="button secondary compact" href={downloadHref}>
                 {copy.downloadFile}

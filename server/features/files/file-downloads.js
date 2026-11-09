@@ -6,7 +6,12 @@ import { resolveFile, entryRevision } from "./file-paths.js";
 import { ownedHandle, closeHandles, inodeIdentity } from "./file-stage.js";
 import { fileProblem, fileSystemProblem } from "./file-errors.js";
 
-export async function downloadFile(scope, selectedPath, response, { signal } = {}) {
+export async function downloadFile(
+  scope,
+  selectedPath,
+  response,
+  { signal, inline = false } = {},
+) {
   let native, root, handle;
   try {
     signal?.throwIfAborted();
@@ -31,7 +36,13 @@ export async function downloadFile(scope, selectedPath, response, { signal } = {
       throw fileProblem("FILE_PATH_CHANGED", 409);
     if (stat.size > BigInt(Number.MAX_SAFE_INTEGER))
       throw fileProblem("FILE_LIMIT_EXCEEDED", 413);
-    attachmentHeaders(response, selected.path, stat.size);
+    // Only a real PDF is ever shown inline; any other file stays an attachment.
+    const magic = Buffer.alloc(5);
+    const used =
+      inline && stat.size >= 5n ? (await handle.read(magic, 0, 5, 0)).bytesRead : 0;
+    if (used === 5 && magic.toString("latin1") === "%PDF-")
+      attachmentHeaders(response, selected.path, stat.size, { inline: true });
+    else attachmentHeaders(response, selected.path, stat.size);
     await pipeline(Readable.from(ownedDownloadBytes(handle, stat, signal)), response, {
       signal,
     });
@@ -46,17 +57,20 @@ export async function downloadFile(scope, selectedPath, response, { signal } = {
   }
 }
 
-export function attachmentHeaders(response, selectedName, size) {
+export function attachmentHeaders(response, selectedName, size, { inline = false } = {}) {
   const name = path.basename(selectedName).replace(/[\p{Cc}]/gu, "_");
   const fallback = name.replace(/[^\x20-\x7e]/g, "_").replace(/["\\]/g, "_");
   const encoded = encodeURIComponent(name).replace(
     /['()*]/g,
     (value) => `%${value.charCodeAt(0).toString(16).toUpperCase()}`,
   );
-  response.setHeader("Content-Type", "application/octet-stream");
+  response.setHeader(
+    "Content-Type",
+    inline ? "application/pdf" : "application/octet-stream",
+  );
   response.setHeader(
     "Content-Disposition",
-    `attachment; filename="${fallback}"; filename*=UTF-8''${encoded}`,
+    `${inline ? "inline" : "attachment"}; filename="${fallback}"; filename*=UTF-8''${encoded}`,
   );
   response.setHeader("Cache-Control", "no-store");
   response.setHeader("X-Content-Type-Options", "nosniff");

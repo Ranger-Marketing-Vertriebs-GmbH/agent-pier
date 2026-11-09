@@ -72,6 +72,7 @@ export function fileTransferStreams({ files }) {
               downloadFile(fresh, req.query.path ?? "", res, {
                 signal,
                 limits: files.limits,
+                inline: req.query.inline === "1",
               }),
             { signal: abort.signal },
           );

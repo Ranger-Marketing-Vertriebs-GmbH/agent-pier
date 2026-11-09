@@ -571,6 +571,9 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
                     entry?.type === "file" ? client.directDownload(entry.path) : null
                   }
                   preview={preview}
+                  openHref={
+                    preview?.type === "pdf" ? client.inlineDownload(entry.path) : null
+                  }
                   error={propertiesError}
                   previewError={previewError}
                   previewOwner={selectionOwner.current}

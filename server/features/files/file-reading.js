@@ -140,6 +140,9 @@ export async function previewResolvedFile(
     const magic = Buffer.alloc(magicBytes);
     const magicUsed = await fillBuffer(handle, magic);
     const mime = imageMime(magic.subarray(0, magicUsed));
+    // A PDF is not read here: the browser opens it from the inline download route.
+    if (!mime && magic.subarray(0, magicUsed).toString("latin1").startsWith("%PDF-"))
+      return { path: resolved.path, type: "pdf" };
     const configured = limits ? readFileLimits(limits) : defaultFileLimits;
     const limit = mime
       ? legacy
