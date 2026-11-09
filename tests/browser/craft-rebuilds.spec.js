@@ -180,6 +180,27 @@ test("an approval auto mode could not allow carries a note", async ({ page }) =>
   ).toHaveCount(0);
 });
 
+test("removes a rebuild from the list after a confirmation", async ({ page }) => {
+  const state = await craftRebuildsFixture(page);
+  await page.goto(`${baseURL}/craft/${buildingId}`);
+  await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible();
+  // A running rebuild is paused first.
+  await expect(page.getByRole("button", { name: "Remove from list" })).toHaveCount(0);
+  await page.goto(`${baseURL}/craft/${readyId}`);
+  await page.getByRole("button", { name: "Remove from list" }).click();
+  const dialog = page.getByRole("dialog", {
+    name: "Remove rebuild “timer” from the list?",
+  });
+  await expect(dialog).toContainText("Its folder and its project stay");
+  await dialog.getByRole("button", { name: "Remove from list" }).click();
+  await expect(page).toHaveURL(`${baseURL}/craft`);
+  await expect(page.getByRole("link", { name: /shop-clone/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /timer/ })).toHaveCount(0);
+  expect(callsTo(state, `/craft/rebuilds/${readyId}`, "DELETE")).toHaveLength(1);
+  await page.goto(`${baseURL}/craft/${readyId}`);
+  await expect(page.getByText("This rebuild no longer exists.")).toBeVisible();
+});
+
 test("asks a ready rebuild for changes", async ({ page }) => {
   const state = await craftRebuildsFixture(page);
   await page.goto(`${baseURL}/craft/${readyId}`);

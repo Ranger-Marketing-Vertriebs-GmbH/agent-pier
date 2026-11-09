@@ -268,6 +268,24 @@ export class CraftRebuilds {
     });
   }
 
+  /**
+   * Removes the rebuild from the list: its record, so its inbox items and pushes end
+   * too. Its folder, its AgentPier project and Craft Anything's own records stay.
+   * Refused while it runs or starts (Pause first).
+   */
+  async remove(id) {
+    const record = this.require(id);
+    return this.serial(id, async () => {
+      if (record.running) throw refuse(messages.rebuildRunning);
+      this.records.delete(id);
+      this.unrestored.delete(id);
+      this.sampler.forgetApprovals({ id, questions: [] });
+      this.persist();
+      this.emit({ list: true });
+      this.children.settle(record.accountId, record.mode);
+    });
+  }
+
   /** Switches auto mode: Craft Anything decides questions, approvals are allowed. */
   async setAutoMode(id, on) {
     const record = this.require(id);

@@ -53,6 +53,7 @@ export function useRebuild(id) {
     resume: act("continue"),
     followUp: (request) => act("follow-up", { request })(),
     autoMode: (on) => act("auto-mode", { on })(),
+    remove: () => api(rebuildPath(id), "DELETE"),
   };
 }
 

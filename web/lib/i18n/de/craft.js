@@ -92,6 +92,10 @@ export const craftCopy = {
     openFolder: "Ordner öffnen",
     openSession: "Hier eine Session öffnen",
     gone: "Diesen Nachbau gibt es nicht mehr.",
+    remove: "Aus der Liste entfernen",
+    removeTitle: (name) => `Nachbau „${name}“ aus der Liste entfernen?`,
+    removeBody:
+      "AgentPier vergisst diesen Nachbau mit seinen offenen Rückfragen. Sein Ordner und sein Projekt bleiben, mit allem, was Craft Anything gebaut hat.",
   },
   source: {
     owner: "Von dir gestartet",
