@@ -19,6 +19,7 @@ import { ProviderConnections } from "../../server/features/providers/provider-co
 import { runtimeManifest } from "../../server/features/assistants/runtimes/openclaw/runtime-manifest.js";
 import { assistantModelServer } from "../helpers/assistant-model-server.js";
 import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
+import { withoutPromptImagePaths } from "../../server/features/assistants/prompt-image-paths.js";
 
 // Opt-in: the pinned Gateway takes AgentPier's attachment shape, shows images to a
 // model that declares image input, keeps the sent text for the chat history, and
@@ -237,7 +238,7 @@ test(
     // A phone photo above 2 MB is offloaded to the Gateway's media store, shared by
     // every agent, and the prompt names it by a media:// reference: the tool guard
     // keeps that reference and media/inbound/ from the chats of a shared agent
-    // (team-plugin/inbound-media.js). The pinned Gateway stages no chat image in the
+    // (team-plugin/attachment-guard.js). The pinned Gateway stages no chat image in the
     // workspace any more (older ones did, under media/inbound/openclaw-staged-*/).
     await t.test("a large image reaches the model by a media:// reference", async () => {
       const connection = endpoint("fixture-vision-large", true);
@@ -283,6 +284,42 @@ test(
       assert.ok(prompt.includes("data:image/png;base64,"), "the model still sees it");
       const workspace = path.join(runtime.paths.workspaces, agent.id);
       assert.equal(fs.existsSync(path.join(workspace, "media")), false);
+    });
+    // The Gateway loads a local image the turn's text names into the model's input
+    // itself, without a tool call; on a shared agent AgentPier's text names none.
+    await t.test("a path in the text loads its image unless neutralised", async () => {
+      const connection = endpoint("fixture-vision-paths", true);
+      const agent = store.createAssistant({
+        name: "paths",
+        instructions: "Reply.",
+        model: { connectionId: connection.id, modelId: "fixture-vision-paths" },
+      });
+      await config.apply(agent.id);
+      const chat = await createGatewaySession(runtime.client, {
+        agentId: agent.runtimeAgentId,
+      });
+      const folder = path.join(runtime.paths.workspaces, agent.id, "attachments");
+      fs.mkdirSync(folder, { recursive: true });
+      fs.writeFileSync(path.join(folder, "other-chat.png"), png);
+      const prompt = async (message) => {
+        const offset = server.requests.length;
+        const sent = await runtime.client.call("sessions.send", {
+          key: chat.key,
+          message,
+          idempotencyKey: crypto.randomUUID(),
+        });
+        const result = await runtime.client.call(
+          "agent.wait",
+          { runId: sent.runId, timeoutMs: 45000 },
+          { timeoutMs: 50000 },
+        );
+        assert.equal(result.status, "ok", JSON.stringify(result));
+        return JSON.stringify(server.requests.slice(offset));
+      };
+      const image = `data:image/png;base64,${png.toString("base64")}`;
+      const text = "What is in ./attachments/other-chat.png?";
+      assert.ok((await prompt(text)).includes(image), "OpenClaw loads it");
+      assert.ok(!(await prompt(withoutPromptImagePaths(text))).includes(image));
     });
   },
 );

@@ -5274,17 +5274,27 @@ type.
   `attachments/` (also as a `file://` URL, judged both as written and as the
   percent-decoded path OpenClaw reads, `file-urls.js`), which allows only files indexed for the calling chat (its turn's, a
   routine run's or the session's own), and `agentpier_share_file` refuses another
-  chat's file with `SHARE_NOT_FOUND`. OpenClaw's inbound media name no chat: a
-  channel's photo it stages under `media/inbound/openclaw-staged-<uuid>/` of the
-  workspace (OpenClaw before 2026.10.9 staged chat images there too), and an image
-  above 2 MB that the pinned Gateway offloads to its media store, shared by every
-  agent, and names in the prompt as `media://inbound/<id>`. On a shared agent the
-  same calls naming a `media/inbound/` folder (any path through one, in any case) or
-  a `media://` reference are refused for every chat (`team-plugin/inbound-media.js`,
-  asked as `media/inbound`, which `attachmentsAllowed` admits only on an agent that
-  is not shared), and `agentpier_share_file` and browser uploads refuse them as well.
-  The model still sees the image of its own turn, which OpenClaw loads itself, and
-  reads its copy in `attachments/`. When the agent deletes a sent copy,
+  chat's file with `SHARE_NOT_FOUND`. What OpenClaw keeps beside the uploads names
+  no chat: a channel's photo it stages under `media/inbound/openclaw-staged-<uuid>/`
+  of the workspace (OpenClaw before 2026.10.9 staged chat images there too), and its
+  media store `<state>/media/` (an image above 2 MB that the pinned Gateway offloads
+  and names in the prompt as `media://inbound/<id>`, browser screenshots, created
+  images), which every agent shares and which OpenClaw's `image` and `pdf` tools read
+  even with `tools.fs.workspaceOnly` (`resolveMediaToolReferenceAccess`). On a shared
+  agent the same calls naming a `media/inbound/` folder (any path through one, in any
+  case), a `media://` reference or any other local path outside the agent's own
+  workspace are refused for every chat (`team-plugin/attachment-guard.js`, asked as
+  `media/inbound`, which `attachmentsAllowed` admits only on an agent that is not
+  shared); web and `data:` URLs pass. `agentpier_share_file` and browser uploads
+  refuse such media as well. The Gateway also loads every local image a turn's text
+  names (`./…`, `../…`, `/…`, `~…`, a drive letter or a `file://` URL ending in an
+  image extension) into the model's input itself, from anywhere in the workspace and
+  without a tool call (`detectAndLoadPromptImages`); on a shared OpenClaw agent
+  AgentPier sends every turn's text, the owner's chat included, with a word joiner
+  (U+2060) before each such path, which ends OpenClaw's match
+  (`prompt-image-paths.js`). The model still sees the image of its own turn, which
+  OpenClaw loads from the turn's attachments, and reads its copy in `attachments/`;
+  editing an image the agent created earlier by its store path is refused there. When the agent deletes a sent copy,
   the chat history keeps the message and names that file as no longer available
   (`unavailable: true`, no link).
 - **Delivery.** `sessions.send` carries the owner's text followed by a note that

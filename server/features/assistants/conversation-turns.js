@@ -1,12 +1,13 @@
 import { assistantProblem, validateSendInput } from "./assistant-validation.js";
-import { memberLevel } from "../users/user-access.js";
+import { isShared, memberLevel } from "../users/user-access.js";
 import { plainTurnText } from "./plain-turn-text.js";
 import { titleFromTurn } from "./chat-titles.js";
 import { chatProblem } from "./agent-chats.js";
 import { confirmFromAck } from "./run-confirmation.js";
 import { memoryStep } from "./memory-write-policy.js";
 import { admittingOn, agentDegradedOn, noteRefusalOn } from "./agent-admission.js";
-import { hostConnection, runtimeFor } from "./runtimes/runtime-for.js";
+import { hostConnection, runtimeFor, runtimeIdOf } from "./runtimes/runtime-for.js";
+import { withoutPromptImagePaths } from "./prompt-image-paths.js";
 import { acceptingChat, redirectedTo } from "./chat-successor.js";
 import { recordFamily } from "./model-hints.js";
 
@@ -169,8 +170,12 @@ export async function sendTurn(service, conversationId, input, trustedContext) {
     // A user's chat (web, her Telegram bot, queued) never sends OpenClaw commands,
     // and its files are announced as hers.
     const byUser = typeof conversation.userId === "string";
+    let text = byUser ? plainTurnText(request.text) : request.text;
+    // On a shared OpenClaw agent no turn's text loads another chat's image by path.
+    if (isShared(agent) && runtimeIdOf(agent) === "openclaw")
+      text = withoutPromptImagePaths(text);
     const turn = await service.attachments.delivery(
-      byUser ? { ...request, text: plainTurnText(request.text) } : request,
+      { ...request, text },
       conversation.assistantId,
       { byUser },
     );

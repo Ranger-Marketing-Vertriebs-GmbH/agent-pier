@@ -2,12 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { attachmentTargets } from "../../server/features/assistants/team-plugin/tool-guard.js";
 import {
-  INBOUND_MEDIA,
+  NO_CHAT,
   inboundMedia,
-} from "../../server/features/assistants/team-plugin/inbound-media.js";
+} from "../../server/features/assistants/team-plugin/attachment-guard.js";
 
 const scope = { roots: ["/w"], agentId: "ap-a1" };
 const names = (toolName, params) => attachmentTargets(toolName, params, scope);
+const chatless = (toolName, params) =>
+  attachmentTargets(toolName, params, { ...scope, chatless: true });
 
 // OpenClaw decodes a file: path with fileURLToPath, so every spelling it reads as the
 // agent's attachments/ folder names that folder's file for the bridge.
@@ -54,8 +56,8 @@ test("an undecodable file: value is judged as written", () => {
 });
 
 // OpenClaw's inbound media name no chat: every spelling of one asks the bridge with
-// INBOUND_MEDIA, which only an agent that is not shared may use.
-test("inbound media and media:// references name INBOUND_MEDIA", () => {
+// NO_CHAT, which only an agent that is not shared may use.
+test("inbound media and media:// references name NO_CHAT", () => {
   for (const value of [
     "media/inbound/openclaw-staged-1/input-a.png",
     "./Media/INBOUND/openclaw-staged-1/input-a.png",
@@ -72,13 +74,13 @@ test("inbound media and media:// references name INBOUND_MEDIA", () => {
     "MEDIA:/data/state/media/inbound/x.png",
     "media/inbound",
   ])
-    assert.deepEqual(names("read", { path: value }), [INBOUND_MEDIA], value);
+    assert.deepEqual(chatless("read", { path: value }), [NO_CHAT], value);
   for (const value of [
     "media/x.png",
     "inbound/x.png",
     "media/inbounds/x.png",
     "MEDIA:x.png",
   ])
-    assert.deepEqual(names("read", { path: value }), [], value);
+    assert.deepEqual(chatless("read", { path: value }), [], value);
   assert.equal(inboundMedia(7), false);
 });

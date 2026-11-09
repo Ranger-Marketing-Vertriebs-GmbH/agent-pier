@@ -303,13 +303,17 @@ def _tool(tool, hook=False):
 
 
 def _names_folder(args):
-    # A cheap first look: only a call whose arguments name attachments/, chat-files/ or
-    # .agentpier/ in some spelling asks AgentPier, which resolves the paths itself.
+    # A cheap first look: only a call whose arguments name attachments/, chat-files/,
+    # .agentpier/ or generated-images/ in some spelling asks AgentPier, which resolves
+    # the paths itself.
     try:
         text = json.dumps(args).lower()
     except Exception:
         return True
-    return any(name in text for name in ("attachments", "chat-files", ".agentpier", "%"))
+    return any(
+        name in text
+        for name in ("attachments", "chat-files", ".agentpier", "generated-images", "%")
+    )
 
 
 def _inside(args):

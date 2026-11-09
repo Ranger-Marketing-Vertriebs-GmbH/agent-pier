@@ -9,7 +9,7 @@ import {
   attachmentRefusal,
   attachmentTools,
 } from "../../server/features/assistants/team-plugin/tool-guard.js";
-import { inboundRefusal } from "../../server/features/assistants/team-plugin/inbound-media.js";
+import { noChatRefusal } from "../../server/features/assistants/team-plugin/attachment-guard.js";
 import { capabilityTools } from "../../server/features/assistants/native-capabilities.js";
 
 // The fixture's agent shared by Anna (its chat) and Ben (a second chat), each with
@@ -131,20 +131,37 @@ const inboundCalls = (f) => [
   ["image", { image: "MEDIA: media://inbound/photo.png" }],
   ["image", { image: "MEDIA:/data/assistants/state/media/inbound/photo.png" }],
   ["read", { path: "media/inbound" }],
+  // The Gateway's media store, shared by every agent, which OpenClaw's image and pdf
+  // tools read beside the workspace; any other local path outside the workspace too.
+  [
+    "view_image",
+    { path: path.join(path.dirname(f.workspaces), "state/media/browser/a.png") },
+  ],
+  ["pdf", { pdf: "../../state/media/outgoing/b.pdf" }],
+  ["image", { image: "~/x.png" }],
+  ["image", { image: pathToFileURL(path.join(f.workspaces, "other", "x.png")).href }],
   ["write", { path: staged, content: "x" }],
 ];
 
-test("no turn on a shared agent names OpenClaw's inbound media", async (t) => {
+test("no turn on a shared agent names inbound media or anything outside its workspace", async (t) => {
   const f = await sharedAgent(t);
   f.file(f.agent, staged, "image");
   await f.turn(f.chat, "anna-turn", { kind: "user", userId: "anna" });
   for (const [tool, params] of inboundCalls(f))
     assert.deepEqual(
       await f.call(f.chat, tool, params),
-      { block: true, blockReason: inboundRefusal },
+      { block: true, blockReason: noChatRefusal },
       JSON.stringify(params),
     );
-  // A media folder of the agent's own stays readable.
+  // The web, inline data and a media folder of the agent's own stay readable.
+  assert.equal(
+    await f.call(f.chat, "image", { image: "https://example.com/a.png" }),
+    undefined,
+  );
+  assert.equal(
+    await f.call(f.chat, "image", { image: "data:image/png;base64,AA" }),
+    undefined,
+  );
   assert.equal(await f.call(f.chat, "read", { path: "media/notes.md" }), undefined);
   assert.equal(await f.call(f.chat, "read", { path: "inbound/notes.md" }), undefined);
   // Nor can a turn share a staged copy.

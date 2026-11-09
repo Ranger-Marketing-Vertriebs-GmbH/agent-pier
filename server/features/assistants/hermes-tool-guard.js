@@ -27,6 +27,7 @@ import {
 } from "./hermes-home-guard.js";
 import { agentChatPath, chatFolderPath } from "./chat-file-folders.js";
 import { isShared } from "../users/user-access.js";
+import { OLD_IMAGES, leftoverImages } from "./hermes-image-migration.js";
 
 // The OpenClaw tool each Hermes file tool corresponds to for the write rule
 // (tool-guard.js writeTools): write_file writes a file, patch edits one, and its V4A
@@ -309,6 +310,11 @@ async function chatGuard(bridge, input, agent, args, call) {
   // On a shared agent a search never covers an attachments/ left in its work folder:
   // it holds files of every chat until they moved (chat-file-migration.js).
   if (search && isShared(agent) && searchCovers(runtime, agent, reads, "attachments"))
+    return homeRefusal;
+  // Nor does any read reach an image an older AgentPier created that has not moved
+  // yet (hermes-image-migration.js).
+  const shared = reads && isShared(agent);
+  if (shared && searchCovers(runtime, agent, reads, OLD_IMAGES, leftoverImages))
     return homeRefusal;
   if (search && searchCovers(runtime, agent, reads)) {
     const session = input.sessionKey ? { sessionKey: input.sessionKey } : {};

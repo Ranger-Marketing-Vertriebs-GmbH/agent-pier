@@ -145,22 +145,31 @@ export function chatFolderRefusal(supervisor, agent, config, conversationId, val
 }
 
 /**
- * Whether a search (`values`, readValues) covers the folder `name` of the agent's
- * work folder without naming it, while that folder exists: its secrets folder
+ * Whether a search or read (`values`, readValues) covers or enters the folder `name`
+ * of the agent's work folder while that folder exists: its secrets folder
  * (.agentpier/, agent-secrets.js), in which Hermes counts matches of hidden files
  * when a search finds none (`_zero_match_probe`), or the attachments/ a move into
- * the chat folders left behind (chat-file-migration.js). True when unsure.
+ * the chat folders left behind (chat-file-migration.js); `holds` decides whether it
+ * still matters (by default: it exists). True when unsure.
  */
-export function searchCovers(supervisor, agent, values, name = managedFolder) {
+export function searchCovers(
+  supervisor,
+  agent,
+  values,
+  name = managedFolder,
+  holds = fs.existsSync,
+) {
   const folders = foldersOf(supervisor, agent);
   if (!folders) return true;
   const folder = path.join(folders.workspace, name);
-  if (!fs.existsSync(folder)) return false;
+  if (!holds(folder)) return false;
   const inside = forms(folder);
   return values.some((value) => {
     const file = target(value, folders.workspace, folders.home);
     if (file === null) return false;
     if (!file) return true;
-    return forms(file).some((named) => inside.some((f) => within(named, f)));
+    return forms(file).some((named) =>
+      inside.some((f) => within(named, f) || within(f, named)),
+    );
   });
 }

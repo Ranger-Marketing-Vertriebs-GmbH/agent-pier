@@ -300,12 +300,18 @@ then removes that copy too.
 
 Images an older AgentPier created for a Hermes agent lie in `generated-images/` of its
 work folder, which every chat of an agent shared with users could read. On such an
-agent they leave it before each start of its process set as well
-(`hermes-image-migration.js`): an image whose bytes (size and SHA-256) a file the
-agent shared holds goes into the folder of the chat it was first shared into as
-`generated-<name>`, kept like a newly created image ([images](#images)); everything
-else, links and folders included (moved themselves, never followed), goes to
-`.unclaimed`. Each move is one rename, so a start after a crash finishes the rest; a
+agent they leave it at each start too, after the move of `attachments/` and also when
+that failed (`hermes-image-migration.js`). Only files named as Hermes names a created
+image (`<prefix>_<YYYYMMDD>_<HHMMSS>_<8 hex>.<ext>`) move, so other files in a folder
+of that name stay where they are. An image whose bytes (size and SHA-256) a live file
+the agent shared into an existing chat holds goes into the folder of the chat it was
+first shared into as `generated-<name>`, kept like a newly created image
+([images](#images)); its mtime stays, so one whose shared copy is past 90 days goes at
+the next quota check. Any other goes to `.unclaimed`, a link moved itself, never
+followed. Each move is one rename, so a start after a crash finishes the rest; an
+image that cannot move stays with a warning in the log, the others still move, and
+while one is left the guard refuses every read and search of the agent's that covers
+or enters `generated-images/` (the plugin's first look asks for that name). A
 `generated-images` link is left alone. The owner's and a user's own agents keep the
 folder, as all their chats are one person's, and a user's own agent never becomes
 shared.

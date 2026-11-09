@@ -30,7 +30,8 @@ const files = [
   "exec-processes.js",
   "background-commands.js",
   "managed-folder.js",
-  "inbound-media.js",
+  "attachment-guard.js",
+  "guard-paths.js",
   "openclaw.plugin.json",
   "package.json",
   // AgentPier's built-in skills (built-in-skills.js); the manifest's "skills" names

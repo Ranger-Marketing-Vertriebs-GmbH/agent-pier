@@ -2,9 +2,15 @@ import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { patchPaths } from "./patch-paths.js";
+import {
+  relativeTarget,
+  repairs,
+  workspaceId,
+  writeTargets,
+  writeTools,
+} from "./guard-paths.js";
+import { attachmentCall, attachmentTools } from "./attachment-guard.js";
 import { dreamsCall, dreamsTools } from "./dreams-guard.js";
-import { fileSpellings } from "./file-urls.js";
-import { INBOUND_MEDIA, inboundMedia, inboundRefusal } from "./inbound-media.js";
 import { secretsCall, secretsReadTools } from "./secrets-guard.js";
 import {
   fold,
@@ -13,7 +19,13 @@ import {
   managedRefusal,
   reachesManaged,
 } from "./managed-folder.js";
-export { fold, patchPaths };
+export { fold, patchPaths, repairs, workspaceId, writeTargets, writeTools };
+export {
+  attachmentCall,
+  attachmentRefusal,
+  attachmentTargets,
+  attachmentTools,
+} from "./attachment-guard.js";
 // Files OpenClaw loads into every prompt as agent instructions. Native tools may
 // never rewrite them; AgentPier owns AGENTS.md and the owner edits USER.md.
 export const bootstrapFiles = [
@@ -25,10 +37,6 @@ export const bootstrapFiles = [
   "HEARTBEAT.md",
   "BOOTSTRAP.md",
 ];
-// Every file-changing tool in OpenClaw's fs section (2026.10.3 tool catalog: ls,
-// read, write, edit, apply_patch). apply_patch is implied wherever write is
-// allowed (writeAllowsApplyPatch), so it is guarded like write.
-export const writeTools = ["write", "edit", "apply_patch"];
 // OpenClaw's own tools that an agent of restricted users never runs (lockedTools in
 // native-capabilities.js, less the plugin's tools, whose bridge actions refuse them).
 // Every call asks the bridge, so a stale or forged entry that still holds one is
@@ -96,69 +104,9 @@ export async function stepCall(event, ctx, bridge) {
         : stepRefusals.unavailable,
   };
 }
-/** The tool call's targets, each as classifyWrite sees a single-path call. */
-export function writeTargets(toolName, params) {
-  if (toolName !== "apply_patch") return [params];
-  const paths = patchPaths(params?.input);
-  return paths ? paths.map((target) => ({ path: target })) : [{}];
-}
 // Must stay below AgentPier's tolerance for a missing report after reconnecting.
 export const guardReportMs = 15000;
 const protectedNames = new Set(bootstrapFiles.map(fold));
-// The OpenClaw 2026.10.3 file tools repair model-corrupted paths after this hook runs
-// (agent-tools.before-tool-call.decision: XML arg_value suffix, Office extensions);
-// every repaired spelling is classified, not only the raw one.
-export function repairs(value) {
-  const forms = new Set([value, value.trim()]);
-  for (const form of [...forms]) {
-    let stripped = form;
-    while (/<\/arg_value>>+$/.test(stripped))
-      stripped = stripped.replace(/<\/arg_value>>+$/, "");
-    forms.add(stripped);
-  }
-  for (const form of [...forms]) {
-    forms.add(
-      form.replace(
-        /\.(doc|ppt|xls)(?:odex|codex|xodex|xcodex)$/i,
-        (_m, family) => `.${family.toLowerCase()}x`,
-      ),
-    );
-    // OpenClaw resolves "@name" to "name" when no literal "@name" exists.
-    if (form.startsWith("@")) forms.add(form.slice(1));
-  }
-  return [...forms];
-}
-// The agent's own workspace folder below the workspaces root (runtime id ap-<id>).
-export const workspaceId = (agentId) =>
-  typeof agentId === "string" && /^ap-[A-Za-z0-9-]{1,100}$/.test(agentId)
-    ? agentId.slice(3)
-    : null;
-// Workspace-relative POSIX path, or null when the target cannot be proven to stay
-// inside the calling agent's own workspace.
-function relativeTarget(raw, roots, ownId) {
-  // No workspace file needs a control or line-separator character; a path holding
-  // one may be read differently by another parser, so it is never a target.
-  if (!raw || /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/.test(raw)) return null;
-  let target = raw.replaceAll("\\", "/");
-  if (!target || /^(@|~|file:)/i.test(target)) return null;
-  if (path.posix.isAbsolute(target)) {
-    const inside = roots
-      .map((root) => path.posix.relative(root, path.posix.normalize(target)))
-      .find((rel) => rel && !rel.startsWith("../") && rel !== "..");
-    const [own, ...rest] = inside?.split("/") || [];
-    // A sibling agent's workspace is never a valid target.
-    if (!ownId || own !== ownId) return null;
-    target = rest.join("/");
-    if (!target) return null;
-  }
-  target = path.posix
-    .normalize(target)
-    .replace(/^(\.\/)+/, "")
-    .replace(/\/$/, "");
-  if (!target || target === "." || target.startsWith("../") || target === "..")
-    return null;
-  return target;
-}
 // Root-level names must be plain ASCII so no Unicode fold can reach a bootstrap file.
 // Workspace skill folders are loaded into the prompt like bootstrap files, and a
 // bootstrap name must never become a directory either.
@@ -234,72 +182,6 @@ export function classifyWrite(
       if (error.code !== "ENOENT" && error.code !== "ENOTDIR") return { outside: true };
     }
   return { path: targets[0] };
-}
-// File tools whose paths may name per-chat files (attachment-access.js) on shared agents.
-export const attachmentTools = [
-  "read",
-  "memory_get",
-  "pdf",
-  // Read images grants view_image (native-capabilities.js); older names stay matched.
-  "view_image",
-  "image",
-  "image_generate",
-  ...writeTools,
-];
-const pathKeys = ["path", "file_path", "filePath", "pdf", "pdfs", "image", "images"];
-const attachmentsFolder = /(^|\/)attachments(\/|$)/;
-/**
- * The stored names a call names in the calling agent's attachments/ folder ("" for
- * the folder itself or a path into it not resolved here; INBOUND_MEDIA for media).
- */
-export function attachmentTargets(toolName, params, { roots = [], agentId } = {}) {
-  const ownId = workspaceId(agentId);
-  const values = writeTools.includes(toolName)
-    ? writeTargets(toolName, params).flatMap((p) => [p?.path, p?.file_path, p?.filePath])
-    : pathKeys.flatMap((key) =>
-        Array.isArray(params?.[key]) ? params[key] : [params?.[key]],
-      );
-  const files = new Set();
-  for (const value of values) {
-    if (typeof value !== "string") continue;
-    // A file: URL counts as written and as the path OpenClaw decodes from it.
-    for (const form of repairs(value).flatMap(fileSpellings)) {
-      if (inboundMedia(form)) files.add(INBOUND_MEDIA);
-      const relative = relativeTarget(form, roots, ownId);
-      if (relative) {
-        const [first, ...rest] = relative.split("/");
-        if (fold(first) === "attachments") files.add(rest.join("/"));
-      } else if (attachmentsFolder.test(fold(form.replaceAll("\\", "/")))) files.add("");
-    }
-  }
-  return [...files];
-}
-export const attachmentRefusal =
-  "Files in attachments/ belong to the chat they were sent in. Use only the files sent in this chat.";
-/** Lets a file tool call into attachments/ through only as the bridge allows. */
-export async function attachmentCall(event, ctx, bridge, roots) {
-  let files;
-  try {
-    files = attachmentTargets(event?.toolName, event?.params, {
-      roots,
-      agentId: ctx?.agentId,
-    });
-  } catch {
-    files = [""];
-  }
-  if (!files.length) return undefined;
-  const response =
-    typeof ctx?.sessionKey === "string"
-      ? await bridge(
-          "/attachment-policy",
-          { agentId: ctx?.agentId, sessionKey: ctx.sessionKey, files },
-          ctx?.abortSignal,
-        ).catch(() => null)
-      : null;
-  const policy = response?.ok ? await response.json().catch(() => null) : null;
-  if (policy?.allow === true) return undefined;
-  const reason = files.includes(INBOUND_MEDIA) ? inboundRefusal : attachmentRefusal;
-  return { block: true, blockReason: reason };
 }
 // Why AgentPier refused a browser call (agent-browsers.js policy), for the model.
 export const browserRefusals = {
