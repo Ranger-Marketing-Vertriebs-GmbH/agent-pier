@@ -1,6 +1,7 @@
 import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import {
+  buildingId,
   craftRebuildsFixture,
   readyId,
   rebuild,
@@ -129,6 +130,54 @@ test("pauses and continues a rebuild and switches its auto mode", async ({ page 
   await auto.check();
   await expect(auto).toBeChecked();
   expect(callsTo(state, "/auto-mode").map((call) => call.body)).toEqual([{ on: true }]);
+});
+
+test("the activity follows the rebuild's pushes and keeps its lines when a read fails", async ({
+  page,
+  liveStub,
+}) => {
+  const state = await craftRebuildsFixture(page);
+  const topic = `craft.rebuild:${buildingId}`;
+  await page.goto(`${baseURL}/craft/${buildingId}`);
+  const activity = page.locator(".craft-activity");
+  await expect(activity).toContainText("Working on: Studying the target");
+  // A new line changes the rebuild's activity revision: the page reads it again.
+  state.activity = ["Reading the target", "Captured 7 pages"];
+  Object.assign(
+    state.rebuilds.find((item) => item.id === buildingId),
+    {
+      activityRevision: "b",
+    },
+  );
+  await liveStub.reread(topic);
+  await expect(activity).toContainText("Captured 7 pages");
+  state.activityFails = true;
+  Object.assign(
+    state.rebuilds.find((item) => item.id === buildingId),
+    {
+      activityRevision: "c",
+    },
+  );
+  await liveStub.reread(topic);
+  await expect(page.getByText("Craft Anything did not answer.")).toBeVisible();
+  await expect(activity).toContainText("Captured 7 pages");
+});
+
+test("an approval auto mode could not allow carries a note", async ({ page }) => {
+  const state = await craftRebuildsFixture(page);
+  const waiting = state.rebuilds.find((item) => item.id === waitingId);
+  waiting.autoMode = true;
+  waiting.questions[1].autoFailed = true;
+  await page.goto(`${baseURL}/craft/${waitingId}`);
+  const card = page.getByRole("article", { name: "Install the dependencies?" });
+  await expect(card.getByRole("note")).toHaveText(
+    "Auto mode could not allow this. Decide here whether it may run.",
+  );
+  await expect(
+    page
+      .getByRole("article", { name: "Which colour should the buttons have?" })
+      .getByRole("note"),
+  ).toHaveCount(0);
 });
 
 test("asks a ready rebuild for changes", async ({ page }) => {

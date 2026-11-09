@@ -49,7 +49,9 @@ The list shows each rebuild with its status (**Starting**, **Building**, **Check
 
 - the request, the latest check (each check passed or failed, and how similar the
   result is to the target), usage and Craft Anything's last reply;
-- **Activity**, which refreshes whenever the rebuild's view changes, not continuously;
+- **Activity**, which refreshes whenever the rebuild's view changes, and while the
+  build runs also with every new line Craft Anything writes; when a refresh fails, the
+  lines read before stay and an error shows below them;
 - **Pause** and **Continue**, **Ask for changes** (another round in the same
   project, sent with **Send request**) and the **Auto mode** switch of this rebuild;
 - **Open project**, **Open folder** and **Open a session here**.

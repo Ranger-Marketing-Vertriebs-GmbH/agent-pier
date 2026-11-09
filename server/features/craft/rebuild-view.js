@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 // How a rebuild reads in AgentPier: Craft Anything's status, note, checks, usage and
 // questions (rebuild_status + project_show) mapped to the RebuildView.
 
@@ -138,6 +140,22 @@ export const pausedFields = (record) => ({
   ],
 });
 
+/**
+ * A short digest of a rebuild's activity, from `rebuild_activity_show` with limit 1:
+ * the log's line count (`total_lines_read`, 0.5.0) and its last line. It changes
+ * with every new line, so the view (and its live topic) changes too.
+ */
+export function activityRevision(activity) {
+  const lines = Array.isArray(activity?.lines) ? activity.lines : [];
+  const total = Number.isInteger(activity?.total_lines_read)
+    ? activity.total_lines_read
+    : "";
+  return createHash("sha256")
+    .update(`${total}\n${lines.at(-1) ?? ""}`)
+    .digest("hex")
+    .slice(0, 16);
+}
+
 /** A new rebuild's record fields before Craft Anything reported anything. */
 export const initialFields = () => ({
   running: true,
@@ -150,6 +168,7 @@ export const initialFields = () => ({
   usage: { inputTokens: 0, outputTokens: 0, costUsd: 0 },
   lastReply: null,
   questions: [],
+  activityRevision: null,
 });
 
 const viewKeys = [
@@ -176,6 +195,7 @@ const viewKeys = [
   "usage",
   "lastReply",
   "questions",
+  "activityRevision",
 ];
 
 /**

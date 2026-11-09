@@ -33,7 +33,8 @@ export function useRebuilds() {
 
 /**
  * `craft.rebuild:<id>`: the rebuild (null once it is gone), its actions and its last
- * 200 activity lines, read again whenever the rebuild changes (no polling).
+ * 200 activity lines, read again whenever the rebuild changes (no polling). While it
+ * runs, a new activity line changes it too (`activityRevision`).
  */
 export function useRebuild(id) {
   const resource = useLiveTopic(id ? `craft.rebuild:${id}` : null);

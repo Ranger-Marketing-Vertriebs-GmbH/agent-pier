@@ -465,7 +465,10 @@ const tools = {
     } catch {
       // No activity yet.
     }
-    return { lines: lines.slice(-Math.max(1, Number(limit) || 100)) };
+    return {
+      lines: lines.slice(-Math.max(1, Number(limit) || 100)),
+      total_lines_read: lines.length,
+    };
   },
 };
 

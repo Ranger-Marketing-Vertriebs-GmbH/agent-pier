@@ -1,5 +1,10 @@
 import { logCraftFailure } from "./craft-log.js";
-import { freshQuestions, pausedFields, sampledFields } from "./rebuild-view.js";
+import {
+  activityRevision,
+  freshQuestions,
+  pausedFields,
+  sampledFields,
+} from "./rebuild-view.js";
 
 // Codes of a client that is gone: the exit handler takes care of the rebuilds.
 const goneCodes = new Set(["CRAFT_MCP_CLOSED", "CRAFT_MCP_EXITED"]);
@@ -68,11 +73,17 @@ export class RebuildSampler {
     try {
       const status = await client.call("rebuild_status", { project });
       const show = await client.call("project_show", { project });
+      const activity = await this.activity(client, record);
       const asked = [record.step, record.questions, r.now().toISOString()];
       const fields = sampledFields(status, show, ...asked);
       const { questions, running } = fields;
       const fresh = freshQuestions(questions, running, record.staleQuestions);
-      r.update(record, { ...fields, ...fresh, questions: this.marked(record, fresh) });
+      r.update(record, {
+        ...fields,
+        ...fresh,
+        questions: this.marked(record, fresh),
+        activityRevision: activity,
+      });
       this.forgetApprovals(record);
       if (!approve || !record.autoMode) return;
       const { answered, failed } = await this.allowApprovals(record, client);
@@ -82,6 +93,24 @@ export class RebuildSampler {
       if (!goneCodes.has(error.code)) throw error;
     } finally {
       r.children.settle(record.accountId, record.mode);
+    }
+  }
+
+  /**
+   * The activity's revision (rebuild-view.js), so the page reads the activity again
+   * when it changed; the previous one when it cannot be read.
+   */
+  async activity(client, record) {
+    try {
+      const last = await client.call("rebuild_activity_show", {
+        project: record.craftProject,
+        limit: 1,
+      });
+      return activityRevision(last);
+    } catch (error) {
+      if (goneCodes.has(error.code)) throw error;
+      logCraftFailure("read a rebuild's activity", error);
+      return record.activityRevision ?? null;
     }
   }
 

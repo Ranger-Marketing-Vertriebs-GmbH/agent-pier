@@ -314,12 +314,12 @@ function Activity({ activity }) {
   return (
     <section className="craft-section" aria-labelledby={id}>
       <GroupLabel id={id}>{copy.detail.activity}</GroupLabel>
-      {activity.error ? (
-        <ErrorMessage error={activity.error} />
-      ) : activity.lines === null ? (
-        <p className="loading" role="status">
-          {copy.detail.activityLoading}
-        </p>
+      {activity.lines === null ? (
+        !activity.error && (
+          <p className="loading" role="status">
+            {copy.detail.activityLoading}
+          </p>
+        )
       ) : activity.lines.length === 0 ? (
         <p className="craft-note">{copy.detail.activityEmpty}</p>
       ) : (
@@ -327,6 +327,8 @@ function Activity({ activity }) {
           {activity.lines.join("\n")}
         </pre>
       )}
+      {/* A failed refresh keeps the lines read before. */}
+      <ErrorMessage error={activity.error} />
     </section>
   );
 }
