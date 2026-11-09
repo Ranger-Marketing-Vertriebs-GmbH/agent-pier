@@ -124,6 +124,17 @@ test("states: ready, missing, unsupported, disabled", () => {
     "unsupported",
   );
   assert.equal(state({ disabled: true, eligible: false }), "disabled");
+  // 2026.11.2: a skill the agent's list leaves out is ineligible, but not missing.
+  assert.equal(state({ eligible: false, blockedByAgentFilter: true }), "ready");
+  assert.equal(state({ eligible: false, blockedByAllowlist: true }), "ready");
+  assert.equal(
+    state({
+      eligible: false,
+      blockedByAgentFilter: true,
+      missing: { ...none, bins: ["gh"] },
+    }),
+    "missing",
+  );
   assert.equal(sanitizeSkill(status("x")).usesShell, false);
   assert.equal(
     sanitizeSkill(status("x", { requirements: { ...none, anyBins: ["a"] } })).usesShell,

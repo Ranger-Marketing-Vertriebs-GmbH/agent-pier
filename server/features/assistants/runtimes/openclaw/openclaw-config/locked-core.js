@@ -59,7 +59,6 @@ export function hardenedDefaults() {
     discovery: { mdns: { mode: "off" } },
     telemetry: { enabled: false },
     update: { checkOnStart: false, auto: { enabled: false } },
-    skillsAllowBundled: [],
     heartbeat: { every: "0m" },
   };
 }

@@ -99,7 +99,7 @@ function freshDefaults(paths) {
     browser: hardened.browser,
     cron: { enabled: false },
     plugins: { slots: { memory: "none" } },
-    skills: { allowBundled: hardened.skillsAllowBundled },
+    skills: {},
     tools: { allow: ["session_status"] },
     discovery: hardened.discovery,
     telemetry: hardened.telemetry,
@@ -199,9 +199,11 @@ export function compileOpenClawConfig({
   config.discovery = hardened.discovery;
   config.telemetry = hardened.telemetry;
   config.update = hardened.update;
-  // Not a gate: OpenClaw reads an empty allowBundled as "every bundled skill". The
+  // No bundled allow list: 2026.10.9 and earlier read an empty one as "every bundled
+  // skill", 2026.11.2 as "none"; without one every bundled skill passes on both. The
   // agents' own lists are the gate (agents.defaults.skills below, agentEntry).
-  config.skills = { ...config.skills, allowBundled: hardened.skillsAllowBundled };
+  const { allowBundled: _unset, ...skills } = config.skills || {};
+  config.skills = skills;
   // Compiler-owned, never from overrides: the only extra skill root is AgentPier's
   // catalog; each agent's own list decides which of its skills it sees.
   config.skills.load = { extraDirs: [paths.catalogSkills], watch: true };
