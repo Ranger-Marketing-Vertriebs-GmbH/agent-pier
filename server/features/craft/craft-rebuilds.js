@@ -1,14 +1,6 @@
-import fs from "node:fs/promises";
-import path from "node:path";
-import { randomUUID } from "node:crypto";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { logCraftFailure } from "./craft-log.js";
-import {
-  createProjectFolder,
-  initRepository,
-  projectFolderName,
-} from "../projects/project-folder.js";
 import { CraftMcpClient } from "./craft-mcp-client.js";
 import { RebuildChildren } from "./rebuild-children.js";
 import {
@@ -16,13 +8,12 @@ import {
   cleanRequest,
   cleanRequestId,
   cleanSettings,
-  cleanStart,
 } from "./rebuild-input.js";
+import { beginRebuild } from "./rebuild-start.js";
 import { RebuildSampler } from "./rebuild-sampler.js";
 import { RebuildStore } from "./rebuild-store.js";
 import {
   activeStatuses,
-  initialFields,
   pausedFields,
   rebuildView,
   viewChanged,
@@ -30,8 +21,6 @@ import {
 
 const messages = serverMessages.craft;
 const refuse = (message) => problem(message, 409);
-const ignored = ["capture/", "checks/", "inbox/", "investigation.cany/"];
-const START_TIMEOUT_MS = 60000;
 const STOP_WAIT_MS = 3000;
 const STOP_POLL_MS = 250;
 
@@ -191,119 +180,8 @@ export class CraftRebuilds {
     return this.begin(input, source, null);
   }
 
-  /**
-   * Creates the folder and the record, has Craft Anything start, then makes the folder
-   * a Git project. Only the folder and project changes hold a mutation lease
-   * (`barrier`, MutationBarrier#run): snapshots (backups) must see them whole. Spawning
-   * a child and the rebuild_start round-trip may take up to about 90 s and change only
-   * the folder's contents and the rebuild records, which the sampler writes without a
-   * lease anyway, so a snapshot never waits for them.
-   */
-  async begin(input, source, requestId) {
-    const options = cleanStart(input, source, this.settings());
-    this.requireEligible(options.accountId);
-    const { made, record } = await this.barrier.run(async () => {
-      const folder = await createProjectFolder({
-        preferences: this.preferences,
-        memory: this.memory,
-        name: projectFolderName(options.request),
-        git: false,
-        unique: true,
-        label: "Rebuild folder",
-      });
-      const stamp = this.now().toISOString();
-      const created = {
-        id: randomUUID(),
-        projectId: folder.project.id,
-        folder: folder.path,
-        name: path.basename(folder.path),
-        ...options,
-        source,
-        requestId,
-        createdAt: stamp,
-        updatedAt: stamp,
-        craftProject: null,
-        ...initialFields(),
-      };
-      this.records.set(created.id, created);
-      this.persist();
-      return { made: folder, record: created };
-    });
-    this.emit({ list: true });
-    try {
-      const started = await this.call(
-        record,
-        "rebuild_start",
-        {
-          request: record.request,
-          target: record.target,
-          build_with: record.stack,
-          ...(record.rounds && { rounds: record.rounds }),
-          project_folder: record.folder,
-        },
-        { timeoutMs: START_TIMEOUT_MS, project: false },
-      );
-      if (typeof started?.project !== "string" || !started.project)
-        throw new Error("rebuild_start named no project.");
-      record.craftProject = started.project;
-    } catch (error) {
-      // A timeout or a malformed answer may still have started a build.
-      await this.stopUnanswered(record);
-      this.pauseAfterStart.delete(record.id);
-      await this.barrier.run(async () => {
-        this.records.delete(record.id);
-        this.persist();
-        await made.rollback();
-      });
-      this.emit({ list: true });
-      throw this.failure(error);
-    }
-    await this.barrier.run(async () => {
-      const project = await this.prepareFolder(made);
-      if (project?.id) record.projectId = project.id;
-      this.persist();
-    });
-    if (this.pauseAfterStart.delete(record.id))
-      await this.serial(record.id, () => this.stop(record));
-    else await this.serial(record.id, () => this.launched(record));
-    return this.get(record.id);
-  }
-
-  /**
-   * rebuild_start failed (timed out, answered without a project): Craft Anything may
-   * still build in the folder that is about to go. Its project, when craft.json already names it, is stopped (best
-   * effort).
-   */
-  async stopUnanswered(record) {
-    try {
-      const saved = JSON.parse(
-        await fs.readFile(path.join(record.folder, "craft.json"), "utf8"),
-      );
-      if (typeof saved?.project !== "string" || !saved.project) return;
-      await this.call({ ...record, craftProject: saved.project }, "rebuild_stop", {});
-    } catch {
-      // Nothing recorded yet, or the child is gone: nothing left to stop here.
-    }
-  }
-
-  /**
-   * Keeps Craft Anything's records out of Git and makes the folder a repository. The
-   * folder is registered again then, which moves its project to the Git identity at
-   * once (ProjectMemory#register): that project, or null when this failed.
-   */
-  async prepareFolder(made) {
-    try {
-      await fs.writeFile(path.join(made.path, ".gitignore"), `${ignored.join("\n")}\n`, {
-        flag: "wx",
-      });
-      await initRepository(made.path);
-      return await this.memory.register(made.path);
-    } catch (error) {
-      logCraftFailure("prepare a rebuild's project folder", error);
-      return null;
-    } finally {
-      await made.release();
-    }
+  begin(input, source, requestId) {
+    return beginRebuild(this, input, source, requestId);
   }
 
   // --- Acting on a rebuild ----------------------------------------------------------
