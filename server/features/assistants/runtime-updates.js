@@ -26,12 +26,18 @@ const failure = (code, status = 503) => Object.assign(Error(code), { code, statu
 const stableCode = (code) =>
   typeof code === "string" && /^[A-Z][A-Z0-9_]{0,63}$/.test(code) ? code : null;
 /**
- * Why staging failed, for the owner and the log: the failure's stable code (or its
- * cause's: a failed fetch carries ECONNRESET there) and the HTTP status of a
- * download the server refused. Never a message: it may hold paths or URLs.
+ * Why staging failed, for the owner and the log: the failure's most specific stable
+ * code and the HTTP status of a download the server refused. Most specific first:
+ * the original code an installer kept beside its own (`diagnosticCode`, as
+ * hermes-install.js keeps ENOSPC under HERMES_INSTALL_FAILED), the cause's (a failed
+ * fetch carries ECONNRESET there), then the failure's own. Never a message: it may
+ * hold paths or URLs.
  */
 export function stageCause(error) {
-  const code = stableCode(error?.code) || stableCode(error?.cause?.code);
+  const code =
+    stableCode(error?.diagnosticCode) ||
+    stableCode(error?.cause?.code) ||
+    stableCode(error?.code);
   const status = error?.upstreamStatus;
   const upstreamStatus =
     Number.isInteger(status) && status >= 100 && status <= 599 ? status : null;

@@ -21,6 +21,7 @@ import {
   hermesAgentPaths,
   hermesPaths,
 } from "../../server/features/assistants/runtimes/hermes/hermes-paths.js";
+import { stageCause } from "../../server/features/assistants/runtime-updates.js";
 
 const read = (file) => JSON.parse(fs.readFileSync(file, "utf8"));
 const root = (f) => path.join(f.dataDir, "assistants", "hermes");
@@ -174,6 +175,37 @@ test("a changed archive, lock or version refuses the installation and leaves not
   await assert.rejects(ensureHermesRuntime({ ...f.options, platform: "win32" }), {
     code: "HERMES_PLATFORM_UNSUPPORTED",
   });
+});
+
+test("a failed installation keeps its original code for the update's cause", async (t) => {
+  const reset = Object.assign(TypeError("fetch failed"), {
+    cause: Object.assign(Error("socket hang up"), { code: "ECONNRESET" }),
+  });
+  for (const [label, failure, cause] of [
+    ["disk", Object.assign(Error("/x"), { code: "ENOSPC" }), { code: "ENOSPC" }],
+    ["reset", reset, { code: "ECONNRESET" }],
+    [
+      "stalled",
+      Object.assign(Error("stalled"), { code: "DOWNLOAD_IDLE_TIMEOUT", status: 504 }),
+      { code: "DOWNLOAD_IDLE_TIMEOUT" },
+    ],
+    [
+      "refused",
+      Object.assign(Error("https://x.invalid"), { status: 502, upstreamStatus: 429 }),
+      { code: "HERMES_INSTALL_FAILED", upstreamStatus: 429 },
+    ],
+  ]) {
+    const f = hermesInstallFixture(t);
+    const options = {
+      ...f.options,
+      download: async () => {
+        throw failure;
+      },
+    };
+    const error = await stageHermesRuntime(options).catch((e) => e);
+    assert.equal(error.code, "HERMES_INSTALL_FAILED", label);
+    assert.deepEqual(stageCause(error), { upstreamStatus: null, ...cause }, label);
+  }
 });
 
 test("a crashed attempt without a receipt is replaced, a changed receipt refused", async (t) => {
