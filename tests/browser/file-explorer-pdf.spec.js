@@ -29,6 +29,7 @@ for (const [label, viewport] of [
       const f = await applicationFixture({ after: (cleanup) => cleanups.push(cleanup) });
       const file = path.join(f.home, "doc.pdf");
       await fs.writeFile(file, pdf);
+      // Real live channel: the page runs against its own applicationFixture server.
       const context = await browser.newContext({ acceptDownloads: true, viewport });
       cleanups.push(() => context.close());
       await context.addCookies([
