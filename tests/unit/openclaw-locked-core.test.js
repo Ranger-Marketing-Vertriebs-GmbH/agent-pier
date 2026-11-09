@@ -29,7 +29,8 @@ test("a drifted configuration is hardened again on the next start", (t) => {
   const config = readJSON(paths.config);
   assert.deepEqual(config.channels, {});
   assert.equal(config.browser.enabled, false);
-  assert.deepEqual(config.skills.allowBundled, []);
+  // No bundled allow list at all: 2026.11.2 reads an empty one as "none".
+  assert.equal("allowBundled" in config.skills, false);
   assert.equal(config.discovery.mdns.mode, "off");
   assert.equal(config.telemetry.enabled, false);
   assert.deepEqual(config.update, { checkOnStart: false, auto: { enabled: false } });
