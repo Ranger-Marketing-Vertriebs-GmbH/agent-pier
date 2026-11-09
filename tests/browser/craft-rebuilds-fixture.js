@@ -108,7 +108,8 @@ export function craftRebuilds() {
 /**
  * Routes `/api/**` of `page`. Options: `installed` (Craft Anything installed),
  * `rebuilds` (the list), `language`. Returns the state: `rebuilds`, `settings` and
- * `calls` (every request the app made, `{ path, method, body }`).
+ * `calls` (every request the app made, `{ path, method, body }`); setting `activity`
+ * (lines) or `activityFails` changes what the activity route answers.
  */
 export async function craftRebuildsFixture(
   page,
@@ -187,9 +188,11 @@ export async function craftRebuildsFixture(
     const item = match && find(match[1]);
     if (match && !item) return json({ error: "Not found" }, 404);
     if (match && !match[2]) return json({ rebuild: item });
+    if (match?.[2] === "activity" && state.activityFails)
+      return json({ error: "Craft Anything did not answer." }, 409);
     if (match?.[2] === "activity")
       return json({
-        lines: [
+        lines: state.activity ?? [
           "Reading the target",
           "Captured 6 pages",
           `Working on: ${item.note || item.request}`,

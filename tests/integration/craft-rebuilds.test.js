@@ -469,6 +469,37 @@ test("an approval auto mode fails to allow three times goes to the owner", async
   assert.equal(f.rebuilds.sampler.failures.size, 0, "forgotten once answered");
 });
 
+test("a new activity line changes the rebuild's view while it runs", async (t) => {
+  let failing = false;
+  const f = rebuildsFixture(t, {
+    script: {
+      steps: [{ wait: 300 }, { activity: "Reading the target" }, { wait: 10000 }],
+    },
+    intercept: (name) => {
+      if (name === "rebuild_activity_show" && failing)
+        throw Object.assign(new Error("busy"), { code: "busy" });
+    },
+  });
+  const view = await f.rebuilds.start({ request: "Watch me" });
+  const first = f.rebuilds.get(view.id).activityRevision;
+  assert.match(first, /^[0-9a-f]{16}$/);
+  const changes = [];
+  f.rebuilds.onChange((event) => changes.push(event));
+  assert.ok(await until(() => f.rebuilds.get(view.id).activityRevision !== first));
+  assert.ok(
+    changes.some((event) => event.id === view.id),
+    "the topic is signalled",
+  );
+  const { lines } = await f.rebuilds.activity(view.id);
+  assert.ok(lines.at(-1).endsWith("Reading the target"));
+  // A failed read keeps the revision.
+  const known = f.rebuilds.get(view.id).activityRevision;
+  failing = true;
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  assert.equal(f.rebuilds.get(view.id).activityRevision, known);
+  assert.equal(f.rebuilds.get(view.id).status, "building");
+});
+
 test("a child killed from outside leaves its rebuild paused and no builder", async (t) => {
   const f = rebuildsFixture(t);
   const view = await f.rebuilds.start({ request: "Killed" });

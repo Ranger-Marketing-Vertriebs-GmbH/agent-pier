@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  activityRevision,
   freshQuestions,
   pausedFields,
   rebuildView,
@@ -147,4 +148,19 @@ test("a rebuild paused without a sample lists no questions", () => {
     questions: [],
     staleQuestions: ["a", "b"],
   });
+});
+
+test("the activity revision follows the line count and the last line", () => {
+  const one = activityRevision({ lines: ["06:03 note a"], total_lines_read: 5 });
+  assert.match(one, /^[0-9a-f]{16}$/);
+  assert.equal(activityRevision({ lines: ["06:03 note a"], total_lines_read: 5 }), one);
+  assert.notEqual(
+    activityRevision({ lines: ["06:03 note a"], total_lines_read: 6 }),
+    one,
+  );
+  assert.notEqual(
+    activityRevision({ lines: ["06:04 note b"], total_lines_read: 5 }),
+    one,
+  );
+  assert.equal(activityRevision(null), activityRevision({ lines: [] }));
 });
