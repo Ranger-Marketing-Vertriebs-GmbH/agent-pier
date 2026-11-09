@@ -603,7 +603,7 @@ The `agentpier-team` profile plugin carries both parts of the OpenClaw team plug
   `agentpier_team_report`) and AgentPier's own tools as its grants name them
   (`native-capabilities.js` `toolGrants`): `agentpier_reminder`, `agentpier_routine`,
   `agentpier_hook`, `agentpier_workspace` (project folders, coding requests, browser
-  upload staging), `agentpier_share_file`, `agentpier_pinboard`, `agentpier_ssh`, `agentpier_ssh_access`,
+  upload staging), `agentpier_share_file`, `agentpier_pinboard`, `agentpier_card`, `agentpier_ssh`, `agentpier_ssh_access`,
   `agentpier_goal`, `agentpier_coding_session`, `agentpier_mail`, `agentpier_project`
   and `agentpier_preview`. A restricted user's agent holds what OpenClaw's holds (no
   team, SSH, goal, mail, project or preview tools). The bridge serves and checks every
@@ -1157,6 +1157,7 @@ AGENTPIER-344, logins from AGENTPIER-340).
 | Workspace, projects, project files                         | `agentpier_workspace`               | The same                                            | Project images as images                                     |
 | Share files, to Telegram                                   | `agentpier_share_file`              | The same                                            |                                                              |
 | Pinboard of files for the owner                            | `agentpier_pinboard`                | The same                                            | [Pinboard](agents.md#pinboard)                               |
+| Interactive cards in the chat                              | `agentpier_card`                    | The same                                            | [Agent cards](agents.md#agent-cards)                         |
 | Secrets for agents                                         | `.agentpier/secrets.env`            | The same file                                       | Hook-run read guard                                          |
 | SSH, SSH access                                            | `agentpier_ssh`, plain aliases      | The same; SSH agent's `bin/` on PATH                | PATH change restarts the set                                 |
 | GitHub                                                     | `gh` folder, MCP server             | The same                                            |                                                              |
