@@ -1,8 +1,10 @@
 import path from "node:path";
 import {
+  placeholderBase,
   resolveStdioServer,
   usesAgentPlaceholders,
 } from "../../../../mcp-servers/agent-placeholders.js";
+import { chatPlaceholderFolders } from "../../../chat-file-folders.js";
 
 // The MCP servers bound to one agent (agent-desired-state.js `mcp`, the store's
 // definitions and secrets in the desired state's host `mcp`, mcp-inputs.js) as
@@ -40,19 +42,9 @@ const timeouts = (server) => ({
   ...(Number.isInteger(server.toolTimeoutSec) ? { timeout: server.toolTimeoutSec } : {}),
 });
 
-// The agent's folders for agent placeholders (agent-placeholders.js), in its work
-// folder (terminal.cwd), where Hermes starts its commands.
-const foldersOf = (workspace) =>
-  typeof workspace === "string" && path.isAbsolute(workspace)
-    ? {
-        "agent.workspace": workspace,
-        "agent.attachments": path.join(workspace, "attachments"),
-      }
-    : null;
-
 // One server's entry and the .env values it references, or null when it cannot be
 // compiled. `n` numbers the server's .env names.
-function entryOf(server, secrets, n, { workspace, pathCheck }) {
+function entryOf(server, secrets, n, { workspace, shared, pathCheck }) {
   if (server.packageStatus !== undefined && server.packageStatus !== "ready") return null;
   if (!record(secrets)) return null;
   const env = {};
@@ -65,9 +57,15 @@ function entryOf(server, secrets, n, { workspace, pathCheck }) {
     let { args, cwd } = server;
     let values = secrets.env ?? {};
     if (usesAgentPlaceholders(server, values)) {
-      const folders = foldersOf(workspace);
+      // The agent's work folder (terminal.cwd), where Hermes starts its commands, and
+      // its chat folders (chat-file-folders.js), withheld on a shared agent.
+      const folders = chatPlaceholderFolders(workspace, { shared });
       const resolved = folders && resolveStdioServer(server, values, folders);
-      if (!resolved || !resolved.paths.every((p) => pathCheck(p, workspace))) return null;
+      if (
+        !resolved ||
+        !resolved.paths.every((p) => pathCheck(p, placeholderBase(folders, p)))
+      )
+        return null;
       ({ args, cwd } = resolved.server);
       values = resolved.env;
     }
@@ -144,6 +142,7 @@ export function mcpEntries(agent, mcp, { workspace } = {}) {
     }
     const compiled = entryOf(server, mcp.secrets?.[server.id], n + 1, {
       workspace,
+      shared: !!agent.shared,
       pathCheck,
     });
     if (!compiled || Object.hasOwn(out.servers, name)) {
