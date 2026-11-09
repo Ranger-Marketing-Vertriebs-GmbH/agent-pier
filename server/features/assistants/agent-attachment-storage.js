@@ -246,32 +246,34 @@ export class AttachmentStorage {
     const { folder, replaced } = await this.locate(assistantId);
     const held = await folderUsage(folder);
     const trash = trashFor(this.a.config.workspaces);
-    const chats = await this.chatRoot(assistantId);
-    if (chats) {
-      for (const chat of await chatFoldersOf(this.a.config, assistantId).catch(
-        () => [],
-      )) {
-        const usage = await folderUsage(chat);
-        held.files += usage.files;
-        held.bytes += usage.bytes;
-      }
-      await removeChecked(chats, trash, `${assistantId}-chat-files`);
-    }
     const target = folder || replaced;
-    if (!target) return held;
-    await this.a.hooks.clearing?.(target);
-    await removeChecked(target, trash, `${assistantId}-attachments`);
+    if (target) {
+      await this.a.hooks.clearing?.(target);
+      await removeChecked(target, trash, `${assistantId}-attachments`);
+    }
+    const chats = await this.chatRoot(assistantId);
+    if (!chats) return held;
+    for (const chat of await chatFoldersOf(this.a.config, assistantId).catch(() => [])) {
+      const usage = await folderUsage(chat);
+      held.files += usage.files;
+      held.bytes += usage.bytes;
+    }
+    await removeChecked(chats, trash, `${assistantId}-chat-files`);
     return held;
   }
-  // The agent's checked folder of chat folders, or what replaced it, or null.
+  // The agent's checked folder of chat folders, or what replaced it (or the chat
+  // files root itself), never followed; null when there is none.
   async chatRoot(assistantId) {
     try {
       return await checkedChatFolder(this.a.config, [assistantId], false);
     } catch {
       const entry = agentChatPath(this.a.config, assistantId);
-      const stat = entry && (await fs.lstat(entry, { bigint: true }).catch(() => null));
-      if (!stat || stat.isDirectory()) throw unsafe();
-      return { path: entry, dev: stat.dev, ino: stat.ino, directory: false };
+      for (const candidate of entry ? [path.dirname(entry), entry] : []) {
+        const stat = await fs.lstat(candidate, { bigint: true }).catch(() => null);
+        if (stat && !stat.isDirectory())
+          return { path: candidate, dev: stat.dev, ino: stat.ino, directory: false };
+      }
+      throw unsafe();
     }
   }
   // Removes an agent's copies (both folders only as checked) and their index, for

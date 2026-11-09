@@ -233,8 +233,12 @@ folder nor another agent's workspace). A plain relative path without `..` stays 
 work folder (its file tools make no links), so it needs no bridge call; an absolute
 path, `~`, `..`, `file://` or another scheme asks, and so does a search path with a
 comma or whitespace: Hermes searches a path that does not exist as several, split at
-commas or else at whitespace (`tools/file_operations_search.py`
-`_try_multi_path_search`), so the guard judges the whole path and each part. The guard
+commas or else at whitespace as Python's `str.split()` sees it, `\x1c`–`\x1f` and
+`\x85` included (`tools/file_operations_search.py` `_try_multi_path_search`), so
+the guard refuses such a search path on every Hermes agent ("Search one folder at a
+time …"). While an `attachments/` from before the move is still in the work folder
+(a copy whose chat folder was unsafe, or a video still arriving), a search whose
+folder holds it is refused on a shared agent. The guard
 resolves a path as Hermes does (a literal `file://` prefix dropped, `~` the agent's
 `HOME`, a relative path from the work folder) and compares it as the file system does:
 the nearest existing folder as the system spells it (`realpath.native`, links
@@ -279,7 +283,12 @@ removing a chat removes its folder, a shared agent that becomes one user's own l
 the folders of the other chats and `.unclaimed`, and deleting the agent removes `chat-files/<agent>/`.
 Older AgentPier versions find nothing in `attachments/` after the move and mark sent
 files unavailable; the copies stay in `chat-files/`, and the next start after an
-upgrade makes each one whose bytes are unchanged available again.
+upgrade makes each one whose bytes are unchanged available again. An older AgentPier
+does not guard `chat-files/` either: on an agent shared with users a chat could read
+other chats' uploads there by absolute path, so do not downgrade while Hermes agents
+are shared with users (or **Clear attachments** on them first). A quota check after
+a move stopped between a rename and the row's mark finds the copy in its chat's
+folder, and the next start marks the row.
 
 A search that covers the work folder's `.agentpier/` (the work folder itself, an
 ancestor, or several paths in one) asks the bridge on every Hermes agent, and in a
