@@ -12,8 +12,9 @@ import {
 
 // Chat files on an agent shared with users (attachment-access.js). Uploads lie in the
 // workspace's attachments/, indexed per chat: a turn uses only its own chat's. What
-// OpenClaw keeps beside them names no chat: a channel's photo (and, before 2026.10.9,
-// an image of AgentPier's chat) staged under media/inbound/openclaw-staged-<uuid>/,
+// OpenClaw keeps beside them names no chat: a channel's photo (and, before 2026.10.9
+// and again since 2026.11.2, an image of AgentPier's chat) staged under
+// media/inbound/openclaw-staged-<uuid>/,
 // and its media store (`<state>/media/`: offloaded uploads as media://inbound/<id>,
 // browser screenshots, created images), shared by every agent, which OpenClaw's
 // image and pdf tools read even with tools.fs.workspaceOnly. A call naming either
