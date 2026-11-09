@@ -1,6 +1,7 @@
 import { assistants } from "./de/assistants.js";
 import { agentProjects } from "./de/agent-projects.js";
 import { agentPinboard } from "./de/agent-pinboard.js";
+import { agentCards } from "./de/agent-cards.js";
 import { agentCodingSessions } from "./de/agent-coding-sessions.js";
 import { accounts } from "./de/accounts.js";
 import { agentbus } from "./de/agentbus.js";
@@ -60,6 +61,7 @@ export const germanServerMessages = Object.freeze({
   agentCodingSessions,
   agentProjects,
   agentPinboard,
+  agentCards,
   sessionInput,
   sessionReload,
   sessionTransfer,
