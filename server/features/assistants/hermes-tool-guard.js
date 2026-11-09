@@ -15,7 +15,15 @@ import { managedRefusal } from "./team-plugin/managed-folder.js";
 import { namesSecrets, secretsRefusal } from "./team-plugin/secrets-guard.js";
 import { secretsPolicy } from "./agent-hook-bridge.js";
 import { agentWorkspace, runtimeIdOf } from "./runtimes/runtime-for.js";
-import { privateFolderRefusal } from "./hermes-home-guard.js";
+import {
+  chatFilesRefusal,
+  chatFolderRefusal,
+  readValues,
+  searchesSecrets,
+  sharedReadRefusal,
+} from "./hermes-home-guard.js";
+import { agentChatPath, chatFolderPath } from "./chat-file-folders.js";
+import { isShared } from "../users/user-access.js";
 
 // The OpenClaw tool each Hermes file tool corresponds to for the write rule
 // (tool-guard.js writeTools): write_file writes a file, patch edits one, and its V4A
@@ -56,6 +64,47 @@ function chatKey(bridge, agent, { sessionKey, segments }) {
   );
   const known = [sessionKey, ...segments].find((key) => held.has(key));
   return { sessionKey: known || sessionKey, segments: undefined };
+}
+
+// The calling chat of a guarded call, when it is one of the agent's: its id and its
+// file folder (chat-file-folders.js); a session bound to several turns has none.
+function callingChat(bridge, agent, input) {
+  const config = bridge.assistants.attachments?.config;
+  try {
+    if (!input.sessionKey || bridge.bound?.(input.sessionKey)?.length > 1) return {};
+    const { conversation } = bridge.callingChat(input);
+    if (conversation?.assistantId !== agent.id) return {};
+    return {
+      id: conversation.id,
+      folder: chatFolderPath(config, agent.id, conversation.id),
+    };
+  } catch {
+    return {};
+  }
+}
+
+// The file folders a pdf or image reference may come from besides the work folder:
+// the calling chat's on a shared agent, every chat's of the agent otherwise.
+const chatRoots = (bridge, agent, input) =>
+  [
+    isShared(agent)
+      ? callingChat(bridge, agent, input).folder
+      : agentChatPath(bridge.assistants.attachments?.config, agent.id),
+  ].filter(Boolean);
+// Whether `target` (and, when given, its `real` path) lies in one of `roots` as
+// configured or as resolved.
+function insideRoots(roots, target, real) {
+  const forms = roots.flatMap((root) => {
+    try {
+      return [root, fs.realpathSync(root)];
+    } catch {
+      return [root];
+    }
+  });
+  return (
+    forms.some((root) => within(root, target)) &&
+    (!real || forms.some((root) => within(root, real)))
+  );
 }
 
 // The agent's own folder and the roots its paths resolve against, or null.
@@ -123,7 +172,7 @@ const within = (root, target) => {
 const scheme = (value) => /^[a-z][a-z0-9+.-]*:/i.test(value.trim());
 // Hermes resolves a relative path against its own process, not the work folder.
 const localRefusal =
-  "Give reference images as absolute paths to files in your work folder, or as web addresses.";
+  "Give reference images as absolute paths to files in your work folder or this chat's file folder, or as web addresses.";
 
 // An image_generate call, as OpenClaw's guard judges it (tool-guard.js imageCall,
 // image-policy.js): the agent may create images now, a web reference needs Read web
@@ -135,20 +184,18 @@ async function imageGuard(bridge, input, agent, args) {
     return deny(imageRefusals.reference);
   const local = references.filter((value) => !scheme(value));
   const folders = local.length ? rootsOf(bridge, agent) : null;
+  const roots = folders ? [folders.workspace, ...chatRoots(bridge, agent, input)] : [];
   for (const value of local) {
     if (!path.isAbsolute(value) || !folders) return deny(localRefusal);
-    const own = folders.workspace;
     let real = null;
-    let realOwn = own;
     try {
-      realOwn = fs.realpathSync(own);
       real = fs.realpathSync(value);
     } catch {
       /* A missing file fails in Hermes; its spelled path is judged. */
     }
-    // The path as spelled, and for an existing file as resolved, stays in its folder.
-    if (!within(own, value) && !within(realOwn, value)) return deny(localRefusal);
-    if (real && !within(realOwn, real)) return deny(localRefusal);
+    // The path as spelled, and for an existing file as resolved, stays in its folder
+    // or a chat's file folder.
+    if (!insideRoots(roots, value, real)) return deny(localRefusal);
     const refusal = await folderRefusal(bridge, input, agent, {
       toolName: "image",
       params: { image: value },
@@ -191,12 +238,7 @@ async function pdfGuard(bridge, input, agent, args) {
   const folders = rootsOf(bridge, agent);
   if (!folders) return deny(pdfRefusals.unavailable);
   const own = folders.workspace;
-  let realOwn = own;
-  try {
-    realOwn = fs.realpathSync(own);
-  } catch {
-    /* No folder yet: every path is judged as spelled. */
-  }
+  const roots = [own, ...chatRoots(bridge, agent, input)];
   const files = [];
   for (const value of references) {
     const target = path.resolve(own, value);
@@ -206,9 +248,7 @@ async function pdfGuard(bridge, input, agent, args) {
     } catch {
       /* A missing file fails in the tool; its spelled path is judged. */
     }
-    if (!within(own, target) && !within(realOwn, target))
-      return deny(pdfRefusals.reference);
-    if (real && !within(realOwn, real)) return deny(pdfRefusals.reference);
+    if (!insideRoots(roots, target, real)) return deny(pdfRefusals.reference);
     // The attachment and secrets rules judge the file a link points at as well.
     files.push(target, ...(real && real !== target ? [real] : []));
   }
@@ -228,6 +268,39 @@ async function pdfGuard(bridge, input, agent, args) {
       ...(typeof policy.fallback === "string" && { fallback: policy.fallback }),
     };
   return deny(pdfRefusals[policy?.reason] || pdfRefusals.unavailable);
+}
+
+// A file call's checks of hermes-home-guard.js: a shared agent reads only its work
+// folder and the calling chat's file folder; any agent's file calls into the chat
+// folders stay in its own (a shared agent's in the calling chat's); and a search over
+// its secrets folder is a read of the secrets.
+async function chatGuard(bridge, input, agent, args, call) {
+  const runtime = bridge.assistants.runtime;
+  const chat = callingChat(bridge, agent, input);
+  const reads = readValues(input.toolName, args);
+  let values = reads;
+  if (call) {
+    const targets = writeTargets(call.toolName, call.params);
+    if (
+      targets.some((t) => typeof t?.path !== "string") &&
+      /chat-files/i.test(JSON.stringify(args))
+    )
+      return chatFilesRefusal;
+    values = targets.map((t) => t?.path);
+  }
+  if (reads) {
+    const own = sharedReadRefusal(runtime, agent, reads, chat.folder);
+    if (own) return own;
+  }
+  const config = bridge.assistants.attachments?.config;
+  const refusal = chatFolderRefusal(runtime, agent, config, chat.id ?? null, values);
+  if (refusal) return refusal;
+  if (input.toolName === "search_files" && searchesSecrets(runtime, agent, reads)) {
+    const session = input.sessionKey ? { sessionKey: input.sessionKey } : {};
+    const policy = await secretsPolicy(bridge, { agentId: input.agentId, ...session });
+    if (policy?.allow !== true) return secretsRefusal;
+  }
+  return null;
 }
 
 /**
@@ -285,11 +358,10 @@ export async function hermesGuard(bridge, input) {
   if (input.toolName === "image_generate") return imageGuard(bridge, input, agent, args);
   if (input.toolName === "pdf") return pdfGuard(bridge, input, agent, args);
   const read = readCall(input.toolName, args);
-  // A shared agent's reads stay out of its runtime folders (hermes-home-guard.js).
-  const own =
-    read && privateFolderRefusal(bridge.assistants.runtime, agent, input.toolName, args);
-  if (own) return deny(own);
   const call = writeCall(input.toolName, args);
+  const chatRefusal =
+    (read || call) && (await chatGuard(bridge, input, agent, args, call));
+  if (chatRefusal) return deny(chatRefusal);
   const refusal = await folderRefusal(bridge, input, agent, read || call || {});
   if ((read || call) && refusal) return deny(refusal);
   // Only a team member's file changes are checked further (the plugin's guardWrites).
