@@ -47,6 +47,7 @@ import TalkBar from "../talk/TalkBar.jsx";
 import useChatTalk from "./useChatTalk.js";
 import useChatPinboard from "./pinboard/useChatPinboard.js";
 import ChatPinboardBody, { PinboardTab } from "./pinboard/ChatPinboard.jsx";
+import { CardActions, cardActions, closedCards } from "./cards/card-actions.js";
 export default function AssistantChat({
   assistant,
   conversationId,
@@ -365,6 +366,15 @@ export default function AssistantChat({
     empty: !history.messages.length && !latest,
   });
   const pinboard = useChatPinboard(assistant, initialPinboard, { pane, output, stick });
+  // Agent cards: his own chat's work, an archived one's only show (card-actions.js).
+  const cards = userChat
+    ? null
+    : archived
+      ? closedCards
+      : cardActions(assistantApi, conversationId, {
+          canSend: available && !active && !queued && !busy && !compacting,
+          deliver: (text) => deliver({ clientRequestId: crypto.randomUUID(), text }, []),
+        });
   const talk = useChatTalk({
     conversationId,
     shown: !readOnly && !member && !assistant.archivedAt,
@@ -428,86 +438,88 @@ export default function AssistantChat({
             </p>
           )}
           <div className="assistant-transcript" ref={output} hidden={pinboard.tab}>
-            <div role="log" aria-live="off" aria-label={copy.conversation}>
-              {history.nextBefore && (
-                <button className="button secondary" onClick={earlier}>
-                  {copy.earlier}
-                </button>
-              )}
-              {!history.messages.length && !latest && (
-                <div className="assistant-empty">
-                  <h2>{copy.emptyChat}</h2>
-                </div>
-              )}
-              {transcript.map((item) => (
-                <TranscriptItem
-                  key={item.key ?? item.note?.id ?? item.message.id}
-                  item={item}
-                  assistant={assistant}
-                  navigate={navigate}
-                  focusedNote={focusedNote}
-                  mentions={mentions}
-                  removeShared={offline ? null : removeShared}
-                />
-              ))}
-              {active &&
-                latest.internal &&
-                // An internal turn's event line is the newest message but quiet notes.
-                history.messages.findLast((m) => !noteEvents.has(m.event))?.event !==
-                  latest.internal && (
-                  <p className="assistant-note assistant-event">
-                    {internalTurnText(
-                      copy,
-                      latest.internal,
-                      latest.internalOutcome,
-                      latest.internalGroup,
-                    )}
-                  </p>
+            <CardActions.Provider value={cards}>
+              <div role="log" aria-live="off" aria-label={copy.conversation}>
+                {history.nextBefore && (
+                  <button className="button secondary" onClick={earlier}>
+                    {copy.earlier}
+                  </button>
                 )}
-              {active &&
-                !latest.internal &&
-                !history.messages.some((m) => sameTurn(m, latest)) && (
-                  <AssistantMessage
-                    role="user"
-                    name={copy.you}
-                    text={latest.text}
-                    attachments={latest.attachments}
-                    source={latest.source}
-                    sender={latest.sender}
-                    timestamp={Date.parse(latest.createdAt) || 0}
-                    forwarded={latest.forwarded === true}
+                {!history.messages.length && !latest && (
+                  <div className="assistant-empty">
+                    <h2>{copy.emptyChat}</h2>
+                  </div>
+                )}
+                {transcript.map((item) => (
+                  <TranscriptItem
+                    key={item.key ?? item.note?.id ?? item.message.id}
+                    item={item}
+                    assistant={assistant}
+                    navigate={navigate}
+                    focusedNote={focusedNote}
                     mentions={mentions}
+                    removeShared={offline ? null : removeShared}
+                  />
+                ))}
+                {active &&
+                  latest.internal &&
+                  // An internal turn's event line is the newest message but quiet notes.
+                  history.messages.findLast((m) => !noteEvents.has(m.event))?.event !==
+                    latest.internal && (
+                    <p className="assistant-note assistant-event">
+                      {internalTurnText(
+                        copy,
+                        latest.internal,
+                        latest.internalOutcome,
+                        latest.internalGroup,
+                      )}
+                    </p>
+                  )}
+                {active &&
+                  !latest.internal &&
+                  !history.messages.some((m) => sameTurn(m, latest)) && (
+                    <AssistantMessage
+                      role="user"
+                      name={copy.you}
+                      text={latest.text}
+                      attachments={latest.attachments}
+                      source={latest.source}
+                      sender={latest.sender}
+                      timestamp={Date.parse(latest.createdAt) || 0}
+                      forwarded={latest.forwarded === true}
+                      mentions={mentions}
+                    />
+                  )}
+                {delta?.text && !streamInHistory(delta, history) && (
+                  <AssistantMessage
+                    role="assistant"
+                    name={assistant.name}
+                    text={delta.text}
+                    streaming={Boolean(active)}
                   />
                 )}
-              {delta?.text && !streamInHistory(delta, history) && (
-                <AssistantMessage
-                  role="assistant"
-                  name={assistant.name}
-                  text={delta.text}
-                  streaming={Boolean(active)}
+                <AgentRunState
+                  attempt={latest?.attempt}
+                  shownAttempt={shownAttempt}
+                  active={Boolean(active)}
+                  uncertain={uncertain}
+                  compacting={compacting}
+                  compactOutcome={history.compactOutcome}
+                  memoryNotSaved={history.memoryNotSaved}
+                  steps={stepsOf(feed.steps, latest?.attempt)}
+                  longChat={history.longChat}
+                  longChatActions={available ? longChat : null}
+                  modelHint={history.modelHint}
+                  modelHintActions={available ? modelHint : null}
+                  busy={busy}
+                  onStop={readOnly ? null : stop}
+                  onRetry={available && !queued && !ownStep ? retry : null}
+                  awaiting={awaiting}
+                  explainUncertain
+                  onRecover={recover}
                 />
-              )}
-              <AgentRunState
-                attempt={latest?.attempt}
-                shownAttempt={shownAttempt}
-                active={Boolean(active)}
-                uncertain={uncertain}
-                compacting={compacting}
-                compactOutcome={history.compactOutcome}
-                memoryNotSaved={history.memoryNotSaved}
-                steps={stepsOf(feed.steps, latest?.attempt)}
-                longChat={history.longChat}
-                longChatActions={available ? longChat : null}
-                modelHint={history.modelHint}
-                modelHintActions={available ? modelHint : null}
-                busy={busy}
-                onStop={readOnly ? null : stop}
-                onRetry={available && !queued && !ownStep ? retry : null}
-                awaiting={awaiting}
-                explainUncertain
-                onRecover={recover}
-              />
-            </div>
+              </div>
+            </CardActions.Provider>
             <AssistantChatActions
               assistant={assistant}
               member={member}

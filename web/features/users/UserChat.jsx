@@ -9,6 +9,11 @@ import AssistantMessage from "../assistants/AssistantMessage.jsx";
 import AssistantActionApprovals from "../assistants/AssistantActionApprovals.jsx";
 import AgentEventArea from "../assistants/AgentEventArea.jsx";
 import TranscriptItem from "../assistants/TranscriptItem.jsx";
+import {
+  CardActions,
+  cardActions,
+  closedCards,
+} from "../assistants/cards/card-actions.js";
 import { groupActivity } from "../assistants/activity-groups.js";
 import useAgentAttachments from "../assistants/useAgentAttachments.js";
 import useTouchInput from "../chat/useTouchInput.js";
@@ -98,6 +103,16 @@ export default function UserChat({
     stick.current = true;
     return chat.send(event, ids);
   };
+  // Her agent's cards in her chat; an archived chat's only show (card-actions.js).
+  const cards = readOnly
+    ? closedCards
+    : cardActions(userApi, conversationId, {
+        canSend: chat.available && !active && !chat.queued && !chat.busy,
+        deliver: (text) => {
+          stick.current = true;
+          return chat.deliver({ clientRequestId: crypto.randomUUID(), text }, []);
+        },
+      });
   return (
     <section className="assistant-detail assistant-chat user-chat">
       <UserHeader
@@ -156,84 +171,86 @@ export default function UserChat({
               element.scrollHeight - element.scrollTop - element.clientHeight < 80;
           }}
         >
-          <div role="log" aria-live="off" aria-label={assistantCopy.conversation}>
-            {history.nextBefore && (
-              <button
-                className="button secondary"
-                onClick={() =>
-                  chat.earlier(() => {
-                    const element = output.current;
-                    if (element)
-                      prepended.current = element.scrollHeight - element.scrollTop;
-                  })
-                }
-              >
-                {assistantCopy.earlier}
-              </button>
-            )}
-            {!history.messages.length && !latest && (
-              <div className="assistant-empty">
-                <h2>{assistantCopy.emptyChat}</h2>
-              </div>
-            )}
-            {groupActivity(history.messages.map((message) => ({ message }))).map(
-              (item) => (
-                <TranscriptItem
-                  key={item.key ?? item.message.id}
-                  item={item}
-                  assistant={agent}
-                  navigate={none}
-                  mentions={null}
-                  removeShared={null}
-                />
-              ),
-            )}
-            {active &&
-              !latest.internal &&
-              !history.messages.some((m) => sameTurn(m, latest)) && (
+          <CardActions.Provider value={cards}>
+            <div role="log" aria-live="off" aria-label={assistantCopy.conversation}>
+              {history.nextBefore && (
+                <button
+                  className="button secondary"
+                  onClick={() =>
+                    chat.earlier(() => {
+                      const element = output.current;
+                      if (element)
+                        prepended.current = element.scrollHeight - element.scrollTop;
+                    })
+                  }
+                >
+                  {assistantCopy.earlier}
+                </button>
+              )}
+              {!history.messages.length && !latest && (
+                <div className="assistant-empty">
+                  <h2>{assistantCopy.emptyChat}</h2>
+                </div>
+              )}
+              {groupActivity(history.messages.map((message) => ({ message }))).map(
+                (item) => (
+                  <TranscriptItem
+                    key={item.key ?? item.message.id}
+                    item={item}
+                    assistant={agent}
+                    navigate={none}
+                    mentions={null}
+                    removeShared={null}
+                  />
+                ),
+              )}
+              {active &&
+                !latest.internal &&
+                !history.messages.some((m) => sameTurn(m, latest)) && (
+                  <AssistantMessage
+                    role="user"
+                    name={assistantCopy.you}
+                    text={latest.text}
+                    attachments={latest.attachments}
+                    timestamp={Date.parse(latest.createdAt) || 0}
+                  />
+                )}
+              {delta?.text && !streamInHistory(delta, history) && (
                 <AssistantMessage
-                  role="user"
-                  name={assistantCopy.you}
-                  text={latest.text}
-                  attachments={latest.attachments}
-                  timestamp={Date.parse(latest.createdAt) || 0}
+                  role="assistant"
+                  name={agent.name}
+                  text={delta.text}
+                  streaming={active}
                 />
               )}
-            {delta?.text && !streamInHistory(delta, history) && (
-              <AssistantMessage
-                role="assistant"
-                name={agent.name}
-                text={delta.text}
-                streaming={active}
+              <AgentRunState
+                attempt={latest?.attempt}
+                shownAttempt={chat.shownAttempt}
+                active={active}
+                uncertain={chat.uncertain}
+                compacting={
+                  ((!chat.uncertain || memoryStepTurn(latest)) && history.compacting) ||
+                  false
+                }
+                compactOutcome={history.compactOutcome}
+                memoryNotSaved={history.memoryNotSaved}
+                steps={stepsOf(chat.feed.steps, latest?.attempt)}
+                longChat={history.longChat}
+                longChatActions={chat.available ? longChat : null}
+                modelHint={history.modelHint}
+                modelHintActions={chat.available ? modelHint : null}
+                busy={chat.busy}
+                onStop={readOnly ? null : chat.stop}
+                onRetry={
+                  chat.available && !chat.queued && !memoryStepTurn(latest)
+                    ? chat.retry
+                    : null
+                }
+                awaiting={chat.awaiting}
+                onRecover={chat.recover}
               />
-            )}
-            <AgentRunState
-              attempt={latest?.attempt}
-              shownAttempt={chat.shownAttempt}
-              active={active}
-              uncertain={chat.uncertain}
-              compacting={
-                ((!chat.uncertain || memoryStepTurn(latest)) && history.compacting) ||
-                false
-              }
-              compactOutcome={history.compactOutcome}
-              memoryNotSaved={history.memoryNotSaved}
-              steps={stepsOf(chat.feed.steps, latest?.attempt)}
-              longChat={history.longChat}
-              longChatActions={chat.available ? longChat : null}
-              modelHint={history.modelHint}
-              modelHintActions={chat.available ? modelHint : null}
-              busy={chat.busy}
-              onStop={readOnly ? null : chat.stop}
-              onRetry={
-                chat.available && !chat.queued && !memoryStepTurn(latest)
-                  ? chat.retry
-                  : null
-              }
-              awaiting={chat.awaiting}
-              onRecover={chat.recover}
-            />
-          </div>
+            </div>
+          </CardActions.Provider>
           <AssistantActionApprovals {...approvals} assistantId={agent.id} />
         </div>
         <div className="user-chat-notices">

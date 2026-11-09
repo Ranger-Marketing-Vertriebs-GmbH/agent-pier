@@ -4,6 +4,7 @@
 // message (conversations.js), so a page read after the window advanced overlaps what
 // is shown; it never leaves a gap, and the newer place of a row wins.
 import { chatWindowPrefix, prependHistoryRows } from "../chat/chat-sync.js";
+import { withoutAdjacentMarkers } from "./cards/card-view.js";
 
 export const emptyHistoryView = {
   live: null,
@@ -54,7 +55,10 @@ export function withOlder(view, page) {
   };
 }
 
-/** The history the chat renders: live metadata, every row once, the newer place first. */
+/**
+ * The history the chat renders: live metadata, every row once, the newer place first,
+ * without a card's marker that the card follows directly (card-view.js).
+ */
 export function shownHistory(view) {
   const live = view.live || { messages: [], requests: [], stale: false };
   const ids = new Set(live.messages.map((m) => m.id));
@@ -63,7 +67,7 @@ export function shownHistory(view) {
   const older = view.older.filter((m) => !ids.has(m.id));
   return {
     ...live,
-    messages: [...older, ...prefix, ...live.messages],
+    messages: withoutAdjacentMarkers([...older, ...prefix, ...live.messages]),
     nextBefore: view.olderLoaded ? view.olderBefore : (live.nextBefore ?? null),
   };
 }
