@@ -449,6 +449,10 @@ const previewCode = (error) =>
 // reason says why in its catalog message, read in English.
 const craftCode = (error) =>
   !error?.key && /^CRAFT_[A-Z_]+$/.test(error?.code ?? "") ? error.code : null;
+// Agent card problems (agent-card-schema.js cardError) carry a CARD_ code; the model
+// reads their catalog message in English, which names the failing part of a card.
+const cardCode = (error) =>
+  !error?.key && /^CARD_[A-Z_]+$/.test(error?.code ?? "") ? error.code : null;
 // Who answered a coding session's prompt first (coding-sessions/session-requests.js).
 const answerers = ["owner", "agent", "telegram", "session"];
 export function toolError(error) {
@@ -458,6 +462,7 @@ export function toolError(error) {
     sftpCode(error) ||
     previewCode(error) ||
     craftCode(error) ||
+    cardCode(error) ||
     byStatus[status] ||
     (status === 413 ? "REQUEST_TOO_LARGE" : "UNAVAILABLE");
   return {
@@ -466,7 +471,9 @@ export function toolError(error) {
     reason:
       code === "PROMPT_ANSWERED" && answerers.includes(error.answeredBy)
         ? `${reasons[code]} Answered by: ${error.answeredBy}.`
-        : code === previewCode(error) || (code === craftCode(error) && !reasons[code])
+        : code === previewCode(error) ||
+            code === cardCode(error) ||
+            (code === craftCode(error) && !reasons[code])
           ? agentText(error.message)
           : reasons[code],
   };
