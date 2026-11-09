@@ -63,8 +63,10 @@ for (const height of [844, 500])
       page.getByText("Mobile Darstellung prüfen", { exact: true }),
     ).toBeVisible();
     await page.getByRole("button", { name: "Aufgaben schließen", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Session umbenennen" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Session stoppen" })).toBeVisible();
+    await page.getByRole("button", { name: "Weitere Aktionen", exact: true }).click();
+    for (const name of ["Session umbenennen", "Session stoppen"])
+      await expect(page.getByRole("menuitem", { name })).toBeVisible();
+    await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Navigation öffnen" }).click();
     await expect(page.getByRole("navigation", { name: "Hauptnavigation" })).toBeVisible();
   });

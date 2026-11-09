@@ -1,4 +1,5 @@
 import { test, expect } from "../helpers/browser-test.js";
+import { sessionAction } from "../helpers/session-actions.js";
 import { baseURL } from "../helpers/browser.js";
 
 const hosts = Array.from({ length: 12 }, (_, index) => ({
@@ -79,7 +80,7 @@ async function fixture(page) {
 }
 
 async function openDialog(page, name) {
-  await page.getByRole("button", { name, exact: true }).first().click();
+  await sessionAction(page, name);
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
   return dialog;
@@ -213,7 +214,7 @@ test.describe("touch", () => {
   }) => {
     await fixture(page);
     expect(await page.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true);
-    await page.getByRole("button", { name: "Rename session", exact: true }).first().tap();
+    await sessionAction(page, "Rename session");
     const rename = page.getByRole("dialog");
     await expect(rename).toBeFocused();
     await expect(rename.getByRole("textbox", { name: "New name" })).not.toBeFocused();
