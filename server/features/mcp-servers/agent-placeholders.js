@@ -65,13 +65,30 @@ export function agentFolders(workspaces, assistantId) {
 
 /**
  * `{ value, path }` with the placeholder replaced by the agent's folder, `null` for a
- * value without a placeholder, `false` for an invalid one.
+ * value without a placeholder, `false` for an invalid one or one whose folder the
+ * agent does not get (a shared Hermes agent's `agent.attachments`).
  */
 export function resolvePlaceholder(value, folders, prefix = false) {
   const parsed = parsePlaceholder(value, { prefix });
   if (!parsed) return parsed;
+  if (typeof folders[parsed.name] !== "string") return false;
   const resolved = path.join(folders[parsed.name], ...parsed.segments);
   return { value: parsed.prefix + resolved, path: resolved };
+}
+
+/**
+ * The folder of `folders` a resolved path lies in, for its folder check: the
+ * workspace when it holds the path, else the folder that does.
+ */
+export function placeholderBase(folders, target) {
+  const holds = (folder) => {
+    const relative = path.relative(folder, target);
+    return !relative.startsWith("..") && !path.isAbsolute(relative);
+  };
+  return (
+    placeholderNames.map((name) => folders[name]).find((f) => f && holds(f)) ??
+    folders["agent.workspace"]
+  );
 }
 
 const stdio = (server) => server?.transport === "stdio";

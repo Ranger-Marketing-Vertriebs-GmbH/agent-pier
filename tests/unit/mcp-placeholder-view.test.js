@@ -64,7 +64,7 @@ test("without a workspace root the agents are listed as unavailable", () => {
 test("a Hermes agent's placeholders resolve in its own work folder", () => {
   const hermes = { id: "a4", name: "Herm", runtimeAgentId: "ap-a4", runtime: "hermes" };
   const own = (profile) =>
-    profile.id === "a4" ? { workspace: "/h/a4/work", ready: true } : null;
+    profile.id === "a4" ? { workspace: "/h/workspaces/a4", ready: true } : null;
   const [view] = placeholderViews([server], {
     profiles: [hermes],
     bindings: { a4: ["s1"] },
@@ -80,15 +80,16 @@ test("a Hermes agent's placeholders resolve in its own work folder", () => {
       entry: "voice",
       status: "active",
       values: [
-        { field: "args", index: 1, value: "--out=/h/a4/work/out" },
-        { field: "env", name: "BASE", value: "/h/a4/work/attachments" },
+        { field: "args", index: 1, value: "--out=/h/workspaces/a4/out" },
+        // Its chat uploads' folders (chat-file-folders.js).
+        { field: "env", name: "BASE", value: "/h/chat-files/a4" },
       ],
     },
   ]);
   const [stopped] = placeholderViews([server], {
     profiles: [hermes],
     bindings: { a4: ["s1"] },
-    ownRuntime: () => ({ workspace: "/h/a4/work", ready: false }),
+    ownRuntime: () => ({ workspace: "/h/workspaces/a4", ready: false }),
   });
   assert.equal(stopped.agentFolders[0].status, "pending");
   const [unknown] = placeholderViews([server], {
@@ -97,4 +98,12 @@ test("a Hermes agent's placeholders resolve in its own work folder", () => {
     ownRuntime: () => ({ workspace: null, ready: false }),
   });
   assert.equal(unknown.agentFolders[0].status, "unavailable");
+  // A shared agent's chats each read only their own folder: no agent.attachments.
+  const [shared] = placeholderViews([server], {
+    profiles: [hermes],
+    bindings: { a4: ["s1"] },
+    ownRuntime: () => ({ workspace: "/h/workspaces/a4", ready: true, shared: true }),
+  });
+  assert.equal(shared.agentFolders[0].status, "unavailable");
+  assert.deepEqual(shared.agentFolders[0].values, []);
 });

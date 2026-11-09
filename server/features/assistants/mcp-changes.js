@@ -6,6 +6,7 @@ import { mcpEligible, readMcpInputs, withInherited } from "../mcp-servers/mcp-in
 import { placeholderViews } from "./mcp-placeholder-view.js";
 import { desiredState } from "./agent-desired-state.js";
 import { temporaryMember } from "./team-presentation.js";
+import { isShared } from "../users/user-access.js";
 import {
   STDIO_CONFIRMATION_REQUIRED,
   changesStdio as stdioChange,
@@ -209,6 +210,7 @@ export class McpChanges {
             ? {
                 workspace: agentWorkspace(runtime, profile),
                 ready: hostReady(runtime, profile),
+                shared: isShared(profile),
               }
             : null,
       });

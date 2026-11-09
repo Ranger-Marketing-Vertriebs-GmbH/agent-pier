@@ -1,17 +1,11 @@
-import path from "node:path";
-import { agentFolders, resolvePlaceholder } from "../mcp-servers/agent-placeholders.js";
+import {
+  agentFolders,
+  placeholderBase,
+  resolvePlaceholder,
+} from "../mcp-servers/agent-placeholders.js";
 import { safeAgentPath } from "./agent-folders.js";
 import { agentServerName, mcpEligible } from "../mcp-servers/mcp-inputs.js";
-
-// The folders of an agent whose runtime names its own work folder (a Hermes agent's
-// terminal.cwd, runtimes/hermes/hermes-config/mcp.js), or null.
-const ownFolders = (workspace) =>
-  typeof workspace === "string" && path.isAbsolute(workspace)
-    ? {
-        "agent.workspace": workspace,
-        "agent.attachments": path.join(workspace, "attachments"),
-      }
-    : null;
+import { chatPlaceholderFolders } from "./chat-file-folders.js";
 
 /**
  * What a server with agent placeholders resolves to for each bound agent, for the
@@ -48,8 +42,10 @@ export function placeholderViews(
         const own = ownRuntime(profile);
         const entry = own ? String(server.name) : agentServerName(server, profile.id);
         const base = { id: profile.id, name: profile.name, entry };
+        // A Hermes agent's work folder (its terminal.cwd) and chat folders, the
+        // latter withheld on a shared one (runtimes/hermes/hermes-config/mcp.js).
         const folders = own
-          ? ownFolders(own.workspace)
+          ? chatPlaceholderFolders(own.workspace, { shared: own.shared })
           : agentFolders(workspaces, profile.id);
         if (!folders) return { ...base, status: "unavailable", values: [] };
         const resolve = (template, prefix = false) =>
@@ -66,9 +62,12 @@ export function placeholderViews(
             name,
             resolved: resolve(template),
           })),
-        ].filter((item) => item.resolved);
-        const safe = items.every((item) =>
-          pathCheck(item.resolved.path, folders["agent.workspace"]),
+        ];
+        if (items.some((item) => item.resolved === false))
+          return { ...base, status: "unavailable", values: [] };
+        const resolvedItems = items.filter((item) => item.resolved);
+        const safe = resolvedItems.every((item) =>
+          pathCheck(item.resolved.path, placeholderBase(folders, item.resolved.path)),
         );
         return {
           ...base,
@@ -77,7 +76,7 @@ export function placeholderViews(
             : (own ? own.ready : compiled.has(entry))
               ? "active"
               : "pending",
-          values: items.map(({ resolved, ...item }) => ({
+          values: resolvedItems.map(({ resolved, ...item }) => ({
             ...item,
             value: resolved.value,
           })),
