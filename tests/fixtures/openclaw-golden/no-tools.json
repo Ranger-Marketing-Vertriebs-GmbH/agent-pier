@@ -83,7 +83,6 @@
     }
   },
   "skills": {
-    "allowBundled": [],
     "load": {
       "extraDirs": [
         "/golden/assistants/skill-catalog/skills"
