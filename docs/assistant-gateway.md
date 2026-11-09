@@ -5602,6 +5602,64 @@ agent's reply to `pin` names who sees the list; a pin to an archived list reopen
   topic `agent.pinboard:<agentId>` (owner only, `content: true`;
   [Live channel](architecture.md#live-channel)).
 
+### Agent cards (2026-11-09)
+
+`agentpier_card {action, cardId?, title?, blocks?}` is compiled beside
+`agentpier_pinboard` into the `tools.allow` of every non-archived agent that is no team
+member, into a routine's `toolsAllow`, into every hook run's tools
+(`agent-hook-rights.js`) and into the Hermes grants (`native-capabilities.js`
+`toolGrants`). The bridge serves it as the `card` action (`team-bridge-actions.js`; an
+owner action like `share_file`, also allowed in a routine's run and a hook's run) and
+hands it to `AgentCards` (`agent-cards.js`).
+
+- **The chat.** A call writes into the chat of its run as `AgentShares.turn` resolves
+  it: the attempt's chat, the chat a routine commits to, the agent's main chat for a
+  hook, or the owner's chat for a run of it without a turn. On a shared agent that is
+  the chat of the person the run belongs to. A team member (`teamMemberId`), an
+  archived agent or chat, and a run that binds to no chat are refused with
+  `CARD_UNAVAILABLE` (403); `update` and `read` of a card of another chat answer
+  `CARD_NOT_FOUND` (404).
+- **Actions.** `create` (`title`, `blocks`) answers `cardId` and `version` 1; `update`
+  (`cardId`, `blocks`, optional `title`) replaces the blocks of an open card, raises its
+  version and places it again at this point of the chat; `read` with a `cardId` answers
+  the card with the person's ticks and her latest press, without one the chat's cards.
+  `read` and `update` mark the card seen by the agent.
+- **Blocks and limits.** `agent-card-schema.js` checks a closed block set (`heading`,
+  `text`, `metrics`, `table`, `chart` `line`/`bar`, `checklist`, `status`, `links`
+  `http(s)` only, `actions`) and refuses anything else with `CARD_INVALID`, whose
+  English reason names the failing part (`blocks[2].rows[0].action.label: …`): 20
+  blocks, 50 rows or items, 8 columns, metrics and buttons, 20 links, 200 chart points,
+  texts of 120 to 2,000 characters, and 32 KB of checked JSON (`CARD_TOO_LARGE`, 413).
+  A checklist item that keeps its id and omits `checked` keeps the person's tick.
+- **Storage.** `agent_cards` holds one row per card (blocks with ticks, version,
+  placements, `frozen_at`, the person's `changed_at`, the agent's `seen_at`, the latest
+  press) and `agent_card_notes` the card note each turn carried; both go with their chat
+  (`forgetChat`) and their agent (`agent-deletion.js`). Beyond 30 open cards in a chat
+  the oldest is frozen (`CARD_FROZEN`, 409 on update, tick and press).
+- **History.** `conversations.js` adds each card at its latest placement
+  (`card:<id>:<n>`, with `card`) and a marker at every earlier one (the same id it had
+  there, with `cardMoved`), so an update never reorders the chat window; at most 50
+  placements are kept. The web app hides a marker the card follows directly.
+- **Ticks and presses.** `POST /api/assistant-conversations/:id/cards/:cardId/check`
+  and `/press` (the owner's chats only, owner-content guard) and
+  `POST /api/me/conversations/:id/cards/:cardId/check` and `/press` (her own chats,
+  `route-access.js`) take `{ version, block, item | row, checked }`; a stale version or
+  place answers `CARD_CHANGED` (409). A tick starts no turn. A press records the button
+  and answers `text`, which the web app sends through the normal message route.
+- **Card note.** `sendTurn` (`conversation-turns.js`) appends a note naming each card
+  the person changed since the agent last saw it (checklists' done and open items, the
+  latest press) to the delivered text, records it in `agent_card_notes` and marks the
+  cards seen once the send is accepted; the history strips the recorded note from the
+  person's message.
+- **Telegram.** `create` in a turn from the paired Telegram chat, or in a routine run
+  that delivers there, queues the card's text (`cardFallback`, kind `agent-card`) in the
+  channel outbox; `update` never does. Push notifications send nothing of their own for
+  a card: a routine's or hook's push carries its run's reply as before.
+- **Audit and live.** Every create and update is logged as `assistant.updated` with
+  `details: { kind: "card", card: <action> }`. Every write, tick and press signals the
+  chat (`assistants.changed({ conversationId })`), whose live feed pushes the changed
+  rows to every open device ([Live channel](architecture.md#live-channel)).
+
 ## Continuous integration
 
 The `Assistant runtime` workflow runs the opt-in native contracts in a

@@ -1970,6 +1970,42 @@ pinboard; its pins stay there.
   every pinboard action in a restricted user's chat and on a user's own agent, and the
   users' app has none.
 
+### Agent cards
+
+Where a text wall is the wrong shape, an agent puts an **agent card** into the chat
+instead: a week's dinner plan with a **Swap** button per dish and a shopping list to
+tick off, or a status board of hosts with figures, a load chart and **Check again**.
+The agent describes the card with a fixed set of blocks and AgentPier draws it itself,
+on a computer and a phone alike; an agent never sends HTML or scripts.
+
+- **Blocks.** A heading, text, figures (with a green, amber or red tone), a table
+  (each row may carry one button), a line or bar chart, a checklist, status tiles
+  (ok, warning, problem, unknown), links (`http` and `https` only) and buttons. A card
+  holds at most 20 blocks, 50 rows or items per block, 200 chart values and 32 KB.
+- **Ticks are silent.** Ticking a checklist item saves it at once, on every open
+  device, and starts no turn. With your next message the agent receives a short note
+  of what you changed on its cards since it last looked (the note is not shown as
+  part of your message).
+- **Buttons send a message.** A button sends its message as yours (the button's own
+  text, else its label; a row's button adds the row, for example "Swap: Tue ·
+  Lasagne") and starts a turn; the agent usually answers by updating the same card.
+  Buttons wait while the agent works.
+- **Updates move the card.** An updated card moves to the end of the chat, where you
+  are, and shows its version and time; its old place keeps a line "… was updated –
+  shown further down" that leads to it. A chat keeps its newest 30 cards open; older
+  ones stay visible but closed.
+- **Who writes cards.** The agent's own chat turns, and its routines and hooks in
+  exactly the chat they deliver to. On a shared agent a card goes only into the chat
+  of the person the run belongs to, and only that person ticks and presses it; you see
+  it under her opt-in like the rest of her chat. Team members and other chats never
+  write cards. A card created in a turn from Telegram, or by a routine that delivers
+  to Telegram, also arrives there as plain text (title and a short line per block);
+  updates do not, so buttons and hook refreshes never flood Telegram.
+- **What the agent can do.** Its `agentpier_card` tool creates a card, updates an
+  open card of the same chat (a checklist item the update leaves unticked keeps your
+  tick) and reads one card or lists the chat's cards. Pinning a card to the pinboard
+  is not possible yet.
+
 ## Users
 
 **Settings › Users** adds other people who chat with agents. They sign in to
