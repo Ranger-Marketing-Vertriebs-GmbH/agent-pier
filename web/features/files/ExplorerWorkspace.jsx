@@ -567,13 +567,8 @@ export default function ExplorerWorkspace({ scopeRef, route, navigate }) {
                   sizePending={sizeSelection?.pending}
                   onSize={startSize}
                   entry={entry}
-                  downloadHref={
-                    entry?.type === "file" ? client.directDownload(entry.path) : null
-                  }
+                  links={client}
                   preview={preview}
-                  openHref={
-                    preview?.type === "pdf" ? client.inlineDownload(entry.path) : null
-                  }
                   error={propertiesError}
                   previewError={previewError}
                   previewOwner={selectionOwner.current}

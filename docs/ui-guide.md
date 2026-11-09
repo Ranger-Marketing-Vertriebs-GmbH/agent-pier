@@ -331,6 +331,13 @@ one look (`web/components/choice.css`); no `accent-color` or bespoke switch styl
 - Routes, cross-links and the back arrow follow the
   [settings pattern › routes](settings-pattern.md#routes).
 
+#### Session header on a phone
+
+At phone width the session header keeps the name, **Previews** and **Artifacts**; reload,
+switch account, session tools, SSH, rename and stop or remove move into one **More
+actions** menu (`RowMenu`). The title keeps at least 8rem and the actions wrap to their
+own row before they could cover it or leave the screen (`session-header-phone.spec.js`).
+
 #### Sidebar, menu and search
 
 ![Sidebar with the Menu popover open](screenshots/navigation-menu-desktop.png)

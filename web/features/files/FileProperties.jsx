@@ -18,8 +18,7 @@ export default function FileProperties({
   actionTarget,
   selectedPath,
   entry,
-  downloadHref,
-  openHref,
+  links,
   preview,
   error,
   previewError,
@@ -31,6 +30,8 @@ export default function FileProperties({
   sizePending,
   onSize,
 }) {
+  const downloadHref = entry?.type === "file" ? links.directDownload(entry.path) : null;
+  const openHref = preview?.type === "pdf" ? links.inlineDownload(entry.path) : null;
   const closeRef = useRef(null);
   // Phone layout: the window's width, or the pane's inside a split view.
   const phone = useNarrow(mediaQueries.phone, breakpoints.phone);
