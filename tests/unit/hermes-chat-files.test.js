@@ -6,6 +6,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
 import { AgentAttachments } from "../../server/features/assistants/agent-attachments.js";
+import { SHARED_TTL } from "../../server/features/assistants/agent-share-store.js";
 import { withAttachments } from "../../server/features/assistants/attachment-history.js";
 import { attachmentNote } from "../../server/features/assistants/agent-attachment-types.js";
 import {
@@ -281,4 +282,21 @@ test("clearing removes chat folders replaced by a link, never what it points to"
   await attachments.clear(agent.id);
   assert.equal(fs.existsSync(root), false);
   assert.deepEqual(fs.readdirSync(elsewhere), ["keep.txt"]);
+});
+
+test("a created image's copy leaves its chat folder when its shared copy expires", async (t) => {
+  const { attachments, chat, root } = setup(t);
+  const conversation = chat("agent:x:hermes:s1");
+  const folder = path.join(root, conversation.id);
+  fs.mkdirSync(folder, { recursive: true });
+  const old = path.join(folder, "generated-old.png");
+  const fresh = path.join(folder, "generated-new.png");
+  fs.writeFileSync(old, png);
+  fs.writeFileSync(fresh, png);
+  const past = new Date(Date.now() - SHARED_TTL - 60000);
+  fs.utimesSync(old, past, past);
+  await attachments.stage(conversation.id, "a.png", png);
+  assert.equal(fs.existsSync(old), false, "the expired copy went");
+  assert.equal(fs.existsSync(fresh), true, "a newer copy stays and counts");
+  assert.equal((await attachments.storage.usage(conversation.assistantId)).files, 2);
 });
