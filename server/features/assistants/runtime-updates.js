@@ -23,6 +23,20 @@ import {
 } from "./runtime-retention.js";
 
 const failure = (code, status = 503) => Object.assign(Error(code), { code, status });
+const stableCode = (code) =>
+  typeof code === "string" && /^[A-Z][A-Z0-9_]{0,63}$/.test(code) ? code : null;
+/**
+ * Why staging failed, for the owner and the log: the failure's stable code (or its
+ * cause's: a failed fetch carries ECONNRESET there) and the HTTP status of a
+ * download the server refused. Never a message: it may hold paths or URLs.
+ */
+export function stageCause(error) {
+  const code = stableCode(error?.code) || stableCode(error?.cause?.code);
+  const status = error?.upstreamStatus;
+  const upstreamStatus =
+    Number.isInteger(status) && status >= 100 && status <= 599 ? status : null;
+  return code || upstreamStatus ? { code, upstreamStatus } : null;
+}
 async function availableBytes(directory) {
   const stat = await fsp.statfs(directory);
   return stat.bavail * stat.bsize;
@@ -122,6 +136,11 @@ export class RuntimeUpdates {
       // Each blocker of the last refused activation (runtime-update-blockers.js).
       blockerItems: this.journal.blockerItems || [],
       diagnostic: this.journal.diagnostic || null,
+      // Why staging failed (stageCause): a stable code and a download's HTTP status.
+      diagnosticCause:
+        (this.journal.diagnostic === "UPDATE_STAGE_FAILED" &&
+          this.journal.diagnosticCause) ||
+        null,
       diagnosticPath: this.journal.diagnosticPath || null,
       // Bytes copied so far against the pre-check's estimate, while this process copies.
       snapshotProgress:
@@ -161,6 +180,7 @@ export class RuntimeUpdates {
       const before = this.journal.phase;
       this.persist("staging", {
         diagnostic: null,
+        diagnosticCause: null,
         diagnosticPath: null,
         blockers: [],
         blockerItems: [],
@@ -179,10 +199,22 @@ export class RuntimeUpdates {
       } catch (error) {
         const busy = error.code === "RUNTIME_BUSY";
         const staged = readJSON(this.candidateFile, null) ? "staged" : "idle";
+        const cause = busy ? null : stageCause(error);
+        if (!busy)
+          console.error(
+            `AgentPier could not stage the agent runtime update (code ${
+              cause?.code || "unknown"
+            }, upstream status ${cause?.upstreamStatus ?? "none"}).`,
+          );
         this.persist(busy ? before : staged, {
           diagnostic: busy ? "RUNTIME_BUSY" : "UPDATE_STAGE_FAILED",
+          diagnosticCause: cause,
         });
-        throw busy ? failure("RUNTIME_BUSY", 409) : failure("UPDATE_STAGE_FAILED");
+        if (busy) throw failure("RUNTIME_BUSY", 409);
+        throw Object.assign(failure("UPDATE_STAGE_FAILED"), {
+          cause: error,
+          diagnosticCause: cause,
+        });
       }
     });
   }

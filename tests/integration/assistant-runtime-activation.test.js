@@ -4,7 +4,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { RuntimeUpdates } from "../../server/features/assistants/runtime-updates.js";
+import {
+  RuntimeUpdates,
+  stageCause,
+} from "../../server/features/assistants/runtime-updates.js";
 import { runtimePaths } from "../../server/features/assistants/runtime-paths.js";
 import { readJSON, writePrivate } from "../../server/lib/storage.js";
 
@@ -265,10 +268,53 @@ test("staging failure leaves selected runtime and live service untouched", async
     throw Object.assign(Error("disk full"), { code: "ENOSPC" });
   };
   const updates = new RuntimeUpdates(f.options);
-  await assert.rejects(updates.stage(), { code: "UPDATE_STAGE_FAILED" });
+  const logged = t.mock.method(console, "error", () => {});
+  await assert.rejects(updates.stage(), {
+    code: "UPDATE_STAGE_FAILED",
+    diagnosticCause: { code: "ENOSPC", upstreamStatus: null },
+  });
   assert.deepEqual(readJSON(f.selected), f.old);
   assert.deepEqual(f.calls, []);
   assert.equal(f.runtime.running, true);
+  // The owner and the log see why, never the message.
+  assert.deepEqual(updates.status().diagnosticCause, {
+    code: "ENOSPC",
+    upstreamStatus: null,
+  });
+  assert.match(logged.mock.calls[0].arguments[0], /code ENOSPC, upstream status none/);
+  assert.doesNotMatch(JSON.stringify(updates.status()), /disk full/);
+});
+
+test("a refused download names its upstream status; a later stage clears the cause", async (t) => {
+  const f = fixture(t);
+  t.mock.method(console, "error", () => {});
+  let refuse = true;
+  const stage = f.options.stage;
+  f.options.stage = async (...args) => {
+    if (!refuse) return stage(...args);
+    // As release-download.js reports GitHub's refusal, with a secret-bearing URL.
+    throw Object.assign(Error("https://token@example.invalid/uv.tar.gz failed"), {
+      status: 502,
+      upstreamStatus: 429,
+    });
+  };
+  const updates = new RuntimeUpdates(f.options);
+  await assert.rejects(updates.stage(), { code: "UPDATE_STAGE_FAILED" });
+  assert.deepEqual(updates.status().diagnosticCause, { code: null, upstreamStatus: 429 });
+  assert.doesNotMatch(JSON.stringify(updates.status()), /token/);
+  refuse = false;
+  await updates.stage();
+  assert.equal(updates.status().diagnosticCause, null);
+});
+
+test("stageCause keeps stable codes and HTTP statuses only", () => {
+  const fetchFailed = Object.assign(TypeError("fetch failed"), {
+    cause: Object.assign(Error("socket hang up"), { code: "ECONNRESET" }),
+  });
+  assert.deepEqual(stageCause(fetchFailed), { code: "ECONNRESET", upstreamStatus: null });
+  assert.equal(stageCause(Error("plain")), null);
+  assert.equal(stageCause({ code: "lower case path /x", upstreamStatus: 1000 }), null);
+  assert.equal(stageCause(null), null);
 });
 
 test("insufficient snapshot space never activates candidate or loses state", async (t) => {

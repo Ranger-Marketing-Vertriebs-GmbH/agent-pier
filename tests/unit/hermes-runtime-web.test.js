@@ -7,6 +7,7 @@ import {
   hermesStatus,
   validHermes,
 } from "../../web/features/assistants/hermes-runtime.js";
+import { updateCauseDetail } from "../../web/features/assistants/update-cause.js";
 import {
   offersEveryCommand,
   shellChoice,
@@ -80,6 +81,20 @@ test("the Hermes state row follows install, update, error and switch", () => {
   const fallback = (code) => `other ${code}`;
   assert.equal(hermesErrorText("KNOWN", errors, fallback), "known");
   assert.equal(hermesErrorText("toString", errors, fallback), "other toString");
+});
+
+test("a staging failure's cause shows its code and the upstream HTTP status", () => {
+  assert.equal(
+    updateCauseDetail({ code: "ECONNRESET", upstreamStatus: null }),
+    "ECONNRESET",
+  );
+  assert.equal(updateCauseDetail({ code: null, upstreamStatus: 429 }), "HTTP 429");
+  assert.equal(
+    updateCauseDetail({ code: "DOWNLOAD_IDLE_TIMEOUT", upstreamStatus: 504 }),
+    "DOWNLOAD_IDLE_TIMEOUT · HTTP 504",
+  );
+  for (const cause of [null, "ENOSPC", {}, { code: "<b>x</b>", upstreamStatus: "429" }])
+    assert.equal(updateCauseDetail(cause), "");
 });
 
 test("only a runtime offering it asks before every command", () => {

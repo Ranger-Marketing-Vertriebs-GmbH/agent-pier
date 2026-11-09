@@ -248,12 +248,15 @@ export function createHermesRuntime({ config, services = {} }) {
   const base = hermes.state;
   let updating = null;
   let updateError = null;
+  // Why staging failed (runtime-updates.js stageCause), beside its code.
+  let updateCause = null;
   let blocked = [];
   hermes.state = () => {
     const state = base();
     return {
       ...state,
       error: state.error || updateError,
+      errorCause: (!state.error && updateCause) || null,
       blockerItems: blocked,
       updating: !!updating,
       // A newer pin, or the same release with an extra it lacks (hermes-install.js).
@@ -293,6 +296,7 @@ export function createHermesRuntime({ config, services = {} }) {
     const state = hermes.state();
     if (updating || !state.enabled || !state.installed) return state;
     updateError = null;
+    updateCause = null;
     blocked = [];
     const updates = journal();
     updating = (async () => {
@@ -301,6 +305,7 @@ export function createHermesRuntime({ config, services = {} }) {
     })()
       .catch((error) => {
         updateError = stableCode(error, "HERMES_UPDATE_FAILED");
+        updateCause = error?.diagnosticCause || null;
         // The work that refused it, as the owner resolves it.
         if (updateError === "UPDATE_BLOCKED") blocked = updates.status().blockerItems;
       })

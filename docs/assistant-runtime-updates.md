@@ -309,7 +309,12 @@ Staging an identical runtime records no candidate, and the status reports
 `updateAvailable: false`. Installation takes a cross-process lock
 (`runtimes/.install.lock`, created with `O_EXCL`, naming the holder's pid and start
 time); a second process gets `RUNTIME_BUSY`, and a lock whose holder is gone is
-reclaimed. A selection whose runtime directory is missing is reset and reinstalled
+reclaimed. A failed staging keeps the active selection and reports
+`UPDATE_STAGE_FAILED` with its cause (`diagnosticCause`): the failure's stable code
+(`ENOSPC`, `ECONNRESET`, `DOWNLOAD_IDLE_TIMEOUT`, …) and, for a refused download, the
+upstream HTTP status. The update panel and the Hermes state row show it as
+"Cause: ECONNRESET" or "Cause: HTTP 429", and the server log names both; the
+failure's message, which may hold paths or URLs, is never reported. A selection whose runtime directory is missing is reset and reinstalled
 on the next start (`RUNTIME_REINSTALLED`). A selection without a dependency lock is
 refused (`RUNTIME_LOCK_MISSING`); staging and activating the qualified runtime
 replaces it. The managed team plugin accepts the manifest's runtime and its declared
