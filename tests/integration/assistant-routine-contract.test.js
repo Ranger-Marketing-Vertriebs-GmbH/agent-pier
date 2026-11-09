@@ -287,6 +287,7 @@ test(
     assert.deepEqual(
       [...runTools].sort(),
       [
+        "agentpier_card",
         // A routine may drive coding sessions (routineTools); it answers
         // SESSIONS_NOT_ENABLED without a project switched on.
         "agentpier_coding_session",
@@ -431,6 +432,7 @@ test(
     const narrowed = offered(model.requests.slice(offset).find(isRoutine));
     t.diagnostic(`routine tools without memory=${JSON.stringify(narrowed)}`);
     assert.deepEqual([...narrowed].sort(), [
+      "agentpier_card",
       "agentpier_coding_session",
       "agentpier_mail",
       "agentpier_pinboard",

@@ -474,6 +474,7 @@ export class TeamBridge {
         return this.assistants.shares.invoke(invocation, input);
       if (action === "pinboard")
         return this.assistants.pinboard.invoke(invocation, input);
+      if (action === "card") return this.assistants.cards.invoke(invocation, input);
       if (action === "routine") return this.assistants.routines.invoke(invocation, input);
       if (action === "hook")
         return invokeHook(this.assistants.routines?.hooks, invocation, input);

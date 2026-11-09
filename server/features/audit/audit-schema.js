@@ -48,6 +48,8 @@ const pinboardActions = new Set([
   "reopen_list",
   "delete_list",
 ]);
+// An agent's card writes (agent-cards.js).
+const cardActions = new Set(["create", "update"]);
 const memberEditKeys = new Set([
   "name",
   "role",
@@ -224,11 +226,15 @@ export function auditEvent(input) {
       "memory-review",
       // An agent's pinboard write (agent-pinboard.js); `pinboard` names the action.
       "pinboard",
+      // An agent's card write (agent-cards.js); `card` names the action.
+      "card",
     ].includes(details.kind)
   )
     event.details.kind = details.kind;
   if (details.kind === "pinboard" && pinboardActions.has(details.pinboard))
     event.details.pinboard = details.pinboard;
+  if (details.kind === "card" && cardActions.has(details.card))
+    event.details.card = details.card;
   if (
     [
       "allow",

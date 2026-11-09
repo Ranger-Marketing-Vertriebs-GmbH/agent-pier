@@ -23,6 +23,7 @@ export const hookActions = new Set([
   "mail",
   "share_file",
   "pinboard",
+  "card",
 ]);
 
 /** The running hook event's origin of this agent's session, or null. */

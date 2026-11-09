@@ -329,10 +329,15 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
     service.teams ? requests.map((r) => [r.id, service.teams.store.context(r.id)]) : [],
   );
   const attempts = service.ledger.attemptRequests(id);
-  messages = withAttachments(withoutMarks(messages), requests, {
-    attempts,
-    byRequest: files,
-  });
+  // A turn's card note (agent-cards.js turnNote) is the agent's, not the person's.
+  messages = withAttachments(
+    withoutCardNotes(service, id, withoutMarks(messages)),
+    requests,
+    {
+      attempts,
+      byRequest: files,
+    },
+  );
   const visible = hideInternal(messages, requests, contexts, attempts);
   return {
     ...visible,
@@ -373,6 +378,7 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
       [
         ...(service.attachments?.sharedFor?.(id) || []),
         ...(service.pinboard?.notesFor(id) || []),
+        ...(service.cards?.notesFor(id) || []),
       ],
       { from: pageStart(nextBefore, messages) },
     ),
@@ -394,6 +400,9 @@ export async function conversationHistory(service, id, { before, limit = 100 } =
     ...(offset === 0 && modelHintShown(service, conversation) ? { modelHint: true } : {}),
   };
 }
+
+const withoutCardNotes = (service, id, messages) =>
+  service.cards ? service.cards.withoutNotes(id, messages) : messages;
 
 /** The share of the model's context window from which a chat counts as long. */
 export const longChatShare = 0.6;

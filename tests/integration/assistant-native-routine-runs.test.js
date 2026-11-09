@@ -77,6 +77,7 @@ test("a routine run gets exactly the agent's chat tools minus scheduling and mos
     // A routine run hands its owner files too (agent-shares.js).
     "agentpier_share_file",
     "agentpier_pinboard",
+    "agentpier_card",
     // Coding sessions on projects with sessions on (coding-sessions/session-turns.js).
     "agentpier_coding_session",
     "agentpier_mail",
@@ -96,6 +97,7 @@ test("a routine run gets exactly the agent's chat tools minus scheduling and mos
       "agentpier_workspace",
       "agentpier_share_file",
       "agentpier_pinboard",
+      "agentpier_card",
       "agentpier_coding_session",
       "agentpier_mail",
       "web_fetch",

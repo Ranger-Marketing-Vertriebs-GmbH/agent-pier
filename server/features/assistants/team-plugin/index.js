@@ -5,6 +5,7 @@ import { sshDefinition, sshTimeoutMs } from "./ssh-tool.js";
 import { sshAccessDefinition, sshAccessTimeoutMs } from "./ssh-access-tool.js";
 import { shareDefinition } from "./share-tool.js";
 import { pinboardDefinition } from "./pinboard-tool.js";
+import { cardDefinition } from "./card-tool.js";
 import { registerBackgroundCommands } from "./background-commands.js";
 import { goalDefinition } from "./goal-tool.js";
 import { codingSessionDefinition } from "./coding-session-tool.js";
@@ -42,6 +43,7 @@ export const toolTimeouts = {
   ssh_access: sshAccessTimeoutMs,
   share_file: 30000,
   pinboard: 30000,
+  card: 30000,
   templates: 65000,
   propose: 95000,
   // A coding session wait holds the call for up to 100 seconds.
@@ -67,6 +69,7 @@ export const ownTools = [
   "ssh",
   "share_file",
   "pinboard",
+  "card",
   "goal",
   "hook",
   "ssh_access",
@@ -136,6 +139,7 @@ export const definitions = {
   ...sshAccessDefinition,
   ...shareDefinition,
   ...pinboardDefinition,
+  ...cardDefinition,
   ...goalDefinition,
   ...codingSessionDefinition,
   ...mailDefinition,
