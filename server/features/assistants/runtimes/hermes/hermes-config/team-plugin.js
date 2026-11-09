@@ -28,17 +28,18 @@ import { browserUpload } from "./browser-upload-tool.js";
 //   fail-closed) asks the bridge before a team member changes a file (`write_file`,
 //   `patch`), before a file call that names the attachments/, chat-files/ or
 //   .agentpier/ folder (`read_file`, `search_files`, `vision_analyze`, the writes; a
-//   search of the whole work folder or beyond it; on an agent shared with users every
-//   read leaving the work folder, hermes-home-guard.js) and before every browser call
-//   (`browser_*`) and image creation (`image_generate`); no answer blocks the call. AgentPier's pdf tool (pdf.js) asks the same bridge at each call.
+//   search of the whole work folder or beyond it; on an agent of restricted users,
+//   own or shared, every read leaving the work folder, hermes-home-guard.js) and
+//   before every browser call (`browser_*`) and image creation (`image_generate`); no answer blocks the call. AgentPier's pdf tool (pdf.js) asks the same bridge at each call.
 //   Invisible subagents (`delegate_task`) run under a session of
 //   their own; the `subagent_start` hook maps it to the parent's, so the guard judges
 //   a subagent's call as its parent's. Team tools stay with the parent's own session.
-// - Images: a `transform_tool_result` hook (model_tools.py) copies an image Hermes
+// - Images: a `transform_tool_result` hook (model_tools.py) hands an image Hermes
 //   created (agent/image_gen_provider.py `save_b64_image`, below the home's
-//   cache/generated/images/) into the agent's folder and shares it into the chat with
-//   agentpier_share_file, as OpenClaw's generated images reach the chat
-//   (generated-images.js): the agent does nothing for it.
+//   cache/generated/images/) to agentpier_share_file, which copies it into the
+//   folder of the chat it is shared into (hermes-generated-images.js) and shares it
+//   there, as OpenClaw's generated images reach the chat (generated-images.js): the
+//   agent does nothing for it.
 //
 // The bridge's address and token change per start; bridge.json is read at each call.
 
@@ -57,9 +58,6 @@ const shippedSkill = (name) =>
     "utf8",
   );
 const skillTexts = new Map();
-/** The folder of the agent's own folder its generated images are shared from. */
-export const generatedImagesFolder = "generated-images";
-
 /** The folder below HERMES_HOME that holds built-in skill `name`. */
 export const teamSkillFolder = (name) => `${teamDirectory}/skills/${name}`;
 
@@ -78,7 +76,6 @@ cannot answer fails, and the guard then blocks the tool.
 import json
 import os
 import re
-import shutil
 import threading
 import urllib.error
 import urllib.request
@@ -356,8 +353,8 @@ def _guard(tool_name="", args=None, session_id=None, task_id=None, **_):
     args = args if isinstance(args, dict) else {}
     browser = tool_name.startswith("browser_") and settings.get("browser")
     member_write = tool_name in _WRITES and bool(settings.get("guardWrites"))
-    # A shared agent asks before every read leaving its work folder: only the calling
-    # chat's file folder holds none of other chats' files (hermes-home-guard.js).
+    # An agent of restricted users asks before every read leaving its work folder: it
+    # reads only its own chat files there (hermes-home-guard.js).
     private = tool_name in _READS and settings.get("privateFolders") and not _inside(args)
     folder = tool_name in _FILES and (private or _wide(tool_name, args) or _names_folder(args))
     image = tool_name == "image_generate" and bool(settings.get("images"))
@@ -382,7 +379,8 @@ _SHARE = _tool({"action": "share_file", "timeoutMs": 30000})
 
 
 def _image_result(tool_name="", result=None, session_id=None, task_id=None, **_):
-    # Hands an image Hermes created to the chat as a file of the agent's own folder.
+    # Hands an image Hermes created to the chat; AgentPier keeps a copy in that chat's
+    # file folder, whose path the agent then reads.
     images = _read("tools.json").get("images")
     if tool_name != "image_generate" or not images or not isinstance(result, str):
         return None
@@ -391,23 +389,21 @@ def _image_result(tool_name="", result=None, session_id=None, task_id=None, **_)
         if not isinstance(answer, dict) or answer.get("success") is not True:
             return None
         source = os.path.realpath(str(answer.get("image") or ""))
-        if not source.startswith(os.path.realpath(_GENERATED) + os.sep):
+        if os.path.dirname(source) != os.path.realpath(_GENERATED):
             return None
         if not os.path.isfile(source):
             return None
-        name = os.path.basename(source)
-        os.makedirs(os.path.join(images["folder"], images["share"]), mode=0o700, exist_ok=True)
-        target = os.path.join(images["folder"], images["share"], name)
-        shutil.copyfile(source, target)
     except Exception:
         return None
-    relative = images["share"] + "/" + name
     try:
-        shared = json.loads(_SHARE({"path": relative}, session_id=_root(session_id), task_id=task_id))
+        shared = json.loads(
+            _SHARE({"generated": os.path.basename(source)}, session_id=_root(session_id), task_id=task_id)
+        )
     except Exception:
         shared = {"error": _UNAVAILABLE}
-    answer["image"] = target
     if isinstance(shared, dict) and shared.get("status") == "shared":
+        if isinstance(shared.get("image"), str):
+            answer["image"] = shared["image"]
         answer["note"] = (
             "AgentPier handed this image over in this chat. "
             + str(shared.get("note") or "")
@@ -415,10 +411,11 @@ def _image_result(tool_name="", result=None, session_id=None, task_id=None, **_)
         ).strip()
     else:
         error = shared.get("error") if isinstance(shared, dict) else None
+        answer.pop("image", None)
         answer["note"] = (
             "AgentPier could not hand this image over ("
             + str(error or _UNAVAILABLE)
-            + "). Share " + relative + " with agentpier_share_file."
+            + "). Say so plainly in this chat."
         )
     return json.dumps(answer)
 
@@ -536,15 +533,15 @@ export function teamTools(agent) {
  * when it needs none. `connection`: the team bridge's `{ url, token }`, without which
  * the agent gets neither tools nor the guard; `browser`: whether it uses the browser;
  * `skills`: the built-in skills it gets (skills.js builtInOffered), copied here;
- * `images`: `{ folder }`, the agent's own folder, while it creates images (images.js),
- * which its generated images are copied into before they are shared; `pdf`: the
+ * `images`: whether it creates images (images.js), which are then shared into the
+ * chat and copied into that chat's file folder (hermes-generated-images.js); `pdf`: the
  * pdf tool's settings while it reads PDFs (pdf.js pdfHome).
  * A team member's file changes ask the bridge (guardWrites), as the OpenClaw guard
  * does for every agent; an own agent's stay Hermes's own.
  */
 export function teamPluginFiles(
   agent,
-  { connection, browser = false, skills = [], images = null, pdf = null } = {},
+  { connection, browser = false, skills = [], images = false, pdf = null } = {},
 ) {
   if (!connection?.url || !connection?.token) return null;
   const tools = teamTools(agent).map(({ name, action }) => ({
@@ -559,12 +556,11 @@ export function teamPluginFiles(
   const settings = {
     tools,
     guardWrites,
-    ...(agent.shared && { privateFolders: true }),
+    // An agent of restricted users reads only its own folders (hermes-home-guard.js).
+    ...(agent.locked && { privateFolders: true }),
     browser: !!browser,
     ...(browser && { browserUpload }),
-    ...(images?.folder && {
-      images: { folder: images.folder, share: generatedImagesFolder },
-    }),
+    ...(images && { images: true }),
     ...(pdf && { pdf }),
   };
   const bridge = {

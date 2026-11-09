@@ -224,12 +224,14 @@ that folder.
 
 On an agent shared with users each chat is private to its person, but these caches
 hold every chat's images. Its file and vision tools therefore read only its work folder
-and the calling chat's file folder ([chat files](#chat-files)): the team plugin asks
-the bridge before every `read_file`, `search_files` and `vision_analyze` of such an
-agent (`privateFolders` in `tools.json`) whose path may leave its work folder, and
-`hermes-home-guard.js` refuses any path outside those two folders, and any search whose
+and the calling chat's file folder ([chat files](#chat-files)). A user's own agent
+(one user, not shared) reads only its work folder and its own chat folders, all of
+which are hers. On every agent of restricted users the team plugin asks the bridge
+before every `read_file`, `search_files` and `vision_analyze` (`privateFolders` in
+`tools.json`) whose path may leave its work folder, and `hermes-home-guard.js`
+(`userReadRefusal`) refuses any path outside those folders, and any search whose
 folder lies outside them (so neither its `HERMES_HOME`, its `HOME`, another chat's
-folder nor another agent's workspace). A plain relative path without `..` stays in the
+folder on a shared agent nor another agent's workspace, chat files or Hermes home). A plain relative path without `..` stays in the
 work folder (its file tools make no links), so it needs no bridge call; an absolute
 path, `~`, `..`, `file://` or another scheme asks, and so does a search path with a
 comma or whitespace: Hermes searches a path that does not exist as several, split at
@@ -247,11 +249,12 @@ ignores case; a path must lie inside an allowed folder both as written and as
 resolved. It refuses `~name` and fails closed when the agent's folders are unknown or
 the bridge does not answer, so such an agent cannot read files in its `HOME` either
 (`~/.gitconfig`), nor anything in `/tmp`. Its `pdf` tool and `image_generate`
-references take files of the same two folders. An OpenClaw agent reads only its
-workspace (`tools.fs.workspaceOnly`). An agent not shared with users serves only the
-owner's chats, which may read each other's attachments on OpenClaw too, so its reads
+references take files of the same folders. An OpenClaw agent reads only its
+workspace (`tools.fs.workspaceOnly`). The owner's own agents (no users) serve only the
+owner's chats, which may read each other's attachments on OpenClaw too, so their reads
 stay Hermes's own, except that any file call into the chat folders stays in its own
-agent's. Not covered: Hermes's `video_analyze` (the `video` toolset, which AgentPier
+agent's. An older AgentPier did not limit a user's own Hermes agent this way: it
+could read other agents' folders by absolute path. Not covered: Hermes's `video_analyze` (the `video` toolset, which AgentPier
 never turns on) would need the same guard.
 
 ### Chat files
@@ -264,7 +267,8 @@ zero-match probe over hidden files (`_zero_match_probe`, `--hidden --no-ignore`)
 no chat's files. The note a turn carries names the folder and each file by absolute
 path ("saved in this chat's file folder …"); the chat strips that note and the older
 one naming `attachments/`. On an agent shared with users a turn reads and writes only
-its own chat's folder; on any Hermes agent a file call into the chat folders stays in
+its own chat's folder; images the agent creates are kept in the folder of the chat
+they are shared into ([images](#images)); on any Hermes agent a file call into the chat folders stays in
 the agent's own (`chat-files` in the plugin's first look, `hermes-home-guard.js`
 `chatFolderRefusal`). `agentpier_share_file` and `agentpier_workspace`
 `browser_upload_stage` take a file of the calling chat's folder by its absolute path.
@@ -595,8 +599,9 @@ The `agentpier-team` profile plugin carries both parts of the OpenClaw team plug
   `hermes-tool-guard.js`) before a team member's `write_file` or `patch`, before a file
   call (`read_file`, `search_files`, `vision_analyze`, the writes) whose arguments name
   `attachments/`, `chat-files/` or `.agentpier/`, before a search of the whole work
-  folder or beyond it ([chat files](#chat-files)) (on an agent shared with users, before
-  every read leaving the work folder: [attached images](#attached-images)), before every browser call and before every
+  folder or beyond it ([chat files](#chat-files)) (on an agent of restricted users,
+  own or shared, before every read leaving the work folder:
+  [attached images](#attached-images)), before every browser call and before every
   `image_generate` ([images](#images)); AgentPier's `pdf` tool asks it at each call
   ([PDFs](#pdfs)). It applies the
   OpenClaw guard's rules (`team-plugin/tool-guard.js`, `secrets-guard.js`): an
@@ -740,10 +745,17 @@ generation writes an `assistant.executed` audit event with `kind:
 once resolved, and never an attachment of another chat or its secrets folder; Hermes
 reads it itself and would send any file it can read to OpenAI, and it resolves a
 relative path against its own process. Hermes's tool waits for the image (no
-background task). The plugin's `transform_tool_result` hook copies the image Hermes
-saved below `cache/generated/images/` into `generated-images/` of the agent's folder
-and shares it into the chat with `agentpier_share_file`, also to the owner's
-Telegram chat when the turn came from there; the tool result tells the agent so.
+background task). The plugin's `transform_tool_result` hook hands the image Hermes
+saved below `cache/generated/images/` (beside every other chat's) to
+`agentpier_share_file` by name, which shares it into the chat its turn shares into,
+also to the owner's Telegram chat when the turn came from there, and keeps a copy for
+the agent in `generated-images/` of that chat's file folder
+(`hermes-generated-images.js`, [chat files](#chat-files)); the tool result names that
+copy. A routine run's image goes to the folder of the chat its routine commits to, a
+hook run's to the agent's main chat, as their shares do. On an agent shared with users
+only that chat reads it, and it goes with the chat's other files (**Clear**, removing
+the chat). Images an older AgentPier created stay in `generated-images/` of the
+work folder. When the share fails, the tool result says so and names no file.
 Hermes's own media delivery into an AgentPier chat (`gateway/session_local.py`
 `LocalSessionAdapter`) has no image send in v0.22.5, so Hermes logs a
 `send_image_file fallback` warning; the image reaches the chat through the share

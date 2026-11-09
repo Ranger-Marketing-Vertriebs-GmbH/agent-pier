@@ -20,7 +20,9 @@ import { agentPath } from "../../server/features/assistants/agent-attachment-not
 // nothing of them, also through Hermes's zero-match probe (`--hidden --no-ignore`),
 // and its guard refuses a search of the chat folders, while the chat the file came
 // in reads it at the path its note names. And a hook run without its Secrets switch
-// cannot count matches in the secrets file with a search of the work folder. The
+// cannot count matches in the secrets file with a search of the work folder. As one
+// user's own agent it reads all of its own chats' files but no other agent's work
+// folder and not its Hermes home. The
 // in-repo fake model drives every tool call.
 const options = { skip: hermesSkip, timeout: contractTimeout(1500000) };
 
@@ -69,6 +71,8 @@ test(
     };
     const turn = async (conversation, message) => {
       const runId = `turn-${randomUUID()}`;
+      // The agent's runtime as it runs now (an apply may start it again).
+      const { sessions } = fleet.runtimeOf(created);
       await sessions.send({
         key: conversation.runtimeSessionKey,
         turn: { message },
@@ -134,6 +138,35 @@ test(
     // Chat A reads its own file at the path its note names.
     const own = await turn(a, `CALL: read_file ${JSON.stringify({ path: file })}`);
     assert.ok(own.includes(token), own);
+
+    // As one user's own agent it reads every chat of its own, never another agent's
+    // work folder or its Hermes home (AGENTPIER-367).
+    const sharedAgent = assistants.store.getAssistant(created.id);
+    assistants.store.setUserAccess(
+      created.id,
+      { mode: "own", members: [{ userId: "user-a", level: "extended" }], released: [] },
+      sharedAgent.revision,
+    );
+    await assistants.config.apply(created.id);
+    await app.ready(created);
+    const neighbour = path.join(path.dirname(home.workspace), "neighbour", "secret.md");
+    fs.mkdirSync(path.dirname(neighbour), { recursive: true });
+    fs.writeFileSync(neighbour, `${token}\n`);
+    for (const target of [neighbour, path.join(home.hermesHome, "config.yaml")]) {
+      const refused = await turn(
+        b,
+        `CALL: read_file ${JSON.stringify({ path: target })}`,
+      );
+      assert.ok(refused.includes(homeRefusal.slice(0, 40)), refused);
+      assert.equal(refused.includes(token), false, refused);
+    }
+    const neighbours = await turn(
+      b,
+      `CALL: search_files ${JSON.stringify({ pattern: token, path: path.dirname(neighbour) })}`,
+    );
+    assert.ok(neighbours.includes(homeRefusal.slice(0, 40)), neighbours);
+    const earlier = await turn(b, `CALL: read_file ${JSON.stringify({ path: file })}`);
+    assert.ok(earlier.includes(token), earlier);
 
     // Back to the owner's own agent: a hook without Secrets searches its work folder.
     const owner = assistants.store.getAssistant(created.id);

@@ -23,7 +23,7 @@ import {
   searchCovers,
   splitSearchRefusal,
   splitsSearch,
-  sharedReadRefusal,
+  userReadRefusal,
 } from "./hermes-home-guard.js";
 import { agentChatPath, chatFolderPath } from "./chat-file-folders.js";
 import { isShared } from "../users/user-access.js";
@@ -86,8 +86,9 @@ function callingChat(bridge, agent, input) {
   }
 }
 
-// The file folders a pdf or image reference may come from besides the work folder:
-// the calling chat's on a shared agent, every chat's of the agent otherwise.
+// The file folders a pdf or image reference, and on an agent of restricted users a
+// file read, may come from besides the work folder: the calling chat's on a shared
+// agent, every chat's of the agent otherwise.
 const chatRoots = (bridge, agent, input) =>
   [
     isShared(agent)
@@ -273,10 +274,10 @@ async function pdfGuard(bridge, input, agent, args) {
   return deny(pdfRefusals[policy?.reason] || pdfRefusals.unavailable);
 }
 
-// A file call's checks of hermes-home-guard.js: a shared agent reads only its work
-// folder and the calling chat's file folder; any agent's file calls into the chat
-// folders stay in its own (a shared agent's in the calling chat's); and a search over
-// its secrets folder is a read of the secrets.
+// A file call's checks of hermes-home-guard.js: an agent of restricted users reads
+// only its work folder and its chat folders (a shared one only the calling chat's);
+// any agent's file calls into the chat folders stay in its own (a shared agent's in
+// the calling chat's); and a search over its secrets folder is a read of the secrets.
 async function chatGuard(bridge, input, agent, args, call) {
   const runtime = bridge.assistants.runtime;
   const chat = callingChat(bridge, agent, input);
@@ -294,7 +295,7 @@ async function chatGuard(bridge, input, agent, args, call) {
     values = targets.map((t) => t?.path);
   }
   if (reads) {
-    const own = sharedReadRefusal(runtime, agent, reads, chat.folder);
+    const own = userReadRefusal(runtime, agent, reads, chatRoots(bridge, agent, input));
     if (own) return own;
   }
   const config = bridge.assistants.attachments?.config;
