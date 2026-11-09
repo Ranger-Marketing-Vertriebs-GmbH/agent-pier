@@ -800,8 +800,13 @@ login`/`logout`/`probe` now refuse while a Gateway owns the state ("requires
 - **Shadowed skills.** After a planted workspace skill is removed, the re-apply does
   not restore the bundled one within 20 s (`assistant-skills-contract`).
 
-The cross-version job, the four native installations and the verification scripts
-have not run for this pair yet.
+Passed locally (macOS arm64): `scripts/verify-assistant-installation.mjs` on a new
+data directory, and `assistant-runtime-cross-version`,
+`assistant-mcp-oauth-cross-version`, `assistant-doctor-credentials-cross-version` and
+`assistant-dreaming-rollback-cross-version` from 2026.10.9 (provisioned from
+`v2.17.0`) to 2026.11.2: 6 of 6, 0 skipped, with Doctor's migration to schema 27.
+The other predecessors, the Linux runs and the remaining verification scripts are
+for the `Assistant runtime` workflow.
 
 ### Native architectures (2026-10-19)
 
