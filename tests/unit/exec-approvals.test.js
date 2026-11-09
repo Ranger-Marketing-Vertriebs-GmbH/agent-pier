@@ -177,6 +177,31 @@ test("a hook run's request offers no Always allow, also not on the server", asyn
   );
 });
 
+test("a once-only card never explains Always allow, also when OpenClaw withholds it", async (t) => {
+  const telegram = { kind: "telegram", channelId: "c", chatId: "1", userId: "2" };
+  const texts = {};
+  for (const onceOnly of [false, true]) {
+    const f = fixture(t);
+    const attribute = f.exec.attribute.bind(f.exec);
+    f.exec.attribute = (request) => ({
+      ...attribute(request),
+      origin: telegram,
+      ...(onceOnly ? { onceOnly: true } : {}),
+    });
+    f.client.emit(
+      "exec.approval.requested",
+      request(f.agent, { allowedDecisions: ["allow-once", "deny"] }),
+    );
+    await settle();
+    const [action] = f.w.store.list();
+    assert.ok(action.payload.allowAlwaysPlan);
+    texts[onceOnly] = f.queued[0].text;
+  }
+  // The card that offers the button explains it; the once-only one does not.
+  assert.match(texts.false, /"Always allow"/);
+  assert.doesNotMatch(texts.true, /Always allow/);
+});
+
 test("withheld allow-always is recorded, and a Telegram run targets its chat", async (t) => {
   const f = fixture(t);
   const req = f.ledger.accept(f.chat.id, { clientRequestId: "tg-1", text: "Run it" });

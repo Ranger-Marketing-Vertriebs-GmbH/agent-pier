@@ -126,6 +126,8 @@ export const hookCopy = {
     },
     duplicates: (count) => (count === 1 ? "1 Duplikat" : `${count} Duplikate`),
     failedRun: "Der Lauf konnte nicht abgeschlossen werden.",
+    approvalTimeout: (minutes) =>
+      `Hat auf deine Freigabe gewartet und ist nach ${minutes} Minuten abgelaufen.`,
     loading: "Ereignis wird geladen …",
     incoming: "Was ankam",
     noPayload: "Der Inhalt des Ereignisses ist nicht mehr gespeichert.",

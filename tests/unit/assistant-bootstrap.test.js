@@ -388,3 +388,14 @@ test("the preview guidance appears only with the preview tool", () => {
     /## Previews/,
   );
 });
+
+test("a shell with approval learns to pass scripts as arguments, not stdin", () => {
+  const text = assistantBootstrap({ ...assistant, shell: "approval" }, {});
+  assert.match(text, /\n## Shell\n/);
+  assert.match(text, /must not use heredocs, pipes into stdin or redirections/);
+  assert.match(text, /`ssh host 'python3 -c "\.\.\."'`/);
+  assert.match(text, /tell the owner exactly that/);
+  assert.match(text, /Never describe the refusal vaguely as a policy/);
+  for (const shell of ["full", "off", undefined])
+    assert.doesNotMatch(assistantBootstrap({ ...assistant, shell }, {}), /## Shell/);
+});

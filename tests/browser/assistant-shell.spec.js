@@ -371,6 +371,23 @@ for (const [label, use] of [
       if (label === "phone") await fitsPhone(page);
     });
 
+    test("a once-only exec card never explains Always allow", async ({ page }) => {
+      await setup(page, {
+        agent: { shell: "approval" },
+        actions: [
+          execAction("hook", {
+            allowAlwaysPlan: { kind: "once", reason: "interpreter", program: "node" },
+            payload: { ...execAction("x").payload, command: "node x.js", onceOnly: true },
+          }),
+        ],
+      });
+      await page.goto(baseURL + "/agents/home/chats/chat");
+      const card = page.getByRole("article", { name: "Shell command awaiting approval" });
+      await expect(card.getByRole("button", { name: "Allow once" })).toBeVisible();
+      await expect(card.getByRole("button", { name: "Always allow" })).toHaveCount(0);
+      await expect(card).not.toContainText("Always allow");
+    });
+
     test("exec approvals are decided once, always or denied", async ({ page }) => {
       const state = await setup(page, {
         agent: { shell: "approval" },

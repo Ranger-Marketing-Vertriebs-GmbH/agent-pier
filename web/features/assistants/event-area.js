@@ -62,7 +62,10 @@ export function eventRowView(event) {
     event.source === "hook" && event.sender ? `${name} · ${event.sender}` : name;
   const detail = [
     event.test && copy.test,
-    event.firstLine || noteTexts(event.notes)[0],
+    event.firstLine ||
+      (event.approvalTimeoutMinutes > 0 &&
+        copy.approvalTimeout(event.approvalTimeoutMinutes)) ||
+      noteTexts(event.notes)[0],
     event.duplicates > 0 && copy.duplicates(event.duplicates),
   ]
     .filter(Boolean)

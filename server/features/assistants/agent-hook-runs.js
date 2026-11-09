@@ -22,16 +22,27 @@ import {
   runtimeFor,
 } from "./runtimes/runtime-for.js";
 import { chatTarget, hookEventOf, hookMarker } from "./routine-definition.js";
+import { runFailure } from "./routine-failures.js";
 
 // The routine a run session belongs to (routines.runOf), lower-cased.
 const jobOf = (sessionKey) => routineRunOf(null, sessionKey)?.routineId.toLowerCase();
+/** The minutes a hook event's run had (hookRunSeconds). */
+export const runMinutes = (event) =>
+  Math.round((event?.runSeconds || routineTimeoutSeconds) / 60);
 // OpenClaw's silent-reply token; an empty reply is just as silent.
 const silent = (text) => !text?.trim() || text.trim() === "NO_REPLY";
-// A run times out after five minutes; an event unsettled for three times that lost
-// its completion (AgentPier or the Gateway restarted).
-const staleMs = 15 * 60000;
+// A run times out after five minutes, or after 30 when its shell asks the owner
+// (OpenClaw's exec approvals expire after 30 minutes as well), so the owner has time
+// to decide. An event unsettled for three times its run's budget lost its completion
+// (AgentPier or the Gateway restarted).
+export const approvalRunSeconds = 1800;
+export const hookRunSeconds = (effective) =>
+  effective.shell === "approval" ? approvalRunSeconds : routineTimeoutSeconds;
+const staleMs = (event) => 3 * (event.runSeconds || routineTimeoutSeconds) * 1000;
 const sweepFloorMs = 60000;
 const unsettled = (event) => ["pending", "running"].includes(event?.status);
+// Exec approvals that ended without the owner's decision, or still wait for it.
+const undecided = new Set(["awaiting_approval", "cancelled", "expired"]);
 
 /**
  * The runs of hook events: one disabled one-shot routine per accepted event, forced
@@ -94,6 +105,7 @@ export class HookRuns {
       await this.assistants.config.apply(agent.id);
       const ceiling = this.hooks.ceiling(agent);
       const effective = effectiveRights(hook.rights, ceiling);
+      const runSeconds = hookRunSeconds(effective);
       const connection = await this.reminders.start();
       const conversation = await this.reminders.openMain(agent.id);
       const job = await this.scheduler(agent).add({
@@ -116,7 +128,7 @@ export class HookRuns {
               test: event.test === true,
               secretsClosed: !early.secrets && this.hooks.ceiling(agent).secrets,
             }),
-            timeoutSeconds: routineTimeoutSeconds,
+            timeoutSeconds: runSeconds,
             fullContext: true,
             tools: hookTools(effective, ceiling),
           },
@@ -131,6 +143,7 @@ export class HookRuns {
         jobId: job.id,
         conversationId: conversation.id,
         startedAt: Date.now(),
+        runSeconds,
       });
       let ran;
       try {
@@ -190,6 +203,8 @@ export class HookRuns {
       return this.removeJob(event.jobId, null);
     }
     const ok = completion.status === "ok";
+    // A run that timed out while the owner had not decided its shell command.
+    const approvalTimeout = !ok && this.timedOutOnApproval(event, completion);
     const summary = typeof completion.summary === "string" ? completion.summary : "";
     if (ok) textValue(summary, 65536, true);
     const text = ok
@@ -232,9 +247,10 @@ export class HookRuns {
     const telegram =
       notify &&
       effective.telegram &&
-      this.toTelegram(agent, event, hook, ok && text, conversation.id);
+      this.toTelegram(agent, event, hook, ok && text, conversation.id, approvalTimeout);
     events.patch(event.id, {
       status: ok ? "done" : "failed",
+      ...(approvalTimeout && { failure: "approval-timeout" }),
       ...(quiet && { silent: true }),
       reply: ok && !quiet ? text.trim() : null,
       activity: this.activity(event),
@@ -278,8 +294,24 @@ export class HookRuns {
       console.error("Hook report to the lead failed:", error?.message);
     }
   }
+  /**
+   * Whether a failed run hit its time limit while one of its exec approvals waited
+   * for the owner, or ended undecided with the run (the run's session key names the
+   * event's job).
+   */
+  timedOutOnApproval(event, completion) {
+    if (runFailure(completion)?.reason !== "timeout" || !event.jobId) return false;
+    const job = event.jobId.toLowerCase();
+    const actions = this.assistants.workflows?.store?.list?.(event.assistantId) || [];
+    return actions.some(
+      (a) =>
+        a.payload?.action === "exec" &&
+        undecided.has(a.state) &&
+        jobOf(a.payload.sessionKey) === job,
+    );
+  }
   /** The reply, or a failure line, to the owner's paired chat; whether it was queued. */
-  toTelegram(agent, event, hook, text, conversationId) {
+  toTelegram(agent, event, hook, text, conversationId, approvalTimeout = false) {
     const channel = pairedChannel(this.hooks.routines.channels, agent.id);
     if (!channel) return false;
     try {
@@ -291,7 +323,9 @@ export class HookRuns {
           ...telegramTarget(channel),
           hookEventId: event.id,
         },
-        text: text ? text.trim() : telegramMessages(channel).hooks.failed(hook.name),
+        text: text
+          ? text.trim()
+          : this.failureLine(channel, event, hook, approvalTimeout),
         // Only the failure line is AgentPier wording; it links to the chat's events.
         localized: !text,
         ...(text
@@ -305,6 +339,13 @@ export class HookRuns {
       console.error("Hook result to Telegram failed:", error?.message);
       return false;
     }
+  }
+  // The failure line in the paired chat's language.
+  failureLine(channel, event, hook, approvalTimeout) {
+    const copy = telegramMessages(channel).hooks;
+    return approvalTimeout
+      ? copy.approvalTimedOut(hook.name, runMinutes(event))
+      : copy.failed(hook.name);
   }
   /** The observed tool steps of the event's run (never arguments), then forgotten. */
   activity(event) {
@@ -360,7 +401,8 @@ export class HookRuns {
       const live = new Set(jobs.filter(running).map(hookEventOf));
       let changed = false;
       for (const event of events.unsettled()) {
-        if (this.now() - event.receivedAt < staleMs || live.has(event.id)) continue;
+        if (this.now() - event.receivedAt < staleMs(event) || live.has(event.id))
+          continue;
         if (!this.listed(event, shared)) continue;
         this.fail(event);
         changed = true;
@@ -400,16 +442,17 @@ export class HookRuns {
     return jobs;
   }
   /**
-   * Sweeps again once the oldest event still unsettled can be stale: a run that a
+   * Sweeps again once the first event still unsettled can be stale: a run that a
    * restart interrupted is younger than the window at the ready that follows it. At
    * most once a minute: a job the Gateway still reports running is not stale.
    */
   schedule() {
     clearTimeout(this.sweep);
     this.sweep = null;
-    const oldest = this.hooks.events.unsettled()[0];
-    if (!oldest) return;
-    const wait = Math.max(sweepFloorMs, oldest.receivedAt + staleMs - this.now() + 1000);
+    const pending = this.hooks.events.unsettled();
+    if (!pending.length) return;
+    const due = Math.min(...pending.map((event) => event.receivedAt + staleMs(event)));
+    const wait = Math.max(sweepFloorMs, due - this.now() + 1000);
     this.sweep = this.later(() => {
       this.sweep = null;
       this.reconcile().catch(() => {});

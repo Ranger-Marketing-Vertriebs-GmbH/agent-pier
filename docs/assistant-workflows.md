@@ -738,7 +738,10 @@ Tailscale name so the stored address stays valid.
 (`mode: "force"`), and removed after its completion webhook
 (`/hook-complete/<event>` on the reminder webhook). No job is shared between events or
 changed afterwards. The run is a `current` job on the agent's main chat with full
-context (`lightContext: false`, 300 s timeout), like a routine, and its `toolsAllow`
+context (`lightContext: false`, 300 s timeout, or 1800 s when the run's effective
+shell level is `approval`, so the owner can answer an exec approval before
+OpenClaw's own 30-minute approval expiry; the event keeps it as `runSeconds`), like a
+routine, and its `toolsAllow`
 holds only what the hook's ticks switch on, capped by what the agent holds at that
 moment (`agent-hook-rights.js`); memory search, `session_status` and
 `agentpier_share_file` (files for the owner's main chat, from the workspace or the
@@ -750,10 +753,14 @@ answers 503 and any job is removed, so the sender's retry runs. An event without
 is removed; one whose job existed stays as a **Failed** row in the event area with its
 dedup key moved aside (the Gateway may still have started that run, and its session
 keeps no rights). On every Gateway start AgentPier fails events whose completion was
-lost (unsettled for 15 minutes without a running job), removes hook jobs whose event is
-gone or settled, and drops event rows older than 30 days. While events are unsettled it
-sweeps again once the oldest of them reaches 15 minutes, at most once a minute, so a
-run a restart interrupted settles too. Deleting a hook removes its events; a running
+lost (unsettled for three times its run's budget, 15 or 90 minutes, without a running
+job), removes hook jobs whose event is gone or settled, and drops event rows older than
+30 days. While events are unsettled it sweeps again once the first of them reaches that
+window, at most once a minute, so a run a restart interrupted settles too. A run that
+fails with OpenClaw's run timeout while one of its exec approvals is still waiting, or
+ended undecided with the run (matched by the approval's session key, which names the
+event's job), is recorded with `failure: "approval-timeout"`: the Telegram line and
+the event area row say the hook waited for the owner's approval and ran out of time. Deleting a hook removes its events; a running
 one stays as a failed row without payload, hidden from the event area, so its session
 keeps no rights for the rest of the run.
 

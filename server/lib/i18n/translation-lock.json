@@ -215,6 +215,7 @@
   "assistants.hermesUnavailable": "de:4534a6d7f756 en:ffd2d0318f84",
   "assistants.hookRightExceeds": "de:7d8514749cf4 en:42e06356eb00",
   "assistants.hookUnavailable": "de:9dc403785f24 en:bc6f6eb828f9",
+  "assistants.hooks.approvalTimedOut": "de:23a3d5b20e55 en:20a94a7bf950",
   "assistants.hooks.failed": "de:3671be3ac42b en:8a58b292b9ce",
   "assistants.hooks.proposalApproval": "de:a668bdef2709 en:30996b81a4fb",
   "assistants.hooks.proposalApprove": "de:d7998b78fdd8 en:866fbe2491a6",
