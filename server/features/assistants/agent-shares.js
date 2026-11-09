@@ -9,6 +9,7 @@ import { attachmentFile, attachmentsAllowed } from "./attachment-access.js";
 import { chatFolderPath, keepsChatFolders } from "./chat-file-folders.js";
 import { routineOrigin } from "./routine-targets.js";
 import { followUpTelegram } from "./follow-up-target.js";
+import { keepGeneratedImage } from "./hermes-generated-images.js";
 import { routineRunOf } from "./runtimes/runtime-for.js";
 
 /**
@@ -36,6 +37,11 @@ import { routineRunOf } from "./runtimes/runtime-for.js";
  * read (project-paths.js: never .git, never AgentPier's data). For the owner's chat
  * every folder the agent holds now counts, in every turn; a routine or hook run
  * reads what its own rights reach, and a restricted user's turn what that turn may.
+ *
+ * With `generated` (only the Hermes team plugin's image hook passes it) the file is
+ * an image the Hermes agent created, by its name in Hermes's image cache: it is
+ * shared like any file and kept in the chat's file folder for the agent
+ * (hermes-generated-images.js), whose path the result names as `image`.
  */
 /**
  * What the tool result tells the agent about who sees the file now: the owner in his
@@ -57,8 +63,12 @@ export class AgentShares {
     if (
       !input ||
       typeof input !== "object" ||
-      Object.keys(input).some((key) => !["path", "caption", "projectId"].includes(key)) ||
-      typeof input.path !== "string" ||
+      Object.keys(input).some(
+        (key) => !["path", "caption", "projectId", "generated"].includes(key),
+      ) ||
+      ("generated" in input
+        ? typeof input.generated !== "string" || "path" in input || "projectId" in input
+        : typeof input.path !== "string") ||
       ("projectId" in input && typeof input.projectId !== "string") ||
       ("caption" in input &&
         (typeof input.caption !== "string" || input.caption.length > MAX_CAPTION_LENGTH))
@@ -71,20 +81,22 @@ export class AgentShares {
     const { conversation, requestId, origin, via, target } = this.turn(invocation);
     const agent = a.store.getAssistant(conversation.assistantId);
     if (agent.archivedAt) throw assistantProblem("invalid", 403);
-    const source = input.projectId
-      ? await this.projectSource(invocation, agent, conversation, input)
-      : await readShareSource(
-          [
-            ...shareRoots(a.attachments.config?.workspaces, agent),
-            // A Hermes agent's uploads of this chat, by absolute path.
-            ...(keepsChatFolders(agent)
-              ? [chatFolderPath(a.attachments.config, agent.id, conversation.id)]
-              : []
-            ).filter(Boolean),
-          ],
-          input.path,
-          { admit: (relative) => this.admit(agent, conversation, relative) },
-        );
+    const { path: image = null, ...source } = input.generated
+      ? await keepGeneratedImage(a, agent, conversation, input.generated)
+      : input.projectId
+        ? await this.projectSource(invocation, agent, conversation, input)
+        : await readShareSource(
+            [
+              ...shareRoots(a.attachments.config?.workspaces, agent),
+              // A Hermes agent's uploads of this chat, by absolute path.
+              ...(keepsChatFolders(agent)
+                ? [chatFolderPath(a.attachments.config, agent.id, conversation.id)]
+                : []
+              ).filter(Boolean),
+            ],
+            input.path,
+            { admit: (relative) => this.admit(agent, conversation, relative) },
+          );
     invocation.assertCurrent();
     const caption = (input.caption || "").trim();
     const file = await a.attachments.share({
@@ -95,11 +107,14 @@ export class AgentShares {
       mirror: this.leadChat(origin, agent),
     });
     const telegram = this.telegram(origin, file, caption, target);
-    this.audit(agent, origin, telegram, input.projectId, "share", "success", via);
+    const kind = input.generated ? "generated-image" : "share";
+    this.audit(agent, origin, telegram, input.projectId, kind, "success", via);
     a.changed?.();
     return {
       status: "shared",
       file: { name: file.name, type: file.type, size: file.size },
+      // A Hermes agent's created image: its copy in this chat's file folder.
+      ...(image ? { image } : {}),
       ...(telegram ? { telegram } : {}),
       note: shareNote(conversation),
     };

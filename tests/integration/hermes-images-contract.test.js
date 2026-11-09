@@ -17,6 +17,7 @@ import { ChatGptAuth } from "../../server/features/model-logins/chatgpt-auth.js"
 import { chatgptRoute } from "../../server/features/model-logins/chatgpt-proxy.js";
 import { proxyAccess } from "../../server/features/assistants/proxy-access.js";
 import { accountIdOf } from "../../server/features/assistants/model-accounts.js";
+import { chatFolderPath } from "../../server/features/assistants/chat-file-folders.js";
 
 // Create images on the pinned Hermes (AGENTPIER_HERMES_CONTRACT_RUNTIME): an agent
 // that chats with another model creates images with a ChatGPT login AgentPier holds.
@@ -24,7 +25,8 @@ import { accountIdOf } from "../../server/features/assistants/model-accounts.js"
 // with the proxy credential of its auth.json row; the proxy adds the login's token
 // and sends it to a fake Codex backend on loopback (never OpenAI). The team plugin's
 // guard asks AgentPier first (image-policy.js audits the generation), and its result
-// hook shares the image into the chat. Synthetic tokens only.
+// hook shares the image into the chat and keeps it in that chat's file folder.
+// Synthetic tokens only.
 const options = { skip: hermesSkip, timeout: contractTimeout(900000) };
 
 test(
@@ -139,9 +141,15 @@ test(
       audit.filter((e) => e.details?.kind === "image-generation").map((e) => e.details),
       [{ kind: "image-generation" }],
     );
-    // The image reached the chat as a file of the agent's own folder.
-    const folder = path.join(paths.workspace, "generated-images");
+    // The image reached the chat and is kept in that chat's own file folder, never
+    // in the work folder every chat of a shared agent searches.
+    const folder = path.join(
+      chatFolderPath(assistants.attachments.config, agent.id, chat.chat.id),
+      "generated-images",
+    );
     const [file] = fs.readdirSync(folder);
+    assert.ok(done.text.includes(path.join(folder, file)), done.text);
+    assert.equal(fs.existsSync(path.join(paths.workspace, "generated-images")), false);
     assert.match(file, /\.png$/);
     assert.equal(
       fs.readFileSync(path.join(folder, file)).toString("base64"),

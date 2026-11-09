@@ -69,7 +69,6 @@ cannot answer fails, and the guard then blocks the tool.
 import json
 import os
 import re
-import shutil
 import threading
 import urllib.error
 import urllib.request
@@ -347,8 +346,8 @@ def _guard(tool_name="", args=None, session_id=None, task_id=None, **_):
     args = args if isinstance(args, dict) else {}
     browser = tool_name.startswith("browser_") and settings.get("browser")
     member_write = tool_name in _WRITES and bool(settings.get("guardWrites"))
-    # A shared agent asks before every read leaving its work folder: only the calling
-    # chat's file folder holds none of other chats' files (hermes-home-guard.js).
+    # An agent of restricted users asks before every read leaving its work folder: it
+    # reads only its own chat files there (hermes-home-guard.js).
     private = tool_name in _READS and settings.get("privateFolders") and not _inside(args)
     folder = tool_name in _FILES and (private or _wide(tool_name, args) or _names_folder(args))
     image = tool_name == "image_generate" and bool(settings.get("images"))
@@ -373,7 +372,8 @@ _SHARE = _tool({"action": "share_file", "timeoutMs": 30000})
 
 
 def _image_result(tool_name="", result=None, session_id=None, task_id=None, **_):
-    # Hands an image Hermes created to the chat as a file of the agent's own folder.
+    # Hands an image Hermes created to the chat; AgentPier keeps a copy in that chat's
+    # file folder, whose path the agent then reads.
     images = _read("tools.json").get("images")
     if tool_name != "image_generate" or not images or not isinstance(result, str):
         return None
@@ -382,23 +382,21 @@ def _image_result(tool_name="", result=None, session_id=None, task_id=None, **_)
         if not isinstance(answer, dict) or answer.get("success") is not True:
             return None
         source = os.path.realpath(str(answer.get("image") or ""))
-        if not source.startswith(os.path.realpath(_GENERATED) + os.sep):
+        if os.path.dirname(source) != os.path.realpath(_GENERATED):
             return None
         if not os.path.isfile(source):
             return None
-        name = os.path.basename(source)
-        os.makedirs(os.path.join(images["folder"], images["share"]), mode=0o700, exist_ok=True)
-        target = os.path.join(images["folder"], images["share"], name)
-        shutil.copyfile(source, target)
     except Exception:
         return None
-    relative = images["share"] + "/" + name
     try:
-        shared = json.loads(_SHARE({"path": relative}, session_id=_root(session_id), task_id=task_id))
+        shared = json.loads(
+            _SHARE({"generated": os.path.basename(source)}, session_id=_root(session_id), task_id=task_id)
+        )
     except Exception:
         shared = {"error": _UNAVAILABLE}
-    answer["image"] = target
     if isinstance(shared, dict) and shared.get("status") == "shared":
+        if isinstance(shared.get("image"), str):
+            answer["image"] = shared["image"]
         answer["note"] = (
             "AgentPier handed this image over in this chat. "
             + str(shared.get("note") or "")
@@ -406,10 +404,11 @@ def _image_result(tool_name="", result=None, session_id=None, task_id=None, **_)
         ).strip()
     else:
         error = shared.get("error") if isinstance(shared, dict) else None
+        answer.pop("image", None)
         answer["note"] = (
             "AgentPier could not hand this image over ("
             + str(error or _UNAVAILABLE)
-            + "). Share " + relative + " with agentpier_share_file."
+            + "). Say so plainly in this chat."
         )
     return json.dumps(answer)
 

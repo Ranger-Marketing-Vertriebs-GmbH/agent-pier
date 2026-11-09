@@ -81,7 +81,7 @@ test("an agent on another model creates images with a row of its own", () => {
   assert.equal(home.auth.access_token, row.access_token);
   assert.ok(!home.unsupported.includes("createImages"));
   const tools = JSON.parse(home.files["plugins/agentpier-team/tools.json"]);
-  assert.deepEqual(tools.images, { folder: workspace, share: "generated-images" });
+  assert.equal(tools.images, true);
   assert.match(
     home.files["plugins/agentpier-team/__init__.py"],
     /register_hook\("transform_tool_result", _image_result\)/,

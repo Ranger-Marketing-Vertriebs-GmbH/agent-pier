@@ -182,7 +182,7 @@ export function compileHome(
     connection,
     browser: browsing,
     skills: builtIn,
-    images: images && workspace ? { folder: workspace } : null,
+    images,
     pdf: pdf?.settings,
   });
   // Routine runs on an asking level ask the owner through the team bridge, which the
