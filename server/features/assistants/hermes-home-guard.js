@@ -66,22 +66,25 @@ const within = (root, target) => {
   return !relative.startsWith("..") && !path.isAbsolute(relative);
 };
 
-/**
- * The paths a Hermes read names (`read_file`, `search_files`, `vision_analyze`), or
- * null for another tool. A search path that does not exist is searched as several
- * when it splits at commas or else at whitespace (tools/file_operations_search.py
- * `_try_multi_path_search`), so each part counts as well.
- */
+/** The paths a Hermes read names (`read_file`, `search_files`, `vision_analyze`), or null. */
 export function readValues(toolName, args) {
   if (toolName === "vision_analyze") return [args.image_url];
   if (toolName === "read_file") return [args.path];
-  if (toolName !== "search_files") return null;
-  const value = args.path ?? ".";
-  if (typeof value !== "string") return [value];
-  return [value, ...value.split(","), ...value.trim().split(/\s+/)].filter(
-    (part, index) => index === 0 || part.trim(),
-  );
+  return toolName === "search_files" ? [args.path ?? "."] : null;
 }
+
+/** The refusal for a search path that Hermes may search as several. */
+export const splitSearchRefusal =
+  "Search one folder at a time, with a path that holds no comma and no whitespace.";
+/**
+ * Whether Hermes may search `value` as several paths: one that does not exist is
+ * split at commas or else at whitespace as Python's str.split() sees it, which also
+ * counts \x1c-\x1f and \x85 (tools/file_operations_search.py
+ * `_try_multi_path_search`). Such a path is refused on every agent rather than
+ * mirrored part by part.
+ */
+export const splitsSearch = (value) =>
+  typeof value === "string" && /[\s,\x1c-\x1f\x85]/u.test(value);
 
 // The agent's work folder and HOME, or null when unknown.
 function foldersOf(supervisor, agent) {
@@ -137,20 +140,22 @@ export function chatFolderRefusal(supervisor, agent, config, conversationId, val
 }
 
 /**
- * Whether a search (`values`, readValues) covers the agent's secrets folder
- * (.agentpier/ in its work folder, agent-secrets.js) without naming it: Hermes counts
- * matches in hidden files when a search finds none (`_zero_match_probe`).
+ * Whether a search (`values`, readValues) covers the folder `name` of the agent's
+ * work folder without naming it, while that folder exists: its secrets folder
+ * (.agentpier/, agent-secrets.js), in which Hermes counts matches of hidden files
+ * when a search finds none (`_zero_match_probe`), or the attachments/ a move into
+ * the chat folders left behind (chat-file-migration.js). True when unsure.
  */
-export function searchesSecrets(supervisor, agent, values) {
+export function searchCovers(supervisor, agent, values, name = managedFolder) {
   const folders = foldersOf(supervisor, agent);
   if (!folders) return true;
-  const secrets = path.join(folders.workspace, managedFolder);
-  if (!fs.existsSync(secrets)) return false;
-  const inside = forms(secrets);
+  const folder = path.join(folders.workspace, name);
+  if (!fs.existsSync(folder)) return false;
+  const inside = forms(folder);
   return values.some((value) => {
     const file = target(value, folders.workspace, folders.home);
     if (file === null) return false;
     if (!file) return true;
-    return forms(file).some((named) => inside.some((folder) => within(named, folder)));
+    return forms(file).some((named) => inside.some((f) => within(named, f)));
   });
 }

@@ -18,8 +18,11 @@ import { agentWorkspace, runtimeIdOf } from "./runtimes/runtime-for.js";
 import {
   chatFilesRefusal,
   chatFolderRefusal,
+  homeRefusal,
   readValues,
-  searchesSecrets,
+  searchCovers,
+  splitSearchRefusal,
+  splitsSearch,
   sharedReadRefusal,
 } from "./hermes-home-guard.js";
 import { agentChatPath, chatFolderPath } from "./chat-file-folders.js";
@@ -278,6 +281,8 @@ async function chatGuard(bridge, input, agent, args, call) {
   const runtime = bridge.assistants.runtime;
   const chat = callingChat(bridge, agent, input);
   const reads = readValues(input.toolName, args);
+  const search = input.toolName === "search_files";
+  if (search && reads.some(splitsSearch)) return splitSearchRefusal;
   let values = reads;
   if (call) {
     const targets = writeTargets(call.toolName, call.params);
@@ -295,7 +300,11 @@ async function chatGuard(bridge, input, agent, args, call) {
   const config = bridge.assistants.attachments?.config;
   const refusal = chatFolderRefusal(runtime, agent, config, chat.id ?? null, values);
   if (refusal) return refusal;
-  if (input.toolName === "search_files" && searchesSecrets(runtime, agent, reads)) {
+  // On a shared agent a search never covers an attachments/ left in its work folder:
+  // it holds files of every chat until they moved (chat-file-migration.js).
+  if (search && isShared(agent) && searchCovers(runtime, agent, reads, "attachments"))
+    return homeRefusal;
+  if (search && searchCovers(runtime, agent, reads)) {
     const session = input.sessionKey ? { sessionKey: input.sessionKey } : {};
     const policy = await secretsPolicy(bridge, { agentId: input.agentId, ...session });
     if (policy?.allow !== true) return secretsRefusal;
