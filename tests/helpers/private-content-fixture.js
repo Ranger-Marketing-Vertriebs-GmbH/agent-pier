@@ -161,6 +161,11 @@ export function privateContentFixture(t) {
     `remember ${marker}`,
   );
   write(path.join(assistants, "shares/home/20261017-101500-1a2b3c4d-report.pdf"), marker);
+  // A Hermes agent's chat upload keeps the sender's name, even one like a temporary.
+  write(
+    path.join(assistants, "chat-files/home/c1/20261017-101500-1a2b3c4d-scan.tmp"),
+    marker,
+  );
   write(
     path.join(assistants, "state/agents/home/sessions/s1.jsonl"),
     `{"t":"${marker}"}\n`,

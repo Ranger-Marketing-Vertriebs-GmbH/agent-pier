@@ -4,15 +4,12 @@ import path from "node:path";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { assistantProblem } from "./assistant-validation.js";
 import {
-  INLINE_IMAGE_TYPES,
   MAX_ATTACHMENT_BYTES,
   MAX_ATTACHMENTS_PER_MESSAGE,
-  MAX_INLINE_IMAGE_BYTES,
-  MAX_INLINE_TOTAL_BYTES,
-  attachmentNote,
   detectAttachment,
   safeFileName,
 } from "./agent-attachment-types.js";
+import { attachmentDelivery, conversationFiles } from "./agent-attachment-notes.js";
 import { MAX_SHARE_BYTES } from "./agent-share-source.js";
 import { SHARED, SharedFiles, fileRequest, playable } from "./agent-share-store.js";
 import { VideoUploads } from "./agent-video-uploads.js";
@@ -23,6 +20,12 @@ import {
   MAX_AGENT_BYTES,
   MAX_AGENT_FILES,
 } from "./agent-attachment-storage.js";
+import {
+  checkedChatFolder,
+  chatFoldersOf,
+  keepsChatFolders,
+} from "./chat-file-folders.js";
+import { migrateChatFiles } from "./chat-file-migration.js";
 
 // Files picked in the composer but not sent yet; they expire after a day. A page left
 // without sending may leave its files behind, so a conversation at the cap gives up
@@ -51,7 +54,6 @@ const publicFile = ({ id, name, type, kind, size, video }) => ({
 });
 const stagedRow =
   "SELECT * FROM agent_attachments WHERE id=? AND conversation_id=? AND request_id IS NULL";
-const agentPath = (file) => `${FOLDER}/${file.file}`;
 const digest = (body) => createHash("sha256").update(body).digest("hex");
 // Staged files a queued message names (queued-messages.js): never expired or removed.
 const unqueued =
@@ -63,9 +65,11 @@ const owned = `request_id NOT LIKE '${SHARED}%'`;
 
 /**
  * The owner's chat attachments to agents. Each file is copied into the receiving
- * agent's own workspace (attachments/), so only that agent can read it with its
- * tools; the index lives in AgentPier's database, never in the workspace, and the
- * browser only sees ids. Images a model can see also travel inline with the turn.
+ * agent's own workspace (attachments/), or for a Hermes agent into the chat's own
+ * file folder (chat-file-folders.js; its rows carry `chat: true`), so only that agent
+ * can read it with its tools; the index lives in AgentPier's database, never in the
+ * workspace, and the browser only sees ids. Images a model can see also travel
+ * inline with the turn.
  */
 export class AgentAttachments {
   // `config.workspaces` is the Gateway's workspace root; each agent owns <root>/<id>.
@@ -133,6 +137,44 @@ export class AgentAttachments {
       throw assistantProblem("attachmentStorageUnsafe", 409);
     }
   }
+  // Whether the agent keeps its uploads in per-chat folders (a Hermes agent).
+  chatFolders(assistantId) {
+    try {
+      return keepsChatFolders(this.store.getAssistant(assistantId));
+    } catch {
+      return false;
+    }
+  }
+  // The checked folder a new upload of the chat is copied into.
+  async uploadFolder(conversation) {
+    const { assistantId, id } = conversation;
+    if (!this.chatFolders(assistantId)) return this.folder(assistantId);
+    return {
+      ...(await checkedChatFolder(this.config, [assistantId, id], true)),
+      chat: true,
+    };
+  }
+  // The checked folder that holds a row's copy, or null while it is missing.
+  folderOf(file, create = false) {
+    const { assistant_id: assistantId, conversation_id: conversationId } = file.row;
+    return file.chat
+      ? checkedChatFolder(this.config, [assistantId, conversationId], create)
+      : this.folder(assistantId, create);
+  }
+  // Every checked folder of the agent's uploads: attachments/ (key "") while it is
+  // there, and each chat folder (key: the chat id). An unsafe attachments/ is left to
+  // the owner's clear.
+  async folders(assistantId) {
+    const old = await this.folder(assistantId, false).catch(() => null);
+    return [
+      ...(old ? [{ ...old, key: "" }] : []),
+      ...(await chatFoldersOf(this.config, assistantId)),
+    ];
+  }
+  // Moves a Hermes agent's attachments/ into its chat folders (chat-file-migration.js).
+  migrate(assistantId) {
+    return this.serial(assistantId, () => migrateChatFiles(this, assistantId));
+  }
   rows(sql, ...args) {
     return this.db
       .prepare(sql)
@@ -152,10 +194,10 @@ export class AgentAttachments {
       throw assistantProblem("attachmentTooLarge", 413);
     const detected = detectAttachment(body, name);
     if (!detected) throw assistantProblem("attachmentUnsupported", 415);
-    const folder = await this.folder(conversation.assistantId);
-    await this.expire(conversation.assistantId, folder.path);
-    await this.trimStaged(conversation.id, folder.path);
-    await this.assertQuota(conversation.assistantId, folder.path, body.length);
+    const folder = await this.uploadFolder(conversation);
+    await this.expire(conversation.assistantId);
+    await this.trimStaged(conversation.id);
+    await this.assertQuota(conversation.assistantId, body.length);
     const entry = await this.copy(folder, name, body, detected);
     const id = randomUUID();
     try {
@@ -168,19 +210,26 @@ export class AgentAttachments {
     return publicFile({ id, ...entry });
   }
   // Makes room for one more unsent file in the conversation.
-  async trimStaged(conversationId, folder) {
+  async trimStaged(conversationId) {
     const staged = this.rows(
       `SELECT * FROM agent_attachments WHERE conversation_id=? AND request_id IS NULL AND ${unqueued} ORDER BY created_at, rowid`,
       conversationId,
     );
     for (const file of staged.slice(0, Math.max(0, staged.length - MAX_STAGED + 1)))
-      await this.remove(file, folder);
+      await this.remove(file);
   }
   // Writes one copy into the checked folder under a stamped, unique name.
   async copy(folder, name, body, detected) {
     const { display, file } = this.storedName(name, detected.type);
     const identity = await this.create(folder, file, body);
-    return { name: display, file, size: body.length, ...detected, ...identity };
+    return {
+      name: display,
+      file,
+      size: body.length,
+      ...detected,
+      ...identity,
+      ...(folder.chat && { chat: true }),
+    };
   }
   // The display name and the stamped, unique file name of a new copy.
   storedName(name, type) {
@@ -281,45 +330,51 @@ export class AgentAttachments {
       throw assistantProblem("attachmentStorageUnsafe", 409);
     }
   }
-  async expire(assistantId, folder) {
+  async expire(assistantId) {
     const old = this.rows(
       `SELECT * FROM agent_attachments WHERE assistant_id=? AND request_id IS NULL AND created_at<? AND ${unqueued}`,
       assistantId,
       this.now() - STAGED_TTL,
     );
-    for (const file of old) await this.remove(file, folder);
-    await this.videos.sweep(assistantId, folder);
+    for (const file of old) await this.remove(file);
+    await this.videos.sweep(assistantId);
   }
-  async remove(file, folder) {
-    await fs.rm(path.join(folder, file.file), { force: true });
+  // Removes a row and its copy; a copy in a folder no longer safe stays for the
+  // owner's clear.
+  async remove(file) {
+    const folder = await this.folderOf(file).catch(() => null);
+    if (folder) await fs.rm(path.join(folder.path, file.file), { force: true });
     this.db.prepare("DELETE FROM agent_attachments WHERE id=?").run(file.id);
   }
   /**
-   * Counts what is really in the folder (bounded, and orphans count too) and drops
-   * unsent index rows whose copy is gone, so the index never outgrows the folder. A
-   * sent file's row stays, marked gone: the history still recognises the note its
-   * message carried, and shows only the files that are left.
+   * Counts what is really in the agent's folders (bounded, and orphans count too) and
+   * drops unsent index rows whose copy is gone, so the index never outgrows the
+   * folders. A sent file's row stays, marked gone: the history still recognises the
+   * note its message carried, and shows only the files that are left.
    */
-  async assertQuota(assistantId, folder, adding) {
+  async assertQuota(assistantId, adding) {
     let bytes = adding;
     const present = new Set();
     // Videos still arriving count with the size they announced.
     const arriving = this.videos.arriving(assistantId);
     for (const size of arriving.values()) bytes += size;
     // Streamed, and stopped at the cap: a folder flooded by the agent costs no more.
-    for await (const entry of await fs.opendir(folder)) {
-      if (present.size + 1 >= MAX_AGENT_FILES)
-        throw assistantProblem("attachmentStorageFull", 409);
-      present.add(entry.name);
-      if (!entry.isFile() || arriving.has(entry.name)) continue;
-      bytes +=
-        (await fs.lstat(path.join(folder, entry.name)).catch(() => null))?.size || 0;
-    }
+    for (const folder of await this.folders(assistantId))
+      for await (const entry of await fs.opendir(folder.path)) {
+        if (present.size + 1 >= MAX_AGENT_FILES)
+          throw assistantProblem("attachmentStorageFull", 409);
+        present.add(`${folder.key}/${entry.name}`);
+        if (!entry.isFile() || arriving.has(entry.name)) continue;
+        bytes +=
+          (await fs.lstat(path.join(folder.path, entry.name)).catch(() => null))?.size ||
+          0;
+      }
     for (const file of this.rows(
       `SELECT * FROM agent_attachments WHERE assistant_id=? AND (request_id IS NULL OR ${owned})`,
       assistantId,
     )) {
-      if (present.has(file.file) || file.gone) continue;
+      const key = file.chat ? file.row.conversation_id : "";
+      if (present.has(`${key}/${file.file}`) || file.gone) continue;
       if (file.row.request_id === null)
         this.db.prepare("DELETE FROM agent_attachments WHERE id=?").run(file.id);
       else this.markGone(file);
@@ -338,7 +393,7 @@ export class AgentAttachments {
       if (!file) throw assistantProblem("attachmentNotFound", 404);
       if (this.queued(conversationId).includes(id))
         throw assistantProblem("queuedAttachment", 409);
-      await this.remove(file, (await this.folder(conversation.assistantId)).path);
+      await this.remove(file);
     });
   }
   // A draft's staged file, checked when its chat is opened again, starts its day anew;
@@ -346,11 +401,11 @@ export class AgentAttachments {
   async keep(conversationId, id) {
     const { assistantId } = this.store.getConversation(conversationId);
     return this.serial(assistantId, async () => {
-      const folder = await this.folder(assistantId, false);
-      if (folder) await this.expire(assistantId, folder.path);
-      const [file] = folder ? this.rows(stagedRow, id, conversationId) : [];
+      await this.expire(assistantId);
+      const [file] = this.rows(stagedRow, id, conversationId);
+      const folder = file && (await this.folderOf(file).catch(() => null));
       const copy =
-        file && (await fs.lstat(path.join(folder.path, file.file)).catch(() => null));
+        folder && (await fs.lstat(path.join(folder.path, file.file)).catch(() => null));
       if (!copy?.isFile()) throw assistantProblem("attachmentNotFound", 404);
       this.touch(conversationId, [id]);
       return publicFile(file);
@@ -417,39 +472,13 @@ export class AgentAttachments {
     );
   }
   // The text the agent receives and the images its model sees inline; `byUser` when
-  // the request is a restricted user's.
-  async delivery(request, assistantId, { byUser = false } = {}) {
-    const files = this.files(request.id);
-    if (!files.length) return { message: request.text };
-    const note = attachmentNote(
-      files.map((f) => ({ ...f, path: agentPath(f) })),
-      { byUser },
-    );
-    const message = request.text.trim() ? `${request.text}\n\n${note}` : note;
-    const attachments = [];
-    if (this.imageInput(assistantId) === false) return { message };
-    let total = 0;
-    for (const file of files) {
-      if (!INLINE_IMAGE_TYPES.has(file.type)) continue;
-      // The limits apply to the bytes actually read, and those must still be the
-      // image that was uploaded.
-      const body = await this.read(assistantId, file).catch(() => null);
-      if (
-        !body ||
-        body.length > MAX_INLINE_IMAGE_BYTES ||
-        total + body.length > MAX_INLINE_TOTAL_BYTES ||
-        detectAttachment(body, file.name)?.type !== file.type
-      )
-        continue;
-      total += body.length;
-      attachments.push({
-        type: "image",
-        mimeType: file.type,
-        fileName: file.name,
-        content: body.toString("base64"),
-      });
-    }
-    return attachments.length ? { message, attachments } : { message };
+  // the request is a restricted user's (agent-attachment-notes.js).
+  delivery(request, assistantId, options) {
+    return attachmentDelivery(this, request, assistantId, options);
+  }
+  /** requestId → the public files and the note the agent received with them. */
+  forConversation(conversationId) {
+    return conversationFiles(this, conversationId);
   }
   // A copy is read only with the bytes that were written: the recorded size and
   // SHA-256, as a regular file with no other hard link. Inode numbers are not used:
@@ -458,9 +487,9 @@ export class AgentAttachments {
     // A shared file is read from the share store, and never once it has expired.
     if (file.shared && this.shared.expired(file))
       throw assistantProblem("attachmentNotFound", 404);
-    const folder = file.shared
-      ? await this.shared.folder(assistantId, false)
-      : await this.folder(assistantId, false);
+    const folder = await (
+      file.shared ? this.shared.folder(assistantId, false) : this.folderOf(file)
+    ).catch(() => null);
     if (!folder) throw assistantProblem("attachmentNotFound", 404);
     let handle;
     try {
@@ -485,36 +514,6 @@ export class AgentAttachments {
     } finally {
       await handle?.close();
     }
-  }
-  /** requestId → the public files and the note the agent received with them. */
-  forConversation(conversationId) {
-    const byRequest = new Map();
-    for (const file of this.rows(
-      `SELECT * FROM agent_attachments WHERE conversation_id=? AND request_id IS NOT NULL AND ${owned} ORDER BY request_id, position`,
-      conversationId,
-    )) {
-      const entry = byRequest.get(file.row.request_id) || { files: [] };
-      entry.files.push(file);
-      byRequest.set(file.row.request_id, entry);
-    }
-    // A user's chat names her as the sender; turns sent before it did still strip.
-    let byUser = false;
-    try {
-      byUser = typeof this.store.storedConversation(conversationId)?.userId === "string";
-    } catch {
-      // An unknown chat has no files to name.
-    }
-    for (const entry of byRequest.values()) {
-      const paths = entry.files.map((f) => ({ ...f, path: agentPath(f) }));
-      entry.note = attachmentNote(paths, { byUser });
-      if (byUser) entry.notes = [entry.note, attachmentNote(paths)];
-      // A copy that is gone (deleted by the agent, or cleared by the owner) stays
-      // in its message, named and marked unavailable, without a link.
-      entry.files = entry.files.map((f) =>
-        f.gone ? { ...publicFile(f), unavailable: true } : publicFile(f),
-      );
-    }
-    return byRequest;
   }
   async content(id) {
     const [file] = this.rows("SELECT * FROM agent_attachments WHERE id=?", String(id));

@@ -6,6 +6,7 @@ import {
   shareRoots,
 } from "./agent-share-source.js";
 import { attachmentFile, attachmentsAllowed } from "./attachment-access.js";
+import { chatFolderPath, keepsChatFolders } from "./chat-file-folders.js";
 import { routineOrigin } from "./routine-targets.js";
 import { followUpTelegram } from "./follow-up-target.js";
 import { routineRunOf } from "./runtimes/runtime-for.js";
@@ -73,7 +74,14 @@ export class AgentShares {
     const source = input.projectId
       ? await this.projectSource(invocation, agent, conversation, input)
       : await readShareSource(
-          shareRoots(a.attachments.config?.workspaces, agent),
+          [
+            ...shareRoots(a.attachments.config?.workspaces, agent),
+            // A Hermes agent's uploads of this chat, by absolute path.
+            ...(keepsChatFolders(agent)
+              ? [chatFolderPath(a.attachments.config, agent.id, conversation.id)]
+              : []
+            ).filter(Boolean),
+          ],
           input.path,
           { admit: (relative) => this.admit(agent, conversation, relative) },
         );

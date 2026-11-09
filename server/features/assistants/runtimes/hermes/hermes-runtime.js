@@ -93,6 +93,9 @@ export function createHermesRuntime({
   strict = false,
   remove = async () => {},
   advanced = () => undefined,
+  // Runs before each start with the runtime agent id (hermes-wiring.js: the chat
+  // file move), before the home is written.
+  prepareFiles = async () => {},
   ...options
 }) {
   let written = [];
@@ -146,6 +149,7 @@ export function createHermesRuntime({
     return values && installed ? { version: installed.version, values } : undefined;
   };
   const prepare = async (agent, record) => {
+    await prepareFiles(supervisor.agentId);
     if (record && record !== installed) {
       installed = record;
       bundled = bundledSkillNames(record);

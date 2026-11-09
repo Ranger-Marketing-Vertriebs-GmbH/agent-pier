@@ -40,15 +40,26 @@ export const openClawProfiles = (profiles) =>
  * (runtime-for.js). Sets run while Hermes is enabled and installed; an agent on
  * "Every command" (`shell: "approval"`, `shellEveryCommand`) asks before each command.
  * Each start and apply compiles the owner's advanced settings for all agents
- * (advanced-config.js), stored with OpenClaw's overrides.
+ * (advanced-config.js), stored with OpenClaw's overrides. `created`: the graph's
+ * services, whose attachments move a Hermes agent's uploads before it starts.
  */
-export function hermesAgentFleet(supervisor, { dataDir, store }) {
+export function hermesAgentFleet(supervisor, { dataDir, store, created = {} }) {
   // Read at each start; an invalid row is reported where OpenClaw's start reads it.
   let overrides = null;
   return attachHermesFleet(
     supervisor,
     new HermesFleet({
       dataDir,
+      // Before each start the agent's uploads still in its workspace move into their
+      // chats' folders (chat-file-migration.js), once the agent services exist.
+      prepareFiles: async (agentId) => {
+        const attachments = created.assistants?.attachments;
+        const profile = store.listAssistants().find((p) => p.runtimeAgentId === agentId);
+        if (attachments && profile)
+          await attachments.migrate(profile.id).catch((error) => {
+            console.warn(`Hermes chat files not moved: ${error?.key || error?.code}`);
+          });
+      },
       available: () => hermesRunnable(dataDir),
       version: () => hermesSelectedVersion(dataDir),
       advanced: () => advancedValues((overrides ||= new OverrideStore(store.db))),

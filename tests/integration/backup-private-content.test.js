@@ -25,6 +25,7 @@ const privateFiles = [
   "assistants/workspaces/home/attachments/photo.png",
   "assistants/memory-backups/ap-home/MEMORY-20261025T015500000Z.md",
   "assistants/shares/home/20261017-101500-1a2b3c4d-report.pdf",
+  "assistants/chat-files/home/c1/20261017-101500-1a2b3c4d-scan.tmp",
   "assistants/state/agents/home/sessions/s1.jsonl",
   "assistants/state/media/inbound/voice.ogg",
   "assistants/state/unknown-folder/notes.json",
@@ -156,7 +157,13 @@ test("with a passphrase, private content is sealed and restores intact", async (
     assert.equal(names.includes(name), false, name);
   assert.ok(header.members.filter((member) => member.kind === "sealed").length >= 10);
   // The public manifest names no private file.
-  for (const word of ["workspaces/", "shares/", "pipeline-runs", generations.unpinned])
+  for (const word of [
+    "workspaces/",
+    "shares/",
+    "chat-files/",
+    "pipeline-runs",
+    generations.unpinned,
+  ])
     assert.equal(JSON.stringify(header.manifest).includes(word), false, word);
   // Inspection without the passphrase reads no private content.
   const restore = new Restore({ dataDir });
