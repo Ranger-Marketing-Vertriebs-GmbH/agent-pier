@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { contractTimeout } from "../helpers/contract-timeout.js";
@@ -61,6 +62,14 @@ test(
     );
     await assistants.config.apply(created.id);
     await app.ready(created);
+    // A skill of the agent's own in its home, as skill_manage writes one.
+    const home = fleet.sets.get(created.runtimeAgentId).supervisor.agentPaths();
+    const own = path.join(home.hermesHome, "skills", "own-probe");
+    fs.mkdirSync(own, { recursive: true });
+    fs.writeFileSync(
+      path.join(own, "SKILL.md"),
+      "---\nname: own-probe\ndescription: Own skill\n---\nOWN-MARK-58\n",
+    );
     // The owner has no chat with a user's own agent: its turns go through its runtime.
     const { key } = await fleet.runtimeOf(created).sessions.create({
       agentId: created.runtimeAgentId,
@@ -92,8 +101,14 @@ test(
       return reply;
     };
 
-    // The switched-on skill reads through skill_view; the skill list names no other.
+    // The switched-on, the essential bundled and its own skill read through
+    // skill_view; the skill list names no other catalog skill.
     assert.match(await call("skill_view", { name: "shown-probe" }), /SHOWN-MARK-41/);
+    assert.match(
+      await call("skill_view", { name: "hermes-agent" }),
+      /"success": true, "name": "hermes-agent"/,
+    );
+    assert.match(await call("skill_view", { name: "own-probe" }), /OWN-MARK-58/);
     const listed = await call("skills_list", {});
     assert.match(listed, /shown-probe/);
     assert.doesNotMatch(listed, /hidden-probe/);
@@ -117,5 +132,17 @@ test(
       else assert.match(reply, refusal);
       assert.doesNotMatch(reply, /HIDDEN-MARK-73/, tool);
     }
+
+    // Switched off, the skill is gone from the next turn.
+    assistants.store.updateAssistant(
+      created.id,
+      { skills: [] },
+      assistants.store.getAssistant(created.id).revision,
+    );
+    await assistants.config.apply(created.id);
+    await app.ready(created);
+    const off = await call("skill_view", { name: "shown-probe" });
+    assert.match(off, /not found/);
+    assert.doesNotMatch(off, /SHOWN-MARK-41/);
   },
 );
