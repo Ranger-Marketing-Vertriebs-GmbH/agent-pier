@@ -339,10 +339,10 @@ export class AgentAttachments {
     for (const file of old) await this.remove(file);
     await this.videos.sweep(assistantId);
   }
-  // Removes a row and its copy; a copy in a folder no longer safe stays for the
-  // owner's clear.
+  // Removes a row and its copy. A folder no longer safe refuses, and the row stays
+  // with its copy until the owner's clear.
   async remove(file) {
-    const folder = await this.folderOf(file).catch(() => null);
+    const folder = await this.folderOf(file);
     if (folder) await fs.rm(path.join(folder.path, file.file), { force: true });
     this.db.prepare("DELETE FROM agent_attachments WHERE id=?").run(file.id);
   }
