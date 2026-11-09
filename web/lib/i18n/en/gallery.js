@@ -168,6 +168,8 @@ export const galleryCopy = {
     chartTime: "Time",
     chartAgo: (minutes) => `−${minutes} min`,
     chartNow: "now",
+    valueLine: "Sample values as a line",
+    valueBars: "Sample values as bars",
     shareLabel: "Sample share: 6% of 18%",
     shareOwn: "Own part",
     shareOther: "Other",

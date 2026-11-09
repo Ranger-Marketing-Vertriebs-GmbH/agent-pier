@@ -5,6 +5,7 @@ import CodeBlock from "../../components/CodeBlock.jsx";
 import CopyButton from "../../components/CopyButton.jsx";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import HistoryChart from "../../components/HistoryChart.jsx";
+import ValueChart from "../../components/ValueChart.jsx";
 import LearnMore from "../../components/LearnMore.jsx";
 import { Pagination, usePagination } from "../../components/Pagination.jsx";
 import ShareBar from "../../components/ShareBar.jsx";
@@ -24,6 +25,12 @@ const percent = (value) =>
     : "–";
 const clock = (value) =>
   new Date(value).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+
+// Labelled values for ValueChart, every three hours of a day.
+const valueSample = [12, 18, 15, 34, 52, 47, 38, 22, 19].map((value, i) => ({
+  label: `${String(i * 3).padStart(2, "0")}:00`,
+  value,
+}));
 
 const dotTones = [
   "working",
@@ -149,6 +156,20 @@ export default function FeedbackSection() {
           formatValue={percent}
           formatTime={clock}
           timeLabel={s.chartTime}
+        />
+      </Specimen>
+      <Specimen label="ValueChart" wide>
+        <ValueChart
+          label={s.valueLine}
+          unit="%"
+          points={valueSample}
+          formatValue={(value) => formatNumber(value)}
+        />
+        <ValueChart
+          kind="bar"
+          label={s.valueBars}
+          points={valueSample.slice(0, 7)}
+          formatValue={(value) => formatNumber(value)}
         />
       </Specimen>
       <Specimen label="ShareBar" wide>
