@@ -175,6 +175,7 @@ test("hookTools builds toolsAllow from ticks, plus sharing files with the owner"
     "memory_get",
     "agentpier_share_file",
     "agentpier_pinboard",
+    "agentpier_card",
   ];
   assert.deepEqual(hookTools(hookDefaults, none), base);
   const all = hookTools(

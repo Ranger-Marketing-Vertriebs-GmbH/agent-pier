@@ -304,6 +304,41 @@ test("deleting an agent removes its pinboard rows", async (t) => {
   assert.deepEqual(rows(other.agent.id), [1, 1, 1]);
 });
 
+test("deleting an agent removes its cards and card notes", async (t) => {
+  const f = lifecycleFixture(t);
+  const other = f.populated("Other");
+  const { agent } = f.populated();
+  const seed = (id) => {
+    f.cards.create({
+      assistantId: id,
+      conversationId: `chat-${id}`,
+      requestId: "r",
+      title: "Plan",
+      blocks: [{ type: "heading", text: "Plan" }],
+      at: new Date().toISOString(),
+    });
+    f.cards.recordNote({
+      conversationId: `chat-${id}`,
+      requestId: "r",
+      assistantId: id,
+      note: "N",
+    });
+  };
+  const rows = (id) =>
+    ["agent_cards", "agent_card_notes"].map(
+      (table) =>
+        f.store.db
+          .prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE assistant_id=?`)
+          .get(id).n,
+    );
+  seed(agent.id);
+  seed(other.agent.id);
+  await f.lifecycle.archive(agent.id, { revision: agent.revision });
+  await f.lifecycle.delete(agent.id, { name: "Helper" });
+  assert.deepEqual(rows(agent.id), [0, 0]);
+  assert.deepEqual(rows(other.agent.id), [1, 1]);
+});
+
 test("the owner deletes a user's agent with her chats on it", async (t) => {
   const f = lifecycleFixture(t);
   const { agent, chat } = f.populated("Anna's agent", {

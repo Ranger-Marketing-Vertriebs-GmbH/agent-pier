@@ -57,6 +57,8 @@ export const agentTables = [
   "agent_pinboard_lists",
   "agent_pinboard_entries",
   "agent_pinboard_changes",
+  "agent_cards",
+  "agent_card_notes",
   "agent_mail_cursors",
   "agent_mail_draft_files",
 ];
@@ -247,6 +249,9 @@ function removeRows(db, id) {
     remove(db, "agent_pinboard_entries", "assistant_id=?", id);
     remove(db, "agent_pinboard_lists", "assistant_id=?", id);
     remove(db, "agent_pinboard_changes", "assistant_id=?", id);
+    // Its cards in its chats and the card notes its turns carried (agent-card-store.js).
+    remove(db, "agent_cards", "assistant_id=?", id);
+    remove(db, "agent_card_notes", "assistant_id=?", id);
     // Its "new mail since last check" positions (mail/agent-mail.js).
     remove(db, "agent_mail_cursors", "assistant_id=?", id);
     // Where the files it attached to its mail drafts came from.

@@ -20,6 +20,7 @@ import {
 } from "./agent-ssh-shell-wiring.js";
 import { connectSkillCatalog } from "./skill-catalog-wiring.js";
 import { AgentPinboard } from "../features/assistants/agent-pinboard.js";
+import { AgentCards } from "../features/assistants/agent-cards.js";
 import { chatgptLoginChanged } from "../features/assistants/live-login-topics.js";
 import {
   agentActionsChanged,
@@ -92,6 +93,9 @@ export function createAssistantServices(options) {
       assistants: graph.assistants,
       onChange: (id) => agentPinboardChanged(options.live, id),
     });
+    // Agents' interactive cards in their chats (agentpier_card); every write signals
+    // the chat, whose live feed carries the cards (conversation-feeds.js).
+    graph.assistants.cards = new AgentCards({ assistants: graph.assistants });
     return Object.fromEntries(assistantServiceNames.map((name) => [name, graph[name]]));
   } catch (error) {
     // Unconnected services are not closed through AssistantService; close each one

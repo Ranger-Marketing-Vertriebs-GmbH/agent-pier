@@ -62,6 +62,7 @@ export const nativeTools = [
   "agentpier_ssh",
   "agentpier_share_file",
   "agentpier_pinboard",
+  "agentpier_card",
   "agentpier_goal",
   "agentpier_hook",
   "agentpier_ssh_access",

@@ -169,11 +169,16 @@ export async function sendTurn(service, conversationId, input, trustedContext) {
     // A user's chat (web, her Telegram bot, queued) never sends OpenClaw commands,
     // and its files are announced as hers.
     const byUser = typeof conversation.userId === "string";
-    const turn = await service.attachments.delivery(
+    const delivered = await service.attachments.delivery(
       byUser ? { ...request, text: plainTurnText(request.text) } : request,
       conversation.assistantId,
       { byUser },
     );
+    // What the person changed on the chat's cards since the agent last saw them.
+    const cards = cardNote(service, request, conversation);
+    const turn = cards
+      ? { ...delivered, message: `${delivered.message}\n\n${cards.note}` }
+      : delivered;
     // Its connection, as the send and a retry after reopening go out on it alone.
     const sessions = runtimeFor(agent, service.runtime).sessions.on(
       hostConnection(service.runtime, agent),
@@ -192,6 +197,7 @@ export async function sendTurn(service, conversationId, input, trustedContext) {
       return send();
     });
     service.ledger.transition(attempt.id, "accepted", { runtimeRunId: sent.runId });
+    if (cards) service.cards.delivered(cards.ids);
   } catch (error) {
     noteRefusalOn(service.runtime, error);
     const failure = sendRefusal(error, (refusal) =>
@@ -220,4 +226,17 @@ export async function sendTurn(service, conversationId, input, trustedContext) {
     attempt: service.ledger.getAttempt(attempt.id),
     ...(readOnly ? { readOnly } : {}),
   };
+}
+
+// The card note of this turn (agent-cards.js), recorded before the send so the
+// history leaves it out; null without changed cards. A failure leaves the turn as is.
+function cardNote(service, request, conversation) {
+  try {
+    const found = service.cards?.turnNote(conversation.id);
+    if (found) service.cards.noted(request, conversation, found.note);
+    return found ?? null;
+  } catch (error) {
+    console.error("Agent card note failed:", error?.message);
+    return null;
+  }
 }
