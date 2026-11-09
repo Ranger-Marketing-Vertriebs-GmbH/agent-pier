@@ -326,7 +326,16 @@ test(
       assert.equal(entry.__openclaw?.runId, undefined);
       assert.notEqual(entry.idempotencyKey, `${write.runId}:user`);
       assert.deepEqual(entry.provenance, { kind: "internal_system", sourceTool: "exec" });
-      assert.equal(entry.__openclaw?.modelPromptProjection, undefined);
+      // 2026.10.7 – 2026.10.9 keep no projection; 2026.11.2 keeps the framed prompt
+      // of 2026.10.3 again (version 1), naming the same processes as the line.
+      const projection = entry.__openclaw?.modelPromptProjection;
+      if (projection !== undefined) {
+        assert.equal(projection.version, 1);
+        assert.deepEqual(
+          completedProcesses(projection.text),
+          completedProcesses(text(entry)),
+        );
+      }
     }
     t.diagnostic(`started=${started.sessionId} reported=${JSON.stringify(reported)}`);
     assert.equal(started.status, "running");

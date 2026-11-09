@@ -21,6 +21,7 @@ import { McpTools } from "../../server/features/mcp/tool-service.js";
 import { fixtureProjectScope } from "./fixture-project-scope.js";
 import { MutationBarrier } from "../../server/application/mutation-barrier.js";
 import { PipelineEngine } from "../../server/features/pipelines/pipeline-engine.js";
+import { lastUserIndex } from "./openclaw-model-input.js";
 
 /**
  * The production assistant graph (server/application/assistant-graph.js, constructed
@@ -198,10 +199,7 @@ export async function e2eGraph(t, installed, { prefix }) {
 /** The text of the request's last user message and the tool results after it. */
 export function turnOf(request) {
   const messages = request.messages || [];
-  let last = -1;
-  messages.forEach((m, i) => {
-    if (m.role === "user") last = i;
-  });
+  const last = lastUserIndex(messages);
   const text = (value) =>
     typeof value === "string"
       ? value

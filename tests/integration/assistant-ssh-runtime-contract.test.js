@@ -18,6 +18,7 @@ import {
   fixtureModels,
   proactivityModel,
 } from "../helpers/assistant-proactivity-model.js";
+import { lastUserIndex } from "../helpers/openclaw-model-input.js";
 
 const installed = process.env.AGENTPIER_ASSISTANT_ROUTINE_RUNTIME;
 // The whole approval hold plus a command (agent-ssh-approvals.js), or a quick 12 s.
@@ -75,7 +76,7 @@ test(
         };
       // The proposal turn follows the answered SSH turn in the same session: only the
       // messages after its own owner message count.
-      const latest = request.messages.findLastIndex((m) => m.role === "user");
+      const latest = lastUserIndex(request.messages);
       const current = request.messages.slice(latest);
       if (
         JSON.stringify(current[0]).includes("SSH_ACCESS_CONTRACT") &&

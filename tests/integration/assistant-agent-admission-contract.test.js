@@ -17,17 +17,15 @@ import { createGatewaySession } from "../../server/features/assistants/runtimes/
 import { patchConfig } from "../../server/features/assistants/runtimes/openclaw/live-patch.js";
 import {
   degradedAgents,
-  noteRefusal,
   pendingAdmission,
   settledAdmission,
 } from "../../server/features/assistants/runtimes/openclaw/agent-admission.js";
-import { sendRefusal } from "../../server/features/assistants/conversation-turns.js";
 
 // AGENTPIER-238 on the pinned runtime: after an unclean stop (a stale lease) the
-// Gateway admits its agent databases in the background once it listens, and a
-// configuration change meanwhile supersedes that admission for good. AgentPier's
-// writes wait for it, so every agent is admitted; one written to anyway stays
-// degraded, its turn is refused before any run, and a restart brings it back.
+// Gateway admits its agent databases in the background once it listens. Up to
+// 2026.10.9 a configuration change meanwhile superseded that admission for good, so
+// AgentPier's writes wait for it and every agent is admitted. 2026.11.2 admits an
+// agent written to anyway as well, and a restart still admits every agent.
 
 async function echoModelServer() {
   const server = http.createServer(async (req, res) => {
@@ -62,7 +60,7 @@ async function echoModelServer() {
 
 const installed = process.env.AGENTPIER_ASSISTANT_PROVIDER_RUNTIME;
 test(
-  "config writes wait for the background admission; a superseded agent is refused",
+  "config writes wait for the background admission; an agent written to anyway is admitted",
   { skip: !installed, timeout: contractTimeout(420000) },
   async (t) => {
     assert.equal(
@@ -191,49 +189,37 @@ test(
     assert.equal(degradedAgents(runtime.client).size, 0);
     for (const a of agents) await turn(a.key);
 
-    // A write that does not wait supersedes the admission for good.
+    // A write that does not wait superseded the admission for good up to 2026.10.9
+    // (AGENTPIER-238). Since 2026.11.2 the Gateway admits the agent anyway: none is
+    // refused, and each takes a turn. AgentPier's writes still wait, for the rollback
+    // targets.
     await crash();
     const client = runtime.client;
+    let written = 0;
     for (let n = 0; n < 10; n++) {
       const { hash } = await client.call("config.get", {});
       await client.call("config.patch", {
         baseHash: hash,
         raw: JSON.stringify({ agents: { defaults: { maxConcurrent: 30 + n } } }),
       });
+      written++;
       if (!(await roster()).some((a) => a.admissionRefusal?.code === pendingAdmission))
         break;
       await delay(300);
     }
     await settledAdmission(client);
     const refused = agents.filter((a) => degradedAgents(client).has(a.runtimeAgentId));
-    t.diagnostic(JSON.stringify({ degraded: refused.length }));
-    assert.ok(refused.length > 0);
-    // Its turn is a definite refusal before any run, named as such.
-    const error = await client
-      .call("sessions.send", {
-        key: refused[0].key,
-        message: "Hello",
-        idempotencyKey: randomUUID(),
-      })
-      .then(
-        () => assert.fail("a degraded agent took a turn"),
-        (e) => e,
-      );
-    assert.equal(error.code, "UNAVAILABLE");
-    assert.equal(error.retryable, false);
-    assert.equal(error.admissionRefusal.agentId, refused[0].runtimeAgentId);
-    assert.equal(sendRefusal(error), "degraded");
-    assert.equal(noteRefusal(client, error).code, "agent-database-inspection-failed");
-    // Its chat cannot subscribe either; the refusal says why.
-    const subscribe = await client
-      .call("sessions.messages.subscribe", { key: refused[0].key })
-      .then(
-        () => null,
-        (e) => e,
-      );
-    assert.equal(subscribe?.admissionRefusal?.agentId, refused[0].runtimeAgentId);
+    t.diagnostic(JSON.stringify({ written, degraded: refused.length }));
+    assert.ok(written > 0);
+    assert.deepEqual(refused, []);
+    assert.deepEqual(
+      (await roster()).filter((a) => a.status === "degraded"),
+      [],
+    );
+    for (const a of agents) await turn(a.key);
 
-    // The offered recovery: restarting the agent service admits it again.
+    // Restarting the agent service, the recovery offered on the rollback targets,
+    // admits every agent too.
     await runtime.restart();
     while (!(runtime.client !== client && runtime.client?.ready)) await delay(20);
     await settledAdmission(runtime.client);

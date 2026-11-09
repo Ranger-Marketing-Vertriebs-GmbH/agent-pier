@@ -1,4 +1,5 @@
 import http from "node:http";
+import { lastUserIndex } from "./openclaw-model-input.js";
 export async function assistantTeamModel() {
   const requests = [],
     held = [];
@@ -23,7 +24,7 @@ export async function assistantTeamModel() {
     for await (const chunk of req) raw += chunk;
     const body = JSON.parse(raw);
     requests.push(body);
-    const lastUser = body.messages.findLastIndex((m) => m.role === "user"),
+    const lastUser = lastUserIndex(body.messages),
       text = JSON.stringify(body.messages[lastUser]?.content || "");
     if (text.includes("TEAM_CHILD_") && !text.includes("Summarize")) {
       held.push(res);
