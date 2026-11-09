@@ -760,9 +760,10 @@ an OpenClaw run with shell approval, otherwise 15), removes hook jobs whose even
 window, at most once a minute, so a run a restart interrupted settles too. A run that
 fails with OpenClaw's run timeout while one of its exec approvals is still waiting, or
 ended undecided with the run (matched by the approval's session key, which names the
-event's job; OpenClaw cancels it as a deny without a resolver, which AgentPier marks
-`unattributed` when it cannot read the approval history and would otherwise record a
-decline), is recorded with `failure: "approval-timeout"`: the Telegram line and
+event's job; OpenClaw's run-aborted cancel carries `resolvedBy: "approval-scope-closed"`
+and is recorded as cancelled, see the [shell qualification](assistant-shell-qualification.md);
+as a fallback, a deny without a resolver and without readable history, should one
+occur, is marked `unattributed` and counts as undecided), is recorded with `failure: "approval-timeout"`: the Telegram line and
 the event area row say the hook waited for the owner's approval and ran out of time. Deleting a hook removes its events; a running
 one stays as a failed row without payload, hidden from the event area, so its session
 keeps no rights for the rest of the run.
