@@ -107,6 +107,37 @@ export function sampledFields(
   };
 }
 
+/**
+ * Questions outlive the builder that asked them: Craft Anything 0.5.0 keeps listing
+ * them after the build stops, asks them again under new ids on Continue, and takes an
+ * answer to an old one without effect. So a rebuild that does not run lists no
+ * questions, and the ids listed while it stopped (`staleQuestions`) stay hidden after
+ * it runs again. `questions` is Craft Anything's list; ids it no longer lists are
+ * forgotten.
+ */
+export function freshQuestions(questions, running, stale = []) {
+  const listed = new Set(questions.map((question) => question.id));
+  const old = new Set(stale.filter((id) => listed.has(id)));
+  if (!running) for (const id of listed) old.add(id);
+  return {
+    questions: questions.filter((question) => !old.has(question.id)),
+    staleQuestions: [...old],
+  };
+}
+
+/** The fields of a rebuild that stopped without a sample (pause, lost child, restart). */
+export const pausedFields = (record) => ({
+  running: false,
+  status: "paused",
+  questions: [],
+  staleQuestions: [
+    ...new Set([
+      ...(record.staleQuestions ?? []),
+      ...record.questions.map((question) => question.id),
+    ]),
+  ],
+});
+
 /** A new rebuild's record fields before Craft Anything reported anything. */
 export const initialFields = () => ({
   running: true,

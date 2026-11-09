@@ -35,17 +35,20 @@
  *     "slowTools": { "rebuild_status": 5000 },  // answer these tools late (ms)
  *     "emptyTools": ["rebuild_start"],  // run these, then answer { result: {} }
  *     "silentInit": true,               // never answer initialize
- *     "staleAfterResume": true,         // a resume re-asks each open question under a
- *                                       // new id and keeps the old one listed (as
- *                                       // 0.5.0 does); answering an old one drops it
- *                                       // and fails with question_stale
+ *     "stopLagMs": 500,                 // rebuild_status still reports the build
+ *                                       // running this long after rebuild_stop (0.5.0)
  *     "ignoreStdinClose": true          // keep running when stdin closes
  *   }
  * Without steps a build runs until rebuild_stop. A question waits for
  * project_inbox_answer; in mode "decide" (project_questions_set) questions are
  * decided by the fake itself, approvals still wait. Resuming continues at the step
  * where the build stopped; a follow-up starts the steps again. While a question is
- * open the steps wait, also after a resume, until it is answered.
+ * open the steps wait until it is answered.
+ *
+ * As in 0.5.0 (checked with the real binary, 2026-11-09), a question outlives the
+ * builder that asked it: after rebuild_stop it stays listed, a resume asks it again
+ * under a new id and keeps the old one listed, and answering the old one succeeds,
+ * drops it and changes nothing. An id that is not listed fails with `not_found`.
  */
 import { spawn } from "node:child_process";
 import {
@@ -113,6 +116,8 @@ function project(name) {
   return projects.get(name);
 }
 
+// The questions a running builder waits for (a stale one's asker is gone).
+const open = (record) => record.questions.filter((question) => !question.stale);
 const recordFile = (entry) => path.join(entry.folder, "craft.json");
 const read = (entry) => JSON.parse(readFileSync(recordFile(entry), "utf8"));
 function write(entry, record) {
@@ -175,8 +180,8 @@ function startBuilder(entry) {
     }
   });
   update(entry, (record) => {
-    record.status = record.questions.length ? "needs_you" : "building";
-    record.note = record.questions.length ? record.questions[0].title : "Building";
+    record.status = open(record).length ? "needs_you" : "building";
+    record.note = open(record).length ? open(record)[0].title : "Building";
     record.fake_builder = {
       pid: builder.pid,
       claude_config_dir: process.env.CLAUDE_CONFIG_DIR ?? null,
@@ -303,7 +308,7 @@ function startRound(entry, { resume = false } = {}) {
   if (!resume) entry.step = 0;
   startBuilder(entry);
   // Open questions hold the steps; answering them starts the (one) chain again.
-  if (!read(entry).questions.length) runSteps(entry);
+  if (!open(read(entry)).length) runSteps(entry);
 }
 
 const tools = {
@@ -316,19 +321,14 @@ const tools = {
         // Like Craft Anything 0.5.0, which refuses a resume without the request.
         if (!args.request)
           throw new ToolError("invalid_arguments", "missing field `request`.");
-        if (script.staleAfterResume)
-          update(entry, (r) => {
-            for (const question of [...r.questions]) {
-              if (question.stale) continue;
-              question.stale = true;
-              r.questions_asked += 1;
-              r.questions.push({
-                ...question,
-                id: `q${r.questions_asked}`,
-                stale: false,
-              });
-            }
-          });
+        // The new builder asks its open questions again; the old ones stay listed.
+        update(entry, (r) => {
+          for (const question of open(r)) {
+            question.stale = true;
+            r.questions_asked += 1;
+            r.questions.push({ ...question, id: `q${r.questions_asked}`, stale: false });
+          }
+        });
         startRound(entry, { resume: true });
         activity(entry, "Resumed");
       } else {
@@ -381,10 +381,11 @@ const tools = {
   rebuild_status({ project: name }) {
     const entry = project(name);
     const record = read(entry);
+    const stopping = Date.now() < (entry.stoppingUntil ?? 0);
     return {
-      running: Boolean(entry.builder),
+      running: Boolean(entry.builder) || stopping,
       queued: false,
-      status: record.status,
+      status: stopping ? "building" : record.status,
       status_label: LABELS[record.status] ?? record.status,
       note: record.note,
       waiting: record.questions.length,
@@ -400,7 +401,7 @@ const tools = {
       checks: record.checks,
       usage: readUsage(entry),
       last_reply: record.last_reply,
-      questions: record.questions,
+      questions: record.questions.map(({ stale: _stale, ...question }) => question),
       conversation: record.conversation,
     };
   },
@@ -409,10 +410,10 @@ const tools = {
     const record = read(entry);
     const question = record.questions.find((q) => q.id === id);
     if (!question)
-      throw new ToolError("question_not_found", `No open question ${id} in ${name}.`);
+      throw new ToolError("not_found", `No question ${id} is waiting in this project.`);
     if (question.stale) {
       update(entry, (r) => (r.questions = r.questions.filter((q) => q.id !== id)));
-      throw new ToolError("question_stale", `${id} was asked by a build that stopped.`);
+      return { answered: id, shown: "Allowed" };
     }
     const answer =
       question.kind === "approval"
@@ -423,14 +424,14 @@ const tools = {
     update(entry, (r) => {
       r.questions = r.questions.filter((q) => q.id !== id);
       r.conversation.push({ role: "user", text: `${question.title}: ${answer}` });
-      if (r.status === "needs_you" && !r.questions.length) {
+      if (r.status === "needs_you" && !open(r).length) {
         r.status = entry.builder ? "building" : "stopped";
         r.note = "Building";
       }
     });
     activity(entry, `Answered ${id}: ${answer}`);
     // The steps waited for this answer; they go on once nothing else is open.
-    if (entry.builder && !read(entry).questions.length) runSteps(entry);
+    if (entry.builder && !open(read(entry)).length) runSteps(entry);
     return { answered: true };
   },
   project_questions_set({ project: name, mode }) {
@@ -444,6 +445,7 @@ const tools = {
     const entry = project(name);
     const running = Boolean(entry.builder);
     stopBuilder(entry);
+    if (running) entry.stoppingUntil = Date.now() + (script.stopLagMs ?? 0);
     update(entry, (r) => {
       if (["building", "needs_you"].includes(r.status) || running) {
         r.status = "stopped";

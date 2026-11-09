@@ -23,6 +23,7 @@ import { RebuildStore } from "./rebuild-store.js";
 import {
   activeStatuses,
   initialFields,
+  pausedFields,
   rebuildView,
   viewChanged,
 } from "./rebuild-view.js";
@@ -31,6 +32,8 @@ const messages = serverMessages.craft;
 const refuse = (message) => problem(message, 409);
 const ignored = ["capture/", "checks/", "inbox/", "investigation.cany/"];
 const START_TIMEOUT_MS = 60000;
+const STOP_WAIT_MS = 3000;
+const STOP_POLL_MS = 250;
 
 /**
  * The rebuild supervisor: the only caller of Craft Anything's rebuild_start. It
@@ -323,10 +326,23 @@ export class CraftRebuilds {
     const client = this.children.peek(record.accountId, record.mode);
     if (record.running && client && record.craftProject) {
       await this.call(record, "rebuild_stop", {});
+      await this.stopped(record);
       await this.sample(record);
     }
-    if (record.running) this.update(record, { running: false, status: "paused" });
+    if (record.running) this.update(record, pausedFields(record));
     return this.get(record.id);
+  }
+
+  /**
+   * Waits up to STOP_WAIT_MS until Craft Anything no longer reports the build running:
+   * 0.5.0 still does for a moment after rebuild_stop answered.
+   */
+  async stopped(record) {
+    for (let waited = 0; waited < STOP_WAIT_MS; waited += STOP_POLL_MS) {
+      const status = await this.call(record, "rebuild_status", {});
+      if (!status?.running && !status?.queued) return;
+      await new Promise((resolve) => this.timers.setTimeout(resolve, STOP_POLL_MS));
+    }
   }
 
   /** Answers a question or approval through project_inbox_answer. */
@@ -384,8 +400,8 @@ export class CraftRebuilds {
     for (const id of this.unrestored) {
       const record = this.records.get(id);
       if (!record || (!record.running && !activeStatuses.has(record.status))) continue;
-      record.running = false;
-      record.status = record.craftProject ? "paused" : "failed";
+      Object.assign(record, pausedFields(record));
+      if (!record.craftProject) record.status = "failed";
       record.updatedAt = this.now().toISOString();
       changed = true;
       this.children.settle(record.accountId, record.mode);
@@ -406,7 +422,7 @@ export class CraftRebuilds {
         .filter(Boolean),
     );
     for (const record of this.records.values())
-      if (record.running) this.update(record, { running: false, status: "paused" });
+      if (record.running) this.update(record, pausedFields(record));
   }
 
   // --- Sampling ---------------------------------------------------------------------
@@ -439,8 +455,7 @@ export class CraftRebuilds {
 
   /** The child of `key` died: its running rebuilds read paused (Continue resumes). */
   childLost(key) {
-    for (const record of this.runningOn(key))
-      this.update(record, { running: false, status: "paused" });
+    for (const record of this.runningOn(key)) this.update(record, pausedFields(record));
   }
 
   // --- Helpers ----------------------------------------------------------------------

@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  freshQuestions,
+  pausedFields,
   rebuildView,
   rebuildStatus,
   rebuildStep,
@@ -116,4 +118,33 @@ test("the view tells whether Craft Anything ever took the rebuild on", () => {
   assert.equal(rebuildView({ ...record, craftProject: "app" }).started, true);
   assert.equal("craftProject" in rebuildView(record), false);
   assert.equal("secret" in rebuildView(record), false);
+});
+
+test("a stopped build's questions stay hidden after it runs again", () => {
+  const q = (id) => ({ id, kind: "approval", title: id });
+  // Running: nothing stale yet.
+  assert.deepEqual(freshQuestions([q("a")], true), {
+    questions: [q("a")],
+    staleQuestions: [],
+  });
+  // Stopped: every listed question is stale.
+  const stopped = freshQuestions([q("a")], false);
+  assert.deepEqual(stopped, { questions: [], staleQuestions: ["a"] });
+  // Continued: "a" is asked again as "b"; Craft Anything still lists "a".
+  assert.deepEqual(freshQuestions([q("a"), q("b")], true, stopped.staleQuestions), {
+    questions: [q("b")],
+    staleQuestions: ["a"],
+  });
+  // Once Craft Anything no longer lists "a", it is forgotten.
+  assert.deepEqual(freshQuestions([q("b")], true, ["a"]).staleQuestions, []);
+});
+
+test("a rebuild paused without a sample lists no questions", () => {
+  const fields = pausedFields({ questions: [{ id: "b" }], staleQuestions: ["a"] });
+  assert.deepEqual(fields, {
+    running: false,
+    status: "paused",
+    questions: [],
+    staleQuestions: ["a", "b"],
+  });
 });
