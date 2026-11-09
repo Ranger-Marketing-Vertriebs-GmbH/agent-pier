@@ -3,7 +3,7 @@ import { assistantProblem, textValue } from "./assistant-validation.js";
 import { personalCapabilities } from "./native-capabilities.js";
 import { guardedWorkspaceEntry } from "./team-plugin/tool-guard.js";
 import { BrowserUploads } from "./browser-upload-staging.js";
-import { attachmentFile, attachmentsAllowed } from "./attachment-access.js";
+import { attachmentsAllowed, chatFile } from "./attachment-access.js";
 import { chatFolderPath, keepsChatFolders } from "./chat-file-folders.js";
 
 // The website an agent says it uploads to, for the audit: a host name, maybe a port.
@@ -109,7 +109,7 @@ export class AgentBrowserUploads {
           protectedRoots: [],
         };
       const admit = (relative) => {
-        const file = attachmentFile(relative);
+        const file = chatFile(relative);
         if (file !== null) {
           if (!file || !attachmentsAllowed(this.w.a.store, agent, chat, [file]))
             throw refused();

@@ -300,3 +300,41 @@ test("a created image's copy leaves its chat folder when its shared copy expires
   assert.equal(fs.existsSync(fresh), true, "a newer copy stays and counts");
   assert.equal((await attachments.storage.usage(conversation.assistantId)).files, 2);
 });
+
+test("discarding a row a stopped move left unmarked removes its copy in the chat folder", async (t) => {
+  const { attachments, chat, root } = setup(t);
+  const a = chat("a");
+  const file = "20260101-000000-00000000-a.png";
+  fs.mkdirSync(path.join(root, a.id), { recursive: true });
+  fs.writeFileSync(path.join(root, a.id, file), png, { mode: 0o600 });
+  // An unsent upload whose move renamed the copy but never marked the row.
+  attachments.index("old", a, {
+    name: "a.png",
+    file,
+    size: png.length,
+    type: "image/png",
+    kind: "image",
+    sha256: sha(png),
+  });
+  await attachments.discard(a.id, "old");
+  assert.deepEqual(fs.readdirSync(path.join(root, a.id)), []);
+  assert.equal(
+    attachments.db.prepare("SELECT id FROM agent_attachments WHERE id='old'").get(),
+    undefined,
+  );
+});
+
+test("clearing never removes the chat files root another link replaced", async (t) => {
+  const { attachments, agent, chat, dataDir } = setup(t);
+  const other = chat("other");
+  await attachments.stage(other.id, "a.png", png);
+  // The root becomes a link to a copy in which this agent's folder still checks out.
+  const top = path.join(dataDir, "chat-files");
+  const moved = path.join(dataDir, "moved-chat-files");
+  fs.renameSync(top, moved);
+  fs.symlinkSync(moved, top);
+  await assert.rejects(attachments.clear(agent.id), { key: "attachmentStorageUnsafe" });
+  assert.equal(fs.lstatSync(top).isSymbolicLink(), true, "the root link stays");
+  assert.deepEqual(fs.readdirSync(path.join(moved, agent.id)), [other.id]);
+  assert.equal(fs.readdirSync(path.join(moved, agent.id, other.id)).length, 1);
+});

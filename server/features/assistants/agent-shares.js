@@ -5,7 +5,7 @@ import {
   readShareSource,
   shareRoots,
 } from "./agent-share-source.js";
-import { attachmentFile, attachmentsAllowed } from "./attachment-access.js";
+import { attachmentsAllowed, chatFile } from "./attachment-access.js";
 import { chatFolderPath, keepsChatFolders } from "./chat-file-folders.js";
 import { routineOrigin } from "./routine-targets.js";
 import { followUpTelegram } from "./follow-up-target.js";
@@ -129,9 +129,10 @@ export class AgentShares {
     );
     return readShareSource(roots, relative, { refuseDirs });
   }
-  // On a shared agent a turn shares only its own chat's uploads (attachment-access.js).
+  // On a shared agent a turn shares only its own chat's uploads (attachment-access.js),
+  // and never OpenClaw's inbound media.
   admit(agent, conversation, relative) {
-    const file = attachmentFile(relative);
+    const file = chatFile(relative);
     if (
       file !== null &&
       !attachmentsAllowed(this.assistants.store, agent, conversation.id, [file])

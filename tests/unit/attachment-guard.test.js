@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { attachmentTargets } from "../../server/features/assistants/team-plugin/tool-guard.js";
+import {
+  INBOUND_MEDIA,
+  inboundMedia,
+} from "../../server/features/assistants/team-plugin/inbound-media.js";
 
 const scope = { roots: ["/w"], agentId: "ap-a1" };
 const names = (toolName, params) => attachmentTargets(toolName, params, scope);
@@ -47,4 +51,34 @@ test("an undecodable file: value is judged as written", () => {
   assert.deepEqual(names("read", { path: "file:///w/a1/attachments%2Fx.pdf" }), []);
   assert.deepEqual(names("read", { path: "file://host/w/a1/attachments/x.pdf" }), [""]);
   assert.deepEqual(names("read", { path: "file:///w/a1/attachments/x%2F.pdf" }), [""]);
+});
+
+// OpenClaw's inbound media name no chat: every spelling of one asks the bridge with
+// INBOUND_MEDIA, which only an agent that is not shared may use.
+test("inbound media and media:// references name INBOUND_MEDIA", () => {
+  for (const value of [
+    "media/inbound/openclaw-staged-1/input-a.png",
+    "./Media/INBOUND/openclaw-staged-1/input-a.png",
+    "media//inbound/x.png",
+    "media\\inbound\\x.png",
+    "notes/../media/inbound/x.png",
+    "media/x/../inbound/x.png",
+    "/w/a1/media/inbound/x.png",
+    "/data/state/media/inbound/x.png",
+    "file:///w/a1/media/%69nbound/x.png",
+    "media://inbound/x.png",
+    " MEDIA://inbound/x.png",
+    "MEDIA: media://inbound/x.png",
+    "MEDIA:/data/state/media/inbound/x.png",
+    "media/inbound",
+  ])
+    assert.deepEqual(names("read", { path: value }), [INBOUND_MEDIA], value);
+  for (const value of [
+    "media/x.png",
+    "inbound/x.png",
+    "media/inbounds/x.png",
+    "MEDIA:x.png",
+  ])
+    assert.deepEqual(names("read", { path: value }), [], value);
+  assert.equal(inboundMedia(7), false);
 });

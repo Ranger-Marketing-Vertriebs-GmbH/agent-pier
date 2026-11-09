@@ -9,6 +9,7 @@ import {
   attachmentRefusal,
   attachmentTools,
 } from "../../server/features/assistants/team-plugin/tool-guard.js";
+import { inboundRefusal } from "../../server/features/assistants/team-plugin/inbound-media.js";
 import { capabilityTools } from "../../server/features/assistants/native-capabilities.js";
 
 // The fixture's agent shared by Anna (its chat) and Ben (a second chat), each with
@@ -113,11 +114,53 @@ test("every granted tool that reads or writes files is checked against attachmen
       assert.ok(attachmentTools.includes(tool), `${tool} reaches attachments unchecked`);
 });
 
+// OpenClaw stages a channel's photo (and, before 2026.10.9, a chat image) in the
+// workspace and names an offloaded image by a media:// reference into its store; no
+// index row says which chat either came from.
+const staged =
+  "media/inbound/openclaw-staged-15df38e7-953a-4d58-9439-89b11716b6ea/input-IMG_1548---8fcbb05e-9c08-46ad-88e8-d679fe649410.png";
+const inboundCalls = (f) => [
+  ["read", { path: staged }],
+  ["image", { image: `./${staged}` }],
+  ["image", { images: ["notes.md", staged.replace("media/inbound", "MEDIA/Inbound")] }],
+  ["view_image", { path: path.join(f.workspaces, f.agent.id, staged) }],
+  ["read", { path: pathToFileURL(path.join(f.workspaces, f.agent.id, staged)).href }],
+  ["read", { path: `memory/../${staged}` }],
+  ["read", { path: "media/x/../inbound/openclaw-staged-1/input-a.png" }],
+  ["pdf", { pdf: "media://inbound/photo---4bdbca87-3972-4526-a4a2-b24f25d38d94.png" }],
+  ["image", { image: "MEDIA: media://inbound/photo.png" }],
+  ["image", { image: "MEDIA:/data/assistants/state/media/inbound/photo.png" }],
+  ["read", { path: "media/inbound" }],
+  ["write", { path: staged, content: "x" }],
+];
+
+test("no turn on a shared agent names OpenClaw's inbound media", async (t) => {
+  const f = await sharedAgent(t);
+  f.file(f.agent, staged, "image");
+  await f.turn(f.chat, "anna-turn", { kind: "user", userId: "anna" });
+  for (const [tool, params] of inboundCalls(f))
+    assert.deepEqual(
+      await f.call(f.chat, tool, params),
+      { block: true, blockReason: inboundRefusal },
+      JSON.stringify(params),
+    );
+  // A media folder of the agent's own stays readable.
+  assert.equal(await f.call(f.chat, "read", { path: "media/notes.md" }), undefined);
+  assert.equal(await f.call(f.chat, "read", { path: "inbound/notes.md" }), undefined);
+  // Nor can a turn share a staged copy.
+  await assert.rejects(
+    run(f.tool(f.agent, f.chat), { path: staged }),
+    /^Error: SHARE_NOT_FOUND: /,
+  );
+});
+
 test("an agent that is not shared keeps reading its whole attachments folder", async (t) => {
   const f = await sharedAgent(t, "own");
   assert.equal(
     await f.call(f.chat, "read", { path: "attachments/20261021-bbbb-passport.pdf" }),
     undefined,
   );
+  for (const [tool, params] of inboundCalls(f))
+    assert.equal(await f.call(f.chat, tool, params), undefined, JSON.stringify(params));
   assert.ok(fs.existsSync(path.join(f.workspaces, f.agent.id, "attachments")));
 });

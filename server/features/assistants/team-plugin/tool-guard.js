@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { patchPaths } from "./patch-paths.js";
 import { dreamsCall, dreamsTools } from "./dreams-guard.js";
 import { fileSpellings } from "./file-urls.js";
+import { INBOUND_MEDIA, inboundMedia, inboundRefusal } from "./inbound-media.js";
 import { secretsCall, secretsReadTools } from "./secrets-guard.js";
 import {
   fold,
@@ -234,9 +235,7 @@ export function classifyWrite(
     }
   return { path: targets[0] };
 }
-// File tools whose paths may name the agent's attachments/ folder, and their path
-// parameters. On a shared agent a turn uses only its own chat's uploads there
-// (attachment-access.js); every call naming the folder asks the bridge.
+// File tools whose paths may name per-chat files (attachment-access.js) on shared agents.
 export const attachmentTools = [
   "read",
   "memory_get",
@@ -250,8 +249,8 @@ export const attachmentTools = [
 const pathKeys = ["path", "file_path", "filePath", "pdf", "pdfs", "image", "images"];
 const attachmentsFolder = /(^|\/)attachments(\/|$)/;
 /**
- * The stored names a call names in the calling agent's attachments/ folder (""
- * for the folder itself, or for a path into it that cannot be resolved here).
+ * The stored names a call names in the calling agent's attachments/ folder ("" for
+ * the folder itself or a path into it not resolved here; INBOUND_MEDIA for media).
  */
 export function attachmentTargets(toolName, params, { roots = [], agentId } = {}) {
   const ownId = workspaceId(agentId);
@@ -265,6 +264,7 @@ export function attachmentTargets(toolName, params, { roots = [], agentId } = {}
     if (typeof value !== "string") continue;
     // A file: URL counts as written and as the path OpenClaw decodes from it.
     for (const form of repairs(value).flatMap(fileSpellings)) {
+      if (inboundMedia(form)) files.add(INBOUND_MEDIA);
       const relative = relativeTarget(form, roots, ownId);
       if (relative) {
         const [first, ...rest] = relative.split("/");
@@ -298,7 +298,8 @@ export async function attachmentCall(event, ctx, bridge, roots) {
       : null;
   const policy = response?.ok ? await response.json().catch(() => null) : null;
   if (policy?.allow === true) return undefined;
-  return { block: true, blockReason: attachmentRefusal };
+  const reason = files.includes(INBOUND_MEDIA) ? inboundRefusal : attachmentRefusal;
+  return { block: true, blockReason: reason };
 }
 // Why AgentPier refused a browser call (agent-browsers.js policy), for the model.
 export const browserRefusals = {
