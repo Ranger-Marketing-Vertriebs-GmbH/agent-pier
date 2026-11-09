@@ -43,7 +43,9 @@ Anything keeps its records at the root of the folder and the app in `app/`.
 
 The list shows each rebuild with its status (**Starting**, **Building**, **Checking**,
 **Needs you**, **Ready**, **Paused**, **Failed**) and its step (**Study**, **Build**,
-**Check**, **Ready**). A rebuild opens to its page:
+**Check**, **Ready**). A running rebuild reads **Needs you** while a question or
+approval waits for you (Craft Anything itself keeps reporting Building then); sessions
+and agents reading its status see `needs_you` too. A rebuild opens to its page:
 
 ![A rebuild with its steps, latest check, activity and usage](screenshots/craft-rebuilds-detail.png)
 
@@ -88,7 +90,9 @@ rebuild can change it.
 
 When allowing an approval fails three times in a row, AgentPier stops trying and
 leaves it to you like an approval without auto mode: on the rebuild's page, in the
-inbox and as a push notification, with the note **Auto mode could not allow this.**
+inbox and as a push notification. The page and the inbox show it with the note **Auto
+mode could not allow this. Decide here whether it may run.**; the push carries no note,
+as no approval push previews anything.
 
 ## Accounts and children
 

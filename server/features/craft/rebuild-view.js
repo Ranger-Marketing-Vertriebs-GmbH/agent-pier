@@ -115,7 +115,10 @@ export function sampledFields(
  * answer to an old one without effect. So a rebuild that does not run lists no
  * questions, and the ids listed while it stopped (`staleQuestions`) stay hidden after
  * it runs again. `questions` is Craft Anything's list; ids it no longer lists are
- * forgotten.
+ * forgotten. Assumption checked only for the pinned 0.5.0 (2026-11-09, real binary):
+ * Continue asks again under a NEW id. A version that re-asked under the same id would
+ * leave its question hidden while the build waits for it, so check this again
+ * whenever the pin (craft-manifest.js) changes.
  */
 export function freshQuestions(questions, running, stale = []) {
   const listed = new Set(questions.map((question) => question.id));
