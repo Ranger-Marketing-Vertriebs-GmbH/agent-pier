@@ -26,15 +26,21 @@ export function createCraftTool({
     extensions,
     audit,
   });
-  // Rebuilds count too: their children and builders run Craft Anything.
-  craft.inUse = async () =>
-    !!services()?.craftRebuilds?.inUse() ||
-    managedRowInUse({
+  // Running rebuilds count too: their children and builders run Craft Anything. A
+  // child no running rebuild uses (a view opened it) never blocks a change: once
+  // nothing else uses Craft Anything, it is closed here, before the change starts.
+  craft.inUse = async () => {
+    const rebuilds = services()?.craftRebuilds;
+    if (rebuilds?.inUse()) return true;
+    const used = await managedRowInUse({
       serverId: craft.serverId(),
       servers,
       sessions,
       assistants: services()?.assistants,
     });
+    if (!used) await rebuilds?.closeIdle();
+    return used;
+  };
   return craft;
 }
 

@@ -406,9 +406,10 @@ test("close() stops a running download through the job's signal", async (t) => {
   assert.equal(craft.serverId(), null);
 });
 
-test("running rebuilds keep Craft Anything in use", async (t) => {
+test("running rebuilds keep Craft Anything in use; idle children close first", async (t) => {
   const f = await craftFixture(t);
   let busy = true;
+  let closed = 0;
   const craft = createCraftTool({
     config: { dataDir: f.s.dataDir },
     servers: f.s.servers,
@@ -417,12 +418,16 @@ test("running rebuilds keep Craft Anything in use", async (t) => {
     extensions: f.s.extensions,
     audit: { append() {} },
     sessions: { list: async () => [] },
-    services: () => ({ craftRebuilds: { inUse: () => busy } }),
+    services: () => ({
+      craftRebuilds: { inUse: () => busy, closeIdle: async () => closed++ },
+    }),
   });
   t.after(() => craft.close());
   assert.equal(await craft.inUse(), true);
+  assert.equal(closed, 0);
   busy = false;
   assert.equal(await craft.inUse(), false);
+  assert.equal(closed, 1, "the idle children closed before a change");
 });
 
 test("managedRowInUse is the generic check REA's name points at", () => {

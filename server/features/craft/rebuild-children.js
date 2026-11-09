@@ -146,6 +146,25 @@ export class RebuildChildren {
     }, this.idleMs);
   }
 
+  /**
+   * Closes every child no running rebuild uses (one a view opened, one waiting for its
+   * idle close) through the usual close; resolves once they are gone.
+   */
+  async closeIdle() {
+    const idle = [...this.entries].filter(([key]) => !this.running(key));
+    for (const [key, entry] of idle) {
+      this.entries.delete(key);
+      this.disarm(entry);
+    }
+    await Promise.all(
+      idle.map(([, entry]) =>
+        entry.ready
+          .then((client) => client.close())
+          .catch((error) => logCraftFailure("close an idle Craft Anything child", error)),
+      ),
+    );
+  }
+
   disarm(entry) {
     if (!entry.idle) return;
     this.timers.clearTimeout(entry.idle);

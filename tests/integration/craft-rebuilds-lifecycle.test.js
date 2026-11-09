@@ -44,9 +44,12 @@ test("close does not wait for a child that never finishes initialize", async (t)
   assert.equal((await starting).status, 409);
 });
 
-test("a running rebuild or a live child keeps Craft Anything in use", async (t) => {
+test("only a running rebuild keeps Craft Anything in use; idle children close", async (t) => {
   const timers = fakeTimers();
-  const f = rebuildsFixture(t, { timers, script: { steps: [{ finish: "ready" }] } });
+  const f = rebuildsFixture(t, {
+    timers,
+    script: { steps: [{ wait: 300 }, { finish: "ready" }] },
+  });
   assert.equal(f.rebuilds.inUse(), false);
   const view = await f.rebuilds.start({ request: "Busy" });
   assert.equal(f.rebuilds.inUse(), true);
@@ -56,10 +59,21 @@ test("a running rebuild or a live child keeps Craft Anything in use", async (t) 
       return f.rebuilds.get(view.id).status === "ready";
     }),
   );
-  // Ready, but its child still runs until the idle close.
+  // Ready: its child waits for the idle close, and does not count.
+  assert.equal(f.rebuilds.inUse(), false);
+  const [child] = f.clients;
+  assert.equal(child.alive, true);
+  await f.rebuilds.closeIdle();
+  assert.equal(child.alive, false, "closed through the usual close");
+  assert.equal(f.rebuilds.children.size, 0);
+  // A child a view opened closes too; a running rebuild's child stays.
+  await f.rebuilds.activity(view.id);
+  const viewed = f.clients.at(-1);
+  const running = await f.rebuilds.start({ request: "Running", accountId: "acc-a" });
+  await f.rebuilds.closeIdle();
+  assert.equal(viewed.alive, false);
   assert.equal(f.rebuilds.inUse(), true);
-  timers.advance(60000);
-  assert.ok(await until(() => !f.rebuilds.inUse()));
+  assert.equal((await f.rebuilds.pause(running.id)).status, "paused");
 });
 
 test("a rebuild keeps the project its folder has after git init", async (t) => {

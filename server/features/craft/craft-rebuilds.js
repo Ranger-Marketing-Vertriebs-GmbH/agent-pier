@@ -108,15 +108,19 @@ export class CraftRebuilds {
   }
 
   /**
-   * Whether a rebuild runs or starts, or a child of the rebuilds is alive: removing,
-   * updating or changing Craft Anything is refused meanwhile.
+   * Whether a rebuild runs or starts: removing, updating or changing Craft Anything is
+   * refused meanwhile. Idle children do not count; closeIdle() ends them first.
    */
   inUse() {
     return (
       this.starting.size > 0 ||
-      [...this.records.values()].some((record) => record.running) ||
-      this.children.size > 0
+      [...this.records.values()].some((record) => record.running)
     );
+  }
+
+  /** Closes the children no running rebuild uses (before Craft Anything changes). */
+  closeIdle() {
+    return this.children.closeIdle();
   }
 
   /** The `requestId` a rebuild was started with, or null. */
