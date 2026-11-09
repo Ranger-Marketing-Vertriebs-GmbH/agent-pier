@@ -170,6 +170,8 @@ export const galleryCopy = {
     chartTime: "Zeit",
     chartAgo: (minutes) => `−${minutes} Min`,
     chartNow: "jetzt",
+    valueLine: "Beispielwerte als Linie",
+    valueBars: "Beispielwerte als Balken",
     shareLabel: "Beispielanteil: 6 % von 18 %",
     shareOwn: "Eigener Anteil",
     shareOther: "Andere",
