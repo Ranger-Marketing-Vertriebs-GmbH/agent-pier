@@ -426,3 +426,42 @@ test("agentpier_preview: own agents and permanent members only, never user agent
   assert.ok(allow(false).includes(tool));
   assert.ok(!allow(true).includes(tool));
 });
+
+// AGENTPIER-365: an OpenClaw agent shared with users lists or searches no folder, so
+// a chat never finds another chat's uploads in attachments/ (the attachment guard
+// covers every named path); Hermes keeps uploads per chat instead.
+test("a shared OpenClaw agent holds no tool that lists, searches or runs anything", (t) => {
+  const shared = {
+    id: "s",
+    userAccess: { mode: "shared", members: [] },
+    shell: "full",
+    capabilities: {
+      ...OFF,
+      memory: true,
+      reminders: true,
+      documents: true,
+      readPdfs: true,
+    },
+  };
+  const tools = profileTools(shared, true, true, true, {}, [], true, true);
+  for (const tool of tools)
+    assert.ok(
+      !["ls", "find", "grep", "exec", "process", "apply_patch"].includes(tool) &&
+        !tool.startsWith("sessions_"),
+      tool,
+    );
+  for (const tool of ["ls", "find", "grep"])
+    assert.equal(nativeTools.includes(tool), false);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "native-config-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const paths = runtimePaths(dir);
+  prepareRuntimeConfig(paths, 1234, {
+    directory: "/private/plugin",
+    connection: { url: "http://127.0.0.1:1235", token: "teams" },
+    hostMaxConcurrent: 8,
+    native: { url: "http://127.0.0.1:1236", token: "private-native-token" },
+  });
+  const config = JSON.parse(fs.readFileSync(paths.config, "utf8"));
+  assert.equal(config.tools.fs.workspaceOnly, true);
+  assert.deepEqual(config.memory.search.sources, ["memory"]);
+});
