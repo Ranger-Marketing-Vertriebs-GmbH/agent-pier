@@ -8,7 +8,10 @@ import { startFakeModel } from "../helpers/hermes-fake-model.js";
 import { eventually } from "../helpers/hermes-fake-runtime.js";
 import { hermesSkip, strayAfterStop } from "../helpers/hermes-native.js";
 import { hermesFleetApp, json } from "../helpers/hermes-app.js";
-import { homeRefusal } from "../../server/features/assistants/hermes-home-guard.js";
+import {
+  homeRefusal,
+  splitSearchRefusal,
+} from "../../server/features/assistants/hermes-home-guard.js";
 import { agentPath } from "../../server/features/assistants/agent-attachment-notes.js";
 
 // Chat files on the pinned Hermes (AGENTPIER_HERMES_CONTRACT_RUNTIME). An agent shared
@@ -115,13 +118,15 @@ test(
     );
     assert.match(names, /^TOOL_DONE: /);
     assert.equal(names.includes("notes.md"), false, names);
-    // A search of the chat folders, or a read of chat A's file, is refused.
-    for (const args of [
-      { pattern: token, path: path.dirname(path.dirname(file)) },
-      { pattern: token, path: `docs ${path.dirname(file)}` },
+    // A search of the chat folders, or a read of chat A's file, is refused, and so is
+    // a path Hermes would split into several (Python also splits at \x1f).
+    for (const [args, refusal] of [
+      [{ pattern: token, path: path.dirname(path.dirname(file)) }, homeRefusal],
+      [{ pattern: token, path: `docs ${path.dirname(file)}` }, splitSearchRefusal],
+      [{ pattern: token, path: `x\u001f${path.dirname(file)}` }, splitSearchRefusal],
     ]) {
       const refused = await turn(b, `CALL: search_files ${JSON.stringify(args)}`);
-      assert.ok(refused.includes(homeRefusal.slice(0, 40)), refused);
+      assert.ok(refused.includes(refusal.slice(0, 40)), refused);
       assert.equal(refused.includes("notes.md"), false, refused);
     }
     const read = await turn(b, `CALL: read_file ${JSON.stringify({ path: file })}`);

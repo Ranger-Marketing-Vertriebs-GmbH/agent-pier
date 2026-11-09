@@ -7,6 +7,7 @@ import { hermesGuard } from "../../server/features/assistants/hermes-tool-guard.
 import {
   chatFilesRefusal,
   homeRefusal,
+  splitSearchRefusal,
 } from "../../server/features/assistants/hermes-home-guard.js";
 import { attachHermesFleet } from "../../server/features/assistants/runtimes/runtime-for.js";
 import { HermesFleet } from "../../server/features/assistants/runtimes/hermes/hermes-fleet.js";
@@ -91,9 +92,6 @@ test("a shared agent reads its work folder and its own chat's folder only", asyn
     ["search_files", { path: "/", pattern: "x" }],
     ["search_files", { path: dataDir, target: "files", pattern: "*" }],
     ["search_files", { path: "..", pattern: "x" }],
-    // Several paths in one, as Hermes splits a path that does not exist.
-    ["search_files", { path: `docs ${path.join(chats, "m1", "chat-b")}`, pattern: "x" }],
-    ["search_files", { path: `docs,${chats}`, pattern: "x" }],
     // Another agent's work folder.
     [
       "read_file",
@@ -176,7 +174,6 @@ test("a search over the secrets folder is a read of the secrets", async (t) => {
     { path: "./", pattern: "sk-" },
     { path: workspace, pattern: "sk-" },
     { path: path.dirname(workspace), pattern: "sk-" },
-    { path: "docs .", pattern: "sk-" },
   ])
     assert.deepEqual(
       await guard("search_files", search, hook),
@@ -189,4 +186,49 @@ test("a search over the secrets folder is a read of the secrets", async (t) => {
     await guard("search_files", { path: "docs", pattern: "sk-" }, hook),
     allowed,
   );
+});
+
+test("a search path Hermes may split into several is refused on every agent", async (t) => {
+  for (const shared of [true, false]) {
+    const { guard, chats } = setup(t, { shared });
+    const other = path.join(chats, "m1", "chat-b");
+    const split = { allow: false, message: splitSearchRefusal };
+    // Python's str.split() also splits at \x1c-\x1f and \x85, which JavaScript's \s
+    // does not know.
+    for (const value of [
+      `docs ${other}`,
+      `docs,${chats}`,
+      `x\u001f${other}`,
+      `x\u0085${other}`,
+      `x\u001c.`,
+      "x\u001f.",
+      `x,\u001f${other}`,
+      `x\u001f${path.join(chats, "m2")}`,
+      "docs .",
+      "my docs",
+    ])
+      assert.deepEqual(
+        await guard("search_files", { path: value, pattern: "x" }),
+        split,
+        JSON.stringify(value),
+      );
+  }
+});
+
+test("a shared agent searches no attachments/ a move left in its work folder", async (t) => {
+  const { guard, workspace } = setup(t);
+  fs.mkdirSync(path.join(workspace, "docs"), { recursive: true });
+  assert.deepEqual(await guard("search_files", { pattern: "x" }), allowed);
+  fs.mkdirSync(path.join(workspace, "attachments"));
+  for (const search of [
+    { pattern: "x" },
+    { path: ".", pattern: "x" },
+    { path: "./", pattern: "x" },
+  ])
+    assert.deepEqual(await guard("search_files", search), home, JSON.stringify(search));
+  assert.deepEqual(await guard("search_files", { path: "docs", pattern: "x" }), allowed);
+  // An agent not shared with users searches it as before.
+  const own = setup(t, { shared: false });
+  fs.mkdirSync(path.join(own.workspace, "attachments"));
+  assert.deepEqual(await own.guard("search_files", { pattern: "x" }), allowed);
 });
