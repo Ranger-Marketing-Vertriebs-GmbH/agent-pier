@@ -214,9 +214,13 @@
   .session-heading {
     padding: 0 2px 6px;
     gap: 8px;
+    flex-wrap: wrap;
   }
+  /* The title keeps at least 8rem; the actions drop to their own row before they
+     could cover it or run past the edge. */
   .session-title {
     gap: 9px;
+    flex: 1 1 8rem;
   }
   .session-title h1 {
     font-size: 17px;
@@ -228,6 +232,7 @@
   }
   .session-actions {
     gap: 1px;
+    margin-left: auto;
   }
   .session-title .provider-mark {
     width: 28px;

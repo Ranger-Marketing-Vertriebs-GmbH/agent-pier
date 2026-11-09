@@ -19,7 +19,10 @@
     flex-shrink: 0;
   }
   .mobile-chat-workspace .session-title {
-    flex: 1;
+    flex: 1 1 8rem;
+  }
+  .mobile-chat-workspace .session-heading {
+    flex-wrap: wrap;
   }
   .mobile-chat-workspace .session-title > .provider-mark,
   .mobile-chat-workspace .session-title p,
