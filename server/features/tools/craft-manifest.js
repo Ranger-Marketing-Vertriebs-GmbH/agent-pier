@@ -11,7 +11,8 @@ import path from "node:path";
 // deleted after unpacking (and is not part of `installedSize`). The macOS zip is one
 // universal build for arm64 and x64 with the binary at the archive's top.
 // Updating means raising the version and replacing every url, sha256, size and
-// installedSize from the same sources.
+// installedSize from the same sources, and checking the rebuilds' 0.5.0 assumptions
+// again (freshQuestions in craft/rebuild-view.js: a resumed build re-asks under new ids).
 const release = "https://github.com/storytold/craft-anything/releases/download/v0.5.0";
 const macos = Object.freeze({
   url: `${release}/craft-anything-cli-0.5.0-macos-universal.zip`,
