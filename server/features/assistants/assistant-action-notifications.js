@@ -136,9 +136,10 @@ const programNotes = (paths, writable, allowed, m) => [
   allowed(programs(paths)),
   ...(writable?.length ? [m.execWritablePrograms(programs(writable))] : []),
 ];
-// What "Always allow" will do when OpenClaw withheld it: exactly the stored plan.
+// What "Always allow" will do when OpenClaw withheld it: exactly the stored plan. A
+// once-only card (a hook run's, a task member's) has no such button to explain.
 function execAllowAlwaysNote(p, m) {
-  if (!allowAlwaysByAgentPier(p)) return [];
+  if (p.onceOnly || !allowAlwaysByAgentPier(p)) return [];
   const plan = execPlan(p);
   return plan.kind === "paths"
     ? [programNotes(plan.paths, plan.writable, m.execAllowAlwaysPrograms, m).join(" ")]

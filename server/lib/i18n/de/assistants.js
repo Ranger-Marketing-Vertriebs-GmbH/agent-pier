@@ -148,6 +148,8 @@ export const assistants = {
   hooks: {
     failed: (name) =>
       `Der Hook ${name} konnte nicht ausgeführt werden. Prüfe seine Ereignisse im Chat des Agenten.`,
+    approvalTimedOut: (name, minutes) =>
+      `Der Hook ${name} hat auf deine Freigabe gewartet und ist nach ${minutes} Minuten abgelaufen. Der Befehl wurde nicht ausgeführt.`,
     proposalApproval: (agent, name, sender) =>
       `Hook-Vorschlag wartet auf Freigabe: ${agent} möchte einen Hook ${name}, an den ${sender} Ereignisse sendet.`,
     proposalName: (name, sender) => `Hook ${name} von ${sender}`,

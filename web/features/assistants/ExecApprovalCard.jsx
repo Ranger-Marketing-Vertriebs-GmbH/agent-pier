@@ -35,7 +35,8 @@ export default function ExecApprovalCard({ action, decide }) {
     assistants.find((a) => a.id === action.assistantId)?.name || payload.agentId || "";
   const plan = action.allowAlwaysByAgentPier ? action.allowAlwaysPlan : null;
   const paths = plan?.kind === "paths" ? plan.paths || [] : [];
-  const once = plan && plan.kind !== "paths";
+  // A once-only card (a hook run's, a task member's) has no "Always allow" to explain.
+  const once = plan && plan.kind !== "paths" && !payload.onceOnly;
   const expires = action.expiresAt || payload.expiresAt;
   async function send(decision) {
     setBusy(true);
@@ -139,7 +140,8 @@ export default function ExecApprovalCard({ action, decide }) {
           >
             {copy.allowOnce}
           </button>
-          {/* A task member's shell is granted for one task: never "Always allow". */}
+          {/* A task member's shell is granted for one task, a hook run's command is
+              one event's: never "Always allow". */}
           {!payload.onceOnly && (
             <button
               type="button"

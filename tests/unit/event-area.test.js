@@ -124,3 +124,23 @@ test("a failed routine row names a known note and a check-in its kind", () => {
     true,
   );
 });
+
+test("a hook run that timed out on the owner's approval says so", () => {
+  setLanguage("en");
+  const failed = hook(100, {
+    status: "failed",
+    firstLine: "",
+    approvalTimeoutMinutes: 30,
+  });
+  assert.equal(
+    eventRowView(failed).detail,
+    "Waited for your approval and ran out of time after 30 minutes.",
+  );
+  setLanguage("de");
+  assert.equal(
+    eventRowView(failed).detail,
+    "Hat auf deine Freigabe gewartet und ist nach 30 Minuten abgelaufen.",
+  );
+  setLanguage("en");
+  assert.equal(eventRowView(hook(100, { status: "failed", firstLine: "" })).detail, "");
+});

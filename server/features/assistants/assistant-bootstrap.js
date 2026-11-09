@@ -16,6 +16,7 @@ import {
   inheritsFromLead,
   memoryEnabled,
   personalCapabilities,
+  personalShell,
 } from "./native-capabilities.js";
 import { teamGuidance } from "./team-guidance.js";
 import { goalAgent, mayCreateProjects, mayOpenPreviews } from "./goal-turns.js";
@@ -211,6 +212,15 @@ const previewGuidance = [
   "- When you start a server for the owner to look at or test, call agentpier_preview (action open) with its port and give the owner the returned link instead of a localhost URL. Bind the server to 127.0.0.1 or localhost. Close it with action close when it is no longer needed.",
 ].join("\n");
 
+// A shell that asks the owner (With approval): approval binds a command only as one
+// plain invocation, so input fed through stdin or redirections is refused outright
+// (OpenClaw's SYSTEM_RUN_DENIED "approval cannot safely bind this command").
+const shellApprovalGuidance = [
+  "## Shell",
+  "- Commands that need the owner's approval, or that rely on a command the owner always allowed, must not use heredocs, pipes into stdin or redirections (`<`, `>`, `<<`). Pass a script as an argument instead, for example `ssh host 'python3 -c \"...\"'`.",
+  "- If such a command is refused, tell the owner exactly that: the command was refused because it used a heredoc, a pipe or a redirection. Then retry it in the allowed form. Never describe the refusal vaguely as a policy.",
+].join("\n");
+
 // The agent's granted secrets file (agent-secrets.js); names and values stay out.
 const secretsGuidance =
   "- Secrets the owner granted you are in `.agentpier/secrets.env` in your workspace. When a task needs them, load them in the same shell command with `set -a; . .agentpier/secrets.env; set +a`. Never print, log, commit or paste their values.";
@@ -272,6 +282,7 @@ export function assistantBootstrap(
             ),
           ]
         : []),
+    ...(personalShell(assistant) === "approval" ? [shellApprovalGuidance] : []),
     ...(projectFolders.length ? [folderGuidance(projectFolders)] : []),
     ...(github ? [githubGuidance(github)] : []),
     ...(plainSshHosts(plainSsh).length

@@ -124,6 +124,8 @@ export const hookCopy = {
     },
     duplicates: (count) => (count === 1 ? "1 duplicate" : `${count} duplicates`),
     failedRun: "The run could not finish.",
+    approvalTimeout: (minutes) =>
+      `Waited for your approval and ran out of time after ${minutes} minutes.`,
     loading: "Loading the event …",
     incoming: "What came in",
     noPayload: "The event's content is no longer stored.",

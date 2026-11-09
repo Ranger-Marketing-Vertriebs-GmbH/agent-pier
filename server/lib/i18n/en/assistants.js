@@ -144,6 +144,8 @@ export const assistants = {
   hooks: {
     failed: (name) =>
       `The hook ${name} could not run. Check its events in the agent's chat.`,
+    approvalTimedOut: (name, minutes) =>
+      `The hook ${name} waited for your approval and ran out of time after ${minutes} minutes. The command did not run.`,
     proposalApproval: (agent, name, sender) =>
       `Hook proposal awaiting approval: ${agent} wants a hook ${name} that ${sender} sends events to.`,
     proposalName: (name, sender) => `Hook ${name} from ${sender}`,

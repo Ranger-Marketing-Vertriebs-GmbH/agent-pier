@@ -89,6 +89,10 @@ function hookRow(event, hook) {
     // The event's row id, the detail route's `eventId` (never the sender's key).
     eventId: event.id,
     ...(event.test ? { test: true } : {}),
+    // The run timed out while its shell command waited for the owner.
+    ...(event.failure === "approval-timeout" && event.runSeconds > 0
+      ? { approvalTimeoutMinutes: Math.round(event.runSeconds / 60) }
+      : {}),
   };
 }
 

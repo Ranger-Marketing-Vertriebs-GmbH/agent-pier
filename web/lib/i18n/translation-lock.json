@@ -1078,6 +1078,7 @@
   "assistant-hooks:hookCopy.empty": "de:cd15846be09d en:4df7468a962b",
   "assistant-hooks:hookCopy.enabled": "de:58279f727691 en:92c1cdfdf4cb",
   "assistant-hooks:hookCopy.enabledHint": "de:bef720f3606a en:0f53dcf31e9f",
+  "assistant-hooks:hookCopy.events.approvalTimeout": "de:b30066170bb9 en:7aafccd9d218",
   "assistant-hooks:hookCopy.events.at": "de:74f24931f4dc en:33b93476cf59",
   "assistant-hooks:hookCopy.events.checkIn": "de:adc719587244 en:adc719587244",
   "assistant-hooks:hookCopy.events.codingRun": "de:e80fbbe500d4 en:5a837b9b8fc4",

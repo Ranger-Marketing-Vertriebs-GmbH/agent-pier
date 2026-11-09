@@ -267,7 +267,8 @@ What works on Hermes today:
   commands** or **Every command** a routine run asks you before the commands that ask
   and waits up to five minutes
   ([Hermes runtime](hermes-runtime.md#routines)).
-- Hooks: an incoming event runs in the agent's main chat as on OpenClaw.
+- Hooks: an incoming event runs in the agent's main chat as on OpenClaw; a command
+  its run asks you about waits up to five minutes, as in a routine run.
 - Long chats: the hint to summarise a long chat appears as on OpenClaw.
 - Questions: when the agent asks before it goes on, the chat shows **Question from
   the agent** with its choices and a field for your own answer (**Send answer**); a
@@ -564,7 +565,10 @@ A switch with fresh chats also has the new model review the agent's memory; see
 - **Shell access:** **Off**, **With approval** or **Full access** (an agent created
   without a level, for example through the API, starts **With approval**; the wizard
   uses the level its profile shows). With approval, the
-  agent asks before every command that is not always allowed; the request appears in
+  agent asks before every command that is not always allowed (its instructions tell it
+  to pass a script as an argument, never through a heredoc, a pipe into stdin or a
+  redirection, which OpenClaw refuses to approve, and to tell you so plainly if a
+  command is refused); the request appears in
   the chat and in the paired Telegram chat with **Allow once**, **Always allow** and
   **Deny**. A permanent team member asks in its own chat; when its lead asked or
   delegated the turn, the request also appears in the lead's chat, and deciding in
@@ -1587,7 +1591,12 @@ own **Enabled** switch is off.
   in place for your chats; only that run's own file reads of it are refused.
   **Enabled** pauses or resumes the hook. A shell command a hook run asks for offers
   only **Allow once** and **Deny**, never **Always allow**, so an event cannot make a
-  command permanent for your own chats.
+  command permanent for your own chats; its card does not explain **Always allow**
+  either. A run whose **Shell** is **With approval** has 30 minutes, so you have time
+  to decide (OpenClaw's approval request also expires after 30 minutes); every other
+  hook run ends after 5 minutes. When a run runs out of time while its command still
+  waits for you, the notice and the event's row say that the hook waited for your
+  approval and ran out of time after 30 minutes, instead of the generic failure line.
 - **Addresses** lists the hook's address on this computer, through Tailscale and in
   network mode, each with a copy button, and says when Tailscale or network mode is off.
   When a sender recently called the hook on a host AgentPier does not accept (it
