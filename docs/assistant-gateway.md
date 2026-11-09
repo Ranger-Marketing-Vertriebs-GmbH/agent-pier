@@ -4456,6 +4456,16 @@ or out). Nothing from a workspace is ever used for it.
   shadowed as `"source"`. A workspace or workshop skill of one agent is not refused at
   install; the catalog skill is shadowed for that agent only (`"agentFolder"`), and the
   agent's Skills page says so.
+- **Reads.** All catalog skills share the live root, but an agent reads only the
+  catalog skills switched on for it. Under `tools.fs.workspaceOnly`, OpenClaw's `read`
+  admits beside the workspace only the folder of each skill in the agent's own
+  snapshot (`resolveSkillReadRoots`), and `skills_read` only those skills; another
+  catalog skill is refused by any spelling (absolute, relative, `..` out of a
+  switched-on skill, case variant), and a skill switched off leaves the next turn's
+  read roots. This holds for every agent, the owner's and those of restricted users;
+  `assistant-user-skill-reads-contract.test.js` checks it for a user's agent on the
+  pinned runtime, together with its bundled and own workspace skills. Only an owner's
+  agent with a shell can read further, as the owner's account.
 - **Programs.** Required programs come from OpenClaw's `skills.status`, not from
   AgentPier's scan. A skill needing environment variables, API keys or configuration
   (`requirements.env`, `requirements.config`, `primaryEnv`) installs, shows **Needs
