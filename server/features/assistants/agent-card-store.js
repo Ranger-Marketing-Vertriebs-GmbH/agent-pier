@@ -16,7 +16,17 @@ const cardFrom = (row) => ({
   changedAt: row.changed_at,
   seenAt: row.seen_at,
   pressed: parse(row.pressed, null),
+  seenTicks: parse(row.seen_ticks, {}),
 });
+
+/** A card's ticks as `{ "<checklist>/<item>": checked }`. */
+export function ticksOf(blocks) {
+  const ticks = {};
+  for (const block of blocks)
+    if (block.type === "checklist")
+      for (const item of block.items) ticks[`${block.id}/${item.id}`] = item.checked;
+  return ticks;
+}
 
 /**
  * Agent cards (agentpier_card, agent-cards.js): one row per card of a chat, with its
@@ -32,7 +42,7 @@ export class AgentCardStore {
   constructor(db) {
     this.db = db;
     db.exec(
-      "CREATE TABLE IF NOT EXISTS agent_cards(id TEXT PRIMARY KEY, assistant_id TEXT NOT NULL, conversation_id TEXT NOT NULL, title TEXT NOT NULL, blocks TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, placements TEXT NOT NULL, frozen_at TEXT, changed_at TEXT, seen_at TEXT, pressed TEXT)",
+      "CREATE TABLE IF NOT EXISTS agent_cards(id TEXT PRIMARY KEY, assistant_id TEXT NOT NULL, conversation_id TEXT NOT NULL, title TEXT NOT NULL, blocks TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, placements TEXT NOT NULL, frozen_at TEXT, changed_at TEXT, seen_at TEXT, pressed TEXT, seen_ticks TEXT)",
     );
     db.exec(
       "CREATE INDEX IF NOT EXISTS agent_cards_conversation ON agent_cards(conversation_id)",
@@ -81,16 +91,26 @@ export class AgentCardStore {
       .map(cardFrom);
   }
 
+  /** How many cards the chat gained since `since`. */
+  createdSince(conversationId, since) {
+    return this.db
+      .prepare(
+        "SELECT COUNT(*) AS n FROM agent_cards WHERE conversation_id=? AND created_at>?",
+      )
+      .get(conversationId, since).n;
+  }
+
   /**
    * A new card in its chat at `at`. Beyond CARD_LIMITS.openCards open cards the
-   * oldest open ones are frozen: kept and shown, never changed again.
+   * oldest open ones are frozen: kept and shown, never changed again; beyond
+   * CARD_LIMITS.keptCards cards in all, the oldest frozen ones are deleted.
    */
   create({ assistantId, conversationId, requestId, title, blocks, at }) {
     const id = `card_${randomUUID()}`;
     return this.#transaction(() => {
       this.db
         .prepare(
-          "INSERT INTO agent_cards(id,assistant_id,conversation_id,title,blocks,version,created_at,updated_at,placements,seen_at) VALUES(?,?,?,?,?,1,?,?,?,?)",
+          "INSERT INTO agent_cards(id,assistant_id,conversation_id,title,blocks,version,created_at,updated_at,placements,seen_at,seen_ticks) VALUES(?,?,?,?,?,1,?,?,?,?,?)",
         )
         .run(
           id,
@@ -102,6 +122,7 @@ export class AgentCardStore {
           at,
           JSON.stringify([{ at, requestId }]),
           at,
+          JSON.stringify(ticksOf(blocks)),
         );
       const open = this.db
         .prepare(
@@ -110,6 +131,14 @@ export class AgentCardStore {
         .all(conversationId);
       for (const row of open.slice(0, Math.max(0, open.length - CARD_LIMITS.openCards)))
         this.db.prepare("UPDATE agent_cards SET frozen_at=? WHERE id=?").run(at, row.id);
+      const frozen = this.db
+        .prepare(
+          "SELECT id FROM agent_cards WHERE conversation_id=? AND frozen_at IS NOT NULL ORDER BY created_at, rowid",
+        )
+        .all(conversationId);
+      const room = CARD_LIMITS.keptCards - CARD_LIMITS.openCards;
+      for (const row of frozen.slice(0, Math.max(0, frozen.length - room)))
+        this.db.prepare("DELETE FROM agent_cards WHERE id=?").run(row.id);
       return this.get(id);
     });
   }
@@ -126,7 +155,7 @@ export class AgentCardStore {
     );
     const changed = this.db
       .prepare(
-        "UPDATE agent_cards SET title=?, blocks=?, version=version+1, updated_at=?, placements=?, seen_at=?, pressed=NULL WHERE id=? AND version=?",
+        "UPDATE agent_cards SET title=?, blocks=?, version=version+1, updated_at=?, placements=?, seen_at=?, seen_ticks=?, pressed=NULL WHERE id=? AND version=?",
       )
       .run(
         title,
@@ -134,6 +163,7 @@ export class AgentCardStore {
         at,
         JSON.stringify(placements),
         at,
+        JSON.stringify(ticksOf(blocks)),
         card.id,
         card.version,
       );
@@ -212,19 +242,41 @@ export class AgentCardStore {
     return { card: this.#person(card, card.blocks, pressed, at), text };
   }
 
-  /** The agent has seen these cards now (a read, or a turn note that named them). */
-  seen(ids, at) {
+  /**
+   * The agent has seen these cards (a read, or a turn note that named them) as they
+   * were at `at`: their ticks then, and a press up to then. A tick or press after
+   * `at` stays new for the next note.
+   */
+  seen(cards, at) {
     const mark = this.db.prepare(
-      "UPDATE agent_cards SET seen_at=?, pressed=NULL WHERE id=?",
+      "UPDATE agent_cards SET seen_at=MAX(COALESCE(seen_at, ''), ?), seen_ticks=?, pressed=CASE WHEN json_extract(pressed, '$.at') <= ? THEN NULL ELSE pressed END WHERE id=?",
     );
-    for (const id of ids) mark.run(at, id);
+    for (const card of cards)
+      mark.run(at, JSON.stringify(ticksOf(card.blocks)), at, card.id);
   }
 
-  /** The cards of the chat the person changed since the agent last saw them. */
+  /** Forgets a press whose message was not sent (`at`: the press's time). */
+  unpress(card, at) {
+    this.db
+      .prepare(
+        "UPDATE agent_cards SET pressed=NULL WHERE id=? AND json_extract(pressed, '$.at')=?",
+      )
+      .run(card.id, at);
+    return this.get(card.id);
+  }
+
+  /**
+   * The cards of the chat the person changed since the agent last saw them: a press
+   * it has not seen, or a tick that differs from the ones it saw.
+   */
   changedFor(conversationId) {
-    return this.forConversation(conversationId).filter(
-      (card) => card.changedAt && (!card.seenAt || card.changedAt > card.seenAt),
-    );
+    return this.forConversation(conversationId).filter((card) => {
+      if (card.pressed) return true;
+      const ticks = ticksOf(card.blocks);
+      return Object.keys(ticks).some(
+        (key) => (card.seenTicks[key] ?? false) !== ticks[key],
+      );
+    });
   }
 
   recordNote({ conversationId, requestId, assistantId, note }) {

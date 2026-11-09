@@ -4,6 +4,8 @@ export const agentCards = Object.freeze({
     `The card was rejected (${detail}). Fix that part and call agentpier_card again; the tool description lists the blocks and their limits.`,
   CARD_TOO_LARGE: (max) =>
     `The card is larger than ${max} bytes. Shorten its texts or split it into two cards.`,
+  CARD_RATE_LIMIT: (max) =>
+    `This chat already got ${max} new cards in the last hour. Update an existing card with agentpier_card action update instead of creating more.`,
   CARD_NOT_FOUND:
     "There is no such card in this chat. Call agentpier_card with action read and no cardId for the cards of this chat.",
   CARD_FROZEN:

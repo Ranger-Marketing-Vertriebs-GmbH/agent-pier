@@ -4,6 +4,8 @@ export const agentCards = Object.freeze({
     `Die Karte wurde abgelehnt (${detail}). Korrigiere diesen Teil und rufe agentpier_card erneut auf; die Tool-Beschreibung nennt die Bausteine und ihre Grenzen.`,
   CARD_TOO_LARGE: (max) =>
     `Die Karte ist größer als ${max} Bytes. Kürze ihre Texte oder teile sie auf zwei Karten auf.`,
+  CARD_RATE_LIMIT: (max) =>
+    `Dieser Chat hat in der letzten Stunde schon ${max} neue Karten bekommen. Aktualisiere eine vorhandene Karte mit agentpier_card und der Aktion update, statt weitere anzulegen.`,
   CARD_NOT_FOUND:
     "Diese Karte gibt es in diesem Chat nicht. Rufe agentpier_card mit der Aktion read ohne cardId auf, um die Karten dieses Chats zu sehen.",
   CARD_FROZEN:

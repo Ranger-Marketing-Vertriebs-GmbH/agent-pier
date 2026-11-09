@@ -14,6 +14,12 @@ export const CARD_LIMITS = Object.freeze({
   points: 200,
   bytes: 32768,
   openCards: 30,
+  // Cards kept per chat in all, frozen ones included; the oldest frozen go first.
+  keptCards: 100,
+  // New cards per chat and hour; an agent updates a card instead of piling up more.
+  createsPerHour: 30,
+  // The card note of a turn (agent-cards.js cardStateNote), in characters.
+  note: 2000,
   placements: 50,
   title: 120,
   text: 2000,
@@ -73,14 +79,24 @@ function id(value, path) {
     reject(path, "must be 1 to 64 letters, digits or _.:-");
   return value;
 }
+// A `/` or `!` that starts a word: an OpenClaw command or directive (plain-turn-text.js).
+const commandSigil = /(^|\s)[/!]/;
+function noCommand(value, path) {
+  if (commandSigil.test(value))
+    reject(path, "must not hold a word that starts with / or ! (a chat command)");
+  return value;
+}
 function button(value, path) {
   only(value, path, ["label", "message", "primary"]);
   if (value.primary !== undefined && typeof value.primary !== "boolean")
     reject(`${path}.primary`, "must be true or false");
   return {
-    label: text(value.label, `${path}.label`, L.label),
+    label: noCommand(text(value.label, `${path}.label`, L.label), `${path}.label`),
     ...(value.message !== undefined && {
-      message: text(value.message, `${path}.message`, L.message),
+      message: noCommand(
+        text(value.message, `${path}.message`, L.message),
+        `${path}.message`,
+      ),
     }),
     ...(value.primary && { primary: true }),
   };

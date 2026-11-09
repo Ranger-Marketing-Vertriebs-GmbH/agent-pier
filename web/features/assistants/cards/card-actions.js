@@ -19,9 +19,12 @@ export function cardActions(api, conversationId, { deliver, canSend }) {
   return {
     canSend,
     check: (cardId, body) => api.checkCard(conversationId, cardId, body),
+    // A press whose message is not sent (deliver answers false) is forgotten again.
     press: async (cardId, body) => {
-      const { text } = await api.pressCard(conversationId, cardId, body);
-      return deliver(text);
+      const { text, at } = await api.pressCard(conversationId, cardId, body);
+      const sent = await deliver(text);
+      if (!sent) await api.unpressCard(conversationId, cardId, { at }).catch(() => {});
+      return sent;
     },
   };
 }

@@ -5630,26 +5630,39 @@ hands it to `AgentCards` (`agent-cards.js`).
   English reason names the failing part (`blocks[2].rows[0].action.label: …`): 20
   blocks, 50 rows or items, 8 columns, metrics and buttons, 20 links, 200 chart points,
   texts of 120 to 2,000 characters, and 32 KB of checked JSON (`CARD_TOO_LARGE`, 413).
-  A checklist item that keeps its id and omits `checked` keeps the person's tick.
+  A checklist item that keeps its id and omits `checked` keeps the person's tick. A
+  button's `label` and `message` must not hold a word that starts with `/` or `!`
+  (`CARD_INVALID`): a press sends that text as the person's own message, and on the
+  owner's chat an OpenClaw command or directive (`/restart`, `/model`, `/think`,
+  `/team`, AgentPier's `/new`) would run with the owner's authority.
 - **Storage.** `agent_cards` holds one row per card (blocks with ticks, version,
-  placements, `frozen_at`, the person's `changed_at`, the agent's `seen_at`, the latest
-  press) and `agent_card_notes` the card note each turn carried; both go with their chat
-  (`forgetChat`) and their agent (`agent-deletion.js`). Beyond 30 open cards in a chat
-  the oldest is frozen (`CARD_FROZEN`, 409 on update, tick and press).
+  placements, `frozen_at`, the person's `changed_at`, the ticks the agent last saw in
+  `seen_ticks`, the latest unseen press) and `agent_card_notes` the card note each turn
+  carried; both go with their chat (`forgetChat`) and their agent (`agent-deletion.js`).
+  Beyond 30 open cards in a chat the oldest is frozen (`CARD_FROZEN`, 409 on update,
+  tick and press); beyond 100 cards in all the oldest frozen ones are deleted. A chat
+  gains at most 30 new cards an hour (`CARD_RATE_LIMIT`, 429; an update is no new
+  card).
 - **History.** `conversations.js` adds each card at its latest placement
   (`card:<id>:<n>`, with `card`) and a marker at every earlier one (the same id it had
   there, with `cardMoved`), so an update never reorders the chat window; at most 50
   placements are kept. The web app hides a marker the card follows directly.
-- **Ticks and presses.** `POST /api/assistant-conversations/:id/cards/:cardId/check`
-  and `/press` (the owner's chats only, owner-content guard) and
-  `POST /api/me/conversations/:id/cards/:cardId/check` and `/press` (her own chats,
+- **Ticks and presses.** `POST /api/assistant-conversations/:id/cards/:cardId/check`,
+  `/press` and `/unpress` (the owner's chats only, owner-content guard) and the same
+  three under `POST /api/me/conversations/:id/cards/:cardId/` (her own chats,
   `route-access.js`) take `{ version, block, item | row, checked }`; a stale version or
-  place answers `CARD_CHANGED` (409). A tick starts no turn. A press records the button
-  and answers `text`, which the web app sends through the normal message route.
+  place answers `CARD_CHANGED` (409), an archived chat or agent `CARD_UNAVAILABLE`
+  (403). A tick starts no turn. A press records the button and answers `text` (as plain
+  text, `plainTurnText`: a row's cells never run as a command either) and `at`; the web
+  app sends `text` through the normal message route and, when that send fails, takes
+  the press back with `/unpress` `{ at }`. The button's tooltip shows its message.
 - **Card note.** `sendTurn` (`conversation-turns.js`) appends a note naming each card
-  the person changed since the agent last saw it (checklists' done and open items, the
-  latest press) to the delivered text, records it in `agent_card_notes` and marks the
-  cards seen once the send is accepted; the history strips the recorded note from the
+  the person changed since the agent last saw it (the checklist items ticked or
+  unticked since the ticks it saw, and the latest press), at most 2,000 characters and
+  as plain text (`plainTurnText`, also in restricted users' chats), to the delivered
+  text and records it in `agent_card_notes`. Once the send is accepted the cards count
+  as seen as they were when the note was built, so a tick or press made while the turn
+  was being sent reaches the next note. The history strips the recorded note from the
   person's message.
 - **Telegram.** `create` in a turn from the paired Telegram chat, or in a routine run
   that delivers there, queues the card's text (`cardFallback`, kind `agent-card`) in the

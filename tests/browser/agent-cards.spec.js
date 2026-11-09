@@ -120,7 +120,7 @@ async function open(page) {
     state.cardCalls.push([url.pathname.split("/").slice(-2).join("/"), body]);
     await route.fulfill({
       json: url.pathname.endsWith("/press")
-        ? { text: "Swap: Tue · Lasagne with savoy", card: dinners }
+        ? { text: "Swap: Tue · Lasagne with savoy", at, card: dinners }
         : dinners,
     });
   });
@@ -190,6 +190,22 @@ for (const [name, use] of [
         "card_dinners/press",
         { version: 1, block: 0, row: 1 },
       ]);
+    });
+
+    test("a press whose message is refused is taken back", async ({ page }) => {
+      const state = await open(page);
+      await page.route("**/api/assistant-conversations/dinner/messages", (route) =>
+        route.request().method() === "POST"
+          ? route.fulfill({ status: 409, json: { error: "Busy" } })
+          : route.fallback(),
+      );
+      await page
+        .getByRole("article", { name: "Card: Dinners week 46" })
+        .getByRole("button", { name: "Add the weekend" })
+        .click();
+      await expect
+        .poll(() => state.cardCalls.map(([path]) => path))
+        .toEqual(["card_dinners/press", "card_dinners/unpress"]);
     });
 
     test("the marker of a moved card leads to the card", async ({ page }) => {

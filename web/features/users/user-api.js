@@ -43,6 +43,8 @@ export const userApi = {
     api(`${chat(conversationId)}/cards/${id(cardId)}/check`, "POST", body),
   pressCard: (conversationId, cardId, body) =>
     api(`${chat(conversationId)}/cards/${id(cardId)}/press`, "POST", body),
+  unpressCard: (conversationId, cardId, body) =>
+    api(`${chat(conversationId)}/cards/${id(cardId)}/unpress`, "POST", body),
   takeBackQueued: (conversationId) => api(`${chat(conversationId)}/queued`, "DELETE"),
   cancel: (attemptId) => api(`/me/attempts/${id(attemptId)}/cancel`, "POST", {}),
   recover: (attemptId) =>

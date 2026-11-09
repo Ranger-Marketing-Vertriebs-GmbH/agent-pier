@@ -100,7 +100,7 @@ export function assistantChatRoutes({ assistants, ownerPrivacy, audit }) {
   });
   // A tick or a button press on an agent card of his chat (agent-cards.js); the
   // guard refuses hers. A press answers the message the web app then sends.
-  for (const kind of ["check", "press"])
+  for (const kind of ["check", "press", "unpress"])
     router.post(`/assistant-conversations/:id/cards/:cardId/${kind}`, (req, res) => {
       assistants.store.getConversation(req.params.id);
       if (!assistants.cards) throw assistantProblem("unavailable", 503);

@@ -48,7 +48,7 @@ export function meConversationRoutes(
     res.status(sendStatus(result)).json(result);
   });
   // A tick or a button press on an agent card of her chat (agent-cards.js).
-  for (const kind of ["check", "press"])
+  for (const kind of ["check", "press", "unpress"])
     router.post(`/me/conversations/:id/cards/:cardId/${kind}`, (req, res) => {
       const { id } = own(req);
       gate();
