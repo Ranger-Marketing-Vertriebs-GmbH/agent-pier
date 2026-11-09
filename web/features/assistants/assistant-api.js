@@ -21,6 +21,12 @@ export const assistantApi = {
       "POST",
       body,
     ),
+  unpressCard: (id, cardId, body) =>
+    api(
+      `/assistant-conversations/${encodeURIComponent(id)}/cards/${encodeURIComponent(cardId)}/unpress`,
+      "POST",
+      body,
+    ),
   feature: () => api("/assistant-feature"),
   setFeature: (enabled) => api("/assistant-feature", "PUT", { enabled }),
   memory: (id, name) =>

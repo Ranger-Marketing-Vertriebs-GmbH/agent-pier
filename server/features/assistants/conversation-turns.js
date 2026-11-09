@@ -197,7 +197,7 @@ export async function sendTurn(service, conversationId, input, trustedContext) {
       return send();
     });
     service.ledger.transition(attempt.id, "accepted", { runtimeRunId: sent.runId });
-    if (cards) service.cards.delivered(cards.ids);
+    if (cards) service.cards.delivered(cards);
   } catch (error) {
     noteRefusalOn(service.runtime, error);
     const failure = sendRefusal(error, (refusal) =>

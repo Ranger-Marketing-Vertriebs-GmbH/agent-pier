@@ -50,7 +50,7 @@ export const userRoutes = [
   // Ticks and button presses on the agent cards of her chat (agent-cards.js).
   {
     method: "POST",
-    pattern: /^\/api\/me\/conversations\/[^/]+\/cards\/[^/]+\/(?:check|press)$/,
+    pattern: /^\/api\/me\/conversations\/[^/]+\/cards\/[^/]+\/(?:check|press|unpress)$/,
   },
   { method: "DELETE", pattern: /^\/api\/me\/conversations\/[^/]+\/queued$/ },
   { method: "POST", pattern: /^\/api\/me\/attempts\/[^/]+\/(?:cancel|recover)$/ },

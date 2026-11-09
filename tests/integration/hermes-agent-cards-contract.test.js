@@ -74,7 +74,7 @@ test(
     // The fake model echoes the end of the turn's message as the agent received it:
     // the card note with the tick.
     const echoed = await chat.reply(new RegExp(`^ECHO: [\\s\\S]*cardId ${cardId}`));
-    assert.match(echoed.text, /done "Milk"; open none/);
+    assert.match(echoed.text, /ticked "Milk"/);
     const mine = (await chat.messages()).filter((m) => m.role === "user");
     assert.equal(mine.at(-1).text, "What is left to buy?");
 

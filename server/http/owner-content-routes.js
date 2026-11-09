@@ -38,6 +38,7 @@ export const ownerContentRoutes = {
   // Ticks and button presses on agent cards (agent-cards.js).
   "POST /api/assistant-conversations/:id/cards/:cardId/check": "conversation",
   "POST /api/assistant-conversations/:id/cards/:cardId/press": "conversation",
+  "POST /api/assistant-conversations/:id/cards/:cardId/unpress": "conversation",
   "GET /api/assistant-conversations/:id/messages": "conversation",
   "POST /api/assistant-conversations/:id/messages": "conversation",
   // Answering the agent's question goes on its turn: his own chats only.

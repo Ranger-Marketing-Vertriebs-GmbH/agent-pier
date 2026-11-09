@@ -65,6 +65,12 @@ test("the owner ticks and presses on his chat's card; a user's chat is refused",
     200,
   );
   assert.equal(pressed.text, "All bought");
+  const unpressed = await json(
+    await post(f.request, base, card, "unpress", { at: pressed.at }),
+    200,
+  );
+  assert.equal(unpressed.pressed, undefined);
+  assert.equal(f.application.assistants.cards.store.get(card.id).pressed, null);
   const stale = await post(f.request, base, card, "check", {
     version: 2,
     block: 0,

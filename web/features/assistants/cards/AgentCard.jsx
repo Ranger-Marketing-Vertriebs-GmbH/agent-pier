@@ -18,6 +18,8 @@ function Button({ button, disabled, onPress }) {
       type="button"
       className={`button ${button.primary ? "primary" : "secondary"} agent-card-button`}
       disabled={disabled}
+      // The message a button sends when it differs from its label.
+      title={button.message}
       onClick={onPress}
     >
       {button.label}

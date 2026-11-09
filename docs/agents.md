@@ -1984,16 +1984,20 @@ on a computer and a phone alike; an agent never sends HTML or scripts.
   holds at most 20 blocks, 50 rows or items per block, 200 chart values and 32 KB.
 - **Ticks are silent.** Ticking a checklist item saves it at once, on every open
   device, and starts no turn. With your next message the agent receives a short note
-  of what you changed on its cards since it last looked (the note is not shown as
-  part of your message).
+  of what you ticked or unticked on its cards since it last looked (the note is not
+  shown as part of your message).
 - **Buttons send a message.** A button sends its message as yours (the button's own
   text, else its label; a row's button adds the row, for example "Swap: Tue ·
   Lasagne") and starts a turn; the agent usually answers by updating the same card.
-  Buttons wait while the agent works.
+  Buttons wait while the agent works, and a press whose message cannot be sent is
+  taken back. Hover a button to see the message it sends. A button never sends a chat
+  command: an agent cannot make one start with `/` or `!`.
 - **Updates move the card.** An updated card moves to the end of the chat, where you
   are, and shows its version and time; its old place keeps a line "… was updated –
   shown further down" that leads to it. A chat keeps its newest 30 cards open; older
-  ones stay visible but closed.
+  ones stay visible but closed, up to 100 cards in all. An agent creates at most 30
+  new cards in a chat an hour and otherwise updates one. Cards of an archived chat
+  cannot be changed.
 - **Who writes cards.** The agent's own chat turns, and its routines and hooks in
   exactly the chat they deliver to. On a shared agent a card goes only into the chat
   of the person the run belongs to, and only that person ticks and presses it; you see

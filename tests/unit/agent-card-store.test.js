@@ -79,7 +79,7 @@ test("ticks are silent changes the agent sees once", () => {
     store.changedFor("chat").map((c) => c.id),
     [card.id],
   );
-  store.seen([card.id], at(2));
+  store.seen([store.get(card.id)], at(2));
   assert.deepEqual(store.changedFor("chat"), []);
   fails(
     () =>
@@ -116,7 +116,7 @@ test("a press names its message and is remembered until the agent sees it", () =
     () => store.press(card, { version: 1, block: 1, item: 0, at: at(3) }),
     "CARD_CHANGED",
   );
-  store.seen([card.id], at(4));
+  store.seen([store.get(card.id)], at(4));
   assert.equal(store.get(card.id).pressed, null);
 });
 
@@ -162,4 +162,58 @@ test("notes and cards go with their chat", () => {
   store.forgetConversation("chat");
   assert.deepEqual(store.forConversation("chat"), []);
   assert.deepEqual(store.notes("chat"), []);
+});
+
+test("a tick or press after the seen time stays new", () => {
+  const { store, card } = setup();
+  const ticked = store.check(card, {
+    version: 1,
+    block: 1,
+    item: "milk",
+    checked: true,
+    at: at(1),
+  });
+  const noted = store.get(card.id);
+  store.press(ticked, { version: 1, block: 2, item: 0, at: at(3) });
+  // The note was built at minute 2, before the press.
+  store.seen([noted], at(2));
+  const after = store.get(card.id);
+  assert.equal(after.pressed.at, at(3));
+  assert.deepEqual(after.seenTicks, { "checklist/milk": true });
+  assert.deepEqual(
+    store.changedFor("chat").map((c) => c.id),
+    [card.id],
+  );
+});
+
+test("a press whose message failed is forgotten", () => {
+  const { store, card } = setup();
+  const { card: pressed } = store.press(card, {
+    version: 1,
+    block: 2,
+    item: 0,
+    at: at(1),
+  });
+  assert.equal(store.unpress(pressed, at(9)).pressed.at, at(1), "another press stays");
+  assert.equal(store.unpress(pressed, at(1)).pressed, null);
+});
+
+test("a chat keeps at most keptCards cards; the oldest frozen go first", () => {
+  const { store, card } = setup();
+  for (let i = 1; i < CARD_LIMITS.keptCards + 5; i++)
+    store.create({
+      assistantId: "a",
+      conversationId: "chat",
+      requestId: `r${i}`,
+      ...content,
+      at: `2026-11-09T11:${String(Math.floor(i / 60)).padStart(2, "0")}:${String(i % 60).padStart(2, "0")}.000Z`,
+    });
+  const kept = store.forConversation("chat");
+  assert.equal(kept.length, CARD_LIMITS.keptCards);
+  assert.equal(kept.filter((c) => !c.frozenAt).length, CARD_LIMITS.openCards);
+  assert.equal(store.get(card.id), null);
+  assert.equal(
+    store.createdSince("chat", "2026-11-09T11:00:00.000Z"),
+    CARD_LIMITS.keptCards,
+  );
 });
