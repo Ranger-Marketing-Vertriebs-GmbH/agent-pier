@@ -755,7 +755,8 @@ chat its turn shares into, also to the owner's Telegram chat when the turn came 
 there, and keeps a copy for the agent as `generated-<name>` in that chat's file folder
 (`hermes-generated-images.js`, [chat files](#chat-files)), written in the agent's
 upload queue and within its upload quota, which counts it; the tool result names that
-copy. A routine run's image goes to the folder of the chat its routine commits to, a
+copy. The copy has no index row: the next quota check after its shared copy expires
+(90 days, `SHARED_TTL`) removes it. A routine run's image goes to the folder of the chat its routine commits to, a
 hook run's to the agent's main chat, as their shares do. On an agent shared with users
 only that chat reads it, and it goes with the chat's other files (**Clear**, removing
 the chat). Images an older AgentPier created stay in `generated-images/` of the

@@ -12,6 +12,7 @@ import {
 import { attachmentDelivery, conversationFiles } from "./agent-attachment-notes.js";
 import { MAX_SHARE_BYTES } from "./agent-share-source.js";
 import { SHARED, SharedFiles, fileRequest, playable } from "./agent-share-store.js";
+import { dropExpiredImage } from "./hermes-generated-images.js";
 import { VideoUploads } from "./agent-video-uploads.js";
 import { chatProblem } from "./agent-chats.js";
 import { MAX_VIDEO_BYTES, videoExtensions } from "./agent-video-types.js";
@@ -363,6 +364,7 @@ export class AgentAttachments {
       for await (const entry of await fs.opendir(folder.path)) {
         if (present.size + 1 >= MAX_AGENT_FILES)
           throw assistantProblem("attachmentStorageFull", 409);
+        if (await dropExpiredImage(folder, entry, this.now())) continue;
         present.add(`${folder.key}/${entry.name}`);
         if (!entry.isFile() || arriving.has(entry.name)) continue;
         bytes +=

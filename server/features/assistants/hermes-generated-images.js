@@ -3,6 +3,7 @@ import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { assistantProblem } from "./assistant-validation.js";
 import { readShareSource } from "./agent-share-source.js";
+import { SHARED_TTL } from "./agent-share-store.js";
 import { checkedChatFolder, keepsChatFolders } from "./chat-file-folders.js";
 import { agentPrivateFolders } from "./runtimes/runtime-for.js";
 
@@ -14,7 +15,8 @@ import { agentPrivateFolders } from "./runtimes/runtime-for.js";
 // (agent-shares.js turn) and keeps a copy for the agent in that chat's file folder
 // as `generated-<name>` (chat-file-folders.js): on an agent shared with users only
 // that chat reads it (hermes-home-guard.js), it counts against the agent's upload
-// quota and it goes with the chat's other files. The home itself stays unreadable to
+// quota and it goes with the chat's other files, or once its shared copy expires
+// (SHARED_TTL, dropExpiredImage), whichever comes first. The home itself stays unreadable to
 // an agent of restricted users.
 
 /** The prefix of a created image's copy in its chat's file folder. */
@@ -59,4 +61,20 @@ export async function keepGeneratedImage(assistants, agent, conversation, name) 
     }
     return { ...source, path: target };
   });
+}
+
+/**
+ * Removes `entry` of a chat folder (`folder.key`: its chat) when it is a created
+ * image's copy older than a shared file lives (SHARED_TTL), as the upload quota
+ * check walks the folders (agent-attachments.js assertQuota): it has no index row
+ * that expiry could find. True when removed.
+ */
+export async function dropExpiredImage(folder, entry, now) {
+  if (!folder.key || !entry.isFile() || !entry.name.startsWith(generatedPrefix))
+    return false;
+  const file = path.join(folder.path, entry.name);
+  const stat = await fs.lstat(file).catch(() => null);
+  if (!stat || stat.mtimeMs >= now - SHARED_TTL) return false;
+  await fs.rm(file, { force: true });
+  return true;
 }
