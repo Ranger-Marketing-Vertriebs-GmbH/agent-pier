@@ -181,9 +181,10 @@ file tools on, whose `read_file` extracts a PDF's text layer itself
 
 A Hermes agent AgentPier made (`ap-<id>`) works in AgentPier's own agent workspace
 `<data>/assistants/workspaces/<id>`, the folder an OpenClaw agent works in
-(`hermes-paths.js` `hermesWorkspace`): `terminal.cwd`, chat attachments
-(`attachments/`), its secrets file (`.agentpier/secrets.env`), files it shares, browser
-upload staging and SFTP transfers all use that one folder. Its shell PATH starts with
+(`hermes-paths.js` `hermesWorkspace`): `terminal.cwd`, its secrets file
+(`.agentpier/secrets.env`), files it shares, browser upload staging and SFTP transfers
+all use that one folder. Its [chat files](#chat-files) lie outside it, in a folder per
+chat. Its shell PATH starts with
 its GitHub folder and its SSH agent's `bin/`, as on OpenClaw; Hermes's commands inherit
 the gateway's PATH (`tools/environments/local.py`), so a change restarts the agent's
 set.
@@ -195,7 +196,7 @@ model inline, as an OpenClaw agent's, while its home takes images natively
 (`image_input_mode: native` above, home.js `nativeImages`). AgentPier picks them as for
 OpenClaw (`agent-attachments.js` `delivery`: PNG, JPEG, GIF and WebP, at most 6 MiB
 each and 15 MiB per message, never HEIC), and the turn's text still names each saved
-copy in `attachments/` for the agent's tools. Another home gets the text only: in
+copy in the chat's file folder ([chat files](#chat-files)) for the agent's tools. Another home gets the text only: in
 Hermes's other mode the gateway would describe each image with an extra vision call
 before the turn and put those notes before the owner's words
 (`gateway/run_inbound.py` `_enrich_message_with_vision`), which OpenClaw never does.
@@ -222,25 +223,69 @@ attributed to their runs. The owner's own words never match, as they name no fil
 that folder.
 
 On an agent shared with users each chat is private to its person, but these caches
-hold every chat's images. Its file and vision tools therefore read nothing in its
-`HERMES_HOME` or its `HOME`, and search no folder that holds them: the team plugin
-asks the bridge before every `read_file`, `search_files` and `vision_analyze` of such
-an agent (`privateFolders` in `tools.json`) whose path may leave its work folder, and
-`hermes-home-guard.js` refuses those. A plain relative path without `..` stays in the
+hold every chat's images. Its file and vision tools therefore read only its work folder
+and the calling chat's file folder ([chat files](#chat-files)): the team plugin asks
+the bridge before every `read_file`, `search_files` and `vision_analyze` of such an
+agent (`privateFolders` in `tools.json`) whose path may leave its work folder, and
+`hermes-home-guard.js` refuses any path outside those two folders, and any search whose
+folder lies outside them (so neither its `HERMES_HOME`, its `HOME`, another chat's
+folder nor another agent's workspace). A plain relative path without `..` stays in the
 work folder (its file tools make no links), so it needs no bridge call; an absolute
-path, `~`, `..`, `file://` or another scheme asks. The guard resolves a path as Hermes
-does (a literal `file://` prefix dropped, `~` the agent's `HOME`, a relative path from
-the work folder) and compares it as the file system does: the nearest existing folder
-as the system spells it (`realpath.native`, links followed), then case-folded, as the
-attachments rule does, since macOS's file system ignores case. It refuses `~name` and
-fails closed when the agent's folders are unknown or the bridge does not answer, so
-such an agent cannot read files in its `HOME` either (`~/.gitconfig`). An OpenClaw
-agent reads only its workspace (`tools.fs.workspaceOnly`). An agent not shared with
-users serves only the owner's chats, which may read each other's attachments on
-OpenClaw too, so its reads stay Hermes's own. Not covered yet: a `search_files` of
-the work folder itself still searches `attachments/` of every chat (as before),
-and Hermes's `video_analyze` (the `video` toolset, which AgentPier never turns on)
-would need the same guard.
+path, `~`, `..`, `file://` or another scheme asks, and so does a search path with a
+comma or whitespace: Hermes searches a path that does not exist as several, split at
+commas or else at whitespace (`tools/file_operations_search.py`
+`_try_multi_path_search`), so the guard judges the whole path and each part. The guard
+resolves a path as Hermes does (a literal `file://` prefix dropped, `~` the agent's
+`HOME`, a relative path from the work folder) and compares it as the file system does:
+the nearest existing folder as the system spells it (`realpath.native`, links
+followed), then case-folded, as the attachments rule does, since macOS's file system
+ignores case; a path must lie inside an allowed folder both as written and as
+resolved. It refuses `~name` and fails closed when the agent's folders are unknown or
+the bridge does not answer, so such an agent cannot read files in its `HOME` either
+(`~/.gitconfig`), nor anything in `/tmp`. Its `pdf` tool and `image_generate`
+references take files of the same two folders. An OpenClaw agent reads only its
+workspace (`tools.fs.workspaceOnly`). An agent not shared with users serves only the
+owner's chats, which may read each other's attachments on OpenClaw too, so its reads
+stay Hermes's own, except that any file call into the chat folders stays in its own
+agent's. Not covered: Hermes's `video_analyze` (the `video` toolset, which AgentPier
+never turns on) would need the same guard.
+
+### Chat files
+
+A Hermes agent keeps each chat's uploads (`agent-attachments.js`, `chat-file-folders.js`)
+in a folder of that chat alone, `<data>/assistants/chat-files/<agent id>/<chat id>/`
+(0700, each file 0600 under a stamped name, written and read as every upload is),
+outside its work folder: a `search_files` of the work folder, including Hermes's
+zero-match probe over hidden files (`_zero_match_probe`, `--hidden --no-ignore`), finds
+no chat's files. The note a turn carries names the folder and each file by absolute
+path ("saved in this chat's file folder …"); the chat strips that note and the older
+one naming `attachments/`. On an agent shared with users a turn reads and writes only
+its own chat's folder; on any Hermes agent a file call into the chat folders stays in
+the agent's own (`chat-files` in the plugin's first look, `hermes-home-guard.js`
+`chatFolderRefusal`). `agentpier_share_file` and `agentpier_workspace`
+`browser_upload_stage` take a file of the calling chat's folder by its absolute path.
+An OpenClaw agent keeps its uploads in its workspace's `attachments/` (its file tools
+read only the workspace, and none lists or searches it).
+
+Uploads an older AgentPier left in the work folder's `attachments/` move before each
+start of the agent's process set (`chat-file-migration.js`, under the agent's upload
+queue): each row's copy into its chat's folder by rename, then the row is marked; a
+start after a crash between the two finds the copy there (same size and SHA-256) and
+only marks the row; a copy in neither place goes as the quota check lets it go.
+Files no row names go to `chat-files/<agent>/.unclaimed/`, which no chat reads but the
+quota counts and **Clear** removes; then `attachments/` goes. The quota (1 GB, 1000
+files per agent) counts every chat folder. **Clear** removes the agent's chat folders,
+removing a chat removes its folder, a shared agent that becomes one user's own loses
+the folders of the other chats, and deleting the agent removes `chat-files/<agent>/`.
+Older AgentPier versions find nothing in `attachments/` after the move and mark sent
+files unavailable; the copies stay in `chat-files/`, and the next start after an
+upgrade makes each one whose bytes are unchanged available again.
+
+A search that covers the work folder's `.agentpier/` (the work folder itself, an
+ancestor, or several paths in one) asks the bridge on every Hermes agent, and in a
+hook run without the hook's Secrets switch it is refused as a read of the secrets
+file would be: Hermes's zero-match probe would otherwise count matches of any pattern
+in `secrets.env`.
 
 ### Web search
 
@@ -540,8 +585,9 @@ The `agentpier-team` profile plugin carries both parts of the OpenClaw team plug
 - **Guard.** A `pre_tool_call` hook asks the bridge (`/hermes-guard`,
   `hermes-tool-guard.js`) before a team member's `write_file` or `patch`, before a file
   call (`read_file`, `search_files`, `vision_analyze`, the writes) whose arguments name
-  `attachments/` or `.agentpier/` (on an agent shared with users, before every read:
-  [attached images](#attached-images)), before every browser call and before every
+  `attachments/`, `chat-files/` or `.agentpier/`, before a search of the whole work
+  folder or beyond it ([chat files](#chat-files)) (on an agent shared with users, before
+  every read leaving the work folder: [attached images](#attached-images)), before every browser call and before every
   `image_generate` ([images](#images)); AgentPier's `pdf` tool asks it at each call
   ([PDFs](#pdfs)). It applies the
   OpenClaw guard's rules (`team-plugin/tool-guard.js`, `secrets-guard.js`): an
@@ -1043,7 +1089,7 @@ AGENTPIER-344, logins from AGENTPIER-340).
 | Read images                                                | `view_image`                        | `vision` toolset                                    |                                                              |
 | Read PDFs                                                  | `pdf` with the PDF model            | AgentPier's `pdf` tool with the same model          | [PDFs](#pdfs); no native PDF input, no web addresses         |
 | Create images                                              | ChatGPT account                     | ChatGPT login AgentPier holds                       | [Images](#images)                                            |
-| Attachments, video                                         | `attachments/` in the workspace     | The same folder, its work folder                    | [Attached images](#attached-images) inline                   |
+| Attachments, video                                         | `attachments/` in the workspace     | A folder per chat outside its work folder           | [Chat files](#chat-files); images inline                     |
 | Browser                                                    | AgentPier's Chromium                | AgentPier's Chromium                                | [Browser](#browser)                                          |
 | Browser for task members                                   | Member slot                         | Own Chromium under the slot limit                   |                                                              |
 | Browser uploads                                            | Staged files                        | `agentpier_browser_upload` for staged files         | Hermes's own browser tools have no upload                    |

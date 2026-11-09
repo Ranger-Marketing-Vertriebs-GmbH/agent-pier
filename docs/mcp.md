@@ -451,6 +451,13 @@ placeholders give each agent its own folder instead:
 | `{agent.workspace}`   | the agent's own workspace, `<data>/assistants/workspaces/<agent id>`       |
 | `{agent.attachments}` | the attachments folder inside it, where chat attachments to the agent land |
 
+On a Hermes agent `{agent.attachments}` is its folder of chat folders,
+`<data>/assistants/chat-files/<agent id>` ([Hermes chat files](hermes-runtime.md#chat-files)),
+with one folder per chat below it. An agent shared with users never gets it, since
+each of its chats reads only its own files: a server that uses `{agent.attachments}`
+is not compiled for such an agent, and its **Agent folders** card shows the agent as
+unavailable.
+
 - **Where.** In a local (stdio) server's settings (environment values), its arguments
   and its working directory. A value holds one placeholder, as the whole value or
   followed by a subfolder (`{agent.workspace}/voice`); an argument may also start with
@@ -473,7 +480,8 @@ placeholders give each agent its own folder instead:
   The agent's tools carry that prefix. Each entry starts its own process per session, as
   every stdio server does
   ([qualification](assistant-mcp-qualification.md#h-agent-placeholders-and-openclaw-2026103)).
-- **Safety.** A resolved path is always inside the agent's own workspace. Before every
+- **Safety.** A resolved path is always inside the agent's own workspace (or a Hermes
+  agent's own chat folders). Before every
   compile AgentPier checks the way there on disk: a symbolic link or a file in the way
   (for example a link the agent created in its workspace) means the agent gets no entry
   for this server, and the server is reported as skipped. Settings without

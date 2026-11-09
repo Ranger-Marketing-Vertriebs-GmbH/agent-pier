@@ -195,7 +195,9 @@ owner asked for needs no further approval.
   in a team turn the task member's own). A restricted user's agent reaches only the
   folders its own grants allow. Without `projectId` the file comes from the browsing
   agent's own workspace: never its prompt files, `skills/` or `.agents/`, and from
-  `attachments/` on a shared agent only a file sent in the turn's own chat.
+  `attachments/` on a shared agent only a file sent in the turn's own chat. A Hermes
+  agent may also name a file of the calling chat's own file folder by its absolute
+  path ([Hermes chat files](hermes-runtime.md#chat-files)).
 - **Checks:** the path is resolved like every read (no `.git`, no links leading out,
   never AgentPier's data), and the file must be a regular file without a second hard
   link, opened without following any link (`project-open.js`), at most 8 GiB

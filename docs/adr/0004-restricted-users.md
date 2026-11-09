@@ -46,6 +46,13 @@ for every existing and future route, WebSocket and event stream. User guide:
   browser stay shared (and say so). The owner reads a user's chats only through
   `OwnerPrivacy` with **Owner may read chats** on, and only from its start; her own
   agent's memory and files become readable in full while it is on.
+  _Amended 2026-11-09 (AGENTPIER-365):_ a chat's uploads are private to it as well. On
+  OpenClaw they stay in the workspace's `attachments/`, which a shared agent can name
+  only for its own chat's files and cannot list or search. A Hermes agent, whose
+  `search_files` searches its work folder, keeps them in a folder per chat outside it
+  (`<data>/assistants/chat-files/<agent>/<chat>/`), and on a shared Hermes agent every
+  read must lie in its work folder or the calling chat's folder (an allowlist, not a
+  list of forbidden folders).
 - **Data schema 2.** Push devices gain a per-person column; the release ships data
   schema 2, and releases that open only schema 1 refuse the migrated data. Rollback
   below this release goes through a backup.
