@@ -896,8 +896,9 @@ it up. An agent of users gets project folders only; the other groups show a lock
   or a sync that deletes extra files) always ask, and routines never delete. At most 3
   SFTP cards wait at once. Local paths are in the agent's workspace unless it names a
   granted project folder; prompt files such as `AGENTS.md` and `SOUL.md`, `skills/`,
-  `.agents/` and `attachments/` are never transferred, and a folder download needs a
-  subfolder. Every transfer leaves a live activity row (progress, then counts, size and
+  `.agents/` and `attachments/` are never transferred (nor a Hermes agent's chat
+  files, which lie outside its workspace), and a folder download needs a subfolder.
+  Every transfer leaves a live activity row (progress, then counts, size and
   duration); consecutive calls share one group, "SFTP activity". A routine's or a
   hook's transfers show in its **Events** entry instead.
   Every command is listed under **Actions and coding tasks** and recorded in the
@@ -1786,8 +1787,11 @@ signing in, also forgets unsent agent drafts.
 
 Choose **+ → Attach file, image or video**, paste or drag files into the agent chat,
 also in a team member's chat. A message holds up to five files of at most 10 MB: JPEG,
-PNG, WebP, GIF and HEIC images, PDF and text files. Copies are saved in the agent's
-workspace so it can read them with its tools. Models that accept images (ChatGPT,
+PNG, WebP, GIF and HEIC images, PDF and text files. Copies are saved for the agent so
+it can read them with its tools: an OpenClaw agent's in its workspace's `attachments/`
+folder, a Hermes agent's in a folder of that chat alone, outside its work folder, so a
+search in one chat never finds the files of another
+([Hermes chat files](hermes-runtime.md#chat-files)). Models that accept images (ChatGPT,
 endpoint models that declare it, OpenRouter models whose catalog lists image input)
 also see JPEG, PNG, WebP and GIF images directly, on OpenClaw and Hermes agents alike;
 the composer says when the agent's model cannot. A Hermes agent on any other model gets
@@ -1801,10 +1805,11 @@ again." and blocks sending until you remove it. Attachments
 are part of host backups only with history and a passphrase, and then encrypted (see
 [backups](backups.md#what-a-backup-holds)).
 
-Each agent keeps up to 1 GB or 1000 files in its `attachments/` folder, files the
-agent put there itself included. The agent's **Overview** tab shows how much of that it
+Each agent keeps up to 1 GB or 1000 files in its `attachments/` folder (a Hermes agent
+in all its chat folders together), files the agent put there itself included. The agent's **Overview** tab shows how much of that it
 uses under **Chat attachments**, for example "120 MB of 1 GB · 34 of 1,000 files".
-**Clear attachments** deletes everything in the folder after a confirmation, including
+**Clear attachments** deletes everything in the folder (on a Hermes agent, every chat
+folder) after a confirmation, including
 videos still uploading and unsent files in the composer. Sent messages keep their text
 and name each removed file as no longer available. Files the agent shared with you
 (below) are not affected. The clear is recorded in the audit log with the number of
@@ -1834,8 +1839,8 @@ attachments of that message, with the same types, limits and storage as files
 attached in AgentPier: the caption is the message's text, and the chat shows the
 files under the message "via Telegram". AgentPier downloads each file from Telegram
 with the bot's token on the host (the token never reaches the browser, the agent,
-logs or notices) and saves the copy in the agent's `attachments/` folder like an
-upload. Telegram lets bots download files of at most 20 MB, so a video above 20 MB
+logs or notices) and saves the copy where an upload goes (an OpenClaw agent's
+`attachments/` folder, a Hermes agent's folder of that chat). Telegram lets bots download files of at most 20 MB, so a video above 20 MB
 cannot be fetched; other files stay limited to 10 MB.
 
 - **Albums:** several photos or videos sent together arrive as one message with all

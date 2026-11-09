@@ -198,7 +198,9 @@ directly.
   capabilities and skills, shell approvals and the allowlist, teams (`team-*.js`, with the bundled `team-plugin/`), lead requests
   (`lead-request*.js`), agent SSH access (`agent-ssh*.js`), reminders, routines and check-ins (`native-*.js`) and chat
   attachments (`agent-attachments.js`, chunked videos in `agent-video-*.js`, the owner's
-  usage, clear and verified folder removal in `agent-attachment-storage.js`).
+  usage, clear and verified folder removal in `agent-attachment-storage.js`, a Hermes
+  agent's per-chat folders in `chat-file-folders.js` and their move from `attachments/`
+  in `chat-file-migration.js`).
 - `server/features/assistant-channels/`: Telegram pairing, ingress, delivery and the
   durable outbox, and agents' own bots for other people (`telegram-senders.js`).
 - `server/features/mcp-servers/`: the central MCP server store, bindings to agents and

@@ -165,7 +165,10 @@ ran). Finished jobs stay readable for an hour.
   `AGENTS.md` and `SOUL.md`, `skills/`, `.agents/` and `attachments/` are never
   transferred, in either direction. A folder download or sync down needs a named
   subfolder (for example `mirror/`); a single file may land at the top level under an
-  unguarded name. The refusal is `SFTP_WORKSPACE_REFUSED`.
+  unguarded name. The refusal is `SFTP_WORKSPACE_REFUSED`. A Hermes agent's chat
+  uploads lie outside its workspace (`<data>/assistants/chat-files/`,
+  [Hermes chat files](hermes-runtime.md#chat-files)), so a workspace-relative path
+  never reaches them.
 - A download never writes where the local side is not writable, and the result lists
   overwritten local files.
 

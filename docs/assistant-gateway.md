@@ -787,7 +787,8 @@ an album that was already fetched is an input of its own, with its own notice.
 The files are fetched at dispatch, when the input reaches the head of the queue, and
 staged through the same pipeline as a browser upload (`AgentAttachments.stage`, or
 `VideoUploads` for a video), under the admission lock: byte sniffing decides the type,
-the stamped copy goes to the agent's `attachments/` folder within its quota, and the
+the stamped copy goes where an upload goes (an OpenClaw agent's `attachments/`, a
+Hermes agent's folder of the chat) within its quota, and the
 request claims the staged files exactly like an AgentPier message, so images reach
 vision models inline and videos only as files. Only paths below Telegram's own file
 folders are fetched; the bot token is part of the `getFile` and file URLs only, and
@@ -2275,7 +2276,8 @@ workspace are therefore refused by OpenClaw itself, and AgentPier stages files i
   agent's staged file, any other file of OpenClaw's shared uploads or inbound media
   folders, `media://` references and paths anywhere else. A chat attachment is
   uploaded by staging it from the agent's own `attachments/` folder (on a shared
-  agent only one sent in that chat).
+  agent only one sent in that chat), or on a Hermes agent from the calling chat's
+  file folder by its absolute path.
 - The plugin reports each upload's outcome after the call (`after_tool_call`,
   `/browser-upload`); AgentPier then records it for the agent's staged files as
   `uploaded` or `failed`.
@@ -5245,7 +5247,11 @@ type.
 
 - **Storage.** Each file is uploaded when it is picked and copied into
   `attachments/` of the receiving agent's own workspace under a generated name
-  (`<date>-<time>-<random>-<safe name>`), mode 0600. The folder must be a real
+  (`<date>-<time>-<random>-<safe name>`), mode 0600. A Hermes agent's copy goes to a
+  folder of that chat alone, `<assistants>/chat-files/<agent>/<chat>/`, outside its
+  work folder, and its row carries `chat: true` (`chat-file-folders.js`,
+  [Hermes chat files](hermes-runtime.md#chat-files)); every rule below applies to
+  those folders alike, each level checked as a real directory at its real place. The folder must be a real
   directory inside the agent's real workspace; a link there refuses the upload. The
   index (name, type, size, request) lives in the assistants database, never in the
   workspace. Unsent uploads expire after a day, and a page that is closed or reloaded
@@ -5266,8 +5272,9 @@ type.
   the chat history keeps the message and names that file as no longer available
   (`unavailable: true`, no link).
 - **Delivery.** `sessions.send` carries the owner's text followed by a note that
-  names each saved copy by its workspace-relative path, so the agent can read it with
-  its tools. Images the agent's model accepts also travel inline as `attachments`
+  names each saved copy by its workspace-relative path (a Hermes agent's by its
+  absolute path in the chat's folder, which the note's header names), so the agent
+  can read it with its tools. Images the agent's model accepts also travel inline as `attachments`
   (OpenClaw's `ChatAttachmentSchema`: `type`, `mimeType`, `fileName`, base64
   `content`); the pinned Gateway refuses inline images above 6 MiB, and AgentPier
   keeps all inline images of one turn below 15 MiB so the RPC frame fits. HEIC is
@@ -5294,15 +5301,17 @@ type.
   files and check the inline limits on the bytes read. JPEG and WebP above
   80 megapixels are refused like PNG and GIF. The quota counts the folder itself, and
   index rows whose copy is gone are dropped.
-- **Backups.** Copies and their index are part of runtime update snapshots, and of
-  host backups only with history and a passphrase, sealed (see
+- **Backups.** Copies in `attachments/` and their index are part of runtime update
+  snapshots; all copies, a Hermes agent's chat folders included, are part of host
+  backups only with history and a passphrase, sealed (see
   [backups](backups.md#what-a-backup-holds)).
 - **Clearing (2026-10-18).** `GET /api/assistants/:id/attachment-usage` returns the
-  folder's entries and regular-file bytes against the limits (`files`, `bytes`,
+  folder's (and a Hermes agent's chat folders') entries and regular-file bytes against
+  the limits (`files`, `bytes`,
   `maxFiles`, `maxBytes`, and `capped` once a count stops at 5000 entries).
   `DELETE /api/assistants/:id/attachments`, behind the owner login and the
   admission queue, empties the folder: open video uploads end with their partial
-  copies, the folder is removed, unsent index rows are deleted (a queued message
+  copies, the folder (and `chat-files/<agent>/`) is removed, unsent index rows are deleted (a queued message
   naming them fails and says so), and sent rows are marked gone, so their messages
   keep the file name as unavailable. Shared files (`shares/<agent>/`) are a separate
   store and stay. The clear is audited as `assistant.updated` with kind
