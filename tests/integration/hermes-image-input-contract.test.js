@@ -122,7 +122,13 @@ test(
     );
     const said = user.content.find((part) => part.type === "text").text;
     assert.match(said, /^What is on it\?/);
-    assert.match(said, /attachments\/\d{8}-\d{6}-[0-9a-f]{8}-dot\.png/);
+    // The note names the copy in the chat's own file folder (chat-file-folders.js).
+    assert.match(
+      said,
+      new RegExp(
+        `chat-files/${agent.id}/${chat.chat.id}/\\d{8}-\\d{6}-[0-9a-f]{8}-dot\\.png`,
+      ),
+    );
     // The chat shows the owner's words and the file, not Hermes's image references.
     const messages = await chat.messages();
     const mine = messages.find((m) => m.role === "user");
