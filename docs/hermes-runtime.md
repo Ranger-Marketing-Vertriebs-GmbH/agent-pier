@@ -276,7 +276,7 @@ Files no row names go to `chat-files/<agent>/.unclaimed/`, which no chat reads b
 quota counts and **Clear** removes; then `attachments/` goes. The quota (1 GB, 1000
 files per agent) counts every chat folder. **Clear** removes the agent's chat folders,
 removing a chat removes its folder, a shared agent that becomes one user's own loses
-the folders of the other chats, and deleting the agent removes `chat-files/<agent>/`.
+the folders of the other chats and `.unclaimed`, and deleting the agent removes `chat-files/<agent>/`.
 Older AgentPier versions find nothing in `attachments/` after the move and mark sent
 files unavailable; the copies stay in `chat-files/`, and the next start after an
 upgrade makes each one whose bytes are unchanged available again.

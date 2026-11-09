@@ -3,12 +3,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { assistantProblem } from "./assistant-validation.js";
 import { SHARED } from "./agent-share-store.js";
-import {
-  UNCLAIMED,
-  agentChatPath,
-  checkedChatFolder,
-  chatFoldersOf,
-} from "./chat-file-folders.js";
+import { agentChatPath, checkedChatFolder, chatFoldersOf } from "./chat-file-folders.js";
 
 // Per agent; counted over the copies still present in its workspace. Room for a few
 // phone videos (200 MB each, agent-video-types.js) next to photos and documents.
@@ -222,7 +217,8 @@ export class AttachmentStorage {
       }
       const chats = await chatFoldersOf(a.config, assistantId).catch(() => []);
       for (const chat of chats)
-        if (chat.key !== UNCLAIMED && !keep(chat.key)) await this.removeChat(chat);
+        // Files no chat claims (.unclaimed) may be anyone's: they go too.
+        if (!keep(chat.key)) await this.removeChat(chat);
     });
   }
   /**
