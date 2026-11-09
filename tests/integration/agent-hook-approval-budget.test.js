@@ -141,3 +141,61 @@ test("an approval run's event is stale only after three times its budget", async
   await f.hooks.runs.reconcile();
   assert.equal(f.hooks.events.get(running.id).status, "failed");
 });
+
+test("Hermes hook runs keep 5 minutes: Hermes enforces no budget and asks for 5", () => {
+  const hermes = { runtime: "hermes" };
+  assert.equal(hookRunSeconds({ shell: "approval" }, hermes), 300);
+  assert.equal(hookRunSeconds({ shell: "approval" }, { runtime: "openclaw" }), 1800);
+  assert.equal(hookRunSeconds({ shell: "approval" }, {}), 1800);
+});
+
+test("the budget follows the shell level capped by the agent's", async (t) => {
+  const budget = async (f, hook, id) => {
+    await f.hooks.deliver(f.hooks.store.get(hook.id), body(`{"id":"${id}"}`));
+    return event(f, hook, id).runSeconds;
+  };
+  const level = (f, fields) =>
+    f.store.updateAssistant(f.id, fields, f.store.getAssistant(f.id).revision);
+
+  // Every command (approval with the strict flag) still asks the owner.
+  const strict = approvalFixture(t);
+  level(strict, { shellEveryCommand: true });
+  assert.equal(strict.store.getAssistant(strict.id).shellEveryCommand, true);
+  const asks = makeHook(strict, { rights: { shell: "approval" } });
+  assert.equal(await budget(strict, asks, "p1"), 1800);
+
+  // A hook saved with Full access on an agent now at With approval runs with approval.
+  const lowered = approvalFixture(t);
+  level(lowered, { shell: "full" });
+  const full = makeHook(lowered, { rights: { shell: "full" } });
+  level(lowered, { shell: "approval" });
+  assert.equal(await budget(lowered, full, "p1"), 1800);
+
+  // A hook saved With approval on an agent now at Full access fails closed (shell
+  // off, effectiveShell), so it keeps 5 minutes.
+  const raised = approvalFixture(t);
+  const approval = makeHook(raised, { rights: { shell: "approval" } });
+  level(raised, { shell: "full" });
+  assert.equal(await budget(raised, approval, "p1"), 300);
+  const tools = raised.calls.filter((c) => c.method === "cron.add").at(-1).input
+    .payload.toolsAllow;
+  assert.equal(tools.includes("exec"), false);
+});
+
+test("a cancel at the run's end recorded as an unattributed decline still counts", async (t) => {
+  for (const [result, expected] of [
+    [{ decision: "deny", unattributed: true }, "approval-timeout"],
+    // The owner's own deny (decideExec) is never unattributed.
+    [{ decision: "deny" }, undefined],
+  ]) {
+    const f = approvalFixture(t);
+    const hook = makeHook(f, { rights: { shell: "approval", telegram: true } });
+    await f.hooks.deliver(hook, body('{"id":"p1"}'));
+    const running = event(f, hook, "p1");
+    f.approval(running, "declined");
+    f.assistants.workflows.store.list(f.id).at(-1).result = result;
+    await f.hooks.runs.complete(running.id, done(running.jobId, timedOut));
+    await settle();
+    assert.equal(f.hooks.events.get(running.id).failure, expected);
+  }
+});

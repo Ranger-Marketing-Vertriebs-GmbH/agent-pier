@@ -312,6 +312,33 @@ test("a resolved event ends the action with its decision", async (t) => {
   const denied = f.w.store.byKey(execOperationKey("denied"));
   assert.equal(denied.state, "declined");
   assert.equal(f.w.store.list().length, 6);
+  // Only the deny without resolver and history is unattributed.
+  const loose = f.w.store.list().filter((a) => a.result?.unattributed);
+  assert.deepEqual(
+    loose.map((a) => a.payload.approvalId),
+    ["lapsed"],
+  );
+});
+
+test("a deny without resolver or history before expiry is an unattributed decline", async (t) => {
+  // OpenClaw's cancel at a run's end (its timeout) is a deny without a resolver.
+  const f = fixture(t, { answers: { "approval.history": new Error("down") } });
+  for (const id of ["system", "person"])
+    f.client.emit("exec.approval.requested", {
+      ...request(f.agent),
+      id,
+      expiresAtMs: Date.now() + 60000,
+    });
+  await settle();
+  f.client.emit("exec.approval.resolved", { id: "system", decision: "deny" });
+  const person = { id: "person", decision: "deny", resolvedBy: "operator" };
+  f.client.emit("exec.approval.resolved", person);
+  await settle();
+  const byId = (id) => f.w.store.byKey(execOperationKey(id));
+  assert.equal(byId("system").state, "declined");
+  assert.deepEqual(byId("system").result, { decision: "deny", unattributed: true });
+  assert.equal(byId("person").state, "declined");
+  assert.deepEqual(byId("person").result, { decision: "deny" });
 });
 
 test("duplicate requests create one action", async (t) => {

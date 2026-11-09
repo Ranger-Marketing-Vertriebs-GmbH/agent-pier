@@ -31,13 +31,17 @@ export const runMinutes = (event) =>
   Math.round((event?.runSeconds || routineTimeoutSeconds) / 60);
 // OpenClaw's silent-reply token; an empty reply is just as silent.
 const silent = (text) => !text?.trim() || text.trim() === "NO_REPLY";
-// A run times out after five minutes, or after 30 when its shell asks the owner
-// (OpenClaw's exec approvals expire after 30 minutes as well), so the owner has time
-// to decide. An event unsettled for three times its run's budget lost its completion
-// (AgentPier or the Gateway restarted).
+// A run times out after five minutes, or on OpenClaw after 30 when its shell asks
+// the owner (OpenClaw's exec approvals expire after 30 minutes as well), so the owner
+// has time to decide. Hermes enforces no run budget and its questions wait at most
+// five minutes (hermes-approval-queue.js), so its runs keep five. An event unsettled
+// for three times its run's budget lost its completion (AgentPier or the Gateway
+// restarted).
 export const approvalRunSeconds = 1800;
-export const hookRunSeconds = (effective) =>
-  effective.shell === "approval" ? approvalRunSeconds : routineTimeoutSeconds;
+export const hookRunSeconds = (effective, agent) =>
+  effective.shell === "approval" && !ownProcess(agent)
+    ? approvalRunSeconds
+    : routineTimeoutSeconds;
 const staleMs = (event) => 3 * (event.runSeconds || routineTimeoutSeconds) * 1000;
 const sweepFloorMs = 60000;
 const unsettled = (event) => ["pending", "running"].includes(event?.status);
@@ -105,7 +109,7 @@ export class HookRuns {
       await this.assistants.config.apply(agent.id);
       const ceiling = this.hooks.ceiling(agent);
       const effective = effectiveRights(hook.rights, ceiling);
-      const runSeconds = hookRunSeconds(effective);
+      const runSeconds = hookRunSeconds(effective, agent);
       const connection = await this.reminders.start();
       const conversation = await this.reminders.openMain(agent.id);
       const job = await this.scheduler(agent).add({
@@ -306,7 +310,10 @@ export class HookRuns {
     return actions.some(
       (a) =>
         a.payload?.action === "exec" &&
-        undecided.has(a.state) &&
+        (undecided.has(a.state) ||
+          // A cancel at the run's end that history could not tell from a decline;
+          // the owner's own deny always names a resolver or is recorded by decideExec.
+          (a.state === "declined" && a.result?.unattributed === true)) &&
         jobOf(a.payload.sessionKey) === job,
     );
   }
