@@ -59,7 +59,14 @@ Names are limited to 255 UTF-8 bytes. `/`, control characters, `.` and `..` are 
 Valid UTF-8 text up to 2 MiB opens in the editor. NUL/binary data and UTF-16 do not. PNG,
 JPEG, GIF, and WebP images preview up to 20 MiB. A regular file can still be downloaded
 when no preview is available; direct downloads stream instead of buffering the complete
-file in AgentPier.
+file in AgentPier. A single regular file has a **Download** item in its row menu and in
+the selection's **More actions** menu (also in read-only scopes); folders and multiple
+selections keep **Download as ZIP**. A PDF is not loaded into the page: its properties
+offer **Open PDF**, which opens `GET .../download?path=...&inline=1` in a new window
+(system viewer on iPhone). That route sends `Content-Type: application/pdf` and
+`Content-Disposition: inline` only when the file starts with `%PDF-`; every other file,
+and every request without `inline=1`, stays an `application/octet-stream` attachment
+(with `nosniff`).
 
 The editor preserves an optional UTF-8 BOM, LF or CRLF line endings, and trailing newlines.
 Mixed endings and bare CR require an explicit output choice. It displays a selected

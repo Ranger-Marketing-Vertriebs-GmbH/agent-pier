@@ -104,6 +104,7 @@ export function fileApi(scopeRef) {
     jobsTopic: jobsTopic(scopeRef),
     archiveDownload: (id) => urlFor(base, `/jobs/${encodeURIComponent(id)}/download`),
     directDownload: (path) => urlFor(base, "/download", { path }),
+    inlineDownload: (path) => urlFor(base, "/download", { path, inline: "1" }),
     readText: (path, signal) => fileApi(scopeRef).get("/text", { path }, signal),
     // The route names the document's live topic in X-File-Watch (server
     // file-watch-topic.js); it travels as `watch`.

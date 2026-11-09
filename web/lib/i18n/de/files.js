@@ -155,6 +155,7 @@ export const filesCopy = {
   next: "Weitere Dateien",
   close: "Vorschau schließen",
   downloadFile: "Datei herunterladen",
+  openPdf: "PDF öffnen",
   preview: "Dateivorschau",
   copyAll: "Alles kopieren",
   copied: "In die Zwischenablage kopiert.",

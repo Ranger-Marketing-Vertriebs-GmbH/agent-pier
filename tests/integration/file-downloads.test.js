@@ -124,3 +124,33 @@ test("download closes an already started response on a source mutation without a
   );
   assert.equal(sink.destroyed, true);
 });
+
+test("inline downloads show only a real PDF inline and keep everything else an attachment", async (t) => {
+  const f = await uploadFixture(t),
+    pdf = path.join(f.home, "doc.pdf"),
+    fake = path.join(f.home, "fake.pdf");
+  await fs.writeFile(pdf, "%PDF-1.7\nbody");
+  await fs.writeFile(fake, "<script>alert(1)</script>");
+  const inlineSink = response();
+  await downloadFile(f.scope, pdf, inlineSink, { inline: true });
+  assert.equal(inlineSink.headers.get("Content-Type"), "application/pdf");
+  assert.match(inlineSink.headers.get("Content-Disposition"), /^inline;/);
+  assert.equal(inlineSink.headers.get("X-Content-Type-Options"), "nosniff");
+  for (const [file, inline] of [
+    [pdf, false],
+    [fake, true],
+  ]) {
+    const sink = response();
+    await downloadFile(f.scope, file, sink, { inline });
+    assert.equal(sink.headers.get("Content-Type"), "application/octet-stream");
+    assert.match(sink.headers.get("Content-Disposition"), /^attachment;/);
+  }
+});
+
+test("a PDF preview carries no content and a text file named .pdf is not one", async (t) => {
+  const f = await uploadFixture(t),
+    pdf = path.join(f.home, "doc.pdf");
+  await fs.writeFile(pdf, "%PDF-1.7\nbody");
+  const { preview } = await import("../../server/features/files/file-reading.js");
+  assert.deepEqual(await preview(f.scope, pdf), { path: pdf, type: "pdf" });
+});
