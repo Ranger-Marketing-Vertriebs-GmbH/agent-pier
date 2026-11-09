@@ -35,47 +35,48 @@ export function cardError(code, status = 400, ...args) {
   );
 }
 
-const fail = (path, what) => {
+const reject = (path, what) => {
   throw cardError("CARD_INVALID", 400, `${path}: ${what}`);
 };
 const record = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 const idPattern = /^[A-Za-z0-9_.:-]{1,64}$/;
 
 function only(value, path, keys) {
-  if (!record(value)) fail(path, "must be an object");
+  if (!record(value)) reject(path, "must be an object");
   for (const key of Object.keys(value))
-    if (!keys.includes(key)) fail(`${path}.${key}`, "is not allowed");
+    if (!keys.includes(key)) reject(`${path}.${key}`, "is not allowed");
 }
 function text(value, path, max, { optional = false, numbers = false } = {}) {
   if (value === undefined && optional) return undefined;
   if (numbers && typeof value === "number" && Number.isFinite(value))
     value = String(value);
-  if (typeof value !== "string" || !value.trim()) fail(path, "must be a non-empty text");
-  if (value.length > max) fail(path, `at most ${max} characters`);
+  if (typeof value !== "string" || !value.trim())
+    reject(path, "must be a non-empty text");
+  if (value.length > max) reject(path, `at most ${max} characters`);
   if (/[\0-\x08\x0b\x0c\x0e-\x1f]/.test(value))
-    fail(path, "must not hold control characters");
+    reject(path, "must not hold control characters");
   return value.trim();
 }
 function list(value, path, max, min = 1) {
-  if (!Array.isArray(value)) fail(path, "must be a list");
-  if (value.length < min) fail(path, `needs at least ${min} entry`);
-  if (value.length > max) fail(path, `at most ${max} entries`);
+  if (!Array.isArray(value)) reject(path, "must be a list");
+  if (value.length < min) reject(path, `needs at least ${min} entry`);
+  if (value.length > max) reject(path, `at most ${max} entries`);
   return value;
 }
 function oneOf(value, path, values, fallback) {
   if (value === undefined && fallback !== undefined) return fallback;
-  if (!values.includes(value)) fail(path, `must be one of ${values.join(", ")}`);
+  if (!values.includes(value)) reject(path, `must be one of ${values.join(", ")}`);
   return value;
 }
 function id(value, path) {
   if (typeof value !== "string" || !idPattern.test(value))
-    fail(path, "must be 1 to 64 letters, digits or _.:-");
+    reject(path, "must be 1 to 64 letters, digits or _.:-");
   return value;
 }
 function button(value, path) {
   only(value, path, ["label", "message", "primary"]);
   if (value.primary !== undefined && typeof value.primary !== "boolean")
-    fail(`${path}.primary`, "must be true or false");
+    reject(`${path}.primary`, "must be true or false");
   return {
     label: text(value.label, `${path}.label`, L.label),
     ...(value.message !== undefined && {
@@ -150,7 +151,7 @@ const blocks = {
         const q = `${p}.points[${i}]`;
         only(point, q, ["label", "value"]);
         if (typeof point.value !== "number" || !Number.isFinite(point.value))
-          fail(`${q}.value`, "must be a number");
+          reject(`${q}.value`, "must be a number");
         return { label: text(point.label, `${q}.label`, L.value), value: point.value };
       }),
     };
@@ -166,10 +167,10 @@ const blocks = {
         const q = `${p}.items[${i}]`;
         only(item, q, ["id", "text", "checked"]);
         const itemId = item.id === undefined ? `item-${i + 1}` : id(item.id, `${q}.id`);
-        if (ids.has(itemId)) fail(`${q}.id`, "is used twice in this checklist");
+        if (ids.has(itemId)) reject(`${q}.id`, "is used twice in this checklist");
         ids.add(itemId);
         if (item.checked !== undefined && typeof item.checked !== "boolean")
-          fail(`${q}.checked`, "must be true or false");
+          reject(`${q}.checked`, "must be true or false");
         return {
           id: itemId,
           text: text(item.text, `${q}.text`, L.cell),
@@ -207,10 +208,10 @@ const blocks = {
         try {
           parsed = new URL(url);
         } catch {
-          fail(`${q}.url`, "must be an absolute http or https address");
+          reject(`${q}.url`, "must be an absolute http or https address");
         }
         if (!["http:", "https:"].includes(parsed.protocol))
-          fail(`${q}.url`, "must be an absolute http or https address");
+          reject(`${q}.url`, "must be an absolute http or https address");
         return { label: text(item.label, `${q}.label`, L.label), url: parsed.href };
       }),
     };
@@ -244,9 +245,9 @@ export function cardInput({ title, blocks: input }, previous = null) {
     title: text(title, "title", L.title),
     blocks: list(input, "blocks", L.blocks).map((block, i) => {
       const path = `blocks[${i}]`;
-      if (!record(block)) fail(path, "must be an object");
+      if (!record(block)) reject(path, "must be an object");
       if (!Object.hasOwn(blocks, block.type))
-        fail(`${path}.type`, `must be one of ${blockTypes.join(", ")}`);
+        reject(`${path}.type`, `must be one of ${blockTypes.join(", ")}`);
       return blocks[block.type](block, path);
     }),
   };
@@ -255,7 +256,8 @@ export function cardInput({ title, blocks: input }, previous = null) {
   card.blocks.forEach((block, i) => {
     if (block.type !== "checklist") return;
     block.id ??= unnamed++ ? `checklist-${unnamed}` : "checklist";
-    if (checklistIds.has(block.id)) fail(`blocks[${i}].id`, "is used twice in this card");
+    if (checklistIds.has(block.id))
+      reject(`blocks[${i}].id`, "is used twice in this card");
     checklistIds.add(block.id);
     block.items = block.items.map((item) => ({
       ...item,
