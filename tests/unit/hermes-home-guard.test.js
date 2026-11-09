@@ -127,7 +127,7 @@ test("an agent not shared with users keeps Hermes's own reads", async (t) => {
 });
 
 test(
-  "a shared agent's plugin asks the bridge before every read",
+  "a shared agent's plugin asks the bridge before every file call",
   { skip: !python && "python3 is not installed" },
   async (t) => {
     const profile = (extra = {}) =>
@@ -195,10 +195,15 @@ print(json.dumps(plugin._guard(sys.argv[3], json.loads(sys.argv[2]), session_id=
       assert.equal(seen.length, before + 1);
       assert.equal(seen.at(-1).toolName, "read_file");
     }
-    // A plain relative read stays in the work folder and needs no bridge.
+    // On a shared agent a plain relative read asks too (a link may lead out); on the
+    // owner's own agent it needs no bridge.
+    for (const inside of [{ path: "notes.md" }, { path: "src/a..b.md" }, {}]) {
+      const asked = seen.length;
+      assert.notEqual(await run(shared, inside), null, JSON.stringify(inside));
+      assert.equal(seen.length, asked + 1);
+    }
     const before = seen.length;
-    for (const inside of [{ path: "notes.md" }, { path: "src/a..b.md" }, {}])
-      assert.equal(await run(shared, inside), null, JSON.stringify(inside));
+    assert.equal(await run(profile(), { path: "notes.md" }), null);
     assert.equal(await run(profile(), { path: "/x/cache/images/u.png" }), null);
     assert.equal(seen.length, before);
     // Every agent asks before a call naming the chat folders (chat-file-folders.js) and

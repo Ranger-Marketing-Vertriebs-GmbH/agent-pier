@@ -11,6 +11,7 @@ import { attachHermesFleet } from "../../server/features/assistants/runtimes/run
 import { HermesFleet } from "../../server/features/assistants/runtimes/hermes/hermes-fleet.js";
 import { hermesPaths } from "../../server/features/assistants/runtimes/hermes/hermes-paths.js";
 import { desiredAgent } from "../../server/features/assistants/agent-desired-state.js";
+import { compileHome } from "../../server/features/assistants/runtimes/hermes/hermes-config/home.js";
 import { teamPluginFiles } from "../../server/features/assistants/runtimes/hermes/hermes-config/team-plugin.js";
 
 // AGENTPIER-367: a restricted user's own Hermes agent (a user agent, not shared) reads
@@ -127,7 +128,7 @@ test("a user's own agent reads its work folder and all of its own chat folders",
   const f = setup(t);
   const mine = f.write(path.join(f.chats, "m1", "chat-a", "a.pdf"));
   const earlier = f.write(path.join(f.chats, "m1", "chat-b", "b.pdf"));
-  const made = f.write(path.join(f.chats, "m1", "chat-b", "generated-images", "i.png"));
+  const made = f.write(path.join(f.chats, "m1", "chat-b", "generated-i.png"));
   for (const [tool, args] of [
     ["read_file", { path: "notes.md" }],
     ["read_file", { path: path.join(f.workspace, "notes.md") }],
@@ -150,14 +151,66 @@ test("a user's own agent reads its work folder and all of its own chat folders",
 
 test("a shared agent still reads only the calling chat's folder", async (t) => {
   const f = setup(t, { mode: "shared", members: [] });
-  const theirs = f.write(path.join(f.chats, "m1", "chat-b", "generated-images", "i.png"));
+  const theirs = f.write(path.join(f.chats, "m1", "chat-b", "generated-i.png"));
   assert.deepEqual(await f.guard("vision_analyze", { image_url: theirs }), refused);
   assert.deepEqual(
     await f.guard("read_file", { path: path.join(f.otherWorkspace, "secret.md") }),
     refused,
   );
-  const mine = f.write(path.join(f.chats, "m1", "chat-a", "generated-images", "i.png"));
+  const mine = f.write(path.join(f.chats, "m1", "chat-a", "generated-i.png"));
   assert.deepEqual(await f.guard("vision_analyze", { image_url: mine }), allowed);
+});
+
+test("a user's own agent writes and patches only in its own folders", async (t) => {
+  const f = setup(t);
+  const mine = f.write(path.join(f.chats, "m1", "chat-b", "b.md"));
+  const skill = path.join(f.otherHome, "skills", "x", "SKILL.md");
+  const secret = path.join(f.otherWorkspace, "secret.md");
+  fs.symlinkSync(f.otherWorkspace, path.join(f.workspace, "door"));
+  for (const [tool, args] of [
+    ["write_file", { path: skill, content: "x" }],
+    ["write_file", { path: secret, content: "x" }],
+    ["write_file", { path: "door/AGENTS.md", content: "x" }],
+    ["write_file", { path: "~/.profile", content: "x" }],
+    ["write_file", { path: path.join(f.hermesHome, "SOUL.md"), content: "x" }],
+    ["write_file", { content: "x" }],
+    ["write_file", { path: 7, content: "x" }],
+    // patch shows the lines it cannot match: a read too.
+    ["patch", { path: secret, old_string: "password", new_string: "x" }],
+    ["patch", { path: upper(secret), old_string: "password", new_string: "x" }],
+    ["patch", { path: "../m2/secret.md", old_string: "a", new_string: "b" }],
+    [
+      "patch",
+      {
+        mode: "patch",
+        patch: `*** Begin Patch\n*** Update File: ${secret}\n@@\n-a\n+b\n*** End Patch`,
+      },
+    ],
+    ["patch", { mode: "patch", patch: "not a patch" }],
+  ])
+    assert.deepEqual(
+      await f.guard(tool, args),
+      refused,
+      `${tool} ${JSON.stringify(args)}`,
+    );
+  for (const [tool, args] of [
+    ["write_file", { path: "out.md", content: "x" }],
+    ["write_file", { path: path.join(f.workspace, "a", "b.md"), content: "x" }],
+    ["patch", { path: "notes.md", old_string: "x", new_string: "y" }],
+    ["patch", { path: mine, old_string: "x", new_string: "y" }],
+    [
+      "patch",
+      {
+        mode: "patch",
+        patch: "*** Begin Patch\n*** Update File: notes.md\n@@\n-x\n+y\n*** End Patch",
+      },
+    ],
+  ])
+    assert.deepEqual(
+      await f.guard(tool, args),
+      allowed,
+      `${tool} ${JSON.stringify(args)}`,
+    );
 });
 
 test("a user's agent fails closed while its folders are unknown", async (t) => {
@@ -171,6 +224,8 @@ test("the owner's own agent keeps Hermes's reads", async (t) => {
     ["read_file", { path: path.join(f.otherWorkspace, "secret.md") }],
     ["read_file", { path: path.join(f.hermesHome, "state.db") }],
     ["search_files", { path: "/", pattern: "x" }],
+    ["write_file", { path: path.join(f.otherWorkspace, "x.md"), content: "x" }],
+    ["patch", { path: path.join(f.otherWorkspace, "secret.md"), old_string: "a" }],
   ])
     assert.deepEqual(
       await f.guard(tool, args),
@@ -180,7 +235,7 @@ test("the owner's own agent keeps Hermes's reads", async (t) => {
 });
 
 test(
-  "a user's own agent's plugin asks before every read leaving its work folder",
+  "a user's own agent's plugin asks before every file call",
   { skip: !python && "python3 is not installed" },
   async (t) => {
     const profile = (extra = {}) =>
@@ -231,8 +286,28 @@ print(json.dumps(plugin._guard(sys.argv[3], json.loads(sys.argv[2]), session_id=
       [{ image_url: "file:///x.png" }, "vision_analyze"],
       [{ pattern: "x" }, "search_files"],
       [{ path: "/", pattern: "x" }, "search_files"],
+      // Every file call asks, also a plain relative one (a link may lead out).
+      [{ path: "notes.md" }, "read_file"],
+      [{ path: "door/AGENTS.md", content: "x" }, "write_file"],
+      [{ path: "notes.md", old_string: "a", new_string: "b" }, "patch"],
     ])
       assert.deepEqual(await run(args, tool), blocked, JSON.stringify(args));
-    assert.equal(await run({ path: "notes.md" }), null);
   },
 );
+
+test("Hermes itself refuses a user agent's writes outside its folders", () => {
+  const workspace = "/data/assistants/workspaces/a1";
+  const compile = (extra, existing = {}) =>
+    compileHome(
+      desiredAgent({ id: "a1", runtimeAgentId: "ap-a1", revision: 1, ...extra }),
+      { workspace, existing },
+    );
+  const env = compile({ userAccess: own }).files[".env"];
+  assert.equal(
+    env,
+    "HERMES_WRITE_SAFE_ROOT='/data/assistants/workspaces/a1:/data/assistants/chat-files/a1'\n",
+  );
+  // The owner's own agent has none, and loses one it had as a user agent's.
+  assert.equal(compile({}).files[".env"], undefined);
+  assert.equal(compile({}, { ".env": `${env}OTHER=1\n` }).files[".env"], "OTHER=1\n");
+});

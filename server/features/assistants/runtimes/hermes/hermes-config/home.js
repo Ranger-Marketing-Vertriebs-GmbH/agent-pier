@@ -1,4 +1,4 @@
-import { mergeAuth, mergeConfig, mergeEnv } from "./home-merge.js";
+import { envNames, mergeAuth, mergeConfig, mergeEnv } from "./home-merge.js";
 import { modelEnvNames, modelSection } from "./model.js";
 import {
   approvalMode,
@@ -6,6 +6,8 @@ import {
   everyCommand,
   guardsEveryCommand,
   shellLevel,
+  writeRootEnv,
+  writeRoots,
 } from "./tools.js";
 import {
   guardDirectory,
@@ -263,6 +265,7 @@ export function compileHome(
     ...advancedEntries(advanced),
     ...practicalDefaults,
   ];
+  const writeLimit = writeRoots(agent, workspace);
   // .env names a part of the home owns only while the desired state knows that part:
   // the model's key names while the model is known, the MCP names while the store is,
   // the bot's while its settings are.
@@ -278,6 +281,10 @@ export function compileHome(
       ...(images && imagePart.env ? Object.keys(imagePart.env) : []),
       // The PDF fallback's key while the model and the fallback are known.
       ...(pdfKnown ? [pdfKeyEnv] : []),
+      // The write limit of an agent of restricted users, until it is none (tools.js).
+      ...(writeLimit || envNames(existing[".env"]).has(writeRootEnv)
+        ? [writeRootEnv]
+        : []),
     ],
     values: {
       ...model?.env,
@@ -286,6 +293,7 @@ export function compileHome(
       ...webPart?.env.values,
       ...(images && imagePart.env),
       ...(pdfKnown && pdf?.env),
+      ...(writeLimit && { [writeRootEnv]: writeLimit }),
     },
   };
   // The proxy's pool row: the ChatGPT model's, else the image login's (images.js).

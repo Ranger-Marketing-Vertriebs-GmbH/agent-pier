@@ -22,7 +22,7 @@ import { agentPath } from "../../server/features/assistants/agent-attachment-not
 // in reads it at the path its note names. And a hook run without its Secrets switch
 // cannot count matches in the secrets file with a search of the work folder. As one
 // user's own agent it reads all of its own chats' files but no other agent's work
-// folder and not its Hermes home. The
+// folder and not its Hermes home, and writes and patches nothing there. The
 // in-repo fake model drives every tool call.
 const options = { skip: hermesSkip, timeout: contractTimeout(1500000) };
 
@@ -165,6 +165,18 @@ test(
       `CALL: search_files ${JSON.stringify({ pattern: token, path: path.dirname(neighbour) })}`,
     );
     assert.ok(neighbours.includes(homeRefusal.slice(0, 40)), neighbours);
+    // Nor writes there, and patch shows none of a file's lines (its no-match hint).
+    const planted = path.join(path.dirname(neighbour), "AGENTS.md");
+    for (const [tool, args] of [
+      ["write_file", { path: planted, content: "planted" }],
+      ["patch", { path: neighbour, old_string: token.slice(0, 12), new_string: "x" }],
+    ]) {
+      const refused = await turn(b, `CALL: ${tool} ${JSON.stringify(args)}`);
+      assert.ok(refused.includes(homeRefusal.slice(0, 40)), refused);
+      assert.equal(refused.includes(token), false, refused);
+    }
+    assert.equal(fs.existsSync(planted), false);
+    assert.equal(fs.readFileSync(neighbour, "utf8"), `${token}\n`);
     const earlier = await turn(b, `CALL: read_file ${JSON.stringify({ path: file })}`);
     assert.ok(earlier.includes(token), earlier);
 

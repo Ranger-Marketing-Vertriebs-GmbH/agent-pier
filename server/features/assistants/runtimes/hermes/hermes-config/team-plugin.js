@@ -29,8 +29,8 @@ import { browserUpload } from "./browser-upload-tool.js";
 //   `patch`), before a file call that names the attachments/, chat-files/ or
 //   .agentpier/ folder (`read_file`, `search_files`, `vision_analyze`, the writes; a
 //   search of the whole work folder or beyond it; on an agent of restricted users,
-//   own or shared, every read leaving the work folder, hermes-home-guard.js) and
-//   before every browser call (`browser_*`) and image creation (`image_generate`); no answer blocks the call. AgentPier's pdf tool (pdf.js) asks the same bridge at each call.
+//   own or shared, every file call, hermes-home-guard.js) and before every browser
+//   call (`browser_*`) and image creation (`image_generate`); no answer blocks the call. AgentPier's pdf tool (pdf.js) asks the same bridge at each call.
 //   Invisible subagents (`delegate_task`) run under a session of
 //   their own; the `subagent_start` hook maps it to the parent's, so the guard judges
 //   a subagent's call as its parent's. Team tools stay with the parent's own session.
@@ -253,10 +253,14 @@ def _shown(action, result):
     return json.dumps(result)
 
 
-def _tool(tool):
+def _tool(tool, hook=False):
     action = tool["action"]
 
     def handler(args, session_id=None, task_id=None, **_):
+        # Only the image hook hands over a created image by name (generated); a model's
+        # call never does, whatever arguments it passes.
+        if not hook and action == "share_file" and isinstance(args, dict):
+            args = {key: value for key, value in args.items() if key != "generated"}
         try:
             if _session_key(session_id) is None:
                 raise _Refused(_UNAVAILABLE)
@@ -353,9 +357,10 @@ def _guard(tool_name="", args=None, session_id=None, task_id=None, **_):
     args = args if isinstance(args, dict) else {}
     browser = tool_name.startswith("browser_") and settings.get("browser")
     member_write = tool_name in _WRITES and bool(settings.get("guardWrites"))
-    # An agent of restricted users asks before every read leaving its work folder: it
-    # reads only its own chat files there (hermes-home-guard.js).
-    private = tool_name in _READS and settings.get("privateFolders") and not _inside(args)
+    # An agent of restricted users asks before every file call, reads and writes
+    # alike (patch shows the lines it cannot match): it reaches only its work folder
+    # and its own chat files (hermes-home-guard.js).
+    private = tool_name in _FILES and settings.get("privateFolders")
     folder = tool_name in _FILES and (private or _wide(tool_name, args) or _names_folder(args))
     image = tool_name == "image_generate" and bool(settings.get("images"))
     if not browser and not member_write and not folder and not image:
@@ -375,7 +380,7 @@ def _subagent(parent_session_id=None, child_session_id=None, **_):
 
 # Where Hermes saves the images it creates (agent/image_gen_provider.py).
 _GENERATED = os.path.join(os.path.dirname(os.path.dirname(_DIR)), "cache", "generated", "images")
-_SHARE = _tool({"action": "share_file", "timeoutMs": 30000})
+_SHARE = _tool({"action": "share_file", "timeoutMs": 30000}, hook=True)
 
 
 def _image_result(tool_name="", result=None, session_id=None, task_id=None, **_):

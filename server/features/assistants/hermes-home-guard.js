@@ -11,8 +11,8 @@ import { chatFilesRoot } from "./chat-file-folders.js";
 // and its committed cache/documents/native-inputs/), its HOME Hermes's own files, and
 // AgentPier keeps each chat's uploads in a folder of that chat
 // (`<assistants>/chat-files/<agent>/<chat>/`, chat-file-folders.js). An agent of
-// restricted users (own or shared) reads with its file and vision tools only its work
-// folder and its chat folders: a user's own agent all of its own (each of its chats
+// restricted users (own or shared) reads and writes with its file and vision tools
+// only its work folder and its chat folders: a user's own agent all of its own (each of its chats
 // is hers), a shared one only the calling chat's, since there each chat is private to
 // its person. Anything else (another agent's folders, the Hermes homes) or a search
 // whose folder lies outside them is refused. On every Hermes agent a file call into
@@ -22,7 +22,7 @@ import { chatFilesRoot } from "./chat-file-folders.js";
 
 /** The refusal the model reads for a read outside the allowed folders. */
 export const homeRefusal =
-  "Only your work folder and your chat's file folder are readable here: other folders hold other chats' or agents' files. Work with files in those.";
+  "Only your work folder and your chat's file folder are usable here: other folders hold other chats' or agents' files. Work with files in those.";
 /** The refusal for a file call into another chat's or agent's file folder. */
 export const chatFilesRefusal =
   "That file folder belongs to another chat. Use only the files sent in this chat.";
@@ -96,12 +96,12 @@ function foldersOf(supervisor, agent) {
 }
 
 /**
- * On an agent of restricted users (isUserAgent): the refusal for a read (`values`,
- * readValues) that leaves its work folder and `chatFolders` (its chat folders it may
- * read: on a shared agent the calling chat's, on a user's own its folder of chat
- * folders), else null. A search counts by its folder, which must lie inside one of
- * them. Fails closed when the folders are unknown. The owner's own agents read as
- * Hermes lets them.
+ * On an agent of restricted users (isUserAgent): the refusal for a file call whose
+ * paths (`values`: readValues, or a write's targets) leave its work folder and
+ * `chatFolders` (its chat folders it may use: on a shared agent the calling chat's,
+ * on a user's own its folder of chat folders), else null. A search counts by its
+ * folder, which must lie inside one of them. Fails closed when the folders are
+ * unknown or a path is no text. The owner's own agents use files as Hermes lets them.
  */
 export function userReadRefusal(supervisor, agent, values, chatFolders = []) {
   if (!isUserAgent(agent)) return null;
@@ -109,6 +109,7 @@ export function userReadRefusal(supervisor, agent, values, chatFolders = []) {
   if (!folders) return homeRefusal;
   const roots = [folders.workspace, ...chatFolders].filter(Boolean).flatMap(forms);
   for (const value of values) {
+    if (typeof value !== "string" || !value.trim()) return homeRefusal;
     const file = target(value, folders.workspace, folders.home);
     if (file === null) continue;
     if (!file) return homeRefusal;
