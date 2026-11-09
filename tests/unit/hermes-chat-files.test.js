@@ -236,3 +236,49 @@ test("MCP placeholders name a Hermes agent's chat folders, never on a shared one
   );
   assert.equal(chatPlaceholderFolders("relative"), null);
 });
+
+test("an upload after a move stopped between rename and mark keeps the row", async (t) => {
+  const { attachments, agent, chat, root } = setup(t);
+  const a = chat("a");
+  const file = "20260101-000000-00000000-a.png";
+  fs.mkdirSync(path.join(root, a.id), { recursive: true });
+  fs.writeFileSync(path.join(root, a.id, file), png, { mode: 0o600 });
+  attachments.index(
+    "old",
+    a,
+    {
+      name: "a.png",
+      file,
+      size: png.length,
+      type: "image/png",
+      kind: "image",
+      sha256: sha(png),
+    },
+    "r1",
+  );
+  // The quota check of the next upload finds the copy in its chat's folder.
+  await attachments.stage(a.id, "b.png", png);
+  const body = () =>
+    JSON.parse(
+      attachments.db.prepare("SELECT body FROM agent_attachments WHERE id='old'").get()
+        .body,
+    );
+  assert.equal(body().gone, undefined);
+  await attachments.migrate(agent.id);
+  assert.equal(body().chat, true);
+  assert.deepEqual((await attachments.content("old")).body, png);
+});
+
+test("clearing removes chat folders replaced by a link, never what it points to", async (t) => {
+  const { attachments, agent, chat, root, dataDir } = setup(t);
+  await attachments.stage(chat("a").id, "a.png", png);
+  const elsewhere = path.join(dataDir, "elsewhere");
+  fs.mkdirSync(elsewhere);
+  fs.writeFileSync(path.join(elsewhere, "keep.txt"), "x");
+  fs.rmSync(root, { recursive: true });
+  fs.symlinkSync(elsewhere, root);
+  assert.equal((await attachments.usage(agent.id)).unsafe, true);
+  await attachments.clear(agent.id);
+  assert.equal(fs.existsSync(root), false);
+  assert.deepEqual(fs.readdirSync(elsewhere), ["keep.txt"]);
+});

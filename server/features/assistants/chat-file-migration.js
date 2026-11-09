@@ -34,8 +34,9 @@ async function holds(target, file) {
 export async function migrateChatFiles(a, assistantId) {
   if (!a.chatFolders(assistantId)) return 0;
   await restoreGone(a, assistantId);
+  // Without attachments/ only rows whose copy a stopped move left in its chat's
+  // folder are marked.
   const old = await a.folder(assistantId, false);
-  if (!old) return 0;
   const arriving = a.videos.arriving(assistantId);
   const waiting = new Set();
   let moved = 0;
@@ -53,34 +54,42 @@ export async function migrateChatFiles(a, assistantId) {
       folder = await checkedChatFolder(
         a.config,
         [assistantId, file.row.conversation_id],
-        true,
+        !!old,
       );
     } catch {
       // Its chat has no safe folder: the copy stays where it is.
       waiting.add(file.file);
       continue;
     }
-    const from = path.join(old.path, file.file);
+    if (!folder) continue;
     const to = path.join(folder.path, file.file);
+    if (!old) {
+      if (await holds(to, file)) markChat(a, file);
+      continue;
+    }
+    const from = path.join(old.path, file.file);
     const source = await fs.lstat(from).catch(() => null);
     const present = !!(await fs.lstat(to).catch(() => null));
     if (source?.isFile() && !present) {
       await fs.rename(from, to);
       moved++;
     }
-    if ((source?.isFile() && !present) || (await holds(to, file))) {
-      a.db
-        .prepare("UPDATE agent_attachments SET body=? WHERE id=?")
-        .run(JSON.stringify({ ...JSON.parse(file.row.body), chat: true }), file.id);
-    } else if (file.row.request_id === null)
+    if ((source?.isFile() && !present) || (await holds(to, file))) markChat(a, file);
+    else if (file.row.request_id === null)
       a.db.prepare("DELETE FROM agent_attachments WHERE id=?").run(file.id);
     else a.markGone(file);
   }
+  if (!old) return moved;
   moved += await unclaimed(a, assistantId, old, waiting);
   // Empty now, unless a copy had to stay.
   await fs.rmdir(old.path).catch(() => {});
   return moved;
 }
+
+const markChat = (a, file) =>
+  a.db
+    .prepare("UPDATE agent_attachments SET body=? WHERE id=?")
+    .run(JSON.stringify({ ...JSON.parse(file.row.body), chat: true }), file.id);
 
 // An older AgentPier, run after the move, finds no copy in attachments/ and marks
 // each sent row gone; a copy still in its chat folder with its bytes is back.

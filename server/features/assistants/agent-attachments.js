@@ -375,6 +375,9 @@ export class AgentAttachments {
     )) {
       const key = file.chat ? file.row.conversation_id : "";
       if (present.has(`${key}/${file.file}`) || file.gone) continue;
+      // A move stopped between its rename and the row's mark (chat-file-migration.js)
+      // left the copy in its chat's folder; the next move marks the row.
+      if (present.has(`${file.row.conversation_id}/${file.file}`)) continue;
       if (file.row.request_id === null)
         this.db.prepare("DELETE FROM agent_attachments WHERE id=?").run(file.id);
       else this.markGone(file);
