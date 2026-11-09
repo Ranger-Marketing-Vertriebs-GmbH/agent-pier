@@ -3,6 +3,7 @@ import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { SHARED } from "./agent-share-store.js";
 import { UNCLAIMED, checkedChatFolder } from "./chat-file-folders.js";
+import { migrateGeneratedImages } from "./hermes-image-migration.js";
 
 // A Hermes agent's uploads from before per-chat folders (chat-file-folders.js) lie in
 // its workspace's attachments/, where a search of the work folder reaches every
@@ -28,18 +29,20 @@ async function holds(target, file) {
  * serial queue the caller holds). Each row's copy moves to its chat's folder and the
  * row is marked `chat`; a copy that is in neither place goes as the quota check lets
  * it go (an unsent row is dropped, a sent one marked gone). A sent chat row an older
- * AgentPier marked gone while its copy stayed in the chat folder is back. Resolves
+ * AgentPier marked gone while its copy stayed in the chat folder is back, and a
+ * shared agent's old generated-images/ empties (hermes-image-migration.js). Resolves
  * with how many files moved.
  */
 export async function migrateChatFiles(a, assistantId) {
   if (!a.chatFolders(assistantId)) return 0;
   await restoreGone(a, assistantId);
+  // A shared agent's images an older AgentPier kept in its work folder.
+  let moved = await migrateGeneratedImages(a, assistantId, unclaimed);
   // Without attachments/ only rows whose copy a stopped move left in its chat's
   // folder are marked.
   const old = await a.folder(assistantId, false);
   const arriving = a.videos.arriving(assistantId);
   const waiting = new Set();
-  let moved = 0;
   for (const file of a.rows(
     `SELECT * FROM agent_attachments WHERE assistant_id=? AND (request_id IS NULL OR request_id NOT LIKE '${SHARED}%')`,
     assistantId,

@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import zlib from "node:zlib";
+import { randomBytes } from "node:crypto";
 import { GuardedRuntimeSupervisor as RuntimeSupervisor } from "../helpers/process-guard.js";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
 import { AssistantConfig } from "../../server/features/assistants/assistant-config.js";
@@ -19,12 +21,38 @@ import { assistantModelServer } from "../helpers/assistant-model-server.js";
 import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
 
 // Opt-in: the pinned Gateway takes AgentPier's attachment shape, shows images to a
-// model that declares image input, and keeps the sent text for the chat history.
+// model that declares image input, keeps the sent text for the chat history, and
+// names a large image by a media:// reference without staging it in the workspace.
 const installed = process.env.AGENTPIER_ASSISTANT_PROVIDER_RUNTIME;
 const png = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
   "base64",
 );
+
+// An incompressible PNG of about 3.3 MB, stored without compression.
+function largePng(width = 1100, height = 1000) {
+  const rows = [];
+  for (let y = 0; y < height; y++)
+    rows.push(Buffer.concat([Buffer.from([0]), randomBytes(width * 3)]));
+  const chunk = (type, data) => {
+    const length = Buffer.alloc(4);
+    length.writeUInt32BE(data.length);
+    const body = Buffer.concat([Buffer.from(type), data]);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(zlib.crc32(body));
+    return Buffer.concat([length, body, crc]);
+  };
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
+  header.set([8, 2, 0, 0, 0], 8);
+  return Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    chunk("IHDR", header),
+    chunk("IDAT", zlib.deflateSync(Buffer.concat(rows), { level: 0 })),
+    chunk("IEND", Buffer.alloc(0)),
+  ]);
+}
 
 test(
   "pinned Gateway accepts chat attachments and shows images to models with image input",
@@ -206,5 +234,55 @@ test(
         );
       });
     }
+    // A phone photo above 2 MB is offloaded to the Gateway's media store, shared by
+    // every agent, and the prompt names it by a media:// reference: the tool guard
+    // keeps that reference and media/inbound/ from the chats of a shared agent
+    // (team-plugin/inbound-media.js). The pinned Gateway stages no chat image in the
+    // workspace any more (older ones did, under media/inbound/openclaw-staged-*/).
+    await t.test("a large image reaches the model by a media:// reference", async () => {
+      const connection = endpoint("fixture-vision-large", true);
+      const agent = store.createAssistant({
+        name: "large",
+        instructions: "Reply.",
+        model: { connectionId: connection.id, modelId: "fixture-vision-large" },
+      });
+      await config.apply(agent.id);
+      const chat = await createGatewaySession(runtime.client, {
+        agentId: agent.runtimeAgentId,
+      });
+      const conversation = store.saveConversation({
+        assistantId: agent.id,
+        runtimeSessionKey: chat.key,
+      });
+      const body = largePng();
+      assert.ok(body.length > 2e6);
+      const photo = await attachments.stage(conversation.id, "photo.png", body);
+      attachments.claim(conversation.id, [photo.id], "request-large");
+      const turn = await attachments.delivery(
+        { id: "request-large", text: "Look at this." },
+        agent.id,
+      );
+      assert.equal(turn.attachments?.length, 1);
+      const offset = server.requests.length;
+      const sent = await runtime.client.call("sessions.send", {
+        key: chat.key,
+        ...turn,
+        idempotencyKey: crypto.randomUUID(),
+      });
+      const result = await runtime.client.call(
+        "agent.wait",
+        { runId: sent.runId, timeoutMs: 45000 },
+        { timeoutMs: 50000 },
+      );
+      assert.equal(result.status, "ok", JSON.stringify(result));
+      const prompt = JSON.stringify(server.requests.slice(offset));
+      assert.match(
+        prompt,
+        /\[media attached: media:\/\/inbound\/photo---[0-9a-f-]+\.png/,
+      );
+      assert.ok(prompt.includes("data:image/png;base64,"), "the model still sees it");
+      const workspace = path.join(runtime.paths.workspaces, agent.id);
+      assert.equal(fs.existsSync(path.join(workspace, "media")), false);
+    });
   },
 );

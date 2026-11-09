@@ -213,6 +213,24 @@ test("a file of the agent's own workspace is staged, never its guarded entries",
     ".agentpier/missing.env",
   ])
     await assert.rejects(f.call({ path: p }), code("PROJECT_PATH_REFUSED"));
+  // OpenClaw's staged inbound media name no chat: only an agent that is not shared
+  // stages them.
+  const photo = "media/inbound/openclaw-staged-1/input-a.png";
+  fs.mkdirSync(path.join(own, path.dirname(photo)), { recursive: true });
+  fs.writeFileSync(path.join(own, photo), "photo");
+  assert.equal(
+    fs.readFileSync((await f.call({ path: photo })).uploadPath, "utf8"),
+    "photo",
+  );
+  const members = ["u1", "u2"].map((userId) => ({ userId, level: "chat" }));
+  f.store.db.prepare("UPDATE assistants SET body=? WHERE id=?").run(
+    JSON.stringify({
+      ...f.store.storedAssistant(f.id),
+      userAccess: { mode: "shared", members, released: [] },
+    }),
+    f.id,
+  );
+  await assert.rejects(f.call({ path: photo }), code("PROJECT_PATH_REFUSED"));
 });
 
 test("a restricted user's agent stages only from folders its own grants allow", async (t) => {

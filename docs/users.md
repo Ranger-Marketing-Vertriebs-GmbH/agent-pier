@@ -93,7 +93,12 @@ An agent for users is either:
   now**) and, when the owner switches dreaming on, from the agent's nightly dreaming
   over all its chats, whose notes can quote chat lines word for word
   ([Dreaming](agents.md#dreaming)). Files sent in a chat stay with that chat: a turn
-  in another person's chat cannot read or share them. The owner keeps a chat of his
+  in another person's chat cannot read or share them. Media OpenClaw keeps outside
+  the chat's files (a photo from a Telegram chat, a large image, chat images an older
+  version kept in `media/inbound/`) is closed to the file tools of every chat; the
+  agent still sees an image in the turn it arrives with. Images a Hermes agent created
+  under an older AgentPier move from its work folder into the chat they were shared
+  in. The owner keeps a chat of his
   own with a shared agent (**Open my chat**).
 
 A user's memory view (own and shared agents) shows dreaming's notes like other notes

@@ -5274,7 +5274,17 @@ type.
   `attachments/` (also as a `file://` URL, judged both as written and as the
   percent-decoded path OpenClaw reads, `file-urls.js`), which allows only files indexed for the calling chat (its turn's, a
   routine run's or the session's own), and `agentpier_share_file` refuses another
-  chat's file with `SHARE_NOT_FOUND`. When the agent deletes a sent copy,
+  chat's file with `SHARE_NOT_FOUND`. OpenClaw's inbound media name no chat: a
+  channel's photo it stages under `media/inbound/openclaw-staged-<uuid>/` of the
+  workspace (OpenClaw before 2026.10.9 staged chat images there too), and an image
+  above 2 MB that the pinned Gateway offloads to its media store, shared by every
+  agent, and names in the prompt as `media://inbound/<id>`. On a shared agent the
+  same calls naming a `media/inbound/` folder (any path through one, in any case) or
+  a `media://` reference are refused for every chat (`team-plugin/inbound-media.js`,
+  asked as `media/inbound`, which `attachmentsAllowed` admits only on an agent that
+  is not shared), and `agentpier_share_file` and browser uploads refuse them as well.
+  The model still sees the image of its own turn, which OpenClaw loads itself, and
+  reads its copy in `attachments/`. When the agent deletes a sent copy,
   the chat history keeps the message and names that file as no longer available
   (`unavailable: true`, no link).
 - **Delivery.** `sessions.send` carries the owner's text followed by a note that
@@ -5342,8 +5352,10 @@ type.
   never part of a backup, sealed or not.
 - **Limits.** Agents cannot be deleted today (only archived), so the copies follow
   the workspace; `AgentAttachments.purge` removes an agent's folders and index for a
-  future deletion path. OpenClaw also stages inline images it receives under
-  `media/inbound/` of the workspace, so such an image exists twice.
+  future deletion path. OpenClaw before 2026.10.9 also staged inline images it
+  received under `media/inbound/` of the workspace, so such an image exists twice;
+  the pinned Gateway offloads an image above 2 MB to its own media store instead
+  (`assistant-attachments-contract.test.js`).
 
 ### Chat videos (2026-10-18)
 

@@ -89,6 +89,20 @@ async function sweepTrash(trash, prefix) {
       await fs.rm(path.join(trash, name), { recursive: true, force: true });
 }
 
+// Whether `folder` is a directory at its real place (no link on it or its parent).
+async function realDirectory(folder) {
+  try {
+    const [stat, real, parent] = await Promise.all([
+      fs.lstat(folder),
+      fs.realpath(folder),
+      fs.realpath(path.dirname(folder)),
+    ]);
+    return stat.isDirectory() && real === path.join(parent, path.basename(folder));
+  } catch {
+    return false;
+  }
+}
+
 /** The private trash beside a storage root: `<assistants>/attachment-trash`. */
 export function trashFor(root) {
   return path.join(path.dirname(root), "attachment-trash");
@@ -261,18 +275,18 @@ export class AttachmentStorage {
     await removeChecked(chats, trash, `${assistantId}-chat-files`);
     return held;
   }
-  // The agent's checked folder of chat folders, or what replaced it (or the chat
-  // files root itself), never followed; null when there is none.
+  // The agent's checked folder of chat folders, or what replaced it, never followed;
+  // null when there is none. Only the agent's own entry: the chat files root holds
+  // every agent's chat folders, so one that is not a real directory refuses.
   async chatRoot(assistantId) {
     try {
       return await checkedChatFolder(this.a.config, [assistantId], false);
     } catch {
       const entry = agentChatPath(this.a.config, assistantId);
-      for (const candidate of entry ? [path.dirname(entry), entry] : []) {
-        const stat = await fs.lstat(candidate, { bigint: true }).catch(() => null);
-        if (stat && !stat.isDirectory())
-          return { path: candidate, dev: stat.dev, ino: stat.ino, directory: false };
-      }
+      if (!entry || !(await realDirectory(path.dirname(entry)))) throw unsafe();
+      const stat = await fs.lstat(entry, { bigint: true }).catch(() => null);
+      if (stat && !stat.isDirectory())
+        return { path: entry, dev: stat.dev, ino: stat.ino, directory: false };
       throw unsafe();
     }
   }

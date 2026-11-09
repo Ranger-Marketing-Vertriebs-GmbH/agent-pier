@@ -295,7 +295,24 @@ does not guard `chat-files/` either: on an agent shared with users a chat could 
 other chats' uploads there by absolute path, so do not downgrade while Hermes agents
 are shared with users (or **Clear attachments** on them first). A quota check after
 a move stopped between a rename and the row's mark finds the copy in its chat's
-folder, and the next start marks the row.
+folder, and the next start marks the row; discarding such an unsent file before
+then removes that copy too.
+
+Images an older AgentPier created for a Hermes agent lie in `generated-images/` of its
+work folder, which every chat of an agent shared with users could read. On such an
+agent they leave it before each start of its process set as well
+(`hermes-image-migration.js`): an image whose bytes (size and SHA-256) a file the
+agent shared holds goes into the folder of the chat it was first shared into as
+`generated-<name>`, kept like a newly created image ([images](#images)); everything
+else, links and folders included (moved themselves, never followed), goes to
+`.unclaimed`. Each move is one rename, so a start after a crash finishes the rest; a
+`generated-images` link is left alone. The owner's and a user's own agents keep the
+folder, as all their chats are one person's, and a user's own agent never becomes
+shared.
+
+**Clear** removes only what belongs to the agent: when `chat-files/` itself is no
+real directory at its real place (a link, for instance), Clear fails with
+`attachmentStorageUnsafe` and leaves it and every agent's chat folders untouched.
 
 A search that covers the work folder's `.agentpier/` (the work folder itself, an
 ancestor, or several paths in one) asks the bridge on every Hermes agent, and in a
@@ -759,8 +776,10 @@ copy. The copy has no index row: the next quota check after its shared copy expi
 (90 days, `SHARED_TTL`) removes it. A routine run's image goes to the folder of the chat its routine commits to, a
 hook run's to the agent's main chat, as their shares do. On an agent shared with users
 only that chat reads it, and it goes with the chat's other files (**Clear**, removing
-the chat). Images an older AgentPier created stay in `generated-images/` of the
-work folder. When the share fails, the tool result says so and names no file.
+the chat). Images an older AgentPier created lie in `generated-images/` of the work
+folder; on an agent shared with users they leave it before the next start of its
+process set ([chat files](#chat-files)). The owner's and a user's own agents keep
+that folder. When the share fails, the tool result says so and names no file.
 Hermes's own media delivery into an AgentPier chat (`gateway/session_local.py`
 `LocalSessionAdapter`) has no image send in v0.22.5, so Hermes logs a
 `send_image_file fallback` warning; the image reaches the chat through the share

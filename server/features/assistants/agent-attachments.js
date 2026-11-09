@@ -341,10 +341,16 @@ export class AgentAttachments {
     await this.videos.sweep(assistantId);
   }
   // Removes a row and its copy. A folder no longer safe refuses, and the row stays
-  // with its copy until the owner's clear.
+  // with its copy until the owner's clear. A move stopped between its rename and the
+  // row's mark (chat-file-migration.js) left an unmarked row's copy in its chat's
+  // folder: that copy goes too.
   async remove(file) {
     const folder = await this.folderOf(file);
     if (folder) await fs.rm(path.join(folder.path, file.file), { force: true });
+    if (!file.chat && this.chatFolders(file.row.assistant_id)) {
+      const moved = await this.folderOf({ ...file, chat: true }).catch(() => null);
+      if (moved) await fs.rm(path.join(moved.path, file.file), { force: true });
+    }
     this.db.prepare("DELETE FROM agent_attachments WHERE id=?").run(file.id);
   }
   /**
