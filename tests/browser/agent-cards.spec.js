@@ -1,6 +1,7 @@
 import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { chatFixture } from "../helpers/assistant-chat-fixture.js";
+import { userAppFixture } from "../helpers/user-app-fixture.js";
 
 // Agent cards in the chat (history messages with `card` or `cardMoved`): the blocks,
 // silent ticks, button presses that send a message, and the marker of a moved card.
@@ -144,11 +145,10 @@ for (const [name, use] of [
       const board = page.getByRole("article", { name: "Card: Infrastructure status" });
       await expect(board).toContainText("Version 3 · updated");
       await expect(board.locator(".agent-card-metric")).toHaveCount(3);
-      await expect(board.locator(".agent-card-tile.state-warn")).toContainText(
-        "mimir",
-      );
-      await expect(board.getByRole("table", { name: "Chart: Load proxmox-1, 24 h" }))
-        .toBeAttached();
+      await expect(board.locator(".agent-card-tile.state-warn")).toContainText("mimir");
+      await expect(
+        board.getByRole("table", { name: "Chart: Load proxmox-1, 24 h" }),
+      ).toBeAttached();
       await expect(board.getByRole("link", { name: "Zabbix" })).toHaveAttribute(
         "rel",
         "noopener noreferrer",
@@ -159,7 +159,12 @@ for (const [name, use] of [
         const box = await card.boundingBox();
         expect(box.width).toBeLessThanOrEqual(use.viewport.width);
       }
-      await page.screenshot({ path: test.info().outputPath("cards.png"), fullPage: true });
+      // For review: each card as the person sees it (test-results/).
+      for (const [file, card] of [
+        ["plan.png", plan],
+        ["status.png", board],
+      ])
+        await card.screenshot({ path: test.info().outputPath(file) });
 
       const chicken = plan.getByRole("checkbox", { name: "1.8 kg chicken" });
       await chicken.check();
@@ -167,14 +172,20 @@ for (const [name, use] of [
       await expect
         .poll(() => state.cardCalls)
         .toEqual([
-          ["card_dinners/check", { version: 1, block: 1, item: "chicken", checked: true }],
+          [
+            "card_dinners/check",
+            { version: 1, block: 1, item: "chicken", checked: true },
+          ],
         ]);
       expect(state.posted).toEqual([]);
 
-      await plan.getByRole("row", { name: /Tue/ }).getByRole("button", { name: "Swap" }).click();
-      await expect.poll(() => state.posted.map((p) => p.text)).toEqual([
-        "Swap: Tue · Lasagne with savoy",
-      ]);
+      await plan
+        .getByRole("row", { name: /Tue/ })
+        .getByRole("button", { name: "Swap" })
+        .click();
+      await expect
+        .poll(() => state.posted.map((p) => p.text))
+        .toEqual(["Swap: Tue · Lasagne with savoy"]);
       expect(state.cardCalls.at(-1)).toEqual([
         "card_dinners/press",
         { version: 1, block: 0, row: 1 },
@@ -191,3 +202,46 @@ for (const [name, use] of [
       await expect(board).toBeInViewport();
     });
   });
+
+test.describe("user app", () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test("a user ticks and presses her agent's card over her own routes", async ({
+    page,
+  }) => {
+    const state = await userAppFixture(page, {
+      language: "en",
+      messages: { main: [item(dinners, 1, now)] },
+    });
+    const calls = [];
+    await page.route("**/api/me/conversations/main/cards/**", async (route) => {
+      const url = new URL(route.request().url());
+      calls.push([url.pathname, route.request().postDataJSON()]);
+      await route.fulfill({
+        json: url.pathname.endsWith("/press")
+          ? { text: "Recipes for Monday", card: dinners }
+          : dinners,
+      });
+    });
+    await page.goto(`${baseURL}/agents/lotta/chats/main`);
+    const plan = page.getByRole("article", { name: "Card: Dinners week 46" });
+    await plan.getByRole("checkbox", { name: "1.8 kg chicken" }).check();
+    await plan.getByRole("button", { name: "Recipes for Monday" }).click();
+    await expect
+      .poll(() => state.posted)
+      .toEqual([{ id: "main", text: "Recipes for Monday" }]);
+    expect(calls).toEqual([
+      [
+        "/api/me/conversations/main/cards/card_dinners/check",
+        { version: 1, block: 1, item: "chicken", checked: true },
+      ],
+      [
+        "/api/me/conversations/main/cards/card_dinners/press",
+        { version: 1, block: 2, item: 0 },
+      ],
+    ]);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(390);
+  });
+});
