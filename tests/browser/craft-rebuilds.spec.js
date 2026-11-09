@@ -195,6 +195,8 @@ test("removes a rebuild from the list after a confirmation", async ({
     name: "Remove rebuild “timer” from the list?",
   });
   await expect(dialog).toContainText("Its folder and its project stay");
+  if (screenshots)
+    await page.screenshot({ path: `${screenshots}/craft-rebuilds-remove.png` });
   await dialog.getByRole("button", { name: "Remove from list" }).click();
   await expect(page).toHaveURL(`${baseURL}/craft`);
   await expect(page.getByRole("link", { name: /shop-clone/ })).toBeVisible();
