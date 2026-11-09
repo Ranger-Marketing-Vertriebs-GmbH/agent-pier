@@ -342,7 +342,11 @@ async function install({
     return record;
   } catch (error) {
     fs.rmSync(directory, { recursive: true, force: true });
-    if (!error.code || !/^HERMES_/.test(error.code)) error.code = "HERMES_INSTALL_FAILED";
+    if (!error.code || !/^HERMES_/.test(error.code)) {
+      // The original code (ENOSPC, ECONNRESET, …) stays for the update's cause.
+      if (error.code !== undefined) error.diagnosticCode = error.code;
+      error.code = "HERMES_INSTALL_FAILED";
+    }
     throw error;
   } finally {
     fs.rmSync(scratch, { recursive: true, force: true });

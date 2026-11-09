@@ -373,7 +373,9 @@ with an HTTP range request only when the server sent a strong ETag or a
 Last-Modified date, and otherwise starts again from the beginning. A GitHub rate
 limit (403 or 429 with `Retry-After`, or an exhausted quota with
 `x-ratelimit-remaining: 0`) is retried after the wait it names while all such waits
-add up to at most 60 seconds; a longer wait fails at once and names the limit. The small
+add up to at most 60 seconds; a longer wait fails at once and names the limit. The
+update check (the channel manifest and the preview release list) never waits: it
+reports a rate limit at once. The small
 release channel manifest is retried once; a stalled channel reports
 `DOWNLOAD_IDLE_TIMEOUT`. AgentPier's own release
 downloads use the same rules.

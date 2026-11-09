@@ -31,8 +31,10 @@ export function offeredVersion(version, channel) {
 export async function channelManifest(base, fetchImpl) {
   try {
     const manifest = JSON.parse(
+      // The owner may wait on this check: a rate limit fails it at once.
       await download(new URL("latest.json", base).href, fetchImpl, 1024 * 1024, {
         retries: 1,
+        rateLimitWait: 0,
       }),
     );
     if (!manifest || typeof manifest !== "object" || Array.isArray(manifest))

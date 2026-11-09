@@ -337,9 +337,22 @@ test("an exhausted GitHub API quota reports a rate limit instead of a download f
         seen.push(init?.headers?.Accept);
         return new Response("limited", { status, headers });
       };
+      const before = seen.length;
       await assert.rejects(releases.check(), { status: 503, message });
+      // The owner waits on the check: no retry after the named wait.
+      assert.equal(seen.length - before, 1);
     }
   assert.ok(seen.every((accept) => accept === "application/vnd.github+json"));
+  // The stable channel's latest.json fails at once on a short rate limit, too.
+  releases.setUpdateChannel("stable");
+  let calls = 0;
+  releases.fetchImpl = async () => {
+    calls++;
+    return new Response("limited", { status: 429, headers: { "retry-after": "1" } });
+  };
+  await assert.rejects(releases.check(), { status: 502 });
+  assert.equal(calls, 1);
+  releases.setUpdateChannel("preview");
   releases.fetchImpl = async () => new Response("forbidden", { status: 403 });
   await assert.rejects(releases.check(), { status: 502 });
 });
