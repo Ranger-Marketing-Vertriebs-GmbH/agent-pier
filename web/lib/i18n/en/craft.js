@@ -107,6 +107,7 @@ export const craftCopy = {
     allow: "Allow",
     allowAlways: "Always allow",
     deny: "Deny",
+    autoFailed: "Auto mode could not allow this. Decide here whether it may run.",
     sending: "Sending …",
   },
 };

@@ -4,6 +4,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { rebuildsConfigDir } from "../../server/features/tools/craft-config.js";
 import { serverMessages } from "../../server/lib/i18n/de.js";
+import { ownerQuestions } from "../../server/features/craft/rebuild-questions.js";
+import { AUTO_ALLOW_TRIES } from "../../server/features/craft/rebuild-sampler.js";
 import {
   exists,
   fakeTimers,
@@ -440,6 +442,31 @@ test("a failed auto-mode allow is retried on the next tick", async (t) => {
     f.craftRecord(view).conversation.some((e) => e.text === "Run npm install?: allowed"),
   );
   assert.equal(f.rebuilds.sampler.approving.size, 0, "answered approvals are forgotten");
+});
+
+test("an approval auto mode fails to allow three times goes to the owner", async (t) => {
+  let allows = 0;
+  const f = rebuildsFixture(t, {
+    script: { steps: [approval, { finish: "ready" }] },
+    intercept: (name, args) => {
+      if (name === "project_inbox_answer" && args.allow && ++allows <= AUTO_ALLOW_TRIES)
+        throw Object.assign(new Error("flaky"), { code: "busy" });
+    },
+  });
+  const view = await f.rebuilds.start({ request: "Give up", autoMode: true });
+  const open = () => f.rebuilds.get(view.id).questions;
+  assert.ok(await until(() => open()[0]?.autoFailed === true));
+  assert.equal(allows, AUTO_ALLOW_TRIES);
+  // The inbox and a push take it like any approval.
+  assert.deepEqual(
+    ownerQuestions(f.rebuilds.get(view.id)).map((question) => question.id),
+    [open()[0].id],
+  );
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  assert.equal(allows, AUTO_ALLOW_TRIES, "no more tries");
+  await f.rebuilds.answer(view.id, open()[0].id, { allow: true });
+  assert.ok(await settled(f.rebuilds, view.id, "ready"));
+  assert.equal(f.rebuilds.sampler.failures.size, 0, "forgotten once answered");
 });
 
 test("a child killed from outside leaves its rebuild paused and no builder", async (t) => {

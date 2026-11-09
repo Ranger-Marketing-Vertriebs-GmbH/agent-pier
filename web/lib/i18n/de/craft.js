@@ -108,6 +108,8 @@ export const craftCopy = {
     allow: "Erlauben",
     allowAlways: "Immer erlauben",
     deny: "Ablehnen",
+    autoFailed:
+      "Der Automodus konnte das nicht erlauben. Entscheide hier, ob es laufen darf.",
     sending: "Wird gesendet …",
   },
 };

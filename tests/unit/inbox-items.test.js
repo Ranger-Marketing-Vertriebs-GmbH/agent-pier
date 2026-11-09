@@ -377,6 +377,14 @@ test("a rebuild's open questions and approvals wait in the questions tab", async
     craftItems({ ...rebuild, autoMode: true }).map((item) => item.id),
     [`${id}:q1`],
   );
+  // Unless it failed to allow one: the owner decides that one.
+  const failed = rebuild.questions.map((q) =>
+    q.kind === "approval" ? { ...q, autoFailed: true } : q,
+  );
+  assert.deepEqual(
+    craftItems({ ...rebuild, autoMode: true, questions: failed }).map((item) => item.id),
+    [`${id}:q1`, `${id}:q2`],
+  );
   const counts = countItems(craftItems(rebuild));
   assert.equal(counts.questions, 2);
   const items = await collectItems({ craftRebuilds: { list: () => [rebuild] } });
