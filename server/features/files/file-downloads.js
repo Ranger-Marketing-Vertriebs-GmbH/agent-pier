@@ -74,6 +74,11 @@ export function attachmentHeaders(response, selectedName, size, { inline = false
   );
   response.setHeader("Cache-Control", "no-store");
   response.setHeader("X-Content-Type-Options", "nosniff");
+  if (inline) {
+    // Like every other inline file route: no scripts, no framing by other origins.
+    response.setHeader("Content-Security-Policy", "default-src 'none'; sandbox");
+    response.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+  }
   response.setHeader("Content-Length", String(size));
 }
 export async function* ownedDownloadBytes(handle, stat, signal) {

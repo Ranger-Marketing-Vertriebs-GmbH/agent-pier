@@ -141,8 +141,25 @@ export async function previewResolvedFile(
     const magicUsed = await fillBuffer(handle, magic);
     const mime = imageMime(magic.subarray(0, magicUsed));
     // A PDF is not read here: the browser opens it from the inline download route.
-    if (!mime && magic.subarray(0, magicUsed).toString("latin1").startsWith("%PDF-"))
-      return { path: resolved.path, type: "pdf" };
+    // A file that starts with %PDF- but is plain text stays editable. The legacy
+    // session route has no PDF view and keeps answering "binary".
+    if (
+      !mime &&
+      !legacy &&
+      magic.subarray(0, magicUsed).toString("latin1").startsWith("%PDF-")
+    ) {
+      const sample = Buffer.alloc(8192);
+      const used = await fillBuffer(handle, sample);
+      const head = sample.subarray(0, used);
+      let text = !head.includes(0);
+      if (text)
+        try {
+          new TextDecoder("utf-8", { fatal: true }).decode(head);
+        } catch {
+          text = false;
+        }
+      if (!text) return { path: resolved.path, type: "pdf" };
+    }
     const configured = limits ? readFileLimits(limits) : defaultFileLimits;
     const limit = mime
       ? legacy

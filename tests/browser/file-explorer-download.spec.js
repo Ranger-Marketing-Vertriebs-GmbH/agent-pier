@@ -81,3 +81,20 @@ for (const [label, viewport] of [
     await expect(page.getByText("This file type cannot be previewed.")).toHaveCount(0);
   });
 }
+
+test("the Download menu item answers Space, closes the menu and returns focus", async ({
+  page,
+}) => {
+  await actionsFixture(page);
+  await selectEnglish(page);
+  await page.goto(baseURL + "/files");
+  const trigger = page.getByRole("button", { name: "Actions for a.txt", exact: true });
+  await trigger.click();
+  const link = page
+    .getByRole("menu", { name: "Actions for a.txt", exact: true })
+    .getByRole("menuitem", { name: "Download", exact: true });
+  await link.focus();
+  await Promise.all([page.waitForEvent("download"), page.keyboard.press("Space")]);
+  await expect(page.getByRole("menu", { name: "Actions for a.txt" })).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+});
