@@ -10,7 +10,14 @@ import "./file-link.css";
  * a visible error when it fails. `name` is the file name to save, or true for the
  * server's own.
  */
-export default function FileLink({ href, name = true, onClick, children, ...props }) {
+export default function FileLink({
+  href,
+  name = true,
+  onClick,
+  onSaved,
+  children,
+  ...props
+}) {
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   return (
@@ -30,6 +37,7 @@ export default function FileLink({ href, name = true, onClick, children, ...prop
           setFailed(false);
           try {
             await saveUrl(href, typeof name === "string" ? name : undefined);
+            onSaved?.();
           } catch {
             setFailed(true);
           } finally {

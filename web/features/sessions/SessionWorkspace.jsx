@@ -218,6 +218,7 @@ export default function SessionWorkspace({
                 <RowMenu
                   label={commonCopy.moreActions}
                   state={actionsMenu}
+                  sheet={{ title: session.name }}
                   items={actions.items.map(({ id, label, run, disabled }) => ({
                     id,
                     label,

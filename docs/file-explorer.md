@@ -66,7 +66,11 @@ offer **Open PDF**, which opens `GET .../download?path=...&inline=1` in a new wi
 (system viewer on iPhone). That route sends `Content-Type: application/pdf` and
 `Content-Disposition: inline` only when the file starts with `%PDF-`; every other file,
 and every request without `inline=1`, stays an `application/octet-stream` attachment
-(with `nosniff`).
+(with `nosniff`). The inline answer also carries `Content-Security-Policy: default-src
+'none'; sandbox` and `Cross-Origin-Resource-Policy: same-origin`, like AgentPier's other
+inline file routes. A file that starts with `%PDF-` but is plain text stays a text file
+for the editor; the legacy `GET /api/sessions/:id/files/content` keeps answering 415 for
+a PDF.
 
 The editor preserves an optional UTF-8 BOM, LF or CRLF line endings, and trailing newlines.
 Mixed endings and bare CR require an explicit output choice. It displays a selected

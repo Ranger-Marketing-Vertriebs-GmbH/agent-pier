@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import Icon from "../../components/Icon.jsx";
 import FileLink from "../../components/FileLink.jsx";
+import { activateOnSpace } from "./FileList.jsx";
 import { appleStandalone } from "../../lib/standalone.js";
 
 export default function FileActionMenu({ label, icon = "menu", items, compact = false }) {
@@ -77,10 +78,13 @@ export default function FileActionMenu({ label, icon = "menu", items, compact = 
                 key={item.kind}
                 href={item.href}
                 role="menuitem"
+                onKeyDown={activateOnSpace}
                 onClick={() => {
-                  // The iOS app shows progress and failure on the link itself.
-                  if (!appleStandalone()) setTimeout(() => setOpen(false), 0);
+                  // The iOS app keeps the menu until its share sheet is done, so
+                  // progress and failure show on the link itself.
+                  if (!appleStandalone()) setTimeout(() => close(), 0);
                 }}
+                onSaved={() => close()}
               >
                 {item.label}
               </FileLink>

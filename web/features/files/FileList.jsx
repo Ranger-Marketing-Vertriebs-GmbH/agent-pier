@@ -15,6 +15,13 @@ function modified(value) {
   return value ? new Date(value).toLocaleString() : "—";
 }
 
+// A link in a menu answers Space like the buttons around it.
+export function activateOnSpace(event) {
+  if (event.key !== " ") return;
+  event.preventDefault();
+  event.currentTarget.click();
+}
+
 // One regular file can be fetched directly; everything else goes through a ZIP.
 export function canDownload(items, downloadHref) {
   return Boolean(downloadHref) && items.length === 1 && items[0].type === "file";
@@ -248,10 +255,13 @@ export default function FileList({
                   key={kind}
                   href={downloadHref(menuEntry.path)}
                   role="menuitem"
+                  onKeyDown={activateOnSpace}
                   onClick={() => {
-                    // The iOS app shows progress and failure on the link itself.
-                    if (!appleStandalone()) setTimeout(() => closeMenu(false), 0);
+                    // The iOS app keeps the menu until its share sheet is done, so
+                    // progress and failure show on the link itself.
+                    if (!appleStandalone()) setTimeout(() => closeMenu(), 0);
                   }}
+                  onSaved={() => closeMenu()}
                 >
                   {copy.actions.download}
                 </FileLink>

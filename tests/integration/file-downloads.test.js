@@ -136,6 +136,11 @@ test("inline downloads show only a real PDF inline and keep everything else an a
   assert.equal(inlineSink.headers.get("Content-Type"), "application/pdf");
   assert.match(inlineSink.headers.get("Content-Disposition"), /^inline;/);
   assert.equal(inlineSink.headers.get("X-Content-Type-Options"), "nosniff");
+  assert.equal(
+    inlineSink.headers.get("Content-Security-Policy"),
+    "default-src 'none'; sandbox",
+  );
+  assert.equal(inlineSink.headers.get("Cross-Origin-Resource-Policy"), "same-origin");
   for (const [file, inline] of [
     [pdf, false],
     [fake, true],
@@ -144,6 +149,7 @@ test("inline downloads show only a real PDF inline and keep everything else an a
     await downloadFile(f.scope, file, sink, { inline });
     assert.equal(sink.headers.get("Content-Type"), "application/octet-stream");
     assert.match(sink.headers.get("Content-Disposition"), /^attachment;/);
+    assert.equal(sink.headers.get("Content-Security-Policy"), undefined);
   }
 });
 
@@ -152,5 +158,21 @@ test("a PDF preview carries no content and a text file named .pdf is not one", a
     pdf = path.join(f.home, "doc.pdf");
   await fs.writeFile(pdf, "%PDF-1.7\nbody");
   const { preview } = await import("../../server/features/files/file-reading.js");
-  assert.deepEqual(await preview(f.scope, pdf), { path: pdf, type: "pdf" });
+  const binary = path.join(f.home, "real.pdf");
+  await fs.writeFile(
+    binary,
+    Buffer.concat([Buffer.from("%PDF-1.7\n%"), Buffer.from([0xe2, 0xe3, 0xcf, 0xd3, 0])]),
+  );
+  assert.deepEqual(await preview(f.scope, binary), { path: binary, type: "pdf" });
+  // Plain text that merely starts like a PDF, or a text file named .pdf, stays text.
+  assert.equal((await preview(f.scope, pdf)).type, "text");
+  const named = path.join(f.home, "notes.pdf");
+  await fs.writeFile(named, "just notes");
+  assert.deepEqual(await preview(f.scope, named), {
+    path: named,
+    type: "text",
+    text: "just notes",
+  });
+  const legacy = await preview(f.scope, binary, { legacy: true }).catch((error) => error);
+  assert.equal(legacy.code, "FILE_UNSUPPORTED_TYPE");
 });
