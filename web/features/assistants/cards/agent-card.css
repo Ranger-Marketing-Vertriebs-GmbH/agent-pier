@@ -100,7 +100,7 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
 }
-.agent-card-table tr:last-child td {
+.agent-card-table tbody tr:last-child td {
   border-bottom: 0;
 }
 .agent-card-row-action {
