@@ -18,6 +18,9 @@ import api from "../../lib/api.js";
 import { routePath } from "../../app/routes.js";
 import { names, statusLabels } from "../../lib/providers.js";
 import Icon from "../../components/Icon.jsx";
+import useMediaQuery from "../../lib/useMediaQuery.js";
+import { mediaQueries } from "../../lib/breakpoints.js";
+import { RowMenu, useRowMenu } from "../extensions/RowMenu.jsx";
 import ProviderMark from "../../components/ProviderMark.jsx";
 import { routeLabel } from "../provider-connections/route-label.js";
 import ChatView from "../chat/ChatView.jsx";
@@ -68,6 +71,9 @@ export default function SessionWorkspace({
   pane = null,
 }) {
   const [artifactsOpen, setArtifactsOpen] = useState(false);
+  // On a phone the session's actions share one More menu, so the header never overflows.
+  const phone = useMediaQuery(mediaQueries.phone);
+  const actionsMenu = useRowMenu();
   const [connection, setConnection] = useState("connecting");
   const coding = session.tool !== "shell";
   // The tab badge follows the summary; the diff is read only once the tab is open.
@@ -169,7 +175,7 @@ export default function SessionWorkspace({
             </div>
           </div>
           <div className="session-actions">
-            {reloadItem && <ActionButton item={reloadItem} />}
+            {!phone && reloadItem && <ActionButton item={reloadItem} />}
             {coding && (
               <Suspense>
                 <SessionPreviews sessionId={session.id} />
@@ -193,11 +199,35 @@ export default function SessionWorkspace({
                 )}
               </details>
             )}
-            {actions.items
-              .filter((item) => item !== reloadItem)
-              .map((item) => (
-                <ActionButton key={item.id} item={item} />
-              ))}
+            {!phone &&
+              actions.items
+                .filter((item) => item !== reloadItem)
+                .map((item) => <ActionButton key={item.id} item={item} />)}
+            {phone && (
+              <>
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label={commonCopy.moreActions}
+                  aria-haspopup="menu"
+                  aria-expanded={actionsMenu.open}
+                  onClick={actionsMenu.toggle}
+                >
+                  <Icon name="more" />
+                </button>
+                <RowMenu
+                  label={commonCopy.moreActions}
+                  state={actionsMenu}
+                  items={actions.items.map(({ id, label, run, disabled }) => ({
+                    id,
+                    label,
+                    disabled,
+                    danger: id === "stop" || id === "remove",
+                    run: () => run(),
+                  }))}
+                />
+              </>
+            )}
           </div>
         </header>
       )}
