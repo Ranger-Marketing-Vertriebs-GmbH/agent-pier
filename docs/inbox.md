@@ -129,6 +129,17 @@ Some requests need no card at all. The list lives in one constant,
 `DEFAULT_ALLOWED` in `server/features/requests/cli-approval-defaults.js`:
 
 - the Claude Code tools `EnterWorktree` and `ExitWorktree`;
+- in a Claude Code session started with AgentBus, the two AgentBus tools that only
+  read: `peers_list` and `inbox_read`, under the full names Claude Code gives the
+  tools of AgentPier's plugin
+  (`mcp__plugin_agentpier-agentbus_agentpier_agentbus__peers_list` and
+  `…__inbox_read`). The name is compared whole, so `peer_send` still asks, and so
+  does a tool of the same short name from another MCP server
+  (`mcp__other__inbox_read`) or in a session without AgentBus. The name is what
+  Claude Code reports, not proof of where a tool comes from: a plugin and server
+  configured under the same two names would be answered the same way. Codex
+  approves MCP tools in its own terminal, and OpenCode's AgentBus tools are not on
+  the list;
 - read-only git in a repository of the project: `git status`, `log`, `diff`, `show`,
   `rev-parse`, `fetch` and `git branch` when it only lists branches, optionally after
   `-C <dir>`. Each subcommand has a list of the options that only choose what is

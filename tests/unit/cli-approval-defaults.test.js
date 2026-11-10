@@ -7,6 +7,7 @@ import {
 import {
   DEFAULT_ALLOWED,
   defaultSegments,
+  defaultClaudeTool,
   printScript,
   substitution,
 } from "../../server/features/requests/cli-approval-defaults.js";
@@ -109,6 +110,60 @@ test("the default list is one frozen constant", () => {
   assert.equal(Object.isFrozen(DEFAULT_ALLOWED), true);
   assert.deepEqual(DEFAULT_ALLOWED.claudeTools, ["EnterWorktree", "ExitWorktree"]);
   assert.equal(DEFAULT_ALLOWED.gitSubcommands.includes("push"), false);
+});
+
+test("the AgentBus tools that only read are default-allowed for Claude with AgentBus", () => {
+  const prefix = "mcp__plugin_agentpier-agentbus_agentpier_agentbus__";
+  // The names a real Claude Code reports for the plugin AgentPier passes.
+  assert.deepEqual(DEFAULT_ALLOWED.claudeAgentBusTools, [
+    prefix + "peers_list",
+    prefix + "inbox_read",
+  ]);
+  assert.equal(Object.isFrozen(DEFAULT_ALLOWED.claudeAgentBusTools), true);
+  const withBus = { agentBus: true };
+  for (const name of ["peers_list", "inbox_read"]) {
+    assert.equal(defaultClaudeTool(prefix + name, withBus), true, name);
+    // A session started without AgentBus has no such plugin of AgentPier's.
+    assert.equal(defaultClaudeTool(prefix + name), false, name);
+    assert.equal(defaultClaudeTool(prefix + name, { agentBus: "yes" }), false);
+  }
+  for (const name of [
+    prefix + "peer_send",
+    "mcp__other__inbox_read",
+    "mcp__plugin_agentpier-agentbus_other__inbox_read",
+    "mcp__plugin_other_agentpier_agentbus__inbox_read",
+    "mcp__agentpier_agentbus__inbox_read",
+    "agentpier_agentbus_inbox_read",
+    "inbox_read",
+    "peers_list",
+    prefix + "inbox_read_all",
+    prefix + "inbox_read ",
+    "x" + prefix + "inbox_read",
+    prefix,
+    prefix.toUpperCase() + "inbox_read",
+    "",
+    undefined,
+    ["EnterWorktree"],
+  ])
+    assert.equal(defaultClaudeTool(name, withBus), false, String(name));
+  assert.equal(defaultClaudeTool("EnterWorktree"), true);
+  assert.equal(defaultClaudeTool("ExitWorktree", withBus), true);
+});
+
+test("the default list names AgentBus as its Claude plugin registers it", async () => {
+  const names = await import("../../server/features/agentbus/agentbus-names.js");
+  const { toolsFor } = await import("../../vendor/agentbus/agentpier/runtime.js");
+  const tools = toolsFor({ h: "/nowhere", launch: { tool: "claude" } }).map(
+    (tool) => tool.name,
+  );
+  // Every tool on the list is one the AgentBus server offers.
+  for (const tool of names.agentBusReadTools) assert.equal(tools.includes(tool), true);
+  assert.equal(names.agentBusReadTools.includes("peer_send"), false);
+  assert.equal(tools.includes("peer_send"), true);
+  assert.equal(
+    names.claudeAgentBusTool("inbox_read"),
+    `mcp__plugin_${names.agentBusPluginName}_${names.agentBusServerName}__inbox_read`,
+  );
 });
 
 test("sed scripts from the CLI are checked in linear time", () => {
