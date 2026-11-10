@@ -1,5 +1,6 @@
 import path from "node:path";
 import { execFile } from "node:child_process";
+import { safeGitArgs } from "../../lib/git-command.js";
 
 const urlForm = /^([a-z][a-z0-9+.-]*:\/\/)([^/?#]*@)?([^?#]*)/i;
 const scpForm = /^([^@/]*)@([^/:]+:.*)$/;
@@ -74,7 +75,7 @@ export class GitRemotes {
     return new Promise((resolve) => {
       execFile(
         this.git,
-        ["-C", cwd, "remote", "get-url", "origin"],
+        safeGitArgs(["-C", cwd, "remote", "get-url", "origin"]),
         { env, timeout: this.timeoutMs, maxBuffer: 16384, encoding: "utf8" },
         (error, stdout) => resolve(error ? "" : publicRemote(stdout.split("\n")[0])),
       );

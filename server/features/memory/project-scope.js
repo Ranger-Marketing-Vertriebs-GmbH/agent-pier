@@ -6,6 +6,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { failure } from "./memory-validation.js";
 import { gitMessageEnvironment } from "../../lib/git-locale.js";
+import { safeGitArgs } from "../../lib/git-command.js";
 const execute = promisify(execFile);
 
 // Where registered projects are looked up (one per open ProjectMemory).
@@ -100,14 +101,14 @@ export async function projectScope(cwd, options = {}) {
     });
     const result = await execute(
       "git",
-      [
+      safeGitArgs([
         "-C",
         canonical,
         "rev-parse",
         "--path-format=absolute",
         "--git-common-dir",
         "--show-toplevel",
-      ],
+      ]),
       { env, timeout: 3000, maxBuffer: 16384, encoding: "utf8" },
     );
     const values = result.stdout.trimEnd().split("\n");
