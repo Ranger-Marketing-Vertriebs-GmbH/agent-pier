@@ -37,6 +37,7 @@ import * as codexBinding from "./codex/binding.js";
 import * as claudeBinding from "./claude/binding.js";
 import * as opencodeBinding from "./opencode/binding.js";
 import * as codexSandbox from "./codex/sandbox.js";
+import * as claudeSandbox from "./claude/sandbox.js";
 
 const profiles = { codex, claude, opencode };
 const sessions = {
@@ -74,8 +75,8 @@ const bindings = {
   claude: claudeBinding,
   opencode: opencodeBinding,
 };
-// What a launch needs inside a nono sandbox; the other CLIs need nothing of their own.
-const sandboxes = { codex: codexSandbox };
+// What a launch needs inside a nono sandbox; OpenCode needs nothing of its own.
+const sandboxes = { codex: codexSandbox, claude: claudeSandbox };
 // Freezes copies of plain objects and arrays; regular expressions stay as they are. A
 // member is therefore not the module's own export: later changes to that export do not
 // reach the driver (no module changes its exports today).
@@ -102,7 +103,7 @@ const drivers = new Map();
  *   storeApiKey(root, apiKey, { providerSelected }), args(), pin(launch, profileDir) }:
  *   a managed account's credential stores.
  * sandboxLaunch?(launch): the launch with what the CLI needs inside a nono sandbox
- *   (Codex's CA file on macOS); absent for the other CLIs.
+ *   (Codex's CA file on macOS, Claude Code's socket folder); absent for OpenCode.
  * grantDirectory(launch, directory, { reload, ensure, profile, accountDirectory }):
  *   grants the chat attachment folder (`--add-dir`, Codex's sandbox, or OpenCode's
  *   profile reference); returns whether it did.

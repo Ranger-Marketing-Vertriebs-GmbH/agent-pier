@@ -76,6 +76,39 @@ function run({ launch, profile, cwd }) {
   }
 }
 
+const bindScript = `
+const net = require("node:net"), path = require("node:path");
+const file = path.join(process.argv[1], process.pid + ".sock");
+const server = net.createServer();
+server.once("error", (error) => console.log("BIND:" + error.code));
+server.listen(file, () => { console.log("BIND:ok"); server.close(); });
+`;
+
+test(
+  "a sandboxed Claude Code may bind its socket only with the folder AgentPier grants",
+  options,
+  (t) => {
+    const { profile, cwd } = workspace(t);
+    // Short, like the /tmp the CLI uses: a socket address holds about 100 bytes.
+    const temporary = fs.realpathSync(fs.mkdtempSync("/tmp/apcn-"));
+    t.after(() => fs.rmSync(temporary, { recursive: true, force: true }));
+    const directory = path.join(temporary, "cc-socks");
+    const launch = {
+      command: process.execPath,
+      args: ["-e", bindScript, directory],
+      env: { CLAUDE_CODE_TMPDIR: temporary },
+    };
+    const prepared = cliDriver("claude").sandboxLaunch(launch);
+    assert.deepEqual(prepared.sandboxGrants, [
+      { access: "socket-dir-bind", path: directory },
+    ]);
+    assert.match(run({ launch: prepared, profile, cwd }), /BIND:ok/);
+    // The control: the same folder, already created, without the grant.
+    if (process.platform === "darwin")
+      assert.match(run({ launch, profile, cwd }), /BIND:E(PERM|ACCES)/);
+  },
+);
+
 test("a sandboxed Codex can read the CA bundle its launch names", macOnly, (t) => {
   const { profile, cwd } = workspace(t);
   const launch = cliDriver("codex").sandboxLaunch({
