@@ -283,6 +283,7 @@ export default function ChatView({
             session={session}
             restored={restored}
             openFile={openFile}
+            liveStatus={liveStatus}
           />
           {data &&
             !resetStatus &&

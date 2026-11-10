@@ -2,9 +2,10 @@
 // AgentPier copies this file into a per-launch plugin folder and loads it with
 // `--plugin-dir`; it runs inside Claude Code's mod runtime (no Node, no DOM): every
 // outside effect goes through `$`. It reports the session's turns, token-level reply
-// text, tool calls, subagents, compactions and whether a prompt typed at the composer
-// entered or a hook dropped it to AgentPier over the request broker's
-// private Unix socket (server/features/claude-mod/claude-mod-socket.js).
+// text, tool calls (from the moment the model begins one), subagents, compactions
+// and whether a prompt typed at the composer entered or a hook dropped it to
+// AgentPier over the request broker's private Unix socket
+// (server/features/claude-mod/claude-mod-socket.js).
 //
 // It never changes what Claude Code does: every hook passes the event on unchanged,
 // chunks are forwarded the moment they arrive, and reports are buffered and sent
@@ -121,6 +122,22 @@ export class Bridge {
         // Thinking is shown as a state only; its text never leaves Claude Code.
         turn.thinking = `${index}:${chunk.index}`;
         this.push({ type: "phase", turn: turn.id, phase: "thinking" });
+      } else if (
+        chunk?.kind === "tool" &&
+        typeof chunk.id === "string" &&
+        typeof chunk.name === "string" &&
+        Number.isInteger(chunk.index)
+      ) {
+        // The model begins a tool call; its input streams next and never leaves.
+        this.push({
+          type: "tool.prepare",
+          turn: turn.id,
+          step: index,
+          block: chunk.index,
+          id: chunk.id,
+          name: chunk.name.slice(0, 120),
+        });
+        this.flushSoon();
       } else if (chunk?.kind === "stop") this.flushSoon();
     };
   }

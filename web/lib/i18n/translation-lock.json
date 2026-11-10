@@ -2808,6 +2808,8 @@
   "chat-observability:chatObservabilityCopy.limits": "de:e72f80e69bcf en:6ed021f7e822",
   "chat-observability:chatObservabilityCopy.liveAgents": "de:9e34f0fec56c en:6806520568c6",
   "chat-observability:chatObservabilityCopy.liveCompacting": "de:c9fbc78133ee en:3fa820e272ca",
+  "chat-observability:chatObservabilityCopy.livePreparing": "de:b2e383c31eb8 en:7a9cd1c3a881",
+  "chat-observability:chatObservabilityCopy.livePreparingLine": "de:6be46e9ec1b8 en:9c77d0c69070",
   "chat-observability:chatObservabilityCopy.liveThinking": "de:055cba295795 en:a20d12c5e9c4",
   "chat-observability:chatObservabilityCopy.liveTool": "de:cb837a73888d en:bcb7ffe6c95b",
   "chat-observability:chatObservabilityCopy.nativeLimit": "de:b753c23c90cd en:a2084fda2f66",

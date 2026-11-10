@@ -119,4 +119,45 @@ for (const viewport of viewports)
       await expect(detail).toHaveCount(0);
       await expect(activity).toContainText("Ready");
     });
+    test("a tool call the model is writing shows instead of writing …", async ({
+      page,
+    }) => {
+      const chat = await chatFixture(page);
+      const detail = page.locator(".chat-activity-detail");
+      const preparing = page.locator(".chat-live-preparing");
+      const status = (value) =>
+        chat.frame({ type: "live-status", status: { at: Date.now(), ...value } });
+      const run = `claude-mod-${TURN}-0-0`;
+      status({ state: "working" });
+      chat.frame({
+        type: "stream",
+        runId: run,
+        from: 0,
+        text: "I'll ask a subagent.",
+        turn: TURN,
+        order: 0,
+      });
+      const bubble = page.locator(".chat-message.assistant", {
+        hasText: "I'll ask a subagent.",
+      });
+      await expect(bubble).toContainText("writing …");
+      // The model begins an Agent call: its text run ends, the name shows.
+      status({ state: "working", preparing: "Agent" });
+      chat.frame({ type: "stream-end", runId: run });
+      await expect(detail).toHaveText("Preparing Agent");
+      await expect(preparing).toHaveText("preparing Agent …");
+      await expect(preparing).toHaveAttribute("role", "status");
+      await expect(bubble).not.toContainText("writing …");
+      await expect(page.getByText("writing …")).toHaveCount(0);
+      const box = await preparing.boundingBox();
+      expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+      // The transcript takes the text over: shown once.
+      chat.sync([{ id: "msg_01:1", role: "assistant", text: "I'll ask a subagent." }]);
+      await expect(page.getByText("I'll ask a subagent.")).toHaveCount(1);
+      status({ state: "working", preparing: "mcp__plane__plane_search" });
+      await expect(preparing).toHaveText("preparing plane__plane_search …");
+      status({ state: "working", tool: "Agent", tools: 1 });
+      await expect(preparing).toHaveCount(0);
+      await expect(detail).toHaveText("Running Agent");
+    });
   });

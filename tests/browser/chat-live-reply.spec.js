@@ -190,9 +190,13 @@ for (const viewport of viewports)
         turn: "msg_1",
       });
       await expect(live).toContainText("Thinking aloud");
-      // The transcript does not have it yet: the ended bubble stays a moment.
+      // The transcript does not have it yet: the ended bubble stays a moment, no
+      // longer claiming to be written.
+      const ended = page.locator('.chat-message[data-message-id="stream:prt_1"]');
       chat.frame({ type: "stream-end", runId: "prt_1" });
-      await expect(live).toHaveCount(1);
-      await expect(live).toHaveCount(0, { timeout: 8000 });
+      await expect(live).toHaveCount(0);
+      await expect(ended).toHaveCount(1);
+      await expect(ended).not.toContainText("writing …");
+      await expect(ended).toHaveCount(0, { timeout: 8000 });
     });
   });
