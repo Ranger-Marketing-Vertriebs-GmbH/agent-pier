@@ -9,15 +9,19 @@ import { shellSegments } from "../../server/features/requests/shell-command.js";
 
 // The words `shellSegments` reads must be the words the shell passes. Command lines
 // are generated from plain words, quotes, escapes, line continuations and the
-// separators the tokenizer accepts; every command name is one of two shell
-// functions that only print their arguments, so nothing generated is executed.
-// The functions write to descriptor 3, which pipes and `>/dev/null` leave alone;
-// `f` fails so that the part after `||` runs too.
-// One printf per call, so the records of a pipeline's parts do not interleave.
-const prelude = `e=$(printf '\\036')
-p() { printf '%s\\0' "$#" "$@" "$e" >&3; }
-f() { p "$@"; return 1; }
-`;
+// separators the tokenizer accepts; every command name is a shell function that
+// only prints its arguments, so nothing generated is executed. Each part of a line
+// has a function of its own (`p1`, `p2`, …) that writes one file: the parts of a
+// pipeline run at the same time, and into a shared file bash writes an argument
+// with a line break in two pieces that another part's output can land between.
+// `f1`, `f2`, … fail so that the part after `||` runs too.
+const maxParts = 4;
+const prelude = Array.from(
+  { length: maxParts },
+  (_, i) =>
+    `p${i + 1}() { printf '%s\\0' "$#" "$@" > r${i + 1}; }\n` +
+    `f${i + 1}() { p${i + 1} "$@"; return 1; }\n`,
+).join("");
 const shells = [
   ["bash", ["--noprofile", "--norc"]],
   ["zsh", ["-f"]],
@@ -71,52 +75,68 @@ const segment = fc.tuple(
 );
 const line = fc
   .tuple(
-    run(segment, 4),
+    run(segment, maxParts),
     fc.array(fc.constantFrom(" ; ", " && ", " || ", " | ", "\n", ";"), {
-      minLength: 4,
-      maxLength: 4,
+      minLength: maxParts,
+      maxLength: maxParts,
     }),
   )
   .map(([segments, operators]) =>
     segments
       .map(([words, gap, redirect], i) => {
         const last = i === segments.length - 1;
-        const name = !last && operators[i] === " || " ? "f" : "p";
+        const name = `${!last && operators[i] === " || " ? "f" : "p"}${i + 1}`;
         return [name, ...words].join(gap) + redirect + (last ? "" : operators[i]);
       })
       .join(""),
   );
 
-const sorted = (lists) => lists.map((words) => JSON.stringify(words)).sort();
+/** The arguments each part of `command` received in `shell`, in the order of the parts. */
+function passedBy([shell, options], directory, command) {
+  for (let i = 1; i <= maxParts; i++)
+    fs.rmSync(path.join(directory, `r${i}`), { force: true });
+  const result = spawnSync(shell, [...options, "-c", prelude + command], {
+    cwd: directory,
+    stdio: ["ignore", "ignore", "pipe"],
+    encoding: "utf8",
+    timeout: 10_000,
+  });
+  assert.equal(result.status === 0 || result.status === 1, true, result.stderr);
+  assert.equal(result.stderr, "", JSON.stringify(command));
+  const passed = [];
+  for (let i = 1; i <= maxParts; i++) {
+    const file = path.join(directory, `r${i}`);
+    if (!fs.existsSync(file)) break;
+    passed.push(fs.readFileSync(file, "utf8").split("\0").slice(1, -1));
+  }
+  return passed;
+}
+const read = (command) => shellSegments(command)?.map((words) => words.slice(1));
 
-for (const [shell, options] of shells)
-  test(`${shell} passes exactly the words the tokenizer reads`, (t) => {
+// A line CI found: two parts of a pipeline, one with a line break in an argument.
+const fixed = [
+  'p1 \\*az@/ >/dev/null | p2\t\\\n\'\'\'\n|\'\tb-a9"\\"{""a\\"\\a\\*#"">(~\\\\ \\n"\t\\\nya9 2>/dev/null',
+  "p1 'a\nb' | p2 \"c\nd\" | p3 '\n'",
+];
+
+for (const shell of shells)
+  test(`${shell[0]} passes exactly the words the tokenizer reads`, (t) => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-words-"));
     t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-    const output = path.join(directory, "out");
+    for (const command of fixed) {
+      assert.ok(read(command), JSON.stringify(command));
+      // Often enough to meet the moment in which the parts of a pipeline overlap.
+      for (let i = 0; i < 50; i++)
+        assert.deepEqual(passedBy(shell, directory, command), read(command), command);
+    }
     let compared = 0;
     fc.assert(
       fc.property(line, (command) => {
-        const segments = shellSegments(command);
-        if (!segments) return;
-        const fd = fs.openSync(output, "w");
-        const result = spawnSync(shell, [...options, "-c", prelude + command], {
-          cwd: directory,
-          stdio: ["ignore", "ignore", "pipe", fd],
-          encoding: "utf8",
-          timeout: 10_000,
-        });
-        fs.closeSync(fd);
-        assert.equal(result.status === 0 || result.status === 1, true, result.stderr);
-        assert.equal(result.stderr, "", JSON.stringify(command));
-        const passed = fs
-          .readFileSync(output, "utf8")
-          .split("\x1e\0")
-          .slice(0, -1)
-          .map((record) => record.split("\0").slice(1, -1));
+        const expected = read(command);
+        if (!expected) return;
         assert.deepEqual(
-          sorted(passed),
-          sorted(segments.map((words) => words.slice(1))),
+          passedBy(shell, directory, command),
+          expected,
           JSON.stringify(command),
         );
         compared++;
