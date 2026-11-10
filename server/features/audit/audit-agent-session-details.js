@@ -1,7 +1,7 @@
 // An agent's coding sessions (assistants/coding-sessions/): which agent did what to
 // a session it started. Ids, enums and flags only; never a prompt, a reply, an
 // answer, a note or a launch option's text.
-const ops = ["start", "send", "answer", "escalate", "stop", "worktree-remove"];
+const ops = ["start", "send", "answer", "escalate", "stop", "delete", "worktree-remove"];
 // A send: its delivery and what ChatDelivery answered.
 // "hook-blocked" is a rejection by a CLI hook (the MCP answer says "rejected").
 const deliveryStatuses = [
