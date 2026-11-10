@@ -2,17 +2,20 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { craftStacks } from "./craft-stacks.js";
+import { pictureLimits } from "./rebuild-pictures.js";
+import { sessionPictureReader, stagePictures } from "./caller-pictures.js";
 
 export const craftInstruction =
   "`craft_rebuild_start` starts a Craft Anything rebuild that runs inside AgentPier; the owner answers its questions there and follows it at the returned link. Poll `craft_rebuild_status` sparingly.";
 
 export const craftTools = {
   craft_rebuild_start: {
-    description: `Start a Craft Anything rebuild of an app, a website or a file in AgentPier. Give a request and optionally a target (a web address or an absolute path) and a stack (one of: ${craftStacks.join(", ")}). Reuse requestId when you retry the same start; it returns the same rebuild. ${craftInstruction}`,
+    description: `Start a Craft Anything rebuild of an app, a website or a file in AgentPier. Give a request and optionally a target (a web address or an absolute path), a stack (one of: ${craftStacks.join(", ")}) and pictures: up to ${pictureLimits.count} screenshots or photos of the original (PNG, JPEG, WebP or GIF, at most 20 MB each), as paths inside this session's working folder, which show the look the owner expects. Pictures without a target rebuild from the pictures alone. Reuse requestId when you retry the same start; it returns the same rebuild. ${craftInstruction}`,
     schema: z.strictObject({
       request: z.string().min(1).max(8000),
       target: z.string().max(2048).optional(),
       stack: z.string().max(100).optional(),
+      pictures: z.array(z.string().min(1).max(4096)).max(pictureLimits.count).optional(),
       requestId: z.string().min(1).max(100),
     }),
     readOnly: false,
@@ -64,6 +67,22 @@ function sessionRequestId(sessionId, { requestId }) {
   return `${String(sessionId).slice(0, 100)}:${createHash("sha256").update(key).digest("hex")}`;
 }
 
+/**
+ * The session's pictures, staged (rebuild-pictures.js): only files of its own working
+ * folder, read like an agent's shared file (caller-pictures.js), so a session hands
+ * Craft Anything nothing it could not read itself.
+ */
+async function sessionPictures(services, sessionId, paths) {
+  if (!paths?.length) return [];
+  const session = await services.sessions.get(sessionId);
+  const { dataDir } = services.config;
+  return stagePictures(
+    services.craftRebuilds.pictures,
+    paths,
+    sessionPictureReader(session.cwd, dataDir),
+  );
+}
+
 export async function callCraftTool(services, name, input, context) {
   // The grant is checked on every call: a revoked session starts nothing more.
   const unavailable = () =>
@@ -89,15 +108,24 @@ export async function callCraftTool(services, name, input, context) {
       throw craftError("CRAFT_REBUILD_NOT_FOUND", messages.rebuildNotFound, 404);
     return statusView(rebuild);
   }
-  let started;
+  const { pictures: paths, ...fields } = parsed.data;
+  let started, pictures;
   try {
+    pictures = await sessionPictures(services, context.sessionId, paths);
+    revalidate();
     started = await services.craftRebuilds.start(
-      { ...parsed.data, requestId: sessionRequestId(context.sessionId, parsed.data) },
+      {
+        ...fields,
+        ...(pictures.length && { pictures }),
+        requestId: sessionRequestId(context.sessionId, parsed.data),
+      },
       { source: "session" },
     );
   } catch (error) {
     if (error.status) error.code ??= "CRAFT_REBUILD_REFUSED";
     throw error;
+  } finally {
+    services.craftRebuilds.pictures?.release(pictures);
   }
   revalidate();
   return {

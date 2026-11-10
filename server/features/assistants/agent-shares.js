@@ -55,6 +55,57 @@ export const shareNotes = {
 export const shareNote = (conversation) =>
   conversation?.userId ? shareNotes.user : shareNotes.owner;
 
+// On a shared agent a turn reads only its own chat's uploads (attachment-access.js),
+// and never OpenClaw's inbound media.
+function admitChatFile(assistants, agent, conversation, relative) {
+  const file = chatFile(relative);
+  if (
+    file !== null &&
+    !attachmentsAllowed(assistants.store, agent, conversation.id, [file])
+  )
+    throw assistantProblem("shareNotFound", 404);
+}
+
+/**
+ * Reads a file the turn may hand on (`input`: `{ path, projectId? }`): from a project
+ * folder the turn may read, else from the agent's own workspace or, for a Hermes
+ * agent, this chat's file folder by absolute path; on a shared agent only this chat's
+ * uploads and never OpenClaw's inbound media. `{ name, body, identity }` within
+ * `maxBytes` (agent-share-source.js readShareSource). agentpier_share_file and the
+ * pictures of agentpier_craft read through it.
+ */
+export async function readTurnFile(
+  assistants,
+  invocation,
+  agent,
+  conversation,
+  input,
+  { maxBytes } = {},
+) {
+  const limit = maxBytes ? { maxBytes } : {};
+  if (input.projectId) {
+    const { roots, relative, refuseDirs } = projectShareTarget(assistants, agent, input, {
+      invocation,
+      conversation,
+    });
+    return readShareSource(roots, relative, { refuseDirs, ...limit });
+  }
+  const config = assistants.attachments.config;
+  const admit = (relative) => admitChatFile(assistants, agent, conversation, relative);
+  return readShareSource(
+    [
+      ...shareRoots(config?.workspaces, agent),
+      // A Hermes agent's uploads of this chat, by absolute path.
+      ...(keepsChatFolders(agent)
+        ? [chatFolderPath(config, agent.id, conversation.id)]
+        : []
+      ).filter(Boolean),
+    ],
+    input.path,
+    { admit, ...limit },
+  );
+}
+
 export class AgentShares {
   constructor({ assistants, channels = null }) {
     Object.assign(this, { assistants, channels });
@@ -83,20 +134,7 @@ export class AgentShares {
     if (agent.archivedAt) throw assistantProblem("invalid", 403);
     const { path: image = null, ...source } = input.generated
       ? await keepGeneratedImage(a, agent, conversation, input.generated)
-      : input.projectId
-        ? await this.projectSource(invocation, agent, conversation, input)
-        : await readShareSource(
-            [
-              ...shareRoots(a.attachments.config?.workspaces, agent),
-              // A Hermes agent's uploads of this chat, by absolute path.
-              ...(keepsChatFolders(agent)
-                ? [chatFolderPath(a.attachments.config, agent.id, conversation.id)]
-                : []
-              ).filter(Boolean),
-            ],
-            input.path,
-            { admit: (relative) => this.admit(agent, conversation, relative) },
-          );
+      : await readTurnFile(a, invocation, agent, conversation, input);
     invocation.assertCurrent();
     const caption = (input.caption || "").trim();
     const file = await a.attachments.share({
@@ -119,25 +157,8 @@ export class AgentShares {
       note: shareNote(conversation),
     };
   }
-  // A file in a granted project folder, resolved inside it, then read like any share.
-  async projectSource(invocation, agent, conversation, input) {
-    const { roots, relative, refuseDirs } = projectShareTarget(
-      this.assistants,
-      agent,
-      input,
-      { invocation, conversation },
-    );
-    return readShareSource(roots, relative, { refuseDirs });
-  }
-  // On a shared agent a turn shares only its own chat's uploads (attachment-access.js),
-  // and never OpenClaw's inbound media.
   admit(agent, conversation, relative) {
-    const file = chatFile(relative);
-    if (
-      file !== null &&
-      !attachmentsAllowed(this.assistants.store, agent, conversation.id, [file])
-    )
-      throw assistantProblem("shareNotFound", 404);
+    admitChatFile(this.assistants, agent, conversation, relative);
   }
   // The chat, request key and trusted origin of the calling turn.
   turn(invocation) {

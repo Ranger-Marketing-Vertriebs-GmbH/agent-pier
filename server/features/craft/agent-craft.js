@@ -4,10 +4,31 @@ import { exact } from "../assistants/assistant-access.js";
 import { assistantProblem } from "../assistants/assistant-validation.js";
 import { projectTurn } from "../assistants/agent-projects.js";
 import { loopGuard } from "../assistants/agent-loop-guard.js";
+import { readTurnFile } from "../assistants/agent-shares.js";
 import { statusView } from "./craft-mcp-tools.js";
+import { pictureProblem, stagePictures } from "./caller-pictures.js";
+import { pictureLimits } from "./rebuild-pictures.js";
 
 const messages = serverMessages.craft;
 const source = "agent";
+
+/** The pictures of a start: `[{ path, projectId? }]`, at most pictureLimits.count. */
+function pictureList(value) {
+  if (value === undefined) return [];
+  const entry = (item) =>
+    item &&
+    typeof item === "object" &&
+    !Array.isArray(item) &&
+    Object.keys(item).every((key) => ["path", "projectId"].includes(key)) &&
+    typeof item.path === "string" &&
+    !!item.path &&
+    item.path.length <= 4096 &&
+    (item.projectId === undefined ||
+      (typeof item.projectId === "string" && item.projectId.length <= 100));
+  if (!Array.isArray(value) || value.length > pictureLimits.count || !value.every(entry))
+    throw pictureProblem("CRAFT_PICTURE_INVALID", messages.rebuildPicturesInvalid, 400);
+  return value;
+}
 
 /** Whether agents may start rebuilds: Craft Anything is installed and supervised. */
 export const craftAvailable = (services) =>
@@ -17,10 +38,10 @@ export const craftAvailable = (services) =>
 const craftProblem = (code, message, status) =>
   Object.assign(new Error(message), { code, status });
 
-// A refusal of the supervisor: a keyed problem (the project folder) keeps its own
-// code, an invalid input or another refusal says why.
+// A refusal of the supervisor: a keyed problem (the project folder) and a picture
+// problem keep their own code, an invalid input or another refusal says why.
 function refusal(error) {
-  if (error?.key) return error;
+  if (error?.key || /^CRAFT_PICTURE_/.test(error?.code ?? "")) return error;
   if (error?.status === 400)
     return craftProblem("CRAFT_REBUILD_INVALID_INPUT", error.message, 400);
   return craftProblem(
@@ -52,7 +73,11 @@ function auditStart(services, agent, view) {
  * the owner's own chat, never a routine's or a hook's run, forwarded or member
  * content, no Telegram bot for other people) starts a Craft Anything rebuild with
  * the owner's defaults (source "agent": request, target and stack only) and reads the
- * status of the rebuilds it started. A retried call (same attempt and tool call)
+ * status of the rebuilds it started. Its `pictures` (`{ path, projectId? }`) are files
+ * the turn may already read, as agentpier_share_file reads them (agent-shares.js
+ * readTurnFile: a project folder the turn may read, its own workspace, a Hermes
+ * agent's chat files, on a shared agent only this chat's uploads), staged as copies
+ * checked by their bytes (caller-pictures.js). A retried call (same attempt and tool call)
  * returns the rebuild its first call started. The agent never sees a question's
  * details: the owner answers them in AgentPier.
  */
@@ -66,7 +91,7 @@ export class AgentCraft {
 
   async invoke(inv, input) {
     inv.assertCurrent();
-    const { agent } = projectTurn(this.w, inv);
+    const { agent, conversation } = projectTurn(this.w, inv);
     if (!craftAvailable(this.w.s))
       throw craftProblem("CRAFT_NOT_INSTALLED", messages.notInstalled, 409);
     if (input?.action === "status") {
@@ -75,8 +100,8 @@ export class AgentCraft {
       return this.status(agent, input.id);
     }
     if (input?.action === "start") {
-      exact(input, ["action", "request", "target", "stack"]);
-      return this.start(inv, agent, input);
+      exact(input, ["action", "request", "target", "stack", "pictures"]);
+      return this.start(inv, { agent, conversation }, input);
     }
     throw assistantProblem("invalid");
   }
@@ -91,12 +116,13 @@ export class AgentCraft {
     return `${agent.id}:${call}`;
   }
 
-  start(inv, agent, input) {
+  start(inv, turn, input) {
+    const { agent } = turn;
     const requestId = this.requestId(agent, inv);
     const known = requestId && this.w.s.craftRebuilds.startedWith(source, requestId);
     if (known) return statusView(known);
     if (requestId && this.starting.has(requestId)) return this.starting.get(requestId);
-    const work = this.begin(inv, agent, input, requestId);
+    const work = this.begin(inv, turn, input, requestId);
     if (requestId) {
       this.starting.set(requestId, work);
       work.then(
@@ -107,17 +133,28 @@ export class AgentCraft {
     return work;
   }
 
-  async begin(inv, agent, { request, target, stack }, requestId) {
+  async begin(inv, { agent, conversation }, input, requestId) {
+    const { request, target, stack } = input;
+    const list = pictureList(input.pictures);
     loopGuard(this.w.a.store).take(agent.id);
     inv.assertCurrent();
-    let started;
+    const rebuilds = this.w.s.craftRebuilds;
+    let started, pictures;
     try {
-      started = await this.w.s.craftRebuilds.start(
-        { request, target, stack, requestId },
+      pictures = await stagePictures(rebuilds.pictures, list, (entry) =>
+        readTurnFile(this.w.a, inv, agent, conversation, entry, {
+          maxBytes: pictureLimits.maxBytes,
+        }),
+      );
+      inv.assertCurrent();
+      started = await rebuilds.start(
+        { request, target, stack, ...(pictures.length && { pictures }), requestId },
         { source },
       );
     } catch (error) {
       throw refusal(error);
+    } finally {
+      rebuilds.pictures?.release(pictures);
     }
     auditStart(this.w.s, agent, started);
     return statusView(started);

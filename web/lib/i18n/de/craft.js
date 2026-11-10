@@ -1,7 +1,7 @@
 export const craftCopy = {
   title: "Nachbauten",
   description:
-    "Craft Anything untersucht eine App oder Website und baut dir deine eigene Version davon. Jeder Nachbau bekommt ein eigenes Projekt.",
+    "Craft Anything untersucht eine App, eine Website oder Screenshots davon und baut dir deine eigene Version. Jeder Nachbau bekommt ein eigenes Projekt.",
   loading: "Nachbauten werden geladen …",
   notInstalled:
     "Craft Anything ist nicht installiert. Installiere es, um Nachbauten zu starten.",
@@ -37,6 +37,7 @@ export const craftCopy = {
     targetNone: "Keins",
     targetUrl: "Webadresse",
     targetPath: "Lokaler Pfad",
+    targetPictures: "Screenshots",
     urlLabel: "Webadresse des Ziels",
     pathLabel: "Pfad des Ziels",
     stack: "Stack",
@@ -56,6 +57,19 @@ export const craftCopy = {
       "Kein Claude-Account kann bauen. Füge unter CLIs & Erweiterungen › Accounts einen eigenen Claude-Account ohne Provider hinzu.",
     submit: "Nachbau starten",
     starting: "Wird gestartet …",
+  },
+  pictures: {
+    list: "Screenshots",
+    add: "Screenshots hinzufügen",
+    choose: "Screenshots oder Fotos auswählen",
+    hint: "Screenshots oder Fotos des Produkts. Craft Anything baut nach, was sie zeigen.",
+    lookHint: "Optional: Screenshots oder Fotos des Aussehens, das du erwartest.",
+    followUpHint:
+      "Optional: Screenshots oder Fotos des gewünschten Aussehens. Sie kommen zu den Bildern des Originals.",
+    required: "Füge mindestens einen Screenshot hinzu.",
+    tooMany: (max) => `Ein Nachbau nimmt höchstens ${max} Screenshots.`,
+    tooLarge: (name) => `„${name}“ ist größer als 20 MB.`,
+    unsupported: (name) => `„${name}“ ist kein Bild im Format PNG, JPEG, WebP oder GIF.`,
   },
   defaults: {
     title: "Voreinstellungen",

@@ -35,7 +35,18 @@ export const craft = Object.freeze({
   rebuildAccountIneligible:
     "Dieses Konto kann keinen Nachbau ausführen. Wähle ein eigenes Claude-Konto ohne Provider.",
   rebuildToolInvalid:
-    "Ungültige Eingabe. Ein Nachbau braucht eine Beschreibung und eine requestId (höchstens 100 Zeichen).",
+    "Ungültige Eingabe. Ein Nachbau braucht eine Beschreibung und eine requestId (höchstens 100 Zeichen) und nimmt höchstens 10 Bilder.",
+  rebuildPicturesInvalid:
+    "Ein Nachbau nimmt höchstens 10 Bilder mit gültigem Pfad, jedes nur einmal.",
+  rebuildPictureType:
+    "Nur Bilder im Format PNG, JPEG, WebP oder GIF lassen sich hinzufügen.",
+  rebuildPictureTooLarge: "Ein Bild darf höchstens 20 MB groß sein.",
+  rebuildPicturesBusy:
+    "Zu viele Bilder warten auf einen Nachbau. Versuche es gleich noch einmal.",
+  rebuildPictureGone: "Ein Bild wartet nicht mehr. Füge die Bilder noch einmal hinzu.",
+  rebuildPictureRefused:
+    "Dieses Bild liegt außerhalb der Ordner, die hier gelesen werden dürfen. Nenne ein Bild aus deinen eigenen Ordnern.",
+  rebuildPictureNotFound: "Dieses Bild wurde nicht gefunden.",
   rebuildNotFound: "Diesen Nachbau gibt es nicht.",
   rebuildRunning: "Dieser Nachbau läuft gerade. Pausiere ihn zuerst.",
   rebuildNeverStarted:

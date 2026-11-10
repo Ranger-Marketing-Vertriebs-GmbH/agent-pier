@@ -107,8 +107,9 @@ export function craftRebuilds() {
 
 /**
  * Routes `/api/**` of `page`. Options: `installed` (Craft Anything installed),
- * `rebuilds` (the list), `language`. Returns the state: `rebuilds`, `settings` and
- * `calls` (every request the app made, `{ path, method, body }`); setting `activity`
+ * `rebuilds` (the list), `language`. Returns the state: `rebuilds`, `settings`,
+ * `pictures` (uploaded picture bytes by id) and `calls` (every request the app made,
+ * `{ path, method, body }`); setting `activity`
  * (lines) or `activityFails` changes what the activity route answers.
  */
 export async function craftRebuildsFixture(
@@ -124,6 +125,7 @@ export async function craftRebuildsFixture(
     rebuilds,
     settings: { accountId: "local-claude", mode: "clean-room", autoMode: false },
     calls: [],
+    pictures: new Map(),
   };
   const list = () => ({
     rebuilds: state.rebuilds,
@@ -143,9 +145,17 @@ export async function craftRebuildsFixture(
     const url = new URL(request.url());
     const path = url.pathname.slice(4);
     const method = request.method();
+    const json = (value, status = 200) => route.fulfill({ status, json: value });
+    // A picture's raw bytes: staged under a new id (`state.pictures`: id → bytes).
+    if (path === "/craft/pictures" && method === "POST") {
+      const bytes = request.postDataBuffer();
+      const id = (state.pictures.size + 1).toString(16).padStart(32, "0");
+      state.pictures.set(id, bytes);
+      state.calls.push({ path, method, body: { bytes: bytes.length } });
+      return json({ id, type: "image/png", bytes: bytes.length }, 201);
+    }
     const body = ["POST", "PUT"].includes(method) ? request.postDataJSON() : null;
     if (!isLiveStubRequest(request)) state.calls.push({ path, method, body });
-    const json = (value, status = 200) => route.fulfill({ status, json: value });
     if (path === "/assistant-feature") return json({ enabled: false, error: null });
     if (path === "/state")
       return json({

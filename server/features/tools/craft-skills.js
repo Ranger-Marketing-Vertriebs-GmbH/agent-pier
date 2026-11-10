@@ -11,7 +11,7 @@ export const craftSkill = "craft-anything";
 export const craftSkillRegistry = "agentpier";
 const shipped = path.join(path.dirname(fileURLToPath(import.meta.url)), "craft-skill");
 // Raise with every change to the shipped SKILL.md: the owned copies follow it.
-const craftSkillRevision = 2;
+const craftSkillRevision = 3;
 /** The owner version of the shipped skill: the pinned Craft version and its revision. */
 export const craftSkillVersion = `${craftManifest.version}+skill.${craftSkillRevision}`;
 

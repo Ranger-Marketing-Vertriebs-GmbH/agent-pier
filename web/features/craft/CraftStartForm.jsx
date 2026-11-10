@@ -6,6 +6,8 @@ import { NumberRow, SelectRow, ToggleRow } from "../../components/ListRow.jsx";
 import Segmented from "../../components/Segmented.jsx";
 import useAsyncAction from "../../lib/useAsyncAction.js";
 import { craftCopy } from "../../lib/i18n/messages/craft.js";
+import CraftPictures from "./CraftPictures.jsx";
+import useCraftPictures from "./useCraftPictures.js";
 
 // A start's retry key: the same key returns the rebuild it started, so a double click
 // or a resent request never starts twice. crypto.randomUUID needs a secure context.
@@ -23,16 +25,26 @@ export const modeOptions = () => [
 export const accountOptions = (accounts) =>
   accounts.map((account) => ({ value: account.id, label: account.name || account.id }));
 
+/** The target's Segmented options. */
+export const targetOptions = () => [
+  { value: "none", label: craftCopy.start.targetNone },
+  { value: "url", label: craftCopy.start.targetUrl },
+  { value: "path", label: craftCopy.start.targetPath },
+  { value: "pictures", label: craftCopy.start.targetPictures },
+];
+
 /**
- * The start form: what to make, the target (none, a web address or a local path),
- * stack, account, mode, auto mode and rounds, preset from the owner's defaults.
- * `onStarted(view)` hears the new rebuild.
+ * The start form: what to make, the target (none, a web address, a local path or
+ * screenshots alone), screenshots of the look for an address or a path, stack,
+ * account, mode, auto mode and rounds, preset from the owner's defaults. Pictures
+ * upload only when the form is sent. `onStarted(view)` hears the new rebuild.
  */
 export default function CraftStartForm({ data, start, onStarted }) {
   const copy = craftCopy.start;
   const id = useId();
   const action = useAsyncAction();
   const requestId = useRef(newRequestId());
+  const pictures = useCraftPictures();
   const accounts = data.accounts || [];
   const [form, setForm] = useState(() => ({
     request: "",
@@ -47,12 +59,18 @@ export default function CraftStartForm({ data, start, onStarted }) {
     rounds: 2,
   }));
   const set = (key) => (value) => setForm((held) => ({ ...held, [key]: value }));
+  const kind = form.targetKind;
+  const withPictures = kind !== "none";
   const submit = (event) => {
     event.preventDefault();
     action.run(async () => {
+      if (kind === "pictures" && !pictures.items.length)
+        throw new Error(craftCopy.pictures.required);
+      const ids = withPictures ? await pictures.upload() : [];
       const view = await start({
         request: form.request,
-        target: form.targetKind === "none" ? "-" : form.target.trim(),
+        target: kind === "none" || kind === "pictures" ? "-" : form.target.trim(),
+        ...(ids.length && { pictures: ids }),
         stack: form.stack,
         accountId: form.accountId,
         mode: form.mode,
@@ -61,6 +79,7 @@ export default function CraftStartForm({ data, start, onStarted }) {
         requestId: requestId.current,
       });
       requestId.current = newRequestId();
+      pictures.clear();
       onStarted(view);
     });
   };
@@ -90,14 +109,10 @@ export default function CraftStartForm({ data, start, onStarted }) {
               label={copy.target}
               value={form.targetKind}
               onChange={set("targetKind")}
-              options={[
-                { value: "none", label: copy.targetNone },
-                { value: "url", label: copy.targetUrl },
-                { value: "path", label: copy.targetPath },
-              ]}
+              options={targetOptions()}
             />
           </div>
-          {form.targetKind !== "none" && (
+          {(kind === "url" || kind === "path") && (
             <label className="craft-row-field">
               {targetLabel}
               <input
@@ -112,6 +127,17 @@ export default function CraftStartForm({ data, start, onStarted }) {
                 onChange={(event) => set("target")(event.target.value)}
               />
             </label>
+          )}
+          {withPictures && (
+            <CraftPictures
+              pictures={pictures}
+              hint={
+                kind === "pictures"
+                  ? craftCopy.pictures.hint
+                  : craftCopy.pictures.lookHint
+              }
+              disabled={action.busy}
+            />
           )}
           <SelectRow
             label={copy.stack}

@@ -29,8 +29,10 @@ instead; that is faster and more direct.
   `enable_toolset` to switch one on (native code, Android, Apple, web, runtime…).
 - AgentPier runs Craft Anything in restricted mode. A tool refused with `details.reason`
   `restricted_mode` (running code, frida, adb, rebuilds) cannot be enabled from a session: do not
-  look for a way around it. Tell the user which tool you wanted and why; rebuilds are started in
-  AgentPier by the user, not from a session.
+  look for a way around it. Tell the user which tool you wanted and why. Rebuilds start through
+  AgentPier instead: with its `craft_rebuild_start` tool when it is in your list (a request, an
+  optional target, and `pictures`: screenshots or photos of the original as paths in your working
+  folder, enough on their own), otherwise the user starts them on AgentPier's Rebuilds page.
 - In Clean room (the default) nothing inside a target is read: only the tools that work from
   outside are listed, and others are refused with `details.reason` `clean_room`. Tools that look
   inside a target, such as `core_target_open`, are not listed at all in Clean room. Work from
@@ -110,7 +112,7 @@ If the user says "my app" without naming it, ask which one. Never guess with an 
 | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
 | `not_found`                          | Check the path or name; in Deep mode open a target first (`core_target_open`)                                          |
 | `feature_missing` / `engine_missing` | Read the remediation; it names the toolset, engine or setting needed. If it needs a change in AgentPier, tell the user |
-| `restricted_mode`                    | Not available from a session; tell the user (rebuilds are started in AgentPier)                                        |
+| `restricted_mode`                    | Not available from a session; tell the user (rebuilds start through AgentPier)                                         |
 | `clean_room`                         | The question needs Deep mode, the owner's switch in AgentPier; tell the user                                           |
 | `over_limit`                         | The result was too big to send; page it or read it by evidence id (`evidence://<id>` resource)                         |
 | `stale_revision`                     | Re-read with `core_investigation_show`, merge, retry                                                                   |
