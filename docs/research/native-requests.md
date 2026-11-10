@@ -53,8 +53,9 @@ See the [mobile Terminal screenshot](../screenshots/claude-native-terminal-quest
 Claude caches plugin hook commands. Older AgentPier launches pinned both Node and
 the question adapter to the release that started the session. Updating the web
 server therefore left those sessions on outdated question handling. New launches
-call a private `requests/claude-hook.sh` dispatcher, atomically refreshed by the
-running broker. The hook command stays stable across subsequent server releases.
+call a private `request-runtime/claude-hook.sh` dispatcher, atomically refreshed by the
+running broker (it lay in `requests/` before, where the broker still writes it for
+sessions started earlier). The hook command stays stable across subsequent server releases.
 
 At startup, AgentPier migrates existing owned Claude plugin files and records that
 the native process still needs to load the new command. Chat displays a one-time
