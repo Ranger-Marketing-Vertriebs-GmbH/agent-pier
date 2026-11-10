@@ -18,7 +18,7 @@ export default function MemberGrantApprovalCard({ action, busy, choose }) {
       </div>
       <p>{copy.approvalText(p.memberName)}</p>
       <strong className="assistant-approval-title">
-        ⚠ {grantLabels(p.grants).join(", ")}
+        {"\u26A0\uFE0E"} {grantLabels(p.grants).join(", ")}
       </strong>
       <p className="mcp-team-warning notice">{copy.approvalWarning}</p>
       <div className="assistant-card-actions">
