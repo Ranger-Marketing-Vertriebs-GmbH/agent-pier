@@ -1,4 +1,4 @@
-// How a RebuildView reads on the Rebuilds page: status tones, steps, the latest check,
+// How a RebuildView reads on the Craft Anything page: status tones, steps, the latest check,
 // similarity and cost.
 
 export const rebuildSteps = ["study", "build", "check", "ready"];

@@ -395,7 +395,7 @@ The information architecture is recorded in
   view carry a marker ("Shown in this view"). Behavior: [Views](views.md);
   [screenshot of a view](screenshots/split-view-desktop.png).
 - **Menu popover** (`web/app/SidebarMenu.jsx`, model in `web/app/sidebar-menu-model.js`):
-  the only place for areas, in two groups. **Work**: Overview, Projects, Rebuilds, Pipelines, Files,
+  the only place for areas, in two groups. **Work**: Overview, Projects, Craft Anything, Pipelines, Files,
   Artifacts. **Set up**: Agents, CLIs and extensions, Connections, Settings. Below them
   the host status, **Open remotely** (as before) and **Sign out**. The current area has
   `aria-current="page"` (`menuArea()`, which reads old addresses as their new place).

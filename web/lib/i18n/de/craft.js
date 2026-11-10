@@ -1,5 +1,5 @@
 export const craftCopy = {
-  title: "Nachbauten",
+  title: "Craft Anything",
   description:
     "Craft Anything untersucht eine App, eine Website oder Screenshots davon und baut dir deine eigene Version. Jeder Nachbau bekommt ein eigenes Projekt.",
   loading: "Nachbauten werden geladen …",
@@ -7,7 +7,7 @@ export const craftCopy = {
     "Craft Anything ist nicht installiert. Installiere es, um Nachbauten zu starten.",
   openCraftAnything: "Craft Anything öffnen",
   // Other names the ⌘K search finds the page by.
-  search: { craft: "Craft", product: "Craft Anything", rebuild: "Nachbau" },
+  search: { craft: "Craft", rebuilds: "Nachbauten", rebuild: "Nachbau" },
   status: {
     starting: "Startet",
     building: "Baut",

@@ -160,7 +160,7 @@ the rebuild starts from them alone, see [Screenshots](craft.md#screenshots)), pl
 `requestId` that makes a retry from the same session return the same rebuild; it creates the rebuild's project and returns its
 id and link. The account, mode and auto mode follow your defaults. `craft_rebuild_status` returns the status,
 step, note, folder and how many questions wait for you, never the questions. You answer
-them in AgentPier ([Rebuilds](craft.md)).
+them in AgentPier ([Craft Anything](craft.md)).
 
 ### Publishing private artifacts
 
@@ -898,7 +898,7 @@ there and the setuid `ps` cannot run. Use REA in an unsandboxed session; see
 
 #### Managed Craft Anything
 
-Rebuilds that AgentPier supervises itself are described in [Rebuilds](craft.md).
+Rebuilds that AgentPier supervises itself are described in [Craft Anything](craft.md).
 
 AgentPier can also install [Craft Anything](https://github.com/storytold/craft-anything)
 (early alpha, MIT or Apache-2.0), a second tool that gives the coding CLIs
@@ -944,7 +944,7 @@ code, acts on the machine or needs consent (`rebuild_start`, `rebuild_question_a
 the run, Frida and adb tools) before it reads its own settings, so an agent that calls
 `settings_set ask_before_running false` cannot lift it. This server therefore never runs
 the code it examines and never starts a rebuild. Rebuilds run through AgentPier's own
-[Rebuilds page](craft.md), which sessions reach with
+[Craft Anything page](craft.md), which sessions reach with
 [`craft_rebuild_start`](#starting-rebuilds-from-sessions). **Deep mode for sessions** in the
 dialog switches between **clean room** (the default: nothing inside a target is read,
 only tools that work from outside) and **deep** (sessions may also look inside a

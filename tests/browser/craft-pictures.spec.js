@@ -3,7 +3,7 @@ import { baseURL } from "../helpers/browser.js";
 import { craftRebuildsFixture, readyId, startedId } from "./craft-rebuilds-fixture.js";
 import { png } from "../helpers/craft-pictures.js";
 
-// Screenshots of the original on the Rebuilds page: a start from screenshots alone,
+// Screenshots of the original on the Craft Anything page: a start from screenshots alone,
 // screenshots of the look with a web address, removing a thumbnail before sending,
 // and screenshots with a follow-up. AGENTPIER_CRAFT_REBUILDS_SCREENSHOTS names a
 // folder for the screenshots of the pull request and the docs.

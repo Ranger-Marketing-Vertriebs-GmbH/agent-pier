@@ -19,7 +19,7 @@ import { useRebuilds } from "./useRebuilds.js";
 import "./craft.css";
 
 /**
- * The Rebuilds page (owner only): the rebuilds, the start form and the owner's
+ * The Craft Anything page (owner only): the rebuilds, the start form and the owner's
  * defaults at /craft, one rebuild at /craft/<id>. Without Craft Anything installed it
  * says so and links to its card instead of the start form.
  */

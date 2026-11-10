@@ -45,7 +45,7 @@ test("a rebuild question answered elsewhere in the meantime shows it no longer w
   page,
 }) => {
   const state = await inboxFixture(page, { language: "en", craft: true });
-  // The Rebuilds page answered it; this tab's topic has not heard yet.
+  // The Craft Anything page answered it; this tab's topic has not heard yet.
   state.answered.push("q1");
   await page.goto(`${baseURL}/inbox/craft/${rebuild}%3Aq1`);
   await page.getByLabel("Your answer").fill("Green, please");

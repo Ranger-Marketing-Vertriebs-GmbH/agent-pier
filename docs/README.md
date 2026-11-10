@@ -22,7 +22,7 @@ _(German)_ are not translated yet.
 | [Project memory](memory.md)                                | Project knowledge for sessions and agents; the Projects page |
 | [AgentBus](agentbus-integration.md) _(German)_             | Messages between sessions in the same project                |
 | [Artifacts](artifacts.md)                                  | Private pages published from sessions and agents             |
-| [Rebuilds](craft.md)                                       | Craft Anything rebuilds of apps and websites as new projects |
+| [Craft Anything](craft.md)                                 | Craft Anything rebuilds of apps and websites as new projects |
 | [MCP](mcp.md)                                              | AgentPier's MCP access for CLIs and central MCP servers      |
 | [SSH accesses](ssh-access.md)                              | SSH keys and hosts, Used by, last test and bulk actions      |
 | [SFTP access](sftp-access.md)                              | SFTP hosts and file transfers for agents and coding CLIs     |

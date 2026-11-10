@@ -153,7 +153,7 @@ export function pageEntries() {
       }),
     ),
     area("projects", menuWork, { route: projectsRoute() }),
-    // Rebuilds: "craft" finds it; "Craft Anything" still opens the installation card.
+    // Craft Anything: "Rebuilds" and "Nachbauten" are its former names.
     area(
       "craft",
       menuWork,
@@ -161,7 +161,7 @@ export function pageEntries() {
       {
         aliases: [
           () => craftCopy.search.craft,
-          () => craftCopy.search.product,
+          () => craftCopy.search.rebuilds,
           () => craftCopy.search.rebuild,
         ],
       },

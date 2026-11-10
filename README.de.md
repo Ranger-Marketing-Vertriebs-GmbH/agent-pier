@@ -87,9 +87,9 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
   [verwaltetes REA](docs/mcp.md#managed-rea)); Craft Anything, ein zweites
   Analysewerkzeug im eingeschränkten Modus, wird genauso installiert, siehe
   [verwaltetes Craft Anything](docs/mcp.md#managed-craft-anything); die Seite
-  **Nachbauten** lässt Craft Anything danach eine App oder Website, auch aus
+  **Craft Anything** lässt danach eine App oder Website, auch aus
   Screenshots, als neues Projekt nachbauen, mit Fragen in deinem Posteingang, auch
-  von deinen Sessions und Agenten gestartet ([Nachbauten](docs/craft.md), auf
+  von deinen Sessions und Agenten gestartet ([Craft Anything](docs/craft.md), auf
   Englisch).
 - **SSH und SFTP:** SSH- und SFTP-Hosts mit fixiertem Host-Schlüssel (SFTP mit
   Passwort oder Schlüssel), die Coding-CLIs und Agenten nutzen, mit Freigaben für

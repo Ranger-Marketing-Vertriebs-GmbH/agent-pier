@@ -6,7 +6,7 @@ import { craftCopy } from "../../lib/i18n/messages/craft.js";
 import "./craft-question.css";
 
 // Refusals that mean the question no longer waits: answered elsewhere (the inbox, the
-// Rebuilds page, auto mode) or its rebuild is gone.
+// Craft Anything page, auto mode) or its rebuild is gone.
 const goneKeys = new Set(["craft.rebuildQuestionGone", "craft.rebuildNotFound"]);
 
 /** Whether an answer was refused because the question no longer waits. */
