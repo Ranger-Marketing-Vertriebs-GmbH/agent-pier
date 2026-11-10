@@ -2,15 +2,19 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { parseSpec, SPEC_LIMIT } from "../../server/features/pipelines/run-spec.js";
 import { dependencyNames } from "../../server/features/pipelines/risk-dependencies.js";
+import { criterionId } from "../../server/features/pipelines/stage-verdict.js";
 
-// Specs and manifests come from agents and repositories, and the server
+// Specs, verdicts and manifests come from agents and repositories, and the server
 // parses them on its event loop. Each line below is the worst case of one expression
-// these parsers used to run, at the size limit of its file: quadratic ones took
-// seconds to minutes there, cubic ones never finished. The scanners take a few
-// milliseconds on a developer machine; the bound leaves a slow runner a factor of
-// more than a hundred and still fails for anything worse than linear.
-const BOUND = 1000;
+// these parsers used to run, at the size limit of its file. The quadratic ones took
+// one to two seconds per pass over a spec or a verdict and minutes over a manifest;
+// the cubic ones never finished. The scanners need 20 ms for the slowest case on a
+// developer machine, so the bound leaves a slow runner a factor of a hundred, and the
+// repeated passes over the small files keep the earlier expressions far above it.
+const BOUND = 2000;
+const ROUNDS = 10;
 const MANIFEST_LIMIT = 1024 * 1024;
+const VERDICT_LIMIT = 64 * 1024;
 const LS = String.fromCharCode(0x2028);
 const spaces = (count) => " ".repeat(count);
 const padded = (limit, line) => line(limit - line(0).length);
@@ -51,11 +55,21 @@ test("a spec of the size limit parses in linear time, whatever its lines", () =>
     assert.ok(Buffer.byteLength(text) <= SPEC_LIMIT, name);
     assert.ok(Buffer.byteLength(text) > SPEC_LIMIT - 64, name);
     assert.deepEqual(
-      timed(name, 5, () => parseSpec(text)),
+      timed(name, ROUNDS, () => parseSpec(text)),
       { criteria, assumptions },
       name,
     );
   }
+});
+
+test("a criterion id of a verdict's size limit is read in linear time", () => {
+  // `\s*(?:ac)?[\s-]*` let two whitespace runs share the gap.
+  const id = `#${spaces(VERDICT_LIMIT - 2)}x`;
+  assert.equal(
+    timed("criterion id", ROUNDS, () => criterionId(id)),
+    "",
+  );
+  assert.equal(criterionId(`#${spaces(VERDICT_LIMIT - 4)}ac 7`), "AC7");
 });
 
 test("a manifest of the size limit parses in linear time, whatever its lines", () => {
