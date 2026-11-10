@@ -19,8 +19,10 @@ import {
 } from "./rea-components.js";
 import {
   VersionSweep,
+  clearRemovedMark,
   craftServersHoldGhidra,
   removeToolFolder,
+  wantsGhidraOf,
 } from "./version-sweep.js";
 import { runningCommandLines } from "../../lib/process-commands.js";
 import {
@@ -152,10 +154,11 @@ export class ReaTool {
   }
   /** Whether the owner chose Ghidra for REA (Craft Anything keeps it then). */
   wantsGhidra() {
-    return this.stored().components.ghidra;
+    return wantsGhidraOf(this);
   }
   save(components, settings) {
     writePrivate(this.file, { serverId: this.serverId(), components, settings });
+    clearRemovedMark(this);
     this.changed();
   }
   /** Calls `onChange()` after a change of state(); never throws. */
@@ -525,10 +528,8 @@ export class ReaTool {
     this.servers.managed.setLockedEnv(id, [...reaManagedKeys]);
   }
   /**
-   * Points an idle, installed REA's row env at the current component homes (an
-   * installer run switched the links). Applied while in use too, like a settings
-   * change: a running REA keeps its environment and the previous version folder,
-   * which the next install prunes; sessions started afterwards get the new homes.
+   * Points an idle, installed REA's row env at the current component homes, also while
+   * sessions run REA: they keep theirs (and its folders) until they reload.
    */
   syncEnvironment() {
     return queueSync(this, async () => {
