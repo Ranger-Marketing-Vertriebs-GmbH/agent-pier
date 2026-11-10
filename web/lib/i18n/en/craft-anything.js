@@ -24,11 +24,13 @@ export const craftAnythingCopy = {
     "I understand these notes and use Craft Anything only on software I own or am allowed to examine.",
   updateNote: (parts) => `An update is available: ${parts}.`,
   updateCore: (version) => `Craft Anything ${version}`,
+  runningOlder: (versions) =>
+    `Running sessions keep using version ${versions} until they reload.`,
   statusRunning: "Craft Anything is being changed …",
   backgroundNote:
     "You can close this window. Craft Anything continues in the background.",
   remove: "Remove Craft Anything",
   removeTitle: "Remove Craft Anything?",
   removeBody:
-    "AgentPier removes Craft Anything's MCP server, its skill copies, the CLI and its settings. Ghidra and the Java runtime go too, unless REA still uses them.",
+    "AgentPier removes Craft Anything's MCP server, its skill copies, the CLI and its settings. Ghidra and the Java runtime go too, unless REA still uses them. Running sessions keep the tools until they reload.",
 };

@@ -813,16 +813,27 @@ for Core, run `node scripts/refresh-rea-lock.mjs`, which writes the lockfile onl
 the registry's integrity for the pinned version equals the manifest's.
 
 **Updates.** When an AgentPier release raises a pin, an installed REA follows at the
-next server start, like the managed browser ([CLI updates](cli-updates.md)). While a
-session or an agent uses REA, the start skips the update and tries again at the next
-start. The card shows **Update available** meanwhile, and **Update** in the dialog
-starts it by hand. **Apply changes** installs a newly ticked component or removes an
+next server start, like the managed browser ([CLI updates](cli-updates.md)); **Update**
+in the dialog starts it by hand while the card shows **Update available**. Running
+sessions and agents never block an update: AgentPier cannot see a call in flight of a
+session's REA, and an idle one does not need its files replaced. The update installs
+the new version beside the old one (a new package install, new Ghidra and JDK version
+folders); sessions started afterwards use it, while a session's REA started before
+keeps running from the old folders until the session reloads its MCP servers. **Apply changes** installs a newly ticked component or removes an
 unticked one, but never replaces one that is installed. Every installer run with
 or without `--with-rea` also brings an installed Ghidra and JDK to their pins
 ([installation](installation.md)); the next server start then points
 `GHIDRA_INSTALL_DIR` and `JAVA_HOME` at the new versions, also while REA is in use. A
-running REA keeps its environment and the previous version folder, which the next
-install removes; sessions started afterwards use the new versions.
+running REA keeps its environment and its version folders; sessions started afterwards
+use the new versions.
+
+**Old version folders.** An update or a removal deletes an old version folder (of REA
+Core's package install, Ghidra, the JDK or Craft Anything) only when no running process
+uses it: AgentPier reads the process list (`/proc` on Linux, `ps` on macOS) and keeps a
+folder whose path a command line names. It looks again at every server start, after
+every job and every five minutes while such a folder is left, and removes the folder
+once its last process exited. Running processes are never stopped for this. When the
+process list cannot be read, every old folder stays until a later look succeeds.
 
 **The MCP server row.** REA's row is named `rea`, or `rea-agentpier` when you already
 have a server called `rea` (for example one added from the directory, which stays as it
@@ -854,11 +865,12 @@ or REA goes away; a copy you changed is kept. A skill folder of the same name th
 created yourself is left alone.
 
 **Removal.** **Uninstall REA** asks **Uninstall REA?** and then removes the MCP server
-row, its skill copies, Ghidra, the JDK, Frida and `<data dir>/rea`. Your own Hopper,
-IDA and JEB stay untouched. Uninstalling, removing Ghidra, switching Frida and
-updating are refused while a session or an agent uses REA, also when that session
-survived an AgentPier restart in tmux: "REA is running in a session or for an agent.
-Stop them before you remove, change or update REA's components."
+row, its skill copies, Ghidra, the JDK, Frida and `<data dir>/rea`. Running sessions
+keep their REA until they reload; its folders go once it exited (see **Old version
+folders**). Your own Hopper, IDA and JEB stay untouched. The confirmation says that
+running sessions keep the tools until they reload. Uninstalling, removing Ghidra,
+switching Frida and updating are never refused because a session or an agent has REA
+running.
 
 **Safety.** The dialog repeats REA's dual-use notes and asks you to confirm them before
 the first install: REA's DISCLAIMER forbids circumventing DRM, license checks and
@@ -913,8 +925,10 @@ current Ghidra downloads nothing, so both dialogs leave it out of the total.
 **Ghidra and the JDK are shared with REA.** Both tools use the same copies under
 `<data dir>/clis/rea-ghidra` and `<data dir>/clis/rea-jdk`; installing one tool when
 the other has already installed them downloads nothing. They stay while either tool
-wants them, and they are removed only when neither does. An update is not applied
-while a session of the other tool uses them. The jobs of the two tools never run at the
+wants them, and they are removed only when neither does. An update installs new Ghidra and
+JDK versions beside the old ones; a version a running process still uses stays until it
+exits ([old version folders](#managed-rea)). An update is not applied while a
+Craft Anything [rebuild](craft.md#storage-and-removal) runs. The jobs of the two tools never run at the
 same time: the second one is refused until the first has finished.
 
 **Restricted sessions.** The MCP server row runs
@@ -954,15 +968,23 @@ inside a target, such as `core_target_open`, are not listed, and to ask you for 
 mode for sessions** when a question needs it.
 
 **Updates.** A newer pin installed by a new AgentPier release is applied at the next
-server start, unless a session or a rebuild uses Craft Anything; then the card shows
-**Update available** and **Update** in the dialog applies it
-([CLI updates](cli-updates.md)).
+server start, unless a rebuild runs or starts; then the card shows **Update available**
+and **Update** in the dialog applies it ([CLI updates](cli-updates.md)). A session's or
+an agent's Craft Anything server never blocks an update: the new version is installed
+beside the old one under `<data dir>/clis/.packages/`, and the row points at it, so new
+sessions start it at once. A session started before keeps its idle server on the old
+version until it reloads its MCP servers; the dialog then says **Running sessions keep
+using version 0.5.0 until they reload.** The old folder goes once no process uses it
+([old version folders](#managed-rea)).
 Apply changes never replaces an installed component.
 
 **Removal.** **Remove Craft Anything** asks **Remove Craft Anything?** and removes the MCP
 server row, the skill copies, the CLI and `<data dir>/craft-anything`, and Ghidra with
-the JDK unless REA still wants them. It is refused while a session, an agent or a
-[rebuild](craft.md#storage-and-removal) uses Craft Anything. The rebuild list lives in
+the JDK unless REA still wants them. It is refused only while a
+[rebuild](craft.md#storage-and-removal) runs or starts: "A rebuild is running with
+Craft Anything. Wait for it to finish or pause it before you remove, change or update
+Craft Anything or its components." Running sessions keep the tools until they reload,
+as the confirmation says; the folders a session's server still runs go once it exited. The rebuild list lives in
 `<data dir>/craft-rebuilds` and stays.
 
 **Install and API.** The installer option `--with-craft-anything` leaves a request that

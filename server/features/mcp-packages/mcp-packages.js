@@ -12,6 +12,10 @@ import { packageCode, packageProblem } from "./package-errors.js";
 import { packageConstraints, packageName, packageRef } from "./package-spec.js";
 import { PackageSkills } from "./package-skills.js";
 import { packageRoot, pruneInstalls, readInstall } from "./package-store.js";
+import { heldPaths, runningCommandLines } from "../../lib/process-commands.js";
+
+// While an install stays for a running process, prune() looks again this often.
+const pruneRetryMs = 5 * 60 * 1000;
 import {
   installError,
   logFailure,
@@ -52,7 +56,10 @@ export class McpPackages {
     previewConcurrency = 2,
     extensions,
     afterInstall = null,
+    commandLines = runningCommandLines,
   }) {
+    this.commandLines = commandLines;
+    this.pruneTimer = null;
     Object.assign(this, {
       dataDir,
       servers,
@@ -338,6 +345,8 @@ export class McpPackages {
    * settling stays well inside `waitMs`, and `waitMs` well inside those 6 s.
    */
   close({ waitMs = 3000, graceMs = 500 } = {}) {
+    this.closed = true;
+    clearTimeout(this.pruneTimer);
     const reason = { graceMs };
     for (const controller of this.previewRuns.keys()) controller.abort(reason);
     const settled = Promise.all([
@@ -534,20 +543,29 @@ export class McpPackages {
   }
   /**
    * Removes installs and stages nothing references now, then (in the background, never
-   * rejecting) the toolchains no record and no running job uses. Tests await it.
+   * rejecting) the toolchains no record and no running job uses. Tests await it. An
+   * install a running process still uses (a session's MCP server started before an
+   * update) stays; prune() runs again every few minutes until it is gone.
    */
   prune() {
+    clearTimeout(this.pruneTimer);
+    this.pruneTimer = null;
     try {
       // A running job's install id keeps its `.stage-<id>` as well; a running switch
       // keeps the install its server still runs.
-      pruneInstalls(
+      const running = pruneInstalls(
         this.dataDir,
         new Set([
           ...this.records.installIds(),
           ...this.jobs.runningInstallIds(),
           ...[...this.switching.values()].map((s) => s.running).filter(Boolean),
         ]),
+        heldPaths(this.commandLines),
       );
+      if (running && !this.closed) {
+        this.pruneTimer = setTimeout(() => void this.prune(), pruneRetryMs);
+        this.pruneTimer.unref?.();
+      }
     } catch (error) {
       logFailure("prune MCP package installs", error);
     }

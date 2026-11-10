@@ -10,6 +10,7 @@ import {
   readInstall,
   stageInstall,
 } from "../../server/features/mcp-packages/package-store.js";
+import { heldPaths } from "../../server/lib/process-commands.js";
 
 const dataDir = (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-package-store-"));
@@ -183,4 +184,28 @@ test("pruning never follows a linked packages folder", (t) => {
   fs.symlinkSync(outside, path.join(dataDir, "mcp-packages"));
   pruneInstalls(dataDir, new Set());
   assert.equal(fs.existsSync(path.join(outside, "installs", "old")), true);
+});
+
+test("an install a running process uses stays until the process is gone", (t) => {
+  const dir = dataDir(t);
+  const { installId, stage } = stageInstall(dir);
+  fs.mkdirSync(path.join(stage, "node_modules/server-x/dist"), { recursive: true });
+  const final = commitInstall(dir, { installId, stage, receipt: receipt() });
+  const other = stageInstall(dir);
+  // A session started this install's server before an update switched the row away.
+  let lines = [`/managed/node ${final}/node_modules/server-x/dist/index.js`];
+  const held = heldPaths(() => lines);
+  assert.equal(pruneInstalls(dir, new Set(), held), 1);
+  assert.ok(fs.existsSync(final));
+  assert.equal(fs.existsSync(other.stage), false, "a stage never counts as running");
+  lines = [];
+  assert.equal(
+    pruneInstalls(
+      dir,
+      new Set(),
+      heldPaths(() => lines),
+    ),
+    0,
+  );
+  assert.equal(fs.existsSync(final), false);
 });

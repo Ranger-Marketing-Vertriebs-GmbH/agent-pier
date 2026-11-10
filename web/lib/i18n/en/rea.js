@@ -59,6 +59,6 @@ export const reaCopy = {
   uninstall: "Uninstall REA",
   uninstallTitle: "Uninstall REA?",
   uninstallBody:
-    "AgentPier removes REA's MCP server, its skill copies and Frida, and Ghidra with the Java runtime unless Craft Anything still uses them. Your own Hopper, IDA and JEB stay untouched.",
+    "AgentPier removes REA's MCP server, its skill copies and Frida, and Ghidra with the Java runtime unless Craft Anything still uses them. Your own Hopper, IDA and JEB stay untouched. Running sessions keep the tools until they reload.",
   uninstallConfirm: "Uninstall",
 };

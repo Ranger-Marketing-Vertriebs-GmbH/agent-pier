@@ -16,6 +16,7 @@ import {
   sweepReaComponents,
 } from "../../server/features/tools/rea-components.js";
 import { run as realRun } from "../../server/features/tools/tool-run.js";
+import { heldPaths } from "../../server/lib/process-commands.js";
 import { serverMessages } from "../../server/lib/i18n/de.js";
 
 const ghidraVersion = "12.1.4";
@@ -273,7 +274,6 @@ test("an old version that cannot be pruned is logged, not a failed install", asy
   const bytes = jdkArchive();
   await f.install("rea-jdk", jdkEntry(bytes, "one.tar.gz"), bytes);
   const first = managedReaComponent(f.root, "rea-jdk").directory;
-  await f.install("rea-jdk", jdkEntry(bytes, "two.tar.gz"), bytes);
   const original = fsp.rm;
   const rm = mock.method(fsp, "rm", (target, options) =>
     target === first
@@ -285,8 +285,8 @@ test("an old version that cannot be pruned is logged, not a failed install", asy
     rm.mock.restore();
     warn.mock.restore();
   });
-  const third = await f.install("rea-jdk", jdkEntry(bytes, "three.tar.gz"), bytes);
-  assert.deepEqual(managedReaComponent(f.root, "rea-jdk"), third);
+  const second = await f.install("rea-jdk", jdkEntry(bytes, "two.tar.gz"), bytes);
+  assert.deepEqual(managedReaComponent(f.root, "rea-jdk"), second);
   assert.equal(warn.mock.callCount(), 1);
   assert.ok(fs.existsSync(first));
 });
@@ -351,7 +351,7 @@ test("on macOS the unpacked folder loses quarantine attributes (xattr -cr)", asy
   );
 });
 
-test("an update keeps the previous version until the next install, then prunes it", async (t) => {
+test("an update keeps the old version only while a process uses it", async (t) => {
   const f = await fixture(t);
   const one = jdkArchive();
   await f.install("rea-jdk", jdkEntry(one, "one.tar.gz"), one);
@@ -359,18 +359,25 @@ test("an update keeps the previous version until the next install, then prunes i
   const ghidra = ghidraBottle();
   await f.install("rea-ghidra", ghidraEntry(ghidra), ghidra);
   const ghidraDirectory = managedReaComponent(f.root, "rea-ghidra").directory;
+  // A session's idle server runs java from the first version's home.
+  const java = `${first}/jdk/bin/java -jar ghidra.jar`;
   const two = jdkArchive();
-  await f.install("rea-jdk", jdkEntry(two, "two.tar.gz"), two);
+  await f.install("rea-jdk", jdkEntry(two, "two.tar.gz"), two, {
+    held: heldPaths(() => [java]),
+  });
   const second = managedReaComponent(f.root, "rea-jdk").directory;
   assert.notEqual(second, first);
-  assert.ok(fs.existsSync(first), "the previous version stays for running sessions");
-  await f.install("rea-jdk", jdkEntry(one, "three.tar.gz"), one);
+  assert.ok(fs.existsSync(first), "the running version stays");
+  // Once nothing runs it, the next install removes it.
+  await f.install("rea-jdk", jdkEntry(one, "three.tar.gz"), one, {
+    held: heldPaths(() => []),
+  });
   const third = managedReaComponent(f.root, "rea-jdk").directory;
   assert.equal(fs.existsSync(first), false);
-  assert.ok(fs.existsSync(second));
+  assert.equal(fs.existsSync(second), false);
   assert.deepEqual(
     f.packages(),
-    [path.basename(ghidraDirectory), path.basename(second), path.basename(third)].sort(),
+    [path.basename(ghidraDirectory), path.basename(third)].sort(),
   );
 });
 
@@ -389,10 +396,8 @@ test("an install never prunes another process's recent unpublished version folde
   const two = jdkArchive();
   await f.install("rea-jdk", jdkEntry(two, "two.tar.gz"), two);
   const second = managedReaComponent(f.root, "rea-jdk").directory;
-  assert.deepEqual(
-    f.packages(),
-    [path.basename(first), path.basename(second), "rea-jdk-inflight"].sort(),
-  );
+  assert.equal(fs.existsSync(first), false);
+  assert.deepEqual(f.packages(), [path.basename(second), "rea-jdk-inflight"].sort());
 });
 
 test("a failed install keeps the previous version active and leaves no version folder", async (t) => {

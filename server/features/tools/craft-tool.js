@@ -27,8 +27,11 @@ import {
   installReaComponent,
   managedReaComponent,
   placeGhidra,
+  reaComponentIds,
   removeReaComponent,
 } from "./rea-components.js";
+import { VersionSweep } from "./version-sweep.js";
+import { runningCommandLines } from "../../lib/process-commands.js";
 import { failureText, keyed, queueSync, reaComponentStates } from "./rea-state.js";
 import { run as defaultRun } from "./tool-run.js";
 
@@ -43,10 +46,12 @@ const defaultDarwinMajor = () =>
  * managed stdio MCP row bound to Claude Code (always `--restricted`), its config
  * pinned to AgentPier's keys and, when wanted, the Ghidra and JDK it shares with REA.
  * One job runs at a time, as with ReaTool. Hooks the wiring assigns: `inUse` (a
- * session runs the row), `onChange` (state changed), `keepsGhidra` (the other tool
- * wants Ghidra, so it is never removed here), `othersUseGhidra` (the other tool's
- * session runs Ghidra, so it is neither removed nor replaced) and `othersBusy` (the
- * other tool's job runs, so no job starts here).
+ * rebuild runs, or a call of its Craft Anything is in flight; a session's idle MCP
+ * server never counts), `onChange` (state changed), `keepsGhidra` (the other tool
+ * wants Ghidra, so it is never removed here), `othersUseGhidra` (the other tool's job
+ * runs Ghidra, so it is neither removed nor replaced) and `othersBusy` (the other
+ * tool's job runs, so no job starts here). An update installs beside the old version;
+ * a folder a running process still uses stays until it exits (VersionSweep).
  */
 export class CraftTool {
   constructor({
@@ -64,6 +69,7 @@ export class CraftTool {
     fetchImpl = fetch,
     run = defaultRun,
     env = cleanEnvironment(),
+    commandLines = runningCommandLines,
   }) {
     Object.assign(this, {
       dataDir,
@@ -97,6 +103,12 @@ export class CraftTool {
     this.status = "idle";
     this.step = null;
     this.message = "";
+    this.versions = new VersionSweep({
+      root: this.root,
+      ids: reaComponentIds,
+      commandLines,
+      onChange: () => this.changed(),
+    });
   }
   host() {
     const { platform, arch } = this;
@@ -209,6 +221,10 @@ export class CraftTool {
           downloadSize: host.entry?.size ?? null,
           installedSize: host.entry?.installedSize ?? null,
           outdated: outdated.core,
+          // Older versions sessions' idle MCP servers still run until they reload.
+          runningVersions: this.versions
+            .runningVersions(tool)
+            .filter((version) => version !== this.component(tool)?.version),
         },
         ghidra: {
           ...parts.ghidra,
@@ -247,7 +263,10 @@ export class CraftTool {
   requireIdle() {
     if (this.job || this.claimed || this.othersBusy()) throw refuse(messages.busy);
   }
-  /** Refuses (409) while a session runs Craft Anything; holds the job slot meanwhile. */
+  /**
+   * Refuses (409) while a rebuild or a call of its Craft Anything runs; holds the job
+   * slot meanwhile. A session's idle MCP server keeps its version and never refuses.
+   */
   async requireUnused(when) {
     if (!when) return;
     this.claimed = true;
@@ -337,6 +356,7 @@ export class CraftTool {
         this.controller = null;
         this.step = null;
         this.changed();
+        void this.versions.run();
       }
     })();
     this.changed();
@@ -364,11 +384,12 @@ export class CraftTool {
   }
   /** Places or removes the shared Ghidra and JDK; never removes what the other keeps. */
   async placeGhidraParts(components, update, signal) {
+    const held = this.versions.held();
     if (!components.ghidra) {
       if (!this.ghidraGoes(components) || (await this.othersUseGhidra())) return;
       this.progress("ghidra", messages.removing("Ghidra"));
-      await removeReaComponent(this.root, "rea-ghidra");
-      await removeReaComponent(this.root, "rea-jdk");
+      await removeReaComponent(this.root, "rea-ghidra", { held });
+      await removeReaComponent(this.root, "rea-jdk", { held });
       return;
     }
     await placeGhidra({
@@ -384,6 +405,7 @@ export class CraftTool {
       env: this.env,
       platform: this.platform,
       progress: (step, message) => this.progress(step, message),
+      held,
     });
   }
   /** Installs the pinned CLI when missing, or when an update finds another version. */
@@ -402,6 +424,7 @@ export class CraftTool {
       env: this.env,
       platform: this.platform,
       progress: (message) => this.progress("core", message),
+      held: this.versions.held(),
     });
   }
   /** What the row runs: the installed CLI with the owner's mode and AgentPier's env. */
@@ -521,8 +544,9 @@ export class CraftTool {
     return uninstallCraft(this, options);
   }
   /** The server-start sweep, requested install, update and rewrite (craft-lifecycle.js). */
-  start() {
-    return startCraft(this);
+  async start() {
+    await startCraft(this);
+    await this.versions.run();
   }
   /** The row's CLI bindings changed: the skill copies follow. Never throws. */
   async bindingsChanged() {
@@ -538,5 +562,6 @@ export class CraftTool {
   async close() {
     this.controller?.abort();
     await this.settled();
+    await this.versions.close();
   }
 }

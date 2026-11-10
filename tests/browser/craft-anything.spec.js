@@ -150,13 +150,24 @@ test("offers update when outdated", async ({ page }) => {
   await expect.poll(() => controls.updates).toBe(1);
 });
 
+test("names the version running sessions keep until they reload", async ({ page }) => {
+  await fixture(
+    page,
+    installedCraft({ components: { core: { runningVersions: ["0.4.0"] } } }),
+  );
+  const dialog = await openDialog(page, "Manage");
+  await expect(dialog).toContainText(
+    "Running sessions keep using version 0.4.0 until they reload.",
+  );
+});
+
 test("removes", async ({ page }) => {
   const controls = await fixture(page, installedCraft(), {
     uninstall: {
       status: 409,
       json: {
         error:
-          "Craft Anything läuft gerade in einer Session. Beende sie, bevor du Craft Anything oder seine Bestandteile entfernst, änderst oder aktualisierst.",
+          "Gerade läuft ein Nachbau mit Craft Anything. Warte, bis er fertig ist, oder pausiere ihn, bevor du Craft Anything oder seine Bestandteile entfernst, änderst oder aktualisierst.",
         messageKey: "craft.inUse",
       },
     },
@@ -167,8 +178,11 @@ test("removes", async ({ page }) => {
   await expect(confirm).toContainText("REA");
   await confirm.getByRole("button", { name: "Remove now", exact: true }).click();
   await expect.poll(() => controls.removes).toBe(1);
+  await expect(confirm).toContainText(
+    "Running sessions keep the tools until they reload.",
+  );
   await expect(confirm.getByRole("alert")).toContainText(
-    "Craft Anything is running in a session",
+    "A rebuild is running with Craft Anything",
   );
 });
 

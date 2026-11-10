@@ -67,7 +67,12 @@ export function choosingReceipt(dataDir, row) {
   const receipt = readInstall(dataDir, row.installId, row.lockDigest);
   return Array.isArray(receipt?.programs) ? receipt : null;
 }
-export function pruneInstalls(dataDir, keep) {
+/**
+ * Removes the installs and stages not in `keep`, except an install a running process
+ * still uses (`held(paths)`, when given): an MCP server a session started before an
+ * update keeps running from it. Returns how many installs stayed for that reason.
+ */
+export function pruneInstalls(dataDir, keep, held = null) {
   const root = path.join(dataDir, "mcp-packages", "installs");
   let names;
   try {
@@ -78,10 +83,18 @@ export function pruneInstalls(dataDir, keep) {
   } catch {
     return;
   }
+  let running = 0;
   for (const name of names) {
     const id = name.replace(/^\.stage-/, "");
-    if (!keep.has(id)) fs.rmSync(path.join(root, name), { recursive: true, force: true });
+    if (keep.has(id)) continue;
+    const directory = path.join(root, name);
+    if (held && id === name && held([directory, fs.realpathSync(directory)])) {
+      running += 1;
+      continue;
+    }
+    fs.rmSync(directory, { recursive: true, force: true });
   }
+  return running;
 }
 /** The managed Node plus the program's absolute path, contained in the install. */
 export function npmCommand(dataDir, receipt, node) {

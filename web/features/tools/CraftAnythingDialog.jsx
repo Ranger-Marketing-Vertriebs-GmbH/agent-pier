@@ -182,6 +182,11 @@ export default function CraftAnythingDialog({ request, refresh, close }) {
             {state.updateAvailable && (
               <p className="rea-warning">{updateNote(state.components)}</p>
             )}
+            {state.components.core.runningVersions?.length > 0 && (
+              <p className="dialog-hint">
+                {copy.runningOlder(state.components.core.runningVersions.join(", "))}
+              </p>
+            )}
             <Components
               components={state.components}
               draft={draft}

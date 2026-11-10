@@ -1,40 +1,11 @@
 import { ReaTool } from "../features/tools/rea-tool.js";
-import { hostReady } from "../features/assistants/runtimes/runtime-for.js";
-
-/**
- * Whether a managed tool's row (REA, Craft Anything) runs right now: a running coding
- * session of a CLI the row is bound to (also one that outlived an AgentPier restart
- * in tmux), or a running agent Gateway while agents have the row.
- */
-export async function managedRowInUse({ serverId, servers, sessions, assistants }) {
-  if (!serverId) return false;
-  const { clis, agents } = servers.targetsOf(serverId);
-  if (agents.length && hostReady(assistants?.runtime)) return true;
-  if (!clis.length) return false;
-  const list = await sessions.list();
-  return list.some(
-    (session) => session.status === "running" && clis.includes(session.tool),
-  );
-}
-
-/** REA's name for managedRowInUse. */
-export const reaInUse = managedRowInUse;
 
 /**
  * The managed REA tool on the central MCP server store (AGENTPIER-104), or null
  * without the store. McpPackages' install hook goes to REA, which acts for its own
- * managed row only. `services()` is read lazily: agents start after this.
+ * managed row only.
  */
-export function createReaTool({
-  config,
-  servers,
-  changes,
-  packages,
-  extensions,
-  audit,
-  sessions,
-  services,
-}) {
+export function createReaTool({ config, servers, changes, packages, extensions, audit }) {
   if (!servers || !packages) return null;
   const rea = new ReaTool({
     dataDir: config.dataDir,
@@ -45,12 +16,7 @@ export function createReaTool({
     audit,
   });
   packages.afterInstall = (serverId, context) => rea.afterInstall(serverId, context);
-  rea.inUse = () =>
-    managedRowInUse({
-      serverId: rea.serverId(),
-      servers,
-      sessions,
-      assistants: services()?.assistants,
-    });
+  // No inUse hook: AgentPier sees no call in flight of a session's REA, and an idle
+  // one keeps its version folder until it exits, so nothing blocks a change.
   return rea;
 }

@@ -8,7 +8,7 @@ import { AuditStore } from "../../server/features/audit/audit-store.js";
 import { serverMessages } from "../../server/lib/i18n/de.js";
 import { englishServerMessages } from "../../server/lib/i18n/catalog-en.js";
 import { resolveMessage } from "../../server/lib/i18n/message-keys.js";
-import { createReaTool, reaInUse } from "../../server/application/rea-wiring.js";
+import { createReaTool } from "../../server/application/rea-wiring.js";
 import { fakeBinding, reaFixture } from "../helpers/rea-tool-fixture.js";
 
 /** The real REA routes over the fixture's ReaTool and a real audit store. */
@@ -145,10 +145,8 @@ test("the install hook places frida only in REA's own row, never in another pack
   assert.equal(rea.serverId(), serverId);
 });
 
-test("the wiring hooks REA into the package installs and asks sessions and agents", async (t) => {
+test("the wiring hooks REA into the package installs; idle sessions never block", async (t) => {
   const f = await reaFixture(t);
-  const sessions = { list: async () => [] };
-  const services = { assistants: null };
   const rea = createReaTool({
     config: { dataDir: f.s.dataDir },
     servers: f.s.servers,
@@ -156,44 +154,16 @@ test("the wiring hooks REA into the package installs and asks sessions and agent
     packages: f.s.packages,
     extensions: f.s.extensions,
     audit: null,
-    sessions,
-    services: () => services,
   });
   t.after(() => rea.close());
   assert.equal(typeof f.s.packages.afterInstall, "function");
   // A server REA does not manage passes the hook untouched.
   assert.equal(await f.s.packages.afterInstall("other", {}), undefined);
-  assert.equal(await rea.inUse(), false);
   assert.equal(createReaTool({ config: {}, servers: null, packages: null }), null);
-  const row = f.s.servers.create(
+  // A running session or agent with REA's row is idle as far as AgentPier can tell.
+  f.s.servers.create(
     { name: "rea", transport: "stdio", command: "/fake/bin/rea", args: [] },
     { managed: { tool: "rea" }, bind: [["cli", "claude"]] },
   );
-  const ask = (list, assistants = null) =>
-    reaInUse({
-      serverId: row.id,
-      servers: f.s.servers,
-      sessions: { list: async () => list },
-      assistants,
-    });
-  assert.equal(await ask([{ tool: "claude", status: "running" }]), true);
-  assert.equal(await ask([{ tool: "claude", status: "stopped" }]), false);
-  assert.equal(await ask([{ tool: "codex", status: "running" }]), false);
-  sessions.list = async () => [{ tool: "claude", status: "running" }];
-  assert.equal(await rea.inUse(), true);
-  // An agent binding counts while the Gateway runs.
-  const agentRow = f.s.servers.create(
-    { name: "rea2", transport: "stdio", command: "/fake/bin/rea", args: [] },
-    { bind: [["agent", "main"]] },
-  );
-  const agentAsk = (ready) =>
-    reaInUse({
-      serverId: agentRow.id,
-      servers: f.s.servers,
-      sessions: { list: async () => [] },
-      assistants: { runtime: { client: { ready } } },
-    });
-  assert.equal(await agentAsk(true), true);
-  assert.equal(await agentAsk(false), false);
-  assert.equal(await reaInUse({ serverId: null, servers: f.s.servers, sessions }), false);
+  assert.equal(await rea.inUse(), false);
 });

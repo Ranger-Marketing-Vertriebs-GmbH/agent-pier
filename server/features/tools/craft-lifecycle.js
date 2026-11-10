@@ -11,7 +11,8 @@ const messages = serverMessages.craft;
 /**
  * Removes Craft Anything (`craft` is a CraftTool): its row, its skill copies, the CLI
  * and `<data>/craft-anything`, plus Ghidra and the JDK unless the other tool keeps
- * them. Works whatever is left; refused while Craft Anything is in use.
+ * them. Works whatever is left; refused while a rebuild uses Craft Anything. A
+ * version folder a session's idle MCP server still runs stays until it exits.
  */
 export async function uninstallCraft(craft, { source = "user" } = {}) {
   craft.requireIdle();
@@ -23,6 +24,7 @@ export async function uninstallCraft(craft, { source = "user" } = {}) {
   craft.message = "";
   try {
     await craft.syncing;
+    const held = craft.versions.held();
     const id = craft.serverId();
     craft.progress("core", messages.removing("Craft Anything"));
     if (id) {
@@ -30,11 +32,11 @@ export async function uninstallCraft(craft, { source = "user" } = {}) {
       craft.auditRow("mcp.deleted", id, source);
     }
     await craft.syncSkills(null);
-    await removeReaComponent(craft.root, "craft-anything");
+    await removeReaComponent(craft.root, "craft-anything", { held });
     if (!craft.keepsGhidra() && !(await craft.othersUseGhidra())) {
       craft.progress("ghidra", messages.removing("Ghidra"));
-      await removeReaComponent(craft.root, "rea-ghidra");
-      await removeReaComponent(craft.root, "rea-jdk");
+      await removeReaComponent(craft.root, "rea-ghidra", { held });
+      await removeReaComponent(craft.root, "rea-jdk", { held });
     }
     await fsp.rm(craft.directory, { recursive: true, force: true });
     craft.status = "idle";
@@ -48,6 +50,7 @@ export async function uninstallCraft(craft, { source = "user" } = {}) {
     craft.step = null;
     craft.changed();
     done();
+    void craft.versions.run();
   }
   return craft.state();
 }
@@ -86,8 +89,8 @@ async function installRequested(craft, requested) {
 /**
  * At a server start (`craft` is a CraftTool): sweeps interrupted installs while no job
  * of Craft Anything or REA runs or is being claimed (both share the folders), installs
- * what the installer requested, brings an outdated install to the pins unless it is in
- * use, rewrites the config and the row (command, args, env) and syncs the skill
+ * what the installer requested, brings an outdated install to the pins unless a rebuild
+ * uses it, rewrites the config and the row (command, args, env) and syncs the skill
  * copies. Never throws.
  */
 export async function startCraft(craft) {
