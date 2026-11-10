@@ -372,6 +372,15 @@ test("refuses when Craft Anything is not installed", async (t) => {
   assert.equal(f.rebuilds.list().length, 0);
 });
 
+test("no rebuild starts while a Craft Anything change is being claimed", async (t) => {
+  const f = rebuildsFixture(t);
+  f.craft.claimed = true;
+  await assert.rejects(f.rebuilds.start({ request: "A counter app" }), {
+    status: 409,
+    message: serverMessages.craft.busy,
+  });
+});
+
 test("a start Craft Anything refuses leaves no folder behind", async (t) => {
   const f = rebuildsFixture(t, { script: { hideTools: ["rebuild_start"] } });
   await assert.rejects(f.rebuilds.start({ request: "Refused" }), { status: 409 });

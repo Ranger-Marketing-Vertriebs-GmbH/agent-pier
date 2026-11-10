@@ -25,6 +25,20 @@ export const craftServersHoldGhidra = (dataDir) => {
 /** The mark a removal leaves in a tool folder it kept for a running server. */
 export const removedMark = ".removed";
 
+/** Whether removed tool `tool` left its folder for a running server. */
+const removed = (tool) => fs.existsSync(path.join(tool.directory, removedMark));
+
+/**
+ * Whether `tool` wants the shared Ghidra and JDK: only while installed, never on the
+ * stale settings of a folder its removal left behind.
+ */
+export const wantsGhidraOf = (tool) =>
+  !!tool.serverId() && !removed(tool) && tool.stored().components.ghidra;
+
+/** A new install of `tool` takes its folder back from the deferred removal. */
+export const clearRemovedMark = (tool) =>
+  fs.rmSync(path.join(tool.directory, removedMark), { force: true });
+
 /**
  * Removes the folder of removed tool `tool` (a CraftTool or ReaTool: its config,
  * home and settings) that its removal left for a running server (marked
@@ -34,7 +48,7 @@ export const removedMark = ".removed";
 export async function removeToolFolder(tool, held) {
   if (tool.serverId() || tool.job || tool.claimed || tool.stored().requested)
     return false;
-  if (!fs.existsSync(path.join(tool.directory, removedMark))) return false;
+  if (!removed(tool)) return false;
   if (held([tool.directory])) return true;
   await fsp.rm(tool.directory, { recursive: true, force: true });
   return false;

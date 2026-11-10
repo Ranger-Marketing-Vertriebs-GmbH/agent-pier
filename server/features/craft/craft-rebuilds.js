@@ -170,7 +170,7 @@ export class CraftRebuilds {
     if (this.closing) throw refuse(messages.rebuildsStopping);
     if (!this.craft.state().installed) throw refuse(messages.notInstalled);
     // An update or a change of Craft Anything runs: its files may be switching.
-    if (this.craft.job) throw refuse(messages.busy);
+    if (this.craft.job || this.craft.claimed) throw refuse(messages.busy);
     const requestId = cleanRequestId(input?.requestId);
     if (requestId) {
       const known = this.startedWith(source, requestId);

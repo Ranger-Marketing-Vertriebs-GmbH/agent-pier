@@ -32,8 +32,10 @@ import {
 } from "./rea-components.js";
 import {
   VersionSweep,
+  clearRemovedMark,
   craftServersHoldGhidra,
   removeToolFolder,
+  wantsGhidraOf,
 } from "./version-sweep.js";
 import { runningCommandLines } from "../../lib/process-commands.js";
 import { failureText, keyed, queueSync, reaComponentStates } from "./rea-state.js";
@@ -155,11 +157,12 @@ export class CraftTool {
   }
   save(components, settings) {
     writePrivate(this.file, { serverId: this.serverId(), components, settings });
+    clearRemovedMark(this);
     this.changed();
   }
   /** Whether the owner chose Ghidra for Craft Anything (the other tool keeps it then). */
   wantsGhidra() {
-    return this.stored().components.ghidra;
+    return wantsGhidraOf(this);
   }
   /** Calls `onChange()` after a change of state(); never throws. */
   changed() {

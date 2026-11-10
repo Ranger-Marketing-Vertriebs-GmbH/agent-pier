@@ -213,3 +213,45 @@ test("no sweep runs while a job of either tool runs", async (t) => {
   await craft.versions.run();
   assert.equal(fs.existsSync(oldFolder), false);
 });
+
+/** REA and Craft Anything over one fixture, joined like the wiring joins them. */
+async function bothTools(f, ps) {
+  const craft = await f.tool({ commandLines: ps.read });
+  const rea = await f.reaTool({ commandLines: ps.read });
+  craft.keepsGhidra = () => rea.wantsGhidra();
+  rea.keepsGhidra = () => craft.wantsGhidra();
+  await f.reaInstall(rea, { components: { ghidra: true, frida: false } });
+  await f.install(craft, { components: { ghidra: true } });
+  return { craft, rea };
+}
+
+test("a removed Craft Anything kept for a running server no longer keeps Ghidra", async (t) => {
+  const f = await craftFixture(t);
+  const ps = processes();
+  const { craft, rea } = await bothTools(f, ps);
+  const home = path.join(f.s.dataDir, "craft-anything");
+  ps.lines = [`/x/craft-anything-cli mcp CRAFT_ANYTHING_CONFIG_DIR=${home}/sessions`];
+  await craft.uninstall();
+  assert.ok(fs.existsSync(path.join(home, ".removed")), "kept for the running server");
+  assert.ok(craft.component("rea-ghidra"), "REA still wants Ghidra");
+  assert.equal(craft.wantsGhidra(), false, "stale settings do not count");
+  await rea.uninstall();
+  assert.equal(rea.component("rea-ghidra"), null, "Ghidra goes with the last tool");
+  assert.equal(rea.component("rea-jdk"), null);
+  // A new install takes the folder back.
+  await f.install(craft, { components: { ghidra: true } });
+  assert.equal(fs.existsSync(path.join(home, ".removed")), false);
+  assert.equal(craft.wantsGhidra(), true);
+});
+
+test("a removed REA kept for a running server no longer keeps Ghidra", async (t) => {
+  const f = await craftFixture(t);
+  const ps = processes();
+  const { craft, rea } = await bothTools(f, ps);
+  ps.lines = [`/node /rea/cli.js mcp HOME=${path.join(f.s.dataDir, "rea", "home")}`];
+  await rea.uninstall();
+  assert.ok(fs.existsSync(path.join(f.s.dataDir, "rea", ".removed")));
+  assert.equal(rea.wantsGhidra(), false);
+  await craft.uninstall();
+  assert.equal(craft.component("rea-ghidra"), null);
+});
