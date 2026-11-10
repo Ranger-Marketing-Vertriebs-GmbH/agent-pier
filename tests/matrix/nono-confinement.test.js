@@ -13,6 +13,7 @@ import {
 } from "../../server/features/nono/nono-launch.js";
 import { SshIntegration } from "../../server/features/ssh/ssh-integration.js";
 import { capabilityFile } from "../../server/features/ssh/ssh-capability.js";
+import { RequestBroker } from "../../server/features/requests/request-broker.js";
 
 /**
  * The grant-composition tests assert what AgentPier puts on the command line.
@@ -215,5 +216,70 @@ test(
     });
     assert.doesNotMatch(output, /EPERM|operation not permitted/i);
     assert.match(output, /"jsonrpc":"2\.0"/);
+  },
+);
+
+test(
+  "a Claude launch under nono reads the request folder and writes only its own plugin folders",
+  options,
+  async (t) => {
+    const { root, profile } = workspace(t);
+    const dataDir = path.join(root, "data");
+    fs.mkdirSync(dataDir);
+    const broker = new RequestBroker({ dataDir, sessions: { get: async () => null } });
+    t.after(() => broker.close());
+    const prepare = (id) =>
+      broker.prepare({
+        id,
+        account: { id: "account", tool: "claude" },
+        cwd: path.join(root, "work"),
+        launch: { command: "claude", args: [], env: {}, cliVersion: "2.1.300" },
+      });
+    await prepare("other");
+    const prepared = await prepare("mine");
+    const requests = path.join(dataDir, "requests");
+    const dispatcher = prepared.env.AGENTPIER_CLAUDE_HOOK_DISPATCHER;
+    const write = (label, file) =>
+      `echo "${label}:$( (echo planted > '${file}') 2>&1 && echo written)"`;
+    const script = [
+      `echo "OWN_LAUNCH:$(grep -c '"id":"mine"' '${prepared.env.AGENTPIER_REQUEST_FILE}' 2>&1)"`,
+      `echo "DISPATCHER:$(head -n 1 '${dispatcher}' 2>&1)"`,
+      write("OWN_BRIDGE", path.join(requests, "mine.claude-bridge/hooks/types.d.ts")),
+      write("OWN_PLUGIN", path.join(requests, "mine.claude/note")),
+      write("NEW_DISPATCHER", dispatcher),
+      write("OLD_DISPATCHER", path.join(requests, "claude-hook.sh")),
+      write("OTHER_HOOKS", path.join(requests, "other.claude/hooks/hooks.json")),
+      write("OTHER_LAUNCH", path.join(requests, "other.launch.json")),
+      write("OLD_APPROVALS", path.join(requests, "remembered-approvals.json")),
+      write("APPROVALS", path.join(dataDir, "request-state/remembered-approvals.json")),
+      `echo "READ_APPROVALS:$(cat '${path.join(dataDir, "request-state/remembered-approvals.json")}' 2>&1)"`,
+    ].join("\n");
+    const output = run({
+      cwd: path.join(root, "work"),
+      profile,
+      launch: {
+        command: "/bin/sh",
+        args: ["-c", script],
+        sandboxGrants: prepared.sandboxGrants,
+      },
+    });
+    assert.match(output, /OWN_LAUNCH:1/);
+    assert.match(output, /DISPATCHER:#!\/bin\/sh/);
+    assert.match(output, /OWN_BRIDGE:written/);
+    assert.match(output, /OWN_PLUGIN:written/);
+    for (const label of [
+      "NEW_DISPATCHER",
+      "OLD_DISPATCHER",
+      "OTHER_HOOKS",
+      "OTHER_LAUNCH",
+      "OLD_APPROVALS",
+      "APPROVALS",
+      "READ_APPROVALS",
+    ])
+      assert.match(output, new RegExp(`${label}:.*(not permitted|denied)`, "i"), label);
+    assert.doesNotMatch(
+      fs.readFileSync(path.join(requests, "claude-hook.sh"), "utf8"),
+      /planted/,
+    );
   },
 );

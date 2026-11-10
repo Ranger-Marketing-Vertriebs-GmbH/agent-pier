@@ -15,6 +15,7 @@ export async function prepareRequests(
     ...launch.env,
     AGENTPIER_REQUEST_FILE: file,
     AGENTPIER_REQUEST_TOKEN: token,
+    ...(cliDriver(account.tool).requests.launchEnvironment?.(broker) ?? {}),
   };
   await fs.writeFile(
     file,
@@ -31,10 +32,13 @@ export async function prepareRequests(
     }),
     { mode: 0o600, flag: "wx" },
   );
-  // Every tool reaches the broker over its socket and reads the launch file and
-  // hook payloads the broker directory holds.
+  // Every tool reaches the broker over its socket and reads its launch file from
+  // the broker directory. The directory is granted as a whole because the launch
+  // file is replaced by rename, which a single-file grant does not follow on Linux,
+  // but only for reading: it also holds the other sessions' launch files and
+  // plugin folders, and what a session may write there its driver grants by name.
   const grants = [
-    { access: "allow", path: broker.directory },
+    { access: "read", path: broker.directory },
     { access: "socket", path: broker.socketPath },
   ];
   const prepared = (await cliDriver(account.tool).prepareRequests(

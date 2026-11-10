@@ -137,7 +137,10 @@ test("a project approval survives a restart, is listed and can be removed", asyn
   assert.deepEqual(JSON.parse(again.output()).hookSpecificOutput, allowOutput);
   f.broker.approvals.remove(rule.id);
   const stored = JSON.parse(
-    await fs.readFile(path.join(f.root, "requests/remembered-approvals.json"), "utf8"),
+    await fs.readFile(
+      path.join(f.root, "request-state/remembered-approvals.json"),
+      "utf8",
+    ),
   );
   assert.deepEqual(stored.rules, []);
   const asks = hook(f, tool("WebFetch", { url: "https://example.net" }), {

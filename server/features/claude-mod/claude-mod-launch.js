@@ -37,5 +37,9 @@ export async function addClaudeBridge(broker, id, { launch, args, env }) {
   await write("hooks/register.js", await fs.readFile(moduleFile, "utf8"));
   args.push("--plugin-dir", directory);
   env.AGENTPIER_CLAUDE_BRIDGE_SOCKET = broker.modSocketPath;
-  return [{ access: "socket", path: broker.modSocketPath }];
+  // Claude Code writes into the folder it loads the mod from (see above).
+  return [
+    { access: "allow", path: directory },
+    { access: "socket", path: broker.modSocketPath },
+  ];
 }
