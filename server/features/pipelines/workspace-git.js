@@ -2,17 +2,22 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { problem } from "../../lib/storage.js";
+import { safeGitArgs, safeGitEnvironment } from "../../lib/git-command.js";
 const execute = promisify(execFile);
 
 export function gitEnvironment(home = process.env.HOME) {
-  return {
+  return safeGitEnvironment({
     PATH: process.env.PATH || "/usr/bin:/bin",
     HOME: home || "/",
     LANG: "C.UTF-8",
     GIT_TERMINAL_PROMPT: "0",
     GCM_INTERACTIVE: "never",
-  };
+  });
 }
+/**
+ * Runs git in `cwd`. Every call carries the safe settings of `lib/git-command.js`,
+ * so a program the repository names for a plain read never starts.
+ */
 export async function git(
   cwd,
   args,
@@ -20,7 +25,7 @@ export async function git(
 ) {
   try {
     return (
-      await execute("git", args, { cwd, env, timeout, maxBuffer })
+      await execute("git", safeGitArgs(args), { cwd, env, timeout, maxBuffer })
     ).stdout.trimEnd();
   } catch (error) {
     const failure = problem(serverMessages.pipelineWorkspaces.gitOperationFailed, 409);

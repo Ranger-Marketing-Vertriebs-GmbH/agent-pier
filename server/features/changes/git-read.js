@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
+import { safeGitArgs } from "../../lib/git-command.js";
 import { git, gitEnvironment } from "../pipelines/workspace-git.js";
 import { remoteDefaultBranch } from "../tickets/ticket-worktree.js";
 
@@ -39,7 +40,7 @@ export function readBounded(
   { limit = DIFF_BYTE_LIMIT, timeout = 30000, okCodes = [0], boundary = 10 } = {},
 ) {
   return new Promise((resolve, reject) => {
-    const child = spawn("git", args, {
+    const child = spawn("git", safeGitArgs(args), {
       cwd,
       env: gitEnvironment(),
       stdio: ["ignore", "pipe", "ignore"],
