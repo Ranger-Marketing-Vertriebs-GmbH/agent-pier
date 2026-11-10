@@ -352,6 +352,59 @@ test("pausing agents resolves each confirmed blocker without resending and activ
   assert.equal(readJSON(runtimePaths(s.f.dataDir).config).cron.enabled, true);
 });
 
+test("started coding sessions do not block an update or change during its resolution", async (t) => {
+  const s = await fixture(t);
+  const store = s.f.workflows.store;
+  const sessions = [true, false].map((settled) =>
+    store.reserve({
+      assistantId: s.f.id,
+      conversationId: s.f.channel.conversationId,
+      origin: { kind: "owner" },
+      key: `session-start:${settled}`,
+      payload: { action: "session_start" },
+      state: "running",
+      sessionId: `cli-session-${settled}`,
+      settled,
+      codingStartPending: !settled,
+    }),
+  );
+  const confirmed = await s.confirm();
+  for (const action of sessions)
+    assert.ok(!confirmed.some((item) => item.id === `workflow:${action.id}`));
+  await s.updates.activate({ resolveBlockers: true, items: confirmed });
+  assert.equal(s.updates.status().phase, "complete");
+  for (const action of sessions) assert.deepEqual(store.get(action.id), action);
+  assert.ok(
+    !s.audit.some((event) =>
+      sessions.some((action) => event.details.entryId === action.id),
+    ),
+  );
+});
+
+test("coding session starts still block while approved, executing or uncertain", async (t) => {
+  const s = await fixture(t);
+  for (const [state, resolution] of [
+    ["approved", "cancel"],
+    ["executing", "wait"],
+    ["unknown", "review"],
+  ]) {
+    const action = s.f.workflows.store.reserve({
+      assistantId: s.f.id,
+      conversationId: s.f.channel.conversationId,
+      origin: { kind: "owner" },
+      key: `session-start:${state}`,
+      payload: { action: "session_start" },
+      state,
+      sessionId: `cli-session-${state}`,
+    });
+    const item = (await s.updates.blockerPreview()).find(
+      (entry) => entry.id === `workflow:${action.id}`,
+    );
+    assert.equal(item?.code, "WORKFLOW_WORK");
+    assert.equal(item.resolution, resolution);
+  }
+});
+
 test("a sign-in in progress neither blocks an update nor is cancelled by one", async (t) => {
   // AgentPier runs the ChatGPT sign-in itself (model-account-login.js): it waits for
   // the owner without the Gateway, and its tokens reach OpenClaw at the next start.
