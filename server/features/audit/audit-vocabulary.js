@@ -37,6 +37,9 @@ export const resources = new Set([
   "mail",
   // Session and agent previews: open, close, expiry (audit-preview-details.js).
   "preview",
+  // Sign-ins at the workspace: sign-in, failed sign-in, lockout, sign-out and the
+  // owner's setup (audit-login-details.js).
+  "login",
 ]);
 export const verbs = new Set([
   "revoked",
