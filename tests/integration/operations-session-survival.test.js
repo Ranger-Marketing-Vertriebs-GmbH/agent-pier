@@ -124,7 +124,15 @@ test("a live native session and old release helper survive backup, activation an
     targetDataDir: target,
     passphrase,
   });
-  restored = await createApplication({ dataDir: target, home: root, port: 0 });
+  restored = await createApplication({
+    dataDir: target,
+    home: root,
+    port: 0,
+    // Never the host's keychain (managed Claude Code logins).
+    keychainRun: async () => {
+      throw new Error("Tests do not read the keychain.");
+    },
+  });
   const sessions = await restored.sessions.list();
   assert.equal(sessions.length, 1);
   assert.equal(sessions[0].status, "stopped");

@@ -21,6 +21,7 @@ import { Operations } from "../features/operations/operations.js";
 import { ProjectMemory } from "../features/memory/project-memory.js";
 import { AuditStore } from "../features/audit/audit-store.js";
 import { MailAccountStore } from "../features/mail/mail-account-store.js";
+import { managedLogins } from "../features/accounts/managed-logins.js";
 import { MutationBarrier } from "./mutation-barrier.js";
 import { ProjectRebind } from "./project-rebind.js";
 import { MemoryIntegration } from "../features/memory/memory-integration.js";
@@ -101,6 +102,7 @@ export async function createServices(config) {
   });
   const endpointTester = new EndpointTester({ connections: providerConnections });
   const accounts = new AccountStore({ ...config, providerCatalog, providerConnections });
+  accounts.logins = managedLogins(config, () => sessions); // managed-logins.js
   const preferences = new Preferences({ ...config, accounts });
   const views = new ViewStore({
     dataDir: config.dataDir,

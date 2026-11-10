@@ -137,6 +137,8 @@ export async function createApplication(config) {
   const whenListening = [];
   server.once("listening", () => whenListening.forEach((start) => start()));
   const services = await createServices(config);
+  // Managed Claude Code logins leave the keychain while no session of the account runs.
+  whenListening.push(() => services.accounts.settleLogins().catch(() => {}));
   services.login = new LoginStore(config);
   services.users = new UserStore({
     dataDir: config.dataDir,
