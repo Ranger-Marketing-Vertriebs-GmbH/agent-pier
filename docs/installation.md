@@ -285,6 +285,36 @@ No action is needed; signed-in browsers stay signed in.
 - **Activity log.** Sign-ins, failed sign-ins, lockouts, sign-outs and the owner setup
   appear under **Settings → Operations → Activity log** (`login.*`).
 
+### Claude Code and Codex in the sandbox (2.18)
+
+No action is needed for most installations. This is what changes, on macOS only
+unless noted:
+
+- **Managed Claude Code logins move from the keychain to the account folder.** On the
+  first start after the update, AgentPier copies the login of each managed Claude Code
+  account from its macOS keychain item to
+  `<data dir>/profiles/<account>/claude/.credentials.json` (mode 0600) and then deletes
+  the item. From then on every session of the account, sandboxed or not, reads that
+  file. The file is not encrypted at rest, like Codex's `auth.json` beside it; a backup
+  with credentials now includes it.
+- **Accounts with running sessions move later.** An account is moved only while none of
+  its sessions is running, so sessions that survive the update keep working. Until
+  then it stays on the keychain and a sandboxed session of it starts signed out; the
+  launch dialog says so. Stop the account's sessions once and start a new one.
+- **Local Claude accounts are not moved.** The CLI's own profile (`~/.claude`) keeps
+  its keychain login. It cannot be used in a sandboxed session.
+- **After a downgrade.** An older version runs Claude Code without the stand-in. It
+  still finds the file while the keychain has no item, and puts the login back into
+  the keychain when it next refreshes the token. If an account shows as signed out
+  after a downgrade, sign in again.
+- **Sandboxed Codex sessions** on macOS now get `SSL_CERT_FILE=/etc/ssl/cert.pem`
+  unless `SSL_CERT_FILE` is already set for AgentPier. A CA that exists only in the
+  keychain is not trusted there.
+- **nono (macOS and Linux).** Existing installations keep their nono version. Update it under **CLIs and
+  extensions › Installation**; 0.80 and 0.81 carry security fixes.
+
+Details: [What Claude Code and Codex need in a sandbox](sandbox.md#what-claude-code-and-codex-need-in-a-sandbox).
+
 ### Upgrading from 1.x
 
 AgentPier 2.0 keeps the data schema of 1.28, so the update itself needs no

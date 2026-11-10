@@ -46,7 +46,12 @@ Complete initial user setup before sharing permitted network access; in network 
 the setup form asks for a one-time code from the AgentPier computer. Use the
 documented private remote-access configuration and protect the machine and its
 backups. Credentials are stored in private files and are not automatically
-encrypted at rest. AgentPier holds the agents' ChatGPT and MCP OAuth logins itself
+encrypted at rest. That includes the logins of managed coding CLI accounts: Codex's
+`auth.json` and, on macOS since 2.18, Claude Code's `.credentials.json` in the
+account's profile folder (mode 0600) instead of a keychain item, so that sandboxed
+sessions can use the account without the keychain being opened to them
+([details](docs/sandbox.md#what-claude-code-and-codex-need-in-a-sandbox)). A local
+account, the CLI's own profile, keeps its keychain login. AgentPier holds the agents' ChatGPT and MCP OAuth logins itself
 (`<data>/model-logins/`, owner-only) and is their only refresher; the agent runtimes
 get an access token (OpenClaw's ChatGPT profile) or a credential for AgentPier's
 loopback proxy, never a refresh token. During an MCP OAuth login or renewal AgentPier

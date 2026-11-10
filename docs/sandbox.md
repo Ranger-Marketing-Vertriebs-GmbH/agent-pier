@@ -21,7 +21,10 @@ install can reach `sudo`. nono supports macOS and Linux only; on any other platf
 tool settings report the install as unavailable rather than offering it. nono has no
 self-update subcommand, so an update re-runs that same installer. Installing it by hand
 — Homebrew, a distribution package, Nix — works just as well; AgentPier detects
-whichever copy is on the path. The launch
+whichever copy is on the path. A new installation gets the latest nono; an existing
+one keeps the version it has until you update it under **CLIs and extensions › Installation**. Keep it
+current: nono 0.80 and 0.81 carry security fixes, and what this guide says about
+Claude Code and Codex was checked with nono 0.79.0 and 0.81.0. The launch
 dialog shows a sandbox-profile picker backed by `GET /api/sandbox-profiles`, which
 returns `{ available: false }` when nono is not installed and otherwise the list of
 sandbox profile names nono itself reports. Choosing one sends `nonoProfile` on session
@@ -200,6 +203,85 @@ unverified. See [the adapter's security model](protocol-adapter.md#security).
 nono cannot initialize nested inside another operating-system sandbox: if the AgentPier
 server process itself already runs under one, wrapping a session in nono on top of it
 fails at launch. Run AgentPier unsandboxed if you want to use this feature.
+
+## What Claude Code and Codex need in a sandbox
+
+Every nono profile denies the macOS keychain: the `com.apple.SecurityServer` service
+and `~/Library/Keychains`. Granting it is not an option, because the keychain cannot
+be opened for one item only: a session that may read it reads every item in it,
+including the logins of all other accounts. So AgentPier gives the CLIs what they need
+without it. Each CLI's part lives in its driver (`server/features/clis/<id>/sandbox.js`,
+`claude/login-store.js`).
+
+**Claude Code: the login is a file in the account folder (macOS).** Claude Code stores
+a subscription login in the keychain by running `security`, under a service named
+`Claude Code-credentials-<hash of its config folder>`, and falls back to
+`.credentials.json` in its config folder when the keychain has no item and takes none.
+A managed account (a **separate profile**) keeps its login in that file,
+`<data dir>/profiles/<account>/claude/.credentials.json` (mode 0600), for every
+process of the account, sandboxed or not: the sign-in terminal, sessions, status checks,
+history and plugin commands. One store means that a token refreshed in one session is the
+token every other session reads. AgentPier does this with a small `security` stand-in
+(`server/features/clis/claude/keychain-shim.sh`, installed to
+`<data dir>/login-shims/claude/security`) that is first on the PATH of these
+processes. It answers "not found" (exit code 44) for the services
+`Claude Code-credentials*` and runs `/usr/bin/security` unchanged for every other
+call, so other tools in the session use the keychain as before. A sandboxed session
+gets read access to the stand-in's folder. Linux needs none of this: Claude Code uses
+the file there already.
+
+An account from before this change is moved once. When the file is missing or empty
+and the keychain holds the account's item, AgentPier writes the item's value to the
+file (written to a temporary file and renamed, read back, mode 0600), then deletes the
+item, then marks the account (`<data dir>/profiles/<account>/claude-login-store.json`).
+The value is never logged. This happens at server start, before a launch and before a
+status check, but only while **no session of the account is running**: a session
+started before the move reads the keychain first, and when it refreshes its token it
+writes the keychain and deletes the file, which would sign out the sessions that use
+the file. Until then the account keeps the keychain for all its processes, and the
+launch dialog says that a sandboxed session cannot read its sign-in. Stop the
+account's sessions and start one again to move it. If the keychain cannot be read
+(locked, or a service context without one), nothing changes. A stop at any point of
+the move leaves the login in at least one store, and the next attempt finishes it.
+Deleting an account also deletes a keychain item it may have left.
+
+**Claude Code: the cross-session socket.** Claude Code binds
+`<XDG_RUNTIME_DIR or CLAUDE_CODE_TMPDIR or /tmp>/cc-socks/<pid>.sock` (and
+`/tmp/cc-socks-<uid>/` when that path is too long); AgentBus wakes the session through
+it. A profile that does not make the shared temporary folder writable denies the bind.
+For a sandboxed Claude Code launch AgentPier creates that folder (mode 0700) from the
+environment the session gets and grants it with `--allow-unix-socket-dir-bind`, which
+covers binding and connecting sockets directly inside it. Sessions of the same user
+share this folder, as they do without a sandbox; each socket has its own key.
+
+**Codex: CA certificates from a file (macOS).** Codex verifies TLS certificates against
+the system trust store, which it reaches through the denied `SecurityServer` service.
+Without it every connection fails: `codex doctor` reports "invalid peer certificate:
+UnknownIssuer", and a session ends with "workspace routing discovery failed". A
+sandboxed Codex launch on macOS therefore gets `SSL_CERT_FILE=/etc/ssl/cert.pem`, the
+system's root certificates as a file, and read access to it. Codex's own login is
+already a file in the account folder (`auth.json`). Programs Codex starts inherit the
+variable.
+
+- A CA that exists only in the keychain (a company proxy's root, a development CA you
+  trusted in Keychain Access) is **not** trusted in a sandboxed Codex session. Export
+  it, append it to a copy of `/etc/ssl/cert.pem`, and start AgentPier with
+  `SSL_CERT_FILE` pointing at that bundle: AgentPier passes the variable to every
+  session and then sets nothing of its own. A `CODEX_CA_CERTIFICATE` in the launch
+  environment is respected the same way.
+
+**Not supported in a sandbox: a local Claude account.** A local account is the CLI's
+own profile outside AgentPier (`~/.claude`), with its login in the keychain. AgentPier
+neither moves that login nor puts the stand-in in front of it, so a sandboxed session
+of a local Claude account starts signed out. The launch dialog says so when you pick a
+sandbox profile for it. Use a managed account for sandboxed sessions. Local Codex and
+OpenCode accounts keep their login in files; whether a sandboxed session reads them
+depends on the sandbox profile granting `~/.codex` or OpenCode's folders.
+
+Also outside this: a Claude Code login with a Console API key, which Claude Code keeps
+in a separate keychain item (`Claude Code-<hash>`). Give such an account its key in
+AgentPier instead (**API key** on the account), which reaches every session as a
+variable.
 
 ## Unattended launch modes
 

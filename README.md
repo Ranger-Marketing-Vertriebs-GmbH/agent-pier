@@ -236,7 +236,10 @@ AgentPier is a trusted personal workspace, not an isolation boundary between use
 Its data lives in `.data/` for a source checkout and in
 `~/Library/Application Support/AgentPier` for a macOS installation. The data holds
 credentials, profiles, session metadata and conversations with private file
-permissions, but is not encrypted at rest. The login protects the web workspace;
+permissions, but is not encrypted at rest. On macOS that includes the login of a
+Claude Code account with a separate profile: it is a file in the account folder, not a
+keychain item, so sandboxed sessions can use it
+([details](docs/sandbox.md#what-claude-code-and-codex-need-in-a-sandbox)). The login protects the web workspace;
 [remote access](docs/remote-access.md) explains Tailscale Serve and the network mode.
 Over Tailscale, the pages answer only devices signed in to your tailnet; the MCP
 endpoint and agent hooks also serve tagged devices. Tailscale Funnel is refused

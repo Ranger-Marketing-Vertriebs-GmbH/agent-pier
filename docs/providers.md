@@ -6,6 +6,8 @@ Provider connections and **ChatGPT for agents** live under **Connections › Mod
 
 A native Claude Code, Codex or OpenCode account without a stored key shows its CLI sign-in state, which AgentPier asks the CLI for (`claude auth status`, `codex login status`, `opencode auth list`). The server checks it every 30 s while a visible page shows the account, once for all open tabs, and at once when a login session of the account starts or ends or an account is changed in AgentPier; a sign-in or sign-out made outside AgentPier appears within 30 s ([Live channel](architecture.md#live-channel)).
 
+An account with a **separate profile** keeps its login in its own folder under the data directory: Codex in `codex/auth.json`, OpenCode in `data/opencode/auth.json`, Claude Code in `claude/.credentials.json`. On macOS Claude Code would otherwise use the keychain; since 2.18 AgentPier keeps it on the file for every session of the account, so that sandboxed sessions can sign in too ([what Claude Code and Codex need in a sandbox](sandbox.md#what-claude-code-and-codex-need-in-a-sandbox)). A **local** account uses the CLI's own profile and store, on macOS the keychain for Claude Code, and cannot be used in a sandboxed Claude Code session.
+
 ## Central connections and session selection
 
 Create a provider connection once, then select the CLI, compatible access and model when starting a session. A native account belongs to its own CLI; a central OpenRouter or Z.ai connection can be used across supported CLIs. Z.ai/Codex requires explicit Responses API access. Native defaults and existing account-specific provider profiles remain available.

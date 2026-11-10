@@ -552,7 +552,12 @@ folders in `operations/`, `*.tmp` archives in `operations/backups/`, uploads and
 stages. A restore stage left by a crash is removed at the next server start. The restore report lists profiles that need a new login: a
 profile counts as logged in when its API key or its CLI's login file
 (`codex/auth.json`, `claude/.credentials.json`, `data/opencode/auth.json`) was
-restored.
+restored. On macOS, a managed Claude Code account keeps its login in that file since
+2.18 ([sandbox.md](sandbox.md#what-claude-code-and-codex-need-in-a-sandbox)), so a
+backup with credentials now holds it, sealed like Codex's `auth.json`. Before, the
+login sat in the keychain, which no backup reads, and a restored account had to sign
+in again. An account that has not been moved yet (its sessions were never all stopped
+since the update) is still in the keychain and not in the backup.
 
 A restore rebuilds `users/users.json` without sessions, so every user signs in again.
 With the capsule, users keep their passwords. Without it, they keep their agents and
