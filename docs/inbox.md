@@ -129,27 +129,96 @@ Some requests need no card at all. The list lives in one constant,
 `DEFAULT_ALLOWED` in `server/features/requests/cli-approval-defaults.js`:
 
 - the Claude Code tools `EnterWorktree` and `ExitWorktree`;
-- read-only git: `git status`, `log`, `diff`, `show`, `rev-parse`, `fetch` and
-  `git branch` when it only lists branches, optionally after `-C <dir>`, without
-  options that write files or run programs (`--output`, `--upload-pack`,
-  `--ext-diff`, `-c`);
-- `grep`, `rg` (without `--pre`), `cat`, `head`, `tail`, `ls`, `wc`, and `sed` without
+- read-only git in a repository of the project: `git status`, `log`, `diff`, `show`,
+  `rev-parse`, `fetch` and `git branch` when it only lists branches, optionally after
+  `-C <dir>`. Each subcommand has a list of the options that only choose what is
+  read or how it is printed (`git-read-options.js`: `--oneline`, `--stat`, `-p`,
+  `--since=…`, `--format=…`, `--cached`, `--porcelain`, `--prune`, `--tags` and many
+  more). An option outside that list asks, and so does an abbreviation (`--onel`),
+  because git accepts any unique abbreviation of options that write files or run
+  programs (`--output`, `--upload-pack`, `--ext-diff`). A format with a signature
+  placeholder (`%G?`) asks like `--show-signature`. `git fetch` only updates
+  remote-tracking refs: it names a remote and, if any, plain branches
+  (`git fetch origin main`, `git fetch --all --prune`). A path or URL, a refspec
+  (`main:main`, `+…`, `refs/…`), `--force`, `--prune-tags`, `--refmap` and the
+  shallow and filter options ask, and so does a remote whose name is also a folder
+  where the command runs;
+- `grep`, `cat`, `head`, `tail`, `ls`, `wc`, `rg` with its search and output options
+  (`rg-read-options.js`; `--pre`, `--hostname-bin`, `-z`, `-f` and unknown options
+  ask), and `sed` without
   `-i` whose script only prints, deletes lines or substitutes without the `w` and `e`
   flags;
-- `npm test`, `npm run test*`, `npm run lint` and `npm run check`;
-- a plain `cd <dir>`.
+- `npm test`, `npm run test*`, `npm run lint` and `npm run check` in the project,
+  with no npm option before `--` other than `--silent`, `--quiet` or `--if-present`
+  (`--prefix`, `--workspace` or `--script-shell` ask; what follows `--` goes to the
+  script);
+- `cd <dir>` into a folder of the project.
+
+`git`, `npm` and `cd` are answered this way only inside the session's project,
+because git obeys the configuration of the repository it stands in and `npm test`
+runs what that folder's `package.json` says. The project is the session's folder,
+the Git work tree around it and the repository's other work trees: the main one with
+its `.worktrees/` and every linked one. AgentPier follows `cd` through a chain and git's
+`-C`, starting from the folder the CLI reports for its shell, and resolves symbolic
+links: `cd web && npm test` and `git -C .worktrees/feature status` run,
+`cd ../other && npm test`, `git -C /other/repo diff` and a plain `cd /tmp` ask. The
+programs that only read files are not bound to the project (`cat /etc/hosts` runs).
+For git the folder must also belong to one of the project's own repositories: a
+nested repository, a submodule or a bare repository inside the project has its own
+configuration and asks. `cd -`, `cd +1` and chains of more than 20 parts ask.
+
+The shell expands some words after AgentPier read them, so a word with an unquoted
+`*`, `?`, `[…]`, `{a,b}` or a leading `~` is judged by what it can become:
+
+- braces are expanded first, and every check reads the words that result
+  (`cat src/{a,b}.js` runs, `cat ~/.s{s,}h/config` asks, and a brace form that
+  yields an option is judged as that option); a sequence such as `{1..3}` counts
+  as `*`;
+- `~` alone or before `/` is your home folder and is checked like any path;
+  `~name`, `~+` and `~-` ask;
+- a pattern with a `..` part asks;
+- `ls` and `wc` show names and sizes only, so any other pattern runs with them
+  (`ls src/*`, `ls -d */`, `wc -l src/*/*.js`); a secret named as written still asks
+  (`ls ~/.ssh`);
+- for the programs that print what files hold (`cat`, `head`, `tail`, `grep`, `rg`,
+  `sed`, and git with a path), a pattern asks when a part of it (between `/`) holds
+  a wildcard and starts with a dot (`.s?h`, `.e*`), or when its last part could
+  match a key or credentials file: a key by its ending (`*.pem`, `*.key`, …),
+  `id_rsa` and its relatives, a file named `credentials`, `secrets`, `token`,
+  `passwords` and the like, alone or as a data file (`secrets.yml`, `token.json`),
+  or any name around a secret word of which the pattern writes out at least three
+  characters (`my-s?cret.txt`, `*oken`). So `cat src/*.js`,
+  `grep -n foo src/*/*.js`, `cat packages/*/package.json` and `cat package*.json`
+  run, while `cat *`, `cat docs/*`, `cat README*`, `cat *.json` and `cat id_*` ask,
+  because each of them could also match such a file;
+- `git`, `rg`, `sed` and `npm` read options among their arguments, so a pattern
+  that starts with a wildcard asks before `--` (`rg foo *.js`; a file could be named
+  like an option), while `git diff -- *.js` runs;
+- quoted characters are literals: `grep 'a*b' file` and `rg "foo{1,2}"` run;
+- a parenthesis anywhere in a word asks (zsh glob qualifiers can run code);
+- a word with a line break, tab or other control character inside quotes is not
+  answered from this list, but a remembered approval covers it (a commit message
+  of several lines with `git commit` remembered).
 
 A command needs no card only when every part of a `;`, `&&`, `||` or `|` chain is on
 this list or covered by a remembered approval (`cd sub && git status` runs, `cd sub &&
 rm x` asks unless `rm` is remembered), and it has no command substitution, variables, redirection into or out of a file, background
 job, subshell or leading `NAME=value`. Discarding output (`2>&1`, `>/dev/null`) is
-fine. A command that names a secret or credentials file (`.env`, `.ssh/`, keys,
-`credentials`, tokens, passwords) always asks, as do `rm`, `ssh`, `scp`, `sftp`,
+fine. A command that names a secret or credentials file (`.env`, `.envrc`, `.ssh/`,
+keys, `credentials`, tokens, passwords, shell history, `.docker/config.json`,
+`.config/gh/hosts.yml`, `.config/sops`), also as the path of `git show HEAD:<path>`,
+always asks, as do `rm`, `ssh`, `scp`, `sftp`,
 `git push` and other writing git commands and package installs; you can remember
 these once you approved them. A remembered program or tool never covers a secret: with
 `cat` remembered, `cat README.md` runs but `cat .env` shows a card, and remembering
 from that card covers exactly `cat .env` (or, for a tool such as `Read`, exactly that
-path), not `cat secrets/other.key`.
+path), not `cat secrets/other.key`. The same holds for a brace form that names a
+secret (`cat ~/.s{s,}h/config`), a pattern for a dot name (`cat .e*`) and a pattern
+that writes out part of a key or credentials name (`cat id_*`, `rm cred*`,
+`cat certs/*.k*`): each is remembered exactly as written. Ordinary patterns stay
+covered by the remembered program, also those the default list asks for because
+they merely could match such a file: with `rm` remembered, `rm -rf dist/*`,
+`rm keys/*` and `rm *.json` run.
 
 The audit records how a request was allowed: `allow` once, `allow-session` and
 `allow-project` for remembered approvals (and for the CLI's own session approval),
