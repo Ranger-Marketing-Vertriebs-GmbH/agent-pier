@@ -426,6 +426,12 @@ renewal, so AgentPier checks each address before it connects (`oauth-fetch.js`):
 A refused address fails the login like any other failed login ("The login could not
 be completed", `OAuthAddressRefused` in the AgentPier log); on a renewal the server
 shows **Login required** or the request fails until the metadata is corrected.
+What you can do then: if the authorization server really is yours and internal, give
+it a public HTTPS address or serve it on the MCP server's own origin (same scheme,
+host and port, for example behind the same reverse proxy); for a server on the
+AgentPier host, enter its URL with `localhost` or the loopback address. If you did
+not expect the server to name an internal address, do not work around it: treat the
+server as untrusted and remove it. There is no switch that turns the check off.
 AgentPier connects to exactly the addresses it checked, follows redirects only within
 one origin (each hop is checked again), waits at most 30 seconds per request and reads
 at most 1 MB per answer.

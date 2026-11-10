@@ -50,7 +50,7 @@ Auf dem Server `http://127.0.0.1:4380` öffnen. Der Webdienst lauscht nur auf Lo
 ssh -L 4380:127.0.0.1:4380 dein-benutzer@dein-server
 ```
 
-Dann dieselbe Adresse im Browser des eigenen Rechners öffnen. Für dauerhaften Fernzugriff beschreibt die [Fernzugriffsanleitung](remote-access.md) Tailscale Serve und den Netzwerkmodus ohne Tailscale, der sich headless mit `npm run remote` einschalten lässt.
+Dann dieselbe Adresse im Browser des eigenen Rechners öffnen. Für dauerhaften Fernzugriff beschreibt die [Fernzugriffsanleitung](remote-access.md) Tailscale Serve und den Netzwerkmodus ohne Tailscale, der sich headless mit `npm run remote` einschalten lässt. Über Tailscale Serve antworten die AgentPier-Seiten, die Vorschauen und der [MCP-Endpunkt](mcp.md#prepare-the-connection) nur Geräten mit Tailscale-Anmeldung aus dem eigenen Tailnet; getaggte Geräte und Tailscale Funnel erhalten `403`. [Agent-Hooks](assistant-workflows.md#agent-hooks) nehmen auch getaggte Geräte an (etwa einen Monitoring-Server), weil jeder Hook sein eigenes Geheimnis hat; Funnel bleibt auch dort abgewiesen.
 
 Die GitHub CLI `gh` lässt sich ebenfalls unter **Deine Tools** installieren; sie verwendet die gespeicherten [GitHub-Zugänge je Host](github-agents.md) in neuen Agent-Sessions.
 
