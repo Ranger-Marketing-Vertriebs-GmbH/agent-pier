@@ -9,7 +9,7 @@ import {
   waitingId,
 } from "./craft-rebuilds-fixture.js";
 
-// The Rebuilds page: the list, the start form, the owner's defaults and a rebuild's
+// The Craft Anything page: the list, the start form, the owner's defaults and a rebuild's
 // detail with its questions, Pause / Continue, follow-up and auto mode.
 // AGENTPIER_CRAFT_REBUILDS_SCREENSHOTS names a folder for the docs' screenshots.
 const screenshots = process.env.AGENTPIER_CRAFT_REBUILDS_SCREENSHOTS;
@@ -20,7 +20,9 @@ test("starts a rebuild from the form and opens it", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 1000 });
   const state = await craftRebuildsFixture(page);
   await page.goto(`${baseURL}/craft`);
-  await expect(page.getByRole("heading", { name: "Rebuilds", level: 1 })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Craft Anything", level: 1 }),
+  ).toBeVisible();
   const list = page.getByRole("group", { name: "Your rebuilds" });
   await expect(list.getByRole("link")).toHaveCount(3);
   await expect(list.getByRole("link").first()).toContainText("shop-clone");
@@ -280,10 +282,14 @@ test("without Craft Anything the page links to its card and has no start form", 
   await expect(page).toHaveURL(/\/coding\/clis$/);
 });
 
-test("in German the page is called Nachbauten", async ({ page }) => {
+test("in German the page is called Craft Anything and its actions say Nachbau", async ({
+  page,
+}) => {
   await craftRebuildsFixture(page, { language: "de" });
   await page.goto(`${baseURL}/craft`);
-  await expect(page.getByRole("heading", { name: "Nachbauten", level: 1 })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Craft Anything", level: 1 }),
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: "Nachbau starten" })).toBeVisible();
 });
 

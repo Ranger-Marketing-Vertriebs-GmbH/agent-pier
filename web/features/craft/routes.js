@@ -1,4 +1,4 @@
-// Rebuilds page: /craft (the list, the start form and the defaults) and
+// Craft Anything page: /craft (the list, the start form and the defaults) and
 // /craft/<rebuildId> (one rebuild). Rebuild ids are UUIDs (REBUILD_ID on the server).
 const rebuildId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 

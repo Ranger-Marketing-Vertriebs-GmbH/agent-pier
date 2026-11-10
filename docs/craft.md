@@ -1,12 +1,12 @@
-# Rebuilds (Craft Anything)
+# Craft Anything
 
-**Rebuilds** in the sidebar **Menu** (group **Work**) lets [Craft Anything](https://github.com/storytold/craft-anything)
+**Craft Anything** in the sidebar **Menu** (group **Work**) lets [Craft Anything](https://github.com/storytold/craft-anything)
 study an app, a website, a file or screenshots of a product and build your own version
 of it. Every rebuild gets its own project, and Craft Anything runs Claude on one of your Claude accounts to
 do the work. The page is for the owner only and never shows in the users' app. Until Craft Anything is
 [installed](mcp.md#managed-craft-anything) it shows a note instead of the form.
 
-![Rebuilds page with the start form and the list of rebuilds](screenshots/craft-rebuilds-list.png)
+![Craft Anything page with the start form and the list of rebuilds](screenshots/craft-rebuilds-list.png)
 
 Use it only for software you own or are allowed to rebuild, and never to bypass DRM,
 logins or anti-cheat systems. Starting a rebuild uses the chosen account's tokens; the

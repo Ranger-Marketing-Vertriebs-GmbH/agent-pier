@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import api from "../../lib/api.js";
 import useLiveTopic from "../../lib/live/useLiveTopic.js";
 
-// The Rebuilds page's data: the list topic (rebuilds, the owner's defaults, the eligible
+// The Craft Anything page's data: the list topic (rebuilds, the owner's defaults, the eligible
 // accounts, the stacks, whether Craft Anything is installed) and one rebuild's topic.
 // Writes go to /api/craft/…; each awaits the topic's push so its control stays busy
 // until the change shows.

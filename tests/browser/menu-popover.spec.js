@@ -134,7 +134,7 @@ test("the menu lists Arbeiten and Einrichten, marks the area and closes like bef
   await expect(work.getByRole("button")).toHaveText([
     "Übersicht",
     /^Projekte/,
-    "Nachbauten",
+    "Craft Anything",
     /^Pipelines/,
     "Dateien",
     "Artifacts",
