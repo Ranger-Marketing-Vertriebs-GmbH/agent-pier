@@ -272,7 +272,10 @@ Isolationsgrenze zwischen Benutzern. Die Daten liegen bei einem Quellcode-Checko
 in `.data/` und bei einer macOS-Installation in
 `~/Library/Application Support/AgentPier`. Sie enthalten Zugangsdaten, Profile,
 Session-Metadaten und Unterhaltungen mit privaten Dateirechten, sind aber nicht
-verschlüsselt gespeichert. Die Anmeldung schützt den Web-Arbeitsbereich;
+verschlüsselt gespeichert. Unter macOS gehört dazu auch die Anmeldung eines
+Claude-Code-Accounts mit eigenem Profil: Sie liegt als Datei im Ordner des Accounts,
+nicht im Schlüsselbund, damit Sandbox-Sessions sie nutzen können
+([Details](docs/sandbox.md#what-claude-code-and-codex-need-in-a-sandbox)). Die Anmeldung schützt den Web-Arbeitsbereich;
 [Fernzugriff](docs/remote-access.md) erklärt Tailscale Serve und den Netzwerkmodus.
 Über Tailscale antworten die Seiten nur Geräten mit Tailscale-Anmeldung aus deinem
 Tailnet; der MCP-Endpunkt und Agent-Hooks bedienen auch getaggte Geräte. Tailscale

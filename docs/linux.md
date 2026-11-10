@@ -104,6 +104,8 @@ Das ersetzt keine funktionierende systemd-Benutzerumgebung beim Installieren; be
 
 Ein Checkout läuft mit dem Node des Hosts: Prüfe vor dem Aktualisieren `node --version` und aktualisiere ein Node außerhalb von `^24.22.1 || >=26.12.1` zuerst (Node 22 wird nicht mehr unterstützt). `npm run service:install` richtet den Dienst danach auf das Node aus, mit dem es läuft.
 
+Sandbox-Sessions mit nono: Unter Linux legt Claude Code seine Anmeldung ohnehin als Datei im Profilordner des Accounts ab (`claude/.credentials.json`), und Codex prüft Zertifikate ohne Schlüsselbund. Die Umstellung für macOS in 2.18 ([Sandboxed sessions](sandbox.md#what-claude-code-and-codex-need-in-a-sandbox)) ändert hier nichts; neu ist nur, dass AgentPier für eine Claude-Code-Session in der Sandbox den Socket-Ordner `/tmp/cc-socks` anlegt und freigibt, über den AgentBus die Session weckt. nono selbst aktualisierst du unter **CLIs & Erweiterungen › Installation**; 0.80 und 0.81 enthalten Sicherheitskorrekturen.
+
 Was sich mit 2.18 an der Anmeldung ändert, steht in der [Installationsanleitung](installation.md#sign-in-changes-in-218): Angemeldete Browser bleiben angemeldet; über HTTPS heißt der Session-Cookie künftig `__Host-agentpier_session`, im Netzwerkmodus gilt zusätzlich eine gemeinsame Grenze von sechzig Anmeldeversuchen pro Minute, und eine neue Installation fragt dort beim Anlegen des Besitzerkontos nach dem Einrichtungscode.
 
 Nach dem Aktualisieren der Repository-Dateien:

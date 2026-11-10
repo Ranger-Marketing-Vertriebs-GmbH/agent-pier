@@ -24,7 +24,9 @@ Claude Code off the macOS keychain: it only changes the hashed service name of i
 items (`Claude Code-credentials-<hash>`). The tests keep the keychain and any browser
 out with stubs for `security`, `open`, `xdg-open` and `$BROWSER` first on PATH:
 Claude Code runs `security` through PATH, the stub fails, and Claude Code keeps
-credentials in `$CLAUDE_CONFIG_DIR/.credentials.json`. Codex runs with
+credentials in `$CLAUDE_CONFIG_DIR/.credentials.json`. Managed accounts rely on the
+same fallback in production, with a stand-in that fails only Claude Code's own
+credential items ([sandbox.md](sandbox.md#what-claude-code-and-codex-need-in-a-sandbox)). Codex runs with
 `mcp_oauth_credentials_store="file"`; OpenCode keeps tokens in its XDG data
 directory.
 

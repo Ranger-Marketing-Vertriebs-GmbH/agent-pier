@@ -30,6 +30,8 @@ coding CLIs. They stay outside the catalog; tables that also cover them, such as
 | `<id>/profile-files.js`   | Node          | The `profileFiles` members                                                                                                                        |
 | `<id>/provider.js`        | Node          | The `provider` members (provider environment and launch)                                                                                          |
 | `<id>/transfer.js`        | Node          | The `transfer` members (Codex and Claude Code only)                                                                                               |
+| `<id>/sandbox.js`         | Node          | `sandboxLaunch` (Codex and Claude Code only)                                                                                                      |
+| `claude/login-store.js`   | Node          | The `loginStore` members; `claude/keychain-shim.sh` is the `security` stand-in it installs                                                        |
 | `codex/history-client.js` | Node          | Codex's read-only app-server client for its history                                                                                               |
 | `opencode/attachments.js` | Node          | OpenCode's attachment `references` entry (`grantDirectory`)                                                                                       |
 
@@ -134,6 +136,18 @@ from `launchModes` (`server/features/accounts/account-store.js`).
   command-line overrides every process of the account takes, read through
   `AccountStore.credentialArgs(id)`) and `pin(launch, profileDir)` (repairs the file
   stores before a plain launch).
+- `loginStore`: `null`, or (Claude Code) how a managed account keeps its login in its
+  own folder where the CLI would use the macOS keychain: `supported(platform)`,
+  `shim` (`{ name, source }`, the stand-in put first on PATH), `marked(root)` (whether
+  the account is on the file store), `environment(env, shimDirectory)`,
+  `settle(root, { busy, run, user })` (moves an existing keychain item into the file
+  while no session of the account runs, and returns `"file"` or `"keychain"`),
+  `forget(root, { run, user })`, `localHidden(home, env)` and `managedHidden(root)`. Callers go through
+  `accounts/managed-logins.js`; [sandbox.md](sandbox.md#what-claude-code-and-codex-need-in-a-sandbox)
+  describes the behaviour.
+- `sandboxLaunch?(launch)`: the launch with what the CLI itself needs inside a nono
+  sandbox, applied by `nono/nono-launch.js` to sandboxed launches only: Codex's
+  `SSL_CERT_FILE` on macOS, Claude Code's socket folder. Absent for OpenCode.
 - `provider`: how the CLI runs against a provider connection. `environment(env, {
 directory, key, description, adapterRoute, adapterToken })` returns the launch
   environment; `launch(result, ctx)` (Claude Code) or `endpointLaunch` and `catalogLaunch`
@@ -316,6 +330,9 @@ member is used.
    `provider.environment` with `launch` or `endpointLaunch` and `catalogLaunch`, and
    `binding.idOptional` and `binding.addHooks`. Members marked `?` above are optional;
    `transfer`, `credentials` and `history.transcriptFiles` follow their capability.
+   Check whether the CLI keeps its login in the system keychain or verifies TLS
+   through it: a sandboxed session reaches neither, so such a CLI needs a
+   `loginStore` or a `sandboxLaunch` (see [sandbox.md](sandbox.md#what-claude-code-and-codex-need-in-a-sandbox)).
    Then walk the files in the branch budget (below) and decide for each whether the new
    CLI needs handling there; prefer a capability or driver member to a new branch.
 7. Add the CLI's mark to `web/components/ProviderMark.jsx`; UI copy goes through the
