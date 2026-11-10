@@ -204,7 +204,8 @@ Users sign in on the same page as the owner:
   Tailscale Serve; AgentPier's own sign-in decides whether they are the owner or a user.
   Requests without a Tailscale identity (Funnel, tagged devices) stay refused, and the
   owner account can still only be created locally or from the owner's own Tailscale
-  account. See [Remote access](remote-access.md).
+  account (in network mode without Tailscale also with the
+  [setup code](login.md#einrichtungscode-im-netzwerkmodus) while no users exist). See [Remote access](remote-access.md).
 
 ## Disable and delete
 

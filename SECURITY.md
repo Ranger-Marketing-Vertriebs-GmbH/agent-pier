@@ -42,7 +42,8 @@ capabilities, shell and SSH only when the owner allows that explicitly, and late
 shell or SSH grants wait for the owner's approval. See
 [agents](docs/agents.md#security-notes).
 
-Complete initial user setup before sharing permitted network access. Use the
+Complete initial user setup before sharing permitted network access; in network mode
+the setup form asks for a one-time code from the AgentPier computer. Use the
 documented private remote-access configuration and protect the machine and its
 backups. Credentials are stored in private files and are not automatically
 encrypted at rest. AgentPier holds the agents' ChatGPT and MCP OAuth logins itself

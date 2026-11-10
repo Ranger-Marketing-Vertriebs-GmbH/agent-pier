@@ -112,11 +112,15 @@ points at `<slot>`, whose local listener is at `<slot+1000>`.
 
 Only the signed-in owner opens a preview; every request and WebSocket upgrade is checked.
 A restricted user never reaches one, and a link without a valid AgentPier session leads to
-a page that links to the AgentPier sign-in.
+a page that links to the AgentPier sign-in. After signing in you are returned to the
+preview while it is still open; AgentPier asks the server for the open previews first and
+never forwards to a port without one, so you stay in AgentPier when the preview was
+closed meanwhile.
 
 Browsers send cookies regardless of port, so the session cookie reaches the preview
-origin. The proxy removes `agentpier_session` from the request, removes `tailscale-*`
-headers and drops an upstream `Set-Cookie` for `agentpier_session`. It adds no AgentPier
+origin. The proxy removes AgentPier's session cookie (`agentpier_session`, and
+`__Host-agentpier_session` over HTTPS) from the request, removes `tailscale-*`
+headers and drops an upstream `Set-Cookie` for either name. It adds no AgentPier
 CSP or `X-Frame-Options`. Upstream it uses `Host: localhost:<port>` (dev servers such as
 Vite reject unknown hosts), sets `X-Forwarded-Host`, `-Proto` and `-For`, and rewrites
 `Location` headers from `localhost`/`127.0.0.1` to the preview address.
@@ -126,7 +130,11 @@ another app arrives without it. The first answer is a small page that navigates 
 same address once; then the cookie is sent. The link therefore works from other apps.
 
 A page in a preview can plant a second `agentpier_session` cookie. The sign-in then uses
-the one cookie that is a valid session and ignores the others. The API also refuses
+the one cookie that is a valid session and ignores values that are none. A request with
+two different valid sessions counts as signed out and its cookies are cleared, so you
+sign in again; that sign-in ends every session the browser presented. Over HTTPS the
+session lives in `__Host-agentpier_session`, which the browser keeps once per host and
+which alone decides there ([Login](login.md)). The API also refuses
 requests with `Sec-Fetch-Site: same-site` unless they are navigations, so a preview page
 cannot call it. One risk remains and is accepted: a hostile preview page can push the
 AgentPier cookie out by filling the host's cookie storage. That signs you out; it does
