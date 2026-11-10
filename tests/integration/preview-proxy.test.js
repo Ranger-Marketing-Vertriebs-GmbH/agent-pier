@@ -301,7 +301,11 @@ test("the agentpier_session cookie and tailscale headers never reach the upstrea
     handler: (req, res) => {
       res.writeHead(302, {
         location: `http://localhost:${req.headers.host.split(":")[1]}/next`,
-        "set-cookie": ["agentpier_session=planted; Path=/", "app=1; Path=/"],
+        "set-cookie": [
+          "agentpier_session=planted; Path=/",
+          "__Host-agentpier_session=planted; Path=/; Secure",
+          "app=1; Path=/",
+        ],
         "clear-site-data": '"cookies"',
       });
       res.end();
@@ -310,6 +314,7 @@ test("the agentpier_session cookie and tailscale headers never reach the upstrea
   upstream.wss.on("headers", (lines) =>
     lines.push(
       "Set-Cookie: agentpier_session=planted",
+      "Set-Cookie: __Host-agentpier_session=planted",
       "Set-Cookie: app=2",
       'Clear-Site-Data: "*"',
     ),
@@ -321,7 +326,8 @@ test("the agentpier_session cookie and tailscale headers never reach the upstrea
   const host = `box.tail.ts.net:${f.slot}`;
   const tailnet = {
     host,
-    cookie: `app=1; ${f.owner}; agentpier_session=other`,
+    // Over HTTPS the owner's session arrives under the prefixed name.
+    cookie: `app=1; __Host-${f.owner}; agentpier_session=other`,
     "tailscale-user-login": "o@x",
     "tailscale-user-name": "Owner",
     "x-forwarded-for": "100.64.0.9",

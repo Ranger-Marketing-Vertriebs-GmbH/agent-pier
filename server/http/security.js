@@ -38,6 +38,8 @@ export function authorizeRequest(req, config, websocket = false) {
       throw problem(serverMessages.http.tailscaleIdentityRequired, 403);
     expected = new URL(config.remoteUrl).origin;
     req.trustBranch = "tailscale";
+    // The session cookie of an HTTPS request carries the __Host- prefix (login.js).
+    req.secureCookies = expected.startsWith("https://");
   } else if (config.network?.enabled && config.networkHosts?.has(host)) {
     // Plain network access: the login protects the workspace; Tailscale markers never downgrade here.
     if (tailscaleMarkers) throw problem(serverMessages.http.proxyHostRequired, 403);

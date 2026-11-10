@@ -74,6 +74,10 @@ export function signInUrl(branch, req, { effective, slot, path = "/" }) {
 export function previewGate({ login, effective, slot, port, detected }) {
   return (req) => {
     const branch = previewBranch(req, { slot, port, effective, detected });
+    // As authorizeRequest: an HTTPS request reads the __Host- session cookie.
+    req.secureCookies =
+      branch === "tailscale" &&
+      Boolean(previewConfig(effective).remoteUrl?.startsWith("https://"));
     const token = sessionToken(req, login);
     if (!token)
       throw refusal(401, "signIn", {
