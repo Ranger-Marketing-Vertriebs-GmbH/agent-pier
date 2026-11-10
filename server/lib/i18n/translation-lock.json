@@ -1782,6 +1782,7 @@
   "sessions.sandboxNotForPipeline": "de:2958aa11735f en:55418845f4aa",
   "sessions.sandboxNotForTaskProfile": "de:3ca2bfa3f0c9 en:5e9dfb574b5e",
   "sessions.sandboxProfileUnknown": "de:58b34d7683d3 en:3bd43764103b",
+  "sessions.sandboxProfilesRateLimited": "de:366b1240b890 en:8de2b90f5c3c",
   "sessions.sandboxUnavailable": "de:4bbe9e26d337 en:c6189132bb4e",
   "sessions.sessionLimitReached": "de:5036405bc687 en:399b2a621496",
   "sessions.shellConfigurationRestricted": "de:525efbd6e4e2 en:998684947a43",
