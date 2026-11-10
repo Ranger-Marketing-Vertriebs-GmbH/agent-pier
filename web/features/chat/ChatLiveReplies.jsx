@@ -1,6 +1,7 @@
 import Message from "./ChatMessage.jsx";
 import { visibleReplies } from "./reply-stream.js";
-import { liveToolName } from "./live-status.js";
+import { liveActivity } from "./live-status.js";
+import { sessionActivity } from "../sessions/sessionPresentation.js";
 import { chatObservabilityCopy as copy } from "../../lib/i18n/messages/chat-observability.js";
 import "./live-replies.css";
 
@@ -19,7 +20,11 @@ export default function ChatLiveReplies({
   liveStatus,
 }) {
   if (restored || session.status !== "running") return null;
-  const preparing = liveStatus?.state === "working" ? liveStatus.preparing : "";
+  // The header's own reading decides: a waiting dialog or a newer polled state wins.
+  const { preparing } = liveActivity(
+    { ...sessionActivity(session), observedAt: session.activity?.observedAt },
+    liveStatus,
+  );
   return (
     <>
       {visibleReplies(replies, data).map((run) => (
@@ -36,7 +41,7 @@ export default function ChatLiveReplies({
       {preparing && (
         <p className="chat-live-preparing" role="status">
           <span className="chat-working-spinner" aria-hidden="true" />
-          {copy.livePreparingLine(liveToolName(preparing))}
+          {copy.livePreparingLine(preparing)}
         </p>
       )}
     </>

@@ -147,6 +147,49 @@ test("preparing shows until the tool starts", (t) => {
   assert.equal(b.status().tool, "Agent");
 });
 
+test("parallel calls: the newest shows, and an older call's start or end keeps it", (t) => {
+  const b = bridge(t);
+  b.mod.receive("s", [
+    start,
+    prepare(0, 0, "Read", "toolu_a"),
+    prepare(0, 1, "Agent", "toolu_b"),
+  ]);
+  assert.equal(b.status().preparing, "Agent");
+  b.mod.receive("s", [{ type: "tool.start", id: "toolu_a", name: "Read" }]);
+  b.mod.receive("s", [{ type: "tool.end", id: "toolu_a" }]);
+  assert.equal(b.status().preparing, "Agent");
+  // Its own end clears it, should its start have been lost.
+  b.mod.receive("s", [{ type: "tool.end", id: "toolu_b" }]);
+  assert.equal(b.status().preparing, undefined);
+});
+
+test("a failed request keeps the tool's start and end, so a preparation never sticks", async () => {
+  let fail = true;
+  const runtime = fakeModRuntime({
+    env,
+    fetch: () =>
+      fail
+        ? { status: 503, ok: false, headers: {}, text: "" }
+        : { status: 200, ok: true, headers: {}, text: "{}" },
+  });
+  register(runtime.on);
+  await runtime.dispatch("session.start", {});
+  await runtime.dispatch("turn.start", { turnId: TURN, text: "" });
+  await runtime.stream("turn.step", { turnId: TURN, index: 0 }, [
+    { kind: "tool", index: 0, id: ID, name: "Agent", ref: 1 },
+  ]);
+  await runtime.dispatch("tool.call", { tool: "Agent", tool_use_id: ID, input: {} });
+  await runtime.tick();
+  fail = false;
+  await runtime.tick();
+  await runtime.tick();
+  const delivered = runtime.requests
+    .filter((request) => request !== runtime.requests[0])
+    .at(-1);
+  const types = delivered.body.events.map((event) => event.type);
+  assert.ok(types.includes("tool.start") && types.includes("tool.end"), types.join());
+});
+
 test("preparing gives way to text, thinking, compaction, the turn's end and an interrupt", (t) => {
   for (const [label, events] of [
     ["text", [text(1, 0, 1, 0, "Done.")]],
@@ -233,5 +276,19 @@ test("the header ranks preparing after compacting and before a running tool", ()
   assert.equal(detail({ preparing: "mcp__plane__search" }), "Bereitet plane__search vor");
   assert.equal(detail({ tool: "Bash" }), "Führt Bash aus");
   assert.equal(liveToolName("mcp__x__y"), "x__y");
+  // The line below the replies follows the header's merged reading.
+  assert.equal(liveActivity(activity, frame({ preparing: "Agent" })).preparing, "Agent");
+  const waiting = { ...activity, state: "waiting", label: "Waiting" };
+  assert.equal(liveActivity(waiting, frame({ preparing: "Agent" })).preparing, "");
+  const newerIdle = {
+    state: "idle",
+    label: "Ready",
+    observedAt: new Date(5).toISOString(),
+  };
+  assert.equal(liveActivity(newerIdle, frame({ preparing: "Agent" })).preparing, "");
+  assert.equal(
+    liveActivity(activity, frame({ preparing: "Agent" }), false).preparing,
+    "",
+  );
   assert.equal(liveToolName("Edit"), "Edit");
 });

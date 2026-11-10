@@ -28,11 +28,12 @@ export function liveValue(frame) {
 /**
  * The header's activity with the live status: a newer live report decides Working
  * or Ready (a dialog the polled activity shows keeps waiting), and `detail` says
- * what the turn does now.
+ * what the turn does now. `preparing` names the tool call the model is writing
+ * while that merged state is Working, for the line below the live replies.
  */
 export function liveActivity(activity, live, running = true) {
   if (!live || !running || activity.state === "waiting")
-    return { ...activity, detail: "" };
+    return { ...activity, detail: "", preparing: "" };
   const observed = Date.parse(activity.observedAt || "") || 0;
   const state = live.at >= observed ? live.state : activity.state;
   const labels = { working: commonCopy.working, idle: commonCopy.ready };
@@ -49,5 +50,6 @@ export function liveActivity(activity, live, running = true) {
             : live.agents
               ? copy.liveAgents(live.agents)
               : "";
-  return { state, label: labels[state] || activity.label, detail };
+  const preparing = working && live.preparing ? liveToolName(live.preparing) : "";
+  return { state, label: labels[state] || activity.label, detail, preparing };
 }
