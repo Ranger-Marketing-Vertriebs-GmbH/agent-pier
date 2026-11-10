@@ -24,6 +24,10 @@ export class Identity {
   principal(row) {
     return principalOf(row);
   }
+  // Counts one attempt of a source that never reached a password check.
+  throttle(source) {
+    this.store.throttle(source);
+  }
   setup(body, source) {
     // Names stay unique across the owner and every user, also after an owner reset.
     const username = body?.username;

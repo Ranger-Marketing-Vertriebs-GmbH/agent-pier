@@ -9,4 +9,6 @@ export const loginMessages = Object.freeze({
   throttled: "Zu viele Anmeldeversuche. Bitte warte eine Minute.",
   setupLocalOnly:
     "Der Besitzer wird direkt auf dem AgentPier-Rechner oder über sein eigenes Tailscale-Konto eingerichtet.",
+  setupCodeInvalid:
+    "Der Einrichtungscode stimmt nicht. Du findest ihn auf dem AgentPier-Rechner: im Start-Protokoll oder mit npm run setup-code.",
 });

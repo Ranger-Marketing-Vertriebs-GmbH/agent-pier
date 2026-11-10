@@ -7,9 +7,12 @@ export default function LoginPage({ status, onLogin, refresh }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [repeat, setRepeat] = useState("");
+  const [setupCode, setSetupCode] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const setup = !status.configured;
+  // Over the plain network the owner proves access to the AgentPier computer.
+  const needsCode = setup && status.needsSetupCode === true;
   // Nobody but the owner may create the owner account, so other devices only wait.
   if (setup && status.canSetup === false)
     return (
@@ -39,7 +42,9 @@ export default function LoginPage({ status, onLogin, refresh }) {
       await loginRequest(
         setup ? "setup" : "login",
         // A browser signed in as someone else stops getting the previous person's notices.
-        setup ? { username, password } : { username, password, deviceId: knownDevice() },
+        setup
+          ? { username, password, ...(needsCode ? { setupCode } : {}) }
+          : { username, password, deviceId: knownDevice() },
       );
       setPassword("");
       setRepeat("");
@@ -102,6 +107,24 @@ export default function LoginPage({ status, onLogin, refresh }) {
                 onChange={(event) => setRepeat(event.target.value)}
               />
             </label>
+          </>
+        )}
+        {needsCode && (
+          <>
+            <label>
+              {copy.setupCode}
+              <input
+                name="setup-code"
+                autoComplete="off"
+                autoCapitalize="characters"
+                spellCheck={false}
+                required
+                maxLength={64}
+                value={setupCode}
+                onChange={(event) => setSetupCode(event.target.value)}
+              />
+            </label>
+            <small>{copy.setupCodeHint}</small>
           </>
         )}
         {error && (

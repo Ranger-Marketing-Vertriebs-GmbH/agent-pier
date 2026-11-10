@@ -17,6 +17,7 @@ import { secretsRoutes } from "./http/routes/secrets.js";
 import { mailRoutes } from "./http/routes/mail.js";
 import { sshRoutes } from "./http/routes/ssh.js";
 import { LoginStore } from "./features/login/login-store.js";
+import { SetupCode } from "./features/login/setup-code.js";
 import { UserStore } from "./features/users/user-store.js";
 import { Identity } from "./features/users/identity.js";
 import { OwnerPrivacy } from "./features/users/owner-privacy.js";
@@ -150,6 +151,8 @@ export async function createApplication(config) {
   services.ownerPrivacy.on("changed", () => services.assistants?.changed());
   // Owner and user sessions; every request and socket asks it for its principal.
   services.identity = new Identity({ login: services.login, users: services.users });
+  // Proves access to this computer when the owner is created over the plain network.
+  services.setupCode = new SetupCode(config);
   // Live dictation uses the agents' central Deepgram connection while it exists.
   services.dictation = new DictationService({
     speech: () => services.assistantSpeech || null,
@@ -388,7 +391,10 @@ export async function createApplication(config) {
   });
   app.use(
     "/auth",
-    loginRoutes(services.identity, effective, { notifications: services.notifications }),
+    loginRoutes(services.identity, effective, {
+      notifications: services.notifications,
+      setupCode: services.setupCode,
+    }),
   );
   // Every /api router goes through the registry, so the access tests see every route.
   // What a restricted user reaches of the agents; her routes and sockets ask it.

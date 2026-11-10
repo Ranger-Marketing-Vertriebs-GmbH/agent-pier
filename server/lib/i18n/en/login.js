@@ -9,4 +9,6 @@ export const loginMessages = Object.freeze({
   throttled: "Too many sign-in attempts. Please wait a minute.",
   setupLocalOnly:
     "The owner is set up on the AgentPier computer itself or through their own Tailscale account.",
+  setupCodeInvalid:
+    "The setup code is not correct. You find it on the AgentPier computer: in the start log or with npm run setup-code.",
 });

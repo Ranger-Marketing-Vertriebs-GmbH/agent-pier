@@ -3,6 +3,7 @@ import "./lib/socket-type-of-service.js";
 import { serverMessages } from "./lib/i18n/de.js";
 import { loadConfig } from "./lib/config.js";
 import { createApplication } from "./app.js";
+import { startupSetupCode } from "./features/login/setup-code.js";
 process.umask(0o077);
 const config = loadConfig();
 if (!Number.isInteger(config.port) || config.port < 1024 || config.port > 65535)
@@ -24,6 +25,13 @@ application.server.listen(config.port, application.networkState.bind, () => {
     console.log(
       serverMessages.scripts.serverListeningNetwork(application.networkState.urls),
     );
+  const setupCode = startupSetupCode({
+    setupCode: application.setupCode,
+    configured: application.login.configured,
+    hasUsers: application.identity.hasUsers,
+    networkEnabled: config.network.enabled,
+  });
+  if (setupCode) console.log(serverMessages.scripts.setupCodeStart(setupCode));
 });
 let stopping = false;
 async function stop() {
