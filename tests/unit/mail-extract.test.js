@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile, fork } from "node:child_process";
+import { readFileSync } from "node:fs";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -25,6 +26,7 @@ import {
   zipBombDocx,
   zipOf,
 } from "../helpers/mail-documents.js";
+import { until } from "../helpers/live-hub-subscriber.js";
 
 const hangUrl = new URL("../fixtures/mail-extract-hang.mjs", import.meta.url);
 const childUrl = new URL(
@@ -33,6 +35,7 @@ const childUrl = new URL(
 );
 const greedyUrl = new URL("../fixtures/mail-extract-greedy.mjs", import.meta.url);
 const endsUrl = new URL("../fixtures/mail-extract-ends.mjs", import.meta.url);
+const heldUrl = new URL("../fixtures/mail-extract-held.mjs", import.meta.url);
 const failed = { code: "MAIL_TEXT_FAILED" };
 // The document's own failure, which a cache may keep.
 const broken = { code: "MAIL_TEXT_FAILED", document: true };
@@ -214,25 +217,64 @@ test("a PDF that inflates past the memory (RSS) limit is stopped", async () => {
 test("exactly two extractors run at once and the queue is bounded", async (t) => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "mail-extract-"));
   t.after(() => fs.rm(dir, { recursive: true, force: true }));
-  const log = path.join(dir, "starts.log");
-  const limits = { ...extractLimits, timeoutMs: 400 };
+  const log = path.join(dir, "held.log");
+  // Each extractor logs its start, holds its place until the test lets it go, logs its
+  // end and exits. The order of those lines shows who ran together; no time limit and
+  // no process start time (unbounded on a loaded host) decides it.
+  const lines = () => {
+    try {
+      return readFileSync(log, "utf8").split("\n").filter(Boolean);
+    } catch {
+      return [];
+    }
+  };
+  const starts = () => lines().filter((line) => line.startsWith("start "));
+  // An extractor that has not started by its own time limit is killed anyway.
+  const started = (count) =>
+    until(() => starts().length >= count, extractLimits.timeoutMs);
+  const letGo = (line) => fs.writeFile(`${log}.${line.split(" ")[1]}.go`, "");
+  const taken = extractionQueues().document.started;
   const runs = Array.from({ length: 4 }, () =>
-    extractText(Buffer.from(`%PDF-log:${log}`), "pdf", { scriptUrl: hangUrl, limits }),
+    extractText(Buffer.from(`%PDF-held:${log}`), "pdf", { scriptUrl: heldUrl }),
   );
-  const results = await Promise.allSettled(runs);
+  const results = Promise.allSettled(runs);
+  // Two got a place at once, the other two wait for one.
+  assert.deepEqual(extractionQueues().document, {
+    running: 2,
+    waiting: 2,
+    started: taken + 2,
+  });
+  // Each extractor let go frees one place: exactly one more starts, never two.
+  for (let held = 2; held <= 4; held += 1) {
+    await started(held);
+    assert.deepEqual(extractionQueues().document, {
+      running: 2,
+      waiting: 4 - held,
+      started: taken + held,
+    });
+    await letGo(starts()[held - 2]);
+  }
+  await letGo(starts()[3]);
   assert.deepEqual(
-    results.map((result) => result.reason?.code),
+    (await results).map((result) => result.reason?.code),
     Array(4).fill("MAIL_TEXT_FAILED"),
   );
-  const starts = (await fs.readFile(log, "utf8"))
-    .trim()
-    .split("\n")
-    .map((line) => Number(line.split(" ")[0]));
-  starts.sort((a, b) => a - b);
-  assert.equal(starts.length, 4);
-  assert.ok(starts[1] - starts[0] < 300, "the first two start together");
-  assert.ok(starts[2] - starts[0] >= 350, "the third waits for a free place");
-  assert.ok(starts[3] - starts[1] >= 350, "the fourth waits for a free place");
+  // All four ran, two of them together and never a third beside them.
+  let running = 0;
+  let most = 0;
+  const pids = new Set();
+  for (const line of lines()) {
+    const [event, pid] = line.split(" ");
+    assert.equal(pids.has(pid), event === "end", line);
+    if (event === "start") pids.add(pid);
+    else pids.delete(pid);
+    running += event === "start" ? 1 : -1;
+    most = Math.max(most, running);
+    assert.ok(running <= 2, "a third extractor never runs beside two");
+  }
+  assert.equal(starts().length, 4);
+  assert.equal(running, 0);
+  assert.equal(most, 2);
 
   // Two running and 16 waiting fill the queue; the next caller is refused at once.
   const queued = Array.from({ length: 18 }, () =>
