@@ -21,7 +21,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   webkit-shards:
-    name: browser (webkit) shard ${{ matrix.shard }}/5
+    name: browser (webkit) shard ${{ matrix.shard }}/6
     # On a pull request only with the label; adding another label starts nothing.
     if: >-
       github.event_name != 'pull_request' ||
@@ -30,11 +30,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5]
+        shard: [1, 2, 3, 4, 5, 6]
     runs-on: ubuntu-latest
-    # Observed 2026-10-20..22: the specs take 17-22 min per shard (balanced
-    # estimate 19.3 min, 96 min in all) and setup 1-2 min. The WebKit system
-    # packages come from the browser-shard action's cache, not a slow mirror.
+    # Observed 2026-11-10 (release run of 2.18.0-rc.6): with five shards two hit
+    # this limit while still passing; the specs took 22-27 min per shard. The
+    # refreshed timings put the suite at 132 min, 22.1 min per shard with six
+    # (26.6 with five), and setup takes 1-2 min. The WebKit system packages come
+    # from the browser-shard action's cache, not a slow mirror.
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -44,7 +46,7 @@ jobs:
         with:
           browser: webkit
           shard: ${{ matrix.shard }}
-          total: 5
+          total: 6
           repeat-timing-regressions: ${{ inputs.repeat-timing-regressions && matrix.shard == 1 }}
   webkit:
     name: browser (webkit)
