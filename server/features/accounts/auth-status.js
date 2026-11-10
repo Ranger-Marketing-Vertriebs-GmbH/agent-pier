@@ -74,6 +74,7 @@ export class AccountAuthStatus {
       let stderr;
       let exitCode = 0;
       try {
+        await this.accounts.settleLogin?.(account.id);
         const args = [
           ...this.accounts.credentialArgs(account.id),
           ...statusArgs[account.tool],

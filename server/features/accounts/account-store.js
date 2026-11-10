@@ -166,6 +166,8 @@ export class AccountStore {
     this.accounts = readJSON(this.file, []);
     this.providerCatalog = providerCatalog || new ProviderCatalog({ dataDir });
     this.providerConnections = providerConnections;
+    // Set by the application (managed-logins.js); null keeps every CLI's own store.
+    this.logins = null;
   }
   list() {
     return [
@@ -247,6 +249,8 @@ export class AccountStore {
     });
     this.accounts.push(a);
     this.save();
+    // A new account has nothing in the keychain to move; it starts on its file store.
+    void this.settleLogin(a.id);
     this.environment(a.id);
     return structuredClone(a);
   }
@@ -290,12 +294,21 @@ export class AccountStore {
     if (this.get(id).internal)
       throw problem(serverMessages.accounts.generatedProfileNotRemovable, 409);
     const dir = this.profile(id);
+    // The keychain item is named after this folder, so nothing else would find it.
+    this.logins?.forget(this.get(id), dir);
     fs.rmSync(dir, { recursive: true, force: true });
     this.accounts = this.accounts.filter((a) => a.id !== id);
     this.save();
   }
   environment(id) {
     const account = this.get(id);
+    const env = this.accountEnvironment(account);
+    return account.kind === "managed" && this.logins
+      ? this.logins.environment(account, this.profile(id), env)
+      : env;
+  }
+  accountEnvironment(account) {
+    const id = account.id;
     const env = { ...cleanEnvironment(), HOME: this.home };
     if (account.tool === "shell") return env;
     env.PATH = [
@@ -329,6 +342,27 @@ export class AccountStore {
       Object.assign(env, cliDriver(account.tool).profileEnv(root));
     if (secret?.apiKey) env[cliDefinition(account.tool).apiKeyEnv] = secret.apiKey;
     return env;
+  }
+  /**
+   * Moves a managed account's login from the keychain to its folder when that is safe
+   * now (managed-logins.js); called before its processes read their environment.
+   */
+  async settleLogin(id) {
+    const account = this.get(id);
+    if (account.kind === "managed")
+      await this.logins?.settle(account, this.profile(id)).catch(() => {});
+  }
+  async settleLogins() {
+    for (const account of this.accounts) await this.settleLogin(account.id);
+  }
+  /** Accounts whose login a sandboxed session cannot read: { [id]: "local" | "pending" }. */
+  hiddenLogins() {
+    return (
+      this.logins?.hidden(this.list(), {
+        home: this.home,
+        profile: (id) => this.profile(id),
+      }) || {}
+    );
   }
   /**
    * Credential-store overrides for every CLI process of a managed account, including
@@ -411,6 +445,8 @@ export class AccountStore {
     const command = executables[account.tool];
     if (!command)
       throw problem(serverMessages.accounts.cliNotInstalled(account.tool), 409);
+    // Before the environment is read: the account may move to its file store now.
+    await this.settleLogin(id);
     if (account.tool === "shell" && !shellExecutable(command))
       throw problem(serverMessages.accounts.supportedShellUnavailable, 409);
     const cli =
@@ -440,8 +476,11 @@ export class AccountStore {
     // cache under their own profile directory (see environment() above). No
     // launch adapter else has this path in hand, so it is declared here. A
     // local account has no such directory.
-    if (account.kind === "managed")
+    if (account.kind === "managed") {
       launch = addGrant(launch, { access: "allow", path: this.profile(id) });
+      for (const grant of this.logins?.grants(account, this.profile(id)) || [])
+        launch = addGrant(launch, grant);
+    }
     if (!account.provider) {
       // Logins and work sessions both write credentials. Every plain managed launch
       // repairs the file stores an older account may lack and overrides them on the

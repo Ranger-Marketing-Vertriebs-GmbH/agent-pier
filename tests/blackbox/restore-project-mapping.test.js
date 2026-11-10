@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { serverMessages } from "../../server/lib/i18n/de.js";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { applicationFixture } from "../helpers/application.js";
+import { applicationFixture, refuseKeychain } from "../helpers/application.js";
 import { createApplication } from "../../server/app.js";
 import { Backup } from "../../server/features/operations/backup.js";
 import { Restore } from "../../server/features/operations/restore.js";
@@ -64,6 +64,7 @@ test("restore rejects colliding mappings and opens Unicode project memory with u
     dataDir: targetDataDir,
     home: f.home,
     port: 0,
+    keychainRun: refuseKeychain,
   });
   try {
     const moved = await restored.memory.register(newPath);

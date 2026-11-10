@@ -11,10 +11,11 @@ import {
   INSTALLATION_ROOT,
 } from "../../server/features/nono/nono-launch.js";
 import { cliDriver } from "../../server/features/clis/drivers.js";
+import { installShim } from "../../server/features/accounts/managed-logins.js";
 
 /**
- * What a coding CLI itself needs inside a sandbox (`<id>/sandbox.js`), run through a
- * real nono: the unit tests pin the flags, this file asks
+ * What a coding CLI itself needs inside a sandbox (`<id>/sandbox.js`, the login
+ * stand-in), run through a real nono: the unit tests pin the flags, this file asks
  * the kernel. Skipped without the binary, like nono-confinement.test.js.
  */
 function nonoExecutable() {
@@ -106,6 +107,39 @@ test(
     // The control: the same folder, already created, without the grant.
     if (process.platform === "darwin")
       assert.match(run({ launch, profile, cwd }), /BIND:E(PERM|ACCES)/);
+  },
+);
+
+test(
+  "a sandboxed session runs the login stand-in from the folder AgentPier grants",
+  options,
+  (t) => {
+    const { root, profile, cwd } = workspace(t);
+    const real = path.join(root, "real-security");
+    fs.writeFileSync(real, "#!/bin/sh\necho REAL\nexit 0\n", { mode: 0o700 });
+    const shim = installShim(
+      path.join(root, "shim"),
+      cliDriver("claude").loginStore.shim,
+      real,
+    );
+    const launch = {
+      command: "/bin/sh",
+      args: [
+        "-c",
+        'security find-generic-password -a me -w -s "Claude Code-credentials-0a1b2c3d" 2>&1; echo "EXIT:$?"',
+      ],
+      env: { PATH: `${shim}:/usr/bin:/bin` },
+    };
+    const granted = run({
+      launch: { ...launch, sandboxGrants: [{ access: "read", path: shim }] },
+      profile,
+      cwd,
+    });
+    assert.match(granted, /could not be found in the keychain/);
+    assert.match(granted, /EXIT:44/);
+    assert.doesNotMatch(granted, /REAL/);
+    // Without the grant the stand-in cannot run, and the answer is not "not found".
+    assert.doesNotMatch(run({ launch, profile, cwd }), /EXIT:44/);
   },
 );
 

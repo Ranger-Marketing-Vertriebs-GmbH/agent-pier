@@ -34,6 +34,10 @@ export const fakeCliOAuthRun = async () => ({ stdout: "[]" });
 export const refuseTailscale = () => {
   throw new Error("Fixtures do not run tailscale.");
 };
+/** Fixtures never run the macOS keychain tool (managed Claude Code logins). */
+export const refuseKeychain = async () => {
+  throw new Error("Fixtures do not read the keychain.");
+};
 /** Brokered CLI logins never start a CLI in a fixture unless a suite opts in as above. */
 export const refuseCliLogin = () => {
   throw new Error("Fixtures do not start coding CLI logins.");
@@ -54,6 +58,7 @@ export async function applicationFixture(t, overrides = {}) {
   // Fixtures never ask a release channel on their own; a test may switch it on.
   configuration.updateCheck ??= false;
   configuration.tailscaleRun ??= refuseTailscale;
+  configuration.keychainRun ??= refuseKeychain;
   let cookie = "";
   const root = await fs.realpath(
     await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-blackbox-")),

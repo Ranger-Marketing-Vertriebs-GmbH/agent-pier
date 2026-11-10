@@ -38,6 +38,7 @@ import * as claudeBinding from "./claude/binding.js";
 import * as opencodeBinding from "./opencode/binding.js";
 import * as codexSandbox from "./codex/sandbox.js";
 import * as claudeSandbox from "./claude/sandbox.js";
+import * as claudeLoginStore from "./claude/login-store.js";
 
 const profiles = { codex, claude, opencode };
 const sessions = {
@@ -77,6 +78,8 @@ const bindings = {
 };
 // What a launch needs inside a nono sandbox; OpenCode needs nothing of its own.
 const sandboxes = { codex: codexSandbox, claude: claudeSandbox };
+// Where a managed account keeps its login when the CLI would use the system keychain.
+const loginStores = { claude: claudeLoginStore };
 // Freezes copies of plain objects and arrays; regular expressions stay as they are. A
 // member is therefore not the module's own export: later changes to that export do not
 // reach the driver (no module changes its exports today).
@@ -102,6 +105,12 @@ const drivers = new Map();
  * credentials: null, or (Codex) { seedProfile(root, { apiKey, providerSelected }),
  *   storeApiKey(root, apiKey, { providerSelected }), args(), pin(launch, profileDir) }:
  *   a managed account's credential stores.
+ * loginStore: null, or (Claude Code) how a managed account keeps its login in its own
+ *   folder instead of the macOS keychain (see `claude/login-store.js`):
+ *   { supported(platform), shim: { name, source }, serviceName(configDir),
+ *   marked(root), environment(env, shimDirectory), settle(root, { busy, run, user }):
+ *   "file" | "keychain", forget(root, { run, user }), localHidden(home, env),
+ *   managedHidden(root) }.
  * sandboxLaunch?(launch): the launch with what the CLI needs inside a nono sandbox
  *   (Codex's CA file on macOS, Claude Code's socket folder); absent for OpenCode.
  * grantDirectory(launch, directory, { reload, ensure, profile, accountDirectory }):
@@ -225,6 +234,7 @@ export function cliDriver(id) {
       inlineMcpNames: sessions[id].inlineMcpNames,
       grantDirectory: sessions[id].grantDirectory,
       sandboxLaunch: sandboxes[id]?.sandboxLaunch,
+      loginStore: loginStores[id] ? { ...loginStores[id] } : null,
       prepareRequests: requests[id].prepareRequests,
       shellToolName: requests[id].shellToolName,
       requests: {
