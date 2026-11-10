@@ -668,4 +668,11 @@ the RPC bridge, never a gateway or `tui_gateway.entry` of its own. Node reads
 job of the `Assistant runtime` workflow runs every
 `tests/integration/*hermes*-contract.test.js` with that variable set, on Linux x64 in
 pull requests and also on macOS arm64 and Linux arm64 otherwise; a skipped contract
-fails the job.
+fails the job. GitHub rate-limits anonymous downloads on shared runners, so the job first restores
+or fetches the archives AgentPier downloads for the pinned and the previous Hermes (uv,
+the Hermes source, agent-browser, PDFium; `node scripts/hermes-contract-downloads.mjs
+--prefetch <absolute dir>`), saves them under a key of both manifests and the runner
+platform before any contract runs, and sets `AGENTPIER_HERMES_DOWNLOAD_CACHE` to that
+folder: provisioning and the update contract serve those archives from it, each checked
+against its pinned SHA-256, and build both installations as without it (CPython and the
+locked packages still come from upstream through uv).
