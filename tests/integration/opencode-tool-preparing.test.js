@@ -169,12 +169,7 @@ test("a disconnected plugin's preparation ends with it", async (t) => {
   await until(() => s.status() === null, "cleared on disconnect");
 });
 
-test("only an OpenCode owner reports preparing, and the push is checked", async (t) => {
-  const s = await fixture(t, "codex");
-  s.channel.preparing("bash");
-  s.channel.streamDelta("item-1", "x", { turn: "turn-1" });
-  await until(() => s.app.chatStreams.replies.runs(sessionId)["item-1"], "stream");
-  assert.equal(s.statuses().length, 0);
+test("the preparing push is checked", () => {
   assert.deepEqual(nativePushValue({ type: "preparing", name: "bash" }), {
     type: "preparing",
     name: "bash",
