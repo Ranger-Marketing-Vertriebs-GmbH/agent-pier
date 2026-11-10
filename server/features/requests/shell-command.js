@@ -3,28 +3,41 @@
 // quoted words and a few redirections that write nothing (`2>&1`, `>/dev/null`).
 // Anything it cannot read with certainty — command or process substitution,
 // variables, redirections into or out of files, background jobs, subshells,
-// groups, comments or leading variable assignments — makes it return null, so the
-// command is never approved without asking.
+// groups, glob qualifiers, comments or leading variable assignments — makes it
+// return null, so the command is never approved without asking.
+//
+// The shell expands unquoted `*`, `?`, `[`, `{a,b}` and a leading `~` after this
+// reading, so every word keeps a record of which of its characters stood outside
+// quotes (`unquotedMarks`); shell-expansion.js judges what they can become.
 
 const separators = new Set([";", "&&", "||", "|", "\n"]);
 // Redirections that neither read nor write a file.
 const harmless = new Set([">/dev/null", "1>/dev/null", "2>/dev/null"]);
 const duplications = new Set(["2>&1", "1>&2", ">&2"]);
 
+const escapable = '$`"\\';
+
 function tokens(command) {
   const out = [];
+  // `marks` has one character per character of `word`: "u" unquoted, "q" quoted.
   let word = null,
+    marks = "",
     i = 0;
   const push = () => {
-    if (word !== null) out.push({ word });
+    if (word !== null) out.push({ word, marks });
     word = null;
+    marks = "";
+  };
+  const add = (text, mark) => {
+    word = (word ?? "") + text;
+    marks += mark.repeat(text.length);
   };
   while (i < command.length) {
     const c = command[i];
     if (c === "'") {
       const end = command.indexOf("'", i + 1);
       if (end < 0) return null;
-      word = (word ?? "") + command.slice(i + 1, end);
+      add(command.slice(i + 1, end), "q");
       i = end + 1;
     } else if (c === '"') {
       let value = "";
@@ -35,14 +48,18 @@ function tokens(command) {
         if (d === '"') break;
         if (d === "$" || d === "`") return null;
         if (d === "\\" && i + 1 < command.length) {
-          value += command[i + 1];
+          // Inside double quotes a backslash escapes only a few characters; before
+          // a newline both vanish, before anything else the backslash stays.
+          const next = command[i + 1];
+          if (escapable.includes(next)) value += next;
+          else if (next !== "\n") value += d + next;
           i += 2;
           continue;
         }
         value += d;
         i++;
       }
-      word = (word ?? "") + value;
+      add(value, "q");
       i++;
     } else if (c === "\\") {
       if (command[i + 1] === "\n") {
@@ -50,7 +67,7 @@ function tokens(command) {
         continue;
       }
       if (i + 1 >= command.length) return null;
-      word = (word ?? "") + command[i + 1];
+      add(command[i + 1], "q");
       i += 2;
     } else if (c === "$" || c === "`") return null;
     else if (c === " " || c === "\t") {
@@ -83,6 +100,7 @@ function tokens(command) {
       const prefix = word !== null && /^[12]$/.test(word) ? word : "";
       if (word !== null && !prefix) push();
       word = null;
+      marks = "";
       const rest = command.slice(i + 1);
       const target = /^(&[12]|\s*\/dev\/null(?=$|[\s;&|]))/.exec(rest);
       if (!target) return null;
@@ -90,16 +108,28 @@ function tokens(command) {
       if (!harmless.has(text) && !duplications.has(text)) return null;
       out.push({ redirect: true });
       i += 1 + target[1].length;
-    } else if ("(){}".includes(c) && word === null) return null;
+    } else if ("{}".includes(c) && word === null) return null;
+    // A parenthesis starts a subshell, or inside a word a zsh glob qualifier or a
+    // bash extended pattern; both can run code.
+    else if (c === "(" || c === ")") return null;
     else if (c === "#" && word === null) return null;
     else {
-      word = (word ?? "") + c;
+      add(c, "u");
       i++;
     }
   }
   push();
   return out;
 }
+
+const recorded = new WeakMap();
+/**
+ * For each word of a segment from `shellSegments`, a string as long as the word:
+ * "u" where the character stood outside quotes, "q" where it was quoted or escaped.
+ * Words from anywhere else count as unquoted throughout, the careful reading.
+ */
+export const unquotedMarks = (words) =>
+  recorded.get(words) ?? words.map((word) => "u".repeat(word.length));
 
 /**
  * The command's simple commands as word lists, or null when it is not plain enough
@@ -111,7 +141,14 @@ export function shellSegments(command) {
   const list = tokens(command);
   if (!list) return null;
   const segments = [];
-  let current = [];
+  let current = [],
+    marks = [];
+  const close = () => {
+    recorded.set(current, marks);
+    segments.push(current);
+    current = [];
+    marks = [];
+  };
   for (const token of list) {
     if (token.redirect) continue;
     if (token.op) {
@@ -121,13 +158,13 @@ export function shellSegments(command) {
         if (token.op === "\n" || (token.op === ";" && segments.length)) continue;
         return null;
       }
-      segments.push(current);
-      current = [];
+      close();
       continue;
     }
     current.push(token.word);
+    marks.push(token.marks);
   }
-  if (current.length) segments.push(current);
+  if (current.length) close();
   if (!segments.length) return null;
   // `NAME=value cmd` changes the program's environment (PAGER, GIT_SSH, …).
   if (segments.some((words) => /^[A-Za-z_][A-Za-z0-9_]*=/.test(words[0]))) return null;
