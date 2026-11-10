@@ -1,6 +1,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { writeClaudeHooks, claudeHookVersion } from "../../requests/claude-runtime.js";
+import {
+  writeClaudeHooks,
+  claudeDispatcher,
+  claudeHookVersion,
+} from "../../requests/claude-runtime.js";
 import { addClaudeBridge } from "../../claude-mod/claude-mod-launch.js";
 import { answerFolderTrust } from "../../requests/claude-folder-trust.js";
 import { answerStartupPrompt } from "../../requests/claude-startup-prompts.js";
@@ -10,10 +14,18 @@ export const shellToolName = "Bash";
 /** What the launch file records about the hooks and Claude's trust file. */
 export const launchRecord = (env) => ({
   claudeHookVersion,
+  ...(env.AGENTPIER_CLAUDE_HOOK_DISPATCHER
+    ? { claudeHookDispatcher: env.AGENTPIER_CLAUDE_HOOK_DISPATCHER }
+    : {}),
   ...(path.isAbsolute(env.CLAUDE_CONFIG_DIR || "")
     ? { claudeTrustFile: path.join(env.CLAUDE_CONFIG_DIR, ".claude.json") }
     : {}),
 });
+/** What the launch environment names before the launch file is written. */
+export const launchEnvironment = (broker) =>
+  broker.runtimeDirectory
+    ? { AGENTPIER_CLAUDE_HOOK_DISPATCHER: claudeDispatcher(broker.runtimeDirectory) }
+    : {};
 export const startupDialogs = {
   claudeFolderTrust: answerFolderTrust,
   claudeStartupPrompt: answerStartupPrompt,
@@ -32,8 +44,13 @@ export async function prepareRequests({ broker, id, args, env, grants }, launch)
     JSON.stringify({ name: "agentpier-requests", version: "1.0.0" }),
     { mode: 0o600 },
   );
-  await writeClaudeHooks(broker.directory, id);
+  await writeClaudeHooks(broker.directory, id, env.AGENTPIER_CLAUDE_HOOK_DISPATCHER);
   args.push("--plugin-dir", directory);
+  // The hooks run the dispatcher from the runtime folder, which holds nothing else
+  // and is only ever read; the plugin folder stays the session's own.
+  if (broker.runtimeDirectory)
+    grants.push({ access: "read", path: broker.runtimeDirectory });
+  grants.push({ access: "allow", path: directory });
   // Live turn, text and tool reports from inside Claude Code (claude-mod/).
   grants.push(...(await addClaudeBridge(broker, id, { launch, args, env })));
 }

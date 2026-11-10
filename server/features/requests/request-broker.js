@@ -8,6 +8,7 @@ import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto
 import { problem } from "../../lib/storage.js";
 import { requestCopy as copy } from "../../lib/i18n/de/requests.js";
 import { prepareRequests } from "./request-launch.js";
+import { ownedFolder, requestFolders } from "./request-storage.js";
 import { refreshClaudeRuntime, confirmClaudeRuntime } from "./claude-runtime.js";
 import { hookScript } from "./claude-hook-handover.js";
 import { endCause, startupPresentations } from "./request-endings.js";
@@ -54,7 +55,7 @@ export class RequestBroker {
     onLaunch = () => {},
     onChange = () => {},
   }) {
-    this.directory = path.join(dataDir, "requests");
+    Object.assign(this, requestFolders(dataDir));
     this.sessions = sessions;
     this.onEvent = onEvent;
     this.onNative = onNative;
@@ -67,7 +68,10 @@ export class RequestBroker {
     this.created = new Set();
     this.claudeReloadRequired = new Set();
     // Remembered approvals and the default list answer requests without a card.
-    this.approvals = new RequestApprovals({ directory: this.directory });
+    this.approvals = new RequestApprovals({
+      directory: this.stateDirectory,
+      legacyDirectory: this.directory,
+    });
     // Latest Claude approval per session that left chat for the terminal.
     this.notices = new RequestNotices({ onChange: (id) => this.changed(id) });
     const hash = createHash("sha256")
@@ -81,14 +85,8 @@ export class RequestBroker {
     this.ready = this.start();
   }
   async start() {
-    await fs.mkdir(this.directory, { recursive: true, mode: 0o700 });
-    const storageInfo = await fs.lstat(this.directory);
-    if (
-      !storageInfo.isDirectory() ||
-      (process.getuid && storageInfo.uid !== process.getuid())
-    )
-      throw Error("Unsafe native request storage");
-    await fs.chmod(this.directory, 0o700);
+    for (const folder of [this.directory, this.runtimeDirectory, this.stateDirectory])
+      await ownedFolder(folder, "Unsafe native request storage");
     try {
       const created = JSON.parse(
         await fs.readFile(path.join(this.directory, "created.json"), "utf8"),
@@ -103,11 +101,7 @@ export class RequestBroker {
       if (error.code !== "ENOENT") throw error;
     }
     const directory = path.dirname(this.socketPath);
-    await fs.mkdir(directory, { recursive: true, mode: 0o700 });
-    const info = await fs.lstat(directory);
-    if (!info.isDirectory() || (process.getuid && info.uid !== process.getuid()))
-      throw Error("Unsafe native request socket directory");
-    await fs.chmod(directory, 0o700);
+    await ownedFolder(directory, "Unsafe native request socket directory");
     const active = await new Promise((resolve) => {
       const probe = net.createConnection(this.socketPath);
       probe.once("connect", () => {
@@ -119,7 +113,10 @@ export class RequestBroker {
       );
     });
     if (active) throw Error("Native request broker already running");
-    this.claudeReloadRequired = await refreshClaudeRuntime(this.directory);
+    this.claudeReloadRequired = await refreshClaudeRuntime(
+      this.directory,
+      this.runtimeDirectory,
+    );
     for (const id of this.claudeReloadRequired) this.changed(id);
     await fs.rm(this.socketPath, { force: true });
     this.server = net.createServer((socket) => this.connection(socket));

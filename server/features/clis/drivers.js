@@ -122,7 +122,8 @@ const drivers = new Map();
  *   approval relay, changing `args`, `env` and `grants` in place; may return the
  *   launch that replaces `{ ...launch, args, env }` (Codex's wrapper).
  * requests: { launchRecord?(env): extra fields of the launch file (Claude Code's hook
- *   version and trust file) }.
+ *   version, dispatcher and trust file); launchEnvironment?(broker): variables the
+ *   launch names before that file is written (Claude Code's hook dispatcher) }.
  * shellToolName: the tool whose requests carry a shell command line.
  * startupDialogs: { [presentation]: answer(broker, entry, choice) } for the startup
  *   dialogs AgentPier answers in the terminal itself.
@@ -219,7 +220,10 @@ export function cliDriver(id) {
       grantDirectory: sessions[id].grantDirectory,
       prepareRequests: requests[id].prepareRequests,
       shellToolName: requests[id].shellToolName,
-      requests: { launchRecord: requests[id].launchRecord },
+      requests: {
+        launchRecord: requests[id].launchRecord,
+        launchEnvironment: requests[id].launchEnvironment,
+      },
       startupDialogs: { ...requests[id].startupDialogs },
       history: {
         list: histories[id].list,

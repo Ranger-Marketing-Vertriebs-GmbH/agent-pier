@@ -43,18 +43,39 @@ const projectCacheMs = 60000;
 
 const allowOnce = (entry) => entry.options?.find((o) => allowOnceIds.includes(o.id))?.id;
 
+const fileName = "remembered-approvals.json";
+function storedRules(file) {
+  try {
+    const stored = JSON.parse(fs.readFileSync(file, "utf8"));
+    return Array.isArray(stored?.rules) ? stored.rules.filter(validRule) : [];
+  } catch (error) {
+    if (error.code === "ENOENT") return null;
+    if (error instanceof SyntaxError) return [];
+    throw error;
+  }
+}
+
 export class RequestApprovals {
-  constructor({ directory, scope = projectScope }) {
-    this.file = path.join(directory, "remembered-approvals.json");
+  /**
+   * `directory` is the server's own state folder, which no session is granted.
+   * `legacyDirectory` is where the file lay before (the request folder, which
+   * sandboxed sessions could write): its rules are taken over once, when the state
+   * folder holds no file yet, and the old file is removed. That one take-over trusts
+   * the old file as it is; afterwards a file put there counts for nothing.
+   */
+  constructor({ directory, legacyDirectory, scope = projectScope }) {
+    this.file = path.join(directory, fileName);
     this.scope = scope;
     this.projects = new Map();
-    this.rules = [];
-    try {
-      const stored = JSON.parse(fs.readFileSync(this.file, "utf8"));
-      if (Array.isArray(stored?.rules)) this.rules = stored.rules.filter(validRule);
-    } catch (error) {
-      if (error.code !== "ENOENT" && !(error instanceof SyntaxError)) throw error;
-    }
+    fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+    const stored = storedRules(this.file);
+    this.rules = stored ?? [];
+    if (stored || !legacyDirectory) return;
+    const legacy = path.join(legacyDirectory, fileName);
+    this.rules = storedRules(legacy) ?? [];
+    // Written even when empty: the file marks the take-over as done.
+    this.save();
+    fs.rmSync(legacy, { force: true });
   }
   save() {
     const temporary = `${this.file}.${randomUUID()}.tmp`;

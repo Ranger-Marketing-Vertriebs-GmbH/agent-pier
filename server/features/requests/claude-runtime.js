@@ -18,13 +18,28 @@ async function atomic(file, content, mode = 0o600) {
   }
 }
 
+/** The dispatcher every Claude hook command names (`/bin/sh <folder>/claude-hook.sh`). */
+export const dispatcherName = "claude-hook.sh";
+/** Where the launches of this release find the dispatcher. */
+export const claudeDispatcher = (runtimeDirectory) =>
+  path.join(runtimeDirectory, dispatcherName);
+
 async function ownedDirectory(directory) {
   const info = await fs.lstat(directory);
   if (!info.isDirectory() || (process.getuid && info.uid !== process.getuid()))
     throw Error("Unsafe Claude request plugin directory");
 }
 
-export async function writeClaudeHooks(directory, id) {
+/**
+ * Writes the request hooks of one launch. `dispatcher` is the script they run: the
+ * one in the runtime folder, which a session may only read, or for a launch from
+ * before that folder existed the one in the request folder itself.
+ */
+export async function writeClaudeHooks(
+  directory,
+  id,
+  dispatcher = path.join(directory, dispatcherName),
+) {
   const plugin = path.join(directory, `${id}.claude`);
   await ownedDirectory(plugin);
   await ownedDirectory(path.join(plugin, "hooks"));
@@ -32,9 +47,7 @@ export async function writeClaudeHooks(directory, id) {
     type: "command",
     // Claude caches this command. The private dispatcher changes atomically
     // with the server, so an existing session does not pin an obsolete release.
-    command: ["/bin/sh", path.join(directory, "claude-hook.sh")]
-      .map(shellQuote)
-      .join(" "),
+    command: ["/bin/sh", dispatcher].map(shellQuote).join(" "),
     timeout: claudeHookTimeoutSeconds,
   };
   await atomic(
@@ -48,14 +61,21 @@ export async function writeClaudeHooks(directory, id) {
   );
 }
 
-/** Called only after the broker has checked exclusive ownership of its socket. */
-export async function refreshClaudeRuntime(directory) {
+/**
+ * Called only after the broker has checked exclusive ownership of its socket.
+ * Writes the dispatcher twice: into `runtimeDirectory`, which sandboxed sessions are
+ * granted read-only and every launch of this release names, and into the request
+ * folder, where the hook commands of sessions started before still look for it.
+ */
+export async function refreshClaudeRuntime(directory, runtimeDirectory = directory) {
   const command = [process.execPath, hookScript].map(shellQuote).join(" ");
-  await atomic(
-    path.join(directory, "claude-hook.sh"),
-    `#!/bin/sh\nexec ${command} "$@"\n`,
-    0o700,
-  );
+  const current = claudeDispatcher(runtimeDirectory);
+  for (const folder of new Set([runtimeDirectory, directory]))
+    await atomic(
+      path.join(folder, dispatcherName),
+      `#!/bin/sh\nexec ${command} "$@"\n`,
+      0o700,
+    );
   const reloadRequired = new Set();
   for (const name of await fs.readdir(directory)) {
     if (!name.endsWith(".launch.json")) continue;
@@ -78,7 +98,13 @@ export async function refreshClaudeRuntime(directory) {
     )
       continue;
     try {
-      await writeClaudeHooks(directory, id);
+      // A launch keeps the dispatcher it was started with: an older sandboxed
+      // session holds no grant for the runtime folder.
+      await writeClaudeHooks(
+        directory,
+        id,
+        launch.claudeHookDispatcher === current ? current : undefined,
+      );
     } catch (error) {
       // An interrupted launch can leave its record before creating the plugin.
       if (error.code === "ENOENT") continue;

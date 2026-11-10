@@ -6,9 +6,9 @@ export const shellToolName = "bash";
 export const startupDialogs = {};
 
 /** Adds the request plugin to the launch's own TUI configuration. */
-export async function prepareRequests({ broker, id, env }) {
-  const configFile =
-    env.OPENCODE_TUI_CONFIG || path.join(broker.directory, `${id}.tui.json`);
+export async function prepareRequests({ broker, id, env, grants }) {
+  const own = path.join(broker.directory, `${id}.tui.json`);
+  const configFile = env.OPENCODE_TUI_CONFIG || own;
   const parent = await fs.realpath(path.dirname(configFile));
   const dataDir = await fs.realpath(path.dirname(broker.directory));
   if (parent !== dataDir && !parent.startsWith(dataDir + path.sep))
@@ -26,4 +26,7 @@ export async function prepareRequests({ broker, id, env }) {
   ];
   await fs.writeFile(configFile, JSON.stringify(config), { mode: 0o600 });
   env.OPENCODE_TUI_CONFIG = configFile;
+  // The launch's own TUI configuration stays writable for it; the request folder
+  // around it is only read.
+  if (configFile === own) grants?.push({ access: "allow", path: own });
 }

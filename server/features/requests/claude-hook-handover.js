@@ -57,15 +57,17 @@ export function handoverState(env) {
 }
 
 /**
- * Starts the current hook through the dispatcher beside the launch file, feeding it
+ * Starts the current hook through the dispatcher the launch names (a session from
+ * before it was named uses the one beside its launch file), feeding it
  * the payload Claude sent. Its answer goes to `output` (Claude's end of this hook).
  * Resolves when it exits; a dispatcher that cannot start leaves Claude's dialog.
  */
 export function handOver({ env, text, output, state }) {
-  const dispatcher = path.join(
-    path.dirname(env.AGENTPIER_REQUEST_FILE),
-    "claude-hook.sh",
-  );
+  const named = env.AGENTPIER_CLAUDE_HOOK_DISPATCHER;
+  const dispatcher =
+    typeof named === "string" && path.isAbsolute(named)
+      ? named
+      : path.join(path.dirname(env.AGENTPIER_REQUEST_FILE), "claude-hook.sh");
   return new Promise((resolve) => {
     let child;
     try {
