@@ -43,8 +43,10 @@ export function subagentTranscriptPath(transcriptPath, rawId) {
  * Watches the transcript until Claude decided this hook's call itself. `onSettled`
  * hears why: `native` once the call (or, while no exact call is known, the
  * latest open call of the same tool) has a result, which Claude also records for
- * a denial; `stale` once a later assistant message makes another call, so Claude
- * moved on and no dialog can still wait for this one.
+ * a denial; `stale` once another assistant message makes a call after the open
+ * call of the same tool that stands in for this hook's, so Claude moved on and no
+ * dialog can still wait for this one. Without such a call nothing is stale: the
+ * hook may start before Claude wrote its message, whose calls arrive one by one.
  */
 export function watchNativeDecision({
   transcriptPath,
@@ -69,10 +71,12 @@ export function watchNativeDecision({
     // Calls of the same tool, whatever their input: the fallback while no exact
     // match exists (Claude may record the input differently than the hook sees it).
     similar,
-    // Results and calls appended after the first read, and the assistant
-    // messages of that read (a message streams several calls before running them).
+    // Results appended after the first read.
     resolvedLater,
-    messages,
+    // The latest open call of the same tool and the message it belongs to. Only a
+    // call of another message after it shows that Claude moved on: a message
+    // streams several calls before running them, in any order around this one.
+    anchor,
     moved,
     target = null,
     matched = false,
@@ -87,7 +91,7 @@ export function watchNativeDecision({
     similar = [];
     resolved = new Set();
     resolvedLater = new Set();
-    messages = new Set();
+    anchor = null;
     moved = false;
     target = null;
   };
@@ -101,7 +105,6 @@ export function watchNativeDecision({
     const content = entry?.message?.content;
     if (!Array.isArray(content)) return;
     const message = entry.message.id;
-    if (entry.type === "assistant" && initial) messages.add(message);
     for (const part of content) {
       if (entry.type === "assistant" && part?.type === "tool_use") {
         const exact =
@@ -109,9 +112,16 @@ export function watchNativeDecision({
           part.name === toolName &&
           isDeepStrictEqual(part.input, toolInput);
         if (exact) candidates.push({ id: part.id, eligible });
-        else if (!initial && !messages.has(message)) moved = true;
-        if (typeof part.id === "string" && part.name === toolName)
+        if (typeof part.id === "string" && part.name === toolName) {
           similar.push({ id: part.id, eligible });
+          if (eligible) anchor = { id: part.id, message };
+        } else if (
+          !initial &&
+          anchor &&
+          !resolved.has(anchor.id) &&
+          anchor.message !== message
+        )
+          moved = true;
       }
       if (entry.type === "user" && part?.type === "tool_result") {
         resolved.add(part.tool_use_id);

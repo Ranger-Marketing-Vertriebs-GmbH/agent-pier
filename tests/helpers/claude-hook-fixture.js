@@ -15,6 +15,12 @@ export const workflow = {
       "export const meta = { name: 'nightly-review', description: 'Review open PRs' };\n",
   },
 };
+// An MCP tool of a plugin: a permission like any other tool's.
+export const mcpTool = {
+  hook_event_name: "PermissionRequest",
+  tool_name: "mcp__plugin_agentpier-agentbus_agentpier_agentbus__inbox_read",
+  tool_input: {},
+};
 export async function fixture(t) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-claude-permission-"));
   const session = {

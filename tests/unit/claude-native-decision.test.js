@@ -24,19 +24,29 @@ const toolResult = (id) =>
 const filler = (count) =>
   Array.from({ length: count }, (_, i) => line({ type: "attachment", i })).join("");
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+// A call as Claude records it: one line per call, siblings share the message id.
+const call = (id, name, message, callInput = {}) =>
+  line({
+    type: "assistant",
+    message: { id: message, content: [{ type: "tool_use", id, name, input: callInput }] },
+  });
+const mcpTool = "mcp__plugin_agentpier-agentbus_agentpier_agentbus__inbox_read";
 
-async function watch(t, content) {
+async function watch(t, content, toolName = "Bash", toolInput = input) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-native-decision-"));
   const file = path.join(root, "transcript.jsonl");
   await fs.writeFile(file, content);
-  const seen = { matched: [], settled: 0 };
+  const seen = { matched: [], settled: 0, reasons: [] };
   const stop = watchNativeDecision({
     transcriptPath: file,
-    toolName: "Bash",
-    toolInput: input,
+    toolName,
+    toolInput,
     interval: 10,
     onMatched: (id) => seen.matched.push(id),
-    onSettled: () => seen.settled++,
+    onSettled: (reason) => {
+      seen.settled++;
+      seen.reasons.push(reason);
+    },
   });
   t.after(async () => {
     stop();
@@ -173,4 +183,78 @@ test("a transcript that appears only after the hook started is still watched", a
   assert.deepEqual(seen.matched, ["toolu_late"]);
   await fs.appendFile(file, toolResult("toolu_late"));
   await until(() => seen.settled === 1);
+});
+
+const prompt = line({ type: "user", message: { content: "Go" } });
+
+test("the own call written after the hook started with another input keeps waiting", async (t) => {
+  // The hook starts before Claude wrote its assistant message.
+  const { file, seen } = await watch(t, prompt, mcpTool, {});
+  await sleep(40);
+  await fs.appendFile(file, call("toolu_own", mcpTool, "msg_own", { limit: 5 }));
+  await sleep(120);
+  assert.deepEqual(seen.reasons, [], "the own call is not a sign that Claude moved on");
+  assert.deepEqual(seen.matched, []);
+  // Answered in the terminal: the open call of the same tool gets its result.
+  await fs.appendFile(file, toolResult("toolu_own"));
+  await until(() => seen.settled === 1);
+  assert.deepEqual(seen.reasons, ["native"]);
+});
+
+test("a sibling call that lands one read before the own call keeps waiting", async (t) => {
+  const { file, seen } = await watch(t, prompt, mcpTool, {});
+  await sleep(40);
+  await fs.appendFile(file, call("toolu_sibling", "mcp__x__peers_list", "msg_own"));
+  await sleep(60);
+  assert.deepEqual(seen.reasons, [], "a sibling may precede the own call");
+  await fs.appendFile(file, call("toolu_own", mcpTool, "msg_own"));
+  await until(() => seen.matched.length === 1);
+  assert.deepEqual(seen.matched, ["toolu_own"]);
+  await fs.appendFile(file, call("toolu_after", "Read", "msg_own"));
+  await sleep(60);
+  assert.deepEqual(seen.reasons, []);
+  await fs.appendFile(file, toolResult("toolu_own"));
+  await until(() => seen.settled === 1);
+  assert.deepEqual(seen.reasons, ["native"]);
+});
+
+test("siblings around an own call with another input do not end the wait", async (t) => {
+  // An earlier turn's finished call of the same tool is still among the recent lines.
+  const { file, seen } = await watch(
+    t,
+    call("toolu_old", mcpTool, "msg_old", { limit: 1 }) + toolResult("toolu_old"),
+    mcpTool,
+    {},
+  );
+  await sleep(40);
+  await fs.appendFile(file, call("toolu_before", "Read", "msg_own"));
+  await sleep(60);
+  await fs.appendFile(file, call("toolu_own", mcpTool, "msg_own", { limit: 5 }));
+  await sleep(60);
+  await fs.appendFile(file, call("toolu_after", "Read", "msg_own"));
+  await sleep(120);
+  assert.deepEqual(seen.reasons, [], "calls of the own message never mean moved on");
+  // Claude's next message shows it left this request behind.
+  await fs.appendFile(file, call("toolu_next", "Read", "msg_next"));
+  await until(() => seen.settled === 1);
+  assert.deepEqual(seen.reasons, ["stale"]);
+});
+
+test("a later message after an own call recorded before the hook started is stale", async (t) => {
+  const { file, seen } = await watch(
+    t,
+    prompt + call("toolu_own", mcpTool, "msg_own", { limit: 5 }),
+    mcpTool,
+    {},
+  );
+  await sleep(40);
+  await fs.appendFile(file, call("toolu_sibling", "Read", "msg_own"));
+  await sleep(60);
+  assert.deepEqual(seen.reasons, []);
+  await fs.appendFile(file, call("toolu_next", mcpTool, "msg_next", { limit: 9 }));
+  await sleep(60);
+  assert.deepEqual(seen.reasons, [], "a call of the same tool may be this hook's own");
+  await fs.appendFile(file, call("toolu_last", "Read", "msg_last"));
+  await until(() => seen.settled === 1);
+  assert.deepEqual(seen.reasons, ["stale"]);
 });

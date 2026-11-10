@@ -158,8 +158,14 @@ hook is still waiting. Both dialogs are active, so these rules apply:
   earlier when the transcript shows that Claude decided: a later `tool_result`
   for an open call of the same tool (an approval or a denial in the terminal),
   or a call from a later assistant message, which means Claude moved on
-  (`stale`). Calls of the same assistant message do not count, because Claude
-  streams several calls of one message before it runs them.
+  (`stale`). Since 2026-11-10 "later" is measured from the latest open call of
+  the same tool, which stands in for the hook's own call: only a call of another
+  tool in another assistant message after it ends the card. Calls of the same
+  assistant message do not count, before or after it, because Claude streams
+  several calls of one message before it runs them, and the hook may start
+  before Claude wrote that message. While the transcript shows no open call of
+  the same tool, nothing counts as moved on and the card keeps the hook
+  lifetime.
 - **A later call while the exact call waits.** A matched card ignores it and
   closes only on its own call's result.
 

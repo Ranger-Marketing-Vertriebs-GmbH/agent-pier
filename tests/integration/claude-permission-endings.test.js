@@ -5,6 +5,7 @@ import path from "node:path";
 import {
   fixture,
   hook,
+  mcpTool,
   pending,
   state,
   toolResult,
@@ -88,6 +89,47 @@ test("a matched card ignores a later call until its own result arrives", async (
   assert.equal(run.ended(), false, "the exact call still waits for its decision");
   await fs.appendFile(payload.transcript_path, toolResult());
   await run.done;
+  assert.equal((await ended(f, request.id)).details.cause, "native");
+});
+
+// Claude records one line per call; the calls of one message share its id.
+const call = (id, name, input, message = "msg_own") =>
+  JSON.stringify({
+    type: "assistant",
+    message: { id: message, content: [{ type: "tool_use", id, name, input }] },
+  }) + "\n";
+
+test("an MCP tool's card stays while Claude writes its message after the hook started", async (t) => {
+  const f = await fixture(t);
+  const file = path.join(f.root, "transcript.jsonl");
+  await fs.writeFile(file, '{"type":"user","message":{"content":"Go"}}\n');
+  const run = hook(f, { ...mcpTool, transcript_path: file }, { timeout: 20_000 });
+  const request = await pending(f);
+  assert.equal(request.status, "pending");
+  // A sibling call lands first, then the own call with an input Claude records
+  // differently than the hook saw it.
+  await fs.appendFile(file, call("toolu_sibling", "Read", { file_path: "/x" }));
+  await new Promise((resolve) => setTimeout(resolve, 700));
+  await fs.appendFile(file, call("toolu_own", mcpTool.tool_name, { limit: 5 }));
+  await new Promise((resolve) => setTimeout(resolve, 700));
+  assert.equal(run.ended(), false, "the request is still open in Claude");
+  assert.equal((await state(f)).requests.length, 1, "the card stays");
+  await fs.appendFile(file, laterCall("toolu_later"));
+  await run.done;
+  assert.equal((await ended(f, request.id)).details.cause, "stale");
+});
+
+test("an MCP tool's matched card ends when its call gets a result", async (t) => {
+  const f = await fixture(t);
+  const payload = await transcribed(f, mcpTool);
+  const run = hook(f, payload, { timeout: 20_000 });
+  const request = await pending(f);
+  await fs.appendFile(payload.transcript_path, laterCall("toolu_parallel", "Read", "m2"));
+  await new Promise((resolve) => setTimeout(resolve, 700));
+  assert.equal(run.ended(), false, "the exact call still waits for its decision");
+  await fs.appendFile(payload.transcript_path, toolResult());
+  await run.done;
+  assert.equal(run.output(), "");
   assert.equal((await ended(f, request.id)).details.cause, "native");
 });
 
