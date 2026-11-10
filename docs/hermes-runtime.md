@@ -1213,7 +1213,10 @@ previous release (`tests/fixtures/hermes-previous-manifest.json`, made with
 directory and updates an agent between them through AgentPier's Hermes update path: a
 failed validation restores the snapshot and the previous release, the next activation
 commits and the agent's chat is kept; a running turn blocks it until **Pause agents and
-update** stops it. The teams contract drives a Hermes lead's team tools (proposal, a
+update** stops it. With `AGENTPIER_HERMES_DOWNLOAD_CACHE` set (as CI does), the
+archives AgentPier downloads for both pins come from that folder
+(`scripts/hermes-contract-downloads.mjs`); unpacking, `uv`, the identity check and the
+receipt still run. The teams contract drives a Hermes lead's team tools (proposal, a
 member provisioned as a Hermes agent, a delegated task) and the guard's refusal of a
 read-only task's write; the browser contract opens a local page in the agent's
 AgentPier-owned Chromium and reads the live view's frames, the upload contract fills a

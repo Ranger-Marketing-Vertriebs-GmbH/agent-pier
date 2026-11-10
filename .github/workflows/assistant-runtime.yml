@@ -212,6 +212,33 @@ jobs:
           node-version: ">=24.22.1 <25"
           cache: npm
       - run: npm ci
+      # GitHub rate-limits anonymous downloads on shared runners (429). The archives
+      # AgentPier downloads for the pinned and the previous Hermes (uv, the Hermes
+      # source, agent-browser, PDFium) are fetched once per pin pair and runner
+      # platform and saved before any contract runs, so a failed contract still keeps
+      # them; provisioning and the update contract then build both installations
+      # from them (scripts/hermes-contract-downloads.mjs), each archive checked
+      # against its pin. CPython and the locked packages still come from upstream.
+      - name: Restore the Hermes archives
+        id: hermes-downloads
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/agentpier-hermes-downloads
+          key: hermes-downloads-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('server/features/assistants/runtimes/hermes/hermes-manifest.json', 'tests/fixtures/hermes-previous-manifest.json', 'scripts/hermes-contract-downloads.mjs') }}
+      - name: Download the Hermes archives
+        if: steps.hermes-downloads.outputs.cache-hit != 'true'
+        # The job's read-only token lifts the anonymous limit for this step only;
+        # AgentPier's own downloads stay anonymous.
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/hermes-contract-downloads.mjs --prefetch "$RUNNER_TEMP/agentpier-hermes-downloads"
+      - if: steps.hermes-downloads.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/agentpier-hermes-downloads
+          key: ${{ steps.hermes-downloads.outputs.cache-primary-key }}
+      - name: Use the cached Hermes archives
+        run: echo "AGENTPIER_HERMES_DOWNLOAD_CACHE=$RUNNER_TEMP/agentpier-hermes-downloads" >> "$GITHUB_ENV"
       # Only the immutable installation is cached; the data directory stays fresh.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:

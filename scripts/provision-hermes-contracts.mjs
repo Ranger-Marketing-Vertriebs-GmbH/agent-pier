@@ -2,8 +2,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { isMainModule } from "../server/lib/is-main-module.js";
 import { provisionInstallerHermes } from "../server/features/assistants/runtimes/hermes/hermes-provisioning.js";
-import { selectedHermesRuntime } from "../server/features/assistants/runtimes/hermes/hermes-install.js";
+import {
+  ensureHermesRuntime,
+  selectedHermesRuntime,
+} from "../server/features/assistants/runtimes/hermes/hermes-install.js";
 import { hermesExecutables } from "../server/features/assistants/runtimes/hermes/hermes-paths.js";
+import { hermesContractDownload } from "./hermes-contract-downloads.mjs";
 
 /**
  * Installs the pinned Hermes exactly like `--with-hermes` into a disposable data
@@ -11,13 +15,22 @@ import { hermesExecutables } from "../server/features/assistants/runtimes/hermes
  * (tests/integration/*hermes*-contract.test.js): AGENTPIER_HERMES_CONTRACT_RUNTIME
  * names the installation, whose `venv/bin/python` runs the RPC bridge and whose
  * `venv/bin/hermes` runs Hermes and its messaging gateway (hermesExecutables).
+ * With AGENTPIER_HERMES_DOWNLOAD_CACHE set, the pinned archives come from that folder
+ * (hermes-contract-downloads.mjs); the installation is built as without it.
  */
 export async function provisionHermesContractRuntime(
   dataDir,
-  { provision = provisionInstallerHermes, select = selectedHermesRuntime } = {},
+  {
+    provision = provisionInstallerHermes,
+    select = selectedHermesRuntime,
+    download = hermesContractDownload(),
+  } = {},
 ) {
   if (!path.isAbsolute(dataDir)) throw Error("An absolute data directory is required.");
-  const result = await provision({ dataDir, enable: true });
+  const result = await provision(
+    { dataDir, enable: true },
+    { ensure: (options) => ensureHermesRuntime({ ...options, download }) },
+  );
   if (result?.status !== "ready")
     throw Error(
       `Hermes runtime provisioning ${result ? `${result.status}: ${result.code || result.version}` : "not enabled"}.`,

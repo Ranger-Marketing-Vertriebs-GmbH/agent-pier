@@ -16,10 +16,7 @@ import {
 } from "../helpers/hermes-native.js";
 import { guardProcess } from "../helpers/process-guard.js";
 import { readJSON } from "../../server/lib/storage.js";
-import {
-  hermesManifest,
-  validHermesManifest,
-} from "../../server/features/assistants/runtimes/hermes/hermes-manifest.js";
+import { hermesManifest } from "../../server/features/assistants/runtimes/hermes/hermes-manifest.js";
 import { ensureHermesRuntime } from "../../server/features/assistants/runtimes/hermes/hermes-install.js";
 import { createHermesUpdates } from "../../server/features/assistants/runtimes/hermes/hermes-lifecycle.js";
 import { HermesFleet } from "../../server/features/assistants/runtimes/hermes/hermes-fleet.js";
@@ -30,6 +27,10 @@ import {
   hermesUpdateHost,
   hermesUpdateMaintenance,
 } from "../../server/application/hermes-wiring.js";
+import {
+  hermesContractDownload,
+  previousHermesManifest,
+} from "../../scripts/hermes-contract-downloads.mjs";
 
 // A real Hermes update between two pins, through AgentPier's Hermes update path
 // (hermes-wiring.js: the fleet as the journal's host, its maintenance; runtime-updates.js):
@@ -40,11 +41,13 @@ import {
 // whose validation fails restores the snapshot and runs the agent on the previous
 // release again, with its home as before; the next activation commits, and the agent
 // runs on the pinned release with its chat. Both installations are built from their manifests (network:
-// GitHub, PyPI), like the contracts' provisioning; the fake model answers.
+// GitHub, PyPI), like the contracts' provisioning; the fake model answers. With
+// AGENTPIER_HERMES_DOWNLOAD_CACHE set (CI), the archives AgentPier downloads come from
+// that folder (scripts/hermes-contract-downloads.mjs); every other install step runs.
 const options = { skip: hermesSkip, timeout: contractTimeout(2400000) };
 const agentId = "update-agent";
-const fixture = new URL("../fixtures/hermes-previous-manifest.json", import.meta.url);
-const previous = validHermesManifest(JSON.parse(fs.readFileSync(fixture, "utf8")));
+const previous = previousHermesManifest();
+const download = hermesContractDownload();
 
 // The command lines of the agent's processes, which name their installation.
 function runningFrom(pids) {
@@ -63,7 +66,7 @@ test(
     t.after(() => model.close());
     const dirs = hermesSandbox(t);
     const dataDir = dirs.root;
-    const old = await ensureHermesRuntime({ dataDir, manifest: previous });
+    const old = await ensureHermesRuntime({ dataDir, manifest: previous, download });
     assert.equal(old.version, previous.version);
     const fleet = new HermesFleet({
       dataDir,
@@ -153,9 +156,12 @@ test(
         throw Object.assign(Error("validation failed"), { code: "CONTRACT_INVALID" });
       },
     };
+    const host = hermesUpdateHost(services);
     const updates = createHermesUpdates({
       dataDir,
-      host: hermesUpdateHost(services),
+      // Staging builds the pinned release through the real install; only its
+      // downloads may come from the contracts' cache.
+      host: { ...host, install: (o) => host.install({ ...o, download }) },
       maintenance,
     });
     // Staging installs the pinned release beside the selected one.
