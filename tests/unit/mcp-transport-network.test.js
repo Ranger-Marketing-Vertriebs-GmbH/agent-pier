@@ -34,7 +34,7 @@ test("MCP transport accepts listed network hosts and rejects others", () => {
   );
 });
 
-test("the Tailscale host serves MCP only to a signed-in tailnet device", () => {
+test("the Tailscale host serves MCP to every tailnet device and refuses Funnel", () => {
   const remote = { ...config, remoteUrl: "https://agentpier.tail1234.ts.net" };
   const serve = (headers = {}, path = "/mcp") => ({
     headers: { host: "agentpier.tail1234.ts.net", ...headers },
@@ -45,12 +45,8 @@ test("the Tailscale host serves MCP only to a signed-in tailnet device", () => {
   const member = { "tailscale-user-login": "owner@example.com" };
   for (const path of ["/mcp", "/register", "/token", "/authorize", "/revoke"]) {
     assert.equal(authorizeMcpTransport(serve(member, path), remote), undefined);
-    // No identity: a tagged device, or anything that is not Tailscale Serve.
-    assert.throws(() => authorizeMcpTransport(serve({}, path), remote), { status: 403 });
-    assert.throws(
-      () => authorizeMcpTransport(serve({ "tailscale-user-login": " " }, path), remote),
-      { status: 403 },
-    );
+    // A tagged device sends no login and is served like a signed-in one.
+    assert.equal(authorizeMcpTransport(serve({}, path), remote), undefined);
     // Funnel traffic comes from the public internet, with or without a login header.
     for (const headers of [
       { "tailscale-funnel-request": "?1" },
@@ -58,15 +54,16 @@ test("the Tailscale host serves MCP only to a signed-in tailnet device", () => {
     ])
       assert.throws(() => authorizeMcpTransport(serve(headers, path), remote), {
         status: 403,
+        message: "MCP is not reachable through Tailscale Funnel.",
       });
   }
-  // The origin of the remote host still has to match for a member.
+  // The origin of the remote host still has to match.
   assert.throws(
     () =>
       authorizeMcpTransport(serve({ ...member, origin: "https://evil.example" }), remote),
     { status: 403 },
   );
-  // The local branch is unchanged and takes no identity.
+  // The local branch is unchanged.
   assert.equal(
     authorizeMcpTransport({ ...serve(), headers: { host: "127.0.0.1:4380" } }, remote),
     undefined,

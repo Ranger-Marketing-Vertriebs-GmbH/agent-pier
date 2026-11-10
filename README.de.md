@@ -273,8 +273,9 @@ in `.data/` und bei einer macOS-Installation in
 Session-Metadaten und Unterhaltungen mit privaten Dateirechten, sind aber nicht
 verschlüsselt gespeichert. Die Anmeldung schützt den Web-Arbeitsbereich;
 [Fernzugriff](docs/remote-access.md) erklärt Tailscale Serve und den Netzwerkmodus.
-Über Tailscale antworten die Seiten und der MCP-Endpunkt nur Geräten mit
-Tailscale-Anmeldung aus deinem Tailnet; Tailscale Funnel wird überall abgewiesen.
+Über Tailscale antworten die Seiten nur Geräten mit Tailscale-Anmeldung aus deinem
+Tailnet; der MCP-Endpunkt und Agent-Hooks bedienen auch getaggte Geräte. Tailscale
+Funnel wird überall abgewiesen.
 [Benutzer](docs/users.md), die du anlegst, erreichen nur ihre eigene Oberfläche und
 die Chats ihrer Agenten, nie deinen Arbeitsbereich, deine Dateien oder Einstellungen;
 Betriebssystembenutzer und Daten bleiben deine.

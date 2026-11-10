@@ -14,7 +14,7 @@ const untranslated = new Map(
     "server/features/mcp/http-transport.js": [
       "Proxy requests require the configured remote host.",
       "MCP requires the local, Tailscale or configured network host.",
-      "MCP over Tailscale requires a signed-in tailnet device.",
+      "MCP is not reachable through Tailscale Funnel.",
       "MCP host is not allowed.",
       "MCP origin is not allowed.",
       "Cross-site MCP requests are not allowed.",
