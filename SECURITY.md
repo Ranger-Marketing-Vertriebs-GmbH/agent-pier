@@ -29,7 +29,8 @@ mutually untrusted operating-system users or malicious local software.
 
 Optional agents run a pinned OpenClaw Gateway as the same OS user. An agent with
 shell access runs commands unconfined, with that user's logins, files and keys; the
-nono sandbox applies to CLI sessions only. Local (stdio) MCP servers run host
+nono sandbox applies to CLI sessions only, and it confines against accident, not
+against intent ([what a sandboxed session can still reach](docs/sandbox.md#known-limitations)). Local (stdio) MCP servers run host
 commands for every agent or CLI they are bound to; a server installed from an npm
 or PyPI package runs the package's program with the same rights, and install scripts and
 source builds run only after the owner allows them for that package (a PyPI build
