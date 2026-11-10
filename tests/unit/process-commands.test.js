@@ -23,7 +23,9 @@ test("Linux reads command lines and executables from /proc", (t) => {
 });
 
 test("other hosts list the command lines with ps", () => {
-  const lines = runningCommandLines({ platform: "darwin" });
+  // `ps -E` is macOS's; other hosts without /proc list command lines only.
+  const platform = process.platform === "darwin" ? "darwin" : "other";
+  const lines = runningCommandLines({ platform });
   assert.ok(lines.some((line) => line.includes(String(process.execPath))));
 });
 
