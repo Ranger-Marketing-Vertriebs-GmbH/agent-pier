@@ -1,7 +1,7 @@
 import http from "node:http";
 import { messageIdentity } from "../lib/i18n/message-identity.js";
 import { sessionToken } from "./login.js";
-import { agentChatPath } from "./socket-access.js";
+import { agentChatPath, upgradeTarget } from "./socket-access.js";
 import { authorizeRequest } from "./security.js";
 import { WebSocketServer, WebSocket } from "ws";
 
@@ -30,8 +30,8 @@ export function attachAssistantChatWebSocket(
       `HTTP/1.1 ${status} ${http.STATUS_CODES[status] || "Forbidden"}\r\nConnection: close\r\n\r\n`,
     );
   const upgrade = (req, socket, head) => {
-    const url = new URL(req.url, "http://localhost");
-    const match = url.pathname.match(agentChatPath);
+    const url = upgradeTarget(req, socket);
+    const match = url?.pathname.match(agentChatPath);
     if (!match) return;
     try {
       authorizeRequest(req, effective(), true);

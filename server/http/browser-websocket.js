@@ -1,11 +1,10 @@
 import http from "node:http";
 import { sessionToken } from "./login.js";
-import { browserPath } from "./socket-access.js";
+import { browserPath, upgradeTarget } from "./socket-access.js";
 import { authorizeRequest } from "./security.js";
 import { WebSocketServer, WebSocket } from "ws";
 import { createHash } from "node:crypto";
 
-const ID = /^[A-Za-z0-9_-]{1,100}$/;
 // Frames are dropped, never queued, for a viewer that cannot keep up.
 const backlog = 4 * 1024 * 1024;
 // Owner input: a burst for a fast drag or paste, then this many messages a second.
@@ -46,9 +45,9 @@ export function attachBrowserWebSocket(
   // A paste of up to 4000 characters fits, encoded.
   const wss = new WebSocketServer({ noServer: true, maxPayload: 16384 });
   const upgrade = (req, socket, head) => {
-    const url = new URL(req.url, "http://localhost");
-    const match = url.pathname.match(browserPath);
-    if (!match || !ID.test(match[1])) return;
+    const url = upgradeTarget(req, socket);
+    const match = url?.pathname.match(browserPath);
+    if (!match) return;
     try {
       authorizeRequest(req, effective(), true);
       const token = sessionToken(req, login);

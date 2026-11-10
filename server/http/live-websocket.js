@@ -2,7 +2,7 @@ import http from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
 import { LiveConnection } from "../features/live/live-connection.js";
 import { sessionToken } from "./login.js";
-import { livePath } from "./socket-access.js";
+import { livePath, upgradeTarget } from "./socket-access.js";
 import { authorizeRequest } from "./security.js";
 
 export const MAX_SOCKETS_PER_PRINCIPAL = 16;
@@ -36,8 +36,8 @@ export function attachLiveWebSocket(
   // synchronously, so two upgrades cannot both take the last place.
   const open = new Map();
   const upgrade = (req, socket, head) => {
-    const url = new URL(req.url, "http://localhost");
-    if (!livePath.test(url.pathname)) return;
+    const url = upgradeTarget(req, socket);
+    if (!url || !livePath.test(url.pathname)) return;
     try {
       authorizeRequest(req, effective(), true);
       const token = sessionToken(req, login);

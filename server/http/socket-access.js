@@ -4,12 +4,14 @@ import { serverMessages } from "../lib/i18n/de.js";
 /**
  * Every WebSocket path the server accepts, one per kind. Each attacher matches its
  * upgrades with its pattern here, and the terminal attacher, which refuses every other
- * /api upgrade, skips them all. The first capture group is the target id.
+ * /api upgrade, skips them all. The first capture group is the target id. An attacher
+ * answers every upgrade its pattern matches, so a pattern carries every limit that
+ * decides whose the path is (the browser view's id length).
  */
 export const terminalPath = /^\/api\/sessions\/([a-zA-Z0-9-]+)\/terminal$/;
 export const chatPath = /^\/api\/sessions\/([a-zA-Z0-9_-]+)\/chat-stream$/;
 export const agentChatPath = /^\/api\/assistant-conversations\/([^/]+)\/stream$/;
-export const browserPath = /^\/api\/assistants\/([A-Za-z0-9_-]+)\/browser-stream$/;
+export const browserPath = /^\/api\/assistants\/([A-Za-z0-9_-]{1,100})\/browser-stream$/;
 export const dictationPath = /^\/api\/dictation\/stream$/;
 export const livePath = /^\/api\/live$/;
 
@@ -25,6 +27,25 @@ export const socketPaths = [
 /** Whether another attacher than the terminal one handles this upgrade path. */
 export const ownSocketPath = (pathname) =>
   socketPaths.some(({ kind, pattern }) => kind !== "terminal" && pattern.test(pathname));
+
+const targets = new WeakMap();
+
+/**
+ * The request target of an upgrade as a URL, read once for all attachers; it never
+ * throws. A target that is no URL (`//`, `http://[`) is refused with 400 by the first
+ * attacher that asks, and every attacher gets null and leaves the request alone.
+ */
+export function upgradeTarget(req, socket) {
+  if (targets.has(req)) return targets.get(req);
+  let url = null;
+  try {
+    url = new URL(req.url, "http://localhost");
+  } catch {
+    socket.end("HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n");
+  }
+  targets.set(req, url);
+  return url;
+}
 
 const refused = () => problem(serverMessages.http.notFound, 404);
 

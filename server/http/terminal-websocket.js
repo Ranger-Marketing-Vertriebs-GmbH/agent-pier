@@ -1,6 +1,6 @@
 import { messageIdentity } from "../lib/i18n/message-identity.js";
 import { sessionToken } from "./login.js";
-import { ownSocketPath, terminalPath } from "./socket-access.js";
+import { ownSocketPath, terminalPath, upgradeTarget } from "./socket-access.js";
 import { serverMessages } from "../lib/i18n/de.js";
 import { WebSocketServer, WebSocket } from "ws";
 import { authorizeRequest } from "./security.js";
@@ -12,9 +12,11 @@ export function attachTerminalWebSocket(server, { sessions, login, admit, effect
     perMessageDeflate: false,
   });
   server.on("upgrade", (req, socket, head) => {
-    const pathname = new URL(req.url, "http://localhost").pathname;
-    // Session chats, agent chats, browser views and dictation have their own handlers;
-    // this one refuses every other upgrade path.
+    const pathname = upgradeTarget(req, socket)?.pathname;
+    if (pathname === undefined) return;
+    // Session chats, agent chats, browser views, dictation and the live channel have
+    // their own handlers, which answer every upgrade their pattern matches; this one
+    // refuses every other upgrade path, so no upgrade stays unanswered.
     if (ownSocketPath(pathname)) return;
     try {
       authorizeRequest(req, effective(), true);

@@ -1,6 +1,6 @@
 import http from "node:http";
 import { sessionToken } from "./login.js";
-import { dictationPath } from "./socket-access.js";
+import { dictationPath, upgradeTarget } from "./socket-access.js";
 import { authorizeRequest } from "./security.js";
 import { WebSocketServer, WebSocket } from "ws";
 
@@ -17,8 +17,8 @@ export function attachDictationWebSocket(server, { dictation, login, admit, effe
   // About two seconds of audio per frame at most.
   const wss = new WebSocketServer({ noServer: true, maxPayload: 65536 });
   const upgrade = (req, socket, head) => {
-    const address = new URL(req.url, "http://localhost");
-    if (!dictationPath.test(address.pathname)) return;
+    const address = upgradeTarget(req, socket);
+    if (!address || !dictationPath.test(address.pathname)) return;
     const talkId = address.searchParams.get("talk");
     // A malformed id still asks for talk mode, so the service refuses it.
     const talk =
