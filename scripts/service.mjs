@@ -9,6 +9,7 @@ import { projectDir, loadConfig } from "../server/lib/config.js";
 import { privateDirectory } from "../server/lib/storage.js";
 import { hostEnvironment } from "../server/lib/host-environment.js";
 import { proxyEnvironment } from "../server/lib/proxy-environment.js";
+import { setupCodeNotice } from "./setup-code.mjs";
 const label = "dev.agentpier.server";
 const xml = (v) =>
   String(v).replace(
@@ -125,6 +126,14 @@ function writeUnit(file, text) {
     fs.rmSync(temporary, { force: true });
   }
 }
+// A fresh install in network mode: where the owner's one-time setup code is.
+function firstRunNotice(config, log) {
+  const notice = setupCodeNotice({
+    dataDir: config.dataDir,
+    networkEnabled: config.network?.enabled === true,
+  });
+  if (notice) log(notice);
+}
 export async function runService({
   action = "status",
   platform = process.platform,
@@ -208,6 +217,7 @@ export async function runService({
     systemctl(["enable", unitName]);
     systemctl(["restart", unitName]);
     log(serverMessages.scripts.userServiceConfigured(config.port));
+    firstRunNotice(config, log);
     return 0;
   }
   const target = `gui/${uid}/${label}`;
@@ -272,6 +282,7 @@ export async function runService({
     }
   }
   log(serverMessages.scripts.serviceConfigured(config.port));
+  firstRunNotice(config, log);
   return 0;
 }
 if (isMainModule(import.meta.url))

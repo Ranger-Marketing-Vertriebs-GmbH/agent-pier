@@ -30,6 +30,8 @@ export const scripts = Object.freeze({
     `Noch kein Besitzerkonto angelegt. Wer es über das Netzwerk anlegt, braucht den Einrichtungscode ${code} (npm run setup-code zeigt ihn erneut). Direkt auf diesem Rechner ist keiner nötig.`,
   setupCodeShown: (code) =>
     `Einrichtungscode: ${code}\nGib ihn ein, wenn du das Besitzerkonto über das Netzwerk anlegst. Direkt auf dem AgentPier-Rechner und über das eigene Tailscale-Konto ist keiner nötig.`,
+  setupCodeUsersExist:
+    "Es gibt Benutzer, aber kein Besitzerkonto: Lege es direkt auf dem AgentPier-Rechner (http://127.0.0.1) oder über das eigene Tailscale-Konto an. Über das Netzwerk ist das dann nicht möglich, auch nicht mit einem Code.",
   setupCodeOwnerExists:
     "Das Besitzerkonto ist bereits angelegt; es gibt keinen Einrichtungscode mehr.",
   serverListenFailed: (bind, port, code) =>

@@ -13,6 +13,7 @@ import {
 } from "../server/features/operations/release-service.js";
 import { AuditStore } from "../server/features/audit/audit-store.js";
 import { applicationVersion } from "../server/features/operations/version.js";
+import { setupCodeNotice } from "./setup-code.mjs";
 
 const COMMANDS = ["status", "enable", "disable", "hosts"];
 export function parseRemoteArguments(argv) {
@@ -102,6 +103,9 @@ export async function runRemote({
     for (const url of networkUrls({ ...network, enabled: true }, port, detected))
       log(`  ${url}`);
     if (network.enabled) log(serverMessages.scripts.remotePlainHttpWarning);
+    // A fresh install: the owner created over this network needs the setup code.
+    const notice = setupCodeNotice({ dataDir, networkEnabled: network.enabled });
+    if (notice) log(notice);
   };
   if (options.command === "status") {
     print(config.network);

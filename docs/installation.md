@@ -209,6 +209,29 @@ The plist saves the Node path, project and data directories, and PATH at install
 
 There are two supported ways to access AgentPier from another device: [Tailscale Serve](remote-access.md#weg-a-tailscale-serve) with HTTPS in your own tailnet, or [network mode without Tailscale](remote-access.md#weg-b-netzwerkmodus-ohne-tailscale), which can also be enabled headlessly with `npm run remote` and is protected only by login. Over Tailscale, every member of your tailnet reaches the sign-in page, and the AgentPier login (the owner or a [user](login.md#benutzer) the owner created) decides who they are. Over Tailscale Serve, AgentPier's pages, its previews and its [MCP endpoint](mcp.md#prepare-the-connection) answer only devices signed in to your tailnet as a user: tagged devices and Tailscale Funnel get `403`. [Agent hooks](assistant-workflows.md#agent-hooks) also accept tagged devices, such as a monitoring server, because each hook has its own secret; Funnel stays refused there too. The [remote access guide](remote-access.md) provides exact commands for both. To disable your Tailscale exposure when removing the service, use `tailscale serve --https=8443 off` as described below.
 
+### First setup in network mode: the setup code
+
+If you turn on network mode before the owner account exists, for example on a machine
+you reach only over the network, the **Create owner account** form asks for a one-time
+**Setup code** in addition to username and password. It proves that you have access to
+the AgentPier computer; every device on the network reaches the form. The code appears
+on that computer:
+
+- `npm run remote -- enable --accept-plain-http` and `npm run service:install` print it
+  while no owner exists and network mode is on;
+- the service prints it at every start in that state: in the terminal with `npm start`,
+  in `server.log` in the data directory for the macOS service, and in
+  `journalctl --user -u dev.agentpier.server` for the Linux service;
+- `npm run setup-code` prints it again at any time (run it in the AgentPier folder as
+  the user the service runs as, with the same `AGENTPIER_DATA_DIR` if you set one). It
+  needs no restart;
+- the file `login/setup-code` in the data directory holds it, readable only by that user.
+
+Opening `http://127.0.0.1:4380` on the AgentPier computer itself (also through an SSH
+tunnel) and your own Tailscale account need no code, and an installation that never
+turns on network mode never sees one. The code is deleted once the owner account
+exists. See [Login](login.md#einrichtungscode-im-netzwerkmodus).
+
 A reverse proxy in front of AgentPier must pass WebSocket upgrades (the `Upgrade` and `Connection` headers) for both the terminal sockets (`/api/sessions/<id>/terminal`) and the live channel `/api/live`. Without them the terminals do not connect, and the app falls back to polling for live data, only while its tab is visible (see [architecture](architecture.md#live-channel)).
 
 ## 6. Updating
@@ -237,6 +260,30 @@ npm run service:install
 ```
 
 Data in `.data/` or your custom data directory is retained. Create a host backup under **Settings → Operations → Backups** before migrations; [docs/backups.md](backups.md) describes what it holds, the archive format and how to restore it into a new data directory. OAuth and Keychain logins may be tied to the individual Mac; sign in again on the Mac mini instead of copying Keychain files from a MacBook.
+
+### Sign-in changes in 2.18
+
+No action is needed; signed-in browsers stay signed in.
+
+- **Session cookie.** Over HTTPS (Tailscale Serve) the session cookie is now called
+  `__Host-agentpier_session`. A session from an earlier version is still accepted and
+  moves to the new name on its next request. On `127.0.0.1` and in network mode the
+  name stays `agentpier_session`. After a downgrade, a browser that already moved
+  signs in once more over HTTPS.
+- **Two sessions in one browser.** A request that carries two different valid sessions
+  now counts as signed out and shows the sign-in; signing in or out ends every session
+  that browser presented.
+- **Sign-in limits in network mode.** Besides ten attempts per minute and address, all
+  network addresses together share sixty per minute. The AgentPier computer itself and
+  Tailscale count separately.
+- **Owner setup in network mode.** A fresh installation asks for the
+  [setup code](#first-setup-in-network-mode-the-setup-code). Existing installations
+  with an owner are not affected; after removing `login/auth.json` in network mode
+  without users, the new owner needs the code too.
+- **Previews.** After signing in from a preview link you return to the preview only
+  while it is still open.
+- **Activity log.** Sign-ins, failed sign-ins, lockouts, sign-outs and the owner setup
+  appear under **Settings → Operations → Activity log** (`login.*`).
 
 ### Upgrading from 1.x
 
