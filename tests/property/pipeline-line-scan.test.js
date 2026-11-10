@@ -14,6 +14,7 @@ import {
   addedDependencies,
   dependencyNames,
 } from "../../server/features/pipelines/risk-dependencies.js";
+import { criterionId } from "../../server/features/pipelines/stage-verdict.js";
 // The parsers as they were before their expressions became scanners. They take cubic
 // time on crafted lines, so every generated line here stays short.
 import { parseSpec as legacyParseSpec } from "../fixtures/pipeline-legacy-parsers/spec-parse.js";
@@ -122,6 +123,22 @@ test("a key line scans to what its expression matched", () => {
     fc.property(line, (text) => {
       const match = expression.exec(text);
       assert.deepEqual(keyValue(text), match ? [match[1], match[2]] : null);
+    }),
+    runs,
+  );
+});
+
+test("a criterion id is read as its earlier expression read it", () => {
+  const expression = /^#?\s*(?:ac)?[\s\-‐-―−]*0*([1-9]\d{0,2})$/i;
+  const part = fc.constantFrom(
+    ...["#", " ", "\t", "ac", "AC", "Ac", "a", "c", "-", "‐", "−", "—"],
+    ...["0", "00", "1", "7", "42", "100", "1000", "x", " "],
+  );
+  const id = fc.array(part, { maxLength: 10 }).map((parts) => parts.join(""));
+  fc.assert(
+    fc.property(fc.oneof(id, hostile), (text) => {
+      const match = expression.exec(text.trim());
+      assert.equal(criterionId(text), match ? `AC${match[1]}` : "");
     }),
     runs,
   );

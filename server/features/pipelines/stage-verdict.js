@@ -141,7 +141,7 @@ const relativePath = (file) =>
 export function criterionId(value) {
   if (Number.isInteger(value)) value = String(value);
   if (typeof value !== "string") return "";
-  const match = /^#?\s*(?:ac)?[\s\-\u2010-\u2015\u2212]*0*([1-9]\d{0,2})$/i.exec(
+  const match = /^#?(?:\s*ac)?[\s\-\u2010-\u2015\u2212]*0*([1-9]\d{0,2})$/i.exec(
     value.trim(),
   );
   return match ? `AC${match[1]}` : "";
