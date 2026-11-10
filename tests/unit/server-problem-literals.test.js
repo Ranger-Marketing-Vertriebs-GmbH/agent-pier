@@ -30,6 +30,13 @@ const untranslated = new Map(
       "Hooks require the local, Tailscale or configured network host.",
       "The hook body timed out.",
     ],
+    // The session MCP proxy answers the coding agent through JSON-RPC; the browser only
+    // sees its stable status codes.
+    "server/features/tools/mcp-swap-proxy.js": [
+      "exited (${reason})",
+      "${method} timed out",
+      "exited during start",
+    ],
     // MCP tool errors return to the coding agent through JSON-RPC.
     "server/features/mcp/session-capability.js": [
       "Invalid AgentPier session capability.",
