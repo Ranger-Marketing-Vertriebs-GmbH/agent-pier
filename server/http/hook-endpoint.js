@@ -1,3 +1,4 @@
+import net from "node:net";
 import express from "express";
 import { rateLimit } from "express-rate-limit";
 import { problem } from "../lib/storage.js";
@@ -57,15 +58,16 @@ export function authorizeHookTransport(req, config) {
   );
 }
 
-// The windows no flood may evict: the local machine's and the shared tailnet
-// window, for scans and per hook (one per stored hook at most).
-const fixed = (key) => /^(local|tailscale)(\|[0-9a-f-]{36})?$/.test(key);
+// The windows no flood may evict: the local machine's, for scans and per hook (one
+// per stored hook at most).
+const fixed = (key) => /^local(\|[0-9a-f-]{36})?$/.test(key);
 
 /**
  * Failed authentication per source key: `limit` failures in `windowMs` block it. A
  * request counts against every key of its source (`keys` may be one or a list). At
- * most `maxKeys` windows are kept: expired ones are pruned at most once per
- * `pruneMs`, then the least recently failed key is evicted, never a fixed one.
+ * most `maxKeys` windows are kept: expired ones are dropped every `pruneMs` (on the
+ * next failure), and at the cap the least recently failed key is evicted, never a
+ * fixed one.
  */
 export class AuthThrottle {
   constructor({
@@ -99,6 +101,7 @@ export class AuthThrottle {
     return wait;
   }
   fail(keys) {
+    this.prune();
     for (const key of [keys].flat()) {
       // Only the last `limit` failures decide; re-inserting keeps the map in
       // least-recently-failed order.
@@ -108,11 +111,13 @@ export class AuthThrottle {
       this.failures.set(key, kept);
     }
   }
+  /** Drops every expired window, at most once per `pruneMs`. */
+  prune() {
+    if (this.now() - this.prunedAt < this.pruneMs) return;
+    this.prunedAt = this.now();
+    for (const key of [...this.failures.keys()]) this.recent(key);
+  }
   makeRoom() {
-    if (this.now() - this.prunedAt >= this.pruneMs) {
-      this.prunedAt = this.now();
-      for (const key of [...this.failures.keys()]) this.recent(key);
-    }
     for (const key of this.failures.keys()) {
       if (this.failures.size < this.maxKeys) return;
       if (!fixed(key)) this.failures.delete(key);
@@ -120,20 +125,24 @@ export class AuthThrottle {
   }
 }
 
-// The throttle keys of a request's source. Tailscale Serve proxies every tailnet
-// device from loopback and a local process can forge X-Forwarded-For, so every
-// Tailscale-branch request also counts against one shared tailnet window: rotating
-// forged addresses never escapes it (as login.js does for sign-ins). Scans (404 of a
-// well-formed id) count against these keys; a wrong secret counts against the same
-// keys of that one hook only (`authKeys`), so a sender still using an old secret
-// after Regenerate secret blocks neither other hooks nor other sources.
+// The throttle keys of a request's source: the local machine, one tailnet device or
+// one network address. Tailscale Serve proxies every tailnet device from loopback and
+// names it in X-Forwarded-For, which it sets itself (a client's own value is
+// dropped), so each device has its own window and its failures never make another
+// device wait. Requests on that branch without one valid address share the
+// `unknown` window. There is no window for the tailnet as a whole: a hook secret is
+// 256 random bits, so what bounds a local process that forges addresses is the
+// request ceiling per hook, not this throttle. Scans (404 of a well-formed id) count
+// against these keys; a wrong secret counts against the same keys of that one hook
+// only (`authKeys`), so a sender still using an old secret after Regenerate secret
+// blocks neither other hooks nor other sources.
 function sourceKeys(req, branch) {
   if (branch === "local") return ["local"];
   if (branch === "tailscale") {
     const forwarded = String(req.headers["x-forwarded-for"] || "")
       .split(",")[0]
       .trim();
-    return [`tailscale:${forwarded || "unknown"}`, "tailscale"];
+    return [`tailscale:${net.isIP(forwarded) ? forwarded : "unknown"}`];
   }
   return [`network:${req.socket.remoteAddress}`];
 }

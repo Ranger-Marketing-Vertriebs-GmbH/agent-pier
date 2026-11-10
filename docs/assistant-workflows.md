@@ -722,7 +722,7 @@ endpoint itself; OpenClaw's own hooks stay off.
 `202 { eventId, status: "accepted" }` once the event is recorded, `200` for
 `duplicate` or `throttled`, `401` for a wrong secret, one `404` for unknown or paused
 hooks, `413`/`415`/`400` for a body that does not fit, `429` after repeated failed
-attempts and `503` with `Retry-After: 30` while the runtime is not ready. A request
+attempts from the same sender (other senders are not affected) and `503` with `Retry-After: 30` while the runtime is not ready. A request
 on a host AgentPier does not accept answers `403 HOOK_HOST_MISMATCH`; other refused
 transports (Funnel, browsers, a `token` query) answer `403 HOOK_FORBIDDEN`. Transport,
 secret and throttle are described under

@@ -365,16 +365,19 @@ for the implementation and remaining native platform/version qualification.
   `Authorization: Bearer <secret>` (scheme in any case); AgentPier stores only the secret's SHA-256 and
   compares digests in constant time. Ten failed attempts in ten minutes answer
   `429 HOOK_RATE_LIMITED` with `Retry-After` until the window ends. The source is
-  `local`, the first `X-Forwarded-For` entry on the Tailscale branch, or the socket
-  address in network mode; every Tailscale-branch failure also counts against one
-  shared tailnet window, because a local process can forge `X-Forwarded-For`. A
+  `local`, the tailnet device on the Tailscale branch (the address Tailscale Serve
+  puts in `X-Forwarded-For`; requests without one valid address share one window),
+  or the socket address in network mode. Each source has its own window, so one
+  device's failures never make another device or the local machine wait; there is no
+  window for the tailnet as a whole. A
   wrong or missing secret (401) counts only for that hook from that source, so a
   sender that still uses the old secret after **Regenerate secret** blocks no other
   hook and no other source; while that hook's window is full, its right secret from
   the same source answers 429 as well, because the window is checked before the
   secret. A 404 for a well-formed hook ID (a scan) counts for the whole source and
-  blocks every hook from it. At most 1000 windows are kept, and the least recently
-  failed one is evicted first (never a local or shared tailnet window). In front of
+  blocks every hook from it. Expired windows are dropped within a minute of the next
+  failure; at most 1000 windows are kept, and the least recently failed one is
+  evicted first (never a local one). In front of
   every check, a request ceiling of 600 requests per minute per stored hook (and one
   shared window for unknown IDs and other `/hooks` paths) answers
   `429 HOOK_RATE_LIMITED` with `Retry-After` as well. Unknown,
