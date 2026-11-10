@@ -1,5 +1,5 @@
 import { unquotedMarks } from "./shell-command.js";
-import { braceWords, judge } from "./shell-expansion.js";
+import { braceWords, judge, wildcards } from "./shell-expansion.js";
 import { gitPositionals, readOnlyGitArguments } from "./git-read-options.js";
 import { readOnlyRg } from "./rg-read-options.js";
 import {
@@ -194,16 +194,41 @@ function npmCheck(words) {
 
 /**
  * The words the shell passes for a command's written words, braces expanded, with
- * what the shell still does to each (`judge`); null when that cannot be said.
+ * what the shell still does to each (`judge`); null when that cannot be said or
+ * the command holds more words or patterns than are judged.
  */
-function passedWords(written) {
+function passedWords(written, budget = newBudget()) {
+  if (!read.has(written)) read.set(written, readWords(written, budget));
+  return read.get(written);
+}
+// A command is read once, however often its verdict is asked for.
+const read = new WeakMap();
+// More than any real command line holds, counted over all parts of a chain after
+// brace expansion. Beyond these a part is not judged at all and asks, so the work
+// for one command line stays small whatever a CLI sends.
+const maxBraceWords = 512;
+const maxPatternWords = 32;
+const maxWildcards = 128;
+const newBudget = () => ({ words: 0, patterns: 0, wildcards: 0 });
+
+function readWords(written, budget) {
   const marks = unquotedMarks(written);
   const words = [],
     verdicts = [];
   for (let i = 0; i < written.length; i++) {
     const results = braceWords(written[i], marks[i]);
     if (!results) return null;
+    // Only words that braces multiply count; a long list of plain names is cheap.
+    if (results.length > 1 && (budget.words += results.length) > maxBraceWords)
+      return null;
     for (const result of results) {
+      const count = wildcards(result.word, result.marks);
+      if (
+        count &&
+        (++budget.patterns > maxPatternWords ||
+          (budget.wildcards += count) > maxWildcards)
+      )
+        return null;
       words.push(result.word);
       verdicts.push(judge(result.word, result.marks));
     }
@@ -253,9 +278,9 @@ const hidesOption = (words, verdicts) => {
  * `place` (approval-place.js; without one, a shell that stands in the project).
  * Every check reads the words the shell passes, braces expanded.
  */
-export function defaultCommand(written, place) {
+export function defaultCommand(written, place, budget) {
   const at = startPlace(place);
-  const passed = passedWords(written);
+  const passed = passedWords(written, budget);
   if (!passed || namesSecret(written)) return false;
   const { words, verdicts } = passed;
   // A line break or other control character inside a word is passed on as it is,
@@ -310,8 +335,9 @@ const maxChain = 20;
 export function defaultSegments(segments, place) {
   let at = startPlace(place);
   if (segments.length > maxChain) at = { ...at, strayed: true };
+  const budget = newBudget();
   return segments.map((written) => {
-    const covered = defaultCommand(written, at);
+    const covered = defaultCommand(written, at, budget);
     const passed = passedWords(written);
     const program = passed?.words[0];
     if (!passed) at = { ...at, strayed: true };
