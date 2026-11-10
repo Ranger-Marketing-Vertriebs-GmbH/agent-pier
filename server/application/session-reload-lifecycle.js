@@ -218,6 +218,7 @@ export function createReloadLifecycle(services) {
           launch = await nonoSandbox.prepare({
             launch,
             profile: session.sandbox?.profile || null,
+            tool: session.tool,
           });
           return { ...launch, ...(plan.transfer ? { accountId: account.id } : {}) };
         },

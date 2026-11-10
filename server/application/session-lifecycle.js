@@ -286,6 +286,7 @@ export function createSessionLifecycle(services) {
       const finalLaunch = await nonoSandbox.prepare({
         launch: composed,
         profile: body.nonoProfile || null,
+        tool: account.tool,
       });
       session = await sessions.create({
         id,
