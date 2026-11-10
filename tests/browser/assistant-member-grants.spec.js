@@ -291,7 +291,7 @@ test("a member granted shell is highlighted with the warning", async ({ page }) 
   await page.goto(baseURL + "/agents/home/chats/parent-chat");
   const card = page.locator("#assistant-team-proposal");
   await expect(card.locator("[data-shell-ssh]")).toHaveText(
-    "⚠ Gets: Web search, Shell (With approval)",
+    "\u26A0\uFE0E Gets: Web search, Shell (With approval)",
   );
   await expect(card.locator("[data-member-shell-ssh]")).toHaveText(
     "Members marked with a warning get shell or SSH, at most at this agent's level and on its hosts. They work unattended, and content they read can steer them.",
@@ -305,7 +305,7 @@ test("a later shell grant waits for the owner's approval in the lead's chat", as
   await page.goto(baseURL + "/agents/home/chats/parent-chat");
   const card = page.locator("[data-member-grant-approval]");
   await expect(card).toContainText("The lead agent wants to give Scout:");
-  await expect(card).toContainText("⚠ Shell (With approval)");
+  await expect(card).toContainText("\u26A0\uFE0E Shell (With approval)");
   await card.getByRole("button", { name: "Approve grant", exact: true }).click();
   await expect.poll(() => decisions.at(-1)?.decision).toBe("approve");
 });
