@@ -12,6 +12,7 @@ import {
 import { validateReloadLaunch } from "../../application/session-reload-launch.js";
 import { reloadedProvider } from "./provider-configuration.js";
 import { readTmuxServer } from "./tmux-server-identity.js";
+import { tmuxFormatLiteral } from "./tmux-naming.js";
 import { sessionSshAgentRecord } from "./session-ssh-agent-record.js";
 import { isCodingCli } from "../clis/catalog.js";
 
@@ -108,7 +109,7 @@ export async function replaceSession(manager, id, prepare, beforeStop) {
       "-s",
       manager.sessionName(id),
       "-c",
-      session.cwd,
+      tmuxFormatLiteral(session.cwd),
       "-x",
       "120",
       "-y",

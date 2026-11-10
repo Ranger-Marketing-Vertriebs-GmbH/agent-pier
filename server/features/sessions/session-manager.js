@@ -16,7 +16,7 @@ import {
   sameTmuxServer,
   tmuxServerGone,
 } from "./tmux-server-identity.js";
-import { SESSION_PREFIX, tmuxSocketPath } from "./tmux-naming.js";
+import { SESSION_PREFIX, tmuxFormatLiteral, tmuxSocketPath } from "./tmux-naming.js";
 import { randomUUID } from "node:crypto";
 import { chmod, lstat, mkdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
@@ -222,7 +222,7 @@ export class SessionManager {
           "-s",
           this.sessionName(id),
           "-c",
-          session.cwd,
+          tmuxFormatLiteral(session.cwd),
           "-x",
           "120",
           "-y",
