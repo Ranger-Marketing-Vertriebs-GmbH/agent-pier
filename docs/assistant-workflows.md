@@ -406,8 +406,9 @@ users and command-completion turns cannot start or steer sessions.
 **Actions.** `options` lists what the agent may pick: accounts, provider connections and
 models, launch modes, secrets, SSH accesses and sandbox profiles. `start` launches a
 session; `list`, `send`, `wait`, `read`, `requests`, `answer`, `escalate`, `stop` and
-`worktree_remove` steer and end it. An agent reaches only the sessions it started; every
-other session id, including your own sessions, answers `NOT_FOUND`.
+`worktree_remove` steer and end it; `delete` removes a stopped session. An agent reaches
+only the sessions it started; every other session id, including your own sessions,
+answers `NOT_FOUND`.
 
 - **Launch options.** Every option of the dialog is available to the agent. Unless it
   sets them, a session starts in the mode `yolo` for Codex and `auto` for
@@ -433,6 +434,13 @@ other session id, including your own sessions, answers `NOT_FOUND`.
   answered in the terminal, or the session ended or moved on), it says only that the
   prompt is no longer open (`answeredBy: "session"`).
 - **Stopping.** `stop` ends the session; its worktree and branch stay.
+- **Deleting.** `delete` with `sessionId` permanently removes an owned, stopped
+  session, including its chat data and attachments, just like deleting it in the UI.
+  A running session answers `SESSION_RUNNING`; use `stop` first. Its worktree and
+  branch stay. To remove the worktree too, call `worktree_remove` before `delete`.
+  The agent's `list` keeps the historical entry with status `gone`; later calls for
+  that session, including another `delete`, answer `NOT_FOUND`. Revoked access still
+  answers `GRANT_REVOKED`.
 
 ### Escalated questions
 
@@ -484,8 +492,8 @@ started; the sessions keep running as yours, without the marker.
 
 ### Audit
 
-Each start, prompt sent, answer, escalation, stop and worktree removal is recorded in
-the activity log with ids and enums only (`agentSession` details such as the agent, the
+Each start, prompt sent, answer, escalation, stop, deletion and worktree removal is
+recorded in the activity log with ids and enums only (`agentSession` details such as the agent, the
 operation and the prompt id); prompt text, answers and notes are never logged. Answers
 show their actor: owner, agent or Telegram.
 

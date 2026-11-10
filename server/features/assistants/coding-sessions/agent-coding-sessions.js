@@ -9,7 +9,7 @@ import { sessionOptions } from "./session-options.js";
 import { advanceStart, startSession } from "./session-start.js";
 import { readSession, sendToSession, waitForSession } from "./session-steering.js";
 import { answerPrompt, escalationKey, listPrompts } from "./session-requests.js";
-import { removeWorktree, stopSession } from "./session-worktrees.js";
+import { deleteSession, removeWorktree, stopSession } from "./session-worktrees.js";
 import {
   advanceEscalation,
   answerEscalation,
@@ -27,7 +27,8 @@ const toolKeys = Object.keys(
 const needsProjects = new Set(["options", "start"]);
 // What runs after admission instead of under it: a wait polls for up to 100 s and a
 // send or an answer may wait on the terminal, which must never hold every agent's
-// admission; a stop waits on the terminal and a worktree removal fetches origin.
+// admission; stop and delete wait on the terminal and cleanup, and worktree removal
+// fetches origin.
 const unlocked = new Set([
   "send",
   "read",
@@ -35,6 +36,7 @@ const unlocked = new Set([
   "requests",
   "answer",
   "stop",
+  "delete",
   "worktree_remove",
 ]);
 // Who answered a session prompt, as the broker's events name it (requestEvent).
@@ -74,6 +76,7 @@ export class AgentCodingSessions {
       answer: (ctx, input, inv) => answerPrompt(this.w, ctx, input, inv),
       escalate: (ctx, input, inv) => escalatePrompt(this.w, ctx, input, inv),
       stop: (ctx, input, inv) => stopSession(this.w, ctx, input, inv),
+      delete: (ctx, input, inv) => deleteSession(this.w, ctx, input, inv),
       worktree_remove: (ctx, input, inv) => removeWorktree(this.w, ctx, input, inv),
     };
   }

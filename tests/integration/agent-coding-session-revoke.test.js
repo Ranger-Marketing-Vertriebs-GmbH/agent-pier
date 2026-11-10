@@ -217,7 +217,7 @@ test("switching sessions off leaves the session running and answers GRANT_REVOKE
   access.save(f.id, { ...f.policy, sessionProjectIds: [] }, access.get(f.id).revision);
   const send = { action: "send", sessionId: s.sessionId, text: "go on" };
   assert.equal(await code(f.call(await f.invocation(), send)), "GRANT_REVOKED");
-  for (const action of ["stop", "worktree_remove", "read", "requests"])
+  for (const action of ["stop", "delete", "worktree_remove", "read", "requests"])
     assert.equal(
       await code(f.call(await f.invocation(), { action, sessionId: s.sessionId })),
       "GRANT_REVOKED",

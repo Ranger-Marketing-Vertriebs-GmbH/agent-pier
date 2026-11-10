@@ -1,3 +1,4 @@
+import { deleteSession as deleteSessionData } from "../../../application/session-deletion.js";
 import { readJSON } from "../../../lib/storage.js";
 import { exactCommit, git, gitRef } from "../../pipelines/workspace-git.js";
 import { withGitCredentials } from "../../pipelines/workspace-forge.js";
@@ -44,6 +45,23 @@ export async function mergedIntoBase({ cwd, projectRoot, baseBranch, baseSha }, 
 export async function stopSession(w, ctx, input, inv) {
   const { record, session } = await control(w, ctx.assistantId, input.sessionId);
   return stopRecorded(w, record, session, inv);
+}
+
+/** Delete only an owned, stopped session; its worktree and branch stay. */
+export async function deleteSession(w, ctx, input, inv) {
+  const { record, session } = await control(w, ctx.assistantId, input.sessionId);
+  if (session.status !== "stopped") throw running();
+  inv?.assertCurrent?.();
+  await deleteSessionData(w.s, session);
+  w.sessions.store.patch(record.sessionId, { ended: true, wakes: {} });
+  w.sessions.readAt.delete(record.sessionId);
+  audit(w, {
+    action: "session.deleted",
+    resourceType: "session",
+    ...auditFields(record, session, "delete"),
+  });
+  w.a.changed?.({ feeds: false });
+  return { deleted: true };
 }
 
 /**
