@@ -103,6 +103,31 @@ test("a pending OpenCode tool part shows as preparing until the call runs", asyn
   assert.ok(!s.statuses().some((frame) => frame.status?.preparing === "webfetch"));
 });
 
+test("parallel parts: the newest still pending shows until each runs", async (t) => {
+  const s = await fixture(t);
+  const oc = openCode();
+  t.after(streamOpenCodeReplies(oc.api, s.channel, () => "ses_1"));
+  oc.tool("prt_a", "pending", "read");
+  oc.tool("prt_b", "pending", "edit");
+  await until(() => s.status()?.preparing === "edit", "newest");
+  oc.tool("prt_b", "running", "edit");
+  await until(() => s.status()?.preparing === "read", "the older one still writes");
+  oc.tool("prt_a", "running", "read");
+  await until(() => s.status() === null, "both run");
+});
+
+test("a part that runs after the TUI switched sessions still ends its preparation", async (t) => {
+  const s = await fixture(t);
+  const oc = openCode();
+  let visible = "ses_1";
+  t.after(streamOpenCodeReplies(oc.api, s.channel, () => visible));
+  oc.tool("prt_a", "pending", "bash");
+  await until(() => s.status()?.preparing === "bash", "preparing");
+  visible = "ses_2";
+  oc.tool("prt_a", "completed", "bash");
+  await until(() => s.status() === null, "cleared from the hidden session");
+});
+
 test("text, the message's end, an idle session or an abort end the preparation", async (t) => {
   const s = await fixture(t);
   const oc = openCode();
