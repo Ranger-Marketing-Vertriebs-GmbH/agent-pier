@@ -3,7 +3,12 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { CraftMcpClient } from "../../server/features/craft/craft-mcp-client.js";
+import { spawn } from "node:child_process";
+import {
+  CraftMcpClient,
+  processTable,
+  settleKilledGroups,
+} from "../../server/features/craft/craft-mcp-client.js";
 
 const fakeServer = path.resolve(import.meta.dirname, "../helpers/fake-craft-mcp.mjs");
 
@@ -274,4 +279,34 @@ test("a call that takes too long times out", async (t) => {
     client.call("rebuild_status", { project: "x" }, { timeoutMs: 100 }),
     (error) => error.code === "CRAFT_MCP_TIMEOUT",
   );
+});
+
+// On macOS a group SIGKILL misses a child forked at that moment; the child outlives
+// its killed parent in the group. Killing the parent alone models that miss.
+test("a member that outlived its group's kill is killed when the group settles", async (t) => {
+  const shell = spawn("/bin/sh", ["-c", "sleep 600 & wait"], {
+    detached: true,
+    stdio: "ignore",
+  });
+  const exited = new Promise((resolve) => shell.once("exit", resolve));
+  let member;
+  t.after(() => {
+    for (const pid of [shell.pid, member])
+      try {
+        if (pid) process.kill(pid, "SIGKILL");
+      } catch {}
+  });
+  assert.ok(
+    await until(async () => {
+      member = (await processTable()).find(
+        (row) => row.pgid === shell.pid && row.pid !== shell.pid,
+      )?.pid;
+      return Boolean(member);
+    }),
+  );
+  process.kill(shell.pid, "SIGKILL");
+  await exited;
+  assert.equal(exists(member), true, "the forked child outlived its parent");
+  await settleKilledGroups([shell.pid]);
+  assert.ok(await until(() => !exists(member), 2000));
 });

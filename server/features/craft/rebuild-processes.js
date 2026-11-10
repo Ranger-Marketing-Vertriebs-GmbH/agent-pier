@@ -3,7 +3,11 @@ import path from "node:path";
 import { readJSON, writePrivate } from "../../lib/storage.js";
 import { record } from "../extensions/mcp-config.js";
 import { logCraftFailure } from "./craft-log.js";
-import { killRecordedGroups, processTable } from "./craft-mcp-client.js";
+import {
+  killRecordedGroups,
+  processTable,
+  settleKilledGroups,
+} from "./craft-mcp-client.js";
 import { rebuildsHome } from "./rebuild-store.js";
 
 const entries = (value) => (record(value) ? Object.entries(value) : []);
@@ -97,6 +101,7 @@ export class RebuildProcesses {
         pgid > 1 && pgid !== self && pgid !== process.pid && !own.has(pgid),
     });
     this.save();
+    await settleKilledGroups(killed);
     return killed;
   }
 

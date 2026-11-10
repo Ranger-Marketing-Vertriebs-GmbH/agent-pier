@@ -159,6 +159,30 @@ const alive = (pid) => {
   }
 };
 
+// Builder groups killed whose leader has not exited yet. On macOS a group SIGKILL
+// misses the `sleep` its shell forks at that moment, so the group is killed once more
+// when the shell's exit shows the fork done, or when this server exits first.
+const killedGroups = new Set();
+const killGroup = (pgid) => {
+  try {
+    process.kill(-pgid, "SIGKILL");
+  } catch {
+    // Already gone.
+  }
+};
+process.on("exit", () => killedGroups.forEach(killGroup));
+
+function killBuilder(builder) {
+  if (!builder?.pid) return;
+  killGroup(builder.pid);
+  if (builder.exitCode !== null || builder.signalCode !== null) return;
+  killedGroups.add(builder.pid);
+  builder.once("exit", () => {
+    killGroup(builder.pid);
+    killedGroups.delete(builder.pid);
+  });
+}
+
 function startBuilder(entry) {
   const builder = spawn(
     "/bin/sh",
@@ -199,13 +223,7 @@ function stopBuilder(entry) {
   clearTimeout(entry.timer);
   const builder = entry.builder;
   entry.builder = null;
-  if (builder?.pid && alive(builder.pid)) {
-    try {
-      process.kill(-builder.pid, "SIGKILL");
-    } catch {
-      // Already gone.
-    }
-  }
+  if (builder?.pid && alive(builder.pid)) killBuilder(builder);
 }
 
 // --- Script --------------------------------------------------------------------
@@ -273,13 +291,7 @@ function perform(entry, step) {
   if (step.finish) {
     const builder = entry.builder;
     entry.builder = null;
-    if (builder?.pid) {
-      try {
-        process.kill(-builder.pid, "SIGKILL");
-      } catch {
-        // Already gone.
-      }
-    }
+    killBuilder(builder);
     update(entry, (record) => {
       record.status = step.finish === "failed" ? "failed" : "ready";
       record.note = step.note ?? LABELS[record.status];
