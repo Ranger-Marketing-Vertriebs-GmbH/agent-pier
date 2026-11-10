@@ -2,12 +2,14 @@ import { commonCopy } from "../lib/i18n/messages/common.js";
 import React, { useId } from "react";
 import Icon from "./Icon.jsx";
 import useModalDialog from "./useModalDialog.js";
+import useSheetDrag from "./useSheetDrag.js";
 
 /**
  * A dialog with a sticky header (title + close button). Children render as before; a
  * dialog that passes `footer` gets a padded, scrollable `.dialog-body` and a sticky
  * `.dialog-actions` footer, so its actions stay visible however long the body is.
- * On phones it becomes a bottom sheet with a grab handle.
+ * On phones it becomes a bottom sheet with a grab handle; dragging it down closes the
+ * dialog as Escape does.
  */
 export default function Modal({
   title,
@@ -22,6 +24,7 @@ export default function Modal({
   closeIcon,
 }) {
   const ref = useModalDialog();
+  useSheetDrag(ref, { dismiss: close, disabled: closeDisabled });
   const titleId = useId();
   return (
     <dialog

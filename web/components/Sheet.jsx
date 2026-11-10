@@ -1,8 +1,10 @@
 import React, { useId } from "react";
 import useModalDialog from "./useModalDialog.js";
+import useSheetDrag from "./useSheetDrag.js";
 
 function SheetDialog({ title, onCancel, className = "", children }) {
   const ref = useModalDialog();
+  useSheetDrag(ref, { dismiss: onCancel });
   const titleId = useId();
   return (
     <dialog
@@ -23,8 +25,8 @@ function SheetDialog({ title, onCancel, className = "", children }) {
   );
 }
 
-// A bottom sheet with a grab handle on phones and a centred dialog (max 420px) on
-// desktop.
+// A bottom sheet with a grab handle on phones, where dragging it down cancels as Escape
+// does, and a centred dialog (max 420px) on desktop.
 export default function Sheet({ open, ...props }) {
   return open ? <SheetDialog {...props} /> : null;
 }
