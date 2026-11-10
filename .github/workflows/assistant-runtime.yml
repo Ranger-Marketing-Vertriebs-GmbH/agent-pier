@@ -197,7 +197,7 @@ jobs:
     name: Hermes contracts (${{ matrix.runner }})
     needs: plan
     if: needs.plan.outputs.relevant == 'true'
-    timeout-minutes: 30
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -227,8 +227,9 @@ jobs:
           key: hermes-downloads-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('server/features/assistants/runtimes/hermes/hermes-manifest.json', 'tests/fixtures/hermes-previous-manifest.json', 'scripts/hermes-contract-downloads.mjs') }}
       - name: Download the Hermes archives
         if: steps.hermes-downloads.outputs.cache-hit != 'true'
-        # The job's read-only token lifts the anonymous limit for this step only;
-        # AgentPier's own downloads stay anonymous.
+        # A rate limit is waited out here, once per pin pair (Retry-After, up to
+        # 12 minutes). The job's read-only token is for this step only; AgentPier's
+        # own downloads stay anonymous.
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/hermes-contract-downloads.mjs --prefetch "$RUNNER_TEMP/agentpier-hermes-downloads"

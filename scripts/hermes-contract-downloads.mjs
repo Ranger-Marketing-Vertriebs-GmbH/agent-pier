@@ -100,24 +100,38 @@ export async function prefetchHermesArchives(directory, options = {}) {
 }
 
 /**
- * The prefetch's download: with `token` (CI passes the job's read-only GITHUB_TOKEN),
- * GitHub URLs are fetched authenticated, which lifts the anonymous rate limit; fetch
- * drops the header on the redirect to GitHub's download hosts. AgentPier's own
- * downloads (hermes-install.js) stay anonymous.
+ * The prefetch's download. GitHub URLs are fetched with the job's read-only token
+ * when `token` is set (CI passes GITHUB_TOKEN; fetch drops the header on the redirect
+ * to GitHub's download hosts), and a 429 or 403 rate limit is waited out as its
+ * Retry-After asks, up to `maxWaitMs` in all: the prefetch runs once per pin pair,
+ * so waiting there is cheaper than a failed contract run. AgentPier's own downloads
+ * (hermes-install.js) stay anonymous.
  */
 export function prefetchDownload(
   token,
-  { fetchImpl = fetch, fallback = defaultDownload } = {},
+  {
+    fetchImpl = fetch,
+    fallback = defaultDownload,
+    maxWaitMs = 12 * 60 * 1000,
+    sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    log = (line) => process.stderr.write(`${line}\n`),
+  } = {},
 ) {
   return async (url) => {
     const { host } = new URL(url);
-    if (!token || !["github.com", "codeload.github.com"].includes(host))
-      return fallback(url);
-    const response = await fetchImpl(url, {
-      headers: { authorization: `Bearer ${token}` },
-    });
-    if (!response.ok) throw Error(`GitHub answered ${response.status} for ${url}.`);
-    return Buffer.from(await response.arrayBuffer());
+    if (!["github.com", "codeload.github.com"].includes(host)) return fallback(url);
+    const headers = token ? { authorization: `Bearer ${token}` } : {};
+    for (let waited = 0; ;) {
+      const response = await fetchImpl(url, { headers });
+      if (response.ok) return Buffer.from(await response.arrayBuffer());
+      await response.body?.cancel();
+      const wait = Math.max(1, Number(response.headers.get("retry-after")) || 60) * 1000;
+      if (![403, 429].includes(response.status) || waited + wait > maxWaitMs)
+        throw Error(`GitHub answered ${response.status} for ${url}.`);
+      log(`GitHub answered ${response.status} for ${url}; retrying in ${wait / 1000} s.`);
+      waited += wait;
+      await sleep(wait);
+    }
   };
 }
 
