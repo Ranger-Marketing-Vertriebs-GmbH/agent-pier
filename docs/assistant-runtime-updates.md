@@ -671,7 +671,8 @@ pull requests and also on macOS arm64 and Linux arm64 otherwise; a skipped contr
 fails the job. GitHub rate-limits anonymous downloads on shared runners, so the job first restores
 or fetches the archives AgentPier downloads for the pinned and the previous Hermes (uv,
 the Hermes source, agent-browser, PDFium; `node scripts/hermes-contract-downloads.mjs
---prefetch <absolute dir>`), saves them under a key of both manifests and the runner
+--prefetch <absolute dir>`, which waits out a GitHub rate limit for up to 12 minutes),
+saves them under a key of both manifests and the runner
 platform before any contract runs, and sets `AGENTPIER_HERMES_DOWNLOAD_CACHE` to that
 folder: provisioning and the update contract serve those archives from it, each checked
 against its pinned SHA-256, and build both installations as without it (CPython and the

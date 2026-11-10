@@ -137,13 +137,20 @@ test("the contracts cache only when AGENTPIER_HERMES_DOWNLOAD_CACHE is set", () 
   );
 });
 
+const reply = (status, retryAfter) => ({
+  ok: status === 200,
+  status,
+  headers: new Headers(retryAfter ? { "retry-after": retryAfter } : {}),
+  arrayBuffer: async () => new Uint8Array([1]).buffer,
+});
+
 test("the prefetch authenticates only GitHub URLs, and only with a token", async () => {
   const calls = [];
   const fetchImpl = async (url, init) => (
-    calls.push([url, init.headers.authorization]),
-    { ok: true, arrayBuffer: async () => new Uint8Array([1]).buffer }
+    calls.push([url, init.headers.authorization || "anonymous"]),
+    reply(200)
   );
-  const fallback = async (url) => (calls.push([url, "anonymous"]), Buffer.from([2]));
+  const fallback = async (url) => (calls.push([url, "fallback"]), Buffer.from([2]));
   const download = prefetchDownload("t0k", { fetchImpl, fallback });
   await download("https://codeload.github.com/o/r/tar.gz/c");
   await download("https://github.com/astral-sh/uv/releases/download/1/uv.tgz");
@@ -152,7 +159,28 @@ test("the prefetch authenticates only GitHub URLs, and only with a token", async
   assert.deepEqual(calls, [
     ["https://codeload.github.com/o/r/tar.gz/c", "Bearer t0k"],
     ["https://github.com/astral-sh/uv/releases/download/1/uv.tgz", "Bearer t0k"],
-    ["https://registry.npmjs.org/agent-browser/-/a.tgz", "anonymous"],
+    ["https://registry.npmjs.org/agent-browser/-/a.tgz", "fallback"],
     ["https://codeload.github.com/x", "anonymous"],
   ]);
+});
+
+test("the prefetch waits out GitHub's rate limit within its budget", async () => {
+  const replies = [reply(429, "300"), reply(429), reply(200)];
+  const slept = [];
+  const download = prefetchDownload("", {
+    fetchImpl: async () => replies.shift(),
+    sleep: async (ms) => slept.push(ms),
+    log: () => {},
+  });
+  assert.deepEqual(await download("https://codeload.github.com/x"), Buffer.from([1]));
+  assert.deepEqual(slept, [300000, 60000]);
+  const limited = prefetchDownload("", {
+    fetchImpl: async () => reply(429, "600"),
+    maxWaitMs: 900000,
+    sleep: async () => {},
+    log: () => {},
+  });
+  await assert.rejects(limited("https://codeload.github.com/x"), /answered 429/);
+  const missing = prefetchDownload("", { fetchImpl: async () => reply(404) });
+  await assert.rejects(missing("https://codeload.github.com/x"), /answered 404/);
 });
