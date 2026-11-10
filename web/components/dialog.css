@@ -414,6 +414,15 @@ label.check-row:has(input:disabled) .check-row-text {
     border-radius: 2px;
     background: #3d3e43;
   }
+  /* The handle drags the sheet down to dismiss it (useSheetDrag.js): its heading takes
+     the touch instead of scrolling the dialog or selecting the title. */
+  dialog:where(:not(.image-viewer, .task-drawer, .launch-dialog, .side-panel))
+    > .dialog-heading,
+  dialog.sheet > .sheet-title {
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
 }
 
 @media (forced-colors: active) {
