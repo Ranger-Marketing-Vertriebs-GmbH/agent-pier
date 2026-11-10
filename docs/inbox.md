@@ -196,6 +196,8 @@ The shell expands some words after AgentPier read them, so a word with an unquot
   like an option), while `git diff -- *.js` runs;
 - quoted characters are literals: `grep 'a*b' file` and `rg "foo{1,2}"` run;
 - a parenthesis anywhere in a word asks (zsh glob qualifiers can run code);
+- a command line with more than 32 pattern words, 128 pattern characters or 512
+  words made by braces is not judged and asks;
 - a word with a line break, tab or other control character inside quotes is not
   answered from this list, but a remembered approval covers it (a commit message
   of several lines with `git commit` remembered).

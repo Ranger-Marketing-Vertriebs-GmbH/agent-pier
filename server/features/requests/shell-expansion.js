@@ -106,11 +106,38 @@ const shapes = secretShapes.map((shape) =>
   pattern(characters(shape, "u".repeat(shape.length))),
 );
 
+// One table for every comparison: a pattern is at most `maxLength` tokens, a
+// protected name a few dozen, so the work per comparison is bounded and nothing is
+// allocated per word.
+let table = new Uint8Array(4096);
+function cleared(size) {
+  if (table.length < size) table = new Uint8Array(size);
+  else table.fill(0, 0, size);
+  return table;
+}
+const fits = (x, y) => x.any || y.any || x.c === y.c;
+/** Whether the fixed starts and ends of two patterns, before any `*`, agree. */
+function endsAgree(a, b) {
+  for (let i = 0; i < a.length && i < b.length; i++) {
+    if (a[i].many || b[i].many) break;
+    if (!fits(a[i], b[i])) return false;
+  }
+  for (let i = 1; i <= a.length && i <= b.length; i++) {
+    const x = a[a.length - i],
+      y = b[b.length - i];
+    if (x.many || y.many) break;
+    if (!fits(x, y)) return false;
+  }
+  return true;
+}
+
 /** Whether some text matches both patterns. */
 function overlap(a, b) {
+  // Most pairs differ in their first or last characters; the table is for the rest.
+  if (!endsAgree(a, b)) return false;
   const width = b.length + 1;
   // ok[i * width + j]: the rest of `a` from `i` and of `b` from `j` share a text.
-  const ok = new Uint8Array((a.length + 1) * width);
+  const ok = cleared((a.length + 1) * width);
   for (let i = a.length; i >= 0; i--)
     for (let j = b.length; j >= 0; j--) {
       const here = i * width + j;
@@ -134,12 +161,16 @@ function overlap(a, b) {
  */
 function aimsAt(a, word, { literals, ending = false }) {
   const need = Math.min(literals, word.length);
+  // The pattern must at least hold that many of the word's characters.
+  let held = 0;
+  for (const token of a) if (token.c !== undefined && word.includes(token.c)) held++;
+  if (held < need) return false;
   const b = [{ many: true }, ...Array.from(word, (c) => ({ c }))];
   if (!ending) b.push({ many: true });
   const width = b.length + 1,
     layer = (a.length + 1) * width;
   // ok[k * layer + i * width + j]: the rests share a text with k more such characters.
-  const ok = new Uint8Array((need + 1) * layer);
+  const ok = cleared((need + 1) * layer);
   for (let k = 0; k <= need; k++)
     for (let i = a.length; i >= 0; i--)
       for (let j = b.length; j >= 0; j--) {
@@ -227,6 +258,29 @@ const plain = Object.freeze({
  *   program reads an option.
  */
 export function judge(word, marks) {
+  const key = `${word}\0${marks}`;
+  let verdict = judged.get(key);
+  if (!verdict) {
+    verdict = judgeNew(word, marks);
+    if (judged.size >= maxJudged) judged.clear();
+    judged.set(key, verdict);
+  }
+  return verdict;
+}
+// The same word is judged once, within a command and across the requests of a CLI
+// that repeats its commands.
+const judged = new Map();
+const maxJudged = 1024;
+
+/** How many pattern characters (`*`, `?`, `[`) a word holds outside quotes. */
+export function wildcards(word, marks) {
+  let count = 0;
+  for (let i = 0; i < word.length; i++)
+    if (marks[i] !== "q" && "*?[".includes(word[i])) count++;
+  return count;
+}
+
+function judgeNew(word, marks) {
   const list = characters(word, marks);
   if (!list.some(({ c, u }) => u && special.includes(c))) return plain;
   const [first, second] = list;

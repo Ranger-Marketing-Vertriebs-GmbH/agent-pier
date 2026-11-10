@@ -97,19 +97,57 @@ test("after a builtin that moves the shell, git and npm are no longer covered", 
 });
 
 test("patterns from the CLI are judged quickly", () => {
+  // Command lines up to the 8000 characters that are read at all.
+  const filled = (make) => {
+    let command = "cat";
+    for (let i = 0; command.length + make(i).length < 8000; i++) command += ` ${make(i)}`;
+    return command;
+  };
+  const id = (i) => i.toString(36);
   for (const [command, expected] of [
     [`cat ${"*a?".repeat(84)}*`, false],
-    [`cat ${"*a?".repeat(84)}`, true],
+    [`cat ${"*a?".repeat(40)}`, true],
     [`cat ${"*/".repeat(120)}x`, true],
     [`cat ${"*/".repeat(120)}*`, false],
-    [`cat ${Array.from({ length: 1500 }, () => "a*c?").join(" ")}`, true],
-    [`cat ${Array.from({ length: 1500 }, () => "?*?*").join(" ")}`, false],
     [`cat x${"{a,b}".repeat(50)}`, false],
     [`cat x${"{".repeat(100)}a,b${"}".repeat(100)}`, true],
-    [`cat ${"x{a,b}y ".repeat(600)}`, true],
+    // More patterns, wildcards or words than are judged: the command asks.
+    [filled((i) => `${id(i)}*c?`), false],
+    [filled((i) => `s*e${id(i)}*c?r*t`), false],
+    [filled((i) => `${"?*".repeat(20)}${id(i)}`), false],
+    [filled((i) => `x{a,b}{c,d}{e,f}{g,h}{i,j}{k,l}*${id(i)}`), false],
+    [filled((i) => `s?c{a,b}{c,d}{e,f}{g,h}{i,j}/t*k?n${id(i)}/*`), false],
+    [filled((i) => `x{a,b}y${id(i)}`), false],
+    [Array.from({ length: 1000 }, (_, i) => `cat a*${id(i)}.js`).join(";"), false],
+    // The most that is judged: long words that look like secrets, within the limits.
+    [
+      `cat ${Array.from({ length: 31 }, (_, i) =>
+        `*secr?t${id(i)}*tok?n`.padEnd(250, "credentialpassw"),
+      ).join(" ")}`,
+      false,
+    ],
+    [
+      `cat ${Array.from({ length: 31 }, (_, i) => `${"dir/".repeat(60)}g?/h*${id(i)}.js`).join(" ")}`,
+      true,
+    ],
+    [filled((i) => `f${id(i)}`), true],
   ]) {
     const started = performance.now();
-    assert.equal(allowed(command), expected, command.slice(0, 20));
-    assert.ok(performance.now() - started < 500, `slow for ${command.slice(0, 20)}…`);
+    assert.equal(allowed(command), expected, command.slice(0, 30));
+    assert.ok(performance.now() - started < 500, `slow for ${command.slice(0, 30)}…`);
   }
+});
+
+test("a command line holds a limited number of patterns", () => {
+  const patterns = (count) =>
+    `wc -l ${Array.from({ length: count }, (_, i) => `src/*${i}.js`).join(" ")}`;
+  assert.equal(allowed(patterns(32)), true);
+  assert.equal(allowed(patterns(33)), false);
+  // The limit holds for a chain as a whole.
+  const chain = (count) =>
+    Array.from({ length: count }, (_, i) => `ls src/*${i}.js`).join("; ");
+  assert.equal(allowed(chain(20)), true);
+  assert.equal(allowed(chain(33)), false);
+  assert.equal(allowed(`ls ${"?".repeat(128)}`), true);
+  assert.equal(allowed(`ls ${"?".repeat(129)}`), false);
 });
