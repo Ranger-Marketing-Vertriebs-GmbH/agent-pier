@@ -1,6 +1,6 @@
 import { messageIdentity } from "../lib/i18n/message-identity.js";
 import { sessionToken } from "./login.js";
-import { chatPath } from "./socket-access.js";
+import { chatPath, upgradeTarget } from "./socket-access.js";
 import { authorizeRequest } from "./security.js";
 import { WebSocketServer, WebSocket } from "ws";
 
@@ -13,8 +13,8 @@ export function attachChatWebSocket(server, { sync, streams, login, admit, effec
     perMessageDeflate: { threshold: 1024, serverNoContextTakeover: true },
   });
   const upgrade = (req, socket, head) => {
-    const url = new URL(req.url, "http://localhost");
-    const match = url.pathname.match(chatPath);
+    const url = upgradeTarget(req, socket);
+    const match = url?.pathname.match(chatPath);
     if (!match) return;
     try {
       authorizeRequest(req, effective(), true);
