@@ -18,7 +18,8 @@ import { hangGuard } from "../helpers/hang-guard.js";
 // reads sends anything.
 //
 // The waits follow the watches' own progress instead of a wall-clock budget a loaded
-// host can exhaust; a topic that never signals fails on the test's hang guard.
+// host can exhaust; a wait without any progress fails after half the hang guard and
+// names what it waited for and what the watches saw.
 
 const PROJECT = "a".repeat(64);
 const OTHER = "b".repeat(64);
@@ -40,26 +41,48 @@ async function projectHome(f, id = PROJECT) {
 
 async function subscribed(f, topic) {
   const live = openLive(f);
-  await live.next((frame) => frame.type === "hello", hangGuard.timeout);
+  await live.next((frame) => frame.type === "hello", PROGRESS_MS);
   live.send({ op: "sub", topic });
-  const first = await live.next((frame) => frame.topic === topic, hangGuard.timeout);
+  const first = await live.next((frame) => frame.topic === topic, PROGRESS_MS);
   return { live, first };
 }
 
 const changed = (live, topic) =>
-  live.next(
-    (frame) => frame.topic === topic && frame.type === "changed",
-    hangGuard.timeout,
-  );
+  live.next((frame) => frame.topic === topic && frame.type === "changed", PROGRESS_MS);
 const changes = (live, topic) =>
   live.frames.filter((frame) => frame.topic === topic && frame.type === "changed").length;
 
-// Polls until `predicate` holds; it gives up only with the hang guard, so a test that
-// timed out leaves no loop behind.
-async function until(predicate) {
-  const guard = Date.now() + hangGuard.timeout;
+// A wait that makes no progress fails after half the hang guard, so the failure names
+// what was awaited and what the watches saw instead of "test timed out".
+const PROGRESS_MS = hangGuard.timeout / 2;
+
+// What the topic watches and what its handles reported last (`seen` of watchesOf).
+function watchState(f, seen) {
+  const watches = f.application.agentbusWatches;
+  const root = f.application.agentbus.root;
+  const short = (target) => path.relative(root, String(target));
+  return [
+    "",
+    `watched: ${JSON.stringify([...watches.directories.folders.values()].map((folder) => [short(folder.directory), [...folder.names.keys()]]))}`,
+    `followers: ${JSON.stringify([...watches.followers].map((follower) => follower.state))}`,
+    ...(seen
+      ? [
+          `signals: ${seen.count}, names: ${JSON.stringify(seen.names.slice(-12))}`,
+          `last folder events: ${JSON.stringify(seen.events.slice(-12).map(([folder, name]) => [short(folder), name]))}`,
+        ]
+      : []),
+  ].join("\n");
+}
+
+// Polls until `predicate` holds. Without progress it fails with what it waited for
+// and `state()`, and leaves no loop behind.
+async function until(predicate, waitingFor = "the condition", state = () => "") {
+  const deadline = Date.now() + PROGRESS_MS;
   while (!predicate()) {
-    if (Date.now() > guard) throw new Error("no progress within the hang guard");
+    if (Date.now() > deadline)
+      throw new Error(
+        `no progress in ${PROGRESS_MS} ms waiting for ${waitingFor}${state()}`,
+      );
     await delay(10);
   }
   return true;
@@ -71,10 +94,13 @@ async function until(predicate) {
 // is added) is never reported; two turns of the loop always pass that poll phase.
 async function watching(f, directory) {
   const { directories } = f.application.agentbusWatches;
-  await until(() =>
-    [...directories.folders.values()].some(
-      (folder) => directory === undefined || folder.directory === directory,
-    ),
+  await until(
+    () =>
+      [...directories.folders.values()].some(
+        (folder) => directory === undefined || folder.directory === directory,
+      ),
+    `a watch of ${directory ?? "any folder"}`,
+    () => watchState(f),
   );
   for (let turn = 0; turn < 2; turn += 1)
     await new Promise((resolve) => setImmediate(resolve));
@@ -118,22 +144,46 @@ async function reporting(f, seen, directory) {
       .slice(from)
       .some(([folder, name]) => folder === directory && name === ".probe");
   let round = 0;
-  await until(() => {
-    if (!reported()) fs.writeFile(probe, String((round += 1))).catch(() => {});
-    return reported();
-  });
+  const writes = [];
+  await until(
+    () => {
+      if (!reported())
+        writes.push(fs.writeFile(probe, String((round += 1))).catch(() => {}));
+      return reported();
+    },
+    `the watch of ${directory} to report .probe`,
+    () => `\nprobes written: ${round}${watchState(f, seen)}`,
+  );
+  // No probe is written once this returns: in `peers` every name signals.
+  await Promise.all(writes);
 }
 
 // macOS reports a folder's events in order but late, also of files made just before
 // its watch started. A peer registered in `home` is reported after all of them: once
-// its event is in, nothing earlier can still signal.
-async function reported(seen, home, name) {
-  const peers = path.join(home, "peers");
-  const expected = (await fs.stat(peers).catch(() => null)) ? `${name}.json` : "peers";
+// its event is in and no re-arm is running, nothing earlier can still signal.
+//
+// The `peers` folder must be there and reporting (see `reporting`). A peer that makes
+// the folder is no such mark: the topic then starts a watch of the new folder, which
+// reports the peer's own files some time later, and when a re-arm already running
+// found the folder first, macOS may never report the folder being made at all.
+async function reported(f, seen, home, name) {
   const from = seen.names.length;
-  writeJsonAtomic(path.join(peers, `${name}.json`), { key: name });
-  await until(() => seen.names.slice(from).includes(expected));
+  writeJsonAtomic(path.join(home, "peers", `${name}.json`), { key: name });
+  await until(
+    () => seen.names.slice(from).includes(`${name}.json`),
+    `the topic to see ${name}.json in peers`,
+    () => watchState(f, seen),
+  );
+  const { followers } = f.application.agentbusWatches;
+  await until(
+    () => [...followers].every((follower) => !follower.arming && !follower.again),
+    "the topic's re-arms to end",
+    () => watchState(f, seen),
+  );
 }
+
+// What reached the topic since `from`, for the message of a failed count.
+const since = (seen, from) => `names since: ${JSON.stringify(seen.names.slice(from))}`;
 
 test(
   "a message, a claim and an acknowledgement in the queue send changed",
@@ -165,6 +215,8 @@ test(
   async (t) => {
     const f = await applicationFixture(t);
     const home = await projectHome(f);
+    const peers = path.join(home, "peers");
+    await fs.mkdir(peers, { mode: 0o700 });
     const queue = openQueue(home);
     t.after(() => queue.close());
     queue.enqueue(message("m1"));
@@ -175,8 +227,10 @@ test(
     const { live } = await subscribed(f, topic);
     t.after(() => live.ws.close());
     await reporting(f, seen, home);
-    await reported(seen, home, "claude-s1");
+    await reporting(f, seen, peers);
+    await reported(f, seen, home, "claude-s1");
     const before = seen.count;
+    const from = seen.names.length;
     // What the overview and the message log read: summaries (with their lease
     // reclaim) and rows, through the server's own queue handle.
     for (let index = 0; index < 5; index += 1) {
@@ -185,7 +239,7 @@ test(
       queue.summary("codex-peer");
     }
     await delay(800);
-    assert.equal(seen.count, before);
+    assert.equal(seen.count, before, since(seen, from));
   },
 );
 
@@ -214,13 +268,14 @@ test(
     await changed(live, topic);
     // Another project's queue is not this topic's change.
     const other = await projectHome(f, OTHER);
-    await reported(seen, home, "claude-s3");
+    await reported(f, seen, home, "claude-s3");
     const before = seen.count;
+    const from = seen.names.length;
     const queue = openQueue(other);
     t.after(() => queue.close());
     queue.enqueue(message("elsewhere"));
     await delay(600);
-    assert.equal(seen.count, before);
+    assert.equal(seen.count, before, since(seen, from));
   },
 );
 
@@ -257,6 +312,8 @@ test(
   async (t) => {
     const f = await applicationFixture(t);
     const home = await projectHome(f);
+    const peers = path.join(home, "peers");
+    await fs.mkdir(peers, { mode: 0o700 });
     const sessions = f.application.sessions;
     const list = sessions.list.bind(sessions);
     let extra = [
@@ -281,18 +338,20 @@ test(
     t.after(() => live.ws.close());
     assert.equal(first.type, "same");
     await reporting(f, seen, home);
+    await reporting(f, seen, peers);
     const queue = openQueue(home);
     t.after(() => queue.close());
     queue.enqueue(message("m1"));
     await changed(live, topic);
     // An unchanged session list sends nothing; a renamed AgentBus session does.
-    await reported(seen, home, "claude-s1");
+    await reported(f, seen, home, "claude-s1");
     let before = seen.count;
+    const from = seen.names.length;
     await listed();
-    assert.equal(seen.count, before);
+    assert.equal(seen.count, before, since(seen, from));
     extra = [{ ...extra[0], name: "Renamed" }];
     await listed();
-    assert.equal(seen.count, before + 1);
+    assert.equal(seen.count, before + 1, since(seen, from));
     await changed(live, topic);
     // A session of a new project: its folder is watched too.
     const second = await projectHome(f, OTHER);
