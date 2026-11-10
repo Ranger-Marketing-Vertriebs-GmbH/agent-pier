@@ -300,3 +300,43 @@ test("closing the client's stdin stops the server and removes the status file", 
   await until(() => !alive(pid));
   assert.equal(p.status(), null);
 });
+
+test("client notifications reach a starting server only after its handshake", async (t) => {
+  const p = await proxy(t);
+  const before = await p.call("whoami");
+  p.spec("2", { extra: ["--slow-init"] });
+  await until(() => p.received().some((e) => e.pid !== before.pid));
+  p.send({ jsonrpc: "2.0", method: "notifications/roots/list_changed" });
+  await until(async () => (await p.call("whoami")).version === "2");
+  const next = p
+    .received()
+    .filter((e) => e.pid !== before.pid)
+    .map((e) => e.msg.method ?? "response");
+  assert.deepEqual(next.slice(0, 3), [
+    "initialize",
+    "notifications/initialized",
+    "notifications/roots/list_changed",
+  ]);
+  assert.ok(
+    p
+      .received()
+      .some(
+        (e) =>
+          e.pid === before.pid && e.msg.method === "notifications/roots/list_changed",
+      ),
+    "the running server got it at once",
+  );
+});
+
+test("a retired server that dies fails its calls without claiming a restart", async (t) => {
+  const p = await proxy(t);
+  const { pid } = await p.call("whoami");
+  const slow = p.request("tools/call", { name: "slow", arguments: { ms: 8000 } });
+  p.spec("2");
+  await until(async () => (await p.call("whoami")).version === "2");
+  process.kill(pid, "SIGKILL");
+  const failed = await p.answer(slow);
+  assert.match(failed.error.message, /before it answered/);
+  assert.doesNotMatch(failed.error.message, /restarted/);
+  assert.equal((await p.call("whoami")).version, "2");
+});

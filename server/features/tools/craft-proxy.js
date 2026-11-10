@@ -106,13 +106,13 @@ export function craftProxies(dataDir) {
  * Calls `onChange()` (debounced) whenever a proxy starts, swaps, fails or ends.
  * Returns a function that stops watching. Never throws.
  */
-export function watchCraftProxies(dataDir, onChange, delayMs = 500) {
+export function watchCraftProxies(dataDir, onChange, delayMs = 500, watch = fs.watch) {
   let timer = null;
   let watcher = null;
   try {
     const directory = proxyStatusDir(dataDir);
     fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
-    watcher = fs.watch(directory, () => {
+    watcher = watch(directory, () => {
       clearTimeout(timer);
       timer = setTimeout(() => {
         try {
