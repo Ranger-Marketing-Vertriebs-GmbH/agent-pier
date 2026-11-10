@@ -9,7 +9,8 @@ import { isCodingCli } from "../clis/catalog.js";
 import { cliDriver } from "../clis/drivers.js";
 import {
   DEFAULT_ALLOWED,
-  defaultCommand,
+  defaultSegments,
+  secretCommand,
   touchesSecret,
 } from "./cli-approval-defaults.js";
 
@@ -23,6 +24,9 @@ import {
 // `cat .env` approved once does not allow `cat secrets/other.key`. Session rules end
 // with their session; project rules
 // apply to every session whose folder belongs to the project (memory/project-scope).
+// The default list covers `git`, `npm` and `cd` only inside the session's project
+// (`place`): the shell's folder as the CLI reports it, else the session's, checked
+// against the project's folders.
 
 // The shell tool of each CLI (its driver's shellToolName); its requests carry a
 // command line.
@@ -40,6 +44,7 @@ const scopes = ["session", "project"];
 export const rememberIds = { session: "remember-session", project: "remember-project" };
 const maxRules = 2000;
 const projectCacheMs = 60000;
+const maxWorktrees = 200;
 
 const allowOnce = (entry) => entry.options?.find((o) => allowOnceIds.includes(o.id))?.id;
 
@@ -85,19 +90,30 @@ export class RequestApprovals {
     });
     fs.renameSync(temporary, this.file);
   }
-  /** The project of a session's folder, or null when it has none AgentPier can name. */
-  async projectOf(session) {
+  /**
+   * The project of a session's folder: its `id` (null when it has none AgentPier
+   * can name) and its `roots`, the folders that belong to it.
+   */
+  async project(session) {
     const cwd = session?.cwd;
-    if (typeof cwd !== "string") return null;
+    if (typeof cwd !== "string") return { id: null, roots: [] };
     const cached = this.projects.get(cwd);
-    if (cached && Date.now() - cached.at < projectCacheMs) return cached.id;
-    const id = await this.scope(cwd).then(
-      (project) => project.id,
-      () => null,
+    if (cached && Date.now() - cached.at < projectCacheMs) return cached;
+    const found = await this.scope(cwd).then(
+      (project) => ({ id: project.id, roots: projectRoots(project, cwd) }),
+      () => ({ id: null, roots: [cwd] }),
     );
     if (this.projects.size > 500) this.projects.clear();
-    this.projects.set(cwd, { id, at: Date.now() });
-    return id;
+    const entry = { ...found, at: Date.now() };
+    this.projects.set(cwd, entry);
+    return entry;
+  }
+  /** Where a request's command runs: the folder its CLI names, else the session's. */
+  place(entry, session, roots) {
+    const named = entry.subject?.cwd;
+    const cwd =
+      typeof named === "string" && path.isAbsolute(named) ? named : session?.cwd;
+    return { cwd, roots };
   }
   /**
    * What a request asks for, as rules name it: its CLI and tool and `needs`, what a
@@ -105,9 +121,9 @@ export class RequestApprovals {
    * list does not cover: `{ program }` (`git push`), or `{ command }` with the exact
    * words when it touches a secret. For another tool, `[{}]` (the tool), or
    * `[{ command: path }]` for a secret path. Null when the request cannot be
-   * remembered or answered automatically.
+   * remembered or answered automatically. `place` is where the command runs.
    */
-  subject(entry) {
+  subject(entry, place) {
     const cli = entry.source;
     const tool = entry.subject?.tool;
     if (
@@ -129,8 +145,9 @@ export class RequestApprovals {
     const segments = shellSegments(entry.subject.command);
     if (!segments) return null;
     const keys = new Map();
-    for (const words of segments.filter((words) => !defaultCommand(words))) {
-      const need = touchesSecret(words)
+    const covered = defaultSegments(segments, place);
+    for (const words of segments.filter((words, i) => !covered[i])) {
+      const need = secretCommand(words)
         ? { command: words.join(" ") }
         : { program: programKey(words) };
       keys.set(need.command ?? need.program, need);
@@ -154,11 +171,11 @@ export class RequestApprovals {
    * show its card. A request it may remember gains the two remember options.
    */
   async prepare(entry, session) {
-    const subject = this.subject(entry);
+    const { id: projectId, roots } = await this.project(session);
+    const subject = this.subject(entry, this.place(entry, session, roots));
     if (!subject) return null;
     const choice = allowOnce(entry);
     if (subject.builtIn) return { choice, decision: "allow-default" };
-    const projectId = await this.projectOf(session);
     // A session rule wins over a project rule for the same need.
     const used = subject.needs.map((need) => {
       const rules = this.matching(subject, session.id, projectId, need);
@@ -198,9 +215,9 @@ export class RequestApprovals {
   }
   /** Stores the approval the owner just gave for `scope`. */
   async remember(entry, scope, session) {
-    const subject = this.subject(entry);
+    const { id: projectId, roots } = await this.project(session);
+    const subject = this.subject(entry, this.place(entry, session, roots));
     if (!subject) return;
-    const projectId = await this.projectOf(session);
     const target = scope === "session" ? session.id : projectId;
     if (!target) return;
     for (const need of subject.needs) {
@@ -249,6 +266,30 @@ export class RequestApprovals {
     );
     if (this.rules.length !== before) this.save();
   }
+}
+
+/**
+ * The folders of a project: the one its scope names (the Git work tree around the
+ * session's folder, or the folder itself) and, for a Git project, the main work
+ * tree, which holds `.worktrees/`, and every linked work tree the repository lists
+ * (`<git dir>/worktrees/<name>/gitdir`). They share one repository configuration.
+ */
+function projectRoots(project, cwd) {
+  const roots = [typeof project.cwd === "string" ? project.cwd : cwd];
+  try {
+    const [kind, common] = JSON.parse(project.identity);
+    if (kind !== "git" || typeof common !== "string") return roots;
+    if (path.basename(common) === ".git") roots.push(path.dirname(common));
+    const linked = path.join(common, "worktrees");
+    for (const name of fs.readdirSync(linked).slice(0, maxWorktrees)) {
+      const file = fs.readFileSync(path.join(linked, name, "gitdir"), "utf8").trim();
+      if (path.isAbsolute(file) && path.basename(file) === ".git")
+        roots.push(path.dirname(file));
+    }
+  } catch {
+    // No readable identity or no linked work trees: the folders found so far.
+  }
+  return roots;
 }
 
 const text = (value, max = 200) =>

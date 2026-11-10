@@ -6,14 +6,16 @@ import {
 } from "../../server/features/requests/shell-command.js";
 import {
   DEFAULT_ALLOWED,
-  defaultCommand,
+  defaultSegments,
   printScript,
   substitution,
 } from "../../server/features/requests/cli-approval-defaults.js";
 
+// The session's project is /work/repo and its shell stands there.
+const place = { cwd: "/work/repo", roots: ["/work/repo"] };
 const allowed = (command) => {
   const segments = shellSegments(command);
-  return Boolean(segments?.every(defaultCommand));
+  return Boolean(segments && defaultSegments(segments, place).every(Boolean));
 };
 
 test("read-only commands on the default list need no card", () => {

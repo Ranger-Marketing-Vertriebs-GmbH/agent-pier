@@ -300,3 +300,128 @@ test("Codex and OpenCode shell requests use the same defaults and rules", async 
     "allow-always",
   );
 });
+
+test("git, npm and cd are answered by default only inside the session's project", async (t) => {
+  const f = await fixture(t);
+  const elsewhere = await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-elsewhere-"));
+  t.after(() => fs.rm(elsewhere, { recursive: true, force: true }));
+  await fs.mkdir(path.join(f.root, "sub"));
+  await fs.symlink(elsewhere, path.join(f.root, "link"));
+  for (const command of [
+    `git -C ${f.root}/sub status`,
+    `cd ${f.root}/sub && npm test`,
+    `cat ${elsewhere}/notes.md`,
+  ]) {
+    const run = hook(f, bash(command), { timeout: 20_000 });
+    await run.done;
+    assert.deepEqual(JSON.parse(run.output()).hookSpecificOutput, allowOutput, command);
+  }
+  const asks = async (payload, programs) => {
+    const run = hook(f, payload, { timeout: 20_000 });
+    const card = await pending(f);
+    assert.deepEqual(
+      card.options.find((option) => option.remember).remember.programs,
+      programs,
+      payload.tool_input.command,
+    );
+    await f.broker.answer("session", card.id, { expectedRevision: 1, choice: "deny" });
+    await run.done;
+  };
+  await asks(bash(`git -C ${elsewhere} status`), ["git status"]);
+  await asks(bash(`cd ${elsewhere} && npm test`), ["cd", "npm test"]);
+  await asks(bash("cd .. && git log -3"), ["cd", "git log"]);
+  // A link inside the project that leads out of it.
+  await asks(bash("git -C link diff"), ["git diff"]);
+  // git reads `link/..` as the parent of the link's target.
+  await asks(bash("git -C link/.. status"), ["git status"]);
+  // The CLI names the folder its shell stands in.
+  await asks({ ...bash("git status"), cwd: elsewhere }, ["git status"]);
+});
+
+test("a remembered program does not cover a pattern for a secret", async (t) => {
+  const f = await fixture(t);
+  const first = hook(f, bash("rm -rf build"), { timeout: 20_000 });
+  const card = await pending(f);
+  await f.broker.answer("session", card.id, {
+    expectedRevision: 1,
+    choice: "remember-project",
+  });
+  await first.done;
+  // Braces and ordinary patterns are covered by the program, also one that merely
+  // could match a key file, and so is a quoted argument of several lines.
+  for (const command of [
+    "rm notes/{a,b}.txt src/*.orig",
+    "rm -rf dist/* build/**",
+    "rm keys/* *.json *.*",
+    "rm 'a\nb'",
+  ]) {
+    const plain = hook(f, bash(command), { timeout: 20_000 });
+    await plain.done;
+    assert.deepEqual(JSON.parse(plain.output()).hookSpecificOutput, allowOutput, command);
+  }
+  // A pattern for a dot name, or one that writes out part of a key or credentials
+  // name, is remembered only exactly, like a secret named as written.
+  for (const command of [
+    "rm .e*",
+    "rm config/{.e,y}nv",
+    "rm id_*",
+    "rm cred*",
+    "rm certs/*.k*",
+    "rm ~/.docker/c*",
+  ]) {
+    const run = hook(f, bash(command), { timeout: 20_000 });
+    const asked = await pending(f);
+    assert.deepEqual(asked.options.find((option) => option.remember).remember.programs, [
+      command,
+    ]);
+    await f.broker.answer("session", asked.id, { expectedRevision: 1, choice: "deny" });
+    await run.done;
+  }
+});
+
+test("a session in a linked work tree reaches the main work tree by default", async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-approvals-"));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  // The repository lists a linked work tree that lies beside the project.
+  const common = path.join(directory, ".git");
+  await fs.mkdir(path.join(common, "worktrees/beside"), { recursive: true });
+  await fs.writeFile(
+    path.join(common, "worktrees/beside/gitdir"),
+    "/work/repo-beside/.git\n",
+  );
+  const approvals = new RequestApprovals({
+    directory,
+    scope: async () => ({
+      id: "project-1",
+      cwd: "/work/repo/.worktrees/feature",
+      identity: JSON.stringify(["git", common, "1", "2"]),
+    }),
+  });
+  const session = { id: "s-1", cwd: "/work/repo/.worktrees/feature/web" };
+  const request = (command, cwd) => ({
+    kind: "permission",
+    source: "opencode",
+    subject: { tool: "bash", command, ...(cwd ? { cwd } : {}) },
+    options: [{ id: "once", label: "Once", scope: "once" }],
+  });
+  const allowed = { choice: "once", decision: "allow-default" };
+  for (const command of [
+    "git status",
+    "cd .. && npm test",
+    "git -C /work/repo/.worktrees/feature/web log -3",
+    "git -C /work/repo-beside diff --stat",
+    `cd ${directory} && git fetch origin`,
+  ])
+    assert.deepEqual(
+      await approvals.prepare(request(command), session),
+      allowed,
+      command,
+    );
+  for (const command of ["git -C /work/repo status", "cd /work/repo-besides && npm test"])
+    assert.equal(await approvals.prepare(request(command), session), null, command);
+  assert.equal(await approvals.prepare(request("git status", "/tmp"), session), null);
+  assert.deepEqual(
+    await approvals.prepare(request("git status", "/work/repo-beside/web"), session),
+    allowed,
+  );
+});
