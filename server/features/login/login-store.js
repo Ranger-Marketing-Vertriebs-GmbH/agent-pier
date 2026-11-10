@@ -19,6 +19,14 @@ export const tailnetAttempts = "tailnet";
 /** The owner's own tailnet sign-in window, whatever his login is called. */
 export const ownerTailnetAttempts = "tailnet-owner";
 export const localAttempts = "local";
+/** The window every plain network sign-in also counts against, whatever its address. */
+export const networkAttempts = "network";
+/**
+ * Password checks per minute from all plain network addresses together. A household or
+ * team stays far below it; it bounds what a network that can change its source address
+ * at will makes the host hash.
+ */
+export const networkAttemptLimit = 60;
 
 export class LoginStore {
   constructor({ dataDir, now = Date.now }) {
@@ -48,11 +56,12 @@ export class LoginStore {
     // One attempt window per source (local, tailnet login or network address): a flood
     // from one device or tailnet member must not lock out the local owner.
     // All tailnet logins together share a larger window, since their header is forgeable.
+    // Plain network addresses share a window too: an address is as easy to change.
     // The shared, the owner's tailnet and the local windows are never evicted, so
     // rotating keys cannot reset them.
     this.attempts = new AttemptWindows({
       now: () => this.now(),
-      limits: { [tailnetAttempts]: 30 },
+      limits: { [tailnetAttempts]: 30, [networkAttempts]: networkAttemptLimit },
       keep: [localAttempts, ownerTailnetAttempts],
     });
   }

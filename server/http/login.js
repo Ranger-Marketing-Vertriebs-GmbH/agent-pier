@@ -2,6 +2,7 @@ import express from "express";
 import {
   idleDuration,
   localAttempts,
+  networkAttempts,
   ownerTailnetAttempts,
   tailnetAttempts,
 } from "../features/login/login-store.js";
@@ -85,7 +86,8 @@ export function setupAllowed(req, config, hasUsers) {
 /**
  * The attempt windows a sign-in counts against. Tailscale Serve proxies every tailnet
  * device from loopback, so each tailnet login gets its own window, apart from the
- * local machine's; plain network requests count per address. A local process can send
+ * local machine's; plain network requests count per address and, since an address is
+ * easy to change, together against one shared window. A local process can send
  * the login header itself, so every other tailnet request also counts against one
  * shared window: rotating forged logins never escapes it. An attempt that either
  * window refuses counts against neither, so it creates no fresh window. The owner's
@@ -101,7 +103,7 @@ export function attemptSource(req, config = {}) {
     return [`tailscale:${login}`, tailnetAttempts];
   }
   if (req.trustBranch === "local") return localAttempts;
-  return `network:${req.socket.remoteAddress}`;
+  return [`network:${req.socket.remoteAddress}`, networkAttempts];
 }
 // Secure only when the transport is TLS or the request uses the HTTPS Tailscale host.
 export function cookieOptions(req, config) {
