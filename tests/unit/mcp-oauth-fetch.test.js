@@ -115,25 +115,30 @@ test("a server in the private network also reaches private addresses, never this
 });
 
 test("a name that resolves to this machine counts as the private network at most", async () => {
-  const allowed = await reached("https://self.example/mcp", [
+  // Elsewhere what a server in the private network reaches, and its own origin:
+  // nothing else on this machine and no link-local address.
+  assert.deepEqual(await reached("https://self.example/mcp", elsewhere), [
+    "https://auth.example/token",
+    "https://inside.example/token",
+    "https://auth.lan/token",
+    "http://10.0.0.7:8080/token",
+    "https://tailnet.example/token",
     "https://self.example/token",
-    ...elsewhere,
   ]);
-  assert.ok(allowed.includes("https://self.example/token"));
-  assert.ok(allowed.includes("https://auth.lan/token"));
-  for (const url of allowed.slice(1))
-    assert.ok(!/127\.0\.0\.1|::1|localhost|169\.254|meta\./.test(url), url);
 });
 
 test("a server on this machine reaches every routable address", async () => {
+  // Refused even here: plain http to a public address, an unroutable address and
+  // another scheme.
+  const refused = new Set([
+    "http://auth.example/token",
+    "http://0.0.0.0:4380/api/state",
+    "file:///etc/hosts",
+  ]);
   for (const server of ["http://127.0.0.1:9000/mcp", "http://localhost:9000/mcp"])
     assert.deepEqual(
       await reached(server, elsewhere),
-      elsewhere.filter(
-        (url) =>
-          !["http://auth.example/token", "http://0.0.0.0:4380/api/state"].includes(url) &&
-          !url.startsWith("file:"),
-      ),
+      elsewhere.filter((url) => !refused.has(url)),
     );
 });
 
@@ -193,8 +198,10 @@ function flow(t, endpoints) {
   return { oauth, server, requests, state, advance: (ms) => (now += ms) };
 }
 const redirectUrl = "http://127.0.0.1:4380/api/mcp-servers/oauth/callback";
+// The requests ("METHOD url") to a host that is not one of the two public ones.
+const publicHosts = new Set(["mcp.example", "auth.example"]);
 const inside = (requests) =>
-  requests.filter((line) => /inside\.example|127\.0\.0\.1|10\.0\.0\./.test(line));
+  requests.filter((line) => !publicHosts.has(new URL(line.split(" ")[1]).hostname));
 
 test("a login fails when the metadata names an internal authorization server or endpoint", async (t) => {
   for (const endpoints of [
@@ -221,8 +228,10 @@ test("a renewal never follows the metadata to an internal address", async (t) =>
   assert.equal(new URL(started.authorizationUrl).origin, "https://auth.example");
   await oauth.complete(oauth.take(started.state), server, "code-1");
   const first = await oauth.token(server);
-  assert.ok(requests.includes("POST https://auth.example/register"));
-  assert.ok(requests.includes("POST https://auth.example/token"));
+  assert.deepEqual(
+    requests.filter((line) => line.split(" ")[0] === "POST"),
+    ["POST https://auth.example/register", "POST https://auth.example/token"],
+  );
   // The token is due and the metadata now names an internal authorization server:
   // the renewal fails and the login is kept.
   advance(3_600_000);
