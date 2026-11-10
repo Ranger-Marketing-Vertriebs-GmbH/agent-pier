@@ -23,14 +23,19 @@ export function streamOpenCodeReplies(api, channel, visible) {
     api.state?.session?.messages?.(sessionID)?.find((m) => m.id === messageID)?.role;
   const textPart = (messageID, partID) =>
     api.state?.part?.(messageID)?.find((part) => part.id === partID)?.type === "text";
-  // The pending tool part reported now; `session` ends it from that session only.
-  let preparing = null;
+  // The pending tool parts by id, oldest first; the newest one still pending shows.
+  const pending = new Map();
+  const report = () => channel.preparing?.([...pending.values()].at(-1)?.tool ?? null);
   const prepare = (part) => {
-    preparing = part ? { id: part.id, session: part.sessionID } : null;
-    channel.preparing?.(part ? part.tool : null);
+    pending.delete(part.id);
+    remember(pending, part.id, { tool: part.tool, session: part.sessionID });
+    report();
   };
-  const prepared = (session) => {
-    if (preparing && (!session || preparing.session === session)) prepare(null);
+  // A part that left `pending`, or every part (of `session`, when given).
+  const prepared = (session, id) => {
+    for (const [key, part] of [...pending])
+      if (id ? key === id : !session || part.session === session) pending.delete(key);
+    report();
   };
   const end = (match = () => true) => {
     for (const [id, part] of [...parts])
@@ -61,10 +66,11 @@ export function streamOpenCodeReplies(api, channel, visible) {
     api.event.on(
       "message.part.updated",
       guard(({ part }) => {
-        if (part?.type === "tool" && part.sessionID === visible()) {
-          if (part.state?.status === "pending" && typeof part.tool === "string")
+        if (part?.type === "tool") {
+          // A part leaves `pending` in any session: one the TUI no longer shows too.
+          if (part.state?.status !== "pending") prepared(undefined, part.id);
+          else if (part.sessionID === visible() && typeof part.tool === "string")
             prepare(part);
-          else if (part.id === preparing?.id) prepare(null);
           return;
         }
         if (
