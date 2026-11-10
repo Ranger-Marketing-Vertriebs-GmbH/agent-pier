@@ -409,6 +409,27 @@ shows **Login required**. Neither runtime ever holds the tokens:
   and a proxy credential for that server alone as its `Authorization` header
   (`mcp-inputs.js` `proxiedServers`). Hermes agents can therefore bind OAuth servers.
 
+**Addresses the flow may reach.** The server's own metadata names the authorization
+server and its token and registration endpoints, on a login and again on every
+renewal, so AgentPier checks each address before it connects (`oauth-fetch.js`):
+
+- A URL on the origin of the server URL you entered always passes.
+- Any other URL must not be more internal than the server itself. A server on the
+  public internet can name only public addresses, and those only over HTTPS. A server
+  in your private network (a private, unique-local or tailnet address) can also name
+  other private addresses, over HTTP too. Only a server on the AgentPier host itself
+  (`localhost` or a loopback address) can name loopback and link-local addresses.
+- A host name you entered counts as the private network at most, whatever it resolves
+  to: for a server on the AgentPier host with its authorization server on another
+  port, enter `localhost` or the loopback address.
+
+A refused address fails the login like any other failed login ("The login could not
+be completed", `OAuthAddressRefused` in the AgentPier log); on a renewal the server
+shows **Login required** or the request fails until the metadata is corrected.
+AgentPier connects to exactly the addresses it checked, follows redirects only within
+one origin (each hop is checked again), waits at most 30 seconds per request and reads
+at most 1 MB per answer.
+
 A login OpenClaw made before this change stays exactly as it was, refreshed by
 OpenClaw, until the owner logs in again: such a connected server shows **Log in
 again** with a note that OpenClaw holds the login. The new login is AgentPier's; when it

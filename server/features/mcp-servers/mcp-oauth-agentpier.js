@@ -2,13 +2,16 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { auth } from "@modelcontextprotocol/sdk/client/auth.js";
 import { privateDirectory, readJSON, writePrivate } from "../../lib/storage.js";
+import { oauthFetch } from "./oauth-fetch.js";
 
 // OAuth logins of central MCP servers that AgentPier runs and holds itself (MCP SDK
 // `auth()`: RFC 9728 protected resource metadata, RFC 8414 discovery, RFC 7591
 // dynamic client registration as a public client, PKCE S256, RFC 8707 resource),
 // returning to AgentPier's existing callback (oauth-redirect.js). AgentPier is the
 // only refresher of these tokens; both runtimes reach the server through the MCP
-// proxy (mcp-proxy.js) with a credential for that server alone.
+// proxy (mcp-proxy.js) with a credential for that server alone. Every request of the
+// flow, on a login and on a renewal, passes the address check of oauth-fetch.js: the
+// server's metadata names the URLs AgentPier fetches.
 //
 // The vault (<data>/model-logins/mcp-oauth.json, owner-only) keeps per server id the
 // server's name and URL the login is for, the client registration and its redirect
@@ -137,9 +140,11 @@ export class AgentPierMcpOAuth {
     dataDir,
     vault = new McpOAuthVault({ dataDir }),
     fetch,
+    lookup,
     now = Date.now,
   }) {
-    Object.assign(this, { vault, fetchFn: fetch, now });
+    // `fetch` and `lookup` replace the checked request and the DNS lookup in tests.
+    Object.assign(this, { vault, fetchFn: fetch, lookup, now });
     this.pending = new Map(); // state -> { serverId, name, url, verifier, redirectUrl, startedAt }
   }
   held(serverId) {
@@ -149,7 +154,10 @@ export class AgentPierMcpOAuth {
     return {
       serverUrl: server.url,
       ...(server.oauthScope && { scope: server.oauthScope }),
-      ...(this.fetchFn && { fetchFn: this.fetchFn }),
+      fetchFn: oauthFetch(server.url, {
+        ...(this.lookup && { lookup: this.lookup }),
+        ...(this.fetchFn && { send: (url, init) => this.fetchFn(url, init) }),
+      }),
       ...extra,
     };
   }
