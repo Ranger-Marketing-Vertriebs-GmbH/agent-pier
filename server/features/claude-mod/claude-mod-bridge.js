@@ -1,7 +1,8 @@
 // What the `agentpier-bridge` mod reports about a Claude Code session, held in
 // memory only: the turn running now, its reply text (token by token, into the
-// provider-neutral reply streams), the tools and subagents running and whether the
-// model is thinking or compacting. A session whose mod reported is "mod active":
+// provider-neutral reply streams), the tool call the model is writing (`preparing`),
+// the tools and subagents running and whether the model is thinking or compacting.
+// A session whose mod reported is "mod active":
 // its MessageDisplay drafts are ignored and its turn reports decide Working and Idle
 // instead of the terminal reading (preferModActivity, session-activity-merge.js).
 // Streamed text is passed on, never logged or stored. Its prompt reports (a prompt
@@ -73,7 +74,14 @@ export class ClaudeModBridge {
   receive(sessionId, events, { prompts = false } = {}) {
     let state = this.sessions.get(sessionId);
     if (!state) {
-      state = { at: 0, turn: null, phase: null, tools: new Map(), agents: new Map() };
+      state = {
+        at: 0,
+        turn: null,
+        phase: null,
+        preparing: null,
+        tools: new Map(),
+        agents: new Map(),
+      };
       this.sessions.set(sessionId, state);
       // From now on the mod's text replaces the MessageDisplay drafts.
       this.drafts?.end(sessionId);
@@ -97,27 +105,25 @@ export class ClaudeModBridge {
           ...(event.reason !== undefined ? { reason: event.reason } : {}),
         });
       if (event.type === "turn.start") this.startTurn(sessionId, state, event.turn);
-      if (event.type === "text") {
-        if (state.turn?.id !== event.turn) this.startTurn(sessionId, state, event.turn);
-        state.phase = null;
-        const taken = this.streams.streamText(
-          sessionId,
-          runId(event.turn, event.step, event.block),
-          { text: event.text, from: event.from, turn: event.turn, order: event.order },
-        );
-        resync ||= !taken;
-      }
-      if (event.type === "phase" && state.turn?.id === event.turn)
+      if (event.type === "text") resync ||= !this.text(sessionId, state, event);
+      if (event.type === "tool.prepare") this.prepare(sessionId, state, event);
+      if (event.type === "phase" && state.turn?.id === event.turn) {
         state.phase = "thinking";
-      if (event.type === "tool.start" && state.tools.size < maxTools) {
-        state.tools.set(event.id, event.name);
+        state.preparing = null;
+      }
+      if (event.type === "tool.start") {
+        if (state.preparing?.id === event.id) state.preparing = null;
+        if (state.tools.size < maxTools) state.tools.set(event.id, event.name);
         if (state.phase === "thinking") state.phase = null;
       }
       if (event.type === "tool.end") state.tools.delete(event.id);
       if (event.type === "agent.start" && state.agents.size < maxAgents)
         state.agents.set(event.id, event.kind);
       if (event.type === "agent.end") state.agents.delete(event.id);
-      if (event.type === "compact.start") state.phase = "compacting";
+      if (event.type === "compact.start") {
+        state.phase = "compacting";
+        state.preparing = null;
+      }
       if (event.type === "compact.end" && state.phase === "compacting")
         state.phase = null;
       if (event.type === "turn.complete") this.endTurn(sessionId, state, event.turn);
@@ -125,12 +131,45 @@ export class ClaudeModBridge {
     this.publish(sessionId, state);
     return resync ? { resync: true } : {};
   }
+  /** A text delta; false when its offset does not fit (the mod resends). */
+  text(sessionId, state, event) {
+    if (state.turn?.id !== event.turn) this.startTurn(sessionId, state, event.turn);
+    const id = runId(event.turn, event.step, event.block);
+    // A run that gave way to a tool call is in the transcript: a resend stays out.
+    if (state.turn.ended.has(id)) return true;
+    state.phase = null;
+    state.preparing = null;
+    state.turn.runs.set(id, { step: event.step, block: event.block });
+    return this.streams.streamText(sessionId, id, {
+      text: event.text,
+      from: event.from,
+      turn: event.turn,
+      order: event.order,
+    });
+  }
+  /**
+   * The model began a tool call: its name shows while the input streams, and the
+   * turn's text blocks before it are complete, so their runs end and the
+   * transcript, which already holds them, takes over.
+   */
+  prepare(sessionId, state, event) {
+    if (state.turn?.id !== event.turn) this.startTurn(sessionId, state, event.turn);
+    state.phase = null;
+    state.preparing = event.name ? { id: event.id, name: event.name } : null;
+    for (const [id, run] of state.turn.runs)
+      if (run.step < event.step || (run.step === event.step && run.block < event.block)) {
+        state.turn.runs.delete(id);
+        state.turn.ended.add(id);
+        this.streams.endStream(sessionId, id);
+      }
+  }
   startTurn(sessionId, state, turn) {
     if (state.turn && state.turn.id !== turn)
       this.streams.endStream(sessionId, undefined, { turn: state.turn.id });
-    state.turn = { id: turn };
+    state.turn = { id: turn, runs: new Map(), ended: new Set() };
     state.turnAt = this.now();
     state.phase = null;
+    state.preparing = null;
     state.tools.clear();
   }
   endTurn(sessionId, state, turn) {
@@ -139,6 +178,7 @@ export class ClaudeModBridge {
     if (state.turn && state.turn.id !== turn) return;
     state.turn = null;
     state.phase = null;
+    state.preparing = null;
     state.tools.clear();
     this.onActivity(sessionId);
   }
@@ -147,6 +187,7 @@ export class ClaudeModBridge {
     const status = {
       state: busy(state) ? "working" : "idle",
       ...(state.phase ? { phase: state.phase } : {}),
+      ...(state.preparing ? { preparing: state.preparing.name } : {}),
       ...(tools.length ? { tool: tools.at(-1), tools: tools.length } : {}),
       ...(state.agents.size ? { agents: state.agents.size } : {}),
     };

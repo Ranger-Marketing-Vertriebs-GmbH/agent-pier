@@ -13,3 +13,14 @@
     animation: none;
   }
 }
+/* The tool call the model is writing now (ChatLiveReplies.jsx). */
+.chat-live-preparing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  min-width: 0;
+  color: var(--muted);
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}

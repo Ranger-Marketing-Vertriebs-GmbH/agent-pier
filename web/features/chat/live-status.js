@@ -6,6 +6,9 @@ import { commonCopy } from "../../lib/i18n/messages/common.js";
 // turn starts or ends, and what the turn is busy with. Only the Claude Code bridge
 // mod sends it; other sessions keep the polled activity alone.
 
+/** A tool's name as the live status shows it: MCP tools without their `mcp__`. */
+export const liveToolName = (name) => String(name || "").replace(/^mcp__/, "");
+
 /** The frame's status in a known shape, or null. */
 export function liveValue(frame) {
   const status = frame?.status;
@@ -15,6 +18,8 @@ export function liveValue(frame) {
     state: status.state,
     phase: ["thinking", "compacting"].includes(status.phase) ? status.phase : null,
     tool: typeof status.tool === "string" ? status.tool.slice(0, 120) : "",
+    // The tool call the model is writing now (its input still streams).
+    preparing: typeof status.preparing === "string" ? status.preparing.slice(0, 120) : "",
     agents: count(status.agents),
     at: Number.isFinite(status.at) ? status.at : 0,
   };
@@ -35,12 +40,14 @@ export function liveActivity(activity, live, running = true) {
   const detail =
     working && live.phase === "compacting"
       ? copy.liveCompacting
-      : working && live.tool
-        ? copy.liveTool(live.tool.replace(/^mcp__/, ""))
-        : working && live.phase === "thinking"
-          ? copy.liveThinking
-          : live.agents
-            ? copy.liveAgents(live.agents)
-            : "";
+      : working && live.preparing
+        ? copy.livePreparing(liveToolName(live.preparing))
+        : working && live.tool
+          ? copy.liveTool(liveToolName(live.tool))
+          : working && live.phase === "thinking"
+            ? copy.liveThinking
+            : live.agents
+              ? copy.liveAgents(live.agents)
+              : "";
   return { state, label: labels[state] || activity.label, detail };
 }

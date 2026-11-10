@@ -54,6 +54,20 @@ function event(value) {
     if (!label(value.turn) || value.phase !== "thinking") invalid();
     return { type, turn: value.turn, phase: value.phase };
   }
+  // The model began a tool call in block `block` of step `step`; its input streams.
+  if (type === "tool.prepare") {
+    const tool = name(value.name);
+    if (
+      !label(value.turn) ||
+      !count(value.step, 10000) ||
+      !count(value.block, 10000) ||
+      !label(value.id) ||
+      tool === null
+    )
+      invalid();
+    const { turn, step, block, id } = value;
+    return { type, turn, step, block, id, name: tool };
+  }
   if (type === "tool.start" || type === "agent.start") {
     const kind = name(type === "tool.start" ? value.name : value.kind);
     if (!label(value.id) || kind === null) invalid();
