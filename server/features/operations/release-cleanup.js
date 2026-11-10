@@ -21,7 +21,16 @@ const realAndGiven = (value) => {
   }
 };
 
-export function releaseProcessReferences(output, executableFor = () => null) {
+/**
+ * `unverified` collects the pids of lines that claim to be tmux but whose executable
+ * did not confirm it: the process changed or ended after the listing (or it never
+ * was tmux). Their lines are kept as listed, so they protect what they reference.
+ */
+export function releaseProcessReferences(
+  output,
+  executableFor = () => null,
+  unverified = [],
+) {
   return output
     .split("\n")
     .map((line) => {
@@ -57,19 +66,35 @@ export function releaseProcessReferences(output, executableFor = () => null) {
       } catch {
         // Unavailable or changed process evidence must keep the release protected.
       }
+      unverified.push(pid);
       return line;
     })
     .join("\n");
 }
-export function releaseProcesses() {
-  return releaseProcessReferences(
-    execFileSync(
-      "ps",
-      ["-ww", "-u", String(process.getuid()), "-o", "pid=,ppid=,comm=,command="],
-      { encoding: "utf8", timeout: 5000, maxBuffer: 8 * 1024 * 1024 },
-    ),
-    processExecutable,
+const processList = () =>
+  execFileSync(
+    "ps",
+    ["-ww", "-u", String(process.getuid()), "-o", "pid=,ppid=,comm=,command="],
+    { encoding: "utf8", timeout: 5000, maxBuffer: 8 * 1024 * 1024 },
   );
+// A listing and the check of its tmux lines are two reads. A process that changes in
+// between leaves a line that is true of neither moment: tmux starts a pane's command
+// in a fork of its server, which for an instant carries the server's title and its
+// historical arguments, and is a shell by the time its executable is read. Such a
+// listing is read again; a line that stays unverified in the last one is kept, so a
+// process that only claims to be tmux still protects what it references.
+const LISTINGS = 3;
+export function releaseProcesses({
+  list = processList,
+  executableFor = processExecutable,
+} = {}) {
+  let references;
+  for (let listing = 0; listing < LISTINGS; listing += 1) {
+    const unverified = [];
+    references = releaseProcessReferences(list(), executableFor, unverified);
+    if (!unverified.length) break;
+  }
+  return references;
 }
 /** Staged receipts in <dataDir>/operations/releases: [{ id, version, file }]. */
 function stagedReceipts(dataDir) {

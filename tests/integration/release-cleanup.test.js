@@ -277,17 +277,59 @@ test("a real isolated tmux with an absolute launch path does not pin historical 
     ],
     { stdio: "pipe" },
   );
-  r.processes = releaseProcesses;
+  // A failure names the process lines that held the release in the last snapshot.
+  let snapshot = "";
+  r.processes = () => (snapshot = releaseProcesses());
+  const holders = () =>
+    JSON.stringify(snapshot.split("\n").filter((line) => line.includes(r.installRoot)));
   assert.equal(
     r.cleanupStatus().versions.find((v) => v.version === "1.0.0").canDelete,
     true,
+    holders(),
   );
-  await r.cleanup(["1.0.0"]);
+  await r.cleanup(["1.0.0"]).catch((error) => {
+    throw new Error(`cleanup refused; process lines: ${holders()}`, { cause: error });
+  });
   assert.doesNotThrow(() =>
     execFileSync(binary, ["-S", socket, "has-session", "-t", "fixture"], {
       stdio: "pipe",
     }),
   );
+});
+
+test("a pane's fork that became a shell after the listing does not pin a release", async (t) => {
+  const { releaseProcesses } =
+    await import("../../server/features/operations/release-cleanup.js");
+  const r = await fixture(t);
+  const old = `${r.installRoot}/releases/1.0.0`;
+  const tmux = `tmux: server    /usr/bin/tmux new-session -e PATH=${old}/bin:/usr/bin`;
+  // tmux starts a pane's command in a fork of its server: listed with the server's
+  // title and arguments, it is a shell by the time its executable is read.
+  const forked = [`  100     1 ${tmux}`, `  101   100 ${tmux}`].join("\n");
+  const started = [`  100     1 ${tmux}`, "  101   100 sh              sh -c sleep"];
+  const executableFor = (pid) => (pid === "100" ? "/usr/bin/tmux" : "/usr/bin/dash");
+  let listings = 0;
+  r.processes = () =>
+    releaseProcesses({
+      list: () => ((listings += 1) === 1 ? forked : started.join("\n")),
+      executableFor,
+    });
+  assert.equal(
+    r.cleanupStatus().versions.find((v) => v.version === "1.0.0").canDelete,
+    true,
+  );
+  // One listing was inconsistent, the next one settled it.
+  assert.equal(listings, 2);
+  // A process that keeps the title without being tmux protects the release in every
+  // listing, and the listings end.
+  listings = 0;
+  r.processes = () =>
+    releaseProcesses({ list: () => ((listings += 1), forked), executableFor });
+  assert.equal(
+    r.cleanupStatus().versions.find((v) => v.version === "1.0.0").deleteReason,
+    "inUse",
+  );
+  assert.equal(listings, 3);
 });
 
 test("Linux tmux titles require a verified executable and preserve live release binaries", async (t) => {
