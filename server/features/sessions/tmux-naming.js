@@ -51,3 +51,15 @@ export function parseSessionLines(output) {
     .filter(([name]) => name)
     .map(([name, dead, ...rest]) => ({ name, dead: dead === "1", rest }));
 }
+
+/**
+ * `value` so that tmux reads it as itself where it expands a format (the start
+ * directory of `new-session -c`, for one): there `#{…}` is a variable, `#(…)` starts
+ * a job and `#S` and its like are aliases, and `##` is one plain sign. Signs directly
+ * in front of `[` stay as they are: tmux 3.2 and later copy them unchanged (a style),
+ * so doubling would add signs. An older tmux halves two or more of them there, which
+ * names another folder but never a variable or a job.
+ */
+export function tmuxFormatLiteral(value) {
+  return String(value).replace(/#+(\[)?/g, (run, style) => (style ? run : run + run));
+}
