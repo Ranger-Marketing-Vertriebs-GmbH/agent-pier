@@ -66,6 +66,22 @@ export function killRecordedGroups(table, groups, { killable, commands } = {}) {
 }
 
 /**
+ * Kills `pgids` again until a fresh process table shows none of them (at most three
+ * rounds). On macOS a SIGKILL to a group misses a child its member forks at that very
+ * moment: the child joins the group after the signal went out and outlives its killed
+ * parent. A group that still has members after the kill is the same group, as its
+ * number cannot be reused before every member is gone.
+ */
+export async function settleKilledGroups(pgids, { table = processTable } = {}) {
+  let left = new Set(pgids);
+  for (let round = 0; round < 3 && left.size; round += 1) {
+    const rows = await table();
+    left = new Set(rows.filter((row) => left.has(row.pgid)).map((row) => row.pgid));
+    for (const pgid of left) signalGroup(pgid, "SIGKILL");
+  }
+}
+
+/**
  * The parsed payload of a tools/call result: `structuredContent`, else the JSON in
  * the first text block. Craft Anything wraps it as `{ result }` or `{ error }`.
  */
@@ -259,7 +275,8 @@ export class CraftMcpClient {
       clearTimeout(timer);
       // The child leads its group; members can outlive the leader. A child that was
       // gone before close() is reached through the verified snapshot only.
-      if (running && this.child.pid) signalGroup(this.child.pid, "SIGKILL");
+      if (running && this.child.pid && signalGroup(this.child.pid, "SIGKILL"))
+        await settleKilledGroups([this.child.pid]);
       await this.killDescendants();
       this.rejectPending(failure("CRAFT_MCP_CLOSED", "Craft Anything was closed."));
       this.track?.forget(this);
@@ -320,8 +337,11 @@ export class CraftMcpClient {
   async killDescendants() {
     if (!this.groups.size) return;
     const table = await processTable();
-    killRecordedGroups(table, this.groups, { killable: (pgid) => this.killable(pgid) });
+    const killed = killRecordedGroups(table, this.groups, {
+      killable: (pgid) => this.killable(pgid),
+    });
     this.groups.clear();
+    await settleKilledGroups(killed);
   }
 
   handleExit(code, signal) {
