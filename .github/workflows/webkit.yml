@@ -35,9 +35,10 @@ jobs:
     # Observed 2026-11-10 (release run of 2.18.0-rc.6): with five shards two hit
     # this limit while still passing; the specs took 22-27 min per shard. The
     # refreshed timings put the suite at 132 min, 22.1 min per shard with six
-    # (26.6 with five), and setup takes 1-2 min. The WebKit system packages come
-    # from the browser-shard action's cache, not a slow mirror.
-    timeout-minutes: 35
+    # (26.6 with five). Setup usually takes 1-2 min but took up to 9 min on the
+    # pull request run, so the limit leaves room for that. The WebKit system
+    # packages come from the browser-shard action's cache, not a slow mirror.
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
