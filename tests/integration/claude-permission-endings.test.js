@@ -119,6 +119,51 @@ test("an MCP tool's card stays while Claude writes its message after the hook st
   assert.equal((await ended(f, request.id)).details.cause, "stale");
 });
 
+test("a deferred MCP tool's card stays while Claude flushes its ToolSearch", async (t) => {
+  const f = await fixture(t);
+  const file = path.join(f.root, "transcript.jsonl");
+  await fs.writeFile(file, '{"type":"user","message":{"content":"Go"}}\n');
+  // AgentBus sending keeps its card; the tool was loaded through ToolSearch.
+  const send = {
+    ...mcpTool,
+    tool_name: mcpTool.tool_name.replace("inbox_read", "peer_send"),
+    tool_input: { to: "peer", text: "hello" },
+  };
+  const run = hook(f, { ...send, transcript_path: file }, { timeout: 20_000 });
+  const request = await pending(f);
+  // The search's assistant line reaches the transcript only after the watcher's
+  // first read, then its result and the record of the loaded tools.
+  await fs.appendFile(
+    file,
+    call("toolu_search", "ToolSearch", { query: "select:peer_send" }, "msg_search"),
+  );
+  await new Promise((resolve) => setTimeout(resolve, 700));
+  await fs.appendFile(
+    file,
+    toolResult("toolu_search") +
+      JSON.stringify({
+        type: "attachment",
+        attachment: { type: "deferred_tools_record", addedNames: [send.tool_name] },
+      }) +
+      "\n",
+  );
+  await new Promise((resolve) => setTimeout(resolve, 1200));
+  assert.equal(run.ended(), false, "the request is still open in Claude");
+  const [card] = (await state(f)).requests;
+  assert.equal(card?.id, request.id, "the card stays");
+  assert.equal(card.status, "pending");
+  // The own call arrives and the card is answered in chat.
+  await fs.appendFile(file, call("toolu_own", send.tool_name, send.tool_input));
+  await new Promise((resolve) => setTimeout(resolve, 700));
+  assert.equal(run.ended(), false);
+  await f.broker.answer("session", request.id, { expectedRevision: 1, choice: "allow" });
+  await run.done;
+  assert.deepEqual(JSON.parse(run.output()).hookSpecificOutput, {
+    hookEventName: "PermissionRequest",
+    decision: { behavior: "allow" },
+  });
+});
+
 test("an MCP tool's matched card ends when its call gets a result", async (t) => {
   const f = await fixture(t);
   const payload = await transcribed(f, mcpTool);

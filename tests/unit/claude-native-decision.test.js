@@ -258,3 +258,52 @@ test("a later message after an own call recorded before the hook started is stal
   await until(() => seen.settled === 1);
   assert.deepEqual(seen.reasons, ["stale"]);
 });
+
+// A deferred tool is loaded first: Claude calls ToolSearch, records its result and
+// the tools it loaded, and only then the call this hook asks about.
+const search = "toolu_search";
+const loaded = () =>
+  toolResult(search) +
+  line({
+    type: "attachment",
+    attachment: { type: "deferred_tools_record", addedNames: [mcpTool] },
+  });
+
+test("a ToolSearch call flushed after the first read is not a later message", async (t) => {
+  for (const earlier of [
+    prompt,
+    // An earlier turn's finished call of the same tool is among the recent lines.
+    call("toolu_old", mcpTool, "msg_old") + toolResult("toolu_old") + prompt,
+  ]) {
+    // The hook for the loaded tool starts before Claude flushed even the search.
+    const { file, seen } = await watch(t, earlier, mcpTool, {});
+    await sleep(40);
+    await fs.appendFile(file, call(search, "ToolSearch", "msg_search"));
+    await sleep(40);
+    await fs.appendFile(file, loaded());
+    await sleep(150);
+    assert.deepEqual(seen.reasons, [], "the card stays while the own call is unwritten");
+    assert.deepEqual(seen.matched, []);
+    await fs.appendFile(file, call("toolu_own", mcpTool, "msg_own"));
+    await until(() => seen.matched.length === 1);
+    assert.deepEqual(seen.matched, ["toolu_own"]);
+    await sleep(60);
+    assert.deepEqual(seen.reasons, []);
+    await fs.appendFile(file, toolResult("toolu_own"));
+    await until(() => seen.settled === 1);
+    assert.deepEqual(seen.reasons, ["native"]);
+  }
+});
+
+test("a ToolSearch call and its record in one late flush keep the card", async (t) => {
+  const { file, seen } = await watch(t, prompt, mcpTool, {});
+  await sleep(40);
+  await fs.appendFile(file, call(search, "ToolSearch", "msg_search") + loaded());
+  await sleep(150);
+  assert.deepEqual(seen.reasons, []);
+  // Claude never writes the own call (its input differs from the hook's).
+  await fs.appendFile(file, call("toolu_own", mcpTool, "msg_own", { limit: 5 }));
+  await sleep(120);
+  assert.deepEqual(seen.reasons, []);
+  assert.deepEqual(seen.matched, []);
+});
