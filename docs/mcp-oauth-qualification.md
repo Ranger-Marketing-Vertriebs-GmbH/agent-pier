@@ -468,3 +468,30 @@ authorization server:
 
 On 2026-10-11 it passed on macOS arm64 against the same runtime in about 65
 seconds.
+
+## AgentPier's own flow: addresses (2026-11-10)
+
+Logins AgentPier holds itself (`mcp-oauth-agentpier.js`, see
+[MCP](mcp.md#oauth-logins-held-by-agentpier)) run the MCP SDK's `auth()` with the
+checked fetch of `oauth-fetch.js`. Verified by `tests/unit/mcp-oauth-fetch.test.js`
+with an injected DNS table, and by the suites above against the mock authorization
+server on `127.0.0.1`:
+
+- The mock server and its authorization server share one loopback origin, so every
+  earlier case (login, renewal, rotation, revocation, the proxy contracts) passes
+  unchanged through the checked fetch and its pinned connection.
+- A server on a public address whose metadata names an authorization server or a
+  registration endpoint on a private or loopback address: the login fails
+  (`oauth-failed`, cause `OAuthAddressRefused`) and no request reaches that address.
+- The same on a renewal: a private authorization server fails the renewal and keeps
+  the login (`REFRESH_FAILED`); a private token endpoint is not asked and, like any
+  token endpoint that does not answer, leaves **Login required**.
+- A server on a private address may name private addresses, not loopback or
+  link-local ones; a host name resolving to loopback counts as private; a server
+  entered as `localhost` or a loopback address may name any routable address.
+- The request connects to the checked address even when only the injected lookup
+  knows the name; a redirect is returned unfollowed (the SDK follows within one
+  origin and asks again), a 1 MB answer limit and a compressed answer are handled.
+
+Not exercised: a real authorization server on a second public origin, and DNS answers
+that change between two requests (each request resolves and pins anew by design).

@@ -236,6 +236,8 @@ Its data lives in `.data/` for a source checkout and in
 credentials, profiles, session metadata and conversations with private file
 permissions, but is not encrypted at rest. The login protects the web workspace;
 [remote access](docs/remote-access.md) explains Tailscale Serve and the network mode.
+Over Tailscale, the pages and the MCP endpoint answer only devices signed in to your
+tailnet; Tailscale Funnel is refused everywhere.
 [Users](docs/users.md) you add reach only their own app and their agents' chats, never
 your workspace, files or settings; the operating-system user and its data stay yours.
 

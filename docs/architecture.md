@@ -205,7 +205,14 @@ directly.
 - `server/features/assistant-channels/`: Telegram pairing, ingress, delivery and the
   durable outbox, and agents' own bots for other people (`telegram-senders.js`).
 - `server/features/mcp-servers/`: the central MCP server store, bindings to agents and
-  to the coding CLIs, and OAuth logins (see below).
+  to the coding CLIs, and OAuth logins (see below). AgentPier's own OAuth flow
+  sends every request through `oauth-fetch.js`, which checks the address a server's
+  metadata names and connects only to the checked addresses
+  ([MCP](mcp.md#oauth-logins-held-by-agentpier)).
+- `server/http/tailscale-request.js`: what Tailscale Serve reports about a forwarded
+  request (tailnet login, Funnel). The app (`security.js`), the previews and the MCP
+  machine path require a tailnet login on the Tailscale host; the hook endpoint only
+  refuses Funnel ([security boundaries](assistant-gateway.md#security-boundaries)).
 - HTTP routes live in `server/http/routes/assistant*.js` and `mcp-*.js`.
 
 Feature code is moving behind an agent runtime port, so that agents can later run on
