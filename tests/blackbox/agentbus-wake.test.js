@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import net from "node:net";
 import { EventEmitter } from "node:events";
-import { busFixture, requestBus } from "../helpers/agentbus-broker.js";
+import { busFixture, provisionLaunch, requestBus } from "../helpers/agentbus-broker.js";
 import {
   registerPeer,
   register,
@@ -36,10 +36,7 @@ test(
       `#!${process.execPath}\nrequire('node:fs').appendFileSync(${JSON.stringify(output)}, JSON.stringify(process.argv.slice(2)) + '\\n');\n`,
       { mode: 0o700 },
     );
-    fs.writeFileSync(
-      path.join(ctx.h, "launches", `${recipient.id}.json`),
-      JSON.stringify({ ...ctx.launch, command }),
-    );
+    provisionLaunch(f, recipient.id, { command });
     const send = async (text) => {
       const response = await requestBus(sender.launch.env, "tools/call", {
         name: "peer_send",
@@ -120,10 +117,7 @@ test("revoking a recipient during deferred proof preserves delivery but prevents
     `#!${process.execPath}\nrequire('node:fs').writeFileSync(${JSON.stringify(output)}, 'unexpected');\n`,
     { mode: 0o700 },
   );
-  fs.writeFileSync(
-    path.join(ctx.h, "launches", `${recipient.id}.json`),
-    JSON.stringify({ ...ctx.launch, command }),
-  );
+  provisionLaunch(f, recipient.id, { command });
   let enter, release;
   const entered = new Promise((resolve) => {
     enter = resolve;
@@ -257,10 +251,7 @@ test("Codex coalesces unread notices, cancels stale wakes and retries failed wak
     `#!${process.execPath}\nrequire('node:fs').appendFileSync(${JSON.stringify(output)}, JSON.stringify(process.argv.slice(2)) + '\\n');\n`,
     { mode: 0o700 },
   );
-  fs.writeFileSync(
-    path.join(ctx.h, "launches", `${recipient.id}.json`),
-    JSON.stringify({ ...ctx.launch, command }),
-  );
+  provisionLaunch(f, recipient.id, { command });
   const send = async (text) => {
     const response = await requestBus(sender.launch.env, "tools/call", {
       name: "peer_send",

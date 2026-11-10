@@ -74,6 +74,25 @@ export async function busFixture(t) {
   return f;
 }
 
+/**
+ * Changes what the host recorded for a session's launch, the way the server itself
+ * would have at launch: in its own copy and in the record the session can read.
+ */
+export function provisionLaunch(f, id, changes) {
+  const ctx = f.bus.broker.access.record(id);
+  const active = path.join(f.bus.root, "sessions", id, "active.json");
+  const record = JSON.parse(fs.readFileSync(active, "utf8"));
+  fs.writeFileSync(
+    active,
+    JSON.stringify({ ...record, launch: { ...record.launch, ...changes } }),
+  );
+  const written = path.join(ctx.h, "launches", `${id}.json`);
+  fs.writeFileSync(
+    written,
+    JSON.stringify({ ...JSON.parse(fs.readFileSync(written, "utf8")), ...changes }),
+  );
+}
+
 export function requestBus(env, method, params = {}, tokenOverride) {
   const credential =
     tokenOverride || JSON.parse(fs.readFileSync(env.AGENTPIER_AGENTBUS_CAPABILITY_FILE));
