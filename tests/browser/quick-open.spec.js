@@ -172,6 +172,10 @@ test("finds sessions, runs, inbox items, projects and chats, fuzzy and recent fi
   await page.keyboard.press("Enter");
   await expect(dialog(page)).toHaveCount(0);
   await expect(page).toHaveURL(/\/sessions\/billing-refactor/);
+  // The terminal loads late (its own chunk) and takes the focus when it mounts, so
+  // the sidebar is focused only once it shows the session; Ctrl+K stays the
+  // terminal's kill-line on Linux.
+  await expect(page.locator(".xterm-rows")).toContainText("ready");
 
   // The session is the first recent result now.
   await page.locator(".sidebar .sidebar-menu-button").focus();
@@ -181,8 +185,7 @@ test("finds sessions, runs, inbox items, projects and chats, fuzzy and recent fi
   );
   await page.keyboard.press("Escape");
 
-  // A run despite the typo, under Pipelines with its status. The session page may
-  // hand the focus to its terminal, where Ctrl+K stays the shell's kill-line on Linux.
+  // A run despite the typo, under Pipelines with its status.
   await page.locator(".sidebar .sidebar-menu-button").focus();
   await openWithShortcut(page);
   await field(page).fill("flaky logn");
