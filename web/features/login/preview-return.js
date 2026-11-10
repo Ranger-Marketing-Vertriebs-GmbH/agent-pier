@@ -29,3 +29,22 @@ export function previewReturn(search, location) {
   }
   return target;
 }
+
+/**
+ * The return target when a preview is open on its port right now, else null. Without
+ * this check any link could send a signed-in owner on to whatever listens on a port of
+ * this host. `read` answers `GET /api/previews`, which only the owner may read.
+ */
+export async function openPreviewReturn(target, read) {
+  if (!target) return null;
+  try {
+    const slot = Number(new URL(target).port);
+    const view = await read();
+    const open =
+      Array.isArray(view?.previews) &&
+      view.previews.some((preview) => preview?.slot === slot);
+    return open ? target : null;
+  } catch {
+    return null;
+  }
+}
