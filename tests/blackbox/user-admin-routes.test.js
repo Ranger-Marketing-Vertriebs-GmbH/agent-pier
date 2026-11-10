@@ -132,7 +132,10 @@ test("a user's password change is audited with her id and without secrets", asyn
   const text = JSON.stringify(events);
   for (const secret of [userPassword, "a-new-user-password", "reset-by-the-owner"])
     assert.equal(text.includes(secret), false);
-  const [reset, changed, created] = events;
+  // Her sign-in is an entry of its own, between the account and its changes.
+  const [reset, changed, signedIn, created] = events;
+  assert.equal(signedIn.action, "login.started");
+  assert.equal(signedIn.actorUserId, anna.id);
   assert.equal(created.action, "user.created");
   assert.equal(created.resourceId, anna.id);
   assert.equal(created.actorUserId, undefined);

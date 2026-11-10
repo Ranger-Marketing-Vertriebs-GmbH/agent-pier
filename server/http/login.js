@@ -9,6 +9,7 @@ import {
 import { loginErrors, loginProblem } from "../features/login/login-errors.js";
 import { loginMessages as copy } from "../lib/i18n/de/login.js";
 import { principalOf } from "../features/users/identity.js";
+import { loginAudit } from "./login-audit.js";
 import {
   cookieValues,
   hostSessionCookie,
@@ -155,8 +156,14 @@ function settledToken(req, res, login, config) {
     setSession(req, res, config, token, idleDuration);
   return token;
 }
-export function loginRoutes(login, effective, { notifications, setupCode } = {}) {
+export function loginRoutes(
+  login,
+  effective,
+  { notifications, setupCode, audit, onError } = {},
+) {
   const router = express.Router();
+  const audited = loginAudit(audit, { onError });
+  const principal = (token) => principalOf(login.session(token));
   // The browser's push device (useNotifications): it follows who is signed in on it.
   const device = (req, token, others) => {
     const session = token && login.session(token);
@@ -199,23 +206,29 @@ export function loginRoutes(login, effective, { notifications, setupCode } = {})
       !setupCode?.matches(req.body?.setupCode)
     ) {
       // A wrong code is an attempt like a wrong password; a used-up window answers 429.
-      login.throttle(source);
+      audited.attempt(req, source, () => login.throttle(source));
+      audited.failed(req, "setup-code");
       throw loginProblem("LOGIN_SETUP_CODE_INVALID");
     }
-    const token = await login.setup(req.body, source);
+    const token = await audited.attempt(req, source, () => login.setup(req.body, source));
     setupCode?.clear();
+    audited.ownerCreated(req);
     cookie(req, res, token);
     res.status(201).json({ authenticated: true });
   });
   router.post("/login", async (req, res) => {
-    const token = await login.login(req.body, attemptSource(req, effective()));
+    const source = attemptSource(req, effective());
+    const token = await audited.attempt(req, source, () => login.login(req.body, source));
+    audited.signedIn(req, principal(token));
     revokePresented(req);
     device(req, token, true);
     cookie(req, res, token);
     res.json({ authenticated: true });
   });
   router.post("/logout", (req, res) => {
-    device(req, sessionToken(req, login), false);
+    const token = sessionToken(req, login);
+    device(req, token, false);
+    if (token) audited.signedOut(req, principal(token));
     revokePresented(req);
     clearSessions(req, res, effective());
     res.sendStatus(204);

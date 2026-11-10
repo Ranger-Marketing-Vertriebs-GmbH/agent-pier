@@ -22,6 +22,7 @@ import { runtimeUpdateAuditDetails } from "./audit-runtime-update-details.js";
 import { restartAuditDetails } from "./audit-restart-details.js";
 import { memoryArchiveAuditDetails } from "./audit-memory-archive-details.js";
 import { previewAuditDetails } from "./audit-preview-details.js";
+import { loginAuditDetails } from "./audit-login-details.js";
 import { codingCliIds, isCodingCli } from "../clis/catalog.js";
 const memberGrantKeys = new Set([
   "memory",
@@ -558,6 +559,7 @@ export function auditEvent(input) {
   if (/^assistant\.memory-(archived|restored|saved|deleted)$/.test(action))
     memoryArchiveAuditDetails(details, event);
   if (input.resourceType === "preview") previewAuditDetails(details, event);
+  if (input.resourceType === "login") loginAuditDetails(details, event);
   userAuditDetails(input, event, auditId);
   return event;
 }

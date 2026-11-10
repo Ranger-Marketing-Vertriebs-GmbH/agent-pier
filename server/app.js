@@ -394,6 +394,8 @@ export async function createApplication(config) {
     loginRoutes(services.identity, effective, {
       notifications: services.notifications,
       setupCode: services.setupCode,
+      audit: services.audit,
+      onError: services.onError,
     }),
   );
   // Every /api router goes through the registry, so the access tests see every route.
