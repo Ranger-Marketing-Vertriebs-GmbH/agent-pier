@@ -5,7 +5,7 @@ metadata:
   version: "2"
 ---
 
-<!-- Source: https://github.com/storytold/craft-anything (crates/setup/src/skill.md, v0.5.0).
+<!-- Source: https://github.com/storytold/craft-anything (crates/setup/src/skill.md, v0.6.0).
      Licence: MIT OR Apache-2.0, (c) Craft Anything contributors.
      Adapted by AgentPier: the connection section describes AgentPier's managed server. -->
 

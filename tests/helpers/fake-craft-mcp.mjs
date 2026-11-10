@@ -1,6 +1,7 @@
 /**
  * A fake `craft-anything-cli mcp` for tests: newline-delimited JSON-RPC 2.0 (MCP)
- * over stdio, the tool contract of Craft Anything 0.5.0, and no Claude or network.
+ * over stdio, the tool contract of Craft Anything 0.6.0 (unchanged from 0.5.0), and
+ * no Claude or network.
  *
  *   node tests/helpers/fake-craft-mcp.mjs mcp --all-tools --allow-run
  *
@@ -12,8 +13,8 @@
  *
  * Each project lives in its `project_folder`: `craft.json` (request, target, stack,
  * status — `building` (also while a question waits, with `waiting: n`), `stopped`,
- * `ready` or `failed` as in 0.5.0 — note, checks, questions, conversation, agent_session and, for tests,
- * `fake_builder: { pid, claude_config_dir }`), `usage.json` and
+ * `ready` or `failed` as in 0.5.0 and 0.6.0 — note, checks, questions, conversation,
+ * agent_session and, for tests, `fake_builder: { pid, claude_config_dir }`), `usage.json` and
  * `build-activity.log`. The project index (name → folder) is kept in
  * `$CRAFT_ANYTHING_CONFIG_DIR/fake-craft-projects.json`, so a new server finds the
  * projects of an earlier one (resume after a restart). The builder is
@@ -37,7 +38,7 @@
  *     "emptyTools": ["rebuild_start"],  // run these, then answer { result: {} }
  *     "silentInit": true,               // never answer initialize
  *     "stopLagMs": 500,                 // rebuild_status still reports the build
- *                                       // running this long after rebuild_stop (0.5.0)
+ *                                       // running this long after rebuild_stop (0.5.0, 0.6.0)
  *     "ignoreStdinClose": true          // keep running when stdin closes
  *   }
  * Without steps a build runs until rebuild_stop. A question waits for
@@ -46,10 +47,11 @@
  * where the build stopped; a follow-up starts the steps again. While a question is
  * open the steps wait until it is answered.
  *
- * As in 0.5.0 (checked with the real binary, 2026-11-09), a question outlives the
- * builder that asked it: after rebuild_stop it stays listed, a resume asks it again
- * under a new id and keeps the old one listed, and answering the old one succeeds,
- * drops it and changes nothing. An id that is not listed fails with `not_found`.
+ * As in 0.5.0 and 0.6.0 (checked with the real binary, 2026-11-09 and 2026-11-10), a
+ * question outlives the builder that asked it: after rebuild_stop it stays listed, a
+ * resume asks it again under a new id and keeps the old one listed, and answering the
+ * old one succeeds, drops it and changes nothing. An id that is not listed fails with
+ * `not_found`.
  */
 import { spawn } from "node:child_process";
 import {
@@ -318,7 +320,7 @@ const tools = {
     if (args.project) {
       const entry = project(args.project);
       if (args.resume) {
-        // Like Craft Anything 0.5.0, which refuses a resume without the request.
+        // Like Craft Anything 0.5.0 and 0.6.0, which refuse a resume without the request.
         if (!args.request)
           throw new ToolError("invalid_arguments", "missing field `request`.");
         // The new builder asks its open questions again; the old ones stay listed.
@@ -529,7 +531,7 @@ function handle(message) {
       result: {
         protocolVersion: params?.protocolVersion ?? "2025-06-18",
         capabilities: { tools: {} },
-        serverInfo: { name: "fake-craft-anything", version: "0.5.0" },
+        serverInfo: { name: "fake-craft-anything", version: "0.6.0" },
       },
     });
   if (method === "tools/list")

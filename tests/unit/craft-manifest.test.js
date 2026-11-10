@@ -10,7 +10,7 @@ import {
 import { serverMessages } from "../../server/lib/i18n/de.js";
 
 test("every platform pins an https github release asset with sha256", () => {
-  assert.equal(craftManifest.version, "0.5.0");
+  assert.equal(craftManifest.version, "0.6.0");
   assert.deepEqual(Object.keys(craftManifest.platforms).sort(), [
     "darwin-arm64",
     "darwin-x64",
@@ -20,7 +20,7 @@ test("every platform pins an https github release asset with sha256", () => {
   for (const entry of Object.values(craftManifest.platforms)) {
     assert.match(
       entry.url,
-      /^https:\/\/github\.com\/storytold\/craft-anything\/releases\/download\/v0\.5\.0\//,
+      /^https:\/\/github\.com\/storytold\/craft-anything\/releases\/download\/v0\.6\.0\//,
     );
     assert.match(entry.sha256, /^[0-9a-f]{64}$/);
     assert.ok(entry.size > 0 && entry.installedSize > 0);
@@ -58,11 +58,11 @@ test("craftPlatform refuses win32 and freebsd with platformUnavailable", () => {
 test("binary paths", () => {
   assert.equal(
     craftBinaryPath("/r", craftManifest.platforms["linux-x64"]),
-    "/r/craft-anything/craft-anything-0.5.0-linux-x86_64/bin/craft-anything-cli",
+    "/r/craft-anything/craft-anything-0.6.0-linux-x86_64/bin/craft-anything-cli",
   );
   assert.equal(
     craftBinaryPath("/r", craftManifest.platforms["darwin-arm64"]),
-    "/r/craft-anything/craft-anything-cli-0.5.0-macos-universal/craft-anything-cli",
+    "/r/craft-anything/craft-anything-cli-0.6.0-macos-universal/craft-anything-cli",
   );
   assert.equal(
     craftBinary({ home: "/h/bin" }),

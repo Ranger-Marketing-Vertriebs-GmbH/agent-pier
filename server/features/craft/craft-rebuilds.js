@@ -199,7 +199,7 @@ export class CraftRebuilds {
     });
   }
 
-  /** Resumes a paused rebuild (Craft Anything 0.5.0 wants its request again). */
+  /** Resumes a paused rebuild (Craft Anything 0.5.0 and 0.6.0 want its request again). */
   async continue(id) {
     const record = this.require(id);
     return this.serial(id, async () => {
@@ -236,7 +236,8 @@ export class CraftRebuilds {
 
   /**
    * Waits up to STOP_WAIT_MS until Craft Anything no longer reports the build running:
-   * 0.5.0 still does for a moment after rebuild_stop answered.
+   * 0.5.0 and 0.6.0 still do for a few hundred ms after rebuild_stop answered
+   * (verified 2026-11-10).
    */
   async stopped(record) {
     for (let waited = 0; waited < STOP_WAIT_MS; waited += STOP_POLL_MS) {

@@ -1,4 +1,5 @@
-// The `build_with` values Craft Anything 0.5.0 accepts (its rebuild_start schema),
+// The `build_with` values Craft Anything 0.6.0 accepts (the stacks its rebuild_start
+// resolves; 0.6.0 added Phaser and Bevy),
 // pinned beside craftManifest: updating Craft Anything means checking this list too.
 export const defaultCraftStack = "Builder's choice";
 
@@ -11,6 +12,8 @@ export const craftStacks = Object.freeze([
   "Electron",
   "Rust (console)",
   "Rust + egui (eframe)",
+  "Phaser",
+  "Bevy",
   "unity",
   "unreal",
   "godot",

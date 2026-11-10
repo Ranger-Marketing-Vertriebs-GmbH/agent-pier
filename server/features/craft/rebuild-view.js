@@ -21,7 +21,7 @@ const statusMap = {
 };
 
 /**
- * AgentPier's status for Craft Anything's `status` (0.5.0 reports `building`,
+ * AgentPier's status for Craft Anything's `status` (0.5.0 and 0.6.0 report `building`,
  * `needs_you`, `ready` and `stopped`, labelled "Paused"). Failures map to `failed`;
  * an unknown status reads `building` while the build runs, else `paused`.
  */
@@ -110,13 +110,13 @@ export function sampledFields(
 }
 
 /**
- * Questions outlive the builder that asked them: Craft Anything 0.5.0 keeps listing
+ * Questions outlive the builder that asked them: Craft Anything 0.6.0 keeps listing
  * them after the build stops, asks them again under new ids on Continue, and takes an
  * answer to an old one without effect. So a rebuild that does not run lists no
  * questions, and the ids listed while it stopped (`staleQuestions`) stay hidden after
  * it runs again. `questions` is Craft Anything's list; ids it no longer lists are
- * forgotten. Assumption checked only for the pinned 0.5.0 (2026-11-09, real binary):
- * Continue asks again under a NEW id. A version that re-asked under the same id would
+ * forgotten. Assumption checked with the real binary for 0.5.0 (2026-11-09) and the
+ * pinned 0.6.0 (2026-11-10): Continue asks again under a NEW id. A version that re-asked under the same id would
  * leave its question hidden while the build waits for it, so check this again
  * whenever the pin (craft-manifest.js) changes.
  */
@@ -145,8 +145,8 @@ export const pausedFields = (record) => ({
 
 /**
  * A short digest of a rebuild's activity, from `rebuild_activity_show` with limit 1:
- * the log's line count (`total_lines_read`, 0.5.0) and its last line. It changes
- * with every new line, so the view (and its live topic) changes too.
+ * the log's line count (`total_lines_read`, 0.5.0 and 0.6.0) and its last line. It
+ * changes with every new line, so the view (and its live topic) changes too.
  */
 export function activityRevision(activity) {
   const lines = Array.isArray(activity?.lines) ? activity.lines : [];
