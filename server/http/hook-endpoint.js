@@ -3,6 +3,7 @@ import { rateLimit } from "express-rate-limit";
 import { problem } from "../lib/storage.js";
 import { secretMatches } from "../features/assistants/agent-hook-store.js";
 import { hookEligible } from "../features/assistants/agent-hook-rights.js";
+import { viaFunnel } from "./tailscale-request.js";
 
 // The public machine endpoint of agent hooks: `POST /hooks/<hookId>` on AgentPier's
 // own port, mounted before `authorizeRequest`. Senders are machines (Zabbix, CI):
@@ -23,7 +24,7 @@ const loopbackAddresses = ["127.0.0.1", "::1", "::ffff:127.0.0.1"];
  */
 export function authorizeHookTransport(req, config) {
   const headers = req.headers;
-  if (headers["tailscale-funnel-request"] !== undefined)
+  if (viaFunnel(headers))
     throw problem("Hooks are not reachable through Tailscale Funnel.", 403);
   if (headers.origin !== undefined || headers["sec-fetch-site"] !== undefined)
     throw problem("Hooks do not accept browser requests.", 403);
