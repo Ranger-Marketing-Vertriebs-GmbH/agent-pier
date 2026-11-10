@@ -56,6 +56,7 @@ export async function uninstallCraft(craft, { source = "user" } = {}) {
     craft.changed();
     done();
     void craft.versions.run();
+    craft.watchProxies();
   }
   return craft.state();
 }

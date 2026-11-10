@@ -8,6 +8,7 @@ import { writePrivate } from "../../server/lib/storage.js";
 import { installReaComponent } from "../../server/features/tools/rea-components.js";
 import { reaPlatform } from "../../server/features/tools/rea-manifest.js";
 import { craftBinaryPath } from "../../server/features/tools/craft-manifest.js";
+import { proxyMain } from "../../server/features/tools/craft-proxy.js";
 import {
   craftEnvironment,
   craftManagedKeys,
@@ -49,7 +50,7 @@ test("first install places the binary and creates a managed row bound to Claude"
   assert.equal(state.status, "succeeded", state.message);
   assert.equal(state.installed, true);
   assert.equal(state.updateAvailable, false);
-  const server = f.s.servers.get(state.serverId);
+  const server = { ...f.s.servers.get(state.serverId), ...f.spec() };
   assert.equal(server.transport, "stdio");
   assert.equal(server.name, "craft-anything");
   assert.equal(state.serverName, "craft-anything");
@@ -68,6 +69,7 @@ test("first install places the binary and creates a managed row bound to Claude"
     installedSize: entry.installedSize,
     outdated: false,
     runningVersions: [],
+    swapFailures: [],
   });
   assert.deepEqual(JSON.parse(fs.readFileSync(craft.file, "utf8")), {
     serverId: server.id,
@@ -102,12 +104,20 @@ test("row args", async (t) => {
   const f = await craftFixture(t);
   const craft = await f.tool();
   const { serverId } = await f.install(craft, { components: { ghidra: false } });
-  assert.deepEqual(f.s.servers.get(serverId).args, [...baseArgs, "--clean-room"]);
+  assert.deepEqual(f.spec().args, [...baseArgs, "--clean-room"]);
+  // The row runs AgentPier's swap proxy with the spec; a mode change keeps the row.
+  const row = f.s.servers.get(serverId);
+  assert.equal(row.command, "/fake/bin/node");
+  assert.deepEqual(row.args, [
+    proxyMain,
+    path.join(f.s.dataDir, "craft-anything", "server.json"),
+  ]);
   assert.deepEqual(f.s.servers.envValues(serverId), craftEnvironment(f.s.dataDir));
   await craft.apply({ settings: { mode: "deep" } });
   await craft.settled();
   assert.equal(craft.state().status, "succeeded", craft.state().message);
-  assert.deepEqual(f.s.servers.get(serverId).args, [...baseArgs, "--deep"]);
+  assert.deepEqual(f.spec().args, [...baseArgs, "--deep"]);
+  assert.deepEqual(f.s.servers.get(serverId).args, row.args);
   assert.deepEqual(craft.state().settings, { mode: "deep" });
   assert.deepEqual(f.s.servers.envValues(serverId), craftEnvironment(f.s.dataDir));
   assert.deepEqual(f.s.servers.get(serverId).managed.lockedEnv, [...craftManagedKeys]);
@@ -127,7 +137,8 @@ test("row args", async (t) => {
     { confirmStdio: true },
   );
   await craft.start();
-  assert.deepEqual(f.s.servers.get(serverId).args, [...baseArgs, "--deep"]);
+  assert.deepEqual(f.s.servers.get(serverId).args, row.args);
+  assert.deepEqual(f.spec().args, [...baseArgs, "--deep"]);
   assert.deepEqual(f.s.servers.envValues(serverId), {
     ...craftEnvironment(f.s.dataDir),
     OWN: "x",
@@ -227,7 +238,7 @@ test("linux-arm64 installs without Ghidra", async (t) => {
   );
   const state = await f.install(craft, { components: { ghidra: false } });
   assert.equal(state.status, "succeeded", state.message);
-  const server = f.s.servers.get(state.serverId);
+  const server = { ...f.s.servers.get(state.serverId), ...f.spec() };
   assert.equal(
     server.command,
     craftBinaryPath(f.root, craft.manifest.platforms["linux-arm64"]),
@@ -262,7 +273,7 @@ test("update brings the binary to the pin", async (t) => {
   assert.equal(craft.utility().updateAvailable, true);
   // The row still runs the installed 0.4.0 binary until the update.
   assert.equal(
-    f.s.servers.get(serverId).command,
+    f.spec().command,
     craftBinaryPath(f.root, old.manifest.platforms["darwin-arm64"]),
   );
   await craft.update();
@@ -271,13 +282,15 @@ test("update brings the binary to the pin", async (t) => {
   assert.equal(after.status, "succeeded", after.message);
   assert.equal(after.components.core.version, "0.5.0");
   assert.equal(after.updateAvailable, false);
-  const command = f.s.servers.get(serverId).command;
+  const command = f.spec().command;
   assert.equal(
     command,
     craftBinaryPath(f.root, craft.manifest.platforms["darwin-arm64"]),
   );
   fs.accessSync(command, fs.constants.X_OK);
-  assert.deepEqual(f.s.servers.get(serverId).args, [...baseArgs, "--clean-room"]);
+  // The row itself stays: running proxies swap to the new spec.
+  assert.equal(f.s.servers.get(serverId).command, "/fake/bin/node");
+  assert.deepEqual(f.spec().args, [...baseArgs, "--clean-room"]);
 });
 
 test("update is refused while in use or not installed", async (t) => {
@@ -344,7 +357,7 @@ test("start() applies a requested install once and clears the request", async (t
   assert.equal(state.installed, true);
   assert.deepEqual(state.settings, { mode: "deep" });
   assert.equal(craft.stored().requested, null);
-  assert.deepEqual(f.s.servers.get(state.serverId).args, [...baseArgs, "--deep"]);
+  assert.deepEqual(f.spec().args, [...baseArgs, "--deep"]);
   const jobs = craft.jobCount;
   await craft.start();
   assert.equal(craft.jobCount, jobs);
@@ -366,7 +379,7 @@ test("start() updates an outdated, unused install", async (t) => {
   assert.equal(state.components.core.version, "0.5.0");
   assert.equal(state.updateAvailable, false);
   assert.equal(
-    f.s.servers.get(state.serverId).command,
+    f.spec().command,
     craftBinaryPath(f.root, craft.manifest.platforms["darwin-arm64"]),
   );
 });
@@ -450,5 +463,9 @@ test("overlapping environment syncs and an apply do not race on the row", async 
   await Promise.all(syncs);
   await craft.settled();
   assert.equal(craft.state().status, "succeeded", craft.state().message);
-  assert.deepEqual(f.s.servers.get(serverId).args, [...baseArgs, "--deep"]);
+  assert.deepEqual(f.s.servers.get(serverId).args, [
+    proxyMain,
+    path.join(f.s.dataDir, "craft-anything", "server.json"),
+  ]);
+  assert.deepEqual(f.spec().args, [...baseArgs, "--deep"]);
 });
