@@ -405,10 +405,8 @@ export async function createServices(config) {
     onNative: (sessionId, push) => {
       if (push.type === "activity") chatEvents.publish(sessionId, "native-activity");
       codexProxyAcceptance(sessionId, push, () => chatDelivery); // Prompts it took.
-      // Reply text while the CLI generates it (Codex proxy, OpenCode plugin).
-      if (push.type === "stream") chatStreams.streamText(sessionId, push.runId, push);
-      if (push.type === "stream-end")
-        chatStreams.endStream(sessionId, push.runId, { turn: push.turn });
+      // Reply text and tool calls as the CLI writes them (Codex proxy, OpenCode).
+      chatStreams.nativePush(sessionId, push);
       if (push.type === "claude-display" && !claudeMod.active(sessionId))
         claudeDrafts.display(sessionId, push);
       if (push.type === "claude-mod")

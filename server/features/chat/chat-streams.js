@@ -62,6 +62,19 @@ export class ChatStreams {
   endStream(id, runId, options) {
     this.replies.endStream(id, runId, options);
   }
+  /**
+   * A native owner's reply push (Codex proxy, OpenCode plugin): reply text, its
+   * end, and the tool call the model is writing, as the live status while it lasts.
+   */
+  nativePush(id, push) {
+    if (push.type === "stream") this.streamText(id, push.runId, push);
+    if (push.type === "stream-end") this.endStream(id, push.runId, { turn: push.turn });
+    if (push.type === "preparing")
+      this.setStatus(
+        id,
+        push.name ? { state: "working", preparing: push.name, at: Date.now() } : null,
+      );
+  }
   /** What the CLI reports doing now (live-status frames), or null. */
   setStatus(id, status) {
     this.replies.setStatus(id, status);

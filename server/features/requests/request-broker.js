@@ -356,6 +356,7 @@ export class RequestBroker {
       // A native owner that went away streams nothing any more.
       for (const runId of socket.runs || [])
         this.notify(owner.id, { type: "stream-end", runId });
+      if (socket.preparing) this.notify(owner.id, { type: "preparing" });
       for (const [id, entry] of this.entries)
         if (entry.socket === socket) {
           this.entries.delete(id);
@@ -378,14 +379,17 @@ export class RequestBroker {
       () => false,
     );
     if (!(await socket.verified)) throw Error("Native owner unavailable");
-    // Only a Claude Code owner reports MessageDisplay batches.
+    // Only Claude Code reports MessageDisplay batches; only OpenCode a tool it
+    // prepares (Claude Code's bridge mod reports that itself).
     if (push.type === "claude-display" && owner.tool !== "claude") return;
+    if (push.type === "preparing" && owner.tool !== "opencode") return;
     if (push.type === "stream") {
       socket.runs ??= new Set();
       socket.runs.add(push.runId);
       if (socket.runs.size > 64) socket.runs.delete(socket.runs.values().next().value);
     }
     if (push.type === "stream-end" && push.runId) socket.runs?.delete(push.runId);
+    if (push.type === "preparing") socket.preparing = Boolean(push.name);
     this.notify(owner.id, push);
   }
   launched(sessionId) {

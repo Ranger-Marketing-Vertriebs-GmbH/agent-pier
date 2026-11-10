@@ -1,8 +1,11 @@
 // OpenCode's streaming message-part events as reply text for the session chat: each
 // assistant text part of the visible session is one run (its id is also the row id
 // of the finished part in the history), labelled with its message as the turn.
-// `channel` is a NativeRequestChannel (streamText/streamEnd); `visible()` names the
-// session the TUI shows. Returns the function that unsubscribes.
+// A tool part that is still `pending` is a tool call whose input the model is
+// writing: its name (never its input) goes out as `preparing` until the call runs,
+// text follows or the message or session ends.
+// `channel` is a NativeRequestChannel (streamText/streamEnd/preparing); `visible()`
+// names the session the TUI shows. Returns the function that unsubscribes.
 import { maxReplyText } from "../requests/native-push.js";
 
 const maxTracked = 256;
@@ -20,6 +23,15 @@ export function streamOpenCodeReplies(api, channel, visible) {
     api.state?.session?.messages?.(sessionID)?.find((m) => m.id === messageID)?.role;
   const textPart = (messageID, partID) =>
     api.state?.part?.(messageID)?.find((part) => part.id === partID)?.type === "text";
+  // The pending tool part reported now; `session` ends it from that session only.
+  let preparing = null;
+  const prepare = (part) => {
+    preparing = part ? { id: part.id, session: part.sessionID } : null;
+    channel.preparing?.(part ? part.tool : null);
+  };
+  const prepared = (session) => {
+    if (preparing && (!session || preparing.session === session)) prepare(null);
+  };
   const end = (match = () => true) => {
     for (const [id, part] of [...parts])
       if (match(part)) {
@@ -40,13 +52,21 @@ export function streamOpenCodeReplies(api, channel, visible) {
       guard(({ info }) => {
         if (typeof info?.id !== "string") return;
         remember(roles, info.id, info.role);
-        if (info.role === "assistant" && info.time?.completed)
+        if (info.role === "assistant" && info.time?.completed) {
           end((part) => part.messageID === info.id);
+          prepared(info.sessionID);
+        }
       }),
     ),
     api.event.on(
       "message.part.updated",
       guard(({ part }) => {
+        if (part?.type === "tool" && part.sessionID === visible()) {
+          if (part.state?.status === "pending" && typeof part.tool === "string")
+            prepare(part);
+          else if (part.id === preparing?.id) prepare(null);
+          return;
+        }
         if (
           part?.type !== "text" ||
           part.synthetic ||
@@ -56,6 +76,7 @@ export function streamOpenCodeReplies(api, channel, visible) {
           role(part.sessionID, part.messageID) !== "assistant"
         )
           return;
+        if (!part.time?.end) prepared();
         const held = { messageID: part.messageID, text: String(part.text || "") };
         remember(parts, part.id, held);
         channel.streamText(part.id, held.text, { turn: part.messageID });
@@ -75,6 +96,7 @@ export function streamOpenCodeReplies(api, channel, visible) {
           held = { messageID, text: "" };
           remember(parts, partID, held);
         }
+        prepared();
         if (held.text.length >= maxReplyText) return;
         held.text += delta;
         channel.streamText(partID, held.text, { turn: messageID });
@@ -84,11 +106,13 @@ export function streamOpenCodeReplies(api, channel, visible) {
       "session.idle",
       guard(({ sessionID }) => {
         if (sessionID === visible()) end();
+        prepared(sessionID);
       }),
     ),
   ];
   return () => {
     for (const off of offs) if (typeof off === "function") off();
     end();
+    prepared();
   };
 }
