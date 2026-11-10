@@ -52,6 +52,8 @@ ssh -L 4380:127.0.0.1:4380 dein-benutzer@dein-server
 
 Dann dieselbe Adresse im Browser des eigenen Rechners öffnen. Für dauerhaften Fernzugriff beschreibt die [Fernzugriffsanleitung](remote-access.md) Tailscale Serve und den Netzwerkmodus ohne Tailscale, der sich headless mit `npm run remote` einschalten lässt. Über Tailscale Serve antworten die AgentPier-Seiten, die Vorschauen und der [MCP-Endpunkt](mcp.md#prepare-the-connection) nur Geräten mit Tailscale-Anmeldung aus dem eigenen Tailnet; getaggte Geräte und Tailscale Funnel erhalten `403`. [Agent-Hooks](assistant-workflows.md#agent-hooks) nehmen auch getaggte Geräte an (etwa einen Monitoring-Server), weil jeder Hook sein eigenes Geheimnis hat; Funnel bleibt auch dort abgewiesen.
 
+Wer den Netzwerkmodus einschaltet, bevor das Besitzerkonto existiert (etwa auf einem Server ohne Bildschirm), braucht für **Besitzerkonto anlegen** zusätzlich den einmaligen **Einrichtungscode**. `npm run remote -- enable --accept-plain-http` und `npm run service:install` geben ihn aus, solange kein Besitzer existiert und der Netzwerkmodus aktiv ist; der Dienst schreibt ihn in diesem Zustand bei jedem Start ins Protokoll (`journalctl --user -u dev.agentpier.server`, bei `npm start` ins Terminal). `npm run setup-code` zeigt ihn jederzeit erneut, ohne Neustart; er steht außerdem in `login/setup-code` im Datenverzeichnis (nur für den Dienstbenutzer lesbar). Über den SSH-Tunnel oben (`127.0.0.1`) und über das eigene Tailscale-Konto ist kein Code nötig. Details: [Anmeldung](login.md#einrichtungscode-im-netzwerkmodus).
+
 Die GitHub CLI `gh` lässt sich ebenfalls unter **Deine Tools** installieren; sie verwendet die gespeicherten [GitHub-Zugänge je Host](github-agents.md) in neuen Agent-Sessions.
 
 Codex, Claude Code und OpenCode können dort über **CLI aktualisieren** unabhängig von AgentPier-Releases aktualisiert werden. Details zur Umstellung älterer npm-Installationen und den manuellen Befehlen stehen unter [CLI-Updates](cli-updates.md).
@@ -101,6 +103,8 @@ Das ersetzt keine funktionierende systemd-Benutzerumgebung beim Installieren; be
 ## Aktualisieren, stoppen und entfernen
 
 Ein Checkout läuft mit dem Node des Hosts: Prüfe vor dem Aktualisieren `node --version` und aktualisiere ein Node außerhalb von `^24.22.1 || >=26.12.1` zuerst (Node 22 wird nicht mehr unterstützt). `npm run service:install` richtet den Dienst danach auf das Node aus, mit dem es läuft.
+
+Was sich mit 2.18 an der Anmeldung ändert, steht in der [Installationsanleitung](installation.md#sign-in-changes-in-218): Angemeldete Browser bleiben angemeldet; über HTTPS heißt der Session-Cookie künftig `__Host-agentpier_session`, im Netzwerkmodus gilt zusätzlich eine gemeinsame Grenze von sechzig Anmeldeversuchen pro Minute, und eine neue Installation fragt dort beim Anlegen des Besitzerkontos nach dem Einrichtungscode.
 
 Nach dem Aktualisieren der Repository-Dateien:
 

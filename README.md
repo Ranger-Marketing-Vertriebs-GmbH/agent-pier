@@ -175,7 +175,9 @@ npm start
 ## First steps
 
 1. Open **http://127.0.0.1:4380** and create the workspace user. Later visits need the
-   [login](docs/login.md). Finish this before you share access.
+   [login](docs/login.md). Finish this before you share access. If you turn on network
+   mode first, the form also asks for a one-time setup code: `npm run setup-code` prints
+   it on the AgentPier computer ([installation](docs/installation.md#first-setup-in-network-mode-the-setup-code)).
 2. Open the sidebar **Menu** (group **Set up**): sign in to a coding CLI under
    **CLIs and extensions › Accounts**, or add a provider connection under
    **Connections › Model access**. Missing CLIs can be installed from the overview or

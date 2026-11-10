@@ -5,6 +5,26 @@ import { loadConfig } from "../server/lib/config.js";
 import { readJSON } from "../server/lib/storage.js";
 import { SetupCode } from "../server/features/login/setup-code.js";
 
+/** Whether an owner, or users without one, exist: read as the service reads them. */
+function accounts(dataDir) {
+  const auth = readJSON(path.join(dataDir, "login", "auth.json"), null);
+  const users = readJSON(path.join(dataDir, "users", "users.json"), null);
+  return {
+    owner: Boolean(auth?.user),
+    users: Array.isArray(users?.users) && users.users.length > 0,
+  };
+}
+
+/**
+ * The line the service and remote commands add while the owner can still be created
+ * over the plain network: the setup code, created when there is none. Null otherwise.
+ */
+export function setupCodeNotice({ dataDir, networkEnabled }) {
+  const { owner, users } = accounts(dataDir);
+  if (!networkEnabled || owner || users) return null;
+  return serverMessages.scripts.setupCodeStart(new SetupCode({ dataDir }).current());
+}
+
 /**
  * Prints the one-time code the setup form asks for when the owner account is created
  * over the plain network (docs/login.md). The running service reads the same file, so
@@ -12,13 +32,12 @@ import { SetupCode } from "../server/features/login/setup-code.js";
  */
 export function runSetupCode({ dataDir, log = console.log }) {
   const setupCode = new SetupCode({ dataDir });
-  const auth = readJSON(path.join(dataDir, "login", "auth.json"), null);
-  if (auth?.user) {
+  const { owner, users } = accounts(dataDir);
+  if (owner) {
     setupCode.clear();
     log(serverMessages.scripts.setupCodeOwnerExists);
-    return 0;
-  }
-  log(serverMessages.scripts.setupCodeShown(setupCode.current()));
+  } else if (users) log(serverMessages.scripts.setupCodeUsersExist);
+  else log(serverMessages.scripts.setupCodeShown(setupCode.current()));
   return 0;
 }
 if (isMainModule(import.meta.url))

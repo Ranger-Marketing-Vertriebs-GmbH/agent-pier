@@ -99,3 +99,28 @@ test("npm run setup-code prints the code the service checks, and none once an ow
   assert.equal(lines[2].includes(code), false);
   assert.equal(setupCode.read(), null);
 });
+
+test("the service and remote commands name the code only while the network can create the owner", async (t) => {
+  const { dataDir, setupCode } = fixture(t);
+  const { setupCodeNotice } = await import("../../scripts/setup-code.mjs");
+  assert.equal(setupCodeNotice({ dataDir, networkEnabled: false }), null);
+  assert.equal(setupCode.read(), null);
+  const notice = setupCodeNotice({ dataDir, networkEnabled: true });
+  assert.ok(notice.includes(setupCode.read()));
+  // Users without an owner: the network cannot create the owner, so no code is offered.
+  fs.mkdirSync(path.join(dataDir, "users"), { recursive: true });
+  fs.writeFileSync(
+    path.join(dataDir, "users", "users.json"),
+    JSON.stringify({ version: 1, users: [{ id: "u1" }], sessions: [] }),
+  );
+  assert.equal(setupCodeNotice({ dataDir, networkEnabled: true }), null);
+  const lines = [];
+  runSetupCode({ dataDir, log: (line) => lines.push(line) });
+  assert.equal(lines[0].includes(setupCode.read()), false);
+  fs.rmSync(path.join(dataDir, "users"), { recursive: true });
+  fs.writeFileSync(
+    path.join(dataDir, "login", "auth.json"),
+    JSON.stringify({ user: { username: "owner" }, sessions: [] }),
+  );
+  assert.equal(setupCodeNotice({ dataDir, networkEnabled: true }), null);
+});

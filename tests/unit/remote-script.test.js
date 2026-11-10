@@ -166,3 +166,23 @@ test("the health check compares against the instance id read before the restart"
   });
   assert.equal(checks[1].previousInstanceId, undefined);
 });
+
+test("enabling network mode on a fresh install prints the owner's setup code", async (t) => {
+  const f = fixture(t);
+  assert.equal(await f.run(["enable", "--accept-plain-http", "--no-restart"]), 0);
+  const code = fs
+    .readFileSync(path.join(f.dataDir, "login", "setup-code"), "utf8")
+    .trim();
+  assert.ok(f.lines.some((line) => line.includes(code)));
+  // With an owner there is nothing to print.
+  fs.writeFileSync(
+    path.join(f.dataDir, "login", "auth.json"),
+    JSON.stringify({ user: { username: "owner" }, sessions: [] }),
+  );
+  f.lines.length = 0;
+  assert.equal(await f.run(["status"]), 0);
+  assert.equal(
+    f.lines.some((line) => line.includes(code)),
+    false,
+  );
+});

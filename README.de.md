@@ -201,7 +201,9 @@ npm start
 
 1. Öffne **http://127.0.0.1:4380** und lege den Benutzer des Arbeitsbereichs an.
    Spätere Besuche brauchen die [Anmeldung](docs/login.md). Erledige das, bevor du
-   den Zugriff freigibst.
+   den Zugriff freigibst. Schaltest du vorher den Netzwerkmodus ein, fragt das Formular
+   zusätzlich nach einem einmaligen Einrichtungscode: `npm run setup-code` zeigt ihn auf
+   dem AgentPier-Rechner ([Anmeldung](docs/login.md#einrichtungscode-im-netzwerkmodus)).
 2. Öffne das **Menü** der Seitenleiste (Gruppe **Einrichten**): Melde dich unter
    **CLIs & Erweiterungen › Accounts** bei einer Coding-CLI an oder lege unter
    **Zugänge › Modell-Zugänge** einen Provider-Zugang an. Fehlende CLIs lassen sich in

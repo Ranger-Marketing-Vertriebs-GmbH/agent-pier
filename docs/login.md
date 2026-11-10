@@ -26,7 +26,7 @@ Den Besitzer richtet nur ein, wer direkt auf dem AgentPier-Rechner arbeitet (auc
 
 Im Netzwerkmodus erreicht jedes Gerät im Netz die Einrichtungsseite. Damit nur das Besitzerkonto anlegt, wer Zugriff auf den AgentPier-Rechner hat, fragt das Formular dort zusätzlich nach einem einmaligen **Einrichtungscode** (drei Vierergruppen, Groß- und Kleinschreibung sowie Bindestriche sind egal). Du findest ihn auf dem AgentPier-Rechner:
 
-- im Start-Protokoll des Dienstes: Solange kein Besitzer und kein Benutzer existiert und der Netzwerkmodus aktiv ist, gibt AgentPier den Code beim Start aus (bei `npm start` im Terminal, bei installiertem Dienst in dessen Protokoll);
+- im Start-Protokoll des Dienstes: Solange kein Besitzer und kein Benutzer existiert und der Netzwerkmodus aktiv ist, gibt AgentPier den Code beim Start aus (bei `npm start` im Terminal, beim macOS-Dienst in `server.log` im Datenverzeichnis, beim Linux-Dienst in `journalctl --user -u dev.agentpier.server`); `npm run remote -- enable` und `npm run service:install` geben ihn in diesem Zustand ebenfalls aus;
 - mit `npm run setup-code` im AgentPier-Verzeichnis, als derselbe Systembenutzer wie der Dienst. Der Befehl zeigt den Code jederzeit erneut und legt ihn an, falls es noch keinen gibt; ein Neustart ist nicht nötig;
 - in der Datei `login/setup-code` im Datenverzeichnis (Modus `0600`).
 
