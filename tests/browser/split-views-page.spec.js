@@ -54,6 +54,9 @@ for (const language of ["en", "de"]) {
       const controls = await splitViewFixture(page, { language });
       await page.goto(viewURL);
       await expect(page.locator(".split-pane")).toHaveCount(3);
+      // The terminal loads late (its own chunk) and takes the focus when it mounts,
+      // so the divider is focused only once the terminal is there.
+      await expect(paneOf(page, S1).locator(".xterm")).toBeVisible();
       const before = (await paneOf(page, S1).boundingBox()).width;
       await page.getByRole("separator").first().focus();
       await page.keyboard.press("ArrowRight");
