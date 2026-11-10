@@ -186,7 +186,11 @@ export default function useSheetDrag(ref, { dismiss, disabled = false }) {
         offset: 0,
         samples: [{ y: event.clientY, t: event.timeStamp }],
       };
-      if (inZone) start(event);
+      if (!inZone) return;
+      // A mouse press on the heading would otherwise start a text selection that runs
+      // into the body; WebKit then stops sending pointer events to the next drag.
+      if (event.pointerType === "mouse") event.preventDefault();
+      start(event);
     };
 
     const onPointerMove = (event) => {
