@@ -51,6 +51,10 @@ export const launchDialogCopy = {
     "Das Sandbox-Profil ist bei Starts mit Aufgabenprofil nicht verfügbar.",
   sandboxHint:
     "Die Coding-CLI der Session läuft in nono mit diesem Sandbox-Profil. AgentPier ergänzt die Zugriffe, die seine eigenen Integrationen brauchen.",
+  sandboxLoginLocal:
+    "Die Sandbox kann die Anmeldung dieses Accounts nicht lesen: Claude Code legt sie im macOS-Schlüsselbund ab, den kein Sandbox-Profil öffnen darf. Die Session startet abgemeldet. Nutze für Sandbox-Sessions einen Claude-Account mit eigenem Profil.",
+  sandboxLoginPending:
+    "Die Anmeldung dieses Accounts liegt noch im macOS-Schlüsselbund, den die Sandbox nicht lesen kann. AgentPier verschiebt sie in den Ordner des Accounts, sobald keine Session dieses Accounts läuft. Beende die Sessions des Accounts und starte dann diese.",
   sandboxBadge: (sandboxProfile) => `Sandbox · ${sandboxProfile}`,
 };
 export const sessionWorkspaceCopy = {

@@ -15,6 +15,11 @@ export default function LaunchAccessFields({
     rememberedId = useId();
   const accessRemembered = access.accessRemembered && !taskProfileSelected;
   const sandboxDisabled = !access.sandboxAvailable || taskProfileSelected;
+  // A login the chosen sandbox cannot read: the session would start signed out.
+  const hiddenLogin =
+    access.nonoProfile && !sandboxDisabled && access.account
+      ? access.hiddenLogins?.[access.account.id]
+      : null;
   // `sandbox={false}` leaves the sandbox out, for a launch that cannot carry one.
   const sandboxFields = sandbox && (
     <fieldset>
@@ -40,6 +45,13 @@ export default function LaunchAccessFields({
         access.nonoProfile && (
           <p className="field-description">{launchCopy.sandboxHint}</p>
         )
+      )}
+      {hiddenLogin && (
+        <p className="form-note launch-mode-warning" role="note">
+          {hiddenLogin === "local"
+            ? launchCopy.sandboxLoginLocal
+            : launchCopy.sandboxLoginPending}
+        </p>
       )}
     </fieldset>
   );
