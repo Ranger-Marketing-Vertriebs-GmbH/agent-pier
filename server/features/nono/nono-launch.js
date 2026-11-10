@@ -6,6 +6,8 @@ import { readSandboxProfiles } from "./nono-profiles.js";
 import { ADAPTER_PORT_PLACEHOLDER } from "../providers/adapter-launch.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
+import { isCodingCli } from "../clis/catalog.js";
+import { cliDriver } from "../clis/drivers.js";
 
 /**
  * The AgentPier installation root, the directory holding `server/` and
@@ -140,21 +142,32 @@ export function wrapWithNono({ launch, executable, profile, isDirectory }) {
   };
 }
 /**
+ * What the CLI itself needs inside the sandbox, beyond AgentPier's integrations: a
+ * trust store it can read, a folder it may bind its socket in (`<id>/sandbox.js`).
+ */
+const cliSandboxLaunch = (tool, launch) =>
+  (isCodingCli(tool) && cliDriver(tool).sandboxLaunch?.(launch)) || launch;
+/**
  * The last adapter of the launch chain. It rejects a sandboxed launch it cannot
  * honour instead of starting the CLI unconfined: an operator who asked for a
  * nono sandbox never gets an unsandboxed session back.
  */
 export class NonoSandbox {
-  constructor({ detect, readProfiles = readSandboxProfiles }) {
+  constructor({
+    detect,
+    readProfiles = readSandboxProfiles,
+    prepareCli = cliSandboxLaunch,
+  }) {
     this.detect = detect;
     this.readProfiles = readProfiles;
+    this.prepareCli = prepareCli;
   }
   executable() {
     return (
       this.detect().find((tool) => tool.id === "nono" && tool.installed)?.path || null
     );
   }
-  async prepare({ launch, profile }) {
+  async prepare({ launch, profile, tool }) {
     if (!profile) return wrapWithNono({ launch, executable: null, profile: null });
     const executable = this.executable();
     if (!executable) throw problem(serverMessages.sessions.sandboxUnavailable);
@@ -163,6 +176,6 @@ export class NonoSandbox {
     const profiles = await this.readProfiles({ executable });
     if (!profiles.includes(profile))
       throw problem(serverMessages.sessions.sandboxProfileUnknown);
-    return wrapWithNono({ launch, executable, profile });
+    return wrapWithNono({ launch: this.prepareCli(tool, launch), executable, profile });
   }
 }
