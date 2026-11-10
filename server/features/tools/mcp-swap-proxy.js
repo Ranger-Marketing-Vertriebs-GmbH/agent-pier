@@ -24,16 +24,27 @@ export const proxyErrors = Object.freeze({
   crashed: "The MCP server stopped unexpectedly; AgentPier restarted it. Retry the call.",
   replaced:
     "The MCP server was replaced by a newer version before it answered. Retry the call.",
+  failed: "The MCP server stopped unexpectedly before it answered. Retry the call.",
   unavailable: "The MCP server is not running.",
 });
 
-/** Splits a stream into lines without rescanning what it already split. */
-function lineReader(onLine) {
-  let rest = "";
+/**
+ * Splits a stream into lines. Each chunk is scanned once; the pieces of an unfinished
+ * line wait in an array and are joined once, when its newline arrives.
+ */
+export function lineReader(onLine) {
+  let pieces = [];
   return (chunk) => {
-    const parts = (rest + chunk).split("\n");
-    rest = parts.pop();
-    for (const line of parts) if (line.trim()) onLine(line);
+    let start = 0;
+    let index;
+    while ((index = chunk.indexOf("\n", start)) >= 0) {
+      pieces.push(chunk.slice(start, index));
+      const line = pieces.join("");
+      pieces = [];
+      start = index + 1;
+      if (line.trim()) onLine(line);
+    }
+    if (start < chunk.length) pieces.push(chunk.slice(start));
   };
 }
 
@@ -47,6 +58,9 @@ class Server {
     this.exited = false;
     this.internal = new Map();
     this.init = null;
+    // Client notifications wait until the repeated handshake is done (launch()).
+    this.ready = false;
+    this.notes = [];
     this.child = proxy.spawn(spec.command, spec.args ?? [], {
       stdio: ["pipe", "pipe", "pipe"],
       detached: true,
@@ -72,6 +86,16 @@ class Server {
       lineReader((line) => proxy.fromServer(this, line)),
     );
     this.child.stderr.on("data", (chunk) => proxy.log(chunk));
+  }
+  /** A client notification: held until this server's handshake is done. */
+  notify(msg) {
+    if (this.ready) this.send(msg);
+    else this.notes.push(msg);
+  }
+  /** The handshake is done: the held notifications follow, in order. */
+  open() {
+    this.ready = true;
+    for (const msg of this.notes.splice(0)) this.send(msg);
   }
   send(msg) {
     if (this.exited) return;
@@ -173,6 +197,8 @@ export class SwapProxy {
     const spec = this.readSpec();
     if (!spec) return this.close(1);
     this.current = this.add(new Server(this, spec));
+    // The client's own initialize goes to this server first.
+    this.current.open();
     this.report({ command: spec.command, error: null });
   }
   add(server) {
@@ -217,8 +243,9 @@ export class SwapProxy {
       this.initialized = true;
       return server.send(msg);
     }
-    // Other notifications (roots changed, progress of the client) go to every server.
-    for (const each of this.servers) each.send(msg);
+    // Other notifications (roots changed, progress of the client) go to every server;
+    // one still starting gets them after its handshake.
+    for (const each of this.servers) each.notify(msg);
   }
   /** The client answers a server's request: back to the server that asked. */
   answerServer(msg) {
@@ -345,6 +372,7 @@ export class SwapProxy {
         if (this.initialized)
           server.send({ jsonrpc: "2.0", method: "notifications/initialized" });
       }
+      server.open();
       return server;
     } catch (error) {
       await server.stop();
@@ -402,8 +430,17 @@ export class SwapProxy {
     if (this.closed) return;
     const unexpected = !server.stopping;
     if (unexpected) this.log(`AgentPier's MCP proxy: the server stopped (${reason}).\n`);
-    this.failCalls(server, unexpected ? proxyErrors.crashed : proxyErrors.replaced);
-    if (server === this.current && unexpected) {
+    // Only the current server is restarted; a retired one's calls simply failed.
+    const restarted = server === this.current && unexpected;
+    this.failCalls(
+      server,
+      restarted
+        ? proxyErrors.crashed
+        : unexpected
+          ? proxyErrors.failed
+          : proxyErrors.replaced,
+    );
+    if (restarted) {
       this.current = null;
       void this.reconcile();
     }

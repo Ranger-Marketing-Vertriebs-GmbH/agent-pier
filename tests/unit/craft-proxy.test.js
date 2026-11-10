@@ -57,12 +57,25 @@ test("proxy statuses list running proxies and drop those that are gone", (t) => 
 
 test("a status change is announced, debounced", async (t) => {
   const dir = dataDir(t);
+  let listener;
+  const watcher = { on() {}, close() {}, unref() {} };
+  // A stand-in for fs.watch: the test fires the changes itself.
+  const watch = (_directory, onEvent) => {
+    listener = onEvent;
+    return watcher;
+  };
   let calls = 0;
-  const stop = watchCraftProxies(dir, () => calls++, 50);
+  const stop = watchCraftProxies(dir, () => calls++, 20, watch);
   t.after(stop);
-  fs.writeFileSync(path.join(proxyStatusDir(dir), "1.json"), "{}");
-  fs.writeFileSync(path.join(proxyStatusDir(dir), "2.json"), "{}");
-  const end = Date.now() + 3000;
-  while (calls === 0 && Date.now() < end) await new Promise((r) => setTimeout(r, 20));
+  assert.ok(fs.existsSync(proxyStatusDir(dir)));
+  listener("rename", "1.json");
+  listener("rename", "2.json");
+  assert.equal(calls, 0, "debounced");
+  for (let i = 0; i < 100 && calls === 0; i += 1)
+    await new Promise((resolve) => setTimeout(resolve, 10));
   assert.equal(calls, 1);
+  listener("change", "1.json");
+  for (let i = 0; i < 100 && calls === 1; i += 1)
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.equal(calls, 2);
 });
