@@ -69,7 +69,7 @@ test("first install places the binary and creates a managed row bound to Claude"
     installedSize: entry.installedSize,
     outdated: false,
     runningVersions: [],
-    swapFailures: [],
+    swapFailed: false,
   });
   assert.deepEqual(JSON.parse(fs.readFileSync(craft.file, "utf8")), {
     serverId: server.id,
@@ -105,19 +105,18 @@ test("row args", async (t) => {
   const craft = await f.tool();
   const { serverId } = await f.install(craft, { components: { ghidra: false } });
   assert.deepEqual(f.spec().args, [...baseArgs, "--clean-room"]);
-  // The row runs AgentPier's swap proxy with the spec; a mode change keeps the row.
+  // The row runs AgentPier's swap proxy with the spec and the mode (its variant).
   const row = f.s.servers.get(serverId);
+  const specFile = path.join(f.s.dataDir, "craft-anything", "server.json");
   assert.equal(row.command, "/fake/bin/node");
-  assert.deepEqual(row.args, [
-    proxyMain,
-    path.join(f.s.dataDir, "craft-anything", "server.json"),
-  ]);
+  assert.deepEqual(row.args, [proxyMain, specFile, "clean-room"]);
   assert.deepEqual(f.s.servers.envValues(serverId), craftEnvironment(f.s.dataDir));
   await craft.apply({ settings: { mode: "deep" } });
   await craft.settled();
   assert.equal(craft.state().status, "succeeded", craft.state().message);
   assert.deepEqual(f.spec().args, [...baseArgs, "--deep"]);
-  assert.deepEqual(f.s.servers.get(serverId).args, row.args);
+  // A mode change reaches new sessions through the row; running proxies keep theirs.
+  assert.deepEqual(f.s.servers.get(serverId).args, [proxyMain, specFile, "deep"]);
   assert.deepEqual(craft.state().settings, { mode: "deep" });
   assert.deepEqual(f.s.servers.envValues(serverId), craftEnvironment(f.s.dataDir));
   assert.deepEqual(f.s.servers.get(serverId).managed.lockedEnv, [...craftManagedKeys]);
@@ -137,7 +136,7 @@ test("row args", async (t) => {
     { confirmStdio: true },
   );
   await craft.start();
-  assert.deepEqual(f.s.servers.get(serverId).args, row.args);
+  assert.deepEqual(f.s.servers.get(serverId).args, [proxyMain, specFile, "deep"]);
   assert.deepEqual(f.spec().args, [...baseArgs, "--deep"]);
   assert.deepEqual(f.s.servers.envValues(serverId), {
     ...craftEnvironment(f.s.dataDir),
@@ -466,6 +465,7 @@ test("overlapping environment syncs and an apply do not race on the row", async 
   assert.deepEqual(f.s.servers.get(serverId).args, [
     proxyMain,
     path.join(f.s.dataDir, "craft-anything", "server.json"),
+    "deep",
   ]);
   assert.deepEqual(f.spec().args, [...baseArgs, "--deep"]);
 });

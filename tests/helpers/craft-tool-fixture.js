@@ -108,10 +108,16 @@ export async function craftFixture(t) {
     craftManifest,
     root: path.join(f.s.dataDir, "clis"),
     configFile: path.join(f.s.dataDir, "craft-anything", "sessions", "config.toml"),
-    /** The server the sessions' proxies run: `{ command, args, statusDir }`. */
-    spec: () =>
-      JSON.parse(
+    /**
+     * The server the sessions' proxies run (`{ command, variants, env, statusDir }`)
+     * with `args`, the variant the managed row names (its mode).
+     */
+    spec: () => {
+      const spec = JSON.parse(
         fs.readFileSync(path.join(f.s.dataDir, "craft-anything", "server.json"), "utf8"),
-      ),
+      );
+      const row = f.s.servers.list().find((s) => s.managed?.tool === "craft-anything");
+      return { ...spec, args: spec.variants[row?.args?.[2]] };
+    },
   };
 }

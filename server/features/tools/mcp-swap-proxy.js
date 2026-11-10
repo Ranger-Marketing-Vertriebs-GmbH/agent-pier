@@ -12,59 +12,65 @@ const CRASH_WINDOW_MS = 60 * 1000;
 const proxyPrefix = "agentpier-proxy-";
 const key = (id) => JSON.stringify(id);
 const isRequest = (msg) => typeof msg?.method === "string" && msg.id !== undefined;
-const isNotification = (msg) => typeof msg?.method === "string" && msg.id === undefined;
 const isResponse = (msg) =>
-  msg && typeof msg === "object" && msg.method === undefined && msg.id !== undefined;
-const sameSpec = (a, b) =>
-  a?.command === b?.command && JSON.stringify(a?.args) === JSON.stringify(b?.args);
-const failure = (message) =>
-  Object.assign(new Error(message), { code: "MCP_PROXY_SERVER_FAILED" });
+  !!msg && typeof msg === "object" && msg.method === undefined && msg.id !== undefined;
+const failure = (code, message) => Object.assign(new Error(message), { code });
+const rpcError = (id, message) => ({
+  jsonrpc: "2.0",
+  id,
+  error: { code: -32603, message },
+});
+export const proxyErrors = Object.freeze({
+  crashed: "The MCP server stopped unexpectedly; AgentPier restarted it. Retry the call.",
+  replaced:
+    "The MCP server was replaced by a newer version before it answered. Retry the call.",
+  unavailable: "The MCP server is not running.",
+});
 
-/** One spawned server: its child, the generation it serves and its internal calls. */
+/** Splits a stream into lines without rescanning what it already split. */
+function lineReader(onLine) {
+  let rest = "";
+  return (chunk) => {
+    const parts = (rest + chunk).split("\n");
+    rest = parts.pop();
+    for (const line of parts) if (line.trim()) onLine(line);
+  };
+}
+
+/** One spawned server: its child (own process group), its spec and its own calls. */
 class Server {
-  constructor(proxy, spec, gen) {
+  constructor(proxy, spec) {
     this.proxy = proxy;
     this.spec = spec;
-    this.gen = gen;
+    this.gen = ++proxy.gen;
     this.stopping = false;
     this.exited = false;
     this.internal = new Map();
-    this.buffer = "";
+    this.init = null;
     this.child = proxy.spawn(spec.command, spec.args ?? [], {
       stdio: ["pipe", "pipe", "pipe"],
       detached: true,
-      env: process.env,
+      env: { ...process.env, ...spec.env },
     });
-    this.done = new Promise((resolve) => {
-      this.child.once("exit", (code, signal) => {
-        this.exited = true;
-        for (const { reject } of this.internal.values())
-          reject(failure(`exited (${signal ?? code})`));
-        this.internal.clear();
-        resolve();
-        proxy.serverExited(this, code, signal);
-      });
-    });
-    this.child.once("error", (error) => {
-      // A command that cannot start: report it like an exit.
-      if (!this.exited) {
-        this.exited = true;
-        for (const { reject } of this.internal.values()) reject(error);
-        this.internal.clear();
-        proxy.serverExited(this, null, null, error);
-      }
-    });
+    let ended;
+    this.done = new Promise((resolve) => (ended = resolve));
+    const exited = (reason) => {
+      if (this.exited) return;
+      this.exited = true;
+      for (const { reject } of this.internal.values())
+        reject(failure("exited", `exited (${reason})`));
+      this.internal.clear();
+      ended();
+      proxy.serverExited(this, reason);
+    };
+    this.child.once("exit", (code, signal) => exited(signal ?? code));
+    this.child.once("error", (error) => exited(error.code ?? "error"));
     this.child.stdin.on("error", () => {});
     this.child.stdout.setEncoding("utf8");
-    this.child.stdout.on("data", (chunk) => {
-      this.buffer += chunk;
-      let index;
-      while ((index = this.buffer.indexOf("\n")) >= 0) {
-        const line = this.buffer.slice(0, index);
-        this.buffer = this.buffer.slice(index + 1);
-        if (line.trim()) proxy.fromServer(this, line);
-      }
-    });
+    this.child.stdout.on(
+      "data",
+      lineReader((line) => proxy.fromServer(this, line)),
+    );
     this.child.stderr.on("data", (chunk) => proxy.log(chunk));
   }
   send(msg) {
@@ -77,28 +83,23 @@ class Server {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.internal.delete(id);
-        reject(failure(`${method} timed out`));
+        reject(failure("timeout", `${method} timed out`));
       }, timeoutMs);
-      this.internal.set(id, {
-        resolve: (value) => {
-          clearTimeout(timer);
-          resolve(value);
-        },
-        reject: (error) => {
-          clearTimeout(timer);
-          reject(error);
-        },
-      });
+      const settle = (fn) => (value) => {
+        clearTimeout(timer);
+        fn(value);
+      };
+      this.internal.set(id, { resolve: settle(resolve), reject: settle(reject) });
       this.send({ jsonrpc: "2.0", id, method, ...(params && { params }) });
     });
   }
   /** Ends the server and its process group (also what it forked). */
   async stop() {
     this.stopping = true;
-    const pid = this.child.pid;
     try {
       this.child.stdin.end();
     } catch {}
+    const pid = this.child.pid;
     if (!pid || this.exited) return;
     const signal = (name) => {
       try {
@@ -109,20 +110,27 @@ class Server {
     const timer = setTimeout(() => signal("SIGKILL"), STOP_GRACE_MS);
     await this.done;
     clearTimeout(timer);
-    // A child forked at the moment of the kill may outlive it (macOS).
+    // A child forked at the moment of the kill may outlive it (macOS, #704).
     await this.proxy.settle([pid]);
   }
 }
 
 /**
- * The swap proxy. `write(line)` sends to the client, `spawn` starts a server,
- * `report(status)` records the current state for AgentPier (`{ command, args,
- * error }`), `exit(code)` ends the proxy. The first `start(spec)` launches the server
- * the client initializes; `swapTo(spec)` replaces it once no call is in flight.
+ * The swap proxy. `write(line)` sends to the client, `readSpec()` reads the server
+ * to run (`{ command, args, env }`, null when unreadable), `spawn` starts it,
+ * `report(status)` records `{ command, error }` for AgentPier (`error` a stable code),
+ * `exit(code)` ends the proxy. `start()` launches the server the client initializes;
+ * `reconcile()` (after the spec changed) swaps to a server with another command.
+ *
+ * A swap starts the new server beside the old one and repeats the client's handshake;
+ * then new requests go to the new server while the old one finishes the calls it has
+ * (cancellations reach it), and stops once it has none. One task at a time: a crash
+ * of the current server during a swap waits for that swap instead of restarting.
  */
 export class SwapProxy {
   constructor({
     write,
+    readSpec,
     spawn = defaultSpawn,
     log = (chunk) => process.stderr.write(chunk),
     report = () => {},
@@ -130,10 +138,10 @@ export class SwapProxy {
     settle = (pids) => settleKilledGroups(pids),
     drainCapMs = 10 * 60 * 1000,
     startTimeoutMs = 30 * 1000,
-    retryMs = 30 * 1000,
   }) {
     Object.assign(this, {
       write,
+      readSpec,
       spawn,
       log,
       report,
@@ -141,29 +149,35 @@ export class SwapProxy {
       settle,
       drainCapMs,
       startTimeoutMs,
-      retryMs,
     });
+    this.servers = new Set();
     this.current = null;
     this.gen = 0;
     this.nextId = 1;
     this.queue = [];
-    this.holding = false;
-    this.swapping = null;
-    this.wanted = null;
+    this.task = null;
+    this.again = false;
     this.initParams = null;
     this.initialized = false;
+    this.capabilities = null;
     this.lastTools = null;
     // Client request id (key) → { server, method, cursor }.
     this.pending = new Map();
-    // Proxy id of a server's request → { server, id }.
+    // Proxy id of a server's request (key) → { server, id }.
     this.serverRequests = new Map();
     this.restartedAt = 0;
-    this.drained = null;
     this.closed = false;
+    this.fromClientLine = lineReader((line) => this.fromClient(line));
   }
-  start(spec) {
-    this.current = new Server(this, spec, ++this.gen);
-    this.report({ command: spec.command, args: spec.args ?? [], error: null });
+  start() {
+    const spec = this.readSpec();
+    if (!spec) return this.close(1);
+    this.current = this.add(new Server(this, spec));
+    this.report({ command: spec.command, error: null });
+  }
+  add(server) {
+    this.servers.add(server);
+    return server;
   }
   send(msg) {
     this.write(`${JSON.stringify(msg)}\n`);
@@ -176,25 +190,20 @@ export class SwapProxy {
     } catch {
       return this.current?.send(line);
     }
-    if (Array.isArray(msg)) return msg.forEach((item) => this.route(item));
-    this.route(msg);
+    for (const item of Array.isArray(msg) ? msg : [msg]) this.route(item);
   }
   route(msg) {
     if (isResponse(msg)) return this.answerServer(msg);
-    if (this.holding) return void this.queue.push(msg);
+    if (msg?.method === "notifications/cancelled") {
+      const owner = this.pending.get(key(msg.params?.requestId))?.server;
+      if (owner) return owner.send(msg);
+    }
+    // Without a running server (a restart) the client waits for the next one.
+    if (!this.current) return void this.queue.push(msg);
     this.deliver(msg);
   }
   deliver(msg) {
     const server = this.current;
-    if (!server || server.exited) {
-      if (isRequest(msg))
-        this.send({
-          jsonrpc: "2.0",
-          id: msg.id,
-          error: { code: -32603, message: "The MCP server is not running." },
-        });
-      return;
-    }
     if (isRequest(msg)) {
       if (msg.method === "initialize") this.initParams = msg.params ?? {};
       this.pending.set(key(msg.id), {
@@ -202,14 +211,14 @@ export class SwapProxy {
         method: msg.method,
         cursor: msg.params?.cursor,
       });
-    } else if (isNotification(msg)) {
-      if (msg.method === "notifications/initialized") this.initialized = true;
-      if (msg.method === "notifications/cancelled") {
-        const entry = this.pending.get(key(msg.params?.requestId));
-        if (entry && entry.server !== server) return entry.server.send(msg);
-      }
+      return server.send(msg);
     }
-    server.send(msg);
+    if (msg?.method === "notifications/initialized") {
+      this.initialized = true;
+      return server.send(msg);
+    }
+    // Other notifications (roots changed, progress of the client) go to every server.
+    for (const each of this.servers) each.send(msg);
   }
   /** The client answers a server's request: back to the server that asked. */
   answerServer(msg) {
@@ -230,19 +239,21 @@ export class SwapProxy {
       const own = server.internal.get(msg.id);
       if (own) {
         server.internal.delete(msg.id);
-        return msg.error
-          ? own.reject(failure(msg.error.message))
-          : own.resolve(msg.result);
+        if (msg.error) return own.reject(failure("refused", msg.error.message));
+        return own.resolve(msg.result);
       }
       const entry = this.pending.get(key(msg.id));
       // Answered already (failed after a crash) or another server's: never twice.
       if (!entry || entry.server !== server) return;
       this.pending.delete(key(msg.id));
-      this.drainedCheck();
-      if (entry.method === "initialize" && msg.result) msg = withListChanged(msg);
+      if (entry.method === "initialize" && msg.result) {
+        msg = withListChanged(msg);
+        this.capabilities = msg.result.capabilities ?? {};
+      }
       if (entry.method === "tools/list" && !entry.cursor && msg.result)
         this.lastTools = JSON.stringify(msg.result.tools ?? []);
-      return this.send(msg);
+      this.send(msg);
+      return this.idleCheck(server);
     }
     if (isRequest(msg)) {
       const id = `${proxyPrefix}s${server.gen}-${this.nextId++}`;
@@ -250,49 +261,86 @@ export class SwapProxy {
       return this.send({ ...msg, id });
     }
     // The proxy announces list changes itself after a swap.
-    if (server !== this.current && msg.method === "notifications/tools/list_changed")
-      return;
+    if (server !== this.current && /\/list_changed$/.test(msg.method ?? "")) return;
     this.send(msg);
   }
   inFlight(server) {
     for (const entry of this.pending.values()) if (entry.server === server) return true;
     return false;
   }
-  drainedCheck() {
-    if (this.drained && !this.inFlight(this.current)) this.drained();
+  /** A retired server stops once its last call is answered. */
+  idleCheck(server) {
+    if (server.retired && !server.stopping && !this.inFlight(server)) void server.stop();
   }
-  /** Resolves once `server` has no client call in flight, or false after the cap. */
-  drain(server) {
-    if (!this.inFlight(server)) return Promise.resolve(true);
-    return new Promise((resolve) => {
-      const timer = setTimeout(() => {
-        this.drained = null;
-        resolve(false);
-      }, this.drainCapMs);
-      this.drained = () => {
-        clearTimeout(timer);
-        this.drained = null;
-        resolve(true);
-      };
+  /** Fails the calls `server` still owes the client with `message`. */
+  failCalls(server, message) {
+    for (const [id, entry] of this.pending)
+      if (entry.server === server) {
+        this.pending.delete(id);
+        this.send(rpcError(JSON.parse(id), message));
+      }
+    for (const [id, asked] of this.serverRequests)
+      if (asked.server === server) this.serverRequests.delete(id);
+  }
+  /** The spec file changed: swap when it names another command. */
+  reconcile() {
+    if (this.closed) return Promise.resolve();
+    if (this.task) {
+      this.again = true;
+      return this.task;
+    }
+    this.task = (async () => {
+      do {
+        this.again = false;
+        await this.step();
+      } while (this.again && !this.closed);
+    })().finally(() => {
+      this.task = null;
     });
+    return this.task;
   }
-  /** Releases the client messages held during a swap or a restart, in order. */
-  release() {
-    this.holding = false;
+  async step() {
+    const spec = this.readSpec();
+    const crashed = !this.current;
+    if (crashed) {
+      // A second crash soon after a restart: the client sees the server gone.
+      if (!spec || Date.now() - this.restartedAt < CRASH_WINDOW_MS) return this.close(1);
+      this.restartedAt = Date.now();
+    } else if (!spec || spec.command === this.current.spec.command) return;
+    let next;
+    try {
+      next = await this.launch(spec);
+    } catch (error) {
+      this.log(`AgentPier's MCP proxy could not start the server: ${error.message}\n`);
+      if (crashed) return this.close(1);
+      return this.report({ command: this.current.spec.command, error: "start-failed" });
+    }
+    const changed = await this.toolsChanged(next);
+    if (this.closed) return next.stop();
+    // A current server that crashed meanwhile is gone already (its calls failed).
+    const old = this.current;
+    this.current = next;
     const queued = this.queue;
     this.queue = [];
     for (const msg of queued) this.deliver(msg);
+    this.announce(changed);
+    const reported = () =>
+      this.current && this.report({ command: this.current.spec.command, error: null });
+    // The old server finishes its calls without holding up a restart or a next swap.
+    if (old) void this.retire(old).then(reported);
+    else reported();
   }
   /** Starts a server for `spec` and repeats the client's handshake with it. */
   async launch(spec) {
-    const server = new Server(this, spec, ++this.gen);
+    const server = this.add(new Server(this, spec));
     try {
       if (this.initParams) {
-        await Promise.race([
+        const exited = server.done.then(() => {
+          throw failure("exited", "exited during start");
+        });
+        server.init = await Promise.race([
           server.call("initialize", this.initParams, this.startTimeoutMs),
-          server.done.then(() => {
-            throw failure("exited during start");
-          }),
+          exited,
         ]);
         if (this.initialized)
           server.send({ jsonrpc: "2.0", method: "notifications/initialized" });
@@ -303,7 +351,7 @@ export class SwapProxy {
       throw error;
     }
   }
-  /** The tools the client sees changed with `server`: unknown counts as changed. */
+  /** Whether the tools the client knows differ on `server` (unknown: changed). */
   async toolsChanged(server) {
     if (this.lastTools === null) return false;
     try {
@@ -317,127 +365,66 @@ export class SwapProxy {
     }
   }
   /**
-   * Replaces the server with one for `spec` (newest wins while a swap runs): holds new
-   * client messages, waits until no call is in flight (at most the cap, else it tries
-   * again later), starts the new server, repeats the handshake, sends the client
-   * `tools/list_changed` when the tools differ and stops the old server. A server that
-   * does not start leaves the old one running and is reported.
+   * Tells the client what may differ on the new server: the tools when they changed,
+   * and the prompts and resources the client was told at its handshake (with
+   * `listChanged`) that the server offers. The new server's own initialize answer
+   * stays the proxy's: the client cannot take a second one.
    */
-  swapTo(spec) {
-    this.wanted = spec;
-    this.swapping ??= this.runSwaps().finally(() => {
-      this.swapping = null;
-    });
-    return this.swapping;
-  }
-  async runSwaps() {
-    while (this.wanted && !this.closed) {
-      const spec = this.wanted;
-      this.wanted = null;
-      if (!this.current || sameSpec(spec, this.current.spec)) continue;
-      await this.swapOnce(spec);
-    }
-  }
-  async swapOnce(spec) {
-    const old = this.current;
-    this.holding = true;
-    if (!(await this.drain(old))) {
-      this.release();
-      this.retry(spec);
-      return;
-    }
-    let next;
-    try {
-      next = await this.launch(spec);
-    } catch (error) {
-      this.release();
-      this.report({
-        command: old.spec.command,
-        args: old.spec.args ?? [],
-        error: `${spec.command}: ${error.message}`,
-      });
-      this.log(`AgentPier could not switch the MCP server: ${error.message}\n`);
-      return;
-    }
-    const changed = await this.toolsChanged(next);
-    this.current = next;
-    this.forget(old);
-    this.release();
-    if (changed)
+  announce(toolsChanged) {
+    if (toolsChanged)
       this.send({ jsonrpc: "2.0", method: "notifications/tools/list_changed" });
-    this.report({ command: spec.command, args: spec.args ?? [], error: null });
+    const offered = this.capabilities ?? {};
+    for (const kind of ["prompts", "resources"])
+      if (offered[kind])
+        this.send({ jsonrpc: "2.0", method: `notifications/${kind}/list_changed` });
+  }
+  /** The old server finishes its calls (at most the cap), then stops. */
+  async retire(old) {
+    old.retired = true;
+    if (this.inFlight(old)) {
+      let timer;
+      await Promise.race([
+        old.done,
+        new Promise((resolve) => (timer = setTimeout(resolve, this.drainCapMs))),
+      ]);
+      clearTimeout(timer);
+      this.failCalls(old, proxyErrors.replaced);
+    }
     await old.stop();
   }
-  retry(spec) {
-    const timer = setTimeout(() => {
-      if (!this.wanted) void this.swapTo(spec);
-    }, this.retryMs);
-    timer.unref?.();
-  }
-  /** Drops what only `server` could answer (its requests to the client). */
-  forget(server) {
-    for (const [id, asked] of this.serverRequests)
-      if (asked.server === server) this.serverRequests.delete(id);
-  }
   /**
-   * A server ended. The current one ending unexpectedly fails the client's calls in
-   * flight with a clear error and is restarted once (with the handshake); a second
-   * crash soon after ends the proxy, so the client sees the server gone.
+   * A server ended. Its unanswered calls fail with a clear error. The current one
+   * ending unexpectedly is restarted once (with the handshake) by the task, after a
+   * swap that may be running; a second crash soon after ends the proxy.
    */
-  serverExited(server, code, signal, error) {
-    if (server !== this.current || server.stopping || this.closed) return;
-    for (const [id, entry] of this.pending)
-      if (entry.server === server) {
-        this.pending.delete(id);
-        this.send({
-          jsonrpc: "2.0",
-          id: JSON.parse(id),
-          error: {
-            code: -32603,
-            message:
-              "The MCP server stopped unexpectedly; AgentPier restarted it. Retry the call.",
-          },
-        });
-      }
-    this.forget(server);
-    this.drainedCheck();
-    const reason = error?.message ?? signal ?? `exit ${code}`;
-    this.log(`AgentPier's MCP proxy: the server stopped (${reason}).\n`);
-    if (Date.now() - this.restartedAt < CRASH_WINDOW_MS) return this.close(1);
-    this.restartedAt = Date.now();
-    this.holding = true;
-    this.launch(server.spec).then(
-      (next) => {
-        this.current = next;
-        this.release();
-      },
-      (failed) => {
-        this.log(`AgentPier's MCP proxy could not restart it: ${failed.message}\n`);
-        this.close(1);
-      },
-    );
+  serverExited(server, reason) {
+    this.servers.delete(server);
+    if (this.closed) return;
+    const unexpected = !server.stopping;
+    if (unexpected) this.log(`AgentPier's MCP proxy: the server stopped (${reason}).\n`);
+    this.failCalls(server, unexpected ? proxyErrors.crashed : proxyErrors.replaced);
+    if (server === this.current && unexpected) {
+      this.current = null;
+      void this.reconcile();
+    }
   }
-  /** The client went away (or the server cannot run): stop the server and exit. */
+  /** The client went away (or the server cannot run): stop every server and exit. */
   async close(code = 0) {
     if (this.closed) return;
     this.closed = true;
-    await this.current?.stop();
+    for (const msg of this.queue)
+      if (isRequest(msg)) this.send(rpcError(msg.id, proxyErrors.unavailable));
+    this.queue = [];
+    await Promise.all([...this.servers].map((server) => server.stop()));
     this.exit(code);
   }
 }
 
-/** The initialize answer, with `tools.listChanged` so the client follows swaps. */
+/** The initialize answer announcing list changes, so the client follows swaps. */
 function withListChanged(msg) {
-  const capabilities = msg.result.capabilities ?? {};
-  if (!capabilities.tools) return msg;
-  return {
-    ...msg,
-    result: {
-      ...msg.result,
-      capabilities: {
-        ...capabilities,
-        tools: { ...capabilities.tools, listChanged: true },
-      },
-    },
-  };
+  const capabilities = { ...msg.result.capabilities };
+  for (const kind of ["tools", "prompts", "resources"])
+    if (capabilities[kind])
+      capabilities[kind] = { ...capabilities[kind], listChanged: true };
+  return { ...msg, result: { ...msg.result, capabilities } };
 }

@@ -7,19 +7,13 @@ import { cleanEnvironment } from "../accounts/account-store.js";
 import { logFailure } from "../mcp-packages/package-install-job.js";
 import { craftManifest, craftPlatform } from "./craft-manifest.js";
 import {
-  craftEnvironment,
   craftHome,
   craftManagedKeys,
   ensureGhidraStub,
   sessionsConfigDir,
   writeCraftConfig,
 } from "./craft-config.js";
-import {
-  craftArgs,
-  craftCommand,
-  craftRowPatch,
-  cleanCraftSettings,
-} from "./craft-row.js";
+import { craftRowPatch, cleanCraftSettings } from "./craft-row.js";
 import { syncCraftSkills } from "./craft-skills.js";
 import { startCraft, uninstallCraft } from "./craft-lifecycle.js";
 import { reaManifest as defaultReaManifest, reaPlatform } from "./rea-manifest.js";
@@ -37,7 +31,7 @@ import {
   removeToolFolder,
   wantsGhidraOf,
 } from "./version-sweep.js";
-import { craftProxies, craftProxyRow, watchCraftProxies } from "./craft-proxy.js";
+import { craftProxies, craftSessionRow, followProxies } from "./craft-proxy.js";
 import { runningCommandLines } from "../../lib/process-commands.js";
 import { failureText, keyed, queueSync, reaComponentStates } from "./rea-state.js";
 import { run as defaultRun } from "./tool-run.js";
@@ -239,10 +233,8 @@ export class CraftTool {
           runningVersions: this.versions
             .runningVersions(tool)
             .filter((version) => version !== this.component(tool)?.version),
-          // Sessions whose proxy could not switch to the installed version.
-          swapFailures: installed
-            ? [...new Set(craftProxies(this.dataDir).flatMap((p) => p.error ?? []))]
-            : [],
+          // A session's proxy could not switch to the installed version.
+          swapFailed: installed && craftProxies(this.dataDir).some((p) => p.error),
         },
         ghidra: {
           ...parts.ghidra,
@@ -447,31 +439,17 @@ export class CraftTool {
     });
   }
   /**
-   * What the row runs: AgentPier's swap proxy, which starts the installed CLI with the
-   * owner's mode (and AgentPier's env). Writes the proxies' spec, so a proxy running
-   * in a session swaps to that server once nothing is in flight (craft-proxy.js).
+   * What the row runs: AgentPier's swap proxy with the owner's mode. Writes the
+   * proxies' spec, so running proxies swap to a new version (craft-proxy.js).
    */
   wantedRow(settings) {
     const component = this.component(tool);
     if (!component) throw refuse(messages.notInstalled);
-    const server = {
-      command: craftCommand(this.root, component),
-      args: craftArgs(settings),
-    };
-    return {
-      ...craftProxyRow(this.dataDir, server, this.node),
-      env: craftEnvironment(this.dataDir),
-    };
+    return craftSessionRow(this, component, settings);
   }
   /** Follows the proxies' status files: a swap ended, a session left or failed. */
   watchProxies() {
-    this.unwatch?.();
-    this.unwatch = null;
-    if (!this.installed()) return;
-    this.unwatch = watchCraftProxies(this.dataDir, () => {
-      this.changed();
-      void this.versions.run();
-    });
+    followProxies(this);
   }
   /** A free name: `craft-anything`, else `craft-anything-agentpier[-<n>]`. */
   rowName() {

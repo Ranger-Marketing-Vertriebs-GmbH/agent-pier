@@ -982,32 +982,36 @@ beside the old one under `<data dir>/clis/.packages/`.
 
 **Swapping the server in running sessions.** The row's command is AgentPier's Node
 running `server/features/tools/mcp-swap-proxy-main.js` with
-`<data dir>/craft-anything/server.json`, which names the Craft Anything command and
-arguments. The proxy owns the session's stdio connection, starts that server and passes
-every message through. When an update or a **Deep mode for sessions** change rewrites
-`server.json`, each running proxy notices it within a second, waits until no call is
-in flight (new calls wait meanwhile, for at most ten minutes, after which it tries
-again later), starts the new server, repeats the session's `initialize` handshake,
-and stops the old server with its process group. When the tool list differs, it sends
+`<data dir>/craft-anything/server.json` and the session mode (`clean-room` or `deep`).
+`server.json` names the Craft Anything command, the arguments of each mode and the
+environment. The proxy owns the session's stdio connection, starts that server with
+its mode's arguments and passes every message through. When an update rewrites
+`server.json` with another command (a new version), each running proxy notices it
+within a second, starts the new server beside the old one and repeats the session's
+`initialize` handshake. From then on new calls go to the new server, while the old
+one finishes the calls it has (cancellations still reach it, for at most ten minutes)
+and then stops with its process group. When the tool list differs, the proxy sends
 the client `notifications/tools/list_changed` (its `initialize` answer announces
-`tools.listChanged`); Claude Code reloads the list then, and a client that ignores the
+`listChanged`); Claude Code reloads the list then, and a client that ignores the
 notification keeps its list while calls of the same names reach the new server.
-Requests the server sends the client (roots, sampling, elicitation) get ids of the
-proxy's own, so the old and new server's ids never mix up, and no call is answered
-twice. A new server that does not start leaves the old one running; the dialog then
-says **Running sessions could not switch to the installed version and keep their
-previous one: …**, and the next change tries again. When the server stops
+Changing **Deep mode for sessions** never swaps a running session: the row's mode
+changes, so sessions started afterwards get the new mode, and running sessions keep
+theirs. Requests the server sends the client (roots, sampling, elicitation) get ids
+of the proxy's own, so the old and new server's ids never mix up, and no call is
+answered twice. A new server that does not start leaves the old one running; the
+dialog then says **Running sessions could not switch to the installed version and
+keep their previous one. They try again with the next update.** When the server stops
 unexpectedly, the calls in flight fail with "The MCP server stopped unexpectedly;
 AgentPier restarted it. Retry the call." and the proxy restarts it once with the same
-handshake; a second crash within a minute ends the proxy, so the client shows the
-server as failed. Each proxy keeps `<data dir>/craft-anything/proxies/<pid>.json` with
-what it runs and a failed switch. The old version folder goes as soon as the swapped
-server exited ([old version folders](#managed-rea)). A session started before this
-proxy existed runs Craft Anything directly and keeps its version until it reloads its
-MCP servers; the dialog then says **Running sessions keep using version 0.5.0 until
-they reload.** A running proxy also keeps the AgentPier release it started from until
-the session reloads.
-Apply changes never replaces an installed component.
+handshake (after a swap that is running, never beside it); a second crash within a
+minute ends the proxy, so the client shows the server as failed. Each proxy keeps
+`<data dir>/craft-anything/proxies/<pid>.json` with the command it runs and a failed
+switch. The old version folder goes as soon as the swapped server exited
+([old version folders](#managed-rea)). A session started before this proxy existed
+runs Craft Anything directly and keeps its version until it reloads its MCP servers;
+the dialog then says **Running sessions keep using version 0.5.0 until they reload.**
+A running proxy also keeps the AgentPier release it started from until the session
+reloads.
 
 **Removal.** **Remove Craft Anything** asks **Remove Craft Anything?** and removes the MCP
 server row, the skill copies, the CLI and `<data dir>/craft-anything`, and Ghidra with

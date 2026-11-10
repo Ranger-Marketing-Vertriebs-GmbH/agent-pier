@@ -24,8 +24,8 @@ export const craftAnythingCopy = {
     "I understand these notes and use Craft Anything only on software I own or am allowed to examine.",
   updateNote: (parts) => `An update is available: ${parts}.`,
   updateCore: (version) => `Craft Anything ${version}`,
-  swapFailed: (error) =>
-    `Running sessions could not switch to the installed version and keep their previous one: ${error}`,
+  swapFailed:
+    "Running sessions could not switch to the installed version and keep their previous one. They try again with the next update.",
   runningOlder: (versions) =>
     `Running sessions keep using version ${versions} until they reload.`,
   statusRunning: "Craft Anything is being changed …",

@@ -182,10 +182,8 @@ export default function CraftAnythingDialog({ request, refresh, close }) {
             {state.updateAvailable && (
               <p className="rea-warning">{updateNote(state.components)}</p>
             )}
-            {state.components.core.swapFailures?.length > 0 && (
-              <p className="rea-warning">
-                {copy.swapFailed(state.components.core.swapFailures.join("; "))}
-              </p>
+            {state.components.core.swapFailed && (
+              <p className="rea-warning">{copy.swapFailed}</p>
             )}
             {state.components.core.runningVersions?.length > 0 && (
               <p className="dialog-hint">

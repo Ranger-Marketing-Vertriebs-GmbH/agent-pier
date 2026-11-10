@@ -198,7 +198,7 @@ test("no sweep runs while a job of either tool runs", async (t) => {
   const old = await f.tool({ version: "0.4.0", commandLines: ps.read });
   await f.install(old, { components: { ghidra: false } });
   const [oldFolder] = versionsOf(f, "craft-anything");
-  ps.lines = [`${f.s.servers.get(old.serverId()).command} mcp`];
+  ps.lines = [`${f.spec().command} mcp`];
   const craft = await f.tool({ commandLines: ps.read });
   await craft.update();
   await craft.settled();

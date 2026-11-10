@@ -9,7 +9,8 @@
  * - `slow` → the same after `arguments.ms`;
  * - `crash` → exits at once without an answer;
  * - `ask` → sends `roots/list` to the client and answers with the client's reply.
- * `--fail` exits before answering anything. Every line it receives is appended to
+ * `--fail` exits before answering anything; `--slow-init` answers `initialize` after
+ * a second. `whoami` also returns $FAKE_SWAP_ENV. Every line it receives is appended to
  * $FAKE_SWAP_LOG (when set) as `<pid> <line>`.
  */
 import fs from "node:fs";
@@ -51,21 +52,24 @@ function handle(msg) {
   }
   if (msg.method === "notifications/initialized") initialized = true;
   if (msg.id === undefined) return;
-  if (msg.method === "initialize")
-    return send({
-      jsonrpc: "2.0",
-      id: msg.id,
-      result: {
-        protocolVersion: "2025-06-18",
-        capabilities: { tools: {} },
-        serverInfo: { name: "fake-swap", version },
-      },
-    });
+  if (msg.method === "initialize") {
+    const reply = () =>
+      send({
+        jsonrpc: "2.0",
+        id: msg.id,
+        result: {
+          protocolVersion: "2025-06-18",
+          capabilities: { tools: {} },
+          serverInfo: { name: "fake-swap", version },
+        },
+      });
+    return flag === "--slow-init" ? setTimeout(reply, 1000) : reply();
+  }
   if (msg.method === "tools/list")
     return send({ jsonrpc: "2.0", id: msg.id, result: { tools } });
   if (msg.method !== "tools/call")
     return send({ jsonrpc: "2.0", id: msg.id, error: { code: -32601, message: "nope" } });
-  const me = { version, pid: process.pid, initialized };
+  const me = { version, pid: process.pid, initialized, env: process.env.FAKE_SWAP_ENV };
   const name = msg.params?.name;
   if (name === "crash") process.exit(1);
   if (name === "slow")
