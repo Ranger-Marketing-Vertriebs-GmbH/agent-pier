@@ -44,3 +44,27 @@ test("heldPaths matches a folder or a path inside it, never a sibling's prefix",
   });
   assert.equal(unknown(["/anything"]), true);
 });
+
+test("Linux reads each process's environment too", (t) => {
+  const proc = fs.mkdtempSync(path.join(os.tmpdir(), "fake-proc-"));
+  t.after(() => fs.rmSync(proc, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(proc, "7"));
+  fs.writeFileSync(path.join(proc, "7", "cmdline"), "node\0rea.js\0");
+  fs.writeFileSync(path.join(proc, "7", "environ"), "JAVA_HOME=/d/jdk-1/home\0X=1\0");
+  const [line] = runningCommandLines({ platform: "linux", proc });
+  assert.ok(heldPaths(() => [line])(["/d/jdk-1"]));
+});
+
+test("macOS lists environments with ps -E", () => {
+  if (process.platform !== "darwin") return;
+  const lines = runningCommandLines({ platform: "darwin" });
+  assert.ok(lines.some((line) => line.includes(`PATH=`)));
+});
+
+test("`also` holds a component's folders for its own reason", () => {
+  const held = heldPaths(() => ["craft mcp CRAFT_ANYTHING_CONFIG_DIR=/d/c/sessions"], {
+    also: (id, lines) => id === "rea-jdk" && lines.some((l) => l.includes("/d/c/")),
+  });
+  assert.equal(held(["/elsewhere"], "rea-jdk"), true);
+  assert.equal(held(["/elsewhere"], "craft-anything"), false);
+});

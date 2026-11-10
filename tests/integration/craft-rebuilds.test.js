@@ -517,3 +517,13 @@ test("a child killed from outside leaves its rebuild paused and no builder", asy
   assert.equal(resumed.status, "building");
   assert.equal(f.clients.length, 2);
 });
+
+test("no rebuild starts while Craft Anything is being updated or changed", async (t) => {
+  const f = rebuildsFixture(t);
+  f.craft.job = Promise.resolve();
+  await assert.rejects(f.rebuilds.start({ request: "A counter app" }), {
+    status: 409,
+    message: serverMessages.craft.busy,
+  });
+  assert.equal(f.rebuilds.list().length, 0);
+});

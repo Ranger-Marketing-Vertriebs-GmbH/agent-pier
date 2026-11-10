@@ -133,3 +133,83 @@ test("removing Ghidra keeps the folder an idle server runs until it exits", asyn
   assert.equal(fs.existsSync(ghidra.directory), false);
   assert.equal(fs.existsSync(jdk.directory), false);
 });
+
+test("Ghidra named only in an idle REA's environment stays", async (t) => {
+  const f = await craftFixture(t);
+  const ps = processes();
+  const old = await f.tool({ pins: { ghidra: "12.0.0" }, commandLines: ps.read });
+  await f.install(old);
+  const ghidra = old.component("rea-ghidra");
+  const jdk = old.component("rea-jdk");
+  // An idle REA: no Java runs, only its environment names the shared folders.
+  ps.lines = [
+    `/node /rea/cli.js mcp GHIDRA_INSTALL_DIR=${ghidra.home} JAVA_HOME=${jdk.home}`,
+  ];
+  const craft = await f.tool({ pins: { ghidra: "12.1.4" }, commandLines: ps.read });
+  await craft.update();
+  await craft.settled();
+  await craft.versions.running;
+  assert.equal(craft.component("rea-ghidra").version, "12.1.4");
+  assert.ok(fs.existsSync(ghidra.directory), "the folder in REA's environment stays");
+  ps.lines = [];
+  age(versionsOf(f, "rea-ghidra"));
+  await craft.versions.run();
+  assert.equal(fs.existsSync(ghidra.directory), false);
+});
+
+test("a running Craft Anything server keeps the Ghidra its config named at start", async (t) => {
+  const f = await craftFixture(t);
+  const ps = processes();
+  const old = await f.tool({ pins: { ghidra: "12.0.0" }, commandLines: ps.read });
+  await f.install(old);
+  const ghidra = old.component("rea-ghidra");
+  // It read config.toml at its start; only its config folder is in its environment.
+  const configDir = path.join(f.s.dataDir, "craft-anything", "sessions");
+  ps.lines = [`/clis/craft-anything-cli mcp CRAFT_ANYTHING_CONFIG_DIR=${configDir}`];
+  const craft = await f.tool({ pins: { ghidra: "12.1.4" }, commandLines: ps.read });
+  await craft.update();
+  await craft.settled();
+  await craft.versions.running;
+  assert.ok(fs.existsSync(ghidra.directory));
+  ps.lines = [];
+  age(versionsOf(f, "rea-ghidra"));
+  await craft.versions.run();
+  assert.equal(fs.existsSync(ghidra.directory), false);
+});
+
+test("removal keeps the tool's own folder while a server's environment names it", async (t) => {
+  const f = await craftFixture(t);
+  const ps = processes();
+  const craft = await f.tool({ commandLines: ps.read });
+  await f.install(craft, { components: { ghidra: false } });
+  const home = path.join(f.s.dataDir, "craft-anything");
+  ps.lines = [`/x/craft-anything-cli mcp CRAFT_ANYTHING_CONFIG_DIR=${home}/sessions`];
+  await craft.uninstall();
+  await craft.versions.running;
+  assert.ok(fs.existsSync(path.join(home, "sessions", "config.toml")), "config stays");
+  ps.lines = [];
+  await craft.versions.run();
+  assert.equal(fs.existsSync(home), false);
+});
+
+test("no sweep runs while a job of either tool runs", async (t) => {
+  const f = await craftFixture(t);
+  const ps = processes();
+  const old = await f.tool({ version: "0.4.0", commandLines: ps.read });
+  await f.install(old, { components: { ghidra: false } });
+  const [oldFolder] = versionsOf(f, "craft-anything");
+  ps.lines = [`${f.s.servers.get(old.serverId()).command} mcp`];
+  const craft = await f.tool({ commandLines: ps.read });
+  await craft.update();
+  await craft.settled();
+  await craft.versions.running;
+  ps.lines = [];
+  age([oldFolder]);
+  craft.othersBusy = () => true;
+  await craft.versions.run();
+  assert.ok(fs.existsSync(oldFolder), "skipped while the other tool's job runs");
+  assert.ok(craft.versions.timer, "and looks again later");
+  craft.othersBusy = () => false;
+  await craft.versions.run();
+  assert.equal(fs.existsSync(oldFolder), false);
+});

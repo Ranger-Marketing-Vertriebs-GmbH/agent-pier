@@ -13,9 +13,6 @@ import { packageConstraints, packageName, packageRef } from "./package-spec.js";
 import { PackageSkills } from "./package-skills.js";
 import { packageRoot, pruneInstalls, readInstall } from "./package-store.js";
 import { heldPaths, runningCommandLines } from "../../lib/process-commands.js";
-
-// While an install stays for a running process, prune() looks again this often.
-const pruneRetryMs = 5 * 60 * 1000;
 import {
   installError,
   logFailure,
@@ -29,6 +26,8 @@ import { pypiIndexRegistry, pythonAdapter } from "./python-adapter.js";
 import { npmRegistry } from "./registry-metadata.js";
 import { toolchainEntry } from "./toolchain-entry.js";
 
+// While an install stays for a running process, prune() looks again this often.
+const pruneRetryMs = 5 * 60 * 1000;
 const previewLimit = 20;
 const invalid = () => packageProblem("MCP_PACKAGE_INVALID", 400);
 /** The program the owner named before the install can say which ones exist. */

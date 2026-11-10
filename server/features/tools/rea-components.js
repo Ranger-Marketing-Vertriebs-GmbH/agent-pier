@@ -253,7 +253,7 @@ async function prune(
     if (sparesRecent && (await inFlight(directory))) continue;
     if (held) {
       const { paths, version } = await versionPaths(root, id, directory);
-      if (held(paths)) {
+      if (held(paths, id)) {
         lingering.push({ id, version, directory, running: true });
         continue;
       }

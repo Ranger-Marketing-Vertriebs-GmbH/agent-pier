@@ -829,11 +829,17 @@ use the new versions.
 
 **Old version folders.** An update or a removal deletes an old version folder (of REA
 Core's package install, Ghidra, the JDK or Craft Anything) only when no running process
-uses it: AgentPier reads the process list (`/proc` on Linux, `ps` on macOS) and keeps a
-folder whose path a command line names. It looks again at every server start, after
-every job and every five minutes while such a folder is left, and removes the folder
-once its last process exited. Running processes are never stopped for this. When the
-process list cannot be read, every old folder stays until a later look succeeds.
+uses it: AgentPier reads the process list with each process's command line and
+environment (`/proc` on Linux, `ps -E` on macOS) and keeps a folder that one of them
+names, such as the `GHIDRA_INSTALL_DIR` and `JAVA_HOME` of an idle REA. Craft Anything
+reads Ghidra's and the JDK's paths from its config file only when it starts, so while
+any Craft Anything server runs, no old Ghidra or JDK version is removed. A removal
+keeps `<data dir>/rea` or `<data dir>/craft-anything` the same way while a running
+server's environment names it. AgentPier looks again at every server start, after every
+job and every five minutes while something is left (never while a job of REA or Craft
+Anything runs), and removes the folder once its last process exited. Running processes
+are never stopped for this. When the process list cannot be read, every old folder
+stays until a later look succeeds.
 
 **The MCP server row.** REA's row is named `rea`, or `rea-agentpier` when you already
 have a server called `rea` (for example one added from the directory, which stays as it

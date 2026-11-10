@@ -1,10 +1,12 @@
 import fsp from "node:fs/promises";
+import path from "node:path";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { readJSON, writePrivate } from "../../lib/storage.js";
 import { record } from "../extensions/mcp-config.js";
 import { logFailure } from "../mcp-packages/package-install-job.js";
 import { removeReaComponent, sweepReaComponents } from "./rea-components.js";
 import { failureText } from "./rea-state.js";
+import { removedMark } from "./version-sweep.js";
 
 const messages = serverMessages.rea;
 
@@ -38,7 +40,10 @@ export async function uninstallRea(rea, { source = "user" } = {}) {
       await removeReaComponent(rea.root, "rea-ghidra", { held });
       await removeReaComponent(rea.root, "rea-jdk", { held });
     }
-    await fsp.rm(rea.directory, { recursive: true, force: true });
+    // A running server's config and home stay until it exits (VersionSweep).
+    if (!held([rea.directory]))
+      await fsp.rm(rea.directory, { recursive: true, force: true });
+    else await fsp.writeFile(path.join(rea.directory, removedMark), "");
     rea.status = "idle";
     rea.message = "";
   } catch (error) {

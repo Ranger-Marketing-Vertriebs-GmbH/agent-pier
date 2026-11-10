@@ -88,7 +88,11 @@ export function pruneInstalls(dataDir, keep, held = null) {
     const id = name.replace(/^\.stage-/, "");
     if (keep.has(id)) continue;
     const directory = path.join(root, name);
-    if (held && id === name && held([directory, fs.realpathSync(directory)])) {
+    let real = null;
+    try {
+      real = fs.realpathSync(directory);
+    } catch {}
+    if (held && id === name && held([directory, real])) {
       running += 1;
       continue;
     }
