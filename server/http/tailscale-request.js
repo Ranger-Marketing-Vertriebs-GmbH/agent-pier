@@ -1,7 +1,8 @@
 // What Tailscale Serve tells AgentPier about a request it forwards from loopback.
 // Serve sets these headers itself and drops any the client sent, so they describe
-// the tailnet device. Every Tailscale host branch (the app in security.js, previews,
-// the MCP machine path, agent hooks) reads them here instead of keeping its own copy.
+// the tailnet device. Every Tailscale host branch reads them here instead of keeping
+// its own copy: the app (security.js) and the previews require a tailnet login, the
+// machine paths (MCP, agent hooks) serve every tailnet device and refuse only Funnel.
 
 /** Whether the request came from the public internet through Tailscale Funnel. */
 export const viaFunnel = (headers) => headers["tailscale-funnel-request"] !== undefined;
