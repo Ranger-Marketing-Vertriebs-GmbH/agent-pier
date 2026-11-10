@@ -11,6 +11,8 @@ export const sessions = Object.freeze({
     "Pipeline-Stufen können in dieser Version nicht in der Sandbox laufen.",
   sandboxNotForTaskProfile:
     "Das Sandbox-Profil ist bei Starts mit Aufgabenprofil nicht verfügbar.",
+  sandboxProfilesRateLimited:
+    "Zu viele Abfragen der Sandbox-Profile. Bitte in einer Minute erneut versuchen.",
   loginNameSuffix: " · Anmeldung",
   sessionLimitReached:
     "Maximal 30 Sessions gleichzeitig. Bitte zuerst eine Session beenden.",

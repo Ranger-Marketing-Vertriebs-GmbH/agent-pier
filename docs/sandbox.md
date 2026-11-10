@@ -27,7 +27,9 @@ current: nono 0.80 and 0.81 carry security fixes, and what this guide says about
 Claude Code and Codex was checked with nono 0.79.0 and 0.81.0. The launch
 dialog shows a sandbox-profile picker backed by `GET /api/sandbox-profiles`, which
 returns `{ available: false }` when nono is not installed and otherwise the list of
-sandbox profile names nono itself reports. Choosing one sends `nonoProfile` on session
+sandbox profile names nono itself reports. The route answers at most 120 requests a
+minute (`429`, `SANDBOX_PROFILES_RATE_LIMITED` beyond that); the dialog reads it once
+each time it opens. Choosing one sends `nonoProfile` on session
 creation (`POST /api/sessions`). There is no separate boolean: the presence of
 `nonoProfile` is what enables the sandboxed session, so "sandboxed, but no sandbox
 profile" cannot be represented. AgentPier does not create or edit sandbox profiles

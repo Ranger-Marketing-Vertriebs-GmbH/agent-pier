@@ -5,7 +5,10 @@ import os from "node:os";
 import path from "node:path";
 import express from "express";
 import { applicationFixture } from "../helpers/application.js";
-import { workspaceRoutes } from "../../server/http/routes/workspace.js";
+import {
+  SANDBOX_PROFILES_PER_MINUTE,
+  workspaceRoutes,
+} from "../../server/http/routes/workspace.js";
 import { registerResponses } from "../../server/http/responses.js";
 
 // Full-application coverage (needs the real session manager, which starts a
@@ -107,4 +110,31 @@ test("the profile list names the accounts whose login a sandbox cannot read", as
     available: true,
     profiles: ["dev"],
   });
+});
+
+test("the profile list has a request ceiling far above the launch dialog's use", async () => {
+  assert.equal(SANDBOX_PROFILES_PER_MINUTE, 120);
+  const application = workspaceApp({ executable: () => null });
+  const server = application.listen(0, "127.0.0.1");
+  await new Promise((resolve) => server.once("listening", resolve));
+  const url = `http://127.0.0.1:${server.address().port}/api/sandbox-profiles`;
+  try {
+    for (let count = 0; count < SANDBOX_PROFILES_PER_MINUTE; count++)
+      assert.equal((await fetch(url)).status, 200, `request ${count + 1}`);
+    const limited = await fetch(url);
+    assert.equal(limited.status, 429);
+    assert.equal(limited.headers.get("cache-control"), "no-store");
+    assert.ok(limited.headers.get("ratelimit"), "the standard header names the limit");
+    const body = await limited.json();
+    assert.equal(body.code, "SANDBOX_PROFILES_RATE_LIMITED");
+    assert.equal(
+      body.error,
+      "Zu viele Abfragen der Sandbox-Profile. Bitte in einer Minute erneut versuchen.",
+    );
+    // Other routes of the router keep answering.
+    const other = await fetch(url.replace("sandbox-profiles", "preferences"));
+    assert.notEqual(other.status, 429);
+  } finally {
+    server.close();
+  }
 });

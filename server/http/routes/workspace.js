@@ -1,7 +1,11 @@
 import { Router } from "express";
+import { rateLimit } from "express-rate-limit";
+import { serverMessages } from "../../lib/i18n/de.js";
+import { messageIdentity } from "../../lib/i18n/message-identity.js";
 import { listDirectories, createDirectory } from "../../lib/directories.js";
 import { workspaceStateOf } from "../../features/sessions/workspace-state.js";
 import { readSandboxProfiles } from "../../features/nono/nono-profiles.js";
+export const SANDBOX_PROFILES_PER_MINUTE = 120;
 export function workspaceRoutes(services) {
   const { config, preferences, directory, nonoSandbox, accounts } = services;
   const router = Router();
@@ -10,7 +14,26 @@ export function workspaceRoutes(services) {
   router.get("/state", async (_req, res) =>
     res.json(await workspaceStateOf(services).read({ fresh: true })),
   );
-  router.get("/sandbox-profiles", async (_req, res) => {
+  // The profile list runs `nono profile list` and looks at account folders. This
+  // router is behind owner authentication, so one shared owner budget: the launch
+  // dialog reads the list once each time it opens, far below this.
+  const sandboxProfilesLimit = rateLimit({
+    windowMs: 60_000,
+    limit: SANDBOX_PROFILES_PER_MINUTE,
+    keyGenerator: () => "owner",
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    handler: (_req, res) =>
+      res
+        .status(429)
+        .set("Cache-Control", "no-store")
+        .json({
+          code: "SANDBOX_PROFILES_RATE_LIMITED",
+          error: serverMessages.sessions.sandboxProfilesRateLimited,
+          ...messageIdentity(serverMessages.sessions.sandboxProfilesRateLimited),
+        }),
+  });
+  router.get("/sandbox-profiles", sandboxProfilesLimit, async (_req, res) => {
     const executable = nonoSandbox.executable();
     if (!executable) return res.json({ available: false, profiles: [] });
     // Accounts whose login a sandboxed session cannot read (managed-logins.js).

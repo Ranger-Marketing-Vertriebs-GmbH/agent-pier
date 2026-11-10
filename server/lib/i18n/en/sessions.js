@@ -10,6 +10,8 @@ export const sessions = Object.freeze({
   sandboxNotForTaskProfile:
     "Sandbox profiles are unavailable when launching with a task profile.",
   invalidAgentBusSelection: "Invalid AgentBus selection.",
+  sandboxProfilesRateLimited:
+    "Too many requests for the sandbox profiles. Please try again in a minute.",
   loginNameSuffix: " · Sign-in",
   sessionLimitReached: "At most 30 sessions at a time. Please stop a session first.",
   stopBeforeLogin: "Please stop this account's running sessions before a new sign-in.",
