@@ -54,16 +54,41 @@ async function touchDrag(page, from, dy) {
 
 const transform = (dialog) => dialog.evaluate((element) => element.style.transform);
 
+// Back in place: the snap-back animation has finished, not just been started.
+const expectSettled = (dialog) =>
+  expect
+    .poll(() =>
+      dialog.evaluate((element) => ({
+        transform: getComputedStyle(element).transform,
+        transition: element.style.transition,
+      })),
+    )
+    .toEqual({ transform: "none", transition: "" });
+
 test("dragging a Modal's handle down closes it", async ({ page }) => {
   const dialog = await openGallery(page, "Open Modal", "Modal");
   await mouseDrag(page, await handle(dialog), 300);
   await expect(dialog).toBeHidden();
 });
 
-test("dragging a Sheet's handle down cancels it", async ({ page }) => {
+test("dragging a Sheet's handle above its title cancels it", async ({ page }) => {
   const dialog = await openGallery(page, "Open Sheet", "Sheet");
-  await mouseDrag(page, await handle(dialog), 250);
+  const grip = await handle(dialog);
+  // The handle is the dialog's own ::before, above the title.
+  const title = await dialog.getByRole("heading", { name: "Sheet" }).boundingBox();
+  expect(grip.y).toBeLessThan(title.y);
+  await mouseDrag(page, grip, 250);
   await expect(dialog).toBeHidden();
+});
+
+test("a tap on the backdrop still closes a dismissOnBackdrop Modal", async ({ page }) => {
+  for (let round = 0; round < 3; round += 1) {
+    const dialog = await openGallery(page, "Open Command palette", "Command palette");
+    const box = await dialog.boundingBox();
+    expect(box.y).toBeGreaterThan(40);
+    await page.touchscreen.tap(box.x + box.width / 2, 20);
+    await expect(dialog).toBeHidden();
+  }
 });
 
 test("a short, slow drag lets the sheet snap back", async ({ page }) => {
@@ -75,7 +100,7 @@ test("a short, slow drag lets the sheet snap back", async ({ page }) => {
     // 30% of the small gallery Modal is about 40px.
     await mouseDrag(page, await handle(dialog), 24, { hold: 250 });
     await expect(dialog).toBeVisible();
-    await expect.poll(() => transform(dialog)).toBe("");
+    await expectSettled(dialog);
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
   }
@@ -111,7 +136,7 @@ test("a busy Modal whose close button is disabled stays open", async ({ page }) 
     await expect(dialog.getByRole("button", { name: "Close dialog" })).toBeDisabled();
     await mouseDrag(page, await handle(dialog), 400);
     await expect(dialog).toBeVisible();
-    await expect.poll(() => transform(dialog)).toBe("");
+    await expectSettled(dialog);
     await expect(name).toHaveValue("Unsaved deployment key");
   } finally {
     release();
@@ -133,6 +158,19 @@ test.describe("touch on the body", () => {
     });
     return dialog;
   }
+
+  test("a touch on the backdrop neither drags the sheet nor loses its tap", async ({
+    page,
+  }) => {
+    const dialog = await openGallery(page, "Open Command palette", "Command palette");
+    const box = await dialog.boundingBox();
+    await touchDrag(page, { x: box.x + box.width / 2, y: 20 }, 200);
+    await expect(dialog).toBeVisible();
+    expect(await transform(dialog)).toBe("");
+    // A tap that wobbles by a pixel still reaches the backdrop handler.
+    await touchDrag(page, { x: box.x + box.width / 2, y: 20 }, 1);
+    await expect(dialog).toBeHidden();
+  });
 
   test("a touch drag on the handle closes the sheet", async ({ page }) => {
     const dialog = await openGallery(page, "Open Sheet", "Sheet");
