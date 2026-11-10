@@ -15,7 +15,8 @@
 //
 // One handle per folder (by path and inode) is shared by every subscriber and closed
 // with the last one; folders are capped at 256 (logged once when reached). A handle that fails, or whose folder was
-// replaced, is closed, signals and is armed again. A project whose folders cannot all
+// replaced, is closed, signals and is armed again; a re-arm that starts a watch signals
+// too, since nothing reports what changed before it. A project whose folders cannot all
 // be watched (past the cap, or refused) is never treated as watched: it signals every
 // 10 s, as the former poll read, and tries to watch again each time. A project folder
 // not made yet is awaited by a watch of the projects folder, filtered to its id.
@@ -95,6 +96,7 @@ export class AgentBusWatches {
       closed: false,
       arming: false,
       again: false,
+      watched: false,
       timer: null,
     };
     this.followers.add(follower);
@@ -205,6 +207,7 @@ export class AgentBusWatches {
         follower.releases.delete(key);
       }
     let { complete } = found;
+    let started = false;
     for (const [key, [directory, names, identity]] of wanted) {
       if (follower.releases.has(key)) continue;
       const release = this.directories.add(
@@ -213,12 +216,20 @@ export class AgentBusWatches {
         (filename, type) => this.changed(follower, filename, type),
         identity,
       );
-      if (release) follower.releases.set(key, release);
-      else {
+      if (release) {
+        follower.releases.set(key, release);
+        started = true;
+      } else {
         complete = false;
         this.reportCap();
       }
     }
+    // What changed in a folder or file before its watch started, nobody reports: a
+    // peer registered into a `peers` folder that a re-arm already running found, or
+    // a write between a failed handle and its replacement. A re-arm that starts a
+    // watch therefore signals. The first arm follows the subscriber's own read.
+    if (started && follower.watched) follower.signal();
+    follower.watched = true;
     follower.state = complete ? "armed" : "unwatched";
     if (!complete) {
       // Without a live handle for every folder: signal as the former poll read, and
