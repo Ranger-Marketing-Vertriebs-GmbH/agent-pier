@@ -301,3 +301,20 @@ test("archived chats refuse ticks; creating too many cards an hour is refused", 
     (error) => error.code === "CARD_UNAVAILABLE",
   );
 });
+
+test("listing the chat's cards leaves their ticks for the note; reading one does not", async (t) => {
+  const f = await cardsFixture(t);
+  const first = await f.turn(f.chat, "turn-1");
+  const { cardId } = await f.card(f.chat, { action: "create", ...plan });
+  f.service.cards.check(f.chat.id, cardId, {
+    version: 1,
+    block: 1,
+    item: "milk",
+    checked: true,
+  });
+  await f.card(f.chat, { action: "read" });
+  assert.match(f.service.cards.turnNote(f.chat.id).note, /ticked "Milk"/);
+  await f.card(f.chat, { action: "read", cardId });
+  assert.equal(f.service.cards.turnNote(f.chat.id), null);
+  f.settle(first);
+});

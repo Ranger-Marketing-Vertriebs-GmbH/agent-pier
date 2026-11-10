@@ -5623,7 +5623,8 @@ hands it to `AgentCards` (`agent-cards.js`).
   (`cardId`, `blocks`, optional `title`) replaces the blocks of an open card, raises its
   version and places it again at this point of the chat; `read` with a `cardId` answers
   the card with the person's ticks and her latest press, without one the chat's cards.
-  `read` and `update` mark the card seen by the agent.
+  `update` and a `read` of one card mark that card seen by the agent; the list leaves
+  ticks for the next note.
 - **Blocks and limits.** `agent-card-schema.js` checks a closed block set (`heading`,
   `text`, `metrics`, `table`, `chart` `line`/`bar`, `checklist`, `status`, `links`
   `http(s)` only, `actions`) and refuses anything else with `CARD_INVALID`, whose

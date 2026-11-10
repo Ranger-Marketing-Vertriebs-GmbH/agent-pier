@@ -149,7 +149,8 @@ export class AgentCards {
       const cards = input.cardId
         ? [this.store.inChat(conversation.id, input.cardId)]
         : this.store.forConversation(conversation.id);
-      this.store.seen(cards, at);
+      // Only a card read whole is seen; the list names titles, not ticks.
+      if (input.cardId) this.store.seen(cards, at);
       return input.cardId
         ? { status: "ok", card: cardView(cards[0]) }
         : {
