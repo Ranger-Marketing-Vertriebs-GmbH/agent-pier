@@ -379,10 +379,8 @@ export class RequestBroker {
       () => false,
     );
     if (!(await socket.verified)) throw Error("Native owner unavailable");
-    // Only Claude Code reports MessageDisplay batches; only OpenCode a tool it
-    // prepares (Claude Code's bridge mod reports that itself).
+    // Only a Claude Code owner reports MessageDisplay batches.
     if (push.type === "claude-display" && owner.tool !== "claude") return;
-    if (push.type === "preparing" && owner.tool !== "opencode") return;
     if (push.type === "stream") {
       socket.runs ??= new Set();
       socket.runs.add(push.runId);
