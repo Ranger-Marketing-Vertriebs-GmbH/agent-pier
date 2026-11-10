@@ -30,7 +30,11 @@ import {
   reaComponentIds,
   removeReaComponent,
 } from "./rea-components.js";
-import { VersionSweep } from "./version-sweep.js";
+import {
+  VersionSweep,
+  craftServersHoldGhidra,
+  removeToolFolder,
+} from "./version-sweep.js";
 import { runningCommandLines } from "../../lib/process-commands.js";
 import { failureText, keyed, queueSync, reaComponentStates } from "./rea-state.js";
 import { run as defaultRun } from "./tool-run.js";
@@ -108,6 +112,9 @@ export class CraftTool {
       ids: reaComponentIds,
       commandLines,
       onChange: () => this.changed(),
+      also: craftServersHoldGhidra(dataDir),
+      busy: () => !!this.job || this.claimed || this.othersBusy(),
+      leftovers: (held) => removeToolFolder(this, held),
     });
   }
   host() {

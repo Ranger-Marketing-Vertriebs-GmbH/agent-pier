@@ -17,7 +17,11 @@ import {
   placeGhidra,
   removeReaComponent,
 } from "./rea-components.js";
-import { VersionSweep } from "./version-sweep.js";
+import {
+  VersionSweep,
+  craftServersHoldGhidra,
+  removeToolFolder,
+} from "./version-sweep.js";
 import { runningCommandLines } from "../../lib/process-commands.js";
 import {
   cleanReaSettings,
@@ -44,13 +48,10 @@ const flag = (value, fallback) => (typeof value === "boolean" ? value : fallback
  * managed MCP row, the pinned Ghidra and JDK beside it, frida's prebuild inside Core
  * and REA's skill in the bound CLIs' profiles. One REA job runs at a time; what it
  * does lands in state().step and state().message. Changes are refused only while
- * `inUse()` says so; nothing assigns it, as AgentPier sees no call in flight of a
- * session's REA, and an idle one never blocks. An update installs beside the old
- * version: a folder a running process still uses stays until it exits (VersionSweep
- * here, McpPackages.prune for Core). Ghidra and the JDK are shared with Craft
- * Anything; the wiring's hooks `keepsGhidra` (it wants them), `othersUseGhidra` (its
- * rebuild runs them) and `othersBusy` (its job runs) keep REA from removing, replacing
- * or racing them.
+ * `inUse()` (unassigned: a session's idle REA never blocks). Old version folders a
+ * process uses stay until it exits (VersionSweep; McpPackages.prune for Core). Ghidra
+ * and the JDK are shared with Craft Anything: `keepsGhidra`, `othersUseGhidra` and
+ * `othersBusy` keep REA from removing, replacing or racing them.
  */
 export class ReaTool {
   constructor({
@@ -113,6 +114,9 @@ export class ReaTool {
       ids: ["rea-ghidra", "rea-jdk"],
       commandLines,
       onChange: () => this.changed(),
+      also: craftServersHoldGhidra(dataDir),
+      busy: () => !!this.job || this.claimed || this.othersBusy(),
+      leftovers: (held) => removeToolFolder(this, held),
     });
   }
   host() {

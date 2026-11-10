@@ -169,6 +169,8 @@ export class CraftRebuilds {
   async start(input, { source = "owner" } = {}) {
     if (this.closing) throw refuse(messages.rebuildsStopping);
     if (!this.craft.state().installed) throw refuse(messages.notInstalled);
+    // An update or a change of Craft Anything runs: its files may be switching.
+    if (this.craft.job) throw refuse(messages.busy);
     const requestId = cleanRequestId(input?.requestId);
     if (requestId) {
       const known = this.startedWith(source, requestId);

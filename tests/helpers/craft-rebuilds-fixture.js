@@ -211,5 +211,6 @@ export function rebuildsFixture(
     create,
     rebuilds: create(),
     craftRecord,
+    craft,
   };
 }
