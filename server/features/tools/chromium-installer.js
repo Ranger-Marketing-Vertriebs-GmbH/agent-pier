@@ -214,6 +214,10 @@ async function checkBrowser({
         "--no-first-run",
         "--no-default-browser-check",
         "--disable-gpu",
+        // Chrome 157 on macOS waits on the login Keychain while it shuts down, until
+        // its teardown watchdog ends it with exit code 2 after 10 s; the agents'
+        // browsers use the mock keychain as well (chromium-launch.js).
+        "--use-mock-keychain",
         "--dump-dom",
         "about:blank",
       ],
