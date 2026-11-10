@@ -47,6 +47,17 @@ only missing registration triggers process verification again. The host supplies
 its Node executable for MCP launches, independently of OpenCode's compiled runtime. Notices never contain message bodies
 and never read or acknowledge the inbox automatically.
 
+## Tool approvals
+
+AgentBus offers three tools: `peers_list`, `inbox_read` and `peer_send`. In a
+Claude Code session started with AgentBus, AgentPier answers the permission
+requests for the two that only read (`peers_list`, `inbox_read`) with "allow once"
+itself, recorded as `allow-default`; `peer_send` shows its approval card. The
+names come from `server/features/agentbus/agentbus-names.js`, which the plugin
+registration and the default list share; see
+[Remembered and default approvals](inbox.md#remembered-and-default-approvals).
+Codex approves MCP tools in its own terminal. OpenCode sessions are unchanged.
+
 ## Durable delivery
 
 AgentPier uses its built-in Node SQLite driver with one database per project under

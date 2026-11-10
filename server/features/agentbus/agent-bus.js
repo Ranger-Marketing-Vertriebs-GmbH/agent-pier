@@ -20,6 +20,7 @@ import { classifyProjectFolder, runWorktreeRoot } from "../memory/project-folder
 import { AGENTBUS_VERSION as VERSION, trustedPeers } from "./agentbus-runtime.js";
 import { cliDriver } from "../clis/drivers.js";
 import { cliDefinition, isCodingCli } from "../clis/catalog.js";
+import { agentBusPluginName, agentBusServerName } from "./agentbus-names.js";
 
 const adapters = fileURLToPath(new URL("./", import.meta.url));
 
@@ -126,7 +127,7 @@ export class AgentBus {
     };
     Object.assign(env, bridgeEnv);
     const server = {
-      name: "agentpier_agentbus",
+      name: agentBusServerName,
       command: process.execPath,
       args: [mcp],
       env: bridgeEnv,
@@ -147,7 +148,7 @@ export class AgentBus {
           return plugin;
         },
         manifest: {
-          name: "agentpier-agentbus",
+          name: agentBusPluginName,
           version: "1.0.0",
           description: "AgentBus for this AgentPier session",
           license: "MIT",

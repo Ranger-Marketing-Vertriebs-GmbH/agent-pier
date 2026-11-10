@@ -11,6 +11,7 @@ import {
   startPlace,
 } from "./approval-place.js";
 import { touchesSecret } from "./secret-names.js";
+import { agentBusReadTools, claudeAgentBusTool } from "../agentbus/agentbus-names.js";
 
 export { touchesSecret };
 
@@ -35,6 +36,10 @@ export { touchesSecret };
 export const DEFAULT_ALLOWED = Object.freeze({
   // Claude Code tools by name.
   claudeTools: Object.freeze(["EnterWorktree", "ExitWorktree"]),
+  // The AgentBus tools that only read (`peers_list`, `inbox_read`) under the full
+  // names Claude Code gives them, in a session that runs with AgentBus. `peer_send`
+  // asks. See defaultClaudeTool for what such a name says about its origin.
+  claudeAgentBusTools: Object.freeze(agentBusReadTools.map(claudeAgentBusTool)),
   // Read-only git subcommands with the options of git-read-options.js, in the
   // project only. `git branch` only lists (no names, no -d/-m/-c); `git fetch`
   // names a remote, never a path or URL.
@@ -59,6 +64,30 @@ export const DEFAULT_ALLOWED = Object.freeze({
   // project, without npm options that choose another folder, shell or configuration.
   npmScripts: Object.freeze([/^test/, /^lint$/, /^check$/]),
 });
+
+/**
+ * Whether a Claude Code tool other than the shell is on the default list. Names
+ * are compared whole; no prefix or suffix of a name counts. Only Claude Code has
+ * such tools (the caller checks the CLI): Codex approves MCP tools in its own
+ * terminal, and OpenCode's names for them are not on the list.
+ *
+ * An AgentBus name counts only when the session was started with AgentBus
+ * (`agentBus`). Claude Code builds `mcp__plugin_<plugin>_<server>__<tool>` from the
+ * plugin's manifest name and its server's name, and AgentPier passes that plugin
+ * with `--plugin-dir`; a server from a project's `.mcp.json` or another plugin gets
+ * another name (`mcp__other__inbox_read`). The name is still only what Claude Code
+ * reports, not proof of origin: whoever can configure the session's Claude Code
+ * could give another plugin and server the same two names, or name a server
+ * `plugin_<plugin>_<server>`. That takes control over the session's own
+ * configuration, and the calls it would let through carry no command or path.
+ */
+export function defaultClaudeTool(tool, { agentBus = false } = {}) {
+  if (typeof tool !== "string") return false;
+  return (
+    DEFAULT_ALLOWED.claudeTools.includes(tool) ||
+    (agentBus === true && DEFAULT_ALLOWED.claudeAgentBusTools.includes(tool))
+  );
+}
 
 /**
  * Whether `git [-C <dir>]… <subcommand> <arguments>` only reads, in a repository

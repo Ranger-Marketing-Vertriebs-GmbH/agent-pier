@@ -49,6 +49,101 @@ test("a default-allowed command and tool are answered without a card", async (t)
   );
 });
 
+const agentBus = (name) =>
+  tool(`mcp__plugin_agentpier-agentbus_agentpier_agentbus__${name}`);
+
+test("the AgentBus tools that only read need no card; sending asks", async (t) => {
+  const f = await fixture(t);
+  f.session.agentbus = { enabled: true };
+  for (const name of ["peers_list", "inbox_read"]) {
+    const run = hook(f, agentBus(name), { timeout: 20_000 });
+    await run.done;
+    assert.deepEqual(JSON.parse(run.output()).hookSpecificOutput, allowOutput, name);
+  }
+  assert.equal((await state(f)).requests.length, 0);
+  assert.deepEqual(
+    answered(f).map((event) => [event.details.decision, event.details.auto]),
+    [
+      ["allow-default", true],
+      ["allow-default", true],
+    ],
+  );
+  assert.equal(
+    f.events.some((event) => event.action === "request.created"),
+    false,
+  );
+  for (const payload of [
+    agentBus("peer_send"),
+    tool("mcp__other__inbox_read"),
+    tool("mcp__plugin_agentpier-agentbus_other__inbox_read"),
+  ]) {
+    const run = hook(f, payload, { timeout: 20_000 });
+    const request = await pending(f);
+    assert.equal(request.subject.tool, payload.tool_name);
+    await f.broker.answer("session", request.id, {
+      expectedRevision: 1,
+      choice: "allow",
+    });
+    await run.done;
+  }
+  assert.deepEqual(
+    answered(f)
+      .slice(2)
+      .map((event) => [event.details.decision, event.details.auto ?? false]),
+    [
+      ["allow", false],
+      ["allow", false],
+      ["allow", false],
+    ],
+  );
+});
+
+test("only Claude sessions get the AgentBus default", async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "agentpier-approvals-"));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const approvals = new RequestApprovals({
+    directory,
+    scope: async () => ({ id: "project-1" }),
+  });
+  const session = { id: "s-1", cwd: "/work/repo", agentbus: { enabled: true } };
+  const request = (source, name) => ({
+    kind: "permission",
+    source,
+    subject: { tool: name },
+    options: [{ id: "once", label: "Once", scope: "once" }],
+  });
+  const claudeName = agentBus("inbox_read").tool_name;
+  assert.deepEqual(await approvals.prepare(request("claude", claudeName), session), {
+    choice: "once",
+    decision: "allow-default",
+  });
+  for (const [source, name] of [
+    ["opencode", claudeName],
+    ["opencode", "agentpier_agentbus_inbox_read"],
+    ["codex", claudeName],
+  ])
+    assert.equal(await approvals.prepare(request(source, name), session), null, name);
+});
+
+test("a session without AgentBus asks for a tool with an AgentBus name", async (t) => {
+  const f = await fixture(t);
+  for (const agentbus of [undefined, { enabled: false }]) {
+    f.session.agentbus = agentbus;
+    const run = hook(f, agentBus("inbox_read"), { timeout: 20_000 });
+    const request = await pending(f);
+    assert.equal(request.subject.tool, agentBus("inbox_read").tool_name);
+    await f.broker.answer("session", request.id, {
+      expectedRevision: 1,
+      choice: "allow",
+    });
+    await run.done;
+  }
+  assert.equal(
+    answered(f).some((event) => event.details.decision === "allow-default"),
+    false,
+  );
+});
+
 test("a command allowed for the session is answered for it from then on", async (t) => {
   const f = await fixture(t);
   const first = hook(f, bash("rm -rf build && git push origin main"), {

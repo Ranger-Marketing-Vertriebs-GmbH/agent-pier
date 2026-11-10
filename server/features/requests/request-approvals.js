@@ -8,7 +8,7 @@ import { shellSegments, programKey } from "./shell-command.js";
 import { isCodingCli } from "../clis/catalog.js";
 import { cliDriver } from "../clis/drivers.js";
 import {
-  DEFAULT_ALLOWED,
+  defaultClaudeTool,
   defaultSegments,
   secretCommand,
   touchesSecret,
@@ -121,9 +121,10 @@ export class RequestApprovals {
    * list does not cover: `{ program }` (`git push`), or `{ command }` with the exact
    * words when it touches a secret. For another tool, `[{}]` (the tool), or
    * `[{ command: path }]` for a secret path. Null when the request cannot be
-   * remembered or answered automatically. `place` is where the command runs.
+   * remembered or answered automatically. `place` is where the command runs;
+   * `session` says whether it runs with AgentBus (defaultClaudeTool).
    */
-  subject(entry, place) {
+  subject(entry, place, session) {
     const cli = entry.source;
     const tool = entry.subject?.tool;
     if (
@@ -139,7 +140,9 @@ export class RequestApprovals {
       const target = entry.subject.path;
       if (typeof target === "string" && touchesSecret([target]))
         return { cli, tool, needs: [{ command: target }], builtIn: false };
-      const builtIn = cli === "claude" && DEFAULT_ALLOWED.claudeTools.includes(tool);
+      const builtIn =
+        cli === "claude" &&
+        defaultClaudeTool(tool, { agentBus: session?.agentbus?.enabled === true });
       return { cli, tool, needs: [{}], builtIn };
     }
     const segments = shellSegments(entry.subject.command);
@@ -172,7 +175,7 @@ export class RequestApprovals {
    */
   async prepare(entry, session) {
     const { id: projectId, roots } = await this.project(session);
-    const subject = this.subject(entry, this.place(entry, session, roots));
+    const subject = this.subject(entry, this.place(entry, session, roots), session);
     if (!subject) return null;
     const choice = allowOnce(entry);
     if (subject.builtIn) return { choice, decision: "allow-default" };

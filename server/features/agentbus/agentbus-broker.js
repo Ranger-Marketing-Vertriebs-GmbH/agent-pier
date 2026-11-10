@@ -20,6 +20,7 @@ import {
   unregister,
 } from "./agentbus-runtime.js";
 import { toolsFor } from "../../../vendor/agentbus/agentpier/runtime.js";
+import { agentBusServerName } from "./agentbus-names.js";
 import { resolvePeer } from "../../../vendor/agentbus/core/peers.js";
 import { createMessage } from "../../../vendor/agentbus/core/message.js";
 import { nudgeText } from "../../../vendor/agentbus/core/nudge.js";
@@ -439,7 +440,7 @@ export class AgentBusBroker {
               ? params.protocolVersion
               : "2025-11-25",
             capabilities: { tools: {} },
-            serverInfo: { name: "agentpier_agentbus", version: "2.0.0" },
+            serverInfo: { name: agentBusServerName, version: "2.0.0" },
             instructions: intro,
           });
         case "ping":
