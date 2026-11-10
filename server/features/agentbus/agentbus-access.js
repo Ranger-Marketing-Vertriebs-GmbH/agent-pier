@@ -16,6 +16,33 @@ export const busId = (id) => {
   return id;
 };
 const hash = (token) => createHash("sha256").update(token).digest("hex");
+const unavailable = () => Error("AgentBus access unavailable.");
+/**
+ * What the server later runs, reads a secret from or proves a process with. The
+ * launch record under `projects/<id>/launches` lies in the folder a sandboxed
+ * session may write, so these come from the server-only copy in `active.json`.
+ */
+const PINNED = [
+  "cwd",
+  "projectCwd",
+  "command",
+  "runtimeInterpreter",
+  "node",
+  "codexHome",
+  "claudeSessionsDir",
+];
+const text = (value) => typeof value === "string" && value !== "";
+function pinned(launch) {
+  const copy = {};
+  for (const key of PINNED) if (launch[key] != null) copy[key] = launch[key];
+  if (
+    !text(copy.cwd) ||
+    !path.isAbsolute(copy.cwd) ||
+    Object.values(copy).some((value) => !text(value))
+  )
+    throw unavailable();
+  return copy;
+}
 export class AgentBusAccess {
   constructor(bus) {
     this.bus = bus;
@@ -52,6 +79,7 @@ export class AgentBusAccess {
       tool: launch.tool,
       generation: randomUUID(),
       tokenHash: hash(token),
+      launch: pinned(launch),
     };
     writePrivateJson(path.join(folder, "active.json"), record);
     writePrivateJson(path.join(folder, "capability.json"), {
@@ -65,7 +93,9 @@ export class AgentBusAccess {
   record(id) {
     if (this.revoked.has(id)) throw Error("AgentBus access unavailable.");
     const folder = this.folder(id);
-    const record = JSON.parse(privateFile(path.join(folder, "active.json")));
+    const record = JSON.parse(
+      privateFile(path.join(folder, "active.json"), { max: 65536 }),
+    );
     if (
       record.id !== id ||
       !/^[a-f0-9]{64}$/.test(record.projectId) ||
@@ -73,9 +103,27 @@ export class AgentBusAccess {
     )
       throw Error("AgentBus access unavailable.");
     const h = path.join(this.bus.root, "projects", record.projectId);
-    const launch = loadLaunch(h, id);
-    if (launch.accountId !== record.accountId || launch.tool !== record.tool)
-      throw Error("AgentBus access unavailable.");
+    const written = loadLaunch(h, id);
+    if (written.accountId !== record.accountId || written.tool !== record.tool)
+      throw unavailable();
+    // A session launched before the server kept its own copy: take the record as it
+    // is now, once, and keep it; later changes to the record no longer count.
+    if (!record.launch) {
+      record.launch = pinned(written);
+      writePrivateJson(path.join(folder, "active.json"), record);
+    }
+    const trusted = pinned(record.launch);
+    // Peers are matched against the written folder; a record that names another one
+    // no longer describes this session.
+    if (written.cwd !== trusted.cwd) throw unavailable();
+    const launch = {
+      id: record.id,
+      projectId: record.projectId,
+      accountId: record.accountId,
+      tool: record.tool,
+      ...(written.createdAt ? { createdAt: written.createdAt } : {}),
+      ...trusted,
+    };
     return { record, launch, h };
   }
   check(credential) {

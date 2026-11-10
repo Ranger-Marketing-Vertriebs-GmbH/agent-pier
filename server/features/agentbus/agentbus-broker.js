@@ -261,7 +261,9 @@ export class AgentBusBroker {
     if (!trustedPeers(ctx.h).some((peer) => peer.alive && samePeer(peer, target)))
       return false;
     if (!this.bus.queue(ctx.h).summary(target.key).count) return false;
-    return trustedNudge(ctx.h, target, text, from.name, {
+    // What the wake runs or reads comes from the server's own copy of the launch.
+    const { launch } = this.access.record(target.agentpierSessionId);
+    return trustedNudge(ctx.h, launch, target, text, from.name, {
       signal,
       fromMode,
       exec: (command, args, options) =>

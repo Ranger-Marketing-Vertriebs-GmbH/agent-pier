@@ -10,3 +10,5 @@ AgentPier send budgets read sender, pair and reply-chain counts from the queue (
 The legacy vendored send path (`core/send.js`, used by `mcp/tools.js` and the standalone `agentpier/mcp.js` server) is not budgeted; only pre-broker processes use it. Current sessions send through the AgentPier broker.
 
 AgentPier Claude wakes attest the sending session's permission class (`from-mode` `bypass` or `prompting`) instead of a fixed `prompting`, because Claude Code holds cross-session messages whose class differs from its own.
+
+The AgentPier broker no longer wakes peers through the vendored `trustedNudge` (`agentpier/runtime.js`), which reads the Codex binary, the Codex home and the Claude sessions folder from the launch record in the project's bus folder. It uses its own `trustedNudge` in `server/features/agentbus/agentbus-runtime.js` with the launch the server keeps for itself (`sessions/<id>/active.json`). The vendored function is unchanged and only the legacy in-session helpers use it.
