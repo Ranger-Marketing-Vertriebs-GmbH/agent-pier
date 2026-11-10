@@ -217,3 +217,74 @@ test("the sidebar shows the sandbox-profile badge only for a sandboxed session",
   await expect(row("Sandboxed Session")).toContainText("Sandbox · default");
   await expect(row("Plain Session")).not.toContainText("Sandbox");
 });
+
+// A login kept in the macOS keychain cannot be read inside a sandbox. The server
+// names those accounts with the profile list; the dialog says so once a profile is
+// chosen, and stays quiet for an account whose login is in its folder.
+async function hiddenLoginFixture(page) {
+  await page.route("**/api/state", (route) =>
+    route.fulfill({
+      json: {
+        tools: [{ id: "claude", installed: true, name: "Claude Code" }],
+        accounts: [
+          { id: "local-claude", tool: "claude", name: "Claude Lokal", kind: "local" },
+          { id: "pending", tool: "claude", name: "Claude Alt", kind: "managed" },
+          { id: "settled", tool: "claude", name: "Claude Neu", kind: "managed" },
+        ],
+        sessions: [],
+        home: "/home/test",
+        remoteUrl: null,
+      },
+    }),
+  );
+  await page.route("**/api/sandbox-profiles", (route) =>
+    route.fulfill({
+      json: {
+        available: true,
+        profiles: ["default"],
+        hiddenLogins: { "local-claude": "local", pending: "pending" },
+      },
+    }),
+  );
+  await page.goto(base);
+  await openNewSession(page);
+  return page.getByRole("dialog");
+}
+
+test("the launch dialog says when the sandbox cannot read the account's sign-in", async ({
+  page,
+}) => {
+  const dialog = await hiddenLoginFixture(page);
+  const local = dialog.getByText(
+    /Die Sandbox kann die Anmeldung dieses Accounts nicht lesen/,
+  );
+  const pending = dialog.getByText(/liegt noch im macOS-Schlüsselbund/);
+  const access = dialog.getByLabel("Zugang", { exact: true });
+  await access.selectOption("local-claude");
+  // Without a sandbox there is nothing to warn about.
+  await expect(local).toHaveCount(0);
+  await dialog.getByLabel("Sandbox-Profil", { exact: true }).selectOption("default");
+  await expect(local).toBeVisible();
+  await expect(local).toContainText("Die Session startet abgemeldet.");
+  await access.selectOption("pending");
+  await expect(local).toHaveCount(0);
+  await expect(pending).toBeVisible();
+  await expect(pending).toContainText("sobald keine Session dieses Accounts läuft");
+  await access.selectOption("settled");
+  await expect(pending).toHaveCount(0);
+  await expect(local).toHaveCount(0);
+});
+
+test("the hidden sign-in notes are available in English", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
+  const dialog = await hiddenLoginFixture(page);
+  await dialog.getByLabel("Connection", { exact: true }).selectOption("local-claude");
+  await dialog.getByLabel("Sandbox profile", { exact: true }).selectOption("default");
+  await expect(
+    dialog.getByText(/The sandbox cannot read this account's sign-in/),
+  ).toBeVisible();
+  await dialog.getByLabel("Connection", { exact: true }).selectOption("pending");
+  await expect(
+    dialog.getByText(/still in the macOS keychain, which the sandbox cannot read/),
+  ).toBeVisible();
+});

@@ -3,7 +3,7 @@ import { listDirectories, createDirectory } from "../../lib/directories.js";
 import { workspaceStateOf } from "../../features/sessions/workspace-state.js";
 import { readSandboxProfiles } from "../../features/nono/nono-profiles.js";
 export function workspaceRoutes(services) {
-  const { config, preferences, directory, nonoSandbox } = services;
+  const { config, preferences, directory, nonoSandbox, accounts } = services;
   const router = Router();
   // The live `state` topic pushes the same value. A REST read is an explicit one (a
   // refresh after a write, `stale`, the fallback), so it detects the CLIs again.
@@ -13,7 +13,13 @@ export function workspaceRoutes(services) {
   router.get("/sandbox-profiles", async (_req, res) => {
     const executable = nonoSandbox.executable();
     if (!executable) return res.json({ available: false, profiles: [] });
-    res.json({ available: true, profiles: await readSandboxProfiles({ executable }) });
+    // Accounts whose login a sandboxed session cannot read (managed-logins.js).
+    const hidden = accounts?.hiddenLogins() || {};
+    res.json({
+      available: true,
+      profiles: await readSandboxProfiles({ executable }),
+      ...(Object.keys(hidden).length ? { hiddenLogins: hidden } : {}),
+    });
   });
   router.get("/preferences", (_req, res) => res.json(preferences.get()));
   router.patch("/preferences", async (req, res) => {

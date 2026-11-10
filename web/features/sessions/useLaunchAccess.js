@@ -49,6 +49,7 @@ export default function useLaunchAccess(state, initialTool, initialProfile) {
     [query, setQuery] = useState(""),
     [sandboxProfiles, setSandboxProfiles] = useState([]),
     [sandboxAvailable, setSandboxAvailable] = useState(false),
+    [hiddenLogins, setHiddenLogins] = useState({}),
     [nonoProfile, setNonoProfile] = useState(null);
   useEffect(() => {
     const controller = new AbortController();
@@ -56,6 +57,7 @@ export default function useLaunchAccess(state, initialTool, initialProfile) {
       .then((result) => {
         setSandboxAvailable(Boolean(result.available));
         setSandboxProfiles(result.profiles || []);
+        setHiddenLogins(result.hiddenLogins || {});
       })
       .catch(() => {});
     return () => controller.abort();
@@ -112,6 +114,7 @@ export default function useLaunchAccess(state, initialTool, initialProfile) {
     ready,
     sandboxProfiles,
     sandboxAvailable,
+    hiddenLogins,
     nonoProfile,
     setNonoProfile,
     body: connection

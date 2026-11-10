@@ -49,6 +49,10 @@ export const launchDialogCopy = {
     "The sandbox profile is unavailable for task-profile launches.",
   sandboxHint:
     "The session's coding CLI runs inside nono with this sandbox profile. AgentPier adds the access its own integrations need.",
+  sandboxLoginLocal:
+    "The sandbox cannot read this account's sign-in: Claude Code keeps it in the macOS keychain, which no sandbox profile may open. The session will start signed out. For sandboxed sessions, use a Claude account with a separate profile.",
+  sandboxLoginPending:
+    "This account's sign-in is still in the macOS keychain, which the sandbox cannot read. AgentPier moves it into the account's folder as soon as no session of this account is running. Stop the account's sessions, then start this one.",
   sandboxBadge: (sandboxProfile) => `Sandbox · ${sandboxProfile}`,
 };
 export const sessionWorkspaceCopy = {

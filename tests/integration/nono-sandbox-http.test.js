@@ -32,10 +32,10 @@ test("a non-string sandbox profile is rejected", async (t) => {
 
 // Route-level coverage against a stubbed nonoSandbox service, independent of
 // the session manager: deterministic even on a host with nono on PATH.
-function workspaceApp(nonoSandbox) {
+function workspaceApp(nonoSandbox, accounts) {
   const application = express();
   application.use(express.json());
-  application.use("/api", workspaceRoutes({ nonoSandbox }));
+  application.use("/api", workspaceRoutes({ nonoSandbox, accounts }));
   registerResponses(application);
   return application;
 }
@@ -82,4 +82,29 @@ test("sandbox profiles are listed by name when nono is detected", async (t) => {
   assert.equal(status, 200);
   assert.equal(body.available, true);
   assert.deepEqual(body.profiles, ["dev", "ci"]);
+});
+
+test("the profile list names the accounts whose login a sandbox cannot read", async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "agentpier-nono-http-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const fakeNono = path.join(root, "nono");
+  fs.writeFileSync(fakeNono, '#!/bin/sh\necho "    dev  development  extends base"\n', {
+    mode: 0o700,
+  });
+  const hidden = { "local-claude": "local", "account-1": "pending" };
+  const listed = workspaceApp(
+    { executable: () => fakeNono },
+    { hiddenLogins: () => hidden },
+  );
+  assert.deepEqual((await get(listed, "/api/sandbox-profiles")).body, {
+    available: true,
+    profiles: ["dev"],
+    hiddenLogins: hidden,
+  });
+  // Nothing hidden: the answer keeps its two fields.
+  const none = workspaceApp({ executable: () => fakeNono }, { hiddenLogins: () => ({}) });
+  assert.deepEqual((await get(none, "/api/sandbox-profiles")).body, {
+    available: true,
+    profiles: ["dev"],
+  });
 });
