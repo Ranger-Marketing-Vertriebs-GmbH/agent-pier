@@ -55,6 +55,7 @@ export class CraftRebuilds {
     // Pictures waiting for a start or follow-up; an earlier process's leftovers go.
     this.pictures = new RebuildPictures({ dataDir });
     this.pictures.clear();
+    this.pictures.start();
     const saved = this.store.load();
     this.saved = saved.settings;
     this.records = new Map(saved.records.map((item) => [item.id, item]));
@@ -370,6 +371,7 @@ export class CraftRebuilds {
   async close() {
     this.closing = true;
     this.sampler.stop();
+    this.pictures.stop();
     this.pictures.clear();
     await this.children.close((key) =>
       this.runningOn(key)

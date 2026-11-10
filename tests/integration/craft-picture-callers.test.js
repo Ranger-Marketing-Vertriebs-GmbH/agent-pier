@@ -16,6 +16,8 @@ import { pictureLimits } from "../../server/features/craft/rebuild-pictures.js";
 import { agentProjectFixture } from "../helpers/agent-project-fixture.js";
 import { rebuildsFixture } from "../helpers/craft-rebuilds-fixture.js";
 import { png } from "../helpers/craft-pictures.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
+import { readTurnFile } from "../../server/features/assistants/agent-shares.js";
 
 // Pictures a session (craft_rebuild_start) or an agent (agentpier_craft) names: only
 // files it may already read, copied and checked by their bytes before Craft Anything
@@ -44,6 +46,7 @@ function folders(t) {
   fs.writeFileSync(path.join(cwd, "shots", "home.png"), png());
   fs.writeFileSync(path.join(cwd, ".git", "a.png"), png());
   fs.writeFileSync(path.join(cwd, "notes.txt"), "not a picture");
+  fs.writeFileSync(path.join(cwd, "empty.png"), "");
   fs.writeFileSync(path.join(outside, "secret.png"), png());
   fs.writeFileSync(path.join(dataDir, "owner.png"), png());
   fs.symlinkSync(path.join(outside, "secret.png"), path.join(cwd, "link.png"));
@@ -76,6 +79,11 @@ test("a session reads pictures only from its own folder, never through a link", 
   for (const [code, list] of Object.entries(cases))
     for (const entry of list)
       assert.equal(await codeOf(stage(["shots/home.png", entry])), code, entry);
+  // An empty file says so, not that it is no picture.
+  await assert.rejects(stage(["empty.png"]), {
+    code: "CRAFT_PICTURE_INVALID",
+    message: serverMessages.craft.rebuildPictureEmpty,
+  });
   // A session that works inside AgentPier's data directory reads nothing there.
   const inside = path.join(f.dataDir, "work");
   fs.mkdirSync(inside);
@@ -217,6 +225,48 @@ test("agentpier_craft refuses pictures the agent may not read", async (t) => {
       : [],
     [],
   );
+});
+
+test("a shared agent reads only this chat's uploads, and agentpier_craft refuses it", async (t) => {
+  const f = await agentFixture(t);
+  f.setAgent("userAccess", { mode: "shared", userIds: ["u"] });
+  const agent = f.assistants.store.getAssistant(f.id);
+  const conversation = f.assistants.store.getConversation(f.channel.conversationId);
+  const uploads = path.join(f.workspace, "attachments");
+  fs.mkdirSync(uploads);
+  const insert = f.assistants.store.db.prepare(
+    "INSERT INTO agent_attachments (id,assistant_id,conversation_id,request_id,body,created_at) VALUES (?,?,?,?,?,?)",
+  );
+  const other = f.assistants.store.saveConversation({
+    assistantId: f.id,
+    runtimeSessionKey: `agent:${f.id}:other-chat`,
+  });
+  for (const [id, chat, file] of [
+    ["a1", conversation.id, "mine.png"],
+    ["a2", other.id, "theirs.png"],
+  ]) {
+    fs.writeFileSync(path.join(uploads, file), png());
+    insert.run(id, f.id, chat, null, JSON.stringify({ file }), Date.now());
+  }
+  const inv = await f.invocation(randomUUID());
+  const stage = (file) =>
+    stagePictures(f.r.rebuilds.pictures, [{ path: `attachments/${file}` }], (entry) =>
+      readTurnFile(f.assistants, inv, agent, conversation, entry),
+    );
+  const mine = await stage("mine.png");
+  assert.equal(mine.length, 1);
+  f.r.rebuilds.pictures.release(mine);
+  assert.equal(await codeOf(stage("theirs.png")), "CRAFT_PICTURE_NOT_FOUND");
+  // The tool itself stays with the owner's own agents.
+  assert.equal(
+    await f.code({
+      action: "start",
+      request: "X",
+      pictures: [{ path: "attachments/theirs.png" }],
+    }),
+    "FORBIDDEN",
+  );
+  assert.equal(f.r.rebuilds.list().length, 0);
 });
 
 test("the plugin offers pictures within the server's limits", () => {

@@ -109,7 +109,8 @@ export function craftRebuilds() {
  * Routes `/api/**` of `page`. Options: `installed` (Craft Anything installed),
  * `rebuilds` (the list), `language`. Returns the state: `rebuilds`, `settings`,
  * `pictures` (uploaded picture bytes by id) and `calls` (every request the app made,
- * `{ path, method, body }`); setting `activity`
+ * `{ path, method, body }`); setting `failUpload(bytes)` fails a picture's upload
+ * while it answers true, `activity`
  * (lines) or `activityFails` changes what the activity route answers.
  */
 export async function craftRebuildsFixture(
@@ -149,10 +150,20 @@ export async function craftRebuildsFixture(
     // A picture's raw bytes: staged under a new id (`state.pictures`: id → bytes).
     if (path === "/craft/pictures" && method === "POST") {
       const bytes = request.postDataBuffer();
+      if (state.failUpload?.(bytes)) {
+        state.calls.push({ path, method, body: { failed: true } });
+        return json({ error: "The upload failed." }, 503);
+      }
       const id = (state.pictures.size + 1).toString(16).padStart(32, "0");
       state.pictures.set(id, bytes);
       state.calls.push({ path, method, body: { bytes: bytes.length } });
       return json({ id, type: "image/png", bytes: bytes.length }, 201);
+    }
+    const dropped = /^\/craft\/pictures\/([^/]+)$/.exec(path);
+    if (dropped && method === "DELETE") {
+      state.pictures.delete(dropped[1]);
+      state.calls.push({ path, method, body: null });
+      return route.fulfill({ status: 204 });
     }
     const body = ["POST", "PUT"].includes(method) ? request.postDataJSON() : null;
     if (!isLiveStubRequest(request)) state.calls.push({ path, method, body });

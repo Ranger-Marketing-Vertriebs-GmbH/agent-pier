@@ -35,22 +35,48 @@ export async function uploadPicture(file, signal) {
   return (await response.json()).id;
 }
 
+/** Drops a staged picture the form no longer sends (DELETE /api/craft/pictures/:id). */
+export function dropPicture(id) {
+  // keepalive: also while the page goes away.
+  fetch(`/api/craft/pictures/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    keepalive: true,
+  })
+    .then(observeBuild)
+    .catch(() => {});
+}
+
 let next = 0;
 
 /**
  * The pictures picked for the next start or follow-up, kept in the browser until it
- * is sent: `{ items, error, add(files), remove(key), clear(), upload() }`, shaped for
- * AgentAttachmentTray. `upload()` sends them one by one and resolves their ids.
+ * is sent: `{ items, error, add(files), remove(key), clear(), upload(), sent() }`,
+ * shaped for AgentAttachmentTray. `upload()` sends those not yet staged one by one
+ * and resolves all their ids, so a retry after a failed upload sends each picture
+ * once. A staged picture the form drops (removed, cleared unsent, the form gone) is
+ * deleted on the server at once; `sent()` forgets the ids a start or follow-up was
+ * sent with, since the server releases them whatever its answer.
  */
 export default function useCraftPictures() {
   const [items, setItems] = useState([]);
   const [error, setError] = useState("");
   const held = useRef(items);
   held.current = items;
-  // Previews are object URLs: each goes with its picture, all with the page.
+  // Staged ids by picture key.
+  const staged = useRef(new Map());
+  const drop = useCallback((key) => {
+    const id = staged.current.get(key);
+    staged.current.delete(key);
+    if (id) dropPicture(id);
+  }, []);
+  // Previews are object URLs: each goes with its picture, all with the form, and
+  // what it staged but never sent goes with them.
   useEffect(
-    () => () => held.current.forEach((item) => URL.revokeObjectURL(item.previewUrl)),
-    [],
+    () => () => {
+      held.current.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+      [...staged.current.keys()].forEach(drop);
+    },
+    [drop],
   );
   const add = useCallback((list) => {
     const files = [...(list || [])];
@@ -75,25 +101,42 @@ export default function useCraftPictures() {
     setError(problem);
     if (added.length) setItems((current) => [...current, ...added]);
   }, []);
-  const remove = useCallback((key) => {
-    setError("");
-    setItems((current) => {
-      const gone = current.find((item) => item.key === key);
-      if (gone) URL.revokeObjectURL(gone.previewUrl);
-      return current.filter((item) => item !== gone);
-    });
-  }, []);
+  const remove = useCallback(
+    (key) => {
+      setError("");
+      const gone = held.current.find((item) => item.key === key);
+      if (!gone) return;
+      URL.revokeObjectURL(gone.previewUrl);
+      drop(key);
+      held.current = held.current.filter((item) => item !== gone);
+      setItems((current) => current.filter((item) => item !== gone));
+    },
+    [drop],
+  );
   const clear = useCallback(() => {
     setError("");
-    setItems((current) => {
-      current.forEach((item) => URL.revokeObjectURL(item.previewUrl));
-      return [];
-    });
-  }, []);
+    held.current.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+    [...staged.current.keys()].forEach(drop);
+    held.current = [];
+    setItems([]);
+  }, [drop]);
   const upload = useCallback(async () => {
     const ids = [];
-    for (const item of held.current) ids.push(await uploadPicture(item.file));
+    for (const item of held.current) {
+      let id = staged.current.get(item.key);
+      if (!id) {
+        id = await uploadPicture(item.file);
+        // Removed while it uploaded: it is not sent.
+        if (!held.current.includes(item)) {
+          dropPicture(id);
+          continue;
+        }
+        staged.current.set(item.key, id);
+      }
+      ids.push(id);
+    }
     return ids;
   }, []);
-  return { items, error, add, remove, clear, upload };
+  const sent = useCallback(() => staged.current.clear(), []);
+  return { items, error, add, remove, clear, upload, sent };
 }

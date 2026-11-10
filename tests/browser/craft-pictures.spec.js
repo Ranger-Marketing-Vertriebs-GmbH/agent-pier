@@ -151,3 +151,64 @@ test("a follow-up carries screenshots (desktop and phone)", async ({ page }) => 
     state.rebuilds.find((item) => item.id === readyId).status = "ready";
   }
 });
+
+test("a retry sends each picture once; dropped and abandoned pictures are deleted", async ({
+  page,
+}) => {
+  const state = await craftRebuildsFixture(page);
+  const drops = () =>
+    state.calls.filter((call) => call.method === "DELETE").map((call) => call.path);
+  let failing = true;
+  // The second picture fails once, after the first was staged.
+  state.failUpload = (bytes) => failing && bytes.equals(files.cart.buffer);
+  await page.goto(`${baseURL}/craft`);
+  const form = page.getByRole("group", { name: "Start a rebuild" });
+  await page.getByLabel("What to make").fill("A shop");
+  await form.getByRole("radio", { name: "Screenshots" }).check();
+  await form
+    .getByLabel("Choose screenshots or photos")
+    .setInputFiles([files.home, files.cart]);
+  await page.getByRole("button", { name: "Start rebuild" }).click();
+  await expect(page.getByText("The upload failed.")).toBeVisible();
+  expect(starts(state)).toHaveLength(0);
+  const [first] = state.pictures.keys();
+  failing = false;
+  await page.getByRole("button", { name: "Start rebuild" }).click();
+  await expect(page).toHaveURL(new RegExp(`/craft/${startedId}$`));
+  // home.png went once, cart.png failed once and went on the retry.
+  expect(uploads(state).filter((call) => !call.body.failed)).toHaveLength(2);
+  expect(starts(state)[0].body.pictures).toEqual([...state.pictures.keys()]);
+  expect(starts(state)[0].body.pictures[0]).toBe(first);
+  expect(drops()).toEqual([]);
+
+  // A staged picture that is removed, or left behind with the form, is deleted.
+  failing = true;
+  await page.goto(`${baseURL}/craft`);
+  await page.getByLabel("What to make").fill("Another shop");
+  await form.getByRole("radio", { name: "Screenshots" }).check();
+  await form
+    .getByLabel("Choose screenshots or photos")
+    .setInputFiles([files.home, files.cart]);
+  await page.getByRole("button", { name: "Start rebuild" }).click();
+  await expect(page.getByText("The upload failed.")).toBeVisible();
+  const staged = [...state.pictures.keys()].at(-1);
+  await form.getByRole("button", { name: "Remove home.png" }).click();
+  await expect.poll(drops).toEqual([`/craft/pictures/${staged}`]);
+  await form.getByLabel("Choose screenshots or photos").setInputFiles([files.home]);
+  failing = false;
+  await page.getByRole("button", { name: "Start rebuild" }).click();
+  await expect(page.getByText("The upload failed.")).toHaveCount(0);
+  await expect(page).toHaveURL(new RegExp(`/craft/${startedId}$`));
+  await page.goto(`${baseURL}/craft`);
+  failing = true;
+  await page.getByLabel("What to make").fill("A third shop");
+  await form.getByRole("radio", { name: "Screenshots" }).check();
+  await form
+    .getByLabel("Choose screenshots or photos")
+    .setInputFiles([files.home, files.cart]);
+  await page.getByRole("button", { name: "Start rebuild" }).click();
+  await expect(page.getByText("The upload failed.")).toBeVisible();
+  const abandoned = [...state.pictures.keys()].at(-1);
+  await page.getByRole("link", { name: /timer/ }).click();
+  await expect.poll(drops).toContain(`/craft/pictures/${abandoned}`);
+});

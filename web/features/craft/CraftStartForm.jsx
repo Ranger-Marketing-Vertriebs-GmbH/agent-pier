@@ -67,17 +67,23 @@ export default function CraftStartForm({ data, start, onStarted }) {
       if (kind === "pictures" && !pictures.items.length)
         throw new Error(craftCopy.pictures.required);
       const ids = withPictures ? await pictures.upload() : [];
-      const view = await start({
-        request: form.request,
-        target: kind === "none" || kind === "pictures" ? "-" : form.target.trim(),
-        ...(ids.length && { pictures: ids }),
-        stack: form.stack,
-        accountId: form.accountId,
-        mode: form.mode,
-        autoMode: form.autoMode,
-        rounds: form.rounds === "" ? undefined : form.rounds,
-        requestId: requestId.current,
-      });
+      let view;
+      try {
+        view = await start({
+          request: form.request,
+          target: kind === "none" || kind === "pictures" ? "-" : form.target.trim(),
+          ...(ids.length && { pictures: ids }),
+          stack: form.stack,
+          accountId: form.accountId,
+          mode: form.mode,
+          autoMode: form.autoMode,
+          rounds: form.rounds === "" ? undefined : form.rounds,
+          requestId: requestId.current,
+        });
+      } finally {
+        // The server releases sent pictures whatever it answers.
+        if (ids.length) pictures.sent();
+      }
       requestId.current = newRequestId();
       pictures.clear();
       onStarted(view);

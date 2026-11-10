@@ -8,11 +8,12 @@ import { craftRebuildsRoutes } from "../../server/http/routes/craft-rebuilds.js"
 import { registerResponses } from "../../server/http/responses.js";
 import {
   cleanPictureIds,
+  pictureLimits,
   RebuildPictures,
 } from "../../server/features/craft/rebuild-pictures.js";
 import { serverMessages } from "../../server/lib/i18n/de.js";
 import { rebuildsFixture, until } from "../helpers/craft-rebuilds-fixture.js";
-import { avif, jpeg, png } from "../helpers/craft-pictures.js";
+import { avif, gif, jpeg, png, webp } from "../helpers/craft-pictures.js";
 
 // Pictures of the original for Craft Anything rebuilds (craft/rebuild-pictures.js):
 // staged by their bytes, handed to rebuild_start as absolute paths, gone afterwards.
@@ -38,17 +39,24 @@ test("a picture is staged by its bytes as <id>.<ext>, owner-only", async (t) => 
   assert.deepEqual(staged(p), [`${first.id}.png`, `${second.id}.jpg`].sort());
   assert.equal(fs.statSync(p.dir).mode & 0o777, 0o700);
   assert.equal(fs.statSync(path.join(p.dir, `${first.id}.png`)).mode & 0o777, 0o600);
-  for (const body of [Buffer.from("not a picture"), avif(), Buffer.alloc(0), null])
+  // A JPEG without a frame header names no size.
+  const sizeless = jpeg().subarray(0, 20);
+  for (const body of [Buffer.from("not a picture"), avif(), sizeless])
     await assert.rejects(p.stage(body), {
       status: 400,
       message: messages.rebuildPictureType,
+    });
+  for (const body of [Buffer.alloc(0), null])
+    await assert.rejects(p.stage(body), {
+      status: 400,
+      message: messages.rebuildPictureEmpty,
     });
   assert.equal(staged(p).length, 2);
 });
 
 test("size, waiting count and age are limited", async (t) => {
   let now = 0;
-  const limits = { count: 10, maxBytes: 200, held: 2, ttlMs: 1000 };
+  const limits = { ...pictureLimits, maxBytes: 200, held: 2, ttlMs: 1000 };
   const p = pictures(t, { limits, now: () => now });
   await assert.rejects(p.stage(Buffer.concat([png(), Buffer.alloc(200)])), {
     status: 413,
@@ -68,6 +76,31 @@ test("size, waiting count and age are limited", async (t) => {
     status: 400,
     message: messages.rebuildPictureGone,
   });
+});
+
+test("a picture of more than 15360 × 8640 pixels is refused by its header", async (t) => {
+  const p = pictures(t);
+  for (const body of [jpeg(15360, 8640), webp(15360, 8640), gif(4000, 3000), png(3, 2)])
+    assert.match((await p.stage(body)).id, /^[a-f0-9]{32}$/);
+  for (const body of [jpeg(15361, 8640), jpeg(65535, 65535), webp(16384, 16384)])
+    await assert.rejects(p.stage(body), {
+      status: 413,
+      message: messages.rebuildPictureTooManyPixels,
+    });
+  // PNG and GIF headers over 80 million pixels are no picture to rasterType at all.
+  for (const body of [gif(65535, 65535), jpeg(0, 10)])
+    await assert.rejects(p.stage(body), { status: 400 });
+  assert.equal(staged(p).length, 4);
+});
+
+test("a timer sweeps pictures that waited too long, without an upload", async (t) => {
+  const p = pictures(t, { limits: { ...pictureLimits, ttlMs: 5, sweepMs: 10 } });
+  t.after(() => p.stop());
+  await p.stage(png());
+  p.start();
+  assert.ok(await until(() => staged(p).length === 0, 2000));
+  p.stop();
+  assert.equal(p.timer, null);
 });
 
 test("take hands paths over once; release and discard remove the files", async (t) => {
@@ -233,6 +266,16 @@ test("POST /craft/pictures stages a raw picture for the next start", async (t) =
   const large = await request("POST", "/api/craft/pictures", big, octet);
   assert.equal(large.status, 413);
   assert.equal(large.body.messageKey, "craft.rebuildPictureTooLarge");
+  // The form drops a picture it no longer sends.
+  const dropped = await request("POST", "/api/craft/pictures", png(), octet);
+  assert.equal(
+    (await request("DELETE", `/api/craft/pictures/${dropped.body.id}`)).status,
+    204,
+  );
+  assert.equal((await request("DELETE", "/api/craft/pictures/nope")).status, 204);
+  assert.ok(
+    !staged(f.rebuilds.pictures).some((name) => name.startsWith(dropped.body.id)),
+  );
   const started = await request("POST", "/api/craft/rebuilds", {
     request: "From a screenshot",
     pictures: [uploaded.body.id],

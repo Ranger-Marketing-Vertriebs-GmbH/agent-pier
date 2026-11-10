@@ -30,18 +30,21 @@ export function pictureFailure(error) {
       404,
     );
   if (status === 413)
-    return pictureProblem("CRAFT_PICTURE_INVALID", messages.rebuildPictureTooLarge, 413);
+    return pictureProblem(
+      "CRAFT_PICTURE_INVALID",
+      error.key ? messages.rebuildPictureTooLarge : error.message,
+      413,
+    );
   if (status === 429)
     return pictureProblem("CRAFT_PICTURE_INVALID", messages.rebuildPicturesBusy, 429);
   if (status === 400 || status === 409) {
-    // A path readShareSource refuses as such, an empty file or one still being
-    // written; the staging's own refusals keep their message.
+    // readShareSource's refusals by key; the staging's own keep their message.
     const message =
-      error.key === "invalid"
-        ? messages.rebuildPicturesInvalid
-        : error.key
-          ? messages.rebuildPictureType
-          : error.message;
+      {
+        invalid: messages.rebuildPicturesInvalid,
+        shareEmpty: messages.rebuildPictureEmpty,
+        conflict: messages.rebuildPictureChanged,
+      }[error.key] ?? (error.key ? messages.rebuildPictureType : error.message);
     return pictureProblem("CRAFT_PICTURE_INVALID", message, 400);
   }
   return error;

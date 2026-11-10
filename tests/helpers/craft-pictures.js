@@ -43,8 +43,39 @@ export function png(
   ]);
 }
 
-export const jpeg = () =>
-  Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 16, 74, 70, 73, 70, 0, 1, 1, 0]);
+/** A JPEG header: an APP0 segment, then a baseline frame of `width` × `height`. */
+export function jpeg(width = 2, height = 2) {
+  const frame = Buffer.from([0xff, 0xc0, 0, 11, 8, 0, 0, 0, 0, 1, 1, 0x11, 0]);
+  frame.writeUInt16BE(height, 5);
+  frame.writeUInt16BE(width, 7);
+  return Buffer.concat([
+    Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 16, 74, 70, 73, 70, 0, 1, 1, 0, 0, 1]),
+    Buffer.from([0, 1, 0, 0]),
+    frame,
+    Buffer.from([0xff, 0xd9]),
+  ]);
+}
+
+/** A lossless WebP header of `width` × `height`. */
+export function webp(width = 2, height = 2) {
+  const body = Buffer.alloc(30);
+  body.write("RIFF", 0, "ascii");
+  body.writeUInt32LE(22, 4);
+  body.write("WEBPVP8L", 8, "ascii");
+  body.writeUInt32LE(9, 16);
+  body[20] = 0x2f;
+  body.writeUInt32LE(((width - 1) & 0x3fff) | (((height - 1) & 0x3fff) << 14), 21);
+  return body;
+}
+
+/** A GIF header of `width` × `height`. */
+export function gif(width = 2, height = 2) {
+  const body = Buffer.alloc(13);
+  body.write("GIF89a", 0, "ascii");
+  body.writeUInt16LE(width, 6);
+  body.writeUInt16LE(height, 8);
+  return body;
+}
 
 /** An AVIF header: a raster image Craft Anything does not take. */
 export function avif() {

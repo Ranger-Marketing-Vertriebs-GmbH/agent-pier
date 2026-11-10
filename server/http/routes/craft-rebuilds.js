@@ -50,6 +50,12 @@ export function craftRebuildsRoutes(services) {
       throw problem(serverMessages.craft.rebuildPictureType, 415);
     res.status(201).json(await rebuilds().pictures.stage(req.body));
   });
+  // The form dropped a picture it staged (removed, abandoned): it goes at once. An id
+  // that no longer waits, or that a start has taken, changes nothing.
+  router.delete("/craft/pictures/:id", (req, res) => {
+    rebuilds().pictures.release([req.params.id]);
+    res.status(204).end();
+  });
   router.put("/craft/settings", async (req, res) =>
     res.json(await rebuilds().saveSettings(req.body)),
   );

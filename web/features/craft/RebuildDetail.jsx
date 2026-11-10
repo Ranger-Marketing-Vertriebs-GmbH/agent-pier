@@ -238,7 +238,13 @@ function FollowUp({ send }) {
   const submit = (event) => {
     event.preventDefault();
     action.run(async () => {
-      await send(text, await pictures.upload());
+      const ids = await pictures.upload();
+      try {
+        await send(text, ids);
+      } finally {
+        // The server releases sent pictures whatever it answers.
+        if (ids.length) pictures.sent();
+      }
       setText("");
       pictures.clear();
     });

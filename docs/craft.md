@@ -34,12 +34,16 @@ pictures of the look you expect. **None** sends no pictures.
 
 The pictures upload only when you start the rebuild, one by one, and must be PNG,
 JPEG, WebP or GIF (a HEIC photo becomes a JPEG where the browser can convert it), at
-most 20 MB each and at most 10 per rebuild. AgentPier checks each picture by its
-bytes, keeps it in `<data dir>/craft-rebuilds/pictures` (owner only) until Craft
-Anything has copied it into the project's `reference/` folder, and then deletes it:
-also when the start fails, after an hour unused, and whenever AgentPier starts or
-stops. The builder opens these pictures and matches the camera, layout, colours and
-proportions they show.
+most 20 MB and 15360 × 8640 pixels each and at most 10 per rebuild. When an upload
+fails, starting again sends only the pictures still missing. AgentPier checks each
+picture by its bytes and its size in pixels, keeps it in
+`<data dir>/craft-rebuilds/pictures` (owner only) until Craft Anything has copied it
+into the project's `reference/` folder, and then deletes it, also when the start
+fails. A picture the form no longer sends (removed, or left behind when you leave the
+page) is deleted at once; anything else waiting longer than an hour goes with a sweep
+every minute, and everything goes whenever AgentPier starts or stops. At most 40
+pictures wait at once. The builder opens these pictures and matches the camera,
+layout, colours and proportions they show.
 
 **Ask for changes** takes screenshots too. Craft Anything 0.6.0 adds them to the same
 pictures of the original in `reference/`, which every later round keeps in view; it
@@ -143,7 +147,8 @@ rebuilds too:
 They choose only the request, the target, the stack and pictures. The account, the
 mode and auto mode always follow your defaults. A session's target may be a web
 address, an absolute local path or nothing; an agent's only a web address or nothing,
-never a local path. Pictures (`pictures`, at most 10, in the formats and sizes above)
+never a local path. Pictures (`pictures`, at most 10, in the formats and sizes above; refusals carry
+`CRAFT_PICTURE_REFUSED`, `CRAFT_PICTURE_NOT_FOUND` or `CRAFT_PICTURE_INVALID`)
 must be files the caller can already read: for a session a path inside its own working
 folder, for an agent a file of its own workspace (a chat upload of this chat
 included) or of a project folder it may read, by the rules of `agentpier_share_file`.
@@ -199,7 +204,7 @@ longer exists.**
 The owner-only routes are `GET /api/craft/rebuilds` (the list with the defaults,
 eligible accounts, stacks and whether Craft Anything is installed),
 `POST /api/craft/pictures` (one picture as `application/octet-stream`, answering its
-`id`), `POST /api/craft/rebuilds` (start; `pictures` lists picture ids),
+`id`), `DELETE /api/craft/pictures/:id` (drop a picture not sent), `POST /api/craft/rebuilds` (start; `pictures` lists picture ids),
 `GET /api/craft/rebuilds/:id`, `DELETE /api/craft/rebuilds/:id` (remove from the
 list), `.../follow-up` (also with `pictures`),
 `.../pause`, `.../continue`, `.../answer`, `.../auto-mode`, `GET .../activity` and
