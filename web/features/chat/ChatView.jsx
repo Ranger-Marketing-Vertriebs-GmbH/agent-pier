@@ -291,7 +291,7 @@ export default function ChatView({
             !data.messages.length &&
             data.availability !== "unbound" && (
               <div className="chat-empty">
-                <span aria-hidden="true">✳</span>
+                <span aria-hidden="true">{"\u2733\uFE0E"}</span>
                 <h2>{copy.chatEmptyHeading}</h2>
                 <p>
                   {copy.emptyConversationPrefix} {providerNames[session.tool]}

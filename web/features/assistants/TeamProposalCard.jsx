@@ -68,7 +68,9 @@ export default function TeamProposalCard({ team, busy, act }) {
                     {templateCopy.from(m.template.name)}
                   </a>
                   {m.template.verdict === "warn" &&
-                    ` · ⚠ ${templateCopy.memberWarned} ${(m.template.rules || [])
+                    ` · \u26A0\uFE0E ${templateCopy.memberWarned} ${(
+                      m.template.rules || []
+                    )
                       .map((rule) => scanCopy.rules[rule] || rule)
                       .join(", ")}`}
                 </small>
@@ -83,7 +85,7 @@ export default function TeamProposalCard({ team, busy, act }) {
                 data-grants=""
                 {...(holdsShellSsh(m.grants) ? { "data-shell-ssh": "" } : {})}
               >
-                {holdsShellSsh(m.grants) && "⚠ "}
+                {holdsShellSsh(m.grants) && "\u26A0\uFE0E "}
                 {grantsLine(m.grants)}
               </small>
               {m.mcpServers?.length > 0 && (

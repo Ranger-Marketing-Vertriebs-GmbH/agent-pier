@@ -191,6 +191,7 @@ Buttons are CSS classes on a native `<button>` (`.button` variants in `web/app/l
 
 `Icon` (`web/components/Icon.jsx`) draws the line icons; the gallery lists every name.
 `ProviderMark` draws CLI marks. Icons are `aria-hidden`; the button carries the label.
+A Unicode symbol that iOS draws as colour emoji by default (✳, ⚠, ▶, ➡ and similar) is written as an escape followed by U+FE0E, for example `"\u26A0\uFE0E"`, so phones show it as text like the desktop does; `tests/unit/text-presentation-glyphs.test.js` enforces this.
 
 ### Dialogs and overlays
 
