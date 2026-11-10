@@ -25,8 +25,18 @@ const START_TIMEOUT_MS = 60000;
  * lease anyway, so a snapshot never waits for them.
  */
 export async function beginRebuild(r, input, source, requestId) {
-  const options = cleanStart(input, source, r.settings());
+  const { pictures: ids, ...options } = cleanStart(input, source, r.settings());
   r.requireEligible(options.accountId);
+  // Craft Anything copies them into the project's reference/ before it answers.
+  const pictures = r.pictures.take(ids);
+  try {
+    return await startRebuild(r, options, source, requestId, pictures);
+  } finally {
+    r.pictures.discard(pictures);
+  }
+}
+
+async function startRebuild(r, options, source, requestId, pictures) {
   const { made, record } = await r.barrier.run(async () => {
     const folder = await createProjectFolder({
       preferences: r.preferences,
@@ -64,6 +74,7 @@ export async function beginRebuild(r, input, source, requestId) {
         target: record.target,
         build_with: record.stack,
         ...(record.rounds && { rounds: record.rounds }),
+        ...(pictures.length && { pictures }),
         project_folder: record.folder,
       },
       { timeoutMs: START_TIMEOUT_MS, project: false },

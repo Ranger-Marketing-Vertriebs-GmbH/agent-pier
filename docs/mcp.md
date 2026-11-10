@@ -154,8 +154,10 @@ and account documentation.
 While [Craft Anything](#managed-craft-anything) is installed, a session with full
 **AgentPier tools** access also receives `craft_rebuild_start` and `craft_rebuild_status`.
 `craft_rebuild_start` takes a `request`, an optional `target` (a web address or an
-absolute path) and an optional `stack`, plus a `requestId` that makes a retry from the
-same session return the same rebuild; it creates the rebuild's project and returns its
+absolute path), an optional `stack` and optional `pictures` (up to 10 screenshots or
+photos of the original as paths inside the session's working folder; with no target
+the rebuild starts from them alone, see [Screenshots](craft.md#screenshots)), plus a
+`requestId` that makes a retry from the same session return the same rebuild; it creates the rebuild's project and returns its
 id and link. The account, mode and auto mode follow your defaults. `craft_rebuild_status` returns the status,
 step, note, folder and how many questions wait for you, never the questions. You answer
 them in AgentPier ([Rebuilds](craft.md)).

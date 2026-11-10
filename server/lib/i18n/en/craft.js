@@ -34,7 +34,17 @@ export const craft = Object.freeze({
   rebuildAccountIneligible:
     "This account cannot run a rebuild. Choose a Claude account of your own without a provider.",
   rebuildToolInvalid:
-    "Invalid input. A rebuild needs a request and a requestId (at most 100 characters).",
+    "Invalid input. A rebuild needs a request and a requestId (at most 100 characters), and at most 10 pictures.",
+  rebuildPicturesInvalid:
+    "A rebuild takes at most 10 pictures with a valid path, each only once.",
+  rebuildPictureType: "Only PNG, JPEG, WebP or GIF pictures can be added.",
+  rebuildPictureTooLarge: "A picture may be at most 20 MB.",
+  rebuildPicturesBusy:
+    "Too many pictures are waiting for a rebuild. Try again in a moment.",
+  rebuildPictureGone: "A picture is no longer waiting. Add the pictures again.",
+  rebuildPictureRefused:
+    "This picture is outside the folders that may be read here. Name a picture in your own folders.",
+  rebuildPictureNotFound: "This picture was not found.",
   rebuildNotFound: "This rebuild does not exist.",
   rebuildRunning: "This rebuild is running. Pause it first.",
   rebuildNeverStarted: "This rebuild never started and cannot be continued.",

@@ -1,8 +1,8 @@
 # Rebuilds (Craft Anything)
 
 **Rebuilds** in the sidebar **Menu** (group **Work**) lets [Craft Anything](https://github.com/storytold/craft-anything)
-study an app, a website or a file and build your own version of it. Every rebuild
-gets its own project, and Craft Anything runs Claude on one of your Claude accounts to
+study an app, a website, a file or screenshots of a product and build your own version
+of it. Every rebuild gets its own project, and Craft Anything runs Claude on one of your Claude accounts to
 do the work. The page is for the owner only and never shows in the users' app. Until Craft Anything is
 [installed](mcp.md#managed-craft-anything) it shows a note instead of the form.
 
@@ -17,12 +17,33 @@ form says so next to **Start rebuild**.
 | Field              | Meaning                                                                                                                                                                                                                    |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **What to make**   | The request, in your own words.                                                                                                                                                                                            |
-| **Target**         | **None**, a **Web address** or a **Local path** (an absolute path) of what Craft Anything studies.                                                                                                                         |
+| **Target**         | **None**, a **Web address**, a **Local path** (an absolute path) of what Craft Anything studies, or **Screenshots** alone: see [Screenshots](#screenshots).                                                                |
 | **Stack**          | What to build with: Builder's choice, Plain HTML and CSS, React + TypeScript (Vite), Next.js + TypeScript, Python, Electron, Rust (console), Rust + macroquad, Rust + egui (eframe), Phaser, Bevy, Unity, Unreal or Godot. |
 | **Claude account** | Any Claude account that can build: a local or managed account without a provider. The default is your default Claude account, else the local one.                                                                          |
 | **Mode**           | **Clean room** only looks at the target from outside. **Deep** may also look inside it, for example decompile it.                                                                                                          |
 | **Auto mode**      | See [Auto mode](#auto-mode).                                                                                                                                                                                               |
 | **Rounds**         | How many build and check rounds Craft Anything may use.                                                                                                                                                                    |
+
+### Screenshots
+
+Craft Anything can also rebuild from pictures of a product. Choose **Screenshots** as
+the target and **Add screenshots**: on a phone the picker offers the photo library, the
+camera and Files. Each picked picture shows as a thumbnail with a button to remove it.
+With a **Web address** or a **Local path**, **Add screenshots** is optional and adds
+pictures of the look you expect. **None** sends no pictures.
+
+The pictures upload only when you start the rebuild, one by one, and must be PNG,
+JPEG, WebP or GIF (a HEIC photo becomes a JPEG where the browser can convert it), at
+most 20 MB each and at most 10 per rebuild. AgentPier checks each picture by its
+bytes, keeps it in `<data dir>/craft-rebuilds/pictures` (owner only) until Craft
+Anything has copied it into the project's `reference/` folder, and then deletes it:
+also when the start fails, after an hour unused, and whenever AgentPier starts or
+stops. The builder opens these pictures and matches the camera, layout, colours and
+proportions they show.
+
+**Ask for changes** takes screenshots too. Craft Anything 0.6.0 adds them to the same
+pictures of the original in `reference/`, which every later round keeps in view; it
+has no separate per-message attachments for follow-ups yet.
 
 **Defaults** on the same page keeps the account, mode and auto mode that new rebuilds
 start with (**Save defaults**). Without an eligible Claude account the page says so and
@@ -119,11 +140,18 @@ rebuilds too:
 - Agents that may create projects get `agentpier_craft`
   ([agents](agents.md#rebuilds-with-craft-anything)).
 
-They choose only the request, the target and the stack. The account, the mode and
-auto mode always follow your defaults. A session's target may be a web address, an
-absolute local path or nothing; an agent's only a web address or nothing, never a local
-path. The request text still steers the builder, which runs with your account on your
-machine (and in auto mode with its approvals allowed), so grant `agentpier_craft` only
+They choose only the request, the target, the stack and pictures. The account, the
+mode and auto mode always follow your defaults. A session's target may be a web
+address, an absolute local path or nothing; an agent's only a web address or nothing,
+never a local path. Pictures (`pictures`, at most 10, in the formats and sizes above)
+must be files the caller can already read: for a session a path inside its own working
+folder, for an agent a file of its own workspace (a chat upload of this chat
+included) or of a project folder it may read, by the rules of `agentpier_share_file`.
+AgentPier refuses links, files with a second hard link, `.git` and its data directory
+(apart from the agent's own workspace), checks each picture by its bytes and hands
+Craft Anything only its own copy. The request text still steers the builder, which
+runs with your account on your machine (and in auto mode with its approvals allowed),
+so grant `agentpier_craft` only
 to agents you trust with that. A session's `requestId` counts within that session only.
 They see a rebuild's status, folder and how many questions wait, not
 the questions themselves: you answer those in AgentPier. The rebuild shows **Started by
@@ -170,8 +198,10 @@ longer exists.**
 
 The owner-only routes are `GET /api/craft/rebuilds` (the list with the defaults,
 eligible accounts, stacks and whether Craft Anything is installed),
-`POST /api/craft/rebuilds` (start), `GET /api/craft/rebuilds/:id`,
-`DELETE /api/craft/rebuilds/:id` (remove from the list), `.../follow-up`,
+`POST /api/craft/pictures` (one picture as `application/octet-stream`, answering its
+`id`), `POST /api/craft/rebuilds` (start; `pictures` lists picture ids),
+`GET /api/craft/rebuilds/:id`, `DELETE /api/craft/rebuilds/:id` (remove from the
+list), `.../follow-up` (also with `pictures`),
 `.../pause`, `.../continue`, `.../answer`, `.../auto-mode`, `GET .../activity` and
 `PUT /api/craft/settings` (the defaults). The page follows the live topics
 `craft.rebuilds` and `craft.rebuild:<id>` ([architecture](architecture.md#live-channel)).

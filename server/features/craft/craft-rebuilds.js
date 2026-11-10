@@ -9,6 +9,7 @@ import {
   cleanRequestId,
   cleanSettings,
 } from "./rebuild-input.js";
+import { cleanPictureIds, RebuildPictures } from "./rebuild-pictures.js";
 import { beginRebuild } from "./rebuild-start.js";
 import { RebuildSampler } from "./rebuild-sampler.js";
 import { RebuildStore } from "./rebuild-store.js";
@@ -51,6 +52,9 @@ export class CraftRebuilds {
     Object.assign(this, { craft, accounts, preferences, memory, now, timers, sampleMs });
     this.barrier = barrier;
     this.store = new RebuildStore(dataDir);
+    // Pictures waiting for a start or follow-up; an earlier process's leftovers go.
+    this.pictures = new RebuildPictures({ dataDir });
+    this.pictures.clear();
     const saved = this.store.load();
     this.saved = saved.settings;
     this.records = new Map(saved.records.map((item) => [item.id, item]));
@@ -164,9 +168,19 @@ export class CraftRebuilds {
   /**
    * Starts a rebuild for `source` ("owner", "session" or "agent"). Only the owner
    * chooses account, mode, auto mode and rounds. A retried start with the same
-   * `requestId` from the same source returns the rebuild it started.
+   * `requestId` from the same source returns the rebuild it started. The staged
+   * `pictures` of the call go whatever happens: the start that uses them takes them
+   * first (beginRebuild), so a retry joining it releases nothing of them.
    */
-  async start(input, { source = "owner" } = {}) {
+  async start(input, options) {
+    try {
+      return await this.startOnce(input, options);
+    } finally {
+      this.pictures.release(input?.pictures);
+    }
+  }
+
+  async startOnce(input, { source = "owner" } = {}) {
     if (this.closing) throw refuse(messages.rebuildsStopping);
     if (!this.craft.state().installed) throw refuse(messages.notInstalled);
     const requestId = cleanRequestId(input?.requestId);
@@ -188,15 +202,32 @@ export class CraftRebuilds {
 
   // --- Acting on a rebuild ----------------------------------------------------------
 
-  /** Sends a follow-up request to the rebuild's project (a new round). */
-  async followUp(id, request) {
-    const record = this.require(id);
-    const text = cleanRequest(request);
-    return this.serial(id, async () => {
-      this.requireIdle(record);
-      await this.call(record, "rebuild_start", { request: text });
-      return this.launched(record);
-    });
+  /**
+   * Sends a follow-up request to the rebuild's project (a new round), with staged
+   * `pictures` that Craft Anything adds to the project's pictures of the original
+   * (reference/). The pictures go whatever happens.
+   */
+  async followUp(id, request, pictures) {
+    try {
+      const record = this.require(id);
+      const text = cleanRequest(request);
+      const ids = cleanPictureIds(pictures);
+      return await this.serial(id, async () => {
+        this.requireIdle(record);
+        const files = this.pictures.take(ids);
+        try {
+          await this.call(record, "rebuild_start", {
+            request: text,
+            ...(files.length && { pictures: files }),
+          });
+        } finally {
+          this.pictures.discard(files);
+        }
+        return this.launched(record);
+      });
+    } finally {
+      this.pictures.release(pictures);
+    }
   }
 
   /** Resumes a paused rebuild (Craft Anything 0.5.0 and 0.6.0 want its request again). */
@@ -339,6 +370,7 @@ export class CraftRebuilds {
   async close() {
     this.closing = true;
     this.sampler.stop();
+    this.pictures.clear();
     await this.children.close((key) =>
       this.runningOn(key)
         .map((item) => item.craftProject)

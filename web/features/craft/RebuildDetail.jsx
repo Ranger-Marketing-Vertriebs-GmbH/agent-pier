@@ -13,7 +13,9 @@ import { craftCopy as copy } from "../../lib/i18n/messages/craft.js";
 import { isPlainClick } from "../../components/link-click.js";
 import { routePath } from "../../app/routes.js";
 import { projectsRoute } from "../projects/routes.js";
+import CraftPictures from "./CraftPictures.jsx";
 import CraftQuestion from "./CraftQuestion.jsx";
+import useCraftPictures from "./useCraftPictures.js";
 import {
   latestCheck,
   similarityPercent,
@@ -226,15 +228,19 @@ function RebuildBody({
   );
 }
 
+// A new round's request, with screenshots that join the project's pictures of the
+// original (Craft Anything keeps them in reference/ for every later round).
 function FollowUp({ send }) {
   const id = useId();
   const action = useAsyncAction();
   const [text, setText] = useState("");
+  const pictures = useCraftPictures();
   const submit = (event) => {
     event.preventDefault();
     action.run(async () => {
-      await send(text);
+      await send(text, await pictures.upload());
       setText("");
+      pictures.clear();
     });
   };
   return (
@@ -252,6 +258,11 @@ function FollowUp({ send }) {
             onChange={(event) => setText(event.target.value)}
           />
         </label>
+        <CraftPictures
+          pictures={pictures}
+          hint={copy.pictures.followUpHint}
+          disabled={action.busy}
+        />
         <ErrorMessage error={action.error} />
         <div className="craft-actions">
           <button type="submit" className="button primary" disabled={action.busy}>

@@ -5,14 +5,15 @@ import { assistantAttachmentsCopy as copy } from "../../lib/i18n/messages/assist
 import { fileSize } from "./AgentMessageAttachments.jsx";
 
 // The files picked for the next message, above the text field: a thumbnail or a
-// file chip each, with upload progress, its error and a remove button.
-export default function AgentAttachmentTray({ attachments }) {
+// file chip each, with upload progress, its error and a remove button. `label` names
+// the list where it holds something other than a chat's attachments.
+export default function AgentAttachmentTray({ attachments, label = copy.list }) {
   const { items, error, imageInput, remove } = attachments;
   if (!items.length && !error) return null;
   return (
     <div className="agent-attachments">
       {items.length > 0 && (
-        <ul className="agent-attachment-list" aria-label={copy.list}>
+        <ul className="agent-attachment-list" aria-label={label}>
           {items.map((item) => (
             <li key={item.key} className={`agent-attachment-chip ${item.status}`}>
               {item.previewUrl ? (

@@ -42,6 +42,8 @@
  *                                       // (0.5.0, 0.6.0)
  *     "ignoreStdinClose": true          // keep running when stdin closes
  *   }
+ * `pictures` go to `reference/picture-N.<ext>` as in 0.6.0 (other names skipped, over
+ * 20 MB refused first); craft.json's `pictures` records every path received.
  * Without steps a build runs until rebuild_stop. A question waits for
  * project_inbox_answer; in mode "decide" (project_questions_set) questions are
  * decided by the fake itself, approvals still wait. Resuming continues at the step
@@ -63,6 +65,7 @@ import {
   appendFileSync,
 } from "node:fs";
 import path from "node:path";
+import { addPictures, checkPictures } from "./fake-craft-pictures.mjs";
 
 const script = process.env.FAKE_CRAFT_SCRIPT
   ? JSON.parse(process.env.FAKE_CRAFT_SCRIPT)
@@ -349,6 +352,9 @@ const tools = {
       } else {
         if (!args.request)
           throw new ToolError("invalid_arguments", "request is required.");
+        checkPictures(args.pictures, ToolError);
+        addPictures(entry.folder, args.pictures);
+        update(entry, (r) => r.pictures.push(...(args.pictures ?? [])));
         update(entry, (r) => r.conversation.push({ role: "user", text: args.request }));
         startRound(entry);
         activity(entry, `Follow-up: ${args.request}`);
@@ -363,6 +369,7 @@ const tools = {
         "project_folder must be an absolute path.",
       );
     const folder = args.project_folder;
+    checkPictures(args.pictures, ToolError);
     mkdirSync(path.join(folder, "app"), { recursive: true });
     const name = uniqueName(folder);
     const entry = { name, folder, builder: null, step: 0, generation: 0 };
@@ -383,7 +390,10 @@ const tools = {
       last_reply: null,
       conversation: [{ role: "user", text: args.request }],
       agent_session: `fake-session-${name}`,
+      pictures: [],
     });
+    addPictures(folder, args.pictures);
+    update(entry, (r) => r.pictures.push(...(args.pictures ?? [])));
     writeFileSync(
       path.join(folder, "usage.json"),
       JSON.stringify({ input_tokens: 0, output_tokens: 0, cost_usd: 0 }, null, 2),

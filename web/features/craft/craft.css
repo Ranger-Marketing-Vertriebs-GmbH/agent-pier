@@ -145,3 +145,34 @@
     flex: 1 1 100%;
   }
 }
+/* Screenshots of the original (CraftPictures): a row of the start form's card, or
+   part of the follow-up form. */
+.craft-pictures {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-2) var(--space-3) var(--space-3) var(--space-4);
+  background: var(--panel);
+}
+.craft-pictures > .craft-row-note,
+.craft-follow-up .craft-pictures {
+  padding: 0;
+  background: none;
+}
+.craft-pictures-actions .button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+/* On a phone a segmented choice takes its own line, its options sharing the width. */
+@media (max-width: 700px) {
+  .craft-choice-row .segmented {
+    flex: 1 1 100%;
+    max-width: 100%;
+  }
+  .craft-choice-row .segmented label {
+    flex: 1 1 auto;
+    padding-inline: var(--space-1);
+  }
+}

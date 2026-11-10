@@ -3,6 +3,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { record } from "../extensions/mcp-config.js";
 import { craftStacks, defaultCraftStack } from "./craft-stacks.js";
+import { cleanPictureIds } from "./rebuild-pictures.js";
 
 const messages = serverMessages.craft;
 const REQUEST_LIMIT = 8000;
@@ -67,7 +68,8 @@ function cleanAutoMode(value, fallback) {
 /**
  * A start's options. Only the owner chooses account, mode, auto mode and rounds; any
  * other source gets the owner's defaults (`settings`) and Craft Anything's rounds. An
- * agent's target is a web address or none, never a local path.
+ * agent's target is a web address or none, never a local path. `pictures` are staged
+ * picture ids (rebuild-pictures.js), never paths; they are not kept with the record.
  */
 export function cleanStart(input, source, settings) {
   const body = record(input) ? input : {};
@@ -83,6 +85,7 @@ export function cleanStart(input, source, settings) {
     mode: owner ? cleanMode(body.mode, settings.mode) : settings.mode,
     autoMode: owner ? cleanAutoMode(body.autoMode, settings.autoMode) : settings.autoMode,
     rounds: owner ? cleanRounds(body.rounds) : null,
+    pictures: cleanPictureIds(body.pictures),
   };
 }
 

@@ -1,7 +1,7 @@
 export const craftCopy = {
   title: "Rebuilds",
   description:
-    "Craft Anything studies an app or website and builds your own version of it. Every rebuild gets its own project.",
+    "Craft Anything studies an app, a website or screenshots of one and builds your own version of it. Every rebuild gets its own project.",
   loading: "Loading rebuilds …",
   notInstalled: "Craft Anything is not installed. Install it to start rebuilds.",
   openCraftAnything: "Open Craft Anything",
@@ -36,6 +36,7 @@ export const craftCopy = {
     targetNone: "None",
     targetUrl: "Web address",
     targetPath: "Local path",
+    targetPictures: "Screenshots",
     urlLabel: "Web address of the target",
     pathLabel: "Path of the target",
     stack: "Stack",
@@ -55,6 +56,19 @@ export const craftCopy = {
       "No Claude account can build. Add your own Claude account without a provider under CLIs & extensions › Accounts.",
     submit: "Start rebuild",
     starting: "Starting …",
+  },
+  pictures: {
+    list: "Screenshots",
+    add: "Add screenshots",
+    choose: "Choose screenshots or photos",
+    hint: "Screenshots or photos of the product. Craft Anything rebuilds what they show.",
+    lookHint: "Optional: screenshots or photos of the look you expect.",
+    followUpHint:
+      "Optional: screenshots or photos of the look you want. They join the pictures of the original.",
+    required: "Add at least one screenshot.",
+    tooMany: (max) => `A rebuild takes at most ${max} screenshots.`,
+    tooLarge: (name) => `"${name}" is larger than 20 MB.`,
+    unsupported: (name) => `"${name}" is not a PNG, JPEG, WebP or GIF picture.`,
   },
   defaults: {
     title: "Defaults",

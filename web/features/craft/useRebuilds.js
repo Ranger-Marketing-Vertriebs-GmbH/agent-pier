@@ -51,7 +51,8 @@ export function useRebuild(id) {
     written: resource.written,
     pause: act("pause"),
     resume: act("continue"),
-    followUp: (request) => act("follow-up", { request })(),
+    followUp: (request, pictures = []) =>
+      act("follow-up", { request, ...(pictures.length && { pictures }) })(),
     autoMode: (on) => act("auto-mode", { on })(),
     remove: () => api(rebuildPath(id), "DELETE"),
   };

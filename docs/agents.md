@@ -1396,7 +1396,10 @@ hand each other tasks and report back
 
 An agent that may create projects can start a [Craft Anything rebuild](craft.md) for you
 with the tool `agentpier_craft`, while Craft Anything is installed. `start` takes a
-request and optionally a target and a stack; `status` reads a rebuild the agent started.
+request and optionally a target, a stack and `pictures`: up to 10 screenshots or photos
+of the original from the agent's workspace (also a file you sent in this chat) or from a
+project folder it may read ([Screenshots](craft.md#screenshots)); `status` reads a
+rebuild the agent started.
 Only your own chat can start one, never a routine, a hook, forwarded or members'
 content. The target is a web address or nothing, never a local path, and the account,
 mode and auto mode follow your defaults. The request text still steers the builder,

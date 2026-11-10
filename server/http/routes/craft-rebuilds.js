@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, raw } from "express";
 import { ownsMutationLeases } from "../../application/mutation-barrier.js";
 import {
   craftRebuildsService,
@@ -6,6 +6,20 @@ import {
 } from "../../features/craft/live-topics.js";
 import { problem } from "../../lib/storage.js";
 import { serverMessages } from "../../lib/i18n/de.js";
+import { pictureLimits } from "../../features/craft/rebuild-pictures.js";
+
+// One raw picture; one byte over the limit still reaches the route, which answers
+// with its own message, and a larger body is translated below.
+const pictureBody = raw({
+  type: "application/octet-stream",
+  limit: pictureLimits.maxBytes + 1,
+});
+const pictureTooLarge = (error, _req, _res, next) =>
+  next(
+    error?.type === "entity.too.large"
+      ? problem(serverMessages.craft.rebuildPictureTooLarge, 413)
+      : error,
+  );
 
 /**
  * Craft Anything rebuilds (server/features/craft/craft-rebuilds.js) under /craft, owner
@@ -29,6 +43,13 @@ export function craftRebuildsRoutes(services) {
       res.status(201).json(await rebuilds().start(req.body, { source: "owner" })),
     ),
   );
+  // A picture of the original for the next start or follow-up (rebuild-pictures.js):
+  // checked by its bytes and staged; its id goes into `pictures` of that request.
+  router.post("/craft/pictures", pictureBody, pictureTooLarge, async (req, res) => {
+    if (!req.is("application/octet-stream"))
+      throw problem(serverMessages.craft.rebuildPictureType, 415);
+    res.status(201).json(await rebuilds().pictures.stage(req.body));
+  });
   router.put("/craft/settings", async (req, res) =>
     res.json(await rebuilds().saveSettings(req.body)),
   );
@@ -44,7 +65,9 @@ export function craftRebuildsRoutes(services) {
   router.post(
     "/craft/rebuilds/:id/follow-up",
     ownsMutationLeases(async (req, res) =>
-      res.json(await rebuilds().followUp(req.params.id, req.body?.request)),
+      res.json(
+        await rebuilds().followUp(req.params.id, req.body?.request, req.body?.pictures),
+      ),
     ),
   );
   router.post(
