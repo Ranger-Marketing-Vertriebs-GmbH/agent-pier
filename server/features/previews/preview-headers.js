@@ -1,4 +1,4 @@
-const cookieName = "agentpier_session";
+import { namesSession } from "../login/session-cookie.js";
 
 // Hop-by-hop headers belong to one connection and are never forwarded.
 const hopByHop = new Set([
@@ -13,8 +13,6 @@ const hopByHop = new Set([
   "upgrade",
 ]);
 
-const named = (part, name) => part.split("=")[0].trim() === name;
-
 /** Hop-by-hop names of a message: the fixed ones plus those its Connection header lists. */
 // Framing and Host are never the sender's to drop through a Connection token.
 const unscoped = new Set(["content-length", "transfer-encoding", "host"]);
@@ -28,13 +26,13 @@ function connectionScoped(headers) {
   return names;
 }
 
-/** A Cookie header without any agentpier_session value; null when nothing remains. */
+/** A Cookie header without AgentPier's session under either name; null when nothing remains. */
 export function withoutSessionCookie(cookie) {
   if (typeof cookie !== "string") return null;
   const kept = cookie
     .split(";")
     .map((part) => part.trim())
-    .filter((part) => part && !named(part, cookieName));
+    .filter((part) => part && !namesSession(part));
   return kept.length ? kept.join("; ") : null;
 }
 
@@ -87,7 +85,7 @@ export function upstreamHeaders(req, { target, previewOrigin }) {
 }
 
 /**
- * The headers the browser sees: the app's own, minus any agentpier_session cookie it
+ * The headers the browser sees: the app's own, minus any AgentPier session cookie it
  * tries to set, with redirects to the dev server's loopback origin pointed at the
  * preview origin.
  */
@@ -102,7 +100,7 @@ export function downstreamHeaders(headers, { target, previewOrigin }) {
   // whatever the port.
   delete result["clear-site-data"];
   if (result["set-cookie"]) {
-    const cookies = [].concat(result["set-cookie"]).filter((c) => !named(c, cookieName));
+    const cookies = [].concat(result["set-cookie"]).filter((c) => !namesSession(c));
     if (cookies.length) result["set-cookie"] = cookies;
     else delete result["set-cookie"];
   }

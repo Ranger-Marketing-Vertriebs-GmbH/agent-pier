@@ -8,24 +8,48 @@ import {
 import { loginErrors, loginProblem } from "../features/login/login-errors.js";
 import { loginMessages as copy } from "../lib/i18n/de/login.js";
 import { principalOf } from "../features/users/identity.js";
-const cookieName = "agentpier_session";
-// Every agentpier_session value of the request, in header order.
-export function sessionTokens(req) {
-  return (req.headers.cookie || "")
-    .split(";")
-    .map((part) => part.trim())
-    .filter((part) => part.startsWith(cookieName + "="))
-    .map((part) => part.slice(cookieName.length + 1));
+import {
+  cookieValues,
+  hostSessionCookie,
+  sessionCookie,
+  sessionCookieNames,
+} from "../features/login/session-cookie.js";
+/** Every value of one session cookie name in the request, in header order. */
+export function sessionTokens(req, name = sessionCookie) {
+  return cookieValues(req.headers.cookie, name);
 }
+// authorizeRequest and the preview gate mark requests that arrived over HTTPS.
+const overHttps = (req) => Boolean(req.socket?.encrypted) || req.secureCookies === true;
 /**
- * The request's session token: the first agentpier_session value `login` (Identity or
- * LoginStore) knows, else "". Cookies ignore ports, so a page on another port of this
- * host (a session preview) can plant a second value beside the real one.
+ * The different valid sessions a request presents, and the cookie name they came under.
+ * Over HTTPS a valid `__Host-` cookie decides alone; the earlier name counts only while
+ * the browser has no such cookie yet. Plain HTTP reads the earlier name only, since the
+ * prefix means nothing there. Values `login` (Identity or LoginStore) does not know are
+ * ignored: cookies ignore ports, so a page on another port of this host (a session
+ * preview) can place a second value beside the real one.
  */
-export function sessionToken(req, login) {
+export function presentedSessions(req, login) {
   if (typeof login?.session !== "function")
     throw new TypeError("sessionToken needs the login to check each cookie");
-  return sessionTokens(req).find((token) => login.session(token)) || "";
+  const valid = (name) =>
+    [...new Set(sessionTokens(req, name))].filter((token) => login.session(token));
+  const hosted = overHttps(req) ? valid(hostSessionCookie) : [];
+  if (hosted.length) return { name: hostSessionCookie, tokens: hosted };
+  return { name: sessionCookie, tokens: valid(sessionCookie) };
+}
+/**
+ * The request's session token, else "". Two different valid sessions in one request are
+ * never one browser's own sign-in, so neither is used: which of them a browser sends
+ * first is not the owner's choice.
+ */
+export function sessionToken(req, login) {
+  const { tokens } = presentedSessions(req, login);
+  return tokens.length === 1 ? tokens[0] : "";
+}
+/** Every valid session under either cookie name, for sign-in and sign-out to end. */
+function everySession(req, login) {
+  const tokens = sessionCookieNames.flatMap((name) => sessionTokens(req, name));
+  return [...new Set(tokens)].filter((token) => login.session(token));
 }
 // Call only after authorizeRequest has checked the Host and Origin.
 export function directLocalRequest(req, config) {
@@ -90,6 +114,38 @@ export function cookieOptions(req, config) {
     path: "/",
   };
 }
+/** Sets the session cookie under the name the transport allows. */
+function setSession(req, res, config, token, maxAge) {
+  const options = cookieOptions(req, config);
+  res.cookie(options.secure ? hostSessionCookie : sessionCookie, token, {
+    ...options,
+    maxAge,
+  });
+  // Over HTTPS the session lives under the prefixed name only.
+  if (options.secure) res.cookie(sessionCookie, "", { ...options, maxAge: 0 });
+}
+function clearSessions(req, res, config) {
+  const options = cookieOptions(req, config);
+  // A browser accepts the prefixed name, also to clear it, only with Secure.
+  for (const name of options.secure ? sessionCookieNames : [sessionCookie])
+    res.cookie(name, "", { ...options, maxAge: 0 });
+}
+/**
+ * The request's session token after putting its cookies in order: two different valid
+ * sessions are cleared, so the browser signs in again, and a session an HTTPS request
+ * still carries under the earlier name moves to the prefixed one.
+ */
+function settledToken(req, res, login, config) {
+  const { name, tokens } = presentedSessions(req, login);
+  if (tokens.length > 1) {
+    clearSessions(req, res, config);
+    return "";
+  }
+  const token = tokens[0] || "";
+  if (token && name === sessionCookie && cookieOptions(req, config).secure)
+    setSession(req, res, config, token, idleDuration);
+  return token;
+}
 export function loginRoutes(login, effective, { notifications } = {}) {
   const router = express.Router();
   // The browser's push device (useNotifications): it follows who is signed in on it.
@@ -103,8 +159,8 @@ export function loginRoutes(login, effective, { notifications } = {}) {
     });
   };
   router.use(express.json({ limit: "4kb", strict: true }));
-  const status = (req) => {
-    const signedIn = login.describe(sessionToken(req, login));
+  const status = (req, res) => {
+    const signedIn = login.describe(settledToken(req, res, login, effective()));
     return {
       configured: login.configured,
       authenticated: Boolean(signedIn.role),
@@ -113,11 +169,12 @@ export function loginRoutes(login, effective, { notifications } = {}) {
     };
   };
   const cookie = (req, res, token) =>
-    res.cookie(cookieName, token, {
-      ...cookieOptions(req, effective()),
-      maxAge: token ? idleDuration : 0,
-    });
-  router.get("/status", (req, res) => res.json(status(req)));
+    setSession(req, res, effective(), token, idleDuration);
+  // Ends every session the browser presents, not only the one it would be signed in as.
+  const revokePresented = (req) => {
+    for (const token of everySession(req, login)) login.revoke(token);
+  };
+  router.get("/status", (req, res) => res.json(status(req, res)));
   router.post("/setup", async (req, res) => {
     if (!login.configured && !setupAllowed(req, effective(), login.hasUsers))
       throw loginProblem("LOGIN_SETUP_LOCAL_ONLY");
@@ -126,15 +183,15 @@ export function loginRoutes(login, effective, { notifications } = {}) {
   });
   router.post("/login", async (req, res) => {
     const token = await login.login(req.body, attemptSource(req, effective()));
-    login.revoke(sessionToken(req, login));
+    revokePresented(req);
     device(req, token, true);
     cookie(req, res, token);
     res.json({ authenticated: true });
   });
   router.post("/logout", (req, res) => {
     device(req, sessionToken(req, login), false);
-    login.revoke(sessionToken(req, login));
-    cookie(req, res, "");
+    revokePresented(req);
+    clearSessions(req, res, effective());
     res.sendStatus(204);
   });
   router.use((error, _req, res, _next) => {
@@ -169,12 +226,11 @@ export function requireLogin(login, effective) {
       directLocalRequest(req, effective())
     )
       return next();
-    const token = sessionToken(req, login);
+    const token = settledToken(req, res, login, effective());
     const session = login.require(token);
     // WebSocket upgrades cannot set cookies; the next page request carries the renewal.
     const maxAge = login.renew(session);
-    if (maxAge)
-      res.cookie(cookieName, token, { ...cookieOptions(req, effective()), maxAge });
+    if (maxAge) setSession(req, res, effective(), token, maxAge);
     const cleanup = login.watch(session, () => res.destroy());
     res.once("close", cleanup);
     req.principal = principalOf(session);
