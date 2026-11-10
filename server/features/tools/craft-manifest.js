@@ -1,9 +1,9 @@
 import { serverMessages } from "../../lib/i18n/de.js";
 import path from "node:path";
 
-// The managed Craft Anything tool: the pinned release 0.5.0 of
+// The managed Craft Anything tool: the pinned release 0.6.0 of
 // github.com/storytold/craft-anything, one archive per platform. Every value below was
-// checked on 2026-11-08: the SHA-256 comes from the release's SHA256SUMS.txt and was
+// checked on 2026-11-10: the SHA-256 comes from the release's SHA256SUMS.txt and was
 // re-computed on the downloaded asset; `size` is the asset's byte size; `top` is the
 // archive's single top folder and `binary` the CLI's path below it. `installedSize` is
 // the unpacked size (du, KiB x 1024). The Linux tarballs also hold the ~100 MB GUI
@@ -11,17 +11,18 @@ import path from "node:path";
 // deleted after unpacking (and is not part of `installedSize`). The macOS zip is one
 // universal build for arm64 and x64 with the binary at the archive's top.
 // Updating means raising the version and replacing every url, sha256, size and
-// installedSize from the same sources, and checking the rebuilds' 0.5.0 assumptions
-// again (freshQuestions in craft/rebuild-view.js: a resumed build re-asks under new ids).
-const release = "https://github.com/storytold/craft-anything/releases/download/v0.5.0";
+// installedSize from the same sources, and checking the rebuilds' assumptions against the
+// new binary again (comments in craft/ name the version they were verified with; e.g.
+// freshQuestions in craft/rebuild-view.js: a resumed build re-asks under new ids).
+const release = "https://github.com/storytold/craft-anything/releases/download/v0.6.0";
 const macos = Object.freeze({
-  url: `${release}/craft-anything-cli-0.5.0-macos-universal.zip`,
-  sha256: "88ce25c2d727e8536678a4c9877e1a8020165198869135f08e7fac13761835fc",
-  size: 26956827,
+  url: `${release}/craft-anything-cli-0.6.0-macos-universal.zip`,
+  sha256: "29661218b0c293308b4ffbe1623628f2d22ad4074dabeb414dbc8c7f25dcb2a5",
+  size: 27350163,
   kind: "zip",
-  top: "craft-anything-cli-0.5.0-macos-universal",
+  top: "craft-anything-cli-0.6.0-macos-universal",
   binary: "craft-anything-cli",
-  installedSize: 65560576,
+  installedSize: 66498560,
 });
 const linux = (file, sha256, size, top, installedSize) =>
   Object.freeze({
@@ -36,24 +37,24 @@ const linux = (file, sha256, size, top, installedSize) =>
   });
 
 export const craftManifest = Object.freeze({
-  checked: "2026-11-08",
-  version: "0.5.0",
+  checked: "2026-11-10",
+  version: "0.6.0",
   platforms: Object.freeze({
     "darwin-arm64": macos,
     "darwin-x64": macos,
     "linux-x64": linux(
-      "craft-anything-0.5.0-linux-x86_64.tar.gz",
-      "d18c54ef05e5c7ef50f8c4959fee8983c0a4a1f141edc488d11f7029973c885b",
-      68980627,
-      "craft-anything-0.5.0-linux-x86_64",
-      34758656,
+      "craft-anything-0.6.0-linux-x86_64.tar.gz",
+      "cbc65972a8eb4c89ed74b99bcf14aa5ea0f7aa9da709def38da79ccacc5e07a0",
+      69441863,
+      "craft-anything-0.6.0-linux-x86_64",
+      35172352,
     ),
     "linux-arm64": linux(
-      "craft-anything-0.5.0-linux-aarch64.tar.gz",
-      "5fbbf8de469e9ec07355c5a5686412ac4775ed341a4f2a09d7ff61ff53c15805",
-      65813141,
-      "craft-anything-0.5.0-linux-aarch64",
-      28803072,
+      "craft-anything-0.6.0-linux-aarch64.tar.gz",
+      "e22f2df940882421d95395a685647168aa828618058dd2f8ed4b21c2dffbee01",
+      66241076,
+      "craft-anything-0.6.0-linux-aarch64",
+      29143040,
     ),
   }),
 });

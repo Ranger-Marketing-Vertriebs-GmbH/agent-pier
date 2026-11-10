@@ -106,7 +106,7 @@ export class RebuildSampler {
 
   /**
    * `fields` with status `needs_you` while the build runs and a question or approval
-   * waits for the owner: Craft Anything 0.5.0 reports `building` then (with
+   * waits for the owner: Craft Anything 0.5.0 and 0.6.0 report `building` then (with
    * `waiting: n`). Approvals auto mode still allows do not count (ownerQuestions).
    */
   waiting(record, fields) {

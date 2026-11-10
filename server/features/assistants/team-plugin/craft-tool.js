@@ -12,6 +12,8 @@ export const craftStackChoices = [
   "Electron",
   "Rust (console)",
   "Rust + egui (eframe)",
+  "Phaser",
+  "Bevy",
   "unity",
   "unreal",
   "godot",

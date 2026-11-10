@@ -861,15 +861,15 @@ beside REA on the dashboard and under **CLIs and extensions › Installation**.
 
 ![Craft Anything dialog with its components, deep mode switch and responsible-use notes](screenshots/craft-anything-dialog.png)
 
-**Components.** Craft Anything is pinned to release 0.5.0, one archive per platform in
+**Components.** Craft Anything is pinned to release 0.6.0, one archive per platform in
 `server/features/tools/craft-manifest.js` (URL, size and SHA-256, checked on
-2026-11-08 and verified before unpacking). The dialog lists:
+2026-11-10 and verified before unpacking). The dialog lists:
 
 | Component                                   | Version                      | Download / installed |
 | ------------------------------------------- | ---------------------------- | -------------------- |
-| **Craft Anything** (macOS, always included) | 0.5.0                        | 27 MB / 66 MB        |
-| **Craft Anything** (Linux x64)              | 0.5.0                        | 69 MB / 35 MB        |
-| **Craft Anything** (Linux arm64)            | 0.5.0                        | 66 MB / 29 MB        |
+| **Craft Anything** (macOS, always included) | 0.6.0                        | 27 MB / 66 MB        |
+| **Craft Anything** (Linux x64)              | 0.6.0                        | 69 MB / 35 MB        |
+| **Craft Anything** (Linux arm64)            | 0.6.0                        | 66 MB / 29 MB        |
 | **Ghidra with decompiler + Temurin JDK**    | Ghidra 12.1.4, JDK 21.0.13+9 | 633 MB / 1.1 GB      |
 
 macOS gets one universal build for Apple silicon and Intel; Linux x64 and arm64 each get

@@ -265,7 +265,7 @@ test("a running rebuild waiting for the owner reads needs_you everywhere", async
   const approval = { ask: "approval", title: "Run npm install?", action: "npm install" };
   const f = rebuildsFixture(t, { script: { steps: [approval, { finish: "ready" }] } });
   const view = await f.rebuilds.start({ request: "Waiting" });
-  // Craft Anything 0.5.0 (and the fake) report building while it waits.
+  // Craft Anything 0.5.0 and 0.6.0 (and the fake) report building while it waits.
   assert.ok(await until(() => f.rebuilds.get(view.id).questions.length === 1));
   const status = await f.rebuilds.call(
     f.rebuilds.records.get(view.id),

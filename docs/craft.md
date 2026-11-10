@@ -14,15 +14,15 @@ form says so next to **Start rebuild**.
 
 ## Start a rebuild
 
-| Field              | Meaning                                                                                                                                                                                    |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **What to make**   | The request, in your own words.                                                                                                                                                            |
-| **Target**         | **None**, a **Web address** or a **Local path** (an absolute path) of what Craft Anything studies.                                                                                         |
-| **Stack**          | What to build with: Builder's choice, Plain HTML and CSS, React + TypeScript (Vite), Next.js + TypeScript, Python, Electron, Rust (console), Rust + egui (eframe), Unity, Unreal or Godot. |
-| **Claude account** | Any Claude account that can build: a local or managed account without a provider. The default is your default Claude account, else the local one.                                          |
-| **Mode**           | **Clean room** only looks at the target from outside. **Deep** may also look inside it, for example decompile it.                                                                          |
-| **Auto mode**      | See [Auto mode](#auto-mode).                                                                                                                                                               |
-| **Rounds**         | How many build and check rounds Craft Anything may use.                                                                                                                                    |
+| Field              | Meaning                                                                                                                                                                                                  |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **What to make**   | The request, in your own words.                                                                                                                                                                          |
+| **Target**         | **None**, a **Web address** or a **Local path** (an absolute path) of what Craft Anything studies.                                                                                                       |
+| **Stack**          | What to build with: Builder's choice, Plain HTML and CSS, React + TypeScript (Vite), Next.js + TypeScript, Python, Electron, Rust (console), Rust + egui (eframe), Phaser, Bevy, Unity, Unreal or Godot. |
+| **Claude account** | Any Claude account that can build: a local or managed account without a provider. The default is your default Claude account, else the local one.                                                        |
+| **Mode**           | **Clean room** only looks at the target from outside. **Deep** may also look inside it, for example decompile it.                                                                                        |
+| **Auto mode**      | See [Auto mode](#auto-mode).                                                                                                                                                                             |
+| **Rounds**         | How many build and check rounds Craft Anything may use.                                                                                                                                                  |
 
 **Defaults** on the same page keeps the account, mode and auto mode that new rebuilds
 start with (**Save defaults**). Without an eligible Claude account the page says so and
@@ -75,9 +75,9 @@ opening it shows the card. A question answered in two places at once is answered
 the first; the second is refused as already answered. A question or approval belongs
 to the build that asked it: when the build stops (**Pause**, a restart, a lost Craft
 Anything process) it leaves the page and the inbox, and **Continue** asks it again as
-a new one. Craft Anything 0.5.0 keeps listing the old one and would take an answer to
-it without effect, so AgentPier hides it and refuses an answer to it as no longer
-open.
+a new one. Craft Anything (0.5.0 and 0.6.0) keeps listing the old one and would take
+an answer to it without effect, so AgentPier hides it and refuses an answer to it as no
+longer open.
 
 ### Auto mode
 
@@ -153,6 +153,11 @@ Craft Anything (also removing Ghidra) is refused as in use, as it is for a sessi
 rebuilds' Craft Anything process that no running rebuild uses (one still open after
 the last build ended, or one opening a rebuild's page started) does not count: it is
 closed before the change.
+
+A rebuild's project is written in the format of the Craft Anything that last built it.
+Craft Anything 0.6.0 writes a newer format than 0.5.0: after going back to an
+AgentPier release that pins 0.5.0, **Continue** and changes on such a rebuild fail
+(Craft Anything leaves the build alone and asks to be updated); its folder stays.
 
 **Remove from list** on a rebuild's page asks **Remove rebuild “…” from the list?** and
 forgets the rebuild: its record, its open questions in the inbox and further pushes
