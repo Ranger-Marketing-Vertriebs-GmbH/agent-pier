@@ -318,13 +318,23 @@ for (const language of ["en", "de"]) {
         expect(box.width).toBeGreaterThanOrEqual(280);
         expect(box.height).toBeGreaterThanOrEqual(220);
       }
+      // The terminals load late (their own chunk) and take the focus when they mount,
+      // so the divider is focused only once they are there.
+      await expect(paneOf(page, S1).locator(".xterm")).toBeVisible();
+      await expect(paneOf(page, "session:s3").locator(".xterm")).toBeVisible();
+      // The outer divider: its left side holds s1 and s3, two panes of at least 280 px,
+      // which bound it well above the general 15 %.
       const divider = page.getByRole("separator").first();
+      const bound = await divider.getAttribute("aria-valuemin");
+      expect(Number(bound)).toBeGreaterThan(15);
       await divider.focus();
+      await page.keyboard.press("ArrowRight");
+      await expect(divider).not.toHaveAttribute("aria-valuenow", bound);
       for (let step = 0; step < 12; step += 1) await page.keyboard.press("ArrowLeft");
-      for (const box of await sizes()) expect(box.width).toBeGreaterThanOrEqual(280);
-      const bound = await divider.getAttribute("aria-valuenow");
-      await page.keyboard.press("ArrowLeft");
       await expect(divider).toHaveAttribute("aria-valuenow", bound);
+      const narrowest = Math.min(...(await sizes()).map((box) => box.width));
+      expect(narrowest).toBeGreaterThanOrEqual(280);
+      expect(narrowest).toBeLessThan(290);
     });
 
     test("the terminal stays connected when its pane is split or moved", async ({
