@@ -322,6 +322,34 @@ test("a browser that cannot start explains a blocked Linux sandbox", async (t) =
   assert.equal(managedChromium(f.root), null);
 });
 
+test("the start check uses the mock keychain, so a macOS Chrome shuts down at once", async (t) => {
+  const f = await fixture(t);
+  const bytes = await archive("155.0.0.1");
+  const manifest = manifestFor("155.0.0.1", bytes);
+  f.serve(manifest, bytes);
+  fs.mkdirSync(f.root, { recursive: true });
+  const starts = [];
+  const run = async (command, args) => {
+    if (command === "ldd") return "";
+    if (!args.includes("--dump-dom")) return "Google Chrome for Testing 155.0.0.1";
+    starts.push(args);
+    return "<html><head></head><body></body></html>";
+  };
+  await installChromium({
+    root: f.root,
+    platform: "linux",
+    arch: "x64",
+    manifest,
+    fetchImpl: (url, options) =>
+      fetch(url.href.replace("https://storage.googleapis.com", f.local), options),
+    run,
+  });
+  // Without it Chrome 157 on macOS waits on the login Keychain at shutdown and exits 2.
+  assert.equal(starts.length, 1);
+  assert.ok(starts[0].includes("--use-mock-keychain"));
+  assert.equal(managedChromium(f.root).version, "155.0.0.1");
+});
+
 test("a full disk is named as such", async (t) => {
   const f = await fixture(t);
   const bytes = await archive("155.0.0.1");

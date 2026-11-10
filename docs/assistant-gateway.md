@@ -2074,8 +2074,10 @@ build without Homebrew or administrator rights (`server/features/tools/`
   resources), so `codesign --verify` refuses even an untouched copy; the pinned
   SHA-256 is the integrity check.
 - Every platform: `--version` must report the pinned version, and a short real start
-  (`--headless=new --dump-dom about:blank` with a temporary profile, the sandbox on)
-  must render a page. The sandbox is never switched off.
+  (`--headless=new --use-mock-keychain --dump-dom about:blank` with a temporary
+  profile, the sandbox on) must render a page and exit cleanly. The mock keychain
+  matters on macOS: from Chrome 157 a start without it waits on the login Keychain
+  while it shuts down and exits with code 2. The sandbox is never switched off.
 - Linux: `ldd` must resolve every shared library; missing ones are named in the
   error, for the owner to install with the package manager. Where the start fails and
   `kernel.apparmor_restrict_unprivileged_userns` is 1 (Ubuntu 23.10 and later), the

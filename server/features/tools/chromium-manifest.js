@@ -2,38 +2,38 @@
 // Chrome for Testing publishes its downloads at
 // https://googlechromelabs.github.io/chrome-for-testing/known-good-versions-with-downloads.json
 // but no checksums, so the SHA-256 and size of each archive are pinned here; they
-// were computed from the downloads below on 2026-10-17. Updating the browser means
+// were computed from the downloads below on 2026-11-10. Updating the browser means
 // raising `version` and replacing every platform's url, sha256 and size
 // (docs/assistant-gateway.md "Managed agent browser").
 export const chromiumManifest = {
-  version: "155.0.8059.84",
+  version: "157.0.8103.50",
   platforms: {
     "mac-arm64": {
-      url: "https://storage.googleapis.com/chrome-for-testing-public/155.0.8059.84/mac-arm64/chrome-mac-arm64.zip",
-      sha256: "13b9e98ce56f5ce18e100a009f455c9285f399e7c9dc8a76fdf2f3a9755bb5f2",
-      size: 192672771,
+      url: "https://storage.googleapis.com/chrome-for-testing-public/157.0.8103.50/mac-arm64/chrome-mac-arm64.zip",
+      sha256: "aceb0578a1cc3631358b164dbbef04bf8936f96c690fb78c3ac25b7655e795e8",
+      size: 196583703,
       executable:
         "chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
       app: "chrome-mac-arm64/Google Chrome for Testing.app",
     },
     "mac-x64": {
-      url: "https://storage.googleapis.com/chrome-for-testing-public/155.0.8059.84/mac-x64/chrome-mac-x64.zip",
-      sha256: "d805a173118daa5f6f5cf464500789e1e00022a9a6aed8abfec821ab828fa862",
-      size: 203150281,
+      url: "https://storage.googleapis.com/chrome-for-testing-public/157.0.8103.50/mac-x64/chrome-mac-x64.zip",
+      sha256: "7b1c12bee8024f1193b28754aa0d46b7eaa08394de51bef84fd65a6cf08d61dc",
+      size: 207136222,
       executable:
         "chrome-mac-x64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
       app: "chrome-mac-x64/Google Chrome for Testing.app",
     },
     linux64: {
-      url: "https://storage.googleapis.com/chrome-for-testing-public/155.0.8059.84/linux64/chrome-linux64.zip",
-      sha256: "cf0f049892dea22e6a6db26d47ed0d7776b7158edcbec4634086633df8bafcbc",
-      size: 199014491,
+      url: "https://storage.googleapis.com/chrome-for-testing-public/157.0.8103.50/linux64/chrome-linux64.zip",
+      sha256: "d17167bc092eb495a3b768c7467f27e35f625aa03834233a1663af67dcb668c9",
+      size: 203527334,
       executable: "chrome-linux64/chrome",
     },
     "linux-arm64": {
-      url: "https://storage.googleapis.com/chrome-for-testing-public/155.0.8059.84/linux-arm64/chrome-linux-arm64.zip",
-      sha256: "1692a407908867de88eb1f1b2a93ca47c348d8fb2e3c04752d966e0f2e0344b4",
-      size: 198807353,
+      url: "https://storage.googleapis.com/chrome-for-testing-public/157.0.8103.50/linux-arm64/chrome-linux-arm64.zip",
+      sha256: "9539c1612121eb09c4b787f4f9d0c732357772eb22583620ffed64d50dd6c4cc",
+      size: 203292807,
       executable: "chrome-linux-arm64/chrome",
     },
   },
