@@ -262,45 +262,57 @@ test("a hook without a secret answers 401 and the Bearer scheme ignores case", a
   }
 });
 
-test("rotating X-Forwarded-For values share one tailnet window and a capped map", async (t) => {
+test("one tailnet device's failures never make another device wait", async (t) => {
   const throttle = new AuthThrottle({ maxKeys: 5 });
-  const { f, post, hook } = await endpoint(t, { throttle });
+  const { f, post, secret } = await endpoint(t, { throttle });
   const other = f.hooks.create(f.id, { name: "CI", sender: "ci" });
-  for (let i = 0; i < 10; i += 1) {
-    const r = await post(
-      { "x-forwarded-for": `100.64.0.${i}` },
-      { host: remoteHost, auth: "Bearer aph_wrong" },
+  const otherPath = `/hooks/${other.hook.id}`;
+  const from = (address, options = {}) =>
+    post({ "x-forwarded-for": address }, { host: remoteHost, ...options });
+  // A device with a wrong secret fills its own window for that hook.
+  for (let i = 0; i < 10; i += 1)
+    assert.equal((await from("100.64.0.1", { auth: "Bearer aph_wrong" })).status, 401);
+  const blocked = await from("100.64.0.1", { auth: `Bearer ${secret}` });
+  assert.equal(blocked.status, 429);
+  assert.ok(Number(blocked.headers["retry-after"]) > 0);
+  // Its scans of unknown ids then block every hook from it.
+  for (let i = 0; i < 10; i += 1)
+    assert.equal(
+      (await from("100.64.0.1", { path: `/hooks/${randomUUID()}` })).status,
+      404,
     );
-    assert.equal(r.status, 401);
+  assert.equal(
+    (await from("100.64.0.1", { path: otherPath, auth: `Bearer ${other.secret}` }))
+      .status,
+    429,
+  );
+  // Another device delivers to both hooks, and so does the local machine.
+  assert.equal((await from("100.64.0.2")).status, 202);
+  assert.equal(
+    (await from("100.64.0.2", { path: otherPath, auth: `Bearer ${other.secret}` }))
+      .status,
+    202,
+  );
+  assert.equal((await post({}, { data: '{"id":"local-1"}' })).status, 202);
+  assert.ok(![...throttle.failures.keys()].some((key) => /^tailscale(\||$)/.test(key)));
+  assert.equal(f.calls.filter((c) => c.method === "cron.add").length, 3);
+});
+
+test("rotating or malformed X-Forwarded-For values keep the map capped", async (t) => {
+  const throttle = new AuthThrottle({ maxKeys: 5 });
+  const { post } = await endpoint(t, { throttle });
+  const wrong = { host: remoteHost, auth: "Bearer aph_wrong" };
+  for (let i = 0; i < 30; i += 1) {
+    assert.equal((await post({ "x-forwarded-for": `100.64.0.${i}` }, wrong)).status, 401);
     assert.ok(throttle.failures.size <= 5, String(throttle.failures.size));
   }
-  const fresh = await post({ "x-forwarded-for": "100.64.1.1" }, { host: remoteHost });
-  assert.equal(fresh.status, 429);
-  assert.ok(Number(fresh.headers["retry-after"]) > 0);
-  assert.ok(throttle.failures.has(`tailscale|${hook.id}`));
-  // Wrong secrets were for one hook: the tailnet still reaches the other one.
-  const tailnetOther = await post(
-    { "x-forwarded-for": "100.64.1.2" },
-    { host: remoteHost, path: `/hooks/${other.hook.id}`, auth: `Bearer ${other.secret}` },
-  );
-  assert.equal(tailnetOther.status, 202);
-  // Rotating scans of unknown ids fill the shared tailnet window, which no
-  // eviction removes: then every hook through the tailnet waits.
-  for (let i = 0; i < 10; i += 1)
-    await post(
-      { "x-forwarded-for": `100.64.2.${i}` },
-      { host: remoteHost, path: `/hooks/${randomUUID()}` },
-    );
-  assert.ok(throttle.failures.has("tailscale"));
+  // Anything that is not one address shares a single window, whatever its text.
+  const junk = (i) => ({ "x-forwarded-for": `${"x".repeat(2000)}${i}` });
+  for (let i = 0; i < 10; i += 1) assert.equal((await post(junk(i), wrong)).status, 401);
+  assert.equal((await post(junk(99), wrong)).status, 429);
+  assert.equal((await post({}, wrong)).status, 429);
+  for (const key of throttle.failures.keys()) assert.ok(key.length < 100, key);
   assert.ok(throttle.failures.size <= 5, String(throttle.failures.size));
-  const scanned = await post(
-    { "x-forwarded-for": "100.64.3.1" },
-    { host: remoteHost, path: `/hooks/${other.hook.id}`, auth: `Bearer ${other.secret}` },
-  );
-  assert.equal(scanned.status, 429);
-  // The local machine keeps its own window.
-  assert.equal((await post({}, { data: '{"id":"local-1"}' })).status, 202);
-  assert.equal(f.calls.filter((c) => c.method === "cron.add").length, 2);
 });
 
 test("a request ceiling per stored hook keeps unknown IDs in one shared window", async (t) => {
@@ -323,15 +335,15 @@ test("the auth throttle evicts the least recently failed key, never a fixed one"
   let now = 0;
   const throttle = new AuthThrottle({ now: () => now, limit: 3, maxKeys: 3 });
   throttle.fail("local");
-  throttle.fail(["tailscale:a", "tailscale"]);
+  throttle.fail("tailscale:a");
   for (let i = 0; i < 50; i += 1) {
     now += 1;
     throttle.fail(`network:${i}`);
     assert.ok(throttle.failures.size <= 3);
   }
   assert.ok(throttle.failures.has("local"));
-  assert.ok(throttle.failures.has("tailscale"));
   assert.ok(throttle.failures.has("network:49"));
+  assert.ok(throttle.failures.has("network:48"));
   assert.ok(!throttle.failures.has("tailscale:a"));
   // Each key keeps at most `limit` failures.
   for (let i = 0; i < 20; i += 1) throttle.fail("local");
@@ -339,18 +351,17 @@ test("the auth throttle evicts the least recently failed key, never a fixed one"
   assert.ok(throttle.blocked(["local"]) > 0);
 });
 
-test("per-hook windows of the local machine and the tailnet are never evicted", () => {
+test("per-hook windows of the local machine are never evicted", () => {
   let now = 0;
   const throttle = new AuthThrottle({ now: () => now, limit: 3, maxKeys: 3 });
   const id = "0f8b6a52-3c1d-4e2f-9a7b-5d6c8e9f0a1b";
   throttle.fail([`local|${id}`]);
-  throttle.fail([`tailscale:a|${id}`, `tailscale|${id}`]);
+  throttle.fail([`tailscale:a|${id}`]);
   for (let i = 0; i < 50; i += 1) {
     now += 1;
     throttle.fail(`network:${i}|${id}`);
   }
   assert.ok(throttle.failures.has(`local|${id}`));
-  assert.ok(throttle.failures.has(`tailscale|${id}`));
   assert.ok(!throttle.failures.has(`tailscale:a|${id}`));
   assert.ok(!throttle.failures.has(`network:0|${id}`));
   assert.ok(throttle.failures.size <= 3);
@@ -369,6 +380,17 @@ test("the auth throttle frees a source when its window ends", () => {
   assert.equal(throttle.blocked("a"), 1);
   now = 1100;
   assert.equal(throttle.blocked("a"), 0);
+});
+
+test("expired windows are dropped without waiting for the cap", () => {
+  let now = 0;
+  const throttle = new AuthThrottle({ now: () => now, windowMs: 100, pruneMs: 10 });
+  for (let i = 0; i < 20; i += 1) throttle.fail(`tailscale:100.64.0.${i}`);
+  assert.equal(throttle.failures.size, 20);
+  // Sources that never come back leave nothing behind once their window ended.
+  now = 200;
+  throttle.fail("tailscale:100.64.1.1");
+  assert.deepEqual([...throttle.failures.keys()], ["tailscale:100.64.1.1"]);
 });
 
 test("bodies over 64 KiB answer 413 and unsupported types 415", async (t) => {
