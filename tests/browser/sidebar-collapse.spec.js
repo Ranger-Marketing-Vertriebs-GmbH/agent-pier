@@ -8,7 +8,8 @@ test("the sidebar collapses on wide screens and expands again from the floating 
   await page.setViewportSize({ width: 1500, height: 1000 });
   await page.goto(baseURL);
   const sidebar = page.locator(".sidebar");
-  const main = page.locator("main");
+  // The startup card is a <main> too until the app replaces it (seen on WebKit).
+  const main = page.locator("main:not(.startup-card)");
   await expect(sidebar).toBeVisible();
   await expect(main).toHaveCSS("margin-left", "280px");
   await page.getByRole("button", { name: "Navigation einklappen" }).click();
