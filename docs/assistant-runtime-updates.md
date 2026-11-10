@@ -70,6 +70,13 @@ confirmation, read only (users' unknown turns are not settled by it).
 
 ### Pause agents and update
 
+Successfully started coding CLI sessions do not block a runtime update. Their
+`session_start` action keeps the state `running` as the launch receipt, even after
+the CLI ends; it is not work executing in the agent runtime. The update leaves
+these actions and sessions untouched. A pending notification of the start resumes
+after maintenance. Starts that are still approved, executing or of unknown outcome
+remain blockers with their usual cancel, wait or review resolution.
+
 **Pause agents and update** (German **Agenten anhalten und aktualisieren**) sits
 beside **Activate update** and works whether or not the last activation was blocked.
 It opens a confirmation that reads the current items and says for each what will

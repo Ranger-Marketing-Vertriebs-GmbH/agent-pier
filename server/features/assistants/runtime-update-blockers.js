@@ -223,6 +223,10 @@ function workflowResolution(action) {
 function workflows(s, items) {
   for (const action of s.assistants.workflows?.store.list() || []) {
     if (!workflowBusy.has(action.state)) continue;
+    // A running session_start records a successful CLI launch, not Gateway work.
+    // The session lives independently; any pending follow-up resumes after maintenance.
+    if (action.state === "running" && action.payload?.action === "session_start")
+      continue;
     items.push(
       item(
         "WORKFLOW_WORK",
