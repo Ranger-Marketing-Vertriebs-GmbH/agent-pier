@@ -4,6 +4,7 @@ import { applicationFixture } from "../helpers/application.js";
 import { issue, connect } from "../helpers/session-mcp.js";
 import { agentText } from "../../server/lib/i18n/agent-text.js";
 import { serverMessages } from "../../server/lib/i18n/de.js";
+import { RebuildPictures } from "../../server/features/craft/rebuild-pictures.js";
 
 const data = (result) => JSON.parse(result.content[0].text);
 const names = (f, grant, context) =>
@@ -34,6 +35,7 @@ async function craftApp(t, { installed = true } = {}) {
     close: () => real.craft?.close?.(),
   };
   f.application.craftRebuilds = {
+    pictures: new RebuildPictures({ dataDir: f.dataDir }),
     close: () => real.rebuilds?.close?.(),
     start: async (input, options) => {
       calls.push({ input, options });
@@ -144,6 +146,25 @@ test("owner-only fields are refused and errors carry stable codes", async (t) =>
     });
     assert.equal(data(missing).code, "CRAFT_REBUILD_NOT_FOUND");
     assert.equal(data(missing).status, 404);
+  });
+});
+
+test("a session reads why its pictures were refused by their stable codes", async (t) => {
+  const { f, calls } = await craftApp(t);
+  await withClient(t, f, async (client) => {
+    const start = async (pictures, requestId) =>
+      data(
+        await client.callTool({
+          name: "craft_rebuild_start",
+          arguments: { request: "Like this", pictures, requestId },
+        }),
+      );
+    const outside = await start(["/etc/hosts"], "a");
+    assert.equal(outside.code, "CRAFT_PICTURE_REFUSED");
+    assert.equal(outside.status, 403);
+    const missing = await start(["no-such-picture.png"], "b");
+    assert.match(missing.code, /^CRAFT_PICTURE_(NOT_FOUND|REFUSED)$/);
+    assert.equal(calls.length, 0);
   });
 });
 

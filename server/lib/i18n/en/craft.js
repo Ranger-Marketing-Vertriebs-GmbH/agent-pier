@@ -39,6 +39,9 @@ export const craft = Object.freeze({
     "A rebuild takes at most 10 pictures with a valid path, each only once.",
   rebuildPictureType: "Only PNG, JPEG, WebP or GIF pictures can be added.",
   rebuildPictureTooLarge: "A picture may be at most 20 MB.",
+  rebuildPictureEmpty: "This picture is empty.",
+  rebuildPictureChanged: "This picture changed while it was read. Try again.",
+  rebuildPictureTooManyPixels: "A picture may have at most 15360 × 8640 pixels.",
   rebuildPicturesBusy:
     "Too many pictures are waiting for a rebuild. Try again in a moment.",
   rebuildPictureGone: "A picture is no longer waiting. Add the pictures again.",

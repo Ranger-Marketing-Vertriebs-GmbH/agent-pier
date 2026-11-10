@@ -41,6 +41,10 @@ export const craft = Object.freeze({
   rebuildPictureType:
     "Nur Bilder im Format PNG, JPEG, WebP oder GIF lassen sich hinzufügen.",
   rebuildPictureTooLarge: "Ein Bild darf höchstens 20 MB groß sein.",
+  rebuildPictureEmpty: "Dieses Bild ist leer.",
+  rebuildPictureChanged:
+    "Dieses Bild hat sich beim Lesen geändert. Versuche es noch einmal.",
+  rebuildPictureTooManyPixels: "Ein Bild darf höchstens 15360 × 8640 Pixel haben.",
   rebuildPicturesBusy:
     "Zu viele Bilder warten auf einen Nachbau. Versuche es gleich noch einmal.",
   rebuildPictureGone: "Ein Bild wartet nicht mehr. Füge die Bilder noch einmal hinzu.",

@@ -5,6 +5,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { rasterType } from "../chat/chat-image-probe.js";
 import { logCraftFailure } from "./craft-log.js";
+import { MAX_PICTURE_PIXELS, pictureSize } from "./picture-size.js";
 import { rebuildsHome } from "./rebuild-store.js";
 
 const messages = serverMessages.craft;
@@ -12,13 +13,16 @@ const messages = serverMessages.craft;
 /**
  * What pictures of the original may be: at most `count` per start or follow-up, each
  * at most `maxBytes` (Craft Anything 0.6.0 refuses a picture over 20 MB), at most
- * `held` waiting at once for all callers together, each for at most `ttlMs`.
+ * at most `pixels` (picture-size.js), at most `held` waiting at once for all callers
+ * together, each for at most `ttlMs`, swept every `sweepMs`.
  */
 export const pictureLimits = Object.freeze({
   count: 10,
   maxBytes: 20 * 1024 * 1024,
+  pixels: MAX_PICTURE_PIXELS,
   held: 40,
   ttlMs: 60 * 60 * 1000,
+  sweepMs: 60 * 1000,
 });
 
 // The formats Craft Anything 0.6.0 copies (workspace.rs copy_pictures: by extension),
@@ -57,7 +61,8 @@ export function pictureType(body) {
  * checked: the owner's upload, or a file a session or an agent may read (copied by
  * the caller, never named by path here). Craft Anything copies a start's pictures
  * into the project's reference/ folder before rebuild_start answers; the staged
- * copies go then, after `ttlMs` unused, and at every server start and stop.
+ * copies go then, when the owner's form drops them (`release`), after `ttlMs` unused
+ * (a timer sweeps while `start` runs it), and at every server start and stop.
  */
 export class RebuildPictures {
   constructor({ dataDir, now = Date.now, limits = pictureLimits }) {
@@ -65,6 +70,19 @@ export class RebuildPictures {
     this.now = now;
     this.limits = limits;
     this.entries = new Map();
+    this.timer = null;
+  }
+
+  /** Sweeps every `sweepMs`, without keeping the process alive. */
+  start() {
+    this.timer ??= setInterval(() => this.sweep(), this.limits.sweepMs);
+    this.timer.unref?.();
+  }
+
+  /** Stops the sweep. */
+  stop() {
+    clearInterval(this.timer);
+    this.timer = null;
   }
 
   /** Removes every staged picture, also what an earlier process left. */
@@ -80,11 +98,15 @@ export class RebuildPictures {
   /** Stages a picture's bytes: `{ id, type, bytes }`, or a 400, 413 or 429. */
   async stage(body) {
     if (!Buffer.isBuffer(body) || !body.length)
-      throw problem(messages.rebuildPictureType, 400);
+      throw problem(messages.rebuildPictureEmpty, 400);
     if (body.length > this.limits.maxBytes)
       throw problem(messages.rebuildPictureTooLarge, 413);
     const type = pictureType(body);
-    if (!type) throw problem(messages.rebuildPictureType, 400);
+    const size = type && pictureSize(body, type);
+    if (!size || !size.width || !size.height)
+      throw problem(messages.rebuildPictureType, 400);
+    if (size.width * size.height > this.limits.pixels)
+      throw problem(messages.rebuildPictureTooManyPixels, 413);
     this.sweep();
     if (this.entries.size >= this.limits.held)
       throw problem(messages.rebuildPicturesBusy, 429);
