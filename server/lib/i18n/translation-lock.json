@@ -885,6 +885,7 @@
   "login.invalid": "de:bd57813239b4 en:e0fd61be9310",
   "login.password": "de:21f51ebdbbba en:5c7af519083e",
   "login.required": "de:9fab7b4be1b1 en:57764c9b8695",
+  "login.setupCodeInvalid": "de:0531d7c69884 en:322df5ff6c14",
   "login.setupLocalOnly": "de:f82a3ae28141 en:94088288360f",
   "login.throttled": "de:f1154b21aa67 en:9ed68d32b3f0",
   "login.username": "de:1f20b3b2c000 en:a3ad633541b9",

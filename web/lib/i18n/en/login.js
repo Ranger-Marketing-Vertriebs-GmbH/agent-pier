@@ -11,6 +11,9 @@ export const loginCopy = Object.freeze({
   password: "Password",
   repeat: "Repeat password",
   passwordHint: "At least 12 characters",
+  setupCode: "Setup code",
+  setupCodeHint:
+    "Shown in the start log on the AgentPier computer; npm run setup-code prints it there too.",
   mismatch: "Passwords do not match.",
   loading: "Checking sign-in …",
   pending: "Please wait …",
@@ -27,6 +30,8 @@ export const loginCopy = Object.freeze({
     LOGIN_REQUIRED: "Please sign in.",
     LOGIN_SETUP_LOCAL_ONLY:
       "The owner is set up on the AgentPier computer itself or through their own Tailscale account.",
+    LOGIN_SETUP_CODE_INVALID:
+      "The setup code is not correct. You find it on the AgentPier computer: in the start log or with npm run setup-code.",
   },
   logout: "Sign out",
 });

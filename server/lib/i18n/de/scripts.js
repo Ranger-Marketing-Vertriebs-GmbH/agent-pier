@@ -26,6 +26,12 @@ export const scripts = Object.freeze({
   serverListening: (port) => `AgentPier läuft auf http://127.0.0.1:${port}`,
   serverListeningNetwork: (urls) =>
     `Netzwerkzugriff aktiv ohne TLS. Erreichbar unter:\n${urls.map((url) => `  ${url}`).join("\n")}`,
+  setupCodeStart: (code) =>
+    `Noch kein Besitzerkonto angelegt. Wer es über das Netzwerk anlegt, braucht den Einrichtungscode ${code} (npm run setup-code zeigt ihn erneut). Direkt auf diesem Rechner ist keiner nötig.`,
+  setupCodeShown: (code) =>
+    `Einrichtungscode: ${code}\nGib ihn ein, wenn du das Besitzerkonto über das Netzwerk anlegst. Direkt auf dem AgentPier-Rechner und über das eigene Tailscale-Konto ist keiner nötig.`,
+  setupCodeOwnerExists:
+    "Das Besitzerkonto ist bereits angelegt; es gibt keinen Einrichtungscode mehr.",
   serverListenFailed: (bind, port, code) =>
     `AgentPier konnte nicht auf ${bind}:${port} lauschen (${code}). Bitte Bind-Adresse und Port prüfen.`,
   serviceFileMustBeRegular: "Die Dienstdatei darf kein Symlink oder Verzeichnis sein.",

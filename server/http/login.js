@@ -84,6 +84,13 @@ export function setupAllowed(req, config, hasUsers) {
   return req.trustBranch === "network" && !hasUsers;
 }
 /**
+ * Whether creating the owner needs the setup code: over the plain network, where
+ * reaching the page proves nothing about who asks. The computer itself and the owner's
+ * own Tailscale login need none.
+ */
+export const setupNeedsCode = (req, config) =>
+  !directLocalRequest(req, config) && req.trustBranch === "network";
+/**
  * The attempt windows a sign-in counts against. Tailscale Serve proxies every tailnet
  * device from loopback, so each tailnet login gets its own window, apart from the
  * local machine's; plain network requests count per address and, since an address is
@@ -148,7 +155,7 @@ function settledToken(req, res, login, config) {
     setSession(req, res, config, token, idleDuration);
   return token;
 }
-export function loginRoutes(login, effective, { notifications } = {}) {
+export function loginRoutes(login, effective, { notifications, setupCode } = {}) {
   const router = express.Router();
   // The browser's push device (useNotifications): it follows who is signed in on it.
   const device = (req, token, others) => {
@@ -163,10 +170,15 @@ export function loginRoutes(login, effective, { notifications } = {}) {
   router.use(express.json({ limit: "4kb", strict: true }));
   const status = (req, res) => {
     const signedIn = login.describe(settledToken(req, res, login, effective()));
+    const canSetup = !login.configured && setupAllowed(req, effective(), login.hasUsers);
+    const needsCode = canSetup && setupNeedsCode(req, effective());
+    // The code exists from the first visit on, for `npm run setup-code` to print.
+    if (needsCode) setupCode?.current();
     return {
       configured: login.configured,
       authenticated: Boolean(signedIn.role),
-      canSetup: !login.configured && setupAllowed(req, effective(), login.hasUsers),
+      canSetup,
+      ...(needsCode ? { needsSetupCode: true } : {}),
       ...signedIn,
     };
   };
@@ -180,7 +192,19 @@ export function loginRoutes(login, effective, { notifications } = {}) {
   router.post("/setup", async (req, res) => {
     if (!login.configured && !setupAllowed(req, effective(), login.hasUsers))
       throw loginProblem("LOGIN_SETUP_LOCAL_ONLY");
-    cookie(req, res, await login.setup(req.body, attemptSource(req, effective())));
+    const source = attemptSource(req, effective());
+    if (
+      !login.configured &&
+      setupNeedsCode(req, effective()) &&
+      !setupCode?.matches(req.body?.setupCode)
+    ) {
+      // A wrong code is an attempt like a wrong password; a used-up window answers 429.
+      login.throttle(source);
+      throw loginProblem("LOGIN_SETUP_CODE_INVALID");
+    }
+    const token = await login.setup(req.body, source);
+    setupCode?.clear();
+    cookie(req, res, token);
     res.status(201).json({ authenticated: true });
   });
   router.post("/login", async (req, res) => {

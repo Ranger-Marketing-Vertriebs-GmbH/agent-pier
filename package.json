@@ -15,6 +15,7 @@
     "ssh-config:remove": "node scripts/ssh-config.mjs remove",
     "tailscale": "node scripts/tailscale.mjs",
     "remote": "node scripts/remote.mjs",
+    "setup-code": "node scripts/setup-code.mjs",
     "postinstall": "node scripts/postinstall.mjs",
     "test:unit": "node scripts/test.mjs unit",
     "test:integration": "node scripts/test.mjs integration",

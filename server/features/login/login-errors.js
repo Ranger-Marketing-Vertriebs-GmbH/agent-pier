@@ -10,6 +10,7 @@ export const loginErrors = Object.freeze({
   LOGIN_THROTTLED: { message: copy.throttled, status: 429 },
   LOGIN_REQUIRED: { message: copy.required, status: 401 },
   LOGIN_SETUP_LOCAL_ONLY: { message: copy.setupLocalOnly, status: 403 },
+  LOGIN_SETUP_CODE_INVALID: { message: copy.setupCodeInvalid, status: 403 },
 });
 
 export function loginProblem(code) {
