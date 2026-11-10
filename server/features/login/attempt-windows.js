@@ -20,6 +20,7 @@ export class AttemptWindows {
     this.duration = duration;
     this.capacity = capacity;
     this.windows = new Map();
+    this.swept = now();
   }
   limitOf(key) {
     return this.limits.get(key) ?? this.limit;
@@ -39,9 +40,18 @@ export class AttemptWindows {
     const window = this.windows.get(key);
     if (this.active(window, now)) return ++window.count <= this.limitOf(key);
     this.windows.delete(key);
+    this.sweep(now);
     this.evict(now);
     this.windows.set(key, { start: now, count: 1 });
     return true;
+  }
+  // Once per window length, whatever the size: an expired window limits nothing, so
+  // none stays behind after a burst of sources that never return.
+  sweep(now) {
+    if (now - this.swept < this.duration) return;
+    this.swept = now;
+    for (const [key, window] of this.windows)
+      if (!this.active(window, now)) this.windows.delete(key);
   }
   /** Counts one attempt against every key, or none when any of them refuses. */
   allowAll(keys) {
