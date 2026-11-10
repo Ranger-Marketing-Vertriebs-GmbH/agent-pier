@@ -4,6 +4,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { applicationVersion } from "../operations/version.js";
 import { problem } from "../../lib/storage.js";
+import { fromTailnetMember } from "../../http/tailscale-request.js";
 import { boundedToolResult } from "./tool-policy.js";
 import { previewInstruction } from "../previews/preview-mcp.js";
 import { craftInstruction } from "../craft/craft-mcp-tools.js";
@@ -42,9 +43,13 @@ export function authorizeMcpTransport(req, config) {
     )
       throw problem("Proxy requests require the configured remote host.", 403);
     expected = `http://${host}`;
-  } else if (loopback && config.remoteUrl && new URL(config.remoteUrl).host === host)
+  } else if (loopback && config.remoteUrl && new URL(config.remoteUrl).host === host) {
+    // The same rule as the app (security.js): a signed-in tailnet member. Funnel and
+    // tagged devices carry no identity and reach none of the OAuth or MCP paths.
+    if (!fromTailnetMember(req.headers))
+      throw problem("MCP over Tailscale requires a signed-in tailnet device.", 403);
     expected = new URL(config.remoteUrl).origin;
-  else if (config.network?.enabled && config.networkHosts?.has(host)) {
+  } else if (config.network?.enabled && config.networkHosts?.has(host)) {
     if (headerNames.some((key) => key.startsWith("tailscale-")))
       throw problem("Proxy requests require the configured remote host.", 403);
     expected = `http://${host}`;

@@ -2,6 +2,7 @@ import { sessionToken } from "../../http/login.js";
 import { principalOf } from "../users/identity.js";
 import { allowedNetworkHosts } from "../remote/network-access.js";
 import { listenerPort } from "./preview-slots.js";
+import { fromTailnetMember } from "../../http/tailscale-request.js";
 
 const loopbacks = ["127.0.0.1", "::1", "::ffff:127.0.0.1"];
 const noNetwork = { addresses: [], hostname: "" };
@@ -42,8 +43,7 @@ export function previewBranch(
     `${new URL(current.remoteUrl).hostname}:${slot}` === host
   ) {
     // Funnel and tagged devices carry no identity and stay refused.
-    const identity = req.headers["tailscale-user-login"];
-    if (typeof identity !== "string" || !identity.trim()) throw refusal(403, "forbidden");
+    if (!fromTailnetMember(req.headers)) throw refusal(403, "forbidden");
     return "tailscale";
   }
   const network = current.network;

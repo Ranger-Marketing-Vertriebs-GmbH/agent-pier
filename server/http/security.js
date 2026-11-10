@@ -1,5 +1,6 @@
 import { serverMessages } from "../lib/i18n/de.js";
 import { problem } from "../lib/storage.js";
+import { fromTailnetMember } from "./tailscale-request.js";
 import {
   cliOAuthCallbackPath,
   oauthCallbackPath,
@@ -33,8 +34,7 @@ export function authorizeRequest(req, config, websocket = false) {
   } else if (loopback && config.remoteUrl && new URL(config.remoteUrl).host === host) {
     // Any tailnet member reaches the sign-in; AgentPier's own login decides who they
     // are. Funnel and tagged devices carry no identity and stay refused.
-    const identity = req.headers["tailscale-user-login"];
-    if (typeof identity !== "string" || !identity.trim())
+    if (!fromTailnetMember(req.headers))
       throw problem(serverMessages.http.tailscaleIdentityRequired, 403);
     expected = new URL(config.remoteUrl).origin;
     req.trustBranch = "tailscale";

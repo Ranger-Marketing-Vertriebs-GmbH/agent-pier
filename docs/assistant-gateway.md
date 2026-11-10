@@ -342,6 +342,12 @@ for the implementation and remaining native platform/version qualification.
   A routine run uses them at the agent's level unless the owner switched **May
   write** off for that routine. A browser upload from them goes through a copy AgentPier stages for
   that agent's browser alone ([browser uploads](#browser-uploads)).
+- **The MCP machine path follows the app's Tailscale rule.** `/mcp` and its OAuth
+  paths are mounted before `authorizeRequest` with their own transport check
+  (`authorizeMcpTransport` in `server/features/mcp/http-transport.js`). On the
+  Tailscale Serve host it requires a tailnet identity and refuses Funnel, as the app
+  and the previews do; the three share `server/http/tailscale-request.js`, which the
+  hook endpoint uses for its Funnel check.
 - **The hook endpoint is a machine path.** `POST /hooks/<hookId>`
   ([agent hooks](assistant-workflows.md#agent-hooks)) is served on AgentPier's own
   port, mounted after the MCP machine path and before `authorizeRequest`, with its
