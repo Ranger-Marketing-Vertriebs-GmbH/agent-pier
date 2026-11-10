@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { previewReturn } from "../../web/features/login/preview-return.js";
+import {
+  openPreviewReturn,
+  previewReturn,
+} from "../../web/features/login/preview-return.js";
 
 const local = { protocol: "http:", hostname: "localhost" };
 
@@ -51,4 +54,30 @@ test("keeps the query of the preview path and the Tailscale host name", () => {
     previewReturn("?preview=47101&path=%2F", { protocol: "http:", hostname: "[::1]" }),
     "http://[::1]:47101/",
   );
+});
+
+test("returns only to a preview that is open on that port", async () => {
+  const target = "http://localhost:47100/admin";
+  const view = { previews: [{ id: "p1", slot: 47100 }] };
+  assert.equal(await openPreviewReturn(target, async () => view), target);
+  for (const other of [
+    { previews: [] },
+    { previews: [{ id: "p2", slot: 47101 }] },
+    { previews: [{ id: "p3", slot: "47100" }] },
+    {},
+    null,
+  ])
+    assert.equal(await openPreviewReturn(target, async () => other), null);
+  // A port nobody opened a preview on is never a return target, whatever listens there.
+  assert.equal(await openPreviewReturn("http://localhost:8080/", async () => view), null);
+});
+
+test("stays in AgentPier when the previews cannot be read", async () => {
+  const failing = async () => {
+    throw new Error("403");
+  };
+  assert.equal(await openPreviewReturn("http://localhost:47100/", failing), null);
+  let read = false;
+  assert.equal(await openPreviewReturn(null, async () => (read = true)), null);
+  assert.equal(read, false);
 });

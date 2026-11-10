@@ -11,7 +11,8 @@ import { loginCopy as copy } from "../../lib/i18n/messages/login.js";
 import { clearChatCache } from "../chat/chat-session-cache.js";
 import { sharedDrafts } from "../assistants/useAssistants.js";
 import { liveAuthCheckEvent } from "../../lib/live/live-client.js";
-import { previewParams, previewReturn } from "./preview-return.js";
+import { openPreviewReturn, previewParams, previewReturn } from "./preview-return.js";
+import api from "../../lib/api.js";
 // Everything this page remembers for the signed-in user. Agent data, the agent chat
 // cache and its offline outbox live in the app and go with its unmount.
 const forgetUser = () => {
@@ -40,7 +41,10 @@ export default function LoginGate({ children }) {
     if (returned.current || !previewTarget) return;
     if (!status?.authenticated || status.role === "user") return;
     returned.current = true;
-    location.replace(previewTarget);
+    // Only a preview that is open right now is a place to return to.
+    void openPreviewReturn(previewTarget, () => api("/previews")).then((target) => {
+      if (target) location.replace(target);
+    });
   }, [previewTarget, status]);
   useEffect(() => {
     startupStage(status || error ? "done" : "authenticating");
