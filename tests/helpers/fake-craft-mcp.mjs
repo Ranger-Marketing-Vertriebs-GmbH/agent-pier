@@ -14,8 +14,8 @@
  * Each project lives in its `project_folder`: `craft.json` (request, target, stack,
  * status — `building` (also while a question waits, with `waiting: n`), `stopped`,
  * `ready` or `failed` as in 0.5.0 and 0.6.0 — note, checks, questions, conversation,
- * agent_session and, for tests, `fake_builder: { pid, claude_config_dir }`), `usage.json` and
- * `build-activity.log`. The project index (name → folder) is kept in
+ * agent_session and, for tests, `fake_builder: { pid, claude_config_dir }`),
+ * `usage.json` and `build-activity.log`. The project index (name → folder) is kept in
  * `$CRAFT_ANYTHING_CONFIG_DIR/fake-craft-projects.json`, so a new server finds the
  * projects of an earlier one (resume after a restart). The builder is
  * `/bin/sh -c "sleep 600 & wait" fake-craft-builder <folder>` in its own process
@@ -38,7 +38,8 @@
  *     "emptyTools": ["rebuild_start"],  // run these, then answer { result: {} }
  *     "silentInit": true,               // never answer initialize
  *     "stopLagMs": 500,                 // rebuild_status still reports the build
- *                                       // running this long after rebuild_stop (0.5.0, 0.6.0)
+ *                                       // running this long after rebuild_stop
+ *                                       // (0.5.0, 0.6.0)
  *     "ignoreStdinClose": true          // keep running when stdin closes
  *   }
  * Without steps a build runs until rebuild_stop. A question waits for

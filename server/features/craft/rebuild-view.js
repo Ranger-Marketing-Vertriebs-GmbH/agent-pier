@@ -116,9 +116,9 @@ export function sampledFields(
  * questions, and the ids listed while it stopped (`staleQuestions`) stay hidden after
  * it runs again. `questions` is Craft Anything's list; ids it no longer lists are
  * forgotten. Assumption checked with the real binary for 0.5.0 (2026-11-09) and the
- * pinned 0.6.0 (2026-11-10): Continue asks again under a NEW id. A version that re-asked under the same id would
- * leave its question hidden while the build waits for it, so check this again
- * whenever the pin (craft-manifest.js) changes.
+ * pinned 0.6.0 (2026-11-10): Continue asks again under a NEW id. A version that
+ * re-asked under the same id would leave its question hidden while the build waits for
+ * it, so check this again whenever the pin (craft-manifest.js) changes.
  */
 export function freshQuestions(questions, running, stale = []) {
   const listed = new Set(questions.map((question) => question.id));
