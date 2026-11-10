@@ -525,7 +525,52 @@ test(
     assert.equal(made[0].handle.closed, true);
     assert.equal(signals, 3);
     assert.ok(await until(() => made.length === 2 && !made[1].handle.closed));
-    made[1].handle.emit("change", "rename", "queue.sqlite");
+    // Nothing reports a write between the failure and the new handle: it signals.
     assert.equal(signals, 4);
+    made[1].handle.emit("change", "rename", "queue.sqlite");
+    assert.equal(signals, 5);
+  },
+);
+
+test(
+  "a re-arm that starts watching a folder signals what its watch missed",
+  hangGuard,
+  async (t) => {
+    const root = await fs.mkdtemp(path.join(process.env.TMPDIR || "/tmp", "bus-watch-"));
+    t.after(() => fs.rm(root, { recursive: true, force: true }));
+    const home = path.join(root, "projects", PROJECT);
+    await fs.mkdir(home, { recursive: true });
+    const { made, watch } = fakeWatch();
+    const watches = new AgentBusWatches({
+      root: () => root,
+      sessions: async () => [],
+      onSessions: () => () => {},
+      watch,
+    });
+    t.after(() => watches.close());
+    let signals = 0;
+    watches.follow(PROJECT, () => (signals += 1));
+    assert.ok(await until(() => [...watches.followers][0]?.state === "armed"));
+    // The first arm follows the subscriber's own read: it does not signal.
+    assert.equal(made.length, 1);
+    assert.equal(signals, 0);
+    // The first peer registers while a re-arm for another reason is running: the
+    // re-arm finds `peers` and watches it, and no handle reports the folder or the
+    // peer made before (macOS can lose both events then).
+    const peers = path.join(home, "peers");
+    await fs.mkdir(peers);
+    await fs.writeFile(path.join(peers, "claude-s1.json"), "{}");
+    made[0].handle.emit("change", "rename", "queue.sqlite");
+    assert.equal(signals, 1);
+    assert.ok(await until(() => made.some(({ directory }) => directory === peers)));
+    assert.equal(signals, 2);
+    // A re-arm that starts nothing new stays silent.
+    made[0].handle.emit("change", "rename", "queue.sqlite");
+    assert.equal(signals, 3);
+    await until(
+      () => !([...watches.followers][0].arming || [...watches.followers][0].again),
+    );
+    assert.equal(signals, 3);
+    assert.equal(made.length, 2);
   },
 );
