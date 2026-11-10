@@ -13,7 +13,6 @@ import {
   craftManagedKeys,
 } from "../../server/features/tools/craft-config.js";
 import { requireOwnerPatch } from "../../server/features/mcp-servers/managed-servers.js";
-import { managedRowInUse, reaInUse } from "../../server/application/rea-wiring.js";
 import { createCraftTool } from "../../server/application/craft-wiring.js";
 import { RebuildStore } from "../../server/features/craft/rebuild-store.js";
 import { craftFixture } from "../helpers/craft-tool-fixture.js";
@@ -68,6 +67,7 @@ test("first install places the binary and creates a managed row bound to Claude"
     downloadSize: entry.size,
     installedSize: entry.installedSize,
     outdated: false,
+    runningVersions: [],
   });
   assert.deepEqual(JSON.parse(fs.readFileSync(craft.file, "utf8")), {
     serverId: server.id,
@@ -417,7 +417,6 @@ test("running rebuilds keep Craft Anything in use; idle children close first", a
     packages: f.s.packages,
     extensions: f.s.extensions,
     audit: { append() {} },
-    sessions: { list: async () => [] },
     services: () => ({
       craftRebuilds: { inUse: () => busy, closeIdle: async () => closed++ },
     }),
@@ -428,10 +427,6 @@ test("running rebuilds keep Craft Anything in use; idle children close first", a
   busy = false;
   assert.equal(await craft.inUse(), false);
   assert.equal(closed, 1, "the idle children closed before a change");
-});
-
-test("managedRowInUse is the generic check REA's name points at", () => {
-  assert.equal(reaInUse, managedRowInUse);
 });
 
 test("overlapping environment syncs and an apply do not race on the row", async (t) => {

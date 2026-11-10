@@ -1,7 +1,7 @@
 import { CraftTool } from "../features/tools/craft-tool.js";
 import { craftJobChanged, reaJobChanged } from "../features/tools/live-topics.js";
 import { craftRebuildsChanged } from "../features/craft/live-topics.js";
-import { createReaTool, managedRowInUse } from "./rea-wiring.js";
+import { createReaTool } from "./rea-wiring.js";
 
 /**
  * The managed Craft Anything tool on the central MCP server store, or null without
@@ -14,7 +14,6 @@ export function createCraftTool({
   packages,
   extensions,
   audit,
-  sessions,
   services,
 }) {
   if (!servers || !packages) return null;
@@ -26,20 +25,15 @@ export function createCraftTool({
     extensions,
     audit,
   });
-  // Running rebuilds count too: their children and builders run Craft Anything. A
-  // child no running rebuild uses (a view opened it) never blocks a change: once
-  // nothing else uses Craft Anything, it is closed here, before the change starts.
+  // In use means work in flight: a running or starting rebuild, or a call of its Craft
+  // Anything. A session's or an agent's idle MCP server never counts (AgentPier sees
+  // no call in flight there): it keeps its version until it reloads. A rebuild child
+  // no running rebuild uses (a view opened it) is closed here, before the change.
   craft.inUse = async () => {
     const rebuilds = services()?.craftRebuilds;
     if (rebuilds?.inUse()) return true;
-    const used = await managedRowInUse({
-      serverId: craft.serverId(),
-      servers,
-      sessions,
-      assistants: services()?.assistants,
-    });
-    if (!used) await rebuilds?.closeIdle();
-    return used;
+    await rebuilds?.closeIdle();
+    return false;
   };
   return craft;
 }
@@ -47,6 +41,8 @@ export function createCraftTool({
 /** The other tool wants, runs or changes the Ghidra and JDK both tools share. */
 function join(one, other) {
   one.keepsGhidra = () => other.wantsGhidra();
+  // Only Craft Anything's rebuilds count: a session's idle server keeps its version
+  // folder (VersionSweep), so replacing or removing Ghidra never breaks it.
   one.othersUseGhidra = async () => (await other.inUse()) && other.wantsGhidra();
   one.othersBusy = () => !!other.job || other.claimed;
 }

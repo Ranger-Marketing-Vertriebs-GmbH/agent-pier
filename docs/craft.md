@@ -149,7 +149,9 @@ Paused, without waiting for Craft Anything's own start or update.
 The rebuild list and the defaults live in `<data dir>/craft-rebuilds/rebuilds.json`,
 outside Craft Anything's own folder: removing Craft Anything keeps the list and the
 rebuilds' projects. While a rebuild runs or starts, removing, updating or changing
-Craft Anything (also removing Ghidra) is refused as in use, as it is for a session. A
+Craft Anything (also removing Ghidra) is refused as in use. A coding session's or an
+agent's idle Craft Anything server never counts: it keeps its version until it reloads
+([managed Craft Anything](mcp.md#managed-craft-anything)). A
 rebuilds' Craft Anything process that no running rebuild uses (one still open after
 the last build ended, or one opening a rebuild's page started) does not count: it is
 closed before the change.

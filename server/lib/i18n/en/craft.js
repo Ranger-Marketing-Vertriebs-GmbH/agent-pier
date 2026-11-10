@@ -12,7 +12,7 @@ export const craft = Object.freeze({
   invalidMode: 'Craft Anything\'s mode must be "clean-room" or "deep".',
   busy: "Craft Anything is being installed, changed or removed right now. Wait until that finishes.",
   inUse:
-    "Craft Anything is running in a session. Stop it before you remove, change or update Craft Anything or its components.",
+    "A rebuild is running with Craft Anything. Wait for it to finish or pause it before you remove, change or update Craft Anything or its components.",
   confirmationRequired: "Confirm Craft Anything's installation first.",
   notInstalled: "Craft Anything is not installed.",
   rowBroken:

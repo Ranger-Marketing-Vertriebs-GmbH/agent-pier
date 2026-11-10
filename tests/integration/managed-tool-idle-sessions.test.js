@@ -1,0 +1,135 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { craftFixture } from "../helpers/craft-tool-fixture.js";
+
+// A session's idle MCP server never blocks an update or a removal: the new version is
+// installed beside the old one, and the old folder goes once no process runs it.
+
+const hourAgo = () => new Date(Date.now() - 60 * 60 * 1000);
+const versionsOf = (f, id) =>
+  fs
+    .readdirSync(path.join(f.root, ".packages"))
+    .filter((name) => name.startsWith(`${id}-`))
+    .map((name) => path.join(f.root, ".packages", name));
+// The sweep spares folders changed in the last minutes (an install in flight).
+const age = (directories) => {
+  for (const directory of directories) fs.utimesSync(directory, hourAgo(), hourAgo());
+};
+
+/** A fake process list the tools read; `lines` changes as processes come and go. */
+function processes() {
+  const list = { lines: [] };
+  list.read = () => list.lines;
+  return list;
+}
+
+test("an update beside an idle session's server keeps its folder until it exits", async (t) => {
+  const f = await craftFixture(t);
+  const ps = processes();
+  const old = await f.tool({ version: "0.4.0", commandLines: ps.read });
+  const { serverId } = await f.install(old, { components: { ghidra: false } });
+  const [oldFolder] = versionsOf(f, "craft-anything");
+  // Claude Code started the row's command (through the link) before the update.
+  ps.lines = [`${f.s.servers.get(serverId).command} mcp --restricted --clean-room`];
+  const craft = await f.tool({ commandLines: ps.read });
+  await craft.update();
+  await craft.settled();
+  await craft.versions.running;
+  const state = craft.state();
+  assert.equal(state.status, "succeeded", state.message);
+  assert.equal(state.components.core.version, "0.5.0");
+  assert.deepEqual(state.components.core.runningVersions, ["0.4.0"]);
+  assert.ok(fs.existsSync(oldFolder), "the running version stays");
+  assert.equal(versionsOf(f, "craft-anything").length, 2);
+  // New sessions get the new binary at once.
+  assert.match(f.s.servers.get(serverId).command, /craft-anything-cli-0\.5\.0-/);
+  // While the old server runs, a sweep keeps it.
+  age([oldFolder]);
+  await craft.versions.run();
+  assert.ok(fs.existsSync(oldFolder));
+  // The session reloaded: the next sweep removes the old folder.
+  ps.lines = [];
+  await craft.versions.run();
+  assert.equal(fs.existsSync(oldFolder), false);
+  assert.deepEqual(craft.state().components.core.runningVersions, []);
+  assert.equal(craft.versions.timer, null, "nothing left to look at again");
+});
+
+test("removal with an idle session's server keeps its folder until it exits", async (t) => {
+  const f = await craftFixture(t);
+  const ps = processes();
+  const craft = await f.tool({ commandLines: ps.read });
+  const { serverId } = await f.install(craft, { components: { ghidra: false } });
+  const [folder] = versionsOf(f, "craft-anything");
+  ps.lines = [`${f.s.servers.get(serverId).command} mcp --restricted --deep`];
+  const state = await craft.uninstall();
+  await craft.versions.running;
+  assert.equal(state.installed, false);
+  assert.equal(fs.existsSync(path.join(f.root, "craft-anything")), false);
+  assert.ok(fs.existsSync(folder), "the idle server keeps its files");
+  assert.ok(craft.versions.timer, "a later sweep looks again");
+  ps.lines = [];
+  age([folder]);
+  await craft.versions.run();
+  assert.equal(fs.existsSync(folder), false);
+});
+
+test("an unreadable process list keeps every old version", async (t) => {
+  const f = await craftFixture(t);
+  const craft = await f.tool({
+    commandLines: () => {
+      throw new Error("ps failed");
+    },
+  });
+  await f.install(craft, { components: { ghidra: false } });
+  const [folder] = versionsOf(f, "craft-anything");
+  await craft.uninstall();
+  await craft.versions.running;
+  assert.ok(fs.existsSync(folder));
+});
+
+test("a shared Ghidra update leaves the version an idle server's Java runs", async (t) => {
+  const f = await craftFixture(t);
+  const ps = processes();
+  const old = await f.tool({ pins: { ghidra: "12.0.0" }, commandLines: ps.read });
+  await f.install(old);
+  const ghidra = old.component("rea-ghidra");
+  // Craft Anything's (or REA's) Ghidra runs in a session from the first version.
+  ps.lines = [`${old.component("rea-jdk").home}/bin/java -cp ${ghidra.home}/lib`];
+  const craft = await f.tool({ pins: { ghidra: "12.1.4" }, commandLines: ps.read });
+  await craft.update();
+  await craft.settled();
+  await craft.versions.running;
+  assert.equal(craft.state().status, "succeeded", craft.state().message);
+  assert.equal(craft.component("rea-ghidra").version, "12.1.4");
+  assert.ok(fs.existsSync(ghidra.directory), "the running Ghidra stays");
+  // REA's sweep covers the shared parts too.
+  const rea = await f.reaTool({ commandLines: ps.read });
+  ps.lines = [];
+  age(versionsOf(f, "rea-ghidra"));
+  await rea.versions.run();
+  assert.equal(fs.existsSync(ghidra.directory), false);
+  assert.ok(craft.component("rea-ghidra"), "the active version stays");
+});
+
+test("removing Ghidra keeps the folder an idle server runs until it exits", async (t) => {
+  const f = await craftFixture(t);
+  const ps = processes();
+  const craft = await f.tool({ commandLines: ps.read });
+  await f.install(craft);
+  const ghidra = craft.component("rea-ghidra");
+  const jdk = craft.component("rea-jdk");
+  ps.lines = [`${jdk.home}/bin/java -Dghidra.install=${ghidra.home}`];
+  await f.install(craft, { components: { ghidra: false } });
+  await craft.versions.running;
+  assert.equal(craft.component("rea-ghidra"), null);
+  assert.ok(fs.existsSync(ghidra.directory));
+  assert.ok(fs.existsSync(jdk.directory));
+  ps.lines = [];
+  age([ghidra.directory, jdk.directory]);
+  await craft.versions.run();
+  assert.equal(fs.existsSync(ghidra.directory), false);
+  assert.equal(fs.existsSync(jdk.directory), false);
+});

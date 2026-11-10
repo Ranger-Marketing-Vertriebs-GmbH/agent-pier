@@ -9,6 +9,7 @@ import { unpackTarGz } from "./tar-unpack.js";
 import { unpackZip } from "./zip-unpack.js";
 import { checkCraftAnything, checkGhidra, checkJdk, insideReal } from "./rea-checks.js";
 import { run as defaultRun } from "./tool-run.js";
+import { heldPaths } from "../../lib/process-commands.js";
 
 // The pinned Ghidra and JDK of the managed REA tool (AGENTPIER-104) and the Craft
 // Anything binary: each archive is downloaded and checked, unpacked into
@@ -119,8 +120,10 @@ function unpack(entry, archive, directory, signal) {
 /**
  * Installs or updates component `id` from the pinned `entry`: download and check,
  * unpack into a new version directory, check the version, write the record and switch
- * the link atomically. The previous version stays until the next install, so a
- * running REA keeps its files. Nothing is published unless every step passed.
+ * the link atomically. An older version a running process still uses (an idle MCP
+ * server of a session started before) stays until it exits (`held`, heldPaths by
+ * default; pruneReaVersions removes it later). Nothing is published unless every step
+ * passed.
  */
 export async function installReaComponent({
   root,
@@ -133,6 +136,7 @@ export async function installReaComponent({
   env = process.env,
   platform = process.platform,
   progress,
+  held = heldPaths(),
 }) {
   const { name, home, check, messages } = component(id);
   const packages = path.join(root, ".packages");
@@ -164,7 +168,6 @@ export async function installReaComponent({
       JSON.stringify({ id, version, platform, home: home(entry) }),
       { mode: 0o600, flag: "wx" },
     );
-    const previous = managedReaComponent(root, id)?.directory;
     // The link is replaced atomically: a reader sees the old or the new version.
     const link = path.join(root, `.${id}-link-${randomUUID()}`);
     await fsp.symlink(path.relative(root, directory), link, "dir");
@@ -175,10 +178,9 @@ export async function installReaComponent({
       throw error;
     }
     published = true;
-    // Published: an old version that cannot be removed now goes at the next install.
-    await prune(root, id, [directory, previous].filter(Boolean), {
-      sparesRecent: true,
-    }).catch((error) =>
+    // Published: an old version a process runs, or one that cannot be removed now,
+    // goes at a later sweep.
+    await prune(root, id, [directory], { sparesRecent: true, held }).catch((error) =>
       console.warn(
         `AgentPier could not remove an old version of ${id} (${error?.code ?? "error"}).`,
       ),
@@ -199,39 +201,101 @@ export async function installReaComponent({
 // install still running in another process (an installer run beside the server).
 const inFlightMs = 10 * 60 * 1000;
 
-async function inFlight(directory) {
-  if (await fsp.stat(path.join(directory, record)).catch(() => null)) return false;
+async function recent(directory) {
   const stat = await fsp.stat(directory).catch(() => null);
   return !!stat && Date.now() - stat.mtimeMs < inFlightMs;
+}
+
+async function inFlight(directory) {
+  if (await fsp.stat(path.join(directory, record)).catch(() => null)) return false;
+  return recent(directory);
+}
+
+// The paths a process may name a version directory by: the folder itself (also its
+// real path) and, for a published one, its home through the activation link, such as
+// <root>/craft-anything/craft-anything-cli-0.5.0-macos-universal. The link moves on
+// with an update, but the home's name carries the version.
+async function versionPaths(root, id, directory) {
+  const paths = [directory, await fsp.realpath(directory).catch(() => null)];
+  try {
+    const info = JSON.parse(await fsp.readFile(path.join(directory, record), "utf8"));
+    if (typeof info.home === "string" && info.home && !info.home.startsWith("."))
+      for (const base of [root, await fsp.realpath(root).catch(() => null)])
+        if (base) paths.push(path.join(base, id, info.home));
+    return { paths, version: typeof info.version === "string" ? info.version : null };
+  } catch {
+    return { paths, version: null };
+  }
 }
 
 // Keeps `keep` and whatever the link points at when pruning runs (like
 // pruneGithubMcpPackages); only this component's version directories are touched.
 // The server runs one installation job at a time; with `sparesRecent` an install also
 // leaves another process's recent unpublished folder alone (the next start sweeps it).
-async function prune(root, id, keep, { sparesRecent = false } = {}) {
+// With `held` a version a running process uses stays too; with `sparesNew` (a sweep
+// beside a job of either tool or an installer run) every version changed recently.
+// Returns the versions kept for either reason: `[{ id, version, directory, running }]`.
+async function prune(
+  root,
+  id,
+  keep,
+  { sparesRecent = false, sparesNew = false, held = null } = {},
+) {
   const packages = path.join(root, ".packages");
   const active = await fsp.realpath(activation(root, id)).catch(() => null);
   const kept = new Set(
     [...keep, active].filter(Boolean).map((dir) => path.basename(dir)),
   );
+  const lingering = [];
   for (const name of await fsp.readdir(packages).catch(() => [])) {
     if (!name.startsWith(prefix(id)) || kept.has(name)) continue;
     const directory = path.join(packages, name);
     if (sparesRecent && (await inFlight(directory))) continue;
+    if (held) {
+      const { paths, version } = await versionPaths(root, id, directory);
+      if (held(paths)) {
+        lingering.push({ id, version, directory, running: true });
+        continue;
+      }
+    }
+    if (sparesNew && (await recent(directory))) {
+      lingering.push({ id, version: null, directory, running: false });
+      continue;
+    }
     await fsp.rm(directory, { recursive: true, force: true });
   }
+  return lingering;
 }
 
-/** Removes component `id`: its link and every version directory; a no-op when absent. */
-export async function removeReaComponent(root, id) {
+/**
+ * Removes component `id`: its link and every version directory no running process
+ * uses (`held`, heldPaths by default); pruneReaVersions removes those later. A no-op
+ * when absent.
+ */
+export async function removeReaComponent(root, id, { held = heldPaths() } = {}) {
   component(id);
   const link = activation(root, id);
   const stat = await fsp.lstat(link).catch(() => null);
   if (stat && !stat.isSymbolicLink())
     throw bad(serverMessages.tools.installationDirectoryInvalid);
   if (stat) await fsp.unlink(link);
-  await prune(root, id, []);
+  return prune(root, id, [], { held });
+}
+
+/**
+ * Removes the version directories of `ids` that are neither active, nor used by a
+ * running process (`held`), nor changed in the last minutes (an install in flight):
+ * what an update or a removal left for a session's idle MCP server, once that process
+ * exited. Returns what stays: `[{ id, version, directory, running }]`.
+ */
+export async function pruneReaVersions(
+  root,
+  { ids = reaComponentIds, held = heldPaths() } = {},
+) {
+  const lingering = [];
+  for (const id of ids)
+    lingering.push(...(await prune(root, id, [], { sparesNew: true, held })));
+  return lingering;
 }
 
 /**
@@ -280,6 +344,7 @@ export async function placeGhidra({
   env,
   platform,
   progress,
+  held,
 }) {
   const parts = [
     ["rea-jdk", "jdk", host.ghidra.jdk, manifest.jdk.version],
@@ -300,6 +365,7 @@ export async function placeGhidra({
       env,
       platform,
       progress: (message) => progress(step, message),
+      ...(held && { held }),
     });
   }
 }

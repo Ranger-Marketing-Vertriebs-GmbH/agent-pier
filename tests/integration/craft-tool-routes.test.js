@@ -81,7 +81,10 @@ test("GET/POST/DELETE /craft-anything answer as the service does and audit origi
   const inUse = await request("DELETE", "/api/craft-anything");
   assert.equal(inUse.status, 409);
   assert.equal(inUse.body.messageKey, "craft.inUse");
-  assert.match(english(inUse.body.messageKey), /^Craft Anything is running in a session/);
+  assert.match(
+    english(inUse.body.messageKey),
+    /^A rebuild is running with Craft Anything/,
+  );
   f.busy.value = false;
   const removed = await request("DELETE", "/api/craft-anything");
   assert.equal(removed.status, 200);
@@ -110,9 +113,8 @@ test("without the MCP server store /craft-anything answers 503", async (t) => {
   }
 });
 
-test("the wiring asks sessions for Craft Anything's own row", async (t) => {
+test("the wiring never counts a session's idle MCP server as in use", async (t) => {
   const f = await craftFixture(t);
-  const sessions = { list: async () => [] };
   const services = { assistants: null };
   const options = {
     config: { dataDir: f.s.dataDir },
@@ -121,7 +123,6 @@ test("the wiring asks sessions for Craft Anything's own row", async (t) => {
     packages: f.s.packages,
     extensions: f.s.extensions,
     audit: null,
-    sessions,
     services: () => services,
   };
   const craft = createCraftTool(options);
@@ -131,21 +132,15 @@ test("the wiring asks sessions for Craft Anything's own row", async (t) => {
     rea: null,
     craft: null,
   });
-  assert.equal(await craft.inUse(), false);
-  // A REA row bound to Claude does not count for Craft Anything.
-  f.s.servers.create(
-    { name: "rea", transport: "stdio", command: "/fake/bin/rea", args: [] },
-    { managed: { tool: "rea" }, bind: [["cli", "claude"]] },
-  );
-  sessions.list = async () => [{ tool: "claude", status: "running" }];
-  assert.equal(await craft.inUse(), false);
+  // A running Claude Code session bound to Craft Anything's row: idle, not in use.
   f.s.servers.create(
     { name: "craft-anything", transport: "stdio", command: "/fake/craft", args: [] },
     { managed: { tool: "craft-anything" }, bind: [["cli", "claude"]] },
   );
-  assert.equal(await craft.inUse(), true);
-  sessions.list = async () => [{ tool: "claude", status: "stopped" }];
   assert.equal(await craft.inUse(), false);
+  // Only a running rebuild (or a call of its Craft Anything) counts.
+  services.craftRebuilds = { inUse: () => true, closeIdle: async () => {} };
+  assert.equal(await craft.inUse(), true);
 });
 
 /** A stand-in tool: its hooks, job and syncEnvironment calls. */

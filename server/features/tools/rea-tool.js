@@ -17,6 +17,8 @@ import {
   placeGhidra,
   removeReaComponent,
 } from "./rea-components.js";
+import { VersionSweep } from "./version-sweep.js";
+import { runningCommandLines } from "../../lib/process-commands.js";
 import {
   cleanReaSettings,
   prepareReaHome,
@@ -41,11 +43,14 @@ const flag = (value, fallback) => (typeof value === "boolean" ? value : fallback
  * The managed REA tool (AGENTPIER-104): REA Core as a frozen npm package on its own
  * managed MCP row, the pinned Ghidra and JDK beside it, frida's prebuild inside Core
  * and REA's skill in the bound CLIs' profiles. One REA job runs at a time; what it
- * does lands in state().step and state().message. Removing or replacing files that a
- * running REA uses is refused while `inUse()` (assigned by the wiring) says so.
- * Ghidra and the JDK are shared with Craft Anything; the wiring's hooks
- * `keepsGhidra` (it wants them), `othersUseGhidra` (its session runs them) and
- * `othersBusy` (its job runs) keep REA from removing, replacing or racing them.
+ * does lands in state().step and state().message. Changes are refused only while
+ * `inUse()` says so; nothing assigns it, as AgentPier sees no call in flight of a
+ * session's REA, and an idle one never blocks. An update installs beside the old
+ * version: a folder a running process still uses stays until it exits (VersionSweep
+ * here, McpPackages.prune for Core). Ghidra and the JDK are shared with Craft
+ * Anything; the wiring's hooks `keepsGhidra` (it wants them), `othersUseGhidra` (its
+ * rebuild runs them) and `othersBusy` (its job runs) keep REA from removing, replacing
+ * or racing them.
  */
 export class ReaTool {
   constructor({
@@ -63,6 +68,7 @@ export class ReaTool {
     fetchImpl = fetch,
     run = defaultRun,
     env = cleanEnvironment(),
+    commandLines = runningCommandLines,
   }) {
     Object.assign(this, {
       dataDir,
@@ -102,6 +108,12 @@ export class ReaTool {
     this.message = "";
     // The Frida choice of the running job, which afterInstall follows.
     this.wanted = null;
+    this.versions = new VersionSweep({
+      root: this.root,
+      ids: ["rea-ghidra", "rea-jdk"],
+      commandLines,
+      onChange: () => this.changed(),
+    });
   }
   host() {
     const { platform, arch, darwinMajor } = this;
@@ -384,6 +396,7 @@ export class ReaTool {
         this.step = null;
         this.wanted = null;
         this.changed();
+        void this.versions.run();
       }
     })();
     this.changed();
@@ -411,11 +424,12 @@ export class ReaTool {
   }
   async placeComponents(components, update, signal) {
     const host = this.host();
+    const held = this.versions.held();
     if (!components.ghidra) {
       if (!this.ghidraGoes(components) || (await this.othersUseGhidra())) return;
       this.progress("ghidra", messages.removing("Ghidra"));
-      await removeReaComponent(this.root, "rea-ghidra");
-      await removeReaComponent(this.root, "rea-jdk");
+      await removeReaComponent(this.root, "rea-ghidra", { held });
+      await removeReaComponent(this.root, "rea-jdk", { held });
       return;
     }
     await placeGhidra({
@@ -431,6 +445,7 @@ export class ReaTool {
       env: this.env,
       platform: this.platform,
       progress: (step, message) => this.progress(step, message),
+      held,
     });
   }
   /** A free name for the new row: `rea`, else `rea-agentpier`, else `rea-agentpier-<n>`. */
@@ -546,8 +561,9 @@ export class ReaTool {
     return uninstallRea(this, options);
   }
   /** The server-start sweep, requested install and update (rea-lifecycle.js). */
-  start() {
-    return startRea(this);
+  async start() {
+    await startRea(this);
+    await this.versions.run();
   }
   /** The row's CLI bindings changed: the skill copies follow. Never throws. */
   async bindingsChanged() {
@@ -574,5 +590,6 @@ export class ReaTool {
   async close() {
     this.controller?.abort();
     await this.settled();
+    await this.versions.close();
   }
 }

@@ -12,7 +12,7 @@ const messages = serverMessages.rea;
  * Removes REA (`rea` is a ReaTool): its row (and with it the package's skill copies),
  * `<data>/rea` and Ghidra and the JDK unless Craft Anything keeps or runs them. Works
  * whatever is left, so a managed row of a failed install or a restored backup goes
- * too; refused while REA is in use.
+ * too. A version folder an idle REA of a session still runs stays until it exits.
  */
 export async function uninstallRea(rea, { source = "user" } = {}) {
   rea.requireIdle();
@@ -24,6 +24,7 @@ export async function uninstallRea(rea, { source = "user" } = {}) {
   rea.message = "";
   try {
     await rea.syncing;
+    const held = rea.versions.held();
     const id = rea.serverId();
     rea.progress("core", messages.removing("REA Core"));
     if (id) {
@@ -34,8 +35,8 @@ export async function uninstallRea(rea, { source = "user" } = {}) {
     }
     if (!rea.keepsGhidra() && !(await rea.othersUseGhidra())) {
       rea.progress("ghidra", messages.removing("Ghidra"));
-      await removeReaComponent(rea.root, "rea-ghidra");
-      await removeReaComponent(rea.root, "rea-jdk");
+      await removeReaComponent(rea.root, "rea-ghidra", { held });
+      await removeReaComponent(rea.root, "rea-jdk", { held });
     }
     await fsp.rm(rea.directory, { recursive: true, force: true });
     rea.status = "idle";
@@ -49,6 +50,7 @@ export async function uninstallRea(rea, { source = "user" } = {}) {
     rea.step = null;
     rea.changed();
     done();
+    void rea.versions.run();
   }
   return rea.state();
 }
@@ -90,8 +92,8 @@ async function installRequested(rea, requested) {
 /**
  * At a server start (`rea` is a ReaTool): sweeps interrupted installs while no job of
  * REA or Craft Anything runs or is being claimed (both share the folders), installs
- * what the installer requested, brings an outdated REA to the pins unless it is in use
- * (then the next start tries again), points the row env at the current Ghidra and JDK
+ * what the installer requested, brings an outdated REA to the pins (a session's idle REA
+ * keeps its version until it reloads), points the row env at the current Ghidra and JDK
  * homes and syncs the skill copies. Never throws.
  */
 export async function startRea(rea) {
