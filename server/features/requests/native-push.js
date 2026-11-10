@@ -6,7 +6,8 @@ import { messages, send } from "./wire.js";
 // Push hints a native owner sends over its authenticated broker channel. They never
 // carry requests: `activity` asks the server to read the session's chat now, the
 // stream messages carry reply text while the CLI generates it (chat/reply-streams.js),
-// `prompt` tells whether the CLI took a submitted prompt (chat/delivery-acceptance.js).
+// `prompt` tells whether the CLI took a submitted prompt (chat/delivery-acceptance.js),
+// `preparing` names the tool call the model is writing (live status).
 export const maxReplyText = 64 * 1024;
 const RUN = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$/;
 const LABEL = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$/;
@@ -101,6 +102,15 @@ export function nativePushValue(message) {
       final: message.final,
       delta: message.delta,
     };
+  }
+  // The tool call the model is writing now (OpenCode plugin), by name; none: over.
+  if (message.type === "preparing") {
+    if (
+      message.name !== undefined &&
+      (typeof message.name !== "string" || !/^[^\0-\x1f\x7f]{1,120}$/.test(message.name))
+    )
+      invalid();
+    return { type: "preparing", ...(message.name ? { name: message.name } : {}) };
   }
   // Whether the CLI took a submitted prompt (Codex proxy): confirms chat deliveries.
   if (message.type === "prompt-ready") return { type: "prompt-ready" };

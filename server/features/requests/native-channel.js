@@ -62,6 +62,8 @@ export class NativeRequestChannel {
           this.flush(runId, run);
         }
         if (this.promptReady) send(socket, { type: "prompt-ready" });
+        if (this.preparingTool)
+          send(socket, { type: "preparing", name: this.preparingTool });
       }
       if (message.type !== "answer") return;
       const entry = this.pending.get(message.key);
@@ -120,6 +122,17 @@ export class NativeRequestChannel {
   prompt(event) {
     if (event.type === "prompt-ready") this.promptReady = true;
     if (this.connected) send(this.socket, event);
+  }
+  /**
+   * The tool call the model is writing now (its name only), or null once it runs,
+   * text follows or the turn ends. A reconnect repeats it.
+   */
+  preparing(name) {
+    const tool = typeof name === "string" && name ? name.slice(0, 120) : null;
+    if (tool === (this.preparingTool ?? null)) return;
+    this.preparingTool = tool;
+    if (this.connected)
+      send(this.socket, { type: "preparing", ...(tool ? { name: tool } : {}) });
   }
   /** Append reply text to run `runId` ({thread, turn} label it). */
   streamDelta(runId, delta, meta = {}) {
