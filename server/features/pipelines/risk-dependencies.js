@@ -3,7 +3,11 @@
 // dependency. A version change of a registry dependency is no new entry, but a
 // dependency that now comes from another source (git, a URL, a local path, an
 // override or a replacement) is. The path rules stay the primary control: lockfiles
-// and unlisted manifests are only covered by them.
+// and unlisted manifests are only covered by them. A manifest comes from the
+// repository: its lines are read by the scanners of line-scan.js, in time linear in
+// their length.
+import { keyValue, tableName, withoutComment } from "./line-scan.js";
+
 const base = (file) => file.split("/").at(-1).toLowerCase();
 
 const jsonSections = {
@@ -51,7 +55,7 @@ function jsonNames(text, sections) {
 const lines = (text) =>
   text
     .split(/\r?\n/)
-    .map((line) => line.replace(/(?:^|\s+)#(?!egg=).*$/, "").trim())
+    .map((line) => withoutComment(line).trim())
     .filter(Boolean);
 
 // pip names ignore case, and `-`, `_` and `.` are the same character. A requirement
@@ -89,19 +93,19 @@ function tomlKeys(text, inSection, sourceKeys = []) {
   const names = [];
   let section = "";
   for (const line of lines(text)) {
-    const header = /^\[\s*([^\]]+?)\s*\]$/.exec(line);
-    if (header) {
-      section = header[1].replace(/"/g, "");
+    const header = tableName(line);
+    if (header !== null) {
+      section = header.replace(/"/g, "");
       const parts = section.split(".");
       if (parts.length > 1 && inSection(parts.slice(0, -1).join(".")))
         names.push(parts.at(-1));
       continue;
     }
     if (!inSection(section)) continue;
-    const key = /^"?([A-Za-z0-9_.-]+?)"?\s*(?:\.[A-Za-z0-9_-]+\s*)?=\s*(.*)$/.exec(line);
+    const key = keyValue(line);
     if (!key) continue;
-    const name = key[1].split(".")[0];
-    const source = sourceKeys.find((k) => new RegExp(`\\b${k}\\s*=`).test(key[2]));
+    const name = key[0].split(".")[0];
+    const source = sourceKeys.find((k) => new RegExp(`\\b${k}\\s*=`).test(key[1]));
     names.push(source ? `${name}@${source}` : name);
   }
   return names;
@@ -133,9 +137,9 @@ function pyprojectNames(text) {
   let section = "",
     collecting = false;
   for (const line of lines(text)) {
-    const header = /^\[\s*([^\]]+?)\s*\]$/.exec(line);
-    if (header) {
-      section = header[1];
+    const header = tableName(line);
+    if (header !== null) {
+      section = header;
       collecting = false;
       continue;
     }

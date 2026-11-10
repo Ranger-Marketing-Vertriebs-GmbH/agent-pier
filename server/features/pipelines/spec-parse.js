@@ -1,4 +1,8 @@
-// Reads a spec's markdown: its acceptance criteria and its assumptions.
+// Reads a spec's markdown: its acceptance criteria and its assumptions. A spec is
+// written by an agent: its lines are read by the scanners of line-scan.js, in time
+// linear in their length.
+import { headingText, listItemText, withoutTail } from "./line-scan.js";
+
 const ITEMS = 50;
 const ITEM_TEXT = 2000;
 
@@ -12,9 +16,9 @@ function sections(text) {
     fence = false;
   for (const line of text.split(/\r?\n/)) {
     if (/^ {0,3}(```|~~~)/.test(line)) fence = !fence;
-    const heading = !fence && /^ {0,3}#{1,6}\s+(.*?)\s*#*\s*$/.exec(line);
-    if (heading) {
-      const name = heading[1]
+    const heading = fence ? null : headingText(line);
+    if (heading !== null) {
+      const name = heading
         .toLowerCase()
         .replace(/[^a-z]+/g, " ")
         .trim();
@@ -36,7 +40,8 @@ function section(parts, prefix) {
 // further is a nested item and, like any indented line, continues the item before it.
 // A line straight after an item continues it too; after a blank line, an unindented
 // line that is no item ends the list, so closing prose never joins the last item.
-function listItems(lines, marker) {
+// `itemText` returns the text of a line that is an item, and null for any other line.
+function listItems(lines, itemText) {
   const items = [];
   let base = null,
     open = false,
@@ -47,10 +52,10 @@ function listItems(lines, marker) {
       continue;
     }
     const indent = indentOf(line);
-    const item = marker.exec(line);
-    if (item && (base === null || indent <= base)) {
+    const item = itemText(line);
+    if (item !== null && (base === null || indent <= base)) {
       base ??= indent;
-      items.push(item[1].trim());
+      items.push(item.trim());
       open = true;
     } else if (open && (!blank || indent > base))
       items[items.length - 1] += `\n${line.trim()}`;
@@ -68,21 +73,19 @@ const productDecision =
 // "[product decision]" need the owner's confirmation.
 export function parseSpec(text) {
   const parts = sections(text);
-  const criteria = listItems(
-    section(parts, "acceptance criteria"),
-    /^\s*\d{1,3}[.)]\s+(.*)$/,
+  const criteria = listItems(section(parts, "acceptance criteria"), (line) =>
+    listItemText(line),
   ).map((item, index) => {
     const verify = /\b(?:how to verify|verify|verification)\s*:\s*([\s\S]+)$/i.exec(item);
-    const head = verify ? item.slice(0, verify.index).replace(/[\s(—–-]+$/, "") : item;
+    const head = verify ? withoutTail(item.slice(0, verify.index), "(—–-") : item;
     return {
       id: `AC${index + 1}`,
       text: clip(head || item, ITEM_TEXT),
       ...(verify ? { verify: clip(verify[1].trim(), ITEM_TEXT) } : {}),
     };
   });
-  const assumptions = listItems(
-    section(parts, "assumptions"),
-    /^\s*(?:[-*+]|\d{1,3}[.)])\s+(.*)$/,
+  const assumptions = listItems(section(parts, "assumptions"), (line) =>
+    listItemText(line, true),
   ).map((item, index) => {
     const flagged = productDecision.test(item);
     const plain = item.replace(productDecision, "").trim();
