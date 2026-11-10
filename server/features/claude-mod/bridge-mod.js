@@ -21,8 +21,12 @@ const flushMs = 100;
 const maxText = 64 * 1024;
 const maxQueue = 512;
 const url = "http://agentpier/claude-mod/v1/events";
-// Reports that must survive a failed request; the others describe a moment.
+// Reports that must survive a failed request; the others describe a moment. A
+// tool's start and end keep the running tools (and the end of a call's
+// preparation) right through a failed request.
 const kept = new Set([
+  "tool.start",
+  "tool.end",
   "hello",
   "turn.start",
   "turn.complete",

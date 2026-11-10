@@ -116,6 +116,9 @@ export class ClaudeModBridge {
         if (state.tools.size < maxTools) state.tools.set(event.id, event.name);
         if (state.phase === "thinking") state.phase = null;
       }
+      // A call that ran ends its preparation, should its start have been lost.
+      if (event.type === "tool.end" && state.preparing?.id === event.id)
+        state.preparing = null;
       if (event.type === "tool.end") state.tools.delete(event.id);
       if (event.type === "agent.start" && state.agents.size < maxAgents)
         state.agents.set(event.id, event.kind);
