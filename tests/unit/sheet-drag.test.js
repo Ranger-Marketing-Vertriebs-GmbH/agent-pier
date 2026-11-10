@@ -77,3 +77,12 @@ test("the release velocity covers only the last 100 ms of the drag", () => {
     0,
   );
 });
+
+test("a sheet that cannot close stretches like a rubber band, never past 60px", () => {
+  const resist = { resist: true };
+  assert.equal(sheetDragOffset(-20, resist), 0);
+  assert.equal(sheetDragOffset(60, resist), 30);
+  assert.ok(sheetDragOffset(30, resist) < 30);
+  assert.ok(sheetDragOffset(400, resist) > sheetDragOffset(200, resist));
+  assert.ok(sheetDragOffset(10000, resist) < 60);
+});

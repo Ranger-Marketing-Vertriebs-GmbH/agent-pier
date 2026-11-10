@@ -9,6 +9,7 @@ const FLICK_MIN_OFFSET = 16;
 const VELOCITY_WINDOW = 100; // ms of samples the release velocity is measured over
 const SLOP = 6; // px a body touch moves before it counts as a sheet drag or a scroll
 const DURATION = 180; // ms
+const RESIST = 60; // px a sheet that cannot close stretches at most
 
 // Where a drag never starts: a tap on a control keeps working.
 const controls = [
@@ -28,9 +29,13 @@ const controls = [
   "[role=slider]",
 ].join(", ");
 
-/** The sheet follows the finger downward and never moves above its resting place. */
-export function sheetDragOffset(dy) {
-  return Math.max(0, dy);
+/**
+ * The sheet follows the finger downward and never moves above its resting place. A
+ * sheet that cannot close (`resist`) stretches like a rubber band instead, at most 60px.
+ */
+export function sheetDragOffset(dy, { resist = false } = {}) {
+  if (dy <= 0) return 0;
+  return resist ? RESIST * (1 - 1 / (1 + dy / RESIST)) : dy;
 }
 
 /** Release velocity in px/ms from `{ y, t }` samples, over the last 100 ms. */
@@ -91,18 +96,29 @@ export default function useSheetDrag(ref, { dismiss, disabled = false }) {
     const dialog = ref.current;
     if (!dialog) return undefined;
     let drag = null;
-    let timer = 0;
+    // The end of a snap-back animation; a new drag cancels it.
+    let settle = 0;
+    // A dismiss in progress (slide out, close, slide back if a guard kept it open). No
+    // drag starts meanwhile, and nothing cancels its timers but unmounting.
+    let closing = false;
+    const closeTimers = new Set();
+    const later = (callback, delay) => {
+      const id = setTimeout(() => {
+        closeTimers.delete(id);
+        callback();
+      }, delay);
+      closeTimers.add(id);
+    };
 
-    const move = (offset, animate, done) => {
-      clearTimeout(timer);
+    const move = (offset, animate) => {
+      clearTimeout(settle);
       const smooth = animate && !reducedMotion();
       dialog.style.transition = smooth ? `transform ${DURATION}ms ease-out` : "none";
       dialog.style.transform = offset ? `translateY(${offset}px)` : "";
       const finish = () => {
         dialog.style.transition = "";
-        done?.();
       };
-      if (smooth) timer = setTimeout(finish, DURATION);
+      if (smooth) settle = setTimeout(finish, DURATION);
       else finish();
     };
 
@@ -114,13 +130,19 @@ export default function useSheetDrag(ref, { dismiss, disabled = false }) {
         return;
       }
       const reduced = reducedMotion();
-      move(reduced ? 0 : height + 24, true, () => {
-        close();
-        // A guard (unsaved changes) may keep the dialog open: bring it back.
-        timer = setTimeout(() => {
-          if (dialog.isConnected && dialog.open) move(0, true);
-        }, 100);
-      });
+      closing = true;
+      move(reduced ? 0 : height + 24, true);
+      later(
+        () => {
+          close();
+          // A guard (unsaved changes) may keep the dialog open: bring it back.
+          later(() => {
+            closing = false;
+            if (dialog.isConnected && dialog.open) move(0, true);
+          }, 100);
+        },
+        reduced ? 0 : DURATION,
+      );
     };
 
     const start = (event) => {
@@ -134,7 +156,7 @@ export default function useSheetDrag(ref, { dismiss, disabled = false }) {
     };
 
     const onPointerDown = (event) => {
-      if (drag || !event.isPrimary) return;
+      if (drag || closing || !event.isPrimary) return;
       if (event.pointerType === "mouse" && event.button !== 0) return;
       const zone = dialog.querySelector(
         ":scope > .dialog-heading, :scope > .sheet-title",
@@ -142,6 +164,14 @@ export default function useSheetDrag(ref, { dismiss, disabled = false }) {
       if (!handleShown(dialog, zone)) return;
       const target = event.target;
       if (!(target instanceof Element) || target.closest(controls)) return;
+      // The dialog itself is the target both on a Sheet's handle (drawn by
+      // `dialog.sheet::before` above the title) and on the backdrop: only a point inside
+      // the dialog's box belongs to the handle.
+      if (target === dialog) {
+        const box = dialog.getBoundingClientRect();
+        const { clientX: x, clientY: y } = event;
+        if (x < box.left || x > box.right || y < box.top || y > box.bottom) return;
+      }
       const inZone =
         zone &&
         (zone.contains(target) ||
@@ -171,8 +201,8 @@ export default function useSheetDrag(ref, { dismiss, disabled = false }) {
         }
         start(event);
       }
-      clearTimeout(timer);
-      drag.offset = sheetDragOffset(dy);
+      clearTimeout(settle);
+      drag.offset = sheetDragOffset(dy, { resist: latest.current.disabled });
       dialog.style.transform = drag.offset ? `translateY(${drag.offset}px)` : "";
       drag.samples.push({ y: event.clientY, t: event.timeStamp });
       if (drag.samples.length > 20) drag.samples.shift();
@@ -185,8 +215,9 @@ export default function useSheetDrag(ref, { dismiss, disabled = false }) {
       if (ended.mode !== "drag") return;
       // A finger held still before release ends with no flick.
       ended.samples.push({ y: event.clientY, t: event.timeStamp });
-      if (ended.offset > 0) {
-        // The click that ends a mouse drag must not reach the backdrop handler.
+      if (ended.offset > SLOP) {
+        // The click that ends a real mouse drag must not reach the backdrop handler; a
+        // tap with a little jitter keeps its click.
         const swallow = (click) => click.stopPropagation();
         dialog.addEventListener("click", swallow, { capture: true, once: true });
         setTimeout(() => dialog.removeEventListener("click", swallow, true), 0);
@@ -194,8 +225,11 @@ export default function useSheetDrag(ref, { dismiss, disabled = false }) {
       release(ended.offset, sheetDragVelocity(ended.samples));
     };
 
+    // A cancelled pointer, or a capture lost without pointerup, ends the drag.
     const onPointerCancel = (event) => {
       if (!drag || event.pointerId !== drag.id) return;
+      // Handing the touch's implicit capture to the dialog takes it from the child.
+      if (event.type === "lostpointercapture" && event.target !== dialog) return;
       const ended = drag;
       drag = null;
       if (ended.mode === "drag") move(0, true);
@@ -209,22 +243,28 @@ export default function useSheetDrag(ref, { dismiss, disabled = false }) {
         event.preventDefault();
         return;
       }
+      // Only a clearly downward start is held: a wobble before a scroll up or a sideways
+      // swipe keeps native scrolling.
       const touch = event.touches.length === 1 ? event.touches[0] : null;
-      if (touch && touch.clientY - drag.y > Math.abs(touch.clientX - drag.x))
-        event.preventDefault();
+      if (!touch) return;
+      const dy = touch.clientY - drag.y;
+      if (dy >= 3 && dy > 2 * Math.abs(touch.clientX - drag.x)) event.preventDefault();
     };
 
     dialog.addEventListener("pointerdown", onPointerDown);
     dialog.addEventListener("pointermove", onPointerMove);
     dialog.addEventListener("pointerup", onPointerUp);
     dialog.addEventListener("pointercancel", onPointerCancel);
+    dialog.addEventListener("lostpointercapture", onPointerCancel);
     dialog.addEventListener("touchmove", onTouchMove, { passive: false });
     return () => {
-      clearTimeout(timer);
+      clearTimeout(settle);
+      closeTimers.forEach(clearTimeout);
       dialog.removeEventListener("pointerdown", onPointerDown);
       dialog.removeEventListener("pointermove", onPointerMove);
       dialog.removeEventListener("pointerup", onPointerUp);
       dialog.removeEventListener("pointercancel", onPointerCancel);
+      dialog.removeEventListener("lostpointercapture", onPointerCancel);
       dialog.removeEventListener("touchmove", onTouchMove);
     };
   }, [ref]);
