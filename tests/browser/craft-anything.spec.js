@@ -161,6 +161,19 @@ test("names the version running sessions keep until they reload", async ({ page 
   );
 });
 
+test("names a session that could not switch to the installed version", async ({
+  page,
+}) => {
+  await fixture(
+    page,
+    installedCraft({ components: { core: { swapFailures: ["cli: exited (3)"] } } }),
+  );
+  const dialog = await openDialog(page, "Manage");
+  await expect(dialog).toContainText(
+    "Running sessions could not switch to the installed version and keep their previous one: cli: exited (3)",
+  );
+});
+
 test("removes", async ({ page }) => {
   const controls = await fixture(page, installedCraft(), {
     uninstall: {

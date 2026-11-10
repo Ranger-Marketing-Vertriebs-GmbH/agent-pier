@@ -29,10 +29,10 @@ test("an update beside an idle session's server keeps its folder until it exits"
   const f = await craftFixture(t);
   const ps = processes();
   const old = await f.tool({ version: "0.4.0", commandLines: ps.read });
-  const { serverId } = await f.install(old, { components: { ghidra: false } });
+  await f.install(old, { components: { ghidra: false } });
   const [oldFolder] = versionsOf(f, "craft-anything");
   // Claude Code started the row's command (through the link) before the update.
-  ps.lines = [`${f.s.servers.get(serverId).command} mcp --restricted --clean-room`];
+  ps.lines = [`${f.spec().command} mcp --restricted --clean-room`];
   const craft = await f.tool({ commandLines: ps.read });
   await craft.update();
   await craft.settled();
@@ -44,7 +44,7 @@ test("an update beside an idle session's server keeps its folder until it exits"
   assert.ok(fs.existsSync(oldFolder), "the running version stays");
   assert.equal(versionsOf(f, "craft-anything").length, 2);
   // New sessions get the new binary at once.
-  assert.match(f.s.servers.get(serverId).command, /craft-anything-cli-0\.5\.0-/);
+  assert.match(f.spec().command, /craft-anything-cli-0\.5\.0-/);
   // While the old server runs, a sweep keeps it.
   age([oldFolder]);
   await craft.versions.run();
@@ -61,9 +61,9 @@ test("removal with an idle session's server keeps its folder until it exits", as
   const f = await craftFixture(t);
   const ps = processes();
   const craft = await f.tool({ commandLines: ps.read });
-  const { serverId } = await f.install(craft, { components: { ghidra: false } });
+  await f.install(craft, { components: { ghidra: false } });
   const [folder] = versionsOf(f, "craft-anything");
-  ps.lines = [`${f.s.servers.get(serverId).command} mcp --restricted --deep`];
+  ps.lines = [`${f.spec().command} mcp --restricted --deep`];
   const state = await craft.uninstall();
   await craft.versions.running;
   assert.equal(state.installed, false);

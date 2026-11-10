@@ -37,6 +37,7 @@ import {
   removeToolFolder,
   wantsGhidraOf,
 } from "./version-sweep.js";
+import { craftProxies, craftProxyRow, watchCraftProxies } from "./craft-proxy.js";
 import { runningCommandLines } from "../../lib/process-commands.js";
 import { failureText, keyed, queueSync, reaComponentStates } from "./rea-state.js";
 import { run as defaultRun } from "./tool-run.js";
@@ -76,6 +77,7 @@ export class CraftTool {
     run = defaultRun,
     env = cleanEnvironment(),
     commandLines = runningCommandLines,
+    node = process.execPath,
   }) {
     Object.assign(this, {
       dataDir,
@@ -92,7 +94,9 @@ export class CraftTool {
       fetchImpl,
       run,
       env,
+      node,
     });
+    this.unwatch = null;
     this.root = path.join(dataDir, "clis");
     this.directory = craftHome(dataDir);
     this.file = path.join(this.directory, "settings.json");
@@ -235,6 +239,10 @@ export class CraftTool {
           runningVersions: this.versions
             .runningVersions(tool)
             .filter((version) => version !== this.component(tool)?.version),
+          // Sessions whose proxy could not switch to the installed version.
+          swapFailures: installed
+            ? [...new Set(craftProxies(this.dataDir).flatMap((p) => p.error ?? []))]
+            : [],
         },
         ghidra: {
           ...parts.ghidra,
@@ -367,6 +375,7 @@ export class CraftTool {
         this.step = null;
         this.changed();
         void this.versions.run();
+        this.watchProxies();
       }
     })();
     this.changed();
@@ -437,15 +446,32 @@ export class CraftTool {
       held: this.versions.held(),
     });
   }
-  /** What the row runs: the installed CLI with the owner's mode and AgentPier's env. */
+  /**
+   * What the row runs: AgentPier's swap proxy, which starts the installed CLI with the
+   * owner's mode (and AgentPier's env). Writes the proxies' spec, so a proxy running
+   * in a session swaps to that server once nothing is in flight (craft-proxy.js).
+   */
   wantedRow(settings) {
     const component = this.component(tool);
     if (!component) throw refuse(messages.notInstalled);
-    return {
+    const server = {
       command: craftCommand(this.root, component),
       args: craftArgs(settings),
+    };
+    return {
+      ...craftProxyRow(this.dataDir, server, this.node),
       env: craftEnvironment(this.dataDir),
     };
+  }
+  /** Follows the proxies' status files: a swap ended, a session left or failed. */
+  watchProxies() {
+    this.unwatch?.();
+    this.unwatch = null;
+    if (!this.installed()) return;
+    this.unwatch = watchCraftProxies(this.dataDir, () => {
+      this.changed();
+      void this.versions.run();
+    });
   }
   /** A free name: `craft-anything`, else `craft-anything-agentpier[-<n>]`. */
   rowName() {
@@ -557,6 +583,7 @@ export class CraftTool {
   async start() {
     await startCraft(this);
     await this.versions.run();
+    this.watchProxies();
   }
   /** The row's CLI bindings changed: the skill copies follow. Never throws. */
   async bindingsChanged() {
@@ -572,6 +599,7 @@ export class CraftTool {
   async close() {
     this.controller?.abort();
     await this.settled();
+    this.unwatch?.();
     await this.versions.close();
   }
 }

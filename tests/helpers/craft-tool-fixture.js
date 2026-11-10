@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import yazl from "yazl";
 import { CraftTool } from "../../server/features/tools/craft-tool.js";
@@ -85,6 +86,7 @@ export async function craftFixture(t) {
       fetchImpl: f.fetchImpl,
       run: f.run,
       env: {},
+      node: "/fake/bin/node",
       ...options,
     });
     craft.inUse = async () => f.busy.value;
@@ -106,5 +108,10 @@ export async function craftFixture(t) {
     craftManifest,
     root: path.join(f.s.dataDir, "clis"),
     configFile: path.join(f.s.dataDir, "craft-anything", "sessions", "config.toml"),
+    /** The server the sessions' proxies run: `{ command, args, statusDir }`. */
+    spec: () =>
+      JSON.parse(
+        fs.readFileSync(path.join(f.s.dataDir, "craft-anything", "server.json"), "utf8"),
+      ),
   };
 }
