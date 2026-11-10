@@ -22,8 +22,18 @@ async function openGallery(page, opener, title) {
 }
 
 // A point on the grab handle: the top of the heading, clear of the close button.
+// The box is read once it holds still: a sheet whose content changes (a busy label, an
+// error) moves its top, and a press above it lands on the backdrop, which never drags.
 async function handle(dialog) {
-  const box = await dialog.boundingBox();
+  let box = await dialog.boundingBox();
+  await expect
+    .poll(async () => {
+      const previous = box;
+      await dialog.page().waitForTimeout(150);
+      box = await dialog.boundingBox();
+      return box.y === previous.y && box.height === previous.height;
+    })
+    .toBe(true);
   return { x: box.x + box.width / 2, y: box.y + 10 };
 }
 
@@ -134,7 +144,16 @@ test("a busy Modal whose close button is disabled stays open", async ({ page }) 
   try {
     await dialog.getByRole("button", { name: "Save", exact: true }).click();
     await expect(dialog.getByRole("button", { name: "Close dialog" })).toBeDisabled();
-    await mouseDrag(page, await handle(dialog), 400);
+    // The sheet stretches like a rubber band, at most 60px, then snaps back.
+    const from = await handle(dialog);
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(from.x, from.y + 400, { steps: 12 });
+    const stretch = await transform(dialog);
+    const offset = Number(stretch.match(/translateY\(([\d.]+)px\)/)?.[1]);
+    expect(offset).toBeGreaterThan(20);
+    expect(offset).toBeLessThan(60);
+    await page.mouse.up();
     await expect(dialog).toBeVisible();
     await expectSettled(dialog);
     await expect(name).toHaveValue("Unsaved deployment key");
