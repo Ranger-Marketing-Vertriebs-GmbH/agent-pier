@@ -126,52 +126,45 @@ test("the close button still closes after the handle zone takes touches", async 
   await expect(dialog).toBeHidden();
 });
 
-// Mobile emulation in WebKit on Linux scrolls the visual viewport when the form's
-// field takes focus, so mouse input there misses the layout box; the phone width
-// alone gives the bottom sheet.
-test.describe("phone width without mobile emulation", () => {
-  test.use({ isMobile: false, hasTouch: false });
-
-  test("a busy Modal whose close button is disabled stays open", async ({ page }) => {
-    await fixture(page);
-    await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
-    await page.goto(baseURL + "/settings/ssh");
-    await showKeys(page);
-    await page.getByRole("button", { name: "Add SSH key", exact: true }).click();
-    const dialog = page.getByRole("dialog");
-    const name = dialog.getByLabel("Name", { exact: true });
-    await name.fill("Unsaved deployment key");
-    let release;
-    const pending = new Promise((resolve) => {
-      release = resolve;
-    });
-    await page.route("**/api/ssh-keys", async (route) => {
-      await pending;
-      await route.fulfill({ status: 409, json: { error: "Fixture conflict" } });
-    });
-    try {
-      await dialog.getByRole("button", { name: "Save", exact: true }).click();
-      await expect(dialog.getByRole("button", { name: "Close dialog" })).toBeDisabled();
-      // The sheet stretches like a rubber band, at most 60px, then snaps back.
-      const from = await handle(dialog);
-      await page.mouse.move(from.x, from.y);
-      await page.mouse.down();
-      await page.mouse.move(from.x, from.y + 400, { steps: 12 });
-      const stretch = await transform(dialog);
-      const offset = Number(stretch.match(/translateY\(([\d.]+)px\)/)?.[1]);
-      expect(offset).toBeGreaterThan(20);
-      expect(offset).toBeLessThan(60);
-      await page.mouse.up();
-      await expect(dialog).toBeVisible();
-      await expectSettled(dialog);
-      await expect(name).toHaveValue("Unsaved deployment key");
-    } finally {
-      release();
-    }
-    await expect(dialog.getByRole("alert")).toContainText("Fixture conflict");
-    await mouseDrag(page, await handle(dialog), 400);
-    await expect(dialog).toBeHidden();
+test("a busy Modal whose close button is disabled stays open", async ({ page }) => {
+  await fixture(page);
+  await page.addInitScript(() => localStorage.setItem("agentpier-language", "en"));
+  await page.goto(baseURL + "/settings/ssh");
+  await showKeys(page);
+  await page.getByRole("button", { name: "Add SSH key", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  const name = dialog.getByLabel("Name", { exact: true });
+  await name.fill("Unsaved deployment key");
+  let release;
+  const pending = new Promise((resolve) => {
+    release = resolve;
   });
+  await page.route("**/api/ssh-keys", async (route) => {
+    await pending;
+    await route.fulfill({ status: 409, json: { error: "Fixture conflict" } });
+  });
+  try {
+    await dialog.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(dialog.getByRole("button", { name: "Close dialog" })).toBeDisabled();
+    // The sheet stretches like a rubber band, at most 60px, then snaps back.
+    const from = await handle(dialog);
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(from.x, from.y + 400, { steps: 12 });
+    const stretch = await transform(dialog);
+    const offset = Number(stretch.match(/translateY\(([\d.]+)px\)/)?.[1]);
+    expect(offset).toBeGreaterThan(20);
+    expect(offset).toBeLessThan(60);
+    await page.mouse.up();
+    await expect(dialog).toBeVisible();
+    await expectSettled(dialog);
+    await expect(name).toHaveValue("Unsaved deployment key");
+  } finally {
+    release();
+  }
+  await expect(dialog.getByRole("alert")).toContainText("Fixture conflict");
+  await mouseDrag(page, await handle(dialog), 400);
+  await expect(dialog).toBeHidden();
 });
 
 test.describe("touch on the body", () => {
