@@ -1,3 +1,5 @@
+import net from "node:net";
+
 // What Tailscale Serve tells AgentPier about a request it forwards from loopback.
 // Serve sets these headers itself and drops any the client sent, so they describe
 // the tailnet device. Every Tailscale host branch reads them here instead of keeping
@@ -19,3 +21,23 @@ export function tailnetLogin(headers) {
  */
 export const fromTailnetMember = (headers) =>
   !viaFunnel(headers) && tailnetLogin(headers) !== null;
+
+/**
+ * The key of a request's source for a limit per sender, on a machine path that serves
+ * the local machine (`branch` "local"), the tailnet ("tailscale") and the configured
+ * network ("network"): the local machine, one tailnet device or one network address.
+ * Tailscale Serve proxies every tailnet device from loopback and names it in
+ * X-Forwarded-For, which it sets itself (a client's own value is dropped), so each
+ * device has a key of its own. Requests on that branch without one valid address share
+ * the `unknown` key.
+ */
+export function sourceKey(req, branch) {
+  if (branch === "local") return "local";
+  if (branch === "tailscale") {
+    const forwarded = String(req.headers["x-forwarded-for"] || "")
+      .split(",")[0]
+      .trim();
+    return `tailscale:${net.isIP(forwarded) ? forwarded : "unknown"}`;
+  }
+  return `network:${req.socket.remoteAddress}`;
+}

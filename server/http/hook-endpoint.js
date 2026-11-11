@@ -1,10 +1,9 @@
-import net from "node:net";
 import express from "express";
 import { rateLimit } from "express-rate-limit";
 import { problem } from "../lib/storage.js";
 import { secretMatches } from "../features/assistants/agent-hook-store.js";
 import { hookEligible } from "../features/assistants/agent-hook-rights.js";
-import { viaFunnel } from "./tailscale-request.js";
+import { sourceKey, viaFunnel } from "./tailscale-request.js";
 
 // The public machine endpoint of agent hooks: `POST /hooks/<hookId>` on AgentPier's
 // own port, mounted before `authorizeRequest`. Senders are machines (Zabbix, CI):
@@ -125,27 +124,15 @@ export class AuthThrottle {
   }
 }
 
-// The throttle keys of a request's source: the local machine, one tailnet device or
-// one network address. Tailscale Serve proxies every tailnet device from loopback and
-// names it in X-Forwarded-For, which it sets itself (a client's own value is
-// dropped), so each device has its own window and its failures never make another
-// device wait. Requests on that branch without one valid address share the
-// `unknown` window. There is no window for the tailnet as a whole: a hook secret is
+// The throttle keys of a request's source (tailscale-request.js sourceKey): the local
+// machine, one tailnet device or one network address, so each device has its own
+// window and its failures never make another device wait. There is no window for the tailnet as a whole: a hook secret is
 // 256 random bits, so what bounds a local process that forges addresses is the
 // request ceiling per hook, not this throttle. Scans (404 of a well-formed id) count
 // against these keys; a wrong secret counts against the same keys of that one hook
 // only (`authKeys`), so a sender still using an old secret after Regenerate secret
 // blocks neither other hooks nor other sources.
-function sourceKeys(req, branch) {
-  if (branch === "local") return ["local"];
-  if (branch === "tailscale") {
-    const forwarded = String(req.headers["x-forwarded-for"] || "")
-      .split(",")[0]
-      .trim();
-    return [`tailscale:${net.isIP(forwarded) ? forwarded : "unknown"}`];
-  }
-  return [`network:${req.socket.remoteAddress}`];
-}
+const sourceKeys = (req, branch) => [sourceKey(req, branch)];
 const authKeys = (keys, hookId) => keys.map((key) => `${key}|${hookId}`);
 
 // The enabled hook of an eligible agent, else null (one 404 for every case).
