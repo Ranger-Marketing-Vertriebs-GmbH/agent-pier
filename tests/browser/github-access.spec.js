@@ -19,9 +19,9 @@ test("GitHub access tokens support multiple profiles, private blank-preserving e
   await page.getByLabel("Access Token", { exact: true }).fill("private-token-value");
   await page.getByRole("button", { name: "Token speichern", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Arbeit", exact: true })).toBeVisible();
-  const table = page.getByRole("table", { name: "GitHub-Zugänge", exact: true });
+  const list = page.getByRole("list", { name: "GitHub-Zugänge", exact: true });
   await expect(
-    table.getByRole("heading", { name: "Arbeit", level: 2, exact: true }),
+    list.getByRole("heading", { name: "Arbeit", level: 2, exact: true }),
   ).toBeVisible();
   await expect(page.getByText("private-token-value")).toHaveCount(0);
   await expect(page.locator('input[type="password"]')).toHaveCount(0);
@@ -57,7 +57,7 @@ test("agent defaults are selected per host and refresh all badges", async ({ pag
   await page.goto(base + "/settings/github");
   const profile = (name) =>
     page
-      .locator('[role="row"]')
+      .getByRole("listitem")
       .filter({ has: page.getByRole("heading", { name, exact: true }) });
   await expect(profile("Persönlich")).toContainText("Standard für Agenten");
   await expect(profile("Enterprise")).toContainText("Standard für Agenten");

@@ -52,7 +52,7 @@ test("Check shows what GitHub reports about a token and keeps the token private"
   await page.goto(base + "/settings/github");
   const row = (name) =>
     page
-      .locator('[role="row"]')
+      .getByRole("listitem")
       .filter({ has: page.getByRole("heading", { name, exact: true }) });
   await expect(row("Persönlich")).toContainText("Not checked yet");
   await expect(row("Old")).toContainText("Token expired");
@@ -61,7 +61,11 @@ test("Check shows what GitHub reports about a token and keeps the token private"
   await expect(row("Persönlich")).toContainText("Token valid");
   await expect(row("Persönlich")).toContainText("Signed in as octo");
   await expect(row("Persönlich")).toContainText("Classic token");
-  await expect(row("Persönlich")).toContainText("Scopes: repo, read:org");
+  const scopes = row("Persönlich").getByText("2 scopes", { exact: true });
+  await expect(scopes).toBeVisible();
+  await expect(row("Persönlich").getByText("repo, read:org")).toBeHidden();
+  await scopes.click();
+  await expect(row("Persönlich").getByText("repo, read:org")).toBeVisible();
   await expect(row("Persönlich")).toContainText("Expires");
   await expect(row("Persönlich")).toContainText(
     "Organization acme requires SAML SSO authorization for this token.",

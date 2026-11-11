@@ -1,5 +1,4 @@
 import { commonCopy } from "../../lib/i18n/messages/common.js";
-import StatusDot from "../../components/StatusDot.jsx";
 import {
   credentialListCopy as copy,
   tokenCheckCopy,
@@ -36,83 +35,89 @@ export default function CredentialList({
   if (!credentials.length)
     return <p className="repository-empty">{copy.repositoryEmpty}</p>;
   return (
-    <div className="github-access-table" role="table" aria-label={label}>
-      <div className="github-access-row github-access-head" role="row">
-        <span role="columnheader">{copy.columnAccess}</span>
-        <span role="columnheader">{copy.columnToken}</span>
-        <span role="columnheader">{copy.columnCommitIdentity}</span>
-        <span role="columnheader" aria-hidden="true" />
-      </div>
+    <ul className="github-access-list" aria-label={label}>
       {credentials.map((credential) => (
-        <div className="github-access-row" role="row" key={credential.id}>
-          <div role="cell" className="github-access-name">
-            <h2>{credential.name}</h2>
-            {marker?.(credential)}
-            {credential.agentDefault && (
-              <span className="repository-agent-badge">{copy.repositoryAgentBadge}</span>
-            )}
-            <code>{credential.host}</code>
-            {hostHasPort(credential.host) && (
-              <p className="field-description">{copy.repositoryDetailsDescription}</p>
-            )}
-          </div>
-          <div role="cell" className="github-access-token">
-            <StatusDot
-              tone={credential.hasSecret ? "ok" : "idle"}
-              className="github-access-dot"
-            />
-            <div>
-              {credential.hasSecret ? copy.tokenSaved : copy.tokenMissing}
-              {credential.hasSecret && <TokenCheckStatus check={credential.tokenCheck} />}
-              {errors[credential.id] && <ErrorMessage error={errors[credential.id]} />}
+        <li className="github-access-card" key={credential.id}>
+          <div className="github-access-top">
+            <div className="github-access-name">
+              <h2>{credential.name}</h2>
+              {marker?.(credential)}
+              {credential.agentDefault && (
+                <span className="repository-agent-badge">
+                  {copy.repositoryAgentBadge}
+                </span>
+              )}
+              <code>{credential.host}</code>
+              {hostHasPort(credential.host) && (
+                <p className="field-description">{copy.repositoryDetailsDescription}</p>
+              )}
             </div>
-          </div>
-          <div role="cell" className="github-access-identity">
-            {credential.commitIdentity &&
-              `${credential.commitIdentity.name} <${credential.commitIdentity.email}>`}
-          </div>
-          <div role="cell" className="repository-actions">
-            {extra?.(credential)}
-            {credential.hasSecret && (
+            <div className="repository-actions github-access-actions">
+              {extra?.(credential)}
+              {credential.hasSecret && (
+                <button
+                  className="button secondary compact"
+                  disabled={cloning || checking !== null}
+                  aria-label={tokenCheckCopy.checkAriaLabel(credential.name)}
+                  onClick={() => check(credential)}
+                >
+                  {checking === credential.id
+                    ? tokenCheckCopy.checking
+                    : tokenCheckCopy.check}
+                </button>
+              )}
               <button
                 className="button secondary compact"
-                disabled={cloning || checking !== null}
-                aria-label={tokenCheckCopy.checkAriaLabel(credential.name)}
-                onClick={() => check(credential)}
+                disabled={cloning}
+                aria-label={commonCopy.editNamedItem(credential.name)}
+                onClick={() =>
+                  setModal({
+                    credential,
+                  })
+                }
               >
-                {checking === credential.id
-                  ? tokenCheckCopy.checking
-                  : tokenCheckCopy.check}
+                {commonCopy.edit}
               </button>
-            )}
-            <button
-              className="button secondary compact"
-              disabled={cloning}
-              aria-label={commonCopy.editNamedItem(credential.name)}
-              onClick={() =>
-                setModal({
-                  credential,
-                })
-              }
-            >
-              {commonCopy.edit}
-            </button>
-            <button
-              className="button secondary compact"
-              disabled={cloning}
-              aria-label={copy.buttonAriaLabel(credential.name)}
-              onClick={() =>
-                setModal({
-                  credential,
-                  deleting: true,
-                })
-              }
-            >
-              {commonCopy.delete}
-            </button>
+              <button
+                className="button secondary compact"
+                disabled={cloning}
+                aria-label={copy.buttonAriaLabel(credential.name)}
+                onClick={() =>
+                  setModal({
+                    credential,
+                    deleting: true,
+                  })
+                }
+              >
+                {commonCopy.delete}
+              </button>
+            </div>
           </div>
-        </div>
+          <dl className="github-access-facts">
+            <div>
+              <dt>{copy.columnToken}</dt>
+              <dd>
+                <TokenCheckStatus
+                  hasSecret={credential.hasSecret}
+                  check={credential.tokenCheck}
+                >
+                  <ErrorMessage error={errors[credential.id]} />
+                </TokenCheckStatus>
+              </dd>
+            </div>
+            <div>
+              <dt>{copy.columnCommitIdentity}</dt>
+              <dd className="github-access-identity">
+                {credential.commitIdentity ? (
+                  `${credential.commitIdentity.name} <${credential.commitIdentity.email}>`
+                ) : (
+                  <span className="github-access-unset">{copy.commitIdentityUnset}</span>
+                )}
+              </dd>
+            </div>
+          </dl>
+        </li>
       ))}
-    </div>
+    </ul>
   );
 }
