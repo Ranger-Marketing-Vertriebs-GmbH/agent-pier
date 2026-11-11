@@ -24,6 +24,11 @@ const serverInstructions =
 export function isMcpMachinePath(pathname) {
   return publicPaths.has(pathname);
 }
+/**
+ * Throws unless the request reached a machine path over the local, the Tailscale or
+ * the configured network host. Records which one as `req.mcpSource` ("local",
+ * "tailscale" or "network") for the limits per sender (oauth-router.js).
+ */
 export function authorizeMcpTransport(req, config) {
   const host = req.headers.host;
   const loopback = ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(
@@ -43,6 +48,7 @@ export function authorizeMcpTransport(req, config) {
     )
       throw problem("Proxy requests require the configured remote host.", 403);
     expected = `http://${host}`;
+    req.mcpSource = "local";
   } else if (loopback && config.remoteUrl && new URL(config.remoteUrl).host === host) {
     // The hook endpoint's rule: every tailnet device is served, with or without a
     // login (tagged devices send none); Funnel comes from the public internet and
@@ -50,10 +56,12 @@ export function authorizeMcpTransport(req, config) {
     if (viaFunnel(req.headers))
       throw problem("MCP is not reachable through Tailscale Funnel.", 403);
     expected = new URL(config.remoteUrl).origin;
+    req.mcpSource = "tailscale";
   } else if (config.network?.enabled && config.networkHosts?.has(host)) {
     if (headerNames.some((key) => key.startsWith("tailscale-")))
       throw problem("Proxy requests require the configured remote host.", 403);
     expected = `http://${host}`;
+    req.mcpSource = "network";
   } else if (!loopback)
     throw problem("MCP requires the local, Tailscale or configured network host.", 403);
   else throw problem("MCP host is not allowed.", 403);

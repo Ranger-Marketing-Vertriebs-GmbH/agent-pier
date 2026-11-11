@@ -23,6 +23,14 @@ export function createAccessStore(directory, now) {
   const remove = db.prepare("DELETE FROM records WHERE kind=? AND id=?");
   const count = db.prepare("SELECT count(*) AS count FROM records WHERE kind=?");
   const prune = db.prepare("DELETE FROM records WHERE expires < ?");
+  // Client registration needs no credential, so the table can fill with registrations
+  // nobody uses. A full table drops the oldest registration no authorization request,
+  // grant, code or token names; a client in use is never dropped.
+  const dropUnusedClient = db.prepare(`DELETE FROM records WHERE kind='client' AND rowid=(
+    SELECT rowid FROM records WHERE kind='client' AND id NOT IN (
+      SELECT json_extract(value,'$.clientId') FROM records
+      WHERE kind<>'client' AND json_extract(value,'$.clientId') IS NOT NULL)
+    ORDER BY rowid LIMIT 1)`);
   return {
     get(kind, id) {
       const row = get.get(kind, id);
@@ -30,7 +38,9 @@ export function createAccessStore(directory, now) {
     },
     put(kind, id, value) {
       prune.run(now());
-      if (!get.get(kind, id) && count.get(kind).count >= limits[kind])
+      const full = () => !get.get(kind, id) && count.get(kind).count >= limits[kind];
+      if (full() && kind === "client") dropUnusedClient.run();
+      if (full())
         throw new TooManyRequestsError(
           "Authorization capacity reached. Try again later.",
         );

@@ -4,9 +4,54 @@ import { authorizationHandler } from "@modelcontextprotocol/sdk/server/auth/hand
 import { tokenHandler } from "@modelcontextprotocol/sdk/server/auth/handlers/token.js";
 import { clientRegistrationHandler } from "@modelcontextprotocol/sdk/server/auth/handlers/register.js";
 import { revocationHandler } from "@modelcontextprotocol/sdk/server/auth/handlers/revoke.js";
+import { rateLimit } from "express-rate-limit";
+import { TooManyRequestsError } from "@modelcontextprotocol/sdk/server/auth/errors.js";
+import { sourceKey } from "../../http/tailscale-request.js";
 import { MCP_SCOPES } from "./oauth-provider.js";
 
-export function createOAuthRouter(provider, publicUrl) {
+// Dynamic client registration needs no credential, and on the Tailscale host every
+// tailnet device reaches it. A client registers once per login, so 20 registrations an
+// hour from one sender (the local machine, one tailnet device or one network address)
+// are far more than any client needs, and one sender that uses up its window keeps
+// nobody else from registering. All senders together get 200 an hour: Tailscale Serve
+// reaches AgentPier from loopback, so a local process could name any number of
+// devices, and the ceiling also bounds the windows kept in memory. The store keeps at
+// most 1,000 registrations and drops the oldest unused one for a new one
+// (access-store.js).
+export const REGISTRATION_LIMITS = Object.freeze({
+  windowMs: 60 * 60_000,
+  perSource: 20,
+  total: 200,
+});
+
+function registrationLimit(limits) {
+  const { windowMs, perSource, total } = { ...REGISTRATION_LIMITS, ...limits };
+  const window = (limit, keyGenerator) =>
+    rateLimit({
+      windowMs,
+      limit,
+      keyGenerator,
+      standardHeaders: true,
+      legacyHeaders: false,
+      message: new TooManyRequestsError(
+        "You have exceeded the rate limit for client registration requests",
+      ).toResponseObject(),
+    });
+  // Without the transport check in front (tests), every request counts as local.
+  const each = window(perSource, (req) => sourceKey(req, req.mcpSource || "local"));
+  const all = window(total, () => "all");
+  // The ceiling counts only what passed a sender's own window.
+  return (req, res, next) =>
+    req.method === "POST"
+      ? each(req, res, (error) => (error ? next(error) : all(req, res, next)))
+      : next();
+}
+
+/**
+ * The OAuth endpoints of AgentPier's own MCP endpoint. `limits` overrides
+ * `REGISTRATION_LIMITS` in tests.
+ */
+export function createOAuthRouter(provider, publicUrl, limits = {}) {
   const router = express.Router();
   if (!publicUrl) return router;
   const issuerUrl = new URL(publicUrl);
@@ -79,8 +124,11 @@ export function createOAuthRouter(provider, publicUrl) {
   );
   router.use(
     "/register",
+    registrationLimit(limits),
     express.json({ limit: "8kb" }),
-    clientRegistrationHandler({ clientsStore: provider.clientsStore }),
+    // The handler's own limit keys on the connection, which is loopback for every
+    // tailnet device behind Tailscale Serve: one window for all of them.
+    clientRegistrationHandler({ clientsStore: provider.clientsStore, rateLimit: false }),
   );
   router.use(
     "/revoke",

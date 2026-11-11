@@ -199,3 +199,41 @@ test("Loopback HTTP OAuth advertises and enforces its local resource through tok
     "catalog:read",
   ]);
 });
+
+test("a full client table drops its oldest unused registration, never one in use", (t) => {
+  const directory = fixture(t);
+  const store = createAccessStore(directory, () => 1000);
+  t.after(() => store.close());
+  const client = (id) => ({ client: { client_id: id }, expiresAt: 9000 });
+  for (let i = 0; i < 1000; i++) store.put("client", `c${i}`, client(`c${i}`));
+  // The two oldest are in use: one waits for the owner's consent, one holds a grant.
+  store.put("pending", "p", { clientId: "c0", expiresAt: 9000 });
+  store.put("grant", "g", { clientId: "c1", expiresAt: 9000 });
+  store.put("client", "new", client("new"));
+  assert.equal(store.list("client").length, 1000);
+  assert.ok(store.get("client", "c0"));
+  assert.ok(store.get("client", "c1"));
+  assert.equal(store.get("client", "c2"), null);
+  assert.ok(store.get("client", "c3"));
+  assert.ok(store.get("client", "new"));
+  // Storing a known registration again drops nothing.
+  store.put("client", "new", client("new"));
+  assert.ok(store.get("client", "c3"));
+});
+
+test("a client table full of registrations in use refuses a new one", (t) => {
+  const directory = fixture(t);
+  const store = createAccessStore(directory, () => 1000);
+  t.after(() => store.close());
+  store.transaction(() => {
+    for (let i = 0; i < 1000; i++) {
+      store.put("client", `c${i}`, { client: {}, expiresAt: 9000 });
+      store.put("grant", `g${i}`, { clientId: `c${i}`, expiresAt: 9000 });
+    }
+  });
+  assert.throws(
+    () => store.put("client", "new", { client: {}, expiresAt: 9000 }),
+    /capacity/,
+  );
+  assert.equal(store.list("client").length, 1000);
+});
