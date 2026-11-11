@@ -1,4 +1,4 @@
-import { Readable } from "node:stream";
+import { Readable, pipeline } from "node:stream";
 import { forwardHeaders, proxyError, readBody } from "./runtime-proxy.js";
 
 // The ChatGPT part of the runtime proxy (runtime-proxy.js): `/chatgpt/codex/<path>`
@@ -127,9 +127,8 @@ export function chatgptRoute({
     res.writeHead(response.status, headers);
     res.flushHeaders();
     if (!response.body) return res.end();
-    // Each chunk goes out as it arrives: SSE events reach the runtime at once.
-    Readable.fromWeb(response.body)
-      .on("error", () => res.destroy())
-      .pipe(res);
+    // Each chunk goes out as it arrives: SSE events reach the runtime at once. An error
+    // on either side destroys both, and so ends the response and the upstream request.
+    pipeline(Readable.fromWeb(response.body), res, (error) => error && abort.abort());
   };
 }
