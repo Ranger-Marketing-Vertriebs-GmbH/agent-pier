@@ -151,10 +151,12 @@ nono wrap -p claude-default --allow-cwd \
   --read      <installation root>/vendor/agentbus/ \
   --read-file /opt/homebrew/Cellar/node/26.8.2/bin/node \
   --read-file /opt/homebrew/bin/claude \
-  --allow     <dataDir>/agentbus/projects/<project hash> \
+  --allow     <dataDir>/agentbus/projects/<project hash>/adapters/<session id> \
+  --read-file <dataDir>/agentbus/sessions/<session id>/capability.json \
   --allow     <dataDir>/memory/sessions/<session id> \
+  --allow-unix-socket <AgentBus broker socket> \
   --allow-unix-socket /tmp/agentpier-memory-<uid>-<memory root hash>/mcp.sock \
-  --allow-unix-socket-dir-bind /tmp/ap-bus-<uid>-<project home hash> \
+  --allow-unix-socket-dir-bind <Claude Code's socket folder, see below> \
   -- /opt/homebrew/bin/claude \
      --plugin-dir <dataDir>/agentbus/projects/<project hash>/adapters/<session id> \
      --plugin-dir <dataDir>/memory/sessions/<session id>/plugin
@@ -169,16 +171,25 @@ socket, the SSH tools' and GitHub helper's folders, the session SSH agent's own 
 `<dataDir>/ssh-agents/<session id>` (`--read`, never write; never an agent's folder under
 `ssh-agents/_agents`), its own `agent.sock`
 (`--allow-unix-socket`, never a folder or a `-bind` variant) and the OpenSSH programs
-its wrappers call (`--read-file`), `<dataDir>/native-sessions` (`--allow`),
-`<dataDir>/requests` (`--read`) with the session's own entries in it (`--allow` on
-`requests/<session id>.claude` and `requests/<session id>.claude-bridge` for Claude
-Code, `--allow-file` on `requests/<session id>.tui.json` for OpenCode), for Claude
+its wrappers call (`--read-file`), the session's own folder
+`<dataDir>/native-sessions/<session id>` (`--allow`), its own request folder
+`<dataDir>/requests/<session id>` (`--read`) with the session's own entries in it
+(`--allow` on `<session id>.claude` and `<session id>.claude-bridge` for Claude
+Code, `--allow-file` on `<session id>.tui.json` for OpenCode), for Claude
 Code also `<dataDir>/request-runtime` (`--read`; it holds the hook dispatcher
 `claude-hook.sh` and nothing else) and, with the bridge mod, the mod's own
 `claude-mod.sock` beside the request socket, a chat attachment directory, and a managed account's own profile
-directory. `<dataDir>/request-state` (remembered approvals) and
+directory. `<dataDir>/native-sessions` and `<dataDir>/requests` themselves, with the
+other sessions' folders in them, `<dataDir>/request-state` (remembered approvals), the
+project's AgentBus folder beyond the session's own plugin folder, and
 `<dataDir>/agentbus/sessions` (the server's own record of each AgentBus launch) are
 never granted; of the latter a session reads only its own `capability.json`.
+
+AgentBus needs no file of the project's bus: the session's MCP server and hooks read
+their capability file and ask the broker over its socket, and the broker alone reads
+and writes the queue, the peer registry and the launch records. Only Claude Code loads
+a plugin folder from there (`adapters/<session id>`, `--allow`); Codex and OpenCode
+get nothing of the bus folder.
 
 An installed AgentPier starts the GitHub credential helper through the install root's
 `current` link, so a session survives updates (see
@@ -321,8 +332,8 @@ with a task profile are not remembered.
 Full integration parity — keeping project memory, AgentBus, the SSH tools, the GitHub
 credential helper and a managed account's own credentials working — means granting the
 CLI read-write access to each of those integrations' own subtrees of the AgentPier data
-directory (project memory's own capability folder, an AgentBus project's home and
-socket directory, the SSH tools' and GitHub helper's own directories, and, for a managed
+directory (project memory's own capability folder, the session's own AgentBus plugin
+folder, the SSH tools' and GitHub helper's own directories, and, for a managed
 account, that account's own profile directory), plus read access to `server/`, `vendor/`,
 `node_modules/` and the Node binary, because those integrations run as subprocesses
 that the CLI itself spawns, and the scripts they run import across those subtrees. A
@@ -358,65 +369,58 @@ personal workspace, not an isolation boundary for mutually untrusted users.
    from nono's own registry. A real launch verifies that pack, which needs network
    reachability to the registry — an availability dependency at launch time, not only a
    trust question. A sandbox profile with no such `extends` has no such dependency.
-5. **Shared container grants.** Three folders of the data directory are shared between
-   sessions and granted as a whole, because the files a sandboxed CLI needs from them
-   are written per session at launch time, are replaced by rename (which a single-file
-   grant does not follow on Linux), and AgentPier does not yet contain each session to
-   its own subdirectory there. What that leaves open:
+5. **Shared folders, one part per session.** `<dataDir>/native-sessions` and
+   `<dataDir>/requests` are shared by all sessions. Each launch keeps its files there
+   in a folder of its own (`<session id>/`: the launch file with its token, the
+   receipt and activity files its hooks write, its plugin folders and TUI
+   configuration), and a sandboxed session is granted only that folder:
+   `native-sessions/<session id>` read-write, because every CLI's hooks write their
+   receipt and activity through a temporary file beside them, and
+   `requests/<session id>` read-only with its own plugin folders writable. A folder is
+   granted rather than single files because these files are replaced by rename, which
+   a single-file grant does not follow on Linux. Of the project's AgentBus folder
+   (`<dataDir>/agentbus/projects/<project hash>`: message queue, peer registry,
+   identities, launch records) a session is granted nothing but the plugin folder
+   Claude Code loads its own hooks from (`adapters/<session id>`); every bus
+   operation goes through the broker, which checks the caller's capability. A
+   sandboxed session therefore cannot read another session's request or
+   binding token, change another session's hooks, receipts or activity, or read,
+   forge or delete queue entries, peers and launch records on disk. What that still
+   leaves open:
 
-   - `<dataDir>/requests` is granted **read-only**; a session writes only its own
-     entries there (its Claude plugin folders `<id>.claude` and `<id>.claude-bridge`,
-     its OpenCode `<id>.tui.json`). It can still read the other sessions' launch
-     files, and with them their request tokens, their launch command and arguments.
-     With such a token it can speak to the request broker as that session: raise
-     approval cards and questions in its name and report activity and reply text for
-     it. It cannot change another session's hooks or launch file, the hook
-     dispatcher (`<dataDir>/request-runtime/claude-hook.sh`, read-only) or the
-     remembered approvals (`<dataDir>/request-state`, not granted).
-   - `<dataDir>/native-sessions` is granted **read-write**, because every CLI's hooks
-     write their receipt and activity file there through a temporary file in the same
-     folder. A sandboxed session can read and change the other sessions' binding
-     files there (`<id>.launch.json` with the binding token, `<id>.receipt.json`,
-     `<id>.activity.json`) and their identity, activity and stream plugin folders
-     (`<id>.claude`, `<id>.claude-activity`, `<id>.claude-stream`, `<id>.tui.json`).
-     With that it can make AgentPier show another session as working or waiting,
-     replace the native conversation and process another session reported for itself,
-     and change the hook commands another Claude Code session loads from those plugin
-     folders the next time it starts or reloads its plugins, which then run as that
-     session, outside this sandbox if that session is not sandboxed. The server
-     itself runs nothing from this folder.
-   - `<dataDir>/agentbus/projects/<project hash>` is granted **read-write** to every
-     AgentBus session of that project. It holds the project's message queue, the peer
-     registry and identities, every session's launch record (`launches/<id>.json`) and
-     plugin folder (`adapters/<id>`). A sandboxed session can read and forge messages
-     and peers of its own project's bus, and change another session's AgentBus plugin
-     folder, with the same consequence as above for a Claude Code session. What the
-     server runs or reads a secret from for a wake (the CLI command, the Codex home,
-     the folder with a Claude session's socket and key) and what it proves a
-     registering process with come from its own copy of the launch in
-     `<dataDir>/agentbus/sessions/<id>/active.json`, which no session can write; the
-     launch record in the project folder no longer decides them. A launch record
-     changed to name another folder ends that session's bus access until it is
-     reloaded.
-
-   Sessions started before these grants were narrowed keep the grants they were
-   started with until they are reloaded: a sandboxed session from before can still
-   write the whole request folder, including the dispatcher's old place
-   `requests/claude-hook.sh`, which the server keeps writing at every start because
-   the hooks of Claude Code sessions from before still run it. For a session from
-   before, the server takes its copy of the AgentBus launch from the launch record the
-   first time it needs it, and the remembered approvals were taken over once from
-   `requests/remembered-approvals.json`; both trust the old file as it was at that
-   moment. Reload sandboxed sessions after updating.
+   - Within its own folders a session can change its own hook commands, launch file
+     and reports. They run and count for that session only, inside its own sandbox.
+   - Through the broker a session sends messages to the peers of its project and
+     reads its own inbox, as AgentBus is meant to work; it does so under its own
+     identity.
+   - **Sessions started before this release** keep the files and the grants they were
+     started with until they are reloaded: their files lie directly in
+     `native-sessions/` and `requests/`, a sandboxed one among them can still write
+     all of `native-sessions/` and its project's whole bus folder and read all of
+     `requests/` (from before the earlier narrowing even write it, including the
+     dispatcher's old place `requests/claude-hook.sh`, which the server keeps writing
+     at every start because the hooks of Claude Code sessions from before still run
+     it), and with that reach the folders of sessions started later. For a session
+     from before, the server takes its copy of the AgentBus launch from the launch
+     record the first time it needs it, and the remembered approvals were taken over
+     once from `requests/remembered-approvals.json`; both trust the old file as it was
+     at that moment. **Reload sandboxed sessions after updating.** A reload moves a
+     session to its own folders and removes its old files.
 
    None of this reaches the rest of the data directory: each adapter grants only its
-   own subtree (project memory's own capability folder, an AgentBus project's home and
-   socket directory, a managed account's own profile directory, and the shared folders
-   above), never the data directory as a whole, and the installation grant above does
-   not cover it either. The data directory is reachable beyond those subtrees only if
-   the operator's own sandbox profile grants it, or if it happens to sit inside
-   `server/`, `vendor/` or `node_modules/`. Per-session containment of
-   `native-sessions` and of the AgentBus project folder was deliberately deferred.
+   own subtree (project memory's own capability folder, the session's own AgentBus
+   plugin folder, a managed account's own profile directory, and the per-session
+   folders above), never the data directory as a whole, and the installation grant
+   above does not cover it either. The data directory is reachable beyond those
+   subtrees only if the operator's own sandbox profile grants it, or if it happens to
+   sit inside `server/`, `vendor/` or `node_modules/`.
+
+   The narrowed grants are checked against a real nono by
+   `tests/matrix/nono-confinement.test.js`: on macOS with nono 0.79.0 and 0.81.0
+   (Seatbelt), and on Linux with nono 0.81.0 (Landlock; checked in a Debian container
+   on a 7.0 kernel, and the merge queue runs the same file on its Ubuntu runners). The
+   adapter port and the SSH agent socket remain verified on macOS only,
+   as their sections say.
 
 6. **A failed sandboxed reload leaves the session stopped.** Reload kills the old CLI
    process before the adapter chain — including the nono adapter — runs to build the
@@ -477,22 +481,66 @@ personal workspace, not an isolation boundary for mutually untrusted users.
 9. **A writable repository is trusted by git.** With a profile that makes the working
    directory writable, a sandboxed session can write the repository's `.git/config`,
    `.git/hooks` and `.gitattributes`. Git runs programs those name, and it does so for
-   whoever uses the repository next: the owner in a terminal, an unsandboxed session,
-   or AgentPier itself, which runs git in session and project folders for the
-   **Changes** tab, project detection, tickets and pipelines. AgentPier's own git
-   calls carry one set of safe settings (`server/lib/git-command.js`): the file-system
-   monitor (`core.fsmonitor`) is off and the pager is fixed, and every diff that
-   prints a patch passes `--no-ext-diff --no-textconv`. Still honoured, because an
-   owner's action needs them or git offers no switch: clean and smudge filters
-   named by `.gitattributes` (`filter.<name>.*`; `git diff` runs the clean filter on
-   changed files, so the Changes tab reaches it without anyone acting), hooks
-   (`core.hooksPath`, `.git/hooks`) on a pipeline's commit, a worktree's checkout, a
-   fast-forward merge and a fetch, and `core.sshCommand`, `credential.helper`,
-   `gpg.program` and remote URLs on fetch, push and commit, and in a partial clone
-   the promisor remote, which git may fetch from during a diff. `gh`, which
-   pipelines use for pull requests, starts git on its own; it inherits the safe
-   settings through the environment (git 2.31 or newer). Only a profile whose working
-   directory is read-only closes this; AgentPier cannot.
+   whoever uses the repository next. AgentPier's own git calls, which it makes in
+   session and project folders for the **Changes** tab, project detection, tickets and
+   pipelines, all go through one place (`server/lib/git-command.js`, guarded by
+   `tests/unit/git-call-guard.test.js`) and no longer run such a program outside the
+   sandbox on their own:
+
+   - The file-system monitor (`core.fsmonitor`) is off and the pager is fixed.
+   - Hooks (`core.hooksPath`, `.git/hooks`) are off for every command that only reads
+     (`status`, `diff`, `rev-parse`, `ls-files`, …; a plain `git status` would
+     otherwise run `post-index-change`), and these reads take no optional lock
+     (`GIT_OPTIONAL_LOCKS=0`), so they do not rewrite the index.
+   - Every diff that prints a patch passes `--no-ext-diff --no-textconv`.
+   - Clean and smudge filters named by `.gitattributes` (`filter.<name>.*`) cannot be
+     switched off without changing the result: `git status` and `git diff` run the
+     clean filter on changed files, and a Git LFS file would read as modified. So in a
+     repository a sandboxed session works in (its folder or any worktree of the same
+     repository), a filter the repository's own config defines runs under
+     `nono wrap` with that session's sandbox profile, in the working tree, exactly as
+     it does when the session runs git itself
+     (`server/lib/git-repository-programs.js`). The owner's global or system filter
+     definitions and Git LFS' standard commands (also when `git lfs install --local`
+     wrote them into the repository) run as before, so LFS repositories show the same
+     status and diff. Git LFS itself moves into the sandbox when the repository's
+     config gives it extensions (`lfs.extension.*`), which are programs too.
+
+   What you may notice: a repository with a filter of its own (`git-crypt`,
+   `nbstripout`, a custom driver) shows correct changes in a sandboxed session, and
+   checks out correctly into a ticket or pipeline worktree, only if the sandbox
+   profile lets that filter run. If it cannot (the profile denies the
+   program, or nono or the profile is gone), git reports the filter as failed: a
+   required filter fails the **Changes** tab with the git error, an optional one shows
+   the file as modified. Nothing falls back to running the filter unconfined.
+
+   Still open:
+
+   - **Whoever else uses the repository.** The owner in a terminal or an editor, and
+     every unsandboxed session, run git without any of this. A hook or filter a
+     sandboxed session planted runs for them as them.
+   - **The owner's actions keep their hooks**: a pipeline's commit and `git add`, a
+     worktree's checkout, a fast-forward merge, a fetch and a push run the
+     repository's hooks, and fetch, push and commit use `core.sshCommand`,
+     `credential.helper`, `gpg.program` and the remote URLs of the repository's
+     config; in a partial clone git may fetch from the promisor remote during a diff.
+     The server's network calls are the fetch before a ticket worktree, a pipeline
+     workspace or an agent's coding session is created, a pipeline's push, and the
+     clone of a new project (which starts from no repository config at all).
+   - **Only while a sandboxed session exists.** A repository counts as sandboxed
+     while a session with a sandbox profile is recorded for it. After the last such
+     session is deleted, a filter it left behind runs unconfined again. If sessions
+     under different profiles share a repository, the profile of the first by
+     session id is used.
+   - **Submodules and included files.** The filter definitions are read from the
+     repository git runs in. A submodule's own config, which `git status` consults
+     when it looks into the submodule, and a config file inside the repository that
+     the owner's global config includes are not examined.
+   - `gh`, which pipelines use for pull requests, starts git on its own; it inherits
+     the monitor and pager settings through the environment (git 2.31 or newer), not
+     the rules for hooks and filters.
+
+   Only a profile whose working directory is read-only closes this completely.
 
 ## Tools that do not run sandboxed
 

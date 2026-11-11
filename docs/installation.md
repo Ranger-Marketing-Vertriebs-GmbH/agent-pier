@@ -312,6 +312,24 @@ unless noted:
   keychain is not trusted there.
 - **nono (macOS and Linux).** Existing installations keep their nono version. Update it under **CLIs and
   extensions › Installation**; 0.80 and 0.81 carry security fixes.
+- **Reload sandboxed sessions after the update (macOS and Linux).** A session now
+  keeps its launch, hook and report files in a folder of its own
+  (`<data dir>/native-sessions/<session id>/`, `<data dir>/requests/<session id>/`)
+  and a sandboxed session is granted only that, and of its project's AgentBus folder
+  only its own plugin folder. Sessions that were running during the update keep
+  working with their old files and their old, wider grants; **Reload & resume**
+  moves each to the new folders. Nothing has to be migrated by hand, and unsandboxed
+  sessions need no reload.
+- **Repositories with their own git filters in sandboxed sessions.** In a repository
+  a sandboxed session works in, AgentPier's own git calls (the **Changes** tab,
+  worktrees, pipelines) run a filter the repository's own config defines inside that
+  session's sandbox profile. Git LFS as `git lfs install` sets it up is unaffected.
+  A filter such as `git-crypt` or `nbstripout` must be runnable under the profile,
+  or its files show as modified, or the **Changes** tab reports git's error
+  ([details](sandbox.md#known-limitations), item 9).
+- **Per-session folders after a downgrade.** An older version does not look into
+  them: sessions started or reloaded on this version lose their chat binding and
+  approval relay there until they are reloaded once more.
 
 Details: [What Claude Code and Codex need in a sandbox](sandbox.md#what-claude-code-and-codex-need-in-a-sandbox).
 

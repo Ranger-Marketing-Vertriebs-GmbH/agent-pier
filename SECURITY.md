@@ -30,7 +30,12 @@ mutually untrusted operating-system users or malicious local software.
 Optional agents run a pinned OpenClaw Gateway as the same OS user. An agent with
 shell access runs commands unconfined, with that user's logins, files and keys; the
 nono sandbox applies to CLI sessions only, and it confines against accident, not
-against intent ([what a sandboxed session can still reach](docs/sandbox.md#known-limitations)). Local (stdio) MCP servers run host
+against intent ([what a sandboxed session can still reach](docs/sandbox.md#known-limitations)). Of the folders all sessions share in the data
+directory, a sandboxed session is granted only its own part, and AgentPier's own git
+calls run no hook for a read and run a repository's own filter programs inside the
+sandbox of the session that works there; a repository a sandboxed session may write
+is still trusted by every other git that uses it (the owner's terminal, unsandboxed
+sessions, the hooks of a pipeline's commit). Local (stdio) MCP servers run host
 commands for every agent or CLI they are bound to; a server installed from an npm
 or PyPI package runs the package's program with the same rights, and install scripts and
 source builds run only after the owner allows them for that package (a PyPI build
