@@ -1,6 +1,7 @@
-import { Transform } from "node:stream";
+import { pipeline } from "node:stream";
 import { forwardHeaders, proxyError, readBody } from "../model-logins/runtime-proxy.js";
-import { RedirectRefused, plainBody, upstreamRequest } from "./upstream-request.js";
+import { endpointRewriter } from "./sse-endpoint-rewriter.js";
+import { RedirectRefused, bodyStreams, upstreamRequest } from "./upstream-request.js";
 
 // The MCP part of AgentPier's runtime proxy (model-logins/runtime-proxy.js):
 // `/mcp/<serverId>` is a Streamable HTTP passthrough to an OAuth MCP server whose
@@ -149,12 +150,21 @@ export function mcpRoute({
       if (!responseDropped.has(name)) headers[name] = value;
     res.writeHead(response.statusCode, headers);
     res.flushHeaders();
-    const stream = plainBody(response).on("error", () => res.destroy());
     // An SSE server's event stream names its message endpoint: the runtime posts there
-    // through the proxy, never to the server itself.
+    // through the proxy, never to the server itself (sse-endpoint-rewriter.js).
     const events =
       sse && !message && /text\/event-stream/.test(headers["content-type"] || "");
-    (events ? stream.pipe(endpointRewriter(server, serverId)) : stream).pipe(res);
+    // An error on any part (the server's body, its decoding, the rewriter, the
+    // runtime's connection) destroys every part, and so ends this response and the
+    // request to the server; `pipe` would leave the others open and the error unheard.
+    pipeline(
+      [
+        ...bodyStreams(response),
+        ...(events ? [endpointRewriter(server, serverId)] : []),
+        res,
+      ],
+      (error) => error && abort.abort(),
+    );
   };
 }
 
@@ -170,42 +180,4 @@ function messageTarget(server, search) {
   } catch {
     return null;
   }
-}
-
-// Rewrites the `endpoint` event of the legacy HTTP+SSE transport (the server's
-// message URL, relative or absolute) to the proxy's message route; every other event
-// passes unchanged, each as soon as it is complete.
-function endpointRewriter(server, serverId) {
-  let buffer = "";
-  const rewrite = (block) => {
-    const lines = block.split(/\r?\n/);
-    if (!lines.some((line) => /^event:\s*endpoint\s*$/.test(line))) return block;
-    return lines
-      .map((line) => {
-        const data = /^data:\s?(.*)$/.exec(line);
-        if (!data) return line;
-        const upstream = new URL(data[1].trim(), server.url);
-        if (upstream.origin !== new URL(server.url).origin) return "data: about:blank";
-        const target = Buffer.from(upstream.pathname + upstream.search).toString(
-          "base64url",
-        );
-        return `data: /mcp/${encodeURIComponent(serverId)}/message?target=${target}`;
-      })
-      .join("\n");
-  };
-  return new Transform({
-    transform(chunk, _encoding, done) {
-      buffer += chunk.toString("utf8");
-      let out = "";
-      for (let at; (at = buffer.search(/\r?\n\r?\n/)) !== -1;) {
-        const end = buffer.slice(at).match(/^\r?\n\r?\n/)[0].length;
-        out += rewrite(buffer.slice(0, at)) + buffer.slice(at, at + end);
-        buffer = buffer.slice(at + end);
-      }
-      done(null, out);
-    },
-    flush(done) {
-      done(null, buffer ? rewrite(buffer) : "");
-    },
-  });
 }

@@ -401,7 +401,11 @@ shows **Login required**. Neither runtime ever holds the tokens:
   a request once on a 401, and strips `WWW-Authenticate`, so no runtime starts an OAuth
   flow of its own. For an SSE server it passes the event stream, rewrites its
   `endpoint` event to `/mcp/<server id>/message`, and forwards those POSTs to the
-  announced URL on the server's own origin.
+  announced URL on the server's own origin. An `endpoint` that is no URL or lies off
+  the server's origin reaches the runtime as `about:blank`. Every other event passes
+  unchanged whatever its size; the proxy holds at most 64 KiB of an unfinished event,
+  and an `endpoint` event larger than that ends the stream. A failure of the server's
+  stream ends that one response.
 - The proxy handles a redirect of the server itself (`upstream-request.js`); a
   `Location` never reaches the runtime. It follows at most 5 redirects, each under the
   address rule below: a target on the server's own origin passes, any other must be no
