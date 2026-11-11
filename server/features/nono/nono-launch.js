@@ -3,6 +3,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { mergeGrants } from "./sandbox-grants.js";
 import { readSandboxProfiles } from "./nono-profiles.js";
+import {
+  ENVIRONMENT_PROGRAM,
+  cliCommand,
+  separateEnvironment,
+} from "./nono-environment.js";
 import { ADAPTER_PORT_PLACEHOLDER } from "../providers/adapter-launch.js";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
@@ -120,7 +125,8 @@ export function grantArguments(grants, { isDirectory = existingDirectory } = {})
  * `nono wrap` applies the nono sandbox and execs into the CLI, so the process
  * group, the stop path and native observation keep seeing the CLI itself.
  * Everything after `--` belongs to the CLI, which is why reload can keep
- * appending resume flags to the end of the argument list. Without a sandbox
+ * appending resume flags to the end of the argument list. A launch that sets XDG
+ * folders starts the CLI through `env` there (nono-environment.js). Without a sandbox
  * profile the launch is returned untouched, minus the grants the session
  * record must not carry.
  */
@@ -134,8 +140,11 @@ export function wrapWithNono({
 }) {
   const { sandboxGrants, ...rest } = launch;
   if (!profile) return { ...rest, args: [...(rest.args || [])] };
+  // nono gets none of an account's XDG folders (nono-environment.js).
+  const { outer, assignments } = separateEnvironment(rest.env);
   return {
     ...rest,
+    ...(rest.env ? { env: outer } : {}),
     command: executable,
     args: [
       "wrap",
@@ -166,6 +175,7 @@ export function wrapWithNono({
           // binary execs without it. The managed npm CLIs AgentPier installs
           // are not reliably one or the other.
           { access: "read", path: launch.command },
+          ...(assignments.length ? [{ access: "read", path: ENVIRONMENT_PROGRAM }] : []),
         ],
         { isDirectory },
       ),
@@ -178,8 +188,7 @@ export function wrapWithNono({
       // substitutes the placeholder (`substituteAdapterUrl`).
       ...(launch.adapter ? ["--open-port", ADAPTER_PORT_PLACEHOLDER] : []),
       "--",
-      launch.command,
-      ...(launch.args || []),
+      ...cliCommand(launch, assignments),
     ],
   };
 }
