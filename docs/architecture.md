@@ -216,6 +216,12 @@ directly.
   tailnet login on the Tailscale host; the machine paths (MCP, agent hooks) serve
   every tailnet device and only refuse Funnel
   ([security boundaries](assistant-gateway.md#security-boundaries)).
+- `server/lib/socket-errors.js`: `onUpgrade`, the one way to listen for upgrades on an
+  HTTP server (the WebSocket attachers in `server/http/` and the preview proxy). It
+  gives every upgraded socket its `error` listener before an attacher runs, and it
+  destroys a socket whose peer has not closed 5 seconds after AgentPier ended its own
+  side, so a refused upgrade never stays half-open
+  (`tests/unit/upgrade-entry-guard.test.js`, `tests/blackbox/upgrade-reset.test.js`).
 - HTTP routes live in `server/http/routes/assistant*.js` and `mcp-*.js`.
 
 Feature code is moving behind an agent runtime port, so that agents can later run on
