@@ -30,7 +30,7 @@ coding CLIs. They stay outside the catalog; tables that also cover them, such as
 | `<id>/profile-files.js`   | Node          | The `profileFiles` members                                                                                                                        |
 | `<id>/provider.js`        | Node          | The `provider` members (provider environment and launch)                                                                                          |
 | `<id>/transfer.js`        | Node          | The `transfer` members (Codex and Claude Code only)                                                                                               |
-| `<id>/sandbox.js`         | Node          | `sandboxLaunch` (Codex and Claude Code only)                                                                                                      |
+| `<id>/sandbox.js`         | Node          | `sandboxLaunch`; `linked-folders.js` beside the CLI folders holds the helper all three share                                                      |
 | `claude/login-store.js`   | Node          | The `loginStore` members; `claude/keychain-shim.sh` is the `security` stand-in it installs                                                        |
 | `codex/history-client.js` | Node          | Codex's read-only app-server client for its history                                                                                               |
 | `opencode/attachments.js` | Node          | OpenCode's attachment `references` entry (`grantDirectory`)                                                                                       |
@@ -148,7 +148,8 @@ from `launchModes` (`server/features/accounts/account-store.js`).
 - `sandboxLaunch?(launch)`: the launch with what the CLI itself needs inside a nono
   sandbox, applied by `nono/nono-launch.js` to sandboxed launches only: Codex's
   `SSL_CERT_FILE` on macOS and the operator's own CA file, Claude Code's socket
-  folder and the folders a managed account links to `~/.claude`. Absent for OpenCode.
+  folder, and for every CLI the folders a managed account links to the CLI's own
+  profile (`linkedFolderTargets` in `clis/linked-folders.js`).
 - `provider`: how the CLI runs against a provider connection. `environment(env, {
 directory, key, description, adapterRoute, adapterToken })` returns the launch
   environment; `launch(result, ctx)` (Claude Code) or `endpointLaunch` and `catalogLaunch`

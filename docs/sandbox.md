@@ -359,6 +359,37 @@ variable.
   names (an absolute path to a regular file; on macOS and Linux), so the bundle may
   lie anywhere the server can read.
 
+**Codex and OpenCode: the shared extension folders.** The same links exist in a
+managed Codex account (`skills`, `agents`, `commands`, `plugins` and
+`.tmp/marketplaces`, into `~/.codex`) and a managed OpenCode account (`skills`,
+`agents`, `commands`, `plugins` and `plugin`, into `~/.config/opencode`). Codex
+reads `agents` when it starts and ends on the denial: its app server prints "Error:
+Operation not permitted (os error 1)" and the session shows "The native Codex request
+backend stopped unexpectedly." Without the other folders Codex starts, and so does
+OpenCode, but neither loads the shared skills, agents, commands and plugins. A
+sandboxed launch of a managed account therefore gets the targets of these links
+**read-only**, and nothing else of the CLI's own profile: `~/.codex/auth.json`,
+`history.jsonl`, `sessions/`, `config.toml` and Codex's databases stay unreadable,
+and so do OpenCode's config files and its data folder. As for Claude Code, a link
+counts only while it points where AgentPier put it, at the folder of the same name
+in the profile of the launch's own home
+(`linkedFolderTargets` in `server/features/clis/linked-folders.js`, shared by the
+three CLIs). Nothing in these folders is writable from the sandbox:
+
+- Installing a plugin or a skill, or adding a marketplace, from inside a sandboxed
+  session does not work; do it in **CLIs and extensions** or in an unsandboxed
+  session.
+- Codex installs its own system skills into `skills/.system` at every start. A
+  sandboxed session cannot, and uses the ones an unsandboxed Codex left there.
+- A local account (the CLI's own profile) has no links; what a sandboxed session of
+  it reads is the sandbox profile's to grant.
+
+Checked with nono 0.79.0 and 0.81.0, Codex 0.164.0 and OpenCode 1.19.5 in a home
+folder that the profile does not read. nono's built-in `default` profile reads
+`/private` on macOS, so a home folder below the temporary folder hides a missing
+grant. `tests/matrix/nono-cli-needs.test.js` runs the grants through a real nono,
+and Codex's app server when `codex` is installed.
+
 **Codex: no shared app-server daemon.** Codex 0.157 and later attach an interactive
 TUI to a shared background app server (the "daemon", `codex app-server daemon`) when
 one runs for the same `CODEX_HOME`. That server runs the tools, so a sandboxed TUI

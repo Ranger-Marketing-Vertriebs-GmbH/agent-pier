@@ -340,6 +340,14 @@ unless noted:
   with `~/.claude` (`skills`, `agents`, `commands`, `plugins`; read-only) and write
   `~/.claude/plugins/data`. Sandbox profiles need no entry for `~/.claude` for the
   session's hooks to run.
+- **Managed Codex and OpenCode accounts in a sandbox** now read the extension folders
+  shared with `~/.codex` (`skills`, `agents`, `commands`, `plugins`,
+  `.tmp/marketplaces`) and `~/.config/opencode` (`skills`, `agents`, `commands`,
+  `plugins`, `plugin`), read-only. Before, a sandboxed session of a managed Codex
+  account ended at start ("The native Codex request backend stopped unexpectedly.")
+  unless the sandbox profile granted `~/.codex` itself. A profile entry for
+  `~/.codex` that was added only for this can be removed: without it the session no
+  longer reads the login, history and sessions of the CLI's own profile.
 - **Reload & resume keeps the model Claude Code displays** ("Fable 5.2", a model
   chosen with `/model` just before). A name AgentPier cannot map no longer blocks
   the reload: the session resumes with the model it was launched with, and the
