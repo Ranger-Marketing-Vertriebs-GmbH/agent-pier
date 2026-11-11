@@ -93,11 +93,18 @@ export function defaultClaudeTool(tool, { agentBus = false } = {}) {
   );
 }
 
+// The git subcommands that run nothing a repository configures.
+const configFree = ["rev-parse", "branch"];
+
 /**
  * Whether `git [-C <dir>]… <subcommand> <arguments>` only reads, in a repository
  * of the project.
  * Only `-C <dir>` may precede the subcommand; `-c` and other options do not.
-
+ *
+ * Where the folder is unknown, nothing can say whose repository git finds there.
+ * Then only the subcommands that run nothing the repository configures stay:
+ * `rev-parse` and `branch`. The others can start a program its configuration
+ * names (`core.fsmonitor`, `diff.external`, a textconv filter, `core.sshCommand`).
  */
 function readOnlyGit(words, verdicts, place) {
   const literal = (i) => verdicts[i].literal;
@@ -111,6 +118,7 @@ function readOnlyGit(words, verdicts, place) {
   const sub = words[i],
     args = words.slice(i + 1);
   if (!DEFAULT_ALLOWED.gitSubcommands.includes(sub)) return false;
+  if (at.cwd === null && !configFree.includes(sub)) return false;
   if (!readOnlyGitArguments(sub, args)) return false;
   // `git diff` compares any two paths once one of them lies outside the work tree.
   if (sub === "diff")
@@ -345,7 +353,8 @@ export function defaultCommand(written, place, budget) {
       folderIn(at, words[1]) !== null
     );
   if (program === "git") return readOnlyGit(words, verdicts, at);
-  if (program === "npm") return inProject(at) && npmCheck(words);
+  // Without a known folder nothing says whose package.json `npm test` would run.
+  if (program === "npm") return at.cwd !== null && inProject(at) && npmCheck(words);
   if (!DEFAULT_ALLOWED.readers.includes(program)) return false;
   if (program === "sed") return readOnlySed(words);
   if (program === "rg" && !readOnlyRg(words)) return false;

@@ -58,22 +58,39 @@ test("git, npm and cd are covered only inside the session's project", () => {
   assert.equal(allowed("git -C /work/repo-other status"), false);
 });
 
-test("without a known folder plain use stays covered, leaving the folder asks", () => {
+test("without a known folder git and npm run nothing a repository defines", () => {
+  // Nothing says whose repository or package.json is there (AGENTPIER-376).
   for (const command of [
     "git status",
+    "git log -3",
+    "git diff",
+    "git show HEAD",
+    "git fetch origin",
     "npm test",
+    "npm run lint",
     "cd sub && git status",
     "cd sub && cd .. && npm run lint",
     "git -C sub log",
-  ])
-    assert.equal(allowed(command, null), true, command);
-  for (const command of [
-    "cd .. && git status",
-    "cd /work/repo && git status",
-    "git -C /work/repo log",
+    "cd .. && git rev-parse HEAD",
+    "cd /work/repo && git branch",
+    "git -C /work/repo rev-parse HEAD",
     "cd sub/../.. && npm test",
   ])
     assert.equal(allowed(command, null), false, command);
+  // What reads no repository configuration stays, and so do the readers.
+  for (const command of [
+    "git rev-parse --show-toplevel",
+    "git branch --show-current",
+    "git -C sub rev-parse HEAD",
+    "cd sub && git branch -a",
+    "cat package.json",
+    "ls -la",
+    "grep -rn needle src",
+    "rg needle",
+  ])
+    assert.equal(allowed(command, null), true, command);
+  for (const at of [{}, { cwd: "relative/path" }, { cwd: 7 }])
+    assert.equal(allowed("git status", at), false);
 });
 
 test("quoted pattern characters are literals", () => {

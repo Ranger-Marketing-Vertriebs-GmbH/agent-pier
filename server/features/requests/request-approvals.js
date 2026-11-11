@@ -108,11 +108,17 @@ export class RequestApprovals {
     this.projects.set(cwd, entry);
     return entry;
   }
-  /** Where a request's command runs: the folder its CLI names, else the session's. */
+  /**
+   * Where a request's command runs: the folder its CLI names, else the session's.
+   * A session always has a folder (session-creation.js refuses one without). Were
+   * one missing, the project would be unknown, and the folder the CLI names would
+   * say nothing about whose repository is there: the place is then unknown too.
+   */
   place(entry, session, roots) {
+    if (typeof session?.cwd !== "string" || !path.isAbsolute(session.cwd))
+      return { cwd: null, roots: [] };
     const named = entry.subject?.cwd;
-    const cwd =
-      typeof named === "string" && path.isAbsolute(named) ? named : session?.cwd;
+    const cwd = typeof named === "string" && path.isAbsolute(named) ? named : session.cwd;
     return { cwd, roots };
   }
   /**
