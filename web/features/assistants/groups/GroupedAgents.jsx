@@ -52,9 +52,15 @@ export default function GroupedAgents({ lists, rowProps, navigate }) {
               section={{ ...section, agents: roots }}
               actions={actions}
               location="overview"
+              flat={!actions.groups.length}
             >
               {roots.length ? (
-                <ListCard label={section.group?.name || copy.ungrouped}>
+                <ListCard
+                  label={
+                    section.group?.name ||
+                    (actions.groups.length ? copy.ungrouped : copy.title)
+                  }
+                >
                   {roots.map((root, index) => (
                     <React.Fragment key={root.id}>
                       {root.userAccess && !roots[index - 1]?.userAccess && (

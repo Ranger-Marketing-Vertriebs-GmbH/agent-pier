@@ -94,6 +94,23 @@ async function move(page, name, group) {
   await page.getByRole("menuitemradio", { name: group, exact: true }).click();
 }
 
+test("no groups: agents form a plain list without an Ungrouped header, even after it was folded", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.addInitScript(() => {
+    for (const where of ["overview", "sidebar"])
+      localStorage.setItem(`agentpier.sidebar.agent-area-${where}-ungrouped`, "closed");
+  });
+  await page.goto(baseURL + "/agents");
+  await expect(main(page).getByText("Developer").first()).toBeVisible();
+  await expect(main(page).getByText("Calendar").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Ungrouped/ })).toHaveCount(0);
+  await expect(page.getByText("Ungrouped", { exact: true })).toHaveCount(0);
+  await add(page, "Development");
+  await expect(page.getByRole("button", { name: /^Ungrouped/ }).first()).toBeVisible();
+});
+
 test("groups create, rename, reorder, move whole families and delete without losing agents", async ({
   page,
 }, info) => {
