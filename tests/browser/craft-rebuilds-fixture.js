@@ -148,6 +148,8 @@ export async function craftRebuildsFixture(
     const method = request.method();
     const json = (value, status = 200) => route.fulfill({ status, json: value });
     // A picture's raw bytes: staged under a new id (`state.pictures`: id → bytes).
+    // Playwright's WebKit hands routes no Blob bodies (the browser still sends them):
+    // there the bytes are null.
     if (path === "/craft/pictures" && method === "POST") {
       const bytes = request.postDataBuffer();
       if (state.failUpload?.(bytes)) {
@@ -156,8 +158,8 @@ export async function craftRebuildsFixture(
       }
       const id = (state.pictures.size + 1).toString(16).padStart(32, "0");
       state.pictures.set(id, bytes);
-      state.calls.push({ path, method, body: { bytes: bytes.length } });
-      return json({ id, type: "image/png", bytes: bytes.length }, 201);
+      state.calls.push({ path, method, body: { bytes: bytes?.length ?? null } });
+      return json({ id, type: "image/png", bytes: bytes?.length ?? 0 }, 201);
     }
     const dropped = /^\/craft\/pictures\/([^/]+)$/.exec(path);
     if (dropped && method === "DELETE") {
