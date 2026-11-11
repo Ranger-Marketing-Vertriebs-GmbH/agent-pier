@@ -64,8 +64,9 @@ jobs:
       matrix:
         include: ${{ fromJSON(needs.select.outputs.backend || '[{"os":"ubuntu-latest","node":24,"node-version":">=24.22.1 <25"}]') }}
     runs-on: ${{ matrix.os }}
-    # Observed p90 11 min (macOS); one job once hung for 2 h without a limit.
-    timeout-minutes: 25
+    # Observed on macOS: successful runs of 17, 19 and 24 min, and five of eight jobs
+    # cancelled at the former 25 min limit. One job once hung for 2 h without a limit.
+    timeout-minutes: 40
     env:
       # A failed test file runs once more if the runner finished; files that pass
       # only on that retry are listed as flaky in the job summary. A file that
