@@ -4,6 +4,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import {
@@ -91,7 +92,13 @@ test(
   (t) => {
     const { profile, cwd } = workspace(t);
     // Short, like the /tmp the CLI uses: a socket address holds about 100 bytes.
-    const temporary = fs.realpathSync(fs.mkdtempSync("/tmp/apcn-"));
+    // On Linux the profile leaves /tmp writable, so the folder lies in the home
+    // folder there: the control below needs a place nothing else grants.
+    const temporary = fs.realpathSync(
+      fs.mkdtempSync(
+        process.platform === "linux" ? path.join(os.homedir(), ".apcn-") : "/tmp/apcn-",
+      ),
+    );
     t.after(() => fs.rmSync(temporary, { recursive: true, force: true }));
     const directory = path.join(temporary, "cc-socks");
     const launch = {
@@ -105,8 +112,7 @@ test(
     ]);
     assert.match(run({ launch: prepared, profile, cwd }), /BIND:ok/);
     // The control: the same folder, already created, without the grant.
-    if (process.platform === "darwin")
-      assert.match(run({ launch, profile, cwd }), /BIND:E(PERM|ACCES)/);
+    assert.match(run({ launch, profile, cwd }), /BIND:E(PERM|ACCES)/);
   },
 );
 

@@ -20,7 +20,13 @@ export const filesystemMatrix = [
   "tests/matrix/file-platform.test.js",
   "tests/matrix/file-recovery-boundary.test.js",
 ];
-const nonoMatrix = "tests/matrix/nono-confinement.test.js";
+// The tests that run a real nono; the workflows' nono step names the same files
+// (tests/unit/affected-ci-plan.test.js compares them).
+export const nonoMatrix = [
+  "tests/matrix/nono-confinement.test.js",
+  "tests/matrix/nono-cli-needs.test.js",
+  "tests/matrix/nono-binding-receipt.test.js",
+];
 const agentbusRuntimes = [
   "tests/unit/agentbus-queue.test.js",
   "tests/integration/agentbus-runtimes.test.js",
@@ -83,7 +89,7 @@ export function ciPlan(
     "filesystem-os": filesystemMatrix.some(runs)
       ? ["ubuntu-latest", ...(result.macos ? ["macos-latest"] : [])]
       : [],
-    nono: runs(nonoMatrix),
+    nono: nonoMatrix.some(runs),
     "agentbus-runtimes": agentbusRuntimes.some(runs),
   };
 }

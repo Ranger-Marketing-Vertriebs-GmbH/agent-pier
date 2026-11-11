@@ -500,9 +500,13 @@ personal workspace, not an isolation boundary for mutually untrusted users.
    sit inside `server/`, `vendor/` or `node_modules/`.
 
    The narrowed grants are checked against a real nono by
-   `tests/matrix/nono-confinement.test.js`: on macOS with nono 0.79.0 and 0.81.0
+   `tests/matrix/nono-confinement.test.js`, and what the CLIs themselves need
+   (socket folder, login stand-in, CA file, linked extension folders, the releases
+   folder, the binding receipt) by `tests/matrix/nono-cli-needs.test.js` and
+   `tests/matrix/nono-binding-receipt.test.js`: on macOS with nono 0.79.0 and 0.81.0
    (Seatbelt), and on Linux with nono 0.81.0 (Landlock; checked in a Debian container
-   on a 7.0 kernel, and the merge queue runs the same file on its Ubuntu runners). The
+   on a 7.0 kernel, and the merge queue runs the same files on its Ubuntu runners).
+   They use stand-ins for the CLIs and need none installed. The
    adapter port and the SSH agent socket remain verified on macOS only,
    as their sections say.
 
