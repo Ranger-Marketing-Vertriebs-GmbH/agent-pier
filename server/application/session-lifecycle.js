@@ -164,6 +164,17 @@ export function createSessionLifecycle(services) {
     let launch = await accounts.command(account.id, binaries, login, body.launchMode, {
       modelId: trusted.modelId ?? nativeModelId,
     });
+    // A login the sandbox cannot read would start the session signed out, so it is
+    // refused with what to do instead. Asked after `command`, which moved the login
+    // of an idle managed account into its folder (docs/sandbox.md).
+    const hiddenLogin = body.nonoProfile && accounts.hiddenLogins?.()[account.id];
+    if (hiddenLogin)
+      throw problem(
+        serverMessages.sessions[
+          hiddenLogin === "local" ? "sandboxLoginLocal" : "sandboxLoginPending"
+        ],
+        409,
+      );
     if ((await sessions.list()).filter((s) => s.status === "running").length >= 30)
       throw problem(serverMessages.sessions.sessionLimitReached, 409);
     if (login && (await runningFor(account.id)))
