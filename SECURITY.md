@@ -37,7 +37,9 @@ sandbox of the session that works there; a repository a sandboxed session may wr
 is still trusted by every other git that uses it (the owner's terminal, unsandboxed
 sessions, the hooks of a pipeline's commit). A sandboxed session of a managed Claude
 account reads the extension folders that account shares with `~/.claude` and writes
-`~/.claude/plugins/data`, which unsandboxed sessions use as well
+`~/.claude/plugins/data`, which unsandboxed sessions use as well; one of a managed
+Codex or OpenCode account reads the extension folders shared with `~/.codex` or
+`~/.config/opencode`, and nothing else of those profiles
 ([details](docs/sandbox.md#what-claude-code-and-codex-need-in-a-sandbox)). Local (stdio) MCP servers run host
 commands for every agent or CLI they are bound to; a server installed from an npm
 or PyPI package runs the package's program with the same rights, and install scripts and
