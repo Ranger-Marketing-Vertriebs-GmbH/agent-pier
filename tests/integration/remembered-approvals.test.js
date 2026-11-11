@@ -146,7 +146,7 @@ test("a session without AgentBus asks for a tool with an AgentBus name", async (
 
 test("a command allowed for the session is answered for it from then on", async (t) => {
   const f = await fixture(t);
-  const first = hook(f, bash("rm -rf build && git push origin main"), {
+  const first = hook(f, bash("rm -f build.log && git push origin main"), {
     timeout: 20_000,
   });
   const request = await pending(f);
@@ -435,7 +435,8 @@ test("git, npm and cd are answered by default only inside the session's project"
 
 test("a remembered program does not cover a pattern for a secret", async (t) => {
   const f = await fixture(t);
-  const first = hook(f, bash("rm -rf build"), { timeout: 20_000 });
+  // A plain rm: one that removes a tree is remembered only exactly (risky-forms.js).
+  const first = hook(f, bash("rm -f build.log"), { timeout: 20_000 });
   const card = await pending(f);
   await f.broker.answer("session", card.id, {
     expectedRevision: 1,
@@ -446,7 +447,7 @@ test("a remembered program does not cover a pattern for a secret", async (t) => 
   // could match a key file, and so is a quoted argument of several lines.
   for (const command of [
     "rm notes/{a,b}.txt src/*.orig",
-    "rm -rf dist/* build/**",
+    "rm -f dist/* build/**",
     "rm keys/* *.json *.*",
     "rm 'a\nb'",
   ]) {

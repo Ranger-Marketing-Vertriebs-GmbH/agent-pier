@@ -247,7 +247,7 @@ function npmCheck(words) {
  * what the shell still does to each (`judge`); null when that cannot be said or
  * the command holds more words or patterns than are judged.
  */
-function passedWords(written, budget = newBudget()) {
+export function passedWords(written, budget = newBudget()) {
   if (!read.has(written)) read.set(written, readWords(written, budget));
   return read.get(written);
 }
@@ -379,16 +379,17 @@ const moving = new Set([
 const maxChain = 20;
 
 /**
- * For each simple command of a chain, whether the default list covers it. The place
- * follows the chain: after `cd sub` the next part runs in `sub`, and after a `cd`
- * that leaves the project, or one the classifier cannot follow, `git` and `npm` ask.
+ * For each simple command of a chain, whether the default list covers it
+ * (`covered`) and the place it runs at (`at`). The place follows the chain: after
+ * `cd sub` the next part runs in `sub`, and after a `cd` that leaves the project,
+ * or one the classifier cannot follow, `git` and `npm` ask.
  */
-export function defaultSegments(segments, place) {
+export function judgedSegments(segments, place) {
   let at = startPlace(place);
   if (segments.length > maxChain) at = { ...at, strayed: true };
   const budget = newBudget();
   return segments.map((written) => {
-    const covered = defaultCommand(written, at, budget);
+    const judged = { covered: defaultCommand(written, at, budget), at };
     const passed = passedWords(written);
     const program = passed?.words[0];
     if (!passed) at = { ...at, strayed: true };
@@ -400,6 +401,10 @@ export function defaultSegments(segments, place) {
           ? movedTo(at, passed.words[1])
           : { ...at, strayed: true };
     else if (moving.has(program)) at = { ...at, strayed: true };
-    return covered;
+    return judged;
   });
 }
+
+/** For each simple command of a chain, whether the default list covers it. */
+export const defaultSegments = (segments, place) =>
+  judgedSegments(segments, place).map((judged) => judged.covered);

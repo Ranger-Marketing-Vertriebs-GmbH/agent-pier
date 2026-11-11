@@ -112,5 +112,8 @@ export const requestCopy = {
     session: (what) => `Always allow ${what} in this session`,
     project: (what) => `Always allow ${what} in this project`,
   },
+  // Above the options of a command a remembered program does not cover.
+  exactOnly: (programs) =>
+    `An approval for ${programs} does not cover this form: it can delete data, write outside the project or change what git runs. "Always allow" remembers exactly this command.`,
   loading: "Loading native requests …",
 };

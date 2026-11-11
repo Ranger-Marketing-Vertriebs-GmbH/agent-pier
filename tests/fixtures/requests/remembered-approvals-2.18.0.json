@@ -1,0 +1,104 @@
+{
+  "rules": [
+    {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "scope": "project",
+      "target": "project-1",
+      "cli": "claude",
+      "tool": "Bash",
+      "program": "git branch",
+      "createdAt": "2026-11-01T10:00:00.000Z"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000002",
+      "scope": "project",
+      "target": "project-1",
+      "cli": "claude",
+      "tool": "Bash",
+      "program": "git log",
+      "createdAt": "2026-11-01T10:00:00.000Z"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "scope": "project",
+      "target": "project-1",
+      "cli": "claude",
+      "tool": "Bash",
+      "program": "git push",
+      "createdAt": "2026-11-01T10:00:00.000Z"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000004",
+      "scope": "project",
+      "target": "project-1",
+      "cli": "claude",
+      "tool": "Bash",
+      "program": "rm",
+      "createdAt": "2026-11-01T10:00:00.000Z"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000005",
+      "scope": "project",
+      "target": "project-1",
+      "cli": "claude",
+      "tool": "Bash",
+      "program": "npm run",
+      "createdAt": "2026-11-01T10:00:00.000Z"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000006",
+      "scope": "project",
+      "target": "project-1",
+      "cli": "claude",
+      "tool": "Bash",
+      "program": "git config",
+      "createdAt": "2026-11-01T10:00:00.000Z"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000007",
+      "scope": "project",
+      "target": "project-1",
+      "cli": "claude",
+      "tool": "Bash",
+      "command": "cat .env",
+      "createdAt": "2026-11-01T10:00:00.000Z"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000008",
+      "scope": "session",
+      "target": "s-1",
+      "projectId": "project-1",
+      "cli": "claude",
+      "tool": "Bash",
+      "program": "git reset",
+      "createdAt": "2026-11-01T10:00:00.000Z"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000009",
+      "scope": "session",
+      "target": "s-1",
+      "projectId": "project-1",
+      "cli": "claude",
+      "tool": "Bash",
+      "program": "git checkout",
+      "createdAt": "2026-11-01T10:00:00.000Z"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000010",
+      "scope": "project",
+      "target": "project-1",
+      "cli": "claude",
+      "tool": "WebFetch",
+      "createdAt": "2026-11-01T10:00:00.000Z"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000011",
+      "scope": "project",
+      "target": "project-1",
+      "cli": "codex",
+      "tool": "item/commandExecution/requestApproval",
+      "program": "rm",
+      "createdAt": "2026-11-01T10:00:00.000Z"
+    }
+  ]
+}

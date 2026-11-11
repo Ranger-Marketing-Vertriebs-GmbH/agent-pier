@@ -47,7 +47,8 @@ const valuedOptions = new Set([
   "--label",
 ]);
 /** Whether `name` is `option` or an abbreviation of it with at least `min` characters. */
-const abbreviates = (name, option, min) => name.length >= min && option.startsWith(name);
+export const abbreviates = (name, option, min) =>
+  name.length >= min && option.startsWith(name);
 
 /**
  * A `grep` command (its words): whether it searches folders recursively, and the
@@ -144,7 +145,7 @@ const wildcard = /[*?[]/;
  * The folder a searched word names when it lies in the project, else null. Of a
  * pattern only the folders before its first wildcard are known.
  */
-function placeOf(at, word, verdict) {
+export function placeOf(at, word, verdict) {
   if (verdict?.home) return null;
   if (verdict?.literal !== false) return folderIn(at, word);
   const parts = word.split("/");

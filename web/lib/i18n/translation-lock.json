@@ -7137,6 +7137,7 @@
   "requests:requestCopy.declineConfirm": "de:2f73fc226163 en:73220c091fc0",
   "requests:requestCopy.details": "de:095676643a25 en:0bfb28fb7b77",
   "requests:requestCopy.dismissNotice": "de:042fae8a9e4a en:48845bff334a",
+  "requests:requestCopy.exactOnly": "de:82bcd70fe693 en:7d334e1ff188",
   "requests:requestCopy.folderTrustAllow": "de:b37d2f897545 en:07988b12bfb5",
   "requests:requestCopy.folderTrustDescription": "de:7ef32430eac6 en:dbaf86405bee",
   "requests:requestCopy.folderTrustExit": "de:7a453afb3675 en:b72a401ee995",
