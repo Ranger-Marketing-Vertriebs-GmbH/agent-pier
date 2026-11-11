@@ -1,6 +1,7 @@
 // What a Claude Code launch needs before it runs inside a nono sandbox (docs/sandbox.md).
 import fs from "node:fs";
 import path from "node:path";
+import { linkedFolderTargets } from "../linked-folders.js";
 
 // sockaddr_un holds 104 bytes on macOS; Claude Code keeps its socket paths below that.
 const SOCKET_PATH_LIMIT = 103;
@@ -37,10 +38,6 @@ function privateSocketDirectory(directory, uid) {
   }
 }
 
-// The folders of a managed account that AgentPier links to the CLI's own profile, so
-// that every account uses the same extensions (cli-profiles/assets.js, linkAssets).
-const LINKED_FOLDERS = ["agents", "commands", "plugins", "skills"];
-
 /**
  * A managed account's `skills`, `agents`, `commands` and `plugins` are links into
  * the CLI's own profile (`~/.claude`), which the account folder's grant does not
@@ -51,32 +48,27 @@ const LINKED_FOLDERS = ["agents", "commands", "plugins", "skills"];
  *
  * Granted are the four folders read-only and `plugins/data` read-write, never the
  * profile itself (settings, history, login). The plugin code stays read-only: an
- * unsandboxed session runs it too. A link counts only when it points where
- * AgentPier points it, into the profile of the launch's own home: the session may
- * write its account folder, so a link there must not decide what is granted.
+ * unsandboxed session runs it too. Only a link that points where AgentPier points it
+ * counts (linkedFolderTargets).
  */
 export function sharedFolderGrants(env = {}) {
   if (!env.CLAUDE_CONFIG_DIR || !env.HOME) return [];
   const grants = [];
-  for (const name of LINKED_FOLDERS)
+  for (const target of linkedFolderTargets({
+    account: env.CLAUDE_CONFIG_DIR,
+    native: path.join(env.HOME, ".claude"),
+  })) {
+    grants.push({ access: "read", path: target.path });
+    if (target.name !== "plugins") continue;
     try {
-      const link = path.join(env.CLAUDE_CONFIG_DIR, name);
-      if (!fs.lstatSync(link).isSymbolicLink()) continue;
-      const real = fs.realpathSync(link);
-      if (
-        real !== fs.realpathSync(path.join(env.HOME, ".claude", name)) ||
-        !fs.statSync(real).isDirectory()
-      )
-        continue;
-      grants.push({ access: "read", path: real });
-      if (name !== "plugins") continue;
       // Created here: a grant on a missing path would be a single file's.
-      const data = path.join(real, "data");
+      const data = path.join(target.path, "data");
       fs.mkdirSync(data, { recursive: true, mode: 0o700 });
       if (fs.lstatSync(data).isDirectory()) grants.push({ access: "allow", path: data });
     } catch {
-      // A missing or unreadable link is left to the CLI.
+      // Left to the CLI, which reports the hook it could not run.
     }
+  }
   return grants;
 }
 

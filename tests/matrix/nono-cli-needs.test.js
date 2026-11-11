@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import {
   wrapWithNono,
   INSTALLATION_ROOT,
@@ -228,6 +228,139 @@ test(
     const plain = run({ launch, profile, cwd });
     assert.match(plain, /DATA:.*(not permitted|denied)/i);
     assert.match(plain, /INSTALLED:.*(not permitted|denied)/i);
+  },
+);
+
+/**
+ * A managed account of Codex or OpenCode beside the CLI's own profile, linked the
+ * way linkAssets links them. The home folder lies in the workspace, which no grant
+ * and no group of the profile reads: a home under the system's temporary folder
+ * would be readable through nono's `default` profile and hide a missing grant.
+ */
+const linkedLayouts = {
+  codex: {
+    native: ".codex",
+    config: "codex",
+    folders: ["agents", "commands", "plugins", "skills", ".tmp/marketplaces"],
+    env: (home, account) => ({ HOME: home, CODEX_HOME: path.join(account, "codex") }),
+  },
+  opencode: {
+    native: ".config/opencode",
+    config: "config/opencode",
+    folders: ["agents", "commands", "plugins", "skills", "plugin"],
+    env: (home, account) => ({
+      HOME: home,
+      XDG_CONFIG_HOME: path.join(account, "config"),
+    }),
+  },
+};
+function linkedAccount(root, tool) {
+  const layout = linkedLayouts[tool];
+  const home = path.join(root, "home");
+  const shared = path.join(home, layout.native);
+  const account = path.join(root, "profiles/one");
+  const config = path.join(account, layout.config);
+  for (const name of layout.folders) {
+    fs.mkdirSync(path.join(shared, name), { recursive: true });
+    fs.mkdirSync(path.dirname(path.join(config, name)), { recursive: true });
+    fs.symlinkSync(path.join(shared, name), path.join(config, name), "dir");
+  }
+  fs.writeFileSync(path.join(shared, "skills/skill.md"), "SKILL");
+  fs.writeFileSync(path.join(shared, "auth.json"), "LOGIN");
+  fs.writeFileSync(path.join(shared, "history.jsonl"), "HISTORY");
+  return { home, shared, account, config, env: layout.env(home, account) };
+}
+
+for (const tool of ["codex", "opencode"])
+  test(
+    `a sandboxed managed ${tool} account reaches the linked folders and no more of the profile`,
+    options,
+    (t) => {
+      const { root, profile, cwd } = workspace(t);
+      const { shared, account, config, env } = linkedAccount(root, tool);
+      const script = [
+        `echo "AGENTS:$(ls "${config}/agents/" 2>&1 && echo listed)"`,
+        `echo "SKILL:$(cat "${config}/skills/skill.md" 2>&1)"`,
+        `echo "LAST:$(ls "${config}/${linkedLayouts[tool].folders.at(-1)}/" 2>&1 && echo listed)"`,
+        `echo "PLANT:$( (echo x > "${config}/skills/planted") 2>&1 && echo written)"`,
+        `echo "LOGIN:$(cat "${shared}/auth.json" 2>&1)"`,
+        `echo "HISTORY:$(cat "${shared}/history.jsonl" 2>&1)"`,
+        `echo "PROFILE:$(ls "${shared}/" 2>&1 && echo listed)"`,
+      ].join("\n");
+      const launch = {
+        command: "/bin/sh",
+        args: ["-c", script],
+        env: { ...env, PATH: "/usr/bin:/bin" },
+        // The account's own folder, as the account store grants it.
+        sandboxGrants: [{ access: "allow", path: account }],
+      };
+      const granted = run({
+        launch: cliDriver(tool).sandboxLaunch(launch),
+        profile,
+        cwd,
+      });
+      assert.match(granted, /AGENTS:listed/);
+      assert.match(granted, /SKILL:SKILL/);
+      assert.match(granted, /LAST:listed/);
+      assert.match(granted, /PLANT:.*(not permitted|denied)/i);
+      // The login and the history of the CLI's own profile stay out of reach.
+      assert.match(granted, /LOGIN:.*(not permitted|denied)/i);
+      assert.match(granted, /HISTORY:.*(not permitted|denied)/i);
+      assert.match(granted, /PROFILE:.*(not permitted|denied)/i);
+      assert.doesNotMatch(granted, /LOGIN:LOGIN|HISTORY:HISTORY/);
+      assert.equal(fs.existsSync(path.join(shared, "skills/planted")), false);
+      // The control: the account folder alone does not reach the link targets.
+      const plain = run({ launch, profile, cwd });
+      assert.match(plain, /AGENTS:.*(not permitted|denied)/i);
+      assert.match(plain, /SKILL:.*(not permitted|denied)/i);
+    },
+  );
+
+// Codex itself, signed out: its app server ends at start when it may not read the
+// folder its `agents` link points at ("Operation not permitted (os error 1)").
+const codexExecutable = (() => {
+  for (const directory of (process.env.PATH || "").split(path.delimiter).filter(Boolean))
+    try {
+      const candidate = path.join(directory, "codex");
+      fs.accessSync(candidate, fs.constants.X_OK);
+      return candidate;
+    } catch {}
+  return null;
+})();
+
+test(
+  "Codex's app server starts in a sandbox with a managed account's linked folders",
+  reason || codexExecutable ? options : { skip: "codex is not installed" },
+  (t) => {
+    const { root, profile, cwd } = workspace(t);
+    const { account, env } = linkedAccount(root, "codex");
+    const launch = {
+      command: codexExecutable,
+      args: ["app-server", "--stdio"],
+      env,
+      sandboxGrants: [{ access: "allow", path: account }],
+    };
+    const start = (prepared) => {
+      const wrapped = wrapWithNono({ launch: prepared, executable, profile });
+      // The input ends at once: a server that started leaves without an error.
+      const result = spawnSync(
+        wrapped.command,
+        ["wrap", "-s", ...wrapped.args.slice(1)],
+        {
+          cwd,
+          input: "",
+          encoding: "utf8",
+          timeout: 60000,
+          env: { ...process.env, NONO_THEME: "minimal", ...wrapped.env },
+        },
+      );
+      return `STATUS:${result.status} ${result.stdout}${result.stderr}`;
+    };
+    const granted = start(cliDriver("codex").sandboxLaunch(launch));
+    assert.match(granted, /^STATUS:0 /);
+    assert.doesNotMatch(granted, /not permitted/i);
+    // The control: without the grants the server ends before it serves anything.
+    assert.match(start(launch), /^STATUS:1 [^]*Operation not permitted/);
   },
 );
 

@@ -5,16 +5,11 @@ import { randomUUID } from "node:crypto";
 import { safePath, readConfig, atomicText } from "../extensions/mcp-config.js";
 import { merge } from "./configuration.js";
 import { cliDriver } from "../clis/drivers.js";
+import { SHARED_FOLDERS } from "../clis/linked-folders.js";
 import { problem, readJSON, writePrivate } from "../../lib/storage.js";
 
 export function assetDirectories(tool) {
-  return [
-    "skills",
-    "agents",
-    "commands",
-    "plugins",
-    ...cliDriver(tool).profileFiles.assetDirectories,
-  ];
+  return [...SHARED_FOLDERS, ...cliDriver(tool).profileFiles.assetDirectories];
 }
 function rewrite(value, source, target) {
   if (typeof value === "string")
