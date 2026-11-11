@@ -17,6 +17,42 @@ import { sessionSshAgentRecord } from "./session-ssh-agent-record.js";
 import { isCodingCli } from "../clis/catalog.js";
 
 const launcher = fileURLToPath(new URL("../../terminal-launcher.js", import.meta.url));
+// How long a replacement waits for the old CLI to exit before it prepares the new one.
+export const EXIT_WAIT_MS = 5000;
+
+const alive = (pid) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error.code === "EPERM";
+  }
+};
+/** The pid of the session's pane process (its terminal launcher), or null. */
+async function panePid(manager, id) {
+  try {
+    const pid = Number(
+      String(
+        await manager.tmux([
+          "display-message",
+          "-p",
+          "-t",
+          `${manager.target(id)}:0.0`,
+          "#{pane_pid}",
+        ]),
+      ).trim(),
+    );
+    return Number.isSafeInteger(pid) && pid > 1 ? pid : null;
+  } catch {
+    return null;
+  }
+}
+/** Resolves once `pid` exited, or after `timeout` ms. */
+export async function waitForExit(pid, { timeout = EXIT_WAIT_MS, interval = 50 } = {}) {
+  const until = Date.now() + timeout;
+  while (alive(pid) && Date.now() < until)
+    await new Promise((resolve) => setTimeout(resolve, interval));
+}
 
 export function blocksTerminalInput(session) {
   // The replacement CLI may need hook/trust approval before native verification.
@@ -48,7 +84,13 @@ export async function replaceSession(manager, id, prepare, beforeStop) {
   for (const client of [...manager.clients])
     if (client.sessionId === id) client.dispose();
   if (session.status === "running") await manager.remember(id);
+  const old = session.status === "running" ? await panePid(manager, id) : null;
   await manager.killSession(id, { strict: session.status === "running" });
+  // The old CLI still writes its own configuration while it exits (Claude Code saves
+  // .claude.json on exit): the new launch's profile, central MCP entries
+  // included, is prepared only once it is gone, so that write cannot undo it. The
+  // terminal launcher exits after its CLI.
+  if (old) await waitForExit(old, { timeout: manager.exitWaitMs ?? EXIT_WAIT_MS });
   manager.pendingTerminalInput?.delete(id);
   session.reload.replacementStarted = true;
   session.status = "stopped";

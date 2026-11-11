@@ -89,6 +89,17 @@ export class CliMcpBindings {
       return { cli, error: "failed", statuses, actions: [], finds: [] };
     }
   }
+  /**
+   * AgentPier's own entries in `cli`'s native files, `{ key, names }`, or null: the
+   * shared-profile sync takes them only from the canonical profile (shared-profiles.js).
+   */
+  owned(cli) {
+    if (!clis.includes(cli)) return null;
+    return {
+      key: this.reconciler.locate(cli).key,
+      names: this.servers.cliEntries.list(cli).map((row) => row.name),
+    };
+  }
   inspectAll() {
     return Object.fromEntries(clis.map((cli) => [cli, this.reconciler.inspect(cli)]));
   }
