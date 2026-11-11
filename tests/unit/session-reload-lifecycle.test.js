@@ -126,18 +126,63 @@ test("changing the native conversation after preflight leaves the old process un
   );
 });
 
-test("a live model display name cannot silently fall back to the old history model", async () => {
+test("a live model display name is launched, not the older model of the last response", async () => {
   const f = fixture();
   f.services.history.readReloadContext = async () => ({
     observability: { context: { modelId: "claude-sonnet-4-6" } },
   });
-  await assert.rejects(f.prepareReload(f.session, "native-exact"), {
-    message: reload.modelNotPreservable,
+  const plan = await f.prepareReload(f.session, "native-exact");
+  assert.deepEqual(f.calls.find(([key]) => key === "command")[1], {
+    modelId: "claude-opus-4-6",
   });
-  assert.equal(
-    f.calls.some(([key]) => key === "stop"),
-    false,
-  );
+  assert.equal(plan.modelFallback, null);
+  assert.equal(plan.launch.nativeModelId, "claude-opus-4-6");
+});
+
+test("Claude Code 2.1.322's own names reload: Fable 5.2, and Sonnet 5.5 right after /model", async () => {
+  for (const [screenModel, observed, expected] of [
+    ["Fable 5.2", "claude-fable-5-2", "claude-fable-5-2"],
+    ["Sonnet 5.5", "claude-fable-5-2", "claude-sonnet-5-5"],
+    ["Fable 5.2", undefined, "claude-fable-5-2"],
+  ]) {
+    const f = fixture();
+    f.session.nativeModelId = undefined;
+    f.services.models.read = async () => ({ currentModel: screenModel });
+    f.services.history.readReloadContext = async () => ({
+      observability: { context: { modelId: observed } },
+    });
+    const plan = await f.prepareReload(f.session, "native-exact");
+    assert.deepEqual(f.calls.find(([key]) => key === "command")[1], {
+      modelId: expected,
+    });
+    assert.equal(plan.modelFallback, null);
+  }
+});
+
+test("a model name that cannot be mapped reloads with the launch model and says so", async () => {
+  const f = fixture();
+  f.services.models.read = async () => ({ currentModel: "Mythos Preview" });
+  const plan = await f.prepareReload(f.session, "native-exact");
+  // The session's launch model, never the model of the last response.
+  assert.deepEqual(f.calls.find(([key]) => key === "command")[1], {
+    modelId: "claude-sonnet-4-6",
+  });
+  assert.deepEqual(plan.modelFallback, {
+    displayed: "Mythos Preview",
+    modelId: "claude-sonnet-4-6",
+  });
+
+  const bare = fixture();
+  bare.session.nativeModelId = undefined;
+  bare.services.models.read = async () => ({ currentModel: "Mythos Preview" });
+  const defaulted = await bare.prepareReload(bare.session, "native-exact");
+  assert.deepEqual(bare.calls.find(([key]) => key === "command")[1], {
+    modelId: undefined,
+  });
+  assert.deepEqual(defaulted.modelFallback, {
+    displayed: "Mythos Preview",
+    modelId: null,
+  });
 });
 
 test("a model change after preflight leaves the running process untouched", async () => {

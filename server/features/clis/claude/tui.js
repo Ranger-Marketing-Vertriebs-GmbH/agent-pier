@@ -178,7 +178,10 @@ function currentModel(raw) {
   if (changes.length)
     return changes
       .at(-1)[1]
-      .replace(/\s+(?:for this session only|with .+ effort).*$/, "")
+      .replace(
+        /\s+(?:for this session only|and saved as your default\b|with .+ effort).*$/,
+        "",
+      )
       .trim();
   return null;
 }
@@ -196,24 +199,38 @@ function promptReady(raw) {
 }
 
 /**
- * The model behind the name the picker displays, for a reload: an exact id, else a
- * label such as "Opus 4.7 (1M context)" that the `observed` model id confirms.
+ * The model behind the name Claude Code displays, for a reload: an exact id, else a
+ * label such as "Fable 5.2" or "Opus 4.7 (1M context)".
+ *
+ * An id that names the label's model exactly is kept as it is (a dated release, an
+ * extended context the label does not show): first the model of the last response
+ * (`observed`), then the one the session was launched with (`fallback`). Neither
+ * needs to match: right after `/model`, and in a session without a response, the
+ * last response names another model or none. The label then gives the id by the rule
+ * Claude models follow since generation 4, `claude-<family>-<major>-<minor>`. A label
+ * without a minor version ("Opus 4") or of an older generation has no such id and
+ * stays unresolved unless an id confirms it.
  */
-function resolveDisplayed(displayedModel, { observed, identifier }) {
+function resolveDisplayed(displayedModel, { observed, fallback, identifier }) {
   const exact = identifier(displayedModel);
   if (exact) return { modelId: exact };
-  const claude =
-    /^(Opus|Sonnet|Haiku) (\d+(?:\.\d+)?)( \(1M context\))?( \(default\))?$/i.exec(
-      displayedModel,
+  const label =
+    /^(Opus|Sonnet|Haiku|Fable) (\d+)(?:\.(\d+))?( \(1M context\))?( \(default\))?$/i.exec(
+      String(displayedModel),
     );
-  if (claude && observed) {
-    const canonical = `claude-${claude[1].toLowerCase()}-${claude[2].replaceAll(".", "-")}`;
-    const extended = observed.endsWith("[1m]");
-    const base = extended ? observed.slice(0, -4) : observed;
+  if (!label) return undefined;
+  const [, family, major, minor, extendedLabel] = label;
+  const canonical = `claude-${family.toLowerCase()}-${major}${minor ? `-${minor}` : ""}`;
+  const names = (id) => {
+    const extended = id.endsWith("[1m]");
+    const base = extended ? id.slice(0, -4) : id;
     const date = base.startsWith(canonical + "-") ? base.slice(canonical.length + 1) : "";
-    if ((base === canonical || /^\d{8}$/.test(date)) && (!claude[3] || extended))
-      return { modelId: observed };
-  }
+    return (base === canonical || /^\d{8}$/.test(date)) && (!extendedLabel || extended);
+  };
+  for (const id of [observed, identifier(fallback)])
+    if (id && names(id)) return { modelId: id };
+  if (minor && Number(major) >= 4)
+    return { modelId: `${canonical}${extendedLabel ? "[1m]" : ""}` };
   return undefined;
 }
 

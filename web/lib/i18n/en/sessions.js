@@ -99,6 +99,10 @@ export const sessionReloadCopy = {
     `The route changed since this session started (before: ${from}, now: ${to}). Reasoning data from the earlier conversation cannot be carried over.`,
   routeUnavailable: (from) =>
     `The connection no longer offers a route for this CLI (before: ${from}). The reload may fail; check the connection's routing first.`,
+  modelNotKept: (displayed, model) =>
+    `The model "${displayed}" could not be carried over. The session continues with ${model}, the model it was started with. Choose the model again in the session if you need it.`,
+  modelNotKeptDefault: (displayed) =>
+    `The model "${displayed}" could not be carried over. The session continues with the CLI's default model. Choose the model again in the session if you need it.`,
   retryCurrent: "Retry with current account",
   switchTitle: "Continue with another account",
   switchSummary:

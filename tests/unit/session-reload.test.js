@@ -83,6 +83,42 @@ test("unverified native conversation never restarts; preflight failure leaves pr
   );
   assert.equal(f.stops, 0);
 });
+test("a reload that could not keep the displayed model records it for the user", async () => {
+  const f = fixture();
+  const modelFallback = { displayed: "Mythos Preview", modelId: "claude-fable-5-2" };
+  f.services.prepareReload = async (_session, id) => ({ nativeId: id, modelFallback });
+  const first = await f.reload.request("session", {
+    requestId: randomUUID(),
+    mode: "now",
+  });
+  assert.equal(first.state, "completed");
+  assert.deepEqual(first.modelFallback, modelFallback);
+  assert.deepEqual((await f.reload.status("session")).modelFallback, modelFallback);
+  // The next reload keeps its model: the note goes with the reload it belonged to.
+  f.services.prepareReload = async (_session, id) => ({ nativeId: id });
+  const next = await f.reload.request("session", {
+    requestId: randomUUID(),
+    mode: "now",
+  });
+  assert.equal(next.modelFallback, null);
+});
+
+test("a reload waiting for idle records the model it could not keep when it runs", async () => {
+  const f = fixture();
+  f.activity("busy");
+  const modelFallback = { displayed: "Mythos Preview", modelId: null };
+  f.services.prepareReload = async (_session, id) => ({ nativeId: id, modelFallback });
+  const queued = await f.reload.request("session", {
+    requestId: randomUUID(),
+    mode: "when-idle",
+  });
+  assert.equal(queued.state, "waiting");
+  assert.equal(queued.modelFallback, null);
+  f.activity("idle");
+  await f.reload.poll();
+  assert.deepEqual((await f.reload.status("session")).modelFallback, modelFallback);
+});
+
 test("duplicate requests restart once including after completion", async () => {
   const f = fixture();
   const body = { mode: "now", requestId: randomUUID() };

@@ -71,6 +71,7 @@ async function fixture(page, language = "en", configure = () => {}) {
                 ? "reloading"
                 : "completed",
           requestId: body.requestId,
+          modelFallback: state.modelFallback || null,
         };
         state.session.reload = { ...state.reload };
         if (body.mode === "now") state.session.restartGeneration++;
@@ -201,6 +202,28 @@ test("busy reload requires acknowledgement and preserves chat draft and history"
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
   ).toBe(true);
+});
+
+test("a reload that could not keep the model says which model the session continues with", async ({
+  page,
+}) => {
+  const state = await fixture(page);
+  state.reload.activity = { state: "idle" };
+  state.modelFallback = { displayed: "Mythos Preview", modelId: "claude-fable-5-2" };
+  await open(page);
+  await expect(dialog(page)).not.toContainText("could not be carried over");
+  await dialog(page).getByRole("button", { name: "Reload now", exact: true }).click();
+  await expect(dialog(page)).toContainText(
+    'The model "Mythos Preview" could not be carried over. The session continues with claude-fable-5-2, the model it was started with.',
+  );
+  await dialog(page).getByRole("button", { name: "Close dialog", exact: true }).click();
+  state.modelFallback = { displayed: "Mythos Preview", modelId: null };
+  state.reload.state = "idle";
+  await open(page);
+  await dialog(page).getByRole("button", { name: "Reload now", exact: true }).click();
+  await expect(dialog(page)).toContainText(
+    "The session continues with the CLI's default model.",
+  );
 });
 
 test("queued reload remains visible after closing and can be cancelled", async ({
