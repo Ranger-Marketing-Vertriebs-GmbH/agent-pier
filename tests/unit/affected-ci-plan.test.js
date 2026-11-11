@@ -122,6 +122,7 @@ test("each real-nono test plans the nono step, and both workflows run all of the
   assert.deepEqual(nonoMatrix, [
     "tests/matrix/nono-confinement.test.js",
     "tests/matrix/nono-cli-needs.test.js",
+    "tests/matrix/nono-opencode-needs.test.js",
     "tests/matrix/nono-binding-receipt.test.js",
     "tests/matrix/nono-working-directory.test.js",
   ]);

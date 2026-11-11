@@ -25,6 +25,7 @@ export const filesystemMatrix = [
 export const nonoMatrix = [
   "tests/matrix/nono-confinement.test.js",
   "tests/matrix/nono-cli-needs.test.js",
+  "tests/matrix/nono-opencode-needs.test.js",
   "tests/matrix/nono-binding-receipt.test.js",
   "tests/matrix/nono-working-directory.test.js",
 ];
