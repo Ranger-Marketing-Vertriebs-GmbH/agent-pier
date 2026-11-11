@@ -35,7 +35,10 @@ directory, a sandboxed session is granted only its own part, and AgentPier's own
 calls run no hook for a read and run a repository's own filter programs inside the
 sandbox of the session that works there; a repository a sandboxed session may write
 is still trusted by every other git that uses it (the owner's terminal, unsandboxed
-sessions, the hooks of a pipeline's commit). Local (stdio) MCP servers run host
+sessions, the hooks of a pipeline's commit). A sandboxed session of a managed Claude
+account reads the extension folders that account shares with `~/.claude` and writes
+`~/.claude/plugins/data`, which unsandboxed sessions use as well
+([details](docs/sandbox.md#what-claude-code-and-codex-need-in-a-sandbox)). Local (stdio) MCP servers run host
 commands for every agent or CLI they are bound to; a server installed from an npm
 or PyPI package runs the package's program with the same rights, and install scripts and
 source builds run only after the owner allows them for that package (a PyPI build
