@@ -38,6 +38,7 @@ import * as claudeBinding from "./claude/binding.js";
 import * as opencodeBinding from "./opencode/binding.js";
 import * as codexSandbox from "./codex/sandbox.js";
 import * as claudeSandbox from "./claude/sandbox.js";
+import * as opencodeSandbox from "./opencode/sandbox.js";
 import * as claudeLoginStore from "./claude/login-store.js";
 
 const profiles = { codex, claude, opencode };
@@ -76,8 +77,12 @@ const bindings = {
   claude: claudeBinding,
   opencode: opencodeBinding,
 };
-// What a launch needs inside a nono sandbox; OpenCode needs nothing of its own.
-const sandboxes = { codex: codexSandbox, claude: claudeSandbox };
+// What a launch needs inside a nono sandbox.
+const sandboxes = {
+  codex: codexSandbox,
+  claude: claudeSandbox,
+  opencode: opencodeSandbox,
+};
 // Where a managed account keeps its login when the CLI would use the system keychain.
 const loginStores = { claude: claudeLoginStore };
 // Freezes copies of plain objects and arrays; regular expressions stay as they are. A
@@ -112,7 +117,8 @@ const drivers = new Map();
  *   "file" | "keychain", forget(root, { run, user }), localHidden(home, env),
  *   managedHidden(root) }.
  * sandboxLaunch?(launch): the launch with what the CLI needs inside a nono sandbox
- *   (Codex's CA file on macOS, Claude Code's socket folder); absent for OpenCode.
+ *   (Codex's CA file on macOS, Claude Code's socket folder, and for every CLI the
+ *   folders a managed account links to the CLI's own profile).
  * grantDirectory(launch, directory, { reload, ensure, profile, accountDirectory }):
  *   grants the chat attachment folder (`--add-dir`, Codex's sandbox, or OpenCode's
  *   profile reference); returns whether it did.

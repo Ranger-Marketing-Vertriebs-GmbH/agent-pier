@@ -131,7 +131,7 @@ test("a socket folder that is not the server user's is not granted", (t) => {
 test("the drivers expose what each CLI needs in a sandbox", () => {
   assert.equal(typeof cliDriver("codex").sandboxLaunch, "function");
   assert.equal(typeof cliDriver("claude").sandboxLaunch, "function");
-  assert.equal(cliDriver("opencode").sandboxLaunch, undefined);
+  assert.equal(typeof cliDriver("opencode").sandboxLaunch, "function");
 });
 
 test("the nono adapter applies the CLI's needs to a sandboxed launch only", async (t) => {
