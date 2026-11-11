@@ -405,7 +405,10 @@ personal workspace, not an isolation boundary for mutually untrusted users.
      record the first time it needs it, and the remembered approvals were taken over
      once from `requests/remembered-approvals.json`; both trust the old file as it was
      at that moment. **Reload sandboxed sessions after updating.** A reload moves a
-     session to its own folders and removes its old files.
+     session to its own folders and removes its old files. Where the reload is
+     refused for lack of a confirmed conversation (a sandboxed Claude Code session
+     writes no binding receipt, because the sandbox denies `ps`), stop the session
+     and start a new one; deleting the old session removes its old files.
 
    None of this reaches the rest of the data directory: each adapter grants only its
    own subtree (project memory's own capability folder, the session's own AgentBus

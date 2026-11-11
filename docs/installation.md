@@ -318,8 +318,10 @@ unless noted:
   and a sandboxed session is granted only that, and of its project's AgentBus folder
   only its own plugin folder. Sessions that were running during the update keep
   working with their old files and their old, wider grants; **Reload & resume**
-  moves each to the new folders. Nothing has to be migrated by hand, and unsandboxed
-  sessions need no reload.
+  moves each to the new folders. A sandboxed Claude Code session usually cannot be
+  reloaded (the sandbox denies `ps`, so the session has no confirmed conversation
+  and the reload is refused): stop it and start a new session instead. Nothing has
+  to be migrated by hand, and unsandboxed sessions need no reload.
 - **Repositories with their own git filters in sandboxed sessions.** In a repository
   a sandboxed session works in, AgentPier's own git calls (the **Changes** tab,
   worktrees, pipelines) run a filter the repository's own config defines inside that
