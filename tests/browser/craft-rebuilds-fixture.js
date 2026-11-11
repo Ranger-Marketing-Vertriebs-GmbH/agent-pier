@@ -109,7 +109,7 @@ export function craftRebuilds() {
  * Routes `/api/**` of `page`. Options: `installed` (Craft Anything installed),
  * `rebuilds` (the list), `language`. Returns the state: `rebuilds`, `settings`,
  * `pictures` (uploaded picture bytes by id) and `calls` (every request the app made,
- * `{ path, method, body }`); setting `failUpload(bytes)` fails a picture's upload
+ * `{ path, method, body }`); setting `failUpload(bytes)` (bytes are null in WebKit) fails a picture's upload
  * while it answers true, `activity`
  * (lines) or `activityFails` changes what the activity route answers.
  */
