@@ -123,6 +123,7 @@ test("each real-nono test plans the nono step, and both workflows run all of the
     "tests/matrix/nono-confinement.test.js",
     "tests/matrix/nono-cli-needs.test.js",
     "tests/matrix/nono-binding-receipt.test.js",
+    "tests/matrix/nono-working-directory.test.js",
   ]);
   for (const file of nonoMatrix) {
     assert.equal(fs.existsSync(file), true, file);
