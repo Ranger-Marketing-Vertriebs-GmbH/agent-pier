@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { ownFolder } from "../sessions/session-own-folder.js";
+import { validSession } from "./request-validation.js";
 
 // Where the request broker keeps its files under the data directory:
 //
@@ -33,6 +34,7 @@ export async function ownedFolder(directory, message) {
  * like any other launch that still exists (`EEXIST`).
  */
 export async function claimLaunchFolder(directory, id) {
+  if (!validSession(id)) throw Error("Unsafe native request storage");
   await fs.access(path.join(directory, `${id}.launch.json`)).then(
     () => {
       throw Object.assign(Error("Native request launch already exists"), {
@@ -50,6 +52,8 @@ export async function claimLaunchFolder(directory, id) {
 
 /** Removes a launch's own folder and what a launch from before it left beside it. */
 export async function removeLaunchFiles(directory, id) {
+  // Removes recursively: never for a name that is not a session id.
+  if (!validSession(id)) throw Error("Unsafe native request storage");
   await fs.rm(ownFolder(directory, id), { force: true, recursive: true });
   for (const suffix of [".launch.json", ".claude", ".claude-bridge", ".tui.json"])
     await fs.rm(path.join(directory, `${id}${suffix}`), { force: true, recursive: true });
