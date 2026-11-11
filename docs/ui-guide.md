@@ -328,6 +328,9 @@ one look (`web/components/choice.css`); no `accent-color` or bespoke switch styl
 - Page headers come from `SettingsShell` (title, back or menu button, description,
   actions). Overview pages with a wide column, such as the start page, use
   `PageHeader`. No bespoke hero headers or bare `h1`s.
+- A `SettingsShell` page with a menu or back button replaces the app's phone header:
+  its stylesheet hides `.mobile-header` at phone width
+  (`.app:has(.<page>) .mobile-header`), so phones show one menu button.
 - Page tabs are `UnderlineTabs`. The back arrow means "back"; do not reuse it for
   collapse or close.
 - Routes, cross-links and the back arrow follow the
