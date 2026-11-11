@@ -303,9 +303,13 @@ test("on a phone the list and the detail fit the width", async ({ page }) => {
   await page.goto(`${baseURL}/craft`);
   await expect(page.getByRole("link", { name: /shop-clone/ })).toBeVisible();
   await expect(page.getByRole("button", { name: "Start rebuild" })).toBeVisible();
+  // The page header carries the one menu button; the app's phone header steps aside.
+  await expect(page.getByRole("button", { name: "Open navigation" })).toHaveCount(1);
+  await expect(page.locator(".mobile-header")).toBeHidden();
   expect(await fits()).toBe(true);
   await page.getByRole("link", { name: /shop-clone/ }).click();
   await expect(page.getByRole("button", { name: "Allow", exact: true })).toBeVisible();
+  await expect(page.locator(".mobile-header")).toBeHidden();
   expect(await fits()).toBe(true);
   await page.getByRole("button", { name: "Back" }).click();
   await expect(page).toHaveURL(/\/craft$/);
