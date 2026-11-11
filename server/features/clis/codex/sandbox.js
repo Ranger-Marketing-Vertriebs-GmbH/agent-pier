@@ -81,13 +81,82 @@ export function sharedFolderGrants(env = {}) {
   });
 }
 
+// What Codex's installers write beside the executable (`layoutVersion`, `entrypoint`).
+const PACKAGE_FILE = "codex-package.json";
+// `<release>/bin/codex` today; a few levels more for a layout that nests deeper.
+const PACKAGE_DEPTH = 4;
+// What marks a folder as a Codex profile: its login, its history, its sessions.
+const PROFILE_ENTRIES = ["auth.json", "history.jsonl", "sessions"];
+
+const realPath = (target) => {
+  try {
+    return fs.realpathSync(target);
+  } catch {
+    return null;
+  }
+};
+
+/** Whether `root` is, or lies above, a Codex profile, or looks like one. */
+function holdsProfile(root, env) {
+  const profiles = [env.HOME && path.join(env.HOME, ".codex"), env.CODEX_HOME]
+    .filter(Boolean)
+    .map(realPath)
+    .filter(Boolean);
+  return (
+    profiles.some((profile) => profile === root || profile.startsWith(root + path.sep)) ||
+    PROFILE_ENTRIES.some((entry) => fs.existsSync(path.join(root, entry)))
+  );
+}
+
+/**
+ * Codex's standalone installer puts each release into a package folder inside the
+ * CLI's own profile (`~/.codex/packages/standalone/releases/<version>-<target>`,
+ * reached through `~/.local/bin/codex`). Beside the executable lie the files Codex
+ * reads at run time: `codex-package.json`, the code-mode host (`bin/`), its own
+ * `rg` (`codex-path/`) and its resources. The launch's grant on the executable is a
+ * single file's, so a sandbox denies all of them.
+ *
+ * Granted, read-only, is the package folder the launch's executable really belongs
+ * to: the nearest folder above its real path that holds a `codex-package.json`
+ * naming it as the entry point. Never a folder that is a Codex profile, lies above
+ * one, or holds a login, a history or sessions. An executable outside such a package
+ * (Homebrew, npm) grants nothing.
+ */
+export function executablePackageGrants(command, env = {}) {
+  if (typeof command !== "string" || !path.isAbsolute(command)) return [];
+  try {
+    const executable = fs.realpathSync(command);
+    let root = path.dirname(executable);
+    for (let depth = 0; depth < PACKAGE_DEPTH; depth++, root = path.dirname(root)) {
+      const file = path.join(root, PACKAGE_FILE);
+      if (!fs.existsSync(file)) continue;
+      const { entrypoint } = JSON.parse(fs.readFileSync(file, "utf8"));
+      if (
+        typeof entrypoint !== "string" ||
+        realPath(path.join(root, entrypoint)) !== executable ||
+        holdsProfile(root, env)
+      )
+        return [];
+      return [{ access: "read", path: root }];
+    }
+  } catch {
+    // An unreadable package file is left to the CLI.
+  }
+  return [];
+}
+
 /** The launch with what Codex needs inside a nono sandbox. */
 export function sandboxLaunch(
   launch,
   { platform = process.platform, exists = fs.existsSync } = {},
 ) {
   const prepared = trustStoreLaunch(launch, { platform, exists });
-  const grants = sharedFolderGrants(launch.env);
+  // A session's command is the wrapper's interpreter by now; its Codex executable
+  // is declared in requests.js. A login or a headless run names Codex itself.
+  const grants = [
+    ...executablePackageGrants(launch.command, launch.env),
+    ...sharedFolderGrants(launch.env),
+  ];
   if (!grants.length) return prepared;
   return {
     ...prepared,
