@@ -107,6 +107,28 @@ test("stale channel inputs, unknown turns and stalled actions appear after a day
   );
 });
 
+test("a started coding session is a launch receipt, never stalled work", async (t) => {
+  const { f, clock, unresolved } = await fixture(t);
+  const action = (key, state) =>
+    f.workflows.store.reserve({
+      assistantId: f.id,
+      conversationId: f.channel.conversationId,
+      attemptId: null,
+      origin: { kind: "owner" },
+      key,
+      state,
+      payload: { action: "session_start" },
+      sessionId: `cli-${key}`,
+    });
+  action("started", "running");
+  const unknown = action("unknown", "unknown");
+  clock.now += 25 * hour;
+  assert.deepEqual(
+    (await unresolved()).map((i) => i.id),
+    [`stalled_action-${unknown.id}`],
+  );
+});
+
 test("an action that keeps moving is not stalled, and a user's chat stays theirs", async (t) => {
   const { f, clock, unresolved } = await fixture(t);
   const action = f.workflows.store.reserve({
