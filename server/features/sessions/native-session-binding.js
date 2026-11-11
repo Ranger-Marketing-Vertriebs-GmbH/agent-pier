@@ -14,7 +14,6 @@ import {
 } from "../../../vendor/agentbus/core/fsx.js";
 import { pidStart } from "../../../vendor/agentbus/core/proc.js";
 import { atLeast } from "../tools/cli-version.js";
-import { findRuntimePid } from "../../../vendor/agentbus/hooks/register.js";
 import { resolveCodexProcess } from "./native-session-process.js";
 import { resolveRuntime } from "./native-session-runtime.js";
 import { addGrant } from "../nono/sandbox-grants.js";
@@ -22,7 +21,16 @@ import { readNativeActivity, recordNativeActivity } from "./native-session-activ
 import { maxReplyText, pushNative } from "../requests/native-push.js";
 import { isCodingCli } from "../clis/catalog.js";
 import { cliDriver } from "../clis/drivers.js";
-import { isLaunchFile, ownFolder, sessionFolder } from "./session-own-folder.js";
+import { ownFolder, sessionFolder } from "./session-own-folder.js";
+import {
+  activityPath,
+  claimNativeSession,
+  receiptPath,
+  recordNativeSession as writeReceipt,
+  validId,
+} from "./native-session-receipt.js";
+
+export { claimNativeSession };
 
 export { MESSAGE_DISPLAY_VERSION } from "../clis/claude/binding.js";
 
@@ -30,110 +38,15 @@ const modulePath = fileURLToPath(import.meta.url);
 // The binding members of a coding CLI's driver; other tools (shell) have none.
 const NO_BINDING = Object.freeze({ idOptional: false });
 const bindingOf = (tool) => (isCodingCli(tool) ? cliDriver(tool).binding : NO_BINDING);
-const validId = (id) =>
-  typeof id === "string" && /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(id);
-
-const activityPath = (file) =>
-  receiptPath(file).replace(/\.receipt\.json$/, ".activity.json");
-function receiptPath(file) {
-  if (
-    typeof file !== "string" ||
-    !path.isAbsolute(file) ||
-    !validId(path.basename(file, ".launch.json")) ||
-    !isLaunchFile(file, "native-sessions")
-  )
-    throw problem(serverMessages.sessions.invalidNativeBinding);
-  return file.replace(/\.launch\.json$/, ".receipt.json");
-}
 /**
- * Writes the launch's receipt: this native conversation runs in the CLI process
- * `pid`, started at `pidStart`, in this launch (its token) and project.
- *
- * A sandbox may deny reading the process list (nono denies the setuid `ps` on
- * macOS). Then no process can be read, this one (`self`) included, and the error
- * carries `processUnreadable`: the caller asks the server to write the receipt
- * (`claimNativeSession`).
+ * Writes the launch's receipt (native-session-receipt.js), with the driver's answer
+ * to whether a hook of this CLI may report before the CLI names its session.
  */
-export function recordNativeSession(
-  data,
-  env = process.env,
-  { pid, ps = pidStart, self = process.pid } = {},
-) {
-  const file = env.AGENTPIER_NATIVE_BINDING_FILE;
-  const output = receiptPath(file);
-  const launch = readJson(file);
-  if (
-    launch.token !== env.AGENTPIER_NATIVE_BINDING_TOKEN ||
-    !validId(launch.id) ||
-    path.basename(file) !== `${launch.id}.launch.json`
-  )
-    throw problem(serverMessages.sessions.invalidNativeBindingKey);
-  const id = data?.session_id ?? data?.sessionId ?? data?.thread_id ?? null;
-  if (id !== null) providerId(id);
-  else if (!bindingOf(launch.tool).idOptional)
-    throw problem(serverMessages.sessions.nativeSessionIdMissing);
-  if (fs.realpathSync(data?.cwd || launch.cwd) !== launch.cwd)
-    throw problem(serverMessages.sessions.nativeProjectMismatch);
-  if (!pid) {
-    try {
-      pid = findRuntimePid(launch.tool);
-    } catch {
-      pid = process.ppid;
-    }
-  }
-  const started = ps(pid);
-  if (!Number.isInteger(pid) || pid <= 0 || !started)
-    throw Object.assign(problem(serverMessages.sessions.nativeProcessStopped), {
-      processUnreadable: !ps(self),
-    });
-  let previous;
-  try {
-    previous = readJson(output);
-  } catch (error) {
-    if (error.code !== "ENOENT") throw error;
-  }
-  if (
-    previous?.pid !== undefined &&
-    previous.pid !== pid &&
-    ps(previous.pid) === previous.pidStart
-  )
-    throw problem(serverMessages.sessions.nativeProcessAlreadyBound);
-  writeJsonAtomic(output, {
-    id: launch.id,
-    accountId: launch.accountId,
-    tool: launch.tool,
-    cwd: launch.cwd,
-    token: launch.token,
-    providerSessionId: id,
-    pid,
-    pidStart: started,
-    updatedAt: new Date().toISOString(),
+export function recordNativeSession(data, env = process.env, options = {}) {
+  return writeReceipt(data, env, {
+    idOptional: (tool) => bindingOf(tool).idOptional,
+    ...options,
   });
-}
-/**
- * Asks the server for the receipt a hook cannot write itself (see
- * `recordNativeSession`), over the session's request channel. The hook names its own
- * process; the server, outside the sandbox, finds the CLI above it and writes the
- * receipt (`NativeSessionBinding.claim`). False when there is no channel, the server
- * does not answer in time or it refuses.
- */
-export async function claimNativeSession(
-  data,
-  env = process.env,
-  { pid = process.pid, timeout = 2500 } = {},
-) {
-  if (!env.AGENTPIER_REQUEST_FILE || !env.AGENTPIER_NATIVE_BINDING_TOKEN) return false;
-  const reply = await pushNative(
-    {
-      type: "binding",
-      token: env.AGENTPIER_NATIVE_BINDING_TOKEN,
-      providerSessionId: data?.session_id ?? data?.sessionId ?? data?.thread_id ?? null,
-      cwd: data?.cwd ?? null,
-      pid,
-    },
-    { env, timeout, reply: "binding-result" },
-  );
-  return reply?.ok === true;
 }
 export class NativeSessionBinding {
   constructor({ dataDir, accounts, sessions, history, processOptions = {} }) {

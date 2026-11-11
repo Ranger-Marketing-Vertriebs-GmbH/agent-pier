@@ -14,6 +14,8 @@ import { AccountStore } from "../../server/features/accounts/account-store.js";
 import { RequestBroker } from "../../server/features/requests/request-broker.js";
 import { nativePushValue } from "../../server/features/requests/native-push.js";
 import { readerTui } from "../../server/features/sessions/native-session-opencode.js";
+import { recordNativeSession as recordReceipt } from "../../server/features/sessions/native-session-receipt.js";
+import { serverMessages } from "../../server/lib/i18n/de.js";
 import { pidStart } from "../../vendor/agentbus/core/proc.js";
 import { until } from "../helpers/adapter-process.js";
 
@@ -177,4 +179,26 @@ test("the OpenCode plugin asks the server when it cannot read its own process", 
   assert.equal(f.bindings.verifiedReceipt(f.session).providerSessionId, "ses_one");
   // The plugin runs in the CLI's own process, which is what it claims.
   assert.deepEqual(f.claims, [process.pid]);
+});
+
+test("the OpenCode plugin records its launch before OpenCode names a session", async (t) => {
+  const f = await fixture(t, { tool: "opencode" });
+  let dispose;
+  const api = {
+    // The start screen: no session yet.
+    route: { current: { name: "home" } },
+    lifecycle: { onDispose: (fn) => (dispose = fn) },
+  };
+  await readerTui({ channel: () => null, env: f.env })(api);
+  t.after(() => dispose());
+  // Written by the plugin itself, which reads its own process here.
+  const receipt = f.bindings.verifiedReceipt(f.session);
+  assert.equal(receipt.providerSessionId, null);
+  assert.equal(receipt.pid, process.pid);
+  assert.deepEqual(f.claims, []);
+  // The hook side alone lets no other CLI report without a session.
+  assert.throws(
+    () => recordReceipt({}, f.env, { pid: process.pid }),
+    (error) => error.message === serverMessages.sessions.nativeSessionIdMissing,
+  );
 });
