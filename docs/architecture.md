@@ -209,7 +209,9 @@ directly.
 - `server/features/mcp-servers/`: the central MCP server store, bindings to agents and
   to the coding CLIs, and OAuth logins (see below). AgentPier's own OAuth flow
   sends every request through `oauth-fetch.js`, which checks the address a server's
-  metadata names and connects only to the checked addresses
+  metadata names and connects only to the checked addresses; the MCP proxy
+  (`mcp-proxy.js`) sends its requests and follows a server's redirects under the same
+  rule through `upstream-request.js`
   ([MCP](mcp.md#oauth-logins-held-by-agentpier)).
 - `server/http/tailscale-request.js`: what Tailscale Serve reports about a forwarded
   request (tailnet login, Funnel). The app (`security.js`) and the previews require a

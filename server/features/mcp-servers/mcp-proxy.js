@@ -1,5 +1,6 @@
-import { Readable, Transform } from "node:stream";
+import { Transform } from "node:stream";
 import { forwardHeaders, proxyError, readBody } from "../model-logins/runtime-proxy.js";
+import { RedirectRefused, plainBody, upstreamRequest } from "./upstream-request.js";
 
 // The MCP part of AgentPier's runtime proxy (model-logins/runtime-proxy.js):
 // `/mcp/<serverId>` is a Streamable HTTP passthrough to an OAuth MCP server whose
@@ -14,6 +15,14 @@ import { forwardHeaders, proxyError, readBody } from "../model-logins/runtime-pr
 // OpenClaw nor Hermes starts an OAuth flow of its own. OpenClaw and Hermes compile
 // the server as a plain HTTP server with the proxy URL and its credential
 // (mcp-inputs.js proxiedServers).
+//
+// Every request to the server goes through upstream-request.js: it connects to the
+// addresses it resolved, and a redirect the server answers is followed there under the
+// address rule of the OAuth flow (the server's origin, or an address no more internal
+// than the server; at most 5 hops), with the access token and the MCP session id only
+// on the server's own origin. A redirect that is not followed ends as 502
+// `upstream_redirect_refused`; a `Location` never reaches the runtime, which would
+// follow it on its own.
 
 const responseDropped = new Set([
   "content-encoding",
@@ -23,19 +32,25 @@ const responseDropped = new Set([
   "keep-alive",
   "set-cookie",
   "www-authenticate",
+  "location",
 ]);
 
 /**
  * `servers.definition(id)`: the stored definition (unredacted URL) or null;
  * `oauth`: AgentPierMcpOAuth; `authorize(serverId, consumer)`: whether the
  * credential's agent (or the OpenClaw Gateway) may still use the server.
+ * `warn` reports a redirect that was not followed, once per server and target;
+ * `lookup` and `send` replace the DNS lookup and the pinned request in tests.
  */
 export function mcpRoute({
   servers,
   oauth,
   authorize = () => false,
-  fetch: fetchImpl = globalThis.fetch,
+  warn = () => {},
+  lookup,
+  send: sendImpl,
 }) {
+  const warned = new Set();
   return async (req, res, { scope, rest, search }) => {
     const [, serverId, consumer] = scope;
     // `/mcp/<id>`, and for an SSE server its message endpoint `/mcp/<id>/message`.
@@ -71,29 +86,50 @@ export function mcpRoute({
     }
     const abort = new AbortController();
     res.on("close", () => abort.abort());
+    const upstream = upstreamRequest(server.url, {
+      lookup,
+      ...(sendImpl && { send: sendImpl }),
+    });
     const send = async (stale) => {
       const token = await oauth.token(server, { stale });
-      const response = await fetchImpl(target, {
+      const result = await upstream(target, {
         method: req.method,
-        headers: {
-          ...forwardHeaders(req.headers, ["cookie", "accept-encoding"]),
-          authorization: `Bearer ${token}`,
-        },
+        headers: forwardHeaders(req.headers, [
+          "cookie",
+          "accept-encoding",
+          "authorization",
+        ]),
+        credentials: { authorization: `Bearer ${token}` },
         body,
         signal: abort.signal,
-        redirect: "manual",
       });
-      return { response, token };
+      return { ...result, token };
     };
     let result;
     try {
       result = await send();
-      if (result.response.status === 401) {
-        await result.response.body?.cancel().catch(() => {});
+      // Only the server itself can say that its token is stale.
+      if (result.response.statusCode === 401 && result.own) {
+        result.response.on("error", () => {}).destroy();
         result = await send(result.token);
       }
     } catch (error) {
       if (abort.signal.aborted) return res.destroy();
+      if (error instanceof RedirectRefused) {
+        const key = `${serverId} ${error.reason} ${error.target}`;
+        if (!warned.has(key) && warned.size < 200) {
+          warned.add(key);
+          warn(
+            `AgentPier did not follow a redirect of the MCP server "${server.name}" (${error.reason}${error.target ? `, to ${error.target}` : ""}).`,
+          );
+        }
+        return proxyError(
+          res,
+          502,
+          "upstream_redirect_refused",
+          "The MCP server redirected to a URL AgentPier does not follow.",
+        );
+      }
       if (error?.code === "LOGIN_REQUIRED")
         return proxyError(
           res,
@@ -109,13 +145,11 @@ export function mcpRoute({
     }
     const { response } = result;
     const headers = {};
-    response.headers.forEach((value, name) => {
+    for (const [name, value] of Object.entries(response.headers))
       if (!responseDropped.has(name)) headers[name] = value;
-    });
-    res.writeHead(response.status, headers);
+    res.writeHead(response.statusCode, headers);
     res.flushHeaders();
-    if (!response.body) return res.end();
-    const stream = Readable.fromWeb(response.body).on("error", () => res.destroy());
+    const stream = plainBody(response).on("error", () => res.destroy());
     // An SSE server's event stream names its message endpoint: the runtime posts there
     // through the proxy, never to the server itself.
     const events =

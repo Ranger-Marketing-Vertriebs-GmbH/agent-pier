@@ -402,6 +402,18 @@ shows **Login required**. Neither runtime ever holds the tokens:
   flow of its own. For an SSE server it passes the event stream, rewrites its
   `endpoint` event to `/mcp/<server id>/message`, and forwards those POSTs to the
   announced URL on the server's own origin.
+- The proxy handles a redirect of the server itself (`upstream-request.js`); a
+  `Location` never reaches the runtime. It follows at most 5 redirects, each under the
+  address rule below: a target on the server's own origin passes, any other must be no
+  more internal than the server, and every hop connects to the addresses that were
+  checked. `307` and `308` keep the method and the body; `303`, and `301` or `302`
+  after a `POST`, continue as a `GET`, as in a browser. The access token and the
+  `Mcp-Session-Id` go to the server's own origin only, so a server that redirects to
+  another origin (another host or port, or from `http` to `https`) is asked there
+  without them and a `401` from there does not renew the login: enter the URL the
+  server redirects to as the server URL instead. A redirect that is not followed
+  answers the runtime with `502` `upstream_redirect_refused`, and the AgentPier log
+  names the server and the target's origin once.
 - Each Hermes agent gets a credential of its own, valid while that agent is bound to
   the server (its own bindings or its lead's) and active; the OpenClaw Gateway gets
   one per server (its `mcp.servers` is global), valid while an active OpenClaw agent
@@ -434,9 +446,12 @@ host and port, for example behind the same reverse proxy); for a server on the
 AgentPier host, enter its URL with `localhost` or the loopback address. If you did
 not expect the server to name an internal address, do not work around it: treat the
 server as untrusted and remove it. There is no switch that turns the check off.
-AgentPier connects to exactly the addresses it checked, follows redirects only within
-one origin (each hop is checked again), waits at most 30 seconds per request and reads
-at most 1 MB per answer.
+During a login or renewal AgentPier connects to exactly the addresses it checked,
+follows redirects only within one origin (each hop is checked again), waits at most 30
+seconds per request and reads at most 1 MB per answer. The proxy's own requests to the
+server follow the same address rule (see above); their answers are streams, so they
+have no size limit and, once connected (30 seconds at most), no time limit of the
+proxy's own: the runtime's tool timeout ends them.
 
 A login OpenClaw made before this change stays exactly as it was, refreshed by
 OpenClaw, until the owner logs in again: such a connected server shows **Log in

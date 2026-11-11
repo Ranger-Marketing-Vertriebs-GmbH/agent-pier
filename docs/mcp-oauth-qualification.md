@@ -495,3 +495,31 @@ server on `127.0.0.1`:
 
 Not exercised: a real authorization server on a second public origin, and DNS answers
 that change between two requests (each request resolves and pins anew by design).
+
+## The proxy: redirects of the server (2026-11-11)
+
+The MCP proxy sends every request through `upstream-request.js`, which uses the
+address rule and the pinned connection of `oauth-fetch.js`. Verified by
+`tests/unit/mcp-proxy-redirects.test.js` against HTTP servers on `127.0.0.1` with an
+injected DNS table, and by the proxy cases above (Streamable HTTP and SSE through the
+MCP SDK's client), which now run over the pinned connection:
+
+- A `307` on the server's own origin is followed with method, body, access token and
+  `Mcp-Session-Id`; the request reaches a host name only the injected lookup knows.
+- A `308` to another origin the rule allows (a server entered with a loopback address,
+  another port) is followed with method, body and protocol headers and without
+  `Authorization`, `Cookie` and `Mcp-Session-Id`; a `401` from there is passed on and
+  does not renew the token.
+- A redirect of a named server to a loopback or link-local address, to plain HTTP on a
+  public address or to another scheme is answered with `502`
+  `upstream_redirect_refused`; nothing is sent to the target, no `Location` reaches the
+  runtime and the refusal is logged once.
+- A redirect loop ends after 5 followed redirects; `301`, `302` and `303` after a
+  `POST` continue as a `GET` without body.
+- An event stream behind a redirect arrives event by event while the server holds it
+  open; an answer the server compressed unasked is decoded; a `401` of the server
+  itself renews the token once and replays the request.
+
+Not exercised: a redirect between two real public origins over HTTPS, and the two
+runtimes' own clients against a redirecting server (the contract tests use a server
+that does not redirect).
