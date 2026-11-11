@@ -286,6 +286,7 @@ export default function AssistantSidebar({ navigate, route }) {
               actions={groupActions}
               selected={route.assistantId}
               location="sidebar"
+              flat={!groupActions.groups.length}
             >
               {section.agents.map((parent, index) => {
                 const groups = new Map();

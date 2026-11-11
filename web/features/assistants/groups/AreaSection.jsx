@@ -14,9 +14,12 @@ export default function AreaSection({
   children,
   selected = "",
   location,
+  flat = false,
 }) {
   const { assistants, activity } = useAssistants();
   const { group, agents } = section;
+  // Without any group the ungrouped bucket is just the list: no header, no fold.
+  if (flat && !group) return children;
   const status = areaStatus(agents, assistants, activity);
   const active =
     selected &&

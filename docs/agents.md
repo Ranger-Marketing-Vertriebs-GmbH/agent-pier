@@ -96,7 +96,9 @@ Ctrl+K).
   remain inside their lead's team.
 - A group's ⋯ menu renames it, moves it up or down, or deletes it. Deleting a group
   moves its agents to **Ungrouped** and keeps their teams and chats. Empty groups
-  remain available until deleted. Names are unique, up to 60 characters; an
+  remain available until deleted. While no group exists, the sidebar and the agents
+  page show agents as a plain list without an **Ungrouped** header; the header
+  appears once the first group is created. Names are unique, up to 60 characters; an
   installation can hold up to 100 groups.
 - Click a group heading to fold or unfold it. Each view remembers its folded groups
   in this browser. A selected agent is revealed in the sidebar. Group counts count
