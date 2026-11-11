@@ -78,7 +78,8 @@ const subcommands = {
   diff: {
     flags: union(
       diffFlags,
-      set("--cached --staged --merge-base --no-index --base --ours --theirs"),
+      // No `--no-index`: it compares any two files or folders, not the repository.
+      set("--cached --staged --merge-base --base --ours --theirs"),
     ),
     values: diffValues,
     letters: diffLetters,

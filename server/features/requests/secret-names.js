@@ -1,7 +1,7 @@
 // Paths and words that name secrets or credentials: any argument that matches
 // keeps a command asking.
 export const secretWords =
-  /(^|[/=\s])\.env(\.|$|\/)|\.ssh(\/|$)|id_(rsa|dsa|ecdsa|ed25519)|\.(pem|key|p12|pfx|keystore|jks|kdbx)$|credential|\.netrc|\.npmrc|\.pypirc|\.aws(\/|$)|\.gnupg|\.kube(\/|$)|secret|token|passw|auth\.json|\.pgpass|keychain|\.envrc|\.docker\/config\.json|\.config\/(gh\/hosts\.yml|sops)|\.\w*_history/i;
+  /(^|[/=\s])\.env(\.|$|\/)|\.ssh(\/|$)|id_(rsa|dsa|ecdsa|ed25519)|\.(pem|key|p12|pfx|keystore|jks|kdbx)$|credential|\.netrc|\.npmrc|\.pypirc|\.aws(\/|$)|\.gnupg|\.kube(\/|$)|secret|token|passw|auth\.json|\.pgpass|keychain|\.envrc|\.docker\/config\.json|\.config\/(gh\/hosts\.yml|sops)|\.\w*_history|\.git\/config$/i;
 
 /** Whether a command's words (or a tool's path) name a secret or credentials file. */
 export const touchesSecret = (words) => words.some((word) => secretWords.test(word));
@@ -75,10 +75,34 @@ export const secretFragments = Object.freeze(
 // Protected files known by more than one path part; a pattern for a part of them
 // (`.config/g?/hosts.yml`) is judged against the whole.
 export const secretPaths = Object.freeze(
-  [".docker/config.json", ".config/sops", ".config/gh/hosts.yml"].map((name) =>
-    name.split("/"),
+  [".docker/config.json", ".config/sops", ".config/gh/hosts.yml", ".git/config"].map(
+    (name) => name.split("/"),
   ),
 );
 
 /** The endings of key stores, as a name carries them. */
 export const secretEndings = Object.freeze(keyEndings.map((ending) => `.${ending}`));
+
+// The dot files and folders `secretWords` protects, by their usual names. A search
+// that skips hidden files (ripgrep) reaches them only through a glob or type that
+// can match one of these (search-reach.js).
+export const secretDotNames = Object.freeze([
+  ".env",
+  ".env.local",
+  ".env.development",
+  ".env.production",
+  ".env.test",
+  ".envrc",
+  ".ssh",
+  ".aws",
+  ".gnupg",
+  ".kube",
+  ".netrc",
+  ".npmrc",
+  ".pypirc",
+  ".pgpass",
+  ".git-credentials",
+  ".docker",
+  ".bash_history",
+  ".zsh_history",
+]);
