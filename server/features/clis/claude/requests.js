@@ -3,6 +3,7 @@ import path from "node:path";
 import {
   writeClaudeHooks,
   claudeDispatcher,
+  dispatcherName,
   claudeHookVersion,
 } from "../../requests/claude-runtime.js";
 import { addClaudeBridge } from "../../claude-mod/claude-mod-launch.js";
@@ -32,8 +33,8 @@ export const startupDialogs = {
 };
 
 /** Loads the request hooks as a plugin folder and the claude-mod bridge. */
-export async function prepareRequests({ broker, id, args, env, grants }, launch) {
-  const directory = path.join(broker.directory, `${id}.claude`);
+export async function prepareRequests({ broker, id, folder, args, env, grants }, launch) {
+  const directory = path.join(folder, `${id}.claude`);
   await fs.mkdir(path.join(directory, ".claude-plugin"), {
     recursive: true,
     mode: 0o700,
@@ -44,7 +45,11 @@ export async function prepareRequests({ broker, id, args, env, grants }, launch)
     JSON.stringify({ name: "agentpier-requests", version: "1.0.0" }),
     { mode: 0o600 },
   );
-  await writeClaudeHooks(broker.directory, id, env.AGENTPIER_CLAUDE_HOOK_DISPATCHER);
+  await writeClaudeHooks(
+    folder,
+    id,
+    env.AGENTPIER_CLAUDE_HOOK_DISPATCHER ?? path.join(broker.directory, dispatcherName),
+  );
   args.push("--plugin-dir", directory);
   // The hooks run the dispatcher from the runtime folder, which holds nothing else
   // and is only ever read; the plugin folder stays the session's own.

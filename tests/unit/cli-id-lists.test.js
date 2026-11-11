@@ -133,7 +133,7 @@ const ROOT_ALLOWED = {
   "server/features/pipelines/artifact-reader.js": "ignored file names in pipelines",
   "server/features/providers/endpoint-launch.js":
     "writes into the profile env that profileEnv() just produced",
-  "server/features/requests/request-broker.js": "bridge plugin folder names",
+  "server/features/requests/request-storage.js": "bridge plugin folder names",
   "server/features/tools/native-installer.js": "nono install dir, not a coding CLI",
   "server/features/assistants/assistant-provider-endpoint.js": ".local host suffix",
   "server/lib/i18n/de/scripts.js": "message text",

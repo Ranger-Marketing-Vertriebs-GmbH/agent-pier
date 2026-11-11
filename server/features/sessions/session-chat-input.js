@@ -22,6 +22,7 @@ import { clearClaudeComposer } from "./claude-composer.js";
 import { claudeFreshInput } from "./claude-prompt.js";
 import { cliDefinition, isCodingCli } from "../clis/catalog.js";
 import { cliDriver } from "../clis/drivers.js";
+import { sessionFolder } from "./session-own-folder.js";
 import { clean, unknownComposer as unknown } from "../clis/tui-screen.js";
 
 export function normalizeChatText(text) {
@@ -160,7 +161,10 @@ async function currentChatSession(manager, id) {
 
 async function nativeGeneration(manager, session) {
   if (!session.nativeBinding?.enabled) return { identity: null, recoverable: true };
-  const directory = path.join(manager.directory, "..", "native-sessions");
+  const directory = sessionFolder(
+    path.join(manager.directory, "..", "native-sessions"),
+    session.id,
+  );
   let launch;
   try {
     launch = JSON.parse(

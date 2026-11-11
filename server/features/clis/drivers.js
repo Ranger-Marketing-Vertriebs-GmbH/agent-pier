@@ -133,8 +133,9 @@ const drivers = new Map();
  * addReminder(launch, { name, script, pluginUrl, folder, invalid }): adds a start hook
  *   (Codex hook `name` running `script`, a SessionStart hook in the Claude plugin
  *   `folder`, or the OpenCode `pluginUrl`).
- * prepareRequests({ broker, id, file, args, env, grants }, launch): starts the CLI's
- *   approval relay, changing `args`, `env` and `grants` in place; may return the
+ * prepareRequests({ broker, id, file, folder, args, env, grants }, launch): starts the
+ *   CLI's approval relay in the launch's own request `folder` (it holds the launch
+ *   `file`), changing `args`, `env` and `grants` in place; may return the
  *   launch that replaces `{ ...launch, args, env }` (Codex's wrapper).
  * requests: { launchRecord?(env): extra fields of the launch file (Claude Code's hook
  *   version, dispatcher and trust file); launchEnvironment?(broker): variables the
