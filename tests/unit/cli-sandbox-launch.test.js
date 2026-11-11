@@ -11,8 +11,12 @@ import {
   sandboxLaunch as claudeSandboxLaunch,
   socketDirectories,
 } from "../../server/features/clis/claude/sandbox.js";
+import { sandboxLaunch as opencodeSandboxLaunch } from "../../server/features/clis/opencode/sandbox.js";
 import { NonoSandbox } from "../../server/features/nono/nono-launch.js";
-import { cleanEnvironment } from "../../server/features/accounts/account-store.js";
+import {
+  AccountStore,
+  cleanEnvironment,
+} from "../../server/features/accounts/account-store.js";
 
 const mac = { platform: "darwin", exists: () => true };
 const flagValues = (args, flag) =>
@@ -242,3 +246,97 @@ test("only a link to the CLI's own profile is granted, not wherever a link point
   const local = { HOME: home, CLAUDE_CODE_TMPDIR: root };
   assert.deepEqual(own(claudeSandboxLaunch({ command: "/bin/claude", env: local })), []);
 });
+
+test("a sandboxed managed OpenCode account keeps its npm cache in its own cache folder", () => {
+  const launch = {
+    command: "/bin/opencode",
+    args: [],
+    env: { HOME: "/home/me", XDG_CACHE_HOME: "/data/profiles/one/cache" },
+  };
+  const prepared = opencodeSandboxLaunch(launch);
+  // OpenCode's built-in npm would write `~/.npm`, which no grant covers.
+  assert.equal(prepared.env.npm_config_cache, "/data/profiles/one/cache/npm");
+  assert.equal(launch.env.npm_config_cache, undefined);
+  // A cache the launch names already stays, in either spelling.
+  for (const name of ["npm_config_cache", "NPM_CONFIG_CACHE"]) {
+    const named = { ...launch, env: { ...launch.env, [name]: "/elsewhere" } };
+    assert.equal(opencodeSandboxLaunch(named), named);
+  }
+  // A local account has no folder of its own; its launch stays as it is.
+  const local = { command: "/bin/opencode", args: [], env: { HOME: "/home/me" } };
+  assert.equal(opencodeSandboxLaunch(local), local);
+});
+
+test("a sandboxed OpenCode can read the CA file the operator names", (t) => {
+  const root = fs.realpathSync(fs.mkdtempSync("/tmp/apcs-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const bundle = path.join(root, "corp-ca.pem");
+  fs.writeFileSync(bundle, "-----BEGIN CERTIFICATE-----\n");
+  for (const name of ["NODE_EXTRA_CA_CERTS", "SSL_CERT_FILE"]) {
+    const prepared = opencodeSandboxLaunch({
+      command: "/bin/opencode",
+      env: { HOME: "/home/me", [name]: bundle },
+    });
+    assert.deepEqual(prepared.sandboxGrants, [{ access: "read", path: bundle }]);
+    // OpenCode carries its own roots: nothing is set for it.
+    assert.deepEqual(prepared.env, { HOME: "/home/me", [name]: bundle });
+  }
+  // Only an absolute path to a regular file is granted.
+  for (const value of [root, path.join(root, "missing.pem"), "corp-ca.pem"]) {
+    const launch = { command: "/bin/opencode", env: { NODE_EXTRA_CA_CERTS: value } };
+    assert.equal(opencodeSandboxLaunch(launch), launch);
+  }
+});
+
+/** Where nono started with `env` keeps the state it protects (`nono profile guide`). */
+const stateRoot = (env) =>
+  path.join(env.XDG_STATE_HOME || path.join(env.HOME, ".local/state"), "nono");
+/** Whether one folder is the other or lies inside it. */
+const overlaps = (a, b) =>
+  a === b || a.startsWith(b + path.sep) || b.startsWith(a + path.sep);
+
+for (const tool of ["claude", "codex", "opencode"])
+  test(`a sandboxed managed ${tool} launch grants nothing around nono's own state`, async (t) => {
+    const root = fs.realpathSync(fs.mkdtempSync("/tmp/apcs-"));
+    t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const home = path.join(root, "home");
+    fs.mkdirSync(home);
+    const accounts = new AccountStore({ dataDir: path.join(root, "data"), home });
+    const account = accounts.create({ name: "one", tool });
+    const executable = path.join(root, tool);
+    fs.writeFileSync(executable, "#!/bin/sh\n", { mode: 0o755 });
+    const launch = await accounts.command(
+      account.id,
+      { [tool]: executable },
+      false,
+      "default",
+      {
+        cliVersion: "99.0.0",
+      },
+    );
+    const sandbox = new NonoSandbox({
+      detect: () => [{ id: "nono", installed: true, path: "/bin/nono" }],
+      readProfiles: async () => ["dev"],
+    });
+    const wrapped = await sandbox.prepare({ launch, profile: "dev", tool });
+    // nono refuses a grant on its state root, below it or on a folder that holds it,
+    // and it derives that root from the environment it is started with.
+    const state = stateRoot(wrapped.env);
+    assert.equal(state, path.join(home, ".local/state/nono"));
+    const granted = wrapped.args
+      .slice(0, wrapped.args.indexOf("--"))
+      .filter((value) => path.isAbsolute(value));
+    assert.ok(granted.includes(accounts.profile(account.id)));
+    assert.deepEqual(
+      granted.filter((folder) => overlaps(folder, state)),
+      [],
+    );
+    // The account's own folders still reach the CLI.
+    const cli = wrapped.args.slice(wrapped.args.indexOf("--") + 1);
+    for (const [name, value] of Object.entries(launch.env))
+      if (/^XDG_.*_HOME$/.test(name)) {
+        assert.equal(wrapped.env[name], undefined);
+        assert.ok(cli.includes(`${name}=${value}`));
+      }
+    assert.ok(cli.includes(executable));
+  });
