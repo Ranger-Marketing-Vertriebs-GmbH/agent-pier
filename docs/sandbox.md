@@ -24,7 +24,7 @@ self-update subcommand, so an update re-runs that same installer. Installing it 
 whichever copy is on the path. A new installation gets the latest nono; an existing
 one keeps the version it has until you update it under **CLIs and extensions › Installation**. Keep it
 current: nono 0.80 and 0.81 carry security fixes, and what this guide says about
-Claude Code and Codex was checked with nono 0.79.0 and 0.81.0. The launch
+Claude Code, Codex and OpenCode was checked with nono 0.79.0 and 0.81.0. The launch
 dialog shows a sandbox-profile picker backed by `GET /api/sandbox-profiles`, which
 returns `{ available: false }` when nono is not installed and otherwise the list of
 sandbox profile names nono itself reports. The route answers at most 120 requests a
@@ -176,8 +176,9 @@ nono wrap -p claude-default --allow-cwd \
 
 Grants are merged and then sorted by path and access, so the order never depends on the
 order of the adapter chain and the same session composes the same command line across
-restarts. Everything after `--` is the CLI and its own arguments, verbatim; reload
-appends its resume flags at the end of that list. Enabling further integrations adds
+restarts. Everything after `--` is the CLI and its own arguments, verbatim (for an
+account that sets XDG folders behind `env`, see [nono's own folders](#nonos-own-folders));
+reload appends its resume flags at the end of that list. Enabling further integrations adds
 their own grants to the same list — the MCP integration's capability folder and bridge
 socket, the SSH tools' and GitHub helper's folders, the session SSH agent's own folder
 `<dataDir>/ssh-agents/<session id>` (`--read`, never write; never an agent's folder under
@@ -229,6 +230,37 @@ running sandboxed sessions; reload them, or stop them and start new ones. A sand
 session started before this grant existed is in the same position after the next
 update.
 
+<a id="nonos-own-folders"></a>
+
+**nono's own folders.** nono reads the XDG variables of the environment it is started
+with for itself: it keeps its state (sessions, audit trail, rollbacks) under
+`$XDG_STATE_HOME/nono`, `~/.local/state/nono` when the variable is unset, and its
+configuration with the operator's sandbox profiles under `$XDG_CONFIG_HOME/nono`
+(`~/.config/nono`). It protects the state root: a grant on it, below it, or on a
+folder that contains it is refused (`nono profile guide`, "Protected nono state
+roots"). A managed OpenCode account points all four XDG folders into its account
+folder, which the launch grants. Started with them, nono 0.79.0 and 0.81.0 refuse the
+launch ("Refusing to grant '<account folder>' … because it overlaps protected nono
+state root '<account folder>/state/nono'") and do not find a profile chosen by name
+("Profile not found"). So `XDG_CACHE_HOME`, `XDG_CONFIG_HOME`, `XDG_DATA_HOME` and
+`XDG_STATE_HOME` of a launch never reach nono. It runs with the environment of a
+launch without an account folder, and the CLI gets the variables from `env`, which
+execs into it:
+
+```
+nono wrap -p <sandbox profile> --allow-cwd <grants> --read-file /usr/bin/env \
+  -- /usr/bin/env XDG_CACHE_HOME=<account>/cache XDG_CONFIG_HOME=<account>/config \
+     XDG_DATA_HOME=<account>/data XDG_STATE_HOME=<account>/state <cli> <cli args>
+```
+
+nono's state stays where every other launch has it, outside everything the session
+may touch, and is never granted. `$XDG_*` in a sandbox profile's own paths therefore
+means the server user's folders for every account (`$XDG_CONFIG_HOME/opencode` is
+`~/.config/opencode`, the CLI's own profile, not the account's), like `$HOME`.
+Claude Code and Codex accounts set none of these variables (`CLAUDE_CONFIG_DIR`,
+`CODEX_HOME`), and a local account sets none either; their launches are unchanged
+(`server/features/nono/nono-environment.js`).
+
 Network access is allowed by default under nono; no grant is needed for provider or
 GitHub egress. An explicitly named sandbox profile keeps its own capabilities in effect
 alongside the grants AgentPier injects.
@@ -247,7 +279,9 @@ nono cannot initialize nested inside another operating-system sandbox: if the Ag
 server process itself already runs under one, wrapping a session in nono on top of it
 fails at launch. Run AgentPier unsandboxed if you want to use this feature.
 
-## What Claude Code and Codex need in a sandbox
+<a id="what-claude-code-and-codex-need-in-a-sandbox"></a>
+
+## What Claude Code, Codex and OpenCode need in a sandbox
 
 Every nono profile denies the macOS keychain: the `com.apple.SecurityServer` service
 and `~/Library/Keychains`. Granting it is not an option, because the keychain cannot
@@ -339,7 +373,9 @@ CLI process between them, reads its start time and writes the receipt
 the claim must carry the launch's token and project, a second live CLI cannot take
 the binding over, and a CLI replaced while the claim ran gets none. With the server
 stopped no receipt is written; the next hook (each prompt) asks again.
-`tests/matrix/nono-binding-receipt.test.js` runs this through a real nono.
+`tests/matrix/nono-binding-receipt.test.js` runs this through a real nono. OpenCode
+has no hook process: its TUI plugin (`native-session-opencode.js`) writes the receipt
+from inside OpenCode and asks the server the same way when the sandbox denies `ps`.
 
 **Codex: CA certificates from a file (macOS).** Codex verifies TLS certificates against
 the system trust store, which it reaches through the denied `SecurityServer` service.
@@ -435,6 +471,61 @@ created no daemon files in its `CODEX_HOME`). A managed account also has a
 `CODEX_HOME` of its own, apart from a daemon the owner runs for `~/.codex`.
 `tests/integration/codex-shared-daemon.test.js` pins the launch shape.
 
+**OpenCode: login, certificates and the account's folders.** A managed OpenCode
+account keeps everything in its account folder, which the launch grants: the login
+(`data/opencode/auth.json`, a file, not a keychain item), the sessions database, the
+state, the cache and the config. OpenCode verifies TLS certificates against the roots
+its runtime (Bun) carries, not the macOS trust store, so it reaches public hosts with
+the keychain service denied and gets no `SSL_CERT_FILE`. A CA of your own reaches it
+through `NODE_EXTRA_CA_CERTS` or `SSL_CERT_FILE` set for AgentPier, which passes
+both to every session, in a sandbox or not. A sandboxed OpenCode launch gets read
+access to the file either one names (an absolute path to a regular file); without it
+OpenCode prints "Ignoring extra certs from …, load failed: Operation not permitted"
+and refuses that CA's certificates. For nono's own folders see
+[above](#nonos-own-folders).
+
+**OpenCode: an npm cache of the account's own.** OpenCode installs what plugins and
+custom tools import with a built-in npm: `@opencode-ai/plugin` into its config folder
+at every start, and the packages of npm plugins. npm's cache is `~/.npm`, which a
+sandbox profile does not make writable unless it says so, and without it the install
+ends with "background
+dependency install failed … EPERM: operation not permitted, mkdir '~/.npm'" in
+OpenCode's log; plugins and tools that import a package then fail to load. `~/.npm`
+is not granted, because every npm of the user trusts what lies there. A sandboxed
+launch of a managed account gets `npm_config_cache=<account folder>/cache/npm`
+instead, unless the launch already names a cache. Programs the session starts inherit
+the variable, so an `npm install` the agent runs uses that cache too.
+
+**OpenCode: AgentPier's plugins.** OpenCode loads AgentPier's plugins (session
+binding and activity, questions and approvals, AgentBus, project memory, SSH) into
+its own runtime. Bun finds a package named by a bare import only when it may list
+the folders above the importing file up to the one that holds `node_modules`, and a
+sandboxed session may not list the installation root
+([the grant model](#the-grant-model)); Node, which runs the hooks of the other CLIs,
+is not affected. The binding plugin used to
+reach the CLI drivers and their parsers and did not load in a sandbox ("Cannot find
+package 'smol-toml'"): the session had no binding receipt, no activity report and no
+streamed replies. The modules OpenCode loads now import relative files and `node:`
+builtins only (`server/features/sessions/native-session-receipt.js`;
+`tests/unit/opencode-plugin-imports.test.js` keeps it that way).
+
+What a sandboxed OpenCode session is denied and does not need: listing the folders
+above its project, its account folder and the installation (`/Users`, the home
+folder, `<data dir>/profiles`), the keychain service (`com.apple.SecurityServer`),
+the setuid `ps` (the server writes the receipt), `~/.npm`, and the CLI's own profile
+beyond the linked folders. Checked with nono 0.79.0 and 0.81.0 and OpenCode 1.19.5,
+signed out, in a disposable AgentPier whose home folder lies outside `/private`, with
+nono's built-in `default` profile and with a profile that reads only the system
+folders: the TUI starts, loads the plugins above and a shared plugin, connects the
+AgentBus and memory MCP servers, gets its binding receipt, refreshes its model list
+over HTTPS and answers a prompt on OpenCode's free model.
+`tests/matrix/nono-opencode-needs.test.js` runs the composed launch through a real
+nono, and OpenCode itself where it is installed. Not checked: a signed-in provider
+login and its token refresh, an OAuth login of an MCP server, and OpenCode 2. nono
+names `opencode --standalone` for its own OpenCode profile; OpenCode 1.19.5 has no
+such flag and runs its server inside the TUI process, so everything a session
+starts is inside the sandbox.
+
 **Not supported in a sandbox: a local Claude account.** A local account is the CLI's
 own profile outside AgentPier (`~/.claude`), with its login in the keychain. AgentPier
 neither moves that login nor puts the stand-in in front of it, so a sandboxed session
@@ -446,7 +537,12 @@ note is not shown for a local profile that holds a login file
 (`apiKeyHelper`, a key or token under `env`, Bedrock or Vertex); whether the session
 can read it depends on the sandbox profile granting `~/.claude`. Local Codex and
 OpenCode accounts keep their login in files; whether a sandboxed session reads them
-depends on the sandbox profile granting `~/.codex` or OpenCode's folders.
+depends on the sandbox profile granting `~/.codex` or OpenCode's folders. A local
+OpenCode account needs all of them writable (`~/.local/share/opencode`,
+`~/.local/state/opencode`, `~/.cache/opencode`, `~/.config/opencode`): under a
+profile that grants none, nono's `default` among them, OpenCode ends at start and
+the terminal shows "EPERM: operation not permitted, mkdir '~/.local/share'". Use a
+managed account, which needs no entry in the profile.
 
 Also outside this: a Claude Code login with a Console API key, which Claude Code keeps
 in a separate keychain item (`Claude Code-<hash>`). Give such an account its key in

@@ -348,6 +348,18 @@ unless noted:
   unless the sandbox profile granted `~/.codex` itself. A profile entry for
   `~/.codex` that was added only for this can be removed: without it the session no
   longer reads the login, history and sessions of the CLI's own profile.
+- **Managed OpenCode accounts in a sandbox (after 2.18.0).** In 2.18.0 nono refused
+  every sandboxed session of an OpenCode account with a separate profile ("Refusing
+  to grant … overlaps protected nono state root"), because the account's
+  `XDG_STATE_HOME` lies in the granted account folder. They start now: nono no
+  longer gets the account's XDG folders, and the session does. Such a session keeps
+  its npm cache in `<data dir>/profiles/<account>/cache/npm` instead of `~/.npm`,
+  and its chat binding, activity and streamed replies work, which needed a plugin
+  that did not load in a sandbox. Nothing is moved and nothing has to be done. A
+  refused launch may have left an empty `config/nono` folder in the account folder;
+  it is not used and can be deleted. A sandbox profile that uses `$XDG_…` in its
+  paths gets the server user's folders for every account
+  ([details](sandbox.md#nonos-own-folders)).
 - **A standalone Codex install in a sandbox** (`~/.local/bin/codex`, linked into
   `~/.codex/packages/standalone`) now reads the release folder its executable lies
   in, read-only, so `codex-package.json` and the code-mode host are no longer denied.
@@ -376,7 +388,7 @@ unless noted:
   them: sessions started or reloaded on this version lose their chat binding and
   approval relay there until they are reloaded once more.
 
-Details: [What Claude Code and Codex need in a sandbox](sandbox.md#what-claude-code-and-codex-need-in-a-sandbox).
+Details: [What Claude Code, Codex and OpenCode need in a sandbox](sandbox.md#what-claude-code-and-codex-need-in-a-sandbox).
 
 ### Upgrading from 1.x
 
