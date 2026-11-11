@@ -1,11 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import {
   INSTALLATION_FILE_GRANTS,
   INSTALLATION_GRANTS,
   INSTALLATION_ROOT,
   NonoSandbox,
   grantArguments,
+  releasesDirectory,
   wrapWithNono,
 } from "../../server/features/nono/nono-launch.js";
 
@@ -309,4 +313,58 @@ test("adapter launches open exactly the adapter port placeholder", () => {
   assert.ok(at > 0 && at < adapted.args.indexOf("--"));
   assert.equal(adapted.args[at + 1], "__AGENTPIER_ADAPTER_PORT__");
   assert.equal(adapted.adapter.token, "t", "the adapter block stays on the launch");
+});
+
+test("an installed release names its releases folder; a checkout names none", (t) => {
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "ap-releases-")));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const release = path.join(root, "app/releases/2.18.0");
+  fs.mkdirSync(release, { recursive: true });
+  fs.symlinkSync(release, path.join(root, "app/current"), "dir");
+  const releases = path.join(root, "app/releases");
+  const installRoot = path.join(root, "app");
+  assert.equal(releasesDirectory({ installRoot, applicationRoot: release }), releases);
+  // Reached through the link the launcher starts the server with.
+  assert.equal(
+    releasesDirectory({
+      installRoot,
+      applicationRoot: path.join(installRoot, "current"),
+    }),
+    releases,
+  );
+  // A source checkout, also one that names an install root it does not run from.
+  assert.equal(releasesDirectory({ installRoot: undefined }), null);
+  assert.equal(releasesDirectory({ installRoot, applicationRoot: root }), null);
+  assert.equal(
+    releasesDirectory({ installRoot: path.join(root, "gone"), applicationRoot: release }),
+    null,
+  );
+});
+
+test("a sandboxed session of an installed release may read every release, so it survives an update", () => {
+  const launch = { command: "/bin/claude", args: [], sandboxGrants: [] };
+  const granted = (releases) => {
+    const wrapped = wrapWithNono({
+      launch,
+      executable: nono,
+      profile: "claude-default",
+      releases,
+      ...classify(...INSTALLATION_GRANTS, "/app/releases"),
+    });
+    return pairs(wrapped.args.slice(4, wrapped.args.indexOf("--")));
+  };
+  assert.ok(
+    granted("/app/releases").some(
+      ([flag, target]) => flag === "--read" && target === "/app/releases",
+    ),
+  );
+  // Read-only, and nothing above it: the install root also holds the launcher.
+  assert.deepEqual(
+    granted("/app/releases").filter(([, target]) => target.startsWith("/app")),
+    [["--read", "/app/releases"]],
+  );
+  assert.equal(
+    granted(null).some(([, target]) => target.startsWith("/app")),
+    false,
+  );
 });

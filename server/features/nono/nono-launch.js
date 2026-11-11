@@ -1,4 +1,4 @@
-import { statSync } from "node:fs";
+import { realpathSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { mergeGrants } from "./sandbox-grants.js";
@@ -42,6 +42,33 @@ export const INSTALLATION_GRANTS = ["server", "vendor", "node_modules"].map((dir
  * already granted subtree and ends the walk before the root.
  */
 export const INSTALLATION_FILE_GRANTS = [path.join(INSTALLATION_ROOT, "package.json")];
+/**
+ * `<install root>/releases` when this server runs from an installed release
+ * (`releases/<version>`, started through the install root's `current` link), else
+ * null: a source checkout is never replaced by an update.
+ *
+ * An update activates another release folder, and the server then runs from there.
+ * A session that keeps running names code of the active release afterwards: Claude
+ * Code's request hooks run through a dispatcher in the data directory that the
+ * server points at its own Node and hook script at every start
+ * (requests/claude-runtime.js), and a waiting hook hands over to that script. A
+ * sandbox that could read only the release the session was started from would deny
+ * both, and the session's questions and approvals would stop reaching AgentPier.
+ * So a sandboxed launch may read every release. The folder holds release code and
+ * runtimes only, never data.
+ */
+export function releasesDirectory({
+  installRoot = process.env.AGENTPIER_INSTALL_ROOT,
+  applicationRoot = INSTALLATION_ROOT,
+} = {}) {
+  if (!installRoot) return null;
+  try {
+    const releases = path.join(realpathSync(installRoot), "releases");
+    return path.dirname(realpathSync(applicationRoot)) === releases ? releases : null;
+  } catch {
+    return null;
+  }
+}
 /**
  * nono keeps directory grants and single-file grants apart: `--read <DIR>` is
  * recursive and refuses a file ("CLI path '…' is not a directory. Use
@@ -97,7 +124,13 @@ export function grantArguments(grants, { isDirectory = existingDirectory } = {})
  * profile the launch is returned untouched, minus the grants the session
  * record must not carry.
  */
-export function wrapWithNono({ launch, executable, profile, isDirectory }) {
+export function wrapWithNono({
+  launch,
+  executable,
+  profile,
+  isDirectory,
+  releases = releasesDirectory(),
+}) {
   const { sandboxGrants, ...rest } = launch;
   if (!profile) return { ...rest, args: [...(rest.args || [])] };
   return {
@@ -118,6 +151,7 @@ export function wrapWithNono({ launch, executable, profile, isDirectory }) {
           ...(sandboxGrants || []),
           ...INSTALLATION_GRANTS.map((path) => ({ access: "read", path })),
           ...INSTALLATION_FILE_GRANTS.map((path) => ({ access: "read", path })),
+          ...(releases ? [{ access: "read", path: releases }] : []),
           // nono denies the interpreter's read of a shebang-script wrap
           // target ("/bin/sh: <path>: Operation not permitted"), so an
           // interpreted CLI never starts without this grant; a compiled

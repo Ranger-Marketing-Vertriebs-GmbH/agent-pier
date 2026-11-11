@@ -204,3 +204,64 @@ test(
     assert.match(plain, /INSTALLED:.*(not permitted|denied)/i);
   },
 );
+
+test(
+  "a sandboxed session runs the hook dispatcher of a release activated after it started",
+  options,
+  (t) => {
+    const { root, profile, cwd } = workspace(t);
+    // An install root: the session started from 1.0.0, an update activated 2.0.0.
+    const releases = path.join(root, "app/releases");
+    const active = path.join(releases, "2.0.0");
+    fs.mkdirSync(path.join(releases, "1.0.0"), { recursive: true });
+    fs.mkdirSync(path.join(active, "bin"), { recursive: true });
+    fs.mkdirSync(path.join(active, "server"));
+    fs.writeFileSync(path.join(active, "server/claude-hook.js"), "HOOK-OF-2.0.0\n");
+    // Stands in for the release's own Node: a program inside the release.
+    fs.writeFileSync(path.join(active, "bin/node"), '#!/bin/sh\ncat "$1"\n', {
+      mode: 0o755,
+    });
+    // What the server of 2.0.0 writes at its start (requests/claude-runtime.js).
+    const runtime = path.join(root, "data/request-runtime");
+    fs.mkdirSync(runtime, { recursive: true });
+    const dispatcher = path.join(runtime, "claude-hook.sh");
+    fs.writeFileSync(
+      dispatcher,
+      `#!/bin/sh\nexec '${path.join(active, "bin/node")}' '${path.join(active, "server/claude-hook.js")}' "$@"\n`,
+      { mode: 0o700 },
+    );
+    fs.writeFileSync(path.join(root, "app/secret"), "SECRET");
+    const launch = {
+      command: "/bin/sh",
+      args: [
+        "-c",
+        `echo "HOOK:$(/bin/sh '${dispatcher}' 2>&1)"; echo "ROOT:$(cat '${path.join(root, "app/secret")}' 2>&1)"`,
+      ],
+      sandboxGrants: [{ access: "read", path: runtime }],
+    };
+    const wrap = (releasesGrant) => {
+      const wrapped = wrapWithNono({
+        launch,
+        executable,
+        profile,
+        releases: releasesGrant,
+      });
+      try {
+        return execFileSync(wrapped.command, ["wrap", "-s", ...wrapped.args.slice(1)], {
+          cwd,
+          encoding: "utf8",
+          timeout: 60000,
+          env: { ...process.env, NONO_THEME: "minimal" },
+        });
+      } catch (error) {
+        return `${error.stdout || ""}${error.stderr || ""}`;
+      }
+    };
+    const granted = wrap(releases);
+    assert.match(granted, /HOOK:HOOK-OF-2\.0\.0/);
+    // The install root beside the releases stays out of reach.
+    assert.match(granted, /ROOT:.*(not permitted|denied)/i);
+    // The control: a session that reads only the release it started from.
+    assert.doesNotMatch(wrap(null), /HOOK-OF-2\.0\.0/);
+  },
+);

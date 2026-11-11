@@ -191,13 +191,31 @@ and writes the queue, the peer registry and the launch records. Only Claude Code
 a plugin folder from there (`adapters/<session id>`, `--allow`); Codex and OpenCode
 get nothing of the bus folder.
 
-An installed AgentPier starts the GitHub credential helper through the install root's
-`current` link, so a session survives updates (see
-[the helper across updates](github-agents.md#stable-helper)). nono resolves a grant on
-`current` to the release it pointed at when the session started, so the GitHub helper
-also grants read access to the install root's `releases/` directory: after an update,
-the helper's path resolves into the newly active release, which that grant still covers.
-The directory holds only release code and runtimes, never the data directory.
+<a id="sandboxed-sessions-across-updates"></a>
+
+**Across an update.** An installed AgentPier runs from
+`<install root>/releases/<version>`, and an update activates another release folder
+(see [installation](installation.md)). The grants above name the release a session
+was started from, but a session that keeps running uses code of the active release
+afterwards: Claude Code's request hooks run through the dispatcher
+`<dataDir>/request-runtime/claude-hook.sh`, which the server points at its own Node
+and hook script at every start, and a hook that is waiting for an answer hands over
+to that script. A sandbox that could read only the old release denies both, and the
+session's questions and approvals no longer reach AgentPier. Every sandboxed launch
+of an installed release therefore also gets read access to the install root's
+`releases/` directory (`releasesDirectory` in `server/features/nono/nono-launch.js`).
+The directory holds only release code and runtimes, never the data directory; the
+install root itself is not granted. The GitHub credential helper relies on the same
+grant: it is started through the install root's `current` link (see
+[the helper across updates](github-agents.md#stable-helper)), which nono resolves to
+the release it pointed at when the session started.
+
+What this does not cover: a server started from a different folder that is not a
+release of the same install root (a source checkout pointed at the data directory of
+an installation, or a moved installation). Its code is outside every grant of the
+running sandboxed sessions; reload them, or stop them and start new ones. A sandboxed
+session started before this grant existed is in the same position after the next
+update.
 
 Network access is allowed by default under nono; no grant is needed for provider or
 GitHub egress. An explicitly named sandbox profile keeps its own capabilities in effect
