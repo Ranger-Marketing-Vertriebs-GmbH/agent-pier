@@ -16,6 +16,7 @@ import { pidStart } from "../../../vendor/agentbus/core/proc.js";
 import { atLeast } from "../tools/cli-version.js";
 import { findRuntimePid } from "../../../vendor/agentbus/hooks/register.js";
 import { resolveCodexProcess } from "./native-session-process.js";
+import { resolveRuntime } from "./native-session-runtime.js";
 import { addGrant } from "../nono/sandbox-grants.js";
 import { readNativeActivity, recordNativeActivity } from "./native-session-activity.js";
 import { maxReplyText, pushNative } from "../requests/native-push.js";
@@ -44,10 +45,19 @@ function receiptPath(file) {
     throw problem(serverMessages.sessions.invalidNativeBinding);
   return file.replace(/\.launch\.json$/, ".receipt.json");
 }
+/**
+ * Writes the launch's receipt: this native conversation runs in the CLI process
+ * `pid`, started at `pidStart`, in this launch (its token) and project.
+ *
+ * A sandbox may deny reading the process list (nono denies the setuid `ps` on
+ * macOS). Then no process can be read, this one (`self`) included, and the error
+ * carries `processUnreadable`: the caller asks the server to write the receipt
+ * (`claimNativeSession`).
+ */
 export function recordNativeSession(
   data,
   env = process.env,
-  { pid, ps = pidStart } = {},
+  { pid, ps = pidStart, self = process.pid } = {},
 ) {
   const file = env.AGENTPIER_NATIVE_BINDING_FILE;
   const output = receiptPath(file);
@@ -73,7 +83,9 @@ export function recordNativeSession(
   }
   const started = ps(pid);
   if (!Number.isInteger(pid) || pid <= 0 || !started)
-    throw problem(serverMessages.sessions.nativeProcessStopped);
+    throw Object.assign(problem(serverMessages.sessions.nativeProcessStopped), {
+      processUnreadable: !ps(self),
+    });
   let previous;
   try {
     previous = readJson(output);
@@ -97,6 +109,31 @@ export function recordNativeSession(
     pidStart: started,
     updatedAt: new Date().toISOString(),
   });
+}
+/**
+ * Asks the server for the receipt a hook cannot write itself (see
+ * `recordNativeSession`), over the session's request channel. The hook names its own
+ * process; the server, outside the sandbox, finds the CLI above it and writes the
+ * receipt (`NativeSessionBinding.claim`). False when there is no channel, the server
+ * does not answer in time or it refuses.
+ */
+export async function claimNativeSession(
+  data,
+  env = process.env,
+  { pid = process.pid, timeout = 2500 } = {},
+) {
+  if (!env.AGENTPIER_REQUEST_FILE || !env.AGENTPIER_NATIVE_BINDING_TOKEN) return false;
+  const reply = await pushNative(
+    {
+      type: "binding",
+      token: env.AGENTPIER_NATIVE_BINDING_TOKEN,
+      providerSessionId: data?.session_id ?? data?.sessionId ?? data?.thread_id ?? null,
+      cwd: data?.cwd ?? null,
+      pid,
+    },
+    { env, timeout, reply: "binding-result" },
+  );
+  return reply?.ok === true;
 }
 export class NativeSessionBinding {
   constructor({ dataDir, accounts, sessions, history, processOptions = {} }) {
@@ -188,6 +225,40 @@ export class NativeSessionBinding {
       nativeBinding: { enabled: true, version: 1 },
     });
   }
+  /**
+   * A hook's claim (`claimNativeSession`), answered for the request broker. The
+   * receipt is the one the hook would have written and proves the same: the claim
+   * carries the launch's token and project, the server reads the CLI process from
+   * the session's own pane instead of taking the hook's word (`resolveRuntime`), and
+   * a CLI that was replaced while the claim ran, or a second live one, gets none.
+   */
+  async claim(sessionId, { token, providerSessionId, cwd, pid }) {
+    let ok = false;
+    try {
+      const session = await this.sessions.get(sessionId);
+      if (session.status !== "running" || !session.nativeBinding?.enabled) throw Error();
+      const proof = await (this.processOptions.resolveRuntime || resolveRuntime)({
+        session,
+        claimedPid: pid,
+        sessions: this.sessions,
+        accounts: this.accounts,
+      });
+      const started = (id) => {
+        const start = pidStart(id);
+        return id === proof.pid && start !== proof.pidStart ? null : start;
+      };
+      recordNativeSession(
+        { session_id: providerSessionId, ...(cwd ? { cwd } : {}) },
+        {
+          AGENTPIER_NATIVE_BINDING_FILE: this.file(sessionId),
+          AGENTPIER_NATIVE_BINDING_TOKEN: token,
+        },
+        { pid: proof.pid, ps: started },
+      );
+      ok = true;
+    } catch {}
+    return { reply: { type: "binding-result", ok } };
+  }
   async resolve(session, { forInput = false } = {}) {
     const receipt = this.verifiedReceipt(session);
     if (session.tool === "shell" || session.purpose === "login") return null;
@@ -277,6 +348,7 @@ export async function runNativeSessionHook({
   // The hook process's own start, before this module's imports loaded: the closest
   // AgentPier gets to the event's time (Claude Code's payload carries none).
   at = Math.round(performance.timeOrigin) || Date.now(),
+  ps,
 } = {}) {
   const warn = (error) =>
     process.stderr.write(`agentpier-reader: ${String(error.message).slice(0, 240)}\n`);
@@ -293,9 +365,10 @@ export async function runNativeSessionHook({
   }
   if (!activityOnly.has(payload?.hook_event_name))
     try {
-      recordNativeSession(payload, env);
+      recordNativeSession(payload, env, { ps });
     } catch (error) {
-      warn(error);
+      if (!error.processUnreadable || !(await claimNativeSession(payload, env)))
+        warn(error);
     }
   try {
     // Codex reports its turns through the app-server proxy instead.

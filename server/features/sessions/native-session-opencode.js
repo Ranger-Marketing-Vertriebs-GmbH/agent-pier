@@ -1,4 +1,4 @@
-import { recordNativeSession } from "./native-session-binding.js";
+import { claimNativeSession, recordNativeSession } from "./native-session-binding.js";
 import { recordNativeActivity } from "./native-session-activity.js";
 import { NativeRequestChannel } from "../requests/native-channel.js";
 import { streamOpenCodeReplies } from "./opencode-reply-stream.js";
@@ -33,6 +33,7 @@ export function pushChannel(
 export const readerTui = ({
   channel: open = pushChannel,
   env: base = process.env,
+  ps,
 } = {}) =>
   async function tui(api) {
     const env = { ...base };
@@ -45,6 +46,7 @@ export const readerTui = ({
     let previous;
     let reported;
     let warned = false;
+    let claimAfter = 0;
     const activity = (session) => {
       let state;
       try {
@@ -67,11 +69,25 @@ export const readerTui = ({
       activity(session);
       if (session === previous) return;
       try {
-        recordNativeSession({ session_id: session }, env, { pid: process.pid });
+        recordNativeSession({ session_id: session }, env, { pid: process.pid, ps });
         previous = session;
         warned = false;
         channel?.activity();
       } catch (error) {
+        // A sandbox denies the process list: the server writes the receipt. One
+        // claim at a time, and a refused one is not repeated every tick.
+        if (error.processUnreadable) {
+          if (Date.now() < claimAfter) return;
+          claimAfter = Date.now() + 5000;
+          claimNativeSession({ session_id: session }, env)
+            .then((bound) => {
+              if (!bound || visible() !== session) return;
+              previous = session;
+              channel?.activity();
+            })
+            .catch(() => {});
+          return;
+        }
         if (!warned) {
           process.stderr.write(
             `agentpier-reader: ${String(error.message).slice(0, 240)}\n`,

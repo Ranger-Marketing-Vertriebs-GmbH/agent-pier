@@ -396,7 +396,7 @@ export class RequestBroker {
     }
     if (push.type === "stream-end" && push.runId) socket.runs?.delete(push.runId);
     if (push.type === "preparing") socket.preparing = Boolean(push.name);
-    this.notify(owner.id, push);
+    send(socket, (await this.notify(owner.id, push))?.reply); // A claim's result.
   }
   launched(sessionId) {
     try {
