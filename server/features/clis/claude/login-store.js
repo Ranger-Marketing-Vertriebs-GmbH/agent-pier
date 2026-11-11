@@ -197,12 +197,36 @@ function holdsLoginFile(directory) {
     return false;
   }
 }
+// Settings that sign Claude Code in without a stored login: a key helper, a key or
+// token in the settings' environment, or a cloud provider's own credentials.
+const SETTINGS_LOGIN = [
+  "ANTHROPIC_API_KEY",
+  "ANTHROPIC_AUTH_TOKEN",
+  "CLAUDE_CODE_OAUTH_TOKEN",
+  "CLAUDE_CODE_USE_BEDROCK",
+  "CLAUDE_CODE_USE_VERTEX",
+];
+function signsInThroughSettings(directory) {
+  try {
+    const settings = JSON.parse(
+      fs.readFileSync(path.join(directory, "settings.json"), "utf8"),
+    );
+    return (
+      !!settings?.apiKeyHelper || SETTINGS_LOGIN.some((name) => settings?.env?.[name])
+    );
+  } catch {
+    return false;
+  }
+}
 /**
  * Whether the CLI's own profile (a local account) keeps its login where a sandboxed
- * session cannot read it: in the keychain rather than in `~/.claude/.credentials.json`.
+ * session cannot read it: in the keychain rather than in `~/.claude/.credentials.json`
+ * or in its settings. A sandboxed launch of such an account is refused.
  */
-export const localHidden = (home, env = {}) =>
-  !holdsLoginFile(env.CLAUDE_CONFIG_DIR || path.join(home, ".claude"));
+export function localHidden(home, env = {}) {
+  const directory = env.CLAUDE_CONFIG_DIR || path.join(home, ".claude");
+  return !holdsLoginFile(directory) && !signsInThroughSettings(directory);
+}
 /**
  * Whether a managed account's login is still out of a sandboxed session's reach: the
  * account is not on the file store and has no login file either (a host whose

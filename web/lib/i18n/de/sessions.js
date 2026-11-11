@@ -52,9 +52,9 @@ export const launchDialogCopy = {
   sandboxHint:
     "Die Coding-CLI der Session läuft in nono mit diesem Sandbox-Profil. AgentPier ergänzt die Zugriffe, die seine eigenen Integrationen brauchen.",
   sandboxLoginLocal:
-    "Die Sandbox kann die Anmeldung dieses Accounts nicht lesen: Claude Code legt sie im macOS-Schlüsselbund ab, den kein Sandbox-Profil öffnen darf. Die Session startet abgemeldet. Nutze für Sandbox-Sessions einen Claude-Account mit eigenem Profil.",
+    "Die Sandbox kann die Anmeldung dieses Accounts nicht lesen: Claude Code legt sie im macOS-Schlüsselbund ab, den kein Sandbox-Profil öffnen darf. Eine Sandbox-Session dieses Accounts lässt sich nicht starten. Nutze für Sandbox-Sessions einen Claude-Account mit eigenem Profil.",
   sandboxLoginPending:
-    "Die Anmeldung dieses Accounts liegt noch im macOS-Schlüsselbund, den die Sandbox nicht lesen kann. AgentPier verschiebt sie in den Ordner des Accounts, sobald keine Session dieses Accounts läuft. Beende die Sessions des Accounts und starte dann diese.",
+    "Die Anmeldung dieses Accounts liegt noch im macOS-Schlüsselbund, den die Sandbox nicht lesen kann. AgentPier verschiebt sie in den Ordner des Accounts, sobald keine Session dieses Accounts läuft. Bis dahin lässt sich keine Sandbox-Session starten. Beende die Sessions des Accounts und starte dann diese.",
   sandboxBadge: (sandboxProfile) => `Sandbox · ${sandboxProfile}`,
 };
 export const sessionWorkspaceCopy = {
