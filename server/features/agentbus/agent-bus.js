@@ -177,11 +177,13 @@ export class AgentBus {
       env,
       agentbus: { enabled: true, projectId, version: VERSION },
     };
-    // The CLI spawns the vendored AgentBus MCP server and hooks with node, and they
-    // read their capability file and then reach AgentPier over the broker socket,
-    // which file access to that path does not confer.
+    // The CLI spawns the AgentBus MCP server and hooks with node, and they read their
+    // capability file and then reach AgentPier over the broker socket, which file
+    // access to that path does not confer. Queue, peers, identities and launch
+    // records are the broker's alone: of the project's bus folder a session gets only
+    // the plugin folder Claude Code loads its own hooks from.
     return [
-      { access: "allow", path: home },
+      ...(fs.existsSync(plugin) ? [{ access: "allow", path: plugin }] : []),
       { access: "read", path: process.execPath },
       { access: "read", path: bridgeEnv.AGENTPIER_AGENTBUS_CAPABILITY_FILE },
       { access: "socket", path: this.broker.transport.socketPath },

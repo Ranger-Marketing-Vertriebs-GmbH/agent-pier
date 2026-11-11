@@ -8,7 +8,13 @@ import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto
 import { problem } from "../../lib/storage.js";
 import { requestCopy as copy } from "../../lib/i18n/de/requests.js";
 import { prepareRequests } from "./request-launch.js";
-import { ownedFolder, requestFolders } from "./request-storage.js";
+import {
+  claimLaunchFolder,
+  ownedFolder,
+  removeLaunchFiles,
+  requestFolders,
+} from "./request-storage.js";
+import { launchFile, sessionFolder } from "../sessions/session-own-folder.js";
 import { refreshClaudeRuntime, confirmClaudeRuntime } from "./claude-runtime.js";
 import { hookScript } from "./claude-hook-handover.js";
 import { endCause, startupPresentations } from "./request-endings.js";
@@ -162,7 +168,12 @@ export class RequestBroker {
   }
   file(id) {
     if (!validSession(id)) throw problem(copy.session);
-    return path.join(this.directory, `${id}.launch.json`);
+    return launchFile(this.directory, id);
+  }
+  /** The folder a new launch of `id` keeps its files in, created; `file` reads it. */
+  async claim(id) {
+    if (!validSession(id)) throw problem(copy.session);
+    return claimLaunchFolder(this.directory, id);
   }
   prepare(input) {
     return this.ready.then(() => {
@@ -550,12 +561,12 @@ export class RequestBroker {
   handoff(sessionId, id, input) {
     return this.answer(sessionId, id, input, true);
   }
-  /** A file of this broker's directory named after a session, never outside it. */
+  /** A file of the session's current launch, never outside that launch's folder. */
   sessionPath(sessionId, suffix) {
     if (!validSession(sessionId)) throw problem(copy.session);
-    const file = path.resolve(this.directory, `${sessionId}${suffix}`);
-    if (!file.startsWith(path.resolve(this.directory) + path.sep))
-      throw problem(copy.session);
+    const folder = path.resolve(sessionFolder(this.directory, sessionId));
+    const file = path.resolve(folder, `${sessionId}${suffix}`);
+    if (!file.startsWith(folder + path.sep)) throw problem(copy.session);
     return file;
   }
   async discard(sessionId, { removeLaunch = true } = {}) {
@@ -573,13 +584,7 @@ export class RequestBroker {
       }
     if (removeLaunch) {
       if (this.claudeReloadRequired.delete(sessionId)) this.changed(sessionId);
-      await fs.rm(this.sessionPath(sessionId, ".launch.json"), { force: true });
-      for (const plugin of [".claude", ".claude-bridge"])
-        await fs.rm(this.sessionPath(sessionId, plugin), {
-          force: true,
-          recursive: true,
-        });
-      await fs.rm(this.sessionPath(sessionId, ".tui.json"), { force: true });
+      await removeLaunchFiles(this.directory, sessionId);
     }
   }
   async close() {

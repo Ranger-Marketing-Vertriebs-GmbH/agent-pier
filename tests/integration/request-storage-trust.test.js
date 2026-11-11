@@ -62,7 +62,7 @@ async function fixture(t, { before } = {}) {
     cwd: root,
     launch: { command: "claude", args: [], env: {}, cliVersion: "2.1.300" },
   });
-  const hookFile = path.join(root, "requests/session.claude/hooks/hooks.json");
+  const hookFile = path.join(root, "requests/session/session.claude/hooks/hooks.json");
   const command = async () =>
     JSON.parse(await fs.readFile(hookFile, "utf8")).hooks.PreToolUse[0].hooks[0].command;
   return {
@@ -148,9 +148,9 @@ test("a launch from before the runtime folder keeps its dispatcher when its hook
   assert.equal(await f.command(), line(legacyDispatcher(f.root)));
 });
 
-test("a Claude launch may write only its own plugin folders in the request folder", async (t) => {
+test("a Claude launch reads its own request folder and may write only its plugin folders", async (t) => {
   const f = await fixture(t);
-  const requests = path.join(f.root, "requests");
+  const requests = path.join(f.root, "requests/session");
   const files = f.launch.sandboxGrants.filter(
     (grant) => !grant.access.startsWith("socket") && grant.path.startsWith(f.root),
   );
@@ -173,7 +173,7 @@ test("an OpenCode launch may write only its own TUI configuration", async (t) =>
     cwd: f.root,
     launch: { command: "opencode", args: [], env: {} },
   });
-  const requests = path.join(f.root, "requests");
+  const requests = path.join(f.root, "requests/open");
   assert.deepEqual(
     launch.sandboxGrants.filter((grant) => grant.path.startsWith(f.root)),
     [

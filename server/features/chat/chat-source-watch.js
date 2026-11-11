@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { ChatSourceWatchPool } from "./chat-source-watch-pool.js";
 import { cliDriver } from "../clis/drivers.js";
+import { ownFolder } from "../sessions/session-own-folder.js";
 
 /** Observe only this chat's sources; never recursively watch an entire profile. */
 export function watchChatSources(
@@ -31,6 +32,12 @@ export function watchChatSources(
         file: path.join(dataDir, "native-sessions"),
         directory: true,
         accepts: forSession,
+      },
+      // The launch's own folder; a launch from before it wrote into the one above.
+      {
+        file: ownFolder(path.join(dataDir, "native-sessions"), session.id),
+        directory: true,
+        accepts: always,
       },
       { file: path.join(dataDir, "sessions"), directory: true, accepts: forSession },
     ];

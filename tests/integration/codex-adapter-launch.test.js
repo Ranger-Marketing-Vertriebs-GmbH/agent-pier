@@ -49,7 +49,7 @@ else {
   const broker = {
     directory: requests,
     socketPath: path.join(requests, "absent.sock"),
-    file: (id) => path.join(requests, `${id}.launch.json`),
+    claim: async (id) => path.join(requests, `${id}.launch.json`),
   };
   const adapter = validAdapterConfig({ clientProtocol: "responses" });
   const prepared = await prepareRequests(broker, {

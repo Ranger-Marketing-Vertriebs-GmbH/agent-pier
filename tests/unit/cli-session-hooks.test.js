@@ -209,7 +209,7 @@ async function bindingLaunch(ctx, tool, id, launch = {}) {
       nativeBinding: prepared.nativeBinding,
       sandboxGrants: prepared.sandboxGrants,
       files: Object.fromEntries(
-        Object.entries(files(ctx.bindings.directory)).filter(
+        Object.entries(files(path.join(ctx.bindings.directory, id))).filter(
           ([name]) => name.startsWith(`${id}.`) && !name.endsWith("launch.json"),
         ),
       ),
@@ -228,23 +228,23 @@ async function bindingLaunch(ctx, tool, id, launch = {}) {
 const BINDING = {
   "codex": {
     args: ["-c","hooks.SessionStart=[{\"hooks\"=[{\"type\"=\"command\",\"command\"=\"\\\"${AGENTPIER_HOOK_NODE:?}\\\" \\\"${AGENTPIER_BINDING_HOOK:?}\\\" '--record'\",\"timeout\"=5}]}]","-c","hooks.UserPromptSubmit=[{\"hooks\"=[{\"type\"=\"command\",\"command\"=\"\\\"${AGENTPIER_HOOK_NODE:?}\\\" \\\"${AGENTPIER_BINDING_HOOK:?}\\\" '--record'\",\"timeout\"=5}]}]"],
-    env: {"KEEP":"1","AGENTPIER_NATIVE_BINDING_FILE":"<root>/data/native-sessions/codex.launch.json","AGENTPIER_NATIVE_BINDING_TOKEN":"<token>","AGENTPIER_HOOK_NODE":"<node>","AGENTPIER_BINDING_HOOK":"<repo>/server/features/sessions/native-session-binding.js"},
+    env: {"KEEP":"1","AGENTPIER_NATIVE_BINDING_FILE":"<root>/data/native-sessions/codex/codex.launch.json","AGENTPIER_NATIVE_BINDING_TOKEN":"<token>","AGENTPIER_HOOK_NODE":"<node>","AGENTPIER_BINDING_HOOK":"<repo>/server/features/sessions/native-session-binding.js"},
     nativeBinding: {"enabled":true,"version":1},
-    sandboxGrants: [{"access":"allow","path":"<root>/data/native-sessions"},{"access":"read","path":"<node>"},{"access":"read","path":"<repo>/server/features/sessions/native-session-binding.js"}],
+    sandboxGrants: [{"access":"allow","path":"<root>/data/native-sessions/codex"},{"access":"read","path":"<node>"},{"access":"read","path":"<repo>/server/features/sessions/native-session-binding.js"}],
     files: {},
   },
   "codex-merged": {
     args: ["--yolo","-c","hooks.UserPromptSubmit=[{\"hooks\"=[{\"type\"=\"command\",\"command\"=\"existing\"}]},{\"hooks\"=[{\"type\"=\"command\",\"command\"=\"\\\"${AGENTPIER_HOOK_NODE:?}\\\" \\\"${AGENTPIER_BINDING_HOOK:?}\\\" '--record'\",\"timeout\"=5}]}]","-c","hooks.SessionStart=[{\"hooks\"=[{\"type\"=\"command\",\"command\"=\"\\\"${AGENTPIER_HOOK_NODE:?}\\\" \\\"${AGENTPIER_BINDING_HOOK:?}\\\" '--record'\",\"timeout\"=5}]}]"],
-    env: {"KEEP":"1","AGENTPIER_NATIVE_BINDING_FILE":"<root>/data/native-sessions/codex-merged.launch.json","AGENTPIER_NATIVE_BINDING_TOKEN":"<token>","AGENTPIER_HOOK_NODE":"<node>","AGENTPIER_BINDING_HOOK":"<repo>/server/features/sessions/native-session-binding.js"},
+    env: {"KEEP":"1","AGENTPIER_NATIVE_BINDING_FILE":"<root>/data/native-sessions/codex-merged/codex-merged.launch.json","AGENTPIER_NATIVE_BINDING_TOKEN":"<token>","AGENTPIER_HOOK_NODE":"<node>","AGENTPIER_BINDING_HOOK":"<repo>/server/features/sessions/native-session-binding.js"},
     nativeBinding: {"enabled":true,"version":1},
-    sandboxGrants: [{"access":"allow","path":"<root>/data/native-sessions"},{"access":"read","path":"<node>"},{"access":"read","path":"<repo>/server/features/sessions/native-session-binding.js"}],
+    sandboxGrants: [{"access":"allow","path":"<root>/data/native-sessions/codex-merged"},{"access":"read","path":"<node>"},{"access":"read","path":"<repo>/server/features/sessions/native-session-binding.js"}],
     files: {},
   },
   "claude-old": {
-    args: ["--session-id","claude-old","--plugin-dir","<root>/data/native-sessions/claude-old.claude","--plugin-dir","<root>/data/native-sessions/claude-old.claude-activity"],
-    env: {"KEEP":"1","AGENTPIER_NATIVE_BINDING_FILE":"<root>/data/native-sessions/claude-old.launch.json","AGENTPIER_NATIVE_BINDING_TOKEN":"<token>"},
+    args: ["--session-id","claude-old","--plugin-dir","<root>/data/native-sessions/claude-old/claude-old.claude","--plugin-dir","<root>/data/native-sessions/claude-old/claude-old.claude-activity"],
+    env: {"KEEP":"1","AGENTPIER_NATIVE_BINDING_FILE":"<root>/data/native-sessions/claude-old/claude-old.launch.json","AGENTPIER_NATIVE_BINDING_TOKEN":"<token>"},
     nativeBinding: {"enabled":true,"version":1},
-    sandboxGrants: [{"access":"allow","path":"<root>/data/native-sessions"},{"access":"read","path":"<node>"},{"access":"read","path":"<repo>/server/features/sessions/native-session-binding.js"}],
+    sandboxGrants: [{"access":"allow","path":"<root>/data/native-sessions/claude-old"},{"access":"read","path":"<node>"},{"access":"read","path":"<repo>/server/features/sessions/native-session-binding.js"}],
     files: {
       "claude-old.claude/.claude-plugin/plugin.json": {"name":"agentpier-reader","version":"1.0.0","description":"Native session identity for the AgentPier reader"},
       "claude-old.claude/hooks/hooks.json": {"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"'<node>' '<repo>/server/features/sessions/native-session-binding.js' '--record'","timeout":5}]}],"UserPromptSubmit":[{"hooks":[{"type":"command","command":"'<node>' '<repo>/server/features/sessions/native-session-binding.js' '--record'","timeout":5}]}]}},
@@ -253,10 +253,10 @@ const BINDING = {
     },
   },
   "claude-stream": {
-    args: ["--resume","x","--plugin-dir","<root>/data/native-sessions/claude-stream.claude","--plugin-dir","<root>/data/native-sessions/claude-stream.claude-activity","--plugin-dir","<root>/data/native-sessions/claude-stream.claude-stream"],
-    env: {"KEEP":"1","AGENTPIER_NATIVE_BINDING_FILE":"<root>/data/native-sessions/claude-stream.launch.json","AGENTPIER_NATIVE_BINDING_TOKEN":"<token>"},
+    args: ["--resume","x","--plugin-dir","<root>/data/native-sessions/claude-stream/claude-stream.claude","--plugin-dir","<root>/data/native-sessions/claude-stream/claude-stream.claude-activity","--plugin-dir","<root>/data/native-sessions/claude-stream/claude-stream.claude-stream"],
+    env: {"KEEP":"1","AGENTPIER_NATIVE_BINDING_FILE":"<root>/data/native-sessions/claude-stream/claude-stream.launch.json","AGENTPIER_NATIVE_BINDING_TOKEN":"<token>"},
     nativeBinding: {"enabled":true,"version":1},
-    sandboxGrants: [{"access":"allow","path":"<root>/data/native-sessions"},{"access":"read","path":"<node>"},{"access":"read","path":"<repo>/server/features/sessions/native-session-binding.js"}],
+    sandboxGrants: [{"access":"allow","path":"<root>/data/native-sessions/claude-stream"},{"access":"read","path":"<node>"},{"access":"read","path":"<repo>/server/features/sessions/native-session-binding.js"}],
     files: {
       "claude-stream.claude/.claude-plugin/plugin.json": {"name":"agentpier-reader","version":"1.0.0","description":"Native session identity for the AgentPier reader"},
       "claude-stream.claude/hooks/hooks.json": {"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"'<node>' '<repo>/server/features/sessions/native-session-binding.js' '--record'","timeout":5}]}],"UserPromptSubmit":[{"hooks":[{"type":"command","command":"'<node>' '<repo>/server/features/sessions/native-session-binding.js' '--record'","timeout":5}]}]}},
@@ -268,9 +268,9 @@ const BINDING = {
   },
   "opencode": {
     args: [],
-    env: {"KEEP":"1","AGENTPIER_NATIVE_BINDING_FILE":"<root>/data/native-sessions/opencode.launch.json","AGENTPIER_NATIVE_BINDING_TOKEN":"<token>","OPENCODE_TUI_CONFIG":"<root>/data/native-sessions/opencode.tui.json"},
+    env: {"KEEP":"1","AGENTPIER_NATIVE_BINDING_FILE":"<root>/data/native-sessions/opencode/opencode.launch.json","AGENTPIER_NATIVE_BINDING_TOKEN":"<token>","OPENCODE_TUI_CONFIG":"<root>/data/native-sessions/opencode/opencode.tui.json"},
     nativeBinding: {"enabled":true,"version":1},
-    sandboxGrants: [{"access":"allow","path":"<root>/data/native-sessions"},{"access":"read","path":"<node>"},{"access":"read","path":"<repo>/server/features/sessions/native-session-binding.js"}],
+    sandboxGrants: [{"access":"allow","path":"<root>/data/native-sessions/opencode"},{"access":"read","path":"<node>"},{"access":"read","path":"<repo>/server/features/sessions/native-session-binding.js"}],
     files: {
       "opencode.tui.json": {"plugin":["file://<repo>/server/features/sessions/native-session-opencode.js"]},
     },

@@ -5,7 +5,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import {
   wrapWithNono,
@@ -14,6 +14,11 @@ import {
 import { SshIntegration } from "../../server/features/ssh/ssh-integration.js";
 import { capabilityFile } from "../../server/features/ssh/ssh-capability.js";
 import { RequestBroker } from "../../server/features/requests/request-broker.js";
+import { NativeSessionBinding } from "../../server/features/sessions/native-session-binding.js";
+import { AccountStore } from "../../server/features/accounts/account-store.js";
+import { AgentBus } from "../../server/features/agentbus/agent-bus.js";
+import { diffStat } from "../../server/features/changes/git-read.js";
+import { setRepositoryConfinement } from "../../server/lib/git-repository-programs.js";
 
 /**
  * The grant-composition tests assert what AgentPier puts on the command line.
@@ -80,6 +85,13 @@ function workspace(t) {
   fs.writeFileSync(profile, JSON.stringify(restrictive));
   return { root, profile };
 }
+
+const write = (label, file) =>
+  `echo "${label}:$( (echo planted > '${file}') 2>&1 && echo written)"`;
+const denied = (output, labels) => {
+  for (const label of labels)
+    assert.match(output, new RegExp(`${label}:.*(not permitted|denied)`, "i"), label);
+};
 
 /** Runs a composed launch and returns its stdout, never throwing on a denial. */
 function run({ launch, profile, cwd, stdin = "" }) {
@@ -220,7 +232,7 @@ test(
 );
 
 test(
-  "a Claude launch under nono reads the request folder and writes only its own plugin folders",
+  "a Claude launch under nono reads its own request folder and writes only its own plugin folders",
   options,
   async (t) => {
     const { root, profile } = workspace(t);
@@ -239,17 +251,21 @@ test(
     const prepared = await prepare("mine");
     const requests = path.join(dataDir, "requests");
     const dispatcher = prepared.env.AGENTPIER_CLAUDE_HOOK_DISPATCHER;
-    const write = (label, file) =>
-      `echo "${label}:$( (echo planted > '${file}') 2>&1 && echo written)"`;
     const script = [
+      `echo "OTHER_TOKEN:$(cat '${path.join(requests, "other/other.launch.json")}' 2>&1)"`,
+      `echo "SHARED_LIST:$(ls '${requests}' 2>&1)"`,
       `echo "OWN_LAUNCH:$(grep -c '"id":"mine"' '${prepared.env.AGENTPIER_REQUEST_FILE}' 2>&1)"`,
       `echo "DISPATCHER:$(head -n 1 '${dispatcher}' 2>&1)"`,
-      write("OWN_BRIDGE", path.join(requests, "mine.claude-bridge/hooks/types.d.ts")),
-      write("OWN_PLUGIN", path.join(requests, "mine.claude/note")),
+      write(
+        "OWN_BRIDGE",
+        path.join(requests, "mine/mine.claude-bridge/hooks/types.d.ts"),
+      ),
+      write("OWN_PLUGIN", path.join(requests, "mine/mine.claude/note")),
+      write("OWN_LAUNCH_WRITE", prepared.env.AGENTPIER_REQUEST_FILE),
       write("NEW_DISPATCHER", dispatcher),
       write("OLD_DISPATCHER", path.join(requests, "claude-hook.sh")),
-      write("OTHER_HOOKS", path.join(requests, "other.claude/hooks/hooks.json")),
-      write("OTHER_LAUNCH", path.join(requests, "other.launch.json")),
+      write("OTHER_HOOKS", path.join(requests, "other/other.claude/hooks/hooks.json")),
+      write("OTHER_LAUNCH", path.join(requests, "other/other.launch.json")),
       write("OLD_APPROVALS", path.join(requests, "remembered-approvals.json")),
       write("APPROVALS", path.join(dataDir, "request-state/remembered-approvals.json")),
       `echo "READ_APPROVALS:$(cat '${path.join(dataDir, "request-state/remembered-approvals.json")}' 2>&1)"`,
@@ -267,7 +283,12 @@ test(
     assert.match(output, /DISPATCHER:#!\/bin\/sh/);
     assert.match(output, /OWN_BRIDGE:written/);
     assert.match(output, /OWN_PLUGIN:written/);
+    // Another session's request token is not readable, nor is the folder's listing.
+    assert.doesNotMatch(output, /OTHER_TOKEN:.*"token"/);
     for (const label of [
+      "OTHER_TOKEN",
+      "SHARED_LIST",
+      "OWN_LAUNCH_WRITE",
       "NEW_DISPATCHER",
       "OLD_DISPATCHER",
       "OTHER_HOOKS",
@@ -281,5 +302,218 @@ test(
       fs.readFileSync(path.join(requests, "claude-hook.sh"), "utf8"),
       /planted/,
     );
+  },
+);
+
+test(
+  "a launch under nono writes its own native binding folder and reaches no other session's",
+  options,
+  async (t) => {
+    const { root, profile } = workspace(t);
+    const cwd = path.join(root, "work");
+    const accounts = new AccountStore({ dataDir: path.join(root, "data"), home: root });
+    const bindings = new NativeSessionBinding({ dataDir: accounts.dataDir, accounts });
+    const prepare = (id) =>
+      bindings.prepare({
+        id,
+        account: accounts.create({ name: id, tool: "claude" }),
+        cwd,
+        launch: { command: "claude", args: [], env: {}, cliVersion: "2.1.300" },
+      });
+    await prepare("other");
+    const prepared = await prepare("mine");
+    const shared = path.join(accounts.dataDir, "native-sessions");
+    // The hook's own writer, started the way the CLI starts it: a temporary file
+    // beside the report, then a rename over it.
+    const probe = path.join(cwd, "activity.mjs");
+    fs.writeFileSync(
+      probe,
+      [
+        `import { recordNativeActivity } from ${JSON.stringify(
+          fileURLToPath(
+            new URL(
+              "../../server/features/sessions/native-session-activity.js",
+              import.meta.url,
+            ),
+          ),
+        )};`,
+        'console.log("ACTIVITY:" + recordNativeActivity({ state: "working", event: "UserPromptSubmit" }));',
+      ].join("\n"),
+    );
+    const env = Object.entries({
+      AGENTPIER_NATIVE_BINDING_FILE: prepared.env.AGENTPIER_NATIVE_BINDING_FILE,
+      AGENTPIER_NATIVE_BINDING_TOKEN: prepared.env.AGENTPIER_NATIVE_BINDING_TOKEN,
+    })
+      .map(([name, value]) => `${name}='${value}'`)
+      .join(" ");
+    const script = [
+      `${env} '${process.execPath}' '${probe}' 2>&1`,
+      `echo "OWN_HOOKS:$(grep -c SessionStart '${path.join(shared, "mine/mine.claude/hooks/hooks.json")}' 2>&1)"`,
+      `echo "OTHER_TOKEN:$(cat '${path.join(shared, "other/other.launch.json")}' 2>&1)"`,
+      write("OTHER_HOOKS", path.join(shared, "other/other.claude/hooks/hooks.json")),
+      write("OTHER_RECEIPT", path.join(shared, "other/other.receipt.json")),
+      write("SHARED_NEW", path.join(shared, "planted.launch.json")),
+    ].join("\n");
+    const output = run({
+      cwd,
+      profile,
+      launch: {
+        command: "/bin/sh",
+        args: ["-c", script],
+        sandboxGrants: [
+          ...prepared.sandboxGrants,
+          { access: "read", path: process.execPath },
+        ],
+      },
+    });
+    assert.match(output, /ACTIVITY:true/);
+    assert.match(output, /OWN_HOOKS:1/);
+    assert.doesNotMatch(output, /OTHER_TOKEN:.*"token"/);
+    denied(output, ["OTHER_TOKEN", "OTHER_HOOKS", "OTHER_RECEIPT", "SHARED_NEW"]);
+    assert.equal(
+      JSON.parse(fs.readFileSync(path.join(shared, "mine/mine.activity.json"), "utf8"))
+        .state,
+      "working",
+    );
+  },
+);
+
+test(
+  "an AgentBus launch under nono reaches the broker and writes nothing of the project's bus",
+  options,
+  async (t) => {
+    const { root, profile } = workspace(t);
+    const cwd = path.join(root, "work");
+    const accounts = new AccountStore({ dataDir: path.join(root, "data"), home: root });
+    // The sessions the broker checks a caller against: running, on this bus.
+    const records = new Map();
+    const bus = new AgentBus({
+      dataDir: accounts.dataDir,
+      home: root,
+      accounts,
+      sessions: {
+        list: async () => [...records.values()],
+        get: async (id) => records.get(id) ?? null,
+      },
+      classifyFolder: (folder) => ({ kind: "project", cwd: folder }),
+    });
+    await bus.ready;
+    t.after(() => bus.close());
+    const prepare = async (id) => {
+      const account = accounts.create({ name: id, tool: "claude" });
+      const launch = await bus.prepare({
+        id,
+        account,
+        cwd,
+        launch: { command: "claude", args: [], env: {} },
+      });
+      records.set(id, {
+        id,
+        status: "running",
+        tool: "claude",
+        accountId: account.id,
+        agentbus: launch.agentbus,
+        cwd,
+      });
+      return launch;
+    };
+    await prepare("other");
+    const prepared = await prepare("mine");
+    const home = path.join(bus.root, "projects", prepared.agentbus.projectId);
+    const env = ["AGENTPIER_AGENTBUS_SOCKET", "AGENTPIER_AGENTBUS_CAPABILITY_FILE"]
+      .map((name) => `${name}='${prepared.env[name]}'`)
+      .join(" ");
+    const mcp = fileURLToPath(
+      new URL("../../server/features/agentbus/agentbus-mcp.js", import.meta.url),
+    );
+    const script = [
+      // The session's own bus program: its capability file, then the broker socket.
+      `echo "MCP:$(${env} '${process.execPath}' '${mcp}' 2>&1)"`,
+      `echo "OWN_HOOKS:$(grep -c SessionStart '${path.join(home, "adapters/mine/hooks/hooks.json")}' 2>&1)"`,
+      write("OTHER_HOOKS", path.join(home, "adapters/other/hooks/hooks.json")),
+      write("OTHER_LAUNCH", path.join(home, "launches/other.json")),
+      write("OWN_LAUNCH", path.join(home, "launches/mine.json")),
+      write("FORGED", path.join(home, "launches/forged.json")),
+      `echo "BUS_LIST:$(ls '${home}' 2>&1)"`,
+    ].join("\n");
+    // The broker answers on this process's event loop, so the launch must not block it.
+    const wrapped = wrapWithNono({
+      launch: {
+        command: "/bin/sh",
+        args: ["-c", script],
+        sandboxGrants: prepared.sandboxGrants,
+      },
+      executable,
+      profile,
+    });
+    const output = await new Promise((resolve) => {
+      const child = spawn(wrapped.command, ["wrap", "-s", ...wrapped.args.slice(1)], {
+        cwd,
+        env: { ...process.env, NONO_THEME: "minimal" },
+      });
+      let text = "";
+      child.stdout.on("data", (chunk) => (text += chunk));
+      child.stderr.on("data", (chunk) => (text += chunk));
+      child.on("close", () => resolve(text));
+      child.stdin.end(
+        `${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} })}\n`,
+      );
+    });
+    assert.match(output, /MCP:\{"jsonrpc":"2\.0","id":1,"result"/);
+    assert.match(output, /OWN_HOOKS:[1-9]/);
+    denied(output, ["OTHER_HOOKS", "OTHER_LAUNCH", "OWN_LAUNCH", "FORGED", "BUS_LIST"]);
+  },
+);
+
+test(
+  "the server's git runs a sandboxed repository's own filter inside the sandbox",
+  options,
+  async (t) => {
+    const { root, profile } = workspace(t);
+    const cwd = path.join(root, "work");
+    const outside = path.join(root, "unrelated", "filter-ran");
+    const inside = path.join(cwd, "filter-ran");
+    // The filter a session could plant: it lives in the working tree, reports where
+    // it could write, and passes the content on.
+    fs.writeFileSync(
+      path.join(cwd, "filter.sh"),
+      `#!/bin/sh\n(echo ran >> '${outside}') 2>/dev/null\n(echo ran >> '${inside}') 2>/dev/null\ncat\n`,
+      { mode: 0o700 },
+    );
+    const identity = { GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@example.invalid" };
+    const git = (...args) =>
+      execFileSync("git", args, {
+        cwd,
+        env: {
+          ...process.env,
+          ...identity,
+          GIT_COMMITTER_NAME: "t",
+          GIT_COMMITTER_EMAIL: "t@example.invalid",
+        },
+      });
+    git("init", "--quiet", "-b", "main");
+    fs.writeFileSync(path.join(cwd, ".gitattributes"), "*.txt filter=planted\n");
+    fs.writeFileSync(path.join(cwd, ".gitignore"), "filter-ran\n");
+    git("add", ".");
+    git("commit", "--quiet", "-m", "first");
+    git("config", "filter.planted.clean", "./filter.sh");
+    const touch = () => {
+      const later = new Date(Date.now() + 5000 + Math.random() * 100000);
+      fs.utimesSync(path.join(cwd, "in-workspace.txt"), later, later);
+      fs.rmSync(outside, { force: true });
+      fs.rmSync(inside, { force: true });
+    };
+    t.after(() => setRepositoryConfinement(null));
+    // The control: without a sandboxed session the filter runs as the server.
+    touch();
+    assert.equal((await diffStat(cwd, "HEAD")).files, 0);
+    assert.equal(fs.existsSync(outside), true);
+    // With one, it runs under that session's profile: the result is the same, the
+    // write outside the working tree is denied.
+    setRepositoryConfinement(async () => ({ executable, profile }));
+    touch();
+    assert.equal((await diffStat(cwd, "HEAD")).files, 0);
+    assert.equal(fs.existsSync(inside), true);
+    assert.equal(fs.existsSync(outside), false);
   },
 );

@@ -53,7 +53,7 @@ async function fixture(t) {
     cwd: root,
     launch: { command: "claude", args: [], env: {} },
   });
-  const hookFile = path.join(broker.directory, "session.claude/hooks/hooks.json");
+  const hookFile = path.join(broker.directory, "session/session.claude/hooks/hooks.json");
   const command = JSON.parse(await fs.readFile(hookFile, "utf8")).hooks.PreToolUse[0]
     .hooks[0].command;
   t.after(async () => {

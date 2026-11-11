@@ -4,6 +4,7 @@ import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { randomBytes } from "node:crypto";
 import { readJson } from "../../../vendor/agentbus/core/fsx.js";
+import { isLaunchFile, launchFile } from "./session-own-folder.js";
 
 // Activity a CLI reports about itself: hooks (Claude Code), the app-server proxy
 // (Codex) or the TUI plugin (OpenCode). "ended" means the CLI said goodbye, so the
@@ -32,8 +33,7 @@ function bindingFiles(file) {
   if (
     typeof file !== "string" ||
     !path.isAbsolute(file) ||
-    !file.endsWith(".launch.json") ||
-    path.basename(path.dirname(file)) !== "native-sessions" ||
+    !isLaunchFile(file, "native-sessions") ||
     !validId(path.basename(file, ".launch.json"))
   )
     throw problem(serverMessages.sessions.invalidNativeBinding);
@@ -142,7 +142,7 @@ function storeActivity(files, launch, { state, event, background, at }) {
 export function readNativeActivity(directory, session) {
   try {
     if (!validId(session?.id)) return null;
-    const files = bindingFiles(path.join(directory, `${session.id}.launch.json`));
+    const files = bindingFiles(launchFile(directory, session.id));
     if (!fs.existsSync(files.activity)) return null;
     const launch = readJson(files.launch);
     const value = readJson(files.activity);

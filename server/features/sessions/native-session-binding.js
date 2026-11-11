@@ -21,6 +21,7 @@ import { readNativeActivity, recordNativeActivity } from "./native-session-activ
 import { maxReplyText, pushNative } from "../requests/native-push.js";
 import { isCodingCli } from "../clis/catalog.js";
 import { cliDriver } from "../clis/drivers.js";
+import { isLaunchFile, ownFolder, sessionFolder } from "./session-own-folder.js";
 
 export { MESSAGE_DISPLAY_VERSION } from "../clis/claude/binding.js";
 
@@ -38,8 +39,7 @@ function receiptPath(file) {
     typeof file !== "string" ||
     !path.isAbsolute(file) ||
     !validId(path.basename(file, ".launch.json")) ||
-    !file.endsWith(".launch.json") ||
-    path.basename(path.dirname(file)) !== "native-sessions"
+    !isLaunchFile(file, "native-sessions")
   )
     throw problem(serverMessages.sessions.invalidNativeBinding);
   return file.replace(/\.launch\.json$/, ".receipt.json");
@@ -108,9 +108,19 @@ export class NativeSessionBinding {
     this.processOptions = processOptions;
     this.processCache = new Map();
   }
+  /** The launch file of the session's current launch (session-own-folder.js). */
   file(id) {
     if (!validId(id)) throw problem(serverMessages.common.invalidSessionId);
-    return path.join(this.directory, `${id}.launch.json`);
+    return path.join(sessionFolder(this.directory, id), `${id}.launch.json`);
+  }
+  /** Removes what a launch from before the session had a folder of its own left. */
+  discardShared(id) {
+    const flat = path.join(this.directory, `${id}.launch.json`);
+    for (const file of [flat, receiptPath(flat), activityPath(flat)])
+      fs.rmSync(file, { force: true });
+    for (const plugin of [`${id}.claude`, `${id}.claude-activity`, `${id}.claude-stream`])
+      fs.rmSync(path.join(this.directory, plugin), { recursive: true, force: true });
+    fs.rmSync(path.join(this.directory, `${id}.tui.json`), { force: true });
   }
   async prepare({ id, account, cwd, launch, purpose, replace = false } = {}) {
     if (purpose === "login" || account?.tool === "shell")
@@ -118,13 +128,17 @@ export class NativeSessionBinding {
     const selected = this.accounts.get(account?.id);
     if (selected.tool !== account.tool || !isCodingCli(account.tool))
       throw problem(serverMessages.common.invalidCliProfile);
-    const file = this.file(id);
-    const canonical = fs.realpathSync(cwd);
-    ensureDir(this.directory);
-    if (fs.existsSync(file) && !replace)
+    if (fs.existsSync(this.file(id)) && !replace)
       throw problem(serverMessages.sessions.nativeBindingAlreadyExists, 409);
+    const canonical = fs.realpathSync(cwd);
+    // Everything of this launch lives in the session's own folder, the only part of
+    // the shared one a sandboxed session is granted.
+    const own = ownFolder(this.directory, id);
+    const file = path.join(own, `${id}.launch.json`);
+    ensureDir(own);
     if (replace) {
       this.processCache.clear();
+      this.discardShared(id);
       fs.rmSync(receiptPath(file), { force: true });
       fs.rmSync(activityPath(file), { force: true });
     }
@@ -139,7 +153,7 @@ export class NativeSessionBinding {
       { args, env },
       {
         id,
-        directory: this.directory,
+        directory: own,
         script: modulePath,
         cliVersion: launch.cliVersion,
         atLeast,
@@ -161,9 +175,10 @@ export class NativeSessionBinding {
       createdAt: new Date().toISOString(),
     });
     // The CLI runs this module as a hook subprocess and the hook writes its receipt
-    // back into the binding directory next to the plugin and TUI files.
+    // and activity through a temporary file next to the plugin and TUI files, so the
+    // session's own folder is writable; the other sessions' folders are not granted.
     return [
-      { access: "allow", path: this.directory },
+      { access: "allow", path: own },
       { access: "read", path: process.execPath },
       { access: "read", path: modulePath },
     ].reduce((granted, grant) => addGrant(granted, grant), {
@@ -240,17 +255,9 @@ export class NativeSessionBinding {
   }
   async discard(id) {
     try {
-      const file = this.file(id);
-      fs.rmSync(file, { force: true });
-      fs.rmSync(receiptPath(file), { force: true });
-      fs.rmSync(activityPath(file), { force: true });
-      for (const plugin of [
-        `${id}.claude`,
-        `${id}.claude-activity`,
-        `${id}.claude-stream`,
-      ])
-        fs.rmSync(path.join(this.directory, plugin), { recursive: true, force: true });
-      fs.rmSync(path.join(this.directory, `${id}.tui.json`), { force: true });
+      if (!validId(id)) return;
+      this.discardShared(id);
+      fs.rmSync(ownFolder(this.directory, id), { recursive: true, force: true });
     } catch {}
   }
 }

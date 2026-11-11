@@ -7,6 +7,7 @@ import { folderId, folderTrustScreen, startupState } from "./claude-folder-trust
 import { requestCopy as copy } from "../../lib/i18n/de/requests.js";
 import { problem } from "../../lib/storage.js";
 import { startupPresentations } from "./request-endings.js";
+import { sessionFolder } from "../sessions/session-own-folder.js";
 
 const TRUST_OPTIONS = [
   { id: "trust", label: "Yes, I trust this folder", scope: "persistent" },
@@ -251,9 +252,7 @@ export async function inStartupWindow(
   if (!current) return false;
   if (!current.started || localEntry(broker, session.id)) return true;
   const receipt = path.join(
-    broker.directory,
-    "..",
-    "native-sessions",
+    sessionFolder(path.join(broker.directory, "..", "native-sessions"), session.id),
     `${session.id}.receipt.json`,
   );
   const confirmed = await fs.stat(receipt).then(

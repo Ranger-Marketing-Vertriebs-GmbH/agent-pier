@@ -6,6 +6,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { hookLaunchIdentity } from "./codex-hook-trust.js";
 import { requestCopy as copy } from "../../lib/i18n/de/requests.js";
 import { problem } from "../../lib/storage.js";
+import { sessionFolder } from "../sessions/session-own-folder.js";
 
 export function folderTrustScreen(raw, cwd) {
   if (typeof raw !== "string" || raw.length > 64000 || typeof cwd !== "string")
@@ -66,7 +67,10 @@ export async function startupState(broker, session) {
     launch.cwd !== session.cwd
   )
     return null;
-  const base = path.join(broker.directory, "..", "native-sessions", session.id);
+  const base = path.join(
+    sessionFolder(path.join(broker.directory, "..", "native-sessions"), session.id),
+    session.id,
+  );
   const binding = await json(base + ".launch.json");
   if (
     !binding ||

@@ -77,13 +77,22 @@ export async function refreshClaudeRuntime(directory, runtimeDirectory = directo
       0o700,
     );
   const reloadRequired = new Set();
-  for (const name of await fs.readdir(directory)) {
-    if (!name.endsWith(".launch.json")) continue;
-    const id = name.slice(0, -".launch.json".length);
+  // A launch keeps its files in a folder of its own (`<id>/`); one from before it
+  // kept them directly in the request folder (session-own-folder.js).
+  const launches = [];
+  for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
+    if (entry.isDirectory() && validSession(entry.name))
+      launches.push([entry.name, path.join(directory, entry.name)]);
+    else if (entry.name.endsWith(".launch.json"))
+      launches.push([entry.name.slice(0, -".launch.json".length), directory]);
+  }
+  for (const [id, folder] of launches) {
     if (!validSession(id)) continue;
-    const file = path.join(directory, name);
-    const info = await fs.lstat(file);
-    if (!info.isFile()) continue;
+    const file = path.join(folder, `${id}.launch.json`);
+    const info = await fs.lstat(file).catch((error) => {
+      if (error.code !== "ENOENT") throw error;
+    });
+    if (!info?.isFile()) continue;
     let launch;
     try {
       launch = JSON.parse(await fs.readFile(file, "utf8"));
@@ -101,9 +110,11 @@ export async function refreshClaudeRuntime(directory, runtimeDirectory = directo
       // A launch keeps the dispatcher it was started with: an older sandboxed
       // session holds no grant for the runtime folder.
       await writeClaudeHooks(
-        directory,
+        folder,
         id,
-        launch.claudeHookDispatcher === current ? current : undefined,
+        launch.claudeHookDispatcher === current
+          ? current
+          : path.join(directory, dispatcherName),
       );
     } catch (error) {
       // An interrupted launch can leave its record before creating the plugin.

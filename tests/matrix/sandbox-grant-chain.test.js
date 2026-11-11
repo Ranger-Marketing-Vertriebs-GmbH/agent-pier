@@ -271,7 +271,7 @@ test("the Codex request wrapper keeps the executable it replaces granted", async
   const broker = {
     directory,
     socketPath: path.join(directory, "broker.sock"),
-    file: (id) => path.join(directory, `${id}.json`),
+    claim: async (id) => path.join(directory, `${id}.json`),
   };
   const command = path.join(context.root, "inert-cli");
   const granted = await prepareRequests(broker, {

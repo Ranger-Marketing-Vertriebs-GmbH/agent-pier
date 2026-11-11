@@ -223,6 +223,6 @@ test("discarding a traversal id removes nothing outside the broker's directory",
   assert.throws(() => broker.sessionPath("../x", ".claude-bridge"));
   assert.match(
     broker.sessionPath("s", ".claude-bridge"),
-    /\/requests\/s\.claude-bridge$/,
+    /\/requests\/s\/s\.claude-bridge$/,
   );
 });
