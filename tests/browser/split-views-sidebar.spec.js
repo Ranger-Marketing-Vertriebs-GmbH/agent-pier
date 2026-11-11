@@ -82,11 +82,14 @@ const groupHeads = (page) =>
   sidebar(page)
     .locator(".sidebar-scroll .sidebar-group")
     .evaluateAll((groups) =>
-      groups.map((group) =>
-        [...group.classList].find(
-          (name) => name.endsWith("-group") && name !== "sidebar-group",
+      // Top-level groups only: agent groups nest inside the Agents group.
+      groups
+        .filter((group) => !group.parentElement.closest(".sidebar-group"))
+        .map((group) =>
+          [...group.classList].find(
+            (name) => name.endsWith("-group") && name !== "sidebar-group",
+          ),
         ),
-      ),
     );
 const focusedFlash = async (page, key) => {
   const host = paneOf(page, key).locator(".split-pane-host");
