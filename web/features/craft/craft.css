@@ -141,6 +141,14 @@
   outline: var(--focus-ring);
 }
 @media (max-width: 700px) {
+  /* The page header replaces the app's own phone header on Craft Anything. */
+  .app:has(.craft-page) .mobile-header {
+    display: none;
+  }
+  /* The hidden header must not push the update notice down (see update-notice.css). */
+  body:has(.craft-page):has(.mobile-header) .update-notice {
+    top: calc(env(safe-area-inset-top) + 8px);
+  }
   .craft-actions > .button {
     flex: 1 1 100%;
   }
