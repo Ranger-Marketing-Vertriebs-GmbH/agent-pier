@@ -9,10 +9,11 @@ import { isCodingCli } from "../clis/catalog.js";
 import { cliDriver } from "../clis/drivers.js";
 import {
   defaultClaudeTool,
-  defaultSegments,
+  judgedSegments,
   secretCommand,
   touchesSecret,
 } from "./cli-approval-defaults.js";
+import { riskyForm } from "./risky-forms.js";
 
 // Approvals the owner remembered on a CLI permission card ("Allow for this session"
 // or "for this project"), kept by AgentPier and answered by it: a later request of
@@ -21,8 +22,11 @@ import {
 // without a card. Rules are per CLI and name a tool, or a shell program with its
 // subcommand (`git push`). A command or path that looks like a secret is never
 // covered by such a rule: its card remembers exactly that command (`command`), so
-// `cat .env` approved once does not allow `cat secrets/other.key`. Session rules end
-// with their session; project rules
+// `cat .env` approved once does not allow `cat secrets/other.key`. The same holds
+// for the few forms that lose data, write outside the project or choose what git
+// runs (risky-forms.js): a remembered `git branch` does not cover
+// `git branch -D main`, whose card says so and remembers exactly that command.
+// Session rules end with their session; project rules
 // apply to every session whose folder belongs to the project (memory/project-scope).
 // The default list covers `git`, `npm` and `cd` only inside the session's project
 // (`place`): the shell's folder as the CLI reports it, else the session's, checked
@@ -125,7 +129,9 @@ export class RequestApprovals {
    * What a request asks for, as rules name it: its CLI and tool and `needs`, what a
    * rule must cover. For a shell command, one need per simple command the default
    * list does not cover: `{ program }` (`git push`), or `{ command }` with the exact
-   * words when it touches a secret. For another tool, `[{}]` (the tool), or
+   * words when it touches a secret or is a form no program rule covers (then with
+   * `beyond`, the program whose rule would have covered it). For another tool,
+   * `[{}]` (the tool), or
    * `[{ command: path }]` for a secret path. Null when the request cannot be
    * remembered or answered automatically. `place` is where the command runs;
    * `session` says whether it runs with AgentBus (defaultClaudeTool).
@@ -154,13 +160,16 @@ export class RequestApprovals {
     const segments = shellSegments(entry.subject.command);
     if (!segments) return null;
     const keys = new Map();
-    const covered = defaultSegments(segments, place);
-    for (const words of segments.filter((words, i) => !covered[i])) {
+    const judged = judgedSegments(segments, place);
+    segments.forEach((words, i) => {
+      if (judged[i].covered) return;
       const need = secretCommand(words)
         ? { command: words.join(" ") }
-        : { program: programKey(words) };
+        : riskyForm(words, judged[i].at)
+          ? { command: words.join(" "), beyond: programKey(words) }
+          : { program: programKey(words) };
       keys.set(need.command ?? need.program, need);
-    }
+    });
     return { cli, tool, needs: [...keys.values()], builtIn: !keys.size };
   }
   matching(subject, sessionId, projectId, need) {
@@ -199,6 +208,10 @@ export class RequestApprovals {
       .map((need) => need.program ?? need.command)
       .filter(Boolean);
     const remember = { tool: subject.tool, ...(named.length ? { programs: named } : {}) };
+    // The programs whose remembered approval would not cover this command: the card
+    // says why its options name the whole command.
+    const beyond = [...new Set(subject.needs.map((need) => need.beyond).filter(Boolean))];
+    if (beyond.length) entry.exactOnly = { programs: beyond };
     const index = entry.options.findIndex((o) => o.id === choice) + 1;
     entry.options.splice(
       index,

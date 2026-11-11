@@ -112,5 +112,8 @@ export const requestCopy = {
     session: (what) => `${what} in dieser Session immer erlauben`,
     project: (what) => `${what} in diesem Projekt immer erlauben`,
   },
+  // Über den Optionen eines Befehls, den ein gemerktes Programm nicht abdeckt.
+  exactOnly: (programs) =>
+    `Eine Freigabe für ${programs} deckt diese Form nicht ab: Sie kann Daten löschen, außerhalb des Projekts schreiben oder ändern, was git ausführt. „Immer erlauben“ merkt sich genau diesen Befehl.`,
   loading: "Native Rückfragen werden geladen …",
 };

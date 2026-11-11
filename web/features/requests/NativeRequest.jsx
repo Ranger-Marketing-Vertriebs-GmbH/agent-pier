@@ -125,6 +125,12 @@ export default function NativeRequest({ request, updated, openTerminal }) {
               <pre>{alwaysRules}</pre>
             </div>
           )}
+          {/* A form no remembered program covers (risky-forms.js on the server). */}
+          {request.exactOnly?.programs?.length > 0 && (
+            <div className="native-request-rules">
+              <p>{copy.exactOnly(request.exactOnly.programs.join(", "))}</p>
+            </div>
+          )}
           {request.options?.map((option) => (
             <button
               type="button"
