@@ -88,6 +88,8 @@ A token profile can optionally save a **commit name** and a **commit email**. Fi
 
 When a coding session starts or reloads, AgentPier uses the identity of the connection assigned to the project. Without a project assignment it is used only when exactly one host connection is selected. With several hosts the existing git identity is kept instead of picking a connection arbitrarily. Empty identity fields also leave the existing git settings unchanged.
 
+Each profile in the list shows its commit identity, or **Not set · git keeps its own identity** when the fields are empty.
+
 The identity applies to git processes inside this session, also after a directory change. To work under another identity, start a session in the project assigned to it. Global and local git configuration files are not changed. Changes to the name or email apply at the next session start or reload; plain token rotation keeps the saved identity.
 
 <a id="token-check"></a>
@@ -99,7 +101,7 @@ The identity applies to git processes inside this session, also after a director
 - the state: **Token valid**, **Token expires soon** (within seven days), **Token expired**, **Token rejected** or **Check failed** with the reason (unreachable host, rate limit, denied access);
 - the GitHub login the token belongs to;
 - the token type by its documented prefix: classic (`ghp_`), fine-grained (`github_pat_`), OAuth (`gho_`) or GitHub App (`ghu_`, `ghs_`);
-- the scopes of a classic token from GitHub's `X-OAuth-Scopes` header; fine-grained tokens have per-repository permissions that GitHub does not report here;
+- the scopes of a classic token from GitHub's `X-OAuth-Scopes` header, folded behind their count (for example **20 scopes**) until opened; fine-grained tokens have per-repository permissions that GitHub does not report here;
 - the expiry date from the `github-authentication-token-expiration` header, or **No expiry date**;
 - SAML SSO: for up to five projects cloned with this profile, AgentPier asks GitHub for the repository. When an organization answers with `X-GitHub-SSO: required`, the list names the organization and links to GitHub's authorization page for the token.
 

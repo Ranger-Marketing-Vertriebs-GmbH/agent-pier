@@ -58,7 +58,7 @@
     "web/features/projects/project-tabs.css": 22,
     "web/features/projects/projects.css": 20,
     "web/features/provider-connections/connections.css": 4,
-    "web/features/repositories/repositories.css": 12,
+    "web/features/repositories/repositories.css": 3,
     "web/features/requests/requests.css": 3,
     "web/features/sessions/launch-dialog.css": 6,
     "web/features/sessions/workspace.css": 29,

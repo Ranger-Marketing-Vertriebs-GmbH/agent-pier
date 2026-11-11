@@ -41,9 +41,9 @@ export const credentialListCopy = {
   buttonAriaLabel: (value1) => `Delete ${value1}`,
   repositoryEmpty:
     "You can clone public GitHub repositories without a token. Add a token for private repositories and search.",
-  columnAccess: "Access",
   columnToken: "Token",
   columnCommitIdentity: "Commit identity",
+  commitIdentityUnset: "Not set · git keeps its own identity",
 };
 export const githubAccessPageCopy = {
   pageHeadingTitle: "GitHub connections",
@@ -104,7 +104,7 @@ export const tokenCheckCopy = {
     app: "GitHub App token",
     unknown: "Token type unknown",
   },
-  scopes: (scopes) => `Scopes: ${scopes}`,
+  scopes: (count) => `${count} ${count === 1 ? "scope" : "scopes"}`,
   noScopes: "Scopes: none",
   fineGrainedPermissions: "Permissions are set per repository on GitHub.",
   expires: (date) => `Expires ${date}`,
