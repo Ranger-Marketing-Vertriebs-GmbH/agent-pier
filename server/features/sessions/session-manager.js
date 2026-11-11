@@ -484,6 +484,10 @@ export class SessionManager {
         first.dispose();
         open();
       });
+      // A client that draws nothing must not swallow the keyboard for good.
+      const patience = setTimeout(open, 3000);
+      patience.unref();
+      opened.then(() => clearTimeout(patience));
       const data = terminal.onData(onData);
       const exit = terminal.onExit((event) => {
         open();
