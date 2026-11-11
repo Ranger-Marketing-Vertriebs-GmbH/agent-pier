@@ -147,9 +147,17 @@ from `launchModes` (`server/features/accounts/account-store.js`).
   describes the behaviour.
 - `sandboxLaunch?(launch)`: the launch with what the CLI itself needs inside a nono
   sandbox, applied by `nono/nono-launch.js` to sandboxed launches only: Codex's
-  `SSL_CERT_FILE` on macOS and the operator's own CA file, Claude Code's socket
-  folder, and for every CLI the folders a managed account links to the CLI's own
-  profile (`linkedFolderTargets` in `clis/linked-folders.js`).
+  `SSL_CERT_FILE` on macOS and the operator's own CA file (`clis/ca-files.js`, also
+  for OpenCode), Claude Code's socket folder, a managed OpenCode account's own npm
+  cache, and for every CLI the folders a managed account links to the CLI's own
+  profile (`linkedFolderTargets` in `clis/linked-folders.js`). A CLI whose account
+  sets `XDG_*_HOME` (OpenCode) needs nothing for that: the nono adapter keeps those
+  variables from nono and hands them to the CLI (`nono/nono-environment.js`).
+- A plugin module a CLI loads into its own runtime (OpenCode's `*-opencode.js`,
+  `requests/opencode-plugin.js`) imports relative files and `node:` builtins only,
+  never a package and never `drivers.js`: OpenCode's Bun cannot resolve a package
+  inside a sandbox ([sandbox.md](sandbox.md#what-claude-code-and-codex-need-in-a-sandbox);
+  `tests/unit/opencode-plugin-imports.test.js`).
 - `provider`: how the CLI runs against a provider connection. `environment(env, {
 directory, key, description, adapterRoute, adapterToken })` returns the launch
   environment; `launch(result, ctx)` (Claude Code) or `endpointLaunch` and `catalogLaunch`
