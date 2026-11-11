@@ -458,10 +458,11 @@ test("read of hostile nested HTML returns a placeholder quickly, never parsing i
   assert.equal(Object.hasOwn(message, "htmlTooComplex"), false);
 });
 
-// One tag with ~130,000 unique attributes (under 1 MiB): parse5's tokenizer takes
-// tens of seconds on it. The server's event loop must keep running meanwhile.
-const attributeProbe = () =>
-  `<a ${Array.from({ length: 130_000 }, (_, i) => `a${i}`).join(" ")}>x</a>`;
+// 600 nested elements: few enough tags for the cheap count, so the HTML goes to the
+// child, which stops at the depth bound (500). Proves the read path through the child
+// and its fallback; the deadline itself is covered with a hanging child in
+// tests/unit/mail-html.test.js (parse5 8.1.1 no longer has known slow inputs).
+const nestedProbe = () => `${"<div>".repeat(600)}x${"</div>".repeat(600)}`;
 
 /** The longest gap between ticks of a 20 ms interval while `promise` runs. */
 async function longestGap(promise) {
@@ -479,9 +480,9 @@ async function longestGap(promise) {
   }
 }
 
-test("read parses mail HTML off the event loop and falls back at its deadline", async (t) => {
+test("read parses mail HTML off the event loop and falls back when it is too complex", async (t) => {
   const f = await readFixture(t);
-  const probe = attributeProbe();
+  const probe = nestedProbe();
   assert.ok(Buffer.byteLength(probe) < 1_048_576);
   const uid = f.seed(
     `From: Sender <sender@example.org>\r\nTo: agent@example.com\r\nSubject: Attrs\r\nDate: Tue, 27 Oct 2026 08:00:00 +0000\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n${probe}\r\n`,

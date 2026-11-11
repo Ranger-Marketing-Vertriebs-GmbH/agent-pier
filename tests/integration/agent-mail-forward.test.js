@@ -310,8 +310,9 @@ test("tags hidden in quoted attributes cannot make a forward parse slowly", asyn
 
 test("a forward parses the original's HTML off the event loop", async (t) => {
   const f = await sendFilesFixture(t);
-  // One tag with ~130,000 unique attributes: tens of seconds for parse5.
-  const probe = `<a ${Array.from({ length: 130_000 }, (_, i) => `a${i}`).join(" ")}>x</a>`;
+  // 600 nested elements: under the cheap tag count, so the child parses them and stops
+  // at the depth bound (500). The deadline itself is covered in tests/unit/mail-html.test.js.
+  const probe = `${"<div>".repeat(600)}x${"</div>".repeat(600)}`;
   assert.ok(Buffer.byteLength(probe) < 1_048_576);
   const { uid } = original(f, { html: probe });
   // Proven by what ran, not by how long it took (a busy host stretches any duration):
@@ -331,9 +332,8 @@ test("a forward parses the original's HTML off the event loop", async (t) => {
   }
   assert.equal(extractionQueues().html.started - before, 1, "parsed in a child process");
   assert.ok(ticksWhileParsing > 0, "the event loop ran while the child parsed");
-  // The child's deadline ended the parse: a parse left to finish would have returned
-  // a quote, so the HTML would go along.
-  assert.match(r.htmlNote, /too many tags/);
+  // The child stopped at the depth bound, so the HTML stays behind.
+  assert.match(r.htmlNote, /too deeply nested/);
   const p = f.workflows.get(r.actionId).payload;
   assert.equal(p.html, null);
   assert.equal(p.forward.htmlOmitted, true);
