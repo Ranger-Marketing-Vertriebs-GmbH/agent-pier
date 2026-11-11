@@ -12,6 +12,7 @@ import {
   socketDirectories,
 } from "../../server/features/clis/claude/sandbox.js";
 import { NonoSandbox } from "../../server/features/nono/nono-launch.js";
+import { cleanEnvironment } from "../../server/features/accounts/account-store.js";
 
 const mac = { platform: "darwin", exists: () => true };
 const flagValues = (args, flag) =>
@@ -27,11 +28,53 @@ test("a sandboxed Codex on macOS reads its CA roots from the system bundle file"
   assert.equal(launch.env.SSL_CERT_FILE, undefined);
 });
 
-test("the operator's own CA settings stay as they are", () => {
-  for (const name of ["SSL_CERT_FILE", "CODEX_CA_CERTIFICATE"]) {
-    const launch = { command: "/bin/codex", env: { [name]: "/corp/ca.pem" } };
-    assert.equal(codexSandboxLaunch(launch, mac), launch, name);
+test("the operator's own CA settings stay as they are, and their file is readable", (t) => {
+  const root = fs.realpathSync(fs.mkdtempSync("/tmp/apcs-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const bundle = path.join(root, "corp-ca.pem");
+  fs.writeFileSync(bundle, "-----BEGIN CERTIFICATE-----\n");
+  for (const platform of ["darwin", "linux"])
+    for (const name of ["SSL_CERT_FILE", "CODEX_CA_CERTIFICATE"]) {
+      const launch = { command: "/bin/codex", env: { [name]: bundle } };
+      const prepared = codexSandboxLaunch(launch, { platform });
+      // Nothing of AgentPier's own is set beside the operator's choice.
+      assert.deepEqual(prepared.env, launch.env, name);
+      assert.deepEqual(prepared.sandboxGrants, [{ access: "read", path: bundle }], name);
+    }
+  // Both set: both files, each once.
+  const other = path.join(root, "other.pem");
+  fs.writeFileSync(other, "");
+  assert.deepEqual(
+    codexSandboxLaunch(
+      {
+        command: "/bin/codex",
+        env: { SSL_CERT_FILE: other, CODEX_CA_CERTIFICATE: bundle },
+      },
+      mac,
+    ).sandboxGrants,
+    [
+      { access: "read", path: other },
+      { access: "read", path: bundle },
+    ],
+  );
+  // A value that names no file of its own is left to Codex: nothing is granted.
+  for (const value of ["/corp/missing.pem", "relative.pem", root, "/dev/null"]) {
+    const launch = { command: "/bin/codex", env: { CODEX_CA_CERTIFICATE: value } };
+    assert.equal(codexSandboxLaunch(launch, mac), launch, value);
   }
+});
+
+test("the server's CODEX_CA_CERTIFICATE reaches the sessions like its SSL_CERT_FILE", () => {
+  const env = cleanEnvironment({
+    PATH: "/bin",
+    HOME: "/home/example",
+    SSL_CERT_FILE: "/corp/roots.pem",
+    CODEX_CA_CERTIFICATE: "/corp/codex.pem",
+    CODEX_HOME: "/elsewhere",
+  });
+  assert.equal(env.SSL_CERT_FILE, "/corp/roots.pem");
+  assert.equal(env.CODEX_CA_CERTIFICATE, "/corp/codex.pem");
+  assert.equal(env.CODEX_HOME, undefined);
 });
 
 test("Codex keeps its launch where the bundle is missing or the host is not macOS", () => {

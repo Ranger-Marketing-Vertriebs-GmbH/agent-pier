@@ -155,6 +155,22 @@ test("a sandboxed Codex can read the CA bundle its launch names", macOnly, (t) =
   assert.ok(Number(output.trim().split("\n").at(-1)) > 10, output);
 });
 
+test("a sandboxed Codex can read the CA file the operator names", options, (t) => {
+  const { root, profile, cwd } = workspace(t);
+  const bundle = path.join(root, "corp-ca.pem");
+  fs.writeFileSync(bundle, "-----BEGIN CERTIFICATE-----\nCORP\n");
+  const launch = {
+    command: "/bin/sh",
+    args: ["-c", 'echo "CA:$(grep -c CORP "$CODEX_CA_CERTIFICATE" 2>&1)"'],
+    env: { PATH: "/usr/bin:/bin", CODEX_CA_CERTIFICATE: bundle },
+  };
+  const prepared = cliDriver("codex").sandboxLaunch(launch);
+  assert.equal(prepared.env.SSL_CERT_FILE, undefined);
+  assert.match(run({ launch: prepared, profile, cwd }), /CA:1/);
+  // The control: the file lies outside everything else the sandbox may read.
+  assert.match(run({ launch, profile, cwd }), /CA:.*(not permitted|denied)/i);
+});
+
 test(
   "a sandboxed managed Claude account reaches the linked plugin folder and no more of the profile",
   options,
