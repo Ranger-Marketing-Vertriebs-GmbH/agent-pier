@@ -2,6 +2,7 @@ import http from "node:http";
 import { sessionToken } from "./login.js";
 import { browserPath, upgradeTarget } from "./socket-access.js";
 import { authorizeRequest } from "./security.js";
+import { onUpgrade } from "../lib/socket-errors.js";
 import { WebSocketServer, WebSocket } from "ws";
 import { createHash } from "node:crypto";
 
@@ -90,8 +91,7 @@ export function attachBrowserWebSocket(
       );
     }
   };
-  server.on("upgrade", upgrade);
-  wss.once("close", () => server.off("upgrade", upgrade));
+  wss.once("close", onUpgrade(server, upgrade));
   wss.on("connection", (ws, { id, token, auth, view, preview, viewOnly, admitted }) => {
     let alive = true;
     // The login session holds a takeover lease; never the token itself.

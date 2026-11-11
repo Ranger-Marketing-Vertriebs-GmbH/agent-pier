@@ -2,6 +2,7 @@ import http from "node:http";
 import { sessionToken } from "./login.js";
 import { dictationPath, upgradeTarget } from "./socket-access.js";
 import { authorizeRequest } from "./security.js";
+import { onUpgrade } from "../lib/socket-errors.js";
 import { WebSocketServer, WebSocket } from "ws";
 
 /**
@@ -44,8 +45,7 @@ export function attachDictationWebSocket(server, { dictation, login, admit, effe
       );
     }
   };
-  server.on("upgrade", upgrade);
-  wss.once("close", () => server.off("upgrade", upgrade));
+  wss.once("close", onUpgrade(server, upgrade));
   wss.on("connection", (ws, { auth, principal, service, talk }) => {
     let session = null;
     const client = {
