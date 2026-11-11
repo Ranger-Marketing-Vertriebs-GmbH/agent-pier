@@ -12,6 +12,13 @@ import {
 } from "../../sessions/claude-image-paste.js";
 import { startupScreen } from "../../requests/claude-startup-prompts.js";
 import {
+  FAMILY,
+  displayedLabel,
+  footerNamesModel,
+  headerLabel,
+  leadingLabel,
+} from "./model-label.js";
+import {
   clean,
   nativePromptRow,
   numberedOptions,
@@ -140,9 +147,19 @@ function parsePicker(raw) {
   let selectKey = "Enter";
   if (/s to use this session only/i.test(footer)) selectKey = "s";
   if (/set as default/i.test(footer) && selectKey !== "s") return null;
-  const { options, selected, current } = numberedOptions(lines, start, kind, {
+  const {
+    options,
+    selected,
+    current: named,
+  } = numberedOptions(lines, start, kind, {
     wrapped: true,
   });
+  // Claude Code 2.1.322 names the current row by its family alone ("Sonnet ✔") and
+  // starts the row's description with the model ("Sonnet 5.5 · Efficient …").
+  const described = options
+    .find((option) => option.current)
+    ?.description.match(leadingLabel)?.[1];
+  const current = named && !displayedLabel.test(named) && described ? described : named;
   return pickerMenu(raw, {
     title: lines[start].text.trim(),
     kind,
@@ -168,11 +185,7 @@ function unsupportedPicker(raw) {
 
 function currentModel(raw) {
   const text = plain(raw);
-  const header = text
-    .match(
-      /(?:^|\n)[^\n]*?((?:Opus|Sonnet|Haiku|Fable) [^·\n]+)\s*·\s*(?:Claude|API)/,
-    )?.[1]
-    ?.trim();
+  const header = text.match(headerLabel)?.[1]?.trim();
   if (header) return header;
   const changes = [...text.matchAll(/(?:Set model to|Current model:)\s+([^\n]+)/g)];
   if (changes.length)
@@ -193,7 +206,8 @@ function promptReady(raw) {
   const { index, footerText } = promptRow(lines);
   const hasFooter =
     promptFooterHints.test(footerText) ||
-    /shift\+tab|bypass permissions|Opus|Sonnet|Haiku/i.test(footerText);
+    /shift\+tab|bypass permissions/i.test(footerText) ||
+    footerNamesModel.test(footerText);
   if (index < 0 || index < lines.length - 10 || !hasFooter) return false;
   return true; // Alt+P preserves even a non-empty native draft.
 }
@@ -209,15 +223,13 @@ function promptReady(raw) {
  * last response names another model or none. The label then gives the id by the rule
  * Claude models follow since generation 4, `claude-<family>-<major>-<minor>`. A label
  * without a minor version ("Opus 4") or of an older generation has no such id and
- * stays unresolved unless an id confirms it.
+ * stays unresolved unless an id confirms it. The family is whatever word the CLI
+ * names (model-label.js), not one of a list.
  */
 function resolveDisplayed(displayedModel, { observed, fallback, identifier }) {
   const exact = identifier(displayedModel);
   if (exact) return { modelId: exact };
-  const label =
-    /^(Opus|Sonnet|Haiku|Fable) (\d+)(?:\.(\d+))?( \(1M context\))?( \(default\))?$/i.exec(
-      String(displayedModel),
-    );
+  const label = displayedLabel.exec(String(displayedModel));
   if (!label) return undefined;
   const [, family, major, minor, extendedLabel] = label;
   const canonical = `claude-${family.toLowerCase()}-${major}${minor ? `-${minor}` : ""}`;
@@ -243,8 +255,7 @@ export const modelPicker = {
   resolveDisplayed,
 };
 
-const claudeLimit =
-  "(?:session limit|weekly limit|Opus limit|Sonnet limit|Fable limit|usage|usage credits|usage limit|usage credit limit)";
+const claudeLimit = `(?:session limit|weekly limit|${FAMILY} limit|usage|usage credits|usage limit|usage credit limit)`;
 const claudeWarning = new RegExp(
   `^(?:You've used (?:[1-9][0-9]|100)% of your ${claudeLimit}|Approaching ${claudeLimit}|You're close to your (?:usage limit|usage credit limit))(?: · [^\\r\\n]{1,500})?$`,
 );
