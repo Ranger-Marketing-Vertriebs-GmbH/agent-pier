@@ -212,3 +212,33 @@ test("a test session left behind in another temporary data directory is orphaned
   // Without temporary roots nothing changes.
   assert.deepEqual(releaseSessionReferences(output, [release]).orphaned, []);
 });
+
+test("a session of another release holds this one through its CLI's child", () => {
+  const temporary = "/var/folders/xy/T";
+  const fixture = `${temporary}/agentpier-blackbox-AbC123/data`;
+  const proxy = `${release}/bin/node ${release}/server/features/tools/mcp-swap-proxy-main.js`;
+  const output = [
+    // The launcher runs the active release; its CLI started the old release's proxy.
+    launcher(100, 50, id, other),
+    proc(200, 100, `claude claude --resume x`),
+    proc(300, 200, `node ${proxy} ${data}/craft-anything/server.json deep`),
+    // A test run of another temporary data directory never names a session.
+    proc(
+      400,
+      50,
+      `${other}/bin/node ${other}/server/terminal-launcher.js ${fixture}/sessions/${second}.launch.json`,
+    ),
+    proc(500, 400, `node ${proxy} ${fixture}/craft-anything/server.json deep`),
+  ].join("\n");
+  const result = releaseSessionReferences(output, [release], {
+    temporaryRoots: [temporary],
+    dataDirs: [data],
+  });
+  assert.deepEqual(result.sessionIds, [id]);
+  assert.deepEqual(result.helperReferences, [
+    { reference: "server/features/tools/mcp-swap-proxy-main.js" },
+  ]);
+  assert.deepEqual(result.unidentified, [
+    { reference: "server/features/tools/mcp-swap-proxy-main.js" },
+  ]);
+});

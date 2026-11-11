@@ -20,9 +20,28 @@ import { fingerprint, synchronize } from "./synchronization.js";
 import { seedBundledSkills } from "./bundled-skills.js";
 import { isCodingCli } from "../clis/catalog.js";
 
+/**
+ * `incoming` with AgentPier's own MCP entries (`owned`: `{ key, names }`) as the
+ * canonical profile (`current`) holds them. They reach a managed account only from
+ * the canonical profile; a differing copy there is a CLI's stale write (an exiting
+ * Claude Code saving .claude.json), never the owner's edit to share.
+ */
+export function keepOwned(incoming, current, owned) {
+  if (!owned?.names?.length || !owned.key) return incoming;
+  const canonical = current[owned.key] || {};
+  const entries = { ...incoming[owned.key] };
+  for (const name of owned.names)
+    if (Object.hasOwn(canonical, name)) entries[name] = canonical[name];
+    else delete entries[name];
+  if (incoming[owned.key] === undefined && !Object.keys(entries).length) return incoming;
+  return { ...incoming, [owned.key]: entries };
+}
+
 export class SharedCliProfiles {
-  constructor({ accounts }) {
+  /** `ownedMcp(tool)`: AgentPier's MCP entries in the CLI, `{ key, names }` or null. */
+  constructor({ accounts, ownedMcp = () => null }) {
     this.accounts = accounts;
+    this.ownedMcp = ownedMcp;
     this.busy = new Set();
     this.file = path.join(accounts.dataDir, "shared-cli-profiles.json");
   }
@@ -56,13 +75,18 @@ export class SharedCliProfiles {
     const canonicalId = this.resolve(id),
       target = profileLocation(this.accounts, canonicalId);
     const state = readJSON(this.file, {});
+    const owned = this.ownedMcp(target.account.tool);
     for (const account of this.accounts.accounts.filter(
       (account) => account.tool === target.account.tool && account.kind === "managed",
     )) {
       const source = profileLocation(this.accounts, account.id),
         conflicts = [];
       const current = readShared(target),
-        incoming = rebaseExtensions(readShared(source), source, target);
+        incoming = keepOwned(
+          rebaseExtensions(readShared(source), source, target),
+          current,
+          owned,
+        );
       const saved = (state[account.id] ||= { profiles: {}, conflicts: [] });
       const previous = saved.profiles[source.root];
       if (previous) {

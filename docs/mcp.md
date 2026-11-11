@@ -1030,7 +1030,8 @@ switch. The old version folder goes as soon as the swapped server exited
 runs Craft Anything directly and keeps its version until it reloads its MCP servers;
 the dialog then says **Running sessions keep using version 0.5.0 until they reload.**
 A running proxy also keeps the AgentPier release it started from until the session
-reloads.
+reloads; **Delete old versions** lists that session as holding the release and
+[migrates](installation.md#migrate-sessions) it like the others.
 
 **Removal.** **Remove Craft Anything** asks **Remove Craft Anything?** and removes the MCP
 server row, the skill copies, the CLI and `<data dir>/craft-anything`, and Ghidra with

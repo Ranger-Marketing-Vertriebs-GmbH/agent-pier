@@ -214,6 +214,45 @@ test("managed accounts receive the entries and AgentPier's writes are never drif
   assert.deepEqual(f.sharedProfiles.summary(a.id).conflicts, []);
 });
 
+test("a CLI's stale copy of AgentPier's entry in a managed account is never shared", async (t) => {
+  const f = cliMcpFixture(t);
+  const cli = service(f);
+  f.sharedProfiles.ownedMcp = (tool) => cli.owned(tool);
+  const a = f.accounts.create({ name: "A", tool: "claude" });
+  const b = f.accounts.create({ name: "B", tool: "claude" });
+  const fileOf = (account) => documents(profileLocation(f.accounts, account.id))[0].file;
+  const entries = (account) =>
+    JSON.parse(fs.readFileSync(fileOf(account), "utf8")).mcpServers;
+  const start = async (account) => {
+    const prepared = await cli.prepare({
+      account,
+      launch: { command: "claude", args: [], env: {} },
+    });
+    f.sharedProfiles.prepare(account, prepared);
+  };
+  const server = f.servers.create(http(), { bind: [["cli", "claude"]] });
+  await start(a);
+  await start(b);
+  const stale = entries(a).docs;
+  // An update moves the row; A's next launch gets the new entry ...
+  f.servers.update(server.id, { revision: 1, url: "https://moved.example.test/mcp" });
+  cli.reconcileAll();
+  await start(a);
+  // ... and A's exiting CLI then writes back the copy it held in memory.
+  const data = JSON.parse(fs.readFileSync(fileOf(a), "utf8"));
+  fs.writeFileSync(
+    fileOf(a),
+    JSON.stringify({ ...data, mcpServers: { ...data.mcpServers, docs: stale } }),
+  );
+  await start(b);
+  assert.equal(f.entries("claude").docs.url, "https://moved.example.test/mcp");
+  assert.equal(entries(b).docs.url, "https://moved.example.test/mcp");
+  await start(a);
+  assert.equal(entries(a).docs.url, "https://moved.example.test/mcp");
+  assert.equal(cli.inspectAll().claude.statuses[server.id].status, "written");
+  assert.deepEqual(f.sharedProfiles.summary(a.id).conflicts, []);
+});
+
 test("a saved change a bound CLI cannot run is refused before anything is stored", async (t) => {
   const f = cliMcpFixture(t);
   const changes = new CentralMcpChanges({ servers: f.servers });

@@ -393,6 +393,9 @@ export async function createServices(config) {
           ]),
         ),
     });
+  // AgentPier's central MCP entries reach managed accounts only from the canonical
+  // profile (shared-profiles.js keepOwned).
+  if (cliMcp) sharedProfiles.ownedMcp = (tool) => cliMcp.owned(tool);
   requests = new RequestBroker({
     dataDir: config.dataDir,
     sessions,
