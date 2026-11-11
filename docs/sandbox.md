@@ -337,9 +337,11 @@ variable.
 - A CA that exists only in the keychain (a company proxy's root, a development CA you
   trusted in Keychain Access) is **not** trusted in a sandboxed Codex session. Export
   it, append it to a copy of `/etc/ssl/cert.pem`, and start AgentPier with
-  `SSL_CERT_FILE` pointing at that bundle: AgentPier passes the variable to every
-  session and then sets nothing of its own. A `CODEX_CA_CERTIFICATE` in the launch
-  environment is respected the same way.
+  `SSL_CERT_FILE` or Codex's own `CODEX_CA_CERTIFICATE` pointing at that bundle.
+  AgentPier passes both variables to every session, sets nothing of its own when
+  either is set, and grants a sandboxed Codex session read access to the file each
+  names (an absolute path to a regular file; on macOS and Linux), so the bundle may
+  lie anywhere the server can read.
 
 **Not supported in a sandbox: a local Claude account.** A local account is the CLI's
 own profile outside AgentPier (`~/.claude`), with its login in the keychain. AgentPier

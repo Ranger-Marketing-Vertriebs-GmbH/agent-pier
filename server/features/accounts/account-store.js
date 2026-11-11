@@ -79,6 +79,8 @@ export function cleanEnvironment(source = process.env) {
     "SSL_CERT_FILE",
     "SSL_CERT_DIR",
     "NODE_EXTRA_CA_CERTS",
+    // Codex's own variable for a CA bundle; it reads SSL_CERT_FILE otherwise.
+    "CODEX_CA_CERTIFICATE",
     "HTTPS_PROXY",
     "HTTP_PROXY",
     "NO_PROXY",

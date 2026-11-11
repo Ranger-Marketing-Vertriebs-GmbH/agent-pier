@@ -147,7 +147,8 @@ from `launchModes` (`server/features/accounts/account-store.js`).
   describes the behaviour.
 - `sandboxLaunch?(launch)`: the launch with what the CLI itself needs inside a nono
   sandbox, applied by `nono/nono-launch.js` to sandboxed launches only: Codex's
-  `SSL_CERT_FILE` on macOS, Claude Code's socket folder. Absent for OpenCode.
+  `SSL_CERT_FILE` on macOS and the operator's own CA file, Claude Code's socket
+  folder and the folders a managed account links to `~/.claude`. Absent for OpenCode.
 - `provider`: how the CLI runs against a provider connection. `environment(env, {
 directory, key, description, adapterRoute, adapterToken })` returns the launch
   environment; `launch(result, ctx)` (Claude Code) or `endpointLaunch` and `catalogLaunch`
