@@ -56,4 +56,5 @@ export const capabilityGateCopy = {
 };
 export const componentsCopy = {
   splitDivider: "Größe der Bereiche ändern",
+  dockedPanelResize: "Breite des Panels ändern",
 };

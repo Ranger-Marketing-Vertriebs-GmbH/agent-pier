@@ -1975,7 +1975,9 @@ pinboard; its pins stay there.
   below it; **Chats** beside it opens the chat list with **New chat**. A
   team member's chat has no extra row but a pin button in its header. On a computer, the
   header's **Pinboard** button docks the pinboard as a side panel beside the chat; the
-  chat stays usable. **Pinboard** in the search (⌘K or Ctrl+K, also "Pinned files") and
+  chat stays usable. Drag the divider between chat and pinboard to widen the panel (or
+  focus it and use the arrow keys, Home and End); the chat keeps at least 360px, and a
+  double-click returns to the default width. The browser remembers the width. **Pinboard** in the search (⌘K or Ctrl+K, also "Pinned files") and
   the link `/agents/<agent>/pinboard` open it; a chat link with `?pinboard=1&list=<list>`
   opens one list. When the agent pins or replaces a file, a card in the chat names the
   list and the files and opens it.

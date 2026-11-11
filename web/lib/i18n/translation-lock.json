@@ -3213,6 +3213,7 @@
   "components:capabilityGateCopy.reasons.hermesNotYetSupported": "de:fc5679b92a0c en:fb15703ff468",
   "components:capabilityGateCopy.reasons.runtimeUnknown": "de:d39f03057da6 en:0a15a683e4f5",
   "components:capabilityGateCopy.unknownRuntime": "de:c421f395565b en:82bb946cf48d",
+  "components:componentsCopy.dockedPanelResize": "de:f9ad7e8663f0 en:c9fe271c08aa",
   "components:componentsCopy.splitDivider": "de:8962bc3163f2 en:ff22a46f8ede",
   "components:copyButtonCopy.copied": "de:c2756e0294f8 en:8d525e5f158b",
   "components:copyButtonCopy.failed": "de:35b849e4dd89 en:2582b9b21931",

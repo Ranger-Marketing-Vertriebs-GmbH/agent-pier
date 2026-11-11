@@ -6,7 +6,12 @@ import { test, expect } from "../helpers/browser-test.js";
 for (const [locale, names] of [
   [
     "en-GB",
-    { title: "Docked panel", close: "Close docked panel", open: "Open docked panel" },
+    {
+      title: "Docked panel",
+      close: "Close docked panel",
+      open: "Open docked panel",
+      resize: "Resize panel",
+    },
   ],
   [
     "de-DE",
@@ -14,6 +19,7 @@ for (const [locale, names] of [
       title: "Angedocktes Panel",
       close: "Angedocktes Panel schließen",
       open: "Angedocktes Panel öffnen",
+      resize: "Breite des Panels ändern",
     },
   ],
 ]) {
@@ -37,6 +43,9 @@ for (const [locale, names] of [
       expect(Math.abs(frame.x + frame.width - (box.x + box.width))).toBeLessThanOrEqual(
         2,
       );
+
+      // Resizable: a labelled divider on its left edge.
+      await expect(panel.getByRole("separator", { name: names.resize })).toBeVisible();
 
       await panel.getByRole("button", { name: names.close }).click();
       await expect(panel).toHaveCount(0);
@@ -64,6 +73,7 @@ test.describe("docked panel on a phone", () => {
     await specimen.scrollIntoViewIfNeeded();
     const panel = specimen.getByRole("complementary", { name: "Docked panel" });
     await expect(panel).toBeVisible();
+    await expect(panel.getByRole("separator")).toBeHidden();
     const frame = await specimen.boundingBox();
     const box = await panel.boundingBox();
     // Inside the specimen's 1px border, edge to edge.

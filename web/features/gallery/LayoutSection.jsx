@@ -68,6 +68,7 @@ function DockedPanelSpecimen() {
           subtitle={copy.sample.dockedSubtitle}
           closeLabel={copy.sample.dockedClose}
           onClose={() => setOpen(false)}
+          resizeKey="gallery"
         >
           <p>{copy.sample.dockedBody}</p>
         </DockedPanel>
