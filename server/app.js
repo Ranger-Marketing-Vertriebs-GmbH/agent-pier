@@ -59,6 +59,7 @@ import express from "express";
 import compression from "compression";
 import http from "node:http";
 import { createServices } from "./application/services.js";
+import { confineRepositoryPrograms } from "./features/nono/sandboxed-repositories.js";
 import { attachLive, liveWriteSignals } from "./application/live-wiring.js";
 import { readStampHeader } from "./lib/read-stamp.js";
 import { createSessionLifecycle } from "./application/session-lifecycle.js";
@@ -137,6 +138,8 @@ export async function createApplication(config) {
   const whenListening = [];
   server.once("listening", () => whenListening.forEach((start) => start()));
   const services = await createServices(config);
+  // The server's own git runs a repository's filters in its session's sandbox.
+  confineRepositoryPrograms(services.nonoSandbox, services.sessions.directory);
   // Managed Claude Code logins leave the keychain while no session of the account runs.
   whenListening.push(() => services.accounts.settleLogins().catch(() => {}));
   services.login = new LoginStore(config);

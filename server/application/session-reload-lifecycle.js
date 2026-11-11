@@ -219,6 +219,7 @@ export function createReloadLifecycle(services) {
             launch,
             profile: session.sandbox?.profile || null,
             tool: session.tool,
+            cwd: session.cwd,
           });
           return { ...launch, ...(plan.transfer ? { accountId: account.id } : {}) };
         },

@@ -157,8 +157,11 @@ export class NonoSandbox {
     detect,
     readProfiles = readSandboxProfiles,
     prepareCli = cliSandboxLaunch,
+    onSandboxed = () => {},
   }) {
     this.detect = detect;
+    // Told about every sandboxed launch: where it works and under which profile.
+    this.onSandboxed = onSandboxed;
     this.readProfiles = readProfiles;
     this.prepareCli = prepareCli;
   }
@@ -167,7 +170,7 @@ export class NonoSandbox {
       this.detect().find((tool) => tool.id === "nono" && tool.installed)?.path || null
     );
   }
-  async prepare({ launch, profile, tool }) {
+  async prepare({ launch, profile, tool, cwd }) {
     if (!profile) return wrapWithNono({ launch, executable: null, profile: null });
     const executable = this.executable();
     if (!executable) throw problem(serverMessages.sessions.sandboxUnavailable);
@@ -176,6 +179,7 @@ export class NonoSandbox {
     const profiles = await this.readProfiles({ executable });
     if (!profiles.includes(profile))
       throw problem(serverMessages.sessions.sandboxProfileUnknown);
+    if (cwd) this.onSandboxed({ cwd, profile });
     return wrapWithNono({ launch: this.prepareCli(tool, launch), executable, profile });
   }
 }

@@ -287,6 +287,7 @@ export function createSessionLifecycle(services) {
         launch: composed,
         profile: body.nonoProfile || null,
         tool: account.tool,
+        cwd,
       });
       session = await sessions.create({
         id,

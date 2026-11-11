@@ -14,6 +14,7 @@ import { projectScope } from "../../server/features/memory/project-scope.js";
 import { GitRemotes } from "../../server/features/repositories/git-remote.js";
 import {
   SAFE_GIT_CONFIG,
+  gitCommand,
   safeGitArgs,
   safeGitEnvironment,
 } from "../../server/lib/git-command.js";
@@ -123,4 +124,73 @@ test("a program reached only through the environment stays off too", (t) => {
     env: safeGitEnvironment(gitEnv),
   });
   assert.equal(fs.existsSync(marker), false);
+});
+
+// A hook that writes the marker, installed as `name` in the fixture repository.
+function hook(cwd, marker, name) {
+  const file = path.join(cwd, ".git", "hooks", name);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, `#!/bin/sh\necho ${name} >> '${marker}'\n`, { mode: 0o700 });
+}
+
+test("the fixture's index hook runs under a plain git status", (t) => {
+  const { cwd, marker } = repository(t);
+  setup(cwd, "config", "--unset", "core.fsmonitor");
+  hook(cwd, marker, "post-index-change");
+  execFileSync("git", ["status", "--porcelain"], { cwd, env: gitEnv });
+  assert.match(fs.readFileSync(marker, "utf8"), /post-index-change/);
+});
+
+test("a read never runs a hook of the repository, by its folder or by core.hooksPath", async (t) => {
+  const { cwd, marker } = repository(t);
+  hook(cwd, marker, "post-index-change");
+  const elsewhere = path.join(path.dirname(cwd), "hooks");
+  fs.mkdirSync(elsewhere);
+  fs.copyFileSync(
+    path.join(cwd, ".git/hooks/post-index-change"),
+    path.join(elsewhere, "post-index-change"),
+  );
+  fs.chmodSync(path.join(elsewhere, "post-index-change"), 0o700);
+  const status = await git(cwd, ["status", "--porcelain", "--untracked-files=all"]);
+  assert.match(status, /tracked\.txt/);
+  setup(cwd, "config", "core.hooksPath", elsewhere);
+  await git(cwd, ["status", "--porcelain"]);
+  await diffStat(cwd, "HEAD");
+  await untrackedFiles(cwd);
+  assert.equal(fs.existsSync(marker), false);
+});
+
+test("an owner's action keeps the repository's hooks", async (t) => {
+  const { cwd, marker } = repository(t);
+  hook(cwd, marker, "pre-commit");
+  await git(cwd, ["add", "--all"]);
+  await git(cwd, ["commit", "--quiet", "-m", "second"], { env: gitEnv });
+  assert.match(fs.readFileSync(marker, "utf8"), /pre-commit/);
+});
+
+test("which commands keep hooks is decided by the command, behind git's own options", () => {
+  const off = "core.hooksPath=/dev/null";
+  for (const args of [
+    ["status"],
+    ["-c", "core.quotePath=false", "diff", "HEAD"],
+    ["-C", "/x", "rev-parse", "HEAD"],
+    ["worktree", "list", "--porcelain"],
+    ["worktree", "remove", "x"],
+    ["some-new-command"],
+  ])
+    assert.ok(safeGitArgs(args).includes(off), args.join(" "));
+  for (const args of [
+    ["commit", "-m", "x"],
+    ["-C", "/x", "fetch", "origin"],
+    ["push", "origin", "HEAD"],
+    ["merge", "--ff-only", "x"],
+    ["worktree", "add", "x"],
+  ])
+    assert.equal(safeGitArgs(args).includes(off), false, args.join(" "));
+  assert.equal(
+    gitCommand(["--git-dir", "/x", "-c", "a=b", "remote", "get-url"]),
+    "remote get-url",
+  );
+  assert.equal(safeGitEnvironment({}).GIT_OPTIONAL_LOCKS, "0");
+  assert.equal(safeGitEnvironment({ GIT_OPTIONAL_LOCKS: "1" }).GIT_OPTIONAL_LOCKS, "1");
 });
