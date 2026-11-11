@@ -237,6 +237,7 @@ export function braceWords(word, marks) {
 }
 
 const plain = Object.freeze({
+  home: false,
   literal: true,
   asks: false,
   pattern: false,
@@ -247,6 +248,7 @@ const plain = Object.freeze({
 /**
  * What the shell still does to a word after brace expansion (`braceWords`):
  * - `literal`: it passes the word exactly as written;
+ * - `home`: it starts with `~`, a path in a home folder;
  * - `asks`: the default list must not cover it for any program;
  * - `pattern`: a pattern in it could match a dot name or a key or credentials
  *   file, so a program that prints file contents must not be covered;
@@ -289,6 +291,7 @@ function judgeNew(word, marks) {
   const tokens = pattern(list);
   if (!tokens.some(wild))
     return {
+      home: tilde,
       literal: !tilde && !equals,
       asks: equals || (tilde && second !== undefined && second.c !== "/"),
       pattern: false,
@@ -314,10 +317,39 @@ function judgeNew(word, marks) {
   }
   if (reachesPath(parts(tokens, false))) aimed = true;
   return {
+    home: tilde,
     literal: false,
     asks,
     pattern: matches || aimed,
     aimed,
     leading: wild(tokens[0]),
   };
+}
+
+const unquoted = (text) => pattern(characters(text, "u".repeat(text.length)));
+
+/** Whether a file's name is one of the key or credentials names (`secretShapes`). */
+export function secretShaped(name) {
+  if (name.length > maxLength) return true;
+  const tokens = named(name.toLowerCase());
+  return shapes.some((shape) => overlap(tokens, shape));
+}
+
+/**
+ * Whether a glob as ripgrep reads it (`*.local`, `src/**`, `.e{nv,x}*`) can match
+ * one of `names`, which start with a dot: its last part can be such a name, or a
+ * part of it is a pattern for dot names. Unlike the shell's, ripgrep's wildcards
+ * match a leading dot. A glob too long or too wide to judge counts as matching.
+ */
+export function globMatchesDotName(glob, names) {
+  const words = braceWords(glob, "u".repeat(glob.length));
+  if (!words) return true;
+  const targets = names.map(named);
+  return words.some(({ word }) => {
+    const all = parts(unquoted(word), false);
+    return (
+      all.some((part) => part[0]?.c === "." && part.some(wild)) ||
+      targets.some((name) => overlap(all.at(-1), name))
+    );
+  });
 }

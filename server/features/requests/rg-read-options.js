@@ -48,3 +48,59 @@ export function readOnlyRg(words) {
   }
   return true;
 }
+
+// What makes ripgrep search files it skips by default: hidden ones and those an
+// ignore file names. The default list asks for these (search-reach.js).
+const lifting = (option) =>
+  option === "--hidden" ||
+  option === "--unrestricted" ||
+  option.startsWith("--no-ignore");
+// Options whose value chooses files by name: a glob or a type that holds dot names
+// searches those files without `--hidden`.
+const globbing = new Set(["--glob", "--iglob", "-g"]);
+const typing = new Set(["--type", "-t"]);
+// Without a pattern word: the pattern comes from an option, or none is needed.
+const patterned = new Set(["--regexp", "-e", "--files", "--type-list"]);
+
+/**
+ * How an `rg` command (its words, options from the list above) searches: `lifted`
+ * when an option includes hidden or ignored files, `targets` the paths it names,
+ * `globs` and `types` the values that choose files by name, and `typeAdded` when
+ * the command defines a type of its own.
+ */
+export function rgSearch(words) {
+  const found = { lifted: false, targets: [], globs: [], types: [], typeAdded: false };
+  const positionals = [];
+  let pattern = true;
+  const option = (name, value) => {
+    if (patterned.has(name)) pattern = false;
+    if (lifting(name)) found.lifted = true;
+    if (name === "--type-add") found.typeAdded = true;
+    if (globbing.has(name)) found.globs.push(value ?? "");
+    if (typing.has(name)) found.types.push(value ?? "");
+  };
+  for (let i = 1; i < words.length; i++) {
+    const word = words[i];
+    if (word === "--") {
+      positionals.push(...words.slice(i + 1));
+      break;
+    }
+    if (!word.startsWith("-") || word === "-") positionals.push(word);
+    else if (word.startsWith("--")) {
+      const equals = word.indexOf("=");
+      if (equals >= 0) option(word.slice(0, equals), word.slice(equals + 1));
+      else option(word, values.has(word) ? words[++i] : undefined);
+    } else
+      for (let j = 1; j < word.length; j++) {
+        const letter = word[j];
+        if (!valued.includes(letter)) {
+          if (letter === "u" || letter === ".") found.lifted = true;
+          continue;
+        }
+        option(`-${letter}`, j + 1 < word.length ? word.slice(j + 1) : words[++i]);
+        break;
+      }
+  }
+  found.targets = pattern ? positionals.slice(1) : positionals;
+  return found;
+}

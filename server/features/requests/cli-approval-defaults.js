@@ -2,6 +2,7 @@ import { unquotedMarks } from "./shell-command.js";
 import { braceWords, judge, wildcards } from "./shell-expansion.js";
 import { gitPositionals, readOnlyGitArguments } from "./git-read-options.js";
 import { readOnlyRg } from "./rg-read-options.js";
+import { searchAsks } from "./search-reach.js";
 import {
   folderAt,
   folderIn,
@@ -27,11 +28,13 @@ export { touchesSecret };
  * covered by a remembered approval, and it has no substitution, variable, file
  * redirection, background job or subshell (shell-command.js).
  *
- * Three rules hold for the whole list. Git options come from a list per
+ * Four rules hold for the whole list. Git options come from a list per
  * subcommand, never from a list of dangerous ones (git-read-options.js). `git`,
  * `npm` and `cd` stay inside the session's project (approval-place.js). A word
  * the shell expands (`*`, `{a,b}`, `~`) must not be able to reach a secret
- * (shell-expansion.js).
+ * (shell-expansion.js). A search that reads every file below a folder (`grep -r`,
+ * `rg`) stays inside the project and away from hidden and ignored files
+ * (search-reach.js).
  */
 export const DEFAULT_ALLOWED = Object.freeze({
   // Claude Code tools by name.
@@ -53,7 +56,8 @@ export const DEFAULT_ALLOWED = Object.freeze({
     "fetch",
   ]),
   // Programs that only read files; `sed` only without in-place editing or scripts
-  // that write files or run commands, `rg` with the options of rg-read-options.js.
+  // that write files or run commands, `rg` with the options of rg-read-options.js,
+  // `rg` and a recursive `grep` only as far as search-reach.js lets them reach.
   readers: Object.freeze(["grep", "rg", "sed", "cat", "head", "tail", "ls", "wc"]),
   // The readers that show names and sizes only: a pattern may match any file.
   listers: Object.freeze(["ls", "wc"]),
@@ -93,8 +97,10 @@ export function defaultClaudeTool(tool, { agentBus = false } = {}) {
  * Whether `git [-C <dir>]… <subcommand> <arguments>` only reads, in a repository
  * of the project.
  * Only `-C <dir>` may precede the subcommand; `-c` and other options do not.
+
  */
-function readOnlyGit(words, literal, place) {
+function readOnlyGit(words, verdicts, place) {
+  const literal = (i) => verdicts[i].literal;
   let at = place,
     i = 1;
   for (; words[i] === "-C" && words[i + 1] !== undefined; i += 2) {
@@ -106,6 +112,13 @@ function readOnlyGit(words, literal, place) {
     args = words.slice(i + 1);
   if (!DEFAULT_ALLOWED.gitSubcommands.includes(sub)) return false;
   if (!readOnlyGitArguments(sub, args)) return false;
+  // `git diff` compares any two paths once one of them lies outside the work tree.
+  if (sub === "diff")
+    for (let k = i + 1, paths = false; k < words.length; k++) {
+      if (words[k] === "--") paths = true;
+      else if (!paths && words[k].startsWith("-")) continue;
+      else if (verdicts[k].home || folderIn(at, words[k]) === null) return false;
+    }
   // A remote's name that is also a folder here is read as a path by git.
   const [remote] = sub === "fetch" ? gitPositionals(sub, args) : [];
   return remote === undefined || !folderAt(at, remote);
@@ -331,12 +344,12 @@ export function defaultCommand(written, place, budget) {
       !/^[-+]/.test(words[1]) &&
       folderIn(at, words[1]) !== null
     );
-  if (program === "git") return readOnlyGit(words, literal, at);
+  if (program === "git") return readOnlyGit(words, verdicts, at);
   if (program === "npm") return inProject(at) && npmCheck(words);
   if (!DEFAULT_ALLOWED.readers.includes(program)) return false;
   if (program === "sed") return readOnlySed(words);
-  if (program === "rg") return readOnlyRg(words);
-  return true;
+  if (program === "rg" && !readOnlyRg(words)) return false;
+  return !(program === "grep" || program === "rg") || !searchAsks(passed, at);
 }
 
 // Shell builtins that change the folder or run text as commands. The default list

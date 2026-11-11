@@ -6,6 +6,7 @@ import {
   cardFree,
   newlyAsking,
   place,
+  reachAsking,
   stillAsking,
 } from "../fixtures/approval-commands.js";
 
@@ -21,6 +22,11 @@ test("everyday commands in the project stay card-free", () => {
 
 test("commands the default list no longer covers show a card", () => {
   for (const [command, why] of newlyAsking)
+    assert.equal(allowed(command), false, `${command} (${why})`);
+});
+
+test("a search that reaches beyond an ordinary one in the project shows a card", () => {
+  for (const [command, why] of reachAsking)
     assert.equal(allowed(command), false, `${command} (${why})`);
 });
 

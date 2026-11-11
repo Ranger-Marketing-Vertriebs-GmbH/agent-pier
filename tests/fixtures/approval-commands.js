@@ -123,10 +123,9 @@ export const cardFree = [
   // ripgrep with search and output options
   'rg -n "foo" src',
   "rg --files -g '*.js'",
-  "rg -uu foo",
   "rg -n -i -S -w -l -c -o -F foo src",
   "rg -e foo -g '*.js' -t js -T md -A 2 -B 2 -C 3 -m 5 web",
-  "rg --hidden --no-ignore --json --no-heading --column --color=never --sort=path foo",
+  "rg --json --no-heading --column --color=never --sort=path foo",
   "rg -nA3 --max-depth=2 --count-matches -U -P foo",
   // double quotes keep a backslash before an ordinary character
   'sed -n "1,20p" file',
@@ -302,6 +301,32 @@ export const newlyAsking = [
   ["cat =ls", "zsh command path expansion"],
   ["ls *(e:'touch x':)", "glob qualifier"],
   ["ls src/*(.)", "glob qualifier"],
+];
+
+/**
+ * Commands that show a card although the classifier of 2.18.0 answered them
+ * itself, because of how far they read (search-reach.js): `[command, why]`.
+ */
+export const reachAsking = [
+  ["rg -uu foo", "ripgrep searches hidden and ignored files"],
+  [
+    "rg --hidden --no-ignore --json --no-heading --column --color=never --sort=path foo",
+    "ripgrep searches hidden and ignored files",
+  ],
+  ["rg -uuu ''", "ripgrep searches hidden and ignored files"],
+  ["rg foo -g '.env*'", "glob for hidden files"],
+  ["rg foo -t sh", "type that holds .env"],
+  ["grep -r '' ~", "recursive search outside the project"],
+  ["grep -R KEY ~", "recursive search outside the project"],
+  ["grep -rn KEY ..", "recursive search outside the project"],
+  ["grep -rn KEY /etc", "recursive search outside the project"],
+  ["rg KEY ~", "recursive search outside the project"],
+  ["rg --files /other", "recursive search outside the project"],
+  ["cd /other; rg KEY", "recursive search outside the project"],
+  ["git diff --no-index /tmp/a ~", "git diff of paths outside the repository"],
+  ["git diff /etc /tmp/x", "git diff of paths outside the repository"],
+  ["cat .git/config", "protected name"],
+  ["cat .git/con*", "pattern for a protected path"],
 ];
 
 /** Commands that asked before and still do. */
