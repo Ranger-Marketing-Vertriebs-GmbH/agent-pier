@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { ADAPTER_URL_PLACEHOLDER } from "../../providers/adapter-launch.js";
 import { answerHookTrust } from "../../requests/codex-hook-trust.js";
+import { executablePackageGrants } from "./sandbox.js";
 
 export const shellToolName = "item/commandExecution/requestApproval";
 export const startupDialogs = { codexHookTrust: answerHookTrust };
@@ -22,9 +23,11 @@ export async function prepareRequests({ file, args, env, grants }, launch) {
   // The nono adapter grants whatever `launch.command` names by then, which is
   // the wrapper's interpreter rather than Codex, so the original executable
   // is declared here: codex-launch.js starts it again from the request file
-  // for both the backend and the TUI.
+  // for both the backend and the TUI. A standalone install reads its package
+  // folder beside the executable as well (sandbox.js).
   grants.push(
     { access: "read", path: launch.command },
+    ...executablePackageGrants(launch.command, launch.env),
     { access: "read", path: process.execPath },
     { access: "read", path: wrapper },
   );

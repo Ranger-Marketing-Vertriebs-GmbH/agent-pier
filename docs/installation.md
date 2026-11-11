@@ -348,6 +348,10 @@ unless noted:
   unless the sandbox profile granted `~/.codex` itself. A profile entry for
   `~/.codex` that was added only for this can be removed: without it the session no
   longer reads the login, history and sessions of the CLI's own profile.
+- **A standalone Codex install in a sandbox** (`~/.local/bin/codex`, linked into
+  `~/.codex/packages/standalone`) now reads the release folder its executable lies
+  in, read-only, so `codex-package.json` and the code-mode host are no longer denied.
+  Nothing else of `~/.codex` is granted.
 - **Reload & resume keeps the model Claude Code displays** ("Fable 5.2", a model
   chosen with `/model` just before). A name AgentPier cannot map no longer blocks
   the reload: the session resumes with the model it was launched with, and the

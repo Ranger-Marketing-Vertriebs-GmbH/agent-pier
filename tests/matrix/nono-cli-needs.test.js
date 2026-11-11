@@ -13,6 +13,7 @@ import {
 } from "../../server/features/nono/nono-launch.js";
 import { cliDriver } from "../../server/features/clis/drivers.js";
 import { installShim } from "../../server/features/accounts/managed-logins.js";
+import { executablePackageGrants } from "../../server/features/clis/codex/sandbox.js";
 
 /**
  * What a coding CLI itself needs inside a sandbox (`<id>/sandbox.js`, the login
@@ -361,6 +362,91 @@ test(
     assert.doesNotMatch(granted, /not permitted/i);
     // The control: without the grants the server ends before it serves anything.
     assert.match(start(launch), /^STATUS:1 [^]*Operation not permitted/);
+  },
+);
+
+test(
+  "a sandboxed standalone Codex reads its package folder and no more of the profile",
+  options,
+  (t) => {
+    const { root, profile, cwd } = workspace(t);
+    // Codex's standalone install: `~/.local/bin/codex` links into `~/.codex/packages`.
+    const home = path.join(root, "home");
+    const packages = path.join(home, ".codex/packages/standalone");
+    const release = path.join(packages, "releases/1.0.0");
+    fs.mkdirSync(path.join(release, "bin"), { recursive: true });
+    fs.writeFileSync(
+      path.join(release, "codex-package.json"),
+      JSON.stringify({ entrypoint: "bin/codex", marker: "PACKAGE-FILE" }),
+    );
+    fs.writeFileSync(path.join(release, "bin/codex-code-mode-host"), "HOST");
+    fs.writeFileSync(path.join(home, ".codex/auth.json"), "LOGIN");
+    // Stands in for Codex: reads what Codex reads beside its executable.
+    fs.writeFileSync(
+      path.join(release, "bin/codex"),
+      [
+        "#!/bin/sh",
+        `echo "PACKAGE:$(cat '${release}/codex-package.json' 2>&1)"`,
+        `echo "HOST:$(cat '${home}/.local/bin/codex-code-mode-host' 2>&1)"`,
+        `echo "LOGIN:$(cat '${home}/.codex/auth.json' 2>&1)"`,
+        `echo "PROFILE:$(ls '${home}/.codex/' 2>&1 && echo listed)"`,
+        `echo "PLANT:$( (echo x > '${release}/planted') 2>&1 && echo written)"`,
+        "",
+      ].join("\n"),
+      { mode: 0o755 },
+    );
+    fs.symlinkSync(release, path.join(packages, "current"), "dir");
+    fs.mkdirSync(path.join(home, ".local/bin"), { recursive: true });
+    for (const name of ["codex", "codex-code-mode-host"])
+      fs.symlinkSync(
+        path.join(packages, "current/bin", name),
+        path.join(home, ".local/bin", name),
+      );
+    const launch = {
+      command: path.join(home, ".local/bin/codex"),
+      args: [],
+      env: { HOME: home, PATH: "/usr/bin:/bin" },
+    };
+    const granted = run({
+      launch: cliDriver("codex").sandboxLaunch(launch),
+      profile,
+      cwd,
+    });
+    assert.match(granted, /PACKAGE:.*PACKAGE-FILE/);
+    assert.match(granted, /HOST:HOST/);
+    assert.match(granted, /LOGIN:.*(not permitted|denied)/i);
+    assert.match(granted, /PROFILE:.*(not permitted|denied)/i);
+    assert.match(granted, /PLANT:.*(not permitted|denied)/i);
+    assert.equal(fs.existsSync(path.join(release, "planted")), false);
+    // The control: the executable's own grant reaches nothing beside it.
+    const plain = run({ launch, profile, cwd });
+    assert.match(plain, /PACKAGE:.*(not permitted|denied)/i);
+    assert.match(plain, /HOST:.*(not permitted|denied)/i);
+  },
+);
+
+// The installed Codex, when it is a standalone install (a package folder of its own).
+const [installedPackage] = codexExecutable
+  ? executablePackageGrants(codexExecutable, process.env)
+  : [];
+
+test(
+  "the installed standalone Codex's package folder is readable in a sandbox",
+  reason || installedPackage ? options : { skip: "codex is not a standalone install" },
+  (t) => {
+    const { profile, cwd } = workspace(t);
+    const file = path.join(installedPackage.path, "codex-package.json");
+    const launch = {
+      command: "/bin/sh",
+      args: ["-c", `echo "PACKAGE:$(cat '${file}' 2>&1)"`],
+      env: { PATH: "/usr/bin:/bin" },
+    };
+    assert.match(
+      run({ launch: { ...launch, sandboxGrants: [installedPackage] }, profile, cwd }),
+      /PACKAGE:[^]*entrypoint/,
+    );
+    // The control: nothing else of the profile makes the package readable.
+    assert.match(run({ launch, profile, cwd }), /PACKAGE:.*(not permitted|denied)/i);
   },
 );
 

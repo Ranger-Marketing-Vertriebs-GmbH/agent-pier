@@ -390,6 +390,35 @@ folder that the profile does not read. nono's built-in `default` profile reads
 grant. `tests/matrix/nono-cli-needs.test.js` runs the grants through a real nono,
 and Codex's app server when `codex` is installed.
 
+**Codex: the package folder of a standalone install.** A sandboxed launch may read
+its executable through a grant on that one file (`--read-file`, declared in
+`server/features/clis/codex/requests.js` for a session, by the nono adapter for a
+launch that runs Codex itself). Codex's standalone installer puts each release into a
+package folder inside the CLI's own profile,
+`~/.codex/packages/standalone/releases/<version>-<target>/`, and links
+`~/.local/bin/codex` and `~/.local/bin/codex-code-mode-host` to it. Beside the
+executable lie files Codex reads at run time: `codex-package.json`, the code-mode
+host, its own `rg` (`codex-path/`) and its resources. Without access Codex still
+starts, but nono reports the reads of `codex-package.json` and the code-mode host
+as denied. A sandboxed Codex launch therefore gets the package folder its executable
+really belongs to **read-only**: the nearest folder above the executable's real path
+that holds a `codex-package.json` naming it as the entry point
+(`executablePackageGrants` in `server/features/clis/codex/sandbox.js`). That is one
+release folder, not `~/.codex/packages` and never the profile: a folder that is a
+Codex profile (`~/.codex`, the account's `CODEX_HOME`), lies above one, or holds an
+`auth.json`, a `history.jsonl` or `sessions/` is not granted, and the launch then
+gets nothing beyond the executable.
+
+- A Homebrew install and a global npm install below `/opt/homebrew` need nothing:
+  nono's built-in profiles read that folder. A Codex that AgentPier installed itself
+  is covered by the grant on its installation folder
+  ([the grant model](#the-grant-model)).
+- An npm install whose prefix the sandbox profile does not read (below the home
+  folder, as with a Node version manager, or `/usr/local/lib`, which the built-in
+  `default` profile does not read) is not covered: the launch names npm's script, and
+  the binary lies in another package beside it. Grant the prefix in the sandbox
+  profile. This case was not run.
+
 **Codex: no shared app-server daemon.** Codex 0.157 and later attach an interactive
 TUI to a shared background app server (the "daemon", `codex app-server daemon`) when
 one runs for the same `CODEX_HOME`. That server runs the tools, so a sandboxed TUI
