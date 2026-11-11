@@ -4,6 +4,7 @@ import { LiveConnection } from "../features/live/live-connection.js";
 import { sessionToken } from "./login.js";
 import { livePath, upgradeTarget } from "./socket-access.js";
 import { authorizeRequest } from "./security.js";
+import { onUpgrade } from "../lib/socket-errors.js";
 
 export const MAX_SOCKETS_PER_PRINCIPAL = 16;
 const PING_MS = 30000;
@@ -55,12 +56,12 @@ export function attachLiveWebSocket(
       refuse(socket, error.status || 403);
     }
   };
-  server.on("upgrade", upgrade);
+  const offUpgrade = onUpgrade(server, upgrade);
   const offChanges = changes?.(() => {
     if (!hub.closed) hub.reauthorize();
   });
   wss.once("close", () => {
-    server.off("upgrade", upgrade);
+    offUpgrade();
     offChanges?.();
   });
   wss.on("connection", (ws, { token, auth, principal, key }) => {

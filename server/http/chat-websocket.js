@@ -2,6 +2,7 @@ import { messageIdentity } from "../lib/i18n/message-identity.js";
 import { sessionToken } from "./login.js";
 import { chatPath, upgradeTarget } from "./socket-access.js";
 import { authorizeRequest } from "./security.js";
+import { onUpgrade } from "../lib/socket-errors.js";
 import { WebSocketServer, WebSocket } from "ws";
 
 const CURSOR = /^[A-Za-z0-9-]{1,64}$/;
@@ -40,8 +41,7 @@ export function attachChatWebSocket(server, { sync, streams, login, admit, effec
       );
     }
   };
-  server.on("upgrade", upgrade);
-  wss.once("close", () => server.off("upgrade", upgrade));
+  wss.once("close", onUpgrade(server, upgrade));
   wss.on("connection", (ws, { id, token, auth, base }) => {
     let closed = false,
       alive = true,

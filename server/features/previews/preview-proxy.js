@@ -4,6 +4,7 @@ import { downstreamHeaders, upstreamHeaders } from "./preview-headers.js";
 import { pageLanguage, previewPage, refusalText } from "./preview-pages.js";
 import { listenerPort } from "./preview-slots.js";
 import { previewConfig } from "./preview-access.js";
+import { onUpgrade } from "../../lib/socket-errors.js";
 
 const pageHeaders = {
   "content-type": "text/html; charset=utf-8",
@@ -147,7 +148,6 @@ export async function createPreviewListener({
   }
 
   async function upgrade(req, socket, head) {
-    socket.on("error", () => {});
     let access;
     try {
       access = await gate(req);
@@ -225,7 +225,7 @@ export async function createPreviewListener({
   const server = http.createServer((req, res) => {
     request(req, res).catch(() => answer(res, 500, ""));
   });
-  server.on("upgrade", (req, socket, head) => {
+  onUpgrade(server, (req, socket, head) => {
     upgrade(req, socket, head).catch(() => socket.destroy());
   });
   server.on("clientError", (_error, socket) => socket.destroy());

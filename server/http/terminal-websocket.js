@@ -5,13 +5,14 @@ import { serverMessages } from "../lib/i18n/de.js";
 import { WebSocketServer, WebSocket } from "ws";
 import { authorizeRequest } from "./security.js";
 import { problem } from "../lib/storage.js";
+import { onUpgrade } from "../lib/socket-errors.js";
 export function attachTerminalWebSocket(server, { sessions, login, admit, effective }) {
   const wss = new WebSocketServer({
     noServer: true,
     maxPayload: 65536,
     perMessageDeflate: false,
   });
-  server.on("upgrade", (req, socket, head) => {
+  onUpgrade(server, (req, socket, head) => {
     const pathname = upgradeTarget(req, socket)?.pathname;
     if (pathname === undefined) return;
     // Session chats, agent chats, browser views, dictation and the live channel have

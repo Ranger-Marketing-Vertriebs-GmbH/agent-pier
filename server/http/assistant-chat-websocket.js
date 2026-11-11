@@ -3,6 +3,7 @@ import { messageIdentity } from "../lib/i18n/message-identity.js";
 import { sessionToken } from "./login.js";
 import { agentChatPath, upgradeTarget } from "./socket-access.js";
 import { authorizeRequest } from "./security.js";
+import { onUpgrade } from "../lib/socket-errors.js";
 import { WebSocketServer, WebSocket } from "ws";
 
 const ID = /^[A-Za-z0-9_-]{1,100}$/;
@@ -68,8 +69,7 @@ export function attachAssistantChatWebSocket(
       refuse(socket, error.status || 403);
     }
   };
-  server.on("upgrade", upgrade);
-  wss.once("close", () => server.off("upgrade", upgrade));
+  wss.once("close", onUpgrade(server, upgrade));
   wss.on(
     "connection",
     (ws, { id, token, auth, feeds, events, admitted, cursor, since }) => {
