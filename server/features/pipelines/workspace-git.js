@@ -3,6 +3,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { problem } from "../../lib/storage.js";
 import { safeGitArgs, safeGitEnvironment } from "../../lib/git-command.js";
+import { repositoryProgramOptions } from "../../lib/git-repository-programs.js";
 const execute = promisify(execFile);
 
 export function gitEnvironment(home = process.env.HOME) {
@@ -16,7 +17,8 @@ export function gitEnvironment(home = process.env.HOME) {
 }
 /**
  * Runs git in `cwd`. Every call carries the safe settings of `lib/git-command.js`,
- * so a program the repository names for a plain read never starts.
+ * so a program the repository names for a plain read never starts, and runs the
+ * repository's own filter programs where `lib/git-repository-programs.js` says.
  */
 export async function git(
   cwd,
@@ -24,8 +26,14 @@ export async function git(
   { env = gitEnvironment(), timeout = 30000, maxBuffer = 4 * 1024 * 1024 } = {},
 ) {
   try {
+    const confined = await repositoryProgramOptions(cwd, args, env);
     return (
-      await execute("git", safeGitArgs(args), { cwd, env, timeout, maxBuffer })
+      await execute("git", safeGitArgs([...confined, ...args]), {
+        cwd,
+        env,
+        timeout,
+        maxBuffer,
+      })
     ).stdout.trimEnd();
   } catch (error) {
     const failure = problem(serverMessages.pipelineWorkspaces.gitOperationFailed, 409);

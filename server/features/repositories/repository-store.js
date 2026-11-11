@@ -7,6 +7,7 @@ import path from "node:path";
 import os from "node:os";
 import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
+import { safeGitArgs } from "../../lib/git-command.js";
 import { fileURLToPath } from "node:url";
 import {
   discoverAccessibleRepositories,
@@ -114,7 +115,7 @@ function runClone(args, options, timeoutMs, signal) {
       return reject(problem(serverMessages.repositories.cloneShutdown, 503));
     let stderr = "";
     let timedOut = false;
-    const child = spawn("git", args, {
+    const child = spawn("git", safeGitArgs(args), {
       ...options,
       stdio: ["ignore", "ignore", "pipe"],
       detached: process.platform !== "win32",

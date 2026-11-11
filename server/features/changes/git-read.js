@@ -5,6 +5,7 @@ import path from "node:path";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
 import { safeGitArgs } from "../../lib/git-command.js";
+import { repositoryProgramOptions } from "../../lib/git-repository-programs.js";
 import { git, gitEnvironment } from "../pipelines/workspace-git.js";
 import { remoteDefaultBranch } from "../tickets/ticket-worktree.js";
 
@@ -34,15 +35,19 @@ function failure() {
  * last complete `boundary` byte (a line by default) and flagged. Another exit code
  * than `okCodes` and a timeout reject with the git failure problem.
  */
-export function readBounded(
+export async function readBounded(
   cwd,
   args,
   { limit = DIFF_BYTE_LIMIT, timeout = 30000, okCodes = [0], boundary = 10 } = {},
 ) {
+  const env = gitEnvironment();
+  const confined = await repositoryProgramOptions(cwd, args, env).catch(() => {
+    throw failure();
+  });
   return new Promise((resolve, reject) => {
-    const child = spawn("git", safeGitArgs(args), {
+    const child = spawn("git", safeGitArgs([...confined, ...args]), {
       cwd,
-      env: gitEnvironment(),
+      env,
       stdio: ["ignore", "pipe", "ignore"],
     });
     const chunks = [];
