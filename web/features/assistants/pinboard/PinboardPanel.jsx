@@ -21,6 +21,7 @@ export default function PinboardPanel({
       subtitle={assistant.name}
       onClose={onClose}
       closeLabel={copy.close}
+      resizeKey="pinboard"
     >
       <PinboardView
         assistant={assistant}

@@ -43,8 +43,47 @@
   overflow: auto;
   padding: 0 var(--space-4) var(--space-4);
 }
+/* The divider of a resizable panel straddles its left border. */
+.docked-panel.resizable {
+  position: relative;
+}
+.docked-panel-resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(-1 * var(--space-1));
+  width: var(--space-2);
+  z-index: var(--z-base);
+  cursor: col-resize;
+  touch-action: none;
+  outline: none;
+}
+.docked-panel-resizer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 2px;
+  height: 32px;
+  margin: auto;
+  background: var(--line);
+  border-radius: 2px;
+}
+.docked-panel-resizer:hover::after,
+.docked-panel-resizer:focus-visible::after,
+.docked-panel-resizer[data-dragging="true"]::after {
+  background: var(--accent);
+}
+.docked-panel-resizer:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
+}
 @media (max-width: 700px) {
-  .docked-panel {
+  .docked-panel-resizer {
+    display: none;
+  }
+  .docked-panel,
+  .docked-panel.resizable {
     position: absolute;
     inset: 0;
     z-index: var(--z-sticky);

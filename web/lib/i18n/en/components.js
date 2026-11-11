@@ -55,4 +55,5 @@ export const capabilityGateCopy = {
 };
 export const componentsCopy = {
   splitDivider: "Resize panes",
+  dockedPanelResize: "Resize panel",
 };
