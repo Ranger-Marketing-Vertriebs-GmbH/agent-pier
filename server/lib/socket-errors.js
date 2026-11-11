@@ -21,3 +21,10 @@ export function onUpgrade(server, listener) {
   server.on("upgrade", upgrade);
   return () => server.off("upgrade", upgrade);
 }
+
+/**
+ * A listener that only finds out whether a port can be bound still accepts whoever
+ * connects in that moment. Such a connection is closed at once, so it never stays
+ * behind as a socket without an `error` listener.
+ */
+export const closeConnection = (socket) => socket.destroy();

@@ -5,6 +5,7 @@ import { spawn as spawnProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { EventEmitter } from "node:events";
 import { privateFolder, readJSON, writePrivate } from "../../../../lib/storage.js";
+import { closeConnection } from "../../../../lib/socket-errors.js";
 import { setFileInputFiles, uploadTab } from "./hermes-browser-files.js";
 import { chromiumArgs, chromiumEnvironment } from "../../chromium-launch.js";
 
@@ -20,7 +21,7 @@ const problem = (code) => Object.assign(Error(code), { code });
 /** A free loopback TCP port, as the system hands one out. */
 export function freePort() {
   return new Promise((resolve, reject) => {
-    const server = net.createServer();
+    const server = net.createServer(closeConnection);
     server.once("error", reject);
     server.listen(0, "127.0.0.1", () => {
       const { port } = server.address();

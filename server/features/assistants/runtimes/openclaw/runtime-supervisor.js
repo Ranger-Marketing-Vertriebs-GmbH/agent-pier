@@ -33,6 +33,7 @@ import {
 } from "./openclaw-config/telegram-senders.js";
 import { asDesiredState } from "./openclaw-config/desired-agents.js";
 import { readJSON } from "../../../../lib/storage.js";
+import { closeConnection } from "../../../../lib/socket-errors.js";
 
 // Errors an unattended retry cannot fix; they wait for the owner instead.
 const terminal = new Set([
@@ -81,7 +82,7 @@ async function cdpRangeHeld(port, inUse) {
 }
 // Whether another listener holds the port now that our Gateway is gone.
 async function portInUse(port) {
-  const server = net.createServer();
+  const server = net.createServer(closeConnection);
   try {
     await new Promise((resolve, reject) => {
       server.once("error", reject);
@@ -94,7 +95,7 @@ async function portInUse(port) {
   return false;
 }
 async function drawPort() {
-  const server = net.createServer();
+  const server = net.createServer(closeConnection);
   await new Promise((resolve, reject) => {
     server.once("error", reject);
     server.listen(0, "127.0.0.1", resolve);

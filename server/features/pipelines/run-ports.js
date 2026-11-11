@@ -1,6 +1,7 @@
 import net from "node:net";
 import { serverMessages } from "../../lib/i18n/de.js";
 import { problem } from "../../lib/storage.js";
+import { closeConnection } from "../../lib/socket-errors.js";
 import { activeTurnList, terminal } from "./graph-navigation.js";
 
 // Every active native turn leases a block of ports from this range: AGENTPIER_PORT and
@@ -116,7 +117,7 @@ export async function portAvailable(port) {
 const ABSENT_ADDRESS = new Set(["EADDRNOTAVAIL", "EAFNOSUPPORT"]);
 function bindable(port, host) {
   return new Promise((resolve) => {
-    const server = net.createServer();
+    const server = net.createServer(closeConnection);
     server.unref();
     server.once("error", (error) => resolve(ABSENT_ADDRESS.has(error.code)));
     server.listen({ port, host, exclusive: true }, () =>
