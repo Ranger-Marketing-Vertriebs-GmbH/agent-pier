@@ -22,17 +22,19 @@ async function fixture(t, limits) {
     },
   };
   const app = express();
+  app.use(createOAuthRouter(provider, `https://${remoteHost}`, limits));
   let port;
-  app.use((req, res, next) => {
+  // The transport check runs in front of the router, as in the application.
+  const server = http.createServer((req, res) => {
     try {
       authorizeMcpTransport(req, { port, remoteUrl: `https://${remoteHost}` });
     } catch (error) {
-      return res.status(error.status || 403).json({ error: error.message });
+      res.writeHead(error.status || 403, { "content-type": "application/json" });
+      return res.end(JSON.stringify({ error: error.message }));
     }
-    next();
+    app(req, res);
   });
-  app.use(createOAuthRouter(provider, `https://${remoteHost}`, limits));
-  const server = app.listen(0, "127.0.0.1");
+  server.listen(0, "127.0.0.1");
   await once(server, "listening");
   port = server.address().port;
   t.after(() => {
