@@ -5,6 +5,7 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { AssistantStore } from "../../server/features/assistants/assistant-store.js";
+import { AgentGroups } from "../../server/features/assistants/agent-groups.js";
 import { AssistantService } from "../../server/features/assistants/assistant-service.js";
 import { detectBrowser } from "../../server/features/assistants/browser-detection.js";
 import {
@@ -25,6 +26,7 @@ test("create stores web capabilities as off and keeps memory and reminders", asy
     admit: (operation) => operation(),
     models: { resolve: async () => ({ release() {} }) },
     store,
+    agentGroups: new AgentGroups(store),
     changed() {},
     // A new agent starts with shell "With approval", which is audited.
     shellChanges: { audit() {} },
