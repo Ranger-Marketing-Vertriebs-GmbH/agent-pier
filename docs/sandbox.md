@@ -55,10 +55,20 @@ section), AgentPier declares no grant for them at all.
 
 Every sandboxed launch passes `--allow-cwd`, because a coding CLI cannot work without
 its project directory. That flag does not choose an access level: it takes the level
-from the sandbox profile's `workdir` field, and falls back to read-only when the
-profile says nothing. A profile that wants the session to write to the project has to
-say so, for example `"workdir": { "access": "readwrite" }`. AgentPier never widens
-that choice on the operator's behalf.
+from the sandbox profile's `workdir` field. A profile that wants the session to write
+to the project has to say so, for example `"workdir": { "access": "readwrite" }`.
+
+A profile that says nothing gets the project read-only. nono's `workdir.access`
+defaults to `none` (`nono profile schema`), and nono's built-in `default` profile is
+such a profile. With `none`, `--allow-cwd` grants nothing and nono 0.79.0 and 0.81.0
+start the process in `/` instead of the session's folder, so a CLI would work in the
+wrong place (Claude Code reports "Accessing workspace: /"). AgentPier therefore also
+passes `--read <session folder>` on every sandboxed launch. That is the one grant it
+adds to the operator's choice: the session starts in its folder and can read it, and
+writes stay denied unless the profile's `workdir` field or one of its own grants
+allows them. nono adds the profile's level on top of the read grant, so a read-write
+profile stays read-write. The filter programs the server's git runs under a session's
+profile get the same grant for the working tree.
 
 Login sessions and pipeline stages reject `nonoProfile` and cannot be sandboxed in this
 version. A login session depends on a browser handoff that confinement would break, and
@@ -103,7 +113,8 @@ install directory, not only that file: its modules live beside the script that
 `<dataDir>/clis/<tool>` points at, so the account store resolves that symlink and grants
 the directory read access. A CLI installed outside AgentPier needs no such grant. The
 working directory is granted through
-`--allow-cwd` at whatever level the sandbox profile's `workdir` field sets. The rest of
+`--allow-cwd` at whatever level the sandbox profile's `workdir` field sets, and at
+least read-only through `--read <session folder>` (see above). The rest of
 the AgentPier data directory, beyond the specific subtrees the sections below name, is
 reachable only if the operator's own sandbox profile grants it, or if the data directory
 happens to sit inside one of the subtrees above. A packaged install that ships without a `node_modules/` directory still
@@ -151,6 +162,7 @@ nono wrap -p claude-default --allow-cwd \
   --read      <installation root>/vendor/agentbus/ \
   --read-file /opt/homebrew/Cellar/node/26.8.2/bin/node \
   --read-file /opt/homebrew/bin/claude \
+  --read      <session folder> \
   --allow     <dataDir>/agentbus/projects/<project hash>/adapters/<session id> \
   --read-file <dataDir>/agentbus/sessions/<session id>/capability.json \
   --allow     <dataDir>/memory/sessions/<session id> \
@@ -511,7 +523,10 @@ personal workspace, not an isolation boundary for mutually untrusted users.
    `tests/matrix/nono-binding-receipt.test.js`: on macOS with nono 0.79.0 and 0.81.0
    (Seatbelt), and on Linux with nono 0.81.0 (Landlock; checked in a Debian container
    on a 7.0 kernel, and the merge queue runs the same files on its Ubuntu runners).
-   They use stand-ins for the CLIs and need none installed. The
+   They use stand-ins for the CLIs and need none installed. The folder a session
+   starts in, and the level of its working directory, is checked by
+   `tests/matrix/nono-working-directory.test.js` on macOS with nono 0.79.0 and 0.81.0;
+   on Linux only the merge queue's runners run it. The
    adapter port and the SSH agent socket remain verified on macOS only,
    as their sections say.
 

@@ -128,7 +128,7 @@ jobs:
           "$HOME/.local/bin/nono" --version
       - name: Real nono confinement matrix
         if: needs.select.outputs.nono == 'true'
-        run: node --test tests/matrix/nono-confinement.test.js tests/matrix/nono-cli-needs.test.js tests/matrix/nono-binding-receipt.test.js
+        run: node --test tests/matrix/nono-confinement.test.js tests/matrix/nono-cli-needs.test.js tests/matrix/nono-binding-receipt.test.js tests/matrix/nono-working-directory.test.js
       - name: AgentBus Node and Bun compatibility
         if: needs.select.outputs.agentbus-runtimes == 'true'
         run: >-

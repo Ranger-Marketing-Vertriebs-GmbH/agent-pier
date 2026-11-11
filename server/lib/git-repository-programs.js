@@ -120,6 +120,11 @@ export function confinedCommand(command, kind, { executable, profile }) {
     "-p",
     literal(profile),
     "--allow-cwd",
+    // A profile without a `workdir` level grants nothing for the working tree, and
+    // nono then starts the filter in `/` (nono-launch.js). git's shell expands
+    // `$PWD` to the working tree it starts the filter in.
+    "--read",
+    '"$PWD"',
     "--",
     "/bin/sh",
     "-c",

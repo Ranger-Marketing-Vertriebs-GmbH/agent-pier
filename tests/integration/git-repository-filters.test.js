@@ -100,7 +100,7 @@ test("in a sandboxed session's repository the filter runs under the sandbox, wit
   assert.ok(lines(ran).includes("same file.dat"));
   assert.equal(lines(confined).length, lines(ran).length);
   for (const line of lines(confined))
-    assert.match(line, /^wrap -s -p tight --allow-cwd -- \/bin\/sh -c /);
+    assert.match(line, /^wrap -s -p tight --allow-cwd --read (\S+) -- \/bin\/sh -c /);
 });
 
 test("a command that converts no file asks nothing", async () => {
@@ -184,12 +184,12 @@ test("only what the repository itself defines is moved into the sandbox", () => 
 test("a confined command passes the path as an argument and keeps git's percent rules", () => {
   assert.equal(
     confinedCommand("tool --in %f --pct 100%% it's", "clean", sandbox),
-    `'/opt/nono' wrap -s -p 'tight' --allow-cwd -- /bin/sh -c 'tool --in "$1" --pct 100%% it'\\''s' sh %f`,
+    `'/opt/nono' wrap -s -p 'tight' --allow-cwd --read "$PWD" -- /bin/sh -c 'tool --in "$1" --pct 100%% it'\\''s' sh %f`,
   );
   // git does not expand a process command.
   assert.equal(
     confinedCommand("tool %f 100%", "process", { ...sandbox, profile: "50%" }),
-    `'/opt/nono' wrap -s -p '50%' --allow-cwd -- /bin/sh -c 'tool %f 100%' sh`,
+    `'/opt/nono' wrap -s -p '50%' --allow-cwd --read "$PWD" -- /bin/sh -c 'tool %f 100%' sh`,
   );
   assert.match(
     confinedCommand("tool", "smudge", { ...sandbox, profile: "50%" }),

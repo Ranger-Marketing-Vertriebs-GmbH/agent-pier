@@ -245,6 +245,58 @@ test("the adapter wraps a launch whose sandbox profile nono reports", async () =
   ]);
 });
 
+test("a sandboxed launch grants read access to the session's folder itself", async () => {
+  // A profile without a `workdir` level grants nothing through `--allow-cwd`, and
+  // nono then starts the CLI in `/`.
+  const wrapped = wrapWithNono({
+    launch: { command: "/bin/claude", args: [] },
+    executable: nono,
+    profile: "default",
+    cwd: "/project",
+    ...classify("/project"),
+  });
+  const granted = pairs(wrapped.args.slice(4, wrapped.args.indexOf("--")));
+  assert.deepEqual(
+    granted.filter(([, target]) => target === "/project"),
+    [["--read", "/project"]],
+  );
+  // An adapter's own write grant on the folder is not narrowed by it.
+  const writable = wrapWithNono({
+    launch: {
+      command: "/bin/claude",
+      args: [],
+      sandboxGrants: [{ access: "allow", path: "/project" }],
+    },
+    executable: nono,
+    profile: "default",
+    cwd: "/project",
+    ...classify("/project"),
+  });
+  assert.deepEqual(
+    pairs(writable.args.slice(4, writable.args.indexOf("--"))).filter(
+      ([, target]) => target === "/project",
+    ),
+    [["--allow", "/project"]],
+  );
+  const sandbox = new NonoSandbox({
+    detect: () => installed,
+    readProfiles: async () => ["default"],
+  });
+  const folder = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "ap-nono-cwd-")));
+  try {
+    const prepared = await sandbox.prepare({
+      launch: { command: "/bin/claude", args: [] },
+      profile: "default",
+      cwd: folder,
+    });
+    const at = prepared.args.indexOf(folder);
+    assert.equal(prepared.args[at - 1], "--read");
+    assert.ok(at < prepared.args.indexOf("--"));
+  } finally {
+    fs.rmSync(folder, { recursive: true, force: true });
+  }
+});
+
 test("the adapter rejects a launch when nono is not installed", async () => {
   const sandbox = new NonoSandbox({
     detect: () => missing,

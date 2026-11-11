@@ -344,6 +344,10 @@ unless noted:
   chosen with `/model` just before). A name AgentPier cannot map no longer blocks
   the reload: the session resumes with the model it was launched with, and the
   dialog says so ([details](session-reload.md#model-verification)).
+- **Sandbox profiles without a `workdir` level** (nono's built-in `default` is one)
+  now start the session in its folder with read access to it. Before, nono started
+  the CLI in `/`. Writes to the folder still need a `workdir` level of `readwrite`
+  in the profile ([details](sandbox.md#what-can-be-sandboxed)).
 - **Repositories with their own git filters in sandboxed sessions.** In a repository
   a sandboxed session works in, AgentPier's own git calls (the **Changes** tab,
   worktrees, pipelines) run a filter the repository's own config defines inside that

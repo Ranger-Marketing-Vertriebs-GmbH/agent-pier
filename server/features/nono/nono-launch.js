@@ -128,6 +128,7 @@ export function wrapWithNono({
   launch,
   executable,
   profile,
+  cwd,
   isDirectory,
   releases = releasesDirectory(),
 }) {
@@ -142,13 +143,20 @@ export function wrapWithNono({
       profile,
       // A coding CLI is useless without its project directory, so the working
       // directory is granted on every sandboxed launch. The access level is the
-      // sandbox profile's to decide: `--allow-cwd` takes the level from the
-      // profile's `workdir` field and falls back to read-only, so a profile that
-      // says nothing still confines writes.
+      // sandbox profile's to decide: `--allow-cwd` takes it from the profile's
+      // `workdir` field without prompting.
       "--allow-cwd",
       ...grantArguments(
         [
           ...(sandboxGrants || []),
+          // `workdir.access` defaults to `none` (`nono profile schema`; the
+          // built-in `default` profile leaves it out), and `--allow-cwd` then
+          // grants nothing: nono 0.79.0 and 0.81.0 start the process in `/`
+          // instead, and the CLI works in the wrong folder. The explicit read
+          // grant keeps the session in its folder at the level nono's own help
+          // names as the fallback ("defaults to read-only"); nono adds the
+          // profile's level on top, so a read-write profile stays read-write.
+          ...(cwd ? [{ access: "read", path: cwd }] : []),
           ...INSTALLATION_GRANTS.map((path) => ({ access: "read", path })),
           ...INSTALLATION_FILE_GRANTS.map((path) => ({ access: "read", path })),
           ...(releases ? [{ access: "read", path: releases }] : []),
@@ -214,6 +222,11 @@ export class NonoSandbox {
     if (!profiles.includes(profile))
       throw problem(serverMessages.sessions.sandboxProfileUnknown);
     if (cwd) this.onSandboxed({ cwd, profile });
-    return wrapWithNono({ launch: this.prepareCli(tool, launch), executable, profile });
+    return wrapWithNono({
+      launch: this.prepareCli(tool, launch),
+      executable,
+      profile,
+      cwd,
+    });
   }
 }
