@@ -142,7 +142,10 @@ export class DeliveryQueue {
         )
           continue;
         // A menu or question still on an unchanged screen: leave the session
-        // lock (and terminal typing) alone until something moves.
+        // lock (and terminal typing) alone until something moves. The screen is
+        // read before the attempt that judges it, never after: an answer given
+        // while an attempt ends would otherwise become the unchanged screen. A
+        // first attempt has no such reading, so its hold is judged once more.
         if (job.receipt.waiting === "dialog") {
           const view = await this.view(id);
           if (view !== null && view === job.view) continue;
@@ -169,10 +172,7 @@ export class DeliveryQueue {
         (job.cancelled && job.receipt.journal?.phase === "reserved")
       )
         this.finish(job);
-      else {
-        job.attempted?.();
-        if (job.receipt.waiting === "dialog") job.view = await this.view(id);
-      }
+      else job.attempted?.();
     }
   }
 

@@ -88,3 +88,49 @@ test("a failed cancel write still removes the job from the queue", async (t) => 
   await assert.rejects(x.queue.cancel("s", job.file), /disk full/);
   assert.equal(x.queue.busy("s"), false);
 });
+
+test("regression: an answer that lands while an attempt ends is still noticed", async (t) => {
+  // The screen the CLI shows; the attempt judges it, the queue compares it later.
+  let screen = "question";
+  let attempts = 0;
+  const x = fixture(
+    t,
+    async (job) => {
+      attempts++;
+      if (screen !== "question") return "handed-off";
+      job.receipt.waiting = "dialog";
+      // The user answers after the attempt judged the screen and before the
+      // queue reads it: from here on the screen never changes again.
+      screen = "prompt";
+      return "deferred";
+    },
+    async () => screen,
+  );
+  await x.queue.submit(x.job("A"));
+  const started = performance.now();
+  while (x.queue.busy("s") && performance.now() - started < 2000) await sleep(5);
+  assert.equal(x.queue.busy("s"), false, `still held after ${attempts} attempt(s)`);
+  assert.equal(attempts, 2);
+});
+
+test("an unchanged question is judged once more, then left alone", async (t) => {
+  let attempts = 0;
+  let reads = 0;
+  const x = fixture(
+    t,
+    async (job) => {
+      attempts++;
+      job.receipt.waiting = "dialog";
+      return "deferred";
+    },
+    async () => {
+      reads++;
+      return "question";
+    },
+  );
+  const job = x.job("A");
+  await x.queue.submit(job);
+  while (reads < 6) await sleep(5);
+  assert.equal(attempts, 2);
+  assert.equal(await x.queue.cancel("s", job.file), true);
+});
