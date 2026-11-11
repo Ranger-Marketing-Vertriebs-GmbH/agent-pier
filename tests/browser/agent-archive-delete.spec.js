@@ -70,7 +70,7 @@ test("an own agent is archived from its menu, restored and deleted permanently",
   ]);
   // Agents › Archive lists it with Restore.
   await page.goto(baseURL + "/agents");
-  await page.getByRole("button", { name: "Show" }).click();
+  await page.getByRole("button", { name: "Show", exact: true }).click();
   const archive = page.locator(".agents-hub-archive");
   await expect(archive.getByText("Home", { exact: true })).toBeVisible();
   await archive.getByRole("button", { name: "Restore" }).click();
@@ -154,7 +154,7 @@ test("a delete that did not finish is listed as pending and retried", async ({
     return route.fallback();
   });
   await page.goto(baseURL + "/agents");
-  await page.getByRole("button", { name: "Show" }).click();
+  await page.getByRole("button", { name: "Show", exact: true }).click();
   const archive = page.locator(".agents-hub-archive");
   await expect(
     archive.getByText("Deletion pending · last attempt failed: UNAVAILABLE"),

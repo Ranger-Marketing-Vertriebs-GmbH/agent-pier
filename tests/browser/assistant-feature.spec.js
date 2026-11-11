@@ -291,5 +291,5 @@ test("agents off: every hub tab offers Enable agents, Runtime keeps the switch",
   await page.getByRole("tab", { name: "All agents" }).click();
   await page.getByRole("button", { name: "Enable agents" }).click();
   await expect.poll(() => feature.enabled).toBe(true);
-  await expect(page.getByRole("heading", { name: "Your agents" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Agent groups" })).toBeVisible();
 });
