@@ -1,6 +1,8 @@
 // Screen helpers the CLI drivers' terminal readers share (see `<id>/tui.js`).
 import { createHash } from "node:crypto";
 import { stripVTControlCharacters } from "node:util";
+// Claude Code names its model in the footer; Codex footers match the hints below.
+import { footerNamesModel } from "./claude/model-label.js";
 
 export const plain = (value) => stripVTControlCharacters(value).replaceAll("\u00a0", " ");
 const digest = (value) => createHash("sha256").update(value).digest("hex").slice(0, 32);
@@ -207,9 +209,10 @@ export function nativePromptRow(lines, { near = Infinity } = {}) {
   if (prompt < 0 || prompt < lines.length - near) return -1;
   const footer = lines.slice(prompt + 1).join("\n");
   if (
-    !/(?:for shortcuts|context left|context window|gpt-|codex-|auto mode|manual mode|shift\+tab|bypass permissions|Opus|Sonnet|Haiku)/i.test(
+    !/(?:for shortcuts|context left|context window|gpt-|codex-|auto mode|manual mode|shift\+tab|bypass permissions)/i.test(
       footer,
-    )
+    ) &&
+    !footerNamesModel.test(footer)
   )
     return -1;
   if (/Input disabled\.|Viewing sub-agent/i.test(lines.slice(prompt).join("\n")))
