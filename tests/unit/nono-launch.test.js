@@ -12,6 +12,7 @@ import {
   releasesDirectory,
   wrapWithNono,
 } from "../../server/features/nono/nono-launch.js";
+import { ENVIRONMENT_PROGRAM } from "../../server/features/nono/nono-environment.js";
 
 // nono rejects a file behind a directory flag, so the composer classifies every
 // grant path. The classifier is injected here: the tests pin the flag choice,
@@ -419,4 +420,92 @@ test("a sandboxed session of an installed release may read every release, so it 
     granted(null).some(([, target]) => target.startsWith("/app")),
     false,
   );
+});
+
+// nono keeps its own folders under these two: its protected state under
+// `$XDG_STATE_HOME/nono`, its profiles under `$XDG_CONFIG_HOME/nono`.
+const account = "/data/profiles/one";
+const accountFolders = {
+  XDG_CACHE_HOME: `${account}/cache`,
+  XDG_CONFIG_HOME: `${account}/config`,
+  XDG_DATA_HOME: `${account}/data`,
+  XDG_STATE_HOME: `${account}/state`,
+};
+
+test("wrapWithNono hands an account's XDG folders to the CLI only, never to nono", () => {
+  const wrapped = wrapWithNono({
+    launch: {
+      command: "/bin/opencode",
+      args: ["--auto"],
+      env: { HOME: "/home/me", PATH: "/bin", ...accountFolders },
+      sandboxGrants: [{ access: "allow", path: account }],
+    },
+    executable: nono,
+    profile: "dev",
+    ...classify(account, ...INSTALLATION_GRANTS),
+  });
+  // nono runs with the environment of a launch without an account folder: its state
+  // root is `~/.local/state/nono`, outside the granted account folder, and it finds
+  // the operator's sandbox profiles under `~/.config/nono`.
+  assert.deepEqual(wrapped.env, { HOME: "/home/me", PATH: "/bin" });
+  const separator = wrapped.args.indexOf("--");
+  assert.deepEqual(wrapped.args.slice(separator + 1), [
+    ENVIRONMENT_PROGRAM,
+    ...Object.entries(accountFolders).map(([name, value]) => `${name}=${value}`),
+    "/bin/opencode",
+    "--auto",
+  ]);
+  const granted = pairs(wrapped.args.slice(4, separator));
+  assert.ok(
+    granted.some(
+      ([flag, file]) => flag === "--read-file" && file === ENVIRONMENT_PROGRAM,
+    ),
+  );
+  assert.ok(granted.some(([flag, file]) => flag === "--allow" && file === account));
+});
+
+test("wrapWithNono leaves a launch without XDG folders as it is", () => {
+  const launch = { command: "/bin/claude", args: ["-c"], env: { HOME: "/home/me" } };
+  const wrapped = wrapWithNono({
+    launch,
+    executable: nono,
+    profile: "dev",
+    ...classify(),
+  });
+  assert.deepEqual(wrapped.env, { HOME: "/home/me" });
+  assert.deepEqual(wrapped.args.slice(wrapped.args.indexOf("--") + 1), [
+    "/bin/claude",
+    "-c",
+  ]);
+  assert.equal(wrapped.args.includes(ENVIRONMENT_PROGRAM), false);
+  // Without a sandbox the CLI is started directly and keeps its whole environment.
+  const plain = wrapWithNono({
+    launch: { ...launch, env: accountFolders },
+    executable: null,
+    profile: null,
+  });
+  assert.deepEqual(plain.env, accountFolders);
+  assert.deepEqual(plain.args, ["-c"]);
+});
+
+test("wrapWithNono keeps a CLI path with an equals sign from being read as a variable", () => {
+  const wrapped = wrapWithNono({
+    launch: {
+      command: "/opt/a=b/opencode",
+      args: ["--auto"],
+      env: { XDG_STATE_HOME: `${account}/state` },
+    },
+    executable: nono,
+    profile: "dev",
+    ...classify(),
+  });
+  assert.deepEqual(wrapped.args.slice(wrapped.args.indexOf("--") + 1), [
+    ENVIRONMENT_PROGRAM,
+    `XDG_STATE_HOME=${account}/state`,
+    "/bin/sh",
+    "-c",
+    'exec "$0" "$@"',
+    "/opt/a=b/opencode",
+    "--auto",
+  ]);
 });
