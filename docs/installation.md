@@ -299,17 +299,21 @@ unless noted:
   with credentials now includes it.
 - **Accounts with running sessions move later.** An account is moved only while none of
   its sessions is running, so sessions that survive the update keep working. Until
-  then it stays on the keychain and a sandboxed session of it starts signed out; the
-  launch dialog says so. Stop the account's sessions once and start a new one.
+  then it stays on the keychain, where a sandbox cannot read it: the launch dialog
+  says so and AgentPier refuses to start a sandboxed session of that account (it
+  would start signed out). Stop the account's sessions once and start a new one.
 - **Local Claude accounts are not moved.** The CLI's own profile (`~/.claude`) keeps
-  its keychain login. It cannot be used in a sandboxed session.
+  its keychain login. A sandboxed session of it is refused; use an account with a
+  separate profile.
 - **After a downgrade.** An older version runs Claude Code without the stand-in. It
   still finds the file while the keychain has no item, and puts the login back into
   the keychain when it next refreshes the token. If an account shows as signed out
   after a downgrade, sign in again.
 - **Sandboxed Codex sessions** on macOS now get `SSL_CERT_FILE=/etc/ssl/cert.pem`
-  unless `SSL_CERT_FILE` is already set for AgentPier. A CA that exists only in the
-  keychain is not trusted there.
+  unless `SSL_CERT_FILE` or `CODEX_CA_CERTIFICATE` is already set for AgentPier. A CA
+  that exists only in the keychain is not trusted there. `CODEX_CA_CERTIFICATE` set
+  for AgentPier now reaches every session, like `SSL_CERT_FILE`, and a sandboxed
+  Codex session may read the file either one names.
 - **nono (macOS and Linux).** Existing installations keep their nono version. Update it under **CLIs and
   extensions › Installation**; 0.80 and 0.81 carry security fixes.
 - **Reload sandboxed sessions after the update (macOS and Linux).** A session now
@@ -318,10 +322,26 @@ unless noted:
   and a sandboxed session is granted only that, and of its project's AgentBus folder
   only its own plugin folder. Sessions that were running during the update keep
   working with their old files and their old, wider grants; **Reload & resume**
-  moves each to the new folders. A sandboxed Claude Code session usually cannot be
-  reloaded (the sandbox denies `ps`, so the session has no confirmed conversation
-  and the reload is refused): stop it and start a new session instead. Nothing has
-  to be migrated by hand, and unsandboxed sessions need no reload.
+  moves each to the new folders. A sandboxed session that was started before this
+  version has no confirmed conversation (its sandbox denied `ps`, so its hooks wrote
+  no binding receipt) and its reload is refused: stop it and start a new session
+  instead. Sessions started with this version get the receipt from the server and
+  reload normally. Nothing has to be migrated by hand, and unsandboxed sessions need
+  no reload.
+- **Sandboxed sessions across later updates.** A sandboxed session started with this
+  version may read the install root's `releases/` folder (code and runtimes only),
+  so its question and approval relay keeps working after the next update activates
+  another release. A sandboxed session started before this version cannot read the
+  new release; after updating, stop it and start a new one
+  ([details](sandbox.md#sandboxed-sessions-across-updates)).
+- **Managed Claude accounts in a sandbox** now read the extension folders shared
+  with `~/.claude` (`skills`, `agents`, `commands`, `plugins`; read-only) and write
+  `~/.claude/plugins/data`. Sandbox profiles need no entry for `~/.claude` for the
+  session's hooks to run.
+- **Reload & resume keeps the model Claude Code displays** ("Fable 5.2", a model
+  chosen with `/model` just before). A name AgentPier cannot map no longer blocks
+  the reload: the session resumes with the model it was launched with, and the
+  dialog says so ([details](session-reload.md#model-verification)).
 - **Repositories with their own git filters in sandboxed sessions.** In a repository
   a sandboxed session works in, AgentPier's own git calls (the **Changes** tab,
   worktrees, pipelines) run a filter the repository's own config defines inside that
