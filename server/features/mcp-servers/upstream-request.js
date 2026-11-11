@@ -98,8 +98,11 @@ export function upstreamRequest(serverUrl, { lookup, send = pinnedRequest } = {}
   };
 }
 
-/** The response body as sent, decoded when the server compressed it unasked. */
-export function plainBody(response) {
+/**
+ * The streams of the response body as sent, for `stream.pipeline`: the response, and
+ * its decoder when the server compressed the body unasked.
+ */
+export function bodyStreams(response) {
   const encoding = String(response.headers["content-encoding"] || "").toLowerCase();
   const flush = { flush: zlib.constants.Z_SYNC_FLUSH };
   const decoder =
@@ -110,7 +113,5 @@ export function plainBody(response) {
         : encoding === "br"
           ? zlib.createBrotliDecompress({ flush: zlib.constants.BROTLI_OPERATION_FLUSH })
           : null;
-  if (!decoder) return response;
-  response.on("error", (error) => decoder.destroy(error));
-  return response.pipe(decoder);
+  return decoder ? [response, decoder] : [response];
 }
