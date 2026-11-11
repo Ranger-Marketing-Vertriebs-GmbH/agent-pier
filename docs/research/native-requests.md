@@ -203,7 +203,9 @@ default list or a remembered approval covers it (`request-approvals.js`,
 checks git options against a list per subcommand, keeps `git`, `npm` and `cd` inside
 the session's project and judges what the shell can expand a word to:
 `git-read-options.js`, `rg-read-options.js`, `approval-place.js`,
-`shell-expansion.js`, `secret-names.js`). It sends the CLI's own "allow once"
+`shell-expansion.js`, `secret-names.js`; `search-reach.js` keeps a recursive search
+inside the project and away from hidden files, and `risky-forms.js` lists the forms
+a remembered program does not cover). It sends the CLI's own "allow once"
 answer (`allow` for Claude Code, `accept` for Codex command and file-change approvals,
 `once` for OpenCode) over the same channel and audits `request.answered` with the
 decision and `auto: true`. A delivery result is handled outside the socket's publish

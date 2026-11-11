@@ -117,7 +117,10 @@ Every CLI tool approval (Claude Code, Codex and OpenCode) also offers **Always a
 <what> in this session** and **Always allow <what> in this project**. For a shell
 command, <what> names its programs, with the subcommand for programs such as `git`,
 `npm` or `docker` (`rm`, `git push`); for any other tool it is the tool
-(`WebFetch`, `Edit`, Codex file changes). AgentPier keeps the approval itself, per
+(`WebFetch`, `Edit`, Codex file changes). A command that names a secret, and the
+few forms listed under
+[What a remembered program does not cover](#what-a-remembered-program-does-not-cover),
+are named and remembered as the whole command. AgentPier keeps the approval itself, per
 CLI, and answers the next matching request with the CLI's "allow once" without a card:
 a shell command matches when every program in it is remembered or on the default list
 below. A session approval lasts until the session is removed (stopping or reloading it
@@ -155,12 +158,15 @@ Some requests need no card at all. The list lives in one constant,
   (`git fetch origin main`, `git fetch --all --prune`). A path or URL, a refspec
   (`main:main`, `+…`, `refs/…`), `--force`, `--prune-tags`, `--refmap` and the
   shallow and filter options ask, and so does a remote whose name is also a folder
-  where the command runs;
+  where the command runs. `git diff` compares the project only: `--no-index` and a
+  path outside the project ask, because git then compares any two files or folders;
 - `grep`, `cat`, `head`, `tail`, `ls`, `wc`, `rg` with its search and output options
   (`rg-read-options.js`; `--pre`, `--hostname-bin`, `-z`, `-f` and unknown options
   ask), and `sed` without
   `-i` whose script only prints, deletes lines or substitutes without the `w` and `e`
-  flags;
+  flags. A search that reads a whole folder (`grep -r`, `rg`) stays inside the
+  project and away from hidden and ignored files; see
+  [How far a search reads](#how-far-a-search-reads);
 - `npm test`, `npm run test*`, `npm run lint` and `npm run check` in the project,
   with no npm option before `--` other than `--silent`, `--quiet` or `--if-present`
   (`--prefix`, `--workspace` or `--script-shell` ask; what follows `--` goes to the
@@ -175,10 +181,75 @@ its `.worktrees/` and every linked one. AgentPier follows `cd` through a chain a
 `-C`, starting from the folder the CLI reports for its shell, and resolves symbolic
 links: `cd web && npm test` and `git -C .worktrees/feature status` run,
 `cd ../other && npm test`, `git -C /other/repo diff` and a plain `cd /tmp` ask. The
-programs that only read files are not bound to the project (`cat /etc/hosts` runs).
+programs that only read files are not bound to the project when they name the files
+they read (`cat /etc/hosts` and `grep -n key ~/notes/todo.md` run); a search of a
+whole folder is (next section).
 For git the folder must also belong to one of the project's own repositories: a
 nested repository, a submodule or a bare repository inside the project has its own
 configuration and asks. `cd -`, `cd +1` and chains of more than 20 parts ask.
+
+Every session has a folder: AgentPier refuses to create one without an existing
+absolute folder, so the project is always known. Should a request ever arrive for a
+session without one, nothing a repository defines runs unasked: `npm` asks, and of
+git only `git rev-parse` and a listing `git branch` stay, which start no program a
+repository's configuration names (`core.fsmonitor`, `diff.external`, textconv
+filters, `core.sshCommand`, hooks). The folder a CLI reports for its shell does not
+stand in for a missing session folder. The programs that only read files stay as
+they are.
+
+### How far a search reads
+
+`cat notes.md` reads the file it names; `grep -r` and `rg` read every file below a
+folder, key and credentials files included. Agents search all the time, so an
+ordinary search in the project needs no card (`grep -rn needle src`, `rg needle`,
+`rg -n needle web -g '*.jsx'`). A search asks when it reaches further
+(`search-reach.js`):
+
+- **Outside the project.** A recursive `grep` or an `rg` that names a place outside
+  the session's project asks: `grep -r '' ~`, `grep -R KEY /etc`, `rg KEY ..`,
+  `rg --files ~/Projects`, and any such search after a `cd` out of the project. A
+  `grep` that does not recurse reads the files it names, like `cat`.
+- **Hidden and ignored files (ripgrep).** `rg` skips hidden files and what
+  `.gitignore` names, which is where `.env`, `.npmrc` and `.ssh` are. Options that
+  search them ask: `-u`, `-uu`, `-uuu`, `--unrestricted`, `-.`, `--hidden` and
+  every `--no-ignore…`. A glob or type that matches hidden files searches them
+  without `--hidden`, so these ask as well: a glob for dot names or one whose last
+  part can be a protected dot file (`-g '.env*'`, `-g '*'`, `-g 'src/**'`,
+  `-g '*.local'`), the types `sh` and `all` (ripgrep's `sh` type holds `.env`) and
+  `--type-add`. `-g '*.js'`, `-g '**/*.test.js'` and an excluding glob
+  (`-g '!dist'`) run.
+- **A folder that holds a secret (grep).** `grep -r` has no ignore rules. It asks
+  when a folder it searches directly holds a protected dot name (`.env`,
+  `.env.local`, `.npmrc`, `.ssh`, …) or a key or credentials file (`server.pem`,
+  `id_rsa`, `credentials.json`), or holds your home folder. A subfolder that is
+  merely named `secrets` or `tokens` does not count. In a project with a
+  `.env` in its root, `grep -rn needle src` runs and `grep -rn needle .` asks;
+  `rg needle` runs, because ripgrep skips `.env`.
+
+This matches how a single file is treated: `cat .env` asks, `cat src/app.js` does
+not. `find`, `xargs`, `ag`, `ack` and `git grep` are not on the list and always
+ask.
+
+What stays accepted: AgentPier looks at the searched folder itself, not at
+everything below it, so `grep -rn KEY src` reads `src/config/.env` if there is one,
+and a `grep -r` over a repository's root reads `.git/`, the repository's
+configuration included. ripgrep reads a key file that is neither hidden nor ignored
+(`rg KEY` in a folder with a tracked `server.pem`). A symbolic link below the
+searched folder that points out of the project is followed by `grep -R` and
+`rg --follow`. And a remembered `grep` or `rg` covers a search anywhere, like any
+remembered program; only a secret named as written is excluded.
+
+### What the check cannot see
+
+AgentPier judges the command line a CLI asks to run, not the state of the shell
+that runs it. Options and settings of that shell can change what a word means:
+with zsh's `globdots` or bash's `dotglob` a `*` also matches dot files, `CDPATH`
+lets `cd sub` enter a folder elsewhere, and an alias or function can replace a
+program (`grep` defined as a function that searches hidden files). A coding CLI
+starts its shell from your shell configuration, so these are settings you chose;
+they are an accepted limit of the default list. The checks above assume the usual
+defaults. A command that sets such an option itself (`setopt`, `shopt`,
+`CDPATH=… cd`, `alias`) is not on the list and asks.
 
 The shell expands some words after AgentPier read them, so a word with an unquoted
 `*`, `?`, `[…]`, `{a,b}` or a leading `~` is judged by what it can become:
@@ -221,7 +292,8 @@ rm x` asks unless `rm` is remembered), and it has no command substitution, varia
 job, subshell or leading `NAME=value`. Discarding output (`2>&1`, `>/dev/null`) is
 fine. A command that names a secret or credentials file (`.env`, `.envrc`, `.ssh/`,
 keys, `credentials`, tokens, passwords, shell history, `.docker/config.json`,
-`.config/gh/hosts.yml`, `.config/sops`), also as the path of `git show HEAD:<path>`,
+`.config/gh/hosts.yml`, `.config/sops`, `.git/config`), also as the path of
+`git show HEAD:<path>`,
 always asks, as do `rm`, `ssh`, `scp`, `sftp`,
 `git push` and other writing git commands and package installs; you can remember
 these once you approved them. A remembered program or tool never covers a secret: with
@@ -232,8 +304,52 @@ secret (`cat ~/.s{s,}h/config`), a pattern for a dot name (`cat .e*`) and a patt
 that writes out part of a key or credentials name (`cat id_*`, `rm cred*`,
 `cat certs/*.k*`): each is remembered exactly as written. Ordinary patterns stay
 covered by the remembered program, also those the default list asks for because
-they merely could match such a file: with `rm` remembered, `rm -rf dist/*`,
+they merely could match such a file: with `rm` remembered, `rm -f dist/*`,
 `rm keys/*` and `rm *.json` run.
+
+### What a remembered program does not cover
+
+A remembered approval names a program with its subcommand and covers its arguments:
+with `git branch` remembered, `git branch feature` and `git branch -m old new` run.
+A few forms are not covered, because they lose data, write outside the project or
+choose what git runs. They ask again even when their program is remembered; the
+card says so, and **Always allow** on that card remembers exactly that command
+(`risky-forms.js`):
+
+- `git branch` and `git tag` that delete or force (`-d`, `-D`, `-M`, `-C`, `-f`,
+  `--delete`, `--force`);
+- `git push` with `--force` in any form, `-f`, `--delete`, `-d`, `--mirror`,
+  `--prune`, or a refspec that overwrites (`+main`) or deletes (`:old`);
+- `git reset --hard`, `git clean -f`, `git checkout -f`, `git switch -f` or
+  `--discard-changes`, `git checkout` or `git restore` of the whole work tree
+  (`git checkout -- .`, `git restore .`; `git restore --staged .` only unstages
+  and stays covered), `git stash drop` and `clear`, `git worktree remove --force`;
+- `git log`, `show` and `diff` with `--output`, which writes a file wherever the
+  option says;
+- an option that names a program to run: `--upload-pack`, `--receive-pack`,
+  `--exec`, `git clone -u`, and an option before the subcommand other than `-C`
+  and `--no-pager` (`--exec-path`, `--git-dir`, `--work-tree`, `--config-env`);
+- `git config` that writes: setting, adding, unsetting or editing a value.
+  `git config user.name`, `--get` and `--list` stay covered;
+- `rm -r` in any form (`-rf`, `-R`, `--recursive`), and `rm` of a path outside the
+  project (`rm ~/notes.md`, `rm ../other/a.txt`, or any `rm` after a `cd` out of
+  the project).
+
+Abbreviated options count like the full ones (`git reset --har`,
+`git log --outp=x`). Approvals remembered by earlier versions keep working for
+everything else; a remembered `rm` that used to answer `rm -rf build` now asks for
+it once, and **Always allow** then remembers `rm -rf build` itself.
+
+What stays accepted: the list is short on purpose and names forms, not every way
+to lose work. A remembered program still covers the rest of what it can do:
+`git rebase`, `git commit --amend`, `git checkout -- <one file>`, a non-recursive
+`rm` inside the project, a recursive search with `grep` or `rg` anywhere. A
+remembered `npm run` covers every script (`npm run build`, `npm run deploy`): the
+scripts are the repository's own, and the card and the **Approvals** tab name the
+key as broadly as it applies. Programs without a subcommand key (`docker`, `gh`,
+`cargo` have one; `make`, `node`, `python` do not) are remembered as the program
+alone. Remember a program only when you would approve everything it does in that
+project, and remove a rule in the project's **Approvals** tab when that changes.
 
 The audit records how a request was allowed: `allow` once, `allow-session` and
 `allow-project` for remembered approvals (and for the CLI's own session approval),
