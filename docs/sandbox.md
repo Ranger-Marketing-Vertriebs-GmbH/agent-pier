@@ -267,6 +267,22 @@ environment the session gets and grants it with `--allow-unix-socket-dir-bind`, 
 covers binding and connecting sockets directly inside it. Sessions of the same user
 share this folder, as they do without a sandbox; each socket has its own key.
 
+**Claude Code: the shared extension folders.** A managed account's `skills`,
+`agents`, `commands` and `plugins` are links into the CLI's own profile
+(`~/.claude`, see [shared CLI extensions](shared-cli-extensions.md)), which the grant
+on the account folder does not cover. Claude Code creates `plugins/data/<plugin>`
+before it runs a plugin's hook, for AgentPier's own plugins as well, so without
+access a sandboxed session shows "hook error: EPERM … mkdir …/plugins/data" and
+none of its hooks run. A sandboxed launch of a managed Claude account therefore gets
+the four linked folders read-only and `~/.claude/plugins/data` read-write
+(AgentPier creates it). The profile itself, with its settings, history and login,
+is not granted, and a link counts only while it points where AgentPier put it. The
+plugin code stays read-only, because unsandboxed sessions run it too: installing a
+plugin or refreshing a marketplace from inside a sandboxed session does not work,
+do that in **CLIs and extensions** or in an unsandboxed session. `plugins/data` is
+shared with the unsandboxed sessions of all accounts; a plugin that runs code it
+keeps there runs what a sandboxed session may have written.
+
 <a id="the-binding-receipt-in-a-sandbox"></a>
 
 **The binding receipt.** A session's hooks tell AgentPier which native conversation
