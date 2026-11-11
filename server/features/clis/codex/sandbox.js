@@ -1,6 +1,7 @@
 // What a Codex launch needs before it runs inside a nono sandbox (docs/sandbox.md).
 import fs from "node:fs";
 import path from "node:path";
+import { bundleGrants } from "../ca-files.js";
 import { SHARED_FOLDERS, linkedFolderGrants } from "../linked-folders.js";
 import { assetDirectories } from "./profile-files.js";
 
@@ -8,16 +9,6 @@ import { assetDirectories } from "./profile-files.js";
 export const SYSTEM_CA_BUNDLE = "/etc/ssl/cert.pem";
 // The variables Codex reads a CA bundle from (its own one first).
 const CA_VARIABLES = ["SSL_CERT_FILE", "CODEX_CA_CERTIFICATE"];
-
-/** `value` when it names a regular file by an absolute path, else null. */
-function bundleFile(value) {
-  if (typeof value !== "string" || !path.isAbsolute(value)) return null;
-  try {
-    return fs.statSync(value).isFile() ? value : null;
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Codex verifies TLS certificates against the macOS trust store, which it reaches
@@ -35,17 +26,9 @@ function trustStoreLaunch(launch, { platform, exists }) {
   const env = launch.env || {};
   const named = CA_VARIABLES.filter((name) => env[name]);
   if (named.length) {
-    const files = [...new Set(named.map((name) => bundleFile(env[name])))].filter(
-      Boolean,
-    );
-    if (!files.length) return launch;
-    return {
-      ...launch,
-      sandboxGrants: [
-        ...(launch.sandboxGrants || []),
-        ...files.map((file) => ({ access: "read", path: file })),
-      ],
-    };
+    const grants = bundleGrants(env, named);
+    if (!grants.length) return launch;
+    return { ...launch, sandboxGrants: [...(launch.sandboxGrants || []), ...grants] };
   }
   if (platform !== "darwin" || !exists(SYSTEM_CA_BUNDLE)) return launch;
   return {
