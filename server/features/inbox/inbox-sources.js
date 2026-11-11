@@ -98,6 +98,9 @@ function unresolvedSources({ services, assistants, agents, conversations, users,
         .filter(
           (a) =>
             actionBusy.has(a.state) &&
+            // A running session_start is the launch receipt of a started CLI
+            // session and stays so; it blocks no update (runtime-update-blockers.js).
+            !(a.state === "running" && a.payload?.action === "session_start") &&
             !users.has(a.conversationId) &&
             old(a.updatedAt ?? a.createdAt),
         )

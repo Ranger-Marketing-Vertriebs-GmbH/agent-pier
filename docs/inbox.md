@@ -71,7 +71,9 @@ Agent work that has not moved for more than 24 hours shows on the **Agents** tab
 - **Chat turn with unknown outcome**: an uncertain or interrupted turn nobody
   reviewed. It links to the chat.
 - **Agent action without progress**: an action approved, executing, running or of
-  unknown outcome that has not changed for a day. It links to the agent's chat.
+  unknown outcome that has not changed for a day. It links to the agent's chat. A
+  coding session an agent started successfully is not listed: its start keeps the
+  state running as the launch receipt, and it blocks no update.
 
 The day is counted from the input's or turn's arrival and from the action's last
 change. The card says what to do and **Open in context** opens the place; the inbox
