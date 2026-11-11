@@ -473,8 +473,20 @@ export class SessionManager {
       );
       let disposed = false;
       const inputState = {};
+      // Until the tmux client draws, the PTY is still in line mode and would turn
+      // Enter (CR) into Ctrl-J (NL) and echo the keys: hold input until then.
+      let drawn = false;
+      let open;
+      const opened = new Promise((resolve) => (open = resolve));
+      // Registered before any held write, so the order of writes never changes.
+      opened.then(() => (drawn = true));
+      const first = terminal.onData(() => {
+        first.dispose();
+        open();
+      });
       const data = terminal.onData(onData);
       const exit = terminal.onExit((event) => {
+        open();
         this.clients.delete(client);
         data.dispose();
         onExit(event);
@@ -486,13 +498,15 @@ export class SessionManager {
           assertInteractiveSession(session);
           if (this.replacing.has(id))
             return Promise.reject(failure(serverMessages.sessions.reloading, 409));
-          return this.serial(async () => {
-            if (disposed) return;
-            if (blocksTerminalInput(await this.metadata(id)))
-              throw failure(serverMessages.sessions.reloading, 409);
-            await recordManualInput(this, session, text, inputState);
-            terminal.write(text);
-          }, id);
+          const send = () =>
+            this.serial(async () => {
+              if (disposed) return;
+              if (blocksTerminalInput(await this.metadata(id)))
+                throw failure(serverMessages.sessions.reloading, 409);
+              await recordManualInput(this, session, text, inputState);
+              terminal.write(text);
+            }, id);
+          return drawn ? send() : opened.then(send);
         },
         resize: (nextCols, nextRows) => {
           dimensions(nextCols, nextRows);
@@ -501,6 +515,8 @@ export class SessionManager {
         dispose: () => {
           if (disposed) return;
           disposed = true;
+          open();
+          first.dispose();
           data.dispose();
           exit.dispose();
           this.clients.delete(client);

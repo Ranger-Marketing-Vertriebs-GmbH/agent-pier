@@ -55,13 +55,19 @@ async function fixture(t, claude, size) {
   return { f, recorder, session, manager, post, status };
 }
 
+/** Poll `check` until it holds; a timeout reports the state `seen()` describes. */
+async function until(check, seen, timeoutMs = 10000) {
+  const started = performance.now();
+  while (!(await check())) {
+    if (performance.now() - started > timeoutMs)
+      throw new Error(`Timed out after ${timeoutMs} ms: ${seen()}`);
+    await sleep(10);
+  }
+}
+
 test("regression: a typed draft that cannot be cleared at 50x34 is sent along", async (t) => {
   const x = await fixture(t, { ignoreEditing: true }, ["50", "34"]);
-  let attached = false;
-  const client = await x.manager.attach(x.session.id, {
-    onData: () => (attached = true),
-  });
-  for (let attempt = 0; !attached && attempt < 100; attempt++) await sleep(20);
+  const client = await x.manager.attach(x.session.id);
   // Typed in the terminal and not yet submitted.
   await client.write("half-typed idea");
   await x.recorder.waitForText("half-typed idea");
@@ -90,23 +96,45 @@ test("an open Claude menu is closed with Escape before the message is sent", asy
 test("a native question in the TUI holds the message until it is answered", async (t) => {
   const x = await fixture(t, { dialog: "question" });
   x.f.application.chatDelivery.retryMs = 50;
+  // Count how often the worker looks at the screen of the held message.
+  const queue = x.f.application.chatDelivery.held;
+  const view = queue.view.bind(queue);
+  let checks = 0;
+  queue.view = async (id) => {
+    const text = await view(id);
+    checks++;
+    return text;
+  };
   const held = await x.post("message after the answer");
   assert.equal(held.status, "pending");
   assert.equal(held.waiting, "dialog");
-  await sleep(300);
+  // Three retries looked at the open question and left it alone.
+  await until(
+    () => checks >= 3,
+    () => `${checks} retry checks of the held message`,
+  );
   // Never Escape (it would deny) and never Enter into the question.
   assert.equal((await x.recorder.readBytes()).length, 0);
-  // The user answers in the terminal.
-  const client = await x.manager.attach(x.session.id, { onData: () => {} });
-  await sleep(100);
+  // The user answers in the terminal, right after it opened.
+  const client = await x.manager.attach(x.session.id);
   await client.write("\r");
   const paste = "\x1b[200~message after the answer\x1b[201~\r";
-  await x.recorder.waitForText(paste);
-  assert.equal((await x.recorder.readBytes()).toString(), `\r${paste}`);
-  let status;
-  for (let attempt = 0; attempt < 100 && status !== "handed-off"; attempt++) {
-    status = (await x.status(held.deliveryId)).status;
-    await sleep(20);
+  try {
+    await x.recorder.waitForText(paste);
+  } catch (error) {
+    const job = queue.find(
+      x.session.id,
+      x.f.application.chatDelivery.file(x.session.id, held.deliveryId),
+    );
+    error.message += `; delivery ${JSON.stringify(await x.status(held.deliveryId))}`;
+    error.message += `; screen the worker compared ${JSON.stringify(job?.view)}`;
+    error.message += `; screen now ${JSON.stringify(await queue.view(x.session.id))}`;
+    throw error;
   }
-  assert.equal(status, "handed-off");
+  assert.equal((await x.recorder.readBytes()).toString(), `\r${paste}`);
+  let last;
+  await until(
+    async () => (last = await x.status(held.deliveryId)).status === "handed-off",
+    () => `delivery ${JSON.stringify(last)}`,
+  );
 });

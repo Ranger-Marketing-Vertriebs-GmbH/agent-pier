@@ -160,7 +160,15 @@ fs.writeFileSync(${JSON.stringify(ready)}, "ready");
         } else if ((await fs.readFile(capture)).includes(expected)) return;
         await sleep(10);
       }
-      throw new Error(`Recorder did not receive expected ${expected.length} bytes`);
+      // Show what did arrive: a wrong key or nothing at all are different bugs.
+      const received =
+        text === "ready"
+          ? "no ready file"
+          : JSON.stringify(String(await fs.readFile(capture)));
+      throw new Error(
+        `Recorder did not receive expected ${expected.length} bytes ` +
+          `(${JSON.stringify(text)}); received ${received.slice(-2000)}`,
+      );
     },
     readBytes: () => fs.readFile(capture),
     async receivedAt() {
