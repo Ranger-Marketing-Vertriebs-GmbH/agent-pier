@@ -17,8 +17,6 @@ export const sessionReload = Object.freeze({
     "The native conversation changed before reload. No process was stopped.",
   modelChangedBeforeReload: "The model changed before reload. No process was stopped.",
   notIdle: "The session is no longer idle. Reload was not started.",
-  modelNotPreservable:
-    "The current model cannot be preserved reliably. Confirm an exact native model before reloading.",
   shuttingDown: "Session reload is shutting down.",
   invalidRequest: "Invalid session reload request.",
   requestLimit: "The reload request limit for this session has been reached.",

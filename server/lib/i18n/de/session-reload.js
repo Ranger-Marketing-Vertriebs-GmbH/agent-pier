@@ -17,8 +17,6 @@ export const sessionReload = Object.freeze({
   modelChangedBeforeReload:
     "Das Modell hat sich vor dem Neuladen geändert. Es wurde kein Prozess beendet.",
   notIdle: "Die Session ist nicht mehr im Leerlauf. Das Neuladen wurde nicht gestartet.",
-  modelNotPreservable:
-    "Das aktuelle Modell kann nicht zuverlässig übernommen werden. Bitte vor dem Neuladen ein exaktes natives Modell bestätigen.",
   shuttingDown: "Das Neuladen von Sessions wird beendet.",
   invalidRequest: "Ungültige Anfrage zum Neuladen der Session.",
   requestLimit:

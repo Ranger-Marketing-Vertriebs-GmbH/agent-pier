@@ -102,6 +102,10 @@ export const sessionReloadCopy = {
     `Die Route hat sich seit dem Start geändert (vorher: ${from}, jetzt: ${to}). Reasoning-Daten der bisherigen Unterhaltung können nicht übernommen werden.`,
   routeUnavailable: (from) =>
     `Der Provider-Zugang bietet für diese CLI keine Route mehr an (vorher: ${from}). Das Neuladen kann fehlschlagen; prüfe zuerst das Routing des Zugangs.`,
+  modelNotKept: (displayed, model) =>
+    `Das Modell „${displayed}“ ließ sich nicht übernehmen. Die Session läuft mit ${model} weiter, dem Modell, mit dem sie gestartet wurde. Wähle das Modell bei Bedarf in der Session neu.`,
+  modelNotKeptDefault: (displayed) =>
+    `Das Modell „${displayed}“ ließ sich nicht übernehmen. Die Session läuft mit dem Standardmodell der CLI weiter. Wähle das Modell bei Bedarf in der Session neu.`,
   retryCurrent: "Mit aktuellem Account erneut versuchen",
   switchTitle: "Mit anderem Account fortsetzen",
   switchSummary:

@@ -28,7 +28,9 @@ For sessions that use a provider connection, the reload dialog warns when the co
 
 ## Model verification
 
-Reload preflight checks the current model before stopping the CLI. If the CLI reports only a display name that cannot be resolved reliably, AgentPier rejects the reload instead of forcing an older model from the conversation history. This currently affects some OpenCode display names and unfamiliar native model labels. Changing the model immediately before reloading can also require a new response to confirm its exact identity in the native history. The error leaves the running CLI untouched.
+Reload preflight reads the model the CLI displays before stopping it, and the resumed CLI is started with that model. An exact model ID is used as it is. Claude Code shows a name instead ("Fable 5.2", "Sonnet 5.5", "Opus 4.6 (1M context)"); AgentPier keeps the ID of the last response or of the session's launch when it names that same model (a dated release, an extended context the name does not show), and otherwise builds the ID from the name by the rule Claude models follow since generation 4 (`claude-<family>-<major>-<minor>`, for example `claude-fable-5-2`). So a model chosen with `/model` just before the reload is kept, also when no response has used it yet. Codex names are looked up in Codex's own model list.
+
+A name that cannot be mapped (an unfamiliar label, some OpenCode display names, an ambiguous Codex label) does not block the reload. AgentPier never substitutes the model of the last response for it, because the model may have been changed since. The session resumes with the model it was launched with, or with the CLI's default model when it was launched without one, and the reload dialog names the model that could not be carried over and the one the session continues with. Choose the model again in the session if needed.
 
 ## Release migration
 

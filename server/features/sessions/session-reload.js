@@ -98,6 +98,7 @@ export class SessionReload {
         error: session.reload?.error || null,
         requestId: session.reload?.requestId || null,
         routeChange: routeChange(this.services, session),
+        modelFallback: session.reload?.modelFallback || null,
       },
     };
   }
@@ -175,6 +176,7 @@ export class SessionReload {
           mode: body.mode,
           interrupt: body.mode === "now" && body.interrupt === true,
           error: null,
+          modelFallback: null,
         });
         if (session.reload.state === "waiting") this.pending.add(id);
         else await this.run(session, plan);
@@ -185,7 +187,11 @@ export class SessionReload {
   async run(session, plan) {
     this.pending.delete(session.id);
     try {
-      await this.save(session, { state: "reloading", error: null });
+      await this.save(session, {
+        state: "reloading",
+        error: null,
+        modelFallback: plan.modelFallback || null,
+      });
       await this.services.restartReload(session, plan);
       if (!(await this.verifyRestart(session.id, plan.nativeId))) {
         this.pending.add(session.id);

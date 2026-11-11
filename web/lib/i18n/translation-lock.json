@@ -7383,6 +7383,8 @@
   "sessions:sessionReloadCopy.hint": "de:af9d1c300228 en:3f55e750c1c2",
   "sessions:sessionReloadCopy.interrupt": "de:cf51204ff0a3 en:43d28950ab60",
   "sessions:sessionReloadCopy.loading": "de:62399b8db207 en:6a8cc3b4a8ab",
+  "sessions:sessionReloadCopy.modelNotKept": "de:3c1d3451b973 en:1286078e9a2d",
+  "sessions:sessionReloadCopy.modelNotKeptDefault": "de:e4d5873845d1 en:29b9c004b36f",
   "sessions:sessionReloadCopy.noAccounts": "de:167d6a93ca9c en:865e580ea8a3",
   "sessions:sessionReloadCopy.now": "de:cef540ded254 en:401ed5e6c7b0",
   "sessions:sessionReloadCopy.openTerminal": "de:4dc64b3ce4a1 en:acb1f43d2899",

@@ -122,6 +122,26 @@ test("Codex model readiness refuses drafts and disabled input but allows a runni
   ])
     assert.equal(modelPromptReady("codex", screen), false);
 });
+test("Claude Code 2.1.322's header and /model receipt name the model alone", () => {
+  const header =
+    " ▐▛███▛█   Claude Code v2.1.322\n▝▜██████▀  Fable 5.2 · Claude Max\n ▝▝   ▝▝   /fixture";
+  assert.equal(currentModel("claude", header), "Fable 5.2");
+  assert.equal(
+    currentModel(
+      "claude",
+      header.replace("Fable 5.2 · Claude Max", "Haiku 5.5 · API Usage Billing"),
+    ),
+    "Haiku 5.5",
+  );
+  // The header has scrolled away: the last receipt is read.
+  for (const [receipt, model] of [
+    ["Set model to Sonnet 5.5 and saved as your default for new sessions", "Sonnet 5.5"],
+    ["Set model to Fable 5.2 and saved as your default for new sessions", "Fable 5.2"],
+    ["Set model to Sonnet 5.5 for this session only", "Sonnet 5.5"],
+    ["Set model to Opus 5.5 with high effort", "Opus 5.5"],
+  ])
+    assert.equal(currentModel("claude", `❯ /model x\n  ⎿  ${receipt}\n❯ `), model);
+});
 test("Claude live header takes precedence over old receipts after shortcut switching", () => {
   assert.equal(
     currentModel(

@@ -48,7 +48,7 @@ export function createReloadLifecycle(services) {
           },
         ];
     }
-    const { modelId, reasoningEffort } = resolveReloadModel({
+    const { modelId, reasoningEffort, unresolved } = resolveReloadModel({
       tool: session.tool,
       displayedModel,
       models: listed,
@@ -119,6 +119,11 @@ export function createReloadLifecycle(services) {
       launch,
       nativeId,
       displayedModel,
+      // The displayed name could not be mapped: what the reload launches instead
+      // (null: the CLI's default), for the reload dialog.
+      modelFallback: unresolved
+        ? { displayed: String(unresolved).slice(0, 200), modelId: modelId || null }
+        : null,
       recovery:
         session.reload?.state === "failed" &&
         (session.reload.replacementStarted === true || session.status === "stopped") &&

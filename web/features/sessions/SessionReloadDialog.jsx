@@ -139,6 +139,13 @@ export default function SessionReloadDialog({
           {copy[data.state]}
         </p>
       )}
+      {data?.modelFallback && ["reloading", "completed"].includes(data.state) && (
+        <p className="dialog-status dialog-status-warning" role="status">
+          {data.modelFallback.modelId
+            ? copy.modelNotKept(data.modelFallback.displayed, data.modelFallback.modelId)
+            : copy.modelNotKeptDefault(data.modelFallback.displayed)}
+        </p>
+      )}
       {data && !data.eligible && !active && (
         <p className="dialog-status" role="status">
           {data.reason === "native-session-unverified"

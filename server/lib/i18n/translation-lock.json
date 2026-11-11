@@ -1722,7 +1722,6 @@
   "sessionReload.intentMissing": "de:a8561a12c0e7 en:41b8d685e660",
   "sessionReload.invalidRequest": "de:3dbc021f17e5 en:52242304dd72",
   "sessionReload.modelChangedBeforeReload": "de:409d3664e581 en:e68d6a9a7709",
-  "sessionReload.modelNotPreservable": "de:3f98ce06981b en:d09bf9d125a0",
   "sessionReload.modelSelectionPending": "de:7c076e4b8925 en:a86ce69e6ba8",
   "sessionReload.noVerifiedConversation": "de:edce9df9f85b en:2969a5b5bef3",
   "sessionReload.notIdle": "de:8577392e07bc en:e0da1148ca13",
