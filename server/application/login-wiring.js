@@ -93,6 +93,7 @@ export function mcpOAuthServices({
       },
       oauth: agentpier,
       authorize: access.mcp,
+      warn: (message) => console.warn(message),
     }),
   );
   // `consumer`: the Hermes agent's runtime id, or "openclaw" for the Gateway.

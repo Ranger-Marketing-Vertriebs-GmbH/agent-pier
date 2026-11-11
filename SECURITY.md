@@ -54,6 +54,7 @@ sessions can use the account without the keychain being opened to them
 account, the CLI's own profile, keeps its keychain login. AgentPier holds the agents' ChatGPT and MCP OAuth logins itself
 (`<data>/model-logins/`, owner-only) and is their only refresher; the agent runtimes
 get an access token (OpenClaw's ChatGPT profile) or a credential for AgentPier's
-loopback proxy, never a refresh token. During an MCP OAuth login or renewal AgentPier
+loopback proxy, never a refresh token. During an MCP OAuth login or renewal, and when
+its MCP proxy follows a redirect of such a server, AgentPier
 connects only to the server's own origin and to addresses no more internal than that
-server ([details](docs/mcp.md#oauth-logins-held-by-agentpier)). See [login](docs/login.md) and [remote access](docs/remote-access.md).
+server; the server's access token is sent to its own origin only ([details](docs/mcp.md#oauth-logins-held-by-agentpier)). See [login](docs/login.md) and [remote access](docs/remote-access.md).

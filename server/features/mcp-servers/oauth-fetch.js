@@ -24,6 +24,10 @@ import {
 // that resolves differently a moment later reaches nothing else. Redirects are never
 // followed here: the SDK asks for each hop itself (same origin only), and each hop
 // is a new request through this check.
+//
+// The MCP proxy uses the same rule (`addressRule`) and the same pinned connection
+// (`pinnedRequest`) for its requests to the server and for the redirects the server
+// answers (upstream-request.js).
 
 const REACH = { public: 0, cgnat: 1, private: 1, linkLocal: 2, loopback: 3 };
 // A name the owner entered may resolve to anything its DNS says, so it counts as
@@ -84,14 +88,16 @@ function decoded(buffer, encoding) {
 }
 
 /**
- * One HTTP request to `addresses` only (Host, SNI and the certificate check keep the
- * URL's name), answered as a `Response`. Redirects are returned as they are, bodies
- * are capped at 1 MB, and every network failure is fetch's `TypeError`.
+ * Opens one HTTP request to `addresses` only (Host, SNI and the certificate check keep
+ * the URL's name) and resolves with Node's response as soon as its head arrived; the
+ * body is the caller's to read, so a stream passes as it comes. Redirects are returned
+ * as they are, the answer is asked for uncompressed, `init.signal` ends the request and
+ * its answer, and every failure before the head is fetch's `TypeError`. Connecting
+ * takes at most 30 seconds.
  */
-export function pinnedSend(url, init = {}, addresses) {
+export function pinnedRequest(url, init = {}, addresses) {
   const secure = url.protocol === "https:";
   const host = hostOf(url);
-  const method = (init.method || "GET").toUpperCase();
   const headers = Object.fromEntries(new Headers(init.headers || {}).entries());
   headers["accept-encoding"] = "identity";
   let body = init.body ?? undefined;
@@ -100,102 +106,110 @@ export function pinnedSend(url, init = {}, addresses) {
     body = body.toString();
   }
   if (body !== undefined) {
-    body = Buffer.from(String(body));
+    body = body instanceof Uint8Array ? Buffer.from(body) : Buffer.from(String(body));
     headers["content-length"] = String(body.length);
   }
   return new Promise((resolve, reject) => {
+    if (init.signal?.aborted) return reject(unreachable());
     let request;
-    let settled = false;
-    const finish = (error, value) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      init.signal?.removeEventListener("abort", onAbort);
-      if (error) {
-        request?.destroy();
-        reject(error);
-      } else resolve(value);
-    };
-    const onAbort = () => finish(init.signal.reason ?? unreachable());
-    const timer = setTimeout(() => finish(unreachable()), TIMEOUT);
-    if (init.signal?.aborted) return onAbort();
-    init.signal?.addEventListener("abort", onAbort, { once: true });
     try {
       request = (secure ? https : http).request(
         url,
         {
-          method,
+          method: (init.method || "GET").toUpperCase(),
           headers,
           agent: false,
           autoSelectFamily: true,
+          signal: init.signal,
           lookup: (_hostname, options, callback) =>
             options?.all
               ? callback(null, addresses)
               : callback(null, addresses[0].address, addresses[0].family),
           ...(secure && !net.isIP(host) ? { servername: host } : {}),
         },
-        (response) => {
-          const chunks = [];
-          let size = 0;
-          response.on("error", () => finish(unreachable()));
-          response.on("close", () => {
-            if (!response.complete) finish(unreachable());
-          });
-          response.on("data", (chunk) => {
-            size += chunk.length;
-            if (size > LIMIT) finish(unreachable());
-            else chunks.push(chunk);
-          });
-          response.on("end", () => {
-            const answer = new Headers();
-            for (const [name, value] of Object.entries(response.headers))
-              for (const item of [value].flat()) answer.append(name, item);
-            let content = Buffer.concat(chunks);
-            try {
-              const plain = decoded(content, answer.get("content-encoding"));
-              if (plain) {
-                content = plain;
-                answer.delete("content-encoding");
-                answer.delete("content-length");
-              }
-              const status = response.statusCode;
-              const empty = method === "HEAD" || [204, 205, 304].includes(status);
-              finish(
-                null,
-                new Response(empty ? null : content, {
-                  status,
-                  statusText: response.statusMessage,
-                  headers: answer,
-                }),
-              );
-            } catch {
-              finish(unreachable());
-            }
-          });
-        },
+        resolve,
       );
     } catch {
-      return finish(unreachable());
+      return reject(unreachable());
     }
-    request.on("error", () => finish(unreachable()));
+    const slow = setTimeout(() => request.destroy(), TIMEOUT);
+    request.on("socket", (socket) => {
+      const connected = () => clearTimeout(slow);
+      if (!socket.connecting) return connected();
+      socket.once(secure ? "secureConnect" : "connect", connected);
+    });
+    request.on("close", () => clearTimeout(slow));
+    request.on("error", () => reject(unreachable()));
     request.end(body);
   });
 }
 
+function collected(response) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+    response.on("error", () => reject(unreachable()));
+    response.on("close", () => {
+      if (!response.complete) reject(unreachable());
+    });
+    response.on("data", (chunk) => {
+      size += chunk.length;
+      if (size > LIMIT) reject(unreachable());
+      else chunks.push(chunk);
+    });
+    response.on("end", () => resolve(Buffer.concat(chunks)));
+  });
+}
+
 /**
- * The checked fetch for the OAuth flow of the server at `serverUrl`. `lookup` is
- * `dns.promises.lookup`; `send(url, init, addresses)` performs a checked request.
+ * `pinnedRequest` for the OAuth flow, answered whole as a `Response`: at most 30
+ * seconds and 1 MB per answer, a compressed answer decoded, and every network failure
+ * fetch's `TypeError`.
  */
-export function oauthFetch(
-  serverUrl,
-  { lookup = dns.promises.lookup, send = pinnedSend } = {},
-) {
+export async function pinnedSend(url, init = {}, addresses) {
+  const method = (init.method || "GET").toUpperCase();
+  const timeout = new AbortController();
+  const timer = setTimeout(() => timeout.abort(), TIMEOUT);
+  const signal = init.signal
+    ? AbortSignal.any([init.signal, timeout.signal])
+    : timeout.signal;
+  try {
+    const response = await pinnedRequest(url, { ...init, signal }, addresses);
+    let content = await collected(response);
+    const answer = new Headers();
+    for (const [name, value] of Object.entries(response.headers))
+      for (const item of [value].flat()) answer.append(name, item);
+    const plain = decoded(content, answer.get("content-encoding"));
+    if (plain) {
+      content = plain;
+      answer.delete("content-encoding");
+      answer.delete("content-length");
+    }
+    const status = response.statusCode;
+    const empty = method === "HEAD" || [204, 205, 304].includes(status);
+    return new Response(empty ? null : content, {
+      status,
+      statusText: response.statusMessage,
+      headers: answer,
+    });
+  } catch {
+    throw (init.signal?.aborted && init.signal.reason) || unreachable();
+  } finally {
+    clearTimeout(timer);
+    timeout.abort();
+  }
+}
+
+/**
+ * The address rule for the server at `serverUrl`: `check(url)` resolves `url` and
+ * returns the addresses a request to it may connect to, or throws
+ * `OAuthAddressRefused` (an unresolvable host is fetch's `TypeError`). `lookup` is
+ * `dns.promises.lookup`.
+ */
+export function addressRule(serverUrl, { lookup = dns.promises.lookup } = {}) {
   const server = new URL(serverUrl);
   let reach;
-  return async (input, init = {}) => {
-    const url = new URL(
-      typeof input === "string" || input instanceof URL ? input : input.url,
-    );
+  return async (url) => {
     if (url.protocol !== "http:" && url.protocol !== "https:")
       throw new OAuthAddressRefused();
     const addresses = await resolveAll(url, lookup);
@@ -208,6 +222,20 @@ export function oauthFetch(
       reach ??= serverReach(server, lookup);
       if (reachOf(addresses) > (await reach)) throw new OAuthAddressRefused();
     }
-    return send(url, init, addresses);
+    return addresses;
+  };
+}
+
+/**
+ * The checked fetch for the OAuth flow of the server at `serverUrl`. `lookup` is
+ * `dns.promises.lookup`; `send(url, init, addresses)` performs a checked request.
+ */
+export function oauthFetch(serverUrl, { lookup, send = pinnedSend } = {}) {
+  const check = addressRule(serverUrl, { lookup });
+  return async (input, init = {}) => {
+    const url = new URL(
+      typeof input === "string" || input instanceof URL ? input : input.url,
+    );
+    return send(url, init, await check(url));
   };
 }
