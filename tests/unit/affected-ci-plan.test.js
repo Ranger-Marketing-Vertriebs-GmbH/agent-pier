@@ -1,10 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import {
   browserShards,
   ciPlan,
   filesystemMatrix,
   githubOutput,
+  nonoMatrix,
 } from "../../scripts/affected/ci-plan.mjs";
 
 const node = { node: 24, "node-version": ">=24.22.1 <25" };
@@ -114,4 +116,23 @@ test("Chromium shards are balanced by recorded seconds or fall back to --shard",
     browserShards(["tests/browser/new.spec.js"], { all: false, timings }),
     [{ shard: 1, specs: "tests/browser/new.spec.js" }],
   );
+});
+
+test("each real-nono test plans the nono step, and both workflows run all of them", () => {
+  assert.deepEqual(nonoMatrix, [
+    "tests/matrix/nono-confinement.test.js",
+    "tests/matrix/nono-cli-needs.test.js",
+    "tests/matrix/nono-binding-receipt.test.js",
+  ]);
+  for (const file of nonoMatrix) {
+    assert.equal(fs.existsSync(file), true, file);
+    assert.equal(ciPlan(selection({ node: [file] }), totals).nono, true, file);
+  }
+  for (const workflow of [".github/workflows/verify.yml", ".github/workflows/full.yml"]) {
+    const step = fs
+      .readFileSync(workflow, "utf8")
+      .split("\n")
+      .find((line) => line.includes("node --test tests/matrix/nono-"));
+    assert.deepEqual(step.trim().split(" ").slice(3), nonoMatrix, workflow);
+  }
 });
