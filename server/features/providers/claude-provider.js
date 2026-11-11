@@ -37,6 +37,11 @@ export function configureClaudeProvider(
     assumedContextTokens = window;
   }
   env.ANTHROPIC_MODEL = cliModelId;
+  // The four family aliases Claude Code resolves through the environment
+  // (https://code.claude.com/docs/en/model-config; the same four names are the
+  // only `ANTHROPIC_DEFAULT_<FAMILY>_MODEL` variables in Claude Code 2.1.322).
+  // `ANTHROPIC_DEFAULT_MODEL` is the model a session starts on, which
+  // `ANTHROPIC_MODEL` and `--model` already decide here.
   for (const role of ["OPUS", "SONNET", "HAIKU", "FABLE"])
     env[`ANTHROPIC_DEFAULT_${role}_MODEL`] = cliModelId;
   env.CLAUDE_CODE_SUBAGENT_MODEL = cliModelId;

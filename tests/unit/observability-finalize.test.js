@@ -23,32 +23,100 @@ const claude = (context, extra = {}) => ({
 });
 const firstParty = { status: "running", tool: "claude" };
 
-test("model table assumes 1M for native 1M Claude models and 200k otherwise", () => {
+// Claude Code 2.1.322's model catalog and its model configuration page: native 1M
+// for the Fable and Mythos models, Opus 4.7 and later, Sonnet 5 and later and
+// Haiku 5.5; Opus 4.6 and Sonnet 4.6 reach 1M only as `[1m]`.
+test("the window rule assumes 1M for native 1M Claude models and 200k for older ones", () => {
   for (const id of [
-    "claude-opus-4-6",
     "claude-opus-4-7",
     "claude-opus-4-8",
     "claude-opus-5",
     "claude-opus-5-5",
-    "claude-sonnet-4-6",
     "claude-sonnet-5",
     "claude-sonnet-5-5",
+    "claude-haiku-5-5",
     "claude-fable-5",
     "claude-fable-5-1",
+    "claude-fable-5-2",
     "claude-mythos",
+    "claude-mythos-5",
+    "claude-mythos-5-2",
     "claude-opus-5-5[1m]",
+    "claude-opus-4-6[1m]",
+    "claude-sonnet-4-6[1m]",
+    "CLAUDE-FABLE-5-2",
   ])
     assert.equal(assumedClaudeWindow(id), 1000000, id);
   for (const id of [
+    "claude-opus-4-6",
+    "claude-sonnet-4-6",
     "claude-haiku-4-5",
     "claude-haiku-4-5-20251001",
     "claude-sonnet-4-5-20250929",
+    "claude-sonnet-4-20250514",
     "claude-opus-4-1",
-    "claude-future-9",
+    "claude-opus-4-1-20250805",
+    "claude-3-5-sonnet-20241022",
+    "claude-3-5-haiku",
+    "claude-3-opus-20240229",
   ])
     assert.equal(assumedClaudeWindow(id), 200000, id);
-  for (const id of [null, "", "opus", "gpt-5", "<synthetic>"])
+});
+
+test("the window rule covers the next release of a family and says nothing where no source does", () => {
+  // "Fable models", "Opus 4.7 and later", "Sonnet 5 and later".
+  for (const id of [
+    "claude-fable-5-3",
+    "claude-fable-6",
+    "claude-mythos-6",
+    "claude-opus-5-6",
+    "claude-opus-6",
+    "claude-sonnet-6",
+    "claude-sonnet-5-6-20270101",
+  ])
+    assert.equal(assumedClaudeWindow(id), 1000000, id);
+  // A family the rule does not know, a Haiku after 5.5 (the source names 5.5 only)
+  // and an id without a version: unknown, rather than a wrong 200k.
+  for (const id of [
+    "claude-future-9",
+    "claude-haiku-6",
+    "claude-haiku-5-6",
+    "claude-opus",
+    "claude-",
+    null,
+    "",
+    "opus",
+    "gpt-5",
+    "<synthetic>",
+  ])
     assert.equal(assumedClaudeWindow(id), null, String(id));
+  // A selected `[1m]` is evidence by itself, whatever the model.
+  assert.equal(assumedClaudeWindow("claude-future-9[1m]"), 1000000);
+  const unknown = finalizeObservability(
+    claude({ usedTokens: 1000, source: "last-api-request", modelId: "claude-future-9" }),
+    firstParty,
+  ).context;
+  assert.deepEqual(
+    [
+      unknown.usedTokens,
+      unknown.limitTokens,
+      unknown.limitSource,
+      unknown.remainingPercent,
+    ],
+    [1000, null, null, null],
+  );
+  const current = finalizeObservability(
+    claude({
+      usedTokens: 250000,
+      source: "last-api-request",
+      modelId: "claude-fable-5-2",
+    }),
+    firstParty,
+  ).context;
+  assert.deepEqual(
+    [current.limitTokens, current.limitSource, current.remainingPercent],
+    [1000000, "assumed-model", 75],
+  );
 });
 
 test("first-party Claude sessions get an assumed window that is dropped when exceeded", () => {

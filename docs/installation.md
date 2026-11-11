@@ -344,6 +344,11 @@ unless noted:
   chosen with `/model` just before). A name AgentPier cannot map no longer blocks
   the reload: the session resumes with the model it was launched with, and the
   dialog says so ([details](session-reload.md#model-verification)).
+- **Chat context window of Claude sessions.** Fable 5.2 and Haiku 5.5 are shown
+  with their 1M window, Opus 4.6 and Sonnet 4.6 with 200K unless started as `[1m]`,
+  and a Claude model AgentPier has no window for shows its usage without a
+  percentage instead of one of an assumed 200K
+  ([details](chat-observability.md#context-measurements)).
 - **Sandbox profiles without a `workdir` level** (nono's built-in `default` is one)
   now start the session in its folder with read access to it. Before, nono started
   the CLI in `/`. Writes to the folder still need a `workdir` level of `readwrite`
