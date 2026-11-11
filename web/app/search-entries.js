@@ -1,11 +1,10 @@
-// The ⌘K search index (handoff §5.9): every area, tab, settings group and subpage,
-// the agents with their tabs, connection names and common actions. Labels are read in
-// German and English (`withLanguage`), so both languages match in either UI language;
-// old names stay searchable as aliases.
+// Bilingual quick-open index: pages, agent settings, connections and actions.
+// Old labels remain searchable as aliases.
 import { withLanguage } from "../lib/i18n/index.js";
 import { sidebarCopy } from "../lib/i18n/messages/app.js";
 import { artifactCopy } from "../lib/i18n/messages/artifacts.js";
 import { assistantCopy } from "../lib/i18n/messages/assistants.js";
+import { agentGroupSearchAction } from "../features/assistants/groups/group-search.js";
 import { agentsHubCopy } from "../lib/i18n/messages/agents-hub.js";
 import { assistantDreamingCopy } from "../lib/i18n/messages/assistant-dreaming.js";
 import { assistantSettingsCopy } from "../lib/i18n/messages/assistant-settings.js";
@@ -490,6 +489,7 @@ export function actionEntries() {
       { action: "launch" },
       { primary: true },
     ),
+    agentGroupSearchAction(action, bilingual(text.agents)),
     action(
       "new-agent",
       () => assistantCopy.create,

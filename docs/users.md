@@ -113,7 +113,8 @@ its browser closes the tabs that are still open, and the owner's reminders, rout
 and Telegram bot on it end.
 
 Create one in the new agent wizard with **For whom?** set to the person (first step), or with **Add agent for this person** on the user's page. Their levels and released capabilities are in the agent's settings under **Access › Who uses this agent**.
-On the agents page and in the sidebar they appear under **Agents of users**. The owner
+On the agents page and in the sidebar they appear under **Agents of users** within
+their [agent group](agents.md#agent-groups), or **Ungrouped**. The owner
 does not chat with a user's own agent.
 
 Each agent holds several chats per person: **New chat** starts one, the ⋯ of a chat

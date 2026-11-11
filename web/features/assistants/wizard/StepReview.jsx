@@ -1,3 +1,5 @@
+import useAssistants from "../useAssistants.js";
+import { agentGroupsCopy } from "../../../lib/i18n/messages/agent-groups.js";
 import React from "react";
 import ListCard from "../../../components/ListCard.jsx";
 import ListRow from "../../../components/ListRow.jsx";
@@ -44,6 +46,8 @@ export default function StepReview({
   webSearchReady,
   runtimeShown = false,
 }) {
+  const { agentGroups: groups = [] } = useAssistants();
+  const group = groups.find((g) => g.id === d.areaGroupId);
   const profile = matchingProfile(d);
   const connection = models.find((m) => m.id === d.connectionId);
   const channels =
@@ -57,6 +61,12 @@ export default function StepReview({
     <>
       <ListCard label={agentWizardCopy.steps.review.label}>
         <ListRow label={copy().name} value={d.name} />
+        {groups.length > 0 && (
+          <ListRow
+            label={agentGroupsCopy.select}
+            value={group?.name || agentGroupsCopy.ungrouped}
+          />
+        )}
         <ListRow label={copy().for} value={d.owner ? ownerName : copy().me} />
         {d.template && <ListRow label={copy().template} value={d.template.name} />}
         {d.duplicateOf && <ListRow label={copy().duplicate} value={sourceName} />}

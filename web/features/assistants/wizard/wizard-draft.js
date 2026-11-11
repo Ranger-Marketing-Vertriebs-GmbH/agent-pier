@@ -40,6 +40,7 @@ export function emptyDraft(timeZone = "UTC") {
     // The runtime a duplicate keeps; empty lets the server choose its default.
     runtime: "",
     name: "",
+    areaGroupId: null,
     instructions: "",
     connectionId: "",
     modelId: "",

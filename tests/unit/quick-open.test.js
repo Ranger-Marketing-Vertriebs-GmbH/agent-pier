@@ -415,3 +415,13 @@ test("choosing the memory pins alias navigates to the agent's memory page", () =
   );
   assert.equal(hit.alias.en, "Ops-Wache · Pin memory entries");
 });
+
+test("agent group creation is offered only with the agent feature enabled", () => {
+  for (const agentsEnabled of [true, false]) {
+    const index = buildSearchIndex({ agentsEnabled });
+    assert.equal(
+      index.some((entry) => entry.id === "action:new-agent-group"),
+      agentsEnabled,
+    );
+  }
+});

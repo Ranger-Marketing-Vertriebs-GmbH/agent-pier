@@ -63,7 +63,7 @@ test("the hub's tabs render, count and deep-link", async ({ page }) => {
   await expect(tab(page, "All agents")).toHaveAttribute("aria-selected", "true");
   await expect(tab(page, "All agents")).toContainText("1");
   await expect(tab(page, "Teams")).toContainText("2");
-  await expect(page.getByRole("heading", { name: /Your agents/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Agent groups/ })).toBeVisible();
   await expect(page.getByText("Agent service: Ready")).toBeVisible();
   for (const [name, path, marker] of [
     ["Teams", "/agents?tab=teams", /^Proposals/],

@@ -132,6 +132,28 @@ The browser follows changing server state over one WebSocket per tab, `GET /api/
 - **Fallback.** The client (`web/lib/live/live-client.js`) reconnects with backoff (0.5 s doubling to 30 s) and resubscribes with what it holds, so a reconnect costs no REST read. After three handshakes in a row fail (a proxy without WebSocket upgrade, for example), `useLiveTopic` polls each topic's REST route at its former interval (`web/lib/live/live-topics.js`), only while the tab is visible, and keeps retrying the socket. A topic the server refuses is polled the same way. After a 1008 close the client checks `GET /auth/status` once, so an expired login shows the sign-in.
 - **Hidden tabs.** A hidden tab unsubscribes the sampled topics (`session.requests`, `session.models`, `connections.problems`, `runtime.updates`, `job.operation`, `job.rea`, `job.ssh-tools`, `session.reload`, `session.changes`, `agent.reminders`, `agent.pinboard`, `agent.senders`, `operations.release-sessions`, `me.reminders`, `system.status`, `system.status.details`, `account.auth`) at once, so the server stops reading the screen for it; `state`, `inbox` and `agent.list` keep coming. A hidden tab sends no REST request: the fallback polling and one-time reads wait until it is visible. After five minutes hidden, or on `pagehide`, the socket closes and reconnects when the tab is visible again.
 
+### Agent organization groups
+
+`server/features/assistants/agent-groups.js` keeps owner-managed areas in
+`agent_groups` and `agent_group_members` in `assistants.sqlite`. Stable group IDs,
+ordered positions and name/order revisions are independent of runtime profiles.
+The membership table has one primary key per agent and cascading foreign keys;
+team members cannot be assigned. Views resolve their lead's membership.
+Archiving keeps the assignment. Deleting an agent or group removes only its
+membership rows. The tables are configuration and travel in configuration and full
+backups; no runtime installation or data rewrite is needed.
+
+Owner writes use `POST /api/assistant-groups`,
+`PATCH|DELETE /api/assistant-groups/:id`,
+`POST /api/assistant-groups/:id/order` and `PUT /api/assistants/:id/group`.
+Name, order and deletion writes check the group revision; assignment checks the
+previous group ID. Creation may include `areaGroupId`, committed together with the
+new profile. Transactions prevent partial assignments and stale writes are refused.
+Every successful write signals the existing `agent.list` topic. Its `agentGroups`
+section is also in `GET /api/assistants`, so both push and REST fallback provide the
+same view without an additional poll. Group changes do not recompile profiles,
+restart runtimes, or grant access or communication.
+
 ## Owner inbox
 
 `server/features/inbox/` merges what waits for the owner into one read-only list: the request broker's open native requests of running sessions (`listAll()`, without the side effects of the per-session list), pipeline runs in `awaiting-human`, agent actions in `awaiting_approval` and team proposals. `OwnerInbox` recomputes the list when a source announces a change (broker events, pipeline `onChange`, agent `change` events) and on a timer while the live `inbox` topic has a subscriber, raises its revision only when the waiting set changed, and pushes the whole list on the owner-only live `inbox` topic (`server/features/inbox/live-topics.js`). Answers never go through the inbox; the page reuses each source's card and endpoint. Stale item addresses are resolved from the audit log for 24 hours. See [inbox](inbox.md).
