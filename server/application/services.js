@@ -17,6 +17,7 @@ import { ProviderAccess } from "../features/providers/provider-access.js";
 import { EndpointTester } from "../features/providers/endpoint-tester.js";
 import { NotificationService } from "../features/notifications/notification-service.js";
 import { RequestBroker } from "../features/requests/request-broker.js";
+import { activityDetail } from "../features/requests/native-push.js";
 import { Operations } from "../features/operations/operations.js";
 import { ProjectMemory } from "../features/memory/project-memory.js";
 import { AuditStore } from "../features/audit/audit-store.js";
@@ -405,6 +406,7 @@ export async function createServices(config) {
     // A CLI's own report reaches an open chat at once (the same debounced read the
     // file watcher triggers); the activity file stays for restarts.
     onNative: (sessionId, push) => {
+      if (push.type === "binding") return bindings.claim(sessionId, push);
       if (push.type === "activity") chatEvents.publish(sessionId, "native-activity");
       codexProxyAcceptance(sessionId, push, () => chatDelivery); // Prompts it took.
       // Reply text and tool calls as the CLI writes them (Codex proxy, OpenCode).
@@ -422,17 +424,7 @@ export async function createServices(config) {
         services.operationsEvents?.nativeActivity(
           sessionId,
           push.event,
-          // A turn ended at the CLI's usage limit (session-limited push), or who
-          // started a Claude turn (session-completed push).
-          ...(push.failure || push.prompt
-            ? [
-                Object.fromEntries(
-                  ["failure", "detail", "prompt"]
-                    .filter((key) => push[key] !== undefined)
-                    .map((key) => [key, push[key]]),
-                ),
-              ]
-            : []),
+          ...activityDetail(push),
         );
     },
     // A new launch or a stopped session: the mod reports again only once it loads.

@@ -267,6 +267,27 @@ environment the session gets and grants it with `--allow-unix-socket-dir-bind`, 
 covers binding and connecting sockets directly inside it. Sessions of the same user
 share this folder, as they do without a sandbox; each socket has its own key.
 
+<a id="the-binding-receipt-in-a-sandbox"></a>
+
+**The binding receipt.** A session's hooks tell AgentPier which native conversation
+runs in it by writing a receipt into the session's own folder
+(`native-sessions/<session id>/<session id>.receipt.json`): the conversation's id,
+the launch's token, and the CLI's process id with its start time. **Reload & resume**
+and the chat's check that an input reaches the right conversation need a receipt for
+a process that is still alive. The hook reads the process facts with `ps`, which is
+a setuid program on macOS; nono denies running it (`spawn /bin/ps EPERM`), and no
+other way to read another process's start time is left inside the sandbox. A hook
+that cannot read even its own process therefore asks the server over the session's
+request channel, naming only itself. The server, which runs outside the sandbox,
+checks that this process descends from the session's own tmux pane, finds the one
+CLI process between them, reads its start time and writes the receipt
+(`server/features/sessions/native-session-binding.js`, `claim`;
+`native-session-runtime.js`). The receipt proves what it proves without a sandbox:
+the claim must carry the launch's token and project, a second live CLI cannot take
+the binding over, and a CLI replaced while the claim ran gets none. With the server
+stopped no receipt is written; the next hook (each prompt) asks again.
+`tests/matrix/nono-binding-receipt.test.js` runs this through a real nono.
+
 **Codex: CA certificates from a file (macOS).** Codex verifies TLS certificates against
 the system trust store, which it reaches through the denied `SecurityServer` service.
 Without it every connection fails: `codex doctor` reports "invalid peer certificate:
@@ -405,10 +426,11 @@ personal workspace, not an isolation boundary for mutually untrusted users.
      record the first time it needs it, and the remembered approvals were taken over
      once from `requests/remembered-approvals.json`; both trust the old file as it was
      at that moment. **Reload sandboxed sessions after updating.** A reload moves a
-     session to its own folders and removes its old files. Where the reload is
-     refused for lack of a confirmed conversation (a sandboxed Claude Code session
-     writes no binding receipt, because the sandbox denies `ps`), stop the session
-     and start a new one; deleting the old session removes its old files.
+     session to its own folders and removes its old files. A sandboxed session
+     started before AgentPier wrote the binding receipt for it (see
+     [the binding receipt](#the-binding-receipt-in-a-sandbox)) has no confirmed
+     conversation and its reload is refused: stop the session and start a new one;
+     deleting the old session removes its old files.
 
    None of this reaches the rest of the data directory: each adapter grants only its
    own subtree (project memory's own capability folder, the session's own AgentBus

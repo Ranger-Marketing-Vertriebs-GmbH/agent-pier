@@ -20,7 +20,9 @@ export function messages(socket, callback, invalid = () => socket.destroy()) {
   socket.once("close", () => lines.close());
 }
 export function send(socket, value) {
-  if (!socket || socket.destroyed || !socket.writable) return false;
+  // Nothing to say (a handler without a reply) writes nothing.
+  if (!socket || socket.destroyed || !socket.writable || value === undefined)
+    return false;
   socket.write(JSON.stringify(value) + "\n");
   return true;
 }
