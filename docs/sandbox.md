@@ -343,6 +343,22 @@ variable.
   names (an absolute path to a regular file; on macOS and Linux), so the bundle may
   lie anywhere the server can read.
 
+**Codex: no shared app-server daemon.** Codex 0.157 and later attach an interactive
+TUI to a shared background app server (the "daemon", `codex app-server daemon`) when
+one runs for the same `CODEX_HOME`. That server runs the tools, so a sandboxed TUI
+attached to a daemon outside the sandbox would run them unconfined;
+[nono's Codex guide](https://nono.sh/docs/cli/clients/codex) therefore recommends
+`codex --no-daemon`. An AgentPier session does not need the flag and cannot take it:
+every session that can be sandboxed starts Codex through
+`server/features/requests/codex-launch.js`, which runs an app server of its own
+(`codex app-server --stdio`, a child of the wrapper and so inside the same sandbox)
+and names it to the TUI with `--remote`. A TUI given `--remote` does not look for
+the shared daemon, and Codex refuses the two flags together ("--no-daemon cannot be
+used with --remote"; checked with Codex 0.164.0, where the session's own app server
+created no daemon files in its `CODEX_HOME`). A managed account also has a
+`CODEX_HOME` of its own, apart from a daemon the owner runs for `~/.codex`.
+`tests/integration/codex-shared-daemon.test.js` pins the launch shape.
+
 **Not supported in a sandbox: a local Claude account.** A local account is the CLI's
 own profile outside AgentPier (`~/.claude`), with its login in the keychain. AgentPier
 neither moves that login nor puts the stand-in in front of it, so a sandboxed session
