@@ -9,7 +9,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFile } from "node:child_process";
-import { isCodingCli, CODING_CLI_IDS } from "../clis/catalog.js";
+import { isCodingCli } from "../clis/catalog.js";
 import { cliDriver } from "../clis/drivers.js";
 
 export const SECURITY = "/usr/bin/security";
@@ -113,23 +113,19 @@ export class ManagedLogins {
     await store.forget(root, { run: this.run, user: this.user }).catch(() => {});
   }
   /**
-   * Accounts whose login a sandboxed session cannot read, by account id: "local" for
-   * the CLI's own profile, "pending" for a managed account still on the keychain.
+   * Whether a sandboxed session of `account` with the environment `env` cannot read
+   * its login: "local" for the CLI's own profile, "pending" for a managed account
+   * still on the keychain, else undefined. `env` decides too: an account's API key
+   * and a provider connection reach the session as variables.
    */
-  hidden(accounts, { home, profile }) {
-    const result = {};
-    for (const tool of CODING_CLI_IDS) {
-      const store = cliDriver(tool).loginStore;
-      if (!store?.supported(this.platform)) continue;
-      for (const account of accounts.filter((entry) => entry.tool === tool)) {
-        if (account.kind === "local") {
-          if (store.localHidden(home)) result[account.id] = "local";
-        } else if (!account.provider && !account.hasSecret) {
-          if (store.managedHidden(profile(account.id))) result[account.id] = "pending";
-        }
-      }
-    }
-    return result;
+  hiddenLogin(account, { home, root, env }) {
+    if (!isCodingCli(account.tool)) return undefined;
+    const store = cliDriver(account.tool).loginStore;
+    if (!store?.supported(this.platform)) return undefined;
+    if (account.kind === "local")
+      return store.localHidden(home, env) ? "local" : undefined;
+    if (account.provider || account.hasSecret) return undefined;
+    return store.managedHidden(root, env) ? "pending" : undefined;
   }
 }
 

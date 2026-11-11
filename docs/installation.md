@@ -301,10 +301,12 @@ unless noted:
   its sessions is running, so sessions that survive the update keep working. Until
   then it stays on the keychain, where a sandbox cannot read it: the launch dialog
   says so and AgentPier refuses to start a sandboxed session of that account (it
-  would start signed out). Stop the account's sessions once and start a new one.
+  would start signed out), unless the account signs in otherwise (an API key set in
+  AgentPier, a provider connection, its own `settings.json`). Stop the account's
+  sessions once and start a new one.
 - **Local Claude accounts are not moved.** The CLI's own profile (`~/.claude`) keeps
-  its keychain login. A sandboxed session of it is refused; use an account with a
-  separate profile.
+  its keychain login. A sandboxed session of it starts signed out, as the launch
+  dialog says; use an account with a separate profile.
 - **After a downgrade.** An older version runs Claude Code without the stand-in. It
   still finds the file while the keychain has no item, and puts the login back into
   the keychain when it next refreshes the token. If an account shows as signed out

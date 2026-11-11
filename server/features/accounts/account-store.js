@@ -357,14 +357,34 @@ export class AccountStore {
   async settleLogins() {
     for (const account of this.accounts) await this.settleLogin(account.id);
   }
+  /**
+   * "local" or "pending" when a sandboxed session of the account cannot read its
+   * login (managed-logins.js), judged with `env`: the launch's environment, or the
+   * account's own when none is given. The launch dialog and the launch ask the same.
+   */
+  hiddenLogin(id, env) {
+    if (!this.logins) return undefined;
+    const account = this.list().find((entry) => entry.id === id);
+    if (!account) return undefined;
+    return this.logins.hiddenLogin(account, {
+      home: this.home,
+      root: account.kind === "managed" ? this.profile(id) : null,
+      env: env || this.environment(id),
+    });
+  }
   /** Accounts whose login a sandboxed session cannot read: { [id]: "local" | "pending" }. */
   hiddenLogins() {
-    return (
-      this.logins?.hidden(this.list(), {
-        home: this.home,
-        profile: (id) => this.profile(id),
-      }) || {}
-    );
+    const result = {};
+    for (const account of this.logins ? this.list() : []) {
+      let hidden;
+      try {
+        hidden = this.hiddenLogin(account.id);
+      } catch {
+        // An account whose environment cannot be read gets no note.
+      }
+      if (hidden) result[account.id] = hidden;
+    }
+    return result;
   }
   /**
    * Credential-store overrides for every CLI process of a managed account, including

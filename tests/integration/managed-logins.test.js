@@ -265,3 +265,33 @@ test("the application's instance reads the keychain through the configured runne
   const launch = await store.command(account.id, { claude: "/opt/claude" });
   assert.equal(launch.env.PATH.includes("login-shims"), false);
 });
+
+test("the dialog and the launch judge a pending account with the same check", async (t) => {
+  const { store, items, service } = setup(t, { running: () => true });
+  const pending = store.create({ tool: "claude", name: "Pending" });
+  items[service(pending.id)] = login;
+  await store.settleLogin(pending.id);
+  // Nothing signs it in: the dialog notes it and a sandboxed launch is refused.
+  assert.equal(store.hiddenLogins()[pending.id], "pending");
+  assert.equal(store.hiddenLogin(pending.id), "pending");
+  const env = store.environment(pending.id);
+  assert.equal(store.hiddenLogin(pending.id, env), "pending");
+  // A launch that carries a key is not, whatever the account record says.
+  assert.equal(
+    store.hiddenLogin(pending.id, { ...env, ANTHROPIC_API_KEY: "sk-test" }),
+    undefined,
+  );
+  // Its own settings sign it in: neither the dialog nor the launch counts it.
+  fs.writeFileSync(
+    path.join(store.profile(pending.id), "claude", "settings.json"),
+    JSON.stringify({ apiKeyHelper: "/usr/local/bin/key" }),
+  );
+  assert.equal(store.hiddenLogins()[pending.id], undefined);
+  assert.equal(store.hiddenLogin(pending.id, env), undefined);
+  // An account with a key set in AgentPier gets it as a variable of every launch.
+  const keyed = store.create({ tool: "claude", name: "Key", apiKey: "sk-test" });
+  assert.equal(store.environment(keyed.id).ANTHROPIC_API_KEY, "sk-test");
+  assert.equal(store.hiddenLogin(keyed.id), undefined);
+  assert.equal(store.hiddenLogin("local-claude"), "local");
+  assert.equal(store.hiddenLogin("unknown"), undefined);
+});

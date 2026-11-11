@@ -274,7 +274,11 @@ sandboxed session would start signed out, so AgentPier does not start one: the l
 dialog says that the sandbox cannot read the sign-in, and the server refuses the
 launch (`409`) with the same instruction. Stop the account's sessions and start the
 sandboxed session again; the launch moves the login first. Unsandboxed launches of
-the account are not affected. If the keychain cannot be read
+the account are not affected, and neither is an account that signs in otherwise: with
+an API key set on the account in AgentPier, through a provider connection, or through
+its own `settings.json` (`apiKeyHelper`, a key or token under `env`, Bedrock or
+Vertex). The dialog and the server decide this with the same check
+(`managedHidden` in `server/features/clis/claude/login-store.js`). If the keychain cannot be read
 (locked, or a service context without one), nothing changes. A stop at any point of
 the move leaves the login in at least one store, and the next attempt finishes it.
 Deleting an account also deletes a keychain item it may have left.
@@ -362,12 +366,13 @@ created no daemon files in its `CODEX_HOME`). A managed account also has a
 **Not supported in a sandbox: a local Claude account.** A local account is the CLI's
 own profile outside AgentPier (`~/.claude`), with its login in the keychain. AgentPier
 neither moves that login nor puts the stand-in in front of it, so a sandboxed session
-of a local Claude account would start signed out. The launch dialog says so when you
-pick a sandbox profile for it, and the server refuses the launch (`409`). Use a
-managed account for sandboxed sessions. A local profile that holds a login file
-(`~/.claude/.credentials.json`), or whose `settings.json` signs in by itself
-(`apiKeyHelper`, a key or token under `env`, Bedrock or Vertex), is not refused;
-whether the session can read it depends on the sandbox profile granting `~/.claude`. Local Codex and
+of a local Claude account starts signed out. The launch dialog says so when you pick
+a sandbox profile for it; the launch is not refused, because a local profile can sign
+in in ways AgentPier does not see. Use a managed account for sandboxed sessions. The
+note is not shown for a local profile that holds a login file
+(`~/.claude/.credentials.json`) or whose `settings.json` signs in by itself
+(`apiKeyHelper`, a key or token under `env`, Bedrock or Vertex); whether the session
+can read it depends on the sandbox profile granting `~/.claude`. Local Codex and
 OpenCode accounts keep their login in files; whether a sandboxed session reads them
 depends on the sandbox profile granting `~/.codex` or OpenCode's folders.
 

@@ -197,9 +197,11 @@ function holdsLoginFile(directory) {
     return false;
   }
 }
-// Settings that sign Claude Code in without a stored login: a key helper, a key or
-// token in the settings' environment, or a cloud provider's own credentials.
-const SETTINGS_LOGIN = [
+// Variables that sign Claude Code in without a stored login: a key or token, or a
+// cloud provider's own credentials. They count in the environment a session gets
+// (an account's API key in AgentPier, a provider connection) and under `env` in the
+// profile's settings.json, where a key helper counts as well.
+const LOGIN_VARIABLES = [
   "ANTHROPIC_API_KEY",
   "ANTHROPIC_AUTH_TOKEN",
   "CLAUDE_CODE_OAUTH_TOKEN",
@@ -212,25 +214,34 @@ function signsInThroughSettings(directory) {
       fs.readFileSync(path.join(directory, "settings.json"), "utf8"),
     );
     return (
-      !!settings?.apiKeyHelper || SETTINGS_LOGIN.some((name) => settings?.env?.[name])
+      !!settings?.apiKeyHelper || LOGIN_VARIABLES.some((name) => settings?.env?.[name])
     );
   } catch {
     return false;
   }
 }
+const signsInElsewhere = (directory, env) =>
+  LOGIN_VARIABLES.some((name) => env?.[name]) || signsInThroughSettings(directory);
 /**
  * Whether the CLI's own profile (a local account) keeps its login where a sandboxed
  * session cannot read it: in the keychain rather than in `~/.claude/.credentials.json`
- * or in its settings. A sandboxed launch of such an account is refused.
+ * or in its settings, with nothing in `env` (the session's environment) signing in
+ * either. The launch dialog says so; the launch is not refused, because such a profile
+ * can sign in in ways the server does not see (an operator's sandbox profile, the
+ * CLI's own configuration).
  */
 export function localHidden(home, env = {}) {
   const directory = env.CLAUDE_CONFIG_DIR || path.join(home, ".claude");
-  return !holdsLoginFile(directory) && !signsInThroughSettings(directory);
+  return !holdsLoginFile(directory) && !signsInElsewhere(directory, env);
 }
 /**
  * Whether a managed account's login is still out of a sandboxed session's reach: the
  * account is not on the file store and has no login file either (a host whose
- * keychain cannot be used keeps the login in the file without AgentPier's doing).
+ * keychain cannot be used keeps the login in the file without AgentPier's doing),
+ * and neither `env` (the session's environment) nor its settings sign it in. The
+ * launch dialog says so and a sandboxed launch is refused, both from this answer.
  */
-export const managedHidden = (root) =>
-  !marked(root) && !holdsLoginFile(configDirectory(root));
+export const managedHidden = (root, env = {}) =>
+  !marked(root) &&
+  !holdsLoginFile(configDirectory(root)) &&
+  !signsInElsewhere(configDirectory(root), env);

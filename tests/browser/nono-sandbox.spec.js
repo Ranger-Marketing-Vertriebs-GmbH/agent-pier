@@ -265,9 +265,7 @@ test("the launch dialog says when the sandbox cannot read the account's sign-in"
   await expect(local).toHaveCount(0);
   await dialog.getByLabel("Sandbox-Profil", { exact: true }).selectOption("default");
   await expect(local).toBeVisible();
-  await expect(local).toContainText(
-    "Eine Sandbox-Session dieses Accounts lässt sich nicht starten.",
-  );
+  await expect(local).toContainText("Die Session startet abgemeldet.");
   await access.selectOption("pending");
   await expect(local).toHaveCount(0);
   await expect(pending).toBeVisible();

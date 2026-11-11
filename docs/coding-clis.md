@@ -142,7 +142,7 @@ from `launchModes` (`server/features/accounts/account-store.js`).
   the account is on the file store), `environment(env, shimDirectory)`,
   `settle(root, { busy, run, user })` (moves an existing keychain item into the file
   while no session of the account runs, and returns `"file"` or `"keychain"`),
-  `forget(root, { run, user })`, `localHidden(home, env)` and `managedHidden(root)`. Callers go through
+  `forget(root, { run, user })`, `localHidden(home, env)` and `managedHidden(root, env)`. Callers go through
   `accounts/managed-logins.js`; [sandbox.md](sandbox.md#what-claude-code-and-codex-need-in-a-sandbox)
   describes the behaviour.
 - `sandboxLaunch?(launch)`: the launch with what the CLI itself needs inside a nono
