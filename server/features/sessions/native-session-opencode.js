@@ -1,4 +1,8 @@
-import { claimNativeSession, recordNativeSession } from "./native-session-binding.js";
+// Loaded by OpenCode's own runtime, in a sandbox too: only modules that import no
+// package by a bare name (native-session-receipt.js says why).
+import { claimNativeSession, recordNativeSession } from "./native-session-receipt.js";
+import definition from "../clis/opencode/definition.js";
+import { idOptional } from "../clis/opencode/binding.js";
 import { recordNativeActivity } from "./native-session-activity.js";
 import { NativeRequestChannel } from "../requests/native-channel.js";
 import { streamOpenCodeReplies } from "./opencode-reply-stream.js";
@@ -69,7 +73,12 @@ export const readerTui = ({
       activity(session);
       if (session === previous) return;
       try {
-        recordNativeSession({ session_id: session }, env, { pid: process.pid, ps });
+        recordNativeSession({ session_id: session }, env, {
+          pid: process.pid,
+          ps,
+          // This plugin reports before OpenCode names its session.
+          idOptional: (tool) => tool === definition.id && idOptional,
+        });
         previous = session;
         warned = false;
         channel?.activity();
