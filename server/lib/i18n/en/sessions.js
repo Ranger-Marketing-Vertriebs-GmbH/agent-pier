@@ -8,8 +8,6 @@ export const sessions = Object.freeze({
   sandboxNotForLogin: "Sign-in sessions cannot run in the sandbox.",
   sandboxLoginPending:
     "The session was not started: this account's sign-in is still in the macOS keychain, which a sandbox cannot read. Stop the account's sessions; AgentPier then moves the sign-in into the account's folder. After that, start the sandboxed session again.",
-  sandboxLoginLocal:
-    "The session was not started: Claude Code keeps this account's sign-in in the macOS keychain, which a sandbox cannot read. For sandboxed sessions, use a Claude account with a separate profile.",
   sandboxNotForPipeline: "Pipeline steps cannot run in the sandbox in this version.",
   sandboxNotForTaskProfile:
     "Sandbox profiles are unavailable when launching with a task profile.",

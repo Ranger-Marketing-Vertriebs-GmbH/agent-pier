@@ -1780,7 +1780,6 @@
   "sessions.nativeSessionIdMissing": "de:b2bdc73e4d60 en:6365515ce7f7",
   "sessions.notFound": "de:745252cea261 en:0969eab86273",
   "sessions.reloading": "de:4b05734e05be en:767a46823a88",
-  "sessions.sandboxLoginLocal": "de:c2cce5c0bc86 en:7f95d8744b7e",
   "sessions.sandboxLoginPending": "de:a5ca5aea731b en:28c7d3678d13",
   "sessions.sandboxNotForLogin": "de:c4895fb1ad15 en:5692cb1e280a",
   "sessions.sandboxNotForPipeline": "de:2958aa11735f en:55418845f4aa",

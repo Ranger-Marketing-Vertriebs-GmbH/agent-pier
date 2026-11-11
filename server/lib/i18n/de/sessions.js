@@ -9,8 +9,6 @@ export const sessions = Object.freeze({
   sandboxNotForLogin: "Login-Sessions können nicht in der Sandbox laufen.",
   sandboxLoginPending:
     "Die Session wurde nicht gestartet: Die Anmeldung dieses Accounts liegt noch im macOS-Schlüsselbund, den eine Sandbox nicht lesen kann. Beende die Sessions des Accounts; AgentPier verschiebt die Anmeldung dann in den Ordner des Accounts. Starte die Sandbox-Session danach erneut.",
-  sandboxLoginLocal:
-    "Die Session wurde nicht gestartet: Claude Code legt die Anmeldung dieses Accounts im macOS-Schlüsselbund ab, den eine Sandbox nicht lesen kann. Nutze für Sandbox-Sessions einen Claude-Account mit eigenem Profil.",
   sandboxNotForPipeline:
     "Pipeline-Stufen können in dieser Version nicht in der Sandbox laufen.",
   sandboxNotForTaskProfile:
