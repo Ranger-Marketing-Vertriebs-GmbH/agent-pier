@@ -193,6 +193,8 @@ test(
     fs.writeFileSync(path.join(shared, "plugins/installed_plugins.json"), "INSTALLED");
     fs.writeFileSync(path.join(shared, "skills/skill.md"), "SKILL");
     fs.writeFileSync(path.join(shared, "settings.json"), "SETTINGS");
+    const sockets = fs.realpathSync(fs.mkdtempSync("/tmp/apcn-"));
+    t.after(() => fs.rmSync(sockets, { recursive: true, force: true }));
     const script = [
       // What Claude Code does before it runs a plugin's hook.
       'echo "DATA:$(mkdir -p "$CLAUDE_CONFIG_DIR/plugins/data/agentpier-reader-inline" 2>&1 && echo made)"',
@@ -204,7 +206,9 @@ test(
     const launch = {
       command: "/bin/sh",
       args: ["-c", script],
-      env: { HOME: home, CLAUDE_CONFIG_DIR: config, CLAUDE_CODE_TMPDIR: root },
+      // A short folder for the socket: a long one would add the per-user fallback
+      // in /tmp to the launch (socketDirectories).
+      env: { HOME: home, CLAUDE_CONFIG_DIR: config, CLAUDE_CODE_TMPDIR: sockets },
       // The account's own folder, as the account store grants it.
       sandboxGrants: [{ access: "allow", path: path.dirname(config) }],
     };
