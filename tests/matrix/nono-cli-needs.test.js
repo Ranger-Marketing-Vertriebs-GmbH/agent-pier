@@ -154,3 +154,53 @@ test("a sandboxed Codex can read the CA bundle its launch names", macOnly, (t) =
   const output = run({ launch, profile, cwd });
   assert.ok(Number(output.trim().split("\n").at(-1)) > 10, output);
 });
+
+test(
+  "a sandboxed managed Claude account reaches the linked plugin folder and no more of the profile",
+  options,
+  (t) => {
+    const { root, profile, cwd } = workspace(t);
+    const home = path.join(root, "home");
+    const shared = path.join(home, ".claude");
+    const config = path.join(root, "profiles/one/claude");
+    fs.mkdirSync(config, { recursive: true });
+    for (const name of ["agents", "commands", "plugins", "skills"]) {
+      fs.mkdirSync(path.join(shared, name), { recursive: true });
+      fs.symlinkSync(path.join(shared, name), path.join(config, name), "dir");
+    }
+    fs.writeFileSync(path.join(shared, "plugins/installed_plugins.json"), "INSTALLED");
+    fs.writeFileSync(path.join(shared, "skills/skill.md"), "SKILL");
+    fs.writeFileSync(path.join(shared, "settings.json"), "SETTINGS");
+    const script = [
+      // What Claude Code does before it runs a plugin's hook.
+      'echo "DATA:$(mkdir -p "$CLAUDE_CONFIG_DIR/plugins/data/agentpier-reader-inline" 2>&1 && echo made)"',
+      'echo "INSTALLED:$(cat "$CLAUDE_CONFIG_DIR/plugins/installed_plugins.json" 2>&1)"',
+      'echo "SKILL:$(cat "$CLAUDE_CONFIG_DIR/skills/skill.md" 2>&1)"',
+      'echo "PLANT:$( (echo x > "$CLAUDE_CONFIG_DIR/plugins/planted") 2>&1 && echo written)"',
+      'echo "PROFILE:$(cat "$HOME/.claude/settings.json" 2>&1)"',
+    ].join("\n");
+    const launch = {
+      command: "/bin/sh",
+      args: ["-c", script],
+      env: { HOME: home, CLAUDE_CONFIG_DIR: config, CLAUDE_CODE_TMPDIR: root },
+      // The account's own folder, as the account store grants it.
+      sandboxGrants: [{ access: "allow", path: path.dirname(config) }],
+    };
+    const granted = run({
+      launch: cliDriver("claude").sandboxLaunch(launch),
+      profile,
+      cwd,
+    });
+    assert.match(granted, /DATA:made/);
+    assert.match(granted, /INSTALLED:INSTALLED/);
+    assert.match(granted, /SKILL:SKILL/);
+    assert.match(granted, /PLANT:.*(not permitted|denied)/i);
+    assert.match(granted, /PROFILE:.*(not permitted|denied)/i);
+    assert.equal(fs.existsSync(path.join(shared, "plugins/planted")), false);
+    // The control: without the grants the hook's data folder cannot be made.
+    fs.rmSync(path.join(shared, "plugins/data"), { recursive: true });
+    const plain = run({ launch, profile, cwd });
+    assert.match(plain, /DATA:.*(not permitted|denied)/i);
+    assert.match(plain, /INSTALLED:.*(not permitted|denied)/i);
+  },
+);

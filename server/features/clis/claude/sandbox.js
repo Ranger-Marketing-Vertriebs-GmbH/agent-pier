@@ -37,6 +37,49 @@ function privateSocketDirectory(directory, uid) {
   }
 }
 
+// The folders of a managed account that AgentPier links to the CLI's own profile, so
+// that every account uses the same extensions (cli-profiles/assets.js, linkAssets).
+const LINKED_FOLDERS = ["agents", "commands", "plugins", "skills"];
+
+/**
+ * A managed account's `skills`, `agents`, `commands` and `plugins` are links into
+ * the CLI's own profile (`~/.claude`), which the account folder's grant does not
+ * cover. Without them a sandboxed session loads none of the shared extensions, and
+ * none of its hooks run: Claude Code creates `plugins/data/<plugin>` before it runs
+ * a plugin's hook, AgentPier's own `--plugin-dir` plugins included ("hook error:
+ * EPERM mkdir …/plugins/data").
+ *
+ * Granted are the four folders read-only and `plugins/data` read-write, never the
+ * profile itself (settings, history, login). The plugin code stays read-only: an
+ * unsandboxed session runs it too. A link counts only when it points where
+ * AgentPier points it, into the profile of the launch's own home: the session may
+ * write its account folder, so a link there must not decide what is granted.
+ */
+export function sharedFolderGrants(env = {}) {
+  if (!env.CLAUDE_CONFIG_DIR || !env.HOME) return [];
+  const grants = [];
+  for (const name of LINKED_FOLDERS)
+    try {
+      const link = path.join(env.CLAUDE_CONFIG_DIR, name);
+      if (!fs.lstatSync(link).isSymbolicLink()) continue;
+      const real = fs.realpathSync(link);
+      if (
+        real !== fs.realpathSync(path.join(env.HOME, ".claude", name)) ||
+        !fs.statSync(real).isDirectory()
+      )
+        continue;
+      grants.push({ access: "read", path: real });
+      if (name !== "plugins") continue;
+      // Created here: a grant on a missing path would be a single file's.
+      const data = path.join(real, "data");
+      fs.mkdirSync(data, { recursive: true, mode: 0o700 });
+      if (fs.lstatSync(data).isDirectory()) grants.push({ access: "allow", path: data });
+    } catch {
+      // A missing or unreadable link is left to the CLI.
+    }
+  return grants;
+}
+
 /**
  * AgentBus wakes a Claude Code session through the socket the CLI binds at start
  * (agentbus-runtime.js). A sandbox profile that does not make the shared temporary
@@ -49,10 +92,13 @@ export function sandboxLaunch(
   launch,
   { uid = process.getuid?.() ?? 0, ensure = privateSocketDirectory } = {},
 ) {
-  const grants = socketDirectories(launch.env, uid)
-    .map((directory) => ensure(directory, uid))
-    .filter(Boolean)
-    .map((directory) => ({ access: "socket-dir-bind", path: directory }));
+  const grants = [
+    ...socketDirectories(launch.env, uid)
+      .map((directory) => ensure(directory, uid))
+      .filter(Boolean)
+      .map((directory) => ({ access: "socket-dir-bind", path: directory })),
+    ...sharedFolderGrants(launch.env),
+  ];
   if (!grants.length) return launch;
   return { ...launch, sandboxGrants: [...(launch.sandboxGrants || []), ...grants] };
 }

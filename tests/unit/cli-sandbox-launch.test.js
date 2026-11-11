@@ -142,3 +142,60 @@ test("the nono adapter hands a sandboxed Codex launch the CA file", async () => 
   const plain = await sandbox.prepare({ launch, profile: null, tool: "codex" });
   assert.equal(plain.env.SSL_CERT_FILE, undefined);
 });
+
+/** A managed Claude account folder whose asset folders link to the CLI's own profile. */
+function sharedProfile(t) {
+  const root = fs.realpathSync(fs.mkdtempSync("/tmp/apcs-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const home = path.join(root, "home");
+  const config = path.join(root, "profiles/one/claude");
+  fs.mkdirSync(config, { recursive: true });
+  for (const name of ["agents", "commands", "plugins", "skills"]) {
+    fs.mkdirSync(path.join(home, ".claude", name), { recursive: true });
+    fs.symlinkSync(path.join(home, ".claude", name), path.join(config, name), "dir");
+  }
+  const env = { HOME: home, CLAUDE_CONFIG_DIR: config, CLAUDE_CODE_TMPDIR: root };
+  const own = (launch) =>
+    (launch.sandboxGrants || []).filter((grant) => grant.access !== "socket-dir-bind");
+  return { root, home, config, env, own };
+}
+
+test("a sandboxed managed Claude account reads the folders linked to the CLI's own profile", (t) => {
+  const { home, env, own } = sharedProfile(t);
+  const shared = path.join(home, ".claude");
+  const prepared = claudeSandboxLaunch({ command: "/bin/claude", env });
+  assert.deepEqual(own(prepared), [
+    { access: "read", path: path.join(shared, "agents") },
+    { access: "read", path: path.join(shared, "commands") },
+    { access: "read", path: path.join(shared, "plugins") },
+    // Claude Code creates a data folder per plugin before it runs the plugin's hooks.
+    { access: "allow", path: path.join(shared, "plugins/data") },
+    { access: "read", path: path.join(shared, "skills") },
+  ]);
+  assert.equal(fs.statSync(path.join(shared, "plugins/data")).mode & 0o777, 0o700);
+  // Never the profile itself, with its settings, history and login.
+  assert.equal(
+    own(prepared).some((grant) => grant.path === shared),
+    false,
+  );
+});
+
+test("only a link to the CLI's own profile is granted, not wherever a link points", (t) => {
+  const { root, home, config, env, own } = sharedProfile(t);
+  // A session may write its account folder: a link it re-pointed grants nothing.
+  const secret = path.join(root, "secret");
+  fs.mkdirSync(secret);
+  fs.rmSync(path.join(config, "plugins"));
+  fs.symlinkSync(secret, path.join(config, "plugins"), "dir");
+  // A folder of the account's own needs no grant beyond the account folder.
+  fs.rmSync(path.join(config, "skills"));
+  fs.mkdirSync(path.join(config, "skills"));
+  fs.rmSync(path.join(config, "agents"));
+  assert.deepEqual(own(claudeSandboxLaunch({ command: "/bin/claude", env })), [
+    { access: "read", path: path.join(home, ".claude/commands") },
+  ]);
+  assert.equal(fs.existsSync(path.join(secret, "data")), false);
+  // A local account has no account folder: its profile is the operator's to grant.
+  const local = { HOME: home, CLAUDE_CODE_TMPDIR: root };
+  assert.deepEqual(own(claudeSandboxLaunch({ command: "/bin/claude", env: local })), []);
+});
