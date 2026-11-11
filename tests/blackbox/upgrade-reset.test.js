@@ -197,3 +197,32 @@ test("a reset after a completed upgrade leaves the server running", async (t) =>
   );
   assert.equal(status(again), 101);
 });
+
+test("a refused upgrade is closed when the peer keeps its side open", async (t) => {
+  const server = await serverProcess(t);
+  // The peer reads the refusal and then neither closes nor resets.
+  const socket = net.connect({
+    host: "127.0.0.1",
+    port: server.port,
+    allowHalfOpen: true,
+  });
+  t.after(() => socket.destroy());
+  let answer = "";
+  let failed = false;
+  socket.setEncoding("latin1");
+  socket.on("data", (chunk) => (answer += chunk));
+  socket.on("error", () => (failed = true));
+  await once(socket, "connect");
+  socket.write(upgradeRequest(server, "/api/live"));
+  await once(socket, "end");
+  assert.equal(status(answer), 403);
+  // The server ended its side only; after its grace (5 s) it closes the connection,
+  // which a later write of the peer meets as a reset.
+  await sleep(5500);
+  for (let round = 0; round < 20 && !failed; round++) {
+    socket.write("x");
+    await sleep(100);
+  }
+  assert.equal(failed, true, "the server still holds the connection");
+  await server.alive("a peer that never closes");
+});

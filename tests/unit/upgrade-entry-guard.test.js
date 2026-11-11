@@ -74,3 +74,53 @@ test("an upgraded socket has its error listener before the attacher works", asyn
   off();
   assert.equal(server.listenerCount("upgrade"), 1);
 });
+
+test("a refused upgrade does not stay half-open when the peer never closes", async (t) => {
+  const server = http.createServer();
+  const refusal = "HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n";
+  onUpgrade(server, (_req, socket) => socket.end(refusal), { graceMs: 50 });
+  const port = await listening(t, server);
+  // A peer that reads the answer and then neither closes nor sends anything.
+  const client = net.connect({ host: "127.0.0.1", port, allowHalfOpen: true });
+  t.after(() => client.destroy());
+  client.on("error", () => {});
+  let answer = "";
+  client.on("data", (chunk) => (answer += chunk));
+  const [[, socket]] = await Promise.all([
+    once(server, "upgrade"),
+    once(client, "connect").then(() =>
+      client.write(
+        "GET / HTTP/1.1\r\nHost: x\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n",
+      ),
+    ),
+  ]);
+  await Promise.race([
+    socket.closed || once(socket, "close"),
+    new Promise((resolve) => setTimeout(resolve, 2000)),
+  ]);
+  assert.equal(socket.destroyed, true, "the server's side is closed after the grace");
+  // The whole answer arrived before the connection was closed.
+  assert.equal(answer, refusal);
+});
+
+test("an accepted upgrade stays open while its writable side is open", async (t) => {
+  const server = http.createServer();
+  onUpgrade(server, (_req, socket) => socket.write("HTTP/1.1 101 OK\r\n\r\n"), {
+    graceMs: 50,
+  });
+  const port = await listening(t, server);
+  const client = net.connect({ host: "127.0.0.1", port });
+  t.after(() => client.destroy());
+  client.on("error", () => {});
+  const [[, socket]] = await Promise.all([
+    once(server, "upgrade"),
+    once(client, "connect").then(() =>
+      client.write(
+        "GET / HTTP/1.1\r\nHost: x\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n",
+      ),
+    ),
+  ]);
+  t.after(() => socket.destroy());
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  assert.equal(socket.destroyed, false);
+});
