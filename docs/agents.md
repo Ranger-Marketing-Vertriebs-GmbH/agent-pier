@@ -55,18 +55,18 @@ the agents with **offline** and **Agents** shows a banner with **Start service**
 
 ## The agents page
 
-![Agents page with the readiness card and two agents](screenshots/agents-hub-desktop.png)
+![Agents organized into lasting groups](screenshots/agent-groups-desktop.png)
 
-On a phone: [agents page](screenshots/agents-hub-phone.png). The Runtime tab:
+On a phone: [agent groups](screenshots/agent-groups-phone.png). The Runtime tab:
 [agent service, updates and advanced settings](screenshots/agents-runtime-desktop.png)
 ([on a phone](screenshots/agents-runtime-phone.png)).
 
 **Agents** (`/agents`) has five tabs:
 
 - **All agents:** a **Readiness** card (agent service and runtime version with
-  **Update ready**, web search not set up, approvals waiting in the inbox), **Your
-  agents** with model, status and what each may use, **Agents of users** with
-  **Manage users**, and **Archive** with archived agents and members (**Restore**,
+  **Update ready**, web search not set up, approvals waiting in the inbox), **Agent
+  groups** with model, status and what each agent may use, plus **Manage users**
+  when there are agents of users, and **Archive** with archived agents and members (**Restore**,
   reset the browser profile, **Delete permanently**; see
   [Archive and delete](#archive-and-delete)). An agent without provider access shows
   **Provider access missing** and **Choose model**.
@@ -80,6 +80,37 @@ On a phone: [agents page](screenshots/agents-hub-phone.png). The Runtime tab:
   used.
 - **Skills:** the owner's skill catalog for all agents ([skill catalog](#skill-catalog)).
 - **Runtime:** see [Turn agents on](#turn-agents-on).
+
+## Agent groups
+
+Use **Agents › All agents › Agent groups › New group** to create lasting areas such
+as Development, Organization or Personal. The same groups and order appear in the
+sidebar and the agents page. **New group** is also available through search (⌘K or
+Ctrl+K).
+
+- An independent agent belongs to at most one group. Its ⋯ menu offers **Move to
+  group**, with **Ungrouped** to remove the assignment. **New agent › Identity &
+  model › Group** sets the assignment when creating an agent.
+- Team members stay under their lead and follow its group. They have no independent
+  assignment. The existing [groups of permanent team members](#groups-of-permanent-members)
+  remain inside their lead's team.
+- A group's ⋯ menu renames it, moves it up or down, or deletes it. Deleting a group
+  moves its agents to **Ungrouped** and keeps their teams and chats. Empty groups
+  remain available until deleted. Names are unique, up to 60 characters; an
+  installation can hold up to 100 groups.
+- Click a group heading to fold or unfold it. Each view remembers its folded groups
+  in this browser. A selected agent is revealed in the sidebar. Group counts count
+  independent visible agents, while the **All agents** tab still includes permanent
+  members. A status dot reports work or attention needed, including hidden team
+  members; attention takes priority.
+- Groups are saved on the server and changes reach other open views through the live
+  channel. Moving an agent leaves its running work and settings alone. Archiving
+  retains its assignment for restoration; permanently deleting it removes that
+  assignment. The owner also organizes agents of users here; their users' app and
+  privacy rules stay as before.
+
+These groups organize the interface. Membership grants no communication, shared
+memory or additional access. Group communication is not part of this feature.
 
 ## Skill catalog
 
@@ -1309,7 +1340,8 @@ or "Build" and give a whole group one task. Temporary members are never grouped.
   group's ⋯ menu renames or deletes it; a member's ⋯ menu moves it into a group, to
   another group or, with **Remove from group**, back to the members without a group.
   **New group …** in a member's menu creates a group and moves the member into it.
-  Agents of users never lead teams, so they have no groups.
+  Agents of users never lead teams, so they have no groups of team members. They
+  can still belong to an [agent group](#agent-groups).
 - **One group at most**: a member is in at most one group. Moving it to another group
   takes it out of its old one in the same step. You can move a member at any time,
   also one created long before the group. A move never interrupts a task the member

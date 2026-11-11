@@ -18,6 +18,10 @@ import { usersCopy } from "../../lib/i18n/messages/users.js";
 import { groupedMembers } from "./member-group-view.js";
 import { ownerChatsOf, paneDraggable } from "./agent-chat-target.js";
 import { writePayload } from "../views/drag-payload.js";
+import AreaSection from "./groups/AreaSection.jsx";
+import { AgentGroupMenu } from "./groups/GroupMenu.jsx";
+import useGroupActions from "./groups/useGroupActions.jsx";
+import { areaSections } from "./groups/group-view.js";
 import useViewsOffered from "../views/useViewsOffered.js";
 import useShownInView from "../views/useShownInView.js";
 import { viewsCopy } from "../../lib/i18n/messages/views.js";
@@ -61,6 +65,7 @@ export default function AssistantSidebar({ navigate, route }) {
   // A stopped or failed agent service (handoff 5.10): rows dimmed with "offline" and
   // a warning dot on the group head; the hub shows the banner with start and diagnose.
   const down = serviceDown(runtime);
+  const groupActions = useGroupActions();
   const offered = useViewsOffered();
   const shown = useShownInView(route);
   const [opening, setOpening] = useState(null),
@@ -261,7 +266,8 @@ export default function AssistantSidebar({ navigate, route }) {
       activeKey={route.assistantId}
       warning={down ? agentsHubCopy.first.serviceDown : ""}
     >
-      <ErrorMessage error={error} />
+      <ErrorMessage error={error || groupActions.error} />
+      {groupActions.dialog}
       {stale && (
         <p role="status" className="assistant-sidebar-offline">
           {copy.sidebarOffline}
@@ -271,121 +277,152 @@ export default function AssistantSidebar({ navigate, route }) {
         className={`session-list${stale ? " assistant-sidebar-stale" : ""}${down ? " assistant-sidebar-down" : ""}`}
       >
         {!roots.length && <p className="assistant-sidebar-empty">{copy.empty}</p>}
-        {roots.map((parent, index) => {
-          const groups = new Map();
-          for (const child of visible.filter(
-            (a) => a.parentAssistantId === parent.id && a.lifetime === "task",
-          )) {
-            const member = members.find((m) => m.assistantId === child.id);
-            const id = member?.teamId || child.teamId;
-            if (!groups.has(id)) groups.set(id, []);
-            groups.get(id).push(child);
-          }
-          const permanent = permanentOf(parent);
-          // Permanent members under their lead's named groups (name and count), the
-          // rest under "Permanent"; empty groups are managed in the Team tab only.
-          const grouped = groupedMembers(parent.id, permanent, members, memberGroups);
-          const shownGroups = grouped.groups.filter(({ children }) => children.length);
-          const temporaryCount = [...groups.values()].reduce((n, c) => n + c.length, 0);
-          const memberCount = temporaryCount + permanent.length;
-          const hidden = folded(parent);
-          const current = route.assistantId === parent.id && route.view === "agents";
-          return (
-            <React.Fragment key={parent.id}>
-              {parent.userAccess && !roots[index - 1]?.userAccess && (
-                <div className="assistant-sidebar-section">{usersCopy.agentsOfUsers}</div>
-              )}
-              <div className={`assistant-sidebar-row ${current ? "selected" : ""}`}>
-                {item(parent)}
-                {memberCount > 0 && (
-                  <button
-                    type="button"
-                    className="assistant-team-pill"
-                    aria-expanded={!hidden}
-                    aria-label={
-                      hidden
-                        ? copy.showMembers(memberCount)
-                        : copy.hideMembers(memberCount)
-                    }
-                    onClick={() => toggle(parent.id)}
-                  >
-                    <Icon name="users" size={12} strokeWidth="1.8" />
-                    {memberCount}
-                  </button>
-                )}
-              </div>
-              {current && (
-                <SidebarChats
-                  chats={chatsOf(parent).slice(0, 4)}
-                  currentId={route.conversationId}
-                  onOpen={(chat) => open(parent, chat)}
-                />
-              )}
-              {!hidden && permanent.length > 0 && (
-                <>
-                  <div className="assistant-sidebar-section" aria-hidden="true">
-                    {leadRequestCopy.permanentSection}
-                  </div>
-                  {shownGroups.map(({ group, children }) => (
-                    <div
-                      className="assistant-sidebar-team assistant-sidebar-group"
-                      role="group"
-                      aria-label={leadRequestCopy.groups.sidebarLabel(
-                        group.name,
-                        children.length,
+        {areaSections(roots, groupActions.groups)
+          .filter((section) => section.group || section.agents.length)
+          .map((section) => (
+            <AreaSection
+              key={section.group?.id || "ungrouped"}
+              section={section}
+              actions={groupActions}
+              selected={route.assistantId}
+              location="sidebar"
+            >
+              {section.agents.map((parent, index) => {
+                const groups = new Map();
+                for (const child of visible.filter(
+                  (a) => a.parentAssistantId === parent.id && a.lifetime === "task",
+                )) {
+                  const member = members.find((m) => m.assistantId === child.id);
+                  const id = member?.teamId || child.teamId;
+                  if (!groups.has(id)) groups.set(id, []);
+                  groups.get(id).push(child);
+                }
+                const permanent = permanentOf(parent);
+                // Permanent members under their lead's named groups (name and count), the
+                // rest under "Permanent"; empty groups are managed in the Team tab only.
+                const grouped = groupedMembers(
+                  parent.id,
+                  permanent,
+                  members,
+                  memberGroups,
+                );
+                const shownGroups = grouped.groups.filter(
+                  ({ children }) => children.length,
+                );
+                const temporaryCount = [...groups.values()].reduce(
+                  (n, c) => n + c.length,
+                  0,
+                );
+                const memberCount = temporaryCount + permanent.length;
+                const hidden = folded(parent);
+                const current =
+                  route.assistantId === parent.id && route.view === "agents";
+                return (
+                  <React.Fragment key={parent.id}>
+                    {parent.userAccess && !section.agents[index - 1]?.userAccess && (
+                      <div className="assistant-sidebar-section">
+                        {usersCopy.agentsOfUsers}
+                      </div>
+                    )}
+                    <div className={`assistant-sidebar-row ${current ? "selected" : ""}`}>
+                      {item(parent)}
+                      <AgentGroupMenu agent={parent} actions={groupActions} />
+                      {memberCount > 0 && (
+                        <button
+                          type="button"
+                          className="assistant-team-pill"
+                          aria-expanded={!hidden}
+                          aria-label={
+                            hidden
+                              ? copy.showMembers(memberCount)
+                              : copy.hideMembers(memberCount)
+                          }
+                          onClick={() => toggle(parent.id)}
+                        >
+                          <Icon name="users" size={12} strokeWidth="1.8" />
+                          {memberCount}
+                        </button>
                       )}
-                      key={group.id}
-                    >
-                      <div className="assistant-sidebar-assignment" aria-hidden="true">
-                        <strong title={group.name}>{group.name}</strong>
-                        <small>{leadRequestCopy.groups.count(children.length)}</small>
-                      </div>
-                      {children.map((child) => item(child, true))}
                     </div>
-                  ))}
-                  {grouped.ungrouped.length > 0 && (
-                    <div
-                      className="assistant-sidebar-team assistant-sidebar-permanent"
-                      role="group"
-                      aria-label={leadRequestCopy.permanentSection}
-                    >
-                      {grouped.ungrouped.map((child) => item(child, true))}
-                    </div>
-                  )}
-                </>
-              )}
-              {!hidden && temporaryCount > 0 && (
-                <div className="assistant-sidebar-section">
-                  {leadRequestCopy.temporarySection}
-                </div>
-              )}
-              {!hidden &&
-                [...groups].reverse().map(([id, children]) => {
-                  const team = teams.find((t) => t.id === id);
-                  const label = team?.objective || copy.team.title;
-                  const state = team && (team.status || team.phase);
-                  return (
-                    <div
-                      className="assistant-sidebar-team"
-                      role="group"
-                      aria-label={label}
-                      key={id || "members"}
-                    >
-                      <div className="assistant-sidebar-assignment">
-                        <strong title={label}>{label}</strong>
-                        {team && (
-                          <small className={quiet(state) ? "" : "accent"}>
-                            {copy.team.states[state]}
-                          </small>
+                    {current && (
+                      <SidebarChats
+                        chats={chatsOf(parent).slice(0, 4)}
+                        currentId={route.conversationId}
+                        onOpen={(chat) => open(parent, chat)}
+                      />
+                    )}
+                    {!hidden && permanent.length > 0 && (
+                      <>
+                        <div className="assistant-sidebar-section" aria-hidden="true">
+                          {leadRequestCopy.permanentSection}
+                        </div>
+                        {shownGroups.map(({ group, children }) => (
+                          <div
+                            className="assistant-sidebar-team assistant-sidebar-group"
+                            role="group"
+                            aria-label={leadRequestCopy.groups.sidebarLabel(
+                              group.name,
+                              children.length,
+                            )}
+                            key={group.id}
+                          >
+                            <div
+                              className="assistant-sidebar-assignment"
+                              aria-hidden="true"
+                            >
+                              <strong title={group.name}>{group.name}</strong>
+                              <small>
+                                {leadRequestCopy.groups.count(children.length)}
+                              </small>
+                            </div>
+                            {children.map((child) => item(child, true))}
+                          </div>
+                        ))}
+                        {grouped.ungrouped.length > 0 && (
+                          <div
+                            className="assistant-sidebar-team assistant-sidebar-permanent"
+                            role="group"
+                            aria-label={leadRequestCopy.permanentSection}
+                          >
+                            {grouped.ungrouped.map((child) => item(child, true))}
+                          </div>
                         )}
+                      </>
+                    )}
+                    {!hidden && temporaryCount > 0 && (
+                      <div className="assistant-sidebar-section">
+                        {leadRequestCopy.temporarySection}
                       </div>
-                      {children.map((child) => item(child, true))}
-                    </div>
-                  );
-                })}
-            </React.Fragment>
-          );
-        })}
+                    )}
+                    {!hidden &&
+                      [...groups].reverse().map(([id, children]) => {
+                        const team = teams.find((t) => t.id === id);
+                        const label = team?.objective || copy.team.title;
+                        const state = team && (team.status || team.phase);
+                        return (
+                          <div
+                            className="assistant-sidebar-team"
+                            role="group"
+                            aria-label={label}
+                            key={id || "members"}
+                          >
+                            <div className="assistant-sidebar-assignment">
+                              <strong title={label}>{label}</strong>
+                              {team && (
+                                <small className={quiet(state) ? "" : "accent"}>
+                                  {copy.team.states[state]}
+                                </small>
+                              )}
+                            </div>
+                            {children.map((child) => item(child, true))}
+                          </div>
+                        );
+                      })}
+                  </React.Fragment>
+                );
+              })}
+            </AreaSection>
+          ))}
       </div>
     </SidebarGroup>
   );

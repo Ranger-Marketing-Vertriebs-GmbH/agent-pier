@@ -3,6 +3,8 @@ import {
   recompiles,
   validateDefinition,
 } from "./assistant-validation.js";
+import { createAgent } from "./agent-creation.js";
+import { AgentGroups } from "./agent-groups.js";
 import { listedAgents } from "./agent-lifecycle.js";
 import { sendTurn } from "./conversation-turns.js";
 import { AgentAttachments } from "./agent-attachments.js";
@@ -26,7 +28,7 @@ import { MemoryNotes } from "./memory-notes.js";
 import { MemoryStepWrites } from "./memory-step.js";
 import { watchCompactions } from "./compactions.js";
 import { awaitWriteGuard, noteReadOnlyTurn, orderedTurn } from "./write-guard-wait.js";
-import { memoryRequirement, newCapabilities } from "./memory-rules.js";
+import { memoryRequirement } from "./memory-rules.js";
 import { assertWired } from "./service-wiring.js";
 import { refuseLockedSettings } from "../users/user-agent-lock.js";
 import { ownerApproval } from "../users/approval-audience.js";
@@ -56,18 +58,13 @@ import { auditProactivity, proactivityChange } from "./proactivity-changes.js";
 import {
   hermesFleetOf,
   hostOf,
-  ownProcess,
   runtimeAccepts,
   runtimeFor,
   runtimeForSession,
   withRuntime,
 } from "./runtimes/runtime-for.js";
 import { logoutAccount } from "./account-logout.js";
-import {
-  followOwnProcesses,
-  refuseEveryCommand,
-  refuseRuntimeChoice,
-} from "./own-process-agents.js";
+import { followOwnProcesses, refuseEveryCommand } from "./own-process-agents.js";
 
 const pick = (value, keys) => Object.fromEntries(keys.map((k) => [k, value[k]]));
 export class AssistantService {
@@ -103,6 +100,7 @@ export class AssistantService {
     // The previous process's Gateway can no longer confirm a lost send.
     this.ledger.forgetUnconfirmed();
     this.events = new AssistantEvents();
+    this.agentGroups = new AgentGroups(store);
     this.chatStreams = new ChatStreams();
     // What each running turn is doing, for its chat (run-steps.js).
     this.runSteps = new RunSteps({ now: () => this.now() });
@@ -206,6 +204,7 @@ export class AssistantService {
       assistants,
       conversations,
       deletions: live.deletions,
+      agentGroups: this.agentGroups.list(),
       models: this.models.listCapabilities(),
       activity: assistantActivity({
         assistants,
@@ -221,48 +220,8 @@ export class AssistantService {
       }),
     };
   }
-  /**
-   * A new agent of the owner's starts with shell "With approval" (AGENTPIER-276).
-   * `template` ({id, revision}): the Agency agent they started from, fetched again
-   * before admission and scanned. `userAccess` makes it an agent of users.
-   */
-  async create(body, { userAccess = null } = {}) {
-    const { confirmShell, confirmFull, template, ...input } = body || {};
-    const origin = template === undefined ? null : await this.templateOrigin(template);
-    return this.admit(async () => {
-      const base = userAccess ? "off" : "approval",
-        level = input.shell ?? base;
-      shellChange({ shell: base }, input, { confirmShell, confirmFull });
-      // Skills are assigned once the agent exists (agent-skills.js).
-      if (input.skills?.length) throw assistantProblem("invalid");
-      refuseRuntimeChoice(this.runtime, input, this.accounts);
-      const lease = await this.models.resolve(input.model || {});
-      lease.release();
-      // Memory on by default, web capabilities off (memory-rules.js).
-      const capabilities = newCapabilities(input, this.dreaming?.enabled());
-      // Check-ins are switched on in the saved agent (its settings), not at creation.
-      const heartbeat = input.heartbeat && { ...input.heartbeat, enabled: false };
-      const record = this.store.createAssistant(
-        {
-          ...input,
-          shell: level,
-          capabilities,
-          ...(heartbeat && { heartbeat }),
-        },
-        (origin || userAccess) && {
-          ...(origin && { template: origin }),
-          ...(userAccess && { userAccess }),
-        },
-      );
-      // The Gateway gets the agent, and its level, at its first apply.
-      if (level !== "off")
-        this.shellChanges.audit(record.id, { from: "off", to: level }, {});
-      auditProactivity(this.audit, record.id, proactivityChange({}, record));
-      // A Hermes agent's set starts now (in the background), OpenClaw's at first apply.
-      if (ownProcess(record)) this.config.apply(record.id).catch(() => {});
-      this.changed();
-      return record;
-    });
+  create(body, options) {
+    return createAgent(this, body, options);
   }
   async templateOrigin(template) {
     if (

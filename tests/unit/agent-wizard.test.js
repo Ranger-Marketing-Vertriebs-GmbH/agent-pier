@@ -345,3 +345,10 @@ test("a failed agent stops everything; a refused confirmation sends nothing more
   assert.equal(none.results.create.status, "failed");
   assert.equal(refused.calls.length, 1);
 });
+
+test("creation sends the selected area for personal and user agents", () => {
+  const draft = { ...emptyDraft(), areaGroupId: "work", name: "Planner" };
+  assert.equal(createBody(draft).areaGroupId, "work");
+  assert.equal(createBody({ ...draft, owner: "user", kind: "own" }).areaGroupId, "work");
+  assert.equal("areaGroupId" in createBody({ ...draft, areaGroupId: null }), false);
+});

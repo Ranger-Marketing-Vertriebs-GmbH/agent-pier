@@ -367,6 +367,11 @@ The information architecture is recorded in
   **Agent** while agents are on) stays in the phone header and the floating bar of a
   collapsed sidebar. While the agent service is stopped, agent rows are dimmed with
   "offline".
+  Within **Agents**, lasting agent groups have collapsible headings, root-agent
+  counts and a work/attention status dot that includes hidden members. Group and agent
+  menus rename/reorder/delete groups or move a root agent; team members follow their
+  lead. **Agents › All agents › Agent groups** uses the same order and assignments
+  ([agent groups](agents.md#agent-groups)).
 - **Agent chat header** (`web/features/assistants/AgentChatTop.jsx`, owner app, every
   width): the chat selector sits under the agent name (a main chat shows its title in the
   status line, not the model id). On a phone the status there is the dot alone (its word

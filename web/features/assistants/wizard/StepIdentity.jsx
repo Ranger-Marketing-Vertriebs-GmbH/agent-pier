@@ -1,3 +1,4 @@
+import GroupSelect from "../groups/GroupSelect.jsx";
 import React, { useState } from "react";
 import ListCard from "../../../components/ListCard.jsx";
 import ListRow from "../../../components/ListRow.jsx";
@@ -27,6 +28,10 @@ export default function StepIdentity({ d, set, models }) {
             onChange={(event) => set({ name: event.target.value })}
           />
         </label>
+        <GroupSelect
+          value={d.areaGroupId}
+          onChange={(areaGroupId) => set({ areaGroupId })}
+        />
         <label className="agent-field">
           {assistantCopy.instructions}
           <textarea

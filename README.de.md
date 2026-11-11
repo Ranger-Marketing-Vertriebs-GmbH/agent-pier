@@ -66,7 +66,7 @@ Die Anleitungen unter `docs/` sind überwiegend auf Englisch.
   fordert Korrekturen an und merged ihn, wenn erlaubt. Label-Regeln stellen jedes
   Ticket mit einem Label von selbst in diese Folge
   ([Ticketquellen](docs/ticket-sources.md), auf Englisch).
-- **Agenten und Teams:** dauerhafte Agenten, deren Leads ihre Mitglieder fragen und
+- **Agenten und Teams:** dauerhafte Agenten in [festen Gruppen](docs/agents.md#agent-groups) (auf Englisch), deren Teammitglieder bei ihrem Lead bleiben; Leads fragen ihre Mitglieder und
   ihnen Aufgaben übergeben, auf Anfrage, als Vorschlag oder selbstständig, und ihre
   Projektordner, Coding-Projekte und MCP-Server mit ihnen teilen oder bei ihnen
   Routinen anlegen, die an sie zurückberichten, benannte Gruppen dauerhafter

@@ -58,7 +58,7 @@ and agents that work as a team.
   time, watching each pull request until it is merged, asking for fixes and, when
   allowed, merging it. Label rules add every ticket with a label to that sequence on
   their own ([ticket sources](docs/ticket-sources.md)).
-- **Agents and teams:** persistent agents whose leads ask and delegate to their
+- **Agents and teams:** persistent agents organized into [lasting groups](docs/agents.md#agent-groups), with team members staying under their lead; leads ask and delegate to their
   members on request, by suggestion or on their own and share their project folders,
   coding projects and MCP servers with them or set up routines on them that report
   back, named groups of permanent members that take one task in parallel and whose

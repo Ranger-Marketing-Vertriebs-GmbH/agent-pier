@@ -1,0 +1,30 @@
+.agent-area-section {
+  min-width: 0;
+}
+.agent-area-section > .sidebar-group {
+  margin: var(--space-2) 0;
+}
+.agent-area-section .sidebar-group-toggle {
+  min-width: 0;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.agent-area-section .sidebar-group-toggle > span:nth-child(2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agents-hub .agent-area-section {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+.agent-area-member {
+  padding-left: var(--space-8);
+}
+.agent-area-new {
+  padding: var(--space-2);
+}
+.agent-group-name-dialog .save-bar {
+  position: static;
+  width: 100%;
+}

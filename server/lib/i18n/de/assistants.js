@@ -16,7 +16,6 @@ export const assistants = {
     unknown: "Ergebnis unklar; bitte in AgentPier prüfen",
     reviewed: "Ergebnis geprüft; Aktion wird nicht wiederholt",
   },
-
   execApproval: "Shell-Befehl zur Freigabe",
   execAgent: (name) => `Agent: ${name}`,
   execCwd: "Ordner:",
@@ -121,7 +120,6 @@ export const assistants = {
     `Für diesen Agenten jetzt immer erlaubt, aber nur genau dieser Befehl: ${reason}. Jeder andere Befehl fragt weiter. Du kannst ihn in den Agent-Einstellungen löschen.`,
   execAllowlistFailed:
     "Der Befehl wurde einmal erlaubt, aber AgentPier konnte ihn nicht in die Liste erlaubter Befehle eintragen. Beim nächsten Mal fragt der Agent erneut.",
-
   heartbeatMemoryRequired:
     "Meldungen brauchen das Gedächtnis. Schalte zuerst „Informationen merken“ ein oder schalte die Meldungen mit ab.",
   dreamingMemoryConfirm:
@@ -326,7 +324,6 @@ export const assistants = {
     `Das Team arbeitet an: ${objective}\n${count} von ${total} Agenten arbeiten gerade. Ich melde mich mit den Ergebnissen.`,
   teamResultFailed: (objective) =>
     `Team-Ergebnisse für ${objective}. Die Zusammenfassung ist fehlgeschlagen oder wurde abgebrochen. Prüfe die Einzelberichte.`,
-
   channelUnavailable: "Der Kanaldienst ist gerade nicht erreichbar. Versuche es erneut.",
   channelWebhook:
     "Der Telegram-Bot verwendet bereits einen Webhook. Trenne zuerst die andere Integration.",
@@ -395,6 +392,10 @@ export const assistants = {
   projectWriteTooLarge: "Ein Schreibvorgang darf höchstens 64 KiB umfassen.",
   memberRequestOpenTask:
     "Dieses Mitglied hat schon eine offene Aufgabe. Warte auf ihr Ergebnis oder brich sie ab.",
+  agentGroupNameTaken: "Eine Agentengruppe heißt bereits so.",
+  agentGroupLimit: "Du kannst bis zu 100 Agentengruppen anlegen.",
+  agentGroupRootOnly:
+    "Nur eigenständige, aktive Agenten können einer Gruppe zugeordnet werden. Teammitglieder bleiben bei ihrem Agenten.",
   memberGroupNotFound: "Diese Gruppe gibt es nicht (mehr).",
   memberGroupName: "Gib der Gruppe einen Namen mit höchstens 60 Zeichen.",
   memberGroupNameTaken: "Eine Gruppe dieses leitenden Agenten heißt schon so.",
@@ -452,7 +453,6 @@ export const assistants = {
     "Der Agentendienst muss laufen, um einen Agenten zu löschen. Starte ihn und versuche es erneut.",
   telegramSendersRestartRequired:
     "Diese Telegram-Änderung startet das Gateway der Agenten neu; bestätige den Neustart.",
-
   teamMcpServersUnavailable:
     "Die MCP-Serverliste dieses Teams lässt sich gerade nicht lesen. Versuche es später erneut.",
   teamShareAccessOnly:

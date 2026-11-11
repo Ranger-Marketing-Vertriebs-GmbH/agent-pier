@@ -347,7 +347,10 @@ for (const [language, copy] of Object.entries(languages))
       await expect(page.getByRole("button", { name: copy.newChat })).toHaveCount(0);
       await page.getByRole("button", { name: copy.chats }).click();
       await expect(page.locator(".agent-chat-list .list-row-main")).toHaveCount(1);
-      await expect(page.getByRole("button", { name: copy.actionsFor })).toHaveCount(0);
+      // Grouping the agent is owner metadata; private chat actions remain absent.
+      await expect(
+        page.locator(".agent-chat-list").getByRole("button", { name: copy.actionsFor }),
+      ).toHaveCount(0);
     });
 
     for (const mode of ["shared", "own"])

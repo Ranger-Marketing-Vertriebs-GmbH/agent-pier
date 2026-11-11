@@ -113,6 +113,7 @@ export const ownerContentRoutes = {
 };
 
 export const ownerMetadataRoutes = new Set([
+  "PUT /api/assistants/:id/group",
   "GET /api/assistants/:id/access",
   "PUT /api/assistants/:id/access",
   "PUT /api/assistants/:id/team-policy",

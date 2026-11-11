@@ -37,6 +37,7 @@ export function creationPlan(d) {
 export function createBody(d) {
   const body = {
     name: d.name.trim(),
+    ...(d.areaGroupId && { areaGroupId: d.areaGroupId }),
     instructions: d.instructions,
     model: { connectionId: d.connectionId, modelId: d.modelId.trim() },
     capabilities: {

@@ -461,3 +461,11 @@ test("pinning memory entries finds the agent's memory page in both languages", (
     assert.ok(hit.alias, query);
   }
 });
+
+test("new agent group is searchable in both languages and opens its form", () => {
+  for (const query of ["Neue Gruppe", "New group"]) {
+    const hit = results(query).find((r) => r.id === "action:new-agent-group");
+    assert.equal(pathOf(hit), "/agents");
+    assert.equal(hit.target.pending, "agent-group-add");
+  }
+});

@@ -32,6 +32,7 @@ export default function AgentRow({
   pills = [],
   onOpen,
   navigate,
+  groupMenu,
 }) {
   const phone = useMobileLayout();
   const missing = connectionMissing(a, models);
@@ -59,7 +60,7 @@ export default function AgentRow({
   const chat = a.userAccess?.mode !== "own" && !missing;
   return (
     <ListRow
-      className="agents-hub-agent"
+      className={`agents-hub-agent${a.teamMemberId ? " agent-area-member" : ""}`}
       icon={
         <span className="agents-hub-avatar">
           <span className="assistant-avatar">{avatarGlyph(a.name)}</span>
@@ -73,6 +74,7 @@ export default function AgentRow({
       sub={sub}
       {...(phone ? link(settings) : {})}
     >
+      {groupMenu}
       {phone ? (
         chat && (
           <div className="agents-hub-row-actions">

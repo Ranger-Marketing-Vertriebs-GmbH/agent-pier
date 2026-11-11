@@ -1,0 +1,20 @@
+export const agentGroupsCopy = {
+  title: "Agent groups",
+  newGroup: "New group",
+  rename: "Rename group",
+  name: "Group name",
+  ungrouped: "Ungrouped",
+  empty: "No agents in this group yet.",
+  moveTo: "Move to group",
+  remove: "Delete group",
+  removeBody:
+    "The agents are kept and moved to Ungrouped. Their team members stay with them.",
+  up: "Move up",
+  down: "Move down",
+  select: "Group",
+  hint: "Organize independent agents into lasting areas. Team members stay with their lead.",
+  attention: "Needs your attention",
+  working: "Agents are working",
+  actions: (name) => `Actions for ${name}`,
+  deleteTitle: (name) => `Delete group “${name}”?`,
+};

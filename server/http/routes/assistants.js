@@ -1,3 +1,4 @@
+import { assistantGroupRoutes } from "./assistant-groups.js";
 import { assistantWorkflowRoutes } from "./assistant-workflows.js";
 import { assistantRuntimeUpdateRoutes } from "./assistant-runtime-updates.js";
 import { assistantRoutineRoutes } from "./assistant-routines.js";
@@ -109,6 +110,7 @@ function activeAssistantRoutes(services) {
       return next(assistantProblem("active", 409));
     next();
   });
+  router.use(assistantGroupRoutes(services));
   router.use(assistantCapabilityRoutes(services));
   router.use(assistantRoutineRoutes(services));
   router.use(assistantHookRoutes(services));

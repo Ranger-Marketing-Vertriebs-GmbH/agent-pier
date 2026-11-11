@@ -379,6 +379,10 @@ export const assistants = {
   projectWriteTooLarge: "One write may hold at most 64 KiB.",
   memberRequestOpenTask:
     "This member already has an open task. Wait for its result or cancel it first.",
+  agentGroupNameTaken: "An agent group already has this name.",
+  agentGroupLimit: "You can create up to 100 agent groups.",
+  agentGroupRootOnly:
+    "Only active, independent agents can be assigned to a group. Team members stay with their lead.",
   memberGroupNotFound: "This group does not exist (any more).",
   memberGroupName: "Give the group a name of at most 60 characters.",
   memberGroupNameTaken: "This lead agent already has a group of that name.",
