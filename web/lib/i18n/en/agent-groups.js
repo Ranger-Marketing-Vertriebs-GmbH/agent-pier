@@ -11,6 +11,7 @@ export const agentGroupsCopy = {
     "The agents are kept and moved to Ungrouped. Their team members stay with them.",
   up: "Move up",
   down: "Move down",
+  moved: (name, position, count) => `${name} moved to position ${position} of ${count}`,
   select: "Group",
   hint: "Organize independent agents into lasting areas. Team members stay with their lead.",
   attention: "Needs your attention",

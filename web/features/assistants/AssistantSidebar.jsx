@@ -25,6 +25,14 @@ import { areaSections } from "./groups/group-view.js";
 import useViewsOffered from "../views/useViewsOffered.js";
 import useShownInView from "../views/useShownInView.js";
 import { viewsCopy } from "../../lib/i18n/messages/views.js";
+import useMediaQuery from "../../lib/useMediaQuery.js";
+import { groupApi } from "./groups/group-api.js";
+import { sortByOrder } from "./order/agent-order.js";
+import useAgentOrdering, {
+  orderRowClass,
+  orderSectionClass,
+  useShownOrder,
+} from "./order/useAgentOrdering.jsx";
 
 // Agents whose team members the owner unfolded stay unfolded across reloads (per
 // browser, like the sidebar groups). Storage may be unavailable; folding still works.
@@ -52,6 +60,7 @@ export default function AssistantSidebar({ navigate, route }) {
     members = [],
     teams = [],
     groups: memberGroups = [],
+    agentOrder = [],
     models = [],
     runtime,
     activity = {},
@@ -68,6 +77,9 @@ export default function AssistantSidebar({ navigate, route }) {
   const groupActions = useGroupActions();
   const offered = useViewsOffered();
   const shown = useShownInView(route);
+  // A mouse drags rows natively; a finger long-presses them (useAgentReorder.js).
+  const finePointer = useMediaQuery("(pointer: fine)");
+  const shownOrder = useShownOrder(agentOrder);
   const [opening, setOpening] = useState(null),
     [error, setError] = useState(""),
     [expanded, setExpanded] = useState(readExpanded);
@@ -119,13 +131,42 @@ export default function AssistantSidebar({ navigate, route }) {
     const lead = leads.get(a.parentAssistantId);
     return !lead || !!lead.archivedAt;
   };
-  // The owner's agents first, then the agents of users under their own heading.
-  const roots = assistants
-    .filter(
+  // The owner's agents in his own order (agent-order.js), then the agents of users
+  // under their own heading.
+  const roots = sortByOrder(
+    assistants.filter(
       (a) =>
         !a.archivedAt && (!a.teamMemberId || (a.lifetime === "permanent" && leadGone(a))),
-    )
-    .sort((a, b) => Boolean(a.userAccess) - Boolean(b.userAccess));
+    ),
+    shownOrder.order,
+  ).sort((a, b) => Boolean(a.userAccess) - Boolean(b.userAccess));
+  const sections = areaSections(roots, groupActions.groups);
+  const sectionKey = (section) => section.group?.id || "ungrouped";
+  const display = sections.flatMap((section) =>
+    section.agents.map((a) => ({
+      id: a.id,
+      name: a.name,
+      section: sectionKey(section),
+      kind: a.userAccess ? "user" : "own",
+      fixed: Boolean(a.teamMemberId),
+    })),
+  );
+  const ordering = useAgentOrdering({
+    display,
+    shown: shownOrder,
+    enabled: loaded && !stale,
+    save: async (ids) => {
+      await groupApi.saveOrder(ids);
+      await refresh();
+    },
+    regroup: (id, from, to) =>
+      groupApi.assign(
+        id,
+        to === "ungrouped" ? null : to,
+        from === "ungrouped" ? null : from,
+      ),
+  });
+  const hasGroups = groupActions.groups.length > 0;
   const permanentOf = (parent) =>
     parent.teamMemberId
       ? []
@@ -185,8 +226,13 @@ export default function AssistantSidebar({ navigate, route }) {
           ? copy.status.connectionMissing
           : copy.status[runtime.availability],
     );
-    // Wider than 1150 px the agent's chat can be dragged into a split view.
+    // Wider than 1150 px the agent's chat can be dragged into a split view; a root
+    // agent's row is also dragged into a new place in the list, in the same gesture.
     const draggable = offered && paneDraggable(assistant, models);
+    const toPane = (event) =>
+      writePayload(event.dataTransfer, { agent: { assistantId: assistant.id } });
+    const drag =
+      !nested && finePointer && ordering.dragProps(assistant.id, draggable && toPane);
     return (
       <button
         key={assistant.id}
@@ -196,12 +242,8 @@ export default function AssistantSidebar({ navigate, route }) {
         aria-current={current ? "page" : undefined}
         disabled={!!opening && !chat && !member}
         draggable={draggable || undefined}
-        onDragStart={
-          draggable
-            ? (event) =>
-                writePayload(event.dataTransfer, { agent: { assistantId: assistant.id } })
-            : undefined
-        }
+        onDragStart={draggable ? toPane : undefined}
+        {...drag}
         onClick={() => open(assistant, chat)}
       >
         <span className="assistant-avatar-wrap" aria-hidden="true">
@@ -266,7 +308,8 @@ export default function AssistantSidebar({ navigate, route }) {
       activeKey={route.assistantId}
       warning={down ? agentsHubCopy.first.serviceDown : ""}
     >
-      <ErrorMessage error={error || groupActions.error} />
+      <ErrorMessage error={error || groupActions.error || ordering.error} />
+      {ordering.status}
       {groupActions.dialog}
       {stale && (
         <p role="status" className="assistant-sidebar-offline">
@@ -274,19 +317,26 @@ export default function AssistantSidebar({ navigate, route }) {
         </p>
       )}
       <div
-        className={`session-list${stale ? " assistant-sidebar-stale" : ""}${down ? " assistant-sidebar-down" : ""}`}
+        {...ordering.listProps}
+        data-order-section={hasGroups ? undefined : "ungrouped"}
+        className={`session-list${stale ? " assistant-sidebar-stale" : ""}${down ? " assistant-sidebar-down" : ""}${hasGroups ? "" : ` ${orderSectionClass(ordering.drag, "ungrouped")}`}`}
       >
         {!roots.length && <p className="assistant-sidebar-empty">{copy.empty}</p>}
-        {areaSections(roots, groupActions.groups)
-          .filter((section) => section.group || section.agents.length)
+        {sections
+          // While an agent is dragged an empty Ungrouped takes it out of its group.
+          .filter((section) => section.group || section.agents.length || ordering.drag)
           .map((section) => (
             <AreaSection
-              key={section.group?.id || "ungrouped"}
+              key={sectionKey(section)}
               section={section}
               actions={groupActions}
               selected={route.assistantId}
               location="sidebar"
-              flat={!groupActions.groups.length}
+              flat={!hasGroups}
+              dropProps={{
+                "data-order-section": sectionKey(section),
+                className: orderSectionClass(ordering.drag, sectionKey(section)),
+              }}
             >
               {section.agents.map((parent, index) => {
                 const groups = new Map();
@@ -325,9 +375,22 @@ export default function AssistantSidebar({ navigate, route }) {
                         {usersCopy.agentsOfUsers}
                       </div>
                     )}
-                    <div className={`assistant-sidebar-row ${current ? "selected" : ""}`}>
+                    <div
+                      {...ordering.rowProps(
+                        parent.id,
+                        display.find((entry) => entry.id === parent.id),
+                      )}
+                      className={`assistant-sidebar-row ${current ? "selected" : ""} ${orderRowClass(ordering.drag, parent.id)}`}
+                    >
                       {item(parent)}
-                      <AgentGroupMenu agent={parent} actions={groupActions} />
+                      <AgentGroupMenu
+                        agent={parent}
+                        actions={groupActions}
+                        order={{
+                          up: ordering.up(parent.id),
+                          down: ordering.down(parent.id),
+                        }}
+                      />
                       {memberCount > 0 && (
                         <button
                           type="button"

@@ -188,3 +188,14 @@
   justify-content: flex-start;
   padding-top: var(--space-2);
 }
+/* Her agent list in her own order (MyAgentsPage.jsx): the rows keep the card's
+   1px dividers inside the drop area. */
+.user-agents-order {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.user-agent-entry {
+  display: flex;
+  flex-direction: column;
+}

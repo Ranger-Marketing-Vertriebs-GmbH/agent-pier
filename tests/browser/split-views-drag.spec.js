@@ -4,7 +4,8 @@
 import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { chatAssistant } from "../helpers/assistant-chat-fixture.js";
-import { dragOver, dropOn, paneTransfer } from "../helpers/pane-drag.js";
+import { dragOver, dragTypes, dropOn, paneTransfer } from "../helpers/pane-drag.js";
+import { PANE_MIME } from "../../web/features/views/drag-payload.js";
 import {
   copy,
   layoutWrites,
@@ -166,7 +167,7 @@ for (const language of ["en", "de"]) {
       });
     });
 
-    test("the session row and the agent row are draggable; a team member row is not", async ({
+    test("the session row and the agent row drag into a view; a team member row does not", async ({
       page,
     }) => {
       await splitViewFixture(page, {
@@ -191,7 +192,10 @@ for (const language of ["en", "de"]) {
       );
       await expect(agentRow(page, "Home assistant")).toHaveAttribute("draggable", "true");
       await expect(agentRow(page, "Reviewer")).toBeVisible();
-      await expect(agentRow(page, "Reviewer")).not.toHaveAttribute("draggable", /.*/);
+      // Shown on its own, the member's row is dragged only to a new place in the list
+      // (agent order), never into a view.
+      expect(await dragTypes(agentRow(page, "Home assistant"))).toContain(PANE_MIME);
+      expect(await dragTypes(agentRow(page, "Reviewer"))).not.toContain(PANE_MIME);
       await page.setViewportSize({ width: 1100, height: 900 });
       await expect(sessionRow(page, "Refactor billing")).not.toHaveAttribute(
         "draggable",

@@ -132,7 +132,12 @@ export default function UserApp({ status }) {
           person={person}
           openSettings={() => navigate({ view: "account" })}
         />
-        <MyAgentsPage agents={data.agents} error={data.error} navigate={navigate} />
+        <MyAgentsPage
+          agents={data.agents}
+          error={data.error}
+          navigate={navigate}
+          refresh={data.refresh}
+        />
       </UserPage>
     );
   else
