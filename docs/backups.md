@@ -92,9 +92,9 @@ histories and private content, always encrypted (see "Sealed history"):
 #### Agent databases
 
 The owner’s agent groups and root-agent assignments (`agent_groups` and
-`agent_group_members` in `assistants.sqlite`) are configuration. They are kept in
-both configuration-only and full backups, independently of task-oriented groups
-of team members.
+`agent_group_members` in `assistants.sqlite`) and each person's agent order
+(`agent_order`) are configuration. They are kept in both configuration-only and full
+backups, independently of task-oriented groups of team members.
 
 Each agent database is split: a public configuration copy keeps the schema and the
 rows of its configuration tables; the full copy (credential tables emptied as
