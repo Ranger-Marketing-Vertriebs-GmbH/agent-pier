@@ -6,7 +6,12 @@ import { fixtureModel } from "../helpers/user-agents.js";
 import { as, userAgent } from "../helpers/user-chats.js";
 import { followAgentList } from "../../server/features/assistants/live-topics.js";
 import { followAgentEvents } from "../../server/features/users/live-me-topics.js";
-import { mergeOrder, sortByOrder } from "../../server/features/assistants/agent-order.js";
+import {
+  mergeOrder,
+  OWNER_ORDER,
+  sortByOrder,
+} from "../../server/features/assistants/agent-order.js";
+import { lifecycleFixture } from "../helpers/agent-lifecycle-fixture.js";
 
 async function ownerAgent(f, name, body = {}) {
   const response = await f.request("/api/assistants", {
@@ -63,7 +68,7 @@ test("the owner's order is stored, pushed on agent.list, survives a restart and 
   assert.deepEqual(await ownerOrder(f), [c.id, a.id, b.id]);
 });
 
-test("archived agents keep their place; a permanent delete drops it", async (t) => {
+test("archived agents keep their place for a restore", async (t) => {
   const f = await applicationFixture(t, enabledAssistants);
   const service = f.application.assistants;
   const a = await ownerAgent(f, "Alpha");
@@ -74,19 +79,33 @@ test("archived agents keep their place; a permanent delete drops it", async (t) 
   // The browser no longer shows Beta and sends the others only.
   assert.equal((await saveOwner(f, [c.id, a.id])).status, 200);
   assert.deepEqual(await ownerOrder(f), [c.id, b.id, a.id]);
-  service.store.db.prepare("DELETE FROM assistants WHERE id=?").run(b.id);
-  assert.deepEqual(await ownerOrder(f), [c.id, a.id]);
 });
 
-test("invalid or unknown ids are refused without changing the order", async (t) => {
+test("a permanent delete through the agent lifecycle drops the agent's place", async (t) => {
+  const f = lifecycleFixture(t);
+  const other = f.populated("Other");
+  const { agent } = f.populated();
+  const order = f.assistants.agentOrder;
+  order.save(OWNER_ORDER, [agent.id, other.agent.id], () => true);
+  await f.lifecycle.archive(agent.id, { revision: agent.revision });
+  assert.deepEqual(order.of(OWNER_ORDER), [agent.id, other.agent.id]);
+  await f.lifecycle.delete(agent.id, { name: "Helper" });
+  assert.deepEqual(order.of(OWNER_ORDER), [other.agent.id]);
+});
+
+test("malformed bodies are refused; ids gone since the list was read are left out", async (t) => {
   const f = await applicationFixture(t, enabledAssistants);
   const a = await ownerAgent(f, "Alpha");
   const b = await ownerAgent(f, "Beta");
   assert.equal((await saveOwner(f, [b.id, a.id])).status, 200);
   for (const ids of [undefined, "x", [a.id, a.id], [a.id, 3], [""]])
     assert.equal((await saveOwner(f, ids)).status, 400, JSON.stringify(ids));
-  assert.equal((await saveOwner(f, [a.id, "missing"])).status, 404);
   assert.deepEqual(await ownerOrder(f), [b.id, a.id]);
+  // Another tab deleted an agent this one still shows: the rest is saved.
+  const response = await saveOwner(f, [a.id, "deleted-elsewhere", b.id]);
+  assert.equal(response.status, 200);
+  assert.deepEqual((await response.json()).ids, [a.id, b.id]);
+  assert.deepEqual(await ownerOrder(f), [a.id, b.id]);
 });
 
 test("each person orders her own list: users never touch the owner's or each other's order", async (t) => {
@@ -141,15 +160,27 @@ test("each person orders her own list: users never touch the owner's or each oth
   assert.deepEqual(await names(benRequest), ["Family", "Ben's helper"]);
   assert.deepEqual(await ownerOrder(f), []);
 
-  // Agents she does not see (Ben's, the owner's) are unknown to her.
-  for (const ids of [[third.id, first.id], [owner.id], [first.id, second.id, third.id]]) {
-    response = await annaRequest("/api/me/agents/order", {
+  // Agents she does not see (Ben's, the owner's) are left out and never stored or
+  // answered for her; a stale list still saves the agents she sees.
+  const saveAnna = async (ids) => {
+    const answer = await annaRequest("/api/me/agents/order", {
       method: "PUT",
       body: { ids },
     });
-    assert.equal(response.status, 404, JSON.stringify(ids));
-  }
-  assert.deepEqual(await names(annaRequest), ["Anna's helper", "Family"]);
+    assert.equal(answer.status, 200, JSON.stringify(ids));
+    return (await answer.json()).ids;
+  };
+  assert.deepEqual(await saveAnna([third.id, owner.id]), [second.id, first.id]);
+  assert.deepEqual(await saveAnna([first.id, third.id, second.id]), [
+    first.id,
+    second.id,
+  ]);
+  assert.deepEqual(service.agentOrder.of(`user:${anna.user.id}`), [first.id, second.id]);
+  assert.deepEqual(await names(annaRequest), ["Family", "Anna's helper"]);
+  // An agent taken from her keeps its stored slot, but her answer never names it.
+  service.store.changeUserAgent(second.id, { archivedAt: new Date().toISOString() });
+  assert.deepEqual(await saveAnna([first.id]), [first.id]);
+  service.store.changeUserAgent(second.id, { archivedAt: null });
   // The owner's route is not hers.
   response = await annaRequest("/api/assistant-order", {
     method: "PUT",
@@ -162,7 +193,7 @@ test("each person orders her own list: users never touch the owner's or each oth
     (await saveOwner(f, [first.id, second.id, third.id, owner.id])).status,
     200,
   );
-  assert.deepEqual(await names(annaRequest), ["Anna's helper", "Family"]);
+  assert.deepEqual(await names(annaRequest), ["Family", "Anna's helper"]);
   assert.deepEqual(await ownerOrder(f), [first.id, second.id, third.id, owner.id]);
 
   // Her order goes with her.

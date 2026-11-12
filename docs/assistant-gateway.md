@@ -3708,7 +3708,9 @@ first: her conversation (hers, on an agent she still belongs to; an archived one
 readable), her agent, her attempt, her chat file. Anything else, also a deleted chat,
 answers the unknown-route 404.
 
-- `GET /me/agents`, `POST /me/agents/:id/conversation` (her main chat), her chat list
+- `GET /me/agents`, `PUT /me/agents/order` (her own order of her agents, only those
+  that serve her; see [agent order](agents.md#agent-order)),
+  `POST /me/agents/:id/conversation` (her main chat), her chat list
   (`GET|POST /me/agents/:id/chats`; rename, archive, restore and delete under
   `/me/conversations/:id`, see [Several chats per agent](#several-chats-per-agent));
   messages, the queued message,

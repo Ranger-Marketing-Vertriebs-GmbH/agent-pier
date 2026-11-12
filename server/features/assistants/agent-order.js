@@ -63,7 +63,9 @@ export class AgentOrder {
   }
   /**
    * Stores `ids` as the person's order of the agents she sees. `visible(id)` says
-   * whether she may order that agent; any other id refuses the whole write as unknown.
+   * whether she may order that agent: an id she does not see (an agent deleted or
+   * taken from her since her list was read) is left out, so a stale list still saves
+   * the rest. Answers her order of the agents she sees, never whether others exist.
    */
   save(person, ids, visible) {
     if (
@@ -73,10 +75,10 @@ export class AgentOrder {
       new Set(ids).size !== ids.length
     )
       throw assistantProblem("invalid");
-    if (!ids.every((id) => visible(id))) throw assistantProblem("notFound", 404);
+    const shown = ids.filter((id) => visible(id));
     this.db.exec("BEGIN IMMEDIATE");
     try {
-      const order = mergeOrder(this.of(person), ids);
+      const order = mergeOrder(this.of(person), shown);
       this.db.prepare("DELETE FROM agent_order WHERE person=?").run(person);
       const insert = this.db.prepare("INSERT INTO agent_order VALUES (?, ?, ?)");
       order.forEach((id, index) => insert.run(person, id, index));
@@ -85,7 +87,7 @@ export class AgentOrder {
       this.db.exec("ROLLBACK");
       throw error;
     }
-    return { ids: this.of(person) };
+    return { ids: this.of(person).filter((id) => visible(id)) };
   }
   forget(person) {
     this.db.prepare("DELETE FROM agent_order WHERE person=?").run(person);
