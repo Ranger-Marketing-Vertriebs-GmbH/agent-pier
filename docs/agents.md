@@ -116,20 +116,24 @@ memory or additional access. Group communication is not part of this feature.
 
 ### Agent order
 
-Drag an agent in the sidebar's **Agents** group to put it in another place. With a
-mouse, drag the row; on a touch screen, hold the row for a moment, then drag it. The
-agent's ⋯ menu offers **Move up** and **Move down** for the keyboard and screen
-readers; a screen reader hears the new position.
+Drag an agent in the sidebar's **Agents** group or in **Agents › All agents › Agent
+groups** to put it in another place; both lists show the same order and follow each
+other. With a mouse, drag the row; on a touch screen, hold the row for a moment, then
+drag it (a press on its buttons stays theirs). The agent's ⋯ menu offers **Move up**
+and **Move down** for the keyboard and screen readers; a screen reader hears the new
+position.
 
 - Without groups the whole list is one order. With groups an agent is sorted within its
   group; dropping it into another group moves it there, as **Move to group** does, at
   the place it was dropped. While an agent is dragged, an empty **Ungrouped** appears
   to take it out of its group. The order of the groups stays with their ⋯ menu.
 - Only independent agents are sorted. Team members stay under their lead and move
-  with it. The agents of users stay under their own heading below the owner's.
+  with it; on **All agents**, where permanent members are listed under their lead,
+  dragging a member's row moves nothing. The agents of users stay under their own
+  heading below the owner's.
 - The order is saved on the server for each person, so it is the same in every browser
   and on every device, and other open views follow at once through the live channel.
-  The owner's order is his alone: sorting the agents of users in his sidebar never
+  The owner's order is his alone: sorting the agents of users in his views never
   changes a user's own order. Each user sorts her agents in her own app (see
   [Users](users.md#the-users-app)).
 - A new agent comes last. Agents never sorted follow the sorted ones in their usual

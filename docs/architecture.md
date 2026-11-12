@@ -159,11 +159,12 @@ agent list in `agent_order` (`person`, `assistant_id`, `position`) in
 `assistants.sqlite`: `owner` for the owner, `user:<id>` for each restricted user. The
 owner writes his with `PUT /api/assistant-order` (any agent that is not being deleted)
 and receives it as `agentOrder` in the `agent.list` topic and `GET /api/assistants`;
-the browser sorts the root agents by it (`web/features/assistants/order/`). A user
-writes hers with `PUT /api/me/agents/order` (only agents that serve her, others are
-unknown) and receives `me.agents` already sorted. A write names the agents its list
-shows; stored agents it leaves out (archived ones) keep their slots. Every write
-signals the agent services' `change`, which pushes `agent.list` and `me.agents`.
+the browser sorts the root agents of the sidebar and of **All agents** by it
+(`web/features/assistants/order/`). A user writes hers with `PUT /api/me/agents/order`
+(only agents that serve her, others are unknown) and receives `me.agents` already
+sorted. A write names the agents its list shows; stored agents it leaves out (archived
+ones) keep their slots. Every write signals the agent services' `change`, which pushes
+`agent.list` and `me.agents`.
 Agents without a position follow the positioned ones in their usual order. A
 permanent delete drops the agent's rows by foreign key cascade; deleting a user drops
 her order (`user-release.js`).
