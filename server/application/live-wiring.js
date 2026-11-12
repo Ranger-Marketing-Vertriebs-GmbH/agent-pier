@@ -174,6 +174,7 @@ const QUIET_WRITE_AREAS = new Set([
   "pipeline-queue",
   "memory",
   "project-groups",
+  "assistant-order",
   "views",
   "artifacts",
   "previews",
