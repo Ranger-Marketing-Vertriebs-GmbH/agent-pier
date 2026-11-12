@@ -371,10 +371,11 @@ The information architecture is recorded in
   counts and a work/attention status dot that includes hidden members. Group and agent
   menus rename/reorder/delete groups or move a root agent; team members follow their
   lead. **Agents › All agents › Agent groups** uses the same group order and
-  assignments ([agent groups](agents.md#agent-groups)). Root agents are reordered by
-  dragging their row (mouse) or a long press and drag (touch), with **Move up** and
-  **Move down** in the agent's ⋯ menu as the keyboard way; a line marks where the agent
-  lands (`web/features/assistants/order/`, [agent order](agents.md#agent-order)).
+  assignments ([agent groups](agents.md#agent-groups)). Root agents are reordered in
+  both lists, which share one saved order, by dragging their row (mouse) or a long
+  press and drag (touch), with **Move up** and **Move down** in the agent's ⋯ menu as
+  the keyboard way; a line marks where the agent lands
+  (`web/features/assistants/order/`, [agent order](agents.md#agent-order)).
 - **Agent chat header** (`web/features/assistants/AgentChatTop.jsx`, owner app, every
   width): the chat selector sits under the agent name (a main chat shows its title in the
   status line, not the model id). On a phone the status there is the dot alone (its word
