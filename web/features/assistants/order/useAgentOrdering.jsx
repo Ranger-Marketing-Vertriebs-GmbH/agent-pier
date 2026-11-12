@@ -38,6 +38,9 @@ export default function useAgentOrdering({ display, shown, save, regroup, enable
   const queue = useRef(Promise.resolve());
   const [error, setError] = useState("");
   const [announcement, setAnnouncement] = useState({ text: "", count: 0 });
+  // The live region exists from the first move on, before its text arrives, so the
+  // move is read out; pages without a move keep only their own live regions.
+  const [armed, setArmed] = useState(false);
   const apply = (id, ids, section) => {
     const entry = display.find((other) => other.id === id);
     const byId = new Map(display.map((other) => [other.id, other]));
@@ -45,6 +48,7 @@ export default function useAgentOrdering({ display, shown, save, regroup, enable
       other === id ? { ...entry, section } : byId.get(other),
     );
     const token = shown.hold(ids);
+    setArmed(true);
     setError("");
     queue.current = queue.current.then(async () => {
       try {
@@ -81,8 +85,10 @@ export default function useAgentOrdering({ display, shown, save, regroup, enable
     // The Move up / Move down actions of a row; null at the end it cannot pass.
     up: (id) => (enabled ? step(id, "up") : null),
     down: (id) => (enabled ? step(id, "down") : null),
-    status: (
-      <p className="visually-hidden" role="status">
+    // A polite live region without the status role: a page keeps its one status
+    // notice.
+    status: armed && (
+      <p className="visually-hidden" aria-live="polite" aria-atomic="true">
         {announcement.text}
         {announcement.count % 2 ? " " : ""}
       </p>

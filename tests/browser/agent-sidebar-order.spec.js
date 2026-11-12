@@ -76,9 +76,9 @@ test("dragging an agent in the plain list saves the owner's order for every view
     .dragTo(row(page, "Developer"), { targetPosition: above.position });
   await expect.poll(() => names(page)).toEqual(["Writer", "Developer", "Calendar"]);
   await expect.poll(() => data.saves).toEqual([["writer", "home", "calendar"]]);
-  await expect(page.getByRole("status").filter({ hasText: "Writer moved" })).toHaveText(
-    /Writer moved to position 1 of 3/,
-  );
+  await expect(
+    page.locator("[aria-live=polite]", { hasText: "Writer moved" }),
+  ).toHaveText(/Writer moved to position 1 of 3/);
   await page.screenshot({
     path: info.outputPath("agent-sidebar-order.png"),
     clip: await sidebarClip(page),

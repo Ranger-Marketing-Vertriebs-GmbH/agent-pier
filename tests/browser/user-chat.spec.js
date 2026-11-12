@@ -50,7 +50,7 @@ for (const [language, copy] of Object.entries(languages)) {
       const state = await userAppFixture(page, { language });
       await page.goto(baseURL + "/");
       await expect(page.getByRole("heading", { name: copy.greeting })).toBeVisible();
-      await page.getByRole("button", { name: /Lotta/ }).click();
+      await page.getByRole("button", { name: /^Lotta/ }).click();
       await expect(page).toHaveURL(/\/agents\/lotta\/chats\/main$/);
       await expect(page.getByText(copy.private)).toBeVisible();
       await page.getByLabel(copy.message, { exact: true }).fill("Plan my week");
@@ -73,7 +73,8 @@ for (const [language, copy] of Object.entries(languages)) {
         },
       });
       await page.goto(baseURL + "/agents");
-      const row = page.getByRole("button", { name: /Family helper/ });
+      // The row itself; its ⋯ menu ("Actions for Family helper") names the agent too.
+      const row = page.getByRole("button", { name: /^Family helper/ });
       await expect(row).toContainText(copy.sharedBadge);
       await row.click();
       await expect(page.getByText(copy.shared)).toBeVisible();
