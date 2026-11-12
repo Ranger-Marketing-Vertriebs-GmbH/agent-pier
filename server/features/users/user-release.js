@@ -1,5 +1,6 @@
 import { audienceOf } from "../assistants/reminder-audience.js";
 import { memberLevel } from "./user-access.js";
+import { userOrder } from "../assistants/agent-order.js";
 import {
   deleteNativeSession,
   forgetChat,
@@ -31,6 +32,8 @@ export async function releaseUserData(services, userId, mode, optIn) {
       store.changeUserAgent(agent.id, { userAccess: { ...agent.userAccess, members } });
     }
   }
+  // Her own order of her agents goes with her (agent-order.js).
+  assistants.agentOrder.forget(userOrder(userId));
   for (const conversation of store.listConversations()) {
     if (conversation.userId !== userId) continue;
     if (optIn?.enabled) {

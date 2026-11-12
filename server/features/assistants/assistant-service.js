@@ -5,6 +5,7 @@ import {
 } from "./assistant-validation.js";
 import { createAgent } from "./agent-creation.js";
 import { AgentGroups } from "./agent-groups.js";
+import { AgentOrder, OWNER_ORDER } from "./agent-order.js";
 import { listedAgents } from "./agent-lifecycle.js";
 import { sendTurn } from "./conversation-turns.js";
 import { AgentAttachments } from "./agent-attachments.js";
@@ -101,6 +102,8 @@ export class AssistantService {
     this.ledger.forgetUnconfirmed();
     this.events = new AssistantEvents();
     this.agentGroups = new AgentGroups(store);
+    // Each person's own order of her agent list (agent-order.js).
+    this.agentOrder = new AgentOrder(store);
     this.chatStreams = new ChatStreams();
     // What each running turn is doing, for its chat (run-steps.js).
     this.runSteps = new RunSteps({ now: () => this.now() });
@@ -205,6 +208,7 @@ export class AssistantService {
       conversations,
       deletions: live.deletions,
       agentGroups: this.agentGroups.list(),
+      agentOrder: this.agentOrder.of(OWNER_ORDER),
       models: this.models.listCapabilities(),
       activity: assistantActivity({
         assistants,
