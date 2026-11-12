@@ -164,6 +164,59 @@ test("the agents of users keep their heading and move among themselves", async (
     .toEqual([["home", "calendar", "writer", "ben", "anna"]]);
 });
 
+// The types of the drag the page started, as the drop target sees them.
+async function dragTypes(page) {
+  await page.evaluate(() => {
+    window.__dragTypes = null;
+    window.addEventListener("dragstart", (event) => {
+      window.__dragTypes = event.defaultPrevented
+        ? "prevented"
+        : [...event.dataTransfer.types];
+    });
+  });
+  return () => page.evaluate(() => window.__dragTypes);
+}
+
+test("a mouse drag carries the agent alone, and a press on a row's control drags nothing", async ({
+  page,
+}) => {
+  const data = await setup(page);
+  await page.goto(baseURL + "/agents");
+  await expect.poll(() => overview(page)).toEqual(["Developer", "Calendar", "Writer"]);
+  const types = await dragTypes(page);
+  const writer = handle(main(page), "Writer");
+  // Agent settings is a link: dragged, it neither moves the agent nor leaves its address.
+  await writer
+    .getByRole("link", { name: "Agent settings", exact: true })
+    .dragTo(handle(main(page), "Developer"), { targetPosition: top });
+  await expect.poll(types).toBe("prevented");
+  await expect(page.locator(".agent-order-dragging")).toHaveCount(0);
+  expect(data.saves).toEqual([]);
+  expect(await overview(page)).toEqual(["Developer", "Calendar", "Writer"]);
+  // A press on Open chat that moves a little is still a click on it.
+  await page.route("**/api/assistants/writer/conversations", (route) =>
+    route.fulfill({ json: { id: "c-writer", assistantId: "writer", main: true } }),
+  );
+  const chat = await writer.getByRole("button", { name: "Open chat", exact: true });
+  const box = await chat.boundingBox();
+  await page.mouse.move(box.x + 10, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 14, box.y + box.height / 2 + 2, { steps: 3 });
+  await page.mouse.up();
+  await expect(page).toHaveURL(/\/agents\/writer\/chats\/c-writer/);
+  expect(data.saves).toEqual([]);
+  // The row itself drags the agent, with nothing else in the drag.
+  await page.goto(baseURL + "/agents");
+  await expect.poll(() => overview(page)).toEqual(["Developer", "Calendar", "Writer"]);
+  const after = await dragTypes(page);
+  await handle(main(page), "Writer").dragTo(handle(main(page), "Developer"), {
+    sourcePosition: name,
+    targetPosition: top,
+  });
+  await expect.poll(after).toEqual(["application/x-agentpier-agent-order"]);
+  await expect.poll(() => data.saves).toEqual([["writer", "home", "calendar"]]);
+});
+
 test.describe("on a touch screen", () => {
   test.use({ hasTouch: true });
 

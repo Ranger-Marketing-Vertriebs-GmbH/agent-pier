@@ -13,6 +13,20 @@ export const ORDER_MIME = "application/x-agentpier-agent-order";
 export const LONG_PRESS_MS = 450;
 const TOUCH_SLOP = 10;
 
+// A row's own controls: its menu, links and buttons. The body of a shared list row
+// (ListRow.jsx), a link or button on a phone, is the row itself, as is the dragged
+// element (the sidebar's row button).
+const CONTROLS = "[aria-haspopup], [data-no-order-drag], a[href], button";
+function onControl(target, row) {
+  const control = target?.closest?.(CONTROLS);
+  return (
+    !!control &&
+    control !== row &&
+    row.contains(control) &&
+    !control.matches(".list-row-main")
+  );
+}
+
 function measure(list) {
   if (!list) return { rows: [], sections: [] };
   const box = (node) => node.getBoundingClientRect();
@@ -57,6 +71,7 @@ export default function useAgentReorder({ enabled, entries, onDrop }) {
   state.current.entries = entries;
   state.current.onDrop = onDrop;
   const touch = useRef(null); // ends the current touch press or drag
+  const pressed = useRef(false); // the mouse went down on a row's control
 
   const show = useCallback((next) => {
     state.current.drag = next;
@@ -195,11 +210,24 @@ export default function useAgentReorder({ enabled, entries, onDrop }) {
     ...(enabled && { onTouchStart: touchStart(id) }),
   });
   // The element a mouse drags natively; `also(event)` adds to its drag (a split view).
+  // A press on one of its controls stays theirs, as on a touch screen.
   const dragProps = (id, also) =>
     enabled
       ? {
           draggable: true,
+          onMouseDown: (event) => {
+            pressed.current = onControl(event.target, event.currentTarget);
+          },
           onDragStart: (event) => {
+            if (pressed.current) return event.preventDefault();
+            // A link in the row would carry its address: the drag holds the agent only.
+            event.dataTransfer.clearData();
+            const box = event.currentTarget.getBoundingClientRect();
+            event.dataTransfer.setDragImage?.(
+              event.currentTarget,
+              event.clientX - box.left,
+              event.clientY - box.top,
+            );
             also?.(event);
             event.dataTransfer.setData(ORDER_MIME, id);
             event.dataTransfer.effectAllowed = "move";

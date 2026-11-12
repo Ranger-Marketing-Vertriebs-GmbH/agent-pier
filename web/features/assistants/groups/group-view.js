@@ -1,3 +1,5 @@
+import { ownerSorted } from "../order/agent-order.js";
+
 // Group assignments apply to roots only. Members follow their lead, even when
 // the lead is archived and a permanent member is shown on its own.
 export function groupOf(groups, id) {
@@ -16,6 +18,24 @@ export function areaSections(agents, groups) {
   }
   return [...sections, ungrouped];
 }
+// The overview's sections: the owner's order (agent-order.js) within each group, each
+// agent with its permanent members under it. A member whose lead is not listed (it is
+// archived) is an agent of its own.
+export function overviewSections(lists, groups, order) {
+  const all = ownerSorted([...lists.own, ...lists.ofUsers], order);
+  return areaSections(all, groups).map((section) => {
+    const ids = new Set(section.agents.map((a) => a.id));
+    return {
+      ...section,
+      agents: section.agents.filter(
+        (a) => !a.teamMemberId || !ids.has(a.parentAssistantId),
+      ),
+      members: (root) =>
+        section.agents.filter((a) => a.teamMemberId && a.parentAssistantId === root.id),
+    };
+  });
+}
+
 // A folded area reports attention in its roots AND their hidden team members.
 export function areaStatus(roots, assistants, activity = {}) {
   const ids = new Set(roots.flatMap((a) => [a.id, a.parentAssistantId].filter(Boolean)));

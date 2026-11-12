@@ -218,9 +218,19 @@ test("with groups, a real mouse drag still takes an agent row into a split view"
   });
   await page.goto(`${baseURL}/views/${viewId}`);
   await expect(paneOf(page, "session:s1")).toBeVisible();
+  // The drag holds the pane and the agent order, after the row cleared its own data.
+  await page.evaluate(() =>
+    window.addEventListener("dragstart", (event) => {
+      window.__dragTypes = [...event.dataTransfer.types].sort();
+    }),
+  );
   await page
     .locator("aside.sidebar .assistant-sidebar-item", { hasText: "Travel planner" })
     .dragTo(paneOf(page, "session:s1"));
   await expect(paneOf(page, "chat:a2:c9")).toBeVisible();
+  expect(await page.evaluate(() => window.__dragTypes)).toEqual([
+    "application/x-agentpier-agent-order",
+    "application/x-agentpier-pane",
+  ]);
   expect(saves).toBe(0);
 });
