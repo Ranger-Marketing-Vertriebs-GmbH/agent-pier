@@ -395,6 +395,7 @@ export default function AssistantSidebar({ navigate, route }) {
                         <button
                           type="button"
                           className="assistant-team-pill"
+                          data-no-order-drag
                           aria-expanded={!hidden}
                           aria-label={
                             hidden

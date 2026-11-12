@@ -90,6 +90,8 @@ export default function useAgentReorder({ enabled, entries, onDrop }) {
   // A finger: hold still for LONG_PRESS_MS, then drag; moving earlier scrolls.
   const touchStart = (id) => (event) => {
     if (!enabled || touch.current || event.touches.length !== 1) return;
+    // A press on a row's own controls (its ⋯ menu, the team pill) is theirs.
+    if (event.target.closest?.("[aria-haspopup], [data-no-order-drag]")) return;
     const origin = event.touches[0];
     let point = { x: origin.clientX, y: origin.clientY };
     let active = false;
