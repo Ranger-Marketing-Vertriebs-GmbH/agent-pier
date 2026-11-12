@@ -52,22 +52,31 @@ export class TelegramIngress {
     } catch (error) {
       this.pollEnded(id, started);
       if (signal?.aborted || this.service.closed) return;
-      if (
-        ["TELEGRAM_CONFLICT", "TELEGRAM_REJECTED", "TELEGRAM_WEBHOOK"].includes(
-          error.code,
-        )
-      ) {
-        store.halt(id, error.code);
-        this.service.channelChanged?.(id);
-      } else if (error.code === "TELEGRAM_RATE_LIMIT")
-        store.diagnostic(
-          id,
-          error.code,
-          Date.now() + Math.max(1, Math.min(error.retryAfter || 30, 3600)) * 1000,
-        );
-      else store.diagnostic(id, "TELEGRAM_UNAVAILABLE", Date.now() + 10000);
-      this.service.assistants.changed();
+      this.failed(id, error);
     }
+  }
+  // A failed poll or token check. Only Telegram's verdict on the bot itself (another
+  // poller, a webhook, a rejected token, an account that is no bot) switches the
+  // channel off; a rate limit or an unreachable Telegram waits and tries again.
+  failed(id, error) {
+    const { store } = this.service;
+    const halt =
+      error.code === "TELEGRAM_IDENTITY"
+        ? "TELEGRAM_REJECTED"
+        : ["TELEGRAM_CONFLICT", "TELEGRAM_REJECTED", "TELEGRAM_WEBHOOK"].find(
+            (code) => code === error.code,
+          );
+    if (halt) {
+      store.halt(id, halt);
+      this.service.channelChanged?.(id);
+    } else if (error.code === "TELEGRAM_RATE_LIMIT")
+      store.diagnostic(
+        id,
+        error.code,
+        Date.now() + Math.max(1, Math.min(error.retryAfter || 30, 3600)) * 1000,
+      );
+    else store.diagnostic(id, "TELEGRAM_UNAVAILABLE", Date.now() + 10000);
+    this.service.assistants.changed();
   }
   // A poll that returned (or failed) no longer counts as one standing open; only a
   // returned poll whose updates were received counts, as `completed`.
