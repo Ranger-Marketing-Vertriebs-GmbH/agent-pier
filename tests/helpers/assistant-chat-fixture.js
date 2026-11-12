@@ -72,6 +72,7 @@ export async function chatFixture(page, options = {}) {
         teams: state.teams,
         requests: state.requests,
         groups: state.groups,
+        agentGroups: state.agentGroups,
         activity: state.activity,
       };
     else if (p === "/api/assistant-runtime") body = state.runtime;

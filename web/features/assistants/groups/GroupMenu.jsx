@@ -24,20 +24,27 @@ function Menu({ label, items, disabled }) {
   );
 }
 // `order` (the sidebar) adds Move up and Move down: `{ up, down }`, each the move or
-// null where the agent cannot go further.
+// null where the agent cannot go further. A team member follows its lead's group:
+// shown on its own (its lead gone), its menu only moves it up or down.
 export function AgentGroupMenu({ agent, actions, order }) {
-  if (agent.teamMemberId) return null;
-  const current = groupOf(actions.groups, agent.id);
   const up = order?.up,
     down = order?.down;
+  const moves = [
+    ...(up ? [{ id: "up", label: copy.up, run: up }] : []),
+    ...(down ? [{ id: "down", label: copy.down, run: down }] : []),
+  ];
+  if (agent.teamMemberId)
+    return moves.length ? (
+      <Menu label={copy.actions(agent.name)} disabled={actions.busy} items={moves} />
+    ) : null;
+  const current = groupOf(actions.groups, agent.id);
   return (
     <Menu
       label={copy.actions(agent.name)}
       disabled={actions.busy}
       items={[
-        ...(up ? [{ id: "up", label: copy.up, run: up }] : []),
-        ...(down ? [{ id: "down", label: copy.down, run: down }] : []),
-        ...(up || down ? [{ id: "order-separator", kind: "separator" }] : []),
+        ...moves,
+        ...(moves.length ? [{ id: "order-separator", kind: "separator" }] : []),
         {
           id: "move",
           kind: "group",
