@@ -230,7 +230,7 @@ for (const [language, copy] of Object.entries(languages))
       const annaLog = userRequestLog(pa);
       await signIn(pa, f, copy, "anna");
       await expect(pa.getByRole("heading", { name: copy.greeting })).toBeVisible();
-      await pa.getByRole("button", { name: /Family/ }).click();
+      await pa.getByRole("button", { name: /^Family/ }).click();
       await expect(pa.getByText(copy.shared)).toBeVisible();
       await say(pa, copy, "Anna's surprise plan");
       await fitsPhone(pa);
@@ -241,7 +241,7 @@ for (const [language, copy] of Object.entries(languages))
       const annaNote = await annaRequest(`/api/me/agents/${own.id}/memory/${diaryName}`);
       expect((await annaNote.json()).content).toBe(diary);
       await pa.goto(f.url + "/");
-      await pa.getByRole("button", { name: /Lotta/ }).click();
+      await pa.getByRole("button", { name: /^Lotta/ }).click();
       await expect(pa.getByText(copy.private)).toBeVisible();
       await say(pa, copy, "Lotta, keep my diary");
 
@@ -275,7 +275,7 @@ for (const [language, copy] of Object.entries(languages))
       const pb = benPhone.page;
       const benLog = userRequestLog(pb);
       await signIn(pb, f, copy, "ben");
-      await pb.getByRole("button", { name: /Family/ }).click();
+      await pb.getByRole("button", { name: /^Family/ }).click();
       await expect(pb.getByText(copy.shared)).toBeVisible();
       await expect(pb.getByText("Anna's surprise plan")).toHaveCount(0);
       const benGet = (endpoint) =>
