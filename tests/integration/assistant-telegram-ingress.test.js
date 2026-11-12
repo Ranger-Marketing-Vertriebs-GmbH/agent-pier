@@ -86,3 +86,76 @@ test("a Telegram quote, code or link stays marked as not the owner's own words",
   const [[start, end]] = g.contexts[0].hidden;
   assert.equal(g.sent[0].text.slice(start, end), "@Scout");
 });
+// One tick of the service's poll loop for the channel, awaited.
+async function tick(f) {
+  f.service.tick();
+  await f.service.pollers.get(f.channel.id)?.task;
+}
+test("a token check that cannot reach Telegram keeps the bot on and retries", async (t) => {
+  const f = channelFixture(t);
+  let checks = 0,
+    polls = 0;
+  f.client.identity = async () => {
+    checks += 1;
+    throw Object.assign(Error(), { code: "TELEGRAM_UNAVAILABLE" });
+  };
+  f.client.call = async () => {
+    polls += 1;
+    return [];
+  };
+  await tick(f);
+  let channel = f.service.store.get(f.channel.id);
+  assert.equal(channel.enabled, true);
+  assert.equal(channel.diagnostic, "TELEGRAM_UNAVAILABLE");
+  assert.ok(channel.pollAfter > Date.now() + 9000);
+  assert.equal(polls, 0);
+  // The check waits for its retry time.
+  await tick(f);
+  assert.equal(checks, 1);
+  f.client.identity = async () => {
+    checks += 1;
+    throw Object.assign(Error(), { code: "TELEGRAM_RATE_LIMIT", retryAfter: 20 });
+  };
+  f.service.store.diagnostic(f.channel.id, "TELEGRAM_UNAVAILABLE", 0);
+  await tick(f);
+  channel = f.service.store.get(f.channel.id);
+  assert.equal(channel.enabled, true);
+  assert.equal(channel.diagnostic, "TELEGRAM_RATE_LIMIT");
+  assert.ok(channel.pollAfter > Date.now() + 19000);
+  // Telegram is back: the token check passes and polling clears the diagnostic.
+  f.client.identity = async () => ({ id: 123456, username: "fixture_bot" });
+  f.service.store.diagnostic(f.channel.id, "TELEGRAM_RATE_LIMIT", 0);
+  await tick(f);
+  channel = f.service.store.get(f.channel.id);
+  assert.equal(channel.enabled, true);
+  assert.equal(channel.diagnostic, null);
+  assert.equal(polls, 1);
+});
+test("a token Telegram rejects or a webhook still switches the bot off", async (t) => {
+  for (const [code, diagnostic] of [
+    ["TELEGRAM_REJECTED", "TELEGRAM_REJECTED"],
+    ["TELEGRAM_IDENTITY", "TELEGRAM_REJECTED"],
+    ["TELEGRAM_WEBHOOK", "TELEGRAM_WEBHOOK"],
+  ]) {
+    const f = channelFixture(t);
+    f.client.identity = async () => {
+      throw Object.assign(Error(), { code });
+    };
+    await tick(f);
+    const channel = f.service.store.get(f.channel.id);
+    assert.equal(channel.enabled, false, code);
+    assert.equal(channel.diagnostic, diagnostic, code);
+  }
+});
+test("an unreachable Telegram during pairing keeps the pairing open", async (t) => {
+  const f = channelFixture(t);
+  const pairing = f.service.store.pairing(f.channel.id, f.channel.revision);
+  f.client.identity = async () => {
+    throw Object.assign(Error(), { code: "TELEGRAM_UNAVAILABLE" });
+  };
+  await tick(f);
+  const channel = f.service.store.get(f.channel.id);
+  assert.equal(channel.diagnostic, "TELEGRAM_UNAVAILABLE");
+  assert.ok(channel.pairingExpiresAt > Date.now());
+  assert.ok(pairing.code);
+});

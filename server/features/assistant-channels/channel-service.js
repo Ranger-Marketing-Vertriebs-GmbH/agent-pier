@@ -443,12 +443,8 @@ export class ChannelService {
             try {
               await this.clientFactory(token).identity(controller.signal);
             } catch (error) {
-              if (!controller.signal.aborted)
-                this.store.halt(
-                  channel.id,
-                  error.code === "TELEGRAM_WEBHOOK" ? error.code : "TELEGRAM_UNAVAILABLE",
-                );
-              this.channelChanged(channel.id);
+              if (!controller.signal.aborted && !this.closed)
+                this.ingress.failed(channel.id, error);
               return;
             }
             if (controller.signal.aborted || this.closed) return;

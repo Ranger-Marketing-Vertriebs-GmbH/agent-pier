@@ -750,7 +750,13 @@ The owner's bot has its Telegram section below the assistant settings. Enter the
 open the one-time pairing link and send its `/start` message from your private
 chat. Pairing expires after ten minutes. Group chats and other users do not enter
 the assistant. The bot must not have another webhook or polling owner; AgentPier
-does not delete existing webhooks. Re-pairing is blocked until pending work has
+does not delete existing webhooks. Before its first poll after a start or a token
+change, AgentPier checks the token (`getMe`, `getWebhookInfo`). A token Telegram
+rejects, an account that is not a bot, another poller (`TELEGRAM_CONFLICT`) or a
+webhook switches the bot off with that diagnostic, as the same answers to a poll do.
+An unreachable Telegram (`TELEGRAM_UNAVAILABLE`, retried after ten seconds) or a rate
+limit (`TELEGRAM_RATE_LIMIT`, retried after Telegram's waiting time) keeps the bot on
+and only delays the check. Re-pairing is blocked until pending work has
 been resolved, both when issuing and redeeming the link. Resuming or changing
 credentials invalidates outstanding links. Pause preserves queued work; disconnect
 removes the local bot token. Each input retains its source chat/user; delivery
