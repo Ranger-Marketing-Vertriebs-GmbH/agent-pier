@@ -3,11 +3,14 @@ import assert from "node:assert/strict";
 import fc from "fast-check";
 import {
   dropTarget,
+  ownerEntries,
+  ownerSorted,
   placeAgent,
   positionOf,
   sortByOrder,
   stepAgent,
 } from "../../web/features/assistants/order/agent-order.js";
+import { areaSections } from "../../web/features/assistants/groups/group-view.js";
 
 const entry = (id, section = "ungrouped", kind = "own", fixed = false) => ({
   id,
@@ -124,4 +127,28 @@ test("any drop keeps every agent exactly once and moves only the dragged one", (
       },
     ),
   );
+});
+
+test("the owner's views list his agents in his order, the agents of users below", () => {
+  const agents = [
+    { id: "u1", name: "U1", userAccess: { mode: "shared" } },
+    { id: "a", name: "A" },
+    { id: "m", name: "M", teamMemberId: "t", parentAssistantId: "gone" },
+    { id: "b", name: "B" },
+    { id: "u2", name: "U2", userAccess: { mode: "own" } },
+  ];
+  const sorted = ownerSorted(agents, ["u2", "b", "m", "a", "u1"]);
+  assert.deepEqual(
+    sorted.map((a) => a.id),
+    ["b", "m", "a", "u2", "u1"],
+  );
+  const groups = [{ id: "work", name: "Work", assistantIds: ["a", "u1"] }];
+  assert.deepEqual(ownerEntries(areaSections(sorted, groups)), [
+    { id: "a", name: "A", section: "work", kind: "own", fixed: false },
+    { id: "u1", name: "U1", section: "work", kind: "user", fixed: false },
+    { id: "b", name: "B", section: "ungrouped", kind: "own", fixed: false },
+    // A member shown on its own follows its lead's group.
+    { id: "m", name: "M", section: "ungrouped", kind: "own", fixed: true },
+    { id: "u2", name: "U2", section: "ungrouped", kind: "user", fixed: false },
+  ]);
 });

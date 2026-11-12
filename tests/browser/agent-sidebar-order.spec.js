@@ -1,56 +1,10 @@
 import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
-import {
-  home,
-  setupAssistantSettings,
-  emitChange,
-} from "../helpers/assistant-settings-browser.js";
+import { home, emitChange } from "../helpers/assistant-settings-browser.js";
+import { setupAgentOrder as setup } from "../helpers/agent-order-browser.js";
 import { chatAssistant } from "../helpers/assistant-chat-fixture.js";
 import { paneOf, splitViewFixture, viewId } from "../helpers/split-views-browser.js";
 
-// The server's order as agent-order.js keeps it: the stored ids, applied by the page.
-async function setup(page, shared) {
-  const data = shared || {
-    assistants: [
-      home({ id: "home", name: "Developer" }),
-      home({ id: "calendar", name: "Calendar" }),
-      home({ id: "writer", name: "Writer" }),
-    ],
-    groups: [],
-    order: [],
-    saves: [],
-    assigns: [],
-  };
-  await setupAssistantSettings(page, { assistants: data.assistants });
-  await page.route("**/api/assistants", (route) =>
-    route.fulfill({
-      json: {
-        assistants: data.assistants,
-        conversations: [],
-        agentGroups: data.groups,
-        agentOrder: data.order,
-        activity: {},
-        models: [{ id: "router", name: "Router", available: true }],
-      },
-    }),
-  );
-  await page.route("**/api/assistant-order", async (route) => {
-    const { ids } = route.request().postDataJSON();
-    data.saves.push(ids);
-    data.order = ids;
-    await route.fulfill({ json: { ids } });
-  });
-  await page.route(/\/api\/assistants\/[^/]+\/group$/, async (route) => {
-    const body = route.request().postDataJSON(),
-      id = new URL(route.request().url()).pathname.split("/")[3];
-    data.assigns.push({ id, ...body });
-    for (const group of data.groups)
-      group.assistantIds = group.assistantIds.filter((a) => a !== id);
-    data.groups.find((g) => g.id === body.groupId)?.assistantIds.push(id);
-    await route.fulfill({ json: { assistantId: id, groupId: body.groupId } });
-  });
-  return data;
-}
 const rows = (scope) => scope.locator(".assistant-sidebar-row");
 const pageOf = (scope) => (typeof scope.page === "function" ? scope.page() : scope);
 const row = (scope, name) =>
