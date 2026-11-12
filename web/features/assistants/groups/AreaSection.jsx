@@ -8,7 +8,7 @@ import useAssistants from "../useAssistants.js";
 import "./groups.css";
 
 // Reuse the sidebar's accessible, persisted disclosure for both group views.
-// `dropProps` (the sidebar) mark the section as a drop target of the agent order.
+// `dropProps` mark the section as a drop target of the agent order.
 export default function AreaSection({
   section,
   actions,

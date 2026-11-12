@@ -15,3 +15,20 @@ export const groupApi = {
       previousGroupId,
     }),
 };
+
+/**
+ * How the owner's views save a move of the agent order (useAgentOrdering.jsx): the
+ * order, then the list read again; a drop into another group assigns it there first.
+ */
+export const ownerOrderWrites = (refresh) => ({
+  save: async (ids) => {
+    await groupApi.saveOrder(ids);
+    await refresh();
+  },
+  regroup: (id, from, to) =>
+    groupApi.assign(
+      id,
+      to === "ungrouped" ? null : to,
+      from === "ungrouped" ? null : from,
+    ),
+});

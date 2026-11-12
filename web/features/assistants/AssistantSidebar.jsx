@@ -26,8 +26,8 @@ import useViewsOffered from "../views/useViewsOffered.js";
 import useShownInView from "../views/useShownInView.js";
 import { viewsCopy } from "../../lib/i18n/messages/views.js";
 import useMediaQuery from "../../lib/useMediaQuery.js";
-import { groupApi } from "./groups/group-api.js";
-import { sortByOrder } from "./order/agent-order.js";
+import { ownerOrderWrites } from "./groups/group-api.js";
+import { ownerEntries, ownerSorted, sectionKey } from "./order/agent-order.js";
 import useAgentOrdering, {
   orderRowClass,
   orderSectionClass,
@@ -133,38 +133,20 @@ export default function AssistantSidebar({ navigate, route }) {
   };
   // The owner's agents in his own order (agent-order.js), then the agents of users
   // under their own heading.
-  const roots = sortByOrder(
+  const roots = ownerSorted(
     assistants.filter(
       (a) =>
         !a.archivedAt && (!a.teamMemberId || (a.lifetime === "permanent" && leadGone(a))),
     ),
     shownOrder.order,
-  ).sort((a, b) => Boolean(a.userAccess) - Boolean(b.userAccess));
-  const sections = areaSections(roots, groupActions.groups);
-  const sectionKey = (section) => section.group?.id || "ungrouped";
-  const display = sections.flatMap((section) =>
-    section.agents.map((a) => ({
-      id: a.id,
-      name: a.name,
-      section: sectionKey(section),
-      kind: a.userAccess ? "user" : "own",
-      fixed: Boolean(a.teamMemberId),
-    })),
   );
+  const sections = areaSections(roots, groupActions.groups);
+  const display = ownerEntries(sections);
   const ordering = useAgentOrdering({
     display,
     shown: shownOrder,
     enabled: loaded && !stale,
-    save: async (ids) => {
-      await groupApi.saveOrder(ids);
-      await refresh();
-    },
-    regroup: (id, from, to) =>
-      groupApi.assign(
-        id,
-        to === "ungrouped" ? null : to,
-        from === "ungrouped" ? null : from,
-      ),
+    ...ownerOrderWrites(refresh),
   });
   const hasGroups = groupActions.groups.length > 0;
   const permanentOf = (parent) =>

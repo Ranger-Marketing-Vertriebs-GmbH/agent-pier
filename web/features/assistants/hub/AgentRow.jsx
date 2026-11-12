@@ -22,7 +22,8 @@ export const settingsRoute = (id, tab) => ({
  * access and channels, "Chat" and "Einstellungen". Without its provider access it
  * offers "Modell wählen" (Identity) instead. A user's own agent opens its settings
  * only; a shared one offers "Meinen Chat öffnen". On phones the whole row opens the
- * settings and only the chat button stays beside it.
+ * settings and only the chat button stays beside it. A long press on its buttons is
+ * theirs, never the start of a drag of the agent order.
  */
 export default function AgentRow({
   assistant: a,
@@ -77,7 +78,7 @@ export default function AgentRow({
       {groupMenu}
       {phone ? (
         chat && (
-          <div className="agents-hub-row-actions">
+          <div className="agents-hub-row-actions" data-no-order-drag>
             <button
               type="button"
               className="button secondary compact"
@@ -88,7 +89,7 @@ export default function AgentRow({
           </div>
         )
       ) : (
-        <div className="agents-hub-row-actions">
+        <div className="agents-hub-row-actions" data-no-order-drag>
           {pills.map((pill) => (
             <span key={pill} className="agents-hub-pill">
               {pill}
