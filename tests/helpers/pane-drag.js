@@ -57,3 +57,12 @@ export const dragOver = (locator, side, transfer) =>
 /** Drops at `side` of the locator: dragenter, dragover and drop. */
 export const dropOn = (locator, side, transfer) =>
   dispatchAt(locator, side, transfer, ["dragenter", "dragover", "drop"]);
+
+/** The data types a drag started on `locator` carries; the drag ends right away. */
+export const dragTypes = (locator) =>
+  locator.evaluate((node) => {
+    const data = new DataTransfer();
+    node.dispatchEvent(new DragEvent("dragstart", { bubbles: true, dataTransfer: data }));
+    node.dispatchEvent(new DragEvent("dragend", { bubbles: true }));
+    return [...data.types];
+  });

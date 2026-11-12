@@ -97,6 +97,7 @@ export async function userAppFixture(page, options = {}) {
     password: options.password || "current-password-1",
     posted: [],
     saved: [],
+    orders: [],
     decided: [],
     foreign: [],
     signedOut: false,
@@ -158,6 +159,13 @@ export async function userAppFixture(page, options = {}) {
     }
     if (path.startsWith("/api/me/notifications"))
       return notifications(route, state, path);
+    // Her own order (agent-order.js): the list answers in it from now on.
+    if (path === "/api/me/agents/order" && method === "PUT") {
+      const { ids } = body();
+      state.orders.push(ids);
+      state.agents.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+      return json(route, { ids });
+    }
     if ((m = /^\/api\/me\/agents\/([^/]+)(\/.*)?$/.exec(path))) {
       const agent = state.agents.find((a) => a.id === m[1]);
       if (!agent) return missing(route);

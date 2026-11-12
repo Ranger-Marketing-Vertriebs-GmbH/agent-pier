@@ -9,6 +9,8 @@ export const userApi = {
   me: () => api("/me"),
   changePassword: (body) => api("/me/password", "PUT", body),
   agents: () => api("/me/agents"),
+  // Her own order of her agents (server agent-order.js).
+  saveOrder: (ids) => api("/me/agents/order", "PUT", { ids }),
   // Her main chat with the agent, opened when she has none yet.
   open: (agentId) => api(`${agent(agentId)}/conversation`, "POST", {}),
   chats: (agentId, archived = false) =>

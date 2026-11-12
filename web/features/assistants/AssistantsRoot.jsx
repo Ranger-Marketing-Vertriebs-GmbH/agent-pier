@@ -24,6 +24,7 @@ const toData = (next) => ({
   requests: next.requests || none,
   groups: next.groups || none,
   agentGroups: next.agentGroups || none,
+  agentOrder: next.agentOrder || none,
   policies: next.policies || nothing,
   teamSettings: next.teamSettings,
   activity: next.activity || nothing,

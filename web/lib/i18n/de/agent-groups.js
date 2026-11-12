@@ -11,6 +11,8 @@ export const agentGroupsCopy = {
     "Die Agenten bleiben erhalten und wechseln nach „Ohne Gruppe“. Ihre Teammitglieder bleiben bei ihnen.",
   up: "Nach oben verschieben",
   down: "Nach unten verschieben",
+  moved: (name, position, count) =>
+    `${name} an Position ${position} von ${count} verschoben`,
   select: "Gruppe",
   hint: "Ordne eigenständige Agenten in dauerhafte Bereiche ein. Teammitglieder bleiben bei ihrem Agenten.",
   attention: "Rückmeldung erforderlich",

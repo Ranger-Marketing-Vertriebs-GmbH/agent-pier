@@ -8,6 +8,7 @@ import useAssistants from "../useAssistants.js";
 import "./groups.css";
 
 // Reuse the sidebar's accessible, persisted disclosure for both group views.
+// `dropProps` (the sidebar) mark the section as a drop target of the agent order.
 export default function AreaSection({
   section,
   actions,
@@ -15,6 +16,7 @@ export default function AreaSection({
   selected = "",
   location,
   flat = false,
+  dropProps,
 }) {
   const { assistants, activity } = useAssistants();
   const { group, agents } = section;
@@ -31,7 +33,10 @@ export default function AreaSection({
         ),
     );
   return (
-    <div className="agent-area-section">
+    <div
+      {...dropProps}
+      className={["agent-area-section", dropProps?.className].filter(Boolean).join(" ")}
+    >
       <SidebarGroup
         name={`agent-area-${location}-${group?.id || "ungrouped"}`}
         label={group?.name || copy.ungrouped}

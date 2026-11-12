@@ -1,0 +1,39 @@
+/* Reordering an agent list (useAgentOrdering.jsx): the dragged row lifts, a line
+   marks where it lands, and a section without rows to mark is highlighted. A long
+   press on a row starts a touch drag, so it neither selects text nor opens the
+   system's callout. */
+[data-order-id] {
+  position: relative;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.agent-order-dragging {
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  box-shadow: var(--elevation-2);
+  opacity: 0.85;
+}
+.agent-order-before::before,
+.agent-order-after::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+  pointer-events: none;
+}
+.agent-order-before::before {
+  top: -1px;
+}
+.agent-order-after::after {
+  bottom: -1px;
+}
+.agent-order-target {
+  border-radius: var(--radius-md);
+  outline: 1px solid var(--accent);
+  background: var(--surface-accent);
+}

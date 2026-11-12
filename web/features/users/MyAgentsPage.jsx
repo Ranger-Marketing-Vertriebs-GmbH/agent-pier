@@ -8,6 +8,14 @@ import { copyAt } from "../assistants/assistant-status.js";
 import { assistantCopy } from "../../lib/i18n/messages/assistants.js";
 import { userAppCopy as copy } from "../../lib/i18n/messages/user-app.js";
 import { userApi } from "./user-api.js";
+import { RowMenu, useRowMenu } from "../extensions/RowMenu.jsx";
+import useMediaQuery from "../../lib/useMediaQuery.js";
+import { agentGroupsCopy } from "../../lib/i18n/messages/agent-groups.js";
+import { sortByOrder } from "../assistants/order/agent-order.js";
+import useAgentOrdering, {
+  orderRowClass,
+  useShownOrder,
+} from "../assistants/order/useAgentOrdering.jsx";
 
 /** What her agent does now: its activity, or Ready. */
 export function agentActivity(agent) {
@@ -32,13 +40,62 @@ export function AgentAvatar({ agent, className = "" }) {
   );
 }
 
+// One agent of her list: a tap opens it; a long press or a mouse drags it into a new
+// place, and its ⋯ menu moves it up or down (useAgentOrdering.jsx).
+function AgentEntry({ agent, ordering, finePointer, ...row }) {
+  const menu = useRowMenu();
+  const up = ordering.up(agent.id),
+    down = ordering.down(agent.id);
+  const label = agentGroupsCopy.actions(agent.name);
+  const items = [
+    ...(up ? [{ id: "up", label: agentGroupsCopy.up, run: up }] : []),
+    ...(down ? [{ id: "down", label: agentGroupsCopy.down, run: down }] : []),
+  ];
+  return (
+    <div
+      {...ordering.rowProps(agent.id, { section: "all", kind: "own" })}
+      {...(finePointer && ordering.dragProps(agent.id))}
+      className={["user-agent-entry", orderRowClass(ordering.drag, agent.id)]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <ListRow
+        {...row}
+        menu={
+          items.length ? { label, expanded: menu.open, onClick: menu.toggle } : undefined
+        }
+      />
+      {items.length > 0 && <RowMenu label={label} state={menu} items={items} />}
+    </div>
+  );
+}
+
 /**
  * The user's start page: one row per agent she may use (own or shared), with its
- * activity; a tap opens her main chat with it.
+ * activity, in her own order (server agent-order.js); a tap opens her main chat with
+ * it. `refresh()` reads her list again after she reordered it.
  */
-export default function MyAgentsPage({ agents, error, navigate }) {
+export default function MyAgentsPage({ agents: listed, error, navigate, refresh }) {
   const [opening, setOpening] = useState(null);
   const [failure, setFailure] = useState("");
+  const finePointer = useMediaQuery("(pointer: fine)");
+  const shownOrder = useShownOrder(null);
+  const agents =
+    listed && shownOrder.order ? sortByOrder(listed, shownOrder.order) : listed;
+  const ordering = useAgentOrdering({
+    display: (agents || []).map((agent) => ({
+      id: agent.id,
+      name: agent.name,
+      section: "all",
+      kind: "own",
+    })),
+    shown: shownOrder,
+    enabled: (agents?.length ?? 0) > 1,
+    save: async (ids) => {
+      await userApi.saveOrder(ids);
+      await refresh?.();
+    },
+  });
   async function open(agent) {
     setFailure("");
     if (agent.conversationId)
@@ -59,24 +116,34 @@ export default function MyAgentsPage({ agents, error, navigate }) {
   }
   return (
     <>
-      <ErrorMessage error={failure || error} />
+      <ErrorMessage error={failure || ordering.error || error} />
+      {ordering.status}
       {agents === null ? (
         <p role="status">{copy.loading}</p>
       ) : agents.length ? (
         <section className="user-agents">
           <GroupLabel id="user-agents-label">{copy.yourAgents}</GroupLabel>
           <ListCard labelledBy="user-agents-label">
-            {agents.map((agent) => (
-              <ListRow
-                key={agent.id}
-                icon={<AgentAvatar agent={agent} />}
-                label={agent.name}
-                sub={opening === agent.id ? copy.opening : agentActivity(agent)}
-                value={agent.shared ? copy.sharedBadge : undefined}
-                disabled={opening === agent.id}
-                onClick={() => open(agent)}
-              />
-            ))}
+            <div
+              {...ordering.listProps}
+              className="user-agents-order"
+              data-order-section="all"
+            >
+              {agents.map((agent) => (
+                <AgentEntry
+                  key={agent.id}
+                  agent={agent}
+                  ordering={ordering}
+                  finePointer={finePointer}
+                  icon={<AgentAvatar agent={agent} />}
+                  label={agent.name}
+                  sub={opening === agent.id ? copy.opening : agentActivity(agent)}
+                  value={agent.shared ? copy.sharedBadge : undefined}
+                  disabled={opening === agent.id}
+                  onClick={() => open(agent)}
+                />
+              ))}
+            </div>
           </ListCard>
         </section>
       ) : (

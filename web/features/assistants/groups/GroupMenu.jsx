@@ -23,14 +23,21 @@ function Menu({ label, items, disabled }) {
     </>
   );
 }
-export function AgentGroupMenu({ agent, actions }) {
+// `order` (the sidebar) adds Move up and Move down: `{ up, down }`, each the move or
+// null where the agent cannot go further.
+export function AgentGroupMenu({ agent, actions, order }) {
   if (agent.teamMemberId) return null;
   const current = groupOf(actions.groups, agent.id);
+  const up = order?.up,
+    down = order?.down;
   return (
     <Menu
       label={copy.actions(agent.name)}
       disabled={actions.busy}
       items={[
+        ...(up ? [{ id: "up", label: copy.up, run: up }] : []),
+        ...(down ? [{ id: "down", label: copy.down, run: down }] : []),
+        ...(up || down ? [{ id: "order-separator", kind: "separator" }] : []),
         {
           id: "move",
           kind: "group",
