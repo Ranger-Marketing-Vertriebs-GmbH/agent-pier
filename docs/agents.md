@@ -114,6 +114,28 @@ Ctrl+K).
 These groups organize the interface. Membership grants no communication, shared
 memory or additional access. Group communication is not part of this feature.
 
+### Agent order
+
+Drag an agent in the sidebar's **Agents** group to put it in another place. With a
+mouse, drag the row; on a touch screen, hold the row for a moment, then drag it. The
+agent's ⋯ menu offers **Move up** and **Move down** for the keyboard and screen
+readers; a screen reader hears the new position.
+
+- Without groups the whole list is one order. With groups an agent is sorted within its
+  group; dropping it into another group moves it there, as **Move to group** does, at
+  the place it was dropped. While an agent is dragged, an empty **Ungrouped** appears
+  to take it out of its group. The order of the groups stays with their ⋯ menu.
+- Only independent agents are sorted. Team members stay under their lead and move
+  with it. The agents of users stay under their own heading below the owner's.
+- The order is saved on the server for each person, so it is the same in every browser
+  and on every device, and other open views follow at once through the live channel.
+  The owner's order is his alone: sorting the agents of users in his sidebar never
+  changes a user's own order. Each user sorts her agents in her own app (see
+  [Users](users.md#the-users-app)).
+- A new agent comes last. Agents never sorted follow the sorted ones in their usual
+  order. Archiving keeps an agent's place for a restore; permanently deleting it
+  removes it.
+
 ## Skill catalog
 
 ![The skill catalog under Agents › Skills](screenshots/agent-skill-catalog.png)

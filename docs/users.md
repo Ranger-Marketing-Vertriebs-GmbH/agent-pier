@@ -61,6 +61,13 @@ after the session check by `server/http/socket-access.js`:
 
 Every other socket is refused like an unknown path (see [Login](login.md)).
 
+**My agents** lists her agents in her own order. She drags an agent to another place
+(on a phone: hold it for a moment, then drag), or uses **Move up** and **Move down** in
+its ⋯ menu. The order is saved on the server for her alone (`PUT /api/me/agents/order`,
+only with agents that serve her) and reaches her other devices through `me.agents`. The
+owner's order of the same agents in his sidebar is his own and never changes hers
+([agent order](agents.md#agent-order)). Deleting her removes her order.
+
 ## Levels
 
 The owner sets a level per user and agent:
