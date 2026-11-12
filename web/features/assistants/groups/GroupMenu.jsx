@@ -23,8 +23,8 @@ function Menu({ label, items, disabled }) {
     </>
   );
 }
-// `order` (the sidebar) adds Move up and Move down: `{ up, down }`, each the move or
-// null where the agent cannot go further. A team member follows its lead's group:
+// `order` (the sidebar and the overview) adds Move up and Move down: `{ up, down }`,
+// each the move or null where the agent cannot go further. A team member follows its lead's group:
 // shown on its own (its lead gone), its menu only moves it up or down.
 export function AgentGroupMenu({ agent, actions, order }) {
   const up = order?.up,

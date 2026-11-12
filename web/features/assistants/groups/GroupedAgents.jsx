@@ -6,25 +6,100 @@ import ErrorMessage from "../../../components/ErrorMessage.jsx";
 import { usePageAction } from "../../../app/page-action.js";
 import { agentGroupsCopy as copy } from "../../../lib/i18n/messages/agent-groups.js";
 import { agentsHubCopy } from "../../../lib/i18n/messages/agents-hub.js";
+import useMediaQuery from "../../../lib/useMediaQuery.js";
 import AgentRow from "../hub/AgentRow.jsx";
+import useAssistants from "../useAssistants.js";
+import { ownerEntries, ownerSorted, sectionKey } from "../order/agent-order.js";
+import useAgentOrdering, {
+  orderRowClass,
+  orderSectionClass,
+  useShownOrder,
+} from "../order/useAgentOrdering.jsx";
 import AreaSection from "./AreaSection.jsx";
 import { AgentGroupMenu } from "./GroupMenu.jsx";
 import useGroupActions from "./useGroupActions.jsx";
 import { areaSections } from "./group-view.js";
+import { ownerOrderWrites } from "./group-api.js";
 
+// The overview's sections: the owner's order (agent-order.js) within each group, each
+// agent with its permanent members under it. A member whose lead is not listed (it is
+// archived) is an agent of its own.
+function overviewSections(lists, groups, order) {
+  const all = ownerSorted([...lists.own, ...lists.ofUsers], order);
+  return areaSections(all, groups).map((section) => {
+    const ids = new Set(section.agents.map((a) => a.id));
+    return {
+      ...section,
+      agents: section.agents.filter(
+        (a) => !a.teamMemberId || !ids.has(a.parentAssistantId),
+      ),
+      members: (root) =>
+        section.agents.filter((a) => a.teamMemberId && a.parentAssistantId === root.id),
+    };
+  });
+}
+
+/**
+ * The agents of the overview by group, in the owner's order: dragged with a mouse,
+ * long-pressed and dragged on a touch screen, or moved with the ⋯ menu's Move up /
+ * Move down, as in the sidebar (useAgentOrdering.jsx). An agent moves with its
+ * members.
+ */
 export default function GroupedAgents({ lists, rowProps, navigate }) {
   const actions = useGroupActions();
+  const {
+    agentOrder = [],
+    loaded = false,
+    connected,
+    offline,
+    refresh,
+  } = useAssistants();
   const id = useId();
   usePageAction("agent-group-add", actions.create);
-  const all = [...lists.own, ...lists.ofUsers];
-  const row = (a) => (
+  const finePointer = useMediaQuery("(pointer: fine)");
+  const shownOrder = useShownOrder(agentOrder);
+  const sections = overviewSections(lists, actions.groups, shownOrder.order);
+  const display = ownerEntries(sections);
+  const ordering = useAgentOrdering({
+    display,
+    shown: shownOrder,
+    enabled: loaded && connected !== false && !offline,
+    ...ownerOrderWrites(refresh),
+  });
+  const hasGroups = actions.groups.length > 0;
+  const row = (a, order) => (
     <AgentRow
       key={a.id}
       assistant={a}
       {...rowProps(a)}
-      groupMenu={<AgentGroupMenu agent={a} actions={actions} />}
+      groupMenu={<AgentGroupMenu agent={a} actions={actions} order={order} />}
     />
   );
+  // An agent and its members are placed together; only the agent's own row starts a
+  // drag, so a member never seems to leave its lead.
+  const entry = (root, members) => {
+    const { onTouchStart, ...place } = ordering.rowProps(
+      root.id,
+      display.find((other) => other.id === root.id),
+    );
+    return (
+      <div
+        {...place}
+        className={["agents-hub-order", orderRowClass(ordering.drag, root.id)]
+          .filter(Boolean)
+          .join(" ")}
+      >
+        <div
+          className="agents-hub-order-handle"
+          onTouchStart={onTouchStart}
+          {...(finePointer && ordering.dragProps(root.id))}
+        >
+          {row(root, { up: ordering.up(root.id), down: ordering.down(root.id) })}
+        </div>
+        {members.map((member) => row(member))}
+      </div>
+    );
+  };
   return (
     <section aria-labelledby={id}>
       <GroupLabel
@@ -34,49 +109,57 @@ export default function GroupedAgents({ lists, rowProps, navigate }) {
       >
         {copy.title}
       </GroupLabel>
-      <ErrorMessage error={actions.error} />
-      {areaSections(all, actions.groups)
-        .filter((section) => section.group || section.agents.length)
-        .map((section) => {
-          const ids = new Set(section.agents.map((a) => a.id));
-          const roots = section.agents.filter(
-            (a) => !a.teamMemberId || !ids.has(a.parentAssistantId),
-          );
-          const children = (root) =>
-            section.agents.filter(
-              (a) => a.teamMemberId && a.parentAssistantId === root.id,
+      <ErrorMessage error={actions.error || ordering.error} />
+      {ordering.status}
+      <div
+        {...ordering.listProps}
+        data-order-section={hasGroups ? undefined : "ungrouped"}
+        className={[
+          "agents-hub-order-list",
+          hasGroups ? "" : orderSectionClass(ordering.drag, "ungrouped"),
+        ]
+          .filter(Boolean)
+          .join(" ")}
+      >
+        {sections
+          // While an agent is dragged an empty Ungrouped takes it out of its group.
+          .filter((section) => section.group || section.agents.length || ordering.drag)
+          .map((section) => {
+            const roots = section.agents;
+            return (
+              <AreaSection
+                key={sectionKey(section)}
+                section={section}
+                actions={actions}
+                location="overview"
+                flat={!hasGroups}
+                dropProps={{
+                  "data-order-section": sectionKey(section),
+                  className: orderSectionClass(ordering.drag, sectionKey(section)),
+                }}
+              >
+                {roots.length ? (
+                  <ListCard
+                    label={
+                      section.group?.name || (hasGroups ? copy.ungrouped : copy.title)
+                    }
+                  >
+                    {roots.map((root, index) => (
+                      <React.Fragment key={root.id}>
+                        {root.userAccess && !roots[index - 1]?.userAccess && (
+                          <GroupLabel as="h3">{usersCopy.agentsOfUsers}</GroupLabel>
+                        )}
+                        {entry(root, section.members(root))}
+                      </React.Fragment>
+                    ))}
+                  </ListCard>
+                ) : (
+                  <p className="agent-row-note">{copy.empty}</p>
+                )}
+              </AreaSection>
             );
-          return (
-            <AreaSection
-              key={section.group?.id || "ungrouped"}
-              section={{ ...section, agents: roots }}
-              actions={actions}
-              location="overview"
-              flat={!actions.groups.length}
-            >
-              {roots.length ? (
-                <ListCard
-                  label={
-                    section.group?.name ||
-                    (actions.groups.length ? copy.ungrouped : copy.title)
-                  }
-                >
-                  {roots.map((root, index) => (
-                    <React.Fragment key={root.id}>
-                      {root.userAccess && !roots[index - 1]?.userAccess && (
-                        <GroupLabel as="h3">{usersCopy.agentsOfUsers}</GroupLabel>
-                      )}
-                      {row(root)}
-                      {children(root).map(row)}
-                    </React.Fragment>
-                  ))}
-                </ListCard>
-              ) : (
-                <p className="agent-row-note">{copy.empty}</p>
-              )}
-            </AreaSection>
-          );
-        })}
+          })}
+      </div>
       {lists.ofUsers.length > 0 && (
         <button
           type="button"

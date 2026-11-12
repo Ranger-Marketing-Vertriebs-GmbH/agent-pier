@@ -5,8 +5,17 @@
   gap: var(--space-2);
 }
 .agents-hub-panel > .list-card,
-.agents-hub-panel > section > .list-card {
+.agents-hub-panel > section > .list-card,
+.agents-hub-order-list > .list-card {
   margin-bottom: var(--space-4);
+}
+/* An agent of the overview with its members, placed together in the owner's order
+   (GroupedAgents.jsx); the card's 1px gap keeps drawing the dividers. */
+.agents-hub-order,
+.agents-hub-order-handle {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
 }
 .agents-hub-row-actions {
   display: flex;

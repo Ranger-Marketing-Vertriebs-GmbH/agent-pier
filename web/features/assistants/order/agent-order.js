@@ -97,3 +97,31 @@ export const sameTarget = (a, b) =>
     a.section === b.section &&
     a.beforeId === b.beforeId &&
     a.afterId === b.afterId);
+
+/**
+ * The owner's agent list in his order: his own agents by `order`, then the agents of
+ * users, which keep their own heading below his.
+ */
+export const ownerSorted = (agents, order) =>
+  sortByOrder(agents, order).sort(
+    (a, b) => Boolean(a.userAccess) - Boolean(b.userAccess),
+  );
+
+/** The key of an agent group's section (group-view.js areaSections). */
+export const sectionKey = (section) => section.group?.id || "ungrouped";
+
+/**
+ * The entries of the owner's list: the sorted agents of each section `{ group,
+ * agents }` (members shown under their lead left out). A team member listed on its own
+ * (its lead archived) follows its lead's group: it is `fixed`.
+ */
+export const ownerEntries = (sections) =>
+  sections.flatMap((section) =>
+    section.agents.map((a) => ({
+      id: a.id,
+      name: a.name,
+      section: sectionKey(section),
+      kind: a.userAccess ? "user" : "own",
+      fixed: Boolean(a.teamMemberId),
+    })),
+  );
