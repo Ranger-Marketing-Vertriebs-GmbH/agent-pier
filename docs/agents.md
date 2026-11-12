@@ -119,7 +119,8 @@ memory or additional access. Group communication is not part of this feature.
 Drag an agent in the sidebar's **Agents** group or in **Agents › All agents › Agent
 groups** to put it in another place; both lists show the same order and follow each
 other. With a mouse, drag the row; on a touch screen, hold the row for a moment, then
-drag it (a press on its buttons stays theirs). The agent's ⋯ menu offers **Move up**
+drag it. A press on the row's buttons, links or ⋯ menu stays theirs and never starts a
+drag. The agent's ⋯ menu offers **Move up**
 and **Move down** for the keyboard and screen readers; a screen reader hears the new
 position.
 

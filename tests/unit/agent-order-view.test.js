@@ -10,7 +10,11 @@ import {
   sortByOrder,
   stepAgent,
 } from "../../web/features/assistants/order/agent-order.js";
-import { areaSections } from "../../web/features/assistants/groups/group-view.js";
+import {
+  areaSections,
+  overviewSections,
+} from "../../web/features/assistants/groups/group-view.js";
+import { hubLists } from "../../web/features/assistants/hub/agent-rows.js";
 
 const entry = (id, section = "ungrouped", kind = "own", fixed = false) => ({
   id,
@@ -150,5 +154,42 @@ test("the owner's views list his agents in his order, the agents of users below"
     // A member shown on its own follows its lead's group.
     { id: "m", name: "M", section: "ungrouped", kind: "own", fixed: true },
     { id: "u2", name: "U2", section: "ungrouped", kind: "user", fixed: false },
+  ]);
+});
+
+test("the overview sorts each group's agents and keeps permanent members under them", () => {
+  const member = (id, lead) => ({
+    id,
+    name: id.toUpperCase(),
+    teamMemberId: `m-${id}`,
+    parentAssistantId: lead,
+    lifetime: "permanent",
+  });
+  const lists = hubLists([
+    { id: "a", name: "A" },
+    { id: "b", name: "B" },
+    { id: "old", name: "Old", archivedAt: "2026-11-01" },
+    member("ma", "a"),
+    member("orphan", "old"),
+    { id: "u", name: "U", userAccess: { mode: "shared" } },
+  ]);
+  const groups = [{ id: "work", name: "Work", assistantIds: ["a", "old"] }];
+  const sections = overviewSections(lists, groups, ["u", "orphan", "b", "a"]);
+  assert.deepEqual(
+    sections.map((section) => section.agents.map((a) => a.id)),
+    [
+      ["orphan", "a"],
+      ["b", "u"],
+    ],
+  );
+  assert.deepEqual(
+    sections[0].members(sections[0].agents[1]).map((a) => a.id),
+    ["ma"],
+  );
+  assert.deepEqual(sections[0].members(sections[0].agents[0]), []);
+  // A member whose lead is archived is an agent of its own, kept in its lead's group.
+  assert.deepEqual(ownerEntries(sections).slice(0, 2), [
+    { id: "orphan", name: "ORPHAN", section: "work", kind: "own", fixed: true },
+    { id: "a", name: "A", section: "work", kind: "own", fixed: false },
   ]);
 });

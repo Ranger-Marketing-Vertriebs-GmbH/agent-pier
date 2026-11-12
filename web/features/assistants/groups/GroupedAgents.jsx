@@ -9,7 +9,7 @@ import { agentsHubCopy } from "../../../lib/i18n/messages/agents-hub.js";
 import useMediaQuery from "../../../lib/useMediaQuery.js";
 import AgentRow from "../hub/AgentRow.jsx";
 import useAssistants from "../useAssistants.js";
-import { ownerEntries, ownerSorted, sectionKey } from "../order/agent-order.js";
+import { ownerEntries, sectionKey } from "../order/agent-order.js";
 import useAgentOrdering, {
   orderRowClass,
   orderSectionClass,
@@ -18,26 +18,8 @@ import useAgentOrdering, {
 import AreaSection from "./AreaSection.jsx";
 import { AgentGroupMenu } from "./GroupMenu.jsx";
 import useGroupActions from "./useGroupActions.jsx";
-import { areaSections } from "./group-view.js";
+import { overviewSections } from "./group-view.js";
 import { ownerOrderWrites } from "./group-api.js";
-
-// The overview's sections: the owner's order (agent-order.js) within each group, each
-// agent with its permanent members under it. A member whose lead is not listed (it is
-// archived) is an agent of its own.
-function overviewSections(lists, groups, order) {
-  const all = ownerSorted([...lists.own, ...lists.ofUsers], order);
-  return areaSections(all, groups).map((section) => {
-    const ids = new Set(section.agents.map((a) => a.id));
-    return {
-      ...section,
-      agents: section.agents.filter(
-        (a) => !a.teamMemberId || !ids.has(a.parentAssistantId),
-      ),
-      members: (root) =>
-        section.agents.filter((a) => a.teamMemberId && a.parentAssistantId === root.id),
-    };
-  });
-}
 
 /**
  * The agents of the overview by group, in the owner's order: dragged with a mouse,
@@ -63,7 +45,7 @@ export default function GroupedAgents({ lists, rowProps, navigate }) {
   const ordering = useAgentOrdering({
     display,
     shown: shownOrder,
-    enabled: loaded && connected !== false && !offline,
+    enabled: loaded && connected && !offline,
     ...ownerOrderWrites(refresh),
   });
   const hasGroups = actions.groups.length > 0;
