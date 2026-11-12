@@ -1,3 +1,4 @@
+import { setTimeout as delay } from "node:timers/promises";
 import { hostConnection, hostReady, runtimeFor } from "./runtimes/runtime-for.js";
 // The model IDs a ChatGPT account can pin: resolve() turns one into
 // `openai/<modelId>@<profileId>`, so only bare IDs survive.
@@ -14,6 +15,12 @@ const maxModels = 500;
 const readBudgetMs = 120_000;
 const callTimeoutMs = 60_000;
 const pendingReads = 24;
+// OpenClaw 2026.11.2 answers a read that a newer catalog generation superseded (as
+// one does right after an auth profile change) with a retryable UNAVAILABLE that
+// did nothing; it is asked again, a few times and within the read budget.
+const retryableReads = 5;
+const maxRetryWaitMs = 2000;
+const retryable = (error) => error?.answered === true && error.retryable === true;
 
 /**
  * The Gateway's `models.list` answer for the `openai` provider, reduced to what
@@ -149,12 +156,24 @@ export class ModelAccountCatalog {
     // Every read of this refresh goes to the connection checked here.
     const models = runtimeFor(null, this.runtime).models.on(hostConnection(this.runtime));
     const deadline = Date.now() + readBudgetMs;
-    const read = (refresh) =>
-      models.catalog({
-        provider: "openai",
-        refresh,
-        timeoutMs: Math.max(1, Math.min(callTimeoutMs, deadline - Date.now())),
-      });
+    let retries = 0;
+    const read = async (refresh) => {
+      for (;;) {
+        try {
+          return await models.catalog({
+            provider: "openai",
+            refresh,
+            timeoutMs: Math.max(1, Math.min(callTimeoutMs, deadline - Date.now())),
+          });
+        } catch (error) {
+          const wait = Math.min(maxRetryWaitMs, Math.max(0, error?.retryAfterMs || 0));
+          if (!retryable(error) || retries >= retryableReads) throw error;
+          if (Date.now() + wait >= deadline) throw error;
+          retries++;
+          await delay(wait);
+        }
+      }
+    };
     this.#forced = force;
     this.#inflight = (async () => {
       try {

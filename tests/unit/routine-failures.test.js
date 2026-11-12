@@ -18,6 +18,8 @@ const reason = (error, errorReason) =>
 test("OpenClaw's run errors map to a readable cause", () => {
   // Messages OpenClaw 2026.10.7 records for a cron run (dist cron modules).
   assert.equal(reason("cron: job interrupted by gateway restart"), "gateway-restart");
+  // 2026.11.2 records a run its Gateway's restart interrupted so.
+  assert.equal(reason("Gateway stopping."), "gateway-restart");
   assert.equal(
     reason("cron: active runs did not drain before shutdown timeout"),
     "gateway-restart",

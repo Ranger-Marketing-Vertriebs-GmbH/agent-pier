@@ -1,5 +1,5 @@
 // ChatGPT's OAuth endpoints for the public Codex CLI client, which OpenClaw and Hermes
-// use alike (OpenClaw 2026.10.9 extensions/openai/openai-chatgpt-device-code.js,
+// use alike (OpenClaw 2026.11.2 extensions/openai/openai-chatgpt-device-code.js,
 // Hermes v0.22.5 hermes_cli/auth_constants.py and auth_codex.py). AgentPier runs the
 // device-code flow itself: the redirect of the browser flow is fixed to
 // localhost:1455 and cannot reach a remote owner's browser.

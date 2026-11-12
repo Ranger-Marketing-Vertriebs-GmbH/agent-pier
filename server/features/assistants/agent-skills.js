@@ -125,12 +125,18 @@ const webAddress = (value) =>
 export function sanitizeSkill(entry, roots = []) {
   const missing = requirementsOf(entry.missing, roots);
   const requirements = requirementsOf(entry.requirements, roots);
+  // Since 2026.11.2 `eligible` is also false for a skill the agent's own list leaves
+  // out (blockedByAllowlist, blockedByAgentFilter); that list is AgentPier's
+  // assignment, not a missing requirement.
+  const unassigned =
+    entry.blockedByAllowlist === true || entry.blockedByAgentFilter === true;
   const state =
     entry.platformIncompatible || missing.os.length
       ? "unsupported"
       : entry.disabled
         ? "disabled"
-        : requirementKeys.some((key) => missing[key].length) || entry.eligible === false
+        : requirementKeys.some((key) => missing[key].length) ||
+            (entry.eligible === false && !unassigned)
           ? "missing"
           : "ready";
   return {

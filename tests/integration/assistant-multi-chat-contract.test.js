@@ -18,6 +18,7 @@ import {
   reopenRefusedChat,
 } from "../../server/features/assistants/runtimes/openclaw/native-chat-archive.js";
 import { createGatewaySession } from "../../server/features/assistants/runtimes/openclaw/session-create.js";
+import { lastUser } from "../helpers/openclaw-model-input.js";
 
 // Several chats per agent (AGENTPIER-181) against the pinned runtime: AgentPier makes
 // one sessions.create session per chat and relies on what these tests pin.
@@ -29,7 +30,7 @@ async function echoModelServer() {
     let bytes = "";
     for await (const part of req) bytes += part;
     const input = JSON.parse(bytes);
-    const last = input.messages.findLast((m) => m.role === "user");
+    const last = lastUser(input.messages);
     const said =
       typeof last?.content === "string"
         ? last.content

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fc from "fast-check";
 import { withoutPromptImagePaths } from "../../server/features/assistants/runtimes/openclaw/prompt-image-paths.js";
 
-// OpenClaw 2026.10.9 (dist/images-*.mjs detectImageReferences): the local image
+// OpenClaw 2026.11.2 (dist/images-*.mjs detectImageReferences): the local image
 // references it finds in a turn's text and loads into the model's input.
 const ext = "png|jpg|jpeg|gif|webp|bmp|tiff|tif|heic|heif";
 const patterns = [

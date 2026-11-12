@@ -496,7 +496,7 @@ When activating a staged version, the confirmation offers **Move running session
 The assistant service is optional and off initially: until the owner turns on
 **Enable agents** (under **Agents**, or **Agents › Runtime › Function**), nothing is created, downloaded or started. Installations that
 already used agents before this switch existed come back enabled. Enabling it provisions a
-private OpenClaw 2026.10.9 installation and Node 26.12.1 under the data directory's
+private OpenClaw 2026.11.2 installation and Node 26.12.1 under the data directory's
 `assistants/runtimes/` directory. AgentPier itself retains its supported Node range `^24.22.1 || >=26.12.1`.
 Downloads are checked against pinned official Node checksums and npm package
 integrity before activation. Failed staging preserves the previously selected runtime.
@@ -586,9 +586,18 @@ under **Settings → Operations → Backups** before you activate 2026.10.7 or a
 version from an older one.
 
 **OpenClaw 2026.10.9** keeps the database schemas of 2026.10.7, so the update from
-2026.10.7 migrates nothing. Installations on AgentPier 1.28.x, 2.0.0 or 2.1.0 – 2.6.x
-update straight from 2026.9.8, 2026.9.9 or 2026.10.3 to 2026.10.9, with the one-way
-migration described above.
+2026.10.7 migrates nothing.
+
+**The update to OpenClaw 2026.11.2 cannot be undone once committed either.**
+Activation runs OpenClaw's database migration again: the state database moves from
+schema 20 to 22 and each agent's OpenClaw database from 25 to 27, and OpenClaw
+2026.10.9 and every earlier version refuse the migrated databases. If activation
+fails before the update is committed, AgentPier rolls back to the snapshot it took
+beforehand. After commit, neither **Agents › Runtime** nor an older AgentPier (2.17.x
+or earlier) can return the agent service to 2026.10.9. Create a host backup under
+**Settings → Operations → Backups** before you activate 2026.11.2. Installations on
+any earlier AgentPier update straight from the OpenClaw version their release pinned
+to 2026.11.2, with the one-way migrations described above.
 
 For isolated diagnostics, the same installer is available as
 `node scripts/install-assistant-runtime.mjs --data-dir /absolute/disposable/path`.
