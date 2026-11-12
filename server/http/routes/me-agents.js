@@ -13,6 +13,7 @@ import { meReminderRoutes } from "./me-reminders.js";
 import { meApprovalRoutes } from "./me-approvals.js";
 import { meTelegramRoutes } from "./me-telegram.js";
 import { meChatRoutes } from "./me-chats.js";
+import { userOrder } from "../../features/assistants/agent-order.js";
 
 // The /api/me routes that read or change agent data; each exists only while the
 // agent services do. Every handler asks the user scope (user-scope.js) first.
@@ -68,15 +69,33 @@ export function agentView(assistants, agent, userId) {
   };
 }
 
+/** Her agents as her list shows them, in her own order (agent-order.js). */
+export function agentsView(assistants, userScope, userId) {
+  return assistants.agentOrder
+    .sort(userOrder(userId), userScope.agentsFor(userId))
+    .map((agent) => agentView(assistants, agent, userId));
+}
+
 function activeRoutes(services, limits) {
   const { assistants, userScope } = services;
   const router = Router();
   router.get("/me/agents", (req, res) =>
-    res.json(
-      userScope
-        .agentsFor(req.principal.userId)
-        .map((agent) => agentView(assistants, agent, req.principal.userId)),
-    ),
+    res.json(agentsView(assistants, userScope, req.principal.userId)),
+  );
+  // Her own order of her agents; the owner's and other users' orders stay as they are.
+  router.put("/me/agents/order", (req, res) =>
+    assistants.admit(() => {
+      const visible = new Set(
+        userScope.agentsFor(req.principal.userId).map((agent) => agent.id),
+      );
+      const result = assistants.agentOrder.save(
+        userOrder(req.principal.userId),
+        req.body?.ids,
+        (id) => visible.has(id),
+      );
+      assistants.changed({ feeds: false });
+      res.json(result);
+    }),
   );
   router.post("/me/agents/:id/conversation", async (req, res) => {
     const agent = userScope.agentOf(req.principal, req.params.id);

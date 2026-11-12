@@ -14,7 +14,7 @@
 // a value, a revision or a frame, also on a shared agent. Her agent taken away (or
 // agents switched off) sends `revoked` at once: live-wiring.js checks every
 // subscription again on each agent change.
-import { agentView } from "../../http/routes/me-agents.js";
+import { agentsView } from "../../http/routes/me-agents.js";
 import { telegramView, userChannel } from "../../http/routes/me-telegram.js";
 import { awaitingForUser } from "./approval-audience.js";
 import { canPairTelegram } from "./user-access.js";
@@ -138,9 +138,7 @@ export function meTopics(services, { reminderJobs = sharedReminderJobs(services)
       read: (principal) => {
         const assistants = services.assistants;
         if (!assistants) return [];
-        return services.userScope
-          .agentsFor(principal.userId)
-          .map((agent) => agentView(assistants, agent, principal.userId));
+        return agentsView(assistants, services.userScope, principal.userId);
       },
     }),
     meTopic(services, {
