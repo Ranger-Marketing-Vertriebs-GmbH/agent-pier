@@ -19,6 +19,7 @@ export const agentPinboardCopy = {
     video: "Video",
     image: "Bild",
     audio: "Audio",
+    page: "Seite",
     file: "Datei",
   },
   // Die kompakte Kopfzeile des Agentenchats: Sheet des Arbeitsziels, Ereignisse.
@@ -33,6 +34,8 @@ export const agentPinboardCopy = {
     back: "Zurück zu den Listen",
     download: "Herunterladen",
     empty: "Diese Datei ist nicht mehr verfügbar.",
+    backToPage: "Zurück zur Seite",
+    page: (name) => `Seite ${name}`,
   },
   loadFailed: "Die Pinnwand konnte nicht geladen werden.",
   card: {

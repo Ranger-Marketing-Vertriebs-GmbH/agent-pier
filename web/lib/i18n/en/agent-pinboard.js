@@ -18,6 +18,7 @@ export const agentPinboardCopy = {
     video: "Video",
     image: "Image",
     audio: "Audio",
+    page: "Page",
     file: "File",
   },
   // The compact agent chat header: the work goal's sheet, the events button.
@@ -32,6 +33,8 @@ export const agentPinboardCopy = {
     back: "Back to the lists",
     download: "Download",
     empty: "This file is no longer available.",
+    backToPage: "Back to the page",
+    page: (name) => `Page ${name}`,
   },
   loadFailed: "The pinboard could not be loaded.",
   card: {

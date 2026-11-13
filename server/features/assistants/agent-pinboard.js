@@ -1,6 +1,7 @@
 import { assistantProblem, textValue } from "./assistant-validation.js";
 import { AgentPinboardStore, PINBOARD_LIMITS } from "./agent-pinboard-store.js";
 import { AgentPinboardView } from "./agent-pinboard-view.js";
+import { AgentPinboardPages } from "./agent-pinboard-pages.js";
 import { openPinned, pinIdentity, pinType } from "./agent-pinboard-files.js";
 import { mainConversation } from "./routine-targets.js";
 import { isUserAgent } from "../users/user-access.js";
@@ -79,6 +80,8 @@ export class AgentPinboard {
       store: this.store,
       onChange: (id) => this.onChange(id),
     });
+    // Pinned HTML pages and the files they use (agent-pinboard-pages.js).
+    this.pages = new AgentPinboardPages({ assistants, viewer: this.viewer });
   }
 
   view(assistantId) {

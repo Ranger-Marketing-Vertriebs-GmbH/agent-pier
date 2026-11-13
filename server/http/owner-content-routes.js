@@ -82,6 +82,8 @@ export const ownerContentRoutes = {
   "GET /api/assistants/:id/pinboard": "agent",
   "POST /api/assistants/:id/pinboard/entries/:entryId/seen": "agent",
   "GET /api/assistants/:id/pinboard/entries/:entryId/file": "agent",
+  // A pinned HTML page: issues the frame's grant (routes/assistant-pinboard.js).
+  "GET /api/assistants/:id/pinboard/entries/:entryId/page": "agent",
   "GET /api/assistants/:id/routines": "agent",
   "POST /api/assistants/:id/routines": "agent",
   "PATCH /api/assistants/:id/routines/:routineId": "agent",

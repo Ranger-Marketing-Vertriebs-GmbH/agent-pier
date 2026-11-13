@@ -13,6 +13,7 @@ const kindIcons = {
   video: "video",
   image: "image",
   audio: "audio",
+  page: "grid",
   file: "paperclip",
 };
 

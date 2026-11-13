@@ -9,7 +9,7 @@ import { assistantAttachmentsCopy as attachmentCopy } from "../../../lib/i18n/me
 import { fileSize } from "../AgentMessageAttachments.jsx";
 import { MARKDOWN_PREVIEW_MAX_BYTES } from "../agent-markdown-preview.js";
 import useMarkdownFile from "../useMarkdownFile.js";
-import { pinboardFileUrl } from "./pinboard-api.js";
+import { pinboardApi, pinboardFileUrl } from "./pinboard-api.js";
 import { neighbours } from "./pinboard-view.js";
 import "./pinboard-reader.css";
 
@@ -111,6 +111,71 @@ function PlayerBody({ entry, src, loaded }) {
   );
 }
 
+// A pinned HTML page as the agent built it, in a frame without scripts, same origin,
+// forms, popups or top navigation; the server's page policy holds besides
+// (agent-pinboard-pages.js). Its links move the frame only, an image link shows the
+// image; "Back to the page" opens the pinned page again under a new grant. Loaded
+// with the frame.
+function PageBody({ entry, assistantId, download, loaded }) {
+  const [opened, setOpened] = useState(0);
+  const [page, setPage] = useState({ url: null, failed: false });
+  const [loads, setLoads] = useState(0);
+  useEffect(() => {
+    let current = true;
+    setPage({ url: null, failed: false });
+    pinboardApi.page(assistantId, entry.id).then(
+      (url) => current && setPage({ url, failed: false }),
+      () => current && setPage({ url: null, failed: true }),
+    );
+    return () => {
+      current = false;
+    };
+  }, [assistantId, entry.id, opened]);
+  if (page.failed)
+    return (
+      <>
+        <ErrorMessage error={attachmentCopy.previewFailed} />
+        <DownloadLink entry={entry} href={download} />
+      </>
+    );
+  return (
+    <>
+      <div className="pinboard-reader-page-bar">
+        <button
+          type="button"
+          className="button secondary"
+          disabled={loads < 2}
+          onClick={() => {
+            setLoads(0);
+            setOpened((count) => count + 1);
+          }}
+        >
+          <Icon name="back" size={16} />
+          {copy.reader.backToPage}
+        </button>
+      </div>
+      {page.url ? (
+        <iframe
+          key={page.url}
+          className="pinboard-reader-page"
+          src={page.url}
+          sandbox=""
+          referrerPolicy="no-referrer"
+          title={copy.reader.page(entry.name)}
+          onLoad={() => {
+            setLoads((count) => count + 1);
+            loaded();
+          }}
+        />
+      ) : (
+        <p className="loading" role="status">
+          {attachmentCopy.previewLoading}
+        </p>
+      )}
+    </>
+  );
+}
+
 function FileBody({ entry, download, loaded }) {
   useEffect(() => {
     loaded();
@@ -118,7 +183,13 @@ function FileBody({ entry, download, loaded }) {
   return <DownloadLink entry={entry} href={download} />;
 }
 
-const bodies = { text: TextBody, image: ImageBody, video: PlayerBody, audio: PlayerBody };
+const bodies = {
+  text: TextBody,
+  image: ImageBody,
+  video: PlayerBody,
+  audio: PlayerBody,
+  page: PageBody,
+};
 
 function Step({ entry, direction, onNavigate }) {
   const label = direction === "previous" ? copy.reader.previous : copy.reader.next;
@@ -211,7 +282,14 @@ export default function PinboardReader({
       </header>
       <div className="pinboard-reader-body">
         {available ? (
-          <Body key={shown} entry={entry} src={src} download={download} loaded={loaded} />
+          <Body
+            key={shown}
+            entry={entry}
+            assistantId={assistant.id}
+            src={src}
+            download={download}
+            loaded={loaded}
+          />
         ) : (
           <p className="pinboard-empty" role="status">
             {copy.reader.empty}
