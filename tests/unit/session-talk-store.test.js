@@ -58,12 +58,13 @@ test("pairCount counts both directions and ignores late and limit rows", () => {
   store.create({ ...base, op: "send", direction: "to-session" });
   store.create({ ...base, op: "tell" });
   store.create({ ...base, op: "late", late: true });
-  store.create({ ...base, op: "ask", late: true });
+  store.create({ ...base, op: "ask", late: true, phase: "failed" });
   store.create({ ...base, op: "limit" });
   store.create({ ...base, sessionId: "s2" });
   assert.deepEqual(store.pairCount({ sessionId: "s1", assistantId: "a1", since: 0 }), {
-    count: 3,
+    count: 4,
     oldest: 1000,
+    times: [1000, 1000, 1000, 1000],
   });
   assert.equal(
     store.pairCount({ sessionId: "s1", assistantId: "a1", since: 2000 }).count,

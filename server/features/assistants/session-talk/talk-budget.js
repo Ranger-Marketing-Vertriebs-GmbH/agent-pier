@@ -16,7 +16,7 @@ export function talkBudgetRefusal(
     ["ten-minutes", tenMinutes, limits.pairPerTenMinutes],
   ];
   for (const [limit, span, max] of windows) {
-    const { count, oldest } = store.pairCount({
+    const { count, times } = store.pairCount({
       sessionId,
       assistantId,
       since: now - span,
@@ -24,7 +24,10 @@ export function talkBudgetRefusal(
     if (count >= max)
       return {
         limit,
-        retryAfterSeconds: Math.max(1, Math.ceil((oldest + span - now) / 1000)),
+        retryAfterSeconds: Math.max(
+          1,
+          Math.ceil((times[count - max] + span - now) / 1000),
+        ),
       };
   }
   return null;
