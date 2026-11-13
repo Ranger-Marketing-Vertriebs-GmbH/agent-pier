@@ -29,12 +29,12 @@ export const PAGE_CSP =
   "form-action 'none'; base-uri 'none'; sandbox";
 
 const IDLE_MS = 30 * 60_000;
-const LIFETIME_MS = 8 * 60 * 60_000;
+const LIFETIME_MS = 60 * 60_000;
 const MAX_GRANTS = 256;
 const MAX_DEPTH = 32;
 
 /**
- * The page grants, in memory: a grant lapses after 30 idle minutes, 8 hours, a restart
+ * The page grants, in memory: a grant lapses after 30 idle minutes, an hour, a restart
  * or when 256 newer ones exist. `resolve` refreshes the idle time.
  */
 export class PinboardPageGrants {
@@ -50,7 +50,7 @@ export class PinboardPageGrants {
   #expired(grant, at) {
     return at - grant.used > this.idleMs || at - grant.issued > this.lifetimeMs;
   }
-  /** `{ assistantId, entryId, session }` → the grant's token. */
+  /** `{ assistantId, entryId, session, client }` → the grant's token. */
   issue(grant) {
     const at = this.now();
     for (const [token, held] of this.#grants)
@@ -99,7 +99,7 @@ export function pageFilePath(pagePath, segments) {
   return folder === "." ? parts.join("/") : `${folder}/${parts.join("/")}`;
 }
 
-// Styles and fonts by name; images (PNG, JPEG, GIF, WebP: never SVG, a document that
+// Styles by name, fonts by name and their first bytes; images (PNG, JPEG, GIF, WebP: never SVG, a document that
 // may carry script), video, audio and HTML pages by their bytes (pinType).
 const named = {
   css: "text/css; charset=utf-8",
@@ -110,13 +110,21 @@ const named = {
 };
 const sniffed = new Set(["image", "video", "audio"]);
 
+// A font's first four bytes: WOFF, WOFF2, TrueType, OpenType (CFF) or Apple TrueType.
+const fontMagic = new Set(["wOFF", "wOF2", "\u0000\u0001\u0000\u0000", "OTTO", "true"]);
+
 /** The type a page file is served as, or null when pages may not use it. */
 export async function pageFileType(handle, size, name) {
   const extension = path.extname(name).slice(1).toLowerCase();
-  if (Object.hasOwn(named, extension))
-    return size <= MAX_ATTACHMENT_BYTES
-      ? { type: named[extension], font: extension !== "css" }
+  if (Object.hasOwn(named, extension)) {
+    if (size > MAX_ATTACHMENT_BYTES) return null;
+    if (extension === "css") return { type: named.css, font: false };
+    const head = Buffer.alloc(4);
+    const { bytesRead } = await handle.read(head, 0, 4, 0);
+    return bytesRead === 4 && fontMagic.has(head.toString("latin1"))
+      ? { type: named[extension], font: true }
       : null;
+  }
   const shown = await pinType(handle, size, name);
   if (shown.kind === "page") return { type: "text/html; charset=utf-8", font: false };
   return sniffed.has(shown.kind) ? { type: shown.type, font: false } : null;
@@ -141,10 +149,13 @@ export class AgentPinboardPages {
     return entry;
   }
 
-  /** A grant's first URL: the page itself below its grant. */
-  async issue(assistantId, entryId, session) {
+  /**
+   * A grant's first URL: the page itself below its grant, for the owner `session` and
+   * the `client` that asked (routes/pinboard-pages.js pageClient).
+   */
+  async issue(assistantId, entryId, { session, client }) {
     const entry = await this.page(assistantId, entryId);
-    const token = this.grants.issue({ assistantId, entryId, session });
+    const token = this.grants.issue({ assistantId, entryId, session, client });
     return `/api/pinboard-pages/${token}/${encodeURIComponent(path.posix.basename(entry.path))}`;
   }
 

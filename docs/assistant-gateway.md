@@ -5599,28 +5599,41 @@ agent's reply to `pin` names who sees the list; a pin to an archived list reopen
 - **HTML pages.** A pinned `.html`/`.htm` file within `MAX_ATTACHMENT_BYTES` (10 MiB)
   has the kind `page` (`pinType`; an entry stored as a download before is classified
   again on the next read, without a NEW mark). The file route still only downloads it.
-  The reader shows it in an `<iframe sandbox="">` (no scripts, same origin, forms,
-  popups, downloads or top navigation); the frame's origin is opaque, so its requests
-  carry no `SameSite=Strict` session cookie and arrive cross-site.
-  `GET /api/assistants/:id/pinboard/entries/:entryId/page` (owner, privacy guard
-  `agent`) answers `{ url }`: `/api/pinboard-pages/<grant>/<file name>`, where the
-  grant (`agent-pinboard-pages.js`, 32 random bytes, in memory) names that entry and the
-  owner session it was issued to; it lapses after 30 idle minutes, 8 hours, a restart
-  or 256 newer grants. The page route is mounted ahead of the session check;
-  `authorizeRequest` admits cross-site `GET`/`HEAD` (and the origin `null` of a font
-  fetch) on that path only, keeping the Host checks. Each request checks again that the
+  The reader shows it in an `<iframe sandbox="">`, which grants none of the sandbox
+  permissions: no scripts, no forms, popups, downloads or top navigation, and no
+  `allow-same-origin`, so the frame has an opaque origin rather than AgentPier's. Its
+  requests therefore carry no `SameSite=Strict` session cookie and arrive cross-site.
+- **Page grants.** `GET /api/assistants/:id/pinboard/entries/:entryId/page` (owner,
+  privacy guard `agent`) answers `{ url }`: `/api/pinboard-pages/<grant>/<file name>`.
+  The grant (`agent-pinboard-pages.js`, 32 random bytes, in memory) names that entry,
+  the owner session that asked and the client that asked (`pageClient`: the host
+  branch, and the `Tailscale-User-Login` on the Tailscale branch or the remote address
+  on the others). It lapses after 30 idle minutes, one hour, a restart or 256 newer
+  grants; the reader asks for a new one whenever it opens the page or **Back to the
+  page** is pressed. The page route (`routes/pinboard-pages.js`) is mounted ahead of
+  the session check; `authorizeRequest` admits cross-site `GET`/`HEAD` (and the origin
+  `null` of a font fetch) on that path only, keeping the Host checks. A request with an
+  unknown grant, or from another client, answers 404 before any limit is counted; a
+  known grant may make 1200 requests a minute (`PAGE_REQUESTS_PER_MINUTE`, its own
+  bucket, so the owner's read budget is untouched). Each request checks again that the
   grant's session is still an owner's signed-in session, that the owner may read the
   agent (owner privacy window), that the entry is still a readable page, and opens the
-  requested file with the entry's share rules. Paths resolve below the page's folder
-  only: no empty, `.`/`..` or hidden segment, no encoded slash, backslash or control
-  character, at most 32 segments. Served types: HTML pages and CSS (as UTF-8) and
-  fonts by name, PNG/JPEG/GIF/WebP images, video and audio by their bytes; SVG and
-  everything else answer 404, like every refusal. Every response carries the page
-  policy `PAGE_CSP` (`default-src 'none'`; images and fonts from `'self'` and `data:`,
-  styles from `'self'` and inline, media from `'self'`; `frame-ancestors 'self'`,
-  `form-action 'none'`, `base-uri 'none'`, `sandbox`), `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` and no
-  `X-Frame-Options`; fonts add `Access-Control-Allow-Origin: *` for their CORS fetch.
-  The app's own policy (`default-src 'self'`, which frames fall back to) keeps the frame
+  requested file with the entry's share rules; when the chat that admitted the pin is
+  gone, neither chat uploads (`attachments/`) nor OpenClaw's inbound media are served.
+  A response in flight ends when its session ends or the privacy window closes.
+- **Page files.** Paths resolve below the page's folder only: no empty, `.`/`..` or
+  hidden segment, no encoded slash, backslash or control character, at most 32
+  segments. Served types: HTML pages and CSS (as UTF-8) by name, fonts by name and
+  their first bytes (`wOFF`, `wOF2`, `00 01 00 00`, `OTTO`, `true`), PNG/JPEG/GIF/WebP
+  images, video and audio by their bytes; SVG and everything else answer 404, like
+  every refusal. Every response carries the page policy `PAGE_CSP`
+  (`default-src 'none'`; images and fonts from `'self'` and `data:`, styles from
+  `'self'` and inline, media from `'self'`; `frame-ancestors 'self'`,
+  `form-action 'none'`, `base-uri 'none'`, `sandbox`), nosniff
+  (`X-Content-Type-Options`), `Referrer-Policy: no-referrer` and no
+  `X-Frame-Options`. Fonts add `Access-Control-Allow-Origin: null`, which Chromium
+  needs for the CORS fetch from the opaque origin (WebKit loads them either way). The
+  app's own policy (`default-src 'self'`, which frames fall back to) keeps the frame
   from loading external addresses. AgentPier injects nothing into the page. The tool
   description tells agents to wrap an image in a link to its own file so the owner can
   enlarge it.

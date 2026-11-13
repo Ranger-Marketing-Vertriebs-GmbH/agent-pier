@@ -1,5 +1,5 @@
 import { assistantProblem } from "./assistant-validation.js";
-import { attachmentFile } from "./attachment-access.js";
+import { chatFile } from "./attachment-access.js";
 import { MAX_ATTACHMENT_BYTES } from "./agent-attachment-types.js";
 import {
   PAGE_NAME,
@@ -88,7 +88,8 @@ export class AgentPinboardView {
       const conversation = this.conversation(entry.admitConversationId);
       if (conversation)
         return this.assistants.shares.admit(agent, conversation, relative);
-      if (attachmentFile(relative) !== null) throw assistantProblem("shareNotFound", 404);
+      // Without it, no chat's upload or OpenClaw inbound media is anyone's to read.
+      if (chatFile(relative) !== null) throw assistantProblem("shareNotFound", 404);
     };
     return this.files.openPinned(
       this.assistants,

@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
 import { chatFixture } from "../helpers/assistant-chat-fixture.js";
@@ -41,9 +43,21 @@ const files = {
   ],
   "style/site.css": [
     "text/css; charset=utf-8",
-    `body { font-family: sans-serif; margin: 24px; }
+    `@font-face { font-family: Pin; src: url(../fonts/dm.woff2) format("woff2"); }
+body { font-family: Pin, sans-serif; margin: 24px; }
 .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
 figure { margin: 0; } img { width: 100%; display: block; border-radius: 8px; }`,
+  ],
+  // A real font, as the server sends it to the frame's opaque origin.
+  "fonts/dm.woff2": [
+    "font/woff2",
+    fs.readFileSync(
+      path.resolve(
+        import.meta.dirname,
+        "../../node_modules/@fontsource/dm-sans/files/dm-sans-latin-400-normal.woff2",
+      ),
+    ),
+    { "access-control-allow-origin": "null" },
   ],
   ...Object.fromEntries(
     pictures.map(([name, top, rest]) => [
@@ -104,7 +118,7 @@ async function open(page) {
     };
     if (!file) return route.fulfill({ status: 404, headers, json: {} });
     return route.fulfill({
-      headers: { ...headers, "content-type": file[0] },
+      headers: { ...headers, ...file[2], "content-type": file[0] },
       body: file[1],
     });
   });
@@ -139,6 +153,15 @@ test("a pinned HTML page shows its images without running its scripts", async ({
   await expect
     .poll(() => first.evaluate((img) => getComputedStyle(img).borderRadius))
     .toBe("8px");
+  // A font from the folder loads under the page policy (fulfilled routes skip CORS:
+  // the integration tests pin its `null` origin header).
+  await expect
+    .poll(() =>
+      pageFrame(page).evaluate(
+        async () => (await document.fonts.load("16px Pin")).length,
+      ),
+    )
+    .toBe(1);
   // Loaded with the frame: the NEW mark goes.
   await expect.poll(() => state.seen).toEqual(["gallery"]);
   await page.screenshot({ path: testInfo.outputPath("pinboard-page.png") });
