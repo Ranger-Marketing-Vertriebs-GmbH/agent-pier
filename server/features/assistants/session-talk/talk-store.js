@@ -49,8 +49,8 @@ export class TalkStore {
     if (!row) return null;
     const next = { ...row, ...fields, id: row.id };
     this.db
-      .prepare("UPDATE session_talk SET body=? WHERE id=?")
-      .run(JSON.stringify(next), id);
+      .prepare("UPDATE session_talk SET conversation_id=?, body=? WHERE id=?")
+      .run(next.conversationId ?? null, JSON.stringify(next), id);
     return next;
   }
   /** Turns still to deliver, and late answers waiting to settle. */
@@ -66,6 +66,23 @@ export class TalkStore {
             (row.op === "ask" &&
               row.late === true &&
               ["answered", "failed"].includes(row.phase))),
+      );
+  }
+  /** Asks no waiter handed over and none marked late: after a restart, nobody holds them. */
+  unclaimedAsks() {
+    return this.db
+      .prepare(
+        "SELECT body FROM session_talk WHERE created_at>=? ORDER BY created_at, rowid",
+      )
+      .all(this.now() - keepMs)
+      .map(parse)
+      .filter(
+        (row) =>
+          row.op === "ask" &&
+          row.direction === "to-agent" &&
+          !row.inline &&
+          !row.late &&
+          ["queued", "running", "answered", "failed"].includes(row.phase),
       );
   }
   forConversation(conversationId) {

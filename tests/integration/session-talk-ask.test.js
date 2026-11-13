@@ -149,7 +149,7 @@ test("the framing marks the session, not the owner", async (t) => {
   const attempt = await s.dispatched();
   const text = s.f.sent.at(-1).text;
   assert.ok(text.includes("This comes from that coding session, not from the owner."));
-  assert.ok(text.includes(`sessionId ${sessionId}) asks you:\n${question}\n\n`));
+  assert.ok(text.includes(`sessionId ${sessionId}) asks you:\n> ${question}\n\n`));
   s.answer(attempt.id, "ok");
   await s.talk.tick();
   await pending;
@@ -355,4 +355,87 @@ test("a session id reused by a new session gets no late paste", async (t) => {
   await s.talk.tick();
   assert.equal(s.talk.store.get(result.requestId).phase, "late-dropped");
   assert.deepEqual(s.f.services.chatDelivery.sent, []);
+});
+
+test("an answer settled before a restart but never handed over arrives late", async (t) => {
+  const s = await setup(t);
+  // The process ended right after the turn was observed, before the waiter took it.
+  const row = s.talk.store.create({
+    op: "ask",
+    direction: "to-agent",
+    assistantId: s.agent.id,
+    agentName: "Network Architect",
+    conversationId: s.chat.id,
+    sessionId,
+    sessionCreatedAt: "2026-11-13T10:00:00.000Z",
+    projectId: s.f.project.id,
+    sessionName: "Homelab deploy",
+    projectName: "homelab",
+    tool: "codex",
+    via: "project",
+    text: question,
+    phase: "answered",
+    answer: "10.0.0.42 is free",
+  });
+  const { SessionTalk } =
+    await import("../../server/features/assistants/session-talk/session-talk.js");
+  const restarted = new SessionTalk(s.w);
+  t.after(() => restarted.close());
+  assert.equal(restarted.store.get(row.id).late, true);
+  await restarted.tick();
+  const sent = s.f.services.chatDelivery.sent;
+  assert.equal(sent.length, 1);
+  assert.ok(
+    sent[0].body.text.startsWith('[From agent "Network Architect"] Late answer to:'),
+  );
+  assert.equal(restarted.store.get(row.id).phase, "late-delivered");
+});
+
+test("a row whose turn cannot be read fails and frees the chat", async (t) => {
+  const s = await setup(t);
+  await ask(s, { signal: AbortSignal.abort() });
+  await s.dispatched();
+  // The dispatching pass has recorded its attempt.
+  await until(() => rowsOf(s, "ask")[0].attemptId, "the recorded attempt");
+  const stuck = rowsOf(s, "ask")[0];
+  s.talk.store.patch(stuck.id, { attemptId: "missing-attempt" });
+  const told = await s.talk.tell(sessionId, { agentId: s.agent.id, message: "note" });
+  // Held behind the stuck row for a bounded number of passes only.
+  let passes = 0;
+  while (s.talk.store.get(stuck.id).phase === "running") {
+    assert.equal(s.talk.store.get(told.requestId).phase, "queued");
+    assert.ok((passes += 1) <= 5, "the stuck row fails within five passes");
+    await s.talk.tick();
+  }
+  assert.equal(s.talk.store.get(stuck.id).phase, "failed");
+  assert.equal(s.talk.store.get(stuck.id).diagnostic, "ADVANCE_FAILED");
+  await s.talk.tick();
+  assert.equal(s.talk.store.get(told.requestId).phase, "running");
+});
+
+test("a queued turn goes to the main chat that replaced the old one", async (t) => {
+  const s = await setup(t);
+  s.state.busy = true;
+  const told = await s.talk.tell(sessionId, { agentId: s.agent.id, message: "note" });
+  await until(() => s.state.sends === 1, "the refused send");
+  await s.talk.tick();
+  s.f.store.updateConversation(s.chat.id, {
+    main: false,
+    archivedAt: new Date().toISOString(),
+  });
+  const next = s.f.store.saveConversation({
+    assistantId: s.agent.id,
+    runtimeSessionKey: "architect-main-2",
+  });
+  s.state.busy = false;
+  await s.talk.tick();
+  const request = s.f.assistants.ledger
+    .requests(next.id)
+    .find((r) => r.clientRequestId === `session-talk:${told.requestId}`);
+  assert.ok(request);
+  assert.equal(s.talk.store.get(told.requestId).conversationId, next.id);
+  assert.deepEqual(
+    s.talk.store.forConversation(next.id).map((r) => r.id),
+    [told.requestId],
+  );
 });
