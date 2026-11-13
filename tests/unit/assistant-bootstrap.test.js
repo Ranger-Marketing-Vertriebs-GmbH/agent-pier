@@ -393,10 +393,13 @@ test("the preview guidance appears only with the preview tool", () => {
 test("a shell with approval learns to pass scripts as arguments, not stdin", () => {
   const text = assistantBootstrap({ ...assistant, shell: "approval" }, {});
   assert.match(text, /\n## Shell\n/);
-  assert.match(text, /must not use heredocs, pipes into stdin or redirections/);
+  assert.match(text, /refuses some commands outright, without asking the owner/);
+  assert.match(text, /heredocs, pipes into stdin, redirections/);
+  assert.match(text, /or command substitution combined with a `\{\.\.\.\}` argument/);
   assert.match(text, /`ssh host 'python3 -c "\.\.\."'`/);
-  assert.match(text, /tell the owner exactly that/);
-  assert.match(text, /Never describe the refusal vaguely as a policy/);
+  assert.match(text, /double-quote the script and escape the dollar sign/);
+  assert.match(text, /quote that error and name the construct/);
+  assert.match(text, /not the owner and not an AgentPier policy/);
   for (const shell of ["full", "off", undefined])
     assert.doesNotMatch(assistantBootstrap({ ...assistant, shell }, {}), /## Shell/);
 });

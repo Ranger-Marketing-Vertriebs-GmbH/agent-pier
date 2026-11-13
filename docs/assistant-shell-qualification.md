@@ -155,6 +155,19 @@ autoAllowSkills: false }`.
   request.** `mark x > out` gives `SYSTEM_RUN_DENIED: approval cannot safely bind
 this command` both before and after the program's entry. `sink y < /dev/null`
   gives the same with the entry present.
+- **A variable next to a `{...}` argument inside a nested shell script is denied
+  outright too** (analyzer reason `dynamic-argument`, the same
+  `SYSTEM_RUN_DENIED: approval cannot safely bind this command`). The trigger is a
+  shell variable (`$VAR`, `${VAR}`), `$(...)` or a backtick substitution combined
+  with a non-empty `{...}` argument (for example a JSON body) in the same
+  single-quoted `bash -c`/`bash -lc` script. Either alone passes, and no heredoc,
+  pipe or redirection is needed. Refused:
+  `ssh h 'bash -lc '\''curl -H "A $X" -d "{\"h\":\"s\"}" u'\'''`. Accepted: the same
+  script double-quoted with the dollar sign escaped,
+  `ssh h 'bash -lc "curl -H \"A \$X\" -d \"{\\\"h\\\":\\\"s\\\"}\" u"'`, or reading the
+  variable inside the program (`python3 -c` with `os.environ`). Verified against
+  OpenClaw 2026.10.9 (runtime lock `c4e4b69d557d`); the agent's Shell guidance names
+  this form. Re-check the analyzer on lock bumps.
 
 - Request payload fields used for cards: `request.command`, `cwd`, `agentId`,
   `sessionKey`, `runId`, `resolvedPath`, `allowedDecisions`,

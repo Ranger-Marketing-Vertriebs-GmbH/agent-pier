@@ -217,12 +217,15 @@ const previewGuidance = [
 ].join("\n");
 
 // A shell that asks the owner (With approval): approval binds a command only as one
-// plain invocation, so input fed through stdin or redirections is refused outright
-// (OpenClaw's SYSTEM_RUN_DENIED "approval cannot safely bind this command").
+// plain invocation, so some forms are refused outright, without asking the owner
+// (OpenClaw's SYSTEM_RUN_DENIED "approval cannot safely bind this command"): input fed
+// through stdin or redirections, and (reason "dynamic-argument") a shell variable or
+// substitution next to a `{...}` argument inside a nested `bash -c '...'` script.
 const shellApprovalGuidance = [
   "## Shell",
-  "- Commands that need the owner's approval, or that rely on a command the owner always allowed, must not use heredocs, pipes into stdin or redirections (`<`, `>`, `<<`). Pass a script as an argument instead, for example `ssh host 'python3 -c \"...\"'`.",
-  "- If such a command is refused, tell the owner exactly that: the command was refused because it used a heredoc, a pipe or a redirection. Then retry it in the allowed form. Never describe the refusal vaguely as a policy.",
+  "- OpenClaw's command checker refuses some commands outright, without asking the owner: heredocs, pipes into stdin, redirections (`<`, `>`, `<<`), and a shell variable (`$VAR`, `${...}`) or command substitution combined with a `{...}` argument such as a JSON body inside a nested `bash -c '...'` or `ssh host 'bash -lc ...'` script.",
+  '- Pass a script as an argument instead, for example `ssh host \'python3 -c "..."\'`. For a variable plus a JSON body, double-quote the script and escape the dollar sign (`ssh host \'bash -lc "curl -H \\"Authorization: Bearer \\$TOKEN\\" -d \\"{...}\\" URL"\'`), or read the variable from the environment inside the program.',
+  "- If a command is refused (`SYSTEM_RUN_DENIED: approval cannot safely bind this command`), quote that error and name the construct that caused it. If none of the above applies, say that OpenClaw's command checker refused it, not the owner and not an AgentPier policy. Then retry in an allowed form.",
 ].join("\n");
 
 // The agent's granted secrets file (agent-secrets.js); names and values stay out.
