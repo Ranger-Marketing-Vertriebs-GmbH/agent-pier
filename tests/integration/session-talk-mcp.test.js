@@ -202,3 +202,80 @@ test(
     await ended;
   },
 );
+
+test("a waiting ask holds back no other call of the session", { timeout }, async (t) => {
+  const { f, w, agent, issued } = await fixture(t);
+  let entered, release;
+  const started = new Promise((resolve) => (entered = resolve));
+  const gate = new Promise((resolve) => (release = resolve));
+  w.sessions.talk.ask = async () => {
+    entered();
+    await gate;
+    return { status: "pending", requestId: "r", agent: { agentId: agent.id } };
+  };
+  const client = await connect(t, f, issued);
+  const asked = client.callTool({
+    name: "agent_ask",
+    arguments: { agentId: agent.id, question: "give me a free IP" },
+  });
+  await started;
+  const listed = await client.callTool({ name: "agents_list", arguments: {} });
+  assert.equal(listed.structuredContent.agents[0].agentId, agent.id);
+  release();
+  assert.equal((await asked).structuredContent.status, "pending");
+});
+
+test(
+  "a cancelled ask ends its wait and its answer turns late",
+  { timeout },
+  async (t) => {
+    const { f, a, w, agent, issued } = await fixture(t);
+    a.assistants.store.saveConversation({
+      assistantId: agent.id,
+      runtimeSessionKey: "architect-main",
+    });
+    const talk = w.sessions.talk;
+    // The turn is never dispatched here; only the wait and its end are under test.
+    talk.tick = async () => {};
+    const client = await connect(t, f, issued);
+    const controller = new AbortController();
+    const asked = client.callTool(
+      {
+        name: "agent_ask",
+        arguments: { agentId: agent.id, question: "give me a free IP" },
+      },
+      undefined,
+      { signal: controller.signal },
+    );
+    asked.catch(() => {});
+    const row = () =>
+      talk.store
+        .forConversation(talk.store.pending()[0]?.conversationId ?? "")
+        .find((r) => r.op === "ask");
+    for (let i = 0; i < 400 && !row(); i++) await new Promise((r) => setTimeout(r, 10));
+    assert.equal(row().late, undefined);
+    // The CLI drops the call (user interrupt): it sends notifications/cancelled.
+    controller.abort();
+    await assert.rejects(asked);
+    for (let i = 0; i < 400 && !row().late; i++)
+      await new Promise((r) => setTimeout(r, 10));
+    assert.equal(row().late, true, "the answer reaches the session as a late answer");
+    // The session's other calls still answer.
+    const listed = await client.callTool({ name: "agents_list", arguments: {} });
+    assert.equal(listed.isError, undefined);
+  },
+);
+
+test("asking and telling are not marked destructive", { timeout }, async (t) => {
+  const { f, issued } = await fixture(t);
+  const client = await connect(t, f, issued);
+  const tools = Object.fromEntries(
+    (await client.listTools()).tools.map((tool) => [tool.name, tool.annotations]),
+  );
+  for (const name of ["agent_ask", "agent_tell"]) {
+    assert.equal(tools[name].destructiveHint, false, name);
+    assert.equal(tools[name].readOnlyHint, false, name);
+    assert.equal(tools[name].openWorldHint, true, name);
+  }
+  assert.equal(tools.agents_list.readOnlyHint, true);
+});
