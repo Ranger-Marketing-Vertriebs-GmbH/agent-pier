@@ -19,6 +19,8 @@ test("project grant audits keep only valid project ids and levels", () => {
     removed: ["p5", " p6"],
     sessionsAdded: ["p1", "../x"],
     sessionsRemoved: "p4",
+    talkAdded: ["p2", "../x"],
+    talkRemoved: "p4",
     folderChanged: [
       { projectId: "p1", from: "none", to: "write" },
       { projectId: "p1", from: "none", to: "admin" },
@@ -34,6 +36,8 @@ test("project grant audits keep only valid project ids and levels", () => {
     removed: ["p5"],
     sessionsAdded: ["p1"],
     sessionsRemoved: [],
+    talkAdded: ["p2"],
+    talkRemoved: [],
     folderChanged: [
       { projectId: "p1", from: "none", to: "write" },
       { projectId: "p4", from: "read", to: "none" },

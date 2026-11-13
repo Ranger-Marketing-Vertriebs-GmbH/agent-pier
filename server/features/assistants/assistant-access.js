@@ -5,7 +5,7 @@ import { requirePipeline } from "../mcp/tool-policy.js";
 import { sshGrantMode } from "./agent-ssh-origin.js";
 import { accessBody, createAccessTable } from "./assistant-access-table.js";
 import { inheritsFromLead, personalEligible } from "./native-capabilities.js";
-import { projectFileLevels } from "./member-grants.js";
+import { folderLevels, projectSubset } from "./assistant-access-fields.js";
 import { githubAccessInput } from "./agent-github.js";
 import { refuseLockedAccess } from "../users/user-agent-lock.js";
 import { isUserAgent } from "../users/user-access.js";
@@ -16,6 +16,7 @@ import {
 } from "./agent-secret-grants.js";
 import { auditAccessSave, auditSshGrants } from "./assistant-access-audit.js";
 import * as mail from "./mail/agent-mail-grants.js";
+export { folderLevels, projectSubset };
 // A temporary member uses its lead's SSH grants only while the lead lets its team
 // members use shell and SSH (memberInheritance); it never holds grants of its own.
 export const sshFromLead = (a) => inheritsFromLead(a) && a.inherited.ssh === true;
@@ -28,6 +29,7 @@ const withDefaults = (body) => ({
   sshAccesses: [],
   projectFiles: {},
   sessionProjectIds: [],
+  talkProjectIds: [],
   github: null,
   mailAccesses: [],
   ...body,
@@ -40,38 +42,6 @@ export const digest = (value) =>
  * approvals; older records without the field use `revision`.
  */
 export const approvalRevision = (policy) => policy.approvalRevision ?? policy.revision;
-/**
- * Folder levels ("read" or "write") of granted projects, sorted by project id; a
- * level for a project outside `projectIds` is dropped, a malformed one refused.
- */
-export function folderLevels(value = {}, projectIds = []) {
-  if (!value || typeof value !== "object" || Array.isArray(value))
-    throw assistantProblem("invalid");
-  const entries = Object.entries(value);
-  if (
-    entries.length > 100 ||
-    entries.some(([, level]) => !projectFileLevels.includes(level))
-  )
-    throw assistantProblem("invalid");
-  return Object.fromEntries(
-    entries
-      .filter(([id]) => projectIds.includes(id))
-      .sort(([a], [b]) => (a < b ? -1 : 1)),
-  );
-}
-/**
- * The projects with coding sessions on: a sorted subset of the granted projects.
- * Absent keeps the stored ones (filtered to the grant); anything else is refused.
- */
-export function sessionProjects(value, old, projectIds) {
-  if (value === undefined)
-    return (old.sessionProjectIds || []).filter((id) => projectIds.includes(id)).sort();
-  if (!Array.isArray(value) || value.length > 100 || new Set(value).size !== value.length)
-    throw assistantProblem("invalid");
-  for (const id of value) textValue(id, 100);
-  if (value.some((id) => !projectIds.includes(id))) throw assistantProblem("invalid");
-  return [...value].sort();
-}
 export function exact(input, keys) {
   if (
     !input ||
@@ -111,6 +81,7 @@ export class AssistantAccess {
           projectIds: [],
           projectFiles: {},
           sessionProjectIds: [],
+          talkProjectIds: [],
           pipelineIds: [],
           memoryWrite: false,
           autonomous: false,
@@ -218,6 +189,7 @@ export class AssistantAccess {
       "sshAccesses",
       "projectFiles",
       "sessionProjectIds",
+      "talkProjectIds",
       "github",
       "secretIds",
       "mailAccesses",
@@ -272,7 +244,17 @@ export class AssistantAccess {
       projectFiles: this.folders(agent, input, old, projectIds),
       // Coding sessions per granted project; absent keeps the stored ones, and a
       // project no longer granted takes its switch with it.
-      sessionProjectIds: sessionProjects(input.sessionProjectIds, old, projectIds),
+      sessionProjectIds: projectSubset(
+        input.sessionProjectIds,
+        old.sessionProjectIds || [],
+        projectIds,
+      ),
+      // Projects whose sessions and agents may talk to each other; same rules.
+      talkProjectIds: projectSubset(
+        input.talkProjectIds,
+        old.talkProjectIds || [],
+        projectIds,
+      ),
       // GitHub through a token profile (agent-github.js); absent keeps the stored one.
       github:
         input.github === undefined ? old.github : this.githubAccess(id, input.github),
@@ -499,11 +481,13 @@ export class AssistantAccess {
       (before) =>
         (before.projectIds.includes(projectId) ||
           (before.sessionProjectIds || []).includes(projectId) ||
+          (before.talkProjectIds || []).includes(projectId) ||
           Object.hasOwn(before.projectFiles, projectId)) && {
           projectIds: before.projectIds.filter((id) => id !== projectId),
           sessionProjectIds: (before.sessionProjectIds || []).filter(
             (id) => id !== projectId,
           ),
+          talkProjectIds: (before.talkProjectIds || []).filter((id) => id !== projectId),
           projectFiles: Object.fromEntries(
             Object.entries(before.projectFiles).filter(([id]) => id !== projectId),
           ),

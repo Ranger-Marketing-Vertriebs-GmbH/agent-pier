@@ -14,19 +14,23 @@ const view = (policy, projectId) => ({
   coding: policy.projectIds.includes(projectId),
   folder: policy.projectFiles?.[projectId] || "none",
   sessions: (policy.sessionProjectIds || []).includes(projectId),
+  talk: (policy.talkProjectIds || []).includes(projectId),
 });
 // `sessions` is compared only when the page sent it (older clients do not).
 const same = (a, b) =>
   a.coding === b.coding &&
   a.folder === b.folder &&
-  (b.sessions === undefined || a.sessions === b.sessions);
+  (b.sessions === undefined || a.sessions === b.sessions) &&
+  (b.talk === undefined || a.talk === b.talk);
 
 function choice(value) {
-  exact(value, ["coding", "folder", "sessions"]);
+  exact(value, ["coding", "folder", "sessions", "talk"]);
   if (
     typeof value.coding !== "boolean" ||
     !folderChoices.includes(value.folder) ||
-    (value.sessions !== undefined && typeof value.sessions !== "boolean")
+    (value.sessions !== undefined && typeof value.sessions !== "boolean") ||
+    (value.talk !== undefined && typeof value.talk !== "boolean") ||
+    (value.talk === true && !value.coding)
   )
     throw assistantProblem("invalid");
   return value;
@@ -109,12 +113,13 @@ export function projectAgents(
  * reading and writing is retried on the newer record.
  */
 export function setProjectAgent(services, projectId, id, input) {
-  exact(input, ["expected", "coding", "folder", "sessions"]);
+  exact(input, ["expected", "coding", "folder", "sessions", "talk"]);
   const expected = choice(input.expected);
   const wanted = choice({
     coding: input.coding,
     folder: input.folder,
     sessions: input.sessions,
+    talk: input.talk,
   });
   // A folder level needs the project grant: removing the grant removes the level.
   // A user agent has folders only, never the coding grant (user-agent-lock.js).
@@ -138,6 +143,12 @@ export function setProjectAgent(services, projectId, id, input) {
       sessionProjectIds.push(projectId);
       sessionProjectIds.sort();
     }
+    // Absent `talk` keeps the stored switch while the grant stays.
+    const talkProjectIds = (policy.talkProjectIds || []).filter((p) => p !== projectId);
+    if (next.coding && (next.talk ?? current.talk)) {
+      talkProjectIds.push(projectId);
+      talkProjectIds.sort();
+    }
     const { [projectId]: _old, ...projectFiles } = policy.projectFiles || {};
     if (next.folder !== "none") projectFiles[projectId] = next.folder;
     try {
@@ -147,6 +158,7 @@ export function setProjectAgent(services, projectId, id, input) {
           projectIds: projectIds.sort(),
           projectFiles,
           sessionProjectIds,
+          talkProjectIds,
           pipelineIds: policy.pipelineIds,
           memoryWrite: policy.memoryWrite,
           autonomous: policy.autonomous,

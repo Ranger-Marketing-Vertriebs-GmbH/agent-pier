@@ -60,6 +60,7 @@ export function refuseLockedAccess(agent, input = {}) {
   if (
     filled(input.projectIds) ||
     filled(input.sessionProjectIds) ||
+    filled(input.talkProjectIds) ||
     filled(input.pipelineIds) ||
     filled(input.sshAccesses) ||
     filled(input.secretIds) ||
