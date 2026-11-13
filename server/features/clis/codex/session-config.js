@@ -4,8 +4,13 @@ import { codexHookCommand } from "../../../lib/codex-hook-command.js";
 import { tomlValue } from "../../../lib/launch-serialization.js";
 import { codexSandboxArguments } from "../../../lib/sandbox.js";
 
-export function addMcpServer(launch, { name, command, args, env }) {
-  const entry = { command, args, ...(env ? { env } : {}) };
+export function addMcpServer(launch, { name, command, args, env, toolTimeoutSec }) {
+  const entry = {
+    command,
+    args,
+    ...(env ? { env } : {}),
+    ...(toolTimeoutSec ? { tool_timeout_sec: toolTimeoutSec } : {}),
+  };
   launch.args.push("-c", `mcp_servers.${name}=${tomlValue(entry)}`);
 }
 

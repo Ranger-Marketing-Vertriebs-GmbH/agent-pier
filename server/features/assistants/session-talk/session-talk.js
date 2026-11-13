@@ -73,6 +73,13 @@ export class SessionTalk {
     const agent = { agentId: row.assistantId, name: row.agentName };
     this.tick().catch(() => {});
     const settled = await this.waitFor(row.id, { signal, deadline: begun + this.waitMs });
+    // A response that closes before it is written hands the outcome back: it then
+    // reaches the session as a late answer (as LeadRequests#undelivered).
+    if (settled.inline && signal) {
+      const handBack = () => this.undelivered(row.id);
+      if (signal.aborted) handBack();
+      else signal.addEventListener("abort", handBack, { once: true });
+    }
     if (settled.phase === "answered" && settled.inline) {
       const answer = settled.answer ?? "";
       return {
@@ -85,6 +92,17 @@ export class SessionTalk {
     if (settled.phase === "failed" && settled.inline)
       return { status: "failed", requestId: row.id, agent, reason: settled.diagnostic };
     return { status: "pending", requestId: row.id, agent };
+  }
+  /** The caller could not receive an inline outcome: deliver it as a late answer. */
+  undelivered(id) {
+    try {
+      if (!this.store.get(id)?.inline) return;
+      this.store.patch(id, { inline: false, late: true });
+      this.changed();
+      this.tick().catch(() => {});
+    } catch {
+      /* Pruned meanwhile; nothing to hand back. */
+    }
   }
   /** Sends a notice the agent reads in its main chat; its reply is not sent back. */
   async tell(sessionId, { agentId, message: text } = {}) {

@@ -27,7 +27,9 @@ export function sessionMcpLaunch(launch, tool, folder, capability, socketPath) {
   }
   cliDriver(tool).addMcpServer(
     { args, env },
-    { name: "agentpier_session", ...command },
+    // agent_ask holds a call for up to about two minutes (askWaitMs); every CLI
+    // waits longer than that, Codex's 60 s default would drop it first.
+    { name: "agentpier_session", ...command, toolTimeoutSec: 150 },
     {
       pluginFolder: () => privateDirectory(path.join(folder, "plugin")),
       manifest: {

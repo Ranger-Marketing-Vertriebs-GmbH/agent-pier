@@ -250,6 +250,27 @@ test("an aborted call turns into a late answer", async (t) => {
   );
 });
 
+test("an answer whose response closed unwritten arrives late", async (t) => {
+  const s = await setup(t);
+  const controller = new AbortController();
+  const pending = ask(s, { signal: controller.signal });
+  const attempt = await s.dispatched();
+  s.answer(attempt.id, "10.0.0.42 is free");
+  await s.talk.tick();
+  assert.equal((await pending).status, "answered");
+  const sent = s.f.services.chatDelivery.sent;
+  assert.equal(sent.length, 0);
+  // The HTTP response closed before the answer was written (transport signal).
+  controller.abort();
+  await until(() => sent.length, "the late paste");
+  assert.ok(
+    sent[0].body.text.startsWith(
+      '[From agent "Network Architect"] Late answer to: "give me a free IP"',
+    ),
+  );
+  assert.equal(rowsOf(s, "ask")[0].phase, "late-delivered");
+});
+
 test("a late turn without an answer says so in the session", async (t) => {
   const s = await setup(t);
   await ask(s, { signal: AbortSignal.abort() });

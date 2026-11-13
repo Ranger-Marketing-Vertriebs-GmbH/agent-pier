@@ -106,3 +106,28 @@ test("addReminder wires one start hook per CLI", (t) => {
   assert.equal(hooks.hooks.SessionStart.length, 1);
   assert.deepEqual(claude.args, []);
 });
+
+test("a session server's tool timeout reaches each CLI's native field", (t) => {
+  const root = temporary(t);
+  const server = { name: "agentpier_slow", command: "/usr/bin/true", args: [] };
+  const codex = { args: [], env: {} };
+  cliDriver("codex").addMcpServer(codex, { ...server, toolTimeoutSec: 150 });
+  assert.deepEqual(codex.args, [
+    "-c",
+    'mcp_servers.agentpier_slow={"command"="/usr/bin/true","args"=[],"tool_timeout_sec"=150}',
+  ]);
+  const opencode = { args: [], env: {} };
+  cliDriver("opencode").addMcpServer(opencode, { ...server, toolTimeoutSec: 150 });
+  assert.equal(
+    JSON.parse(opencode.env.OPENCODE_CONFIG_CONTENT).mcp.agentpier_slow.timeout,
+    150000,
+  );
+  const claude = { args: [], env: {} };
+  cliDriver("claude").addMcpServer(
+    claude,
+    { ...server, toolTimeoutSec: 150 },
+    { pluginFolder: () => root, manifest: manifest("slow"), write: writePrivate },
+  );
+  const config = JSON.parse(fs.readFileSync(path.join(root, ".mcp.json"), "utf8"));
+  assert.equal(config.mcpServers.agentpier_slow.timeout, 150000);
+});

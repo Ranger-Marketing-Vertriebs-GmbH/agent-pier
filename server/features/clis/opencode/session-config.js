@@ -15,7 +15,7 @@ export function inlineConfig(env) {
   return config;
 }
 
-export function addMcpServer(launch, { name, command, args, env }) {
+export function addMcpServer(launch, { name, command, args, env, toolTimeoutSec }) {
   const config = inlineConfig(launch.env);
   config.mcp = {
     ...config.mcp,
@@ -24,6 +24,8 @@ export function addMcpServer(launch, { name, command, args, env }) {
       command: [command, ...args],
       ...(env ? { environment: env } : {}),
       enabled: true,
+      // OpenCode passes the server's request timeout to every tool call.
+      ...(toolTimeoutSec ? { timeout: toolTimeoutSec * 1000 } : {}),
     },
   };
   launch.env.OPENCODE_CONFIG_CONTENT = JSON.stringify(config);

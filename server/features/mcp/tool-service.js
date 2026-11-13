@@ -14,6 +14,11 @@ import { problem } from "../../lib/storage.js";
 import { projectScope } from "../memory/project-scope.js";
 import { toolSchemas } from "./tool-schemas.js";
 import { callCraftTool, craftToolEntries, craftTools } from "../craft/craft-mcp-tools.js";
+import {
+  callTalkTool,
+  talkToolEntries,
+  talkTools,
+} from "../session-talk/session-talk-mcp.js";
 import { StartRequests } from "./start-requests.js";
 import { queueTools } from "./queue-tools.js";
 import { serverMessages } from "../../lib/i18n/de.js";
@@ -64,6 +69,7 @@ export class McpTools {
       ...artifactToolEntries(grant, context),
       ...previewToolEntries(grant, context),
       ...craftToolEntries(grant, context, this.services),
+      ...talkToolEntries(grant, context),
     ];
   }
   async call(name, input, grant, resolveGrant, context) {
@@ -90,6 +96,10 @@ export class McpTools {
     // and project changes: a start waits for Craft Anything for up to about 90 s.
     if (Object.hasOwn(craftTools, name))
       return callCraftTool(this.services, name, input, context);
+    // Outside the mutation barrier like the rebuild tools: an ask holds its call for up
+    // to about two minutes, which must not hold a snapshot back that long.
+    if (Object.hasOwn(talkTools, name))
+      return callTalkTool(this.services, name, input, context);
     const descriptor = toolSchemas[name];
     if (!descriptor || !Object.hasOwn(toolSchemas, name))
       throw problem("Unknown MCP tool.", 404);

@@ -8,6 +8,7 @@ import { viaFunnel } from "../../http/tailscale-request.js";
 import { boundedToolResult } from "./tool-policy.js";
 import { previewInstruction } from "../previews/preview-mcp.js";
 import { craftInstruction } from "../craft/craft-mcp-tools.js";
+import { talkInstruction } from "../session-talk/session-talk-mcp.js";
 
 const publicPaths = new Set([
   "/mcp",
@@ -105,12 +106,23 @@ export function mcpHttpRouter({ mcpAccess, mcpTools }) {
       );
       return res.status(401).json({ error: "invalid_token" });
     }
+    // Aborted when the response closes before it was written: the client is gone.
+    const closed = new AbortController();
+    res.once("close", () => res.writableFinished || closed.abort());
+    const sessionAccess = () => {
+      const current = mcpAccess.checkAccessToken(auth.token);
+      if (current.sessionId !== auth.sessionId)
+        throw problem("Artifact session access is unavailable.", 403);
+      return current;
+    };
     const context = auth.sessionId
       ? {
           sessionId: auth.sessionId,
+          signal: closed.signal,
+          // The capability still holds, whatever its grant's scopes (talk tools).
+          revalidateSession: () => void sessionAccess(),
           revalidate: () => {
-            const current = mcpAccess.checkAccessToken(auth.token);
-            if (current.sessionId !== auth.sessionId || !current.extra.grant.allResources)
+            if (!sessionAccess().extra.grant.allResources)
               throw problem("Artifact session access is unavailable.", 403);
           },
         }
@@ -126,6 +138,7 @@ export function mcpHttpRouter({ mcpAccess, mcpTools }) {
               ...(offered.some(([name]) => name === "craft_rebuild_start")
                 ? [craftInstruction]
                 : []),
+              talkInstruction,
             ].join(" ")
           : serverInstructions,
       },
@@ -171,10 +184,12 @@ export function mcpHttpRouter({ mcpAccess, mcpTools }) {
                     error: error.status
                       ? agentText(error.message)
                       : "MCP operation failed.",
-                    // Only preview, rebuild and rebuild picture errors carry their stable
-                    // code; others stay as before.
+                    // Only preview, rebuild, rebuild picture and agent talk errors carry
+                    // their stable code; others stay as before.
                     ...(error.status &&
-                    /^(PREVIEW|CRAFT_REBUILD|CRAFT_PICTURE)_[A-Z_]+$/.test(error.code)
+                    /^(PREVIEW|CRAFT_REBUILD|CRAFT_PICTURE|AGENT_TALK)_[A-Z_]+$/.test(
+                      error.code,
+                    )
                       ? { code: error.code }
                       : {}),
                     status: error.status || 500,
