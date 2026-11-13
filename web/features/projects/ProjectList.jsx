@@ -173,6 +173,10 @@ export default function ProjectList({
           <Icon name="search" size={16} />
           <input
             type="search"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
             value={query}
             maxLength={200}
             placeholder={copy.searchPlaceholder}

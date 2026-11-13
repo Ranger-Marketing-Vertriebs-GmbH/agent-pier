@@ -24,6 +24,10 @@ export default function SkillsTab({ ext, account, request, hideError }) {
       <div className="extension-toolbar">
         <input
           type="search"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="none"
+          spellCheck={false}
           aria-label={commonCopy.searchSkills}
           value={skillQuery}
           onChange={(event) => setSkillQuery(event.target.value)}

@@ -122,6 +122,10 @@ export default function ExplorerToolbar({
           <span>{copy.searchQuery}</span>
           <input
             type="search"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
             maxLength={256}
             value={query}
             onChange={(event) => setQuery(event.target.value)}

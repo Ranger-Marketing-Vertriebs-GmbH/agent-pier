@@ -19,6 +19,10 @@ function Toolbar({
     <div className="long-list-toolbar">
       <input
         type="search"
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="none"
+        spellCheck={false}
         className="long-list-search"
         aria-label={copy.searchLabel}
         placeholder={searchPlaceholder}

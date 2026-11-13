@@ -63,6 +63,10 @@ export default function PluginsTab({
               <>
                 <input
                   type="search"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
                   aria-label={pluginCatalogCopy.searchPlugins}
                   value={plugins.query}
                   onChange={(e) => plugins.setQuery(e.target.value)}
@@ -84,6 +88,10 @@ export default function PluginsTab({
             ) : (
               <input
                 type="search"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="none"
+                spellCheck={false}
                 aria-label={installedPluginsCopy.pluginListSearch}
                 value={plugins.installedQuery}
                 onChange={(e) => plugins.setInstalledQuery(e.target.value)}

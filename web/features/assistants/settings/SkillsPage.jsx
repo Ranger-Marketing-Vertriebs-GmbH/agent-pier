@@ -103,6 +103,10 @@ export default function SkillsPage({ assistant, draft, onBack }) {
           <Icon name="search" size={16} />
           <input
             type="search"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
             value={term}
             maxLength={100}
             placeholder={copy.search}
