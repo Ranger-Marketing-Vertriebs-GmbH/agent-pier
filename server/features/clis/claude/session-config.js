@@ -17,13 +17,20 @@ import {
  */
 export function addMcpServer(
   launch,
-  { name, command, args, env },
+  { name, command, args, env, toolTimeoutSec },
   { pluginFolder, manifest, write },
 ) {
   const folder = pluginFolder();
   write(path.join(folder, ".claude-plugin", "plugin.json"), manifest);
   write(path.join(folder, ".mcp.json"), {
-    mcpServers: { [name]: { command, args, ...(env ? { env } : {}) } },
+    mcpServers: {
+      [name]: {
+        command,
+        args,
+        ...(env ? { env } : {}),
+        ...(toolTimeoutSec ? { timeout: toolTimeoutSec * 1000 } : {}),
+      },
+    },
   });
   launch.args.push("--plugin-dir", folder);
 }

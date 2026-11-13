@@ -14,7 +14,7 @@ export const selection = (scopes = ["catalog:read", "runs:read"]) => ({
 });
 export async function issue(
   f,
-  { tool = "codex", choices = selection(), id = randomUUID() } = {},
+  { tool = "codex", choices = selection(), id = randomUUID(), session: extra = {} } = {},
 ) {
   const account = f.application.accounts.get(`local-${tool}`);
   const launch = await f.application.sessionMcp.prepare({
@@ -33,6 +33,7 @@ export async function issue(
     cwd: f.project,
     command: process.execPath,
     args: ["-e", "setInterval(() => {}, 1000)"],
+    ...extra,
   });
   const directory = capabilityDirectory(f.dataDir, id);
   const file = path.join(directory, `${launch.agentpierTools.generation}.json`);

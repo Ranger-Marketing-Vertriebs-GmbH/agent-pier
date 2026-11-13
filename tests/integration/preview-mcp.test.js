@@ -127,7 +127,7 @@ test("errors carry stable codes for agents", async (t) => {
 test("server instructions tell sessions to use preview_open instead of localhost URLs", async (t) => {
   const f = await previewApp(t);
   const client = await connect(t, f, await issue(f, { choices: true }));
-  assert.ok(client.getInstructions().endsWith(instruction));
+  assert.ok(client.getInstructions().includes(instruction));
 });
 
 test("a revoked grant refuses the next call and closes the preview", async (t) => {

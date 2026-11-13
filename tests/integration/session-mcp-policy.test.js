@@ -256,3 +256,20 @@ test("one-checkbox access exposes all tools and includes projects added after la
     a.sessionMcp.resources().connections.map((c) => c.id),
   );
 });
+
+test("every session context lists the talk tools; an OAuth client does not", async (t) => {
+  const f = await applicationFixture(t);
+  const issued = await issue(f);
+  const client = await connect(t, f, issued);
+  const names = (await client.listTools()).tools.map((tool) => tool.name);
+  const talk = ["agents_list", "agent_ask", "agent_tell"];
+  // A partial grant (catalog:read, runs:read) and agents not switched on.
+  for (const name of talk) assert.ok(names.includes(name), name);
+  assert.ok(!names.includes("preview_open"));
+  const grant = f.application.sessionMcp.check(issued.token).extra.grant;
+  const oauth = f.application.mcpTools.list(grant, undefined).map(([name]) => name);
+  assert.equal(
+    oauth.some((name) => talk.includes(name)),
+    false,
+  );
+});

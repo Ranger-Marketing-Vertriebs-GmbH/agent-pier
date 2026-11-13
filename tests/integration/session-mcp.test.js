@@ -24,22 +24,27 @@ for (const tool of ["codex", "claude", "opencode"]) {
     assert.equal(JSON.stringify(issued.launch).includes(issued.token), false);
     const shortToken = issued.token.split(".").at(-1);
     assert.equal(JSON.stringify(issued.launch).includes(shortToken), false);
-    if (tool === "codex")
-      assert.ok(
-        issued.launch.args.some((a) => a.startsWith("mcp_servers.agentpier_session=")),
+    // agent_ask holds a call for up to about two minutes: every CLI waits 150 s.
+    if (tool === "codex") {
+      const override = issued.launch.args.find((a) =>
+        a.startsWith("mcp_servers.agentpier_session="),
       );
+      assert.match(override, /"tool_timeout_sec"=150[,}]/);
+    }
     if (tool === "claude") {
       const plugin = issued.launch.args[issued.launch.args.indexOf("--plugin-dir") + 1];
       const config = JSON.parse(
         await fs.readFile(path.join(plugin, ".mcp.json"), "utf8"),
       );
       assert.equal(config.mcpServers.agentpier_session.command, process.execPath);
+      assert.equal(config.mcpServers.agentpier_session.timeout, 150000);
     }
-    if (tool === "opencode")
-      assert.equal(
-        JSON.parse(issued.launch.env.OPENCODE_CONFIG_CONTENT).mcp.agentpier_session.type,
-        "local",
-      );
+    if (tool === "opencode") {
+      const entry = JSON.parse(issued.launch.env.OPENCODE_CONFIG_CONTENT).mcp
+        .agentpier_session;
+      assert.equal(entry.type, "local");
+      assert.equal(entry.timeout, 150000);
+    }
     await f.restart();
     assert.equal(
       (await client.callTool({ name: "projects_list", arguments: {} })).isError,
