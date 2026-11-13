@@ -41,6 +41,11 @@ export function auditProjectGrants(services, id, before, after) {
     sTo = sessions(after);
   const sessionsAdded = [...sTo].filter((p) => !sFrom.has(p)).sort();
   const sessionsRemoved = [...sFrom].filter((p) => !sTo.has(p)).sort();
+  const talks = (policy) => new Set(policy?.talkProjectIds || []);
+  const tFrom = talks(before),
+    tTo = talks(after);
+  const talkAdded = [...tTo].filter((p) => !tFrom.has(p)).sort();
+  const talkRemoved = [...tFrom].filter((p) => !tTo.has(p)).sort();
   const levels = (policy, p) => policy?.projectFiles?.[p] || "none";
   // A user agent's folders live in projectFiles alone (its projectIds stay empty).
   const folders = (policy) => Object.keys(policy?.projectFiles || {});
@@ -55,7 +60,9 @@ export function auditProjectGrants(services, id, before, after) {
     !removed.length &&
     !folderChanged.length &&
     !sessionsAdded.length &&
-    !sessionsRemoved.length
+    !sessionsRemoved.length &&
+    !talkAdded.length &&
+    !talkRemoved.length
   )
     return;
   try {
@@ -72,6 +79,8 @@ export function auditProjectGrants(services, id, before, after) {
         removed,
         sessionsAdded,
         sessionsRemoved,
+        talkAdded,
+        talkRemoved,
         folderChanged,
       },
     });
