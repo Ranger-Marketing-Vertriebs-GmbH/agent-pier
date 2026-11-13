@@ -29,9 +29,17 @@ function excerpt(text) {
 const conduct =
   "Carry out anything that changes something or reaches outside (Telegram, mail, other sessions, routines, configuration) only within the owner's standing rules, or ask the owner in this chat first. Approvals apply as usual.";
 
+// The session's own text, every line quoted with "> ", so it cannot pass itself off
+// as the framing around it.
+export const fenced = (text) =>
+  String(text ?? "")
+    .split("\n")
+    .map((line) => (line ? `> ${line}` : ">"))
+    .join("\n");
+
 function opening(row, verb) {
   const q = quotedName;
-  return `Coding session ${q(row.sessionName)} (project ${q(row.projectName)}, ${row.tool}, sessionId ${row.sessionId}) ${verb}:\n${row.text}`;
+  return `Coding session ${q(row.sessionName)} (project ${q(row.projectName)}, ${row.tool}, sessionId ${row.sessionId}) ${verb}:\n${fenced(row.text)}`;
 }
 
 /** The agent's turn for a session's question. */

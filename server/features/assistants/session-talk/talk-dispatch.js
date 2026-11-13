@@ -1,8 +1,11 @@
 // The scheduler of session talk (SessionTalk.tick): dispatches queued asks and
 // tells into the agent's main chat in order, observes their turns, and settles the
 // late ones by pasting the answer into the session while it still runs and may
-// still talk to the agent. A failing row never holds back the others.
+// still talk to the agent. An open row holds back the later rows of its agent's
+// main chat; one that keeps failing to advance fails after `stuckAttempts` passes,
+// so it never blocks that chat for good.
 import { runReply } from "../history-text.js";
+import { mainConversation } from "../routine-targets.js";
 import { sessionScope } from "../../chat/chat-delivery.js";
 import { confirmedDelivery } from "../../chat/chat-delivery-blocked.js";
 import { deliveryUuid } from "../coding-sessions/session-steering.js";
@@ -13,6 +16,7 @@ import { askPrompt, lateAnswer, lateFailure, tellPrompt } from "./talk-text.js";
 // Busy chat (409 `active`), too many turns (429), agent restarting (503): wait.
 const busy = new Set([409, 429, 503]);
 const dispatchAttempts = 5;
+const stuckAttempts = 5;
 const pasteAttempts = 5;
 // The answer pasted into a session, as the ask tool returns it.
 export const answerChars = 24_000;
@@ -38,25 +42,33 @@ const reachable = (talk, row, session) =>
   talkEligible(session) &&
   !!talkVia(talk.w, row.assistantId, session);
 
-/** One pass over the open rows, oldest first; one chat takes one turn at a time. */
+/** One pass over the open rows, oldest first; one agent's chat takes one turn at a time. */
 export async function talkPass(talk) {
   const held = new Set();
   let changed = false;
   for (const row of talk.store.pending()) {
     if (talk.closed) break;
+    const open = ["queued", "running"].includes(row.phase);
     try {
       let current = row;
       if (current.phase === "queued") {
-        if (held.has(current.conversationId)) continue;
+        if (held.has(current.assistantId)) continue;
         current = await dispatch(talk, current);
       } else if (current.phase === "running") current = await observe(talk, current);
-      if (["queued", "running"].includes(current.phase)) held.add(current.conversationId);
+      if (["queued", "running"].includes(current.phase)) held.add(current.assistantId);
       if (current.late && ["answered", "failed"].includes(current.phase))
         current = await settleLate(talk, current);
       changed ||= current !== row;
     } catch (error) {
-      held.add(row.conversationId);
       console.error("A session talk message could not advance:", error?.message);
+      if (!open) continue;
+      changed = true;
+      // A missing attempt or an unreadable chat: retried a few passes, then failed.
+      const stuck = (talk.store.get(row.id)?.stuckFailures || 0) + 1;
+      if (stuck < stuckAttempts) {
+        talk.store.patch(row.id, { stuckFailures: stuck });
+        held.add(row.assistantId);
+      } else fail(talk, row, "ADVANCE_FAILED");
     }
   }
   if (changed) talk.changed();
@@ -82,6 +94,11 @@ async function dispatch(talk, row) {
     // The grant must still hold when the turn starts.
     const session = await sameSession(talk, row);
     if (!reachable(talk, row, session)) return fail(talk, row, "GRANT_REVOKED");
+    // The agent's main chat now: a model switch or a restart may have replaced it.
+    const chat = mainConversation(a.store, row.assistantId);
+    if (!chat) return row;
+    if (chat.id !== row.conversationId)
+      row = talk.store.patch(row.id, { conversationId: chat.id });
     try {
       const sent = await a.send(
         row.conversationId,

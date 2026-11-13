@@ -46,16 +46,10 @@ export class SessionTalk {
     // The checks of the asks waiting in this process.
     this.waits = new Set();
     this.closed = false;
-    // A process that ended while asks waited: nobody holds them any more, so their
-    // answers reach the session as late answers.
-    for (const row of this.store.pending())
-      if (
-        row.op === "ask" &&
-        !row.inline &&
-        !row.late &&
-        ["queued", "running"].includes(row.phase)
-      )
-        this.store.patch(row.id, { late: true });
+    // A process that ended while asks waited, or before a settled one was handed
+    // over: nobody holds them any more, so their answers reach the session late.
+    for (const row of this.store.unclaimedAsks())
+      this.store.patch(row.id, { late: true });
   }
   /** The agents the session may talk to; none for a session that may not talk. */
   async agents(sessionId) {
