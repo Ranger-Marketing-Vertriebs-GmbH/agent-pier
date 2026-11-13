@@ -72,6 +72,9 @@ export const verbs = new Set([
   "archived",
   "restored",
   "sent",
+  // A session asked or told an agent something (audit-session-talk-details.js).
+  "asked",
+  "told",
   "refreshed",
   "inspected",
   "reinstalled",
