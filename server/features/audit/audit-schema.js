@@ -10,6 +10,7 @@ import { MAX_TOKEN_BUDGET } from "../pipelines/run-budget.js";
 import { MAX_QUEUE_CONCURRENCY } from "../pipelines/queue-policy.js";
 import { teamAuditDetails } from "./audit-team-details.js";
 import { agentSessionAuditDetails } from "./audit-agent-session-details.js";
+import { sessionTalkAuditDetails } from "./audit-session-talk-details.js";
 import { requestAuditDetails } from "./audit-request-details.js";
 import { hookAuditDetails } from "./audit-hook-details.js";
 import { storageAuditDetails } from "./audit-storage-details.js";
@@ -542,6 +543,8 @@ export function auditEvent(input) {
     hookAuditDetails(details, event, auditId);
   }
   agentSessionAuditDetails(details, event);
+  if (action === "session.asked" || action === "session.told")
+    sessionTalkAuditDetails(details, event);
   if (input.resourceType === "request") requestAuditDetails(details, event);
   // Agent SSH runs, refusals and grant changes (audit-ssh-details.js).
   if (input.resourceType === "ssh" || details.kind === "ssh-grants")

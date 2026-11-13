@@ -22,6 +22,7 @@ export function agentSessionAuditDetails(details, event) {
   for (const key of ["requestId", "actionId", "promptId"])
     if (id(s[key])) kept[key] = s[key];
   if (typeof s.worktree === "boolean") kept.worktree = s.worktree;
+  if (["project", "session"].includes(s.via)) kept.via = s.via;
   if (id(s.deliveryId)) kept.deliveryId = s.deliveryId;
   if (deliveryStatuses.includes(s.status)) kept.status = s.status;
   event.details.agentSession = kept;
