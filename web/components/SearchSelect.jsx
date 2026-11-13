@@ -82,7 +82,8 @@ export default function SearchSelect({
         <span aria-hidden="true">⌄</span>
       </button>
       {open && (
-        <div className="search-select-panel">
+        // Revealed as a whole above the on-screen keyboard (lib/keyboard-inset.js).
+        <div className="search-select-panel" data-keyboard-reveal="">
           <input
             ref={input}
             type="search"
@@ -96,8 +97,12 @@ export default function SearchSelect({
             }
             value={search}
             maxLength={200}
+            // A filter, not a form field: no contact or password autofill.
+            autoComplete="off"
+            autoCorrect="off"
             autoCapitalize="none"
             spellCheck={false}
+            enterKeyHint="search"
             placeholder={searchLabel}
             onChange={(event) => {
               (onQuery || setLocalQuery)(event.target.value);

@@ -90,6 +90,7 @@ export default function CommandPalette({
           inputMode="search"
           enterKeyHint="go"
           autoComplete="off"
+          autoCorrect="off"
           spellCheck={false}
           role="combobox"
           aria-label={inputLabel}
