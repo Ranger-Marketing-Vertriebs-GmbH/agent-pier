@@ -2014,8 +2014,8 @@ pinboard; its pins stay there.
   **Done**. An entry marked **NEW** is a file whose content changed since you last
   opened it. Select an entry to read it: Markdown rendered as in the chat (at most
   512 KB; a larger text offers the download), videos and audio played inline, images in
-  the image viewer, every other file as a download; **Download** in the reader's bar
-  saves any file. In the reader **Previous** and **Next** walk through the list one
+  the image viewer, HTML pages as described below, every other file as a download;
+  **Download** in the reader's bar saves any file. In the reader **Previous** and **Next** walk through the list one
   file after another and **Back to the lists** returns to where you were in the list.
   On a phone the file opens full screen, with its own bar (Back, the file, its list
   and place) instead of the chat's header and message field; on a computer it opens in
@@ -2028,6 +2028,15 @@ pinboard; its pins stay there.
   file, or one whose project grant you took back, shows **No longer available**
   (granting the project again brings it back). There is no 25 MiB limit; large videos
   seek.
+- **HTML pages.** A pinned `.html` or `.htm` file of up to 10 MB (a gallery, a report)
+  shows as the agent built it, in a frame inside the reader. Its scripts never run, and
+  it cannot send forms, open windows or leave the frame. It uses only files from its
+  own folder and the folders below it: PNG, JPEG, GIF and WebP images (no SVG), style
+  sheets, fonts, video, audio and other HTML pages there; external addresses, hidden
+  files and anything outside the folder stay blank. A link to another page or to an
+  image opens it in the frame, so a picture wrapped in a link to its own file opens
+  enlarged; **Back to the page** shows the pinned page again. Each opening of the page
+  marks it seen.
 - **What the agent can do.** Its `agentpier_pinboard` tool lists the lists, creates,
   retitles, reorders, archives, reopens and deletes a list, and pins (the same name
   again replaces that entry in place), or unpins a file. Each agent holds at most 50 open

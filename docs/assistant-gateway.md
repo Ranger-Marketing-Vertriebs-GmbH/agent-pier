@@ -5596,14 +5596,43 @@ agent's reply to `pin` names who sees the list; a pin to an archived list reopen
   path and raises the entry's version; a touched file whose content hash is unchanged
   is not NEW. Pinning under the same **name** again replaces that entry in place (path,
   note and version); the same path under another name adds a second entry.
+- **HTML pages.** A pinned `.html`/`.htm` file within `MAX_ATTACHMENT_BYTES` (10 MiB)
+  has the kind `page` (`pinType`; an entry stored as a download before is classified
+  again on the next read, without a NEW mark). The file route still only downloads it.
+  The reader shows it in an `<iframe sandbox="">` (no scripts, same origin, forms,
+  popups, downloads or top navigation); the frame's origin is opaque, so its requests
+  carry no `SameSite=Strict` session cookie and arrive cross-site.
+  `GET /api/assistants/:id/pinboard/entries/:entryId/page` (owner, privacy guard
+  `agent`) answers `{ url }`: `/api/pinboard-pages/<grant>/<file name>`, where the
+  grant (`agent-pinboard-pages.js`, 32 random bytes, in memory) names that entry and the
+  owner session it was issued to; it lapses after 30 idle minutes, 8 hours, a restart
+  or 256 newer grants. The page route is mounted ahead of the session check;
+  `authorizeRequest` admits cross-site `GET`/`HEAD` (and the origin `null` of a font
+  fetch) on that path only, keeping the Host checks. Each request checks again that the
+  grant's session is still an owner's signed-in session, that the owner may read the
+  agent (owner privacy window), that the entry is still a readable page, and opens the
+  requested file with the entry's share rules. Paths resolve below the page's folder
+  only: no empty, `.`/`..` or hidden segment, no encoded slash, backslash or control
+  character, at most 32 segments. Served types: HTML pages and CSS (as UTF-8) and
+  fonts by name, PNG/JPEG/GIF/WebP images, video and audio by their bytes; SVG and
+  everything else answer 404, like every refusal. Every response carries the page
+  policy `PAGE_CSP` (`default-src 'none'`; images and fonts from `'self'` and `data:`,
+  styles from `'self'` and inline, media from `'self'`; `frame-ancestors 'self'`,
+  `form-action 'none'`, `base-uri 'none'`, `sandbox`), `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` and no
+  `X-Frame-Options`; fonts add `Access-Control-Allow-Origin: *` for their CORS fetch.
+  The app's own policy (`default-src 'self'`, which frames fall back to) keeps the frame
+  from loading external addresses. AgentPier injects nothing into the page. The tool
+  description tells agents to wrap an image in a link to its own file so the owner can
+  enlarge it.
 - **Project pins from hooks and routines.** A pin resolves a project folder with the
   grants of the calling run (as `agentpier_share_file` does), but the owner's reads use
   the agent's standing grants only. A project pin made in a hook or routine run with
   that run's own folders therefore reads unavailable unless the agent also holds a
   standing grant for the project.
 - **Limits.** 50 open lists per agent (archived ones do not count) and 100 entries per
-  list. The Markdown reader reads at most 512 KB (`MARKDOWN_PREVIEW_MAX_BYTES`); no other
-  size limit applies.
+  list. The Markdown reader reads at most 512 KB (`MARKDOWN_PREVIEW_MAX_BYTES`); an HTML
+  page and its images, styles and fonts are shown up to 10 MiB each; no other size limit
+  applies.
 - **Owner only.** Every action, not only `pin`, is refused with `PINBOARD_OWNER_ONLY`
   (HTTP 403) in a restricted user's chat turn and on a user's own agent
   (`userAccess.mode === "own"`, whose tool grants omit it); this is stricter than the

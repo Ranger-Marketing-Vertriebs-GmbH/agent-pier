@@ -391,7 +391,8 @@ The information architecture is recorded in
   Pinboard list titles are `h3` headings. A pinned file opens in the pinboard's reader;
   on a phone the reader is full screen with its own bar (Back, the file, its list and
   place, Download) and previous / next at the bottom, while the chat's header, row and
-  composer step aside.
+  composer step aside. A pinned HTML page shows in a sandboxed frame on a light canvas,
+  with **Back to the page** above it once the frame left the page.
   A restricted user's chat keeps its layout.
 - **Agent cards** (`web/features/assistants/cards/AgentCard.jsx`, owner and user app): an
   agent's card in the chat is an `article` at most 640px wide on `--panel` with
