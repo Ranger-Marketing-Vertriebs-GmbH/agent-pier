@@ -15,7 +15,11 @@ export function sshAuditDetails(details, event, auditId) {
     /^[^\u0000-\u001f\u007f-\u009f]{1,200}$/.test(details.hostName)
   )
     event.details.hostName = details.hostName;
-  if (["owner", "delegated", "routine", "hook", "refused"].includes(details.originClass))
+  if (
+    ["owner", "delegated", "session", "routine", "hook", "refused"].includes(
+      details.originClass,
+    )
+  )
     event.details.originClass = details.originClass;
   if (["approval", "mode"].includes(details.authorizedBy))
     event.details.authorizedBy = details.authorizedBy;

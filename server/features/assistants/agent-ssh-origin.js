@@ -14,8 +14,11 @@ export const sshGrantMode = (mode) =>
  * enabled routine of the caller (routines.runOrigin), `hook` only for the run session
  * of a running hook event (AgentHooks.runOrigin), `permanentMember` says whether
  * the caller is a permanent team member, and `inherited` is the class stored on the
- * action an `ssh-result` or `sftp-result` follow-up continues. Content the owner did not write
- * (forwarded, member results, reminders, check-ins, unknown) is refused outright.
+ * action an `ssh-result` or `sftp-result` follow-up continues. A coding session's
+ * question or notice (session-talk) is the "session" class, which may do what the
+ * owner may (variant B: its turn is framed as the session's, approvals apply as
+ * usual). Content the owner did not write (forwarded, member results, reminders,
+ * check-ins, unknown) is refused outright.
  */
 export function sshOrigin({
   context,
@@ -29,11 +32,12 @@ export function sshOrigin({
   const kind = context?.kind;
   if (["owner", "telegram"].includes(kind) && !context.forwarded)
     return { class: "owner" };
+  if (kind === "session-talk") return { class: "session" };
   if (["lead-request", "team-member"].includes(kind) && permanentMember)
     return { class: "delegated" };
   if (
     ["ssh-result", "sftp-result"].includes(kind) &&
-    ["owner", "delegated"].includes(inherited)
+    ["owner", "delegated", "session"].includes(inherited)
   )
     return { class: inherited };
   return { class: "refused" };
@@ -46,6 +50,6 @@ export const unattended = (cls) => cls === "routine" || cls === "hook";
 export function permits(mode, cls) {
   if (!sshModes.includes(mode) || cls === "refused") return "refuse";
   if (unattended(cls)) return mode === "trusted" ? "run" : "refuse";
-  if (!["owner", "delegated"].includes(cls)) return "refuse";
+  if (!["owner", "delegated", "session"].includes(cls)) return "refuse";
   return mode === "approval" ? "card" : "run";
 }

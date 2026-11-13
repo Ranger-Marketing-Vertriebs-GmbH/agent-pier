@@ -61,3 +61,9 @@ test("sftpPermits covers every mode, class and kind", () => {
   assert.equal(sftpPermits("trusted", "stranger", "read"), "refuse");
   assert.equal(sftpPermits("trusted", "owner", "erase"), "refuse");
 });
+
+test("a session's talk turn transfers files like the owner", () => {
+  for (const mode of ["approval", "trusted"])
+    for (const kind of ["read", "write", "delete"])
+      assert.equal(sftpPermits(mode, "session", kind), sftpPermits(mode, "owner", kind));
+});

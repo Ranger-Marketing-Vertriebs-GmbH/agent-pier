@@ -4,6 +4,13 @@ export const sessions = Object.freeze({
   invalidAgentAccess: "Ungültige Agenten-Freigabe.",
   agentAccessCodingOnly:
     "Nur laufende Coding-Sessions (Claude Code, Codex, OpenCode) können mit einem Agenten sprechen.",
+  talkAgentNotFound:
+    "Diesen Agenten gibt es nicht, oder diese Session darf nicht mit ihm sprechen.",
+  talkInvalid:
+    "Die Nachricht an den Agenten ist leer, länger als 8000 Zeichen oder enthält Steuerzeichen.",
+  talkLimit: (seconds) =>
+    `Zu viele Nachrichten zwischen dieser Session und dem Agenten. Versuche es in ${seconds} Sekunden erneut.`,
+  talkUnavailable: "Der Agent ist gerade nicht erreichbar.",
   invalidSandboxProfile: "Ungültiges Sandbox-Profil.",
   sandboxUnavailable:
     "nono ist auf diesem Rechner nicht installiert. Die Session wurde nicht gestartet.",

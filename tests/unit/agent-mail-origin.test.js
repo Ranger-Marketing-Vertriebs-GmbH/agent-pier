@@ -94,3 +94,14 @@ test("forward needs the send level like send", () => {
   assert.ok(mailActions.includes("attachment"));
   assert.ok(mailActions.includes("forward"));
 });
+
+test("a session's talk turn is the session class and mails like the owner", () => {
+  assert.equal(cls({ context: { kind: "session-talk" } }), "session");
+  assert.equal(mailPermits("send", "session", "send", false), "card");
+  assert.equal(mailPermits("send", "session", "send", true), "run");
+  assert.equal(mailPermits("read", "session", "list", false), "run");
+  assert.equal(
+    cls({ context: { kind: "mail-result" }, inherited: "session" }),
+    "session",
+  );
+});

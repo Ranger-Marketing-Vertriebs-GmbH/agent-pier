@@ -15,6 +15,12 @@ export const sessions = Object.freeze({
   invalidAgentAccess: "Invalid agent access.",
   agentAccessCodingOnly:
     "Only running coding sessions (Claude Code, Codex, OpenCode) can talk to an agent.",
+  talkAgentNotFound: "This agent does not exist, or this session may not talk to it.",
+  talkInvalid:
+    "The message to the agent is empty, longer than 8000 characters or contains control characters.",
+  talkLimit: (seconds) =>
+    `Too many messages between this session and the agent. Try again in ${seconds} seconds.`,
+  talkUnavailable: "The agent cannot be reached right now.",
   sandboxProfilesRateLimited:
     "Too many requests for the sandbox profiles. Please try again in a minute.",
   loginNameSuffix: " · Sign-in",
