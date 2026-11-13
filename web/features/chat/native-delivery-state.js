@@ -3,12 +3,27 @@ import { deliveryMatches } from "./chat-draft.js";
 import { awaitsConfirmation } from "./delivery-confirmation.js";
 import { deliveryContentMatches, queuedImagesUnique } from "./delivery-content.js";
 
-/** Display evidence only. Never changes custody, resend eligibility or transport receipts. */
+/**
+ * Display evidence only. Never changes custody, resend eligibility or transport
+ * receipts. A server-accepted message always gets "nativeAccepted"; a plain
+ * handoff gets a state only from the live native input and transcript match.
+ */
 export function nativeDeliveryStates(items, messages, input, tool, live = true) {
   const states = new Map();
   const matches = deliveryMatches(items, messages);
   for (const item of items) {
-    // Event- and screen-confirmed handoffs become `accepted` from the server instead.
+    // The server confirmed the CLI took the message (its own submit event or the
+    // screen): the same lasting badge, at the matched native row or on the card.
+    // A local command keeps its brief "handed over" notice instead.
+    if (item.status === "accepted") {
+      if (!item.command)
+        states.set(item.id, {
+          state: "nativeAccepted",
+          messageId: matches.get(item.id) ?? null,
+        });
+      continue;
+    }
+    // Unconfirmed event- and screen-based handoffs wait for that server state.
     if (item.status !== "handed-off" || !item.observation || awaitsConfirmation(item))
       continue;
     const { generation, hash, providerSessionId, baseline = [] } = item.observation;

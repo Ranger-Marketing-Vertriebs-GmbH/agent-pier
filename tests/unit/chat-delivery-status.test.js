@@ -233,6 +233,38 @@ test("native text evidence is not used for event-confirmed deliveries", () => {
   );
 });
 
+test("a server-accepted message always gets the accepted badge", () => {
+  const item = {
+    id: "first",
+    status: "accepted",
+    confirmation: "events",
+    acceptedAt: 1,
+    text: "hello",
+    baselineIds: [],
+  };
+  const row = { id: "row", role: "user", text: "hello", timestamp: 5 };
+  // No native input, a stopped session and no text observation: still accepted.
+  assert.deepEqual(nativeDeliveryStates([item], [], null, "claude", false).get("first"), {
+    state: "nativeAccepted",
+    messageId: null,
+  });
+  // Placed at the matched native row, like the text-based fallback.
+  assert.deepEqual(nativeDeliveryStates([item], [row], null, "codex").get("first"), {
+    state: "nativeAccepted",
+    messageId: "row",
+  });
+  const saved = { ...item, matchedMessageId: "row" };
+  assert.equal(
+    nativeDeliveryStates([saved], [], null, "claude").get("first").messageId,
+    "row",
+  );
+  // A local command keeps its brief notice and gets no badge.
+  assert.equal(
+    nativeDeliveryStates([{ ...item, command: true }], [row], null, "claude").size,
+    0,
+  );
+});
+
 test("every shown confirmation view has German and English copy", async () => {
   const views = [
     "commandHandedOff",

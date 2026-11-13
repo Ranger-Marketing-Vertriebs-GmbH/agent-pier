@@ -97,7 +97,8 @@ const elapsed = (since, now) =>
 /**
  * The confirmation view of `item` at browser time `now`, or null for today's
  * presentation (text-confirmed and older receipts). Shown views are chatDeliveryCopy
- * keys; "accepted" shows no notice. The views: "accepted", "commandHandedOff",
+ * keys; "accepted" shows no notice of its own: a message gets the native "Accepted
+ * by CLI" badge (native-delivery-state.js), a command nothing after its brief notice. The views: "accepted", "commandHandedOff",
  * "handed-off", "askCheck", "hookBlocked" or "hookBlockedDraft".
  */
 export function deliveryView(item, now) {

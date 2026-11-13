@@ -1,5 +1,6 @@
 // The chat presents the server's native delivery confirmation (events or screen):
-// accepted hides the notice, a silent handoff asks after 8 s, a hook block offers resend.
+// accepted shows "Accepted by CLI", a silent handoff asks after 8 s, a hook block
+// offers resend.
 import { mockChatStream } from "../helpers/chat-stream-fixture.js";
 import { test, expect } from "../helpers/browser-test.js";
 import { baseURL } from "../helpers/browser.js";
@@ -9,8 +10,16 @@ test.use({ locale: "en-GB" });
 const topic = "session.deliveries:delivery";
 
 async function fixture(page, receipt) {
-  const state = { inputs: [], receipt: { status: "handed-off", ...receipt } };
-  await mockChatStream(page, () => ({ availability: "ready", messages: [], tasks: [] }));
+  const state = {
+    inputs: [],
+    messages: [],
+    receipt: { status: "handed-off", ...receipt },
+  };
+  state.publish = await mockChatStream(page, () => ({
+    availability: "ready",
+    messages: state.messages,
+    tasks: [],
+  }));
   await page.route("**/api/**", async (route) => {
     const req = route.request(),
       url = new URL(req.url());
@@ -70,7 +79,7 @@ async function sendMessage(page, text) {
 }
 const status = (page) => page.getByRole("status", { name: "Message delivery" });
 
-test("an accepted push removes the notice and keeps the sent message", async ({
+test("an accepted push shows Accepted by CLI and keeps it after a reload", async ({
   page,
   liveStub,
 }) => {
@@ -80,12 +89,26 @@ test("an accepted push removes the notice and keeps the sent message", async ({
   state.receipt = { status: "accepted", acceptedAt: Date.now() };
   await liveStub.changed(topic);
   await expect(page.locator(".chat-delivery-status")).toHaveCount(0);
+  const badge = page.locator(".chat-native-delivery");
+  await expect(badge).toHaveText("✓Accepted by CLI");
   await expect(page.locator(".chat-delivery-message")).toContainText(
     "Confirmed by the CLI",
   );
   await expect(page.getByRole("button", { name: "Dismiss delivery status" })).toHaveCount(
     0,
   );
+  // The native row takes over the card and the badge moves with it: never twice.
+  state.messages = [
+    { id: "row", role: "user", text: "Confirmed by the CLI", timestamp: Date.now() },
+  ];
+  state.publish();
+  await expect(page.locator(".chat-delivery-message")).toHaveCount(0);
+  await expect(badge).toHaveCount(1);
+  await expect(badge).toHaveText("✓Accepted by CLI");
+  await page.reload();
+  await expect(page.getByLabel("Message", { exact: true })).toBeVisible();
+  await expect(badge).toHaveCount(1);
+  await expect(badge).toHaveText("✓Accepted by CLI");
 });
 
 test("an accepted command shows handed over briefly and keeps its message", async ({
@@ -99,6 +122,7 @@ test("an accepted command shows handed over briefly and keeps its message", asyn
   await expect(status(page)).toHaveText("Command handed over");
   await expect(page.locator(".chat-delivery-status")).toHaveCount(0, { timeout: 6000 });
   await expect(page.locator(".chat-delivery-message")).toContainText("/cost");
+  await expect(page.locator(".chat-native-delivery")).toHaveCount(0);
 });
 
 test("a handoff without confirmation asks after eight seconds", async ({ page }) => {
