@@ -90,6 +90,7 @@ import { OwnerInbox } from "../features/inbox/owner-inbox.js";
 import { createCraftRebuilds } from "./craft-rebuilds-wiring.js";
 import { createAssistantFeature } from "./assistants.js";
 import { hostReady } from "../features/assistants/runtimes/runtime-for.js";
+import { SessionAgentGrants } from "../features/session-talk/session-agent-grants.js";
 
 export async function createServices(config) {
   const mutationBarrier = new MutationBarrier();
@@ -158,6 +159,7 @@ export async function createServices(config) {
     accesses: sshAccesses,
     onProject: (binding) => sshManagement.registerProject(binding),
   });
+  const sessionAgentGrants = new SessionAgentGrants({ dataDir: config.dataDir });
   // Declared before the session manager: its stop cleanup discards the session's agent.
   let artifacts, sessionSecrets, sshAgents, previews;
   const sessions = new SessionManager({
@@ -174,6 +176,7 @@ export async function createServices(config) {
       await previews?.closeSession(session.id, "session");
       await agentbus?.revoke(session.id);
       sshSessions.discard(session.id);
+      sessionAgentGrants.discard(session.id);
       sessionSecrets?.discard(session.id);
       await sshAgents?.discard(session.id);
       await sshIntegration.discard(session.id);
@@ -485,6 +488,7 @@ export async function createServices(config) {
     events,
     sshAccesses,
     sshSessions,
+    sessionAgentGrants,
     sshIntegration,
     sshManagement,
     sshAgents,

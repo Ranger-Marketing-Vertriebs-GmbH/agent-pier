@@ -12,6 +12,9 @@ export const sessions = Object.freeze({
   sandboxNotForTaskProfile:
     "Sandbox profiles are unavailable when launching with a task profile.",
   invalidAgentBusSelection: "Invalid AgentBus selection.",
+  invalidAgentAccess: "Invalid agent access.",
+  agentAccessCodingOnly:
+    "Only running coding sessions (Claude Code, Codex, OpenCode) can talk to an agent.",
   sandboxProfilesRateLimited:
     "Too many requests for the sandbox profiles. Please try again in a minute.",
   loginNameSuffix: " · Sign-in",

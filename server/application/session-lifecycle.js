@@ -11,6 +11,7 @@ import { profileLocation } from "../features/cli-profiles/configuration.js";
 import { cliDefinition, isCodingCli } from "../features/clis/catalog.js";
 import { addGrant } from "../features/nono/sandbox-grants.js";
 import { prepareSessionSshAgent } from "../features/ssh/ssh-agent-launch.js";
+import { talkAgentIds } from "../features/session-talk/live-topics.js";
 
 // A CLI that takes AgentPier's session id as its own (Claude Code's --session-id), so
 // the chat binds to it from the start; the shell and the others do not.
@@ -107,6 +108,12 @@ export function createSessionLifecycle(services) {
       throw problem(serverMessages.ssh.loginSessionsUnsupported);
     if (login && secretIds?.length)
       throw problem(serverMessages.secrets.loginSessionsUnsupported);
+    // Agents a coding session may talk to; never a sign-in session or a pipeline step.
+    const agentIds = services.sessionAgentGrants
+      ? talkAgentIds(services, body.agentAccessIds)
+      : [];
+    if (agentIds.length && (login || trusted.pipeline))
+      throw problem(serverMessages.sessions.agentAccessCodingOnly);
     if (body.nonoProfile !== undefined && typeof body.nonoProfile !== "string")
       throw problem(serverMessages.sessions.invalidSandboxProfile);
     if (body.nonoProfile && login)
@@ -129,7 +136,11 @@ export function createSessionLifecycle(services) {
         release = providerConnections.acquire(resolved.selection.providerConnectionId);
       const unreserve = await reserve(resolved.account, login);
       try {
-        return await launchResolved(body, login, trusted, resolved, sshIds, secretIds);
+        return await launchResolved(body, login, trusted, resolved, {
+          sshIds,
+          secretIds,
+          agentIds,
+        });
       } finally {
         unreserve();
       }
@@ -143,11 +154,12 @@ export function createSessionLifecycle(services) {
     login,
     trusted,
     { account, selection },
-    sshIds,
-    secretIds,
+    { sshIds, secretIds, agentIds },
   ) {
     const nativeModelId = nativeModelFor(body, account, { login });
     trusted.validateAccount?.(account);
+    if (agentIds.length && !isCodingCli(account.tool))
+      throw problem(serverMessages.sessions.agentAccessCodingOnly);
     const cwd = await directory(
       body.cwd || (login ? config.home : preferences.get().defaultCwd),
     );
@@ -313,6 +325,7 @@ export function createSessionLifecycle(services) {
         ...(login ? { purpose: "login" } : {}),
       });
       if (body.sshAccessIds?.length) await sshSessions.set(session, body.sshAccessIds);
+      if (agentIds.length) services.sessionAgentGrants.set(session, agentIds);
       // The agent's files catch up with the assignments and any change during the launch.
       await services.sshAgents?.sync(session).catch(() => {});
       // A secret change while the launch ran reached no file yet; this catches it up.
@@ -320,6 +333,7 @@ export function createSessionLifecycle(services) {
     } catch (error) {
       services.sessionMcp?.discard(id);
       sshSessions?.discard(id);
+      services.sessionAgentGrants?.discard(id);
       services.sessionSecrets?.discard(id);
       await services.sshAgents?.discard(id).catch(() => {});
       if (session) {

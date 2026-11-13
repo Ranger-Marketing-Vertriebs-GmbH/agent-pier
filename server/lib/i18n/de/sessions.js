@@ -1,6 +1,9 @@
 /** Existing German product copy, addressed through English semantic keys. */
 export const sessions = Object.freeze({
   invalidAgentBusSelection: "Ungültige AgentBus-Auswahl.",
+  invalidAgentAccess: "Ungültige Agenten-Freigabe.",
+  agentAccessCodingOnly:
+    "Nur laufende Coding-Sessions (Claude Code, Codex, OpenCode) können mit einem Agenten sprechen.",
   invalidSandboxProfile: "Ungültiges Sandbox-Profil.",
   sandboxUnavailable:
     "nono ist auf diesem Rechner nicht installiert. Die Session wurde nicht gestartet.",
