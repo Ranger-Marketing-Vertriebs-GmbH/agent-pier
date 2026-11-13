@@ -38,3 +38,30 @@ test("a tap outside closes an open searchable select on a phone", async ({ page 
   await page.touchscreen.tap(8, 8);
   await expect(search).toHaveCount(0);
 });
+
+// The on-screen keyboard shrinks only the visual viewport (web/lib/keyboard-inset.js):
+// the options and their search stay in the part it leaves visible.
+test("an open searchable select stays above the on-screen keyboard", async ({ page }) => {
+  const controls = await fixture(page);
+  await createForm(page, "opencode", controls);
+  await page.getByLabel("API-Anbieter", { exact: true }).selectOption("openrouter");
+  const model = page.getByLabel("Anbietermodell", { exact: true });
+  // Where iOS puts a focused field: in the part of the page the keyboard leaves visible.
+  await model.evaluate((select) => select.scrollIntoView({ block: "center" }));
+  await model.tap();
+  const search = page.getByRole("combobox", { name: "Modelle suchen", exact: true });
+  await expect(search).toBeFocused();
+  await expect(search).toHaveAttribute("autocomplete", "off");
+  await page.evaluate(() => {
+    const viewport = window.visualViewport;
+    Object.defineProperty(viewport, "height", { configurable: true, value: 464 });
+    viewport.dispatchEvent(new Event("resize"));
+  });
+  const options = page.locator(".anchored-options");
+  await expect
+    .poll(async () => {
+      const box = await options.boundingBox();
+      return box.y >= 0 && box.y + box.height <= 464;
+    })
+    .toBe(true);
+});

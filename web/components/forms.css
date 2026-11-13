@@ -6,7 +6,7 @@ dialog {
   border: 1px solid #505155;
   border-radius: 14px;
   box-shadow: 0 30px 100px #0009;
-  max-height: calc(100dvh - 36px);
+  max-height: calc(var(--visual-viewport-height, 100dvh) - 36px);
   overflow: auto;
   /* Scrolling past either end of a long dialog stops there instead of moving the page. */
   overscroll-behavior: contain;
@@ -20,6 +20,13 @@ dialog {
 dialog::backdrop {
   background: var(--backdrop);
 }
+/* The on-screen keyboard (web/lib/keyboard-inset.js): a modal dialog centres in the
+   area the keyboard leaves visible and fits into it. `:where` keeps this weaker than any
+   dialog that places itself; the variables exist only while a keyboard is open. */
+:where(dialog:modal) {
+  top: var(--visual-viewport-top, 0px);
+  bottom: var(--keyboard-inset, 0px);
+}
 @media (max-width: 700px) {
   /* A generic dialog becomes a content-sized bottom sheet on small screens. `:where`
      keeps the selector as weak as `dialog`, so a dialog with its own mobile layout
@@ -27,12 +34,13 @@ dialog::backdrop {
      viewer and task drawer keep their own geometry. */
   dialog:where(:not(.image-viewer, .task-drawer)) {
     position: fixed;
-    inset: auto 0 0 0;
+    /* Sits on the keyboard while one is open, and never grows above the visible area. */
+    inset: auto 0 var(--keyboard-inset, 0px) 0;
     margin: 0;
     width: 100%;
     max-width: 100%;
     height: auto;
-    max-height: 82dvh;
+    max-height: min(82dvh, calc(var(--visual-viewport-height, 100dvh) - 12px));
     border-radius: 14px 14px 0 0;
   }
 }

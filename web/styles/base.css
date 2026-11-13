@@ -207,6 +207,11 @@
   --diff-number: var(--blue-500);
   --diff-selected: var(--neutral-14);
 }
+/* While the on-screen keyboard covers the bottom edge (web/lib/keyboard-inset.js), the
+   home indicator is behind it: nothing needs to keep clear of it. */
+:root[data-keyboard-open] {
+  --safe-area-inset-bottom: 0px;
+}
 * {
   box-sizing: border-box;
 }

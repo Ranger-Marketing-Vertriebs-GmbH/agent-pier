@@ -3,7 +3,7 @@
 @media (min-width: 701px) {
   .system-status-dialog {
     width: min(1000px, calc(100vw - 32px));
-    height: min(880px, calc(100dvh - 36px));
+    height: min(880px, calc(var(--visual-viewport-height, 100dvh) - 36px));
   }
 }
 .system-status-details {
@@ -365,7 +365,7 @@
     display: none;
   }
   .system-status-details {
-    padding: 0 16px calc(21px + env(safe-area-inset-bottom));
+    padding: 0 16px calc(21px + var(--safe-area-inset-bottom));
   }
   .system-status-tab .system-status-meters {
     grid-template-columns: repeat(2, minmax(0, 1fr));

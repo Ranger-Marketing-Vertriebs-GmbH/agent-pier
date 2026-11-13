@@ -20,8 +20,10 @@ const artifactView = /^\/artifacts\/view\/([A-Za-z0-9-]+)\/?$/.exec(
 import AppErrorBoundary from "./app/AppErrorBoundary.jsx";
 import { registerPublicWorker } from "./features/notifications/register-worker.js";
 import { captureInstallPrompt } from "./features/notifications/install-prompt.js";
+import { installKeyboardInset } from "./lib/keyboard-inset.js";
 initializeLanguage();
 captureInstallPrompt();
+installKeyboardInset();
 registerPublicWorker();
 void preloadChatCache();
 createRoot(document.getElementById("root")).render(

@@ -1,5 +1,4 @@
 import "./launch-dialog.css";
-import useLaunchViewport from "./useLaunchViewport.js";
 import useResource from "../../lib/useResource.js";
 import ErrorMessage from "../../components/ErrorMessage.jsx";
 import LaunchMcpChoices from "../mcp/LaunchMcpChoices.jsx";
@@ -43,7 +42,6 @@ export default function LaunchDialog({
   update,
   ticket,
 }) {
-  const viewport = useLaunchViewport();
   // A ticket starts in its project's folder with a coding CLI and the server's task:
   // no folder, shell or task profile to choose.
   const launchState = ticket
@@ -139,7 +137,6 @@ export default function LaunchDialog({
             : commonCopy.newSession
       }
       close={close}
-      style={viewport}
       className={`launch-dialog${coding ? "" : " launch-dialog-shell"}`}
     >
       <div className="launch-dialog-body">

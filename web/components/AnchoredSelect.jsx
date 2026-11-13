@@ -196,6 +196,9 @@ export default function AnchoredSelect({
     <div
       ref={root}
       className="anchored-select"
+      // The field stays visible above the on-screen keyboard while its search has
+      // focus; the options then open where there is room (lib/keyboard-inset.js).
+      data-keyboard-reveal=""
       onPointerDownCapture={(event) => {
         touch.current = event.pointerType === "touch";
       }}
@@ -273,8 +276,12 @@ export default function AnchoredSelect({
                 }
                 value={query}
                 placeholder={searchLabel}
+                // A filter, not a form field: no contact or password autofill.
+                autoComplete="off"
+                autoCorrect="off"
                 autoCapitalize="none"
                 spellCheck={false}
+                enterKeyHint="search"
                 onChange={(event) => {
                   onQuery(event.target.value);
                   setActive(-1);

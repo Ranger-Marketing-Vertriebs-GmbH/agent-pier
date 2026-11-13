@@ -156,6 +156,7 @@ export default function AddPicker({
           disabled={disabled}
           maxLength={200}
           autoComplete="off"
+          autoCorrect="off"
           autoCapitalize="none"
           spellCheck={false}
           onChange={(event) => dispatch({ type: "query", query: event.target.value })}

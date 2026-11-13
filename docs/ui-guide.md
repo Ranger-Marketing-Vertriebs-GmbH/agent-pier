@@ -84,7 +84,12 @@ and while one is open the page behind it does not scroll (`web/components/forms.
   screens.
 - `--safe-area-inset-top`, `-right`, `-bottom`, `-left`: the device safe areas
   (`env(safe-area-inset-*)`). Use the variables, not `env()`, so browser tests can
-  emulate a notch or home indicator.
+  emulate a notch or home indicator. `--safe-area-inset-bottom` is 0 while the
+  on-screen keyboard is open, since the home indicator is behind it.
+- `--keyboard-inset`, `--visual-viewport-top`, `--visual-viewport-height`: while an
+  on-screen keyboard covers the bottom of the page, the covered height and the visible
+  area ([Mobile and touch](#mobile-and-touch)). They are unset otherwise, so always give
+  a fallback (`0px`, `100dvh`).
 
 ### Breakpoints
 
@@ -494,6 +499,23 @@ accent. Never encode a state by colour alone: add text or an icon.
   a smaller `min-height` in feature CSS (`tests/browser/touch-target-size.spec.js`).
 - Dialogs become bottom sheets on phones (`Modal`, `Sheet` do this already); actions
   stay visible above the home indicator (`--safe-area-inset-bottom`).
+- The on-screen keyboard never covers a dialog. iOS Safari, and Chrome on Android by
+  default, shrink only the visual viewport for it, so `web/lib/keyboard-inset.js`
+  (started once in `web/main.jsx`) publishes the covered height and the visible area on
+  the document root (`--keyboard-inset`, `--visual-viewport-top`,
+  `--visual-viewport-height`, `data-keyboard-open`); pinch zoom is ignored. A bottom
+  sheet (`Modal`, `Sheet`, `SidePanel`, `ConfirmDialog`) then sits on the keyboard and
+  grows at most to the visible height, a centred dialog centres in the visible area,
+  and the full-height launch dialog fills it (`web/components/forms.css`,
+  `side-panel.css`). A text field focused in an open dialog is scrolled into the
+  visible part of its scroll container, clear of sticky bars (the container's
+  `scroll-padding`), when the keyboard opens or another field takes focus. Mark a block
+  that should come into view with its field as `data-keyboard-reveal` (`SearchSelect`
+  reveals its search with the results, `AnchoredSelect` its field). A dialog that
+  places itself uses the same variables, never its own `visualViewport` listener.
+- Search and filter fields set `autoComplete="off"` and `autoCorrect="off"`, so iOS does
+  not offer contact autofill (`SearchSelect`, `AnchoredSelect`, `AddPicker`,
+  `CommandPalette`).
 - A bottom sheet with a grab handle closes when it is dragged down
   (`web/components/useSheetDrag.js`, used by `Modal` and `Sheet`). The drag starts on the
   heading (`.dialog-heading`, a `Sheet`'s handle and title) or, with touch, as a

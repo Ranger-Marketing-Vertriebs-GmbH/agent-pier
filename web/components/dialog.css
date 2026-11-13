@@ -347,7 +347,7 @@ label.check-row:has(input:disabled) .check-row-text {
 }
 @media (max-width: 700px) {
   dialog:where(:not(.sheet)) {
-    scroll-padding-bottom: calc(92px + env(safe-area-inset-bottom));
+    scroll-padding-bottom: calc(92px + var(--safe-area-inset-bottom));
   }
   dialog > .operations-form {
     --dialog-pad: 16px;
@@ -368,14 +368,14 @@ label.check-row:has(input:disabled) .check-row-text {
     ):last-child,
   dialog.file-action-dialog > form > .file-action-buttons:last-child,
   dialog.file-action-dialog > .file-action-buttons:last-child {
-    padding-bottom: calc(14px + env(safe-area-inset-bottom));
+    padding-bottom: calc(14px + var(--safe-area-inset-bottom));
   }
   .dialog-body {
-    padding: 2px 21px calc(21px + env(safe-area-inset-bottom));
+    padding: 2px 21px calc(21px + var(--safe-area-inset-bottom));
   }
   dialog > .dialog-actions:last-child,
   dialog > :last-child > .dialog-actions:last-child {
-    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    padding-bottom: calc(16px + var(--safe-area-inset-bottom));
   }
   .dialog-body + .dialog-actions:last-child {
     flex-wrap: wrap;
