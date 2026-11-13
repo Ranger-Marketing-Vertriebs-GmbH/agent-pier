@@ -156,6 +156,8 @@ Playwright discovers `tests/browser/*.spec.js`. `npm run test:e2e` starts a disp
 
 `assistant-chat-composer-scroll.spec.js` types a wrapping draft into the agent and session chat composers and samples the transcript's distance from its bottom in every painted frame. It turns off CSS scroll anchoring, so Chromium fails like Safari (which has none) when a composer resize leaves the newest lines hidden.
 
+`chat-live-row-bottom.spec.js` keeps a followed session chat at desktop, tablet and phone size, then adds and wraps the live preparing line through `live-status` frames alone (no new snapshot) and grows the composer with a multi-line draft. The newest live row must end above the composer each time; the chat follows the size of its rows, not only new snapshots.
+
 ```sh
 npm run build
 npm run test:e2e

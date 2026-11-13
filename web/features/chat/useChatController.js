@@ -83,12 +83,24 @@ export default function useChatController({ active, session, request, onConnecti
     if (saved && !stick.current) scroll.current = element.scrollTop;
     else element.scrollTop = stick.current ? element.scrollHeight : scroll.current;
     // Keyboard animation and composer growth resize the message viewport without
-    // changing the transcript. Follow its bottom only while already following.
+    // changing the transcript, and live rows (a live-status frame's preparing line,
+    // a wrapping reply) grow its content without a new snapshot. Follow its bottom
+    // only while already following.
     const observer = new ResizeObserver(() => {
       if (stick.current) element.scrollTop = element.scrollHeight;
       outputHeight.current = element.clientHeight;
     });
     observer.observe(element);
+    for (const row of element.children) observer.observe(row);
+    const rows = new MutationObserver((changes) => {
+      for (const change of changes) {
+        for (const row of change.removedNodes)
+          if (row.nodeType === Node.ELEMENT_NODE) observer.unobserve(row);
+        for (const row of change.addedNodes)
+          if (row.nodeType === Node.ELEMENT_NODE) observer.observe(row);
+      }
+    });
+    rows.observe(element, { childList: true });
     // Only a laid-out view has a position worth keeping; the cache is update-only.
     const keep = (urgent) => {
       if (element.clientHeight > 0)
@@ -100,6 +112,7 @@ export default function useChatController({ active, session, request, onConnecti
     document.addEventListener("visibilitychange", hide);
     return () => {
       observer.disconnect();
+      rows.disconnect();
       document.removeEventListener("visibilitychange", hide);
       keep(false);
     };
