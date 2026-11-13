@@ -190,6 +190,7 @@ test("a mouse drag carries the agent alone, and a press on a row's control drags
     .getByRole("link", { name: "Agent settings", exact: true })
     .dragTo(handle(main(page), "Developer"), { targetPosition: top });
   await expect.poll(types).toBe("prevented");
+  await expect(writer).toHaveAttribute("draggable", "true");
   await expect(page.locator(".agent-order-dragging")).toHaveCount(0);
   expect(data.saves).toEqual([]);
   expect(await overview(page)).toEqual(["Developer", "Calendar", "Writer"]);
@@ -201,6 +202,8 @@ test("a mouse drag carries the agent alone, and a press on a row's control drags
   const box = await chat.boundingBox();
   await page.mouse.move(box.x + 10, box.y + box.height / 2);
   await page.mouse.down();
+  // Not draggable while pressed: Safari would otherwise drop the click.
+  await expect(writer).toHaveAttribute("draggable", "false");
   await page.mouse.move(box.x + 14, box.y + box.height / 2 + 2, { steps: 3 });
   await page.mouse.up();
   await expect(page).toHaveURL(/\/agents\/writer\/chats\/c-writer/);

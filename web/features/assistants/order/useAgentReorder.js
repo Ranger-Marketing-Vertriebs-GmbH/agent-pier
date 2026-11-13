@@ -27,6 +27,23 @@ function onControl(target, row) {
   );
 }
 
+// A press on a row's control keeps the row from being dragged until the button is
+// released: Safari drops the click of a press that begins in a draggable element,
+// even when its drag is cancelled.
+function holdStill(node) {
+  node.draggable = false;
+  // The window's own blur only: a press moves the focus, and element blurs pass the
+  // window on capture.
+  const events = ["mouseup", "dragend", "blur"];
+  const release = (event) => {
+    if (event.type === "blur" && event.target !== window) return;
+    // Unless React has since dropped the attribute (ordering turned off).
+    if (node.getAttribute("draggable") === "false") node.draggable = true;
+    for (const type of events) window.removeEventListener(type, release, true);
+  };
+  for (const type of events) window.addEventListener(type, release, true);
+}
+
 function measure(list) {
   if (!list) return { rows: [], sections: [] };
   const box = (node) => node.getBoundingClientRect();
@@ -216,7 +233,9 @@ export default function useAgentReorder({ enabled, entries, onDrop }) {
       ? {
           draggable: true,
           onMouseDown: (event) => {
-            pressed.current = onControl(event.target, event.currentTarget);
+            const node = event.currentTarget;
+            pressed.current = onControl(event.target, node);
+            if (pressed.current) holdStill(node);
           },
           onDragStart: (event) => {
             if (pressed.current) return event.preventDefault();
