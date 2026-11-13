@@ -78,7 +78,14 @@ function fakeWindow() {
     cancelAnimationFrame() {},
   };
   // Window and document share the map; the viewport's events are what matter here.
-  return { win, viewport, properties, attributes, fire: () => listeners.get("resize")() };
+  return {
+    win,
+    viewport,
+    properties,
+    attributes,
+    listeners,
+    fire: () => listeners.get("resize")(),
+  };
 }
 
 test("the root carries the variables only while a keyboard is open", () => {
@@ -104,4 +111,25 @@ test("the root carries the variables only while a keyboard is open", () => {
   stop();
   assert.equal(properties.size, 0);
   assert.equal(attributes.size, 0);
+});
+
+test("a keyboard closed in the background is noticed on return without a resize", () => {
+  const { win, viewport, properties, attributes, listeners, fire } = fakeWindow();
+  const stop = installKeyboardInset(win);
+  viewport.height = 500;
+  fire();
+  assert.ok(attributes.has("data-keyboard-open"));
+  // iOS reports the real viewport only after the app is back, without an event.
+  viewport.height = 844;
+  listeners.get("visibilitychange")();
+  assert.equal(properties.size, 0);
+  assert.equal(attributes.size, 0);
+  viewport.height = 500;
+  fire();
+  viewport.height = 844;
+  listeners.get("pageshow")();
+  assert.equal(attributes.size, 0);
+  stop();
+  for (const type of ["pageshow", "focus", "visibilitychange"])
+    assert.equal(listeners.has(type), false);
 });

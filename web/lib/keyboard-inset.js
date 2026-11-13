@@ -8,8 +8,8 @@
 //   --visual-viewport-height  height of the visible area
 //   data-keyboard-open        set while the variables are
 // Dialogs and sheets lift themselves above the keyboard with these (forms.css,
-// side-panel.css); the bottom safe area (--safe-area-inset-bottom) is 0 meanwhile,
-// since the home indicator sits behind the keyboard. A text field focused in an open
+// side-panel.css); inside a dialog the bottom safe area (--safe-area-inset-bottom) is
+// 0 meanwhile, since the home indicator sits behind the keyboard (base.css). A text field focused in an open
 // dialog is scrolled into the visible part of it when the keyboard opens or another
 // field takes focus. See docs/ui-guide.md#mobile-and-touch.
 
@@ -17,6 +17,8 @@
 // accessory bar of about 55px with a hardware keyboard, which still counts.
 export const minimumInset = 24;
 const names = ["--keyboard-inset", "--visual-viewport-top", "--visual-viewport-height"];
+// About a second of frames, as in useSessionViewport.js.
+const settleFrames = 60;
 
 /**
  * The visible area while something (the keyboard) covers the bottom of the layout
@@ -137,16 +139,37 @@ export function installKeyboardInset(win = window) {
     // area moving while the user scrolls) must not pull the field back.
     if (resized) revealLater();
   };
+  // iOS closes the keyboard while the app is in the background and, back in front,
+  // reports the old visual viewport for a moment without a resize event once the
+  // real one arrives: read it again on the next frames (as useSessionViewport.js).
+  let settling = 0,
+    frames = 0;
+  const settle = () => {
+    win.cancelAnimationFrame(settling);
+    frames = settleFrames;
+    const next = () => {
+      update();
+      settling = --frames > 0 ? win.requestAnimationFrame(next) : 0;
+    };
+    next();
+  };
   update();
   viewport.addEventListener("resize", update);
   viewport.addEventListener("scroll", update);
   win.addEventListener("resize", update);
+  win.addEventListener("pageshow", settle);
+  win.addEventListener("focus", settle);
+  document.addEventListener("visibilitychange", settle);
   document.addEventListener("focusin", revealLater);
   return () => {
     win.cancelAnimationFrame(frame);
+    win.cancelAnimationFrame(settling);
     viewport.removeEventListener("resize", update);
     viewport.removeEventListener("scroll", update);
     win.removeEventListener("resize", update);
+    win.removeEventListener("pageshow", settle);
+    win.removeEventListener("focus", settle);
+    document.removeEventListener("visibilitychange", settle);
     document.removeEventListener("focusin", revealLater);
     for (const name of names) root.style.removeProperty(name);
     root.removeAttribute("data-keyboard-open");
