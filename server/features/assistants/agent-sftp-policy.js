@@ -25,7 +25,7 @@ export function sftpKind(action, input = {}) {
 export function sftpPermits(mode, cls, kind) {
   if (!sshModes.includes(mode) || !kinds.includes(kind)) return "refuse";
   if (unattended(cls)) return mode === "trusted" && kind !== "delete" ? "run" : "refuse";
-  if (!["owner", "delegated"].includes(cls)) return "refuse";
+  if (!["owner", "delegated", "session"].includes(cls)) return "refuse";
   if (kind === "read") return "run";
   if (kind === "delete") return "card";
   return mode === "approval" ? "card" : "run";

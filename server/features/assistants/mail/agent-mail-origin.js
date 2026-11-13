@@ -24,7 +24,8 @@ const levels = ["read", "send"];
  * `mail-result` follow-up continues. Everything the owner did not ask for directly
  * (forwarded content, lead requests, team-member turns, member results, also as a
  * goal turn, coding-session wakes, users' turns, reminders, command completions,
- * unknown) is refused.
+ * unknown) is refused. A coding session's question or notice (session-talk) is the
+ * "session" class, which mails like the owner (variant B).
  */
 export function mailOrigin({
   context,
@@ -40,7 +41,9 @@ export function mailOrigin({
   // result) is text the owner did not write: mail stays off, whatever the anchor.
   if (["owner", "telegram"].includes(kind) && !context.forwarded && !context.result)
     return { class: "owner" };
-  if (kind === "mail-result" && inherited === "owner") return { class: "owner" };
+  if (kind === "session-talk") return { class: "session" };
+  if (kind === "mail-result" && ["owner", "session"].includes(inherited))
+    return { class: inherited };
   return { class: "refused" };
 }
 
@@ -51,7 +54,7 @@ export function mailOrigin({
  * every recipient matches the account's rules (`ruleMatched`).
  */
 export function mailPermits(level, cls, action, ruleMatched) {
-  if (!levels.includes(level) || !["owner", "routine", "hook"].includes(cls))
+  if (!levels.includes(level) || !["owner", "session", "routine", "hook"].includes(cls))
     return "refuse";
   if (action !== "send" && action !== "forward") return "run";
   if (level !== "send") return "refuse";

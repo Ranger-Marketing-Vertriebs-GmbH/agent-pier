@@ -83,3 +83,15 @@ test("sshGrantMode reads the legacy routines mode as trusted and nothing else", 
   for (const mode of ["Routines", "always", "", null, undefined, 1, {}, "__proto__"])
     assert.equal(sshGrantMode(mode), null, String(mode));
 });
+
+test("a session's talk turn is the session class and works like the owner's", () => {
+  assert.equal(sshOrigin({ context: { kind: "session-talk" } }).class, "session");
+  assert.equal(permits("approval", "session"), "card");
+  assert.equal(permits("trusted", "session"), "run");
+  // Its SSH result follow-up continues as the session class.
+  assert.equal(cls({ context: { kind: "ssh-result" }, inherited: "session" }), "session");
+  assert.equal(
+    cls({ context: { kind: "sftp-result" }, inherited: "session" }),
+    "session",
+  );
+});

@@ -18,6 +18,7 @@ import {
 } from "./session-escalations.js";
 import { holdsGoal, tickWakes, wakeEscalation } from "./session-wakes.js";
 import { stillGranted } from "./session-control.js";
+import { SessionTalk } from "../session-talk/session-talk.js";
 
 const toolKeys = Object.keys(
   codingSessionDefinition.coding_session.parameters.properties,
@@ -53,6 +54,8 @@ export class AgentCodingSessions {
   constructor(w) {
     this.w = w;
     this.store = new AgentSessionStore(w.a.store.db);
+    // Sessions asking and telling agents (session-talk/session-talk.js).
+    this.talk = new SessionTalk(w);
     // Starts running in this process, by action key (session-start.js runStart).
     this.starting = new Map();
     // Sessions an agent is waiting on right now (session-steering.js waitForSession).
@@ -133,10 +136,10 @@ export class AgentCodingSessions {
   answeredBy(promptId) {
     return this.answers.get(promptId)?.actor ?? "session";
   }
-  /** One pass of the wake watcher; a pass under way is joined. */
+  /** One pass of the wake watcher and of session talk; a pass under way is joined. */
   tick() {
     if (this.closed || this.w.a.maintenance) return Promise.resolve();
-    return tickWakes(this);
+    return Promise.all([tickWakes(this), this.talk.tick()]).then(() => {});
   }
   /** Whether a session the chat's agent drives holds its open goal (session-wakes.js). */
   holdsGoal(conversationId) {
@@ -166,6 +169,7 @@ export class AgentCodingSessions {
     this.closed = true;
     clearInterval(this.timer);
     this.timer = null;
+    return this.talk.close();
   }
   /**
    * The projects the agent may start sessions on: its own grants with the sessions

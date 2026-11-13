@@ -33,7 +33,7 @@ const deliveryStatuses = new Set([
 ]);
 
 // A UUID derived from a stable key, so a retried call reuses its delivery.
-function deliveryUuid(key) {
+export function deliveryUuid(key) {
   const hex = createHash("sha256").update(key).digest("hex");
   return [
     hex.slice(0, 8),
