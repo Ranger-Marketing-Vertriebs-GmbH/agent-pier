@@ -7,6 +7,7 @@ export async function deleteSession(services, session) {
   await services.sessions.remove(id);
   services.sessionMcp?.discard(id);
   services.sshSessions?.discard(id);
+  services.sessionAgentGrants?.discard(id);
   services.sessionSecrets?.discard(id);
   await services.sshIntegration?.discard(id);
   await services.chatDelivery.discard(id);

@@ -17,6 +17,7 @@ import { UpdateChecker } from "./application/update-checker.js";
 import { secretsRoutes } from "./http/routes/secrets.js";
 import { mailRoutes } from "./http/routes/mail.js";
 import { sshRoutes } from "./http/routes/ssh.js";
+import { sessionAgentAccessRoutes } from "./http/routes/session-agent-access.js";
 import { LoginStore } from "./features/login/login-store.js";
 import { SetupCode } from "./features/login/setup-code.js";
 import { UserStore } from "./features/users/user-store.js";
@@ -474,6 +475,7 @@ export async function createApplication(config) {
   mount(reviewCommentRoutes(services));
   mount(sessionChangesRoutes(services));
   mount(sshRoutes(services));
+  mount(sessionAgentAccessRoutes(services));
   mount(secretsRoutes(services));
   mount(mailRoutes(services));
   mount(repositoriesRoutes(services));
