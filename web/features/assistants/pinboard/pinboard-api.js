@@ -10,6 +10,14 @@ export const pinboardApi = {
   async seen(assistantId, entryId) {
     await api(`${base(assistantId, entryId)}/seen`, "POST");
   },
+  /**
+   * A pinned HTML page's URL for the reader's sandboxed frame, below a grant of its
+   * own (server: agent-pinboard-pages.js).
+   */
+  async page(assistantId, entryId) {
+    const { url } = await api(`${base(assistantId, entryId)}/page`);
+    return url;
+  },
 };
 
 /**

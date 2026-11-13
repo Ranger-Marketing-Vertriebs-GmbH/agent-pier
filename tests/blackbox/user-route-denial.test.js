@@ -7,12 +7,14 @@ import { userMayReach, userRoutes } from "../../server/http/route-access.js";
 
 // Regex routes have no `:param` to fill in; each needs a path it matches here.
 const regexProbes = {};
-// Mounted ahead of the session check: a single-use OAuth state authenticates them.
+// Mounted ahead of the session check: a single-use OAuth state or a pinboard page
+// grant authenticates them.
 const beforeLogin = [
   "GET /api/mcp-servers/oauth/callback",
   "HEAD /api/mcp-servers/oauth/callback",
   "GET /api/mcp-servers/cli-oauth/callback/:segment",
   "HEAD /api/mcp-servers/cli-oauth/callback/:segment",
+  "GET /api/pinboard-pages/:grant/*path",
 ];
 
 // A direct local request reads the health without any session (requireLogin), so a
@@ -25,8 +27,10 @@ const probe = (route) => {
     assert.ok(path, `regex route ${route.path} needs a probe in regexProbes`);
     return path;
   }
-  assert.doesNotMatch(route.path, /[*{}()]/, `unsupported route syntax ${route.path}`);
-  return route.path.replace(/:[A-Za-z0-9_]+/g, "probe");
+  // A trailing wildcard (`*name`) stands for one probe segment.
+  const path = route.path.replace(/\/\*[A-Za-z0-9_]+$/, "/:wildcard");
+  assert.doesNotMatch(path, /[*{}()]/, `unsupported route syntax ${route.path}`);
+  return path.replace(/:[A-Za-z0-9_]+/g, "probe");
 };
 
 async function usersFixture(t) {

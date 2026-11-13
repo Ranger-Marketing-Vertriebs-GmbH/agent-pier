@@ -17,6 +17,9 @@ const CHUNK_BYTES = 64 * 1024;
 // (EXIF, ICC) come before the frame header and stay well inside this.
 export const PIN_IMAGE_HEAD_BYTES = 256 * 1024;
 const download = { type: "application/octet-stream", kind: "file" };
+// A static web page the reader shows in a sandboxed frame (agent-pinboard-pages.js).
+export const PAGE_NAME = /\.html?$/i;
+export const PAGE_TYPE = "text/html";
 
 /**
  * Opens a pinned file with the share rules (agent-share-source.js) on every read:
@@ -113,7 +116,8 @@ export function sameIdentity(a, b) {
 /**
  * How the owner's app shows a pinned file, from its bytes: video (with its duration
  * when the container states it), audio, an image the browser renders inline,
- * Markdown by name; anything else (HEIC included) is a download.
+ * Markdown and HTML pages (within the attachment limit) by name; anything else
+ * (HEIC included) is a download.
  */
 export async function pinType(handle, size, name) {
   const head = await readAt(handle, 0, Math.min(VIDEO_HEAD_BYTES, size));
@@ -144,5 +148,7 @@ export async function pinType(handle, size, name) {
         : download;
   }
   if (/\.(md|markdown)$/i.test(name)) return { type: "text/markdown", kind: "text" };
+  if (PAGE_NAME.test(name) && size <= MAX_ATTACHMENT_BYTES)
+    return { type: PAGE_TYPE, kind: "page" };
   return download;
 }

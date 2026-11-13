@@ -1,6 +1,7 @@
 import { serverMessages } from "../lib/i18n/de.js";
 import { problem } from "../lib/storage.js";
 import { fromTailnetMember } from "./tailscale-request.js";
+import { pinboardPagePath } from "../features/assistants/agent-pinboard-pages.js";
 import {
   cliOAuthCallbackPath,
   oauthCallbackPath,
@@ -64,12 +65,23 @@ export function authorizeRequest(req, config, websocket = false) {
     // keeps mode navigate but reports the destination as empty. No page can start a
     // navigate-mode request with fetch(), so only this origin's worker sends that pair.
     ["document", "empty"].includes(req.headers["sec-fetch-dest"]);
+  // A pinned HTML page reads its files from the reader's sandboxed frame, whose
+  // origin is opaque: cross-site, with the origin "null" on a font. Its own grant in
+  // the path authorizes these reads (routes/assistant-pinboard.js).
+  const pinboardPage =
+    !websocket &&
+    ["GET", "HEAD"].includes(req.method) &&
+    pinboardPagePath.test(requestPath);
   // AgentPier's own pages are always same-origin; same-site is another port of this
   // host (a session preview), which may open a page but never call the API.
-  if (["cross-site", "same-site"].includes(req.headers["sec-fetch-site"]) && !openingPage)
+  if (
+    ["cross-site", "same-site"].includes(req.headers["sec-fetch-site"]) &&
+    !openingPage &&
+    !pinboardPage
+  )
     throw problem(serverMessages.http.crossSiteAccessDenied, 403);
   const origin = req.headers.origin;
-  if (origin && origin !== expected)
+  if (origin && origin !== expected && !(pinboardPage && origin === "null"))
     throw problem(serverMessages.http.invalidOrigin, 403);
   if ((websocket || !["GET", "HEAD"].includes(req.method)) && !origin)
     throw problem(serverMessages.http.originRequired, 403);

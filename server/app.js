@@ -1,5 +1,6 @@
 import { stageToolchainsInBackground } from "./features/mcp-packages/toolchain-provisioning.js";
 import { assistantRoutes } from "./http/routes/assistants.js";
+import { pinboardPageRoutes } from "./http/routes/assistant-pinboard.js";
 import { agentText } from "./lib/i18n/agent-text.js";
 import { messageIdentity } from "./lib/i18n/message-identity.js";
 import { projectGroupsRoutes } from "./http/routes/project-groups.js";
@@ -411,6 +412,9 @@ export async function createApplication(config) {
   // Authenticated by its single-use OAuth state, not the session cookie.
   api.mount(mcpOAuthCallbackRoutes(services), { guarded: false, beforeLogin: true });
   api.mount(mcpCliOAuthCallbackRoutes(services), { guarded: false, beforeLogin: true });
+  // Authenticated by a page grant for its owner session (a sandboxed frame sends no
+  // cookie): the pinboard's HTML pages and their files.
+  api.mount(pinboardPageRoutes(services), { guarded: false, beforeLogin: true });
   app.use("/api", requireLogin(services.identity, effective));
   // Deny by default: restricted users reach only their /api/me routes, the owner never.
   app.use("/api", routeAccess());

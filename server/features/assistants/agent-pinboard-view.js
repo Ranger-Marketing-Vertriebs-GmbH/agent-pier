@@ -1,6 +1,8 @@
 import { assistantProblem } from "./assistant-validation.js";
 import { attachmentFile } from "./attachment-access.js";
+import { MAX_ATTACHMENT_BYTES } from "./agent-attachment-types.js";
 import {
+  PAGE_NAME,
   openPinned,
   pinIdentity,
   pinType,
@@ -96,9 +98,14 @@ export class AgentPinboardView {
     );
   }
 
-  // The identity of the opened file when it moved since it was stored, else null.
+  // The identity of the opened file when it moved since it was stored, else null. An
+  // HTML page pinned before pages were shown (a download then) is classified again.
   async moved(entry, opened) {
-    if (unchanged(entry.identity, statIdentity(opened.stat))) return null;
+    const legacyPage =
+      entry.identity?.kind === "file" &&
+      PAGE_NAME.test(opened.name) &&
+      opened.size <= MAX_ATTACHMENT_BYTES;
+    if (!legacyPage && unchanged(entry.identity, statIdentity(opened.stat))) return null;
     return {
       ...(await this.files.pinIdentity(opened.handle, opened.stat)),
       ...(await this.files.pinType(opened.handle, opened.size, opened.name)),
