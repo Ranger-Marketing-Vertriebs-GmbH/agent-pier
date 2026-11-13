@@ -151,7 +151,8 @@ export function mcpHttpRouter({ mcpAccess, mcpTools }) {
           inputSchema: tool.schema,
           annotations: {
             readOnlyHint: tool.readOnly,
-            destructiveHint: !tool.readOnly,
+            // A tool may say it changes data without destroying any (agent talk).
+            destructiveHint: tool.destructive ?? !tool.readOnly,
             idempotentHint:
               tool.readOnly ||
               [
