@@ -76,7 +76,7 @@ export class TalkStore {
       .all(conversationId)
       .map(parse);
   }
-  /** Asks, tells and sends of one pair since a time (both directions, no late answers). */
+  /** Asks, tells and sends of one pair since a time (both directions; late answers and limit notes are other ops). */
   pairCount({ sessionId, assistantId, since }) {
     const rows = this.db
       .prepare(
@@ -84,8 +84,12 @@ export class TalkStore {
       )
       .all(sessionId, assistantId, since)
       .map(parse)
-      .filter((row) => counted.has(row.op) && row.late !== true);
-    return { count: rows.length, oldest: rows.length ? rows[0].createdAt : null };
+      .filter((row) => counted.has(row.op));
+    return {
+      count: rows.length,
+      oldest: rows.length ? rows[0].createdAt : null,
+      times: rows.map((row) => row.createdAt),
+    };
   }
   prune() {
     this.db

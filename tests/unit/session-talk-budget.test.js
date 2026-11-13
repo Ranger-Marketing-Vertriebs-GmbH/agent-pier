@@ -28,11 +28,15 @@ test("the budget values", () => {
 test("the 7th message within a minute is refused with a wait", () => {
   const store = open();
   const now = 1_000_000;
-  for (let i = 0; i < 6; i++) store.create(row(now - 50_000 + i * 1000));
+  const ops = ["ask", "tell", "send", "ask", "tell", "send", "ask"];
+  for (let i = 0; i < 7; i++)
+    store.create(row(now - 50_000 + i * 1000, { op: ops[i], late: i === 0 }));
+  store.create(row(now - 55_000, { op: "late", late: true }));
+  store.create(row(now - 55_000, { op: "limit" }));
   const refusal = talkBudgetRefusal(store, { ...pair, now });
   assert.equal(refusal.limit, "minute");
   assert.ok(refusal.retryAfterSeconds >= 1);
-  assert.equal(refusal.retryAfterSeconds, 10);
+  assert.equal(refusal.retryAfterSeconds, 11);
   assert.equal(
     talkBudgetRefusal(store, { sessionId: "s2", assistantId: "a1", now }),
     null,
