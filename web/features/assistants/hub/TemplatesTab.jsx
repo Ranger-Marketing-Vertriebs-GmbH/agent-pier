@@ -200,6 +200,10 @@ export default function TemplatesTab({ navigate, onTotal, subagentProfiles = nul
       <div className="agents-hub-toolbar">
         <input
           type="search"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="none"
+          spellCheck={false}
           aria-label={copy().search}
           placeholder={copy().search}
           value={catalog.query}

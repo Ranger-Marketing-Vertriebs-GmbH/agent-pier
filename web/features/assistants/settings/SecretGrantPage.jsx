@@ -83,6 +83,10 @@ export default function SecretGrantPage({
             id={searchId}
             className="ssh-grant-search-input"
             type="search"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />

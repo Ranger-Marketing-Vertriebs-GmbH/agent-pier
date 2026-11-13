@@ -118,6 +118,7 @@ export default function DirectoryStep({ dispatch, go, headingRef, data, navigate
             maxLength={100}
             autoCapitalize="none"
             autoComplete="off"
+            autoCorrect="off"
             spellCheck={false}
             onChange={(event) => setTerm(event.target.value)}
           />

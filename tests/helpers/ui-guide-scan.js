@@ -124,6 +124,21 @@ export const nativeDialogs = (sources) =>
 export const alphaSuffixes = (sources) =>
   tally(css(sources), (text) => text.match(/var\(--[\w-]+\)\d/g)?.length ?? 0);
 
+/**
+ * Search inputs that iOS may offer contact autofill or autocorrect in: every
+ * `type="search"` field sets `autoComplete="off"` and `autoCorrect="off"`.
+ */
+export const searchAutofill = (sources) =>
+  tally(
+    scripts(sources),
+    (text) =>
+      (text.match(/<input\b[\s\S]*?\/>/g) || []).filter(
+        (tag) =>
+          tag.includes('type="search"') &&
+          !(tag.includes('autoComplete="off"') && tag.includes('autoCorrect="off"')),
+      ).length,
+  );
+
 export const rules = {
   hexColours,
   smallFontSizes,

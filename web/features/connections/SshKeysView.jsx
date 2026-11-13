@@ -63,6 +63,10 @@ export default function SshKeysView({
           <input
             ref={searchRef}
             type="search"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
             aria-label={sshCopy.search}
             placeholder={sshCopy.searchKeys}
             value={query}

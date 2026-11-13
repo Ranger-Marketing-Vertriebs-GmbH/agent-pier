@@ -513,9 +513,10 @@ accent. Never encode a state by colour alone: add text or an icon.
   that should come into view with its field as `data-keyboard-reveal` (`SearchSelect`
   reveals its search with the results, `AnchoredSelect` its field). A dialog that
   places itself uses the same variables, never its own `visualViewport` listener.
-- Search and filter fields set `autoComplete="off"` and `autoCorrect="off"`, so iOS does
-  not offer contact autofill (`SearchSelect`, `AnchoredSelect`, `AddPicker`,
-  `CommandPalette`).
+- Search and filter fields set `autoComplete="off"` and `autoCorrect="off"` (with
+  `autoCapitalize="none"` and `spellCheck={false}`), so iOS does not offer contact
+  autofill (`SearchSelect`, `AnchoredSelect`, `AddPicker`, `CommandPalette`, and every
+  `type="search"` field: `tests/unit/ui-guide-rules.test.js`).
 - A bottom sheet with a grab handle closes when it is dragged down
   (`web/components/useSheetDrag.js`, used by `Modal` and `Sheet`). The drag starts on the
   heading (`.dialog-heading`, a `Sheet`'s handle and title) or, with touch, as a

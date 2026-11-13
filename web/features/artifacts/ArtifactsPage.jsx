@@ -75,6 +75,10 @@ function Toolbar({ term, setTerm, projectId, projects, onProject }) {
         <Icon name="search" size={16} />
         <input
           type="search"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="none"
+          spellCheck={false}
           value={term}
           maxLength={200}
           placeholder={copy.search}

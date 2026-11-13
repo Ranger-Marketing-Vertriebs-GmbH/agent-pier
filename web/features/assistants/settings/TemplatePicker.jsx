@@ -87,6 +87,10 @@ export default function TemplatePicker({ onUse, onClose }) {
       <div className="agency-browser">
         <input
           type="search"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="none"
+          spellCheck={false}
           aria-label={copy.search}
           placeholder={copy.search}
           value={query}

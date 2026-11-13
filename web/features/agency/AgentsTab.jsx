@@ -72,6 +72,10 @@ export default function AgentsTab({
         {catalog && (
           <input
             type="search"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
             aria-label={copy.search}
             placeholder={copy.search}
             value={query}

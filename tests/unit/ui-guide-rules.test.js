@@ -1,7 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { alphaSuffixes, ratchet, rules, webSources } from "../helpers/ui-guide-scan.js";
+import {
+  alphaSuffixes,
+  ratchet,
+  rules,
+  searchAutofill,
+  webSources,
+} from "../helpers/ui-guide-scan.js";
 
 // docs/ui-guide.md#enforcement: existing offenders are listed in
 // tests/fixtures/ui-guide-allowlist.json. The list only shrinks: a new offender fails,
@@ -30,6 +36,24 @@ for (const [name, rule] of Object.entries(rules))
 
 test("custom properties never take a glued alpha suffix such as var(--accent)33", () => {
   assert.deepEqual(alphaSuffixes(sources), {});
+});
+
+test("search fields turn off iOS autofill and autocorrect", () => {
+  assert.deepEqual(
+    searchAutofill(sources),
+    {},
+    'add autoComplete="off" autoCorrect="off"',
+  );
+  const scan = (text) => searchAutofill([{ file: "web/x.jsx", text }]);
+  assert.deepEqual(
+    scan('<input type="search" onChange={(e) => set(e.target.value)} />'),
+    { "web/x.jsx": 1 },
+  );
+  assert.deepEqual(
+    scan('<input type="search" autoComplete="off" autoCorrect="off" />'),
+    {},
+  );
+  assert.deepEqual(scan('<input type="text" />'), {});
 });
 
 test("the ratchet reports new, grown and shrunk offenders", () => {

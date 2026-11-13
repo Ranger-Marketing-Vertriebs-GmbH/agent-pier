@@ -57,6 +57,10 @@ function ListCard({
       <Icon name="search" size={14} />
       <input
         type="search"
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="none"
+        spellCheck={false}
         value={query}
         placeholder={searchLabel}
         aria-label={searchLabel}
@@ -172,7 +176,16 @@ function LoadingCard({
   const search = (
     <label className="start-search">
       <Icon name="search" size={14} />
-      <input type="search" placeholder={searchLabel} aria-label={searchLabel} disabled />
+      <input
+        type="search"
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="none"
+        spellCheck={false}
+        placeholder={searchLabel}
+        aria-label={searchLabel}
+        disabled
+      />
     </label>
   );
   return (
