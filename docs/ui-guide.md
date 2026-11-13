@@ -84,8 +84,8 @@ and while one is open the page behind it does not scroll (`web/components/forms.
   screens.
 - `--safe-area-inset-top`, `-right`, `-bottom`, `-left`: the device safe areas
   (`env(safe-area-inset-*)`). Use the variables, not `env()`, so browser tests can
-  emulate a notch or home indicator. `--safe-area-inset-bottom` is 0 while the
-  on-screen keyboard is open, since the home indicator is behind it.
+  emulate a notch or home indicator. `--safe-area-inset-bottom` is 0 inside a dialog
+  while the on-screen keyboard is open, since the home indicator is behind it.
 - `--keyboard-inset`, `--visual-viewport-top`, `--visual-viewport-height`: while an
   on-screen keyboard covers the bottom of the page, the covered height and the visible
   area ([Mobile and touch](#mobile-and-touch)). They are unset otherwise, so always give
