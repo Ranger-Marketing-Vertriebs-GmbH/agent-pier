@@ -377,3 +377,29 @@ test("the app may show blob: images (the browser live view), artifacts may not",
   ]);
   assert.deepEqual(policyFor("/artifacts/view/abc")["img-src"], ["'self'", "data:"]);
 });
+
+test("a pinboard page's sandboxed frame reads its grant path only", () => {
+  const grant = "a".repeat(43);
+  const frame = (url, headers = {}, method = "GET") => ({
+    ...request({ "sec-fetch-site": "cross-site", ...headers }, method),
+    url,
+  });
+  const page = `/api/pinboard-pages/${grant}/bilder/01.png`;
+  assert.equal(authorizeRequest(frame(page), config), true);
+  assert.equal(authorizeRequest(frame(page, { origin: "null" }), config), true);
+  for (const req of [
+    frame(page, { origin: "https://evil.example" }),
+    frame(page, {}, "POST"),
+    frame(page, { origin: "null" }, "POST"),
+    frame(`/api/pinboard-pages/${grant}/`),
+    frame("/api/assistants/a/pinboard"),
+    frame("/api/assistants/a/pinboard", { origin: "null" }),
+  ])
+    assert.throws(() => authorizeRequest(req, config), `${req.method} ${req.url}`);
+  // A page grant never opens a socket.
+  assert.throws(() => authorizeRequest(frame(page), config, true));
+  // DNS rebinding stays refused.
+  assert.throws(() =>
+    authorizeRequest({ ...frame(page), headers: { host: "evil.example:4380" } }, config),
+  );
+});
