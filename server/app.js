@@ -1,6 +1,6 @@
 import { stageToolchainsInBackground } from "./features/mcp-packages/toolchain-provisioning.js";
 import { assistantRoutes } from "./http/routes/assistants.js";
-import { pinboardPageRoutes } from "./http/routes/assistant-pinboard.js";
+import { pinboardPageRoutes } from "./http/routes/pinboard-pages.js";
 import { agentText } from "./lib/i18n/agent-text.js";
 import { messageIdentity } from "./lib/i18n/message-identity.js";
 import { projectGroupsRoutes } from "./http/routes/project-groups.js";

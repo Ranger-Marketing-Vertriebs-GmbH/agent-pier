@@ -1,10 +1,7 @@
 import { Router } from "express";
 import { assistantProblem } from "../../features/assistants/assistant-validation.js";
-import { PAGE_CSP, PAGE_GRANT } from "../../features/assistants/agent-pinboard-pages.js";
-import { principalOf } from "../../features/users/identity.js";
-import { sendFileRange } from "../byte-ranges.js";
 import { sessionToken } from "../login.js";
-import { notFoundBody } from "../responses.js";
+import { pageClient } from "./pinboard-pages.js";
 import {
   assistantAttachmentRateLimits,
   sendAttachment,
@@ -64,60 +61,11 @@ export function assistantPinboardRoutes({
   router.get(`${base}/entries/:entryId/page`, read, async (req, res) => {
     const session = sessionToken(req, identity);
     if (!session) throw assistantProblem("pinboardUnavailable", 404);
-    const url = await pinboard().pages.issue(req.params.id, req.params.entryId, session);
-    res.json({ url });
-  });
-  return router;
-}
-
-/**
- * The files of a pinned HTML page, for the reader's sandboxed frame: mounted ahead of
- * the session check, since the frame's opaque origin sends no session cookie;
- * authorizeRequest admits its cross-site requests on this path only (security.js).
- * The grant in the path stands in for the cookie: it names one entry, and the session
- * it was issued to must still be the owner's, signed in, and allowed to read the
- * agent (the owner's privacy window). Every refusal is a plain not found.
- */
-export function pinboardPageRoutes(
-  services,
-  { read = assistantAttachmentRateLimits().attachmentReadLimit } = {},
-) {
-  const router = Router();
-  const refuse = (res) => res.status(404).json(notFoundBody());
-  router.get("/pinboard-pages/:grant/*path", read, async (req, res) => {
-    // AgentPier's own headers give way to the page's: it may be framed by the app.
-    res.removeHeader("X-Frame-Options");
-    res.set({
-      "Content-Security-Policy": PAGE_CSP,
-      "X-Content-Type-Options": "nosniff",
-      "Referrer-Policy": "no-referrer",
-      "Cache-Control": "private, no-store",
+    const url = await pinboard().pages.issue(req.params.id, req.params.entryId, {
+      session,
+      client: pageClient(req),
     });
-    // The path as sent, still encoded: pageFilePath decodes each segment itself.
-    const [, token, rest] = /^\/pinboard-pages\/([^/]+)\/(.+)$/.exec(req.path) || [];
-    const assistants = services.assistants;
-    const board = assistants?.pinboard;
-    const grant = PAGE_GRANT.test(token || "")
-      ? board?.pages.grants.resolve(token)
-      : null;
-    if (!grant) return refuse(res);
-    if (assistants.closed || assistants.recovering || assistants.maintenance)
-      return refuse(res);
-    let file;
-    try {
-      const session = services.identity.require(grant.session);
-      if (principalOf(session).role !== "owner") return refuse(res);
-      const agent = assistants.store.getAssistant(grant.assistantId);
-      if (services.ownerPrivacy && !services.ownerPrivacy.agentContent(agent))
-        return refuse(res);
-      file = await board.pages.file(grant.assistantId, grant.entryId, rest.split("/"));
-    } catch {
-      return refuse(res);
-    }
-    res.set({ "Content-Type": file.type, "Content-Disposition": "inline" });
-    // A font is fetched in CORS mode from the frame's opaque origin ("null").
-    if (file.font) res.set("Access-Control-Allow-Origin", "*");
-    await sendFileRange(req, res, file);
+    res.json({ url });
   });
   return router;
 }
