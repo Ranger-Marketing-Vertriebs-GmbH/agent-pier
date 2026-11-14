@@ -57,6 +57,7 @@ export const accessKeys = [
   "projectIds",
   "projectFiles",
   "sessionProjectIds",
+  "talkProjectIds",
   "pipelineIds",
   "sshAccesses",
   "github",
@@ -372,6 +373,8 @@ export const accessServer = (policy) => ({
   projectFiles: sortedLevels(policy?.projectFiles),
   // Projects where the agent starts coding sessions without asking (server agent access).
   sessionProjectIds: sortedIds(policy?.sessionProjectIds),
+  // Projects whose coding sessions and this agent may talk to each other.
+  talkProjectIds: sortedIds(policy?.talkProjectIds),
   pipelineIds: sortedIds(policy?.pipelineIds),
   sshAccesses: sortedGrants(policy?.sshAccesses),
   // GitHub through a token profile (server agent-github.js), or null.
@@ -437,6 +440,7 @@ export function workBody({
                 "sshAccesses",
                 "projectFiles",
                 "sessionProjectIds",
+                "talkProjectIds",
                 "github",
                 "secretIds",
                 "mailAccesses",
@@ -448,6 +452,9 @@ export function workBody({
       // projects that stay granted.
       ...(changed.includes("sessionProjectIds") && {
         sessionProjectIds: values.sessionProjectIds,
+      }),
+      ...(changed.includes("talkProjectIds") && {
+        talkProjectIds: values.talkProjectIds,
       }),
       // Folder levels likewise go only when changed; the server keeps absent ones
       // for the projects that stay granted.

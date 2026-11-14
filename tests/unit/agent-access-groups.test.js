@@ -13,6 +13,7 @@ import {
   removeId,
   removeProject,
   setSessionProject,
+  setTalkProject,
 } from "../../web/features/assistants/settings/access/access-groups.js";
 import {
   accessServer,
@@ -74,6 +75,7 @@ test("adding projects writes coding and the chosen folder level into the draft",
     projectIds: [],
     projectFiles: {},
     sessionProjectIds: [],
+    talkProjectIds: [],
   });
   assert.deepEqual(grantedProjectIds(values, false), ["p1"]);
 });
@@ -87,6 +89,7 @@ test("an agent of users gets folders only, at least read", () => {
     projectIds: [],
     projectFiles: {},
     sessionProjectIds: [],
+    talkProjectIds: [],
   });
 });
 
@@ -177,6 +180,36 @@ test("the coding sessions grant is added sorted, removed, and dropped with its p
     "b",
   ]);
   assert.deepEqual(accessServer({}).sessionProjectIds, []);
+});
+
+test("the talk grant is added sorted, removed, and dropped with its project", () => {
+  const values = { projectIds: ["a", "p"], projectFiles: {}, talkProjectIds: ["b"] };
+  assert.deepEqual(setTalkProject(values, "p", true), { talkProjectIds: ["b", "p"] });
+  assert.deepEqual(setTalkProject(values, "a", true), { talkProjectIds: ["a", "b"] });
+  assert.deepEqual(setTalkProject(values, "b", false), { talkProjectIds: [] });
+  assert.deepEqual(setTalkProject({ projectIds: [] }, "p", true), {
+    talkProjectIds: ["p"],
+  });
+  const withP = { ...values, talkProjectIds: ["b", "p"] };
+  assert.deepEqual(removeProject(withP, "p", false).talkProjectIds, ["b"]);
+  assert.deepEqual(accessServer({ talkProjectIds: ["b", "a"] }).talkProjectIds, [
+    "a",
+    "b",
+  ]);
+  assert.deepEqual(accessServer({}).talkProjectIds, []);
+  // Sent only when changed, like the coding sessions grant.
+  const revisions = { access: 3 };
+  const draft = { ...accessServer({ projectIds: ["p"] }), talkProjectIds: ["p"] };
+  assert.deepEqual(
+    workBody({ values: draft, changed: ["talkProjectIds"], revisions }).access
+      .talkProjectIds,
+    ["p"],
+  );
+  assert.equal(
+    "talkProjectIds" in
+      workBody({ values: draft, changed: ["memoryWrite"], revisions }).access,
+    false,
+  );
 });
 
 test("mail grants are set sorted, keep rules only for send and are removed by null", () => {

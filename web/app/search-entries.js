@@ -354,7 +354,7 @@ const pageKeys = {
   "telegram-connection": "telegramConnection",
 };
 // Names of what an agent's subpage holds, so searching for them finds the page.
-const pageAliases = { memory: ["memoryPins"] };
+const pageAliases = { memory: ["memoryPins"], projects: ["sessionTalk"] };
 const pageTabs = {
   memory: "capabilities",
   allowlist: "capabilities",

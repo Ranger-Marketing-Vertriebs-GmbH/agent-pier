@@ -41,13 +41,20 @@ export function talkAgentIds(services, ids) {
   return valid;
 }
 
-/** What GET /api/sessions/:id/agent-accesses answers for `session`. */
+/**
+ * What GET /api/sessions/:id/agent-accesses answers for `session`. `assignedIds` holds
+ * only listed agents: one archived since the grant drops out, so echoing the value
+ * back in a PUT never fails.
+ */
 export function sessionAgentAccess(services, session) {
   const w = workflows(services);
   const agents = talkAgentChoices(services);
+  const listed = new Set(agents.map((a) => a.id));
   return {
     agents,
-    assignedIds: services.sessionAgentGrants.assigned(session),
+    assignedIds: services.sessionAgentGrants
+      .assigned(session)
+      .filter((id) => listed.has(id)),
     inheritedIds: w
       ? agents.filter((a) => talkVia(w, a.id, session) === "project").map((a) => a.id)
       : [],

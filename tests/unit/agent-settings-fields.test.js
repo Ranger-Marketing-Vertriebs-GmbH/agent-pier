@@ -384,6 +384,7 @@ test("work drafts send only the half that changed, each with its revision", () =
     projectIds: ["p1", "p2"],
     projectFiles: {},
     sessionProjectIds: [],
+    talkProjectIds: [],
     pipelineIds: [],
     sshAccesses: [],
     github: null,

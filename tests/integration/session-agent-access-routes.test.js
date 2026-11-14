@@ -184,3 +184,27 @@ test(
     assert.equal((await put(f, session, { assistantIds: [] })).status, 200);
   },
 );
+
+test("an agent archived after the grant leaves assignedIds", { timeout }, async (t) => {
+  const f = await fixture(t);
+  const session = await launch(f, { agentAccessIds: [f.agent.id] });
+  const stored = f.service.store.storedAssistant(f.agent.id);
+  f.service.store.setArchived(f.agent.id, stored.revision, new Date().toISOString());
+  f.service.changed();
+  const body = await (await f.request(route(session))).json();
+  assert.deepEqual(body.agents, []);
+  assert.deepEqual(body.assignedIds, []);
+  // Echoing the answer back saves.
+  assert.equal((await put(f, session, { assistantIds: body.assignedIds })).status, 200);
+});
+
+test("a login or pipeline launch with agents is refused", { timeout }, async (t) => {
+  const f = await fixture(t);
+  const body = { accountId: "local-codex", cwd: f.project, agentAccessIds: [f.agent.id] };
+  const codingOnly = { message: /Only running coding sessions|Nur laufende Coding/ };
+  await assert.rejects(f.application.launch(body, true), codingOnly);
+  await assert.rejects(
+    f.application.launch(body, false, { pipeline: { runId: "r", stepId: "s" } }),
+    codingOnly,
+  );
+});

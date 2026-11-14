@@ -68,6 +68,10 @@ export const assistantSettingsCopy = {
     folderLabel: (name) => `Folder access for ${name}`,
     sessionsLabel: (name) => `Coding sessions for ${name}`,
     sessions: "Coding sessions",
+    talkLabel: (name) => `Sessions of ${name} may talk`,
+    talk: "Sessions may talk",
+    talkHint:
+      "Sessions may talk: every session of that project may ask and tell this agent, and the agent may write to them.",
     projectType: "project",
     sshType: "SSH/SFTP access",
     mcpType: "MCP server",

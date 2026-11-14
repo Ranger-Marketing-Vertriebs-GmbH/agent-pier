@@ -53,8 +53,9 @@ export function removeProject(values, id, foldersOnly) {
       ? values.projectIds
       : values.projectIds.filter((value) => value !== id),
     projectFiles: setFolderLevel(values.projectFiles, id, null),
-    // A project the agent may not use cannot hold the coding sessions grant.
+    // A project the agent may not use cannot hold the coding sessions or talk grant.
     sessionProjectIds: (values.sessionProjectIds || []).filter((value) => value !== id),
+    talkProjectIds: (values.talkProjectIds || []).filter((value) => value !== id),
   };
 }
 
@@ -63,6 +64,13 @@ export const setSessionProject = (values, id, on) => ({
   sessionProjectIds: on
     ? sortedIds([...(values.sessionProjectIds || []), id])
     : (values.sessionProjectIds || []).filter((value) => value !== id),
+});
+
+/** The draft's talk grant (sessions may talk) with project `id` switched `on` or off. */
+export const setTalkProject = (values, id, on) => ({
+  talkProjectIds: on
+    ? sortedIds([...(values.talkProjectIds || []), id])
+    : (values.talkProjectIds || []).filter((value) => value !== id),
 });
 
 /** The SSH grants after adding `ids` with one `mode`; existing grants keep theirs. */
