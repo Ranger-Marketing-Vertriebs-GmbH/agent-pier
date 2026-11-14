@@ -417,9 +417,10 @@ session's **Agent access** dialog). On a granted session only `send` and `read` 
 and every other action answer `NOT_FOUND`. A `send` counts against the pair's talk budget
 and answers `TALK_LIMIT` (429) with the wait in seconds when it is used up; the
 message reaches the session fenced under a `[From agent "<name>"]` header. A session's
-message to the agent arrives as a turn of the origin `session-talk`: for SSH, SFTP and
+message to the agent arrives as a turn of the origin `session-talk`. It runs with the
+agent's normal tool rights, as your own turns do (the owner's decision): for SSH, SFTP and
 email it is the `session` class, which gets the same verdicts as your own message (approval
-cards as usual), and the prompt says the turn comes from the session.
+cards as usual), and the prompt framing alone says the turn comes from the session.
 
 - **Launch options.** Every option of the dialog is available to the agent. Unless it
   sets them, a session starts in the mode `yolo` for Codex and `auto` for
