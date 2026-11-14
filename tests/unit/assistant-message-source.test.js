@@ -160,3 +160,19 @@ test("a forwarded Telegram message is marked so the chat shows no member chips",
   });
   assert.equal("forwarded" in requestSource(telegram), false);
 });
+
+test("a session's ask or tell shows its bare text as the session's turn", () => {
+  const context = {
+    kind: "session-talk",
+    sessionName: "Homelab deploy",
+    projectName: "homelab",
+    op: "ask",
+    display: "give me a free IP",
+  };
+  assert.deepEqual(requestSource(context), {
+    source: "session",
+    sender: { kind: "session", name: "Homelab deploy", project: "homelab", op: "ask" },
+    text: "give me a free IP",
+  });
+  assert.equal(requestSource({ ...context, display: undefined }), null);
+});

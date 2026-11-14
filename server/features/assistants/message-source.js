@@ -53,6 +53,23 @@ export function requestSource(context) {
       sender: { kind: "agent", name },
       text: context.display,
     };
+  // A session's ask or tell to the agent: the chat shows the session's bare text, from
+  // the session, never as the owner's turn.
+  if (
+    context.kind === "session-talk" &&
+    typeof context.display === "string" &&
+    typeof context.sessionName === "string"
+  )
+    return {
+      source: "session",
+      sender: {
+        kind: "session",
+        name: context.sessionName,
+        project: typeof context.projectName === "string" ? context.projectName : "",
+        op: context.op,
+      },
+      text: context.display,
+    };
   return null;
 }
 

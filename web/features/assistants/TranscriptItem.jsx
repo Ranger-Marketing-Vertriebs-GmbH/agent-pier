@@ -7,6 +7,7 @@ import SshRunNote from "./SshRunNote.jsx";
 import SftpRunNote from "./SftpRunNote.jsx";
 import MailRunNote from "./MailRunNote.jsx";
 import RemoteActivityGroup from "./RemoteActivityGroup.jsx";
+import SessionTalkNote from "./SessionTalkNote.jsx";
 import AgentProjectNote from "./AgentProjectNote.jsx";
 import MemberGrantNote from "./MemberGrantNote.jsx";
 import WorkGoalNote from "./WorkGoalNote.jsx";
@@ -28,6 +29,7 @@ export const noteEvents = new Set([
   "routine-failed",
   "coding-run",
   "peer-request",
+  "session-talk",
   "goal",
 ]);
 
@@ -62,6 +64,8 @@ export default function TranscriptItem({
     <SftpRunNote note={m} />
   ) : m.event === "mail-run" ? (
     <MailRunNote note={m} />
+  ) : m.event === "session-talk" ? (
+    <SessionTalkNote note={m} />
   ) : m.event === "agent-project" ? (
     <AgentProjectNote note={m} />
   ) : [
