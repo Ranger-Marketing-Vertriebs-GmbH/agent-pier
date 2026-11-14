@@ -151,8 +151,9 @@ and account documentation.
 
 ### Talking to agents from sessions
 
-A session with **AgentPier tools** also has three tools to talk to your agents, once you
-grant it ([Sessions and agents talking to each other](session-agent-talk.md)):
+Every session with **AgentPier tools** also has three tools to talk to your agents; they
+answer only for the agents you grant it
+([Sessions and agents talking to each other](session-agent-talk.md)):
 
 - `agents_list`: the agents this session may talk to, with `agentId`, name and `via`
   (`project` or `session`).
@@ -164,7 +165,8 @@ Errors: `AGENT_TALK_UNAVAILABLE` (access revoked or agents off), `AGENT_TALK_INV
 (malformed input), `AGENT_TALK_NOT_FOUND` (an agent the session may not talk to) and
 `AGENT_TALK_LIMIT` (the pair budget). The three CLIs get a 150 second tool timeout for
 `agentpier_session`, longer than the ask's wait. The tool bridge runs up to 16 calls side
-by side and honours `notifications/cancelled`; a cancelled ask becomes a late answer.
+by side and queues the next ones; it keeps reading meanwhile, so it always honours
+`notifications/cancelled`. A cancelled ask becomes a late answer.
 These tools are never offered to external OAuth clients.
 
 ### Starting rebuilds from sessions
