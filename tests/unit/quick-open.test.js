@@ -2,6 +2,7 @@
 // sessions, projects, chats, runs, pipelines and inbox, and the restricted user's index
 // that holds only the user's own agents and pages.
 import test from "node:test";
+import { requestPageAction, takePageAction } from "../../web/app/page-action.js";
 import assert from "node:assert/strict";
 import { routePath } from "../../web/app/routes.js";
 import { buildSearchIndex } from "../../web/app/search-entries.js";
@@ -129,7 +130,10 @@ test("a running coding session offers its agent access; others do not", () => {
     ["session:s1:agent-access"],
   );
   assert.equal(access[0].group, "actions");
-  assert.deepEqual(access[0].target, { session: "s1", pending: "session-agent-access" });
+  assert.deepEqual(access[0].target, {
+    session: "s1",
+    pending: "session-agent-access:s1",
+  });
   assert.equal(access[0].label.en, "Refactor billing · Agent access");
   assert.ok(find("billing agent access", entries).some((i) => i.id === access[0].id));
   // Without agents there is nothing to grant.
@@ -456,4 +460,12 @@ test("agent group creation is offered only with the agent feature enabled", () =
       agentsEnabled,
     );
   }
+});
+
+test("a session's agent access request waits for that session alone", () => {
+  requestPageAction("session-agent-access:b", 1000);
+  assert.equal(takePageAction("session-agent-access:a", 1001), false);
+  // The other session's look leaves the request for the chosen one, mounted later.
+  assert.equal(takePageAction("session-agent-access:b", 5000), true);
+  assert.equal(takePageAction("session-agent-access:b", 5001), false);
 });

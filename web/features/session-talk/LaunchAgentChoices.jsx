@@ -3,6 +3,8 @@ import CheckRow from "../../components/CheckRow.jsx";
 import useResource from "../../lib/useResource.js";
 import { commonCopy } from "../../lib/i18n/messages/common.js";
 import { sessionTalkCopy } from "../../lib/i18n/messages/session-talk.js";
+// The launch dialog's extension blocks share the SSH block's layout (`ssh-launch`).
+import "../ssh/ssh.css";
 
 const copy = sessionTalkCopy.launch;
 

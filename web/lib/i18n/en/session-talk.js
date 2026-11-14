@@ -32,7 +32,7 @@ export const sessionTalkCopy = {
     tools: {
       ready: "Can ask agents",
       missing:
-        "Runs without AgentPier tools: agents can write to it, but it cannot ask them; start a new session with AgentPier tools to change that",
+        "Runs without AgentPier tools: agents can write to it, but it cannot ask them; start a new session with AgentPier tools to change that.",
     },
   },
   // The new-session dialog's agent choice.
