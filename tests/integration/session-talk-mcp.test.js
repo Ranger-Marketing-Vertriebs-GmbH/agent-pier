@@ -2,8 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
 import { applicationFixture, enabledAssistants } from "../helpers/application.js";
-import { issue, connect } from "../helpers/session-mcp.js";
+import { issue, connect, selection } from "../helpers/session-mcp.js";
 import { callTalkTool } from "../../server/features/session-talk/session-talk-mcp.js";
+import { talkRows } from "../helpers/session-talk-rows.js";
 
 const timeout = 30000;
 const errorOf = (result) => JSON.parse(result.content[0].text);
@@ -158,6 +159,44 @@ test(
 );
 
 test(
+  "a call verified before a reload is refused once the generation rotated",
+  { timeout },
+  async (t) => {
+    const { a, agent, issued } = await fixture(t);
+    const sessionId = issued.session.id;
+    const before = a.sessionMcp.check(issued.token);
+    // The context the session socket builds for that token (http-transport.js).
+    const context = {
+      sessionId,
+      revalidateSession: () => {
+        if (a.sessionMcp.check(issued.token).sessionId !== sessionId)
+          throw new Error("other session");
+      },
+    };
+    // Reload & resume: a new capability generation for the same session.
+    const session = await a.sessions.get(sessionId);
+    const renewed = await a.sessionMcp.prepare({
+      id: sessionId,
+      account: a.accounts.get("local-codex"),
+      cwd: session.cwd,
+      launch: { args: [], env: {} },
+      selection: selection(),
+    });
+    await a.sessions.save({ ...session, agentpierTools: renewed.agentpierTools });
+    const input = { agentId: agent.id, message: "IP 10.0.0.42 is used" };
+    for (const [name, args] of [
+      ["agent_tell", input],
+      ["agents_list", {}],
+    ])
+      await assert.rejects(
+        a.mcpTools.call(name, args, before.extra.grant, null, context),
+        { code: "AGENT_TALK_UNAVAILABLE", status: 403 },
+      );
+    assert.equal(a.assistantWorkflows.sessions.talk.store.pending().length, 0);
+  },
+);
+
+test(
   "a client gone before the answer aborts the ask's signal",
   { timeout },
   async (t) => {
@@ -249,9 +288,9 @@ test(
     );
     asked.catch(() => {});
     const row = () =>
-      talk.store
-        .forConversation(talk.store.pending()[0]?.conversationId ?? "")
-        .find((r) => r.op === "ask");
+      talkRows(talk.store, talk.store.pending()[0]?.conversationId ?? "").find(
+        (r) => r.op === "ask",
+      );
     for (let i = 0; i < 400 && !row(); i++) await new Promise((r) => setTimeout(r, 10));
     assert.equal(row().late, undefined);
     // The CLI drops the call (user interrupt): it sends notifications/cancelled.

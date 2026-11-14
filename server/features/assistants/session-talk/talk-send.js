@@ -16,8 +16,8 @@ import {
   sendDeliveryId,
 } from "../coding-sessions/session-steering.js";
 import { noteLimit, talkBudgetRefusal } from "./talk-budget.js";
-import { sessionProjectId, talkAgent, talkVia } from "./talk-reach.js";
-import { agentHeader, fenced, quotedName } from "./talk-text.js";
+import { sessionHasTools, sessionProjectId, talkAgent, talkVia } from "./talk-reach.js";
+import { fromAgent } from "./talk-text.js";
 
 const notFound = () => assistantProblem("notFound", 404);
 // Sends delivering in this process, by delivery id (talkSend).
@@ -44,23 +44,6 @@ async function reach(w, assistantId, sessionId) {
   const agent = via ? talkAgent(w, assistantId) : null;
   if (!agent) throw notFound();
   return { session, via, agent };
-}
-
-// What the session reads: the header, the agent's text quoted with "> " (so it
-// cannot pass itself off as a header or the note) and who to answer with which
-// tools; without a live agentpier_session capability the session has none of them.
-function pasted(w, agent, session, text) {
-  const q = quotedName;
-  let tools = false;
-  try {
-    tools = !!w.s.sessionMcp?.grantFor(session.id);
-  } catch {
-    tools = false;
-  }
-  const note = tools
-    ? `(AgentPier: this message is from the agent ${q(agent.name)}, not from the user. Answer it with agent_tell, or ask with agent_ask, agentId ${JSON.stringify(agent.id)}.)`
-    : `(AgentPier: this message is from the agent ${q(agent.name)}, not from the user.)`;
-  return `${agentHeader(agent.name)}\n${fenced(text)}\n\n${note}`;
 }
 
 function projectName(w, projectId) {
@@ -154,7 +137,8 @@ async function deliver(w, { session, agent, fields, deliveryId, rowId, retry }, 
       await w.s.chatDelivery.send(session.id, {
         deliveryId,
         deliveryScope: sessionScope(session),
-        text: pasted(w, agent, session, input.text),
+        // Fenced under the agent's header, with who wrote and how to answer.
+        text: fromAgent(agent, input.text, { tools: sessionHasTools(w, session.id) }),
         submit: true,
       }),
     );

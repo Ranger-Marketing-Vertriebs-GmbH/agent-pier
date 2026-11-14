@@ -10,7 +10,7 @@ import { sessionScope } from "../../chat/chat-delivery.js";
 import { confirmedDelivery } from "../../chat/chat-delivery-blocked.js";
 import { deliveryUuid } from "../coding-sessions/session-steering.js";
 import { talkEligible } from "../../session-talk/session-agent-grants.js";
-import { talkVia } from "./talk-reach.js";
+import { sessionHasTools, talkVia } from "./talk-reach.js";
 import { askPrompt, lateAnswer, lateFailure, tellPrompt } from "./talk-text.js";
 
 // Busy chat (409 `active`), too many turns (429), agent restarting (503): wait.
@@ -18,6 +18,8 @@ const busy = new Set([409, 429, 503]);
 const dispatchAttempts = 5;
 const stuckAttempts = 5;
 const pasteAttempts = 5;
+// An agent without a main chat (being replaced, or removed): wait this long, then fail.
+export const noChatMs = 5 * 60_000;
 // The answer pasted into a session, as the ask tool returns it.
 export const answerChars = 24_000;
 
@@ -62,9 +64,12 @@ export async function talkPass(talk) {
     } catch (error) {
       console.error("A session talk message could not advance:", error?.message);
       if (!open) continue;
+      // The row may have settled (or gone) before the step failed: leave it so.
+      const now = talk.store.get(row.id);
+      if (!now || !["queued", "running"].includes(now.phase)) continue;
       changed = true;
       // A missing attempt or an unreadable chat: retried a few passes, then failed.
-      const stuck = (talk.store.get(row.id)?.stuckFailures || 0) + 1;
+      const stuck = (now.stuckFailures || 0) + 1;
       if (stuck < stuckAttempts) {
         talk.store.patch(row.id, { stuckFailures: stuck });
         held.add(row.assistantId);
@@ -96,7 +101,12 @@ async function dispatch(talk, row) {
     if (!reachable(talk, row, session)) return fail(talk, row, "GRANT_REVOKED");
     // The agent's main chat now: a model switch or a restart may have replaced it.
     const chat = mainConversation(a.store, row.assistantId);
-    if (!chat) return row;
+    if (!chat) {
+      // Waits while the chat is replaced; an agent left without one fails the row.
+      const since = row.noChatSince ?? talk.now();
+      if (talk.now() - since >= noChatMs) return fail(talk, row, "NO_CHAT");
+      return row.noChatSince ? row : talk.store.patch(row.id, { noChatSince: since });
+    }
     if (chat.id !== row.conversationId)
       row = talk.store.patch(row.id, { conversationId: chat.id });
     try {
@@ -128,6 +138,7 @@ async function dispatch(talk, row) {
   }
   return talk.store.patch(row.id, {
     phase: "running",
+    noChatSince: undefined,
     attemptId,
     startedAt: talk.now(),
   });
@@ -183,10 +194,13 @@ async function settleLate(talk, row) {
   };
   const session = await sameSession(talk, row);
   if (!reachable(talk, row, session)) return note("late-dropped");
+  // Fenced under the agent's header with the same note as its own sends.
+  const agent = { id: row.assistantId, name: row.agentName };
+  const tools = sessionHasTools(talk.w, row.sessionId);
   const text =
     row.phase === "answered"
-      ? lateAnswer(row.agentName, row.text, row.answer.slice(0, answerChars))
-      : lateFailure(row.agentName, row.text);
+      ? lateAnswer(agent, row.text, row.answer.slice(0, answerChars), tools)
+      : lateFailure(agent, row.text, tools);
   const deliveryId = deliveryUuid(`session-talk-late:${row.id}`);
   const delivery = talk.w.s.chatDelivery;
   let receipt;

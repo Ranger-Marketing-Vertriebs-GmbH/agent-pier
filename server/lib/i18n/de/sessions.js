@@ -10,6 +10,8 @@ export const sessions = Object.freeze({
     "Die Nachricht an den Agenten ist leer, länger als 8000 Zeichen oder enthält Steuerzeichen.",
   talkLimit: (seconds) =>
     `Zu viele Nachrichten zwischen dieser Session und dem Agenten. Versuche es in ${seconds} Sekunden erneut.`,
+  talkAccessRevoked:
+    "Der AgentPier-Zugriff dieser Session ist beendet oder wurde erneuert; dieser Aufruf erreicht die Agenten nicht.",
   talkUnavailable: "Der Agent ist gerade nicht erreichbar.",
   invalidSandboxProfile: "Ungültiges Sandbox-Profil.",
   sandboxUnavailable:

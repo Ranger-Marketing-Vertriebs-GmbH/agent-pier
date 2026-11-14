@@ -10,6 +10,9 @@ export const sessionTalkCopy = {
     lateDropped: (session) => `Late answer to session ${session} was not delivered`,
     limit: (session) =>
       `Too many messages with session ${session}: further ones are held back for now`,
+    // Between the parts of a note line, and the quoted text of a message.
+    joiner: " · ",
+    quote: (text) => `“${text}”`,
     outcome: {
       accepted: "accepted",
       pending: "pending",

@@ -46,7 +46,7 @@ const talkError = (code, status, message) =>
 export async function callTalkTool(services, name, input, context) {
   // The capability is checked on every call: a revoked session talks no more.
   const unavailable = () =>
-    talkError("AGENT_TALK_UNAVAILABLE", 403, serverMessages.previews.accessRevoked);
+    talkError("AGENT_TALK_UNAVAILABLE", 403, serverMessages.sessions.talkAccessRevoked);
   const revalidate = () => {
     try {
       (context.revalidateSession ?? context.revalidate)?.();

@@ -20,10 +20,10 @@ export default function SessionTalkNote({ note }) {
   const outcome = note.op === "send" && note.outcome ? copy.outcome[note.outcome] : null;
   return (
     <p className="assistant-note assistant-event" data-session-talk={note.op}>
-      {head}
-      {outcome && ` · ${outcome}`}
-      {note.text && ` · “${note.text}”`}
-      {note.timestamp > 0 && " · "}
+      {[head, outcome, note.text && copy.quote(note.text)]
+        .filter(Boolean)
+        .join(copy.joiner)}
+      {note.timestamp > 0 && copy.joiner}
       <ChatTime timestamp={note.timestamp} />
     </p>
   );

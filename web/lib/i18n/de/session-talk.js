@@ -11,6 +11,9 @@ export const sessionTalkCopy = {
       `Späte Antwort an Session ${session} wurde nicht zugestellt`,
     limit: (session) =>
       `Zu viele Nachrichten mit Session ${session}: weitere werden vorerst zurückgehalten`,
+    // Zwischen den Teilen einer Notizzeile, und der zitierte Text einer Nachricht.
+    joiner: " · ",
+    quote: (text) => `„${text}“`,
     outcome: {
       accepted: "angenommen",
       pending: "ausstehend",

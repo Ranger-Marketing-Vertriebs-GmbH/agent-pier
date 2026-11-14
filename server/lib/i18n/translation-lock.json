@@ -1796,6 +1796,7 @@
   "sessions.stopBeforeDelete": "de:17e525b91c45 en:ad8b614a3975",
   "sessions.stopBeforeLogin": "de:fc10b48520a2 en:6e26a063477f",
   "sessions.stopped": "de:a467bd8bd79b en:043bb4f4d3df",
+  "sessions.talkAccessRevoked": "de:ad7c366827e0 en:01797ab418c3",
   "sessions.talkAgentNotFound": "de:d5846de5cabd en:49b54ea61c76",
   "sessions.talkInvalid": "de:52661b325e37 en:817b9f0dd2a5",
   "sessions.talkLimit": "de:89e698053d63 en:a4342ba12f27",
