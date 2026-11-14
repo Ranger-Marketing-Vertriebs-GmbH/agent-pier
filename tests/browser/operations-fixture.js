@@ -210,6 +210,9 @@ export async function operationsFixture(page, { tool = "codex", session = {} } =
     else if (path === "/ssh-accesses" && method === "GET")
       result = { accesses: state.sshAccesses || [] };
     else if (path === "/ssh-keys" && method === "GET") result = { keys: [] };
+    // The launch dialog offers the owner's agents for a coding CLI (session talk).
+    else if (path === "/session-talk/agents" && method === "GET")
+      result = { agents: state.talkAgents || [] };
     else if (path === "/ssh-projects" && method === "GET") result = { projects: [] };
     else if (path === "/mcp-servers" && method === "GET") result = [];
     else if (path === "/mcp-servers/cli-finds") result = { finds: [], problems: [] };
